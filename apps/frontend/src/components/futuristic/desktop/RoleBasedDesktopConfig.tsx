@@ -21,7 +21,7 @@ import {
   Globe,
   FileText,
   Code,
-  Zap
+  Zap,
 } from 'lucide-react';
 
 export interface DesktopIconConfig {
@@ -50,7 +50,6 @@ export interface DesktopIconConfig {
  * Controls which icons and portals are available to different user roles
  */
 export class RoleBasedDesktopConfig {
-  
   // Base icons available to all authenticated users
   private static baseIcons: DesktopIconConfig[] = [
     {
@@ -62,7 +61,7 @@ export class RoleBasedDesktopConfig {
       category: 'primary',
       description: 'Main dashboard and overview',
       shortcut: 'Ctrl+1',
-      minimumRole: 'guest'
+      minimumRole: 'guest',
     },
     {
       id: 'agents',
@@ -73,7 +72,7 @@ export class RoleBasedDesktopConfig {
       category: 'primary',
       description: 'Manage AI agents and assistants',
       shortcut: 'Ctrl+2',
-      minimumRole: 'user'
+      minimumRole: 'user',
     },
     {
       id: 'chat',
@@ -84,7 +83,7 @@ export class RoleBasedDesktopConfig {
       category: 'primary',
       description: 'Direct messaging and communication',
       shortcut: 'Ctrl+3',
-      minimumRole: 'user'
+      minimumRole: 'user',
     },
     {
       id: 'knowledge',
@@ -95,7 +94,7 @@ export class RoleBasedDesktopConfig {
       category: 'primary',
       description: 'Knowledge base and learning resources',
       shortcut: 'Ctrl+4',
-      minimumRole: 'user'
+      minimumRole: 'user',
     },
     {
       id: 'search',
@@ -105,8 +104,8 @@ export class RoleBasedDesktopConfig {
       portalType: 'search',
       category: 'secondary',
       description: 'Global search across all systems',
-      minimumRole: 'user'
-    }
+      minimumRole: 'user',
+    },
   ];
 
   // User-specific icons (standard users)
@@ -119,7 +118,7 @@ export class RoleBasedDesktopConfig {
       portalType: 'tasks',
       category: 'secondary',
       description: 'Personal task and workflow management',
-      minimumRole: 'user'
+      minimumRole: 'user',
     },
     {
       id: 'mini-browser',
@@ -130,7 +129,7 @@ export class RoleBasedDesktopConfig {
       category: 'secondary',
       description: 'Web browser with screenshot capture',
       shortcut: 'Ctrl+B',
-      minimumRole: 'user'
+      minimumRole: 'user',
     },
     {
       id: 'documents',
@@ -140,8 +139,8 @@ export class RoleBasedDesktopConfig {
       portalType: 'documents',
       category: 'secondary',
       description: 'Document management and collaboration',
-      minimumRole: 'user'
-    }
+      minimumRole: 'user',
+    },
   ];
 
   // Moderator-specific icons
@@ -156,7 +155,7 @@ export class RoleBasedDesktopConfig {
       badge: { text: 'Mod' },
       description: 'Moderate discussions and conversations',
       shortcut: 'Ctrl+5',
-      minimumRole: 'moderator'
+      minimumRole: 'moderator',
     },
     {
       id: 'user-management',
@@ -166,7 +165,7 @@ export class RoleBasedDesktopConfig {
       portalType: 'user-management',
       category: 'secondary',
       description: 'Basic user management',
-      minimumRole: 'moderator'
+      minimumRole: 'moderator',
     },
     {
       id: 'reports',
@@ -176,8 +175,8 @@ export class RoleBasedDesktopConfig {
       portalType: 'monitoring-hub',
       category: 'secondary',
       description: 'System reports and user metrics',
-      minimumRole: 'moderator'
-    }
+      minimumRole: 'moderator',
+    },
   ];
 
   // Admin-specific icons
@@ -191,7 +190,7 @@ export class RoleBasedDesktopConfig {
       category: 'admin',
       description: 'System administration and security',
       shortcut: 'Ctrl+A',
-      minimumRole: 'admin'
+      minimumRole: 'admin',
     },
     {
       id: 'analytics',
@@ -201,7 +200,7 @@ export class RoleBasedDesktopConfig {
       portalType: 'intelligence-hub',
       category: 'admin',
       description: 'Advanced analytics and insights',
-      minimumRole: 'admin'
+      minimumRole: 'admin',
     },
     {
       id: 'settings',
@@ -212,7 +211,7 @@ export class RoleBasedDesktopConfig {
       category: 'admin',
       description: 'System configuration and settings',
       shortcut: 'Ctrl+S',
-      minimumRole: 'admin'
+      minimumRole: 'admin',
     },
     {
       id: 'tools',
@@ -222,7 +221,7 @@ export class RoleBasedDesktopConfig {
       portalType: 'tool-management',
       category: 'admin',
       description: 'Development tools and system utilities',
-      minimumRole: 'admin'
+      minimumRole: 'admin',
     },
     {
       id: 'database',
@@ -232,7 +231,7 @@ export class RoleBasedDesktopConfig {
       portalType: 'database-admin',
       category: 'admin',
       description: 'Database administration',
-      minimumRole: 'admin'
+      minimumRole: 'admin',
     },
     {
       id: 'monitoring',
@@ -242,7 +241,7 @@ export class RoleBasedDesktopConfig {
       portalType: 'system-monitoring',
       category: 'admin',
       description: 'System monitoring and health',
-      minimumRole: 'admin'
+      minimumRole: 'admin',
     },
     {
       id: 'api-management',
@@ -252,8 +251,8 @@ export class RoleBasedDesktopConfig {
       portalType: 'api-management',
       category: 'admin',
       description: 'API management and testing',
-      minimumRole: 'admin'
-    }
+      minimumRole: 'admin',
+    },
   ];
 
   // System-level icons (highest privilege)
@@ -266,7 +265,7 @@ export class RoleBasedDesktopConfig {
       portalType: 'system-console',
       category: 'restricted',
       description: 'System console and direct access',
-      minimumRole: 'system'
+      minimumRole: 'system',
     },
     {
       id: 'create-anything',
@@ -276,8 +275,8 @@ export class RoleBasedDesktopConfig {
       portalType: 'create-anything',
       category: 'restricted',
       description: 'Create any type of resource',
-      minimumRole: 'system'
-    }
+      minimumRole: 'system',
+    },
   ];
 
   /**
@@ -285,11 +284,11 @@ export class RoleBasedDesktopConfig {
    */
   private static getRoleWeight(role: string): number {
     const weights = {
-      'guest': 0,
-      'user': 1,
-      'moderator': 2,
-      'admin': 3,
-      'system': 4
+      guest: 0,
+      user: 1,
+      moderator: 2,
+      admin: 3,
+      system: 4,
     };
     return weights[role as keyof typeof weights] || 0;
   }
@@ -305,16 +304,19 @@ export class RoleBasedDesktopConfig {
   /**
    * Check if user has required permissions
    */
-  private static hasRequiredPermissions(userPermissions: string[], requiredPermissions?: string[]): boolean {
+  private static hasRequiredPermissions(
+    userPermissions: string[],
+    requiredPermissions?: string[]
+  ): boolean {
     if (!requiredPermissions || requiredPermissions.length === 0) return true;
-    return requiredPermissions.every(permission => userPermissions.includes(permission));
+    return requiredPermissions.every((permission) => userPermissions.includes(permission));
   }
 
   /**
    * Get desktop icons based on user role and permissions
    */
   static getDesktopIcons(
-    userRole: string, 
+    userRole: string,
     userPermissions: string[] = [],
     customPermissions: Record<string, boolean> = {}
   ): DesktopIconConfig[] {
@@ -323,10 +325,10 @@ export class RoleBasedDesktopConfig {
       ...this.userIcons,
       ...this.moderatorIcons,
       ...this.adminIcons,
-      ...this.systemIcons
+      ...this.systemIcons,
     ];
 
-    return allIcons.filter(icon => {
+    return allIcons.filter((icon) => {
       // Check minimum role requirement
       if (!this.hasRequiredRole(userRole, icon.minimumRole)) {
         return false;
@@ -356,12 +358,12 @@ export class RoleBasedDesktopConfig {
     restrictedIcons: DesktopIconConfig[];
   } {
     const icons = this.getDesktopIcons(userRole);
-    
+
     return {
-      primaryIcons: icons.filter(icon => icon.category === 'primary'),
-      secondaryIcons: icons.filter(icon => icon.category === 'secondary'),
-      adminIcons: icons.filter(icon => icon.category === 'admin'),
-      restrictedIcons: icons.filter(icon => icon.category === 'restricted')
+      primaryIcons: icons.filter((icon) => icon.category === 'primary'),
+      secondaryIcons: icons.filter((icon) => icon.category === 'secondary'),
+      adminIcons: icons.filter((icon) => icon.category === 'admin'),
+      restrictedIcons: icons.filter((icon) => icon.category === 'restricted'),
     };
   }
 
@@ -381,15 +383,15 @@ export class RoleBasedDesktopConfig {
         title: 'New Chat',
         icon: MessageSquare,
         action: 'open-chat',
-        shortcut: 'Ctrl+N'
+        shortcut: 'Ctrl+N',
       },
       {
         id: 'search-global',
         title: 'Global Search',
         icon: Search,
         action: 'open-search',
-        shortcut: 'Ctrl+K'
-      }
+        shortcut: 'Ctrl+K',
+      },
     ];
 
     const roleActions = {
@@ -398,39 +400,39 @@ export class RoleBasedDesktopConfig {
           id: 'new-document',
           title: 'New Document',
           icon: FileText,
-          action: 'create-document'
-        }
+          action: 'create-document',
+        },
       ],
       moderator: [
         {
           id: 'moderate-content',
           title: 'Moderate',
           icon: Shield,
-          action: 'open-moderation'
-        }
+          action: 'open-moderation',
+        },
       ],
       admin: [
         {
           id: 'system-status',
           title: 'System Status',
           icon: Monitor,
-          action: 'check-system'
+          action: 'check-system',
         },
         {
           id: 'user-admin',
           title: 'User Admin',
           icon: Users,
-          action: 'open-user-admin'
-        }
+          action: 'open-user-admin',
+        },
       ],
       system: [
         {
           id: 'system-console',
           title: 'Console',
           icon: Zap,
-          action: 'open-console'
-        }
-      ]
+          action: 'open-console',
+        },
+      ],
     };
 
     const userWeight = this.getRoleWeight(userRole);
@@ -455,33 +457,56 @@ export class RoleBasedDesktopConfig {
     restrictedCategories: string[];
   } {
     const baseCategories = ['chat', 'agent-response', 'system-update'];
-    
+
     const roleSettings = {
       guest: {
         categories: baseCategories,
         defaultEnabled: ['system-update'],
-        restrictedCategories: []
+        restrictedCategories: [],
       },
       user: {
         categories: [...baseCategories, 'task-update', 'document-share'],
         defaultEnabled: ['chat', 'agent-response', 'task-update'],
-        restrictedCategories: []
+        restrictedCategories: [],
       },
       moderator: {
-        categories: [...baseCategories, 'task-update', 'document-share', 'moderation-alert', 'user-report'],
+        categories: [
+          ...baseCategories,
+          'task-update',
+          'document-share',
+          'moderation-alert',
+          'user-report',
+        ],
         defaultEnabled: ['chat', 'agent-response', 'moderation-alert'],
-        restrictedCategories: []
+        restrictedCategories: [],
       },
       admin: {
-        categories: [...baseCategories, 'task-update', 'document-share', 'moderation-alert', 'user-report', 'security-alert', 'system-error'],
+        categories: [
+          ...baseCategories,
+          'task-update',
+          'document-share',
+          'moderation-alert',
+          'user-report',
+          'security-alert',
+          'system-error',
+        ],
         defaultEnabled: ['security-alert', 'system-error'],
-        restrictedCategories: []
+        restrictedCategories: [],
       },
       system: {
-        categories: [...baseCategories, 'task-update', 'document-share', 'moderation-alert', 'user-report', 'security-alert', 'system-error', 'critical-system'],
+        categories: [
+          ...baseCategories,
+          'task-update',
+          'document-share',
+          'moderation-alert',
+          'user-report',
+          'security-alert',
+          'system-error',
+          'critical-system',
+        ],
         defaultEnabled: ['security-alert', 'system-error', 'critical-system'],
-        restrictedCategories: []
-      }
+        restrictedCategories: [],
+      },
     };
 
     return roleSettings[userRole as keyof typeof roleSettings] || roleSettings.guest;

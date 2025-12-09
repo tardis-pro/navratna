@@ -1,6 +1,6 @@
 /**
  * Conversation Enhancement API Client
- * 
+ *
  * Provides frontend access to backend conversation enhancement services
  * including persona selection, contextual responses, and conversation analysis.
  */
@@ -113,8 +113,8 @@ class ConversationEnhancementAPI {
       method,
       headers: {
         'Content-Type': 'application/json',
-        ...(token && { Authorization: `Bearer ${token}` })
-      }
+        ...(token && { Authorization: `Bearer ${token}` }),
+      },
     };
 
     if (method === 'POST' && data) {
@@ -123,7 +123,7 @@ class ConversationEnhancementAPI {
 
     try {
       const response = await fetch(url, config);
-      
+
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
         throw new Error(errorData.error || `HTTP ${response.status}: ${response.statusText}`);
@@ -192,7 +192,7 @@ class ConversationEnhancementAPI {
       discussionId,
       messageHistory,
       conversationState,
-      analysisType: 'flow'
+      analysisType: 'flow',
     });
   }
 
@@ -208,7 +208,7 @@ class ConversationEnhancementAPI {
       discussionId,
       messageHistory,
       conversationState,
-      analysisType: 'insights'
+      analysisType: 'insights',
     });
   }
 
@@ -224,7 +224,7 @@ class ConversationEnhancementAPI {
       discussionId,
       messageHistory,
       conversationState,
-      analysisType: 'patterns'
+      analysisType: 'patterns',
     });
   }
 }

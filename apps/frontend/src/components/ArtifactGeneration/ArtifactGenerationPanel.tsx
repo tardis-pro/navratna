@@ -9,27 +9,33 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Progress } from '@/components/ui/progress';
 import { Textarea } from '@/components/ui/textarea';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { 
-  Code, 
-  FileText, 
-  TestTube, 
-  GitBranch, 
-  Shield, 
-  Clock, 
-  CheckCircle, 
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import {
+  Code,
+  FileText,
+  TestTube,
+  GitBranch,
+  Shield,
+  Clock,
+  CheckCircle,
   AlertTriangle,
   Download,
-  Eye
+  Eye,
 } from 'lucide-react';
 
 import { artifactFactory } from '@/services/artifact/ArtifactFactory';
-import { 
-  Artifact, 
-  ConversationContext, 
-  ArtifactType, 
+import {
+  Artifact,
+  ConversationContext,
+  ArtifactType,
   Participant,
-  GenerationResult
+  GenerationResult,
 } from '@/types/artifact';
 
 interface ArtifactGenerationPanelProps {
@@ -47,7 +53,7 @@ export const ArtifactGenerationPanel: React.FC<ArtifactGenerationPanelProps> = (
   conversationId,
   messages,
   currentUser,
-  onArtifactGenerated
+  onArtifactGenerated,
 }) => {
   const [analysis, setAnalysis] = useState<any>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
@@ -59,12 +65,12 @@ export const ArtifactGenerationPanel: React.FC<ArtifactGenerationPanelProps> = (
   // Convert messages to the expected format
   const conversationContext: ConversationContext = {
     conversationId,
-    messages: messages.map(msg => ({
+    messages: messages.map((msg) => ({
       id: msg.id || Math.random().toString(),
       content: msg.content,
       sender: msg.sender,
       timestamp: msg.timestamp || new Date().toISOString(),
-      type: msg.type || 'user'
+      type: msg.type || 'user',
     })),
     phase: 'discussion',
     participants: [
@@ -72,17 +78,17 @@ export const ArtifactGenerationPanel: React.FC<ArtifactGenerationPanelProps> = (
         id: currentUser.id,
         name: currentUser.name,
         role: currentUser.role,
-        permissions: ['generate:*'] // Default permissions
-      }
+        permissions: ['generate:*'], // Default permissions
+      },
     ],
-    metadata: {}
+    metadata: {},
   };
 
   const participant: Participant = {
     id: currentUser.id,
     name: currentUser.name,
     role: currentUser.role,
-    permissions: ['generate:*']
+    permissions: ['generate:*'],
   };
 
   // Analyze conversation on load and when messages change
@@ -114,7 +120,7 @@ export const ArtifactGenerationPanel: React.FC<ArtifactGenerationPanelProps> = (
       );
 
       if (result.success && result.artifact) {
-        setGeneratedArtifacts(prev => [...prev, result.artifact!]);
+        setGeneratedArtifacts((prev) => [...prev, result.artifact!]);
         onArtifactGenerated?.(result.artifact);
         setActiveTab('artifacts');
       } else {
@@ -131,11 +137,11 @@ export const ArtifactGenerationPanel: React.FC<ArtifactGenerationPanelProps> = (
   const getArtifactIcon = (type: ArtifactType) => {
     const icons = {
       'code-diff': Code,
-      'test': TestTube,
-      'prd': FileText,
-      'documentation': FileText,
-      'config': FileText,
-      'workflow': GitBranch
+      test: TestTube,
+      prd: FileText,
+      documentation: FileText,
+      config: FileText,
+      workflow: GitBranch,
     };
     const Icon = icons[type] || FileText;
     return <Icon className="h-4 w-4" />;
@@ -168,19 +174,13 @@ export const ArtifactGenerationPanel: React.FC<ArtifactGenerationPanelProps> = (
           <TabsList className="grid w-full grid-cols-3">
             <TabsTrigger value="analyze">Analysis</TabsTrigger>
             <TabsTrigger value="generate">Generate</TabsTrigger>
-            <TabsTrigger value="artifacts">
-              Artifacts ({generatedArtifacts.length})
-            </TabsTrigger>
+            <TabsTrigger value="artifacts">Artifacts ({generatedArtifacts.length})</TabsTrigger>
           </TabsList>
 
           <TabsContent value="analyze" className="space-y-4">
             <div className="flex items-center justify-between">
               <h3 className="text-lg font-semibold">Conversation Analysis</h3>
-              <Button 
-                onClick={analyzeConversation} 
-                disabled={isAnalyzing}
-                size="sm"
-              >
+              <Button onClick={analyzeConversation} disabled={isAnalyzing} size="sm">
                 {isAnalyzing ? 'Analyzing...' : 'Refresh Analysis'}
               </Button>
             </div>
@@ -201,7 +201,7 @@ export const ArtifactGenerationPanel: React.FC<ArtifactGenerationPanelProps> = (
                   <div className="flex items-center gap-2">
                     <Badge variant="outline">{analysis.phase.current}</Badge>
                     <div className="flex items-center gap-1">
-                      <div 
+                      <div
                         className={`w-2 h-2 rounded-full ${getConfidenceColor(analysis.phase.confidence)}`}
                       />
                       <span className="text-sm text-muted-foreground">
@@ -225,7 +225,10 @@ export const ArtifactGenerationPanel: React.FC<ArtifactGenerationPanelProps> = (
                     <h4 className="font-medium mb-2">Generation Opportunities</h4>
                     <div className="space-y-2">
                       {analysis.triggers.slice(0, 3).map((trigger: any, index: number) => (
-                        <div key={index} className="flex items-center justify-between p-2 bg-muted rounded">
+                        <div
+                          key={index}
+                          className="flex items-center justify-between p-2 bg-muted rounded"
+                        >
                           <div className="flex items-center gap-2">
                             {getArtifactIcon(trigger.artifactType)}
                             <span className="text-sm">{trigger.artifactType}</span>
@@ -233,8 +236,8 @@ export const ArtifactGenerationPanel: React.FC<ArtifactGenerationPanelProps> = (
                               {Math.round(trigger.confidence * 100)}%
                             </Badge>
                           </div>
-                          <Button 
-                            size="sm" 
+                          <Button
+                            size="sm"
                             variant="outline"
                             onClick={() => {
                               setSelectedType(trigger.artifactType);
@@ -277,10 +280,11 @@ export const ArtifactGenerationPanel: React.FC<ArtifactGenerationPanelProps> = (
           <TabsContent value="generate" className="space-y-4">
             <div className="space-y-4">
               <div>
-                <label className="text-sm font-medium mb-2 block">
-                  Artifact Type
-                </label>
-                <Select value={selectedType} onValueChange={(value) => setSelectedType(value as ArtifactType)}>
+                <label className="text-sm font-medium mb-2 block">Artifact Type</label>
+                <Select
+                  value={selectedType}
+                  onValueChange={(value) => setSelectedType(value as ArtifactType)}
+                >
                   <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
@@ -313,7 +317,7 @@ export const ArtifactGenerationPanel: React.FC<ArtifactGenerationPanelProps> = (
                 </Select>
               </div>
 
-              <Button 
+              <Button
                 onClick={() => generateArtifact(selectedType)}
                 disabled={isGenerating}
                 className="w-full"
@@ -347,7 +351,8 @@ export const ArtifactGenerationPanel: React.FC<ArtifactGenerationPanelProps> = (
               <Alert>
                 <FileText className="h-4 w-4" />
                 <AlertDescription>
-                  No artifacts generated yet. Use the Generate tab to create artifacts from your conversation.
+                  No artifacts generated yet. Use the Generate tab to create artifacts from your
+                  conversation.
                 </AlertDescription>
               </Alert>
             ) : (
@@ -367,7 +372,7 @@ export const ArtifactGenerationPanel: React.FC<ArtifactGenerationPanelProps> = (
                             </Badge>
                           )}
                         </div>
-                        
+
                         {artifact.metadata.description && (
                           <p className="text-sm text-muted-foreground mb-2">
                             {artifact.metadata.description}
@@ -375,8 +380,9 @@ export const ArtifactGenerationPanel: React.FC<ArtifactGenerationPanelProps> = (
                         )}
 
                         <div className="text-xs text-muted-foreground mb-2">
-                          Generated at {new Date(artifact.traceability.generatedAt).toLocaleString()}
-                          • Confidence: {Math.round(artifact.traceability.confidence * 100)}%
+                          Generated at{' '}
+                          {new Date(artifact.traceability.generatedAt).toLocaleString()}•
+                          Confidence: {Math.round(artifact.traceability.confidence * 100)}%
                         </div>
 
                         <div className="bg-muted p-3 rounded text-sm font-mono max-h-32 overflow-y-auto">
@@ -421,4 +427,4 @@ export const ArtifactGenerationPanel: React.FC<ArtifactGenerationPanelProps> = (
       </CardContent>
     </Card>
   );
-}; 
+};

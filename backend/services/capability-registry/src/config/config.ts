@@ -8,7 +8,7 @@ import { createLogger } from '@uaip/utils';
 const logger = createLogger({
   serviceName: 'capability-registry-config',
   environment: process.env.NODE_ENV || 'development',
-  logLevel: process.env.LOG_LEVEL || 'info'
+  logLevel: process.env.LOG_LEVEL || 'info',
 });
 
 // Service-specific configuration extensions
@@ -32,8 +32,8 @@ const serviceSpecificConfig: CapabilityRegistrySpecificConfig = {
     defaultExecutionTimeout: parseInt(process.env.TOOL_EXECUTION_TIMEOUT || '30000'), // 30 seconds
     maxConcurrentExecutions: parseInt(process.env.MAX_CONCURRENT_EXECUTIONS || '10'),
     enableApprovalWorkflow: process.env.ENABLE_APPROVAL_WORKFLOW === 'true',
-    defaultCostLimit: parseFloat(process.env.DEFAULT_COST_LIMIT || '100.0')
-  }
+    defaultCostLimit: parseFloat(process.env.DEFAULT_COST_LIMIT || '100.0'),
+  },
 };
 
 // Compose final configuration by extending shared config
@@ -46,17 +46,13 @@ export const config: CapabilityRegistryConfig = {
   // Override logging service name
   logging: {
     ...baseConfig.logging,
-    serviceName: 'capability-registry'
-  }
+    serviceName: 'capability-registry',
+  },
 };
 
 // Validate service-specific required configuration
 function validateConfig(): void {
-  const required = [
-    'database.neo4j.uri',
-    'database.neo4j.user',
-    'database.neo4j.password'
-  ];
+  const required = ['database.neo4j.uri', 'database.neo4j.user', 'database.neo4j.password'];
 
   for (const path of required) {
     const value = getNestedValue(config, path);
@@ -64,7 +60,7 @@ function validateConfig(): void {
       throw new Error(`Missing required configuration: ${path}`);
     }
   }
-  
+
   // Shared config validation is handled by @uaip/config
 }
 
@@ -81,4 +77,4 @@ try {
   process.exit(1);
 }
 
-export default config; 
+export default config;

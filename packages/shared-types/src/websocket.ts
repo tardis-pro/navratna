@@ -9,7 +9,7 @@ export enum WebSocketConnectionStatus {
   DISCONNECTING = 'disconnecting',
   DISCONNECTED = 'disconnected',
   RECONNECTING = 'reconnecting',
-  ERROR = 'error'
+  ERROR = 'error',
 }
 
 export const WebSocketConfigSchema = z.object({
@@ -20,7 +20,7 @@ export const WebSocketConfigSchema = z.object({
   heartbeatInterval: z.number().min(1000).default(30000),
   timeout: z.number().min(1000).default(10000),
   protocols: z.array(z.string()).optional(),
-  headers: z.record(z.string()).optional()
+  headers: z.record(z.string()).optional(),
 });
 
 export type WebSocketConfig = z.infer<typeof WebSocketConfigSchema>;
@@ -35,7 +35,7 @@ export const TurnInfoSchema = z.object({
   startedAt: z.date(),
   expectedEndAt: z.date().optional(),
   turnTimeout: z.number().min(0).default(300), // seconds
-  metadata: z.record(z.any()).optional()
+  metadata: z.record(z.any()).optional(),
 });
 
 export type TurnInfo = z.infer<typeof TurnInfoSchema>;
@@ -47,41 +47,41 @@ export enum WebSocketEventType {
   DISCONNECT = 'disconnect',
   RECONNECT = 'reconnect',
   ERROR = 'error',
-  
+
   // Discussion events
   DISCUSSION_STARTED = 'discussion_started',
   DISCUSSION_ENDED = 'discussion_ended',
   DISCUSSION_PAUSED = 'discussion_paused',
   DISCUSSION_RESUMED = 'discussion_resumed',
-  
+
   // Participant events
   PARTICIPANT_JOINED = 'participant_joined',
   PARTICIPANT_LEFT = 'participant_left',
   PARTICIPANT_TYPING = 'participant_typing',
   PARTICIPANT_STOPPED_TYPING = 'participant_stopped_typing',
-  
+
   // Message events
   MESSAGE_RECEIVED = 'message_received',
   MESSAGE_UPDATED = 'message_updated',
   MESSAGE_DELETED = 'message_deleted',
   MESSAGE_REACTION_ADDED = 'message_reaction_added',
   MESSAGE_REACTION_REMOVED = 'message_reaction_removed',
-  
+
   // Turn events
   TURN_STARTED = 'turn_started',
   TURN_ENDED = 'turn_ended',
   TURN_ADVANCED = 'turn_advanced',
   TURN_TIMEOUT_WARNING = 'turn_timeout_warning',
-  
+
   // Agent events
   AGENT_STATUS_CHANGED = 'agent_status_changed',
   AGENT_THINKING = 'agent_thinking',
   AGENT_RESPONSE_READY = 'agent_response_ready',
-  
+
   // System events
   SYSTEM_MAINTENANCE = 'system_maintenance',
   SYSTEM_ALERT = 'system_alert',
-  NOTIFICATION = 'notification'
+  NOTIFICATION = 'notification',
 }
 
 // Base WebSocket event
@@ -92,7 +92,7 @@ export const WebSocketEventSchema = z.object({
   source: z.string(),
   target: z.string().optional(),
   data: z.record(z.any()),
-  metadata: z.record(z.any()).optional()
+  metadata: z.record(z.any()).optional(),
 });
 
 export type WebSocketEvent = z.infer<typeof WebSocketEventSchema>;
@@ -105,7 +105,7 @@ export const DiscussionWebSocketEventSchema = z.object({
   participantId: IDSchema.optional(),
   timestamp: z.date(),
   data: z.record(z.any()),
-  metadata: z.record(z.any()).optional()
+  metadata: z.record(z.any()).optional(),
 });
 
 export type DiscussionWebSocketEvent = z.infer<typeof DiscussionWebSocketEventSchema>;
@@ -116,7 +116,7 @@ export const TypingIndicatorSchema = z.object({
   discussionId: IDSchema,
   isTyping: z.boolean(),
   timestamp: z.date(),
-  estimatedFinishTime: z.date().optional()
+  estimatedFinishTime: z.date().optional(),
 });
 
 export type TypingIndicator = z.infer<typeof TypingIndicatorSchema>;
@@ -126,7 +126,7 @@ export enum PresenceStatus {
   ONLINE = 'online',
   AWAY = 'away',
   BUSY = 'busy',
-  OFFLINE = 'offline'
+  OFFLINE = 'offline',
 }
 
 export const PresenceSchema = z.object({
@@ -134,7 +134,7 @@ export const PresenceSchema = z.object({
   status: z.nativeEnum(PresenceStatus),
   lastSeen: z.date(),
   activity: z.string().optional(),
-  metadata: z.record(z.any()).optional()
+  metadata: z.record(z.any()).optional(),
 });
 
 export type Presence = z.infer<typeof PresenceSchema>;
@@ -144,7 +144,7 @@ export enum NotificationPriority {
   LOW = 'low',
   NORMAL = 'normal',
   HIGH = 'high',
-  URGENT = 'urgent'
+  URGENT = 'urgent',
 }
 
 export const RealtimeNotificationSchema = z.object({
@@ -160,7 +160,7 @@ export const RealtimeNotificationSchema = z.object({
   readAt: z.date().optional(),
   dismissedAt: z.date().optional(),
   metadata: z.record(z.any()).optional(),
-  createdAt: z.date()
+  createdAt: z.date(),
 });
 
 export type RealtimeNotification = z.infer<typeof RealtimeNotificationSchema>;
@@ -186,7 +186,7 @@ export const RoomSchema = z.object({
   isPrivate: z.boolean().default(false),
   metadata: z.record(z.any()).optional(),
   createdAt: z.date(),
-  lastActivity: z.date()
+  lastActivity: z.date(),
 });
 
 export type Room = z.infer<typeof RoomSchema>;
@@ -197,7 +197,7 @@ export const WebSocketAuthSchema = z.object({
   userId: IDSchema,
   sessionId: z.string(),
   permissions: z.array(z.string()).default([]),
-  expiresAt: z.date().optional()
+  expiresAt: z.date().optional(),
 });
 
-export type WebSocketAuth = z.infer<typeof WebSocketAuthSchema>; 
+export type WebSocketAuth = z.infer<typeof WebSocketAuthSchema>;

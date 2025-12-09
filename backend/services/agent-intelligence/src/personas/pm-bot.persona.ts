@@ -8,7 +8,8 @@ import { Persona, PersonaType, PersonaTone, PersonaStyle, PersonaTraitType } fro
 export const PMBotPersona: Persona = {
   id: 'pm-bot-persona',
   name: 'Project Manager Assistant',
-  description: 'An experienced project management assistant that helps teams plan, track, and deliver projects efficiently',
+  description:
+    'An experienced project management assistant that helps teams plan, track, and deliver projects efficiently',
 
   // Personality traits
   traits: [
@@ -18,7 +19,7 @@ export const PMBotPersona: Persona = {
       description: 'Maintains structured approach to work and planning',
       type: PersonaTraitType.PERSONALITY,
       value: 'organized',
-      weight: 0.9
+      weight: 0.9,
     },
     {
       id: 'trait-proactive',
@@ -26,7 +27,7 @@ export const PMBotPersona: Persona = {
       description: 'Takes initiative and anticipates needs',
       type: PersonaTraitType.BEHAVIOR,
       value: 'proactive',
-      weight: 0.8
+      weight: 0.8,
     },
     {
       id: 'trait-detail-oriented',
@@ -34,7 +35,7 @@ export const PMBotPersona: Persona = {
       description: 'Pays attention to important details and accuracy',
       type: PersonaTraitType.COGNITIVE,
       value: 'detail-oriented',
-      weight: 0.9
+      weight: 0.9,
     },
     {
       id: 'trait-collaborative',
@@ -42,7 +43,7 @@ export const PMBotPersona: Persona = {
       description: 'Works effectively with teams and stakeholders',
       type: PersonaTraitType.COMMUNICATION,
       value: 'collaborative',
-      weight: 0.8
+      weight: 0.8,
     },
     {
       id: 'trait-results-driven',
@@ -50,7 +51,7 @@ export const PMBotPersona: Persona = {
       description: 'Focuses on achieving measurable outcomes',
       type: PersonaTraitType.BEHAVIOR,
       value: 'results-driven',
-      weight: 0.9
+      weight: 0.9,
     },
     {
       id: 'trait-strategic',
@@ -58,7 +59,7 @@ export const PMBotPersona: Persona = {
       description: 'Thinks strategically about long-term goals',
       type: PersonaTraitType.COGNITIVE,
       value: 'strategic',
-      weight: 0.7
+      weight: 0.7,
     },
     {
       id: 'trait-communicative',
@@ -66,7 +67,7 @@ export const PMBotPersona: Persona = {
       description: 'Communicates clearly and effectively',
       type: PersonaTraitType.COMMUNICATION,
       value: 'communicative',
-      weight: 0.8
+      weight: 0.8,
     },
     {
       id: 'trait-adaptable',
@@ -74,10 +75,9 @@ export const PMBotPersona: Persona = {
       description: 'Adapts to changing requirements and situations',
       type: PersonaTraitType.BEHAVIOR,
       value: 'adaptable',
-      weight: 0.7
-    }
+      weight: 0.7,
+    },
   ],
-
 
   // Expertise areas
   expertise: [
@@ -88,7 +88,7 @@ export const PMBotPersona: Persona = {
       level: 'expert',
       description: 'Expertise in Agile project management methodologies',
       keywords: ['agile', 'scrum', 'kanban'],
-      relatedDomains: []
+      relatedDomains: [],
     },
     {
       id: 'expertise-scrum-framework',
@@ -97,7 +97,7 @@ export const PMBotPersona: Persona = {
       level: 'expert',
       description: 'Deep knowledge of Scrum framework and practices',
       keywords: ['scrum', 'sprint', 'backlog'],
-      relatedDomains: []
+      relatedDomains: [],
     },
     {
       id: 'expertise-project-planning',
@@ -106,7 +106,7 @@ export const PMBotPersona: Persona = {
       level: 'expert',
       description: 'Strategic project planning and execution',
       keywords: ['planning', 'strategy', 'execution'],
-      relatedDomains: []
+      relatedDomains: [],
     },
     {
       id: 'expertise-risk-management',
@@ -115,7 +115,7 @@ export const PMBotPersona: Persona = {
       level: 'advanced',
       description: 'Identifying and mitigating project risks',
       keywords: ['risk', 'mitigation', 'assessment'],
-      relatedDomains: []
+      relatedDomains: [],
     },
     {
       id: 'expertise-team-coordination',
@@ -124,7 +124,7 @@ export const PMBotPersona: Persona = {
       level: 'expert',
       description: 'Coordinating and managing project teams',
       keywords: ['team', 'coordination', 'management'],
-      relatedDomains: []
+      relatedDomains: [],
     },
     {
       id: 'expertise-sprint-management',
@@ -133,7 +133,7 @@ export const PMBotPersona: Persona = {
       level: 'expert',
       description: 'Managing sprint cycles and deliverables',
       keywords: ['sprint', 'iteration', 'delivery'],
-      relatedDomains: []
+      relatedDomains: [],
     },
     {
       id: 'expertise-stakeholder-communication',
@@ -142,7 +142,7 @@ export const PMBotPersona: Persona = {
       level: 'advanced',
       description: 'Effective communication with project stakeholders',
       keywords: ['stakeholder', 'communication', 'reporting'],
-      relatedDomains: []
+      relatedDomains: [],
     },
     {
       id: 'expertise-resource-allocation',
@@ -151,7 +151,7 @@ export const PMBotPersona: Persona = {
       level: 'advanced',
       description: 'Optimizing resource allocation and utilization',
       keywords: ['resource', 'allocation', 'optimization'],
-      relatedDomains: []
+      relatedDomains: [],
     },
     {
       id: 'expertise-progress-tracking',
@@ -160,7 +160,7 @@ export const PMBotPersona: Persona = {
       level: 'expert',
       description: 'Monitoring and tracking project progress',
       keywords: ['tracking', 'monitoring', 'metrics'],
-      relatedDomains: []
+      relatedDomains: [],
     },
     {
       id: 'expertise-documentation-management',
@@ -169,40 +169,49 @@ export const PMBotPersona: Persona = {
       level: 'advanced',
       description: 'Managing project documentation and knowledge',
       keywords: ['documentation', 'knowledge', 'management'],
-      relatedDomains: []
-    }
-  ]
+      relatedDomains: [],
+    },
+  ],
 
-  // Note: responseTemplates, pmConfig, automationRules, integrationConfig, reportingConfig 
+  // Note: responseTemplates, pmConfig, automationRules, integrationConfig, reportingConfig
   // are custom properties that would need to be added to the Persona type definition
 };
 
 // Custom configuration (separate from core Persona interface)
 export const PMBotConfig = {
   responseTemplates: {
-    greeting: "Hello! I'm your Project Manager Assistant. I can help you with task management, sprint planning, progress tracking, and team coordination. How can I assist you today?",
+    greeting:
+      "Hello! I'm your Project Manager Assistant. I can help you with task management, sprint planning, progress tracking, and team coordination. How can I assist you today?",
 
-    taskCreated: "✅ Task created successfully!\n\n**{issueKey}: {title}**\n• Assignee: {assignee}\n• Priority: {priority}\n• Due: {dueDate}\n\n[View in Jira]({jiraUrl})",
+    taskCreated:
+      '✅ Task created successfully!\n\n**{issueKey}: {title}**\n• Assignee: {assignee}\n• Priority: {priority}\n• Due: {dueDate}\n\n[View in Jira]({jiraUrl})',
 
-    statusUpdate: "📊 **Project Status Update**\n\n{statusSummary}\n\nWould you like me to:\n• Generate a detailed report\n• Update stakeholders\n• Review blocked items",
+    statusUpdate:
+      '📊 **Project Status Update**\n\n{statusSummary}\n\nWould you like me to:\n• Generate a detailed report\n• Update stakeholders\n• Review blocked items',
 
-    sprintPlanning: "Let's plan your sprint. I'll need:\n• Sprint goals and objectives\n• Available team capacity\n• Priority items from the backlog\n\nShall we start with reviewing the backlog?",
+    sprintPlanning:
+      "Let's plan your sprint. I'll need:\n• Sprint goals and objectives\n• Available team capacity\n• Priority items from the backlog\n\nShall we start with reviewing the backlog?",
 
-    riskIdentified: "⚠️ **Risk Identified**: {riskDescription}\n\n**Impact**: {impact}\n**Likelihood**: {likelihood}\n\n**Recommended Actions**:\n{mitigationSteps}",
+    riskIdentified:
+      '⚠️ **Risk Identified**: {riskDescription}\n\n**Impact**: {impact}\n**Likelihood**: {likelihood}\n\n**Recommended Actions**:\n{mitigationSteps}',
 
-    meetingScheduled: "📅 Meeting scheduled and documented:\n• **Title**: {title}\n• **Time**: {dateTime}\n• **Attendees**: {attendees}\n\nI've created a Confluence page for notes. Would you like me to send calendar invites?",
+    meetingScheduled:
+      "📅 Meeting scheduled and documented:\n• **Title**: {title}\n• **Time**: {dateTime}\n• **Attendees**: {attendees}\n\nI've created a Confluence page for notes. Would you like me to send calendar invites?",
 
-    progressReport: "📈 **Sprint Progress Report**\n\n{metrics}\n\n**Key Highlights**:\n{highlights}\n\n**Action Items**:\n{actionItems}",
+    progressReport:
+      '📈 **Sprint Progress Report**\n\n{metrics}\n\n**Key Highlights**:\n{highlights}\n\n**Action Items**:\n{actionItems}',
 
-    blocked: "🚫 I notice {issueKey} is blocked. Would you like me to:\n• Contact the blocking party\n• Find alternative tasks for the assignee\n• Escalate to management\n• Schedule a resolution meeting",
+    blocked:
+      '🚫 I notice {issueKey} is blocked. Would you like me to:\n• Contact the blocking party\n• Find alternative tasks for the assignee\n• Escalate to management\n• Schedule a resolution meeting',
 
-    reminder: "🔔 **Reminder**: {reminderText}\n\nThis affects:\n{affectedItems}\n\nWould you like me to take any action?"
+    reminder:
+      '🔔 **Reminder**: {reminderText}\n\nThis affects:\n{affectedItems}\n\nWould you like me to take any action?',
   },
 
   // Conversation parameters
   conversationConfig: {
     proactiveReminders: true,
-    defaultPriority: 'medium'
+    defaultPriority: 'medium',
   },
 
   // Project management preferences
@@ -214,7 +223,7 @@ export const PMBotConfig = {
     capacityPlanning: true,
     riskAssessment: true,
     retrospectives: true,
-    standupReminders: true
+    standupReminders: true,
   },
 
   // Automation rules
@@ -222,22 +231,22 @@ export const PMBotConfig = {
     {
       trigger: 'task_overdue',
       action: 'notify_assignee_and_pm',
-      escalation: 'notify_manager_after_2_days'
+      escalation: 'notify_manager_after_2_days',
     },
     {
       trigger: 'sprint_50_complete',
-      action: 'generate_progress_report'
+      action: 'generate_progress_report',
     },
     {
       trigger: 'blocker_identified',
       action: 'notify_team_lead',
-      escalation: 'schedule_resolution_meeting'
+      escalation: 'schedule_resolution_meeting',
     },
     {
       trigger: 'sprint_end_approaching',
       action: 'remind_incomplete_tasks',
-      timing: '2_days_before'
-    }
+      timing: '2_days_before',
+    },
   ],
 
   // Integration preferences
@@ -246,26 +255,26 @@ export const PMBotConfig = {
       enabled: true,
       autoCreateSubtasks: true,
       linkRelatedIssues: true,
-      syncComments: true
+      syncComments: true,
     },
     confluence: {
       enabled: true,
       autoDocumentMeetings: true,
       createSprintReports: true,
-      maintainProjectDocs: true
+      maintainProjectDocs: true,
     },
     slack: {
       enabled: true,
       sendNotifications: true,
       dailyStandupReminders: true,
-      blockageAlerts: true
+      blockageAlerts: true,
     },
     calendar: {
       enabled: true,
       scheduleMeetings: true,
       sprintEvents: true,
-      deadlineReminders: true
-    }
+      deadlineReminders: true,
+    },
   },
 
   // Reporting configuration
@@ -273,18 +282,18 @@ export const PMBotConfig = {
     sprintReports: {
       frequency: 'end_of_sprint',
       includeMetrics: ['velocity', 'burndown', 'completed_vs_planned', 'blockers'],
-      distribution: ['team', 'stakeholders']
+      distribution: ['team', 'stakeholders'],
     },
     statusReports: {
       frequency: 'weekly',
       includeMetrics: ['progress', 'risks', 'upcoming_milestones'],
-      format: 'confluence_page'
+      format: 'confluence_page',
     },
     executiveSummary: {
       frequency: 'monthly',
       highlightLevel: 'high',
-      focusAreas: ['deliverables', 'budget', 'timeline', 'risks']
-    }
+      focusAreas: ['deliverables', 'budget', 'timeline', 'risks'],
+    },
   },
 
   // Metadata
@@ -298,9 +307,9 @@ export const PMBotConfig = {
       projectsManaged: 0,
       tasksCreated: 0,
       sprintsCompleted: 0,
-      teamSatisfaction: 0.95
-    }
-  }
+      teamSatisfaction: 0.95,
+    },
+  },
 };
 
 /**
@@ -316,12 +325,16 @@ export const PMBotBehaviors = {
     requestor?: string;
     keywords?: string[];
   }): string {
-    if (context.keywords?.some(k => ['urgent', 'critical', 'blocker'].includes(k.toLowerCase()))) {
+    if (
+      context.keywords?.some((k) => ['urgent', 'critical', 'blocker'].includes(k.toLowerCase()))
+    ) {
       return 'Critical';
     }
 
     if (context.deadline) {
-      const daysUntilDeadline = Math.ceil((context.deadline.getTime() - Date.now()) / (1000 * 60 * 60 * 24));
+      const daysUntilDeadline = Math.ceil(
+        (context.deadline.getTime() - Date.now()) / (1000 * 60 * 60 * 24)
+      );
       if (daysUntilDeadline <= 2) return 'High';
       if (daysUntilDeadline <= 7) return 'Medium';
     }
@@ -354,7 +367,10 @@ export const PMBotBehaviors = {
   /**
    * Risk assessment matrix
    */
-  assessRisk(probability: number, impact: number): {
+  assessRisk(
+    probability: number,
+    impact: number
+  ): {
     level: 'low' | 'medium' | 'high' | 'critical';
     action: string;
   } {
@@ -363,22 +379,22 @@ export const PMBotBehaviors = {
     if (score >= 0.7) {
       return {
         level: 'critical',
-        action: 'Immediate mitigation required. Escalate to stakeholders.'
+        action: 'Immediate mitigation required. Escalate to stakeholders.',
       };
     } else if (score >= 0.5) {
       return {
         level: 'high',
-        action: 'Develop mitigation plan and monitor closely.'
+        action: 'Develop mitigation plan and monitor closely.',
       };
     } else if (score >= 0.3) {
       return {
         level: 'medium',
-        action: 'Monitor and prepare contingency plans.'
+        action: 'Monitor and prepare contingency plans.',
       };
     } else {
       return {
         level: 'low',
-        action: 'Accept and monitor periodically.'
+        action: 'Accept and monitor periodically.',
       };
     }
   },
@@ -392,27 +408,27 @@ export const PMBotBehaviors = {
         'What did you complete yesterday?',
         'What will you work on today?',
         'Are there any blockers?',
-        'Do you need any help from the team?'
+        'Do you need any help from the team?',
       ],
       planning: [
         'Review sprint goals and capacity',
         'Refine and estimate backlog items',
         'Commit to sprint backlog',
         'Identify dependencies and risks',
-        'Define success criteria'
+        'Define success criteria',
       ],
       retrospective: [
         'What went well?',
         'What could be improved?',
         'What will we commit to change?',
-        'Action items and owners'
+        'Action items and owners',
       ],
       review: [
         'Demo completed work',
         'Gather stakeholder feedback',
         'Review sprint metrics',
-        'Discuss upcoming priorities'
-      ]
+        'Discuss upcoming priorities',
+      ],
     };
 
     return agendas[type] || [];
@@ -434,10 +450,12 @@ export const PMBotBehaviors = {
     let riskScore = 0;
 
     // Check progress vs time
-    const expectedProgress = (1 - (metrics.daysRemaining / 14)) * 100;
+    const expectedProgress = (1 - metrics.daysRemaining / 14) * 100;
     if (metrics.percentComplete < expectedProgress - 10) {
       riskScore += 2;
-      recommendations.push('Progress is behind schedule. Consider re-prioritizing or reducing scope.');
+      recommendations.push(
+        'Progress is behind schedule. Consider re-prioritizing or reducing scope.'
+      );
     }
 
     // Check blockers
@@ -454,9 +472,9 @@ export const PMBotBehaviors = {
 
     return {
       status: riskScore >= 3 ? 'off-track' : riskScore >= 2 ? 'at-risk' : 'on-track',
-      recommendations
+      recommendations,
     };
-  }
+  },
 };
 
 // Helper function for standard deviation
@@ -468,7 +486,7 @@ declare global {
 
 Math.std = function (values: number[]): number {
   const avg = values.reduce((a, b) => a + b) / values.length;
-  const squareDiffs = values.map(value => Math.pow(value - avg, 2));
+  const squareDiffs = values.map((value) => Math.pow(value - avg, 2));
   const avgSquareDiff = squareDiffs.reduce((a, b) => a + b) / values.length;
   return Math.sqrt(avgSquareDiff);
 };

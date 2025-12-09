@@ -1,13 +1,13 @@
-import { 
-  AgentOperationalState, 
-  AgentStateTransition, 
-  AgentExecutionContext 
-} from '@uaip/types';
+import { AgentOperationalState, AgentStateTransition, AgentExecutionContext } from '@uaip/types';
 import { logger } from '@uaip/utils';
 import { AgentEventBus } from '../observability/agent-event-bus';
 
 export class AgentStateMachineError extends Error {
-  constructor(message: string, public currentState: AgentOperationalState, public attemptedTransition: string) {
+  constructor(
+    message: string,
+    public currentState: AgentOperationalState,
+    public attemptedTransition: string
+  ) {
     super(message);
     this.name = 'AgentStateMachineError';
   }
@@ -18,20 +18,43 @@ export class AgentStateMachine {
   private allowedTransitions: Map<AgentOperationalState, AgentOperationalState[]>;
   private agentId: string;
 
-  constructor(agentId: string, initialCapabilities: string[] = [], private eventBus?: AgentEventBus) {
+  constructor(
+    agentId: string,
+    initialCapabilities: string[] = [],
+    private eventBus?: AgentEventBus
+  ) {
     this.agentId = agentId;
     this.context = {
       operationalState: AgentOperationalState.IDLE,
       capabilities: initialCapabilities,
-      stateMetadata: { agentId }
+      stateMetadata: { agentId },
     };
 
     this.allowedTransitions = new Map([
       [AgentOperationalState.IDLE, [AgentOperationalState.THINKING, AgentOperationalState.ERROR]],
-      [AgentOperationalState.THINKING, [AgentOperationalState.EXECUTING, AgentOperationalState.WAITING, AgentOperationalState.IDLE, AgentOperationalState.ERROR]],
-      [AgentOperationalState.EXECUTING, [AgentOperationalState.THINKING, AgentOperationalState.WAITING, AgentOperationalState.IDLE, AgentOperationalState.ERROR]],
-      [AgentOperationalState.WAITING, [AgentOperationalState.THINKING, AgentOperationalState.IDLE, AgentOperationalState.ERROR]],
-      [AgentOperationalState.ERROR, [AgentOperationalState.IDLE]]
+      [
+        AgentOperationalState.THINKING,
+        [
+          AgentOperationalState.EXECUTING,
+          AgentOperationalState.WAITING,
+          AgentOperationalState.IDLE,
+          AgentOperationalState.ERROR,
+        ],
+      ],
+      [
+        AgentOperationalState.EXECUTING,
+        [
+          AgentOperationalState.THINKING,
+          AgentOperationalState.WAITING,
+          AgentOperationalState.IDLE,
+          AgentOperationalState.ERROR,
+        ],
+      ],
+      [
+        AgentOperationalState.WAITING,
+        [AgentOperationalState.THINKING, AgentOperationalState.IDLE, AgentOperationalState.ERROR],
+      ],
+      [AgentOperationalState.ERROR, [AgentOperationalState.IDLE]],
     ]);
   }
 
@@ -45,7 +68,7 @@ export class AgentStateMachine {
 
   transition(to: AgentOperationalState, trigger: string, metadata?: any): void {
     const from = this.context.operationalState;
-    
+
     if (!this.isValidTransition(from, to)) {
       throw new AgentStateMachineError(
         `Invalid state transition: ${from} -> ${to} (trigger: ${trigger})`,
@@ -59,12 +82,12 @@ export class AgentStateMachine {
       to,
       trigger,
       timestamp: new Date(),
-      metadata
+      metadata,
     };
 
     this.context.operationalState = to;
     this.context.lastTransition = transition;
-    
+
     // Clear error details when transitioning away from error state
     if (from === AgentOperationalState.ERROR && to !== AgentOperationalState.ERROR) {
       this.context.errorDetails = undefined;
@@ -82,7 +105,7 @@ export class AgentStateMachine {
     this.context.currentAction = action;
     this.context.stateMetadata = {
       ...this.context.stateMetadata,
-      actionStartTime: new Date()
+      actionStartTime: new Date(),
     };
   }
 
@@ -94,7 +117,7 @@ export class AgentStateMachine {
       this.context.stateMetadata = {
         ...this.context.stateMetadata,
         lastActionDuration: duration,
-        actionStartTime: undefined
+        actionStartTime: undefined,
       };
     }
   }
@@ -123,11 +146,21 @@ export class AgentStateMachine {
   }
 
   // Helper methods for common state checks
-  isIdle(): boolean { return this.isInState(AgentOperationalState.IDLE); }
-  isThinking(): boolean { return this.isInState(AgentOperationalState.THINKING); }
-  isExecuting(): boolean { return this.isInState(AgentOperationalState.EXECUTING); }
-  isWaiting(): boolean { return this.isInState(AgentOperationalState.WAITING); }
-  isError(): boolean { return this.isInState(AgentOperationalState.ERROR); }
+  isIdle(): boolean {
+    return this.isInState(AgentOperationalState.IDLE);
+  }
+  isThinking(): boolean {
+    return this.isInState(AgentOperationalState.THINKING);
+  }
+  isExecuting(): boolean {
+    return this.isInState(AgentOperationalState.EXECUTING);
+  }
+  isWaiting(): boolean {
+    return this.isInState(AgentOperationalState.WAITING);
+  }
+  isError(): boolean {
+    return this.isInState(AgentOperationalState.ERROR);
+  }
 
   // Helper methods for common transitions
   startThinking(trigger = 'analysis_started'): void {

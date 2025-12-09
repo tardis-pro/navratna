@@ -1,15 +1,15 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { motion } from 'framer-motion';
-import { 
-  Settings, 
-  Monitor, 
-  Shield, 
+import {
+  Settings,
+  Monitor,
+  Shield,
   Zap,
   Database,
   Clock,
   Bell,
   Save,
-  RefreshCw
+  RefreshCw,
 } from 'lucide-react';
 
 interface ViewportSize {
@@ -64,26 +64,26 @@ export const SystemConfigPortal: React.FC<SystemConfigPortalProps> = ({ classNam
       enabled: true,
       sound: true,
       desktop: true,
-      email: false
+      email: false,
     },
     performance: {
       animations: true,
       autoSave: true,
       cacheSize: 100,
-      maxConcurrentRequests: 5
+      maxConcurrentRequests: 5,
     },
     security: {
       sessionTimeout: 3600,
       requireAuth: true,
       twoFactor: false,
-      auditLogging: true
+      auditLogging: true,
     },
     advanced: {
       debugMode: false,
       experimentalFeatures: false,
       telemetry: true,
-      autoUpdates: true
-    }
+      autoUpdates: true,
+    },
   });
 
   const [saving, setSaving] = useState(false);
@@ -94,8 +94,9 @@ export const SystemConfigPortal: React.FC<SystemConfigPortalProps> = ({ classNam
     width: typeof window !== 'undefined' ? window.innerWidth : 1024,
     height: typeof window !== 'undefined' ? window.innerHeight : 768,
     isMobile: typeof window !== 'undefined' ? window.innerWidth < 768 : false,
-    isTablet: typeof window !== 'undefined' ? window.innerWidth >= 768 && window.innerWidth < 1024 : false,
-    isDesktop: typeof window !== 'undefined' ? window.innerWidth >= 1024 : true
+    isTablet:
+      typeof window !== 'undefined' ? window.innerWidth >= 768 && window.innerWidth < 1024 : false,
+    isDesktop: typeof window !== 'undefined' ? window.innerWidth >= 1024 : true,
   };
 
   const currentViewport = viewport || defaultViewport;
@@ -115,7 +116,7 @@ export const SystemConfigPortal: React.FC<SystemConfigPortalProps> = ({ classNam
   const handleSaveConfig = useCallback(async () => {
     setSaving(true);
     try {
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      await new Promise((resolve) => setTimeout(resolve, 1000));
       localStorage.setItem('system-config', JSON.stringify(config));
       setLastSaved(new Date());
     } catch (error) {
@@ -126,24 +127,30 @@ export const SystemConfigPortal: React.FC<SystemConfigPortalProps> = ({ classNam
   }, [config]);
 
   const updateConfig = (path: string, value: any) => {
-    setConfig(prev => {
+    setConfig((prev) => {
       const newConfig = { ...prev };
       const keys = path.split('.');
       let current: any = newConfig;
-      
+
       for (let i = 0; i < keys.length - 1; i++) {
         if (!(keys[i] in current)) {
           current[keys[i]] = {};
         }
         current = current[keys[i]];
       }
-      
+
       current[keys[keys.length - 1]] = value;
       return newConfig;
     });
   };
 
-  const ToggleSwitch = ({ enabled, onChange }: { enabled: boolean; onChange: (value: boolean) => void }) => (
+  const ToggleSwitch = ({
+    enabled,
+    onChange,
+  }: {
+    enabled: boolean;
+    onChange: (value: boolean) => void;
+  }) => (
     <motion.button
       onClick={() => onChange(!enabled)}
       className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
@@ -167,34 +174,37 @@ export const SystemConfigPortal: React.FC<SystemConfigPortalProps> = ({ classNam
         animate={{ opacity: 1, y: 0 }}
         className="relative p-4 md:p-6 bg-gradient-to-br from-emerald-500/10 to-teal-500/10 backdrop-blur-xl rounded-2xl border border-emerald-500/20"
       >
-        <div className={`flex items-center ${currentViewport.isMobile ? 'flex-col gap-4' : 'justify-between'}`}>
+        <div
+          className={`flex items-center ${currentViewport.isMobile ? 'flex-col gap-4' : 'justify-between'}`}
+        >
           <div className="flex items-center gap-4">
             <motion.div
               className="w-10 h-10 md:w-12 md:h-12 bg-gradient-to-br from-emerald-500 to-teal-500 rounded-xl flex items-center justify-center shadow-lg"
-              animate={{ 
+              animate={{
                 boxShadow: [
                   '0 10px 30px rgba(16, 185, 129, 0.3)',
                   '0 10px 30px rgba(20, 184, 166, 0.4)',
-                  '0 10px 30px rgba(16, 185, 129, 0.3)'
-                ]
+                  '0 10px 30px rgba(16, 185, 129, 0.3)',
+                ],
               }}
               transition={{ duration: 3, repeat: Infinity }}
             >
               <Settings className="w-5 h-5 md:w-6 md:h-6 text-white" />
             </motion.div>
             <div className={currentViewport.isMobile ? 'text-center' : ''}>
-              <h1 className={`font-bold text-white mb-2 ${currentViewport.isMobile ? 'text-lg' : 'text-2xl'}`}>
+              <h1
+                className={`font-bold text-white mb-2 ${currentViewport.isMobile ? 'text-lg' : 'text-2xl'}`}
+              >
                 {currentViewport.isMobile ? 'System Config' : 'System Configuration'}
               </h1>
               <p className={`text-emerald-100 ${currentViewport.isMobile ? 'text-xs' : 'text-sm'}`}>
-                {currentViewport.isMobile 
+                {currentViewport.isMobile
                   ? 'Configure system preferences'
-                  : 'Configure system preferences and advanced options'
-                }
+                  : 'Configure system preferences and advanced options'}
               </p>
             </div>
           </div>
-          
+
           {/* Save Button */}
           <motion.button
             onClick={handleSaveConfig}
@@ -250,24 +260,24 @@ export const SystemConfigPortal: React.FC<SystemConfigPortalProps> = ({ classNam
                   <option value="auto">Auto</option>
                 </select>
               </div>
-              
+
               <div className="flex items-center justify-between">
                 <div>
                   <div className="font-medium text-slate-200">Animations</div>
                   <div className="text-sm text-slate-400">UI animations</div>
                 </div>
-                <ToggleSwitch 
+                <ToggleSwitch
                   enabled={config.performance.animations}
                   onChange={(value) => updateConfig('performance.animations', value)}
                 />
               </div>
-              
+
               <div className="flex items-center justify-between">
                 <div>
                   <div className="font-medium text-slate-200">Auto-Save</div>
                   <div className="text-sm text-slate-400">Automatic saving</div>
                 </div>
-                <ToggleSwitch 
+                <ToggleSwitch
                   enabled={config.performance.autoSave}
                   onChange={(value) => updateConfig('performance.autoSave', value)}
                 />
@@ -287,18 +297,18 @@ export const SystemConfigPortal: React.FC<SystemConfigPortalProps> = ({ classNam
                   <div className="font-medium text-slate-200">Enable Notifications</div>
                   <div className="text-sm text-slate-400">System notifications</div>
                 </div>
-                <ToggleSwitch 
+                <ToggleSwitch
                   enabled={config.notifications.enabled}
                   onChange={(value) => updateConfig('notifications.enabled', value)}
                 />
               </div>
-              
+
               <div className="flex items-center justify-between">
                 <div>
                   <div className="font-medium text-slate-200">Sound Alerts</div>
                   <div className="text-sm text-slate-400">Audio notifications</div>
                 </div>
-                <ToggleSwitch 
+                <ToggleSwitch
                   enabled={config.notifications.sound}
                   onChange={(value) => updateConfig('notifications.sound', value)}
                 />
@@ -318,18 +328,18 @@ export const SystemConfigPortal: React.FC<SystemConfigPortalProps> = ({ classNam
                   <div className="font-medium text-slate-200">Require Authentication</div>
                   <div className="text-sm text-slate-400">Login required</div>
                 </div>
-                <ToggleSwitch 
+                <ToggleSwitch
                   enabled={config.security.requireAuth}
                   onChange={(value) => updateConfig('security.requireAuth', value)}
                 />
               </div>
-              
+
               <div className="flex items-center justify-between">
                 <div>
                   <div className="font-medium text-slate-200">Audit Logging</div>
                   <div className="text-sm text-slate-400">Security audit logs</div>
                 </div>
-                <ToggleSwitch 
+                <ToggleSwitch
                   enabled={config.security.auditLogging}
                   onChange={(value) => updateConfig('security.auditLogging', value)}
                 />
@@ -349,18 +359,18 @@ export const SystemConfigPortal: React.FC<SystemConfigPortalProps> = ({ classNam
                   <div className="font-medium text-slate-200">Debug Mode</div>
                   <div className="text-sm text-slate-400">Enable debugging</div>
                 </div>
-                <ToggleSwitch 
+                <ToggleSwitch
                   enabled={config.advanced.debugMode}
                   onChange={(value) => updateConfig('advanced.debugMode', value)}
                 />
               </div>
-              
+
               <div className="flex items-center justify-between">
                 <div>
                   <div className="font-medium text-slate-200">Experimental Features</div>
                   <div className="text-sm text-slate-400">Beta features</div>
                 </div>
-                <ToggleSwitch 
+                <ToggleSwitch
                   enabled={config.advanced.experimentalFeatures}
                   onChange={(value) => updateConfig('advanced.experimentalFeatures', value)}
                 />
@@ -371,4 +381,4 @@ export const SystemConfigPortal: React.FC<SystemConfigPortalProps> = ({ classNam
       </motion.div>
     </div>
   );
-}; 
+};

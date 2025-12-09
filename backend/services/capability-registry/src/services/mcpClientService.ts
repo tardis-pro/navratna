@@ -5,7 +5,12 @@
 import { spawn, ChildProcess } from 'child_process';
 import { EventEmitter } from 'events';
 import { logger } from '@uaip/utils';
-import { EventBusService, DatabaseService, ToolGraphDatabase, SecurityLevel } from '@uaip/shared-services';
+import {
+  EventBusService,
+  DatabaseService,
+  ToolGraphDatabase,
+  SecurityLevel,
+} from '@uaip/shared-services';
 import * as fs from 'fs/promises';
 import * as path from 'path';
 import { promisify } from 'util';
@@ -107,11 +112,14 @@ export class MCPClientService extends EventEmitter {
   private static instance: MCPClientService;
   private servers = new Map<string, MCPServerState>();
   private requestId = 0;
-  private pendingRequests = new Map<string | number, {
-    resolve: (value: any) => void;
-    reject: (error: Error) => void;
-    timestamp: number;
-  }>();
+  private pendingRequests = new Map<
+    string | number,
+    {
+      resolve: (value: any) => void;
+      reject: (error: Error) => void;
+      timestamp: number;
+    }
+  >();
   private configPath: string;
   private healthCheckInterval?: NodeJS.Timeout;
   private eventBusService?: EventBusService;
@@ -123,28 +131,34 @@ export class MCPClientService extends EventEmitter {
     this.configPath = path.resolve(process.cwd(), '../../../.mcp.json');
   }
 
-  async initialize(eventBusService?: EventBusService, databaseService?: DatabaseService): Promise<void> {
+  async initialize(
+    eventBusService?: EventBusService,
+    databaseService?: DatabaseService
+  ): Promise<void> {
     this.eventBusService = eventBusService;
     this.databaseService = databaseService;
-    
+
     // Initialize ToolGraphDatabase for Neo4j integration
     try {
       this.toolGraphDatabase = new ToolGraphDatabase();
       await this.toolGraphDatabase.verifyConnectivity();
       logger.info('ToolGraphDatabase initialized for MCP integration');
     } catch (error) {
-      logger.warn('ToolGraphDatabase initialization failed, continuing without graph features:', error);
+      logger.warn(
+        'ToolGraphDatabase initialization failed, continuing without graph features:',
+        error
+      );
     }
-    
+
     // Setup event subscriptions for MCP management
     await this.setupEventSubscriptions();
-    
+
     // Start health checking
     this.setupHealthChecking();
-    
+
     // Auto-start configured servers
     await this.autoStartServers();
-    
+
     logger.info('MCP Client Service initialized');
   }
 
@@ -173,13 +187,15 @@ export class MCPClientService extends EventEmitter {
     // Validate command exists before attempting to start
     const commandValidation = await this.validateCommand(config.command);
     if (!commandValidation.isValid) {
-      logger.warn(`Command '${config.command}' not found for server ${serverName}. ${commandValidation.suggestion}`);
-      
+      logger.warn(
+        `Command '${config.command}' not found for server ${serverName}. ${commandValidation.suggestion}`
+      );
+
       // Try fallback configuration if available
       if (commandValidation.fallbackConfig) {
         logger.info(`Attempting fallback configuration for ${serverName}`);
         config = commandValidation.fallbackConfig;
-        
+
         // Validate the fallback command
         const fallbackValidation = await this.validateCommand(config.command);
         if (!fallbackValidation.isValid) {
@@ -206,8 +222,8 @@ export class MCPClientService extends EventEmitter {
         successfulRequests: 0,
         failedRequests: 0,
         averageResponseTime: 0,
-        uptime: 0
-      }
+        uptime: 0,
+      },
     };
 
     this.servers.set(serverName, serverState);
@@ -216,7 +232,7 @@ export class MCPClientService extends EventEmitter {
       const childProcess = spawn(config.command, config.args, {
         stdio: ['pipe', 'pipe', 'pipe'],
         env: { ...process.env, ...config.env },
-        cwd: config.cwd || process.cwd()
+        cwd: config.cwd || process.cwd(),
       });
 
       serverState.process = childProcess;
@@ -233,7 +249,6 @@ export class MCPClientService extends EventEmitter {
       this.emit('serverStarted', { serverName, pid: childProcess.pid });
       await this.publishEvent('mcp.server.started', { serverName, pid: childProcess.pid });
       logger.info(`MCP server started successfully: ${serverName} (PID: ${childProcess.pid})`);
-
     } catch (error) {
       serverState.status = 'error';
       serverState.error = error.message;
@@ -254,7 +269,7 @@ export class MCPClientService extends EventEmitter {
 
     return new Promise((resolve) => {
       const childProcess = server.process!;
-      
+
       childProcess.on('exit', () => {
         server.status = 'stopped';
         server.process = undefined;
@@ -266,7 +281,7 @@ export class MCPClientService extends EventEmitter {
 
       // Try graceful shutdown first
       childProcess.kill('SIGTERM');
-      
+
       // Force kill after 5 seconds
       setTimeout(() => {
         if (server.status === 'stopping') {
@@ -278,7 +293,7 @@ export class MCPClientService extends EventEmitter {
 
   async restartServer(serverName: string): Promise<void> {
     await this.stopServer(serverName);
-    await new Promise(resolve => setTimeout(resolve, 1000)); // Brief pause
+    await new Promise((resolve) => setTimeout(resolve, 1000)); // Brief pause
     await this.startServer(serverName);
   }
 
@@ -294,7 +309,7 @@ export class MCPClientService extends EventEmitter {
       jsonrpc: '2.0',
       id,
       method,
-      params
+      params,
     };
 
     return new Promise((resolve, reject) => {
@@ -315,14 +330,14 @@ export class MCPClientService extends EventEmitter {
           server.stats.failedRequests++;
           reject(error);
         },
-        timestamp: Date.now()
+        timestamp: Date.now(),
       });
 
       server.stats.totalRequests++;
-      
+
       const message = JSON.stringify(request) + '\n';
       server.process!.stdin?.write(message);
-      
+
       this.addLog(serverName, `→ ${method}: ${JSON.stringify(params)}`);
     });
   }
@@ -336,12 +351,12 @@ export class MCPClientService extends EventEmitter {
     const notification: JSONRPCNotification = {
       jsonrpc: '2.0',
       method,
-      params
+      params,
     };
 
     const message = JSON.stringify(notification) + '\n';
     server.process!.stdin?.write(message);
-    
+
     this.addLog(serverName, `→ ${method} (notification): ${JSON.stringify(params)}`);
   }
 
@@ -352,25 +367,25 @@ export class MCPClientService extends EventEmitter {
         protocolVersion: '2024-11-05',
         capabilities: {
           roots: { listChanged: true },
-          sampling: {}
+          sampling: {},
         },
         clientInfo: {
           name: 'UAIP-MCPClient',
-          version: '1.0.0'
-        }
+          version: '1.0.0',
+        },
       };
 
       const response = await this.sendRequest(serverName, 'initialize', initializeParams);
-      
+
       const server = this.servers.get(serverName)!;
       server.capabilities = response.capabilities;
-      
+
       // Send initialized notification
       this.sendNotification(serverName, 'initialized');
 
       // Discover available tools
       await this.discoverTools(serverName);
-      
+
       logger.info(`MCP connection initialized for ${serverName}`, response);
     } catch (error) {
       logger.error(`Failed to initialize MCP connection for ${serverName}:`, error);
@@ -381,7 +396,7 @@ export class MCPClientService extends EventEmitter {
   private async discoverTools(serverName: string): Promise<void> {
     try {
       const server = this.servers.get(serverName)!;
-      
+
       // Get available tools
       if (server.capabilities?.tools) {
         const toolsResponse = await this.sendRequest(serverName, 'tools/list');
@@ -403,13 +418,13 @@ export class MCPClientService extends EventEmitter {
       // Auto-register discovered tools in the tool registry
       await this.registerDiscoveredTools(serverName, server.tools || []);
 
-      this.emit('toolsDiscovered', { 
-        serverName, 
+      this.emit('toolsDiscovered', {
+        serverName,
         tools: server.tools,
         resources: server.resources,
-        prompts: server.prompts
+        prompts: server.prompts,
       });
-      
+
       await this.publishEvent('mcp.tools.discovered', {
         serverName,
         toolCount: server.tools?.length || 0,
@@ -417,9 +432,8 @@ export class MCPClientService extends EventEmitter {
         promptCount: server.prompts?.length || 0,
         tools: server.tools,
         resources: server.resources,
-        prompts: server.prompts
+        prompts: server.prompts,
       });
-
     } catch (error) {
       logger.error(`Failed to discover tools for ${serverName}:`, error);
     }
@@ -444,15 +458,15 @@ export class MCPClientService extends EventEmitter {
             mcpTool: tool.name,
             inputSchema: tool.inputSchema || {},
             protocol: 'mcp',
-            serverConfig: this.servers.get(serverName)?.config
-          }
+            serverConfig: this.servers.get(serverName)?.config,
+          },
         };
 
         // Publish tool registration event for the tool registry
         await this.publishEvent('tool.register', {
           tool: toolRegistration,
           source: 'mcp-discovery',
-          serverName
+          serverName,
         });
 
         // Also publish to agents for dynamic discovery
@@ -463,7 +477,7 @@ export class MCPClientService extends EventEmitter {
           description: tool.description,
           inputSchema: tool.inputSchema,
           capabilities: tool.capabilities || [],
-          source: 'mcp-discovery'
+          source: 'mcp-discovery',
         });
 
         // Register tool in Neo4j knowledge graph if available
@@ -477,7 +491,11 @@ export class MCPClientService extends EventEmitter {
   }
 
   // Register tool in Neo4j knowledge graph
-  private async registerToolInGraph(toolRegistration: any, serverName: string, mcpTool: any): Promise<void> {
+  private async registerToolInGraph(
+    toolRegistration: any,
+    serverName: string,
+    mcpTool: any
+  ): Promise<void> {
     if (!this.toolGraphDatabase) {
       return; // Gracefully skip if graph database not available
     }
@@ -500,7 +518,7 @@ export class MCPClientService extends EventEmitter {
         examples: [],
         executionTimeEstimate: toolRegistration.executionTimeEstimate,
         costEstimate: toolRegistration.costEstimate,
-        author: 'mcp-system'
+        author: 'mcp-system',
       });
 
       // Create MCP Server node if it doesn't exist
@@ -513,8 +531,8 @@ export class MCPClientService extends EventEmitter {
         tags: ['mcp', 'external'],
         metadata: {
           config: this.servers.get(serverName)?.config,
-          registeredAt: new Date().toISOString()
-        }
+          registeredAt: new Date().toISOString(),
+        },
       });
 
       // Link tool to MCP server
@@ -540,10 +558,15 @@ export class MCPClientService extends EventEmitter {
       // Find similar tools based on capabilities
       const capabilities = mcpTool.capabilities || [];
       if (capabilities.length > 0) {
-        const relatedTools = await this.toolGraphDatabase.getRelatedTools(toolId, ['SIMILAR_TO'], 0.4);
-        
+        const relatedTools = await this.toolGraphDatabase.getRelatedTools(
+          toolId,
+          ['SIMILAR_TO'],
+          0.4
+        );
+
         // Create SIMILAR_TO relationships for tools with shared capabilities
-        for (const relatedTool of relatedTools.slice(0, 3)) { // Limit to top 3 similar tools
+        for (const relatedTool of relatedTools.slice(0, 3)) {
+          // Limit to top 3 similar tools
           if (relatedTool.id !== toolId) {
             await this.toolGraphDatabase.addToolRelationship(toolId, relatedTool.id, {
               type: 'SIMILAR_TO',
@@ -551,8 +574,8 @@ export class MCPClientService extends EventEmitter {
               reason: `Shared capabilities: ${capabilities.join(', ')}`,
               metadata: {
                 sharedCapabilities: capabilities,
-                createdBy: 'mcp-auto-discovery'
-              }
+                createdBy: 'mcp-auto-discovery',
+              },
             });
           }
         }
@@ -562,10 +585,12 @@ export class MCPClientService extends EventEmitter {
       const enhancementKeywords = ['enhance', 'improve', 'extend', 'augment'];
       const toolName = mcpTool.name?.toLowerCase() || '';
       const toolDescription = mcpTool.description?.toLowerCase() || '';
-      
-      if (enhancementKeywords.some(keyword => 
-        toolName.includes(keyword) || toolDescription.includes(keyword)
-      )) {
+
+      if (
+        enhancementKeywords.some(
+          (keyword) => toolName.includes(keyword) || toolDescription.includes(keyword)
+        )
+      ) {
         // Find tools that this tool might enhance
         const potentialTargets = await this.toolGraphDatabase.getRelatedTools(toolId, [], 0.3);
         for (const target of potentialTargets.slice(0, 2)) {
@@ -576,8 +601,8 @@ export class MCPClientService extends EventEmitter {
               reason: 'Tool appears to enhance functionality based on name/description',
               metadata: {
                 detectionMethod: 'keyword-analysis',
-                createdBy: 'mcp-auto-discovery'
-              }
+                createdBy: 'mcp-auto-discovery',
+              },
             });
           }
         }
@@ -588,13 +613,18 @@ export class MCPClientService extends EventEmitter {
   }
 
   // Tool Execution with Database Persistence
-  async executeTool(serverName: string, toolName: string, parameters: any, context?: {
-    agentId?: string;
-    userId?: string;
-    conversationId?: string;
-    operationId?: string;
-    sessionId?: string;
-  }): Promise<any> {
+  async executeTool(
+    serverName: string,
+    toolName: string,
+    parameters: any,
+    context?: {
+      agentId?: string;
+      userId?: string;
+      conversationId?: string;
+      operationId?: string;
+      sessionId?: string;
+    }
+  ): Promise<any> {
     const server = this.servers.get(serverName);
     if (!server || server.status !== 'running') {
       throw new Error(`Server ${serverName} is not running`);
@@ -615,27 +645,26 @@ export class MCPClientService extends EventEmitter {
           conversationId: context?.conversationId,
           operationId: context?.operationId,
           sessionId: context?.sessionId,
-          securityLevel: 'medium'
+          securityLevel: 'medium',
         });
         jobId = toolCall.id;
-        
+
         // Start the job
         await mcpService.startToolCall(jobId);
       }
 
       const startTime = Date.now();
-      
+
       const response = await this.sendRequest(serverName, 'tools/call', {
         name: toolName,
-        arguments: parameters
+        arguments: parameters,
       });
 
       const executionTime = Date.now() - startTime;
-      server.stats.averageResponseTime = 
-        (server.stats.averageResponseTime + executionTime) / 2;
+      server.stats.averageResponseTime = (server.stats.averageResponseTime + executionTime) / 2;
 
       this.addLog(serverName, `← ${toolName}: ${JSON.stringify(response).substring(0, 100)}...`);
-      
+
       // Complete the job in database
       if (this.databaseService && jobId) {
         const mcpService = this.databaseService.getMCPService();
@@ -643,7 +672,14 @@ export class MCPClientService extends EventEmitter {
       }
 
       // Track tool execution in Neo4j graph
-      await this.trackToolExecution(serverName, toolName, executionTime, true, context?.agentId, jobId);
+      await this.trackToolExecution(
+        serverName,
+        toolName,
+        executionTime,
+        true,
+        context?.agentId,
+        jobId
+      );
 
       // Publish success event
       await this.publishEvent('mcp.tool.executed', {
@@ -654,13 +690,13 @@ export class MCPClientService extends EventEmitter {
         executionTimeMs: executionTime,
         success: true,
         jobId,
-        ...context
+        ...context,
       });
-      
+
       return response;
     } catch (error) {
       this.addLog(serverName, `✗ ${toolName}: ${error.message}`);
-      
+
       // Fail the job in database
       if (this.databaseService && jobId) {
         const mcpService = this.databaseService.getMCPService();
@@ -669,7 +705,14 @@ export class MCPClientService extends EventEmitter {
 
       // Track failed tool execution in Neo4j graph
       const executionTime = Date.now() - (Date.now() - 1000); // Approximate execution time
-      await this.trackToolExecution(serverName, toolName, executionTime, false, context?.agentId, jobId);
+      await this.trackToolExecution(
+        serverName,
+        toolName,
+        executionTime,
+        false,
+        context?.agentId,
+        jobId
+      );
 
       // Publish failure event
       await this.publishEvent('mcp.tool.failed', {
@@ -679,7 +722,7 @@ export class MCPClientService extends EventEmitter {
         error: error.message,
         success: false,
         jobId,
-        ...context
+        ...context,
       });
 
       throw error;
@@ -688,10 +731,10 @@ export class MCPClientService extends EventEmitter {
 
   // Track tool execution in Neo4j graph
   private async trackToolExecution(
-    serverName: string, 
-    toolName: string, 
-    executionTime: number, 
-    success: boolean, 
+    serverName: string,
+    toolName: string,
+    executionTime: number,
+    success: boolean,
     agentId?: string,
     jobId?: string | null
   ): Promise<void> {
@@ -701,18 +744,18 @@ export class MCPClientService extends EventEmitter {
 
     try {
       const toolId = `mcp-${serverName}-${toolName}`;
-      
+
       // Update or create agent usage pattern if agentId provided
       if (agentId) {
         await this.toolGraphDatabase.incrementUsage(agentId, toolId, executionTime, success);
-        
+
         // Create agent node if it doesn't exist
         await this.toolGraphDatabase.createAgentNode({
           id: agentId,
           name: `Agent-${agentId}`,
           role: 'assistant',
           isActive: true,
-          capabilities: []
+          capabilities: [],
         });
       }
 
@@ -729,12 +772,14 @@ export class MCPClientService extends EventEmitter {
           metadata: {
             executionTimeMs: executionTime,
             success,
-            serverName
-          }
+            serverName,
+          },
         });
       }
 
-      logger.debug(`Tool execution tracked: ${toolId} (success: ${success}, time: ${executionTime}ms)`);
+      logger.debug(
+        `Tool execution tracked: ${toolId} (success: ${success}, time: ${executionTime}ms)`
+      );
     } catch (error) {
       logger.warn(`Failed to track tool execution in graph for ${toolName}:`, error);
     }
@@ -745,8 +790,11 @@ export class MCPClientService extends EventEmitter {
     const server = this.servers.get(serverName)!;
 
     process.stdout?.on('data', (data) => {
-      const lines = data.toString().split('\n').filter(line => line.trim());
-      
+      const lines = data
+        .toString()
+        .split('\n')
+        .filter((line) => line.trim());
+
       for (const line of lines) {
         try {
           const message = JSON.parse(line);
@@ -768,10 +816,10 @@ export class MCPClientService extends EventEmitter {
       server.status = 'stopped';
       server.process = undefined;
       server.pid = undefined;
-      
+
       this.addLog(serverName, `Process exited: code=${code}, signal=${signal}`);
       this.emit('serverStopped', { serverName, code, signal });
-      
+
       if (code !== 0) {
         logger.error(`MCP server ${serverName} exited with code ${code}`);
         server.status = 'error';
@@ -794,7 +842,7 @@ export class MCPClientService extends EventEmitter {
       const pendingRequest = this.pendingRequests.get(message.id);
       if (pendingRequest) {
         this.pendingRequests.delete(message.id);
-        
+
         if (message.error) {
           pendingRequest.reject(new Error(`${message.error.message} (${message.error.code})`));
         } else {
@@ -810,7 +858,7 @@ export class MCPClientService extends EventEmitter {
   private handleNotification(serverName: string, notification: any): void {
     this.addLog(serverName, `← ${notification.method}: ${JSON.stringify(notification.params)}`);
     this.emit('notification', { serverName, notification });
-    
+
     // Handle specific notifications
     switch (notification.method) {
       case 'notifications/tools/list_changed':
@@ -837,19 +885,31 @@ export class MCPClientService extends EventEmitter {
       // Command not found, provide helpful suggestions and fallbacks
       let suggestion = '';
       let fallbackConfig: MCPServerConfig | undefined;
-      
+
       switch (command) {
         case 'uvx':
-          suggestion = 'Install uv with: curl -LsSf https://astral.sh/uv/install.sh | sh, then restart your terminal.';
+          suggestion =
+            'Install uv with: curl -LsSf https://astral.sh/uv/install.sh | sh, then restart your terminal.';
           // Try python fallback for MCP servers that support it
-          const pythonAvailable = await this.isCommandAvailable('python3') || await this.isCommandAvailable('python');
+          const pythonAvailable =
+            (await this.isCommandAvailable('python3')) || (await this.isCommandAvailable('python'));
           if (pythonAvailable) {
-            const pythonCmd = await this.isCommandAvailable('python3') ? 'python3' : 'python';
+            const pythonCmd = (await this.isCommandAvailable('python3')) ? 'python3' : 'python';
             suggestion += ` Alternatively, you can try using python directly.`;
             fallbackConfig = {
               command: pythonCmd,
-              args: ['-m', 'pip', 'install', '--user', 'mcp-server-duckduckgo', '&&', pythonCmd, '-m', 'mcp_server_duckduckgo'],
-              env: {}
+              args: [
+                '-m',
+                'pip',
+                'install',
+                '--user',
+                'mcp-server-duckduckgo',
+                '&&',
+                pythonCmd,
+                '-m',
+                'mcp_server_duckduckgo',
+              ],
+              env: {},
             };
           }
           break;
@@ -862,7 +922,8 @@ export class MCPClientService extends EventEmitter {
           break;
         case 'python':
         case 'python3':
-          suggestion = 'Install Python from https://python.org/ or use your system package manager.';
+          suggestion =
+            'Install Python from https://python.org/ or use your system package manager.';
           break;
         case 'node':
           suggestion = 'Install Node.js from https://nodejs.org/';
@@ -870,7 +931,7 @@ export class MCPClientService extends EventEmitter {
         default:
           suggestion = `Make sure '${command}' is installed and available in your PATH.`;
       }
-      
+
       return { isValid: false, suggestion, fallbackConfig };
     }
   }
@@ -901,16 +962,16 @@ export class MCPClientService extends EventEmitter {
     try {
       const configContent = await fs.readFile(this.configPath, 'utf-8');
       const fullConfig = JSON.parse(configContent);
-      
+
       if (!fullConfig.mcpServers) {
         fullConfig.mcpServers = {};
       }
-      
+
       fullConfig.mcpServers[serverName] = config;
-      
+
       await fs.writeFile(this.configPath, JSON.stringify(fullConfig, null, 2));
       logger.info(`Updated MCP server config for ${serverName}`);
-      
+
       this.emit('configUpdated', { serverName, config });
     } catch (error) {
       logger.error(`Failed to update MCP config for ${serverName}:`, error);
@@ -926,19 +987,19 @@ export class MCPClientService extends EventEmitter {
 
   async uninstallServer(serverName: string): Promise<void> {
     await this.stopServer(serverName);
-    
+
     try {
       const configContent = await fs.readFile(this.configPath, 'utf-8');
       const fullConfig = JSON.parse(configContent);
-      
+
       if (fullConfig.mcpServers) {
         delete fullConfig.mcpServers[serverName];
         await fs.writeFile(this.configPath, JSON.stringify(fullConfig, null, 2));
       }
-      
+
       this.servers.delete(serverName);
       logger.info(`Uninstalled MCP server: ${serverName}`);
-      
+
       this.emit('serverUninstalled', { serverName });
     } catch (error) {
       logger.error(`Failed to uninstall MCP server ${serverName}:`, error);
@@ -978,14 +1039,14 @@ export class MCPClientService extends EventEmitter {
     if (server) {
       const timestamp = new Date().toISOString();
       const logEntry = `[${timestamp}] ${message}`;
-      
+
       server.logs.push(logEntry);
-      
+
       // Keep only last 1000 log entries
       if (server.logs.length > 1000) {
         server.logs = server.logs.slice(-1000);
       }
-      
+
       this.emit('log', { serverName, message: logEntry });
     }
   }
@@ -1002,27 +1063,27 @@ export class MCPClientService extends EventEmitter {
   getServerLogs(serverName: string, limit?: number): string[] {
     const server = this.servers.get(serverName);
     if (!server) return [];
-    
+
     const logs = server.logs;
     return limit ? logs.slice(-limit) : logs;
   }
 
   async startAllServers(): Promise<void> {
     const config = await this.loadAllConfigs();
-    const startPromises = Object.keys(config.mcpServers || {}).map(
-      serverName => this.startServer(serverName).catch(error => 
+    const startPromises = Object.keys(config.mcpServers || {}).map((serverName) =>
+      this.startServer(serverName).catch((error) =>
         logger.error(`Failed to start ${serverName}:`, error)
       )
     );
-    
+
     await Promise.allSettled(startPromises);
   }
 
   async stopAllServers(): Promise<void> {
-    const stopPromises = Array.from(this.servers.keys()).map(
-      serverName => this.stopServer(serverName)
+    const stopPromises = Array.from(this.servers.keys()).map((serverName) =>
+      this.stopServer(serverName)
     );
-    
+
     await Promise.allSettled(stopPromises);
   }
 
@@ -1065,18 +1126,18 @@ export class MCPClientService extends EventEmitter {
       await this.eventBusService.subscribe('mcp.tool.execute', async (event) => {
         try {
           const result = await this.executeTool(
-            event.data.serverName, 
-            event.data.toolName, 
+            event.data.serverName,
+            event.data.toolName,
             event.data.parameters,
             {
               agentId: event.data.agentId,
               userId: event.data.userId,
               conversationId: event.data.conversationId,
               operationId: event.data.operationId,
-              sessionId: event.data.sessionId
+              sessionId: event.data.sessionId,
             }
           );
-          
+
           await this.publishEvent('mcp.tool.executed', {
             requestId: event.data.requestId,
             serverName: event.data.serverName,
@@ -1087,7 +1148,7 @@ export class MCPClientService extends EventEmitter {
             userId: event.data.userId,
             conversationId: event.data.conversationId,
             operationId: event.data.operationId,
-            sessionId: event.data.sessionId
+            sessionId: event.data.sessionId,
           });
         } catch (error) {
           await this.publishEvent('mcp.tool.executed', {
@@ -1100,7 +1161,7 @@ export class MCPClientService extends EventEmitter {
             userId: event.data.userId,
             conversationId: event.data.conversationId,
             operationId: event.data.operationId,
-            sessionId: event.data.sessionId
+            sessionId: event.data.sessionId,
           });
         }
       });
@@ -1109,14 +1170,14 @@ export class MCPClientService extends EventEmitter {
         const servers = this.getAllServers();
         await this.publishEvent('mcp.status.response', {
           requestId: event.data.requestId,
-          servers: servers.map(server => ({
+          servers: servers.map((server) => ({
             name: server.name,
             status: server.status,
             pid: server.pid,
             uptime: server.stats.uptime,
             toolCount: server.tools?.length || 0,
-            lastHealthCheck: server.lastHealthCheck
-          }))
+            lastHealthCheck: server.lastHealthCheck,
+          })),
         });
       });
 
@@ -1126,14 +1187,15 @@ export class MCPClientService extends EventEmitter {
         await this.publishEvent('agent.tools.response', {
           requestId: event.data.requestId,
           agentId: event.data.agentId,
-          tools: availableTools
+          tools: availableTools,
         });
       });
 
       // Tool execution requests from agents
       await this.eventBusService.subscribe('agent.tool.execute', async (event) => {
-        const { toolId, parameters, agentId, userId, conversationId, operationId, sessionId } = event.data;
-        
+        const { toolId, parameters, agentId, userId, conversationId, operationId, sessionId } =
+          event.data;
+
         // Parse MCP tool ID to get server and tool name
         const mcpToolMatch = toolId.match(/^mcp-([^-]+)-(.+)$/);
         if (!mcpToolMatch) {
@@ -1141,20 +1203,20 @@ export class MCPClientService extends EventEmitter {
             requestId: event.data.requestId,
             agentId,
             error: 'Invalid MCP tool ID format',
-            toolId
+            toolId,
           });
           return;
         }
 
         const [, serverName, toolName] = mcpToolMatch;
-        
+
         try {
           const result = await this.executeTool(serverName, toolName, parameters, {
             agentId,
             userId,
             conversationId,
             operationId,
-            sessionId
+            sessionId,
           });
 
           await this.publishEvent('agent.tool.result', {
@@ -1162,7 +1224,7 @@ export class MCPClientService extends EventEmitter {
             agentId,
             toolId,
             result,
-            success: true
+            success: true,
           });
         } catch (error) {
           await this.publishEvent('agent.tool.error', {
@@ -1170,7 +1232,7 @@ export class MCPClientService extends EventEmitter {
             agentId,
             toolId,
             error: error.message,
-            success: false
+            success: false,
           });
         }
       });
@@ -1188,7 +1250,7 @@ export class MCPClientService extends EventEmitter {
       await this.eventBusService.publish(channel, {
         ...data,
         source: 'mcp-client-service',
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
       });
     } catch (error) {
       logger.error('Failed to publish MCP event:', { channel, error });
@@ -1199,9 +1261,9 @@ export class MCPClientService extends EventEmitter {
     try {
       const config = await this.loadAllConfigs();
       const serverNames = Object.keys(config.mcpServers || {});
-      
+
       logger.info(`Auto-starting ${serverNames.length} MCP servers`);
-      
+
       for (const serverName of serverNames) {
         try {
           await this.startServer(serverName);
@@ -1227,17 +1289,21 @@ export class MCPClientService extends EventEmitter {
           }
           // Verify installation
           return await this.isCommandAvailable('uvx');
-          
+
         case 'python':
         case 'python3':
-          logger.warn('Python installation requires manual setup. Please install from https://python.org/');
+          logger.warn(
+            'Python installation requires manual setup. Please install from https://python.org/'
+          );
           return false;
-          
+
         case 'node':
         case 'npx':
-          logger.warn('Node.js installation requires manual setup. Please install from https://nodejs.org/');
+          logger.warn(
+            'Node.js installation requires manual setup. Please install from https://nodejs.org/'
+          );
           return false;
-          
+
         default:
           logger.warn(`Unknown tool '${tool}' - cannot auto-install`);
           return false;
@@ -1258,11 +1324,11 @@ export class MCPClientService extends EventEmitter {
   }> {
     const commonTools = ['uvx', 'npx', 'python3', 'python', 'node'];
     const requirements = [];
-    
+
     for (const tool of commonTools) {
       const available = await this.isCommandAvailable(tool);
       let suggestion;
-      
+
       if (!available) {
         switch (tool) {
           case 'uvx':
@@ -1278,17 +1344,17 @@ export class MCPClientService extends EventEmitter {
             break;
         }
       }
-      
+
       requirements.push({
         tool,
         available,
-        suggestion
+        suggestion,
       });
     }
-    
+
     return {
       system: `${process.platform} ${process.arch}`,
-      requirements
+      requirements,
     };
   }
 
@@ -1310,15 +1376,15 @@ export class MCPClientService extends EventEmitter {
       resources: server.resources,
       prompts: server.prompts,
       stats: server.stats,
-      recentLogs: server.logs.slice(-10) // Last 10 log entries
+      recentLogs: server.logs.slice(-10), // Last 10 log entries
     };
   }
 
   async getSystemStatus(): Promise<any> {
     const servers = this.getAllServers();
     const totalServers = servers.length;
-    const runningServers = servers.filter(s => s.status === 'running').length;
-    const errorServers = servers.filter(s => s.status === 'error').length;
+    const runningServers = servers.filter((s) => s.status === 'running').length;
+    const errorServers = servers.filter((s) => s.status === 'error').length;
     const totalTools = servers.reduce((sum, s) => sum + (s.tools?.length || 0), 0);
 
     return {
@@ -1329,21 +1395,21 @@ export class MCPClientService extends EventEmitter {
       totalTools,
       uptime: process.uptime(),
       healthStatus: errorServers === 0 ? 'healthy' : 'degraded',
-      servers: servers.map(server => ({
+      servers: servers.map((server) => ({
         name: server.name,
         status: server.status,
         pid: server.pid,
         toolCount: server.tools?.length || 0,
         uptime: server.stats.uptime,
-        lastHealthCheck: server.lastHealthCheck
-      }))
+        lastHealthCheck: server.lastHealthCheck,
+      })),
     };
   }
 
   // Agent tool discovery
   getAvailableToolsForAgent(agentId?: string): any[] {
     const availableTools: any[] = [];
-    
+
     for (const [serverName, server] of this.servers.entries()) {
       if (server.status === 'running' && server.tools) {
         for (const tool of server.tools) {
@@ -1362,20 +1428,20 @@ export class MCPClientService extends EventEmitter {
               mcpTool: tool.name,
               protocol: 'mcp',
               serverStatus: server.status,
-              lastHealthCheck: server.lastHealthCheck
-            }
+              lastHealthCheck: server.lastHealthCheck,
+            },
           });
         }
       }
     }
-    
+
     return availableTools;
   }
 
   // Get tools by category for agents
   getToolsByCategory(category: string): any[] {
     const tools = this.getAvailableToolsForAgent();
-    return tools.filter(tool => tool.category === category);
+    return tools.filter((tool) => tool.category === category);
   }
 
   // Get tools by server for agents
@@ -1385,7 +1451,7 @@ export class MCPClientService extends EventEmitter {
       return [];
     }
 
-    return server.tools.map(tool => ({
+    return server.tools.map((tool) => ({
       id: `mcp-${serverName}-${tool.name}`,
       name: tool.name,
       description: tool.description || `${tool.name} from ${serverName} MCP server`,
@@ -1400,8 +1466,8 @@ export class MCPClientService extends EventEmitter {
         mcpTool: tool.name,
         protocol: 'mcp',
         serverStatus: server.status,
-        lastHealthCheck: server.lastHealthCheck
-      }
+        lastHealthCheck: server.lastHealthCheck,
+      },
     }));
   }
 
@@ -1419,7 +1485,7 @@ export class MCPClientService extends EventEmitter {
     this.on('log', logHandler);
 
     logStream._read = () => {};
-    
+
     logStream.on('close', () => {
       this.off('log', logHandler);
     });
@@ -1445,10 +1511,10 @@ export class MCPClientService extends EventEmitter {
           const serverResources = response.result.resources.map((resource: any) => ({
             ...resource,
             serverName: name,
-            discoveredAt: new Date().toISOString()
+            discoveredAt: new Date().toISOString(),
           }));
           resources.push(...serverResources);
-          
+
           // Cache resources on server state
           server.resources = serverResources;
         }
@@ -1493,10 +1559,10 @@ export class MCPClientService extends EventEmitter {
           const serverPrompts = response.result.prompts.map((prompt: any) => ({
             ...prompt,
             serverName: name,
-            discoveredAt: new Date().toISOString()
+            discoveredAt: new Date().toISOString(),
           }));
           prompts.push(...serverPrompts);
-          
+
           // Cache prompts on server state
           server.prompts = serverPrompts;
         }
@@ -1508,14 +1574,21 @@ export class MCPClientService extends EventEmitter {
     return prompts;
   }
 
-  async getPrompt(serverName: string, name: string, promptArgs?: Record<string, any>): Promise<any> {
+  async getPrompt(
+    serverName: string,
+    name: string,
+    promptArgs?: Record<string, any>
+  ): Promise<any> {
     const server = this.servers.get(serverName);
     if (!server || server.status !== 'running') {
       throw new Error(`Server ${serverName} is not running`);
     }
 
     try {
-      const response = await this.sendRequest(serverName, 'prompts/get', { name, arguments: promptArgs });
+      const response = await this.sendRequest(serverName, 'prompts/get', {
+        name,
+        arguments: promptArgs,
+      });
 
       return response.result;
     } catch (error) {
@@ -1525,31 +1598,37 @@ export class MCPClientService extends EventEmitter {
   }
 
   // Single Tool Selection from Multi-Tool Servers
-  async getSelectableToolsFromServer(serverName: string): Promise<Array<{
-    id: string;
-    name: string;
-    description: string;
-    serverName: string;
-    inputSchema: any;
-    selectable: boolean;
-  }>> {
+  async getSelectableToolsFromServer(serverName: string): Promise<
+    Array<{
+      id: string;
+      name: string;
+      description: string;
+      serverName: string;
+      inputSchema: any;
+      selectable: boolean;
+    }>
+  > {
     const server = this.servers.get(serverName);
     if (!server || server.status !== 'running') {
       return [];
     }
 
     const tools = server.tools || [];
-    return tools.map(tool => ({
+    return tools.map((tool) => ({
       id: `${serverName}:${tool.name}`,
       name: tool.name,
       description: tool.description || `${tool.name} from ${serverName}`,
       serverName,
       inputSchema: tool.inputSchema,
-      selectable: true
+      selectable: true,
     }));
   }
 
-  async attachSingleToolToAgent(agentId: string, serverName: string, toolName: string): Promise<{
+  async attachSingleToolToAgent(
+    agentId: string,
+    serverName: string,
+    toolName: string
+  ): Promise<{
     success: boolean;
     toolId: string;
     assignment?: any;
@@ -1560,18 +1639,18 @@ export class MCPClientService extends EventEmitter {
         throw new Error(`Server ${serverName} is not running`);
       }
 
-      const tool = server.tools?.find(t => t.name === toolName);
+      const tool = server.tools?.find((t) => t.name === toolName);
       if (!tool) {
         throw new Error(`Tool ${toolName} not found in server ${serverName}`);
       }
 
       const toolId = `mcp:${serverName}:${toolName}`;
-      
+
       // Create tool assignment in database (using existing patterns)
       if (this.databaseService) {
         const toolService = this.databaseService.tools;
         const agentService = this.databaseService.agents;
-        
+
         // Check if agent exists
         const agent = await agentService.findAgentById(agentId);
         if (!agent) {
@@ -1587,9 +1666,9 @@ export class MCPClientService extends EventEmitter {
           inputSchema: tool.inputSchema,
           configuration: {
             mcpServer: serverName,
-            mcpTool: toolName
+            mcpTool: toolName,
           },
-          version: '1.0.0'
+          version: '1.0.0',
         };
 
         // Create the specific tool definition
@@ -1602,30 +1681,34 @@ export class MCPClientService extends EventEmitter {
           customConfig: {
             mcpServer: serverName,
             mcpTool: toolName,
-            selectiveAttachment: true
-          }
+            selectiveAttachment: true,
+          },
         });
 
-        logger.info(`Attached single tool ${toolName} from server ${serverName} to agent ${agentId}`);
+        logger.info(
+          `Attached single tool ${toolName} from server ${serverName} to agent ${agentId}`
+        );
 
         return {
           success: true,
           toolId: createdTool.id,
-          assignment
+          assignment,
         };
       }
 
       // Fallback if no database service
       return {
         success: true,
-        toolId
+        toolId,
       };
-
     } catch (error) {
-      logger.error(`Failed to attach tool ${toolName} from server ${serverName} to agent ${agentId}:`, error);
+      logger.error(
+        `Failed to attach tool ${toolName} from server ${serverName} to agent ${agentId}:`,
+        error
+      );
       return {
         success: false,
-        toolId: `mcp:${serverName}:${toolName}`
+        toolId: `mcp:${serverName}:${toolName}`,
       };
     }
   }
@@ -1638,7 +1721,7 @@ export class MCPClientService extends EventEmitter {
     }
 
     logger.info(`Attempting to recover server: ${serverName}`);
-    
+
     try {
       // Stop if running
       if (server.status === 'running' || server.status === 'error') {
@@ -1646,24 +1729,28 @@ export class MCPClientService extends EventEmitter {
       }
 
       // Wait a moment
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      await new Promise((resolve) => setTimeout(resolve, 2000));
 
       // Restart
       await this.startServer(serverName);
-      
+
       await this.publishEvent('mcp.server.recovered', { serverName });
       logger.info(`Server recovered successfully: ${serverName}`);
     } catch (error) {
-      await this.publishEvent('mcp.server.recovery_failed', { 
-        serverName, 
-        error: error.message 
+      await this.publishEvent('mcp.server.recovery_failed', {
+        serverName,
+        error: error.message,
       });
       throw error;
     }
   }
 
   // Graph-based tool recommendations and analytics methods
-  async getToolRecommendations(agentId: string, context?: string, limit: number = 5): Promise<any[]> {
+  async getToolRecommendations(
+    agentId: string,
+    context?: string,
+    limit: number = 5
+  ): Promise<any[]> {
     if (!this.toolGraphDatabase) {
       logger.warn('Tool recommendations requested but graph database not available');
       return [];
@@ -1681,7 +1768,12 @@ export class MCPClientService extends EventEmitter {
     }
   }
 
-  async getRelatedTools(toolId: string, relationshipTypes?: string[], minStrength: number = 0.5, limit: number = 10): Promise<any[]> {
+  async getRelatedTools(
+    toolId: string,
+    relationshipTypes?: string[],
+    minStrength: number = 0.5,
+    limit: number = 10
+  ): Promise<any[]> {
     if (!this.toolGraphDatabase) {
       logger.warn('Related tools requested but graph database not available');
       return [];
@@ -1707,13 +1799,16 @@ export class MCPClientService extends EventEmitter {
         // Get all tools from this server and aggregate their analytics
         const serverTools = Array.from(this.servers.get(serverName)?.tools || []);
         const analytics = [];
-        
+
         for (const tool of serverTools) {
           const mcpToolId = `mcp-${serverName}-${tool.name}`;
-          const toolAnalytics = await this.toolGraphDatabase.getToolUsageAnalytics(mcpToolId, agentId);
+          const toolAnalytics = await this.toolGraphDatabase.getToolUsageAnalytics(
+            mcpToolId,
+            agentId
+          );
           analytics.push(...toolAnalytics);
         }
-        
+
         return analytics;
       } else {
         return await this.toolGraphDatabase.getToolUsageAnalytics(toolId, agentId);
@@ -1732,14 +1827,14 @@ export class MCPClientService extends EventEmitter {
         features: {
           toolRecommendations: false,
           usageAnalytics: false,
-          relationshipTracking: false
-        }
+          relationshipTracking: false,
+        },
       };
     }
 
     try {
       const connectionStatus = this.toolGraphDatabase.getConnectionStatus();
-      
+
       // Get some basic statistics if connected
       let statistics = {};
       if (connectionStatus.isConnected) {
@@ -1747,11 +1842,11 @@ export class MCPClientService extends EventEmitter {
           const popularTools = await this.toolGraphDatabase.getPopularTools(undefined, 5);
           statistics = {
             totalPopularTools: popularTools.length,
-            samplePopularTools: popularTools.slice(0, 3).map(t => ({
+            samplePopularTools: popularTools.slice(0, 3).map((t) => ({
               toolId: t.toolId,
               totalUsage: t.totalUsage,
-              avgSuccessRate: t.avgSuccessRate
-            }))
+              avgSuccessRate: t.avgSuccessRate,
+            })),
           };
         } catch (statError) {
           logger.warn('Failed to get graph statistics:', statError);
@@ -1767,10 +1862,10 @@ export class MCPClientService extends EventEmitter {
           toolRecommendations: connectionStatus.isConnected,
           usageAnalytics: connectionStatus.isConnected,
           relationshipTracking: connectionStatus.isConnected,
-          mcpIntegration: connectionStatus.isConnected
+          mcpIntegration: connectionStatus.isConnected,
         },
         statistics,
-        lastChecked: new Date().toISOString()
+        lastChecked: new Date().toISOString(),
       };
     } catch (error) {
       logger.error('Failed to get graph status:', error);
@@ -1780,8 +1875,8 @@ export class MCPClientService extends EventEmitter {
         features: {
           toolRecommendations: false,
           usageAnalytics: false,
-          relationshipTracking: false
-        }
+          relationshipTracking: false,
+        },
       };
     }
   }
@@ -1789,15 +1884,15 @@ export class MCPClientService extends EventEmitter {
   // Cleanup
   async shutdown(): Promise<void> {
     logger.info('Shutting down MCP Client Service');
-    
+
     if (this.healthCheckInterval) {
       clearInterval(this.healthCheckInterval);
     }
-    
+
     await this.stopAllServers();
     await this.publishEvent('mcp.service.shutdown', { timestamp: new Date() });
     this.removeAllListeners();
-    
+
     logger.info('MCP Client Service shutdown completed');
   }
 }

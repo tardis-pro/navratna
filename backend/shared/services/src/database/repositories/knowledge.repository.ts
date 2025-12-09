@@ -6,7 +6,7 @@ import {
   KnowledgeRelationship,
   KnowledgeType,
   SourceType,
-  KnowledgeScope
+  KnowledgeScope,
 } from '@uaip/types';
 import { KnowledgeItemEntity } from '../../entities/knowledge-item.entity.js';
 import { KnowledgeRelationshipEntity } from '../../entities/knowledge-relationship.entity.js';
@@ -17,7 +17,9 @@ export class KnowledgeRepository {
     private readonly relationshipRepo: Repository<KnowledgeRelationshipEntity>
   ) {}
 
-  async create(request: KnowledgeIngestRequest & { userId?: string; agentId?: string; summary?: string }): Promise<KnowledgeItem> {
+  async create(
+    request: KnowledgeIngestRequest & { userId?: string; agentId?: string; summary?: string }
+  ): Promise<KnowledgeItem> {
     const entity = this.knowledgeRepo.create({
       content: request.content,
       type: request.type || KnowledgeType.FACTUAL,
@@ -33,7 +35,7 @@ export class KnowledgeRepository {
       // Three-layered knowledge architecture
       userId: request.userId,
       agentId: request.agentId,
-      summary: request.summary
+      summary: request.summary,
     });
 
     const saved = await this.knowledgeRepo.save(entity);
@@ -44,7 +46,7 @@ export class KnowledgeRepository {
     const numericId = id;
     await this.knowledgeRepo.update(numericId, {
       ...updates,
-      updatedAt: new Date()
+      updatedAt: new Date(),
     });
 
     const updated = await this.knowledgeRepo.findOne({ where: { id: numericId } });
@@ -59,10 +61,10 @@ export class KnowledgeRepository {
     const numericId = id;
     // Delete relationships first
     await this.relationshipRepo.delete({
-      sourceItemId: numericId
+      sourceItemId: numericId,
     });
     await this.relationshipRepo.delete({
-      targetItemId: numericId
+      targetItemId: numericId,
     });
 
     // Delete the knowledge item
@@ -75,19 +77,24 @@ export class KnowledgeRepository {
   }
 
   async getItems(ids: string[]): Promise<KnowledgeItem[]> {
-    const numericIds = ids.map(id => id);
+    const numericIds = ids.map((id) => id);
     const entities = await this.knowledgeRepo.find({
-      where: { id: In(numericIds) }
+      where: { id: In(numericIds) },
     });
-    return entities.map(entity => this.entityToModel(entity));
+    return entities.map((entity) => this.entityToModel(entity));
   }
 
-  async applyFilters(vectorResults: any[], filters?: KnowledgeFilters, scope?: KnowledgeScope): Promise<KnowledgeItem[]> {
+  async applyFilters(
+    vectorResults: any[],
+    filters?: KnowledgeFilters,
+    scope?: KnowledgeScope
+  ): Promise<KnowledgeItem[]> {
     if (!vectorResults.length) return [];
 
-    const knowledgeItemIds = vectorResults.map(r => r.payload?.knowledge_item_id).filter(Boolean);
-    
-    let query = this.knowledgeRepo.createQueryBuilder('ki')
+    const knowledgeItemIds = vectorResults.map((r) => r.payload?.knowledge_item_id).filter(Boolean);
+
+    let query = this.knowledgeRepo
+      .createQueryBuilder('ki')
       .where('ki.id IN (:...ids)', { ids: knowledgeItemIds });
 
     // Apply scope filtering
@@ -109,39 +116,48 @@ export class KnowledgeRepository {
       }
 
       if (filters.sourceTypes?.length) {
-        query = query.andWhere('ki.sourceType IN (:...sourceTypes)', { sourceTypes: filters.sourceTypes });
+        query = query.andWhere('ki.sourceType IN (:...sourceTypes)', {
+          sourceTypes: filters.sourceTypes,
+        });
       }
 
       if (filters.timeRange) {
         query = query.andWhere('ki.createdAt BETWEEN :start AND :end', {
           start: filters.timeRange.start,
-          end: filters.timeRange.end
+          end: filters.timeRange.end,
         });
       }
     }
 
     const entities = await query.getMany();
-    
+
     // Maintain the order from vector search results
-    const entityMap = new Map(entities.map(e => [e.id, e]));
+    const entityMap = new Map(entities.map((e) => [e.id, e]));
     const orderedEntities = knowledgeItemIds
-      .map(id => entityMap.get(id))
+      .map((id) => entityMap.get(id))
       .filter(Boolean) as KnowledgeItemEntity[];
 
-    return orderedEntities.map(entity => this.entityToModel(entity));
+    return orderedEntities.map((entity) => this.entityToModel(entity));
   }
 
   async hydrate(vectorResults: any[]): Promise<KnowledgeItem[]> {
     return this.applyFilters(vectorResults);
   }
 
-  async createRelationships(relationships: Omit<KnowledgeRelationship, 'id' | 'createdAt'>[]): Promise<void> {
-    const entities = relationships.map(rel => this.relationshipRepo.create(rel));
+  async createRelationships(
+    relationships: Omit<KnowledgeRelationship, 'id' | 'createdAt'>[]
+  ): Promise<void> {
+    const entities = relationships.map((rel) => this.relationshipRepo.create(rel));
     await this.relationshipRepo.save(entities);
   }
 
-  async getRelationships(itemId: string, relationshipTypes?: string[], scope?: KnowledgeScope): Promise<KnowledgeRelationship[]> {
-    let query = this.relationshipRepo.createQueryBuilder('kr')
+  async getRelationships(
+    itemId: string,
+    relationshipTypes?: string[],
+    scope?: KnowledgeScope
+  ): Promise<KnowledgeRelationship[]> {
+    let query = this.relationshipRepo
+      .createQueryBuilder('kr')
       .where('kr.sourceItemId = :itemId', { itemId: itemId });
 
     // Apply scope filtering
@@ -154,7 +170,7 @@ export class KnowledgeRepository {
     }
 
     const entities = await query.getMany();
-    return entities.map(entity => this.relationshipEntityToModel(entity));
+    return entities.map((entity) => this.relationshipEntityToModel(entity));
   }
 
   async getStatistics(): Promise<{
@@ -184,21 +200,27 @@ export class KnowledgeRepository {
       .select('AVG(ki.confidence)', 'average')
       .getRawOne();
 
-    const itemsByType = typeStats.reduce((acc, stat) => {
-      acc[stat.type] = parseInt(stat.count);
-      return acc;
-    }, {} as Record<string, number>);
+    const itemsByType = typeStats.reduce(
+      (acc, stat) => {
+        acc[stat.type] = parseInt(stat.count);
+        return acc;
+      },
+      {} as Record<string, number>
+    );
 
-    const itemsBySource = sourceStats.reduce((acc, stat) => {
-      acc[stat.sourceType] = parseInt(stat.count);
-      return acc;
-    }, {} as Record<string, number>);
+    const itemsBySource = sourceStats.reduce(
+      (acc, stat) => {
+        acc[stat.sourceType] = parseInt(stat.count);
+        return acc;
+      },
+      {} as Record<string, number>
+    );
 
     return {
       totalItems,
       itemsByType,
       itemsBySource,
-      averageConfidence: parseFloat(avgConfidence.average)
+      averageConfidence: parseFloat(avgConfidence.average),
     };
   }
 
@@ -210,44 +232,48 @@ export class KnowledgeRepository {
       .limit(limit)
       .getMany();
 
-    return entities.map(entity => this.entityToModel(entity));
+    return entities.map((entity) => this.entityToModel(entity));
   }
 
   async findBySourceType(sourceType: SourceType, limit: number = 10): Promise<KnowledgeItem[]> {
     const entities = await this.knowledgeRepo.find({
       where: { sourceType },
       order: { createdAt: 'DESC' },
-      take: limit
+      take: limit,
     });
 
-    return entities.map(entity => this.entityToModel(entity));
+    return entities.map((entity) => this.entityToModel(entity));
   }
 
   async findRecentItems(limit: number = 10): Promise<KnowledgeItem[]> {
     const entities = await this.knowledgeRepo.find({
       order: { createdAt: 'DESC' },
-      take: limit
+      take: limit,
     });
 
-    return entities.map(entity => this.entityToModel(entity));
+    return entities.map((entity) => this.entityToModel(entity));
   }
 
   async findAll(): Promise<KnowledgeItemEntity[]> {
     return await this.knowledgeRepo.find({
-      order: { createdAt: 'DESC' }
+      order: { createdAt: 'DESC' },
     });
   }
 
   async findAllRelationships(): Promise<KnowledgeRelationshipEntity[]> {
     return await this.relationshipRepo.find({
-      order: { createdAt: 'DESC' }
+      order: { createdAt: 'DESC' },
     });
   }
 
   // Scoped search methods
-  async findByScope(scope: KnowledgeScope, filters?: KnowledgeFilters, limit: number = 20): Promise<KnowledgeItem[]> {
+  async findByScope(
+    scope: KnowledgeScope,
+    filters?: KnowledgeFilters,
+    limit: number = 20
+  ): Promise<KnowledgeItem[]> {
     let query = this.knowledgeRepo.createQueryBuilder('ki');
-    
+
     query = this.applyScopeFilter(query, scope);
 
     if (filters) {
@@ -264,23 +290,22 @@ export class KnowledgeRepository {
       }
 
       if (filters.sourceTypes?.length) {
-        query = query.andWhere('ki.sourceType IN (:...sourceTypes)', { sourceTypes: filters.sourceTypes });
+        query = query.andWhere('ki.sourceType IN (:...sourceTypes)', {
+          sourceTypes: filters.sourceTypes,
+        });
       }
 
       if (filters.timeRange) {
         query = query.andWhere('ki.createdAt BETWEEN :start AND :end', {
           start: filters.timeRange.start,
-          end: filters.timeRange.end
+          end: filters.timeRange.end,
         });
       }
     }
 
-    const entities = await query
-      .orderBy('ki.createdAt', 'DESC')
-      .limit(limit)
-      .getMany();
+    const entities = await query.orderBy('ki.createdAt', 'DESC').limit(limit).getMany();
 
-    return entities.map(entity => this.entityToModel(entity));
+    return entities.map((entity) => this.entityToModel(entity));
   }
 
   private entityToModel(entity: KnowledgeItemEntity): KnowledgeItem {
@@ -301,7 +326,7 @@ export class KnowledgeRepository {
       accessLevel: entity.accessLevel,
       userId: entity.userId,
       agentId: entity.agentId,
-      summary: entity.summary
+      summary: entity.summary,
     };
   }
 
@@ -315,7 +340,7 @@ export class KnowledgeRepository {
       createdAt: entity.createdAt,
       userId: entity.userId,
       agentId: entity.agentId,
-      summary: entity.summary
+      summary: entity.summary,
     };
   }
 
@@ -323,43 +348,58 @@ export class KnowledgeRepository {
   private applyScopeFilter(query: any, scope: KnowledgeScope): any {
     if (scope.agentId && scope.userId) {
       // Both agent and user specified - return items for both
-      query = query.andWhere('(ki.agentId = :agentId OR ki.userId = :userId OR (ki.agentId IS NULL AND ki.userId IS NULL))', {
-        agentId: scope.agentId,
-        userId: scope.userId
-      });
+      query = query.andWhere(
+        '(ki.agentId = :agentId OR ki.userId = :userId OR (ki.agentId IS NULL AND ki.userId IS NULL))',
+        {
+          agentId: scope.agentId,
+          userId: scope.userId,
+        }
+      );
     } else if (scope.agentId) {
       // Agent-specific knowledge + general knowledge
-      query = query.andWhere('(ki.agentId = :agentId OR ki.agentId IS NULL)', { agentId: scope.agentId });
+      query = query.andWhere('(ki.agentId = :agentId OR ki.agentId IS NULL)', {
+        agentId: scope.agentId,
+      });
     } else if (scope.userId) {
       // User-specific knowledge + general knowledge
-      query = query.andWhere('(ki.userId = :userId OR ki.userId IS NULL)', { userId: scope.userId });
+      query = query.andWhere('(ki.userId = :userId OR ki.userId IS NULL)', {
+        userId: scope.userId,
+      });
     }
     // If no scope provided, return all (general knowledge)
-    
+
     return query;
   }
 
   private applyRelationshipScopeFilter(query: any, scope: KnowledgeScope): any {
     if (scope.agentId && scope.userId) {
       // Both agent and user specified - return relationships for both
-      query = query.andWhere('(kr.agentId = :agentId OR kr.userId = :userId OR (kr.agentId IS NULL AND kr.userId IS NULL))', {
-        agentId: scope.agentId,
-        userId: scope.userId
-      });
+      query = query.andWhere(
+        '(kr.agentId = :agentId OR kr.userId = :userId OR (kr.agentId IS NULL AND kr.userId IS NULL))',
+        {
+          agentId: scope.agentId,
+          userId: scope.userId,
+        }
+      );
     } else if (scope.agentId) {
       // Agent-specific relationships + general relationships
-      query = query.andWhere('(kr.agentId = :agentId OR kr.agentId IS NULL)', { agentId: scope.agentId });
+      query = query.andWhere('(kr.agentId = :agentId OR kr.agentId IS NULL)', {
+        agentId: scope.agentId,
+      });
     } else if (scope.userId) {
       // User-specific relationships + general relationships
-      query = query.andWhere('(kr.userId = :userId OR kr.userId IS NULL)', { userId: scope.userId });
+      query = query.andWhere('(kr.userId = :userId OR kr.userId IS NULL)', {
+        userId: scope.userId,
+      });
     }
     // If no scope provided, return all (general relationships)
-    
+
     return query;
   }
 
   async findByDomain(domain: string, limit?: number): Promise<KnowledgeItem[]> {
-    let query = this.knowledgeRepo.createQueryBuilder('ki')
+    let query = this.knowledgeRepo
+      .createQueryBuilder('ki')
       .where('ki.tags @> :domain', { domain: [domain] })
       .orWhere("ki.metadata->>'domain' = :domainValue", { domainValue: domain })
       .orderBy('ki.createdAt', 'DESC');
@@ -369,6 +409,6 @@ export class KnowledgeRepository {
     }
 
     const entities = await query.getMany();
-    return entities.map(entity => this.entityToModel(entity));
+    return entities.map((entity) => this.entityToModel(entity));
   }
-} 
+}

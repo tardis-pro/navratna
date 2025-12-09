@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { 
-  SparklesIcon, 
-  ChartBarIcon, 
+import {
+  SparklesIcon,
+  ChartBarIcon,
   ClockIcon,
   CheckCircleIcon,
   Brain,
@@ -27,7 +27,7 @@ import {
   Radar,
   Search,
   Filter,
-  RefreshCw
+  RefreshCw,
 } from 'lucide-react';
 import { LightBulbIcon } from '@heroicons/react/24/outline';
 import { useAgents } from '../../../contexts/AgentContext';
@@ -104,10 +104,10 @@ interface IntelligenceMetrics {
   contextualUnderstanding: number;
 }
 
-export const IntelligencePanelPortal: React.FC<IntelligencePanelPortalProps> = ({ 
+export const IntelligencePanelPortal: React.FC<IntelligencePanelPortalProps> = ({
   className,
   mode = 'analysis',
-  viewport
+  viewport,
 }) => {
   const { agents } = useAgents();
   const { messages, participants, isActive, discussionId } = useDiscussion();
@@ -117,7 +117,7 @@ export const IntelligencePanelPortal: React.FC<IntelligencePanelPortalProps> = (
     successRate: 0,
     averageConfidence: 0,
     processingTime: 0,
-    adaptationRate: 0
+    adaptationRate: 0,
   });
   const [cognitiveInsights, setCognitiveInsights] = useState<CognitiveInsight[]>([]);
   const [predictiveInsights, setPredictiveInsights] = useState<PredictiveInsight[]>([]);
@@ -129,7 +129,7 @@ export const IntelligencePanelPortal: React.FC<IntelligencePanelPortalProps> = (
     reasoningQuality: 0,
     memoryEfficiency: 0,
     patternRecognition: 0,
-    contextualUnderstanding: 0
+    contextualUnderstanding: 0,
   });
   const [selectedAgent, setSelectedAgent] = useState<string | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
@@ -141,33 +141,33 @@ export const IntelligencePanelPortal: React.FC<IntelligencePanelPortalProps> = (
   const agentList = Object.values(agents);
   const messageCount = messages?.length || 0;
   const participantCount = participants?.length || 0;
-  const activeAgentCount = agentList.filter(agent => agent.isActive).length;
+  const activeAgentCount = agentList.filter((agent) => agent.isActive).length;
 
   // Advanced AI Analysis Functions
   const performDeepAnalysis = useCallback(async () => {
     if (!messages || messages.length === 0) return;
-    
+
     setIsAnalyzing(true);
-    
+
     try {
       // Analyze conversation context using UAIP API
       const analysisRequest = {
-        conversationHistory: messages.map(msg => ({
+        conversationHistory: messages.map((msg) => ({
           content: msg.content,
           sender: msg.sender || 'unknown',
           timestamp: msg.timestamp.toISOString(),
-          type: msg.type
+          type: msg.type,
         })),
         currentContext: {
           activeAgents: agentList.length,
           discussionActive: isActive,
-          participantCount
+          participantCount,
         },
-        agentCapabilities: agentList.map(agent => agent.capabilities || []).flat()
+        agentCapabilities: agentList.map((agent) => agent.capabilities || []).flat(),
       };
 
       const contextAnalysis = await uaipAPI.ai.analyzeContext(analysisRequest);
-      
+
       if (contextAnalysis) {
         // Generate advanced insights from the analysis
         const advancedInsights: CognitiveInsight[] = [
@@ -183,8 +183,8 @@ export const IntelligencePanelPortal: React.FC<IntelligencePanelPortalProps> = (
             timestamp: new Date(),
             metadata: {
               conversationId: discussionId,
-              processingTime: contextAnalysis.processingTime
-            }
+              processingTime: contextAnalysis.processingTime,
+            },
           },
           {
             id: 'ai-insight-2',
@@ -195,11 +195,11 @@ export const IntelligencePanelPortal: React.FC<IntelligencePanelPortalProps> = (
             impact: 'medium',
             priority: 2,
             actionable: true,
-            timestamp: new Date()
-          }
+            timestamp: new Date(),
+          },
         ];
 
-        setCognitiveInsights(prev => [...advancedInsights, ...prev.slice(0, 3)]);
+        setCognitiveInsights((prev) => [...advancedInsights, ...prev.slice(0, 3)]);
       }
     } catch (error) {
       console.error('Deep analysis failed:', error);
@@ -210,19 +210,19 @@ export const IntelligencePanelPortal: React.FC<IntelligencePanelPortalProps> = (
 
   // Generate predictive insights (stable, deterministic predictions)
   const generatePredictions = useCallback(async () => {
-    const improvementPercent = Math.round(15 + (agentList.length * 5) + (messageCount * 0.5));
-    const insightCount = Math.round(2 + (participantCount * 0.5));
-    
+    const improvementPercent = Math.round(15 + agentList.length * 5 + messageCount * 0.5);
+    const insightCount = Math.round(2 + participantCount * 0.5);
+
     const predictions: PredictiveInsight[] = [
       {
         id: 'pred-1',
         type: 'performance',
         prediction: `Agent performance will improve by ${improvementPercent}% in next hour`,
-        confidence: Math.min(0.78 + (agentList.length * 0.03), 0.95),
+        confidence: Math.min(0.78 + agentList.length * 0.03, 0.95),
         timeframe: '1 hour',
         impact: 'medium',
         recommendation: 'Continue current conversation patterns for optimal learning',
-        timestamp: new Date()
+        timestamp: new Date(),
       },
       {
         id: 'pred-2',
@@ -232,8 +232,8 @@ export const IntelligencePanelPortal: React.FC<IntelligencePanelPortalProps> = (
         timeframe: '15 minutes',
         impact: 'high',
         recommendation: 'Prepare follow-up questions to maximize insight generation',
-        timestamp: new Date()
-      }
+        timestamp: new Date(),
+      },
     ];
 
     if (agentList.length > 1) {
@@ -245,7 +245,7 @@ export const IntelligencePanelPortal: React.FC<IntelligencePanelPortalProps> = (
         timeframe: '30 minutes',
         impact: 'high',
         recommendation: 'Implement turn-based discussion strategy',
-        timestamp: new Date()
+        timestamp: new Date(),
       });
     }
 
@@ -256,32 +256,36 @@ export const IntelligencePanelPortal: React.FC<IntelligencePanelPortalProps> = (
   const calculateIntelligenceMetrics = useCallback(() => {
     // Use deterministic calculations based on actual data, not random numbers
     const baseMetrics = {
-      cognitiveLoad: Math.min((messageCount * 0.1) + (agentList.length * 0.2), 10),
-      learningRate: Math.min((messageCount * 0.05) + (participantCount * 0.1), 10),
+      cognitiveLoad: Math.min(messageCount * 0.1 + agentList.length * 0.2, 10),
+      learningRate: Math.min(messageCount * 0.05 + participantCount * 0.1, 10),
       adaptabilityScore: Math.min(agentList.length * 1.2 + (isActive ? 2 : 0), 10),
-      creativityIndex: Math.min((messageCount * 0.08) + (agentList.length * 0.3), 10),
-      reasoningQuality: Math.min(7 + (agentList.length * 0.5) + (messageCount * 0.02), 10),
-      memoryEfficiency: Math.min(8 + (participantCount * 0.2), 10),
-      patternRecognition: Math.min(6 + (messageCount * 0.03) + (agentList.length * 0.4), 10),
-      contextualUnderstanding: Math.min(7.5 + (participantCount * 0.3) + (isActive ? 0.5 : 0), 10)
+      creativityIndex: Math.min(messageCount * 0.08 + agentList.length * 0.3, 10),
+      reasoningQuality: Math.min(7 + agentList.length * 0.5 + messageCount * 0.02, 10),
+      memoryEfficiency: Math.min(8 + participantCount * 0.2, 10),
+      patternRecognition: Math.min(6 + messageCount * 0.03 + agentList.length * 0.4, 10),
+      contextualUnderstanding: Math.min(7.5 + participantCount * 0.3 + (isActive ? 0.5 : 0), 10),
     };
 
     setIntelligenceMetrics(baseMetrics);
   }, [messageCount, agentList.length, participantCount, isActive]);
 
   // Memoize stable decision metrics to prevent flickering
-  const stableDecisionMetrics = useMemo(() => ({
-    totalDecisions: messageCount,
-    successRate: messageCount > 0 ? Math.min(0.85 + (agentList.length * 0.05), 1.0) : 0,
-    averageConfidence: Math.min(0.75 + (participantCount * 0.05) + (messageCount * 0.01), 1.0),
-    processingTime: 150 + (messageCount * 10) + (agentList.length * 20),
-    adaptationRate: participantCount > 0 ? Math.min(participantCount * 0.1 + (agentList.length * 0.05), 1.0) : 0
-  }), [messageCount, agentList.length, participantCount]);
+  const stableDecisionMetrics = useMemo(
+    () => ({
+      totalDecisions: messageCount,
+      successRate: messageCount > 0 ? Math.min(0.85 + agentList.length * 0.05, 1.0) : 0,
+      averageConfidence: Math.min(0.75 + participantCount * 0.05 + messageCount * 0.01, 1.0),
+      processingTime: 150 + messageCount * 10 + agentList.length * 20,
+      adaptationRate:
+        participantCount > 0 ? Math.min(participantCount * 0.1 + agentList.length * 0.05, 1.0) : 0,
+    }),
+    [messageCount, agentList.length, participantCount]
+  );
 
   // Memoize stable insights to prevent constant regeneration
   const stableInsights = useMemo(() => {
     const realInsights: CognitiveInsight[] = [];
-    
+
     if (agentList.length > 1) {
       realInsights.push({
         id: 'real-insight-1',
@@ -292,7 +296,7 @@ export const IntelligencePanelPortal: React.FC<IntelligencePanelPortalProps> = (
         impact: 'high' as const,
         priority: 1,
         actionable: true,
-        timestamp: new Date()
+        timestamp: new Date(),
       });
     }
 
@@ -306,7 +310,7 @@ export const IntelligencePanelPortal: React.FC<IntelligencePanelPortalProps> = (
         impact: 'medium' as const,
         priority: 2,
         actionable: true,
-        timestamp: new Date()
+        timestamp: new Date(),
       });
     }
 
@@ -320,7 +324,7 @@ export const IntelligencePanelPortal: React.FC<IntelligencePanelPortalProps> = (
         impact: 'high' as const,
         priority: 1,
         actionable: true,
-        timestamp: new Date()
+        timestamp: new Date(),
       });
     }
 
@@ -331,10 +335,10 @@ export const IntelligencePanelPortal: React.FC<IntelligencePanelPortalProps> = (
     // Update metrics with stable values
     setDecisionMetrics(stableDecisionMetrics);
     setCognitiveInsights(stableInsights);
-    
+
     // Calculate intelligence metrics
     calculateIntelligenceMetrics();
-    
+
     // Generate predictions only when in predictive mode
     if (analysisMode === 'predictive') {
       generatePredictions();
@@ -347,7 +351,7 @@ export const IntelligencePanelPortal: React.FC<IntelligencePanelPortalProps> = (
       const interval = setInterval(() => {
         performDeepAnalysis();
       }, refreshInterval);
-      
+
       return () => clearInterval(interval);
     }
   }, [analysisMode, refreshInterval, messageCount]); // Remove performDeepAnalysis from deps
@@ -366,18 +370,25 @@ export const IntelligencePanelPortal: React.FC<IntelligencePanelPortalProps> = (
 
   const getImpactIcon = (impact: string) => {
     switch (impact) {
-      case 'high': return <LightBulbIcon className="w-4 h-4 text-red-400" />;
-      case 'medium': return <LightBulbIcon className="w-4 h-4 text-yellow-400" />;
-      default: return <CheckCircleIcon className="w-4 h-4 text-emerald-400" />;
+      case 'high':
+        return <LightBulbIcon className="w-4 h-4 text-red-400" />;
+      case 'medium':
+        return <LightBulbIcon className="w-4 h-4 text-yellow-400" />;
+      default:
+        return <CheckCircleIcon className="w-4 h-4 text-emerald-400" />;
     }
   };
 
   const getInsightTypeIcon = (type: string) => {
     switch (type) {
-      case 'pattern': return <ChartBarIcon className="w-5 h-5" />;
-      case 'optimization': return <ChartBarIcon className="w-5 h-5" />;
-      case 'opportunity': return <LightBulbIcon className="w-5 h-5" />;
-      default: return <SparklesIcon className="w-5 h-5" />;
+      case 'pattern':
+        return <ChartBarIcon className="w-5 h-5" />;
+      case 'optimization':
+        return <ChartBarIcon className="w-5 h-5" />;
+      case 'opportunity':
+        return <LightBulbIcon className="w-5 h-5" />;
+      default:
+        return <SparklesIcon className="w-5 h-5" />;
     }
   };
 
@@ -393,12 +404,12 @@ export const IntelligencePanelPortal: React.FC<IntelligencePanelPortalProps> = (
           <div className="flex items-center gap-3">
             <motion.div
               className="w-8 h-8 bg-gradient-to-br from-purple-500 to-blue-500 rounded-lg flex items-center justify-center"
-              animate={{ 
+              animate={{
                 boxShadow: [
                   '0 0 20px rgba(147, 51, 234, 0.3)',
                   '0 0 30px rgba(147, 51, 234, 0.5)',
-                  '0 0 20px rgba(147, 51, 234, 0.3)'
-                ]
+                  '0 0 20px rgba(147, 51, 234, 0.3)',
+                ],
               }}
               transition={{ duration: 2, repeat: Infinity }}
             >
@@ -407,13 +418,15 @@ export const IntelligencePanelPortal: React.FC<IntelligencePanelPortalProps> = (
             <div>
               <h2 className="text-lg font-bold text-white">Advanced Intelligence Panel</h2>
               <p className="text-sm text-slate-400">
-                {mode === 'monitor' ? 'Real-time system monitoring' : 
-                 mode === 'insights' ? 'AI-powered insights generation' : 
-                 'Deep cognitive analysis'}
+                {mode === 'monitor'
+                  ? 'Real-time system monitoring'
+                  : mode === 'insights'
+                    ? 'AI-powered insights generation'
+                    : 'Deep cognitive analysis'}
               </p>
             </div>
           </div>
-          
+
           <div className="flex items-center gap-2">
             {/* Analysis Mode Selector */}
             <div className="flex items-center bg-slate-700/50 rounded-lg p-1">
@@ -427,12 +440,15 @@ export const IntelligencePanelPortal: React.FC<IntelligencePanelPortalProps> = (
                       : 'text-slate-400 hover:text-white'
                   }`}
                 >
-                  {modeOption === 'realtime' ? 'Real-time' : 
-                   modeOption === 'deep' ? 'Deep' : 'Predictive'}
+                  {modeOption === 'realtime'
+                    ? 'Real-time'
+                    : modeOption === 'deep'
+                      ? 'Deep'
+                      : 'Predictive'}
                 </button>
               ))}
             </div>
-            
+
             {/* Advanced Metrics Toggle */}
             <button
               onClick={() => setShowAdvancedMetrics(!showAdvancedMetrics)}
@@ -445,7 +461,7 @@ export const IntelligencePanelPortal: React.FC<IntelligencePanelPortalProps> = (
             >
               <Gauge className="w-4 h-4" />
             </button>
-            
+
             {/* Manual Analysis Trigger */}
             <button
               onClick={performDeepAnalysis}
@@ -457,7 +473,7 @@ export const IntelligencePanelPortal: React.FC<IntelligencePanelPortalProps> = (
             </button>
           </div>
         </div>
-        
+
         {/* Analysis Status */}
         {isAnalyzing && (
           <motion.div
@@ -467,7 +483,7 @@ export const IntelligencePanelPortal: React.FC<IntelligencePanelPortalProps> = (
           >
             <motion.div
               animate={{ rotate: 360 }}
-              transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
+              transition={{ duration: 2, repeat: Infinity, ease: 'linear' }}
             >
               <Cpu className="w-4 h-4" />
             </motion.div>
@@ -487,7 +503,7 @@ export const IntelligencePanelPortal: React.FC<IntelligencePanelPortalProps> = (
             <Atom className="w-5 h-5 mr-3 text-cyan-400" />
             Cognitive Intelligence Metrics
           </h3>
-          
+
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             {Object.entries(intelligenceMetrics).map(([key, value], index) => (
               <motion.div
@@ -501,9 +517,7 @@ export const IntelligencePanelPortal: React.FC<IntelligencePanelPortalProps> = (
                   <span className="text-xs text-slate-400 capitalize">
                     {key.replace(/([A-Z])/g, ' $1').trim()}
                   </span>
-                  <span className="text-sm font-bold text-cyan-400">
-                    {value.toFixed(1)}/10
-                  </span>
+                  <span className="text-sm font-bold text-cyan-400">{value.toFixed(1)}/10</span>
                 </div>
                 <div className="w-full bg-slate-700/50 rounded-full h-2">
                   <motion.div
@@ -511,9 +525,11 @@ export const IntelligencePanelPortal: React.FC<IntelligencePanelPortalProps> = (
                     animate={{ width: `${(value / 10) * 100}%` }}
                     transition={{ delay: index * 0.1, duration: 1 }}
                     className={`h-2 rounded-full bg-gradient-to-r ${
-                      value >= 8 ? 'from-green-500 to-emerald-500' :
-                      value >= 6 ? 'from-yellow-500 to-orange-500' :
-                      'from-red-500 to-pink-500'
+                      value >= 8
+                        ? 'from-green-500 to-emerald-500'
+                        : value >= 6
+                          ? 'from-yellow-500 to-orange-500'
+                          : 'from-red-500 to-pink-500'
                     }`}
                   />
                 </div>
@@ -534,7 +550,7 @@ export const IntelligencePanelPortal: React.FC<IntelligencePanelPortalProps> = (
             <TrendingUp className="w-5 h-5 mr-3 text-emerald-400" />
             Predictive Intelligence
           </h3>
-          
+
           <div className="space-y-4">
             {predictiveInsights.map((insight, index) => (
               <motion.div
@@ -550,20 +566,27 @@ export const IntelligencePanelPortal: React.FC<IntelligencePanelPortalProps> = (
                     <p className="text-sm text-slate-400">{insight.recommendation}</p>
                   </div>
                   <div className="flex items-center gap-2 ml-4">
-                    <span className={`px-2 py-1 rounded text-xs font-medium ${
-                      insight.impact === 'critical' ? 'bg-red-500/20 text-red-400' :
-                      insight.impact === 'high' ? 'bg-orange-500/20 text-orange-400' :
-                      insight.impact === 'medium' ? 'bg-yellow-500/20 text-yellow-400' :
-                      'bg-green-500/20 text-green-400'
-                    }`}>
+                    <span
+                      className={`px-2 py-1 rounded text-xs font-medium ${
+                        insight.impact === 'critical'
+                          ? 'bg-red-500/20 text-red-400'
+                          : insight.impact === 'high'
+                            ? 'bg-orange-500/20 text-orange-400'
+                            : insight.impact === 'medium'
+                              ? 'bg-yellow-500/20 text-yellow-400'
+                              : 'bg-green-500/20 text-green-400'
+                      }`}
+                    >
                       {insight.impact}
                     </span>
                     <span className="text-xs text-slate-500">{insight.timeframe}</span>
                   </div>
                 </div>
-                
+
                 <div className="flex items-center justify-between">
-                  <span className={`px-2 py-1 rounded text-xs font-medium border ${getConfidenceColor(insight.confidence || 0)}`}>
+                  <span
+                    className={`px-2 py-1 rounded text-xs font-medium border ${getConfidenceColor(insight.confidence || 0)}`}
+                  >
                     {((insight.confidence || 0) * 100).toFixed(0)}% confidence
                   </span>
                   <span className="text-xs text-slate-500 capitalize">
@@ -583,34 +606,34 @@ export const IntelligencePanelPortal: React.FC<IntelligencePanelPortalProps> = (
         className="grid grid-cols-1 md:grid-cols-4 gap-4"
       >
         {[
-          { 
-            label: ' Decisions', 
-            value: decisionMetrics.totalDecisions, 
-            icon: SparklesIcon, 
+          {
+            label: ' Decisions',
+            value: decisionMetrics.totalDecisions,
+            icon: SparklesIcon,
             color: 'blue',
-            suffix: ''
+            suffix: '',
           },
-          { 
-            label: 'Success Rate', 
-            value: (decisionMetrics.successRate * 100).toFixed(1), 
-            icon: CheckCircleIcon, 
+          {
+            label: 'Success Rate',
+            value: (decisionMetrics.successRate * 100).toFixed(1),
+            icon: CheckCircleIcon,
             color: 'emerald',
-            suffix: '%'
+            suffix: '%',
           },
-          { 
-            label: 'Avg Confidence', 
-            value: (decisionMetrics.averageConfidence * 100).toFixed(1), 
-            icon: CheckCircleIcon, 
+          {
+            label: 'Avg Confidence',
+            value: (decisionMetrics.averageConfidence * 100).toFixed(1),
+            icon: CheckCircleIcon,
             color: 'purple',
-            suffix: '%'
+            suffix: '%',
           },
-          { 
-            label: 'Processing', 
-            value: decisionMetrics.processingTime, 
-            icon: ClockIcon, 
+          {
+            label: 'Processing',
+            value: decisionMetrics.processingTime,
+            icon: ClockIcon,
             color: 'orange',
-            suffix: 'ms'
-          }
+            suffix: 'ms',
+          },
         ].map((metric, index) => (
           <motion.div
             key={metric.label}
@@ -622,29 +645,32 @@ export const IntelligencePanelPortal: React.FC<IntelligencePanelPortalProps> = (
             {/*  pulse background */}
             <motion.div
               className={`absolute inset-0 bg-gradient-to-br from-${metric.color}-500/20 to-${metric.color}-600/20 rounded-xl blur-sm`}
-              animate={{ 
+              animate={{
                 scale: [1, 1.05, 1],
-                opacity: [0.3, 0.6, 0.3]
+                opacity: [0.3, 0.6, 0.3],
               }}
-              transition={{ 
+              transition={{
                 duration: 2 + index * 0.5,
-                repeat: Infinity
+                repeat: Infinity,
               }}
             />
-            
+
             <motion.div
               className={`relative p-6 bg-gradient-to-br from-slate-800/80 to-slate-900/80 backdrop-blur-xl rounded-xl border border-${metric.color}-500/30 group-hover:border-${metric.color}-400/50 transition-all duration-300`}
               whileHover={{ scale: 1.02, y: -2 }}
             >
               <div className="flex items-center justify-between">
                 <div>
-                  <p className={`text-sm font-medium text-${metric.color}-400 mb-2`}>{metric.label}</p>
+                  <p className={`text-sm font-medium text-${metric.color}-400 mb-2`}>
+                    {metric.label}
+                  </p>
                   <motion.p
                     className={`text-3xl font-bold text-${metric.color}-300`}
                     animate={{ opacity: [0.8, 1, 0.8] }}
                     transition={{ duration: 2, repeat: Infinity, delay: index * 0.3 }}
                   >
-                    {metric.value}{metric.suffix}
+                    {metric.value}
+                    {metric.suffix}
                   </motion.p>
                 </div>
                 <motion.div
@@ -672,9 +698,9 @@ export const IntelligencePanelPortal: React.FC<IntelligencePanelPortalProps> = (
             transition={{ duration: 3, repeat: Infinity }}
           >
             <ChartBarIcon className="w-5 h-5 mr-3 text-blue-400" />
-             Context Analysis
+            Context Analysis
           </motion.h3>
-          
+
           <div className="space-y-4">
             {contextAnalyses.map((analysis, index) => (
               <motion.div
@@ -700,12 +726,14 @@ export const IntelligencePanelPortal: React.FC<IntelligencePanelPortalProps> = (
                     >
                       {((analysis.confidence || 0) * 100).toFixed(0)}%
                     </motion.span>
-                    <span className={`px-2 py-1 rounded-md text-xs font-medium border ${getComplexityColor(analysis.complexity)}`}>
+                    <span
+                      className={`px-2 py-1 rounded-md text-xs font-medium border ${getComplexityColor(analysis.complexity)}`}
+                    >
                       {analysis.complexity.toFixed(1)}
                     </span>
                   </div>
                 </div>
-                
+
                 <div className="flex flex-wrap gap-2 mb-3">
                   {analysis.entities.map((entity, entityIndex) => (
                     <motion.span
@@ -720,13 +748,19 @@ export const IntelligencePanelPortal: React.FC<IntelligencePanelPortalProps> = (
                     </motion.span>
                   ))}
                 </div>
-                
+
                 <div className="flex items-center justify-between text-sm">
                   <span className="text-slate-400">
-                     Sentiment: <span className={`font-medium ${
-                      analysis.sentiment === 'positive' ? 'text-emerald-400' :
-                      analysis.sentiment === 'negative' ? 'text-red-400' : 'text-slate-400'
-                    }`}>
+                    Sentiment:{' '}
+                    <span
+                      className={`font-medium ${
+                        analysis.sentiment === 'positive'
+                          ? 'text-emerald-400'
+                          : analysis.sentiment === 'negative'
+                            ? 'text-red-400'
+                            : 'text-slate-400'
+                      }`}
+                    >
                       {analysis.sentiment.toUpperCase()}
                     </span>
                   </span>
@@ -750,7 +784,7 @@ export const IntelligencePanelPortal: React.FC<IntelligencePanelPortalProps> = (
             <LightBulbIcon className="w-5 h-5 mr-3 text-yellow-400" />
             Cognitive Insights
           </motion.h3>
-          
+
           <div className="space-y-4">
             {cognitiveInsights.map((insight, index) => (
               <motion.div
@@ -765,18 +799,21 @@ export const IntelligencePanelPortal: React.FC<IntelligencePanelPortalProps> = (
                   <div className="flex items-start space-x-3">
                     <motion.div
                       className={`w-10 h-10 rounded-lg bg-gradient-to-br ${
-                        insight.type === 'pattern' ? 'from-blue-500 to-purple-500' :
-                        insight.type === 'optimization' ? 'from-emerald-500 to-blue-500' :
-                        insight.type === 'opportunity' ? 'from-yellow-500 to-orange-500' :
-                        'from-slate-500 to-slate-600'
+                        insight.type === 'pattern'
+                          ? 'from-blue-500 to-purple-500'
+                          : insight.type === 'optimization'
+                            ? 'from-emerald-500 to-blue-500'
+                            : insight.type === 'opportunity'
+                              ? 'from-yellow-500 to-orange-500'
+                              : 'from-slate-500 to-slate-600'
                       } flex items-center justify-center`}
                       whileHover={{ rotate: 10 }}
-                      animate={{ 
+                      animate={{
                         boxShadow: [
                           '0 0 20px rgba(59, 130, 246, 0.3)',
                           '0 0 30px rgba(168, 85, 247, 0.4)',
-                          '0 0 20px rgba(59, 130, 246, 0.3)'
-                        ]
+                          '0 0 20px rgba(59, 130, 246, 0.3)',
+                        ],
                       }}
                       transition={{ duration: 2, repeat: Infinity, delay: index * 0.5 }}
                     >
@@ -792,7 +829,7 @@ export const IntelligencePanelPortal: React.FC<IntelligencePanelPortalProps> = (
                     <span className="text-xs text-slate-500">{insight.impact}</span>
                   </div>
                 </div>
-                
+
                 <div className="flex items-center justify-between">
                   <motion.span
                     className={`px-2 py-1 rounded-md text-xs font-medium border ${getConfidenceColor(insight.confidence || 0)}`}
@@ -823,76 +860,78 @@ export const IntelligencePanelPortal: React.FC<IntelligencePanelPortalProps> = (
           transition={{ duration: 3, repeat: Infinity }}
         >
           <ChartBarIcon className="w-5 h-5 mr-3 text-indigo-400" />
-          Agent  Metrics
+          Agent Metrics
         </motion.h3>
-        
+
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {agentList.filter(agent => agent && agent.persona).map((agent, index) => (
-            <motion.div
-              key={agent.id}
-              initial={{ opacity: 0, scale: 0.9 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{ delay: index * 0.1 }}
-              className="bg-gradient-to-br from-slate-700/50 to-slate-800/50 backdrop-blur-sm rounded-xl p-4 border border-slate-600/50 hover:border-indigo-500/50 transition-all duration-300"
-              whileHover={{ scale: 1.02, y: -2 }}
-            >
-              <div className="flex items-center space-x-3 mb-3">
-                <motion.div
-                  className="w-10 h-10 rounded-lg bg-gradient-to-br from-indigo-500 to-purple-500 flex items-center justify-center"
-                  animate={{ 
-                    boxShadow: [
-                      '0 0 20px rgba(99, 102, 241, 0.3)',
-                      '0 0 30px rgba(99, 102, 241, 0.5)',
-                      '0 0 20px rgba(99, 102, 241, 0.3)'
-                    ]
-                  }}
-                  transition={{ duration: 2, repeat: Infinity, delay: index * 0.3 }}
-                >
-                  <span className="text-white font-bold text-sm">
-                    {agent.persona?.name?.charAt(0) || agent.name?.charAt(0) || 'A'}
-                  </span>
-                </motion.div>
-                <div>
-                  <h4 className="font-semibold text-white">
-                    {agent.persona?.name || agent.name || 'Unknown Agent'}
-                  </h4>
-                  <p className="text-sm text-slate-400">
-                    {agent.persona?.role || agent.role || 'Agent'}
-                  </p>
-                </div>
-              </div>
-              
-              <div className="space-y-3">
-                {[
-                  { label: ' Quality', value: '94%', color: 'emerald' },
-                  { label: 'Learning Rate', value: '12%', color: 'blue' },
-                  { label: 'Consciousness', value: '8.7/10', color: 'purple' }
-                ].map((metric, metricIndex) => (
+          {agentList
+            .filter((agent) => agent && agent.persona)
+            .map((agent, index) => (
+              <motion.div
+                key={agent.id}
+                initial={{ opacity: 0, scale: 0.9 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ delay: index * 0.1 }}
+                className="bg-gradient-to-br from-slate-700/50 to-slate-800/50 backdrop-blur-sm rounded-xl p-4 border border-slate-600/50 hover:border-indigo-500/50 transition-all duration-300"
+                whileHover={{ scale: 1.02, y: -2 }}
+              >
+                <div className="flex items-center space-x-3 mb-3">
                   <motion.div
-                    key={metric.label}
-                    initial={{ opacity: 0, x: -10 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{ delay: index * 0.1 + metricIndex * 0.05 }}
-                    className="flex justify-between items-center"
+                    className="w-10 h-10 rounded-lg bg-gradient-to-br from-indigo-500 to-purple-500 flex items-center justify-center"
+                    animate={{
+                      boxShadow: [
+                        '0 0 20px rgba(99, 102, 241, 0.3)',
+                        '0 0 30px rgba(99, 102, 241, 0.5)',
+                        '0 0 20px rgba(99, 102, 241, 0.3)',
+                      ],
+                    }}
+                    transition={{ duration: 2, repeat: Infinity, delay: index * 0.3 }}
                   >
-                    <span className="text-sm text-slate-400">{metric.label}</span>
-                    <motion.span
-                      className={`text-sm font-medium text-${metric.color}-400`}
-                      animate={{ opacity: [0.7, 1, 0.7] }}
-                      transition={{ 
-                        duration: 2, 
-                        repeat: Infinity, 
-                        delay: index * 0.2 + metricIndex * 0.1 
-                      }}
-                    >
-                      {metric.value}
-                    </motion.span>
+                    <span className="text-white font-bold text-sm">
+                      {agent.persona?.name?.charAt(0) || agent.name?.charAt(0) || 'A'}
+                    </span>
                   </motion.div>
-                ))}
-              </div>
-            </motion.div>
-          ))}
-          
+                  <div>
+                    <h4 className="font-semibold text-white">
+                      {agent.persona?.name || agent.name || 'Unknown Agent'}
+                    </h4>
+                    <p className="text-sm text-slate-400">
+                      {agent.persona?.role || agent.role || 'Agent'}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="space-y-3">
+                  {[
+                    { label: ' Quality', value: '94%', color: 'emerald' },
+                    { label: 'Learning Rate', value: '12%', color: 'blue' },
+                    { label: 'Consciousness', value: '8.7/10', color: 'purple' },
+                  ].map((metric, metricIndex) => (
+                    <motion.div
+                      key={metric.label}
+                      initial={{ opacity: 0, x: -10 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ delay: index * 0.1 + metricIndex * 0.05 }}
+                      className="flex justify-between items-center"
+                    >
+                      <span className="text-sm text-slate-400">{metric.label}</span>
+                      <motion.span
+                        className={`text-sm font-medium text-${metric.color}-400`}
+                        animate={{ opacity: [0.7, 1, 0.7] }}
+                        transition={{
+                          duration: 2,
+                          repeat: Infinity,
+                          delay: index * 0.2 + metricIndex * 0.1,
+                        }}
+                      >
+                        {metric.value}
+                      </motion.span>
+                    </motion.div>
+                  ))}
+                </div>
+              </motion.div>
+            ))}
+
           {/* Add Agent Placeholder */}
           {agentList.length === 0 && (
             <motion.div
@@ -903,13 +942,15 @@ export const IntelligencePanelPortal: React.FC<IntelligencePanelPortalProps> = (
               <div className="text-center">
                 <motion.div
                   animate={{ rotate: 360 }}
-                  transition={{ duration: 20, repeat: Infinity, ease: "linear" }}
+                  transition={{ duration: 20, repeat: Infinity, ease: 'linear' }}
                   className="w-16 h-16 bg-gradient-to-br from-slate-700 to-slate-800 rounded-xl flex items-center justify-center mx-auto mb-4 border-2 border-dashed border-slate-600"
                 >
                   <Brain className="w-8 h-8 text-slate-500" />
                 </motion.div>
-                <h4 className="text-slate-400 font-medium">No  Agents Active</h4>
-                <p className="text-slate-500 text-sm mt-1">Spawn agents to view intelligence metrics</p>
+                <h4 className="text-slate-400 font-medium">No Agents Active</h4>
+                <p className="text-slate-500 text-sm mt-1">
+                  Spawn agents to view intelligence metrics
+                </p>
               </div>
             </motion.div>
           )}
@@ -917,4 +958,4 @@ export const IntelligencePanelPortal: React.FC<IntelligencePanelPortalProps> = (
       </motion.div>
     </div>
   );
-}; 
+};

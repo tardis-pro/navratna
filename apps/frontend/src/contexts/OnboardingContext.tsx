@@ -27,13 +27,13 @@ interface OnboardingProviderProps {
 
 export const OnboardingProvider: React.FC<OnboardingProviderProps> = ({ children }) => {
   const { user, isAuthenticated } = useAuth();
-  
+
   const [state, setState] = useState<OnboardingState>({
     isFirstTime: false,
     showOnboarding: false,
     showWelcome: false,
     onboardingStep: 'completed',
-    isLoading: true
+    isLoading: true,
   });
 
   // Check if user is first-time based on multiple indicators
@@ -54,16 +54,16 @@ export const OnboardingProvider: React.FC<OnboardingProviderProps> = ({ children
     //   // Check if user has any preferences set (secondary indicator)
     //   const hasPreferences = localStorage.getItem('user-preferences') !== null;
     //   const hasDesktopCustomizations = localStorage.getItem('desktop_preferences') !== null;
-      
+
     //   // If no onboarding completion AND no customizations, likely first-time
     //   return !hasPreferences && !hasDesktopCustomizations;
     // } catch (error) {
     //   console.warn('Error checking onboarding status:', error);
-      
+
     //   // Fallback to local storage indicators
     //   const hasPreferences = localStorage.getItem('user-preferences') !== null;
     //   const hasDesktopCustomizations = localStorage.getItem('desktop_preferences') !== null;
-      
+
     //   return !hasPreferences && !hasDesktopCustomizations;
     // }
   }, [user]);
@@ -71,15 +71,15 @@ export const OnboardingProvider: React.FC<OnboardingProviderProps> = ({ children
   // Main onboarding status check
   const checkOnboardingStatus = useCallback(async () => {
     if (!isAuthenticated || !user) {
-      setState(prev => ({ ...prev, isLoading: false }));
+      setState((prev) => ({ ...prev, isLoading: false }));
       return;
     }
 
-    setState(prev => ({ ...prev, isLoading: true }));
+    setState((prev) => ({ ...prev, isLoading: true }));
 
     try {
       const isFirstTime = await detectFirstTimeUser();
-      
+
       if (isFirstTime) {
         // First-time user: show welcome screen first
         setState({
@@ -87,7 +87,7 @@ export const OnboardingProvider: React.FC<OnboardingProviderProps> = ({ children
           showOnboarding: true,
           showWelcome: true,
           onboardingStep: 'welcome',
-          isLoading: false
+          isLoading: false,
         });
       } else {
         // Returning user: no onboarding needed
@@ -96,17 +96,17 @@ export const OnboardingProvider: React.FC<OnboardingProviderProps> = ({ children
           showOnboarding: false,
           showWelcome: false,
           onboardingStep: 'completed',
-          isLoading: false
+          isLoading: false,
         });
       }
     } catch (error) {
       console.error('Failed to check onboarding status:', error);
-      setState(prev => ({ 
-        ...prev, 
+      setState((prev) => ({
+        ...prev,
         isLoading: false,
         // Safe fallback: don't show onboarding if unsure
         showOnboarding: false,
-        showWelcome: false
+        showWelcome: false,
       }));
     }
   }, [isAuthenticated, user, detectFirstTimeUser]);
@@ -117,19 +117,19 @@ export const OnboardingProvider: React.FC<OnboardingProviderProps> = ({ children
   }, [checkOnboardingStatus]);
 
   const startOnboarding = useCallback(() => {
-    setState(prev => ({
+    setState((prev) => ({
       ...prev,
       showOnboarding: true,
       showWelcome: true,
-      onboardingStep: 'welcome'
+      onboardingStep: 'welcome',
     }));
   }, []);
 
   const completeWelcome = useCallback(() => {
-    setState(prev => ({
+    setState((prev) => ({
       ...prev,
       showWelcome: false,
-      onboardingStep: 'persona'
+      onboardingStep: 'persona',
     }));
   }, []);
 
@@ -137,16 +137,16 @@ export const OnboardingProvider: React.FC<OnboardingProviderProps> = ({ children
     try {
       // Save persona data to backend
       await userPersonaAPI.completeOnboarding(personaData);
-      
+
       // Mark as completed in local state
-      setState(prev => ({
+      setState((prev) => ({
         ...prev,
         showOnboarding: false,
         showWelcome: false,
         onboardingStep: 'completed',
-        isFirstTime: false
+        isFirstTime: false,
       }));
-      
+
       // Set initial user preferences to mark as non-first-time
       if (!localStorage.getItem('user-preferences')) {
         const defaultPreferences = {
@@ -156,7 +156,7 @@ export const OnboardingProvider: React.FC<OnboardingProviderProps> = ({ children
           ui: { animations: true },
           desktop: { wallpaper: 'default' },
           onboardingCompleted: true,
-          completedAt: new Date().toISOString()
+          completedAt: new Date().toISOString(),
         };
         localStorage.setItem('user-preferences', JSON.stringify(defaultPreferences));
       }
@@ -167,12 +167,12 @@ export const OnboardingProvider: React.FC<OnboardingProviderProps> = ({ children
   }, []);
 
   const skipOnboarding = useCallback(() => {
-    setState(prev => ({
+    setState((prev) => ({
       ...prev,
       showOnboarding: false,
       showWelcome: false,
       onboardingStep: 'completed',
-      isFirstTime: false
+      isFirstTime: false,
     }));
 
     // Mark as skipped in preferences
@@ -195,7 +195,7 @@ export const OnboardingProvider: React.FC<OnboardingProviderProps> = ({ children
       showOnboarding: true,
       showWelcome: true,
       onboardingStep: 'welcome',
-      isLoading: false
+      isLoading: false,
     });
   }, []);
 
@@ -206,14 +206,10 @@ export const OnboardingProvider: React.FC<OnboardingProviderProps> = ({ children
     completeOnboarding,
     skipOnboarding,
     restartOnboarding,
-    checkOnboardingStatus
+    checkOnboardingStatus,
   };
 
-  return (
-    <OnboardingContext.Provider value={contextValue}>
-      {children}
-    </OnboardingContext.Provider>
-  );
+  return <OnboardingContext.Provider value={contextValue}>{children}</OnboardingContext.Provider>;
 };
 
 export const useOnboarding = (): OnboardingContextType => {

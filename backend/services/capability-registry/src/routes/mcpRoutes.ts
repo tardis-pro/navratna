@@ -24,7 +24,7 @@ export function registerMCPRoutes(app: any) {
         const tools = await (mcpService as any).getAvailableTools?.();
         return {
           success: true,
-          data: { tools: tools ?? [], count: tools?.length ?? 0 }
+          data: { tools: tools ?? [], count: tools?.length ?? 0 },
         };
       })
 
@@ -32,18 +32,30 @@ export function registerMCPRoutes(app: any) {
       .get('/recommendations/:agentId', async ({ params, query }: any) => {
         const { agentId } = params as any;
         const { context, limit } = query as any;
-        const recs = await mcpService.getToolRecommendations(agentId, context, limit ? parseInt(String(limit)) : 5);
-        return { success: true, data: { agentId, context, recommendations: recs, totalRecommendations: recs.length } };
+        const recs = await mcpService.getToolRecommendations(
+          agentId,
+          context,
+          limit ? parseInt(String(limit)) : 5
+        );
+        return {
+          success: true,
+          data: { agentId, context, recommendations: recs, totalRecommendations: recs.length },
+        };
       })
 
       // Related tools based on graph relationships
       .get('/tools/:toolId/related', async ({ params, query }: any) => {
         const { toolId } = params as any;
-        const types = query.relationshipTypes ? String(query.relationshipTypes).split(',') : undefined;
+        const types = query.relationshipTypes
+          ? String(query.relationshipTypes).split(',')
+          : undefined;
         const minStrength = query.minStrength ? parseFloat(String(query.minStrength)) : 0.5;
         const limit = query.limit ? parseInt(String(query.limit)) : 10;
         const related = await mcpService.getRelatedTools(toolId, types, minStrength, limit);
-        return { success: true, data: { toolId, relatedTools: related, totalRelated: related.length } };
+        return {
+          success: true,
+          data: { toolId, relatedTools: related, totalRelated: related.length },
+        };
       })
 
       // Usage analytics
@@ -72,9 +84,9 @@ export function registerMCPRoutes(app: any) {
               totalResources: discovery.resources.length,
               totalPrompts: discovery.prompts.length,
               totalTools: discovery.tools.length,
-              totalServers: discovery.servers.length
-            }
-          }
+              totalServers: discovery.servers.length,
+            },
+          },
         };
       })
 
@@ -82,10 +94,17 @@ export function registerMCPRoutes(app: any) {
         const { query: q, serverName, category, mimeType } = query as any;
         if (!q) {
           set.status = 400;
-          return { success: false, error: { code: 'VALIDATION_ERROR', message: 'Query parameter is required' } };
+          return {
+            success: false,
+            error: { code: 'VALIDATION_ERROR', message: 'Query parameter is required' },
+          };
         }
         const discoveryService = MCPResourceDiscoveryService.getInstance();
-        const resources = await discoveryService.searchResources(String(q), { serverName, category, mimeType });
+        const resources = await discoveryService.searchResources(String(q), {
+          serverName,
+          category,
+          mimeType,
+        });
         return { success: true, data: { query: q, resources, count: resources.length } };
       })
 
@@ -99,8 +118,8 @@ export function registerMCPRoutes(app: any) {
             status: s.status,
             pid: s.pid,
             toolCount: s.tools?.length || 0,
-            lastHealthCheck: s.lastHealthCheck
-          }))
+            lastHealthCheck: s.lastHealthCheck,
+          })),
         };
       })
 
@@ -135,7 +154,10 @@ export function registerMCPRoutes(app: any) {
       // Tools by server
       .get('/servers/:serverName/tools', async ({ params }: any) => {
         const tools = mcpService.getToolsByServer(params.serverName);
-        return { success: true, data: { serverName: params.serverName, tools, count: tools.length } };
+        return {
+          success: true,
+          data: { serverName: params.serverName, tools, count: tools.length },
+        };
       })
 
       // Attach a single tool to agent
@@ -143,9 +165,16 @@ export function registerMCPRoutes(app: any) {
         const { serverName, toolName } = body || {};
         if (!serverName || !toolName) {
           set.status = 400;
-          return { success: false, error: { code: 'VALIDATION_ERROR', message: 'serverName and toolName are required' } };
+          return {
+            success: false,
+            error: { code: 'VALIDATION_ERROR', message: 'serverName and toolName are required' },
+          };
         }
-        const result = await mcpService.attachSingleToolToAgent(params.agentId, serverName, toolName);
+        const result = await mcpService.attachSingleToolToAgent(
+          params.agentId,
+          serverName,
+          toolName
+        );
         return {
           success: result.success,
           data: {
@@ -153,8 +182,8 @@ export function registerMCPRoutes(app: any) {
             serverName,
             toolName,
             toolId: result.toolId,
-            assignment: result.assignment
-          }
+            assignment: result.assignment,
+          },
         };
       })
 

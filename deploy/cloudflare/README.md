@@ -6,28 +6,28 @@ This directory contains the Cloudflare deployment configuration for Navratna.
 
 ### What Can Run on Cloudflare
 
-| Component | Cloudflare Service | Status | Notes |
-|-----------|-------------------|--------|-------|
-| **Frontend (React)** | Cloudflare Pages | Ready | Static site hosting with global CDN |
-| **API Gateway** | Cloudflare Workers | Ready | Edge routing, CORS, rate limiting |
-| **Object Storage** | Cloudflare R2 | Ready | S3-compatible, replaces MinIO |
-| **Caching** | Cloudflare KV | Ready | Edge key-value store |
-| **CDN** | Built-in | Ready | Automatic with Pages/Workers |
-| **SSL/TLS** | Built-in | Ready | Automatic certificates |
-| **DDoS Protection** | Built-in | Ready | Automatic |
-| **DNS** | Cloudflare DNS | Ready | Free with account |
+| Component            | Cloudflare Service | Status | Notes                               |
+| -------------------- | ------------------ | ------ | ----------------------------------- |
+| **Frontend (React)** | Cloudflare Pages   | Ready  | Static site hosting with global CDN |
+| **API Gateway**      | Cloudflare Workers | Ready  | Edge routing, CORS, rate limiting   |
+| **Object Storage**   | Cloudflare R2      | Ready  | S3-compatible, replaces MinIO       |
+| **Caching**          | Cloudflare KV      | Ready  | Edge key-value store                |
+| **CDN**              | Built-in           | Ready  | Automatic with Pages/Workers        |
+| **SSL/TLS**          | Built-in           | Ready  | Automatic certificates              |
+| **DDoS Protection**  | Built-in           | Ready  | Automatic                           |
+| **DNS**              | Cloudflare DNS     | Ready  | Free with account                   |
 
 ### What Needs Traditional Infrastructure
 
-| Component | Recommended Hosting | Alternative |
-|-----------|-------------------|-------------|
-| **PostgreSQL** | Neon, Supabase, RDS | Self-hosted VPS |
-| **Neo4j** | Neo4j Aura | Self-hosted VPS |
-| **Redis** | Upstash | Self-hosted VPS |
-| **Qdrant** | Qdrant Cloud | Self-hosted VPS |
-| **RabbitMQ** | CloudAMQP | Self-hosted VPS |
-| **TEI Embeddings** | GPU VPS (Lambda, RunPod) | EC2 g4dn |
-| **Backend Services** | fly.io, Railway, EC2 | Docker on VPS |
+| Component            | Recommended Hosting      | Alternative     |
+| -------------------- | ------------------------ | --------------- |
+| **PostgreSQL**       | Neon, Supabase, RDS      | Self-hosted VPS |
+| **Neo4j**            | Neo4j Aura               | Self-hosted VPS |
+| **Redis**            | Upstash                  | Self-hosted VPS |
+| **Qdrant**           | Qdrant Cloud             | Self-hosted VPS |
+| **RabbitMQ**         | CloudAMQP                | Self-hosted VPS |
+| **TEI Embeddings**   | GPU VPS (Lambda, RunPod) | EC2 g4dn        |
+| **Backend Services** | fly.io, Railway, EC2     | Docker on VPS   |
 
 ## Architecture
 
@@ -127,11 +127,11 @@ pnpm dev:local
 
 Set these in Cloudflare dashboard or via `wrangler secret`:
 
-| Variable | Description | Required |
-|----------|-------------|----------|
-| `BACKEND_URL` | Backend API URL | Yes |
-| `JWT_SECRET` | JWT signing secret | Yes |
-| `API_KEY` | Internal API key | No |
+| Variable      | Description        | Required |
+| ------------- | ------------------ | -------- |
+| `BACKEND_URL` | Backend API URL    | Yes      |
+| `JWT_SECRET`  | JWT signing secret | Yes      |
+| `API_KEY`     | Internal API key   | No       |
 
 ### Secrets
 
@@ -145,12 +145,12 @@ wrangler secret put API_KEY --env production
 
 Add these records in Cloudflare DNS:
 
-| Type | Name | Target | Proxy |
-|------|------|--------|-------|
-| CNAME | @ | navratna.pages.dev | Yes |
-| CNAME | www | navratna.pages.dev | Yes |
-| CNAME | api | navratna-api-gateway.workers.dev | Yes |
-| A | backend | <your-backend-ip> | Yes |
+| Type  | Name    | Target                           | Proxy |
+| ----- | ------- | -------------------------------- | ----- |
+| CNAME | @       | navratna.pages.dev               | Yes   |
+| CNAME | www     | navratna.pages.dev               | Yes   |
+| CNAME | api     | navratna-api-gateway.workers.dev | Yes   |
+| A     | backend | <your-backend-ip>                | Yes   |
 
 ## R2 Storage
 
@@ -159,7 +159,7 @@ R2 replaces MinIO for object storage:
 ```typescript
 // Upload file
 await STORAGE.put('path/to/file', data, {
-  httpMetadata: { contentType: 'image/png' }
+  httpMetadata: { contentType: 'image/png' },
 });
 
 // Get file
@@ -199,6 +199,7 @@ wrangler tail --env staging
 ### Metrics
 
 View in Cloudflare dashboard:
+
 - Workers Analytics
 - Pages Analytics
 - R2 Metrics
@@ -212,21 +213,21 @@ See `.github/workflows/cloudflare.yml` for GitHub Actions integration.
 
 Set in GitHub repository settings:
 
-| Secret | Description |
-|--------|-------------|
-| `CLOUDFLARE_API_TOKEN` | Cloudflare API token with Workers/Pages/R2 permissions |
-| `CLOUDFLARE_ACCOUNT_ID` | Your Cloudflare account ID |
+| Secret                  | Description                                            |
+| ----------------------- | ------------------------------------------------------ |
+| `CLOUDFLARE_API_TOKEN`  | Cloudflare API token with Workers/Pages/R2 permissions |
+| `CLOUDFLARE_ACCOUNT_ID` | Your Cloudflare account ID                             |
 
 ## Cost Estimation
 
 ### Free Tier Limits
 
-| Service | Free Tier |
-|---------|-----------|
-| Workers | 100,000 requests/day |
-| Pages | Unlimited |
-| R2 | 10GB storage, 10M Class A ops/month |
-| KV | 100,000 reads/day |
+| Service | Free Tier                           |
+| ------- | ----------------------------------- |
+| Workers | 100,000 requests/day                |
+| Pages   | Unlimited                           |
+| R2      | 10GB storage, 10M Class A ops/month |
+| KV      | 100,000 reads/day                   |
 
 ### Paid Plans (if exceeded)
 
@@ -239,6 +240,7 @@ Set in GitHub repository settings:
 ### Common Issues
 
 1. **Worker not deploying**
+
    ```bash
    wrangler whoami  # Check login
    wrangler deploy --dry-run  # Test without deploying

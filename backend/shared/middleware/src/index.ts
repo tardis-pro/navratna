@@ -14,7 +14,7 @@ export {
   validateJWTSetup,
   diagnoseJWTSignatureError,
   testJWTToken,
-  validateJWTToken
+  validateJWTToken,
 } from './authMiddleware.js';
 export type { UserContext } from './authMiddleware.js';
 
@@ -28,7 +28,7 @@ export {
   validateJSON,
   requireContentType,
   validateRequestSize,
-  createCustomValidator
+  createCustomValidator,
 } from './validateRequest.js';
 
 // Error handling middleware exports
@@ -45,7 +45,7 @@ export {
   metricsEndpoint,
   recordError,
   recordUnhandledError,
-  setupGlobalErrorHandlers
+  setupGlobalErrorHandlers,
 } from './metrics.js';
 export type { ErrorContext } from './metrics.js';
 
@@ -58,7 +58,7 @@ export {
   CSRFProtection,
   csrfProtection,
   csrfMiddleware,
-  csrfTokenEndpoint
+  csrfTokenEndpoint,
 } from './csrfProtection.js';
 
 // API Key authentication middleware exports
@@ -68,7 +68,7 @@ export {
   apiKeyMiddleware,
   requireReadPermission,
   requireWritePermission,
-  requireExecutePermission
+  requireExecutePermission,
 } from './apiKeyAuth.js';
 export type { APIKey, APIKeyContext } from './apiKeyAuth.js';
 
@@ -91,7 +91,7 @@ export {
   requireAgentCapability,
   requireAgentStatus,
   executeAgentTool,
-  agentOperationChain
+  agentOperationChain,
 } from './agentMiddleware.js';
 export type { AgentContext, AgentExecution } from './agentMiddleware.js';
 
@@ -101,7 +101,7 @@ export {
   createJWTMiddleware,
   requireRole,
   requirePermissions,
-  refreshTokenMiddleware
+  refreshTokenMiddleware,
 } from './jwtMiddleware.js';
 export type { JWTPayload, JWTConfig } from './jwtMiddleware.js';
 
@@ -116,6 +116,6 @@ export {
   BusinessLogicError,
   ExternalServiceError,
   withErrorTracking,
-  withSyncErrorTracking
+  withSyncErrorTracking,
 } from './errorLogger.js';
 export type { StructuredErrorLogger } from './errorLogger.js';

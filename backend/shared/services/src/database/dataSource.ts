@@ -5,10 +5,10 @@ export {
   initializeDatabase,
   closeDatabase,
   getDataSource,
-  checkDatabaseHealth
+  checkDatabaseHealth,
 } from './typeorm.config.js';
 
 // Legacy aliases for backward compatibility
 export { initializeDatabase as initializeDataSource } from './typeorm.config.js';
 export { closeDatabase as closeDataSource } from './typeorm.config.js';
-export { AppDataSource as createDataSource } from './typeorm.config.js'; 
+export { AppDataSource as createDataSource } from './typeorm.config.js';

@@ -3,6 +3,7 @@ import { LLMService, UserLLMService } from '@uaip/llm-service';
 import { DiscussionEventType, LLMTaskType } from '@uaip/types';
 import { ConversationEnhancementService } from './services/conversation-enhancement.service.js';
 import { AgentDiscussionService } from './services/agent-discussion.service.js';
+import { AgentCoreService } from './services/agent-core.service.js';
 import { logger } from '@uaip/utils';
 
 class AgentIntelligenceService extends BaseService {
@@ -11,6 +12,7 @@ class AgentIntelligenceService extends BaseService {
   private personaService: PersonaService;
   private conversationEnhancementService: ConversationEnhancementService;
   private llmService: LLMService;
+  private agentCoreService: AgentCoreService;
 
   constructor() {
     super({
@@ -19,7 +21,7 @@ class AgentIntelligenceService extends BaseService {
       version: '1.0.0',
       enableWebSocket: false,
       enableNeo4j: true,
-      enableEnterpriseEventBus: true
+      enableEnterpriseEventBus: true,
     });
   }
 
@@ -27,6 +29,97 @@ class AgentIntelligenceService extends BaseService {
     // Get the KnowledgeGraphService instance from the ServiceFactory
     const { getKnowledgeGraphService } = await import('@uaip/shared-services');
     const knowledgeGraphService = await getKnowledgeGraphService();
+
+    // ===== AGENT CRUD ROUTES =====
+
+    // List all agents
+    this.app.get('/api/v1/agents', async ({ query, set }) => {
+      try {
+        const filters = {
+          limit: query.limit ? parseInt(query.limit as string) : undefined,
+          offset: query.offset ? parseInt(query.offset as string) : undefined,
+          role: query.role as string | undefined,
+          status: query.status as string | undefined,
+          createdBy: query.createdBy as string | undefined,
+        };
+        const agents = await this.agentCoreService.getAgents(filters);
+        return { success: true, data: agents };
+      } catch (error) {
+        logger.error('Failed to list agents', { error });
+        set.status = 500;
+        return { success: false, error: 'Failed to list agents' };
+      }
+    });
+
+    // Get agent by ID
+    this.app.get('/api/v1/agents/:agentId', async ({ params, set }) => {
+      try {
+        const agent = await this.agentCoreService.getAgent(params.agentId);
+        if (!agent) {
+          set.status = 404;
+          return { success: false, error: 'Agent not found' };
+        }
+        return { success: true, data: agent };
+      } catch (error) {
+        logger.error('Failed to get agent', { error, agentId: params.agentId });
+        set.status = 500;
+        return { success: false, error: 'Failed to get agent' };
+      }
+    });
+
+    // Create agent
+    this.app.post('/api/v1/agents', async ({ body, set, request }) => {
+      try {
+        const userId = request.headers.get('x-user-id') || 'system';
+        const agent = await this.agentCoreService.createAgent(body as any, userId);
+        set.status = 201;
+        return { success: true, data: agent };
+      } catch (error) {
+        logger.error('Failed to create agent', { error });
+        set.status = 500;
+        return { success: false, error: 'Failed to create agent' };
+      }
+    });
+
+    // Update agent
+    this.app.put('/api/v1/agents/:agentId', async ({ params, body, set, request }) => {
+      try {
+        const userId = request.headers.get('x-user-id') || 'system';
+        const agent = await this.agentCoreService.updateAgent(params.agentId, body as any, userId);
+        if (!agent) {
+          set.status = 404;
+          return { success: false, error: 'Agent not found' };
+        }
+        return { success: true, data: agent };
+      } catch (error) {
+        logger.error('Failed to update agent', { error, agentId: params.agentId });
+        set.status = 500;
+        return { success: false, error: 'Failed to update agent' };
+      }
+    });
+
+    // Delete agent
+    this.app.delete('/api/v1/agents/:agentId', async ({ params, set, request }) => {
+      try {
+        const userId = request.headers.get('x-user-id') || 'system';
+        await this.agentCoreService.deleteAgent(params.agentId, userId);
+        set.status = 204;
+        return null;
+      } catch (error) {
+        logger.error('Failed to delete agent', { error, agentId: params.agentId });
+        set.status = 500;
+        return { success: false, error: 'Failed to delete agent' };
+      }
+    });
+
+    // Agent health check
+    this.app.get('/api/v1/agents/health', async () => {
+      return { status: 'ok', service: 'agent-intelligence' };
+    });
+
+    logger.info('Agent CRUD routes configured');
+
+    // ===== DEBUG ROUTES =====
 
     // Debug route: conversation enhancement stats
     this.app.get('/api/v1/debug/conversation-enhancement', async ({ set }) => {
@@ -59,15 +152,15 @@ class AgentIntelligenceService extends BaseService {
           conversationEnhancement: stats,
           memory: {
             heapUsedMB: Math.round(memoryUsage.heapUsed / 1024 / 1024),
-            heapTotalMB: Math.round(memoryUsage.heapTotal / 1024 / 1024)
+            heapTotalMB: Math.round(memoryUsage.heapTotal / 1024 / 1024),
           },
-          alerts
+          alerts,
         };
       } catch (error) {
         set.status = 500;
         return {
           success: false,
-          error: 'Failed to fetch conversation enhancement debug info'
+          error: 'Failed to fetch conversation enhancement debug info',
         };
       }
     });
@@ -81,13 +174,13 @@ class AgentIntelligenceService extends BaseService {
         return {
           success: true,
           message: 'LLM cleanup triggered',
-          timestamp: new Date().toISOString()
+          timestamp: new Date().toISOString(),
         };
       } catch (error) {
         set.status = 500;
         return {
           success: false,
-          error: 'Failed to trigger LLM cleanup'
+          error: 'Failed to trigger LLM cleanup',
         };
       }
     });
@@ -119,7 +212,7 @@ class AgentIntelligenceService extends BaseService {
           knowledgeRepo: !!knowledgeRepo,
           qdrantService: !!qdrantService,
           graphDb: !!graphDb,
-          embeddingService: !!embeddingService
+          embeddingService: !!embeddingService,
         });
 
         const bootstrap = new KnowledgeBootstrapService(
@@ -136,7 +229,7 @@ class AgentIntelligenceService extends BaseService {
         return {
           success: false,
           error: error instanceof Error ? error.message : 'Unknown error',
-          stack: error instanceof Error ? error.stack : undefined
+          stack: error instanceof Error ? error.stack : undefined,
         };
       }
     });
@@ -148,14 +241,23 @@ class AgentIntelligenceService extends BaseService {
     // Subscribe to WebSocket agent chat requests
     await this.eventBusService.subscribe('agent.chat.request', async (event) => {
       try {
-        const { userId, agentId, message, conversationHistory, context, socketId, messageId, timestamp } = event.data;
-        
-        logger.info('Processing WebSocket agent chat request', { 
-          agentId, 
-          userId, 
+        const {
+          userId,
+          agentId,
+          message,
+          conversationHistory,
+          context,
+          socketId,
+          messageId,
+          timestamp,
+        } = event.data;
+
+        logger.info('Processing WebSocket agent chat request', {
+          agentId,
+          userId,
           messageLength: message?.length,
           messageId,
-          socketId: socketId?.substring(0, 10) + '...'
+          socketId: socketId?.substring(0, 10) + '...',
         });
 
         // Use unified model selection for the agent
@@ -167,7 +269,7 @@ class AgentIntelligenceService extends BaseService {
               agentId,
               model: modelSelection.model.model,
               provider: modelSelection.provider.effectiveProvider,
-              strategy: modelSelection.model.selectionStrategy
+              strategy: modelSelection.model.selectionStrategy,
             });
           } catch (error) {
             logger.warn('Failed to select model for agent, using defaults', { agentId, error });
@@ -177,10 +279,10 @@ class AgentIntelligenceService extends BaseService {
         // Process the chat request using AgentDiscussionService
         const result = await this.agentDiscussionService.processDiscussionMessage({
           agentId,
-          userId, 
+          userId,
           message,
           conversationId: `websocket-chat-${Date.now()}`,
-          modelSelection // Pass the selected model
+          modelSelection, // Pass the selected model
         });
 
         // Prepare enhanced response with WebSocket metadata
@@ -192,29 +294,28 @@ class AgentIntelligenceService extends BaseService {
           agentName: `Agent ${agentId}`, // TODO: Load actual agent name from config
           confidence: result.metadata.confidence,
           memoryEnhanced: false, // TODO: Implement memory enhancement
-          knowledgeUsed: 0, // TODO: Implement knowledge tracking  
+          knowledgeUsed: 0, // TODO: Implement knowledge tracking
           toolsExecuted: [], // TODO: Implement tool execution
           timestamp: new Date().toISOString(),
           processingTime: result.metadata.processingTime,
           responseType: result.metadata.responseType,
-          conversationId: result.metadata.conversationId
+          conversationId: result.metadata.conversationId,
         };
 
         // Publish response back to discussion-orchestration for WebSocket delivery
         await this.eventBusService.publish('agent.chat.response', responsePayload);
 
-        logger.info('WebSocket agent chat response published', { 
-          agentId, 
+        logger.info('WebSocket agent chat response published', {
+          agentId,
           messageId,
           responseLength: result.response.length,
-          confidence: result.metadata.confidence
+          confidence: result.metadata.confidence,
         });
-
       } catch (error) {
-        logger.error('Failed to process WebSocket agent chat request', { 
+        logger.error('Failed to process WebSocket agent chat request', {
           error: error instanceof Error ? error.message : 'Unknown error',
           agentId: event.data?.agentId,
-          messageId: event.data?.messageId
+          messageId: event.data?.messageId,
         });
 
         // Send error response back to client
@@ -227,7 +328,7 @@ class AgentIntelligenceService extends BaseService {
             agentName: `Agent ${event.data.agentId}`,
             confidence: 0.0,
             error: true,
-            timestamp: new Date().toISOString()
+            timestamp: new Date().toISOString(),
           });
         }
       }
@@ -236,13 +337,20 @@ class AgentIntelligenceService extends BaseService {
     // Subscribe to conversation enhancement requests from discussion orchestration
     await this.eventBusService.subscribe('conversation.enhancement.request', async (event) => {
       try {
-        const { discussionId, availableAgentIds, messageHistory, currentTopic, enhancementType, context } = event.data;
-        
+        const {
+          discussionId,
+          availableAgentIds,
+          messageHistory,
+          currentTopic,
+          enhancementType,
+          context,
+        } = event.data;
+
         logger.info('Processing conversation enhancement request', {
           discussionId,
           agentCount: availableAgentIds?.length,
           messageCount: messageHistory?.length,
-          enhancementType
+          enhancementType,
         });
 
         // Get agent objects from IDs
@@ -270,7 +378,7 @@ class AgentIntelligenceService extends BaseService {
           messageHistory: messageHistory || [],
           currentTopic: currentTopic || '',
           enhancementType: enhancementType || 'auto',
-          context
+          context,
         });
 
         if (result.success && result.enhancedResponse) {
@@ -278,7 +386,9 @@ class AgentIntelligenceService extends BaseService {
             // Find the participant ID for the selected agent
             const discussionService = await this.databaseService.getDiscussionService();
             const discussion = await discussionService.getDiscussion(discussionId);
-            const participant = discussion?.participants?.find(p => p.agentId === result.selectedAgent?.id);
+            const participant = discussion?.participants?.find(
+              (p) => p.agentId === result.selectedAgent?.id
+            );
 
             if (participant) {
               // Send enhanced response back to discussion orchestration
@@ -293,43 +403,42 @@ class AgentIntelligenceService extends BaseService {
                   enhancementType: 'contextual',
                   contributionScore: result.contributionScores?.[0]?.score,
                   suggestions: result.suggestions || [],
-                  nextActions: result.nextActions || []
-                }
+                  nextActions: result.nextActions || [],
+                },
               });
 
               logger.info('Enhanced conversation response sent', {
                 discussionId,
                 agentId: result.selectedAgent?.id,
                 personaId: result.selectedPersona?.id,
-                responseLength: result.enhancedResponse.length
+                responseLength: result.enhancedResponse.length,
               });
             } else {
               logger.warn('Could not find participant for enhanced response', {
                 discussionId,
                 agentId: result.selectedAgent?.id,
                 discussionExists: !!discussion,
-                participantCount: discussion?.participants?.length || 0
+                participantCount: discussion?.participants?.length || 0,
               });
             }
           } catch (publishError) {
             logger.error('Failed to publish enhanced response', {
               discussionId,
               error: publishError instanceof Error ? publishError.message : 'Unknown error',
-              stack: publishError instanceof Error ? publishError.stack : undefined
+              stack: publishError instanceof Error ? publishError.stack : undefined,
             });
           }
         } else {
           logger.info('No enhanced response generated', {
             discussionId,
             success: result.success,
-            error: result.error
+            error: result.error,
           });
         }
-
       } catch (error) {
         logger.error('Failed to process conversation enhancement request', {
           error: error instanceof Error ? error.message : 'Unknown error',
-          discussionId: event?.data?.discussionId
+          discussionId: event?.data?.discussionId,
         });
       }
     });
@@ -350,10 +459,20 @@ class AgentIntelligenceService extends BaseService {
   }
 
   protected async initialize(): Promise<void> {
+    // Initialize AgentCoreService for agent CRUD operations
+    this.agentCoreService = new AgentCoreService({
+      databaseService: this.databaseService,
+      eventBusService: this.eventBusService,
+      serviceName: 'agent-intelligence',
+      securityLevel: 3,
+    });
+    await this.agentCoreService.initialize();
+    logger.info('AgentCoreService initialized');
+
     // Initialize PersonaService
     this.personaService = new PersonaService({
       databaseService: this.databaseService,
-      eventBusService: this.eventBusService
+      eventBusService: this.eventBusService,
     });
     logger.info('PersonaService initialized');
 
@@ -380,7 +499,7 @@ class AgentIntelligenceService extends BaseService {
       llmService: this.llmService,
       userLLMService: new UserLLMService(),
       serviceName: 'agent-intelligence',
-      securityLevel: 1
+      securityLevel: 1,
     });
     await this.agentDiscussionService.initialize();
     logger.info('AgentDiscussionService initialized for WebSocket chat processing');
@@ -392,7 +511,7 @@ class AgentIntelligenceService extends BaseService {
       personaService: this.personaService,
       enableRealTimeEvents: true,
       enableAnalytics: false,
-      auditMode: 'comprehensive'
+      auditMode: 'comprehensive',
     });
     logger.info('DiscussionService initialized');
 
@@ -413,7 +532,7 @@ class AgentIntelligenceService extends BaseService {
 
 // Start the service
 const service = new AgentIntelligenceService();
-service.start().catch(error => {
+service.start().catch((error) => {
   console.error('Failed to start Agent Intelligence Service:', error);
   process.exit(1);
 });

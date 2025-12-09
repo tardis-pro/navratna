@@ -41,7 +41,7 @@ export class UserSeed extends BaseSeed<UserEntity> {
         isActive: true,
         failedLoginAttempts: 0,
         passwordChangedAt: new Date(),
-        lastLoginAt: new Date()
+        lastLoginAt: new Date(),
       },
       {
         email: 'manager1@uaip.dev',
@@ -54,7 +54,7 @@ export class UserSeed extends BaseSeed<UserEntity> {
         isActive: true,
         failedLoginAttempts: 0,
         passwordChangedAt: new Date(),
-        lastLoginAt: new Date()
+        lastLoginAt: new Date(),
       },
 
       // Professional Roles (Blue category in Login.tsx)
@@ -69,7 +69,7 @@ export class UserSeed extends BaseSeed<UserEntity> {
         isActive: true,
         failedLoginAttempts: 0,
         passwordChangedAt: new Date(),
-        lastLoginAt: new Date()
+        lastLoginAt: new Date(),
       },
       {
         email: 'developer1@uaip.dev',
@@ -82,7 +82,7 @@ export class UserSeed extends BaseSeed<UserEntity> {
         isActive: true,
         failedLoginAttempts: 0,
         passwordChangedAt: new Date(),
-        lastLoginAt: new Date()
+        lastLoginAt: new Date(),
       },
 
       // Specialized Users (Purple category in Login.tsx)
@@ -97,7 +97,7 @@ export class UserSeed extends BaseSeed<UserEntity> {
         isActive: true,
         failedLoginAttempts: 0,
         passwordChangedAt: new Date(),
-        lastLoginAt: new Date()
+        lastLoginAt: new Date(),
       },
       {
         email: 'creativeguru@uaip.dev',
@@ -110,7 +110,7 @@ export class UserSeed extends BaseSeed<UserEntity> {
         isActive: true,
         failedLoginAttempts: 0,
         passwordChangedAt: new Date(),
-        lastLoginAt: new Date()
+        lastLoginAt: new Date(),
       },
       {
         email: 'socialguru@uaip.dev',
@@ -123,7 +123,7 @@ export class UserSeed extends BaseSeed<UserEntity> {
         isActive: true,
         failedLoginAttempts: 0,
         passwordChangedAt: new Date(),
-        lastLoginAt: new Date()
+        lastLoginAt: new Date(),
       },
 
       // Guest Access (Green category in Login.tsx)
@@ -138,7 +138,7 @@ export class UserSeed extends BaseSeed<UserEntity> {
         isActive: true,
         failedLoginAttempts: 0,
         passwordChangedAt: new Date(),
-        lastLoginAt: new Date()
+        lastLoginAt: new Date(),
       },
       {
         email: 'devgenius@uaip.dev',
@@ -151,8 +151,8 @@ export class UserSeed extends BaseSeed<UserEntity> {
         isActive: true,
         failedLoginAttempts: 0,
         passwordChangedAt: new Date(),
-        lastLoginAt: new Date()
-      }
+        lastLoginAt: new Date(),
+      },
     ];
   }
 }

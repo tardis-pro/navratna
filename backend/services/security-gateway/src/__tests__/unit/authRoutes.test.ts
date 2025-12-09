@@ -10,17 +10,17 @@ import {
   createMockAuditService,
   createMockUser,
   createMockBcrypt,
-  createMockJWT
+  createMockJWT,
 } from '../utils/mockServices.js';
 import type { Mocked } from 'jest-mock';
 
 // Mock the services
 jest.mock('@uaip/shared-services', () => ({
-  DatabaseService: jest.fn().mockImplementation(() => createMockDatabaseService())
+  DatabaseService: jest.fn().mockImplementation(() => createMockDatabaseService()),
 }));
 
 jest.mock('../../services/auditService', () => ({
-  AuditService: jest.fn().mockImplementation(() => createMockAuditService())
+  AuditService: jest.fn().mockImplementation(() => createMockAuditService()),
 }));
 
 jest.mock('@uaip/config', () => ({
@@ -29,9 +29,9 @@ jest.mock('@uaip/config', () => ({
       secret: 'test-jwt-secret',
       refreshSecret: 'test-refresh-secret',
       accessTokenExpiry: '15m',
-      refreshTokenExpiry: '7d'
-    }
-  }
+      refreshTokenExpiry: '7d',
+    },
+  },
 }));
 
 jest.mock('bcrypt');
@@ -62,7 +62,7 @@ describe('Authentication Routes', () => {
     mockJWT.verify.mockReturnValue({
       userId: 'user-123',
       email: 'test@example.com',
-      role: 'user'
+      role: 'user',
     } as never);
   });
 
@@ -76,7 +76,7 @@ describe('Authentication Routes', () => {
         email: 'test@example.com',
         passwordHash: '$2b$12$hashedpassword',
         isActive: true,
-        failedLoginAttempts: 0
+        failedLoginAttempts: 0,
       });
 
       mockDatabaseService.getUserByEmail.mockResolvedValue(mockUser);
@@ -84,16 +84,14 @@ describe('Authentication Routes', () => {
         id: 'refresh-123',
         userId: 'user-123',
         token: 'refresh.token',
-        expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
+        expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
       } as any);
 
-      const response = await request(app)
-        .post('/auth/login')
-        .send({
-          email: 'test@example.com',
-          password: 'password123',
-          rememberMe: false
-        });
+      const response = await request(app).post('/auth/login').send({
+        email: 'test@example.com',
+        password: 'password123',
+        rememberMe: false,
+      });
 
       expect(response.status).toBe(200);
       expect(response.body.success).toBe(true);
@@ -108,7 +106,7 @@ describe('Authentication Routes', () => {
       expect(mockAuditService.logSecurityEvent).toHaveBeenCalledWith(
         expect.objectContaining({
           eventType: 'LOGIN_SUCCESS',
-          userId: 'user-123'
+          userId: 'user-123',
         })
       );
     });
@@ -116,13 +114,11 @@ describe('Authentication Routes', () => {
     it('should fail login with invalid email', async () => {
       mockDatabaseService.getUserByEmail.mockResolvedValue(null);
 
-      const response = await request(app)
-        .post('/auth/login')
-        .send({
-          email: 'nonexistent@example.com',
-          password: 'password123',
-          rememberMe: false
-        });
+      const response = await request(app).post('/auth/login').send({
+        email: 'nonexistent@example.com',
+        password: 'password123',
+        rememberMe: false,
+      });
 
       expect(response.status).toBe(401);
       expect(response.body.error).toBe('Authentication Failed');
@@ -132,8 +128,8 @@ describe('Authentication Routes', () => {
         expect.objectContaining({
           eventType: 'LOGIN_FAILED',
           details: expect.objectContaining({
-            reason: 'User not found'
-          })
+            reason: 'User not found',
+          }),
         })
       );
     });
@@ -141,18 +137,16 @@ describe('Authentication Routes', () => {
     it('should fail login with inactive account', async () => {
       const mockUser = createMockUser({
         email: 'test@example.com',
-        isActive: false
+        isActive: false,
       });
 
       mockDatabaseService.getUserByEmail.mockResolvedValue(mockUser);
 
-      const response = await request(app)
-        .post('/auth/login')
-        .send({
-          email: 'test@example.com',
-          password: 'password123',
-          rememberMe: false
-        });
+      const response = await request(app).post('/auth/login').send({
+        email: 'test@example.com',
+        password: 'password123',
+        rememberMe: false,
+      });
 
       expect(response.status).toBe(401);
       expect(response.body.error).toBe('Authentication Failed');
@@ -162,8 +156,8 @@ describe('Authentication Routes', () => {
         expect.objectContaining({
           eventType: 'LOGIN_FAILED',
           details: expect.objectContaining({
-            reason: 'Account inactive'
-          })
+            reason: 'Account inactive',
+          }),
         })
       );
     });
@@ -172,29 +166,29 @@ describe('Authentication Routes', () => {
       const mockUser = createMockUser({
         email: 'test@example.com',
         isActive: true,
-        lockedUntil: new Date(Date.now() + 60 * 60 * 1000) // 1 hour from now
+        lockedUntil: new Date(Date.now() + 60 * 60 * 1000), // 1 hour from now
       });
 
       mockDatabaseService.getUserByEmail.mockResolvedValue(mockUser);
 
-      const response = await request(app)
-        .post('/auth/login')
-        .send({
-          email: 'test@example.com',
-          password: 'password123',
-          rememberMe: false
-        });
+      const response = await request(app).post('/auth/login').send({
+        email: 'test@example.com',
+        password: 'password123',
+        rememberMe: false,
+      });
 
       expect(response.status).toBe(401);
       expect(response.body.error).toBe('Authentication Failed');
-      expect(response.body.message).toBe('Account is temporarily locked due to multiple failed login attempts');
+      expect(response.body.message).toBe(
+        'Account is temporarily locked due to multiple failed login attempts'
+      );
 
       expect(mockAuditService.logSecurityEvent).toHaveBeenCalledWith(
         expect.objectContaining({
           eventType: 'LOGIN_FAILED',
           details: expect.objectContaining({
-            reason: 'Account locked'
-          })
+            reason: 'Account locked',
+          }),
         })
       );
     });
@@ -204,26 +198,24 @@ describe('Authentication Routes', () => {
         email: 'test@example.com',
         passwordHash: '$2b$12$hashedpassword',
         isActive: true,
-        failedLoginAttempts: 2
+        failedLoginAttempts: 2,
       });
 
       mockDatabaseService.getUserByEmail.mockResolvedValue(mockUser);
       mockBcrypt.compare.mockResolvedValue(false as never);
 
-      const response = await request(app)
-        .post('/auth/login')
-        .send({
-          email: 'test@example.com',
-          password: 'wrongpassword',
-          rememberMe: false
-        });
+      const response = await request(app).post('/auth/login').send({
+        email: 'test@example.com',
+        password: 'wrongpassword',
+        rememberMe: false,
+      });
 
       expect(response.status).toBe(401);
       expect(response.body.error).toBe('Authentication Failed');
       expect(response.body.message).toBe('Invalid email or password');
 
       expect(mockDatabaseService.updateUserLoginTracking).toHaveBeenCalledWith('user-123', {
-        failedLoginAttempts: 3
+        failedLoginAttempts: 3,
       });
 
       expect(mockAuditService.logSecurityEvent).toHaveBeenCalledWith(
@@ -232,8 +224,8 @@ describe('Authentication Routes', () => {
           details: expect.objectContaining({
             reason: 'Invalid password',
             failedAttempts: 3,
-            accountLocked: false
-          })
+            accountLocked: false,
+          }),
         })
       );
     });
@@ -243,43 +235,39 @@ describe('Authentication Routes', () => {
         email: 'test@example.com',
         passwordHash: '$2b$12$hashedpassword',
         isActive: true,
-        failedLoginAttempts: 4 // One more will trigger lock
+        failedLoginAttempts: 4, // One more will trigger lock
       });
 
       mockDatabaseService.getUserByEmail.mockResolvedValue(mockUser);
       mockBcrypt.compare.mockResolvedValue(false as never);
 
-      const response = await request(app)
-        .post('/auth/login')
-        .send({
-          email: 'test@example.com',
-          password: 'wrongpassword',
-          rememberMe: false
-        });
+      const response = await request(app).post('/auth/login').send({
+        email: 'test@example.com',
+        password: 'wrongpassword',
+        rememberMe: false,
+      });
 
       expect(response.status).toBe(401);
 
       expect(mockDatabaseService.updateUserLoginTracking).toHaveBeenCalledWith('user-123', {
         failedLoginAttempts: 5,
-        lockedUntil: expect.any(Date)
+        lockedUntil: expect.any(Date),
       });
 
       expect(mockAuditService.logSecurityEvent).toHaveBeenCalledWith(
         expect.objectContaining({
           details: expect.objectContaining({
-            accountLocked: true
-          })
+            accountLocked: true,
+          }),
         })
       );
     });
 
     it('should validate request body', async () => {
-      const response = await request(app)
-        .post('/auth/login')
-        .send({
-          email: 'invalid-email',
-          password: '123' // Too short
-        });
+      const response = await request(app).post('/auth/login').send({
+        email: 'invalid-email',
+        password: '123', // Too short
+      });
 
       expect(response.status).toBe(400);
     });
@@ -287,13 +275,11 @@ describe('Authentication Routes', () => {
     it('should handle internal server errors', async () => {
       mockDatabaseService.getUserByEmail.mockRejectedValue(new Error('Database error'));
 
-      const response = await request(app)
-        .post('/auth/login')
-        .send({
-          email: 'test@example.com',
-          password: 'password123',
-          rememberMe: false
-        });
+      const response = await request(app).post('/auth/login').send({
+        email: 'test@example.com',
+        password: 'password123',
+        rememberMe: false,
+      });
 
       expect(response.status).toBe(500);
       expect(response.body.error).toBe('Internal Server Error');
@@ -311,17 +297,15 @@ describe('Authentication Routes', () => {
         user: createMockUser({
           id: 'user-123',
           isActive: true,
-          role: 'user'
-        })
+          role: 'user',
+        }),
       };
 
       mockDatabaseService.getRefreshTokenWithUser.mockResolvedValue(mockTokenData as any);
 
-      const response = await request(app)
-        .post('/auth/refresh')
-        .send({
-          refreshToken: 'valid.refresh.token'
-        });
+      const response = await request(app).post('/auth/refresh').send({
+        refreshToken: 'valid.refresh.token',
+      });
 
       expect(response.status).toBe(200);
       expect(response.body.success).toBe(true);
@@ -329,7 +313,7 @@ describe('Authentication Routes', () => {
 
       expect(mockAuditService.logSecurityEvent).toHaveBeenCalledWith(
         expect.objectContaining({
-          eventType: 'TOKEN_REFRESH'
+          eventType: 'TOKEN_REFRESH',
         })
       );
     });
@@ -339,11 +323,9 @@ describe('Authentication Routes', () => {
         throw new Error('Invalid token');
       });
 
-      const response = await request(app)
-        .post('/auth/refresh')
-        .send({
-          refreshToken: 'invalid.refresh.token'
-        });
+      const response = await request(app).post('/auth/refresh').send({
+        refreshToken: 'invalid.refresh.token',
+      });
 
       expect(response.status).toBe(401);
       expect(response.body.error).toBe('Invalid Token');
@@ -353,11 +335,9 @@ describe('Authentication Routes', () => {
     it('should fail with non-existent refresh token in database', async () => {
       mockDatabaseService.getRefreshTokenWithUser.mockResolvedValue(null);
 
-      const response = await request(app)
-        .post('/auth/refresh')
-        .send({
-          refreshToken: 'valid.jwt.but.not.in.db'
-        });
+      const response = await request(app).post('/auth/refresh').send({
+        refreshToken: 'valid.jwt.but.not.in.db',
+      });
 
       expect(response.status).toBe(401);
       expect(response.body.error).toBe('Invalid Token');
@@ -371,16 +351,14 @@ describe('Authentication Routes', () => {
         token: 'revoked.refresh.token',
         expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
         revokedAt: new Date(), // Token is revoked
-        user: createMockUser()
+        user: createMockUser(),
       };
 
       mockDatabaseService.getRefreshTokenWithUser.mockResolvedValue(mockTokenData as any);
 
-      const response = await request(app)
-        .post('/auth/refresh')
-        .send({
-          refreshToken: 'revoked.refresh.token'
-        });
+      const response = await request(app).post('/auth/refresh').send({
+        refreshToken: 'revoked.refresh.token',
+      });
 
       expect(response.status).toBe(401);
       expect(response.body.error).toBe('Invalid Token');
@@ -394,17 +372,15 @@ describe('Authentication Routes', () => {
         expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
         revokedAt: null,
         user: createMockUser({
-          isActive: false // User is inactive
-        })
+          isActive: false, // User is inactive
+        }),
       };
 
       mockDatabaseService.getRefreshTokenWithUser.mockResolvedValue(mockTokenData as any);
 
-      const response = await request(app)
-        .post('/auth/refresh')
-        .send({
-          refreshToken: 'valid.refresh.token'
-        });
+      const response = await request(app).post('/auth/refresh').send({
+        refreshToken: 'valid.refresh.token',
+      });
 
       expect(response.status).toBe(401);
       expect(response.body.error).toBe('Account Inactive');
@@ -431,7 +407,7 @@ describe('Authentication Routes', () => {
         .post('/auth/logout')
         .set('Authorization', 'Bearer valid.jwt.token')
         .send({
-          refreshToken: 'specific.refresh.token'
+          refreshToken: 'specific.refresh.token',
         });
 
       // Note: This will fail without proper auth middleware setup
@@ -454,7 +430,7 @@ describe('Authentication Routes', () => {
     it('should change password successfully', async () => {
       const mockUser = createMockUser({
         id: 'user-123',
-        passwordHash: '$2b$12$oldhash'
+        passwordHash: '$2b$12$oldhash',
       });
 
       mockDatabaseService.getUserById.mockResolvedValue(mockUser);
@@ -466,7 +442,7 @@ describe('Authentication Routes', () => {
         .send({
           currentPassword: 'oldpassword',
           newPassword: 'NewPassword123!',
-          confirmPassword: 'NewPassword123!'
+          confirmPassword: 'NewPassword123!',
         });
 
       // Verify password hashing and update
@@ -477,7 +453,7 @@ describe('Authentication Routes', () => {
 
     it('should fail with incorrect current password', async () => {
       const mockUser = createMockUser({
-        passwordHash: '$2b$12$oldhash'
+        passwordHash: '$2b$12$oldhash',
       });
 
       mockDatabaseService.getUserById.mockResolvedValue(mockUser);
@@ -489,12 +465,12 @@ describe('Authentication Routes', () => {
         .send({
           currentPassword: 'wrongpassword',
           newPassword: 'NewPassword123!',
-          confirmPassword: 'NewPassword123!'
+          confirmPassword: 'NewPassword123!',
         });
 
       expect(mockAuditService.logSecurityEvent).toHaveBeenCalledWith(
         expect.objectContaining({
-          eventType: 'PASSWORD_CHANGE_FAILED'
+          eventType: 'PASSWORD_CHANGE_FAILED',
         })
       );
     });
@@ -506,7 +482,7 @@ describe('Authentication Routes', () => {
         .send({
           currentPassword: 'oldpassword',
           newPassword: 'weak', // Doesn't meet requirements
-          confirmPassword: 'weak'
+          confirmPassword: 'weak',
         });
 
       expect(response.status).toBe(400);
@@ -519,7 +495,7 @@ describe('Authentication Routes', () => {
         .send({
           currentPassword: 'oldpassword',
           newPassword: 'NewPassword123!',
-          confirmPassword: 'DifferentPassword123!'
+          confirmPassword: 'DifferentPassword123!',
         });
 
       expect(response.status).toBe(400);
@@ -533,7 +509,7 @@ describe('Authentication Routes', () => {
         email: 'test@example.com',
         firstName: 'Test',
         lastName: 'User',
-        role: 'user'
+        role: 'user',
       });
 
       mockDatabaseService.getUserById.mockResolvedValue(mockUser);
@@ -559,11 +535,9 @@ describe('Authentication Routes', () => {
 
   describe('POST /auth/forgot-password', () => {
     it('should always return success for security', async () => {
-      const response = await request(app)
-        .post('/auth/forgot-password')
-        .send({
-          email: 'test@example.com'
-        });
+      const response = await request(app).post('/auth/forgot-password').send({
+        email: 'test@example.com',
+      });
 
       expect(response.status).toBe(200);
       expect(response.body.message).toContain('If an account with that email exists');
@@ -572,22 +546,20 @@ describe('Authentication Routes', () => {
     it('should create reset token for valid active users', async () => {
       const mockUser = createMockUser({
         email: 'test@example.com',
-        isActive: true
+        isActive: true,
       });
 
       mockDatabaseService.getUserByEmail.mockResolvedValue(mockUser);
 
-      const response = await request(app)
-        .post('/auth/forgot-password')
-        .send({
-          email: 'test@example.com'
-        });
+      const response = await request(app).post('/auth/forgot-password').send({
+        email: 'test@example.com',
+      });
 
       expect(response.status).toBe(200);
       expect(mockDatabaseService.createPasswordResetToken).toHaveBeenCalled();
       expect(mockAuditService.logSecurityEvent).toHaveBeenCalledWith(
         expect.objectContaining({
-          eventType: 'PASSWORD_RESET_REQUESTED'
+          eventType: 'PASSWORD_RESET_REQUESTED',
         })
       );
     });
@@ -595,16 +567,14 @@ describe('Authentication Routes', () => {
     it('should not create reset token for inactive users', async () => {
       const mockUser = createMockUser({
         email: 'test@example.com',
-        isActive: false
+        isActive: false,
       });
 
       mockDatabaseService.getUserByEmail.mockResolvedValue(mockUser);
 
-      const response = await request(app)
-        .post('/auth/forgot-password')
-        .send({
-          email: 'test@example.com'
-        });
+      const response = await request(app).post('/auth/forgot-password').send({
+        email: 'test@example.com',
+      });
 
       expect(response.status).toBe(200);
       expect(mockDatabaseService.createPasswordResetToken).not.toHaveBeenCalled();
@@ -621,23 +591,28 @@ describe('Authentication Routes', () => {
         usedAt: null,
         user: createMockUser({
           id: 'user-123',
-          isActive: true
-        })
+          isActive: true,
+        }),
       };
 
-      mockDatabaseService.getPasswordResetTokenWithUser.mockResolvedValue(mockResetTokenData as any);
+      mockDatabaseService.getPasswordResetTokenWithUser.mockResolvedValue(
+        mockResetTokenData as any
+      );
 
-      const response = await request(app)
-        .post('/auth/reset-password')
-        .send({
-          token: 'valid.reset.token',
-          newPassword: 'NewPassword123!',
-          confirmPassword: 'NewPassword123!'
-        });
+      const response = await request(app).post('/auth/reset-password').send({
+        token: 'valid.reset.token',
+        newPassword: 'NewPassword123!',
+        confirmPassword: 'NewPassword123!',
+      });
 
       expect(response.status).toBe(200);
-      expect(mockDatabaseService.updateUserPassword).toHaveBeenCalledWith('user-123', expect.any(String));
-      expect(mockDatabaseService.markPasswordResetTokenAsUsed).toHaveBeenCalledWith('valid.reset.token');
+      expect(mockDatabaseService.updateUserPassword).toHaveBeenCalledWith(
+        'user-123',
+        expect.any(String)
+      );
+      expect(mockDatabaseService.markPasswordResetTokenAsUsed).toHaveBeenCalledWith(
+        'valid.reset.token'
+      );
       expect(mockDatabaseService.revokeAllUserRefreshTokens).toHaveBeenCalledWith('user-123');
     });
 
@@ -646,13 +621,11 @@ describe('Authentication Routes', () => {
         throw new Error('Invalid token');
       });
 
-      const response = await request(app)
-        .post('/auth/reset-password')
-        .send({
-          token: 'invalid.reset.token',
-          newPassword: 'NewPassword123!',
-          confirmPassword: 'NewPassword123!'
-        });
+      const response = await request(app).post('/auth/reset-password').send({
+        token: 'invalid.reset.token',
+        newPassword: 'NewPassword123!',
+        confirmPassword: 'NewPassword123!',
+      });
 
       expect(response.status).toBe(401);
       expect(response.body.error).toBe('Invalid Token');
@@ -665,18 +638,18 @@ describe('Authentication Routes', () => {
         token: 'expired.reset.token',
         expiresAt: new Date(Date.now() - 60 * 60 * 1000), // Expired 1 hour ago
         usedAt: null,
-        user: createMockUser()
+        user: createMockUser(),
       };
 
-      mockDatabaseService.getPasswordResetTokenWithUser.mockResolvedValue(mockResetTokenData as any);
+      mockDatabaseService.getPasswordResetTokenWithUser.mockResolvedValue(
+        mockResetTokenData as any
+      );
 
-      const response = await request(app)
-        .post('/auth/reset-password')
-        .send({
-          token: 'expired.reset.token',
-          newPassword: 'NewPassword123!',
-          confirmPassword: 'NewPassword123!'
-        });
+      const response = await request(app).post('/auth/reset-password').send({
+        token: 'expired.reset.token',
+        newPassword: 'NewPassword123!',
+        confirmPassword: 'NewPassword123!',
+      });
 
       expect(response.status).toBe(401);
       expect(response.body.error).toBe('Invalid Token');
@@ -689,18 +662,18 @@ describe('Authentication Routes', () => {
         token: 'used.reset.token',
         expiresAt: new Date(Date.now() + 60 * 60 * 1000),
         usedAt: new Date(), // Token already used
-        user: createMockUser()
+        user: createMockUser(),
       };
 
-      mockDatabaseService.getPasswordResetTokenWithUser.mockResolvedValue(mockResetTokenData as any);
+      mockDatabaseService.getPasswordResetTokenWithUser.mockResolvedValue(
+        mockResetTokenData as any
+      );
 
-      const response = await request(app)
-        .post('/auth/reset-password')
-        .send({
-          token: 'used.reset.token',
-          newPassword: 'NewPassword123!',
-          confirmPassword: 'NewPassword123!'
-        });
+      const response = await request(app).post('/auth/reset-password').send({
+        token: 'used.reset.token',
+        newPassword: 'NewPassword123!',
+        confirmPassword: 'NewPassword123!',
+      });
 
       expect(response.status).toBe(401);
       expect(response.body.message).toContain('already used');

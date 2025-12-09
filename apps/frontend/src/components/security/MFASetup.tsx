@@ -26,7 +26,7 @@ import {
   Info,
   RefreshCw,
   Download,
-  FileText
+  FileText,
 } from 'lucide-react';
 import QRCode from 'qrcode.react';
 import { MFAMethod, MFASetupData } from '@uaip/types';
@@ -50,7 +50,7 @@ const mfaMethods: MFAMethodConfig[] = [
     icon: <Smartphone className="w-5 h-5" />,
     color: 'text-blue-600',
     bgColor: 'bg-blue-50',
-    recommended: true
+    recommended: true,
   },
   {
     id: MFAMethod.SMS,
@@ -58,7 +58,7 @@ const mfaMethods: MFAMethodConfig[] = [
     description: 'Receive codes via text message to your phone',
     icon: <MessageSquare className="w-5 h-5" />,
     color: 'text-green-600',
-    bgColor: 'bg-green-50'
+    bgColor: 'bg-green-50',
   },
   {
     id: MFAMethod.EMAIL,
@@ -66,7 +66,7 @@ const mfaMethods: MFAMethodConfig[] = [
     description: 'Receive codes via email to your registered address',
     icon: <Mail className="w-5 h-5" />,
     color: 'text-purple-600',
-    bgColor: 'bg-purple-50'
+    bgColor: 'bg-purple-50',
   },
   {
     id: MFAMethod.BACKUP_CODES,
@@ -74,8 +74,8 @@ const mfaMethods: MFAMethodConfig[] = [
     description: 'Generate one-time use recovery codes',
     icon: <Key className="w-5 h-5" />,
     color: 'text-orange-600',
-    bgColor: 'bg-orange-50'
-  }
+    bgColor: 'bg-orange-50',
+  },
 ];
 
 export const MFASetup: React.FC = () => {
@@ -102,7 +102,7 @@ export const MFASetup: React.FC = () => {
       toast({
         title: 'Error',
         description: 'Failed to fetch MFA status',
-        variant: 'destructive'
+        variant: 'destructive',
       });
     }
   };
@@ -111,7 +111,7 @@ export const MFASetup: React.FC = () => {
     try {
       setLoading(true);
       setSelectedMethod(method);
-      
+
       if (method === MFAMethod.SMS) {
         setSetupStep('setup');
         setLoading(false);
@@ -125,7 +125,7 @@ export const MFASetup: React.FC = () => {
       toast({
         title: 'Setup Failed',
         description: 'Failed to initialize MFA setup',
-        variant: 'destructive'
+        variant: 'destructive',
       });
       setSelectedMethod(null);
     } finally {
@@ -135,12 +135,12 @@ export const MFASetup: React.FC = () => {
 
   const handlePhoneSubmit = async () => {
     if (!phoneNumber) return;
-    
+
     try {
       setLoading(true);
       const response = await api.post('/security/mfa/setup', {
         method: MFAMethod.SMS,
-        phoneNumber
+        phoneNumber,
       });
       setSetupData(response.data);
       setSetupStep('verify');
@@ -148,7 +148,7 @@ export const MFASetup: React.FC = () => {
       toast({
         title: 'Error',
         description: 'Failed to setup SMS authentication',
-        variant: 'destructive'
+        variant: 'destructive',
       });
     } finally {
       setLoading(false);
@@ -160,7 +160,7 @@ export const MFASetup: React.FC = () => {
       toast({
         title: 'Invalid Code',
         description: 'Please enter a 6-digit verification code',
-        variant: 'destructive'
+        variant: 'destructive',
       });
       return;
     }
@@ -170,7 +170,7 @@ export const MFASetup: React.FC = () => {
       await api.post('/security/mfa/verify', {
         method: selectedMethod,
         code: verificationCode,
-        setupId: setupData?.setupId
+        setupId: setupData?.setupId,
       });
 
       toast({
@@ -178,13 +178,13 @@ export const MFASetup: React.FC = () => {
         description: `${selectedMethod} authentication has been successfully enabled`,
       });
 
-      setEnabledMethods(prev => [...prev, selectedMethod!]);
+      setEnabledMethods((prev) => [...prev, selectedMethod!]);
       handleCancel();
     } catch (error) {
       toast({
         title: 'Verification Failed',
         description: 'Invalid verification code. Please try again.',
-        variant: 'destructive'
+        variant: 'destructive',
       });
     } finally {
       setVerifying(false);
@@ -194,7 +194,7 @@ export const MFASetup: React.FC = () => {
   const handleDisable = async (method: MFAMethod) => {
     try {
       await api.delete(`/security/mfa/${method}`);
-      setEnabledMethods(prev => prev.filter(m => m !== method));
+      setEnabledMethods((prev) => prev.filter((m) => m !== method));
       toast({
         title: 'MFA Disabled',
         description: `${method} authentication has been disabled`,
@@ -203,7 +203,7 @@ export const MFASetup: React.FC = () => {
       toast({
         title: 'Error',
         description: 'Failed to disable MFA method',
-        variant: 'destructive'
+        variant: 'destructive',
       });
     }
   };
@@ -225,7 +225,8 @@ export const MFASetup: React.FC = () => {
   const downloadBackupCodes = () => {
     if (!setupData?.backupCodes) return;
 
-    const content = `Recovery Codes - ${new Date().toISOString()}\n\n` +
+    const content =
+      `Recovery Codes - ${new Date().toISOString()}\n\n` +
       'Keep these codes in a safe place. Each code can only be used once.\n\n' +
       setupData.backupCodes.join('\n');
 
@@ -247,9 +248,10 @@ export const MFASetup: React.FC = () => {
         animate={{ opacity: 1, scale: 1 }}
         transition={{ duration: 0.2 }}
       >
-        <Card className={`relative overflow-hidden transition-all duration-300 ${
-          isEnabled ? 'border-green-200 shadow-md' : 'hover:shadow-lg cursor-pointer'
-        }`}
+        <Card
+          className={`relative overflow-hidden transition-all duration-300 ${
+            isEnabled ? 'border-green-200 shadow-md' : 'hover:shadow-lg cursor-pointer'
+          }`}
           onClick={() => !isEnabled && handleMethodSelect(method.id)}
         >
           <CardHeader>
@@ -267,9 +269,7 @@ export const MFASetup: React.FC = () => {
                       </Badge>
                     )}
                   </CardTitle>
-                  <CardDescription className="mt-1">
-                    {method.description}
-                  </CardDescription>
+                  <CardDescription className="mt-1">{method.description}</CardDescription>
                 </div>
               </div>
 
@@ -321,19 +321,15 @@ export const MFASetup: React.FC = () => {
             <Alert>
               <Info className="h-4 w-4" />
               <AlertDescription>
-                Scan this QR code with your authenticator app. If you can't scan, 
-                enter the secret key manually.
+                Scan this QR code with your authenticator app. If you can't scan, enter the secret
+                key manually.
               </AlertDescription>
             </Alert>
 
             <div className="space-y-2">
               <Label>Secret Key</Label>
               <div className="flex gap-2">
-                <Input
-                  value={setupData.secret || ''}
-                  readOnly
-                  className="font-mono text-xs"
-                />
+                <Input value={setupData.secret || ''} readOnly className="font-mono text-xs" />
                 <Button
                   size="icon"
                   variant="outline"
@@ -362,8 +358,8 @@ export const MFASetup: React.FC = () => {
                 onChange={(e) => setPhoneNumber(e.target.value)}
               />
             </div>
-            <Button 
-              onClick={handlePhoneSubmit} 
+            <Button
+              onClick={handlePhoneSubmit}
               disabled={!phoneNumber || loading}
               className="w-full"
             >
@@ -384,8 +380,8 @@ export const MFASetup: React.FC = () => {
           <Alert>
             <Mail className="h-4 w-4" />
             <AlertDescription>
-              A verification code has been sent to your registered email address.
-              Please check your inbox and spam folder.
+              A verification code has been sent to your registered email address. Please check your
+              inbox and spam folder.
             </AlertDescription>
           </Alert>
         );
@@ -402,10 +398,7 @@ export const MFASetup: React.FC = () => {
 
             <div className="grid grid-cols-2 gap-2">
               {setupData.backupCodes?.map((code, index) => (
-                <div
-                  key={index}
-                  className="p-2 bg-gray-50 rounded font-mono text-sm text-center"
-                >
+                <div key={index} className="p-2 bg-gray-50 rounded font-mono text-sm text-center">
                   {code}
                 </div>
               ))}
@@ -425,28 +418,28 @@ export const MFASetup: React.FC = () => {
       {/* Header - removed since portal provides its own header */}
 
       {/* Security Status */}
-      <Card className={`border-2 ${enabledMethods.length > 0 ? 'border-green-200 bg-green-50' : 'border-orange-200 bg-orange-50'}`}>
+      <Card
+        className={`border-2 ${enabledMethods.length > 0 ? 'border-green-200 bg-green-50' : 'border-orange-200 bg-orange-50'}`}
+      >
         <CardContent className="flex items-center justify-between py-4">
           <div className="flex items-center gap-3">
-            <Shield className={`w-8 h-8 ${enabledMethods.length > 0 ? 'text-green-600' : 'text-orange-600'}`} />
+            <Shield
+              className={`w-8 h-8 ${enabledMethods.length > 0 ? 'text-green-600' : 'text-orange-600'}`}
+            />
             <div>
               <h3 className="font-semibold">
                 {enabledMethods.length > 0 ? 'Account Protected' : 'MFA Not Enabled'}
               </h3>
               <p className="text-sm text-muted-foreground">
-                {enabledMethods.length > 0 
+                {enabledMethods.length > 0
                   ? `${enabledMethods.length} authentication method${enabledMethods.length > 1 ? 's' : ''} active`
-                  : 'Enable MFA to secure your account'
-                }
+                  : 'Enable MFA to secure your account'}
               </p>
             </div>
           </div>
-          
+
           <div className="flex items-center gap-2">
-            <Progress 
-              value={(enabledMethods.length / mfaMethods.length) * 100} 
-              className="w-24"
-            />
+            <Progress value={(enabledMethods.length / mfaMethods.length) * 100} className="w-24" />
             <span className="text-sm font-medium">
               {enabledMethods.length}/{mfaMethods.length}
             </span>
@@ -477,15 +470,10 @@ export const MFASetup: React.FC = () => {
               <CardHeader>
                 <div className="flex items-center justify-between">
                   <CardTitle>
-                    {setupStep === 'setup' ? 'Setup' : 'Verify'} {
-                      mfaMethods.find(m => m.id === selectedMethod)?.name
-                    }
+                    {setupStep === 'setup' ? 'Setup' : 'Verify'}{' '}
+                    {mfaMethods.find((m) => m.id === selectedMethod)?.name}
                   </CardTitle>
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    onClick={handleCancel}
-                  >
+                  <Button size="sm" variant="ghost" onClick={handleCancel}>
                     <X className="w-4 h-4" />
                   </Button>
                 </div>
@@ -494,7 +482,8 @@ export const MFASetup: React.FC = () => {
               <CardContent className="space-y-6">
                 {setupStep === 'setup' && renderSetupContent()}
 
-                {(setupStep === 'verify' || (setupStep === 'setup' && selectedMethod !== MFAMethod.SMS)) && (
+                {(setupStep === 'verify' ||
+                  (setupStep === 'setup' && selectedMethod !== MFAMethod.SMS)) && (
                   <div className="space-y-4">
                     <div className="space-y-2">
                       <Label>Verification Code</Label>
@@ -502,7 +491,9 @@ export const MFASetup: React.FC = () => {
                         type="text"
                         placeholder="000000"
                         value={verificationCode}
-                        onChange={(e) => setVerificationCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                        onChange={(e) =>
+                          setVerificationCode(e.target.value.replace(/\D/g, '').slice(0, 6))
+                        }
                         className="text-center text-2xl font-mono tracking-widest"
                       />
                     </div>

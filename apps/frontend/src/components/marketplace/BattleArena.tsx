@@ -4,12 +4,12 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
-import { 
-  Sword, 
-  Trophy, 
-  Users, 
-  Eye, 
-  Clock, 
+import {
+  Sword,
+  Trophy,
+  Users,
+  Eye,
+  Clock,
   Zap,
   Crown,
   Target,
@@ -17,7 +17,7 @@ import {
   Share2,
   Heart,
   Play,
-  Pause
+  Pause,
 } from 'lucide-react';
 import { Battle, BattleType, BattleStatus, BattleParticipantRole } from '@uaip/types';
 
@@ -61,8 +61,8 @@ export const BattleArena: React.FC<BattleArenaProps> = ({ onCreateBattle, onJoin
               creativity: 9,
               accuracy: 8,
               efficiency: 9,
-              engagement: 8
-            }
+              engagement: 8,
+            },
           },
           {
             id: 'p2',
@@ -81,9 +81,9 @@ export const BattleArena: React.FC<BattleArenaProps> = ({ onCreateBattle, onJoin
               creativity: 10,
               accuracy: 9,
               efficiency: 8,
-              engagement: 9
-            }
-          }
+              engagement: 9,
+            },
+          },
         ],
         currentRound: 2,
         totalRounds: 3,
@@ -102,7 +102,7 @@ export const BattleArena: React.FC<BattleArenaProps> = ({ onCreateBattle, onJoin
           prizePool: 500,
           entryFee: 50,
           skillLevel: 'expert' as any,
-          tags: ['coding', 'frontend', 'frameworks']
+          tags: ['coding', 'frontend', 'frameworks'],
         },
         prizePool: 500,
         maxParticipants: 2,
@@ -110,8 +110,8 @@ export const BattleArena: React.FC<BattleArenaProps> = ({ onCreateBattle, onJoin
         rounds: [],
         finalScores: [],
         actualStartTime: new Date(Date.now() - 45 * 60 * 1000), // 45 minutes ago
-        judgingCriteria: []
-      }
+        judgingCriteria: [],
+      },
     ] as Battle[];
 
     const mockUpcoming: Battle[] = [
@@ -134,8 +134,8 @@ export const BattleArena: React.FC<BattleArenaProps> = ({ onCreateBattle, onJoin
             role: BattleParticipantRole.COMPETITOR,
             joinedAt: new Date(),
             isReady: true,
-            score: 0
-          }
+            score: 0,
+          },
         ],
         scheduledStartTime: new Date(Date.now() + 15 * 60 * 1000), // 15 minutes from now
         spectatorCount: 342,
@@ -156,10 +156,10 @@ export const BattleArena: React.FC<BattleArenaProps> = ({ onCreateBattle, onJoin
           prizePool: 250,
           entryFee: 25,
           skillLevel: 'intermediate' as any,
-          tags: ['creative', 'storytelling', 'writing']
+          tags: ['creative', 'storytelling', 'writing'],
         },
-        judgingCriteria: []
-      }
+        judgingCriteria: [],
+      },
     ] as Battle[];
 
     setLiveBattles(mockLiveBattles);
@@ -176,20 +176,25 @@ export const BattleArena: React.FC<BattleArenaProps> = ({ onCreateBattle, onJoin
 
   const getBattleTypeIcon = (type: BattleType) => {
     switch (type) {
-      case BattleType.CODING_CHALLENGE: return '👨‍💻';
-      case BattleType.DEBATE: return '🗣️';
-      case BattleType.CREATIVE_WRITING: return '✍️';
-      case BattleType.STORYTELLING: return '📚';
-      case BattleType.PROBLEM_SOLVING: return '🧩';
-      case BattleType.TRIVIA: return '🧠';
-      default: return '⚔️';
+      case BattleType.CODING_CHALLENGE:
+        return '👨‍💻';
+      case BattleType.DEBATE:
+        return '🗣️';
+      case BattleType.CREATIVE_WRITING:
+        return '✍️';
+      case BattleType.STORYTELLING:
+        return '📚';
+      case BattleType.PROBLEM_SOLVING:
+        return '🧩';
+      case BattleType.TRIVIA:
+        return '🧠';
+      default:
+        return '⚔️';
     }
   };
 
   const LiveBattleCard: React.FC<{ battle: Battle }> = ({ battle }) => {
-    const timeElapsed = battle.actualStartTime 
-      ? Date.now() - battle.actualStartTime.getTime()
-      : 0;
+    const timeElapsed = battle.actualStartTime ? Date.now() - battle.actualStartTime.getTime() : 0;
     const totalTime = battle.settings.timeLimit * 1000;
     const progress = Math.min((timeElapsed / totalTime) * 100, 100);
 
@@ -205,7 +210,9 @@ export const BattleArena: React.FC<BattleArenaProps> = ({ onCreateBattle, onJoin
               <p className="text-sm text-gray-600 mt-1">{battle.description}</p>
             </div>
             <div className="flex flex-col gap-2">
-              <Badge variant="destructive" className="animate-pulse">ROUND {battle.currentRound}/{battle.totalRounds}</Badge>
+              <Badge variant="destructive" className="animate-pulse">
+                ROUND {battle.currentRound}/{battle.totalRounds}
+              </Badge>
               <div className="flex items-center gap-2 text-sm">
                 <Eye className="w-4 h-4" />
                 <span className="font-semibold">{battle.spectatorCount.toLocaleString()}</span>
@@ -227,41 +234,40 @@ export const BattleArena: React.FC<BattleArenaProps> = ({ onCreateBattle, onJoin
           <div className="space-y-3">
             <h4 className="font-semibold text-sm">Competitors:</h4>
             {battle.participants
-              .filter(p => p.role === BattleParticipantRole.COMPETITOR)
+              .filter((p) => p.role === BattleParticipantRole.COMPETITOR)
               .map((participant, index) => (
-              <div key={participant.id} className="flex items-center justify-between p-3 bg-white rounded-lg border">
-                <div className="flex items-center gap-3">
-                  <div className="relative">
-                    <Avatar className="w-10 h-10">
-                      <AvatarImage src={`/agent-avatar-${participant.agentId}.png`} />
-                      <AvatarFallback>{participant.agentName.slice(0, 2)}</AvatarFallback>
-                    </Avatar>
-                    {participant.rank === 1 && (
-                      <Crown className="absolute -top-2 -right-1 w-4 h-4 text-yellow-500" />
-                    )}
+                <div
+                  key={participant.id}
+                  className="flex items-center justify-between p-3 bg-white rounded-lg border"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="relative">
+                      <Avatar className="w-10 h-10">
+                        <AvatarImage src={`/agent-avatar-${participant.agentId}.png`} />
+                        <AvatarFallback>{participant.agentName.slice(0, 2)}</AvatarFallback>
+                      </Avatar>
+                      {participant.rank === 1 && (
+                        <Crown className="absolute -top-2 -right-1 w-4 h-4 text-yellow-500" />
+                      )}
+                    </div>
+                    <div>
+                      <div className="font-semibold">{participant.agentName}</div>
+                      <div className="text-xs text-gray-500">by {participant.userName}</div>
+                    </div>
                   </div>
-                  <div>
-                    <div className="font-semibold">{participant.agentName}</div>
-                    <div className="text-xs text-gray-500">by {participant.userName}</div>
+                  <div className="text-right">
+                    <div className="text-xl font-bold text-blue-600">{participant.score}</div>
+                    <div className="text-xs text-gray-500">
+                      #{participant.rank} • {participant.performance?.responseTime}s
+                    </div>
                   </div>
                 </div>
-                <div className="text-right">
-                  <div className="text-xl font-bold text-blue-600">{participant.score}</div>
-                  <div className="text-xs text-gray-500">
-                    #{participant.rank} • {participant.performance?.responseTime}s
-                  </div>
-                </div>
-              </div>
-            ))}
+              ))}
           </div>
 
           {/* Action Buttons */}
           <div className="flex gap-2">
-            <Button 
-              className="flex-1" 
-              variant="default"
-              onClick={() => setSelectedBattle(battle)}
-            >
+            <Button className="flex-1" variant="default" onClick={() => setSelectedBattle(battle)}>
               <Eye className="w-4 h-4 mr-2" />
               Watch Live
             </Button>
@@ -307,7 +313,9 @@ export const BattleArena: React.FC<BattleArenaProps> = ({ onCreateBattle, onJoin
       <CardContent className="space-y-4">
         <div className="grid grid-cols-3 gap-4 text-center">
           <div>
-            <div className="text-lg font-bold">{battle.currentParticipants}/{battle.maxParticipants}</div>
+            <div className="text-lg font-bold">
+              {battle.currentParticipants}/{battle.maxParticipants}
+            </div>
             <div className="text-xs text-gray-500">Players</div>
           </div>
           <div>
@@ -321,8 +329,8 @@ export const BattleArena: React.FC<BattleArenaProps> = ({ onCreateBattle, onJoin
         </div>
 
         <div className="flex gap-2">
-          <Button 
-            className="flex-1" 
+          <Button
+            className="flex-1"
             disabled={battle.currentParticipants >= battle.maxParticipants}
             onClick={() => onJoinBattle?.(battle.id)}
           >
@@ -360,7 +368,11 @@ export const BattleArena: React.FC<BattleArenaProps> = ({ onCreateBattle, onJoin
 
       {/* Quick Actions */}
       <div className="flex justify-center gap-4">
-        <Button size="lg" onClick={onCreateBattle} className="bg-gradient-to-r from-red-500 to-orange-500">
+        <Button
+          size="lg"
+          onClick={onCreateBattle}
+          className="bg-gradient-to-r from-red-500 to-orange-500"
+        >
           <Sword className="w-5 h-5 mr-2" />
           Create Battle
         </Button>
@@ -409,15 +421,13 @@ export const BattleArena: React.FC<BattleArenaProps> = ({ onCreateBattle, onJoin
         <h3 className="text-xl font-semibold mb-4">Battle Types</h3>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
           {Object.values(BattleType).map((type) => (
-            <Card 
-              key={type} 
+            <Card
+              key={type}
               className="cursor-pointer hover:shadow-md transition-shadow text-center p-4"
             >
               <CardContent className="p-0">
                 <div className="text-2xl mb-2">{getBattleTypeIcon(type)}</div>
-                <div className="text-sm font-medium capitalize">
-                  {type.replace('_', ' ')}
-                </div>
+                <div className="text-sm font-medium capitalize">{type.replace('_', ' ')}</div>
               </CardContent>
             </Card>
           ))}

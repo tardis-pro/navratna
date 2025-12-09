@@ -26,17 +26,20 @@ __tests__/
 ### Unit Tests
 
 **Database Services**
+
 - `DatabaseService.test.ts` - Core database operations, connection management, transactions
 - `UserRepository.test.ts` - User CRUD operations, authentication data
 - Additional repository tests for agents, operations, tools, etc.
 
 **Agent Memory Management**
+
 - `AgentMemoryService.test.ts` - Memory orchestration and analytics
 - `WorkingMemoryManager.test.ts` - Active memory and emotional state
 - `EpisodicMemoryManager.test.ts` - Experience storage and retrieval
 - `SemanticMemoryManager.test.ts` - Concept learning and relationships
 
 **Knowledge Graph Services**
+
 - `KnowledgeGraphService.test.ts` - Knowledge ingestion, search, and retrieval
 - `EmbeddingService.test.ts` - Vector embedding generation and similarity
 - `ContentClassifier.test.ts` - Automatic content categorization
@@ -45,6 +48,7 @@ __tests__/
 ### Integration Tests
 
 **Service Orchestration**
+
 - `AgentIntelligenceService.test.ts` - Multi-service agent workflows
 - `WorkflowOrchestration.test.ts` - Complex operation coordination
 - `EventBusIntegration.test.ts` - Inter-service communication
@@ -52,6 +56,7 @@ __tests__/
 ### End-to-End Tests
 
 **Complete Workflows**
+
 - Agent lifecycle management
 - Knowledge ingestion and retrieval pipelines
 - Multi-agent collaboration scenarios
@@ -64,7 +69,7 @@ __tests__/
 The test suite uses Docker containers for realistic testing environments:
 
 - **PostgreSQL** - Primary database testing
-- **Redis** - Cache and session testing  
+- **Redis** - Cache and session testing
 - **RabbitMQ** - Event bus testing
 - **Neo4j** - Graph database testing
 
@@ -73,17 +78,19 @@ Containers are automatically managed via `globalSetup.ts` and `globalTeardown.ts
 ### Mock Framework
 
 **Entity Mocks**
+
 ```typescript
 // Generate realistic test entities
 const mockUser = EntityMockFactory.createMockUser({
   email: 'test@example.com',
-  role: 'admin'
+  role: 'admin',
 });
 
 const mockAgents = EntityMockFactory.createBatchMockAgents(10);
 ```
 
 **Service Mocks**
+
 ```typescript
 // Mock external services
 const mockLLMService = ServiceMockFactory.createMockLLMService();
@@ -91,6 +98,7 @@ const mockRedisService = ServiceMockFactory.createMockRedisService();
 ```
 
 **Test Utilities**
+
 ```typescript
 // Utility functions for testing
 const agentId = TestUtils.generateUUID();
@@ -101,10 +109,12 @@ await TestUtils.expectAsyncError(() => service.invalidOperation());
 ### Test Data
 
 **Fixtures**
+
 - `TEST_DATA` - Valid test data for all entity types
 - `INVALID_TEST_DATA` - Edge cases and validation failures
 
 **Categories**
+
 - User data (valid, admin, inactive)
 - Agent configurations (specialist, orchestrator, inactive)
 - Operations (pending, running, completed)
@@ -122,6 +132,7 @@ The test suite enforces **100% code coverage** across:
 ### Coverage Exclusions
 
 Only essential files are excluded from coverage:
+
 - Migration scripts
 - Seed data files
 - Type definition files
@@ -199,7 +210,7 @@ The test suite integrates with CI/CD pipelines:
 ### Test Execution Timeline
 
 - **Unit Tests**: < 30 seconds
-- **Integration Tests**: < 2 minutes  
+- **Integration Tests**: < 2 minutes
 - **E2E Tests**: < 5 minutes
 - **Full Suite**: < 10 minutes
 
@@ -232,6 +243,7 @@ The test suite integrates with CI/CD pipelines:
 ### Common Issues
 
 **Container Startup Failures**
+
 ```bash
 # Check Docker availability
 docker --version
@@ -242,6 +254,7 @@ docker volume prune
 ```
 
 **Test Database Issues**
+
 ```bash
 # Reset test database
 npm run test:db:reset
@@ -251,6 +264,7 @@ npm run test:db:health
 ```
 
 **Memory Issues**
+
 ```bash
 # Increase Node.js memory limit
 NODE_OPTIONS="--max-old-space-size=4096" npm test

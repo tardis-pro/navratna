@@ -11,12 +11,14 @@ export const AuthDebug: React.FC = () => {
   const [testResults, setTestResults] = useState<Record<string, any>>({});
   const [isTestingWebSocket, setIsTestingWebSocket] = useState(false);
 
-  const authToken = typeof window !== 'undefined'
-    ? localStorage.getItem('accessToken') || sessionStorage.getItem('accessToken')
-    : null;
-  const userId = typeof window !== 'undefined'
-    ? localStorage.getItem('userId') || sessionStorage.getItem('userId')
-    : null;
+  const authToken =
+    typeof window !== 'undefined'
+      ? localStorage.getItem('accessToken') || sessionStorage.getItem('accessToken')
+      : null;
+  const userId =
+    typeof window !== 'undefined'
+      ? localStorage.getItem('userId') || sessionStorage.getItem('userId')
+      : null;
 
   const runAuthTest = async () => {
     const results: Record<string, any> = {};
@@ -33,7 +35,7 @@ export const AuthDebug: React.FC = () => {
         hasSessionId: !!sessionId,
         tokenPreview: authToken ? `${authToken.substring(0, 10)}...` : 'none',
         userIdValue: userId || 'null',
-        sessionIdValue: sessionId || 'null'
+        sessionIdValue: sessionId || 'null',
       };
 
       // Test API call
@@ -42,18 +44,17 @@ export const AuthDebug: React.FC = () => {
         results.apiTest = {
           success: response.success,
           data: response.data,
-          error: response.error
+          error: response.error,
         };
       } catch (error) {
         results.apiTest = {
           success: false,
-          error: error instanceof Error ? error.message : 'Unknown error'
+          error: error instanceof Error ? error.message : 'Unknown error',
         };
       }
 
       // Check environment info
       results.environment = uaipAPI.getEnvironmentInfo();
-
     } catch (error) {
       results.error = error instanceof Error ? error.message : 'Unknown error';
     }
@@ -74,12 +75,12 @@ export const AuthDebug: React.FC = () => {
         hasToken: !!authToken,
         hasUserId: !!userId,
         tokenPreview: authToken ? `${authToken.substring(0, 10)}...` : 'none',
-        userIdValue: userId || 'null'
+        userIdValue: userId || 'null',
       };
 
       if (!authToken || !userId) {
         results.error = 'Authentication required for WebSocket connection';
-        setTestResults(prev => ({ ...prev, websocketTest: results }));
+        setTestResults((prev) => ({ ...prev, websocketTest: results }));
         setIsTestingWebSocket(false);
         return;
       }
@@ -87,19 +88,18 @@ export const AuthDebug: React.FC = () => {
       // WebSocket functionality removed - using useWebSocket hook instead
       results.clientCreation = {
         success: false,
-        error: 'WebSocket functionality moved to useWebSocket hook'
+        error: 'WebSocket functionality moved to useWebSocket hook',
       };
 
       results.connectionStatus = {
         isConnected: false,
-        finalStatus: 'WebSocket testing disabled - use useWebSocket hook in components'
+        finalStatus: 'WebSocket testing disabled - use useWebSocket hook in components',
       };
-
     } catch (error) {
       results.error = error instanceof Error ? error.message : 'Unknown error';
     }
 
-    setTestResults(prev => ({ ...prev, websocketTest: results }));
+    setTestResults((prev) => ({ ...prev, websocketTest: results }));
     setIsTestingWebSocket(false);
   };
 
@@ -120,8 +120,8 @@ export const AuthDebug: React.FC = () => {
         <CardContent className="space-y-4">
           {/* Auth Status */}
           <div className="flex items-center gap-2">
-            <Badge variant={isAuthenticated ? "default" : "destructive"}>
-              {isAuthenticated ? "Authenticated" : "Not Authenticated"}
+            <Badge variant={isAuthenticated ? 'default' : 'destructive'}>
+              {isAuthenticated ? 'Authenticated' : 'Not Authenticated'}
             </Badge>
             {isLoading && <Badge variant="outline">Loading...</Badge>}
           </div>
@@ -175,10 +175,19 @@ export const AuthDebug: React.FC = () => {
             <AlertDescription>
               <strong>Common Issues:</strong>
               <ul className="list-disc list-inside mt-2 space-y-1">
-                <li><strong>userId: "undefined"</strong> - User not authenticated or auth data corrupted</li>
-                <li><strong>Connection refused</strong> - Backend service not running or wrong URL</li>
-                <li><strong>Authentication failed</strong> - Invalid or expired tokens</li>
-                <li><strong>Missing socket.io-client</strong> - Run: npm install socket.io-client</li>
+                <li>
+                  <strong>userId: "undefined"</strong> - User not authenticated or auth data
+                  corrupted
+                </li>
+                <li>
+                  <strong>Connection refused</strong> - Backend service not running or wrong URL
+                </li>
+                <li>
+                  <strong>Authentication failed</strong> - Invalid or expired tokens
+                </li>
+                <li>
+                  <strong>Missing socket.io-client</strong> - Run: npm install socket.io-client
+                </li>
               </ul>
 
               <div className="mt-4">
@@ -197,4 +206,4 @@ export const AuthDebug: React.FC = () => {
       </Card>
     </div>
   );
-}; 
+};

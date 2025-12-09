@@ -4,7 +4,7 @@ import { createTypeOrmConfig } from './typeorm.config.js';
 // Create DataSource specifically for migrations
 const createMigrationDataSource = async () => {
   const baseConfig = await createTypeOrmConfig(true); // Disable cache for migrations
-  
+
   return new DataSource({
     ...baseConfig,
     // Override for migration-specific settings
@@ -18,4 +18,4 @@ const createMigrationDataSource = async () => {
 export { createMigrationDataSource };
 
 // For backward compatibility, create a default export that resolves the Promise
-export default await createMigrationDataSource(); 
+export default await createMigrationDataSource();

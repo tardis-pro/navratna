@@ -7,7 +7,7 @@ class MarketplaceService extends BaseService {
     const config: ServiceConfig = {
       name: 'marketplace-service',
       port: parseInt(process.env.MARKETPLACE_SERVICE_PORT || '3006', 10),
-      version: '1.0.0'
+      version: '1.0.0',
     };
     super(config);
   }
@@ -27,7 +27,7 @@ class MarketplaceService extends BaseService {
 
 const service = new MarketplaceService();
 
-service.start().catch(error => {
+service.start().catch((error) => {
   logger.error('Failed to start Marketplace Service:', error);
   process.exit(1);
 });

@@ -1,10 +1,19 @@
 // Artifact System Type Definitions for Navratna
 // This file defines the comprehensive type system for artifact generation and management
 
-export type ArtifactType = 
-  | 'code' | 'test' | 'documentation' | 'prd' | 'config' 
-  | 'deployment' | 'script' | 'template' | 'report' | 'analysis'
-  | 'code-diff' | 'workflow';
+export type ArtifactType =
+  | 'code'
+  | 'test'
+  | 'documentation'
+  | 'prd'
+  | 'config'
+  | 'deployment'
+  | 'script'
+  | 'template'
+  | 'report'
+  | 'analysis'
+  | 'code-diff'
+  | 'workflow';
 
 export type ValidationStatus = 'pending' | 'valid' | 'invalid' | 'warning';
 
@@ -167,7 +176,8 @@ export interface ArtifactGenerationRequest {
   constraints?: string[];
   preferences?: Record<string, any>;
   metadata?: Record<string, any>;
-  options?: { // Added options property
+  options?: {
+    // Added options property
     template?: string;
     language?: string;
     framework?: string;
@@ -262,7 +272,12 @@ export interface Participant {
 }
 
 // Additional types for conversation-driven artifact generation
-export type ConversationPhase = 'discussion' | 'clarification' | 'decision' | 'implementation' | 'review';
+export type ConversationPhase =
+  | 'discussion'
+  | 'clarification'
+  | 'decision'
+  | 'implementation'
+  | 'review';
 
 // Agent and Persona types for artifact services
 export interface AgentPreferences {
@@ -270,4 +285,4 @@ export interface AgentPreferences {
   testingFramework?: string;
   documentationFormat?: string;
   complexity?: 'simple' | 'moderate' | 'complex';
-} 
+}

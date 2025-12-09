@@ -5,7 +5,7 @@ import { PrimaryColumn, CreateDateColumn, UpdateDateColumn, PrimaryGeneratedColu
  * Implements the BaseEntity pattern with string IDs
  */
 export abstract class BaseEntity {
-  @PrimaryGeneratedColumn("uuid")
+  @PrimaryGeneratedColumn('uuid')
   id: string;
 
   @CreateDateColumn({ name: 'created_at' })
@@ -13,6 +13,4 @@ export abstract class BaseEntity {
 
   @UpdateDateColumn({ name: 'updated_at' })
   updatedAt: Date;
-
-  
-} 
+}

@@ -1,32 +1,27 @@
-import { 
-  Discussion, 
-  DiscussionParticipant, 
-  TurnStrategy, 
-  TurnStrategyConfig 
-} from '@uaip/types';
+import { Discussion, DiscussionParticipant, TurnStrategy, TurnStrategyConfig } from '@uaip/types';
 import { logger } from '@uaip/utils';
 
 export interface TurnStrategyInterface {
   strategy: TurnStrategy;
-  
+
   getNextParticipant(
     discussion: Discussion,
     participants: DiscussionParticipant[],
     config?: TurnStrategyConfig
   ): Promise<DiscussionParticipant | null>;
-  
+
   canParticipantTakeTurn(
     participant: DiscussionParticipant,
     discussion: Discussion,
     config?: TurnStrategyConfig
   ): Promise<boolean>;
-  
+
   shouldAdvanceTurn(
     discussion: Discussion,
     currentParticipant: DiscussionParticipant,
     config?: TurnStrategyConfig
   ): Promise<boolean>;
-  
+
   getEstimatedTurnDuration(
     participant: DiscussionParticipant,
     discussion: Discussion,
@@ -45,21 +40,19 @@ export class RoundRobinStrategy implements TurnStrategyInterface {
   ): Promise<DiscussionParticipant | null> {
     try {
       // Filter active participants
-      const activeParticipants = participants.filter(p => 
-        p.isActive
-      );
+      const activeParticipants = participants.filter((p) => p.isActive);
 
       if (activeParticipants.length === 0) {
         logger.warn('No active participants available for round robin', {
           discussionId: discussion.id,
-          totalParticipants: participants.length
+          totalParticipants: participants.length,
         });
         return null;
       }
 
       // Sort participants by join order for consistent round robin
-      activeParticipants.sort((a, b) => 
-        new Date(a.joinedAt).getTime() - new Date(b.joinedAt).getTime()
+      activeParticipants.sort(
+        (a, b) => new Date(a.joinedAt).getTime() - new Date(b.joinedAt).getTime()
       );
 
       const currentTurnNumber = discussion.state.currentTurn.turnNumber;
@@ -71,7 +64,7 @@ export class RoundRobinStrategy implements TurnStrategyInterface {
         currentTurnNumber,
         nextIndex,
         nextParticipantId: nextParticipant.id,
-        totalActiveParticipants: activeParticipants.length
+        totalActiveParticipants: activeParticipants.length,
       });
 
       return nextParticipant;
@@ -79,7 +72,7 @@ export class RoundRobinStrategy implements TurnStrategyInterface {
       logger.error('Error in round robin strategy getNextParticipant', {
         error: error instanceof Error ? error.message : 'Unknown error',
         discussionId: discussion.id,
-        participantCount: participants.length
+        participantCount: participants.length,
       });
       return null;
     }
@@ -109,7 +102,7 @@ export class RoundRobinStrategy implements TurnStrategyInterface {
       logger.error('Error checking if participant can take turn', {
         error: error instanceof Error ? error.message : 'Unknown error',
         participantId: participant.id,
-        discussionId: discussion.id
+        discussionId: discussion.id,
       });
       return false;
     }
@@ -123,7 +116,7 @@ export class RoundRobinStrategy implements TurnStrategyInterface {
     try {
       const now = new Date();
       const turnStartTime = discussion.state.currentTurn.startedAt;
-      
+
       if (!turnStartTime) {
         // No turn start time, should advance
         return true;
@@ -132,26 +125,26 @@ export class RoundRobinStrategy implements TurnStrategyInterface {
       // Check if turn timeout has been reached
       const turnDuration = now.getTime() - new Date(turnStartTime).getTime();
       const timeoutMs = (discussion.settings.turnTimeout || 10) * 1000;
-      
+
       if (turnDuration >= timeoutMs) {
         logger.info('Turn timeout reached, advancing turn', {
           discussionId: discussion.id,
           participantId: currentParticipant.id,
           turnDuration: turnDuration / 1000,
-          timeoutSeconds: timeoutMs / 1000
+          timeoutSeconds: timeoutMs / 1000,
         });
         return true;
       }
 
       // Check if participant has indicated they're done (this would be handled by message analysis)
       // For round robin, we typically wait for timeout or explicit turn passing
-      
+
       return false;
     } catch (error) {
       logger.error('Error checking if turn should advance', {
         error: error instanceof Error ? error.message : 'Unknown error',
         discussionId: discussion.id,
-        participantId: currentParticipant.id
+        participantId: currentParticipant.id,
       });
       return true; // Default to advancing on error
     }
@@ -191,7 +184,7 @@ export class RoundRobinStrategy implements TurnStrategyInterface {
         participantId: participant.id,
         discussionId: discussion.id,
         estimatedDuration: baseDuration,
-        baseDuration: discussion.settings.turnTimeout || 10
+        baseDuration: discussion.settings.turnTimeout || 10,
       });
 
       return Math.round(baseDuration);
@@ -199,7 +192,7 @@ export class RoundRobinStrategy implements TurnStrategyInterface {
       logger.error('Error calculating estimated turn duration', {
         error: error instanceof Error ? error.message : 'Unknown error',
         participantId: participant.id,
-        discussionId: discussion.id
+        discussionId: discussion.id,
       });
       return discussion.settings.turnTimeout || 10;
     }
@@ -209,7 +202,7 @@ export class RoundRobinStrategy implements TurnStrategyInterface {
     // This would typically query message history to calculate actual response times
     // For now, return a default based on message count as a proxy
     if (participant.messageCount === 0) return 0;
-    
+
     // Simulate calculation - in real implementation, this would analyze message timestamps
     const baseTime = 60; // 1 minute base
     const efficiency = Math.min(participant.messageCount / 10, 1); // More messages = more efficient
@@ -230,8 +223,8 @@ export class RoundRobinStrategy implements TurnStrategyInterface {
       config: {
         type: 'round_robin',
         skipInactive: true,
-        maxSkips: 3
-      }
+        maxSkips: 3,
+      },
     };
   }
-} 
+}

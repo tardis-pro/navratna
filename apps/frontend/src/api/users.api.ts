@@ -106,7 +106,9 @@ export const usersAPI = {
     return APIClient.post<User>(`${API_ROUTES.USERS.DEACTIVATE}/${id}/deactivate`, { reason });
   },
 
-  async bulkAction(action: BulkUserAction): Promise<{ success: number; failed: number; errors?: string[] }> {
+  async bulkAction(
+    action: BulkUserAction
+  ): Promise<{ success: number; failed: number; errors?: string[] }> {
     return APIClient.post(API_ROUTES.USERS.BULK_ACTION, action);
   },
 
@@ -118,10 +120,14 @@ export const usersAPI = {
     return APIClient.get<User[]>(API_ROUTES.USERS.SEARCH, { params: { q: query } });
   },
 
-  async updatePassword(id: string, currentPassword: string, newPassword: string): Promise<{ message: string }> {
+  async updatePassword(
+    id: string,
+    currentPassword: string,
+    newPassword: string
+  ): Promise<{ message: string }> {
     return APIClient.post(`${API_ROUTES.USERS.UPDATE}/${id}/password`, {
       currentPassword,
-      newPassword
+      newPassword,
     });
   },
 
@@ -143,5 +149,5 @@ export const usersAPI = {
 
   async updateUserLLMPreferences(preferences: UserLLMPreference[]): Promise<UserLLMPreference[]> {
     return APIClient.put<UserLLMPreference[]>('/api/v1/users/llm-preferences', { preferences });
-  }
+  },
 };

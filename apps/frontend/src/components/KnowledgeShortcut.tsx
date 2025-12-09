@@ -1,6 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { Eye, Search, BookOpen, ExternalLink } from 'lucide-react';
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -14,10 +20,10 @@ interface KnowledgeShortcutProps {
   onExamine: (knowledgeItem: KnowledgeItem) => void;
 }
 
-export const KnowledgeShortcut: React.FC<KnowledgeShortcutProps> = ({ 
-  isOpen, 
-  onClose, 
-  onExamine 
+export const KnowledgeShortcut: React.FC<KnowledgeShortcutProps> = ({
+  isOpen,
+  onClose,
+  onExamine,
 }) => {
   const { items, searchKnowledge, searchResults, clearSearchResults } = useKnowledge();
   const [searchQuery, setSearchQuery] = useState('');
@@ -72,11 +78,9 @@ export const KnowledgeShortcut: React.FC<KnowledgeShortcutProps> = ({
             <BookOpen className="w-5 h-5" />
             Knowledge Quick Access
           </DialogTitle>
-          <DialogDescription>
-            Search and directly examine knowledge items
-          </DialogDescription>
+          <DialogDescription>Search and directly examine knowledge items</DialogDescription>
         </DialogHeader>
-        
+
         <div className="flex flex-col h-full space-y-4">
           {/* Search Bar */}
           <div className="flex space-x-2">
@@ -94,10 +98,13 @@ export const KnowledgeShortcut: React.FC<KnowledgeShortcutProps> = ({
               {isSearching ? 'Searching...' : 'Search'}
             </Button>
             {searchResults.length > 0 && (
-              <Button variant="outline" onClick={() => {
-                setSearchQuery('');
-                clearSearchResults();
-              }}>
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setSearchQuery('');
+                  clearSearchResults();
+                }}
+              >
                 Clear
               </Button>
             )}
@@ -106,14 +113,11 @@ export const KnowledgeShortcut: React.FC<KnowledgeShortcutProps> = ({
           {/* Results Count */}
           <div className="flex items-center justify-between text-sm text-gray-500">
             <span>
-              {searchResults.length > 0 
-                ? `${searchResults.length} search results` 
-                : `${allItems.length} total items`
-              }
+              {searchResults.length > 0
+                ? `${searchResults.length} search results`
+                : `${allItems.length} total items`}
             </span>
-            {searchQuery && (
-              <span>Searching for: "{searchQuery}"</span>
-            )}
+            {searchQuery && <span>Searching for: "{searchQuery}"</span>}
           </div>
 
           {/* Knowledge Items List */}
@@ -122,9 +126,7 @@ export const KnowledgeShortcut: React.FC<KnowledgeShortcutProps> = ({
               <div className="flex flex-col items-center justify-center h-40 text-gray-500">
                 <BookOpen className="w-12 h-12 mb-3" />
                 <p>No knowledge items found</p>
-                {searchQuery && (
-                  <p className="text-sm">Try a different search term</p>
-                )}
+                {searchQuery && <p className="text-sm">Try a different search term</p>}
               </div>
             ) : (
               <div className="space-y-2">
@@ -145,18 +147,23 @@ export const KnowledgeShortcut: React.FC<KnowledgeShortcutProps> = ({
                             {item.type || 'Unknown'}
                           </Badge>
                           <span className="text-xs text-gray-500">
-                            {item.createdAt ? new Date(item.createdAt).toLocaleDateString() : 'Unknown date'}
+                            {item.createdAt
+                              ? new Date(item.createdAt).toLocaleDateString()
+                              : 'Unknown date'}
                           </span>
                           <span className="text-xs text-gray-500">
-                            {item.confidence ? `${(item.confidence * 100).toFixed(0)}% confidence` : 'No confidence score'}
+                            {item.confidence
+                              ? `${(item.confidence * 100).toFixed(0)}% confidence`
+                              : 'No confidence score'}
                           </span>
                         </div>
                         <div className="flex flex-wrap gap-1">
-                          {item.tags && item.tags.slice(0, 4).map((tag) => (
-                            <Badge key={tag} variant="secondary" className="text-xs">
-                              {tag}
-                            </Badge>
-                          ))}
+                          {item.tags &&
+                            item.tags.slice(0, 4).map((tag) => (
+                              <Badge key={tag} variant="secondary" className="text-xs">
+                                {tag}
+                              </Badge>
+                            ))}
                           {item.tags && item.tags.length > 4 && (
                             <Badge variant="secondary" className="text-xs">
                               +{item.tags.length - 4} more
@@ -183,9 +190,11 @@ export const KnowledgeShortcut: React.FC<KnowledgeShortcutProps> = ({
                           onClick={(e) => {
                             e.stopPropagation();
                             // Open in knowledge portal
-                            window.dispatchEvent(new CustomEvent('openKnowledgePortal', {
-                              detail: { itemId: item.id }
-                            }));
+                            window.dispatchEvent(
+                              new CustomEvent('openKnowledgePortal', {
+                                detail: { itemId: item.id },
+                              })
+                            );
                             onClose();
                           }}
                           className="h-8 w-8 p-0"

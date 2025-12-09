@@ -53,4 +53,4 @@ export class SecurityPolicy extends BaseEntity {
 
   @Column({ name: 'created_by', type: 'varchar' })
   createdBy!: string;
-} 
+}

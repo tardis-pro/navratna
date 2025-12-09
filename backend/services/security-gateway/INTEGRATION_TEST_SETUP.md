@@ -13,6 +13,7 @@ This guide will help you set up and run integration tests for the Security Gatew
 ## Quick Start
 
 1. **Copy environment configuration:**
+
    ```bash
    cp .env.integration-test .env.local
    ```
@@ -20,16 +21,18 @@ This guide will help you set up and run integration tests for the Security Gatew
 2. **Fill in OAuth credentials** (see OAuth App Setup section)
 
 3. **Start infrastructure services:**
+
    ```bash
    # Start databases and message queue
    docker-compose -f docker-compose.test.yml up -d postgres redis rabbitmq
    ```
 
 4. **Run integration tests:**
+
    ```bash
    # Run all integration tests
    npm run test:integration
-   
+
    # Run specific test suites
    npm run test:integration -- oauth-flow
    npm run test:integration -- security-validation
@@ -154,7 +157,7 @@ GRANT ALL PRIVILEGES ON DATABASE council_integration_test TO council_test;
 # OAuth flow integration tests
 npm run test:integration -- --testNamePattern="OAuth Flow"
 
-# Security validation tests  
+# Security validation tests
 npm run test:integration -- --testNamePattern="Security Validation"
 
 # Performance benchmarks
@@ -224,19 +227,21 @@ npm run test:integration -- --verbose
 ### Common Issues
 
 1. **Database Connection Errors**
+
    ```bash
    # Check if PostgreSQL is running
    pg_isready -h localhost -p 5432
-   
+
    # Check test database exists
    psql -h localhost -U postgres -l | grep council_integration_test
    ```
 
 2. **OAuth App Configuration**
+
    ```bash
    # Verify callback URLs match exactly
    echo $OAUTH_BASE_URL/api/oauth/callback
-   
+
    # Test OAuth app credentials
    curl -X POST "https://github.com/login/oauth/access_token" \
      -H "Accept: application/json" \
@@ -244,10 +249,11 @@ npm run test:integration -- --verbose
    ```
 
 3. **Redis Connection Issues**
+
    ```bash
    # Test Redis connection
    redis-cli ping
-   
+
    # Check Redis configuration
    redis-cli config get '*'
    ```
@@ -288,7 +294,7 @@ on:
 jobs:
   integration:
     runs-on: ubuntu-latest
-    
+
     services:
       postgres:
         image: postgres:17.5
@@ -303,7 +309,7 @@ jobs:
           --health-retries 5
         ports:
           - 5432:5432
-      
+
       redis:
         image: redis:7
         options: >-
@@ -313,19 +319,19 @@ jobs:
           --health-retries 5
         ports:
           - 6379:6379
-    
+
     steps:
       - uses: actions/checkout@v4
-      
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '18'
           cache: 'pnpm'
-      
+
       - name: Install dependencies
         run: pnpm install
-      
+
       - name: Run integration tests
         run: npm run test:integration
         env:

@@ -1,9 +1,4 @@
-import { 
-  Discussion, 
-  DiscussionParticipant, 
-  TurnStrategy, 
-  TurnStrategyConfig 
-} from '@uaip/types';
+import { Discussion, DiscussionParticipant, TurnStrategy, TurnStrategyConfig } from '@uaip/types';
 import { logger } from '@uaip/utils';
 import { TurnStrategyInterface } from '../strategies/RoundRobinStrategy.js';
 import { RoundRobinStrategy } from '../strategies/RoundRobinStrategy.js';
@@ -28,11 +23,11 @@ export class TurnStrategyService {
 
       logger.info('Turn strategies initialized', {
         availableStrategies: Array.from(this.strategies.keys()),
-        defaultStrategy: this.defaultStrategy
+        defaultStrategy: this.defaultStrategy,
       });
     } catch (error) {
       logger.error('Error initializing turn strategies', {
-        error: error instanceof Error ? error.message : 'Unknown error'
+        error: error instanceof Error ? error.message : 'Unknown error',
       });
       throw error;
     }
@@ -55,7 +50,7 @@ export class TurnStrategyService {
         strategy: discussion.turnStrategy.strategy,
         nextParticipantId: nextParticipant?.id,
         totalParticipants: participants.length,
-        activeParticipants: participants.filter(p => p.isActive).length
+        activeParticipants: participants.filter((p) => p.isActive).length,
       });
 
       return nextParticipant;
@@ -63,9 +58,9 @@ export class TurnStrategyService {
       logger.error('Error getting next participant', {
         error: error instanceof Error ? error.message : 'Unknown error',
         discussionId: discussion.id,
-        strategy: discussion.turnStrategy.strategy
+        strategy: discussion.turnStrategy.strategy,
       });
-      
+
       // Fallback to default strategy
       return await this.fallbackToDefaultStrategy(discussion, participants, config);
     }
@@ -89,7 +84,7 @@ export class TurnStrategyService {
         strategy: discussion.turnStrategy.strategy,
         canTakeTurn,
         participantRole: participant.role,
-        isActive: participant.isActive
+        isActive: participant.isActive,
       });
 
       return canTakeTurn;
@@ -98,7 +93,7 @@ export class TurnStrategyService {
         error: error instanceof Error ? error.message : 'Unknown error',
         participantId: participant.id,
         discussionId: discussion.id,
-        strategy: discussion.turnStrategy.strategy
+        strategy: discussion.turnStrategy.strategy,
       });
       return false;
     }
@@ -114,7 +109,11 @@ export class TurnStrategyService {
   ): Promise<boolean> {
     try {
       const strategy = this.getStrategy(discussion.turnStrategy.strategy);
-      const shouldAdvance = await strategy.shouldAdvanceTurn(discussion, currentParticipant, config);
+      const shouldAdvance = await strategy.shouldAdvanceTurn(
+        discussion,
+        currentParticipant,
+        config
+      );
 
       logger.debug('Turn advance check completed', {
         discussionId: discussion.id,
@@ -122,7 +121,7 @@ export class TurnStrategyService {
         strategy: discussion.turnStrategy.strategy,
         shouldAdvance,
         turnStartTime: discussion.state.currentTurn.startedAt,
-        turnNumber: discussion.state.currentTurn.turnNumber
+        turnNumber: discussion.state.currentTurn.turnNumber,
       });
 
       return shouldAdvance;
@@ -131,7 +130,7 @@ export class TurnStrategyService {
         error: error instanceof Error ? error.message : 'Unknown error',
         discussionId: discussion.id,
         participantId: currentParticipant.id,
-        strategy: discussion.turnStrategy.strategy
+        strategy: discussion.turnStrategy.strategy,
       });
       return true; // Default to advancing on error
     }
@@ -154,7 +153,7 @@ export class TurnStrategyService {
         discussionId: discussion.id,
         strategy: discussion.turnStrategy.strategy,
         estimatedDuration: duration,
-        participantRole: participant.role
+        participantRole: participant.role,
       });
 
       return duration;
@@ -163,7 +162,7 @@ export class TurnStrategyService {
         error: error instanceof Error ? error.message : 'Unknown error',
         participantId: participant.id,
         discussionId: discussion.id,
-        strategy: discussion.turnStrategy.strategy
+        strategy: discussion.turnStrategy.strategy,
       });
       return discussion.settings.turnTimeout || 10;
     }
@@ -184,12 +183,12 @@ export class TurnStrategyService {
     try {
       // Get next participant
       const nextParticipant = await this.getNextParticipant(discussion, participants, config);
-      
+
       // Calculate new turn number
-      const turnNumber = (discussion.state.currentTurn.turnNumber) + 1;
-      
+      const turnNumber = discussion.state.currentTurn.turnNumber + 1;
+
       // Get estimated duration for next participant
-      const estimatedDuration = nextParticipant 
+      const estimatedDuration = nextParticipant
         ? await this.getEstimatedTurnDuration(nextParticipant, discussion, config)
         : 0;
 
@@ -199,19 +198,19 @@ export class TurnStrategyService {
         newTurnNumber: turnNumber,
         nextParticipantId: nextParticipant?.id,
         estimatedDuration,
-        strategy: discussion.turnStrategy.strategy
+        strategy: discussion.turnStrategy.strategy,
       });
 
       return {
         nextParticipant,
         turnNumber,
-        estimatedDuration
+        estimatedDuration,
       };
     } catch (error) {
       logger.error('Error advancing turn', {
         error: error instanceof Error ? error.message : 'Unknown error',
         discussionId: discussion.id,
-        strategy: discussion.turnStrategy.strategy
+        strategy: discussion.turnStrategy.strategy,
       });
       throw error;
     }
@@ -226,12 +225,12 @@ export class TurnStrategyService {
     config: Partial<TurnStrategyConfig>;
   }> {
     const strategies = [];
-    
+
     for (const [type, strategy] of this.strategies) {
       strategies.push({
         type,
         description: (strategy as any).getStrategyDescription?.() || `${type} strategy`,
-        config: (strategy as any).getStrategyConfig?.() || {}
+        config: (strategy as any).getStrategyConfig?.() || {},
       });
     }
 
@@ -312,7 +311,7 @@ export class TurnStrategyService {
       logger.error('Error validating strategy config', {
         error: error instanceof Error ? error.message : 'Unknown error',
         strategyType,
-        config
+        config,
       });
       return { isValid: false, errors: ['Validation error occurred'] };
     }
@@ -324,12 +323,14 @@ export class TurnStrategyService {
   async getModeratorActions(
     discussion: Discussion,
     moderatorId: string
-  ): Promise<Array<{
-    action: string;
-    description: string;
-    available: boolean;
-    reason?: string;
-  }>> {
+  ): Promise<
+    Array<{
+      action: string;
+      description: string;
+      available: boolean;
+      reason?: string;
+    }>
+  > {
     const actions = [];
 
     try {
@@ -339,35 +340,35 @@ export class TurnStrategyService {
       actions.push({
         action: 'advance_turn',
         description: 'Advance to next turn',
-        available: true
+        available: true,
       });
 
       actions.push({
         action: 'pause_discussion',
         description: 'Pause the discussion',
-        available: discussion.status === 'active'
+        available: discussion.status === 'active',
       });
 
       actions.push({
         action: 'resume_discussion',
         description: 'Resume the discussion',
-        available: discussion.status === 'paused'
+        available: discussion.status === 'paused',
       });
 
       // Strategy-specific actions
       if (discussion.turnStrategy.strategy === TurnStrategy.MODERATED) {
         const moderatedStrategy = strategy as ModeratedStrategy;
-        
+
         actions.push({
           action: 'select_next_participant',
           description: 'Select the next participant to speak',
-          available: true
+          available: true,
         });
 
         actions.push({
           action: 'grant_speaking_permission',
           description: 'Grant speaking permission to a participant',
-          available: true
+          available: true,
         });
       }
 
@@ -376,7 +377,7 @@ export class TurnStrategyService {
       logger.error('Error getting moderator actions', {
         error: error instanceof Error ? error.message : 'Unknown error',
         discussionId: discussion.id,
-        moderatorId
+        moderatorId,
       });
       return [];
     }
@@ -400,16 +401,19 @@ export class TurnStrategyService {
           return { success: true, message: 'Turn advance initiated' };
 
         case 'select_next_participant':
-          if (discussion.turnStrategy.strategy === TurnStrategy.MODERATED && params?.participantId) {
+          if (
+            discussion.turnStrategy.strategy === TurnStrategy.MODERATED &&
+            params?.participantId
+          ) {
             const moderatedStrategy = strategy as ModeratedStrategy;
             const success = await moderatedStrategy.selectNextParticipant(
               moderatorId,
               params.participantId,
               discussion
             );
-            return { 
-              success, 
-              message: success ? 'Participant selected' : 'Failed to select participant' 
+            return {
+              success,
+              message: success ? 'Participant selected' : 'Failed to select participant',
             };
           }
           return { success: false, message: 'Invalid action for current strategy' };
@@ -422,7 +426,7 @@ export class TurnStrategyService {
         error: error instanceof Error ? error.message : 'Unknown error',
         action,
         discussionId: discussion.id,
-        moderatorId
+        moderatorId,
       });
       return { success: false, message: 'Action execution failed' };
     }
@@ -435,7 +439,7 @@ export class TurnStrategyService {
     if (!strategy) {
       logger.warn('Strategy not found, using default', {
         requestedStrategy: strategyType,
-        defaultStrategy: this.defaultStrategy
+        defaultStrategy: this.defaultStrategy,
       });
       return this.strategies.get(this.defaultStrategy)!;
     }
@@ -451,7 +455,7 @@ export class TurnStrategyService {
       logger.warn('Falling back to default strategy', {
         discussionId: discussion.id,
         originalStrategy: discussion.turnStrategy.strategy,
-        fallbackStrategy: this.defaultStrategy
+        fallbackStrategy: this.defaultStrategy,
       });
 
       const defaultStrategy = this.strategies.get(this.defaultStrategy);
@@ -464,7 +468,7 @@ export class TurnStrategyService {
     } catch (error) {
       logger.error('Error in fallback strategy', {
         error: error instanceof Error ? error.message : 'Unknown error',
-        discussionId: discussion.id
+        discussionId: discussion.id,
       });
       return null;
     }
@@ -483,7 +487,7 @@ export class TurnStrategyService {
     return {
       usage: 0,
       averageTurnDuration: 0,
-      successRate: 1.0
+      successRate: 1.0,
     };
   }
 
@@ -506,16 +510,16 @@ export class TurnStrategyService {
       logger.info('Strategy configuration updated', {
         discussionId: discussion.id,
         strategy: discussion.turnStrategy.strategy,
-        updatedFields: Object.keys(newConfig)
+        updatedFields: Object.keys(newConfig),
       });
 
       return { success: true, errors: [] };
     } catch (error) {
       logger.error('Error updating strategy configuration', {
         error: error instanceof Error ? error.message : 'Unknown error',
-        discussionId: discussion.id
+        discussionId: discussion.id,
       });
       return { success: false, errors: ['Configuration update failed'] };
     }
   }
-} 
+}

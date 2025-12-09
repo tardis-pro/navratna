@@ -1,11 +1,11 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
-import { 
-  UserCircleIcon, 
+import {
+  UserCircleIcon,
   ArrowRightOnRectangleIcon,
   ChevronDownIcon,
   UserIcon,
-  CogIcon
+  CogIcon,
 } from '@heroicons/react/24/outline';
 
 export const UserProfile: React.FC = () => {
@@ -37,7 +37,10 @@ export const UserProfile: React.FC = () => {
     return null;
   }
 
-  const initials = `${user.firstName?.[0] || ''}${user.lastName?.[0] || ''}`.toUpperCase() || user.email?.[0]?.toUpperCase() || 'U';
+  const initials =
+    `${user.firstName?.[0] || ''}${user.lastName?.[0] || ''}`.toUpperCase() ||
+    user.email?.[0]?.toUpperCase() ||
+    'U';
 
   return (
     <div className="relative" ref={dropdownRef}>
@@ -50,22 +53,20 @@ export const UserProfile: React.FC = () => {
         <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-lg flex items-center justify-center text-white font-semibold text-sm shadow-lg">
           {initials}
         </div>
-        
+
         {/* User Info */}
         <div className="hidden sm:block text-left">
           <div className="text-sm font-medium text-slate-700 dark:text-slate-300">
             {user.firstName} {user.lastName}
           </div>
-          <div className="text-xs text-slate-500 dark:text-slate-400 capitalize">
-            {user.role}
-          </div>
+          <div className="text-xs text-slate-500 dark:text-slate-400 capitalize">{user.role}</div>
         </div>
-        
+
         {/* Dropdown Arrow */}
-        <ChevronDownIcon 
+        <ChevronDownIcon
           className={`w-4 h-4 text-slate-400 transition-transform duration-200 ${
             isDropdownOpen ? 'rotate-180' : ''
-          }`} 
+          }`}
         />
       </button>
 
@@ -82,9 +83,7 @@ export const UserProfile: React.FC = () => {
                 <div className="font-semibold text-slate-700 dark:text-slate-300">
                   {user.firstName} {user.lastName}
                 </div>
-                <div className="text-sm text-slate-500 dark:text-slate-400">
-                  {user.email}
-                </div>
+                <div className="text-sm text-slate-500 dark:text-slate-400">{user.email}</div>
                 <div className="text-xs text-slate-400 dark:text-slate-500 capitalize">
                   {user.role} • {user.department}
                 </div>
@@ -104,7 +103,7 @@ export const UserProfile: React.FC = () => {
               <UserIcon className="w-4 h-4" />
               <span>Profile Settings</span>
             </button>
-            
+
             <button
               onClick={() => {
                 setIsDropdownOpen(false);
@@ -132,4 +131,4 @@ export const UserProfile: React.FC = () => {
       )}
     </div>
   );
-}; 
+};

@@ -57,4 +57,4 @@ export class ToolUsageRecord extends BaseEntity {
   @ManyToOne('ToolDefinition', 'usageRecords')
   @JoinColumn({ name: 'tool_id' })
   tool: any;
-} 
+}

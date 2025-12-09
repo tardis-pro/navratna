@@ -1,4 +1,3 @@
-
 import * as cron from 'node-cron';
 import { logger } from '@uaip/utils';
 import { ApiError } from '@uaip/utils';
@@ -10,7 +9,7 @@ import {
   ApprovalStatus,
   SecurityLevel,
   AuditEventType,
-  Operation
+  Operation,
 } from '@uaip/types';
 // Remove TypeORM imports - use DatabaseService instead
 import { NotificationService } from './notificationService.js';
@@ -59,7 +58,7 @@ export class ApprovalWorkflowService {
       reminderIntervalHours: 4,
       escalationHours: 12,
       maxApprovers: 10,
-      requireAllApprovers: false
+      requireAllApprovers: false,
     };
 
     // Don't start cron jobs in constructor - they will be started after database initialization
@@ -80,7 +79,7 @@ export class ApprovalWorkflowService {
       logger.info('Creating approval workflow', {
         operationId: request.operationId,
         requiredApprovers: request.requiredApprovers.length,
-        securityLevel: request.securityLevel
+        securityLevel: request.securityLevel,
       });
 
       // Validate request
@@ -92,20 +91,22 @@ export class ApprovalWorkflowService {
       expiresAt.setHours(expiresAt.getHours() + expirationHours);
 
       // Create workflow using DatabaseService
-      const savedWorkflow = await this.databaseService.security.getApprovalWorkflowRepository().createApprovalWorkflow({
-        id: request.operationId,
-        operationId: request.operationId,
-        requiredApprovers: request.requiredApprovers,
-        currentApprovers: [],
-        status: ApprovalStatus.PENDING,
-        expiresAt,
-        metadata: {
-          operationType: request.operationType,
-          securityLevel: request.securityLevel,
-          context: request.context,
-          ...request.metadata
-        }
-      });
+      const savedWorkflow = await this.databaseService.security
+        .getApprovalWorkflowRepository()
+        .createApprovalWorkflow({
+          id: request.operationId,
+          operationId: request.operationId,
+          requiredApprovers: request.requiredApprovers,
+          currentApprovers: [],
+          status: ApprovalStatus.PENDING,
+          expiresAt,
+          metadata: {
+            operationType: request.operationType,
+            securityLevel: request.securityLevel,
+            context: request.context,
+            ...request.metadata,
+          },
+        });
 
       // Convert to interface format
       const workflow: ApprovalWorkflowType = {
@@ -117,7 +118,7 @@ export class ApprovalWorkflowService {
         expiresAt: savedWorkflow.expiresAt,
         metadata: savedWorkflow.metadata,
         createdAt: savedWorkflow.createdAt,
-        updatedAt: savedWorkflow.updatedAt
+        updatedAt: savedWorkflow.updatedAt,
       };
 
       // Send notifications to approvers
@@ -128,7 +129,7 @@ export class ApprovalWorkflowService {
         workflowId: workflow.id,
         operationId: workflow.operationId,
         requiredApprovers: workflow.requiredApprovers,
-        expiresAt: workflow.expiresAt
+        expiresAt: workflow.expiresAt,
       });
 
       // Audit log
@@ -140,21 +141,20 @@ export class ApprovalWorkflowService {
           operationId: request.operationId,
           operationType: request.operationType,
           requiredApprovers: request.requiredApprovers.length,
-          securityLevel: request.securityLevel
-        }
+          securityLevel: request.securityLevel,
+        },
       });
 
       logger.info('Approval workflow created successfully', {
         workflowId: workflow.id,
-        operationId: workflow.operationId
+        operationId: workflow.operationId,
       });
 
       return workflow;
-
     } catch (error) {
       logger.error('Failed to create approval workflow', {
         operationId: request.operationId,
-        error: error instanceof Error ? error.message : 'Unknown error'
+        error: error instanceof Error ? error.message : 'Unknown error',
       });
       throw error;
     }
@@ -163,12 +163,14 @@ export class ApprovalWorkflowService {
   /**
    * Process an approval decision
    */
-  public async processApprovalDecision(decision: ApprovalDecision): Promise<ApprovalWorkflowStatus> {
+  public async processApprovalDecision(
+    decision: ApprovalDecision
+  ): Promise<ApprovalWorkflowStatus> {
     try {
       logger.info('Processing approval decision', {
         workflowId: decision.workflowId,
         approverId: decision.approverId,
-        decision: decision.decision
+        decision: decision.decision,
       });
 
       // Get workflow
@@ -189,7 +191,7 @@ export class ApprovalWorkflowService {
         decision: decision.decision,
         conditions: decision.conditions,
         feedback: decision.feedback,
-        decidedAt: decision.decidedAt
+        decidedAt: decision.decidedAt,
       });
 
       // Update workflow status
@@ -205,28 +207,30 @@ export class ApprovalWorkflowService {
 
       // Audit log
       await this.auditService.logEvent({
-        eventType: decision.decision === 'approve' ? AuditEventType.APPROVAL_GRANTED : AuditEventType.APPROVAL_DENIED,
+        eventType:
+          decision.decision === 'approve'
+            ? AuditEventType.APPROVAL_GRANTED
+            : AuditEventType.APPROVAL_DENIED,
         resourceType: 'approval_workflow',
         resourceId: workflow.id,
         details: {
           approverId: decision.approverId,
           decision: decision.decision,
-          feedback: decision.feedback
-        }
+          feedback: decision.feedback,
+        },
       });
 
       logger.info('Approval decision processed successfully', {
         workflowId: decision.workflowId,
         decision: decision.decision,
-        isComplete: status.isComplete
+        isComplete: status.isComplete,
       });
 
       return status;
-
     } catch (error) {
       logger.error('Failed to process approval decision', {
         workflowId: decision.workflowId,
-        error: error instanceof Error ? error.message : 'Unknown error'
+        error: error instanceof Error ? error.message : 'Unknown error',
       });
       throw error;
     }
@@ -243,25 +247,22 @@ export class ApprovalWorkflowService {
       }
 
       const decisions = await this.getApprovalDecisions(workflowId);
-      
-      const approvedBy = decisions
-        .filter(d => d.decision === 'approve')
-        .map(d => d.approverId);
 
-      const rejectedBy = decisions
-        .filter(d => d.decision === 'reject')
-        .map(d => d.approverId);
+      const approvedBy = decisions.filter((d) => d.decision === 'approve').map((d) => d.approverId);
+
+      const rejectedBy = decisions.filter((d) => d.decision === 'reject').map((d) => d.approverId);
 
       const pendingApprovers = workflow.requiredApprovers.filter(
-        approver => !approvedBy.includes(approver) && !rejectedBy.includes(approver)
+        (approver) => !approvedBy.includes(approver) && !rejectedBy.includes(approver)
       );
 
       const hasRejection = rejectedBy.length > 0;
-      const hasAllApprovals = this.config.requireAllApprovers 
+      const hasAllApprovals = this.config.requireAllApprovers
         ? pendingApprovers.length === 0
         : approvedBy.length > 0;
 
-      const isComplete = hasRejection || hasAllApprovals || workflow.status !== ApprovalStatus.PENDING;
+      const isComplete =
+        hasRejection || hasAllApprovals || workflow.status !== ApprovalStatus.PENDING;
       const canProceed = !hasRejection && hasAllApprovals;
 
       const nextActions: string[] = [];
@@ -279,13 +280,12 @@ export class ApprovalWorkflowService {
         completedApprovals: decisions,
         isComplete,
         canProceed,
-        nextActions
+        nextActions,
       };
-
     } catch (error) {
       logger.error('Failed to get workflow status', {
         workflowId,
-        error: error instanceof Error ? error.message : 'Unknown error'
+        error: error instanceof Error ? error.message : 'Unknown error',
       });
       throw error;
     }
@@ -294,17 +294,21 @@ export class ApprovalWorkflowService {
   /**
    * Get workflows for a user (as approver)
    */
-  public async getUserWorkflows(userId: string, status?: ApprovalStatus): Promise<ApprovalWorkflowType[]> {
+  public async getUserWorkflows(
+    userId: string,
+    status?: ApprovalStatus
+  ): Promise<ApprovalWorkflowType[]> {
     try {
-      const workflows = await this.databaseService.security.getApprovalWorkflowRepository().getUserApprovalWorkflows(userId, status);
+      const workflows = await this.databaseService.security
+        .getApprovalWorkflowRepository()
+        .getUserApprovalWorkflows(userId, status);
 
       return workflows.map(this.mapEntityToWorkflow);
-
     } catch (error) {
       logger.error('Failed to get user workflows', {
         userId,
         status,
-        error: error instanceof Error ? error.message : 'Unknown error'
+        error: error instanceof Error ? error.message : 'Unknown error',
       });
       throw error;
     }
@@ -325,9 +329,11 @@ export class ApprovalWorkflowService {
       }
 
       // Update status using DatabaseService
-      await this.databaseService.security.getApprovalWorkflowRepository().updateApprovalWorkflow(workflowId, {
-        status: 'cancelled' as any
-      });
+      await this.databaseService.security
+        .getApprovalWorkflowRepository()
+        .updateApprovalWorkflow(workflowId, {
+          status: 'cancelled' as any,
+        });
 
       // Notify approvers
       await this.notifyApprovers(workflow, 'approval_cancelled', { reason });
@@ -336,7 +342,7 @@ export class ApprovalWorkflowService {
       await this.eventBusService.publish('approval.workflow.cancelled', {
         workflowId,
         operationId: workflow.operationId,
-        reason
+        reason,
       });
 
       // Audit log
@@ -344,13 +350,12 @@ export class ApprovalWorkflowService {
         eventType: AuditEventType.APPROVAL_DENIED,
         resourceType: 'approval_workflow',
         resourceId: workflowId,
-        details: { reason, action: 'cancelled' }
+        details: { reason, action: 'cancelled' },
       });
-
     } catch (error) {
       logger.error('Failed to cancel workflow', {
         workflowId,
-        error: error instanceof Error ? error.message : 'Unknown error'
+        error: error instanceof Error ? error.message : 'Unknown error',
       });
       throw error;
     }
@@ -381,13 +386,14 @@ export class ApprovalWorkflowService {
       const reminderThreshold = new Date();
       reminderThreshold.setHours(reminderThreshold.getHours() - this.config.reminderIntervalHours);
 
-      const workflows = await this.databaseService.security.getApprovalWorkflowRepository().getPendingWorkflowsForReminders(reminderThreshold);
+      const workflows = await this.databaseService.security
+        .getApprovalWorkflowRepository()
+        .getPendingWorkflowsForReminders(reminderThreshold);
 
       for (const workflowEntity of workflows) {
         const workflow = this.mapEntityToWorkflow(workflowEntity);
         await this.sendWorkflowReminder(workflow);
       }
-
     } catch (error) {
       logger.error('Failed to send approval reminders', { error });
     }
@@ -400,8 +406,10 @@ export class ApprovalWorkflowService {
     try {
       const now = new Date();
       logger.debug('Starting workflow expiration check', { timestamp: now.toISOString() });
-      
-      const workflows = await this.databaseService.security.getApprovalWorkflowRepository().getExpiredWorkflows();
+
+      const workflows = await this.databaseService.security
+        .getApprovalWorkflowRepository()
+        .getExpiredWorkflows();
       logger.debug('Found expired workflows', { count: workflows.length });
 
       if (workflows.length === 0) {
@@ -417,25 +425,30 @@ export class ApprovalWorkflowService {
         } catch (workflowError) {
           logger.error('Failed to expire individual workflow', {
             workflowId: workflowEntity.id,
-            error: workflowError instanceof Error ? {
-              message: workflowError.message,
-              stack: workflowError.stack,
-              name: workflowError.name
-            } : workflowError
+            error:
+              workflowError instanceof Error
+                ? {
+                    message: workflowError.message,
+                    stack: workflowError.stack,
+                    name: workflowError.name,
+                  }
+                : workflowError,
           });
           // Continue with other workflows even if one fails
         }
       }
-
     } catch (error) {
       logger.error('Failed to expire workflows', {
-        error: error instanceof Error ? {
-          message: error.message,
-          stack: error.stack,
-          name: error.name
-        } : error,
+        error:
+          error instanceof Error
+            ? {
+                message: error.message,
+                stack: error.stack,
+                name: error.name,
+              }
+            : error,
         errorType: typeof error,
-        errorString: String(error)
+        errorString: String(error),
       });
     }
   }
@@ -446,9 +459,11 @@ export class ApprovalWorkflowService {
   private async expireWorkflow(workflowId: string): Promise<void> {
     try {
       // Update workflow status to expired
-      const updatedWorkflow = await this.databaseService.security.getApprovalWorkflowRepository().updateApprovalWorkflow(workflowId, {
-        status: 'expired' as any
-      });
+      const updatedWorkflow = await this.databaseService.security
+        .getApprovalWorkflowRepository()
+        .updateApprovalWorkflow(workflowId, {
+          status: 'expired' as any,
+        });
 
       if (!updatedWorkflow) {
         logger.warn('Workflow not found during expiration', { workflowId });
@@ -467,7 +482,7 @@ export class ApprovalWorkflowService {
       } catch (notificationError) {
         logger.error('Failed to notify approvers of workflow expiration', {
           workflowId,
-          error: notificationError instanceof Error ? notificationError.message : notificationError
+          error: notificationError instanceof Error ? notificationError.message : notificationError,
         });
       }
 
@@ -475,12 +490,12 @@ export class ApprovalWorkflowService {
       try {
         await this.eventBusService.publish('approval.workflow.expired', {
           workflowId,
-          operationId: workflow.operationId
+          operationId: workflow.operationId,
         });
       } catch (eventError) {
         logger.error('Failed to publish workflow expiration event', {
           workflowId,
-          error: eventError instanceof Error ? eventError.message : eventError
+          error: eventError instanceof Error ? eventError.message : eventError,
         });
       }
 
@@ -490,28 +505,30 @@ export class ApprovalWorkflowService {
           eventType: AuditEventType.APPROVAL_DENIED,
           resourceType: 'approval_workflow',
           resourceId: workflowId,
-          details: { reason: 'expired', action: 'auto_expired' }
+          details: { reason: 'expired', action: 'auto_expired' },
         });
       } catch (auditError) {
         logger.error('Failed to log workflow expiration audit event', {
           workflowId,
-          error: auditError instanceof Error ? auditError.message : auditError
+          error: auditError instanceof Error ? auditError.message : auditError,
         });
       }
 
       logger.info('Workflow expired successfully', {
         workflowId,
-        operationId: workflow.operationId
+        operationId: workflow.operationId,
       });
-
     } catch (error) {
       logger.error('Failed to expire workflow', {
         workflowId,
-        error: error instanceof Error ? {
-          message: error.message,
-          stack: error.stack,
-          name: error.name
-        } : error
+        error:
+          error instanceof Error
+            ? {
+                message: error.message,
+                stack: error.stack,
+                name: error.name,
+              }
+            : error,
       });
       throw error; // Re-throw to be caught by the calling method
     }
@@ -522,16 +539,18 @@ export class ApprovalWorkflowService {
    */
   private async sendWorkflowReminder(workflow: ApprovalWorkflowType): Promise<void> {
     const status = await this.getWorkflowStatus(workflow.id);
-    
+
     if (status.pendingApprovers.length > 0) {
       await this.notifyApprovers(workflow, 'approval_reminder', {
-        pendingApprovers: status.pendingApprovers
+        pendingApprovers: status.pendingApprovers,
       });
 
       // Update last reminder time
-      await this.databaseService.security.getApprovalWorkflowRepository().updateApprovalWorkflow(workflow.id, {
-        lastReminderAt: new Date()
-      });
+      await this.databaseService.security
+        .getApprovalWorkflowRepository()
+        .updateApprovalWorkflow(workflow.id, {
+          lastReminderAt: new Date(),
+        });
     }
   }
 
@@ -540,11 +559,13 @@ export class ApprovalWorkflowService {
    */
   private async completeWorkflow(workflow: ApprovalWorkflowType, approved: boolean): Promise<void> {
     const newStatus = approved ? ApprovalStatus.APPROVED : ApprovalStatus.REJECTED;
-    
+
     // Update workflow status
-    await this.databaseService.security.getApprovalWorkflowRepository().updateApprovalWorkflow(workflow.id, {
-      status: newStatus as any
-    });
+    await this.databaseService.security
+      .getApprovalWorkflowRepository()
+      .updateApprovalWorkflow(workflow.id, {
+        status: newStatus as any,
+      });
 
     // Notify stakeholders
     await this.notifyApprovers(workflow, approved ? 'approval_completed' : 'approval_rejected');
@@ -554,14 +575,14 @@ export class ApprovalWorkflowService {
       workflowId: workflow.id,
       operationId: workflow.operationId,
       approved,
-      status: newStatus
+      status: newStatus,
     });
 
     logger.info('Approval workflow completed', {
       workflowId: workflow.id,
       operationId: workflow.operationId,
       approved,
-      status: newStatus
+      status: newStatus,
     });
   }
 
@@ -569,18 +590,23 @@ export class ApprovalWorkflowService {
    * Update workflow status based on decision
    */
   private async updateWorkflowStatus(
-    workflow: ApprovalWorkflowType, 
+    workflow: ApprovalWorkflowType,
     decision: ApprovalDecision
   ): Promise<ApprovalWorkflowType> {
     // Add approver to current approvers if approving
-    if (decision.decision === 'approve' && !workflow.currentApprovers.includes(decision.approverId)) {
+    if (
+      decision.decision === 'approve' &&
+      !workflow.currentApprovers.includes(decision.approverId)
+    ) {
       workflow.currentApprovers.push(decision.approverId);
     }
 
     // Update in database
-    await this.databaseService.security.getApprovalWorkflowRepository().updateApprovalWorkflow(workflow.id, {
-      currentApprovers: workflow.currentApprovers
-    });
+    await this.databaseService.security
+      .getApprovalWorkflowRepository()
+      .updateApprovalWorkflow(workflow.id, {
+        currentApprovers: workflow.currentApprovers,
+      });
 
     return { ...workflow, updatedAt: new Date() };
   }
@@ -598,17 +624,28 @@ export class ApprovalWorkflowService {
     }
 
     if (request.requiredApprovers.length > this.config.maxApprovers) {
-      throw new ApiError(400, `Too many approvers (max: ${this.config.maxApprovers})`, 'TOO_MANY_APPROVERS');
+      throw new ApiError(
+        400,
+        `Too many approvers (max: ${this.config.maxApprovers})`,
+        'TOO_MANY_APPROVERS'
+      );
     }
   }
 
-  private validateApprovalDecision(workflow: ApprovalWorkflowType, decision: ApprovalDecision): void {
+  private validateApprovalDecision(
+    workflow: ApprovalWorkflowType,
+    decision: ApprovalDecision
+  ): void {
     if (workflow.status !== ApprovalStatus.PENDING) {
       throw new ApiError(400, 'Workflow is not pending approval', 'WORKFLOW_NOT_PENDING');
     }
 
     if (!workflow.requiredApprovers.includes(decision.approverId)) {
-      throw new ApiError(403, 'User is not authorized to approve this workflow', 'UNAUTHORIZED_APPROVER');
+      throw new ApiError(
+        403,
+        'User is not authorized to approve this workflow',
+        'UNAUTHORIZED_APPROVER'
+      );
     }
 
     if (workflow.expiresAt && new Date() > workflow.expiresAt) {
@@ -620,8 +657,8 @@ export class ApprovalWorkflowService {
    * Notification helper
    */
   private async notifyApprovers(
-    workflow: ApprovalWorkflowType, 
-    type: string, 
+    workflow: ApprovalWorkflowType,
+    type: string,
     additionalData?: Record<string, any>
   ): Promise<void> {
     try {
@@ -635,15 +672,15 @@ export class ApprovalWorkflowService {
           data: {
             workflowId: workflow.id,
             operationId: workflow.operationId,
-            ...additionalData
-          }
+            ...additionalData,
+          },
         });
       }
     } catch (error) {
       logger.error('Failed to send notifications', {
         workflowId: workflow.id,
         type,
-        error: error instanceof Error ? error.message : 'Unknown error'
+        error: error instanceof Error ? error.message : 'Unknown error',
       });
       // Don't throw - notification failure shouldn't break the workflow
     }
@@ -654,7 +691,7 @@ export class ApprovalWorkflowService {
    */
   private getNotificationSubject(type: string, workflow: ApprovalWorkflowType): string {
     const operationType = workflow.metadata?.operationType || 'Operation';
-    
+
     switch (type) {
       case 'approval_requested':
         return `Approval Required: ${operationType}`;
@@ -679,7 +716,7 @@ export class ApprovalWorkflowService {
   private getNotificationMessage(type: string, workflow: ApprovalWorkflowType): string {
     const operationType = workflow.metadata?.operationType || 'Operation';
     const securityLevel = workflow.metadata?.securityLevel || 'Unknown';
-    
+
     switch (type) {
       case 'approval_requested':
         return `A new ${operationType} (Security Level: ${securityLevel}) requires your approval. Operation ID: ${workflow.operationId}`;
@@ -702,21 +739,25 @@ export class ApprovalWorkflowService {
    * Database operations using TypeORM
    */
   private async getWorkflow(workflowId: string): Promise<ApprovalWorkflowType | null> {
-    const workflowEntity = await this.databaseService.security.getApprovalWorkflowRepository().findById(workflowId);
+    const workflowEntity = await this.databaseService.security
+      .getApprovalWorkflowRepository()
+      .findById(workflowId);
 
     return workflowEntity ? this.mapEntityToWorkflow(workflowEntity) : null;
   }
 
   private async getApprovalDecisions(workflowId: string): Promise<ApprovalDecision[]> {
-    const decisions = await this.databaseService.security.getApprovalDecisionRepository().getApprovalDecisions(workflowId);
+    const decisions = await this.databaseService.security
+      .getApprovalDecisionRepository()
+      .getApprovalDecisions(workflowId);
 
-    return decisions.map(decision => ({
+    return decisions.map((decision) => ({
       workflowId: decision.workflowId,
       approverId: decision.approverId,
       decision: decision.decision,
       conditions: decision.conditions,
       feedback: decision.feedback,
-      decidedAt: decision.decidedAt
+      decidedAt: decision.decidedAt,
     }));
   }
 
@@ -733,7 +774,7 @@ export class ApprovalWorkflowService {
       expiresAt: entity.expiresAt,
       metadata: entity.metadata,
       createdAt: entity.createdAt,
-      updatedAt: entity.updatedAt
+      updatedAt: entity.updatedAt,
     };
   }
 
@@ -753,4 +794,4 @@ export class ApprovalWorkflowService {
 
     logger.info('Approval workflow service cleaned up');
   }
-} 
+}

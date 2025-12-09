@@ -1,6 +1,6 @@
 import { Repository } from 'typeorm';
 import { BaseRepository } from '../base/BaseRepository.js';
-import { LLMProvider  } from '../../entities/llmProvider.entity.js';
+import { LLMProvider } from '../../entities/llmProvider.entity.js';
 import { logger } from '@uaip/utils';
 import { LLMProviderType, LLMProviderStatus } from '@uaip/types';
 
@@ -15,14 +15,14 @@ export class LLMProviderRepository extends BaseRepository<LLMProvider> {
   async findActiveProviders(): Promise<LLMProvider[]> {
     try {
       return await this.repository.find({
-        where: { 
+        where: {
           isActive: true,
-          status: LLMProviderStatus.ACTIVE
+          status: LLMProviderStatus.ACTIVE,
         },
-        order: { 
+        order: {
           priority: 'ASC',
-          createdAt: 'ASC'
-        }
+          createdAt: 'ASC',
+        },
       });
     } catch (error) {
       logger.error('Error finding active LLM providers', { error });
@@ -36,14 +36,14 @@ export class LLMProviderRepository extends BaseRepository<LLMProvider> {
   async findByType(type: LLMProviderType): Promise<LLMProvider[]> {
     try {
       return await this.repository.find({
-        where: { 
+        where: {
           type,
-          isActive: true
+          isActive: true,
         },
-        order: { 
+        order: {
           priority: 'ASC',
-          createdAt: 'ASC'
-        }
+          createdAt: 'ASC',
+        },
       });
     } catch (error) {
       logger.error('Error finding LLM providers by type', { type, error });
@@ -57,7 +57,7 @@ export class LLMProviderRepository extends BaseRepository<LLMProvider> {
   async findByName(name: string): Promise<LLMProvider | null> {
     try {
       return await this.repository.findOne({
-        where: { name }
+        where: { name },
       });
     } catch (error) {
       logger.error('Error finding LLM provider by name', { name, error });
@@ -73,7 +73,7 @@ export class LLMProviderRepository extends BaseRepository<LLMProvider> {
     try {
       const whereCondition: any = {
         isActive: true,
-        status: 'active'
+        status: 'active',
       };
 
       if (type) {
@@ -82,10 +82,10 @@ export class LLMProviderRepository extends BaseRepository<LLMProvider> {
 
       return await this.repository.findOne({
         where: whereCondition,
-        order: { 
+        order: {
           priority: 'ASC',
-          lastUsedAt: 'ASC' // Prefer less recently used providers for load balancing
-        }
+          lastUsedAt: 'ASC', // Prefer less recently used providers for load balancing
+        },
       });
     } catch (error) {
       logger.error('Error finding best LLM provider', { type, error });
@@ -115,7 +115,7 @@ export class LLMProviderRepository extends BaseRepository<LLMProvider> {
         status: 'testing' as LLMProviderStatus,
         totalTokensUsed: '0',
         totalRequests: '0',
-        totalErrors: '0'
+        totalErrors: '0',
       });
 
       // Set encrypted API key if provided
@@ -124,11 +124,11 @@ export class LLMProviderRepository extends BaseRepository<LLMProvider> {
       }
 
       const savedProvider = await this.repository.save(provider);
-      
-      logger.info('Created new LLM provider', { 
-        id: savedProvider.id, 
+
+      logger.info('Created new LLM provider', {
+        id: savedProvider.id,
         name: savedProvider.name,
-        type: savedProvider.type
+        type: savedProvider.type,
       });
 
       return savedProvider;
@@ -150,9 +150,9 @@ export class LLMProviderRepository extends BaseRepository<LLMProvider> {
 
       provider.setApiKey(apiKey);
       provider.updatedBy = updatedBy;
-      
+
       await this.repository.save(provider);
-      
+
       logger.info('Updated LLM provider API key', { id, name: provider.name });
     } catch (error) {
       logger.error('Error updating LLM provider API key', { id, error });
@@ -167,13 +167,13 @@ export class LLMProviderRepository extends BaseRepository<LLMProvider> {
     try {
       await this.repository.update(
         { id },
-        { 
-          status, 
+        {
+          status,
           updatedBy,
-          updatedAt: new Date()
+          updatedAt: new Date(),
         }
       );
-      
+
       logger.info('Updated LLM provider status', { id, status });
     } catch (error) {
       logger.error('Error updating LLM provider status', { id, status, error });
@@ -193,12 +193,12 @@ export class LLMProviderRepository extends BaseRepository<LLMProvider> {
 
       provider.updateUsageStats(tokensUsed, isError);
       await this.repository.save(provider);
-      
-      logger.debug('Updated LLM provider usage stats', { 
-        id, 
-        tokensUsed, 
+
+      logger.debug('Updated LLM provider usage stats', {
+        id,
+        tokensUsed,
         isError,
-        totalRequests: provider.totalRequests
+        totalRequests: provider.totalRequests,
       });
     } catch (error) {
       logger.error('Error updating LLM provider usage stats', { id, tokensUsed, isError, error });
@@ -210,7 +210,7 @@ export class LLMProviderRepository extends BaseRepository<LLMProvider> {
    * Update provider health check result
    */
   async updateHealthCheck(
-    id: string, 
+    id: string,
     result: { status: 'healthy' | 'unhealthy'; latency?: number; error?: string }
   ): Promise<void> {
     try {
@@ -221,12 +221,12 @@ export class LLMProviderRepository extends BaseRepository<LLMProvider> {
 
       provider.updateHealthCheck(result);
       await this.repository.save(provider);
-      
-      logger.info('Updated LLM provider health check', { 
-        id, 
+
+      logger.info('Updated LLM provider health check', {
+        id,
         name: provider.name,
         status: result.status,
-        latency: result.latency
+        latency: result.latency,
       });
     } catch (error) {
       logger.error('Error updating LLM provider health check', { id, result, error });
@@ -246,12 +246,17 @@ export class LLMProviderRepository extends BaseRepository<LLMProvider> {
     healthStatus?: string;
   } | null> {
     try {
-      const provider = await this.repository.findOne({ 
+      const provider = await this.repository.findOne({
         where: { id },
         select: [
-          'id', 'name', 'totalRequests', 'totalTokensUsed', 'totalErrors',
-          'lastUsedAt', 'healthCheckResult'
-        ]
+          'id',
+          'name',
+          'totalRequests',
+          'totalTokensUsed',
+          'totalErrors',
+          'lastUsedAt',
+          'healthCheckResult',
+        ],
       });
 
       if (!provider) {
@@ -260,9 +265,7 @@ export class LLMProviderRepository extends BaseRepository<LLMProvider> {
 
       const totalRequests = BigInt(provider.totalRequests);
       const totalErrors = BigInt(provider.totalErrors);
-      const errorRate = totalRequests > 0 
-        ? Number(totalErrors) / Number(totalRequests) * 100 
-        : 0;
+      const errorRate = totalRequests > 0 ? (Number(totalErrors) / Number(totalRequests)) * 100 : 0;
 
       return {
         totalRequests: provider.totalRequests,
@@ -270,7 +273,7 @@ export class LLMProviderRepository extends BaseRepository<LLMProvider> {
         totalErrors: provider.totalErrors,
         errorRate: Math.round(errorRate * 100) / 100, // Round to 2 decimal places
         lastUsedAt: provider.lastUsedAt,
-        healthStatus: provider.healthCheckResult?.status
+        healthStatus: provider.healthCheckResult?.status,
       };
     } catch (error) {
       logger.error('Error getting LLM provider stats', { id, error });
@@ -281,18 +284,21 @@ export class LLMProviderRepository extends BaseRepository<LLMProvider> {
   /**
    * Update provider configuration
    */
-  async updateProvider(id: string, data: Partial<{
-    name: string;
-    description: string;
-    baseUrl: string;
-    defaultModel: string;
-    modelsList: string[];
-    configuration: any;
-    priority: number;
-    isActive: boolean;
-    status: LLMProviderStatus;
-    updatedBy: string;
-  }>): Promise<LLMProvider> {
+  async updateProvider(
+    id: string,
+    data: Partial<{
+      name: string;
+      description: string;
+      baseUrl: string;
+      defaultModel: string;
+      modelsList: string[];
+      configuration: any;
+      priority: number;
+      isActive: boolean;
+      status: LLMProviderStatus;
+      updatedBy: string;
+    }>
+  ): Promise<LLMProvider> {
     try {
       const provider = await this.repository.findOne({ where: { id } });
       if (!provider) {
@@ -302,13 +308,13 @@ export class LLMProviderRepository extends BaseRepository<LLMProvider> {
       // Update the provider with the new data
       Object.assign(provider, data);
       provider.updatedAt = new Date();
-      
+
       const savedProvider = await this.repository.save(provider);
-      
-      logger.info('Updated LLM provider', { 
-        id: savedProvider.id, 
+
+      logger.info('Updated LLM provider', {
+        id: savedProvider.id,
         name: savedProvider.name,
-        updates: Object.keys(data)
+        updates: Object.keys(data),
       });
 
       return savedProvider;
@@ -332,14 +338,14 @@ export class LLMProviderRepository extends BaseRepository<LLMProvider> {
     try {
       await this.repository.update(
         { id },
-        { 
+        {
           isActive: false,
           status: 'inactive' as LLMProviderStatus,
           updatedBy: deletedBy,
-          updatedAt: new Date()
+          updatedAt: new Date(),
         }
       );
-      
+
       logger.info('Soft deleted LLM provider', { id });
     } catch (error) {
       logger.error('Error soft deleting LLM provider', { id, error });
@@ -370,4 +376,4 @@ export class LLMProviderRepository extends BaseRepository<LLMProvider> {
       throw error;
     }
   }
-} 
+}

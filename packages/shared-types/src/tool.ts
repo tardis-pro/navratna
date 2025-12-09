@@ -17,7 +17,7 @@ export enum ToolCategory {
   SYSTEM = 'system',
   NETWORK = 'network',
   DEVELOPMENT = 'development',
-  MCP = 'mcp'
+  MCP = 'mcp',
 }
 
 export enum ToolExecutionStatus {
@@ -26,7 +26,7 @@ export enum ToolExecutionStatus {
   COMPLETED = 'completed',
   FAILED = 'failed',
   CANCELLED = 'cancelled',
-  APPROVAL_REQUIRED = 'approval-required'
+  APPROVAL_REQUIRED = 'approval-required',
 }
 
 // SecurityLevel is imported from security.ts to avoid duplication
@@ -220,9 +220,15 @@ export type ToolEvent =
   | { type: 'tool-registered'; payload: { toolId: string } }
   | { type: 'tool-unregistered'; payload: { toolId: string } }
   | { type: 'execution-started'; payload: { executionId: string; toolId: string; agentId: string } }
-  | { type: 'execution-completed'; payload: { executionId: string; success: boolean; duration: number } }
+  | {
+      type: 'execution-completed';
+      payload: { executionId: string; success: boolean; duration: number };
+    }
   | { type: 'execution-failed'; payload: { executionId: string; error: ToolExecutionError } }
-  | { type: 'approval-requested'; payload: { executionId: string; toolId: string; agentId: string } }
+  | {
+      type: 'approval-requested';
+      payload: { executionId: string; toolId: string; agentId: string };
+    }
   | { type: 'approval-granted'; payload: { executionId: string; approvedBy: string } }
   | { type: 'budget-exceeded'; payload: { agentId: string; limit: number; attempted: number } }
   | { type: 'rate-limit-hit'; payload: { agentId: string; toolId: string } };
@@ -252,4 +258,4 @@ export interface ToolSystemConfig {
     auditingEnabled: boolean;
     encryptResults: boolean;
   };
-} 
+}

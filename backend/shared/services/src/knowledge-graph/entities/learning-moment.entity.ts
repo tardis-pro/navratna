@@ -10,14 +10,14 @@ export enum LearningMomentType {
   KNOWLEDGE_GAP = 'knowledge_gap',
   SKILL_DEVELOPMENT = 'skill_development',
   PATTERN_RECOGNITION = 'pattern_recognition',
-  CONCEPTUAL_UNDERSTANDING = 'conceptual_understanding'
+  CONCEPTUAL_UNDERSTANDING = 'conceptual_understanding',
 }
 
 export enum LearningImpact {
   MINIMAL = 'minimal',
   MODERATE = 'moderate',
   SIGNIFICANT = 'significant',
-  TRANSFORMATIVE = 'transformative'
+  TRANSFORMATIVE = 'transformative',
 }
 
 export enum LearningContext {
@@ -26,7 +26,7 @@ export enum LearningContext {
   MENTORING = 'mentoring',
   PROBLEM_SOLVING = 'problem_solving',
   KNOWLEDGE_SHARING = 'knowledge_sharing',
-  PEER_LEARNING = 'peer_learning'
+  PEER_LEARNING = 'peer_learning',
 }
 
 @Entity('learning_moments')
@@ -47,7 +47,7 @@ export class LearningMomentEntity extends BaseEntity {
   @Column({
     type: 'enum',
     enum: LearningMomentType,
-    name: 'learning_type'
+    name: 'learning_type',
   })
   learningType!: LearningMomentType;
 
@@ -69,14 +69,14 @@ export class LearningMomentEntity extends BaseEntity {
   @Column({
     type: 'enum',
     enum: LearningImpact,
-    default: LearningImpact.MODERATE
+    default: LearningImpact.MODERATE,
   })
   impact!: LearningImpact;
 
   @Column({
     type: 'enum',
     enum: LearningContext,
-    default: LearningContext.INDIVIDUAL
+    default: LearningContext.INDIVIDUAL,
   })
   context!: LearningContext;
 

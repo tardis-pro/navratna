@@ -45,7 +45,13 @@ export interface ConversationState {
 }
 
 // Response enhancement types
-export type ResponseType = 'primary' | 'follow-up' | 'agreement' | 'concern' | 'transition' | 'clarification';
+export type ResponseType =
+  | 'primary'
+  | 'follow-up'
+  | 'agreement'
+  | 'concern'
+  | 'transition'
+  | 'clarification';
 export type FillerType = 'thinking' | 'hesitation' | 'transition' | 'agreement' | 'casual';
 
 export interface ResponseEnhancement {
@@ -88,10 +94,30 @@ export interface HybridSuggestion {
 }
 
 // Enhanced conversation type for contextual responses
-export type ConversationType = 'build-on' | 'question' | 'support' | 'agree' | 'concern' | 'transition' | 'reflect';
+export type ConversationType =
+  | 'build-on'
+  | 'question'
+  | 'support'
+  | 'agree'
+  | 'concern'
+  | 'transition'
+  | 'reflect';
 
 // Persona category type
-export type PersonaCategory = 'Development' | 'Policy' | 'Creative' | 'Analysis' | 'Business' | 'Social' | 'Healthcare' | 'Academic' | 'Finance' | 'Media' | 'Manufacturing' | 'Governance' | 'Specialized';
+export type PersonaCategory =
+  | 'Development'
+  | 'Policy'
+  | 'Creative'
+  | 'Analysis'
+  | 'Business'
+  | 'Social'
+  | 'Healthcare'
+  | 'Academic'
+  | 'Finance'
+  | 'Media'
+  | 'Manufacturing'
+  | 'Governance'
+  | 'Specialized';
 
 // Weighted contribution scoring interface
 export interface ContributionScore {
@@ -104,4 +130,4 @@ export interface ContributionScore {
     continuityPenalty: number;
     energyBonus: number;
   };
-} 
+}

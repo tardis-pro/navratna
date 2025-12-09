@@ -14,9 +14,9 @@ export class GitHubAdapter extends BaseOAuthAdapter {
       authUrl: 'https://github.com/login/oauth/authorize',
       tokenUrl: 'https://github.com/login/oauth/access_token',
       apiBaseUrl: 'https://api.github.com',
-      ...config
+      ...config,
     };
-    
+
     super(defaultConfig);
   }
 
@@ -32,22 +32,22 @@ export class GitHubAdapter extends BaseOAuthAdapter {
           type: {
             type: 'string',
             enum: ['all', 'owner', 'public', 'private'],
-            default: 'all'
+            default: 'all',
           },
           sort: {
             type: 'string',
             enum: ['created', 'updated', 'pushed', 'full_name'],
-            default: 'updated'
+            default: 'updated',
           },
           per_page: {
             type: 'number',
             minimum: 1,
             maximum: 100,
-            default: 30
-          }
-        }
+            default: 30,
+          },
+        },
       },
-      execute: this.listRepositories.bind(this)
+      execute: this.listRepositories.bind(this),
     });
 
     // Get repository contents
@@ -60,11 +60,11 @@ export class GitHubAdapter extends BaseOAuthAdapter {
         properties: {
           owner: { type: 'string', description: 'Repository owner' },
           repo: { type: 'string', description: 'Repository name' },
-          path: { type: 'string', description: 'File or directory path', default: '' }
+          path: { type: 'string', description: 'File or directory path', default: '' },
         },
-        required: ['owner', 'repo']
+        required: ['owner', 'repo'],
       },
-      execute: this.getRepositoryContents.bind(this)
+      execute: this.getRepositoryContents.bind(this),
     });
 
     // Create file
@@ -80,11 +80,11 @@ export class GitHubAdapter extends BaseOAuthAdapter {
           path: { type: 'string', description: 'File path' },
           message: { type: 'string', description: 'Commit message' },
           content: { type: 'string', description: 'File content (base64 encoded)' },
-          branch: { type: 'string', description: 'Branch name', default: 'main' }
+          branch: { type: 'string', description: 'Branch name', default: 'main' },
         },
-        required: ['owner', 'repo', 'path', 'message', 'content']
+        required: ['owner', 'repo', 'path', 'message', 'content'],
       },
-      execute: this.createFile.bind(this)
+      execute: this.createFile.bind(this),
     });
 
     // Create issue
@@ -99,11 +99,11 @@ export class GitHubAdapter extends BaseOAuthAdapter {
           repo: { type: 'string', description: 'Repository name' },
           title: { type: 'string', description: 'Issue title' },
           body: { type: 'string', description: 'Issue body' },
-          labels: { type: 'array', items: { type: 'string' }, description: 'Issue labels' }
+          labels: { type: 'array', items: { type: 'string' }, description: 'Issue labels' },
         },
-        required: ['owner', 'repo', 'title']
+        required: ['owner', 'repo', 'title'],
       },
-      execute: this.createIssue.bind(this)
+      execute: this.createIssue.bind(this),
     });
 
     // Get pull requests
@@ -117,11 +117,11 @@ export class GitHubAdapter extends BaseOAuthAdapter {
           owner: { type: 'string', description: 'Repository owner' },
           repo: { type: 'string', description: 'Repository name' },
           state: { type: 'string', enum: ['open', 'closed', 'all'], default: 'open' },
-          sort: { type: 'string', enum: ['created', 'updated', 'popularity'], default: 'created' }
+          sort: { type: 'string', enum: ['created', 'updated', 'popularity'], default: 'created' },
         },
-        required: ['owner', 'repo']
+        required: ['owner', 'repo'],
       },
-      execute: this.listPullRequests.bind(this)
+      execute: this.listPullRequests.bind(this),
     });
   }
 
@@ -149,8 +149,8 @@ export class GitHubAdapter extends BaseOAuthAdapter {
           updated_at: repo.updated_at,
           language: repo.language,
           stargazers_count: repo.stargazers_count,
-          forks_count: repo.forks_count
-        }))
+          forks_count: repo.forks_count,
+        })),
       };
     } catch (error) {
       logger.error('Failed to list repositories', error);
@@ -168,13 +168,13 @@ export class GitHubAdapter extends BaseOAuthAdapter {
 
       return {
         success: true,
-        data: Array.isArray(contents) 
-          ? contents.map(item => ({
+        data: Array.isArray(contents)
+          ? contents.map((item) => ({
               name: item.name,
               path: item.path,
               type: item.type,
               size: item.size,
-              download_url: item.download_url
+              download_url: item.download_url,
             }))
           : {
               name: contents.name,
@@ -182,8 +182,8 @@ export class GitHubAdapter extends BaseOAuthAdapter {
               type: contents.type,
               size: contents.size,
               content: contents.content,
-              encoding: contents.encoding
-            }
+              encoding: contents.encoding,
+            },
       };
     } catch (error) {
       logger.error('Failed to get repository contents', error);
@@ -199,14 +199,18 @@ export class GitHubAdapter extends BaseOAuthAdapter {
       const body = JSON.stringify({
         message,
         content,
-        branch
+        branch,
       });
 
-      const response = await this.makeApiRequest(url, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body
-      }, tokens);
+      const response = await this.makeApiRequest(
+        url,
+        {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body,
+        },
+        tokens
+      );
 
       const result = await response.json();
 
@@ -218,9 +222,9 @@ export class GitHubAdapter extends BaseOAuthAdapter {
             name: result.content.name,
             path: result.content.path,
             sha: result.content.sha,
-            html_url: result.content.html_url
-          }
-        }
+            html_url: result.content.html_url,
+          },
+        },
       };
     } catch (error) {
       logger.error('Failed to create file', error);
@@ -236,14 +240,18 @@ export class GitHubAdapter extends BaseOAuthAdapter {
       const requestBody = JSON.stringify({
         title,
         body,
-        labels
+        labels,
       });
 
-      const response = await this.makeApiRequest(url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: requestBody
-      }, tokens);
+      const response = await this.makeApiRequest(
+        url,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: requestBody,
+        },
+        tokens
+      );
 
       const issue = await response.json();
 
@@ -257,8 +265,8 @@ export class GitHubAdapter extends BaseOAuthAdapter {
           state: issue.state,
           html_url: issue.html_url,
           created_at: issue.created_at,
-          labels: issue.labels.map((label: any) => label.name)
-        }
+          labels: issue.labels.map((label: any) => label.name),
+        },
       };
     } catch (error) {
       logger.error('Failed to create issue', error);
@@ -290,13 +298,13 @@ export class GitHubAdapter extends BaseOAuthAdapter {
           user: pr.user.login,
           head: {
             ref: pr.head.ref,
-            sha: pr.head.sha
+            sha: pr.head.sha,
           },
           base: {
             ref: pr.base.ref,
-            sha: pr.base.sha
-          }
-        }))
+            sha: pr.base.sha,
+          },
+        })),
       };
     } catch (error) {
       logger.error('Failed to list pull requests', error);

@@ -172,30 +172,82 @@ export class WorkflowExtractorService {
     /(?:first|step\s*1|initially|to\s+start|begin\s+by)\s+(.+)/gi,
     /(?:then|next|step\s*\d+|after\s+that|following\s+that)\s+(.+)/gi,
     /(?:finally|lastly|last\s+step|to\s+complete|to\s+finish)\s+(.+)/gi,
-    
+
     // Process patterns
     /(?:process|procedure|workflow|method)\s+(?:for|to|of)\s+(.+)/gi,
     /(?:how\s+to|in\s+order\s+to|to\s+accomplish)\s+(.+)/gi,
-    
+
     // Action patterns
     /(?:you\s+(?:should|need\s+to|must|have\s+to)|we\s+(?:should|need\s+to|must))\s+(.+)/gi,
     /(?:make\s+sure|ensure\s+that|verify\s+that|check\s+that)\s+(.+)/gi,
-    
+
     // Conditional patterns
-    /(?:if|when|once|after|before)\s+(.+?),?\s+(?:then|you\s+can|you\s+should)\s+(.+)/gi
+    /(?:if|when|once|after|before)\s+(.+?),?\s+(?:then|you\s+can|you\s+should)\s+(.+)/gi,
   ];
 
   private readonly actionVerbs = new Set([
-    'create', 'build', 'setup', 'configure', 'install', 'deploy', 'test', 'verify', 'check',
-    'review', 'analyze', 'prepare', 'gather', 'collect', 'organize', 'arrange', 'schedule',
-    'contact', 'communicate', 'send', 'receive', 'process', 'execute', 'run', 'start',
-    'stop', 'pause', 'resume', 'complete', 'finish', 'submit', 'approve', 'reject',
-    'update', 'modify', 'change', 'edit', 'delete', 'remove', 'add', 'include', 'exclude'
+    'create',
+    'build',
+    'setup',
+    'configure',
+    'install',
+    'deploy',
+    'test',
+    'verify',
+    'check',
+    'review',
+    'analyze',
+    'prepare',
+    'gather',
+    'collect',
+    'organize',
+    'arrange',
+    'schedule',
+    'contact',
+    'communicate',
+    'send',
+    'receive',
+    'process',
+    'execute',
+    'run',
+    'start',
+    'stop',
+    'pause',
+    'resume',
+    'complete',
+    'finish',
+    'submit',
+    'approve',
+    'reject',
+    'update',
+    'modify',
+    'change',
+    'edit',
+    'delete',
+    'remove',
+    'add',
+    'include',
+    'exclude',
   ]);
 
   private readonly sequenceIndicators = new Set([
-    'first', 'second', 'third', 'initially', 'then', 'next', 'after', 'before', 'during',
-    'while', 'once', 'when', 'finally', 'lastly', 'step', 'phase', 'stage'
+    'first',
+    'second',
+    'third',
+    'initially',
+    'then',
+    'next',
+    'after',
+    'before',
+    'during',
+    'while',
+    'once',
+    'when',
+    'finally',
+    'lastly',
+    'step',
+    'phase',
+    'stage',
   ]);
 
   private extractionCache = new Map<string, ExtractedWorkflow[]>();
@@ -216,15 +268,15 @@ export class WorkflowExtractorService {
     options: WorkflowExtractionOptions = {}
   ): Promise<ExtractedWorkflow[]> {
     const startTime = Date.now();
-    
+
     try {
       logger.info('Starting workflow extraction', {
         conversationCount: conversations.length,
-        options
+        options,
       });
 
       const workflows: ExtractedWorkflow[] = [];
-      
+
       for (const conversation of conversations) {
         try {
           const conversationWorkflows = await this.extractFromConversation(conversation, options);
@@ -232,7 +284,7 @@ export class WorkflowExtractorService {
         } catch (error) {
           logger.warn('Failed to extract workflows from conversation', {
             conversationId: conversation.id,
-            error: error.message
+            error: error.message,
           });
         }
       }
@@ -242,12 +294,14 @@ export class WorkflowExtractorService {
 
       // Filter by confidence threshold
       if (options.minConfidence) {
-        processedWorkflows = processedWorkflows.filter(w => w.confidence >= options.minConfidence!);
+        processedWorkflows = processedWorkflows.filter(
+          (w) => w.confidence >= options.minConfidence!
+        );
       }
 
       // Filter by minimum steps
       const minSteps = options.minSteps || this.MIN_WORKFLOW_STEPS;
-      processedWorkflows = processedWorkflows.filter(w => w.steps.length >= minSteps);
+      processedWorkflows = processedWorkflows.filter((w) => w.steps.length >= minSteps);
 
       // Validate and enhance workflows
       if (options.validateExecutability) {
@@ -260,16 +314,15 @@ export class WorkflowExtractorService {
       }
 
       const processingTime = Date.now() - startTime;
-      
+
       logger.info('Workflow extraction completed', {
         extracted: processedWorkflows.length,
         processingTime,
         averageSteps: this.calculateAverageSteps(processedWorkflows),
-        averageConfidence: this.calculateAverageConfidence(processedWorkflows)
+        averageConfidence: this.calculateAverageConfidence(processedWorkflows),
       });
 
       return processedWorkflows;
-
     } catch (error) {
       logger.error('Workflow extraction failed', { error: error.message });
       throw new Error(`Workflow extraction failed: ${error.message}`);
@@ -334,7 +387,7 @@ export class WorkflowExtractorService {
       } catch (error) {
         logger.warn('Failed to build executable workflow from sequence', {
           sequenceId: sequence.id,
-          error: error.message
+          error: error.message,
         });
       }
     }
@@ -368,7 +421,7 @@ export class WorkflowExtractorService {
       simple: 0,
       moderate: 0,
       complex: 0,
-      expert: 0
+      expert: 0,
     };
 
     let totalSteps = 0;
@@ -378,10 +431,10 @@ export class WorkflowExtractorService {
     for (const workflow of workflows) {
       // Count categories
       categoryCounts[workflow.category] = (categoryCounts[workflow.category] || 0) + 1;
-      
+
       // Count complexity
       complexityDistribution[workflow.complexity]++;
-      
+
       // Aggregate metrics
       totalSteps += workflow.steps.length;
       totalConfidence += workflow.confidence;
@@ -396,7 +449,7 @@ export class WorkflowExtractorService {
       categoryCounts,
       complexityDistribution,
       executabilityScore: workflows.length > 0 ? totalExecutability / workflows.length : 0,
-      processingTime: 0 // This would be set by the caller
+      processingTime: 0, // This would be set by the caller
     };
   }
 
@@ -417,12 +470,12 @@ export class WorkflowExtractorService {
 
     // Extract action sequences
     const sequences = await this.identifyActionSequences(conversation.messages);
-    
+
     // Convert sequences to workflows
     for (const sequence of sequences) {
       if (sequence.actions.length >= (options.minSteps || this.MIN_WORKFLOW_STEPS)) {
         const workflow = await this.createWorkflowFromSequence(sequence, conversation);
-        
+
         if (workflow && (!options.minConfidence || workflow.confidence >= options.minConfidence)) {
           workflows.push(workflow);
         }
@@ -468,7 +521,7 @@ export class WorkflowExtractorService {
       const pattern = new RegExp(`\\b${indicator}[,:]?\\s+(.+?)(?:[.!?]|$)`, 'gi');
       const matches = content.match(pattern);
       if (matches) {
-        actions.push(...matches.map(m => m.trim()));
+        actions.push(...matches.map((m) => m.trim()));
       }
     }
 
@@ -492,10 +545,10 @@ export class WorkflowExtractorService {
     // Look for sentence boundaries
     const before = content.lastIndexOf('.', verbIndex);
     const after = content.indexOf('.', verbIndex);
-    
+
     const start = before === -1 ? 0 : before + 1;
     const end = after === -1 ? content.length : after;
-    
+
     const context = content.slice(start, end).trim();
     return context.length > verb.length + 5 ? context : null;
   }
@@ -508,9 +561,9 @@ export class WorkflowExtractorService {
     messages: ParsedMessage[],
     startIndex: number
   ): ActionSequence {
-    const participants = [...new Set(messages.map(m => m.sender))];
+    const participants = [...new Set(messages.map((m) => m.sender))];
     const context = this.extractSequenceContext(messages);
-    
+
     return {
       id: uuidv4(),
       actions,
@@ -518,7 +571,7 @@ export class WorkflowExtractorService {
       source: messages[0]?.id || 'unknown',
       context,
       participants,
-      timeframe: this.extractTimeframe(messages)
+      timeframe: this.extractTimeframe(messages),
     };
   }
 
@@ -530,12 +583,12 @@ export class WorkflowExtractorService {
     options: WorkflowExtractionOptions
   ): Promise<ExtractedWorkflow[]> {
     const workflows: ExtractedWorkflow[] = [];
-    const content = conversation.messages.map(m => m.content).join(' ');
+    const content = conversation.messages.map((m) => m.content).join(' ');
 
     for (const pattern of this.workflowPatterns) {
       let match;
       const steps: string[] = [];
-      
+
       while ((match = pattern.exec(content)) !== null) {
         if (match[1] && match[1].trim().length > 10) {
           steps.push(match[1].trim());
@@ -564,11 +617,11 @@ export class WorkflowExtractorService {
     const decisionPatterns = [
       /if\s+(.+?),?\s+then\s+(.+?)(?:[.!?]|$)/gi,
       /when\s+(.+?),?\s+(?:you\s+should|do|perform)\s+(.+?)(?:[.!?]|$)/gi,
-      /in\s+case\s+(?:of\s+)?(.+?),?\s+(.+?)(?:[.!?]|$)/gi
+      /in\s+case\s+(?:of\s+)?(.+?),?\s+(.+?)(?:[.!?]|$)/gi,
     ];
 
-    const content = conversation.messages.map(m => m.content).join(' ');
-    const decisionSteps: Array<{condition: string, action: string}> = [];
+    const content = conversation.messages.map((m) => m.content).join(' ');
+    const decisionSteps: Array<{ condition: string; action: string }> = [];
 
     for (const pattern of decisionPatterns) {
       let match;
@@ -576,7 +629,7 @@ export class WorkflowExtractorService {
         if (match[1] && match[2]) {
           decisionSteps.push({
             condition: match[1].trim(),
-            action: match[2].trim()
+            action: match[2].trim(),
           });
         }
       }
@@ -609,12 +662,12 @@ export class WorkflowExtractorService {
         outputs: this.extractOutputs(action),
         conditions: this.extractConditions(action),
         tools: this.extractTools(action),
-        verification: this.extractVerification(action)
+        verification: this.extractVerification(action),
       }));
 
       const category = await this.classifyWorkflowCategory(sequence.actions.join(' '));
       const complexity = this.assessComplexity(steps);
-      
+
       return {
         id: uuidv4(),
         name: this.generateWorkflowName(sequence.actions),
@@ -637,8 +690,8 @@ export class WorkflowExtractorService {
           validationStatus: 'pending',
           qualityScore: this.calculateQualityScore(steps),
           completeness: this.calculateCompleteness(steps),
-          executability: this.calculateExecutability(steps)
-        }
+          executability: this.calculateExecutability(steps),
+        },
       };
     } catch (error) {
       logger.warn('Failed to create workflow from sequence', { error: error.message });
@@ -664,12 +717,12 @@ export class WorkflowExtractorService {
         outputs: this.extractOutputs(text),
         conditions: this.extractConditions(text),
         tools: this.extractTools(text),
-        verification: this.extractVerification(text)
+        verification: this.extractVerification(text),
       }));
 
       const category = await this.classifyWorkflowCategory(stepTexts.join(' '));
       const complexity = this.assessComplexity(steps);
-      
+
       return {
         id: uuidv4(),
         name: this.generateWorkflowName(stepTexts),
@@ -692,8 +745,8 @@ export class WorkflowExtractorService {
           validationStatus: 'pending',
           qualityScore: this.calculateQualityScore(steps),
           completeness: this.calculateCompleteness(steps),
-          executability: this.calculateExecutability(steps)
-        }
+          executability: this.calculateExecutability(steps),
+        },
       };
     } catch (error) {
       logger.warn('Failed to create workflow from steps', { error: error.message });
@@ -705,7 +758,7 @@ export class WorkflowExtractorService {
    * Create decision-based workflow
    */
   private async createDecisionWorkflow(
-    decisionSteps: Array<{condition: string, action: string}>,
+    decisionSteps: Array<{ condition: string; action: string }>,
     conversation: ParsedConversation
   ): Promise<ExtractedWorkflow | null> {
     try {
@@ -718,21 +771,21 @@ export class WorkflowExtractorService {
         outputs: this.extractOutputs(decision.action),
         conditions: [decision.condition],
         tools: this.extractTools(decision.action),
-        verification: this.extractVerification(decision.action)
+        verification: this.extractVerification(decision.action),
       }));
 
-      const allText = decisionSteps.map(d => `${d.condition} ${d.action}`).join(' ');
+      const allText = decisionSteps.map((d) => `${d.condition} ${d.action}`).join(' ');
       const category = await this.classifyWorkflowCategory(allText);
       const complexity = this.assessComplexity(steps);
-      
+
       return {
         id: uuidv4(),
-        name: this.generateWorkflowName(decisionSteps.map(d => d.action)),
+        name: this.generateWorkflowName(decisionSteps.map((d) => d.action)),
         description: 'Decision-based workflow with conditional steps',
         category,
         steps,
         prerequisites: this.extractPrerequisites(allText),
-        outcomes: this.extractOutcomes(decisionSteps.map(d => d.action)),
+        outcomes: this.extractOutcomes(decisionSteps.map((d) => d.action)),
         estimatedDuration: this.estimateDuration(steps),
         complexity,
         confidence: 0.75, // Decision workflows have moderate confidence
@@ -747,8 +800,8 @@ export class WorkflowExtractorService {
           validationStatus: 'pending',
           qualityScore: this.calculateQualityScore(steps),
           completeness: this.calculateCompleteness(steps),
-          executability: this.calculateExecutability(steps)
-        }
+          executability: this.calculateExecutability(steps),
+        },
       };
     } catch (error) {
       logger.warn('Failed to create decision workflow', { error: error.message });
@@ -759,19 +812,22 @@ export class WorkflowExtractorService {
   /**
    * Validate and enhance workflows
    */
-  private async validateAndEnhanceWorkflows(workflows: ExtractedWorkflow[]): Promise<ExtractedWorkflow[]> {
+  private async validateAndEnhanceWorkflows(
+    workflows: ExtractedWorkflow[]
+  ): Promise<ExtractedWorkflow[]> {
     const enhanced: ExtractedWorkflow[] = [];
 
     for (const workflow of workflows) {
       const validation = await this.validateSingleWorkflow(workflow);
-      
+
       if (validation.isValid || validation.completeness >= 0.6) {
         // Update metadata with validation results
         workflow.metadata.completeness = validation.completeness;
         workflow.metadata.executability = validation.executability;
-        workflow.metadata.qualityScore = (validation.completeness + validation.executability + validation.clarity) / 3;
+        workflow.metadata.qualityScore =
+          (validation.completeness + validation.executability + validation.clarity) / 3;
         workflow.metadata.validationStatus = validation.isValid ? 'validated' : 'pending';
-        
+
         enhanced.push(workflow);
       }
     }
@@ -782,7 +838,9 @@ export class WorkflowExtractorService {
   /**
    * Generate automation plans for workflows
    */
-  private async generateAutomationPlans(workflows: ExtractedWorkflow[]): Promise<ExtractedWorkflow[]> {
+  private async generateAutomationPlans(
+    workflows: ExtractedWorkflow[]
+  ): Promise<ExtractedWorkflow[]> {
     // This would implement automation analysis
     // For now, just return the workflows unchanged
     return workflows;
@@ -791,38 +849,41 @@ export class WorkflowExtractorService {
   /**
    * Validate a single workflow
    */
-  private async validateSingleWorkflow(workflow: ExtractedWorkflow): Promise<WorkflowValidationResult> {
+  private async validateSingleWorkflow(
+    workflow: ExtractedWorkflow
+  ): Promise<WorkflowValidationResult> {
     const issues: string[] = [];
     const suggestions: string[] = [];
     const missingElements: string[] = [];
 
     // Check completeness
     let completeness = 0.5; // Base score
-    
+
     if (workflow.steps.length >= 3) completeness += 0.2;
     if (workflow.prerequisites.length > 0) completeness += 0.1;
     if (workflow.outcomes.length > 0) completeness += 0.1;
     if (workflow.estimatedDuration) completeness += 0.1;
-    
+
     // Check executability
     let executability = 0.5; // Base score
-    
-    const stepsWithActions = workflow.steps.filter(s => s.action && s.action.length > 0);
+
+    const stepsWithActions = workflow.steps.filter((s) => s.action && s.action.length > 0);
     executability += (stepsWithActions.length / workflow.steps.length) * 0.3;
-    
-    const stepsWithInputs = workflow.steps.filter(s => s.inputs && s.inputs.length > 0);
+
+    const stepsWithInputs = workflow.steps.filter((s) => s.inputs && s.inputs.length > 0);
     executability += (stepsWithInputs.length / workflow.steps.length) * 0.1;
-    
-    const stepsWithOutputs = workflow.steps.filter(s => s.outputs && s.outputs.length > 0);
+
+    const stepsWithOutputs = workflow.steps.filter((s) => s.outputs && s.outputs.length > 0);
     executability += (stepsWithOutputs.length / workflow.steps.length) * 0.1;
 
     // Check clarity
     let clarity = 0.6; // Base score
-    
+
     if (workflow.description && workflow.description.length > 20) clarity += 0.2;
     if (workflow.name && workflow.name.length > 5) clarity += 0.1;
-    
-    const avgStepDescLength = workflow.steps.reduce((sum, s) => sum + s.description.length, 0) / workflow.steps.length;
+
+    const avgStepDescLength =
+      workflow.steps.reduce((sum, s) => sum + s.description.length, 0) / workflow.steps.length;
     if (avgStepDescLength > 15) clarity += 0.1;
 
     // Identify issues
@@ -830,16 +891,16 @@ export class WorkflowExtractorService {
       issues.push('Workflow has too few steps');
       missingElements.push('Additional workflow steps');
     }
-    
+
     if (!workflow.description || workflow.description.length < 10) {
       issues.push('Workflow description is too brief');
       suggestions.push('Add a more detailed workflow description');
     }
-    
+
     if (workflow.prerequisites.length === 0) {
       suggestions.push('Consider adding prerequisites for this workflow');
     }
-    
+
     if (workflow.outcomes.length === 0) {
       suggestions.push('Define expected outcomes for this workflow');
     }
@@ -851,7 +912,7 @@ export class WorkflowExtractorService {
       clarity: Math.min(1, clarity),
       issues,
       suggestions,
-      missingElements
+      missingElements,
     };
   }
 
@@ -860,19 +921,19 @@ export class WorkflowExtractorService {
     const technicalKeywords = ['code', 'deploy', 'configure', 'install', 'debug', 'test', 'build'];
     const businessKeywords = ['process', 'approve', 'review', 'meeting', 'strategy', 'plan'];
     const creativeKeywords = ['design', 'create', 'brainstorm', 'ideate', 'prototype'];
-    
+
     const lowerContent = content.toLowerCase();
-    
-    if (technicalKeywords.some(kw => lowerContent.includes(kw))) return 'technical';
-    if (businessKeywords.some(kw => lowerContent.includes(kw))) return 'business';
-    if (creativeKeywords.some(kw => lowerContent.includes(kw))) return 'creative';
-    
+
+    if (technicalKeywords.some((kw) => lowerContent.includes(kw))) return 'technical';
+    if (businessKeywords.some((kw) => lowerContent.includes(kw))) return 'business';
+    if (creativeKeywords.some((kw) => lowerContent.includes(kw))) return 'creative';
+
     return 'administrative';
   }
 
   private assessComplexity(steps: WorkflowStep[]): ExtractedWorkflow['complexity'] {
     const complexity = this.calculateWorkflowComplexity(steps);
-    
+
     if (complexity < 0.3) return 'simple';
     if (complexity < 0.6) return 'moderate';
     if (complexity < 0.8) return 'complex';
@@ -881,22 +942,22 @@ export class WorkflowExtractorService {
 
   private calculateWorkflowComplexity(steps: WorkflowStep[]): number {
     let complexity = 0;
-    
+
     // Base complexity from number of steps
     complexity += Math.min(0.4, steps.length / 10);
-    
+
     // Complexity from conditions
-    const conditionalSteps = steps.filter(s => s.conditions && s.conditions.length > 0);
+    const conditionalSteps = steps.filter((s) => s.conditions && s.conditions.length > 0);
     complexity += (conditionalSteps.length / steps.length) * 0.3;
-    
+
     // Complexity from dependencies
-    const dependentSteps = steps.filter(s => s.dependencies && s.dependencies.length > 0);
+    const dependentSteps = steps.filter((s) => s.dependencies && s.dependencies.length > 0);
     complexity += (dependentSteps.length / steps.length) * 0.2;
-    
+
     // Complexity from tools
-    const toolSteps = steps.filter(s => s.tools && s.tools.length > 0);
+    const toolSteps = steps.filter((s) => s.tools && s.tools.length > 0);
     complexity += (toolSteps.length / steps.length) * 0.1;
-    
+
     return Math.min(1, complexity);
   }
 
@@ -913,59 +974,59 @@ export class WorkflowExtractorService {
   private extractInputs(text: string): string[] {
     const inputPatterns = [
       /(?:using|with|from|given)\s+(.+?)(?:\s+(?:to|for|and)|[,.;]|$)/gi,
-      /(?:input|inputs|requires?|needs?)\s*:?\s*(.+?)(?:[,.;]|$)/gi
+      /(?:input|inputs|requires?|needs?)\s*:?\s*(.+?)(?:[,.;]|$)/gi,
     ];
-    
+
     const inputs: string[] = [];
     for (const pattern of inputPatterns) {
       const matches = text.match(pattern);
       if (matches) {
-        inputs.push(...matches.map(m => m.trim()));
+        inputs.push(...matches.map((m) => m.trim()));
       }
     }
-    
+
     return [...new Set(inputs)];
   }
 
   private extractOutputs(text: string): string[] {
     const outputPatterns = [
       /(?:produces?|creates?|generates?|results?\s+in)\s+(.+?)(?:\s+(?:that|which|and)|[,.;]|$)/gi,
-      /(?:output|outputs|deliverables?)\s*:?\s*(.+?)(?:[,.;]|$)/gi
+      /(?:output|outputs|deliverables?)\s*:?\s*(.+?)(?:[,.;]|$)/gi,
     ];
-    
+
     const outputs: string[] = [];
     for (const pattern of outputPatterns) {
       const matches = text.match(pattern);
       if (matches) {
-        outputs.push(...matches.map(m => m.trim()));
+        outputs.push(...matches.map((m) => m.trim()));
       }
     }
-    
+
     return [...new Set(outputs)];
   }
 
   private extractConditions(text: string): string[] {
     const conditionPatterns = [
-      /(?:if|when|once|after|before|unless)\s+(.+?)(?:\s*[,;]|\s+then|\s+you|$)/gi
+      /(?:if|when|once|after|before|unless)\s+(.+?)(?:\s*[,;]|\s+then|\s+you|$)/gi,
     ];
-    
+
     const conditions: string[] = [];
     for (const pattern of conditionPatterns) {
       const matches = text.match(pattern);
       if (matches) {
-        conditions.push(...matches.map(m => m.trim()));
+        conditions.push(...matches.map((m) => m.trim()));
       }
     }
-    
+
     return [...new Set(conditions)];
   }
 
   private extractTools(text: string): string[] {
     const toolPatterns = [
       /(?:using|with|via)\s+([A-Za-z][A-Za-z0-9]*(?:\s+[A-Za-z][A-Za-z0-9]*)?)/gi,
-      /\b(?:tool|software|application|platform|system)\s*:?\s*([A-Za-z][A-Za-z0-9]*)/gi
+      /\b(?:tool|software|application|platform|system)\s*:?\s*([A-Za-z][A-Za-z0-9]*)/gi,
     ];
-    
+
     const tools: string[] = [];
     for (const pattern of toolPatterns) {
       let match;
@@ -975,60 +1036,66 @@ export class WorkflowExtractorService {
         }
       }
     }
-    
+
     return [...new Set(tools)];
   }
 
   private extractVerification(text: string): string | undefined {
     const verificationPatterns = [
       /(?:verify|check|ensure|confirm)\s+(?:that\s+)?(.+?)(?:[,.;]|$)/gi,
-      /(?:validation|verification)\s*:?\s*(.+?)(?:[,.;]|$)/gi
+      /(?:validation|verification)\s*:?\s*(.+?)(?:[,.;]|$)/gi,
     ];
-    
+
     for (const pattern of verificationPatterns) {
       const match = text.match(pattern);
       if (match && match[1]) {
         return match[1].trim();
       }
     }
-    
+
     return undefined;
   }
 
   private generateWorkflowName(actions: string[]): string {
     if (actions.length === 0) return 'Unnamed Workflow';
-    
+
     const firstAction = actions[0];
     const verb = this.extractActionVerb(firstAction);
-    const object = firstAction.replace(new RegExp(`\\b${verb}\\b`, 'i'), '').trim().split(/\s+/).slice(0, 3).join(' ');
-    
+    const object = firstAction
+      .replace(new RegExp(`\\b${verb}\\b`, 'i'), '')
+      .trim()
+      .split(/\s+/)
+      .slice(0, 3)
+      .join(' ');
+
     return `${verb.charAt(0).toUpperCase() + verb.slice(1)} ${object}`.trim();
   }
 
   private generateWorkflowDescription(actions: string[]): string {
     if (actions.length === 0) return 'No description available';
-    
-    const summary = actions.length > 1 
-      ? `${actions.length}-step workflow involving ${actions.slice(0, 2).join(', ')}${actions.length > 2 ? '...' : ''}`
-      : actions[0];
-    
+
+    const summary =
+      actions.length > 1
+        ? `${actions.length}-step workflow involving ${actions.slice(0, 2).join(', ')}${actions.length > 2 ? '...' : ''}`
+        : actions[0];
+
     return summary;
   }
 
   private extractPrerequisites(text: string): string[] {
     const prerequisitePatterns = [
       /(?:prerequisites?|requirements?|before|first)\s*:?\s*(.+?)(?:[,.;]|$)/gi,
-      /(?:you\s+(?:need|must|should)\s+(?:to\s+)?have|ensure\s+(?:you\s+)?have)\s+(.+?)(?:[,.;]|$)/gi
+      /(?:you\s+(?:need|must|should)\s+(?:to\s+)?have|ensure\s+(?:you\s+)?have)\s+(.+?)(?:[,.;]|$)/gi,
     ];
-    
+
     const prerequisites: string[] = [];
     for (const pattern of prerequisitePatterns) {
       const matches = text.match(pattern);
       if (matches) {
-        prerequisites.push(...matches.map(m => m.trim()));
+        prerequisites.push(...matches.map((m) => m.trim()));
       }
     }
-    
+
     return [...new Set(prerequisites)];
   }
 
@@ -1036,158 +1103,194 @@ export class WorkflowExtractorService {
     const allText = actions.join(' ');
     const outcomePatterns = [
       /(?:result|outcome|deliverable|goal|objective)\s*:?\s*(.+?)(?:[,.;]|$)/gi,
-      /(?:you\s+(?:will|should)\s+(?:have|get|achieve)|this\s+(?:will|should)\s+(?:create|produce|result\s+in))\s+(.+?)(?:[,.;]|$)/gi
+      /(?:you\s+(?:will|should)\s+(?:have|get|achieve)|this\s+(?:will|should)\s+(?:create|produce|result\s+in))\s+(.+?)(?:[,.;]|$)/gi,
     ];
-    
+
     const outcomes: string[] = [];
     for (const pattern of outcomePatterns) {
       const matches = allText.match(pattern);
       if (matches) {
-        outcomes.push(...matches.map(m => m.trim()));
+        outcomes.push(...matches.map((m) => m.trim()));
       }
     }
-    
+
     return [...new Set(outcomes)];
   }
 
   private estimateDuration(steps: WorkflowStep[]): string {
     // Simple duration estimation based on step count and complexity
     const baseMinutes = steps.length * 15; // 15 minutes per step
-    const complexityMultiplier = steps.filter(s => s.conditions && s.conditions.length > 0).length * 0.5;
-    
+    const complexityMultiplier =
+      steps.filter((s) => s.conditions && s.conditions.length > 0).length * 0.5;
+
     const totalMinutes = baseMinutes * (1 + complexityMultiplier);
-    
+
     if (totalMinutes < 60) return `${Math.round(totalMinutes)} minutes`;
-    if (totalMinutes < 480) return `${Math.round(totalMinutes / 60 * 10) / 10} hours`;
-    return `${Math.round(totalMinutes / 480 * 10) / 10} days`;
+    if (totalMinutes < 480) return `${Math.round((totalMinutes / 60) * 10) / 10} hours`;
+    return `${Math.round((totalMinutes / 480) * 10) / 10} days`;
   }
 
   private extractWorkflowTags(text: string): string[] {
-    const words = text.toLowerCase().split(/\W+/).filter(w => w.length > 3);
-    const commonWords = new Set(['this', 'that', 'with', 'from', 'they', 'them', 'their', 'have', 'been', 'were', 'said', 'each', 'more', 'some', 'like', 'into', 'time', 'very', 'then', 'than', 'only', 'come', 'over', 'just', 'also', 'step', 'workflow', 'process']);
-    
-    const keywords = words.filter(w => !commonWords.has(w));
+    const words = text
+      .toLowerCase()
+      .split(/\W+/)
+      .filter((w) => w.length > 3);
+    const commonWords = new Set([
+      'this',
+      'that',
+      'with',
+      'from',
+      'they',
+      'them',
+      'their',
+      'have',
+      'been',
+      'were',
+      'said',
+      'each',
+      'more',
+      'some',
+      'like',
+      'into',
+      'time',
+      'very',
+      'then',
+      'than',
+      'only',
+      'come',
+      'over',
+      'just',
+      'also',
+      'step',
+      'workflow',
+      'process',
+    ]);
+
+    const keywords = words.filter((w) => !commonWords.has(w));
     return [...new Set(keywords)].slice(0, 5);
   }
 
   private extractResources(text: string): string[] {
     const resourcePatterns = [
       /(?:resource|material|document|file|tool|equipment)\s*:?\s*(.+?)(?:[,.;]|$)/gi,
-      /(?:you\s+(?:need|require)|using|with)\s+(?:a\s+|an\s+|the\s+)?([A-Za-z][A-Za-z0-9\s]*?)(?:\s+(?:to|for|and)|[,.;]|$)/gi
+      /(?:you\s+(?:need|require)|using|with)\s+(?:a\s+|an\s+|the\s+)?([A-Za-z][A-Za-z0-9\s]*?)(?:\s+(?:to|for|and)|[,.;]|$)/gi,
     ];
-    
+
     const resources: string[] = [];
     for (const pattern of resourcePatterns) {
       const matches = text.match(pattern);
       if (matches) {
-        resources.push(...matches.map(m => m.trim()));
+        resources.push(...matches.map((m) => m.trim()));
       }
     }
-    
+
     return [...new Set(resources)].slice(0, 10);
   }
 
   private calculateSequenceConfidence(actions: string[], messages: ParsedMessage[]): number {
     let confidence = 0.6; // Base confidence
-    
+
     // Boost confidence for clear action verbs
-    const actionCount = actions.filter(a => 
+    const actionCount = actions.filter((a) =>
       this.actionVerbs.has(this.extractActionVerb(a))
     ).length;
     confidence += (actionCount / actions.length) * 0.2;
-    
+
     // Boost confidence for sequence indicators
-    const sequenceIndicatorCount = actions.filter(a =>
+    const sequenceIndicatorCount = actions.filter((a) =>
       this.sequenceIndicators.has(a.toLowerCase().split(/\W+/)[0])
     ).length;
     confidence += (sequenceIndicatorCount / actions.length) * 0.1;
-    
+
     // Boost confidence for longer sequences
     if (actions.length >= 5) confidence += 0.1;
-    
+
     return Math.min(1, confidence);
   }
 
   private calculateStepsConfidence(steps: string[]): number {
     let confidence = 0.7; // Base confidence for explicit steps
-    
+
     // Boost for numbered or ordered steps
-    const orderedSteps = steps.filter(s => /^\d+[.)]\s/.test(s.trim())).length;
+    const orderedSteps = steps.filter((s) => /^\d+[.)]\s/.test(s.trim())).length;
     confidence += (orderedSteps / steps.length) * 0.2;
-    
+
     // Boost for clear action verbs
-    const actionSteps = steps.filter(s => 
-      this.actionVerbs.has(this.extractActionVerb(s))
-    ).length;
+    const actionSteps = steps.filter((s) => this.actionVerbs.has(this.extractActionVerb(s))).length;
     confidence += (actionSteps / steps.length) * 0.1;
-    
+
     return Math.min(1, confidence);
   }
 
   private calculateQualityScore(steps: WorkflowStep[]): number {
     let score = 0.5; // Base score
-    
+
     // Score based on step completeness
-    const completeSteps = steps.filter(s => 
-      s.action && s.description && s.description.length > 10
+    const completeSteps = steps.filter(
+      (s) => s.action && s.description && s.description.length > 10
     ).length;
     score += (completeSteps / steps.length) * 0.3;
-    
+
     // Score based on input/output definition
-    const ioSteps = steps.filter(s => 
-      (s.inputs && s.inputs.length > 0) || (s.outputs && s.outputs.length > 0)
+    const ioSteps = steps.filter(
+      (s) => (s.inputs && s.inputs.length > 0) || (s.outputs && s.outputs.length > 0)
     ).length;
     score += (ioSteps / steps.length) * 0.2;
-    
+
     return Math.min(1, score);
   }
 
   private calculateCompleteness(steps: WorkflowStep[]): number {
     let completeness = 0.4; // Base completeness
-    
+
     // Check for essential elements
-    const stepsWithActions = steps.filter(s => s.action).length;
+    const stepsWithActions = steps.filter((s) => s.action).length;
     completeness += (stepsWithActions / steps.length) * 0.3;
-    
-    const stepsWithDescriptions = steps.filter(s => s.description && s.description.length > 5).length;
+
+    const stepsWithDescriptions = steps.filter(
+      (s) => s.description && s.description.length > 5
+    ).length;
     completeness += (stepsWithDescriptions / steps.length) * 0.3;
-    
+
     return Math.min(1, completeness);
   }
 
   private calculateExecutability(steps: WorkflowStep[]): number {
     let executability = 0.3; // Base executability
-    
+
     // Check for actionable steps
-    const actionableSteps = steps.filter(s => 
-      s.action && this.actionVerbs.has(s.action.toLowerCase())
+    const actionableSteps = steps.filter(
+      (s) => s.action && this.actionVerbs.has(s.action.toLowerCase())
     ).length;
     executability += (actionableSteps / steps.length) * 0.4;
-    
+
     // Check for verification criteria
-    const verifiableSteps = steps.filter(s => s.verification).length;
+    const verifiableSteps = steps.filter((s) => s.verification).length;
     executability += (verifiableSteps / steps.length) * 0.3;
-    
+
     return Math.min(1, executability);
   }
 
   private extractSequenceContext(messages: ParsedMessage[]): string {
     // Extract context from surrounding messages
-    const context = messages.slice(0, 3).map(m => m.content).join(' ');
+    const context = messages
+      .slice(0, 3)
+      .map((m) => m.content)
+      .join(' ');
     return context.length > 200 ? context.substring(0, 200) + '...' : context;
   }
 
   private extractTimeframe(messages: ParsedMessage[]): ActionSequence['timeframe'] | undefined {
     if (messages.length === 0) return undefined;
-    
+
     const start = messages[0].timestamp;
     const end = messages[messages.length - 1].timestamp;
     const duration = end.getTime() - start.getTime();
-    
+
     return {
       start,
       end,
-      duration: this.formatDuration(duration)
+      duration: this.formatDuration(duration),
     };
   }
 
@@ -1195,7 +1298,7 @@ export class WorkflowExtractorService {
     const seconds = Math.floor(milliseconds / 1000);
     const minutes = Math.floor(seconds / 60);
     const hours = Math.floor(minutes / 60);
-    
+
     if (hours > 0) return `${hours}h ${minutes % 60}m`;
     if (minutes > 0) return `${minutes}m ${seconds % 60}s`;
     return `${seconds}s`;
@@ -1221,7 +1324,9 @@ export class WorkflowExtractorService {
     throw new Error('Not implemented yet');
   }
 
-  private async enhanceWithExecutionDetails(workflow: ExtractedWorkflow): Promise<ExecutableWorkflow> {
+  private async enhanceWithExecutionDetails(
+    workflow: ExtractedWorkflow
+  ): Promise<ExecutableWorkflow> {
     // This would enhance workflow with execution details
     // Implementation would add execution planning, validation rules, etc.
     throw new Error('Not implemented yet');

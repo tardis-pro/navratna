@@ -85,7 +85,7 @@ export class DatabaseService {
     this.mfaService = MFAService.getInstance();
     this.oauthService = OAuthService.getInstance();
     this.mcpService = MCPService.getInstance();
-    
+
     // Note: DiscussionService will be lazily initialized when accessed via getter
   }
 
@@ -119,8 +119,9 @@ export class DatabaseService {
       await this.ensureInitialized();
       const dataSource = this.typeormService.getDataSource();
       const { KnowledgeItemEntity } = await import('./entities/knowledge-item.entity.js');
-      const { KnowledgeRelationshipEntity } = await import('./entities/knowledge-relationship.entity.js');
-      
+      const { KnowledgeRelationshipEntity } =
+        await import('./entities/knowledge-relationship.entity.js');
+
       this._knowledgeRepository = new KnowledgeRepository(
         dataSource.getRepository(KnowledgeItemEntity),
         dataSource.getRepository(KnowledgeRelationshipEntity)
@@ -145,7 +146,9 @@ export class DatabaseService {
       if (status.isConnected) {
         logger.info('Neo4j connection verified for ToolGraphDatabase');
       } else {
-        logger.warn('Neo4j connection failed for ToolGraphDatabase - service will continue with reduced functionality');
+        logger.warn(
+          'Neo4j connection failed for ToolGraphDatabase - service will continue with reduced functionality'
+        );
       }
     }
     return this._toolGraphDatabase;
@@ -160,33 +163,33 @@ export class DatabaseService {
 
   public async initialize(): Promise<void> {
     await this.ensureInitialized();
-    
+
     // Run database seeding and knowledge sync if enabled
-    if (process.env.TYPEORM_SYNC === 'true') {
-      await this.runDatabaseSeedingAndSync();
-    }
+    // if (process.env.TYPEORM_SYNC === 'true') {
+    await this.runDatabaseSeedingAndSync();
+    // }
   }
 
   private async runDatabaseSeedingAndSync(): Promise<void> {
     try {
       this.logger.info('Starting database migrations and seeding process...');
-      
+
       // Run database migrations first
       const dataSource = this.typeormService.getDataSource();
       this.logger.info('Running database migrations...');
       await dataSource.runMigrations();
       this.logger.info('Database migrations completed successfully');
-      
+
       // Run database seeding
       this.logger.info('Starting database seeding...');
       await seedDatabase(dataSource);
-      
+
       // Initialize knowledge graph services
       const knowledgeRepository = await this.getKnowledgeRepository();
       const qdrantService = await this.getQdrantService();
       const toolGraphDatabase = await this.getToolGraphDatabase();
       const smartEmbeddingService = await this.getSmartEmbeddingService();
-      
+
       // Create and run knowledge bootstrap service
       const bootstrapService = new KnowledgeBootstrapService(
         knowledgeRepository,
@@ -194,18 +197,17 @@ export class DatabaseService {
         toolGraphDatabase,
         smartEmbeddingService
       );
-      
+
       // This discovers data from any source and syncs bidirectionally
       await bootstrapService.runPostSeedSync();
-      
+
       // Get and log statistics
       const stats = await bootstrapService.getSyncStatistics();
       this.logger.info('Database seeded and knowledge synced successfully', { stats });
-      
     } catch (seedError) {
       this.logger.error('Database seeding failed, but continuing service initialization', {
         error: seedError.message,
-        stack: seedError.stack
+        stack: seedError.stack,
       });
       // Don't throw the error - allow service to continue without seeding
       // This prevents the entire service from failing due to seeding issues
@@ -481,13 +483,13 @@ export class DatabaseService {
       const { DiscussionService } = await import('./discussionService.js');
       const { EventBusService } = await import('./eventBusService.js');
       const { PersonaService } = await import('./personaService.js');
-      
+
       const personaService = new PersonaService({
         databaseService: this,
         eventBusService: EventBusService.getInstance(),
         enableAnalytics: false,
         enableRecommendations: false,
-        enableCaching: false
+        enableCaching: false,
       });
 
       this.discussionService = new DiscussionService({
@@ -497,7 +499,7 @@ export class DatabaseService {
         enableRealTimeEvents: true,
         enableAnalytics: true,
         maxParticipants: 10,
-        defaultTurnTimeout: 30000
+        defaultTurnTimeout: 30000,
       });
     }
     return this.discussionService;
@@ -523,18 +525,6 @@ export class DatabaseService {
     this.isClosing = true;
     await this.typeormService.close();
   }
-
-
-
-
-
-
-
-
-
-
-
-
 
   // Enhanced database operations from database/DatabaseService.ts
 
@@ -568,19 +558,17 @@ export class DatabaseService {
           .values(records)
           .orIgnore()
           .execute();
-      } else if (options?.onConflict === 'update' && options.conflictColumns && options.updateColumns) {
+      } else if (
+        options?.onConflict === 'update' &&
+        options.conflictColumns &&
+        options.updateColumns
+      ) {
         // Use upsert with update
-        const queryBuilder = repository
-          .createQueryBuilder()
-          .insert()
-          .into(entity)
-          .values(records);
+        const queryBuilder = repository.createQueryBuilder().insert().into(entity).values(records);
 
         const updateColumns = options.updateColumns;
 
-        await queryBuilder
-          .orUpdate(updateColumns, options.conflictColumns)
-          .execute();
+        await queryBuilder.orUpdate(updateColumns, options.conflictColumns).execute();
       } else {
         // Simple insert
         await repository.save(records as any[]);
@@ -589,19 +577,19 @@ export class DatabaseService {
       logger.info('Bulk insert completed', {
         entity: entity.toString(),
         recordCount: records.length,
-        conflictResolution: options?.onConflict
+        conflictResolution: options?.onConflict,
       });
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       logger.error('Bulk insert failed', {
         entity: entity.toString(),
         recordCount: records.length,
-        error: errorMessage
+        error: errorMessage,
       });
       throw new DatabaseError('Bulk insert operation failed', {
         code: 'BULK_INSERT_ERROR',
         details: { entity: entity.toString(), recordCount: records.length },
-        originalError: errorMessage
+        originalError: errorMessage,
       });
     }
   }
@@ -629,7 +617,7 @@ export class DatabaseService {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       logger.error('Failed to seed database', { error: errorMessage });
       throw new DatabaseError('Database seeding failed', {
-        originalError: errorMessage
+        originalError: errorMessage,
       });
     }
   }
@@ -671,10 +659,7 @@ export class DatabaseService {
   /**
    * Execute raw SQL query (use with caution)
    */
-  public async executeQuery<T = any>(
-    query: string,
-    parameters?: any[]
-  ): Promise<T[]> {
+  public async executeQuery<T = any>(query: string, parameters?: any[]): Promise<T[]> {
     await this.ensureInitialized();
     try {
       const result = await this.typeormService.getEntityManager().query(query, parameters);
@@ -685,7 +670,7 @@ export class DatabaseService {
       throw new DatabaseError('Query execution failed', {
         code: 'QUERY_ERROR',
         details: { query },
-        originalError: errorMessage
+        originalError: errorMessage,
       });
     }
   }
@@ -696,7 +681,9 @@ export class DatabaseService {
    */
   public async saveOperationState(operationId: string, state: any): Promise<void> {
     await this.ensureInitialized();
-    return this.operationService.getOperationStateRepository().saveOperationState(operationId, state);
+    return this.operationService
+      .getOperationStateRepository()
+      .saveOperationState(operationId, state);
   }
 
   /**
@@ -712,7 +699,9 @@ export class DatabaseService {
    */
   public async updateOperationState(operationId: string, state: any, updates: any): Promise<void> {
     await this.ensureInitialized();
-    return this.operationService.getOperationStateRepository().updateOperationState(operationId, state, updates);
+    return this.operationService
+      .getOperationStateRepository()
+      .updateOperationState(operationId, state, updates);
   }
 
   /**
@@ -720,7 +709,9 @@ export class DatabaseService {
    */
   public async saveCheckpoint(operationId: string, checkpoint: any): Promise<void> {
     await this.ensureInitialized();
-    return this.operationService.getOperationCheckpointRepository().saveCheckpoint(operationId, checkpoint);
+    return this.operationService
+      .getOperationCheckpointRepository()
+      .saveCheckpoint(operationId, checkpoint);
   }
 
   /**
@@ -728,7 +719,9 @@ export class DatabaseService {
    */
   public async getCheckpoint(operationId: string, checkpointId: string): Promise<any> {
     await this.ensureInitialized();
-    return this.operationService.getOperationCheckpointRepository().getCheckpoint(operationId, checkpointId);
+    return this.operationService
+      .getOperationCheckpointRepository()
+      .getCheckpoint(operationId, checkpointId);
   }
 
   /**
@@ -765,32 +758,32 @@ export class DatabaseService {
     await this.ensureInitialized();
     const repository = this.typeormService.getRepository(entityClass);
     const entity = repository.create(data as any);
-    return await repository.save(entity) as T;
+    return (await repository.save(entity)) as T;
   }
 
   public async findById<T>(entityClass: any, id: string, relations?: string[]): Promise<T | null> {
     await this.ensureInitialized();
     const repository = this.typeormService.getRepository(entityClass);
-    return await repository.findOne({ 
+    return (await repository.findOne({
       where: { id } as any,
-      relations
-    }) as T | null;
+      relations,
+    })) as T | null;
   }
 
   public async update<T>(entityClass: any, id: string, data: Partial<T>): Promise<T | null> {
     await this.ensureInitialized();
     const repository = this.typeormService.getRepository(entityClass);
     await repository.update(id, data as any);
-    return await repository.findOne({ where: { id } as any }) as T | null;
+    return (await repository.findOne({ where: { id } as any })) as T | null;
   }
 
   public async findMany<T>(entityClass: any, conditions: any, options?: any): Promise<T[]> {
     await this.ensureInitialized();
     const repository = this.typeormService.getRepository(entityClass);
-    return await repository.find({ 
+    return (await repository.find({
       where: conditions,
-      ...options
-    }) as T[];
+      ...options,
+    })) as T[];
   }
 
   public async count(entityClass: any, conditions?: any): Promise<number> {
@@ -841,7 +834,7 @@ export class DatabaseService {
 
   // Agent Intelligence Service placeholders - to be migrated to domain services
   // TODO: Migrate these to AgentService and AuditService per Technical Plan Phase 1.2
-  
+
   public async storeAgentState(agentId: string, state: any): Promise<void> {
     await this.ensureInitialized();
     logger.debug('Storing agent state (placeholder)', { agentId });

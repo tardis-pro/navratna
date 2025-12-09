@@ -7,13 +7,13 @@ export enum ProjectRole {
   OWNER = 'owner',
   ADMIN = 'admin',
   MEMBER = 'member',
-  VIEWER = 'viewer'
+  VIEWER = 'viewer',
 }
 
 export enum MemberStatus {
   ACTIVE = 'active',
   INVITED = 'invited',
-  REMOVED = 'removed'
+  REMOVED = 'removed',
 }
 
 export interface ProjectPermissions {
@@ -47,17 +47,17 @@ export class ProjectMemberEntity extends BaseEntity {
   @JoinColumn({ name: 'user_id' })
   user!: UserEntity;
 
-  @Column({ 
-    type: 'enum', 
-    enum: ProjectRole, 
-    default: ProjectRole.MEMBER 
+  @Column({
+    type: 'enum',
+    enum: ProjectRole,
+    default: ProjectRole.MEMBER,
   })
   role!: ProjectRole;
 
-  @Column({ 
-    type: 'enum', 
-    enum: MemberStatus, 
-    default: MemberStatus.ACTIVE 
+  @Column({
+    type: 'enum',
+    enum: MemberStatus,
+    default: MemberStatus.ACTIVE,
   })
   status!: MemberStatus;
 

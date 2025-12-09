@@ -50,15 +50,19 @@ export function createRateLimiter(options: RateLimiterOptions = {}) {
   const windowMs = options.windowMs || config.rateLimit.windowMs;
   const max = options.max || config.rateLimit.max;
 
-  const keyGenerator = options.keyGenerator || ((request: Request) => {
-    const forwarded = request.headers.get('x-forwarded-for');
-    return forwarded?.split(',')[0]?.trim() || 'unknown';
-  });
+  const keyGenerator =
+    options.keyGenerator ||
+    ((request: Request) => {
+      const forwarded = request.headers.get('x-forwarded-for');
+      return forwarded?.split(',')[0]?.trim() || 'unknown';
+    });
 
-  const skip = options.skip || ((request: Request) => {
-    const url = new URL(request.url);
-    return url.pathname === '/health';
-  });
+  const skip =
+    options.skip ||
+    ((request: Request) => {
+      const url = new URL(request.url);
+      return url.pathname === '/health';
+    });
 
   return (app: Elysia) => {
     return app.guard({
@@ -82,25 +86,27 @@ export function createRateLimiter(options: RateLimiterOptions = {}) {
             ip: key,
             userAgent: request.headers.get('user-agent') || 'unknown',
             url: url.pathname,
-            method: request.method
+            method: request.method,
           });
 
           set.status = 429;
           set.headers['Retry-After'] = String(Math.ceil((entry.resetTime - Date.now()) / 1000));
 
-          return options.message || {
-            success: false,
-            error: {
-              code: 'RATE_LIMIT_EXCEEDED',
-              message: 'Too many requests, please try again later'
-            },
-            meta: {
-              timestamp: new Date(),
-              retryAfter: Math.ceil((entry.resetTime - Date.now()) / 1000)
+          return (
+            options.message || {
+              success: false,
+              error: {
+                code: 'RATE_LIMIT_EXCEEDED',
+                message: 'Too many requests, please try again later',
+              },
+              meta: {
+                timestamp: new Date(),
+                retryAfter: Math.ceil((entry.resetTime - Date.now()) / 1000),
+              },
             }
-          };
+          );
         }
-      }
+      },
     });
   };
 }

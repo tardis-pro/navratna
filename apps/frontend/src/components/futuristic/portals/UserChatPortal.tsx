@@ -22,7 +22,7 @@ import {
   Volume2,
   VolumeX,
   X,
-  Loader
+  Loader,
 } from 'lucide-react';
 import { useAuth } from '../../../contexts/AuthContext';
 import { useEnhancedWebSocket } from '../../../hooks/useEnhancedWebSocket';
@@ -69,11 +69,11 @@ interface UserChatPortalProps {
 
 export const UserChatPortal: React.FC<UserChatPortalProps> = ({ className }) => {
   const { user, isAuthenticated } = useAuth();
-  const { 
-    isConnected: isWebSocketConnected, 
+  const {
+    isConnected: isWebSocketConnected,
     sendMessage: sendWebSocketMessage,
     lastEvent,
-    socket
+    socket,
   } = useEnhancedWebSocket();
 
   // Helper to get auth token
@@ -93,19 +93,19 @@ export const UserChatPortal: React.FC<UserChatPortalProps> = ({ className }) => 
   const [currentMessage, setCurrentMessage] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [isExpanded, setIsExpanded] = useState(false);
-  
+
   // User Discovery Modal
   const [showAddModal, setShowAddModal] = useState(false);
   const [availableUsers, setAvailableUsers] = useState<UserContact[]>([]);
   const [userSearchTerm, setUserSearchTerm] = useState('');
   const [isLoadingUsers, setIsLoadingUsers] = useState(false);
-  
+
   // Call Management
   const [activeCall, setActiveCall] = useState<ActiveCall | null>(null);
   const [isCallMuted, setIsCallMuted] = useState(false);
   const [isVideoEnabled, setIsVideoEnabled] = useState(true);
   const [isSpeakerEnabled, setIsSpeakerEnabled] = useState(true);
-  
+
   // WebRTC Refs
   const localVideoRef = useRef<HTMLVideoElement>(null);
   const remoteVideoRef = useRef<HTMLVideoElement>(null);
@@ -121,12 +121,12 @@ export const UserChatPortal: React.FC<UserChatPortalProps> = ({ className }) => 
         // Load user's contacts
         const token = getAuthToken();
         if (!token) return;
-        
+
         const contactsResponse = await fetch('/api/v1/contacts?status=ACCEPTED', {
           headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json'
-          }
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
         });
 
         if (contactsResponse.ok) {
@@ -135,18 +135,21 @@ export const UserChatPortal: React.FC<UserChatPortalProps> = ({ className }) => 
             id: contact.user.id,
             username: contact.user.email.split('@')[0],
             email: contact.user.email,
-            displayName: contact.user.displayName || `${contact.user.firstName || ''} ${contact.user.lastName || ''}`.trim() || contact.user.email.split('@')[0],
+            displayName:
+              contact.user.displayName ||
+              `${contact.user.firstName || ''} ${contact.user.lastName || ''}`.trim() ||
+              contact.user.email.split('@')[0],
             status: 'offline' as const,
-            lastSeen: new Date(contact.acceptedAt || contact.createdAt)
+            lastSeen: new Date(contact.acceptedAt || contact.createdAt),
           }));
 
           // Load online users to update status (if endpoint exists)
           try {
             const onlineResponse = await fetch('/api/v1/presence/online', {
               headers: {
-                'Authorization': `Bearer ${token}`,
-                'Content-Type': 'application/json'
-              }
+                Authorization: `Bearer ${token}`,
+                'Content-Type': 'application/json',
+              },
             });
 
             if (onlineResponse.ok) {
@@ -156,7 +159,7 @@ export const UserChatPortal: React.FC<UserChatPortalProps> = ({ className }) => 
               // Update contact status based on online users
               const updatedContacts = userContacts.map((contact: UserContact) => ({
                 ...contact,
-                status: onlineUserIds.has(contact.id) ? 'online' as const : 'offline' as const
+                status: onlineUserIds.has(contact.id) ? ('online' as const) : ('offline' as const),
               }));
 
               setContacts(updatedContacts);
@@ -172,9 +175,9 @@ export const UserChatPortal: React.FC<UserChatPortalProps> = ({ className }) => 
           if (userContacts.length === 0) {
             const publicResponse = await fetch('/api/v1/users/public?limit=10', {
               headers: {
-                'Authorization': `Bearer ${token}`,
-                'Content-Type': 'application/json'
-              }
+                Authorization: `Bearer ${token}`,
+                'Content-Type': 'application/json',
+              },
             });
 
             if (publicResponse.ok) {
@@ -185,7 +188,7 @@ export const UserChatPortal: React.FC<UserChatPortalProps> = ({ className }) => 
                 email: user.email,
                 displayName: user.displayName,
                 status: 'offline' as const,
-                lastSeen: new Date()
+                lastSeen: new Date(),
               }));
 
               setContacts(publicUsers);
@@ -220,12 +223,12 @@ export const UserChatPortal: React.FC<UserChatPortalProps> = ({ className }) => 
       try {
         const token = getAuthToken();
         if (!token) return;
-        
+
         const response = await fetch(`/api/conversations/${activeChat}?limit=50`, {
           headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json'
-          }
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
         });
 
         if (response.ok) {
@@ -237,12 +240,12 @@ export const UserChatPortal: React.FC<UserChatPortalProps> = ({ className }) => 
             content: msg.content,
             timestamp: new Date(msg.createdAt),
             type: msg.type || 'text',
-            status: msg.status || 'delivered'
+            status: msg.status || 'delivered',
           }));
 
-          setMessages(prev => ({
+          setMessages((prev) => ({
             ...prev,
-            [activeChat]: chatMessages
+            [activeChat]: chatMessages,
           }));
         }
       } catch (error) {
@@ -253,16 +256,15 @@ export const UserChatPortal: React.FC<UserChatPortalProps> = ({ className }) => 
     loadConversation();
   }, [activeChat, user]);
 
-
   // WebSocket Event Handling
   useEffect(() => {
     if (!isWebSocketConnected || !socket) return;
 
     const handleUserMessage = (data: any) => {
       const message: UserMessage = data;
-      setMessages(prev => ({
+      setMessages((prev) => ({
         ...prev,
-        [message.senderId]: [...(prev[message.senderId] || []), message]
+        [message.senderId]: [...(prev[message.senderId] || []), message],
       }));
     };
 
@@ -296,7 +298,7 @@ export const UserChatPortal: React.FC<UserChatPortalProps> = ({ className }) => 
   // WebRTC Signaling Handler
   const handleWebRTCSignaling = async (event: any) => {
     const { type, data } = event;
-    
+
     if (!peerConnectionRef.current) {
       await initializePeerConnection();
     }
@@ -310,14 +312,14 @@ export const UserChatPortal: React.FC<UserChatPortalProps> = ({ className }) => 
         await pc.setLocalDescription(answer);
         sendWebSocketMessage('call_answer', {
           targetUser: data.callerId,
-          answer
+          answer,
         });
         break;
-        
+
       case 'call_answer':
         await pc.setRemoteDescription(new RTCSessionDescription(data.answer));
         break;
-        
+
       case 'ice_candidate':
         await pc.addIceCandidate(new RTCIceCandidate(data.candidate));
         break;
@@ -329,8 +331,8 @@ export const UserChatPortal: React.FC<UserChatPortalProps> = ({ className }) => 
     const configuration = {
       iceServers: [
         { urls: 'stun:stun.l.google.com:19302' },
-        { urls: 'stun:stun1.l.google.com:19302' }
-      ]
+        { urls: 'stun:stun1.l.google.com:19302' },
+      ],
     };
 
     const pc = new RTCPeerConnection(configuration);
@@ -339,8 +341,8 @@ export const UserChatPortal: React.FC<UserChatPortalProps> = ({ className }) => 
     pc.onicecandidate = (event) => {
       if (event.candidate && activeCall) {
         sendWebSocketMessage('ice_candidate', {
-          targetUser: activeCall.participants.find(p => p !== user?.id),
-          candidate: event.candidate
+          targetUser: activeCall.participants.find((p) => p !== user?.id),
+          candidate: event.candidate,
         });
       }
     };
@@ -357,11 +359,11 @@ export const UserChatPortal: React.FC<UserChatPortalProps> = ({ className }) => 
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
       localStreamRef.current = stream;
-      
+
       await initializePeerConnection();
       const pc = peerConnectionRef.current!;
-      
-      stream.getTracks().forEach(track => {
+
+      stream.getTracks().forEach((track) => {
         pc.addTrack(track, stream);
       });
 
@@ -373,7 +375,7 @@ export const UserChatPortal: React.FC<UserChatPortalProps> = ({ className }) => 
         participants: [user!.id, contactId],
         type: 'voice',
         status: 'ringing',
-        startTime: new Date()
+        startTime: new Date(),
       };
 
       setActiveCall(call);
@@ -381,7 +383,7 @@ export const UserChatPortal: React.FC<UserChatPortalProps> = ({ className }) => 
       sendWebSocketMessage('call_offer', {
         targetUser: contactId,
         offer,
-        callType: 'voice'
+        callType: 'voice',
       });
     } catch (error) {
       console.error('Failed to start voice call:', error);
@@ -393,15 +395,15 @@ export const UserChatPortal: React.FC<UserChatPortalProps> = ({ className }) => 
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: true });
       localStreamRef.current = stream;
-      
+
       if (localVideoRef.current) {
         localVideoRef.current.srcObject = stream;
       }
-      
+
       await initializePeerConnection();
       const pc = peerConnectionRef.current!;
-      
-      stream.getTracks().forEach(track => {
+
+      stream.getTracks().forEach((track) => {
         pc.addTrack(track, stream);
       });
 
@@ -413,7 +415,7 @@ export const UserChatPortal: React.FC<UserChatPortalProps> = ({ className }) => 
         participants: [user!.id, contactId],
         type: 'video',
         status: 'ringing',
-        startTime: new Date()
+        startTime: new Date(),
       };
 
       setActiveCall(call);
@@ -421,7 +423,7 @@ export const UserChatPortal: React.FC<UserChatPortalProps> = ({ className }) => 
       sendWebSocketMessage('call_offer', {
         targetUser: contactId,
         offer,
-        callType: 'video'
+        callType: 'video',
       });
     } catch (error) {
       console.error('Failed to start video call:', error);
@@ -431,7 +433,7 @@ export const UserChatPortal: React.FC<UserChatPortalProps> = ({ className }) => 
   // End Call
   const endCall = () => {
     if (localStreamRef.current) {
-      localStreamRef.current.getTracks().forEach(track => track.stop());
+      localStreamRef.current.getTracks().forEach((track) => track.stop());
       localStreamRef.current = null;
     }
 
@@ -442,8 +444,8 @@ export const UserChatPortal: React.FC<UserChatPortalProps> = ({ className }) => 
 
     if (activeCall) {
       sendWebSocketMessage('call_end', {
-        targetUser: activeCall.participants.find(p => p !== user?.id),
-        callId: activeCall.id
+        targetUser: activeCall.participants.find((p) => p !== user?.id),
+        callId: activeCall.id,
       });
     }
 
@@ -486,13 +488,13 @@ export const UserChatPortal: React.FC<UserChatPortalProps> = ({ className }) => 
       content: messageContent,
       timestamp: new Date(),
       type: 'text',
-      status: 'sending'
+      status: 'sending',
     };
 
     // Add temp message to UI immediately for better UX
-    setMessages(prev => ({
+    setMessages((prev) => ({
       ...prev,
-      [activeChat]: [...(prev[activeChat] || []), tempMessage]
+      [activeChat]: [...(prev[activeChat] || []), tempMessage],
     }));
 
     setCurrentMessage('');
@@ -501,18 +503,18 @@ export const UserChatPortal: React.FC<UserChatPortalProps> = ({ className }) => 
       // Send message via API
       const token = getAuthToken();
       if (!token) return;
-      
+
       const response = await fetch('/api/messages', {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
         },
         body: JSON.stringify({
           receiverId: activeChat,
           content: messageContent,
-          type: 'text'
-        })
+          type: 'text',
+        }),
       });
 
       if (response.ok) {
@@ -524,39 +526,41 @@ export const UserChatPortal: React.FC<UserChatPortalProps> = ({ className }) => 
           content: data.data.content,
           timestamp: new Date(data.data.createdAt),
           type: data.data.type || 'text',
-          status: 'sent'
+          status: 'sent',
         };
 
         // Replace temp message with actual message
-        setMessages(prev => ({
+        setMessages((prev) => ({
           ...prev,
-          [activeChat]: prev[activeChat]?.map(msg => 
+          [activeChat]: prev[activeChat]?.map((msg) =>
             msg.id === tempMessage.id ? actualMessage : msg
-          ) || [actualMessage]
+          ) || [actualMessage],
         }));
 
         // Also send via WebSocket for real-time delivery
         sendWebSocketMessage('user_message', {
           targetUser: activeChat,
-          message: actualMessage
+          message: actualMessage,
         });
       } else {
         // Update temp message to show error
-        setMessages(prev => ({
+        setMessages((prev) => ({
           ...prev,
-          [activeChat]: prev[activeChat]?.map(msg => 
-            msg.id === tempMessage.id ? { ...msg, status: 'failed' as const } : msg
-          ) || []
+          [activeChat]:
+            prev[activeChat]?.map((msg) =>
+              msg.id === tempMessage.id ? { ...msg, status: 'failed' as const } : msg
+            ) || [],
         }));
       }
     } catch (error) {
       console.error('Error sending message:', error);
       // Update temp message to show error
-      setMessages(prev => ({
+      setMessages((prev) => ({
         ...prev,
-        [activeChat]: prev[activeChat]?.map(msg => 
-          msg.id === tempMessage.id ? { ...msg, status: 'failed' as const } : msg
-        ) || []
+        [activeChat]:
+          prev[activeChat]?.map((msg) =>
+            msg.id === tempMessage.id ? { ...msg, status: 'failed' as const } : msg
+          ) || [],
       }));
     }
   };
@@ -564,23 +568,23 @@ export const UserChatPortal: React.FC<UserChatPortalProps> = ({ className }) => 
   // Load Available Users for Adding
   const loadAvailableUsers = async () => {
     if (!user) return;
-    
+
     setIsLoadingUsers(true);
     try {
       const token = getAuthToken();
       if (!token) return;
-      
+
       const response = await fetch(`/api/v1/users/public?limit=50&search=${userSearchTerm}`, {
         headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
       });
 
       if (response.ok) {
         const data = await response.json();
-        const existingContactIds = new Set(contacts.map(c => c.id));
-        
+        const existingContactIds = new Set(contacts.map((c) => c.id));
+
         // Filter out current user and existing contacts - users are now pre-filtered to exclude admin/manager roles
         const availableUsers = data.data.users
           .filter((u: any) => u.id !== user.id && !existingContactIds.has(u.id))
@@ -590,9 +594,9 @@ export const UserChatPortal: React.FC<UserChatPortalProps> = ({ className }) => 
             email: u.email,
             displayName: u.displayName,
             status: 'offline' as const,
-            lastSeen: new Date()
+            lastSeen: new Date(),
           }));
-        
+
         setAvailableUsers(availableUsers);
       }
     } catch (error) {
@@ -605,7 +609,7 @@ export const UserChatPortal: React.FC<UserChatPortalProps> = ({ className }) => 
   // Send User Connection Request
   const sendFriendRequest = async (targetUserId: string) => {
     if (!user) return;
-    
+
     try {
       const token = getAuthToken();
       if (!token) return;
@@ -613,20 +617,20 @@ export const UserChatPortal: React.FC<UserChatPortalProps> = ({ className }) => 
       const response = await fetch('/api/v1/contacts/request', {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
         },
         body: JSON.stringify({
           targetUserId: targetUserId,
           type: 'FRIEND',
-          message: 'Would like to add you as a user connection'
-        })
+          message: 'Would like to add you as a user connection',
+        }),
       });
 
       if (response.ok) {
         // Remove user from available users list
-        setAvailableUsers(prev => prev.filter(u => u.id !== targetUserId));
-        
+        setAvailableUsers((prev) => prev.filter((u) => u.id !== targetUserId));
+
         // Optionally show success message
         console.log('Agent connection request sent successfully');
       } else {
@@ -646,23 +650,29 @@ export const UserChatPortal: React.FC<UserChatPortalProps> = ({ className }) => 
   };
 
   // Filter contacts based on search
-  const filteredContacts = contacts.filter(contact =>
-    contact.displayName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    contact.username.toLowerCase().includes(searchTerm.toLowerCase())
+  const filteredContacts = contacts.filter(
+    (contact) =>
+      contact.displayName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      contact.username.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   // Filter available users based on search
-  const filteredAvailableUsers = availableUsers.filter(user =>
-    user.displayName.toLowerCase().includes(userSearchTerm.toLowerCase()) ||
-    user.username.toLowerCase().includes(userSearchTerm.toLowerCase())
+  const filteredAvailableUsers = availableUsers.filter(
+    (user) =>
+      user.displayName.toLowerCase().includes(userSearchTerm.toLowerCase()) ||
+      user.username.toLowerCase().includes(userSearchTerm.toLowerCase())
   );
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'online': return 'bg-green-400';
-      case 'busy': return 'bg-red-400';
-      case 'away': return 'bg-yellow-400';
-      default: return 'bg-gray-400';
+      case 'online':
+        return 'bg-green-400';
+      case 'busy':
+        return 'bg-red-400';
+      case 'away':
+        return 'bg-yellow-400';
+      default:
+        return 'bg-gray-400';
     }
   };
 
@@ -695,20 +705,16 @@ export const UserChatPortal: React.FC<UserChatPortalProps> = ({ className }) => 
             <motion.div
               className="w-12 h-12 bg-gradient-to-br from-green-500 to-emerald-600 rounded-xl flex items-center justify-center shadow-lg"
               whileHover={{ scale: 1.1, rotate: 5 }}
-              transition={{ type: "spring", stiffness: 400 }}
+              transition={{ type: 'spring', stiffness: 400 }}
             >
               <MessageSquare className="w-6 h-6 text-white" />
             </motion.div>
             <div>
-              <h2 className="text-2xl font-bold text-white">
-                User Chat Portal
-              </h2>
-              <p className="text-sm text-slate-400">
-                Connect and communicate with team members
-              </p>
+              <h2 className="text-2xl font-bold text-white">User Chat Portal</h2>
+              <p className="text-sm text-slate-400">Connect and communicate with team members</p>
             </div>
           </div>
-          
+
           <div className="flex items-center space-x-2">
             <div className="flex items-center space-x-2">
               <motion.div
@@ -720,7 +726,7 @@ export const UserChatPortal: React.FC<UserChatPortalProps> = ({ className }) => 
                 {isWebSocketConnected ? 'Connected' : 'Disconnected'}
               </span>
             </div>
-            
+
             <motion.button
               onClick={() => setIsExpanded(!isExpanded)}
               className="p-2 bg-gradient-to-r from-slate-700 to-slate-800 hover:from-slate-600 hover:to-slate-700 text-slate-300 rounded-lg transition-all duration-300"
@@ -764,7 +770,7 @@ export const UserChatPortal: React.FC<UserChatPortalProps> = ({ className }) => 
               </Button>
             </div>
           </div>
-          
+
           <div className="flex-1 overflow-y-auto">
             {filteredContacts.map((contact) => (
               <motion.div
@@ -772,8 +778,8 @@ export const UserChatPortal: React.FC<UserChatPortalProps> = ({ className }) => 
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 className={`p-4 border-b border-slate-700/30 cursor-pointer transition-all duration-300 ${
-                  activeChat === contact.id 
-                    ? 'bg-gradient-to-r from-cyan-900/30 to-blue-900/30 border-l-4 border-l-cyan-400' 
+                  activeChat === contact.id
+                    ? 'bg-gradient-to-r from-cyan-900/30 to-blue-900/30 border-l-4 border-l-cyan-400'
                     : 'hover:bg-slate-800/30'
                 }`}
                 onClick={() => setActiveChat(contact.id)}
@@ -783,21 +789,24 @@ export const UserChatPortal: React.FC<UserChatPortalProps> = ({ className }) => 
                   <div className="relative">
                     <Avatar className="w-10 h-10 bg-gradient-to-br from-cyan-500 to-blue-600">
                       <div className="w-full h-full flex items-center justify-center text-white font-semibold">
-                        {contact.displayName.split(' ').map(n => n[0]).join('')}
+                        {contact.displayName
+                          .split(' ')
+                          .map((n) => n[0])
+                          .join('')}
                       </div>
                     </Avatar>
-                    <div className={`absolute -bottom-1 -right-1 w-4 h-4 rounded-full border-2 border-slate-800 ${getStatusColor(contact.status)}`} />
+                    <div
+                      className={`absolute -bottom-1 -right-1 w-4 h-4 rounded-full border-2 border-slate-800 ${getStatusColor(contact.status)}`}
+                    />
                   </div>
-                  
+
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-semibold text-white truncate">
                       {contact.displayName}
                     </p>
-                    <p className="text-xs text-slate-400 truncate">
-                      @{contact.username}
-                    </p>
+                    <p className="text-xs text-slate-400 truncate">@{contact.username}</p>
                   </div>
-                  
+
                   <div className="flex items-center space-x-1">
                     <motion.button
                       onClick={(e) => {
@@ -842,19 +851,23 @@ export const UserChatPortal: React.FC<UserChatPortalProps> = ({ className }) => 
                   <div className="flex items-center space-x-3">
                     <Avatar className="w-8 h-8 bg-gradient-to-br from-cyan-500 to-blue-600">
                       <div className="w-full h-full flex items-center justify-center text-white text-sm font-semibold">
-                        {contacts.find(c => c.id === activeChat)?.displayName.split(' ').map(n => n[0]).join('')}
+                        {contacts
+                          .find((c) => c.id === activeChat)
+                          ?.displayName.split(' ')
+                          .map((n) => n[0])
+                          .join('')}
                       </div>
                     </Avatar>
                     <div>
                       <p className="font-semibold text-white">
-                        {contacts.find(c => c.id === activeChat)?.displayName}
+                        {contacts.find((c) => c.id === activeChat)?.displayName}
                       </p>
                       <p className="text-xs text-slate-400">
-                        {contacts.find(c => c.id === activeChat)?.status}
+                        {contacts.find((c) => c.id === activeChat)?.status}
                       </p>
                     </div>
                   </div>
-                  
+
                   <div className="flex items-center space-x-2">
                     <motion.button
                       onClick={() => startVoiceCall(activeChat)}
@@ -901,7 +914,10 @@ export const UserChatPortal: React.FC<UserChatPortalProps> = ({ className }) => 
                     >
                       <p className="text-sm">{message.content}</p>
                       <p className="text-xs opacity-75 mt-1">
-                        {message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        {message.timestamp.toLocaleTimeString([], {
+                          hour: '2-digit',
+                          minute: '2-digit',
+                        })}
                       </p>
                     </div>
                   </motion.div>
@@ -918,7 +934,7 @@ export const UserChatPortal: React.FC<UserChatPortalProps> = ({ className }) => 
                   >
                     <Paperclip className="w-5 h-5" />
                   </motion.button>
-                  
+
                   <Input
                     value={currentMessage}
                     onChange={(e) => setCurrentMessage(e.target.value)}
@@ -926,7 +942,7 @@ export const UserChatPortal: React.FC<UserChatPortalProps> = ({ className }) => 
                     placeholder="Type a message..."
                     className="flex-1 bg-slate-700/50 border-slate-600 text-white placeholder-slate-400 focus:border-cyan-500"
                   />
-                  
+
                   <motion.button
                     className="p-2 text-slate-400 hover:text-slate-300 hover:bg-slate-500/20 rounded transition-all"
                     whileHover={{ scale: 1.1 }}
@@ -934,7 +950,7 @@ export const UserChatPortal: React.FC<UserChatPortalProps> = ({ className }) => 
                   >
                     <Smile className="w-5 h-5" />
                   </motion.button>
-                  
+
                   <motion.button
                     onClick={sendMessage}
                     disabled={!currentMessage.trim()}
@@ -951,9 +967,7 @@ export const UserChatPortal: React.FC<UserChatPortalProps> = ({ className }) => 
             <div className="flex-1 flex items-center justify-center">
               <div className="text-center">
                 <MessageSquare className="w-16 h-16 mx-auto mb-4 text-slate-600" />
-                <h3 className="text-xl font-semibold text-white mb-2">
-                  Select an Agent
-                </h3>
+                <h3 className="text-xl font-semibold text-white mb-2">Select an Agent</h3>
                 <p className="text-slate-400">
                   Choose a user connection from the list to start chatting
                 </p>
@@ -978,16 +992,21 @@ export const UserChatPortal: React.FC<UserChatPortalProps> = ({ className }) => 
                   {activeCall.type === 'video' ? 'Video Call' : 'Voice Call'}
                 </h3>
                 <p className="text-slate-400">
-                  {contacts.find(c => c.id === activeCall.participants.find(p => p !== user?.id))?.displayName}
+                  {
+                    contacts.find(
+                      (c) => c.id === activeCall.participants.find((p) => p !== user?.id)
+                    )?.displayName
+                  }
                 </p>
-                <Badge className="mt-2">
-                  {activeCall.status}
-                </Badge>
+                <Badge className="mt-2">{activeCall.status}</Badge>
               </div>
 
               {/* Video Streams */}
               {activeCall.type === 'video' && (
-                <div className="relative mb-6 bg-slate-900 rounded-xl overflow-hidden" style={{ aspectRatio: '16/9' }}>
+                <div
+                  className="relative mb-6 bg-slate-900 rounded-xl overflow-hidden"
+                  style={{ aspectRatio: '16/9' }}
+                >
                   <video
                     ref={remoteVideoRef}
                     autoPlay
@@ -1009,8 +1028,8 @@ export const UserChatPortal: React.FC<UserChatPortalProps> = ({ className }) => 
                 <motion.button
                   onClick={toggleMute}
                   className={`p-3 rounded-full transition-all ${
-                    isCallMuted 
-                      ? 'bg-red-500 hover:bg-red-600 text-white' 
+                    isCallMuted
+                      ? 'bg-red-500 hover:bg-red-600 text-white'
                       : 'bg-slate-700 hover:bg-slate-600 text-slate-300'
                   }`}
                   whileHover={{ scale: 1.1 }}
@@ -1023,28 +1042,36 @@ export const UserChatPortal: React.FC<UserChatPortalProps> = ({ className }) => 
                   <motion.button
                     onClick={toggleVideo}
                     className={`p-3 rounded-full transition-all ${
-                      !isVideoEnabled 
-                        ? 'bg-red-500 hover:bg-red-600 text-white' 
+                      !isVideoEnabled
+                        ? 'bg-red-500 hover:bg-red-600 text-white'
                         : 'bg-slate-700 hover:bg-slate-600 text-slate-300'
                     }`}
                     whileHover={{ scale: 1.1 }}
                     whileTap={{ scale: 0.9 }}
                   >
-                    {isVideoEnabled ? <Video className="w-6 h-6" /> : <VideoOff className="w-6 h-6" />}
+                    {isVideoEnabled ? (
+                      <Video className="w-6 h-6" />
+                    ) : (
+                      <VideoOff className="w-6 h-6" />
+                    )}
                   </motion.button>
                 )}
 
                 <motion.button
                   onClick={() => setIsSpeakerEnabled(!isSpeakerEnabled)}
                   className={`p-3 rounded-full transition-all ${
-                    isSpeakerEnabled 
-                      ? 'bg-slate-700 hover:bg-slate-600 text-slate-300' 
+                    isSpeakerEnabled
+                      ? 'bg-slate-700 hover:bg-slate-600 text-slate-300'
                       : 'bg-slate-600 hover:bg-slate-500 text-slate-400'
                   }`}
                   whileHover={{ scale: 1.1 }}
                   whileTap={{ scale: 0.9 }}
                 >
-                  {isSpeakerEnabled ? <Volume2 className="w-6 h-6" /> : <VolumeX className="w-6 h-6" />}
+                  {isSpeakerEnabled ? (
+                    <Volume2 className="w-6 h-6" />
+                  ) : (
+                    <VolumeX className="w-6 h-6" />
+                  )}
                 </motion.button>
 
                 <motion.button
@@ -1087,7 +1114,9 @@ export const UserChatPortal: React.FC<UserChatPortalProps> = ({ className }) => 
                     </div>
                     <div>
                       <h3 className="text-xl font-bold text-white">Add User Connections</h3>
-                      <p className="text-sm text-slate-400">Find and connect with other users in the system</p>
+                      <p className="text-sm text-slate-400">
+                        Find and connect with other users in the system
+                      </p>
                     </div>
                   </div>
                   <Button
@@ -1138,7 +1167,10 @@ export const UserChatPortal: React.FC<UserChatPortalProps> = ({ className }) => 
                         <div className="flex items-center space-x-3">
                           <Avatar className="w-10 h-10 bg-gradient-to-br from-cyan-500 to-blue-600">
                             <div className="w-full h-full flex items-center justify-center text-white font-semibold">
-                              {user.displayName.split(' ').map(n => n[0]).join('')}
+                              {user.displayName
+                                .split(' ')
+                                .map((n) => n[0])
+                                .join('')}
                             </div>
                           </Avatar>
                           <div>
@@ -1162,7 +1194,9 @@ export const UserChatPortal: React.FC<UserChatPortalProps> = ({ className }) => 
                     <div className="text-center">
                       <Users className="w-12 h-12 mx-auto mb-4 text-slate-600" />
                       <p className="text-slate-400">
-                        {userSearchTerm ? 'No users found matching your search' : 'Enter a search term to find users to connect with'}
+                        {userSearchTerm
+                          ? 'No users found matching your search'
+                          : 'Enter a search term to find users to connect with'}
                       </p>
                     </div>
                   </div>

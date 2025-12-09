@@ -2,13 +2,13 @@ import { Repository } from 'typeorm';
 import { DatabaseService } from './databaseService';
 import { EventBusService } from './eventBusService';
 import { logger } from '@uaip/utils';
-import { 
-  Project, 
-  ProjectTask, 
-  ProjectToolUsage, 
-  ProjectAgent, 
+import {
+  Project,
+  ProjectTask,
+  ProjectToolUsage,
+  ProjectAgent,
   ProjectWorkflow,
-  TaskExecution 
+  TaskExecution,
 } from './entities/Project';
 import { ProjectStatus, ProjectPriority, ProjectVisibility } from '@uaip/types';
 
@@ -97,7 +97,7 @@ export class ProjectManagementService {
     this.agentRepository = dataSource.getRepository(ProjectAgent);
     this.workflowRepository = dataSource.getRepository(ProjectWorkflow);
     this.executionRepository = dataSource.getRepository(TaskExecution);
-    
+
     logger.info('Project Management Service initialized');
   }
 
@@ -113,7 +113,7 @@ export class ProjectManagementService {
         spent: 0,
         taskCount: 0,
         completedTaskCount: 0,
-        toolUsageCount: 0
+        toolUsageCount: 0,
       });
 
       const savedProject = await this.projectRepository.save(project);
@@ -127,7 +127,7 @@ export class ProjectManagementService {
           projectId: savedProject.id,
           ownerId: data.ownerId,
           name: data.name,
-          category: data.category
+          category: data.category,
         });
       }
 
@@ -162,13 +162,15 @@ export class ProjectManagementService {
     }
   }
 
-  async getProjects(filters: {
-    ownerId?: string;
-    organizationId?: string;
-    status?: ProjectStatus;
-    page?: number;
-    limit?: number;
-  } = {}): Promise<Project[]> {
+  async getProjects(
+    filters: {
+      ownerId?: string;
+      organizationId?: string;
+      status?: ProjectStatus;
+      page?: number;
+      limit?: number;
+    } = {}
+  ): Promise<Project[]> {
     try {
       const { page = 1, limit = 20, ownerId, organizationId, status } = filters;
       const skip = (page - 1) * limit;
@@ -202,7 +204,7 @@ export class ProjectManagementService {
     try {
       await this.projectRepository.update(id, updates);
       const updated = await this.getProject(id);
-      
+
       if (!updated) {
         throw new Error(`Project ${id} not found`);
       }
@@ -211,7 +213,7 @@ export class ProjectManagementService {
       if (this.eventBusService) {
         await this.eventBusService.publish('project.updated', {
           projectId: id,
-          updates: Object.keys(updates)
+          updates: Object.keys(updates),
         });
       }
 
@@ -225,9 +227,9 @@ export class ProjectManagementService {
   async deleteProject(id: string): Promise<void> {
     try {
       // Soft delete by updating status
-      await this.projectRepository.update(id, { 
+      await this.projectRepository.update(id, {
         status: ProjectStatus.ARCHIVED,
-        updatedAt: new Date()
+        updatedAt: new Date(),
       });
 
       // Emit deletion event
@@ -242,15 +244,17 @@ export class ProjectManagementService {
     }
   }
 
-  async listProjects(filters: {
-    ownerId?: string;
-    organizationId?: string;
-    status?: ProjectStatus;
-    category?: string;
-    tags?: string[];
-    limit?: number;
-    offset?: number;
-  } = {}): Promise<{ projects: Project[]; total: number }> {
+  async listProjects(
+    filters: {
+      ownerId?: string;
+      organizationId?: string;
+      status?: ProjectStatus;
+      category?: string;
+      tags?: string[];
+      limit?: number;
+      offset?: number;
+    } = {}
+  ): Promise<{ projects: Project[]; total: number }> {
     try {
       const queryBuilder = this.projectRepository
         .createQueryBuilder('project')
@@ -261,7 +265,9 @@ export class ProjectManagementService {
       }
 
       if (filters.organizationId) {
-        queryBuilder.andWhere('project.organizationId = :organizationId', { organizationId: filters.organizationId });
+        queryBuilder.andWhere('project.organizationId = :organizationId', {
+          organizationId: filters.organizationId,
+        });
       }
 
       if (filters.status) {
@@ -307,7 +313,7 @@ export class ProjectManagementService {
         estimatedCost: data.estimatedCost || 0,
         actualCost: 0,
         estimatedDuration: data.estimatedDuration || 0,
-        actualDuration: 0
+        actualDuration: 0,
       });
 
       const savedTask = await this.taskRepository.save(task);
@@ -320,7 +326,7 @@ export class ProjectManagementService {
         await this.eventBusService.publish('task.created', {
           taskId: savedTask.id,
           projectId: data.projectId,
-          assignedAgentId: data.assignedAgentId
+          assignedAgentId: data.assignedAgentId,
         });
       }
 
@@ -360,7 +366,7 @@ export class ProjectManagementService {
         await this.eventBusService.publish('task.updated', {
           taskId: id,
           projectId: task.projectId,
-          statusChanged: task.status !== updates.status
+          statusChanged: task.status !== updates.status,
         });
       }
 
@@ -391,7 +397,7 @@ export class ProjectManagementService {
     try {
       const usage = this.toolUsageRepository.create({
         ...data,
-        cost: data.cost || 0
+        cost: data.cost || 0,
       });
 
       const savedUsage = await this.toolUsageRepository.save(usage);
@@ -413,7 +419,7 @@ export class ProjectManagementService {
           projectId: data.projectId,
           toolId: data.toolId,
           success: data.success,
-          cost: data.cost
+          cost: data.cost,
         });
       }
 
@@ -425,10 +431,14 @@ export class ProjectManagementService {
   }
 
   // Agent Management
-  async addProjectAgent(projectId: string, agentId: string, role: string = 'member'): Promise<ProjectAgent> {
+  async addProjectAgent(
+    projectId: string,
+    agentId: string,
+    role: string = 'member'
+  ): Promise<ProjectAgent> {
     try {
       const existingAgent = await this.agentRepository.findOne({
-        where: { projectId, agentId }
+        where: { projectId, agentId },
       });
 
       if (existingAgent) {
@@ -442,7 +452,7 @@ export class ProjectManagementService {
         permissions: this.getDefaultPermissions(role),
         budgetAllocation: 0,
         budgetUsed: 0,
-        isActive: true
+        isActive: true,
       });
 
       const savedAgent = await this.agentRepository.save(agent);
@@ -452,7 +462,7 @@ export class ProjectManagementService {
         await this.eventBusService.publish('project.agent.added', {
           projectId,
           agentId,
-          role
+          role,
         });
       }
 
@@ -512,22 +522,23 @@ export class ProjectManagementService {
       return {
         completionRate: project.completionPercentage,
         budgetUtilization: project.budgetUtilization,
-        taskCompletionRate: project.taskCount > 0 ? (project.completedTaskCount / project.taskCount) * 100 : 0,
+        taskCompletionRate:
+          project.taskCount > 0 ? (project.completedTaskCount / project.taskCount) * 100 : 0,
         averageTaskDuration: parseFloat(taskStats?.averageTaskDuration) || 0,
-        toolUsageStats: toolUsageStats.map(stat => ({
+        toolUsageStats: toolUsageStats.map((stat) => ({
           toolId: stat.toolId,
           toolName: stat.toolName,
           usageCount: parseInt(stat.usageCount),
           successRate: parseFloat(stat.successRate) || 0,
-          averageCost: parseFloat(stat.averageCost) || 0
+          averageCost: parseFloat(stat.averageCost) || 0,
         })),
-        agentPerformance: agentPerformance.map(perf => ({
+        agentPerformance: agentPerformance.map((perf) => ({
           agentId: perf.agentId,
           tasksCompleted: parseInt(perf.tasksCompleted),
           successRate: parseFloat(perf.successRate) || 0,
           averageTaskTime: parseFloat(perf.averageTaskTime) || 0,
-          toolsUsed: parseInt(perf.toolsUsed) || 0
-        }))
+          toolsUsed: parseInt(perf.toolsUsed) || 0,
+        })),
       };
     } catch (error) {
       logger.error('Failed to get project metrics', { error, projectId });
@@ -535,12 +546,14 @@ export class ProjectManagementService {
     }
   }
 
-  async getProjectAnalytics(filters: {
-    ownerId?: string;
-    organizationId?: string;
-    dateFrom?: Date;
-    dateTo?: Date;
-  } = {}): Promise<ProjectAnalytics> {
+  async getProjectAnalytics(
+    filters: {
+      ownerId?: string;
+      organizationId?: string;
+      dateFrom?: Date;
+      dateTo?: Date;
+    } = {}
+  ): Promise<ProjectAnalytics> {
     try {
       const queryBuilder = this.projectRepository.createQueryBuilder('project');
 
@@ -549,7 +562,9 @@ export class ProjectManagementService {
       }
 
       if (filters.organizationId) {
-        queryBuilder.andWhere('project.organizationId = :organizationId', { organizationId: filters.organizationId });
+        queryBuilder.andWhere('project.organizationId = :organizationId', {
+          organizationId: filters.organizationId,
+        });
       }
 
       if (filters.dateFrom) {
@@ -562,16 +577,16 @@ export class ProjectManagementService {
 
       const [projects, totalProjects] = await queryBuilder.getManyAndCount();
 
-      const activeProjects = projects.filter(p => p.status === ProjectStatus.ACTIVE).length;
-      const completedProjects = projects.filter(p => p.status === ProjectStatus.COMPLETED).length;
+      const activeProjects = projects.filter((p) => p.status === ProjectStatus.ACTIVE).length;
+      const completedProjects = projects.filter((p) => p.status === ProjectStatus.COMPLETED).length;
       const totalBudget = projects.reduce((sum, p) => sum + p.budget, 0);
       const totalSpent = projects.reduce((sum, p) => sum + p.spent, 0);
-      const overBudgetProjects = projects.filter(p => p.isOverBudget).length;
-      const overdueProjects = projects.filter(p => p.isOverdue).length;
+      const overBudgetProjects = projects.filter((p) => p.isOverBudget).length;
+      const overdueProjects = projects.filter((p) => p.isOverdue).length;
 
       // Category analysis
       const categoryCount = new Map<string, number>();
-      projects.forEach(p => {
+      projects.forEach((p) => {
         if (p.category) {
           categoryCount.set(p.category, (categoryCount.get(p.category) || 0) + 1);
         }
@@ -583,16 +598,17 @@ export class ProjectManagementService {
         .slice(0, 10);
 
       // Average completion time for completed projects
-      const completedProjectsWithDates = projects.filter(p => 
-        p.status === ProjectStatus.COMPLETED && p.startDate && p.updatedAt
+      const completedProjectsWithDates = projects.filter(
+        (p) => p.status === ProjectStatus.COMPLETED && p.startDate && p.updatedAt
       );
-      
-      const averageCompletionTime = completedProjectsWithDates.length > 0
-        ? completedProjectsWithDates.reduce((sum, p) => {
-            const duration = p.updatedAt.getTime() - p.startDate!.getTime();
-            return sum + duration;
-          }, 0) / completedProjectsWithDates.length
-        : 0;
+
+      const averageCompletionTime =
+        completedProjectsWithDates.length > 0
+          ? completedProjectsWithDates.reduce((sum, p) => {
+              const duration = p.updatedAt.getTime() - p.startDate!.getTime();
+              return sum + duration;
+            }, 0) / completedProjectsWithDates.length
+          : 0;
 
       return {
         totalProjects,
@@ -604,7 +620,7 @@ export class ProjectManagementService {
         topCategories,
         budgetUtilization: totalBudget > 0 ? (totalSpent / totalBudget) * 100 : 0,
         overBudgetProjects,
-        overdueProjects
+        overdueProjects,
       };
     } catch (error) {
       logger.error('Failed to get project analytics', { error, filters });
@@ -618,9 +634,9 @@ export class ProjectManagementService {
       owner: ['read', 'write', 'delete', 'admin', 'invite', 'manage_agents', 'manage_budget'],
       admin: ['read', 'write', 'invite', 'manage_agents'],
       member: ['read', 'write'],
-      viewer: ['read']
+      viewer: ['read'],
     };
-    
+
     return permissionSets[role] || permissionSets.viewer;
   }
 }

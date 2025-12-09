@@ -12,7 +12,7 @@ import {
   Plus,
   Edit3,
   X,
-  Users
+  Users,
 } from 'lucide-react';
 import { AgentState, ModelProvider } from '../types/agent';
 import { Persona } from '../types/persona';
@@ -30,7 +30,7 @@ const getModels = async (): Promise<LLMModel[]> => {
       return [];
     }
 
-    return response.map(model => ({
+    return response.map((model) => ({
       id: model.id,
       name: model.name,
       description: model.description,
@@ -38,7 +38,7 @@ const getModels = async (): Promise<LLMModel[]> => {
       apiEndpoint: model.apiEndpoint,
       apiType: model.apiType,
       isAvailable: model.isAvailable ?? true,
-      provider: model.provider || model.apiType
+      provider: model.provider || model.apiType,
     }));
   } catch (error) {
     console.error('Failed to fetch models:', error);
@@ -78,7 +78,7 @@ export const AgentSettings: React.FC<AgentSettingsProps> = ({
   onRefreshAgents,
   modelState,
   getRecommendedModels,
-  getModelsForProvider
+  getModelsForProvider,
 }) => {
   const [availableModels, setAvailableModels] = useState<LLMModel[]>([]);
   const [modelsLoading, setModelsLoading] = useState(false);
@@ -130,11 +130,11 @@ export const AgentSettings: React.FC<AgentSettingsProps> = ({
   };
 
   const getModelInfo = (modelId: string) => {
-    return effectiveModels.find(m => m.id === modelId);
+    return effectiveModels.find((m) => m.id === modelId);
   };
 
   const getProviderInfo = (providerId: string) => {
-    return modelState?.providers.find(p => p.id === providerId);
+    return modelState?.providers.find((p) => p.id === providerId);
   };
 
   const getServerName = (modelInfo: any) => {
@@ -159,7 +159,7 @@ export const AgentSettings: React.FC<AgentSettingsProps> = ({
   const modelsByProvider = React.useMemo(() => {
     const grouped: Record<string, LLMModel[]> = {};
 
-    effectiveModels.forEach(model => {
+    effectiveModels.forEach((model) => {
       const providerKey = model.provider || model.apiType || 'unknown';
       if (!grouped[providerKey]) {
         grouped[providerKey] = [];
@@ -177,21 +177,27 @@ export const AgentSettings: React.FC<AgentSettingsProps> = ({
     }
 
     // Fallback logic
-    return effectiveModels.filter(model => {
+    return effectiveModels.filter((model) => {
       if (!model.isAvailable) return false;
 
       if (agentRole) {
         switch (agentRole) {
           case 'assistant':
-            return model.name.toLowerCase().includes('gpt') ||
+            return (
+              model.name.toLowerCase().includes('gpt') ||
               model.name.toLowerCase().includes('claude') ||
-              model.name.toLowerCase().includes('llama');
+              model.name.toLowerCase().includes('llama')
+            );
           case 'analyzer':
-            return model.name.toLowerCase().includes('claude') ||
-              model.name.toLowerCase().includes('gpt-4');
+            return (
+              model.name.toLowerCase().includes('claude') ||
+              model.name.toLowerCase().includes('gpt-4')
+            );
           case 'orchestrator':
-            return model.name.toLowerCase().includes('gpt-4') ||
-              model.name.toLowerCase().includes('claude');
+            return (
+              model.name.toLowerCase().includes('gpt-4') ||
+              model.name.toLowerCase().includes('claude')
+            );
           default:
             return true;
         }
@@ -207,7 +213,7 @@ export const AgentSettings: React.FC<AgentSettingsProps> = ({
     if (!agent) return;
 
     setEditingAgent(agentId);
-    setTempConfigs(prev => ({
+    setTempConfigs((prev) => ({
       ...prev,
       [agentId]: {
         agentId,
@@ -215,8 +221,8 @@ export const AgentSettings: React.FC<AgentSettingsProps> = ({
         apiType: agent.apiType,
         isActive: agent.isActive ?? true,
         personaId: agent.personaId || '',
-        lastUpdated: new Date()
-      }
+        lastUpdated: new Date(),
+      },
     }));
   };
 
@@ -227,7 +233,7 @@ export const AgentSettings: React.FC<AgentSettingsProps> = ({
 
   const cancelEditing = (agentId: string) => {
     setEditingAgent(null);
-    setTempConfigs(prev => {
+    setTempConfigs((prev) => {
       const newConfigs = { ...prev };
       delete newConfigs[agentId];
       return newConfigs;
@@ -235,13 +241,13 @@ export const AgentSettings: React.FC<AgentSettingsProps> = ({
   };
 
   const updateTempConfig = (agentId: string, updates: Partial<AgentModelConfig>) => {
-    setTempConfigs(prev => ({
+    setTempConfigs((prev) => ({
       ...prev,
       [agentId]: {
         ...prev[agentId],
         ...updates,
-        lastUpdated: new Date()
-      }
+        lastUpdated: new Date(),
+      },
     }));
   };
 
@@ -249,7 +255,7 @@ export const AgentSettings: React.FC<AgentSettingsProps> = ({
     const config = tempConfigs[agentId];
     if (!config) return;
 
-    setSavingConfigs(prev => new Set(prev).add(agentId));
+    setSavingConfigs((prev) => new Set(prev).add(agentId));
 
     try {
       // Update local agent state
@@ -260,7 +266,7 @@ export const AgentSettings: React.FC<AgentSettingsProps> = ({
         isActive: config.isActive,
         personaId: config.personaId,
         // Clear error state if model is now valid
-        error: modelInfo ? null : 'Model not available'
+        error: modelInfo ? null : 'Model not available',
       };
 
       onUpdateAgent(agentId, updates);
@@ -271,9 +277,7 @@ export const AgentSettings: React.FC<AgentSettingsProps> = ({
 
         modelId: config.modelId,
         apiType: config.apiType,
-        personaId: config.personaId
-
-
+        personaId: config.personaId,
       };
 
       const response = await uaipAPI.client.agents.update(agentId, backendUpdates);
@@ -284,18 +288,19 @@ export const AgentSettings: React.FC<AgentSettingsProps> = ({
 
       // Clear temp config and editing state
       setEditingAgent(null);
-      setTempConfigs(prev => {
+      setTempConfigs((prev) => {
         const newConfigs = { ...prev };
         delete newConfigs[agentId];
         return newConfigs;
       });
-
     } catch (error) {
       console.error('Failed to save agent config:', error);
       // Revert local changes
-      onUpdateAgent(agentId, { error: error instanceof Error ? error.message : 'Failed to save configuration' });
+      onUpdateAgent(agentId, {
+        error: error instanceof Error ? error.message : 'Failed to save configuration',
+      });
     } finally {
-      setSavingConfigs(prev => {
+      setSavingConfigs((prev) => {
         const newSet = new Set(prev);
         newSet.delete(agentId);
         return newSet;
@@ -321,7 +326,8 @@ export const AgentSettings: React.FC<AgentSettingsProps> = ({
             <div className="flex items-center space-x-2 px-3 py-2 bg-gradient-to-r from-purple-100 to-indigo-200 dark:from-purple-800 dark:to-indigo-700 rounded-full shadow-inner">
               <div className="w-2 h-2 bg-gradient-to-r from-purple-500 to-indigo-500 rounded-full"></div>
               <span className="text-sm font-semibold text-purple-700 dark:text-purple-300">
-                {modelState.providers.filter(p => p.isActive).length}/{modelState.providers.length} Providers
+                {modelState.providers.filter((p) => p.isActive).length}/
+                {modelState.providers.length} Providers
               </span>
             </div>
           )}
@@ -348,9 +354,7 @@ export const AgentSettings: React.FC<AgentSettingsProps> = ({
             <span className="text-sm font-semibold text-red-700 dark:text-red-300 block">
               Model Loading Error
             </span>
-            <span className="text-xs text-red-600 dark:text-red-400 block">
-              {effectiveError}
-            </span>
+            <span className="text-xs text-red-600 dark:text-red-400 block">{effectiveError}</span>
           </div>
         </div>
       )}
@@ -362,8 +366,12 @@ export const AgentSettings: React.FC<AgentSettingsProps> = ({
             <div className="w-20 h-20 bg-gradient-to-br from-slate-100 to-slate-200 dark:from-slate-800 dark:to-slate-700 rounded-3xl flex items-center justify-center mx-auto mb-6 shadow-inner">
               <Bot className="w-10 h-10 text-slate-400" />
             </div>
-            <p className="text-slate-600 dark:text-slate-300 font-semibold text-lg">No agents configured</p>
-            <p className="text-sm text-slate-500 dark:text-slate-400 mt-2">Create agents first to configure their model associations</p>
+            <p className="text-slate-600 dark:text-slate-300 font-semibold text-lg">
+              No agents configured
+            </p>
+            <p className="text-sm text-slate-500 dark:text-slate-400 mt-2">
+              Create agents first to configure their model associations
+            </p>
           </div>
         ) : (
           agentList.map((agent) => {
@@ -387,14 +395,15 @@ export const AgentSettings: React.FC<AgentSettingsProps> = ({
             return (
               <div
                 key={agent.id}
-                className={`group relative p-6 bg-gradient-to-r from-white via-white to-slate-50 dark:from-slate-800 dark:via-slate-800 dark:to-slate-700 border-2 rounded-2xl transition-all duration-300 ${isEditing
+                className={`group relative p-6 bg-gradient-to-r from-white via-white to-slate-50 dark:from-slate-800 dark:via-slate-800 dark:to-slate-700 border-2 rounded-2xl transition-all duration-300 ${
+                  isEditing
                     ? 'border-blue-500 shadow-xl shadow-blue-500/20'
                     : isFullyConfigured
                       ? 'border-green-200 dark:border-green-800 hover:border-green-300 dark:hover:border-green-700'
                       : hasValidModel || hasPersona
                         ? 'border-orange-200 dark:border-orange-800 hover:border-orange-300 dark:hover:border-orange-700'
                         : 'border-red-200 dark:border-red-800 hover:border-red-300 dark:hover:border-red-700'
-                  }`}
+                }`}
               >
                 <div className="flex items-start justify-between">
                   <div className="flex items-start space-x-4 flex-1">
@@ -403,14 +412,19 @@ export const AgentSettings: React.FC<AgentSettingsProps> = ({
                       <div className="w-14 h-14 bg-gradient-to-br from-blue-500 via-purple-500 to-indigo-600 rounded-xl flex items-center justify-center shadow-lg shadow-blue-500/25">
                         <Bot className="w-7 h-7 text-white" />
                       </div>
-                      <div className={`absolute -bottom-1 -right-1 w-5 h-5 border-2 border-white dark:border-slate-800 rounded-full ${currentIsActive ? 'bg-green-500' : 'bg-gray-400'
-                        }`}></div>
+                      <div
+                        className={`absolute -bottom-1 -right-1 w-5 h-5 border-2 border-white dark:border-slate-800 rounded-full ${
+                          currentIsActive ? 'bg-green-500' : 'bg-gray-400'
+                        }`}
+                      ></div>
                     </div>
 
                     {/* Agent Info */}
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center space-x-3 mb-2">
-                        <h3 className="font-bold text-lg text-slate-900 dark:text-white">{agent.name}</h3>
+                        <h3 className="font-bold text-lg text-slate-900 dark:text-white">
+                          {agent.name}
+                        </h3>
                         <span className="inline-flex items-center px-2 py-1 bg-gradient-to-r from-blue-100 to-indigo-100 dark:from-blue-900/30 dark:to-indigo-900/30 text-blue-700 dark:text-blue-300 text-xs rounded-full font-medium border border-blue-200 dark:border-blue-800">
                           {agent.role}
                         </span>
@@ -450,42 +464,54 @@ export const AgentSettings: React.FC<AgentSettingsProps> = ({
                                   </span>
                                 </div>
                                 <div className="flex flex-wrap gap-2">
-                                  {getAgentRecommendedModels(agent.role).slice(0, 3).map((model) => (
-                                    <button
-                                      key={model.id}
-                                      type="button"
-                                      onClick={() => updateTempConfig(agent.id, {
-                                        modelId: model.id,
-                                        apiType: model.apiType
-                                      })}
-                                      className={`px-3 py-1 text-xs rounded-full border transition-colors ${config?.modelId === model.id
-                                          ? 'bg-blue-600 text-white border-blue-600'
-                                          : 'bg-white dark:bg-slate-800 text-blue-700 dark:text-blue-300 border-blue-300 dark:border-blue-700 hover:bg-blue-100 dark:hover:bg-blue-900/30'
+                                  {getAgentRecommendedModels(agent.role)
+                                    .slice(0, 3)
+                                    .map((model) => (
+                                      <button
+                                        key={model.id}
+                                        type="button"
+                                        onClick={() =>
+                                          updateTempConfig(agent.id, {
+                                            modelId: model.id,
+                                            apiType: model.apiType,
+                                          })
+                                        }
+                                        className={`px-3 py-1 text-xs rounded-full border transition-colors ${
+                                          config?.modelId === model.id
+                                            ? 'bg-blue-600 text-white border-blue-600'
+                                            : 'bg-white dark:bg-slate-800 text-blue-700 dark:text-blue-300 border-blue-300 dark:border-blue-700 hover:bg-blue-100 dark:hover:bg-blue-900/30'
                                         }`}
-                                    >
-                                      {model.name}
-                                    </button>
-                                  ))}
+                                      >
+                                        {model.name}
+                                      </button>
+                                    ))}
                                 </div>
                               </div>
                             )}
 
                             <select
                               value={config?.modelId || ''}
-                              onChange={(e) => updateTempConfig(agent.id, {
-                                modelId: e.target.value,
-                                apiType: effectiveModels.find(m => m.id === e.target.value)?.apiType
-                              })}
+                              onChange={(e) =>
+                                updateTempConfig(agent.id, {
+                                  modelId: e.target.value,
+                                  apiType: effectiveModels.find((m) => m.id === e.target.value)
+                                    ?.apiType,
+                                })
+                              }
                               className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                             >
                               <option value="">Select a model...</option>
 
                               {/* Group models by provider */}
                               {Object.entries(modelsByProvider).map(([providerKey, models]) => (
-                                <optgroup key={providerKey} label={`${providerKey.toUpperCase()} Models`}>
+                                <optgroup
+                                  key={providerKey}
+                                  label={`${providerKey.toUpperCase()} Models`}
+                                >
                                   {models.map((model) => (
                                     <option key={model.id} value={model.id}>
-                                      {model.name || model.id} {!model.isAvailable && '(Unavailable)'}
+                                      {model.name || model.id}{' '}
+                                      {!model.isAvailable && '(Unavailable)'}
                                     </option>
                                   ))}
                                 </optgroup>
@@ -498,25 +524,32 @@ export const AgentSettings: React.FC<AgentSettingsProps> = ({
                                 <div className="text-xs text-slate-600 dark:text-slate-400">
                                   {(() => {
                                     const modelInfo = getModelInfo(config.modelId);
-                                    const provider = modelState?.providers.find(p =>
-                                      p.type === modelInfo?.apiType || p.name === modelInfo?.provider
+                                    const provider = modelState?.providers.find(
+                                      (p) =>
+                                        p.type === modelInfo?.apiType ||
+                                        p.name === modelInfo?.provider
                                     );
 
                                     if (provider) {
                                       return (
                                         <div className="flex items-center justify-between">
                                           <span>Provider: {provider.name}</span>
-                                          <span className={`px-2 py-1 rounded-full text-xs ${provider.isActive && provider.status === 'active'
-                                              ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300'
-                                              : 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300'
-                                            }`}>
+                                          <span
+                                            className={`px-2 py-1 rounded-full text-xs ${
+                                              provider.isActive && provider.status === 'active'
+                                                ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300'
+                                                : 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300'
+                                            }`}
+                                          >
                                             {provider.isActive ? 'Active' : 'Inactive'}
                                           </span>
                                         </div>
                                       );
                                     }
 
-                                    return modelInfo ? `Source: ${getServerName(modelInfo)}` : 'Model information not available';
+                                    return modelInfo
+                                      ? `Source: ${getServerName(modelInfo)}`
+                                      : 'Model information not available';
                                   })()}
                                 </div>
                               </div>
@@ -553,10 +586,15 @@ export const AgentSettings: React.FC<AgentSettingsProps> = ({
                               type="checkbox"
                               id={`active-${agent.id}`}
                               checked={config?.isActive ?? true}
-                              onChange={(e) => updateTempConfig(agent.id, { isActive: e.target.checked })}
+                              onChange={(e) =>
+                                updateTempConfig(agent.id, { isActive: e.target.checked })
+                              }
                               className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600"
                             />
-                            <label htmlFor={`active-${agent.id}`} className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                            <label
+                              htmlFor={`active-${agent.id}`}
+                              className="text-sm font-medium text-slate-700 dark:text-slate-300"
+                            >
                               Agent is active
                             </label>
                           </div>
@@ -622,11 +660,16 @@ export const AgentSettings: React.FC<AgentSettingsProps> = ({
 
                           {/* Agent Status */}
                           <div className="flex items-center space-x-2">
-                            <span className="text-sm text-slate-600 dark:text-slate-400">Status:</span>
-                            <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${currentIsActive
-                                ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300'
-                                : 'bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-300'
-                              }`}>
+                            <span className="text-sm text-slate-600 dark:text-slate-400">
+                              Status:
+                            </span>
+                            <span
+                              className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
+                                currentIsActive
+                                  ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300'
+                                  : 'bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-300'
+                              }`}
+                            >
                               {currentIsActive ? 'Active' : 'Inactive'}
                             </span>
                           </div>
@@ -662,7 +705,9 @@ export const AgentSettings: React.FC<AgentSettingsProps> = ({
                   <Users className="w-5 h-5 text-white" />
                 </div>
                 <div>
-                  <h2 className="text-xl font-bold text-slate-900 dark:text-white">Select Agent Persona</h2>
+                  <h2 className="text-xl font-bold text-slate-900 dark:text-white">
+                    Select Agent Persona
+                  </h2>
                   <p className="text-sm text-slate-600 dark:text-slate-400">
                     Choose a persona for {agents[showPersonaSelector]?.name}
                   </p>
@@ -688,4 +733,4 @@ export const AgentSettings: React.FC<AgentSettingsProps> = ({
       )}
     </div>
   );
-}; 
+};

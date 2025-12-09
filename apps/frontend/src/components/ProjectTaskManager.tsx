@@ -22,13 +22,13 @@ const DESIGN_TOKENS = {
   },
   spacing: {
     xs: 'gap-2',
-    sm: 'gap-3', 
+    sm: 'gap-3',
     md: 'gap-4',
     lg: 'gap-6',
   },
   radius: {
     sm: 'rounded-lg',
-    md: 'rounded-xl', 
+    md: 'rounded-xl',
     lg: 'rounded-2xl',
   },
   padding: {
@@ -41,30 +41,30 @@ const DESIGN_TOKENS = {
   shadow: 'shadow-xl',
 };
 
-import { 
-  tasksApi, 
-  useTasksQuery, 
+import {
+  tasksApi,
+  useTasksQuery,
   useTaskStatisticsQuery,
   CreateTaskRequest,
   UpdateTaskRequest,
   TaskAssignmentRequest,
-  TaskFilters
+  TaskFilters,
 } from '../api/tasks.api';
 import { projectsAPI } from '../api/projects.api';
 import { agentsAPI } from '../api/agents.api';
-import { 
-  BarChart3, 
-  Users, 
-  Bot, 
-  Clock, 
-  CheckCircle, 
+import {
+  BarChart3,
+  Users,
+  Bot,
+  Clock,
+  CheckCircle,
   AlertTriangle,
   TrendingUp,
   Activity,
   Calendar,
   Filter,
   Download,
-  Settings
+  Settings,
 } from 'lucide-react';
 import { Plus, X } from 'lucide-react';
 import { toast } from 'sonner';
@@ -87,10 +87,10 @@ const Button: React.FC<{
     danger: 'bg-red-500/20 hover:bg-red-500/30 text-red-400',
     outline: `${DESIGN_TOKENS.colors.border} border ${DESIGN_TOKENS.colors.surfaceHover} ${DESIGN_TOKENS.colors.text}`,
   };
-  
+
   const sizes = {
     sm: `${DESIGN_TOKENS.padding.sm} text-xs`,
-    md: `${DESIGN_TOKENS.padding.md} text-sm`, 
+    md: `${DESIGN_TOKENS.padding.md} text-sm`,
     lg: `${DESIGN_TOKENS.padding.lg} text-base`,
   };
 
@@ -116,17 +116,21 @@ export const ProjectTaskManager: React.FC<ProjectTaskManagerProps> = ({ projectI
   const [showQuickCreateTask, setShowQuickCreateTask] = useState(false);
 
   // Queries
-  const { data: tasksData, isLoading: tasksLoading, error: tasksError } = useQuery({
-    ...useTasksQuery(projectId, selectedFilters)
+  const {
+    data: tasksData,
+    isLoading: tasksLoading,
+    error: tasksError,
+  } = useQuery({
+    ...useTasksQuery(projectId, selectedFilters),
   });
 
   const { data: statisticsData, isLoading: statsLoading } = useQuery({
-    ...useTaskStatisticsQuery(projectId)
+    ...useTaskStatisticsQuery(projectId),
   });
 
   const { data: projectData } = useQuery({
     queryKey: ['project', projectId],
-    queryFn: () => projectsAPI.get(projectId)
+    queryFn: () => projectsAPI.get(projectId),
   });
 
   // Mutations
@@ -139,7 +143,7 @@ export const ProjectTaskManager: React.FC<ProjectTaskManagerProps> = ({ projectI
     },
     onError: (error: any) => {
       toast.error('Failed to create task: ' + (error.response?.data?.error || error.message));
-    }
+    },
   });
 
   const updateTaskMutation = useMutation({
@@ -152,7 +156,7 @@ export const ProjectTaskManager: React.FC<ProjectTaskManagerProps> = ({ projectI
     },
     onError: (error: any) => {
       toast.error('Failed to update task: ' + (error.response?.data?.error || error.message));
-    }
+    },
   });
 
   const deleteTaskMutation = useMutation({
@@ -164,7 +168,7 @@ export const ProjectTaskManager: React.FC<ProjectTaskManagerProps> = ({ projectI
     },
     onError: (error: any) => {
       toast.error('Failed to delete task: ' + (error.response?.data?.error || error.message));
-    }
+    },
   });
 
   const assignTaskMutation = useMutation({
@@ -178,7 +182,7 @@ export const ProjectTaskManager: React.FC<ProjectTaskManagerProps> = ({ projectI
     },
     onError: (error: any) => {
       toast.error('Failed to assign task: ' + (error.response?.data?.error || error.message));
-    }
+    },
   });
 
   // Event handlers
@@ -248,24 +252,34 @@ export const ProjectTaskManager: React.FC<ProjectTaskManagerProps> = ({ projectI
 
   const completionRate = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
 
-  const StatCard: React.FC<{ 
-    title: string; 
-    value: string | number; 
-    subtitle?: string; 
-    icon: React.ReactNode; 
+  const StatCard: React.FC<{
+    title: string;
+    value: string | number;
+    subtitle?: string;
+    icon: React.ReactNode;
     color?: string;
   }> = ({ title, value, subtitle, icon, color = DESIGN_TOKENS.colors.textSecondary }) => (
-    <Card className={`${DESIGN_TOKENS.colors.surface} ${DESIGN_TOKENS.backdrop} ${DESIGN_TOKENS.colors.border} border`}>
+    <Card
+      className={`${DESIGN_TOKENS.colors.surface} ${DESIGN_TOKENS.backdrop} ${DESIGN_TOKENS.colors.border} border`}
+    >
       <CardContent className="p-3 sm:p-4">
         <div className="flex items-center justify-between">
           <div className="min-w-0 flex-1">
-            <p className={`text-xs sm:text-sm font-medium ${DESIGN_TOKENS.colors.textMuted} truncate`}>{title}</p>
+            <p
+              className={`text-xs sm:text-sm font-medium ${DESIGN_TOKENS.colors.textMuted} truncate`}
+            >
+              {title}
+            </p>
             <p className={`text-lg sm:text-xl lg:text-2xl font-bold ${color}`}>{value}</p>
-            {subtitle && <p className={`text-xs ${DESIGN_TOKENS.colors.textMuted} hidden sm:block`}>{subtitle}</p>}
+            {subtitle && (
+              <p className={`text-xs ${DESIGN_TOKENS.colors.textMuted} hidden sm:block`}>
+                {subtitle}
+              </p>
+            )}
           </div>
           <div className={`${color} opacity-70 flex-shrink-0 ml-2`}>
-            {React.cloneElement(icon as React.ReactElement, { 
-              className: 'w-6 h-6 sm:w-7 sm:h-7 lg:w-8 lg:h-8' 
+            {React.cloneElement(icon as React.ReactElement, {
+              className: 'w-6 h-6 sm:w-7 sm:h-7 lg:w-8 lg:h-8',
             })}
           </div>
         </div>
@@ -281,19 +295,19 @@ export const ProjectTaskManager: React.FC<ProjectTaskManagerProps> = ({ projectI
       type: 'feature',
       dueDate: '',
       estimatedHours: '',
-      tags: ''
+      tags: '',
     });
 
     const handleSubmit = async (e: React.FormEvent) => {
       e.preventDefault();
-      
+
       try {
         await handleTaskCreate({
           ...formData,
           projectId,
           dueDate: formData.dueDate ? new Date(formData.dueDate).toISOString() : undefined,
           estimatedHours: formData.estimatedHours ? parseFloat(formData.estimatedHours) : undefined,
-          tags: formData.tags ? formData.tags.split(',').map(tag => tag.trim()) : undefined
+          tags: formData.tags ? formData.tags.split(',').map((tag) => tag.trim()) : undefined,
         });
 
         setFormData({
@@ -303,7 +317,7 @@ export const ProjectTaskManager: React.FC<ProjectTaskManagerProps> = ({ projectI
           type: 'feature',
           dueDate: '',
           estimatedHours: '',
-          tags: ''
+          tags: '',
         });
         setShowQuickCreateTask(false);
       } catch (error) {
@@ -315,16 +329,25 @@ export const ProjectTaskManager: React.FC<ProjectTaskManagerProps> = ({ projectI
 
     return (
       <>
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[200] flex items-center justify-center p-2 sm:p-4" onClick={() => setShowQuickCreateTask(false)} />
-        
-        <div className={`
+        <div
+          className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[200] flex items-center justify-center p-2 sm:p-4"
+          onClick={() => setShowQuickCreateTask(false)}
+        />
+
+        <div
+          className={`
           fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-xs sm:max-w-lg md:max-w-xl lg:max-w-2xl xl:max-w-3xl mx-2 sm:mx-4 max-h-[95vh] sm:max-h-[90vh] overflow-y-auto
           ${DESIGN_TOKENS.colors.surface} ${DESIGN_TOKENS.backdrop} ${DESIGN_TOKENS.radius.lg} 
           ${DESIGN_TOKENS.colors.border} border ${DESIGN_TOKENS.shadow} z-[201]
-        `}>
-          <div className={`p-3 sm:p-4 lg:${DESIGN_TOKENS.padding.lg} ${DESIGN_TOKENS.colors.border} border-b`}>
+        `}
+        >
+          <div
+            className={`p-3 sm:p-4 lg:${DESIGN_TOKENS.padding.lg} ${DESIGN_TOKENS.colors.border} border-b`}
+          >
             <div className="flex items-center justify-between">
-              <h2 className={`text-lg sm:text-xl lg:text-2xl font-bold ${DESIGN_TOKENS.colors.text} flex items-center gap-2`}>
+              <h2
+                className={`text-lg sm:text-xl lg:text-2xl font-bold ${DESIGN_TOKENS.colors.text} flex items-center gap-2`}
+              >
                 <Plus className="w-4 h-4 sm:w-5 sm:h-5 text-blue-400" />
                 <span className="hidden sm:inline">Quick Create Task</span>
                 <span className="sm:hidden">New Task</span>
@@ -335,42 +358,59 @@ export const ProjectTaskManager: React.FC<ProjectTaskManagerProps> = ({ projectI
             </div>
           </div>
 
-          <form onSubmit={handleSubmit} className={`p-3 sm:p-4 lg:${DESIGN_TOKENS.padding.lg} space-y-3 sm:space-y-4`}>
+          <form
+            onSubmit={handleSubmit}
+            className={`p-3 sm:p-4 lg:${DESIGN_TOKENS.padding.lg} space-y-3 sm:space-y-4`}
+          >
             <div className="grid grid-cols-1 gap-4">
               <Input
                 placeholder="Task title"
                 value={formData.title}
-                onChange={(e) => setFormData(prev => ({ ...prev, title: e.target.value }))}
+                onChange={(e) => setFormData((prev) => ({ ...prev, title: e.target.value }))}
                 required
                 className={`${DESIGN_TOKENS.colors.surface} ${DESIGN_TOKENS.colors.border} border ${DESIGN_TOKENS.colors.text}`}
               />
-              
+
               <Textarea
                 placeholder="Description (optional)"
                 value={formData.description}
-                onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
+                onChange={(e) => setFormData((prev) => ({ ...prev, description: e.target.value }))}
                 rows={3}
                 className={`${DESIGN_TOKENS.colors.surface} ${DESIGN_TOKENS.colors.border} border ${DESIGN_TOKENS.colors.text}`}
               />
-              
+
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <Select value={formData.priority} onValueChange={(value) => setFormData(prev => ({ ...prev, priority: value }))}>
-                  <SelectTrigger className={`${DESIGN_TOKENS.colors.surface} ${DESIGN_TOKENS.colors.border} border ${DESIGN_TOKENS.colors.text}`}>
+                <Select
+                  value={formData.priority}
+                  onValueChange={(value) => setFormData((prev) => ({ ...prev, priority: value }))}
+                >
+                  <SelectTrigger
+                    className={`${DESIGN_TOKENS.colors.surface} ${DESIGN_TOKENS.colors.border} border ${DESIGN_TOKENS.colors.text}`}
+                  >
                     <SelectValue placeholder="Priority" />
                   </SelectTrigger>
-                  <SelectContent className={`${DESIGN_TOKENS.colors.surface} ${DESIGN_TOKENS.backdrop} ${DESIGN_TOKENS.colors.border} border`}>
+                  <SelectContent
+                    className={`${DESIGN_TOKENS.colors.surface} ${DESIGN_TOKENS.backdrop} ${DESIGN_TOKENS.colors.border} border`}
+                  >
                     <SelectItem value="low">Low</SelectItem>
                     <SelectItem value="medium">Medium</SelectItem>
                     <SelectItem value="high">High</SelectItem>
                     <SelectItem value="urgent">Urgent</SelectItem>
                   </SelectContent>
                 </Select>
-                
-                <Select value={formData.type} onValueChange={(value) => setFormData(prev => ({ ...prev, type: value }))}>
-                  <SelectTrigger className={`${DESIGN_TOKENS.colors.surface} ${DESIGN_TOKENS.colors.border} border ${DESIGN_TOKENS.colors.text}`}>
+
+                <Select
+                  value={formData.type}
+                  onValueChange={(value) => setFormData((prev) => ({ ...prev, type: value }))}
+                >
+                  <SelectTrigger
+                    className={`${DESIGN_TOKENS.colors.surface} ${DESIGN_TOKENS.colors.border} border ${DESIGN_TOKENS.colors.text}`}
+                  >
                     <SelectValue placeholder="Type" />
                   </SelectTrigger>
-                  <SelectContent className={`${DESIGN_TOKENS.colors.surface} ${DESIGN_TOKENS.backdrop} ${DESIGN_TOKENS.colors.border} border`}>
+                  <SelectContent
+                    className={`${DESIGN_TOKENS.colors.surface} ${DESIGN_TOKENS.backdrop} ${DESIGN_TOKENS.colors.border} border`}
+                  >
                     <SelectItem value="feature">Feature</SelectItem>
                     <SelectItem value="bug">Bug</SelectItem>
                     <SelectItem value="enhancement">Enhancement</SelectItem>
@@ -382,40 +422,46 @@ export const ProjectTaskManager: React.FC<ProjectTaskManagerProps> = ({ projectI
                   </SelectContent>
                 </Select>
               </div>
-              
+
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <Input
                   type="date"
                   placeholder="Due date"
                   value={formData.dueDate}
-                  onChange={(e) => setFormData(prev => ({ ...prev, dueDate: e.target.value }))}
+                  onChange={(e) => setFormData((prev) => ({ ...prev, dueDate: e.target.value }))}
                   className={`${DESIGN_TOKENS.colors.surface} ${DESIGN_TOKENS.colors.border} border ${DESIGN_TOKENS.colors.text}`}
                 />
                 <Input
                   type="number"
                   placeholder="Estimated hours"
                   value={formData.estimatedHours}
-                  onChange={(e) => setFormData(prev => ({ ...prev, estimatedHours: e.target.value }))}
+                  onChange={(e) =>
+                    setFormData((prev) => ({ ...prev, estimatedHours: e.target.value }))
+                  }
                   min="0"
                   step="0.5"
                   className={`${DESIGN_TOKENS.colors.surface} ${DESIGN_TOKENS.colors.border} border ${DESIGN_TOKENS.colors.text}`}
                 />
               </div>
-              
+
               <Input
                 placeholder="Tags (comma-separated)"
                 value={formData.tags}
-                onChange={(e) => setFormData(prev => ({ ...prev, tags: e.target.value }))}
+                onChange={(e) => setFormData((prev) => ({ ...prev, tags: e.target.value }))}
                 className={`${DESIGN_TOKENS.colors.surface} ${DESIGN_TOKENS.colors.border} border ${DESIGN_TOKENS.colors.text}`}
               />
             </div>
-            
+
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center pt-4 gap-3">
               <div className={`text-xs ${DESIGN_TOKENS.colors.textMuted} hidden sm:block`}>
                 Press <kbd className="bg-slate-700 px-1 rounded">Alt+T</kbd> to quickly create tasks
               </div>
               <div className={`flex ${DESIGN_TOKENS.spacing.xs} w-full sm:w-auto justify-end`}>
-                <Button type="button" variant="secondary" onClick={() => setShowQuickCreateTask(false)}>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  onClick={() => setShowQuickCreateTask(false)}
+                >
                   Cancel
                 </Button>
                 <Button type="submit" variant="primary">
@@ -432,7 +478,9 @@ export const ProjectTaskManager: React.FC<ProjectTaskManagerProps> = ({ projectI
   const TaskOverview: React.FC = () => (
     <div className="space-y-4 sm:space-y-6">
       {/* Statistics Grid - More responsive */}
-      <div className={`grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 ${DESIGN_TOKENS.spacing.sm} sm:${DESIGN_TOKENS.spacing.md}`}>
+      <div
+        className={`grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 ${DESIGN_TOKENS.spacing.sm} sm:${DESIGN_TOKENS.spacing.md}`}
+      >
         <StatCard
           title="Total Tasks"
           value={totalTasks}
@@ -461,10 +509,16 @@ export const ProjectTaskManager: React.FC<ProjectTaskManagerProps> = ({ projectI
       </div>
 
       {/* Assignment Overview - More responsive */}
-      <div className={`grid grid-cols-1 sm:grid-cols-3 ${DESIGN_TOKENS.spacing.sm} sm:${DESIGN_TOKENS.spacing.md}`}>
-        <Card className={`${DESIGN_TOKENS.colors.surface} ${DESIGN_TOKENS.backdrop} ${DESIGN_TOKENS.colors.border} border`}>
+      <div
+        className={`grid grid-cols-1 sm:grid-cols-3 ${DESIGN_TOKENS.spacing.sm} sm:${DESIGN_TOKENS.spacing.md}`}
+      >
+        <Card
+          className={`${DESIGN_TOKENS.colors.surface} ${DESIGN_TOKENS.backdrop} ${DESIGN_TOKENS.colors.border} border`}
+        >
           <CardHeader className="pb-3">
-            <CardTitle className={`text-sm font-medium flex items-center gap-2 ${DESIGN_TOKENS.colors.text}`}>
+            <CardTitle
+              className={`text-sm font-medium flex items-center gap-2 ${DESIGN_TOKENS.colors.text}`}
+            >
               <Users className="w-4 h-4" />
               Human Assigned
             </CardTitle>
@@ -477,9 +531,13 @@ export const ProjectTaskManager: React.FC<ProjectTaskManagerProps> = ({ projectI
           </CardContent>
         </Card>
 
-        <Card className={`${DESIGN_TOKENS.colors.surface} ${DESIGN_TOKENS.backdrop} ${DESIGN_TOKENS.colors.border} border`}>
+        <Card
+          className={`${DESIGN_TOKENS.colors.surface} ${DESIGN_TOKENS.backdrop} ${DESIGN_TOKENS.colors.border} border`}
+        >
           <CardHeader className="pb-3">
-            <CardTitle className={`text-sm font-medium flex items-center gap-2 ${DESIGN_TOKENS.colors.text}`}>
+            <CardTitle
+              className={`text-sm font-medium flex items-center gap-2 ${DESIGN_TOKENS.colors.text}`}
+            >
               <Bot className="w-4 h-4" />
               Agent Assigned
             </CardTitle>
@@ -492,9 +550,13 @@ export const ProjectTaskManager: React.FC<ProjectTaskManagerProps> = ({ projectI
           </CardContent>
         </Card>
 
-        <Card className={`${DESIGN_TOKENS.colors.surface} ${DESIGN_TOKENS.backdrop} ${DESIGN_TOKENS.colors.border} border`}>
+        <Card
+          className={`${DESIGN_TOKENS.colors.surface} ${DESIGN_TOKENS.backdrop} ${DESIGN_TOKENS.colors.border} border`}
+        >
           <CardHeader className="pb-3">
-            <CardTitle className={`text-sm font-medium flex items-center gap-2 ${DESIGN_TOKENS.colors.text}`}>
+            <CardTitle
+              className={`text-sm font-medium flex items-center gap-2 ${DESIGN_TOKENS.colors.text}`}
+            >
               <AlertTriangle className="w-4 h-4" />
               Unassigned
             </CardTitle>
@@ -509,7 +571,9 @@ export const ProjectTaskManager: React.FC<ProjectTaskManagerProps> = ({ projectI
       </div>
 
       {/* Status Breakdown */}
-      <Card className={`${DESIGN_TOKENS.colors.surface} ${DESIGN_TOKENS.backdrop} ${DESIGN_TOKENS.colors.border} border`}>
+      <Card
+        className={`${DESIGN_TOKENS.colors.surface} ${DESIGN_TOKENS.backdrop} ${DESIGN_TOKENS.colors.border} border`}
+      >
         <CardHeader>
           <CardTitle className={`flex items-center gap-2 ${DESIGN_TOKENS.colors.text}`}>
             <BarChart3 className="w-5 h-5" />
@@ -519,25 +583,35 @@ export const ProjectTaskManager: React.FC<ProjectTaskManagerProps> = ({ projectI
         <CardContent>
           <div className="space-y-3">
             {Object.entries(stats.byStatus || {}).map(([status, count]) => {
-              const percentage = totalTasks > 0 ? Math.round((count as number / totalTasks) * 100) : 0;
+              const percentage =
+                totalTasks > 0 ? Math.round(((count as number) / totalTasks) * 100) : 0;
               const statusColors = {
                 todo: 'bg-slate-400',
                 in_progress: 'bg-blue-500',
                 in_review: 'bg-yellow-500',
                 blocked: 'bg-red-500',
                 completed: 'bg-green-500',
-                cancelled: 'bg-slate-300'
+                cancelled: 'bg-slate-300',
               };
-              
+
               return (
                 <div key={status} className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
-                    <div className={`w-3 h-3 rounded-full ${statusColors[status as keyof typeof statusColors]}`} />
-                    <span className={`text-sm font-medium capitalize ${DESIGN_TOKENS.colors.textSecondary}`}>{status.replace('_', ' ')}</span>
+                    <div
+                      className={`w-3 h-3 rounded-full ${statusColors[status as keyof typeof statusColors]}`}
+                    />
+                    <span
+                      className={`text-sm font-medium capitalize ${DESIGN_TOKENS.colors.textSecondary}`}
+                    >
+                      {status.replace('_', ' ')}
+                    </span>
                   </div>
                   <div className="flex items-center gap-2">
                     <span className={`text-sm ${DESIGN_TOKENS.colors.textMuted}`}>{count}</span>
-                    <Badge variant="secondary" className={`text-xs ${DESIGN_TOKENS.colors.surface} ${DESIGN_TOKENS.colors.textSecondary}`}>
+                    <Badge
+                      variant="secondary"
+                      className={`text-xs ${DESIGN_TOKENS.colors.surface} ${DESIGN_TOKENS.colors.textSecondary}`}
+                    >
                       {percentage}%
                     </Badge>
                   </div>
@@ -561,17 +635,22 @@ export const ProjectTaskManager: React.FC<ProjectTaskManagerProps> = ({ projectI
     );
   }
 
-  const selectedTask = selectedTaskForAssignment ? 
-    tasksData?.find((task: any) => task.id === selectedTaskForAssignment) : null;
+  const selectedTask = selectedTaskForAssignment
+    ? tasksData?.find((task: any) => task.id === selectedTaskForAssignment)
+    : null;
 
   return (
     <div className="h-full w-full flex flex-col overflow-hidden">
       {/* Header - All devices responsive */}
-      <div className={`${DESIGN_TOKENS.colors.border} border-b ${DESIGN_TOKENS.colors.surface} ${DESIGN_TOKENS.backdrop} flex-shrink-0`}>
+      <div
+        className={`${DESIGN_TOKENS.colors.border} border-b ${DESIGN_TOKENS.colors.surface} ${DESIGN_TOKENS.backdrop} flex-shrink-0`}
+      >
         <div className="px-3 py-3 sm:px-4 sm:py-4 md:px-6 md:py-4 lg:px-8 lg:py-5 xl:px-10 xl:py-6">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
             <div className="min-w-0 flex-1">
-              <h1 className={`text-base sm:text-lg md:text-xl lg:text-2xl xl:text-3xl font-bold ${DESIGN_TOKENS.colors.text} truncate`}>
+              <h1
+                className={`text-base sm:text-lg md:text-xl lg:text-2xl xl:text-3xl font-bold ${DESIGN_TOKENS.colors.text} truncate`}
+              >
                 {projectData?.name || 'Project'} - Tasks
               </h1>
               {/* Mobile compact description */}
@@ -580,7 +659,9 @@ export const ProjectTaskManager: React.FC<ProjectTaskManagerProps> = ({ projectI
               </p>
               {/* Tablet+ full description */}
               <div className={`mt-2 hidden sm:block`}>
-                <p className={`${DESIGN_TOKENS.colors.textMuted} text-xs sm:text-sm lg:text-base mb-2`}>
+                <p
+                  className={`${DESIGN_TOKENS.colors.textMuted} text-xs sm:text-sm lg:text-base mb-2`}
+                >
                   Collaborative task management with intelligent agent assistance
                 </p>
                 <div className="flex items-center gap-3 md:gap-4 lg:gap-6 text-xs lg:text-sm flex-wrap">
@@ -600,16 +681,16 @@ export const ProjectTaskManager: React.FC<ProjectTaskManagerProps> = ({ projectI
               </div>
             </div>
             <div className={`flex items-center gap-2 flex-shrink-0 overflow-x-auto pb-1 sm:pb-0`}>
-              <Button 
-                variant="primary" 
+              <Button
+                variant="primary"
                 size="sm"
                 onClick={() => setShowQuickCreateTask(true)}
                 className="sm:hidden whitespace-nowrap"
               >
                 <Plus className="w-4 h-4" />
               </Button>
-              <Button 
-                variant="primary" 
+              <Button
+                variant="primary"
                 size="sm"
                 onClick={() => setShowQuickCreateTask(true)}
                 className="hidden sm:flex whitespace-nowrap"
@@ -636,13 +717,21 @@ export const ProjectTaskManager: React.FC<ProjectTaskManagerProps> = ({ projectI
       <div className="flex-1 overflow-hidden">
         <Tabs defaultValue="board" className="h-full flex flex-col">
           <div className="flex-shrink-0 px-3 sm:px-4 md:px-6 lg:px-8 xl:px-10 pt-3 sm:pt-4">
-            <TabsList className={`w-fit ${DESIGN_TOKENS.colors.surface} ${DESIGN_TOKENS.backdrop} ${DESIGN_TOKENS.colors.border} border`}>
-              <TabsTrigger value="board" className={`flex items-center gap-1 sm:gap-2 text-xs sm:text-sm lg:text-base px-3 sm:px-4 lg:px-6 py-2 ${DESIGN_TOKENS.colors.textSecondary} data-[state=active]:${DESIGN_TOKENS.colors.text}`}>
+            <TabsList
+              className={`w-fit ${DESIGN_TOKENS.colors.surface} ${DESIGN_TOKENS.backdrop} ${DESIGN_TOKENS.colors.border} border`}
+            >
+              <TabsTrigger
+                value="board"
+                className={`flex items-center gap-1 sm:gap-2 text-xs sm:text-sm lg:text-base px-3 sm:px-4 lg:px-6 py-2 ${DESIGN_TOKENS.colors.textSecondary} data-[state=active]:${DESIGN_TOKENS.colors.text}`}
+              >
                 <Activity className="w-3 h-3 sm:w-4 sm:h-4 lg:w-5 lg:h-5" />
                 <span className="hidden sm:inline">Task Board</span>
                 <span className="sm:hidden">Board</span>
               </TabsTrigger>
-              <TabsTrigger value="overview" className={`flex items-center gap-1 sm:gap-2 text-xs sm:text-sm lg:text-base px-3 sm:px-4 lg:px-6 py-2 ${DESIGN_TOKENS.colors.textSecondary} data-[state=active]:${DESIGN_TOKENS.colors.text}`}>
+              <TabsTrigger
+                value="overview"
+                className={`flex items-center gap-1 sm:gap-2 text-xs sm:text-sm lg:text-base px-3 sm:px-4 lg:px-6 py-2 ${DESIGN_TOKENS.colors.textSecondary} data-[state=active]:${DESIGN_TOKENS.colors.text}`}
+              >
                 <BarChart3 className="w-3 h-3 sm:w-4 sm:h-4 lg:w-5 lg:h-5" />
                 <span className="hidden sm:inline">Overview</span>
                 <span className="sm:hidden">Stats</span>
@@ -650,7 +739,10 @@ export const ProjectTaskManager: React.FC<ProjectTaskManagerProps> = ({ projectI
             </TabsList>
           </div>
 
-          <TabsContent value="board" className="flex-1 overflow-hidden px-3 sm:px-4 md:px-6 lg:px-8 xl:px-10 py-3 sm:py-4">
+          <TabsContent
+            value="board"
+            className="flex-1 overflow-hidden px-3 sm:px-4 md:px-6 lg:px-8 xl:px-10 py-3 sm:py-4"
+          >
             <div className="h-full overflow-hidden">
               <TaskBoard
                 projectId={projectId}
@@ -664,7 +756,10 @@ export const ProjectTaskManager: React.FC<ProjectTaskManagerProps> = ({ projectI
             </div>
           </TabsContent>
 
-          <TabsContent value="overview" className="flex-1 overflow-y-auto px-3 sm:px-4 md:px-6 lg:px-8 xl:px-10 py-3 sm:py-4">
+          <TabsContent
+            value="overview"
+            className="flex-1 overflow-y-auto px-3 sm:px-4 md:px-6 lg:px-8 xl:px-10 py-3 sm:py-4"
+          >
             <TaskOverview />
           </TabsContent>
         </Tabs>
@@ -679,11 +774,21 @@ export const ProjectTaskManager: React.FC<ProjectTaskManagerProps> = ({ projectI
           taskId={selectedTaskForAssignment}
           taskTitle={selectedTask.title}
           taskType={selectedTask.type}
-          currentAssignee={selectedTask.assigneeType ? {
-            type: selectedTask.assigneeType,
-            id: selectedTask.assigneeType === 'human' ? selectedTask.assignedToUser?.id : selectedTask.assignedToAgent?.id,
-            name: selectedTask.assigneeType === 'human' ? selectedTask.assignedToUser?.name : selectedTask.assignedToAgent?.name
-          } : undefined}
+          currentAssignee={
+            selectedTask.assigneeType
+              ? {
+                  type: selectedTask.assigneeType,
+                  id:
+                    selectedTask.assigneeType === 'human'
+                      ? selectedTask.assignedToUser?.id
+                      : selectedTask.assignedToAgent?.id,
+                  name:
+                    selectedTask.assigneeType === 'human'
+                      ? selectedTask.assignedToUser?.name
+                      : selectedTask.assignedToAgent?.name,
+                }
+              : undefined
+          }
           onAssign={handleTaskAssign}
           onGetSuggestions={handleGetAssignmentSuggestions}
           onGetProjectMembers={handleGetProjectMembers}

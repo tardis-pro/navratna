@@ -44,35 +44,36 @@ async function seedUserLLMProviders() {
 
     // Create the seeder
     const userLLMProviderSeed = new UserLLMProviderSeed(dataSource, users);
-    
+
     // Run the seeder
     const providers = await userLLMProviderSeed.seed();
 
     console.log(`✅ Successfully seeded ${providers.length} LLM providers`);
-    
+
     // Show summary by user
-    const userProviderCounts = users.map(user => {
-      const userProviders = providers.filter(p => p.userId === user.id);
+    const userProviderCounts = users.map((user) => {
+      const userProviders = providers.filter((p) => p.userId === user.id);
       return {
         user: `${user.firstName} ${user.lastName} (${user.email})`,
         role: user.role,
         providerCount: userProviders.length,
-        activeProviders: userProviders.filter(p => p.isActive).length
+        activeProviders: userProviders.filter((p) => p.isActive).length,
       };
     });
 
     console.log('\n📊 Provider Summary by User:');
-    userProviderCounts.forEach(summary => {
+    userProviderCounts.forEach((summary) => {
       console.log(`   👤 ${summary.user}`);
       console.log(`      Role: ${summary.role}`);
-      console.log(`      Providers: ${summary.providerCount} total, ${summary.activeProviders} active`);
+      console.log(
+        `      Providers: ${summary.providerCount} total, ${summary.activeProviders} active`
+      );
     });
 
     console.log('\n🎉 UserLLMProvider seeding completed successfully!');
-
   } catch (error) {
     console.error('💥 UserLLMProvider seeding failed:', error);
-    
+
     // Provide helpful error information
     if (error.message?.includes('duplicate') || error.message?.includes('unique')) {
       console.info('💡 This might be a duplicate key error. Some providers may already exist.');
@@ -81,7 +82,7 @@ async function seedUserLLMProviders() {
     } else if (error.message?.includes('user')) {
       console.info('💡 Make sure users have been seeded first: npm run seed:users');
     }
-    
+
     process.exit(1);
   } finally {
     // Only close connection if we created it

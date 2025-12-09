@@ -46,7 +46,7 @@ export abstract class BaseRepository<T extends ObjectLiteral> implements IReposi
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       logger.error('Failed to acquire database client', { error: errorMessage });
       throw new DatabaseError('Failed to acquire database client', {
-        originalError: errorMessage
+        originalError: errorMessage,
       });
     }
   }
@@ -62,9 +62,7 @@ export abstract class BaseRepository<T extends ObjectLiteral> implements IReposi
   }
 
   // Execute multiple operations in a transaction
-  protected async transaction<R>(
-    callback: (manager: EntityManager) => Promise<R>
-  ): Promise<R> {
+  protected async transaction<R>(callback: (manager: EntityManager) => Promise<R>): Promise<R> {
     return await this.typeormService.transaction(callback);
   }
 
@@ -76,7 +74,7 @@ export abstract class BaseRepository<T extends ObjectLiteral> implements IReposi
       logger.error('Failed to find by ID', {
         entity: this.entity.toString(),
         id,
-        error: (error as Error).message
+        error: (error as Error).message,
       });
       throw error;
     }
@@ -105,7 +103,7 @@ export abstract class BaseRepository<T extends ObjectLiteral> implements IReposi
 
       // Add ORDER BY
       if (options.orderBy) {
-        Object.keys(options.orderBy).forEach(column => {
+        Object.keys(options.orderBy).forEach((column) => {
           queryBuilder.addOrderBy(column, options.orderBy![column]);
         });
       }
@@ -120,7 +118,7 @@ export abstract class BaseRepository<T extends ObjectLiteral> implements IReposi
 
       // Add relations
       if (options.relations) {
-        options.relations.forEach(relation => {
+        options.relations.forEach((relation) => {
           queryBuilder.leftJoinAndSelect(relation, relation);
         });
       }
@@ -130,7 +128,7 @@ export abstract class BaseRepository<T extends ObjectLiteral> implements IReposi
       logger.error('Failed to find many', {
         entity: this.entity.toString(),
         conditions,
-        error: (error as Error).message
+        error: (error as Error).message,
       });
       throw error;
     }
@@ -144,7 +142,7 @@ export abstract class BaseRepository<T extends ObjectLiteral> implements IReposi
       logger.error('Failed to create', {
         entity: this.entity.toString(),
         data,
-        error: (error as Error).message
+        error: (error as Error).message,
       });
       throw error;
     }
@@ -159,7 +157,7 @@ export abstract class BaseRepository<T extends ObjectLiteral> implements IReposi
         entity: this.entity.toString(),
         id,
         data,
-        error: (error as Error).message
+        error: (error as Error).message,
       });
       throw error;
     }
@@ -168,12 +166,12 @@ export abstract class BaseRepository<T extends ObjectLiteral> implements IReposi
   public async delete(id: string): Promise<boolean> {
     try {
       const result = await this.repository.delete(id);
-      return (result.affected) > 0;
+      return result.affected > 0;
     } catch (error) {
       logger.error('Failed to delete', {
         entity: this.entity.toString(),
         id,
-        error: (error as Error).message
+        error: (error as Error).message,
       });
       throw error;
     }
@@ -186,7 +184,7 @@ export abstract class BaseRepository<T extends ObjectLiteral> implements IReposi
       logger.error('Failed to count', {
         entity: this.entity.toString(),
         conditions,
-        error: (error as Error).message
+        error: (error as Error).message,
       });
       throw error;
     }
@@ -198,13 +196,13 @@ export abstract class BaseRepository<T extends ObjectLiteral> implements IReposi
     }
 
     try {
-      const entities = records.map(record => this.repository.create(record as any));
+      const entities = records.map((record) => this.repository.create(record as any));
       return await this.repository.save(entities as any);
     } catch (error) {
       logger.error('Failed to batch create', {
         entity: this.entity.toString(),
         recordCount: records.length,
-        error: (error as Error).message
+        error: (error as Error).message,
       });
       throw error;
     }
@@ -255,16 +253,18 @@ export abstract class BaseRepository<T extends ObjectLiteral> implements IReposi
           .values(records)
           .orIgnore()
           .execute();
-      } else if (options?.onConflict === 'update' && options.conflictColumns && options.updateColumns) {
+      } else if (
+        options?.onConflict === 'update' &&
+        options.conflictColumns &&
+        options.updateColumns
+      ) {
         const queryBuilder = this.repository
           .createQueryBuilder()
           .insert()
           .into(this.entity)
           .values(records);
 
-        await queryBuilder
-          .orUpdate(options.updateColumns, options.conflictColumns)
-          .execute();
+        await queryBuilder.orUpdate(options.updateColumns, options.conflictColumns).execute();
       } else {
         await this.repository.save(records as any[]);
       }
@@ -274,7 +274,7 @@ export abstract class BaseRepository<T extends ObjectLiteral> implements IReposi
         entity: this.entity.toString(),
         rowCount: records.length,
         insertedCount: records.length,
-        duration
+        duration,
       });
 
       return records.length;
@@ -283,7 +283,7 @@ export abstract class BaseRepository<T extends ObjectLiteral> implements IReposi
       logger.error('Bulk insert failed', {
         entity: this.entity.toString(),
         rowCount: records.length,
-        error: errorMessage
+        error: errorMessage,
       });
       throw error;
     }
@@ -297,7 +297,7 @@ export abstract class BaseRepository<T extends ObjectLiteral> implements IReposi
     try {
       logger.debug('Starting streaming query', {
         entity: this.entity.toString(),
-        batchSize
+        batchSize,
       });
 
       let offset = 0;
@@ -317,10 +317,7 @@ export abstract class BaseRepository<T extends ObjectLiteral> implements IReposi
           });
         }
 
-        const results = await queryBuilder
-          .limit(batchSize)
-          .offset(offset)
-          .getMany();
+        const results = await queryBuilder.limit(batchSize).offset(offset).getMany();
 
         if (results.length === 0) {
           hasMoreRows = false;
@@ -333,9 +330,9 @@ export abstract class BaseRepository<T extends ObjectLiteral> implements IReposi
     } catch (error) {
       logger.error('Streaming query failed', {
         entity: this.entity.toString(),
-        error: (error as Error).message
+        error: (error as Error).message,
       });
       throw error;
     }
   }
-} 
+}

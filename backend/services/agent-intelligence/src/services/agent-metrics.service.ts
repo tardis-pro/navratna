@@ -10,7 +10,7 @@ import {
   DatabaseService,
   EventBusService,
   KnowledgeGraphService,
-  AgentMemoryService
+  AgentMemoryService,
 } from '@uaip/shared-services';
 
 export interface AgentMetricsConfig {
@@ -64,7 +64,7 @@ export class AgentMetricsService {
 
     logger.info('Agent Metrics Service initialized', {
       service: this.serviceName,
-      securityLevel: this.securityLevel
+      securityLevel: this.securityLevel,
     });
   }
 
@@ -73,9 +73,18 @@ export class AgentMetricsService {
    */
   private async setupEventSubscriptions(): Promise<void> {
     await this.eventBusService.subscribe('agent.metrics.get', this.handleGetMetrics.bind(this));
-    await this.eventBusService.subscribe('agent.metrics.calculate', this.handleCalculateMetrics.bind(this));
-    await this.eventBusService.subscribe('agent.metrics.summary', this.handleGenerateSummary.bind(this));
-    await this.eventBusService.subscribe('agent.metrics.track', this.handleTrackActivity.bind(this));
+    await this.eventBusService.subscribe(
+      'agent.metrics.calculate',
+      this.handleCalculateMetrics.bind(this)
+    );
+    await this.eventBusService.subscribe(
+      'agent.metrics.summary',
+      this.handleGenerateSummary.bind(this)
+    );
+    await this.eventBusService.subscribe(
+      'agent.metrics.track',
+      this.handleTrackActivity.bind(this)
+    );
 
     logger.info('Agent Metrics Service event subscriptions configured');
   }
@@ -83,7 +92,10 @@ export class AgentMetricsService {
   /**
    * Get agent performance metrics enhanced with knowledge analytics
    */
-  async getAgentMetrics(agentId: string, timeRange: { start: Date; end: Date }): Promise<EnhancedAgentMetrics> {
+  async getAgentMetrics(
+    agentId: string,
+    timeRange: { start: Date; end: Date }
+  ): Promise<EnhancedAgentMetrics> {
     try {
       this.validateID(agentId, 'agentId');
 
@@ -109,10 +121,10 @@ export class AgentMetricsService {
         knowledgeStats: {
           totalKnowledgeItems: knowledgeStats.totalItems,
           knowledgeByType: knowledgeStats.itemsByType,
-          memoryHealth: memoryStats.memoryHealth
+          memoryHealth: memoryStats.memoryHealth,
         },
         performanceBreakdown,
-        trends
+        trends,
       };
 
       // Publish metrics calculated event
@@ -121,13 +133,13 @@ export class AgentMetricsService {
         timeRange,
         totalActivities: enhancedMetrics.totalActivities,
         successRate: enhancedMetrics.successRate,
-        performanceScore: enhancedMetrics.performanceScore
+        performanceScore: enhancedMetrics.performanceScore,
       });
 
       this.auditLog('METRICS_CALCULATED', {
         agentId,
         timeRange,
-        totalActivities: enhancedMetrics.totalActivities
+        totalActivities: enhancedMetrics.totalActivities,
       });
 
       return enhancedMetrics;
@@ -140,18 +152,21 @@ export class AgentMetricsService {
   /**
    * Calculate comprehensive metrics for an agent
    */
-  async calculateMetrics(agentId: string, options?: {
-    includeKnowledge?: boolean;
-    includeMemory?: boolean;
-    includeTrends?: boolean;
-    timeRange?: { start: Date; end: Date };
-  }): Promise<any> {
+  async calculateMetrics(
+    agentId: string,
+    options?: {
+      includeKnowledge?: boolean;
+      includeMemory?: boolean;
+      includeTrends?: boolean;
+      timeRange?: { start: Date; end: Date };
+    }
+  ): Promise<any> {
     try {
       this.validateID(agentId, 'agentId');
 
       const timeRange = options?.timeRange || {
         start: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000), // 30 days ago
-        end: new Date()
+        end: new Date(),
       };
 
       logger.info('Calculating comprehensive metrics', { agentId, options });
@@ -159,7 +174,7 @@ export class AgentMetricsService {
       const metrics: any = {
         agentId,
         calculatedAt: new Date(),
-        timeRange
+        timeRange,
       };
 
       // Basic performance metrics
@@ -196,7 +211,10 @@ export class AgentMetricsService {
   /**
    * Generate a comprehensive metrics summary
    */
-  async generateMetricsSummary(agentId: string, timeRange: { start: Date; end: Date }): Promise<{
+  async generateMetricsSummary(
+    agentId: string,
+    timeRange: { start: Date; end: Date }
+  ): Promise<{
     summary: string;
     keyInsights: string[];
     recommendations: string[];
@@ -226,7 +244,7 @@ export class AgentMetricsService {
         summary,
         keyInsights,
         recommendations,
-        score
+        score,
       };
     } catch (error) {
       logger.error('Failed to generate metrics summary', { error, agentId });
@@ -237,13 +255,16 @@ export class AgentMetricsService {
   /**
    * Track agent activity for metrics calculation
    */
-  async trackActivity(agentId: string, activity: {
-    type: string;
-    duration: number;
-    success: boolean;
-    context?: any;
-    metadata?: any;
-  }): Promise<void> {
+  async trackActivity(
+    agentId: string,
+    activity: {
+      type: string;
+      duration: number;
+      success: boolean;
+      context?: any;
+      metadata?: any;
+    }
+  ): Promise<void> {
     try {
       this.validateID(agentId, 'agentId');
 
@@ -256,7 +277,7 @@ export class AgentMetricsService {
         success: activity.success,
         context: activity.context,
         metadata: activity.metadata,
-        timestamp: new Date()
+        timestamp: new Date(),
       });
 
       // Publish activity tracked event
@@ -264,13 +285,13 @@ export class AgentMetricsService {
         agentId,
         activityType: activity.type,
         duration: activity.duration,
-        success: activity.success
+        success: activity.success,
       });
 
       this.auditLog('ACTIVITY_TRACKED', {
         agentId,
         activityType: activity.type,
-        success: activity.success
+        success: activity.success,
       });
     } catch (error) {
       logger.error('Failed to track activity', { error, agentId });
@@ -324,12 +345,15 @@ export class AgentMetricsService {
   /**
    * Helper methods
    */
-  private async calculateBasicMetrics(agentId: string, timeRange: { start: Date; end: Date }): Promise<AgentMetrics> {
+  private async calculateBasicMetrics(
+    agentId: string,
+    timeRange: { start: Date; end: Date }
+  ): Promise<AgentMetrics> {
     // Get activities from database
     const activities = await this.databaseService.getAgentActivities(agentId, timeRange);
 
     const totalActivities = activities.length;
-    const successfulActivities = activities.filter(a => a.success).length;
+    const successfulActivities = activities.filter((a) => a.success).length;
     const successRate = totalActivities > 0 ? successfulActivities / totalActivities : 0;
 
     const totalResponseTime = activities.reduce((sum, a) => sum + (a.duration || 0), 0);
@@ -348,7 +372,7 @@ export class AgentMetricsService {
       successRate,
       averageResponseTime,
       performanceScore,
-      learningProgress
+      learningProgress,
     };
   }
 
@@ -364,7 +388,7 @@ export class AgentMetricsService {
       const stats = await this.knowledgeGraphService.getStatistics();
       return {
         totalItems: stats.totalItems || 0,
-        itemsByType: stats.itemsByType || {}
+        itemsByType: stats.itemsByType || {},
       };
     } catch (error) {
       logger.warn('Failed to get knowledge statistics', { error, agentId });
@@ -386,7 +410,7 @@ export class AgentMetricsService {
       return {
         memoryHealth: stats.memoryHealth,
         episodeCount: stats.episodeCount || 0,
-        conceptCount: stats.conceptCount || 0
+        conceptCount: stats.conceptCount || 0,
       };
     } catch (error) {
       logger.warn('Failed to get memory statistics', { error, agentId });
@@ -394,7 +418,10 @@ export class AgentMetricsService {
     }
   }
 
-  private async calculatePerformanceBreakdown(agentId: string, timeRange: { start: Date; end: Date }): Promise<{
+  private async calculatePerformanceBreakdown(
+    agentId: string,
+    timeRange: { start: Date; end: Date }
+  ): Promise<{
     responseTimeDistribution: Record<string, number>;
     successRateByCategory: Record<string, number>;
     learningEfficiency: number;
@@ -418,11 +445,14 @@ export class AgentMetricsService {
       responseTimeDistribution,
       successRateByCategory,
       learningEfficiency,
-      knowledgeUtilization
+      knowledgeUtilization,
     };
   }
 
-  private async calculateTrends(agentId: string, timeRange: { start: Date; end: Date }): Promise<{
+  private async calculateTrends(
+    agentId: string,
+    timeRange: { start: Date; end: Date }
+  ): Promise<{
     performanceChange: number;
     learningVelocity: number;
     engagementLevel: number;
@@ -431,7 +461,7 @@ export class AgentMetricsService {
     const periodDuration = timeRange.end.getTime() - timeRange.start.getTime();
     const previousTimeRange = {
       start: new Date(timeRange.start.getTime() - periodDuration),
-      end: timeRange.start
+      end: timeRange.start,
     };
 
     const currentMetrics = await this.calculateBasicMetrics(agentId, timeRange);
@@ -441,55 +471,75 @@ export class AgentMetricsService {
     const learningVelocity = currentMetrics.learningProgress - previousMetrics.learningProgress;
 
     // Engagement level based on activity frequency
-    const engagementLevel = this.calculateEngagementLevel(currentMetrics.totalActivities, periodDuration);
+    const engagementLevel = this.calculateEngagementLevel(
+      currentMetrics.totalActivities,
+      periodDuration
+    );
 
     return {
       performanceChange,
       learningVelocity,
-      engagementLevel
+      engagementLevel,
     };
   }
 
-  private async getActivityBreakdown(agentId: string, timeRange: { start: Date; end: Date }): Promise<Record<string, number>> {
+  private async getActivityBreakdown(
+    agentId: string,
+    timeRange: { start: Date; end: Date }
+  ): Promise<Record<string, number>> {
     const activities = await this.databaseService.getAgentActivities(agentId, timeRange);
     const breakdown: Record<string, number> = {};
 
-    activities.forEach(activity => {
+    activities.forEach((activity) => {
       breakdown[activity.type] = (breakdown[activity.type] || 0) + 1;
     });
 
     return breakdown;
   }
 
-  private async calculateEngagementMetrics(agentId: string, timeRange: { start: Date; end: Date }): Promise<{
+  private async calculateEngagementMetrics(
+    agentId: string,
+    timeRange: { start: Date; end: Date }
+  ): Promise<{
     dailyActivity: number;
     responseConsistency: number;
     proactiveActions: number;
   }> {
     const activities = await this.databaseService.getAgentActivities(agentId, timeRange);
-    const days = Math.ceil((timeRange.end.getTime() - timeRange.start.getTime()) / (24 * 60 * 60 * 1000));
+    const days = Math.ceil(
+      (timeRange.end.getTime() - timeRange.start.getTime()) / (24 * 60 * 60 * 1000)
+    );
 
     const dailyActivity = activities.length / Math.max(days, 1);
 
     // Calculate response consistency (simplified)
-    const responseTimes = activities.map(a => a.duration || 0);
-    const avgResponseTime = responseTimes.reduce((sum, time) => sum + time, 0) / responseTimes.length;
-    const variance = responseTimes.reduce((sum, time) => sum + Math.pow(time - avgResponseTime, 2), 0) / responseTimes.length;
-    const responseConsistency = Math.max(0, 1 - (Math.sqrt(variance) / avgResponseTime));
+    const responseTimes = activities.map((a) => a.duration || 0);
+    const avgResponseTime =
+      responseTimes.reduce((sum, time) => sum + time, 0) / responseTimes.length;
+    const variance =
+      responseTimes.reduce((sum, time) => sum + Math.pow(time - avgResponseTime, 2), 0) /
+      responseTimes.length;
+    const responseConsistency = Math.max(0, 1 - Math.sqrt(variance) / avgResponseTime);
 
     // Count proactive actions (activities initiated by agent)
-    const proactiveActions = activities.filter(a => a.metadata?.initiatedBy === 'agent').length;
+    const proactiveActions = activities.filter((a) => a.metadata?.initiatedBy === 'agent').length;
 
     return {
       dailyActivity,
       responseConsistency: isNaN(responseConsistency) ? 0 : responseConsistency,
-      proactiveActions
+      proactiveActions,
     };
   }
 
-  private buildMetricsSummary(agent: Agent | null, metrics: EnhancedAgentMetrics, timeRange: { start: Date; end: Date }): string {
+  private buildMetricsSummary(
+    agent: Agent | null,
+    metrics: EnhancedAgentMetrics,
+    timeRange: { start: Date; end: Date }
+  ): string {
     const agentName = agent?.name || 'Agent';
-    const days = Math.ceil((timeRange.end.getTime() - timeRange.start.getTime()) / (24 * 60 * 60 * 1000));
+    const days = Math.ceil(
+      (timeRange.end.getTime() - timeRange.start.getTime()) / (24 * 60 * 60 * 1000)
+    );
 
     return `${agentName} Performance Summary (${days} days):
 - Total Activities: ${metrics.totalActivities}
@@ -559,7 +609,7 @@ export class AgentMetricsService {
       performanceScore: 0.25,
       learningProgress: 0.2,
       knowledgeUtilization: 0.15,
-      engagementLevel: 0.1
+      engagementLevel: 0.1,
     };
 
     const score =
@@ -577,27 +627,32 @@ export class AgentMetricsService {
     const responseTimeScore = Math.max(0, Math.min(1, (5000 - averageResponseTime) / 4000));
 
     // Combine success rate and response time
-    return (successRate * 0.7) + (responseTimeScore * 0.3);
+    return successRate * 0.7 + responseTimeScore * 0.3;
   }
 
-  private async calculateLearningProgress(agentId: string, timeRange: { start: Date; end: Date }): Promise<number> {
+  private async calculateLearningProgress(
+    agentId: string,
+    timeRange: { start: Date; end: Date }
+  ): Promise<number> {
     // Simplified learning progress calculation
     // In a real implementation, this would analyze learning records
     const activities = await this.databaseService.getAgentActivities(agentId, timeRange);
-    const learningActivities = activities.filter(a => a.type === 'learning' || a.type === 'training');
+    const learningActivities = activities.filter(
+      (a) => a.type === 'learning' || a.type === 'training'
+    );
 
     return Math.min(1, learningActivities.length / 10); // Normalize to 0-1
   }
 
   private calculateResponseTimeDistribution(activities: any[]): Record<string, number> {
     const distribution = {
-      'fast': 0,      // < 500ms
-      'normal': 0,    // 500ms - 2000ms
-      'slow': 0,      // 2000ms - 5000ms
-      'very_slow': 0  // > 5000ms
+      fast: 0, // < 500ms
+      normal: 0, // 500ms - 2000ms
+      slow: 0, // 2000ms - 5000ms
+      very_slow: 0, // > 5000ms
     };
 
-    activities.forEach(activity => {
+    activities.forEach((activity) => {
       const duration = activity.duration || 0;
       if (duration < 500) distribution.fast++;
       else if (duration < 2000) distribution.normal++;
@@ -611,7 +666,7 @@ export class AgentMetricsService {
   private calculateSuccessRateByCategory(activities: any[]): Record<string, number> {
     const categories: Record<string, { total: number; successful: number }> = {};
 
-    activities.forEach(activity => {
+    activities.forEach((activity) => {
       const category = activity.type || 'unknown';
       if (!categories[category]) {
         categories[category] = { total: 0, successful: 0 };
@@ -623,7 +678,7 @@ export class AgentMetricsService {
     });
 
     const successRates: Record<string, number> = {};
-    Object.keys(categories).forEach(category => {
+    Object.keys(categories).forEach((category) => {
       const { total, successful } = categories[category];
       successRates[category] = total > 0 ? successful / total : 0;
     });
@@ -631,22 +686,28 @@ export class AgentMetricsService {
     return successRates;
   }
 
-  private async calculateLearningEfficiency(agentId: string, timeRange: { start: Date; end: Date }): Promise<number> {
+  private async calculateLearningEfficiency(
+    agentId: string,
+    timeRange: { start: Date; end: Date }
+  ): Promise<number> {
     // Simplified learning efficiency calculation
     const learningRecords = await this.databaseService.getLearningRecords(agentId, timeRange);
     if (learningRecords.length === 0) return 0.5;
 
     const totalLearnings = learningRecords.length;
-    const successfulLearnings = learningRecords.filter(r => r.success).length;
+    const successfulLearnings = learningRecords.filter((r) => r.success).length;
 
     return successfulLearnings / totalLearnings;
   }
 
-  private async calculateKnowledgeUtilization(agentId: string, timeRange: { start: Date; end: Date }): Promise<number> {
+  private async calculateKnowledgeUtilization(
+    agentId: string,
+    timeRange: { start: Date; end: Date }
+  ): Promise<number> {
     // Simplified knowledge utilization calculation
     const activities = await this.databaseService.getAgentActivities(agentId, timeRange);
-    const knowledgeEnhancedActivities = activities.filter(a =>
-      a.metadata?.knowledgeUsed && a.metadata.knowledgeUsed > 0
+    const knowledgeEnhancedActivities = activities.filter(
+      (a) => a.metadata?.knowledgeUsed && a.metadata.knowledgeUsed > 0
     );
 
     return activities.length > 0 ? knowledgeEnhancedActivities.length / activities.length : 0;
@@ -682,7 +743,7 @@ export class AgentMetricsService {
         ...data,
         source: this.serviceName,
         securityLevel: this.securityLevel,
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
       });
     } catch (error) {
       logger.error('Failed to publish metrics event', { channel, error });
@@ -693,7 +754,7 @@ export class AgentMetricsService {
     await this.eventBusService.publish('agent.metrics.response', {
       requestId,
       ...response,
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
     });
   }
 
@@ -702,7 +763,7 @@ export class AgentMetricsService {
       ...data,
       service: this.serviceName,
       timestamp: new Date().toISOString(),
-      compliance: true
+      compliance: true,
     });
   }
 }

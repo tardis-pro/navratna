@@ -39,7 +39,7 @@ export class DatabaseSeeder {
       personas: false,
       agents: false,
       toolDefinitions: false,
-      projects: false
+      projects: false,
     };
 
     // Seed in dependency order, but continue even if individual seeders fail
@@ -118,11 +118,13 @@ export class DatabaseSeeder {
     // Report final results
     const successCount = Object.values(results).filter(Boolean).length;
     const totalCount = Object.keys(results).length;
-    
+
     if (successCount === totalCount) {
       console.log('✅ Database seeding completed successfully!');
     } else if (successCount > 0) {
-      console.log(`⚠️ Database seeding partially completed: ${successCount}/${totalCount} seeders succeeded`);
+      console.log(
+        `⚠️ Database seeding partially completed: ${successCount}/${totalCount} seeders succeeded`
+      );
       console.log('   Results:', results);
     } else {
       console.error('❌ Database seeding failed completely - no seeders succeeded');
@@ -199,7 +201,7 @@ export class DatabaseSeeder {
       try {
         await agentRepository.upsert(agentData, {
           conflictPaths: ['name'],
-          skipUpdateIfNoValuesChanged: true
+          skipUpdateIfNoValuesChanged: true,
         });
         console.log(`   ✅ Processed viral agent: ${agentData.name}`);
       } catch (error) {

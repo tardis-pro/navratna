@@ -129,4 +129,4 @@ export class Operation extends BaseEntity {
 
   @OneToMany('Artifact', 'operation')
   artifacts: any[];
-} 
+}

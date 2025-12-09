@@ -1,8 +1,8 @@
-import { 
+import {
   EventBusService,
   UserKnowledgeService,
   QdrantService,
-  EmbeddingService
+  EmbeddingService,
 } from '@uaip/shared-services';
 import { logger } from '@uaip/utils';
 import {
@@ -24,7 +24,7 @@ import {
   ConversationPattern,
   ConversationIntelligenceConfig,
   KnowledgeType,
-  SourceType
+  SourceType,
 } from '@uaip/types';
 
 export class ConversationIntelligenceService {
@@ -33,24 +33,24 @@ export class ConversationIntelligenceService {
       confidenceThreshold: 0.7,
       cacheEnabled: true,
       cacheTTL: 300000,
-      maxHistoryContext: 10
+      maxHistoryContext: 10,
     },
     topic: {
       minMessages: 3,
       maxTopicLength: 50,
-      updateFrequency: 'periodic'
+      updateFrequency: 'periodic',
     },
     suggestions: {
       count: 3,
       diversityWeight: 0.3,
-      personalizedWeight: 0.7
+      personalizedWeight: 0.7,
     },
     autocomplete: {
       minChars: 2,
       maxSuggestions: 5,
       debounceMs: 300,
-      sources: ['history', 'tools']
-    }
+      sources: ['history', 'tools'],
+    },
   };
 
   constructor(
@@ -119,21 +119,24 @@ export class ConversationIntelligenceService {
           filters: {
             must: [
               { key: 'type', match: { value: 'intent' } },
-              { key: 'userId', match: { value: userId } }
-            ]
-          }
+              { key: 'userId', match: { value: userId } },
+            ],
+          },
         });
       }
 
       // Use LLM for intent classification if no high-confidence match
       let intent: Intent;
-      if (similarIntents.length > 0 && similarIntents[0].score > this.config.intent.confidenceThreshold) {
+      if (
+        similarIntents.length > 0 &&
+        similarIntents[0].score > this.config.intent.confidenceThreshold
+      ) {
         // Use the matched intent
         intent = similarIntents[0].payload as Intent;
       } else {
         // Use event bus for LLM classification
         intent = await this.classifyIntentWithLLM(text, context);
-        
+
         // Store the new intent pattern
         if (inputEmbedding) {
           await this.storeIntentPattern(userId, text, intent, inputEmbedding);
@@ -160,8 +163,8 @@ export class ConversationIntelligenceService {
           agentId,
           intent,
           suggestions,
-          toolPreview
-        }
+          toolPreview,
+        },
       };
 
       await this.eventBus.publish(
@@ -171,7 +174,6 @@ export class ConversationIntelligenceService {
 
       // Store conversation memory
       await this.storeConversationMemory(userId, agentId, conversationId, text, intent);
-
     } catch (error) {
       logger.error('Failed to detect intent', { error, event });
     }
@@ -182,12 +184,14 @@ export class ConversationIntelligenceService {
 
     try {
       // Combine messages for analysis
-      const conversationText = messages
-        .map(m => `${m.role}: ${m.content}`)
-        .join('\n');
+      const conversationText = messages.map((m) => `${m.role}: ${m.content}`).join('\n');
 
       // Generate topic using event bus
-      let topicName = await this.generateTopicWithEventBus(conversationText, currentTopic, conversationId);
+      let topicName = await this.generateTopicWithEventBus(
+        conversationText,
+        currentTopic,
+        conversationId
+      );
 
       // Extract keywords
       const keywords = await this.extractKeywords(conversationText);
@@ -198,18 +202,20 @@ export class ConversationIntelligenceService {
           const topicEmbedding = await this.embeddingService.generateEmbedding(topicName);
 
           // Store topic in Qdrant for future similarity searches
-          await this.qdrantService.upsert([{
-            id: `topic:${conversationId}`,
-            content: topicName,
-            embedding: topicEmbedding,
-            metadata: {
-              type: 'topic',
-              conversationId,
-              topicName,
-              keywords,
-              timestamp: new Date()
-            }
-          }]);
+          await this.qdrantService.upsert([
+            {
+              id: `topic:${conversationId}`,
+              content: topicName,
+              embedding: topicEmbedding,
+              metadata: {
+                type: 'topic',
+                conversationId,
+                topicName,
+                keywords,
+                timestamp: new Date(),
+              },
+            },
+          ]);
         } catch (error) {
           logger.error('Failed to store topic embedding', { error, conversationId });
         }
@@ -223,21 +229,22 @@ export class ConversationIntelligenceService {
           topicName,
           keywords,
           summary: conversationText.substring(0, 200) + '...',
-          confidence: 0.85
-        }
+          confidence: 0.85,
+        },
       };
 
       await this.eventBus.publish(
         ConversationIntelligenceEventType.TOPIC_GENERATION_COMPLETED,
         completedEvent
       );
-
     } catch (error) {
       logger.error('Failed to generate topic', { error, event });
     }
   }
 
-  private async handlePromptSuggestionsRequest(event: PromptSuggestionsRequestedEvent): Promise<void> {
+  private async handlePromptSuggestionsRequest(
+    event: PromptSuggestionsRequestedEvent
+  ): Promise<void> {
     const { userId, agentId, conversationContext, count } = event.data;
 
     try {
@@ -262,9 +269,7 @@ export class ConversationIntelligenceService {
       let similarConversations = [];
       if (this.embeddingService && this.qdrantService) {
         try {
-          const contextText = conversationContext.recentMessages
-            .map(m => m.content)
-            .join(' ');
+          const contextText = conversationContext.recentMessages.map((m) => m.content).join(' ');
           const contextEmbedding = await this.embeddingService.generateEmbedding(contextText);
 
           similarConversations = await this.qdrantService.search(contextEmbedding, {
@@ -273,9 +278,9 @@ export class ConversationIntelligenceService {
             filters: {
               must: [
                 { key: 'type', match: { value: 'conversation' } },
-                { key: 'userId', match: { value: userId } }
-              ]
-            }
+                { key: 'userId', match: { value: userId } },
+              ],
+            },
           });
         } catch (error) {
           logger.error('Failed to search similar conversations', { error, userId });
@@ -298,21 +303,22 @@ export class ConversationIntelligenceService {
         data: {
           userId,
           agentId,
-          suggestions
-        }
+          suggestions,
+        },
       };
 
       await this.eventBus.publish(
         ConversationIntelligenceEventType.PROMPT_SUGGESTIONS_COMPLETED,
         completedEvent
       );
-
     } catch (error) {
       logger.error('Failed to generate prompt suggestions', { error, event });
     }
   }
 
-  private async handleAutocompleteQueryRequest(event: AutocompleteQueryRequestedEvent): Promise<void> {
+  private async handleAutocompleteQueryRequest(
+    event: AutocompleteQueryRequestedEvent
+  ): Promise<void> {
     const { userId, agentId, partial, context, limit } = event.data;
     const startTime = Date.now();
 
@@ -329,7 +335,7 @@ export class ConversationIntelligenceService {
         return; // Exit early, response will come through event bus
       } else {
         // Regular autocomplete suggestions
-        
+
         // Search in user's conversation history
         if (this.config.autocomplete.sources.includes('history')) {
           const historySuggestions = await this.searchConversationHistory(userId, partial, limit);
@@ -350,9 +356,7 @@ export class ConversationIntelligenceService {
       }
 
       // Sort by score and limit
-      const finalSuggestions = suggestions
-        .sort((a, b) => b.score - a.score)
-        .slice(0, limit);
+      const finalSuggestions = suggestions.sort((a, b) => b.score - a.score).slice(0, limit);
 
       // Publish ready event
       const readyEvent: AutocompleteSuggestionsReadyEvent = {
@@ -361,15 +365,14 @@ export class ConversationIntelligenceService {
           userId,
           agentId,
           suggestions: finalSuggestions,
-          queryTime: Date.now() - startTime
-        }
+          queryTime: Date.now() - startTime,
+        },
       };
 
       await this.eventBus.publish(
         ConversationIntelligenceEventType.AUTOCOMPLETE_SUGGESTIONS_READY,
         readyEvent
       );
-
     } catch (error) {
       logger.error('Failed to generate autocomplete suggestions', { error, event });
     }
@@ -400,13 +403,16 @@ Respond in JSON format:
 }`;
 
     try {
-      const response = await this.requestLLMGeneration(prompt, { maxTokens: 200, temperature: 0.1 });
+      const response = await this.requestLLMGeneration(prompt, {
+        maxTokens: 200,
+        temperature: 0.1,
+      });
       return JSON.parse(response) as Intent;
     } catch {
       return {
         category: IntentCategory.CONVERSATION,
         subType: IntentSubType.EXPLORATORY,
-        confidence: 0.5
+        confidence: 0.5,
       };
     }
   }
@@ -421,23 +427,23 @@ Respond in JSON format:
       [IntentSubType.EXECUTE_CODE]: {
         name: 'Code Executor',
         description: 'Execute code in a sandboxed environment',
-        estimatedDuration: 2000
+        estimatedDuration: 2000,
       },
       [IntentSubType.SEARCH_WEB]: {
         name: 'Web Search',
         description: 'Search the web for information',
-        estimatedDuration: 3000
+        estimatedDuration: 3000,
       },
       [IntentSubType.ANALYZE_DATA]: {
         name: 'Data Analyzer',
         description: 'Analyze and visualize data',
-        estimatedDuration: 5000
+        estimatedDuration: 5000,
       },
       [IntentSubType.CREATE_ARTIFACT]: {
         name: 'Artifact Creator',
         description: 'Generate documents, code, or other artifacts',
-        estimatedDuration: 10000
-      }
+        estimatedDuration: 10000,
+      },
     };
 
     const tool = toolMap[intent.subType];
@@ -446,7 +452,7 @@ Respond in JSON format:
     return {
       ...tool,
       parameters: intent.extractedParameters || {},
-      requiresConfirmation: true
+      requiresConfirmation: true,
     };
   }
 
@@ -461,18 +467,20 @@ Respond in JSON format:
     }
 
     try {
-      await this.qdrantService.upsert([{
-        id: `intent:${userId}:${Date.now()}`,
-        content: text,
-        embedding: embedding,
-        metadata: {
-          type: 'intent',
-          userId,
-          text,
-          intent,
-          timestamp: new Date()
-        }
-      }]);
+      await this.qdrantService.upsert([
+        {
+          id: `intent:${userId}:${Date.now()}`,
+          content: text,
+          embedding: embedding,
+          metadata: {
+            type: 'intent',
+            userId,
+            text,
+            intent,
+            timestamp: new Date(),
+          },
+        },
+      ]);
     } catch (error) {
       logger.error('Failed to store intent pattern', { error, userId, text });
     }
@@ -498,26 +506,30 @@ Respond in JSON format:
           userMessage,
           assistantResponse: '', // Will be filled later
           intent,
-          timestamp: new Date()
-        }
+          timestamp: new Date(),
+        },
       };
 
       // Store in user knowledge
-      await this.userKnowledgeService.addKnowledge(userId, [{
-        content: JSON.stringify(memory),
-        type: KnowledgeType.EPISODIC,
-        tags: ['conversation', 'memory', intent.category],
-        source: {
-          type: SourceType.AGENT_INTERACTION,
-          identifier: agentId
-        }
-      }]);
+      await this.userKnowledgeService.addKnowledge(userId, [
+        {
+          content: JSON.stringify(memory),
+          type: KnowledgeType.EPISODIC,
+          tags: ['conversation', 'memory', intent.category],
+          source: {
+            type: SourceType.AGENT_INTERACTION,
+            identifier: agentId,
+          },
+        },
+      ]);
 
       // Emit pattern detection event
-      await this.eventBus.publish(
-        ConversationIntelligenceEventType.CONVERSATION_MEMORY_STORED,
-        { userId, agentId, conversationId, memory }
-      );
+      await this.eventBus.publish(ConversationIntelligenceEventType.CONVERSATION_MEMORY_STORED, {
+        userId,
+        agentId,
+        conversationId,
+        memory,
+      });
     } catch (error) {
       logger.error('Failed to store conversation memory', { error, userId, agentId });
     }
@@ -535,7 +547,7 @@ Respond in JSON format:
         20
       );
 
-      return patterns.map(p => JSON.parse(p.content) as ConversationPattern);
+      return patterns.map((p) => JSON.parse(p.content) as ConversationPattern);
     } catch (error) {
       logger.error('Failed to get user conversation patterns', { error, userId });
       return [];
@@ -550,11 +562,17 @@ Prompt: Extract 3-5 key topics/keywords from this text: "${text}"
 Return as a JSON array of strings containing the most important concepts, themes, or topics.`;
 
     try {
-      const response = await this.requestLLMGeneration(prompt, { maxTokens: 100, temperature: 0.3 });
+      const response = await this.requestLLMGeneration(prompt, {
+        maxTokens: 100,
+        temperature: 0.3,
+      });
       return JSON.parse(response) as string[];
     } catch {
       // Simple fallback on error
-      const words = text.toLowerCase().split(/\s+/).filter(word => word.length > 3);
+      const words = text
+        .toLowerCase()
+        .split(/\s+/)
+        .filter((word) => word.length > 3);
       return words.slice(0, 5);
     }
   }
@@ -574,7 +592,7 @@ Prompt: Generate ${count} personalized prompt suggestions based on:
 
 Current context: ${JSON.stringify(context)}
 User patterns: ${JSON.stringify(patterns.slice(0, 3))}
-Similar past conversations: ${JSON.stringify(similarConversations.slice(0, 3).map(c => c.payload))}
+Similar past conversations: ${JSON.stringify(similarConversations.slice(0, 3).map((c) => c.payload))}
 
 Generate diverse, relevant prompts that the user is likely to ask next, considering their conversation patterns and current context.
 
@@ -588,7 +606,10 @@ Return as JSON array with format:
   "basedOn": ["history", "context", "capability"]
 }]`;
 
-      const response = await this.requestUserLLMGeneration(userId, prompt, { maxTokens: 500, temperature: 0.7 });
+      const response = await this.requestUserLLMGeneration(userId, prompt, {
+        maxTokens: 500,
+        temperature: 0.7,
+      });
       return JSON.parse(response) as PromptSuggestion[];
     } catch (error) {
       logger.error('Failed to generate personalized suggestions', { error, userId });
@@ -607,28 +628,28 @@ Return as JSON array with format:
 
     try {
       const embedding = await this.embeddingService.generateEmbedding(partial);
-      
+
       const results = await this.qdrantService.search(embedding, {
         limit: limit * 2,
         threshold: 0.3,
         filters: {
           must: [
             { key: 'type', match: { value: 'conversation' } },
-            { key: 'userId', match: { value: userId } }
-          ]
-        }
+            { key: 'userId', match: { value: userId } },
+          ],
+        },
       });
 
       return results
-        .filter(r => r.payload?.text?.toLowerCase().startsWith(partial.toLowerCase()))
-        .map(r => ({
+        .filter((r) => r.payload?.text?.toLowerCase().startsWith(partial.toLowerCase()))
+        .map((r) => ({
           text: r.payload.text,
           type: 'previous' as const,
           score: r.score,
           metadata: {
             lastUsed: new Date(r.payload.timestamp),
-            frequency: r.payload.frequency || 1
-          }
+            frequency: r.payload.frequency || 1,
+          },
         }))
         .slice(0, limit);
     } catch (error) {
@@ -637,31 +658,38 @@ Return as JSON array with format:
     }
   }
 
-  private async searchTools(agentId: string, partial: string, limit: number): Promise<AutocompleteSuggestion[]> {
+  private async searchTools(
+    agentId: string,
+    partial: string,
+    limit: number
+  ): Promise<AutocompleteSuggestion[]> {
     // This would integrate with the capability registry
     // For now, return mock data
     const tools = [
       { name: 'search', description: 'Search the web' },
       { name: 'execute', description: 'Execute code' },
       { name: 'analyze', description: 'Analyze data' },
-      { name: 'create', description: 'Create artifacts' }
+      { name: 'create', description: 'Create artifacts' },
     ];
 
     return tools
-      .filter(t => t.name.startsWith(partial.toLowerCase()))
-      .map(t => ({
+      .filter((t) => t.name.startsWith(partial.toLowerCase()))
+      .map((t) => ({
         text: `/${t.name}`,
         type: 'tool' as const,
         score: 0.8,
         metadata: {
           description: t.description,
-          icon: '🔧'
-        }
+          icon: '🔧',
+        },
       }))
       .slice(0, limit);
   }
 
-  private async searchCommonPatterns(partial: string, limit: number): Promise<AutocompleteSuggestion[]> {
+  private async searchCommonPatterns(
+    partial: string,
+    limit: number
+  ): Promise<AutocompleteSuggestion[]> {
     const commonPatterns = [
       'How do I',
       'Can you help me',
@@ -672,18 +700,18 @@ Return as JSON array with format:
       'Delete',
       'Find all',
       'Analyze',
-      'Generate'
+      'Generate',
     ];
 
     return commonPatterns
-      .filter(p => p.toLowerCase().startsWith(partial.toLowerCase()))
-      .map(p => ({
+      .filter((p) => p.toLowerCase().startsWith(partial.toLowerCase()))
+      .map((p) => ({
         text: p,
         type: 'common' as const,
         score: 0.6,
         metadata: {
-          description: 'Common pattern'
-        }
+          description: 'Common pattern',
+        },
       }))
       .slice(0, limit);
   }
@@ -700,8 +728,8 @@ Return as JSON array with format:
         userId,
         conversationId,
         agentId,
-        intent
-      }
+        intent,
+      },
     };
 
     await this.eventBus.publish(
@@ -710,7 +738,12 @@ Return as JSON array with format:
     );
   }
 
-  private async requestAIEnhancement(userId: string, partial: string, context: any, limit: number): Promise<void> {
+  private async requestAIEnhancement(
+    userId: string,
+    partial: string,
+    context: any,
+    limit: number
+  ): Promise<void> {
     // Publish event to LLM service for AI enhancement
     await this.eventBus.publish('llm.user.generate', {
       userId,
@@ -720,16 +753,20 @@ Return as JSON array with format:
         partial,
         limit,
         enhancementType: context.enhancementType || 'general',
-        prompt: this.buildEnhancementPrompt(context.enhancementType, partial, context)
-      }
+        prompt: this.buildEnhancementPrompt(context.enhancementType, partial, context),
+      },
     });
   }
 
-  private buildEnhancementPrompt(enhancementType: string, currentText: string, context: any): string {
+  private buildEnhancementPrompt(
+    enhancementType: string,
+    currentText: string,
+    context: any
+  ): string {
     const base = currentText || '';
     const purpose = context.purpose || 'general';
     const discussionType = context.discussionType || 'collaborative';
-    
+
     switch (enhancementType) {
       case 'topic':
         return `System Instructions: You are an expert discussion facilitator. Generate exactly 3 enhanced discussion topic suggestions that are engaging, specific, and actionable.
@@ -741,7 +778,7 @@ Prompt: Based on the input "${base}", create 3 improved discussion topics for a 
 - Appropriate for the intended purpose and discussion type
 
 Format as a simple list, one topic per line, without numbering or bullet points.`;
-      
+
       case 'context':
         return `System Instructions: You are an expert meeting planner and discussion facilitator. Your role is to enhance discussion context by adding structure, constraints, and focus areas.
 
@@ -754,7 +791,7 @@ Add relevant elements for a ${purpose} discussion:
 - Relevant considerations or prerequisites
 
 Keep the enhancement concise but comprehensive, maintaining the original intent while adding valuable structure.`;
-      
+
       default:
         return `System Instructions: You are an expert communication specialist. Your role is to improve text clarity, comprehensiveness, and actionability while preserving the original intent.
 
@@ -770,7 +807,11 @@ Maintain the original intent and tone while enhancing clarity and usefulness.`;
     }
   }
 
-  private async generateTopicWithEventBus(conversationText: string, currentTopic: string, conversationId: string): Promise<string> {
+  private async generateTopicWithEventBus(
+    conversationText: string,
+    currentTopic: string,
+    conversationId: string
+  ): Promise<string> {
     try {
       const prompt = `System Instructions: You are an expert conversation analyzer. Generate concise, descriptive topic names that capture the essence of discussions.
 
@@ -794,7 +835,7 @@ Generate a topic that captures the main theme and focus of the discussion. Keep 
   private async requestLLMGeneration(prompt: string, options: any): Promise<string> {
     return new Promise((resolve, reject) => {
       const correlationId = `llm_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-      
+
       const timeout = setTimeout(() => {
         reject(new Error('LLM request timeout'));
       }, 30000);
@@ -811,19 +852,23 @@ Generate a topic that captures the main theme and focus of the discussion. Keep 
       };
 
       this.eventBus.subscribe('llm.response', responseHandler);
-      
+
       this.eventBus.publish('llm.generate', {
         prompt,
         ...options,
-        correlationId
+        correlationId,
       });
     });
   }
 
-  private async requestUserLLMGeneration(userId: string, prompt: string, options: any): Promise<string> {
+  private async requestUserLLMGeneration(
+    userId: string,
+    prompt: string,
+    options: any
+  ): Promise<string> {
     return new Promise((resolve, reject) => {
       const correlationId = `user_llm_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-      
+
       const timeout = setTimeout(() => {
         reject(new Error('User LLM request timeout'));
       }, 30000);
@@ -840,12 +885,12 @@ Generate a topic that captures the main theme and focus of the discussion. Keep 
       };
 
       this.eventBus.subscribe('llm.user.response', responseHandler);
-      
+
       this.eventBus.publish('llm.user.generate', {
         userId,
         prompt,
         ...options,
-        correlationId
+        correlationId,
       });
     });
   }

@@ -18,7 +18,7 @@ export enum EventType {
   APPROVAL_GRANTED = 'approval.granted',
   APPROVAL_DENIED = 'approval.denied',
   USER_AUTHENTICATION = 'user.authentication',
-  AUDIT_EVENT_CREATED = 'audit.event.created'
+  AUDIT_EVENT_CREATED = 'audit.event.created',
 }
 
 // Base event schema
@@ -28,7 +28,7 @@ export const BaseEventSchema = z.object({
   timestamp: z.date(),
   source: z.string(),
   correlationId: IDSchema.optional(),
-  metadata: z.record(z.any()).optional()
+  metadata: z.record(z.any()).optional(),
 });
 
 export type BaseEvent = z.infer<typeof BaseEventSchema>;
@@ -40,8 +40,8 @@ export const AgentCreatedEventSchema = BaseEventSchema.extend({
     agentId: IDSchema,
     userId: IDSchema,
     name: z.string(),
-    capabilities: z.array(z.string())
-  })
+    capabilities: z.array(z.string()),
+  }),
 });
 
 export const AgentUpdatedEventSchema = BaseEventSchema.extend({
@@ -49,8 +49,8 @@ export const AgentUpdatedEventSchema = BaseEventSchema.extend({
   data: z.object({
     agentId: IDSchema,
     userId: IDSchema,
-    changes: z.record(z.any())
-  })
+    changes: z.record(z.any()),
+  }),
 });
 
 // Operation events
@@ -61,8 +61,8 @@ export const OperationStartedEventSchema = BaseEventSchema.extend({
     agentId: IDSchema,
     userId: IDSchema,
     operationType: z.string(),
-    context: z.record(z.any()).optional()
-  })
+    context: z.record(z.any()).optional(),
+  }),
 });
 
 export const OperationStepCompletedEventSchema = BaseEventSchema.extend({
@@ -73,8 +73,8 @@ export const OperationStepCompletedEventSchema = BaseEventSchema.extend({
     stepName: z.string(),
     result: z.any(),
     duration: z.number(),
-    success: z.boolean()
-  })
+    success: z.boolean(),
+  }),
 });
 
 export const OperationCompletedEventSchema = BaseEventSchema.extend({
@@ -85,8 +85,8 @@ export const OperationCompletedEventSchema = BaseEventSchema.extend({
     agentId: IDSchema.optional(),
     result: z.any(),
     duration: z.number(),
-    success: z.boolean()
-  })
+    success: z.boolean(),
+  }),
 });
 
 // Security events
@@ -97,8 +97,8 @@ export const SecurityValidationRequestedEventSchema = BaseEventSchema.extend({
     userId: IDSchema,
     agentId: IDSchema.optional(),
     requestType: z.string(),
-    resource: z.string()
-  })
+    resource: z.string(),
+  }),
 });
 
 // Approval events
@@ -108,8 +108,8 @@ export const ApprovalRequestedEventSchema = BaseEventSchema.extend({
     workflowId: IDSchema,
     operationId: IDSchema,
     requiredApprovers: z.array(IDSchema),
-    context: z.record(z.any()).optional()
-  })
+    context: z.record(z.any()).optional(),
+  }),
 });
 
 // Export all event types
@@ -120,7 +120,7 @@ export type OperationStepCompletedEvent = z.infer<typeof OperationStepCompletedE
 export type OperationCompletedEvent = z.infer<typeof OperationCompletedEventSchema>;
 export type ApprovalRequestedEvent = z.infer<typeof ApprovalRequestedEventSchema>;
 
-export type Event = 
+export type Event =
   | AgentCreatedEvent
   | AgentUpdatedEvent
   | OperationStartedEvent
@@ -148,4 +148,4 @@ export interface EventBus {
   publish(event: Event): Promise<void>;
   subscribe<T extends BaseEvent>(eventType: EventType, handler: EventHandler<T>): void;
   unsubscribe(eventType: EventType, handler: EventHandler): void;
-} 
+}

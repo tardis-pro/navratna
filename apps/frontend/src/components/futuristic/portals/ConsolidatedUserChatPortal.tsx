@@ -35,7 +35,7 @@ import {
   Eye,
   Target,
   Focus,
-  Command
+  Command,
 } from 'lucide-react';
 import { useAuth } from '../../../contexts/AuthContext';
 import { useAgents } from '../../../contexts/AgentContext';
@@ -46,7 +46,11 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Avatar } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { uaipAPI } from '../../../utils/uaip-api';
-import { chatPersistenceService, ChatSession, PersistentChatMessage } from '../../../services/ChatPersistenceService';
+import {
+  chatPersistenceService,
+  ChatSession,
+  PersistentChatMessage,
+} from '../../../services/ChatPersistenceService';
 import { SmartInputField } from '../../chat/SmartInputField';
 import { PromptSuggestions } from '../../chat/PromptSuggestions';
 import { ConversationTopicDisplay } from '../../chat/ConversationTopicDisplay';
@@ -121,17 +125,17 @@ interface ConsolidatedUserChatPortalProps {
   mode?: 'floating' | 'portal' | 'hybrid';
 }
 
-export const ConsolidatedUserChatPortal: React.FC<ConsolidatedUserChatPortalProps> = ({ 
+export const ConsolidatedUserChatPortal: React.FC<ConsolidatedUserChatPortalProps> = ({
   className,
-  mode = 'hybrid' 
+  mode = 'hybrid',
 }) => {
   const { user, isAuthenticated } = useAuth();
   const { agents } = useAgents();
-  const { 
-    isConnected: isWebSocketConnected, 
+  const {
+    isConnected: isWebSocketConnected,
     sendMessage: sendWebSocketMessage,
     lastEvent,
-    socket
+    socket,
   } = useEnhancedWebSocket();
 
   // State Management
@@ -141,33 +145,37 @@ export const ConsolidatedUserChatPortal: React.FC<ConsolidatedUserChatPortalProp
   const [messages, setMessages] = useState<{ [chatId: string]: ChatMessage[] }>({});
   const [currentMessage, setCurrentMessage] = useState<{ [windowId: string]: string }>({});
   const [searchTerm, setSearchTerm] = useState('');
-  const [viewMode, setViewMode] = useState<'floating' | 'portal'>(mode === 'portal' ? 'portal' : 'floating');
-  
+  const [viewMode, setViewMode] = useState<'floating' | 'portal'>(
+    mode === 'portal' ? 'portal' : 'floating'
+  );
+
   // User Discovery Modal
   const [showAddModal, setShowAddModal] = useState(false);
   const [availableUsers, setAvailableUsers] = useState<UserContact[]>([]);
   const [userSearchTerm, setUserSearchTerm] = useState('');
   const [isLoadingUsers, setIsLoadingUsers] = useState(false);
-  
+
   // Call Management
   const [activeCall, setActiveCall] = useState<ActiveCall | null>(null);
   const [isCallMuted, setIsCallMuted] = useState(false);
   const [isVideoEnabled, setIsVideoEnabled] = useState(true);
   const [isSpeakerEnabled, setIsSpeakerEnabled] = useState(true);
-  
+
   // Portal Mode State
   const [portalMessages, setPortalMessages] = useState<ChatMessage[]>([]);
   const [selectedContactId, setSelectedContactId] = useState<string>('');
-  const [conversationHistory, setConversationHistory] = useState<Array<{ content: string; sender: string; timestamp: string }>>([]);
+  const [conversationHistory, setConversationHistory] = useState<
+    Array<{ content: string; sender: string; timestamp: string }>
+  >([]);
   const [conversationTopics, setConversationTopics] = useState<{ [windowId: string]: string }>({});
   const [conversationIds, setConversationIds] = useState<{ [windowId: string]: string }>({});
-  
+
   // WebRTC Refs
   const localVideoRef = useRef<HTMLVideoElement>(null);
   const remoteVideoRef = useRef<HTMLVideoElement>(null);
   const peerConnectionRef = useRef<RTCPeerConnection | null>(null);
   const localStreamRef = useRef<MediaStream | null>(null);
-  
+
   // Refs for tracking
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const openContactWindows = useRef<Set<string>>(new Set());
@@ -175,7 +183,7 @@ export const ConsolidatedUserChatPortal: React.FC<ConsolidatedUserChatPortalProp
 
   // Agent list for easy access
   const agentList = Object.values(agents);
-  const selectedContact = contacts.find(contact => contact.id === selectedContactId);
+  const selectedContact = contacts.find((contact) => contact.id === selectedContactId);
 
   // Load contacts and agents from API
   useEffect(() => {
@@ -186,47 +194,50 @@ export const ConsolidatedUserChatPortal: React.FC<ConsolidatedUserChatPortalProp
         // Load user's contacts
         const contactsResponse = await fetch('/api/v1/contacts?status=ACCEPTED', {
           headers: {
-            'Authorization': `Bearer ${user.token}`,
-            'Content-Type': 'application/json'
-          }
+            Authorization: `Bearer ${user.token}`,
+            'Content-Type': 'application/json',
+          },
         });
 
         let userContacts: UserContact[] = [];
-        
+
         if (contactsResponse.ok) {
           const contactsData = await contactsResponse.json();
           userContacts = contactsData.data.contacts.map((contact: any) => ({
             id: contact.user.id,
             username: contact.user.email.split('@')[0],
             email: contact.user.email,
-            displayName: contact.user.displayName || `${contact.user.firstName || ''} ${contact.user.lastName || ''}`.trim() || contact.user.email.split('@')[0],
+            displayName:
+              contact.user.displayName ||
+              `${contact.user.firstName || ''} ${contact.user.lastName || ''}`.trim() ||
+              contact.user.email.split('@')[0],
             status: 'offline' as const,
             lastSeen: new Date(contact.acceptedAt || contact.createdAt),
-            isAgent: false
+            isAgent: false,
           }));
         }
 
         // Add agents as special contacts
-        const agentContacts: UserContact[] = agentList.map(agent => ({
+        const agentContacts: UserContact[] = agentList.map((agent) => ({
           id: agent.id,
           username: agent.name.toLowerCase().replace(/\s+/g, '_'),
           email: `${agent.name.toLowerCase().replace(/\s+/g, '.')}@agent.local`,
           displayName: agent.name,
           status: 'online' as const,
           isAgent: true,
-          agentCapabilities: agent.capabilities
+          agentCapabilities: agent.capabilities,
         }));
 
         // Combine user contacts and agent contacts
         const allContacts = [...userContacts, ...agentContacts];
-        
+
         // Update online status for user contacts
         try {
           const onlineResponse = await fetch('/api/v1/presence/online', {
             headers: {
-              'Authorization': `Bearer ${user.token}`,
-              'Content-Type': 'application/json'
-            }
+              Authorization: `Bearer ${user.token}`,
+              'Content-Type': 'application/json',
+            },
           });
 
           if (onlineResponse.ok) {
@@ -235,7 +246,11 @@ export const ConsolidatedUserChatPortal: React.FC<ConsolidatedUserChatPortalProp
 
             const updatedContacts = allContacts.map((contact: UserContact) => ({
               ...contact,
-              status: contact.isAgent ? 'online' as const : (onlineUserIds.has(contact.id) ? 'online' as const : 'offline' as const)
+              status: contact.isAgent
+                ? ('online' as const)
+                : onlineUserIds.has(contact.id)
+                  ? ('online' as const)
+                  : ('offline' as const),
             }));
 
             setContacts(updatedContacts);
@@ -250,9 +265,9 @@ export const ConsolidatedUserChatPortal: React.FC<ConsolidatedUserChatPortalProp
         if (userContacts.length === 0) {
           const publicResponse = await fetch('/api/v1/users/public?limit=10', {
             headers: {
-              'Authorization': `Bearer ${user.token}`,
-              'Content-Type': 'application/json'
-            }
+              Authorization: `Bearer ${user.token}`,
+              'Content-Type': 'application/json',
+            },
           });
 
           if (publicResponse.ok) {
@@ -264,23 +279,23 @@ export const ConsolidatedUserChatPortal: React.FC<ConsolidatedUserChatPortalProp
               displayName: user.displayName,
               status: 'offline' as const,
               lastSeen: new Date(),
-              isAgent: false
+              isAgent: false,
             }));
 
-            setContacts(prev => [...prev, ...publicUsers]);
+            setContacts((prev) => [...prev, ...publicUsers]);
           }
         }
       } catch (error) {
         console.error('Error loading contacts:', error);
         // Fallback to agents only
-        const agentContacts: UserContact[] = agentList.map(agent => ({
+        const agentContacts: UserContact[] = agentList.map((agent) => ({
           id: agent.id,
           username: agent.name.toLowerCase().replace(/\s+/g, '_'),
           email: `${agent.name.toLowerCase().replace(/\s+/g, '.')}@agent.local`,
           displayName: agent.name,
           status: 'online' as const,
           isAgent: true,
-          agentCapabilities: agent.capabilities
+          agentCapabilities: agent.capabilities,
         }));
         setContacts(agentContacts);
       }
@@ -302,7 +317,7 @@ export const ConsolidatedUserChatPortal: React.FC<ConsolidatedUserChatPortalProp
       setPortalMessages([]);
       setConversationHistory([]);
       const portalConversationId = `portal-${selectedContactId}-${Date.now()}`;
-      setConversationIds(prev => ({ ...prev, portal: portalConversationId }));
+      setConversationIds((prev) => ({ ...prev, portal: portalConversationId }));
     }
   }, [selectedContactId, viewMode]);
 
@@ -317,32 +332,39 @@ export const ConsolidatedUserChatPortal: React.FC<ConsolidatedUserChatPortalProp
         sender: data.sender,
         senderName: data.senderName,
         timestamp: data.timestamp,
-        status: 'delivered'
+        status: 'delivered',
       };
 
       // Update appropriate chat window or portal
       if (viewMode === 'portal' && data.senderId === selectedContactId) {
-        setPortalMessages(prev => [...prev, message]);
+        setPortalMessages((prev) => [...prev, message]);
       } else {
         // Update floating windows
-        setChatWindows(prev => 
-          prev.map(w => 
-            w.contactId === data.senderId 
-              ? { ...w, messages: [...w.messages, message] }
-              : w
+        setChatWindows((prev) =>
+          prev.map((w) =>
+            w.contactId === data.senderId ? { ...w, messages: [...w.messages, message] } : w
           )
         );
       }
     };
 
     const handleAgentResponse = (data: any) => {
-      const { agentId, response, agentName, confidence, memoryEnhanced, knowledgeUsed, toolsExecuted, messageId } = data;
-      
+      const {
+        agentId,
+        response,
+        agentName,
+        confidence,
+        memoryEnhanced,
+        knowledgeUsed,
+        toolsExecuted,
+        messageId,
+      } = data;
+
       // Prevent duplicate processing
       if (messageId && processedMessageIds.current.has(messageId)) {
         return;
       }
-      
+
       if (messageId) {
         processedMessageIds.current.add(messageId);
       }
@@ -359,19 +381,22 @@ export const ConsolidatedUserChatPortal: React.FC<ConsolidatedUserChatPortalProp
         memoryEnhanced,
         knowledgeUsed,
         toolsExecuted,
-        status: 'delivered'
+        status: 'delivered',
       };
 
       // Update portal if agent matches selected contact
       if (viewMode === 'portal' && agentId === selectedContactId) {
-        setPortalMessages(prev => [...prev, agentMessage]);
-        setConversationHistory(prev => [...prev, { content: response, sender: agentName, timestamp: new Date().toISOString() }]);
+        setPortalMessages((prev) => [...prev, agentMessage]);
+        setConversationHistory((prev) => [
+          ...prev,
+          { content: response, sender: agentName, timestamp: new Date().toISOString() },
+        ]);
       }
 
       // Update floating windows
-      setChatWindows(prev => 
-        prev.map(w => 
-          w.contactId === agentId 
+      setChatWindows((prev) =>
+        prev.map((w) =>
+          w.contactId === agentId
             ? { ...w, messages: [...w.messages, agentMessage], isLoading: false }
             : w
         )
@@ -409,7 +434,7 @@ export const ConsolidatedUserChatPortal: React.FC<ConsolidatedUserChatPortalProp
   // WebRTC Functions
   const handleWebRTCSignaling = async (event: any) => {
     const { type, data } = event;
-    
+
     if (!peerConnectionRef.current) {
       await initializePeerConnection();
     }
@@ -423,14 +448,14 @@ export const ConsolidatedUserChatPortal: React.FC<ConsolidatedUserChatPortalProp
         await pc.setLocalDescription(answer);
         sendWebSocketMessage('call_answer', {
           targetUser: data.callerId,
-          answer
+          answer,
         });
         break;
-        
+
       case 'call_answer':
         await pc.setRemoteDescription(new RTCSessionDescription(data.answer));
         break;
-        
+
       case 'ice_candidate':
         await pc.addIceCandidate(new RTCIceCandidate(data.candidate));
         break;
@@ -441,8 +466,8 @@ export const ConsolidatedUserChatPortal: React.FC<ConsolidatedUserChatPortalProp
     const configuration = {
       iceServers: [
         { urls: 'stun:stun.l.google.com:19302' },
-        { urls: 'stun:stun1.l.google.com:19302' }
-      ]
+        { urls: 'stun:stun1.l.google.com:19302' },
+      ],
     };
 
     const pc = new RTCPeerConnection(configuration);
@@ -451,8 +476,8 @@ export const ConsolidatedUserChatPortal: React.FC<ConsolidatedUserChatPortalProp
     pc.onicecandidate = (event) => {
       if (event.candidate && activeCall) {
         sendWebSocketMessage('ice_candidate', {
-          targetUser: activeCall.participants.find(p => p !== user?.id),
-          candidate: event.candidate
+          targetUser: activeCall.participants.find((p) => p !== user?.id),
+          candidate: event.candidate,
         });
       }
     };
@@ -465,17 +490,17 @@ export const ConsolidatedUserChatPortal: React.FC<ConsolidatedUserChatPortalProp
   };
 
   const startVoiceCall = async (contactId: string) => {
-    const contact = contacts.find(c => c.id === contactId);
+    const contact = contacts.find((c) => c.id === contactId);
     if (!contact) return;
 
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
       localStreamRef.current = stream;
-      
+
       await initializePeerConnection();
       const pc = peerConnectionRef.current!;
-      
-      stream.getTracks().forEach(track => {
+
+      stream.getTracks().forEach((track) => {
         pc.addTrack(track, stream);
       });
 
@@ -488,7 +513,7 @@ export const ConsolidatedUserChatPortal: React.FC<ConsolidatedUserChatPortalProp
         type: 'voice',
         status: 'ringing',
         startTime: new Date(),
-        contactName: contact.displayName
+        contactName: contact.displayName,
       };
 
       setActiveCall(call);
@@ -496,7 +521,7 @@ export const ConsolidatedUserChatPortal: React.FC<ConsolidatedUserChatPortalProp
       sendWebSocketMessage('call_offer', {
         targetUser: contactId,
         offer,
-        callType: 'voice'
+        callType: 'voice',
       });
     } catch (error) {
       console.error('Failed to start voice call:', error);
@@ -504,21 +529,21 @@ export const ConsolidatedUserChatPortal: React.FC<ConsolidatedUserChatPortalProp
   };
 
   const startVideoCall = async (contactId: string) => {
-    const contact = contacts.find(c => c.id === contactId);
+    const contact = contacts.find((c) => c.id === contactId);
     if (!contact) return;
 
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: true });
       localStreamRef.current = stream;
-      
+
       if (localVideoRef.current) {
         localVideoRef.current.srcObject = stream;
       }
-      
+
       await initializePeerConnection();
       const pc = peerConnectionRef.current!;
-      
-      stream.getTracks().forEach(track => {
+
+      stream.getTracks().forEach((track) => {
         pc.addTrack(track, stream);
       });
 
@@ -531,7 +556,7 @@ export const ConsolidatedUserChatPortal: React.FC<ConsolidatedUserChatPortalProp
         type: 'video',
         status: 'ringing',
         startTime: new Date(),
-        contactName: contact.displayName
+        contactName: contact.displayName,
       };
 
       setActiveCall(call);
@@ -539,7 +564,7 @@ export const ConsolidatedUserChatPortal: React.FC<ConsolidatedUserChatPortalProp
       sendWebSocketMessage('call_offer', {
         targetUser: contactId,
         offer,
-        callType: 'video'
+        callType: 'video',
       });
     } catch (error) {
       console.error('Failed to start video call:', error);
@@ -548,7 +573,7 @@ export const ConsolidatedUserChatPortal: React.FC<ConsolidatedUserChatPortalProp
 
   const endCall = () => {
     if (localStreamRef.current) {
-      localStreamRef.current.getTracks().forEach(track => track.stop());
+      localStreamRef.current.getTracks().forEach((track) => track.stop());
       localStreamRef.current = null;
     }
 
@@ -559,8 +584,8 @@ export const ConsolidatedUserChatPortal: React.FC<ConsolidatedUserChatPortalProp
 
     if (activeCall) {
       sendWebSocketMessage('call_end', {
-        targetUser: activeCall.participants.find(p => p !== user?.id),
-        callId: activeCall.id
+        targetUser: activeCall.participants.find((p) => p !== user?.id),
+        callId: activeCall.id,
       });
     }
 
@@ -590,79 +615,86 @@ export const ConsolidatedUserChatPortal: React.FC<ConsolidatedUserChatPortalProp
   };
 
   // Chat Functions
-  const openChatWindow = useCallback(async (contactId: string, contactName: string) => {
-    const contact = contacts.find(c => c.id === contactId);
-    if (!contact) return;
+  const openChatWindow = useCallback(
+    async (contactId: string, contactName: string) => {
+      const contact = contacts.find((c) => c.id === contactId);
+      if (!contact) return;
 
-    // Check if chat window already exists
-    if (openContactWindows.current.has(contactId)) {
-      setChatWindows(prev =>
-        prev.map(w => w.contactId === contactId ? { ...w, isMinimized: false } : w)
-      );
-      return;
-    }
-
-    try {
-      let sessionId: string | undefined;
-      let messages: ChatMessage[] = [];
-
-      // For agent chats, create persistent session
-      if (contact.isAgent) {
-        const session = await chatPersistenceService.createChatSession(contactId, contactName, true);
-        sessionId = session.id;
-        
-        const existingMessages = await chatPersistenceService.getMessages(session.id);
-        messages = existingMessages.map(msg => ({
-          id: msg.id,
-          content: msg.content,
-          sender: msg.sender,
-          senderName: msg.senderName,
-          timestamp: msg.timestamp,
-          agentId: msg.agentId,
-          messageType: msg.messageType,
-          confidence: msg.confidence,
-          memoryEnhanced: msg.memoryEnhanced,
-          knowledgeUsed: msg.knowledgeUsed,
-          toolsExecuted: msg.toolsExecuted,
-          metadata: msg.metadata,
-          status: 'delivered'
-        }));
+      // Check if chat window already exists
+      if (openContactWindows.current.has(contactId)) {
+        setChatWindows((prev) =>
+          prev.map((w) => (w.contactId === contactId ? { ...w, isMinimized: false } : w))
+        );
+        return;
       }
 
-      const newWindow: ChatWindow = {
-        id: `chat-${Date.now()}-${contactId}`,
-        contactId,
-        contactName,
-        sessionId,
-        messages,
-        isMinimized: false,
-        isLoading: false,
-        error: null,
-        hasLoadedHistory: true,
-        totalMessages: messages.length,
-        canLoadMore: messages.length >= 50,
-        isPersistent: contact.isAgent,
-        isAgentChat: contact.isAgent,
-        agentId: contact.isAgent ? contactId : undefined
-      };
+      try {
+        let sessionId: string | undefined;
+        let messages: ChatMessage[] = [];
 
-      openContactWindows.current.add(contactId);
-      setChatWindows(prev => [...prev, newWindow]);
-      setCurrentMessage(prev => ({ ...prev, [newWindow.id]: '' }));
-    } catch (error) {
-      console.error('Failed to open chat window:', error);
-    }
-  }, [contacts]);
+        // For agent chats, create persistent session
+        if (contact.isAgent) {
+          const session = await chatPersistenceService.createChatSession(
+            contactId,
+            contactName,
+            true
+          );
+          sessionId = session.id;
+
+          const existingMessages = await chatPersistenceService.getMessages(session.id);
+          messages = existingMessages.map((msg) => ({
+            id: msg.id,
+            content: msg.content,
+            sender: msg.sender,
+            senderName: msg.senderName,
+            timestamp: msg.timestamp,
+            agentId: msg.agentId,
+            messageType: msg.messageType,
+            confidence: msg.confidence,
+            memoryEnhanced: msg.memoryEnhanced,
+            knowledgeUsed: msg.knowledgeUsed,
+            toolsExecuted: msg.toolsExecuted,
+            metadata: msg.metadata,
+            status: 'delivered',
+          }));
+        }
+
+        const newWindow: ChatWindow = {
+          id: `chat-${Date.now()}-${contactId}`,
+          contactId,
+          contactName,
+          sessionId,
+          messages,
+          isMinimized: false,
+          isLoading: false,
+          error: null,
+          hasLoadedHistory: true,
+          totalMessages: messages.length,
+          canLoadMore: messages.length >= 50,
+          isPersistent: contact.isAgent,
+          isAgentChat: contact.isAgent,
+          agentId: contact.isAgent ? contactId : undefined,
+        };
+
+        openContactWindows.current.add(contactId);
+        setChatWindows((prev) => [...prev, newWindow]);
+        setCurrentMessage((prev) => ({ ...prev, [newWindow.id]: '' }));
+      } catch (error) {
+        console.error('Failed to open chat window:', error);
+      }
+    },
+    [contacts]
+  );
 
   const closeChatWindow = useCallback((windowId: string) => {
-    setChatWindows(prev => {
-      const windowToClose = prev.find(w => w.id === windowId);
+    setChatWindows((prev) => {
+      const windowToClose = prev.find((w) => w.id === windowId);
       if (windowToClose) {
         openContactWindows.current.delete(windowToClose.contactId);
       }
-      return prev.filter(w => w.id !== windowId);
+      return prev.filter((w) => w.id !== windowId);
     });
-    setCurrentMessage(prev => {
+    setCurrentMessage((prev) => {
       const newMessages = { ...prev };
       delete newMessages[windowId];
       return newMessages;
@@ -670,210 +702,234 @@ export const ConsolidatedUserChatPortal: React.FC<ConsolidatedUserChatPortalProp
   }, []);
 
   const minimizeChatWindow = useCallback((windowId: string) => {
-    setChatWindows(prev =>
-      prev.map(w => w.id === windowId ? { ...w, isMinimized: !w.isMinimized } : w)
+    setChatWindows((prev) =>
+      prev.map((w) => (w.id === windowId ? { ...w, isMinimized: !w.isMinimized } : w))
     );
   }, []);
 
-  const sendFloatingMessage = useCallback(async (windowId: string) => {
-    const window = chatWindows.find(w => w.id === windowId);
-    const messageText = currentMessage[windowId]?.trim();
+  const sendFloatingMessage = useCallback(
+    async (windowId: string) => {
+      const window = chatWindows.find((w) => w.id === windowId);
+      const messageText = currentMessage[windowId]?.trim();
 
-    if (!window || !messageText || window.isLoading) return;
+      if (!window || !messageText || window.isLoading) return;
 
-    const contact = contacts.find(c => c.id === window.contactId);
-    if (!contact) return;
+      const contact = contacts.find((c) => c.id === window.contactId);
+      if (!contact) return;
 
-    const userMessage: ChatMessage = {
-      id: `msg-${Date.now()}`,
-      content: messageText,
-      sender: 'user',
-      senderName: 'You',
-      timestamp: new Date().toISOString(),
-      messageType: MessageType.MESSAGE,
-      status: 'sending'
-    };
-
-    setChatWindows(prev =>
-      prev.map(w => w.id === windowId ? {
-        ...w,
-        messages: [...w.messages, userMessage],
-        isLoading: contact.isAgent,
-        error: null
-      } : w)
-    );
-
-    setCurrentMessage(prev => ({ ...prev, [windowId]: '' }));
-
-    try {
-      if (contact.isAgent) {
-        // Send to agent
-        if (isWebSocketConnected) {
-          sendWebSocketMessage('agent_chat', {
-            agentId: contact.id,
-            message: messageText,
-            conversationHistory: window.messages.slice(-10).map(m => ({
-              content: m.content,
-              sender: m.sender === 'user' ? 'user' : m.senderName,
-              timestamp: m.timestamp
-            })),
-            messageId: `msg-${Date.now()}`,
-            timestamp: new Date().toISOString()
-          });
-        } else {
-          // Fallback to API
-          const response = await uaipAPI.client.agents.chat(contact.id, {
-            message: messageText,
-            conversationHistory: window.messages.slice(-10).map(m => ({
-              content: m.content,
-              sender: m.sender === 'user' ? 'user' : m.senderName,
-              timestamp: m.timestamp
-            }))
-          });
-
-          if (response.success && response.data) {
-            const agentMessage: ChatMessage = {
-              id: `msg-${Date.now()}-agent`,
-              content: response.data.response,
-              sender: 'agent',
-              senderName: response.data.agentName || contact.displayName,
-              timestamp: new Date().toISOString(),
-              messageType: MessageType.MESSAGE,
-              confidence: response.data.confidence,
-              memoryEnhanced: response.data.memoryEnhanced,
-              knowledgeUsed: response.data.knowledgeUsed,
-              toolsExecuted: response.data.toolsExecuted,
-              agentId: contact.id,
-              status: 'delivered'
-            };
-
-            setChatWindows(prev =>
-              prev.map(w => w.id === windowId ? {
-                ...w,
-                messages: [...w.messages, agentMessage],
-                isLoading: false
-              } : w)
-            );
-          }
-        }
-      } else {
-        // Send to user
-        sendWebSocketMessage('user_message', {
-          targetUser: contact.id,
-          message: userMessage
-        });
-      }
-    } catch (error) {
-      console.error('Chat error:', error);
-      setChatWindows(prev =>
-        prev.map(w => w.id === windowId ? {
-          ...w,
-          isLoading: false,
-          error: 'Failed to send message'
-        } : w)
-      );
-    }
-  }, [chatWindows, currentMessage, contacts, isWebSocketConnected, sendWebSocketMessage]);
-
-  const sendPortalMessage = useCallback(async (messageText: string) => {
-    if (!messageText?.trim() || !selectedContactId) return;
-
-    const contact = contacts.find(c => c.id === selectedContactId);
-    if (!contact) return;
-
-    const userMessage: ChatMessage = {
-      id: `msg-${Date.now()}`,
-      content: messageText,
-      sender: 'user',
-      senderName: 'You',
-      timestamp: new Date().toISOString(),
-      messageType: MessageType.MESSAGE,
-      status: 'sending'
-    };
-
-    setPortalMessages(prev => [...prev, userMessage]);
-    setConversationHistory(prev => [...prev, { content: messageText, sender: 'user', timestamp: new Date().toISOString() }]);
-
-    try {
-      if (contact.isAgent) {
-        // Send to agent
-        if (isWebSocketConnected) {
-          sendWebSocketMessage('agent_chat', {
-            agentId: contact.id,
-            message: messageText,
-            conversationHistory: conversationHistory.slice(-10),
-            messageId: `msg-${Date.now()}`,
-            timestamp: new Date().toISOString()
-          });
-        } else {
-          // Fallback to API
-          const response = await uaipAPI.client.agents.chat(contact.id, {
-            message: messageText,
-            conversationHistory: conversationHistory.slice(-10)
-          });
-
-          if (response.success && response.data) {
-            const agentMessage: ChatMessage = {
-              id: `msg-${Date.now()}-agent`,
-              content: response.data.response,
-              sender: 'agent',
-              senderName: response.data.agentName || contact.displayName,
-              timestamp: new Date().toISOString(),
-              messageType: MessageType.MESSAGE,
-              confidence: response.data.confidence,
-              memoryEnhanced: response.data.memoryEnhanced,
-              knowledgeUsed: response.data.knowledgeUsed,
-              toolsExecuted: response.data.toolsExecuted,
-              status: 'delivered'
-            };
-
-            setPortalMessages(prev => [...prev, agentMessage]);
-            setConversationHistory(prev => [...prev, { 
-              content: response.data.response, 
-              sender: 'agent', 
-              timestamp: new Date().toISOString() 
-            }]);
-          }
-        }
-      } else {
-        // Send to user
-        sendWebSocketMessage('user_message', {
-          targetUser: contact.id,
-          message: userMessage
-        });
-      }
-    } catch (error) {
-      console.error('Portal chat error:', error);
-      const errorMessage: ChatMessage = {
-        id: `msg-${Date.now()}-error`,
-        content: 'Sorry, I encountered an error. Please try again.',
-        sender: 'system',
-        senderName: 'System',
+      const userMessage: ChatMessage = {
+        id: `msg-${Date.now()}`,
+        content: messageText,
+        sender: 'user',
+        senderName: 'You',
         timestamp: new Date().toISOString(),
         messageType: MessageType.MESSAGE,
-        status: 'failed'
+        status: 'sending',
       };
-      setPortalMessages(prev => [...prev, errorMessage]);
-    }
-  }, [selectedContactId, contacts, conversationHistory, isWebSocketConnected, sendWebSocketMessage]);
+
+      setChatWindows((prev) =>
+        prev.map((w) =>
+          w.id === windowId
+            ? {
+                ...w,
+                messages: [...w.messages, userMessage],
+                isLoading: contact.isAgent,
+                error: null,
+              }
+            : w
+        )
+      );
+
+      setCurrentMessage((prev) => ({ ...prev, [windowId]: '' }));
+
+      try {
+        if (contact.isAgent) {
+          // Send to agent
+          if (isWebSocketConnected) {
+            sendWebSocketMessage('agent_chat', {
+              agentId: contact.id,
+              message: messageText,
+              conversationHistory: window.messages.slice(-10).map((m) => ({
+                content: m.content,
+                sender: m.sender === 'user' ? 'user' : m.senderName,
+                timestamp: m.timestamp,
+              })),
+              messageId: `msg-${Date.now()}`,
+              timestamp: new Date().toISOString(),
+            });
+          } else {
+            // Fallback to API
+            const response = await uaipAPI.client.agents.chat(contact.id, {
+              message: messageText,
+              conversationHistory: window.messages.slice(-10).map((m) => ({
+                content: m.content,
+                sender: m.sender === 'user' ? 'user' : m.senderName,
+                timestamp: m.timestamp,
+              })),
+            });
+
+            if (response.success && response.data) {
+              const agentMessage: ChatMessage = {
+                id: `msg-${Date.now()}-agent`,
+                content: response.data.response,
+                sender: 'agent',
+                senderName: response.data.agentName || contact.displayName,
+                timestamp: new Date().toISOString(),
+                messageType: MessageType.MESSAGE,
+                confidence: response.data.confidence,
+                memoryEnhanced: response.data.memoryEnhanced,
+                knowledgeUsed: response.data.knowledgeUsed,
+                toolsExecuted: response.data.toolsExecuted,
+                agentId: contact.id,
+                status: 'delivered',
+              };
+
+              setChatWindows((prev) =>
+                prev.map((w) =>
+                  w.id === windowId
+                    ? {
+                        ...w,
+                        messages: [...w.messages, agentMessage],
+                        isLoading: false,
+                      }
+                    : w
+                )
+              );
+            }
+          }
+        } else {
+          // Send to user
+          sendWebSocketMessage('user_message', {
+            targetUser: contact.id,
+            message: userMessage,
+          });
+        }
+      } catch (error) {
+        console.error('Chat error:', error);
+        setChatWindows((prev) =>
+          prev.map((w) =>
+            w.id === windowId
+              ? {
+                  ...w,
+                  isLoading: false,
+                  error: 'Failed to send message',
+                }
+              : w
+          )
+        );
+      }
+    },
+    [chatWindows, currentMessage, contacts, isWebSocketConnected, sendWebSocketMessage]
+  );
+
+  const sendPortalMessage = useCallback(
+    async (messageText: string) => {
+      if (!messageText?.trim() || !selectedContactId) return;
+
+      const contact = contacts.find((c) => c.id === selectedContactId);
+      if (!contact) return;
+
+      const userMessage: ChatMessage = {
+        id: `msg-${Date.now()}`,
+        content: messageText,
+        sender: 'user',
+        senderName: 'You',
+        timestamp: new Date().toISOString(),
+        messageType: MessageType.MESSAGE,
+        status: 'sending',
+      };
+
+      setPortalMessages((prev) => [...prev, userMessage]);
+      setConversationHistory((prev) => [
+        ...prev,
+        { content: messageText, sender: 'user', timestamp: new Date().toISOString() },
+      ]);
+
+      try {
+        if (contact.isAgent) {
+          // Send to agent
+          if (isWebSocketConnected) {
+            sendWebSocketMessage('agent_chat', {
+              agentId: contact.id,
+              message: messageText,
+              conversationHistory: conversationHistory.slice(-10),
+              messageId: `msg-${Date.now()}`,
+              timestamp: new Date().toISOString(),
+            });
+          } else {
+            // Fallback to API
+            const response = await uaipAPI.client.agents.chat(contact.id, {
+              message: messageText,
+              conversationHistory: conversationHistory.slice(-10),
+            });
+
+            if (response.success && response.data) {
+              const agentMessage: ChatMessage = {
+                id: `msg-${Date.now()}-agent`,
+                content: response.data.response,
+                sender: 'agent',
+                senderName: response.data.agentName || contact.displayName,
+                timestamp: new Date().toISOString(),
+                messageType: MessageType.MESSAGE,
+                confidence: response.data.confidence,
+                memoryEnhanced: response.data.memoryEnhanced,
+                knowledgeUsed: response.data.knowledgeUsed,
+                toolsExecuted: response.data.toolsExecuted,
+                status: 'delivered',
+              };
+
+              setPortalMessages((prev) => [...prev, agentMessage]);
+              setConversationHistory((prev) => [
+                ...prev,
+                {
+                  content: response.data.response,
+                  sender: 'agent',
+                  timestamp: new Date().toISOString(),
+                },
+              ]);
+            }
+          }
+        } else {
+          // Send to user
+          sendWebSocketMessage('user_message', {
+            targetUser: contact.id,
+            message: userMessage,
+          });
+        }
+      } catch (error) {
+        console.error('Portal chat error:', error);
+        const errorMessage: ChatMessage = {
+          id: `msg-${Date.now()}-error`,
+          content: 'Sorry, I encountered an error. Please try again.',
+          sender: 'system',
+          senderName: 'System',
+          timestamp: new Date().toISOString(),
+          messageType: MessageType.MESSAGE,
+          status: 'failed',
+        };
+        setPortalMessages((prev) => [...prev, errorMessage]);
+      }
+    },
+    [selectedContactId, contacts, conversationHistory, isWebSocketConnected, sendWebSocketMessage]
+  );
 
   // Load available users for adding
   const loadAvailableUsers = async () => {
     if (!user) return;
-    
+
     setIsLoadingUsers(true);
     try {
       const response = await fetch(`/api/v1/users/public?limit=50&search=${userSearchTerm}`, {
         headers: {
-          'Authorization': `Bearer ${user.token}`,
-          'Content-Type': 'application/json'
-        }
+          Authorization: `Bearer ${user.token}`,
+          'Content-Type': 'application/json',
+        },
       });
 
       if (response.ok) {
         const data = await response.json();
-        const existingContactIds = new Set(contacts.filter(c => !c.isAgent).map(c => c.id));
-        
+        const existingContactIds = new Set(contacts.filter((c) => !c.isAgent).map((c) => c.id));
+
         const availableUsers = data.data.users
           .filter((u: any) => u.id !== user.id && !existingContactIds.has(u.id))
           .map((u: any) => ({
@@ -883,9 +939,9 @@ export const ConsolidatedUserChatPortal: React.FC<ConsolidatedUserChatPortalProp
             displayName: u.displayName,
             status: 'offline' as const,
             lastSeen: new Date(),
-            isAgent: false
+            isAgent: false,
           }));
-        
+
         setAvailableUsers(availableUsers);
       }
     } catch (error) {
@@ -897,23 +953,23 @@ export const ConsolidatedUserChatPortal: React.FC<ConsolidatedUserChatPortalProp
 
   const sendConnectionRequest = async (targetUserId: string) => {
     if (!user) return;
-    
+
     try {
       const response = await fetch('/api/v1/contacts/request', {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${user.token}`,
-          'Content-Type': 'application/json'
+          Authorization: `Bearer ${user.token}`,
+          'Content-Type': 'application/json',
         },
         body: JSON.stringify({
           targetUserId: targetUserId,
           type: 'FRIEND',
-          message: 'Would like to add you as a connection'
-        })
+          message: 'Would like to add you as a connection',
+        }),
       });
 
       if (response.ok) {
-        setAvailableUsers(prev => prev.filter(u => u.id !== targetUserId));
+        setAvailableUsers((prev) => prev.filter((u) => u.id !== targetUserId));
       } else {
         const errorData = await response.json();
         console.error('Failed to send connection request:', errorData.message);
@@ -929,23 +985,29 @@ export const ConsolidatedUserChatPortal: React.FC<ConsolidatedUserChatPortalProp
   }, [portalMessages]);
 
   // Filter contacts based on search
-  const filteredContacts = contacts.filter(contact =>
-    contact.displayName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    contact.username.toLowerCase().includes(searchTerm.toLowerCase())
+  const filteredContacts = contacts.filter(
+    (contact) =>
+      contact.displayName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      contact.username.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   // Filter available users
-  const filteredAvailableUsers = availableUsers.filter(user =>
-    user.displayName.toLowerCase().includes(userSearchTerm.toLowerCase()) ||
-    user.username.toLowerCase().includes(userSearchTerm.toLowerCase())
+  const filteredAvailableUsers = availableUsers.filter(
+    (user) =>
+      user.displayName.toLowerCase().includes(userSearchTerm.toLowerCase()) ||
+      user.username.toLowerCase().includes(userSearchTerm.toLowerCase())
   );
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'online': return 'bg-green-400';
-      case 'busy': return 'bg-red-400';
-      case 'away': return 'bg-yellow-400';
-      default: return 'bg-gray-400';
+      case 'online':
+        return 'bg-green-400';
+      case 'busy':
+        return 'bg-red-400';
+      case 'away':
+        return 'bg-yellow-400';
+      default:
+        return 'bg-gray-400';
     }
   };
 
@@ -984,7 +1046,7 @@ export const ConsolidatedUserChatPortal: React.FC<ConsolidatedUserChatPortalProp
             exit={{ opacity: 0, y: 100, scale: 0.8 }}
             style={{
               transform: `translateX(${-index * 20}px) translateY(${-index * 20}px)`,
-              zIndex: 50 + index
+              zIndex: 50 + index,
             }}
           >
             {/* Window Header */}
@@ -992,7 +1054,14 @@ export const ConsolidatedUserChatPortal: React.FC<ConsolidatedUserChatPortalProp
               <div className="flex items-center space-x-3">
                 <Avatar className="w-8 h-8 bg-gradient-to-br from-cyan-500 to-blue-600">
                   <div className="w-full h-full flex items-center justify-center text-white font-semibold">
-                    {window.isAgentChat ? <Bot className="w-4 h-4" /> : window.contactName.split(' ').map(n => n[0]).join('')}
+                    {window.isAgentChat ? (
+                      <Bot className="w-4 h-4" />
+                    ) : (
+                      window.contactName
+                        .split(' ')
+                        .map((n) => n[0])
+                        .join('')
+                    )}
                   </div>
                 </Avatar>
                 <div>
@@ -1029,12 +1098,17 @@ export const ConsolidatedUserChatPortal: React.FC<ConsolidatedUserChatPortalProp
                     </div>
                   ) : (
                     window.messages.map((msg) => (
-                      <div key={msg.id} className={`flex ${msg.sender === 'user' ? 'justify-end' : 'justify-start'}`}>
-                        <div className={`max-w-[80%] px-3 py-2 rounded-xl text-sm ${
-                          msg.sender === 'user' 
-                            ? 'bg-gradient-to-r from-cyan-600 to-blue-600 text-white' 
-                            : 'bg-slate-700/50 text-slate-200'
-                        }`}>
+                      <div
+                        key={msg.id}
+                        className={`flex ${msg.sender === 'user' ? 'justify-end' : 'justify-start'}`}
+                      >
+                        <div
+                          className={`max-w-[80%] px-3 py-2 rounded-xl text-sm ${
+                            msg.sender === 'user'
+                              ? 'bg-gradient-to-r from-cyan-600 to-blue-600 text-white'
+                              : 'bg-slate-700/50 text-slate-200'
+                          }`}
+                        >
                           <p className="leading-relaxed">{msg.content}</p>
                           {msg.sender === 'agent' && (
                             <div className="flex items-center gap-2 mt-2 text-xs text-slate-400">
@@ -1080,7 +1154,9 @@ export const ConsolidatedUserChatPortal: React.FC<ConsolidatedUserChatPortalProp
                     <Input
                       id={`chat-input-${window.id}`}
                       value={currentMessage[window.id] || ''}
-                      onChange={(e) => setCurrentMessage(prev => ({ ...prev, [window.id]: e.target.value }))}
+                      onChange={(e) =>
+                        setCurrentMessage((prev) => ({ ...prev, [window.id]: e.target.value }))
+                      }
                       onKeyPress={(e) => {
                         if (e.key === 'Enter' && !e.shiftKey) {
                           e.preventDefault();
@@ -1126,18 +1202,16 @@ export const ConsolidatedUserChatPortal: React.FC<ConsolidatedUserChatPortalProp
               <MessageSquare className="w-6 h-6 text-white" />
             </motion.div>
             <div>
-              <h2 className="text-2xl font-bold text-white">
-                Communication Hub
-              </h2>
-              <p className="text-sm text-slate-400">
-                Connect with users and AI agents
-              </p>
+              <h2 className="text-2xl font-bold text-white">Communication Hub</h2>
+              <p className="text-sm text-slate-400">Connect with users and AI agents</p>
             </div>
           </div>
-          
+
           <div className="flex items-center space-x-2">
             <div className="flex items-center space-x-2">
-              <div className={`w-3 h-3 rounded-full ${isWebSocketConnected ? 'bg-emerald-400' : 'bg-red-400'}`} />
+              <div
+                className={`w-3 h-3 rounded-full ${isWebSocketConnected ? 'bg-emerald-400' : 'bg-red-400'}`}
+              />
               <span className="text-xs text-slate-400">
                 {isWebSocketConnected ? 'Connected' : 'Disconnected'}
               </span>
@@ -1199,14 +1273,14 @@ export const ConsolidatedUserChatPortal: React.FC<ConsolidatedUserChatPortalProp
               </Button>
             </div>
           </div>
-          
+
           <div className="flex-1 overflow-y-auto">
             {filteredContacts.map((contact) => (
               <motion.div
                 key={contact.id}
                 className={`p-4 border-b border-slate-700/30 cursor-pointer transition-all ${
-                  selectedContactId === contact.id 
-                    ? 'bg-gradient-to-r from-cyan-900/30 to-blue-900/30 border-l-4 border-l-cyan-400' 
+                  selectedContactId === contact.id
+                    ? 'bg-gradient-to-r from-cyan-900/30 to-blue-900/30 border-l-4 border-l-cyan-400'
                     : 'hover:bg-slate-800/30'
                 }`}
                 onClick={() => setSelectedContactId(contact.id)}
@@ -1216,12 +1290,21 @@ export const ConsolidatedUserChatPortal: React.FC<ConsolidatedUserChatPortalProp
                   <div className="relative">
                     <Avatar className="w-10 h-10 bg-gradient-to-br from-cyan-500 to-blue-600">
                       <div className="w-full h-full flex items-center justify-center text-white font-semibold">
-                        {contact.isAgent ? <Bot className="w-5 h-5" /> : contact.displayName.split(' ').map(n => n[0]).join('')}
+                        {contact.isAgent ? (
+                          <Bot className="w-5 h-5" />
+                        ) : (
+                          contact.displayName
+                            .split(' ')
+                            .map((n) => n[0])
+                            .join('')
+                        )}
                       </div>
                     </Avatar>
-                    <div className={`absolute -bottom-1 -right-1 w-4 h-4 rounded-full border-2 border-slate-800 ${getStatusColor(contact.status)}`} />
+                    <div
+                      className={`absolute -bottom-1 -right-1 w-4 h-4 rounded-full border-2 border-slate-800 ${getStatusColor(contact.status)}`}
+                    />
                   </div>
-                  
+
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-semibold text-white truncate">
                       {contact.displayName}
@@ -1230,7 +1313,7 @@ export const ConsolidatedUserChatPortal: React.FC<ConsolidatedUserChatPortalProp
                       {contact.isAgent ? 'AI Agent' : `@${contact.username}`}
                     </p>
                   </div>
-                  
+
                   <div className="flex items-center space-x-1">
                     <button
                       onClick={(e) => {
@@ -1280,7 +1363,14 @@ export const ConsolidatedUserChatPortal: React.FC<ConsolidatedUserChatPortalProp
                   <div className="flex items-center space-x-3">
                     <Avatar className="w-10 h-10 bg-gradient-to-br from-cyan-500 to-blue-600">
                       <div className="w-full h-full flex items-center justify-center text-white font-semibold">
-                        {selectedContact.isAgent ? <Bot className="w-5 h-5" /> : selectedContact.displayName.split(' ').map(n => n[0]).join('')}
+                        {selectedContact.isAgent ? (
+                          <Bot className="w-5 h-5" />
+                        ) : (
+                          selectedContact.displayName
+                            .split(' ')
+                            .map((n) => n[0])
+                            .join('')
+                        )}
                       </div>
                     </Avatar>
                     <div>
@@ -1290,7 +1380,7 @@ export const ConsolidatedUserChatPortal: React.FC<ConsolidatedUserChatPortalProp
                       </p>
                     </div>
                   </div>
-                  
+
                   <div className="flex items-center space-x-2">
                     <button
                       onClick={() => startVoiceCall(selectedContact.id)}
@@ -1305,7 +1395,9 @@ export const ConsolidatedUserChatPortal: React.FC<ConsolidatedUserChatPortalProp
                       <Video className="w-5 h-5" />
                     </button>
                     <button
-                      onClick={() => openChatWindow(selectedContact.id, selectedContact.displayName)}
+                      onClick={() =>
+                        openChatWindow(selectedContact.id, selectedContact.displayName)
+                      }
                       className="p-2 text-slate-400 hover:text-cyan-400 hover:bg-cyan-500/20 rounded transition-all"
                     >
                       <Plus className="w-5 h-5" />
@@ -1367,7 +1459,10 @@ export const ConsolidatedUserChatPortal: React.FC<ConsolidatedUserChatPortalProp
                           </div>
                         )}
                         <p className="text-xs opacity-75 mt-1">
-                          {new Date(message.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                          {new Date(message.timestamp).toLocaleTimeString([], {
+                            hour: '2-digit',
+                            minute: '2-digit',
+                          })}
                         </p>
                       </div>
                     </motion.div>
@@ -1393,12 +1488,8 @@ export const ConsolidatedUserChatPortal: React.FC<ConsolidatedUserChatPortalProp
             <div className="flex-1 flex items-center justify-center">
               <div className="text-center">
                 <Users className="w-16 h-16 mx-auto mb-4 text-slate-600" />
-                <h3 className="text-xl font-semibold text-white mb-2">
-                  Select a Contact
-                </h3>
-                <p className="text-slate-400">
-                  Choose a contact from the list to start chatting
-                </p>
+                <h3 className="text-xl font-semibold text-white mb-2">Select a Contact</h3>
+                <p className="text-slate-400">Choose a contact from the list to start chatting</p>
               </div>
             </div>
           )}
@@ -1425,7 +1516,10 @@ export const ConsolidatedUserChatPortal: React.FC<ConsolidatedUserChatPortalProp
 
               {/* Video Streams */}
               {activeCall.type === 'video' && (
-                <div className="relative mb-6 bg-slate-900 rounded-xl overflow-hidden" style={{ aspectRatio: '16/9' }}>
+                <div
+                  className="relative mb-6 bg-slate-900 rounded-xl overflow-hidden"
+                  style={{ aspectRatio: '16/9' }}
+                >
                   <video
                     ref={remoteVideoRef}
                     autoPlay
@@ -1447,8 +1541,8 @@ export const ConsolidatedUserChatPortal: React.FC<ConsolidatedUserChatPortalProp
                 <button
                   onClick={toggleMute}
                   className={`p-3 rounded-full transition-all ${
-                    isCallMuted 
-                      ? 'bg-red-500 hover:bg-red-600 text-white' 
+                    isCallMuted
+                      ? 'bg-red-500 hover:bg-red-600 text-white'
                       : 'bg-slate-700 hover:bg-slate-600 text-slate-300'
                   }`}
                 >
@@ -1459,24 +1553,32 @@ export const ConsolidatedUserChatPortal: React.FC<ConsolidatedUserChatPortalProp
                   <button
                     onClick={toggleVideo}
                     className={`p-3 rounded-full transition-all ${
-                      !isVideoEnabled 
-                        ? 'bg-red-500 hover:bg-red-600 text-white' 
+                      !isVideoEnabled
+                        ? 'bg-red-500 hover:bg-red-600 text-white'
                         : 'bg-slate-700 hover:bg-slate-600 text-slate-300'
                     }`}
                   >
-                    {isVideoEnabled ? <Video className="w-6 h-6" /> : <VideoOff className="w-6 h-6" />}
+                    {isVideoEnabled ? (
+                      <Video className="w-6 h-6" />
+                    ) : (
+                      <VideoOff className="w-6 h-6" />
+                    )}
                   </button>
                 )}
 
                 <button
                   onClick={() => setIsSpeakerEnabled(!isSpeakerEnabled)}
                   className={`p-3 rounded-full transition-all ${
-                    isSpeakerEnabled 
-                      ? 'bg-slate-700 hover:bg-slate-600 text-slate-300' 
+                    isSpeakerEnabled
+                      ? 'bg-slate-700 hover:bg-slate-600 text-slate-300'
                       : 'bg-slate-600 hover:bg-slate-500 text-slate-400'
                   }`}
                 >
-                  {isSpeakerEnabled ? <Volume2 className="w-6 h-6" /> : <VolumeX className="w-6 h-6" />}
+                  {isSpeakerEnabled ? (
+                    <Volume2 className="w-6 h-6" />
+                  ) : (
+                    <VolumeX className="w-6 h-6" />
+                  )}
                 </button>
 
                 <button
@@ -1568,7 +1670,10 @@ export const ConsolidatedUserChatPortal: React.FC<ConsolidatedUserChatPortalProp
                         <div className="flex items-center space-x-3">
                           <Avatar className="w-10 h-10 bg-gradient-to-br from-cyan-500 to-blue-600">
                             <div className="w-full h-full flex items-center justify-center text-white font-semibold">
-                              {user.displayName.split(' ').map(n => n[0]).join('')}
+                              {user.displayName
+                                .split(' ')
+                                .map((n) => n[0])
+                                .join('')}
                             </div>
                           </Avatar>
                           <div>
@@ -1592,7 +1697,9 @@ export const ConsolidatedUserChatPortal: React.FC<ConsolidatedUserChatPortalProp
                     <div className="text-center">
                       <Users className="w-12 h-12 mx-auto mb-4 text-slate-600" />
                       <p className="text-slate-400">
-                        {userSearchTerm ? 'No users found matching your search' : 'Enter a search term to find users'}
+                        {userSearchTerm
+                          ? 'No users found matching your search'
+                          : 'Enter a search term to find users'}
                       </p>
                     </div>
                   </div>

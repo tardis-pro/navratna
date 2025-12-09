@@ -52,7 +52,9 @@ export class AuditRepository extends BaseRepository<AuditEvent> {
     }
 
     if (filters.eventTypes && filters.eventTypes.length > 0) {
-      queryBuilder.andWhere('event.eventType = ANY(:eventTypes)', { eventTypes: filters.eventTypes });
+      queryBuilder.andWhere('event.eventType = ANY(:eventTypes)', {
+        eventTypes: filters.eventTypes,
+      });
     }
 
     if (filters.userId) {
@@ -64,7 +66,9 @@ export class AuditRepository extends BaseRepository<AuditEvent> {
     }
 
     if (filters.resourceType) {
-      queryBuilder.andWhere('event.resourceType = :resourceType', { resourceType: filters.resourceType });
+      queryBuilder.andWhere('event.resourceType = :resourceType', {
+        resourceType: filters.resourceType,
+      });
     }
 
     if (filters.resourceId) {
@@ -120,10 +124,10 @@ export class AuditRepository extends BaseRepository<AuditEvent> {
     }
 
     if (detailsFilter) {
-      Object.keys(detailsFilter).forEach(key => {
+      Object.keys(detailsFilter).forEach((key) => {
         queryBuilder.andWhere(`event.details ->> :key = :value`, {
           key,
-          value: detailsFilter[key]
+          value: detailsFilter[key],
         });
       });
     }
@@ -134,7 +138,11 @@ export class AuditRepository extends BaseRepository<AuditEvent> {
   /**
    * Get audit events for date range (for reports, excludes archived events by default)
    */
-  public async getAuditEventsInRange(startDate: Date, endDate: Date, includeArchived: boolean = false): Promise<AuditEvent[]> {
+  public async getAuditEventsInRange(
+    startDate: Date,
+    endDate: Date,
+    includeArchived: boolean = false
+  ): Promise<AuditEvent[]> {
     const queryBuilder = this.repository
       .createQueryBuilder('event')
       .where('event.timestamp >= :startDate', { startDate })
@@ -144,9 +152,7 @@ export class AuditRepository extends BaseRepository<AuditEvent> {
       queryBuilder.andWhere('event.isArchived = :isArchived', { isArchived: false });
     }
 
-    return await queryBuilder
-      .orderBy('event.timestamp', 'DESC')
-      .getMany();
+    return await queryBuilder.orderBy('event.timestamp', 'DESC').getMany();
   }
 
   /**
@@ -156,10 +162,10 @@ export class AuditRepository extends BaseRepository<AuditEvent> {
     const result = await this.repository
       .createQueryBuilder()
       .update()
-      .set({ 
-        isArchived: true, 
+      .set({
+        isArchived: true,
         archivedAt: new Date(),
-        updatedAt: new Date()
+        updatedAt: new Date(),
       })
       .where('timestamp < :compressionDate', { compressionDate })
       .andWhere('isArchived = :isArchived', { isArchived: false })
@@ -201,7 +207,9 @@ export class AuditRepository extends BaseRepository<AuditEvent> {
     queryBuilder.where('event.isArchived = :isArchived', { isArchived: false });
 
     if (filters.eventTypes && filters.eventTypes.length > 0) {
-      queryBuilder.andWhere('event.eventType = ANY(:eventTypes)', { eventTypes: filters.eventTypes });
+      queryBuilder.andWhere('event.eventType = ANY(:eventTypes)', {
+        eventTypes: filters.eventTypes,
+      });
     }
 
     if (filters.userId) {
@@ -213,7 +221,9 @@ export class AuditRepository extends BaseRepository<AuditEvent> {
     }
 
     if (filters.resourceType) {
-      queryBuilder.andWhere('event.resourceType = :resourceType', { resourceType: filters.resourceType });
+      queryBuilder.andWhere('event.resourceType = :resourceType', {
+        resourceType: filters.resourceType,
+      });
     }
 
     if (filters.resourceId) {
@@ -260,7 +270,8 @@ export class AuditRepository extends BaseRepository<AuditEvent> {
     limit?: number;
     offset?: number;
   }): Promise<{ logs: any[]; total: number }> {
-    const queryBuilder = this.repository.createQueryBuilder('event')
+    const queryBuilder = this.repository
+      .createQueryBuilder('event')
       .leftJoinAndSelect('event.user', 'user')
       .select([
         'event.id',
@@ -270,7 +281,7 @@ export class AuditRepository extends BaseRepository<AuditEvent> {
         'event.ipAddress',
         'event.userAgent',
         'event.timestamp',
-        'user.email'
+        'user.email',
       ]);
 
     // Exclude archived events by default
@@ -329,7 +340,8 @@ export class AuditRepository extends BaseRepository<AuditEvent> {
    * Get audit log by ID with user details
    */
   public async getAuditLogById(logId: string): Promise<any | null> {
-    const log = await this.repository.createQueryBuilder('event')
+    const log = await this.repository
+      .createQueryBuilder('event')
       .leftJoinAndSelect('event.user', 'user')
       .select([
         'event.id',
@@ -340,7 +352,7 @@ export class AuditRepository extends BaseRepository<AuditEvent> {
         'event.userAgent',
         'event.timestamp',
         'user.email',
-        'user.role'
+        'user.role',
       ])
       .where('event.id = :logId', { logId })
       .andWhere('event.isArchived = :isArchived', { isArchived: false })
@@ -353,7 +365,8 @@ export class AuditRepository extends BaseRepository<AuditEvent> {
    * Get distinct event types with counts
    */
   public async getAuditEventTypes(): Promise<Array<{ eventType: AuditEventType; count: number }>> {
-    const result = await this.repository.createQueryBuilder('event')
+    const result = await this.repository
+      .createQueryBuilder('event')
       .select('event.eventType', 'eventType')
       .addSelect('COUNT(*)', 'count')
       .where('event.isArchived = :isArchived', { isArchived: false })
@@ -362,9 +375,9 @@ export class AuditRepository extends BaseRepository<AuditEvent> {
       .addOrderBy('event.eventType', 'ASC')
       .getRawMany();
 
-    return result.map(row => ({
+    return result.map((row) => ({
       eventType: row.eventType,
-      count: parseInt(row.count)
+      count: parseInt(row.count),
     }));
   }
 
@@ -372,7 +385,12 @@ export class AuditRepository extends BaseRepository<AuditEvent> {
    * Get audit statistics for a time period
    */
   public async getAuditStatistics(timeframe: '1h' | '24h' | '7d' | '30d' = '24h'): Promise<{
-    eventTypes: Array<{ eventType: AuditEventType; count: number; uniqueUsers: number; uniqueIPs: number }>;
+    eventTypes: Array<{
+      eventType: AuditEventType;
+      count: number;
+      uniqueUsers: number;
+      uniqueIPs: number;
+    }>;
     hourlyDistribution: Array<{ hour: number; count: number }>;
     topUsers: Array<{ userId: string; email: string; eventCount: number }>;
     topIPAddresses: Array<{ ipAddress: string; eventCount: number; uniqueUsers: number }>;
@@ -399,7 +417,8 @@ export class AuditRepository extends BaseRepository<AuditEvent> {
     }
 
     // Get event type statistics
-    const eventTypeStats = await this.repository.createQueryBuilder('event')
+    const eventTypeStats = await this.repository
+      .createQueryBuilder('event')
       .select('event.eventType', 'eventType')
       .addSelect('COUNT(*)', 'count')
       .addSelect('COUNT(DISTINCT event.userId)', 'uniqueUsers')
@@ -411,7 +430,8 @@ export class AuditRepository extends BaseRepository<AuditEvent> {
       .getRawMany();
 
     // Get hourly distribution
-    const hourlyStats = await this.repository.createQueryBuilder('event')
+    const hourlyStats = await this.repository
+      .createQueryBuilder('event')
       .select('EXTRACT(HOUR FROM event.timestamp)', 'hour')
       .addSelect('COUNT(*)', 'count')
       .where('event.timestamp >= :timeThreshold', { timeThreshold })
@@ -421,7 +441,8 @@ export class AuditRepository extends BaseRepository<AuditEvent> {
       .getRawMany();
 
     // Get top users
-    const topUsers = await this.repository.createQueryBuilder('event')
+    const topUsers = await this.repository
+      .createQueryBuilder('event')
       .leftJoin('event.user', 'user')
       .select('event.userId', 'userId')
       .addSelect('user.email', 'email')
@@ -435,7 +456,8 @@ export class AuditRepository extends BaseRepository<AuditEvent> {
       .getRawMany();
 
     // Get top IP addresses
-    const topIPs = await this.repository.createQueryBuilder('event')
+    const topIPs = await this.repository
+      .createQueryBuilder('event')
       .select('event.ipAddress', 'ipAddress')
       .addSelect('COUNT(*)', 'eventCount')
       .addSelect('COUNT(DISTINCT event.userId)', 'uniqueUsers')
@@ -449,35 +471,35 @@ export class AuditRepository extends BaseRepository<AuditEvent> {
 
     // Calculate summary
     const totalEvents = eventTypeStats.reduce((sum, row) => sum + parseInt(row.count), 0);
-    const uniqueUsers = new Set(topUsers.map(row => row.userId)).size;
-    const uniqueIPs = new Set(topIPs.map(row => row.ipAddress)).size;
+    const uniqueUsers = new Set(topUsers.map((row) => row.userId)).size;
+    const uniqueIPs = new Set(topIPs.map((row) => row.ipAddress)).size;
 
     return {
-      eventTypes: eventTypeStats.map(row => ({
+      eventTypes: eventTypeStats.map((row) => ({
         eventType: row.eventType,
         count: parseInt(row.count),
         uniqueUsers: parseInt(row.uniqueUsers),
-        uniqueIPs: parseInt(row.uniqueIPs)
+        uniqueIPs: parseInt(row.uniqueIPs),
       })),
-      hourlyDistribution: hourlyStats.map(row => ({
+      hourlyDistribution: hourlyStats.map((row) => ({
         hour: parseInt(row.hour),
-        count: parseInt(row.count)
+        count: parseInt(row.count),
       })),
-      topUsers: topUsers.map(row => ({
+      topUsers: topUsers.map((row) => ({
         userId: row.userId,
         email: row.email,
-        eventCount: parseInt(row.eventCount)
+        eventCount: parseInt(row.eventCount),
       })),
-      topIPAddresses: topIPs.map(row => ({
+      topIPAddresses: topIPs.map((row) => ({
         ipAddress: row.ipAddress,
         eventCount: parseInt(row.eventCount),
-        uniqueUsers: parseInt(row.uniqueUsers)
+        uniqueUsers: parseInt(row.uniqueUsers),
       })),
       summary: {
         totalEvents,
         uniqueUsers,
-        uniqueIPs
-      }
+        uniqueIPs,
+      },
     };
   }
 
@@ -492,7 +514,8 @@ export class AuditRepository extends BaseRepository<AuditEvent> {
     limit?: number;
     offset?: number;
   }): Promise<{ activities: any[]; total: number }> {
-    const queryBuilder = this.repository.createQueryBuilder('event')
+    const queryBuilder = this.repository
+      .createQueryBuilder('event')
       .leftJoin('event.user', 'user')
       .select([
         'event.id',
@@ -502,7 +525,7 @@ export class AuditRepository extends BaseRepository<AuditEvent> {
         'event.userAgent',
         'event.timestamp',
         'user.email',
-        'user.role'
+        'user.role',
       ])
       .where('event.userId = :userId', { userId: filters.userId })
       .andWhere('event.isArchived = :isArchived', { isArchived: false });
@@ -537,4 +560,4 @@ export class AuditRepository extends BaseRepository<AuditEvent> {
 
     return { activities, total };
   }
-} 
+}

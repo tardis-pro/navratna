@@ -48,7 +48,7 @@ export const DesktopIcon: React.FC<DesktopIconProps> = ({
   onClick,
   onDoubleClick,
   viewport,
-  className = ''
+  className = '',
 }) => {
   const [isHovered, setIsHovered] = useState(false);
   const [isPressed, setIsPressed] = useState(false);
@@ -57,9 +57,13 @@ export const DesktopIcon: React.FC<DesktopIconProps> = ({
 
   // Calculate responsive sizes
   const iconSize = Math.max(size * 0.4, 18);
-  const fontSize = viewport.isMobile ?
-    (viewport.width < 400 ? '9px' : '10px') :
-    viewport.isTablet ? '11px' : '12px';
+  const fontSize = viewport.isMobile
+    ? viewport.width < 400
+      ? '9px'
+      : '10px'
+    : viewport.isTablet
+      ? '11px'
+      : '12px';
   const borderRadius = Math.max(size * 0.2, 8);
   const labelMaxWidth = size + (viewport.isMobile ? 10 : 20);
 
@@ -94,26 +98,26 @@ export const DesktopIcon: React.FC<DesktopIconProps> = ({
       scale: 1,
       y: 0,
       rotateX: 0,
-      boxShadow: `0 4px 12px rgba(0, 0, 0, 0.15)`
+      boxShadow: `0 4px 12px rgba(0, 0, 0, 0.15)`,
     },
     hover: {
       scale: 1.05,
       y: -2,
       rotateX: 5,
-      boxShadow: `0 8px 24px rgba(0, 0, 0, 0.2)`
+      boxShadow: `0 8px 24px rgba(0, 0, 0, 0.2)`,
     },
     pressed: {
       scale: 0.95,
       y: 0,
       rotateX: 0,
-      boxShadow: `0 2px 8px rgba(0, 0, 0, 0.1)`
+      boxShadow: `0 2px 8px rgba(0, 0, 0, 0.1)`,
     },
     active: {
       scale: 1.02,
       y: -1,
       rotateX: 2,
-      boxShadow: `0 6px 20px rgba(59, 130, 246, 0.3)`
-    }
+      boxShadow: `0 6px 20px rgba(59, 130, 246, 0.3)`,
+    },
   };
 
   const getAnimationState = () => {
@@ -132,10 +136,10 @@ export const DesktopIcon: React.FC<DesktopIconProps> = ({
         variants={iconVariants}
         animate={getAnimationState()}
         transition={{
-          type: "spring",
+          type: 'spring',
           stiffness: 300,
           damping: 20,
-          duration: 0.2
+          duration: 0.2,
         }}
         onClick={handleClick}
         onDoubleClick={handleDoubleClick}
@@ -173,7 +177,7 @@ export const DesktopIcon: React.FC<DesktopIconProps> = ({
                 : '1px solid rgba(255, 255, 255, 0.1)',
             boxShadow: isActive
               ? `0 0 20px ${config.color.primary}30, inset 0 1px 0 rgba(255, 255, 255, 0.1)`
-              : 'inset 0 1px 0 rgba(255, 255, 255, 0.1)'
+              : 'inset 0 1px 0 rgba(255, 255, 255, 0.1)',
           }}
         >
           {/* Subtle Glow Effect */}
@@ -181,10 +185,10 @@ export const DesktopIcon: React.FC<DesktopIconProps> = ({
             className="absolute inset-0 rounded-2xl"
             style={{
               background: `radial-gradient(circle at center, ${config.color.primary}20, transparent 70%)`,
-              borderRadius: borderRadius
+              borderRadius: borderRadius,
             }}
             animate={{
-              opacity: isHovered ? 0.6 : isActive ? 0.3 : 0
+              opacity: isHovered ? 0.6 : isActive ? 0.3 : 0,
             }}
             transition={{ duration: 0.3 }}
           />
@@ -192,12 +196,11 @@ export const DesktopIcon: React.FC<DesktopIconProps> = ({
           {/* Icon */}
           <IconComponent
             size={iconSize}
-            className={`relative z-10 transition-colors duration-200 ${isActive
-                ? 'text-white drop-shadow-lg'
-                : 'text-white/80 hover:text-white'
-              }`}
+            className={`relative z-10 transition-colors duration-200 ${
+              isActive ? 'text-white drop-shadow-lg' : 'text-white/80 hover:text-white'
+            }`}
             style={{
-              filter: isActive ? `drop-shadow(0 0 8px ${config.color.primary}80)` : 'none'
+              filter: isActive ? `drop-shadow(0 0 8px ${config.color.primary}80)` : 'none',
             }}
           />
 
@@ -207,7 +210,7 @@ export const DesktopIcon: React.FC<DesktopIconProps> = ({
               className="absolute inset-0 rounded-2xl"
               style={{
                 border: `1px solid ${config.color.primary}60`,
-                borderRadius: borderRadius
+                borderRadius: borderRadius,
               }}
               animate={{
                 scale: [1, 1.05, 1],
@@ -216,7 +219,7 @@ export const DesktopIcon: React.FC<DesktopIconProps> = ({
               transition={{
                 duration: 2,
                 repeat: Infinity,
-                ease: "easeInOut"
+                ease: 'easeInOut',
               }}
             />
           )}
@@ -228,16 +231,17 @@ export const DesktopIcon: React.FC<DesktopIconProps> = ({
             className="absolute -top-1 -right-1 z-20"
             initial={{ scale: 0 }}
             animate={{ scale: 1 }}
-            transition={{ delay: 0.1, type: "spring", stiffness: 500 }}
+            transition={{ delay: 0.1, type: 'spring', stiffness: 500 }}
           >
             <Badge
               className={`text-xs px-1.5 py-0.5 min-w-[20px] h-5 flex items-center justify-center ${getBadgeColor()}`}
               style={{ fontSize: '10px' }}
             >
               {config.badge.count !== undefined
-                ? config.badge.count > 99 ? '99+' : config.badge.count.toString()
-                : config.badge.text || '•'
-              }
+                ? config.badge.count > 99
+                  ? '99+'
+                  : config.badge.count.toString()
+                : config.badge.text || '•'}
             </Badge>
           </motion.div>
         )}
@@ -261,7 +265,7 @@ export const DesktopIcon: React.FC<DesktopIconProps> = ({
         className="text-center max-w-full"
         animate={{
           y: isHovered ? -2 : 0,
-          scale: isHovered ? 1.05 : 1
+          scale: isHovered ? 1.05 : 1,
         }}
         transition={{ duration: 0.2 }}
       >
@@ -270,7 +274,7 @@ export const DesktopIcon: React.FC<DesktopIconProps> = ({
           style={{
             fontSize,
             maxWidth: labelMaxWidth,
-            textShadow: '0 1px 2px rgba(0, 0, 0, 0.5)'
+            textShadow: '0 1px 2px rgba(0, 0, 0, 0.5)',
           }}
           title={config.title}
         >
@@ -283,7 +287,7 @@ export const DesktopIcon: React.FC<DesktopIconProps> = ({
             className="text-slate-400 text-xs truncate px-1 mt-0.5"
             style={{
               maxWidth: labelMaxWidth,
-              fontSize: viewport.isTablet ? '9px' : '10px'
+              fontSize: viewport.isTablet ? '9px' : '10px',
             }}
             title={config.description}
           >

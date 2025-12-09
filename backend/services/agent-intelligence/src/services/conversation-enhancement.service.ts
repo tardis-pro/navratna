@@ -1,6 +1,6 @@
 /**
  * Conversation Enhancement Service
- * 
+ *
  * Backend service that provides intelligent conversation enhancement
  * using shared conversation utilities. Handles persona selection,
  * contextual responses, and natural conversation flows.
@@ -8,12 +8,7 @@
 
 import { EventEmitter } from 'events';
 import { logger } from '@uaip/utils';
-import {
-  Persona,
-  Agent,
-  Discussion,
-  DiscussionParticipant
-} from '@uaip/types';
+import { Persona, Agent, Discussion, DiscussionParticipant } from '@uaip/types';
 import { DatabaseService, EventBusService, LLMRequestTracker } from '@uaip/shared-services';
 
 // Local type definitions until they're properly exported from @uaip/types
@@ -59,7 +54,13 @@ interface ContributionScore {
   };
 }
 
-type ResponseType = 'primary' | 'follow-up' | 'agreement' | 'concern' | 'transition' | 'clarification';
+type ResponseType =
+  | 'primary'
+  | 'follow-up'
+  | 'agreement'
+  | 'concern'
+  | 'transition'
+  | 'clarification';
 
 interface ResponseEnhancement {
   type: ResponseType;
@@ -115,14 +116,11 @@ export class ConversationEnhancementService extends EventEmitter {
   private agentPersonaMappings: Map<string, AgentPersonaMapping> = new Map();
   private conversationStates: Map<string, ConversationState> = new Map();
 
-  constructor(
-    databaseService: DatabaseService,
-    eventBusService: EventBusService
-  ) {
+  constructor(databaseService: DatabaseService, eventBusService: EventBusService) {
     super();
     this.databaseService = databaseService;
     this.eventBusService = eventBusService;
-    
+
     // Initialize Redis-based LLM request tracker
     this.llmRequestTracker = new LLMRequestTracker(
       'conversation-enhancement',
@@ -172,46 +170,52 @@ export class ConversationEnhancementService extends EventEmitter {
     logger.info('Conversation Enhancement LLM event subscriptions established');
   }
 
-  private async handleLLMResponse(requestId: string, content: string, error: any, confidence: number, source: string): Promise<void> {
+  private async handleLLMResponse(
+    requestId: string,
+    content: string,
+    error: any,
+    confidence: number,
+    source: string
+  ): Promise<void> {
     const isPending = await this.llmRequestTracker.isPending(requestId);
     if (!isPending) {
       const pendingCount = await this.llmRequestTracker.getPendingCount();
       const pendingKeys = await this.llmRequestTracker.getPendingRequestIds();
-      logger.warn('Received LLM response for unknown conversation enhancement request', { 
-        requestId, 
+      logger.warn('Received LLM response for unknown conversation enhancement request', {
+        requestId,
         source,
         pendingCount,
-        pendingKeys
+        pendingKeys,
       });
       return;
     }
 
     // Check if content contains error messages from LLM service
-    const isErrorContent = content && (
-      content.includes('I apologize, but I encountered an error') ||
-      content.includes('I encountered an error while generating') ||
-      content.includes('I encountered an error while processing') ||
-      content.includes('check your provider configuration') ||
-      content.includes('Please try again or check your provider')
-    );
+    const isErrorContent =
+      content &&
+      (content.includes('I apologize, but I encountered an error') ||
+        content.includes('I encountered an error while generating') ||
+        content.includes('I encountered an error while processing') ||
+        content.includes('check your provider configuration') ||
+        content.includes('Please try again or check your provider'));
 
     if (error || isErrorContent) {
-      logger.warn('LLM generation failed for conversation enhancement', { 
-        requestId, 
-        error, 
+      logger.warn('LLM generation failed for conversation enhancement', {
+        requestId,
+        error,
         source,
         isErrorContent,
-        contentPreview: content?.substring(0, 100)
+        contentPreview: content?.substring(0, 100),
       });
       // Fail with graceful fallback
       await this.llmRequestTracker.completePendingRequest(requestId, {
         content: 'I appreciate the discussion and would like to contribute further.',
-        confidence: 0.3
+        confidence: 0.3,
       });
     } else {
       await this.llmRequestTracker.completePendingRequest(requestId, {
         content: content || 'I have some thoughts on this topic.',
-        confidence: confidence || 0.7
+        confidence: confidence || 0.7,
       });
     }
   }
@@ -248,16 +252,22 @@ export class ConversationEnhancementService extends EventEmitter {
             const discussion = await discussionService.getDiscussion(discussionId);
             if (discussion && discussion.createdBy) {
               userId = discussion.createdBy;
-              logger.info('Found discussion creator for LLM provider', { 
-                discussionId, 
+              logger.info('Found discussion creator for LLM provider', {
+                discussionId,
                 createdBy: userId,
-                discussionTitle: discussion.title 
+                discussionTitle: discussion.title,
               });
             } else {
-              logger.warn('No discussion creator found', { discussionId, discussion: !!discussion });
+              logger.warn('No discussion creator found', {
+                discussionId,
+                discussion: !!discussion,
+              });
             }
           } catch (error) {
-            logger.warn('Failed to get discussion creator for LLM provider', { discussionId, error: error.message });
+            logger.warn('Failed to get discussion creator for LLM provider', {
+              discussionId,
+              error: error.message,
+            });
           }
         } else {
           logger.warn('No discussionId provided for LLM generation');
@@ -270,8 +280,8 @@ export class ConversationEnhancementService extends EventEmitter {
             id: 'ai-agent',
             name: 'AI Assistant',
             persona: {
-              description: 'An intelligent conversation participant'
-            }
+              description: 'An intelligent conversation participant',
+            },
           };
 
           // Create minimal message history (empty for now)
@@ -288,36 +298,37 @@ export class ConversationEnhancementService extends EventEmitter {
                 id: discussionId || 'discussion',
                 title: 'Discussion',
                 content: `Topic: General discussion\n\nPrompt: ${prompt}\n\nSystem Instructions: ${systemPrompt}`,
-                type: 'discussion'
+                type: 'discussion',
               },
-              tools: [] // Add tools if needed
+              tools: [], // Add tools if needed
             },
-            service: 'agent-intelligence'
+            service: 'agent-intelligence',
           });
         } else {
           // Fallback to agent-level LLM request
           await this.eventBusService.publish('llm.agent.generate.request', {
             requestId,
             agentId: agentId || null, // Use provided agentId or null for global fallback
-            messages: [{
-              role: 'user',
-              content: prompt
-            }],
+            messages: [
+              {
+                role: 'user',
+                content: prompt,
+              },
+            ],
             systemPrompt: systemPrompt,
             maxTokens: maxTokens,
             temperature: temperature,
             model: 'auto', // Let the system choose the model
             provider: 'auto', // Let the system choose the provider
-            service: 'agent-intelligence'
+            service: 'agent-intelligence',
           });
         }
 
         const pendingCount = await this.llmRequestTracker.getPendingCount();
         logger.debug('Conversation enhancement LLM request published', {
           requestId,
-          pendingCount
+          pendingCount,
         });
-
       } catch (error) {
         await this.llmRequestTracker.failPendingRequest(requestId, error);
       }
@@ -335,12 +346,12 @@ export class ConversationEnhancementService extends EventEmitter {
         discussionId: request.discussionId,
         agentCount: request.availableAgents.length,
         messageCount: request.messageHistory.length,
-        enhancementType: request.enhancementType
+        enhancementType: request.enhancementType,
       });
 
       // Get or initialize conversation state
-      const conversationState = request.conversationState ||
-        this.getConversationState(request.discussionId);
+      const conversationState =
+        request.conversationState || this.getConversationState(request.discussionId);
 
       // Map agents to personas
       const availablePersonas = await this.mapAgentsToPersonas(request.availableAgents);
@@ -348,7 +359,7 @@ export class ConversationEnhancementService extends EventEmitter {
       if (availablePersonas.length === 0) {
         return {
           success: false,
-          error: 'No personas available for conversation enhancement'
+          error: 'No personas available for conversation enhancement',
         };
       }
 
@@ -363,15 +374,12 @@ export class ConversationEnhancementService extends EventEmitter {
       if (!selectedPersona) {
         return {
           success: false,
-          error: 'No suitable persona found for contribution'
+          error: 'No suitable persona found for contribution',
         };
       }
 
       // Find the corresponding agent for the selected persona
-      const selectedAgent = this.findAgentForPersona(
-        request.availableAgents,
-        selectedPersona
-      );
+      const selectedAgent = this.findAgentForPersona(request.availableAgents, selectedPersona);
 
       // Generate enhanced response using discussion creator's LLM provider
       const enhancedResponse = await this.generateEnhancedResponse(
@@ -391,9 +399,7 @@ export class ConversationEnhancementService extends EventEmitter {
       this.updateConversationState(request.discussionId, updatedState);
 
       // Analyze conversation flow
-      const flowAnalysis = this.analyzeConversationFlowSimple(
-        request.messageHistory
-      );
+      const flowAnalysis = this.analyzeConversationFlowSimple(request.messageHistory);
 
       // Generate suggestions for improvement
       const suggestions = await this.generateConversationSuggestions(
@@ -412,7 +418,7 @@ export class ConversationEnhancementService extends EventEmitter {
         discussionId: request.discussionId,
         selectedAgentId: selectedAgent?.id,
         selectedPersonaId: selectedPersona?.id,
-        flowQuality: flowAnalysis.flowQuality
+        flowQuality: flowAnalysis.flowQuality,
       });
 
       return {
@@ -420,22 +426,33 @@ export class ConversationEnhancementService extends EventEmitter {
         selectedAgent,
         selectedPersona,
         enhancedResponse,
-        contributionScores: [{ personaId: selectedPersona.id, score: 1.0, factors: { topicMatch: 1.0, momentumMatch: 1.0, chattinessFactor: 0.8, continuityPenalty: 0.0, energyBonus: 0.2 } }],
+        contributionScores: [
+          {
+            personaId: selectedPersona.id,
+            score: 1.0,
+            factors: {
+              topicMatch: 1.0,
+              momentumMatch: 1.0,
+              chattinessFactor: 0.8,
+              continuityPenalty: 0.0,
+              energyBonus: 0.2,
+            },
+          },
+        ],
         updatedState,
         flowAnalysis,
         suggestions,
-        nextActions
+        nextActions,
       };
-
     } catch (error) {
       logger.error('Failed to process conversation enhancement request', {
         error: error instanceof Error ? error.message : 'Unknown error',
-        discussionId: request.discussionId
+        discussionId: request.discussionId,
       });
 
       return {
         success: false,
-        error: 'Failed to enhance conversation'
+        error: 'Failed to enhance conversation',
       };
     }
   }
@@ -443,9 +460,7 @@ export class ConversationEnhancementService extends EventEmitter {
   /**
    * Analyze conversation patterns and health
    */
-  async analyzeConversation(
-    request: ConversationAnalysisRequest
-  ): Promise<any> {
+  async analyzeConversation(request: ConversationAnalysisRequest): Promise<any> {
     try {
       const { messageHistory, conversationState, analysisType } = request;
 
@@ -469,7 +484,7 @@ export class ConversationEnhancementService extends EventEmitter {
       logger.error('Failed to analyze conversation', {
         error: error instanceof Error ? error.message : 'Unknown error',
         discussionId: request.discussionId,
-        analysisType: request.analysisType
+        analysisType: request.analysisType,
       });
       throw error;
     }
@@ -501,7 +516,7 @@ export class ConversationEnhancementService extends EventEmitter {
       logger.info('Created hybrid persona', {
         hybridId: hybridPersona.id,
         parent1: persona1Id,
-        parent2: persona2Id
+        parent2: persona2Id,
       });
 
       return hybridPersona;
@@ -509,7 +524,7 @@ export class ConversationEnhancementService extends EventEmitter {
       logger.error('Failed to create hybrid persona', {
         error: error instanceof Error ? error.message : 'Unknown error',
         persona1Id,
-        persona2Id
+        persona2Id,
       });
       throw error;
     }
@@ -537,10 +552,12 @@ export class ConversationEnhancementService extends EventEmitter {
         useFiller: false, // pace property not available
         fillerType: this.determineFillerType(persona, context),
         referenceMemory: context.recentTopics.length > 2,
-        addEmotionalReflection: typeof persona.conversationalStyle?.empathy === 'number' && persona.conversationalStyle.empathy > 0.7
+        addEmotionalReflection:
+          typeof persona.conversationalStyle?.empathy === 'number' &&
+          persona.conversationalStyle.empathy > 0.7,
       };
 
-      // Generate enhanced response using async method  
+      // Generate enhanced response using async method
       const enhancedResponse = await this.generateEnhancedResponse(
         persona,
         baseContent,
@@ -555,12 +572,11 @@ export class ConversationEnhancementService extends EventEmitter {
       logger.error('Failed to generate contextual response', {
         error: error instanceof Error ? error.message : 'Unknown error',
         agentId,
-        personaId
+        personaId,
       });
       throw error;
     }
   }
-
 
   // Private helper methods
 
@@ -580,15 +596,17 @@ export class ConversationEnhancementService extends EventEmitter {
           context: {
             role: agent.role,
             capabilities: agent.capabilities,
-            metadata: agent.metadata
-          }
+            metadata: agent.metadata,
+          },
         });
       }
 
       logger.info('Loaded agent-persona mappings', {
         agentCount: agents.length,
-        totalPersonas: Array.from(this.agentPersonaMappings.values())
-          .reduce((sum, mapping) => sum + mapping.personas.length, 0)
+        totalPersonas: Array.from(this.agentPersonaMappings.values()).reduce(
+          (sum, mapping) => sum + mapping.personas.length,
+          0
+        ),
       });
     } catch (error) {
       logger.error('Failed to load agent-persona mappings', { error });
@@ -610,7 +628,7 @@ export class ConversationEnhancementService extends EventEmitter {
         formality: agent.metadata?.formality || 'formal',
         empathy: agent.metadata?.empathy || 'medium',
         // humor: agent.metadata?.humor || 'subtle', // removed due to type mismatch
-        assertiveness: agent.metadata?.assertiveness || 'balanced'
+        assertiveness: agent.metadata?.assertiveness || 'balanced',
       },
       expertise: this.convertCapabilitiesToExpertise(agent.capabilities || []),
       background: agent.metadata?.background || '',
@@ -627,19 +645,27 @@ export class ConversationEnhancementService extends EventEmitter {
 
   private convertEmpathyLevel(empathy?: string): number {
     switch (empathy) {
-      case 'high': return 0.8;
-      case 'medium': return 0.5;
-      case 'low': return 0.2;
-      default: return 0.5;
+      case 'high':
+        return 0.8;
+      case 'medium':
+        return 0.5;
+      case 'low':
+        return 0.2;
+      default:
+        return 0.5;
     }
   }
 
   private convertEnergyLevel(pace?: string): 'low' | 'medium' | 'high' {
     switch (pace) {
-      case 'relaxed': return 'low';
-      case 'moderate': return 'medium';
-      case 'energetic': return 'high';
-      default: return 'medium';
+      case 'relaxed':
+        return 'low';
+      case 'moderate':
+        return 'medium';
+      case 'energetic':
+        return 'high';
+      default:
+        return 'medium';
     }
   }
 
@@ -657,9 +683,8 @@ export class ConversationEnhancementService extends EventEmitter {
   }
 
   private findAgentForPersona(agents: Agent[], persona: Persona): Agent | undefined {
-    return agents.find(agent =>
-      this.agentPersonaMappings.get(agent.id)?.personas
-        .some(p => p.id === persona.id)
+    return agents.find((agent) =>
+      this.agentPersonaMappings.get(agent.id)?.personas.some((p) => p.id === persona.id)
     );
   }
 
@@ -679,7 +704,11 @@ export class ConversationEnhancementService extends EventEmitter {
     context: ConversationContext
   ): 'thinking' | 'hesitation' | 'transition' | 'agreement' | 'casual' {
     if (context.topicShiftDetected) return 'transition';
-    if (typeof persona.conversationalStyle?.assertiveness === 'string' && persona.conversationalStyle.assertiveness === 'cautious') return 'hesitation';
+    if (
+      typeof persona.conversationalStyle?.assertiveness === 'string' &&
+      persona.conversationalStyle.assertiveness === 'cautious'
+    )
+      return 'hesitation';
     // if (persona.conversationalStyle?.pace === 'relaxed') return 'thinking'; // removed due to type mismatch
     return 'casual';
   }
@@ -699,7 +728,10 @@ export class ConversationEnhancementService extends EventEmitter {
       suggestions.push('Invite more perspectives to enrich the discussion');
     }
 
-    if (enhancement.contributionScores && enhancement.contributionScores.every((score: ContributionScore) => score.score < 1.5)) {
+    if (
+      enhancement.contributionScores &&
+      enhancement.contributionScores.every((score: ContributionScore) => score.score < 1.5)
+    ) {
       suggestions.push('Discussion energy is low - consider introducing new topics');
     }
 
@@ -730,7 +762,7 @@ export class ConversationEnhancementService extends EventEmitter {
     return {
       healthScore: 0.8,
       issues: [],
-      recommendations: []
+      recommendations: [],
     };
   }
 
@@ -741,7 +773,7 @@ export class ConversationEnhancementService extends EventEmitter {
 
   private async getPersonaById(personaId: string): Promise<Persona | null> {
     for (const mapping of this.agentPersonaMappings.values()) {
-      const persona = mapping.personas.find(p => p.id === personaId);
+      const persona = mapping.personas.find((p) => p.id === personaId);
       if (persona) return persona;
     }
     return null;
@@ -793,7 +825,9 @@ export class ConversationEnhancementService extends EventEmitter {
     }
   }
 
-  private async createMessageHistoryFromDiscussion(discussion: Discussion): Promise<MessageHistoryItem[]> {
+  private async createMessageHistoryFromDiscussion(
+    discussion: Discussion
+  ): Promise<MessageHistoryItem[]> {
     try {
       const discussionService = await this.databaseService.getDiscussionService();
       const messages = await discussionService.getDiscussionMessages(discussion.id);
@@ -807,7 +841,9 @@ export class ConversationEnhancementService extends EventEmitter {
           try {
             // Try to get agent name first
             if (participant.agentId) {
-              const agent = await this.databaseService.getAgentService().findAgentById(participant.agentId);
+              const agent = await this.databaseService
+                .getAgentService()
+                .findAgentById(participant.agentId);
               if (agent) {
                 participantMap.set(participant.id, agent.name);
                 continue;
@@ -816,7 +852,7 @@ export class ConversationEnhancementService extends EventEmitter {
 
             // Fallback to user name if available
             if (participant.userId) {
-              const user = await this.databaseService.findById('User', participant.userId) as any;
+              const user = (await this.databaseService.findById('User', participant.userId)) as any;
               if (user && (user.username || user.email)) {
                 participantMap.set(participant.id, user.username || user.email);
                 continue;
@@ -832,12 +868,12 @@ export class ConversationEnhancementService extends EventEmitter {
         }
       }
 
-      return messages.map(msg => ({
+      return messages.map((msg) => ({
         id: msg.id,
         speaker: participantMap.get(msg.participantId) || msg.participantId || 'user',
         content: msg.content,
         timestamp: msg.createdAt,
-        metadata: msg.metadata
+        metadata: msg.metadata,
       }));
     } catch (error) {
       logger.error('Failed to create message history', { error, discussionId: discussion.id });
@@ -848,12 +884,9 @@ export class ConversationEnhancementService extends EventEmitter {
   private async setupEventSubscriptions(): Promise<void> {
     // NOTE: AgentDiscussionService handles agent.discussion.participate events
     // ConversationEnhancementService focuses on conversation analysis and enhancement only
-    
+
     // Subscribe to agent updates
-    await this.eventBusService.subscribe(
-      'agent.updated',
-      this.handleAgentUpdate.bind(this)
-    );
+    await this.eventBusService.subscribe('agent.updated', this.handleAgentUpdate.bind(this));
 
     logger.info('Conversation enhancement event subscriptions set up');
   }
@@ -873,8 +906,8 @@ export class ConversationEnhancementService extends EventEmitter {
           context: {
             role: agent.role,
             capabilities: agent.capabilities,
-            metadata: agent.metadata
-          }
+            metadata: agent.metadata,
+          },
         });
 
         logger.info('Updated agent-persona mapping', { agentId });
@@ -903,12 +936,10 @@ export class ConversationEnhancementService extends EventEmitter {
 
     // Simple selection logic - could be enhanced with more sophisticated scoring
     // For now, rotate through personas or select based on role
-    const recentSpeakers = messageHistory.slice(-3).map(m => m.speaker);
+    const recentSpeakers = messageHistory.slice(-3).map((m) => m.speaker);
 
     // Avoid selecting the same persona that spoke recently
-    const availablePersonas = personas.filter(p =>
-      !recentSpeakers.includes(p.id)
-    );
+    const availablePersonas = personas.filter((p) => !recentSpeakers.includes(p.id));
 
     if (availablePersonas.length > 0) {
       // Select first available persona (could be randomized or scored)
@@ -933,7 +964,7 @@ export class ConversationEnhancementService extends EventEmitter {
     try {
       // Create context from recent messages
       const recentMessages = messageHistory.slice(-5);
-      const context = recentMessages.map(m => `${m.speaker}: ${m.content}`).join('\n');
+      const context = recentMessages.map((m) => `${m.speaker}: ${m.content}`).join('\n');
 
       // Create persona-specific prompt
       const systemPrompt = `You are ${persona.name}. ${persona.description}
@@ -960,11 +991,14 @@ Please contribute to this discussion about "${topic}" in a way that's natural an
         agentId
       );
 
-      return response.content || 'I have some thoughts on this topic, but I need a moment to organize them.';
+      return (
+        response.content ||
+        'I have some thoughts on this topic, but I need a moment to organize them.'
+      );
     } catch (error) {
       logger.error('Failed to generate enhanced response', {
         error: error instanceof Error ? error.message : 'Unknown error',
-        personaId: persona.id
+        personaId: persona.id,
       });
       return 'I appreciate the discussion and would like to contribute further.';
     }
@@ -980,13 +1014,13 @@ Please contribute to this discussion about "${topic}" in a way that's natural an
     return {
       ...state,
       activePersonaId: personaId,
-      lastSpeakerContinuityCount: state.activePersonaId === personaId ?
-        state.lastSpeakerContinuityCount + 1 : 0,
+      lastSpeakerContinuityCount:
+        state.activePersonaId === personaId ? state.lastSpeakerContinuityCount + 1 : 0,
       recentContributors: [
         personaId,
-        ...state.recentContributors.filter(id => id !== personaId)
+        ...state.recentContributors.filter((id) => id !== personaId),
       ].slice(0, 5),
-      conversationEnergy: Math.min(1.0, state.conversationEnergy + 0.1)
+      conversationEnergy: Math.min(1.0, state.conversationEnergy + 0.1),
     };
   }
 
@@ -994,7 +1028,7 @@ Please contribute to this discussion about "${topic}" in a way that's natural an
    * Analyze conversation flow with simple metrics
    */
   private analyzeConversationFlowSimple(messageHistory: MessageHistoryItem[]): any {
-    const recentSpeakers = messageHistory.slice(-5).map(m => m.speaker);
+    const recentSpeakers = messageHistory.slice(-5).map((m) => m.speaker);
     const uniqueSpeakers = new Set(recentSpeakers);
     const diversityScore = uniqueSpeakers.size / Math.min(5, recentSpeakers.length);
 
@@ -1006,13 +1040,12 @@ Please contribute to this discussion about "${topic}" in a way that's natural an
       }
     }
 
-    const flowQuality = Math.max(0, 1 - (backToBackCount * 0.2));
+    const flowQuality = Math.max(0, 1 - backToBackCount * 0.2);
 
     return {
       flowQuality,
       diversityScore,
-      suggestions: diversityScore < 0.4 ?
-        ['Consider encouraging more diverse participation'] : []
+      suggestions: diversityScore < 0.4 ? ['Consider encouraging more diverse participation'] : [],
     };
   }
 
@@ -1026,7 +1059,7 @@ Please contribute to this discussion about "${topic}" in a way that's natural an
       recentContributors: [],
       conversationEnergy: 0.5,
       needsClarification: false,
-      topicStability: 'stable'
+      topicStability: 'stable',
     };
   }
 
@@ -1041,7 +1074,7 @@ Please contribute to this discussion about "${topic}" in a way that's natural an
     return {
       insights: ['This conversation has good flow'],
       patterns: [],
-      suggestions: ['Continue the current topic']
+      suggestions: ['Continue the current topic'],
     };
   }
 
@@ -1054,21 +1087,20 @@ Please contribute to this discussion about "${topic}" in a way that's natural an
       description: `Hybrid of ${persona1.name} and ${persona2.name}`,
       conversationalStyle: {
         ...persona1.conversationalStyle,
-        ...persona2.conversationalStyle
-      }
+        ...persona2.conversationalStyle,
+      },
     };
   }
 
-
   private convertCapabilitiesToExpertise(capabilities: string[]): any[] {
-    return capabilities.map(cap => ({
+    return capabilities.map((cap) => ({
       id: cap,
       name: cap,
       description: `Expertise in ${cap}`,
       category: 'general',
       keywords: [cap],
       level: 'intermediate',
-      relatedDomains: []
+      relatedDomains: [],
     }));
   }
 
@@ -1086,7 +1118,7 @@ Please contribute to this discussion about "${topic}" in a way that's natural an
     return {
       pendingLLMRequests,
       agentPersonaMappings: this.agentPersonaMappings.size,
-      conversationStates: this.conversationStates.size
+      conversationStates: this.conversationStates.size,
     };
   }
 
@@ -1096,14 +1128,14 @@ Please contribute to this discussion about "${topic}" in a way that's natural an
   async cleanup(): Promise<void> {
     // Shutdown Redis-based LLM request tracker
     await this.llmRequestTracker.shutdown();
-    
+
     // Clear in-memory maps
     this.agentPersonaMappings.clear();
     this.conversationStates.clear();
-    
+
     // Remove event listeners
     this.removeAllListeners();
-    
+
     logger.info('Conversation Enhancement Service cleanup completed');
   }
 }

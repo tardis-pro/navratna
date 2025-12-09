@@ -12,7 +12,10 @@ describe('CompensationService', () => {
 
   beforeEach(() => {
     mockDatabaseService = new DatabaseService() as jest.Mocked<DatabaseService>;
-    mockEventBusService = new EventBusService({ url: 'test', serviceName: 'test' }, console as any) as jest.Mocked<EventBusService>;
+    mockEventBusService = new EventBusService(
+      { url: 'test', serviceName: 'test' },
+      console as any
+    ) as jest.Mocked<EventBusService>;
     service = new CompensationService(mockDatabaseService, mockEventBusService);
   });
 

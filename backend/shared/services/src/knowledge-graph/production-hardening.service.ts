@@ -120,7 +120,7 @@ export class CircuitBreaker extends EventEmitter {
       state: this.state,
       failures: this.failures,
       lastFailTime: this.lastFailTime,
-      nextAttempt: this.nextAttempt
+      nextAttempt: this.nextAttempt,
     };
   }
 }
@@ -133,7 +133,7 @@ export class RetryManager {
 
   async execute<T>(fn: () => Promise<T>, context?: string): Promise<T> {
     let lastError: Error;
-    
+
     for (let attempt = 0; attempt <= this.options.maxRetries; attempt++) {
       try {
         if (attempt > 0) {
@@ -143,25 +143,25 @@ export class RetryManager {
         }
 
         const result = await fn();
-        
+
         if (attempt > 0) {
           logger.info(`Operation succeeded after ${attempt} retries`, { context });
         }
-        
+
         return result;
       } catch (error) {
         lastError = error;
-        
+
         if (this.isRetryableError(error)) {
           logger.warn(`Attempt ${attempt + 1} failed, retrying...`, {
             context,
             error: error.message,
-            retriesLeft: this.options.maxRetries - attempt
+            retriesLeft: this.options.maxRetries - attempt,
           });
         } else {
           logger.error('Non-retryable error encountered', {
             context,
-            error: error.message
+            error: error.message,
           });
           throw error;
         }
@@ -171,20 +171,20 @@ export class RetryManager {
     logger.error(`All retry attempts exhausted`, {
       context,
       attempts: this.options.maxRetries + 1,
-      error: lastError.message
+      error: lastError.message,
     });
-    
+
     throw lastError;
   }
 
   private calculateDelay(attempt: number): number {
     let delay = this.options.baseDelay * Math.pow(this.options.backoffMultiplier, attempt - 1);
     delay = Math.min(delay, this.options.maxDelay);
-    
+
     if (this.options.jitter) {
-      delay *= (0.5 + Math.random() * 0.5); // Add ±25% jitter
+      delay *= 0.5 + Math.random() * 0.5; // Add ±25% jitter
     }
-    
+
     return Math.floor(delay);
   }
 
@@ -201,14 +201,14 @@ export class RetryManager {
       /502/i,
       /504/i,
       /rate.limit/i,
-      /too.many.requests/i
+      /too.many.requests/i,
     ];
 
-    return retryablePatterns.some(pattern => pattern.test(error.message));
+    return retryablePatterns.some((pattern) => pattern.test(error.message));
   }
 
   private sleep(ms: number): Promise<void> {
-    return new Promise(resolve => setTimeout(resolve, ms));
+    return new Promise((resolve) => setTimeout(resolve, ms));
   }
 }
 
@@ -224,7 +224,9 @@ export class RateLimiter {
     this.cleanupInterval = setInterval(() => this.cleanup(), 60000);
   }
 
-  async checkLimit(key: string): Promise<{ allowed: boolean; remaining: number; resetTime: number }> {
+  async checkLimit(
+    key: string
+  ): Promise<{ allowed: boolean; remaining: number; resetTime: number }> {
     const now = Date.now();
     const window = this.windows.get(key);
 
@@ -232,11 +234,11 @@ export class RateLimiter {
       // New window
       const resetTime = now + this.options.windowMs;
       this.windows.set(key, { count: 1, resetTime });
-      
+
       return {
         allowed: true,
         remaining: this.options.maxRequests - 1,
-        resetTime
+        resetTime,
       };
     }
 
@@ -244,16 +246,16 @@ export class RateLimiter {
       return {
         allowed: false,
         remaining: 0,
-        resetTime: window.resetTime
+        resetTime: window.resetTime,
       };
     }
 
     window.count++;
-    
+
     return {
       allowed: true,
       remaining: this.options.maxRequests - window.count,
-      resetTime: window.resetTime
+      resetTime: window.resetTime,
     };
   }
 
@@ -284,7 +286,7 @@ export class HealthCheckManager extends EventEmitter {
 
   constructor(private readonly options: HealthCheckOptions) {
     super();
-    
+
     // Run health checks periodically
     this.checkInterval = setInterval(() => {
       this.runAllChecks();
@@ -297,7 +299,7 @@ export class HealthCheckManager extends EventEmitter {
       check,
       lastResult: null,
       lastRun: 0,
-      consecutiveFailures: 0
+      consecutiveFailures: 0,
     });
   }
 
@@ -306,15 +308,17 @@ export class HealthCheckManager extends EventEmitter {
     const promises: Promise<void>[] = [];
 
     for (const [name, healthCheck] of this.healthChecks.entries()) {
-      promises.push(this.runSingleCheck(name, healthCheck).then(result => {
-        results[name] = result;
-      }));
+      promises.push(
+        this.runSingleCheck(name, healthCheck).then((result) => {
+          results[name] = result;
+        })
+      );
     }
 
     await Promise.allSettled(promises);
 
     const summary = this.calculateOverallHealth(results);
-    
+
     if (summary.status !== this.overallHealth) {
       this.overallHealth = summary.status;
       this.emit('healthChanged', summary);
@@ -325,23 +329,21 @@ export class HealthCheckManager extends EventEmitter {
 
   private async runSingleCheck(name: string, healthCheck: HealthCheck): Promise<HealthCheckResult> {
     const startTime = Date.now();
-    
+
     try {
-      const result = await Promise.race([
-        healthCheck.check(),
-        this.timeout(this.options.timeout)
-      ]);
+      const result = await Promise.race([healthCheck.check(), this.timeout(this.options.timeout)]);
 
       healthCheck.lastResult = result;
       healthCheck.lastRun = Date.now();
-      healthCheck.consecutiveFailures = result.status === 'unhealthy' ? healthCheck.consecutiveFailures + 1 : 0;
+      healthCheck.consecutiveFailures =
+        result.status === 'unhealthy' ? healthCheck.consecutiveFailures + 1 : 0;
 
       return result;
     } catch (error) {
       const result: HealthCheckResult = {
         status: 'unhealthy',
         details: { error: error.message },
-        responseTime: Date.now() - startTime
+        responseTime: Date.now() - startTime,
       };
 
       healthCheck.lastResult = result;
@@ -350,7 +352,7 @@ export class HealthCheckManager extends EventEmitter {
 
       logger.warn(`Health check failed: ${name}`, {
         error: error.message,
-        consecutiveFailures: healthCheck.consecutiveFailures
+        consecutiveFailures: healthCheck.consecutiveFailures,
       });
 
       return result;
@@ -365,12 +367,12 @@ export class HealthCheckManager extends EventEmitter {
 
   private calculateOverallHealth(results: Record<string, HealthCheckResult>): HealthCheckSummary {
     const checks = Object.values(results);
-    const healthy = checks.filter(c => c.status === 'healthy').length;
-    const degraded = checks.filter(c => c.status === 'degraded').length;
-    const unhealthy = checks.filter(c => c.status === 'unhealthy').length;
+    const healthy = checks.filter((c) => c.status === 'healthy').length;
+    const degraded = checks.filter((c) => c.status === 'degraded').length;
+    const unhealthy = checks.filter((c) => c.status === 'unhealthy').length;
 
     let status: 'healthy' | 'degraded' | 'unhealthy';
-    
+
     if (unhealthy > 0) {
       status = 'unhealthy';
     } else if (degraded > 0) {
@@ -386,15 +388,15 @@ export class HealthCheckManager extends EventEmitter {
         total: checks.length,
         healthy,
         degraded,
-        unhealthy
+        unhealthy,
       },
-      timestamp: new Date()
+      timestamp: new Date(),
     };
   }
 
   getHealthStatus(): HealthCheckSummary {
     const results: Record<string, HealthCheckResult> = {};
-    
+
     for (const [name, healthCheck] of this.healthChecks.entries()) {
       if (healthCheck.lastResult) {
         results[name] = healthCheck.lastResult;
@@ -451,11 +453,11 @@ export class MetricsCollector {
 
     this.timers.delete(id);
     const duration = Date.now() - startTime;
-    
+
     // Extract metric name from timer id
     const metricName = id.split('_')[0];
     this.histogram(`${metricName}.duration`, duration, tags);
-    
+
     return duration;
   }
 
@@ -474,7 +476,12 @@ export class MetricsCollector {
     this.timers.clear();
   }
 
-  private updateMetric(name: string, type: string, value: number, tags: Record<string, string>): void {
+  private updateMetric(
+    name: string,
+    type: string,
+    value: number,
+    tags: Record<string, string>
+  ): void {
     const key = this.generateKey(name, tags);
     const existing = this.metrics.get(key);
 
@@ -501,7 +508,7 @@ export class MetricsCollector {
         sum: type === 'histogram' ? value : undefined,
         min: type === 'histogram' ? value : undefined,
         max: type === 'histogram' ? value : undefined,
-        lastUpdated: Date.now()
+        lastUpdated: Date.now(),
       });
     }
   }
@@ -511,7 +518,7 @@ export class MetricsCollector {
       .sort(([a], [b]) => a.localeCompare(b))
       .map(([k, v]) => `${k}:${v}`)
       .join(',');
-    
+
     return tagString ? `${name}{${tagString}}` : name;
   }
 }
@@ -528,12 +535,16 @@ export class SecurityValidator {
 
     // File size validation
     if (file.size > this.options.maxFileSize) {
-      errors.push(`File size ${file.size} exceeds maximum allowed size ${this.options.maxFileSize}`);
+      errors.push(
+        `File size ${file.size} exceeds maximum allowed size ${this.options.maxFileSize}`
+      );
     }
 
     // MIME type validation
-    if (this.options.allowedMimeTypes.length > 0 && 
-        !this.options.allowedMimeTypes.includes(file.mimetype)) {
+    if (
+      this.options.allowedMimeTypes.length > 0 &&
+      !this.options.allowedMimeTypes.includes(file.mimetype)
+    ) {
       errors.push(`File type ${file.mimetype} is not allowed`);
     }
 
@@ -556,7 +567,7 @@ export class SecurityValidator {
       valid: errors.length === 0,
       errors,
       warnings,
-      securityScore: this.calculateSecurityScore(errors, warnings)
+      securityScore: this.calculateSecurityScore(errors, warnings),
     };
   }
 
@@ -573,7 +584,9 @@ export class SecurityValidator {
       .trim();
   }
 
-  private async validateContent(content: string | Buffer): Promise<{ errors: string[], warnings: string[] }> {
+  private async validateContent(
+    content: string | Buffer
+  ): Promise<{ errors: string[]; warnings: string[] }> {
     const errors: string[] = [];
     const warnings: string[] = [];
 
@@ -586,7 +599,7 @@ export class SecurityValidator {
       /data:text\/html/i,
       /eval\(/i,
       /document\.write/i,
-      /window\.location/i
+      /window\.location/i,
     ];
 
     for (const pattern of suspiciousPatterns) {
@@ -596,14 +609,17 @@ export class SecurityValidator {
     }
 
     // Check for excessive size
-    if (text.length > 1000000) { // 1MB
+    if (text.length > 1000000) {
+      // 1MB
       warnings.push('File content is very large and may impact performance');
     }
 
     return { errors, warnings };
   }
 
-  private async scanForMalware(content: string | Buffer): Promise<{ clean: boolean, threats: string[] }> {
+  private async scanForMalware(
+    content: string | Buffer
+  ): Promise<{ clean: boolean; threats: string[] }> {
     // Simplified malware scanning - in production, integrate with actual malware scanner
     const text = Buffer.isBuffer(content) ? content.toString('utf-8') : content;
     const threats: string[] = [];
@@ -613,7 +629,7 @@ export class SecurityValidator {
       /eval\s*\(\s*["'][\w\W]*["']\s*\)/gi,
       /document\.write\s*\(\s*unescape/gi,
       /String\.fromCharCode\s*\(/gi,
-      /ActiveXObject/gi
+      /ActiveXObject/gi,
     ];
 
     for (const signature of malwareSignatures) {
@@ -624,7 +640,7 @@ export class SecurityValidator {
 
     return {
       clean: threats.length === 0,
-      threats
+      threats,
     };
   }
 
@@ -699,23 +715,23 @@ export class ProductionHardeningService {
       baseDelay: 1000,
       maxDelay: 10000,
       backoffMultiplier: 2,
-      jitter: true
+      jitter: true,
     },
     rateLimitOptions: RateLimitOptions = {
       windowMs: 60000, // 1 minute
-      maxRequests: 100
+      maxRequests: 100,
     },
     healthCheckOptions: HealthCheckOptions = {
       timeout: 5000,
       interval: 30000,
       retries: 3,
-      gracefulShutdownTimeout: 30000
+      gracefulShutdownTimeout: 30000,
     },
     metricsOptions: MetricsOptions = {
       collectSystemMetrics: true,
       collectBusinessMetrics: true,
       metricsRetentionDays: 7,
-      aggregationIntervals: [60, 300, 900] // 1min, 5min, 15min
+      aggregationIntervals: [60, 300, 900], // 1min, 5min, 15min
     },
     securityOptions: SecurityOptions = {
       maxFileSize: 50 * 1024 * 1024, // 50MB
@@ -724,7 +740,7 @@ export class ProductionHardeningService {
       scanForMalware: true,
       validateContent: true,
       sanitizeInput: true,
-      rateLimiting: rateLimitOptions
+      rateLimiting: rateLimitOptions,
     }
   ) {
     this.retryManager = new RetryManager(retryOptions);
@@ -738,12 +754,16 @@ export class ProductionHardeningService {
   }
 
   // Circuit breaker management
-  createCircuitBreaker(name: string, fn: (...args: any[]) => Promise<any>, options?: Partial<CircuitBreakerOptions>): CircuitBreaker {
+  createCircuitBreaker(
+    name: string,
+    fn: (...args: any[]) => Promise<any>,
+    options?: Partial<CircuitBreakerOptions>
+  ): CircuitBreaker {
     const defaultOptions: CircuitBreakerOptions = {
       failureThreshold: 5,
       resetTimeout: 60000,
       monitoringWindow: 600000,
-      halfOpenRetries: 3
+      halfOpenRetries: 3,
     };
 
     const breaker = new CircuitBreaker(fn, { ...defaultOptions, ...options });
@@ -766,7 +786,7 @@ export class ProductionHardeningService {
   // Retry with metrics
   async executeWithRetry<T>(fn: () => Promise<T>, context: string): Promise<T> {
     const timer = this.metricsCollector.startTimer(`retry.${context}`);
-    
+
     try {
       const result = await this.retryManager.execute(fn, context);
       this.metricsCollector.increment(`retry.${context}.success`);
@@ -780,11 +800,13 @@ export class ProductionHardeningService {
   }
 
   // Rate limiting
-  async checkRateLimit(key: string): Promise<{ allowed: boolean; remaining: number; resetTime: number }> {
+  async checkRateLimit(
+    key: string
+  ): Promise<{ allowed: boolean; remaining: number; resetTime: number }> {
     const result = await this.rateLimiter.checkLimit(key);
-    
-    this.metricsCollector.increment('rate_limit.checks', 1, { 
-      allowed: result.allowed.toString() 
+
+    this.metricsCollector.increment('rate_limit.checks', 1, {
+      allowed: result.allowed.toString(),
     });
 
     if (!result.allowed) {
@@ -808,7 +830,12 @@ export class ProductionHardeningService {
     return this.metricsCollector.getMetrics();
   }
 
-  recordMetric(name: string, value: number, type: 'counter' | 'gauge' | 'histogram' = 'counter', tags: Record<string, string> = {}): void {
+  recordMetric(
+    name: string,
+    value: number,
+    type: 'counter' | 'gauge' | 'histogram' = 'counter',
+    tags: Record<string, string> = {}
+  ): void {
     switch (type) {
       case 'counter':
         this.metricsCollector.increment(name, value, tags);
@@ -825,13 +852,13 @@ export class ProductionHardeningService {
   // Security
   async validateFile(file: any): Promise<ValidationResult> {
     const timer = this.metricsCollector.startTimer('security.file_validation');
-    
+
     try {
       const result = await this.securityValidator.validateFile(file);
-      
+
       this.metricsCollector.increment('security.file_validation.total');
       this.metricsCollector.increment('security.file_validation.result', 1, {
-        valid: result.valid.toString()
+        valid: result.valid.toString(),
       });
       this.metricsCollector.gauge('security.score', result.securityScore);
 
@@ -849,11 +876,11 @@ export class ProductionHardeningService {
   private setupGracefulShutdown(): void {
     const gracefulShutdown = (signal: string) => {
       logger.info(`Received ${signal}, starting graceful shutdown...`);
-      
+
       // Stop accepting new requests
       this.rateLimiter.destroy();
       this.healthCheckManager.destroy();
-      
+
       // Wait for ongoing operations to complete
       setTimeout(() => {
         logger.info('Graceful shutdown completed');
@@ -870,7 +897,7 @@ export class ProductionHardeningService {
     this.addHealthCheck('memory', async () => {
       const memUsage = process.memoryUsage();
       const memUsagePercent = (memUsage.heapUsed / memUsage.heapTotal) * 100;
-      
+
       if (memUsagePercent > 90) {
         return { status: 'unhealthy', details: { memUsagePercent } };
       } else if (memUsagePercent > 75) {
@@ -883,11 +910,11 @@ export class ProductionHardeningService {
     // Event loop lag health check
     this.addHealthCheck('event_loop', async () => {
       const start = Date.now();
-      
+
       return new Promise<HealthCheckResult>((resolve) => {
         setImmediate(() => {
           const lag = Date.now() - start;
-          
+
           if (lag > 100) {
             resolve({ status: 'unhealthy', details: { lag }, responseTime: lag });
           } else if (lag > 50) {
@@ -905,7 +932,7 @@ export class ProductionHardeningService {
     const health = await this.getHealthStatus();
     const metrics = this.getMetrics();
     const circuitBreakerStats: Record<string, any> = {};
-    
+
     for (const [name, breaker] of this.circuitBreakers.entries()) {
       circuitBreakerStats[name] = breaker.getStats();
     }
@@ -917,7 +944,7 @@ export class ProductionHardeningService {
       timestamp: new Date(),
       uptime: process.uptime(),
       memoryUsage: process.memoryUsage(),
-      cpuUsage: process.cpuUsage()
+      cpuUsage: process.cpuUsage(),
     };
   }
 

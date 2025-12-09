@@ -1,12 +1,14 @@
 # Technology Stack
 
 ## Core Technologies
+
 - **Runtime**: Node.js 18+ with ES Modules
 - **Language**: TypeScript (ES2022 target)
 - **Package Manager**: pnpm with workspace support
 - **Architecture**: Microservices with monorepo structure
 
 ## Backend Technologies
+
 - **Framework**: Express.js 5.x with comprehensive middleware stack
 - **Database**: TypeORM with PostgreSQL (primary), Neo4j (graph), Redis (cache)
 - **Real-time**: WebSocket (socket.io) for agent discussions and live updates
@@ -17,6 +19,7 @@
 - **Monitoring**: Prometheus metrics, comprehensive logging
 
 ## Frontend Technologies
+
 - **Framework**: React 19.x with TypeScript
 - **Build Tool**: Vite 6.x with SWC
 - **UI Components**: Radix UI primitives with shadcn/ui
@@ -27,6 +30,7 @@
 - **Icons**: Heroicons, Lucide React
 
 ## Development Tools
+
 - **TypeScript**: v5.8.3 with strict: false, composite builds
 - **ESLint**: v9.x with TypeScript ESLint plugin
 - **Testing**: Jest with TypeScript support (limited coverage currently)

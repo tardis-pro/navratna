@@ -16,74 +16,74 @@ export class AgentTransformationService {
     'Frontend Developer': AgentRole.SPECIALIST,
     'Backend Developer': AgentRole.SPECIALIST,
     'Mobile Developer': AgentRole.SPECIALIST,
-    
+
     // Quality Assurance Roles
     'QA Engineer': AgentRole.ANALYZER,
     'Test Engineer': AgentRole.ANALYZER,
     'Quality Analyst': AgentRole.ANALYZER,
     'Automation Engineer': AgentRole.ANALYZER,
-    
+
     // Leadership Roles
     'Tech Lead': AgentRole.ORCHESTRATOR,
     'Engineering Manager': AgentRole.ORCHESTRATOR,
     'Team Lead': AgentRole.ORCHESTRATOR,
     'Project Manager': AgentRole.ORCHESTRATOR,
     'Scrum Master': AgentRole.ORCHESTRATOR,
-    
+
     // DevOps and Infrastructure
     'DevOps Engineer': AgentRole.SPECIALIST,
     'Site Reliability Engineer': AgentRole.SPECIALIST,
     'Infrastructure Engineer': AgentRole.SPECIALIST,
     'Cloud Engineer': AgentRole.SPECIALIST,
     'Platform Engineer': AgentRole.SPECIALIST,
-    
+
     // Data and Analytics
     'Data Scientist': AgentRole.ANALYZER,
     'Data Engineer': AgentRole.SPECIALIST,
     'Data Analyst': AgentRole.ANALYZER,
     'Machine Learning Engineer': AgentRole.SPECIALIST,
     'AI Engineer': AgentRole.SPECIALIST,
-    
+
     // Security
     'Security Engineer': AgentRole.SPECIALIST,
     'Security Analyst': AgentRole.ANALYZER,
     'Cybersecurity Specialist': AgentRole.SPECIALIST,
-    
+
     // Business and Analysis
     'Business Analyst': AgentRole.ANALYZER,
     'Product Manager': AgentRole.ORCHESTRATOR,
     'Product Owner': AgentRole.ORCHESTRATOR,
     'Systems Analyst': AgentRole.ANALYZER,
-    
+
     // Research and Academia
-    'Researcher': AgentRole.ANALYZER,
+    Researcher: AgentRole.ANALYZER,
     'Policy Analyst': AgentRole.ANALYZER,
-    'Economist': AgentRole.SPECIALIST,
+    Economist: AgentRole.SPECIALIST,
     'Legal Expert': AgentRole.SPECIALIST,
     'Social Scientist': AgentRole.ANALYZER,
-    'Educator': AgentRole.ASSISTANT,
+    Educator: AgentRole.ASSISTANT,
     'Academic Researcher': AgentRole.ANALYZER,
-    
+
     // Design and UX
     'UX Designer': AgentRole.SPECIALIST,
     'UI Designer': AgentRole.SPECIALIST,
     'Product Designer': AgentRole.SPECIALIST,
     'Design Lead': AgentRole.ORCHESTRATOR,
-    
+
     // Support and Operations
     'Technical Support': AgentRole.ASSISTANT,
     'Customer Success': AgentRole.ASSISTANT,
     'Operations Manager': AgentRole.ORCHESTRATOR,
     'System Administrator': AgentRole.SPECIALIST,
-    
+
     // Generic Roles
-    'Assistant': AgentRole.ASSISTANT,
-    'Specialist': AgentRole.SPECIALIST,
-    'Analyzer': AgentRole.ANALYZER,
-    'Orchestrator': AgentRole.ORCHESTRATOR,
+    Assistant: AgentRole.ASSISTANT,
+    Specialist: AgentRole.SPECIALIST,
+    Analyzer: AgentRole.ANALYZER,
+    Orchestrator: AgentRole.ORCHESTRATOR,
     'General Assistant': AgentRole.ASSISTANT,
-    'Expert': AgentRole.SPECIALIST,
-    'Consultant': AgentRole.SPECIALIST
+    Expert: AgentRole.SPECIALIST,
+    Consultant: AgentRole.SPECIALIST,
   };
 
   /**
@@ -121,10 +121,12 @@ export class AgentTransformationService {
    * Checks if the input is already in agent format
    */
   private static isAgentFormat(input: any): boolean {
-    return input.role && 
-           ['assistant', 'analyzer', 'orchestrator', 'specialist'].includes(input.role) &&
-           input.capabilities &&
-           Array.isArray(input.capabilities);
+    return (
+      input.role &&
+      ['assistant', 'analyzer', 'orchestrator', 'specialist'].includes(input.role) &&
+      input.capabilities &&
+      Array.isArray(input.capabilities)
+    );
   }
 
   /**
@@ -143,13 +145,13 @@ export class AgentTransformationService {
         contextWindowSize: input.configuration?.contextWindowSize || 4000,
         decisionThreshold: input.configuration?.decisionThreshold || 0.7,
         learningEnabled: input.configuration?.learningEnabled ?? true,
-        collaborationMode: input.configuration?.collaborationMode || 'collaborative'
+        collaborationMode: input.configuration?.collaborationMode || 'collaborative',
       },
       // Model configuration fields
       modelId: input.modelId,
       apiType: input.apiType,
       securityLevel: input.securityLevel || 'medium',
-      isActive: input.isActive ?? true
+      isActive: input.isActive ?? true,
     };
   }
 
@@ -159,13 +161,13 @@ export class AgentTransformationService {
   private static transformPersonaFormat(persona: any): AgentCreateRequest {
     // Extract persona data (handle nested persona object)
     const personaData = persona.persona || persona;
-    
+
     // Generate description from available fields
     const description = this.generateDescription(personaData);
-    
+
     // Extract capabilities from expertise or traits
     const capabilities = this.extractCapabilities(personaData);
-    
+
     // Map role
     const role = this.mapPersonaRoleToAgentRole(personaData.role || 'Assistant');
 
@@ -181,10 +183,10 @@ export class AgentTransformationService {
         contextWindowSize: personaData.contextWindowSize || 4000,
         decisionThreshold: 0.7,
         learningEnabled: true,
-        collaborationMode: this.mapCollaborationMode(personaData)
+        collaborationMode: this.mapCollaborationMode(personaData),
       },
       securityLevel: this.mapSecurityLevel(personaData),
-      isActive: personaData.isActive ?? true
+      isActive: personaData.isActive ?? true,
     };
   }
 
@@ -198,8 +200,10 @@ export class AgentTransformationService {
 
     const role = personaData.role || 'Assistant';
     const expertise = this.extractCapabilities(personaData);
-    const background = personaData.background ? ` with background in ${personaData.background}` : '';
-    
+    const background = personaData.background
+      ? ` with background in ${personaData.background}`
+      : '';
+
     return `${role} with expertise in ${expertise.join(', ')}${background}`;
   }
 
@@ -249,11 +253,11 @@ export class AgentTransformationService {
       'Software Engineer': ['programming', 'debugging', 'code-review'],
       'Data Scientist': ['data-analysis', 'machine-learning', 'statistics'],
       'Product Manager': ['product-strategy', 'roadmap-planning', 'stakeholder-management'],
-      'Designer': ['ui-design', 'ux-research', 'prototyping'],
+      Designer: ['ui-design', 'ux-research', 'prototyping'],
       'QA Engineer': ['testing', 'automation', 'quality-assurance'],
       'DevOps Engineer': ['deployment', 'infrastructure', 'monitoring'],
       'Business Analyst': ['requirements-analysis', 'process-improvement', 'documentation'],
-      'Project Manager': ['project-planning', 'team-coordination', 'risk-management']
+      'Project Manager': ['project-planning', 'team-coordination', 'risk-management'],
     };
 
     return roleCapabilities[role] || ['general', 'problem-solving', 'communication'];
@@ -281,7 +285,9 @@ export class AgentTransformationService {
   /**
    * Maps collaboration mode from persona data
    */
-  private static mapCollaborationMode(personaData: any): 'independent' | 'collaborative' | 'supervised' {
+  private static mapCollaborationMode(
+    personaData: any
+  ): 'independent' | 'collaborative' | 'supervised' {
     if (personaData.collaborationMode) {
       return personaData.collaborationMode;
     }
@@ -338,7 +344,7 @@ export class AgentTransformationService {
     return {
       totalTransformations: 0,
       successfulTransformations: 0,
-      failedTransformations: 0
+      failedTransformations: 0,
     };
   }
-} 
+}

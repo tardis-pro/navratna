@@ -1,7 +1,7 @@
 /**
  * Compliance Framework Implementation
  * Phase 0: SOC 2, HIPAA, PCI DSS, ISO 27001, FedRAMP Compliance
- * 
+ *
  * Implements compliance controls, monitoring, and reporting
  * for enterprise database compartmentalization
  */
@@ -11,14 +11,14 @@ export enum ComplianceFramework {
   HIPAA = 'HIPAA',
   PCI_DSS = 'PCI_DSS',
   ISO27001 = 'ISO27001',
-  FEDRAMP = 'FEDRAMP'
+  FEDRAMP = 'FEDRAMP',
 }
 
 export enum ControlStatus {
   IMPLEMENTED = 'implemented',
   PARTIALLY_IMPLEMENTED = 'partially_implemented',
   NOT_IMPLEMENTED = 'not_implemented',
-  NOT_APPLICABLE = 'not_applicable'
+  NOT_APPLICABLE = 'not_applicable',
 }
 
 export interface ComplianceControl {
@@ -87,12 +87,13 @@ export const SOC2_CONTROLS: ComplianceControl[] = [
     framework: ComplianceFramework.SOC2,
     controlId: 'CC6.1',
     title: 'Logical and Physical Access Controls',
-    description: 'The entity implements logical access security software, infrastructure, and architectures over protected information assets to protect them from security events to meet the entity\'s objectives.',
+    description:
+      "The entity implements logical access security software, infrastructure, and architectures over protected information assets to protect them from security events to meet the entity's objectives.",
     requirements: [
       'Identify and manage the inventory of information assets',
       'Restrict logical access to information assets',
       'Manage points of access',
-      'Restrict physical access'
+      'Restrict physical access',
     ],
     status: ControlStatus.IMPLEMENTED,
     implementation: {
@@ -102,41 +103,33 @@ export const SOC2_CONTROLS: ComplianceControl[] = [
         'PostgreSQL 17.5 with SCRAM-SHA-256 authentication',
         'TLS 1.3 encryption for all database connections',
         'Row-level security (RLS) implementation',
-        'SSL certificate management for all services'
+        'SSL certificate management for all services',
       ],
       administrative: [
         'Database access policies and procedures',
         'Service registration and authorization process',
         'Regular access reviews and audits',
-        'Security training for development teams'
+        'Security training for development teams',
       ],
       physical: [
         'Infrastructure hosted in secure data centers',
         'Network segmentation and isolation',
-        'Firewall rules and intrusion detection'
-      ]
+        'Firewall rules and intrusion detection',
+      ],
     },
     evidence: {
       documents: [
         'Service Access Matrix documentation',
         'Database security configuration',
-        'Network architecture diagrams'
+        'Network architecture diagrams',
       ],
       screenshots: [
         'Database connection configurations',
         'Network segmentation setup',
-        'SSL certificate configurations'
+        'SSL certificate configurations',
       ],
-      logs: [
-        'Database access logs',
-        'Authentication logs',
-        'Network traffic logs'
-      ],
-      tests: [
-        'Penetration testing results',
-        'Access control testing',
-        'Network security scans'
-      ]
+      logs: ['Database access logs', 'Authentication logs', 'Network traffic logs'],
+      tests: ['Penetration testing results', 'Access control testing', 'Network security scans'],
     },
     assessmentDate: new Date('2025-01-01'),
     nextAssessment: new Date('2025-07-01'),
@@ -147,21 +140,22 @@ export const SOC2_CONTROLS: ComplianceControl[] = [
         description: 'Unauthorized database access',
         likelihood: 'low',
         impact: 'high',
-        mitigation: 'Multi-factor authentication and continuous monitoring'
-      }
-    ]
+        mitigation: 'Multi-factor authentication and continuous monitoring',
+      },
+    ],
   },
   {
     id: 'soc2-cc6-6',
     framework: ComplianceFramework.SOC2,
     controlId: 'CC6.6',
     title: 'Data Classification and Handling',
-    description: 'The entity identifies and classifies data based on the risk to the entity and implements controls to manage and protect the data based on its classification.',
+    description:
+      'The entity identifies and classifies data based on the risk to the entity and implements controls to manage and protect the data based on its classification.',
     requirements: [
       'Identify and classify data',
       'Handle data in accordance with its classification',
       'Define data retention and disposal requirements',
-      'Define backup and restoration procedures'
+      'Define backup and restoration procedures',
     ],
     status: ControlStatus.IMPLEMENTED,
     implementation: {
@@ -170,40 +164,33 @@ export const SOC2_CONTROLS: ComplianceControl[] = [
         'Database-level data segregation',
         'Encryption at rest with AES-256',
         'Encrypted backup procedures',
-        'Automated data retention policies'
+        'Automated data retention policies',
       ],
       administrative: [
         'Data classification policies',
         'Data handling procedures',
         'Data retention schedules',
-        'Data disposal procedures'
+        'Data disposal procedures',
       ],
-      physical: [
-        'Secure backup storage',
-        'Physical media destruction procedures'
-      ]
+      physical: ['Secure backup storage', 'Physical media destruction procedures'],
     },
     evidence: {
       documents: [
         'Data classification policy',
         'Data retention schedules',
-        'Backup and recovery procedures'
+        'Backup and recovery procedures',
       ],
       screenshots: [
         'Database encryption settings',
         'Backup configurations',
-        'Data classification labels'
+        'Data classification labels',
       ],
-      logs: [
-        'Data access logs',
-        'Backup operation logs',
-        'Data retention cleanup logs'
-      ],
+      logs: ['Data access logs', 'Backup operation logs', 'Data retention cleanup logs'],
       tests: [
         'Data recovery testing',
         'Encryption validation tests',
-        'Data destruction verification'
-      ]
+        'Data destruction verification',
+      ],
     },
     assessmentDate: new Date('2025-01-01'),
     nextAssessment: new Date('2025-07-01'),
@@ -214,21 +201,22 @@ export const SOC2_CONTROLS: ComplianceControl[] = [
         description: 'Data breach or unauthorized disclosure',
         likelihood: 'low',
         impact: 'high',
-        mitigation: 'Strong encryption and access controls'
-      }
-    ]
+        mitigation: 'Strong encryption and access controls',
+      },
+    ],
   },
   {
     id: 'soc2-cc7-1',
     framework: ComplianceFramework.SOC2,
     controlId: 'CC7.1',
     title: 'System Monitoring',
-    description: 'To meet its objectives, the entity uses detection and monitoring procedures to identify anomalies in processing.',
+    description:
+      'To meet its objectives, the entity uses detection and monitoring procedures to identify anomalies in processing.',
     requirements: [
       'Implement system monitoring procedures',
       'Design detection measures',
       'Implement automated tools',
-      'Implement independent verification'
+      'Implement independent verification',
     ],
     status: ControlStatus.IMPLEMENTED,
     implementation: {
@@ -237,39 +225,20 @@ export const SOC2_CONTROLS: ComplianceControl[] = [
         'Real-time security event monitoring',
         'Prometheus metrics collection',
         'Grafana dashboards for visualization',
-        'Automated alerting for security events'
+        'Automated alerting for security events',
       ],
       administrative: [
         'Security monitoring procedures',
         'Incident response procedures',
-        'Log review and analysis processes'
+        'Log review and analysis processes',
       ],
-      physical: [
-        'Monitoring system infrastructure',
-        'Backup monitoring systems'
-      ]
+      physical: ['Monitoring system infrastructure', 'Backup monitoring systems'],
     },
     evidence: {
-      documents: [
-        'Monitoring procedures',
-        'Incident response plan',
-        'Alert escalation procedures'
-      ],
-      screenshots: [
-        'Monitoring dashboards',
-        'Alert configurations',
-        'Log analysis tools'
-      ],
-      logs: [
-        'Security monitoring logs',
-        'System performance logs',
-        'Incident response logs'
-      ],
-      tests: [
-        'Monitoring system tests',
-        'Alert testing results',
-        'Incident response drills'
-      ]
+      documents: ['Monitoring procedures', 'Incident response plan', 'Alert escalation procedures'],
+      screenshots: ['Monitoring dashboards', 'Alert configurations', 'Log analysis tools'],
+      logs: ['Security monitoring logs', 'System performance logs', 'Incident response logs'],
+      tests: ['Monitoring system tests', 'Alert testing results', 'Incident response drills'],
     },
     assessmentDate: new Date('2025-01-01'),
     nextAssessment: new Date('2025-07-01'),
@@ -280,10 +249,10 @@ export const SOC2_CONTROLS: ComplianceControl[] = [
         description: 'Undetected security incidents',
         likelihood: 'medium',
         impact: 'high',
-        mitigation: 'Continuous monitoring and regular testing'
-      }
-    ]
-  }
+        mitigation: 'Continuous monitoring and regular testing',
+      },
+    ],
+  },
 ];
 
 /**
@@ -295,12 +264,13 @@ export const HIPAA_CONTROLS: ComplianceControl[] = [
     framework: ComplianceFramework.HIPAA,
     controlId: '§164.312(a)(1)',
     title: 'Access Control',
-    description: 'Implement technical policies and procedures for electronic information systems that maintain electronic protected health information to allow access only to those persons or software programs that have been granted access rights.',
+    description:
+      'Implement technical policies and procedures for electronic information systems that maintain electronic protected health information to allow access only to those persons or software programs that have been granted access rights.',
     requirements: [
       'Unique user identification',
       'Emergency access procedure',
       'Automatic logoff',
-      'Encryption and decryption'
+      'Encryption and decryption',
     ],
     status: ControlStatus.IMPLEMENTED,
     implementation: {
@@ -309,39 +279,28 @@ export const HIPAA_CONTROLS: ComplianceControl[] = [
         'Role-based access control (RBAC)',
         'Session timeout and automatic logoff',
         'Database-level encryption with AES-256',
-        'Emergency access procedures for break-glass scenarios'
+        'Emergency access procedures for break-glass scenarios',
       ],
       administrative: [
         'Access control policies',
         'Emergency access procedures',
-        'User access reviews'
+        'User access reviews',
       ],
-      physical: [
-        'Physical access controls to systems',
-        'Workstation security'
-      ]
+      physical: ['Physical access controls to systems', 'Workstation security'],
     },
     evidence: {
       documents: [
         'Access control policy',
         'Emergency access procedures',
-        'User access management procedures'
+        'User access management procedures',
       ],
       screenshots: [
         'User authentication system',
         'Role assignment interfaces',
-        'Session management settings'
+        'Session management settings',
       ],
-      logs: [
-        'User access logs',
-        'Authentication logs',
-        'Emergency access logs'
-      ],
-      tests: [
-        'Access control testing',
-        'Emergency access testing',
-        'Session timeout testing'
-      ]
+      logs: ['User access logs', 'Authentication logs', 'Emergency access logs'],
+      tests: ['Access control testing', 'Emergency access testing', 'Session timeout testing'],
     },
     assessmentDate: new Date('2025-01-01'),
     nextAssessment: new Date('2025-07-01'),
@@ -352,21 +311,22 @@ export const HIPAA_CONTROLS: ComplianceControl[] = [
         description: 'Unauthorized access to PHI',
         likelihood: 'low',
         impact: 'high',
-        mitigation: 'Strong authentication and access controls'
-      }
-    ]
+        mitigation: 'Strong authentication and access controls',
+      },
+    ],
   },
   {
     id: 'hipaa-164-312-b',
     framework: ComplianceFramework.HIPAA,
     controlId: '§164.312(b)',
     title: 'Audit Controls',
-    description: 'Implement hardware, software, and/or procedural mechanisms that record and examine activity in information systems that contain or use electronic protected health information.',
+    description:
+      'Implement hardware, software, and/or procedural mechanisms that record and examine activity in information systems that contain or use electronic protected health information.',
     requirements: [
       'Record access to PHI',
       'Monitor system activity',
       'Review audit logs',
-      'Report security incidents'
+      'Report security incidents',
     ],
     status: ControlStatus.IMPLEMENTED,
     implementation: {
@@ -375,39 +335,20 @@ export const HIPAA_CONTROLS: ComplianceControl[] = [
         'Immutable audit trail with timestamp verification',
         'Automated log analysis and alerting',
         'Log retention for required compliance periods',
-        'Secure log storage with integrity protection'
+        'Secure log storage with integrity protection',
       ],
-      administrative: [
-        'Audit procedures',
-        'Log review processes',
-        'Incident reporting procedures'
-      ],
-      physical: [
-        'Secure audit log storage',
-        'Backup audit systems'
-      ]
+      administrative: ['Audit procedures', 'Log review processes', 'Incident reporting procedures'],
+      physical: ['Secure audit log storage', 'Backup audit systems'],
     },
     evidence: {
-      documents: [
-        'Audit procedures',
-        'Log review procedures',
-        'Incident response plan'
-      ],
+      documents: ['Audit procedures', 'Log review procedures', 'Incident response plan'],
       screenshots: [
         'Audit logging configuration',
         'Log analysis dashboards',
-        'Alert configurations'
+        'Alert configurations',
       ],
-      logs: [
-        'Access audit logs',
-        'System activity logs',
-        'Security incident logs'
-      ],
-      tests: [
-        'Audit system testing',
-        'Log integrity testing',
-        'Alert testing'
-      ]
+      logs: ['Access audit logs', 'System activity logs', 'Security incident logs'],
+      tests: ['Audit system testing', 'Log integrity testing', 'Alert testing'],
     },
     assessmentDate: new Date('2025-01-01'),
     nextAssessment: new Date('2025-07-01'),
@@ -418,10 +359,10 @@ export const HIPAA_CONTROLS: ComplianceControl[] = [
         description: 'Inability to detect PHI breaches',
         likelihood: 'low',
         impact: 'high',
-        mitigation: 'Comprehensive audit logging and monitoring'
-      }
-    ]
-  }
+        mitigation: 'Comprehensive audit logging and monitoring',
+      },
+    ],
+  },
 ];
 
 /**
@@ -438,7 +379,7 @@ export const PCI_DSS_CONTROLS: ComplianceControl[] = [
       'Limit access to system components and cardholder data',
       'Assign unique ID to each person',
       'Restrict access based on individual role',
-      'Require documented approval for access'
+      'Require documented approval for access',
     ],
     status: ControlStatus.IMPLEMENTED,
     implementation: {
@@ -446,39 +387,24 @@ export const PCI_DSS_CONTROLS: ComplianceControl[] = [
         'Role-based access control in Service Access Matrix',
         'Database-level access restrictions',
         'Data classification and segregation',
-        'Unique user identification and authentication'
+        'Unique user identification and authentication',
       ],
       administrative: [
         'Access control policies',
         'Role definition and assignment procedures',
-        'Access approval workflows'
+        'Access approval workflows',
       ],
-      physical: [
-        'Physical access controls',
-        'Network segmentation'
-      ]
+      physical: ['Physical access controls', 'Network segmentation'],
     },
     evidence: {
-      documents: [
-        'Access control policy',
-        'Role definitions',
-        'Access approval procedures'
-      ],
+      documents: ['Access control policy', 'Role definitions', 'Access approval procedures'],
       screenshots: [
         'Access control configurations',
         'Role assignment interfaces',
-        'Database access restrictions'
+        'Database access restrictions',
       ],
-      logs: [
-        'Access control logs',
-        'Role assignment logs',
-        'Data access logs'
-      ],
-      tests: [
-        'Access control testing',
-        'Role-based access testing',
-        'Data segregation testing'
-      ]
+      logs: ['Access control logs', 'Role assignment logs', 'Data access logs'],
+      tests: ['Access control testing', 'Role-based access testing', 'Data segregation testing'],
     },
     assessmentDate: new Date('2025-01-01'),
     nextAssessment: new Date('2025-07-01'),
@@ -489,10 +415,10 @@ export const PCI_DSS_CONTROLS: ComplianceControl[] = [
         description: 'Unauthorized access to cardholder data',
         likelihood: 'low',
         impact: 'high',
-        mitigation: 'Strict access controls and monitoring'
-      }
-    ]
-  }
+        mitigation: 'Strict access controls and monitoring',
+      },
+    ],
+  },
 ];
 
 /**
@@ -504,12 +430,13 @@ export const ISO27001_CONTROLS: ComplianceControl[] = [
     framework: ComplianceFramework.ISO27001,
     controlId: 'A.9.1.1',
     title: 'Access control policy',
-    description: 'An access control policy shall be established, documented and reviewed based on business and information security requirements.',
+    description:
+      'An access control policy shall be established, documented and reviewed based on business and information security requirements.',
     requirements: [
       'Establish access control policy',
       'Document access control procedures',
       'Review policy regularly',
-      'Communicate policy to users'
+      'Communicate policy to users',
     ],
     status: ControlStatus.IMPLEMENTED,
     implementation: {
@@ -517,39 +444,24 @@ export const ISO27001_CONTROLS: ComplianceControl[] = [
         'Service Access Matrix implementation',
         'Zero Trust architecture',
         'Database access controls',
-        'Network segmentation'
+        'Network segmentation',
       ],
       administrative: [
         'Access control policy',
         'Regular policy reviews',
-        'Staff training on access controls'
+        'Staff training on access controls',
       ],
-      physical: [
-        'Physical access controls',
-        'Environmental protection'
-      ]
+      physical: ['Physical access controls', 'Environmental protection'],
     },
     evidence: {
-      documents: [
-        'Access control policy',
-        'Policy review records',
-        'Training materials'
-      ],
-      screenshots: [
-        'Access control systems',
-        'Policy management system',
-        'Training records'
-      ],
-      logs: [
-        'Policy access logs',
-        'Training completion logs',
-        'Policy review logs'
-      ],
+      documents: ['Access control policy', 'Policy review records', 'Training materials'],
+      screenshots: ['Access control systems', 'Policy management system', 'Training records'],
+      logs: ['Policy access logs', 'Training completion logs', 'Policy review logs'],
       tests: [
         'Access control audits',
         'Policy compliance testing',
-        'Training effectiveness assessment'
-      ]
+        'Training effectiveness assessment',
+      ],
     },
     assessmentDate: new Date('2025-01-01'),
     nextAssessment: new Date('2025-07-01'),
@@ -560,10 +472,10 @@ export const ISO27001_CONTROLS: ComplianceControl[] = [
         description: 'Inadequate access controls',
         likelihood: 'low',
         impact: 'medium',
-        mitigation: 'Regular policy reviews and updates'
-      }
-    ]
-  }
+        mitigation: 'Regular policy reviews and updates',
+      },
+    ],
+  },
 ];
 
 /**
@@ -591,7 +503,7 @@ export class ComplianceFrameworkManager {
    */
   getControl(framework: ComplianceFramework, controlId: string): ComplianceControl | null {
     const controls = this.controls.get(framework) || [];
-    return controls.find(control => control.controlId === controlId) || null;
+    return controls.find((control) => control.controlId === controlId) || null;
   }
 
   /**
@@ -602,29 +514,33 @@ export class ComplianceFrameworkManager {
     reportPeriod: { start: Date; end: Date }
   ): ComplianceReport {
     const controls = this.getFrameworkControls(framework);
-    
+
     const summary = {
       totalControls: controls.length,
-      implemented: controls.filter(c => c.status === ControlStatus.IMPLEMENTED).length,
-      partiallyImplemented: controls.filter(c => c.status === ControlStatus.PARTIALLY_IMPLEMENTED).length,
-      notImplemented: controls.filter(c => c.status === ControlStatus.NOT_IMPLEMENTED).length,
-      notApplicable: controls.filter(c => c.status === ControlStatus.NOT_APPLICABLE).length,
-      compliancePercentage: 0
+      implemented: controls.filter((c) => c.status === ControlStatus.IMPLEMENTED).length,
+      partiallyImplemented: controls.filter((c) => c.status === ControlStatus.PARTIALLY_IMPLEMENTED)
+        .length,
+      notImplemented: controls.filter((c) => c.status === ControlStatus.NOT_IMPLEMENTED).length,
+      notApplicable: controls.filter((c) => c.status === ControlStatus.NOT_APPLICABLE).length,
+      compliancePercentage: 0,
     };
 
     summary.compliancePercentage = Math.round(
-      ((summary.implemented + summary.partiallyImplemented * 0.5) / 
-       (summary.totalControls - summary.notApplicable)) * 100
+      ((summary.implemented + summary.partiallyImplemented * 0.5) /
+        (summary.totalControls - summary.notApplicable)) *
+        100
     );
 
     const gaps = controls
-      .filter(c => c.status !== ControlStatus.IMPLEMENTED && c.status !== ControlStatus.NOT_APPLICABLE)
-      .map(control => ({
+      .filter(
+        (c) => c.status !== ControlStatus.IMPLEMENTED && c.status !== ControlStatus.NOT_APPLICABLE
+      )
+      .map((control) => ({
         controlId: control.controlId,
         description: `Control ${control.controlId} is ${control.status}`,
         priority: this.calculateGapPriority(control),
         dueDate: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000), // 90 days from now
-        assignee: control.responsible
+        assignee: control.responsible,
       }));
 
     const recommendations = this.generateRecommendations(framework, controls);
@@ -636,7 +552,7 @@ export class ComplianceFrameworkManager {
       controls,
       summary,
       gaps,
-      recommendations
+      recommendations,
     };
   }
 
@@ -644,8 +560,8 @@ export class ComplianceFrameworkManager {
    * Calculate gap priority based on control risks
    */
   private calculateGapPriority(control: ComplianceControl): 'low' | 'medium' | 'high' | 'critical' {
-    const highImpactRisks = control.risks.filter(r => r.impact === 'high').length;
-    const highLikelihoodRisks = control.risks.filter(r => r.likelihood === 'high').length;
+    const highImpactRisks = control.risks.filter((r) => r.impact === 'high').length;
+    const highLikelihoodRisks = control.risks.filter((r) => r.likelihood === 'high').length;
 
     if (highImpactRisks > 0 && highLikelihoodRisks > 0) {
       return 'critical';
@@ -665,8 +581,10 @@ export class ComplianceFrameworkManager {
   ): string[] {
     const recommendations: string[] = [];
 
-    const notImplemented = controls.filter(c => c.status === ControlStatus.NOT_IMPLEMENTED);
-    const partiallyImplemented = controls.filter(c => c.status === ControlStatus.PARTIALLY_IMPLEMENTED);
+    const notImplemented = controls.filter((c) => c.status === ControlStatus.NOT_IMPLEMENTED);
+    const partiallyImplemented = controls.filter(
+      (c) => c.status === ControlStatus.PARTIALLY_IMPLEMENTED
+    );
 
     if (notImplemented.length > 0) {
       recommendations.push(
@@ -715,10 +633,10 @@ export class ComplianceFrameworkManager {
       status: 'compliant' | 'partially_compliant' | 'non_compliant';
     }>;
   } {
-    const frameworkStatus = Array.from(this.controls.keys()).map(framework => {
+    const frameworkStatus = Array.from(this.controls.keys()).map((framework) => {
       const report = this.generateComplianceReport(framework, {
         start: new Date(Date.now() - 365 * 24 * 60 * 60 * 1000),
-        end: new Date()
+        end: new Date(),
       });
 
       let status: 'compliant' | 'partially_compliant' | 'non_compliant';
@@ -733,7 +651,7 @@ export class ComplianceFrameworkManager {
       return {
         framework,
         percentage: report.summary.compliancePercentage,
-        status
+        status,
       };
     });
 
@@ -744,7 +662,7 @@ export class ComplianceFrameworkManager {
     return {
       frameworks: Array.from(this.controls.keys()),
       overallPercentage,
-      frameworkStatus
+      frameworkStatus,
     };
   }
 }

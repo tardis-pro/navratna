@@ -19,14 +19,14 @@ export class ConfluenceAdapter {
   constructor(toolDefinition: ToolDefinition) {
     this.toolDefinition = toolDefinition;
     this.baseUrl = process.env.CONFLUENCE_BASE_URL || 'https://your-domain.atlassian.net/wiki';
-    
+
     this.axiosInstance = axios.create({
       baseURL: `${this.baseUrl}/rest/api`,
       timeout: 30000,
       headers: {
         'Content-Type': 'application/json',
-        'Accept': 'application/json'
-      }
+        Accept: 'application/json',
+      },
     });
 
     // Add request interceptor for authentication
@@ -88,7 +88,7 @@ export class ConfluenceAdapter {
    */
   private async createPage(parameters: any): Promise<any> {
     const { type = 'page', title, space, body, ancestors, metadata } = parameters;
-    
+
     const pageData: any = {
       type,
       title,
@@ -96,9 +96,9 @@ export class ConfluenceAdapter {
       body: body || {
         storage: {
           value: '<p>Page content</p>',
-          representation: 'storage'
-        }
-      }
+          representation: 'storage',
+        },
+      },
     };
 
     // Add parent page if specified
@@ -111,24 +111,24 @@ export class ConfluenceAdapter {
       pageData.metadata = {
         labels: metadata.labels.map((label: string) => ({
           prefix: 'global',
-          name: label
-        }))
+          name: label,
+        })),
       };
     }
 
     const response = await this.axiosInstance.post('/content', pageData);
-    
+
     logger.info('Confluence page created', {
       pageId: response.data.id,
       title: response.data.title,
-      spaceKey: response.data.space.key
+      spaceKey: response.data.space.key,
     });
 
     return {
       id: response.data.id,
       title: response.data.title,
       version: response.data.version,
-      _links: response.data._links
+      _links: response.data._links,
     };
   }
 
@@ -137,7 +137,7 @@ export class ConfluenceAdapter {
    */
   private async updatePage(parameters: any): Promise<any> {
     const { pageId, title, body, version, message = 'Updated via API' } = parameters;
-    
+
     // Get current page version if not provided
     let currentVersion = version;
     if (!currentVersion) {
@@ -148,33 +148,30 @@ export class ConfluenceAdapter {
     const updateData = {
       version: {
         number: currentVersion + 1,
-        message
+        message,
       },
       title: title,
       type: 'page',
       body: body || {
         storage: {
           value: '<p>Updated content</p>',
-          representation: 'storage'
-        }
-      }
+          representation: 'storage',
+        },
+      },
     };
 
-    const response = await this.axiosInstance.put(
-      `/content/${pageId}`,
-      updateData
-    );
+    const response = await this.axiosInstance.put(`/content/${pageId}`, updateData);
 
     logger.info('Confluence page updated', {
       pageId,
-      newVersion: response.data.version.number
+      newVersion: response.data.version.number,
     });
 
     return {
       id: response.data.id,
       title: response.data.title,
       version: response.data.version,
-      _links: response.data._links
+      _links: response.data._links,
     };
   }
 
@@ -182,18 +179,18 @@ export class ConfluenceAdapter {
    * Search for content
    */
   private async searchContent(parameters: any): Promise<any> {
-    const { 
-      query, 
+    const {
+      query,
       cql,
       type = 'page',
       spaceKey,
       limit = 25,
       start = 0,
-      expand = ['version', 'space']
+      expand = ['version', 'space'],
     } = parameters;
 
     let searchQuery = cql || '';
-    
+
     // Build CQL query if not provided
     if (!cql && query) {
       searchQuery = `text ~ "${query}"`;
@@ -210,14 +207,14 @@ export class ConfluenceAdapter {
         cql: searchQuery,
         limit,
         start,
-        expand: expand.join(',')
-      }
+        expand: expand.join(','),
+      },
     });
 
     logger.info('Confluence search completed', {
       total: response.data.totalSize,
       returned: response.data.results.length,
-      query: searchQuery
+      query: searchQuery,
     });
 
     return {
@@ -225,7 +222,7 @@ export class ConfluenceAdapter {
       totalSize: response.data.totalSize,
       start: response.data.start,
       limit: response.data.limit,
-      _links: response.data._links
+      _links: response.data._links,
     };
   }
 
@@ -233,15 +230,12 @@ export class ConfluenceAdapter {
    * Get a specific page
    */
   private async getPage(parameters: any): Promise<any> {
-    const { 
-      pageId, 
-      expand = ['version', 'space', 'body.storage', 'metadata.labels'] 
-    } = parameters;
+    const { pageId, expand = ['version', 'space', 'body.storage', 'metadata.labels'] } = parameters;
 
     const response = await this.axiosInstance.get(`/content/${pageId}`, {
       params: {
-        expand: expand.join(',')
-      }
+        expand: expand.join(','),
+      },
     });
 
     return response.data;
@@ -252,7 +246,7 @@ export class ConfluenceAdapter {
    */
   private async addAttachment(parameters: any): Promise<any> {
     const { pageId, file, comment = 'File attached via API' } = parameters;
-    
+
     const formData = new FormData();
     formData.append('file', file);
     formData.append('comment', comment);
@@ -263,14 +257,14 @@ export class ConfluenceAdapter {
       {
         headers: {
           'Content-Type': 'multipart/form-data',
-          'X-Atlassian-Token': 'no-check'
-        }
+          'X-Atlassian-Token': 'no-check',
+        },
       }
     );
 
     logger.info('Attachment added to Confluence page', {
       pageId,
-      attachmentId: response.data.results[0]?.id
+      attachmentId: response.data.results[0]?.id,
     });
 
     return response.data.results[0];
@@ -302,7 +296,7 @@ export class ConfluenceAdapter {
   private async authenticate(): Promise<void> {
     try {
       const authConfig = this.toolDefinition.authentication.config;
-      
+
       // In production, this would involve the full OAuth2 flow
       // For now, we'll use environment variables
       const clientId = process.env.CONFLUENCE_CLIENT_ID;
@@ -320,23 +314,22 @@ export class ConfluenceAdapter {
           grant_type: 'refresh_token',
           client_id: clientId,
           client_secret: clientSecret,
-          refresh_token: refreshToken
+          refresh_token: refreshToken,
         },
         {
           headers: {
-            'Content-Type': 'application/x-www-form-urlencoded'
-          }
+            'Content-Type': 'application/x-www-form-urlencoded',
+          },
         }
       );
 
       this.accessToken = response.data.access_token;
       this.refreshToken = response.data.refresh_token || refreshToken;
-      this.tokenExpiry = new Date(Date.now() + (response.data.expires_in * 1000));
+      this.tokenExpiry = new Date(Date.now() + response.data.expires_in * 1000);
 
       logger.info('Confluence authentication successful', {
-        expiresIn: response.data.expires_in
+        expiresIn: response.data.expires_in,
       });
-
     } catch (error) {
       logger.error('Confluence authentication failed', { error });
       throw new Error('Failed to authenticate with Confluence');
@@ -362,12 +355,12 @@ export class ConfluenceAdapter {
           grant_type: 'refresh_token',
           client_id: clientId,
           client_secret: clientSecret,
-          refresh_token: this.refreshToken
+          refresh_token: this.refreshToken,
         },
         {
           headers: {
-            'Content-Type': 'application/x-www-form-urlencoded'
-          }
+            'Content-Type': 'application/x-www-form-urlencoded',
+          },
         }
       );
 
@@ -375,10 +368,9 @@ export class ConfluenceAdapter {
       if (response.data.refresh_token) {
         this.refreshToken = response.data.refresh_token;
       }
-      this.tokenExpiry = new Date(Date.now() + (response.data.expires_in * 1000));
+      this.tokenExpiry = new Date(Date.now() + response.data.expires_in * 1000);
 
       logger.info('Confluence token refreshed successfully');
-
     } catch (error) {
       logger.error('Failed to refresh Confluence token', { error });
       this.accessToken = null;
@@ -395,10 +387,9 @@ export class ConfluenceAdapter {
     if (error.response) {
       // Confluence API error
       const status = error.response.status;
-      const message = error.response.data?.message || 
-                     error.response.data?.reason ||
-                     error.response.statusText;
-      
+      const message =
+        error.response.data?.message || error.response.data?.reason || error.response.statusText;
+
       return new Error(`Confluence API error (${status}): ${message}`);
     } else if (error.request) {
       // Network error
@@ -419,10 +410,10 @@ export class ConfluenceAdapter {
   async getSpace(spaceKey: string): Promise<any> {
     const response = await this.axiosInstance.get(`/space/${spaceKey}`, {
       params: {
-        expand: 'description,homepage'
-      }
+        expand: 'description,homepage',
+      },
     });
-    
+
     return response.data;
   }
 
@@ -442,24 +433,26 @@ export class ConfluenceAdapter {
       body: {
         storage: {
           value: parameters.content,
-          representation: 'storage'
-        }
+          representation: 'storage',
+        },
       },
-      metadata: parameters.labels ? {
-        labels: parameters.labels.map(label => ({
-          prefix: 'global',
-          name: label
-        }))
-      } : undefined
+      metadata: parameters.labels
+        ? {
+            labels: parameters.labels.map((label) => ({
+              prefix: 'global',
+              name: label,
+            })),
+          }
+        : undefined,
     };
 
     const response = await this.axiosInstance.post('/content', blogData);
-    
+
     logger.info('Confluence blog post created', {
       blogId: response.data.id,
-      title: response.data.title
+      title: response.data.title,
     });
-    
+
     return response.data;
   }
 
@@ -475,42 +468,47 @@ export class ConfluenceAdapter {
       type: 'comment',
       container: {
         id: parameters.pageId,
-        type: 'page'
+        type: 'page',
       },
       body: {
         storage: {
           value: parameters.content,
-          representation: 'storage'
-        }
-      }
+          representation: 'storage',
+        },
+      },
     };
 
     if (parameters.parentCommentId) {
-      commentData.ancestors = [{
-        id: parameters.parentCommentId
-      }];
+      commentData.ancestors = [
+        {
+          id: parameters.parentCommentId,
+        },
+      ];
     }
 
     const response = await this.axiosInstance.post('/content', commentData);
-    
+
     logger.info('Comment added to Confluence page', {
       pageId: parameters.pageId,
-      commentId: response.data.id
+      commentId: response.data.id,
     });
-    
+
     return response.data;
   }
 
   /**
    * Get page children (sub-pages)
    */
-  async getPageChildren(pageId: string, type: 'page' | 'comment' | 'attachment' = 'page'): Promise<any> {
+  async getPageChildren(
+    pageId: string,
+    type: 'page' | 'comment' | 'attachment' = 'page'
+  ): Promise<any> {
     const response = await this.axiosInstance.get(`/content/${pageId}/child/${type}`, {
       params: {
-        expand: 'version,space'
-      }
+        expand: 'version,space',
+      },
     });
-    
+
     return response.data.results;
   }
 
@@ -524,7 +522,7 @@ export class ConfluenceAdapter {
     position?: number;
   }): Promise<any> {
     const moveData: any = {
-      position: parameters.position || 0
+      position: parameters.position || 0,
     };
 
     if (parameters.targetSpaceKey) {
@@ -535,17 +533,14 @@ export class ConfluenceAdapter {
       moveData.targetParent = { id: parameters.targetParentId };
     }
 
-    const response = await this.axiosInstance.put(
-      `/content/${parameters.pageId}/move`,
-      moveData
-    );
-    
+    const response = await this.axiosInstance.put(`/content/${parameters.pageId}/move`, moveData);
+
     logger.info('Confluence page moved', {
       pageId: parameters.pageId,
       targetSpace: parameters.targetSpaceKey,
-      targetParent: parameters.targetParentId
+      targetParent: parameters.targetParentId,
     });
-    
+
     return response.data;
   }
 
@@ -554,9 +549,9 @@ export class ConfluenceAdapter {
    */
   async deletePage(pageId: string): Promise<any> {
     const response = await this.axiosInstance.delete(`/content/${pageId}`);
-    
+
     logger.info('Confluence page deleted', { pageId });
-    
+
     return { success: true };
   }
 }

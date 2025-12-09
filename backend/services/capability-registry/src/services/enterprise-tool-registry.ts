@@ -88,15 +88,29 @@ export class EnterpriseToolRegistry {
     const { config } = await import('@uaip/config');
 
     // Safely access enterprise configuration with fallback
-    const enterpriseConfig = config.enterprise || { enabled: false, zeroTrustMode: false, serviceAccessMatrix: 'standard' };
+    const enterpriseConfig = config.enterprise || {
+      enabled: false,
+      zeroTrustMode: false,
+      serviceAccessMatrix: 'standard',
+    };
 
     // Determine database instance name based on enterprise mode
     const databaseInstance = enterpriseConfig.enabled ? 'postgres-application' : 'postgres';
     const useEnterpriseMatrix = enterpriseConfig.enabled;
 
     // Validate service access using appropriate matrix
-    if (!validateServiceAccess(this.serviceName, 'postgresql', databaseInstance, AccessLevel.WRITE, useEnterpriseMatrix)) {
-      throw new Error(`Service lacks required database permissions for tool registry (instance: ${databaseInstance}, enterprise: ${useEnterpriseMatrix})`);
+    if (
+      !validateServiceAccess(
+        this.serviceName,
+        'postgresql',
+        databaseInstance,
+        AccessLevel.WRITE,
+        useEnterpriseMatrix
+      )
+    ) {
+      throw new Error(
+        `Service lacks required database permissions for tool registry (instance: ${databaseInstance}, enterprise: ${useEnterpriseMatrix})`
+      );
     }
 
     // Set up event subscriptions
@@ -109,7 +123,7 @@ export class EnterpriseToolRegistry {
       service: this.serviceName,
       toolCount: this.tools.size,
       enterpriseMode: enterpriseConfig.enabled,
-      databaseInstance
+      databaseInstance,
     });
   }
 
@@ -142,16 +156,15 @@ export class EnterpriseToolRegistry {
         toolId: tool.id,
         toolName: tool.name,
         category: tool.category,
-        operations: tool.operations.map(op => op.id),
-        timestamp: new Date().toISOString()
+        operations: tool.operations.map((op) => op.id),
+        timestamp: new Date().toISOString(),
       });
 
       this.auditLog('TOOL_REGISTERED', {
         toolId: tool.id,
         toolName: tool.name,
-        vendor: tool.vendor
+        vendor: tool.vendor,
       });
-
     } catch (error) {
       logger.error('Failed to register tool', { error, toolId: tool.id });
       throw error;
@@ -180,7 +193,7 @@ export class EnterpriseToolRegistry {
         toolId: request.toolId,
         operation: request.operation,
         userId: request.userId,
-        agentId: request.agentId
+        agentId: request.agentId,
       });
 
       // Validate tool exists
@@ -190,7 +203,7 @@ export class EnterpriseToolRegistry {
       }
 
       // Validate operation exists
-      const operation = tool.operations.find(op => op.id === request.operation);
+      const operation = tool.operations.find((op) => op.id === request.operation);
       if (!operation) {
         throw new Error(`Operation not found: ${request.operation}`);
       }
@@ -221,17 +234,10 @@ export class EnterpriseToolRegistry {
       this.auditToolExecution(executionId, request, operation, true);
 
       return { success: true, data: result };
-
     } catch (error) {
       logger.error('Tool execution failed', { error, request });
 
-      this.auditToolExecution(
-        this.generateExecutionId(),
-        request,
-        null,
-        false,
-        error.message
-      );
+      this.auditToolExecution(this.generateExecutionId(), request, null, false, error.message);
 
       return { success: false, error: error.message };
     }
@@ -266,21 +272,21 @@ export class EnterpriseToolRegistry {
                   project: { type: 'object' },
                   summary: { type: 'string' },
                   description: { type: 'string' },
-                  issuetype: { type: 'object' }
-                }
-              }
-            }
+                  issuetype: { type: 'object' },
+                },
+              },
+            },
           },
           outputSchema: {
             type: 'object',
             properties: {
               id: { type: 'string' },
               key: { type: 'string' },
-              self: { type: 'string' }
-            }
+              self: { type: 'string' },
+            },
           },
           securityLevel: 3,
-          auditLevel: 'comprehensive'
+          auditLevel: 'comprehensive',
         },
         {
           id: 'updateIssue',
@@ -292,12 +298,12 @@ export class EnterpriseToolRegistry {
             required: ['issueIdOrKey', 'fields'],
             properties: {
               issueIdOrKey: { type: 'string' },
-              fields: { type: 'object' }
-            }
+              fields: { type: 'object' },
+            },
           },
           outputSchema: { type: 'object' },
           securityLevel: 3,
-          auditLevel: 'comprehensive'
+          auditLevel: 'comprehensive',
         },
         {
           id: 'searchIssues',
@@ -310,42 +316,42 @@ export class EnterpriseToolRegistry {
             properties: {
               jql: { type: 'string' },
               maxResults: { type: 'number' },
-              fields: { type: 'array' }
-            }
+              fields: { type: 'array' },
+            },
           },
           outputSchema: {
             type: 'object',
             properties: {
               issues: { type: 'array' },
-              total: { type: 'number' }
-            }
+              total: { type: 'number' },
+            },
           },
           securityLevel: 2,
-          auditLevel: 'standard'
-        }
+          auditLevel: 'standard',
+        },
       ],
       authentication: {
         type: 'oauth2',
         config: {
           authorizationUrl: 'https://auth.atlassian.com/authorize',
           tokenUrl: 'https://auth.atlassian.com/oauth/token',
-          scope: 'read:jira-work write:jira-work'
+          scope: 'read:jira-work write:jira-work',
         },
         scopes: ['read:jira-work', 'write:jira-work'],
-        refreshable: true
+        refreshable: true,
       },
       rateLimit: {
         requests: 100,
         window: 60000,
         burstAllowance: 20,
-        perUser: true
+        perUser: true,
       },
       sandboxing: {
         enabled: true,
         executionTimeout: 30000,
         memoryLimit: 256,
         networkAccess: 'restricted',
-        allowedDomains: ['*.atlassian.net', '*.jira.com']
+        allowedDomains: ['*.atlassian.net', '*.jira.com'],
       },
       compliance: {
         dataClassification: 'confidential',
@@ -353,8 +359,8 @@ export class EnterpriseToolRegistry {
         encryptionRequired: true,
         auditRetention: 365,
         gdprCompliant: true,
-        hipaaCompliant: false
-      }
+        hipaaCompliant: false,
+      },
     });
 
     // Confluence Integration
@@ -377,19 +383,19 @@ export class EnterpriseToolRegistry {
             properties: {
               title: { type: 'string' },
               space: { type: 'object' },
-              body: { type: 'object' }
-            }
+              body: { type: 'object' },
+            },
           },
           outputSchema: {
             type: 'object',
             properties: {
               id: { type: 'string' },
               title: { type: 'string' },
-              _links: { type: 'object' }
-            }
+              _links: { type: 'object' },
+            },
           },
           securityLevel: 3,
-          auditLevel: 'comprehensive'
+          auditLevel: 'comprehensive',
         },
         {
           id: 'searchContent',
@@ -402,41 +408,41 @@ export class EnterpriseToolRegistry {
             properties: {
               query: { type: 'string' },
               filters: { type: 'object' },
-              limit: { type: 'number' }
-            }
+              limit: { type: 'number' },
+            },
           },
           outputSchema: {
             type: 'object',
             properties: {
               results: { type: 'array' },
-              totalSize: { type: 'number' }
-            }
+              totalSize: { type: 'number' },
+            },
           },
           securityLevel: 2,
-          auditLevel: 'standard'
-        }
+          auditLevel: 'standard',
+        },
       ],
       authentication: {
         type: 'oauth2',
         config: {
           authorizationUrl: 'https://auth.atlassian.com/authorize',
           tokenUrl: 'https://auth.atlassian.com/oauth/token',
-          scope: 'read:confluence-content.all write:confluence-content'
+          scope: 'read:confluence-content.all write:confluence-content',
         },
         scopes: ['read:confluence-content.all', 'write:confluence-content'],
-        refreshable: true
+        refreshable: true,
       },
       rateLimit: {
         requests: 50,
         window: 60000,
-        perUser: true
+        perUser: true,
       },
       sandboxing: {
         enabled: true,
         executionTimeout: 30000,
         memoryLimit: 256,
         networkAccess: 'restricted',
-        allowedDomains: ['*.atlassian.net', '*.confluence.com']
+        allowedDomains: ['*.atlassian.net', '*.confluence.com'],
       },
       compliance: {
         dataClassification: 'internal',
@@ -444,8 +450,8 @@ export class EnterpriseToolRegistry {
         encryptionRequired: true,
         auditRetention: 180,
         gdprCompliant: true,
-        hipaaCompliant: false
-      }
+        hipaaCompliant: false,
+      },
     });
 
     // Slack Integration
@@ -468,41 +474,41 @@ export class EnterpriseToolRegistry {
             properties: {
               channel: { type: 'string' },
               text: { type: 'string' },
-              attachments: { type: 'array' }
-            }
+              attachments: { type: 'array' },
+            },
           },
           outputSchema: {
             type: 'object',
             properties: {
               ok: { type: 'boolean' },
-              ts: { type: 'string' }
-            }
+              ts: { type: 'string' },
+            },
           },
           securityLevel: 2,
-          auditLevel: 'standard'
-        }
+          auditLevel: 'standard',
+        },
       ],
       authentication: {
         type: 'oauth2',
         config: {
           authorizationUrl: 'https://slack.com/oauth/v2/authorize',
           tokenUrl: 'https://slack.com/api/oauth.v2.access',
-          scope: 'chat:write chat:write.public'
+          scope: 'chat:write chat:write.public',
         },
         scopes: ['chat:write', 'chat:write.public'],
-        refreshable: false
+        refreshable: false,
       },
       rateLimit: {
         requests: 60,
         window: 60000,
-        perUser: false
+        perUser: false,
       },
       sandboxing: {
         enabled: true,
         executionTimeout: 10000,
         memoryLimit: 128,
         networkAccess: 'restricted',
-        allowedDomains: ['slack.com', '*.slack.com']
+        allowedDomains: ['slack.com', '*.slack.com'],
       },
       compliance: {
         dataClassification: 'internal',
@@ -510,8 +516,8 @@ export class EnterpriseToolRegistry {
         encryptionRequired: true,
         auditRetention: 90,
         gdprCompliant: true,
-        hipaaCompliant: false
-      }
+        hipaaCompliant: false,
+      },
     });
   }
 
@@ -552,7 +558,7 @@ export class EnterpriseToolRegistry {
       timeout: tool.sandboxing.executionTimeout,
       memoryLimit: tool.sandboxing.memoryLimit,
       networkAccess: tool.sandboxing.networkAccess,
-      allowedDomains: tool.sandboxing.allowedDomains
+      allowedDomains: tool.sandboxing.allowedDomains,
     };
 
     // Execute through sandbox service
@@ -612,18 +618,17 @@ export class EnterpriseToolRegistry {
     return serviceAccess.securityLevel >= requiredLevel;
   }
 
-  private validateSecurityContext(
-    operation: ToolOperation,
-    securityContext: any
-  ): void {
+  private validateSecurityContext(operation: ToolOperation, securityContext: any): void {
     if (securityContext.level < operation.securityLevel) {
-      throw new Error(`Insufficient security level. Required: ${operation.securityLevel}, Provided: ${securityContext.level}`);
+      throw new Error(
+        `Insufficient security level. Required: ${operation.securityLevel}, Provided: ${securityContext.level}`
+      );
     }
 
     // Check required permissions
     if (operation.requiredPermissions.length > 0) {
-      const hasPermissions = operation.requiredPermissions.every(
-        perm => securityContext.permissions?.includes(perm)
+      const hasPermissions = operation.requiredPermissions.every((perm) =>
+        securityContext.permissions?.includes(perm)
       );
       if (!hasPermissions) {
         throw new Error('Missing required permissions');
@@ -665,7 +670,10 @@ export class EnterpriseToolRegistry {
    */
   private async setupEventSubscriptions(): Promise<void> {
     await this.eventBusService.subscribe('tool.register', this.handleToolRegistration.bind(this));
-    await this.eventBusService.subscribe('tool.execute.request', this.handleToolExecution.bind(this));
+    await this.eventBusService.subscribe(
+      'tool.execute.request',
+      this.handleToolExecution.bind(this)
+    );
     await this.eventBusService.subscribe('tool.status.check', this.handleStatusCheck.bind(this));
   }
 
@@ -686,7 +694,7 @@ export class EnterpriseToolRegistry {
     } catch (error) {
       await this.eventBusService.publish(`tool.response.${requestId}`, {
         success: false,
-        error: error.message
+        error: error.message,
       });
     }
   }
@@ -696,7 +704,7 @@ export class EnterpriseToolRegistry {
     const status = {
       tools: Array.from(this.tools.keys()),
       toolCount: this.tools.size,
-      adaptersLoaded: this.toolInstances.size
+      adaptersLoaded: this.toolInstances.size,
     };
     await this.eventBusService.publish(`tool.status.response.${requestId}`, status);
   }
@@ -713,7 +721,7 @@ export class EnterpriseToolRegistry {
       ...data,
       service: this.serviceName,
       timestamp: new Date().toISOString(),
-      compliance: true
+      compliance: true,
     });
   }
 
@@ -734,7 +742,7 @@ export class EnterpriseToolRegistry {
       error,
       securityLevel: request.securityContext.level,
       auditLevel: operation?.auditLevel || 'standard',
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
     };
 
     if (operation?.auditLevel === 'comprehensive') {
@@ -763,9 +771,7 @@ class RateLimiter {
     const userRequests = this.requests.get(key) || [];
 
     // Remove old requests outside window
-    const validRequests = userRequests.filter(
-      time => now - time < this.config.window
-    );
+    const validRequests = userRequests.filter((time) => now - time < this.config.window);
 
     if (validRequests.length >= this.config.requests) {
       return false;

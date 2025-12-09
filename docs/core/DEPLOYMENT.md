@@ -17,6 +17,7 @@ This guide covers the deployment and operations procedures for the UAIP platform
 ### Environment Preparation
 
 1. **Security Configuration**
+
 ```bash
 # Generate production secrets
 ./scripts/generate-secrets.sh
@@ -26,6 +27,7 @@ cp .env.production.example .env.production
 ```
 
 Required environment variables:
+
 ```env
 # Core Settings
 NODE_ENV=production
@@ -48,6 +50,7 @@ GRAFANA_ADMIN_PASSWORD=<secure-password>
 ```
 
 2. **SSL Certificate Setup**
+
 ```bash
 # Generate or install SSL certificates
 ./scripts/setup-ssl.sh
@@ -59,6 +62,7 @@ cp nginx/ssl.conf.example nginx/ssl.conf
 ### Deployment Process
 
 1. **Build Production Images**
+
 ```bash
 # Build all services
 docker-compose -f docker-compose.prod.yml build
@@ -68,6 +72,7 @@ docker-compose -f docker-compose.prod.yml build agent-intelligence
 ```
 
 2. **Database Migration**
+
 ```bash
 # Run production migrations
 NODE_ENV=production npm run db:migrate
@@ -77,6 +82,7 @@ npm run db:verify
 ```
 
 3. **Service Deployment**
+
 ```bash
 # Deploy all services
 docker-compose -f docker-compose.prod.yml up -d
@@ -86,6 +92,7 @@ docker-compose -f docker-compose.prod.yml up -d --scale agent-intelligence=3
 ```
 
 4. **Verify Deployment**
+
 ```bash
 # Check service health
 ./scripts/health-check.sh
@@ -99,6 +106,7 @@ docker-compose -f docker-compose.prod.yml up -d --scale agent-intelligence=3
 ### Prometheus Configuration
 
 1. **Metrics Collection**
+
 ```yaml
 # prometheus/prometheus.yml
 scrape_configs:
@@ -106,14 +114,15 @@ scrape_configs:
     scrape_interval: 15s
     static_configs:
       - targets:
-        - 'agent-intelligence:3001'
-        - 'orchestration-pipeline:3002'
-        - 'capability-registry:3003'
-        - 'security-gateway:3004'
-        - 'discussion-orchestration:3005'
+          - 'agent-intelligence:3001'
+          - 'orchestration-pipeline:3002'
+          - 'capability-registry:3003'
+          - 'security-gateway:3004'
+          - 'discussion-orchestration:3005'
 ```
 
 2. **Alert Rules**
+
 ```yaml
 # prometheus/alert.rules
 groups:
@@ -130,18 +139,21 @@ groups:
 ### Grafana Dashboards
 
 1. **Service Dashboard**
+
 - Request rates
 - Error rates
 - Response times
 - Resource usage
 
 2. **Database Dashboard**
+
 - Connection pool stats
 - Query performance
 - Cache hit rates
 - Storage metrics
 
 3. **System Dashboard**
+
 - CPU usage
 - Memory usage
 - Network I/O
@@ -150,6 +162,7 @@ groups:
 ## Scaling Guidelines
 
 ### Horizontal Scaling
+
 ```bash
 # Scale specific services
 docker-compose -f docker-compose.prod.yml up -d --scale agent-intelligence=3
@@ -157,6 +170,7 @@ docker-compose -f docker-compose.prod.yml up -d --scale discussion-orchestration
 ```
 
 ### Load Balancing
+
 ```nginx
 # nginx/load-balancer.conf
 upstream agent_intelligence {
@@ -168,7 +182,9 @@ upstream agent_intelligence {
 ```
 
 ### Database Scaling
+
 1. **PostgreSQL Replication**
+
 ```bash
 # Setup streaming replication
 ./scripts/setup-pg-replication.sh
@@ -178,6 +194,7 @@ upstream agent_intelligence {
 ```
 
 2. **Neo4j Clustering**
+
 ```bash
 # Configure Neo4j cluster
 ./scripts/setup-neo4j-cluster.sh
@@ -188,6 +205,7 @@ upstream agent_intelligence {
 ### Database Backups
 
 1. **PostgreSQL Backup**
+
 ```bash
 # Full backup
 ./scripts/backup-postgres.sh
@@ -197,6 +215,7 @@ upstream agent_intelligence {
 ```
 
 2. **Neo4j Backup**
+
 ```bash
 # Full backup
 ./scripts/backup-neo4j.sh
@@ -206,6 +225,7 @@ upstream agent_intelligence {
 ```
 
 ### Configuration Backups
+
 ```bash
 # Backup all configs
 ./scripts/backup-configs.sh
@@ -219,6 +239,7 @@ upstream agent_intelligence {
 ### Regular Maintenance
 
 1. **Log Rotation**
+
 ```bash
 # Setup log rotation
 ./scripts/setup-log-rotation.sh
@@ -228,6 +249,7 @@ upstream agent_intelligence {
 ```
 
 2. **Database Maintenance**
+
 ```bash
 # PostgreSQL maintenance
 ./scripts/pg-maintenance.sh
@@ -239,6 +261,7 @@ upstream agent_intelligence {
 ### Security Updates
 
 1. **System Updates**
+
 ```bash
 # Update base images
 docker-compose -f docker-compose.prod.yml pull
@@ -248,6 +271,7 @@ docker-compose -f docker-compose.prod.yml build --no-cache
 ```
 
 2. **Security Scans**
+
 ```bash
 # Run security scan
 ./scripts/security-scan.sh
@@ -261,6 +285,7 @@ docker-compose -f docker-compose.prod.yml build --no-cache
 ### Common Issues
 
 1. **Service Recovery**
+
 ```bash
 # Restart failed service
 docker-compose -f docker-compose.prod.yml restart service-name
@@ -270,6 +295,7 @@ docker-compose -f docker-compose.prod.yml logs --tail=100 service-name
 ```
 
 2. **Database Issues**
+
 ```bash
 # Check database connections
 ./scripts/check-db-connections.sh
@@ -281,6 +307,7 @@ docker-compose -f docker-compose.prod.yml logs --tail=100 service-name
 ### Performance Issues
 
 1. **Identify Bottlenecks**
+
 ```bash
 # Run performance analysis
 ./scripts/analyze-performance.sh
@@ -290,6 +317,7 @@ docker-compose -f docker-compose.prod.yml logs --tail=100 service-name
 ```
 
 2. **Resource Optimization**
+
 ```bash
 # Optimize cache settings
 ./scripts/optimize-cache.sh
@@ -303,6 +331,7 @@ docker-compose -f docker-compose.prod.yml logs --tail=100 service-name
 ### Recovery Procedures
 
 1. **Service Recovery**
+
 ```bash
 # Full system recovery
 ./scripts/disaster-recovery.sh
@@ -312,6 +341,7 @@ docker-compose -f docker-compose.prod.yml logs --tail=100 service-name
 ```
 
 2. **Data Recovery**
+
 ```bash
 # Database restoration
 ./scripts/restore-database.sh
@@ -323,6 +353,7 @@ docker-compose -f docker-compose.prod.yml logs --tail=100 service-name
 ### Failover Procedures
 
 1. **Database Failover**
+
 ```bash
 # Trigger failover
 ./scripts/db-failover.sh
@@ -332,9 +363,11 @@ docker-compose -f docker-compose.prod.yml logs --tail=100 service-name
 ```
 
 2. **Service Failover**
+
 ```bash
 # Switch to backup services
 ./scripts/service-failover.sh
 
 # Validate system state
 ./scripts/validate-system.sh
+```

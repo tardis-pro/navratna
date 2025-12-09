@@ -3,7 +3,17 @@
 
 import React, { useState, useCallback, useRef } from 'react';
 import { uaipAPI } from '@/utils/uaip-api';
-import { Upload, FileText, CheckCircle, AlertCircle, X, Eye, EyeOff, Play, Server } from 'lucide-react';
+import {
+  Upload,
+  FileText,
+  CheckCircle,
+  AlertCircle,
+  X,
+  Eye,
+  EyeOff,
+  Play,
+  Server,
+} from 'lucide-react';
 
 interface MCPServer {
   command: string;
@@ -43,7 +53,7 @@ interface MCPConfigUploadProps {
 const MCPConfigUpload: React.FC<MCPConfigUploadProps> = ({
   onUploadSuccess,
   onUploadError,
-  className = ''
+  className = '',
 }) => {
   const [state, setState] = useState<UploadState>({
     isDragging: false,
@@ -54,201 +64,212 @@ const MCPConfigUpload: React.FC<MCPConfigUploadProps> = ({
     parsedConfig: null,
     validatedServers: [],
     installationStatus: {},
-    installationErrors: {}
+    installationErrors: {},
   });
 
   const [showPreview, setShowPreview] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const validateMCPConfig = useCallback((config: any): { isValid: boolean; errors: string[]; servers: ParsedServer[] } => {
-    const errors: string[] = [];
-    const servers: ParsedServer[] = [];
+  const validateMCPConfig = useCallback(
+    (config: any): { isValid: boolean; errors: string[]; servers: ParsedServer[] } => {
+      const errors: string[] = [];
+      const servers: ParsedServer[] = [];
 
-    // Check if config has mcpServers property
-    if (!config || typeof config !== 'object') {
-      errors.push('Invalid JSON structure');
-      return { isValid: false, errors, servers };
-    }
-
-    if (!config.mcpServers || typeof config.mcpServers !== 'object') {
-      errors.push('Missing or invalid "mcpServers" property');
-      return { isValid: false, errors, servers };
-    }
-
-    // Validate each server
-    Object.entries(config.mcpServers).forEach(([name, serverConfig]: [string, any]) => {
-      const serverErrors: string[] = [];
-      let isValid = true;
-
-      // Validate server name
-      if (!name || typeof name !== 'string' || name.trim().length === 0) {
-        serverErrors.push('Server name cannot be empty');
-        isValid = false;
+      // Check if config has mcpServers property
+      if (!config || typeof config !== 'object') {
+        errors.push('Invalid JSON structure');
+        return { isValid: false, errors, servers };
       }
 
-      // Validate command
-      if (!serverConfig.command || typeof serverConfig.command !== 'string') {
-        serverErrors.push('Missing or invalid "command" property');
-        isValid = false;
+      if (!config.mcpServers || typeof config.mcpServers !== 'object') {
+        errors.push('Missing or invalid "mcpServers" property');
+        return { isValid: false, errors, servers };
       }
 
-      // Validate args
-      if (!Array.isArray(serverConfig.args)) {
-        serverErrors.push('Missing or invalid "args" property (must be array)');
-        isValid = false;
-      } else {
-        serverConfig.args.forEach((arg: any, index: number) => {
-          if (typeof arg !== 'string') {
-            serverErrors.push(`Argument ${index + 1} must be a string`);
-            isValid = false;
-          }
+      // Validate each server
+      Object.entries(config.mcpServers).forEach(([name, serverConfig]: [string, any]) => {
+        const serverErrors: string[] = [];
+        let isValid = true;
+
+        // Validate server name
+        if (!name || typeof name !== 'string' || name.trim().length === 0) {
+          serverErrors.push('Server name cannot be empty');
+          isValid = false;
+        }
+
+        // Validate command
+        if (!serverConfig.command || typeof serverConfig.command !== 'string') {
+          serverErrors.push('Missing or invalid "command" property');
+          isValid = false;
+        }
+
+        // Validate args
+        if (!Array.isArray(serverConfig.args)) {
+          serverErrors.push('Missing or invalid "args" property (must be array)');
+          isValid = false;
+        } else {
+          serverConfig.args.forEach((arg: any, index: number) => {
+            if (typeof arg !== 'string') {
+              serverErrors.push(`Argument ${index + 1} must be a string`);
+              isValid = false;
+            }
+          });
+        }
+
+        // Validate optional env
+        if (serverConfig.env && typeof serverConfig.env !== 'object') {
+          serverErrors.push('Environment variables must be an object');
+          isValid = false;
+        }
+
+        // Validate optional disabled
+        if (serverConfig.disabled !== undefined && typeof serverConfig.disabled !== 'boolean') {
+          serverErrors.push('Disabled property must be a boolean');
+          isValid = false;
+        }
+
+        servers.push({
+          name,
+          command: serverConfig.command || '',
+          args: serverConfig.args || [],
+          env: serverConfig.env,
+          disabled: serverConfig.disabled,
+          isValid,
+          validationErrors: serverErrors,
         });
-      }
 
-      // Validate optional env
-      if (serverConfig.env && typeof serverConfig.env !== 'object') {
-        serverErrors.push('Environment variables must be an object');
-        isValid = false;
-      }
-
-      // Validate optional disabled
-      if (serverConfig.disabled !== undefined && typeof serverConfig.disabled !== 'boolean') {
-        serverErrors.push('Disabled property must be a boolean');
-        isValid = false;
-      }
-
-      servers.push({
-        name,
-        command: serverConfig.command || '',
-        args: serverConfig.args || [],
-        env: serverConfig.env,
-        disabled: serverConfig.disabled,
-        isValid,
-        validationErrors: serverErrors
+        if (!isValid) {
+          errors.push(`Server "${name}": ${serverErrors.join(', ')}`);
+        }
       });
 
-      if (!isValid) {
-        errors.push(`Server "${name}": ${serverErrors.join(', ')}`);
-      }
-    });
+      return {
+        isValid: errors.length === 0,
+        errors,
+        servers,
+      };
+    },
+    []
+  );
 
-    return {
-      isValid: errors.length === 0,
-      errors,
-      servers
-    };
-  }, []);
+  const handleFileRead = useCallback(
+    (file: File) => {
+      const reader = new FileReader();
 
-  const handleFileRead = useCallback((file: File) => {
-    const reader = new FileReader();
-    
-    reader.onload = (e) => {
-      try {
-        const content = e.target?.result as string;
-        const config = JSON.parse(content);
-        
-        const validation = validateMCPConfig(config);
-        
-        setState(prev => ({
+      reader.onload = (e) => {
+        try {
+          const content = e.target?.result as string;
+          const config = JSON.parse(content);
+
+          const validation = validateMCPConfig(config);
+
+          setState((prev) => ({
+            ...prev,
+            parsedConfig: validation.isValid ? config : null,
+            validatedServers: validation.servers,
+            error: validation.isValid ? null : `Validation errors: ${validation.errors.join('; ')}`,
+            success: false,
+          }));
+        } catch (error) {
+          setState((prev) => ({
+            ...prev,
+            error: `Invalid JSON file: ${error instanceof Error ? error.message : 'Parse error'}`,
+            parsedConfig: null,
+            validatedServers: [],
+            success: false,
+          }));
+        }
+      };
+
+      reader.onerror = () => {
+        setState((prev) => ({
           ...prev,
-          parsedConfig: validation.isValid ? config : null,
-          validatedServers: validation.servers,
-          error: validation.isValid ? null : `Validation errors: ${validation.errors.join('; ')}`,
-          success: false
+          error: 'Failed to read file',
+          success: false,
         }));
+      };
 
-      } catch (error) {
-        setState(prev => ({
+      reader.readAsText(file);
+    },
+    [validateMCPConfig]
+  );
+
+  const handleDrop = useCallback(
+    (e: React.DragEvent) => {
+      e.preventDefault();
+      setState((prev) => ({ ...prev, isDragging: false }));
+
+      const files = Array.from(e.dataTransfer.files);
+      const mcpFile = files.find(
+        (file) =>
+          file.name.endsWith('.mcp.json') ||
+          (file.name.endsWith('.json') && file.name.includes('mcp'))
+      );
+
+      if (!mcpFile) {
+        setState((prev) => ({
           ...prev,
-          error: `Invalid JSON file: ${error instanceof Error ? error.message : 'Parse error'}`,
-          parsedConfig: null,
-          validatedServers: [],
-          success: false
+          error: 'Please upload a valid .mcp.json file',
         }));
+        return;
       }
-    };
 
-    reader.onerror = () => {
-      setState(prev => ({
-        ...prev,
-        error: 'Failed to read file',
-        success: false
-      }));
-    };
+      handleFileRead(mcpFile);
+    },
+    [handleFileRead]
+  );
 
-    reader.readAsText(file);
-  }, [validateMCPConfig]);
-
-  const handleDrop = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-    setState(prev => ({ ...prev, isDragging: false }));
-
-    const files = Array.from(e.dataTransfer.files);
-    const mcpFile = files.find(file => 
-      file.name.endsWith('.mcp.json') || 
-      (file.name.endsWith('.json') && file.name.includes('mcp'))
-    );
-
-    if (!mcpFile) {
-      setState(prev => ({
-        ...prev,
-        error: 'Please upload a valid .mcp.json file'
-      }));
-      return;
-    }
-
-    handleFileRead(mcpFile);
-  }, [handleFileRead]);
-
-  const handleFileInput = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      handleFileRead(file);
-    }
-  }, [handleFileRead]);
+  const handleFileInput = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      const file = e.target.files?.[0];
+      if (file) {
+        handleFileRead(file);
+      }
+    },
+    [handleFileRead]
+  );
 
   const handleInstallServers = useCallback(async () => {
     if (!state.parsedConfig) return;
 
-    setState(prev => ({
+    setState((prev) => ({
       ...prev,
       isUploading: true,
       uploadProgress: 0,
       installationStatus: {},
-      installationErrors: {}
+      installationErrors: {},
     }));
 
     try {
       // Create a file from the parsed config
       const configBlob = new Blob([JSON.stringify(state.parsedConfig, null, 2)], {
-        type: 'application/json'
+        type: 'application/json',
       });
       const configFile = new File([configBlob], 'uploaded.mcp.json', {
-        type: 'application/json'
+        type: 'application/json',
       });
 
       // Upload using the uaipAPI
       const result = await uaipAPI.mcp.uploadConfig(configFile);
 
-      setState(prev => ({
+      setState((prev) => ({
         ...prev,
         isUploading: false,
         uploadProgress: 100,
         success: true,
         error: null,
         installationStatus: result.installationStatus || {},
-        installationErrors: result.installationErrors || {}
+        installationErrors: result.installationErrors || {},
       }));
 
       onUploadSuccess?.(state.parsedConfig);
-
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Upload failed';
-      setState(prev => ({
+      setState((prev) => ({
         ...prev,
         isUploading: false,
         error: errorMessage,
-        success: false
+        success: false,
       }));
 
       onUploadError?.(errorMessage);
@@ -265,7 +286,7 @@ const MCPConfigUpload: React.FC<MCPConfigUploadProps> = ({
       parsedConfig: null,
       validatedServers: [],
       installationStatus: {},
-      installationErrors: {}
+      installationErrors: {},
     });
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
@@ -321,7 +342,7 @@ const MCPConfigUpload: React.FC<MCPConfigUploadProps> = ({
                   <div>
                     <span className="text-gray-400">Args:</span>
                     <div className="ml-2 text-white font-mono">
-                      [{server.args.map(arg => `"${arg}"`).join(', ')}]
+                      [{server.args.map((arg) => `"${arg}"`).join(', ')}]
                     </div>
                   </div>
                   {server.env && (
@@ -347,18 +368,21 @@ const MCPConfigUpload: React.FC<MCPConfigUploadProps> = ({
               {state.installationStatus[server.name] && (
                 <div className="mt-2 text-xs">
                   <span className="text-gray-400">Status:</span>
-                  <span className={`ml-2 ${
-                    state.installationStatus[server.name] === 'success' ? 'text-green-400' :
-                    state.installationStatus[server.name] === 'error' ? 'text-red-400' :
-                    state.installationStatus[server.name] === 'installing' ? 'text-yellow-400' :
-                    'text-gray-400'
-                  }`}>
+                  <span
+                    className={`ml-2 ${
+                      state.installationStatus[server.name] === 'success'
+                        ? 'text-green-400'
+                        : state.installationStatus[server.name] === 'error'
+                          ? 'text-red-400'
+                          : state.installationStatus[server.name] === 'installing'
+                            ? 'text-yellow-400'
+                            : 'text-gray-400'
+                    }`}
+                  >
                     {state.installationStatus[server.name]}
                   </span>
                   {state.installationErrors[server.name] && (
-                    <div className="text-red-400 mt-1">
-                      {state.installationErrors[server.name]}
-                    </div>
+                    <div className="text-red-400 mt-1">{state.installationErrors[server.name]}</div>
                   )}
                 </div>
               )}
@@ -383,9 +407,9 @@ const MCPConfigUpload: React.FC<MCPConfigUploadProps> = ({
         onDrop={handleDrop}
         onDragOver={(e) => {
           e.preventDefault();
-          setState(prev => ({ ...prev, isDragging: true }));
+          setState((prev) => ({ ...prev, isDragging: true }));
         }}
-        onDragLeave={() => setState(prev => ({ ...prev, isDragging: false }))}
+        onDragLeave={() => setState((prev) => ({ ...prev, isDragging: false }))}
         className={`border-2 border-dashed rounded-lg p-8 text-center transition-colors ${
           state.isDragging
             ? 'border-blue-400 bg-blue-900/20'
@@ -402,12 +426,8 @@ const MCPConfigUpload: React.FC<MCPConfigUploadProps> = ({
 
         <div className="flex flex-col items-center">
           <Upload size={48} className="text-gray-400 mb-4" />
-          <h3 className="text-lg font-medium text-white mb-2">
-            Drop your .mcp.json file here
-          </h3>
-          <p className="text-gray-400 mb-4">
-            or click to browse files
-          </p>
+          <h3 className="text-lg font-medium text-white mb-2">Drop your .mcp.json file here</h3>
+          <p className="text-gray-400 mb-4">or click to browse files</p>
           <button
             onClick={() => fileInputRef.current?.click()}
             className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg font-medium transition-colors"
@@ -426,10 +446,7 @@ const MCPConfigUpload: React.FC<MCPConfigUploadProps> = ({
               <h4 className="text-red-400 font-medium">Upload Error</h4>
               <p className="text-red-300 text-sm mt-1">{state.error}</p>
             </div>
-            <button
-              onClick={resetState}
-              className="ml-auto text-red-400 hover:text-red-300"
-            >
+            <button onClick={resetState} className="ml-auto text-red-400 hover:text-red-300">
               <X size={20} />
             </button>
           </div>
@@ -458,7 +475,8 @@ const MCPConfigUpload: React.FC<MCPConfigUploadProps> = ({
       {state.parsedConfig && !state.success && (
         <div className="mt-6 flex items-center justify-between">
           <div className="text-sm text-gray-400">
-            {state.validatedServers.filter(s => s.isValid).length} of {state.validatedServers.length} servers valid
+            {state.validatedServers.filter((s) => s.isValid).length} of{' '}
+            {state.validatedServers.length} servers valid
           </div>
           <div className="flex space-x-3">
             <button
@@ -469,7 +487,7 @@ const MCPConfigUpload: React.FC<MCPConfigUploadProps> = ({
             </button>
             <button
               onClick={handleInstallServers}
-              disabled={state.isUploading || state.validatedServers.every(s => !s.isValid)}
+              disabled={state.isUploading || state.validatedServers.every((s) => !s.isValid)}
               className="flex items-center px-6 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-600 disabled:cursor-not-allowed text-white rounded-lg font-medium transition-colors"
             >
               {state.isUploading ? (
@@ -511,26 +529,30 @@ const MCPConfigUpload: React.FC<MCPConfigUploadProps> = ({
           Example Configuration
         </h4>
         <pre className=" text-left font-mono text-sm text-gray-300 overflow-x-auto">
-          {JSON.stringify({
-            mcpServers: {
-              calculator: {
-                command: 'uvx',
-                args: ['mcp-server-calculator']
-              },
-              filesystem: {
-                command: 'npx',
-                args: ['-y', '@modelcontextprotocol/server-filesystem', '/tmp']
-              },
-              'custom-server': {
-                command: 'node',
-                args: ['./my-server.js'],
-                env: {
-                  API_KEY: 'your-api-key'
+          {JSON.stringify(
+            {
+              mcpServers: {
+                calculator: {
+                  command: 'uvx',
+                  args: ['mcp-server-calculator'],
                 },
-                disabled: false
-              }
-            }
-          }, null, 2)}
+                filesystem: {
+                  command: 'npx',
+                  args: ['-y', '@modelcontextprotocol/server-filesystem', '/tmp'],
+                },
+                'custom-server': {
+                  command: 'node',
+                  args: ['./my-server.js'],
+                  env: {
+                    API_KEY: 'your-api-key',
+                  },
+                  disabled: false,
+                },
+              },
+            },
+            null,
+            2
+          )}
         </pre>
       </div>
     </div>

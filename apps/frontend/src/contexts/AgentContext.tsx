@@ -1,9 +1,23 @@
-import React, { createContext, useContext, useReducer, useState, useCallback, useRef, useEffect } from 'react';
-import { AgentState, AgentContextValue, Message, ModelProvider, createAgentStateFromBackend } from '../types/agent';
-import { 
-  ToolCall, 
-  ToolResult, 
-  ToolUsageRecord, 
+import React, {
+  createContext,
+  useContext,
+  useReducer,
+  useState,
+  useCallback,
+  useRef,
+  useEffect,
+} from 'react';
+import {
+  AgentState,
+  AgentContextValue,
+  Message,
+  ModelProvider,
+  createAgentStateFromBackend,
+} from '../types/agent';
+import {
+  ToolCall,
+  ToolResult,
+  ToolUsageRecord,
   ToolPermissionSet,
   ToolPreferences,
   ToolBudget,
@@ -13,7 +27,7 @@ import {
   HealthStatus,
   SystemMetrics,
   SecurityLevel,
-  ToolExecutionStatus
+  ToolExecutionStatus,
 } from '@uaip/types';
 import uaipAPI from '@/utils/uaip-api';
 import { llmAPI } from '@/api/llm.api';
@@ -131,44 +145,34 @@ function createDefaultToolProperties(): {
   toolBudget?: ToolBudget;
 } {
   return {
-    availableTools: [
-      'math-calculator',
-      'text-analysis',
-      'time-utility',
-      'uuid-generator'
-    ], // Default safe tools
+    availableTools: ['math-calculator', 'text-analysis', 'time-utility', 'uuid-generator'], // Default safe tools
     toolPermissions: {
-      allowedTools: [
-        'math-calculator',
-        'text-analysis',
-        'time-utility',
-        'uuid-generator'
-      ],
+      allowedTools: ['math-calculator', 'text-analysis', 'time-utility', 'uuid-generator'],
       deniedTools: [],
       maxCostPerHour: 100,
       maxExecutionsPerHour: 50,
       requireApprovalFor: [SecurityLevel.MEDIUM, SecurityLevel.HIGH],
-      canApproveTools: false
+      canApproveTools: false,
     },
     toolUsageHistory: [],
     toolPreferences: {
       preferredTools: {
-        'computation': ['math-calculator', 'time-utility'],
-        'analysis': ['text-analysis'],
-        'api': [],
+        computation: ['math-calculator', 'time-utility'],
+        analysis: ['text-analysis'],
+        api: [],
         'file-system': [],
-        'database': [],
+        database: [],
         'web-search': [],
         'code-execution': [],
-        'communication': [],
+        communication: [],
         'knowledge-graph': [],
-        'deployment': [],
-        'monitoring': [],
-        'generation': ['uuid-generator']
+        deployment: [],
+        monitoring: [],
+        generation: ['uuid-generator'],
       },
       fallbackTools: {},
       timeoutPreference: 30000, // 30 seconds
-      costLimit: 10 // Max cost per operation
+      costLimit: 10, // Max cost per operation
     },
     maxConcurrentTools: 3,
     toolBudget: {
@@ -176,39 +180,48 @@ function createDefaultToolProperties(): {
       hourlyLimit: 50,
       currentDailySpent: 0,
       currentHourlySpent: 0,
-      resetTime: new Date()
-    }
+      resetTime: new Date(),
+    },
   };
 }
 
-type AgentAction = 
+type AgentAction =
   | { type: 'ADD_AGENT'; payload: AgentState }
   | { type: 'ADD_AGENTS'; payload: AgentState[] }
   | { type: 'REMOVE_AGENT'; payload: string }
   | { type: 'UPDATE_AGENT'; payload: { id: string; updates: Partial<AgentState> } }
   | { type: 'ADD_MESSAGE'; payload: { agentId: string; message: Message } }
   | { type: 'REMOVE_MESSAGE'; payload: { agentId: string; messageId: string } }
-  | { type: 'UPDATE_TOOL_PERMISSIONS'; payload: { agentId: string; permissions: Partial<ToolPermissionSet> } }
+  | {
+      type: 'UPDATE_TOOL_PERMISSIONS';
+      payload: { agentId: string; permissions: Partial<ToolPermissionSet> };
+    }
   | { type: 'ADD_TOOL_USAGE'; payload: { agentId: string; usage: ToolUsageRecord } }
   | { type: 'SET_AGENT_MODEL'; payload: { agentId: string; modelId: string; providerId: string } }
   | { type: 'CLEAR_AGENTS' };
 
-function agentReducer(state: Record<string, AgentState>, action: AgentAction): Record<string, AgentState> {
+function agentReducer(
+  state: Record<string, AgentState>,
+  action: AgentAction
+): Record<string, AgentState> {
   switch (action.type) {
     case 'ADD_AGENT': {
       console.log('🔥 REDUCER: ADD_AGENT received:', {
         hasPayload: !!action.payload,
         payloadId: action.payload?.id,
         payloadName: action.payload?.name,
-        currentStateSize: Object.keys(state).length
+        currentStateSize: Object.keys(state).length,
       });
-      
+
       // Validate payload
       if (!action.payload || !action.payload.id) {
-        console.error('❌ REDUCER: ADD_AGENT: Invalid payload - missing agent or id', action.payload);
+        console.error(
+          '❌ REDUCER: ADD_AGENT: Invalid payload - missing agent or id',
+          action.payload
+        );
         return state;
       }
-      
+
       // Ensure new agents have tool properties
       const toolProperties = createDefaultToolProperties();
       const newState = {
@@ -216,43 +229,46 @@ function agentReducer(state: Record<string, AgentState>, action: AgentAction): R
         [action.payload.id]: {
           ...action.payload,
           ...toolProperties,
-          conversationHistory: []
-        }
+          conversationHistory: [],
+        },
       };
-      
+
       console.log('✅ REDUCER: ADD_AGENT completed:', {
         agentId: action.payload.id,
         newStateSize: Object.keys(newState).length,
-        allAgentIds: Object.keys(newState)
+        allAgentIds: Object.keys(newState),
       });
-      
+
       return newState;
     }
     case 'ADD_AGENTS': {
       console.log('🔥 REDUCER: ADD_AGENTS received:', {
         agentCount: action.payload.length,
-        currentStateSize: Object.keys(state).length
+        currentStateSize: Object.keys(state).length,
       });
-      
+
       const toolProperties = createDefaultToolProperties();
-      const newAgents = action.payload.reduce((acc, agent) => {
-        if (agent && agent.id) {
-          acc[agent.id] = {
-            ...agent,
-            ...toolProperties,
-            conversationHistory: []
-          };
-        }
-        return acc;
-      }, {} as Record<string, AgentState>);
-      
+      const newAgents = action.payload.reduce(
+        (acc, agent) => {
+          if (agent && agent.id) {
+            acc[agent.id] = {
+              ...agent,
+              ...toolProperties,
+              conversationHistory: [],
+            };
+          }
+          return acc;
+        },
+        {} as Record<string, AgentState>
+      );
+
       const newState = { ...state, ...newAgents };
-      
+
       console.log('✅ REDUCER: ADD_AGENTS completed:', {
         newAgentCount: Object.keys(newAgents).length,
-        totalStateSize: Object.keys(newState).length
+        totalStateSize: Object.keys(newState).length,
       });
-      
+
       return newState;
     }
     case 'REMOVE_AGENT': {
@@ -275,8 +291,9 @@ function agentReducer(state: Record<string, AgentState>, action: AgentAction): R
         [action.payload.id]: {
           ...existingAgent,
           ...action.payload.updates,
-          conversationHistory: action.payload.updates.conversationHistory || existingAgent.conversationHistory
-        }
+          conversationHistory:
+            action.payload.updates.conversationHistory || existingAgent.conversationHistory,
+        },
       };
     }
     case 'ADD_MESSAGE': {
@@ -286,8 +303,8 @@ function agentReducer(state: Record<string, AgentState>, action: AgentAction): R
         ...state,
         [action.payload.agentId]: {
           ...agent,
-          conversationHistory: [...agent.conversationHistory, action.payload.message]
-        }
+          conversationHistory: [...agent.conversationHistory, action.payload.message],
+        },
       };
     }
     case 'REMOVE_MESSAGE': {
@@ -298,9 +315,9 @@ function agentReducer(state: Record<string, AgentState>, action: AgentAction): R
         [action.payload.agentId]: {
           ...targetAgent,
           conversationHistory: targetAgent.conversationHistory.filter(
-            msg => msg.id !== action.payload.messageId
-          )
-        }
+            (msg) => msg.id !== action.payload.messageId
+          ),
+        },
       };
     }
     case 'UPDATE_TOOL_PERMISSIONS': {
@@ -312,9 +329,9 @@ function agentReducer(state: Record<string, AgentState>, action: AgentAction): R
           ...agent,
           toolPermissions: {
             ...agent.toolPermissions,
-            ...action.payload.permissions
-          }
-        }
+            ...action.payload.permissions,
+          },
+        },
       };
     }
     case 'ADD_TOOL_USAGE': {
@@ -324,8 +341,8 @@ function agentReducer(state: Record<string, AgentState>, action: AgentAction): R
         ...state,
         [action.payload.agentId]: {
           ...agent,
-          toolUsageHistory: [...agent.toolUsageHistory, action.payload.usage]
-        }
+          toolUsageHistory: [...agent.toolUsageHistory, action.payload.usage],
+        },
       };
     }
     case 'SET_AGENT_MODEL': {
@@ -336,8 +353,8 @@ function agentReducer(state: Record<string, AgentState>, action: AgentAction): R
         [action.payload.agentId]: {
           ...agent,
           modelId: action.payload.modelId,
-          providerId: action.payload.providerId
-        }
+          providerId: action.payload.providerId,
+        },
       };
     }
     case 'CLEAR_AGENTS': {
@@ -362,7 +379,7 @@ export function AgentProvider({ children }: { children: React.ReactNode }) {
     loadingProviders: false,
     loadingModels: false,
     providersError: null,
-    modelsError: null
+    modelsError: null,
   });
 
   // Use refs to track loading operations and prevent concurrent calls
@@ -370,13 +387,13 @@ export function AgentProvider({ children }: { children: React.ReactNode }) {
     providersLoading: false,
     modelsLoading: false,
     providersLoaded: false,
-    modelsLoaded: false
+    modelsLoaded: false,
   });
 
   // Debounce timer refs
   const debounceRefs = useRef({
     providersTimer: null as NodeJS.Timeout | null,
-    modelsTimer: null as NodeJS.Timeout | null
+    modelsTimer: null as NodeJS.Timeout | null,
   });
 
   // Cleanup function for timers
@@ -409,23 +426,23 @@ export function AgentProvider({ children }: { children: React.ReactNode }) {
     debounceRefs.current.providersTimer = setTimeout(async () => {
       console.log('[AgentContext] Starting loadProviders...');
       loadingRefs.current.providersLoading = true;
-      setModelState(prev => ({ ...prev, loadingProviders: true, providersError: null }));
-      
+      setModelState((prev) => ({ ...prev, loadingProviders: true, providersError: null }));
+
       try {
         const providers = await uaipAPI.llm.getProviders();
         console.log('[AgentContext] Providers loaded successfully:', providers.length);
-        setModelState(prev => ({ 
-          ...prev, 
-          providers: providers as ModelProvider[], 
-          loadingProviders: false 
+        setModelState((prev) => ({
+          ...prev,
+          providers: providers as ModelProvider[],
+          loadingProviders: false,
         }));
         loadingRefs.current.providersLoaded = true;
       } catch (error) {
         console.error('[AgentContext] Failed to load providers:', error);
-        setModelState(prev => ({ 
-          ...prev, 
-          loadingProviders: false, 
-          providersError: error instanceof Error ? error.message : 'Failed to load providers'
+        setModelState((prev) => ({
+          ...prev,
+          loadingProviders: false,
+          providersError: error instanceof Error ? error.message : 'Failed to load providers',
         }));
       } finally {
         loadingRefs.current.providersLoading = false;
@@ -450,23 +467,23 @@ export function AgentProvider({ children }: { children: React.ReactNode }) {
     debounceRefs.current.modelsTimer = setTimeout(async () => {
       console.log('[AgentContext] Starting loadModels...');
       loadingRefs.current.modelsLoading = true;
-      setModelState(prev => ({ ...prev, loadingModels: true, modelsError: null }));
-      
+      setModelState((prev) => ({ ...prev, loadingModels: true, modelsError: null }));
+
       try {
         const models = await uaipAPI.llm.getModels();
         console.log('[AgentContext] Models loaded successfully:', models.length);
-        setModelState(prev => ({ 
-          ...prev, 
-          models, 
-          loadingModels: false 
+        setModelState((prev) => ({
+          ...prev,
+          models,
+          loadingModels: false,
         }));
         loadingRefs.current.modelsLoaded = true;
       } catch (error) {
         console.error('[AgentContext] Failed to load models:', error);
-        setModelState(prev => ({ 
-          ...prev, 
-          loadingModels: false, 
-          modelsError: error instanceof Error ? error.message : 'Failed to load models'
+        setModelState((prev) => ({
+          ...prev,
+          loadingModels: false,
+          modelsError: error instanceof Error ? error.message : 'Failed to load models',
         }));
       } finally {
         loadingRefs.current.modelsLoading = false;
@@ -475,32 +492,38 @@ export function AgentProvider({ children }: { children: React.ReactNode }) {
   }, []); // Empty dependency array to prevent infinite loops
 
   // Create a new provider
-  const createProvider = useCallback(async (providerData: ModelProvider) => {
-    try {
-      await uaipAPI.llm.createProvider(providerData);
-      // Reset loading state to allow fresh reload
-      loadingRefs.current.providersLoaded = false;
-      await loadProviders();
-      return true;
-    } catch (error) {
-      console.error('Failed to create provider:', error);
-      throw error;
-    }
-  }, [loadProviders]);
+  const createProvider = useCallback(
+    async (providerData: ModelProvider) => {
+      try {
+        await uaipAPI.llm.createProvider(providerData);
+        // Reset loading state to allow fresh reload
+        loadingRefs.current.providersLoaded = false;
+        await loadProviders();
+        return true;
+      } catch (error) {
+        console.error('Failed to create provider:', error);
+        throw error;
+      }
+    },
+    [loadProviders]
+  );
 
   // Update provider configuration
-  const updateProvider = useCallback(async (providerId: string, config: ModelProvider) => {
-    try {
-      await uaipAPI.llm.updateProviderConfig(providerId, config);
-      // Reset loading state to allow fresh reload
-      loadingRefs.current.providersLoaded = false;
-      await loadProviders();
-      return true;
-    } catch (error) {
-      console.error('Failed to update provider:', error);
-      throw error;
-    }
-  }, [loadProviders]);
+  const updateProvider = useCallback(
+    async (providerId: string, config: ModelProvider) => {
+      try {
+        await uaipAPI.llm.updateProviderConfig(providerId, config);
+        // Reset loading state to allow fresh reload
+        loadingRefs.current.providersLoaded = false;
+        await loadProviders();
+        return true;
+      } catch (error) {
+        console.error('Failed to update provider:', error);
+        throw error;
+      }
+    },
+    [loadProviders]
+  );
 
   // Test provider connectivity
   const testProvider = useCallback(async (providerId: string) => {
@@ -514,55 +537,69 @@ export function AgentProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   // Delete provider
-  const deleteProvider = useCallback(async (providerId: string) => {
-    try {
-      await uaipAPI.llm.deleteProvider(providerId);
-      // Reset loading state to allow fresh reload
-      loadingRefs.current.providersLoaded = false;
-      await loadProviders();
-      return true;
-    } catch (error) {
-      console.error('Failed to delete provider:', error);
-      throw error;
-    }
-  }, [loadProviders]);
+  const deleteProvider = useCallback(
+    async (providerId: string) => {
+      try {
+        await uaipAPI.llm.deleteProvider(providerId);
+        // Reset loading state to allow fresh reload
+        loadingRefs.current.providersLoaded = false;
+        await loadProviders();
+        return true;
+      } catch (error) {
+        console.error('Failed to delete provider:', error);
+        throw error;
+      }
+    },
+    [loadProviders]
+  );
 
   // Get models for a specific provider
-  const getModelsForProvider = useCallback((providerId: string): LLMModel[] => {
-    const provider = modelState.providers.find(p => p.id === providerId);
-    if (!provider) return [];
-    
-    return modelState.models.filter(model => 
-      model.provider === provider.name || 
-      model.apiType === provider.type
-    );
-  }, [modelState.providers, modelState.models]);
+  const getModelsForProvider = useCallback(
+    (providerId: string): LLMModel[] => {
+      const provider = modelState.providers.find((p) => p.id === providerId);
+      if (!provider) return [];
+
+      return modelState.models.filter(
+        (model) => model.provider === provider.name || model.apiType === provider.type
+      );
+    },
+    [modelState.providers, modelState.models]
+  );
 
   // Get recommended models for agent role
-  const getRecommendedModels = useCallback((agentRole?: string): LLMModel[] => {
-    return modelState.models.filter(model => {
-      if (!model.isAvailable) return false;
-      
-      if (agentRole) {
-        switch (agentRole) {
-          case 'assistant':
-            return model.name.toLowerCase().includes('gpt') || 
-                   model.name.toLowerCase().includes('claude') ||
-                   model.name.toLowerCase().includes('llama');
-          case 'analyzer':
-            return model.name.toLowerCase().includes('claude') || 
-                   model.name.toLowerCase().includes('gpt-4');
-          case 'orchestrator':
-            return model.name.toLowerCase().includes('gpt-4') ||
-                   model.name.toLowerCase().includes('claude');
-          default:
-            return true;
+  const getRecommendedModels = useCallback(
+    (agentRole?: string): LLMModel[] => {
+      return modelState.models.filter((model) => {
+        if (!model.isAvailable) return false;
+
+        if (agentRole) {
+          switch (agentRole) {
+            case 'assistant':
+              return (
+                model.name.toLowerCase().includes('gpt') ||
+                model.name.toLowerCase().includes('claude') ||
+                model.name.toLowerCase().includes('llama')
+              );
+            case 'analyzer':
+              return (
+                model.name.toLowerCase().includes('claude') ||
+                model.name.toLowerCase().includes('gpt-4')
+              );
+            case 'orchestrator':
+              return (
+                model.name.toLowerCase().includes('gpt-4') ||
+                model.name.toLowerCase().includes('claude')
+              );
+            default:
+              return true;
+          }
         }
-      }
-      
-      return true;
-    });
-  }, [modelState.models]);
+
+        return true;
+      });
+    },
+    [modelState.models]
+  );
 
   // Refresh method to reset loading states and reload data
   const refreshModelData = useCallback(async () => {
@@ -591,18 +628,18 @@ export function AgentProvider({ children }: { children: React.ReactNode }) {
       providersLoading: false,
       modelsLoading: false,
       providersLoaded: false,
-      modelsLoaded: false
+      modelsLoaded: false,
     };
-    
+
     // Clear existing data
-    setModelState(prev => ({
+    setModelState((prev) => ({
       ...prev,
       providers: [],
       models: [],
       providersError: null,
-      modelsError: null
+      modelsError: null,
     }));
-    
+
     // Load fresh data
     await Promise.allSettled([loadProviders(), loadModels()]);
   }, [loadProviders, loadModels]);
@@ -610,10 +647,10 @@ export function AgentProvider({ children }: { children: React.ReactNode }) {
   // Generic flow execution handler
   const executeFlow = async (service: string, flow: string, params?: any) => {
     const flowId = `${service}.${flow}`;
-    
+
     try {
-      setActiveFlows(prev => [...prev.filter(f => f !== flowId), flowId]);
-      setFlowErrors(prev => { 
+      setActiveFlows((prev) => [...prev.filter((f) => f !== flowId), flowId]);
+      setFlowErrors((prev) => {
         const newMap = new Map(prev);
         newMap.delete(flowId);
         return newMap;
@@ -632,24 +669,26 @@ export function AgentProvider({ children }: { children: React.ReactNode }) {
         result = await executeArtifactManagementFlow(flow, params);
       } else {
         // For other services, throw an error indicating they're not implemented
-        throw new Error(`Service '${service}' is not yet implemented. Available services: agentIntelligence, capabilityRegistry, orchestrationPipeline, artifactManagement`);
+        throw new Error(
+          `Service '${service}' is not yet implemented. Available services: agentIntelligence, capabilityRegistry, orchestrationPipeline, artifactManagement`
+        );
       }
-      
-      setFlowResults(prev => {
+
+      setFlowResults((prev) => {
         const newMap = new Map(prev);
         newMap.set(flowId, result);
         return newMap;
       });
-      
-      setActiveFlows(prev => prev.filter(f => f !== flowId));
+
+      setActiveFlows((prev) => prev.filter((f) => f !== flowId));
       return result;
     } catch (error) {
-      setFlowErrors(prev => {
+      setFlowErrors((prev) => {
         const newMap = new Map(prev);
         newMap.set(flowId, error instanceof Error ? error.message : 'Unknown error');
         return newMap;
       });
-      setActiveFlows(prev => prev.filter(f => f !== flowId));
+      setActiveFlows((prev) => prev.filter((f) => f !== flowId));
       throw error;
     }
   };
@@ -675,7 +714,7 @@ export function AgentProvider({ children }: { children: React.ReactNode }) {
           tags: params.tags || [],
           background: params.background,
           systemPrompt: params.systemPrompt,
-          conversationalStyle: params.conversationalStyle
+          conversationalStyle: params.conversationalStyle,
         });
       case 'analyzePersona':
         // Get persona details for analysis
@@ -715,8 +754,6 @@ export function AgentProvider({ children }: { children: React.ReactNode }) {
     throw new Error(`Artifact management flow '${flow}' is not yet implemented`);
   };
 
-
-
   const getFlowStatus = (flowId: string): 'idle' | 'running' | 'completed' | 'error' => {
     if (activeFlows.includes(flowId)) return 'running';
     if (flowErrors.has(flowId)) return 'error';
@@ -725,12 +762,12 @@ export function AgentProvider({ children }: { children: React.ReactNode }) {
   };
 
   const clearFlowResult = (flowId: string) => {
-    setFlowResults(prev => {
+    setFlowResults((prev) => {
       const newMap = new Map(prev);
       newMap.delete(flowId);
       return newMap;
     });
-    setFlowErrors(prev => {
+    setFlowErrors((prev) => {
       const newMap = new Map(prev);
       newMap.delete(flowId);
       return newMap;
@@ -750,7 +787,8 @@ export function AgentProvider({ children }: { children: React.ReactNode }) {
     adaptBehavior: (metrics) => executeFlow('agentIntelligence', 'adaptBehavior', metrics),
     manageMemory: (context) => executeFlow('agentIntelligence', 'manageMemory', context),
     assessSkills: (agentId) => executeFlow('agentIntelligence', 'assessSkills', { agentId }),
-    optimizePerformance: (agentId) => executeFlow('agentIntelligence', 'optimizePerformance', { agentId }),
+    optimizePerformance: (agentId) =>
+      executeFlow('agentIntelligence', 'optimizePerformance', { agentId }),
     collaborate: (requirements) => executeFlow('agentIntelligence', 'collaborate', requirements),
     reasonChain: (problem) => executeFlow('agentIntelligence', 'reasonChain', problem),
     recognizeEmotion: (text) => executeFlow('agentIntelligence', 'recognizeEmotion', { text }),
@@ -759,7 +797,8 @@ export function AgentProvider({ children }: { children: React.ReactNode }) {
     assessQuality: (response) => executeFlow('agentIntelligence', 'assessQuality', response),
     managePersona: (persona) => executeFlow('agentIntelligence', 'managePersona', persona),
     searchPersonas: (criteria) => executeFlow('agentIntelligence', 'searchPersonas', criteria),
-    analyzePersona: (personaId) => executeFlow('agentIntelligence', 'analyzePersona', { personaId }),
+    analyzePersona: (personaId) =>
+      executeFlow('agentIntelligence', 'analyzePersona', { personaId }),
     getPersonaCategories: () => executeFlow('agentIntelligence', 'getPersonaCategories'),
     coordinateAgents: (tasks) => executeFlow('agentIntelligence', 'coordinateAgents', tasks),
     switchContext: (newContext) => executeFlow('agentIntelligence', 'switchContext', newContext),
@@ -769,42 +808,61 @@ export function AgentProvider({ children }: { children: React.ReactNode }) {
   const capabilityRegistry: CapabilityRegistryFlow = {
     registerTool: (toolDef) => executeFlow('capabilityRegistry', 'registerTool', toolDef),
     discoverTools: (criteria) => executeFlow('capabilityRegistry', 'discoverTools', criteria),
-    executeTool: (toolId, params) => executeFlow('capabilityRegistry', 'executeTool', { toolId, params }),
-    validateCapability: (toolId) => executeFlow('capabilityRegistry', 'validateCapability', { toolId }),
+    executeTool: (toolId, params) =>
+      executeFlow('capabilityRegistry', 'executeTool', { toolId, params }),
+    validateCapability: (toolId) =>
+      executeFlow('capabilityRegistry', 'validateCapability', { toolId }),
     recommendTools: (context) => executeFlow('capabilityRegistry', 'recommendTools', context),
-    getToolDependencies: (toolId) => executeFlow('capabilityRegistry', 'getToolDependencies', { toolId }),
-    getToolPerformance: (toolId) => executeFlow('capabilityRegistry', 'getToolPerformance', { toolId }),
+    getToolDependencies: (toolId) =>
+      executeFlow('capabilityRegistry', 'getToolDependencies', { toolId }),
+    getToolPerformance: (toolId) =>
+      executeFlow('capabilityRegistry', 'getToolPerformance', { toolId }),
     getToolCategories: () => executeFlow('capabilityRegistry', 'getToolCategories'),
-    versionTool: (toolId, version) => executeFlow('capabilityRegistry', 'versionTool', { toolId, version }),
+    versionTool: (toolId, version) =>
+      executeFlow('capabilityRegistry', 'versionTool', { toolId, version }),
     getUsageAnalytics: () => executeFlow('capabilityRegistry', 'getUsageAnalytics'),
-    getToolDocumentation: (toolId) => executeFlow('capabilityRegistry', 'getToolDocumentation', { toolId }),
-    assessToolSecurity: (toolId) => executeFlow('capabilityRegistry', 'assessToolSecurity', { toolId }),
+    getToolDocumentation: (toolId) =>
+      executeFlow('capabilityRegistry', 'getToolDocumentation', { toolId }),
+    assessToolSecurity: (toolId) =>
+      executeFlow('capabilityRegistry', 'assessToolSecurity', { toolId }),
     integrateTool: (integration) => executeFlow('capabilityRegistry', 'integrateTool', integration),
     mapCapabilities: () => executeFlow('capabilityRegistry', 'mapCapabilities'),
     monitorTool: (toolId) => executeFlow('capabilityRegistry', 'monitorTool', { toolId }),
     getToolMarketplace: () => executeFlow('capabilityRegistry', 'getToolMarketplace'),
     createCustomTool: (spec) => executeFlow('capabilityRegistry', 'createCustomTool', spec),
     backupTool: (toolId) => executeFlow('capabilityRegistry', 'backupTool', { toolId }),
-    migrateTool: (toolId, target) => executeFlow('capabilityRegistry', 'migrateTool', { toolId, target }),
+    migrateTool: (toolId, target) =>
+      executeFlow('capabilityRegistry', 'migrateTool', { toolId, target }),
     auditCapabilities: () => executeFlow('capabilityRegistry', 'auditCapabilities'),
   };
 
   // Orchestration Pipeline Flows
   const orchestrationPipeline: OrchestrationPipelineFlow = {
-    createOperation: (operationDef) => executeFlow('orchestrationPipeline', 'createOperation', operationDef),
-    executeOperation: (operationId) => executeFlow('orchestrationPipeline', 'executeOperation', { operationId }),
-    getOperationStatus: (operationId) => executeFlow('orchestrationPipeline', 'getOperationStatus', { operationId }),
-    cancelOperation: (operationId) => executeFlow('orchestrationPipeline', 'cancelOperation', { operationId }),
-    defineWorkflow: (workflowSpec) => executeFlow('orchestrationPipeline', 'defineWorkflow', workflowSpec),
-    executeStep: (operationId, stepId) => executeFlow('orchestrationPipeline', 'executeStep', { operationId, stepId }),
+    createOperation: (operationDef) =>
+      executeFlow('orchestrationPipeline', 'createOperation', operationDef),
+    executeOperation: (operationId) =>
+      executeFlow('orchestrationPipeline', 'executeOperation', { operationId }),
+    getOperationStatus: (operationId) =>
+      executeFlow('orchestrationPipeline', 'getOperationStatus', { operationId }),
+    cancelOperation: (operationId) =>
+      executeFlow('orchestrationPipeline', 'cancelOperation', { operationId }),
+    defineWorkflow: (workflowSpec) =>
+      executeFlow('orchestrationPipeline', 'defineWorkflow', workflowSpec),
+    executeStep: (operationId, stepId) =>
+      executeFlow('orchestrationPipeline', 'executeStep', { operationId, stepId }),
     manageResources: () => executeFlow('orchestrationPipeline', 'manageResources'),
-    getOperationLogs: (operationId) => executeFlow('orchestrationPipeline', 'getOperationLogs', { operationId }),
-    executeBatch: (operations) => executeFlow('orchestrationPipeline', 'executeBatch', { operations }),
+    getOperationLogs: (operationId) =>
+      executeFlow('orchestrationPipeline', 'getOperationLogs', { operationId }),
+    executeBatch: (operations) =>
+      executeFlow('orchestrationPipeline', 'executeBatch', { operations }),
     getOperationTemplates: () => executeFlow('orchestrationPipeline', 'getOperationTemplates'),
     monitorPipeline: () => executeFlow('orchestrationPipeline', 'monitorPipeline'),
-    recoverOperation: (operationId) => executeFlow('orchestrationPipeline', 'recoverOperation', { operationId }),
-    resolveDependencies: (operationId) => executeFlow('orchestrationPipeline', 'resolveDependencies', { operationId }),
-    scheduleOperation: (schedule) => executeFlow('orchestrationPipeline', 'scheduleOperation', schedule),
+    recoverOperation: (operationId) =>
+      executeFlow('orchestrationPipeline', 'recoverOperation', { operationId }),
+    resolveDependencies: (operationId) =>
+      executeFlow('orchestrationPipeline', 'resolveDependencies', { operationId }),
+    scheduleOperation: (schedule) =>
+      executeFlow('orchestrationPipeline', 'scheduleOperation', schedule),
     optimizePerformance: () => executeFlow('orchestrationPipeline', 'optimizePerformance'),
   };
 
@@ -812,18 +870,26 @@ export function AgentProvider({ children }: { children: React.ReactNode }) {
   const artifactManagement: ArtifactManagementFlow = {
     generateArtifact: (request) => executeFlow('artifactManagement', 'generateArtifact', request),
     generateCode: (requirements) => executeFlow('artifactManagement', 'generateCode', requirements),
-    generateDocumentation: (codebase) => executeFlow('artifactManagement', 'generateDocumentation', codebase),
+    generateDocumentation: (codebase) =>
+      executeFlow('artifactManagement', 'generateDocumentation', codebase),
     generateTests: (code) => executeFlow('artifactManagement', 'generateTests', code),
     generatePRD: (requirements) => executeFlow('artifactManagement', 'generatePRD', requirements),
     getArtifactTemplates: () => executeFlow('artifactManagement', 'getArtifactTemplates'),
-    validateArtifact: (artifactId) => executeFlow('artifactManagement', 'validateArtifact', { artifactId }),
-    versionArtifact: (artifactId) => executeFlow('artifactManagement', 'versionArtifact', { artifactId }),
-    exportArtifact: (artifactId, format) => executeFlow('artifactManagement', 'exportArtifact', { artifactId, format }),
-    assessArtifactQuality: (artifactId) => executeFlow('artifactManagement', 'assessArtifactQuality', { artifactId }),
+    validateArtifact: (artifactId) =>
+      executeFlow('artifactManagement', 'validateArtifact', { artifactId }),
+    versionArtifact: (artifactId) =>
+      executeFlow('artifactManagement', 'versionArtifact', { artifactId }),
+    exportArtifact: (artifactId, format) =>
+      executeFlow('artifactManagement', 'exportArtifact', { artifactId, format }),
+    assessArtifactQuality: (artifactId) =>
+      executeFlow('artifactManagement', 'assessArtifactQuality', { artifactId }),
     searchArtifacts: (query) => executeFlow('artifactManagement', 'searchArtifacts', { query }),
-    analyzeArtifactDependencies: (artifactId) => executeFlow('artifactManagement', 'analyzeArtifactDependencies', { artifactId }),
-    collaborateOnArtifact: (artifactId) => executeFlow('artifactManagement', 'collaborateOnArtifact', { artifactId }),
-    testArtifactIntegration: (artifactId) => executeFlow('artifactManagement', 'testArtifactIntegration', { artifactId }),
+    analyzeArtifactDependencies: (artifactId) =>
+      executeFlow('artifactManagement', 'analyzeArtifactDependencies', { artifactId }),
+    collaborateOnArtifact: (artifactId) =>
+      executeFlow('artifactManagement', 'collaborateOnArtifact', { artifactId }),
+    testArtifactIntegration: (artifactId) =>
+      executeFlow('artifactManagement', 'testArtifactIntegration', { artifactId }),
     getArtifactAnalytics: () => executeFlow('artifactManagement', 'getArtifactAnalytics'),
   };
 
@@ -832,32 +898,32 @@ export function AgentProvider({ children }: { children: React.ReactNode }) {
       console.error('❌ addAgent: Cannot add undefined agent');
       return;
     }
-    
+
     if (!agent.id) {
       console.error('❌ addAgent: Agent missing required id property', agent);
       return;
     }
-    
+
     console.log('🚀 addAgent called with:', {
       agentId: agent.id,
       agentName: agent.name,
       hasId: !!agent.id,
-      currentStateSize: Object.keys(agents).length
+      currentStateSize: Object.keys(agents).length,
     });
-    
+
     console.log('🔄 Dispatching ADD_AGENT...');
     dispatch({ type: 'ADD_AGENT', payload: agent });
-    
+
     console.log('✅ Dispatch completed');
   };
-  
+
   const addAgents = (agentList: AgentState[]) => {
     if (!agentList || !Array.isArray(agentList)) {
       console.error('❌ addAgents: Invalid agent list', agentList);
       return;
     }
-    
-    const validAgents = agentList.filter(agent => {
+
+    const validAgents = agentList.filter((agent) => {
       if (!agent) {
         console.error('❌ addAgents: Skipping undefined agent');
         return false;
@@ -868,21 +934,21 @@ export function AgentProvider({ children }: { children: React.ReactNode }) {
       }
       return true;
     });
-    
+
     if (validAgents.length === 0) {
       console.log('No valid agents to add');
       return;
     }
-    
+
     console.log('🚀 addAgents called with:', {
       totalAgents: agentList.length,
       validAgents: validAgents.length,
-      currentStateSize: Object.keys(agents).length
+      currentStateSize: Object.keys(agents).length,
     });
-    
+
     console.log('🔄 Dispatching ADD_AGENTS...');
     dispatch({ type: 'ADD_AGENTS', payload: validAgents });
-    
+
     console.log('✅ Bulk dispatch completed');
   };
 
@@ -904,7 +970,7 @@ export function AgentProvider({ children }: { children: React.ReactNode }) {
 
   const getAllMessages = (): Message[] => {
     const allMessages: Message[] = [];
-    Object.values(agents).forEach(agent => {
+    Object.values(agents).forEach((agent) => {
       allMessages.push(...agent.conversationHistory);
     });
     // Sort by timestamp to get chronological order
@@ -930,17 +996,17 @@ export function AgentProvider({ children }: { children: React.ReactNode }) {
 
     try {
       // Update agent state to show tool usage
-      updateAgentState(agentId, { 
+      updateAgentState(agentId, {
         isUsingTool: true,
-        currentToolExecution: undefined // Will be set by execution engine
+        currentToolExecution: undefined, // Will be set by execution engine
       });
 
       // Execute the tool call using UAIP API
       const result = await uaipAPI.tools.execute(toolCall.toolId, {
         ...toolCall.parameters,
-        agentId
+        agentId,
       });
-      
+
       // Record usage
       const usage: ToolUsageRecord = {
         toolId: toolCall.toolId,
@@ -954,13 +1020,13 @@ export function AgentProvider({ children }: { children: React.ReactNode }) {
         id: result.executionId || toolCall.id,
         executionId: result.executionId || toolCall.id,
       };
-      
+
       dispatch({ type: 'ADD_TOOL_USAGE', payload: { agentId, usage } });
 
       // Update agent state
-      updateAgentState(agentId, { 
+      updateAgentState(agentId, {
         isUsingTool: false,
-        currentToolExecution: undefined 
+        currentToolExecution: undefined,
       });
 
       return {
@@ -971,19 +1037,22 @@ export function AgentProvider({ children }: { children: React.ReactNode }) {
         executionTime: result.executionTime || 0,
         cost: result.cost || 0,
         error: result.error,
-        metadata: result.metadata
+        metadata: result.metadata,
       };
     } catch (error) {
       // Update agent state on error
-      updateAgentState(agentId, { 
+      updateAgentState(agentId, {
         isUsingTool: false,
-        currentToolExecution: undefined 
+        currentToolExecution: undefined,
       });
       throw error;
     }
   };
 
-  const approveToolExecution = async (executionId: string, approverId: string): Promise<boolean> => {
+  const approveToolExecution = async (
+    executionId: string,
+    approverId: string
+  ): Promise<boolean> => {
     // This would use UAIP approval workflow API
     try {
       await uaipAPI.approvals.approve(executionId, { approverId });
@@ -1010,18 +1079,20 @@ export function AgentProvider({ children }: { children: React.ReactNode }) {
   // Manual refresh function to reload agents
   const refreshAgents = useCallback(async () => {
     console.log('🔄 Manual refresh: Clearing agents and reloading...');
-    
+
     // Clear current agents
     dispatch({ type: 'CLEAR_AGENTS' });
-    
+
     // Reset the loaded flag
     agentsLoadedRef.current = false;
-    
+
     // Reload agents
     try {
-      const token = typeof window !== 'undefined' ? 
-        (localStorage.getItem('accessToken') || sessionStorage.getItem('accessToken')) : null;
-        
+      const token =
+        typeof window !== 'undefined'
+          ? localStorage.getItem('accessToken') || sessionStorage.getItem('accessToken')
+          : null;
+
       if (!token) {
         console.log('No auth token found, cannot refresh agents');
         return;
@@ -1030,7 +1101,7 @@ export function AgentProvider({ children }: { children: React.ReactNode }) {
       console.log('Refreshing agents from backend...');
       const response = await uaipAPI.agents.list();
       console.log('Received response from backend:', response);
-      
+
       // Handle response format: {agents: Array(7), total: 7, filters: {...}}
       let agentList = [];
       if (Array.isArray(response.agents)) {
@@ -1046,7 +1117,7 @@ export function AgentProvider({ children }: { children: React.ReactNode }) {
       } else {
         console.log('No agents found in response or unexpected format:', response);
       }
-      
+
       if (agentList.length > 0) {
         console.log(`Processing ${agentList.length} agents...`);
         agentList.forEach((backendAgent, index) => {
@@ -1054,28 +1125,27 @@ export function AgentProvider({ children }: { children: React.ReactNode }) {
             console.log(`🔄 Processing agent ${index + 1}/${agentList.length}:`, {
               id: backendAgent.id,
               name: backendAgent.name,
-              role: backendAgent.role
+              role: backendAgent.role,
             });
-            
+
             const agentState = createAgentStateFromBackend(backendAgent);
             console.log('✅ Created agent state:', {
               id: agentState.id,
               name: agentState.name,
-              role: agentState.role
+              role: agentState.role,
             });
-            
+
             addAgent(agentState);
             console.log('✅ Added agent to context successfully');
-            
           } catch (error) {
             console.error('❌ Failed to create/add agent state:', {
               backendAgent: backendAgent,
               error: error.message,
-              stack: error.stack
+              stack: error.stack,
             });
           }
         });
-        
+
         // Mark as loaded after successful processing
         agentsLoadedRef.current = true;
         console.log(`🎉 Successfully refreshed ${agentList.length} agents into context`);
@@ -1087,14 +1157,16 @@ export function AgentProvider({ children }: { children: React.ReactNode }) {
 
   // Load agents from backend when authenticated - use ref to prevent infinite loops
   const agentsLoadedRef = useRef(false);
-  
+
   useEffect(() => {
     const loadAgents = async () => {
       try {
         // Check if we have authentication
-        const token = typeof window !== 'undefined' ? 
-          (localStorage.getItem('accessToken') || sessionStorage.getItem('accessToken')) : null;
-          
+        const token =
+          typeof window !== 'undefined'
+            ? localStorage.getItem('accessToken') || sessionStorage.getItem('accessToken')
+            : null;
+
         if (!token) {
           console.log('No auth token found, skipping agent loading');
           return;
@@ -1109,7 +1181,7 @@ export function AgentProvider({ children }: { children: React.ReactNode }) {
         console.log('Loading agents from backend...');
         const response = await uaipAPI.agents.list();
         console.log('Received response from backend:', response);
-        
+
         // Handle response format: {agents: Array(7), total: 7, filters: {...}}
         let agentList = [];
         if (Array.isArray(response.agents)) {
@@ -1125,25 +1197,26 @@ export function AgentProvider({ children }: { children: React.ReactNode }) {
         } else {
           console.log('No agents found in response or unexpected format:', response);
         }
-        
+
         if (agentList.length > 0) {
           console.log(`Processing ${agentList.length} agents in bulk...`);
-          
+
           try {
-            const agentStates = agentList.map((backendAgent, index) => {
-              console.log(`🔄 Processing agent ${index + 1}/${agentList.length}:`, {
-                id: backendAgent.id,
-                name: backendAgent.name,
-                role: backendAgent.role
-              });
-              
-              return createAgentStateFromBackend(backendAgent);
-            }).filter(Boolean); // Remove any null/undefined results
-            
+            const agentStates = agentList
+              .map((backendAgent, index) => {
+                console.log(`🔄 Processing agent ${index + 1}/${agentList.length}:`, {
+                  id: backendAgent.id,
+                  name: backendAgent.name,
+                  role: backendAgent.role,
+                });
+
+                return createAgentStateFromBackend(backendAgent);
+              })
+              .filter(Boolean); // Remove any null/undefined results
+
             console.log(`✅ Created ${agentStates.length} agent states, adding to context...`);
             addAgents(agentStates);
             console.log('✅ Added all agents to context successfully');
-            
           } catch (error) {
             console.error('❌ Failed to process agents in bulk:', error.message);
             // Fallback to individual processing if bulk fails
@@ -1156,12 +1229,12 @@ export function AgentProvider({ children }: { children: React.ReactNode }) {
                 console.error('❌ Failed to create/add agent state:', {
                   backendAgent: backendAgent,
                   error: err.message,
-                  stack: err.stack
+                  stack: err.stack,
                 });
               }
             });
           }
-          
+
           // Mark as loaded after successful processing
           agentsLoadedRef.current = true;
           console.log(`🎉 Successfully loaded ${agentList.length} agents into context`);
@@ -1191,7 +1264,7 @@ export function AgentProvider({ children }: { children: React.ReactNode }) {
     updateToolPermissions,
     setAgentModel,
     refreshAgents,
-    
+
     // Model Provider Management
     modelState,
     loadProviders,
@@ -1203,13 +1276,13 @@ export function AgentProvider({ children }: { children: React.ReactNode }) {
     deleteProvider,
     getModelsForProvider,
     getRecommendedModels,
-    
+
     // UAIP Backend Flow Integration
     agentIntelligence,
     capabilityRegistry,
     orchestrationPipeline,
     artifactManagement,
-          
+
     // UI State Management
     activeFlows,
     flowResults,
@@ -1219,11 +1292,7 @@ export function AgentProvider({ children }: { children: React.ReactNode }) {
     clearFlowResult,
   };
 
-  return (
-    <AgentContext.Provider value={value}>
-      {children}
-    </AgentContext.Provider>
-  );
+  return <AgentContext.Provider value={value}>{children}</AgentContext.Provider>;
 }
 
 export function useAgents() {
@@ -1232,4 +1301,4 @@ export function useAgents() {
     throw new Error('useAgents must be used within an AgentProvider');
   }
   return context;
-} 
+}

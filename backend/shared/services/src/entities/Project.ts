@@ -1,4 +1,15 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, OneToMany, ManyToMany, JoinTable, Index, ManyToOne } from 'typeorm';
+import {
+  Entity,
+  PrimaryGeneratedColumn,
+  Column,
+  CreateDateColumn,
+  UpdateDateColumn,
+  OneToMany,
+  ManyToMany,
+  JoinTable,
+  Index,
+  ManyToOne,
+} from 'typeorm';
 import { ProjectStatus, ProjectPriority, ProjectVisibility } from '@uaip/types';
 
 @Entity('projects')
@@ -80,16 +91,16 @@ export class Project {
   @UpdateDateColumn()
   updatedAt: Date;
 
-  @OneToMany(() => ProjectTask, task => task.project)
+  @OneToMany(() => ProjectTask, (task) => task.project)
   tasks: ProjectTask[];
 
-  @OneToMany(() => ProjectToolUsage, usage => usage.project)
+  @OneToMany(() => ProjectToolUsage, (usage) => usage.project)
   toolUsages: ProjectToolUsage[];
 
-  @OneToMany(() => ProjectAgent, agent => agent.project)
+  @OneToMany(() => ProjectAgent, (agent) => agent.project)
   agents: ProjectAgent[];
 
-  @OneToMany(() => ProjectWorkflow, workflow => workflow.project)
+  @OneToMany(() => ProjectWorkflow, (workflow) => workflow.project)
   workflows: ProjectWorkflow[];
 
   // Computed properties
@@ -106,7 +117,9 @@ export class Project {
   }
 
   get isOverdue(): boolean {
-    return this.endDate ? new Date() > this.endDate && this.status !== ProjectStatus.COMPLETED : false;
+    return this.endDate
+      ? new Date() > this.endDate && this.status !== ProjectStatus.COMPLETED
+      : false;
   }
 }
 
@@ -171,10 +184,10 @@ export class ProjectTask {
   @UpdateDateColumn()
   updatedAt: Date;
 
-  @ManyToOne(() => Project, project => project.tasks)
+  @ManyToOne(() => Project, (project) => project.tasks)
   project: Project;
 
-  @OneToMany(() => TaskExecution, execution => execution.task)
+  @OneToMany(() => TaskExecution, (execution) => execution.task)
   executions: TaskExecution[];
 }
 
@@ -230,10 +243,10 @@ export class ProjectToolUsage {
   @CreateDateColumn()
   executedAt: Date;
 
-  @ManyToOne(() => Project, project => project.toolUsages)
+  @ManyToOne(() => Project, (project) => project.toolUsages)
   project: Project;
 
-  @ManyToOne(() => ProjectTask, task => task, { nullable: true })
+  @ManyToOne(() => ProjectTask, (task) => task, { nullable: true })
   task: ProjectTask;
 }
 
@@ -273,7 +286,7 @@ export class ProjectAgent {
   @UpdateDateColumn()
   updatedAt: Date;
 
-  @ManyToOne(() => Project, project => project.agents)
+  @ManyToOne(() => Project, (project) => project.agents)
   project: Project;
 }
 
@@ -328,7 +341,7 @@ export class ProjectWorkflow {
   @UpdateDateColumn()
   updatedAt: Date;
 
-  @ManyToOne(() => Project, project => project.workflows)
+  @ManyToOne(() => Project, (project) => project.workflows)
   project: Project;
 }
 
@@ -372,6 +385,6 @@ export class TaskExecution {
   @Column({ type: 'timestamp', nullable: true })
   completedAt: Date;
 
-  @ManyToOne(() => ProjectTask, task => task.executions)
+  @ManyToOne(() => ProjectTask, (task) => task.executions)
   task: ProjectTask;
 }

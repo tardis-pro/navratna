@@ -1,11 +1,11 @@
 import { Entity, Column, Index, OneToMany } from 'typeorm';
 import { BaseEntity } from './base.entity.js';
-import { 
-  MCPServerType, 
-  MCPServerStatus, 
-  MCPServerCapabilities, 
+import {
+  MCPServerType,
+  MCPServerStatus,
+  MCPServerCapabilities,
   MCPServerStats,
-  SecurityLevel 
+  SecurityLevel,
 } from '@uaip/types';
 
 /**
@@ -70,7 +70,11 @@ export class MCPServer extends BaseEntity {
   securityLevel: SecurityLevel;
 
   // Runtime status
-  @Column({ type: 'enum', enum: ['stopped', 'starting', 'running', 'error', 'stopping'], default: 'stopped' })
+  @Column({
+    type: 'enum',
+    enum: ['stopped', 'starting', 'running', 'error', 'stopping'],
+    default: 'stopped',
+  })
   status: MCPServerStatus;
 
   @Column({ nullable: true })
@@ -114,7 +118,13 @@ export class MCPServer extends BaseEntity {
   @Column({ name: 'failed_calls', default: 0 })
   failedCalls: number;
 
-  @Column({ name: 'average_response_time', type: 'decimal', precision: 10, scale: 2, nullable: true })
+  @Column({
+    name: 'average_response_time',
+    type: 'decimal',
+    precision: 10,
+    scale: 2,
+    nullable: true,
+  })
   averageResponseTime?: number;
 
   @Column({ name: 'last_call_time', type: 'timestamp', nullable: true })
@@ -156,7 +166,12 @@ export class MCPServer extends BaseEntity {
   networkConfig?: Record<string, any>;
 
   // Logging and debugging
-  @Column({ name: 'log_level', type: 'enum', enum: ['debug', 'info', 'warn', 'error'], default: 'info' })
+  @Column({
+    name: 'log_level',
+    type: 'enum',
+    enum: ['debug', 'info', 'warn', 'error'],
+    default: 'info',
+  })
   logLevel: 'debug' | 'info' | 'warn' | 'error';
 
   @Column({ name: 'log_retention_days', default: 7 })
@@ -200,4 +215,4 @@ export class MCPServer extends BaseEntity {
   // Relationships - Note: These will be implemented when the related entities are created
   // @OneToMany(() => MCPToolCall, call => call.server)
   // toolCalls: MCPToolCall[];
-} 
+}

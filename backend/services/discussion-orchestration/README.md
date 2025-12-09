@@ -35,22 +35,26 @@ npm test
 ## API Endpoints
 
 ### Discussion Management
+
 - `POST /api/v1/discussions` - Create new discussion
 - `GET /api/v1/discussions/:id` - Get discussion details
 - `PUT /api/v1/discussions/:id` - Update discussion settings
 - `DELETE /api/v1/discussions/:id` - End discussion
 
 ### Participant Management
+
 - `POST /api/v1/discussions/:id/participants` - Add participant
 - `DELETE /api/v1/discussions/:id/participants/:participantId` - Remove participant
 - `PUT /api/v1/discussions/:id/participants/:participantId/role` - Update participant role
 
 ### Turn Management
+
 - `POST /api/v1/discussions/:id/turns` - Request turn or pass turn
 - `GET /api/v1/discussions/:id/turns/current` - Get current turn information
 - `PUT /api/v1/discussions/:id/strategy` - Change turn strategy
 
 ### WebSocket Events
+
 - `discussion:join` - Join discussion room
 - `discussion:leave` - Leave discussion room
 - `discussion:message` - Send discussion message
@@ -94,6 +98,7 @@ RATE_LIMIT_MAX_REQUESTS=100
 ### Turn Strategies
 
 #### Round Robin Strategy
+
 ```typescript
 {
   "type": "round-robin",
@@ -106,6 +111,7 @@ RATE_LIMIT_MAX_REQUESTS=100
 ```
 
 #### Context-Aware Strategy
+
 ```typescript
 {
   "type": "context-aware",
@@ -118,6 +124,7 @@ RATE_LIMIT_MAX_REQUESTS=100
 ```
 
 #### Moderated Strategy
+
 ```typescript
 {
   "type": "moderated",
@@ -164,7 +171,7 @@ Integration with Capability Registry enables:
 // Example capability integration
 const suggestedTools = await capabilityRegistry.getRecommendations({
   context: discussionContext,
-  participants: discussionParticipants
+  participants: discussionParticipants,
 });
 ```
 
@@ -276,7 +283,7 @@ export class CustomStrategy implements TurnStrategy {
   async decideTurn(context: TurnContext): Promise<TurnDecision> {
     // Implementation
   }
-  
+
   async validateTurn(turn: TurnRequest): Promise<boolean> {
     // Validation logic
   }
@@ -308,12 +315,14 @@ npm run test:integration
 ## Performance Metrics
 
 ### Response Time Targets
+
 - Discussion creation: < 100ms
 - Turn management: < 50ms
 - WebSocket message delivery: < 10ms
 - Strategy execution: < 200ms
 
 ### Throughput Targets
+
 - Concurrent discussions: 1000+
 - Messages per second: 10,000+
 - WebSocket connections: 50,000+
@@ -348,6 +357,7 @@ The service exposes Prometheus metrics:
 ### Common Issues
 
 #### WebSocket Connection Issues
+
 ```bash
 # Check WebSocket server status
 curl http://localhost:3001/health/websocket
@@ -357,6 +367,7 @@ curl http://localhost:3001/health/websocket
 ```
 
 #### Turn Strategy Not Working
+
 ```bash
 # Verify strategy configuration
 GET /api/v1/discussions/:id/strategy
@@ -366,6 +377,7 @@ tail -f logs/discussion-orchestration.log | grep "strategy"
 ```
 
 #### High Memory Usage
+
 ```bash
 # Monitor active discussions
 GET /api/v1/discussions?status=active
@@ -386,4 +398,4 @@ For more troubleshooting information, see [TROUBLESHOOTING.md](./TROUBLESHOOTING
 
 ## License
 
-MIT License - see [LICENSE](../../LICENSE) for details. 
+MIT License - see [LICENSE](../../LICENSE) for details.

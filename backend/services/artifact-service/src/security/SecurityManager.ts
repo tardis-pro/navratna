@@ -21,7 +21,7 @@ export class SecurityManagerImpl implements SecurityManager {
     /<object/gi,
     /<embed/gi,
     /data:text\/html/gi,
-    /data:application\/javascript/gi
+    /data:application\/javascript/gi,
   ];
 
   private readonly sensitiveDataPatterns = [
@@ -32,7 +32,7 @@ export class SecurityManagerImpl implements SecurityManager {
     /private[_-]?key/gi,
     /\b\d{4}[-\s]?\d{4}[-\s]?\d{4}[-\s]?\d{4}\b/g, // Credit card patterns
     /\b\d{3}-\d{2}-\d{4}\b/g, // SSN patterns
-    /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g // Email patterns
+    /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g, // Email patterns
   ];
 
   /**
@@ -41,38 +41,34 @@ export class SecurityManagerImpl implements SecurityManager {
   async validateContent(content: string): Promise<boolean> {
     try {
       // Check for dangerous patterns
-      const hasDangerousContent = this.dangerousPatterns.some(pattern => 
-        pattern.test(content)
-      );
+      const hasDangerousContent = this.dangerousPatterns.some((pattern) => pattern.test(content));
 
       if (hasDangerousContent) {
         logger.warn('Dangerous content pattern detected', {
           contentLength: content.length,
-          patterns: this.dangerousPatterns.filter(p => p.test(content)).map(p => p.source)
+          patterns: this.dangerousPatterns.filter((p) => p.test(content)).map((p) => p.source),
         });
         return false;
       }
 
       // Check for sensitive data
-      const hasSensitiveData = this.sensitiveDataPatterns.some(pattern => 
-        pattern.test(content)
-      );
+      const hasSensitiveData = this.sensitiveDataPatterns.some((pattern) => pattern.test(content));
 
       if (hasSensitiveData) {
         logger.warn('Sensitive data pattern detected', {
-          contentLength: content.length
+          contentLength: content.length,
         });
         return false;
       }
 
       // Check content length (prevent DoS)
-      if (content.length > 1000000) { // 1MB limit
+      if (content.length > 1000000) {
+        // 1MB limit
         logger.warn('Content too large', { contentLength: content.length });
         return false;
       }
 
       return true;
-
     } catch (error) {
       logger.error('Content validation error', { error });
       return false;
@@ -86,12 +82,12 @@ export class SecurityManagerImpl implements SecurityManager {
     let sanitized = content;
 
     // Remove dangerous patterns
-    this.dangerousPatterns.forEach(pattern => {
+    this.dangerousPatterns.forEach((pattern) => {
       sanitized = sanitized.replace(pattern, '[REMOVED_FOR_SECURITY]');
     });
 
     // Mask sensitive data patterns
-    this.sensitiveDataPatterns.forEach(pattern => {
+    this.sensitiveDataPatterns.forEach((pattern) => {
       sanitized = sanitized.replace(pattern, '[SENSITIVE_DATA_MASKED]');
     });
 
@@ -112,22 +108,17 @@ export class SecurityManagerImpl implements SecurityManager {
   checkPermissions(userId: string, action: string): boolean {
     // Basic permission check - in a real implementation this would
     // check against a proper authorization system
-    
+
     if (!userId) {
       logger.warn('Permission check failed: no user ID provided');
       return false;
     }
 
     // For now, allow all authenticated users to perform basic actions
-    const allowedActions = [
-      'generate',
-      'validate',
-      'analyze',
-      'read'
-    ];
+    const allowedActions = ['generate', 'validate', 'analyze', 'read'];
 
     const isAllowed = allowedActions.includes(action.toLowerCase());
-    
+
     if (!isAllowed) {
       logger.warn('Permission denied', { userId, action });
     }
@@ -138,14 +129,14 @@ export class SecurityManagerImpl implements SecurityManager {
   /**
    * Additional security utilities
    */
-  
+
   /**
    * Check if content contains potential code injection
    */
   private hasCodeInjection(content: string): boolean {
     const injectionPatterns = [
       /\$\{.*\}/g, // Template literal injection
-      /<%.*%>/g,   // Template injection
+      /<%.*%>/g, // Template injection
       /\{\{.*\}\}/g, // Handlebars/Mustache injection
       /exec\s*\(/gi,
       /spawn\s*\(/gi,
@@ -155,10 +146,10 @@ export class SecurityManagerImpl implements SecurityManager {
       /file_get_contents/gi,
       /readfile/gi,
       /include\s*\(/gi,
-      /require\s*\(/gi
+      /require\s*\(/gi,
     ];
 
-    return injectionPatterns.some(pattern => pattern.test(content));
+    return injectionPatterns.some((pattern) => pattern.test(content));
   }
 
   /**
@@ -181,10 +172,10 @@ export class SecurityManagerImpl implements SecurityManager {
       /\/home\//gi,
       /c:\\/gi,
       /\\windows\\/gi,
-      /\\system32\\/gi
+      /\\system32\\/gi,
     ];
 
-    return !dangerousPathPatterns.some(pattern => pattern.test(path));
+    return !dangerousPathPatterns.some((pattern) => pattern.test(path));
   }
 
   /**
@@ -203,7 +194,7 @@ export class SecurityManagerImpl implements SecurityManager {
     logger.warn('Security event', {
       event,
       timestamp: new Date().toISOString(),
-      ...details
+      ...details,
     });
   }
-} 
+}

@@ -1,6 +1,6 @@
 /**
  * UAIP Frontend Integration Usage Examples
- * 
+ *
  * This file demonstrates how to use the completed API client
  * to interact with all UAIP backend services.
  */
@@ -9,9 +9,9 @@ import { UAIPAPIClient, createAPIClient, isSuccessResponse, hasError } from '../
 
 // Utility function to generate UUIDs for backend examples
 function generateUUID(): string {
-  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
-    const r = Math.random() * 16 | 0;
-    const v = c === 'x' ? r : (r & 0x3 | 0x8);
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
+    const r = (Math.random() * 16) | 0;
+    const v = c === 'x' ? r : (r & 0x3) | 0x8;
     return v.toString(16);
   });
 }
@@ -38,7 +38,7 @@ async function loginExample() {
     const response = await apiClient.auth.login({
       email: 'user@example.com',
       password: 'password123',
-      rememberMe: true
+      rememberMe: true,
     });
 
     if (isSuccessResponse(response)) {
@@ -48,7 +48,7 @@ async function loginExample() {
         response.data.tokens.refreshToken,
         true
       );
-      
+
       console.log('Login successful:', response.data.user);
       return response.data;
     } else {
@@ -67,7 +67,7 @@ async function loginExample() {
 async function getCurrentUserExample() {
   try {
     const response = await apiClient.auth.me();
-    
+
     if (isSuccessResponse(response)) {
       console.log('Current user:', response.data);
       return response.data;
@@ -115,23 +115,23 @@ async function agentManagementExample() {
         capabilities: ['data_analysis', 'strategic_planning', 'market_research'],
         preferences: {
           analysisDepth: 'comprehensive',
-          reportingStyle: 'detailed'
-        }
+          reportingStyle: 'detailed',
+        },
       },
       intelligenceConfig: {
         analysisDepth: 'advanced',
         contextWindowSize: 8192,
         decisionThreshold: 0.8,
         learningEnabled: true,
-        collaborationMode: 'collaborative'
+        collaborationMode: 'collaborative',
       },
       securityContext: {
         securityLevel: 'medium',
         allowedCapabilities: ['data_analysis', 'reporting'],
         approvalRequired: false,
-        auditLevel: 'standard'
+        auditLevel: 'standard',
       },
-      createdBy: 'user-123'
+      createdBy: 'user-123',
     });
 
     if (isSuccessResponse(createResponse)) {
@@ -149,17 +149,17 @@ async function agentManagementExample() {
               id: 'msg-1',
               role: 'user',
               content: 'Analyze our Q4 sales performance and identify trends',
-              timestamp: new Date()
-            }
+              timestamp: new Date(),
+            },
           ],
           startedAt: new Date(),
-          lastActivityAt: new Date()
+          lastActivityAt: new Date(),
         },
         userRequest: 'Provide comprehensive analysis of Q4 sales data',
         constraints: {
           timeframe: '2024-Q4',
-          focus: ['trends', 'performance', 'recommendations']
-        }
+          focus: ['trends', 'performance', 'recommendations'],
+        },
       });
 
       if (isSuccessResponse(analysisResponse)) {
@@ -170,8 +170,8 @@ async function agentManagementExample() {
           analysis: analysisResponse.data.analysis,
           userPreferences: {
             priority: 'accuracy',
-            timeline: 'urgent'
-          }
+            timeline: 'urgent',
+          },
         });
 
         if (isSuccessResponse(planResponse)) {
@@ -192,7 +192,7 @@ async function agentManagementExample() {
 async function agentStatusExample() {
   try {
     const agentId = 'agent-123';
-    
+
     // Get agent capabilities
     const capabilitiesResponse = await apiClient.agents.getCapabilities(agentId);
     if (isSuccessResponse(capabilitiesResponse)) {
@@ -224,9 +224,9 @@ async function personaManagementExample() {
       description: 'Expert in digital marketing and brand strategy',
       expertise: ['digital_marketing', 'brand_strategy', 'customer_analytics'],
       personality: {
-        traits: ['creative', 'analytical', 'strategic', 'data-driven']
+        traits: ['creative', 'analytical', 'strategic', 'data-driven'],
       },
-      communicationStyle: 'professional_creative'
+      communicationStyle: 'professional_creative',
     });
 
     if (isSuccessResponse(createResponse)) {
@@ -240,7 +240,8 @@ async function personaManagementExample() {
       }
 
       // Get persona recommendations for a context
-      const recommendationsResponse = await apiClient.personas.getRecommendations('marketing_campaign');
+      const recommendationsResponse =
+        await apiClient.personas.getRecommendations('marketing_campaign');
       if (isSuccessResponse(recommendationsResponse)) {
         console.log('Persona recommendations:', recommendationsResponse.data);
       }
@@ -248,7 +249,7 @@ async function personaManagementExample() {
       // Validate the persona
       const validationResponse = await apiClient.personas.validatePersona(persona.id, {
         validationType: 'comprehensive',
-        context: 'marketing_discussion'
+        context: 'marketing_discussion',
       });
 
       if (isSuccessResponse(validationResponse)) {
@@ -280,7 +281,7 @@ async function capabilityManagementExample() {
       securityLevel: 'medium',
       sortBy: 'trust_score',
       sortOrder: 'desc',
-      limit: 10
+      limit: 10,
     });
 
     if (isSuccessResponse(searchResponse)) {
@@ -289,7 +290,7 @@ async function capabilityManagementExample() {
       // Get capability recommendations
       const recommendationsResponse = await apiClient.capabilities.getRecommendations({
         context: 'business_analysis',
-        userRole: 'analyst'
+        userRole: 'analyst',
       });
 
       if (isSuccessResponse(recommendationsResponse)) {
@@ -308,7 +309,7 @@ async function capabilityManagementExample() {
           tags: ['visualization', 'charts', 'analytics'],
           category: 'visualization',
           trustScore: 8.5,
-          usageCount: 0
+          usageCount: 0,
         },
         artifactConfig: {
           templateEngine: 'handlebars',
@@ -319,16 +320,16 @@ async function capabilityManagementExample() {
               name: 'data',
               type: 'array',
               required: true,
-              description: 'Chart data array'
-            }
-          ]
+              description: 'Chart data array',
+            },
+          ],
         },
         securityRequirements: {
           minimumSecurityLevel: 'low',
           requiredPermissions: ['read_data'],
           sensitiveData: false,
-          auditRequired: false
-        }
+          auditRequired: false,
+        },
       });
 
       if (isSuccessResponse(registerResponse)) {
@@ -370,9 +371,9 @@ async function orchestrationExample() {
             resourceLimits: {
               maxMemory: 1024,
               maxCpu: 2,
-              maxDuration: 3600
-            }
-          }
+              maxDuration: 3600,
+            },
+          },
         },
         executionPlan: {
           id: 'plan-123',
@@ -383,19 +384,19 @@ async function orchestrationExample() {
               id: 'step-1',
               type: 'data_collection',
               description: 'Collect sales data',
-              estimatedDuration: 300
+              estimatedDuration: 300,
             },
             {
               id: 'step-2',
               type: 'analysis',
               description: 'Analyze trends',
               estimatedDuration: 600,
-              dependencies: ['step-1']
-            }
+              dependencies: ['step-1'],
+            },
           ],
           dependencies: [],
           estimatedDuration: 900,
-          metadata: {}
+          metadata: {},
         },
         metadata: {
           priority: 'high',
@@ -405,18 +406,18 @@ async function orchestrationExample() {
             cpu: 2,
             memory: 1024,
             network: true,
-            gpu: false
-          }
+            gpu: false,
+          },
         },
         estimatedDuration: 900,
         createdAt: new Date(),
-        updatedAt: new Date()
+        updatedAt: new Date(),
       },
       options: {
         priority: 'high',
         async: true,
-        tags: ['quarterly-analysis']
-      }
+        tags: ['quarterly-analysis'],
+      },
     });
 
     if (isSuccessResponse(executeResponse)) {
@@ -427,21 +428,21 @@ async function orchestrationExample() {
       const statusResponse = await apiClient.orchestration.getStatus(workflowId);
       if (isSuccessResponse(statusResponse)) {
         console.log('Operation status:', statusResponse.data);
-        
+
         // If needed, pause the operation
         if (statusResponse.data.status === 'running') {
           const pauseResponse = await apiClient.orchestration.pause(workflowId, {
-            reason: 'Manual pause for review'
+            reason: 'Manual pause for review',
           });
-          
+
           if (isSuccessResponse(pauseResponse)) {
             console.log('Operation paused');
-            
+
             // Resume later
             const resumeResponse = await apiClient.orchestration.resume(workflowId, {
-              checkpointId: 'checkpoint-123'
+              checkpointId: 'checkpoint-123',
             });
-            
+
             if (isSuccessResponse(resumeResponse)) {
               console.log('Operation resumed');
             }
@@ -475,26 +476,26 @@ async function discussionManagementExample() {
         type: 'round_robin',
         settings: {
           maxTurns: 20,
-          turnTimeout: 300
-        }
+          turnTimeout: 300,
+        },
       },
       createdBy: generateUUID(), // Generate valid UUID
       initialParticipants: [
         {
           personaId: generateUUID(), // Generate valid UUID
-          agentId: generateUUID(),   // Generate valid UUID
-          role: 'facilitator'
+          agentId: generateUUID(), // Generate valid UUID
+          role: 'facilitator',
         },
         {
           personaId: generateUUID(), // Generate valid UUID
-          agentId: generateUUID(),   // Generate valid UUID
-          role: 'participant'
-        }
+          agentId: generateUUID(), // Generate valid UUID
+          role: 'participant',
+        },
       ],
       settings: {
         maxTurns: 20,
-        turnTimeout: 300
-      }
+        turnTimeout: 300,
+      },
     });
 
     if (isSuccessResponse(createResponse)) {
@@ -509,7 +510,7 @@ async function discussionManagementExample() {
         // Add a participant
         const addParticipantResponse = await apiClient.discussions.addParticipant(discussion.id, {
           personaId: 'persona-3',
-          role: 'expert'
+          role: 'expert',
         });
 
         if (isSuccessResponse(addParticipantResponse)) {
@@ -524,8 +525,8 @@ async function discussionManagementExample() {
               messageType: 'contribution',
               metadata: {
                 confidence: 0.8,
-                reasoning: 'Based on market trends analysis'
-              }
+                reasoning: 'Based on market trends analysis',
+              },
             }
           );
 
@@ -569,13 +570,13 @@ async function securityExample() {
       operation: {
         type: 'data_access',
         resource: 'customer_database',
-        action: 'read'
+        action: 'read',
       },
       context: {
         userId: 'user-123',
         department: 'analytics',
-        purpose: 'quarterly_analysis'
-      }
+        purpose: 'quarterly_analysis',
+      },
     });
 
     if (isSuccessResponse(riskResponse)) {
@@ -586,12 +587,12 @@ async function securityExample() {
         operation: {
           type: 'data_access',
           resource: 'customer_database',
-          action: 'read'
+          action: 'read',
         },
         requestor: {
           userId: 'user-123',
-          role: 'analyst'
-        }
+          role: 'analyst',
+        },
       });
 
       if (isSuccessResponse(approvalCheckResponse)) {
@@ -603,16 +604,16 @@ async function securityExample() {
             operation: {
               type: 'data_access',
               resource: 'customer_database',
-              action: 'read'
+              action: 'read',
             },
             requestor: {
               userId: 'user-123',
               name: 'John Analyst',
-              department: 'analytics'
+              department: 'analytics',
             },
             justification: 'Need access for quarterly sales analysis',
             urgency: 'medium',
-            expectedDuration: '2 hours'
+            expectedDuration: '2 hours',
           });
 
           if (isSuccessResponse(workflowResponse)) {
@@ -637,7 +638,7 @@ async function userManagementExample() {
     const usersResponse = await apiClient.users.getAll({
       page: 1,
       limit: 10,
-      role: 'analyst'
+      role: 'analyst',
     });
 
     if (isSuccessResponse(usersResponse)) {
@@ -651,7 +652,7 @@ async function userManagementExample() {
         lastName: 'Smith',
         role: 'analyst',
         department: 'marketing',
-        permissions: ['read_data', 'create_reports']
+        permissions: ['read_data', 'create_reports'],
       });
 
       if (isSuccessResponse(createUserResponse)) {
@@ -679,7 +680,7 @@ async function auditExample() {
       eventType: 'LOGIN_SUCCESS',
       startDate: '2024-01-01',
       endDate: '2024-12-31',
-      limit: 50
+      limit: 50,
     });
 
     if (isSuccessResponse(logsResponse)) {
@@ -697,9 +698,9 @@ async function auditExample() {
         filters: {
           eventTypes: ['LOGIN_SUCCESS', 'DATA_ACCESS'],
           startDate: '2024-01-01',
-          endDate: '2024-12-31'
+          endDate: '2024-12-31',
         },
-        includeDetails: true
+        includeDetails: true,
       });
 
       if (isSuccessResponse(exportResponse)) {
@@ -722,14 +723,14 @@ async function auditExample() {
 async function errorHandlingExample() {
   try {
     const response = await apiClient.agents.get('non-existent-agent');
-    
+
     if (hasError(response)) {
       console.error('API Error:', {
         code: response.error.code,
         message: response.error.message,
-        details: response.error.details
+        details: response.error.details,
       });
-      
+
       // Handle specific error types
       switch (response.error.code) {
         case 'NOT_FOUND':
@@ -768,7 +769,7 @@ export {
   userManagementExample,
   auditExample,
   errorHandlingExample,
-  apiClient
+  apiClient,
 };
 
 // ============================================================================
@@ -809,4 +810,4 @@ To use these examples in your application:
    - All API methods return APIResponse<T> format
    - Use isSuccessResponse() and hasError() type guards
    - Check response.error for detailed error information
-*/ 
+*/

@@ -23,7 +23,7 @@ export class ToolCacheService {
   private static instance: ToolCacheService;
   private redis: typeof redisCacheService;
   private database: DatabaseService;
-  
+
   // Cache configuration
   private readonly TOOL_DEF_PREFIX = 'tool:def:';
   private readonly TOOL_EXEC_PREFIX = 'tool:exec:';
@@ -31,7 +31,7 @@ export class ToolCacheService {
   private readonly DEFAULT_TOOL_TTL = 3600; // 1 hour
   private readonly DEFAULT_EXEC_TTL = 300; // 5 minutes
   private readonly LOCK_TTL = 30; // 30 seconds
-  
+
   // In-memory cache for frequently accessed tools
   private memoryCache = new Map<string, { data: any; expiry: number }>();
   private readonly MEMORY_CACHE_SIZE = 100;
@@ -52,25 +52,25 @@ export class ToolCacheService {
    * Cache tool definition
    */
   async cacheToolDefinition(
-    toolId: string, 
+    toolId: string,
     definition: ToolDefinition,
     options: CacheOptions = {}
   ): Promise<void> {
     try {
       const key = `${this.TOOL_DEF_PREFIX}${toolId}`;
       const ttl = options.ttl || this.DEFAULT_TOOL_TTL;
-      
+
       // Store in Redis
       await this.redis.set(key, JSON.stringify(definition), ttl);
-      
+
       // Store in memory cache
       this.setMemoryCache(key, definition, ttl);
-      
+
       // Store tags for invalidation
       if (options.tags && options.tags.length > 0) {
         await this.storeCacheTags(key, options.tags);
       }
-      
+
       logger.debug('Cached tool definition', { toolId, ttl });
     } catch (error) {
       logger.error('Failed to cache tool definition', { toolId, error });
@@ -83,13 +83,13 @@ export class ToolCacheService {
   async getToolDefinition(toolId: string): Promise<ToolDefinition | null> {
     try {
       const key = `${this.TOOL_DEF_PREFIX}${toolId}`;
-      
+
       // Check memory cache first
       const memCached = this.getMemoryCache(key);
       if (memCached) {
         return memCached as ToolDefinition;
       }
-      
+
       // Check Redis
       const cached = await this.redis.get(key);
       if (cached) {
@@ -98,7 +98,7 @@ export class ToolCacheService {
         this.setMemoryCache(key, definition, 60); // Short TTL for memory
         return definition;
       }
-      
+
       return null;
     } catch (error) {
       logger.error('Failed to get cached tool definition', { toolId, error });
@@ -120,17 +120,17 @@ export class ToolCacheService {
       const paramHash = this.generateParameterHash(parameters);
       const key = `${this.TOOL_EXEC_PREFIX}${toolId}:${paramHash}`;
       const cacheTtl = ttl || this.DEFAULT_EXEC_TTL;
-      
+
       const entry: ExecutionCacheEntry = {
         toolId,
         parameters,
         result,
         timestamp: Date.now(),
-        ttl: cacheTtl
+        ttl: cacheTtl,
       };
-      
+
       await this.redis.set(key, JSON.stringify(entry), cacheTtl);
-      
+
       logger.debug('Cached tool execution result', { toolId, paramHash, ttl: cacheTtl });
     } catch (error) {
       logger.error('Failed to cache execution result', { toolId, error });
@@ -140,21 +140,18 @@ export class ToolCacheService {
   /**
    * Get cached execution result
    */
-  async getExecutionResult(
-    toolId: string,
-    parameters: Record<string, any>
-  ): Promise<any | null> {
+  async getExecutionResult(toolId: string, parameters: Record<string, any>): Promise<any | null> {
     try {
       const paramHash = this.generateParameterHash(parameters);
       const key = `${this.TOOL_EXEC_PREFIX}${toolId}:${paramHash}`;
-      
+
       const cached = await this.redis.get(key);
       if (cached) {
         const entry = JSON.parse(cached) as ExecutionCacheEntry;
         logger.debug('Cache hit for tool execution', { toolId, paramHash });
         return entry.result;
       }
-      
+
       return null;
     } catch (error) {
       logger.error('Failed to get cached execution result', { toolId, error });
@@ -170,10 +167,10 @@ export class ToolCacheService {
       const key = `${this.TOOL_DEF_PREFIX}${toolId}`;
       await this.redis.del(key);
       this.memoryCache.delete(key);
-      
+
       // Also invalidate all execution results for this tool
       await this.invalidateToolExecutions(toolId);
-      
+
       logger.info('Invalidated tool definition cache', { toolId });
     } catch (error) {
       logger.error('Failed to invalidate tool definition cache', { toolId, error });
@@ -199,7 +196,7 @@ export class ToolCacheService {
   async warmupCache(): Promise<void> {
     try {
       logger.info('Starting cache warmup');
-      
+
       // This would query frequently used tools from database
       // For now, we'll implement a basic version
       logger.info('Cache warmup completed');
@@ -222,7 +219,7 @@ export class ToolCacheService {
         memoryCacheSize: this.memoryCache.size,
         redisCacheSize: 0, // Would need Redis INFO command
         hitRate: 0,
-        missRate: 0
+        missRate: 0,
       };
     } catch (error) {
       logger.error('Failed to get cache stats', error);
@@ -230,7 +227,7 @@ export class ToolCacheService {
         memoryCacheSize: 0,
         redisCacheSize: 0,
         hitRate: 0,
-        missRate: 0
+        missRate: 0,
       };
     }
   }
@@ -238,7 +235,7 @@ export class ToolCacheService {
   /**
    * Private helper methods
    */
-  
+
   private generateParameterHash(parameters: Record<string, any>): string {
     const sorted = this.sortObject(parameters);
     return createHash('sha256').update(JSON.stringify(sorted)).digest('hex');
@@ -246,8 +243,8 @@ export class ToolCacheService {
 
   private sortObject(obj: any): any {
     if (obj === null || typeof obj !== 'object') return obj;
-    if (Array.isArray(obj)) return obj.map(item => this.sortObject(item));
-    
+    if (Array.isArray(obj)) return obj.map((item) => this.sortObject(item));
+
     return Object.keys(obj)
       .sort()
       .reduce((sorted: any, key) => {
@@ -264,10 +261,10 @@ export class ToolCacheService {
         this.memoryCache.delete(firstKey);
       }
     }
-    
+
     this.memoryCache.set(key, {
       data,
-      expiry: Date.now() + (ttlSeconds * 1000)
+      expiry: Date.now() + ttlSeconds * 1000,
     });
   }
 
@@ -276,12 +273,12 @@ export class ToolCacheService {
     if (cached && cached.expiry > Date.now()) {
       return cached.data;
     }
-    
+
     // Remove expired entry
     if (cached) {
       this.memoryCache.delete(key);
     }
-    
+
     return null;
   }
 

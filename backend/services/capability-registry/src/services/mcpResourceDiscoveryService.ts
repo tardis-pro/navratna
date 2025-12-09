@@ -71,7 +71,7 @@ export class MCPResourceDiscoveryService extends EventEmitter {
       enableCaching: true,
       cacheTTL: 300, // 5 minutes
       autoDiscovery: true,
-      discoveryInterval: 60000 // 1 minute
+      discoveryInterval: 60000, // 1 minute
     };
   }
 
@@ -82,7 +82,10 @@ export class MCPResourceDiscoveryService extends EventEmitter {
     return MCPResourceDiscoveryService.instance;
   }
 
-  async initialize(cacheService?: RedisCacheService, config?: Partial<MCPDiscoveryConfig>): Promise<void> {
+  async initialize(
+    cacheService?: RedisCacheService,
+    config?: Partial<MCPDiscoveryConfig>
+  ): Promise<void> {
     this.cacheService = cacheService;
     if (config) {
       this.config = { ...this.config, ...config };
@@ -98,7 +101,7 @@ export class MCPResourceDiscoveryService extends EventEmitter {
   // Comprehensive Resource Discovery
   async discoverAllResources(serverName?: string): Promise<ResourceDiscoveryResult> {
     const cacheKey = `mcp:discovery:${serverName || 'all'}`;
-    
+
     // Check cache first
     if (this.config.enableCaching && this.cacheService) {
       try {
@@ -119,7 +122,7 @@ export class MCPResourceDiscoveryService extends EventEmitter {
       const [resources, prompts, tools] = await Promise.all([
         this.discoverResourcesWithMetadata(serverName),
         this.discoverPromptsWithMetadata(serverName),
-        this.discoverSelectableTools(serverName)
+        this.discoverSelectableTools(serverName),
       ]);
 
       // Get server status information
@@ -129,7 +132,7 @@ export class MCPResourceDiscoveryService extends EventEmitter {
         resources,
         prompts,
         tools,
-        servers
+        servers,
       };
 
       // Cache the result
@@ -148,11 +151,10 @@ export class MCPResourceDiscoveryService extends EventEmitter {
         resourceCount: resources.length,
         promptCount: prompts.length,
         toolCount: tools.length,
-        serverCount: servers.length
+        serverCount: servers.length,
       });
 
       return result;
-
     } catch (error) {
       logger.error('MCP resource discovery failed', { serverName, error });
       this.emit('discoveryError', { serverName, error });
@@ -161,11 +163,13 @@ export class MCPResourceDiscoveryService extends EventEmitter {
   }
 
   // Enhanced resource discovery with categorization
-  private async discoverResourcesWithMetadata(serverName?: string): Promise<ResourceDiscoveryResult['resources']> {
+  private async discoverResourcesWithMetadata(
+    serverName?: string
+  ): Promise<ResourceDiscoveryResult['resources']> {
     try {
       const rawResources = await this.mcpService.discoverResources(serverName);
-      
-      return rawResources.map(resource => {
+
+      return rawResources.map((resource) => {
         const category = this.categorizeResource(resource);
         const tags = this.generateResourceTags(resource);
 
@@ -177,10 +181,9 @@ export class MCPResourceDiscoveryService extends EventEmitter {
           serverName: resource.serverName,
           discoveredAt: resource.discoveredAt || new Date().toISOString(),
           category,
-          tags
+          tags,
         };
       });
-
     } catch (error) {
       logger.error('Failed to discover resources with metadata', { serverName, error });
       return [];
@@ -188,11 +191,13 @@ export class MCPResourceDiscoveryService extends EventEmitter {
   }
 
   // Enhanced prompt discovery with categorization
-  private async discoverPromptsWithMetadata(serverName?: string): Promise<ResourceDiscoveryResult['prompts']> {
+  private async discoverPromptsWithMetadata(
+    serverName?: string
+  ): Promise<ResourceDiscoveryResult['prompts']> {
     try {
       const rawPrompts = await this.mcpService.discoverPrompts(serverName);
-      
-      return rawPrompts.map(prompt => {
+
+      return rawPrompts.map((prompt) => {
         const category = this.categorizePrompt(prompt);
         const tags = this.generatePromptTags(prompt);
 
@@ -203,10 +208,9 @@ export class MCPResourceDiscoveryService extends EventEmitter {
           arguments: prompt.arguments,
           discoveredAt: prompt.discoveredAt || new Date().toISOString(),
           category,
-          tags
+          tags,
         };
       });
-
     } catch (error) {
       logger.error('Failed to discover prompts with metadata', { serverName, error });
       return [];
@@ -214,22 +218,25 @@ export class MCPResourceDiscoveryService extends EventEmitter {
   }
 
   // Enhanced tool discovery for selective attachment
-  private async discoverSelectableTools(serverName?: string): Promise<ResourceDiscoveryResult['tools']> {
+  private async discoverSelectableTools(
+    serverName?: string
+  ): Promise<ResourceDiscoveryResult['tools']> {
     try {
       const servers = serverName ? [serverName] : await this.getActiveServerNames();
       const tools: ResourceDiscoveryResult['tools'] = [];
 
       for (const server of servers) {
         const serverTools = await this.mcpService.getSelectableToolsFromServer(server);
-        tools.push(...serverTools.map(tool => ({
-          ...tool,
-          capabilities: this.extractToolCapabilities(tool),
-          category: this.categorizeToolByName(tool.name)
-        })));
+        tools.push(
+          ...serverTools.map((tool) => ({
+            ...tool,
+            capabilities: this.extractToolCapabilities(tool),
+            category: this.categorizeToolByName(tool.name),
+          }))
+        );
       }
 
       return tools;
-
     } catch (error) {
       logger.error('Failed to discover selectable tools', { serverName, error });
       return [];
@@ -246,7 +253,7 @@ export class MCPResourceDiscoveryService extends EventEmitter {
         const [tools, resources, prompts] = await Promise.all([
           this.mcpService.getSelectableToolsFromServer(server).catch(() => []),
           this.mcpService.discoverResources(server).catch(() => []),
-          this.mcpService.discoverPrompts(server).catch(() => [])
+          this.mcpService.discoverPrompts(server).catch(() => []),
         ]);
 
         // Get server status (assuming we can access server state)
@@ -257,12 +264,11 @@ export class MCPResourceDiscoveryService extends EventEmitter {
           status,
           toolCount: tools.length,
           resourceCount: resources.length,
-          promptCount: prompts.length
+          promptCount: prompts.length,
         });
       }
 
       return summary;
-
     } catch (error) {
       logger.error('Failed to get server summary', { serverName, error });
       return [];
@@ -270,11 +276,17 @@ export class MCPResourceDiscoveryService extends EventEmitter {
   }
 
   // Resource categorization logic
-  private categorizeResource(resource: any): 'file' | 'database' | 'api' | 'document' | 'media' | 'unknown' {
+  private categorizeResource(
+    resource: any
+  ): 'file' | 'database' | 'api' | 'document' | 'media' | 'unknown' {
     const { uri, mimeType, name } = resource;
 
     if (mimeType) {
-      if (mimeType.startsWith('image/') || mimeType.startsWith('video/') || mimeType.startsWith('audio/')) {
+      if (
+        mimeType.startsWith('image/') ||
+        mimeType.startsWith('video/') ||
+        mimeType.startsWith('audio/')
+      ) {
         return 'media';
       }
       if (mimeType.includes('json') || mimeType.includes('xml')) {
@@ -302,7 +314,9 @@ export class MCPResourceDiscoveryService extends EventEmitter {
   }
 
   // Prompt categorization logic
-  private categorizePrompt(prompt: any): 'template' | 'generator' | 'analyzer' | 'transformer' | 'unknown' {
+  private categorizePrompt(
+    prompt: any
+  ): 'template' | 'generator' | 'analyzer' | 'transformer' | 'unknown' {
     const { name, description } = prompt;
     const text = `${name} ${description || ''}`.toLowerCase();
 
@@ -332,7 +346,11 @@ export class MCPResourceDiscoveryService extends EventEmitter {
     if (lowerName.includes('web') || lowerName.includes('http') || lowerName.includes('fetch')) {
       return 'web';
     }
-    if (lowerName.includes('database') || lowerName.includes('sql') || lowerName.includes('query')) {
+    if (
+      lowerName.includes('database') ||
+      lowerName.includes('sql') ||
+      lowerName.includes('query')
+    ) {
       return 'database';
     }
     if (lowerName.includes('git') || lowerName.includes('repo')) {
@@ -462,17 +480,20 @@ export class MCPResourceDiscoveryService extends EventEmitter {
   }
 
   // Search functionality
-  async searchResources(query: string, filters?: {
-    serverName?: string;
-    category?: string;
-    mimeType?: string;
-  }): Promise<ResourceDiscoveryResult['resources']> {
+  async searchResources(
+    query: string,
+    filters?: {
+      serverName?: string;
+      category?: string;
+      mimeType?: string;
+    }
+  ): Promise<ResourceDiscoveryResult['resources']> {
     const discovery = await this.discoverAllResources(filters?.serverName);
     const lowerQuery = query.toLowerCase();
 
-    return discovery.resources.filter(resource => {
+    return discovery.resources.filter((resource) => {
       // Text search
-      const textMatch = 
+      const textMatch =
         resource.name.toLowerCase().includes(lowerQuery) ||
         resource.description?.toLowerCase().includes(lowerQuery) ||
         resource.uri.toLowerCase().includes(lowerQuery);
@@ -491,16 +512,20 @@ export class MCPResourceDiscoveryService extends EventEmitter {
     this.config = { ...this.config, ...config };
 
     // Restart auto-discovery if interval changed
-    if (oldConfig.autoDiscovery !== this.config.autoDiscovery || 
-        oldConfig.discoveryInterval !== this.config.discoveryInterval) {
-      
+    if (
+      oldConfig.autoDiscovery !== this.config.autoDiscovery ||
+      oldConfig.discoveryInterval !== this.config.discoveryInterval
+    ) {
       this.stopAutoDiscovery();
       if (this.config.autoDiscovery) {
         this.startAutoDiscovery();
       }
     }
 
-    logger.info('MCP Discovery Service configuration updated', { oldConfig, newConfig: this.config });
+    logger.info('MCP Discovery Service configuration updated', {
+      oldConfig,
+      newConfig: this.config,
+    });
   }
 
   // Cleanup

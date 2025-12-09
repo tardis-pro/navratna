@@ -71,7 +71,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     user: null,
     isAuthenticated: false,
     isLoading: true,
-    error: null
+    error: null,
   });
 
   const [activeFlows, setActiveFlows] = useState<string[]>([]);
@@ -89,7 +89,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         user: null,
         isAuthenticated: false,
         isLoading: false,
-        error: null
+        error: null,
       });
     };
 
@@ -106,8 +106,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     const flowId = `${service}.${flow}`;
 
     try {
-      setActiveFlows(prev => [...prev.filter(f => f !== flowId), flowId]);
-      setFlowErrors(prev => {
+      setActiveFlows((prev) => [...prev.filter((f) => f !== flowId), flowId]);
+      setFlowErrors((prev) => {
         const newMap = new Map(prev);
         newMap.delete(flowId);
         return newMap;
@@ -122,24 +122,26 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         result = await executeSystemOperationsFlow(flow, params);
       } else {
         // For other services, throw an error indicating they're not implemented
-        throw new Error(`Service '${service}' is not yet implemented. Available services: security, systemOperations`);
+        throw new Error(
+          `Service '${service}' is not yet implemented. Available services: security, systemOperations`
+        );
       }
 
-      setFlowResults(prev => {
+      setFlowResults((prev) => {
         const newMap = new Map(prev);
         newMap.set(flowId, result);
         return newMap;
       });
 
-      setActiveFlows(prev => prev.filter(f => f !== flowId));
+      setActiveFlows((prev) => prev.filter((f) => f !== flowId));
       return result;
     } catch (error) {
-      setFlowErrors(prev => {
+      setFlowErrors((prev) => {
         const newMap = new Map(prev);
         newMap.set(flowId, error instanceof Error ? error.message : 'Unknown error');
         return newMap;
       });
-      setActiveFlows(prev => prev.filter(f => f !== flowId));
+      setActiveFlows((prev) => prev.filter((f) => f !== flowId));
       throw error;
     }
   };
@@ -153,7 +155,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         return await uaipAPI.client.auth.logout();
       case 'refreshToken':
         // Get stored refresh token
-        const refreshToken = localStorage.getItem('refreshToken') || sessionStorage.getItem('refreshToken');
+        const refreshToken =
+          localStorage.getItem('refreshToken') || sessionStorage.getItem('refreshToken');
         if (!refreshToken) throw new Error('No refresh token available');
         return await uaipAPI.client.auth.refreshToken(refreshToken);
       case 'validatePermissions':
@@ -186,8 +189,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     }
   };
 
-
-
   const getFlowStatus = (flowId: string): 'idle' | 'running' | 'completed' | 'error' => {
     if (activeFlows.includes(flowId)) return 'running';
     if (flowErrors.has(flowId)) return 'error';
@@ -196,12 +197,12 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   };
 
   const clearFlowResult = (flowId: string) => {
-    setFlowResults(prev => {
+    setFlowResults((prev) => {
       const newMap = new Map(prev);
       newMap.delete(flowId);
       return newMap;
     });
-    setFlowErrors(prev => {
+    setFlowErrors((prev) => {
       const newMap = new Map(prev);
       newMap.delete(flowId);
       return newMap;
@@ -233,16 +234,20 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   const checkAuthStatus = useCallback(async () => {
     try {
-      setState(prev => ({ ...prev, isLoading: true, error: null }));
+      setState((prev) => ({ ...prev, isLoading: true, error: null }));
 
       // Check if we have a valid stored token
-      const accessToken = typeof window !== 'undefined' ?
-        (localStorage.getItem('accessToken') || sessionStorage.getItem('accessToken')) : null;
-      const refreshToken = typeof window !== 'undefined' ?
-        (localStorage.getItem('refreshToken') || sessionStorage.getItem('refreshToken')) : null;
+      const accessToken =
+        typeof window !== 'undefined'
+          ? localStorage.getItem('accessToken') || sessionStorage.getItem('accessToken')
+          : null;
+      const refreshToken =
+        typeof window !== 'undefined'
+          ? localStorage.getItem('refreshToken') || sessionStorage.getItem('refreshToken')
+          : null;
 
       if (!accessToken || !uaipAPI.client.isAuthenticated()) {
-        setState(prev => ({ ...prev, isLoading: false }));
+        setState((prev) => ({ ...prev, isLoading: false }));
         return;
       }
 
@@ -264,11 +269,11 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
             firstName: userData.name?.split(' ')[0] || '',
             lastName: userData.name?.split(' ').slice(1).join(' ') || '',
             role: userData.role,
-            permissions: [] // Will be populated from role
+            permissions: [], // Will be populated from role
           },
           isAuthenticated: true,
           isLoading: false,
-          error: null
+          error: null,
         });
       } else {
         // Token is invalid, clear it
@@ -278,7 +283,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           user: null,
           isAuthenticated: false,
           isLoading: false,
-          error: null
+          error: null,
         });
       }
     } catch (error) {
@@ -292,14 +297,14 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         user: null,
         isAuthenticated: false,
         isLoading: false,
-        error: null
+        error: null,
       });
     }
   }, []);
 
   const login = useCallback(async (email: string, password: string, rememberMe = false) => {
     try {
-      setState(prev => ({ ...prev, isLoading: true, error: null }));
+      setState((prev) => ({ ...prev, isLoading: true, error: null }));
 
       const loginData = await uaipAPI.client.auth.login({ email, password });
 
@@ -311,7 +316,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           token,
           refreshToken,
           userId: user.id,
-          rememberMe
+          rememberMe,
         });
 
         // WebSocket client reset removed - using useWebSocket hook instead
@@ -324,32 +329,32 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
             firstName: user.name?.split(' ')[0] || '',
             lastName: user.name?.split(' ').slice(1).join(' ') || '',
             role: user.role,
-            permissions: [] // Will be populated from role
+            permissions: [], // Will be populated from role
           },
           isAuthenticated: true,
           isLoading: false,
-          error: null
+          error: null,
         });
       } else {
-        setState(prev => ({
+        setState((prev) => ({
           ...prev,
           isLoading: false,
-          error: 'Login failed - invalid response'
+          error: 'Login failed - invalid response',
         }));
       }
     } catch (error) {
       console.error('Login failed:', error);
-      setState(prev => ({
+      setState((prev) => ({
         ...prev,
         isLoading: false,
-        error: error instanceof Error ? error.message : 'Login failed'
+        error: error instanceof Error ? error.message : 'Login failed',
       }));
     }
   }, []);
 
   const logout = useCallback(async () => {
     try {
-      setState(prev => ({ ...prev, isLoading: true }));
+      setState((prev) => ({ ...prev, isLoading: true }));
 
       // Call backend logout
       await uaipAPI.client.auth.logout();
@@ -364,7 +369,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         user: null,
         isAuthenticated: false,
         isLoading: false,
-        error: null
+        error: null,
       });
     } catch (error) {
       console.error('Logout failed:', error);
@@ -378,7 +383,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         user: null,
         isAuthenticated: false,
         isLoading: false,
-        error: null
+        error: null,
       });
     }
   }, []);
@@ -390,7 +395,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       const userData = await uaipAPI.client.auth.getCurrentUser();
 
       if (userData) {
-        setState(prev => ({
+        setState((prev) => ({
           ...prev,
           user: {
             id: userData.id,
@@ -398,9 +403,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
             firstName: userData.name?.split(' ')[0] || '',
             lastName: userData.name?.split(' ').slice(1).join(' ') || '',
             role: userData.role,
-            permissions: [] // Will be populated from role
+            permissions: [], // Will be populated from role
           },
-          error: null
+          error: null,
         }));
       } else {
         // If user refresh fails, it might mean the token is invalid
@@ -410,7 +415,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           user: null,
           isAuthenticated: false,
           isLoading: false,
-          error: null
+          error: null,
         });
       }
     } catch (error) {
@@ -422,7 +427,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           user: null,
           isAuthenticated: false,
           isLoading: false,
-          error: null
+          error: null,
         });
       }
     }
@@ -447,11 +452,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     clearFlowResult,
   };
 
-  return (
-    <AuthContext.Provider value={contextValue}>
-      {children}
-    </AuthContext.Provider>
-  );
+  return <AuthContext.Provider value={contextValue}>{children}</AuthContext.Provider>;
 };
 
 export const useAuth = (): AuthContextType => {
@@ -460,4 +461,4 @@ export const useAuth = (): AuthContextType => {
     throw new Error('useAuth must be used within an AuthProvider');
   }
   return context;
-}; 
+};

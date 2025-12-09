@@ -8,7 +8,7 @@ import {
   KnowledgeItem,
   KnowledgeIngestRequest,
   SourceType,
-  KnowledgeType
+  KnowledgeType,
 } from '@uaip/types';
 import { WorkingMemoryManager } from './working-memory.manager.js';
 import { EpisodicMemoryManager } from './episodic-memory.manager.js';
@@ -38,7 +38,11 @@ export class AgentMemoryService {
     return this.workingMemoryManager.initializeWorkingMemory(agentId, sessionId);
   }
 
-  async addThought(agentId: string, thought: string, type: 'reasoning' | 'hypothesis' | 'action' | 'uncertainty'): Promise<void> {
+  async addThought(
+    agentId: string,
+    thought: string,
+    type: 'reasoning' | 'hypothesis' | 'action' | 'uncertainty'
+  ): Promise<void> {
     await this.workingMemoryManager.addThought(agentId, thought, type);
   }
 
@@ -63,7 +67,11 @@ export class AgentMemoryService {
     return this.episodicMemoryManager.findSimilarEpisodes(agentId, currentSituation);
   }
 
-  async getEpisodesByTimeRange(agentId: string, startDate: Date, endDate: Date): Promise<Episode[]> {
+  async getEpisodesByTimeRange(
+    agentId: string,
+    startDate: Date,
+    endDate: Date
+  ): Promise<Episode[]> {
     return this.episodicMemoryManager.getEpisodesByTimeRange(agentId, startDate, endDate);
   }
 
@@ -106,16 +114,16 @@ export class AgentMemoryService {
     const workingMemory = await this.getWorkingMemory(agentId);
     const recentEpisodes = await this.getEpisodicMemory(agentId, {
       description: '',
-      limit: 100
+      limit: 100,
     });
-    
+
     // Get concept count by searching for agent-specific concepts
     const concepts = await this.semanticMemoryManager.getRelatedConcepts(agentId, '');
-    
+
     const memoryPressure = workingMemory?.metadata.memoryPressure;
     const episodeCount = recentEpisodes.length;
     const conceptCount = concepts.length;
-    
+
     let memoryHealth: 'good' | 'moderate' | 'poor' = 'good';
     if (memoryPressure > 0.8 || episodeCount > 1000) {
       memoryHealth = 'poor';
@@ -128,12 +136,16 @@ export class AgentMemoryService {
       episodeCount,
       conceptCount,
       lastConsolidation: null, // Would track this in practice
-      memoryHealth
+      memoryHealth,
     };
   }
 
   // Memory Search and Retrieval
-  async searchMemories(agentId: string, query: string, memoryTypes: ('working' | 'episodic' | 'semantic')[] = ['episodic', 'semantic']): Promise<{
+  async searchMemories(
+    agentId: string,
+    query: string,
+    memoryTypes: ('working' | 'episodic' | 'semantic')[] = ['episodic', 'semantic']
+  ): Promise<{
     episodes: Episode[];
     concepts: SemanticMemory[];
     workingMemoryRelevant: boolean;
@@ -141,13 +153,13 @@ export class AgentMemoryService {
     const results = {
       episodes: [] as Episode[],
       concepts: [] as SemanticMemory[],
-      workingMemoryRelevant: false
+      workingMemoryRelevant: false,
     };
 
     if (memoryTypes.includes('episodic')) {
       results.episodes = await this.getEpisodicMemory(agentId, {
         description: query,
-        limit: 10
+        limit: 10,
       });
     }
 
@@ -163,9 +175,11 @@ export class AgentMemoryService {
         const workingContent = [
           ...workingMemory.currentContext.activeThoughts.reasoning,
           ...workingMemory.currentContext.activeThoughts.hypotheses,
-          ...workingMemory.shortTermMemory.recentInteractions.map(i => i.description)
-        ].join(' ').toLowerCase();
-        
+          ...workingMemory.shortTermMemory.recentInteractions.map((i) => i.description),
+        ]
+          .join(' ')
+          .toLowerCase();
+
         results.workingMemoryRelevant = workingContent.includes(query.toLowerCase());
       }
     }
@@ -174,11 +188,14 @@ export class AgentMemoryService {
   }
 
   // Memory Cleanup
-  async cleanupMemory(agentId: string, options: {
-    removeOldEpisodes?: boolean;
-    consolidateWorkingMemory?: boolean;
-    optimizeSemanticMemory?: boolean;
-  } = {}): Promise<{
+  async cleanupMemory(
+    agentId: string,
+    options: {
+      removeOldEpisodes?: boolean;
+      consolidateWorkingMemory?: boolean;
+      optimizeSemanticMemory?: boolean;
+    } = {}
+  ): Promise<{
     episodesRemoved: number;
     conceptsOptimized: number;
     workingMemoryConsolidated: boolean;
@@ -186,7 +203,7 @@ export class AgentMemoryService {
     const result = {
       episodesRemoved: 0,
       conceptsOptimized: 0,
-      workingMemoryConsolidated: false
+      workingMemoryConsolidated: false,
     };
 
     if (options.consolidateWorkingMemory) {
@@ -209,7 +226,7 @@ export class AgentMemoryService {
     const workingMemory = await this.getWorkingMemory(agentId);
     const recentEpisodes = await this.getEpisodicMemory(agentId, {
       description: '',
-      limit: 50
+      limit: 50,
     });
     const keyConcepts = await this.getRelatedConcepts(agentId, '');
 
@@ -217,7 +234,7 @@ export class AgentMemoryService {
       workingMemory,
       recentEpisodes,
       keyConcepts: keyConcepts.slice(0, 20), // Top 20 concepts
-      exportTimestamp: new Date()
+      exportTimestamp: new Date(),
     };
   }
 
@@ -225,14 +242,17 @@ export class AgentMemoryService {
   /**
    * Store agent knowledge using the knowledge graph service
    */
-  async storeAgentKnowledge(agentId: string, knowledge: {
-    content: string;
-    type?: KnowledgeType;
-    tags?: string[];
-    sourceIdentifier: string;
-    metadata?: Record<string, any>;
-    confidence?: number;
-  }): Promise<KnowledgeItem> {
+  async storeAgentKnowledge(
+    agentId: string,
+    knowledge: {
+      content: string;
+      type?: KnowledgeType;
+      tags?: string[];
+      sourceIdentifier: string;
+      metadata?: Record<string, any>;
+      confidence?: number;
+    }
+  ): Promise<KnowledgeItem> {
     const knowledgeRequest: KnowledgeIngestRequest = {
       content: knowledge.content,
       type: knowledge.type || KnowledgeType.EXPERIENTIAL,
@@ -240,15 +260,17 @@ export class AgentMemoryService {
       source: {
         type: SourceType.AGENT_INTERACTION,
         identifier: knowledge.sourceIdentifier,
-        metadata: knowledge.metadata || {}
+        metadata: knowledge.metadata || {},
       },
-      confidence: knowledge.confidence || 0.8
+      confidence: knowledge.confidence || 0.8,
     };
 
-    const result = await this.knowledgeGraphService.ingest([{
-      ...knowledgeRequest,
-      scope: { agentId }
-    }]);
+    const result = await this.knowledgeGraphService.ingest([
+      {
+        ...knowledgeRequest,
+        scope: { agentId },
+      },
+    ]);
 
     return result.items[0];
   }
@@ -256,24 +278,28 @@ export class AgentMemoryService {
   /**
    * Search agent's knowledge using the knowledge graph
    */
-  async searchAgentKnowledge(agentId: string, query: string, options: {
-    limit?: number;
-    types?: KnowledgeType[];
-    tags?: string[];
-    includeRelationships?: boolean;
-  } = {}): Promise<KnowledgeItem[]> {
+  async searchAgentKnowledge(
+    agentId: string,
+    query: string,
+    options: {
+      limit?: number;
+      types?: KnowledgeType[];
+      tags?: string[];
+      includeRelationships?: boolean;
+    } = {}
+  ): Promise<KnowledgeItem[]> {
     const result = await this.knowledgeGraphService.search({
       query,
       filters: {
         types: options.types,
-        tags: options.tags
+        tags: options.tags,
       },
       options: {
         limit: options.limit || 10,
-        includeRelationships: options.includeRelationships || false
+        includeRelationships: options.includeRelationships || false,
       },
       timestamp: Date.now(),
-      scope: { agentId }
+      scope: { agentId },
     });
 
     return result.items;
@@ -282,15 +308,18 @@ export class AgentMemoryService {
   /**
    * Get contextual knowledge for agent operations
    */
-  async getContextualKnowledge(agentId: string, context: {
-    currentOperation?: string;
-    discussionHistory?: any[];
-    relevantTags?: string[];
-  }): Promise<KnowledgeItem[]> {
+  async getContextualKnowledge(
+    agentId: string,
+    context: {
+      currentOperation?: string;
+      discussionHistory?: any[];
+      relevantTags?: string[];
+    }
+  ): Promise<KnowledgeItem[]> {
     return this.knowledgeGraphService.getContextualKnowledge({
       discussionHistory: context.discussionHistory,
       relevantTags: context.relevantTags,
-      scope: { agentId }
+      scope: { agentId },
     });
   }
 
@@ -299,7 +328,7 @@ export class AgentMemoryService {
    */
   async storeEpisodeAsKnowledge(agentId: string, episode: Episode): Promise<KnowledgeItem> {
     const content = this.episodeToKnowledgeContent(episode);
-    
+
     return this.storeAgentKnowledge(agentId, {
       content,
       type: KnowledgeType.EPISODIC,
@@ -308,9 +337,9 @@ export class AgentMemoryService {
       metadata: {
         episodeType: episode.type,
         significance: episode.significance,
-        context: episode.context
+        context: episode.context,
       },
-      confidence: episode.significance.importance
+      confidence: episode.significance.importance,
     });
   }
 
@@ -319,7 +348,7 @@ export class AgentMemoryService {
    */
   async storeConceptAsKnowledge(agentId: string, concept: SemanticMemory): Promise<KnowledgeItem> {
     const content = this.conceptToKnowledgeContent(concept);
-    
+
     return this.storeAgentKnowledge(agentId, {
       content,
       type: KnowledgeType.SEMANTIC,
@@ -329,9 +358,9 @@ export class AgentMemoryService {
         concept: concept.concept,
         properties: concept.knowledge.properties,
         relationships: concept.knowledge.relationships,
-        usage: concept.usage
+        usage: concept.usage,
       },
-      confidence: concept.confidence
+      confidence: concept.confidence,
     });
   }
 
@@ -343,8 +372,8 @@ Who: ${episode.context.who.join(', ')}
 Why: ${episode.context.why}
 How: ${episode.context.how}
 
-Actions taken: ${episode.experience.actions.map(a => a.description).join('; ')}
-Outcomes: ${episode.experience.outcomes.map(o => o.description).join('; ')}
+Actions taken: ${episode.experience.actions.map((a) => a.description).join('; ')}
+Outcomes: ${episode.experience.outcomes.map((o) => o.description).join('; ')}
 Learnings: ${episode.experience.learnings.join('; ')}
 
 Significance: Importance=${episode.significance.importance}, Novelty=${episode.significance.novelty}, Success=${episode.significance.success}`;
@@ -354,13 +383,15 @@ Significance: Importance=${episode.significance.importance}, Novelty=${episode.s
     return `Concept: ${concept.concept}
 Definition: ${concept.knowledge.definition}
 
-Properties: ${Object.entries(concept.knowledge.properties).map(([k, v]) => `${k}: ${v}`).join('; ')}
+Properties: ${Object.entries(concept.knowledge.properties)
+      .map(([k, v]) => `${k}: ${v}`)
+      .join('; ')}
 
-Relationships: ${concept.knowledge.relationships.map(r => `${r.relationshipType} ${r.relatedConcept} (strength: ${r.strength})`).join('; ')}
+Relationships: ${concept.knowledge.relationships.map((r) => `${r.relationshipType} ${r.relatedConcept} (strength: ${r.strength})`).join('; ')}
 
 Examples: ${concept.knowledge.examples.join('; ')}
 Counter-examples: ${concept.knowledge.counterExamples.join('; ')}
 
 Usage: Accessed ${concept.usage.timesAccessed} times, Success rate: ${concept.usage.successRate}, Contexts: ${concept.usage.contexts.join(', ')}`;
   }
-} 
+}

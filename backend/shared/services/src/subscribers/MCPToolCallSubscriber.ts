@@ -1,9 +1,9 @@
-import { 
-  EntitySubscriberInterface, 
-  EventSubscriber, 
-  InsertEvent, 
-  UpdateEvent, 
-  RemoveEvent 
+import {
+  EntitySubscriberInterface,
+  EventSubscriber,
+  InsertEvent,
+  UpdateEvent,
+  RemoveEvent,
 } from 'typeorm';
 import { MCPToolCall } from '../entities/mcpToolCall.entity.js';
 import { OutboxPublisher } from '../integration/OutboxPublisher.js';
@@ -55,7 +55,7 @@ export class MCPToolCallSubscriber implements EntitySubscriberInterface<MCPToolC
     } catch (error) {
       logger.error('Failed to publish MCPToolCall CREATE event', {
         toolCallId: event.entity?.id,
-        error: error instanceof Error ? error.message : 'Unknown error'
+        error: error instanceof Error ? error.message : 'Unknown error',
       });
     }
   }
@@ -82,7 +82,7 @@ export class MCPToolCallSubscriber implements EntitySubscriberInterface<MCPToolC
     } catch (error) {
       logger.error('Failed to publish MCPToolCall UPDATE event', {
         toolCallId: (event.entity as MCPToolCall)?.id,
-        error: error instanceof Error ? error.message : 'Unknown error'
+        error: error instanceof Error ? error.message : 'Unknown error',
       });
     }
   }
@@ -109,7 +109,7 @@ export class MCPToolCallSubscriber implements EntitySubscriberInterface<MCPToolC
     } catch (error) {
       logger.error('Failed to publish MCPToolCall DELETE event', {
         toolCallId: event.entity?.id,
-        error: error instanceof Error ? error.message : 'Unknown error'
+        error: error instanceof Error ? error.message : 'Unknown error',
       });
     }
   }
@@ -170,8 +170,8 @@ export class MCPToolCallSubscriber implements EntitySubscriberInterface<MCPToolC
         callContext: toolCall.callContext,
         externalReferences: toolCall.externalReferences,
         createdAt: toolCall.createdAt,
-        updatedAt: toolCall.updatedAt
-      }
+        updatedAt: toolCall.updatedAt,
+      },
     };
   }
-} 
+}

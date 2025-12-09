@@ -6,7 +6,7 @@ import {
   StepExecutorService,
   CompensationService,
   serviceFactory,
-  TaskService
+  TaskService,
 } from '@uaip/shared-services';
 import { OrchestrationEngine } from './orchestrationEngine.js';
 import { TaskController } from './controllers/taskController.js';
@@ -26,20 +26,20 @@ class OrchestrationPipelineService extends BaseService {
   constructor() {
     super({
       name: 'orchestration-pipeline',
-      port: parseInt(process.env.PORT || '3002', 10)
+      port: parseInt(process.env.PORT || '3002', 10),
     });
   }
 
   protected async initialize(): Promise<void> {
     // Get operation management service
     this.operationManagementService = await serviceFactory.getOperationManagementService();
-    
+
     // Initialize services that depend on core services
     this.stateManagerService = new StateManagerService(this.databaseService);
     this.resourceManagerService = new ResourceManagerService();
     this.stepExecutorService = new StepExecutorService();
     this.compensationService = new CompensationService(this.databaseService, this.eventBusService);
-    
+
     // Initialize orchestration engine with all dependencies
     this.orchestrationEngine = new OrchestrationEngine(
       this.databaseService,
@@ -77,7 +77,7 @@ class OrchestrationPipelineService extends BaseService {
         const workflowInstanceId = await this.orchestrationEngine.executeOperation(operation);
         return {
           success: true,
-          data: { workflowInstanceId }
+          data: { workflowInstanceId },
         };
       } catch (error) {
         set.status = 500;
@@ -85,8 +85,8 @@ class OrchestrationPipelineService extends BaseService {
           success: false,
           error: {
             code: 'EXECUTION_FAILED',
-            message: error instanceof Error ? error.message : 'Unknown error'
-          }
+            message: error instanceof Error ? error.message : 'Unknown error',
+          },
         };
       }
     });
@@ -97,7 +97,7 @@ class OrchestrationPipelineService extends BaseService {
         const status = await this.orchestrationEngine.getOperationStatus(operationId);
         return {
           success: true,
-          data: status
+          data: status,
         };
       } catch (error) {
         set.status = 500;
@@ -105,8 +105,8 @@ class OrchestrationPipelineService extends BaseService {
           success: false,
           error: {
             code: 'STATUS_FETCH_FAILED',
-            message: error instanceof Error ? error.message : 'Unknown error'
-          }
+            message: error instanceof Error ? error.message : 'Unknown error',
+          },
         };
       }
     });
@@ -118,7 +118,7 @@ class OrchestrationPipelineService extends BaseService {
         await this.orchestrationEngine.pauseOperation(operationId, reason);
         return {
           success: true,
-          data: { message: 'Operation paused successfully' }
+          data: { message: 'Operation paused successfully' },
         };
       } catch (error) {
         set.status = 500;
@@ -126,8 +126,8 @@ class OrchestrationPipelineService extends BaseService {
           success: false,
           error: {
             code: 'PAUSE_FAILED',
-            message: error instanceof Error ? error.message : 'Unknown error'
-          }
+            message: error instanceof Error ? error.message : 'Unknown error',
+          },
         };
       }
     });
@@ -139,7 +139,7 @@ class OrchestrationPipelineService extends BaseService {
         await this.orchestrationEngine.resumeOperation(operationId, checkpointId);
         return {
           success: true,
-          data: { message: 'Operation resumed successfully' }
+          data: { message: 'Operation resumed successfully' },
         };
       } catch (error) {
         set.status = 500;
@@ -147,8 +147,8 @@ class OrchestrationPipelineService extends BaseService {
           success: false,
           error: {
             code: 'RESUME_FAILED',
-            message: error instanceof Error ? error.message : 'Unknown error'
-          }
+            message: error instanceof Error ? error.message : 'Unknown error',
+          },
         };
       }
     });
@@ -160,7 +160,7 @@ class OrchestrationPipelineService extends BaseService {
         await this.orchestrationEngine.cancelOperation(operationId, reason, compensate, force);
         return {
           success: true,
-          data: { message: 'Operation cancelled successfully' }
+          data: { message: 'Operation cancelled successfully' },
         };
       } catch (error) {
         set.status = 500;
@@ -168,8 +168,8 @@ class OrchestrationPipelineService extends BaseService {
           success: false,
           error: {
             code: 'CANCEL_FAILED',
-            message: error instanceof Error ? error.message : 'Unknown error'
-          }
+            message: error instanceof Error ? error.message : 'Unknown error',
+          },
         };
       }
     });
@@ -178,7 +178,7 @@ class OrchestrationPipelineService extends BaseService {
   protected async getHealthInfo(): Promise<any> {
     const isHealthy = await this.operationManagementService.isHealthy();
     return {
-      operationManagement: isHealthy ? 'healthy' : 'unhealthy'
+      operationManagement: isHealthy ? 'healthy' : 'unhealthy',
     };
   }
 

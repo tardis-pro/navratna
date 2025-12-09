@@ -1,5 +1,13 @@
 import { Repository } from 'typeorm';
-import { TaskEntity, TaskStatus, TaskPriority, TaskType, AssigneeType, TaskSettings, TaskMetrics } from '../entities/task.entity.js';
+import {
+  TaskEntity,
+  TaskStatus,
+  TaskPriority,
+  TaskType,
+  AssigneeType,
+  TaskSettings,
+  TaskMetrics,
+} from '../entities/task.entity.js';
 import { ProjectEntity } from '../entities/project.entity.js';
 import { UserEntity } from '../entities/user.entity.js';
 import { Agent } from '../entities/agent.entity.js';
@@ -10,7 +18,7 @@ const logger = {
   info: (msg: string, data?: any) => console.log('[INFO]', msg, data),
   error: (msg: string, data?: any) => console.error('[ERROR]', msg, data),
   warn: (msg: string, data?: any) => console.warn('[WARN]', msg, data),
-  debug: (msg: string, data?: any) => console.debug('[DEBUG]', msg, data)
+  debug: (msg: string, data?: any) => console.debug('[DEBUG]', msg, data),
 };
 
 export interface CreateTaskRequest {
@@ -106,7 +114,7 @@ export interface TaskActivityEntry {
 
 export class TaskService {
   private static instance: TaskService;
-  
+
   // Repositories - will be injected/initialized when needed
   private taskRepository: Repository<TaskEntity> | null = null;
   private projectRepository: Repository<ProjectEntity> | null = null;
@@ -141,14 +149,19 @@ export class TaskService {
   }
 
   async createTask(request: CreateTaskRequest): Promise<TaskEntity> {
-    if (!this.taskRepository || !this.projectRepository || !this.userRepository || !this.agentRepository) {
+    if (
+      !this.taskRepository ||
+      !this.projectRepository ||
+      !this.userRepository ||
+      !this.agentRepository
+    ) {
       throw new Error('TaskService not properly initialized. Call setRepositories() first.');
     }
 
     try {
       // Validate project exists
       const project = await this.projectRepository.findOne({
-        where: { id: request.projectId }
+        where: { id: request.projectId },
       });
       if (!project) {
         throw new Error('Project not found');
@@ -157,7 +170,7 @@ export class TaskService {
       // Validate assignee if specified
       if (request.assigneeType && request.assignedToUserId) {
         const user = await this.userRepository.findOne({
-          where: { id: request.assignedToUserId }
+          where: { id: request.assignedToUserId },
         });
         if (!user) {
           throw new Error('Assigned user not found');
@@ -166,7 +179,7 @@ export class TaskService {
 
       if (request.assigneeType && request.assignedToAgentId) {
         const agent = await this.agentRepository.findOne({
-          where: { id: request.assignedToAgentId }
+          where: { id: request.assignedToAgentId },
         });
         if (!agent) {
           throw new Error('Assigned agent not found');
@@ -175,7 +188,7 @@ export class TaskService {
 
       // Generate task number
       const taskCount = await this.taskRepository.count({
-        where: { projectId: request.projectId }
+        where: { projectId: request.projectId },
       });
       const taskNumber = `${project.slug}-${(taskCount + 1).toString().padStart(3, '0')}`;
 
@@ -190,7 +203,7 @@ export class TaskService {
           notifyOnStatusChange: true,
           notifyOnComments: true,
           estimatedHours: request.estimatedHours || 0,
-          ...request.settings
+          ...request.settings,
         },
         metrics: {
           timeSpent: 0,
@@ -198,26 +211,28 @@ export class TaskService {
           completionPercentage: 0,
           reopenCount: 0,
           commentCount: 0,
-          attachmentCount: 0
+          attachmentCount: 0,
         },
-        activityLog: [{
-          id: uuidv4(),
-          timestamp: new Date(),
-          action: 'created',
-          userId: request.createdBy,
-          userName: 'System', // Will be populated by activity logging
-          details: { taskNumber, title: request.title }
-        }]
+        activityLog: [
+          {
+            id: uuidv4(),
+            timestamp: new Date(),
+            action: 'created',
+            userId: request.createdBy,
+            userName: 'System', // Will be populated by activity logging
+            details: { taskNumber, title: request.title },
+          },
+        ],
       });
 
       const savedTask = await this.taskRepository.save(task);
-      
+
       // Log activity
       if (request.assigneeType) {
         await this.logActivity(savedTask.id, 'assigned', request.createdBy, {
           assigneeType: request.assigneeType,
           assignedToUserId: request.assignedToUserId,
-          assignedToAgentId: request.assignedToAgentId
+          assignedToAgentId: request.assignedToAgentId,
         });
       }
 
@@ -229,13 +244,12 @@ export class TaskService {
         actor: {
           id: request.createdBy,
           name: 'User', // Would be populated from user lookup
-          type: 'user'
-        }
+          type: 'user',
+        },
       });
 
       logger.info(`Task created: ${savedTask.taskNumber} - ${savedTask.title}`);
       return savedTask;
-
     } catch (error) {
       logger.error('Error creating task:', error);
       throw error;
@@ -251,11 +265,11 @@ export class TaskService {
 
       // Track changes for activity log
       const changes: Record<string, { old: any; new: any }> = {};
-      
+
       // Handle status changes
       if (request.status && request.status !== task.status) {
         changes.status = { old: task.status, new: request.status };
-        
+
         // Update timing fields based on status
         if (request.status === TaskStatus.IN_PROGRESS && !task.startedAt) {
           task.startedAt = new Date();
@@ -270,11 +284,11 @@ export class TaskService {
         if (request.assigneeType !== task.assigneeType) {
           changes.assigneeType = { old: task.assigneeType, new: request.assigneeType };
         }
-        
+
         // Clear previous assignment
         task.assignedToUserId = undefined;
         task.assignedToAgentId = undefined;
-        
+
         // Set new assignment
         if (request.assigneeType === AssigneeType.HUMAN && request.assignedToUserId) {
           task.assignedToUserId = request.assignedToUserId;
@@ -282,7 +296,7 @@ export class TaskService {
         if (request.assigneeType === AssigneeType.AGENT && request.assignedToAgentId) {
           task.assignedToAgentId = request.assignedToAgentId;
         }
-        
+
         task.assignedAt = new Date();
       }
 
@@ -297,7 +311,7 @@ export class TaskService {
         await this.logActivity(taskId, `${field}_changed`, request.updatedBy, {
           field,
           oldValue: change.old,
-          newValue: change.new
+          newValue: change.new,
         });
       }
 
@@ -310,8 +324,8 @@ export class TaskService {
         actor: {
           id: request.updatedBy,
           name: 'User', // Would be populated from user lookup
-          type: 'user'
-        }
+          type: 'user',
+        },
       });
 
       // Emit specific status change event if status changed
@@ -324,8 +338,8 @@ export class TaskService {
           actor: {
             id: request.updatedBy,
             name: 'User',
-            type: 'user'
-          }
+            type: 'user',
+          },
         });
 
         // Emit completion event if task was completed
@@ -337,15 +351,14 @@ export class TaskService {
             actor: {
               id: request.updatedBy,
               name: 'User',
-              type: 'user'
-            }
+              type: 'user',
+            },
           });
         }
       }
 
       logger.info(`Task updated: ${savedTask.taskNumber} - ${savedTask.title}`);
       return savedTask;
-
     } catch (error) {
       logger.error('Error updating task:', error);
       throw error;
@@ -362,7 +375,7 @@ export class TaskService {
       // Validate assignee
       if (request.assigneeType === AssigneeType.HUMAN && request.assignedToUserId) {
         const user = await this.userRepository.findOne({
-          where: { id: request.assignedToUserId }
+          where: { id: request.assignedToUserId },
         });
         if (!user) {
           throw new Error('Assigned user not found');
@@ -371,7 +384,7 @@ export class TaskService {
 
       if (request.assigneeType === AssigneeType.AGENT && request.assignedToAgentId) {
         const agent = await this.agentRepository.findOne({
-          where: { id: request.assignedToAgentId }
+          where: { id: request.assignedToAgentId },
         });
         if (!agent) {
           throw new Error('Assigned agent not found');
@@ -401,7 +414,7 @@ export class TaskService {
         assigneeType: request.assigneeType,
         assignedToUserId: request.assignedToUserId,
         assignedToAgentId: request.assignedToAgentId,
-        reason: request.reason
+        reason: request.reason,
       });
 
       // Emit task assigned event
@@ -412,13 +425,12 @@ export class TaskService {
         actor: {
           id: request.assignedBy,
           name: 'User',
-          type: 'user'
-        }
+          type: 'user',
+        },
       });
 
       logger.info(`Task assigned: ${savedTask.taskNumber} to ${savedTask.assigneeDisplayName}`);
       return savedTask;
-
     } catch (error) {
       logger.error('Error assigning task:', error);
       throw error;
@@ -428,12 +440,13 @@ export class TaskService {
   async getTaskById(taskId: string): Promise<TaskEntity | null> {
     return await this.taskRepository.findOne({
       where: { id: taskId },
-      relations: ['project', 'assignedToUser', 'assignedToAgent', 'creator', 'assignedBy']
+      relations: ['project', 'assignedToUser', 'assignedToAgent', 'creator', 'assignedBy'],
     });
   }
 
   async getTasksByProject(projectId: string, filters?: TaskFilters): Promise<TaskEntity[]> {
-    const queryBuilder = this.taskRepository.createQueryBuilder('task')
+    const queryBuilder = this.taskRepository
+      .createQueryBuilder('task')
       .leftJoinAndSelect('task.project', 'project')
       .leftJoinAndSelect('task.assignedToUser', 'assignedToUser')
       .leftJoinAndSelect('task.assignedToAgent', 'assignedToAgent')
@@ -453,45 +466,61 @@ export class TaskService {
 
       if (filters.priority) {
         if (Array.isArray(filters.priority)) {
-          queryBuilder.andWhere('task.priority IN (:...priorities)', { priorities: filters.priority });
+          queryBuilder.andWhere('task.priority IN (:...priorities)', {
+            priorities: filters.priority,
+          });
         } else {
           queryBuilder.andWhere('task.priority = :priority', { priority: filters.priority });
         }
       }
 
       if (filters.assigneeType) {
-        queryBuilder.andWhere('task.assigneeType = :assigneeType', { assigneeType: filters.assigneeType });
+        queryBuilder.andWhere('task.assigneeType = :assigneeType', {
+          assigneeType: filters.assigneeType,
+        });
       }
 
       if (filters.assignedToUserId) {
-        queryBuilder.andWhere('task.assignedToUserId = :assignedToUserId', { assignedToUserId: filters.assignedToUserId });
+        queryBuilder.andWhere('task.assignedToUserId = :assignedToUserId', {
+          assignedToUserId: filters.assignedToUserId,
+        });
       }
 
       if (filters.assignedToAgentId) {
-        queryBuilder.andWhere('task.assignedToAgentId = :assignedToAgentId', { assignedToAgentId: filters.assignedToAgentId });
+        queryBuilder.andWhere('task.assignedToAgentId = :assignedToAgentId', {
+          assignedToAgentId: filters.assignedToAgentId,
+        });
       }
 
       if (filters.search) {
-        queryBuilder.andWhere('(task.title ILIKE :search OR task.description ILIKE :search)', 
-          { search: `%${filters.search}%` });
+        queryBuilder.andWhere('(task.title ILIKE :search OR task.description ILIKE :search)', {
+          search: `%${filters.search}%`,
+        });
       }
 
       if (filters.dueDateBefore) {
-        queryBuilder.andWhere('task.dueDate <= :dueDateBefore', { dueDateBefore: filters.dueDateBefore });
+        queryBuilder.andWhere('task.dueDate <= :dueDateBefore', {
+          dueDateBefore: filters.dueDateBefore,
+        });
       }
 
       if (filters.dueDateAfter) {
-        queryBuilder.andWhere('task.dueDate >= :dueDateAfter', { dueDateAfter: filters.dueDateAfter });
+        queryBuilder.andWhere('task.dueDate >= :dueDateAfter', {
+          dueDateAfter: filters.dueDateAfter,
+        });
       }
 
       if (filters.isOverdue) {
-        queryBuilder.andWhere('task.dueDate < :now AND task.status != :completedStatus', 
-          { now: new Date(), completedStatus: TaskStatus.COMPLETED });
+        queryBuilder.andWhere('task.dueDate < :now AND task.status != :completedStatus', {
+          now: new Date(),
+          completedStatus: TaskStatus.COMPLETED,
+        });
       }
 
       if (filters.isBlocked) {
-        queryBuilder.andWhere('(task.status = :blockedStatus OR task.blockedBy IS NOT NULL)', 
-          { blockedStatus: TaskStatus.BLOCKED });
+        queryBuilder.andWhere('(task.status = :blockedStatus OR task.blockedBy IS NOT NULL)', {
+          blockedStatus: TaskStatus.BLOCKED,
+        });
       }
     }
 
@@ -510,7 +539,8 @@ export class TaskService {
     const suggestions: TaskAssignmentSuggestion[] = [];
 
     // Get project members (humans)
-    const projectMembers = await this.userRepository.createQueryBuilder('user')
+    const projectMembers = await this.userRepository
+      .createQueryBuilder('user')
       .innerJoin('project_members', 'pm', 'pm.userId = user.id')
       .where('pm.projectId = :projectId', { projectId: task.projectId })
       .andWhere('pm.status = :status', { status: 'active' })
@@ -518,14 +548,14 @@ export class TaskService {
 
     // Get available agents
     const agents = await this.agentRepository.find({
-      where: { isActive: true, status: 'idle' }
+      where: { isActive: true, status: 'idle' },
     });
 
     // Score humans based on availability and expertise
     for (const member of projectMembers) {
       const workload = await this.getUserWorkload(member.id);
       const score = this.calculateAssignmentScore(task, 'human', { workload });
-      
+
       suggestions.push({
         type: AssigneeType.HUMAN,
         userId: member.id,
@@ -534,27 +564,30 @@ export class TaskService {
         reason: this.getAssignmentReason(task, 'human', { workload }),
         availability: workload > 10 ? 'busy' : 'available',
         expertise: [], // Would need to be populated from user profile
-        workload
+        workload,
       });
     }
 
     // Score agents based on capabilities and availability
     for (const agent of agents) {
       const workload = await this.getAgentWorkload(agent.id);
-      const score = this.calculateAssignmentScore(task, 'agent', { 
-        workload, 
-        capabilities: agent.capabilities 
+      const score = this.calculateAssignmentScore(task, 'agent', {
+        workload,
+        capabilities: agent.capabilities,
       });
-      
+
       suggestions.push({
         type: AssigneeType.AGENT,
         agentId: agent.id,
         name: agent.name,
         score,
-        reason: this.getAssignmentReason(task, 'agent', { workload, capabilities: agent.capabilities }),
+        reason: this.getAssignmentReason(task, 'agent', {
+          workload,
+          capabilities: agent.capabilities,
+        }),
         availability: workload > 5 ? 'busy' : 'available',
         expertise: agent.capabilities || [],
-        workload
+        workload,
       });
     }
 
@@ -562,7 +595,11 @@ export class TaskService {
     return suggestions.sort((a, b) => b.score - a.score).slice(0, 10);
   }
 
-  private calculateAssignmentScore(task: TaskEntity, assigneeType: 'human' | 'agent', context: any): number {
+  private calculateAssignmentScore(
+    task: TaskEntity,
+    assigneeType: 'human' | 'agent',
+    context: any
+  ): number {
     let score = 50; // Base score
 
     // Adjust based on workload
@@ -583,9 +620,10 @@ export class TaskService {
 
     // Adjust based on capabilities (for agents)
     if (assigneeType === 'agent' && context.capabilities) {
-      const relevantCapabilities = context.capabilities.filter((cap: string) => 
-        task.title.toLowerCase().includes(cap.toLowerCase()) ||
-        task.description?.toLowerCase().includes(cap.toLowerCase())
+      const relevantCapabilities = context.capabilities.filter(
+        (cap: string) =>
+          task.title.toLowerCase().includes(cap.toLowerCase()) ||
+          task.description?.toLowerCase().includes(cap.toLowerCase())
       );
       score += relevantCapabilities.length * 5;
     }
@@ -593,7 +631,11 @@ export class TaskService {
     return Math.max(0, Math.min(100, score));
   }
 
-  private getAssignmentReason(task: TaskEntity, assigneeType: 'human' | 'agent', context: any): string {
+  private getAssignmentReason(
+    task: TaskEntity,
+    assigneeType: 'human' | 'agent',
+    context: any
+  ): string {
     const reasons: string[] = [];
 
     if (context.workload === 0) {
@@ -620,8 +662,8 @@ export class TaskService {
     return await this.taskRepository.count({
       where: {
         assignedToUserId: userId,
-        status: TaskStatus.IN_PROGRESS
-      }
+        status: TaskStatus.IN_PROGRESS,
+      },
     });
   }
 
@@ -629,12 +671,17 @@ export class TaskService {
     return await this.taskRepository.count({
       where: {
         assignedToAgentId: agentId,
-        status: TaskStatus.IN_PROGRESS
-      }
+        status: TaskStatus.IN_PROGRESS,
+      },
     });
   }
 
-  private async logActivity(taskId: string, action: string, userId: string, details: any): Promise<void> {
+  private async logActivity(
+    taskId: string,
+    action: string,
+    userId: string,
+    details: any
+  ): Promise<void> {
     const task = await this.taskRepository.findOne({ where: { id: taskId } });
     if (!task) return;
 
@@ -644,7 +691,7 @@ export class TaskService {
       action,
       userId,
       userName: 'System', // Would be populated from user lookup
-      details
+      details,
     };
 
     task.activityLog = [...(task.activityLog || []), activityEntry];
@@ -665,7 +712,11 @@ export class TaskService {
     logger.info(`Task deleted: ${task.taskNumber} - ${task.title}`);
   }
 
-  async updateTaskProgress(taskId: string, completionPercentage: number, timeSpent?: number): Promise<TaskEntity> {
+  async updateTaskProgress(
+    taskId: string,
+    completionPercentage: number,
+    timeSpent?: number
+  ): Promise<TaskEntity> {
     const task = await this.getTaskById(taskId);
     if (!task) {
       throw new Error('Task not found');
@@ -674,7 +725,7 @@ export class TaskService {
     task.metrics = {
       ...task.metrics,
       completionPercentage: Math.max(0, Math.min(100, completionPercentage)),
-      timeSpent: timeSpent || task.metrics.timeSpent
+      timeSpent: timeSpent || task.metrics.timeSpent,
     };
 
     // Auto-update status based on completion
@@ -691,12 +742,13 @@ export class TaskService {
   }
 
   async getTaskStatistics(projectId: string): Promise<any> {
-    const stats = await this.taskRepository.createQueryBuilder('task')
+    const stats = await this.taskRepository
+      .createQueryBuilder('task')
       .select([
         'task.status as status',
         'task.priority as priority',
         'task.assigneeType as assigneeType',
-        'COUNT(*) as count'
+        'COUNT(*) as count',
       ])
       .where('task.projectId = :projectId', { projectId })
       .andWhere('task.deletedAt IS NULL')
@@ -707,7 +759,7 @@ export class TaskService {
       total: stats.reduce((sum, stat) => sum + parseInt(stat.count), 0),
       byStatus: this.groupBy(stats, 'status'),
       byPriority: this.groupBy(stats, 'priority'),
-      byAssigneeType: this.groupBy(stats, 'assigneeType')
+      byAssigneeType: this.groupBy(stats, 'assigneeType'),
     };
   }
 

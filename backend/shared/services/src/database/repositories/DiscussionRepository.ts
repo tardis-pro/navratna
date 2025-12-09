@@ -7,7 +7,7 @@ export class DiscussionRepository {
   private getRepository(): Repository<Discussion> {
     // Use TypeOrmService to get repository
     const typeormService = TypeOrmService.getInstance();
-    
+
     // Check if TypeORM service is initialized
     try {
       return typeormService.getDataSource().getRepository(Discussion);
@@ -15,7 +15,7 @@ export class DiscussionRepository {
       if (error.message.includes('TypeORM service not initialized')) {
         throw new Error(
           'DiscussionRepository: TypeORM service not initialized. ' +
-          'Ensure the service that uses this repository calls typeormService.initialize() before using repository methods.'
+            'Ensure the service that uses this repository calls typeormService.initialize() before using repository methods.'
         );
       }
       throw error;
@@ -52,7 +52,9 @@ export class DiscussionRepository {
       // Status filter
       if (filters.status) {
         if (Array.isArray(filters.status)) {
-          queryBuilder.andWhere('discussion.status IN (:...statuses)', { statuses: filters.status });
+          queryBuilder.andWhere('discussion.status IN (:...statuses)', {
+            statuses: filters.status,
+          });
         } else {
           queryBuilder.andWhere('discussion.status = :status', { status: filters.status });
         }
@@ -61,24 +63,34 @@ export class DiscussionRepository {
       // Visibility filter
       if (filters.visibility) {
         if (Array.isArray(filters.visibility)) {
-          queryBuilder.andWhere('discussion.visibility IN (:...visibilities)', { visibilities: filters.visibility });
+          queryBuilder.andWhere('discussion.visibility IN (:...visibilities)', {
+            visibilities: filters.visibility,
+          });
         } else {
-          queryBuilder.andWhere('discussion.visibility = :visibility', { visibility: filters.visibility });
+          queryBuilder.andWhere('discussion.visibility = :visibility', {
+            visibility: filters.visibility,
+          });
         }
       }
 
       // Created by filter
       if (filters.createdBy) {
         if (Array.isArray(filters.createdBy)) {
-          queryBuilder.andWhere('discussion.createdBy IN (:...createdByIds)', { createdByIds: filters.createdBy });
+          queryBuilder.andWhere('discussion.createdBy IN (:...createdByIds)', {
+            createdByIds: filters.createdBy,
+          });
         } else {
-          queryBuilder.andWhere('discussion.createdBy = :createdBy', { createdBy: filters.createdBy });
+          queryBuilder.andWhere('discussion.createdBy = :createdBy', {
+            createdBy: filters.createdBy,
+          });
         }
       }
 
       // Organization filter
       if (filters.organizationId) {
-        queryBuilder.andWhere('discussion.organizationId = :organizationId', { organizationId: filters.organizationId });
+        queryBuilder.andWhere('discussion.organizationId = :organizationId', {
+          organizationId: filters.organizationId,
+        });
       }
 
       // Team filter
@@ -88,11 +100,15 @@ export class DiscussionRepository {
 
       // Date range filters
       if (filters.createdAfter) {
-        queryBuilder.andWhere('discussion.createdAt >= :createdAfter', { createdAfter: filters.createdAfter });
+        queryBuilder.andWhere('discussion.createdAt >= :createdAfter', {
+          createdAfter: filters.createdAfter,
+        });
       }
 
       if (filters.createdBefore) {
-        queryBuilder.andWhere('discussion.createdAt <= :createdBefore', { createdBefore: filters.createdBefore });
+        queryBuilder.andWhere('discussion.createdAt <= :createdBefore', {
+          createdBefore: filters.createdBefore,
+        });
       }
 
       // Order by created date descending
@@ -113,16 +129,21 @@ export class DiscussionRepository {
       // Execute query
       const discussions = await queryBuilder.getMany();
 
-      logger.info('TypeORM discussion search completed', { 
-        total, 
+      logger.info('TypeORM discussion search completed', {
+        total,
         returned: discussions.length,
-        filters: Object.keys(filters).filter(key => filters[key as keyof typeof filters] !== undefined)
+        filters: Object.keys(filters).filter(
+          (key) => filters[key as keyof typeof filters] !== undefined
+        ),
       });
 
       return { discussions, total };
     } catch (error) {
-      logger.error('Error searching discussions with TypeORM', { filters, error: (error as Error).message });
+      logger.error('Error searching discussions with TypeORM', {
+        filters,
+        error: (error as Error).message,
+      });
       throw error;
     }
   }
-} 
+}

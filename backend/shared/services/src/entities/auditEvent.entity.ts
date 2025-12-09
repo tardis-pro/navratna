@@ -56,4 +56,4 @@ export class AuditEvent extends BaseEntity {
 
   @Column({ name: 'archived_at', type: 'timestamp', nullable: true })
   archivedAt?: Date;
-} 
+}

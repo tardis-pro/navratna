@@ -10,7 +10,7 @@ import {
   RiskLevel,
   SecurityContext,
   AuditEventType,
-  Operation
+  Operation,
 } from '@uaip/types';
 import { ApprovalWorkflowService, ApprovalRequest } from './approvalWorkflowService.js';
 import { AuditService } from './auditService.js';
@@ -64,12 +64,14 @@ export class SecurityGatewayService {
   /**
    * Validate security for an operation
    */
-  public async validateSecurity(request: SecurityValidationRequest): Promise<SecurityValidationResult> {
+  public async validateSecurity(
+    request: SecurityValidationRequest
+  ): Promise<SecurityValidationResult> {
     try {
       logger.info('Validating security for operation', {
         operationType: request.operation.type,
         resource: request.operation.resource,
-        userId: request.securityContext.userId
+        userId: request.securityContext.userId,
       });
 
       // Perform risk assessment
@@ -79,7 +81,11 @@ export class SecurityGatewayService {
       const policyResult = await this.applySecurityPolicies(request, riskAssessment);
 
       // Determine if approval is required
-      const approvalRequired = this.determineApprovalRequirement(request, riskAssessment, policyResult);
+      const approvalRequired = this.determineApprovalRequirement(
+        request,
+        riskAssessment,
+        policyResult
+      );
 
       // Get required approvers if approval is needed
       const requiredApprovers = approvalRequired
@@ -94,12 +100,14 @@ export class SecurityGatewayService {
         conditions: policyResult.conditions,
         reasoning: this.buildReasoningText(request, riskAssessment, policyResult, approvalRequired),
         requiredApprovers,
-        validUntil: this.calculateValidityPeriod(riskAssessment)
+        validUntil: this.calculateValidityPeriod(riskAssessment),
       };
 
       // Audit the validation
       await this.auditService.logEvent({
-        eventType: result.allowed ? AuditEventType.PERMISSION_GRANTED : AuditEventType.PERMISSION_DENIED,
+        eventType: result.allowed
+          ? AuditEventType.PERMISSION_GRANTED
+          : AuditEventType.PERMISSION_DENIED,
         userId: request.securityContext.userId,
         resourceType: request.operation.resource,
         resourceId: request.operation.context?.resourceId,
@@ -107,26 +115,25 @@ export class SecurityGatewayService {
           operation: request.operation,
           riskAssessment,
           result,
-          approvalRequired
+          approvalRequired,
         },
         ipAddress: request.securityContext.ipAddress,
         userAgent: request.securityContext.userAgent,
-        riskLevel: result.riskLevel
+        riskLevel: result.riskLevel,
       });
 
       logger.info('Security validation completed', {
         operationType: request.operation.type,
         allowed: result.allowed,
         approvalRequired: result.approvalRequired,
-        riskLevel: result.riskLevel
+        riskLevel: result.riskLevel,
       });
 
       return result;
-
     } catch (error) {
       logger.error('Security validation failed', {
         operationType: request.operation.type,
-        error: error instanceof Error ? error.message : 'Unknown error'
+        error: error instanceof Error ? error.message : 'Unknown error',
       });
 
       // Audit the failure
@@ -137,11 +144,11 @@ export class SecurityGatewayService {
         details: {
           operation: request.operation,
           error: error instanceof Error ? error.message : 'Unknown error',
-          validationFailed: true
+          validationFailed: true,
         },
         ipAddress: request.securityContext.ipAddress,
         userAgent: request.securityContext.userAgent,
-        riskLevel: SecurityLevel.HIGH
+        riskLevel: SecurityLevel.HIGH,
       });
 
       throw error;
@@ -167,15 +174,15 @@ export class SecurityGatewayService {
         context: {
           operation: request.operation,
           riskAssessment,
-          securityContext: request.securityContext
+          securityContext: request.securityContext,
         },
         expirationHours: this.calculateApprovalExpirationHours(riskAssessment),
         metadata: {
           requestedBy: request.securityContext.userId,
           requestedAt: new Date().toISOString(),
           riskScore: riskAssessment.score,
-          mitigations: riskAssessment.mitigations
-        }
+          mitigations: riskAssessment.mitigations,
+        },
       };
 
       const workflow = await this.approvalWorkflowService.createApprovalWorkflow(approvalRequest);
@@ -184,15 +191,14 @@ export class SecurityGatewayService {
         workflowId: workflow.id,
         operationId,
         requiredApprovers: requiredApprovers.length,
-        riskLevel: riskAssessment.overallRisk
+        riskLevel: riskAssessment.overallRisk,
       });
 
       return workflow.id;
-
     } catch (error) {
       logger.error('Failed to create approval workflow', {
         operationId,
-        error: error instanceof Error ? error.message : 'Unknown error'
+        error: error instanceof Error ? error.message : 'Unknown error',
       });
       throw error;
     }
@@ -250,7 +256,7 @@ export class SecurityGatewayService {
       factors,
       mitigations,
       assessedAt: new Date(),
-      assessedBy: 'security-gateway-service'
+      assessedBy: 'security-gateway-service',
     };
   }
 
@@ -269,12 +275,16 @@ export class SecurityGatewayService {
     try {
       const riskAssessment = await this.assessRisk(request);
       const policyResult = await this.applySecurityPolicies(request, riskAssessment);
-      const approvalRequired = this.determineApprovalRequirement(request, riskAssessment, policyResult);
+      const approvalRequired = this.determineApprovalRequirement(
+        request,
+        riskAssessment,
+        policyResult
+      );
 
       if (!approvalRequired) {
         return {
           required: false,
-          matchedPolicies: policyResult.appliedPolicies
+          matchedPolicies: policyResult.appliedPolicies,
         };
       }
 
@@ -286,15 +296,14 @@ export class SecurityGatewayService {
         requirements: {
           minimumApprovers: requiredApprovers.length,
           requiredRoles: ['admin', 'security-admin'], // Default roles
-          timeoutHours: expirationHours
+          timeoutHours: expirationHours,
         },
-        matchedPolicies: policyResult.appliedPolicies
+        matchedPolicies: policyResult.appliedPolicies,
       };
-
     } catch (error) {
       logger.error('Failed to check approval requirement', {
         operationType: request.operation.type,
-        error: error instanceof Error ? error.message : 'Unknown error'
+        error: error instanceof Error ? error.message : 'Unknown error',
       });
       throw error;
     }
@@ -313,8 +322,8 @@ export class SecurityGatewayService {
 
     // Get applicable policies
     const applicablePolicies = Array.from(this.policies.values())
-      .filter(policy => policy.isActive)
-      .filter(policy => this.isPolicyApplicable(policy, request, riskAssessment))
+      .filter((policy) => policy.isActive)
+      .filter((policy) => this.isPolicyApplicable(policy, request, riskAssessment))
       .sort((a, b) => b.priority - a.priority); // Higher priority first
 
     for (const policy of applicablePolicies) {
@@ -357,14 +366,17 @@ export class SecurityGatewayService {
     policyResult: { allowed: boolean; conditions: string[]; appliedPolicies: string[] }
   ): boolean {
     // High or critical risk always requires approval
-    if (riskAssessment.overallRisk === RiskLevel.HIGH || riskAssessment.overallRisk === RiskLevel.CRITICAL) {
+    if (
+      riskAssessment.overallRisk === RiskLevel.HIGH ||
+      riskAssessment.overallRisk === RiskLevel.CRITICAL
+    ) {
       return true;
     }
 
     // Check if any applied policies require approval
     const applicablePolicies = policyResult.appliedPolicies
-      .map(id => this.policies.get(id))
-      .filter(policy => policy !== undefined);
+      .map((id) => this.policies.get(id))
+      .filter((policy) => policy !== undefined);
 
     for (const policy of applicablePolicies) {
       if (policy!.actions.requireApproval) {
@@ -378,7 +390,7 @@ export class SecurityGatewayService {
       'user_privilege_escalation',
       'data_export',
       'security_policy_change',
-      'critical_system_access'
+      'critical_system_access',
     ];
 
     if (highRiskOperations.includes(request.operation.type)) {
@@ -415,11 +427,11 @@ export class SecurityGatewayService {
 
     // Operation-specific approvers
     const operationApprovers = await this.getOperationSpecificApprovers(request.operation.type);
-    operationApprovers.forEach(approver => approvers.add(approver));
+    operationApprovers.forEach((approver) => approvers.add(approver));
 
     // Resource-specific approvers
     const resourceApprovers = await this.getResourceSpecificApprovers(request.operation.resource);
-    resourceApprovers.forEach(approver => approvers.add(approver));
+    resourceApprovers.forEach((approver) => approvers.add(approver));
 
     return Array.from(approvers);
   }
@@ -437,7 +449,7 @@ export class SecurityGatewayService {
       level: this.getScoreRiskLevel(score),
       description: `Operation type: ${operationType}`,
       score,
-      mitigations: this.getOperationTypeMitigations(operationType)
+      mitigations: this.getOperationTypeMitigations(operationType),
     };
   }
 
@@ -451,7 +463,7 @@ export class SecurityGatewayService {
       level: this.getScoreRiskLevel(score),
       description: `Resource type: ${resourceType}`,
       score,
-      mitigations: this.getResourceTypeMitigations(resourceType)
+      mitigations: this.getResourceTypeMitigations(resourceType),
     };
   }
 
@@ -467,7 +479,7 @@ export class SecurityGatewayService {
       level: this.getScoreRiskLevel(score),
       description: `User role: ${userRole}`,
       score,
-      mitigations: this.getUserRoleMitigations(userRole)
+      mitigations: this.getUserRoleMitigations(userRole),
     };
   }
 
@@ -499,7 +511,7 @@ export class SecurityGatewayService {
       level: this.getScoreRiskLevel(score),
       description,
       score,
-      mitigations: multiplier > 1.0 ? ['Additional monitoring during off-hours'] : []
+      mitigations: multiplier > 1.0 ? ['Additional monitoring during off-hours'] : [],
     };
   }
 
@@ -532,7 +544,7 @@ export class SecurityGatewayService {
       level: this.getScoreRiskLevel(score),
       description: `Context factors: ${factors.join(', ') || 'None'}`,
       score,
-      mitigations: this.getContextMitigations(factors)
+      mitigations: this.getContextMitigations(factors),
     };
   }
 
@@ -545,8 +557,8 @@ export class SecurityGatewayService {
         eventTypes: [
           AuditEventType.PERMISSION_DENIED,
           AuditEventType.SECURITY_VIOLATION,
-          AuditEventType.APPROVAL_DENIED
-        ]
+          AuditEventType.APPROVAL_DENIED,
+        ],
       });
 
       let score = 1.0;
@@ -564,9 +576,9 @@ export class SecurityGatewayService {
         level: this.getScoreRiskLevel(score),
         description: `Historical risk factors: ${factors.join(', ') || 'Clean history'}`,
         score,
-        mitigations: recentEvents.length > 0 ? ['Enhanced monitoring', 'Additional verification'] : []
+        mitigations:
+          recentEvents.length > 0 ? ['Enhanced monitoring', 'Additional verification'] : [],
       };
-
     } catch (error) {
       logger.warn('Failed to assess historical risk', { userId, error });
       return {
@@ -574,7 +586,7 @@ export class SecurityGatewayService {
         level: RiskLevel.LOW,
         description: 'Historical risk assessment unavailable',
         score: 1.0,
-        mitigations: []
+        mitigations: [],
       };
     }
   }
@@ -595,21 +607,31 @@ export class SecurityGatewayService {
 
   private getScoreForRiskLevel(level: SecurityLevel): number {
     switch (level) {
-      case SecurityLevel.CRITICAL: return this.riskConfig.thresholds.critical;
-      case SecurityLevel.HIGH: return this.riskConfig.thresholds.high;
-      case SecurityLevel.MEDIUM: return this.riskConfig.thresholds.medium;
-      case SecurityLevel.LOW: return this.riskConfig.thresholds.low;
-      default: return this.riskConfig.thresholds.medium;
+      case SecurityLevel.CRITICAL:
+        return this.riskConfig.thresholds.critical;
+      case SecurityLevel.HIGH:
+        return this.riskConfig.thresholds.high;
+      case SecurityLevel.MEDIUM:
+        return this.riskConfig.thresholds.medium;
+      case SecurityLevel.LOW:
+        return this.riskConfig.thresholds.low;
+      default:
+        return this.riskConfig.thresholds.medium;
     }
   }
 
   private mapRiskLevelToSecurityLevel(riskLevel: RiskLevel): SecurityLevel {
     switch (riskLevel) {
-      case RiskLevel.CRITICAL: return SecurityLevel.CRITICAL;
-      case RiskLevel.HIGH: return SecurityLevel.HIGH;
-      case RiskLevel.MEDIUM: return SecurityLevel.MEDIUM;
-      case RiskLevel.LOW: return SecurityLevel.LOW;
-      default: return SecurityLevel.MEDIUM;
+      case RiskLevel.CRITICAL:
+        return SecurityLevel.CRITICAL;
+      case RiskLevel.HIGH:
+        return SecurityLevel.HIGH;
+      case RiskLevel.MEDIUM:
+        return SecurityLevel.MEDIUM;
+      case RiskLevel.LOW:
+        return SecurityLevel.LOW;
+      default:
+        return SecurityLevel.MEDIUM;
     }
   }
 
@@ -617,8 +639,8 @@ export class SecurityGatewayService {
     const mitigations = new Set<string>();
 
     // Collect mitigations from all factors
-    factors.forEach(factor => {
-      factor.mitigations?.forEach(mitigation => mitigations.add(mitigation));
+    factors.forEach((factor) => {
+      factor.mitigations?.forEach((mitigation) => mitigations.add(mitigation));
     });
 
     // Add overall risk mitigations
@@ -648,13 +670,15 @@ export class SecurityGatewayService {
   ): string {
     const parts: string[] = [];
 
-    parts.push(`Risk assessment: ${riskAssessment.overallRisk} (score: ${riskAssessment.score.toFixed(2)})`);
+    parts.push(
+      `Risk assessment: ${riskAssessment.overallRisk} (score: ${riskAssessment.score.toFixed(2)})`
+    );
 
     if (riskAssessment.factors.length > 0) {
       const topFactors = riskAssessment.factors
         .sort((a, b) => b.score - a.score)
         .slice(0, 3)
-        .map(f => f.description);
+        .map((f) => f.description);
       parts.push(`Key risk factors: ${topFactors.join(', ')}`);
     }
 
@@ -695,11 +719,16 @@ export class SecurityGatewayService {
 
   private calculateApprovalExpirationHours(riskAssessment: RiskAssessment): number {
     switch (riskAssessment.overallRisk) {
-      case RiskLevel.CRITICAL: return 4;  // 4 hours
-      case RiskLevel.HIGH: return 12;     // 12 hours
-      case RiskLevel.MEDIUM: return 24;   // 24 hours
-      case RiskLevel.LOW: return 48;      // 48 hours
-      default: return 24;
+      case RiskLevel.CRITICAL:
+        return 4; // 4 hours
+      case RiskLevel.HIGH:
+        return 12; // 12 hours
+      case RiskLevel.MEDIUM:
+        return 24; // 24 hours
+      case RiskLevel.LOW:
+        return 48; // 48 hours
+      default:
+        return 24;
     }
   }
 
@@ -712,14 +741,18 @@ export class SecurityGatewayService {
     riskAssessment: RiskAssessment
   ): boolean {
     // Check operation type
-    if (policy.conditions.operationType &&
-      policy.conditions.operationType !== request.operation.type) {
+    if (
+      policy.conditions.operationType &&
+      policy.conditions.operationType !== request.operation.type
+    ) {
       return false;
     }
 
     // Check resource type
-    if (policy.conditions.resourceType &&
-      policy.conditions.resourceType !== request.operation.resource) {
+    if (
+      policy.conditions.resourceType &&
+      policy.conditions.resourceType !== request.operation.resource
+    ) {
       return false;
     }
 
@@ -754,10 +787,10 @@ export class SecurityGatewayService {
   private async getOperationSpecificApprovers(operationType: string): Promise<string[]> {
     // This would be configured in database
     const operationApprovers: Record<string, string[]> = {
-      'system_configuration_change': ['system-admin'],
-      'user_privilege_escalation': ['security-admin', 'hr-admin'],
-      'data_export': ['data-protection-officer'],
-      'security_policy_change': ['security-admin', 'compliance-officer']
+      system_configuration_change: ['system-admin'],
+      user_privilege_escalation: ['security-admin', 'hr-admin'],
+      data_export: ['data-protection-officer'],
+      security_policy_change: ['security-admin', 'compliance-officer'],
     };
 
     return operationApprovers[operationType] || [];
@@ -766,9 +799,9 @@ export class SecurityGatewayService {
   private async getResourceSpecificApprovers(resourceType: string): Promise<string[]> {
     // This would be configured in database
     const resourceApprovers: Record<string, string[]> = {
-      'production_database': ['database-admin'],
-      'user_data': ['data-protection-officer'],
-      'financial_data': ['finance-admin', 'compliance-officer']
+      production_database: ['database-admin'],
+      user_data: ['data-protection-officer'],
+      financial_data: ['finance-admin', 'compliance-officer'],
     };
 
     return resourceApprovers[resourceType] || [];
@@ -779,9 +812,9 @@ export class SecurityGatewayService {
    */
   private getOperationTypeMitigations(operationType: string): string[] {
     const mitigations: Record<string, string[]> = {
-      'system_configuration_change': ['Backup before change', 'Rollback plan required'],
-      'data_export': ['Data anonymization', 'Export logging'],
-      'user_privilege_escalation': ['Time-limited access', 'Regular review']
+      system_configuration_change: ['Backup before change', 'Rollback plan required'],
+      data_export: ['Data anonymization', 'Export logging'],
+      user_privilege_escalation: ['Time-limited access', 'Regular review'],
     };
 
     return mitigations[operationType] || ['Standard monitoring'];
@@ -789,9 +822,9 @@ export class SecurityGatewayService {
 
   private getResourceTypeMitigations(resourceType: string): string[] {
     const mitigations: Record<string, string[]> = {
-      'production_database': ['Read-only access preferred', 'Query logging'],
-      'user_data': ['Data minimization', 'Access logging'],
-      'financial_data': ['Audit trail required', 'Encryption in transit']
+      production_database: ['Read-only access preferred', 'Query logging'],
+      user_data: ['Data minimization', 'Access logging'],
+      financial_data: ['Audit trail required', 'Encryption in transit'],
     };
 
     return mitigations[resourceType] || ['Standard access controls'];
@@ -799,9 +832,9 @@ export class SecurityGatewayService {
 
   private getUserRoleMitigations(userRole: string): string[] {
     const mitigations: Record<string, string[]> = {
-      'admin': ['Enhanced monitoring', 'Regular access review'],
-      'user': ['Standard monitoring'],
-      'guest': ['Restricted access', 'Time-limited sessions']
+      admin: ['Enhanced monitoring', 'Regular access review'],
+      user: ['Standard monitoring'],
+      guest: ['Restricted access', 'Time-limited sessions'],
     };
 
     return mitigations[userRole] || ['Standard monitoring'];
@@ -831,41 +864,41 @@ export class SecurityGatewayService {
   private getDefaultRiskConfig(): RiskAssessmentConfig {
     return {
       operationTypeWeights: {
-        'read': 0.5,
-        'write': 1.0,
-        'delete': 2.0,
-        'admin': 3.0,
-        'system_configuration_change': 4.0,
-        'user_privilege_escalation': 4.0,
-        'data_export': 3.0,
-        'security_policy_change': 5.0
+        read: 0.5,
+        write: 1.0,
+        delete: 2.0,
+        admin: 3.0,
+        system_configuration_change: 4.0,
+        user_privilege_escalation: 4.0,
+        data_export: 3.0,
+        security_policy_change: 5.0,
       },
       resourceTypeWeights: {
-        'public_data': 0.5,
-        'internal_data': 1.0,
-        'user_data': 2.0,
-        'financial_data': 3.0,
-        'production_database': 4.0,
-        'system_configuration': 4.0
+        public_data: 0.5,
+        internal_data: 1.0,
+        user_data: 2.0,
+        financial_data: 3.0,
+        production_database: 4.0,
+        system_configuration: 4.0,
       },
       userRoleWeights: {
-        'guest': 0.5,
-        'user': 1.0,
-        'operator': 1.5,
-        'admin': 2.0,
-        'system_admin': 2.5
+        guest: 0.5,
+        user: 1.0,
+        operator: 1.5,
+        admin: 2.0,
+        system_admin: 2.5,
       },
       timeBasedFactors: {
         offHours: 1.5,
         weekend: 1.3,
-        holiday: 1.4
+        holiday: 1.4,
       },
       thresholds: {
         low: 2.0,
         medium: 4.0,
         high: 6.0,
-        critical: 8.0
-      }
+        critical: 8.0,
+      },
     };
   }
 
@@ -878,37 +911,37 @@ export class SecurityGatewayService {
         name: 'High Risk Operations Require Approval',
         description: 'All high and critical risk operations require approval',
         conditions: {
-          minRiskLevel: SecurityLevel.HIGH
+          minRiskLevel: SecurityLevel.HIGH,
         },
         actions: {
           requireApproval: true,
-          requiredApprovers: ['security-admin']
+          requiredApprovers: ['security-admin'],
         },
         priority: 100,
-        isActive: true
+        isActive: true,
       },
       {
         id: 'system-admin-approval',
         name: 'System Configuration Changes',
         description: 'System configuration changes require admin approval',
         conditions: {
-          operationType: 'system_configuration_change'
+          operationType: 'system_configuration_change',
         },
         actions: {
           requireApproval: true,
-          requiredApprovers: ['system-admin', 'security-admin']
+          requiredApprovers: ['system-admin', 'security-admin'],
         },
         priority: 90,
-        isActive: true
-      }
+        isActive: true,
+      },
     ];
 
-    defaultPolicies.forEach(policy => {
+    defaultPolicies.forEach((policy) => {
       this.policies.set(policy.id, policy);
     });
 
     logger.info('Security policies loaded', {
-      policyCount: this.policies.size
+      policyCount: this.policies.size,
     });
   }
-} 
+}

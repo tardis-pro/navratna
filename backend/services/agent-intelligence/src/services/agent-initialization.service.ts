@@ -11,7 +11,7 @@ import {
   EventBusService,
   KnowledgeGraphService,
   AgentMemoryService,
-  PersonaService
+  PersonaService,
 } from '@uaip/shared-services';
 
 export interface AgentInitializationConfig {
@@ -67,7 +67,7 @@ export class AgentInitializationService {
 
     logger.info('Agent Initialization Service initialized', {
       service: this.serviceName,
-      securityLevel: this.securityLevel
+      securityLevel: this.securityLevel,
     });
   }
 
@@ -75,10 +75,22 @@ export class AgentInitializationService {
    * Set up event bus subscriptions for initialization operations
    */
   private async setupEventSubscriptions(): Promise<void> {
-    await this.eventBusService.subscribe('agent.initialization.initialize', this.handleInitializeAgent.bind(this));
-    await this.eventBusService.subscribe('agent.initialization.setup', this.handleSetupAgentState.bind(this));
-    await this.eventBusService.subscribe('agent.initialization.configure', this.handleConfigureCapabilities.bind(this));
-    await this.eventBusService.subscribe('agent.initialization.environment', this.handleAnalyzeEnvironment.bind(this));
+    await this.eventBusService.subscribe(
+      'agent.initialization.initialize',
+      this.handleInitializeAgent.bind(this)
+    );
+    await this.eventBusService.subscribe(
+      'agent.initialization.setup',
+      this.handleSetupAgentState.bind(this)
+    );
+    await this.eventBusService.subscribe(
+      'agent.initialization.configure',
+      this.handleConfigureCapabilities.bind(this)
+    );
+    await this.eventBusService.subscribe(
+      'agent.initialization.environment',
+      this.handleAnalyzeEnvironment.bind(this)
+    );
 
     logger.info('Agent Initialization Service event subscriptions configured');
   }
@@ -106,7 +118,10 @@ export class AgentInitializationService {
         try {
           persona = await this.personaService.getPersona(personaId);
         } catch (error) {
-          logger.warn('Failed to get persona, continuing with basic initialization', { error, personaId });
+          logger.warn('Failed to get persona, continuing with basic initialization', {
+            error,
+            personaId,
+          });
         }
       }
 
@@ -116,7 +131,7 @@ export class AgentInitializationService {
           await this.knowledgeGraphService.initializeAgentContext(agentId, {
             expertise: persona.expertise || [],
             interests: persona.interests || [],
-            background: persona.background || ''
+            background: persona.background || '',
           });
           logger.info('Knowledge context initialized', { agentId });
         } catch (error) {
@@ -128,17 +143,17 @@ export class AgentInitializationService {
       const agentState: AgentState = {
         agentId,
         status: 'active',
-        capabilities: persona?.expertise?.map(e => e.name) || [],
+        capabilities: persona?.expertise?.map((e) => e.name) || [],
         performance: {
           responseTime: 0,
           successRate: 1.0,
-          lastActivity: new Date()
+          lastActivity: new Date(),
         },
         context: {
           currentDiscussions: [],
           activeOperations: [],
-          recentInteractions: []
-        }
+          recentInteractions: [],
+        },
       };
 
       // Store initial state
@@ -150,13 +165,13 @@ export class AgentInitializationService {
         personaId,
         capabilities: agentState.capabilities,
         memoryEnabled: !!this.agentMemoryService,
-        knowledgeEnabled: !!this.knowledgeGraphService
+        knowledgeEnabled: !!this.knowledgeGraphService,
       });
 
       this.auditLog('AGENT_INITIALIZED', {
         agentId,
         personaId,
-        capabilitiesCount: agentState.capabilities.length
+        capabilitiesCount: agentState.capabilities.length,
       });
 
       return agentState;
@@ -199,13 +214,13 @@ export class AgentInitializationService {
         performance: {
           responseTime: 0,
           successRate: 1.0,
-          lastActivity: new Date()
+          lastActivity: new Date(),
         },
         context: {
           currentDiscussions: [],
           activeOperations: [],
           recentInteractions: [],
-        }
+        },
       };
 
       // Initialize memory context if available
@@ -215,8 +230,8 @@ export class AgentInitializationService {
             agentState: {
               status: agentState.status,
               capabilities: agentState.capabilities,
-              lastSetup: new Date()
-            }
+              lastSetup: new Date(),
+            },
           });
         } catch (error) {
           logger.warn('Failed to update working memory during setup', { error, agentId });
@@ -231,13 +246,13 @@ export class AgentInitializationService {
         agentId,
         status: agentState.status,
         capabilitiesCount: agentState.capabilities.length,
-        environment: environment.systemLoad
+        environment: environment.systemLoad,
       });
 
       this.auditLog('AGENT_STATE_SETUP', {
         agentId,
         status: agentState.status,
-        capabilitiesCount: agentState.capabilities.length
+        capabilitiesCount: agentState.capabilities.length,
       });
 
       return agentState;
@@ -260,7 +275,7 @@ export class AgentInitializationService {
         specializations: agent.persona?.capabilities || [],
         limitations: agent.securityContext?.restrictedDomains || [],
         knowledgeAccess: !!this.knowledgeGraphService,
-        memoryEnabled: !!this.agentMemoryService
+        memoryEnabled: !!this.agentMemoryService,
       };
 
       // Apply requirements-based modifications
@@ -275,14 +290,17 @@ export class AgentInitializationService {
         if (requirements.specializations) {
           capabilities.specializations = [
             ...capabilities.specializations,
-            ...requirements.specializations
+            ...requirements.specializations,
           ];
         }
       }
 
       // Validate capabilities against security constraints
       if (agent.securityContext?.maxCapabilities) {
-        capabilities.specializations = capabilities.specializations.slice(0, agent.securityContext.maxCapabilities);
+        capabilities.specializations = capabilities.specializations.slice(
+          0,
+          agent.securityContext.maxCapabilities
+        );
       }
 
       // Store capabilities configuration
@@ -293,13 +311,13 @@ export class AgentInitializationService {
         agentId: agent.id,
         capabilities,
         knowledgeAccess: capabilities.knowledgeAccess,
-        memoryEnabled: capabilities.memoryEnabled
+        memoryEnabled: capabilities.memoryEnabled,
       });
 
       this.auditLog('AGENT_CAPABILITIES_CONFIGURED', {
         agentId: agent.id,
         specializationsCount: capabilities.specializations.length,
-        limitationsCount: capabilities.limitations.length
+        limitationsCount: capabilities.limitations.length,
       });
 
       return capabilities;
@@ -319,7 +337,7 @@ export class AgentInitializationService {
       systemLoad: this.assessSystemLoad(),
       availableResources: this.assessAvailableResources(),
       knowledgeGraphStatus: this.knowledgeGraphService ? 'active' : 'inactive',
-      memorySystemStatus: this.agentMemoryService ? 'active' : 'inactive'
+      memorySystemStatus: this.agentMemoryService ? 'active' : 'inactive',
     };
   }
 
@@ -376,7 +394,7 @@ export class AgentInitializationService {
       specializations: agent.persona?.capabilities || [],
       limitations: agent.securityContext?.restrictedDomains || [],
       knowledgeAccess: !!this.knowledgeGraphService,
-      memoryEnabled: !!this.agentMemoryService
+      memoryEnabled: !!this.agentMemoryService,
     };
   }
 
@@ -413,18 +431,21 @@ export class AgentInitializationService {
         capabilities: agentState.capabilities,
         performance: agentState.performance,
         context: agentState.context,
-        timestamp: new Date()
+        timestamp: new Date(),
       });
     } catch (error) {
       logger.warn('Failed to store agent state', { error, agentId });
     }
   }
 
-  private async storeAgentCapabilities(agentId: string, capabilities: AgentCapabilities): Promise<void> {
+  private async storeAgentCapabilities(
+    agentId: string,
+    capabilities: AgentCapabilities
+  ): Promise<void> {
     try {
       await this.databaseService.storeAgentCapabilities(agentId, {
         capabilities,
-        timestamp: new Date()
+        timestamp: new Date(),
       });
     } catch (error) {
       logger.warn('Failed to store agent capabilities', { error, agentId });
@@ -453,7 +474,7 @@ export class AgentInitializationService {
         ...data,
         source: this.serviceName,
         securityLevel: this.securityLevel,
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
       });
     } catch (error) {
       logger.error('Failed to publish initialization event', { channel, error });
@@ -464,7 +485,7 @@ export class AgentInitializationService {
     await this.eventBusService.publish('agent.initialization.response', {
       requestId,
       ...response,
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
     });
   }
 
@@ -473,7 +494,7 @@ export class AgentInitializationService {
       ...data,
       service: this.serviceName,
       timestamp: new Date().toISOString(),
-      compliance: true
+      compliance: true,
     });
   }
 }

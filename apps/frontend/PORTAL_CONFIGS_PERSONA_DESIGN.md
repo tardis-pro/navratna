@@ -9,6 +9,7 @@ This document details a modular, persona-driven approach to portal configuration
 ## 2. User Personas & Market Insights
 
 ### EdTech Users (Educators, Admins, Students)
+
 - **Market:** $340B+ (2024, Statista)
 - **Needs:** Interactive content, analytics, collaboration, assessment
 - **Personas:**
@@ -17,6 +18,7 @@ This document details a modular, persona-driven approach to portal configuration
   - **Student:** Learning modules, progress tracking
 
 ### GIS Users (Analysts, Planners, Field Agents)
+
 - **Market:** $18B+ (2024, MarketsandMarkets)
 - **Needs:** Map tools, spatial analytics, collaboration
 - **Personas:**
@@ -25,6 +27,7 @@ This document details a modular, persona-driven approach to portal configuration
   - **Field Agent:** Mobile access, data collection
 
 ### Finance Users (Traders, Analysts, Compliance)
+
 - **Market:** $340B+ (2024, Statista)
 - **Needs:** Real-time data, analytics, compliance
 - **Personas:**
@@ -33,6 +36,7 @@ This document details a modular, persona-driven approach to portal configuration
   - **Compliance:** Audit logs, access controls
 
 ### Learners (General, Self-paced, Corporate)
+
 - **Market:** 1.2B+ digital learners (UNESCO)
 - **Needs:** Personalized learning, progress tracking
 - **Personas:**
@@ -43,24 +47,25 @@ This document details a modular, persona-driven approach to portal configuration
 
 ## 3. Portal Capabilities Matrix
 
-| Portal Name         | EdTech | GIS | Finance | Learner | Core Capabilities Required                |
-|---------------------|:------:|:---:|:-------:|:-------:|-------------------------------------------|
-| Dashboard           | ✓      | ✓   | ✓       | ✓       | Data visualization, widgets, analytics     |
-| Map/Spatial Tools   | ✓      | ✓   | ✓       |         | GIS, overlays, spatial queries            |
-| Learning Modules    | ✓      |     |         | ✓       | Content delivery, progress tracking        |
-| Analytics/Reports   | ✓      | ✓   | ✓       | ✓       | Data analysis, export, visualization       |
-| Collaboration/Chat  | ✓      | ✓   | ✓       | ✓       | Real-time chat, notifications              |
-| Assessment/Quizzes  | ✓      |     |         | ✓       | Quiz engine, grading, feedback             |
-| Trading Tools       |        |     | ✓       |         | Real-time data, order management           |
-| Compliance/Audit    | ✓      | ✓   | ✓       | ✓       | Audit logs, access control, reporting      |
-| System Settings     | ✓      | ✓   | ✓       | ✓       | User management, preferences, security     |
-| Marketplace         | ✓      | ✓   | ✓       | ✓       | Extensions, integrations, add-ons          |
+| Portal Name        | EdTech | GIS | Finance | Learner | Core Capabilities Required             |
+| ------------------ | :----: | :-: | :-----: | :-----: | -------------------------------------- |
+| Dashboard          |   ✓    |  ✓  |    ✓    |    ✓    | Data visualization, widgets, analytics |
+| Map/Spatial Tools  |   ✓    |  ✓  |    ✓    |         | GIS, overlays, spatial queries         |
+| Learning Modules   |   ✓    |     |         |    ✓    | Content delivery, progress tracking    |
+| Analytics/Reports  |   ✓    |  ✓  |    ✓    |    ✓    | Data analysis, export, visualization   |
+| Collaboration/Chat |   ✓    |  ✓  |    ✓    |    ✓    | Real-time chat, notifications          |
+| Assessment/Quizzes |   ✓    |     |         |    ✓    | Quiz engine, grading, feedback         |
+| Trading Tools      |        |     |    ✓    |         | Real-time data, order management       |
+| Compliance/Audit   |   ✓    |  ✓  |    ✓    |    ✓    | Audit logs, access control, reporting  |
+| System Settings    |   ✓    |  ✓  |    ✓    |    ✓    | User management, preferences, security |
+| Marketplace        |   ✓    |  ✓  |    ✓    |    ✓    | Extensions, integrations, add-ons      |
 
 ---
 
 ## 4. Offloading Capabilities: Tool Registry & Artifact Service
 
 ### Tool Registry
+
 - **Purpose:** Centralized management of tools (widgets, analytics, GIS, trading, etc.)
 - **How to Use:**
   - Register tools with metadata (capabilities, required permissions, persona tags)
@@ -68,12 +73,14 @@ This document details a modular, persona-driven approach to portal configuration
   - Example: Analytics, map overlays, trading widgets are registered as tools and injected into relevant portals
 
 ### Artifact Service
+
 - **Purpose:** Storage and retrieval of user-generated or system-generated artifacts (reports, maps, assessments, logs)
 - **How to Use:**
   - Portals interact with the artifact service to save/load artifacts
   - Example: Assessment results, GIS exports, compliance logs, learning progress are stored/retrieved via the artifact service
 
 ### Benefits
+
 - **Extensibility:** New tools/artifacts can be added without changing portal code
 - **Modularity:** Capabilities are decoupled from UI, enabling reuse and easier updates
 - **Personalization:** Tool registry can filter tools by persona, role, or capability
@@ -83,6 +90,7 @@ This document details a modular, persona-driven approach to portal configuration
 ## 5. Example Portal Configurations (Persona-Based)
 
 ### EdTech: Educator
+
 ```typescript
 export const PORTAL_CONFIGS_EDTECH_EDUCATOR = {
   dashboard: { ... },
@@ -96,6 +104,7 @@ export const PORTAL_CONFIGS_EDTECH_EDUCATOR = {
 ```
 
 ### GIS: Analyst
+
 ```typescript
 export const PORTAL_CONFIGS_GIS_ANALYST = {
   dashboard: { ... },
@@ -109,6 +118,7 @@ export const PORTAL_CONFIGS_GIS_ANALYST = {
 ```
 
 ### Finance: Trader
+
 ```typescript
 export const PORTAL_CONFIGS_FINANCE_TRADER = {
   dashboard: { ... },
@@ -122,6 +132,7 @@ export const PORTAL_CONFIGS_FINANCE_TRADER = {
 ```
 
 ### Learner: Self-paced
+
 ```typescript
 export const PORTAL_CONFIGS_LEARNER_SELF = {
   dashboard: { ... },
@@ -147,6 +158,7 @@ export const PORTAL_CONFIGS_LEARNER_SELF = {
 ---
 
 ## 7. Future Considerations
+
 - **Personalization:** ML-driven tool/artifact recommendations
 - **Accessibility:** Ensure all tools/artifacts meet accessibility standards
 - **Localization:** Support multi-language tool/artifact metadata
@@ -155,6 +167,7 @@ export const PORTAL_CONFIGS_LEARNER_SELF = {
 ---
 
 ## 8. References
+
 - [Statista: EdTech Market Size](https://www.statista.com/topics/8713/edtech-worldwide/)
 - [MarketsandMarkets: GIS Market](https://www.marketsandmarkets.com/Market-Reports/geographic-information-system-market-55818039.html)
 - [Deloitte: Finance Digital Transformation](https://www2.deloitte.com/global/en/pages/financial-services/articles/fintech-by-the-numbers.html)
@@ -170,7 +183,9 @@ export const PORTAL_CONFIGS_LEARNER_SELF = {
 ## 9. Expanded Tools & Artifacts by Persona
 
 ### 9.1 EdTech
+
 **Tools:**
+
 - Lesson Planner: Drag-and-drop curriculum builder, standards alignment
 - Quiz Builder: Question banks, auto-grading, adaptive quizzes
 - Attendance Tracker: Real-time, exportable logs
@@ -183,6 +198,7 @@ export const PORTAL_CONFIGS_LEARNER_SELF = {
 - Resource Marketplace: Share/buy/sell lesson plans, activities
 
 **Artifacts:**
+
 - Lesson Plans: Versioned, shareable, exportable
 - Quiz Results: Per-student, per-class, analytics-ready
 - Attendance Reports: CSV/PDF, per class/period
@@ -194,7 +210,9 @@ export const PORTAL_CONFIGS_LEARNER_SELF = {
 ---
 
 ### 9.2 GIS
+
 **Tools:**
+
 - Map Editor: Layer management, drawing, annotation
 - Spatial Query Tool: Buffer, intersect, proximity analysis
 - Data Importer: Shapefile, GeoJSON, CSV, KML
@@ -207,6 +225,7 @@ export const PORTAL_CONFIGS_LEARNER_SELF = {
 - Collaboration Layer: Shared editing, comments, versioning
 
 **Artifacts:**
+
 - Custom Maps: Saved, versioned, shareable
 - Spatial Analysis Reports: PDF/CSV, with embedded maps
 - Field Survey Data: Geo-tagged, timestamped, media attached
@@ -218,7 +237,9 @@ export const PORTAL_CONFIGS_LEARNER_SELF = {
 ---
 
 ### 9.3 Finance
+
 **Tools:**
+
 - Market Dashboard: Real-time prices, news, sentiment
 - Portfolio Tracker: Holdings, P&L, risk metrics
 - Trade Execution: Order entry, simulation, alerts
@@ -231,6 +252,7 @@ export const PORTAL_CONFIGS_LEARNER_SELF = {
 - Backtesting Tool: Strategy simulation, performance metrics
 
 **Artifacts:**
+
 - Trade Logs: Executed, simulated, with metadata
 - Compliance Reports: Audit-ready, exportable
 - Risk Reports: Scenario, stress, VaR, with charts
@@ -242,7 +264,9 @@ export const PORTAL_CONFIGS_LEARNER_SELF = {
 ---
 
 ### 9.4 Learners
+
 **Tools:**
+
 - Personalized Learning Path: Adaptive recommendations, progress visualization
 - Goal Tracker: Milestones, reminders, streaks
 - Flashcard Generator: AI-assisted, spaced repetition
@@ -255,6 +279,7 @@ export const PORTAL_CONFIGS_LEARNER_SELF = {
 - Accessibility Tools: Text-to-speech, dyslexia font, color contrast
 
 **Artifacts:**
+
 - Progress Reports: Visual, downloadable, shareable
 - Learning Journal: Notes, reflections, auto-summarized
 - Flashcard Decks: Exportable, shareable
@@ -266,7 +291,9 @@ export const PORTAL_CONFIGS_LEARNER_SELF = {
 ---
 
 ### 9.5 Cross-Domain/Universal Tools & Artifacts
+
 **Tools:**
+
 - Notification Center: Unified alerts, reminders, messages
 - Search Engine: Cross-portal, semantic, filterable
 - User Profile Manager: Preferences, privacy, security
@@ -275,6 +302,7 @@ export const PORTAL_CONFIGS_LEARNER_SELF = {
 - Accessibility Suite: Customizable for all users
 
 **Artifacts:**
+
 - User Activity Logs: For analytics, support, compliance
 - Exported Data Bundles: User-selected, for migration or analysis
 - Custom Dashboards: User-created, shareable, versioned
@@ -293,7 +321,7 @@ ToolRegistry.register({
   capabilities: ['assessment', 'auto-grading'],
   component: QuizBuilderComponent,
   requiredPermissions: ['create:quiz'],
-  version: '1.2.0'
+  version: '1.2.0',
 });
 
 // Artifact registration
@@ -303,16 +331,17 @@ ArtifactService.registerType({
   linkedTools: ['quiz-builder'],
   schema: QuizResultSchema,
   retentionPolicy: '2 years',
-  exportFormats: ['pdf', 'csv', 'json']
+  exportFormats: ['pdf', 'csv', 'json'],
 });
 ```
 
 ---
 
 ### 9.7 Future-Proofing
+
 - **Plugin System:** Allow third parties to add tools/artifacts.
 - **AI-Driven Recommendations:** Suggest tools/artifacts based on user behavior.
 - **Compliance & Privacy:** Tag artifacts for GDPR, FERPA, HIPAA, etc.
 - **Interoperability:** Support open standards for tool/artifact data.
 
-**This expanded list ensures your platform can serve a wide range of real-world needs, and that your Tool Registry and Artifact Service are ready for growth, compliance, and innovation.** 
+**This expanded list ensures your platform can serve a wide range of real-world needs, and that your Tool Registry and Artifact Service are ready for growth, compliance, and innovation.**

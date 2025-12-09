@@ -32,11 +32,11 @@ export class WeatherService {
       // Use OpenWeatherMap API (you'll need to get a free API key)
       // For now, I'll use a mock weather service based on location
       const weather = await this.fetchWeatherData(location);
-      
+
       if (weather) {
         this.cacheWeatherData(weather);
       }
-      
+
       return weather;
     } catch (error) {
       console.error('Failed to fetch weather data:', error);
@@ -47,10 +47,11 @@ export class WeatherService {
   private static async fetchWeatherData(location: LocationData): Promise<WeatherData | null> {
     // For demonstration, I'll create realistic weather based on location
     // In production, you'd use a real weather API like OpenWeatherMap
-    
-    const locationName = location.city && location.country 
-      ? `${location.city}, ${location.country}`
-      : `${location.latitude.toFixed(2)}, ${location.longitude.toFixed(2)}`;
+
+    const locationName =
+      location.city && location.country
+        ? `${location.city}, ${location.country}`
+        : `${location.latitude.toFixed(2)}, ${location.longitude.toFixed(2)}`;
 
     // Mock weather based on rough geographic areas
     const isNorthern = location.latitude > 30;
@@ -108,7 +109,7 @@ export class WeatherService {
       icon,
       humidity: Math.round(humidity),
       windSpeed: Math.round(windSpeed),
-      forecast
+      forecast,
     };
   }
 
@@ -116,7 +117,7 @@ export class WeatherService {
     // Very simplified coastal detection - in reality you'd use a proper geographical service
     // This is just a rough approximation
     const { latitude, longitude } = location;
-    
+
     // Major coastal areas (simplified)
     const coastalRegions = [
       { name: 'US East Coast', latMin: 25, latMax: 45, lonMin: -85, lonMax: -65 },
@@ -126,21 +127,24 @@ export class WeatherService {
       { name: 'Australia', latMin: -45, latMax: -10, lonMin: 110, lonMax: 155 },
     ];
 
-    return coastalRegions.some(region => 
-      latitude >= region.latMin && latitude <= region.latMax &&
-      longitude >= region.lonMin && longitude <= region.lonMax
+    return coastalRegions.some(
+      (region) =>
+        latitude >= region.latMin &&
+        latitude <= region.latMax &&
+        longitude >= region.lonMin &&
+        longitude <= region.lonMax
     );
   }
 
   private static generateForecast(baseTemp: number, baseCondition: string) {
     const days = ['Tomorrow', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
     const conditions = ['Sunny', 'Partly Cloudy', 'Cloudy', 'Rainy'];
-    
+
     return days.slice(0, 3).map((day, index) => {
       const tempVariation = (Math.random() - 0.5) * 8; // ±4°C variation
       const high = Math.round(baseTemp + tempVariation + Math.random() * 3);
       const low = Math.round(high - 5 - Math.random() * 8);
-      
+
       // Vary conditions slightly
       let condition = baseCondition;
       if (Math.random() > 0.7) {
@@ -170,9 +174,8 @@ export class WeatherService {
   }
 
   private static getDefaultWeather(location: LocationData): WeatherData {
-    const locationName = location.city && location.country 
-      ? `${location.city}, ${location.country}`
-      : 'Your Location';
+    const locationName =
+      location.city && location.country ? `${location.city}, ${location.country}` : 'Your Location';
 
     return {
       location: locationName,
@@ -184,8 +187,8 @@ export class WeatherService {
       forecast: [
         { day: 'Tomorrow', high: 25, low: 18, condition: 'Sunny', icon: '☀️' },
         { day: 'Tuesday', high: 23, low: 16, condition: 'Cloudy', icon: '☁️' },
-        { day: 'Wednesday', high: 20, low: 14, condition: 'Rainy', icon: '🌧️' }
-      ]
+        { day: 'Wednesday', high: 20, low: 14, condition: 'Rainy', icon: '🌧️' },
+      ],
     };
   }
 
@@ -203,7 +206,7 @@ export class WeatherService {
     try {
       const timestamp = localStorage.getItem(this.WEATHER_TIMESTAMP_KEY);
       if (!timestamp) return false;
-      
+
       const age = Date.now() - parseInt(timestamp);
       return age < this.CACHE_DURATION;
     } catch (error) {

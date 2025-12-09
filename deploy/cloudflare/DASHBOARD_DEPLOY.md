@@ -13,25 +13,26 @@ Deploy directly from Cloudflare Dashboard without GitHub Actions.
 3. Select your repository: `navratna`
 4. Configure build settings:
 
-| Setting | Value |
-|---------|-------|
-| **Project name** | `navratna` |
-| **Production branch** | `main` |
-| **Framework preset** | `Vite` |
-| **Build command** | `pnpm install && pnpm run build:frontend` |
-| **Build output directory** | `apps/frontend/dist` |
-| **Root directory** | `/` |
+| Setting                    | Value                                     |
+| -------------------------- | ----------------------------------------- |
+| **Project name**           | `navratna`                                |
+| **Production branch**      | `main`                                    |
+| **Framework preset**       | `Vite`                                    |
+| **Build command**          | `pnpm install && pnpm run build:frontend` |
+| **Build output directory** | `apps/frontend/dist`                      |
+| **Root directory**         | `/`                                       |
 
 5. Add **Environment variables**:
 
-| Variable | Production | Preview |
-|----------|------------|---------|
-| `NODE_VERSION` | `18` | `18` |
+| Variable       | Production                 | Preview                            |
+| -------------- | -------------------------- | ---------------------------------- |
+| `NODE_VERSION` | `18`                       | `18`                               |
 | `VITE_API_URL` | `https://api.navratna.app` | `https://api-staging.navratna.app` |
 
 6. Click **Save and Deploy**
 
 ### Auto-Deploy Triggers
+
 - Push to `main` → Production deploy
 - Push to other branches → Preview deploy
 - Pull requests → Preview deploy with comment
@@ -46,13 +47,14 @@ Deploy directly from Cloudflare Dashboard without GitHub Actions.
 2. Click **Create bucket**
 3. Create buckets:
 
-| Bucket Name | Purpose |
-|-------------|---------|
-| `navratna-storage-prod` | Production file storage |
-| `navratna-storage-staging` | Staging file storage |
+| Bucket Name                | Purpose                 |
+| -------------------------- | ----------------------- |
+| `navratna-storage-prod`    | Production file storage |
+| `navratna-storage-staging` | Staging file storage    |
 
 4. For each bucket, configure:
    - **CORS Policy** (click bucket → Settings → CORS):
+
    ```json
    [
      {
@@ -105,12 +107,12 @@ wrangler deploy --env production
 
 Go to **Cloudflare Dashboard** → **DNS**:
 
-| Type | Name | Target | Proxy |
-|------|------|--------|-------|
-| `CNAME` | `@` | `navratna.pages.dev` | ✅ Proxied |
-| `CNAME` | `www` | `navratna.pages.dev` | ✅ Proxied |
-| `A` | `backend` | `<your-ec2-ip>` | ✅ Proxied |
-| `A` | `api` | `<your-ec2-ip>` | ✅ Proxied |
+| Type    | Name      | Target               | Proxy      |
+| ------- | --------- | -------------------- | ---------- |
+| `CNAME` | `@`       | `navratna.pages.dev` | ✅ Proxied |
+| `CNAME` | `www`     | `navratna.pages.dev` | ✅ Proxied |
+| `A`     | `backend` | `<your-ec2-ip>`      | ✅ Proxied |
+| `A`     | `api`     | `<your-ec2-ip>`      | ✅ Proxied |
 
 ---
 
@@ -128,14 +130,14 @@ Go to **Cloudflare Dashboard** → **SSL/TLS**:
 
 These need traditional hosting. Quick alternatives:
 
-| Service | Cloud Alternative | Self-Hosted |
-|---------|------------------|-------------|
-| **PostgreSQL** | [Neon](https://neon.tech) (free tier) | EC2/VPS |
-| **Neo4j** | [Neo4j Aura](https://neo4j.com/aura) (free tier) | EC2/VPS |
-| **Redis** | [Upstash](https://upstash.com) (free tier) | EC2/VPS |
-| **Qdrant** | [Qdrant Cloud](https://cloud.qdrant.io) | EC2/VPS |
-| **RabbitMQ** | [CloudAMQP](https://cloudamqp.com) (free tier) | EC2/VPS |
-| **Backend Services** | [Railway](https://railway.app) / [Fly.io](https://fly.io) | EC2/Docker |
+| Service              | Cloud Alternative                                         | Self-Hosted |
+| -------------------- | --------------------------------------------------------- | ----------- |
+| **PostgreSQL**       | [Neon](https://neon.tech) (free tier)                     | EC2/VPS     |
+| **Neo4j**            | [Neo4j Aura](https://neo4j.com/aura) (free tier)          | EC2/VPS     |
+| **Redis**            | [Upstash](https://upstash.com) (free tier)                | EC2/VPS     |
+| **Qdrant**           | [Qdrant Cloud](https://cloud.qdrant.io)                   | EC2/VPS     |
+| **RabbitMQ**         | [CloudAMQP](https://cloudamqp.com) (free tier)            | EC2/VPS     |
+| **Backend Services** | [Railway](https://railway.app) / [Fly.io](https://fly.io) | EC2/Docker  |
 
 ---
 

@@ -28,7 +28,7 @@ export class CachedLLMProviderRepository extends LLMProviderRepository {
    */
   async findActiveProviders(useCache = true): Promise<LLMProvider[]> {
     const cacheKey = this.CACHE_KEYS.ACTIVE_PROVIDERS();
-    
+
     if (useCache) {
       const cached = await redisCacheService.get<LLMProvider[]>(cacheKey);
       if (cached) {
@@ -39,7 +39,7 @@ export class CachedLLMProviderRepository extends LLMProviderRepository {
 
     // Cache miss - get from database
     const providers = await super.findActiveProviders();
-    
+
     // Cache the result
     if (useCache) {
       await redisCacheService.set(cacheKey, providers, this.CACHE_TTL.ACTIVE_PROVIDERS);
@@ -54,7 +54,7 @@ export class CachedLLMProviderRepository extends LLMProviderRepository {
    */
   async findByType(type: LLMProviderType, useCache = true): Promise<LLMProvider[]> {
     const cacheKey = this.CACHE_KEYS.PROVIDERS_BY_TYPE(type);
-    
+
     if (useCache) {
       const cached = await redisCacheService.get<LLMProvider[]>(cacheKey);
       if (cached) {
@@ -65,7 +65,7 @@ export class CachedLLMProviderRepository extends LLMProviderRepository {
 
     // Cache miss - get from database
     const providers = await super.findByType(type);
-    
+
     // Cache the result
     if (useCache) {
       await redisCacheService.set(cacheKey, providers, this.CACHE_TTL.PROVIDERS_BY_TYPE);
@@ -80,7 +80,7 @@ export class CachedLLMProviderRepository extends LLMProviderRepository {
    */
   async findByName(name: string, useCache = true): Promise<LLMProvider | null> {
     const cacheKey = this.CACHE_KEYS.PROVIDER_BY_NAME(name);
-    
+
     if (useCache) {
       const cached = await redisCacheService.get<LLMProvider | null>(cacheKey);
       if (cached) {
@@ -91,7 +91,7 @@ export class CachedLLMProviderRepository extends LLMProviderRepository {
 
     // Cache miss - get from database
     const provider = await super.findByName(name);
-    
+
     // Cache the result
     if (useCache) {
       await redisCacheService.set(cacheKey, provider, this.CACHE_TTL.PROVIDER_BY_NAME);
@@ -106,7 +106,7 @@ export class CachedLLMProviderRepository extends LLMProviderRepository {
    */
   async findBestProvider(type?: LLMProviderType, useCache = true): Promise<LLMProvider | null> {
     const cacheKey = this.CACHE_KEYS.BEST_PROVIDER(type);
-    
+
     if (useCache) {
       const cached = await redisCacheService.get<LLMProvider | null>(cacheKey);
       if (cached) {
@@ -117,7 +117,7 @@ export class CachedLLMProviderRepository extends LLMProviderRepository {
 
     // Cache miss - get from database
     const provider = await super.findBestProvider(type);
-    
+
     // Cache the result
     if (useCache) {
       await redisCacheService.set(cacheKey, provider, this.CACHE_TTL.BEST_PROVIDER);
@@ -132,10 +132,10 @@ export class CachedLLMProviderRepository extends LLMProviderRepository {
    */
   async createProvider(data: any): Promise<LLMProvider> {
     const provider = await super.createProvider(data);
-    
+
     // Invalidate relevant caches
     await this.invalidateGlobalProviderCache();
-    
+
     return provider;
   }
 
@@ -144,10 +144,10 @@ export class CachedLLMProviderRepository extends LLMProviderRepository {
    */
   async updateProvider(id: string, data: any): Promise<LLMProvider> {
     const provider = await super.updateProvider(id, data);
-    
+
     // Invalidate relevant caches
     await this.invalidateGlobalProviderCache();
-    
+
     return provider;
   }
 
@@ -156,7 +156,7 @@ export class CachedLLMProviderRepository extends LLMProviderRepository {
    */
   async updateStatus(id: string, status: any): Promise<void> {
     await super.updateStatus(id, status);
-    
+
     // Invalidate relevant caches
     await this.invalidateGlobalProviderCache();
   }
@@ -166,7 +166,7 @@ export class CachedLLMProviderRepository extends LLMProviderRepository {
    */
   async deleteProvider(id: string): Promise<void> {
     await super.deleteProvider(id);
-    
+
     // Invalidate relevant caches
     await this.invalidateGlobalProviderCache();
   }
@@ -202,11 +202,11 @@ export class CachedLLMProviderRepository extends LLMProviderRepository {
    */
   async warmUpCache(): Promise<void> {
     logger.info('Warming up LLM provider cache...');
-    
+
     try {
       // Pre-load active providers
       await this.findActiveProviders(true);
-      
+
       // Pre-load providers by common types
       const commonTypes = [
         LLMProviderType.OPENAI,
@@ -214,15 +214,15 @@ export class CachedLLMProviderRepository extends LLMProviderRepository {
         LLMProviderType.OLLAMA,
         LLMProviderType.LLMSTUDIO,
       ];
-      
+
       for (const type of commonTypes) {
         await this.findByType(type, true);
         await this.findBestProvider(type, true);
       }
-      
+
       // Pre-load best provider (any type)
       await this.findBestProvider(undefined, true);
-      
+
       logger.info('LLM provider cache warmed up successfully');
     } catch (error) {
       logger.error('Error warming up LLM provider cache', { error: error.message });
@@ -241,10 +241,7 @@ export class CachedLLMProviderRepository extends LLMProviderRepository {
       typeBasedCacheCount: number;
     };
   }> {
-    const keys = [
-      this.CACHE_KEYS.ACTIVE_PROVIDERS(),
-      this.CACHE_KEYS.BEST_PROVIDER(),
-    ];
+    const keys = [this.CACHE_KEYS.ACTIVE_PROVIDERS(), this.CACHE_KEYS.BEST_PROVIDER()];
 
     const stats = {
       activeProviders: await redisCacheService.exists(keys[0]),
@@ -259,7 +256,7 @@ export class CachedLLMProviderRepository extends LLMProviderRepository {
     return {
       cached: stats.activeProviders || stats.bestProvider || stats.typeBasedCacheCount > 0,
       keys: [...keys, ...typeKeys],
-      stats
+      stats,
     };
   }
 }

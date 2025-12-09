@@ -21,13 +21,19 @@ export class MFAService {
 
   public getMFAChallengeRepository(): Repository<MFAChallengeEntity> {
     if (!this.mfaChallengeRepository) {
-      this.mfaChallengeRepository = this.typeormService.getDataSource().getRepository(MFAChallengeEntity);
+      this.mfaChallengeRepository = this.typeormService
+        .getDataSource()
+        .getRepository(MFAChallengeEntity);
     }
     return this.mfaChallengeRepository;
   }
 
   // MFA operations
-  public async createMFAChallenge(userId: string, method: MFAMethod, sessionId: string): Promise<MFAChallengeEntity> {
+  public async createMFAChallenge(
+    userId: string,
+    method: MFAMethod,
+    sessionId: string
+  ): Promise<MFAChallengeEntity> {
     const challenge = Math.floor(100000 + Math.random() * 900000).toString();
     const expiresAt = new Date(Date.now() + 300000); // 5 minutes
 
@@ -37,7 +43,7 @@ export class MFAService {
       sessionId,
       method,
       challenge,
-      expiresAt
+      expiresAt,
     });
 
     return await mfaRepo.save(challengeEntity);
@@ -49,8 +55,8 @@ export class MFAService {
       where: {
         userId,
         challenge: code,
-        isVerified: false
-      }
+        isVerified: false,
+      },
     });
 
     if (!challengeEntity || challengeEntity.expiresAt < new Date()) {
@@ -59,21 +65,21 @@ export class MFAService {
 
     await mfaRepo.update(challengeEntity.id, {
       isVerified: true,
-      verifiedAt: new Date()
+      verifiedAt: new Date(),
     });
     return true;
   }
 
   public async findMFAChallenge(challengeId: string): Promise<MFAChallengeEntity | null> {
     return await this.getMFAChallengeRepository().findOne({
-      where: { id: challengeId }
+      where: { id: challengeId },
     });
   }
 
   public async findUserMFAChallenges(userId: string): Promise<MFAChallengeEntity[]> {
     return await this.getMFAChallengeRepository().find({
       where: { userId },
-      order: { createdAt: 'DESC' }
+      order: { createdAt: 'DESC' },
     });
   }
 
@@ -105,7 +111,7 @@ export class MFAService {
     }
 
     const result = await this.getMFAChallengeRepository().update(challengeId, {
-      attempts: newAttempts
+      attempts: newAttempts,
     });
 
     return result.affected !== 0;
@@ -143,8 +149,8 @@ export class MFAService {
       where: {
         sessionId,
         challenge: code,
-        isVerified: false
-      }
+        isVerified: false,
+      },
     });
 
     if (!challengeEntity || challengeEntity.expiresAt < new Date()) {
@@ -153,7 +159,7 @@ export class MFAService {
 
     await mfaRepo.update(challengeEntity.id, {
       isVerified: true,
-      verifiedAt: new Date()
+      verifiedAt: new Date(),
     });
     return true;
   }

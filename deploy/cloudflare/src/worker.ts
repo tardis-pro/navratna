@@ -61,16 +61,19 @@ const app = new Hono<{ Bindings: Env }>();
 app.use('*', logger());
 
 // Security headers
-app.use('*', secureHeaders({
-  xFrameOptions: 'SAMEORIGIN',
-  xContentTypeOptions: 'nosniff',
-  xXssProtection: '1; mode=block',
-  referrerPolicy: 'strict-origin-when-cross-origin',
-}));
+app.use(
+  '*',
+  secureHeaders({
+    xFrameOptions: 'SAMEORIGIN',
+    xContentTypeOptions: 'nosniff',
+    xXssProtection: '1; mode=block',
+    referrerPolicy: 'strict-origin-when-cross-origin',
+  })
+);
 
 // CORS middleware - configured dynamically based on environment
 app.use('*', async (c, next) => {
-  const origins = c.env.CORS_ORIGINS.split(',').map(o => o.trim());
+  const origins = c.env.CORS_ORIGINS.split(',').map((o) => o.trim());
 
   return cors({
     origin: (origin) => {
@@ -169,17 +172,16 @@ app.all('/api/*', async (c) => {
   // Add edge location info
   const cf = c.req.raw.cf;
   if (cf) {
-    headers.set('X-CF-Colo', cf.colo as string || '');
-    headers.set('X-CF-Country', cf.country as string || '');
+    headers.set('X-CF-Colo', (cf.colo as string) || '');
+    headers.set('X-CF-Country', (cf.country as string) || '');
   }
 
   try {
     const response = await fetch(backendUrl.toString(), {
       method: c.req.method,
       headers,
-      body: c.req.method !== 'GET' && c.req.method !== 'HEAD'
-        ? await c.req.arrayBuffer()
-        : undefined,
+      body:
+        c.req.method !== 'GET' && c.req.method !== 'HEAD' ? await c.req.arrayBuffer() : undefined,
     });
 
     // Clone response and add edge headers
@@ -194,10 +196,13 @@ app.all('/api/*', async (c) => {
     });
   } catch (error) {
     console.error('Backend request failed:', error);
-    return c.json({
-      error: 'Backend service unavailable',
-      message: error instanceof Error ? error.message : 'Unknown error',
-    }, 503);
+    return c.json(
+      {
+        error: 'Backend service unavailable',
+        message: error instanceof Error ? error.message : 'Unknown error',
+      },
+      503
+    );
   }
 });
 
@@ -227,33 +232,45 @@ app.get('/socket.io/*', async (c) => {
   }
 
   // WebSocket upgrade - return 426 (or proxy in production)
-  return c.json({
-    error: 'WebSocket connections should be made directly to the backend',
-    backendUrl: `${c.env.BACKEND_URL}/socket.io/`,
-  }, 426);
+  return c.json(
+    {
+      error: 'WebSocket connections should be made directly to the backend',
+      backendUrl: `${c.env.BACKEND_URL}/socket.io/`,
+    },
+    426
+  );
 });
 
 // Cache middleware for static assets
-app.get('/static/*', cache({
-  cacheName: 'navratna-static',
-  cacheControl: 'public, max-age=86400',
-}));
+app.get(
+  '/static/*',
+  cache({
+    cacheName: 'navratna-static',
+    cacheControl: 'public, max-age=86400',
+  })
+);
 
 // 404 handler
 app.notFound((c) => {
-  return c.json({
-    error: 'Not Found',
-    path: c.req.path,
-  }, 404);
+  return c.json(
+    {
+      error: 'Not Found',
+      path: c.req.path,
+    },
+    404
+  );
 });
 
 // Error handler
 app.onError((err, c) => {
   console.error('Worker error:', err);
-  return c.json({
-    error: 'Internal Server Error',
-    message: c.env.ENVIRONMENT === 'development' ? err.message : undefined,
-  }, 500);
+  return c.json(
+    {
+      error: 'Internal Server Error',
+      message: c.env.ENVIRONMENT === 'development' ? err.message : undefined,
+    },
+    500
+  );
 });
 
 export default app;

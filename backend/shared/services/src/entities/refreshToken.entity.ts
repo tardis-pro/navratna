@@ -24,4 +24,4 @@ export class RefreshTokenEntity extends BaseEntity {
   @ManyToOne(() => UserEntity, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'user_id' })
   user!: UserEntity;
-} 
+}

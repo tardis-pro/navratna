@@ -107,19 +107,19 @@ export class AgentService {
     }
 
     const updatedAgent = await this.getAgentRepository().update(id, data);
-    
+
     // Check if model or provider configuration changed
     if (updatedAgent && this.hasModelConfigChanged(originalAgent, updatedAgent)) {
       try {
         await this.publishAgentConfigChangeEvent(updatedAgent);
       } catch (error) {
-        logger.error('Failed to publish agent config change event', { 
-          agentId: id, 
-          error: error.message 
+        logger.error('Failed to publish agent config change event', {
+          agentId: id,
+          error: error.message,
         });
       }
     }
-    
+
     return updatedAgent;
   }
 
@@ -135,12 +135,12 @@ export class AgentService {
 
   private async publishAgentConfigChangeEvent(agent: Agent): Promise<void> {
     const eventBus = this.getEventBusService();
-    
+
     logger.info('Publishing agent configuration change event', {
       agentId: agent.id,
       modelId: agent.modelId,
       apiType: agent.apiType,
-      userLLMProviderId: agent.userLLMProviderId
+      userLLMProviderId: agent.userLLMProviderId,
     });
 
     await eventBus.publish('agent.config.changed', {
@@ -150,7 +150,7 @@ export class AgentService {
       userLLMProviderId: agent.userLLMProviderId,
       temperature: agent.temperature,
       maxTokens: agent.maxTokens,
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
     });
 
     // Also publish general provider change event for LLM service cache invalidation
@@ -160,7 +160,7 @@ export class AgentService {
       modelId: agent.modelId,
       apiType: agent.apiType,
       userLLMProviderId: agent.userLLMProviderId,
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
     });
   }
 
@@ -183,7 +183,7 @@ export class AgentService {
     const capabilityRepo = this.getCapabilityRepository();
     return await capabilityRepo.create({
       ...data,
-      isActive: data.isActive ?? true
+      isActive: data.isActive ?? true,
     });
   }
 
@@ -215,7 +215,7 @@ export class AgentService {
     if (!agent) throw new Error('Agent not found');
 
     if (agent.capabilities) {
-      agent.capabilities = agent.capabilities.filter(cap => cap !== capabilityId);
+      agent.capabilities = agent.capabilities.filter((cap) => cap !== capabilityId);
       await this.getAgentRepository().update(agent.id, { capabilities: agent.capabilities });
     }
   }

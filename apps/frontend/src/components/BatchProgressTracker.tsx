@@ -1,8 +1,20 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { 
-  Clock, CheckCircle, AlertCircle, XCircle, FileText, 
-  Loader2, Play, Pause, X, BarChart3, TrendingUp,
-  Calendar, Users, Brain, Workflow
+import {
+  Clock,
+  CheckCircle,
+  AlertCircle,
+  XCircle,
+  FileText,
+  Loader2,
+  Play,
+  Pause,
+  X,
+  BarChart3,
+  TrendingUp,
+  Calendar,
+  Users,
+  Brain,
+  Workflow,
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -40,11 +52,11 @@ interface BatchJob {
   platform?: string;
 }
 
-export const BatchProgressTracker: React.FC<BatchProgressTrackerProps> = ({ 
-  className, 
+export const BatchProgressTracker: React.FC<BatchProgressTrackerProps> = ({
+  className,
   jobIds = [],
   onJobComplete,
-  onJobFailed 
+  onJobFailed,
 }) => {
   const [jobs, setJobs] = useState<Map<string, BatchJob>>(new Map());
   const [polling, setPolling] = useState<Map<string, NodeJS.Timeout>>(new Map());
@@ -53,7 +65,7 @@ export const BatchProgressTracker: React.FC<BatchProgressTrackerProps> = ({
 
   // Add a new job to track
   const addJob = useCallback((jobId: string, fileName?: string, platform?: string) => {
-    setJobs(prev => {
+    setJobs((prev) => {
       const newJobs = new Map(prev);
       newJobs.set(jobId, {
         id: jobId,
@@ -64,108 +76,117 @@ export const BatchProgressTracker: React.FC<BatchProgressTrackerProps> = ({
         extractedItems: 0,
         startTime: new Date(),
         fileName,
-        platform
+        platform,
       });
       return newJobs;
     });
   }, []);
 
   // Poll job status
-  const pollJobStatus = useCallback(async (jobId: string) => {
-    try {
-      const status = await knowledgeAPI.getChatJobStatus(jobId);
-      
-      setJobs(prev => {
-        const newJobs = new Map(prev);
-        const existingJob = newJobs.get(jobId);
-        if (existingJob) {
-          const updatedJob: BatchJob = {
-            ...existingJob,
-            status: status.status,
-            progress: status.progress,
-            filesProcessed: status.filesProcessed,
-            totalFiles: status.totalFiles,
-            extractedItems: status.extractedItems,
-            results: status.results,
-            error: status.error,
-            endTime: (status.status === 'completed' || status.status === 'failed') ? new Date() : existingJob.endTime
-          };
-          newJobs.set(jobId, updatedJob);
+  const pollJobStatus = useCallback(
+    async (jobId: string) => {
+      try {
+        const status = await knowledgeAPI.getChatJobStatus(jobId);
 
-          // Trigger callbacks
-          if (status.status === 'completed' && onJobComplete) {
-            onJobComplete(jobId, status.results);
-          } else if (status.status === 'failed' && onJobFailed) {
-            onJobFailed(jobId, status.error || 'Job failed');
+        setJobs((prev) => {
+          const newJobs = new Map(prev);
+          const existingJob = newJobs.get(jobId);
+          if (existingJob) {
+            const updatedJob: BatchJob = {
+              ...existingJob,
+              status: status.status,
+              progress: status.progress,
+              filesProcessed: status.filesProcessed,
+              totalFiles: status.totalFiles,
+              extractedItems: status.extractedItems,
+              results: status.results,
+              error: status.error,
+              endTime:
+                status.status === 'completed' || status.status === 'failed'
+                  ? new Date()
+                  : existingJob.endTime,
+            };
+            newJobs.set(jobId, updatedJob);
+
+            // Trigger callbacks
+            if (status.status === 'completed' && onJobComplete) {
+              onJobComplete(jobId, status.results);
+            } else if (status.status === 'failed' && onJobFailed) {
+              onJobFailed(jobId, status.error || 'Job failed');
+            }
           }
+          return newJobs;
+        });
+
+        // Stop polling if job is complete
+        if (status.status === 'completed' || status.status === 'failed') {
+          setPolling((prev) => {
+            const newPolling = new Map(prev);
+            const interval = newPolling.get(jobId);
+            if (interval) {
+              clearInterval(interval);
+              newPolling.delete(jobId);
+            }
+            return newPolling;
+          });
+          return false;
         }
-        return newJobs;
-      });
 
-      // Stop polling if job is complete
-      if (status.status === 'completed' || status.status === 'failed') {
-        setPolling(prev => {
-          const newPolling = new Map(prev);
-          const interval = newPolling.get(jobId);
-          if (interval) {
-            clearInterval(interval);
-            newPolling.delete(jobId);
+        return true;
+      } catch (error) {
+        console.error(`Error polling job ${jobId}:`, error);
+        setJobs((prev) => {
+          const newJobs = new Map(prev);
+          const existingJob = newJobs.get(jobId);
+          if (existingJob) {
+            newJobs.set(jobId, {
+              ...existingJob,
+              status: 'failed',
+              error: error instanceof Error ? error.message : 'Status check failed',
+              endTime: new Date(),
+            });
           }
-          return newPolling;
+          return newJobs;
         });
         return false;
       }
-      
-      return true;
-    } catch (error) {
-      console.error(`Error polling job ${jobId}:`, error);
-      setJobs(prev => {
-        const newJobs = new Map(prev);
-        const existingJob = newJobs.get(jobId);
-        if (existingJob) {
-          newJobs.set(jobId, {
-            ...existingJob,
-            status: 'failed',
-            error: error instanceof Error ? error.message : 'Status check failed',
-            endTime: new Date()
-          });
-        }
-        return newJobs;
-      });
-      return false;
-    }
-  }, [onJobComplete, onJobFailed]);
+    },
+    [onJobComplete, onJobFailed]
+  );
 
   // Start polling for a job
-  const startPolling = useCallback((jobId: string) => {
-    const poll = async () => {
-      const shouldContinue = await pollJobStatus(jobId);
-      if (!shouldContinue) {
-        setPolling(prev => {
-          const newPolling = new Map(prev);
-          const interval = newPolling.get(jobId);
-          if (interval) {
-            clearInterval(interval);
-            newPolling.delete(jobId);
-          }
-          return newPolling;
-        });
-      }
-    };
-    
-    const interval = setInterval(poll, 2000); // Poll every 2 seconds
-    setPolling(prev => {
-      const newPolling = new Map(prev);
-      newPolling.set(jobId, interval);
-      return newPolling;
-    });
-    poll(); // Initial poll
-  }, [pollJobStatus]);
+  const startPolling = useCallback(
+    (jobId: string) => {
+      const poll = async () => {
+        const shouldContinue = await pollJobStatus(jobId);
+        if (!shouldContinue) {
+          setPolling((prev) => {
+            const newPolling = new Map(prev);
+            const interval = newPolling.get(jobId);
+            if (interval) {
+              clearInterval(interval);
+              newPolling.delete(jobId);
+            }
+            return newPolling;
+          });
+        }
+      };
+
+      const interval = setInterval(poll, 2000); // Poll every 2 seconds
+      setPolling((prev) => {
+        const newPolling = new Map(prev);
+        newPolling.set(jobId, interval);
+        return newPolling;
+      });
+      poll(); // Initial poll
+    },
+    [pollJobStatus]
+  );
 
   // Remove a job
   const removeJob = useCallback((jobId: string) => {
     // Stop polling
-    setPolling(prev => {
+    setPolling((prev) => {
       const newPolling = new Map(prev);
       const interval = newPolling.get(jobId);
       if (interval) {
@@ -176,7 +197,7 @@ export const BatchProgressTracker: React.FC<BatchProgressTrackerProps> = ({
     });
 
     // Remove from jobs
-    setJobs(prev => {
+    setJobs((prev) => {
       const newJobs = new Map(prev);
       newJobs.delete(jobId);
       return newJobs;
@@ -185,7 +206,7 @@ export const BatchProgressTracker: React.FC<BatchProgressTrackerProps> = ({
 
   // Initialize jobs from props
   useEffect(() => {
-    jobIds.forEach(jobId => {
+    jobIds.forEach((jobId) => {
       if (!jobs.has(jobId)) {
         addJob(jobId);
         startPolling(jobId);
@@ -196,20 +217,16 @@ export const BatchProgressTracker: React.FC<BatchProgressTrackerProps> = ({
   // Cleanup on unmount
   useEffect(() => {
     return () => {
-      polling.forEach(interval => clearInterval(interval));
+      polling.forEach((interval) => clearInterval(interval));
     };
   }, [polling]);
 
   // Get jobs by status
-  const activeJobs = Array.from(jobs.values()).filter(job => 
-    job.status === 'pending' || job.status === 'processing'
+  const activeJobs = Array.from(jobs.values()).filter(
+    (job) => job.status === 'pending' || job.status === 'processing'
   );
-  const completedJobs = Array.from(jobs.values()).filter(job => 
-    job.status === 'completed'
-  );
-  const failedJobs = Array.from(jobs.values()).filter(job => 
-    job.status === 'failed'
-  );
+  const completedJobs = Array.from(jobs.values()).filter((job) => job.status === 'completed');
+  const failedJobs = Array.from(jobs.values()).filter((job) => job.status === 'failed');
 
   // Calculate overall stats
   const totalJobs = jobs.size;
@@ -219,12 +236,16 @@ export const BatchProgressTracker: React.FC<BatchProgressTrackerProps> = ({
   const overallProgress = totalJobs > 0 ? (completedCount / totalJobs) * 100 : 0;
 
   // Get status icon
-  const getStatusIcon = (status: string, size = "w-4 h-4") => {
+  const getStatusIcon = (status: string, size = 'w-4 h-4') => {
     switch (status) {
-      case 'completed': return <CheckCircle className={`${size} text-green-500`} />;
-      case 'failed': return <XCircle className={`${size} text-red-500`} />;
-      case 'processing': return <Loader2 className={`${size} animate-spin text-blue-500`} />;
-      default: return <Clock className={`${size} text-gray-500`} />;
+      case 'completed':
+        return <CheckCircle className={`${size} text-green-500`} />;
+      case 'failed':
+        return <XCircle className={`${size} text-red-500`} />;
+      case 'processing':
+        return <Loader2 className={`${size} animate-spin text-blue-500`} />;
+      default:
+        return <Clock className={`${size} text-gray-500`} />;
     }
   };
 
@@ -233,7 +254,7 @@ export const BatchProgressTracker: React.FC<BatchProgressTrackerProps> = ({
     if (!start) return '--';
     const endTime = end || new Date();
     const duration = Math.floor((endTime.getTime() - start.getTime()) / 1000);
-    
+
     if (duration < 60) return `${duration}s`;
     if (duration < 3600) return `${Math.floor(duration / 60)}m ${duration % 60}s`;
     return `${Math.floor(duration / 3600)}h ${Math.floor((duration % 3600) / 60)}m`;
@@ -243,7 +264,7 @@ export const BatchProgressTracker: React.FC<BatchProgressTrackerProps> = ({
   React.useImperativeHandle(React.useRef(), () => ({
     addJob,
     removeJob,
-    startPolling
+    startPolling,
   }));
 
   if (totalJobs === 0) {
@@ -287,7 +308,7 @@ export const BatchProgressTracker: React.FC<BatchProgressTrackerProps> = ({
               <p className="text-sm text-gray-300">Failed</p>
             </div>
           </div>
-          
+
           <div className="space-y-2">
             <div className="flex justify-between text-sm">
               <span className="text-gray-300">Overall Progress</span>
@@ -303,7 +324,12 @@ export const BatchProgressTracker: React.FC<BatchProgressTrackerProps> = ({
         <Alert className="border-red-500/50 bg-red-500/10">
           <AlertDescription className="text-red-300">
             {error}
-            <Button variant="ghost" size="sm" onClick={() => setError(null)} className="ml-2 h-auto p-1">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setError(null)}
+              className="ml-2 h-auto p-1"
+            >
               ✕
             </Button>
           </AlertDescription>
@@ -313,15 +339,9 @@ export const BatchProgressTracker: React.FC<BatchProgressTrackerProps> = ({
       {/* Job Details */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
         <TabsList className="grid w-full grid-cols-3">
-          <TabsTrigger value="active">
-            Active ({activeCount})
-          </TabsTrigger>
-          <TabsTrigger value="completed">
-            Completed ({completedCount})
-          </TabsTrigger>
-          <TabsTrigger value="failed">
-            Failed ({failedCount})
-          </TabsTrigger>
+          <TabsTrigger value="active">Active ({activeCount})</TabsTrigger>
+          <TabsTrigger value="completed">Completed ({completedCount})</TabsTrigger>
+          <TabsTrigger value="failed">Failed ({failedCount})</TabsTrigger>
         </TabsList>
 
         {/* Active Jobs */}
@@ -334,7 +354,7 @@ export const BatchProgressTracker: React.FC<BatchProgressTrackerProps> = ({
               </CardContent>
             </Card>
           ) : (
-            activeJobs.map(job => (
+            activeJobs.map((job) => (
               <Card key={job.id} className="bg-black/20 border-blue-500/20">
                 <CardContent className="p-4">
                   <div className="flex items-center justify-between mb-3">
@@ -370,11 +390,13 @@ export const BatchProgressTracker: React.FC<BatchProgressTrackerProps> = ({
                       <span className="text-white">{job.progress}%</span>
                     </div>
                     <Progress value={job.progress} className="h-2" />
-                    
+
                     <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm">
                       <div>
                         <p className="text-gray-400">Files</p>
-                        <p className="text-white">{job.filesProcessed} / {job.totalFiles}</p>
+                        <p className="text-white">
+                          {job.filesProcessed} / {job.totalFiles}
+                        </p>
                       </div>
                       <div>
                         <p className="text-gray-400">Extracted</p>
@@ -394,7 +416,7 @@ export const BatchProgressTracker: React.FC<BatchProgressTrackerProps> = ({
 
         {/* Completed Jobs */}
         <TabsContent value="completed" className="space-y-4">
-          {completedJobs.map(job => (
+          {completedJobs.map((job) => (
             <Card key={job.id} className="bg-black/20 border-green-500/20">
               <CardContent className="p-4">
                 <div className="flex items-center justify-between mb-3">
@@ -470,7 +492,7 @@ export const BatchProgressTracker: React.FC<BatchProgressTrackerProps> = ({
 
         {/* Failed Jobs */}
         <TabsContent value="failed" className="space-y-4">
-          {failedJobs.map(job => (
+          {failedJobs.map((job) => (
             <Card key={job.id} className="bg-black/20 border-red-500/20">
               <CardContent className="p-4">
                 <div className="flex items-center justify-between mb-3">
@@ -518,7 +540,9 @@ export const BatchProgressTracker: React.FC<BatchProgressTrackerProps> = ({
                   </div>
                   <div>
                     <p className="text-gray-400">Files Processed</p>
-                    <p className="text-white">{job.filesProcessed} / {job.totalFiles}</p>
+                    <p className="text-white">
+                      {job.filesProcessed} / {job.totalFiles}
+                    </p>
                   </div>
                 </div>
               </CardContent>

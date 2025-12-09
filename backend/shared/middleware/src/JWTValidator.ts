@@ -19,20 +19,20 @@ export class JWTValidator {
 
   private static validateJWTSecret(): string {
     const jwtSecret = config.jwt.secret;
-    
+
     if (!jwtSecret) {
       logger.error('JWT secret is not configured in shared config');
       throw new Error('JWT secret is required in configuration');
     }
-    
+
     if (jwtSecret === 'uaip_dev_jwt_secret_key_change_in_production') {
       logger.warn('Using default JWT secret - this should be changed in production');
     }
-    
+
     if (jwtSecret.length < 32) {
       logger.warn('JWT secret is shorter than recommended 32 characters');
     }
-    
+
     return jwtSecret;
   }
 

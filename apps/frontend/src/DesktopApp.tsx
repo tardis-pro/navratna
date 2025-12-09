@@ -37,22 +37,22 @@ function DesktopApp() {
           <QueryClientProvider client={queryClient}>
             <SecurityProvider>
               <ProtectedRoute>
-              <AgentProvider>
-                <UAIPProvider>
-                  <KnowledgeProvider>
-                    <DocumentProvider>
-                      <DiscussionProvider topic="Navratna">
-                        <ErrorBoundary>
-                          <Desktop />
-                        </ErrorBoundary>
-                      </DiscussionProvider>
-                    </DocumentProvider>
-                  </KnowledgeProvider>
-                </UAIPProvider>
-              </AgentProvider>
-            </ProtectedRoute>
-          </SecurityProvider>
-        </QueryClientProvider>
+                <AgentProvider>
+                  <UAIPProvider>
+                    <KnowledgeProvider>
+                      <DocumentProvider>
+                        <DiscussionProvider topic="Navratna">
+                          <ErrorBoundary>
+                            <Desktop />
+                          </ErrorBoundary>
+                        </DiscussionProvider>
+                      </DocumentProvider>
+                    </KnowledgeProvider>
+                  </UAIPProvider>
+                </AgentProvider>
+              </ProtectedRoute>
+            </SecurityProvider>
+          </QueryClientProvider>
         </OnboardingProvider>
       </AuthProvider>
     </UserPreferencesProvider>

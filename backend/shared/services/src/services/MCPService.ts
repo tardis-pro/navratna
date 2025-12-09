@@ -73,7 +73,7 @@ export class MCPService {
   async createToolCall(request: MCPJobRequest): Promise<MCPToolCall> {
     try {
       const repository = this.getToolCallRepository();
-      
+
       const toolCall = repository.create({
         serverId: request.serverId,
         toolName: request.toolName,
@@ -89,17 +89,19 @@ export class MCPService {
         metadata: request.metadata,
         timestamp: new Date(),
         status: 'pending',
-        retryCount: 0
+        retryCount: 0,
       });
 
       const result = await repository.save(toolCall);
-      logger.info(`Created MCP tool call: ${result.id} for ${request.serverId}:${request.toolName}`);
+      logger.info(
+        `Created MCP tool call: ${result.id} for ${request.serverId}:${request.toolName}`
+      );
       return result;
     } catch (error) {
       logger.error('Failed to create MCP tool call:', error);
-      throw new DatabaseError('Failed to create MCP tool call', { 
+      throw new DatabaseError('Failed to create MCP tool call', {
         originalError: error.message,
-        details: request 
+        details: request,
       });
     }
   }
@@ -108,18 +110,18 @@ export class MCPService {
     try {
       const repository = this.getToolCallRepository();
       await repository.update(id, updates);
-      
+
       const result = await repository.findOne({ where: { id } });
       if (!result) {
         throw new DatabaseError(`Tool call not found: ${id}`);
       }
-      
+
       return result;
     } catch (error) {
       logger.error('Failed to update MCP tool call:', error);
-      throw new DatabaseError('Failed to update MCP tool call', { 
+      throw new DatabaseError('Failed to update MCP tool call', {
         originalError: error.message,
-        details: { id, updates }
+        details: { id, updates },
       });
     }
   }
@@ -130,9 +132,9 @@ export class MCPService {
       return await repository.findOne({ where: { id } });
     } catch (error) {
       logger.error('Failed to get MCP tool call:', error);
-      throw new DatabaseError('Failed to get MCP tool call', { 
+      throw new DatabaseError('Failed to get MCP tool call', {
         originalError: error.message,
-        details: { id }
+        details: { id },
       });
     }
   }
@@ -141,15 +143,15 @@ export class MCPService {
     try {
       const updates = {
         status: 'running' as const,
-        startTime: new Date()
+        startTime: new Date(),
       };
-      
+
       return await this.updateToolCall(id, updates);
     } catch (error) {
       logger.error('Failed to start MCP tool call:', error);
-      throw new DatabaseError('Failed to start MCP tool call', { 
+      throw new DatabaseError('Failed to start MCP tool call', {
         originalError: error.message,
-        details: { id }
+        details: { id },
       });
     }
   }
@@ -160,35 +162,40 @@ export class MCPService {
         status: 'completed' as const,
         result,
         endTime: new Date(),
-        executionTimeMs
+        executionTimeMs,
       };
-      
+
       return await this.updateToolCall(id, updates);
     } catch (error) {
       logger.error('Failed to complete MCP tool call:', error);
-      throw new DatabaseError('Failed to complete MCP tool call', { 
+      throw new DatabaseError('Failed to complete MCP tool call', {
         originalError: error.message,
-        details: { id, result }
+        details: { id, result },
       });
     }
   }
 
-  async failToolCall(id: string, error: string, errorCode?: string, errorCategory?: 'network' | 'timeout' | 'validation' | 'execution' | 'permission' | 'resource'): Promise<MCPToolCall> {
+  async failToolCall(
+    id: string,
+    error: string,
+    errorCode?: string,
+    errorCategory?: 'network' | 'timeout' | 'validation' | 'execution' | 'permission' | 'resource'
+  ): Promise<MCPToolCall> {
     try {
       const updates = {
         status: 'failed' as const,
         error,
         errorCode,
         errorCategory,
-        endTime: new Date()
+        endTime: new Date(),
       };
-      
+
       return await this.updateToolCall(id, updates);
     } catch (err: any) {
       logger.error('Failed to fail MCP tool call:', err);
-      throw new DatabaseError('Failed to fail MCP tool call', { 
+      throw new DatabaseError('Failed to fail MCP tool call', {
         originalError: err.message,
-        details: { id, error, errorCode, errorCategory }
+        details: { id, error, errorCode, errorCategory },
       });
     }
   }
@@ -199,13 +206,13 @@ export class MCPService {
       return await repository.find({
         where: { serverId },
         order: { timestamp: 'DESC' },
-        take: limit
+        take: limit,
       });
     } catch (error) {
       logger.error('Failed to get tool calls by server:', error);
-      throw new DatabaseError('Failed to get tool calls by server', { 
+      throw new DatabaseError('Failed to get tool calls by server', {
         originalError: error.message,
-        details: { serverId, limit }
+        details: { serverId, limit },
       });
     }
   }
@@ -216,29 +223,31 @@ export class MCPService {
       return await repository.find({
         where: { agentId },
         order: { timestamp: 'DESC' },
-        take: limit
+        take: limit,
       });
     } catch (error) {
       logger.error('Failed to get tool calls by agent:', error);
-      throw new DatabaseError('Failed to get tool calls by agent', { 
+      throw new DatabaseError('Failed to get tool calls by agent', {
         originalError: error.message,
-        details: { agentId, limit }
+        details: { agentId, limit },
       });
     }
   }
 
-  async getToolCallsByStatus(status: 'pending' | 'running' | 'completed' | 'failed'): Promise<MCPToolCall[]> {
+  async getToolCallsByStatus(
+    status: 'pending' | 'running' | 'completed' | 'failed'
+  ): Promise<MCPToolCall[]> {
     try {
       const repository = this.getToolCallRepository();
       return await repository.find({
         where: { status },
-        order: { timestamp: 'DESC' }
+        order: { timestamp: 'DESC' },
       });
     } catch (error) {
       logger.error('Failed to get tool calls by status:', error);
-      throw new DatabaseError('Failed to get tool calls by status', { 
+      throw new DatabaseError('Failed to get tool calls by status', {
         originalError: error.message,
-        details: { status }
+        details: { status },
       });
     }
   }
@@ -255,7 +264,7 @@ export class MCPService {
     try {
       const repository = this.getToolCallRepository();
       const query = repository.createQueryBuilder('call');
-      
+
       if (serverId) {
         query.where('call.serverId = :serverId', { serverId });
       }
@@ -264,24 +273,23 @@ export class MCPService {
 
       const stats = {
         total,
-        completed: results.filter(r => r.status === 'completed').length,
-        failed: results.filter(r => r.status === 'failed').length,
-        pending: results.filter(r => r.status === 'pending').length,
-        running: results.filter(r => r.status === 'running').length,
+        completed: results.filter((r) => r.status === 'completed').length,
+        failed: results.filter((r) => r.status === 'failed').length,
+        pending: results.filter((r) => r.status === 'pending').length,
+        running: results.filter((r) => r.status === 'running').length,
         averageExecutionTime: 0,
-        successRate: 0
+        successRate: 0,
       };
 
       // Calculate average execution time
-      const completedWithTimes = results.filter(r => 
-        r.status === 'completed' && r.executionTimeMs
+      const completedWithTimes = results.filter(
+        (r) => r.status === 'completed' && r.executionTimeMs
       );
 
       if (completedWithTimes.length > 0) {
-        stats.averageExecutionTime = completedWithTimes.reduce(
-          (sum, call) => sum + (call.executionTimeMs || 0), 
-          0
-        ) / completedWithTimes.length;
+        stats.averageExecutionTime =
+          completedWithTimes.reduce((sum, call) => sum + (call.executionTimeMs || 0), 0) /
+          completedWithTimes.length;
       }
 
       // Calculate success rate
@@ -292,9 +300,9 @@ export class MCPService {
       return stats;
     } catch (error) {
       logger.error('Failed to get tool call stats:', error);
-      throw new DatabaseError('Failed to get tool call stats', { 
+      throw new DatabaseError('Failed to get tool call stats', {
         originalError: error.message,
-        details: { serverId }
+        details: { serverId },
       });
     }
   }
@@ -305,14 +313,14 @@ export class MCPService {
       const repository = this.getServerRepository();
       const server = repository.create(serverData);
       const result = await repository.save(server);
-      
+
       logger.info(`Created MCP server: ${result.id} (${result.name})`);
       return result;
     } catch (error) {
       logger.error('Failed to create MCP server:', error);
-      throw new DatabaseError('Failed to create MCP server', { 
+      throw new DatabaseError('Failed to create MCP server', {
         originalError: error.message,
-        details: serverData
+        details: serverData,
       });
     }
   }
@@ -321,18 +329,18 @@ export class MCPService {
     try {
       const repository = this.getServerRepository();
       await repository.update(id, updates);
-      
+
       const result = await repository.findOne({ where: { id } });
       if (!result) {
         throw new DatabaseError(`Server not found: ${id}`);
       }
-      
+
       return result;
     } catch (error) {
       logger.error('Failed to update MCP server:', error);
-      throw new DatabaseError('Failed to update MCP server', { 
+      throw new DatabaseError('Failed to update MCP server', {
         originalError: error.message,
-        details: { id, updates }
+        details: { id, updates },
       });
     }
   }
@@ -343,9 +351,9 @@ export class MCPService {
       return await repository.findOne({ where: { id } });
     } catch (error) {
       logger.error('Failed to get MCP server:', error);
-      throw new DatabaseError('Failed to get MCP server', { 
+      throw new DatabaseError('Failed to get MCP server', {
         originalError: error.message,
-        details: { id }
+        details: { id },
       });
     }
   }
@@ -356,9 +364,9 @@ export class MCPService {
       return await repository.findOne({ where: { name } });
     } catch (error) {
       logger.error('Failed to get MCP server by name:', error);
-      throw new DatabaseError('Failed to get MCP server by name', { 
+      throw new DatabaseError('Failed to get MCP server by name', {
         originalError: error.message,
-        details: { name }
+        details: { name },
       });
     }
   }
@@ -369,8 +377,8 @@ export class MCPService {
       return await repository.find({ order: { name: 'ASC' } });
     } catch (error) {
       logger.error('Failed to get all MCP servers:', error);
-      throw new DatabaseError('Failed to get all MCP servers', { 
-        originalError: error.message
+      throw new DatabaseError('Failed to get all MCP servers', {
+        originalError: error.message,
       });
     }
   }
@@ -382,9 +390,9 @@ export class MCPService {
       logger.info(`Deleted MCP server: ${id}`);
     } catch (error) {
       logger.error('Failed to delete MCP server:', error);
-      throw new DatabaseError('Failed to delete MCP server', { 
+      throw new DatabaseError('Failed to delete MCP server', {
         originalError: error.message,
-        details: { id }
+        details: { id },
       });
     }
   }
@@ -402,13 +410,13 @@ export class MCPService {
 
       return await this.updateToolCall(id, {
         retryCount: toolCall.retryCount + 1,
-        status: 'pending'
+        status: 'pending',
       });
     } catch (error) {
       logger.error('Failed to retry MCP tool call:', error);
-      throw new DatabaseError('Failed to retry MCP tool call', { 
+      throw new DatabaseError('Failed to retry MCP tool call', {
         originalError: error.message,
-        details: { id }
+        details: { id },
       });
     }
   }
@@ -420,13 +428,13 @@ export class MCPService {
         cancelledAt: new Date(),
         cancelledBy,
         cancellationReason: reason || 'Job cancelled',
-        error: 'Job was cancelled'
+        error: 'Job was cancelled',
       });
     } catch (error) {
       logger.error('Failed to cancel MCP tool call:', error);
-      throw new DatabaseError('Failed to cancel MCP tool call', { 
+      throw new DatabaseError('Failed to cancel MCP tool call', {
         originalError: error.message,
-        details: { id, reason, cancelledBy }
+        details: { id, reason, cancelledBy },
       });
     }
   }
@@ -448,9 +456,9 @@ export class MCPService {
       return deletedCount;
     } catch (error) {
       logger.error('Failed to cleanup old MCP tool calls:', error);
-      throw new DatabaseError('Failed to cleanup old MCP tool calls', { 
+      throw new DatabaseError('Failed to cleanup old MCP tool calls', {
         originalError: error.message,
-        details: { daysToKeep }
+        details: { daysToKeep },
       });
     }
   }
@@ -467,14 +475,14 @@ export class MCPService {
       const pendingJobs = await this.getToolCallsByStatus('pending');
       const runningJobs = await this.getToolCallsByStatus('running');
       const allServers = await this.getAllServers();
-      const runningServers = allServers.filter(s => s.status === 'running');
+      const runningServers = allServers.filter((s) => s.status === 'running');
 
       return {
         healthy: true,
         pendingJobs: pendingJobs.length,
         runningJobs: runningJobs.length,
         totalServers: allServers.length,
-        runningServers: runningServers.length
+        runningServers: runningServers.length,
       };
     } catch (error) {
       logger.error('MCP service health check failed:', error);
@@ -483,7 +491,7 @@ export class MCPService {
         pendingJobs: -1,
         runningJobs: -1,
         totalServers: -1,
-        runningServers: -1
+        runningServers: -1,
       };
     }
   }

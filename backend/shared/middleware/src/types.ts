@@ -30,5 +30,5 @@ export {
   type HandlerResult,
   type GuardHandler,
   type DeriveHandler,
-  type RouteHandler
+  type RouteHandler,
 } from '@uaip/types';

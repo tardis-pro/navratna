@@ -71,7 +71,7 @@ export function useDiscussionManager(config: DiscussionManagerConfig): Discussio
       const discussion = await uaipAPI.discussions.get(discussionId);
 
       // Update state based on backend discussion
-      setState(prev => ({
+      setState((prev) => ({
         ...prev,
         isRunning: discussion.status === 'active',
         currentSpeakerId: discussion.currentTurnAgentId || null,
@@ -80,69 +80,71 @@ export function useDiscussionManager(config: DiscussionManagerConfig): Discussio
 
       // Fetch messages
       const messages = await uaipAPI.discussions.getMessages(discussionId);
-      const frontendMessages: Message[] = messages.map(msg => ({
+      const frontendMessages: Message[] = messages.map((msg) => ({
         id: msg.id,
         content: msg.content,
         sender: msg.participantId,
         timestamp: new Date(msg.createdAt),
-        type: msg.messageType === 'message' ? 'response' : msg.messageType as any,
+        type: msg.messageType === 'message' ? 'response' : (msg.messageType as any),
         replyTo: msg.replyTo,
       }));
 
-      setState(prev => ({
+      setState((prev) => ({
         ...prev,
-        messageHistory: frontendMessages
+        messageHistory: frontendMessages,
       }));
-
     } catch (error) {
       console.error('Failed to refresh discussion:', error);
-      setState(prev => ({
+      setState((prev) => ({
         ...prev,
-        lastError: error instanceof Error ? error.message : 'Unknown error'
+        lastError: error instanceof Error ? error.message : 'Unknown error',
       }));
     }
   }, [discussionId]);
-  const handleDiscussionEvent = useCallback((event: DiscussionEvent) => {
-    switch (event.type) {
-      case 'message_added':
-        // Convert backend message to frontend format
-        const backendMessage = event.data.message || event.data;
-        const frontendMessage: Message = {
-          id: backendMessage.id,
-          content: backendMessage.content,
-          sender: backendMessage.participantId,
-          timestamp: new Date(backendMessage.createdAt || backendMessage.timestamp),
-          type: backendMessage.messageType === 'message' ? 'response' : backendMessage.messageType,
-          replyTo: backendMessage.replyTo,
-        };
+  const handleDiscussionEvent = useCallback(
+    (event: DiscussionEvent) => {
+      switch (event.type) {
+        case 'message_added':
+          // Convert backend message to frontend format
+          const backendMessage = event.data.message || event.data;
+          const frontendMessage: Message = {
+            id: backendMessage.id,
+            content: backendMessage.content,
+            sender: backendMessage.participantId,
+            timestamp: new Date(backendMessage.createdAt || backendMessage.timestamp),
+            type:
+              backendMessage.messageType === 'message' ? 'response' : backendMessage.messageType,
+            replyTo: backendMessage.replyTo,
+          };
 
-        setState(prev => ({
-          ...prev,
-          messageHistory: [...prev.messageHistory, frontendMessage]
-        }));
-        break;
+          setState((prev) => ({
+            ...prev,
+            messageHistory: [...prev.messageHistory, frontendMessage],
+          }));
+          break;
 
-      case 'turn_started':
-      case 'turn_ended':
-        setState(prev => ({
-          ...prev,
-          currentSpeakerId: event.data.currentParticipantId || event.data.participantId,
-          currentRound: event.data.turnNumber || prev.currentRound + 1
-        }));
-        break;
+        case 'turn_started':
+        case 'turn_ended':
+          setState((prev) => ({
+            ...prev,
+            currentSpeakerId: event.data.currentParticipantId || event.data.participantId,
+            currentRound: event.data.turnNumber || prev.currentRound + 1,
+          }));
+          break;
 
-      case 'participant_joined':
-        // Refresh discussion data to get updated participants
-        refreshDiscussion();
-        break;
+        case 'participant_joined':
+          // Refresh discussion data to get updated participants
+          refreshDiscussion();
+          break;
 
-      case 'participant_left':
-        // Refresh discussion data
-        refreshDiscussion();
-        break;
-    }
-  }, [refreshDiscussion]);
-
+        case 'participant_left':
+          // Refresh discussion data
+          refreshDiscussion();
+          break;
+      }
+    },
+    [refreshDiscussion]
+  );
 
   // Initialize WebSocket connection for real-time updates
   useEffect(() => {
@@ -166,7 +168,9 @@ export function useDiscussionManager(config: DiscussionManagerConfig): Discussio
         };
 
         // WebSocket functionality removed - using useWebSocket hook instead
-        console.log('🔌 WebSocket functionality disabled in useDiscussionManager - use useWebSocket hook instead');
+        console.log(
+          '🔌 WebSocket functionality disabled in useDiscussionManager - use useWebSocket hook instead'
+        );
 
         // Cleanup on unmount
         return () => {
@@ -174,9 +178,9 @@ export function useDiscussionManager(config: DiscussionManagerConfig): Discussio
         };
       } catch (error) {
         console.error('🔌 Failed to initialize WebSocket connection:', error);
-        setState(prev => ({
+        setState((prev) => ({
           ...prev,
-          lastError: `WebSocket connection failed: ${error instanceof Error ? error.message : 'Unknown error'}`
+          lastError: `WebSocket connection failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
         }));
 
         // Continue without WebSocket - the hook will still work for basic operations
@@ -196,7 +200,7 @@ export function useDiscussionManager(config: DiscussionManagerConfig): Discussio
         userKeys: user ? Object.keys(user) : 'N/A',
         isLoading,
         isAuthenticated,
-        agentCount: Object.keys(agents).length
+        agentCount: Object.keys(agents).length,
       });
 
       // Check if auth is still loading
@@ -216,7 +220,7 @@ export function useDiscussionManager(config: DiscussionManagerConfig): Discussio
           userType: typeof user,
           userKeys: user ? Object.keys(user) : 'N/A',
           isLoading,
-          isAuthenticated
+          isAuthenticated,
         });
         throw new Error(`User authenticated but missing ID - user: ${JSON.stringify(user)}`);
       }
@@ -233,8 +237,8 @@ export function useDiscussionManager(config: DiscussionManagerConfig): Discussio
               config: {
                 type: 'round_robin' as const,
                 skipInactive: true,
-                maxSkips: 3
-              }
+                maxSkips: 3,
+              },
             };
           case 'moderated':
             return {
@@ -243,8 +247,8 @@ export function useDiscussionManager(config: DiscussionManagerConfig): Discussio
                 type: 'moderated' as const,
                 moderatorId: moderatorId || user.id, // Use actual moderator or user ID
                 requireApproval: true,
-                autoAdvance: false
-              }
+                autoAdvance: false,
+              },
             };
           case 'context_aware':
             return {
@@ -253,8 +257,8 @@ export function useDiscussionManager(config: DiscussionManagerConfig): Discussio
                 type: 'context_aware' as const,
                 relevanceThreshold: 0.7,
                 expertiseWeight: 0.3,
-                engagementWeight: 0.2
-              }
+                engagementWeight: 0.2,
+              },
             };
           default:
             return {
@@ -262,8 +266,8 @@ export function useDiscussionManager(config: DiscussionManagerConfig): Discussio
               config: {
                 type: 'round_robin' as const,
                 skipInactive: true,
-                maxSkips: 3
-              }
+                maxSkips: 3,
+              },
             };
         }
       })();
@@ -273,7 +277,7 @@ export function useDiscussionManager(config: DiscussionManagerConfig): Discussio
       const initialParticipants = agentEntries.slice(0, 2).map(([agentId, agentState]) => ({
         personaId: agentState.personaId, // Use actual persona ID or fallback to agent ID
         agentId: agentId, // Use actual agent ID
-        role: moderatorId === agentId ? 'moderator' : 'participant'
+        role: moderatorId === agentId ? 'moderator' : 'participant',
       }));
 
       // If no agents available, create discussion without initial participants
@@ -284,76 +288,82 @@ export function useDiscussionManager(config: DiscussionManagerConfig): Discussio
         topic: config.topic,
         createdBy: user.id, // Use actual authenticated user ID
         turnStrategy: turnStrategyConfig,
-        initialParticipants: initialParticipants // Use actual agents or empty array
+        initialParticipants: initialParticipants, // Use actual agents or empty array
       });
 
       setDiscussionId(discussion.id);
       return discussion.id;
     } catch (error) {
       console.error('Failed to create discussion:', error);
-      setState(prev => ({
+      setState((prev) => ({
         ...prev,
-        lastError: error instanceof Error ? error.message : 'Failed to create discussion'
+        lastError: error instanceof Error ? error.message : 'Failed to create discussion',
       }));
       throw error;
     }
   }, [config, user, agents, moderatorId, isLoading, isAuthenticated]);
 
-  const addAgent = useCallback(async (agentId: string, agentState: AgentState) => {
-    try {
-      let currentDiscussionId = discussionId;
+  const addAgent = useCallback(
+    async (agentId: string, agentState: AgentState) => {
+      try {
+        let currentDiscussionId = discussionId;
 
-      // Create discussion if it doesn't exist
-      if (!currentDiscussionId) {
-        currentDiscussionId = await createDiscussion();
+        // Create discussion if it doesn't exist
+        if (!currentDiscussionId) {
+          currentDiscussionId = await createDiscussion();
+        }
+
+        // Validate that we have proper IDs
+        if (!agentState.personaId) {
+          throw new Error(`Agent ${agentId} does not have a valid persona ID`);
+        }
+
+        // Add participant to backend discussion
+        await uaipAPI.discussions.addParticipant(currentDiscussionId, {
+          personaId: agentState.personaId, // Use actual persona ID
+          agentId: agentId, // Use the provided agent ID
+          role: moderatorId === agentId ? 'moderator' : 'participant',
+        });
+
+        // Note: We don't need to update local agents state anymore since we're using AgentContext
+        // The WebSocket will handle the participant.joined event
+      } catch (error) {
+        console.error('Failed to add agent:', error);
+        setState((prev) => ({
+          ...prev,
+          lastError: error instanceof Error ? error.message : 'Failed to add agent',
+        }));
       }
+    },
+    [discussionId, createDiscussion, moderatorId]
+  );
 
-      // Validate that we have proper IDs
-      if (!agentState.personaId) {
-        throw new Error(`Agent ${agentId} does not have a valid persona ID`);
+  const removeAgent = useCallback(
+    async (agentId: string) => {
+      if (!discussionId) return;
+
+      try {
+        // Find participant by agent ID
+        const discussion = await uaipAPI.discussions.get(discussionId);
+        const participant = discussion.participants.find((p) => p.agentId === agentId);
+
+        if (participant) {
+          await uaipAPI.discussions.removeParticipant(discussionId, participant.id);
+        }
+
+        // Note: We don't need to update local agents state anymore since we're using AgentContext
+
+        // The WebSocket will handle the participant.left event
+      } catch (error) {
+        console.error('Failed to remove agent:', error);
+        setState((prev) => ({
+          ...prev,
+          lastError: error instanceof Error ? error.message : 'Failed to remove agent',
+        }));
       }
-
-      // Add participant to backend discussion
-      await uaipAPI.discussions.addParticipant(currentDiscussionId, {
-        personaId: agentState.personaId, // Use actual persona ID
-        agentId: agentId, // Use the provided agent ID
-        role: moderatorId === agentId ? 'moderator' : 'participant'
-      });
-
-      // Note: We don't need to update local agents state anymore since we're using AgentContext
-      // The WebSocket will handle the participant.joined event
-    } catch (error) {
-      console.error('Failed to add agent:', error);
-      setState(prev => ({
-        ...prev,
-        lastError: error instanceof Error ? error.message : 'Failed to add agent'
-      }));
-    }
-  }, [discussionId, createDiscussion, moderatorId]);
-
-  const removeAgent = useCallback(async (agentId: string) => {
-    if (!discussionId) return;
-
-    try {
-      // Find participant by agent ID
-      const discussion = await uaipAPI.discussions.get(discussionId);
-      const participant = discussion.participants.find(p => p.agentId === agentId);
-
-      if (participant) {
-        await uaipAPI.discussions.removeParticipant(discussionId, participant.id);
-      }
-
-      // Note: We don't need to update local agents state anymore since we're using AgentContext
-
-      // The WebSocket will handle the participant.left event
-    } catch (error) {
-      console.error('Failed to remove agent:', error);
-      setState(prev => ({
-        ...prev,
-        lastError: error instanceof Error ? error.message : 'Failed to remove agent'
-      }));
-    }
-  }, [discussionId]);
+    },
+    [discussionId]
+  );
 
   const setModerator = useCallback((agentId: string) => {
     setModeratorId(agentId);
@@ -374,9 +384,9 @@ export function useDiscussionManager(config: DiscussionManagerConfig): Discussio
       // The WebSocket will handle the discussion.started event
     } catch (error) {
       console.error('Failed to start discussion:', error);
-      setState(prev => ({
+      setState((prev) => ({
         ...prev,
-        lastError: error instanceof Error ? error.message : 'Failed to start discussion'
+        lastError: error instanceof Error ? error.message : 'Failed to start discussion',
       }));
     }
   }, [discussionId, createDiscussion]);
@@ -390,47 +400,50 @@ export function useDiscussionManager(config: DiscussionManagerConfig): Discussio
       // The WebSocket will handle the discussion.ended event
     } catch (error) {
       console.error('Failed to stop discussion:', error);
-      setState(prev => ({
+      setState((prev) => ({
         ...prev,
-        lastError: error instanceof Error ? error.message : 'Failed to stop discussion'
+        lastError: error instanceof Error ? error.message : 'Failed to stop discussion',
       }));
     }
   }, [discussionId]);
 
-  const addMessage = useCallback(async (agentId: string, content: string) => {
-    if (!discussionId) {
-      throw new Error('No active discussion');
-    }
-
-    try {
-      // Find participant by agent ID
-      const discussion = await uaipAPI.discussions.get(discussionId);
-      const participant = discussion.participants.find(p => p.agentId === agentId);
-
-      if (!participant) {
-        throw new Error('Agent is not a participant in this discussion');
+  const addMessage = useCallback(
+    async (agentId: string, content: string) => {
+      if (!discussionId) {
+        throw new Error('No active discussion');
       }
 
-      // Send message through backend
-      await uaipAPI.discussions.sendMessage(discussionId, {
-        content,
-        messageType: 'message',
-        metadata: {
-          agentId,
-          timestamp: new Date().toISOString()
-        }
-      });
+      try {
+        // Find participant by agent ID
+        const discussion = await uaipAPI.discussions.get(discussionId);
+        const participant = discussion.participants.find((p) => p.agentId === agentId);
 
-      // The WebSocket will handle the message.sent event
-    } catch (error) {
-      console.error('Failed to send message:', error);
-      setState(prev => ({
-        ...prev,
-        lastError: error instanceof Error ? error.message : 'Failed to send message'
-      }));
-      throw error;
-    }
-  }, [discussionId]);
+        if (!participant) {
+          throw new Error('Agent is not a participant in this discussion');
+        }
+
+        // Send message through backend
+        await uaipAPI.discussions.sendMessage(discussionId, {
+          content,
+          messageType: 'message',
+          metadata: {
+            agentId,
+            timestamp: new Date().toISOString(),
+          },
+        });
+
+        // The WebSocket will handle the message.sent event
+      } catch (error) {
+        console.error('Failed to send message:', error);
+        setState((prev) => ({
+          ...prev,
+          lastError: error instanceof Error ? error.message : 'Failed to send message',
+        }));
+        throw error;
+      }
+    },
+    [discussionId]
+  );
 
   const setInitialDocument = useCallback((documentContent: string) => {
     const documentContext: DocumentContext = {
@@ -440,9 +453,9 @@ export function useDiscussionManager(config: DiscussionManagerConfig): Discussio
       type: 'general',
       metadata: {
         createdAt: new Date(),
-        lastModified: new Date()
+        lastModified: new Date(),
       },
-      tags: []
+      tags: [],
     };
 
     setDocument(documentContext);
@@ -456,9 +469,9 @@ export function useDiscussionManager(config: DiscussionManagerConfig): Discussio
       // The WebSocket will handle the status.changed event
     } catch (error) {
       console.error('Failed to pause discussion:', error);
-      setState(prev => ({
+      setState((prev) => ({
         ...prev,
-        lastError: error instanceof Error ? error.message : 'Failed to pause discussion'
+        lastError: error instanceof Error ? error.message : 'Failed to pause discussion',
       }));
     }
   }, [discussionId]);
@@ -471,9 +484,9 @@ export function useDiscussionManager(config: DiscussionManagerConfig): Discussio
       // The WebSocket will handle the status.changed event
     } catch (error) {
       console.error('Failed to resume discussion:', error);
-      setState(prev => ({
+      setState((prev) => ({
         ...prev,
-        lastError: error instanceof Error ? error.message : 'Failed to resume discussion'
+        lastError: error instanceof Error ? error.message : 'Failed to resume discussion',
       }));
     }
   }, [discussionId]);
@@ -501,9 +514,9 @@ export function useDiscussionManager(config: DiscussionManagerConfig): Discussio
       // Note: We don't need to clear agents state since we're using AgentContext
     } catch (error) {
       console.error('Failed to reset discussion:', error);
-      setState(prev => ({
+      setState((prev) => ({
         ...prev,
-        lastError: error instanceof Error ? error.message : 'Failed to reset discussion'
+        lastError: error instanceof Error ? error.message : 'Failed to reset discussion',
       }));
     }
   }, [discussionId]);
@@ -539,17 +552,33 @@ export function useDiscussionManager(config: DiscussionManagerConfig): Discussio
 
     // Extract topics from message content (simplified - look for key phrases)
     const topicKeywords = new Set<string>();
-    state.messageHistory.forEach(message => {
+    state.messageHistory.forEach((message) => {
       const content = message.content.toLowerCase();
       // Simple topic extraction - look for common discussion topics
       const topics = [
-        'ai', 'artificial intelligence', 'machine learning', ' network',
-        'algorithm', 'data', 'model', 'training', 'prediction', 'analysis',
-        'automation', 'optimization', 'performance', 'efficiency', 'innovation',
-        'technology', 'development', 'implementation', 'strategy', 'solution'
+        'ai',
+        'artificial intelligence',
+        'machine learning',
+        ' network',
+        'algorithm',
+        'data',
+        'model',
+        'training',
+        'prediction',
+        'analysis',
+        'automation',
+        'optimization',
+        'performance',
+        'efficiency',
+        'innovation',
+        'technology',
+        'development',
+        'implementation',
+        'strategy',
+        'solution',
       ];
 
-      topics.forEach(topic => {
+      topics.forEach((topic) => {
         if (content.includes(topic)) {
           topicKeywords.add(topic);
         }
@@ -560,7 +589,7 @@ export function useDiscussionManager(config: DiscussionManagerConfig): Discussio
       totalMessages,
       participantCount,
       averageResponseTime,
-      topicCoverage: Array.from(topicKeywords)
+      topicCoverage: Array.from(topicKeywords),
     };
   }, [state.messageHistory, agents]);
 
@@ -582,6 +611,6 @@ export function useDiscussionManager(config: DiscussionManagerConfig): Discussio
     resume,
     reset,
     syncWithBackend,
-    getDiscussionAnalytics
+    getDiscussionAnalytics,
   };
-} 
+}

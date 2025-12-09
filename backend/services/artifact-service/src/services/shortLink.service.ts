@@ -5,7 +5,6 @@ import * as crypto from 'crypto';
 import QRCode from 'qrcode';
 import { Repository } from 'typeorm';
 
-
 export class ShortLinkService {
   private typeormService: TypeOrmService;
   private shortLinkRepository: Repository<ShortLinkEntity>;
@@ -16,8 +15,8 @@ export class ShortLinkService {
   }
 
   async createShortLink(
-    originalUrl: string, 
-    createdById: string, 
+    originalUrl: string,
+    createdById: string,
     options: {
       title?: string;
       description?: string;
@@ -34,7 +33,7 @@ export class ShortLinkService {
   ): Promise<ShortLinkEntity> {
     try {
       // Generate short code
-      const shortCode = options.customCode || await this.generateUniqueCode();
+      const shortCode = options.customCode || (await this.generateUniqueCode());
 
       // Validate custom code availability
       if (options.customCode) {
@@ -66,12 +65,12 @@ export class ShortLinkService {
         artifactId: options.artifactId,
         projectFileId: options.projectFileId,
         accessRestrictions: {
-          maxClicks: options.maxClicks
+          maxClicks: options.maxClicks,
         },
         analytics: {
           totalClicks: 0,
-          uniqueClicks: 0
-        }
+          uniqueClicks: 0,
+        },
       };
 
       const shortLink = this.shortLinkRepository.create({
@@ -89,14 +88,14 @@ export class ShortLinkService {
         artifactId: options.artifactId,
         projectFileId: options.projectFileId,
         accessRestrictions: {
-          maxClicks: options.maxClicks
+          maxClicks: options.maxClicks,
         },
         analytics: {
           totalClicks: 0,
-          uniqueClicks: 0
+          uniqueClicks: 0,
         },
         trackClicks: true,
-        isPublic: true
+        isPublic: true,
       });
 
       const savedLink = await this.shortLinkRepository.save(shortLink);
@@ -118,7 +117,7 @@ export class ShortLinkService {
     try {
       return await this.shortLinkRepository.findOne({
         where: { shortCode, status: LinkStatus.ACTIVE },
-        relations: ['createdBy', 'artifact']
+        relations: ['createdBy', 'artifact'],
       });
     } catch (error) {
       logger.error('Error getting short link:', error);
@@ -127,7 +126,7 @@ export class ShortLinkService {
   }
 
   async resolveShortLink(
-    shortCode: string, 
+    shortCode: string,
     options: {
       password?: string;
       userId?: string;
@@ -138,7 +137,7 @@ export class ShortLinkService {
   ): Promise<{ url: string; requiresPassword?: boolean }> {
     try {
       const shortLink = await this.getShortLink(shortCode);
-      
+
       if (!shortLink) {
         throw new Error('Short link not found');
       }
@@ -175,7 +174,8 @@ export class ShortLinkService {
       const { page = 1, limit = 20, type, search } = options;
       const skip = (page - 1) * limit;
 
-      const queryBuilder = this.shortLinkRepository.createQueryBuilder('link')
+      const queryBuilder = this.shortLinkRepository
+        .createQueryBuilder('link')
         .where('link.createdById = :userId', { userId })
         .orderBy('link.createdAt', 'DESC')
         .skip(skip)
@@ -202,7 +202,7 @@ export class ShortLinkService {
   async getLinkById(linkId: string, userId: string): Promise<ShortLinkEntity | null> {
     try {
       return await this.shortLinkRepository.findOne({
-        where: { id: linkId, createdById: userId }
+        where: { id: linkId, createdById: userId },
       });
     } catch (error) {
       logger.error('Error getting link by ID:', error);
@@ -219,7 +219,7 @@ export class ShortLinkService {
 
       await this.shortLinkRepository.update(linkId, {
         ...updates,
-        updatedAt: new Date()
+        updatedAt: new Date(),
       });
 
       const updatedLink = await this.shortLinkRepository.findOne({ where: { id: linkId } });
@@ -243,7 +243,7 @@ export class ShortLinkService {
 
       await this.shortLinkRepository.update(linkId, {
         status: LinkStatus.DELETED,
-        updatedAt: new Date()
+        updatedAt: new Date(),
       });
 
       logger.info(`Short link deleted: ${linkId}`);
@@ -256,7 +256,7 @@ export class ShortLinkService {
   async generateQRCode(linkId: string, userId?: string): Promise<string> {
     try {
       let link: ShortLinkEntity | null;
-      
+
       if (userId) {
         link = await this.getLinkById(linkId, userId);
       } else {
@@ -273,14 +273,14 @@ export class ShortLinkService {
         margin: 2,
         color: {
           dark: '#000000',
-          light: '#FFFFFF'
-        }
+          light: '#FFFFFF',
+        },
       });
 
       // Save QR code to link
       await this.shortLinkRepository.update(linkId, {
         qrCode: qrCodeDataURL,
-        updatedAt: new Date()
+        updatedAt: new Date(),
       });
 
       return qrCodeDataURL;
@@ -304,7 +304,7 @@ export class ShortLinkService {
         analytics: link.analytics,
         createdAt: link.createdAt,
         lastClickAt: link.lastClickedAt,
-        status: link.status
+        status: link.status,
       };
     } catch (error) {
       logger.error('Error getting link analytics:', error);
@@ -356,16 +356,16 @@ export class ShortLinkService {
             userAgent: clickData.userAgent,
             ip: clickData.ip,
             referer: clickData.referer,
-            userId: clickData.userId
-          }
-        ]
+            userId: clickData.userId,
+          },
+        ],
       };
 
       await this.shortLinkRepository.update(linkId, {
         clickCount: link.clickCount + 1,
         lastClickedAt: new Date(),
         analytics: updatedAnalytics,
-        updatedAt: new Date()
+        updatedAt: new Date(),
       });
 
       logger.debug(`Click recorded for link ${linkId}`);

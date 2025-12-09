@@ -12,9 +12,10 @@
 The Security Gateway service analysis reveals **excellent foundational architecture** with focused technical debt primarily around test infrastructure and large file organization. The service is well-designed but needs targeted improvements to restore testing capabilities and improve maintainability.
 
 ### Key Findings:
+
 - **18 TypeScript files** (14,784 total lines)
 - **0% test coverage** due to infrastructure failures (BLOCKING)
-- **6 large files >900 lines** requiring decomposition 
+- **6 large files >900 lines** requiring decomposition
 - **Minor JWT validation duplication** (not architectural)
 - **Strong service patterns** already in place
 
@@ -23,13 +24,14 @@ The Security Gateway service analysis reveals **excellent foundational architect
 ## 🔍 Detailed Analysis
 
 ### Current Service Architecture ✅ STRONG FOUNDATION
+
 ```
 security-gateway/
 ├── src/
 │   ├── index.ts (352 lines) - BaseService implementation ✅
 │   ├── services/ (6,466 lines total)
 │   │   ├── enhancedSecurityGatewayService.ts (1,123 lines) 🔶 DECOMPOSE
-│   │   ├── securityGatewayService.ts (913 lines) 🔶 DECOMPOSE  
+│   │   ├── securityGatewayService.ts (913 lines) 🔶 DECOMPOSE
 │   │   ├── oauthProviderService.ts (911 lines) 🔶 DECOMPOSE
 │   │   ├── auditService.ts (878 lines) 🔶 DECOMPOSE
 │   │   ├── enhancedAuthService.ts (730 lines) ✅ GOOD SIZE
@@ -43,8 +45,9 @@ security-gateway/
 ```
 
 **Architecture Strengths:**
+
 - ✅ **BaseService Pattern**: Proper service initialization and lifecycle
-- ✅ **Dependency Injection**: Clean service dependencies  
+- ✅ **Dependency Injection**: Clean service dependencies
 - ✅ **Route Organization**: Well-structured API endpoints
 - ✅ **Validation Layer**: Comprehensive Zod schemas
 - ✅ **Error Handling**: Consistent ApiError patterns
@@ -59,23 +62,25 @@ security-gateway/
 **Impact:** Cannot run tests, zero quality assurance coverage
 
 **Root Causes:**
+
 ```typescript
 // CRITICAL: Missing entity exports in @uaip/shared-services/src/index.ts
 import {
-  Agent,                          // ❌ Not exported
-  User as UserEntity,             // ❌ Not exported  
-  SecurityPolicy,                 // ❌ Not exported
-  AuditEvent,                     // ❌ Not exported
-  Session as SessionEntity,       // ❌ Not exported
-  OAuthProvider,                  // ❌ Not exported
-  OAuthState as OAuthStateEntity  // ❌ Not exported
+  Agent, // ❌ Not exported
+  User as UserEntity, // ❌ Not exported
+  SecurityPolicy, // ❌ Not exported
+  AuditEvent, // ❌ Not exported
+  Session as SessionEntity, // ❌ Not exported
+  OAuthProvider, // ❌ Not exported
+  OAuthState as OAuthStateEntity, // ❌ Not exported
 } from '@uaip/shared-services';
 
 // ISSUE: ESM import path mismatches
-import '../services/enhancedSecurityGatewayService.js' // ❌ Path resolution
+import '../services/enhancedSecurityGatewayService.js'; // ❌ Path resolution
 ```
 
 **Test Failure Analysis:**
+
 - **8 test suites failing** due to import issues
 - **1 test suite passing** (security-demo.test.ts)
 - **All integration tests blocked** by entity import failures
@@ -85,6 +90,7 @@ import '../services/enhancedSecurityGatewayService.js' // ❌ Path resolution
 **Impact:** Small inconsistency between local and middleware JWT validation
 
 **Issue Analysis:**
+
 ```typescript
 // CURRENT: Local JWT validation in index.ts (lines 290-321)
 private async validateJWTToken(token: string): Promise<any> {
@@ -109,7 +115,8 @@ export const validateJWTToken = async (token: string): Promise<TokenValidationRe
 }
 ```
 
-**Recommendation:** 
+**Recommendation:**
+
 - **Keep local method** for WebSocket-specific auth handling
 - **Ensure consistency** with middleware implementation
 - **No major architectural change needed**
@@ -119,9 +126,10 @@ export const validateJWTToken = async (token: string): Promise<TokenValidationRe
 **Impact:** Files >900 lines are harder to navigate and maintain
 
 **Files Requiring Decomposition:**
+
 1. **enhancedSecurityGatewayService.ts** (1,123 lines)
    - **Policy Management**: Security policy CRUD operations
-   - **Risk Assessment**: Risk calculation and scoring  
+   - **Risk Assessment**: Risk calculation and scoring
    - **Compliance Validation**: Compliance checking logic
    - **Agent Validation**: Agent capability assessment
 
@@ -147,75 +155,137 @@ Based on the **actual analysis**, the Security Gateway needs targeted improvemen
 ### **Phase 1: Critical Infrastructure Repair** (Week 1) 🚨 BLOCKING
 
 #### **Task 1.1: Fix Test Infrastructure**
+
 **Priority:** CRITICAL | **Effort:** 2 days | **Impact:** Restore testing capability
 
 **Root Cause:** Missing entity exports in shared services
+
 ```typescript
 // MIXED RESPONSIBILITIES - Should be 4+ separate services
 export class EnhancedSecurityGatewayService {
   // Policy Management (lines 100-300)
-  async createSecurityPolicy(policy: CreateSecurityPolicyRequest): Promise<SecurityPolicy> { /* ... */ }
-  async updateSecurityPolicy(policyId: string, updates: UpdateSecurityPolicyRequest): Promise<SecurityPolicy> { /* ... */ }
-  async deleteSecurityPolicy(policyId: string): Promise<void> { /* ... */ }
-  
+  async createSecurityPolicy(policy: CreateSecurityPolicyRequest): Promise<SecurityPolicy> {
+    /* ... */
+  }
+  async updateSecurityPolicy(
+    policyId: string,
+    updates: UpdateSecurityPolicyRequest
+  ): Promise<SecurityPolicy> {
+    /* ... */
+  }
+  async deleteSecurityPolicy(policyId: string): Promise<void> {
+    /* ... */
+  }
+
   // Risk Assessment (lines 350-500)
-  async calculateRiskLevel(request: SecurityValidationRequest): Promise<RiskLevel> { /* ... */ }
-  async assessOperationRisk(operation: OperationContext): Promise<RiskAssessment> { /* ... */ }
-  
+  async calculateRiskLevel(request: SecurityValidationRequest): Promise<RiskLevel> {
+    /* ... */
+  }
+  async assessOperationRisk(operation: OperationContext): Promise<RiskAssessment> {
+    /* ... */
+  }
+
   // Compliance Validation (lines 550-700)
-  async validateCompliance(request: ComplianceRequest): Promise<ComplianceResult> { /* ... */ }
-  async generateComplianceReport(criteria: ComplianceCriteria): Promise<ComplianceReport> { /* ... */ }
-  
+  async validateCompliance(request: ComplianceRequest): Promise<ComplianceResult> {
+    /* ... */
+  }
+  async generateComplianceReport(criteria: ComplianceCriteria): Promise<ComplianceReport> {
+    /* ... */
+  }
+
   // Audit Processing (lines 750-900)
-  async processSecurityEvent(event: SecurityEvent): Promise<void> { /* ... */ }
-  async generateSecurityReport(params: ReportParameters): Promise<SecurityReport> { /* ... */ }
-  
+  async processSecurityEvent(event: SecurityEvent): Promise<void> {
+    /* ... */
+  }
+  async generateSecurityReport(params: ReportParameters): Promise<SecurityReport> {
+    /* ... */
+  }
+
   // Agent Validation (lines 950-1123)
-  async validateAgentCapabilities(agentId: string, capabilities: string[]): Promise<ValidationResult> { /* ... */ }
-  async assessAgentRisk(agentId: string, context: OperationContext): Promise<RiskLevel> { /* ... */ }
+  async validateAgentCapabilities(
+    agentId: string,
+    capabilities: string[]
+  ): Promise<ValidationResult> {
+    /* ... */
+  }
+  async assessAgentRisk(agentId: string, context: OperationContext): Promise<RiskLevel> {
+    /* ... */
+  }
 }
 ```
 
 **userPersonaRoutes.ts (951 lines)**
+
 ```typescript
 // MIXING DIFFERENT FUNCTIONAL AREAS
 const router = express.Router();
 
 // Profile Management (lines 60-300)
-router.get('/:userId/profile', async (req, res) => { /* ... */ });
-router.put('/:userId/profile', async (req, res) => { /* ... */ });
-router.delete('/:userId/profile', async (req, res) => { /* ... */ });
+router.get('/:userId/profile', async (req, res) => {
+  /* ... */
+});
+router.put('/:userId/profile', async (req, res) => {
+  /* ... */
+});
+router.delete('/:userId/profile', async (req, res) => {
+  /* ... */
+});
 
-// Persona Management (lines 350-600)  
-router.get('/:userId/personas', async (req, res) => { /* ... */ });
-router.post('/:userId/personas', async (req, res) => { /* ... */ });
-router.put('/:userId/personas/:personaId', async (req, res) => { /* ... */ });
+// Persona Management (lines 350-600)
+router.get('/:userId/personas', async (req, res) => {
+  /* ... */
+});
+router.post('/:userId/personas', async (req, res) => {
+  /* ... */
+});
+router.put('/:userId/personas/:personaId', async (req, res) => {
+  /* ... */
+});
 
 // Preferences Management (lines 650-850)
-router.get('/:userId/preferences', async (req, res) => { /* ... */ });
-router.put('/:userId/preferences', async (req, res) => { /* ... */ });
+router.get('/:userId/preferences', async (req, res) => {
+  /* ... */
+});
+router.put('/:userId/preferences', async (req, res) => {
+  /* ... */
+});
 
 // Analytics & Reporting (lines 870-951)
-router.get('/:userId/analytics', async (req, res) => { /* ... */ });
-router.get('/:userId/usage-stats', async (req, res) => { /* ... */ });
+router.get('/:userId/analytics', async (req, res) => {
+  /* ... */
+});
+router.get('/:userId/usage-stats', async (req, res) => {
+  /* ... */
+});
 ```
 
 ### 4. Validation Schema Duplication
 
 **Repeated Validation Patterns:**
+
 ```typescript
 // LOCATION 1: authRoutes.ts (lines 30-50)
 const loginSchema = z.object({
   email: z.string().email('Invalid email format'),
-  password: z.string().min(8, 'Password must be at least 8 characters')
-    .regex(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]/, 'Password must contain uppercase, lowercase, number and special character')
+  password: z
+    .string()
+    .min(8, 'Password must be at least 8 characters')
+    .regex(
+      /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]/,
+      'Password must contain uppercase, lowercase, number and special character'
+    ),
 });
 
 // LOCATION 2: userRoutes.ts (lines 45-65)
 const passwordUpdateSchema = z.object({
   currentPassword: z.string().min(1, 'Current password required'),
-  newPassword: z.string().min(8, 'Password must be at least 8 characters')
-    .regex(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]/, 'Password must contain uppercase, lowercase, number and special character')
+  newPassword: z
+    .string()
+    .min(8, 'Password must be at least 8 characters')
+    .regex(
+      /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]/,
+      'Password must contain uppercase, lowercase, number and special character'
+    ),
 });
 
 // LOCATION 3: userPersonaRoutes.ts (lines 25-40)
@@ -223,14 +293,19 @@ const personaCreationSchema = z.object({
   name: z.string().min(1, 'Name required'),
   email: z.string().email('Invalid email format'), // Duplicate email validation
   settings: z.object({
-    password: z.string().min(8).regex(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]/).optional()
-  })
+    password: z
+      .string()
+      .min(8)
+      .regex(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]/)
+      .optional(),
+  }),
 });
 ```
 
 ### 5. Audit Logging Pattern Duplication
 
 **Repeated Audit Pattern (20+ instances):**
+
 ```typescript
 // PATTERN 1: authRoutes.ts
 await auditService.logSecurityEvent({
@@ -239,11 +314,11 @@ await auditService.logSecurityEvent({
   details: {
     email: user.email,
     method: 'password',
-    securityLevel: user.securityLevel
+    securityLevel: user.securityLevel,
   },
   ipAddress: req.ip,
   userAgent: req.headers['user-agent'],
-  timestamp: new Date()
+  timestamp: new Date(),
 });
 
 // PATTERN 2: userRoutes.ts (nearly identical)
@@ -252,11 +327,11 @@ await auditService.logSecurityEvent({
   userId: userId,
   details: {
     updatedFields: Object.keys(updates),
-    securityLevel: user.securityLevel
+    securityLevel: user.securityLevel,
   },
   ipAddress: req.ip,
   userAgent: req.headers['user-agent'],
-  timestamp: new Date()
+  timestamp: new Date(),
 });
 
 // PATTERN 3: approvalRoutes.ts (same structure)
@@ -265,11 +340,11 @@ await auditService.logSecurityEvent({
   userId: req.user.id,
   details: {
     requestType: approvalRequest.type,
-    targetId: approvalRequest.targetId
+    targetId: approvalRequest.targetId,
   },
   ipAddress: req.ip,
   userAgent: req.headers['user-agent'],
-  timestamp: new Date()
+  timestamp: new Date(),
 });
 ```
 
@@ -280,9 +355,11 @@ await auditService.logSecurityEvent({
 ### **Phase 1: Foundation Repair** (Week 1) 🔴 CRITICAL
 
 #### **Task 1.1: Fix Test Infrastructure**
+
 **Priority:** BLOCKING | **Effort:** 2 days | **Impact:** Enable quality assurance
 
 **Root Cause Analysis:**
+
 ```typescript
 // ISSUE 1: Missing entity exports in @uaip/shared-services
 // Current broken imports:
@@ -300,6 +377,7 @@ export { OAuthState as OAuthStateEntity } from './entities/oauthState.entity.js'
 ```
 
 **Jest Configuration Fix:**
+
 ```javascript
 // jest.config.js - Update for proper ES module handling
 export default {
@@ -309,21 +387,20 @@ export default {
     '^(\\.{1,2}/.*)\\.js$': '$1',
   },
   transform: {
-    '^.+\\.tsx?$': ['ts-jest', {
-      useESM: true,
-      tsconfig: {
-        module: 'ES2022',
-        moduleResolution: 'node',
-      }
-    }],
+    '^.+\\.tsx?$': [
+      'ts-jest',
+      {
+        useESM: true,
+        tsconfig: {
+          module: 'ES2022',
+          moduleResolution: 'node',
+        },
+      },
+    ],
   },
   moduleFileExtensions: ['ts', 'tsx', 'js', 'jsx'],
   testMatch: ['**/__tests__/**/*.test.ts'],
-  collectCoverageFrom: [
-    'src/**/*.ts',
-    '!src/**/*.d.ts',
-    '!src/__tests__/**/*',
-  ],
+  collectCoverageFrom: ['src/**/*.ts', '!src/**/*.d.ts', '!src/__tests__/**/*'],
   coverageThreshold: {
     global: {
       branches: 70,
@@ -336,6 +413,7 @@ export default {
 ```
 
 **Mock Service Fixes:**
+
 ```typescript
 // src/__tests__/utils/mockServices.ts - Fix constructor signatures
 export const createMockAuditService = () => ({
@@ -354,14 +432,16 @@ export const createMockDatabaseService = () => ({
 ```
 
 #### **Task 1.2: JWT Authentication Consolidation**
+
 **Priority:** CRITICAL (Security) | **Effort:** 3 days | **Impact:** Single source of truth
 
 **New Architecture:**
+
 ```typescript
 // src/services/core/AuthenticationManager.ts
 export class AuthenticationManager {
   private static instance: AuthenticationManager;
-  
+
   public static getInstance(): AuthenticationManager {
     if (!AuthenticationManager.instance) {
       AuthenticationManager.instance = new AuthenticationManager();
@@ -372,7 +452,10 @@ export class AuthenticationManager {
   /**
    * Unified JWT token generation with consistent payload structure
    */
-  public async generateTokens(user: UserEntity, sessionContext: SessionContext): Promise<TokenResponse> {
+  public async generateTokens(
+    user: UserEntity,
+    sessionContext: SessionContext
+  ): Promise<TokenResponse> {
     const payload: JWTPayload = {
       userId: user.id,
       email: user.email,
@@ -381,24 +464,24 @@ export class AuthenticationManager {
       securityLevel: user.securityLevel || SecurityLevel.MEDIUM,
       complianceFlags: user.complianceFlags || [],
       issuedAt: Date.now(),
-      issuer: 'security-gateway'
+      issuer: 'security-gateway',
     };
 
     try {
       const accessToken = jwt.sign(payload, this.getJWTSecret(), {
         expiresIn: this.getAccessTokenExpiry(),
-        algorithm: 'HS256'
+        algorithm: 'HS256',
       });
 
       const refreshPayload: RefreshTokenPayload = {
         userId: user.id,
         sessionId: sessionContext.sessionId,
-        tokenType: 'refresh'
+        tokenType: 'refresh',
       };
 
       const refreshToken = jwt.sign(refreshPayload, this.getRefreshSecret(), {
         expiresIn: this.getRefreshTokenExpiry(),
-        algorithm: 'HS256'
+        algorithm: 'HS256',
       });
 
       // Log token generation for audit
@@ -409,14 +492,13 @@ export class AuthenticationManager {
         refreshToken,
         expiresIn: this.getAccessTokenExpirySeconds(),
         tokenType: 'Bearer',
-        securityLevel: payload.securityLevel
+        securityLevel: payload.securityLevel,
       };
-
     } catch (error) {
-      logger.error('Token generation failed', { 
-        userId: user.id, 
+      logger.error('Token generation failed', {
+        userId: user.id,
         sessionId: sessionContext.sessionId,
-        error: error instanceof Error ? error.message : 'Unknown error'
+        error: error instanceof Error ? error.message : 'Unknown error',
       });
       throw new AuthenticationError('Failed to generate authentication tokens');
     }
@@ -425,21 +507,24 @@ export class AuthenticationManager {
   /**
    * Unified JWT token validation with comprehensive security checks
    */
-  public async validateToken(token: string, context?: ValidationContext): Promise<TokenValidationResult> {
+  public async validateToken(
+    token: string,
+    context?: ValidationContext
+  ): Promise<TokenValidationResult> {
     try {
       // Basic JWT validation
       const decoded = jwt.verify(token, this.getJWTSecret(), {
-        algorithms: ['HS256']
+        algorithms: ['HS256'],
       }) as JWTPayload;
 
       // Enhanced validation checks
       const validationResult = await this.performSecurityValidation(decoded, context);
-      
+
       if (!validationResult.valid) {
         return {
           valid: false,
           reason: validationResult.reason,
-          securityViolation: validationResult.securityViolation
+          securityViolation: validationResult.securityViolation,
         };
       }
 
@@ -452,7 +537,7 @@ export class AuthenticationManager {
           valid: false,
           reason: 'User account or session invalid',
           userId: decoded.userId,
-          sessionId: decoded.sessionId
+          sessionId: decoded.sessionId,
         };
       }
 
@@ -464,30 +549,29 @@ export class AuthenticationManager {
         sessionId: decoded.sessionId,
         securityLevel: decoded.securityLevel,
         complianceFlags: decoded.complianceFlags,
-        validatedAt: new Date().toISOString()
+        validatedAt: new Date().toISOString(),
       };
-
     } catch (error) {
       if (error instanceof jwt.TokenExpiredError) {
         return {
           valid: false,
           reason: 'Token expired',
-          expired: true
+          expired: true,
         };
       } else if (error instanceof jwt.JsonWebTokenError) {
         return {
           valid: false,
           reason: 'Invalid token format',
-          malformed: true
+          malformed: true,
         };
       } else {
-        logger.error('Token validation error', { 
+        logger.error('Token validation error', {
           error: error instanceof Error ? error.message : 'Unknown error',
-          tokenPreview: token.substring(0, 20) + '...'
+          tokenPreview: token.substring(0, 20) + '...',
         });
         return {
           valid: false,
-          reason: 'Token validation failed'
+          reason: 'Token validation failed',
         };
       }
     }
@@ -499,7 +583,7 @@ export class AuthenticationManager {
   public async refreshToken(refreshToken: string): Promise<TokenResponse> {
     try {
       const decoded = jwt.verify(refreshToken, this.getRefreshSecret()) as RefreshTokenPayload;
-      
+
       // Validate session and user status
       const user = await this.getUserById(decoded.userId);
       const sessionValid = await this.validateSessionStatus(decoded.sessionId);
@@ -510,7 +594,6 @@ export class AuthenticationManager {
 
       // Generate new token pair
       return await this.generateTokens(user, { sessionId: decoded.sessionId });
-
     } catch (error) {
       logger.error('Token refresh failed', { error });
       throw new AuthenticationError('Failed to refresh authentication token');
@@ -518,14 +601,17 @@ export class AuthenticationManager {
   }
 
   // Private helper methods
-  private async performSecurityValidation(payload: JWTPayload, context?: ValidationContext): Promise<SecurityValidationResult> {
+  private async performSecurityValidation(
+    payload: JWTPayload,
+    context?: ValidationContext
+  ): Promise<SecurityValidationResult> {
     // Rate limiting check
     const rateLimitResult = await this.checkRateLimit(payload.userId);
     if (!rateLimitResult.allowed) {
       return {
         valid: false,
         reason: 'Rate limit exceeded',
-        securityViolation: true
+        securityViolation: true,
       };
     }
 
@@ -535,7 +621,7 @@ export class AuthenticationManager {
       return {
         valid: false,
         reason: 'Suspicious activity detected',
-        securityViolation: true
+        securityViolation: true,
       };
     }
 
@@ -545,7 +631,7 @@ export class AuthenticationManager {
       return {
         valid: false,
         reason: 'Compliance violation',
-        securityViolation: true
+        securityViolation: true,
       };
     }
 
@@ -647,7 +733,7 @@ export enum SecurityLevel {
   LOW = 1,
   MEDIUM = 2,
   HIGH = 3,
-  CRITICAL = 4
+  CRITICAL = 4,
 }
 
 export class AuthenticationError extends Error {
@@ -659,21 +745,22 @@ export class AuthenticationError extends Error {
 ```
 
 **Middleware Integration:**
+
 ```typescript
 // src/middleware/authMiddleware.ts
 import { AuthenticationManager } from '../services/core/AuthenticationManager.js';
 
 export const createAuthMiddleware = (options: AuthMiddlewareOptions = {}) => {
   const authManager = AuthenticationManager.getInstance();
-  
+
   return async (req: Request, res: Response, next: NextFunction) => {
     try {
       const token = extractTokenFromRequest(req);
-      
+
       if (!token) {
         return res.status(401).json({
           error: 'Authentication required',
-          message: 'No authentication token provided'
+          message: 'No authentication token provided',
         });
       }
 
@@ -681,15 +768,15 @@ export const createAuthMiddleware = (options: AuthMiddlewareOptions = {}) => {
         ipAddress: req.ip,
         userAgent: req.headers['user-agent'],
         requestPath: req.path,
-        requestMethod: req.method
+        requestMethod: req.method,
       };
 
       const result = await authManager.validateToken(token, validationContext);
-      
+
       if (!result.valid) {
         return res.status(401).json({
           error: 'Authentication failed',
-          message: result.reason || 'Invalid authentication token'
+          message: result.reason || 'Invalid authentication token',
         });
       }
 
@@ -700,16 +787,15 @@ export const createAuthMiddleware = (options: AuthMiddlewareOptions = {}) => {
         role: result.role!,
         securityLevel: result.securityLevel!,
         sessionId: result.sessionId!,
-        complianceFlags: result.complianceFlags || []
+        complianceFlags: result.complianceFlags || [],
       };
 
       next();
-
     } catch (error) {
       logger.error('Authentication middleware error', { error });
       res.status(500).json({
         error: 'Internal Server Error',
-        message: 'Authentication processing failed'
+        message: 'Authentication processing failed',
       });
     }
   };
@@ -745,9 +831,11 @@ interface AuthMiddlewareOptions {
 ### **Phase 2: Service Architecture** (Week 2) 🟠 HIGH
 
 #### **Task 2.1: Service Initialization Pattern Consolidation**
+
 **Priority:** HIGH | **Effort:** 2 days | **Impact:** 40% code reduction
 
 **Base Route Handler:**
+
 ```typescript
 // src/routes/base/BaseRouteHandler.ts
 export abstract class BaseRouteHandler {
@@ -778,10 +866,11 @@ export abstract class BaseRouteHandler {
 
       this.initialized = true;
       logger.info(`${this.constructor.name} services initialized successfully`);
-
     } catch (error) {
       logger.error(`Failed to initialize ${this.constructor.name} services`, { error });
-      throw new ServiceInitializationError(`Service initialization failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw new ServiceInitializationError(
+        `Service initialization failed: ${error instanceof Error ? error.message : 'Unknown error'}`
+      );
     }
   }
 
@@ -799,19 +888,19 @@ export abstract class BaseRouteHandler {
    */
   protected handleRouteError(error: any, res: Response, operation: string, context?: any): void {
     const errorId = `err_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-    
+
     logger.error(`Route operation failed: ${operation}`, {
       errorId,
       error: error instanceof Error ? error.message : 'Unknown error',
       stack: error instanceof Error ? error.stack : undefined,
       context,
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
     });
 
     // Determine appropriate status code
     let statusCode = 500;
     let errorType = 'Internal Server Error';
-    
+
     if (error instanceof ValidationError) {
       statusCode = 400;
       errorType = 'Validation Error';
@@ -830,7 +919,7 @@ export abstract class BaseRouteHandler {
       error: errorType,
       message: error instanceof Error ? error.message : 'An unexpected error occurred',
       errorId,
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
     });
   }
 
@@ -852,13 +941,13 @@ export abstract class BaseRouteHandler {
         userAgent: req.headers['user-agent'] || 'unknown',
         timestamp: new Date(),
         requestId: req.headers['x-request-id'] as string,
-        endpoint: `${req.method} ${req.path}`
+        endpoint: `${req.method} ${req.path}`,
       });
     } catch (error) {
-      logger.error('Failed to log audit event', { 
-        eventType, 
-        userId, 
-        error: error instanceof Error ? error.message : 'Unknown error' 
+      logger.error('Failed to log audit event', {
+        eventType,
+        userId,
+        error: error instanceof Error ? error.message : 'Unknown error',
       });
       // Don't throw - audit failure shouldn't break the main operation
     }
@@ -873,10 +962,10 @@ export abstract class BaseRouteHandler {
     } catch (error) {
       if (error instanceof z.ZodError) {
         const validationError = new ValidationError('Request validation failed');
-        validationError.details = error.errors.map(err => ({
+        validationError.details = error.errors.map((err) => ({
           field: err.path.join('.'),
           message: err.message,
-          code: err.code
+          code: err.code,
         }));
         throw validationError;
       }
@@ -887,12 +976,17 @@ export abstract class BaseRouteHandler {
   /**
    * Standard success response helper
    */
-  protected sendSuccessResponse<T>(res: Response, data: T, message?: string, statusCode = 200): void {
+  protected sendSuccessResponse<T>(
+    res: Response,
+    data: T,
+    message?: string,
+    statusCode = 200
+  ): void {
     res.status(statusCode).json({
       success: true,
       data,
       message: message || 'Operation completed successfully',
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
     });
   }
 
@@ -915,12 +1009,14 @@ export abstract class BaseRouteHandler {
     const sortOrder = (req.query.sortOrder as string)?.toUpperCase() === 'DESC' ? 'DESC' : 'ASC';
 
     if (sortBy && !allowedFields.includes(sortBy)) {
-      throw new ValidationError(`Invalid sort field: ${sortBy}. Allowed fields: ${allowedFields.join(', ')}`);
+      throw new ValidationError(
+        `Invalid sort field: ${sortBy}. Allowed fields: ${allowedFields.join(', ')}`
+      );
     }
 
     return {
       sortBy: sortBy || allowedFields[0],
-      sortOrder
+      sortOrder,
     };
   }
 }
@@ -935,7 +1031,7 @@ export class ServiceInitializationError extends Error {
 
 export class ValidationError extends Error {
   public details?: any;
-  
+
   constructor(message: string) {
     super(message);
     this.name = 'ValidationError';
@@ -969,6 +1065,7 @@ interface SortParams {
 ```
 
 **Updated Route Implementation:**
+
 ```typescript
 // src/routes/authRoutes.ts - Refactored using BaseRouteHandler
 import { BaseRouteHandler } from './base/BaseRouteHandler.js';
@@ -1005,20 +1102,17 @@ class AuthRoutesHandler extends BaseRouteHandler {
       const userRepository = this.databaseService.getUserRepository();
       const user = await userRepository.findByEmail(loginData.email);
 
-      if (!user || !await bcrypt.compare(loginData.password, user.passwordHash)) {
+      if (!user || !(await bcrypt.compare(loginData.password, user.passwordHash))) {
         await this.logAuditEvent(
           AuditEventType.USER_LOGIN_FAILED,
           loginData.email,
           { reason: 'Invalid credentials' },
           req
         );
-        
-        this.handleRouteError(
-          new AuthenticationError('Invalid email or password'),
-          res,
-          'login',
-          { email: loginData.email }
-        );
+
+        this.handleRouteError(new AuthenticationError('Invalid email or password'), res, 'login', {
+          email: loginData.email,
+        });
         return;
       }
 
@@ -1030,7 +1124,7 @@ class AuthRoutesHandler extends BaseRouteHandler {
           { reason: 'Account inactive or locked' },
           req
         );
-        
+
         this.handleRouteError(
           new AuthenticationError('Account is inactive or locked'),
           res,
@@ -1045,7 +1139,7 @@ class AuthRoutesHandler extends BaseRouteHandler {
       const sessionContext: SessionContext = {
         sessionId,
         ipAddress: req.ip,
-        userAgent: req.headers['user-agent']
+        userAgent: req.headers['user-agent'],
       };
 
       // Generate tokens using centralized AuthenticationManager
@@ -1058,25 +1152,28 @@ class AuthRoutesHandler extends BaseRouteHandler {
       await this.logAuditEvent(
         AuditEventType.USER_LOGIN_SUCCESS,
         user.id,
-        { 
+        {
           email: user.email,
           securityLevel: user.securityLevel,
-          sessionId 
+          sessionId,
         },
         req
       );
 
-      this.sendSuccessResponse(res, {
-        user: {
-          id: user.id,
-          email: user.email,
-          name: user.name,
-          role: user.role,
-          securityLevel: user.securityLevel
+      this.sendSuccessResponse(
+        res,
+        {
+          user: {
+            id: user.id,
+            email: user.email,
+            name: user.name,
+            role: user.role,
+            securityLevel: user.securityLevel,
+          },
+          ...tokenResponse,
         },
-        ...tokenResponse
-      }, 'Login successful');
-
+        'Login successful'
+      );
     } catch (error) {
       this.handleRouteError(error, res, 'login');
     }
@@ -1095,7 +1192,6 @@ class AuthRoutesHandler extends BaseRouteHandler {
       const tokenResponse = await this.authManager.refreshToken(refreshToken);
 
       this.sendSuccessResponse(res, tokenResponse, 'Token refreshed successfully');
-
     } catch (error) {
       this.handleRouteError(error, res, 'refreshToken');
     }
@@ -1109,11 +1205,11 @@ class AuthRoutesHandler extends BaseRouteHandler {
 // Validation schemas
 const loginSchema = z.object({
   email: z.string().email('Invalid email format'),
-  password: z.string().min(1, 'Password is required')
+  password: z.string().min(1, 'Password is required'),
 });
 
 const refreshTokenSchema = z.object({
-  refreshToken: z.string().min(1, 'Refresh token is required')
+  refreshToken: z.string().min(1, 'Refresh token is required'),
 });
 
 // Export router instance
@@ -1124,6 +1220,7 @@ export default authRoutesHandler.getRouter();
 #### **Task 2.2: Large File Decomposition**
 
 **enhancedSecurityGatewayService.ts Split:**
+
 ```typescript
 // src/services/security/SecurityPolicyManager.ts
 export class SecurityPolicyManager {
@@ -1146,7 +1243,7 @@ export class SecurityPolicyManager {
         isActive: request.isActive ?? true,
         createdBy: request.createdBy,
         createdAt: new Date(),
-        updatedAt: new Date()
+        updatedAt: new Date(),
       });
 
       await this.auditService.logSecurityEvent({
@@ -1155,20 +1252,24 @@ export class SecurityPolicyManager {
         details: {
           policyId: policy.id,
           policyName: policy.name,
-          policyType: policy.type
+          policyType: policy.type,
         },
-        timestamp: new Date()
+        timestamp: new Date(),
       });
 
       return policy;
-
     } catch (error) {
       logger.error('Failed to create security policy', { error, request });
-      throw new SecurityPolicyError(`Failed to create security policy: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw new SecurityPolicyError(
+        `Failed to create security policy: ${error instanceof Error ? error.message : 'Unknown error'}`
+      );
     }
   }
 
-  async updateSecurityPolicy(policyId: string, updates: UpdateSecurityPolicyRequest): Promise<SecurityPolicy> {
+  async updateSecurityPolicy(
+    policyId: string,
+    updates: UpdateSecurityPolicyRequest
+  ): Promise<SecurityPolicy> {
     // Implementation...
   }
 
@@ -1198,7 +1299,7 @@ export class RiskAssessmentService {
         requestId: request.id,
         riskScore,
         riskLevel,
-        factors: Object.keys(factors)
+        factors: Object.keys(factors),
       });
 
       return {
@@ -1206,12 +1307,13 @@ export class RiskAssessmentService {
         score: riskScore,
         factors: factors,
         timestamp: new Date(),
-        assessmentId: `risk_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+        assessmentId: `risk_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
       };
-
     } catch (error) {
       logger.error('Risk assessment failed', { error, request });
-      throw new RiskAssessmentError(`Risk assessment failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw new RiskAssessmentError(
+        `Risk assessment failed: ${error instanceof Error ? error.message : 'Unknown error'}`
+      );
     }
   }
 
@@ -1222,7 +1324,7 @@ export class RiskAssessmentService {
       operationRisk: await this.assessOperationRisk(request.operation),
       contextRisk: await this.assessContextRisk(request.context),
       timeRisk: this.assessTimeBasedRisk(request.timestamp),
-      locationRisk: await this.assessLocationRisk(request.ipAddress)
+      locationRisk: await this.assessLocationRisk(request.ipAddress),
     };
   }
 
@@ -1233,12 +1335,12 @@ export class RiskAssessmentService {
       operationRisk: 0.25,
       contextRisk: 0.2,
       timeRisk: 0.15,
-      locationRisk: 0.1
+      locationRisk: 0.1,
     };
 
     return Object.entries(factors).reduce((total, [factor, value]) => {
       const weight = weights[factor as keyof RiskFactors] || 0;
-      return total + (value * weight);
+      return total + value * weight;
     }, 0);
   }
 
@@ -1263,23 +1365,24 @@ export class ComplianceValidator {
         this.validateDataProtection(request),
         this.validateAccessControl(request),
         this.validateAuditRequirements(request),
-        this.validateRetentionPolicies(request)
+        this.validateRetentionPolicies(request),
       ]);
 
-      const overallCompliance = validations.every(v => v.compliant);
-      const violations = validations.filter(v => !v.compliant);
+      const overallCompliance = validations.every((v) => v.compliant);
+      const violations = validations.filter((v) => !v.compliant);
 
       return {
         compliant: overallCompliance,
         validations,
         violations,
         timestamp: new Date(),
-        complianceLevel: this.determineComplianceLevel(validations)
+        complianceLevel: this.determineComplianceLevel(validations),
       };
-
     } catch (error) {
       logger.error('Compliance validation failed', { error, request });
-      throw new ComplianceError(`Compliance validation failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw new ComplianceError(
+        `Compliance validation failed: ${error instanceof Error ? error.message : 'Unknown error'}`
+      );
     }
   }
 
@@ -1288,12 +1391,12 @@ export class ComplianceValidator {
     return {
       requirement: 'Data Protection',
       compliant: true,
-      details: 'All data protection requirements met'
+      details: 'All data protection requirements met',
     };
   }
 
   private determineComplianceLevel(validations: ComplianceValidation[]): ComplianceLevel {
-    const compliantCount = validations.filter(v => v.compliant).length;
+    const compliantCount = validations.filter((v) => v.compliant).length;
     const ratio = compliantCount / validations.length;
 
     if (ratio === 1) return ComplianceLevel.FULL;
@@ -1305,6 +1408,7 @@ export class ComplianceValidator {
 ```
 
 **userPersonaRoutes.ts Split:**
+
 ```typescript
 // src/routes/user/userProfileRoutes.ts
 class UserProfileRoutesHandler extends BaseRouteHandler {
@@ -1325,10 +1429,10 @@ class UserProfileRoutesHandler extends BaseRouteHandler {
   private async getProfile(req: Request, res: Response): Promise<void> {
     try {
       await this.ensureInitialized();
-      
+
       const { userId } = req.params;
       const userRepository = this.databaseService.getUserRepository();
-      
+
       const profile = await userRepository.getProfile(userId);
       if (!profile) {
         throw new NotFoundError('User profile not found');
@@ -1342,7 +1446,6 @@ class UserProfileRoutesHandler extends BaseRouteHandler {
       );
 
       this.sendSuccessResponse(res, profile);
-
     } catch (error) {
       this.handleRouteError(error, res, 'getProfile', { userId: req.params.userId });
     }
@@ -1374,7 +1477,7 @@ class UserPersonaRoutesHandler extends BaseRouteHandler {
   private async getPersonas(req: Request, res: Response): Promise<void> {
     try {
       await this.ensureInitialized();
-      
+
       const { userId } = req.params;
       const pagination = this.getPaginationParams(req);
       const sort = this.getSortParams(req, ['name', 'createdAt', 'updatedAt']);
@@ -1383,7 +1486,6 @@ class UserPersonaRoutesHandler extends BaseRouteHandler {
       const personas = await personaRepository.findByUserId(userId, pagination, sort);
 
       this.sendSuccessResponse(res, personas);
-
     } catch (error) {
       this.handleRouteError(error, res, 'getPersonas', { userId: req.params.userId });
     }
@@ -1407,6 +1509,7 @@ class UserPreferencesRoutesHandler extends BaseRouteHandler {
 #### **Task 3.1: Standardized Error Handling**
 
 **Central Error Handler:**
+
 ```typescript
 // src/utils/ErrorHandler.ts
 export class StandardErrorHandler {
@@ -1448,8 +1551,8 @@ export class StandardErrorHandler {
           message: error.message,
           details: error.details,
           errorId,
-          timestamp
-        }
+          timestamp,
+        },
       };
     } else if (error instanceof AuthenticationError) {
       return {
@@ -1458,8 +1561,8 @@ export class StandardErrorHandler {
           error: 'Authentication Error',
           message: error.message,
           errorId,
-          timestamp
-        }
+          timestamp,
+        },
       };
     } else if (error instanceof AuthorizationError) {
       return {
@@ -1468,8 +1571,8 @@ export class StandardErrorHandler {
           error: 'Authorization Error',
           message: error.message,
           errorId,
-          timestamp
-        }
+          timestamp,
+        },
       };
     } else if (error instanceof NotFoundError) {
       return {
@@ -1478,8 +1581,8 @@ export class StandardErrorHandler {
           error: 'Not Found',
           message: error.message,
           errorId,
-          timestamp
-        }
+          timestamp,
+        },
       };
     } else if (error instanceof RateLimitError) {
       return {
@@ -1489,8 +1592,8 @@ export class StandardErrorHandler {
           message: error.message,
           retryAfter: error.retryAfter,
           errorId,
-          timestamp
-        }
+          timestamp,
+        },
       };
     } else {
       // Generic server error
@@ -1498,12 +1601,11 @@ export class StandardErrorHandler {
         statusCode: 500,
         body: {
           error: 'Internal Server Error',
-          message: process.env.NODE_ENV === 'production' 
-            ? 'An unexpected error occurred' 
-            : error.message,
+          message:
+            process.env.NODE_ENV === 'production' ? 'An unexpected error occurred' : error.message,
           errorId,
-          timestamp
-        }
+          timestamp,
+        },
       };
     }
   }
@@ -1517,7 +1619,7 @@ export class StandardErrorHandler {
       errorId,
       error: error instanceof Error ? error.message : 'Unknown error',
       stack: error instanceof Error ? error.stack : undefined,
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
     };
 
     if (req) {
@@ -1527,10 +1629,10 @@ export class StandardErrorHandler {
         query: req.query,
         headers: {
           'user-agent': req.headers['user-agent'],
-          'x-forwarded-for': req.headers['x-forwarded-for']
+          'x-forwarded-for': req.headers['x-forwarded-for'],
         },
         ip: req.ip,
-        userId: req.user?.id
+        userId: req.user?.id,
       };
     }
 
@@ -1569,15 +1671,18 @@ export class RateLimitError extends Error {
 #### **Task 3.2: Validation Schema Consolidation**
 
 **Shared Validation Schemas:**
+
 ```typescript
 // src/validation/authSchemas.ts
-export const emailSchema = z.string()
+export const emailSchema = z
+  .string()
   .email('Invalid email format')
   .min(5, 'Email must be at least 5 characters')
   .max(320, 'Email must be less than 320 characters')
-  .transform(email => email.toLowerCase().trim());
+  .transform((email) => email.toLowerCase().trim());
 
-export const passwordSchema = z.string()
+export const passwordSchema = z
+  .string()
   .min(8, 'Password must be at least 8 characters')
   .max(128, 'Password must be less than 128 characters')
   .regex(
@@ -1587,57 +1692,75 @@ export const passwordSchema = z.string()
 
 export const loginSchema = z.object({
   email: emailSchema,
-  password: z.string().min(1, 'Password is required')
+  password: z.string().min(1, 'Password is required'),
 });
 
-export const registerSchema = z.object({
-  email: emailSchema,
-  password: passwordSchema,
-  confirmPassword: z.string(),
-  name: z.string().min(2, 'Name must be at least 2 characters').max(100, 'Name must be less than 100 characters'),
-  acceptTerms: z.boolean().refine(val => val === true, 'You must accept the terms and conditions')
-}).refine(data => data.password === data.confirmPassword, {
-  message: "Passwords don't match",
-  path: ["confirmPassword"]
-});
+export const registerSchema = z
+  .object({
+    email: emailSchema,
+    password: passwordSchema,
+    confirmPassword: z.string(),
+    name: z
+      .string()
+      .min(2, 'Name must be at least 2 characters')
+      .max(100, 'Name must be less than 100 characters'),
+    acceptTerms: z
+      .boolean()
+      .refine((val) => val === true, 'You must accept the terms and conditions'),
+  })
+  .refine((data) => data.password === data.confirmPassword, {
+    message: "Passwords don't match",
+    path: ['confirmPassword'],
+  });
 
-export const passwordResetSchema = z.object({
-  token: z.string().min(1, 'Reset token is required'),
-  newPassword: passwordSchema,
-  confirmPassword: z.string()
-}).refine(data => data.newPassword === data.confirmPassword, {
-  message: "Passwords don't match",
-  path: ["confirmPassword"]
-});
+export const passwordResetSchema = z
+  .object({
+    token: z.string().min(1, 'Reset token is required'),
+    newPassword: passwordSchema,
+    confirmPassword: z.string(),
+  })
+  .refine((data) => data.newPassword === data.confirmPassword, {
+    message: "Passwords don't match",
+    path: ['confirmPassword'],
+  });
 
 export const refreshTokenSchema = z.object({
-  refreshToken: z.string().min(1, 'Refresh token is required')
+  refreshToken: z.string().min(1, 'Refresh token is required'),
 });
 
 // src/validation/userSchemas.ts
 export const userIdSchema = z.string().uuid('Invalid user ID format');
 
-export const userUpdateSchema = z.object({
-  name: z.string().min(2).max(100).optional(),
-  email: emailSchema.optional(),
-  phoneNumber: z.string().regex(/^\+?[\d\s\-\(\)]+$/, 'Invalid phone number format').optional(),
-  timezone: z.string().min(1).max(50).optional(),
-  language: z.string().min(2).max(10).optional(),
-  preferences: z.object({
-    notifications: z.boolean().optional(),
-    emailUpdates: z.boolean().optional(),
-    marketingEmails: z.boolean().optional()
-  }).optional()
-}).strict();
+export const userUpdateSchema = z
+  .object({
+    name: z.string().min(2).max(100).optional(),
+    email: emailSchema.optional(),
+    phoneNumber: z
+      .string()
+      .regex(/^\+?[\d\s\-\(\)]+$/, 'Invalid phone number format')
+      .optional(),
+    timezone: z.string().min(1).max(50).optional(),
+    language: z.string().min(2).max(10).optional(),
+    preferences: z
+      .object({
+        notifications: z.boolean().optional(),
+        emailUpdates: z.boolean().optional(),
+        marketingEmails: z.boolean().optional(),
+      })
+      .optional(),
+  })
+  .strict();
 
-export const passwordChangeSchema = z.object({
-  currentPassword: z.string().min(1, 'Current password is required'),
-  newPassword: passwordSchema,
-  confirmPassword: z.string()
-}).refine(data => data.newPassword === data.confirmPassword, {
-  message: "New passwords don't match",
-  path: ["confirmPassword"]
-});
+export const passwordChangeSchema = z
+  .object({
+    currentPassword: z.string().min(1, 'Current password is required'),
+    newPassword: passwordSchema,
+    confirmPassword: z.string(),
+  })
+  .refine((data) => data.newPassword === data.confirmPassword, {
+    message: "New passwords don't match",
+    path: ['confirmPassword'],
+  });
 
 // src/validation/securitySchemas.ts
 export const securityLevelSchema = z.enum(['LOW', 'MEDIUM', 'HIGH', 'CRITICAL']);
@@ -1646,13 +1769,15 @@ export const securityPolicySchema = z.object({
   name: z.string().min(3).max(100),
   description: z.string().min(10).max(500),
   type: z.enum(['ACCESS_CONTROL', 'DATA_PROTECTION', 'AUDIT', 'COMPLIANCE']),
-  rules: z.array(z.object({
-    condition: z.string(),
-    action: z.enum(['ALLOW', 'DENY', 'REQUIRE_APPROVAL']),
-    priority: z.number().min(1).max(1000)
-  })),
+  rules: z.array(
+    z.object({
+      condition: z.string(),
+      action: z.enum(['ALLOW', 'DENY', 'REQUIRE_APPROVAL']),
+      priority: z.number().min(1).max(1000),
+    })
+  ),
   priority: z.number().min(1).max(1000).default(100),
-  isActive: z.boolean().default(true)
+  isActive: z.boolean().default(true),
 });
 
 export const riskAssessmentSchema = z.object({
@@ -1662,32 +1787,35 @@ export const riskAssessmentSchema = z.object({
     ipAddress: z.string().ip().optional(),
     userAgent: z.string().optional(),
     location: z.string().optional(),
-    deviceId: z.string().optional()
+    deviceId: z.string().optional(),
   }),
-  timestamp: z.date().default(() => new Date())
+  timestamp: z.date().default(() => new Date()),
 });
 
 // Validation middleware factory
-export const createValidationMiddleware = <T>(schema: z.ZodSchema<T>, source: 'body' | 'params' | 'query' = 'body') => {
+export const createValidationMiddleware = <T>(
+  schema: z.ZodSchema<T>,
+  source: 'body' | 'params' | 'query' = 'body'
+) => {
   return (req: Request, res: Response, next: NextFunction) => {
     try {
       const data = req[source];
       const validated = schema.parse(data);
-      
+
       // Replace the original data with validated/transformed data
       (req as any)[source] = validated;
-      
+
       next();
     } catch (error) {
       if (error instanceof z.ZodError) {
         const validationError = new ValidationError('Request validation failed');
-        validationError.details = error.errors.map(err => ({
+        validationError.details = error.errors.map((err) => ({
           field: err.path.join('.'),
           message: err.message,
           code: err.code,
-          received: err.received
+          received: err.received,
         }));
-        
+
         const errorHandler = StandardErrorHandler.getInstance();
         const errorResponse = errorHandler.processError(validationError, req);
         return res.status(errorResponse.statusCode).json(errorResponse.body);
@@ -1703,6 +1831,7 @@ export const createValidationMiddleware = <T>(schema: z.ZodSchema<T>, source: 'b
 #### **Task 4.1: Test Infrastructure Restoration**
 
 **Updated Test Configuration:**
+
 ```typescript
 // jest.config.js - Complete configuration
 export default {
@@ -1716,33 +1845,28 @@ export default {
         moduleResolution: 'node',
         allowSyntheticDefaultImports: true,
         esModuleInterop: true,
-        target: 'ES2022'
-      }
-    }
+        target: 'ES2022',
+      },
+    },
   },
   moduleNameMapping: {
     '^(\\.{1,2}/.*)\\.js$': '$1',
     '^@/(.*)$': '<rootDir>/src/$1',
-    '^@uaip/(.*)$': '<rootDir>/../../shared/$1/src'
+    '^@uaip/(.*)$': '<rootDir>/../../shared/$1/src',
   },
   transform: {
-    '^.+\\.tsx?$': ['ts-jest', {
-      useESM: true
-    }],
+    '^.+\\.tsx?$': [
+      'ts-jest',
+      {
+        useESM: true,
+      },
+    ],
   },
   moduleFileExtensions: ['ts', 'tsx', 'js', 'jsx'],
-  testMatch: [
-    '**/__tests__/**/*.test.ts',
-    '**/*.test.ts'
-  ],
+  testMatch: ['**/__tests__/**/*.test.ts', '**/*.test.ts'],
   testEnvironment: 'node',
   setupFilesAfterEnv: ['<rootDir>/src/__tests__/setup.ts'],
-  collectCoverageFrom: [
-    'src/**/*.ts',
-    '!src/**/*.d.ts',
-    '!src/__tests__/**/*',
-    '!src/index.ts'
-  ],
+  collectCoverageFrom: ['src/**/*.ts', '!src/**/*.d.ts', '!src/__tests__/**/*', '!src/index.ts'],
   coverageDirectory: 'coverage',
   coverageReporters: ['text', 'lcov', 'html'],
   coverageThreshold: {
@@ -1764,19 +1888,24 @@ export default {
       functions: 85,
       lines: 85,
       statements: 85,
-    }
+    },
   },
   testTimeout: 30000,
   maxWorkers: '50%',
-  verbose: true
+  verbose: true,
 };
 ```
 
 **Comprehensive Test Suite:**
+
 ```typescript
 // src/__tests__/unit/AuthenticationManager.test.ts
 import { jest } from '@jest/globals';
-import { AuthenticationManager, AuthenticationError, SecurityLevel } from '../../services/core/AuthenticationManager.js';
+import {
+  AuthenticationManager,
+  AuthenticationError,
+  SecurityLevel,
+} from '../../services/core/AuthenticationManager.js';
 import jwt from 'jsonwebtoken';
 
 describe('AuthenticationManager', () => {
@@ -1786,7 +1915,7 @@ describe('AuthenticationManager', () => {
 
   beforeEach(() => {
     authManager = AuthenticationManager.getInstance();
-    
+
     // Mock environment variables
     process.env.JWT_SECRET = 'test-secret';
     process.env.JWT_REFRESH_SECRET = 'test-refresh-secret';
@@ -1797,15 +1926,15 @@ describe('AuthenticationManager', () => {
     mockDatabaseService = {
       getUserRepository: jest.fn().mockReturnValue({
         findById: jest.fn(),
-        updateLastLogin: jest.fn().mockResolvedValue(undefined)
+        updateLastLogin: jest.fn().mockResolvedValue(undefined),
       }),
       getSessionRepository: jest.fn().mockReturnValue({
-        validateSession: jest.fn().mockResolvedValue({ valid: true })
-      })
+        validateSession: jest.fn().mockResolvedValue({ valid: true }),
+      }),
     };
 
     mockAuditService = {
-      logSecurityEvent: jest.fn().mockResolvedValue(undefined)
+      logSecurityEvent: jest.fn().mockResolvedValue(undefined),
     };
 
     // Inject mocks into manager (would need dependency injection in real implementation)
@@ -1823,13 +1952,13 @@ describe('AuthenticationManager', () => {
       email: 'test@example.com',
       role: 'USER',
       securityLevel: SecurityLevel.MEDIUM,
-      complianceFlags: ['GDPR']
+      complianceFlags: ['GDPR'],
     };
 
     const mockSessionContext = {
       sessionId: 'session-123',
       ipAddress: '192.168.1.1',
-      userAgent: 'Test-Agent'
+      userAgent: 'Test-Agent',
     };
 
     it('should generate valid JWT tokens', async () => {
@@ -1852,8 +1981,9 @@ describe('AuthenticationManager', () => {
     it('should handle missing JWT secret', async () => {
       delete process.env.JWT_SECRET;
 
-      await expect(authManager.generateTokens(mockUser, mockSessionContext))
-        .rejects.toThrow('JWT_SECRET environment variable not configured');
+      await expect(authManager.generateTokens(mockUser, mockSessionContext)).rejects.toThrow(
+        'JWT_SECRET environment variable not configured'
+      );
     });
 
     it('should log audit event for token generation', async () => {
@@ -1864,8 +1994,8 @@ describe('AuthenticationManager', () => {
           eventType: expect.any(String),
           userId: mockUser.id,
           details: expect.objectContaining({
-            sessionId: mockSessionContext.sessionId
-          })
+            sessionId: mockSessionContext.sessionId,
+          }),
         })
       );
     });
@@ -1879,7 +2009,7 @@ describe('AuthenticationManager', () => {
         role: 'USER',
         sessionId: 'session-123',
         securityLevel: SecurityLevel.MEDIUM,
-        complianceFlags: ['GDPR']
+        complianceFlags: ['GDPR'],
       };
 
       const token = jwt.sign(tokenPayload, 'test-secret', { expiresIn: '1h' });
@@ -1888,7 +2018,7 @@ describe('AuthenticationManager', () => {
       mockDatabaseService.getUserRepository().findById.mockResolvedValue({
         id: 'user-123',
         isActive: true,
-        isLocked: false
+        isLocked: false,
       });
 
       const result = await authManager.validateToken(token);
@@ -1903,7 +2033,7 @@ describe('AuthenticationManager', () => {
       const tokenPayload = {
         userId: 'user-123',
         email: 'test@example.com',
-        role: 'USER'
+        role: 'USER',
       };
 
       const token = jwt.sign(tokenPayload, 'test-secret', { expiresIn: '-1h' });
@@ -1929,21 +2059,21 @@ describe('AuthenticationManager', () => {
         email: 'test@example.com',
         role: 'USER',
         sessionId: 'session-123',
-        securityLevel: SecurityLevel.HIGH
+        securityLevel: SecurityLevel.HIGH,
       };
 
       const token = jwt.sign(tokenPayload, 'test-secret');
       const validationContext = {
         ipAddress: '192.168.1.1',
         userAgent: 'Test-Agent',
-        requestPath: '/api/secure-endpoint'
+        requestPath: '/api/secure-endpoint',
       };
 
       // Mock security validation
       mockDatabaseService.getUserRepository().findById.mockResolvedValue({
         id: 'user-123',
         isActive: true,
-        isLocked: false
+        isLocked: false,
       });
 
       const result = await authManager.validateToken(token, validationContext);
@@ -1958,7 +2088,7 @@ describe('AuthenticationManager', () => {
       const refreshPayload = {
         userId: 'user-123',
         sessionId: 'session-123',
-        tokenType: 'refresh'
+        tokenType: 'refresh',
       };
 
       const refreshToken = jwt.sign(refreshPayload, 'test-refresh-secret');
@@ -1969,7 +2099,7 @@ describe('AuthenticationManager', () => {
         email: 'test@example.com',
         role: 'USER',
         securityLevel: SecurityLevel.MEDIUM,
-        isActive: true
+        isActive: true,
       });
 
       const result = await authManager.refreshToken(refreshToken);
@@ -1980,8 +2110,9 @@ describe('AuthenticationManager', () => {
     });
 
     it('should reject invalid refresh tokens', async () => {
-      await expect(authManager.refreshToken('invalid-refresh-token'))
-        .rejects.toThrow(AuthenticationError);
+      await expect(authManager.refreshToken('invalid-refresh-token')).rejects.toThrow(
+        AuthenticationError
+      );
     });
   });
 });
@@ -2007,7 +2138,7 @@ describe('Authentication Flow Integration', () => {
       email: 'integration-test@example.com',
       password: 'TestPassword123!',
       name: 'Integration Test User',
-      role: 'USER'
+      role: 'USER',
     });
   });
 
@@ -2022,7 +2153,7 @@ describe('Authentication Flow Integration', () => {
         .post('/api/v1/auth/login')
         .send({
           email: 'integration-test@example.com',
-          password: 'TestPassword123!'
+          password: 'TestPassword123!',
         })
         .expect(200);
 
@@ -2037,7 +2168,7 @@ describe('Authentication Flow Integration', () => {
         .post('/api/v1/auth/login')
         .send({
           email: 'integration-test@example.com',
-          password: 'WrongPassword123!'
+          password: 'WrongPassword123!',
         })
         .expect(401);
 
@@ -2050,7 +2181,7 @@ describe('Authentication Flow Integration', () => {
         .post('/api/v1/auth/login')
         .send({
           email: 'invalid-email',
-          password: '123'
+          password: '123',
         })
         .expect(400);
 
@@ -2063,12 +2194,10 @@ describe('Authentication Flow Integration', () => {
     let validRefreshToken: string;
 
     beforeEach(async () => {
-      const loginResponse = await supertest(app)
-        .post('/api/v1/auth/login')
-        .send({
-          email: 'integration-test@example.com',
-          password: 'TestPassword123!'
-        });
+      const loginResponse = await supertest(app).post('/api/v1/auth/login').send({
+        email: 'integration-test@example.com',
+        password: 'TestPassword123!',
+      });
 
       validRefreshToken = loginResponse.body.data.refreshToken;
     });
@@ -2077,7 +2206,7 @@ describe('Authentication Flow Integration', () => {
       const response = await supertest(app)
         .post('/api/v1/auth/refresh')
         .send({
-          refreshToken: validRefreshToken
+          refreshToken: validRefreshToken,
         })
         .expect(200);
 
@@ -2090,7 +2219,7 @@ describe('Authentication Flow Integration', () => {
       const response = await supertest(app)
         .post('/api/v1/auth/refresh')
         .send({
-          refreshToken: 'invalid-refresh-token'
+          refreshToken: 'invalid-refresh-token',
         })
         .expect(401);
 
@@ -2102,12 +2231,10 @@ describe('Authentication Flow Integration', () => {
     let accessToken: string;
 
     beforeEach(async () => {
-      const loginResponse = await supertest(app)
-        .post('/api/v1/auth/login')
-        .send({
-          email: 'integration-test@example.com',
-          password: 'TestPassword123!'
-        });
+      const loginResponse = await supertest(app).post('/api/v1/auth/login').send({
+        email: 'integration-test@example.com',
+        password: 'TestPassword123!',
+      });
 
       accessToken = loginResponse.body.data.accessToken;
     });
@@ -2122,9 +2249,7 @@ describe('Authentication Flow Integration', () => {
     });
 
     it('should reject requests without token', async () => {
-      const response = await supertest(app)
-        .get(`/api/v1/users/${testUser.id}/profile`)
-        .expect(401);
+      const response = await supertest(app).get(`/api/v1/users/${testUser.id}/profile`).expect(401);
 
       expect(response.body.error).toBe('Authentication required');
     });
@@ -2144,6 +2269,7 @@ describe('Authentication Flow Integration', () => {
 #### **Task 4.2: Performance Optimization**
 
 **Database Query Optimization:**
+
 ```typescript
 // src/services/performance/QueryOptimizer.ts
 export class QueryOptimizer {
@@ -2160,7 +2286,7 @@ export class QueryOptimizer {
    */
   async findUserWithCache(userId: string): Promise<UserEntity | null> {
     const cacheKey = `user:${userId}`;
-    
+
     // Try cache first
     const cachedUser = await this.cacheService.get(cacheKey);
     if (cachedUser) {
@@ -2195,7 +2321,7 @@ export class QueryOptimizer {
     for (const userId of userIds) {
       const cacheKey = `user:${userId}`;
       const cachedUser = await this.cacheService.get(cacheKey);
-      
+
       if (cachedUser) {
         result.set(userId, JSON.parse(cachedUser));
         this.metricsCollector.recordCacheHit('user_batch_lookup');
@@ -2229,7 +2355,7 @@ export class QueryOptimizer {
    */
   async findSecurityPoliciesOptimized(criteria: PolicySearchCriteria): Promise<SecurityPolicy[]> {
     const cacheKey = `policies:${this.generateCriteriaHash(criteria)}`;
-    
+
     // Check cache
     const cached = await this.cacheService.get(cacheKey);
     if (cached) {
@@ -2239,9 +2365,11 @@ export class QueryOptimizer {
 
     // Optimize query based on criteria
     const optimizedQuery = this.buildOptimizedPolicyQuery(criteria);
-    
+
     const startTime = Date.now();
-    const policies = await this.databaseService.getSecurityPolicyRepository().findWithQuery(optimizedQuery);
+    const policies = await this.databaseService
+      .getSecurityPolicyRepository()
+      .findWithQuery(optimizedQuery);
     const queryTime = Date.now() - startTime;
 
     this.metricsCollector.recordQueryTime('policy_lookup', queryTime);
@@ -2259,7 +2387,7 @@ export class QueryOptimizer {
     const query: any = {
       where: {},
       order: [],
-      relations: []
+      relations: [],
     };
 
     // Use indexes for common search patterns
@@ -2288,8 +2416,8 @@ export class QueryOptimizer {
 
   private calculatePolicyTTL(policies: SecurityPolicy[]): number {
     // Dynamic TTL based on policy sensitivity
-    const hasHighPriority = policies.some(p => p.priority > 800);
-    const hasCriticalType = policies.some(p => p.type === 'COMPLIANCE');
+    const hasHighPriority = policies.some((p) => p.priority > 800);
+    const hasCriticalType = policies.some((p) => p.type === 'COMPLIANCE');
 
     if (hasHighPriority || hasCriticalType) {
       return 60; // 1 minute for critical policies
@@ -2309,35 +2437,35 @@ export const getDatabaseConfig = (): any => {
     username: process.env.DB_USERNAME,
     password: process.env.DB_PASSWORD,
     database: process.env.DB_NAME,
-    
+
     // Optimized connection pooling
     extra: {
       connectionLimit: parseInt(process.env.DB_CONNECTION_LIMIT || '20'),
       acquireConnectionTimeout: parseInt(process.env.DB_ACQUIRE_TIMEOUT || '60000'),
       timeout: parseInt(process.env.DB_TIMEOUT || '60000'),
-      
+
       // Connection pool optimization
       max: parseInt(process.env.DB_POOL_MAX || '20'),
       min: parseInt(process.env.DB_POOL_MIN || '5'),
       idle: parseInt(process.env.DB_POOL_IDLE || '10000'),
       acquire: parseInt(process.env.DB_POOL_ACQUIRE || '60000'),
       evict: parseInt(process.env.DB_POOL_EVICT || '1000'),
-      
+
       // Query optimization
       statement_timeout: '30s',
       query_timeout: '30s',
-      application_name: 'security-gateway'
+      application_name: 'security-gateway',
     },
 
     // Entity and migration paths
     entities: ['dist/entities/*.js'],
     migrations: ['dist/migrations/*.js'],
-    
+
     // Performance settings
     synchronize: false,
     logging: process.env.NODE_ENV === 'development' ? ['query', 'error'] : ['error'],
     logger: 'advanced-console',
-    
+
     // Query result caching
     cache: {
       type: 'redis',
@@ -2345,10 +2473,10 @@ export const getDatabaseConfig = (): any => {
         host: process.env.REDIS_HOST || 'localhost',
         port: parseInt(process.env.REDIS_PORT || '6379'),
         password: process.env.REDIS_PASSWORD,
-        db: parseInt(process.env.REDIS_CACHE_DB || '1')
+        db: parseInt(process.env.REDIS_CACHE_DB || '1'),
       },
-      duration: 30000 // 30 seconds default cache
-    }
+      duration: 30000, // 30 seconds default cache
+    },
   };
 };
 ```
@@ -2360,21 +2488,25 @@ export const getDatabaseConfig = (): any => {
 ### **Week-by-Week Breakdown**
 
 **Week 1: Foundation Repair** 🔴
+
 - **Days 1-2:** Fix test infrastructure, restore 8 failed test suites
 - **Days 3-5:** Implement AuthenticationManager consolidation
 - **Expected Outcome:** 0% → 60% test coverage, single JWT implementation
 
-**Week 2: Service Architecture** 🟠  
+**Week 2: Service Architecture** 🟠
+
 - **Days 1-2:** Implement BaseRouteHandler pattern, consolidate service initialization
 - **Days 3-5:** Split large files (enhancedSecurityGatewayService.ts, userPersonaRoutes.ts)
 - **Expected Outcome:** 6+ duplicate patterns eliminated, no files >500 lines
 
 **Week 3: Error Handling & Validation** 🟡
+
 - **Days 1-2:** Implement StandardErrorHandler, consolidate error patterns
 - **Days 3-5:** Create shared validation schemas, eliminate duplicate validations
 - **Expected Outcome:** Consistent error handling, reusable validation patterns
 
 **Week 4: Testing & Performance** 🟢
+
 - **Days 1-3:** Comprehensive test suite for new patterns, achieve 80% coverage
 - **Days 4-5:** Performance optimizations, database query improvements
 - **Expected Outcome:** Production-ready refactored service
@@ -2382,24 +2514,28 @@ export const getDatabaseConfig = (): any => {
 ### **Success Metrics**
 
 **Code Quality:**
+
 - ✅ **Line Reduction:** 35-40% fewer lines through deduplication
-- ✅ **File Size:** No files >500 lines (target: <300 lines)  
+- ✅ **File Size:** No files >500 lines (target: <300 lines)
 - ✅ **Test Coverage:** 80% coverage on business logic
 - ✅ **Maintainability:** Improved complexity scores across all services
 
 **Security Improvements:**
+
 - ✅ **Single Source of Truth:** Consolidated authentication logic
 - ✅ **Consistent Validation:** Standardized security checks
 - ✅ **Audit Compliance:** Centralized security logging
 - ✅ **Risk Reduction:** Eliminated authentication inconsistencies
 
 **Performance Gains:**
+
 - ✅ **Response Time:** 25% improvement in API response times
 - ✅ **Database Efficiency:** Optimized query patterns and connection pooling
 - ✅ **Cache Hit Rate:** 80%+ cache hit rate for frequently accessed data
 - ✅ **Memory Usage:** Reduced memory footprint through service consolidation
 
 **Development Velocity:**
+
 - ✅ **Bug Fix Time:** 50% reduction in security-related bugs
 - ✅ **Feature Development:** 30% faster implementation of new features
 - ✅ **Code Review:** Easier review process with focused, smaller files
@@ -2408,18 +2544,21 @@ export const getDatabaseConfig = (): any => {
 ### **Risk Mitigation Strategy**
 
 **Gradual Migration Approach:**
+
 - Implement new patterns alongside existing ones
 - Use feature flags for major changes
 - Maintain backward compatibility during transition
 - Keep original implementations until new ones are proven
 
 **Quality Assurance:**
+
 - Comprehensive testing before removing old code
 - Progressive rollout with monitoring
 - Automated regression testing
 - Performance benchmarking at each phase
 
 **Rollback Capability:**
+
 - Version control checkpoints at each phase
 - Database migration rollback scripts
 - Configuration-based pattern switching
@@ -2432,6 +2571,7 @@ export const getDatabaseConfig = (): any => {
 This refactoring plan addresses the most critical technical debt issues in the Security Gateway service while preserving its excellent foundational architecture. The focus on **security consistency**, **code deduplication**, and **maintainability improvements** will significantly enhance the service's robustness and developer experience.
 
 **Key Benefits:**
+
 - **Security Risk Reduction:** Consolidated authentication patterns eliminate inconsistencies
 - **Maintenance Efficiency:** 40% code reduction through deduplication
 - **Quality Assurance:** Restored test infrastructure with 80% coverage target

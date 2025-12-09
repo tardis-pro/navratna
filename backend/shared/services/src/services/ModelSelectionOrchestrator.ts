@@ -3,11 +3,11 @@ import { UserLLMPreference } from '../entities/userLLMPreference.entity.js';
 import { AgentLLMPreference } from '../entities/agentLLMPreference.entity.js';
 import { Agent } from '../entities/agent.entity.js';
 import { LLMProvider } from '../entities/llmProvider.entity.js';
-import { 
-  LLMTaskType, 
-  LLMProviderType, 
+import {
+  LLMTaskType,
+  LLMProviderType,
   RoutingRequest,
-  UserLLMPreference as UserLLMPreferenceType 
+  UserLLMPreference as UserLLMPreferenceType,
 } from '@uaip/types';
 import { logger } from '@uaip/utils';
 
@@ -55,7 +55,10 @@ export interface FallbackChain {
 
 export interface ModelSelectionStrategy {
   name: string;
-  select(request: ModelSelectionRequest, context: ModelSelectionContext): Promise<ModelSelectionResult>;
+  select(
+    request: ModelSelectionRequest,
+    context: ModelSelectionContext
+  ): Promise<ModelSelectionResult>;
   canHandle(request: ModelSelectionRequest): boolean;
   priority: number; // Higher = tried first
 }
@@ -80,7 +83,7 @@ export const UNIFIED_SYSTEM_DEFAULTS: Record<LLMTaskType, ModelSelectionResult> 
     source: 'system',
     reasoning: 'Claude 3.5 Sonnet optimized for concise, accurate summarization',
     confidence: 0.8,
-    selectionStrategy: 'SystemDefaultStrategy'
+    selectionStrategy: 'SystemDefaultStrategy',
   },
   [LLMTaskType.VISION]: {
     provider: LLMProviderType.ANTHROPIC,
@@ -89,7 +92,7 @@ export const UNIFIED_SYSTEM_DEFAULTS: Record<LLMTaskType, ModelSelectionResult> 
     source: 'system',
     reasoning: 'Claude 3.5 Sonnet excellent for vision analysis',
     confidence: 0.9,
-    selectionStrategy: 'SystemDefaultStrategy'
+    selectionStrategy: 'SystemDefaultStrategy',
   },
   [LLMTaskType.TOOL_CALLING]: {
     provider: LLMProviderType.ANTHROPIC,
@@ -98,7 +101,7 @@ export const UNIFIED_SYSTEM_DEFAULTS: Record<LLMTaskType, ModelSelectionResult> 
     source: 'system',
     reasoning: 'Claude 3.5 Sonnet reliable for structured tool calling',
     confidence: 0.9,
-    selectionStrategy: 'SystemDefaultStrategy'
+    selectionStrategy: 'SystemDefaultStrategy',
   },
   [LLMTaskType.SPEECH_TO_TEXT]: {
     provider: LLMProviderType.OPENAI,
@@ -107,7 +110,7 @@ export const UNIFIED_SYSTEM_DEFAULTS: Record<LLMTaskType, ModelSelectionResult> 
     source: 'system',
     reasoning: 'OpenAI Whisper specialized for speech transcription',
     confidence: 1.0,
-    selectionStrategy: 'SystemDefaultStrategy'
+    selectionStrategy: 'SystemDefaultStrategy',
   },
   [LLMTaskType.TEXT_TO_SPEECH]: {
     provider: LLMProviderType.OPENAI,
@@ -116,7 +119,7 @@ export const UNIFIED_SYSTEM_DEFAULTS: Record<LLMTaskType, ModelSelectionResult> 
     source: 'system',
     reasoning: 'OpenAI TTS for text-to-speech generation',
     confidence: 0.9,
-    selectionStrategy: 'SystemDefaultStrategy'
+    selectionStrategy: 'SystemDefaultStrategy',
   },
   [LLMTaskType.CODE_GENERATION]: {
     provider: LLMProviderType.ANTHROPIC,
@@ -125,7 +128,7 @@ export const UNIFIED_SYSTEM_DEFAULTS: Record<LLMTaskType, ModelSelectionResult> 
     source: 'system',
     reasoning: 'Claude 3.5 Sonnet strong for code generation',
     confidence: 0.85,
-    selectionStrategy: 'SystemDefaultStrategy'
+    selectionStrategy: 'SystemDefaultStrategy',
   },
   [LLMTaskType.REASONING]: {
     provider: LLMProviderType.ANTHROPIC,
@@ -134,7 +137,7 @@ export const UNIFIED_SYSTEM_DEFAULTS: Record<LLMTaskType, ModelSelectionResult> 
     source: 'system',
     reasoning: 'Claude 3.5 Sonnet best for complex reasoning',
     confidence: 0.95,
-    selectionStrategy: 'SystemDefaultStrategy'
+    selectionStrategy: 'SystemDefaultStrategy',
   },
   [LLMTaskType.CREATIVE_WRITING]: {
     provider: LLMProviderType.OPENAI,
@@ -143,7 +146,7 @@ export const UNIFIED_SYSTEM_DEFAULTS: Record<LLMTaskType, ModelSelectionResult> 
     source: 'system',
     reasoning: 'GPT-4o Mini excellent for creative writing',
     confidence: 0.8,
-    selectionStrategy: 'SystemDefaultStrategy'
+    selectionStrategy: 'SystemDefaultStrategy',
   },
   [LLMTaskType.TRANSLATION]: {
     provider: LLMProviderType.ANTHROPIC,
@@ -152,7 +155,7 @@ export const UNIFIED_SYSTEM_DEFAULTS: Record<LLMTaskType, ModelSelectionResult> 
     source: 'system',
     reasoning: 'Claude 3.5 Sonnet reliable for translation',
     confidence: 0.8,
-    selectionStrategy: 'SystemDefaultStrategy'
+    selectionStrategy: 'SystemDefaultStrategy',
   },
   [LLMTaskType.EMBEDDINGS]: {
     provider: LLMProviderType.OPENAI,
@@ -161,7 +164,7 @@ export const UNIFIED_SYSTEM_DEFAULTS: Record<LLMTaskType, ModelSelectionResult> 
     source: 'system',
     reasoning: 'OpenAI embeddings for vector similarity',
     confidence: 0.9,
-    selectionStrategy: 'SystemDefaultStrategy'
+    selectionStrategy: 'SystemDefaultStrategy',
   },
   [LLMTaskType.CLASSIFICATION]: {
     provider: LLMProviderType.ANTHROPIC,
@@ -170,8 +173,8 @@ export const UNIFIED_SYSTEM_DEFAULTS: Record<LLMTaskType, ModelSelectionResult> 
     source: 'system',
     reasoning: 'Claude 3.5 Sonnet fast and accurate for classification',
     confidence: 0.85,
-    selectionStrategy: 'SystemDefaultStrategy'
-  }
+    selectionStrategy: 'SystemDefaultStrategy',
+  },
 };
 
 // =============================================================================
@@ -190,13 +193,16 @@ export class AgentSpecificStrategy implements ModelSelectionStrategy {
     return !!request.agentId;
   }
 
-  async select(request: ModelSelectionRequest, context: ModelSelectionContext): Promise<ModelSelectionResult> {
+  async select(
+    request: ModelSelectionRequest,
+    context: ModelSelectionContext
+  ): Promise<ModelSelectionResult> {
     if (!request.agentId) {
       throw new Error('Agent ID required for AgentSpecificStrategy');
     }
 
     const agentPreference = await context.agentLLMPreferenceRepository.findOne({
-      where: { agentId: request.agentId, taskType: request.taskType, isActive: true }
+      where: { agentId: request.agentId, taskType: request.taskType, isActive: true },
     });
 
     if (!agentPreference || !agentPreference.isActive) {
@@ -213,12 +219,12 @@ export class AgentSpecificStrategy implements ModelSelectionStrategy {
       source: 'agent',
       reasoning: `Agent-specific preference: ${agentPreference.reasoning || 'Optimized for agent role'}`,
       confidence,
-      selectionStrategy: this.name
+      selectionStrategy: this.name,
     };
   }
 
   private calculateConfidence(performanceScore: number, source: 'agent'): number {
-    return Math.min(0.95, 0.6 + (performanceScore * 0.35));
+    return Math.min(0.95, 0.6 + performanceScore * 0.35);
   }
 }
 
@@ -234,14 +240,17 @@ export class UserSpecificStrategy implements ModelSelectionStrategy {
     return !!(request.userId || request.agentId);
   }
 
-  async select(request: ModelSelectionRequest, context: ModelSelectionContext): Promise<ModelSelectionResult> {
+  async select(
+    request: ModelSelectionRequest,
+    context: ModelSelectionContext
+  ): Promise<ModelSelectionResult> {
     let userId = request.userId;
 
     // If agentId provided, get user from agent
     if (!userId && request.agentId) {
       const agent = await context.agentRepository.findOne({
         where: { id: request.agentId },
-        select: ['createdBy']
+        select: ['createdBy'],
       });
       userId = agent?.createdBy;
     }
@@ -251,7 +260,7 @@ export class UserSpecificStrategy implements ModelSelectionStrategy {
     }
 
     const userPreference = await context.userLLMPreferenceRepository.findOne({
-      where: { userId, taskType: request.taskType, isActive: true }
+      where: { userId, taskType: request.taskType, isActive: true },
     });
 
     if (!userPreference || !userPreference.isActive) {
@@ -268,12 +277,12 @@ export class UserSpecificStrategy implements ModelSelectionStrategy {
       source: 'user',
       reasoning: `User preference: ${userPreference.description || 'User-defined default'}`,
       confidence,
-      selectionStrategy: this.name
+      selectionStrategy: this.name,
     };
   }
 
   private calculateConfidence(performanceScore: number, source: 'user'): number {
-    return Math.min(0.85, 0.5 + (performanceScore * 0.35));
+    return Math.min(0.85, 0.5 + performanceScore * 0.35);
   }
 }
 
@@ -289,15 +298,22 @@ export class PerformanceOptimizedStrategy implements ModelSelectionStrategy {
     return true; // Can always provide a performance-optimized selection
   }
 
-  async select(request: ModelSelectionRequest, context: ModelSelectionContext): Promise<ModelSelectionResult> {
+  async select(
+    request: ModelSelectionRequest,
+    context: ModelSelectionContext
+  ): Promise<ModelSelectionResult> {
     // Start with system defaults
     const systemDefault = context.systemDefaults[request.taskType];
-    
+
     // Try to find better performing alternatives based on user/agent history
     let bestResult = { ...systemDefault };
 
     if (request.agentId) {
-      const agentPerformance = await this.getAgentPerformanceData(request.agentId, request.taskType, context);
+      const agentPerformance = await this.getAgentPerformanceData(
+        request.agentId,
+        request.taskType,
+        context
+      );
       if (agentPerformance && agentPerformance.score > 0.7) {
         bestResult = this.optimizeForPerformance(bestResult, agentPerformance);
       }
@@ -308,31 +324,38 @@ export class PerformanceOptimizedStrategy implements ModelSelectionStrategy {
     return bestResult;
   }
 
-  private async getAgentPerformanceData(agentId: string, taskType: LLMTaskType, context: ModelSelectionContext) {
+  private async getAgentPerformanceData(
+    agentId: string,
+    taskType: LLMTaskType,
+    context: ModelSelectionContext
+  ) {
     const preferences = await context.agentLLMPreferenceRepository.find({
-      where: { agentId, taskType }
+      where: { agentId, taskType },
     });
 
     if (preferences.length === 0) return null;
 
     // Find the best performing preference
-    const bestPreference = preferences.reduce((best, current) => 
+    const bestPreference = preferences.reduce((best, current) =>
       current.getPerformanceScore() > best.getPerformanceScore() ? current : best
     );
 
     return {
       provider: bestPreference.preferredProvider,
       model: bestPreference.preferredModel,
-      score: bestPreference.getPerformanceScore()
+      score: bestPreference.getPerformanceScore(),
     };
   }
 
-  private optimizeForPerformance(baseResult: ModelSelectionResult, performanceData: any): ModelSelectionResult {
+  private optimizeForPerformance(
+    baseResult: ModelSelectionResult,
+    performanceData: any
+  ): ModelSelectionResult {
     return {
       ...baseResult,
       provider: performanceData.provider,
       model: performanceData.model,
-      confidence: Math.min(0.9, baseResult.confidence + 0.1)
+      confidence: Math.min(0.9, baseResult.confidence + 0.1),
     };
   }
 }
@@ -349,7 +372,10 @@ export class ContextAwareStrategy implements ModelSelectionStrategy {
     return !!(request.urgency || request.complexity || request.context);
   }
 
-  async select(request: ModelSelectionRequest, context: ModelSelectionContext): Promise<ModelSelectionResult> {
+  async select(
+    request: ModelSelectionRequest,
+    context: ModelSelectionContext
+  ): Promise<ModelSelectionResult> {
     const systemDefault = context.systemDefaults[request.taskType];
     let adjusted = { ...systemDefault };
 
@@ -379,7 +405,7 @@ export class ContextAwareStrategy implements ModelSelectionStrategy {
     if (result.model.includes('opus')) {
       result.model = result.model.replace('opus', 'sonnet');
     }
-    
+
     // Reduce temperature for more deterministic results
     if (result.settings.temperature && result.settings.temperature > 0.2) {
       result.settings = { ...result.settings, temperature: 0.2 };
@@ -393,11 +419,15 @@ export class ContextAwareStrategy implements ModelSelectionStrategy {
     if (result.model.includes('haiku')) {
       result.model = result.model.replace('haiku', 'sonnet');
     }
-    
+
     return result;
   }
 
-  private applyContextAdjustments(result: ModelSelectionResult, context: RoutingRequest, taskType: LLMTaskType): ModelSelectionResult {
+  private applyContextAdjustments(
+    result: ModelSelectionResult,
+    context: RoutingRequest,
+    taskType: LLMTaskType
+  ): ModelSelectionResult {
     // Apply domain-specific optimizations
     if (context.domain === 'code_review' && taskType !== LLMTaskType.CODE_GENERATION) {
       result.settings = { ...result.settings, temperature: 0.1 };
@@ -419,11 +449,14 @@ export class SystemDefaultStrategy implements ModelSelectionStrategy {
     return true; // Always can provide defaults
   }
 
-  async select(request: ModelSelectionRequest, context: ModelSelectionContext): Promise<ModelSelectionResult> {
+  async select(
+    request: ModelSelectionRequest,
+    context: ModelSelectionContext
+  ): Promise<ModelSelectionResult> {
     const systemDefault = context.systemDefaults[request.taskType];
     return {
       ...systemDefault,
-      selectionStrategy: this.name
+      selectionStrategy: this.name,
     };
   }
 }
@@ -447,7 +480,7 @@ export class ModelSelectionOrchestrator {
       userLLMPreferenceRepository,
       agentLLMPreferenceRepository,
       llmProviderRepository,
-      systemDefaults: UNIFIED_SYSTEM_DEFAULTS
+      systemDefaults: UNIFIED_SYSTEM_DEFAULTS,
     };
 
     // Initialize strategies in priority order
@@ -456,7 +489,7 @@ export class ModelSelectionOrchestrator {
       new UserSpecificStrategy(),
       new ContextAwareStrategy(),
       new PerformanceOptimizedStrategy(),
-      new SystemDefaultStrategy()
+      new SystemDefaultStrategy(),
     ].sort((a, b) => b.priority - a.priority);
   }
 
@@ -473,20 +506,20 @@ export class ModelSelectionOrchestrator {
 
       try {
         const result = await strategy.select(request, this.context);
-        
+
         logger.info('Model selected successfully', {
           strategy: strategy.name,
           model: result.model,
           provider: result.provider,
           confidence: result.confidence,
-          taskType: request.taskType
+          taskType: request.taskType,
         });
 
         return result;
       } catch (error) {
-        logger.warn(`Strategy ${strategy.name} failed`, { 
+        logger.warn(`Strategy ${strategy.name} failed`, {
           error: error instanceof Error ? error.message : 'Unknown error',
-          taskType: request.taskType
+          taskType: request.taskType,
         });
         errors.push(error instanceof Error ? error : new Error('Unknown error'));
         continue;
@@ -494,7 +527,9 @@ export class ModelSelectionOrchestrator {
     }
 
     // If all strategies failed, this shouldn't happen as SystemDefaultStrategy should always work
-    throw new Error(`All model selection strategies failed: ${errors.map(e => e.message).join(', ')}`);
+    throw new Error(
+      `All model selection strategies failed: ${errors.map((e) => e.message).join(', ')}`
+    );
   }
 
   /**
@@ -506,7 +541,7 @@ export class ModelSelectionOrchestrator {
 
     // Generate fallback options by trying different strategies
     const fallbackRequests = this.generateFallbackRequests(request);
-    
+
     for (const fallbackRequest of fallbackRequests) {
       try {
         const fallback = await this.selectModel(fallbackRequest);
@@ -528,7 +563,7 @@ export class ModelSelectionOrchestrator {
   async selectForSystem(taskType: LLMTaskType): Promise<ModelSelectionResult> {
     return this.selectModel({
       taskType,
-      urgency: 'medium' // Default urgency for system tasks
+      urgency: 'medium', // Default urgency for system tasks
     });
   }
 
@@ -546,9 +581,9 @@ export class ModelSelectionOrchestrator {
       // Update agent-specific stats if applicable
       if (request.agentId && result.source === 'agent') {
         const agentPreference = await this.context.agentLLMPreferenceRepository.findOne({
-          where: { agentId: request.agentId, taskType: request.taskType, isActive: true }
+          where: { agentId: request.agentId, taskType: request.taskType, isActive: true },
         });
-        
+
         if (agentPreference) {
           agentPreference.updateUsageStats(responseTime, success, quality);
           await this.context.agentLLMPreferenceRepository.save(agentPreference);
@@ -558,9 +593,9 @@ export class ModelSelectionOrchestrator {
       // Update user-specific stats if applicable
       if (request.userId && result.source === 'user') {
         const userPreference = await this.context.userLLMPreferenceRepository.findOne({
-          where: { userId: request.userId, taskType: request.taskType, isActive: true }
+          where: { userId: request.userId, taskType: request.taskType, isActive: true },
         });
-        
+
         if (userPreference) {
           userPreference.updateUsageStats(responseTime, success);
           await this.context.userLLMPreferenceRepository.save(userPreference);
@@ -571,7 +606,7 @@ export class ModelSelectionOrchestrator {
         strategy: result.selectionStrategy,
         success,
         responseTime,
-        quality
+        quality,
       });
     } catch (error) {
       logger.error('Failed to update usage stats', { error });

@@ -1,15 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { useUAIP } from '@/contexts/UAIPContext';
 import { motion } from 'framer-motion';
-import { 
-  BoltIcon, 
-  InformationCircleIcon, 
-  LightBulbIcon, 
+import {
+  BoltIcon,
+  InformationCircleIcon,
+  LightBulbIcon,
   CheckCircleIcon,
   ArrowPathIcon,
   ExclamationTriangleIcon,
   XCircleIcon,
-  ClockIcon
+  ClockIcon,
 } from '@heroicons/react/24/outline';
 
 interface ViewportSize {
@@ -34,7 +34,10 @@ interface Event {
   correlationId?: string;
 }
 
-export const EventStreamMonitor: React.FC<EventStreamMonitorPortalProps> = ({ className, viewport }) => {
+export const EventStreamMonitor: React.FC<EventStreamMonitorPortalProps> = ({
+  className,
+  viewport,
+}) => {
   const { events, operations, agents, refreshData, isWebSocketConnected } = useUAIP();
   const [displayEvents, setDisplayEvents] = useState<Event[]>([]);
   const [filterType, setFilterType] = useState<string>('all');
@@ -45,7 +48,8 @@ export const EventStreamMonitor: React.FC<EventStreamMonitorPortalProps> = ({ cl
     width: typeof window !== 'undefined' ? window.innerWidth : 1024,
     height: typeof window !== 'undefined' ? window.innerHeight : 768,
     isMobile: typeof window !== 'undefined' ? window.innerWidth < 768 : false,
-    isTablet: typeof window !== 'undefined' ? window.innerWidth >= 768 && window.innerWidth < 1024 : false,
+    isTablet:
+      typeof window !== 'undefined' ? window.innerWidth >= 768 && window.innerWidth < 1024 : false,
     isDesktop: typeof window !== 'undefined' ? window.innerWidth >= 1024 : true,
   };
 
@@ -53,41 +57,48 @@ export const EventStreamMonitor: React.FC<EventStreamMonitorPortalProps> = ({ cl
 
   useEffect(() => {
     // Transform events from UAIPContext to display format
-    const transformedEvents: Event[] = events.data.map(event => ({
+    const transformedEvents: Event[] = events.data.map((event) => ({
       id: event.id,
       type: event.type,
       source: event.source,
       message: event.message,
       timestamp: event.timestamp,
-      correlationId: event.correlationId
+      correlationId: event.correlationId,
     }));
 
     // Add events from operations
-    operations.data.forEach(operation => {
-      if (operation.status === 'running' || operation.status === 'completed' || operation.status === 'failed') {
+    operations.data.forEach((operation) => {
+      if (
+        operation.status === 'running' ||
+        operation.status === 'completed' ||
+        operation.status === 'failed'
+      ) {
         transformedEvents.push({
           id: `op-${operation.id}`,
-          type: operation.status === 'failed' ? 'error' : 
-                operation.status === 'completed' ? 'success' : 'info',
+          type:
+            operation.status === 'failed'
+              ? 'error'
+              : operation.status === 'completed'
+                ? 'success'
+                : 'info',
           source: `Operation ${operation.id}`,
           message: `Operation ${operation.name || operation.id} ${operation.status}`,
           timestamp: operation.updatedAt ? new Date(operation.updatedAt) : new Date(),
-          correlationId: operation.id
+          correlationId: operation.id,
         });
       }
     });
 
     // Add events from agent status changes
-    agents.data.forEach(agent => {
+    agents.data.forEach((agent) => {
       if (agent.lastActivity) {
         transformedEvents.push({
           id: `agent-${agent.id}`,
-          type: agent.status === 'error' ? 'error' : 
-                agent.status === 'active' ? 'success' : 'info',
+          type: agent.status === 'error' ? 'error' : agent.status === 'active' ? 'success' : 'info',
           source: `Agent ${agent.name}`,
           message: `Agent ${agent.name} is ${agent.status}`,
           timestamp: agent.lastActivity,
-          correlationId: agent.id
+          correlationId: agent.id,
         });
       }
     });
@@ -98,47 +109,60 @@ export const EventStreamMonitor: React.FC<EventStreamMonitorPortalProps> = ({ cl
       .slice(0, maxEvents);
 
     // Filter by type if specified
-    const filteredEvents = filterType === 'all' 
-      ? sortedEvents 
-      : sortedEvents.filter(event => event.type === filterType);
+    const filteredEvents =
+      filterType === 'all'
+        ? sortedEvents
+        : sortedEvents.filter((event) => event.type === filterType);
 
     setDisplayEvents(filteredEvents);
   }, [events.data, operations.data, agents.data, filterType, maxEvents]);
 
   const getEventIcon = (type: string) => {
     switch (type) {
-      case 'success': return <CheckCircleIcon className="w-4 h-4 text-green-500" />;
-      case 'warning': return <LightBulbIcon className="w-4 h-4 text-yellow-500" />;
-      case 'error': return <XCircleIcon className="w-4 h-4 text-red-500" />;
-      default: return <InformationCircleIcon className="w-4 h-4 text-blue-500" />;
+      case 'success':
+        return <CheckCircleIcon className="w-4 h-4 text-green-500" />;
+      case 'warning':
+        return <LightBulbIcon className="w-4 h-4 text-yellow-500" />;
+      case 'error':
+        return <XCircleIcon className="w-4 h-4 text-red-500" />;
+      default:
+        return <InformationCircleIcon className="w-4 h-4 text-blue-500" />;
     }
   };
 
   const getEventTypeColor = (type: string) => {
     switch (type) {
-      case 'success': return 'border-l-green-500';
-      case 'warning': return 'border-l-yellow-500';
-      case 'error': return 'border-l-red-500';
-      default: return 'border-l-blue-500';
+      case 'success':
+        return 'border-l-green-500';
+      case 'warning':
+        return 'border-l-yellow-500';
+      case 'error':
+        return 'border-l-red-500';
+      default:
+        return 'border-l-blue-500';
     }
   };
 
   const getEventTypeBadgeColor = (type: string) => {
     switch (type) {
-      case 'success': return 'bg-green-100 text-green-800 border-green-200';
-      case 'warning': return 'bg-yellow-100 text-yellow-800 border-yellow-200';
-      case 'error': return 'bg-red-100 text-red-800 border-red-200';
-      default: return 'bg-blue-100 text-blue-800 border-blue-200';
+      case 'success':
+        return 'bg-green-100 text-green-800 border-green-200';
+      case 'warning':
+        return 'bg-yellow-100 text-yellow-800 border-yellow-200';
+      case 'error':
+        return 'bg-red-100 text-red-800 border-red-200';
+      default:
+        return 'bg-blue-100 text-blue-800 border-blue-200';
     }
   };
 
   const eventTypes = ['all', 'info', 'success', 'warning', 'error'];
   const eventCounts = {
     all: displayEvents.length,
-    info: displayEvents.filter(e => e.type === 'info').length,
-    success: displayEvents.filter(e => e.type === 'success').length,
-    warning: displayEvents.filter(e => e.type === 'warning').length,
-    error: displayEvents.filter(e => e.type === 'error').length,
+    info: displayEvents.filter((e) => e.type === 'info').length,
+    success: displayEvents.filter((e) => e.type === 'success').length,
+    warning: displayEvents.filter((e) => e.type === 'warning').length,
+    error: displayEvents.filter((e) => e.type === 'error').length,
   };
 
   // Show error state
@@ -200,7 +224,9 @@ export const EventStreamMonitor: React.FC<EventStreamMonitorPortalProps> = ({ cl
           </h2>
           <div className="flex items-center space-x-4">
             <div className="flex items-center space-x-2">
-              <div className={`w-2 h-2 rounded-full ${isWebSocketConnected ? 'bg-green-500 animate-pulse' : 'bg-gray-400'}`} />
+              <div
+                className={`w-2 h-2 rounded-full ${isWebSocketConnected ? 'bg-green-500 animate-pulse' : 'bg-gray-400'}`}
+              />
               <span className="text-sm text-gray-500">
                 {isWebSocketConnected ? 'Live' : 'Offline'}
               </span>
@@ -219,7 +245,9 @@ export const EventStreamMonitor: React.FC<EventStreamMonitorPortalProps> = ({ cl
           <div className="text-center">
             <BoltIcon className="w-8 h-8 text-gray-400 mx-auto mb-2" />
             <p className="text-gray-500 dark:text-gray-400">No events to display</p>
-            <p className="text-sm text-gray-400 dark:text-gray-500">Events will appear here as they occur</p>
+            <p className="text-sm text-gray-400 dark:text-gray-500">
+              Events will appear here as they occur
+            </p>
           </div>
         </div>
       </motion.div>
@@ -240,7 +268,9 @@ export const EventStreamMonitor: React.FC<EventStreamMonitorPortalProps> = ({ cl
         </h2>
         <div className="flex items-center space-x-4">
           <div className="flex items-center space-x-2">
-            <div className={`w-2 h-2 rounded-full ${isWebSocketConnected ? 'bg-green-500 animate-pulse' : 'bg-gray-400'}`} />
+            <div
+              className={`w-2 h-2 rounded-full ${isWebSocketConnected ? 'bg-green-500 animate-pulse' : 'bg-gray-400'}`}
+            />
             <span className="text-sm text-gray-500">
               {isWebSocketConnected ? 'Live' : 'Offline'} ({eventCounts.all})
             </span>
@@ -262,7 +292,7 @@ export const EventStreamMonitor: React.FC<EventStreamMonitorPortalProps> = ({ cl
 
       {/* Event Type Filters */}
       <div className="flex flex-wrap gap-2">
-        {eventTypes.map(type => (
+        {eventTypes.map((type) => (
           <button
             key={type}
             onClick={() => setFilterType(type)}
@@ -272,16 +302,15 @@ export const EventStreamMonitor: React.FC<EventStreamMonitorPortalProps> = ({ cl
                 : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
             }`}
           >
-            {type.charAt(0).toUpperCase() + type.slice(1)} ({eventCounts[type as keyof typeof eventCounts]})
+            {type.charAt(0).toUpperCase() + type.slice(1)} (
+            {eventCounts[type as keyof typeof eventCounts]})
           </button>
         ))}
       </div>
 
       {/* Event Count Selector */}
       <div className="flex items-center space-x-4">
-        <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
-          Show last:
-        </label>
+        <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Show last:</label>
         <select
           value={maxEvents}
           onChange={(e) => setMaxEvents(Number(e.target.value))}
@@ -297,8 +326,8 @@ export const EventStreamMonitor: React.FC<EventStreamMonitorPortalProps> = ({ cl
       {/* Events List */}
       <div className="space-y-2 max-h-96 overflow-y-auto">
         {displayEvents.map((event) => (
-          <div 
-            key={event.id} 
+          <div
+            key={event.id}
             className={`bg-white dark:bg-slate-700 rounded-lg p-3 border-l-4 border border-slate-200 dark:border-slate-600 ${getEventTypeColor(event.type)} hover:shadow-md transition-shadow`}
           >
             <div className="flex items-start space-x-3">
@@ -306,19 +335,29 @@ export const EventStreamMonitor: React.FC<EventStreamMonitorPortalProps> = ({ cl
               <div className="flex-1">
                 <div className="flex items-center justify-between mb-1">
                   <div className="flex items-center space-x-2">
-                    <span className="text-sm font-medium text-gray-900 dark:text-white">{event.source}</span>
-                    <span className={`px-2 py-1 rounded-md text-xs font-medium border ${getEventTypeBadgeColor(event.type)}`}>
+                    <span className="text-sm font-medium text-gray-900 dark:text-white">
+                      {event.source}
+                    </span>
+                    <span
+                      className={`px-2 py-1 rounded-md text-xs font-medium border ${getEventTypeBadgeColor(event.type)}`}
+                    >
                       {event.type.toUpperCase()}
                     </span>
                   </div>
-                  <span className="text-xs text-gray-500">{event.timestamp.toLocaleTimeString()}</span>
+                  <span className="text-xs text-gray-500">
+                    {event.timestamp.toLocaleTimeString()}
+                  </span>
                 </div>
                 <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">{event.message}</p>
                 {event.correlationId && (
                   <div className="flex items-center space-x-2">
-                    <span className="text-xs text-blue-600 dark:text-blue-400">ID: {event.correlationId}</span>
+                    <span className="text-xs text-blue-600 dark:text-blue-400">
+                      ID: {event.correlationId}
+                    </span>
                     <span className="text-xs text-gray-400">•</span>
-                    <span className="text-xs text-gray-500">{event.timestamp.toLocaleDateString()}</span>
+                    <span className="text-xs text-gray-500">
+                      {event.timestamp.toLocaleDateString()}
+                    </span>
                   </div>
                 )}
               </div>
@@ -351,4 +390,4 @@ export const EventStreamMonitor: React.FC<EventStreamMonitorPortalProps> = ({ cl
       </div>
     </motion.div>
   );
-}; 
+};

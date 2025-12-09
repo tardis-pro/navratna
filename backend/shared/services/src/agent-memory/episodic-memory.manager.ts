@@ -7,30 +7,32 @@ export class EpisodicMemoryManager {
   async storeEpisode(agentId: string, episode: Episode): Promise<void> {
     try {
       // Store episode as knowledge item in the Knowledge Graph
-      await this.knowledgeGraph.ingest([{
-        content: this.episodeToContent(episode),
-        type: KnowledgeType.EPISODIC,
-        tags: [
-          'agent-memory',
-          `agent-${agentId}`,
-          `episode-${episode.type}`,
-          `significance-${Math.round(episode.significance.importance * 10)}`,
-          ...episode.context.who.map(who => `participant-${who}`)
-        ],
-        source: {
-          type: SourceType.AGENT_EPISODE,
-          identifier: episode.episodeId,
-          metadata: {
-            agentId,
-            episodeType: episode.type,
-            significance: episode.significance,
-            context: episode.context,
-            experience: episode.experience,
-            connections: episode.connections
-          }
+      await this.knowledgeGraph.ingest([
+        {
+          content: this.episodeToContent(episode),
+          type: KnowledgeType.EPISODIC,
+          tags: [
+            'agent-memory',
+            `agent-${agentId}`,
+            `episode-${episode.type}`,
+            `significance-${Math.round(episode.significance.importance * 10)}`,
+            ...episode.context.who.map((who) => `participant-${who}`),
+          ],
+          source: {
+            type: SourceType.AGENT_EPISODE,
+            identifier: episode.episodeId,
+            metadata: {
+              agentId,
+              episodeType: episode.type,
+              significance: episode.significance,
+              context: episode.context,
+              experience: episode.experience,
+              connections: episode.connections,
+            },
+          },
+          confidence: episode.significance.importance,
         },
-        confidence: episode.significance.importance
-      }]);
+      ]);
 
       // Create relationships with related episodes
       for (const relatedId of episode.connections.relatedEpisodes) {
@@ -50,16 +52,16 @@ export class EpisodicMemoryManager {
         filters: {
           tags: [`agent-${agentId}`, 'agent-memory'],
           types: [KnowledgeType.EPISODIC],
-          confidence: query.minSignificance || 0.3
+          confidence: query.minSignificance || 0.3,
         },
         options: {
           limit: query.limit || 10,
-          similarityThreshold: 0.6
+          similarityThreshold: 0.6,
         },
-        timestamp: Date.now()
+        timestamp: Date.now(),
       });
 
-      return searchResults.items.map(item => this.contentToEpisode(item));
+      return searchResults.items.map((item) => this.contentToEpisode(item));
     } catch (error) {
       console.error('Episode retrieval error:', error);
       return [];
@@ -72,74 +74,86 @@ export class EpisodicMemoryManager {
         query: `similar situation: ${currentSituation}`,
         filters: {
           tags: [`agent-${agentId}`, 'agent-memory'],
-          types: [KnowledgeType.EPISODIC]
+          types: [KnowledgeType.EPISODIC],
         },
-        options: { 
-          limit: 5, 
-          similarityThreshold: 0.7 
+        options: {
+          limit: 5,
+          similarityThreshold: 0.7,
         },
-        timestamp: Date.now()
+        timestamp: Date.now(),
       });
 
-      return results.items.map(item => this.contentToEpisode(item));
+      return results.items.map((item) => this.contentToEpisode(item));
     } catch (error) {
       console.error('Similar episodes retrieval error:', error);
       return [];
     }
   }
 
-  async getEpisodesByTimeRange(agentId: string, startDate: Date, endDate: Date): Promise<Episode[]> {
+  async getEpisodesByTimeRange(
+    agentId: string,
+    startDate: Date,
+    endDate: Date
+  ): Promise<Episode[]> {
     try {
       const results = await this.knowledgeGraph.search({
         query: `agent ${agentId} episodes`,
         filters: {
           tags: [`agent-${agentId}`, 'agent-memory'],
           types: [KnowledgeType.EPISODIC],
-          dateRange: { start: startDate, end: endDate }
+          dateRange: { start: startDate, end: endDate },
         },
-        timestamp: Date.now()
+        timestamp: Date.now(),
       });
 
-      return results.items.map(item => this.contentToEpisode(item));
+      return results.items.map((item) => this.contentToEpisode(item));
     } catch (error) {
       console.error('Episodes by time range retrieval error:', error);
       return [];
     }
   }
 
-  async getEpisodesByType(agentId: string, episodeType: string, limit: number = 10): Promise<Episode[]> {
+  async getEpisodesByType(
+    agentId: string,
+    episodeType: string,
+    limit: number = 10
+  ): Promise<Episode[]> {
     try {
       const results = await this.knowledgeGraph.search({
         query: `${episodeType} episodes`,
         filters: {
           tags: [`agent-${agentId}`, `episode-${episodeType}`],
-          types: [KnowledgeType.EPISODIC]
+          types: [KnowledgeType.EPISODIC],
         },
         options: { limit },
-        timestamp: Date.now()
+        timestamp: Date.now(),
       });
 
-      return results.items.map(item => this.contentToEpisode(item));
+      return results.items.map((item) => this.contentToEpisode(item));
     } catch (error) {
       console.error('Episodes by type retrieval error:', error);
       return [];
     }
   }
 
-  async getSignificantEpisodes(agentId: string, minSignificance: number = 0.8, limit: number = 10): Promise<Episode[]> {
+  async getSignificantEpisodes(
+    agentId: string,
+    minSignificance: number = 0.8,
+    limit: number = 10
+  ): Promise<Episode[]> {
     try {
       const results = await this.knowledgeGraph.search({
         query: `significant episodes`,
         filters: {
           tags: [`agent-${agentId}`, 'agent-memory'],
           types: [KnowledgeType.EPISODIC],
-          confidence: minSignificance
+          confidence: minSignificance,
         },
         options: { limit },
-        timestamp: Date.now()
+        timestamp: Date.now(),
       });
 
-      return results.items.map(item => this.contentToEpisode(item));
+      return results.items.map((item) => this.contentToEpisode(item));
     } catch (error) {
       console.error('Significant episodes retrieval error:', error);
       return [];
@@ -153,10 +167,10 @@ Location: ${episode.context.where}
 Participants: ${episode.context.who.join(', ')}
 Purpose: ${episode.context.why}
 Method: ${episode.context.how}
-Actions: ${episode.experience.actions.map(a => a.description).join('; ')}
-Decisions: ${episode.experience.decisions.map(d => `${d.description}: decided by ${d.decidedBy}`).join('; ')}
-Outcomes: ${episode.experience.outcomes.map(o => o.description).join('; ')}
-Emotions: ${episode.experience.emotions.map(e => `${e.emotion} (${e.intensity})`).join('; ')}
+Actions: ${episode.experience.actions.map((a) => a.description).join('; ')}
+Decisions: ${episode.experience.decisions.map((d) => `${d.description}: decided by ${d.decidedBy}`).join('; ')}
+Outcomes: ${episode.experience.outcomes.map((o) => o.description).join('; ')}
+Emotions: ${episode.experience.emotions.map((e) => `${e.emotion} (${e.intensity})`).join('; ')}
 Learnings: ${episode.experience.learnings.join('; ')}
 Significance: Importance=${episode.significance.importance}, Novelty=${episode.significance.novelty}, Success=${episode.significance.success}, Impact=${episode.significance.impact}`;
   }
@@ -164,7 +178,7 @@ Significance: Importance=${episode.significance.importance}, Novelty=${episode.s
   private contentToEpisode(item: any): Episode {
     // Parse content back to episode structure
     const metadata = item.source?.metadata || item.metadata;
-    
+
     if (!metadata) {
       // Fallback parsing from content if metadata is not available
       return this.parseEpisodeFromContent(item);
@@ -180,27 +194,27 @@ Significance: Importance=${episode.significance.importance}, Novelty=${episode.s
         who: [],
         what: item.content.substring(0, 100),
         why: 'unknown',
-        how: 'unknown'
+        how: 'unknown',
       },
       experience: metadata.experience || {
         actions: [],
         decisions: [],
         outcomes: [],
         emotions: [],
-        learnings: []
+        learnings: [],
       },
       significance: metadata.significance || {
         importance: item.confidence || 0.5,
         novelty: 0.5,
         success: 0.5,
-        impact: 0.5
+        impact: 0.5,
       },
       connections: metadata.connections || {
         relatedEpisodes: [],
         triggeredBy: [],
         ledTo: [],
-        similarTo: []
-      }
+        similarTo: [],
+      },
     };
   }
 
@@ -208,7 +222,7 @@ Significance: Importance=${episode.significance.importance}, Novelty=${episode.s
     // Basic parsing from content when metadata is not available
     const content = item.content || '';
     const lines = content.split('\n');
-    
+
     let episodeType = 'learning';
     const context = {
       when: new Date(item.createdAt),
@@ -216,7 +230,7 @@ Significance: Importance=${episode.significance.importance}, Novelty=${episode.s
       who: [] as string[],
       what: content.substring(0, 100),
       why: 'unknown',
-      how: 'unknown'
+      how: 'unknown',
     };
 
     // Try to extract information from content
@@ -226,7 +240,10 @@ Significance: Importance=${episode.significance.importance}, Novelty=${episode.s
       } else if (line.startsWith('Context:')) {
         context.what = line.replace('Context:', '').trim();
       } else if (line.startsWith('Participants:')) {
-        context.who = line.replace('Participants:', '').split(',').map(p => p.trim());
+        context.who = line
+          .replace('Participants:', '')
+          .split(',')
+          .map((p) => p.trim());
       }
     }
 
@@ -240,20 +257,20 @@ Significance: Importance=${episode.significance.importance}, Novelty=${episode.s
         decisions: [],
         outcomes: [],
         emotions: [],
-        learnings: []
+        learnings: [],
       },
       significance: {
         importance: item.confidence || 0.5,
         novelty: 0.5,
         success: 0.5,
-        impact: 0.5
+        impact: 0.5,
       },
       connections: {
         relatedEpisodes: [],
         triggeredBy: [],
         ledTo: [],
-        similarTo: []
-      }
+        similarTo: [],
+      },
     };
   }
-} 
+}

@@ -1,4 +1,11 @@
-import { DataSource, Repository, QueryRunner, EntityTarget, ObjectLiteral, SelectQueryBuilder } from 'typeorm';
+import {
+  DataSource,
+  Repository,
+  QueryRunner,
+  EntityTarget,
+  ObjectLiteral,
+  SelectQueryBuilder,
+} from 'typeorm';
 import { dataSourceManager } from './database/typeorm.config.js';
 import { createLogger } from '@uaip/utils';
 
@@ -11,10 +18,10 @@ export class TypeOrmService {
   private logger = createLogger({
     serviceName: 'typeorm-service',
     environment: process.env.NODE_ENV || 'development',
-    logLevel: process.env.LOG_LEVEL || 'info'
+    logLevel: process.env.LOG_LEVEL || 'info',
   });
 
-  private constructor() { }
+  private constructor() {}
 
   /**
    * Get singleton instance
@@ -101,9 +108,7 @@ export class TypeOrmService {
   /**
    * Run database transaction
    */
-  public async transaction<T>(
-    runInTransaction: (manager: any) => Promise<T>
-  ): Promise<T> {
+  public async transaction<T>(runInTransaction: (manager: any) => Promise<T>): Promise<T> {
     return this.getDataSource().transaction(runInTransaction);
   }
 
@@ -260,7 +265,10 @@ export class TypeOrmService {
         pageCount: Math.ceil(total / limit),
       };
     } catch (error) {
-      this.logger.error('Failed to find and paginate entities', { entityClass, error: error.message });
+      this.logger.error('Failed to find and paginate entities', {
+        entityClass,
+        error: error.message,
+      });
       throw error;
     }
   }
@@ -280,4 +288,4 @@ export class TypeOrmService {
 }
 
 // Export singleton instance
-export const typeormService = TypeOrmService.getInstance(); 
+export const typeormService = TypeOrmService.getInstance();

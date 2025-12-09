@@ -38,7 +38,7 @@ export class AgentPlanningService {
 
     logger.info('Agent Planning Service initialized', {
       service: this.serviceName,
-      securityLevel: this.securityLevel
+      securityLevel: this.securityLevel,
     });
   }
 
@@ -46,8 +46,14 @@ export class AgentPlanningService {
    * Set up event bus subscriptions for planning operations
    */
   private async setupEventSubscriptions(): Promise<void> {
-    await this.eventBusService.subscribe('agent.planning.generate', this.handleGeneratePlan.bind(this));
-    await this.eventBusService.subscribe('agent.planning.validate', this.handleValidatePlan.bind(this));
+    await this.eventBusService.subscribe(
+      'agent.planning.generate',
+      this.handleGeneratePlan.bind(this)
+    );
+    await this.eventBusService.subscribe(
+      'agent.planning.validate',
+      this.handleValidatePlan.bind(this)
+    );
     await this.eventBusService.subscribe('agent.planning.store', this.handleStorePlan.bind(this));
 
     logger.info('Agent Planning Service event subscriptions configured');
@@ -66,18 +72,24 @@ export class AgentPlanningService {
       logger.info('Generating enhanced execution plan', { agentId: agent.id });
 
       // Get relevant knowledge for plan generation
-      const planningKnowledge = this.knowledgeGraphService ?
-        await this.searchRelevantKnowledge(
-          agent.id,
-          `execution planning ${analysis?.intent?.primary}`,
-          analysis
-        ) : [];
+      const planningKnowledge = this.knowledgeGraphService
+        ? await this.searchRelevantKnowledge(
+            agent.id,
+            `execution planning ${analysis?.intent?.primary}`,
+            analysis
+          )
+        : [];
 
       // Determine plan type based on enhanced analysis
       const planType = this.determinePlanType(analysis);
 
       // Generate enhanced plan steps with knowledge integration
-      const steps = await this.generateEnhancedPlanSteps(agent, analysis, planType, planningKnowledge);
+      const steps = await this.generateEnhancedPlanSteps(
+        agent,
+        analysis,
+        planType,
+        planningKnowledge
+      );
 
       // Calculate dependencies with knowledge graph insights
       const dependencies = await this.calculateEnhancedDependencies(steps, planningKnowledge);
@@ -86,7 +98,11 @@ export class AgentPlanningService {
       const estimatedDuration = await this.estimateEnhancedDuration(steps, dependencies, agent.id);
 
       // Apply user preferences with knowledge-based optimization
-      const optimizedSteps = this.applyEnhancedUserPreferences(steps, userPreferences, planningKnowledge);
+      const optimizedSteps = this.applyEnhancedUserPreferences(
+        steps,
+        userPreferences,
+        planningKnowledge
+      );
 
       const plan: ExecutionPlan = {
         id: `plan_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
@@ -101,9 +117,9 @@ export class AgentPlanningService {
           generatedBy: agent.id,
           basedOnAnalysis: analysis.timestamp,
           userPreferences,
-          version: '2.0.0' // Enhanced version
+          version: '2.0.0', // Enhanced version
         },
-        created_at: new Date()
+        created_at: new Date(),
       };
 
       // Validate plan against security constraints
@@ -120,14 +136,14 @@ export class AgentPlanningService {
         planType,
         stepsCount: steps.length,
         estimatedDuration,
-        knowledgeUsed: planningKnowledge.length
+        knowledgeUsed: planningKnowledge.length,
       });
 
       this.auditLog('PLAN_GENERATED', {
         agentId: agent.id,
         planId: plan.id,
         planType,
-        stepsCount: steps.length
+        stepsCount: steps.length,
       });
 
       return plan;
@@ -176,8 +192,8 @@ export class AgentPlanningService {
         type: 'validation',
         description: 'Validate input parameters and permissions',
         estimatedDuration: 10,
-        required: true
-      }
+        required: true,
+      },
     ];
 
     // Add knowledge preparation step if relevant knowledge exists
@@ -187,7 +203,7 @@ export class AgentPlanningService {
         type: 'knowledge_preparation',
         description: `Prepare and contextualize ${knowledge.length} knowledge items`,
         estimatedDuration: 20,
-        required: true
+        required: true,
       });
     }
 
@@ -198,7 +214,7 @@ export class AgentPlanningService {
           type: 'execution',
           description: 'Execute selected tools with knowledge enhancement',
           estimatedDuration: 60,
-          required: true
+          required: true,
         });
         break;
       case 'artifact_generation':
@@ -207,7 +223,7 @@ export class AgentPlanningService {
           type: 'generation',
           description: 'Generate requested artifact with knowledge integration',
           estimatedDuration: 120,
-          required: true
+          required: true,
         });
         break;
       case 'hybrid_workflow':
@@ -217,21 +233,21 @@ export class AgentPlanningService {
             type: 'analysis',
             description: 'Analyze current system state with knowledge context',
             estimatedDuration: 30,
-            required: true
+            required: true,
           },
           {
             id: 'generate_modifications',
             type: 'generation',
             description: 'Generate necessary modifications',
             estimatedDuration: 90,
-            required: true
+            required: true,
           },
           {
             id: 'apply_changes',
             type: 'execution',
             description: 'Apply generated changes',
             estimatedDuration: 60,
-            required: true
+            required: true,
           }
         );
         break;
@@ -241,7 +257,7 @@ export class AgentPlanningService {
           type: 'retrieval',
           description: 'Search and retrieve relevant information',
           estimatedDuration: 30,
-          required: true
+          required: true,
         });
         break;
       default:
@@ -250,7 +266,7 @@ export class AgentPlanningService {
           type: 'assistance',
           description: 'Provide general assistance based on context',
           estimatedDuration: 45,
-          required: true
+          required: true,
         });
     }
 
@@ -259,7 +275,7 @@ export class AgentPlanningService {
       type: 'finalization',
       description: 'Process and return results with learning integration',
       estimatedDuration: 15,
-      required: true
+      required: true,
     });
 
     return baseSteps;
@@ -268,7 +284,10 @@ export class AgentPlanningService {
   /**
    * Calculate enhanced dependencies with knowledge graph insights
    */
-  private async calculateEnhancedDependencies(steps: any[], knowledge: KnowledgeItem[]): Promise<any[]> {
+  private async calculateEnhancedDependencies(
+    steps: any[],
+    knowledge: KnowledgeItem[]
+  ): Promise<any[]> {
     const dependencies = [];
 
     // Sequential dependencies
@@ -276,23 +295,23 @@ export class AgentPlanningService {
       dependencies.push({
         stepId: steps[i].id,
         dependsOn: [steps[i - 1].id],
-        type: 'sequential'
+        type: 'sequential',
       });
     }
 
     // Knowledge-based dependencies
     if (knowledge.length > 0) {
-      const knowledgeStep = steps.find(s => s.id === 'prepare_knowledge');
+      const knowledgeStep = steps.find((s) => s.id === 'prepare_knowledge');
       if (knowledgeStep) {
-        const executionSteps = steps.filter(s =>
+        const executionSteps = steps.filter((s) =>
           ['execution', 'generation', 'analysis'].includes(s.type)
         );
 
-        executionSteps.forEach(step => {
+        executionSteps.forEach((step) => {
           dependencies.push({
             stepId: step.id,
             dependsOn: [knowledgeStep.id],
-            type: 'knowledge_dependency'
+            type: 'knowledge_dependency',
           });
         });
       }
@@ -304,7 +323,11 @@ export class AgentPlanningService {
   /**
    * Estimate enhanced duration with historical data
    */
-  private async estimateEnhancedDuration(steps: any[], dependencies: any[], agentId: string): Promise<number> {
+  private async estimateEnhancedDuration(
+    steps: any[],
+    dependencies: any[],
+    agentId: string
+  ): Promise<number> {
     // Get historical performance data for this agent
     const baseDuration = steps.reduce((sum, step) => sum + step.estimatedDuration, 0);
 
@@ -320,29 +343,33 @@ export class AgentPlanningService {
   /**
    * Apply enhanced user preferences with knowledge-based optimization
    */
-  private applyEnhancedUserPreferences(steps: any[], userPreferences: any, knowledge: KnowledgeItem[]): any[] {
+  private applyEnhancedUserPreferences(
+    steps: any[],
+    userPreferences: any,
+    knowledge: KnowledgeItem[]
+  ): any[] {
     let optimizedSteps = [...steps];
 
     // Apply user preferences
     if (userPreferences?.priority === 'speed') {
-      optimizedSteps = optimizedSteps.map(step => ({
+      optimizedSteps = optimizedSteps.map((step) => ({
         ...step,
-        estimatedDuration: Math.round(step.estimatedDuration * 0.8)
+        estimatedDuration: Math.round(step.estimatedDuration * 0.8),
       }));
     }
 
     if (userPreferences?.priority === 'quality') {
-      optimizedSteps = optimizedSteps.map(step => ({
+      optimizedSteps = optimizedSteps.map((step) => ({
         ...step,
         estimatedDuration: Math.round(step.estimatedDuration * 1.2),
-        qualityEnhanced: true
+        qualityEnhanced: true,
       }));
     }
 
     // Knowledge-based optimization
     if (knowledge.length > 5) {
       // If we have lots of knowledge, add extra processing time
-      optimizedSteps = optimizedSteps.map(step =>
+      optimizedSteps = optimizedSteps.map((step) =>
         step.type === 'knowledge_preparation'
           ? { ...step, estimatedDuration: step.estimatedDuration + 10 }
           : step
@@ -357,17 +384,23 @@ export class AgentPlanningService {
    */
   async validatePlanSecurity(plan: ExecutionPlan, securityContext: any): Promise<void> {
     // Check duration limits
-    if (securityContext?.maxDuration && plan.estimatedDuration && plan.estimatedDuration > securityContext.maxDuration) {
+    if (
+      securityContext?.maxDuration &&
+      plan.estimatedDuration &&
+      plan.estimatedDuration > securityContext.maxDuration
+    ) {
       throw new Error('Plan exceeds maximum allowed duration');
     }
 
     // Check step restrictions
     if (securityContext?.restrictedStepTypes) {
-      const restrictedSteps = plan.steps.filter(step =>
+      const restrictedSteps = plan.steps.filter((step) =>
         securityContext.restrictedStepTypes.includes(step.type)
       );
       if (restrictedSteps.length > 0) {
-        throw new Error(`Plan contains restricted step types: ${restrictedSteps.map(s => s.type).join(', ')}`);
+        throw new Error(
+          `Plan contains restricted step types: ${restrictedSteps.map((s) => s.type).join(', ')}`
+        );
       }
     }
 
@@ -380,7 +413,7 @@ export class AgentPlanningService {
     const agent = await this.getAgentData(plan.agentId);
     if (agent && agent.securityContext?.restrictedDomains) {
       const planDomains = this.extractPlanDomains(plan);
-      const restrictedDomains = planDomains.filter(domain =>
+      const restrictedDomains = planDomains.filter((domain) =>
         agent.securityContext.restrictedDomains.includes(domain)
       );
       if (restrictedDomains.length > 0) {
@@ -405,7 +438,7 @@ export class AgentPlanningService {
         priority: plan.priority,
         constraints: plan.constraints,
         metadata: plan.metadata,
-        createdAt: plan.created_at
+        createdAt: plan.created_at,
       });
 
       logger.info('Plan stored successfully', { planId: plan.id, agentId: plan.agentId });
@@ -418,23 +451,29 @@ export class AgentPlanningService {
   /**
    * Store plan knowledge in knowledge graph
    */
-  private async storePlanKnowledge(agentId: string, plan: ExecutionPlan, analysis: any): Promise<void> {
+  private async storePlanKnowledge(
+    agentId: string,
+    plan: ExecutionPlan,
+    analysis: any
+  ): Promise<void> {
     if (this.knowledgeGraphService) {
       try {
-        await this.knowledgeGraphService.ingest([{
-          content: `Execution Plan: ${plan.type}
+        await this.knowledgeGraphService.ingest([
+          {
+            content: `Execution Plan: ${plan.type}
 Steps: ${plan.steps?.length}
 Duration: ${plan.estimatedDuration}
 Based on Analysis: ${analysis.intent?.primary}`,
-          type: KnowledgeType.PROCEDURAL,
-          tags: ['execution-plan', `agent-${agentId}`, plan.type],
-          source: {
-            type: SourceType.AGENT_INTERACTION,
-            identifier: `plan-${plan.id}`,
-            metadata: { agentId, plan, analysis }
+            type: KnowledgeType.PROCEDURAL,
+            tags: ['execution-plan', `agent-${agentId}`, plan.type],
+            source: {
+              type: SourceType.AGENT_INTERACTION,
+              identifier: `plan-${plan.id}`,
+              metadata: { agentId, plan, analysis },
+            },
+            confidence: 0.8,
           },
-          confidence: 0.8
-        }]);
+        ]);
       } catch (error) {
         logger.warn('Failed to store plan knowledge', { error, planId: plan.id });
       }
@@ -447,7 +486,12 @@ Based on Analysis: ${analysis.intent?.primary}`,
   private async handleGeneratePlan(event: any): Promise<void> {
     const { requestId, agent, analysis, userPreferences, securityContext } = event;
     try {
-      const plan = await this.generateExecutionPlan(agent, analysis, userPreferences, securityContext);
+      const plan = await this.generateExecutionPlan(
+        agent,
+        analysis,
+        userPreferences,
+        securityContext
+      );
       await this.respondToRequest(requestId, { success: true, data: plan });
     } catch (error) {
       await this.respondToRequest(requestId, { success: false, error: error.message });
@@ -477,19 +521,23 @@ Based on Analysis: ${analysis.intent?.primary}`,
   /**
    * Helper methods
    */
-  private async searchRelevantKnowledge(agentId: string, query: string, context?: any): Promise<KnowledgeItem[]> {
+  private async searchRelevantKnowledge(
+    agentId: string,
+    query: string,
+    context?: any
+  ): Promise<KnowledgeItem[]> {
     if (!this.knowledgeGraphService) return [];
 
     try {
       const searchResult = await this.knowledgeGraphService.search({
         query,
         filters: {
-          agentId
+          agentId,
         },
         options: {
-          limit: 10
+          limit: 10,
         },
-        timestamp: Date.now()
+        timestamp: Date.now(),
       });
       return searchResult.items;
     } catch (error) {
@@ -513,7 +561,7 @@ Based on Analysis: ${analysis.intent?.primary}`,
     // Extract domains from plan steps and metadata
     const domains = new Set<string>();
 
-    plan.steps.forEach(step => {
+    plan.steps.forEach((step) => {
       if (step.type === 'execution' && step.description.includes('tool')) {
         domains.add('tools');
       }
@@ -534,7 +582,7 @@ Based on Analysis: ${analysis.intent?.primary}`,
         ...data,
         source: this.serviceName,
         securityLevel: this.securityLevel,
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
       });
     } catch (error) {
       logger.error('Failed to publish planning event', { channel, error });
@@ -545,7 +593,7 @@ Based on Analysis: ${analysis.intent?.primary}`,
     await this.eventBusService.publish('agent.planning.response', {
       requestId,
       ...response,
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
     });
   }
 
@@ -554,7 +602,7 @@ Based on Analysis: ${analysis.intent?.primary}`,
       ...data,
       service: this.serviceName,
       timestamp: new Date().toISOString(),
-      compliance: true
+      compliance: true,
     });
   }
 }

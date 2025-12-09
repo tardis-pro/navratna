@@ -7,7 +7,7 @@ export enum PersonaTraitType {
   COMMUNICATION = 'communication',
   EXPERTISE = 'expertise',
   BEHAVIOR = 'behavior',
-  COGNITIVE = 'cognitive'
+  COGNITIVE = 'cognitive',
 }
 export enum PersonaTone {
   CONCISE = 'concise',
@@ -18,10 +18,8 @@ export enum PersonaTone {
   HUMOROUS = 'humorous',
   CAUTIOUS = 'cautious',
   OPTIMISTIC = 'optimistic',
-  PROFESSIONAL = 'professional'
+  PROFESSIONAL = 'professional',
 }
-
-
 
 export enum PersonaStyle {
   STRUCTURED = 'structured',
@@ -31,7 +29,7 @@ export enum PersonaStyle {
   COLLABORATIVE = 'collaborative',
   AUTHORITATIVE = 'authoritative',
   INFORMATIVE = 'informative',
-  DIRECTIVE = 'directive'
+  DIRECTIVE = 'directive',
 }
 
 export enum PersonaType {
@@ -39,18 +37,14 @@ export enum PersonaType {
   SPECIALIST = 'specialist',
   COORDINATOR = 'coordinator',
   ANALYST = 'analyst',
-  EXECUTOR = 'executor'
+  EXECUTOR = 'executor',
 }
-
-
-
-
 
 export enum PersonaEnergyLevel {
   LOW = 'low',
   MODERATE = 'moderate',
   HIGH = 'high',
-  DYNAMIC = 'dynamic'
+  DYNAMIC = 'dynamic',
 }
 
 export const PersonaTraitSchema = z.object({
@@ -60,7 +54,7 @@ export const PersonaTraitSchema = z.object({
   value: z.string().min(1).max(500),
   weight: z.number().min(0).max(1).default(1.0),
   description: z.string().optional(),
-  metadata: z.record(z.any()).optional()
+  metadata: z.record(z.any()).optional(),
 });
 
 export type PersonaTrait = z.infer<typeof PersonaTraitSchema>;
@@ -73,14 +67,22 @@ export const ExpertiseDomainSchema = z.object({
   level: z.enum(['beginner', 'intermediate', 'advanced', 'expert', 'master']),
   description: z.string().optional(),
   keywords: z.array(z.string()).default([]),
-  relatedDomains: z.array(IDSchema).default([])
+  relatedDomains: z.array(IDSchema).default([]),
 });
 
 export type ExpertiseDomain = z.infer<typeof ExpertiseDomainSchema>;
 
 // Conversational style
 export const ConversationalStyleSchema = z.object({
-  tone: z.enum(['formal', 'casual', 'friendly', 'professional', 'academic', 'creative', 'analytical']),
+  tone: z.enum([
+    'formal',
+    'casual',
+    'friendly',
+    'professional',
+    'academic',
+    'creative',
+    'analytical',
+  ]),
   verbosity: z.enum(['concise', 'moderate', 'detailed', 'verbose']),
   formality: z.enum(['very_informal', 'informal', 'neutral', 'formal', 'very_formal']),
   empathy: z.number().min(0).max(1).default(0.5),
@@ -91,13 +93,15 @@ export const ConversationalStyleSchema = z.object({
   responsePattern: z.enum(['structured', 'flowing', 'bullet_points', 'narrative', 'mixed']),
   culturalContext: z.string().optional(),
   languagePreferences: z.array(z.string()).default(['en']),
-  communicationPreferences: z.object({
-    usesAnalogies: z.boolean().default(true),
-    usesExamples: z.boolean().default(true),
-    usesHumor: z.boolean().default(false),
-    usesEmoticons: z.boolean().default(false),
-    prefersVisualAids: z.boolean().default(false)
-  }).optional()
+  communicationPreferences: z
+    .object({
+      usesAnalogies: z.boolean().default(true),
+      usesExamples: z.boolean().default(true),
+      usesHumor: z.boolean().default(false),
+      usesEmoticons: z.boolean().default(false),
+      prefersVisualAids: z.boolean().default(false),
+    })
+    .optional(),
 });
 
 export type ConversationalStyle = z.infer<typeof ConversationalStyleSchema>;
@@ -108,7 +112,7 @@ export enum PersonaStatus {
   ACTIVE = 'active',
   INACTIVE = 'inactive',
   ARCHIVED = 'archived',
-  DEPRECATED = 'deprecated'
+  DEPRECATED = 'deprecated',
 }
 
 // Persona visibility
@@ -116,7 +120,7 @@ export enum PersonaVisibility {
   PRIVATE = 'private',
   TEAM = 'team',
   ORGANIZATION = 'organization',
-  PUBLIC = 'public'
+  PUBLIC = 'public',
 }
 
 // Persona validation result
@@ -127,7 +131,7 @@ export const PersonaValidationSchema = z.object({
   suggestions: z.array(z.string()).default([]),
   score: z.number().min(0).max(100).optional(),
   validatedAt: z.date(),
-  validatedBy: IDSchema.optional()
+  validatedBy: IDSchema.optional(),
 });
 
 export type PersonaValidation = z.infer<typeof PersonaValidationSchema>;
@@ -140,7 +144,7 @@ export const PersonaUsageStatsSchema = z.object({
   lastUsedAt: z.date().optional(),
   popularityScore: z.number().min(0).max(100).default(0),
   feedbackScore: z.number().min(0).max(5).optional(),
-  feedbackCount: z.number().min(0).default(0)
+  feedbackCount: z.number().min(0).default(0),
 });
 
 export type PersonaUsageStats = z.infer<typeof PersonaUsageStatsSchema>;
@@ -166,35 +170,41 @@ export const PersonaSchema = BaseEntitySchema.extend({
   tags: z.array(z.string()).default([]),
   validation: PersonaValidationSchema.optional(),
   usageStats: PersonaUsageStatsSchema.default({}),
-  configuration: z.object({
-    maxTokens: z.number().min(1).default(4000),
-    temperature: z.number().min(0).max(2).default(0.7),
-    topP: z.number().min(0).max(1).default(0.9),
-    frequencyPenalty: z.number().min(-2).max(2).default(0),
-    presencePenalty: z.number().min(-2).max(2).default(0),
-    stopSequences: z.array(z.string()).default([])
-  }).optional(),
+  configuration: z
+    .object({
+      maxTokens: z.number().min(1).default(4000),
+      temperature: z.number().min(0).max(2).default(0.7),
+      topP: z.number().min(0).max(1).default(0.9),
+      frequencyPenalty: z.number().min(-2).max(2).default(0),
+      presencePenalty: z.number().min(-2).max(2).default(0),
+      stopSequences: z.array(z.string()).default([]),
+    })
+    .optional(),
   capabilities: z.array(IDSchema).default([]), // Link to capability IDs
-  restrictions: z.object({
-    allowedTopics: z.array(z.string()).default([]),
-    forbiddenTopics: z.array(z.string()).default([]),
-    maxSessionDuration: z.number().min(0).optional(),
-    maxMessagesPerSession: z.number().min(0).optional(),
-    requiresApproval: z.boolean().default(false)
-  }).optional(),
-  conversationConfig: z.object({
-    maxResponseLength: z.number().min(1).default(2000),
-    includeSourceLinks: z.boolean().default(true),
-    confidenceThreshold: z.number().min(0).max(1).default(0.75),
-    maxSourcesPerResponse: z.number().min(1).default(5),
-    enableFollowUpSuggestions: z.boolean().default(true),
-    preferredSourceOrder: z.array(z.string()).default([]),
-    proactiveReminders: z.boolean().default(false),
-    defaultPriority: z.enum(['low', 'medium', 'high', 'urgent']).default('medium'),
-    responseStyle: z.string().default('balanced'),
-    contextAwareness: z.boolean().default(true)
-  }).optional(),
-  metadata: z.record(z.any()).optional()
+  restrictions: z
+    .object({
+      allowedTopics: z.array(z.string()).default([]),
+      forbiddenTopics: z.array(z.string()).default([]),
+      maxSessionDuration: z.number().min(0).optional(),
+      maxMessagesPerSession: z.number().min(0).optional(),
+      requiresApproval: z.boolean().default(false),
+    })
+    .optional(),
+  conversationConfig: z
+    .object({
+      maxResponseLength: z.number().min(1).default(2000),
+      includeSourceLinks: z.boolean().default(true),
+      confidenceThreshold: z.number().min(0).max(1).default(0.75),
+      maxSourcesPerResponse: z.number().min(1).default(5),
+      enableFollowUpSuggestions: z.boolean().default(true),
+      preferredSourceOrder: z.array(z.string()).default([]),
+      proactiveReminders: z.boolean().default(false),
+      defaultPriority: z.enum(['low', 'medium', 'high', 'urgent']).default('medium'),
+      responseStyle: z.string().default('balanced'),
+      contextAwareness: z.boolean().default(true),
+    })
+    .optional(),
+  metadata: z.record(z.any()).optional(),
 });
 
 export type Persona = z.infer<typeof PersonaSchema>;
@@ -207,9 +217,9 @@ export const CreatePersonaRequestSchema = PersonaSchema.omit({
   version: true,
   usageStats: true,
   validation: true,
-  createdBy: true
+  createdBy: true,
 }).extend({
-  createdBy: IDSchema.optional() // Make createdBy optional since it's set from auth
+  createdBy: IDSchema.optional(), // Make createdBy optional since it's set from auth
 });
 
 export type CreatePersonaRequest = z.infer<typeof CreatePersonaRequestSchema>;
@@ -218,7 +228,7 @@ export type CreatePersonaRequest = z.infer<typeof CreatePersonaRequestSchema>;
 export const UpdatePersonaRequestSchema = PersonaSchema.partial().omit({
   id: true,
   createdAt: true,
-  createdBy: true
+  createdBy: true,
 });
 
 export type UpdatePersonaRequest = z.infer<typeof UpdatePersonaRequestSchema>;
@@ -239,7 +249,7 @@ export const PersonaSearchFiltersSchema = z.object({
   createdAfter: z.date().optional(),
   createdBefore: z.date().optional(),
   lastUsedAfter: z.date().optional(),
-  lastUsedBefore: z.date().optional()
+  lastUsedBefore: z.date().optional(),
 });
 
 export type PersonaSearchFilters = z.infer<typeof PersonaSearchFiltersSchema>;
@@ -251,7 +261,7 @@ export const PersonaRecommendationSchema = z.object({
   reason: z.string(),
   matchingCriteria: z.array(z.string()),
   confidence: z.number().min(0).max(1),
-  metadata: z.record(z.any()).optional()
+  metadata: z.record(z.any()).optional(),
 });
 
 export type PersonaRecommendation = z.infer<typeof PersonaRecommendationSchema>;
@@ -261,7 +271,7 @@ export const PersonaAnalyticsSchema = z.object({
   personaId: IDSchema,
   timeframe: z.object({
     start: z.date(),
-    end: z.date()
+    end: z.date(),
   }),
   metrics: z.object({
     totalSessions: z.number().min(0),
@@ -270,23 +280,27 @@ export const PersonaAnalyticsSchema = z.object({
     uniqueUsers: z.number().min(0),
     satisfactionScore: z.number().min(0).max(5).optional(),
     completionRate: z.number().min(0).max(1),
-    errorRate: z.number().min(0).max(1)
+    errorRate: z.number().min(0).max(1),
   }),
   trends: z.object({
     usageGrowth: z.number(),
     satisfactionTrend: z.number(),
-    popularityRank: z.number().min(1)
+    popularityRank: z.number().min(1),
   }),
-  topInteractions: z.array(z.object({
-    type: z.string(),
-    count: z.number(),
-    averageDuration: z.number()
-  })),
-  commonIssues: z.array(z.object({
-    issue: z.string(),
-    frequency: z.number(),
-    severity: z.enum(['low', 'medium', 'high'])
-  }))
+  topInteractions: z.array(
+    z.object({
+      type: z.string(),
+      count: z.number(),
+      averageDuration: z.number(),
+    })
+  ),
+  commonIssues: z.array(
+    z.object({
+      issue: z.string(),
+      frequency: z.number(),
+      severity: z.enum(['low', 'medium', 'high']),
+    })
+  ),
 });
 
 export type PersonaAnalytics = z.infer<typeof PersonaAnalyticsSchema>;
@@ -303,7 +317,7 @@ export const PersonaTemplateSchema = z.object({
   rating: z.number().min(0).max(5).optional(),
   createdBy: IDSchema,
   createdAt: z.date(),
-  updatedAt: z.date()
+  updatedAt: z.date(),
 });
 
 export type PersonaTemplate = z.infer<typeof PersonaTemplateSchema>;
@@ -321,5 +335,5 @@ export const PersonaSchemas = {
   PersonaSearchFilters: PersonaSearchFiltersSchema,
   PersonaRecommendation: PersonaRecommendationSchema,
   PersonaAnalytics: PersonaAnalyticsSchema,
-  PersonaTemplate: PersonaTemplateSchema
-}; 
+  PersonaTemplate: PersonaTemplateSchema,
+};

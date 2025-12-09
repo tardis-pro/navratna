@@ -19,14 +19,14 @@ export class JiraAdapter {
   constructor(toolDefinition: ToolDefinition) {
     this.toolDefinition = toolDefinition;
     this.baseUrl = process.env.JIRA_BASE_URL || 'https://your-domain.atlassian.net';
-    
+
     this.axiosInstance = axios.create({
       baseURL: `${this.baseUrl}/rest/api/3`,
       timeout: 30000,
       headers: {
         'Content-Type': 'application/json',
-        'Accept': 'application/json'
-      }
+        Accept: 'application/json',
+      },
     });
 
     // Add request interceptor for authentication
@@ -88,16 +88,16 @@ export class JiraAdapter {
    */
   private async createIssue(parameters: any): Promise<any> {
     const response = await this.axiosInstance.post('/issue', parameters);
-    
+
     logger.info('Jira issue created', {
       issueKey: response.data.key,
-      issueId: response.data.id
+      issueId: response.data.id,
     });
 
     return {
       id: response.data.id,
       key: response.data.key,
-      self: response.data.self
+      self: response.data.self,
     };
   }
 
@@ -106,12 +106,12 @@ export class JiraAdapter {
    */
   private async updateIssue(parameters: any): Promise<any> {
     const { issueIdOrKey, fields, notifyUsers = true } = parameters;
-    
+
     const response = await this.axiosInstance.put(
       `/issue/${issueIdOrKey}`,
       { fields },
       {
-        params: { notifyUsers }
+        params: { notifyUsers },
       }
     );
 
@@ -125,24 +125,24 @@ export class JiraAdapter {
    */
   private async searchIssues(parameters: any): Promise<any> {
     const { jql, fields = [], maxResults = 50, startAt = 0 } = parameters;
-    
+
     const response = await this.axiosInstance.post('/search', {
       jql,
       fields,
       maxResults,
-      startAt
+      startAt,
     });
 
     logger.info('Jira search completed', {
       total: response.data.total,
-      returned: response.data.issues.length
+      returned: response.data.issues.length,
     });
 
     return {
       issues: response.data.issues,
       total: response.data.total,
       startAt: response.data.startAt,
-      maxResults: response.data.maxResults
+      maxResults: response.data.maxResults,
     };
   }
 
@@ -151,17 +151,14 @@ export class JiraAdapter {
    */
   private async getActiveSprint(parameters: any): Promise<any> {
     const { projectKey } = parameters;
-    
+
     // First, get the board ID for the project
-    const boardsResponse = await this.axiosInstance.get(
-      `/rest/agile/1.0/board`,
-      {
-        params: {
-          projectKeyOrId: projectKey,
-          type: 'scrum'
-        }
-      }
-    );
+    const boardsResponse = await this.axiosInstance.get(`/rest/agile/1.0/board`, {
+      params: {
+        projectKeyOrId: projectKey,
+        type: 'scrum',
+      },
+    });
 
     if (boardsResponse.data.values.length === 0) {
       return null;
@@ -174,8 +171,8 @@ export class JiraAdapter {
       `/rest/agile/1.0/board/${boardId}/sprint`,
       {
         params: {
-          state: 'active'
-        }
+          state: 'active',
+        },
       }
     );
 
@@ -184,11 +181,11 @@ export class JiraAdapter {
     }
 
     const activeSprint = sprintsResponse.data.values[0];
-    
+
     logger.info('Active sprint retrieved', {
       projectKey,
       sprintId: activeSprint.id,
-      sprintName: activeSprint.name
+      sprintName: activeSprint.name,
     });
 
     return activeSprint;
@@ -199,17 +196,14 @@ export class JiraAdapter {
    */
   private async addComment(parameters: any): Promise<any> {
     const { issueIdOrKey, body } = parameters;
-    
-    const response = await this.axiosInstance.post(
-      `/issue/${issueIdOrKey}/comment`,
-      { body }
-    );
+
+    const response = await this.axiosInstance.post(`/issue/${issueIdOrKey}/comment`, { body });
 
     logger.info('Comment added to issue', { issueIdOrKey });
 
     return {
       id: response.data.id,
-      created: response.data.created
+      created: response.data.created,
     };
   }
 
@@ -239,7 +233,7 @@ export class JiraAdapter {
   private async authenticate(): Promise<void> {
     try {
       const authConfig = this.toolDefinition.authentication.config;
-      
+
       // In production, this would involve the full OAuth2 flow
       // For now, we'll use environment variables
       const clientId = process.env.JIRA_CLIENT_ID;
@@ -257,23 +251,22 @@ export class JiraAdapter {
           grant_type: 'refresh_token',
           client_id: clientId,
           client_secret: clientSecret,
-          refresh_token: refreshToken
+          refresh_token: refreshToken,
         },
         {
           headers: {
-            'Content-Type': 'application/x-www-form-urlencoded'
-          }
+            'Content-Type': 'application/x-www-form-urlencoded',
+          },
         }
       );
 
       this.accessToken = response.data.access_token;
       this.refreshToken = response.data.refresh_token || refreshToken;
-      this.tokenExpiry = new Date(Date.now() + (response.data.expires_in * 1000));
+      this.tokenExpiry = new Date(Date.now() + response.data.expires_in * 1000);
 
       logger.info('Jira authentication successful', {
-        expiresIn: response.data.expires_in
+        expiresIn: response.data.expires_in,
       });
-
     } catch (error) {
       logger.error('Jira authentication failed', { error });
       throw new Error('Failed to authenticate with Jira');
@@ -299,12 +292,12 @@ export class JiraAdapter {
           grant_type: 'refresh_token',
           client_id: clientId,
           client_secret: clientSecret,
-          refresh_token: this.refreshToken
+          refresh_token: this.refreshToken,
         },
         {
           headers: {
-            'Content-Type': 'application/x-www-form-urlencoded'
-          }
+            'Content-Type': 'application/x-www-form-urlencoded',
+          },
         }
       );
 
@@ -312,10 +305,9 @@ export class JiraAdapter {
       if (response.data.refresh_token) {
         this.refreshToken = response.data.refresh_token;
       }
-      this.tokenExpiry = new Date(Date.now() + (response.data.expires_in * 1000));
+      this.tokenExpiry = new Date(Date.now() + response.data.expires_in * 1000);
 
       logger.info('Jira token refreshed successfully');
-
     } catch (error) {
       logger.error('Failed to refresh Jira token', { error });
       this.accessToken = null;
@@ -332,10 +324,11 @@ export class JiraAdapter {
     if (error.response) {
       // Jira API error
       const status = error.response.status;
-      const message = error.response.data?.errorMessages?.join(', ') || 
-                     error.response.data?.errors?.toString() ||
-                     error.response.statusText;
-      
+      const message =
+        error.response.data?.errorMessages?.join(', ') ||
+        error.response.data?.errors?.toString() ||
+        error.response.statusText;
+
       return new Error(`Jira API error (${status}): ${message}`);
     } else if (error.request) {
       // Network error
@@ -350,10 +343,8 @@ export class JiraAdapter {
    * Get available transitions for an issue
    */
   async getTransitions(issueIdOrKey: string): Promise<any> {
-    const response = await this.axiosInstance.get(
-      `/issue/${issueIdOrKey}/transitions`
-    );
-    
+    const response = await this.axiosInstance.get(`/issue/${issueIdOrKey}/transitions`);
+
     return response.data.transitions;
   }
 
@@ -361,15 +352,12 @@ export class JiraAdapter {
    * Transition an issue to a new status
    */
   async transitionIssue(issueIdOrKey: string, transitionId: string): Promise<any> {
-    const response = await this.axiosInstance.post(
-      `/issue/${issueIdOrKey}/transitions`,
-      {
-        transition: { id: transitionId }
-      }
-    );
-    
+    const response = await this.axiosInstance.post(`/issue/${issueIdOrKey}/transitions`, {
+      transition: { id: transitionId },
+    });
+
     logger.info('Issue transitioned', { issueIdOrKey, transitionId });
-    
+
     return { success: true };
   }
 
@@ -377,13 +365,10 @@ export class JiraAdapter {
    * Get issue details
    */
   async getIssue(issueIdOrKey: string, fields?: string[]): Promise<any> {
-    const response = await this.axiosInstance.get(
-      `/issue/${issueIdOrKey}`,
-      {
-        params: fields ? { fields: fields.join(',') } : undefined
-      }
-    );
-    
+    const response = await this.axiosInstance.get(`/issue/${issueIdOrKey}`, {
+      params: fields ? { fields: fields.join(',') } : undefined,
+    });
+
     return response.data;
   }
 
@@ -391,10 +376,8 @@ export class JiraAdapter {
    * Get project details
    */
   async getProject(projectKeyOrId: string): Promise<any> {
-    const response = await this.axiosInstance.get(
-      `/project/${projectKeyOrId}`
-    );
-    
+    const response = await this.axiosInstance.get(`/project/${projectKeyOrId}`);
+
     return response.data;
   }
 
@@ -408,16 +391,13 @@ export class JiraAdapter {
     endDate?: string;
     goal?: string;
   }): Promise<any> {
-    const response = await this.axiosInstance.post(
-      `/rest/agile/1.0/sprint`,
-      parameters
-    );
-    
+    const response = await this.axiosInstance.post(`/rest/agile/1.0/sprint`, parameters);
+
     logger.info('Sprint created', {
       sprintId: response.data.id,
-      sprintName: response.data.name
+      sprintName: response.data.name,
     });
-    
+
     return response.data;
   }
 
@@ -425,13 +405,10 @@ export class JiraAdapter {
    * Get user permissions
    */
   async getMyPermissions(projectKey?: string): Promise<any> {
-    const response = await this.axiosInstance.get(
-      '/mypermissions',
-      {
-        params: projectKey ? { projectKey } : undefined
-      }
-    );
-    
+    const response = await this.axiosInstance.get('/mypermissions', {
+      params: projectKey ? { projectKey } : undefined,
+    });
+
     return response.data.permissions;
   }
 }

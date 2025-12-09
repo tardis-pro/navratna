@@ -2,17 +2,23 @@ import { ToolController } from '../controllers/toolController.js';
 import { DatabaseService, EventBusService } from '@uaip/shared-services';
 
 // Minimal, clean Elysia route group for tools
-export function registerToolRoutes(app: any, toolController?: ToolController, eventBusService?: EventBusService) {
-  const controller = toolController ?? (() => {
-    // Fall back to a lightweight controller if not provided
-    const db = DatabaseService.getInstance();
-    const { ToolRegistry } = require('../services/toolRegistry.js');
-    const { ToolExecutor } = require('../services/toolExecutor.js');
-    const registry = new ToolRegistry(eventBusService);
-    const base = { execute: async () => ({ success: true, result: null }) } as any;
-    const exec = new ToolExecutor(db, registry, base);
-    return new ToolController(registry, exec);
-  })();
+export function registerToolRoutes(
+  app: any,
+  toolController?: ToolController,
+  eventBusService?: EventBusService
+) {
+  const controller =
+    toolController ??
+    (() => {
+      // Fall back to a lightweight controller if not provided
+      const db = DatabaseService.getInstance();
+      const { ToolRegistry } = require('../services/toolRegistry.js');
+      const { ToolExecutor } = require('../services/toolExecutor.js');
+      const registry = new ToolRegistry(eventBusService);
+      const base = { execute: async () => ({ success: true, result: null }) } as any;
+      const exec = new ToolExecutor(db, registry, base);
+      return new ToolController(registry, exec);
+    })();
 
   app.group('/api/v1/tools', (g: any) =>
     g
@@ -65,7 +71,11 @@ export function registerToolRoutes(app: any, toolController?: ToolController, ev
 
       // Approve execution
       .post('/executions/:id/approve', async ({ params, body, headers }: any) => {
-        const req: any = { params, body, user: headers['x-user-id'] ? { id: headers['x-user-id'] } : undefined };
+        const req: any = {
+          params,
+          body,
+          user: headers['x-user-id'] ? { id: headers['x-user-id'] } : undefined,
+        };
         const res: any = { json: (v: any) => v, status: () => res };
         return controller.approveExecution(req, res);
       })
@@ -97,7 +107,13 @@ export function registerToolRoutes(app: any, toolController?: ToolController, ev
       // Register tool
       .post('/', async ({ body }: any) => {
         const req: any = { body };
-        const res: any = { json: (v: any) => v, status: (code: number) => { res.statusCode = code; return res; } };
+        const res: any = {
+          json: (v: any) => v,
+          status: (code: number) => {
+            res.statusCode = code;
+            return res;
+          },
+        };
         return controller.registerTool(req, res);
       })
 
@@ -139,7 +155,11 @@ export function registerToolRoutes(app: any, toolController?: ToolController, ev
 
       // Relationships
       .post('/:id/relationships', async ({ params, body, headers }: any) => {
-        const req: any = { params, body, user: headers['x-user-id'] ? { id: headers['x-user-id'] } : undefined };
+        const req: any = {
+          params,
+          body,
+          user: headers['x-user-id'] ? { id: headers['x-user-id'] } : undefined,
+        };
         const res: any = { json: (v: any) => v };
         return controller.addRelationship(req, res);
       })

@@ -1,9 +1,9 @@
 /**
  * UAIP Backend SDK Client
- * 
+ *
  * Auto-generated on: 2024-12-18T21:16:59.026Z
  * Services: agent-intelligence, llm-service, security-gateway, capability-registry, orchestration-pipeline, discussion-orchestration, artifact-service
- * 
+ *
  * ⚠️  This is an EXAMPLE file showing what the generated SDK will look like.
  * Run `pnpm generate:sdk` from the root to generate the actual SDK.
  */
@@ -42,10 +42,10 @@ export class UAIPClient {
   constructor(config: RequestConfig & AuthConfig = {}) {
     this.baseURL = config.baseURL || 'http://localhost:8081';
     this.authToken = config.token;
-    
+
     this.defaultHeaders = {
       'Content-Type': 'application/json',
-      ...config.headers
+      ...config.headers,
     };
 
     if (this.authToken) {
@@ -75,7 +75,7 @@ export class UAIPClient {
     const requestInit: RequestInit = {
       method,
       headers,
-      ...(data && { body: JSON.stringify(data) })
+      ...(data && { body: JSON.stringify(data) }),
     };
 
     try {
@@ -88,19 +88,19 @@ export class UAIPClient {
         error: !response.ok ? result.error : undefined,
         meta: {
           timestamp: new Date(),
-          requestId: response.headers.get('x-request-id') || undefined
-        }
+          requestId: response.headers.get('x-request-id') || undefined,
+        },
       };
     } catch (error) {
       return {
         success: false,
         error: {
           code: 'NETWORK_ERROR',
-          message: error instanceof Error ? error.message : 'Unknown error'
+          message: error instanceof Error ? error.message : 'Unknown error',
         },
         meta: {
-          timestamp: new Date()
-        }
+          timestamp: new Date(),
+        },
       };
     }
   }
@@ -166,7 +166,7 @@ export class UAIPClient {
       let path = '/api/v1/agents/:agentId';
       path = path.replace(':agentId', String(params.agentId));
       return this.request('DELETE', path);
-    }
+    },
   };
 
   // LLM Service
@@ -201,7 +201,7 @@ export class UAIPClient {
     getProvidersStats: async () => {
       const path = '/api/v1/llm/providers/stats';
       return this.request('GET', path);
-    }
+    },
   };
 
   // Security Gateway
@@ -255,7 +255,7 @@ export class UAIPClient {
       let path = '/api/v1/admin/providers/:id/test';
       path = path.replace(':id', String(params.id));
       return this.request<any>('POST', path);
-    }
+    },
   };
 
   // Capability Registry
@@ -291,7 +291,7 @@ export class UAIPClient {
       let path = '/api/v1/capabilities/:id/execute';
       path = path.replace(':id', String(params.id));
       return this.request<any>('POST', path, data);
-    }
+    },
   };
 
   // Orchestration Pipeline
@@ -338,7 +338,7 @@ export class UAIPClient {
       let path = '/api/v1/operations/:operationId/cancel';
       path = path.replace(':operationId', String(params.operationId));
       return this.request<any>('POST', path);
-    }
+    },
   };
 
   // Artifact Service
@@ -373,7 +373,7 @@ export class UAIPClient {
     getTypes: async () => {
       const path = '/api/v1/artifacts/types';
       return this.request('GET', path);
-    }
+    },
   };
 }
 
@@ -414,4 +414,4 @@ const operationResponse = await client.orchestrationPipeline.postOperations({
   agentId: 'agent-123',
   // ... other operation data
 });
-*/ 
+*/

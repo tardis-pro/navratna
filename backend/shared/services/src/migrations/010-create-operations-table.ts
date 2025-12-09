@@ -2,7 +2,7 @@ import { MigrationInterface, QueryRunner, Table, Index } from 'typeorm';
 
 /**
  * Operations Table Migration
- * 
+ *
  * Creates the operations table with proper enum definitions that match the TypeScript enums.
  * This table tracks all operations performed by agents and users in the system.
  */
@@ -53,7 +53,7 @@ export class CreateOperationsTable1703010000000 implements MigrationInterface {
             type: 'varchar',
           },
           {
-            name: 'user_id', 
+            name: 'user_id',
             type: 'varchar',
           },
           {
@@ -243,11 +243,23 @@ export class CreateOperationsTable1703010000000 implements MigrationInterface {
     );
 
     // Create indexes for performance
-    await queryRunner.createIndex('operations', new Index('IDX_operations_status_agent_id', ['status', 'agent_id']));
-    await queryRunner.createIndex('operations', new Index('IDX_operations_type_created_at', ['type', 'created_at']));
-    await queryRunner.createIndex('operations', new Index('IDX_operations_priority_status', ['priority', 'status']));
+    await queryRunner.createIndex(
+      'operations',
+      new Index('IDX_operations_status_agent_id', ['status', 'agent_id'])
+    );
+    await queryRunner.createIndex(
+      'operations',
+      new Index('IDX_operations_type_created_at', ['type', 'created_at'])
+    );
+    await queryRunner.createIndex(
+      'operations',
+      new Index('IDX_operations_priority_status', ['priority', 'status'])
+    );
     await queryRunner.createIndex('operations', new Index('IDX_operations_user_id', ['user_id']));
-    await queryRunner.createIndex('operations', new Index('IDX_operations_started_at_completed_at', ['started_at', 'completed_at']));
+    await queryRunner.createIndex(
+      'operations',
+      new Index('IDX_operations_started_at_completed_at', ['started_at', 'completed_at'])
+    );
   }
 
   public async down(queryRunner: QueryRunner): Promise<void> {

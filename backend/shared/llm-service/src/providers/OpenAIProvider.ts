@@ -23,10 +23,12 @@ export class OpenAIProvider extends BaseProvider {
 
       // OpenRouter requires specific headers
       const isOpenRouter = this.config.baseUrl?.includes('openrouter.ai');
-      const headers = isOpenRouter ? {
-        'HTTP-Referer': 'https://Navratna.tardis.digital',
-        'X-Title': 'Navratna'
-      } : {};
+      const headers = isOpenRouter
+        ? {
+            'HTTP-Referer': 'https://Navratna.tardis.digital',
+            'X-Title': 'Navratna',
+          }
+        : {};
 
       const data = await this.makeRequest(url, body, headers);
 
@@ -47,23 +49,27 @@ export class OpenAIProvider extends BaseProvider {
     }
   }
 
-  protected async fetchModelsFromProvider(): Promise<Array<{
-    id: string;
-    name: string;
-    description?: string;
-    source: string;
-    apiEndpoint: string;
-  }>> {
+  protected async fetchModelsFromProvider(): Promise<
+    Array<{
+      id: string;
+      name: string;
+      description?: string;
+      source: string;
+      apiEndpoint: string;
+    }>
+  > {
     try {
       const url = `${this.config.baseUrl || 'https://api.openai.com'}/v1/models`;
-      
+
       // OpenRouter requires specific headers
       const isOpenRouter = this.config.baseUrl?.includes('openrouter.ai');
-      const headers = isOpenRouter ? {
-         'HTTP-Referer': 'https://Navratna.tardis.digital',
-        'X-Title': 'Navratna'
-      } : {};
-      
+      const headers = isOpenRouter
+        ? {
+            'HTTP-Referer': 'https://Navratna.tardis.digital',
+            'X-Title': 'Navratna',
+          }
+        : {};
+
       const data = await this.makeGetRequest(url, headers);
 
       if (!data.data || !Array.isArray(data.data)) {
@@ -72,27 +78,28 @@ export class OpenAIProvider extends BaseProvider {
 
       // Filter to only chat models - be more inclusive for OpenRouter and custom providers
       const isOpenRouterModels = this.config.baseUrl?.includes('openrouter.ai');
-      const isCustomProvider = this.config.baseUrl && !this.config.baseUrl.includes('api.openai.com');
-      
+      const isCustomProvider =
+        this.config.baseUrl && !this.config.baseUrl.includes('api.openai.com');
+
       let chatModels: any[];
       if (isOpenRouterModels || isCustomProvider) {
         // For OpenRouter and custom providers, include all models (they usually only return chat models anyway)
         chatModels = data.data;
       } else {
         // For OpenAI, filter to only chat models
-        chatModels = data.data.filter((model: any) =>
-          model.id.includes('gpt') || model.id.includes('chat')
+        chatModels = data.data.filter(
+          (model: any) => model.id.includes('gpt') || model.id.includes('chat')
         );
       }
 
       return chatModels.map((model: any) => ({
         id: model.id,
         name: model.id,
-        description: isOpenRouterModels 
-          ? `OpenRouter model: ${model.id}${model.owned_by ? ` (${model.owned_by})` : ''}` 
+        description: isOpenRouterModels
+          ? `OpenRouter model: ${model.id}${model.owned_by ? ` (${model.owned_by})` : ''}`
           : `OpenAI model: ${model.id}${model.owned_by ? ` (${model.owned_by})` : ''}`,
         source: this.config.baseUrl || 'https://api.openai.com',
-        apiEndpoint: `${this.config.baseUrl || 'https://api.openai.com'}/v1/chat/completions`
+        apiEndpoint: `${this.config.baseUrl || 'https://api.openai.com'}/v1/chat/completions`,
       }));
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
@@ -107,19 +114,19 @@ export class OpenAIProvider extends BaseProvider {
             name: 'gpt-3.5-turbo',
             description: 'OpenAI GPT-3.5 Turbo',
             source: this.config.baseUrl || 'https://api.openai.com',
-            apiEndpoint: `${this.config.baseUrl || 'https://api.openai.com'}/v1/chat/completions`
+            apiEndpoint: `${this.config.baseUrl || 'https://api.openai.com'}/v1/chat/completions`,
           },
           {
             id: 'gpt-4',
             name: 'gpt-4',
             description: 'OpenAI GPT-4',
             source: this.config.baseUrl || 'https://api.openai.com',
-            apiEndpoint: `${this.config.baseUrl || 'https://api.openai.com'}/v1/chat/completions`
-          }
+            apiEndpoint: `${this.config.baseUrl || 'https://api.openai.com'}/v1/chat/completions`,
+          },
         ];
       } else {
         throw new Error(`OpenAI connection failed: ${errorMessage}`);
       }
     }
   }
-} 
+}

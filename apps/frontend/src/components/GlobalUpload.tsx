@@ -1,11 +1,23 @@
 import React, { useState, useCallback } from 'react';
 import { Upload, Plus, X, FileText, Database, Sparkles, Zap, Brain } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { Progress } from '@/components/ui/progress';
 import { useKnowledge } from '@/contexts/KnowledgeContext';
 import type { KnowledgeIngestRequest } from '@uaip/types';
@@ -21,14 +33,22 @@ const KNOWLEDGE_TYPES = [
   { value: KnowledgeType.FACTUAL, label: 'Factual', icon: <FileText className="w-4 h-4" /> },
   { value: KnowledgeType.PROCEDURAL, label: 'Procedural', icon: <Database className="w-4 h-4" /> },
   { value: KnowledgeType.CONCEPTUAL, label: 'Conceptual', icon: <Database className="w-4 h-4" /> },
-  { value: KnowledgeType.EXPERIENTIAL, label: 'Experiential', icon: <Database className="w-4 h-4" /> },
+  {
+    value: KnowledgeType.EXPERIENTIAL,
+    label: 'Experiential',
+    icon: <Database className="w-4 h-4" />,
+  },
   { value: KnowledgeType.EPISODIC, label: 'Episodic', icon: <Database className="w-4 h-4" /> },
   { value: KnowledgeType.SEMANTIC, label: 'Semantic', icon: <Database className="w-4 h-4" /> },
 ];
 
-export const GlobalUpload: React.FC<GlobalUploadProps> = ({ isOpen, onClose, onKnowledgeCreated }) => {
+export const GlobalUpload: React.FC<GlobalUploadProps> = ({
+  isOpen,
+  onClose,
+  onKnowledgeCreated,
+}) => {
   const { uploadKnowledge, isUploading, uploadProgress } = useKnowledge();
-  
+
   const [uploadMethod, setUploadMethod] = useState<'text' | 'file'>('text');
   const [uploadContent, setUploadContent] = useState('');
   const [uploadTags, setUploadTags] = useState('');
@@ -58,7 +78,12 @@ export const GlobalUpload: React.FC<GlobalUploadProps> = ({ isOpen, onClose, onK
       return KnowledgeType.FACTUAL;
     } else if (extension === 'json' || extension === 'csv' || extension === 'xml') {
       return KnowledgeType.SEMANTIC;
-    } else if (extension === 'js' || extension === 'ts' || extension === 'py' || extension === 'java') {
+    } else if (
+      extension === 'js' ||
+      extension === 'ts' ||
+      extension === 'py' ||
+      extension === 'java'
+    ) {
       return KnowledgeType.PROCEDURAL;
     } else {
       return KnowledgeType.FACTUAL;
@@ -68,17 +93,17 @@ export const GlobalUpload: React.FC<GlobalUploadProps> = ({ isOpen, onClose, onK
   const generateTagsFromFile = (file: File): string[] => {
     const tags: string[] = [];
     const extension = file.name.split('.').pop()?.toLowerCase();
-    
+
     if (extension) {
       tags.push(extension);
     }
-    
+
     if (file.type.startsWith('text/')) {
       tags.push('text');
     } else if (file.type.startsWith('application/')) {
       tags.push('document');
     }
-    
+
     tags.push('file-upload');
     return tags;
   };
@@ -99,8 +124,11 @@ export const GlobalUpload: React.FC<GlobalUploadProps> = ({ isOpen, onClose, onK
       if (uploadMethod === 'text') {
         if (!uploadContent.trim()) return;
 
-        const tags = uploadTags.split(',').map(tag => tag.trim()).filter(Boolean);
-        
+        const tags = uploadTags
+          .split(',')
+          .map((tag) => tag.trim())
+          .filter(Boolean);
+
         const knowledgeItem: KnowledgeIngestRequest = {
           content: uploadContent,
           type: uploadType,
@@ -125,7 +153,10 @@ export const GlobalUpload: React.FC<GlobalUploadProps> = ({ isOpen, onClose, onK
             const content = await readFileContent(file);
             const fileType = determineKnowledgeType(file);
             const fileTags = generateTagsFromFile(file);
-            const userTags = uploadTags.split(',').map(tag => tag.trim()).filter(Boolean);
+            const userTags = uploadTags
+              .split(',')
+              .map((tag) => tag.trim())
+              .filter(Boolean);
             const tags = [...fileTags, ...userTags];
 
             const knowledgeItem: KnowledgeIngestRequest = {
@@ -155,18 +186,27 @@ export const GlobalUpload: React.FC<GlobalUploadProps> = ({ isOpen, onClose, onK
 
       if (knowledgeItems.length > 0) {
         const results = await uploadKnowledge(knowledgeItems);
-        
+
         // If we have a callback and results, call it with the first knowledge ID
         if (onKnowledgeCreated && results && results.length > 0) {
           onKnowledgeCreated(results[0].id);
         }
-        
+
         handleClose();
       }
     } catch (error) {
       console.error('Upload failed:', error);
     }
-  }, [uploadMethod, uploadContent, uploadTags, uploadType, uploadTitle, selectedFiles, uploadKnowledge, onKnowledgeCreated]);
+  }, [
+    uploadMethod,
+    uploadContent,
+    uploadTags,
+    uploadType,
+    uploadTitle,
+    selectedFiles,
+    uploadKnowledge,
+    onKnowledgeCreated,
+  ]);
 
   return (
     <Dialog open={isOpen} onOpenChange={handleClose}>
@@ -183,7 +223,7 @@ export const GlobalUpload: React.FC<GlobalUploadProps> = ({ isOpen, onClose, onK
               <motion.div
                 className="w-12 h-12 rounded-xl bg-gradient-to-br from-cyan-500 to-blue-600 flex items-center justify-center"
                 animate={{ rotate: [0, 5, -5, 0] }}
-                transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
+                transition={{ duration: 4, repeat: Infinity, ease: 'easeInOut' }}
               >
                 <Database className="w-6 h-6 text-white" />
               </motion.div>
@@ -193,10 +233,10 @@ export const GlobalUpload: React.FC<GlobalUploadProps> = ({ isOpen, onClose, onK
               Create knowledge from text or upload files to your knowledge base
             </DialogDescription>
           </DialogHeader>
-          
+
           <div className="space-y-6 relative">
             {/* Upload Method Selection */}
-            <motion.div 
+            <motion.div
               className="flex gap-3"
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
@@ -224,9 +264,11 @@ export const GlobalUpload: React.FC<GlobalUploadProps> = ({ isOpen, onClose, onK
                   >
                     <Plus className="w-5 h-5 text-white" />
                   </motion.div>
-                  <span className={`font-medium ${
-                    uploadMethod === 'text' ? 'text-cyan-300' : 'text-slate-300'
-                  }`}>
+                  <span
+                    className={`font-medium ${
+                      uploadMethod === 'text' ? 'text-cyan-300' : 'text-slate-300'
+                    }`}
+                  >
                     Text Note
                   </span>
                 </div>
@@ -239,7 +281,7 @@ export const GlobalUpload: React.FC<GlobalUploadProps> = ({ isOpen, onClose, onK
                   />
                 )}
               </motion.button>
-              
+
               <motion.button
                 onClick={() => setUploadMethod('file')}
                 className={`flex-1 relative overflow-hidden rounded-xl p-4 border transition-all duration-300 ${
@@ -262,9 +304,11 @@ export const GlobalUpload: React.FC<GlobalUploadProps> = ({ isOpen, onClose, onK
                   >
                     <Upload className="w-5 h-5 text-white" />
                   </motion.div>
-                  <span className={`font-medium ${
-                    uploadMethod === 'file' ? 'text-purple-300' : 'text-slate-300'
-                  }`}>
+                  <span
+                    className={`font-medium ${
+                      uploadMethod === 'file' ? 'text-purple-300' : 'text-slate-300'
+                    }`}
+                  >
                     Upload Files
                   </span>
                 </div>
@@ -300,7 +344,8 @@ export const GlobalUpload: React.FC<GlobalUploadProps> = ({ isOpen, onClose, onK
                       placeholder="Enter a title for your note..."
                       className="bg-slate-800/50 border-slate-600/30 hover:border-cyan-500/50 focus:border-cyan-400/70 text-white placeholder-slate-400 rounded-xl transition-all duration-300"
                       style={{
-                        background: 'linear-gradient(135deg, rgba(15, 23, 42, 0.6), rgba(30, 58, 138, 0.3))'
+                        background:
+                          'linear-gradient(135deg, rgba(15, 23, 42, 0.6), rgba(30, 58, 138, 0.3))',
                       }}
                     />
                   </div>
@@ -316,7 +361,8 @@ export const GlobalUpload: React.FC<GlobalUploadProps> = ({ isOpen, onClose, onK
                       rows={8}
                       className="bg-slate-800/50 border-slate-600/30 hover:border-cyan-500/50 focus:border-cyan-400/70 text-white placeholder-slate-400 rounded-xl transition-all duration-300 resize-none"
                       style={{
-                        background: 'linear-gradient(135deg, rgba(15, 23, 42, 0.6), rgba(30, 58, 138, 0.3))'
+                        background:
+                          'linear-gradient(135deg, rgba(15, 23, 42, 0.6), rgba(30, 58, 138, 0.3))',
                       }}
                     />
                   </div>
@@ -325,13 +371,20 @@ export const GlobalUpload: React.FC<GlobalUploadProps> = ({ isOpen, onClose, onK
                       <Database className="w-4 h-4 text-cyan-400" />
                       Type
                     </label>
-                    <Select value={uploadType} onValueChange={(value: KnowledgeType) => setUploadType(value)}>
+                    <Select
+                      value={uploadType}
+                      onValueChange={(value: KnowledgeType) => setUploadType(value)}
+                    >
                       <SelectTrigger className="bg-slate-800/50 border-slate-600/30 hover:border-cyan-500/50 text-white rounded-xl">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent className="bg-slate-800 border-slate-600/30">
-                        {KNOWLEDGE_TYPES.map(type => (
-                          <SelectItem key={type.value} value={type.value} className="text-white hover:bg-slate-700">
+                        {KNOWLEDGE_TYPES.map((type) => (
+                          <SelectItem
+                            key={type.value}
+                            value={type.value}
+                            className="text-white hover:bg-slate-700"
+                          >
                             <div className="flex items-center space-x-2">
                               {type.icon}
                               <span>{type.label}</span>
@@ -356,10 +409,7 @@ export const GlobalUpload: React.FC<GlobalUploadProps> = ({ isOpen, onClose, onK
                       <Upload className="w-4 h-4 text-purple-400" />
                       Select Files
                     </label>
-                    <motion.div
-                      className="relative"
-                      whileHover={{ scale: 1.01 }}
-                    >
+                    <motion.div className="relative" whileHover={{ scale: 1.01 }}>
                       <input
                         type="file"
                         multiple
@@ -367,13 +417,14 @@ export const GlobalUpload: React.FC<GlobalUploadProps> = ({ isOpen, onClose, onK
                         accept=".txt,.md,.json,.csv,.js,.ts,.py,.java,.xml,.yml,.yaml,.html,.css,.sql,.log"
                         className="w-full p-4 border border-slate-600/30 hover:border-purple-500/50 rounded-xl bg-slate-800/50 text-white file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:bg-purple-500 file:text-white hover:file:bg-purple-600 transition-all duration-300"
                         style={{
-                          background: 'linear-gradient(135deg, rgba(15, 23, 42, 0.6), rgba(88, 28, 135, 0.3))'
+                          background:
+                            'linear-gradient(135deg, rgba(15, 23, 42, 0.6), rgba(88, 28, 135, 0.3))',
                         }}
                       />
                     </motion.div>
                     <AnimatePresence>
                       {selectedFiles.length > 0 && (
-                        <motion.div 
+                        <motion.div
                           className="mt-4 space-y-2"
                           initial={{ opacity: 0, height: 0 }}
                           animate={{ opacity: 1, height: 'auto' }}
@@ -381,8 +432,8 @@ export const GlobalUpload: React.FC<GlobalUploadProps> = ({ isOpen, onClose, onK
                           transition={{ duration: 0.3 }}
                         >
                           {selectedFiles.map((file, index) => (
-                            <motion.div 
-                              key={index} 
+                            <motion.div
+                              key={index}
                               className="flex items-center justify-between p-3 bg-slate-800/50 border border-slate-600/30 rounded-lg group hover:border-purple-400/50 transition-all duration-300"
                               initial={{ opacity: 0, scale: 0.95 }}
                               animate={{ opacity: 1, scale: 1 }}
@@ -393,10 +444,14 @@ export const GlobalUpload: React.FC<GlobalUploadProps> = ({ isOpen, onClose, onK
                                 <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-purple-500 to-pink-600 flex items-center justify-center">
                                   <FileText className="w-4 h-4 text-white" />
                                 </div>
-                                <span className="text-slate-300 text-sm font-medium">{file.name}</span>
+                                <span className="text-slate-300 text-sm font-medium">
+                                  {file.name}
+                                </span>
                               </div>
                               <motion.button
-                                onClick={() => setSelectedFiles(files => files.filter((_, i) => i !== index))}
+                                onClick={() =>
+                                  setSelectedFiles((files) => files.filter((_, i) => i !== index))
+                                }
                                 className="w-8 h-8 rounded-lg hover:bg-red-500/20 flex items-center justify-center text-slate-400 hover:text-red-300 transition-colors group-hover:scale-110"
                                 whileHover={{ scale: 1.1 }}
                                 whileTap={{ scale: 0.9 }}
@@ -428,14 +483,15 @@ export const GlobalUpload: React.FC<GlobalUploadProps> = ({ isOpen, onClose, onK
                 placeholder="ai, research, notes, important"
                 className="bg-slate-800/50 border-slate-600/30 hover:border-emerald-500/50 focus:border-emerald-400/70 text-white placeholder-slate-400 rounded-xl transition-all duration-300"
                 style={{
-                  background: 'linear-gradient(135deg, rgba(15, 23, 42, 0.6), rgba(4, 120, 87, 0.3))'
+                  background:
+                    'linear-gradient(135deg, rgba(15, 23, 42, 0.6), rgba(4, 120, 87, 0.3))',
                 }}
               />
             </motion.div>
 
             <AnimatePresence>
               {isUploading && (
-                <motion.div 
+                <motion.div
                   className="space-y-4 p-4 bg-slate-800/30 border border-cyan-500/30 rounded-xl backdrop-blur-sm"
                   initial={{ opacity: 0, scale: 0.95 }}
                   animate={{ opacity: 1, scale: 1 }}
@@ -443,14 +499,14 @@ export const GlobalUpload: React.FC<GlobalUploadProps> = ({ isOpen, onClose, onK
                   transition={{ duration: 0.3 }}
                 >
                   <div className="flex justify-between items-center text-sm">
-                    <motion.span 
+                    <motion.span
                       className="flex items-center gap-2 text-cyan-300 font-medium"
                       animate={{ opacity: [1, 0.6, 1] }}
                       transition={{ duration: 1.5, repeat: Infinity }}
                     >
                       <motion.div
                         animate={{ rotate: 360 }}
-                        transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
+                        transition={{ duration: 2, repeat: Infinity, ease: 'linear' }}
                       >
                         <Zap className="w-4 h-4" />
                       </motion.div>
@@ -459,18 +515,15 @@ export const GlobalUpload: React.FC<GlobalUploadProps> = ({ isOpen, onClose, onK
                     <span className="text-cyan-200 font-semibold">{uploadProgress}%</span>
                   </div>
                   <div className="relative">
-                    <Progress 
-                      value={uploadProgress} 
-                      className="h-2 bg-slate-700"
-                    />
+                    <Progress value={uploadProgress} className="h-2 bg-slate-700" />
                     <motion.div
                       className="absolute inset-0 bg-gradient-to-r from-cyan-500/20 to-blue-500/20 rounded-full"
-                      animate={{ 
+                      animate={{
                         background: [
                           'linear-gradient(90deg, rgba(34, 211, 238, 0.2), rgba(59, 130, 246, 0.2))',
                           'linear-gradient(90deg, rgba(59, 130, 246, 0.2), rgba(147, 51, 234, 0.2))',
-                          'linear-gradient(90deg, rgba(34, 211, 238, 0.2), rgba(59, 130, 246, 0.2))'
-                        ]
+                          'linear-gradient(90deg, rgba(34, 211, 238, 0.2), rgba(59, 130, 246, 0.2))',
+                        ],
                       }}
                       transition={{ duration: 3, repeat: Infinity }}
                     />
@@ -479,18 +532,15 @@ export const GlobalUpload: React.FC<GlobalUploadProps> = ({ isOpen, onClose, onK
               )}
             </AnimatePresence>
 
-            <motion.div 
+            <motion.div
               className="flex justify-end space-x-3 pt-4"
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.3 }}
             >
-              <motion.div
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-              >
-                <Button 
-                  variant="outline" 
+              <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+                <Button
+                  variant="outline"
                   onClick={handleClose}
                   className="px-6 py-3 border-slate-600/40 hover:border-red-400/50 bg-slate-800/30 hover:bg-red-500/10 text-slate-300 hover:text-red-300 rounded-xl transition-all duration-300"
                 >
@@ -501,10 +551,10 @@ export const GlobalUpload: React.FC<GlobalUploadProps> = ({ isOpen, onClose, onK
                 whileHover={{ scale: isUploading ? 1 : 1.05 }}
                 whileTap={{ scale: isUploading ? 1 : 0.95 }}
               >
-                <Button 
-                  onClick={handleUpload} 
+                <Button
+                  onClick={handleUpload}
                   disabled={
-                    isUploading || 
+                    isUploading ||
                     (uploadMethod === 'text' && !uploadContent.trim()) ||
                     (uploadMethod === 'file' && selectedFiles.length === 0)
                   }
@@ -519,7 +569,7 @@ export const GlobalUpload: React.FC<GlobalUploadProps> = ({ isOpen, onClose, onK
                     >
                       <motion.div
                         animate={{ rotate: 360 }}
-                        transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
+                        transition={{ duration: 2, repeat: Infinity, ease: 'linear' }}
                       >
                         <Zap className="w-4 h-4" />
                       </motion.div>

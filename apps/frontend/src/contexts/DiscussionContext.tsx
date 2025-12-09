@@ -12,7 +12,7 @@ import {
   DiscussionStatus,
   TurnStrategy,
   CreateDiscussionRequest,
-  MessageType
+  MessageType,
 } from '@uaip/types';
 
 // Import frontend-specific message type
@@ -68,7 +68,7 @@ export const DiscussionProvider: React.FC<DiscussionProviderProps> = ({
   topic,
   maxRounds,
   turnStrategy = TurnStrategy.ROUND_ROBIN,
-  children
+  children,
 }) => {
   const [isActive, setIsActive] = useState<boolean>(false);
   const [isWebSocketConnected, setIsWebSocketConnected] = useState<boolean>(false);
@@ -80,16 +80,16 @@ export const DiscussionProvider: React.FC<DiscussionProviderProps> = ({
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [lastError, setLastError] = useState<string | null>(null);
   const [discussionId, setDiscussionId] = useState<string | null>(null);
-  
+
   const { agents } = useAgents();
   const { user } = useAuth();
-  
+
   // WebSocket connection for discussion orchestration
-  const { 
-    isConnected: wsConnected, 
-    sendMessage: sendWebSocketMessage, 
+  const {
+    isConnected: wsConnected,
+    sendMessage: sendWebSocketMessage,
     lastEvent,
-    authStatus 
+    authStatus,
   } = useEnhancedWebSocket();
 
   // Sync WebSocket connection status
@@ -101,19 +101,19 @@ export const DiscussionProvider: React.FC<DiscussionProviderProps> = ({
   useEffect(() => {
     if (lastEvent) {
       console.log('📡 Discussion WebSocket event received:', lastEvent);
-      
+
       switch (lastEvent.type) {
         case 'joined_discussion':
           console.log('✅ Joined discussion room:', lastEvent.payload);
           break;
-          
+
         case 'discussion_started':
           console.log('✅ Discussion started event received:', lastEvent.payload);
           setIsActive(true);
           setLastError(null);
           setIsLoading(false); // Clear loading state on success
           break;
-          
+
         case 'message_received':
           console.log('💬 Message received event:', lastEvent.payload);
           // Handle both direct message format and orchestration service event format
@@ -127,22 +127,22 @@ export const DiscussionProvider: React.FC<DiscussionProviderProps> = ({
               type: 'response',
               agentId: messageData.metadata?.agentId,
               confidence: messageData.metadata?.confidence,
-              metadata: messageData.metadata
+              metadata: messageData.metadata,
             };
             // Add to both real-time messages and history for immediate display
-            setMessages(prev => [...prev, newMessage]);
-            setHistory(prev => [...prev, newMessage]);
+            setMessages((prev) => [...prev, newMessage]);
+            setHistory((prev) => [...prev, newMessage]);
           }
           break;
-          
+
         case 'participant_joined':
           console.log('👥 Participant joined:', lastEvent.payload);
           break;
-          
+
         case 'participant_left':
           console.log('👥 Participant left:', lastEvent.payload);
           break;
-          
+
         case 'turn_changed':
           console.log('🔄 Turn changed:', lastEvent.payload);
           if (lastEvent.payload?.currentTurn) {
@@ -150,17 +150,17 @@ export const DiscussionProvider: React.FC<DiscussionProviderProps> = ({
               participantId: lastEvent.payload.currentTurn.participantId,
               startedAt: new Date(lastEvent.payload.currentTurn.startedAt),
               expectedEndAt: new Date(lastEvent.payload.currentTurn.expectedEndAt),
-              turnNumber: lastEvent.payload.currentTurn.turnNumber
+              turnNumber: lastEvent.payload.currentTurn.turnNumber,
             });
           }
           break;
-          
+
         case 'error':
           console.error('❌ Discussion error:', lastEvent.payload);
           setLastError(lastEvent.payload.message || 'Discussion error occurred');
           setIsLoading(false);
           break;
-          
+
         default:
           console.log('🔹 Other discussion event:', lastEvent.type, lastEvent.payload);
           break;
@@ -205,43 +205,46 @@ export const DiscussionProvider: React.FC<DiscussionProviderProps> = ({
 
       // Use provided topic or default
       const discussionTopic = topic || 'General Discussion';
-      
+
       // Get available agents
-      const availableAgents = Object.values(agents).filter(agent => agent.isActive);
-      
+      const availableAgents = Object.values(agents).filter((agent) => agent.isActive);
+
       if (availableAgents.length === 0) {
         throw new Error('No active agents available for discussion');
       }
 
       // Use provided agent IDs or select first few available agents
-      const selectedAgentIds = agentIds && agentIds.length > 0 
-        ? agentIds.filter(id => availableAgents.some(agent => agent.id === id))
-        : availableAgents.slice(0, 3).map(agent => agent.id);
+      const selectedAgentIds =
+        agentIds && agentIds.length > 0
+          ? agentIds.filter((id) => availableAgents.some((agent) => agent.id === id))
+          : availableAgents.slice(0, 3).map((agent) => agent.id);
 
       if (selectedAgentIds.length === 0) {
         throw new Error('No valid agents available for discussion');
       }
 
       if (selectedAgentIds.length < 2) {
-        console.warn(`Only ${selectedAgentIds.length} agent(s) available, proceeding with minimum participants`);
+        console.warn(
+          `Only ${selectedAgentIds.length} agent(s) available, proceeding with minimum participants`
+        );
       }
 
       console.log('🎯 Creating discussion with agents:', selectedAgentIds);
 
       // STEP 1: Create discussion via agent-intelligence API (existing behavior)
       let currentDiscussionId = discussionId;
-      
+
       if (!currentDiscussionId) {
         const createRequest: CreateDiscussionRequest = {
           title: `Discussion: ${discussionTopic}`,
-          description: enhancedContext?.purpose 
+          description: enhancedContext?.purpose
             ? `${enhancedContext.purpose} discussion to generate ${enhancedContext.targetArtifact}: ${discussionTopic}`
             : `Automated discussion on ${discussionTopic}`,
           topic: discussionTopic,
           createdBy: user.id,
-          initialParticipants: selectedAgentIds.map(agentId => ({
+          initialParticipants: selectedAgentIds.map((agentId) => ({
             agentId,
-            role: 'participant' as const
+            role: 'participant' as const,
           })),
           settings: {
             maxTurns: maxRounds,
@@ -249,34 +252,36 @@ export const DiscussionProvider: React.FC<DiscussionProviderProps> = ({
             strategyConfig: {
               type: 'round_robin' as const,
               skipInactive: true,
-              maxSkips: 1
+              maxSkips: 1,
             },
-            metadata: enhancedContext ? {
-              discussionPurpose: enhancedContext.purpose,
-              targetArtifact: enhancedContext.targetArtifact,
-              contextType: enhancedContext.contextType,
-              originalContext: enhancedContext.originalContext,
-              additionalContext: enhancedContext.additionalContext,
-              expectedOutcome: enhancedContext.expectedOutcome
-            } : undefined
+            metadata: enhancedContext
+              ? {
+                  discussionPurpose: enhancedContext.purpose,
+                  targetArtifact: enhancedContext.targetArtifact,
+                  contextType: enhancedContext.contextType,
+                  originalContext: enhancedContext.originalContext,
+                  additionalContext: enhancedContext.additionalContext,
+                  expectedOutcome: enhancedContext.expectedOutcome,
+                }
+              : undefined,
           },
           turnStrategy: {
             strategy: TurnStrategy.ROUND_ROBIN,
             config: {
               type: 'round_robin' as const,
               skipInactive: true,
-              maxSkips: 1
-            }
-          }
+              maxSkips: 1,
+            },
+          },
         };
-        
+
         console.log('📝 Creating discussion via agent-intelligence API:', {
           title: createRequest.title,
           topic: createRequest.topic,
           createdBy: createRequest.createdBy,
-          participantCount: createRequest.initialParticipants.length
+          participantCount: createRequest.initialParticipants.length,
         });
-        
+
         const newDiscussion = await uaipAPI.discussions.create(createRequest);
         currentDiscussionId = newDiscussion.id;
         setDiscussionId(currentDiscussionId);
@@ -285,34 +290,33 @@ export const DiscussionProvider: React.FC<DiscussionProviderProps> = ({
 
       // STEP 2: Join discussion room via WebSocket
       console.log('🏠 Joining discussion room via WebSocket:', {
-        discussionId: currentDiscussionId
+        discussionId: currentDiscussionId,
       });
 
       // Join the discussion room to receive events
       sendWebSocketMessage('join_discussion', {
-        discussionId: currentDiscussionId
+        discussionId: currentDiscussionId,
       });
 
       // STEP 3: Start discussion via WebSocket to discussion-orchestration (new behavior)
       console.log('🚀 Starting discussion via WebSocket:', {
         discussionId: currentDiscussionId,
-        startedBy: user.id
+        startedBy: user.id,
       });
 
       // Send WebSocket message to start discussion
       sendWebSocketMessage('start_discussion', {
         discussionId: currentDiscussionId,
-        startedBy: user.id
+        startedBy: user.id,
       });
-      
+
       console.log('📡 WebSocket start_discussion event sent - waiting for confirmation...');
-      
+
       // Note: The discussion will be marked as active when we receive the 'discussion_started' event
       // This is handled in the useEffect that listens to WebSocket events
-
     } catch (error) {
       console.error('❌ Failed to start discussion:', error);
-      
+
       // Enhanced error logging for validation failures
       if (error instanceof Error) {
         if (error.message.includes('Validation failed')) {
@@ -322,8 +326,8 @@ export const DiscussionProvider: React.FC<DiscussionProviderProps> = ({
               title: `Discussion: ${topic || 'General Discussion'}`,
               topic: topic || 'General Discussion',
               createdBy: user?.id || 'MISSING',
-              participantCount: agentIds?.length || 0
-            }
+              participantCount: agentIds?.length || 0,
+            },
           });
         }
         setLastError(error.message);
@@ -341,21 +345,21 @@ export const DiscussionProvider: React.FC<DiscussionProviderProps> = ({
 
     try {
       setIsLoading(true);
-      
+
       // Stop the discussion via WebSocket
       if (isWebSocketConnected) {
         sendWebSocketMessage('stop_discussion', {
-          discussionId: discussionId
+          discussionId: discussionId,
         });
       }
-      
+
       // Leave the discussion room via WebSocket
       if (isWebSocketConnected) {
         sendWebSocketMessage('leave_discussion', {
-          discussionId: discussionId
+          discussionId: discussionId,
         });
       }
-      
+
       await uaipAPI.discussions.end(discussionId);
       setIsActive(false);
       setDiscussionId(null);
@@ -378,14 +382,14 @@ export const DiscussionProvider: React.FC<DiscussionProviderProps> = ({
 
     try {
       setIsLoading(true);
-      
+
       // Pause the discussion via WebSocket
       if (isWebSocketConnected) {
         sendWebSocketMessage('pause_discussion', {
-          discussionId: discussionId
+          discussionId: discussionId,
         });
       }
-      
+
       setLastError(null);
     } catch (error) {
       console.error('Failed to pause discussion:', error);
@@ -402,14 +406,14 @@ export const DiscussionProvider: React.FC<DiscussionProviderProps> = ({
     setDiscussionId(discussionId);
     try {
       setIsLoading(true);
-      
+
       // Resume the discussion via WebSocket
       if (isWebSocketConnected) {
         sendWebSocketMessage('resume_discussion', {
-          discussionId: discussionId
+          discussionId: discussionId,
         });
       }
-      
+
       setLastError(null);
     } catch (error) {
       console.error('Failed to resume discussion:', error);
@@ -429,7 +433,7 @@ export const DiscussionProvider: React.FC<DiscussionProviderProps> = ({
       const message = await uaipAPI.discussions.sendMessage(discussionId, {
         content,
         messageType: MessageType.MESSAGE,
-        metadata: agentId ? { agentId } : {}
+        metadata: agentId ? { agentId } : {},
       });
 
       // Add to local messages
@@ -438,10 +442,10 @@ export const DiscussionProvider: React.FC<DiscussionProviderProps> = ({
         content: message.content,
         sender: agentId || 'user',
         timestamp: new Date(message.createdAt),
-        type: 'response' // Map to frontend message type
+        type: 'response', // Map to frontend message type
       };
-      
-      setMessages(prev => [...prev, newMessage]);
+
+      setMessages((prev) => [...prev, newMessage]);
     } catch (error) {
       console.error('Failed to send message:', error);
       setLastError(error instanceof Error ? error.message : 'Failed to send message');
@@ -457,28 +461,29 @@ export const DiscussionProvider: React.FC<DiscussionProviderProps> = ({
     if (loadHistoryRef.current === discussionId) {
       return;
     }
-    
+
     // Throttle requests to once every 5 seconds for better UX
     const now = Date.now();
-    if (now - lastLoadTimeRef.current < 5000) { // 5 second throttle
+    if (now - lastLoadTimeRef.current < 5000) {
+      // 5 second throttle
       console.log('Throttling loadHistory call - waiting 5 seconds between calls');
       return;
     }
-    
+
     try {
       setIsLoading(true);
       setLastError(null);
       loadHistoryRef.current = discussionId;
       lastLoadTimeRef.current = now;
-      
+
       console.log('Loading discussion history for:', discussionId);
-      
+
       // Fetch messages from the existing API endpoint
       const response = await uaipAPI.discussions.getMessages(discussionId, { limit: 1000 });
       console.log('API response for getMessages:', response);
-      
+
       // Transform backend DiscussionMessage[] to frontend Message[]
-      const transformedHistory: Message[] = response.map(msg => ({
+      const transformedHistory: Message[] = response.map((msg) => ({
         id: msg.id,
         content: msg.content,
         sender: msg.metadata?.agentName || msg.participant?.agentId || 'unknown',
@@ -486,20 +491,21 @@ export const DiscussionProvider: React.FC<DiscussionProviderProps> = ({
         type: msg.messageType === MessageType.MESSAGE ? 'response' : 'system',
         agentId: msg.metadata?.agentId,
         confidence: msg.metadata?.confidence,
-        metadata: msg.metadata
+        metadata: msg.metadata,
       }));
-      
+
       setHistory(transformedHistory);
       console.log(`Loaded ${transformedHistory.length} historical messages`);
-      
     } catch (error) {
       console.error('Failed to load discussion history:', error);
       console.error('Error details:', {
         message: error instanceof Error ? error.message : 'Unknown error',
         stack: error instanceof Error ? error.stack : undefined,
-        discussionId
+        discussionId,
       });
-      setLastError(`Failed to load discussion history: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      setLastError(
+        `Failed to load discussion history: ${error instanceof Error ? error.message : 'Unknown error'}`
+      );
       setHistory([]); // Clear history on error
     } finally {
       setIsLoading(false);
@@ -510,7 +516,8 @@ export const DiscussionProvider: React.FC<DiscussionProviderProps> = ({
   const value: DiscussionContextType = {
     isActive,
     isWebSocketConnected,
-    websocketError: websocketError || (authStatus === 'failed' ? 'WebSocket authentication failed' : null),
+    websocketError:
+      websocketError || (authStatus === 'failed' ? 'WebSocket authentication failed' : null),
     participants,
     messages,
     history,
@@ -523,7 +530,7 @@ export const DiscussionProvider: React.FC<DiscussionProviderProps> = ({
     pause,
     resume,
     addMessage,
-    loadHistory
+    loadHistory,
   };
 
   // Cleanup on unmount
@@ -531,15 +538,11 @@ export const DiscussionProvider: React.FC<DiscussionProviderProps> = ({
     return () => {
       if (isWebSocketConnected && discussionId) {
         sendWebSocketMessage('leave_discussion', {
-          discussionId: discussionId
+          discussionId: discussionId,
         });
       }
     };
   }, [isWebSocketConnected, discussionId, sendWebSocketMessage]);
 
-  return (
-    <DiscussionContext.Provider value={value}>
-      {children}
-    </DiscussionContext.Provider>
-  );
-}; 
+  return <DiscussionContext.Provider value={value}>{children}</DiscussionContext.Provider>;
+};

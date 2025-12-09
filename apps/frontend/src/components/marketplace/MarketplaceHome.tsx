@@ -3,16 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { 
-  Star, 
-  Download, 
-  TrendingUp, 
-  Search, 
-  Filter,
-  Heart,
-  Share2,
-  Eye
-} from 'lucide-react';
+import { Star, Download, TrendingUp, Search, Filter, Heart, Share2, Eye } from 'lucide-react';
 import { MarketplaceItem, MarketplaceCategory, MarketplaceItemType } from '@uaip/types';
 
 interface MarketplaceHomeProps {
@@ -35,7 +26,8 @@ export const MarketplaceHome: React.FC<MarketplaceHomeProps> = ({ onItemClick })
       {
         id: '1',
         name: '🎯 UberAgent Pro',
-        description: 'Advanced AI agent that can handle complex multi-step tasks with 95% success rate',
+        description:
+          'Advanced AI agent that can handle complex multi-step tasks with 95% success rate',
         type: MarketplaceItemType.AGENT,
         category: MarketplaceCategory.PRODUCTIVITY,
         authorName: 'TechMaster',
@@ -52,13 +44,14 @@ export const MarketplaceHome: React.FC<MarketplaceHomeProps> = ({ onItemClick })
           totalInstalls: 15420,
           totalViews: 89234,
           weeklyDownloads: 892,
-          monthlyDownloads: 3456
-        }
+          monthlyDownloads: 3456,
+        },
       },
       {
         id: '2',
         name: '🎨 CreativeGenius',
-        description: 'AI persona specialized in creative writing, storytelling, and content generation',
+        description:
+          'AI persona specialized in creative writing, storytelling, and content generation',
         type: MarketplaceItemType.PERSONA,
         category: MarketplaceCategory.CREATIVE,
         authorName: 'ArtistAI',
@@ -74,9 +67,9 @@ export const MarketplaceHome: React.FC<MarketplaceHomeProps> = ({ onItemClick })
           totalInstalls: 12340,
           totalViews: 67890,
           weeklyDownloads: 567,
-          monthlyDownloads: 2123
-        }
-      }
+          monthlyDownloads: 2123,
+        },
+      },
     ] as MarketplaceItem[];
 
     const mockTrending: MarketplaceItem[] = [
@@ -100,8 +93,8 @@ export const MarketplaceHome: React.FC<MarketplaceHomeProps> = ({ onItemClick })
           totalInstalls: 28540,
           totalViews: 145670,
           weeklyDownloads: 4567,
-          monthlyDownloads: 12890
-        }
+          monthlyDownloads: 12890,
+        },
       },
       {
         id: '4',
@@ -123,9 +116,9 @@ export const MarketplaceHome: React.FC<MarketplaceHomeProps> = ({ onItemClick })
           totalInstalls: 19876,
           totalViews: 98765,
           weeklyDownloads: 1234,
-          monthlyDownloads: 4567
-        }
-      }
+          monthlyDownloads: 4567,
+        },
+      },
     ] as MarketplaceItem[];
 
     setFeaturedItems(mockFeatured);
@@ -148,8 +141,11 @@ export const MarketplaceHome: React.FC<MarketplaceHomeProps> = ({ onItemClick })
     return num.toString();
   };
 
-  const ItemCard: React.FC<{ item: MarketplaceItem; featured?: boolean }> = ({ item, featured }) => (
-    <Card 
+  const ItemCard: React.FC<{ item: MarketplaceItem; featured?: boolean }> = ({
+    item,
+    featured,
+  }) => (
+    <Card
       className={`cursor-pointer transition-all duration-200 hover:shadow-lg hover:scale-[1.02] ${
         featured ? 'border-2 border-blue-500 bg-gradient-to-br from-blue-50 to-purple-50' : ''
       }`}
@@ -160,8 +156,16 @@ export const MarketplaceHome: React.FC<MarketplaceHomeProps> = ({ onItemClick })
           <div className="flex-1">
             <CardTitle className="text-lg font-bold flex items-center gap-2">
               {item.name}
-              {item.isTrending && <Badge variant="destructive" className="text-xs">🔥 TRENDING</Badge>}
-              {item.isFeatured && <Badge variant="default" className="text-xs">⭐ FEATURED</Badge>}
+              {item.isTrending && (
+                <Badge variant="destructive" className="text-xs">
+                  🔥 TRENDING
+                </Badge>
+              )}
+              {item.isFeatured && (
+                <Badge variant="default" className="text-xs">
+                  ⭐ FEATURED
+                </Badge>
+              )}
             </CardTitle>
             <p className="text-sm text-gray-600 mt-1">by {item.authorName}</p>
           </div>
@@ -182,7 +186,7 @@ export const MarketplaceHome: React.FC<MarketplaceHomeProps> = ({ onItemClick })
       </CardHeader>
       <CardContent className="pt-0">
         <p className="text-sm text-gray-700 mb-3 line-clamp-2">{item.description}</p>
-        
+
         <div className="flex flex-wrap gap-1 mb-3">
           {item.tags?.slice(0, 3).map((tag) => (
             <Badge key={tag} variant="secondary" className="text-xs">
@@ -200,10 +204,12 @@ export const MarketplaceHome: React.FC<MarketplaceHomeProps> = ({ onItemClick })
               {item.category}
             </Badge>
           </div>
-          
+
           <div className="flex items-center gap-2">
             {item.price === 0 ? (
-              <Badge variant="default" className="bg-green-500 text-xs">FREE</Badge>
+              <Badge variant="default" className="bg-green-500 text-xs">
+                FREE
+              </Badge>
             ) : (
               <span className="text-sm font-semibold">${item.price}</span>
             )}
@@ -241,14 +247,16 @@ export const MarketplaceHome: React.FC<MarketplaceHomeProps> = ({ onItemClick })
             onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
           />
         </div>
-        <select 
+        <select
           value={selectedCategory}
           onChange={(e) => setSelectedCategory(e.target.value)}
           className="px-3 py-2 border rounded-md"
         >
           <option value="all">All Categories</option>
           {Object.values(MarketplaceCategory).map((cat) => (
-            <option key={cat} value={cat}>{cat}</option>
+            <option key={cat} value={cat}>
+              {cat}
+            </option>
           ))}
         </select>
         <select
@@ -258,7 +266,9 @@ export const MarketplaceHome: React.FC<MarketplaceHomeProps> = ({ onItemClick })
         >
           <option value="all">All Types</option>
           {Object.values(MarketplaceItemType).map((type) => (
-            <option key={type} value={type}>{type}</option>
+            <option key={type} value={type}>
+              {type}
+            </option>
           ))}
         </select>
         <Button onClick={handleSearch} disabled={loading}>
@@ -321,8 +331,8 @@ export const MarketplaceHome: React.FC<MarketplaceHomeProps> = ({ onItemClick })
         <h3 className="text-xl font-semibold mb-4">Browse by Category</h3>
         <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
           {Object.values(MarketplaceCategory).map((category) => (
-            <Card 
-              key={category} 
+            <Card
+              key={category}
               className="cursor-pointer hover:shadow-md transition-shadow text-center p-4"
               onClick={() => setSelectedCategory(category)}
             >
@@ -339,9 +349,7 @@ export const MarketplaceHome: React.FC<MarketplaceHomeProps> = ({ onItemClick })
                   {category === MarketplaceCategory.RESEARCH && '🔬'}
                   {category === MarketplaceCategory.AUTOMATION && '🤖'}
                 </div>
-                <div className="text-sm font-medium capitalize">
-                  {category.replace('_', ' ')}
-                </div>
+                <div className="text-sm font-medium capitalize">{category.replace('_', ' ')}</div>
               </CardContent>
             </Card>
           ))}

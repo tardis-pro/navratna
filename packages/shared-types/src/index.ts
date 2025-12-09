@@ -9,7 +9,7 @@ export * from './database';
 export * from './events';
 // New exports for persona and discussion management
 export * from './persona';
-export * from './discussion'; 
+export * from './discussion';
 export * from './artifact';
 // Tool types - NEW
 export * from './tool';
@@ -34,7 +34,7 @@ export type {
   ConversationType,
   PersonaCategory,
   ContributionScore,
-  ExpertiseDomain as PersonaExpertiseDomain
+  ExpertiseDomain as PersonaExpertiseDomain,
 } from './personaAdvanced.js';
 // Audit and LLM types - NEW
 export * from './audit.js';

@@ -23,7 +23,13 @@ interface RecentItem {
 
 interface ActivityEvent {
   id: string;
-  type: 'portal_open' | 'portal_close' | 'action_execute' | 'search' | 'file_access' | 'user_interaction';
+  type:
+    | 'portal_open'
+    | 'portal_close'
+    | 'action_execute'
+    | 'search'
+    | 'file_access'
+    | 'user_interaction';
   itemId: string;
   timestamp: Date;
   duration?: number;
@@ -66,14 +72,14 @@ const DEFAULT_PREFERENCES: DesktopPreferences = {
   autoHideRecentPanel: false,
   maxRecentItems: 20,
   enableAnimations: true,
-  gridSpacing: 'normal'
+  gridSpacing: 'normal',
 };
 
 const STORAGE_KEYS = {
   ICON_POSITIONS: 'desktop_icon_positions',
   RECENT_ITEMS: 'desktop_recent_items',
   PREFERENCES: 'desktop_preferences',
-  ACTIVITY_EVENTS: 'desktop_activity_events'
+  ACTIVITY_EVENTS: 'desktop_activity_events',
 };
 
 export const useDesktop = () => {
@@ -98,7 +104,7 @@ export const useDesktop = () => {
         // Convert timestamp strings back to Date objects
         const itemsWithDates = items.map((item: any) => ({
           ...item,
-          timestamp: new Date(item.timestamp)
+          timestamp: new Date(item.timestamp),
         }));
         setRecentItems(itemsWithDates);
       }
@@ -116,7 +122,7 @@ export const useDesktop = () => {
         // Convert timestamp strings back to Date objects
         const eventsWithDates = events.map((event: any) => ({
           ...event,
-          timestamp: new Date(event.timestamp)
+          timestamp: new Date(event.timestamp),
         }));
         setActivityEvents(eventsWithDates);
       }
@@ -164,118 +170,138 @@ export const useDesktop = () => {
   }, []);
 
   // Update icon position
-  const updateIconPosition = useCallback((iconId: string, position: Omit<IconPosition, 'id'>) => {
-    const newPositions = {
-      ...iconPositions,
-      [iconId]: { id: iconId, ...position }
-    };
-    setIconPositions(newPositions);
-    saveIconPositions(newPositions);
-  }, [iconPositions, saveIconPositions]);
+  const updateIconPosition = useCallback(
+    (iconId: string, position: Omit<IconPosition, 'id'>) => {
+      const newPositions = {
+        ...iconPositions,
+        [iconId]: { id: iconId, ...position },
+      };
+      setIconPositions(newPositions);
+      saveIconPositions(newPositions);
+    },
+    [iconPositions, saveIconPositions]
+  );
 
   // Add activity event
-  const addActivityEvent = useCallback((event: Omit<ActivityEvent, 'id' | 'timestamp'>) => {
-    const newEvent: ActivityEvent = {
-      ...event,
-      id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-      timestamp: new Date()
-    };
+  const addActivityEvent = useCallback(
+    (event: Omit<ActivityEvent, 'id' | 'timestamp'>) => {
+      const newEvent: ActivityEvent = {
+        ...event,
+        id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+        timestamp: new Date(),
+      };
 
-    setActivityEvents(prevEvents => {
-      const newEvents = [newEvent, ...prevEvents];
-      // Keep only the last 500 events
-      const limitedEvents = newEvents.slice(0, 500);
-      saveActivityEvents(limitedEvents);
-      return limitedEvents;
-    });
-  }, [saveActivityEvents]);
+      setActivityEvents((prevEvents) => {
+        const newEvents = [newEvent, ...prevEvents];
+        // Keep only the last 500 events
+        const limitedEvents = newEvents.slice(0, 500);
+        saveActivityEvents(limitedEvents);
+        return limitedEvents;
+      });
+    },
+    [saveActivityEvents]
+  );
 
   // Add recent item with activity tracking
-  const addRecentItem = useCallback((item: Omit<RecentItem, 'timestamp' | 'accessCount' | 'lastAccessed'>) => {
-    const now = new Date();
+  const addRecentItem = useCallback(
+    (item: Omit<RecentItem, 'timestamp' | 'accessCount' | 'lastAccessed'>) => {
+      const now = new Date();
 
-    setRecentItems(prevItems => {
-      // Find existing item
-      const existingItemIndex = prevItems.findIndex(existingItem => existingItem.id === item.id);
+      setRecentItems((prevItems) => {
+        // Find existing item
+        const existingItemIndex = prevItems.findIndex(
+          (existingItem) => existingItem.id === item.id
+        );
 
-      let newItems: RecentItem[];
+        let newItems: RecentItem[];
 
-      if (existingItemIndex >= 0) {
-        // Update existing item
-        const existingItem = prevItems[existingItemIndex];
-        const updatedItem: RecentItem = {
-          ...existingItem,
-          ...item,
-          timestamp: now,
-          lastAccessed: now,
-          accessCount: (existingItem.accessCount || 0) + 1
-        };
+        if (existingItemIndex >= 0) {
+          // Update existing item
+          const existingItem = prevItems[existingItemIndex];
+          const updatedItem: RecentItem = {
+            ...existingItem,
+            ...item,
+            timestamp: now,
+            lastAccessed: now,
+            accessCount: (existingItem.accessCount || 0) + 1,
+          };
 
-        // Move to front
-        newItems = [
-          updatedItem,
-          ...prevItems.slice(0, existingItemIndex),
-          ...prevItems.slice(existingItemIndex + 1)
-        ];
-      } else {
-        // Add new item
-        const newItem: RecentItem = {
-          ...item,
-          timestamp: now,
-          lastAccessed: now,
-          accessCount: 1
-        };
-        newItems = [newItem, ...prevItems];
-      }
+          // Move to front
+          newItems = [
+            updatedItem,
+            ...prevItems.slice(0, existingItemIndex),
+            ...prevItems.slice(existingItemIndex + 1),
+          ];
+        } else {
+          // Add new item
+          const newItem: RecentItem = {
+            ...item,
+            timestamp: now,
+            lastAccessed: now,
+            accessCount: 1,
+          };
+          newItems = [newItem, ...prevItems];
+        }
 
-      // Limit to maxRecentItems
-      const limitedItems = newItems.slice(0, preferences.maxRecentItems);
+        // Limit to maxRecentItems
+        const limitedItems = newItems.slice(0, preferences.maxRecentItems);
 
-      saveRecentItems(limitedItems);
-      return limitedItems;
-    });
+        saveRecentItems(limitedItems);
+        return limitedItems;
+      });
 
-    // Add activity event
-    addActivityEvent({
-      type: 'user_interaction',
-      itemId: item.id,
-      metadata: {
-        itemType: item.type,
-        category: item.category || 'portal'
-      }
-    });
-  }, [preferences.maxRecentItems, saveRecentItems, addActivityEvent]);
+      // Add activity event
+      addActivityEvent({
+        type: 'user_interaction',
+        itemId: item.id,
+        metadata: {
+          itemType: item.type,
+          category: item.category || 'portal',
+        },
+      });
+    },
+    [preferences.maxRecentItems, saveRecentItems, addActivityEvent]
+  );
 
   // Remove recent item
-  const removeRecentItem = useCallback((itemId: string) => {
-    setRecentItems(prevItems => {
-      const newItems = prevItems.filter(item => item.id !== itemId);
-      saveRecentItems(newItems);
-      return newItems;
-    });
-  }, [saveRecentItems]);
+  const removeRecentItem = useCallback(
+    (itemId: string) => {
+      setRecentItems((prevItems) => {
+        const newItems = prevItems.filter((item) => item.id !== itemId);
+        saveRecentItems(newItems);
+        return newItems;
+      });
+    },
+    [saveRecentItems]
+  );
 
   // Toggle item favorite status
-  const toggleItemFavorite = useCallback((itemId: string) => {
-    setRecentItems(prevItems => {
-      const newItems = prevItems.map(item =>
-        item.id === itemId ? { ...item, isFavorite: !item.isFavorite } : item
-      );
-      saveRecentItems(newItems);
-      return newItems;
-    });
-  }, [saveRecentItems]);
+  const toggleItemFavorite = useCallback(
+    (itemId: string) => {
+      setRecentItems((prevItems) => {
+        const newItems = prevItems.map((item) =>
+          item.id === itemId ? { ...item, isFavorite: !item.isFavorite } : item
+        );
+        saveRecentItems(newItems);
+        return newItems;
+      });
+    },
+    [saveRecentItems]
+  );
 
   // Toggle item pinned status
-  const toggleItemPinned = useCallback((itemId: string) => {
-    setRecentItems(prevItems => {
-      const newItems = prevItems.map(item =>
-        item.id === itemId ? { ...item, isPinned: !item.isPinned } : item
-      );
-      saveRecentItems(newItems);
-      return newItems;
-    });
-  }, [saveRecentItems]);
+  const toggleItemPinned = useCallback(
+    (itemId: string) => {
+      setRecentItems((prevItems) => {
+        const newItems = prevItems.map((item) =>
+          item.id === itemId ? { ...item, isPinned: !item.isPinned } : item
+        );
+        saveRecentItems(newItems);
+        return newItems;
+      });
+    },
+    [saveRecentItems]
+  );
 
   // Clear recent items
   const clearRecentItems = useCallback(() => {
@@ -284,11 +310,14 @@ export const useDesktop = () => {
   }, []);
 
   // Update preferences
-  const updatePreferences = useCallback((newPreferences: Partial<DesktopPreferences>) => {
-    const updatedPreferences = { ...preferences, ...newPreferences };
-    setPreferences(updatedPreferences);
-    savePreferences(updatedPreferences);
-  }, [preferences, savePreferences]);
+  const updatePreferences = useCallback(
+    (newPreferences: Partial<DesktopPreferences>) => {
+      const updatedPreferences = { ...preferences, ...newPreferences };
+      setPreferences(updatedPreferences);
+      savePreferences(updatedPreferences);
+    },
+    [preferences, savePreferences]
+  );
 
   // Reset to defaults
   const resetToDefaults = useCallback(() => {
@@ -302,29 +331,36 @@ export const useDesktop = () => {
   }, []);
 
   // Get recent items by type
-  const getRecentItemsByType = useCallback((type: string) => {
-    return recentItems.filter(item => item.type === type);
-  }, [recentItems]);
+  const getRecentItemsByType = useCallback(
+    (type: string) => {
+      return recentItems.filter((item) => item.type === type);
+    },
+    [recentItems]
+  );
 
   // Get favorite items
   const getFavoriteItems = useCallback(() => {
-    return recentItems.filter(item => item.isFavorite);
+    return recentItems.filter((item) => item.isFavorite);
   }, [recentItems]);
 
   // Get pinned items
   const getPinnedItems = useCallback(() => {
-    return recentItems.filter(item => item.isPinned);
+    return recentItems.filter((item) => item.isPinned);
   }, [recentItems]);
 
   // Search recent items
-  const searchRecentItems = useCallback((query: string) => {
-    const lowercaseQuery = query.toLowerCase();
-    return recentItems.filter(item =>
-      item.title.toLowerCase().includes(lowercaseQuery) ||
-      item.type.toLowerCase().includes(lowercaseQuery) ||
-      (item.description && item.description.toLowerCase().includes(lowercaseQuery))
-    );
-  }, [recentItems]);
+  const searchRecentItems = useCallback(
+    (query: string) => {
+      const lowercaseQuery = query.toLowerCase();
+      return recentItems.filter(
+        (item) =>
+          item.title.toLowerCase().includes(lowercaseQuery) ||
+          item.type.toLowerCase().includes(lowercaseQuery) ||
+          (item.description && item.description.toLowerCase().includes(lowercaseQuery))
+      );
+    },
+    [recentItems]
+  );
 
   // Get activity statistics
   const getActivityStats = useCallback(() => {
@@ -333,12 +369,12 @@ export const useDesktop = () => {
     const thisWeek = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000);
     const thisMonth = new Date(today.getTime() - 30 * 24 * 60 * 60 * 1000);
 
-    const todayEvents = activityEvents.filter(event => event.timestamp >= today);
-    const weekEvents = activityEvents.filter(event => event.timestamp >= thisWeek);
-    const monthEvents = activityEvents.filter(event => event.timestamp >= thisMonth);
+    const todayEvents = activityEvents.filter((event) => event.timestamp >= today);
+    const weekEvents = activityEvents.filter((event) => event.timestamp >= thisWeek);
+    const monthEvents = activityEvents.filter((event) => event.timestamp >= thisMonth);
 
     const mostUsedItems = recentItems
-      .filter(item => item.accessCount && item.accessCount > 1)
+      .filter((item) => item.accessCount && item.accessCount > 1)
       .sort((a, b) => (b.accessCount || 0) - (a.accessCount || 0))
       .slice(0, 5);
 
@@ -348,10 +384,11 @@ export const useDesktop = () => {
       weekEvents: weekEvents.length,
       monthEvents: monthEvents.length,
       mostUsedItems,
-      averageSessionTime: activityEvents
-        .filter(event => event.duration)
-        .reduce((sum, event) => sum + (event.duration || 0), 0) /
-        activityEvents.filter(event => event.duration).length || 0
+      averageSessionTime:
+        activityEvents
+          .filter((event) => event.duration)
+          .reduce((sum, event) => sum + (event.duration || 0), 0) /
+          activityEvents.filter((event) => event.duration).length || 0,
     };
   }, [activityEvents, recentItems]);
 
@@ -361,37 +398,44 @@ export const useDesktop = () => {
     const lastWeek = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
     const previousWeek = new Date(now.getTime() - 14 * 24 * 60 * 60 * 1000);
 
-    const recentEvents = activityEvents.filter(event => event.timestamp >= lastWeek);
-    const previousEvents = activityEvents.filter(event =>
-      event.timestamp >= previousWeek && event.timestamp < lastWeek
+    const recentEvents = activityEvents.filter((event) => event.timestamp >= lastWeek);
+    const previousEvents = activityEvents.filter(
+      (event) => event.timestamp >= previousWeek && event.timestamp < lastWeek
     );
 
-    const recentCounts = recentEvents.reduce((acc, event) => {
-      acc[event.itemId] = (acc[event.itemId] || 0) + 1;
-      return acc;
-    }, {} as Record<string, number>);
+    const recentCounts = recentEvents.reduce(
+      (acc, event) => {
+        acc[event.itemId] = (acc[event.itemId] || 0) + 1;
+        return acc;
+      },
+      {} as Record<string, number>
+    );
 
-    const previousCounts = previousEvents.reduce((acc, event) => {
-      acc[event.itemId] = (acc[event.itemId] || 0) + 1;
-      return acc;
-    }, {} as Record<string, number>);
+    const previousCounts = previousEvents.reduce(
+      (acc, event) => {
+        acc[event.itemId] = (acc[event.itemId] || 0) + 1;
+        return acc;
+      },
+      {} as Record<string, number>
+    );
 
     return Object.keys(recentCounts)
-      .map(itemId => {
+      .map((itemId) => {
         const recentCount = recentCounts[itemId] || 0;
         const previousCount = previousCounts[itemId] || 0;
-        const growth = previousCount > 0 ? (recentCount - previousCount) / previousCount : recentCount;
-        const item = recentItems.find(item => item.id === itemId);
+        const growth =
+          previousCount > 0 ? (recentCount - previousCount) / previousCount : recentCount;
+        const item = recentItems.find((item) => item.id === itemId);
 
         return {
           itemId,
           item,
           recentCount,
           previousCount,
-          growth
+          growth,
         };
       })
-      .filter(trend => trend.growth > 0 && trend.item)
+      .filter((trend) => trend.growth > 0 && trend.item)
       .sort((a, b) => b.growth - a.growth)
       .slice(0, 5);
   }, [activityEvents, recentItems]);
@@ -426,6 +470,6 @@ export const useDesktop = () => {
     updatePreferences,
 
     // Utility
-    resetToDefaults
+    resetToDefaults,
   };
 };

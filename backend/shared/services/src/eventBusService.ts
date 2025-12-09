@@ -99,7 +99,7 @@ export class EventBusService {
     this.connectionPromise = this.connect().catch((error) => {
       this.connectionPromise = null;
       this.logger.warn('Failed to establish connection, will retry on next operation', {
-        error: error instanceof Error ? error.message : 'Unknown error'
+        error: error instanceof Error ? error.message : 'Unknown error',
       });
       throw error;
     });
@@ -111,7 +111,7 @@ export class EventBusService {
     try {
       this.logger.info('Connecting to RabbitMQ', {
         url: this.config.url.replace(/\/\/.*@/, '//***@'),
-        service: this.config.serviceName
+        service: this.config.serviceName,
       });
 
       this.connection = await amqp.connect(this.config.url);
@@ -185,12 +185,12 @@ export class EventBusService {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       this.logger.error('Failed to connect to RabbitMQ', { error: errorMessage });
       this.connectionPromise = null;
-      
+
       // Only schedule reconnect if not closing
       if (!this.isClosing) {
         this.scheduleReconnect();
       }
-      
+
       throw new ApiError(500, 'Failed to connect to event bus', 'EVENT_BUS_ERROR');
     }
   }
@@ -218,7 +218,7 @@ export class EventBusService {
       this.logger.debug('Enterprise RabbitMQ exchanges set up successfully', {
         eventsExchange: enterpriseEventsExchange,
         rpcExchange: enterpriseRpcExchange,
-        dlxExchange: enterpriseDlxExchange
+        dlxExchange: enterpriseDlxExchange,
       });
     }
 
@@ -239,7 +239,9 @@ export class EventBusService {
     this.reconnectAttempts++;
     const delay = Math.min(this.reconnectDelay * Math.pow(2, this.reconnectAttempts - 1), 30000); // Cap at 30 seconds
 
-    this.logger.info(`Scheduling reconnection attempt ${this.reconnectAttempts}/${this.maxReconnectAttempts} in ${delay}ms`);
+    this.logger.info(
+      `Scheduling reconnection attempt ${this.reconnectAttempts}/${this.maxReconnectAttempts} in ${delay}ms`
+    );
 
     setTimeout(async () => {
       if (this.isClosing) {
@@ -306,7 +308,7 @@ export class EventBusService {
       this.logger.info('RabbitMQ channel recreated successfully');
     } catch (error) {
       this.logger.error('Failed to recreate channel', {
-        error: error instanceof Error ? error.message : 'Unknown error'
+        error: error instanceof Error ? error.message : 'Unknown error',
       });
       // If channel recreation fails, trigger full reconnection
       this.isConnected = false;
@@ -332,13 +334,13 @@ export class EventBusService {
           await this.setupSubscription(eventType);
           this.logger.info('Successfully reestablished subscription', {
             eventType,
-            handlerCount: handlers.length
+            handlerCount: handlers.length,
           });
         } catch (error) {
           const errorMessage = error instanceof Error ? error.message : 'Unknown error';
           this.logger.error('Failed to reestablish subscription', {
             eventType,
-            error: errorMessage
+            error: errorMessage,
           });
         }
       }
@@ -361,7 +363,7 @@ export class EventBusService {
     } catch (error) {
       this.logger.warn('Failed to connect to RabbitMQ for publishing, event will be lost:', {
         eventType,
-        error: error instanceof Error ? error.message : 'Unknown error'
+        error: error instanceof Error ? error.message : 'Unknown error',
       });
       return; // Gracefully fail - don't throw error
     }
@@ -379,11 +381,13 @@ export class EventBusService {
       timestamp: new Date(),
       version: '1.0.0',
       correlationId: options?.correlationId,
-      metadata: options?.metadata
+      metadata: options?.metadata,
     };
 
     try {
-      const exchange = options?.exchange || (this.config.exchangePrefix ? `${this.config.exchangePrefix}.events` : 'events');
+      const exchange =
+        options?.exchange ||
+        (this.config.exchangePrefix ? `${this.config.exchangePrefix}.events` : 'events');
       const routingKey = options?.routingKey || eventType;
       const messageBuffer = Buffer.from(JSON.stringify(message));
 
@@ -395,8 +399,8 @@ export class EventBusService {
         headers: {
           source: message.source,
           version: message.version,
-          ...(message.correlationId && { correlationId: message.correlationId })
-        }
+          ...(message.correlationId && { correlationId: message.correlationId }),
+        },
       };
 
       const published = this.channel.publish(exchange, routingKey, messageBuffer, publishOptions);
@@ -410,14 +414,14 @@ export class EventBusService {
         eventType,
         exchange,
         routingKey,
-        dataSize: messageBuffer.length
+        dataSize: messageBuffer.length,
       });
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       this.logger.error('Failed to publish event', {
         eventType,
         error: errorMessage,
-        messageId: message.id
+        messageId: message.id,
       });
 
       // Check if this is a channel error that requires reconnection
@@ -433,13 +437,13 @@ export class EventBusService {
       if (eventType.includes('auth') || eventType.includes('security')) {
         throw new ApiError(500, 'Failed to publish event', 'EVENT_PUBLISH_ERROR', {
           eventType,
-          messageId: message.id
+          messageId: message.id,
         });
       } else {
         this.logger.warn('Event publish failed, continuing operation', {
           eventType,
           messageId: message.id,
-          error: errorMessage
+          error: errorMessage,
         });
         // Gracefully fail for non-critical events
         return;
@@ -488,19 +492,21 @@ export class EventBusService {
     }
 
     try {
-      const exchange = this.config.exchangePrefix ? `${this.config.exchangePrefix}.events` : 'events';
+      const exchange = this.config.exchangePrefix
+        ? `${this.config.exchangePrefix}.events`
+        : 'events';
 
       // Assert queue with options
       const queueOptions = {
         durable: options?.durable !== false,
         arguments: {
           ...(options?.deadLetterExchange && {
-            'x-dead-letter-exchange': options.deadLetterExchange
+            'x-dead-letter-exchange': options.deadLetterExchange,
           }),
           ...(options?.retryAttempts && {
-            'x-max-retries': options.retryAttempts
-          })
-        }
+            'x-max-retries': options.retryAttempts,
+          }),
+        },
       };
 
       await this.channel.assertQueue(queueName, queueOptions);
@@ -513,86 +519,90 @@ export class EventBusService {
 
       // Set up consumer for all handlers of this event type
       const handlers = this.subscribers.get(eventType) || [];
-      const consumerTag = await this.channel.consume(queueName, async (msg: amqp.ConsumeMessage | null) => {
-        if (!msg) return;
+      const consumerTag = await this.channel.consume(
+        queueName,
+        async (msg: amqp.ConsumeMessage | null) => {
+          if (!msg) return;
 
-        try {
-          const content = msg.content.toString();
-          const eventMessage: EventMessage = JSON.parse(content);
+          try {
+            const content = msg.content.toString();
+            const eventMessage: EventMessage = JSON.parse(content);
 
-          this.logger.debug('Processing event', {
-            eventId: eventMessage.id,
-            eventType: eventMessage.type,
-            source: eventMessage.source
-          });
+            this.logger.debug('Processing event', {
+              eventId: eventMessage.id,
+              eventType: eventMessage.type,
+              source: eventMessage.source,
+            });
 
-          // Execute all handlers for this event type
-          for (const handler of handlers) {
-            await handler(eventMessage);
-          }
+            // Execute all handlers for this event type
+            for (const handler of handlers) {
+              await handler(eventMessage);
+            }
 
-          // Acknowledge message if not auto-ack
-          if (!options?.autoAck && this.channel && msg) {
-            try {
-              // Check if channel is still valid before acknowledging
-              if (this.channel && this.isConnected) {
-                this.channel.ack(msg);
-              } else {
-                this.logger.warn('Cannot acknowledge message - channel not available', {
+            // Acknowledge message if not auto-ack
+            if (!options?.autoAck && this.channel && msg) {
+              try {
+                // Check if channel is still valid before acknowledging
+                if (this.channel && this.isConnected) {
+                  this.channel.ack(msg);
+                } else {
+                  this.logger.warn('Cannot acknowledge message - channel not available', {
+                    deliveryTag: msg.fields?.deliveryTag,
+                    channelExists: !!this.channel,
+                    isConnected: this.isConnected,
+                  });
+                }
+              } catch (ackError) {
+                this.logger.warn('Failed to acknowledge message', {
+                  error: ackError instanceof Error ? ackError.message : 'Unknown error',
+                  deliveryTag: msg.fields?.deliveryTag,
+                });
+                // Don't throw error - just log and continue
+              }
+            }
+
+            this.logger.debug('Event processed successfully', {
+              eventId: eventMessage.id,
+              eventType: eventMessage.type,
+            });
+          } catch (error) {
+            const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+            this.logger.error('Failed to process event', {
+              error: errorMessage,
+              messageId: msg.properties.messageId,
+              eventType,
+            });
+
+            // Reject message and send to dead letter queue if configured
+            if (this.channel && msg && this.isConnected) {
+              try {
+                if (options?.deadLetterExchange) {
+                  this.channel.nack(msg, false, false);
+                } else {
+                  this.channel.nack(msg, false, true); // Requeue
+                }
+              } catch (nackError) {
+                this.logger.warn('Failed to nack message', {
+                  error: nackError instanceof Error ? nackError.message : 'Unknown error',
                   deliveryTag: msg.fields?.deliveryTag,
                   channelExists: !!this.channel,
-                  isConnected: this.isConnected
+                  isConnected: this.isConnected,
                 });
+                // Don't throw error - just log and continue
               }
-            } catch (ackError) {
-              this.logger.warn('Failed to acknowledge message', {
-                error: ackError instanceof Error ? ackError.message : 'Unknown error',
-                deliveryTag: msg.fields?.deliveryTag
-              });
-              // Don't throw error - just log and continue
-            }
-          }
-
-          this.logger.debug('Event processed successfully', {
-            eventId: eventMessage.id,
-            eventType: eventMessage.type
-          });
-        } catch (error) {
-          const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-          this.logger.error('Failed to process event', {
-            error: errorMessage,
-            messageId: msg.properties.messageId,
-            eventType
-          });
-
-          // Reject message and send to dead letter queue if configured
-          if (this.channel && msg && this.isConnected) {
-            try {
-              if (options?.deadLetterExchange) {
-                this.channel.nack(msg, false, false);
-              } else {
-                this.channel.nack(msg, false, true); // Requeue
-              }
-            } catch (nackError) {
-              this.logger.warn('Failed to nack message', {
-                error: nackError instanceof Error ? nackError.message : 'Unknown error',
-                deliveryTag: msg.fields?.deliveryTag,
+            } else {
+              this.logger.warn('Cannot nack message - channel not available', {
+                deliveryTag: msg?.fields?.deliveryTag,
                 channelExists: !!this.channel,
-                isConnected: this.isConnected
+                isConnected: this.isConnected,
               });
-              // Don't throw error - just log and continue
             }
-          } else {
-            this.logger.warn('Cannot nack message - channel not available', {
-              deliveryTag: msg?.fields?.deliveryTag,
-              channelExists: !!this.channel,
-              isConnected: this.isConnected
-            });
           }
+        },
+        {
+          noAck: options?.autoAck || false,
         }
-      }, {
-        noAck: options?.autoAck || false
-      });
+      );
 
       // Mark this event type as having an active consumer
       this.activeConsumers.add(eventType);
@@ -602,16 +612,16 @@ export class EventBusService {
         queueName,
         exchange,
         handlerCount: handlers.length,
-        consumerTag: consumerTag?.consumerTag
+        consumerTag: consumerTag?.consumerTag,
       });
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       this.logger.error('Failed to subscribe to event', {
         eventType,
-        error: errorMessage
+        error: errorMessage,
       });
       throw new ApiError(500, 'Failed to subscribe to event', 'EVENT_SUBSCRIBE_ERROR', {
-        eventType
+        eventType,
       });
     }
   }
@@ -632,7 +642,7 @@ export class EventBusService {
 
       this.logger.info('Unsubscribed from event', {
         eventType,
-        remainingHandlers: handlers.length
+        remainingHandlers: handlers.length,
       });
     }
   }
@@ -654,7 +664,7 @@ export class EventBusService {
       await this.channel.assertQueue(responseQueue, {
         exclusive: true,
         autoDelete: true,
-        expires: timeout + 5000 // Auto-delete after timeout + buffer
+        expires: timeout + 5000, // Auto-delete after timeout + buffer
       });
 
       // Set up response handler
@@ -668,25 +678,29 @@ export class EventBusService {
           return;
         }
 
-        this.channel.consume(responseQueue, (msg: amqp.ConsumeMessage | null) => {
-          if (!msg) return;
+        this.channel.consume(
+          responseQueue,
+          (msg: amqp.ConsumeMessage | null) => {
+            if (!msg) return;
 
-          try {
-            clearTimeout(timeoutId);
-            const response = JSON.parse(msg.content.toString());
-            if (this.channel) {
-              this.channel.ack(msg);
-            }
+            try {
+              clearTimeout(timeoutId);
+              const response = JSON.parse(msg.content.toString());
+              if (this.channel) {
+                this.channel.ack(msg);
+              }
 
-            if (response.error) {
-              reject(new ApiError(500, response.error.message, response.error.code));
-            } else {
-              resolve(response.data);
+              if (response.error) {
+                reject(new ApiError(500, response.error.message, response.error.code));
+              } else {
+                resolve(response.data);
+              }
+            } catch (error) {
+              reject(new ApiError(500, 'Failed to parse RPC response', 'RPC_PARSE_ERROR'));
             }
-          } catch (error) {
-            reject(new ApiError(500, 'Failed to parse RPC response', 'RPC_PARSE_ERROR'));
-          }
-        }, { noAck: false });
+          },
+          { noAck: false }
+        );
       });
 
       // Publish request
@@ -694,7 +708,7 @@ export class EventBusService {
         correlationId,
         exchange: 'rpc',
         routingKey: eventType,
-        metadata: { replyTo: responseQueue }
+        metadata: { replyTo: responseQueue },
       });
 
       return await responsePromise;
@@ -703,7 +717,7 @@ export class EventBusService {
       this.logger.error('RPC request failed', {
         eventType,
         correlationId,
-        error: errorMessage
+        error: errorMessage,
       });
       throw error;
     }
@@ -718,16 +732,18 @@ export class EventBusService {
     };
   }> {
     try {
-      const subscriberCount = Array.from(this.subscribers.values())
-        .reduce((total, handlers) => total + handlers.length, 0);
+      const subscriberCount = Array.from(this.subscribers.values()).reduce(
+        (total, handlers) => total + handlers.length,
+        0
+      );
 
       return {
         status: this.isConnected && this.channel !== null ? 'healthy' : 'unhealthy',
         details: {
           connected: this.isConnected,
           channelOpen: this.channel !== null,
-          subscriberCount
-        }
+          subscriberCount,
+        },
       };
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
@@ -737,8 +753,8 @@ export class EventBusService {
         details: {
           connected: false,
           channelOpen: false,
-          subscriberCount: 0
-        }
+          subscriberCount: 0,
+        },
       };
     }
   }
@@ -774,7 +790,7 @@ export class EventBusService {
           await this.channel.close();
         } catch (error) {
           this.logger.debug('Channel close error (expected during shutdown)', {
-            error: error instanceof Error ? error.message : 'Unknown error'
+            error: error instanceof Error ? error.message : 'Unknown error',
           });
         }
       }
@@ -784,7 +800,7 @@ export class EventBusService {
           await this.connection.close();
         } catch (error) {
           this.logger.debug('Connection close error (expected during shutdown)', {
-            error: error instanceof Error ? error.message : 'Unknown error'
+            error: error instanceof Error ? error.message : 'Unknown error',
           });
         }
       }
@@ -808,7 +824,11 @@ export class EventBusService {
   /**
    * Publish and wait for response (request-response pattern)
    */
-  public async publishAndWait(eventType: string, data: any, timeoutMs: number = 30000): Promise<any> {
+  public async publishAndWait(
+    eventType: string,
+    data: any,
+    timeoutMs: number = 30000
+  ): Promise<any> {
     const correlationId = `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
     const responseEventType = `${eventType}.response.${correlationId}`;
 
@@ -839,7 +859,7 @@ export class EventBusService {
         const requestMessage = {
           ...data,
           correlationId,
-          responseEventType
+          responseEventType,
         };
 
         await this.publish(eventType, requestMessage);
@@ -865,8 +885,7 @@ export class EventBusService {
       return { success: false, error: error.message, data: null };
     }
   }
-
 }
 
 // Export types
-export type { EventMessage, EventHandler, SubscriptionOptions, EventBusConfig }; 
+export type { EventMessage, EventHandler, SubscriptionOptions, EventBusConfig };

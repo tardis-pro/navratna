@@ -26,7 +26,7 @@ import {
   Download,
   Filter,
   MoreVertical,
-  Loader2
+  Loader2,
 } from 'lucide-react';
 import {
   AreaChart,
@@ -36,7 +36,7 @@ import {
   CartesianGrid,
   Tooltip,
   ResponsiveContainer,
-  Legend
+  Legend,
 } from 'recharts';
 import { RiskLevel, AgentCapability, AuditEventType } from '@uaip/types';
 
@@ -81,7 +81,7 @@ const RISK_COLORS = {
   [RiskLevel.LOW]: 'text-green-600 bg-green-50',
   [RiskLevel.MEDIUM]: 'text-yellow-600 bg-yellow-50',
   [RiskLevel.HIGH]: 'text-orange-600 bg-orange-50',
-  [RiskLevel.CRITICAL]: 'text-red-600 bg-red-50'
+  [RiskLevel.CRITICAL]: 'text-red-600 bg-red-50',
 };
 
 const CHART_COLORS = ['#10b981', '#f59e0b', '#ef4444', '#6366f1', '#8b5cf6', '#ec4899'];
@@ -103,11 +103,11 @@ interface AgentSecurityDashboardProps {
 export const AgentSecurityDashboard: React.FC<AgentSecurityDashboardProps> = ({
   className,
   viewport,
-  mode = 'dashboard'
+  mode = 'dashboard',
 }) => {
   // Use centralized security state
   const { metrics, auditLog, refreshSecurityData, isLoading, error } = useSecurity();
-  
+
   // Local UI state only
   const [activities, setActivities] = useState<AgentActivity[]>([]);
   const [policies, setPolicies] = useState<SecurityPolicy[]>([]);
@@ -119,25 +119,28 @@ export const AgentSecurityDashboard: React.FC<AgentSecurityDashboardProps> = ({
   // Default viewport if not provided - memoized to prevent infinite re-renders
   const currentViewport = useMemo(() => {
     if (viewport) return viewport;
-    
+
     const defaultViewport: ViewportSize = {
       width: typeof window !== 'undefined' ? window.innerWidth : 1024,
       height: typeof window !== 'undefined' ? window.innerHeight : 768,
       isMobile: typeof window !== 'undefined' ? window.innerWidth < 768 : false,
-      isTablet: typeof window !== 'undefined' ? window.innerWidth >= 768 && window.innerWidth < 1024 : false,
-      isDesktop: typeof window !== 'undefined' ? window.innerWidth >= 1024 : true
+      isTablet:
+        typeof window !== 'undefined'
+          ? window.innerWidth >= 768 && window.innerWidth < 1024
+          : false,
+      isDesktop: typeof window !== 'undefined' ? window.innerWidth >= 1024 : true,
     };
-    
+
     return defaultViewport;
   }, [viewport]);
 
   const fetchSecurityData = useCallback(async () => {
     try {
       setRefreshing(true);
-      
+
       // Use centralized security data refresh
       await refreshSecurityData();
-      
+
       // Mock additional data that's not in central state yet
       const mockActivities: AgentActivity[] = [
         {
@@ -149,8 +152,8 @@ export const AgentSecurityDashboard: React.FC<AgentSecurityDashboardProps> = ({
           resource: 'database',
           action: 'read',
           outcome: 'success',
-          riskScore: 3
-        }
+          riskScore: 3,
+        },
       ];
 
       const mockPolicies: SecurityPolicy[] = [
@@ -162,8 +165,8 @@ export const AgentSecurityDashboard: React.FC<AgentSecurityDashboardProps> = ({
           applicableCapabilities: ['DATA_ACCESS' as AgentCapability],
           riskThreshold: RiskLevel.MEDIUM,
           enforcementActions: ['block', 'audit'],
-          violationCount: 0
-        }
+          violationCount: 0,
+        },
       ];
 
       setActivities(mockActivities);
@@ -172,7 +175,7 @@ export const AgentSecurityDashboard: React.FC<AgentSecurityDashboardProps> = ({
       toast({
         title: 'Error',
         description: 'Failed to fetch security data',
-        variant: 'destructive'
+        variant: 'destructive',
       });
     } finally {
       setRefreshing(false);
@@ -191,9 +194,7 @@ export const AgentSecurityDashboard: React.FC<AgentSecurityDashboardProps> = ({
   const handlePolicyToggle = async (policyId: string, enabled: boolean) => {
     try {
       // Mock policy toggle - in real implementation, use uaipAPI
-      setPolicies(prev => prev.map(p =>
-        p.id === policyId ? { ...p, enabled } : p
-      ));
+      setPolicies((prev) => prev.map((p) => (p.id === policyId ? { ...p, enabled } : p)));
       toast({
         title: 'Policy Updated',
         description: `Policy ${enabled ? 'enabled' : 'disabled'} successfully`,
@@ -202,7 +203,7 @@ export const AgentSecurityDashboard: React.FC<AgentSecurityDashboardProps> = ({
       toast({
         title: 'Error',
         description: 'Failed to update policy',
-        variant: 'destructive'
+        variant: 'destructive',
       });
     }
   };
@@ -210,13 +211,17 @@ export const AgentSecurityDashboard: React.FC<AgentSecurityDashboardProps> = ({
   const exportSecurityReport = async () => {
     try {
       // Mock export - in real implementation, use uaipAPI
-      const mockData = JSON.stringify({
-        metrics,
-        activities,
-        policies,
-        exportedAt: new Date().toISOString(),
-        timeRange
-      }, null, 2);
+      const mockData = JSON.stringify(
+        {
+          metrics,
+          activities,
+          policies,
+          exportedAt: new Date().toISOString(),
+          timeRange,
+        },
+        null,
+        2
+      );
 
       const blob = new Blob([mockData], { type: 'application/json' });
       const url = window.URL.createObjectURL(blob);
@@ -231,7 +236,7 @@ export const AgentSecurityDashboard: React.FC<AgentSecurityDashboardProps> = ({
       toast({
         title: 'Export Failed',
         description: 'Failed to export security report',
-        variant: 'destructive'
+        variant: 'destructive',
       });
     }
   };
@@ -249,7 +254,7 @@ export const AgentSecurityDashboard: React.FC<AgentSecurityDashboardProps> = ({
       pendingApprovals: 5, // Mock for now
       activePolicies: 12, // Mock for now
       recentIncidents: metrics.recentIncidents,
-      complianceScore: 92 // Mock for now
+      complianceScore: 92, // Mock for now
     };
 
     const metricCards = [
@@ -258,27 +263,27 @@ export const AgentSecurityDashboard: React.FC<AgentSecurityDashboardProps> = ({
         value: `${dashboardMetrics.overallScore}%`,
         icon: <Shield className="w-5 h-5" />,
         trend: dashboardMetrics.overallScore > 80 ? 'up' : 'down',
-        color: dashboardMetrics.overallScore > 80 ? 'text-green-600' : 'text-orange-600'
+        color: dashboardMetrics.overallScore > 80 ? 'text-green-600' : 'text-orange-600',
       },
       {
         title: 'Risk Level',
         value: dashboardMetrics.riskLevel,
         icon: <ShieldAlert className="w-5 h-5" />,
         badge: true,
-        color: RISK_COLORS[dashboardMetrics.riskLevel]
+        color: RISK_COLORS[dashboardMetrics.riskLevel],
       },
       {
         title: 'Total Operations',
         value: dashboardMetrics.totalOperations.toLocaleString(),
         icon: <Activity className="w-5 h-5" />,
-        subValue: `${dashboardMetrics.blockedOperations} blocked`
+        subValue: `${dashboardMetrics.blockedOperations} blocked`,
       },
       {
         title: 'Compliance Score',
         value: `${dashboardMetrics.complianceScore}%`,
         icon: <CheckCircle2 className="w-5 h-5" />,
-        progress: true
-      }
+        progress: true,
+      },
     ];
 
     return (
@@ -296,20 +301,14 @@ export const AgentSecurityDashboard: React.FC<AgentSecurityDashboardProps> = ({
                   <div className="space-y-2">
                     <p className="text-sm text-muted-foreground">{metric.title}</p>
                     {metric.badge ? (
-                      <Badge className={metric.color}>
-                        {metric.value}
-                      </Badge>
+                      <Badge className={metric.color}>{metric.value}</Badge>
                     ) : (
-                      <p className={`text-2xl font-bold ${metric.color || ''}`}>
-                        {metric.value}
-                      </p>
+                      <p className={`text-2xl font-bold ${metric.color || ''}`}>{metric.value}</p>
                     )}
                     {metric.subValue && (
                       <p className="text-xs text-muted-foreground">{metric.subValue}</p>
                     )}
-                    {metric.progress && (
-                      <Progress value={parseInt(metric.value)} className="h-2" />
-                    )}
+                    {metric.progress && <Progress value={parseInt(metric.value)} className="h-2" />}
                   </div>
                   <div className={`p-2 rounded-lg bg-gray-100 ${metric.color || 'text-gray-600'}`}>
                     {metric.icon}
@@ -389,13 +388,22 @@ export const AgentSecurityDashboard: React.FC<AgentSecurityDashboardProps> = ({
                   animate={{ opacity: 1, x: 0 }}
                   className="flex items-start gap-3 p-3 rounded-lg hover:bg-gray-50 transition-colors"
                 >
-                  <div className={`p-2 rounded-full ${activity.outcome === 'success' ? 'bg-green-100 text-green-600' :
-                    activity.outcome === 'blocked' ? 'bg-yellow-100 text-yellow-600' :
-                      'bg-red-100 text-red-600'
-                    }`}>
-                    {activity.outcome === 'success' ? <CheckCircle2 className="w-4 h-4" /> :
-                      activity.outcome === 'blocked' ? <Lock className="w-4 h-4" /> :
-                        <XCircle className="w-4 h-4" />}
+                  <div
+                    className={`p-2 rounded-full ${
+                      activity.outcome === 'success'
+                        ? 'bg-green-100 text-green-600'
+                        : activity.outcome === 'blocked'
+                          ? 'bg-yellow-100 text-yellow-600'
+                          : 'bg-red-100 text-red-600'
+                    }`}
+                  >
+                    {activity.outcome === 'success' ? (
+                      <CheckCircle2 className="w-4 h-4" />
+                    ) : activity.outcome === 'blocked' ? (
+                      <Lock className="w-4 h-4" />
+                    ) : (
+                      <XCircle className="w-4 h-4" />
+                    )}
                   </div>
 
                   <div className="flex-1 space-y-1">
@@ -415,10 +423,16 @@ export const AgentSecurityDashboard: React.FC<AgentSecurityDashboardProps> = ({
                       <Badge variant="outline" className="text-xs">
                         {activity.eventType}
                       </Badge>
-                      <Badge variant="outline" className={`text-xs ${activity.riskScore > 7 ? 'text-red-600' :
-                        activity.riskScore > 4 ? 'text-orange-600' :
-                          'text-green-600'
-                        }`}>
+                      <Badge
+                        variant="outline"
+                        className={`text-xs ${
+                          activity.riskScore > 7
+                            ? 'text-red-600'
+                            : activity.riskScore > 4
+                              ? 'text-orange-600'
+                              : 'text-green-600'
+                        }`}
+                      >
                         Risk: {activity.riskScore}/10
                       </Badge>
                     </div>
@@ -436,13 +450,19 @@ export const AgentSecurityDashboard: React.FC<AgentSecurityDashboardProps> = ({
     return (
       <div className="space-y-4">
         {policies.map((policy) => (
-          <Card key={policy.id} className={`border-2 ${policy.enabled ? 'border-green-200' : 'border-gray-200'}`}>
+          <Card
+            key={policy.id}
+            className={`border-2 ${policy.enabled ? 'border-green-200' : 'border-gray-200'}`}
+          >
             <CardContent className="p-6">
               <div className="flex items-start justify-between">
                 <div className="space-y-2 flex-1">
                   <div className="flex items-center gap-3">
                     <h3 className="font-semibold">{policy.name}</h3>
-                    <Badge variant={policy.enabled ? 'default' : 'secondary'} className={policy.enabled ? 'bg-green-600 text-white' : ''}>
+                    <Badge
+                      variant={policy.enabled ? 'default' : 'secondary'}
+                      className={policy.enabled ? 'bg-green-600 text-white' : ''}
+                    >
                       {policy.enabled ? 'Active' : 'Inactive'}
                     </Badge>
                   </div>
@@ -617,8 +637,8 @@ export const AgentSecurityDashboard: React.FC<AgentSecurityDashboardProps> = ({
           <AlertTriangle className="h-4 w-4" />
           <AlertTitle>Security Alert</AlertTitle>
           <AlertDescription>
-            {metrics.recentIncidents} security incidents detected in the last {timeRange}.
-            Review the activity log for details.
+            {metrics.recentIncidents} security incidents detected in the last {timeRange}. Review
+            the activity log for details.
           </AlertDescription>
         </Alert>
       )}
@@ -639,13 +659,9 @@ export const AgentSecurityDashboard: React.FC<AgentSecurityDashboardProps> = ({
           </div>
         </TabsContent>
 
-        <TabsContent value="activities">
-          {renderActivityLog()}
-        </TabsContent>
+        <TabsContent value="activities">{renderActivityLog()}</TabsContent>
 
-        <TabsContent value="policies">
-          {renderPolicies()}
-        </TabsContent>
+        <TabsContent value="policies">{renderPolicies()}</TabsContent>
       </Tabs>
     </div>
   );

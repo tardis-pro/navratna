@@ -5,25 +5,25 @@ import React, { useState } from 'react';
 import { Card } from './ui/card';
 import { Badge } from './ui/badge';
 import { Button } from './ui/button';
-import { 
-  ToolCall, 
-  ToolResult, 
-  ToolExecution, 
+import {
+  ToolCall,
+  ToolResult,
+  ToolExecution,
   ToolDefinition,
-  ToolExecutionStatus 
+  ToolExecutionStatus,
 } from '../types/tool';
-import { 
-  Clock, 
-  CheckCircle, 
-  XCircle, 
-  AlertCircle, 
-  Play, 
-  Pause, 
+import {
+  Clock,
+  CheckCircle,
+  XCircle,
+  AlertCircle,
+  Play,
+  Pause,
   RotateCcw,
   ChevronDown,
   ChevronUp,
   Wrench,
-  Zap
+  Zap,
 } from 'lucide-react';
 
 interface ToolUsageIndicatorProps {
@@ -43,7 +43,7 @@ export const ToolUsageIndicator: React.FC<ToolUsageIndicatorProps> = ({
   isUsingTool = false,
   onApproveExecution,
   onRetryExecution,
-  className = ''
+  className = '',
 }) => {
   const [isExpanded, setIsExpanded] = useState(false);
 
@@ -110,7 +110,7 @@ export const ToolUsageIndicator: React.FC<ToolUsageIndicatorProps> = ({
             </span>
             {isUsingTool && <Zap className="w-4 h-4 text-yellow-500 animate-pulse" />}
           </div>
-          
+
           {toolCalls.length > 0 && (
             <Button
               variant="ghost"
@@ -132,7 +132,7 @@ export const ToolUsageIndicator: React.FC<ToolUsageIndicatorProps> = ({
             <Badge className={getStatusColor(currentExecution.status)}>
               {currentExecution.status}
             </Badge>
-            
+
             {currentExecution.status === 'approval-required' && onApproveExecution && (
               <Button
                 size="sm"
@@ -143,18 +143,20 @@ export const ToolUsageIndicator: React.FC<ToolUsageIndicatorProps> = ({
                 Approve
               </Button>
             )}
-            
-            {currentExecution.status === 'failed' && onRetryExecution && currentExecution.retryCount < currentExecution.maxRetries && (
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => onRetryExecution(currentExecution.id)}
-                className="ml-auto h-6 text-xs"
-              >
-                <RotateCcw className="w-3 h-3 mr-1" />
-                Retry
-              </Button>
-            )}
+
+            {currentExecution.status === 'failed' &&
+              onRetryExecution &&
+              currentExecution.retryCount < currentExecution.maxRetries && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => onRetryExecution(currentExecution.id)}
+                  className="ml-auto h-6 text-xs"
+                >
+                  <RotateCcw className="w-3 h-3 mr-1" />
+                  Retry
+                </Button>
+              )}
           </div>
         )}
 
@@ -164,17 +166,17 @@ export const ToolUsageIndicator: React.FC<ToolUsageIndicatorProps> = ({
             {toolCalls.map((call, index) => {
               const result = toolResults[index];
               const success = result?.success ?? null;
-              
+
               return (
                 <Badge
                   key={call.id}
                   variant="outline"
                   className={`text-xs ${
-                    success === true 
-                      ? 'border-green-400 text-green-700' 
-                      : success === false 
-                      ? 'border-red-400 text-red-700'
-                      : 'border-gray-400 text-gray-700'
+                    success === true
+                      ? 'border-green-400 text-green-700'
+                      : success === false
+                        ? 'border-red-400 text-red-700'
+                        : 'border-gray-400 text-gray-700'
                   }`}
                 >
                   {call.toolId}
@@ -191,7 +193,7 @@ export const ToolUsageIndicator: React.FC<ToolUsageIndicatorProps> = ({
           <div className="space-y-2 mt-2">
             {toolCalls.map((call, index) => {
               const result = toolResults[index];
-              
+
               return (
                 <div key={call.id} className="bg-white rounded border p-2">
                   <div className="flex items-center justify-between mb-1">
@@ -200,25 +202,25 @@ export const ToolUsageIndicator: React.FC<ToolUsageIndicatorProps> = ({
                         {call.toolId}
                       </Badge>
                       {result && (
-                        <Badge className={`text-xs ${getStatusColor(result.success ? 'completed' : 'failed')}`}>
+                        <Badge
+                          className={`text-xs ${getStatusColor(result.success ? 'completed' : 'failed')}`}
+                        >
                           {result.success ? 'Success' : 'Failed'}
                         </Badge>
                       )}
                     </div>
-                    
+
                     {result?.executionTime && (
                       <span className="text-xs text-gray-500">
                         {formatDuration(result.executionTime)}
                       </span>
                     )}
                   </div>
-                  
+
                   {call.reasoning && (
-                    <p className="text-xs text-gray-600 mb-1 italic">
-                      "{call.reasoning}"
-                    </p>
+                    <p className="text-xs text-gray-600 mb-1 italic">"{call.reasoning}"</p>
                   )}
-                  
+
                   {/* Parameters */}
                   {Object.keys(call.parameters).length > 0 && (
                     <details className="text-xs">
@@ -230,24 +232,25 @@ export const ToolUsageIndicator: React.FC<ToolUsageIndicatorProps> = ({
                       </pre>
                     </details>
                   )}
-                  
+
                   {/* Result */}
                   {result && (
                     <details className="text-xs mt-1">
                       <summary className="cursor-pointer text-gray-500 hover:text-gray-700">
                         {result.success ? 'Result' : 'Error'}
                       </summary>
-                      <pre className={`mt-1 p-2 rounded text-xs overflow-x-auto ${
-                        result.success ? 'bg-green-50' : 'bg-red-50'
-                      }`}>
-                        {result.success 
+                      <pre
+                        className={`mt-1 p-2 rounded text-xs overflow-x-auto ${
+                          result.success ? 'bg-green-50' : 'bg-red-50'
+                        }`}
+                      >
+                        {result.success
                           ? formatResult(result.result)
-                          : result.error?.message || 'Unknown error'
-                        }
+                          : result.error?.message || 'Unknown error'}
                       </pre>
                     </details>
                   )}
-                  
+
                   {/* Cost and metadata */}
                   {result?.cost && (
                     <div className="flex justify-between text-xs text-gray-500 mt-1">
@@ -267,4 +270,4 @@ export const ToolUsageIndicator: React.FC<ToolUsageIndicatorProps> = ({
   );
 };
 
-export default ToolUsageIndicator; 
+export default ToolUsageIndicator;

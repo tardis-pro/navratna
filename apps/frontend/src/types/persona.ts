@@ -5,8 +5,22 @@ export interface PersonaTrait {
 }
 
 // Tone and style modifiers for natural conversation
-export type PersonaTone = 'concise' | 'verbose' | 'analytical' | 'casual' | 'empathetic' | 'humorous' | 'cautious' | 'optimistic';
-export type PersonaStyle = 'structured' | 'freeform' | 'inquisitive' | 'decisive' | 'collaborative' | 'authoritative';
+export type PersonaTone =
+  | 'concise'
+  | 'verbose'
+  | 'analytical'
+  | 'casual'
+  | 'empathetic'
+  | 'humorous'
+  | 'cautious'
+  | 'optimistic';
+export type PersonaStyle =
+  | 'structured'
+  | 'freeform'
+  | 'inquisitive'
+  | 'decisive'
+  | 'collaborative'
+  | 'authoritative';
 export type PersonaEnergyLevel = 'low' | 'moderate' | 'high' | 'dynamic';
 
 export interface Persona {
@@ -43,7 +57,7 @@ export interface PersonaDisplay {
 // Persona categories for UI filtering
 export const PERSONA_CATEGORIES = [
   'Development',
-  'Policy', 
+  'Policy',
   'Creative',
   'Analysis',
   'Business',
@@ -51,7 +65,7 @@ export const PERSONA_CATEGORIES = [
   'Technical',
   'Management',
   'Research',
-  'Design'
+  'Design',
 ] as const;
 
-export type PersonaCategory = typeof PERSONA_CATEGORIES[number];
+export type PersonaCategory = (typeof PERSONA_CATEGORIES)[number];

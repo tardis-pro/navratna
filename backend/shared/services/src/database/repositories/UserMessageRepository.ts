@@ -1,6 +1,10 @@
 import { FindManyOptions, Between, MoreThan } from 'typeorm';
 import { BaseRepository } from '../base/BaseRepository.js';
-import { UserMessageEntity, MessageType, MessageStatus } from '../../entities/user-message.entity.js';
+import {
+  UserMessageEntity,
+  MessageType,
+  MessageStatus,
+} from '../../entities/user-message.entity.js';
 
 export class UserMessageRepository extends BaseRepository<UserMessageEntity> {
   constructor() {
@@ -15,38 +19,43 @@ export class UserMessageRepository extends BaseRepository<UserMessageEntity> {
   async findById(id: string): Promise<UserMessageEntity | null> {
     return await this.repository.findOne({
       where: { id },
-      relations: ['sender', 'receiver']
+      relations: ['sender', 'receiver'],
     });
   }
 
   async findConversationMessages(
-    userId1: string, 
-    userId2: string, 
+    userId1: string,
+    userId2: string,
     limit: number = 50,
     offset: number = 0
   ): Promise<UserMessageEntity[]> {
     return await this.repository.find({
       where: [
         { senderId: userId1, receiverId: userId2 },
-        { senderId: userId2, receiverId: userId1 }
+        { senderId: userId2, receiverId: userId1 },
       ],
       relations: ['sender', 'receiver'],
       order: { createdAt: 'DESC' },
       take: limit,
-      skip: offset
+      skip: offset,
     });
   }
 
-  async findConversationById(conversationId: string, limit: number = 50): Promise<UserMessageEntity[]> {
+  async findConversationById(
+    conversationId: string,
+    limit: number = 50
+  ): Promise<UserMessageEntity[]> {
     return await this.repository.find({
       where: { conversationId },
       relations: ['sender', 'receiver'],
       order: { createdAt: 'ASC' },
-      take: limit
+      take: limit,
     });
   }
 
-  async findUserConversations(userId: string): Promise<{ conversationId: string; lastMessage: UserMessageEntity }[]> {
+  async findUserConversations(
+    userId: string
+  ): Promise<{ conversationId: string; lastMessage: UserMessageEntity }[]> {
     const conversations = await this.repository
       .createQueryBuilder('message')
       .leftJoinAndSelect('message.sender', 'sender')
@@ -59,8 +68,8 @@ export class UserMessageRepository extends BaseRepository<UserMessageEntity> {
 
     // Group by conversation and get latest message for each
     const conversationMap = new Map<string, UserMessageEntity>();
-    
-    conversations.forEach(message => {
+
+    conversations.forEach((message) => {
       if (!conversationMap.has(message.conversationId)) {
         conversationMap.set(message.conversationId, message);
       }
@@ -68,7 +77,7 @@ export class UserMessageRepository extends BaseRepository<UserMessageEntity> {
 
     return Array.from(conversationMap.entries()).map(([conversationId, lastMessage]) => ({
       conversationId,
-      lastMessage
+      lastMessage,
     }));
   }
 
@@ -78,10 +87,10 @@ export class UserMessageRepository extends BaseRepository<UserMessageEntity> {
         receiverId: userId,
         status: MessageStatus.DELIVERED,
         readAt: null,
-        deletedAt: null
+        deletedAt: null,
       },
       relations: ['sender'],
-      order: { createdAt: 'DESC' }
+      order: { createdAt: 'DESC' },
     });
   }
 
@@ -100,23 +109,20 @@ export class UserMessageRepository extends BaseRepository<UserMessageEntity> {
         conversationId,
         receiverId: userId,
         status: MessageStatus.DELIVERED,
-        readAt: null
+        readAt: null,
       },
       {
         status: MessageStatus.READ,
-        readAt: new Date()
+        readAt: new Date(),
       }
     );
-    
+
     return result.affected || 0;
   }
 
   async softDelete(messageId: string): Promise<boolean> {
-    const result = await this.repository.update(
-      { id: messageId },
-      { deletedAt: new Date() }
-    );
-    
+    const result = await this.repository.update({ id: messageId }, { deletedAt: new Date() });
+
     return result.affected !== undefined && result.affected > 0;
   }
 
@@ -130,21 +136,21 @@ export class UserMessageRepository extends BaseRepository<UserMessageEntity> {
   }
 
   async findMessagesByType(
-    conversationId: string, 
-    type: MessageType, 
+    conversationId: string,
+    type: MessageType,
     limit: number = 20
   ): Promise<UserMessageEntity[]> {
     return await this.repository.find({
       where: { conversationId, type },
       relations: ['sender'],
       order: { createdAt: 'DESC' },
-      take: limit
+      take: limit,
     });
   }
 
   async findRecentMessages(
-    userId: string, 
-    hours: number = 24, 
+    userId: string,
+    hours: number = 24,
     limit: number = 100
   ): Promise<UserMessageEntity[]> {
     const since = new Date();
@@ -153,11 +159,11 @@ export class UserMessageRepository extends BaseRepository<UserMessageEntity> {
     return await this.repository.find({
       where: [
         { senderId: userId, createdAt: MoreThan(since) },
-        { receiverId: userId, createdAt: MoreThan(since) }
+        { receiverId: userId, createdAt: MoreThan(since) },
       ],
       relations: ['sender', 'receiver'],
       order: { createdAt: 'DESC' },
-      take: limit
+      take: limit,
     });
   }
 
@@ -170,14 +176,14 @@ export class UserMessageRepository extends BaseRepository<UserMessageEntity> {
     const [totalSent, totalReceived, unreadCount] = await Promise.all([
       this.repository.count({ where: { senderId: userId, deletedAt: null } }),
       this.repository.count({ where: { receiverId: userId, deletedAt: null } }),
-      this.repository.count({ 
-        where: { 
-          receiverId: userId, 
-          status: MessageStatus.DELIVERED, 
+      this.repository.count({
+        where: {
+          receiverId: userId,
+          status: MessageStatus.DELIVERED,
           readAt: null,
-          deletedAt: null 
-        } 
-      })
+          deletedAt: null,
+        },
+      }),
     ]);
 
     const conversations = await this.findUserConversations(userId);
@@ -186,7 +192,7 @@ export class UserMessageRepository extends BaseRepository<UserMessageEntity> {
       totalSent,
       totalReceived,
       unreadCount,
-      conversationCount: conversations.length
+      conversationCount: conversations.length,
     };
   }
 

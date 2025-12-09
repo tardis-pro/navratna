@@ -1,4 +1,3 @@
-
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { AgentController } from '../../controllers/agentController.js';
 import {
@@ -10,7 +9,7 @@ import {
   createMockAgentLearningService,
   createMockAgentDiscussionService,
   createMockAgentEventOrchestrator,
-  createMockAgent
+  createMockAgent,
 } from '../utils/mockServices.js';
 import { createMockRequest, createMockResponse, createMockNext } from '../setup.js';
 import { SecurityLevel, RiskLevel } from '@uaip/types';
@@ -62,7 +61,7 @@ describe('AgentController', () => {
     (controller as any).agentLearning = mockAgentLearningService;
     (controller as any).agentDiscussion = mockAgentDiscussionService;
     (controller as any).agentOrchestrator = mockAgentEventOrchestrator;
-    
+
     await controller.initialize();
   });
 
@@ -86,31 +85,43 @@ describe('AgentController', () => {
     });
 
     it('should create an agent', async () => {
-        const req = createMockRequest({ name: 'New Agent' }, {}, {}, { id: 'user-123' }) as any;
-        const res = createMockResponse() as any;
-        const next = createMockNext();
-        await controller.createAgent(req, res, next);
-        expect(mockAgentCoreService.createAgent).toHaveBeenCalledWith({ name: 'New Agent' }, 'user-123');
-        expect(res.status).toHaveBeenCalledWith(201);
-        expect(res.json).toHaveBeenCalledWith(expect.any(Object));
+      const req = createMockRequest({ name: 'New Agent' }, {}, {}, { id: 'user-123' }) as any;
+      const res = createMockResponse() as any;
+      const next = createMockNext();
+      await controller.createAgent(req, res, next);
+      expect(mockAgentCoreService.createAgent).toHaveBeenCalledWith(
+        { name: 'New Agent' },
+        'user-123'
+      );
+      expect(res.status).toHaveBeenCalledWith(201);
+      expect(res.json).toHaveBeenCalledWith(expect.any(Object));
     });
 
     it('should update an agent', async () => {
-        const req = createMockRequest({ name: 'Updated Agent' }, { id: 'agent-123' }, {}, { id: 'user-123' }) as any;
-        const res = createMockResponse() as any;
-        const next = createMockNext();
-        await controller.updateAgent(req, res, next);
-        expect(mockAgentCoreService.updateAgent).toHaveBeenCalledWith('agent-123', { name: 'Updated Agent' }, 'user-123');
-        expect(res.json).toHaveBeenCalledWith(expect.any(Object));
+      const req = createMockRequest(
+        { name: 'Updated Agent' },
+        { id: 'agent-123' },
+        {},
+        { id: 'user-123' }
+      ) as any;
+      const res = createMockResponse() as any;
+      const next = createMockNext();
+      await controller.updateAgent(req, res, next);
+      expect(mockAgentCoreService.updateAgent).toHaveBeenCalledWith(
+        'agent-123',
+        { name: 'Updated Agent' },
+        'user-123'
+      );
+      expect(res.json).toHaveBeenCalledWith(expect.any(Object));
     });
 
     it('should delete an agent', async () => {
-        const req = createMockRequest({}, { id: 'agent-123' }, {}, { id: 'user-123' }) as any;
-        const res = createMockResponse() as any;
-        const next = createMockNext();
-        await controller.deleteAgent(req, res, next);
-        expect(mockAgentCoreService.deleteAgent).toHaveBeenCalledWith('agent-123', 'user-123');
-        expect(res.status).toHaveBeenCalledWith(204);
+      const req = createMockRequest({}, { id: 'agent-123' }, {}, { id: 'user-123' }) as any;
+      const res = createMockResponse() as any;
+      const next = createMockNext();
+      await controller.deleteAgent(req, res, next);
+      expect(mockAgentCoreService.deleteAgent).toHaveBeenCalledWith('agent-123', 'user-123');
+      expect(res.status).toHaveBeenCalledWith(204);
     });
   });
 

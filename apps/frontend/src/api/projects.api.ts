@@ -111,17 +111,28 @@ export const projectsAPI = {
     return APIClient.get<ProjectMember[]>(`${API_ROUTES.PROJECTS.GET}/${projectId}/members`);
   },
 
-  async addMember(projectId: string, userId: string, role: ProjectMemberRole = 'member'): Promise<ProjectMember> {
+  async addMember(
+    projectId: string,
+    userId: string,
+    role: ProjectMemberRole = 'member'
+  ): Promise<ProjectMember> {
     return APIClient.post<ProjectMember>(`${API_ROUTES.PROJECTS.GET}/${projectId}/members`, {
       userId,
-      role
+      role,
     });
   },
 
-  async updateMemberRole(projectId: string, userId: string, role: ProjectMemberRole): Promise<ProjectMember> {
-    return APIClient.patch<ProjectMember>(`${API_ROUTES.PROJECTS.GET}/${projectId}/members/${userId}`, {
-      role
-    });
+  async updateMemberRole(
+    projectId: string,
+    userId: string,
+    role: ProjectMemberRole
+  ): Promise<ProjectMember> {
+    return APIClient.patch<ProjectMember>(
+      `${API_ROUTES.PROJECTS.GET}/${projectId}/members/${userId}`,
+      {
+        role,
+      }
+    );
   },
 
   async removeMember(projectId: string, userId: string): Promise<void> {
@@ -133,20 +144,30 @@ export const projectsAPI = {
     return APIClient.get<ProjectFile[]>(`${API_ROUTES.PROJECTS.GET}/${projectId}/files`);
   },
 
-  async addFile(projectId: string, file: {
-    path: string;
-    content?: string;
-    type?: string;
-    metadata?: any;
-  }): Promise<ProjectFile> {
+  async addFile(
+    projectId: string,
+    file: {
+      path: string;
+      content?: string;
+      type?: string;
+      metadata?: any;
+    }
+  ): Promise<ProjectFile> {
     return APIClient.post<ProjectFile>(`${API_ROUTES.PROJECTS.GET}/${projectId}/files`, file);
   },
 
-  async updateFile(projectId: string, fileId: string, updates: {
-    content?: string;
-    metadata?: any;
-  }): Promise<ProjectFile> {
-    return APIClient.patch<ProjectFile>(`${API_ROUTES.PROJECTS.GET}/${projectId}/files/${fileId}`, updates);
+  async updateFile(
+    projectId: string,
+    fileId: string,
+    updates: {
+      content?: string;
+      metadata?: any;
+    }
+  ): Promise<ProjectFile> {
+    return APIClient.patch<ProjectFile>(
+      `${API_ROUTES.PROJECTS.GET}/${projectId}/files/${fileId}`,
+      updates
+    );
   },
 
   async deleteFile(projectId: string, fileId: string): Promise<void> {
@@ -164,7 +185,7 @@ export const projectsAPI = {
 
   async removeTools(projectId: string, toolIds: string[]): Promise<void> {
     return APIClient.delete(`${API_ROUTES.PROJECTS.GET}/${projectId}/tools`, {
-      data: { toolIds }
+      data: { toolIds },
     });
   },
 
@@ -175,7 +196,7 @@ export const projectsAPI = {
 
   async getActivity(projectId: string, days: number = 30): Promise<any> {
     return APIClient.get(`${API_ROUTES.PROJECTS.GET}/${projectId}/activity`, {
-      params: { days }
+      params: { days },
     });
   },
 
@@ -183,7 +204,7 @@ export const projectsAPI = {
   async bulkUpdateStatus(projectIds: string[], status: ProjectStatus): Promise<Project[]> {
     return APIClient.patch<Project[]>(`${API_ROUTES.PROJECTS.UPDATE}/bulk/status`, {
       projectIds,
-      status
+      status,
     });
   },
 
@@ -193,5 +214,5 @@ export const projectsAPI = {
 
   async unarchive(projectId: string): Promise<Project> {
     return APIClient.post<Project>(`${API_ROUTES.PROJECTS.UPDATE}/${projectId}/unarchive`);
-  }
+  },
 };

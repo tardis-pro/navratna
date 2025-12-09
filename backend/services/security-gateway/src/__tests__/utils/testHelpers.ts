@@ -9,7 +9,7 @@ import {
   AgentOAuthConnectionEntity,
   OAuthStateEntity,
   AuditEvent as AuditLogEntity,
-  SessionEntity
+  SessionEntity,
 } from '@uaip/shared-services';
 
 /**
@@ -34,8 +34,8 @@ export async function createTestDataSource(): Promise<DataSource> {
       SessionEntity,
     ],
     synchronize: true, // Auto-create schema for tests
-    dropSchema: true,  // Clean slate for each test run
-    logging: false,    // Disable logging for cleaner test output
+    dropSchema: true, // Clean slate for each test run
+    logging: false, // Disable logging for cleaner test output
   });
 
   await dataSource.initialize();
@@ -175,7 +175,7 @@ export function createMockRabbitMQ() {
 
       // Notify subscribers
       const subs = subscribers.get(key) || [];
-      subs.forEach(sub => sub(message));
+      subs.forEach((sub) => sub(message));
 
       return true;
     }),
@@ -189,7 +189,7 @@ export function createMockRabbitMQ() {
 
       // Send any queued messages
       const messages = messageQueue.get(key) || [];
-      messages.forEach(msg => callback(msg));
+      messages.forEach((msg) => callback(msg));
       messageQueue.set(key, []); // Clear queue
     }),
 
@@ -250,7 +250,9 @@ export function createTestAgent(userId: string, overrides: Partial<AgentEntity> 
 /**
  * Create test security policy entity
  */
-export function createTestSecurityPolicy(overrides: Partial<SecurityPolicyEntity> = {}): SecurityPolicyEntity {
+export function createTestSecurityPolicy(
+  overrides: Partial<SecurityPolicyEntity> = {}
+): SecurityPolicyEntity {
   return {
     id: 'test-policy-' + Math.random().toString(36).substr(2, 9),
     name: 'Test Security Policy',
@@ -274,7 +276,9 @@ export function createTestSecurityPolicy(overrides: Partial<SecurityPolicyEntity
 /**
  * Create test OAuth provider entity
  */
-export function createTestOAuthProvider(overrides: Partial<OAuthProviderEntity> = {}): OAuthProviderEntity {
+export function createTestOAuthProvider(
+  overrides: Partial<OAuthProviderEntity> = {}
+): OAuthProviderEntity {
   return {
     id: 'test-provider-' + Math.random().toString(36).substr(2, 9),
     name: 'Test Provider',
@@ -309,7 +313,7 @@ export function createTestOAuthProvider(overrides: Partial<OAuthProviderEntity> 
  * Wait for a specified number of milliseconds
  */
 export function delay(ms: number): Promise<void> {
-  return new Promise(resolve => setTimeout(resolve, ms));
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 /**
@@ -348,8 +352,7 @@ export async function assertAuditLogExists(
   dataSource: DataSource,
   criteria: Partial<AuditLogEntity>
 ): Promise<AuditLogEntity> {
-  const auditLog = await dataSource.getRepository(AuditLogEntity)
-    .findOne({ where: criteria });
+  const auditLog = await dataSource.getRepository(AuditLogEntity).findOne({ where: criteria });
 
   if (!auditLog) {
     throw new Error(`Audit log not found with criteria: ${JSON.stringify(criteria)}`);
@@ -365,6 +368,5 @@ export async function countAuditLogs(
   dataSource: DataSource,
   criteria: Partial<AuditLogEntity>
 ): Promise<number> {
-  return await dataSource.getRepository(AuditLogEntity)
-    .count({ where: criteria });
+  return await dataSource.getRepository(AuditLogEntity).count({ where: criteria });
 }

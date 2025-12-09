@@ -8,7 +8,14 @@ export function attachAuth(app: any): any {
     const token = auth.substring(7);
     const result = await validateJWTToken(token);
     if (!result.valid) return { user: null };
-    return { user: { id: result.userId!, email: result.email!, role: result.role!, sessionId: result.sessionId } };
+    return {
+      user: {
+        id: result.userId!,
+        email: result.email!,
+        role: result.role!,
+        sessionId: result.sessionId,
+      },
+    };
   });
 }
 
@@ -20,7 +27,7 @@ export function requireAuth(app: any): any {
         set.status = 401;
         return { error: 'Authentication required' };
       }
-    }
+    },
   });
 }
 
@@ -36,7 +43,7 @@ export function requireAdmin(app: any): any {
         set.status = 403;
         return { error: 'Admin access required' };
       }
-    }
+    },
   });
 }
 
@@ -49,12 +56,16 @@ export function requireOperator(app: any): any {
         return { error: 'Authentication required' };
       }
       const role = (user.role || '').toLowerCase();
-      const ok = role === 'admin' || role === 'operator' || role === 'security_admin' || role === 'security-admin';
+      const ok =
+        role === 'admin' ||
+        role === 'operator' ||
+        role === 'security_admin' ||
+        role === 'security-admin';
       if (!ok) {
         set.status = 403;
         return { error: 'Operator access required' };
       }
-    }
+    },
   });
 }
 

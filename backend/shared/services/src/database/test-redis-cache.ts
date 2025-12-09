@@ -4,13 +4,13 @@
  * Quick test to verify TypeORM Redis cache is working correctly
  */
 
-import { 
-  initializeDatabase, 
-  getDataSource, 
+import {
+  initializeDatabase,
+  getDataSource,
   checkDatabaseHealth,
   getCacheConnection,
   isCacheHealthy,
-  closeDatabase 
+  closeDatabase,
 } from './typeorm.config.js';
 import { Agent } from '../entities/agent.entity.js';
 import { createLogger } from '@uaip/utils';
@@ -18,7 +18,7 @@ import { createLogger } from '@uaip/utils';
 const logger = createLogger({
   serviceName: 'redis-cache-test',
   environment: 'development',
-  logLevel: 'info'
+  logLevel: 'info',
 });
 
 async function testRedisCache() {
@@ -36,12 +36,12 @@ async function testRedisCache() {
     // Check cache status
     const cacheHealthy = isCacheHealthy();
     const cacheConnection = getCacheConnection();
-    
+
     logger.info('💾 Cache status:', {
       healthy: cacheHealthy,
       connected: !!cacheConnection,
       cacheEnabled: health.details.cacheEnabled,
-      cacheHealthy: health.details.cacheHealthy
+      cacheHealthy: health.details.cacheHealthy,
     });
 
     if (!health.details.cacheEnabled) {
@@ -57,7 +57,7 @@ async function testRedisCache() {
     // Test basic query caching
     logger.info('🔍 Testing basic query caching...');
     const dataSource = getDataSource();
-    
+
     // First query - should hit database
     const start1 = Date.now();
     const agents1 = await dataSource
@@ -67,7 +67,7 @@ async function testRedisCache() {
       .cache('test_active_agents', 30000) // 30 seconds
       .getMany();
     const time1 = Date.now() - start1;
-    
+
     logger.info(`📊 First query (database): ${agents1.length} agents in ${time1}ms`);
 
     // Second query - should hit cache
@@ -79,7 +79,7 @@ async function testRedisCache() {
       .cache('test_active_agents', 30000)
       .getMany();
     const time2 = Date.now() - start2;
-    
+
     logger.info(`⚡ Second query (cache): ${agents2.length} agents in ${time2}ms`);
 
     // Verify cache performance improvement
@@ -92,10 +92,10 @@ async function testRedisCache() {
     // Test direct Redis operations
     if (cacheConnection) {
       logger.info('🔧 Testing direct Redis operations...');
-      
+
       await cacheConnection.set('test_key', 'test_value', 'EX', 60);
       const value = await cacheConnection.get('test_key');
-      
+
       if (value === 'test_value') {
         logger.info('✅ Direct Redis operations working correctly');
       } else {
@@ -108,14 +108,14 @@ async function testRedisCache() {
 
     // Test cache with different durations
     logger.info('⏱️  Testing different cache durations...');
-    
+
     const shortCacheQuery = await dataSource
       .getRepository(Agent)
       .createQueryBuilder('agent')
       .select('COUNT(*)', 'count')
       .cache('test_short_cache', 5000) // 5 seconds
       .getRawOne();
-    
+
     logger.info(`📈 Short cache query result: ${shortCacheQuery.count} agents`);
 
     // Test cache invalidation
@@ -127,11 +127,10 @@ async function testRedisCache() {
     }
 
     logger.info('🎉 Redis Cache Integration Test completed successfully!');
-
   } catch (error) {
     logger.error('❌ Redis Cache Integration Test failed:', {
       error: error.message,
-      stack: error.stack
+      stack: error.stack,
     });
   } finally {
     // Clean up
@@ -157,4 +156,4 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   })();
 }
 
-export { testRedisCache }; 
+export { testRedisCache };

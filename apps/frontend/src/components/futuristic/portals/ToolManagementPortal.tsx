@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useUAIP } from '@/contexts/UAIPContext';
 import { motion } from 'framer-motion';
-import { 
-  WrenchScrewdriverIcon, 
+import {
+  WrenchScrewdriverIcon,
   MagnifyingGlassIcon,
   PlusIcon,
   ClockIcon,
@@ -14,7 +14,7 @@ import {
   XMarkIcon,
   CloudIcon,
   CodeBracketIcon,
-  CubeIcon
+  CubeIcon,
 } from '@heroicons/react/24/outline';
 import { uaipAPI } from '@/utils/uaip-api';
 
@@ -60,7 +60,10 @@ interface ToolFormData {
   };
 }
 
-export const ToolManagementPortal: React.FC<ToolManagementPortalProps> = ({ className, viewport }) => {
+export const ToolManagementPortal: React.FC<ToolManagementPortalProps> = ({
+  className,
+  viewport,
+}) => {
   const { capabilities, toolIntegrations, agents, refreshData, isWebSocketConnected } = useUAIP();
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
@@ -76,7 +79,7 @@ export const ToolManagementPortal: React.FC<ToolManagementPortalProps> = ({ clas
     requiresApproval: false,
     tags: [],
     author: '',
-    type: 'custom'
+    type: 'custom',
   });
 
   // Determine viewport if not provided
@@ -84,7 +87,8 @@ export const ToolManagementPortal: React.FC<ToolManagementPortalProps> = ({ clas
     width: typeof window !== 'undefined' ? window.innerWidth : 1024,
     height: typeof window !== 'undefined' ? window.innerHeight : 768,
     isMobile: typeof window !== 'undefined' ? window.innerWidth < 768 : false,
-    isTablet: typeof window !== 'undefined' ? window.innerWidth >= 768 && window.innerWidth < 1024 : false,
+    isTablet:
+      typeof window !== 'undefined' ? window.innerWidth >= 768 && window.innerWidth < 1024 : false,
     isDesktop: typeof window !== 'undefined' ? window.innerWidth >= 1024 : true,
   };
 
@@ -95,7 +99,7 @@ export const ToolManagementPortal: React.FC<ToolManagementPortalProps> = ({ clas
     const consolidatedTools: any[] = [];
 
     // Add tools from capabilities registry
-    capabilities.data.forEach(capability => {
+    capabilities.data.forEach((capability) => {
       consolidatedTools.push({
         id: capability.id,
         name: capability.name,
@@ -108,12 +112,12 @@ export const ToolManagementPortal: React.FC<ToolManagementPortalProps> = ({ clas
         requiresApproval: false,
         isEnabled: true,
         source: 'capability-registry',
-        type: 'capability'
+        type: 'capability',
       });
     });
 
     // Add tools from tool integrations
-    toolIntegrations.data.forEach(integration => {
+    toolIntegrations.data.forEach((integration) => {
       consolidatedTools.push({
         id: integration.id,
         name: integration.name,
@@ -126,12 +130,12 @@ export const ToolManagementPortal: React.FC<ToolManagementPortalProps> = ({ clas
         requiresApproval: true,
         isEnabled: integration.status === 'active',
         source: 'tool-integration',
-        type: integration.type
+        type: integration.type,
       });
     });
 
     // Add tools from agent capabilities
-    agents.data.forEach(agent => {
+    agents.data.forEach((agent) => {
       agent.capabilities.forEach((capability, index) => {
         consolidatedTools.push({
           id: `${agent.id}-capability-${index}`,
@@ -145,7 +149,7 @@ export const ToolManagementPortal: React.FC<ToolManagementPortalProps> = ({ clas
           requiresApproval: false,
           isEnabled: agent.status === 'active',
           source: 'agent',
-          type: 'agent-capability'
+          type: 'agent-capability',
         });
       });
     });
@@ -154,36 +158,50 @@ export const ToolManagementPortal: React.FC<ToolManagementPortalProps> = ({ clas
   }, [capabilities.data, toolIntegrations.data, agents.data]);
 
   // Extract categories from consolidated tools data
-  const categories: string[] = ['all', ...Array.from(new Set(allTools.map(tool => tool.category || 'api'))) as string[]];
-  
-  const filteredTools = allTools.filter(tool => {
-    const matchesSearch = tool.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         tool.description?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         tool.tags?.some(tag => tag.toLowerCase().includes(searchQuery.toLowerCase()));
-    const matchesCategory = selectedCategory === 'all' || (tool.category || 'api') === selectedCategory;
+  const categories: string[] = [
+    'all',
+    ...(Array.from(new Set(allTools.map((tool) => tool.category || 'api'))) as string[]),
+  ];
+
+  const filteredTools = allTools.filter((tool) => {
+    const matchesSearch =
+      tool.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      tool.description?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      tool.tags?.some((tag) => tag.toLowerCase().includes(searchQuery.toLowerCase()));
+    const matchesCategory =
+      selectedCategory === 'all' || (tool.category || 'api') === selectedCategory;
     return matchesSearch && matchesCategory;
   });
 
   const getSecurityColor = (level?: string) => {
     switch (level) {
-      case 'safe': return 'text-green-600 bg-green-100 border-green-200';
-      case 'moderate': return 'text-yellow-600 bg-yellow-100 border-yellow-200';
-      case 'restricted': return 'text-orange-600 bg-orange-100 border-orange-200';
-      case 'dangerous': return 'text-red-600 bg-red-100 border-red-200';
-      default: return 'text-gray-600 bg-gray-100 border-gray-200';
+      case 'safe':
+        return 'text-green-600 bg-green-100 border-green-200';
+      case 'moderate':
+        return 'text-yellow-600 bg-yellow-100 border-yellow-200';
+      case 'restricted':
+        return 'text-orange-600 bg-orange-100 border-orange-200';
+      case 'dangerous':
+        return 'text-red-600 bg-red-100 border-red-200';
+      default:
+        return 'text-gray-600 bg-gray-100 border-gray-200';
     }
   };
 
   const getTypeIcon = (type?: string) => {
     switch (type) {
-      case 'mcp': return <CloudIcon className="w-4 h-4" />;
-      case 'openapi': return <CodeBracketIcon className="w-4 h-4" />;
-      case 'custom': return <CubeIcon className="w-4 h-4" />;
-      default: return <WrenchScrewdriverIcon className="w-4 h-4" />;
+      case 'mcp':
+        return <CloudIcon className="w-4 h-4" />;
+      case 'openapi':
+        return <CodeBracketIcon className="w-4 h-4" />;
+      case 'custom':
+        return <CubeIcon className="w-4 h-4" />;
+      default:
+        return <WrenchScrewdriverIcon className="w-4 h-4" />;
     }
   };
 
-  const selectedToolData = allTools.find(tool => tool.id === selectedTool);
+  const selectedToolData = allTools.find((tool) => tool.id === selectedTool);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -222,7 +240,7 @@ export const ToolManagementPortal: React.FC<ToolManagementPortalProps> = ({ clas
         requiresApproval: false,
         tags: [],
         author: '',
-        type: 'custom'
+        type: 'custom',
       });
     } catch (error) {
       console.error('Failed to create tool:', error);
@@ -235,16 +253,16 @@ export const ToolManagementPortal: React.FC<ToolManagementPortalProps> = ({ clas
     if (e.key === 'Enter' && e.currentTarget.value.trim()) {
       const newTag = e.currentTarget.value.trim();
       if (!formData.tags.includes(newTag)) {
-        setFormData(prev => ({ ...prev, tags: [...prev.tags, newTag] }));
+        setFormData((prev) => ({ ...prev, tags: [...prev.tags, newTag] }));
       }
       e.currentTarget.value = '';
     }
   };
 
   const removeTag = (tagToRemove: string) => {
-    setFormData(prev => ({
+    setFormData((prev) => ({
       ...prev,
-      tags: prev.tags.filter(tag => tag !== tagToRemove)
+      tags: prev.tags.filter((tag) => tag !== tagToRemove),
     }));
   };
 
@@ -257,7 +275,9 @@ export const ToolManagementPortal: React.FC<ToolManagementPortalProps> = ({ clas
             <ExclamationTriangleIcon className="w-8 h-8 text-red-400 mx-auto mb-2" />
             <p className="text-red-500 dark:text-red-400">Failed to load tools</p>
             <p className="text-sm text-gray-400 dark:text-gray-500 mb-4">
-              {capabilities.error?.message || toolIntegrations.error?.message || agents.error?.message}
+              {capabilities.error?.message ||
+                toolIntegrations.error?.message ||
+                agents.error?.message}
             </p>
             <button
               onClick={refreshData}
@@ -299,7 +319,9 @@ export const ToolManagementPortal: React.FC<ToolManagementPortalProps> = ({ clas
         </h2>
         <div className="flex items-center space-x-4">
           <div className="flex items-center space-x-2">
-            <div className={`w-2 h-2 rounded-full ${isWebSocketConnected ? 'bg-green-500 animate-pulse' : 'bg-gray-400'}`} />
+            <div
+              className={`w-2 h-2 rounded-full ${isWebSocketConnected ? 'bg-green-500 animate-pulse' : 'bg-gray-400'}`}
+            />
             <span className="text-sm text-gray-500">
               {isWebSocketConnected ? 'Live' : 'Offline'}
             </span>
@@ -321,7 +343,12 @@ export const ToolManagementPortal: React.FC<ToolManagementPortalProps> = ({ clas
           </button>
           {(capabilities.lastUpdated || toolIntegrations.lastUpdated || agents.lastUpdated) && (
             <span className="text-xs text-gray-400">
-              Updated: {(capabilities.lastUpdated || toolIntegrations.lastUpdated || agents.lastUpdated)?.toLocaleTimeString()}
+              Updated:{' '}
+              {(
+                capabilities.lastUpdated ||
+                toolIntegrations.lastUpdated ||
+                agents.lastUpdated
+              )?.toLocaleTimeString()}
             </span>
           )}
         </div>
@@ -359,7 +386,7 @@ export const ToolManagementPortal: React.FC<ToolManagementPortalProps> = ({ clas
             <WrenchScrewdriverIcon className="w-5 h-5 mr-2 text-purple-500" />
             Available Tools ({filteredTools.length})
           </h3>
-          
+
           {filteredTools.length === 0 ? (
             <div className="text-center py-8">
               <MagnifyingGlassIcon className="w-8 h-8 text-gray-400 mx-auto mb-2" />
@@ -378,11 +405,11 @@ export const ToolManagementPortal: React.FC<ToolManagementPortalProps> = ({ clas
           ) : (
             <div className="space-y-3">
               {filteredTools.map((tool) => (
-                <div 
+                <div
                   key={tool.id}
                   className={`bg-white dark:bg-slate-700 rounded-xl p-4 border cursor-pointer transition-all ${
-                    selectedTool === tool.id 
-                      ? 'border-purple-500 ring-2 ring-purple-500/20' 
+                    selectedTool === tool.id
+                      ? 'border-purple-500 ring-2 ring-purple-500/20'
                       : 'border-slate-200 dark:border-slate-600 hover:border-purple-300'
                   }`}
                   onClick={() => setSelectedTool(tool.id)}
@@ -394,10 +421,14 @@ export const ToolManagementPortal: React.FC<ToolManagementPortalProps> = ({ clas
                       </div>
                       <div className="flex-1">
                         <h4 className="font-semibold text-gray-900 dark:text-white">{tool.name}</h4>
-                        <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">{tool.description || 'No description available'}</p>
+                        <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                          {tool.description || 'No description available'}
+                        </p>
                       </div>
                     </div>
-                    <span className={`px-2 py-1 rounded-md text-xs font-medium border ${getSecurityColor(tool.securityLevel)}`}>
+                    <span
+                      className={`px-2 py-1 rounded-md text-xs font-medium border ${getSecurityColor(tool.securityLevel)}`}
+                    >
                       {(tool.securityLevel || 'safe').toUpperCase()}
                     </span>
                   </div>
@@ -412,9 +443,7 @@ export const ToolManagementPortal: React.FC<ToolManagementPortalProps> = ({ clas
                       </div>
                       <div className="flex items-center space-x-1">
                         <ClockIcon className="w-4 h-4 text-blue-500" />
-                        <span className="text-gray-900 dark:text-white">
-                          v{tool.version}
-                        </span>
+                        <span className="text-gray-900 dark:text-white">v{tool.version}</span>
                       </div>
                     </div>
                     <span className="text-gray-500 dark:text-gray-400">
@@ -424,15 +453,13 @@ export const ToolManagementPortal: React.FC<ToolManagementPortalProps> = ({ clas
 
                   <div className="flex flex-wrap gap-1">
                     {tool.tags?.map((tag, index) => (
-                      <span 
+                      <span
                         key={index}
                         className="px-2 py-1 bg-purple-100 dark:bg-purple-900/50 text-purple-700 dark:text-purple-300 rounded-md text-xs"
                       >
                         {tag}
                       </span>
-                    )) || (
-                      <span className="text-xs text-gray-400">No tags</span>
-                    )}
+                    )) || <span className="text-xs text-gray-400">No tags</span>}
                   </div>
                 </div>
               ))}
@@ -465,7 +492,9 @@ export const ToolManagementPortal: React.FC<ToolManagementPortalProps> = ({ clas
                   </label>
                   <select
                     value={formData.type}
-                    onChange={(e) => setFormData(prev => ({ ...prev, type: e.target.value as any }))}
+                    onChange={(e) =>
+                      setFormData((prev) => ({ ...prev, type: e.target.value as any }))
+                    }
                     className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-purple-500 focus:border-transparent"
                     required
                   >
@@ -484,7 +513,7 @@ export const ToolManagementPortal: React.FC<ToolManagementPortalProps> = ({ clas
                     <input
                       type="text"
                       value={formData.name}
-                      onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
+                      onChange={(e) => setFormData((prev) => ({ ...prev, name: e.target.value }))}
                       className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-purple-500 focus:border-transparent"
                       required
                     />
@@ -496,7 +525,9 @@ export const ToolManagementPortal: React.FC<ToolManagementPortalProps> = ({ clas
                     <input
                       type="text"
                       value={formData.version}
-                      onChange={(e) => setFormData(prev => ({ ...prev, version: e.target.value }))}
+                      onChange={(e) =>
+                        setFormData((prev) => ({ ...prev, version: e.target.value }))
+                      }
                       className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-purple-500 focus:border-transparent"
                       required
                     />
@@ -509,7 +540,9 @@ export const ToolManagementPortal: React.FC<ToolManagementPortalProps> = ({ clas
                   </label>
                   <textarea
                     value={formData.description}
-                    onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
+                    onChange={(e) =>
+                      setFormData((prev) => ({ ...prev, description: e.target.value }))
+                    }
                     rows={3}
                     className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-purple-500 focus:border-transparent"
                   />
@@ -522,7 +555,9 @@ export const ToolManagementPortal: React.FC<ToolManagementPortalProps> = ({ clas
                     </label>
                     <select
                       value={formData.category}
-                      onChange={(e) => setFormData(prev => ({ ...prev, category: e.target.value }))}
+                      onChange={(e) =>
+                        setFormData((prev) => ({ ...prev, category: e.target.value }))
+                      }
                       className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-purple-500 focus:border-transparent"
                       required
                     >
@@ -541,7 +576,9 @@ export const ToolManagementPortal: React.FC<ToolManagementPortalProps> = ({ clas
                     </label>
                     <select
                       value={formData.securityLevel}
-                      onChange={(e) => setFormData(prev => ({ ...prev, securityLevel: e.target.value as any }))}
+                      onChange={(e) =>
+                        setFormData((prev) => ({ ...prev, securityLevel: e.target.value as any }))
+                      }
                       className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-purple-500 focus:border-transparent"
                       required
                     >
@@ -560,7 +597,7 @@ export const ToolManagementPortal: React.FC<ToolManagementPortalProps> = ({ clas
                   <input
                     type="text"
                     value={formData.author}
-                    onChange={(e) => setFormData(prev => ({ ...prev, author: e.target.value }))}
+                    onChange={(e) => setFormData((prev) => ({ ...prev, author: e.target.value }))}
                     className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-purple-500 focus:border-transparent"
                     required
                   />
@@ -609,10 +646,12 @@ export const ToolManagementPortal: React.FC<ToolManagementPortalProps> = ({ clas
                       <input
                         type="url"
                         value={formData.mcpConfig?.serverUrl || ''}
-                        onChange={(e) => setFormData(prev => ({
-                          ...prev,
-                          mcpConfig: { ...prev.mcpConfig, serverUrl: e.target.value }
-                        }))}
+                        onChange={(e) =>
+                          setFormData((prev) => ({
+                            ...prev,
+                            mcpConfig: { ...prev.mcpConfig, serverUrl: e.target.value },
+                          }))
+                        }
                         className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-purple-500 focus:border-transparent"
                         placeholder="https://example.com/mcp"
                       />
@@ -622,7 +661,9 @@ export const ToolManagementPortal: React.FC<ToolManagementPortalProps> = ({ clas
 
                 {formData.type === 'openapi' && (
                   <div className="space-y-4 p-4 bg-green-50 dark:bg-green-900/20 rounded-lg">
-                    <h4 className="font-medium text-gray-900 dark:text-white">OpenAPI Configuration</h4>
+                    <h4 className="font-medium text-gray-900 dark:text-white">
+                      OpenAPI Configuration
+                    </h4>
                     <div>
                       <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                         OpenAPI Spec URL
@@ -630,10 +671,12 @@ export const ToolManagementPortal: React.FC<ToolManagementPortalProps> = ({ clas
                       <input
                         type="url"
                         value={formData.openApiConfig?.specUrl || ''}
-                        onChange={(e) => setFormData(prev => ({
-                          ...prev,
-                          openApiConfig: { ...prev.openApiConfig, specUrl: e.target.value }
-                        }))}
+                        onChange={(e) =>
+                          setFormData((prev) => ({
+                            ...prev,
+                            openApiConfig: { ...prev.openApiConfig, specUrl: e.target.value },
+                          }))
+                        }
                         className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-purple-500 focus:border-transparent"
                         placeholder="https://api.example.com/openapi.json"
                       />
@@ -647,10 +690,14 @@ export const ToolManagementPortal: React.FC<ToolManagementPortalProps> = ({ clas
                     <input
                       type="checkbox"
                       checked={formData.requiresApproval}
-                      onChange={(e) => setFormData(prev => ({ ...prev, requiresApproval: e.target.checked }))}
+                      onChange={(e) =>
+                        setFormData((prev) => ({ ...prev, requiresApproval: e.target.checked }))
+                      }
                       className="rounded border-gray-300 dark:border-gray-600 text-purple-600 focus:ring-purple-500 focus:ring-offset-0"
                     />
-                    <span className="text-sm text-gray-700 dark:text-gray-300">Requires Approval</span>
+                    <span className="text-sm text-gray-700 dark:text-gray-300">
+                      Requires Approval
+                    </span>
                   </label>
                 </div>
 
@@ -686,16 +733,20 @@ export const ToolManagementPortal: React.FC<ToolManagementPortalProps> = ({ clas
                   <div className="bg-white dark:bg-slate-700 rounded-xl p-4 border border-slate-200 dark:border-slate-600">
                     <div className="flex items-start justify-between mb-3">
                       <div>
-                        <h4 className="font-semibold text-gray-900 dark:text-white">{selectedToolData.name}</h4>
+                        <h4 className="font-semibold text-gray-900 dark:text-white">
+                          {selectedToolData.name}
+                        </h4>
                         <p className="text-sm text-gray-500 dark:text-gray-400">
                           ID: {selectedToolData.id} • Category: {selectedToolData.category || 'api'}
                         </p>
                       </div>
-                      <span className={`px-2 py-1 rounded-md text-xs font-medium border ${getSecurityColor(selectedToolData.securityLevel)}`}>
+                      <span
+                        className={`px-2 py-1 rounded-md text-xs font-medium border ${getSecurityColor(selectedToolData.securityLevel)}`}
+                      >
                         {(selectedToolData.securityLevel || 'safe').toUpperCase()}
                       </span>
                     </div>
-                    
+
                     <p className="text-gray-600 dark:text-gray-400 mb-4">
                       {selectedToolData.description || 'No description available'}
                     </p>
@@ -737,7 +788,7 @@ export const ToolManagementPortal: React.FC<ToolManagementPortalProps> = ({ clas
                       </h5>
                       <div className="flex flex-wrap gap-2">
                         {selectedToolData.tags.map((tag, index) => (
-                          <span 
+                          <span
                             key={index}
                             className="px-3 py-1 bg-purple-100 dark:bg-purple-900/50 text-purple-700 dark:text-purple-300 rounded-full text-sm"
                           >
@@ -751,12 +802,18 @@ export const ToolManagementPortal: React.FC<ToolManagementPortalProps> = ({ clas
                   {/* Additional metadata if available */}
                   {(selectedToolData.parameters || selectedToolData.examples) && (
                     <div className="bg-white dark:bg-slate-700 rounded-xl p-4 border border-slate-200 dark:border-slate-600">
-                      <h5 className="font-medium text-gray-900 dark:text-white mb-3">Configuration</h5>
+                      <h5 className="font-medium text-gray-900 dark:text-white mb-3">
+                        Configuration
+                      </h5>
                       <pre className="text-xs text-gray-600 dark:text-gray-400 bg-gray-50 dark:bg-gray-800 p-3 rounded overflow-auto">
-                        {JSON.stringify({
-                          parameters: selectedToolData.parameters,
-                          examples: selectedToolData.examples
-                        }, null, 2)}
+                        {JSON.stringify(
+                          {
+                            parameters: selectedToolData.parameters,
+                            examples: selectedToolData.examples,
+                          },
+                          null,
+                          2
+                        )}
                       </pre>
                     </div>
                   )}
@@ -765,7 +822,9 @@ export const ToolManagementPortal: React.FC<ToolManagementPortalProps> = ({ clas
                 <div className="flex items-center justify-center h-32">
                   <div className="text-center">
                     <WrenchScrewdriverIcon className="w-8 h-8 text-gray-400 mx-auto mb-2" />
-                    <p className="text-gray-500 dark:text-gray-400">Select a tool to view details</p>
+                    <p className="text-gray-500 dark:text-gray-400">
+                      Select a tool to view details
+                    </p>
                   </div>
                 </div>
               )}

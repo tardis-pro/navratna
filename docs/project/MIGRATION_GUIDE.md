@@ -9,6 +9,7 @@ This guide provides detailed instructions for migrating between different versio
 ### Breaking Changes
 
 1. **Authentication System**
+
 ```typescript
 // Old authentication
 interface OldAuth {
@@ -29,6 +30,7 @@ interface NewAuth {
 ```
 
 2. **Database Schema**
+
 ```sql
 -- Required schema updates
 ALTER TABLE users ADD COLUMN roles JSONB;
@@ -42,16 +44,23 @@ CREATE TABLE audit_logs (
 ```
 
 3. **API Endpoints**
+
 ```typescript
 // Updated endpoint structure
-/api/v2/discussions  // Replaces /api/discussions
-/api/v2/agents      // Replaces /api/agents
-/api/v2/operations  // Replaces /api/operations
+/api/2v /
+  discussions / // Replaces /api/discussions
+  api /
+  v2 /
+  agents / // Replaces /api/agents
+  api /
+  v2 /
+  operations; // Replaces /api/operations
 ```
 
 ### Migration Steps
 
 1. **Pre-migration Checklist**
+
 ```bash
 # Backup databases
 ./scripts/backup-databases.sh
@@ -64,6 +73,7 @@ CREATE TABLE audit_logs (
 ```
 
 2. **Update Dependencies**
+
 ```json
 {
   "dependencies": {
@@ -75,6 +85,7 @@ CREATE TABLE audit_logs (
 ```
 
 3. **Run Migrations**
+
 ```bash
 # Database migrations
 npm run migrate:v2
@@ -91,6 +102,7 @@ npm run verify:migrations
 ### Breaking Changes
 
 1. **Service Configuration**
+
 ```typescript
 // Old configuration
 interface OldConfig {
@@ -112,6 +124,7 @@ interface NewConfig {
 ```
 
 2. **Message Format**
+
 ```typescript
 // Old format
 interface OldMessage {
@@ -136,6 +149,7 @@ interface NewMessage {
 ### Migration Steps
 
 1. **Update Services**
+
 ```bash
 # Stop services
 docker-compose down
@@ -148,6 +162,7 @@ docker-compose up -d
 ```
 
 2. **Data Migration**
+
 ```bash
 # Run data migrations
 npm run migrate:messages
@@ -162,18 +177,22 @@ npm run verify:data
 ### v2.0.0 Updates
 
 1. **Security Updates**
+
 ```typescript
 // Implement new security middleware
-app.use(new SecurityMiddleware({
-  rbac: true,
-  audit: true,
-  encryption: {
-    algorithm: 'aes-256-gcm'
-  }
-}));
+app.use(
+  new SecurityMiddleware({
+    rbac: true,
+    audit: true,
+    encryption: {
+      algorithm: 'aes-256-gcm',
+    },
+  })
+);
 ```
 
 2. **WebSocket Changes**
+
 ```typescript
 // Update WebSocket connections
 const ws = new WebSocket('ws://api.example.com/v2/discussions');
@@ -186,12 +205,13 @@ ws.addEventListener('message', (event) => {
 ### v1.2.0 Updates
 
 1. **API Client Updates**
+
 ```typescript
 // Update API client usage
 const client = new UAIPClient({
   version: 'v1.2',
   baseUrl: 'https://api.example.com',
-  timeout: 5000
+  timeout: 5000,
 });
 ```
 
@@ -222,7 +242,7 @@ async function migrateUsers() {
   for (const user of users) {
     await db.userRoles.create({
       userId: user.id,
-      role: user.legacyRole
+      role: user.legacyRole,
     });
   }
 }
@@ -236,13 +256,13 @@ async function migrateMessages() {
       data: {
         content: {
           text: message.text,
-          attachments: []
+          attachments: [],
         },
         metadata: {
           migrated: true,
-          originalFormat: 'v1'
-        }
-      }
+          originalFormat: 'v1',
+        },
+      },
     });
   }
 }
@@ -320,6 +340,7 @@ npm run verify:api
 ## Post-migration Steps
 
 1. **Verify System Status**
+
 ```bash
 # Check service health
 ./scripts/check-health.sh
@@ -332,6 +353,7 @@ npm run test:e2e
 ```
 
 2. **Update Documentation**
+
 ```bash
 # Update API docs
 npm run docs:generate
@@ -341,9 +363,11 @@ npm run docs:generate
 ```
 
 3. **Monitor System**
+
 ```bash
 # Watch error rates
 ./scripts/monitor-errors.sh
 
 # Check performance
 ./scripts/check-performance.sh
+```

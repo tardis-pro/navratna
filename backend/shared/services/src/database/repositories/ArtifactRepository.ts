@@ -26,7 +26,10 @@ export class ArtifactRepository extends BaseRepository<Artifact> {
     try {
       return await this.findMany({ projectId });
     } catch (error) {
-      logger.error('Error finding artifacts by project', { projectId, error: (error as Error).message });
+      logger.error('Error finding artifacts by project', {
+        projectId,
+        error: (error as Error).message,
+      });
       throw error;
     }
   }
@@ -38,7 +41,10 @@ export class ArtifactRepository extends BaseRepository<Artifact> {
     try {
       return await this.findMany({ conversationId });
     } catch (error) {
-      logger.error('Error finding artifacts by conversation', { conversationId, error: (error as Error).message });
+      logger.error('Error finding artifacts by conversation', {
+        conversationId,
+        error: (error as Error).message,
+      });
       throw error;
     }
   }
@@ -50,7 +56,10 @@ export class ArtifactRepository extends BaseRepository<Artifact> {
     try {
       return await this.findMany({ generatedBy });
     } catch (error) {
-      logger.error('Error finding artifacts by generator', { generatedBy, error: (error as Error).message });
+      logger.error('Error finding artifacts by generator', {
+        generatedBy,
+        error: (error as Error).message,
+      });
       throw error;
     }
   }
@@ -58,11 +67,18 @@ export class ArtifactRepository extends BaseRepository<Artifact> {
   /**
    * Update artifact status
    */
-  public async updateStatus(id: string, status: 'draft' | 'review' | 'approved' | 'deployed' | 'archived'): Promise<Artifact | null> {
+  public async updateStatus(
+    id: string,
+    status: 'draft' | 'review' | 'approved' | 'deployed' | 'archived'
+  ): Promise<Artifact | null> {
     try {
       return await this.update(id, { status });
     } catch (error) {
-      logger.error('Error updating artifact status', { id, status, error: (error as Error).message });
+      logger.error('Error updating artifact status', {
+        id,
+        status,
+        error: (error as Error).message,
+      });
       throw error;
     }
   }

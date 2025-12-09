@@ -55,5 +55,5 @@ export const api = {
   orchestration: orchestrationAPI,
   knowledge: knowledgeAPI,
   llm: llmAPI,
-  mcp: mcpAPI
+  mcp: mcpAPI,
 };

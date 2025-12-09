@@ -56,7 +56,7 @@ export class ProjectLifecycleService {
   private alerts = new Map<string, ProjectAlert[]>();
   private automations = new Map<string, ProjectAutomation[]>();
   private healthCheckInterval: NodeJS.Timeout | null = null;
-  
+
   constructor(
     private projectService: ProjectManagementService,
     private eventBusService: EventBusService,
@@ -66,10 +66,10 @@ export class ProjectLifecycleService {
   async initialize(): Promise<void> {
     // Set up event subscriptions
     await this.setupEventSubscriptions();
-    
+
     // Start health monitoring
     this.startHealthMonitoring();
-    
+
     logger.info('Project Lifecycle Service initialized');
   }
 
@@ -84,7 +84,7 @@ export class ProjectLifecycleService {
       }
 
       const metrics = await this.projectService.getProjectMetrics(projectId);
-      
+
       // Calculate health scores
       const budgetHealth = this.assessBudgetHealth(project);
       const scheduleHealth = this.assessScheduleHealth(project);
@@ -93,12 +93,20 @@ export class ProjectLifecycleService {
 
       // Determine overall health
       const overallHealth = this.calculateOverallHealth(
-        budgetHealth, scheduleHealth, taskHealth, agentHealth
+        budgetHealth,
+        scheduleHealth,
+        taskHealth,
+        agentHealth
       );
 
       // Generate recommendations
       const recommendations = this.generateRecommendations(
-        project, metrics, budgetHealth, scheduleHealth, taskHealth, agentHealth
+        project,
+        metrics,
+        budgetHealth,
+        scheduleHealth,
+        taskHealth,
+        agentHealth
       );
 
       // Count problematic tasks
@@ -118,8 +126,8 @@ export class ProjectLifecycleService {
           averageTaskDuration: metrics.averageTaskDuration,
           activeAgents: metrics.agentPerformance.length,
           blockedTasks,
-          overdueTasksCount
-        }
+          overdueTasksCount,
+        },
       };
 
       // Check for alerts
@@ -135,21 +143,23 @@ export class ProjectLifecycleService {
   /**
    * Create an automation rule for a project
    */
-  async createAutomation(automation: Omit<ProjectAutomation, 'id' | 'lastExecuted'>): Promise<ProjectAutomation> {
+  async createAutomation(
+    automation: Omit<ProjectAutomation, 'id' | 'lastExecuted'>
+  ): Promise<ProjectAutomation> {
     const newAutomation: ProjectAutomation = {
       ...automation,
       id: `auto_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-      lastExecuted: undefined
+      lastExecuted: undefined,
     };
 
     const projectAutomations = this.automations.get(automation.projectId) || [];
     projectAutomations.push(newAutomation);
     this.automations.set(automation.projectId, projectAutomations);
 
-    logger.info('Project automation created', { 
-      automationId: newAutomation.id, 
+    logger.info('Project automation created', {
+      automationId: newAutomation.id,
       projectId: automation.projectId,
-      type: automation.type
+      type: automation.type,
     });
 
     return newAutomation;
@@ -160,26 +170,26 @@ export class ProjectLifecycleService {
    */
   async executeAutomations(projectId: string): Promise<void> {
     const automations = this.automations.get(projectId) || [];
-    
-    for (const automation of automations.filter(a => a.isActive)) {
+
+    for (const automation of automations.filter((a) => a.isActive)) {
       try {
         const shouldExecute = await this.shouldExecuteAutomation(automation);
-        
+
         if (shouldExecute) {
           await this.executeAutomationActions(automation);
           automation.lastExecuted = new Date();
-          
+
           logger.info('Automation executed', {
             automationId: automation.id,
             projectId,
-            type: automation.type
+            type: automation.type,
           });
         }
       } catch (error) {
         logger.error('Failed to execute automation', {
           error,
           automationId: automation.id,
-          projectId
+          projectId,
         });
       }
     }
@@ -201,8 +211,8 @@ export class ProjectLifecycleService {
         metadata: {
           ...project.metadata,
           archivedAt: new Date(),
-          archiveReason: reason
-        }
+          archiveReason: reason,
+        },
       });
 
       // Clean up automations
@@ -213,7 +223,7 @@ export class ProjectLifecycleService {
       await this.eventBusService.publish('project.archived', {
         projectId,
         reason,
-        archivedAt: new Date()
+        archivedAt: new Date(),
       });
 
       logger.info('Project archived', { projectId, reason });
@@ -235,21 +245,21 @@ export class ProjectLifecycleService {
    */
   async acknowledgeAlert(alertId: string): Promise<void> {
     for (const [projectId, alerts] of this.alerts.entries()) {
-      const alert = alerts.find(a => a.id === alertId);
+      const alert = alerts.find((a) => a.id === alertId);
       if (alert) {
         alert.acknowledged = true;
-        
+
         await this.eventBusService.publish('project.alert.acknowledged', {
           alertId,
           projectId,
-          acknowledgedAt: new Date()
+          acknowledgedAt: new Date(),
         });
-        
+
         logger.info('Alert acknowledged', { alertId, projectId });
         return;
       }
     }
-    
+
     throw new Error(`Alert ${alertId} not found`);
   }
 
@@ -277,9 +287,12 @@ export class ProjectLifecycleService {
 
   private startHealthMonitoring(): void {
     // Run health checks every 15 minutes
-    this.healthCheckInterval = setInterval(async () => {
-      await this.runScheduledHealthChecks();
-    }, 15 * 60 * 1000);
+    this.healthCheckInterval = setInterval(
+      async () => {
+        await this.runScheduledHealthChecks();
+      },
+      15 * 60 * 1000
+    );
 
     logger.info('Health monitoring started (15-minute intervals)');
   }
@@ -289,13 +302,13 @@ export class ProjectLifecycleService {
       // Get all active projects
       const { projects } = await this.projectService.listProjects({
         status: ProjectStatus.ACTIVE,
-        limit: 100
+        limit: 100,
       });
 
       for (const project of projects) {
         try {
           const healthCheck = await this.performHealthCheck(project.id);
-          
+
           // Execute automations based on health
           if (healthCheck.overallHealth === 'critical' || healthCheck.overallHealth === 'warning') {
             await this.executeAutomations(project.id);
@@ -303,7 +316,7 @@ export class ProjectLifecycleService {
         } catch (error) {
           logger.error('Health check failed for project', {
             error,
-            projectId: project.id
+            projectId: project.id,
           });
         }
       }
@@ -320,16 +333,16 @@ export class ProjectLifecycleService {
 
   private assessScheduleHealth(project: Project): 'on-time' | 'delayed' | 'overdue' {
     if (project.isOverdue) return 'overdue';
-    
+
     // Calculate if we're behind schedule based on completion rate vs time elapsed
     if (project.endDate) {
       const totalDuration = project.endDate.getTime() - project.startDate!.getTime();
       const elapsed = Date.now() - project.startDate!.getTime();
       const expectedCompletion = (elapsed / totalDuration) * 100;
-      
+
       if (project.completionPercentage < expectedCompletion - 20) return 'delayed';
     }
-    
+
     return 'on-time';
   }
 
@@ -340,9 +353,11 @@ export class ProjectLifecycleService {
   }
 
   private assessAgentHealth(metrics: any): 'active' | 'inactive' | 'overloaded' {
-    const activeAgents = metrics.agentPerformance.filter((agent: any) => agent.tasksCompleted > 0).length;
+    const activeAgents = metrics.agentPerformance.filter(
+      (agent: any) => agent.tasksCompleted > 0
+    ).length;
     const totalAgents = metrics.agentPerformance.length;
-    
+
     if (activeAgents === 0) return 'inactive';
     if (activeAgents / totalAgents < 0.5) return 'overloaded';
     return 'active';
@@ -350,15 +365,17 @@ export class ProjectLifecycleService {
 
   private calculateOverallHealth(
     budgetHealth: string,
-    scheduleHealth: string, 
+    scheduleHealth: string,
     taskHealth: string,
     agentHealth: string
   ): 'excellent' | 'good' | 'warning' | 'critical' {
-    const criticalIssues = [budgetHealth, scheduleHealth, taskHealth, agentHealth]
-      .filter(h => h.includes('critical') || h.includes('overdue') || h.includes('blocked')).length;
-    
-    const warningIssues = [budgetHealth, scheduleHealth, taskHealth, agentHealth]
-      .filter(h => h.includes('over-budget') || h.includes('delayed') || h.includes('stalled')).length;
+    const criticalIssues = [budgetHealth, scheduleHealth, taskHealth, agentHealth].filter(
+      (h) => h.includes('critical') || h.includes('overdue') || h.includes('blocked')
+    ).length;
+
+    const warningIssues = [budgetHealth, scheduleHealth, taskHealth, agentHealth].filter(
+      (h) => h.includes('over-budget') || h.includes('delayed') || h.includes('stalled')
+    ).length;
 
     if (criticalIssues > 0) return 'critical';
     if (warningIssues > 1) return 'warning';
@@ -377,15 +394,21 @@ export class ProjectLifecycleService {
     const recommendations: string[] = [];
 
     if (budgetHealth === 'over-budget') {
-      recommendations.push('Consider reviewing tool usage costs and optimizing expensive operations');
+      recommendations.push(
+        'Consider reviewing tool usage costs and optimizing expensive operations'
+      );
     }
-    
+
     if (budgetHealth === 'critical') {
-      recommendations.push('URGENT: Budget exceeded. Pause non-critical tool executions immediately');
+      recommendations.push(
+        'URGENT: Budget exceeded. Pause non-critical tool executions immediately'
+      );
     }
 
     if (scheduleHealth === 'delayed') {
-      recommendations.push('Project is behind schedule. Consider adding more agents or extending deadline');
+      recommendations.push(
+        'Project is behind schedule. Consider adding more agents or extending deadline'
+      );
     }
 
     if (scheduleHealth === 'overdue') {
@@ -405,12 +428,17 @@ export class ProjectLifecycleService {
     }
 
     if (agentHealth === 'overloaded') {
-      recommendations.push('Agents appear overloaded. Consider adding more agents or redistributing work');
+      recommendations.push(
+        'Agents appear overloaded. Consider adding more agents or redistributing work'
+      );
     }
 
     // Performance-based recommendations
-    if (metrics.averageTaskDuration > 3600000) { // > 1 hour
-      recommendations.push('Tasks are taking longer than expected. Consider tool optimization or task breakdown');
+    if (metrics.averageTaskDuration > 3600000) {
+      // > 1 hour
+      recommendations.push(
+        'Tasks are taking longer than expected. Consider tool optimization or task breakdown'
+      );
     }
 
     return recommendations;
@@ -423,7 +451,7 @@ export class ProjectLifecycleService {
     // This would be implemented with proper database queries
     return {
       overdueTasksCount: 0,
-      blockedTasks: 0
+      blockedTasks: 0,
     };
   }
 
@@ -432,23 +460,51 @@ export class ProjectLifecycleService {
 
     // Budget alerts
     if (healthCheck.budgetHealth === 'critical') {
-      alerts.push(this.createAlert(project.id, 'budget', 'critical', 
-        'Project budget exceeded', 'Immediate budget review required'));
+      alerts.push(
+        this.createAlert(
+          project.id,
+          'budget',
+          'critical',
+          'Project budget exceeded',
+          'Immediate budget review required'
+        )
+      );
     } else if (healthCheck.budgetHealth === 'over-budget') {
-      alerts.push(this.createAlert(project.id, 'budget', 'warning',
-        'Project approaching budget limit', 'Monitor spending closely'));
+      alerts.push(
+        this.createAlert(
+          project.id,
+          'budget',
+          'warning',
+          'Project approaching budget limit',
+          'Monitor spending closely'
+        )
+      );
     }
 
     // Schedule alerts
     if (healthCheck.scheduleHealth === 'overdue') {
-      alerts.push(this.createAlert(project.id, 'schedule', 'critical',
-        'Project is overdue', 'Immediate action required'));
+      alerts.push(
+        this.createAlert(
+          project.id,
+          'schedule',
+          'critical',
+          'Project is overdue',
+          'Immediate action required'
+        )
+      );
     }
 
     // Task alerts
     if (healthCheck.taskHealth === 'blocked') {
-      alerts.push(this.createAlert(project.id, 'task', 'error',
-        'Tasks are blocked', 'Investigate blocking issues'));
+      alerts.push(
+        this.createAlert(
+          project.id,
+          'task',
+          'error',
+          'Tasks are blocked',
+          'Investigate blocking issues'
+        )
+      );
     }
 
     // Store alerts
@@ -478,7 +534,7 @@ export class ProjectLifecycleService {
       message,
       actionRequired,
       triggeredAt: new Date(),
-      acknowledged: false
+      acknowledged: false,
     };
   }
 
@@ -512,7 +568,7 @@ export class ProjectLifecycleService {
         logger.error('Failed to execute automation action', {
           error,
           automationId: automation.id,
-          actionType: action.type
+          actionType: action.type,
         });
       }
     }
@@ -522,7 +578,7 @@ export class ProjectLifecycleService {
     await this.eventBusService.publish('project.notification', {
       projectId,
       message: config.message,
-      recipients: config.recipients
+      recipients: config.recipients,
     });
   }
 
@@ -534,7 +590,7 @@ export class ProjectLifecycleService {
   private async executePauseAction(projectId: string, config: any): Promise<void> {
     await this.projectService.updateProject(projectId, {
       status: ProjectStatus.PAUSED,
-      metadata: { pausedBy: 'automation', pausedAt: new Date() }
+      metadata: { pausedBy: 'automation', pausedAt: new Date() },
     });
   }
 
@@ -542,30 +598,32 @@ export class ProjectLifecycleService {
     await this.eventBusService.publish('project.escalation', {
       projectId,
       escalationLevel: config.level,
-      reason: config.reason
+      reason: config.reason,
     });
   }
 
   // Event handlers
   private async onProjectCreated(event: any): Promise<void> {
     const { projectId } = event;
-    
+
     // Set up default automations for new projects
     await this.createAutomation({
       projectId,
       type: 'budget_threshold',
       trigger: {
         condition: 'budget_utilization > threshold',
-        threshold: 90
+        threshold: 90,
       },
-      actions: [{
-        type: 'notify',
-        config: {
-          message: 'Project approaching budget limit',
-          recipients: ['project_owner']
-        }
-      }],
-      isActive: true
+      actions: [
+        {
+          type: 'notify',
+          config: {
+            message: 'Project approaching budget limit',
+            recipients: ['project_owner'],
+          },
+        },
+      ],
+      isActive: true,
     });
 
     logger.info('Default automations created for new project', { projectId });
@@ -573,7 +631,7 @@ export class ProjectLifecycleService {
 
   private async onTaskUpdated(event: any): Promise<void> {
     const { projectId, statusChanged } = event;
-    
+
     if (statusChanged && projectId) {
       // Trigger health check for project when task status changes
       setTimeout(() => this.performHealthCheck(projectId), 1000);
@@ -582,7 +640,7 @@ export class ProjectLifecycleService {
 
   private async onToolUsageRecorded(event: any): Promise<void> {
     const { projectId, cost } = event;
-    
+
     // Check if this tool usage pushes project over budget
     if (cost > 0 && projectId) {
       const project = await this.projectService.getProject(projectId);
@@ -597,7 +655,7 @@ export class ProjectLifecycleService {
       clearInterval(this.healthCheckInterval);
       this.healthCheckInterval = null;
     }
-    
+
     logger.info('Project Lifecycle Service shut down');
   }
 }

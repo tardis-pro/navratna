@@ -1,15 +1,14 @@
 // Code Generator - Generates code diffs and suggestions
 // Epic 4 Implementation
 
-import { 
-  Artifact, 
-  ArtifactConversationContext, 
+import {
+  Artifact,
+  ArtifactConversationContext,
   ValidationResult,
   ValidationStatus,
   ArtifactMetadata,
-  TraceabilityInfo
+  TraceabilityInfo,
 } from '@uaip/types';
-
 
 import { TemplateManager } from '../templates/TemplateManager.js';
 import { logger } from '@uaip/utils';
@@ -18,7 +17,7 @@ import { ArtifactGenerator } from '../interfaces';
 export class CodeGenerator implements ArtifactGenerator {
   private readonly supportedType = 'code';
   private templateManager: TemplateManager;
-  
+
   constructor() {
     this.templateManager = new TemplateManager();
   }
@@ -32,14 +31,22 @@ export class CodeGenerator implements ArtifactGenerator {
 
     // Look for code-related keywords
     const codeKeywords = [
-      'function', 'class', 'method', 'variable', 'implement', 'refactor',
-      'bug', 'fix', 'optimize', 'code', 'algorithm', 'logic'
+      'function',
+      'class',
+      'method',
+      'variable',
+      'implement',
+      'refactor',
+      'bug',
+      'fix',
+      'optimize',
+      'code',
+      'algorithm',
+      'logic',
     ];
 
-    const hasCodeContext = recentMessages.some(message => 
-      codeKeywords.some(keyword => 
-        message.content.toLowerCase().includes(keyword)
-      )
+    const hasCodeContext = recentMessages.some((message) =>
+      codeKeywords.some((keyword) => message.content.toLowerCase().includes(keyword))
     );
 
     // Check for explicit code requests
@@ -48,11 +55,11 @@ export class CodeGenerator implements ArtifactGenerator {
       /write.*code/i,
       /implement.*function/i,
       /create.*class/i,
-      /fix.*bug/i
+      /fix.*bug/i,
     ];
 
-    const hasCodeRequest = recentMessages.some(message =>
-      codeRequestPatterns.some(pattern => pattern.test(message.content))
+    const hasCodeRequest = recentMessages.some((message) =>
+      codeRequestPatterns.some((pattern) => pattern.test(message.content))
     );
 
     return hasCodeContext || hasCodeRequest;
@@ -64,20 +71,20 @@ export class CodeGenerator implements ArtifactGenerator {
   async generate(context: ArtifactConversationContext): Promise<string> {
     logger.info('Generating code artifact', {
       conversationId: context.conversationId,
-      messageCount: context.messages.length
+      messageCount: context.messages.length,
     });
 
     try {
       // Extract requirements from conversation
       const requirements = this.extractRequirements(context.messages);
       const functionName = this.extractFunctionName(context.messages) || 'generatedFunction';
-      
+
       // Detect language from context
       const language = this.detectLanguage(context.messages) || 'typescript';
-      
+
       // Generate code based on language
       let generatedCode: string;
-      
+
       switch (language.toLowerCase()) {
         case 'typescript':
         case 'javascript':
@@ -94,10 +101,11 @@ export class CodeGenerator implements ArtifactGenerator {
       }
 
       return generatedCode;
-
     } catch (error) {
       logger.error('Code generation failed:', error);
-      throw new Error(`Code generation failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw new Error(
+        `Code generation failed: ${error instanceof Error ? error.message : 'Unknown error'}`
+      );
     }
   }
 
@@ -119,10 +127,10 @@ export class CodeGenerator implements ArtifactGenerator {
 
   private extractRequirements(messages: any[]): string[] {
     const requirements: string[] = [];
-    
+
     for (const message of messages) {
       const content = message.content.toLowerCase();
-      
+
       // Look for requirement patterns
       if (content.includes('should') || content.includes('need') || content.includes('must')) {
         // Extract the requirement sentence
@@ -134,14 +142,16 @@ export class CodeGenerator implements ArtifactGenerator {
         }
       }
     }
-    
+
     return requirements.slice(0, 5); // Limit to top 5 requirements
   }
 
   private extractFunctionName(messages: any[]): string | null {
     for (const message of messages) {
       // Look for function name patterns
-      const functionMatch = message.content.match(/function\s+(\w+)|(\w+)\s*function|create\s+(\w+)|implement\s+(\w+)/i);
+      const functionMatch = message.content.match(
+        /function\s+(\w+)|(\w+)\s*function|create\s+(\w+)|implement\s+(\w+)/i
+      );
       if (functionMatch) {
         return functionMatch[1] || functionMatch[2] || functionMatch[3] || functionMatch[4];
       }
@@ -156,14 +166,14 @@ export class CodeGenerator implements ArtifactGenerator {
       python: ['python', 'py', 'def ', 'import ', 'pip'],
       java: ['java', 'class ', 'public class', 'spring'],
       rust: ['rust', 'fn ', 'cargo', 'struct'],
-      go: ['golang', 'go', 'func ', 'package']
+      go: ['golang', 'go', 'func ', 'package'],
     };
 
     for (const message of messages) {
       const content = message.content.toLowerCase();
-      
+
       for (const [language, keywords] of Object.entries(languageKeywords)) {
-        if (keywords.some(keyword => content.includes(keyword))) {
+        if (keywords.some((keyword) => content.includes(keyword))) {
           return language;
         }
       }
@@ -173,9 +183,8 @@ export class CodeGenerator implements ArtifactGenerator {
   }
 
   private generateTypeScriptCode(functionName: string, requirements: string[]): string {
-    const requirementsComment = requirements.length > 0 
-      ? `/**\n * ${requirements.join('\n * ')}\n */\n`
-      : '';
+    const requirementsComment =
+      requirements.length > 0 ? `/**\n * ${requirements.join('\n * ')}\n */\n` : '';
 
     return `${requirementsComment}export function ${functionName}(): void {
   // TODO: Implement function based on requirements
@@ -190,9 +199,8 @@ export class CodeGenerator implements ArtifactGenerator {
   }
 
   private generatePythonCode(functionName: string, requirements: string[]): string {
-    const requirementsComment = requirements.length > 0 
-      ? `"""\n${requirements.join('\n')}\n"""\n`
-      : '';
+    const requirementsComment =
+      requirements.length > 0 ? `"""\n${requirements.join('\n')}\n"""\n` : '';
 
     return `def ${functionName}():
     ${requirementsComment}
@@ -209,9 +217,8 @@ export class CodeGenerator implements ArtifactGenerator {
   }
 
   private generateJavaCode(functionName: string, requirements: string[]): string {
-    const requirementsComment = requirements.length > 0 
-      ? `    /**\n     * ${requirements.join('\n     * ')}\n     */\n`
-      : '';
+    const requirementsComment =
+      requirements.length > 0 ? `    /**\n     * ${requirements.join('\n     * ')}\n     */\n` : '';
 
     const className = this.capitalizeFirst(functionName) + 'Service';
 
@@ -230,10 +237,13 @@ ${requirementsComment}    public void ${functionName}() {
 }`;
   }
 
-  private generateGenericCode(functionName: string, requirements: string[], language: string): string {
-    const requirementsComment = requirements.length > 0 
-      ? `// Requirements:\n// ${requirements.join('\n// ')}\n\n`
-      : '';
+  private generateGenericCode(
+    functionName: string,
+    requirements: string[],
+    language: string
+  ): string {
+    const requirementsComment =
+      requirements.length > 0 ? `// Requirements:\n// ${requirements.join('\n// ')}\n\n` : '';
 
     return `${requirementsComment}// ${language} implementation
 function ${functionName}() {
@@ -251,4 +261,4 @@ function ${functionName}() {
   private capitalizeFirst(str: string): string {
     return str.charAt(0).toUpperCase() + str.slice(1);
   }
-} 
+}

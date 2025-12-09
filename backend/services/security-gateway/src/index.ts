@@ -39,7 +39,7 @@ class SecurityGatewayServer extends BaseService {
     super({
       name: 'security-gateway',
       port: config.services.securityGateway.port || 3004,
-      enableEnterpriseEventBus: true
+      enableEnterpriseEventBus: true,
     });
   }
 
@@ -72,12 +72,14 @@ class SecurityGatewayServer extends BaseService {
     );
 
     // Initialize knowledge services (non-blocking)
-    initializeServices().then(() => {
-      logger.info('Knowledge services initialized successfully');
-    }).catch(error => {
-      logger.warn('Knowledge services failed to initialize - continuing without them:', error);
-      // This is non-critical for basic functionality
-    });
+    initializeServices()
+      .then(() => {
+        logger.info('Knowledge services initialized successfully');
+      })
+      .catch((error) => {
+        logger.warn('Knowledge services failed to initialize - continuing without them:', error);
+        // This is non-critical for basic functionality
+      });
 
     // Start cron jobs after database is ready
     this.approvalWorkflowService.startCronJobs();
@@ -125,7 +127,7 @@ class SecurityGatewayServer extends BaseService {
   protected async setupEventSubscriptions(): Promise<void> {
     // Setup standard event bus subscriptions
     await this.setupStandardEventSubscriptions();
-    
+
     // Setup enterprise event bus subscriptions
     await this.setupEnterpriseEventSubscriptions();
   }
@@ -135,16 +137,16 @@ class SecurityGatewayServer extends BaseService {
     await this.eventBusService.subscribe('security.auth.validate', async (event) => {
       try {
         const { token, correlationId, service, operation } = event.data;
-        
-        logger.info('Processing WebSocket auth validation', { 
-          service, 
-          operation, 
-          correlationId: correlationId?.substring(0, 10) + '...' 
+
+        logger.info('Processing WebSocket auth validation', {
+          service,
+          operation,
+          correlationId: correlationId?.substring(0, 10) + '...',
         });
 
         // Validate JWT token using existing auth service
         const authResult = await this.validateJWTToken(token);
-        
+
         // Publish response back to requesting service
         await this.eventBusService.publish('security.auth.response', {
           correlationId,
@@ -155,23 +157,22 @@ class SecurityGatewayServer extends BaseService {
           complianceFlags: authResult.complianceFlags,
           email: authResult.email,
           role: authResult.role,
-          reason: authResult.reason
+          reason: authResult.reason,
         });
 
-        logger.info('WebSocket auth validation completed', { 
-          correlationId: correlationId?.substring(0, 10) + '...', 
-          valid: authResult.valid 
+        logger.info('WebSocket auth validation completed', {
+          correlationId: correlationId?.substring(0, 10) + '...',
+          valid: authResult.valid,
         });
-
       } catch (error) {
         logger.error('WebSocket auth validation failed', { error });
-        
+
         // Send error response
         if (event.data.correlationId) {
           await this.eventBusService.publish('security.auth.response', {
             correlationId: event.data.correlationId,
             valid: false,
-            reason: 'Internal authentication error'
+            reason: 'Internal authentication error',
           });
         }
       }
@@ -182,128 +183,131 @@ class SecurityGatewayServer extends BaseService {
     if (!this.enterpriseEventBusService) return;
 
     // Subscribe to enterprise security events
-    await this.enterpriseEventBusService.subscribe('security.auth.validate', async (event) => {
-      try {
-        const { token, correlationId, service, operation, complianceLevel } = event.data;
-        
-        logger.info('Processing enterprise auth validation', { 
-          service, 
-          operation, 
-          complianceLevel,
-          correlationId: correlationId?.substring(0, 10) + '...' 
-        });
+    await this.enterpriseEventBusService.subscribe(
+      'security.auth.validate',
+      async (event) => {
+        try {
+          const { token, correlationId, service, operation, complianceLevel } = event.data;
 
-        // Validate JWT token with enhanced enterprise validation
-        const authResult = await this.validateJWTToken(token);
-        
-        // Add enterprise-specific compliance checks
-        const enterpriseAuthResult = {
-          ...authResult,
-          complianceLevel: complianceLevel || 'standard',
-          auditTrail: true,
-          enterpriseValidation: true
-        };
-        
-        // Publish response back to requesting service via enterprise bus
-        await this.enterpriseEventBusService.publish('security.auth.response', {
-          correlationId,
-          valid: enterpriseAuthResult.valid,
-          userId: enterpriseAuthResult.userId,
-          sessionId: enterpriseAuthResult.sessionId,
-          securityLevel: enterpriseAuthResult.securityLevel,
-          complianceFlags: enterpriseAuthResult.complianceFlags,
-          complianceLevel: enterpriseAuthResult.complianceLevel,
-          email: enterpriseAuthResult.email,
-          role: enterpriseAuthResult.role,
-          reason: enterpriseAuthResult.reason,
-          auditTrail: enterpriseAuthResult.auditTrail,
-          enterpriseValidation: enterpriseAuthResult.enterpriseValidation
-        });
-
-        logger.info('Enterprise auth validation completed', { 
-          correlationId: correlationId?.substring(0, 10) + '...', 
-          valid: enterpriseAuthResult.valid,
-          complianceLevel: enterpriseAuthResult.complianceLevel
-        });
-
-      } catch (error) {
-        logger.error('Enterprise auth validation failed', { error });
-        
-        // Send error response via enterprise bus
-        if (event.data.correlationId) {
-          await this.enterpriseEventBusService.publish('security.auth.response', {
-            correlationId: event.data.correlationId,
-            valid: false,
-            reason: 'Internal enterprise authentication error',
-            auditTrail: true
+          logger.info('Processing enterprise auth validation', {
+            service,
+            operation,
+            complianceLevel,
+            correlationId: correlationId?.substring(0, 10) + '...',
           });
+
+          // Validate JWT token with enhanced enterprise validation
+          const authResult = await this.validateJWTToken(token);
+
+          // Add enterprise-specific compliance checks
+          const enterpriseAuthResult = {
+            ...authResult,
+            complianceLevel: complianceLevel || 'standard',
+            auditTrail: true,
+            enterpriseValidation: true,
+          };
+
+          // Publish response back to requesting service via enterprise bus
+          await this.enterpriseEventBusService.publish('security.auth.response', {
+            correlationId,
+            valid: enterpriseAuthResult.valid,
+            userId: enterpriseAuthResult.userId,
+            sessionId: enterpriseAuthResult.sessionId,
+            securityLevel: enterpriseAuthResult.securityLevel,
+            complianceFlags: enterpriseAuthResult.complianceFlags,
+            complianceLevel: enterpriseAuthResult.complianceLevel,
+            email: enterpriseAuthResult.email,
+            role: enterpriseAuthResult.role,
+            reason: enterpriseAuthResult.reason,
+            auditTrail: enterpriseAuthResult.auditTrail,
+            enterpriseValidation: enterpriseAuthResult.enterpriseValidation,
+          });
+
+          logger.info('Enterprise auth validation completed', {
+            correlationId: correlationId?.substring(0, 10) + '...',
+            valid: enterpriseAuthResult.valid,
+            complianceLevel: enterpriseAuthResult.complianceLevel,
+          });
+        } catch (error) {
+          logger.error('Enterprise auth validation failed', { error });
+
+          // Send error response via enterprise bus
+          if (event.data.correlationId) {
+            await this.enterpriseEventBusService.publish('security.auth.response', {
+              correlationId: event.data.correlationId,
+              valid: false,
+              reason: 'Internal enterprise authentication error',
+              auditTrail: true,
+            });
+          }
         }
-      }
-    }, { queue: 'security-gateway.enterprise.auth.validate' });
+      },
+      { queue: 'security-gateway.enterprise.auth.validate' }
+    );
 
     // Subscribe to enterprise audit events
-    await this.enterpriseEventBusService.subscribe('security.enterprise.audit.log', async (event) => {
-      try {
-        const { auditData, correlationId } = event.data;
-        
-        logger.info('Processing enterprise audit log', { 
-          correlationId: correlationId?.substring(0, 10) + '...',
-          auditType: auditData?.type 
-        });
+    await this.enterpriseEventBusService.subscribe(
+      'security.enterprise.audit.log',
+      async (event) => {
+        try {
+          const { auditData, correlationId } = event.data;
 
-        // Process audit data through audit service
-        if (this.auditService && auditData) {
-          await this.auditService.logEvent(auditData);
+          logger.info('Processing enterprise audit log', {
+            correlationId: correlationId?.substring(0, 10) + '...',
+            auditType: auditData?.type,
+          });
+
+          // Process audit data through audit service
+          if (this.auditService && auditData) {
+            await this.auditService.logEvent(auditData);
+          }
+
+          logger.info('Enterprise audit log processed', {
+            correlationId: correlationId?.substring(0, 10) + '...',
+          });
+        } catch (error) {
+          logger.error('Enterprise audit log processing failed', { error });
         }
-
-        logger.info('Enterprise audit log processed', { 
-          correlationId: correlationId?.substring(0, 10) + '...' 
-        });
-
-      } catch (error) {
-        logger.error('Enterprise audit log processing failed', { error });
       }
-    });
+    );
   }
 
-
-// ... (rest of the file)
+  // ... (rest of the file)
 
   private async validateJWTToken(token: string): Promise<any> {
     try {
       // Use the validateJWTToken function from middleware
       const result = await validateJWTToken(token);
-      
+
       if (result.valid) {
-        return { 
-          valid: true, 
+        return {
+          valid: true,
           userId: result.userId,
           email: result.email,
           role: result.role,
           sessionId: result.sessionId || `session_${Date.now()}`,
           securityLevel: result.securityLevel || 3,
-          complianceFlags: result.complianceFlags || []
+          complianceFlags: result.complianceFlags || [],
         };
       } else {
         return {
           valid: false,
-          reason: result.reason || 'Token validation failed'
+          reason: result.reason || 'Token validation failed',
         };
       }
     } catch (error) {
-      logger.warn('JWT token validation failed', { 
+      logger.warn('JWT token validation failed', {
         error: error instanceof Error ? error.message : 'Unknown error',
-        tokenPreview: token?.substring(0, 20) + '...'
+        tokenPreview: token?.substring(0, 20) + '...',
       });
-      return { 
-        valid: false, 
-        reason: error instanceof Error ? error.message : 'Token validation failed'
+      return {
+        valid: false,
+        reason: error instanceof Error ? error.message : 'Token validation failed',
       };
     }
   }
 
-// ... (rest of the file)
-
+  // ... (rest of the file)
 
   protected async checkServiceHealth(): Promise<boolean> {
     // Add service-specific health checks here

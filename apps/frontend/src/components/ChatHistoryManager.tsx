@@ -14,7 +14,7 @@ import {
   ChevronDown,
   ChevronRight,
   Calendar,
-  Bot
+  Bot,
 } from 'lucide-react';
 
 interface ChatHistoryManagerProps {
@@ -26,17 +26,16 @@ interface GroupedSessions {
   [key: string]: ChatSession[];
 }
 
-export const ChatHistoryManager: React.FC<ChatHistoryManagerProps> = ({
-  onOpenChat,
-  onClose
-}) => {
+export const ChatHistoryManager: React.FC<ChatHistoryManagerProps> = ({ onOpenChat, onClose }) => {
   const { isAuthenticated } = useAuth();
   const [sessions, setSessions] = useState<ChatSession[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedAgent, setSelectedAgent] = useState<string>('all');
   const [showPersistentOnly, setShowPersistentOnly] = useState(false);
-  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set(['Today', 'Yesterday']));
+  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(
+    new Set(['Today', 'Yesterday'])
+  );
 
   useEffect(() => {
     if (isAuthenticated) {
@@ -59,7 +58,7 @@ export const ChatHistoryManager: React.FC<ChatHistoryManagerProps> = ({
   const deleteSession = async (sessionId: string) => {
     try {
       await chatPersistenceService.deleteChatSession(sessionId);
-      setSessions(prev => prev.filter(s => s.id !== sessionId));
+      setSessions((prev) => prev.filter((s) => s.id !== sessionId));
     } catch (error) {
       console.error('Failed to delete session:', error);
     }
@@ -70,14 +69,14 @@ export const ChatHistoryManager: React.FC<ChatHistoryManagerProps> = ({
       const messages = await chatPersistenceService.getMessages(session.id);
       const exportData = {
         session,
-        messages: messages.map(msg => ({
+        messages: messages.map((msg) => ({
           content: msg.content,
           sender: msg.sender,
           senderName: msg.senderName,
-          timestamp: msg.timestamp
-        }))
+          timestamp: msg.timestamp,
+        })),
       };
-      
+
       const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
@@ -105,7 +104,7 @@ export const ChatHistoryManager: React.FC<ChatHistoryManagerProps> = ({
     return 'Older';
   };
 
-  const filteredSessions = sessions.filter(session => {
+  const filteredSessions = sessions.filter((session) => {
     const matchesSearch = session.agentName.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesAgent = selectedAgent === 'all' || session.agentId === selectedAgent;
     const matchesPersistent = !showPersistentOnly || session.isPersistent;
@@ -125,11 +124,12 @@ export const ChatHistoryManager: React.FC<ChatHistoryManagerProps> = ({
     return order.indexOf(a) - order.indexOf(b);
   });
 
-  const uniqueAgents = Array.from(new Set(sessions.map(s => ({ id: s.agentId, name: s.agentName }))))
-    .sort((a, b) => a.name.localeCompare(b.name));
+  const uniqueAgents = Array.from(
+    new Set(sessions.map((s) => ({ id: s.agentId, name: s.agentName })))
+  ).sort((a, b) => a.name.localeCompare(b.name));
 
   const toggleGroup = (groupName: string) => {
-    setExpandedGroups(prev => {
+    setExpandedGroups((prev) => {
       const newSet = new Set(prev);
       if (newSet.has(groupName)) {
         newSet.delete(groupName);
@@ -144,16 +144,16 @@ export const ChatHistoryManager: React.FC<ChatHistoryManagerProps> = ({
     const date = new Date(dateString);
     const now = new Date();
     const diffMinutes = Math.floor((now.getTime() - date.getTime()) / (1000 * 60));
-    
+
     if (diffMinutes < 1) return 'Just now';
     if (diffMinutes < 60) return `${diffMinutes}m ago`;
-    
+
     const diffHours = Math.floor(diffMinutes / 60);
     if (diffHours < 24) return `${diffHours}h ago`;
-    
+
     const diffDays = Math.floor(diffHours / 24);
     if (diffDays < 7) return `${diffDays}d ago`;
-    
+
     return date.toLocaleDateString();
   };
 
@@ -205,8 +205,10 @@ export const ChatHistoryManager: React.FC<ChatHistoryManagerProps> = ({
               className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
             >
               <option value="all">All Agents</option>
-              {uniqueAgents.map(agent => (
-                <option key={agent.id} value={agent.id}>{agent.name}</option>
+              {uniqueAgents.map((agent) => (
+                <option key={agent.id} value={agent.id}>
+                  {agent.name}
+                </option>
               ))}
             </select>
 
@@ -260,8 +262,12 @@ export const ChatHistoryManager: React.FC<ChatHistoryManagerProps> = ({
                       className="space-y-2 ml-6"
                     >
                       {groupSessions
-                        .sort((a, b) => new Date(b.lastActivity || b.createdAt).getTime() - new Date(a.lastActivity || a.createdAt).getTime())
-                        .map(session => (
+                        .sort(
+                          (a, b) =>
+                            new Date(b.lastActivity || b.createdAt).getTime() -
+                            new Date(a.lastActivity || a.createdAt).getTime()
+                        )
+                        .map((session) => (
                           <div
                             key={session.id}
                             className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4 hover:bg-gray-50 dark:hover:bg-gray-750 transition-colors"
@@ -279,7 +285,7 @@ export const ChatHistoryManager: React.FC<ChatHistoryManagerProps> = ({
                                     </span>
                                   )}
                                 </div>
-                                
+
                                 <div className="flex items-center gap-4 text-sm text-gray-500">
                                   <div className="flex items-center gap-1">
                                     <MessageSquare className="h-3 w-3" />
@@ -287,14 +293,20 @@ export const ChatHistoryManager: React.FC<ChatHistoryManagerProps> = ({
                                   </div>
                                   <div className="flex items-center gap-1">
                                     <Clock className="h-3 w-3" />
-                                    <span>{formatRelativeTime(session.lastActivity || session.createdAt)}</span>
+                                    <span>
+                                      {formatRelativeTime(
+                                        session.lastActivity || session.createdAt
+                                      )}
+                                    </span>
                                   </div>
                                 </div>
                               </div>
 
                               <div className="flex items-center gap-2">
                                 <button
-                                  onClick={() => onOpenChat?.(session.agentId, session.agentName, session.id)}
+                                  onClick={() =>
+                                    onOpenChat?.(session.agentId, session.agentName, session.id)
+                                  }
                                   className="p-2 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/50 rounded-lg transition-colors"
                                   title="Resume Chat"
                                 >

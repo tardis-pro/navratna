@@ -2,11 +2,11 @@ import { MigrationInterface, QueryRunner, Table, Index } from 'typeorm';
 
 /**
  * Persona System Migration
- * 
+ *
  * Creates the persona management tables:
  * - personas: Core persona definitions and configurations
  * - persona_analytics: Analytics and performance tracking for personas
- * 
+ *
  * These tables manage persona definitions, traits, and performance metrics.
  * Dependencies: users table
  */
@@ -61,13 +61,29 @@ export class CreatePersonaSystem1703003000000 implements MigrationInterface {
           {
             name: 'tone',
             type: 'enum',
-            enum: ['concise', 'verbose', 'analytical', 'casual', 'empathetic', 'humorous', 'cautious', 'optimistic'],
+            enum: [
+              'concise',
+              'verbose',
+              'analytical',
+              'casual',
+              'empathetic',
+              'humorous',
+              'cautious',
+              'optimistic',
+            ],
             isNullable: true,
           },
           {
             name: 'style',
             type: 'enum',
-            enum: ['structured', 'freeform', 'inquisitive', 'decisive', 'collaborative', 'authoritative'],
+            enum: [
+              'structured',
+              'freeform',
+              'inquisitive',
+              'decisive',
+              'collaborative',
+              'authoritative',
+            ],
             isNullable: true,
           },
           {
@@ -415,27 +431,82 @@ export class CreatePersonaSystem1703003000000 implements MigrationInterface {
     );
 
     // Create indexes for performance
-    await queryRunner.createIndex('personas', new Index('IDX_personas_status_visibility', ['status', 'visibility']));
-    await queryRunner.createIndex('personas', new Index('IDX_personas_created_by_organization', ['created_by', 'organization_id']));
+    await queryRunner.createIndex(
+      'personas',
+      new Index('IDX_personas_status_visibility', ['status', 'visibility'])
+    );
+    await queryRunner.createIndex(
+      'personas',
+      new Index('IDX_personas_created_by_organization', ['created_by', 'organization_id'])
+    );
     await queryRunner.createIndex('personas', new Index('IDX_personas_tags', ['tags']));
-    await queryRunner.createIndex('personas', new Index('IDX_personas_dominant_expertise', ['dominant_expertise']));
-    await queryRunner.createIndex('personas', new Index('IDX_personas_parent_persona_id', ['parent_persona_id']));
-    await queryRunner.createIndex('personas', new Index('IDX_personas_last_used_at', ['last_used_at']));
-    await queryRunner.createIndex('personas', new Index('IDX_personas_quality_score', ['quality_score']));
-    
-    await queryRunner.createIndex('persona_analytics', new Index('IDX_persona_analytics_persona_id', ['persona_id']));
-    await queryRunner.createIndex('persona_analytics', new Index('IDX_persona_analytics_metric_type', ['metric_type']));
-    await queryRunner.createIndex('persona_analytics', new Index('IDX_persona_analytics_metric_name', ['metric_name']));
-    await queryRunner.createIndex('persona_analytics', new Index('IDX_persona_analytics_user_id', ['user_id']));
-    await queryRunner.createIndex('persona_analytics', new Index('IDX_persona_analytics_recorded_at', ['recorded_at']));
-    await queryRunner.createIndex('persona_analytics', new Index('IDX_persona_analytics_time_period', ['time_period_start', 'time_period_end']));
-    await queryRunner.createIndex('persona_analytics', new Index('IDX_persona_analytics_aggregation_level', ['aggregation_level']));
-    await queryRunner.createIndex('persona_analytics', new Index('IDX_persona_analytics_session_id', ['session_id']));
-    await queryRunner.createIndex('persona_analytics', new Index('IDX_persona_analytics_discussion_id', ['discussion_id']));
-    
+    await queryRunner.createIndex(
+      'personas',
+      new Index('IDX_personas_dominant_expertise', ['dominant_expertise'])
+    );
+    await queryRunner.createIndex(
+      'personas',
+      new Index('IDX_personas_parent_persona_id', ['parent_persona_id'])
+    );
+    await queryRunner.createIndex(
+      'personas',
+      new Index('IDX_personas_last_used_at', ['last_used_at'])
+    );
+    await queryRunner.createIndex(
+      'personas',
+      new Index('IDX_personas_quality_score', ['quality_score'])
+    );
+
+    await queryRunner.createIndex(
+      'persona_analytics',
+      new Index('IDX_persona_analytics_persona_id', ['persona_id'])
+    );
+    await queryRunner.createIndex(
+      'persona_analytics',
+      new Index('IDX_persona_analytics_metric_type', ['metric_type'])
+    );
+    await queryRunner.createIndex(
+      'persona_analytics',
+      new Index('IDX_persona_analytics_metric_name', ['metric_name'])
+    );
+    await queryRunner.createIndex(
+      'persona_analytics',
+      new Index('IDX_persona_analytics_user_id', ['user_id'])
+    );
+    await queryRunner.createIndex(
+      'persona_analytics',
+      new Index('IDX_persona_analytics_recorded_at', ['recorded_at'])
+    );
+    await queryRunner.createIndex(
+      'persona_analytics',
+      new Index('IDX_persona_analytics_time_period', ['time_period_start', 'time_period_end'])
+    );
+    await queryRunner.createIndex(
+      'persona_analytics',
+      new Index('IDX_persona_analytics_aggregation_level', ['aggregation_level'])
+    );
+    await queryRunner.createIndex(
+      'persona_analytics',
+      new Index('IDX_persona_analytics_session_id', ['session_id'])
+    );
+    await queryRunner.createIndex(
+      'persona_analytics',
+      new Index('IDX_persona_analytics_discussion_id', ['discussion_id'])
+    );
+
     // Composite indexes for common queries
-    await queryRunner.createIndex('persona_analytics', new Index('IDX_persona_analytics_persona_metric_time', ['persona_id', 'metric_type', 'recorded_at']));
-    await queryRunner.createIndex('persona_analytics', new Index('IDX_persona_analytics_persona_user_time', ['persona_id', 'user_id', 'recorded_at']));
+    await queryRunner.createIndex(
+      'persona_analytics',
+      new Index('IDX_persona_analytics_persona_metric_time', [
+        'persona_id',
+        'metric_type',
+        'recorded_at',
+      ])
+    );
+    await queryRunner.createIndex(
+      'persona_analytics',
+      new Index('IDX_persona_analytics_persona_user_time', ['persona_id', 'user_id', 'recorded_at'])
+    );
   }
 
   public async down(queryRunner: QueryRunner): Promise<void> {
@@ -443,4 +514,4 @@ export class CreatePersonaSystem1703003000000 implements MigrationInterface {
     await queryRunner.dropTable('persona_analytics');
     await queryRunner.dropTable('personas');
   }
-} 
+}

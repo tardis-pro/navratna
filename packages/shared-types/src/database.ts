@@ -9,12 +9,14 @@ export const DatabaseConfigSchema = z.object({
   username: z.string(),
   password: z.string(),
   ssl: z.boolean().default(false),
-  pool: z.object({
-    min: z.number().min(0).default(2),
-    max: z.number().positive().default(10),
-    idleTimeoutMillis: z.number().positive().default(30000),
-    connectionTimeoutMillis: z.number().positive().default(10000)
-  }).optional()
+  pool: z
+    .object({
+      min: z.number().min(0).default(2),
+      max: z.number().positive().default(10),
+      idleTimeoutMillis: z.number().positive().default(30000),
+      connectionTimeoutMillis: z.number().positive().default(10000),
+    })
+    .optional(),
 });
 
 export type DatabaseConfig = z.infer<typeof DatabaseConfigSchema>;
@@ -26,7 +28,7 @@ export const Neo4jConfigSchema = z.object({
   database: z.string().default('neo4j'),
   maxConnectionPoolSize: z.number().positive().default(50),
   connectionAcquisitionTimeout: z.number().positive().default(30000),
-  connectionTimeout: z.number().positive().default(10000)
+  connectionTimeout: z.number().positive().default(10000),
 });
 
 export type Neo4jConfig = z.infer<typeof Neo4jConfigSchema>;
@@ -47,7 +49,7 @@ export enum TransactionIsolation {
   READ_UNCOMMITTED = 'READ UNCOMMITTED',
   READ_COMMITTED = 'READ COMMITTED',
   REPEATABLE_READ = 'REPEATABLE READ',
-  SERIALIZABLE = 'SERIALIZABLE'
+  SERIALIZABLE = 'SERIALIZABLE',
 }
 
 export interface TransactionOptions {
@@ -70,7 +72,7 @@ export const DbUserSchema = z.object({
   is_active: z.boolean(),
   last_login_at: z.date().nullable(),
   created_at: z.date(),
-  updated_at: z.date()
+  updated_at: z.date(),
 });
 
 export type DbUser = z.infer<typeof DbUserSchema>;
@@ -82,7 +84,7 @@ export const DbRoleSchema = z.object({
   description: z.string().nullable(),
   is_system_role: z.boolean(),
   created_at: z.date(),
-  updated_at: z.date()
+  updated_at: z.date(),
 });
 
 export type DbRole = z.infer<typeof DbRoleSchema>;
@@ -96,7 +98,7 @@ export const DbPermissionSchema = z.object({
   conditions: z.record(z.any()).nullable(),
   expires_at: z.date().nullable(),
   created_at: z.date(),
-  updated_at: z.date()
+  updated_at: z.date(),
 });
 
 export type DbPermission = z.infer<typeof DbPermissionSchema>;
@@ -113,7 +115,7 @@ export const DbCapabilitySchema = z.object({
   is_active: z.boolean(),
   created_by: IDSchema,
   created_at: z.date(),
-  updated_at: z.date()
+  updated_at: z.date(),
 });
 
 export type DbCapability = z.infer<typeof DbCapabilitySchema>;
@@ -130,7 +132,7 @@ export const DbAgentSchema = z.object({
   created_by: IDSchema,
   last_active_at: z.date().nullable(),
   created_at: z.date(),
-  updated_at: z.date()
+  updated_at: z.date(),
 });
 
 export type DbAgent = z.infer<typeof DbAgentSchema>;
@@ -171,7 +173,7 @@ export const DbOperationSchema = z.object({
   archived_by: IDSchema.nullable(),
   archive_reason: z.string().nullable(),
   created_at: z.date(),
-  updated_at: z.date()
+  updated_at: z.date(),
 });
 
 export type DbOperation = z.infer<typeof DbOperationSchema>;
@@ -191,7 +193,7 @@ export const DbAuditEventSchema = z.object({
   user_agent: z.string().nullable(),
   session_id: z.string().nullable(),
   created_at: z.date(),
-  updated_at: z.date()
+  updated_at: z.date(),
 });
 
 export type DbAuditEvent = z.infer<typeof DbAuditEventSchema>;
@@ -206,7 +208,7 @@ export const UserSessionSchema = z.object({
   user_agent: z.string().nullable(),
   expires_at: z.date(),
   created_at: z.date(),
-  last_used_at: z.date()
+  last_used_at: z.date(),
 });
 
 export type UserSession = z.infer<typeof UserSessionSchema>;
@@ -218,7 +220,7 @@ export const DbRefreshTokenSchema = z.object({
   token_hash: z.string(),
   expires_at: z.date(),
   created_at: z.date(),
-  updated_at: z.date()
+  updated_at: z.date(),
 });
 
 export type RefreshToken = z.infer<typeof DbRefreshTokenSchema>;
@@ -231,7 +233,7 @@ export const DbPasswordResetTokenSchema = z.object({
   expires_at: z.date(),
   used: z.boolean(),
   created_at: z.date(),
-  updated_at: z.date()
+  updated_at: z.date(),
 });
 
 export type PasswordResetToken = z.infer<typeof DbPasswordResetTokenSchema>;
@@ -246,7 +248,7 @@ export const DbRateLimitSchema = z.object({
   current_count: z.number(),
   reset_time: z.date(),
   created_at: z.date(),
-  updated_at: z.date()
+  updated_at: z.date(),
 });
 
 export type DbRateLimit = z.infer<typeof DbRateLimitSchema>;
@@ -282,7 +284,7 @@ export const DbApprovalWorkflowSchema = z.object({
   expires_at: z.date().nullable(),
   metadata: z.record(z.any()).nullable(),
   created_at: z.date(),
-  updated_at: z.date()
+  updated_at: z.date(),
 });
 
 export type DbApprovalWorkflow = z.infer<typeof DbApprovalWorkflowSchema>;
@@ -294,7 +296,7 @@ export const DbApprovalDecisionSchema = z.object({
   decision: z.enum(['approve', 'reject']),
   conditions: z.array(z.string()),
   feedback: z.string().nullable(),
-  decided_at: z.date()
+  decided_at: z.date(),
 });
 
 export type DbApprovalDecision = z.infer<typeof DbApprovalDecisionSchema>;
@@ -346,7 +348,7 @@ export const SYSTEM_USER_IDS = {
   SYSTEM: '00000000-0000-0000-0000-000000000001',
   ADMIN: '00000000-0000-0000-0000-000000000002',
   TEST: '00000000-0000-0000-0000-000000000003',
-  DEMO: '00000000-0000-0000-0000-000000000004'
+  DEMO: '00000000-0000-0000-0000-000000000004',
 } as const;
 
 export const SYSTEM_ROLE_IDS = {
@@ -354,21 +356,21 @@ export const SYSTEM_ROLE_IDS = {
   ADMIN: '10000000-0000-0000-0000-000000000002',
   USER: '10000000-0000-0000-0000-000000000003',
   PERSONA_CREATOR: '10000000-0000-0000-0000-000000000004',
-  DISCUSSION_MODERATOR: '10000000-0000-0000-0000-000000000005'
+  DISCUSSION_MODERATOR: '10000000-0000-0000-0000-000000000005',
 } as const;
 
 export const SYSTEM_PERMISSION_IDS = {
   PERSONAS: '20000000-0000-0000-0000-000000000001',
   DISCUSSIONS: '20000000-0000-0000-0000-000000000002',
   USERS: '20000000-0000-0000-0000-000000000003',
-  ADMINISTRATION: '20000000-0000-0000-0000-000000000004'
+  ADMINISTRATION: '20000000-0000-0000-0000-000000000004',
 } as const;
 
 export const SYSTEM_CAPABILITY_IDS = {
   TEXT_ANALYSIS: '30000000-0000-0000-0000-000000000001',
   CREATIVE_WRITING: '30000000-0000-0000-0000-000000000002',
   LOGICAL_REASONING: '30000000-0000-0000-0000-000000000003',
-  DATA_VISUALIZATION: '30000000-0000-0000-0000-000000000004'
+  DATA_VISUALIZATION: '30000000-0000-0000-0000-000000000004',
 } as const;
 
 export const SYSTEM_PERSONA_IDS = {
@@ -376,11 +378,11 @@ export const SYSTEM_PERSONA_IDS = {
   CREATIVE_BRAINSTORMER: '40000000-0000-0000-0000-000000000002',
   DATA_ANALYST: '40000000-0000-0000-0000-000000000003',
   EMPATHETIC_MEDIATOR: '40000000-0000-0000-0000-000000000004',
-  TECHNICAL_ARCHITECT: '40000000-0000-0000-0000-000000000005'
+  TECHNICAL_ARCHITECT: '40000000-0000-0000-0000-000000000005',
 } as const;
 
 export const SYSTEM_DISCUSSION_IDS = {
   AI_ETHICS: '50000000-0000-0000-0000-000000000001',
   REMOTE_WORK: '50000000-0000-0000-0000-000000000002',
-  ARCHITECTURE_REVIEW: '50000000-0000-0000-0000-000000000003'
-} as const; 
+  ARCHITECTURE_REVIEW: '50000000-0000-0000-0000-000000000003',
+} as const;

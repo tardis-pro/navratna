@@ -1,8 +1,8 @@
-import { 
-  LLMProviderRepository, 
-  LLMProvider, 
+import {
+  LLMProviderRepository,
+  LLMProvider,
   DatabaseService,
-  EventBusService
+  EventBusService,
 } from '@uaip/shared-services';
 import { LLMProviderType, LLMProviderStatus } from '@uaip/types';
 import { logger } from '@uaip/utils';
@@ -91,9 +91,9 @@ export class LLMProviderManagementService {
     try {
       const databaseService = DatabaseService.getInstance();
       await databaseService.initialize();
-      
+
       this.llmProviderRepository = new LLMProviderRepository();
-      
+
       this.initialized = true;
       logger.info('LLM Provider Management Service initialized');
     } catch (error) {
@@ -114,7 +114,7 @@ export class LLMProviderManagementService {
   async getAllProviders(): Promise<LLMProviderResponse[]> {
     try {
       await this.ensureInitialized();
-      
+
       const providers = await this.llmProviderRepository.findMany();
       const responses: LLMProviderResponse[] = [];
 
@@ -136,7 +136,7 @@ export class LLMProviderManagementService {
   async getActiveProviders(): Promise<LLMProviderResponse[]> {
     try {
       await this.ensureInitialized();
-      
+
       const providers = await this.llmProviderRepository.findActiveProviders();
       const responses: LLMProviderResponse[] = [];
 
@@ -158,7 +158,7 @@ export class LLMProviderManagementService {
   async getProviderById(id: string): Promise<LLMProviderResponse | null> {
     try {
       await this.ensureInitialized();
-      
+
       const provider = await this.llmProviderRepository.findById(id);
       if (!provider) {
         return null;
@@ -175,7 +175,10 @@ export class LLMProviderManagementService {
   /**
    * Create a new LLM provider
    */
-  async createProvider(request: CreateLLMProviderRequest, createdBy?: string): Promise<LLMProviderResponse> {
+  async createProvider(
+    request: CreateLLMProviderRequest,
+    createdBy?: string
+  ): Promise<LLMProviderResponse> {
     try {
       await this.ensureInitialized();
 
@@ -187,7 +190,7 @@ export class LLMProviderManagementService {
 
       const provider = await this.llmProviderRepository.createProvider({
         ...request,
-        createdBy
+        createdBy,
       });
 
       // Test the provider connection
@@ -208,8 +211,8 @@ export class LLMProviderManagementService {
    * Update an existing LLM provider
    */
   async updateProvider(
-    id: string, 
-    request: UpdateLLMProviderRequest, 
+    id: string,
+    request: UpdateLLMProviderRequest,
     updatedBy?: string
   ): Promise<LLMProviderResponse> {
     try {
@@ -235,7 +238,7 @@ export class LLMProviderManagementService {
       }
 
       provider.updatedBy = updatedBy;
-      
+
       const updatedProvider = await this.llmProviderRepository.update(id, provider);
 
       // Test connection if configuration changed
@@ -260,13 +263,13 @@ export class LLMProviderManagementService {
   async deleteProvider(id: string, deletedBy?: string): Promise<void> {
     try {
       await this.ensureInitialized();
-      
+
       const provider = await this.llmProviderRepository.findById(id);
       await this.llmProviderRepository.softDelete(id, deletedBy);
-      
+
       // Notify LLM service to refresh providers and cache
       await this.notifyProviderChange('provider.deleted', id, provider?.type);
-      
+
       logger.info('LLM provider deleted', { id, deletedBy });
     } catch (error) {
       logger.error('Error deleting LLM provider', { id, error });
@@ -284,7 +287,7 @@ export class LLMProviderManagementService {
   }> {
     try {
       await this.ensureInitialized();
-      
+
       const provider = await this.llmProviderRepository.findById(id);
       if (!provider) {
         throw new Error(`LLM provider with id ${id} not found`);
@@ -302,49 +305,49 @@ export class LLMProviderManagementService {
           method: 'POST',
           headers: this.getTestHeaders(provider),
           body: JSON.stringify(testPayload),
-          signal: AbortSignal.timeout(10000) // 10 second timeout
+          signal: AbortSignal.timeout(10000), // 10 second timeout
         });
 
         const latency = Date.now() - startTime;
 
         if (response.ok) {
           result = { success: true, latency };
-          
+
           // Update health check result
           await this.llmProviderRepository.updateHealthCheck(id, {
             status: 'healthy',
-            latency
+            latency,
           });
         } else {
           const errorText = await response.text();
-          result = { 
-            success: false, 
-            latency, 
-            error: `HTTP ${response.status}: ${errorText}` 
+          result = {
+            success: false,
+            latency,
+            error: `HTTP ${response.status}: ${errorText}`,
           };
-          
+
           // Update health check result
           await this.llmProviderRepository.updateHealthCheck(id, {
             status: 'unhealthy',
             latency,
-            error: result.error
+            error: result.error,
           });
         }
       } catch (error) {
         const latency = Date.now() - startTime;
         const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-        
-        result = { 
-          success: false, 
-          latency, 
-          error: errorMessage 
+
+        result = {
+          success: false,
+          latency,
+          error: errorMessage,
         };
-        
+
         // Update health check result
         await this.llmProviderRepository.updateHealthCheck(id, {
           status: 'unhealthy',
           latency,
-          error: errorMessage
+          error: errorMessage,
         });
       }
 
@@ -353,7 +356,7 @@ export class LLMProviderManagementService {
         name: provider.name,
         success: result.success,
         latency: result.latency,
-        error: result.error
+        error: result.error,
       });
 
       return result;
@@ -376,9 +379,9 @@ export class LLMProviderManagementService {
   }> {
     try {
       await this.ensureInitialized();
-      
+
       const allProviders = await this.llmProviderRepository.findMany();
-      const activeProviders = allProviders.filter(p => p.isActive && p.status === 'active');
+      const activeProviders = allProviders.filter((p) => p.isActive && p.status === 'active');
 
       let totalRequests = BigInt(0);
       let totalTokensUsed = BigInt(0);
@@ -390,9 +393,8 @@ export class LLMProviderManagementService {
         totalErrors += BigInt(provider.totalErrors);
       }
 
-      const averageErrorRate = totalRequests > 0 
-        ? Number(totalErrors) / Number(totalRequests) * 100 
-        : 0;
+      const averageErrorRate =
+        totalRequests > 0 ? (Number(totalErrors) / Number(totalRequests)) * 100 : 0;
 
       return {
         totalProviders: allProviders.length,
@@ -400,7 +402,7 @@ export class LLMProviderManagementService {
         totalRequests: totalRequests.toString(),
         totalTokensUsed: totalTokensUsed.toString(),
         totalErrors: totalErrors.toString(),
-        averageErrorRate: Math.round(averageErrorRate * 100) / 100
+        averageErrorRate: Math.round(averageErrorRate * 100) / 100,
       };
     } catch (error) {
       logger.error('Error getting provider statistics', { error });
@@ -426,10 +428,10 @@ export class LLMProviderManagementService {
         totalRequests: '0',
         totalTokensUsed: '0',
         totalErrors: '0',
-        errorRate: 0
+        errorRate: 0,
       },
       createdAt: provider.createdAt,
-      updatedAt: provider.updatedAt
+      updatedAt: provider.updatedAt,
     };
   }
 
@@ -447,7 +449,7 @@ export class LLMProviderManagementService {
 
   private getTestPayload(provider: LLMProvider): any {
     const testPrompt = 'Hello, this is a connection test. Please respond with "OK".';
-    
+
     switch (provider.type) {
       case 'ollama':
         return {
@@ -455,8 +457,8 @@ export class LLMProviderManagementService {
           prompt: testPrompt,
           stream: false,
           options: {
-            num_predict: 10
-          }
+            num_predict: 10,
+          },
         };
       case 'openai':
       case 'llmstudio':
@@ -464,19 +466,19 @@ export class LLMProviderManagementService {
           model: provider.defaultModel || 'gpt-3.5-turbo',
           messages: [{ role: 'user', content: testPrompt }],
           max_tokens: 10,
-          stream: false
+          stream: false,
         };
       default:
         return {
           messages: [{ role: 'user', content: testPrompt }],
-          max_tokens: 10
+          max_tokens: 10,
         };
     }
   }
 
   private getTestHeaders(provider: LLMProvider): Record<string, string> {
     const headers: Record<string, string> = {
-      'Content-Type': 'application/json'
+      'Content-Type': 'application/json',
     };
 
     const apiKey = provider.getApiKey();
@@ -495,9 +497,16 @@ export class LLMProviderManagementService {
   /**
    * Notify other services about provider changes via event bus
    */
-  private async notifyProviderChange(eventType: string, providerId: string, providerType?: string): Promise<void> {
+  private async notifyProviderChange(
+    eventType: string,
+    providerId: string,
+    providerType?: string
+  ): Promise<void> {
     if (!this.eventBusService) {
-      logger.warn('EventBusService not available, skipping provider change notification', { eventType, providerId });
+      logger.warn('EventBusService not available, skipping provider change notification', {
+        eventType,
+        providerId,
+      });
       return;
     }
 
@@ -506,7 +515,7 @@ export class LLMProviderManagementService {
         eventType,
         providerId,
         providerType,
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
       });
       logger.debug(`Published provider change event`, { eventType, providerId, providerType });
     } catch (error) {
@@ -516,4 +525,4 @@ export class LLMProviderManagementService {
   }
 }
 
-export const llmProviderManagementService = LLMProviderManagementService.getInstance(); 
+export const llmProviderManagementService = LLMProviderManagementService.getInstance();

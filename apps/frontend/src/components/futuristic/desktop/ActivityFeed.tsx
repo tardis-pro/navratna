@@ -10,7 +10,7 @@ import {
   Calendar,
   Zap,
   Target,
-  Award
+  Award,
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -19,7 +19,13 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 interface ActivityEvent {
   id: string;
-  type: 'portal_open' | 'portal_close' | 'action_execute' | 'search' | 'file_access' | 'user_interaction';
+  type:
+    | 'portal_open'
+    | 'portal_close'
+    | 'action_execute'
+    | 'search'
+    | 'file_access'
+    | 'user_interaction';
   itemId: string;
   timestamp: Date;
   duration?: number;
@@ -72,7 +78,7 @@ export const ActivityFeed: React.FC<ActivityFeedProps> = ({
   activityStats,
   trendingItems,
   onItemClick,
-  className = ''
+  className = '',
 }) => {
   const [selectedTimeRange, setSelectedTimeRange] = useState<'today' | 'week' | 'month'>('today');
   const [selectedEventType, setSelectedEventType] = useState<string>('all');
@@ -97,8 +103,8 @@ export const ActivityFeed: React.FC<ActivityFeedProps> = ({
     }
 
     return activityEvents
-      .filter(event => event.timestamp >= startDate)
-      .filter(event => selectedEventType === 'all' || event.type === selectedEventType)
+      .filter((event) => event.timestamp >= startDate)
+      .filter((event) => selectedEventType === 'all' || event.type === selectedEventType)
       .slice(0, 50); // Limit to 50 most recent events
   }, [activityEvents, selectedTimeRange, selectedEventType]);
 
@@ -118,12 +124,12 @@ export const ActivityFeed: React.FC<ActivityFeedProps> = ({
   // Get event type color
   const getEventTypeColor = (type: string) => {
     const colors: Record<string, string> = {
-      'portal_open': 'bg-blue-500/20 text-blue-400',
-      'portal_close': 'bg-gray-500/20 text-gray-400',
-      'action_execute': 'bg-green-500/20 text-green-400',
-      'search': 'bg-purple-500/20 text-purple-400',
-      'file_access': 'bg-orange-500/20 text-orange-400',
-      'user_interaction': 'bg-cyan-500/20 text-cyan-400'
+      portal_open: 'bg-blue-500/20 text-blue-400',
+      portal_close: 'bg-gray-500/20 text-gray-400',
+      action_execute: 'bg-green-500/20 text-green-400',
+      search: 'bg-purple-500/20 text-purple-400',
+      file_access: 'bg-orange-500/20 text-orange-400',
+      user_interaction: 'bg-cyan-500/20 text-cyan-400',
     };
     return colors[type] || 'bg-slate-500/20 text-slate-400';
   };
@@ -148,7 +154,9 @@ export const ActivityFeed: React.FC<ActivityFeedProps> = ({
   };
 
   return (
-    <div className={`h-full flex flex-col bg-slate-900/50 backdrop-blur-sm rounded-lg border border-slate-700/50 ${className}`}>
+    <div
+      className={`h-full flex flex-col bg-slate-900/50 backdrop-blur-sm rounded-lg border border-slate-700/50 ${className}`}
+    >
       {/* Header */}
       <div className="p-4 border-b border-slate-700/50">
         <div className="flex items-center justify-between mb-3">
@@ -156,9 +164,7 @@ export const ActivityFeed: React.FC<ActivityFeedProps> = ({
             <Activity className="w-5 h-5 text-blue-400" />
             <h3 className="text-white font-semibold">Activity Feed</h3>
           </div>
-          <Badge className="bg-blue-500/20 text-blue-400">
-            {filteredEvents.length} events
-          </Badge>
+          <Badge className="bg-blue-500/20 text-blue-400">{filteredEvents.length} events</Badge>
         </div>
 
         {/* Filters */}
@@ -191,9 +197,15 @@ export const ActivityFeed: React.FC<ActivityFeedProps> = ({
       <div className="flex-1 overflow-hidden">
         <Tabs defaultValue="events" className="h-full flex flex-col">
           <TabsList className="grid w-full grid-cols-3 bg-slate-800/50 border-b border-slate-700/50">
-            <TabsTrigger value="events" className="text-xs">Events</TabsTrigger>
-            <TabsTrigger value="trending" className="text-xs">Trending</TabsTrigger>
-            <TabsTrigger value="stats" className="text-xs">Stats</TabsTrigger>
+            <TabsTrigger value="events" className="text-xs">
+              Events
+            </TabsTrigger>
+            <TabsTrigger value="trending" className="text-xs">
+              Trending
+            </TabsTrigger>
+            <TabsTrigger value="stats" className="text-xs">
+              Stats
+            </TabsTrigger>
           </TabsList>
 
           <TabsContent value="events" className="flex-1 overflow-hidden mt-0">
@@ -202,7 +214,7 @@ export const ActivityFeed: React.FC<ActivityFeedProps> = ({
                 <AnimatePresence>
                   {filteredEvents.map((event, index) => {
                     const EventIcon = getEventTypeIcon(event.type);
-                    const relatedItem = recentItems.find(item => item.id === event.itemId);
+                    const relatedItem = recentItems.find((item) => item.id === event.itemId);
 
                     return (
                       <motion.div
@@ -219,7 +231,9 @@ export const ActivityFeed: React.FC<ActivityFeedProps> = ({
 
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center space-x-2">
-                            <Badge className={`text-xs px-2 py-0.5 ${getEventTypeColor(event.type)}`}>
+                            <Badge
+                              className={`text-xs px-2 py-0.5 ${getEventTypeColor(event.type)}`}
+                            >
                               {event.type.replace('_', ' ')}
                             </Badge>
                             <span className="text-slate-500 text-xs">
@@ -228,9 +242,7 @@ export const ActivityFeed: React.FC<ActivityFeedProps> = ({
                           </div>
 
                           {relatedItem && (
-                            <p className="text-white text-sm mt-1 truncate">
-                              {relatedItem.title}
-                            </p>
+                            <p className="text-white text-sm mt-1 truncate">{relatedItem.title}</p>
                           )}
 
                           {event.duration && (

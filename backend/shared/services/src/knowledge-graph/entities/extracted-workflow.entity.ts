@@ -7,7 +7,7 @@ export enum WorkflowComplexity {
   SIMPLE = 'simple',
   MODERATE = 'moderate',
   COMPLEX = 'complex',
-  EXPERT = 'expert'
+  EXPERT = 'expert',
 }
 
 export enum WorkflowStatus {
@@ -15,7 +15,7 @@ export enum WorkflowStatus {
   VALIDATED = 'validated',
   ACTIVE = 'active',
   DEPRECATED = 'deprecated',
-  ARCHIVED = 'archived'
+  ARCHIVED = 'archived',
 }
 
 @Entity('extracted_workflows')
@@ -38,14 +38,14 @@ export class ExtractedWorkflowEntity extends BaseEntity {
   @Column({
     type: 'enum',
     enum: WorkflowComplexity,
-    default: WorkflowComplexity.MODERATE
+    default: WorkflowComplexity.MODERATE,
   })
   complexity!: WorkflowComplexity;
 
   @Column({
     type: 'enum',
     enum: WorkflowStatus,
-    default: WorkflowStatus.DRAFT
+    default: WorkflowStatus.DRAFT,
   })
   status!: WorkflowStatus;
 
@@ -57,11 +57,11 @@ export class ExtractedWorkflowEntity extends BaseEntity {
   executionPlan!: ExecutionPlan;
 
   // Additional workflow-specific type classification
-  @Column({ 
-    type: 'enum', 
-    enum: OperationType, 
+  @Column({
+    type: 'enum',
+    enum: OperationType,
     name: 'workflow_type',
-    default: OperationType.HYBRID_WORKFLOW 
+    default: OperationType.HYBRID_WORKFLOW,
   })
   workflowType!: OperationType;
 

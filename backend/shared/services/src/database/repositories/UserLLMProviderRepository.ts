@@ -1,6 +1,10 @@
 import { Repository } from 'typeorm';
 import { BaseRepository } from '../base/BaseRepository.js';
-import { UserLLMProvider, UserLLMProviderType, UserLLMProviderStatus } from '../../entities/userLLMProvider.entity.js';
+import {
+  UserLLMProvider,
+  UserLLMProviderType,
+  UserLLMProviderStatus,
+} from '../../entities/userLLMProvider.entity.js';
 import { Agent } from '../../entities/agent.entity.js';
 import { logger } from '@uaip/utils';
 
@@ -15,13 +19,13 @@ export class UserLLMProviderRepository extends BaseRepository<UserLLMProvider> {
   async findActiveProvidersByUser(userId: string): Promise<UserLLMProvider[]> {
     try {
       return await this.repository.find({
-        where: { 
-          userId,  
+        where: {
+          userId,
         },
-        order: { 
+        order: {
           priority: 'ASC',
-          createdAt: 'ASC'
-        }
+          createdAt: 'ASC',
+        },
       });
     } catch (error) {
       logger.error('Error finding active user LLM providers', { userId, error });
@@ -36,10 +40,10 @@ export class UserLLMProviderRepository extends BaseRepository<UserLLMProvider> {
     try {
       return await this.repository.find({
         where: { userId },
-        order: { 
+        order: {
           priority: 'ASC',
-          createdAt: 'ASC'
-        }
+          createdAt: 'ASC',
+        },
       });
     } catch (error) {
       logger.error('Error finding user LLM providers', { userId, error });
@@ -55,12 +59,12 @@ export class UserLLMProviderRepository extends BaseRepository<UserLLMProvider> {
       return await this.repository.find({
         where: [
           { isActive: true, status: 'active' },
-          { isActive: true, status: 'testing' }
+          { isActive: true, status: 'testing' },
         ],
-        order: { 
+        order: {
           priority: 'ASC',
-          createdAt: 'ASC'
-        }
+          createdAt: 'ASC',
+        },
       });
     } catch (error) {
       logger.error('Error finding active user LLM providers', { error });
@@ -71,10 +75,13 @@ export class UserLLMProviderRepository extends BaseRepository<UserLLMProvider> {
   /**
    * Find provider by user and type
    */
-  async findByUserAndType(userId: string, type: UserLLMProviderType): Promise<UserLLMProvider | null> {
+  async findByUserAndType(
+    userId: string,
+    type: UserLLMProviderType
+  ): Promise<UserLLMProvider | null> {
     try {
       return await this.repository.findOne({
-        where: { userId, type }
+        where: { userId, type },
       });
     } catch (error) {
       logger.error('Error finding user LLM provider by type', { userId, type, error });
@@ -85,12 +92,15 @@ export class UserLLMProviderRepository extends BaseRepository<UserLLMProvider> {
   /**
    * Find the best available provider for a user and optional type
    */
-  async findBestProviderForUser(userId: string, type?: UserLLMProviderType): Promise<UserLLMProvider | null> {
+  async findBestProviderForUser(
+    userId: string,
+    type?: UserLLMProviderType
+  ): Promise<UserLLMProvider | null> {
     try {
       const whereCondition: any = {
         userId,
         isActive: true,
-        status: 'active'
+        status: 'active',
       };
 
       if (type) {
@@ -99,10 +109,10 @@ export class UserLLMProviderRepository extends BaseRepository<UserLLMProvider> {
 
       return await this.repository.findOne({
         where: whereCondition,
-        order: { 
+        order: {
           priority: 'ASC',
-          lastUsedAt: 'ASC' // Prefer less recently used providers for load balancing
-        }
+          lastUsedAt: 'ASC', // Prefer less recently used providers for load balancing
+        },
       });
     } catch (error) {
       logger.error('Error finding best user LLM provider', { userId, type, error });
@@ -127,11 +137,13 @@ export class UserLLMProviderRepository extends BaseRepository<UserLLMProvider> {
   }): Promise<UserLLMProvider> {
     try {
       // Check if user already has a provider with this name
-      const existingByName = await this.repository.findOne({ 
-        where: { userId: data.userId, name: data.name } 
+      const existingByName = await this.repository.findOne({
+        where: { userId: data.userId, name: data.name },
       });
       if (existingByName) {
-        throw new Error(`Provider name "${data.name}" is already in use. Please choose a different name.`);
+        throw new Error(
+          `Provider name "${data.name}" is already in use. Please choose a different name.`
+        );
       }
 
       const provider = this.repository.create({
@@ -140,7 +152,7 @@ export class UserLLMProviderRepository extends BaseRepository<UserLLMProvider> {
         status: 'testing' as UserLLMProviderStatus,
         totalTokensUsed: '0',
         totalRequests: '0',
-        totalErrors: '0'
+        totalErrors: '0',
       });
 
       // Set encrypted API key if provided
@@ -149,12 +161,12 @@ export class UserLLMProviderRepository extends BaseRepository<UserLLMProvider> {
       }
 
       const savedProvider = await this.repository.save(provider);
-      
-      logger.info('Created new user LLM provider', { 
-        id: savedProvider.id, 
+
+      logger.info('Created new user LLM provider', {
+        id: savedProvider.id,
         userId: savedProvider.userId,
         name: savedProvider.name,
-        type: savedProvider.type
+        type: savedProvider.type,
       });
 
       return savedProvider;
@@ -167,14 +179,18 @@ export class UserLLMProviderRepository extends BaseRepository<UserLLMProvider> {
   /**
    * Update provider configuration
    */
-  async updateProviderConfig(id: string, userId: string, config: {
-    name?: string;
-    description?: string;
-    baseUrl?: string;
-    defaultModel?: string;
-    priority?: number;
-    configuration?: any;
-  }): Promise<void> {
+  async updateProviderConfig(
+    id: string,
+    userId: string,
+    config: {
+      name?: string;
+      description?: string;
+      baseUrl?: string;
+      defaultModel?: string;
+      priority?: number;
+      configuration?: any;
+    }
+  ): Promise<void> {
     try {
       const provider = await this.repository.findOne({ where: { id, userId } });
       if (!provider) {
@@ -188,16 +204,16 @@ export class UserLLMProviderRepository extends BaseRepository<UserLLMProvider> {
       if (config.defaultModel !== undefined) provider.defaultModel = config.defaultModel;
       if (config.priority !== undefined) provider.priority = config.priority;
       if (config.configuration !== undefined) provider.configuration = config.configuration;
-      
+
       provider.updatedAt = new Date();
-      
+
       await this.repository.save(provider);
-      
-      logger.info('Updated user LLM provider configuration', { 
-        id, 
-        userId, 
+
+      logger.info('Updated user LLM provider configuration', {
+        id,
+        userId,
         name: provider.name,
-        updatedFields: Object.keys(config)
+        updatedFields: Object.keys(config),
       });
     } catch (error) {
       logger.error('Error updating user LLM provider configuration', { id, userId, config, error });
@@ -217,9 +233,9 @@ export class UserLLMProviderRepository extends BaseRepository<UserLLMProvider> {
 
       provider.setApiKey(apiKey);
       provider.updatedAt = new Date();
-      
+
       await this.repository.save(provider);
-      
+
       logger.info('Updated user LLM provider API key', { id, userId, name: provider.name });
     } catch (error) {
       logger.error('Error updating user LLM provider API key', { id, userId, error });
@@ -234,16 +250,16 @@ export class UserLLMProviderRepository extends BaseRepository<UserLLMProvider> {
     try {
       const result = await this.repository.update(
         { id, userId },
-        { 
-          status, 
-          updatedAt: new Date()
+        {
+          status,
+          updatedAt: new Date(),
         }
       );
 
       if (result.affected === 0) {
         throw new Error(`User LLM provider with id ${id} not found for user ${userId}`);
       }
-      
+
       logger.info('Updated user LLM provider status', { id, userId, status });
     } catch (error) {
       logger.error('Error updating user LLM provider status', { id, userId, status, error });
@@ -263,16 +279,21 @@ export class UserLLMProviderRepository extends BaseRepository<UserLLMProvider> {
 
       provider.updateUsageStats(tokensUsed, isError);
       await this.repository.save(provider);
-      
-      logger.debug('Updated user LLM provider usage stats', { 
-        id, 
+
+      logger.debug('Updated user LLM provider usage stats', {
+        id,
         userId: provider.userId,
-        tokensUsed, 
+        tokensUsed,
         isError,
-        totalRequests: provider.totalRequests
+        totalRequests: provider.totalRequests,
       });
     } catch (error) {
-      logger.error('Error updating user LLM provider usage stats', { id, tokensUsed, isError, error });
+      logger.error('Error updating user LLM provider usage stats', {
+        id,
+        tokensUsed,
+        isError,
+        error,
+      });
       throw error;
     }
   }
@@ -281,7 +302,7 @@ export class UserLLMProviderRepository extends BaseRepository<UserLLMProvider> {
    * Update health check result
    */
   async updateHealthCheck(
-    id: string, 
+    id: string,
     result: { status: 'healthy' | 'unhealthy'; latency?: number; error?: string }
   ): Promise<void> {
     try {
@@ -292,12 +313,12 @@ export class UserLLMProviderRepository extends BaseRepository<UserLLMProvider> {
 
       provider.updateHealthCheck(result);
       await this.repository.save(provider);
-      
-      logger.info('Updated user LLM provider health check', { 
-        id, 
+
+      logger.info('Updated user LLM provider health check', {
+        id,
         userId: provider.userId,
         status: result.status,
-        latency: result.latency
+        latency: result.latency,
       });
     } catch (error) {
       logger.error('Error updating user LLM provider health check', { id, result, error });
@@ -308,7 +329,10 @@ export class UserLLMProviderRepository extends BaseRepository<UserLLMProvider> {
   /**
    * Get provider statistics for a user
    */
-  async getProviderStats(id: string, userId: string): Promise<{
+  async getProviderStats(
+    id: string,
+    userId: string
+  ): Promise<{
     totalRequests: string;
     totalTokensUsed: string;
     totalErrors: string;
@@ -324,7 +348,7 @@ export class UserLLMProviderRepository extends BaseRepository<UserLLMProvider> {
 
       const totalRequests = BigInt(provider.totalRequests);
       const totalErrors = BigInt(provider.totalErrors);
-      const errorRate = totalRequests > 0 ? Number(totalErrors * BigInt(100) / totalRequests) : 0;
+      const errorRate = totalRequests > 0 ? Number((totalErrors * BigInt(100)) / totalRequests) : 0;
 
       return {
         totalRequests: provider.totalRequests,
@@ -332,7 +356,7 @@ export class UserLLMProviderRepository extends BaseRepository<UserLLMProvider> {
         totalErrors: provider.totalErrors,
         errorRate,
         lastUsedAt: provider.lastUsedAt,
-        healthStatus: provider.healthCheckResult?.status
+        healthStatus: provider.healthCheckResult?.status,
       };
     } catch (error) {
       logger.error('Error getting user LLM provider stats', { id, userId, error });
@@ -347,7 +371,7 @@ export class UserLLMProviderRepository extends BaseRepository<UserLLMProvider> {
     try {
       // First, get the provider to check its type
       const provider = await this.repository.findOne({
-        where: { id, userId }
+        where: { id, userId },
       });
 
       if (!provider) {
@@ -356,45 +380,52 @@ export class UserLLMProviderRepository extends BaseRepository<UserLLMProvider> {
 
       // If provider is already inactive, return success
       if (!provider.isActive) {
-        logger.info('User LLM provider already deleted', { id, userId, providerType: provider.type });
+        logger.info('User LLM provider already deleted', {
+          id,
+          userId,
+          providerType: provider.type,
+        });
         return;
       }
 
       // Check if any agents are using this provider type
       const agentRepository = this.getRepository(Agent);
-      const agentsUsingProvider = await agentRepository.createQueryBuilder('agent')
+      const agentsUsingProvider = await agentRepository
+        .createQueryBuilder('agent')
         .where('agent.apiType = :apiType', { apiType: provider.type })
         .andWhere('agent.isActive = :isActive', { isActive: true })
         .select(['agent.id', 'agent.name', 'agent.modelId'])
         .getMany();
 
       if (agentsUsingProvider.length > 0) {
-        const agentNames = agentsUsingProvider.map(agent => agent.name).join(', ');
-        throw new Error(`Cannot delete provider "${provider.name}" because it is being used by ${agentsUsingProvider.length} agent(s): ${agentNames}. Please update or deactivate these agents first.`);
+        const agentNames = agentsUsingProvider.map((agent) => agent.name).join(', ');
+        throw new Error(
+          `Cannot delete provider "${provider.name}" because it is being used by ${agentsUsingProvider.length} agent(s): ${agentNames}. Please update or deactivate these agents first.`
+        );
       }
 
       // Proceed with soft delete if no agents are using this provider
       const result = await this.repository.update(
         { id, userId },
-        { 
+        {
           isActive: false,
           status: 'inactive' as UserLLMProviderStatus,
-          updatedAt: new Date()
+          updatedAt: new Date(),
         }
       );
 
       if (result.affected === 0) {
         throw new Error(`User LLM provider with id ${id} not found for user ${userId}`);
       }
-      
+
       logger.info('Soft deleted user LLM provider', { id, userId, providerType: provider.type });
     } catch (error) {
-      logger.error('Error deleting user LLM provider', { 
-        id, 
-        userId, 
+      logger.error('Error deleting user LLM provider', {
+        id,
+        userId,
         error: error instanceof Error ? error.message : String(error),
         errorStack: error instanceof Error ? error.stack : undefined,
-        errorName: error instanceof Error ? error.name : undefined
+        errorName: error instanceof Error ? error.name : undefined,
       });
       throw error;
     }
@@ -403,23 +434,26 @@ export class UserLLMProviderRepository extends BaseRepository<UserLLMProvider> {
   /**
    * Get providers needing health check for a user
    */
-  async getProvidersNeedingHealthCheck(userId: string, minutesThreshold: number = 30): Promise<UserLLMProvider[]> {
+  async getProvidersNeedingHealthCheck(
+    userId: string,
+    minutesThreshold: number = 30
+  ): Promise<UserLLMProvider[]> {
     try {
       const thresholdDate = new Date(Date.now() - minutesThreshold * 60 * 1000);
-      
+
       return await this.repository.find({
         where: [
           {
             userId,
             isActive: true,
-            lastHealthCheckAt: null
+            lastHealthCheckAt: null,
           },
           {
             userId,
             isActive: true,
-            lastHealthCheckAt: { $lt: thresholdDate } as any
-          }
-        ]
+            lastHealthCheckAt: { $lt: thresholdDate } as any,
+          },
+        ],
       });
     } catch (error) {
       logger.error('Error getting user providers needing health check', { userId, error });
@@ -430,18 +464,21 @@ export class UserLLMProviderRepository extends BaseRepository<UserLLMProvider> {
   /**
    * Find all providers of a specific type for a user
    */
-  async findProvidersByUserAndType(userId: string, type: UserLLMProviderType): Promise<UserLLMProvider[]> {
+  async findProvidersByUserAndType(
+    userId: string,
+    type: UserLLMProviderType
+  ): Promise<UserLLMProvider[]> {
     try {
       return await this.repository.find({
         where: { userId, type, isActive: true },
-        order: { 
+        order: {
           priority: 'ASC',
-          lastUsedAt: 'ASC'
-        }
+          lastUsedAt: 'ASC',
+        },
       });
     } catch (error) {
       logger.error('Error finding user LLM providers by type', { userId, type, error });
       throw error;
     }
   }
-} 
+}

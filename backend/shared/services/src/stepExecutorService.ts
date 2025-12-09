@@ -8,7 +8,7 @@ import {
   ValidationStep,
   WorkflowInstance,
   ExecutionContext,
-  OperationError
+  OperationError,
 } from '@uaip/types';
 import { logger } from '@uaip/utils';
 
@@ -60,7 +60,7 @@ export class StepExecutorService extends EventEmitter {
     const startTime = Date.now();
     const controller = new AbortController();
     const stepKey = `${context.executionContext.agentId || 'unknown'}:${step.id}`;
-    
+
     // Store active step for potential cancellation
     this.activeSteps.set(stepKey, { step, controller });
 
@@ -68,7 +68,7 @@ export class StepExecutorService extends EventEmitter {
       logger.info('Executing step', {
         stepId: step.id,
         stepName: step.name,
-        stepType: step.type
+        stepType: step.type,
       });
 
       // Prepare step input using input mapping
@@ -76,7 +76,7 @@ export class StepExecutorService extends EventEmitter {
 
       // Execute based on step type
       let stepData: Record<string, any> = {};
-      
+
       switch (step.type) {
         case 'tool':
           stepData = await this.executeToolStep(step, stepInput, controller.signal);
@@ -120,17 +120,16 @@ export class StepExecutorService extends EventEmitter {
         metadata: {
           startedAt: new Date(startTime),
           completedAt: new Date(),
-          retryCount: step.metadata?.retryCount
-        }
+          retryCount: step.metadata?.retryCount,
+        },
       };
 
       logger.info('Step executed successfully', {
         stepId: step.id,
-        executionTime: result.executionTime
+        executionTime: result.executionTime,
       });
 
       return result;
-
     } catch (error) {
       const result: StepResult = {
         stepId: step.id || Date.now().toString(),
@@ -141,18 +140,17 @@ export class StepExecutorService extends EventEmitter {
         metadata: {
           startedAt: new Date(startTime),
           failedAt: new Date(),
-          retryCount: step.metadata?.retryCount
-        }
+          retryCount: step.metadata?.retryCount,
+        },
       };
 
       logger.error('Step execution failed', {
         stepId: step.id,
         error: result.error,
-        executionTime: result.executionTime
+        executionTime: result.executionTime,
       });
 
       return result;
-
     } finally {
       // Clean up active step
       this.activeSteps.delete(stepKey);
@@ -165,7 +163,7 @@ export class StepExecutorService extends EventEmitter {
   public async cancelStep(operationId: string, stepId: string, reason: string): Promise<void> {
     const stepKey = `${operationId}:${stepId}`;
     const activeStep = this.activeSteps.get(stepKey);
-    
+
     if (activeStep) {
       logger.info('Cancelling step', { operationId, stepId, reason });
       activeStep.controller.abort();
@@ -177,22 +175,29 @@ export class StepExecutorService extends EventEmitter {
    * Force stop a step (for emergency shutdown)
    */
   public async forceStopStep(operationId: string): Promise<void> {
-    const stepsToStop = Array.from(this.activeSteps.entries())
-      .filter(([key]) => key.startsWith(`${operationId}:`));
+    const stepsToStop = Array.from(this.activeSteps.entries()).filter(([key]) =>
+      key.startsWith(`${operationId}:`)
+    );
 
     for (const [key, { controller }] of stepsToStop) {
       controller.abort();
       this.activeSteps.delete(key);
     }
 
-    logger.info('Force stopped all steps for operation', { operationId, stoppedSteps: stepsToStop.length });
+    logger.info('Force stopped all steps for operation', {
+      operationId,
+      stoppedSteps: stepsToStop.length,
+    });
   }
 
   /**F
    * Private helper methods
    */
 
-  private prepareStepInput(step: ExecutionStep, variables: Record<string, any>): Record<string, any> {
+  private prepareStepInput(
+    step: ExecutionStep,
+    variables: Record<string, any>
+  ): Record<string, any> {
     const input: Record<string, any> = { ...step.input };
 
     // Apply input mapping
@@ -217,11 +222,11 @@ export class StepExecutorService extends EventEmitter {
   ): Promise<Record<string, any>> {
     // Simulate tool execution
     await this.delay(Math.random() * 2000 + 1000, signal); // 1-3 seconds
-    
+
     return {
       toolResult: `Tool ${step.name} executed successfully`,
       toolOutput: input,
-      executedAt: new Date().toISOString()
+      executedAt: new Date().toISOString(),
     };
   }
 
@@ -232,12 +237,12 @@ export class StepExecutorService extends EventEmitter {
   ): Promise<Record<string, any>> {
     // Simulate artifact generation
     await this.delay(Math.random() * 3000 + 2000, signal); // 2-5 seconds
-    
+
     return {
       artifactId: Date.now().toString(), // Use timestamp as simple numeric ID
       artifactType: input.artifactType || 'document',
       artifactContent: `Generated artifact for ${step.name}`,
-      createdAt: new Date().toISOString()
+      createdAt: new Date().toISOString(),
     };
   }
 
@@ -248,14 +253,14 @@ export class StepExecutorService extends EventEmitter {
   ): Promise<Record<string, any>> {
     // Simulate validation
     await this.delay(Math.random() * 1000 + 500, signal); // 0.5-1.5 seconds
-    
+
     const isValid = Math.random() > 0.1; // 90% success rate
-    
+
     return {
       isValid,
       validationResult: isValid ? 'passed' : 'failed',
       validationDetails: input,
-      validatedAt: new Date().toISOString()
+      validatedAt: new Date().toISOString(),
     };
   }
 
@@ -266,14 +271,14 @@ export class StepExecutorService extends EventEmitter {
   ): Promise<Record<string, any>> {
     // Simulate approval (in real implementation, this would wait for user input)
     await this.delay(Math.random() * 5000 + 3000, signal); // 3-8 seconds
-    
+
     const approved = Math.random() > 0.2; // 80% approval rate
-    
+
     return {
       approved,
       approvalResult: approved ? 'approved' : 'rejected',
       approvedBy: 'system', // In real implementation, this would be the actual approver
-      approvedAt: new Date().toISOString()
+      approvedAt: new Date().toISOString(),
     };
   }
 
@@ -284,10 +289,10 @@ export class StepExecutorService extends EventEmitter {
   ): Promise<Record<string, any>> {
     const delayMs = input.delayMs || 1000;
     await this.delay(delayMs, signal);
-    
+
     return {
       delayMs,
-      delayedUntil: new Date().toISOString()
+      delayedUntil: new Date().toISOString(),
     };
   }
 
@@ -298,28 +303,28 @@ export class StepExecutorService extends EventEmitter {
   ): Promise<Record<string, any>> {
     // Simulate decision making
     await this.delay(Math.random() * 1500 + 500, signal); // 0.5-2 seconds
-    
+
     const condition = input.condition || 'true';
     const result = this.evaluateCondition(condition, input);
-    
+
     return {
       condition,
       result,
-      decidedAt: new Date().toISOString()
+      decidedAt: new Date().toISOString(),
     };
   }
 
   private async delay(ms: number, signal: AbortSignal): Promise<void> {
     return new Promise((resolve, reject) => {
       const timeout = setTimeout(resolve, ms);
-      
+
       const abortHandler = () => {
         clearTimeout(timeout);
         reject(new Error('Step execution was cancelled'));
       };
-      
+
       signal.addEventListener('abort', abortHandler);
-      
+
       setTimeout(() => {
         signal.removeEventListener('abort', abortHandler);
       }, ms);
@@ -333,12 +338,12 @@ export class StepExecutorService extends EventEmitter {
     signal: AbortSignal
   ): Promise<Record<string, any>> {
     await this.delay(Math.random() * 2000 + 1000, signal);
-    
+
     return {
       agentId: step.agentId || 'unknown',
       action: step.action || 'unknown',
       actionResult: `Agent action ${step.action} executed`,
-      executedAt: new Date().toISOString()
+      executedAt: new Date().toISOString(),
     };
   }
 
@@ -348,12 +353,12 @@ export class StepExecutorService extends EventEmitter {
     signal: AbortSignal
   ): Promise<Record<string, any>> {
     await this.delay(Math.random() * 1500 + 500, signal);
-    
+
     return {
       toolId: step.toolId || 'unknown',
       toolResult: `Tool ${step.toolId} executed successfully`,
       toolOutput: input,
-      executedAt: new Date().toISOString()
+      executedAt: new Date().toISOString(),
     };
   }
 
@@ -363,17 +368,17 @@ export class StepExecutorService extends EventEmitter {
     signal: AbortSignal
   ): Promise<Record<string, any>> {
     await this.delay(Math.random() * 500 + 200, signal);
-    
+
     const condition = input.condition || step.condition;
     const result = this.evaluateCondition(condition, input);
-    
+
     return {
       condition,
       result,
       trueBranch: step.trueBranch || [],
       falseBranch: step.falseBranch || [],
       branchTaken: result ? 'true' : 'false',
-      executedAt: new Date().toISOString()
+      executedAt: new Date().toISOString(),
     };
   }
 
@@ -383,15 +388,15 @@ export class StepExecutorService extends EventEmitter {
     signal: AbortSignal
   ): Promise<Record<string, any>> {
     await this.delay(Math.random() * 1000 + 500, signal);
-    
+
     const policy = step.policy || { policy: 'all_success' };
     const branches = step.branches || [];
-    
+
     return {
       policy,
       branches,
       parallelResults: branches.map(() => ({ status: 'completed', result: 'success' })),
-      executedAt: new Date().toISOString()
+      executedAt: new Date().toISOString(),
     };
   }
 
@@ -401,7 +406,7 @@ export class StepExecutorService extends EventEmitter {
       // For safety, only allow simple true/false conditions for now
       if (condition === 'true') return true;
       if (condition === 'false') return false;
-      
+
       // You could extend this to support more complex conditions
       return Math.random() > 0.5; // Random decision for demo
     } catch (error) {
@@ -409,4 +414,4 @@ export class StepExecutorService extends EventEmitter {
       return false;
     }
   }
-} 
+}

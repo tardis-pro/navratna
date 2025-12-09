@@ -10,7 +10,7 @@ import {
   FileText,
   Database,
   Settings,
-  MoreHorizontal
+  MoreHorizontal,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
@@ -38,10 +38,7 @@ interface QuickActionsDockProps {
   onActionClick: (action: any) => void;
 }
 
-export const QuickActionsDock: React.FC<QuickActionsDockProps> = ({
-  viewport,
-  onActionClick
-}) => {
+export const QuickActionsDock: React.FC<QuickActionsDockProps> = ({ viewport, onActionClick }) => {
   const [showAllActions, setShowAllActions] = useState(false);
   const [hoveredAction, setHoveredAction] = useState<string | null>(null);
 
@@ -54,15 +51,16 @@ export const QuickActionsDock: React.FC<QuickActionsDockProps> = ({
       color: '#06B6D4',
       shortcut: 'Ctrl+N',
       category: 'primary',
-      action: () => onActionClick({
-        id: 'agents',
-        title: 'Agents Hub',
-        portalType: 'agent-hub',
-        icon: Bot,
-        color: { primary: '#06B6D4', secondary: '#0891B2' },
-        category: 'primary',
-        description: 'Create new agent'
-      })
+      action: () =>
+        onActionClick({
+          id: 'agents',
+          title: 'Agents Hub',
+          portalType: 'agent-hub',
+          icon: Bot,
+          color: { primary: '#06B6D4', secondary: '#0891B2' },
+          category: 'primary',
+          description: 'Create new agent',
+        }),
     },
     {
       id: 'start-discussion',
@@ -71,15 +69,16 @@ export const QuickActionsDock: React.FC<QuickActionsDockProps> = ({
       color: '#10B981',
       shortcut: 'Ctrl+D',
       category: 'primary',
-      action: () => onActionClick({
-        id: 'discussions',
-        title: 'Discussions',
-        portalType: 'discussion-hub',
-        icon: MessageSquare,
-        color: { primary: '#10B981', secondary: '#059669' },
-        category: 'primary',
-        description: 'Start new discussion'
-      })
+      action: () =>
+        onActionClick({
+          id: 'discussions',
+          title: 'Discussions',
+          portalType: 'discussion-hub',
+          icon: MessageSquare,
+          color: { primary: '#10B981', secondary: '#059669' },
+          category: 'primary',
+          description: 'Start new discussion',
+        }),
     },
     {
       id: 'upload-knowledge',
@@ -88,15 +87,16 @@ export const QuickActionsDock: React.FC<QuickActionsDockProps> = ({
       color: '#F59E0B',
       shortcut: 'Ctrl+U',
       category: 'primary',
-      action: () => onActionClick({
-        id: 'knowledge',
-        title: 'Knowledge',
-        portalType: 'knowledge',
-        icon: Database,
-        color: { primary: '#F59E0B', secondary: '#D97706' },
-        category: 'primary',
-        description: 'Upload knowledge'
-      })
+      action: () =>
+        onActionClick({
+          id: 'knowledge',
+          title: 'Knowledge',
+          portalType: 'knowledge',
+          icon: Database,
+          color: { primary: '#F59E0B', secondary: '#D97706' },
+          category: 'primary',
+          description: 'Upload knowledge',
+        }),
     },
     {
       id: 'global-search',
@@ -108,7 +108,7 @@ export const QuickActionsDock: React.FC<QuickActionsDockProps> = ({
       action: () => {
         // Implement global search modal
         console.log('Opening global search');
-      }
+      },
     },
     {
       id: 'quick-actions',
@@ -120,7 +120,7 @@ export const QuickActionsDock: React.FC<QuickActionsDockProps> = ({
       action: () => {
         // Implement command palette
         console.log('Opening command palette');
-      }
+      },
     },
     // Secondary actions (shown when expanded)
     {
@@ -129,15 +129,16 @@ export const QuickActionsDock: React.FC<QuickActionsDockProps> = ({
       icon: FileText,
       color: '#8B5CF6',
       category: 'secondary',
-      action: () => onActionClick({
-        id: 'artifacts',
-        title: 'Artifacts',
-        portalType: 'artifacts',
-        icon: FileText,
-        color: { primary: '#8B5CF6', secondary: '#7C3AED' },
-        category: 'primary',
-        description: 'Create artifact'
-      })
+      action: () =>
+        onActionClick({
+          id: 'artifacts',
+          title: 'Artifacts',
+          portalType: 'artifacts',
+          icon: FileText,
+          color: { primary: '#8B5CF6', secondary: '#7C3AED' },
+          category: 'primary',
+          description: 'Create artifact',
+        }),
     },
     {
       id: 'system-settings',
@@ -145,33 +146,34 @@ export const QuickActionsDock: React.FC<QuickActionsDockProps> = ({
       icon: Settings,
       color: '#6B7280',
       category: 'secondary',
-      action: () => onActionClick({
-        id: 'settings',
-        title: 'Settings',
-        portalType: 'system-hub',
-        icon: Settings,
-        color: { primary: '#6B7280', secondary: '#4B5563' },
-        category: 'primary',
-        description: 'System settings'
-      })
-    }
+      action: () =>
+        onActionClick({
+          id: 'settings',
+          title: 'Settings',
+          portalType: 'system-hub',
+          icon: Settings,
+          color: { primary: '#6B7280', secondary: '#4B5563' },
+          category: 'primary',
+          description: 'System settings',
+        }),
+    },
   ];
 
   // Filter actions based on viewport and expansion state
   const getVisibleActions = () => {
-    const primaryActions = quickActions.filter(action => action.category === 'primary');
-    const secondaryActions = quickActions.filter(action => action.category === 'secondary');
+    const primaryActions = quickActions.filter((action) => action.category === 'primary');
+    const secondaryActions = quickActions.filter((action) => action.category === 'secondary');
 
     if (viewport.isMobile) {
       const maxPrimary = viewport.width < 400 ? 2 : 3;
-      return showAllActions ?
-        [...primaryActions.slice(0, maxPrimary), ...secondaryActions.slice(0, 2)] :
-        primaryActions.slice(0, maxPrimary);
+      return showAllActions
+        ? [...primaryActions.slice(0, maxPrimary), ...secondaryActions.slice(0, 2)]
+        : primaryActions.slice(0, maxPrimary);
     } else if (viewport.isTablet) {
       const maxPrimary = viewport.width < 900 ? 4 : 5;
-      return showAllActions ?
-        [...primaryActions.slice(0, maxPrimary), ...secondaryActions] :
-        primaryActions.slice(0, maxPrimary);
+      return showAllActions
+        ? [...primaryActions.slice(0, maxPrimary), ...secondaryActions]
+        : primaryActions.slice(0, maxPrimary);
     } else {
       const maxPrimary = viewport.width < 1200 ? 5 : primaryActions.length;
       return showAllActions ? quickActions : primaryActions.slice(0, maxPrimary);
@@ -192,7 +194,7 @@ export const QuickActionsDock: React.FC<QuickActionsDockProps> = ({
         className="relative"
         initial={{ y: dockHeight }}
         animate={{ y: 0 }}
-        transition={{ type: "spring", stiffness: 300, damping: 30, delay: 0.2 }}
+        transition={{ type: 'spring', stiffness: 300, damping: 30, delay: 0.2 }}
       >
         {/* Sleek Dock Background */}
         <div
@@ -213,9 +215,9 @@ export const QuickActionsDock: React.FC<QuickActionsDockProps> = ({
                       exit={{ scale: 0, opacity: 0 }}
                       transition={{
                         delay: index * 0.1,
-                        type: "spring",
+                        type: 'spring',
                         stiffness: 400,
-                        damping: 25
+                        damping: 25,
                       }}
                     >
                       <Tooltip>
@@ -226,7 +228,7 @@ export const QuickActionsDock: React.FC<QuickActionsDockProps> = ({
                               width: buttonSize,
                               height: buttonSize,
                               background: `rgba(255, 255, 255, 0.05)`,
-                              boxShadow: `inset 0 1px 0 rgba(255, 255, 255, 0.1)`
+                              boxShadow: `inset 0 1px 0 rgba(255, 255, 255, 0.1)`,
                             }}
                             onClick={action.action}
                             onMouseEnter={() => setHoveredAction(action.id)}
@@ -234,7 +236,7 @@ export const QuickActionsDock: React.FC<QuickActionsDockProps> = ({
                             whileHover={{
                               scale: 1.05,
                               y: -2,
-                              backgroundColor: 'rgba(255, 255, 255, 0.1)'
+                              backgroundColor: 'rgba(255, 255, 255, 0.1)',
                             }}
                             whileTap={{ scale: 0.95 }}
                           >
@@ -243,7 +245,7 @@ export const QuickActionsDock: React.FC<QuickActionsDockProps> = ({
                               size={iconSize}
                               className="text-white/80 group-hover:text-white transition-colors duration-200"
                               style={{
-                                filter: `drop-shadow(0 0 8px ${action.color}60)`
+                                filter: `drop-shadow(0 0 8px ${action.color}60)`,
                               }}
                             />
 
@@ -251,10 +253,10 @@ export const QuickActionsDock: React.FC<QuickActionsDockProps> = ({
                             <motion.div
                               className="absolute inset-0 rounded-2xl"
                               style={{
-                                background: `radial-gradient(circle at center, ${action.color}30, transparent 70%)`
+                                background: `radial-gradient(circle at center, ${action.color}30, transparent 70%)`,
                               }}
                               animate={{
-                                opacity: hoveredAction === action.id ? 0.6 : 0
+                                opacity: hoveredAction === action.id ? 0.6 : 0,
                               }}
                               transition={{ duration: 0.3 }}
                             />
@@ -264,7 +266,7 @@ export const QuickActionsDock: React.FC<QuickActionsDockProps> = ({
                               className="absolute -bottom-1 left-1/2 transform -translate-x-1/2 w-1 h-1 bg-white rounded-full"
                               animate={{
                                 scale: hoveredAction === action.id ? 1.5 : 0,
-                                opacity: hoveredAction === action.id ? 1 : 0
+                                opacity: hoveredAction === action.id ? 1 : 0,
                               }}
                               transition={{ duration: 0.2 }}
                             />
@@ -291,9 +293,9 @@ export const QuickActionsDock: React.FC<QuickActionsDockProps> = ({
                   animate={{ scale: 1, opacity: 1 }}
                   transition={{
                     delay: visibleActions.length * 0.1,
-                    type: "spring",
+                    type: 'spring',
                     stiffness: 400,
-                    damping: 25
+                    damping: 25,
                   }}
                 >
                   <Tooltip>
@@ -302,7 +304,7 @@ export const QuickActionsDock: React.FC<QuickActionsDockProps> = ({
                         className="bg-white/5 hover:bg-white/10 rounded-2xl flex items-center justify-center backdrop-blur-sm transition-all duration-200 border border-white/10"
                         style={{
                           width: buttonSize,
-                          height: buttonSize
+                          height: buttonSize,
                         }}
                         onClick={() => setShowAllActions(!showAllActions)}
                         whileHover={{ scale: 1.1, y: -4 }}
@@ -320,9 +322,7 @@ export const QuickActionsDock: React.FC<QuickActionsDockProps> = ({
                       </motion.button>
                     </TooltipTrigger>
                     <TooltipContent side="top" className="bg-slate-800 border-slate-700">
-                      <p className="text-white">
-                        {showAllActions ? 'Show Less' : 'More Actions'}
-                      </p>
+                      <p className="text-white">{showAllActions ? 'Show Less' : 'More Actions'}</p>
                     </TooltipContent>
                   </Tooltip>
                 </motion.div>

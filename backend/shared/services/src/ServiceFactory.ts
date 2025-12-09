@@ -36,10 +36,10 @@ export class ServiceFactory {
   private logger = createLogger({
     serviceName: 'service-factory',
     environment: process.env.NODE_ENV || 'development',
-    logLevel: process.env.LOG_LEVEL || 'info'
+    logLevel: process.env.LOG_LEVEL || 'info',
   });
 
-  private constructor() { }
+  private constructor() {}
 
   static getInstance(): ServiceFactory {
     if (!ServiceFactory.instance) {
@@ -63,7 +63,6 @@ export class ServiceFactory {
       await typeormService.initialize();
       this.serviceInstances.set('typeorm', typeormService);
       const dataSource = typeormService.getDataSource();
-     
 
       // Initialize standalone Redis cache service
       try {
@@ -72,10 +71,14 @@ export class ServiceFactory {
         if (cacheInitialized) {
           this.logger.info('Standalone Redis cache service initialized successfully');
         } else {
-          this.logger.info('Standalone Redis cache service not available, continuing without cache');
+          this.logger.info(
+            'Standalone Redis cache service not available, continuing without cache'
+          );
         }
       } catch (error) {
-        this.logger.warn('Failed to initialize standalone Redis cache service', { error: error.message });
+        this.logger.warn('Failed to initialize standalone Redis cache service', {
+          error: error.message,
+        });
       }
       // Initialize Qdrant with default dimensions (will be updated by SmartEmbeddingService)
       const qdrantService = new QdrantService(
@@ -176,7 +179,7 @@ export class ServiceFactory {
         if (currentDimensions !== activeDimensions) {
           this.logger.info('Synchronizing embedding dimensions', {
             from: currentDimensions,
-            to: activeDimensions
+            to: activeDimensions,
           });
           await qdrantService.updateEmbeddingDimensions(activeDimensions);
         }
@@ -198,7 +201,7 @@ export class ServiceFactory {
     return this.getOrCreateService('relationship-detector', async () => {
       const [embeddingService, repository] = await Promise.all([
         this.getSmartEmbeddingService(),
-        this.getKnowledgeRepository()
+        this.getKnowledgeRepository(),
       ]);
       return new RelationshipDetector(embeddingService, repository);
     });
@@ -206,19 +209,14 @@ export class ServiceFactory {
 
   async getKnowledgeGraphService(): Promise<KnowledgeGraphService> {
     return this.getOrCreateService('knowledge-graph-service', async () => {
-      const [
-        qdrantService,
-        repository,
-        embeddingService,
-        classifier,
-        relationshipDetector
-      ] = await Promise.all([
-        this.getQdrantService(),
-        this.getKnowledgeRepository(),
-        this.getSmartEmbeddingService(),
-        this.getContentClassifier(),
-        this.getRelationshipDetector()
-      ]);
+      const [qdrantService, repository, embeddingService, classifier, relationshipDetector] =
+        await Promise.all([
+          this.getQdrantService(),
+          this.getKnowledgeRepository(),
+          this.getSmartEmbeddingService(),
+          this.getContentClassifier(),
+          this.getRelationshipDetector(),
+        ]);
 
       const toolGraphDatabase = await this.getToolGraphDatabase();
       // TODO: Add user persona sync later
@@ -245,7 +243,7 @@ export class ServiceFactory {
     return this.getOrCreateService('enhanced-rag-service', async () => {
       const [teiEmbeddingService, qdrantService] = await Promise.all([
         this.getTEIEmbeddingService(),
-        this.getQdrantService()
+        this.getQdrantService(),
       ]);
       return new EnhancedRAGService(teiEmbeddingService, qdrantService);
     });
@@ -257,7 +255,9 @@ export class ServiceFactory {
     return this.getOrCreateService('working-memory-manager', () => {
       // Use centralized Redis configuration
       const redisConfig = config.redis;
-      const redisUrl = process.env.REDIS_URL || `redis://${redisConfig.password ? `:${redisConfig.password}@` : ''}${redisConfig.host}:${redisConfig.port}`;
+      const redisUrl =
+        process.env.REDIS_URL ||
+        `redis://${redisConfig.password ? `:${redisConfig.password}@` : ''}${redisConfig.host}:${redisConfig.port}`;
       return new WorkingMemoryManager(redisUrl);
     });
   }
@@ -281,7 +281,7 @@ export class ServiceFactory {
       const [workingMemory, episodicMemory, semanticMemory] = await Promise.all([
         this.getWorkingMemoryManager(),
         this.getEpisodicMemoryManager(),
-        this.getSemanticMemoryManager()
+        this.getSemanticMemoryManager(),
       ]);
       return new MemoryConsolidator(workingMemory, episodicMemory, semanticMemory);
     });
@@ -294,13 +294,13 @@ export class ServiceFactory {
         episodicMemory,
         semanticMemory,
         memoryConsolidator,
-        knowledgeGraphService
+        knowledgeGraphService,
       ] = await Promise.all([
         this.getWorkingMemoryManager(),
         this.getEpisodicMemoryManager(),
         this.getSemanticMemoryManager(),
         this.getMemoryConsolidator(),
-        this.getKnowledgeGraphService()
+        this.getKnowledgeGraphService(),
       ]);
 
       return new AgentMemoryService(
@@ -336,7 +336,10 @@ export class ServiceFactory {
   }
 
   async getOperationManagementService(): Promise<OperationManagementService> {
-    return this.getOrCreateService('operation-management-service', () => new OperationManagementService());
+    return this.getOrCreateService(
+      'operation-management-service',
+      () => new OperationManagementService()
+    );
   }
 
   // Utility Methods
@@ -387,7 +390,7 @@ export class ServiceFactory {
     return {
       initialized: this.initialized,
       services,
-      ...(databaseHealth && { database: databaseHealth })
+      ...(databaseHealth && { database: databaseHealth }),
     };
   }
 
@@ -417,7 +420,7 @@ export class ServiceFactory {
         async analyzeContent(content: string): Promise<any> {
           this.logger.info('LLM analyzeContent called');
           return { sentiment: 'neutral', topics: [], confidence: 0.5 };
-        }
+        },
       };
       this.serviceInstances.set('llmService', llmService);
     }
@@ -436,10 +439,14 @@ export class ServiceFactory {
           this.logger.info('UserLLM getUserProviders called', { userId });
           return [];
         },
-        async generateWithUserProvider(userId: string, prompt: string, providerId?: string): Promise<string> {
+        async generateWithUserProvider(
+          userId: string,
+          prompt: string,
+          providerId?: string
+        ): Promise<string> {
           this.logger.info('UserLLM generateWithUserProvider called', { userId, providerId });
           return 'Mock user LLM response';
-        }
+        },
       };
       this.serviceInstances.set('userLLMService', userLLMService);
     }
@@ -485,17 +492,18 @@ export const initializeServices = () => serviceFactory.initialize();
 export const servicesHealthCheck = async () => {
   try {
     const status = await serviceFactory.getHealthStatus();
-    const allHealthy = status.initialized && Object.values(status.services).every(healthy => healthy);
+    const allHealthy =
+      status.initialized && Object.values(status.services).every((healthy) => healthy);
 
     return {
       healthy: allHealthy,
-      services: status.services
+      services: status.services,
     };
   } catch (error) {
     return {
       healthy: false,
       services: {},
-      error: error instanceof Error ? error.message : 'Unknown error'
+      error: error instanceof Error ? error.message : 'Unknown error',
     };
   }
 };

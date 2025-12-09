@@ -19,7 +19,7 @@ import {
   Settings,
   User,
   Clock,
-  Activity
+  Activity,
 } from 'lucide-react';
 
 interface EnhancedChatManagerProps {
@@ -36,7 +36,7 @@ interface ChatAction {
 
 export const EnhancedChatManager: React.FC<EnhancedChatManagerProps> = ({
   className,
-  mode = 'hybrid'
+  mode = 'hybrid',
 }) => {
   const { agents } = useAgents();
   const [showHistoryManager, setShowHistoryManager] = useState(false);
@@ -63,12 +63,12 @@ export const EnhancedChatManager: React.FC<EnhancedChatManagerProps> = ({
 
   useEffect(() => {
     loadRecentSessions();
-    
+
     // Listen for storage changes to update recent sessions
     const handleStorageChange = () => {
       loadRecentSessions();
     };
-    
+
     window.addEventListener('storage', handleStorageChange);
     return () => window.removeEventListener('storage', handleStorageChange);
   }, [loadRecentSessions]);
@@ -76,12 +76,12 @@ export const EnhancedChatManager: React.FC<EnhancedChatManagerProps> = ({
   // Handle new chat creation
   const handleNewChat = useCallback((agentId: string, agentName: string) => {
     // Create a new chat event that forces a new session
-    const chatEvent = new CustomEvent('openNewAgentChat', { 
-      detail: { 
-        agentId, 
+    const chatEvent = new CustomEvent('openNewAgentChat', {
+      detail: {
+        agentId,
         agentName,
-        forceNew: true
-      } 
+        forceNew: true,
+      },
     });
     window.dispatchEvent(chatEvent);
     setShowAgentSelector(false);
@@ -90,25 +90,31 @@ export const EnhancedChatManager: React.FC<EnhancedChatManagerProps> = ({
   // Handle existing chat resumption
   const handleResumeChat = useCallback((agentId: string, agentName: string, sessionId?: string) => {
     // Open existing chat session
-    const chatEvent = new CustomEvent('openAgentChat', { 
-      detail: { 
-        agentId, 
+    const chatEvent = new CustomEvent('openAgentChat', {
+      detail: {
+        agentId,
         agentName,
-        sessionId
-      } 
+        sessionId,
+      },
     });
     window.dispatchEvent(chatEvent);
     setShowHistoryManager(false);
   }, []);
 
   // Quick action handlers
-  const handleQuickNewChat = useCallback((agentId: string, agentName: string) => {
-    handleNewChat(agentId, agentName);
-  }, [handleNewChat]);
+  const handleQuickNewChat = useCallback(
+    (agentId: string, agentName: string) => {
+      handleNewChat(agentId, agentName);
+    },
+    [handleNewChat]
+  );
 
-  const handleQuickResumeChat = useCallback((session: ChatSession) => {
-    handleResumeChat(session.agentId, session.agentName, session.id);
-  }, [handleResumeChat]);
+  const handleQuickResumeChat = useCallback(
+    (session: ChatSession) => {
+      handleResumeChat(session.agentId, session.agentName, session.id);
+    },
+    [handleResumeChat]
+  );
 
   const renderAgentSelector = () => (
     <motion.div
@@ -132,10 +138,12 @@ export const EnhancedChatManager: React.FC<EnhancedChatManagerProps> = ({
             </div>
             <div>
               <h3 className="text-xl font-bold text-white">Start New Chat</h3>
-              <p className="text-sm text-slate-400">Choose an agent to begin a fresh conversation</p>
+              <p className="text-sm text-slate-400">
+                Choose an agent to begin a fresh conversation
+              </p>
             </div>
           </div>
-          
+
           <button
             onClick={() => setShowAgentSelector(false)}
             className="p-2 text-slate-400 hover:text-white hover:bg-slate-700/50 rounded-lg transition-colors"
@@ -158,7 +166,7 @@ export const EnhancedChatManager: React.FC<EnhancedChatManagerProps> = ({
                 <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-purple-500 rounded-xl flex items-center justify-center">
                   <Bot className="w-6 h-6 text-white" />
                 </div>
-                
+
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 mb-1">
                     <h4 className="font-semibold text-white group-hover:text-blue-300 transition-colors">
@@ -174,8 +182,12 @@ export const EnhancedChatManager: React.FC<EnhancedChatManagerProps> = ({
                 </div>
 
                 <div className="flex items-center gap-2">
-                  <div className={`w-2 h-2 rounded-full ${agent.isActive ? 'bg-green-400' : 'bg-gray-400'}`} />
-                  <span className={`text-xs ${agent.isActive ? 'text-green-400' : 'text-gray-400'}`}>
+                  <div
+                    className={`w-2 h-2 rounded-full ${agent.isActive ? 'bg-green-400' : 'bg-gray-400'}`}
+                  />
+                  <span
+                    className={`text-xs ${agent.isActive ? 'text-green-400' : 'text-gray-400'}`}
+                  >
                     {agent.isActive ? 'Online' : 'Offline'}
                   </span>
                 </div>
@@ -200,7 +212,7 @@ export const EnhancedChatManager: React.FC<EnhancedChatManagerProps> = ({
             <Clock className="w-4 h-4" />
             Recent Chats
           </div>
-          
+
           <div className="space-y-2">
             {recentSessions.slice(0, 3).map((session) => (
               <button
@@ -211,14 +223,12 @@ export const EnhancedChatManager: React.FC<EnhancedChatManagerProps> = ({
                 <div className="w-8 h-8 bg-gradient-to-br from-purple-500 to-blue-500 rounded-lg flex items-center justify-center">
                   <Bot className="w-4 h-4 text-white" />
                 </div>
-                
+
                 <div className="flex-1 min-w-0">
                   <div className="text-sm font-medium text-white group-hover:text-blue-300 transition-colors truncate">
                     {session.agentName}
                   </div>
-                  <div className="text-xs text-slate-400">
-                    {session.messageCount} messages
-                  </div>
+                  <div className="text-xs text-slate-400">{session.messageCount} messages</div>
                 </div>
               </button>
             ))}
@@ -268,10 +278,7 @@ export const EnhancedChatManager: React.FC<EnhancedChatManagerProps> = ({
   return (
     <>
       {/* Main Chat System */}
-      <UnifiedChatSystem 
-        mode={currentChatMode} 
-        className={className}
-      />
+      <UnifiedChatSystem mode={currentChatMode} className={className} />
 
       {/* Quick Action Buttons */}
       {renderQuickActions()}
@@ -279,7 +286,7 @@ export const EnhancedChatManager: React.FC<EnhancedChatManagerProps> = ({
       {/* Modals */}
       <AnimatePresence>
         {showAgentSelector && renderAgentSelector()}
-        
+
         {showHistoryManager && (
           <motion.div
             initial={{ opacity: 0 }}

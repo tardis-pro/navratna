@@ -2,10 +2,10 @@ import { MigrationInterface, QueryRunner, Table, Index } from 'typeorm';
 
 /**
  * Discussion Messages Migration
- * 
+ *
  * Creates the discussion_messages table to store individual messages within discussions.
  * This table completes the discussion system by providing message persistence.
- * 
+ *
  * Dependencies: discussions, discussion_participants tables
  */
 export class CreateDiscussionMessages1703009000000 implements MigrationInterface {
@@ -238,31 +238,108 @@ export class CreateDiscussionMessages1703009000000 implements MigrationInterface
     );
 
     // Create indexes for performance
-    await queryRunner.createIndex('discussion_messages', new Index('IDX_discussion_messages_discussion_id', ['discussion_id']));
-    await queryRunner.createIndex('discussion_messages', new Index('IDX_discussion_messages_participant_id', ['participant_id']));
-    await queryRunner.createIndex('discussion_messages', new Index('IDX_discussion_messages_message_type', ['message_type']));
-    await queryRunner.createIndex('discussion_messages', new Index('IDX_discussion_messages_thread_id', ['thread_id']));
-    await queryRunner.createIndex('discussion_messages', new Index('IDX_discussion_messages_reply_to_id', ['reply_to_id']));
-    await queryRunner.createIndex('discussion_messages', new Index('IDX_discussion_messages_turn_number', ['turn_number']));
-    await queryRunner.createIndex('discussion_messages', new Index('IDX_discussion_messages_sequence_number', ['sequence_number']));
-    await queryRunner.createIndex('discussion_messages', new Index('IDX_discussion_messages_status', ['status']));
-    await queryRunner.createIndex('discussion_messages', new Index('IDX_discussion_messages_priority', ['priority']));
-    await queryRunner.createIndex('discussion_messages', new Index('IDX_discussion_messages_created_at', ['created_at']));
-    await queryRunner.createIndex('discussion_messages', new Index('IDX_discussion_messages_updated_at', ['updated_at']));
-    await queryRunner.createIndex('discussion_messages', new Index('IDX_discussion_messages_delivered_at', ['delivered_at']));
-    await queryRunner.createIndex('discussion_messages', new Index('IDX_discussion_messages_read_at', ['read_at']));
-    await queryRunner.createIndex('discussion_messages', new Index('IDX_discussion_messages_is_edited', ['is_edited']));
-    await queryRunner.createIndex('discussion_messages', new Index('IDX_discussion_messages_is_pinned', ['is_pinned']));
-    await queryRunner.createIndex('discussion_messages', new Index('IDX_discussion_messages_is_flagged', ['is_flagged']));
-    await queryRunner.createIndex('discussion_messages', new Index('IDX_discussion_messages_moderation_status', ['moderation_status']));
-    await queryRunner.createIndex('discussion_messages', new Index('IDX_discussion_messages_deleted_at', ['deleted_at']));
+    await queryRunner.createIndex(
+      'discussion_messages',
+      new Index('IDX_discussion_messages_discussion_id', ['discussion_id'])
+    );
+    await queryRunner.createIndex(
+      'discussion_messages',
+      new Index('IDX_discussion_messages_participant_id', ['participant_id'])
+    );
+    await queryRunner.createIndex(
+      'discussion_messages',
+      new Index('IDX_discussion_messages_message_type', ['message_type'])
+    );
+    await queryRunner.createIndex(
+      'discussion_messages',
+      new Index('IDX_discussion_messages_thread_id', ['thread_id'])
+    );
+    await queryRunner.createIndex(
+      'discussion_messages',
+      new Index('IDX_discussion_messages_reply_to_id', ['reply_to_id'])
+    );
+    await queryRunner.createIndex(
+      'discussion_messages',
+      new Index('IDX_discussion_messages_turn_number', ['turn_number'])
+    );
+    await queryRunner.createIndex(
+      'discussion_messages',
+      new Index('IDX_discussion_messages_sequence_number', ['sequence_number'])
+    );
+    await queryRunner.createIndex(
+      'discussion_messages',
+      new Index('IDX_discussion_messages_status', ['status'])
+    );
+    await queryRunner.createIndex(
+      'discussion_messages',
+      new Index('IDX_discussion_messages_priority', ['priority'])
+    );
+    await queryRunner.createIndex(
+      'discussion_messages',
+      new Index('IDX_discussion_messages_created_at', ['created_at'])
+    );
+    await queryRunner.createIndex(
+      'discussion_messages',
+      new Index('IDX_discussion_messages_updated_at', ['updated_at'])
+    );
+    await queryRunner.createIndex(
+      'discussion_messages',
+      new Index('IDX_discussion_messages_delivered_at', ['delivered_at'])
+    );
+    await queryRunner.createIndex(
+      'discussion_messages',
+      new Index('IDX_discussion_messages_read_at', ['read_at'])
+    );
+    await queryRunner.createIndex(
+      'discussion_messages',
+      new Index('IDX_discussion_messages_is_edited', ['is_edited'])
+    );
+    await queryRunner.createIndex(
+      'discussion_messages',
+      new Index('IDX_discussion_messages_is_pinned', ['is_pinned'])
+    );
+    await queryRunner.createIndex(
+      'discussion_messages',
+      new Index('IDX_discussion_messages_is_flagged', ['is_flagged'])
+    );
+    await queryRunner.createIndex(
+      'discussion_messages',
+      new Index('IDX_discussion_messages_moderation_status', ['moderation_status'])
+    );
+    await queryRunner.createIndex(
+      'discussion_messages',
+      new Index('IDX_discussion_messages_deleted_at', ['deleted_at'])
+    );
 
     // Composite indexes for common queries
-    await queryRunner.createIndex('discussion_messages', new Index('IDX_discussion_messages_discussion_created', ['discussion_id', 'created_at']));
-    await queryRunner.createIndex('discussion_messages', new Index('IDX_discussion_messages_discussion_turn_seq', ['discussion_id', 'turn_number', 'sequence_number']));
-    await queryRunner.createIndex('discussion_messages', new Index('IDX_discussion_messages_participant_created', ['participant_id', 'created_at']));
-    await queryRunner.createIndex('discussion_messages', new Index('IDX_discussion_messages_thread_created', ['thread_id', 'created_at']));
-    await queryRunner.createIndex('discussion_messages', new Index('IDX_discussion_messages_status_type_created', ['status', 'message_type', 'created_at']));
+    await queryRunner.createIndex(
+      'discussion_messages',
+      new Index('IDX_discussion_messages_discussion_created', ['discussion_id', 'created_at'])
+    );
+    await queryRunner.createIndex(
+      'discussion_messages',
+      new Index('IDX_discussion_messages_discussion_turn_seq', [
+        'discussion_id',
+        'turn_number',
+        'sequence_number',
+      ])
+    );
+    await queryRunner.createIndex(
+      'discussion_messages',
+      new Index('IDX_discussion_messages_participant_created', ['participant_id', 'created_at'])
+    );
+    await queryRunner.createIndex(
+      'discussion_messages',
+      new Index('IDX_discussion_messages_thread_created', ['thread_id', 'created_at'])
+    );
+    await queryRunner.createIndex(
+      'discussion_messages',
+      new Index('IDX_discussion_messages_status_type_created', [
+        'status',
+        'message_type',
+        'created_at',
+      ])
+    );
 
     // Text search index for content
     await queryRunner.query(`
@@ -272,9 +349,16 @@ export class CreateDiscussionMessages1703009000000 implements MigrationInterface
     `);
 
     // Partial indexes for active messages (not deleted)
-    await queryRunner.createIndex('discussion_messages', new Index('IDX_discussion_messages_active_discussion_created', ['discussion_id', 'created_at'], {
-      where: 'deleted_at IS NULL'
-    }));
+    await queryRunner.createIndex(
+      'discussion_messages',
+      new Index(
+        'IDX_discussion_messages_active_discussion_created',
+        ['discussion_id', 'created_at'],
+        {
+          where: 'deleted_at IS NULL',
+        }
+      )
+    );
   }
 
   public async down(queryRunner: QueryRunner): Promise<void> {

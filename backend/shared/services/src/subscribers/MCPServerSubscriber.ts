@@ -1,9 +1,9 @@
-import { 
-  EntitySubscriberInterface, 
-  EventSubscriber, 
-  InsertEvent, 
-  UpdateEvent, 
-  RemoveEvent 
+import {
+  EntitySubscriberInterface,
+  EventSubscriber,
+  InsertEvent,
+  UpdateEvent,
+  RemoveEvent,
 } from 'typeorm';
 import { MCPServer } from '../entities/mcpServer.entity.js';
 import { OutboxPublisher } from '../integration/OutboxPublisher.js';
@@ -55,7 +55,7 @@ export class MCPServerSubscriber implements EntitySubscriberInterface<MCPServer>
     } catch (error) {
       logger.error('Failed to publish MCPServer CREATE event', {
         serverId: event.entity?.id,
-        error: error instanceof Error ? error.message : 'Unknown error'
+        error: error instanceof Error ? error.message : 'Unknown error',
       });
     }
   }
@@ -82,7 +82,7 @@ export class MCPServerSubscriber implements EntitySubscriberInterface<MCPServer>
     } catch (error) {
       logger.error('Failed to publish MCPServer UPDATE event', {
         serverId: (event.entity as MCPServer)?.id,
-        error: error instanceof Error ? error.message : 'Unknown error'
+        error: error instanceof Error ? error.message : 'Unknown error',
       });
     }
   }
@@ -109,7 +109,7 @@ export class MCPServerSubscriber implements EntitySubscriberInterface<MCPServer>
     } catch (error) {
       logger.error('Failed to publish MCPServer DELETE event', {
         serverId: event.entity?.id,
-        error: error instanceof Error ? error.message : 'Unknown error'
+        error: error instanceof Error ? error.message : 'Unknown error',
       });
     }
   }
@@ -148,8 +148,8 @@ export class MCPServerSubscriber implements EntitySubscriberInterface<MCPServer>
         restartCount: server.restartCount,
         crashCount: server.crashCount,
         createdAt: server.createdAt,
-        updatedAt: server.updatedAt
-      }
+        updatedAt: server.updatedAt,
+      },
     };
   }
-} 
+}

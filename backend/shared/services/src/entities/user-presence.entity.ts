@@ -7,7 +7,7 @@ export enum PresenceStatus {
   AWAY = 'away',
   BUSY = 'busy',
   OFFLINE = 'offline',
-  INVISIBLE = 'invisible'
+  INVISIBLE = 'invisible',
 }
 
 @Entity('user_presence')
@@ -22,10 +22,10 @@ export class UserPresenceEntity extends BaseEntity {
   @JoinColumn({ name: 'user_id' })
   user!: UserEntity;
 
-  @Column({ 
-    type: 'enum', 
-    enum: PresenceStatus, 
-    default: PresenceStatus.OFFLINE 
+  @Column({
+    type: 'enum',
+    enum: PresenceStatus,
+    default: PresenceStatus.OFFLINE,
   })
   status!: PresenceStatus;
 

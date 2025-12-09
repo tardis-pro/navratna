@@ -10,6 +10,7 @@
 ## Local Development Setup
 
 ### 1. Clone and Install
+
 ```bash
 # Clone repository
 git clone <repository-url>
@@ -24,6 +25,7 @@ pnpm install
 ```
 
 ### 2. Environment Setup
+
 ```bash
 # Backend environment setup
 cd backend
@@ -41,6 +43,7 @@ JWT_SECRET=your-secret-key
 ### 3. Development Server Options
 
 #### Option A: Full Stack Development
+
 ```bash
 # Terminal 1: Start all infrastructure services
 docker-compose up -d
@@ -56,6 +59,7 @@ npm run dev:frontend
 ```
 
 #### Option B: Backend-Only Development
+
 ```bash
 # Start required infrastructure
 docker-compose up -d postgres neo4j redis rabbitmq
@@ -70,6 +74,7 @@ curl http://localhost:3002/health  # Orchestration Pipeline
 ```
 
 #### Option C: Frontend-Only Development
+
 ```bash
 # Start with mock data (no backend required)
 npm run dev:frontend
@@ -79,6 +84,7 @@ npm run dev:frontend
 ## Service Management
 
 ### Infrastructure Services
+
 ```bash
 # Basic Docker commands
 docker-compose up -d              # Start all services
@@ -93,6 +99,7 @@ docker-compose logs -f neo4j     # View specific logs
 ```
 
 ### Backend Services
+
 ```bash
 # Start all backend services
 npm run dev:backend
@@ -106,6 +113,7 @@ cd services/discussion-orchestration && npm run dev
 ```
 
 ### Database Operations
+
 ```bash
 # PostgreSQL CLI access
 docker exec -it uaip-postgres psql -U uaip_user -d uaip
@@ -120,11 +128,13 @@ docker exec -it uaip-redis redis-cli
 ## Service URLs
 
 ### Core Services
+
 - Frontend: http://localhost:3000
 - API Gateway: http://localhost:8081
 - API Documentation: http://localhost:8081/docs
 
 ### Backend Services
+
 - Agent Intelligence: http://localhost:3001
 - Orchestration Pipeline: http://localhost:3002
 - Capability Registry: http://localhost:3003
@@ -132,6 +142,7 @@ docker exec -it uaip-redis redis-cli
 - Discussion Orchestration: http://localhost:3005
 
 ### Infrastructure
+
 - PostgreSQL: localhost:5432
 - Neo4j Browser: http://localhost:7474
 - RabbitMQ Management: http://localhost:15672
@@ -143,6 +154,7 @@ docker exec -it uaip-redis redis-cli
 ### Common Issues
 
 #### Services Won't Start
+
 ```bash
 # Check Docker status
 docker-compose ps
@@ -158,6 +170,7 @@ docker-compose up -d
 ```
 
 #### Database Connection Issues
+
 ```bash
 # Test PostgreSQL
 docker exec -it uaip-postgres pg_isready -U uaip_user
@@ -171,7 +184,9 @@ docker-compose logs neo4j
 ```
 
 #### Hot Reloading Issues
+
 1. Check polling configuration in `.env`:
+
 ```
 CHOKIDAR_USEPOLLING=true
 WATCHPACK_POLLING=true
@@ -180,6 +195,7 @@ WATCHPACK_POLLING=true
 2. Verify volume mounts in `docker-compose.yml`
 
 3. Check service logs:
+
 ```bash
 docker-compose logs -f [service-name]
 ```
@@ -187,6 +203,7 @@ docker-compose logs -f [service-name]
 ## Development Best Practices
 
 ### Code Structure
+
 ```
 src/
 ├── config/             # Configuration
@@ -201,12 +218,14 @@ src/
 ```
 
 ### TypeScript Guidelines
+
 - Use strict mode
 - Prefer interfaces over types
 - Always use explicit return types
 - Proper error handling with custom error classes
 
 ### Testing Requirements
+
 - Unit tests for individual components
 - Integration tests for service interactions
 - End-to-end tests for complete workflows

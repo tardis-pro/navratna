@@ -29,7 +29,7 @@ export class QdrantHealthService {
       collectionExists: false,
       pointsCount: 0,
       postgresItemsCount: 0,
-      syncNeeded: false
+      syncNeeded: false,
     };
 
     try {
@@ -49,9 +49,8 @@ export class QdrantHealthService {
       logger.info('Qdrant health check completed', {
         pointsCount: status.pointsCount,
         postgresItemsCount: status.postgresItemsCount,
-        syncNeeded: status.syncNeeded
+        syncNeeded: status.syncNeeded,
       });
-
     } catch (error) {
       status.lastError = error instanceof Error ? error.message : 'Unknown error';
       logger.error('Qdrant health check failed:', error);
@@ -63,13 +62,15 @@ export class QdrantHealthService {
   async syncKnowledgeIfNeeded(maxItems: number = 100): Promise<{ synced: number; errors: number }> {
     try {
       const health = await this.checkHealth();
-      
+
       if (!health.syncNeeded) {
         logger.info('Qdrant sync not needed', { pointsCount: health.pointsCount });
         return { synced: 0, errors: 0 };
       }
 
-      logger.info(`Starting Qdrant sync for ${Math.min(maxItems, health.postgresItemsCount)} items`);
+      logger.info(
+        `Starting Qdrant sync for ${Math.min(maxItems, health.postgresItemsCount)} items`
+      );
 
       const databaseService = DatabaseService.getInstance();
       const userRepository = databaseService.getUserRepository();
@@ -83,7 +84,7 @@ export class QdrantHealthService {
 
       // Get items to sync
       const items = await this.knowledgeRepository.findRecentItems(maxItems);
-      
+
       let synced = 0;
       let errors = 0;
 
@@ -91,7 +92,7 @@ export class QdrantHealthService {
         try {
           await syncService.syncKnowledgeItem(item);
           synced++;
-          
+
           if (synced % 10 === 0) {
             logger.info(`Synced ${synced}/${items.length} items to Qdrant`);
           }
@@ -103,7 +104,6 @@ export class QdrantHealthService {
 
       logger.info(`Qdrant sync completed: ${synced} synced, ${errors} errors`);
       return { synced, errors };
-
     } catch (error) {
       logger.error('Qdrant sync failed:', error);
       throw error;
@@ -116,12 +116,11 @@ export class QdrantHealthService {
 
       // First, try to recreate the collection
       await this.qdrantService.ensureCollection();
-      
+
       // Then sync some knowledge items
       const result = await this.syncKnowledgeIfNeeded(50);
-      
-      logger.info(`Qdrant collection repair completed: ${result.synced} items synced`);
 
+      logger.info(`Qdrant collection repair completed: ${result.synced} items synced`);
     } catch (error) {
       logger.error('Qdrant collection repair failed:', error);
       throw error;
@@ -134,21 +133,24 @@ export class QdrantHealthService {
     sampleItems: any[];
   }> {
     const health = await this.checkHealth();
-    
+
     let collectionInfo = null;
     let sampleItems: any[] = [];
 
     try {
       collectionInfo = await this.qdrantService.getCollectionInfo();
-      
+
       // Get sample items from Qdrant if any exist
       if (health.pointsCount > 0) {
-        const sampleResponse = await fetch(`http://localhost:6333/collections/knowledge_embeddings/points/scroll`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ limit: 3, with_payload: true })
-        });
-        
+        const sampleResponse = await fetch(
+          `http://localhost:6333/collections/knowledge_embeddings/points/scroll`,
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ limit: 3, with_payload: true }),
+          }
+        );
+
         if (sampleResponse.ok) {
           const sampleData = await sampleResponse.json();
           sampleItems = sampleData.result?.points || [];
@@ -161,11 +163,11 @@ export class QdrantHealthService {
     return {
       health,
       collectionInfo,
-      sampleItems: sampleItems.map(item => ({
+      sampleItems: sampleItems.map((item) => ({
         id: item.id,
         payload: item.payload ? Object.keys(item.payload) : [],
-        vectorSize: item.vector?.length || 0
-      }))
+        vectorSize: item.vector?.length || 0,
+      })),
     };
   }
 }

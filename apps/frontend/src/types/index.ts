@@ -14,7 +14,7 @@ export type {
   AgentPersona,
   AgentIntelligenceConfig,
   AgentSecurityContext,
-  
+
   // Operation types
   Operation,
   OperationType,
@@ -24,7 +24,7 @@ export type {
   ExecutionStep,
   ExecutionContext,
   ExecutionPlan,
-  
+
   // Tool types
   ToolCall,
   ToolResult,
@@ -39,19 +39,19 @@ export type {
   ToolExecutionError,
   ToolCategory,
   SecurityLevel,
-  
+
   // Capability types
   Capability,
-  
+
   // Message types
   Message as SharedMessage,
   MessageRole,
-  
+
   // Persona types
   PersonaAnalytics,
   PersonaValidation,
   PersonaUsageStats,
-  PersonaTemplate
+  PersonaTemplate,
 } from '@uaip/types';
 
 // Frontend-specific extensions
@@ -62,10 +62,10 @@ export type {
   AgentContextValue,
   ModelProvider,
   ModelInfo,
-  
+
   // Message extensions
   Message,
-  ConversationPattern
+  ConversationPattern,
 } from './frontend-extensions';
 
 // UI-specific interfaces
@@ -85,7 +85,7 @@ export type {
   WebSocketEvent,
   UIState,
   UIError,
-  DataState
+  DataState,
 } from './ui-interfaces';
 
 // Local types that remain frontend-specific
@@ -93,4 +93,4 @@ export type { Persona } from './persona';
 // AnalysisDepth, CollaborationMode, AuditLevel types were not actually defined - removed
 
 // Re-export helper functions
-export { createAgentStateFromShared as createAgentStateFromBackend } from './frontend-extensions'; 
+export { createAgentStateFromShared as createAgentStateFromBackend } from './frontend-extensions';

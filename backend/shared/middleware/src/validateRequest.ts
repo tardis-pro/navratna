@@ -39,18 +39,18 @@ export function validateRequest(schemas: ValidationSchemas) {
           validatedBody,
           validatedQuery,
           validatedParams,
-          validatedHeaders
+          validatedHeaders,
         };
       } catch (error) {
         if (error instanceof ZodError) {
-          const errorMessages = error.errors.map(err => ({
+          const errorMessages = error.errors.map((err) => ({
             field: err.path.join('.'),
             message: err.message,
-            code: err.code
+            code: err.code,
           }));
 
           logger.warn('Request validation failed', {
-            errors: errorMessages
+            errors: errorMessages,
           });
 
           set.status = 400;
@@ -58,8 +58,8 @@ export function validateRequest(schemas: ValidationSchemas) {
             validationError: {
               success: false,
               message: 'Validation failed',
-              errors: errorMessages
-            }
+              errors: errorMessages,
+            },
           };
         }
 
@@ -68,8 +68,8 @@ export function validateRequest(schemas: ValidationSchemas) {
         return {
           validationError: {
             success: false,
-            message: 'Internal server error during validation'
-          }
+            message: 'Internal server error during validation',
+          },
         };
       }
     });
@@ -96,10 +96,10 @@ export function withValidation(schemas: ValidationSchemas) {
           }
         } catch (error) {
           if (error instanceof ZodError) {
-            const errorMessages = error.errors.map(err => ({
+            const errorMessages = error.errors.map((err) => ({
               field: err.path.join('.'),
               message: err.message,
-              code: err.code
+              code: err.code,
             }));
 
             logger.warn('Request validation failed', { errors: errorMessages });
@@ -108,17 +108,17 @@ export function withValidation(schemas: ValidationSchemas) {
             return {
               success: false,
               message: 'Validation failed',
-              errors: errorMessages
+              errors: errorMessages,
             };
           }
 
           set.status = 500;
           return {
             success: false,
-            message: 'Internal server error during validation'
+            message: 'Internal server error during validation',
           };
         }
-      }
+      },
     });
   };
 }
@@ -127,8 +127,8 @@ export function withValidation(schemas: ValidationSchemas) {
 export const validateID = (paramName: string = 'id') => {
   return withValidation({
     params: z.object({
-      [paramName]: z.coerce.number().int().positive()
-    })
+      [paramName]: z.coerce.number().int().positive(),
+    }),
   });
 };
 
@@ -136,8 +136,8 @@ export const validateID = (paramName: string = 'id') => {
 export const validateUUID = (paramName: string = 'id') => {
   return withValidation({
     params: z.object({
-      [paramName]: z.string().uuid()
-    })
+      [paramName]: z.string().uuid(),
+    }),
   });
 };
 
@@ -147,8 +147,8 @@ export const validatePagination = withValidation({
     page: z.coerce.number().int().positive().default(1),
     limit: z.coerce.number().int().positive().max(100).default(10),
     sortBy: z.string().optional(),
-    sortOrder: z.enum(['asc', 'desc']).default('desc')
-  })
+    sortOrder: z.enum(['asc', 'desc']).default('desc'),
+  }),
 });
 
 // Elysia guard for JSON content type validation
@@ -162,11 +162,11 @@ export function validateJSON(app: Elysia): Elysia {
           set.status = 400;
           return {
             success: false,
-            message: 'Content-Type must be application/json'
+            message: 'Content-Type must be application/json',
           };
         }
       }
-    }
+    },
   });
 }
 
@@ -180,10 +180,10 @@ export function requireContentType(expectedType: string) {
           set.status = 400;
           return {
             success: false,
-            message: `Content-Type must be ${expectedType}`
+            message: `Content-Type must be ${expectedType}`,
           };
         }
-      }
+      },
     });
   };
 }
@@ -198,10 +198,10 @@ export function validateRequestSize(maxSizeBytes: number) {
           set.status = 413;
           return {
             success: false,
-            message: `Request too large. Maximum size: ${maxSizeBytes} bytes`
+            message: `Request too large. Maximum size: ${maxSizeBytes} bytes`,
           };
         }
-      }
+      },
     });
   };
 }

@@ -27,15 +27,12 @@ interface WebSocketState {
 
 /**
  * Enhanced WebSocket Hook - Socket.IO Only
- * 
+ *
  * Clean implementation using ONLY Socket.IO for real-time communication.
  * No WebSocket fallback to prevent protocol conflicts.
  */
 export const useEnhancedWebSocket = (config: ConnectionConfig = {}) => {
-  const {
-    url = getWebSocketURL(),
-    reconnectAttempts: maxReconnectAttempts = 5,
-  } = config;
+  const { url = getWebSocketURL(), reconnectAttempts: maxReconnectAttempts = 5 } = config;
 
   // State management
   const [state, setState] = useState<WebSocketState>({
@@ -45,7 +42,7 @@ export const useEnhancedWebSocket = (config: ConnectionConfig = {}) => {
     error: null,
     isReconnecting: false,
     reconnectAttempts: 0,
-    authStatus: 'unauthenticated'
+    authStatus: 'unauthenticated',
   });
 
   // Refs for managing connections and timeouts
@@ -54,7 +51,7 @@ export const useEnhancedWebSocket = (config: ConnectionConfig = {}) => {
 
   // Helper to update state
   const updateState = useCallback((updates: Partial<WebSocketState>) => {
-    setState(prev => ({ ...prev, ...updates }));
+    setState((prev) => ({ ...prev, ...updates }));
   }, []);
 
   // Get auth token from localStorage
@@ -66,9 +63,9 @@ export const useEnhancedWebSocket = (config: ConnectionConfig = {}) => {
   const connectSocketIO = useCallback(async (): Promise<boolean> => {
     const token = getAuthToken();
     if (!token) {
-      updateState({ 
-        error: 'Authentication required - please log in', 
-        authStatus: 'unauthenticated' 
+      updateState({
+        error: 'Authentication required - please log in',
+        authStatus: 'unauthenticated',
       });
       return false;
     }
@@ -77,15 +74,15 @@ export const useEnhancedWebSocket = (config: ConnectionConfig = {}) => {
       logger.info('[Socket.IO] Attempting connection', { url });
 
       const socket = io(url, {
-        auth: { 
-          token: token
-        },
-        query: { 
+        auth: {
           token: token,
-          EIO: 4 // Ensure Engine.IO v4 protocol
+        },
+        query: {
+          token: token,
+          EIO: 4, // Ensure Engine.IO v4 protocol
         },
         extraHeaders: {
-          'Authorization': `Bearer ${token}`
+          Authorization: `Bearer ${token}`,
         },
         transports: ['polling', 'websocket'], // Start with polling, upgrade to websocket
         upgrade: true,
@@ -94,7 +91,7 @@ export const useEnhancedWebSocket = (config: ConnectionConfig = {}) => {
         reconnection: false, // We'll handle reconnection manually
         forceNew: true, // Force new connection each time
         autoConnect: true,
-        withCredentials: false // Don't send cookies
+        withCredentials: false, // Don't send cookies
       });
 
       // Connection successful
@@ -105,7 +102,7 @@ export const useEnhancedWebSocket = (config: ConnectionConfig = {}) => {
           error: null,
           isReconnecting: false,
           reconnectAttempts: 0,
-          authStatus: 'authenticated'
+          authStatus: 'authenticated',
         });
         logger.info('✅ Socket.IO connected successfully', { socketId: socket.id });
       });
@@ -115,7 +112,7 @@ export const useEnhancedWebSocket = (config: ConnectionConfig = {}) => {
         updateState({
           isConnected: false,
           connectionType: null,
-          error: `Disconnected: ${reason}`
+          error: `Disconnected: ${reason}`,
         });
         logger.warn('[Socket.IO] Disconnected:', reason);
 
@@ -133,25 +130,29 @@ export const useEnhancedWebSocket = (config: ConnectionConfig = {}) => {
           description: error.description,
           context: error.context,
           type: error.type,
-          code: error.code
+          code: error.code,
         });
-        
-        if (error.message.includes('Authentication') || error.message.includes('token') || error.message.includes('Authentication token required')) {
-          updateState({ 
+
+        if (
+          error.message.includes('Authentication') ||
+          error.message.includes('token') ||
+          error.message.includes('Authentication token required')
+        ) {
+          updateState({
             error: `Authentication failed: ${error.message}`,
             authStatus: 'unauthenticated',
-            isReconnecting: false 
+            isReconnecting: false,
           });
         } else if (error.message.includes('timeout')) {
-          updateState({ 
+          updateState({
             error: 'Connection timeout - server may be unavailable',
-            isReconnecting: true 
+            isReconnecting: true,
           });
           attemptReconnection();
         } else {
-          updateState({ 
+          updateState({
             error: `Connection failed: ${error.message}`,
-            isReconnecting: false 
+            isReconnecting: false,
           });
         }
       });
@@ -162,7 +163,7 @@ export const useEnhancedWebSocket = (config: ConnectionConfig = {}) => {
           type: eventName,
           payload: args[0] || {},
           messageId: args[0]?.messageId,
-          timestamp: new Date().toISOString()
+          timestamp: new Date().toISOString(),
         };
 
         updateState({ lastEvent: event });
@@ -176,9 +177,9 @@ export const useEnhancedWebSocket = (config: ConnectionConfig = {}) => {
       });
 
       socket.on('auth_failure', (data) => {
-        updateState({ 
-          authStatus: 'unauthenticated', 
-          error: data.message || 'Authentication failed' 
+        updateState({
+          authStatus: 'unauthenticated',
+          error: data.message || 'Authentication failed',
         });
         logger.error('[Socket.IO] Authentication failed:', data);
       });
@@ -187,9 +188,9 @@ export const useEnhancedWebSocket = (config: ConnectionConfig = {}) => {
       return true;
     } catch (error) {
       logger.error('[Socket.IO] Failed to create connection:', error);
-      updateState({ 
+      updateState({
         error: 'Failed to initialize Socket.IO connection',
-        authStatus: 'unauthenticated' 
+        authStatus: 'unauthenticated',
       });
       return false;
     }
@@ -198,9 +199,9 @@ export const useEnhancedWebSocket = (config: ConnectionConfig = {}) => {
   // Reconnection logic
   const attemptReconnection = useCallback(() => {
     if (state.reconnectAttempts >= maxReconnectAttempts) {
-      updateState({ 
+      updateState({
         error: `Max reconnection attempts (${maxReconnectAttempts}) reached`,
-        isReconnecting: false 
+        isReconnecting: false,
       });
       return;
     }
@@ -208,10 +209,12 @@ export const useEnhancedWebSocket = (config: ConnectionConfig = {}) => {
     const delay = Math.min(1000 * Math.pow(2, state.reconnectAttempts), 30000);
     updateState({
       isReconnecting: true,
-      reconnectAttempts: state.reconnectAttempts + 1
+      reconnectAttempts: state.reconnectAttempts + 1,
     });
 
-    logger.info(`[Socket.IO] Reconnecting in ${delay}ms (attempt ${state.reconnectAttempts + 1}/${maxReconnectAttempts})`);
+    logger.info(
+      `[Socket.IO] Reconnecting in ${delay}ms (attempt ${state.reconnectAttempts + 1}/${maxReconnectAttempts})`
+    );
 
     reconnectTimeoutRef.current = setTimeout(() => {
       connectSocketIO();
@@ -222,12 +225,12 @@ export const useEnhancedWebSocket = (config: ConnectionConfig = {}) => {
   const connect = useCallback(async () => {
     updateState({ error: null, isReconnecting: false });
     logger.info('[Enhanced WebSocket] Connecting via Socket.IO only');
-    
+
     const success = await connectSocketIO();
     if (!success) {
-      updateState({ 
+      updateState({
         error: 'Socket.IO connection failed - please check your authentication and network',
-        authStatus: 'unauthenticated'
+        authStatus: 'unauthenticated',
       });
     }
   }, [connectSocketIO, updateState]);
@@ -249,40 +252,43 @@ export const useEnhancedWebSocket = (config: ConnectionConfig = {}) => {
       connectionType: null,
       error: null,
       isReconnecting: false,
-      reconnectAttempts: 0
+      reconnectAttempts: 0,
     });
 
     logger.info('[Socket.IO] Disconnected manually');
   }, [updateState]);
 
   // Send message function
-  const sendMessage = useCallback((type: string, payload: any) => {
-    if (!socketRef.current || !state.isConnected) {
-      logger.warn('[Socket.IO] Cannot send message - not connected');
-      return false;
-    }
+  const sendMessage = useCallback(
+    (type: string, payload: any) => {
+      if (!socketRef.current || !state.isConnected) {
+        logger.warn('[Socket.IO] Cannot send message - not connected');
+        return false;
+      }
 
-    try {
-      socketRef.current.emit(type, payload);
-      logger.debug('[Socket.IO] Message sent:', type, payload);
-      return true;
-    } catch (error) {
-      logger.error('[Socket.IO] Failed to send message:', error);
-      return false;
-    }
-  }, [state.isConnected]);
+      try {
+        socketRef.current.emit(type, payload);
+        logger.debug('[Socket.IO] Message sent:', type, payload);
+        return true;
+      } catch (error) {
+        logger.error('[Socket.IO] Failed to send message:', error);
+        return false;
+      }
+    },
+    [state.isConnected]
+  );
 
   // Auto-connect on mount
   useEffect(() => {
     const token = getAuthToken();
-    logger.info('[Enhanced WebSocket] Initializing with auth status:', { 
-      hasToken: !!token, 
+    logger.info('[Enhanced WebSocket] Initializing with auth status:', {
+      hasToken: !!token,
       tokenLength: token?.length,
-      url 
+      url,
     });
-    
+
     connect();
-    
+
     // Cleanup on unmount
     return () => {
       disconnect();
@@ -306,17 +312,17 @@ export const useEnhancedWebSocket = (config: ConnectionConfig = {}) => {
     isReconnecting: state.isReconnecting,
     reconnectAttempts: state.reconnectAttempts,
     authStatus: state.authStatus,
-    
+
     // Last received event
     lastEvent: state.lastEvent,
-    
+
     // Connection methods
     connect,
     disconnect,
     sendMessage,
-    
+
     // Socket.IO instance (for advanced usage)
-    socket: socketRef.current
+    socket: socketRef.current,
   };
 };
 

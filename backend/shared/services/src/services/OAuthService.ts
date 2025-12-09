@@ -27,21 +27,27 @@ export class OAuthService {
 
   public getOAuthProviderRepository(): Repository<OAuthProviderEntity> {
     if (!this.oauthProviderRepository) {
-      this.oauthProviderRepository = this.typeormService.getDataSource().getRepository(OAuthProviderEntity);
+      this.oauthProviderRepository = this.typeormService
+        .getDataSource()
+        .getRepository(OAuthProviderEntity);
     }
     return this.oauthProviderRepository;
   }
 
   public getOAuthStateRepository(): Repository<OAuthStateEntity> {
     if (!this.oauthStateRepository) {
-      this.oauthStateRepository = this.typeormService.getDataSource().getRepository(OAuthStateEntity);
+      this.oauthStateRepository = this.typeormService
+        .getDataSource()
+        .getRepository(OAuthStateEntity);
     }
     return this.oauthStateRepository;
   }
 
   public getAgentOAuthConnectionRepository(): Repository<AgentOAuthConnectionEntity> {
     if (!this.agentOAuthConnectionRepository) {
-      this.agentOAuthConnectionRepository = this.typeormService.getDataSource().getRepository(AgentOAuthConnectionEntity);
+      this.agentOAuthConnectionRepository = this.typeormService
+        .getDataSource()
+        .getRepository(AgentOAuthConnectionEntity);
     }
     return this.agentOAuthConnectionRepository;
   }
@@ -63,7 +69,7 @@ export class OAuthService {
     const providerRepo = this.getOAuthProviderRepository();
     const provider = providerRepo.create({
       ...data,
-      isEnabled: data.isEnabled ?? true
+      isEnabled: data.isEnabled ?? true,
     });
 
     return await providerRepo.save(provider);
@@ -71,19 +77,21 @@ export class OAuthService {
 
   public async findOAuthProvider(id: string): Promise<OAuthProviderEntity | null> {
     return await this.getOAuthProviderRepository().findOne({
-      where: { id }
+      where: { id },
     });
   }
 
-  public async findOAuthProviderByType(type: OAuthProviderType): Promise<OAuthProviderEntity | null> {
+  public async findOAuthProviderByType(
+    type: OAuthProviderType
+  ): Promise<OAuthProviderEntity | null> {
     return await this.getOAuthProviderRepository().findOne({
-      where: { type, isEnabled: true }
+      where: { type, isEnabled: true },
     });
   }
 
   public async findEnabledOAuthProviders(): Promise<OAuthProviderEntity[]> {
     return await this.getOAuthProviderRepository().find({
-      where: { isEnabled: true }
+      where: { isEnabled: true },
     });
   }
 
@@ -108,7 +116,7 @@ export class OAuthService {
       agentCapabilities: data.agentCapabilities,
       codeVerifier: data.codeVerifier,
       nonce: data.nonce,
-      expiresAt
+      expiresAt,
     });
 
     return await stateRepo.save(stateEntity);
@@ -116,7 +124,7 @@ export class OAuthService {
 
   public async findOAuthState(state: string): Promise<OAuthStateEntity | null> {
     return await this.getOAuthStateRepository().findOne({
-      where: { state }
+      where: { state },
     });
   }
 
@@ -163,7 +171,7 @@ export class OAuthService {
       tokenExpiresAt: data.tokenExpiresAt,
       scope: data.scope,
       isActive: true,
-      lastUsedAt: new Date()
+      lastUsedAt: new Date(),
     });
 
     return await connectionRepo.save(connection);
@@ -171,38 +179,44 @@ export class OAuthService {
 
   public async findAgentOAuthConnections(agentId: string): Promise<AgentOAuthConnectionEntity[]> {
     return await this.getAgentOAuthConnectionRepository().find({
-      where: { agentId, isActive: true }
+      where: { agentId, isActive: true },
     });
   }
 
-  public async findAgentOAuthConnection(agentId: string, providerId: string): Promise<AgentOAuthConnectionEntity | null> {
+  public async findAgentOAuthConnection(
+    agentId: string,
+    providerId: string
+  ): Promise<AgentOAuthConnectionEntity | null> {
     return await this.getAgentOAuthConnectionRepository().findOne({
-      where: { agentId, providerId, isActive: true }
+      where: { agentId, providerId, isActive: true },
     });
   }
 
-  public async updateOAuthConnectionToken(connectionId: string, data: {
-    accessToken: string;
-    refreshToken?: string;
-    tokenExpiresAt?: Date;
-  }): Promise<boolean> {
+  public async updateOAuthConnectionToken(
+    connectionId: string,
+    data: {
+      accessToken: string;
+      refreshToken?: string;
+      tokenExpiresAt?: Date;
+    }
+  ): Promise<boolean> {
     const result = await this.getAgentOAuthConnectionRepository().update(connectionId, {
       ...data,
-      lastUsedAt: new Date()
+      lastUsedAt: new Date(),
     });
     return result.affected !== 0;
   }
 
   public async deactivateOAuthConnection(connectionId: string): Promise<boolean> {
     const result = await this.getAgentOAuthConnectionRepository().update(connectionId, {
-      isActive: false
+      isActive: false,
     });
     return result.affected !== 0;
   }
 
   public async isOAuthConnectionValid(connectionId: string): Promise<boolean> {
     const connection = await this.getAgentOAuthConnectionRepository().findOne({
-      where: { id: connectionId, isActive: true }
+      where: { id: connectionId, isActive: true },
     });
 
     if (!connection) {

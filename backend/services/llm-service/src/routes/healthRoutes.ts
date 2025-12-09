@@ -8,7 +8,7 @@ export function registerHealthRoutes(app: Elysia): void {
       status: 'healthy',
       service: 'llm-service-api',
       timestamp: new Date().toISOString(),
-      uptime: process.uptime()
+      uptime: process.uptime(),
     };
   });
 
@@ -33,25 +33,23 @@ export function registerHealthRoutes(app: Elysia): void {
           health: providerHealth,
           healthySummary: {
             total: providerHealth.length,
-            healthy: providerHealth.filter(p => p.isHealthy).length,
-            unhealthy: providerHealth.filter(p => !p.isHealthy).length
-          }
+            healthy: providerHealth.filter((p) => p.isHealthy).length,
+            unhealthy: providerHealth.filter((p) => !p.isHealthy).length,
+          },
         },
         eventSystem: {
           enabled: true,
           subscribedEvents: [
             'llm.user.request',
             'llm.global.request',
-            'llm.agent.generate.request'
+            'llm.agent.generate.request',
           ],
-          publishedEvents: [
-            'llm.agent.generate.response'
-          ]
-        }
+          publishedEvents: ['llm.agent.generate.response'],
+        },
       };
 
       // Determine overall health status
-      const hasHealthyProvider = providerHealth.some(p => p.isHealthy);
+      const hasHealthyProvider = providerHealth.some((p) => p.isHealthy);
       if (!hasHealthyProvider) {
         healthData.status = 'degraded';
       }
@@ -65,7 +63,7 @@ export function registerHealthRoutes(app: Elysia): void {
         service: 'llm-service-api',
         timestamp: new Date().toISOString(),
         error: 'Health check failed',
-        details: error instanceof Error ? error.message : 'Unknown error'
+        details: error instanceof Error ? error.message : 'Unknown error',
       };
     }
   });

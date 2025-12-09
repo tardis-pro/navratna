@@ -5,5 +5,5 @@ export {
   type ModelOption,
   type ModelProvider,
   type ModelInfo,
-  ModelOptionSchema
+  ModelOptionSchema,
 } from '@uaip/types/models';

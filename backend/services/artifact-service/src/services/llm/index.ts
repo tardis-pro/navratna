@@ -28,9 +28,9 @@ export class LLMService {
   }
 
   async generateCode(request: LLMRequest): Promise<LLMResponse> {
-    logger.info('LLM Code generation request', { 
+    logger.info('LLM Code generation request', {
       promptLength: request.prompt.length,
-      language: request.language 
+      language: request.language,
     });
 
     // Placeholder implementation - returns template code
@@ -40,13 +40,13 @@ export class LLMService {
       content: templateCode,
       tokensUsed: Math.floor(templateCode.length / 4), // Rough estimate
       model: 'placeholder-model',
-      confidence: 0.7
+      confidence: 0.7,
     };
   }
 
   async generateText(request: LLMRequest): Promise<LLMResponse> {
-    logger.info('LLM Text generation request', { 
-      promptLength: request.prompt.length 
+    logger.info('LLM Text generation request', {
+      promptLength: request.prompt.length,
     });
 
     // Placeholder implementation
@@ -56,7 +56,7 @@ export class LLMService {
       content: templateText,
       tokensUsed: Math.floor(templateText.length / 4),
       model: 'placeholder-model',
-      confidence: 0.7
+      confidence: 0.7,
     };
   }
 
@@ -107,4 +107,4 @@ Next steps:
 }
 
 // Export singleton instance
-export const llmService = LLMService.getInstance(); 
+export const llmService = LLMService.getInstance();

@@ -11,7 +11,7 @@ import {
   Checkpoint,
   CheckpointType,
   OperationResult,
-  WorkflowInstance
+  WorkflowInstance,
 } from '@uaip/types';
 
 // Mock DatabaseService
@@ -24,8 +24,8 @@ export const createMockDatabaseService = (): any => ({
       totalConnections: 1,
       idleConnections: 0,
       waitingConnections: 0,
-      responseTime: 5
-    }
+      responseTime: 5,
+    },
   }),
   close: jest.fn().mockResolvedValue(undefined),
 
@@ -38,15 +38,15 @@ export const createMockDatabaseService = (): any => ({
     executionPlan: {
       steps: [
         { id: 'step-1', name: 'Test Step', type: 'tool', timeout: 30000 },
-        { id: 'step-2', name: 'Another Step', type: 'validation', timeout: 15000 }
+        { id: 'step-2', name: 'Another Step', type: 'validation', timeout: 15000 },
       ],
-      dependencies: []
+      dependencies: [],
     },
     createdAt: new Date(),
-    estimatedDuration: 60000
+    estimatedDuration: 60000,
   }),
   saveStepResult: jest.fn().mockResolvedValue(undefined),
-  updateOperationResult: jest.fn().mockResolvedValue(undefined)
+  updateOperationResult: jest.fn().mockResolvedValue(undefined),
 });
 
 // Mock EventBusService
@@ -55,7 +55,7 @@ export const createMockEventBusService = (): any => ({
   close: jest.fn().mockResolvedValue(undefined),
   publishEvent: jest.fn().mockResolvedValue(undefined),
   subscribe: jest.fn().mockResolvedValue(undefined),
-  healthCheck: jest.fn().mockResolvedValue({ status: 'healthy' })
+  healthCheck: jest.fn().mockResolvedValue({ status: 'healthy' }),
 });
 
 // Mock StateManagerService
@@ -70,7 +70,7 @@ export const createMockStateManagerService = (): any => ({
     failedSteps: [],
     variables: {},
     checkpoints: [],
-    lastUpdated: new Date()
+    lastUpdated: new Date(),
   }),
   saveCheckpoint: jest.fn().mockResolvedValue(undefined),
   restoreFromCheckpoint: jest.fn().mockResolvedValue({
@@ -80,9 +80,9 @@ export const createMockStateManagerService = (): any => ({
     failedSteps: [],
     variables: { var1: 'value1' },
     checkpoints: [],
-    lastUpdated: new Date()
+    lastUpdated: new Date(),
   }),
-  healthCheck: jest.fn().mockResolvedValue({ status: 'healthy' })
+  healthCheck: jest.fn().mockResolvedValue({ status: 'healthy' }),
 });
 
 // Mock ResourceManagerService
@@ -91,22 +91,22 @@ export const createMockResourceManagerService = (): any => ({
     available: true,
     allocatedCpu: 1,
     allocatedMemory: 512 * 1024 * 1024,
-    reason: 'Resources available'
+    reason: 'Resources available',
   }),
   allocateResources: jest.fn().mockResolvedValue({
     allocationId: 'allocation-123',
     operationId: 'operation-123',
     allocatedCpu: 2,
     allocatedMemory: 1024 * 1024 * 1024,
-    allocatedAt: new Date()
+    allocatedAt: new Date(),
   }),
   releaseResources: jest.fn().mockResolvedValue(undefined),
   getResourceUsage: jest.fn().mockResolvedValue({
     cpu: 1.5,
     memory: 512 * 1024 * 1024,
-    network: 0
+    network: 0,
   }),
-  healthCheck: jest.fn().mockResolvedValue({ status: 'healthy' })
+  healthCheck: jest.fn().mockResolvedValue({ status: 'healthy' }),
 });
 
 // Mock StepExecutorService
@@ -118,17 +118,17 @@ export const createMockStepExecutorService = (): any => ({
     executionTime: 1500,
     metadata: {
       startedAt: new Date(),
-      completedAt: new Date()
-    }
+      completedAt: new Date(),
+    },
   }),
   cancelStep: jest.fn().mockResolvedValue(undefined),
   forceStopStep: jest.fn().mockResolvedValue(undefined),
   getStepStatus: jest.fn().mockResolvedValue({
     stepId: 'step-1',
     status: StepStatus.RUNNING,
-    progress: 50
+    progress: 50,
   }),
-  healthCheck: jest.fn().mockResolvedValue({ status: 'healthy' })
+  healthCheck: jest.fn().mockResolvedValue({ status: 'healthy' }),
 });
 
 // Mock CompensationService
@@ -136,21 +136,19 @@ export const createMockCompensationService = (): any => ({
   createCompensationPlan: jest.fn().mockResolvedValue({
     id: 'compensation-123',
     operationId: 'operation-123',
-    actions: [
-      { type: 'rollback', stepId: 'step-1', description: 'Rollback step 1' }
-    ]
+    actions: [{ type: 'rollback', stepId: 'step-1', description: 'Rollback step 1' }],
   }),
   executeCompensation: jest.fn().mockResolvedValue({
     compensationId: 'compensation-123',
     status: 'completed',
     executedActions: 1,
-    failedActions: 0
+    failedActions: 0,
   }),
   getCompensationStatus: jest.fn().mockResolvedValue({
     id: 'compensation-123',
-    status: 'pending'
+    status: 'pending',
   }),
-  healthCheck: jest.fn().mockResolvedValue({ status: 'healthy' })
+  healthCheck: jest.fn().mockResolvedValue({ status: 'healthy' }),
 });
 
 // Mock OperationManagementService
@@ -163,12 +161,12 @@ export const createMockOperationManagementService = (): any => ({
     executionPlan: {
       steps: [
         { id: 'step-1', name: 'Test Step', type: 'tool' },
-        { id: 'step-2', name: 'Another Step', type: 'validation' }
+        { id: 'step-2', name: 'Another Step', type: 'validation' },
       ],
-      dependencies: []
+      dependencies: [],
     },
     createdAt: new Date(),
-    estimatedDuration: 60000
+    estimatedDuration: 60000,
   }),
   getOperation: jest.fn().mockResolvedValue({
     id: 'operation-123',
@@ -178,12 +176,12 @@ export const createMockOperationManagementService = (): any => ({
     executionPlan: {
       steps: [
         { id: 'step-1', name: 'Test Step', type: 'tool' },
-        { id: 'step-2', name: 'Another Step', type: 'validation' }
+        { id: 'step-2', name: 'Another Step', type: 'validation' },
       ],
-      dependencies: []
+      dependencies: [],
     },
     createdAt: new Date(),
-    estimatedDuration: 60000
+    estimatedDuration: 60000,
   }),
   updateOperation: jest.fn().mockResolvedValue(undefined),
   deleteOperation: jest.fn().mockResolvedValue(undefined),
@@ -193,31 +191,31 @@ export const createMockOperationManagementService = (): any => ({
     status: OperationStatus.PENDING,
     metadata: {
       startTime: new Date(),
-      priority: 'normal'
-    }
+      priority: 'normal',
+    },
   }),
   updateOperationState: jest.fn().mockResolvedValue(undefined),
   createWorkflowInstance: jest.fn().mockResolvedValue({
     id: 'workflow-123',
     operationId: 'operation-123',
     status: OperationStatus.QUEUED,
-    createdAt: new Date()
+    createdAt: new Date(),
   }),
   createCheckpoint: jest.fn().mockResolvedValue({
     id: 'checkpoint-123',
     stepId: 'step-1',
     type: CheckpointType.PROGRESS_MARKER,
     data: {},
-    timestamp: new Date()
+    timestamp: new Date(),
   }),
   createStepResult: jest.fn().mockResolvedValue({
     id: 'result-123',
     stepId: 'step-1',
     status: StepStatus.COMPLETED,
     data: { result: 'success' },
-    executionTime: 1500
+    executionTime: 1500,
   }),
-  healthCheck: jest.fn().mockResolvedValue({ status: 'healthy' })
+  healthCheck: jest.fn().mockResolvedValue({ status: 'healthy' }),
 });
 
 // Utility to create a mock operation
@@ -233,17 +231,17 @@ export const createMockOperation = (overrides: Partial<Operation> = {}): Operati
         description: 'Test Step',
         type: 'tool',
         estimatedDuration: 30000,
-        required: true
+        required: true,
       },
       {
         id: 'step-2',
         description: 'Another Step',
         type: 'validation',
         estimatedDuration: 15000,
-        required: false
-      }
+        required: false,
+      },
     ],
-    dependencies: []
+    dependencies: [],
   },
   context: {
     executionContext: {
@@ -254,22 +252,24 @@ export const createMockOperation = (overrides: Partial<Operation> = {}): Operati
       resourceLimits: {
         maxMemory: 1024 * 1024 * 1024,
         maxCpu: 2,
-        maxDuration: 3600000
-      }
-    }
+        maxDuration: 3600000,
+      },
+    },
   },
   metadata: {
     priority: OperationPriority.MEDIUM,
     tags: [],
-    environment: 'test'
+    environment: 'test',
   },
   createdAt: new Date('2023-01-01'),
   estimatedDuration: 60000,
-  ...overrides
+  ...overrides,
 });
 
 // Utility to create a mock workflow instance
-export const createMockWorkflowInstance = (overrides: Partial<WorkflowInstance> = {}): WorkflowInstance => ({
+export const createMockWorkflowInstance = (
+  overrides: Partial<WorkflowInstance> = {}
+): WorkflowInstance => ({
   id: 'workflow-123',
   operationId: 'operation-123',
   status: OperationStatus.QUEUED,
@@ -282,8 +282,8 @@ export const createMockWorkflowInstance = (overrides: Partial<WorkflowInstance> 
     resourceLimits: {
       maxMemory: 1024 * 1024 * 1024,
       maxCpu: 2,
-      maxDuration: 3600000
-    }
+      maxDuration: 3600000,
+    },
   },
   state: {
     operationId: 'operation-123',
@@ -292,11 +292,11 @@ export const createMockWorkflowInstance = (overrides: Partial<WorkflowInstance> 
     failedSteps: [],
     variables: {},
     checkpoints: [],
-    lastUpdated: new Date('2023-01-01')
+    lastUpdated: new Date('2023-01-01'),
   },
   createdAt: new Date('2023-01-01'),
   updatedAt: new Date('2023-01-01'),
-  ...overrides
+  ...overrides,
 });
 
 // Utility to create a mock step result
@@ -307,9 +307,9 @@ export const createMockStepResult = (overrides: Partial<StepResult> = {}): StepR
   executionTime: 1500,
   metadata: {
     startedAt: new Date('2023-01-01'),
-    completedAt: new Date('2023-01-01')
+    completedAt: new Date('2023-01-01'),
   },
-  ...overrides
+  ...overrides,
 });
 
 // Mock config service
@@ -318,6 +318,6 @@ export const createMockConfig = (): any => ({
     operationTimeoutMax: 3600000,
     cleanupOrphanedOperationsInterval: 300000,
     maxParallelSteps: 10,
-    defaultRetryAttempts: 3
-  })
+    defaultRetryAttempts: 3,
+  }),
 });

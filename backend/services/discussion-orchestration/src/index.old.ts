@@ -7,9 +7,19 @@ import WebSocket from 'ws';
 import { Server as SocketIOServer } from 'socket.io';
 
 import { logger } from '@uaip/utils';
-import { DatabaseService, EventBusService, DiscussionService, PersonaService } from '@uaip/shared-services';
+import {
+  DatabaseService,
+  EventBusService,
+  DiscussionService,
+  PersonaService,
+} from '@uaip/shared-services';
 import { authMiddleware, errorHandler, defaultRequestLogger } from '@uaip/middleware';
-import { SERVICE_ACCESS_MATRIX, validateServiceAccess, getDatabaseConnectionString, AccessLevel } from '@uaip/shared-services';
+import {
+  SERVICE_ACCESS_MATRIX,
+  validateServiceAccess,
+  getDatabaseConnectionString,
+  AccessLevel,
+} from '@uaip/shared-services';
 
 import { config } from './config/index.js';
 import { DiscussionOrchestrationService } from './services/discussionOrchestrationService.js';
@@ -37,17 +47,24 @@ class DiscussionOrchestrationServer {
   constructor() {
     this.app = express();
     this.server = createServer(this.app);
-    
+
     // Initialize Socket.IO server
     this.io = new SocketIOServer(this.server, {
       cors: {
-        origin: "*", // Configure appropriately for production
-        methods: ["GET", "POST"]
-      }
+        origin: '*', // Configure appropriately for production
+        methods: ['GET', 'POST'],
+      },
     });
 
     // Validate enterprise database access
-    if (!validateServiceAccess(this.serviceName, 'postgresql', 'postgres-application', AccessLevel.WRITE)) {
+    if (
+      !validateServiceAccess(
+        this.serviceName,
+        'postgresql',
+        'postgres-application',
+        AccessLevel.WRITE
+      )
+    ) {
       throw new Error('Service lacks required database permissions');
     }
 
@@ -61,7 +78,7 @@ class DiscussionOrchestrationServer {
         maxReconnectAttempts: 10,
         reconnectDelay: 5000,
         exchangePrefix: 'uaip.enterprise',
-        complianceMode: true
+        complianceMode: true,
       },
       logger
     );
@@ -73,8 +90,8 @@ class DiscussionOrchestrationServer {
       cacheConfig: {
         redis: getDatabaseConnectionString(this.serviceName, 'redis', 'redis-application'),
         ttl: 300, // 5 minutes
-        securityLevel: 3
-      }
+        securityLevel: 3,
+      },
     });
 
     // Initialize discussion service with enterprise configuration
@@ -84,7 +101,7 @@ class DiscussionOrchestrationServer {
       personaService: this.personaService,
       enableRealTimeEvents: true,
       enableAnalytics: false, // Analytics go through separate analytics-service
-      auditMode: 'comprehensive'
+      auditMode: 'comprehensive',
     });
 
     // Initialize enterprise WebSocket handler
@@ -98,7 +115,10 @@ class DiscussionOrchestrationServer {
     this.userChatHandler = new UserChatHandler(this.io);
 
     // Initialize conversation intelligence handler
-    this.conversationIntelligenceHandler = new ConversationIntelligenceHandler(this.io, this.eventBusService);
+    this.conversationIntelligenceHandler = new ConversationIntelligenceHandler(
+      this.io,
+      this.eventBusService
+    );
 
     this.orchestrationService = new DiscussionOrchestrationService(
       this.discussionService,
@@ -113,17 +133,19 @@ class DiscussionOrchestrationServer {
 
   private setupMiddleware(): void {
     // Security middleware
-    this.app.use(helmet({
-      contentSecurityPolicy: {
-        directives: {
-          defaultSrc: ["'self'"],
-          styleSrc: ["'self'", "'unsafe-inline'"],
-          scriptSrc: ["'self'"],
-          imgSrc: ["'self'", "data:", "https:"],
+    this.app.use(
+      helmet({
+        contentSecurityPolicy: {
+          directives: {
+            defaultSrc: ["'self'"],
+            styleSrc: ["'self'", "'unsafe-inline'"],
+            scriptSrc: ["'self'"],
+            imgSrc: ["'self'", 'data:', 'https:'],
+          },
         },
-      },
-      crossOriginEmbedderPolicy: false
-    }));
+        crossOriginEmbedderPolicy: false,
+      })
+    );
 
     // Zero Trust architecture - no CORS needed, all traffic through Security Gateway
 
@@ -139,7 +161,7 @@ class DiscussionOrchestrationServer {
         max: config.discussionOrchestration.security.rateLimitMax,
         message: {
           error: 'Too many requests from this IP, please try again later.',
-          retryAfter: Math.ceil(config.discussionOrchestration.security.rateLimitWindow / 1000)
+          retryAfter: Math.ceil(config.discussionOrchestration.security.rateLimitWindow / 1000),
         },
         standardHeaders: true,
         legacyHeaders: false,
@@ -148,14 +170,16 @@ class DiscussionOrchestrationServer {
     }
 
     // Body parsing
-    this.app.use(express.json({
-      limit: '10mb',
-      verify: (req, res, buf) => {
-        if (config.discussionOrchestration.security.enableInputSanitization) {
-          // Basic input sanitization would go here
-        }
-      }
-    }));
+    this.app.use(
+      express.json({
+        limit: '10mb',
+        verify: (req, res, buf) => {
+          if (config.discussionOrchestration.security.enableInputSanitization) {
+            // Basic input sanitization would go here
+          }
+        },
+      })
+    );
     this.app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
     // Request logging
@@ -174,7 +198,7 @@ class DiscussionOrchestrationServer {
         timestamp: new Date().toISOString(),
         service: 'discussion-orchestration',
         version: process.env.npm_package_version || '1.0.0',
-        ...status
+        ...status,
       });
     });
 
@@ -183,21 +207,22 @@ class DiscussionOrchestrationServer {
       res.json({
         service: 'discussion-orchestration',
         version: process.env.npm_package_version || '1.0.0',
-        description: 'UAIP Discussion Orchestration Service - Manages discussion lifecycle, turn strategies, and real-time coordination',
+        description:
+          'UAIP Discussion Orchestration Service - Manages discussion lifecycle, turn strategies, and real-time coordination',
         features: [
           'Discussion lifecycle management',
           'Multiple turn strategies (Round Robin, Moderated, Context Aware)',
           'Real-time WebSocket communication',
           'Event-driven architecture',
-          'Comprehensive turn management'
+          'Comprehensive turn management',
         ],
         endpoints: {
           websocket: '/socket.io',
           conversationIntelligence: '/socket.io/conversation-intelligence',
           health: '/health',
-          info: '/api/v1/info'
+          info: '/api/v1/info',
         },
-        note: 'This service provides orchestration capabilities. Discussion CRUD operations are handled by the agent-intelligence service.'
+        note: 'This service provides orchestration capabilities. Discussion CRUD operations are handled by the agent-intelligence service.',
       });
     });
 
@@ -207,17 +232,17 @@ class DiscussionOrchestrationServer {
         const connectedUsers = this.userChatHandler.getConnectedUsers();
         res.json({
           success: true,
-          users: connectedUsers.map(user => ({
+          users: connectedUsers.map((user) => ({
             userId: user.userId,
             username: user.username,
             status: user.status,
-            lastActivity: user.lastActivity
-          }))
+            lastActivity: user.lastActivity,
+          })),
         });
       } catch (error) {
         res.status(500).json({
           success: false,
-          error: 'Failed to fetch online users'
+          error: 'Failed to fetch online users',
         });
       }
     });
@@ -226,7 +251,7 @@ class DiscussionOrchestrationServer {
       try {
         const { userId } = req.params;
         const userStatus = this.userChatHandler.getUserStatus(userId);
-        
+
         if (userStatus) {
           res.json({
             success: true,
@@ -235,22 +260,22 @@ class DiscussionOrchestrationServer {
               username: userStatus.username,
               status: userStatus.status,
               lastActivity: userStatus.lastActivity,
-              isOnline: true
-            }
+              isOnline: true,
+            },
           });
         } else {
           res.json({
             success: true,
             user: {
               userId,
-              isOnline: false
-            }
+              isOnline: false,
+            },
           });
         }
       } catch (error) {
         res.status(500).json({
           success: false,
-          error: 'Failed to fetch user status'
+          error: 'Failed to fetch user status',
         });
       }
     });
@@ -259,18 +284,22 @@ class DiscussionOrchestrationServer {
     logger.info('Event-driven routes configured', {
       service: this.serviceName,
       apiEndpoints: ['/health', '/api/v1/info', '/api/v1/users/*', '/api/v1/orchestration/*'],
-      primaryCommunication: 'RabbitMQ Event Bus'
+      primaryCommunication: 'RabbitMQ Event Bus',
     });
   }
 
-  private async publishOrchestrationEvent(eventType: string, discussionId: string, user: any): Promise<void> {
+  private async publishOrchestrationEvent(
+    eventType: string,
+    discussionId: string,
+    user: any
+  ): Promise<void> {
     const event = {
       type: eventType,
       discussionId,
       userId: user.id,
       timestamp: new Date().toISOString(),
       source: this.serviceName,
-      securityLevel: user.securityLevel || 3
+      securityLevel: user.securityLevel || 3,
     };
 
     await this.eventBusService.publish('orchestration.control', event);
@@ -279,7 +308,7 @@ class DiscussionOrchestrationServer {
     logger.info('AUDIT: Orchestration control event', {
       ...event,
       auditEvent: 'ORCHESTRATION_CONTROL',
-      compliance: true
+      compliance: true,
     });
   }
 
@@ -291,34 +320,36 @@ class DiscussionOrchestrationServer {
       environment: process.env.NODE_ENV,
       securityLevel: SERVICE_ACCESS_MATRIX[this.serviceName].securityLevel,
       complianceFlags: SERVICE_ACCESS_MATRIX[this.serviceName].complianceFlags,
-      databases: SERVICE_ACCESS_MATRIX[this.serviceName].databases.map(db => ({
+      databases: SERVICE_ACCESS_MATRIX[this.serviceName].databases.map((db) => ({
         type: db.type,
         tier: db.tier,
         instance: db.instance,
         encryption: db.encryption,
-        auditLevel: db.auditLevel
+        auditLevel: db.auditLevel,
       })),
       networkSegments: SERVICE_ACCESS_MATRIX[this.serviceName].networkSegments,
       eventBusEnabled: true,
       webSocketEnabled: true,
-      apiSurface: 'minimal'
+      apiSurface: 'minimal',
     };
 
     logger.info('AUDIT: Service startup', {
       ...startupAudit,
       auditEvent: 'SERVICE_STARTUP',
-      compliance: true
+      compliance: true,
     });
 
     // Register with service registry via event bus
-    this.eventBusService.publish('service.registry.register', {
-      service: this.serviceName,
-      capabilities: ['discussion_orchestration', 'websocket_realtime', 'turn_management'],
-      status: 'active',
-      ...startupAudit
-    }).catch(error => {
-      logger.error('Failed to register with service registry', { error });
-    });
+    this.eventBusService
+      .publish('service.registry.register', {
+        service: this.serviceName,
+        capabilities: ['discussion_orchestration', 'websocket_realtime', 'turn_management'],
+        status: 'active',
+        ...startupAudit,
+      })
+      .catch((error) => {
+        logger.error('Failed to register with service registry', { error });
+      });
   }
 
   private setupErrorHandling(): void {
@@ -329,7 +360,7 @@ class DiscussionOrchestrationServer {
     process.on('unhandledRejection', (reason, promise) => {
       logger.error('Unhandled Rejection at:', {
         promise,
-        reason: reason instanceof Error ? reason.message : reason
+        reason: reason instanceof Error ? reason.message : reason,
       });
     });
 
@@ -337,7 +368,7 @@ class DiscussionOrchestrationServer {
     process.on('uncaughtException', (error) => {
       logger.error('Uncaught Exception:', {
         error: error.message,
-        stack: error.stack
+        stack: error.stack,
       });
 
       // Graceful shutdown on uncaught exception
@@ -369,13 +400,12 @@ class DiscussionOrchestrationServer {
           port,
           environment: process.env.NODE_ENV || 'development',
           timestamp: new Date().toISOString(),
-          websocketEnabled: config.discussionOrchestration.websocket.enabled
+          websocketEnabled: config.discussionOrchestration.websocket.enabled,
         });
       });
 
       // Setup graceful shutdown (only once)
       this.setupGracefulShutdown();
-
     } catch (error) {
       logger.error('Failed to start Discussion Orchestration Service', { error });
       process.exit(1);
@@ -395,7 +425,7 @@ class DiscussionOrchestrationServer {
       // Deregister from service registry
       await this.eventBusService.publish('service.registry.deregister', {
         service: this.serviceName,
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
       });
 
       // Shutdown Enterprise WebSocket handler
@@ -427,8 +457,6 @@ class DiscussionOrchestrationServer {
         logger.info('Event bus disconnected');
       }
 
-
-
       logger.info('Discussion Orchestration Service shut down successfully');
       process.exit(0);
     } catch (error) {
@@ -448,22 +476,30 @@ class DiscussionOrchestrationServer {
       // Graceful shutdown signals - only add if not already added
       process.once('SIGTERM', () => {
         logger.info('SIGTERM received, starting graceful shutdown');
-        this.shutdown().then(() => {
-          process.exit(0);
-        }).catch((error) => {
-          logger.error('Error during SIGTERM shutdown', { error: error instanceof Error ? error.message : 'Unknown error' });
-          process.exit(1);
-        });
+        this.shutdown()
+          .then(() => {
+            process.exit(0);
+          })
+          .catch((error) => {
+            logger.error('Error during SIGTERM shutdown', {
+              error: error instanceof Error ? error.message : 'Unknown error',
+            });
+            process.exit(1);
+          });
       });
 
       process.once('SIGINT', () => {
         logger.info('SIGINT received, starting graceful shutdown');
-        this.shutdown().then(() => {
-          process.exit(0);
-        }).catch((error) => {
-          logger.error('Error during SIGINT shutdown', { error: error instanceof Error ? error.message : 'Unknown error' });
-          process.exit(1);
-        });
+        this.shutdown()
+          .then(() => {
+            process.exit(0);
+          })
+          .catch((error) => {
+            logger.error('Error during SIGINT shutdown', {
+              error: error instanceof Error ? error.message : 'Unknown error',
+            });
+            process.exit(1);
+          });
       });
     } else {
       logger.debug(`Signal listeners already exist (${existingListeners}), skipping setup`);
@@ -478,14 +514,14 @@ class DiscussionOrchestrationServer {
       memory: process.memoryUsage(),
       websocket: {
         enabled: config.discussionOrchestration.websocket.enabled,
-        connected: this.io ? true : false
+        connected: this.io ? true : false,
       },
       database: {
-        connected: true // We could add a health check here
+        connected: true, // We could add a health check here
       },
       eventBus: {
-        connected: this.eventBusService ? true : false
-      }
+        connected: this.eventBusService ? true : false,
+      },
     };
   }
 }
@@ -496,10 +532,10 @@ const server = new DiscussionOrchestrationServer();
 // Handle startup - Start the server immediately
 server.start().catch((error) => {
   logger.error('Failed to start server', {
-    error: error instanceof Error ? error.message : 'Unknown error'
+    error: error instanceof Error ? error.message : 'Unknown error',
   });
   process.exit(1);
 });
 
 export { server as discussionOrchestrationServer };
-export default server; 
+export default server;

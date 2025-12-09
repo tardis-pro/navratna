@@ -13,18 +13,22 @@ const createUserProviderSchema = z.object({
   baseUrl: z.string().url().optional(),
   apiKey: z.string().optional(),
   defaultModel: z.string().max(255).optional(),
-  configuration: z.object({
-    timeout: z.number().min(1000).optional(),
-    retries: z.number().min(0).max(10).optional(),
-    rateLimit: z.number().min(1).optional(),
-    headers: z.record(z.string()).optional(),
-    customEndpoints: z.object({
-      models: z.string().optional(),
-      chat: z.string().optional(),
-      completions: z.string().optional()
-    }).optional()
-  }).optional(),
-  priority: z.number().min(0).optional()
+  configuration: z
+    .object({
+      timeout: z.number().min(1000).optional(),
+      retries: z.number().min(0).max(10).optional(),
+      rateLimit: z.number().min(1).optional(),
+      headers: z.record(z.string()).optional(),
+      customEndpoints: z
+        .object({
+          models: z.string().optional(),
+          chat: z.string().optional(),
+          completions: z.string().optional(),
+        })
+        .optional(),
+    })
+    .optional(),
+  priority: z.number().min(0).optional(),
 });
 
 const updateUserProviderSchema = z.object({
@@ -33,20 +37,24 @@ const updateUserProviderSchema = z.object({
   baseUrl: z.string().url().optional(),
   apiKey: z.string().optional(),
   defaultModel: z.string().max(255).optional(),
-  configuration: z.object({
-    timeout: z.number().min(1000).optional(),
-    retries: z.number().min(0).max(10).optional(),
-    rateLimit: z.number().min(1).optional(),
-    headers: z.record(z.string()).optional(),
-    customEndpoints: z.object({
-      models: z.string().optional(),
-      chat: z.string().optional(),
-      completions: z.string().optional()
-    }).optional()
-  }).optional(),
+  configuration: z
+    .object({
+      timeout: z.number().min(1000).optional(),
+      retries: z.number().min(0).max(10).optional(),
+      rateLimit: z.number().min(1).optional(),
+      headers: z.record(z.string()).optional(),
+      customEndpoints: z
+        .object({
+          models: z.string().optional(),
+          chat: z.string().optional(),
+          completions: z.string().optional(),
+        })
+        .optional(),
+    })
+    .optional(),
   priority: z.number().min(0).optional(),
   status: z.enum(['active', 'inactive', 'error', 'testing']).optional(),
-  isActive: z.boolean().optional()
+  isActive: z.boolean().optional(),
 });
 
 // Route handlers
@@ -62,23 +70,23 @@ interface AuthenticatedRequest extends Request {
 
 // Role hierarchy for permission checking
 const ROLE_HIERARCHY = {
-  'guest': 0,
-  'user': 1,
-  'moderator': 2,
-  'admin': 3,
-  'system': 4
+  guest: 0,
+  user: 1,
+  moderator: 2,
+  admin: 3,
+  system: 4,
 };
 
 // Role-based provider limits (restrictive permissions)
 const PROVIDER_LIMITS = {
-  'guest': 0,     // Guests cannot create providers
-  'user': 3,      // Regular users limited to 3 providers
-  'moderator': 5, // Moderators can have 5 providers
-  'admin': 10,    // Admins can have 10 providers
-  'system': 50    // System users have higher limits
+  guest: 0, // Guests cannot create providers
+  user: 3, // Regular users limited to 3 providers
+  moderator: 5, // Moderators can have 5 providers
+  admin: 10, // Admins can have 10 providers
+  system: 50, // System users have higher limits
 };
 
-const router= Router();
+const router = Router();
 
 // Lazy initialization of services
 let userService: UserService | null = null;
@@ -103,26 +111,33 @@ async function getServices() {
 router.use(authMiddleware);
 
 // Check if user can create more providers
-const canCreateProvider = async (req: AuthenticatedRequest): Promise<{ allowed: boolean; reason?: string }> => {
+const canCreateProvider = async (
+  req: AuthenticatedRequest
+): Promise<{ allowed: boolean; reason?: string }> => {
   const userRole = req.user!.role;
   const limit = PROVIDER_LIMITS[userRole as keyof typeof PROVIDER_LIMITS] || 0;
-  
+
   if (limit === 0) {
-    return { allowed: false, reason: 'Your user role does not have permission to create LLM providers' };
-  }
-  
-  // Check current provider count using repository
-  const userService = UserService.getInstance();
-  const providers = await userService.getUserLLMProviderRepository().findAllProvidersByUser(req.user!.id);
-  const currentCount = providers.length;
-  
-  if (currentCount >= limit) {
-    return { 
-      allowed: false, 
-      reason: `You have reached the maximum number of LLM providers (${limit}) for your role (${userRole})` 
+    return {
+      allowed: false,
+      reason: 'Your user role does not have permission to create LLM providers',
     };
   }
-  
+
+  // Check current provider count using repository
+  const userService = UserService.getInstance();
+  const providers = await userService
+    .getUserLLMProviderRepository()
+    .findAllProvidersByUser(req.user!.id);
+  const currentCount = providers.length;
+
+  if (currentCount >= limit) {
+    return {
+      allowed: false,
+      reason: `You have reached the maximum number of LLM providers (${limit}) for your role (${userRole})`,
+    };
+  }
+
   return { allowed: true };
 };
 
@@ -146,7 +161,7 @@ const toSafeProvider = (provider: any) => ({
   lastHealthCheckAt: provider.lastHealthCheckAt,
   healthCheckResult: provider.healthCheckResult,
   createdAt: provider.createdAt,
-  updatedAt: provider.updatedAt
+  updatedAt: provider.updatedAt,
 });
 
 // Get user's provider limits and current usage
@@ -154,11 +169,13 @@ router.get('/my-providers/limits', async (req: AuthenticatedRequest, res: Respon
   try {
     const userRole = req.user!.role;
     const limit = PROVIDER_LIMITS[userRole as keyof typeof PROVIDER_LIMITS] || 0;
-    
+
     const userService = UserService.getInstance();
-    const providers = await userService.getUserLLMProviderRepository().findAllProvidersByUser(req.user!.id);
+    const providers = await userService
+      .getUserLLMProviderRepository()
+      .findAllProvidersByUser(req.user!.id);
     const currentCount = providers.length;
-    
+
     res.json({
       success: true,
       data: {
@@ -170,17 +187,18 @@ router.get('/my-providers/limits', async (req: AuthenticatedRequest, res: Respon
         restrictions: {
           maxProviders: limit,
           roleRequired: userRole,
-          message: limit === 0 
-            ? `Users with role '${userRole}' cannot create LLM providers`
-            : `Users with role '${userRole}' can create up to ${limit} LLM providers`
-        }
-      }
+          message:
+            limit === 0
+              ? `Users with role '${userRole}' cannot create LLM providers`
+              : `Users with role '${userRole}' can create up to ${limit} LLM providers`,
+        },
+      },
     });
   } catch (error) {
     logger.error('Error getting provider limits', { error, userId: req.user?.id });
     res.status(500).json({
       success: false,
-      error: 'Failed to get provider limits'
+      error: 'Failed to get provider limits',
     });
   }
 });
@@ -189,19 +207,21 @@ router.get('/my-providers/limits', async (req: AuthenticatedRequest, res: Respon
 router.get('/my-providers', async (req: AuthenticatedRequest, res: Response) => {
   try {
     const userService = UserService.getInstance();
-    const providers = await userService.getUserLLMProviderRepository().findAllProvidersByUser(req.user!.id);
-    
+    const providers = await userService
+      .getUserLLMProviderRepository()
+      .findAllProvidersByUser(req.user!.id);
+
     const safeProviders = providers.map(toSafeProvider);
-    
+
     res.json({
       success: true,
-      data: safeProviders
+      data: safeProviders,
     });
   } catch (error) {
     logger.error('Error getting user LLM providers', { error, userId: req.user?.id });
     res.status(500).json({
       success: false,
-      error: 'Failed to get LLM providers'
+      error: 'Failed to get LLM providers',
     });
   }
 });
@@ -210,29 +230,33 @@ router.get('/my-providers', async (req: AuthenticatedRequest, res: Response) => 
 router.get('/my-providers/active', async (req: AuthenticatedRequest, res: Response) => {
   try {
     const userService = UserService.getInstance();
-    const providers = await userService.getUserLLMProviderRepository().findActiveProvidersByUser(req.user!.id);
-    
+    const providers = await userService
+      .getUserLLMProviderRepository()
+      .findActiveProvidersByUser(req.user!.id);
+
     // Filter to only active providers (allow testing and active status)
-    const activeProviders = providers.filter(p => p.isActive && (p.status === 'active' || p.status === 'testing'));
-    
-    const safeProviders = activeProviders.map(provider => ({
+    const activeProviders = providers.filter(
+      (p) => p.isActive && (p.status === 'active' || p.status === 'testing')
+    );
+
+    const safeProviders = activeProviders.map((provider) => ({
       id: provider.id,
       name: provider.name,
       type: provider.type,
       defaultModel: provider.defaultModel,
-          priority: provider.priority,
-      hasApiKey: provider.hasApiKey()
+      priority: provider.priority,
+      hasApiKey: provider.hasApiKey(),
     }));
-    
+
     res.json({
       success: true,
-      data: safeProviders
+      data: safeProviders,
     });
   } catch (error) {
     logger.error('Error getting active user LLM providers', { error, userId: req.user?.id });
     res.status(500).json({
       success: false,
-      error: 'Failed to get active LLM providers'
+      error: 'Failed to get active LLM providers',
     });
   }
 });
@@ -243,30 +267,29 @@ router.get('/my-providers/models', async (req: AuthenticatedRequest, res: Respon
     const { dataSource } = await getServices();
     const { ModelService } = await import('../services/modelService.js');
     const modelService = new ModelService(dataSource);
-    
+
     const userId = req.user!.id;
-    
+
     logger.info('Fetching models for user from database', { userId });
-    
+
     // Get models from database only (no external API calls)
     const models = await modelService.getModelsForUser(userId);
-    
+
     logger.info('Models fetched successfully from database', {
       userId,
       totalModels: models.length,
-      source: 'database'
+      source: 'database',
     });
-    
+
     res.json({
       success: true,
-      data: models
+      data: models,
     });
-    
   } catch (error) {
     logger.error('Error getting user LLM models', { error, userId: req.user?.id });
     res.status(500).json({
       success: false,
-      error: 'Failed to get LLM models'
+      error: 'Failed to get LLM models',
     });
   }
 });
@@ -276,40 +299,43 @@ router.get('/my-providers/:id', async (req: AuthenticatedRequest, res: Response)
   try {
     const { id } = req.params;
     const { userService } = await getServices();
-    
+
     const provider = await userService.getUserLLMProviderRepository().findById(id);
-    
+
     if (provider && provider.userId !== req.user!.id) {
       res.status(404).json({
         success: false,
-        error: 'LLM provider not found'
+        error: 'LLM provider not found',
       });
       return;
     }
-    
+
     if (!provider) {
       res.status(404).json({
         success: false,
-        error: 'LLM provider not found'
+        error: 'LLM provider not found',
       });
       return;
     }
 
     res.json({
       success: true,
-      data: toSafeProvider(provider)
+      data: toSafeProvider(provider),
     });
   } catch (error) {
-    logger.error('Error getting user LLM provider by ID', { error, userId: req.user?.id, providerId: req.params.id });
+    logger.error('Error getting user LLM provider by ID', {
+      error,
+      userId: req.user?.id,
+      providerId: req.params.id,
+    });
     res.status(500).json({
       success: false,
-      error: 'Failed to get LLM provider'
+      error: 'Failed to get LLM provider',
     });
   }
 });
 
-
-// Create new LLM provider for user  
+// Create new LLM provider for user
 router.post('/my-providers', async (req: AuthenticatedRequest, res: Response) => {
   // Validate request body
   const validation = createUserProviderSchema.safeParse(req.body);
@@ -317,7 +343,7 @@ router.post('/my-providers', async (req: AuthenticatedRequest, res: Response) =>
     res.status(400).json({
       success: false,
       error: 'Validation failed',
-      details: validation.error.issues
+      details: validation.error.issues,
     });
     return;
   }
@@ -329,14 +355,14 @@ router.post('/my-providers', async (req: AuthenticatedRequest, res: Response) =>
       res.status(403).json({
         success: false,
         error: 'Permission denied',
-        message: permissionCheck.reason
+        message: permissionCheck.reason,
       });
       return;
     }
-    
+
     const providerData = validation.data;
     const userService = UserService.getInstance();
-    
+
     // Create new provider using repository method
     const savedProvider = await userService.getUserLLMProviderRepository().createUserProvider({
       userId: req.user!.id,
@@ -347,35 +373,35 @@ router.post('/my-providers', async (req: AuthenticatedRequest, res: Response) =>
       apiKey: providerData.apiKey,
       defaultModel: providerData.defaultModel,
       configuration: providerData.configuration,
-      priority: providerData.priority || 100
+      priority: providerData.priority || 100,
     });
-    
+
     logger.info('User LLM provider created successfully', {
       userId: req.user!.id,
       providerId: savedProvider.id,
-      providerType: savedProvider.type
+      providerType: savedProvider.type,
     });
-    
+
     res.status(201).json({
       success: true,
-      data: toSafeProvider(savedProvider)
+      data: toSafeProvider(savedProvider),
     });
   } catch (error) {
-    logger.error('Error creating user LLM provider', { 
-      error, 
+    logger.error('Error creating user LLM provider', {
+      error,
       userId: req.user?.id,
-      providerData: { ...req.body, apiKey: '[REDACTED]' }
+      providerData: { ...req.body, apiKey: '[REDACTED]' },
     });
-    
+
     if (error instanceof Error && error.message.includes('already in use')) {
       res.status(409).json({
         success: false,
-        error: error.message
+        error: error.message,
       });
     } else {
       res.status(500).json({
         success: false,
-        error: 'Failed to create LLM provider'
+        error: 'Failed to create LLM provider',
       });
     }
   }
@@ -389,7 +415,7 @@ router.put('/my-providers/:id', async (req: AuthenticatedRequest, res: Response)
     res.status(400).json({
       success: false,
       error: 'Validation failed',
-      details: validation.error.issues
+      details: validation.error.issues,
     });
     return;
   }
@@ -398,63 +424,73 @@ router.put('/my-providers/:id', async (req: AuthenticatedRequest, res: Response)
     const { id } = req.params;
     const updateData = validation.data;
     const userService = UserService.getInstance();
-    
+
     // Find provider to ensure user ownership
     const provider = await userService.getUserLLMProviderRepository().findById(id);
     if (!provider || provider.userId !== req.user!.id) {
       res.status(404).json({
         success: false,
-        error: 'LLM provider not found'
+        error: 'LLM provider not found',
       });
       return;
     }
-    
+
     // Update configuration
-    if (updateData.name || updateData.description || updateData.baseUrl || 
-        updateData.defaultModel || updateData.priority || updateData.configuration) {
+    if (
+      updateData.name ||
+      updateData.description ||
+      updateData.baseUrl ||
+      updateData.defaultModel ||
+      updateData.priority ||
+      updateData.configuration
+    ) {
       await userService.getUserLLMProviderRepository().updateProviderConfig(id, req.user!.id, {
         name: updateData.name,
         description: updateData.description,
         baseUrl: updateData.baseUrl,
         defaultModel: updateData.defaultModel,
         priority: updateData.priority,
-        configuration: updateData.configuration
+        configuration: updateData.configuration,
       });
     }
-    
+
     // Update API key if provided
     if (updateData.apiKey) {
-      await userService.getUserLLMProviderRepository().updateApiKey(id, updateData.apiKey, req.user!.id);
+      await userService
+        .getUserLLMProviderRepository()
+        .updateApiKey(id, updateData.apiKey, req.user!.id);
     }
-    
+
     // Update status if provided
     if (updateData.status) {
-      await userService.getUserLLMProviderRepository().updateStatus(id, updateData.status, req.user!.id);
+      await userService
+        .getUserLLMProviderRepository()
+        .updateStatus(id, updateData.status, req.user!.id);
     }
-    
+
     // Get updated provider
     const updatedProvider = await userService.getUserLLMProviderRepository().findById(id);
-    
+
     logger.info('User LLM provider updated successfully', {
       userId: req.user!.id,
-      providerId: id
+      providerId: id,
     });
-    
+
     res.json({
       success: true,
-      data: toSafeProvider(updatedProvider!)
+      data: toSafeProvider(updatedProvider!),
     });
   } catch (error) {
-    logger.error('Error updating user LLM provider', { 
-      error, 
+    logger.error('Error updating user LLM provider', {
+      error,
       userId: req.user?.id,
       providerId: req.params.id,
-      updateData: { ...req.body, apiKey: req.body.apiKey ? '[REDACTED]' : undefined }
+      updateData: { ...req.body, apiKey: req.body.apiKey ? '[REDACTED]' : undefined },
     });
-    
+
     res.status(500).json({
       success: false,
-      error: 'Failed to update LLM provider'
+      error: 'Failed to update LLM provider',
     });
   }
 });
@@ -464,48 +500,48 @@ router.delete('/my-providers/:id', async (req: AuthenticatedRequest, res: Respon
   try {
     const { id } = req.params;
     const userService = UserService.getInstance();
-    
+
     // Find provider to ensure user ownership
     const provider = await userService.getUserLLMProviderRepository().findById(id);
     if (!provider || provider.userId !== req.user!.id) {
       res.status(404).json({
         success: false,
-        error: 'LLM provider not found'
+        error: 'LLM provider not found',
       });
       return;
     }
-    
+
     // Soft delete using repository method
     await userService.getUserLLMProviderRepository().deleteUserProvider(id, req.user!.id);
-    
+
     logger.info('User LLM provider deleted successfully', {
       userId: req.user!.id,
       providerId: id,
-      providerName: provider.name
+      providerName: provider.name,
     });
-    
+
     res.json({
       success: true,
-      message: 'LLM provider deleted successfully'
+      message: 'LLM provider deleted successfully',
     });
   } catch (error) {
-    logger.error('Error deleting user LLM provider', { 
-      error, 
+    logger.error('Error deleting user LLM provider', {
+      error,
       userId: req.user?.id,
-      providerId: req.params.id
+      providerId: req.params.id,
     });
-    
+
     // Check if this is a validation error (agents using provider)
     if (error instanceof Error && error.message.includes('Cannot delete provider')) {
       res.status(400).json({
         success: false,
         error: error.message,
-        code: 'PROVIDER_IN_USE'
+        code: 'PROVIDER_IN_USE',
       });
     } else {
       res.status(500).json({
         success: false,
-        error: 'Failed to delete LLM provider'
+        error: 'Failed to delete LLM provider',
       });
     }
   }
@@ -519,35 +555,35 @@ router.post('/my-providers/:id/test', async (req: AuthenticatedRequest, res: Res
     const { ModelService } = await import('../services/modelService.js');
     const modelService = new ModelService(dataSource);
     const userId = req.user!.id;
-    
+
     // Find provider to ensure user ownership
     const provider = await userService.getUserLLMProviderRepository().findById(id);
     if (!provider || provider.userId !== userId) {
       res.status(404).json({
         success: false,
-        error: 'LLM provider not found'
+        error: 'LLM provider not found',
       });
       return;
     }
-    
+
     logger.info('Testing user LLM provider database connection', {
       userId,
       providerId: id,
       providerName: provider.name,
-      providerType: provider.type
+      providerType: provider.type,
     });
-    
+
     // Test database connection and get models from database
     const isHealthy = await modelService.healthCheck();
     const models = await modelService.getModelsForProvider(id);
-    
+
     logger.info('User LLM provider database test completed', {
       userId,
       providerId: id,
       isHealthy,
-      modelCount: models.length
+      modelCount: models.length,
     });
-    
+
     res.json({
       success: true,
       data: {
@@ -556,20 +592,19 @@ router.post('/my-providers/:id/test', async (req: AuthenticatedRequest, res: Res
         error: isHealthy ? null : 'Database connection failed',
         modelCount: models.length,
         testedAt: new Date().toISOString(),
-        note: 'Database-only test. External API connectivity tested by LLM Service.'
-      }
+        note: 'Database-only test. External API connectivity tested by LLM Service.',
+      },
     });
-    
   } catch (error) {
-    logger.error('Error testing user LLM provider database connection', { 
-      error, 
+    logger.error('Error testing user LLM provider database connection', {
+      error,
       userId: req.user?.id,
-      providerId: req.params.id
+      providerId: req.params.id,
     });
-    
+
     res.status(500).json({
       success: false,
-      error: 'Failed to test LLM provider database connection'
+      error: 'Failed to test LLM provider database connection',
     });
   }
 });
@@ -579,34 +614,36 @@ router.get('/my-providers/:id/stats', async (req: AuthenticatedRequest, res: Res
   try {
     const { id } = req.params;
     const userService = UserService.getInstance();
-    
-    const stats = await userService.getUserLLMProviderRepository().getProviderStats(id, req.user!.id);
-    
+
+    const stats = await userService
+      .getUserLLMProviderRepository()
+      .getProviderStats(id, req.user!.id);
+
     if (!stats) {
       res.status(404).json({
         success: false,
-        error: 'LLM provider not found'
+        error: 'LLM provider not found',
       });
       return;
     }
-    
+
     res.json({
       success: true,
       data: {
         ...stats,
-        errorRate: `${stats.errorRate.toFixed(2)}%`
-      }
+        errorRate: `${stats.errorRate.toFixed(2)}%`,
+      },
     });
   } catch (error) {
-    logger.error('Error getting user LLM provider statistics', { 
-      error, 
+    logger.error('Error getting user LLM provider statistics', {
+      error,
       userId: req.user?.id,
-      providerId: req.params.id
+      providerId: req.params.id,
     });
-    
+
     res.status(500).json({
       success: false,
-      error: 'Failed to get provider statistics'
+      error: 'Failed to get provider statistics',
     });
   }
 });

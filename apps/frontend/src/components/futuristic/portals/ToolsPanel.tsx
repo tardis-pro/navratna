@@ -1,19 +1,19 @@
 import React, { useState, useEffect } from 'react';
 import { useUAIP } from '@/contexts/UAIPContext';
 import { motion, AnimatePresence } from 'framer-motion';
-import { 
-  WrenchScrewdriverIcon, 
-  CheckCircleIcon, 
-  XCircleIcon, 
+import {
+  WrenchScrewdriverIcon,
+  CheckCircleIcon,
+  XCircleIcon,
   ClockIcon,
   ArrowPathIcon,
   ExclamationTriangleIcon,
   EyeIcon,
   PlusIcon,
   ChevronDownIcon,
-  ChevronRightIcon
+  ChevronRightIcon,
 } from '@heroicons/react/24/outline';
-import { 
+import {
   Calculator,
   Brain,
   Database,
@@ -23,7 +23,7 @@ import {
   Zap,
   MoreHorizontal,
   Loader2,
-  AlertCircle
+  AlertCircle,
 } from 'lucide-react';
 
 interface ViewportSize {
@@ -82,7 +82,8 @@ export const ToolsPanel: React.FC<ToolsPanelPortalProps> = ({ className, viewpor
     width: typeof window !== 'undefined' ? window.innerWidth : 1024,
     height: typeof window !== 'undefined' ? window.innerHeight : 768,
     isMobile: typeof window !== 'undefined' ? window.innerWidth < 768 : false,
-    isTablet: typeof window !== 'undefined' ? window.innerWidth >= 768 && window.innerWidth < 1024 : false,
+    isTablet:
+      typeof window !== 'undefined' ? window.innerWidth >= 768 && window.innerWidth < 1024 : false,
     isDesktop: typeof window !== 'undefined' ? window.innerWidth >= 1024 : true,
   };
 
@@ -101,10 +102,10 @@ export const ToolsPanel: React.FC<ToolsPanelPortalProps> = ({ className, viewpor
     // Build unified tool catalog from registry as single source of truth
     const toolCatalog: Map<string, Tool> = new Map();
     const toolAssignments: Map<string, string[]> = new Map(); // toolId -> agentIds
-    
+
     try {
       // First: Load base tools from capabilities registry (single source of truth)
-      capabilities.data.forEach(capability => {
+      capabilities.data.forEach((capability) => {
         const toolId = capability.id;
         toolCatalog.set(toolId, {
           id: toolId,
@@ -116,18 +117,18 @@ export const ToolsPanel: React.FC<ToolsPanelPortalProps> = ({ className, viewpor
           agentId: capability.agentId || 'system',
           agentName: capability.agentName || 'System',
           category: capability.category || 'General',
-          version: capability.version || '1.0.0'
+          version: capability.version || '1.0.0',
         });
       });
 
       // Second: Map agent capabilities to existing tools (if they exist)
-      agents.data.forEach(agent => {
+      agents.data.forEach((agent) => {
         if (agent.capabilities && agent.capabilities.length > 0) {
-          agent.capabilities.forEach(capability => {
+          agent.capabilities.forEach((capability) => {
             // Try to find existing tool by name (normalized)
             const normalizedCapability = capability.toLowerCase().replace(/[-_\s]/g, '');
             let toolId: string | undefined;
-            
+
             // Find tool in catalog by normalized name comparison
             for (const [id, tool] of toolCatalog) {
               const normalizedToolName = tool.name.toLowerCase().replace(/[-_\s]/g, '');
@@ -136,13 +137,14 @@ export const ToolsPanel: React.FC<ToolsPanelPortalProps> = ({ className, viewpor
                 break;
               }
             }
-            
+
             // If tool doesn't exist in catalog, create a minimal tool entry
             if (!toolId) {
               toolId = `agent-capability-${capability.toLowerCase().replace(/[^a-z0-9]/g, '-')}`;
               toolCatalog.set(toolId, {
                 id: toolId,
-                name: capability.charAt(0).toUpperCase() + capability.slice(1).replace(/[-_]/g, ' '),
+                name:
+                  capability.charAt(0).toUpperCase() + capability.slice(1).replace(/[-_]/g, ' '),
                 status: agent.status === 'active' ? 'active' : 'inactive',
                 description: `${capability} capability`,
                 lastUsed: agent.lastActivity ? new Date(agent.lastActivity) : undefined,
@@ -150,10 +152,10 @@ export const ToolsPanel: React.FC<ToolsPanelPortalProps> = ({ className, viewpor
                 agentId: 'system',
                 agentName: 'System',
                 category: 'Agent Capability',
-                version: '1.0.0'
+                version: '1.0.0',
               });
             }
-            
+
             // Track assignment relationship
             if (!toolAssignments.has(toolId)) {
               toolAssignments.set(toolId, []);
@@ -164,20 +166,24 @@ export const ToolsPanel: React.FC<ToolsPanelPortalProps> = ({ className, viewpor
       });
 
       // Third: Add system integrations as separate tools
-      toolIntegrations.data.forEach(integration => {
+      toolIntegrations.data.forEach((integration) => {
         const toolId = integration.id;
         toolCatalog.set(toolId, {
           id: toolId,
           name: integration.name,
-          status: integration.status === 'connected' ? 'active' : 
-                  integration.status === 'error' ? 'error' : 'inactive',
+          status:
+            integration.status === 'connected'
+              ? 'active'
+              : integration.status === 'error'
+                ? 'error'
+                : 'inactive',
           description: `${integration.type.toUpperCase()} integration - ${integration.name}`,
           lastUsed: integration.lastUsed,
           usageCount: integration.usageCount,
           agentId: 'system',
           agentName: 'System Integration',
           category: `${integration.type.toUpperCase()} Integration`,
-          version: integration.configuration?.version || '1.0.0'
+          version: integration.configuration?.version || '1.0.0',
         });
       });
 
@@ -211,9 +217,9 @@ export const ToolsPanel: React.FC<ToolsPanelPortalProps> = ({ className, viewpor
             name: 'calculate',
             description: 'Perform mathematical calculations',
             enabled: true,
-            status: 'inactive'
-          }
-        ]
+            status: 'inactive',
+          },
+        ],
       },
       {
         id: 'mcp-thinker',
@@ -231,16 +237,16 @@ export const ToolsPanel: React.FC<ToolsPanelPortalProps> = ({ className, viewpor
             name: 'sequentialthinking',
             description: 'Step-by-step logical reasoning',
             enabled: true,
-            status: 'active'
+            status: 'active',
           },
           {
             id: 'mentalmodel',
             name: 'mentalmodel',
             description: 'Apply mental models to problems',
             enabled: false,
-            status: 'inactive'
-          }
-        ]
+            status: 'inactive',
+          },
+        ],
       },
       {
         id: 'oauth-github',
@@ -258,9 +264,9 @@ export const ToolsPanel: React.FC<ToolsPanelPortalProps> = ({ className, viewpor
             name: 'list repositories',
             description: 'Access user repositories',
             enabled: false,
-            status: 'inactive'
-          }
-        ]
+            status: 'inactive',
+          },
+        ],
       },
       {
         id: 'oauth-gmail',
@@ -278,65 +284,74 @@ export const ToolsPanel: React.FC<ToolsPanelPortalProps> = ({ className, viewpor
             name: 'read emails',
             description: 'Access and read emails',
             enabled: false,
-            status: 'inactive'
-          }
-        ]
-      }
+            status: 'inactive',
+          },
+        ],
+      },
     ];
 
     setMcpServers(mockServers);
   }, []);
 
   // Filter tools based on search and category
-  const filteredTools = tools.filter(tool => {
-    const matchesSearch = tool.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         tool.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         tool.agentName.toLowerCase().includes(searchQuery.toLowerCase());
+  const filteredTools = tools.filter((tool) => {
+    const matchesSearch =
+      tool.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      tool.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      tool.agentName.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesCategory = selectedCategory === 'all' || tool.category === selectedCategory;
     return matchesSearch && matchesCategory;
   });
 
   // Extract categories from tools
-  const categories = ['all', ...Array.from(new Set(tools.map(tool => tool.category || 'General')))];
+  const categories = [
+    'all',
+    ...Array.from(new Set(tools.map((tool) => tool.category || 'General'))),
+  ];
 
   // Filter MCP servers based on search
-  const filteredServers = mcpServers.filter(server => {
-    const matchesSearch = server.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         server.description?.toLowerCase().includes(searchQuery.toLowerCase());
+  const filteredServers = mcpServers.filter((server) => {
+    const matchesSearch =
+      server.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      server.description?.toLowerCase().includes(searchQuery.toLowerCase());
     return matchesSearch;
   });
 
   // MCP server control functions
   const toggleServer = (serverId: string) => {
-    setMcpServers(prev => prev.map(server => 
-      server.id === serverId 
-        ? { 
-            ...server, 
-            enabled: !server.enabled,
-            status: !server.enabled ? 'loading' : 'disconnected'
-          }
-        : server
-    ));
+    setMcpServers((prev) =>
+      prev.map((server) =>
+        server.id === serverId
+          ? {
+              ...server,
+              enabled: !server.enabled,
+              status: !server.enabled ? 'loading' : 'disconnected',
+            }
+          : server
+      )
+    );
 
     // Simulate connection process
     setTimeout(() => {
-      setMcpServers(prev => prev.map(server => 
-        server.id === serverId 
-          ? { 
-              ...server, 
-              status: server.enabled ? 'connected' : 'disconnected'
-            }
-          : server
-      ));
+      setMcpServers((prev) =>
+        prev.map((server) =>
+          server.id === serverId
+            ? {
+                ...server,
+                status: server.enabled ? 'connected' : 'disconnected',
+              }
+            : server
+        )
+      );
     }, 2000);
   };
 
   const toggleExpansion = (serverId: string) => {
-    setMcpServers(prev => prev.map(server => 
-      server.id === serverId 
-        ? { ...server, expanded: !server.expanded }
-        : server
-    ));
+    setMcpServers((prev) =>
+      prev.map((server) =>
+        server.id === serverId ? { ...server, expanded: !server.expanded } : server
+      )
+    );
   };
 
   const handleInstall = async () => {
@@ -352,25 +367,29 @@ export const ToolsPanel: React.FC<ToolsPanelPortalProps> = ({ className, viewpor
     const iconClass = size === 'sm' ? 'w-4 h-4' : 'w-5 h-5';
     switch (status) {
       case 'connected':
-      case 'active': 
+      case 'active':
         return <CheckCircleIcon className={`${iconClass} text-green-500`} />;
       case 'loading':
         return <Loader2 className={`${iconClass} text-blue-400 animate-spin`} />;
-      case 'inactive': 
+      case 'inactive':
         return <ClockIcon className={`${iconClass} text-gray-500`} />;
-      case 'error': 
+      case 'error':
         return <XCircleIcon className={`${iconClass} text-red-500`} />;
-      default: 
+      default:
         return <ClockIcon className={`${iconClass} text-gray-400`} />;
     }
   };
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'active': return 'text-green-600 bg-green-100 border-green-200';
-      case 'inactive': return 'text-gray-600 bg-gray-100 border-gray-200';
-      case 'error': return 'text-red-600 bg-red-100 border-red-200';
-      default: return 'text-gray-600 bg-gray-100 border-gray-200';
+      case 'active':
+        return 'text-green-600 bg-green-100 border-green-200';
+      case 'inactive':
+        return 'text-gray-600 bg-gray-100 border-gray-200';
+      case 'error':
+        return 'text-red-600 bg-red-100 border-red-200';
+      default:
+        return 'text-gray-600 bg-gray-100 border-gray-200';
     }
   };
 
@@ -381,12 +400,12 @@ export const ToolsPanel: React.FC<ToolsPanelPortalProps> = ({ className, viewpor
       'API Integration': 'bg-green-100 text-green-800 border-green-200',
       'WEBHOOK Integration': 'bg-orange-100 text-orange-800 border-orange-200',
       'CUSTOM Integration': 'bg-pink-100 text-pink-800 border-pink-200',
-      'General': 'bg-gray-100 text-gray-800 border-gray-200'
+      General: 'bg-gray-100 text-gray-800 border-gray-200',
     };
     return colors[category as keyof typeof colors] || colors['General'];
   };
 
-  const selectedToolData = tools.find(tool => tool.id === selectedTool);
+  const selectedToolData = tools.find((tool) => tool.id === selectedTool);
 
   // Show error state
   if (agents.error || toolIntegrations.error || capabilities.error) {
@@ -397,7 +416,9 @@ export const ToolsPanel: React.FC<ToolsPanelPortalProps> = ({ className, viewpor
             <ExclamationTriangleIcon className="w-8 h-8 text-red-400 mx-auto mb-2" />
             <p className="text-red-500 dark:text-red-400">Failed to load tools data</p>
             <p className="text-sm text-gray-400 dark:text-gray-500 mb-4">
-              {agents.error?.message || toolIntegrations.error?.message || capabilities.error?.message}
+              {agents.error?.message ||
+                toolIntegrations.error?.message ||
+                capabilities.error?.message}
             </p>
             <button
               onClick={refreshData}
@@ -437,7 +458,9 @@ export const ToolsPanel: React.FC<ToolsPanelPortalProps> = ({ className, viewpor
           </h2>
           <div className="flex items-center space-x-4">
             <div className="flex items-center space-x-2">
-              <div className={`w-2 h-2 rounded-full ${isWebSocketConnected ? 'bg-green-500 animate-pulse' : 'bg-gray-400'}`} />
+              <div
+                className={`w-2 h-2 rounded-full ${isWebSocketConnected ? 'bg-green-500 animate-pulse' : 'bg-gray-400'}`}
+              />
               <span className="text-sm text-gray-500">
                 {isWebSocketConnected ? 'Live' : 'Offline'}
               </span>
@@ -456,7 +479,9 @@ export const ToolsPanel: React.FC<ToolsPanelPortalProps> = ({ className, viewpor
           <div className="text-center">
             <WrenchScrewdriverIcon className="w-8 h-8 text-gray-400 mx-auto mb-2" />
             <p className="text-gray-500 dark:text-gray-400">No tools available</p>
-            <p className="text-sm text-gray-400 dark:text-gray-500">Tools will appear here when agents register capabilities</p>
+            <p className="text-sm text-gray-400 dark:text-gray-500">
+              Tools will appear here when agents register capabilities
+            </p>
           </div>
         </div>
       </div>
@@ -477,12 +502,14 @@ export const ToolsPanel: React.FC<ToolsPanelPortalProps> = ({ className, viewpor
         </h2>
         <div className="flex items-center space-x-4">
           <div className="flex items-center space-x-2">
-            <div className={`w-2 h-2 rounded-full ${isWebSocketConnected ? 'bg-green-500 animate-pulse' : 'bg-gray-400'}`} />
+            <div
+              className={`w-2 h-2 rounded-full ${isWebSocketConnected ? 'bg-green-500 animate-pulse' : 'bg-gray-400'}`}
+            />
             <span className="text-sm text-gray-500">
               {isWebSocketConnected ? 'Live' : 'Offline'}
             </span>
           </div>
-          
+
           <button
             onClick={handleInstall}
             disabled={isInstalling}
@@ -495,7 +522,7 @@ export const ToolsPanel: React.FC<ToolsPanelPortalProps> = ({ className, viewpor
             )}
             {isInstalling ? 'Installing...' : 'Install'}
           </button>
-          
+
           <button
             onClick={refreshData}
             className="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
@@ -547,7 +574,7 @@ export const ToolsPanel: React.FC<ToolsPanelPortalProps> = ({ className, viewpor
           onChange={(e) => setSelectedCategory(e.target.value)}
           className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
         >
-          {categories.map(category => (
+          {categories.map((category) => (
             <option key={category} value={category}>
               {category.charAt(0).toUpperCase() + category.slice(1)}
             </option>
@@ -564,149 +591,183 @@ export const ToolsPanel: React.FC<ToolsPanelPortalProps> = ({ className, viewpor
               <WrenchScrewdriverIcon className="w-5 h-5 mr-2 text-blue-500" />
               Runtime Tools ({filteredTools.length})
             </h3>
-          
-          {filteredTools.length === 0 ? (
-            <div className="text-center py-8">
-              <WrenchScrewdriverIcon className="w-8 h-8 text-gray-400 mx-auto mb-2" />
-              <p className="text-gray-500 dark:text-gray-400">No tools match your search</p>
-            </div>
-          ) : (
-            <div className="space-y-3 max-h-96 overflow-y-auto">
-              {filteredTools.map((tool) => (
-                <div 
-                  key={tool.id}
-                  className={`bg-white dark:bg-slate-700 rounded-xl p-4 border cursor-pointer transition-all ${
-                    selectedTool === tool.id 
-                      ? 'border-blue-500 ring-2 ring-blue-500/20' 
-                      : 'border-slate-200 dark:border-slate-600 hover:border-blue-300'
-                  }`}
-                  onClick={() => setSelectedTool(tool.id)}
-                >
-                  <div className="flex items-start space-x-3">
-                    <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-blue-500 to-purple-500 flex items-center justify-center">
-                      <WrenchScrewdriverIcon className="w-5 h-5 text-white" />
-                    </div>
-                    <div className="flex-1">
-                      <div className="flex items-center justify-between mb-2">
-                        <h3 className="font-semibold text-gray-900 dark:text-white">{tool.name}</h3>
-                        <div className="flex items-center space-x-2">
-                          {getStatusIcon(tool.status)}
-                          <span className={`px-2 py-1 rounded-md text-xs font-medium border ${getStatusColor(tool.status)}`}>
-                            {tool.status.toUpperCase()}
+
+            {filteredTools.length === 0 ? (
+              <div className="text-center py-8">
+                <WrenchScrewdriverIcon className="w-8 h-8 text-gray-400 mx-auto mb-2" />
+                <p className="text-gray-500 dark:text-gray-400">No tools match your search</p>
+              </div>
+            ) : (
+              <div className="space-y-3 max-h-96 overflow-y-auto">
+                {filteredTools.map((tool) => (
+                  <div
+                    key={tool.id}
+                    className={`bg-white dark:bg-slate-700 rounded-xl p-4 border cursor-pointer transition-all ${
+                      selectedTool === tool.id
+                        ? 'border-blue-500 ring-2 ring-blue-500/20'
+                        : 'border-slate-200 dark:border-slate-600 hover:border-blue-300'
+                    }`}
+                    onClick={() => setSelectedTool(tool.id)}
+                  >
+                    <div className="flex items-start space-x-3">
+                      <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-blue-500 to-purple-500 flex items-center justify-center">
+                        <WrenchScrewdriverIcon className="w-5 h-5 text-white" />
+                      </div>
+                      <div className="flex-1">
+                        <div className="flex items-center justify-between mb-2">
+                          <h3 className="font-semibold text-gray-900 dark:text-white">
+                            {tool.name}
+                          </h3>
+                          <div className="flex items-center space-x-2">
+                            {getStatusIcon(tool.status)}
+                            <span
+                              className={`px-2 py-1 rounded-md text-xs font-medium border ${getStatusColor(tool.status)}`}
+                            >
+                              {tool.status.toUpperCase()}
+                            </span>
+                          </div>
+                        </div>
+                        <p className="text-gray-600 dark:text-gray-400 text-sm mb-3">
+                          {tool.description}
+                        </p>
+
+                        <div className="flex items-center space-x-2 mb-2">
+                          <span
+                            className={`px-2 py-1 rounded-md text-xs font-medium border ${getCategoryColor(tool.category || 'General')}`}
+                          >
+                            {tool.category || 'General'}
                           </span>
+                          <span className="text-xs text-gray-500">v{tool.version}</span>
+                        </div>
+
+                        <div className="text-sm text-gray-500 space-y-1">
+                          <p>Agent: {tool.agentName}</p>
+                          <p>Used {tool.usageCount} times</p>
+                          {tool.lastUsed && <p>Last used: {tool.lastUsed.toLocaleTimeString()}</p>}
                         </div>
                       </div>
-                      <p className="text-gray-600 dark:text-gray-400 text-sm mb-3">{tool.description}</p>
-                      
-                      <div className="flex items-center space-x-2 mb-2">
-                        <span className={`px-2 py-1 rounded-md text-xs font-medium border ${getCategoryColor(tool.category || 'General')}`}>
-                          {tool.category || 'General'}
-                        </span>
-                        <span className="text-xs text-gray-500">v{tool.version}</span>
-                      </div>
-                      
-                      <div className="text-sm text-gray-500 space-y-1">
-                        <p>Agent: {tool.agentName}</p>
-                        <p>Used {tool.usageCount} times</p>
-                        {tool.lastUsed && (
-                          <p>Last used: {tool.lastUsed.toLocaleTimeString()}</p>
-                        )}
-                      </div>
                     </div>
                   </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
+                ))}
+              </div>
+            )}
+          </div>
 
-        {/* Tool Details */}
-        <div className="bg-white/50 dark:bg-slate-800/50 rounded-2xl p-6 border border-slate-200 dark:border-slate-700">
-          <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-4 flex items-center">
-            <EyeIcon className="w-5 h-5 mr-2 text-purple-500" />
-            Tool Details
-          </h3>
-          
-          {selectedToolData ? (
-            <div className="space-y-4">
-              <div className="bg-white dark:bg-slate-700 rounded-xl p-4 border border-slate-200 dark:border-slate-600">
-                <div className="flex items-start justify-between mb-3">
-                  <div>
-                    <h4 className="font-semibold text-gray-900 dark:text-white">{selectedToolData.name}</h4>
-                    <p className="text-sm text-gray-500 dark:text-gray-400">ID: {selectedToolData.id}</p>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    {getStatusIcon(selectedToolData.status)}
-                    <span className={`px-2 py-1 rounded-md text-xs font-medium border ${getStatusColor(selectedToolData.status)}`}>
-                      {selectedToolData.status.toUpperCase()}
-                    </span>
-                  </div>
-                </div>
-                
-                <p className="text-gray-600 dark:text-gray-400 mb-4">{selectedToolData.description}</p>
-                
-                <div className="grid grid-cols-2 gap-4 text-sm">
-                  <div>
-                    <span className="text-gray-600 dark:text-gray-400">Agent:</span>
-                    <span className="ml-2 text-gray-900 dark:text-white">{selectedToolData.agentName}</span>
-                  </div>
-                  <div>
-                    <span className="text-gray-600 dark:text-gray-400">Category:</span>
-                    <span className="ml-2 text-gray-900 dark:text-white">{selectedToolData.category}</span>
-                  </div>
-                  <div>
-                    <span className="text-gray-600 dark:text-gray-400">Version:</span>
-                    <span className="ml-2 text-gray-900 dark:text-white">{selectedToolData.version}</span>
-                  </div>
-                  <div>
-                    <span className="text-gray-600 dark:text-gray-400">Usage Count:</span>
-                    <span className="ml-2 text-gray-900 dark:text-white">{selectedToolData.usageCount}</span>
-                  </div>
-                  {selectedToolData.lastUsed && (
-                    <div className="col-span-2">
-                      <span className="text-gray-600 dark:text-gray-400">Last Used:</span>
-                      <span className="ml-2 text-gray-900 dark:text-white">
-                        {selectedToolData.lastUsed.toLocaleString()}
+          {/* Tool Details */}
+          <div className="bg-white/50 dark:bg-slate-800/50 rounded-2xl p-6 border border-slate-200 dark:border-slate-700">
+            <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-4 flex items-center">
+              <EyeIcon className="w-5 h-5 mr-2 text-purple-500" />
+              Tool Details
+            </h3>
+
+            {selectedToolData ? (
+              <div className="space-y-4">
+                <div className="bg-white dark:bg-slate-700 rounded-xl p-4 border border-slate-200 dark:border-slate-600">
+                  <div className="flex items-start justify-between mb-3">
+                    <div>
+                      <h4 className="font-semibold text-gray-900 dark:text-white">
+                        {selectedToolData.name}
+                      </h4>
+                      <p className="text-sm text-gray-500 dark:text-gray-400">
+                        ID: {selectedToolData.id}
+                      </p>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      {getStatusIcon(selectedToolData.status)}
+                      <span
+                        className={`px-2 py-1 rounded-md text-xs font-medium border ${getStatusColor(selectedToolData.status)}`}
+                      >
+                        {selectedToolData.status.toUpperCase()}
                       </span>
                     </div>
-                  )}
+                  </div>
+
+                  <p className="text-gray-600 dark:text-gray-400 mb-4">
+                    {selectedToolData.description}
+                  </p>
+
+                  <div className="grid grid-cols-2 gap-4 text-sm">
+                    <div>
+                      <span className="text-gray-600 dark:text-gray-400">Agent:</span>
+                      <span className="ml-2 text-gray-900 dark:text-white">
+                        {selectedToolData.agentName}
+                      </span>
+                    </div>
+                    <div>
+                      <span className="text-gray-600 dark:text-gray-400">Category:</span>
+                      <span className="ml-2 text-gray-900 dark:text-white">
+                        {selectedToolData.category}
+                      </span>
+                    </div>
+                    <div>
+                      <span className="text-gray-600 dark:text-gray-400">Version:</span>
+                      <span className="ml-2 text-gray-900 dark:text-white">
+                        {selectedToolData.version}
+                      </span>
+                    </div>
+                    <div>
+                      <span className="text-gray-600 dark:text-gray-400">Usage Count:</span>
+                      <span className="ml-2 text-gray-900 dark:text-white">
+                        {selectedToolData.usageCount}
+                      </span>
+                    </div>
+                    {selectedToolData.lastUsed && (
+                      <div className="col-span-2">
+                        <span className="text-gray-600 dark:text-gray-400">Last Used:</span>
+                        <span className="ml-2 text-gray-900 dark:text-white">
+                          {selectedToolData.lastUsed.toLocaleString()}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Usage Statistics */}
+                <div className="bg-white dark:bg-slate-700 rounded-xl p-4 border border-slate-200 dark:border-slate-600">
+                  <h5 className="font-semibold text-gray-900 dark:text-white mb-3">
+                    Usage Statistics
+                  </h5>
+                  <div className="space-y-2">
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-gray-600 dark:text-gray-400">
+                        Total Executions
+                      </span>
+                      <span className="text-sm font-medium text-gray-900 dark:text-white">
+                        {selectedToolData.usageCount}
+                      </span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-gray-600 dark:text-gray-400">Status</span>
+                      <span
+                        className={`text-sm font-medium ${
+                          selectedToolData.status === 'active'
+                            ? 'text-green-600'
+                            : selectedToolData.status === 'error'
+                              ? 'text-red-600'
+                              : 'text-gray-600'
+                        }`}
+                      >
+                        {selectedToolData.status.charAt(0).toUpperCase() +
+                          selectedToolData.status.slice(1)}
+                      </span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-gray-600 dark:text-gray-400">Availability</span>
+                      <span className="text-sm font-medium text-gray-900 dark:text-white">
+                        {selectedToolData.status === 'active' ? '100%' : '0%'}
+                      </span>
+                    </div>
+                  </div>
                 </div>
               </div>
-              
-              {/* Usage Statistics */}
-              <div className="bg-white dark:bg-slate-700 rounded-xl p-4 border border-slate-200 dark:border-slate-600">
-                <h5 className="font-semibold text-gray-900 dark:text-white mb-3">Usage Statistics</h5>
-                <div className="space-y-2">
-                  <div className="flex justify-between items-center">
-                    <span className="text-sm text-gray-600 dark:text-gray-400">Total Executions</span>
-                    <span className="text-sm font-medium text-gray-900 dark:text-white">{selectedToolData.usageCount}</span>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-sm text-gray-600 dark:text-gray-400">Status</span>
-                    <span className={`text-sm font-medium ${
-                      selectedToolData.status === 'active' ? 'text-green-600' :
-                      selectedToolData.status === 'error' ? 'text-red-600' : 'text-gray-600'
-                    }`}>
-                      {selectedToolData.status.charAt(0).toUpperCase() + selectedToolData.status.slice(1)}
-                    </span>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-sm text-gray-600 dark:text-gray-400">Availability</span>
-                    <span className="text-sm font-medium text-gray-900 dark:text-white">
-                      {selectedToolData.status === 'active' ? '100%' : '0%'}
-                    </span>
-                  </div>
-                </div>
+            ) : (
+              <div className="text-center py-12">
+                <WrenchScrewdriverIcon className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+                <p className="text-gray-500 dark:text-gray-400">Select a tool to view details</p>
               </div>
-            </div>
-          ) : (
-            <div className="text-center py-12">
-              <WrenchScrewdriverIcon className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-              <p className="text-gray-500 dark:text-gray-400">Select a tool to view details</p>
-            </div>
-          )}
+            )}
+          </div>
         </div>
-      </div>
       ) : (
         /* MCP & OAuth Integrations Tab */
         <div className="space-y-4">
@@ -732,21 +793,26 @@ export const ToolsPanel: React.FC<ToolsPanelPortalProps> = ({ className, viewpor
                         onClick={() => toggleExpansion(server.id)}
                         className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
                       >
-                        {server.expanded ? 
-                          <ChevronDownIcon className="w-4 h-4" /> : 
+                        {server.expanded ? (
+                          <ChevronDownIcon className="w-4 h-4" />
+                        ) : (
                           <ChevronRightIcon className="w-4 h-4" />
-                        }
+                        )}
                       </button>
-                      
+
                       <div className="flex items-center gap-3">
                         {server.icon}
                         <div className="flex-1">
                           <div className="flex items-center gap-2">
-                            <span className="text-gray-900 dark:text-white font-medium text-sm">{server.name}</span>
+                            <span className="text-gray-900 dark:text-white font-medium text-sm">
+                              {server.name}
+                            </span>
                             {getStatusIcon(server.status, 'sm')}
                           </div>
                           {server.description && (
-                            <p className="text-gray-600 dark:text-gray-400 text-xs mt-1">{server.description}</p>
+                            <p className="text-gray-600 dark:text-gray-400 text-xs mt-1">
+                              {server.description}
+                            </p>
                           )}
                         </div>
                       </div>
@@ -758,7 +824,7 @@ export const ToolsPanel: React.FC<ToolsPanelPortalProps> = ({ className, viewpor
                           {server.version}
                         </span>
                       )}
-                      
+
                       <label className="flex items-center cursor-pointer">
                         <input
                           type="checkbox"
@@ -766,15 +832,19 @@ export const ToolsPanel: React.FC<ToolsPanelPortalProps> = ({ className, viewpor
                           onChange={() => toggleServer(server.id)}
                           className="sr-only"
                         />
-                        <div className={`relative w-10 h-6 rounded-full transition-colors ${
-                          server.enabled ? 'bg-cyan-500' : 'bg-gray-300 dark:bg-gray-600'
-                        }`}>
-                          <div className={`absolute w-4 h-4 bg-white rounded-full top-1 transition-transform ${
-                            server.enabled ? 'translate-x-5' : 'translate-x-1'
-                          }`} />
+                        <div
+                          className={`relative w-10 h-6 rounded-full transition-colors ${
+                            server.enabled ? 'bg-cyan-500' : 'bg-gray-300 dark:bg-gray-600'
+                          }`}
+                        >
+                          <div
+                            className={`absolute w-4 h-4 bg-white rounded-full top-1 transition-transform ${
+                              server.enabled ? 'translate-x-5' : 'translate-x-1'
+                            }`}
+                          />
                         </div>
                       </label>
-                      
+
                       <button className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 p-1">
                         <MoreHorizontal className="w-4 h-4" />
                       </button>
@@ -794,9 +864,11 @@ export const ToolsPanel: React.FC<ToolsPanelPortalProps> = ({ className, viewpor
                         <div className="p-4 bg-gray-50 dark:bg-slate-800">
                           <div className="flex items-center gap-2 mb-3">
                             <Zap className="w-4 h-4 text-cyan-400" />
-                            <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Tools</span>
+                            <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                              Tools
+                            </span>
                           </div>
-                          
+
                           <div className="space-y-2">
                             {server.tools.map((tool) => (
                               <div
@@ -807,17 +879,23 @@ export const ToolsPanel: React.FC<ToolsPanelPortalProps> = ({ className, viewpor
                                   <input
                                     type="checkbox"
                                     checked={tool.enabled}
-                                    onChange={() => {/* toggleTool function would go here */}}
+                                    onChange={() => {
+                                      /* toggleTool function would go here */
+                                    }}
                                     className="rounded border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-cyan-500 focus:ring-cyan-500"
                                   />
                                   <div>
-                                    <span className="text-gray-900 dark:text-white text-sm">{tool.name}</span>
+                                    <span className="text-gray-900 dark:text-white text-sm">
+                                      {tool.name}
+                                    </span>
                                     {tool.description && (
-                                      <p className="text-gray-600 dark:text-gray-400 text-xs">{tool.description}</p>
+                                      <p className="text-gray-600 dark:text-gray-400 text-xs">
+                                        {tool.description}
+                                      </p>
                                     )}
                                   </div>
                                 </div>
-                                
+
                                 <div className="flex items-center gap-2">
                                   <span className="text-xs text-gray-500 dark:text-gray-400">
                                     {tool.enabled ? 'Allow' : 'Disabled'}
@@ -839,4 +917,4 @@ export const ToolsPanel: React.FC<ToolsPanelPortalProps> = ({ className, viewpor
       )}
     </motion.div>
   );
-}; 
+};

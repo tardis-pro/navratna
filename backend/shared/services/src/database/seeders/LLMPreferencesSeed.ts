@@ -25,7 +25,7 @@ interface TaskConfiguration {
 
 /**
  * LLM Preferences Seed
- * 
+ *
  * Creates intelligent default LLM preferences for users and agents based on:
  * - Task type optimization (different models excel at different tasks)
  * - Provider availability and reliability
@@ -55,7 +55,7 @@ export class LLMPreferencesSeed extends BaseSeed<UserLLMPreference> {
     const providerRepo = this.dataSource.getRepository(UserLLMProvider);
     this.availableProviders = await providerRepo.find({
       where: { isActive: true },
-      order: { priority: 'DESC' }
+      order: { priority: 'DESC' },
     });
     console.log(`   📡 Loaded ${this.availableProviders.length} available LLM providers`);
   }
@@ -64,29 +64,34 @@ export class LLMPreferencesSeed extends BaseSeed<UserLLMPreference> {
    * Get a model by provider type and model preference
    */
   private getModelForProvider(providerType: LLMProviderType, preferredModel?: string): string {
-    const providers = this.availableProviders.filter(p => p.type === providerType);
-    
+    const providers = this.availableProviders.filter((p) => p.type === providerType);
+
     if (providers.length === 0) {
       // Fallback to common models if no providers found
       switch (providerType) {
-        case LLMProviderType.OPENAI: return 'gpt-4o-mini';
-        case LLMProviderType.ANTHROPIC: return 'claude-3-5-sonnet-20241022';
-        case LLMProviderType.LLMSTUDIO: return 'local-model';
-        case LLMProviderType.OLLAMA: return 'llama3.2:latest';
-        default: return 'default-model';
+        case LLMProviderType.OPENAI:
+          return 'gpt-4o-mini';
+        case LLMProviderType.ANTHROPIC:
+          return 'claude-3-5-sonnet-20241022';
+        case LLMProviderType.LLMSTUDIO:
+          return 'local-model';
+        case LLMProviderType.OLLAMA:
+          return 'llama3.2:latest';
+        default:
+          return 'default-model';
       }
     }
 
     // Try to find a provider with the preferred model (partial match for LLM Studio models)
     if (preferredModel) {
       // First try exact match
-      const exactMatch = providers.find(p => p.defaultModel === preferredModel);
+      const exactMatch = providers.find((p) => p.defaultModel === preferredModel);
       if (exactMatch) return exactMatch.defaultModel;
-      
+
       // For LLM Studio, try partial match since model names contain UUID prefixes
       if (providerType === LLMProviderType.LLMSTUDIO) {
-        const partialMatch = providers.find(p => 
-          p.defaultModel.includes(preferredModel) || preferredModel.includes(p.defaultModel)
+        const partialMatch = providers.find(
+          (p) => p.defaultModel.includes(preferredModel) || preferredModel.includes(p.defaultModel)
         );
         if (partialMatch) return partialMatch.defaultModel;
       }
@@ -105,24 +110,24 @@ export class LLMPreferencesSeed extends BaseSeed<UserLLMPreference> {
     try {
       // Load available providers first
       await this.loadAvailableProviders();
-      
+
       const userPreferences = this.generateUserPreferences();
       const agentPreferences = this.generateAgentPreferences();
-      
+
       // Handle user preferences with composite unique constraint
       let processedUserPrefs = 0;
       for (const pref of userPreferences) {
         try {
           await this.repository.upsert(pref as any, {
             conflictPaths: ['userId', 'taskType'],
-            skipUpdateIfNoValuesChanged: true
+            skipUpdateIfNoValuesChanged: true,
           });
           processedUserPrefs++;
         } catch (error) {
           // Manual fallback for individual preference
           try {
             const existing = await this.repository.findOne({
-              where: { userId: pref.userId, taskType: pref.taskType } as any
+              where: { userId: pref.userId, taskType: pref.taskType } as any,
             });
             if (existing) {
               await this.repository.update(
@@ -141,8 +146,10 @@ export class LLMPreferencesSeed extends BaseSeed<UserLLMPreference> {
 
       // Seed agent preferences
       await this.seedAgentPreferences(agentPreferences);
-      
-      console.log(`   ✅ LLM preferences seeded successfully: ${processedUserPrefs} user preferences processed`);
+
+      console.log(
+        `   ✅ LLM preferences seeded successfully: ${processedUserPrefs} user preferences processed`
+      );
       return await this.repository.find();
     } catch (error) {
       console.error(`   ❌ LLM preferences seeding failed:`, error);
@@ -154,36 +161,36 @@ export class LLMPreferencesSeed extends BaseSeed<UserLLMPreference> {
   async getSeedData(): Promise<DeepPartial<UserLLMPreference>[]> {
     const userPreferences = this.generateUserPreferences();
     const agentPreferences = this.generateAgentPreferences();
-    
+
     // Seed both user and agent preferences
     await this.seedAgentPreferences(agentPreferences);
-    
+
     return userPreferences;
   }
 
   private generateUserPreferences(): DeepPartial<UserLLMPreference>[] {
     const preferences: DeepPartial<UserLLMPreference>[] = [];
-    
+
     for (const user of this.users) {
       preferences.push(...this.createUserTaskPreferences(user.id));
     }
-    
+
     return preferences;
   }
 
   private generateAgentPreferences(): DeepPartial<AgentLLMPreference>[] {
     const preferences: DeepPartial<AgentLLMPreference>[] = [];
-    
+
     for (const agent of this.agents) {
       preferences.push(...this.createAgentTaskPreferences(agent.id, agent.name, agent.description));
     }
-    
+
     return preferences;
   }
 
   private createUserTaskPreferences(userId: string): DeepPartial<UserLLMPreference>[] {
     const taskConfigurations = this.getTaskConfigurations();
-    
+
     return Object.entries(taskConfigurations).map(([taskType, config]) => ({
       userId,
       taskType: taskType as LLMTaskType,
@@ -198,9 +205,16 @@ export class LLMPreferencesSeed extends BaseSeed<UserLLMPreference> {
     }));
   }
 
-  private createAgentTaskPreferences(agentId: string, agentName: string, agentDescription: string): DeepPartial<AgentLLMPreference>[] {
-    const taskConfigurations = this.getAgentOptimizedTaskConfigurations(agentName, agentDescription);
-    
+  private createAgentTaskPreferences(
+    agentId: string,
+    agentName: string,
+    agentDescription: string
+  ): DeepPartial<AgentLLMPreference>[] {
+    const taskConfigurations = this.getAgentOptimizedTaskConfigurations(
+      agentName,
+      agentDescription
+    );
+
     return Object.entries(taskConfigurations).map(([taskType, config]) => ({
       agentId,
       taskType: taskType as LLMTaskType,
@@ -228,8 +242,9 @@ export class LLMPreferencesSeed extends BaseSeed<UserLLMPreference> {
           temperature: 0.1,
           maxTokens: 4000,
           topP: 0.9,
-          systemPrompt: 'You are an expert software engineer. Write clean, efficient, and well-documented code.'
-        }
+          systemPrompt:
+            'You are an expert software engineer. Write clean, efficient, and well-documented code.',
+        },
       },
       [LLMTaskType.REASONING]: {
         primaryProvider: LLMProviderType.LLMSTUDIO,
@@ -241,8 +256,8 @@ export class LLMPreferencesSeed extends BaseSeed<UserLLMPreference> {
           temperature: 0.2,
           maxTokens: 3000,
           topP: 0.9,
-          systemPrompt: 'Think step by step and provide detailed reasoning for your conclusions.'
-        }
+          systemPrompt: 'Think step by step and provide detailed reasoning for your conclusions.',
+        },
       },
       [LLMTaskType.TOOL_CALLING]: {
         primaryProvider: LLMProviderType.LLMSTUDIO,
@@ -254,8 +269,8 @@ export class LLMPreferencesSeed extends BaseSeed<UserLLMPreference> {
           temperature: 0.1,
           maxTokens: 2000,
           topP: 0.9,
-          systemPrompt: 'Execute tool calls accurately and efficiently.'
-        }
+          systemPrompt: 'Execute tool calls accurately and efficiently.',
+        },
       },
       [LLMTaskType.SUMMARIZATION]: {
         primaryProvider: LLMProviderType.LLMSTUDIO,
@@ -267,8 +282,8 @@ export class LLMPreferencesSeed extends BaseSeed<UserLLMPreference> {
           temperature: 0.3,
           maxTokens: 1000,
           topP: 0.9,
-          systemPrompt: 'Provide concise and accurate summaries capturing key information.'
-        }
+          systemPrompt: 'Provide concise and accurate summaries capturing key information.',
+        },
       },
       [LLMTaskType.CREATIVE_WRITING]: {
         primaryProvider: LLMProviderType.LLMSTUDIO,
@@ -280,8 +295,8 @@ export class LLMPreferencesSeed extends BaseSeed<UserLLMPreference> {
           temperature: 0.8,
           maxTokens: 2000,
           topP: 0.95,
-          systemPrompt: 'Be creative and engaging while maintaining quality and coherence.'
-        }
+          systemPrompt: 'Be creative and engaging while maintaining quality and coherence.',
+        },
       },
       [LLMTaskType.TRANSLATION]: {
         primaryProvider: LLMProviderType.LLMSTUDIO,
@@ -293,8 +308,8 @@ export class LLMPreferencesSeed extends BaseSeed<UserLLMPreference> {
           temperature: 0.2,
           maxTokens: 2000,
           topP: 0.9,
-          systemPrompt: 'Provide accurate translations while preserving meaning and context.'
-        }
+          systemPrompt: 'Provide accurate translations while preserving meaning and context.',
+        },
       },
       [LLMTaskType.CLASSIFICATION]: {
         primaryProvider: LLMProviderType.LLMSTUDIO,
@@ -306,8 +321,8 @@ export class LLMPreferencesSeed extends BaseSeed<UserLLMPreference> {
           temperature: 0.1,
           maxTokens: 500,
           topP: 0.9,
-          systemPrompt: 'Classify content accurately based on the given criteria.'
-        }
+          systemPrompt: 'Classify content accurately based on the given criteria.',
+        },
       },
       [LLMTaskType.VISION]: {
         primaryProvider: LLMProviderType.LLMSTUDIO,
@@ -319,8 +334,8 @@ export class LLMPreferencesSeed extends BaseSeed<UserLLMPreference> {
           temperature: 0.3,
           maxTokens: 1500,
           topP: 0.9,
-          systemPrompt: 'Analyze images carefully and provide detailed, accurate descriptions.'
-        }
+          systemPrompt: 'Analyze images carefully and provide detailed, accurate descriptions.',
+        },
       },
       [LLMTaskType.EMBEDDINGS]: {
         primaryProvider: LLMProviderType.LLMSTUDIO,
@@ -332,7 +347,7 @@ export class LLMPreferencesSeed extends BaseSeed<UserLLMPreference> {
           temperature: 0,
           maxTokens: 8191,
           topP: 1,
-        }
+        },
       },
       [LLMTaskType.SPEECH_TO_TEXT]: {
         primaryProvider: LLMProviderType.LLMSTUDIO,
@@ -344,7 +359,7 @@ export class LLMPreferencesSeed extends BaseSeed<UserLLMPreference> {
           temperature: 0,
           maxTokens: 1000,
           topP: 1,
-        }
+        },
       },
       [LLMTaskType.TEXT_TO_SPEECH]: {
         primaryProvider: LLMProviderType.LLMSTUDIO,
@@ -358,19 +373,22 @@ export class LLMPreferencesSeed extends BaseSeed<UserLLMPreference> {
           topP: 1,
           customSettings: {
             voice: 'alloy',
-            speed: 1
-          }
-        }
-      }
+            speed: 1,
+          },
+        },
+      },
     };
   }
 
-  private getAgentOptimizedTaskConfigurations(agentName: string, agentDescription: string): Record<LLMTaskType, TaskConfiguration> {
+  private getAgentOptimizedTaskConfigurations(
+    agentName: string,
+    agentDescription: string
+  ): Record<LLMTaskType, TaskConfiguration> {
     const baseConfigs = this.getTaskConfigurations();
-    
+
     // Agent-specific optimizations based on their role
     const agentOptimizations = this.getAgentSpecificOptimizations(agentName, agentDescription);
-    
+
     // Apply agent-specific modifications
     Object.entries(agentOptimizations).forEach(([taskType, optimization]) => {
       if (baseConfigs[taskType as LLMTaskType]) {
@@ -381,14 +399,17 @@ export class LLMPreferencesSeed extends BaseSeed<UserLLMPreference> {
         };
       }
     });
-    
+
     return baseConfigs;
   }
 
-  private getAgentSpecificOptimizations(agentName: string, agentDescription: string): Partial<Record<LLMTaskType, Partial<TaskConfiguration>>> {
+  private getAgentSpecificOptimizations(
+    agentName: string,
+    agentDescription: string
+  ): Partial<Record<LLMTaskType, Partial<TaskConfiguration>>> {
     const name = (agentName || '').toLowerCase();
     const description = (agentDescription || '').toLowerCase();
-    
+
     // Code-focused agents
     if (name.includes('engineer') || name.includes('developer') || description.includes('code')) {
       return {
@@ -397,17 +418,17 @@ export class LLMPreferencesSeed extends BaseSeed<UserLLMPreference> {
           reasoning: 'Engineering agent optimized for code generation',
           settings: {
             temperature: 0.05, // Even lower for more deterministic code
-            maxTokens: 6000,   // More tokens for complex code
+            maxTokens: 6000, // More tokens for complex code
             topP: 0.9,
-          }
+          },
         },
         [LLMTaskType.REASONING]: {
           priority: 95,
           reasoning: 'Engineers need strong reasoning for system design',
-        }
+        },
       };
     }
-    
+
     // Research and analysis agents
     if (name.includes('research') || name.includes('analyst') || description.includes('analysis')) {
       return {
@@ -418,15 +439,15 @@ export class LLMPreferencesSeed extends BaseSeed<UserLLMPreference> {
             temperature: 0.15,
             maxTokens: 4000,
             topP: 0.9,
-          }
+          },
         },
         [LLMTaskType.SUMMARIZATION]: {
           priority: 95,
           reasoning: 'Research agents frequently summarize findings',
-        }
+        },
       };
     }
-    
+
     // Creative agents
     if (name.includes('creative') || name.includes('writer') || description.includes('creative')) {
       return {
@@ -437,11 +458,11 @@ export class LLMPreferencesSeed extends BaseSeed<UserLLMPreference> {
             temperature: 0.9,
             maxTokens: 3000,
             topP: 0.95,
-          }
-        }
+          },
+        },
       };
     }
-    
+
     // Support and customer service agents
     if (name.includes('support') || name.includes('service') || description.includes('help')) {
       return {
@@ -452,32 +473,65 @@ export class LLMPreferencesSeed extends BaseSeed<UserLLMPreference> {
         [LLMTaskType.SUMMARIZATION]: {
           priority: 90,
           reasoning: 'Support agents summarize conversations and issues',
-        }
+        },
       };
     }
-    
+
     // Default optimization for general agents
     return {
       [LLMTaskType.REASONING]: {
         reasoning: 'General agent with balanced reasoning capabilities',
-      }
+      },
     };
   }
 
-  private async seedAgentPreferences(agentPreferences: DeepPartial<AgentLLMPreference>[]): Promise<void> {
+  private async seedAgentPreferences(
+    agentPreferences: DeepPartial<AgentLLMPreference>[]
+  ): Promise<void> {
     try {
       const agentLLMPrefRepo = this.dataSource.getRepository(AgentLLMPreference);
-      
+
       console.log(`   🌱 Seeding ${agentPreferences.length} agent LLM preferences...`);
-      
-      // Use bulk insert for efficiency
-      if (agentPreferences.length > 0) {
-        await agentLLMPrefRepo.save(agentPreferences);
-        console.log(`   ✅ Successfully seeded ${agentPreferences.length} agent LLM preferences`);
+
+      let processedCount = 0;
+      let skippedCount = 0;
+
+      // Process individually with upsert to handle unique constraint (agentId, taskType)
+      for (const pref of agentPreferences) {
+        try {
+          await agentLLMPrefRepo.upsert(pref as any, {
+            conflictPaths: ['agentId', 'taskType'],
+            skipUpdateIfNoValuesChanged: true,
+          });
+          processedCount++;
+        } catch (upsertError) {
+          // Manual fallback for individual preference
+          try {
+            const existing = await agentLLMPrefRepo.findOne({
+              where: { agentId: pref.agentId, taskType: pref.taskType } as any,
+            });
+            if (existing) {
+              await agentLLMPrefRepo.update(
+                { agentId: pref.agentId, taskType: pref.taskType } as any,
+                pref as any
+              );
+              processedCount++;
+            } else {
+              await agentLLMPrefRepo.save(agentLLMPrefRepo.create(pref as any));
+              processedCount++;
+            }
+          } catch (fallbackError) {
+            skippedCount++;
+          }
+        }
       }
+
+      console.log(
+        `   ✅ Agent LLM preferences: ${processedCount} processed, ${skippedCount} skipped`
+      );
     } catch (error) {
       console.error('   ❌ Failed to seed agent LLM preferences:', error);
-      throw error;
+      // Don't throw - allow seeding to continue
     }
   }
 }

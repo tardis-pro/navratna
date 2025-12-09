@@ -1,21 +1,41 @@
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent } from '@/components/ui/card';
 import { GlobalAutocomplete } from '@/components/ui/GlobalAutocomplete';
 import { useDiscussion } from '@/contexts/DiscussionContext';
 import { useAgents } from '@/contexts/AgentContext';
 import { TurnStrategy, ParticipantRole, DiscussionVisibility } from '@uaip/types';
-import { 
-  MessageSquare, Brain, Loader2, FileText, Code, Presentation, 
-  Target, Sparkles, Zap, Users 
+import {
+  MessageSquare,
+  Brain,
+  Loader2,
+  FileText,
+  Code,
+  Presentation,
+  Target,
+  Sparkles,
+  Zap,
+  Users,
 } from 'lucide-react';
 
-export type DiscussionPurpose = 
+export type DiscussionPurpose =
   | 'brainstorm'
-  | 'analysis' 
+  | 'analysis'
   | 'code-generation'
   | 'documentation'
   | 'prd-creation'
@@ -23,7 +43,7 @@ export type DiscussionPurpose =
   | 'research'
   | 'decision-making';
 
-export type ArtifactType = 
+export type ArtifactType =
   | 'document'
   | 'code'
   | 'presentation'
@@ -52,100 +72,103 @@ const DISCUSSION_PURPOSES: Array<{
     label: 'Brainstorming',
     description: 'Generate creative ideas and solutions',
     icon: <Brain className="w-5 h-5" />,
-    artifacts: ['document', 'action-plan', 'presentation']
+    artifacts: ['document', 'action-plan', 'presentation'],
   },
   {
     value: 'analysis',
     label: 'Analysis & Review',
     description: 'Deep dive analysis of content or concepts',
     icon: <Target className="w-5 h-5" />,
-    artifacts: ['analysis-report', 'document', 'presentation']
+    artifacts: ['analysis-report', 'document', 'presentation'],
   },
   {
     value: 'code-generation',
     label: 'Code Generation',
     description: 'Collaborative coding and development',
     icon: <Code className="w-5 h-5" />,
-    artifacts: ['code', 'document', 'analysis-report']
+    artifacts: ['code', 'document', 'analysis-report'],
   },
   {
     value: 'documentation',
     label: 'Documentation',
     description: 'Create comprehensive documentation',
     icon: <FileText className="w-5 h-5" />,
-    artifacts: ['document', 'presentation', 'research-summary']
+    artifacts: ['document', 'presentation', 'research-summary'],
   },
   {
     value: 'prd-creation',
     label: 'PRD Creation',
     description: 'Product Requirements Document development',
     icon: <Presentation className="w-5 h-5" />,
-    artifacts: ['prd', 'document', 'presentation']
+    artifacts: ['prd', 'document', 'presentation'],
   },
   {
     value: 'problem-solving',
     label: 'Problem Solving',
     description: 'Systematic problem resolution',
     icon: <Zap className="w-5 h-5" />,
-    artifacts: ['action-plan', 'analysis-report', 'decision-matrix']
+    artifacts: ['action-plan', 'analysis-report', 'decision-matrix'],
   },
   {
     value: 'research',
     label: 'Research & Investigation',
     description: 'Comprehensive research and fact-finding',
     icon: <Sparkles className="w-5 h-5" />,
-    artifacts: ['research-summary', 'document', 'analysis-report']
+    artifacts: ['research-summary', 'document', 'analysis-report'],
   },
   {
     value: 'decision-making',
     label: 'Decision Making',
     description: 'Structured decision analysis and planning',
     icon: <Users className="w-5 h-5" />,
-    artifacts: ['decision-matrix', 'analysis-report', 'action-plan']
-  }
+    artifacts: ['decision-matrix', 'analysis-report', 'action-plan'],
+  },
 ];
 
-const ARTIFACT_TYPES: Record<ArtifactType, { label: string; description: string; icon: React.ReactNode }> = {
-  'document': {
+const ARTIFACT_TYPES: Record<
+  ArtifactType,
+  { label: string; description: string; icon: React.ReactNode }
+> = {
+  document: {
     label: 'Document',
     description: 'Comprehensive written document',
-    icon: <FileText className="w-4 h-4" />
+    icon: <FileText className="w-4 h-4" />,
   },
-  'code': {
+  code: {
     label: 'Code',
     description: 'Source code and implementation',
-    icon: <Code className="w-4 h-4" />
+    icon: <Code className="w-4 h-4" />,
   },
-  'presentation': {
+  presentation: {
     label: 'Presentation',
     description: 'Slide deck or presentation format',
-    icon: <Presentation className="w-4 h-4" />
+    icon: <Presentation className="w-4 h-4" />,
   },
-  'prd': {
+  prd: {
     label: 'PRD',
     description: 'Product Requirements Document',
-    icon: <Target className="w-4 h-4" />
+    icon: <Target className="w-4 h-4" />,
   },
   'analysis-report': {
     label: 'Analysis Report',
     description: 'Detailed analysis with findings',
-    icon: <Brain className="w-4 h-4" />
+    icon: <Brain className="w-4 h-4" />,
   },
   'action-plan': {
     label: 'Action Plan',
     description: 'Step-by-step execution plan',
-    icon: <Zap className="w-4 h-4" />
+    icon: <Zap className="w-4 h-4" />,
   },
   'research-summary': {
     label: 'Research Summary',
     description: 'Consolidated research findings',
-    icon: <Sparkles className="w-4 h-4" />
+    icon: <Sparkles className="w-4 h-4" />,
   },
   'decision-matrix': {
     label: 'Decision Matrix',
     description: 'Structured decision analysis framework',
-    icon: <Users className="w-4 h-4" />
-  }
+    icon: <Users className="w-4 h-4" />,
+  },
 };
 
 // Turn strategy options with descriptions
@@ -154,32 +177,32 @@ const TURN_STRATEGIES = [
     value: TurnStrategy.CONTEXT_AWARE,
     label: 'Context Aware (AI)',
     description: 'AI selects next speaker based on expertise and topic relevance',
-    icon: <Brain className="w-4 h-4" />
+    icon: <Brain className="w-4 h-4" />,
   },
   {
     value: TurnStrategy.ROUND_ROBIN,
     label: 'Round Robin',
     description: 'Participants take turns in order',
-    icon: <Users className="w-4 h-4" />
+    icon: <Users className="w-4 h-4" />,
   },
   {
     value: TurnStrategy.EXPERTISE_DRIVEN,
     label: 'Expertise Driven',
     description: 'Technical experts speak first on relevant topics',
-    icon: <Target className="w-4 h-4" />
+    icon: <Target className="w-4 h-4" />,
   },
   {
     value: TurnStrategy.FREE_FORM,
     label: 'Free Form',
     description: 'Open discussion, no turn restrictions',
-    icon: <MessageSquare className="w-4 h-4" />
+    icon: <MessageSquare className="w-4 h-4" />,
   },
   {
     value: TurnStrategy.MODERATED,
     label: 'Moderated',
     description: 'Human moderator controls speaking order',
-    icon: <Zap className="w-4 h-4" />
-  }
+    icon: <Zap className="w-4 h-4" />,
+  },
 ];
 
 // Generate turn strategy configuration based on selected strategy
@@ -191,8 +214,8 @@ const generateTurnStrategyConfig = (strategy: TurnStrategy) => {
         config: {
           type: 'round_robin' as const,
           skipInactive: true,
-          maxSkips: 3
-        }
+          maxSkips: 3,
+        },
       };
     case TurnStrategy.CONTEXT_AWARE:
       return {
@@ -201,8 +224,8 @@ const generateTurnStrategyConfig = (strategy: TurnStrategy) => {
           type: 'context_aware' as const,
           relevanceThreshold: 0.7,
           expertiseWeight: 0.3,
-          engagementWeight: 0.2
-        }
+          engagementWeight: 0.2,
+        },
       };
     case TurnStrategy.EXPERTISE_DRIVEN:
       return {
@@ -210,16 +233,16 @@ const generateTurnStrategyConfig = (strategy: TurnStrategy) => {
         config: {
           type: 'expertise_driven' as const,
           expertiseThreshold: 0.8,
-          fallbackToRoundRobin: true
-        }
+          fallbackToRoundRobin: true,
+        },
       };
     case TurnStrategy.FREE_FORM:
       return {
         strategy: TurnStrategy.FREE_FORM,
         config: {
           type: 'free_form' as const,
-          cooldownPeriod: 5
-        }
+          cooldownPeriod: 5,
+        },
       };
     case TurnStrategy.MODERATED:
       return {
@@ -227,8 +250,8 @@ const generateTurnStrategyConfig = (strategy: TurnStrategy) => {
         config: {
           type: 'moderated' as const,
           requireApproval: true,
-          autoAdvance: false
-        }
+          autoAdvance: false,
+        },
       };
     default:
       return {
@@ -237,32 +260,31 @@ const generateTurnStrategyConfig = (strategy: TurnStrategy) => {
           type: 'context_aware' as const,
           relevanceThreshold: 0.7,
           expertiseWeight: 0.3,
-          engagementWeight: 0.2
-        }
+          engagementWeight: 0.2,
+        },
       };
   }
 };
 
-export const DiscussionConfigModal: React.FC<DiscussionConfigModalProps> = ({ 
-  isOpen, 
-  onClose, 
-  onDiscussionStarted 
+export const DiscussionConfigModal: React.FC<DiscussionConfigModalProps> = ({
+  isOpen,
+  onClose,
+  onDiscussionStarted,
 }) => {
   const [selectedPurpose, setSelectedPurpose] = useState<DiscussionPurpose>('brainstorm');
   const [selectedArtifact, setSelectedArtifact] = useState<ArtifactType>('document');
-  const [selectedStrategy, setSelectedStrategy] = useState<TurnStrategy>(TurnStrategy.CONTEXT_AWARE);
+  const [selectedStrategy, setSelectedStrategy] = useState<TurnStrategy>(
+    TurnStrategy.CONTEXT_AWARE
+  );
   const [customTopic, setCustomTopic] = useState('');
   const [selectedAgents, setSelectedAgents] = useState<string[]>([]);
   const [additionalContext, setAdditionalContext] = useState('');
 
-  const { 
-    start, 
-    isLoading: discussionLoading 
-  } = useDiscussion();
+  const { start, isLoading: discussionLoading } = useDiscussion();
   const { agents } = useAgents();
 
   const agentList = Object.values(agents);
-  const selectedPurposeData = DISCUSSION_PURPOSES.find(p => p.value === selectedPurpose);
+  const selectedPurposeData = DISCUSSION_PURPOSES.find((p) => p.value === selectedPurpose);
   const availableArtifacts = selectedPurposeData?.artifacts || [];
 
   // Reset form when modal closes
@@ -288,7 +310,7 @@ export const DiscussionConfigModal: React.FC<DiscussionConfigModalProps> = ({
   useEffect(() => {
     const handleOpenDiscussion = (e: CustomEvent) => {
       const { contextData, preselectedAgents } = e.detail;
-      
+
       if (preselectedAgents) {
         setSelectedAgents(preselectedAgents);
       }
@@ -308,28 +330,28 @@ export const DiscussionConfigModal: React.FC<DiscussionConfigModalProps> = ({
 
   const handleStartDiscussion = async () => {
     const topic = generateTopic();
-    console.log(topic.slice(0,20));
+    console.log(topic.slice(0, 20));
     const discussionData = {
-      title: topic.slice(0,20),
+      title: topic.slice(0, 20),
       topic,
       description: additionalContext.trim() || `${selectedPurposeData?.description} session`,
       createdBy: 'current-user-id',
-      initialParticipants: selectedAgents.map(agentId => ({
+      initialParticipants: selectedAgents.map((agentId) => ({
         agentId,
-        role: ParticipantRole.PARTICIPANT
+        role: ParticipantRole.PARTICIPANT,
       })),
       turnStrategy: generateTurnStrategyConfig(selectedStrategy),
       visibility: DiscussionVisibility.PRIVATE,
       objectives: [
         `Generate ${ARTIFACT_TYPES[selectedArtifact].label} through ${selectedPurposeData?.label.toLowerCase()}`,
-        ...(additionalContext.trim() ? [additionalContext.trim()] : [])
+        ...(additionalContext.trim() ? [additionalContext.trim()] : []),
       ],
       tags: [selectedPurpose, selectedArtifact],
       metadata: {
         purpose: selectedPurpose,
         targetArtifact: selectedArtifact,
-        expectedOutcome: `Generate ${ARTIFACT_TYPES[selectedArtifact].label} through ${selectedPurposeData?.label.toLowerCase()}`
-      }
+        expectedOutcome: `Generate ${ARTIFACT_TYPES[selectedArtifact].label} through ${selectedPurposeData?.label.toLowerCase()}`,
+      },
     };
 
     try {
@@ -338,9 +360,9 @@ export const DiscussionConfigModal: React.FC<DiscussionConfigModalProps> = ({
         selectedAgents.length > 0 ? selectedAgents : undefined,
         discussionData
       );
-      
+
       onClose();
-      
+
       // Trigger portal opening after discussion starts
       if (onDiscussionStarted && result?.discussionId) {
         onDiscussionStarted(result.discussionId);
@@ -351,10 +373,8 @@ export const DiscussionConfigModal: React.FC<DiscussionConfigModalProps> = ({
   };
 
   const toggleAgent = (agentId: string) => {
-    setSelectedAgents(prev => 
-      prev.includes(agentId) 
-        ? prev.filter(id => id !== agentId)
-        : [...prev, agentId]
+    setSelectedAgents((prev) =>
+      prev.includes(agentId) ? prev.filter((id) => id !== agentId) : [...prev, agentId]
     );
   };
 
@@ -378,11 +398,11 @@ export const DiscussionConfigModal: React.FC<DiscussionConfigModalProps> = ({
               <label className="text-sm font-medium text-white">Discussion Purpose</label>
               <div className="grid grid-cols-1 gap-2 mt-2">
                 {DISCUSSION_PURPOSES.map((purpose) => (
-                  <Card 
+                  <Card
                     key={purpose.value}
                     className={`cursor-pointer transition-all hover:shadow-md ${
-                      selectedPurpose === purpose.value 
-                        ? 'ring-2 ring-blue-400 bg-gradient-to-br from-blue-900/30 to-blue-900/30 border-blue-400/50' 
+                      selectedPurpose === purpose.value
+                        ? 'ring-2 ring-blue-400 bg-gradient-to-br from-blue-900/30 to-blue-900/30 border-blue-400/50'
                         : 'bg-slate-800/60 hover:bg-slate-700/70 border border-slate-600/30 hover:border-slate-500/50'
                     } border backdrop-blur-sm`}
                     onClick={() => {
@@ -394,18 +414,18 @@ export const DiscussionConfigModal: React.FC<DiscussionConfigModalProps> = ({
                   >
                     <CardContent className="p-3">
                       <div className="flex items-start gap-3">
-                        <div className={`p-2 rounded-lg ${
-                          selectedPurpose === purpose.value 
-                            ? 'bg-blue-500/20 text-blue-300 border border-blue-500/30'
-                            : 'bg-slate-700/50 text-slate-400 border border-slate-600/30'
-                        }`}>
+                        <div
+                          className={`p-2 rounded-lg ${
+                            selectedPurpose === purpose.value
+                              ? 'bg-blue-500/20 text-blue-300 border border-blue-500/30'
+                              : 'bg-slate-700/50 text-slate-400 border border-slate-600/30'
+                          }`}
+                        >
                           {purpose.icon}
                         </div>
                         <div className="flex-1">
                           <h4 className="font-medium text-sm text-white">{purpose.label}</h4>
-                          <p className="text-xs text-slate-400 mt-1">
-                            {purpose.description}
-                          </p>
+                          <p className="text-xs text-slate-400 mt-1">{purpose.description}</p>
                         </div>
                       </div>
                     </CardContent>
@@ -430,7 +450,7 @@ export const DiscussionConfigModal: React.FC<DiscussionConfigModalProps> = ({
                 context={{
                   purpose: selectedPurpose,
                   selectedAgents,
-                  discussionType: selectedPurposeData?.label
+                  discussionType: selectedPurposeData?.label,
                 }}
                 onEnhance={(enhancedText) => {
                   setCustomTopic(enhancedText);
@@ -454,7 +474,7 @@ export const DiscussionConfigModal: React.FC<DiscussionConfigModalProps> = ({
                 context={{
                   purpose: selectedPurpose,
                   selectedAgents,
-                  discussionType: selectedPurposeData?.label
+                  discussionType: selectedPurposeData?.label,
                 }}
                 onEnhance={(enhancedText) => {
                   setAdditionalContext(enhancedText);
@@ -468,7 +488,10 @@ export const DiscussionConfigModal: React.FC<DiscussionConfigModalProps> = ({
             {/* Artifact Selection */}
             <div>
               <label className="text-sm font-medium text-white">Expected Artifact</label>
-              <Select value={selectedArtifact} onValueChange={(value: ArtifactType) => setSelectedArtifact(value)}>
+              <Select
+                value={selectedArtifact}
+                onValueChange={(value: ArtifactType) => setSelectedArtifact(value)}
+              >
                 <SelectTrigger className="mt-1 bg-slate-800/50 border-slate-700 text-white focus:border-blue-500">
                   <SelectValue />
                 </SelectTrigger>
@@ -497,7 +520,10 @@ export const DiscussionConfigModal: React.FC<DiscussionConfigModalProps> = ({
               <p className="text-xs text-slate-400 mt-1">
                 How should participants take turns in the discussion?
               </p>
-              <Select value={selectedStrategy} onValueChange={(value: TurnStrategy) => setSelectedStrategy(value)}>
+              <Select
+                value={selectedStrategy}
+                onValueChange={(value: TurnStrategy) => setSelectedStrategy(value)}
+              >
                 <SelectTrigger className="mt-1 bg-slate-800/50 border-slate-700 text-white focus:border-blue-500">
                   <SelectValue />
                 </SelectTrigger>
@@ -522,9 +548,7 @@ export const DiscussionConfigModal: React.FC<DiscussionConfigModalProps> = ({
               <label className="text-sm font-medium text-white">
                 Select Agents ({selectedAgents.length} selected)
               </label>
-              <p className="text-xs text-slate-400 mt-1">
-                Leave empty to auto-select best agents
-              </p>
+              <p className="text-xs text-slate-400 mt-1">Leave empty to auto-select best agents</p>
               <div className="grid grid-cols-1 gap-2 mt-2 max-h-80 overflow-y-auto">
                 {agentList.map((agent) => (
                   <Card
@@ -544,11 +568,13 @@ export const DiscussionConfigModal: React.FC<DiscussionConfigModalProps> = ({
                             {agent.role} • {agent.capabilities?.slice(0, 2).join(', ')}
                           </p>
                         </div>
-                        <div className={`w-4 h-4 rounded border-2 ${
-                          selectedAgents.includes(agent.id)
-                            ? 'bg-blue-500 border-blue-500'
-                            : 'border-slate-500'
-                        }`}>
+                        <div
+                          className={`w-4 h-4 rounded border-2 ${
+                            selectedAgents.includes(agent.id)
+                              ? 'bg-blue-500 border-blue-500'
+                              : 'border-slate-500'
+                          }`}
+                        >
                           {selectedAgents.includes(agent.id) && (
                             <div className="w-full h-full flex items-center justify-center">
                               <div className="w-2 h-2 bg-white rounded-sm" />
@@ -567,17 +593,16 @@ export const DiscussionConfigModal: React.FC<DiscussionConfigModalProps> = ({
         {/* Action Buttons */}
         <div className="flex justify-between items-center pt-4 border-t border-slate-700/50">
           <div className="text-sm text-slate-400">
-            {selectedAgents.length === 0 
+            {selectedAgents.length === 0
               ? 'Auto-selecting best agents for discussion'
-              : `${selectedAgents.length} agents selected`
-            }
+              : `${selectedAgents.length} agents selected`}
           </div>
           <div className="flex gap-2">
             <Button variant="outline" onClick={onClose}>
               Cancel
             </Button>
-            <Button 
-              onClick={handleStartDiscussion} 
+            <Button
+              onClick={handleStartDiscussion}
               disabled={discussionLoading}
               className="bg-gradient-to-r from-blue-600 to-blue-600 hover:from-blue-700 hover:to-blue-700 border border-blue-500/30"
             >

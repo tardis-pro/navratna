@@ -29,5 +29,5 @@ export enum GraphSyncStatus {
   PROCESSING = 'processing',
   COMPLETED = 'completed',
   FAILED = 'failed',
-  RETRY_SCHEDULED = 'retry_scheduled'
-} 
+  RETRY_SCHEDULED = 'retry_scheduled',
+}

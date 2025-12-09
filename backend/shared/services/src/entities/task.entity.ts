@@ -10,14 +10,14 @@ export enum TaskStatus {
   IN_REVIEW = 'in_review',
   BLOCKED = 'blocked',
   COMPLETED = 'completed',
-  CANCELLED = 'cancelled'
+  CANCELLED = 'cancelled',
 }
 
 export enum TaskPriority {
   LOW = 'low',
   MEDIUM = 'medium',
   HIGH = 'high',
-  URGENT = 'urgent'
+  URGENT = 'urgent',
 }
 
 export enum TaskType {
@@ -28,12 +28,12 @@ export enum TaskType {
   DOCUMENTATION = 'documentation',
   TESTING = 'testing',
   DEPLOYMENT = 'deployment',
-  MAINTENANCE = 'maintenance'
+  MAINTENANCE = 'maintenance',
 }
 
 export enum AssigneeType {
   HUMAN = 'human',
-  AGENT = 'agent'
+  AGENT = 'agent',
 }
 
 export interface TaskSettings {
@@ -84,33 +84,33 @@ export class TaskEntity extends BaseEntity {
   @JoinColumn({ name: 'project_id' })
   project!: ProjectEntity;
 
-  @Column({ 
-    type: 'enum', 
-    enum: TaskStatus, 
-    default: TaskStatus.TODO 
+  @Column({
+    type: 'enum',
+    enum: TaskStatus,
+    default: TaskStatus.TODO,
   })
   status!: TaskStatus;
 
-  @Column({ 
-    type: 'enum', 
-    enum: TaskPriority, 
-    default: TaskPriority.MEDIUM 
+  @Column({
+    type: 'enum',
+    enum: TaskPriority,
+    default: TaskPriority.MEDIUM,
   })
   priority!: TaskPriority;
 
-  @Column({ 
-    type: 'enum', 
-    enum: TaskType, 
-    default: TaskType.FEATURE 
+  @Column({
+    type: 'enum',
+    enum: TaskType,
+    default: TaskType.FEATURE,
   })
   type!: TaskType;
 
   // Assignment fields - either human or agent
-  @Column({ 
-    type: 'enum', 
-    enum: AssigneeType, 
+  @Column({
+    type: 'enum',
+    enum: AssigneeType,
     name: 'assignee_type',
-    nullable: true 
+    nullable: true,
   })
   assigneeType?: AssigneeType;
 
@@ -256,7 +256,7 @@ export class TaskEntity extends BaseEntity {
   get assigneeDisplayName(): string {
     const name = this.assigneeName;
     if (name === 'Unassigned') return name;
-    
+
     const typePrefix = this.assigneeType === AssigneeType.AGENT ? '🤖' : '👤';
     return `${typePrefix} ${name}`;
   }

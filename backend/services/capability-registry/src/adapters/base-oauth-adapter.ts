@@ -52,7 +52,7 @@ export abstract class BaseOAuthAdapter {
       client_id: this.config.clientId,
       redirect_uri: this.config.redirectUri,
       scope: this.config.scope.join(' '),
-      state: state || randomUUID()
+      state: state || randomUUID(),
     });
 
     return `${this.config.authUrl}?${params.toString()}`;
@@ -67,15 +67,15 @@ export abstract class BaseOAuthAdapter {
         method: 'POST',
         headers: {
           'Content-Type': 'application/x-www-form-urlencoded',
-          'Accept': 'application/json'
+          Accept: 'application/json',
         },
         body: new URLSearchParams({
           grant_type: 'authorization_code',
           client_id: this.config.clientId,
           client_secret: this.config.clientSecret,
           redirect_uri: this.config.redirectUri,
-          code
-        })
+          code,
+        }),
       });
 
       if (!response.ok) {
@@ -83,12 +83,12 @@ export abstract class BaseOAuthAdapter {
       }
 
       const data = await response.json();
-      
+
       return {
         accessToken: data.access_token,
         refreshToken: data.refresh_token,
         expiresAt: data.expires_in ? new Date(Date.now() + data.expires_in * 1000) : undefined,
-        scope: data.scope ? data.scope.split(' ') : this.config.scope
+        scope: data.scope ? data.scope.split(' ') : this.config.scope,
       };
     } catch (error) {
       logger.error('Failed to exchange code for tokens', error);
@@ -105,14 +105,14 @@ export abstract class BaseOAuthAdapter {
         method: 'POST',
         headers: {
           'Content-Type': 'application/x-www-form-urlencoded',
-          'Accept': 'application/json'
+          Accept: 'application/json',
         },
         body: new URLSearchParams({
           grant_type: 'refresh_token',
           client_id: this.config.clientId,
           client_secret: this.config.clientSecret,
-          refresh_token: refreshToken
-        })
+          refresh_token: refreshToken,
+        }),
       });
 
       if (!response.ok) {
@@ -120,12 +120,12 @@ export abstract class BaseOAuthAdapter {
       }
 
       const data = await response.json();
-      
+
       return {
         accessToken: data.access_token,
         refreshToken: data.refresh_token || refreshToken,
         expiresAt: data.expires_in ? new Date(Date.now() + data.expires_in * 1000) : undefined,
-        scope: data.scope ? data.scope.split(' ') : this.config.scope
+        scope: data.scope ? data.scope.split(' ') : this.config.scope,
       };
     } catch (error) {
       logger.error('Failed to refresh tokens', error);
@@ -161,19 +161,19 @@ export abstract class BaseOAuthAdapter {
    * Make authenticated API request
    */
   protected async makeApiRequest(
-    url: string, 
-    options: RequestInit, 
+    url: string,
+    options: RequestInit,
     tokens: OAuthTokens
   ): Promise<Response> {
     const headers = {
-      'Authorization': `Bearer ${tokens.accessToken}`,
-      'Accept': 'application/json',
-      ...options.headers
+      Authorization: `Bearer ${tokens.accessToken}`,
+      Accept: 'application/json',
+      ...options.headers,
     };
 
     const response = await fetch(url, {
       ...options,
-      headers
+      headers,
     });
 
     if (!response.ok) {

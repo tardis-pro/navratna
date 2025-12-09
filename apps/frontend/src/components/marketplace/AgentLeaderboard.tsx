@@ -5,12 +5,12 @@ import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { Progress } from '@/components/ui/progress';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { 
-  Trophy, 
-  Crown, 
-  Star, 
-  TrendingUp, 
-  Target, 
+import {
+  Trophy,
+  Crown,
+  Star,
+  TrendingUp,
+  Target,
   Zap,
   Medal,
   Award,
@@ -20,7 +20,7 @@ import {
   BarChart3,
   ArrowUp,
   ArrowDown,
-  Minus
+  Minus,
 } from 'lucide-react';
 import { LeaderboardEntry, BattleType } from '@uaip/types';
 
@@ -30,8 +30,12 @@ interface AgentLeaderboardProps {
 
 export const AgentLeaderboard: React.FC<AgentLeaderboardProps> = ({ onAgentClick }) => {
   const [globalLeaderboard, setGlobalLeaderboard] = useState<LeaderboardEntry[]>([]);
-  const [categoryLeaderboards, setCategoryLeaderboards] = useState<Record<string, LeaderboardEntry[]>>({});
-  const [selectedPeriod, setSelectedPeriod] = useState<'all-time' | 'monthly' | 'weekly'>('all-time');
+  const [categoryLeaderboards, setCategoryLeaderboards] = useState<
+    Record<string, LeaderboardEntry[]>
+  >({});
+  const [selectedPeriod, setSelectedPeriod] = useState<'all-time' | 'monthly' | 'weekly'>(
+    'all-time'
+  );
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
 
   // Mock leaderboard data
@@ -62,7 +66,7 @@ export const AgentLeaderboard: React.FC<AgentLeaderboardProps> = ({ onAgentClick
         skillRating: 2847,
         lastBattleAt: new Date(Date.now() - 2 * 60 * 60 * 1000), // 2 hours ago
         createdAt: new Date('2023-01-15'),
-        updatedAt: new Date()
+        updatedAt: new Date(),
       },
       {
         rank: 2,
@@ -89,7 +93,7 @@ export const AgentLeaderboard: React.FC<AgentLeaderboardProps> = ({ onAgentClick
         skillRating: 2634,
         lastBattleAt: new Date(Date.now() - 4 * 60 * 60 * 1000), // 4 hours ago
         createdAt: new Date('2023-02-01'),
-        updatedAt: new Date()
+        updatedAt: new Date(),
       },
       {
         rank: 3,
@@ -116,8 +120,8 @@ export const AgentLeaderboard: React.FC<AgentLeaderboardProps> = ({ onAgentClick
         skillRating: 2456,
         lastBattleAt: new Date(Date.now() - 1 * 60 * 60 * 1000), // 1 hour ago
         createdAt: new Date('2023-03-10'),
-        updatedAt: new Date()
-      }
+        updatedAt: new Date(),
+      },
     ];
 
     // Generate more mock data for positions 4-10
@@ -146,7 +150,7 @@ export const AgentLeaderboard: React.FC<AgentLeaderboardProps> = ({ onAgentClick
         skillRating: 2400 - i * 50,
         lastBattleAt: new Date(Date.now() - i * 60 * 60 * 1000),
         createdAt: new Date(`2023-0${Math.min(i, 9)}-15`),
-        updatedAt: new Date()
+        updatedAt: new Date(),
       });
     }
 
@@ -155,10 +159,14 @@ export const AgentLeaderboard: React.FC<AgentLeaderboardProps> = ({ onAgentClick
 
   const getRankIcon = (rank: number) => {
     switch (rank) {
-      case 1: return <Crown className="w-6 h-6 text-yellow-500" />;
-      case 2: return <Medal className="w-6 h-6 text-gray-400" />;
-      case 3: return <Award className="w-6 h-6 text-amber-600" />;
-      default: return <span className="text-lg font-bold text-gray-600">#{rank}</span>;
+      case 1:
+        return <Crown className="w-6 h-6 text-yellow-500" />;
+      case 2:
+        return <Medal className="w-6 h-6 text-gray-400" />;
+      case 3:
+        return <Award className="w-6 h-6 text-amber-600" />;
+      default:
+        return <span className="text-lg font-bold text-gray-600">#{rank}</span>;
     }
   };
 
@@ -176,10 +184,15 @@ export const AgentLeaderboard: React.FC<AgentLeaderboardProps> = ({ onAgentClick
     return num.toString();
   };
 
-  const LeaderboardRow: React.FC<{ entry: LeaderboardEntry; detailed?: boolean }> = ({ entry, detailed = false }) => (
-    <Card 
+  const LeaderboardRow: React.FC<{ entry: LeaderboardEntry; detailed?: boolean }> = ({
+    entry,
+    detailed = false,
+  }) => (
+    <Card
       className={`transition-all duration-200 hover:shadow-lg cursor-pointer ${
-        entry.rank <= 3 ? 'border-2 border-yellow-200 bg-gradient-to-r from-yellow-50 to-orange-50' : ''
+        entry.rank <= 3
+          ? 'border-2 border-yellow-200 bg-gradient-to-r from-yellow-50 to-orange-50'
+          : ''
       }`}
       onClick={() => onAgentClick?.(entry.agentId)}
     >
@@ -290,7 +303,8 @@ export const AgentLeaderboard: React.FC<AgentLeaderboardProps> = ({ onAgentClick
           🏆 Agent Leaderboards
         </h1>
         <p className="text-lg text-gray-600 max-w-2xl mx-auto">
-          The ultimate ranking of AI agents based on battle performance, community engagement, and viral impact
+          The ultimate ranking of AI agents based on battle performance, community engagement, and
+          viral impact
         </p>
       </div>
 
@@ -316,8 +330,8 @@ export const AgentLeaderboard: React.FC<AgentLeaderboardProps> = ({ onAgentClick
         <h2 className="text-2xl font-bold text-center mb-6">🥇 Hall of Fame</h2>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           {globalLeaderboard.slice(0, 3).map((entry, index) => (
-            <Card 
-              key={entry.agentId} 
+            <Card
+              key={entry.agentId}
               className={`text-center cursor-pointer hover:shadow-lg transition-shadow ${
                 index === 0 ? 'border-2 border-yellow-400 transform scale-105' : ''
               }`}
@@ -362,7 +376,7 @@ export const AgentLeaderboard: React.FC<AgentLeaderboardProps> = ({ onAgentClick
           <TabsTrigger value="rookies">🆕 Rookies</TabsTrigger>
           <TabsTrigger value="categories">📊 By Category</TabsTrigger>
         </TabsList>
-        
+
         <TabsContent value="global" className="space-y-4">
           <div className="flex justify-between items-center">
             <h3 className="text-xl font-semibold">Global Rankings</h3>
@@ -403,9 +417,9 @@ export const AgentLeaderboard: React.FC<AgentLeaderboardProps> = ({ onAgentClick
           </div>
           <div className="space-y-3">
             {globalLeaderboard.slice(5, 10).map((entry, index) => (
-              <LeaderboardRow 
-                key={`rookie-${entry.agentId}`} 
-                entry={{...entry, rank: index + 1}} 
+              <LeaderboardRow
+                key={`rookie-${entry.agentId}`}
+                entry={{ ...entry, rank: index + 1 }}
               />
             ))}
           </div>
@@ -414,7 +428,10 @@ export const AgentLeaderboard: React.FC<AgentLeaderboardProps> = ({ onAgentClick
         <TabsContent value="categories" className="space-y-4">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             {Object.values(BattleType).map((category) => (
-              <Card key={category} className="text-center cursor-pointer hover:shadow-md transition-shadow">
+              <Card
+                key={category}
+                className="text-center cursor-pointer hover:shadow-md transition-shadow"
+              >
                 <CardContent className="p-4">
                   <div className="text-2xl mb-2">
                     {category === BattleType.CODING_CHALLENGE && '👨‍💻'}
@@ -448,19 +465,23 @@ export const AgentLeaderboard: React.FC<AgentLeaderboardProps> = ({ onAgentClick
           </div>
           <div>
             <div className="text-2xl font-bold">
-              {globalLeaderboard.reduce((sum, entry) => sum + entry.totalBattles, 0).toLocaleString()}
+              {globalLeaderboard
+                .reduce((sum, entry) => sum + entry.totalBattles, 0)
+                .toLocaleString()}
             </div>
             <div className="text-sm opacity-90">Total Battles</div>
           </div>
           <div>
             <div className="text-2xl font-bold">
-              {formatNumber(globalLeaderboard.reduce((sum, entry) => sum + entry.totalSpectators, 0))}
+              {formatNumber(
+                globalLeaderboard.reduce((sum, entry) => sum + entry.totalSpectators, 0)
+              )}
             </div>
             <div className="text-sm opacity-90">Total Views</div>
           </div>
           <div>
             <div className="text-2xl font-bold">
-              {Math.max(...globalLeaderboard.map(entry => entry.streaks.longest))}
+              {Math.max(...globalLeaderboard.map((entry) => entry.streaks.longest))}
             </div>
             <div className="text-sm opacity-90">Longest Streak</div>
           </div>

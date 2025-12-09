@@ -15,7 +15,7 @@ import {
   Settings,
   RefreshCw,
   Activity,
-  Zap
+  Zap,
 } from 'lucide-react';
 import { MarketplaceHome } from './MarketplaceHome';
 import { BattleArena } from './BattleArena';
@@ -39,7 +39,7 @@ interface MarketplaceHubProps {
 export const MarketplaceHub: React.FC<MarketplaceHubProps> = ({
   className,
   viewport,
-  mode = 'hub'
+  mode = 'hub',
 }) => {
   const [activeTab, setActiveTab] = useState('marketplace');
   const [notifications, setNotifications] = useState(3);
@@ -50,8 +50,9 @@ export const MarketplaceHub: React.FC<MarketplaceHubProps> = ({
     width: typeof window !== 'undefined' ? window.innerWidth : 1024,
     height: typeof window !== 'undefined' ? window.innerHeight : 768,
     isMobile: typeof window !== 'undefined' ? window.innerWidth < 768 : false,
-    isTablet: typeof window !== 'undefined' ? window.innerWidth >= 768 && window.innerWidth < 1024 : false,
-    isDesktop: typeof window !== 'undefined' ? window.innerWidth >= 1024 : true
+    isTablet:
+      typeof window !== 'undefined' ? window.innerWidth >= 768 && window.innerWidth < 1024 : false,
+    isDesktop: typeof window !== 'undefined' ? window.innerWidth >= 1024 : true,
   };
 
   const currentViewport = viewport || defaultViewport;
@@ -83,15 +84,20 @@ export const MarketplaceHub: React.FC<MarketplaceHubProps> = ({
   };
 
   return (
-    <div className={`h-full bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 text-white overflow-hidden ${className || ''}`}>
+    <div
+      className={`h-full bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 text-white overflow-hidden ${className || ''}`}
+    >
       {/* Background Pattern */}
       <div className="absolute inset-0 opacity-5">
-        <div className="absolute inset-0" style={{
-          backgroundImage: `radial-gradient(circle at 25% 25%, #3b82f6 0%, transparent 50%),
+        <div
+          className="absolute inset-0"
+          style={{
+            backgroundImage: `radial-gradient(circle at 25% 25%, #3b82f6 0%, transparent 50%),
                            radial-gradient(circle at 75% 75%, #8b5cf6 0%, transparent 50%),
                            radial-gradient(circle at 75% 25%, #06d6a0 0%, transparent 50%),
-                           radial-gradient(circle at 25% 75%, #f59e0b 0%, transparent 50%)`
-        }} />
+                           radial-gradient(circle at 25% 75%, #f59e0b 0%, transparent 50%)`,
+          }}
+        />
       </div>
 
       {/* Top Navigation */}
@@ -175,7 +181,11 @@ export const MarketplaceHub: React.FC<MarketplaceHubProps> = ({
 
       {/* Main Content */}
       <div className="relative z-10 px-6 py-6 h-full overflow-auto">
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full h-full flex flex-col">
+        <Tabs
+          value={activeTab}
+          onValueChange={setActiveTab}
+          className="w-full h-full flex flex-col"
+        >
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -187,28 +197,28 @@ export const MarketplaceHub: React.FC<MarketplaceHubProps> = ({
                 className="flex items-center gap-2 data-[state=active]:bg-blue-600/20 data-[state=active]:text-blue-300 text-slate-400 hover:text-slate-200"
               >
                 <Store className="w-4 h-4" />
-                <span className={currentViewport.isMobile ? "hidden" : "inline"}>Marketplace</span>
+                <span className={currentViewport.isMobile ? 'hidden' : 'inline'}>Marketplace</span>
               </TabsTrigger>
               <TabsTrigger
                 value="arena"
                 className="flex items-center gap-2 data-[state=active]:bg-purple-600/20 data-[state=active]:text-purple-300 text-slate-400 hover:text-slate-200"
               >
                 <Sword className="w-4 h-4" />
-                <span className={currentViewport.isMobile ? "hidden" : "inline"}>Battle Arena</span>
+                <span className={currentViewport.isMobile ? 'hidden' : 'inline'}>Battle Arena</span>
               </TabsTrigger>
               <TabsTrigger
                 value="leaderboard"
                 className="flex items-center gap-2 data-[state=active]:bg-yellow-600/20 data-[state=active]:text-yellow-300 text-slate-400 hover:text-slate-200"
               >
                 <Trophy className="w-4 h-4" />
-                <span className={currentViewport.isMobile ? "hidden" : "inline"}>Leaderboards</span>
+                <span className={currentViewport.isMobile ? 'hidden' : 'inline'}>Leaderboards</span>
               </TabsTrigger>
               <TabsTrigger
                 value="social"
                 className="flex items-center gap-2 data-[state=active]:bg-green-600/20 data-[state=active]:text-green-300 text-slate-400 hover:text-slate-200"
               >
                 <Users className="w-4 h-4" />
-                <span className={currentViewport.isMobile ? "hidden" : "inline"}>Social</span>
+                <span className={currentViewport.isMobile ? 'hidden' : 'inline'}>Social</span>
               </TabsTrigger>
             </TabsList>
           </motion.div>
@@ -239,10 +249,7 @@ export const MarketplaceHub: React.FC<MarketplaceHubProps> = ({
                 </TabsContent>
 
                 <TabsContent value="social" className="mt-0 h-full">
-                  <SocialFeed
-                    onAgentClick={handleAgentClick}
-                    onUserClick={handleUserClick}
-                  />
+                  <SocialFeed onAgentClick={handleAgentClick} onUserClick={handleUserClick} />
                 </TabsContent>
               </motion.div>
             </AnimatePresence>
@@ -259,7 +266,9 @@ export const MarketplaceHub: React.FC<MarketplaceHubProps> = ({
           className="relative z-10 bg-slate-900/70 backdrop-blur-xl border-t border-slate-700/50 mt-6"
         >
           <div className="px-6 py-6">
-            <div className={`grid ${currentViewport.isMobile ? 'grid-cols-2' : 'grid-cols-6'} gap-4 text-center`}>
+            <div
+              className={`grid ${currentViewport.isMobile ? 'grid-cols-2' : 'grid-cols-6'} gap-4 text-center`}
+            >
               <motion.div
                 initial={{ opacity: 0, scale: 0.9 }}
                 animate={{ opacity: 1, scale: 1 }}
@@ -337,10 +346,7 @@ export const MarketplaceHub: React.FC<MarketplaceHubProps> = ({
               }
             }}
           >
-            <motion.div
-              whileHover={{ scale: 1.1 }}
-              whileTap={{ scale: 0.9 }}
-            >
+            <motion.div whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}>
               {activeTab === 'marketplace' && <Store className="w-6 h-6" />}
               {activeTab === 'arena' && <Sword className="w-6 h-6" />}
               {activeTab === 'leaderboard' && <TrendingUp className="w-6 h-6" />}

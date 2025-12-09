@@ -79,11 +79,11 @@ export const mcpAPI = {
   async uploadConfig(configFile: File): Promise<MCPUploadResult> {
     const formData = new FormData();
     formData.append('mcpConfig', configFile);
-    
+
     return APIClient.post<MCPUploadResult>('/api/v1/mcp/upload-config', formData, {
       headers: {
         // Don't set Content-Type, let the browser set it for FormData
-      }
+      },
     });
   },
 
@@ -133,12 +133,15 @@ export const mcpAPI = {
   /**
    * Update an existing MCP tool
    */
-  async updateTool(toolId: string, updates: {
-    name?: string;
-    description?: string;
-    parameters?: any;
-    enabled?: boolean;
-  }): Promise<{
+  async updateTool(
+    toolId: string,
+    updates: {
+      name?: string;
+      description?: string;
+      parameters?: any;
+      enabled?: boolean;
+    }
+  ): Promise<{
     toolId: string;
     message: string;
     updates: any;
@@ -166,7 +169,11 @@ export const mcpAPI = {
   /**
    * Execute an MCP tool
    */
-  async executeTool(toolId: string, parameters: any, agentId?: string): Promise<{
+  async executeTool(
+    toolId: string,
+    parameters: any,
+    agentId?: string
+  ): Promise<{
     toolId: string;
     result: any;
     message: string;
@@ -177,7 +184,7 @@ export const mcpAPI = {
       message: string;
     }>(`/api/v1/mcp/tools/${toolId}/execute`, {
       parameters,
-      agentId
+      agentId,
     });
   },
 
@@ -197,7 +204,10 @@ export const mcpAPI = {
   /**
    * Get tool recommendations
    */
-  async getToolRecommendations(toolId: string, limit: number = 5): Promise<{
+  async getToolRecommendations(
+    toolId: string,
+    limit: number = 5
+  ): Promise<{
     toolId: string;
     recommendations: any[];
     count: number;
@@ -207,7 +217,7 @@ export const mcpAPI = {
       recommendations: any[];
       count: number;
     }>(`/api/v1/mcp/tools/${toolId}/recommendations`, {
-      params: { limit }
+      params: { limit },
     });
   },
 
@@ -274,5 +284,5 @@ export const mcpAPI = {
       message: string;
       tool: string;
     }>(`/api/v1/mcp/install-tool/${encodeURIComponent(toolName)}`);
-  }
+  },
 };

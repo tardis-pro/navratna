@@ -1,6 +1,6 @@
 /**
  * UAIP Frontend API Service
- * 
+ *
  * This service provides a clean interface between the frontend components
  * and the UAIP backend services. It handles API calls, error handling,
  * and data transformation for the frontend.
@@ -9,7 +9,13 @@
 // Import the backend API client
 export * from './api';
 import { APIClient, api } from '@/api';
-import { API_CONFIG, getEffectiveAPIBaseURL, getEnvironmentConfig, buildAPIURL, API_ROUTES } from '@/config/apiConfig';
+import {
+  API_CONFIG,
+  getEffectiveAPIBaseURL,
+  getEnvironmentConfig,
+  buildAPIURL,
+  API_ROUTES,
+} from '@/config/apiConfig';
 
 // Import shared types - using regular imports for enums and type imports for interfaces
 import type {
@@ -58,15 +64,11 @@ import type {
   KnowledgeIngestResponse,
   KnowledgeRelationship,
   KnowledgeType,
-  SourceType
+  SourceType,
 } from '@uaip/types';
 
 // Import enums separately (not as type imports)
-import {
-  DiscussionStatus,
-  MessageType,
-  LLMProviderType
-} from '@uaip/types';
+import { DiscussionStatus, MessageType, LLMProviderType } from '@uaip/types';
 
 // Import frontend-specific types
 import type {
@@ -91,8 +93,8 @@ const isProduction = !isDevelopment;
 // Generate unique IDs
 export function generateUUID(): string {
   return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
-    const r = Math.random() * 16 | 0;
-    const v = c === 'x' ? r : (r & 0x3 | 0x8);
+    const r = (Math.random() * 16) | 0;
+    const v = c === 'x' ? r : (r & 0x3) | 0x8;
     return v.toString(16);
   });
 }
@@ -115,7 +117,7 @@ export const uaipAPI = {
     return {
       // Expose all API modules
       ...api,
-      
+
       // Add auth management methods from APIClient
       getAuthToken: () => APIClient.getAuthToken(),
       setAuthToken: (token: string | null, refreshToken?: string, rememberMe?: boolean) => {
@@ -170,9 +172,12 @@ export const uaipAPI = {
           const response = await APIClient.get('/health');
           return { success: true, data: response };
         } catch (error) {
-          return { success: false, error: { message: error instanceof Error ? error.message : 'Health check failed' } };
+          return {
+            success: false,
+            error: { message: error instanceof Error ? error.message : 'Health check failed' },
+          };
         }
-      }
+      },
     };
   },
 
@@ -183,12 +188,11 @@ export const uaipAPI = {
       isProduction,
       baseURL: getEffectiveAPIBaseURL(),
       config: envConfig,
-      routes: API_ROUTES
+      routes: API_ROUTES,
     };
   },
 
   // WebSocket client access removed - using useWebSocket hook instead
-
 
   // ============================================================================
   // PERSONA API METHODS
@@ -201,7 +205,7 @@ export const uaipAPI = {
 
         const searchRequest = {
           query,
-          isActive: true
+          isActive: true,
         };
 
         const response = await client.personas.search(searchRequest);
@@ -213,7 +217,7 @@ export const uaipAPI = {
         return {
           personas: personas,
           total: personas.length,
-          hasMore: false // The backend doesn't provide pagination info yet
+          hasMore: false, // The backend doesn't provide pagination info yet
         };
       } catch (error) {
         console.error('Failed to fetch personas:', error);
@@ -234,7 +238,7 @@ export const uaipAPI = {
         return {
           personas: personas,
           total: personas.length,
-          hasMore: false
+          hasMore: false,
         };
       } catch (error) {
         console.error('Failed to fetch personas for display:', error);
@@ -270,9 +274,6 @@ export const uaipAPI = {
       const response = await client.personas.delete(id);
       return response.data;
     },
-
-
-
   },
 
   // ============================================================================
@@ -288,7 +289,7 @@ export const uaipAPI = {
       return {
         discussions: response.data || [],
         totalCount: response.data?.length || 0,
-        searchTime: 0
+        searchTime: 0,
       };
     },
 
@@ -352,11 +353,14 @@ export const uaipAPI = {
       await client.discussions.end(id, 'Discussion terminated by user');
     },
 
-    async addParticipant(id: string, participant: DiscussionParticipantCreate): Promise<DiscussionParticipant> {
+    async addParticipant(
+      id: string,
+      participant: DiscussionParticipantCreate
+    ): Promise<DiscussionParticipant> {
       const client = getAPIClient();
       const response = await client.discussions.addParticipant(id, {
         agentId: participant.agentId,
-        role: participant.role || 'participant'
+        role: participant.role || 'participant',
       });
 
       if (!response.success) {
@@ -380,7 +384,7 @@ export const uaipAPI = {
       // Convert MessageSearchOptions to the format expected by discussions.api
       const apiOptions = {
         limit: options?.limit,
-        page: options?.offset ? Math.floor(options.offset / (options.limit || 50)) + 1 : undefined
+        page: options?.offset ? Math.floor(options.offset / (options.limit || 50)) + 1 : undefined,
       };
       return await client.discussions.getMessages(id, apiOptions);
     },
@@ -391,7 +395,7 @@ export const uaipAPI = {
       const response = await client.discussions.sendMessage(id, 'current-participant', {
         content: message.content,
         messageType: message.messageType || MessageType.MESSAGE,
-        metadata: message.metadata
+        metadata: message.metadata,
       });
 
       if (!response.success) {
@@ -405,7 +409,7 @@ export const uaipAPI = {
       const client = getAPIClient();
       const response = await client.discussions.advanceTurn(id, {
         force: false,
-        reason: 'Turn advanced by user'
+        reason: 'Turn advanced by user',
       });
 
       if (!response.success) {
@@ -422,9 +426,9 @@ export const uaipAPI = {
         nextParticipantId: 'participant-2',
         canAdvance: true,
         startedAt: new Date(),
-        turnTimeout: 300
+        turnTimeout: 300,
       };
-    }
+    },
   },
 
   // ============================================================================
@@ -480,15 +484,18 @@ export const uaipAPI = {
       }
     },
 
-    async chat(agentId: string, request: {
-      message: string;
-      conversationHistory?: Array<{
-        content: string;
-        sender: string;
-        timestamp: string;
-      }>;
-      context?: any;
-    }): Promise<{
+    async chat(
+      agentId: string,
+      request: {
+        message: string;
+        conversationHistory?: Array<{
+          content: string;
+          sender: string;
+          timestamp: string;
+        }>;
+        context?: any;
+      }
+    ): Promise<{
       response: string;
       agentName: string;
       confidence: number;
@@ -512,14 +519,14 @@ export const uaipAPI = {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${authToken}`
+            Authorization: `Bearer ${authToken}`,
           },
           body: JSON.stringify({
             message: request.message,
             conversationHistory: request.conversationHistory || [],
-            context: request.context || {}
+            context: request.context || {},
           }),
-          signal: controller.signal
+          signal: controller.signal,
         });
 
         clearTimeout(timeoutId);
@@ -545,17 +552,21 @@ export const uaipAPI = {
           persona: data.data.persona,
           conversationContext: data.data.conversationContext || {},
           timestamp: data.data.timestamp || new Date().toISOString(),
-          toolsExecuted: data.data.toolsExecuted || []
+          toolsExecuted: data.data.toolsExecuted || [],
         };
       } catch (error) {
         console.error('Agent chat error:', error);
 
         if (error instanceof Error) {
           if (error.name === 'AbortError') {
-            throw new Error('Agent response timed out after 30 seconds. The LLM service may be busy.');
+            throw new Error(
+              'Agent response timed out after 30 seconds. The LLM service may be busy.'
+            );
           }
           if (error.message.includes('fetch')) {
-            throw new Error('Failed to connect to agent service. Please check if the backend is running.');
+            throw new Error(
+              'Failed to connect to agent service. Please check if the backend is running.'
+            );
           }
         }
 
@@ -580,7 +591,7 @@ export const uaipAPI = {
         console.error(`Failed to remove tool ${toolId} from agent ${agentId}:`, error);
         throw error;
       }
-    }
+    },
   },
 
   // ============================================================================
@@ -645,7 +656,7 @@ export const uaipAPI = {
           data: response.data,
           executionId: `exec_${Date.now()}`,
           executionTime: Math.random() * 1000,
-          cost: Math.random() * 10
+          cost: Math.random() * 10,
         };
       } catch (error) {
         console.error('Failed to execute tool:', error);
@@ -654,7 +665,7 @@ export const uaipAPI = {
           error: { message: error instanceof Error ? error.message : 'Tool execution failed' },
           executionId: `exec_${Date.now()}`,
           executionTime: 0,
-          cost: 0
+          cost: 0,
         };
       }
     },
@@ -674,7 +685,7 @@ export const uaipAPI = {
         console.warn('Failed to get tool categories, returning mock categories:', error);
         return ['System', 'External', 'Analysis', 'Communication', 'Development'];
       }
-    }
+    },
   },
 
   // ============================================================================
@@ -686,8 +697,8 @@ export const uaipAPI = {
       try {
         // First try to get models from user's providers
         const userModels = await api.llm.userLLM.listModels();
-        
-        // Transform the response to match expected interface  
+
+        // Transform the response to match expected interface
         const transformedUserModels = userModels.map((model: any) => ({
           id: model.id || 'unknown',
           name: model.name || 'Unknown Model',
@@ -696,7 +707,7 @@ export const uaipAPI = {
           apiEndpoint: model.apiEndpoint || '',
           apiType: model.apiType || 'custom',
           provider: model.provider || 'unknown',
-          isAvailable: model.isAvailable || false
+          isAvailable: model.isAvailable || false,
         }));
 
         // If user has models, return them
@@ -706,7 +717,7 @@ export const uaipAPI = {
       } catch (error) {
         console.warn('Failed to get user models, falling back to system models:', error);
       }
-      
+
       // Fallback to system models if user has no providers
       try {
         const systemModels = await api.llm.listModels();
@@ -718,7 +729,7 @@ export const uaipAPI = {
           apiEndpoint: model.apiEndpoint || '',
           apiType: model.apiType || 'custom',
           provider: model.provider || 'unknown',
-          isAvailable: model.isActive || false
+          isAvailable: model.isActive || false,
         }));
       } catch (error) {
         console.error('Failed to get system models:', error);
@@ -726,25 +737,27 @@ export const uaipAPI = {
       }
     },
 
-    async getProviders(): Promise<Array<{
-      id: string;
-      name: string;
-      description?: string;
-      type: string;
-      baseUrl: string;
-      defaultModel?: string;
-      status: string;
-      isActive: boolean;
-      priority: number;
-      totalTokensUsed: number;
-      totalRequests: number;
-      totalErrors: number;
-      lastUsedAt?: string;
-      healthCheckResult?: any;
-      hasApiKey: boolean;
-      createdAt: string;
-      updatedAt: string;
-    }>> {
+    async getProviders(): Promise<
+      Array<{
+        id: string;
+        name: string;
+        description?: string;
+        type: string;
+        baseUrl: string;
+        defaultModel?: string;
+        status: string;
+        isActive: boolean;
+        priority: number;
+        totalTokensUsed: number;
+        totalRequests: number;
+        totalErrors: number;
+        lastUsedAt?: string;
+        healthCheckResult?: any;
+        hasApiKey: boolean;
+        createdAt: string;
+        updatedAt: string;
+      }>
+    > {
       const providers = await api.llm.userLLM.listProviders();
 
       // Transform the response to match expected interface
@@ -765,7 +778,7 @@ export const uaipAPI = {
         healthCheckResult: provider.healthCheckResult,
         hasApiKey: provider.hasApiKey || false,
         createdAt: provider.createdAt || new Date().toISOString(),
-        updatedAt: provider.updatedAt || new Date().toISOString()
+        updatedAt: provider.updatedAt || new Date().toISOString(),
       }));
     },
 
@@ -779,14 +792,17 @@ export const uaipAPI = {
       }
     },
 
-    async updateProviderConfig(providerId: string, config: {
-      name?: string;
-      description?: string;
-      baseUrl?: string;
-      defaultModel?: string;
-      priority?: number;
-      configuration?: any;
-    }): Promise<void> {
+    async updateProviderConfig(
+      providerId: string,
+      config: {
+        name?: string;
+        description?: string;
+        baseUrl?: string;
+        defaultModel?: string;
+        priority?: number;
+        configuration?: any;
+      }
+    ): Promise<void> {
       const client = getAPIClient();
       await client.llm.userLLM.updateProvider(providerId, config);
     },
@@ -796,16 +812,19 @@ export const uaipAPI = {
       await client.llm.userLLM.updateProvider(providerId, { apiKey });
     },
 
-    async updateProvider(providerId: string, updates: {
-      name?: string;
-      description?: string;
-      baseUrl?: string;
-      apiKey?: string;
-      defaultModel?: string;
-      priority?: number;
-      configuration?: any;
-      isActive?: boolean;
-    }): Promise<void> {
+    async updateProvider(
+      providerId: string,
+      updates: {
+        name?: string;
+        description?: string;
+        baseUrl?: string;
+        apiKey?: string;
+        defaultModel?: string;
+        priority?: number;
+        configuration?: any;
+        isActive?: boolean;
+      }
+    ): Promise<void> {
       const client = getAPIClient();
       await client.llm.userLLM.updateProvider(providerId, updates);
     },
@@ -854,30 +873,34 @@ export const uaipAPI = {
     },
 
     // Legacy methods for backward compatibility
-    async getModelsFromProvider(providerType: string): Promise<Array<{
-      id: string;
-      name: string;
-      description?: string;
-      source: string;
-      apiEndpoint: string;
-    }>> {
+    async getModelsFromProvider(providerType: string): Promise<
+      Array<{
+        id: string;
+        name: string;
+        description?: string;
+        source: string;
+        apiEndpoint: string;
+      }>
+    > {
       // This method is not available in user LLM routes, so we'll return empty array
       console.warn('getModelsFromProvider is not available in user LLM routes');
       return [];
     },
 
-    async getProviderStats(): Promise<Array<{
-      name: string;
-      type: string;
-      available: boolean;
-    }>> {
+    async getProviderStats(): Promise<
+      Array<{
+        name: string;
+        type: string;
+        available: boolean;
+      }>
+    > {
       try {
         // Convert user providers to provider stats format
         const providers = await this.getProviders();
-        return providers.map(provider => ({
+        return providers.map((provider) => ({
           name: provider.name,
           type: provider.type,
-          available: provider.isActive && provider.status === 'active'
+          available: provider.isActive && provider.status === 'active',
         }));
       } catch (error) {
         console.warn('Failed to get user provider stats, returning empty array:', error);
@@ -897,7 +920,7 @@ export const uaipAPI = {
         prompt: `Generate a ${request.type} ${request.language ? `in ${request.language}` : ''} based on: ${request.prompt}`,
         systemPrompt: `You are an expert ${request.type} generator. Generate clean, well-structured code.`,
         maxTokens: 2000,
-        temperature: 0.3
+        temperature: 0.3,
       });
     },
 
@@ -913,9 +936,9 @@ export const uaipAPI = {
         prompt,
         systemPrompt: 'You are an expert conversation analyst. Provide structured insights.',
         maxTokens: 1000,
-        temperature: 0.2
+        temperature: 0.2,
       });
-    }
+    },
   },
 
   // ============================================================================
@@ -927,7 +950,7 @@ export const uaipAPI = {
       try {
         await api.approvals.submitDecision(executionId, {
           decision: 'approve',
-          reason: `Approved by ${approvalData.approverId}`
+          reason: `Approved by ${approvalData.approverId}`,
         });
       } catch (error) {
         console.error('Approval API failed:', error);
@@ -935,11 +958,14 @@ export const uaipAPI = {
       }
     },
 
-    async reject(executionId: string, rejectionData: { approverId: string; reason: string }): Promise<void> {
+    async reject(
+      executionId: string,
+      rejectionData: { approverId: string; reason: string }
+    ): Promise<void> {
       try {
         await api.approvals.submitDecision(executionId, {
           decision: 'reject',
-          reason: rejectionData.reason
+          reason: rejectionData.reason,
         });
       } catch (error) {
         console.error('Rejection API failed:', error);
@@ -964,7 +990,7 @@ export const uaipAPI = {
         // Return empty array instead of throwing to prevent infinite retries
         return [];
       }
-    }
+    },
   },
 
   // Knowledge Graph System
@@ -974,21 +1000,23 @@ export const uaipAPI = {
         // Use bulk upload if available, otherwise upload individually
         const client = getAPIClient();
         const uploadResults = await Promise.all(
-          items.map(item => client.knowledge.upload({
-            title: item.title,
-            content: item.content,
-            type: item.type,
-            category: item.category,
-            tags: item.tags,
-            metadata: item.metadata
-          }))
+          items.map((item) =>
+            client.knowledge.upload({
+              title: item.title,
+              content: item.content,
+              type: item.type,
+              category: item.category,
+              tags: item.tags,
+              metadata: item.metadata,
+            })
+          )
         );
-        
+
         return {
           items: uploadResults,
           successCount: uploadResults.length,
           failureCount: 0,
-          errors: []
+          errors: [],
         };
       } catch (error) {
         throw new Error(error instanceof Error ? error.message : 'Failed to upload knowledge');
@@ -999,7 +1027,7 @@ export const uaipAPI = {
       try {
         const client = getAPIClient();
         const searchResults = await client.knowledge.search(query);
-        
+
         // Validate searchResults structure
         if (!Array.isArray(searchResults)) {
           console.warn('Search results is not an array:', searchResults);
@@ -1010,11 +1038,11 @@ export const uaipAPI = {
               query: query.query || '',
               processingTime: 0,
               similarityScores: [],
-              filtersApplied: []
-            }
+              filtersApplied: [],
+            },
           };
         }
-        
+
         // Transform search results to expected format
         const items = searchResults.map((result: any) => result.item || result);
         return {
@@ -1023,9 +1051,9 @@ export const uaipAPI = {
           searchMetadata: {
             query: query.query || '',
             processingTime: 0,
-            similarityScores: searchResults.map(r => r.score || 0),
-            filtersApplied: []
-          }
+            similarityScores: searchResults.map((r) => r.score || 0),
+            filtersApplied: [],
+          },
         };
       } catch (error) {
         console.warn('Knowledge search API failed, returning empty results:', error);
@@ -1036,8 +1064,8 @@ export const uaipAPI = {
             query: query.query || '',
             processingTime: 0,
             similarityScores: [],
-            filtersApplied: []
-          }
+            filtersApplied: [],
+          },
         };
       }
     },
@@ -1073,31 +1101,36 @@ export const uaipAPI = {
       try {
         const client = getAPIClient();
         const stats = await client.knowledge.getStats();
-        
+
         // Transform API stats to expected format (now including general knowledge!)
         const totalItems = (stats.totalItems || 0) + (stats.generalKnowledge?.totalItems || 0);
-        const combinedItemsByType = { ...stats.itemsByType, ...stats.generalKnowledge?.itemsByType };
-        
+        const combinedItemsByType = {
+          ...stats.itemsByType,
+          ...stats.generalKnowledge?.itemsByType,
+        };
+
         return {
           totalItems,
           itemsByType: combinedItemsByType as Record<KnowledgeType, number>,
           itemsBySource: (stats.itemsByCategory || {}) as Record<SourceType, number>,
-          recentActivity: [{
-            date: new Date().toISOString().split('T')[0],
-            uploads: stats.recentActivity?.itemsThisWeek || 0,
-            searches: 0 // API doesn't track searches
-          }],
+          recentActivity: [
+            {
+              date: new Date().toISOString().split('T')[0],
+              uploads: stats.recentActivity?.itemsThisWeek || 0,
+              searches: 0, // API doesn't track searches
+            },
+          ],
           // Add general knowledge breakdown for debugging
           debug: {
             userKnowledge: {
               totalItems: stats.totalItems || 0,
-              itemsByType: stats.itemsByType || {}
+              itemsByType: stats.itemsByType || {},
             },
             generalKnowledge: {
               totalItems: stats.generalKnowledge?.totalItems || 0,
-              itemsByType: stats.generalKnowledge?.itemsByType || {}
-            }
-          }
+              itemsByType: stats.generalKnowledge?.itemsByType || {},
+            },
+          },
         };
       } catch (error) {
         console.warn('Knowledge stats API failed, returning mock data:', error);
@@ -1106,11 +1139,13 @@ export const uaipAPI = {
           totalItems: 0,
           itemsByType: {} as Record<KnowledgeType, number>,
           itemsBySource: {} as Record<SourceType, number>,
-          recentActivity: [{
-            date: new Date().toISOString().split('T')[0],
-            uploads: 0,
-            searches: 0
-          }]
+          recentActivity: [
+            {
+              date: new Date().toISOString().split('T')[0],
+              uploads: 0,
+              searches: 0,
+            },
+          ],
         };
       }
     },
@@ -1170,10 +1205,10 @@ export const uaipAPI = {
         console.warn('Knowledge graph API failed, returning empty graph:', error);
         return {
           nodes: [],
-          edges: []
+          edges: [],
         };
       }
-    }
+    },
   },
 
   // ============================================================================
@@ -1207,9 +1242,9 @@ export const uaipAPI = {
         const response = await fetch('/api/v1/mcp/upload-config', {
           method: 'POST',
           headers: {
-            'Authorization': `Bearer ${authToken}`
+            Authorization: `Bearer ${authToken}`,
           },
-          body: formData
+          body: formData,
         });
 
         if (!response.ok) {
@@ -1298,8 +1333,8 @@ export const uaipAPI = {
         console.error('MCP tools error:', error);
         throw error;
       }
-    }
-  }
+    },
+  },
 };
 
-export default uaipAPI; 
+export default uaipAPI;

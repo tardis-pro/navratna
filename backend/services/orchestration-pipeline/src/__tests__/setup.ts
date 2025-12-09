@@ -10,14 +10,19 @@ afterEach(() => {
 });
 
 // Global test utilities
-export const createMockRequest = (body = {}, params = {}, query = {}, user = { id: 'test-user-id', role: 'user' }) => ({
+export const createMockRequest = (
+  body = {},
+  params = {},
+  query = {},
+  user = { id: 'test-user-id', role: 'user' }
+) => ({
   body,
   params,
   query,
   headers: {},
   user,
   ip: '127.0.0.1',
-  get: jest.fn().mockReturnValue('test-value')
+  get: jest.fn().mockReturnValue('test-value'),
 });
 
 export const createMockResponse = () => {
@@ -29,7 +34,7 @@ export const createMockResponse = () => {
     clearCookie: jest.fn().mockReturnThis(),
     header: jest.fn().mockReturnThis(),
     removeHeader: jest.fn().mockReturnThis(),
-    redirect: jest.fn().mockReturnThis()
+    redirect: jest.fn().mockReturnThis(),
   };
   return res;
 };

@@ -42,8 +42,8 @@ export abstract class BaseAgent {
       metadata: {
         ...config.metadata,
         baseAgentVersion: '1.0.0',
-        serviceName: config.serviceName
-      }
+        serviceName: config.serviceName,
+      },
     };
 
     this.eventBusService = config.eventBusService;
@@ -73,9 +73,8 @@ export abstract class BaseAgent {
       logger.info('Base agent initialized', {
         agentId: this.agent.id,
         name: this.agent.name,
-        role: this.agent.role
+        role: this.agent.role,
       });
-
     } catch (error) {
       logger.error('Failed to initialize agent', { error, agentId: this.agent.id });
       this.agent.status = AgentStatus.ERROR;
@@ -89,7 +88,7 @@ export abstract class BaseAgent {
   protected async registerAgent(): Promise<void> {
     await this.eventBusService.publish('agent.registry.register', {
       agent: this.agent,
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
     });
   }
 
@@ -127,7 +126,7 @@ export abstract class BaseAgent {
       toolId,
       parameters,
       securityContext: securityContext || { level: 3 },
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
     };
 
     // Request tool execution through event bus
@@ -139,22 +138,19 @@ export abstract class BaseAgent {
       }, 30000); // 30 second timeout
 
       // Subscribe to response
-      this.eventBusService.subscribe(
-        `tool.response.${requestId}`,
-        async (response) => {
-          clearTimeout(timeout);
-          if (response.data?.success) {
-            resolve(response.data.data);
-          } else {
-            reject(new Error(response.data?.error || 'Tool execution failed'));
-          }
+      this.eventBusService.subscribe(`tool.response.${requestId}`, async (response) => {
+        clearTimeout(timeout);
+        if (response.data?.success) {
+          resolve(response.data.data);
+        } else {
+          reject(new Error(response.data?.error || 'Tool execution failed'));
         }
-      );
+      });
 
       // Publish tool execution request
       this.eventBusService.publish('tool.execute.request', {
         ...toolRequest,
-        requestId
+        requestId,
       });
     });
   }
@@ -179,9 +175,9 @@ export abstract class BaseAgent {
         temperature: options?.temperature || 0.7,
         maxTokens: options?.maxTokens || 1000,
         systemPrompt: options?.systemPrompt,
-        responseFormat: options?.responseFormat
+        responseFormat: options?.responseFormat,
       },
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
     };
 
     const requestId = uuidv4();
@@ -192,22 +188,19 @@ export abstract class BaseAgent {
       }, 60000); // 60 second timeout
 
       // Subscribe to response
-      this.eventBusService.subscribe(
-        `llm.response.${requestId}`,
-        async (response) => {
-          clearTimeout(timeout);
-          if (response.data?.success) {
-            resolve(response.data.data);
-          } else {
-            reject(new Error(response.data?.error || 'LLM request failed'));
-          }
+      this.eventBusService.subscribe(`llm.response.${requestId}`, async (response) => {
+        clearTimeout(timeout);
+        if (response.data?.success) {
+          resolve(response.data.data);
+        } else {
+          reject(new Error(response.data?.error || 'LLM request failed'));
         }
-      );
+      });
 
       // Publish LLM request
       this.eventBusService.publish('llm.request', {
         ...llmRequest,
-        requestId
+        requestId,
       });
     });
   }
@@ -215,16 +208,13 @@ export abstract class BaseAgent {
   /**
    * Emit analytics event
    */
-  protected async emitAnalytics(
-    eventType: string,
-    data: any
-  ): Promise<void> {
+  protected async emitAnalytics(eventType: string, data: any): Promise<void> {
     await this.eventBusService.publish('analytics.event', {
       agentId: this.agent.id,
       agentName: this.agent.name,
       eventType,
       data,
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
     });
   }
 
@@ -238,7 +228,7 @@ export abstract class BaseAgent {
       agentName: this.agent.name,
       service: this.serviceName,
       timestamp: new Date().toISOString(),
-      compliance: true
+      compliance: true,
     });
   }
 
@@ -248,7 +238,7 @@ export abstract class BaseAgent {
   protected async handleShutdown(event: any): Promise<void> {
     logger.info('Agent shutdown requested', {
       agentId: this.agent.id,
-      reason: event.reason
+      reason: event.reason,
     });
 
     try {
@@ -258,7 +248,7 @@ export abstract class BaseAgent {
       // Deregister from system
       await this.eventBusService.publish('agent.registry.deregister', {
         agentId: this.agent.id,
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
       });
 
       // Clean up resources
@@ -269,7 +259,6 @@ export abstract class BaseAgent {
       this.isInitialized = false;
 
       logger.info('Agent shutdown complete', { agentId: this.agent.id });
-
     } catch (error) {
       logger.error('Error during agent shutdown', { error, agentId: this.agent.id });
       this.agent.status = AgentStatus.ERROR;
@@ -287,12 +276,12 @@ export abstract class BaseAgent {
       isInitialized: this.isInitialized,
       uptime: Date.now() - this.agent.createdAt.getTime(),
       capabilities: this.agent.capabilities,
-      metadata: await this.getHealthMetadata()
+      metadata: await this.getHealthMetadata(),
     };
 
     await this.eventBusService.publish(`agent.health.response.${event.requestId}`, {
       ...health,
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
     });
   }
 
@@ -309,7 +298,7 @@ export abstract class BaseAgent {
       // Update agent configuration
       this.agent.configuration = {
         ...this.agent.configuration,
-        ...configuration
+        ...configuration,
       };
 
       this.agent.updatedAt = new Date();
@@ -321,17 +310,16 @@ export abstract class BaseAgent {
       await this.eventBusService.publish(`agent.config.updated.${this.agent.id}`, {
         agentId: this.agent.id,
         version: this.agent.version,
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
       });
 
       this.auditLog('AGENT_CONFIG_UPDATED', {
-        changes: Object.keys(configuration)
+        changes: Object.keys(configuration),
       });
-
     } catch (error) {
       logger.error('Failed to update agent configuration', {
         error,
-        agentId: this.agent.id
+        agentId: this.agent.id,
       });
       throw error;
     }
@@ -344,7 +332,7 @@ export abstract class BaseAgent {
     await this.eventBusService.publish(`agent.response.${requestId}`, {
       ...response,
       agentId: this.agent.id,
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
     });
   }
 

@@ -1,16 +1,14 @@
 // PRD Generator - Generates Product Requirements Documents
 // Epic 4 Implementation
 
-import { 
-  ArtifactConversationContext
-} from '@uaip/types';
+import { ArtifactConversationContext } from '@uaip/types';
 
 import { ArtifactGenerator } from '../interfaces';
 import { logger } from '@uaip/utils';
 
 export class PRDGenerator implements ArtifactGenerator {
   private readonly supportedType = 'prd';
-  
+
   /**
    * Check if this generator can handle the given context
    */
@@ -20,13 +18,16 @@ export class PRDGenerator implements ArtifactGenerator {
 
     // Look for PRD-related keywords
     const prdKeywords = [
-      'requirements', 'specification', 'prd', 'product requirements', 'document', 'spec'
+      'requirements',
+      'specification',
+      'prd',
+      'product requirements',
+      'document',
+      'spec',
     ];
 
-    const hasPRDContext = recentMessages.some(message => 
-      prdKeywords.some(keyword => 
-        message.content.toLowerCase().includes(keyword)
-      )
+    const hasPRDContext = recentMessages.some((message) =>
+      prdKeywords.some((keyword) => message.content.toLowerCase().includes(keyword))
     );
 
     // Check for explicit PRD requests
@@ -35,11 +36,11 @@ export class PRDGenerator implements ArtifactGenerator {
       /write.*requirements/i,
       /document.*requirements/i,
       /specification/i,
-      /requirements.*document/i
+      /requirements.*document/i,
     ];
 
-    const hasPRDRequest = recentMessages.some(message =>
-      prdRequestPatterns.some(pattern => pattern.test(message.content))
+    const hasPRDRequest = recentMessages.some((message) =>
+      prdRequestPatterns.some((pattern) => pattern.test(message.content))
     );
 
     return hasPRDContext || hasPRDRequest;
@@ -51,7 +52,7 @@ export class PRDGenerator implements ArtifactGenerator {
   async generate(context: ArtifactConversationContext): Promise<string> {
     logger.info('Generating PRD artifact', {
       conversationId: context.conversationId,
-      messageCount: context.messages.length
+      messageCount: context.messages.length,
     });
 
     try {
@@ -60,13 +61,14 @@ export class PRDGenerator implements ArtifactGenerator {
       const decisions = this.extractDecisions(context.messages);
       const objectives = this.extractObjectives(context.messages);
       const projectName = this.extractProjectName(context.messages) || 'New Project';
-      
+
       // Generate PRD document
       return this.generatePRDDocument(projectName, objectives, requirements, decisions);
-
     } catch (error) {
       logger.error('PRD generation failed:', error);
-      throw new Error(`PRD generation failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw new Error(
+        `PRD generation failed: ${error instanceof Error ? error.message : 'Unknown error'}`
+      );
     }
   }
 
@@ -88,10 +90,10 @@ export class PRDGenerator implements ArtifactGenerator {
 
   private extractRequirements(messages: any[]): string[] {
     const requirements: string[] = [];
-    
+
     for (const message of messages) {
       const content = message.content.toLowerCase();
-      
+
       // Look for requirement patterns
       if (content.includes('must') || content.includes('should') || content.includes('need')) {
         const sentences = message.content.split(/[.!?]+/);
@@ -102,16 +104,16 @@ export class PRDGenerator implements ArtifactGenerator {
         }
       }
     }
-    
+
     return requirements.slice(0, 10);
   }
 
   private extractDecisions(messages: any[]): string[] {
     const decisions: string[] = [];
-    
+
     for (const message of messages) {
       const content = message.content.toLowerCase();
-      
+
       // Look for decision patterns
       if (content.includes('decided') || content.includes('agreed') || content.includes('chosen')) {
         const sentences = message.content.split(/[.!?]+/);
@@ -122,18 +124,22 @@ export class PRDGenerator implements ArtifactGenerator {
         }
       }
     }
-    
+
     return decisions.slice(0, 5);
   }
 
   private extractObjectives(messages: any[]): string[] {
     const objectives: string[] = [];
-    
+
     for (const message of messages) {
       const content = message.content.toLowerCase();
-      
+
       // Look for objective patterns
-      if (content.includes('goal') || content.includes('objective') || content.includes('purpose')) {
+      if (
+        content.includes('goal') ||
+        content.includes('objective') ||
+        content.includes('purpose')
+      ) {
         const sentences = message.content.split(/[.!?]+/);
         for (const sentence of sentences) {
           if (/goal|objective|purpose|aim|target/i.test(sentence)) {
@@ -142,14 +148,16 @@ export class PRDGenerator implements ArtifactGenerator {
         }
       }
     }
-    
+
     return objectives.slice(0, 5);
   }
 
   private extractProjectName(messages: any[]): string | null {
     for (const message of messages) {
       // Look for project name patterns
-      const projectMatch = message.content.match(/project\s+(\w+)|(\w+)\s*project|building\s+(\w+)|creating\s+(\w+)/i);
+      const projectMatch = message.content.match(
+        /project\s+(\w+)|(\w+)\s*project|building\s+(\w+)|creating\s+(\w+)/i
+      );
       if (projectMatch) {
         return projectMatch[1] || projectMatch[2] || projectMatch[3] || projectMatch[4];
       }
@@ -157,9 +165,14 @@ export class PRDGenerator implements ArtifactGenerator {
     return null;
   }
 
-  private generatePRDDocument(projectName: string, objectives: string[], requirements: string[], decisions: string[]): string {
+  private generatePRDDocument(
+    projectName: string,
+    objectives: string[],
+    requirements: string[],
+    decisions: string[]
+  ): string {
     const timestamp = new Date().toISOString().split('T')[0];
-    
+
     return `# Product Requirements Document (PRD)
 
 ## Project: ${projectName}
@@ -283,4 +296,4 @@ ${decisions.length > 0 ? decisions.map((decision, index) => `**TD-${String(index
 
 *This document is a living document and will be updated as requirements evolve.*`;
   }
-} 
+}

@@ -25,4 +25,4 @@ export interface DocumentContextValue extends DocumentContextState {
   removeDocument: (id: string) => void;
   setActiveDocument: (id: string) => void;
   updateDocument: (id: string, updates: Partial<DocumentContext>) => void;
-} 
+}

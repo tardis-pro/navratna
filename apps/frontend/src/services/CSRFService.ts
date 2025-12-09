@@ -45,7 +45,7 @@ export class CSRFService {
   public async getHeaders(): Promise<Record<string, string>> {
     const token = await this.getValidToken();
     return {
-      [token.headerName]: token.token
+      [token.headerName]: token.token,
     };
   }
 
@@ -53,8 +53,7 @@ export class CSRFService {
    * Check if we have a valid token
    */
   public hasValidToken(): boolean {
-    return this.currentToken !== null && 
-           this.currentToken.expiresAt > new Date();
+    return this.currentToken !== null && this.currentToken.expiresAt > new Date();
   }
 
   /**
@@ -105,9 +104,9 @@ export class CSRFService {
         method: 'GET',
         credentials: 'include', // Include cookies for session
         headers: {
-          'Accept': 'application/json',
-          'Content-Type': 'application/json'
-        }
+          Accept: 'application/json',
+          'Content-Type': 'application/json',
+        },
       });
 
       if (!response.ok) {
@@ -115,7 +114,7 @@ export class CSRFService {
       }
 
       const data = await response.json();
-      
+
       if (!data.success || !data.data) {
         throw new Error('Invalid CSRF token response format');
       }
@@ -123,7 +122,7 @@ export class CSRFService {
       const token: CSRFToken = {
         token: data.data.token,
         headerName: data.data.headerName || 'x-csrf-token',
-        expiresAt: new Date(Date.now() + 50 * 60 * 1000) // 50 minutes (token expires in 1 hour)
+        expiresAt: new Date(Date.now() + 50 * 60 * 1000), // 50 minutes (token expires in 1 hour)
       };
 
       this.currentToken = token;
@@ -145,7 +144,7 @@ export class CSRFService {
   private getAPIBaseUrl(): string {
     if (typeof window !== 'undefined') {
       // Frontend environment
-      return window.location.hostname === 'localhost' 
+      return window.location.hostname === 'localhost'
         ? 'http://localhost:8081'
         : window.location.origin;
     }
@@ -158,11 +157,14 @@ export class CSRFService {
   private storeToken(token: CSRFToken): void {
     if (typeof window !== 'undefined') {
       try {
-        localStorage.setItem(this.storageKey, JSON.stringify({
-          token: token.token,
-          headerName: token.headerName,
-          expiresAt: token.expiresAt.toISOString()
-        }));
+        localStorage.setItem(
+          this.storageKey,
+          JSON.stringify({
+            token: token.token,
+            headerName: token.headerName,
+            expiresAt: token.expiresAt.toISOString(),
+          })
+        );
       } catch (error) {
         logger.warn('[CSRF] Failed to store token in localStorage:', error);
       }
@@ -181,7 +183,7 @@ export class CSRFService {
           const token: CSRFToken = {
             token: tokenData.token,
             headerName: tokenData.headerName,
-            expiresAt: new Date(tokenData.expiresAt)
+            expiresAt: new Date(tokenData.expiresAt),
           };
 
           // Only use if not expired
@@ -217,13 +219,11 @@ export const csrfService = CSRFService.getInstance();
 /**
  * Higher-order function to add CSRF protection to API calls
  */
-export function withCSRFProtection<T extends (...args: any[]) => Promise<any>>(
-  apiFunction: T
-): T {
+export function withCSRFProtection<T extends (...args: any[]) => Promise<any>>(apiFunction: T): T {
   return (async (...args: any[]) => {
     try {
       const headers = await csrfService.getHeaders();
-      
+
       // If the last argument is an options object, merge headers
       const lastArg = args[args.length - 1];
       if (lastArg && typeof lastArg === 'object' && lastArg.headers) {
@@ -242,7 +242,7 @@ export function withCSRFProtection<T extends (...args: any[]) => Promise<any>>(
         try {
           await csrfService.refreshToken();
           const headers = await csrfService.getHeaders();
-          
+
           // Retry with new token
           const lastArg = args[args.length - 1];
           if (lastArg && typeof lastArg === 'object' && lastArg.headers) {

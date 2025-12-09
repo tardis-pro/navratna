@@ -10,7 +10,7 @@ import {
   ExternalLink,
   Filter,
   Search,
-  Activity
+  Activity,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -40,7 +40,13 @@ interface RecentItem {
 
 interface ActivityEvent {
   id: string;
-  type: 'portal_open' | 'portal_close' | 'action_execute' | 'search' | 'file_access' | 'user_interaction';
+  type:
+    | 'portal_open'
+    | 'portal_close'
+    | 'action_execute'
+    | 'search'
+    | 'file_access'
+    | 'user_interaction';
   itemId: string;
   timestamp: Date;
   duration?: number;
@@ -81,7 +87,7 @@ export const RecentItemsPanel: React.FC<RecentItemsPanelProps> = ({
   activityStats,
   trendingItems = [],
   onItemClick,
-  onClose
+  onClose,
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [filterType, setFilterType] = useState<string>('all');
@@ -92,8 +98,9 @@ export const RecentItemsPanel: React.FC<RecentItemsPanelProps> = ({
 
   // Filter and sort items
   const filteredItems = recentItems
-    .filter(item => {
-      const matchesSearch = item.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    .filter((item) => {
+      const matchesSearch =
+        item.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
         item.type.toLowerCase().includes(searchQuery.toLowerCase());
       const matchesType = filterType === 'all' || item.type === filterType;
       const matchesFavorites = !showFavoritesOnly || item.isFavorite;
@@ -110,7 +117,7 @@ export const RecentItemsPanel: React.FC<RecentItemsPanelProps> = ({
     });
 
   // Get unique types for filter
-  const availableTypes = Array.from(new Set(recentItems.map(item => item.type)));
+  const availableTypes = Array.from(new Set(recentItems.map((item) => item.type)));
 
   // Format timestamp
   const formatTimestamp = (timestamp: Date) => {
@@ -132,10 +139,10 @@ export const RecentItemsPanel: React.FC<RecentItemsPanelProps> = ({
     const colors: Record<string, string> = {
       'agent-hub': 'bg-cyan-500/20 text-cyan-400',
       'discussion-hub': 'bg-green-500/20 text-green-400',
-      'knowledge': 'bg-orange-500/20 text-orange-400',
-      'artifacts': 'bg-purple-500/20 text-purple-400',
+      knowledge: 'bg-orange-500/20 text-orange-400',
+      artifacts: 'bg-purple-500/20 text-purple-400',
       'intelligence-hub': 'bg-pink-500/20 text-pink-400',
-      'system-hub': 'bg-gray-500/20 text-gray-400'
+      'system-hub': 'bg-gray-500/20 text-gray-400',
     };
     return colors[type] || 'bg-blue-500/20 text-blue-400';
   };
@@ -149,7 +156,7 @@ export const RecentItemsPanel: React.FC<RecentItemsPanelProps> = ({
       portalType: item.type,
       color: { primary: '#3B82F6', secondary: '#1D4ED8' },
       category: 'primary' as const,
-      description: item.description || ''
+      description: item.description || '',
     };
     onItemClick(iconConfig);
   };
@@ -161,7 +168,7 @@ export const RecentItemsPanel: React.FC<RecentItemsPanelProps> = ({
       initial={{ x: '100%' }}
       animate={{ x: 0 }}
       exit={{ x: '100%' }}
-      transition={{ type: "spring", stiffness: 300, damping: 30 }}
+      transition={{ type: 'spring', stiffness: 300, damping: 30 }}
     >
       {/* Header */}
       <div className="p-4 border-b border-slate-700/50">
@@ -192,7 +199,7 @@ export const RecentItemsPanel: React.FC<RecentItemsPanelProps> = ({
         {/* Filters */}
         <div className="flex items-center space-x-2">
           <Button
-            variant={showFavoritesOnly ? "default" : "ghost"}
+            variant={showFavoritesOnly ? 'default' : 'ghost'}
             size="sm"
             onClick={() => setShowFavoritesOnly(!showFavoritesOnly)}
             className="text-xs h-7 px-2"
@@ -208,9 +215,9 @@ export const RecentItemsPanel: React.FC<RecentItemsPanelProps> = ({
               className="bg-slate-800/50 border border-slate-600/50 text-white text-xs rounded px-2 py-1 h-7"
             >
               <option value="all">All Types</option>
-              {availableTypes.map(type => (
+              {availableTypes.map((type) => (
                 <option key={type} value={type}>
-                  {type.replace('-', ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                  {type.replace('-', ' ').replace(/\b\w/g, (l) => l.toUpperCase())}
                 </option>
               ))}
             </select>
@@ -222,8 +229,12 @@ export const RecentItemsPanel: React.FC<RecentItemsPanelProps> = ({
       <div className="flex-1 overflow-hidden">
         <Tabs defaultValue="recent" className="h-full flex flex-col">
           <TabsList className="grid w-full grid-cols-2 bg-slate-800/50 mx-4 mb-2">
-            <TabsTrigger value="recent" className="text-xs">Recent Items</TabsTrigger>
-            <TabsTrigger value="activity" className="text-xs">Activity Feed</TabsTrigger>
+            <TabsTrigger value="recent" className="text-xs">
+              Recent Items
+            </TabsTrigger>
+            <TabsTrigger value="activity" className="text-xs">
+              Activity Feed
+            </TabsTrigger>
           </TabsList>
 
           <TabsContent value="recent" className="flex-1 overflow-hidden mt-0">
@@ -241,90 +252,93 @@ export const RecentItemsPanel: React.FC<RecentItemsPanelProps> = ({
                       <p className="text-slate-400 text-sm">
                         {searchQuery || filterType !== 'all' || showFavoritesOnly
                           ? 'No items match your filters'
-                          : 'No recent activity yet'
-                        }
+                          : 'No recent activity yet'}
                       </p>
                     </motion.div>
                   ) : (
-                    filteredItems.filter(item => !item.icon).map((item, index) => {
-                      const IconComponent = item.icon;
-                      return (
-                        <motion.div
-                          key={item.id}
-                          className="mb-2"
-                          initial={{ opacity: 0, y: 20 }}
-                          animate={{ opacity: 1, y: 0 }}
-                          exit={{ opacity: 0, y: -20 }}
-                          transition={{ delay: index * 0.05 }}
-                        >
-                          <div
-                            className="p-3 bg-slate-800/30 hover:bg-slate-700/50 rounded-lg cursor-pointer transition-all duration-200 group border border-transparent hover:border-slate-600/50"
-                            onClick={() => handleItemClick(item)}
+                    filteredItems
+                      .filter((item) => !item.icon)
+                      .map((item, index) => {
+                        const IconComponent = item.icon;
+                        return (
+                          <motion.div
+                            key={item.id}
+                            className="mb-2"
+                            initial={{ opacity: 0, y: 20 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            exit={{ opacity: 0, y: -20 }}
+                            transition={{ delay: index * 0.05 }}
                           >
-                            <div className="flex items-start space-x-3">
-                              {/* Icon */}
-                              <div className="w-8 h-8 bg-gradient-to-br from-slate-700 to-slate-600 rounded-lg flex items-center justify-center flex-shrink-0">
-                                <IconComponent size={16} className="text-slate-300" />
-                              </div>
-
-                              {/* Content */}
-                              <div className="flex-1 min-w-0">
-                                <div className="flex items-center space-x-2 mb-1">
-                                  <h3 className="text-white text-sm font-medium truncate">
-                                    {item.title}
-                                  </h3>
-                                  {item.isPinned && (
-                                    <Pin size={12} className="text-blue-400 flex-shrink-0" />
-                                  )}
-                                  {item.isFavorite && (
-                                    <Star size={12} className="text-yellow-400 flex-shrink-0" />
-                                  )}
+                            <div
+                              className="p-3 bg-slate-800/30 hover:bg-slate-700/50 rounded-lg cursor-pointer transition-all duration-200 group border border-transparent hover:border-slate-600/50"
+                              onClick={() => handleItemClick(item)}
+                            >
+                              <div className="flex items-start space-x-3">
+                                {/* Icon */}
+                                <div className="w-8 h-8 bg-gradient-to-br from-slate-700 to-slate-600 rounded-lg flex items-center justify-center flex-shrink-0">
+                                  <IconComponent size={16} className="text-slate-300" />
                                 </div>
 
-                                <div className="flex items-center justify-between">
-                                  <Badge className={`text-xs px-2 py-0.5 ${getTypeColor(item.type)}`}>
-                                    {item.type.replace('-', ' ')}
-                                  </Badge>
-                                  <span className="text-slate-500 text-xs">
-                                    {formatTimestamp(item.timestamp)}
-                                  </span>
-                                </div>
+                                {/* Content */}
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex items-center space-x-2 mb-1">
+                                    <h3 className="text-white text-sm font-medium truncate">
+                                      {item.title}
+                                    </h3>
+                                    {item.isPinned && (
+                                      <Pin size={12} className="text-blue-400 flex-shrink-0" />
+                                    )}
+                                    {item.isFavorite && (
+                                      <Star size={12} className="text-yellow-400 flex-shrink-0" />
+                                    )}
+                                  </div>
 
-                                {item.description && (
-                                  <p className="text-slate-400 text-xs mt-1 truncate">
-                                    {item.description}
-                                  </p>
-                                )}
-
-                                {item.accessCount && item.accessCount > 1 && (
-                                  <div className="flex items-center space-x-1 mt-1">
-                                    <Activity size={10} className="text-slate-500" />
+                                  <div className="flex items-center justify-between">
+                                    <Badge
+                                      className={`text-xs px-2 py-0.5 ${getTypeColor(item.type)}`}
+                                    >
+                                      {item.type.replace('-', ' ')}
+                                    </Badge>
                                     <span className="text-slate-500 text-xs">
-                                      {item.accessCount} uses
+                                      {formatTimestamp(item.timestamp)}
                                     </span>
                                   </div>
-                                )}
-                              </div>
 
-                              {/* Actions */}
-                              <div className="opacity-0 group-hover:opacity-100 transition-opacity">
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  className="w-6 h-6 p-0 text-slate-400 hover:text-white"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    // Handle more actions
-                                  }}
-                                >
-                                  <MoreVertical size={12} />
-                                </Button>
+                                  {item.description && (
+                                    <p className="text-slate-400 text-xs mt-1 truncate">
+                                      {item.description}
+                                    </p>
+                                  )}
+
+                                  {item.accessCount && item.accessCount > 1 && (
+                                    <div className="flex items-center space-x-1 mt-1">
+                                      <Activity size={10} className="text-slate-500" />
+                                      <span className="text-slate-500 text-xs">
+                                        {item.accessCount} uses
+                                      </span>
+                                    </div>
+                                  )}
+                                </div>
+
+                                {/* Actions */}
+                                <div className="opacity-0 group-hover:opacity-100 transition-opacity">
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="w-6 h-6 p-0 text-slate-400 hover:text-white"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      // Handle more actions
+                                    }}
+                                  >
+                                    <MoreVertical size={12} />
+                                  </Button>
+                                </div>
                               </div>
                             </div>
-                          </div>
-                        </motion.div>
-                      );
-                    })
+                          </motion.div>
+                        );
+                      })
                   )}
                 </AnimatePresence>
               </div>

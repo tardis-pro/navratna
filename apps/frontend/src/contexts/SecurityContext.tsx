@@ -1,4 +1,12 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback, useMemo } from 'react';
+import React, {
+  createContext,
+  useContext,
+  useState,
+  useEffect,
+  ReactNode,
+  useCallback,
+  useMemo,
+} from 'react';
 import { RiskLevel, MFAMethod, OAuthProviderType } from '@uaip/types';
 
 export interface SecurityPermissions {
@@ -97,7 +105,7 @@ const defaultPermissions: SecurityPermissions = {
   canAccessSensitiveData: false,
   canExecuteTools: false,
   canManageUsers: false,
-  canViewAuditLogs: false
+  canViewAuditLogs: false,
 };
 
 const defaultSettings: SecuritySettings = {
@@ -106,27 +114,27 @@ const defaultSettings: SecuritySettings = {
     requireUppercase: true,
     requireNumbers: true,
     requireSpecialChars: true,
-    maxAge: 90
+    maxAge: 90,
   },
   sessionTimeout: 60,
   maxFailedAttempts: 5,
   lockoutDuration: 15,
   requireMFA: false,
   allowedOAuthProviders: [],
-  auditLogRetention: 90
+  auditLogRetention: 90,
 };
 
 const defaultMFAStatus: MFAStatus = {
   enabled: false,
   methods: [],
-  backupCodesRemaining: 0
+  backupCodesRemaining: 0,
 };
 
 const defaultMetrics: SecurityMetrics = {
   riskLevel: RiskLevel.LOW,
   securityScore: 85,
   recentIncidents: 0,
-  blockedAttempts: 0
+  blockedAttempts: 0,
 };
 
 const SecurityContext = createContext<SecurityContextType | undefined>(undefined);
@@ -160,7 +168,7 @@ export const SecurityProvider: React.FC<SecurityProviderProps> = ({ children }) 
 
       // In a real implementation, these would be API calls
       // For now, using mock data to establish the structure
-      
+
       // Mock permissions based on user role
       const mockPermissions: SecurityPermissions = {
         canManageAgents: true,
@@ -168,13 +176,13 @@ export const SecurityProvider: React.FC<SecurityProviderProps> = ({ children }) 
         canAccessSensitiveData: true,
         canExecuteTools: true,
         canManageUsers: false,
-        canViewAuditLogs: true
+        canViewAuditLogs: true,
       };
 
       const mockMfaStatus: MFAStatus = {
         enabled: false,
         methods: [],
-        backupCodesRemaining: 0
+        backupCodesRemaining: 0,
       };
 
       const mockMetrics: SecurityMetrics = {
@@ -182,13 +190,12 @@ export const SecurityProvider: React.FC<SecurityProviderProps> = ({ children }) 
         securityScore: 78,
         recentIncidents: 2,
         blockedAttempts: 5,
-        lastSecurityScan: new Date()
+        lastSecurityScan: new Date(),
       };
 
       setPermissions(mockPermissions);
       setMfaStatus(mockMfaStatus);
       setMetrics(mockMetrics);
-      
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load security data');
     } finally {
@@ -205,7 +212,7 @@ export const SecurityProvider: React.FC<SecurityProviderProps> = ({ children }) 
     try {
       setError(null);
       // In real implementation: await api.post('/security/settings', updates);
-      setSettings(prev => ({ ...prev, ...updates }));
+      setSettings((prev) => ({ ...prev, ...updates }));
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to update settings');
       throw err;
@@ -216,10 +223,10 @@ export const SecurityProvider: React.FC<SecurityProviderProps> = ({ children }) 
     try {
       setError(null);
       // In real implementation: await api.post('/security/mfa/enable', { method });
-      setMfaStatus(prev => ({
+      setMfaStatus((prev) => ({
         ...prev,
         enabled: true,
-        methods: [...prev.methods, method]
+        methods: [...prev.methods, method],
       }));
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to enable MFA');
@@ -231,10 +238,10 @@ export const SecurityProvider: React.FC<SecurityProviderProps> = ({ children }) 
     try {
       setError(null);
       // In real implementation: await api.delete(`/security/mfa/${method}`);
-      setMfaStatus(prev => ({
+      setMfaStatus((prev) => ({
         ...prev,
-        methods: prev.methods.filter(m => m !== method),
-        enabled: prev.methods.filter(m => m !== method).length > 0
+        methods: prev.methods.filter((m) => m !== method),
+        enabled: prev.methods.filter((m) => m !== method).length > 0,
       }));
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to disable MFA');
@@ -251,9 +258,9 @@ export const SecurityProvider: React.FC<SecurityProviderProps> = ({ children }) 
         provider,
         connected: true,
         lastUsed: new Date(),
-        permissions: ['read', 'write']
+        permissions: ['read', 'write'],
       };
-      setOauthConnections(prev => [...prev, newConnection]);
+      setOauthConnections((prev) => [...prev, newConnection]);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to connect OAuth provider');
       throw err;
@@ -264,7 +271,7 @@ export const SecurityProvider: React.FC<SecurityProviderProps> = ({ children }) 
     try {
       setError(null);
       // In real implementation: await api.delete(`/security/oauth/${provider}`);
-      setOauthConnections(prev => prev.filter(conn => conn.provider !== provider));
+      setOauthConnections((prev) => prev.filter((conn) => conn.provider !== provider));
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to disconnect OAuth provider');
       throw err;
@@ -275,7 +282,7 @@ export const SecurityProvider: React.FC<SecurityProviderProps> = ({ children }) 
     try {
       setError(null);
       // In real implementation: await api.get('/security/audit', { params: filters });
-      
+
       // Mock audit events
       const mockEvents: AuditEvent[] = [
         {
@@ -286,10 +293,10 @@ export const SecurityProvider: React.FC<SecurityProviderProps> = ({ children }) 
           resource: 'auth',
           outcome: 'success',
           ipAddress: '192.168.1.1',
-          userAgent: 'Mozilla/5.0...'
-        }
+          userAgent: 'Mozilla/5.0...',
+        },
       ];
-      
+
       setAuditLog(mockEvents);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to fetch audit log');
@@ -301,45 +308,44 @@ export const SecurityProvider: React.FC<SecurityProviderProps> = ({ children }) 
     setError(null);
   }, []);
 
-  const value: SecurityContextType = useMemo(() => ({
-    permissions,
-    mfaStatus,
-    settings,
-    metrics,
-    auditLog,
-    oauthConnections,
-    isLoading,
-    error,
-    updateSettings,
-    enableMFA,
-    disableMFA,
-    connectOAuth,
-    disconnectOAuth,
-    fetchAuditLog,
-    refreshSecurityData,
-    clearError
-  }), [
-    permissions,
-    mfaStatus,
-    settings,
-    metrics,
-    auditLog,
-    oauthConnections,
-    isLoading,
-    error,
-    updateSettings,
-    enableMFA,
-    disableMFA,
-    connectOAuth,
-    disconnectOAuth,
-    fetchAuditLog,
-    refreshSecurityData,
-    clearError
-  ]);
-
-  return (
-    <SecurityContext.Provider value={value}>
-      {children}
-    </SecurityContext.Provider>
+  const value: SecurityContextType = useMemo(
+    () => ({
+      permissions,
+      mfaStatus,
+      settings,
+      metrics,
+      auditLog,
+      oauthConnections,
+      isLoading,
+      error,
+      updateSettings,
+      enableMFA,
+      disableMFA,
+      connectOAuth,
+      disconnectOAuth,
+      fetchAuditLog,
+      refreshSecurityData,
+      clearError,
+    }),
+    [
+      permissions,
+      mfaStatus,
+      settings,
+      metrics,
+      auditLog,
+      oauthConnections,
+      isLoading,
+      error,
+      updateSettings,
+      enableMFA,
+      disableMFA,
+      connectOAuth,
+      disconnectOAuth,
+      fetchAuditLog,
+      refreshSecurityData,
+      clearError,
+    ]
   );
+
+  return <SecurityContext.Provider value={value}>{children}</SecurityContext.Provider>;
 };

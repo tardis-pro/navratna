@@ -5,5 +5,5 @@ export {
   type DebateMessageData,
   type ModelOption,
   DebateMessageDataSchema,
-  ModelOptionSchema
+  ModelOptionSchema,
 } from '@uaip/types/models';

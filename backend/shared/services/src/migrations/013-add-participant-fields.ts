@@ -2,8 +2,8 @@ import { MigrationInterface, QueryRunner } from 'typeorm';
 
 /**
  * Add Participant Fields Migration
- * 
- * Adds the missing participant_id and participant_type columns to the 
+ *
+ * Adds the missing participant_id and participant_type columns to the
  * discussion_participants table and populates them with appropriate values.
  */
 export class AddParticipantFields1703013000000 implements MigrationInterface {
@@ -11,8 +11,11 @@ export class AddParticipantFields1703013000000 implements MigrationInterface {
 
   public async up(queryRunner: QueryRunner): Promise<void> {
     // Check if participant_type column exists
-    const hasParticipantTypeColumn = await queryRunner.hasColumn('discussion_participants', 'participant_type');
-    
+    const hasParticipantTypeColumn = await queryRunner.hasColumn(
+      'discussion_participants',
+      'participant_type'
+    );
+
     if (!hasParticipantTypeColumn) {
       // Create enum type if it doesn't exist
       await queryRunner.query(`
@@ -50,8 +53,11 @@ export class AddParticipantFields1703013000000 implements MigrationInterface {
     }
 
     // Check if participant_id column exists
-    const hasParticipantIdColumn = await queryRunner.hasColumn('discussion_participants', 'participant_id');
-    
+    const hasParticipantIdColumn = await queryRunner.hasColumn(
+      'discussion_participants',
+      'participant_id'
+    );
+
     if (!hasParticipantIdColumn) {
       // Add participant_id column
       await queryRunner.query(`
@@ -82,7 +88,10 @@ export class AddParticipantFields1703013000000 implements MigrationInterface {
       `);
     }
 
-    const hasDisplayNameColumn = await queryRunner.hasColumn('discussion_participants', 'display_name');
+    const hasDisplayNameColumn = await queryRunner.hasColumn(
+      'discussion_participants',
+      'display_name'
+    );
     if (!hasDisplayNameColumn) {
       await queryRunner.query(`
         ALTER TABLE discussion_participants 
@@ -93,11 +102,17 @@ export class AddParticipantFields1703013000000 implements MigrationInterface {
 
   public async down(queryRunner: QueryRunner): Promise<void> {
     // Remove added columns
-    await queryRunner.query(`ALTER TABLE discussion_participants DROP COLUMN IF EXISTS participant_type`);
-    await queryRunner.query(`ALTER TABLE discussion_participants DROP COLUMN IF EXISTS participant_id`);
+    await queryRunner.query(
+      `ALTER TABLE discussion_participants DROP COLUMN IF EXISTS participant_type`
+    );
+    await queryRunner.query(
+      `ALTER TABLE discussion_participants DROP COLUMN IF EXISTS participant_id`
+    );
     await queryRunner.query(`ALTER TABLE discussion_participants DROP COLUMN IF EXISTS persona_id`);
-    await queryRunner.query(`ALTER TABLE discussion_participants DROP COLUMN IF EXISTS display_name`);
-    
+    await queryRunner.query(
+      `ALTER TABLE discussion_participants DROP COLUMN IF EXISTS display_name`
+    );
+
     // Drop enum type
     await queryRunner.query(`DROP TYPE IF EXISTS discussion_participants_participant_type_enum`);
   }

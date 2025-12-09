@@ -5,6 +5,7 @@
 ## 🎯 Prerequisites
 
 ### Required Software
+
 - **Node.js** v18.0.0 or higher
 - **Docker** v24.0.0 or higher
 - **Docker Compose** v2.0.0 or higher
@@ -12,11 +13,13 @@
 - **PNPM** v8.0.0 or higher (recommended package manager)
 
 ### System Requirements
+
 - **RAM**: 16GB minimum (32GB recommended for full development)
 - **Storage**: 50GB free space minimum
 - **OS**: Linux, macOS, or Windows with WSL2
 
 ### Development Tools (Recommended)
+
 - **VS Code** with TypeScript, Docker, and Git extensions
 - **Postman** or **Insomnia** for API testing
 - **DBeaver** or **pgAdmin** for database management
@@ -25,6 +28,7 @@
 ## 🚀 Quick Setup
 
 ### 1. Repository Setup
+
 ```bash
 # Clone the repository
 git clone <repository-url>
@@ -38,6 +42,7 @@ cp sample.env .env
 ```
 
 ### 2. Environment Configuration
+
 Edit `.env` file with your configuration:
 
 ```bash
@@ -74,6 +79,7 @@ WATCHPACK_POLLING=true
 ```
 
 ### 3. Start Development Environment
+
 ```bash
 # Start all services with hot reloading
 ./dev-start.sh
@@ -88,6 +94,7 @@ WATCHPACK_POLLING=true
 ## 🏗️ Monorepo Structure
 
 ### Package Organization
+
 ```
 council-of-nycea/
 ├── packages/
@@ -112,6 +119,7 @@ council-of-nycea/
 ### Import Patterns
 
 #### ✅ Correct Monorepo Imports
+
 ```typescript
 // From any service importing shared packages
 import { Operation } from '@uaip/types/operation';
@@ -124,6 +132,7 @@ import { AgentService } from '@/services/agentService';
 ```
 
 #### ❌ Incorrect Relative Imports
+
 ```typescript
 // NEVER do this in a monorepo
 import { Operation } from '../../../shared/types/src/operation';
@@ -133,6 +142,7 @@ import { logger } from '../../../shared/utils/src/logger';
 ## 🔧 TypeScript Configuration
 
 ### Service-Level tsconfig.json
+
 ```json
 {
   "extends": "../../tsconfig.json",
@@ -158,6 +168,7 @@ import { logger } from '../../../shared/utils/src/logger';
 ```
 
 ### Build Order
+
 ```bash
 # Build shared packages first
 npm run build:shared
@@ -172,14 +183,16 @@ npm run build
 ## 🐳 Docker Development
 
 ### Service Groups
-| Group | Services | Purpose |
-|-------|----------|---------|
-| `infrastructure` | PostgreSQL, Neo4j, Redis, RabbitMQ | Data layer |
-| `backend` | 5 microservices | Business logic |
-| `frontend` | React app | User interface |
-| `monitoring` | Prometheus, Grafana | Observability |
+
+| Group            | Services                           | Purpose        |
+| ---------------- | ---------------------------------- | -------------- |
+| `infrastructure` | PostgreSQL, Neo4j, Redis, RabbitMQ | Data layer     |
+| `backend`        | 5 microservices                    | Business logic |
+| `frontend`       | React app                          | User interface |
+| `monitoring`     | Prometheus, Grafana                | Observability  |
 
 ### Docker Commands
+
 ```bash
 # Start specific service groups
 ./dev-start.sh --services infrastructure --daemon
@@ -199,7 +212,9 @@ npm run build
 ```
 
 ### Hot Reloading
+
 All services support hot reloading:
+
 - **Backend Services**: File watching with nodemon + tsx
 - **Frontend**: Vite HMR with polling enabled
 - **Shared Packages**: Automatic rebuild on changes
@@ -207,6 +222,7 @@ All services support hot reloading:
 ## 🗄️ Database Setup
 
 ### PostgreSQL Development
+
 ```bash
 # Access PostgreSQL
 docker-compose exec postgres psql -U postgres -d uaip_dev
@@ -222,6 +238,7 @@ npm run db:reset
 ```
 
 ### Neo4j Development
+
 ```bash
 # Access Neo4j browser
 open http://localhost:7474
@@ -235,6 +252,7 @@ MATCH (n) RETURN n LIMIT 25;
 ```
 
 ### Redis Development
+
 ```bash
 # Access Redis CLI
 docker-compose exec redis redis-cli
@@ -246,6 +264,7 @@ docker-compose exec redis redis-cli monitor
 ## 🧪 Testing Setup
 
 ### Test Environment
+
 ```bash
 # Install test dependencies
 npm install --dev
@@ -263,17 +282,14 @@ npm run test:e2e
 ```
 
 ### Test Configuration
+
 ```json
 // jest.config.js
 {
   "testEnvironment": "node",
   "setupFilesAfterEnv": ["<rootDir>/tests/setup.ts"],
   "testMatch": ["**/__tests__/**/*.test.ts"],
-  "collectCoverageFrom": [
-    "src/**/*.ts",
-    "!src/**/*.d.ts",
-    "!src/**/*.test.ts"
-  ],
+  "collectCoverageFrom": ["src/**/*.ts", "!src/**/*.d.ts", "!src/**/*.test.ts"],
   "coverageThreshold": {
     "global": {
       "branches": 80,
@@ -286,21 +302,22 @@ npm run test:e2e
 ```
 
 ### Writing Tests
+
 ```typescript
 // Example unit test
 describe('AgentService', () => {
   let agentService: AgentService;
-  
+
   beforeEach(() => {
     agentService = new AgentService();
   });
-  
+
   it('should create an agent', async () => {
     const agent = await agentService.create({
       name: 'Test Agent',
-      persona: 'helpful'
+      persona: 'helpful',
     });
-    
+
     expect(agent.id).toBeDefined();
     expect(agent.name).toBe('Test Agent');
   });
@@ -310,6 +327,7 @@ describe('AgentService', () => {
 ## 🔍 Debugging
 
 ### VS Code Debug Configuration
+
 ```json
 // .vscode/launch.json
 {
@@ -331,6 +349,7 @@ describe('AgentService', () => {
 ```
 
 ### Debug Commands
+
 ```bash
 # Debug with Node.js inspector
 node --inspect-brk dist/index.js
@@ -343,6 +362,7 @@ npm run test:debug
 ```
 
 ### Logging
+
 ```typescript
 // Use structured logging
 import { logger } from '@uaip/utils/logger';
@@ -355,6 +375,7 @@ logger.debug('Processing request', { requestId, userId });
 ## 🚀 Development Workflow
 
 ### Daily Development
+
 ```bash
 # Start infrastructure
 ./dev-start.sh --services infrastructure --daemon
@@ -369,6 +390,7 @@ npm run test:watch
 ```
 
 ### Feature Development
+
 ```bash
 # Create feature branch
 git checkout -b feature/new-feature
@@ -389,6 +411,7 @@ git push origin feature/new-feature
 ```
 
 ### Service Development
+
 ```bash
 # Generate new service
 npm run generate:service my-new-service
@@ -401,6 +424,7 @@ npm run generate:service my-new-service
 ## 🔧 Coding Standards
 
 ### TypeScript Standards
+
 ```typescript
 // Use explicit types
 interface UserRequest {
@@ -429,6 +453,7 @@ class UserCreationError extends Error {
 ```
 
 ### API Standards
+
 ```typescript
 // Use consistent response format
 interface ApiResponse<T> {
@@ -445,13 +470,13 @@ app.post('/api/users', async (req, res) => {
     res.status(201).json({
       success: true,
       data: user,
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
     });
   } catch (error) {
     res.status(400).json({
       success: false,
       error: error.message,
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
     });
   }
 });
@@ -462,6 +487,7 @@ app.post('/api/users', async (req, res) => {
 ### Common Issues
 
 #### Port Conflicts
+
 ```bash
 # Check what's using ports
 netstat -tulpn | grep :3001
@@ -471,6 +497,7 @@ sudo kill -9 $(lsof -ti:3001)
 ```
 
 #### TypeScript Build Issues
+
 ```bash
 # Clean build artifacts
 npm run clean
@@ -483,6 +510,7 @@ npx tsc --showConfig
 ```
 
 #### Docker Issues
+
 ```bash
 # Clean Docker environment
 docker system prune -f
@@ -494,6 +522,7 @@ docker volume prune -f
 ```
 
 #### Database Connection Issues
+
 ```bash
 # Check database health
 docker-compose exec postgres pg_isready
@@ -502,6 +531,7 @@ docker-compose exec redis redis-cli ping
 ```
 
 ### Performance Issues
+
 ```bash
 # Monitor resource usage
 docker stats
@@ -516,16 +546,19 @@ node --prof dist/index.js
 ## 📞 Getting Help
 
 ### Documentation
+
 - **[Architecture](ARCHITECTURE.md)** - System design and technical details
 - **[API Reference](API_REFERENCE.md)** - Complete API documentation
 - **[Testing Guide](TESTING_GUIDE.md)** - Testing strategies and examples
 
 ### Community
+
 - **GitHub Issues** - Bug reports and feature requests
 - **GitHub Discussions** - Questions and community support
 - **Development Chat** - Real-time development discussions
 
 ### Debugging Resources
+
 - **Service Logs**: `./dev-start.sh logs [service-name] --follow`
 - **Health Checks**: http://localhost:8081/health
 - **API Documentation**: http://localhost:8081/docs
@@ -533,8 +566,9 @@ node --prof dist/index.js
 
 ---
 
-**Success Indicators**: 
+**Success Indicators**:
+
 - All services start without errors
 - Hot reloading works when you edit files
 - Tests pass with `npm test`
-- API endpoints respond at http://localhost:8081/health 
+- API endpoints respond at http://localhost:8081/health

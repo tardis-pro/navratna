@@ -1,16 +1,14 @@
 // Documentation Generator - Generates technical documentation
 // Epic 4 Implementation
 
-import { 
-  ArtifactConversationContext
-} from '@uaip/types';
+import { ArtifactConversationContext } from '@uaip/types';
 
 import { ArtifactGenerator } from '../interfaces';
 import { logger } from '@uaip/utils';
 
 export class DocumentationGenerator implements ArtifactGenerator {
   private readonly supportedType = 'documentation';
-  
+
   /**
    * Check if this generator can handle the given context
    */
@@ -19,14 +17,10 @@ export class DocumentationGenerator implements ArtifactGenerator {
     const recentMessages = messages.slice(-5);
 
     // Look for documentation-related keywords
-    const docKeywords = [
-      'documentation', 'docs', 'readme', 'guide', 'manual', 'api docs', 'help'
-    ];
+    const docKeywords = ['documentation', 'docs', 'readme', 'guide', 'manual', 'api docs', 'help'];
 
-    const hasDocContext = recentMessages.some(message => 
-      docKeywords.some(keyword => 
-        message.content.toLowerCase().includes(keyword)
-      )
+    const hasDocContext = recentMessages.some((message) =>
+      docKeywords.some((keyword) => message.content.toLowerCase().includes(keyword))
     );
 
     // Check for explicit documentation requests
@@ -35,11 +29,11 @@ export class DocumentationGenerator implements ArtifactGenerator {
       /write.*docs/i,
       /document.*this/i,
       /readme/i,
-      /api.*documentation/i
+      /api.*documentation/i,
     ];
 
-    const hasDocRequest = recentMessages.some(message =>
-      docRequestPatterns.some(pattern => pattern.test(message.content))
+    const hasDocRequest = recentMessages.some((message) =>
+      docRequestPatterns.some((pattern) => pattern.test(message.content))
     );
 
     return hasDocContext || hasDocRequest;
@@ -51,7 +45,7 @@ export class DocumentationGenerator implements ArtifactGenerator {
   async generate(context: ArtifactConversationContext): Promise<string> {
     logger.info('Generating documentation artifact', {
       conversationId: context.conversationId,
-      messageCount: context.messages.length
+      messageCount: context.messages.length,
     });
 
     try {
@@ -60,7 +54,7 @@ export class DocumentationGenerator implements ArtifactGenerator {
       const projectName = this.extractProjectName(context.messages) || 'Project';
       const features = this.extractFeatures(context.messages);
       const apiEndpoints = this.extractAPIEndpoints(context.messages);
-      
+
       // Generate documentation based on type
       switch (docType) {
         case 'readme':
@@ -72,10 +66,11 @@ export class DocumentationGenerator implements ArtifactGenerator {
         default:
           return this.generateGenericDocumentation(projectName, features);
       }
-
     } catch (error) {
       logger.error('Documentation generation failed:', error);
-      throw new Error(`Documentation generation failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw new Error(
+        `Documentation generation failed: ${error instanceof Error ? error.message : 'Unknown error'}`
+      );
     }
   }
 
@@ -98,7 +93,7 @@ export class DocumentationGenerator implements ArtifactGenerator {
   private detectDocumentationType(messages: any[]): string {
     for (const message of messages) {
       const content = message.content.toLowerCase();
-      
+
       if (content.includes('readme') || content.includes('getting started')) {
         return 'readme';
       }
@@ -109,13 +104,15 @@ export class DocumentationGenerator implements ArtifactGenerator {
         return 'user-guide';
       }
     }
-    
+
     return 'generic';
   }
 
   private extractProjectName(messages: any[]): string | null {
     for (const message of messages) {
-      const projectMatch = message.content.match(/project\s+(\w+)|(\w+)\s*project|building\s+(\w+)|creating\s+(\w+)/i);
+      const projectMatch = message.content.match(
+        /project\s+(\w+)|(\w+)\s*project|building\s+(\w+)|creating\s+(\w+)/i
+      );
       if (projectMatch) {
         return projectMatch[1] || projectMatch[2] || projectMatch[3] || projectMatch[4];
       }
@@ -125,10 +122,10 @@ export class DocumentationGenerator implements ArtifactGenerator {
 
   private extractFeatures(messages: any[]): string[] {
     const features: string[] = [];
-    
+
     for (const message of messages) {
       const content = message.content.toLowerCase();
-      
+
       if (content.includes('feature') || content.includes('functionality')) {
         const sentences = message.content.split(/[.!?]+/);
         for (const sentence of sentences) {
@@ -138,27 +135,29 @@ export class DocumentationGenerator implements ArtifactGenerator {
         }
       }
     }
-    
+
     return features.slice(0, 8);
   }
 
   private extractAPIEndpoints(messages: any[]): string[] {
     const endpoints: string[] = [];
-    
+
     for (const message of messages) {
       // Look for API endpoint patterns
-      const endpointMatches = message.content.match(/\/api\/[^\s]+|GET|POST|PUT|DELETE\s+\/[^\s]+/gi);
+      const endpointMatches = message.content.match(
+        /\/api\/[^\s]+|GET|POST|PUT|DELETE\s+\/[^\s]+/gi
+      );
       if (endpointMatches) {
         endpoints.push(...endpointMatches);
       }
     }
-    
+
     return [...new Set(endpoints)].slice(0, 10); // Remove duplicates and limit
   }
 
   private generateReadme(projectName: string, features: string[]): string {
     const timestamp = new Date().toISOString().split('T')[0];
-    
+
     return `# ${projectName}
 
 A brief description of ${projectName} and what it does.
@@ -209,7 +208,7 @@ app.start();
 
 ## Features
 
-${features.length > 0 ? features.map(feature => `- ${feature}`).join('\n') : '- Core functionality\n- User-friendly interface\n- Extensible architecture'}
+${features.length > 0 ? features.map((feature) => `- ${feature}`).join('\n') : '- Core functionality\n- User-friendly interface\n- Extensible architecture'}
 
 ## API Reference
 
@@ -354,7 +353,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
   private generateAPIDocumentation(projectName: string, endpoints: string[]): string {
     const timestamp = new Date().toISOString().split('T')[0];
-    
+
     return `# ${projectName} API Documentation
 
 ## Overview
@@ -535,7 +534,7 @@ Use the following test credentials for development:
 
   private generateUserGuide(projectName: string, features: string[]): string {
     const timestamp = new Date().toISOString().split('T')[0];
-    
+
     return `# ${projectName} User Guide
 
 Welcome to ${projectName}! This guide will help you get started and make the most of the application.
@@ -579,7 +578,11 @@ The main interface consists of:
 
 ## Basic Features
 
-${features.length > 0 ? features.map((feature, index) => `
+${
+  features.length > 0
+    ? features
+        .map(
+          (feature, index) => `
 ### ${index + 1}. ${feature}
 
 **How to use:**
@@ -590,7 +593,10 @@ ${features.length > 0 ? features.map((feature, index) => `
 **Tips:**
 - Use keyboard shortcuts for faster access
 - Check the help tooltips for additional information
-`).join('\n') : `
+`
+        )
+        .join('\n')
+    : `
 ### Core Functionality
 
 **How to use:**
@@ -601,7 +607,8 @@ ${features.length > 0 ? features.map((feature, index) => `
 **Tips:**
 - Save your work frequently
 - Use the search function to find items quickly
-`}
+`
+}
 
 ## Advanced Features
 
@@ -726,7 +733,7 @@ We value your feedback! Please share your thoughts:
 
   private generateGenericDocumentation(projectName: string, features: string[]): string {
     const timestamp = new Date().toISOString().split('T')[0];
-    
+
     return `# ${projectName} Documentation
 
 ## Overview
@@ -738,7 +745,7 @@ ${projectName} is a comprehensive solution designed to meet your needs. This doc
 
 ## Features
 
-${features.length > 0 ? features.map(feature => `- ${feature}`).join('\n') : '- Core functionality\n- User-friendly interface\n- Extensible architecture'}
+${features.length > 0 ? features.map((feature) => `- ${feature}`).join('\n') : '- Core functionality\n- User-friendly interface\n- Extensible architecture'}
 
 ## Getting Started
 
@@ -853,11 +860,12 @@ ${projectName} is licensed under the MIT License. See the LICENSE file for detai
   }
 
   private generateEndpointDocs(endpoints: string[]): string {
-    return endpoints.map(endpoint => {
-      const method = endpoint.match(/^(GET|POST|PUT|DELETE)/i)?.[0] || 'GET';
-      const path = endpoint.replace(/^(GET|POST|PUT|DELETE)\s+/i, '');
-      
-      return `
+    return endpoints
+      .map((endpoint) => {
+        const method = endpoint.match(/^(GET|POST|PUT|DELETE)/i)?.[0] || 'GET';
+        const path = endpoint.replace(/^(GET|POST|PUT|DELETE)\s+/i, '');
+
+        return `
 ### ${method} ${path}
 
 **Description:** [Endpoint description]
@@ -888,7 +896,8 @@ Content-Type: application/json
 }
 \`\`\`
 `;
-    }).join('\n');
+      })
+      .join('\n');
   }
 
   private generateDefaultEndpoints(): string {
@@ -955,4 +964,4 @@ Content-Type: application/json
 \`\`\`
 `;
   }
-} 
+}

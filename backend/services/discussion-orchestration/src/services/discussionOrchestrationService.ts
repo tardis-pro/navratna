@@ -1,17 +1,21 @@
 import { EventEmitter } from 'events';
-import { 
-  Discussion, 
-  DiscussionParticipant, 
+import {
+  Discussion,
+  DiscussionParticipant,
   DiscussionMessage,
   DiscussionStatus,
   DiscussionEvent,
   DiscussionEventType,
   CreateDiscussionRequest,
   UpdateDiscussionRequest,
-  TurnStrategyConfig
+  TurnStrategyConfig,
 } from '@uaip/types';
 import { logger } from '@uaip/utils';
-import { DiscussionService, EventBusService, ParticipantManagementService } from '@uaip/shared-services';
+import {
+  DiscussionService,
+  EventBusService,
+  ParticipantManagementService,
+} from '@uaip/shared-services';
 import { TurnStrategyService } from './turnStrategyService.js';
 import { DiscussionWebSocketHandler } from '../websocket/discussionWebSocketHandler.js';
 
@@ -30,7 +34,7 @@ export class DiscussionOrchestrationService extends EventEmitter {
   private turnTimers: Map<string, NodeJS.Timeout> = new Map();
   private activeDiscussions: Map<string, Discussion> = new Map();
   private recentParticipationRequests: Map<string, number> = new Map(); // Track recent participation requests
-  
+
   // Operation locks to prevent race conditions
   private operationLocks: Map<string, boolean> = new Map();
   private participationRateLimits: Map<string, number> = new Map(); // Discussion-level rate limiting
@@ -46,10 +50,10 @@ export class DiscussionOrchestrationService extends EventEmitter {
     this.eventBusService = eventBusService;
     this.webSocketHandler = webSocketHandler;
     this.turnStrategyService = new TurnStrategyService();
-    
+
     this.initializeEventHandlers();
     this.startPeriodicTasks();
-    
+
     // Start cleanup mechanisms to prevent memory leaks
     this.startCleanupMechanisms();
   }
@@ -73,7 +77,7 @@ export class DiscussionOrchestrationService extends EventEmitter {
         title: request.title,
         turnStrategy: request.turnStrategy.strategy,
         createdBy,
-        participantCount: request.initialParticipants?.length
+        participantCount: request.initialParticipants?.length,
       });
 
       // Validate turn strategy configuration
@@ -82,11 +86,11 @@ export class DiscussionOrchestrationService extends EventEmitter {
           request.turnStrategy.strategy,
           request.turnStrategy
         );
-        
+
         if (!validation.isValid) {
           return {
             success: false,
-            error: `Invalid turn strategy configuration: ${validation.errors.join(', ')}`
+            error: `Invalid turn strategy configuration: ${validation.errors.join(', ')}`,
           };
         }
       }
@@ -95,7 +99,7 @@ export class DiscussionOrchestrationService extends EventEmitter {
       const discussion = await this.discussionService.createDiscussion({
         ...request,
         createdBy,
-        status: DiscussionStatus.DRAFT
+        status: DiscussionStatus.DRAFT,
       });
 
       // Add to active discussions cache
@@ -109,12 +113,12 @@ export class DiscussionOrchestrationService extends EventEmitter {
         data: {
           oldStatus: null,
           newStatus: DiscussionStatus.DRAFT,
-          createdBy
+          createdBy,
         },
         timestamp: new Date(),
         metadata: {
-          source: 'orchestration-service'
-        }
+          source: 'orchestration-service',
+        },
       };
 
       await this.emitEvent(creationEvent);
@@ -122,24 +126,24 @@ export class DiscussionOrchestrationService extends EventEmitter {
       logger.info('Discussion created successfully', {
         discussionId: discussion.id,
         title: discussion.title,
-        status: discussion.status
+        status: discussion.status,
       });
 
       return {
         success: true,
         data: discussion,
-        events: [creationEvent]
+        events: [creationEvent],
       };
     } catch (error) {
       logger.error('Error creating discussion', {
         error: error instanceof Error ? error.message : 'Unknown error',
         request,
-        createdBy
+        createdBy,
       });
-      
+
       return {
         success: false,
-        error: 'Failed to create discussion'
+        error: 'Failed to create discussion',
       };
     }
   }
@@ -164,9 +168,12 @@ export class DiscussionOrchestrationService extends EventEmitter {
       }
 
       // Validate participants
-      const activeParticipants = discussion.participants.filter(p => p.isActive);
+      const activeParticipants = discussion.participants.filter((p) => p.isActive);
       if (activeParticipants.length < 2) {
-        return { success: false, error: 'At least 2 active participants required to start discussion' };
+        return {
+          success: false,
+          error: 'At least 2 active participants required to start discussion',
+        };
       }
 
       // Initialize first turn
@@ -185,18 +192,20 @@ export class DiscussionOrchestrationService extends EventEmitter {
             participantId: turnResult.nextParticipant?.id,
             startedAt: new Date(),
             expectedEndAt: new Date(Date.now() + turnResult.estimatedDuration * 1000),
-            turnNumber: turnResult.turnNumber
+            turnNumber: turnResult.turnNumber,
           },
           phase: 'discussion',
-          lastActivity: new Date()
-        }
+          lastActivity: new Date(),
+        },
       });
 
       // Ensure we have the full discussion with participants for cache and agent participation
-      const fullDiscussion = updatedDiscussion.participants ? updatedDiscussion : {
-        ...updatedDiscussion,
-        participants: discussion.participants
-      };
+      const fullDiscussion = updatedDiscussion.participants
+        ? updatedDiscussion
+        : {
+            ...updatedDiscussion,
+            participants: discussion.participants,
+          };
 
       // Update cache
       this.activeDiscussions.set(discussionId, fullDiscussion);
@@ -215,11 +224,11 @@ export class DiscussionOrchestrationService extends EventEmitter {
           data: {
             oldStatus: DiscussionStatus.DRAFT,
             newStatus: DiscussionStatus.ACTIVE,
-            startedBy
+            startedBy,
           },
           timestamp: new Date(),
-          metadata: { source: 'orchestration-service' }
-        }
+          metadata: { source: 'orchestration-service' },
+        },
       ];
 
       if (turnResult.nextParticipant) {
@@ -231,10 +240,10 @@ export class DiscussionOrchestrationService extends EventEmitter {
             previousParticipantId: null,
             currentParticipantId: turnResult.nextParticipant.id,
             turnNumber: turnResult.turnNumber,
-            estimatedDuration: turnResult.estimatedDuration
+            estimatedDuration: turnResult.estimatedDuration,
           },
           timestamp: new Date(),
-          metadata: { source: 'orchestration-service' }
+          metadata: { source: 'orchestration-service' },
         });
       }
 
@@ -248,10 +257,10 @@ export class DiscussionOrchestrationService extends EventEmitter {
         logger.warn('Cannot trigger agent participation - discussion missing participants', {
           discussionId,
           hasDiscussion: !!fullDiscussion,
-          hasParticipants: !!(fullDiscussion?.participants),
+          hasParticipants: !!fullDiscussion?.participants,
           participantCount: fullDiscussion?.participants?.length || 0,
           updateDiscussionHadParticipants: !!updatedDiscussion.participants,
-          originalDiscussionHadParticipants: !!discussion.participants
+          originalDiscussionHadParticipants: !!discussion.participants,
         });
       }
 
@@ -259,24 +268,24 @@ export class DiscussionOrchestrationService extends EventEmitter {
         discussionId,
         firstParticipantId: turnResult.nextParticipant?.id,
         turnNumber: turnResult.turnNumber,
-        estimatedDuration: turnResult.estimatedDuration
+        estimatedDuration: turnResult.estimatedDuration,
       });
 
       return {
         success: true,
         data: fullDiscussion,
-        events
+        events,
       };
     } catch (error) {
       logger.error('Error starting discussion', {
         error: error instanceof Error ? error.message : 'Unknown error',
         discussionId,
-        startedBy
+        startedBy,
       });
-      
+
       return {
         success: false,
-        error: 'Failed to start discussion'
+        error: 'Failed to start discussion',
       };
     }
   }
@@ -286,7 +295,10 @@ export class DiscussionOrchestrationService extends EventEmitter {
    */
   async addParticipant(
     discussionId: string,
-    participant: Omit<DiscussionParticipant, 'id' | 'discussionId' | 'joinedAt' | 'lastActiveAt' | 'messageCount'>,
+    participant: Omit<
+      DiscussionParticipant,
+      'id' | 'discussionId' | 'joinedAt' | 'lastActiveAt' | 'messageCount'
+    >,
     addedBy: string
   ): Promise<DiscussionOrchestrationResult> {
     try {
@@ -294,7 +306,7 @@ export class DiscussionOrchestrationService extends EventEmitter {
         discussionId,
         participantAgentId: participant.agentId,
         participantRole: participant.role,
-        addedBy
+        addedBy,
       });
 
       const discussion = await this.getDiscussion(discussionId);
@@ -316,7 +328,7 @@ export class DiscussionOrchestrationService extends EventEmitter {
       const newParticipant = await this.discussionService.addParticipant(discussionId, {
         agentId: participant.agentId,
         role: participant.role,
-        userId: participant.userId
+        userId: participant.userId,
       });
 
       // Update cache
@@ -332,10 +344,10 @@ export class DiscussionOrchestrationService extends EventEmitter {
         discussionId,
         data: {
           participant: newParticipant,
-          addedBy
+          addedBy,
         },
         timestamp: new Date(),
-        metadata: { source: 'orchestration-service' }
+        metadata: { source: 'orchestration-service' },
       };
 
       await this.emitEvent(joinEvent);
@@ -343,25 +355,25 @@ export class DiscussionOrchestrationService extends EventEmitter {
       logger.info('Participant added successfully', {
         discussionId,
         participantId: newParticipant.id,
-        addedBy
+        addedBy,
       });
 
       return {
         success: true,
         data: newParticipant,
-        events: [joinEvent]
+        events: [joinEvent],
       };
     } catch (error) {
       logger.error('Error adding participant', {
         error: error instanceof Error ? error.message : 'Unknown error',
         discussionId,
         participant,
-        addedBy
+        addedBy,
       });
-      
+
       return {
         success: false,
-        error: 'Failed to add participant'
+        error: 'Failed to add participant',
       };
     }
   }
@@ -371,7 +383,7 @@ export class DiscussionOrchestrationService extends EventEmitter {
    */
   async sendMessage(
     discussionId: string,
-     participantId: string,
+    participantId: string,
     content: string,
     messageType?: string,
     metadata?: any
@@ -381,7 +393,7 @@ export class DiscussionOrchestrationService extends EventEmitter {
         discussionId,
         participantId,
         messageType,
-        contentLength: content.length
+        contentLength: content.length,
       });
 
       // Force refresh discussion data to get latest participant information
@@ -391,29 +403,35 @@ export class DiscussionOrchestrationService extends EventEmitter {
       }
 
       // Enterprise participant lookup - use the participant management service
-      const participantManagementService = new ParticipantManagementService((this.discussionService as any).databaseService);
-      
+      const participantManagementService = new ParticipantManagementService(
+        (this.discussionService as any).databaseService
+      );
+
       // Try to find participant by participantId first
       let participant = await participantManagementService.getParticipantById(participantId);
-      
+
       if (!participant) {
         // Try to find by agentId in case participantId is actually an agentId
-        participant = await participantManagementService.getParticipantByAgentId(discussionId, participantId);
+        participant = await participantManagementService.getParticipantByAgentId(
+          discussionId,
+          participantId
+        );
       }
-      
+
       if (!participant) {
         // Enhanced debugging for participant not found
-        const allParticipants = await participantManagementService.getDiscussionParticipants(discussionId);
+        const allParticipants =
+          await participantManagementService.getDiscussionParticipants(discussionId);
         logger.error('Participant not found in discussion', {
           discussionId,
           requestedParticipantId: participantId,
-          availableParticipants: allParticipants.map(p => ({
+          availableParticipants: allParticipants.map((p) => ({
             participantId: p.participantId,
             agentId: p.agentId,
             displayName: p.displayName,
             isActive: p.isActive,
-            roleInDiscussion: p.roleInDiscussion
-          }))
+            roleInDiscussion: p.roleInDiscussion,
+          })),
         });
         return { success: false, error: 'Participant not found' };
       }
@@ -429,7 +447,7 @@ export class DiscussionOrchestrationService extends EventEmitter {
       if (discussion.turnStrategy.strategy !== 'free_form') {
         const currentTurnParticipant = discussion.state.currentTurn.participantId;
         const isInitialParticipation = metadata?.isInitialParticipation === true;
-        
+
         logger.info('Turn management check', {
           discussionId,
           currentTurnParticipant,
@@ -437,25 +455,40 @@ export class DiscussionOrchestrationService extends EventEmitter {
           participantFound: !!participant,
           isMatch: currentTurnParticipant === actualParticipantId,
           strategy: discussion.turnStrategy.strategy,
-          isInitialParticipation
+          isInitialParticipation,
         });
-        
+
         // Allow initial agent participation to bypass turn restrictions
-        if (currentTurnParticipant && currentTurnParticipant !== actualParticipantId && !isInitialParticipation) {
+        if (
+          currentTurnParticipant &&
+          currentTurnParticipant !== actualParticipantId &&
+          !isInitialParticipation
+        ) {
           return { success: false, error: 'It is not your turn to speak' };
         }
       }
 
       // Map message type to valid database enum values
-      const validMessageTypes = ['message', 'question', 'answer', 'clarification', 'objection', 'agreement', 'summary', 'decision', 'action_item', 'system'];
+      const validMessageTypes = [
+        'message',
+        'question',
+        'answer',
+        'clarification',
+        'objection',
+        'agreement',
+        'summary',
+        'decision',
+        'action_item',
+        'system',
+      ];
       const mappedMessageType = validMessageTypes.includes(messageType) ? messageType : 'message';
-      
+
       logger.info('Sending message to database', {
         discussionId,
         participantId: actualParticipantId,
         originalMessageType: messageType,
         mappedMessageType,
-        contentLength: content.length
+        contentLength: content.length,
       });
 
       // Send message through shared service
@@ -471,7 +504,7 @@ export class DiscussionOrchestrationService extends EventEmitter {
         messageCount: participant.messageCount + 1,
         lastMessageAt: new Date(),
         contributionScore: (participant.contributionScore || 0) + 1,
-        engagementLevel: Math.min(1.0, (participant.engagementLevel || 0) + 0.1)
+        engagementLevel: Math.min(1.0, (participant.engagementLevel || 0) + 0.1),
       });
 
       // Update discussion state (the service handles participant updates internally)
@@ -479,8 +512,8 @@ export class DiscussionOrchestrationService extends EventEmitter {
         state: {
           ...discussion.state,
           messageCount: discussion.state.messageCount + 1,
-          lastActivity: new Date()
-        }
+          lastActivity: new Date(),
+        },
       });
 
       // Emit message event
@@ -490,10 +523,10 @@ export class DiscussionOrchestrationService extends EventEmitter {
         discussionId,
         data: {
           message,
-          participantId
+          participantId,
         },
         timestamp: new Date(),
-        metadata: { source: 'orchestration-service' }
+        metadata: { source: 'orchestration-service' },
       };
 
       await this.emitEvent(messageEvent);
@@ -502,7 +535,7 @@ export class DiscussionOrchestrationService extends EventEmitter {
         discussionId,
         messageId: message.id,
         participantId,
-        messageType
+        messageType,
       });
 
       // DISABLED: Automatic conversation enhancement after every message
@@ -511,25 +544,25 @@ export class DiscussionOrchestrationService extends EventEmitter {
       logger.debug('Message sent, automatic enhancement disabled', {
         discussionId,
         participantId,
-        note: 'Agent participation handled via periodic checks'
+        note: 'Agent participation handled via periodic checks',
       });
 
       return {
         success: true,
         data: message,
-        events: [messageEvent]
+        events: [messageEvent],
       };
     } catch (error) {
       logger.error('Error sending message', {
         error: error instanceof Error ? error.message : 'Unknown error',
         discussionId,
         participantId,
-        content: content.substring(0, 100) + '...'
+        content: content.substring(0, 100) + '...',
       });
-      
+
       return {
         success: false,
-        error: 'Failed to send message'
+        error: 'Failed to send message',
       };
     }
   }
@@ -537,7 +570,10 @@ export class DiscussionOrchestrationService extends EventEmitter {
   /**
    * Advance turn manually
    */
-  async advanceTurn(discussionId: string, advancedBy?: string): Promise<DiscussionOrchestrationResult> {
+  async advanceTurn(
+    discussionId: string,
+    advancedBy?: string
+  ): Promise<DiscussionOrchestrationResult> {
     try {
       logger.info('Advancing turn', { discussionId, advancedBy });
 
@@ -550,7 +586,7 @@ export class DiscussionOrchestrationService extends EventEmitter {
         return { success: false, error: 'Discussion is not active' };
       }
 
-      const activeParticipants = discussion.participants.filter(p => p.isActive);
+      const activeParticipants = discussion.participants.filter((p) => p.isActive);
       const currentParticipantId = discussion.state.currentTurn.participantId;
 
       // Clear existing turn timer
@@ -570,13 +606,13 @@ export class DiscussionOrchestrationService extends EventEmitter {
           currentTurn: {
             participantId: turnResult.nextParticipant?.id,
             startedAt: new Date(),
-            expectedEndAt: turnResult.nextParticipant 
+            expectedEndAt: turnResult.nextParticipant
               ? new Date(Date.now() + turnResult.estimatedDuration * 1000)
               : undefined,
-            turnNumber: turnResult.turnNumber
+            turnNumber: turnResult.turnNumber,
           },
-          lastActivity: new Date()
-        }
+          lastActivity: new Date(),
+        },
       });
 
       // Update cache
@@ -597,10 +633,10 @@ export class DiscussionOrchestrationService extends EventEmitter {
           currentParticipantId: turnResult.nextParticipant?.id,
           turnNumber: turnResult.turnNumber,
           estimatedDuration: turnResult.estimatedDuration,
-          advancedBy
+          advancedBy,
         },
         timestamp: new Date(),
-        metadata: { source: 'orchestration-service' }
+        metadata: { source: 'orchestration-service' },
       };
 
       await this.emitEvent(turnEvent);
@@ -609,7 +645,7 @@ export class DiscussionOrchestrationService extends EventEmitter {
         discussionId,
         previousParticipantId: currentParticipantId,
         nextParticipantId: turnResult.nextParticipant?.id,
-        turnNumber: turnResult.turnNumber
+        turnNumber: turnResult.turnNumber,
       });
 
       return {
@@ -617,25 +653,23 @@ export class DiscussionOrchestrationService extends EventEmitter {
         data: {
           nextParticipant: turnResult.nextParticipant,
           turnNumber: turnResult.turnNumber,
-          estimatedDuration: turnResult.estimatedDuration
+          estimatedDuration: turnResult.estimatedDuration,
         },
-        events: [turnEvent]
+        events: [turnEvent],
       };
     } catch (error) {
       logger.error('Error advancing turn', {
         error: error instanceof Error ? error.message : 'Unknown error',
         discussionId,
-        advancedBy
+        advancedBy,
       });
-      
+
       return {
         success: false,
-        error: 'Failed to advance turn'
+        error: 'Failed to advance turn',
       };
     }
   }
-
-
 
   /**
    * Get a discussion by ID (public method for external access)
@@ -653,7 +687,7 @@ export class DiscussionOrchestrationService extends EventEmitter {
 
       // Fetch from database
       const discussion = await this.discussionService.getDiscussion(discussionId);
-      
+
       if (discussion) {
         // Update cache
         this.activeDiscussions.set(discussionId, discussion);
@@ -664,7 +698,7 @@ export class DiscussionOrchestrationService extends EventEmitter {
     } catch (error) {
       logger.error('Error retrieving discussion', {
         error: error instanceof Error ? error.message : 'Unknown error',
-        discussionId
+        discussionId,
       });
       return null;
     }
@@ -679,17 +713,20 @@ export class DiscussionOrchestrationService extends EventEmitter {
       if (!discussion) {
         logger.warn('Discussion not found for access verification', {
           discussionId,
-          userId
+          userId,
         });
         return false;
       }
 
       // Check discussion status first
-      if (discussion.status === DiscussionStatus.CANCELLED || discussion.status === DiscussionStatus.ARCHIVED) {
+      if (
+        discussion.status === DiscussionStatus.CANCELLED ||
+        discussion.status === DiscussionStatus.ARCHIVED
+      ) {
         logger.warn('Discussion is cancelled or archived', {
           discussionId,
           userId,
-          status: discussion.status
+          status: discussion.status,
         });
         return false;
       }
@@ -699,20 +736,20 @@ export class DiscussionOrchestrationService extends EventEmitter {
         logger.info('Access granted: User is discussion creator', {
           discussionId,
           userId,
-          createdBy: discussion.createdBy
+          createdBy: discussion.createdBy,
         });
         return true;
       }
 
       // Check if user is a participant
-      const participant = discussion.participants.find(p => p.userId === userId);
+      const participant = discussion.participants.find((p) => p.userId === userId);
       if (!participant) {
         logger.warn('Access denied: User is not a participant or creator', {
           discussionId,
           userId,
           createdBy: discussion.createdBy,
           participantCount: discussion.participants.length,
-          participantUserIds: discussion.participants.map(p => p.userId)
+          participantUserIds: discussion.participants.map((p) => p.userId),
         });
         return false;
       }
@@ -723,7 +760,7 @@ export class DiscussionOrchestrationService extends EventEmitter {
           discussionId,
           userId,
           participantId: participant.id,
-          isActive: participant.isActive
+          isActive: participant.isActive,
         });
         return false;
       }
@@ -732,14 +769,14 @@ export class DiscussionOrchestrationService extends EventEmitter {
         discussionId,
         userId,
         participantId: participant.id,
-        role: participant.role
+        role: participant.role,
       });
       return true;
     } catch (error) {
       logger.error('Error verifying participant access', {
         error: error instanceof Error ? error.message : 'Unknown error',
         discussionId,
-        userId
+        userId,
       });
       return false;
     }
@@ -748,20 +785,23 @@ export class DiscussionOrchestrationService extends EventEmitter {
   /**
    * Get participant by user ID
    */
-  async getParticipantByUserId(discussionId: string, userId: string): Promise<DiscussionParticipant | null> {
+  async getParticipantByUserId(
+    discussionId: string,
+    userId: string
+  ): Promise<DiscussionParticipant | null> {
     try {
       const discussion = await this.getDiscussion(discussionId);
       if (!discussion) {
         return null;
       }
 
-      const participant = discussion.participants.find(p => p.userId === userId);
+      const participant = discussion.participants.find((p) => p.userId === userId);
       return participant || null;
     } catch (error) {
       logger.error('Error getting participant by user ID', {
         error: error instanceof Error ? error.message : 'Unknown error',
         discussionId,
-        userId
+        userId,
       });
       return null;
     }
@@ -770,14 +810,17 @@ export class DiscussionOrchestrationService extends EventEmitter {
   /**
    * Request turn for a participant
    */
-  async requestTurn(discussionId: string,  participantId: string): Promise<DiscussionOrchestrationResult> {
+  async requestTurn(
+    discussionId: string,
+    participantId: string
+  ): Promise<DiscussionOrchestrationResult> {
     try {
       const discussion = await this.getDiscussion(discussionId);
       if (!discussion) {
         return { success: false, error: 'Discussion not found' };
       }
 
-      const participant = discussion.participants.find(p => p.id === participantId);
+      const participant = discussion.participants.find((p) => p.id === participantId);
       if (!participant) {
         return { success: false, error: 'Participant not found' };
       }
@@ -803,15 +846,15 @@ export class DiscussionOrchestrationService extends EventEmitter {
         logger.info('Turn requested in moderated discussion', {
           discussionId,
           participantId,
-          currentTurn: discussion.state.currentTurn.participantId
+          currentTurn: discussion.state.currentTurn.participantId,
         });
 
         return {
           success: true,
           data: {
             status: 'queued',
-            message: 'Turn request added to queue for moderator approval'
-          }
+            message: 'Turn request added to queue for moderator approval',
+          },
         };
       }
 
@@ -821,20 +864,20 @@ export class DiscussionOrchestrationService extends EventEmitter {
           success: true,
           data: {
             status: 'active',
-            message: 'It is already your turn'
-          }
+            message: 'It is already your turn',
+          },
         };
       }
 
       return {
         success: false,
-        error: 'Turn request not applicable for current strategy'
+        error: 'Turn request not applicable for current strategy',
       };
     } catch (error) {
       logger.error('Error requesting turn', {
         error: error instanceof Error ? error.message : 'Unknown error',
         discussionId,
-        participantId
+        participantId,
       });
       return { success: false, error: 'Failed to request turn' };
     }
@@ -843,7 +886,10 @@ export class DiscussionOrchestrationService extends EventEmitter {
   /**
    * End turn for a participant
    */
-  async endTurn(discussionId: string,  participantId: string): Promise<DiscussionOrchestrationResult> {
+  async endTurn(
+    discussionId: string,
+    participantId: string
+  ): Promise<DiscussionOrchestrationResult> {
     try {
       const discussion = await this.getDiscussion(discussionId);
       if (!discussion) {
@@ -857,14 +903,14 @@ export class DiscussionOrchestrationService extends EventEmitter {
 
       // Advance to next turn
       const result = await this.advanceTurn(discussionId, participantId);
-      
+
       if (result.success) {
         return {
           success: true,
           data: {
             message: 'Turn ended successfully',
-            nextParticipant: result.data?.nextParticipant
-          }
+            nextParticipant: result.data?.nextParticipant,
+          },
         };
       }
 
@@ -873,7 +919,7 @@ export class DiscussionOrchestrationService extends EventEmitter {
       logger.error('Error ending turn', {
         error: error instanceof Error ? error.message : 'Unknown error',
         discussionId,
-        participantId
+        participantId,
       });
       return { success: false, error: 'Failed to end turn' };
     }
@@ -885,7 +931,7 @@ export class DiscussionOrchestrationService extends EventEmitter {
   async addReaction(
     discussionId: string,
     messageId: string,
-     participantId: string,
+    participantId: string,
     emoji: string
   ): Promise<DiscussionOrchestrationResult> {
     try {
@@ -895,7 +941,7 @@ export class DiscussionOrchestrationService extends EventEmitter {
         return { success: false, error: 'Discussion not found' };
       }
 
-      const participant = discussion.participants.find(p => p.id === participantId);
+      const participant = discussion.participants.find((p) => p.id === participantId);
       if (!participant || !participant.isActive) {
         return { success: false, error: 'Participant not found or inactive' };
       }
@@ -906,7 +952,7 @@ export class DiscussionOrchestrationService extends EventEmitter {
         id: this.generateEventId(),
         participantId,
         emoji,
-        createdAt: new Date()
+        createdAt: new Date(),
       };
 
       // Emit reaction event
@@ -918,10 +964,10 @@ export class DiscussionOrchestrationService extends EventEmitter {
           messageId,
           participantId,
           emoji,
-          reaction
+          reaction,
         },
         timestamp: new Date(),
-        metadata: { source: 'orchestration-service' }
+        metadata: { source: 'orchestration-service' },
       };
 
       await this.emitEvent(reactionEvent);
@@ -930,13 +976,13 @@ export class DiscussionOrchestrationService extends EventEmitter {
         discussionId,
         messageId,
         participantId,
-        emoji
+        emoji,
       });
 
       return {
         success: true,
         data: reaction,
-        events: [reactionEvent]
+        events: [reactionEvent],
       };
     } catch (error) {
       logger.error('Error adding reaction', {
@@ -944,15 +990,16 @@ export class DiscussionOrchestrationService extends EventEmitter {
         discussionId,
         messageId,
         participantId,
-        emoji
+        emoji,
       });
       return { success: false, error: 'Failed to add reaction' };
     }
   }
 
-
-
-  private async getDiscussionInternal(discussionId: string, forceRefresh = false): Promise<Discussion | null> {
+  private async getDiscussionInternal(
+    discussionId: string,
+    forceRefresh = false
+  ): Promise<Discussion | null> {
     // This is the old private method, now we use the public one
     return this.getDiscussion(discussionId, forceRefresh);
   }
@@ -961,15 +1008,15 @@ export class DiscussionOrchestrationService extends EventEmitter {
 
   private async setTurnTimer(discussionId: string, durationSeconds: number): Promise<void> {
     const lockKey = `turn_timer_${discussionId}`;
-    
+
     // Prevent race conditions with atomic turn timer operations
     if (this.operationLocks.get(lockKey)) {
       logger.debug('Turn timer operation already in progress, skipping', { discussionId });
       return;
     }
-    
+
     this.operationLocks.set(lockKey, true);
-    
+
     try {
       // Atomically clear existing timer and set new one
       const existingTimer = this.turnTimers.get(discussionId);
@@ -984,25 +1031,24 @@ export class DiscussionOrchestrationService extends EventEmitter {
         // Check if discussion still exists and is active before advancing
         const discussion = await this.getDiscussion(discussionId);
         if (!discussion || discussion.status !== 'active') {
-          logger.debug('Skipping turn advance - discussion inactive', { 
-            discussionId, 
-            status: discussion?.status 
+          logger.debug('Skipping turn advance - discussion inactive', {
+            discussionId,
+            status: discussion?.status,
           });
           return;
         }
-        
+
         logger.info('Turn timer expired, advancing turn', { discussionId, durationSeconds });
         await this.advanceTurn(discussionId, 'system');
       }, durationSeconds * 1000);
 
       this.turnTimers.set(discussionId, timer);
       logger.debug('Turn timer set atomically', { discussionId, durationSeconds });
-      
     } catch (error) {
       logger.error('Error setting turn timer', {
         error: error instanceof Error ? error.message : 'Unknown error',
         discussionId,
-        durationSeconds
+        durationSeconds,
       });
     } finally {
       // Always release the lock
@@ -1012,7 +1058,7 @@ export class DiscussionOrchestrationService extends EventEmitter {
 
   private clearTurnTimer(discussionId: string): void {
     const lockKey = `turn_timer_${discussionId}`;
-    
+
     // Prevent race conditions during timer clearing
     if (this.operationLocks.get(lockKey)) {
       logger.debug('Turn timer operation in progress, deferring clear', { discussionId });
@@ -1020,7 +1066,7 @@ export class DiscussionOrchestrationService extends EventEmitter {
       setTimeout(() => this.clearTurnTimer(discussionId), 100);
       return;
     }
-    
+
     const timer = this.turnTimers.get(discussionId);
     if (timer) {
       clearTimeout(timer);
@@ -1037,20 +1083,20 @@ export class DiscussionOrchestrationService extends EventEmitter {
     try {
       // Emit to event bus
       await this.eventBusService.publish('discussion.events', event);
-      
+
       // Emit to EventEmitter interface (for WebSocket handler)
       this.emit('discussion_event', event);
-      
+
       // Broadcast to WebSocket connections (fallback)
       if (this.webSocketHandler) {
         this.webSocketHandler.broadcastToDiscussion(event.discussionId, event);
       }
-      
+
       logger.debug('Event emitted', { eventType: event.type, discussionId: event.discussionId });
     } catch (error) {
       logger.error('Error emitting event', {
         error: error instanceof Error ? error.message : 'Unknown error',
-        event
+        event,
       });
     }
   }
@@ -1093,56 +1139,69 @@ export class DiscussionOrchestrationService extends EventEmitter {
     }
   }
 
-
   /**
    * Check active discussions for agent participation
    */
   private async checkActiveDiscussionsForParticipation(): Promise<void> {
     try {
       // Query database directly instead of relying on cache
-      const result = await this.discussionService.searchDiscussions({ status: [DiscussionStatus.ACTIVE] }, 100, 0);
+      const result = await this.discussionService.searchDiscussions(
+        { status: [DiscussionStatus.ACTIVE] },
+        100,
+        0
+      );
       const activeDiscussions = result.discussions;
       logger.debug('Checking active discussions for agent participation', {
-        activeDiscussionCount: activeDiscussions.length
+        activeDiscussionCount: activeDiscussions.length,
       });
-      
+
       // Only check discussions that are truly stale or have participation issues
       for (const discussion of activeDiscussions) {
         if (discussion.status === DiscussionStatus.ACTIVE) {
           // Get full discussion with participants
           const fullDiscussion = await this.discussionService.getDiscussion(discussion.id);
           if (!fullDiscussion) continue;
-          
+
           // Check if discussion needs agent participation
           const lastActivity = fullDiscussion.state.lastActivity;
-          const timeSinceActivity = lastActivity ? Date.now() - (lastActivity instanceof Date ? lastActivity.getTime() : new Date(lastActivity).getTime()) : Infinity;
-          
+          const timeSinceActivity = lastActivity
+            ? Date.now() -
+              (lastActivity instanceof Date
+                ? lastActivity.getTime()
+                : new Date(lastActivity).getTime())
+            : Infinity;
+
           // Check if discussion has reached its goal naturally
           const hasReachedGoal = await this.checkDiscussionGoalAchievement(fullDiscussion);
           if (hasReachedGoal) {
             logger.info('Discussion has reached its goal, completing', {
               discussionId: fullDiscussion.id,
-              messageCount: fullDiscussion.state.messageCount
+              messageCount: fullDiscussion.state.messageCount,
             });
-            
-            await this.updateDiscussionStatus(fullDiscussion.id, DiscussionStatus.COMPLETED, 'system');
+
+            await this.updateDiscussionStatus(
+              fullDiscussion.id,
+              DiscussionStatus.COMPLETED,
+              'system'
+            );
             await this.emitDiscussionCompletionEvent(fullDiscussion.id, 'system', 'goal_achieved');
             continue;
           }
-          
+
           // For new discussions (more than 10 seconds old), trigger initial participation
           // For ongoing discussions (more than 15 seconds), check if agents should participate
-          if (timeSinceActivity > 10000 && fullDiscussion.state.messageCount === 0) { // 10 seconds for initial participation
+          if (timeSinceActivity > 10000 && fullDiscussion.state.messageCount === 0) {
+            // 10 seconds for initial participation
             await this.ensureAgentParticipation(fullDiscussion);
-          } else if (timeSinceActivity > 15000) { // 15 seconds for subsequent participation
+          } else if (timeSinceActivity > 15000) {
+            // 15 seconds for subsequent participation
             await this.ensureAgentParticipation(fullDiscussion);
           }
         }
       }
-      
     } catch (error) {
       logger.error('Error checking active discussions for participation', {
-        error: error instanceof Error ? error.message : 'Unknown error'
+        error: error instanceof Error ? error.message : 'Unknown error',
       });
     }
   }
@@ -1153,11 +1212,11 @@ export class DiscussionOrchestrationService extends EventEmitter {
   private async monitorDiscussionHealth(): Promise<void> {
     try {
       logger.debug('Monitoring discussion health');
-      
+
       const stats = {
         activeDiscussions: 0,
         staleDiscussions: 0,
-        participationIssues: 0
+        participationIssues: 0,
       };
 
       for (const [discussionId, discussion] of this.activeDiscussions.entries()) {
@@ -1165,34 +1224,42 @@ export class DiscussionOrchestrationService extends EventEmitter {
 
         // Check if discussion has been inactive for too long
         const lastActivity = discussion.state.lastActivity;
-        const timeSinceActivity = lastActivity ? Date.now() - (lastActivity instanceof Date ? lastActivity.getTime() : new Date(lastActivity).getTime()) : Infinity;
-        
-        if (timeSinceActivity > 600000) { // 10 minutes
+        const timeSinceActivity = lastActivity
+          ? Date.now() -
+            (lastActivity instanceof Date
+              ? lastActivity.getTime()
+              : new Date(lastActivity).getTime())
+          : Infinity;
+
+        if (timeSinceActivity > 600000) {
+          // 10 minutes
           stats.staleDiscussions++;
-          logger.warn('Stale discussion detected', { 
-            discussionId, 
-            timeSinceActivity: Math.round(timeSinceActivity / 1000) 
+          logger.warn('Stale discussion detected', {
+            discussionId,
+            timeSinceActivity: Math.round(timeSinceActivity / 1000),
           });
         }
 
         // Check for agent participation issues
-        const agentParticipants = discussion.participants.filter(p => p.agentId);
-        const hasRecentAgentActivity = agentParticipants.some(p => {
-          const timeSinceLastActive = p.lastMessageAt ? Date.now() - p.lastMessageAt.getTime() : Infinity;
+        const agentParticipants = discussion.participants.filter((p) => p.agentId);
+        const hasRecentAgentActivity = agentParticipants.some((p) => {
+          const timeSinceLastActive = p.lastMessageAt
+            ? Date.now() - p.lastMessageAt.getTime()
+            : Infinity;
           return timeSinceLastActive < 300000; // 5 minutes
         });
 
         if (agentParticipants.length > 0 && !hasRecentAgentActivity) {
           stats.participationIssues++;
-          logger.warn('Agent participation issue detected', { 
+          logger.warn('Agent participation issue detected', {
             discussionId,
-            agentCount: agentParticipants.length
+            agentCount: agentParticipants.length,
           });
-          
+
           // Trigger agent participation for turn-based or free-form discussions
           if (discussion.turnStrategy.strategy === 'free_form') {
             // For free-form discussions, only trigger one agent at a time to prevent spam
-            const eligibleParticipants = agentParticipants.filter(p => p.agentId && p.isActive);
+            const eligibleParticipants = agentParticipants.filter((p) => p.agentId && p.isActive);
             if (eligibleParticipants.length > 0) {
               // Select the participant who hasn't spoken in the longest time
               const leastRecentParticipant = eligibleParticipants.reduce((oldest, current) => {
@@ -1205,8 +1272,11 @@ export class DiscussionOrchestrationService extends EventEmitter {
           } else {
             // For turn-based discussions, only trigger the current participant
             for (const participant of agentParticipants) {
-              if (participant.agentId && participant.isActive && 
-                  discussion.state.currentTurn.participantId === participant.id) {
+              if (
+                participant.agentId &&
+                participant.isActive &&
+                discussion.state.currentTurn.participantId === participant.id
+              ) {
                 await this.triggerAgentParticipationEvent(discussionId, participant);
                 break; // Only one participant for turn-based
               }
@@ -1218,10 +1288,9 @@ export class DiscussionOrchestrationService extends EventEmitter {
       if (stats.activeDiscussions > 0) {
         logger.info('Discussion health check completed', stats);
       }
-      
     } catch (error) {
       logger.error('Error monitoring discussion health', {
-        error: error instanceof Error ? error.message : 'Unknown error'
+        error: error instanceof Error ? error.message : 'Unknown error',
       });
     }
   }
@@ -1235,13 +1304,13 @@ export class DiscussionOrchestrationService extends EventEmitter {
         logger.warn('Discussion participants not available for intelligent participation', {
           discussionId: discussion.id,
           hasParticipants: !!discussion.participants,
-          participantsType: typeof discussion.participants
+          participantsType: typeof discussion.participants,
         });
         return;
       }
 
-      const agentParticipants = discussion.participants.filter(p => p.agentId && p.isActive);
-      
+      const agentParticipants = discussion.participants.filter((p) => p.agentId && p.isActive);
+
       if (agentParticipants.length === 0) {
         return; // No agents to participate
       }
@@ -1252,28 +1321,27 @@ export class DiscussionOrchestrationService extends EventEmitter {
       // Request conversation enhancement from agent-intelligence service
       await this.eventBusService.publish('conversation.enhancement.request', {
         discussionId: discussion.id,
-        availableAgentIds: agentParticipants.map(p => p.agentId).filter(Boolean),
+        availableAgentIds: agentParticipants.map((p) => p.agentId).filter(Boolean),
         messageHistory,
         currentTopic: discussion.topic,
         enhancementType: 'auto',
         context: {
           phase: discussion.state.phase,
           messageCount: discussion.state.messageCount,
-          participantCount: discussion.participants.length
+          participantCount: discussion.participants.length,
         },
-        timestamp: new Date()
+        timestamp: new Date(),
       });
 
       logger.info('Intelligent agent participation request sent', {
         discussionId: discussion.id,
         agentCount: agentParticipants.length,
-        messageCount: messageHistory.length
+        messageCount: messageHistory.length,
       });
-
     } catch (error) {
       logger.error('Error triggering intelligent agent participation', {
         error: error instanceof Error ? error.message : 'Unknown error',
-        discussionId: discussion.id
+        discussionId: discussion.id,
       });
     }
   }
@@ -1284,22 +1352,24 @@ export class DiscussionOrchestrationService extends EventEmitter {
   private async createMessageHistoryFromDiscussion(discussion: Discussion): Promise<any[]> {
     try {
       // Get recent messages from the discussion
-      const messages = await this.discussionService.getDiscussionMessages(discussion.id, { limit: 20 });
-      
-      return messages.map(msg => ({
+      const messages = await this.discussionService.getDiscussionMessages(discussion.id, {
+        limit: 20,
+      });
+
+      return messages.map((msg) => ({
         id: msg.id,
         speaker: msg.participantId || 'user',
         content: msg.content,
         timestamp: msg.createdAt,
         metadata: {
           participantId: msg.participantId,
-          messageType: msg.messageType
-        }
+          messageType: msg.messageType,
+        },
       }));
     } catch (error) {
       logger.error('Failed to create message history from discussion', {
         error: error instanceof Error ? error.message : 'Unknown error',
-        discussionId: discussion.id
+        discussionId: discussion.id,
       });
       return [];
     }
@@ -1314,48 +1384,54 @@ export class DiscussionOrchestrationService extends EventEmitter {
       const participationKey = `participation_${discussion.id}`;
       const lastTrigger = this.participationRateLimits.get(participationKey);
       const now = Date.now();
-      
+
       // Rate limit: minimum 30 seconds between triggers per discussion
-      if (lastTrigger && (now - lastTrigger) < 30000) {
-        logger.debug('Skipping agent participation - rate limited', { 
+      if (lastTrigger && now - lastTrigger < 30000) {
+        logger.debug('Skipping agent participation - rate limited', {
           discussionId: discussion.id,
           timeSinceLastTrigger: now - lastTrigger,
-          rateLimitMs: 30000
+          rateLimitMs: 30000,
         });
         return;
       }
-      
+
       // Additional safety: Check if discussion has reached maximum messages
       const maxMessages = discussion.metadata?.maxMessages || 100;
       const currentMessageCount = discussion.state.messageCount || 0;
-      
+
       if (currentMessageCount >= maxMessages) {
         logger.info('Discussion reached maximum message limit, stopping agent participation', {
           discussionId: discussion.id,
           currentMessageCount,
-          maxMessages
+          maxMessages,
         });
-        
+
         // Stop the discussion to prevent loops
         await this.updateDiscussionStatus(discussion.id, DiscussionStatus.COMPLETED, 'system');
         // Emit discussion completion event for artifact generation
         await this.emitDiscussionCompletionEvent(discussion.id, 'system', 'max_messages_reached');
         return;
       }
-      
+
       // Update rate limit timestamp
       this.participationRateLimits.set(participationKey, now);
       // Use enterprise participant management service
-      const participantManagementService = new ParticipantManagementService((this.discussionService as any).databaseService);
-      
+      const participantManagementService = new ParticipantManagementService(
+        (this.discussionService as any).databaseService
+      );
+
       // Get active agent participants
-      const activeParticipants = await participantManagementService.getActiveParticipants(discussion.id);
-      const agentParticipants = activeParticipants.filter(p => p.participantType === 'agent' && p.agentId);
-      
+      const activeParticipants = await participantManagementService.getActiveParticipants(
+        discussion.id
+      );
+      const agentParticipants = activeParticipants.filter(
+        (p) => p.participantType === 'agent' && p.agentId
+      );
+
       if (agentParticipants.length === 0) {
         logger.info('No active agent participants found for discussion', {
           discussionId: discussion.id,
-          totalParticipants: activeParticipants.length
+          totalParticipants: activeParticipants.length,
         });
         return;
       }
@@ -1363,22 +1439,22 @@ export class DiscussionOrchestrationService extends EventEmitter {
       logger.info('Enterprise agent participation management', {
         discussionId: discussion.id,
         totalAgentParticipants: agentParticipants.length,
-        participantDetails: agentParticipants.map(p => ({
+        participantDetails: agentParticipants.map((p) => ({
           participantId: p.participantId,
           agentId: p.agentId,
           displayName: p.displayName,
           messageCount: p.messageCount,
-          lastMessageAt: p.lastMessageAt
-        }))
+          lastMessageAt: p.lastMessageAt,
+        })),
       });
 
       // Phase-based agent participation logic
-      const neverParticipatedAgents = agentParticipants.filter(p => {
+      const neverParticipatedAgents = agentParticipants.filter((p) => {
         // Check if agent has never sent a message
         return !p.lastMessageAt && p.messageCount === 0;
       });
 
-      const participatedAgents = agentParticipants.filter(p => {
+      const participatedAgents = agentParticipants.filter((p) => {
         // Agents who have participated but may need to continue conversation
         return p.lastMessageAt && p.messageCount > 0;
       });
@@ -1388,7 +1464,7 @@ export class DiscussionOrchestrationService extends EventEmitter {
         logger.info('Triggering introduction for agents who have never participated', {
           discussionId: discussion.id,
           agentCount: neverParticipatedAgents.length,
-          agentIds: neverParticipatedAgents.map(p => p.agentId)
+          agentIds: neverParticipatedAgents.map((p) => p.agentId),
         });
 
         // Trigger participation for the first agent who has never participated
@@ -1401,20 +1477,20 @@ export class DiscussionOrchestrationService extends EventEmitter {
           discussionId: discussion.id,
           participatedAgentCount: participatedAgents.length,
           currentTurnNumber: discussion.state.currentTurn.turnNumber,
-          totalMessageCount: discussion.state.messageCount
+          totalMessageCount: discussion.state.messageCount,
         });
 
         // Check if we should continue the discussion (prevent infinite loops)
         const maxMessages = discussion.metadata?.maxMessages || 100; // Increased limit for better testing
         const currentMessageCount = discussion.state.messageCount || 0;
-        
+
         if (currentMessageCount >= maxMessages) {
           logger.info('Discussion reached maximum message limit, stopping', {
             discussionId: discussion.id,
             currentMessageCount,
-            maxMessages
+            maxMessages,
           });
-          
+
           // Stop the discussion properly to prevent loops
           await this.updateDiscussionStatus(discussion.id, DiscussionStatus.COMPLETED, 'system');
           // Emit discussion completion event for artifact generation
@@ -1424,53 +1500,59 @@ export class DiscussionOrchestrationService extends EventEmitter {
 
         // Use turn strategy to determine next participant
         const participants = await this.getActiveParticipants(discussion.id);
-        
+
         logger.debug('Using turn strategy to select next participant', {
           discussionId: discussion.id,
           strategy: discussion.turnStrategy?.strategy || 'unknown',
-          participantCount: participants.length
+          participantCount: participants.length,
         });
-        
-        const nextParticipant = await this.turnStrategyService.getNextParticipant(discussion, participants);
-        
+
+        const nextParticipant = await this.turnStrategyService.getNextParticipant(
+          discussion,
+          participants
+        );
+
         logger.debug('Turn strategy selected participant', {
           discussionId: discussion.id,
           selectedParticipant: nextParticipant?.id || 'none',
-          selectedAgent: nextParticipant?.agentId || 'none'
+          selectedAgent: nextParticipant?.agentId || 'none',
         });
-        
+
         if (nextParticipant && nextParticipant.agentId) {
           // Check if this participant has been active recently to prevent immediate re-triggering
           // Get last message from discussion history
           const messages = await this.getDiscussionMessages(discussion.id);
-          const lastMessage = messages && messages.length > 0 ? messages[messages.length - 1] : null;
+          const lastMessage =
+            messages && messages.length > 0 ? messages[messages.length - 1] : null;
           const isRecentSender = lastMessage && lastMessage.participantId === nextParticipant.id;
-          
+
           // Don't trigger the same participant immediately unless it's been a while
-          if (!isRecentSender || (lastMessage && (Date.now() - lastMessage.createdAt.getTime()) > 5000)) {
+          if (
+            !isRecentSender ||
+            (lastMessage && Date.now() - lastMessage.createdAt.getTime() > 5000)
+          ) {
             logger.info('Triggering next participant in main discussion', {
               discussionId: discussion.id,
               participantId: nextParticipant.id,
               agentId: nextParticipant.agentId,
               turnNumber: discussion.state.currentTurn.turnNumber,
-              isRecentSender
+              isRecentSender,
             });
-            
+
             await this.triggerAgentParticipationEvent(discussion.id, nextParticipant);
           } else {
             logger.debug('Skipping participant trigger (recent sender)', {
               discussionId: discussion.id,
               participantId: nextParticipant.id,
-              lastMessageTime: lastMessage?.createdAt
+              lastMessageTime: lastMessage?.createdAt,
             });
           }
         }
       }
-      
     } catch (error) {
       logger.error('Error ensuring agent participation', {
         error: error instanceof Error ? error.message : 'Unknown error',
-        discussionId: discussion.id
+        discussionId: discussion.id,
       });
     }
   }
@@ -1483,10 +1565,9 @@ export class DiscussionOrchestrationService extends EventEmitter {
       // This would ideally query the database for discussions created in the last few minutes
       // For now, we'll just ensure cached discussions are up to date
       logger.debug('Checking for recent discussions');
-      
     } catch (error) {
       logger.error('Error checking recent discussions', {
-        error: error instanceof Error ? error.message : 'Unknown error'
+        error: error instanceof Error ? error.message : 'Unknown error',
       });
     }
   }
@@ -1498,26 +1579,29 @@ export class DiscussionOrchestrationService extends EventEmitter {
     const key = `${agentId}-${participantId}`;
     const lastRequestTime = this.recentParticipationRequests.get(key);
     const now = Date.now();
-    
+
     // Rate limit: Only one request per agent per 2 minutes
-    if (lastRequestTime && (now - lastRequestTime) < 120000) {
+    if (lastRequestTime && now - lastRequestTime < 120000) {
       return true;
     }
-    
+
     // Clean up old entries (older than 10 minutes)
     for (const [reqKey, timestamp] of this.recentParticipationRequests.entries()) {
       if (now - timestamp > 600000) {
         this.recentParticipationRequests.delete(reqKey);
       }
     }
-    
+
     return false;
   }
 
   /**
    * Trigger agent participation event
    */
-  private async triggerAgentParticipationEvent(discussionId: string, participant: DiscussionParticipant): Promise<void> {
+  private async triggerAgentParticipationEvent(
+    discussionId: string,
+    participant: DiscussionParticipant
+  ): Promise<void> {
     try {
       if (!participant.agentId) {
         return;
@@ -1529,7 +1613,7 @@ export class DiscussionOrchestrationService extends EventEmitter {
         logger.debug('Skipping participation request - recently sent', {
           discussionId,
           agentId: participant.agentId,
-          participantId
+          participantId,
         });
         return;
       }
@@ -1553,8 +1637,8 @@ export class DiscussionOrchestrationService extends EventEmitter {
           isActive: participant.isActive,
           roleInDiscussion: participant.role,
           messageCount: participant.messageCount,
-          lastMessageAt: participant.lastMessageAt
-        }
+          lastMessageAt: participant.lastMessageAt,
+        },
       });
 
       // Record this participation request to prevent duplicates
@@ -1562,47 +1646,53 @@ export class DiscussionOrchestrationService extends EventEmitter {
       this.recentParticipationRequests.set(requestKey, Date.now());
 
       // Fetch recent messages to provide context
-      const recentMessages = await this.discussionService.getDiscussionMessages(discussionId, { 
-        limit: 20
+      const recentMessages = await this.discussionService.getDiscussionMessages(discussionId, {
+        limit: 20,
       });
 
       // Format messages for agent context with proper name resolution
-      const messageHistory = await Promise.all(recentMessages.map(async (msg) => {
-        // Find the participant to get agent ID
-        const msgParticipant = discussion.participants.find(p => p.id === msg.participantId);
-        
-        // Resolve participant name from agent data if available
-        let participantName = 'Unknown';
-        if (msgParticipant?.agentId) {
-          try {
-            // Try to get agent information for proper name
-            const agentData = await (this.discussionService as any).databaseService?.getAgentById?.(msgParticipant.agentId);
-            participantName = agentData?.name || msgParticipant.agentId || 'Agent';
-          } catch (error) {
-            participantName = msgParticipant.agentId || 'Agent';
+      const messageHistory = await Promise.all(
+        recentMessages.map(async (msg) => {
+          // Find the participant to get agent ID
+          const msgParticipant = discussion.participants.find((p) => p.id === msg.participantId);
+
+          // Resolve participant name from agent data if available
+          let participantName = 'Unknown';
+          if (msgParticipant?.agentId) {
+            try {
+              // Try to get agent information for proper name
+              const agentData = await (
+                this.discussionService as any
+              ).databaseService?.getAgentById?.(msgParticipant.agentId);
+              participantName = agentData?.name || msgParticipant.agentId || 'Agent';
+            } catch (error) {
+              participantName = msgParticipant.agentId || 'Agent';
+            }
+          } else if (msgParticipant?.userId) {
+            try {
+              // Try to get user information for proper name
+              const userData = await (this.discussionService as any).databaseService?.getUserById?.(
+                msgParticipant.userId
+              );
+              participantName = userData?.email?.split('@')[0] || userData?.id || 'User';
+            } catch (error) {
+              participantName = 'User';
+            }
+          } else {
+            participantName = msgParticipant?.metadata?.displayName || 'Participant';
           }
-        } else if (msgParticipant?.userId) {
-          try {
-            // Try to get user information for proper name
-            const userData = await (this.discussionService as any).databaseService?.getUserById?.(msgParticipant.userId);
-            participantName = userData?.email?.split('@')[0] || userData?.id || 'User';
-          } catch (error) {
-            participantName = 'User';
-          }
-        } else {
-          participantName = msgParticipant?.metadata?.displayName || 'Participant';
-        }
-        
-        return {
-          id: msg.id,
-          participantId: msg.participantId,
-          content: msg.content,
-          timestamp: msg.createdAt,
-          messageType: msg.messageType,
-          agentId: msgParticipant?.agentId || null,
-          participantName
-        };
-      }));
+
+          return {
+            id: msg.id,
+            participantId: msg.participantId,
+            content: msg.content,
+            timestamp: msg.createdAt,
+            messageType: msg.messageType,
+            agentId: msgParticipant?.agentId || null,
+            participantName,
+          };
+        })
+      );
 
       // Send direct participation request to agent intelligence service
       await this.eventBusService.publish('agent.discussion.participate', {
@@ -1619,87 +1709,95 @@ export class DiscussionOrchestrationService extends EventEmitter {
           // Add message history for context
           recentMessages: messageHistory,
           // Add information about who has already participated with proper name resolution
-          activeParticipants: await Promise.all(discussion.participants
-            .filter(p => p.messageCount > 0)
-            .map(async (p) => {
-              // Resolve participant display name
-              let displayName = 'Unknown';
-              if (p.agentId) {
-                try {
-                  const agentData = await (this.discussionService as any).databaseService?.getAgentById?.(p.agentId);
-                  displayName = agentData?.name || p.agentId || 'Agent';
-                } catch (error) {
-                  displayName = p.agentId || 'Agent';
+          activeParticipants: await Promise.all(
+            discussion.participants
+              .filter((p) => p.messageCount > 0)
+              .map(async (p) => {
+                // Resolve participant display name
+                let displayName = 'Unknown';
+                if (p.agentId) {
+                  try {
+                    const agentData = await (
+                      this.discussionService as any
+                    ).databaseService?.getAgentById?.(p.agentId);
+                    displayName = agentData?.name || p.agentId || 'Agent';
+                  } catch (error) {
+                    displayName = p.agentId || 'Agent';
+                  }
+                } else if (p.userId) {
+                  try {
+                    const userData = await (
+                      this.discussionService as any
+                    ).databaseService?.getUserById?.(p.userId);
+                    displayName = userData?.email?.split('@')[0] || userData?.id || 'User';
+                  } catch (error) {
+                    displayName = 'User';
+                  }
+                } else {
+                  displayName = p.metadata?.displayName || 'Participant';
                 }
-              } else if (p.userId) {
-                try {
-                  const userData = await (this.discussionService as any).databaseService?.getUserById?.(p.userId);
-                  displayName = userData?.email?.split('@')[0] || userData?.id || 'User';
-                } catch (error) {
-                  displayName = 'User';
-                }
-              } else {
-                displayName = p.metadata?.displayName || 'Participant';
-              }
-              
-              return {
-                id: p.id,
-                agentId: p.agentId,
-                displayName,
-                messageCount: p.messageCount,
-                lastMessageAt: p.lastMessageAt
-              };
-            }))
+
+                return {
+                  id: p.id,
+                  agentId: p.agentId,
+                  displayName,
+                  messageCount: p.messageCount,
+                  lastMessageAt: p.lastMessageAt,
+                };
+              })
+          ),
         },
-        timestamp: new Date()
+        timestamp: new Date(),
       });
 
       logger.debug('Agent participation request sent', {
         discussionId,
         agentId: participant.agentId,
-        participantId: participant.id
+        participantId: participant.id,
       });
-      
     } catch (error) {
       logger.error('Error triggering agent participation event', {
         error: error instanceof Error ? error.message : 'Unknown error',
         discussionId,
-        participantId: participant.id
+        participantId: participant.id,
       });
     }
   }
 
-
   /**
    * Update discussion status
    */
-  private async updateDiscussionStatus(discussionId: string, status: DiscussionStatus, userId: string): Promise<DiscussionOrchestrationResult> {
+  private async updateDiscussionStatus(
+    discussionId: string,
+    status: DiscussionStatus,
+    userId: string
+  ): Promise<DiscussionOrchestrationResult> {
     try {
       const result = await this.discussionService.updateDiscussion(discussionId, { status });
-      
+
       if (result) {
         // Update cache
         this.activeDiscussions.set(discussionId, result);
-        
+
         // Emit status change event
         await this.emitEvent({
           id: this.generateEventId(),
           type: DiscussionEventType.STATUS_CHANGED,
           discussionId,
           data: { status, changedBy: userId },
-          timestamp: new Date()
+          timestamp: new Date(),
         });
-        
+
         return { success: true, data: result };
       }
-      
+
       return { success: false, error: 'Failed to update discussion status' };
     } catch (error) {
       logger.error('Failed to update discussion status', {
         error: error instanceof Error ? error.message : 'Unknown error',
         discussionId,
         status,
-        userId
+        userId,
       });
       return { success: false, error: 'Failed to update discussion status' };
     }
@@ -1708,10 +1806,17 @@ export class DiscussionOrchestrationService extends EventEmitter {
   /**
    * Pause a discussion
    */
-  async pauseDiscussion(discussionId: string, userId: string): Promise<DiscussionOrchestrationResult> {
+  async pauseDiscussion(
+    discussionId: string,
+    userId: string
+  ): Promise<DiscussionOrchestrationResult> {
     try {
-      const result = await this.updateDiscussionStatus(discussionId, DiscussionStatus.PAUSED, userId);
-      
+      const result = await this.updateDiscussionStatus(
+        discussionId,
+        DiscussionStatus.PAUSED,
+        userId
+      );
+
       if (result.success) {
         // Clear turn timer
         const timer = this.turnTimers.get(discussionId);
@@ -1719,16 +1824,16 @@ export class DiscussionOrchestrationService extends EventEmitter {
           clearTimeout(timer);
           this.turnTimers.delete(discussionId);
         }
-        
+
         logger.info('Discussion paused', { discussionId, userId });
       }
-      
+
       return result;
     } catch (error) {
       logger.error('Failed to pause discussion', {
         error: error instanceof Error ? error.message : 'Unknown error',
         discussionId,
-        userId
+        userId,
       });
       return { success: false, error: 'Failed to pause discussion' };
     }
@@ -1737,10 +1842,17 @@ export class DiscussionOrchestrationService extends EventEmitter {
   /**
    * Resume a discussion
    */
-  async resumeDiscussion(discussionId: string, userId: string): Promise<DiscussionOrchestrationResult> {
+  async resumeDiscussion(
+    discussionId: string,
+    userId: string
+  ): Promise<DiscussionOrchestrationResult> {
     try {
-      const result = await this.updateDiscussionStatus(discussionId, DiscussionStatus.ACTIVE, userId);
-      
+      const result = await this.updateDiscussionStatus(
+        discussionId,
+        DiscussionStatus.ACTIVE,
+        userId
+      );
+
       if (result.success) {
         // Restart turn timer
         const discussion = await this.getDiscussion(discussionId);
@@ -1748,16 +1860,16 @@ export class DiscussionOrchestrationService extends EventEmitter {
           const turnTimeout = discussion.settings.turnTimeout || 10;
           await this.setTurnTimer(discussionId, turnTimeout);
         }
-        
+
         logger.info('Discussion resumed', { discussionId, userId });
       }
-      
+
       return result;
     } catch (error) {
       logger.error('Failed to resume discussion', {
         error: error instanceof Error ? error.message : 'Unknown error',
         discussionId,
-        userId
+        userId,
       });
       return { success: false, error: 'Failed to resume discussion' };
     }
@@ -1766,10 +1878,17 @@ export class DiscussionOrchestrationService extends EventEmitter {
   /**
    * Stop a discussion
    */
-  async stopDiscussion(discussionId: string, userId: string): Promise<DiscussionOrchestrationResult> {
+  async stopDiscussion(
+    discussionId: string,
+    userId: string
+  ): Promise<DiscussionOrchestrationResult> {
     try {
-      const result = await this.updateDiscussionStatus(discussionId, DiscussionStatus.COMPLETED, userId);
-      
+      const result = await this.updateDiscussionStatus(
+        discussionId,
+        DiscussionStatus.COMPLETED,
+        userId
+      );
+
       if (result.success) {
         // Clear turn timer and remove from active discussions
         const timer = this.turnTimers.get(discussionId);
@@ -1778,19 +1897,19 @@ export class DiscussionOrchestrationService extends EventEmitter {
           this.turnTimers.delete(discussionId);
         }
         this.activeDiscussions.delete(discussionId);
-        
+
         // Emit discussion completion event for artifact generation
         await this.emitDiscussionCompletionEvent(discussionId, userId, 'manual');
-        
+
         logger.info('Discussion stopped', { discussionId, userId });
       }
-      
+
       return result;
     } catch (error) {
       logger.error('Failed to stop discussion', {
         error: error instanceof Error ? error.message : 'Unknown error',
         discussionId,
-        userId
+        userId,
       });
       return { success: false, error: 'Failed to stop discussion' };
     }
@@ -1809,7 +1928,7 @@ export class DiscussionOrchestrationService extends EventEmitter {
       activeDiscussions: this.activeDiscussions.size,
       activeTurnTimers: this.turnTimers.size,
       cacheSize: this.activeDiscussions.size,
-      uptime: process.uptime()
+      uptime: process.uptime(),
     };
   }
 
@@ -1818,10 +1937,15 @@ export class DiscussionOrchestrationService extends EventEmitter {
    */
   private async getActiveParticipants(discussionId: string): Promise<DiscussionParticipant[]> {
     try {
-      const participantManagementService = new ParticipantManagementService((this.discussionService as any).databaseService);
+      const participantManagementService = new ParticipantManagementService(
+        (this.discussionService as any).databaseService
+      );
       return await participantManagementService.getActiveParticipants(discussionId);
     } catch (error) {
-      logger.error('Error getting active participants', { error: (error as Error).message, discussionId });
+      logger.error('Error getting active participants', {
+        error: (error as Error).message,
+        discussionId,
+      });
       return [];
     }
   }
@@ -1829,15 +1953,20 @@ export class DiscussionOrchestrationService extends EventEmitter {
   /**
    * Get discussion messages
    */
-  private async getDiscussionMessages(discussionId: string, options?: { limit?: number }): Promise<DiscussionMessage[]> {
+  private async getDiscussionMessages(
+    discussionId: string,
+    options?: { limit?: number }
+  ): Promise<DiscussionMessage[]> {
     try {
       return await this.discussionService.getDiscussionMessages(discussionId, options);
     } catch (error) {
-      logger.error('Error getting discussion messages', { error: (error as Error).message, discussionId });
+      logger.error('Error getting discussion messages', {
+        error: (error as Error).message,
+        discussionId,
+      });
       return [];
     }
   }
-
 
   /**
    * Start cleanup mechanisms to prevent memory leaks
@@ -1847,7 +1976,7 @@ export class DiscussionOrchestrationService extends EventEmitter {
     this.cleanupInterval = setInterval(() => {
       this.performPeriodicCleanup();
     }, 600000); // 10 minutes
-    
+
     logger.info('Discussion orchestration cleanup mechanisms started');
   }
 
@@ -1859,42 +1988,45 @@ export class DiscussionOrchestrationService extends EventEmitter {
     let cleanedDiscussions = 0;
     let cleanedParticipationRequests = 0;
     let cleanedOperationLocks = 0;
-    
+
     // Clean up stale discussions from cache (older than 1 hour with no activity)
     for (const [discussionId, discussion] of this.activeDiscussions.entries()) {
       const lastActivity = discussion.state.lastActivity;
-      const timeSinceActivity = lastActivity ? 
-        now - (lastActivity instanceof Date ? lastActivity.getTime() : new Date(lastActivity).getTime()) : 
-        Infinity;
-      
+      const timeSinceActivity = lastActivity
+        ? now -
+          (lastActivity instanceof Date ? lastActivity.getTime() : new Date(lastActivity).getTime())
+        : Infinity;
+
       // Remove discussions inactive for more than 1 hour
       if (timeSinceActivity > 3600000) {
         this.activeDiscussions.delete(discussionId);
         cleanedDiscussions++;
-        
-        logger.debug('Cleaned up stale discussion from cache', { 
-          discussionId, 
-          inactiveMs: timeSinceActivity 
+
+        logger.debug('Cleaned up stale discussion from cache', {
+          discussionId,
+          inactiveMs: timeSinceActivity,
         });
       }
     }
-    
+
     // Clean up old participation rate limits (older than 2 hours)
     for (const [key, timestamp] of this.participationRateLimits.entries()) {
-      if (now - timestamp > 7200000) { // 2 hours
+      if (now - timestamp > 7200000) {
+        // 2 hours
         this.participationRateLimits.delete(key);
         cleanedParticipationRequests++;
       }
     }
-    
+
     // Clean up old participation requests (older than 1 hour)
     for (const [key, timestamp] of this.recentParticipationRequests.entries()) {
-      if (now - timestamp > 3600000) { // 1 hour
+      if (now - timestamp > 3600000) {
+        // 1 hour
         this.recentParticipationRequests.delete(key);
         cleanedParticipationRequests++;
       }
     }
-    
+
     // Clean up orphaned operation locks (shouldn't happen but safety measure)
     for (const [lockKey, value] of this.operationLocks.entries()) {
       // All operation locks should be short-lived, clean any older than 5 minutes
@@ -1902,7 +2034,7 @@ export class DiscussionOrchestrationService extends EventEmitter {
       cleanedOperationLocks++;
       logger.warn('Cleaned up orphaned operation lock', { lockKey });
     }
-    
+
     if (cleanedDiscussions > 0 || cleanedParticipationRequests > 0 || cleanedOperationLocks > 0) {
       logger.info('Periodic cleanup completed', {
         cleanedDiscussions,
@@ -1910,15 +2042,15 @@ export class DiscussionOrchestrationService extends EventEmitter {
         cleanedOperationLocks,
         remainingActiveDiscussions: this.activeDiscussions.size,
         remainingParticipationLimits: this.participationRateLimits.size,
-        remainingParticipationRequests: this.recentParticipationRequests.size
+        remainingParticipationRequests: this.recentParticipationRequests.size,
       });
     }
-    
+
     // Alert if memory usage is high
     if (this.activeDiscussions.size > 1000) {
       logger.warn('High number of active discussions in cache', {
         activeDiscussions: this.activeDiscussions.size,
-        warningThreshold: 1000
+        warningThreshold: 1000,
       });
     }
   }
@@ -1938,7 +2070,7 @@ export class DiscussionOrchestrationService extends EventEmitter {
       turnTimers: this.turnTimers.size,
       participationRateLimits: this.participationRateLimits.size,
       recentParticipationRequests: this.recentParticipationRequests.size,
-      operationLocks: this.operationLocks.size
+      operationLocks: this.operationLocks.size,
     };
   }
 
@@ -1948,7 +2080,12 @@ export class DiscussionOrchestrationService extends EventEmitter {
   private async emitDiscussionCompletionEvent(
     discussionId: string,
     completedBy: string,
-    completionReason: 'manual' | 'max_messages_reached' | 'goal_achieved' | 'timeout' | 'consensus_reached'
+    completionReason:
+      | 'manual'
+      | 'max_messages_reached'
+      | 'goal_achieved'
+      | 'timeout'
+      | 'consensus_reached'
   ): Promise<void> {
     try {
       const discussion = await this.getDiscussion(discussionId);
@@ -1959,21 +2096,22 @@ export class DiscussionOrchestrationService extends EventEmitter {
 
       // Get recent messages for context
       const recentMessages = await this.getDiscussionMessages(discussionId, { limit: 50 });
-      
+
       // Calculate discussion summary metrics
       const discussionMetrics = {
         totalMessages: discussion.state.messageCount,
         totalParticipants: discussion.participants.length,
-        activeParticipants: discussion.participants.filter(p => p.isActive).length,
-        duration: discussion.state.lastActivity 
-          ? new Date(discussion.state.lastActivity).getTime() - new Date(discussion.createdAt).getTime()
+        activeParticipants: discussion.participants.filter((p) => p.isActive).length,
+        duration: discussion.state.lastActivity
+          ? new Date(discussion.state.lastActivity).getTime() -
+            new Date(discussion.createdAt).getTime()
           : 0,
-        turnCount: discussion.state.currentTurn?.turnNumber || 0
+        turnCount: discussion.state.currentTurn?.turnNumber || 0,
       };
 
       // Determine artifact type based on discussion content and context
       const artifactType = this.determineArtifactType(discussion, recentMessages);
-      
+
       // Emit completion event
       await this.eventBusService.publish('discussion.completed', {
         discussionId,
@@ -1985,22 +2123,22 @@ export class DiscussionOrchestrationService extends EventEmitter {
           status: discussion.status,
           completedBy,
           completionReason,
-          metrics: discussionMetrics
+          metrics: discussionMetrics,
         },
-        messages: recentMessages.map(msg => ({
+        messages: recentMessages.map((msg) => ({
           id: msg.id,
           content: msg.content,
           participantId: msg.participantId,
           messageType: msg.messageType,
-          timestamp: msg.createdAt
+          timestamp: msg.createdAt,
         })),
-        participants: discussion.participants.map(p => ({
+        participants: discussion.participants.map((p) => ({
           id: p.id,
           agentId: p.agentId,
           userId: p.userId,
           role: p.role,
           messageCount: p.messageCount,
-          isActive: p.isActive
+          isActive: p.isActive,
         })),
         artifactGeneration: {
           suggestedType: artifactType,
@@ -2013,10 +2151,10 @@ export class DiscussionOrchestrationService extends EventEmitter {
             completionReason,
             messageCount: discussionMetrics.totalMessages,
             participantCount: discussionMetrics.totalParticipants,
-            ...(discussion as any).artifactConfig?.metadata
-          }
+            ...(discussion as any).artifactConfig?.metadata,
+          },
         },
-        timestamp: new Date()
+        timestamp: new Date(),
       });
 
       logger.info('Discussion completion event emitted', {
@@ -2025,14 +2163,14 @@ export class DiscussionOrchestrationService extends EventEmitter {
         completionReason,
         artifactType,
         messageCount: discussionMetrics.totalMessages,
-        participantCount: discussionMetrics.totalParticipants
+        participantCount: discussionMetrics.totalParticipants,
       });
     } catch (error) {
       logger.error('Error emitting discussion completion event', {
         error: error instanceof Error ? error.message : 'Unknown error',
         discussionId,
         completedBy,
-        completionReason
+        completionReason,
       });
     }
   }
@@ -2050,36 +2188,57 @@ export class DiscussionOrchestrationService extends EventEmitter {
     // Fallback to content-based detection
     const title = discussion.title.toLowerCase();
     const description = (discussion.description || '').toLowerCase();
-    const messageContent = messages.map(m => m.content.toLowerCase()).join(' ');
-    
+    const messageContent = messages.map((m) => m.content.toLowerCase()).join(' ');
+
     // Check for code-related discussions
-    if (title.includes('code') || title.includes('implementation') || 
-        description.includes('code') || messageContent.includes('function') ||
-        messageContent.includes('class') || messageContent.includes('implement')) {
+    if (
+      title.includes('code') ||
+      title.includes('implementation') ||
+      description.includes('code') ||
+      messageContent.includes('function') ||
+      messageContent.includes('class') ||
+      messageContent.includes('implement')
+    ) {
       return 'code';
     }
-    
+
     // Check for documentation-related discussions
-    if (title.includes('documentation') || title.includes('docs') || 
-        description.includes('documentation') || messageContent.includes('document') ||
-        messageContent.includes('guide') || messageContent.includes('manual')) {
+    if (
+      title.includes('documentation') ||
+      title.includes('docs') ||
+      description.includes('documentation') ||
+      messageContent.includes('document') ||
+      messageContent.includes('guide') ||
+      messageContent.includes('manual')
+    ) {
       return 'documentation';
     }
-    
+
     // Check for test-related discussions
-    if (title.includes('test') || title.includes('testing') || 
-        description.includes('test') || messageContent.includes('test') ||
-        messageContent.includes('spec') || messageContent.includes('validation')) {
+    if (
+      title.includes('test') ||
+      title.includes('testing') ||
+      description.includes('test') ||
+      messageContent.includes('test') ||
+      messageContent.includes('spec') ||
+      messageContent.includes('validation')
+    ) {
       return 'test';
     }
-    
+
     // Check for PRD/requirement-related discussions
-    if (title.includes('requirement') || title.includes('prd') || title.includes('feature') ||
-        description.includes('requirement') || messageContent.includes('requirement') ||
-        messageContent.includes('specification') || messageContent.includes('feature')) {
+    if (
+      title.includes('requirement') ||
+      title.includes('prd') ||
+      title.includes('feature') ||
+      description.includes('requirement') ||
+      messageContent.includes('requirement') ||
+      messageContent.includes('specification') ||
+      messageContent.includes('feature')
+    ) {
       return 'prd';
     }
-    
+
     // Default to documentation for general discussions
     return 'documentation';
   }
@@ -2087,25 +2246,28 @@ export class DiscussionOrchestrationService extends EventEmitter {
   /**
    * Calculate artifact generation priority based on discussion characteristics
    */
-  private calculateArtifactPriority(discussion: Discussion, completionReason: string): 'high' | 'medium' | 'low' {
+  private calculateArtifactPriority(
+    discussion: Discussion,
+    completionReason: string
+  ): 'high' | 'medium' | 'low' {
     const messageCount = discussion.state.messageCount;
     const participantCount = discussion.participants.length;
-    
+
     // High priority for goal-achieved or consensus-reached discussions
     if (completionReason === 'goal_achieved' || completionReason === 'consensus_reached') {
       return 'high';
     }
-    
+
     // High priority for discussions with many participants and messages
     if (participantCount >= 3 && messageCount >= 10) {
       return 'high';
     }
-    
+
     // Medium priority for moderately active discussions
     if (participantCount >= 2 && messageCount >= 5) {
       return 'medium';
     }
-    
+
     // Low priority for simple discussions or timeouts
     return 'low';
   }
@@ -2117,36 +2279,44 @@ export class DiscussionOrchestrationService extends EventEmitter {
     try {
       // Get recent messages to analyze for conclusion indicators
       const recentMessages = await this.getDiscussionMessages(discussion.id, { limit: 10 });
-      
+
       if (recentMessages.length === 0) {
         return false;
       }
-      
+
       // Simple heuristic: check for conclusion keywords in recent messages
       const conclusionKeywords = [
-        'concluded', 'resolved', 'agreed', 'decision', 'final', 'summary',
-        'complete', 'done', 'finished', 'consensus', 'solution', 'answer'
+        'concluded',
+        'resolved',
+        'agreed',
+        'decision',
+        'final',
+        'summary',
+        'complete',
+        'done',
+        'finished',
+        'consensus',
+        'solution',
+        'answer',
       ];
-      
+
       const recentContent = recentMessages
         .slice(0, 5) // Check last 5 messages
-        .map(m => m.content.toLowerCase())
+        .map((m) => m.content.toLowerCase())
         .join(' ');
-      
-      const hasConclusion = conclusionKeywords.some(keyword => 
-        recentContent.includes(keyword)
-      );
-      
+
+      const hasConclusion = conclusionKeywords.some((keyword) => recentContent.includes(keyword));
+
       // Check if there's been recent activity (last 5 minutes)
       const lastMessage = recentMessages[0];
       const timeSinceLastMessage = Date.now() - lastMessage.createdAt.getTime();
       const isStale = timeSinceLastMessage > 300000; // 5 minutes
-      
+
       return hasConclusion && !isStale;
     } catch (error) {
       logger.error('Error checking discussion goal achievement', {
         error: error instanceof Error ? error.message : 'Unknown error',
-        discussionId: discussion.id
+        discussionId: discussion.id,
       });
       return false;
     }
@@ -2157,25 +2327,25 @@ export class DiscussionOrchestrationService extends EventEmitter {
    */
   async cleanup(): Promise<void> {
     logger.info('Cleaning up discussion orchestration service');
-    
+
     // Clear cleanup interval
     if (this.cleanupInterval) {
       clearInterval(this.cleanupInterval);
       this.cleanupInterval = null;
     }
-    
+
     // Clear all timers
     for (const timer of this.turnTimers.values()) {
       clearTimeout(timer);
     }
     this.turnTimers.clear();
-    
+
     // Clear all maps
     this.activeDiscussions.clear();
     this.participationRateLimits.clear();
     this.recentParticipationRequests.clear();
     this.operationLocks.clear();
-    
+
     logger.info('Discussion orchestration service cleanup completed');
   }
-} 
+}

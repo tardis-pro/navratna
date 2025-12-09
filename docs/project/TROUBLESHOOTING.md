@@ -5,6 +5,7 @@
 ### Service Issues
 
 #### Services Won't Start
+
 ```bash
 # Symptom: Services fail to start
 # Check Docker status
@@ -19,12 +20,14 @@ lsof -i :3001-3005
 ```
 
 **Resolution Steps:**
+
 1. Stop all services: `docker-compose down`
 2. Clear Docker resources: `docker system prune -f`
 3. Restart services: `docker-compose up -d`
 4. Check logs for errors: `docker-compose logs -f`
 
 #### Connection Issues
+
 ```bash
 # Symptom: Services can't connect to each other
 # Check network
@@ -36,6 +39,7 @@ dig @127.0.0.11 service-name
 ```
 
 **Resolution Steps:**
+
 1. Recreate network: `docker-compose down && docker-compose up -d`
 2. Check DNS resolution
 3. Verify service configurations
@@ -44,6 +48,7 @@ dig @127.0.0.11 service-name
 ### Database Issues
 
 #### Connection Pool Exhaustion
+
 ```typescript
 // Symptom: Database connection errors
 {
@@ -56,12 +61,14 @@ await db.pool.status();
 ```
 
 **Resolution Steps:**
+
 1. Check active connections
 2. Increase pool size
 3. Look for connection leaks
 4. Monitor query duration
 
 #### Data Inconsistency
+
 ```sql
 -- Symptom: Data doesn't match expected state
 -- Check data integrity
@@ -72,6 +79,7 @@ SELECT * FROM information_schema.table_constraints;
 ```
 
 **Resolution Steps:**
+
 1. Run data validation
 2. Check transaction logs
 3. Verify constraints
@@ -80,6 +88,7 @@ SELECT * FROM information_schema.table_constraints;
 ### WebSocket Issues
 
 #### Connection Drops
+
 ```typescript
 // Symptom: WebSocket connections frequently disconnect
 interface ConnectionError {
@@ -95,12 +104,14 @@ websocket.on('close', (error: ConnectionError) => {
 ```
 
 **Resolution Steps:**
+
 1. Check network stability
 2. Verify heartbeat configuration
 3. Monitor connection lifetime
 4. Implement reconnection logic
 
 #### Message Queue Backup
+
 ```typescript
 // Symptom: Messages not being processed
 interface QueueStatus {
@@ -114,6 +125,7 @@ await messageQueue.getStatus();
 ```
 
 **Resolution Steps:**
+
 1. Check consumer health
 2. Clear failed messages
 3. Scale consumers
@@ -122,6 +134,7 @@ await messageQueue.getStatus();
 ### Performance Issues
 
 #### High Latency
+
 ```typescript
 // Symptom: Slow response times
 interface PerformanceMetrics {
@@ -135,12 +148,14 @@ const metrics = await performanceMonitor.getMetrics();
 ```
 
 **Resolution Steps:**
+
 1. Check database queries
 2. Monitor resource usage
 3. Profile service calls
 4. Optimize bottlenecks
 
 #### Memory Leaks
+
 ```bash
 # Symptom: Increasing memory usage
 # Monitor memory
@@ -151,6 +166,7 @@ node --inspect service.js
 ```
 
 **Resolution Steps:**
+
 1. Generate heap snapshot
 2. Analyze memory usage
 3. Check for resource leaks
@@ -159,6 +175,7 @@ node --inspect service.js
 ## Diagnostic Tools
 
 ### System Diagnostics
+
 ```bash
 # Check system health
 ./scripts/health-check.sh
@@ -171,6 +188,7 @@ node --inspect service.js
 ```
 
 ### Performance Analysis
+
 ```bash
 # Run performance tests
 npm run perf:test
@@ -185,6 +203,7 @@ npm run perf:analyze
 ## Recovery Procedures
 
 ### Service Recovery
+
 ```bash
 # Restart failed service
 docker-compose restart service-name
@@ -197,6 +216,7 @@ docker-compose logs -f service-name
 ```
 
 ### Data Recovery
+
 ```bash
 # Restore from backup
 ./scripts/restore-backup.sh
@@ -211,6 +231,7 @@ docker-compose logs -f service-name
 ## Monitoring Tools
 
 ### Log Analysis
+
 ```bash
 # Search logs for errors
 grep -r "ERROR" ./logs/
@@ -223,6 +244,7 @@ tail -f ./logs/service.log
 ```
 
 ### Performance Monitoring
+
 ```bash
 # Check service metrics
 curl http://localhost:port/metrics
@@ -237,6 +259,7 @@ docker stats
 ## Prevention Strategies
 
 ### Error Prevention
+
 1. Implement proper validation
 2. Use type checking
 3. Handle edge cases
@@ -244,6 +267,7 @@ docker stats
 5. Monitor error rates
 
 ### Performance Optimization
+
 1. Cache frequently used data
 2. Optimize database queries
 3. Implement connection pooling
@@ -253,34 +277,38 @@ docker stats
 ## Error Codes
 
 ### System Errors
+
 ```typescript
 enum SystemError {
   SERVICE_START_FAILED = 'E001',
   CONNECTION_FAILED = 'E002',
   RESOURCE_EXHAUSTED = 'E003',
-  TIMEOUT = 'E004'
+  TIMEOUT = 'E004',
 }
 ```
 
 ### Application Errors
+
 ```typescript
 enum AppError {
   VALIDATION_FAILED = 'A001',
   AUTHENTICATION_FAILED = 'A002',
   PERMISSION_DENIED = 'A003',
-  RESOURCE_NOT_FOUND = 'A004'
+  RESOURCE_NOT_FOUND = 'A004',
 }
 ```
 
 ## Support Resources
 
 ### Documentation
+
 - [Architecture Guide](../core/ARCHITECTURE.md)
 - [Deployment Guide](../core/DEPLOYMENT.md)
 - [API Reference](../core/API_REFERENCE.md)
 - [Development Guide](../core/DEVELOPMENT.md)
 
 ### Support Channels
+
 - GitHub Issues
 - Support Email
 - Community Forum
@@ -289,6 +317,7 @@ enum AppError {
 ## Best Practices
 
 ### Problem Investigation
+
 1. Gather error information
 2. Check system status
 3. Review recent changes
@@ -296,6 +325,7 @@ enum AppError {
 5. Test reproduction
 
 ### Solution Implementation
+
 1. Create backup
 2. Document changes
 3. Test solution
@@ -305,6 +335,7 @@ enum AppError {
 ## Emergency Procedures
 
 ### Critical Failures
+
 1. Stop affected services
 2. Notify stakeholders
 3. Assess damage
@@ -312,6 +343,7 @@ enum AppError {
 5. Post-mortem analysis
 
 ### Data Corruption
+
 1. Stop write operations
 2. Backup current state
 3. Identify corruption source

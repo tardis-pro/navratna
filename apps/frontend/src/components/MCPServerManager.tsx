@@ -7,11 +7,11 @@ import { Button } from './ui/button';
 import { Badge } from './ui/badge';
 import { Input } from './ui/input';
 import { Textarea } from './ui/textarea';
-import { 
-  MCPServerInstance, 
-  MCPServerConfig, 
+import {
+  MCPServerInstance,
+  MCPServerConfig,
   MCPServerPreset,
-  MCPServerCapabilities 
+  MCPServerCapabilities,
 } from '../types/mcp';
 import { mcpServerManager } from '../services/mcp/mcp-server-manager';
 import { mcpServerPresets, getMCPServerPreset } from '../services/mcp/mcp-server-presets';
@@ -30,7 +30,7 @@ import {
   Tool,
   Server,
   ChevronDown,
-  ChevronUp
+  ChevronUp,
 } from 'lucide-react';
 
 export const MCPServerManager: React.FC = () => {
@@ -44,14 +44,14 @@ export const MCPServerManager: React.FC = () => {
 
   useEffect(() => {
     loadServers();
-    
+
     // Set up event listener for server status changes
     const handleServerEvent = () => {
       loadServers();
     };
-    
+
     mcpServerManager.addEventListener(handleServerEvent);
-    
+
     return () => {
       mcpServerManager.removeEventListener(handleServerEvent);
     };
@@ -108,7 +108,7 @@ export const MCPServerManager: React.FC = () => {
       ...preset.config,
       id: crypto.randomUUID(),
       enabled: true,
-      ...customConfig
+      ...customConfig,
     };
 
     try {
@@ -195,11 +195,8 @@ export const MCPServerManager: React.FC = () => {
             <Server className="w-5 h-5 text-blue-600" />
             <h3 className="text-lg font-semibold">MCP Server Manager</h3>
           </div>
-          
-          <Button
-            onClick={() => setShowCreateForm(true)}
-            className="flex items-center gap-2"
-          >
+
+          <Button onClick={() => setShowCreateForm(true)} className="flex items-center gap-2">
             <Plus className="w-4 h-4" />
             Add Server
           </Button>
@@ -212,7 +209,7 @@ export const MCPServerManager: React.FC = () => {
               No MCP servers configured. Add one from presets to get started.
             </div>
           ) : (
-            servers.map(server => (
+            servers.map((server) => (
               <div key={server.id} className="border rounded-lg p-3">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
@@ -220,15 +217,13 @@ export const MCPServerManager: React.FC = () => {
                     <div>
                       <div className="flex items-center gap-2">
                         <span className="font-medium">{server.config.name}</span>
-                        <Badge className={getStatusColor(server.status)}>
-                          {server.status}
-                        </Badge>
+                        <Badge className={getStatusColor(server.status)}>{server.status}</Badge>
                         <Badge variant="outline">{server.config.type}</Badge>
                       </div>
                       <p className="text-sm text-gray-600">{server.config.description}</p>
                     </div>
                   </div>
-                  
+
                   <div className="flex items-center gap-2">
                     {server.status === 'running' ? (
                       <>
@@ -259,16 +254,17 @@ export const MCPServerManager: React.FC = () => {
                         Start
                       </Button>
                     )}
-                    
+
                     <Button
                       size="sm"
                       variant="ghost"
                       onClick={() => toggleServerExpanded(server.id)}
                     >
-                      {expandedServers.has(server.id) ? 
-                        <ChevronUp className="w-4 h-4" /> : 
+                      {expandedServers.has(server.id) ? (
+                        <ChevronUp className="w-4 h-4" />
+                      ) : (
                         <ChevronDown className="w-4 h-4" />
-                      }
+                      )}
                     </Button>
                   </div>
                 </div>
@@ -315,7 +311,9 @@ export const MCPServerManager: React.FC = () => {
                         <div className="mt-1 space-y-1">
                           {Object.entries(server.config.env).map(([key, value]) => (
                             <div key={key} className="text-xs bg-gray-50 p-1 rounded">
-                              <code>{key}={value.startsWith('<') ? '[CONFIGURED]' : value}</code>
+                              <code>
+                                {key}={value.startsWith('<') ? '[CONFIGURED]' : value}
+                              </code>
                             </div>
                           ))}
                         </div>
@@ -333,7 +331,7 @@ export const MCPServerManager: React.FC = () => {
       {showCreateForm && (
         <Card className="p-4">
           <h4 className="font-semibold mb-4">Add MCP Server</h4>
-          
+
           <div className="space-y-4">
             <div>
               <label className="block text-sm font-medium mb-2">Choose Preset</label>
@@ -343,7 +341,7 @@ export const MCPServerManager: React.FC = () => {
                 className="w-full border rounded px-3 py-2"
               >
                 <option value="">Select a preset...</option>
-                {mcpServerPresets.map(preset => (
+                {mcpServerPresets.map((preset) => (
                   <option key={preset.id} value={preset.id}>
                     {preset.name} - {preset.description}
                   </option>
@@ -369,19 +367,23 @@ export const MCPServerManager: React.FC = () => {
                   <label className="block text-sm font-medium mb-2">Custom Name (optional)</label>
                   <Input
                     value={customConfig.name || ''}
-                    onChange={(e) => setCustomConfig({...customConfig, name: e.target.value})}
+                    onChange={(e) => setCustomConfig({ ...customConfig, name: e.target.value })}
                     placeholder="Leave empty to use preset name"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium mb-2">Custom Arguments (optional)</label>
+                  <label className="block text-sm font-medium mb-2">
+                    Custom Arguments (optional)
+                  </label>
                   <Textarea
                     value={customConfig.args?.join(' ') || ''}
-                    onChange={(e) => setCustomConfig({
-                      ...customConfig, 
-                      args: e.target.value.split(' ').filter(arg => arg.trim())
-                    })}
+                    onChange={(e) =>
+                      setCustomConfig({
+                        ...customConfig,
+                        args: e.target.value.split(' ').filter((arg) => arg.trim()),
+                      })
+                    }
                     placeholder="Override preset arguments (space-separated)"
                     rows={2}
                   />
@@ -390,10 +392,7 @@ export const MCPServerManager: React.FC = () => {
             )}
 
             <div className="flex gap-2">
-              <Button
-                onClick={handleCreateFromPreset}
-                disabled={!selectedPreset}
-              >
+              <Button onClick={handleCreateFromPreset} disabled={!selectedPreset}>
                 Create Server
               </Button>
               <Button
@@ -416,14 +415,12 @@ export const MCPServerManager: React.FC = () => {
         <h4 className="font-semibold mb-3">Quick Stats</h4>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           <div className="text-center">
-            <div className="text-2xl font-bold text-blue-600">
-              {servers.length}
-            </div>
+            <div className="text-2xl font-bold text-blue-600">{servers.length}</div>
             <div className="text-sm text-gray-600">Total Servers</div>
           </div>
           <div className="text-center">
             <div className="text-2xl font-bold text-green-600">
-              {servers.filter(s => s.status === 'running').length}
+              {servers.filter((s) => s.status === 'running').length}
             </div>
             <div className="text-sm text-gray-600">Running</div>
           </div>
@@ -445,4 +442,4 @@ export const MCPServerManager: React.FC = () => {
   );
 };
 
-export default MCPServerManager; 
+export default MCPServerManager;

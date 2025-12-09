@@ -2,11 +2,35 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Plus, User, Bot, Clock, Calendar, AlertTriangle, CheckCircle, Circle, Pause, X, GripVertical } from 'lucide-react';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import {
+  Plus,
+  User,
+  Bot,
+  Clock,
+  Calendar,
+  AlertTriangle,
+  CheckCircle,
+  Circle,
+  Pause,
+  X,
+  GripVertical,
+} from 'lucide-react';
 import { format } from 'date-fns';
 
 // Design System Tokens - matching DesktopUnified
@@ -22,13 +46,13 @@ const DESIGN_TOKENS = {
   },
   spacing: {
     xs: 'gap-2',
-    sm: 'gap-3', 
+    sm: 'gap-3',
     md: 'gap-4',
     lg: 'gap-6',
   },
   radius: {
     sm: 'rounded-lg',
-    md: 'rounded-xl', 
+    md: 'rounded-xl',
     lg: 'rounded-2xl',
   },
   padding: {
@@ -49,7 +73,15 @@ interface Task {
   description?: string;
   status: 'todo' | 'in_progress' | 'in_review' | 'blocked' | 'completed' | 'cancelled';
   priority: 'low' | 'medium' | 'high' | 'urgent';
-  type: 'feature' | 'bug' | 'enhancement' | 'research' | 'documentation' | 'testing' | 'deployment' | 'maintenance';
+  type:
+    | 'feature'
+    | 'bug'
+    | 'enhancement'
+    | 'research'
+    | 'documentation'
+    | 'testing'
+    | 'deployment'
+    | 'maintenance';
   assigneeType?: 'human' | 'agent';
   assignedToUser?: { id: string; name: string; email: string };
   assignedToAgent?: { id: string; name: string };
@@ -84,14 +116,14 @@ const statusColumns = [
   { id: 'in_progress', title: 'In Progress', color: 'bg-blue-900/40' },
   { id: 'in_review', title: 'In Review', color: 'bg-yellow-900/40' },
   { id: 'blocked', title: 'Blocked', color: 'bg-red-900/40' },
-  { id: 'completed', title: 'Completed', color: 'bg-green-900/40' }
+  { id: 'completed', title: 'Completed', color: 'bg-green-900/40' },
 ];
 
 const priorityColors = {
   low: 'bg-slate-500',
   medium: 'bg-blue-500',
   high: 'bg-orange-500',
-  urgent: 'bg-red-500'
+  urgent: 'bg-red-500',
 };
 
 const typeIcons = {
@@ -102,7 +134,7 @@ const typeIcons = {
   documentation: '📝',
   testing: '🧪',
   deployment: '🚀',
-  maintenance: '⚙️'
+  maintenance: '⚙️',
 };
 
 const Button: React.FC<{
@@ -119,10 +151,10 @@ const Button: React.FC<{
     ghost: `${DESIGN_TOKENS.colors.surfaceHover} ${DESIGN_TOKENS.colors.textSecondary}`,
     danger: 'bg-red-500/20 hover:bg-red-500/30 text-red-400',
   };
-  
+
   const sizes = {
     sm: `${DESIGN_TOKENS.padding.sm} text-xs`,
-    md: `${DESIGN_TOKENS.padding.md} text-sm`, 
+    md: `${DESIGN_TOKENS.padding.md} text-sm`,
     lg: `${DESIGN_TOKENS.padding.lg} text-base`,
   };
 
@@ -148,7 +180,7 @@ export const TaskBoard: React.FC<TaskBoardProps> = ({
   onTaskCreate,
   onTaskDelete,
   onTaskAssign,
-  isLoading = false
+  isLoading = false,
 }) => {
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
@@ -158,24 +190,32 @@ export const TaskBoard: React.FC<TaskBoardProps> = ({
     assigneeType: 'all',
     priority: 'all',
     type: 'all',
-    search: ''
+    search: '',
   });
 
   // Group tasks by status
   const tasksByStatus = useMemo(() => {
-    const filtered = tasks.filter(task => {
-      if (filters.assigneeType !== 'all' && task.assigneeType !== filters.assigneeType) return false;
+    const filtered = tasks.filter((task) => {
+      if (filters.assigneeType !== 'all' && task.assigneeType !== filters.assigneeType)
+        return false;
       if (filters.priority !== 'all' && task.priority !== filters.priority) return false;
       if (filters.type !== 'all' && task.type !== filters.type) return false;
-      if (filters.search && !task.title.toLowerCase().includes(filters.search.toLowerCase()) &&
-          !task.description?.toLowerCase().includes(filters.search.toLowerCase())) return false;
+      if (
+        filters.search &&
+        !task.title.toLowerCase().includes(filters.search.toLowerCase()) &&
+        !task.description?.toLowerCase().includes(filters.search.toLowerCase())
+      )
+        return false;
       return true;
     });
 
-    return statusColumns.reduce((acc, column) => {
-      acc[column.id] = filtered.filter(task => task.status === column.id);
-      return acc;
-    }, {} as Record<string, Task[]>);
+    return statusColumns.reduce(
+      (acc, column) => {
+        acc[column.id] = filtered.filter((task) => task.status === column.id);
+        return acc;
+      },
+      {} as Record<string, Task[]>
+    );
   }, [tasks, filters]);
 
   const handleTaskMove = async (taskId: string, newStatus: string) => {
@@ -221,85 +261,102 @@ export const TaskBoard: React.FC<TaskBoardProps> = ({
         `}
         onClick={() => setSelectedTask(task)}
       >
-          <CardHeader className="pb-1 px-2 pt-2">
-            <div className="flex items-start justify-between">
-              <div className="flex items-center gap-1">
-                <span className={`text-xs font-mono ${DESIGN_TOKENS.colors.textMuted}`}>{task.taskNumber}</span>
-                <Badge variant="outline" className={`text-xs ${priorityColors[task.priority]} text-white px-1 py-0`}>
-                  {task.priority}
-                </Badge>
-              </div>
-              <span className="text-sm">{typeIcons[task.type]}</span>
+        <CardHeader className="pb-1 px-2 pt-2">
+          <div className="flex items-start justify-between">
+            <div className="flex items-center gap-1">
+              <span className={`text-xs font-mono ${DESIGN_TOKENS.colors.textMuted}`}>
+                {task.taskNumber}
+              </span>
+              <Badge
+                variant="outline"
+                className={`text-xs ${priorityColors[task.priority]} text-white px-1 py-0`}
+              >
+                {task.priority}
+              </Badge>
             </div>
-            <CardTitle className={`text-xs font-medium line-clamp-2 ${DESIGN_TOKENS.colors.text}`}>
-              {task.title}
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="pt-0 px-2 pb-2">
-            {task.description && (
-              <p className={`text-xs ${DESIGN_TOKENS.colors.textMuted} mb-1 line-clamp-1`}>{task.description}</p>
-            )}
-            
-            <div className="flex items-center justify-between mb-1">
-              <div className={`flex items-center gap-1 text-xs ${DESIGN_TOKENS.colors.textMuted}`}>
-                {task.assigneeType === 'human' ? <User className="w-3 h-3" /> : <Bot className="w-3 h-3" />}
-                <span className="truncate max-w-16">{task.assigneeDisplayName}</span>
+            <span className="text-sm">{typeIcons[task.type]}</span>
+          </div>
+          <CardTitle className={`text-xs font-medium line-clamp-2 ${DESIGN_TOKENS.colors.text}`}>
+            {task.title}
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="pt-0 px-2 pb-2">
+          {task.description && (
+            <p className={`text-xs ${DESIGN_TOKENS.colors.textMuted} mb-1 line-clamp-1`}>
+              {task.description}
+            </p>
+          )}
+
+          <div className="flex items-center justify-between mb-1">
+            <div className={`flex items-center gap-1 text-xs ${DESIGN_TOKENS.colors.textMuted}`}>
+              {task.assigneeType === 'human' ? (
+                <User className="w-3 h-3" />
+              ) : (
+                <Bot className="w-3 h-3" />
+              )}
+              <span className="truncate max-w-16">{task.assigneeDisplayName}</span>
+            </div>
+            {task.dueDate && (
+              <div
+                className={`flex items-center gap-1 text-xs ${task.isOverdue ? 'text-red-400' : DESIGN_TOKENS.colors.textMuted}`}
+              >
+                <Calendar className="w-3 h-3" />
+                <span>{format(new Date(task.dueDate), 'MMM d')}</span>
               </div>
-              {task.dueDate && (
-                <div className={`flex items-center gap-1 text-xs ${task.isOverdue ? 'text-red-400' : DESIGN_TOKENS.colors.textMuted}`}>
-                  <Calendar className="w-3 h-3" />
-                  <span>{format(new Date(task.dueDate), 'MMM d')}</span>
-                </div>
+            )}
+          </div>
+
+          {task.metrics.completionPercentage > 0 && (
+            <div className="mb-1">
+              <div className="flex justify-between text-xs mb-1">
+                <span className="text-xs">Progress</span>
+                <span className="text-xs">{task.metrics.completionPercentage}%</span>
+              </div>
+              <div className="w-full bg-gray-200 rounded-full h-1">
+                <div
+                  className="bg-blue-500 h-1 rounded-full transition-all"
+                  style={{ width: `${task.metrics.completionPercentage}%` }}
+                />
+              </div>
+            </div>
+          )}
+
+          <div className="flex items-center justify-between">
+            <div className="flex gap-1">
+              {task.tags?.slice(0, 1).map((tag) => (
+                <Badge key={tag} variant="secondary" className="text-xs px-1 py-0">
+                  {tag}
+                </Badge>
+              ))}
+              {task.tags && task.tags.length > 1 && (
+                <Badge variant="secondary" className="text-xs px-1 py-0">
+                  +{task.tags.length - 1}
+                </Badge>
               )}
             </div>
 
-            {task.metrics.completionPercentage > 0 && (
-              <div className="mb-1">
-                <div className="flex justify-between text-xs mb-1">
-                  <span className="text-xs">Progress</span>
-                  <span className="text-xs">{task.metrics.completionPercentage}%</span>
-                </div>
-                <div className="w-full bg-gray-200 rounded-full h-1">
-                  <div
-                    className="bg-blue-500 h-1 rounded-full transition-all"
-                    style={{ width: `${task.metrics.completionPercentage}%` }}
-                  />
-                </div>
-              </div>
-            )}
-
-            <div className="flex items-center justify-between">
-              <div className="flex gap-1">
-                {task.tags?.slice(0, 1).map(tag => (
-                  <Badge key={tag} variant="secondary" className="text-xs px-1 py-0">
-                    {tag}
-                  </Badge>
-                ))}
-                {task.tags && task.tags.length > 1 && (
-                  <Badge variant="secondary" className="text-xs px-1 py-0">
-                    +{task.tags.length - 1}
-                  </Badge>
-                )}
-              </div>
-              
-              <div className="flex items-center gap-1">
-                {task.isBlocked && <AlertTriangle className="w-3 h-3 text-red-500" />}
-                {task.isOverdue && <Clock className="w-3 h-3 text-red-500" />}
-                {task.status === 'completed' && <CheckCircle className="w-3 h-3 text-green-500" />}
-              </div>
+            <div className="flex items-center gap-1">
+              {task.isBlocked && <AlertTriangle className="w-3 h-3 text-red-500" />}
+              {task.isOverdue && <Clock className="w-3 h-3 text-red-500" />}
+              {task.status === 'completed' && <CheckCircle className="w-3 h-3 text-green-500" />}
             </div>
-          </CardContent>
-        </Card>
-      </motion.div>
+          </div>
+        </CardContent>
+      </Card>
+    </motion.div>
   );
 
-  const StatusColumn: React.FC<{ column: typeof statusColumns[0]; tasks: Task[] }> = ({ column, tasks }) => (
+  const StatusColumn: React.FC<{ column: (typeof statusColumns)[0]; tasks: Task[] }> = ({
+    column,
+    tasks,
+  }) => (
     <div className="flex-1 min-w-40">
-      <motion.div 
+      <motion.div
         className={`${DESIGN_TOKENS.radius.lg} ${DESIGN_TOKENS.padding.lg} ${column.color} ${DESIGN_TOKENS.backdrop} min-h-screen ${DESIGN_TOKENS.colors.border} border`}
         data-column-id={column.id}
         animate={{
-          backgroundColor: dragOverColumn === column.id ? 'rgba(255, 255, 255, 0.1)' : 'transparent'
+          backgroundColor:
+            dragOverColumn === column.id ? 'rgba(255, 255, 255, 0.1)' : 'transparent',
         }}
         onDragOver={(e) => {
           e.preventDefault();
@@ -315,14 +372,21 @@ export const TaskBoard: React.FC<TaskBoardProps> = ({
       >
         <div className="flex items-center justify-between mb-4">
           <h3 className={`text-sm font-semibold ${DESIGN_TOKENS.colors.text}`}>{column.title}</h3>
-          <Badge variant="secondary" className={`text-xs ${DESIGN_TOKENS.colors.surface} ${DESIGN_TOKENS.colors.textSecondary}`}>
+          <Badge
+            variant="secondary"
+            className={`text-xs ${DESIGN_TOKENS.colors.surface} ${DESIGN_TOKENS.colors.textSecondary}`}
+          >
             {tasks.length}
           </Badge>
         </div>
-        
-        <div className={`min-h-20 ${DESIGN_TOKENS.transition} ${
-          dragOverColumn === column.id ? `bg-white bg-opacity-20 ${DESIGN_TOKENS.radius.lg} border-2 border-dashed border-white/50` : ''
-        }`}>
+
+        <div
+          className={`min-h-20 ${DESIGN_TOKENS.transition} ${
+            dragOverColumn === column.id
+              ? `bg-white bg-opacity-20 ${DESIGN_TOKENS.radius.lg} border-2 border-dashed border-white/50`
+              : ''
+          }`}
+        >
           <AnimatePresence>
             {tasks.map((task, index) => (
               <TaskCard key={task.id} task={task} index={index} />
@@ -341,18 +405,18 @@ export const TaskBoard: React.FC<TaskBoardProps> = ({
       type: 'feature',
       dueDate: '',
       estimatedHours: '',
-      tags: ''
+      tags: '',
     });
 
     const handleSubmit = async (e: React.FormEvent) => {
       e.preventDefault();
-      
+
       await onTaskCreate({
         ...formData,
         projectId,
         dueDate: formData.dueDate ? new Date(formData.dueDate).toISOString() : undefined,
         estimatedHours: formData.estimatedHours ? parseFloat(formData.estimatedHours) : undefined,
-        tags: formData.tags ? formData.tags.split(',').map(tag => tag.trim()) : undefined
+        tags: formData.tags ? formData.tags.split(',').map((tag) => tag.trim()) : undefined,
       });
 
       setFormData({
@@ -362,7 +426,7 @@ export const TaskBoard: React.FC<TaskBoardProps> = ({
         type: 'feature',
         dueDate: '',
         estimatedHours: '',
-        tags: ''
+        tags: '',
       });
       setIsCreateDialogOpen(false);
     };
@@ -375,7 +439,9 @@ export const TaskBoard: React.FC<TaskBoardProps> = ({
             Create Task
           </Button>
         </DialogTrigger>
-        <DialogContent className={`max-w-md ${DESIGN_TOKENS.colors.surface} ${DESIGN_TOKENS.backdrop} ${DESIGN_TOKENS.colors.border} border`}>
+        <DialogContent
+          className={`max-w-md ${DESIGN_TOKENS.colors.surface} ${DESIGN_TOKENS.backdrop} ${DESIGN_TOKENS.colors.border} border`}
+        >
           <DialogHeader>
             <DialogTitle className={DESIGN_TOKENS.colors.text}>Create New Task</DialogTitle>
           </DialogHeader>
@@ -383,17 +449,20 @@ export const TaskBoard: React.FC<TaskBoardProps> = ({
             <Input
               placeholder="Task title"
               value={formData.title}
-              onChange={(e) => setFormData(prev => ({ ...prev, title: e.target.value }))}
+              onChange={(e) => setFormData((prev) => ({ ...prev, title: e.target.value }))}
               required
             />
             <Textarea
               placeholder="Description (optional)"
               value={formData.description}
-              onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
+              onChange={(e) => setFormData((prev) => ({ ...prev, description: e.target.value }))}
               rows={3}
             />
             <div className="grid grid-cols-2 gap-2">
-              <Select value={formData.priority} onValueChange={(value) => setFormData(prev => ({ ...prev, priority: value }))}>
+              <Select
+                value={formData.priority}
+                onValueChange={(value) => setFormData((prev) => ({ ...prev, priority: value }))}
+              >
                 <SelectTrigger>
                   <SelectValue placeholder="Priority" />
                 </SelectTrigger>
@@ -404,7 +473,10 @@ export const TaskBoard: React.FC<TaskBoardProps> = ({
                   <SelectItem value="urgent">Urgent</SelectItem>
                 </SelectContent>
               </Select>
-              <Select value={formData.type} onValueChange={(value) => setFormData(prev => ({ ...prev, type: value }))}>
+              <Select
+                value={formData.type}
+                onValueChange={(value) => setFormData((prev) => ({ ...prev, type: value }))}
+              >
                 <SelectTrigger>
                   <SelectValue placeholder="Type" />
                 </SelectTrigger>
@@ -425,13 +497,15 @@ export const TaskBoard: React.FC<TaskBoardProps> = ({
                 type="date"
                 placeholder="Due date"
                 value={formData.dueDate}
-                onChange={(e) => setFormData(prev => ({ ...prev, dueDate: e.target.value }))}
+                onChange={(e) => setFormData((prev) => ({ ...prev, dueDate: e.target.value }))}
               />
               <Input
                 type="number"
                 placeholder="Estimated hours"
                 value={formData.estimatedHours}
-                onChange={(e) => setFormData(prev => ({ ...prev, estimatedHours: e.target.value }))}
+                onChange={(e) =>
+                  setFormData((prev) => ({ ...prev, estimatedHours: e.target.value }))
+                }
                 min="0"
                 step="0.5"
               />
@@ -439,13 +513,19 @@ export const TaskBoard: React.FC<TaskBoardProps> = ({
             <Input
               placeholder="Tags (comma-separated)"
               value={formData.tags}
-              onChange={(e) => setFormData(prev => ({ ...prev, tags: e.target.value }))}
+              onChange={(e) => setFormData((prev) => ({ ...prev, tags: e.target.value }))}
             />
             <div className="flex justify-end gap-2">
-              <Button type="button" variant="secondary" onClick={() => setIsCreateDialogOpen(false)}>
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={() => setIsCreateDialogOpen(false)}
+              >
                 Cancel
               </Button>
-              <Button type="submit" variant="primary">Create Task</Button>
+              <Button type="submit" variant="primary">
+                Create Task
+              </Button>
             </div>
           </form>
         </DialogContent>
@@ -456,21 +536,26 @@ export const TaskBoard: React.FC<TaskBoardProps> = ({
   return (
     <div className="h-full flex flex-col">
       {/* Header with filters and create button */}
-      <div className={`${DESIGN_TOKENS.colors.border} border-b ${DESIGN_TOKENS.colors.surface} ${DESIGN_TOKENS.backdrop} ${DESIGN_TOKENS.padding.lg} space-y-4`}>
+      <div
+        className={`${DESIGN_TOKENS.colors.border} border-b ${DESIGN_TOKENS.colors.surface} ${DESIGN_TOKENS.backdrop} ${DESIGN_TOKENS.padding.lg} space-y-4`}
+      >
         <div className="flex items-center justify-between">
           <h2 className={`text-xl font-semibold ${DESIGN_TOKENS.colors.text}`}>Task Board</h2>
           <CreateTaskDialog />
         </div>
-        
+
         {/* Filters */}
         <div className="flex gap-2 flex-wrap">
           <Input
             placeholder="Search tasks..."
             value={filters.search}
-            onChange={(e) => setFilters(prev => ({ ...prev, search: e.target.value }))}
+            onChange={(e) => setFilters((prev) => ({ ...prev, search: e.target.value }))}
             className="max-w-xs"
           />
-          <Select value={filters.assigneeType} onValueChange={(value) => setFilters(prev => ({ ...prev, assigneeType: value }))}>
+          <Select
+            value={filters.assigneeType}
+            onValueChange={(value) => setFilters((prev) => ({ ...prev, assigneeType: value }))}
+          >
             <SelectTrigger className="w-32">
               <SelectValue placeholder="Assignee" />
             </SelectTrigger>
@@ -480,7 +565,10 @@ export const TaskBoard: React.FC<TaskBoardProps> = ({
               <SelectItem value="agent">Agent</SelectItem>
             </SelectContent>
           </Select>
-          <Select value={filters.priority} onValueChange={(value) => setFilters(prev => ({ ...prev, priority: value }))}>
+          <Select
+            value={filters.priority}
+            onValueChange={(value) => setFilters((prev) => ({ ...prev, priority: value }))}
+          >
             <SelectTrigger className="w-28">
               <SelectValue placeholder="Priority" />
             </SelectTrigger>
@@ -492,7 +580,10 @@ export const TaskBoard: React.FC<TaskBoardProps> = ({
               <SelectItem value="urgent">Urgent</SelectItem>
             </SelectContent>
           </Select>
-          <Select value={filters.type} onValueChange={(value) => setFilters(prev => ({ ...prev, type: value }))}>
+          <Select
+            value={filters.type}
+            onValueChange={(value) => setFilters((prev) => ({ ...prev, type: value }))}
+          >
             <SelectTrigger className="w-32">
               <SelectValue placeholder="Type" />
             </SelectTrigger>
@@ -519,7 +610,7 @@ export const TaskBoard: React.FC<TaskBoardProps> = ({
           </div>
         ) : (
           <div className={`flex ${DESIGN_TOKENS.spacing.md} ${DESIGN_TOKENS.padding.lg} min-w-max`}>
-            {statusColumns.map(column => (
+            {statusColumns.map((column) => (
               <StatusColumn
                 key={column.id}
                 column={column}
@@ -533,10 +624,14 @@ export const TaskBoard: React.FC<TaskBoardProps> = ({
       {/* Task detail dialog */}
       {selectedTask && (
         <Dialog open={!!selectedTask} onOpenChange={() => setSelectedTask(null)}>
-          <DialogContent className={`max-w-2xl ${DESIGN_TOKENS.colors.surface} ${DESIGN_TOKENS.backdrop} ${DESIGN_TOKENS.colors.border} border`}>
+          <DialogContent
+            className={`max-w-2xl ${DESIGN_TOKENS.colors.surface} ${DESIGN_TOKENS.backdrop} ${DESIGN_TOKENS.colors.border} border`}
+          >
             <DialogHeader>
               <DialogTitle className={`flex items-center gap-2 ${DESIGN_TOKENS.colors.text}`}>
-                <span className={`text-sm font-mono ${DESIGN_TOKENS.colors.textMuted}`}>{selectedTask.taskNumber}</span>
+                <span className={`text-sm font-mono ${DESIGN_TOKENS.colors.textMuted}`}>
+                  {selectedTask.taskNumber}
+                </span>
                 <span>{selectedTask.title}</span>
               </DialogTitle>
             </DialogHeader>
@@ -548,7 +643,7 @@ export const TaskBoard: React.FC<TaskBoardProps> = ({
                 <Badge variant="outline">{selectedTask.type}</Badge>
                 <Badge variant="outline">{selectedTask.status.replace('_', ' ')}</Badge>
               </div>
-              
+
               {selectedTask.description && (
                 <div>
                   <h4 className={`font-medium mb-2 ${DESIGN_TOKENS.colors.text}`}>Description</h4>
@@ -560,15 +655,21 @@ export const TaskBoard: React.FC<TaskBoardProps> = ({
                 <div>
                   <h4 className={`font-medium mb-2 ${DESIGN_TOKENS.colors.text}`}>Assignment</h4>
                   <div className={`flex items-center gap-2 ${DESIGN_TOKENS.colors.textSecondary}`}>
-                    {selectedTask.assigneeType === 'human' ? <User className="w-4 h-4" /> : <Bot className="w-4 h-4" />}
+                    {selectedTask.assigneeType === 'human' ? (
+                      <User className="w-4 h-4" />
+                    ) : (
+                      <Bot className="w-4 h-4" />
+                    )}
                     <span>{selectedTask.assigneeDisplayName}</span>
                   </div>
                 </div>
-                
+
                 {selectedTask.dueDate && (
                   <div>
                     <h4 className={`font-medium mb-2 ${DESIGN_TOKENS.colors.text}`}>Due Date</h4>
-                    <div className={`flex items-center gap-2 ${selectedTask.isOverdue ? 'text-red-400' : DESIGN_TOKENS.colors.textSecondary}`}>
+                    <div
+                      className={`flex items-center gap-2 ${selectedTask.isOverdue ? 'text-red-400' : DESIGN_TOKENS.colors.textSecondary}`}
+                    >
                       <Calendar className="w-4 h-4" />
                       <span>{format(new Date(selectedTask.dueDate), 'PPP')}</span>
                     </div>
@@ -580,7 +681,9 @@ export const TaskBoard: React.FC<TaskBoardProps> = ({
                 <div>
                   <h4 className={`font-medium mb-2 ${DESIGN_TOKENS.colors.text}`}>Progress</h4>
                   <div className="space-y-2">
-                    <div className={`flex justify-between text-sm ${DESIGN_TOKENS.colors.textSecondary}`}>
+                    <div
+                      className={`flex justify-between text-sm ${DESIGN_TOKENS.colors.textSecondary}`}
+                    >
                       <span>Completion</span>
                       <span>{selectedTask.metrics.completionPercentage}%</span>
                     </div>
@@ -598,8 +701,14 @@ export const TaskBoard: React.FC<TaskBoardProps> = ({
                 <div>
                   <h4 className={`font-medium mb-2 ${DESIGN_TOKENS.colors.text}`}>Tags</h4>
                   <div className="flex gap-1 flex-wrap">
-                    {selectedTask.tags.map(tag => (
-                      <Badge key={tag} variant="secondary" className={`${DESIGN_TOKENS.colors.surface} ${DESIGN_TOKENS.colors.textSecondary}`}>{tag}</Badge>
+                    {selectedTask.tags.map((tag) => (
+                      <Badge
+                        key={tag}
+                        variant="secondary"
+                        className={`${DESIGN_TOKENS.colors.surface} ${DESIGN_TOKENS.colors.textSecondary}`}
+                      >
+                        {tag}
+                      </Badge>
                     ))}
                   </div>
                 </div>

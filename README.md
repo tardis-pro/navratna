@@ -9,6 +9,7 @@
 The **Unified Agent Intelligence Platform (UAIP)** is a production-ready backend infrastructure for multi-agent collaboration, intelligent discussion orchestration, and capability-driven automation. The system provides a comprehensive foundation for building AI-powered collaborative platforms.
 
 ### Key Capabilities
+
 - **Multi-Agent Collaboration**: Sophisticated agent personas with contextual awareness
 - **Real-time Discussion Management**: WebSocket-based collaborative discussions
 - **Intelligent Tool Execution**: Sandboxed capability registry with security controls
@@ -19,6 +20,7 @@ The **Unified Agent Intelligence Platform (UAIP)** is a production-ready backend
 ## 🏗️ System Architecture
 
 ### Backend Services (All Operational ✅)
+
 - **Agent Intelligence Service** (Port 3001) - Context analysis, persona management
 - **Orchestration Pipeline Service** (Port 3002) - Workflow coordination, operation management
 - **Capability Registry Service** (Port 3003) - Tool management, sandboxed execution
@@ -27,6 +29,7 @@ The **Unified Agent Intelligence Platform (UAIP)** is a production-ready backend
 - **API Gateway** (Port 8081) - Centralized routing, rate limiting, documentation
 
 ### Infrastructure (All Operational ✅)
+
 - **PostgreSQL** (Port 5432) - Primary database with complete schema
 - **Neo4j** (Port 7474/7687) - Graph database for relationships
 - **Redis** (Port 6379) - Caching and session management
@@ -53,11 +56,13 @@ The **Unified Agent Intelligence Platform (UAIP)** is a production-ready backend
 **Start with the [Quick Start](docs/QUICK_START.md)**, then see [System Architecture](docs/ARCHITECTURE.md) for design details.
 
 ### 🧠 Knowledge Graph & Service Relationships
+
 - **[Knowledge Graph: Agents & Orchestration](docs/ARCHITECTURE.md#🧠-knowledge-graph-agents--orchestration)** – How agents, orchestration, and services are modeled and related
 
 ## 🎯 Current Status
 
 ### ✅ Completed (Production Ready)
+
 - **Backend Infrastructure**: All 5 microservices operational
 - **Security Implementation**: Complete RBAC, JWT, audit trails
 - **Database Integration**: Hybrid PostgreSQL/Neo4j with optimized queries
@@ -65,11 +70,13 @@ The **Unified Agent Intelligence Platform (UAIP)** is a production-ready backend
 - **Performance Optimization**: Sub-500ms response times, 2000+ ops/min
 
 ### 🔄 In Progress
+
 - **Frontend Integration**: React components and API integration (60% complete)
 - **Advanced Features**: Magic layer UI enhancements and productivity features
 - **Production Deployment**: Infrastructure automation and monitoring
 
 ### ⏳ Planned
+
 - **Mobile Applications**: iOS and Android native apps
 - **Advanced Analytics**: ML-powered insights and recommendations
 - **Enterprise Features**: Advanced security, compliance, and integration
@@ -77,6 +84,7 @@ The **Unified Agent Intelligence Platform (UAIP)** is a production-ready backend
 ## 🚀 Quick Start
 
 1. **Clone and Setup**
+
    ```bash
    git clone <repository-url>
    cd council-of-nycea
@@ -84,16 +92,19 @@ The **Unified Agent Intelligence Platform (UAIP)** is a production-ready backend
    ```
 
 2. **Start Infrastructure**
+
    ```bash
    docker-compose up -d
    ```
 
 3. **Start Backend Services**
+
    ```bash
    npm run dev:backend
    ```
 
 4. **Start Frontend**
+
    ```bash
    npm run dev:frontend
    ```
@@ -129,4 +140,4 @@ The UAIP platform uses a Neo4j-powered knowledge graph to model relationships be
 - **Relationships**: Service integration, workflow coordination, persona management, tool usage, and more
 - **Example Patterns**: (Agent)-[:USES]->(Tool), (Agent)-[:PARTICIPATES_IN]->(Discussion), (Service)-[:INTEGRATES_WITH]->(Service)
 
-See [Architecture](docs/ARCHITECTURE.md#🧠-knowledge-graph-agents--orchestration), [Service Integration](docs/SERVICE_INTEGRATION.md), and [API Reference](docs/API_REFERENCE.md) for details. 
+See [Architecture](docs/ARCHITECTURE.md#🧠-knowledge-graph-agents--orchestration), [Service Integration](docs/SERVICE_INTEGRATION.md), and [API Reference](docs/API_REFERENCE.md) for details.

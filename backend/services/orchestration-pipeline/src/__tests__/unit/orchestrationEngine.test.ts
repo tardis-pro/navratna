@@ -2,23 +2,23 @@ describe('OrchestrationEngine', () => {
   const mockOrchestrationEngine = {
     executeOperation: jest.fn(),
     pauseOperation: jest.fn(),
-    resumeOperation: jest.fn(), 
+    resumeOperation: jest.fn(),
     cancelOperation: jest.fn(),
     getOperationStatus: jest.fn(),
     createCheckpoint: jest.fn(),
     on: jest.fn(),
-    emit: jest.fn()
+    emit: jest.fn(),
   };
 
   let orchestrationEngine: any;
 
   beforeEach(() => {
     jest.clearAllMocks();
-    
+
     // Setup mock implementations with any type
     (mockOrchestrationEngine.executeOperation as any).mockResolvedValue('workflow-123');
     (mockOrchestrationEngine.pauseOperation as any).mockResolvedValue(undefined);
-    (mockOrchestrationEngine.resumeOperation as any).mockResolvedValue(undefined); 
+    (mockOrchestrationEngine.resumeOperation as any).mockResolvedValue(undefined);
     (mockOrchestrationEngine.cancelOperation as any).mockResolvedValue(undefined);
     (mockOrchestrationEngine.getOperationStatus as any).mockResolvedValue({
       operation: { id: 'operation-123' },
@@ -27,13 +27,13 @@ describe('OrchestrationEngine', () => {
         currentStep: 'step-2',
         completedSteps: 1,
         totalSteps: 3,
-        percentage: 33
+        percentage: 33,
       },
       metrics: {},
-      errors: []
+      errors: [],
     });
     (mockOrchestrationEngine.createCheckpoint as any).mockResolvedValue('checkpoint-123');
-    
+
     orchestrationEngine = mockOrchestrationEngine;
   });
 
@@ -61,8 +61,8 @@ describe('OrchestrationEngine', () => {
         status: 'pending',
         executionPlan: {
           steps: [{ id: 'step-1', type: 'tool' }],
-          dependencies: []
-        }
+          dependencies: [],
+        },
       };
 
       const workflowInstanceId = await orchestrationEngine.executeOperation(operation);
@@ -74,12 +74,14 @@ describe('OrchestrationEngine', () => {
     it('should handle operation execution failures', async () => {
       const operation = {
         id: 'operation-123',
-        type: 'tool_execution'
+        type: 'tool_execution',
       };
 
       (orchestrationEngine.executeOperation as any).mockRejectedValue(new Error('Database error'));
 
-      await expect(orchestrationEngine.executeOperation(operation)).rejects.toThrow('Database error');
+      await expect(orchestrationEngine.executeOperation(operation)).rejects.toThrow(
+        'Database error'
+      );
     });
   });
 
@@ -87,13 +89,20 @@ describe('OrchestrationEngine', () => {
     it('should pause an active operation successfully', async () => {
       await orchestrationEngine.pauseOperation('operation-123', 'User requested pause');
 
-      expect(orchestrationEngine.pauseOperation).toHaveBeenCalledWith('operation-123', 'User requested pause');
+      expect(orchestrationEngine.pauseOperation).toHaveBeenCalledWith(
+        'operation-123',
+        'User requested pause'
+      );
     });
 
     it('should handle pausing non-existent operation', async () => {
-      (orchestrationEngine.pauseOperation as any).mockRejectedValue(new Error('Operation non-existent not found or not active'));
+      (orchestrationEngine.pauseOperation as any).mockRejectedValue(
+        new Error('Operation non-existent not found or not active')
+      );
 
-      await expect(orchestrationEngine.pauseOperation('non-existent', 'test')).rejects.toThrow('Operation non-existent not found or not active');
+      await expect(orchestrationEngine.pauseOperation('non-existent', 'test')).rejects.toThrow(
+        'Operation non-existent not found or not active'
+      );
     });
   });
 
@@ -107,13 +116,20 @@ describe('OrchestrationEngine', () => {
     it('should resume from specific checkpoint', async () => {
       await orchestrationEngine.resumeOperation('operation-123', 'checkpoint-123');
 
-      expect(orchestrationEngine.resumeOperation).toHaveBeenCalledWith('operation-123', 'checkpoint-123');
+      expect(orchestrationEngine.resumeOperation).toHaveBeenCalledWith(
+        'operation-123',
+        'checkpoint-123'
+      );
     });
 
     it('should handle resuming non-paused operation', async () => {
-      (orchestrationEngine.resumeOperation as any).mockRejectedValue(new Error('Operation operation-123 is not paused'));
+      (orchestrationEngine.resumeOperation as any).mockRejectedValue(
+        new Error('Operation operation-123 is not paused')
+      );
 
-      await expect(orchestrationEngine.resumeOperation('operation-123')).rejects.toThrow('Operation operation-123 is not paused');
+      await expect(orchestrationEngine.resumeOperation('operation-123')).rejects.toThrow(
+        'Operation operation-123 is not paused'
+      );
     });
   });
 
@@ -121,13 +137,23 @@ describe('OrchestrationEngine', () => {
     it('should cancel an operation with compensation', async () => {
       await orchestrationEngine.cancelOperation('operation-123', 'User cancelled', true, false);
 
-      expect(orchestrationEngine.cancelOperation).toHaveBeenCalledWith('operation-123', 'User cancelled', true, false);
+      expect(orchestrationEngine.cancelOperation).toHaveBeenCalledWith(
+        'operation-123',
+        'User cancelled',
+        true,
+        false
+      );
     });
 
     it('should force cancel with step termination', async () => {
       await orchestrationEngine.cancelOperation('operation-123', 'Force cancel', false, true);
 
-      expect(orchestrationEngine.cancelOperation).toHaveBeenCalledWith('operation-123', 'Force cancel', false, true);
+      expect(orchestrationEngine.cancelOperation).toHaveBeenCalledWith(
+        'operation-123',
+        'Force cancel',
+        false,
+        true
+      );
     });
   });
 
@@ -146,9 +172,13 @@ describe('OrchestrationEngine', () => {
     });
 
     it('should handle non-existent operation', async () => {
-      (orchestrationEngine.getOperationStatus as any).mockRejectedValue(new Error('Operation non-existent not found'));
+      (orchestrationEngine.getOperationStatus as any).mockRejectedValue(
+        new Error('Operation non-existent not found')
+      );
 
-      await expect(orchestrationEngine.getOperationStatus('non-existent')).rejects.toThrow('Operation non-existent not found');
+      await expect(orchestrationEngine.getOperationStatus('non-existent')).rejects.toThrow(
+        'Operation non-existent not found'
+      );
     });
   });
 
@@ -169,9 +199,13 @@ describe('OrchestrationEngine', () => {
     });
 
     it('should handle checkpoint creation for non-existent operation', async () => {
-      (orchestrationEngine.createCheckpoint as any).mockRejectedValue(new Error('Operation not found: non-existent'));
+      (orchestrationEngine.createCheckpoint as any).mockRejectedValue(
+        new Error('Operation not found: non-existent')
+      );
 
-      await expect(orchestrationEngine.createCheckpoint('non-existent', 'state_snapshot')).rejects.toThrow('Operation not found: non-existent');
+      await expect(
+        orchestrationEngine.createCheckpoint('non-existent', 'state_snapshot')
+      ).rejects.toThrow('Operation not found: non-existent');
     });
   });
 
@@ -179,7 +213,7 @@ describe('OrchestrationEngine', () => {
     it('should execute basic orchestration operations', async () => {
       const operation = {
         id: 'operation-123',
-        type: 'tool_execution'
+        type: 'tool_execution',
       };
       const result = await orchestrationEngine.executeOperation(operation);
       expect(result).toBe('workflow-123');
@@ -188,10 +222,10 @@ describe('OrchestrationEngine', () => {
     it('should handle operation lifecycle events', async () => {
       const operation = {
         id: 'operation-123',
-        type: 'tool_execution'
+        type: 'tool_execution',
       };
       await orchestrationEngine.executeOperation(operation);
-      
+
       expect(orchestrationEngine.executeOperation).toHaveBeenCalledWith(operation);
     });
 
@@ -204,35 +238,43 @@ describe('OrchestrationEngine', () => {
             resourceLimits: {
               maxMemory: 2147483648,
               maxCpu: 4,
-              maxDuration: 7200000
-            }
-          }
-        }
+              maxDuration: 7200000,
+            },
+          },
+        },
       };
-      
+
       const result = await orchestrationEngine.executeOperation(operation);
       expect(result).toBe('workflow-123');
       expect(orchestrationEngine.executeOperation).toHaveBeenCalledWith(operation);
     });
 
     it('should handle error scenarios', async () => {
-      (orchestrationEngine.executeOperation as any).mockRejectedValue(new Error('Critical operation failure'));
-      
-      await expect(orchestrationEngine.executeOperation({ id: 'op-1' })).rejects.toThrow('Critical operation failure');
+      (orchestrationEngine.executeOperation as any).mockRejectedValue(
+        new Error('Critical operation failure')
+      );
+
+      await expect(orchestrationEngine.executeOperation({ id: 'op-1' })).rejects.toThrow(
+        'Critical operation failure'
+      );
     });
 
     it('should validate operations', async () => {
       const invalidOperation = {
         id: 'invalid-op',
         executionPlan: {
-          steps: [], 
-          dependencies: []
-        }
+          steps: [],
+          dependencies: [],
+        },
       };
 
-      (orchestrationEngine.executeOperation as any).mockRejectedValue(new Error('Operation execution plan must contain at least one step'));
+      (orchestrationEngine.executeOperation as any).mockRejectedValue(
+        new Error('Operation execution plan must contain at least one step')
+      );
 
-      await expect(orchestrationEngine.executeOperation(invalidOperation)).rejects.toThrow('Operation execution plan must contain at least one step');
+      await expect(orchestrationEngine.executeOperation(invalidOperation)).rejects.toThrow(
+        'Operation execution plan must contain at least one step'
+      );
     });
 
     it('should handle parallel execution', async () => {
@@ -243,17 +285,17 @@ describe('OrchestrationEngine', () => {
           steps: [
             { id: 'step-1', type: 'tool' },
             { id: 'step-2', type: 'tool' },
-            { id: 'step-3', type: 'tool' }
+            { id: 'step-3', type: 'tool' },
           ],
           dependencies: [],
           parallelGroups: [
             {
               stepIds: ['step-1', 'step-2', 'step-3'],
               policy: 'all_success',
-              maxConcurrency: 3
-            }
-          ]
-        }
+              maxConcurrency: 3,
+            },
+          ],
+        },
       };
 
       const result = await orchestrationEngine.executeOperation(operation);
@@ -267,7 +309,7 @@ describe('OrchestrationEngine', () => {
 
       const operation = {
         id: 'state-operation',
-        type: 'tool_execution'
+        type: 'tool_execution',
       };
 
       const result = await orchestrationEngine.executeOperation(operation);
@@ -276,7 +318,12 @@ describe('OrchestrationEngine', () => {
 
     it('should handle compensation workflows', async () => {
       await orchestrationEngine.cancelOperation('operation-123', 'Test cancellation', true, false);
-      expect(orchestrationEngine.cancelOperation).toHaveBeenCalledWith('operation-123', 'Test cancellation', true, false);
+      expect(orchestrationEngine.cancelOperation).toHaveBeenCalledWith(
+        'operation-123',
+        'Test cancellation',
+        true,
+        false
+      );
     });
 
     it('should handle step execution with retries', async () => {
@@ -285,18 +332,18 @@ describe('OrchestrationEngine', () => {
         type: 'tool_execution',
         executionPlan: {
           steps: [
-            { 
-              id: 'step-1', 
+            {
+              id: 'step-1',
               type: 'tool',
               retryPolicy: {
                 maxAttempts: 3,
                 backoffStrategy: 'exponential',
-                retryDelay: 1000
-              }
-            }
+                retryDelay: 1000,
+              },
+            },
           ],
-          dependencies: []
-        }
+          dependencies: [],
+        },
       };
 
       const result = await orchestrationEngine.executeOperation(operation);
@@ -309,9 +356,9 @@ describe('OrchestrationEngine', () => {
         type: 'tool_execution',
         context: {
           executionContext: {
-            timeout: 30000
-          }
-        }
+            timeout: 30000,
+          },
+        },
       };
 
       const result = await orchestrationEngine.executeOperation(operation);

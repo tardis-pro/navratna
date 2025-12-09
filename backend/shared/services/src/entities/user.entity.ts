@@ -25,11 +25,11 @@ export class UserEntity extends BaseEntity {
   @Column({ type: 'varchar', length: 255, name: 'password_hash' })
   passwordHash!: string;
 
-  @Column({ 
-    type: 'enum', 
-    enum: SecurityLevel, 
+  @Column({
+    type: 'enum',
+    enum: SecurityLevel,
     name: 'security_clearance',
-    default: SecurityLevel.MEDIUM 
+    default: SecurityLevel.MEDIUM,
   })
   securityClearance!: SecurityLevel;
 
@@ -99,4 +99,4 @@ export class UserEntity extends BaseEntity {
     }
     return this.email;
   }
-} 
+}

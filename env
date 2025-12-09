@@ -1,0 +1,333 @@
+# =============================================================================
+# Navratna - Environment Configuration
+# =============================================================================
+# This is a comprehensive sample of all available environment variables
+# Copy this file to .env and modify values as needed for your environment
+# =============================================================================
+
+# =============================================================================
+# CORE APPLICATION SETTINGS
+# =============================================================================
+NODE_ENV=development                    # development | production | test
+SERVICE_NAME=shared-service            # Override per service
+SERVICE_VERSION=1.0.0
+PORT=3000                              # Default port, override per service
+
+# =============================================================================
+# DATABASE CONFIGURATION
+# =============================================================================
+
+# PostgreSQL Database
+POSTGRES_URL=postgresql://uaip_user:uaip_password@localhost:5432/uaip
+# OR configure individually:
+POSTGRES_HOST=localhost
+POSTGRES_PORT=5432
+POSTGRES_USER=uaip_user
+POSTGRES_PASSWORD=uaip_password
+POSTGRES_DB=uaip
+POSTGRES_MULTIPLE_DATABASES=uaip,uaip_test
+DB_SSL=false
+DB_MAX_CONNECTIONS=20
+DB_TIMEOUT=30000
+
+# Neo4j Graph Database
+NEO4J_URL=bolt://neo4j:7687
+# OR configure individually:
+NEO4J_URI=bolt://localhost:7687
+NEO4J_USER=neo4j
+NEO4J_PASSWORD=uaip_dev_password
+NEO4J_DATABASE=neo4j
+NEO4J_MAX_CONNECTIONS=50
+NEO4J_CONNECTION_TIMEOUT=5000
+
+# Qdrant Vector Database
+QDRANT_URL=http://localhost:6333       # Auto-detects Docker: http://qdrant:6333
+QDRANT_COLLECTION_NAME=knowledge_embeddings
+
+# =============================================================================
+# REDIS CONFIGURATION
+# =============================================================================
+REDIS_URL=redis://:uaip_redis_password@localhost:6379
+# OR configure individually:
+REDIS_HOST=localhost
+REDIS_PORT=6379
+REDIS_PASSWORD=uaip_redis_password
+REDIS_DB=0
+REDIS_MAX_RETRIES=3
+REDIS_RETRY_DELAY=100
+REDIS_OFFLINE_QUEUE=true
+
+# =============================================================================
+# MESSAGE QUEUE (RabbitMQ)
+# =============================================================================
+RABBITMQ_URL=amqp://uaip_user:uaip_password@localhost:5672
+RABBITMQ_DEFAULT_USER=uaip_user
+RABBITMQ_DEFAULT_PASS=uaip_password
+
+# =============================================================================
+# TYPEORM SPECIFIC SETTINGS
+# =============================================================================
+TYPEORM_SYNC=false                     # true only in development
+TYPEORM_LOGGING=false                  # true for SQL query logging
+TYPEORM_DISABLE_CACHE=false           # true to disable Redis cache
+TYPEORM_MIGRATIONS_RUN=true           # false in development
+
+# =============================================================================
+# TEI (TEXT EMBEDDINGS INFERENCE) SERVICES
+# =============================================================================
+TEI_EMBEDDING_URL=http://localhost:8080
+TEI_RERANKER_URL=http://localhost:8081
+TEI_EMBEDDING_CPU_URL=http://localhost:8082
+
+# TEI Model Configuration
+TEI_EMBEDDING_MODEL=BAAI/bge-large-en-v1.5
+TEI_RERANKER_MODEL=BAAI/bge-reranker-base
+TEI_EMBEDDING_CPU_MODEL=sentence-transformers/all-mpnet-base-v2
+TEI_REQUEST_TIMEOUT=30000
+TEI_RETRY_ATTEMPTS=3
+
+# Hugging Face Configuration
+HUGGINGFACE_HUB_CACHE=/data
+JSON_OUTPUT=true
+
+# =============================================================================
+# SERVICE PORTS & URLS
+# =============================================================================
+AGENT_INTELLIGENCE_PORT=3001
+AGENT_INTELLIGENCE_URL=http://localhost:3001
+
+ORCHESTRATION_PIPELINE_PORT=3002
+ORCHESTRATION_PIPELINE_URL=http://localhost:3002
+
+CAPABILITY_REGISTRY_PORT=3003
+CAPABILITY_REGISTRY_URL=http://localhost:3003
+
+SECURITY_GATEWAY_PORT=3004
+SECURITY_GATEWAY_URL=http://localhost:3004
+
+DISCUSSION_ORCHESTRATION_PORT=3005
+DISCUSSION_ORCHESTRATION_URL=http://localhost:3005
+
+ARTIFACT_SERVICE_PORT=3006
+ARTIFACT_SERVICE_URL=http://localhost:3006
+
+LLM_SERVICE_PORT=3007
+LLM_SERVICE_URL=http://localhost:3007
+
+# =============================================================================
+# LOGGING CONFIGURATION
+# =============================================================================
+LOG_LEVEL=info                         # error | warn | info | debug | trace
+DETAILED_LOGGING=false                # true for verbose logging
+
+# =============================================================================
+# EXECUTION & PERFORMANCE SETTINGS
+# =============================================================================
+OPERATION_TIMEOUT_MAX=3600000         # 1 hour in milliseconds
+STEP_TIMEOUT_MAX=300000               # 5 minutes in milliseconds
+MAX_CONCURRENT_OPERATIONS=10
+MAX_RETRY_ATTEMPTS=3
+CLEANUP_INTERVAL=300000               # 5 minutes
+CHECKPOINT_INTERVAL=60000             # 1 minute
+RESOURCE_MONITORING_INTERVAL=10000    # 10 seconds
+
+# =============================================================================
+# STATE MANAGEMENT
+# =============================================================================
+STATE_COMPRESSION=false
+MAX_CHECKPOINT_SIZE=10485760          # 10MB
+CHECKPOINT_RETENTION_DAYS=7
+STATE_CACHE_TIMEOUT=3600              # 1 hour
+
+# =============================================================================
+# RATE LIMITING
+# =============================================================================
+RATE_LIMIT_WINDOW_MS=900000           # 15 minutes
+RATE_LIMIT_MAX=100
+RATE_LIMIT_STANDARD_HEADERS=true
+RATE_LIMIT_LEGACY_HEADERS=false
+
+# =============================================================================
+# MONITORING & METRICS
+# =============================================================================
+METRICS_ENABLED=true
+
+# =============================================================================
+# CORS CONFIGURATION
+# =============================================================================
+CORS_ALLOWED_ORIGINS=http://localhost:3000,http://localhost:8080
+CORS_CREDENTIALS=true
+
+# =============================================================================
+# JWT & AUTHENTICATION
+# =============================================================================
+JWT_SECRET=uaip_dev_jwt_secret_key_change_in_production
+JWT_EXPIRES_IN=1h
+JWT_REFRESH_EXPIRES_IN=7d
+JWT_ISSUER=uaip-security-gateway
+JWT_AUDIENCE=uaip-services
+JWT_ACCESS_TOKEN_EXPIRY=1h
+JWT_REFRESH_SECRET=uaip_dev_jwt_refresh_secret_key_change_in_production
+JWT_REFRESH_TOKEN_EXPIRY=7d
+
+# =============================================================================
+# EMAIL CONFIGURATION
+# =============================================================================
+EMAIL_HOST=smtp.gmail.com
+EMAIL_PORT=587
+EMAIL_SECURE=false
+EMAIL_USER=
+EMAIL_PASSWORD=
+EMAIL_FROM=noreply@uaip.dev
+
+# =============================================================================
+# FRONTEND CONFIGURATION
+# =============================================================================
+FRONTEND_URL=http://localhost:3000
+FRONTEND_BASE_URL=http://localhost:3000
+FRONTEND_RESET_PASSWORD_PATH=/reset-password
+FRONTEND_VERIFY_EMAIL_PATH=/verify-email
+
+# Frontend Development (Vite)
+VITE_API_URL=http://localhost:8081
+VITE_API_TARGET=http://api-gateway:80
+CHOKIDAR_USEPOLLING=true
+WATCHPACK_POLLING=true
+
+# =============================================================================
+# NOTIFICATIONS
+# =============================================================================
+NOTIFICATIONS_ENABLED=true
+NOTIFICATIONS_EMAIL=true
+NOTIFICATIONS_PUSH=false
+NOTIFICATIONS_SMS=false
+NOTIFICATIONS_RETRY_ATTEMPTS=3
+NOTIFICATIONS_RETRY_DELAY=5000
+NOTIFICATIONS_WEBHOOK_URL=
+NOTIFICATIONS_WEBHOOK_SECRET=
+NOTIFICATIONS_SMS_PROVIDER=
+
+# =============================================================================
+# LLM PROVIDERS
+# =============================================================================
+OPENAI_API_KEY=
+ANTHROPIC_API_KEY=
+OLLAMA_URL=http://localhost:11434
+LLM_STUDIO_URL=http://localhost:1234
+LLM_PROVIDER_ENCRYPTION_KEY=default-key-change-in-production
+
+# =============================================================================
+# CAPABILITY REGISTRY SPECIFIC
+# =============================================================================
+TOOL_EXECUTION_TIMEOUT=30000          # 30 seconds
+MAX_CONCURRENT_EXECUTIONS=10
+ENABLE_APPROVAL_WORKFLOW=false
+DEFAULT_COST_LIMIT=100.0
+
+# =============================================================================
+# DISCUSSION ORCHESTRATION SPECIFIC
+# =============================================================================
+WEBSOCKET_ENABLED=true
+
+# =============================================================================
+# TIMEOUT SETTINGS
+# =============================================================================
+API_TIMEOUT=30000
+EXTERNAL_TIMEOUT=60000
+
+# =============================================================================
+# DOCKER & CONTAINERIZATION
+# =============================================================================
+DOCKER_ENV=false                      # Set to true in Docker environments
+KUBERNETES_SERVICE_HOST=              # Auto-set in Kubernetes
+HOSTNAME=                             # Auto-set by Docker
+
+# =============================================================================
+# DEVELOPMENT & DEBUGGING
+# =============================================================================
+DEBUG=false
+VERBOSE_ERRORS=false
+
+# =============================================================================
+# SECURITY SETTINGS
+# =============================================================================
+RATE_LIMIT_ENABLED=true
+HELMET_ENABLED=true
+COMPRESSION_ENABLED=true
+
+# =============================================================================
+# MIGRATION SETTINGS
+# =============================================================================
+RUN_MIGRATIONS=true                   # false in development
+MIGRATION_TIMEOUT=60000
+
+# =============================================================================
+# PROMETHEUS METRICS
+# =============================================================================
+PROMETHEUS_PORT=9090
+GRAFANA_PORT=3000
+GF_SECURITY_ADMIN_PASSWORD=admin
+
+# =============================================================================
+# HEALTH CHECK SETTINGS
+# =============================================================================
+HEALTH_CHECK_INTERVAL=30s
+HEALTH_CHECK_TIMEOUT=10s
+HEALTH_CHECK_RETRIES=3
+
+# =============================================================================
+# VOLUME MOUNT PATHS (for Docker)
+# =============================================================================
+POSTGRES_DATA_PATH=postgres_data
+NEO4J_DATA_PATH=neo4j_data
+REDIS_DATA_PATH=redis_data
+QDRANT_DATA_PATH=qdrant_data
+RABBITMQ_DATA_PATH=rabbitmq_data
+
+# =============================================================================
+# EXAMPLES OF ADVANCED CONFIGURATIONS
+# =============================================================================
+
+# Custom Database Pool Settings
+# DB_POOL_MIN=2
+# DB_POOL_MAX=20
+# DB_POOL_IDLE_TIMEOUT=30000
+
+# Custom Redis Cluster Configuration
+# REDIS_CLUSTER_NODES=localhost:6379,localhost:6380,localhost:6381
+# REDIS_CLUSTER_ENABLED=false
+
+# Advanced Neo4j Settings
+# NEO4J_BOLT_ROUTING=false
+# NEO4J_ENCRYPTED=false
+# NEO4J_TRUST_STRATEGY=TRUST_ALL_CERTIFICATES
+
+# Custom TEI Model Configuration
+# TEI_EMBEDDING_MODEL=BAAI/bge-large-en-v1.5
+# TEI_RERANKER_MODEL=BAAI/bge-reranker-base
+# TEI_EMBEDDING_CPU_MODEL=sentence-transformers/all-mpnet-base-v2
+# TEI_REQUEST_TIMEOUT=30000
+# TEI_RETRY_ATTEMPTS=3
+# TEI_MAX_BATCH_TOKENS=16384
+# TEI_MAX_CONCURRENT_REQUESTS=512
+
+# Advanced Security Settings
+# BCRYPT_ROUNDS=12
+# SESSION_SECRET=your-session-secret
+# CSRF_SECRET=your-csrf-secret
+
+# Custom Service Discovery
+# CONSUL_URL=http://localhost:8500
+# EUREKA_URL=http://localhost:8761
+
+# =============================================================================
+# NOTES
+# =============================================================================
+# 1. Values with 'localhost' will auto-detect Docker environment and switch to service names
+# 2. Passwords and secrets should be changed in production
+# 3. Boolean values: true/false (case sensitive)
+# 4. Timeouts are in milliseconds unless specified otherwise
+# 5. URLs should include protocol (http:// or https://)
+# 6. Arrays are comma-separated (no spaces after commas)
+# 7. Empty values will use defaults defined in config files
+# ============================================================================= 

@@ -1,13 +1,13 @@
 import { SecurityValidationService } from '../../securityValidationService.js';
 import { DatabaseService } from '../../databaseService.js';
-import { 
+import {
   SecurityValidationResult,
   RiskAssessment,
   RiskFactor,
   RiskLevel,
   SecurityContext,
   SecurityLevel,
-  ExecutionPlan
+  ExecutionPlan,
 } from '@uaip/types';
 
 // Mock DatabaseService methods
@@ -18,30 +18,28 @@ const createMockDatabaseService = () => ({
     email: 'test@example.com',
     isActive: true,
     role: 'user',
-    securityClearance: SecurityLevel.MEDIUM
+    securityClearance: SecurityLevel.MEDIUM,
   }),
   getUserPermissions: jest.fn().mockResolvedValue({
     rolePermissions: [
       { operations: ['read:documents', 'write:documents'] },
-      { operations: ['execute:basic_operations'] }
+      { operations: ['execute:basic_operations'] },
     ],
-    directPermissions: [
-      { operations: ['admin:dashboard'] }
-    ]
+    directPermissions: [{ operations: ['admin:dashboard'] }],
   }),
   getUserRiskData: jest.fn().mockResolvedValue({
     recentActivityCount: 25,
     failedLoginAttempts: 0,
     lastLoginTime: new Date(),
-    riskScore: 2
+    riskScore: 2,
   }),
   getUserHighestRole: jest.fn().mockResolvedValue('user'),
-  createApprovalWorkflow: jest.fn().mockResolvedValue(undefined)
+  createApprovalWorkflow: jest.fn().mockResolvedValue(undefined),
 });
 
 // Mock the DatabaseService
 jest.mock('../../databaseService.js', () => ({
-  DatabaseService: jest.fn().mockImplementation(() => createMockDatabaseService())
+  DatabaseService: jest.fn().mockImplementation(() => createMockDatabaseService()),
 }));
 
 describe('SecurityValidationService', () => {
@@ -66,7 +64,7 @@ describe('SecurityValidationService', () => {
         sessionId: 'session-456',
         ipAddress: '192.168.1.100',
         userAgent: 'Mozilla/5.0 Test Browser',
-        securityLevel: SecurityLevel.MEDIUM
+        securityLevel: SecurityLevel.MEDIUM,
       };
 
       await service.validateOperation(securityContext, 'read:documents', ['doc-1'], {});
@@ -81,7 +79,7 @@ describe('SecurityValidationService', () => {
       sessionId: 'session-456',
       ipAddress: '192.168.1.100',
       userAgent: 'Mozilla/5.0 Test Browser',
-      securityLevel: SecurityLevel.MEDIUM
+      securityLevel: SecurityLevel.MEDIUM,
     };
 
     describe('validateOperation', () => {
@@ -98,7 +96,7 @@ describe('SecurityValidationService', () => {
           riskLevel: SecurityLevel.MEDIUM,
           approvalRequired: false,
           conditions: ['Standard monitoring required'],
-          reasoning: expect.any(String)
+          reasoning: expect.any(String),
         });
 
         expect(mockDatabaseService.getUserAuthDetails).toHaveBeenCalledWith('user-123');
@@ -124,7 +122,7 @@ describe('SecurityValidationService', () => {
           riskLevel: SecurityLevel.HIGH,
           approvalRequired: false,
           conditions: [],
-          reasoning: 'User authentication failed'
+          reasoning: 'User authentication failed',
         });
       });
 
@@ -133,7 +131,7 @@ describe('SecurityValidationService', () => {
           id: 'user-123',
           email: 'test@example.com',
           isActive: false,
-          role: 'user'
+          role: 'user',
         });
 
         const result = await service.validateOperation(
@@ -148,14 +146,14 @@ describe('SecurityValidationService', () => {
           riskLevel: SecurityLevel.HIGH,
           approvalRequired: false,
           conditions: [],
-          reasoning: 'User authentication failed'
+          reasoning: 'User authentication failed',
         });
       });
 
       it('should deny operation when user lacks required permissions', async () => {
         mockDatabaseService.getUserPermissions.mockResolvedValueOnce({
           rolePermissions: [{ operations: ['read:basic'] }],
-          directPermissions: []
+          directPermissions: [],
         });
 
         const result = await service.validateOperation(
@@ -170,7 +168,7 @@ describe('SecurityValidationService', () => {
           riskLevel: SecurityLevel.HIGH,
           approvalRequired: false,
           conditions: [],
-          reasoning: 'Insufficient permissions'
+          reasoning: 'Insufficient permissions',
         });
       });
 
@@ -190,7 +188,7 @@ describe('SecurityValidationService', () => {
         const sensitiveData = {
           api_key: 'sk-1234567890abcdef',
           password: 'secret123',
-          credit_card: '4111-1111-1111-1111'
+          credit_card: '4111-1111-1111-1111',
         };
 
         const result = await service.validateOperation(
@@ -211,7 +209,7 @@ describe('SecurityValidationService', () => {
           recentActivityCount: 150, // High activity
           failedLoginAttempts: 2,
           lastLoginTime: new Date(),
-          riskScore: 6
+          riskScore: 6,
         });
 
         const result = await service.validateOperation(
@@ -245,9 +243,9 @@ describe('SecurityValidationService', () => {
       steps: Array.from({ length: 12 }, (_, i) => ({
         id: `step-${i}`,
         type: 'processing',
-        dependencies: i > 0 ? [`step-${i-1}`] : []
+        dependencies: i > 0 ? [`step-${i - 1}`] : [],
       })),
-      estimatedDuration: 7200 // 2 hours
+      estimatedDuration: 7200, // 2 hours
     };
 
     describe('assessRisk', () => {
@@ -255,10 +253,8 @@ describe('SecurityValidationService', () => {
         const simplePlan: ExecutionPlan = {
           id: 'simple-plan',
           type: 'information_retrieval',
-          steps: [
-            { id: 'step-1', type: 'read' }
-          ],
-          estimatedDuration: 300 // 5 minutes
+          steps: [{ id: 'step-1', type: 'read' }],
+          estimatedDuration: 300, // 5 minutes
         };
 
         const result = await service.assessRisk(simplePlan, { securityLevel: 'low' });
@@ -275,9 +271,9 @@ describe('SecurityValidationService', () => {
         expect(result.level).toBeOneOf([SecurityLevel.MEDIUM, SecurityLevel.HIGH]);
         expect(result.overallRisk).toBeOneOf([RiskLevel.MEDIUM, RiskLevel.HIGH]);
         expect(result.factors.length).toBeGreaterThan(0);
-        
+
         // Should identify complexity risk
-        const complexityFactor = result.factors.find(f => f.type === 'complexity');
+        const complexityFactor = result.factors.find((f) => f.type === 'complexity');
         expect(complexityFactor).toBeDefined();
         expect(complexityFactor?.level).toBe(RiskLevel.HIGH);
       });
@@ -285,12 +281,12 @@ describe('SecurityValidationService', () => {
       it('should assess duration risk for long-running operations', async () => {
         const longPlan: ExecutionPlan = {
           ...mockExecutionPlan,
-          estimatedDuration: 10800 // 3 hours
+          estimatedDuration: 10800, // 3 hours
         };
 
         const result = await service.assessRisk(longPlan, { securityLevel: 'medium' });
 
-        const durationFactor = result.factors.find(f => f.type === 'duration');
+        const durationFactor = result.factors.find((f) => f.type === 'duration');
         expect(durationFactor).toBeDefined();
         expect(durationFactor?.level).toBeOneOf([RiskLevel.MEDIUM, RiskLevel.HIGH]);
       });
@@ -298,12 +294,12 @@ describe('SecurityValidationService', () => {
       it('should assess resource risk for intensive operations', async () => {
         const resourceIntensivePlan: ExecutionPlan = {
           ...mockExecutionPlan,
-          type: 'ml_training'
+          type: 'ml_training',
         };
 
         const result = await service.assessRisk(resourceIntensivePlan, { securityLevel: 'medium' });
 
-        const resourceFactor = result.factors.find(f => f.type === 'resource');
+        const resourceFactor = result.factors.find((f) => f.type === 'resource');
         expect(resourceFactor).toBeDefined();
       });
 
@@ -312,9 +308,9 @@ describe('SecurityValidationService', () => {
 
         expect(result.mitigations).toBeDefined();
         expect(result.mitigations.length).toBeGreaterThan(0);
-        
+
         // Should recommend breaking down complex operations
-        if (result.factors.some(f => f.type === 'complexity')) {
+        if (result.factors.some((f) => f.type === 'complexity')) {
           expect(result.mitigations).toContain('Break down into smaller operations');
         }
       });
@@ -327,12 +323,12 @@ describe('SecurityValidationService', () => {
       security_context: {
         api_keys: ['key1', 'key2'],
         credentials: { username: 'admin', password: 'secret' },
-        public_info: 'Safe to share'
+        public_info: 'Safe to share',
       },
       intelligence_config: {
         public_params: { setting1: 'value1' },
-        internal_params: { secret_setting: 'hidden' }
-      }
+        internal_params: { secret_setting: 'hidden' },
+      },
     };
 
     describe('filterSensitiveData', () => {
@@ -370,15 +366,17 @@ describe('SecurityValidationService', () => {
       it('should deny access for unknown roles', async () => {
         mockDatabaseService.getUserHighestRole.mockResolvedValueOnce('unknown');
 
-        await expect(service.filterSensitiveData(testData, 'unknown-user', 'read'))
-          .rejects.toThrow('Access denied');
+        await expect(service.filterSensitiveData(testData, 'unknown-user', 'read')).rejects.toThrow(
+          'Access denied'
+        );
       });
 
       it('should handle database errors gracefully', async () => {
         mockDatabaseService.getUserHighestRole.mockRejectedValueOnce(new Error('Database error'));
 
-        await expect(service.filterSensitiveData(testData, 'user-123', 'read'))
-          .rejects.toThrow('Database error');
+        await expect(service.filterSensitiveData(testData, 'user-123', 'read')).rejects.toThrow(
+          'Database error'
+        );
       });
     });
   });
@@ -398,7 +396,7 @@ describe('SecurityValidationService', () => {
           operationId: 'operation-123',
           requiredApprovers: ['admin-1', 'admin-2'],
           status: 'pending',
-          metadata: { reason: 'High-risk operation', priority: 'urgent' }
+          metadata: { reason: 'High-risk operation', priority: 'urgent' },
         });
       });
 
@@ -407,11 +405,9 @@ describe('SecurityValidationService', () => {
           new Error('Database constraint violation')
         );
 
-        await expect(service.createApprovalWorkflow(
-          'operation-123',
-          ['admin-1'],
-          {}
-        )).rejects.toThrow('Failed to create approval workflow');
+        await expect(
+          service.createApprovalWorkflow('operation-123', ['admin-1'], {})
+        ).rejects.toThrow('Failed to create approval workflow');
       });
     });
   });
@@ -423,7 +419,7 @@ describe('SecurityValidationService', () => {
         sessionId: 'session-789',
         ipAddress: '10.0.0.1',
         userAgent: 'Admin Browser',
-        securityLevel: SecurityLevel.HIGH
+        securityLevel: SecurityLevel.HIGH,
       };
 
       const result = await service.validateOperation(
@@ -442,7 +438,7 @@ describe('SecurityValidationService', () => {
         sessionId: 'session-suspicious',
         ipAddress: '192.168.999.999', // Invalid IP format
         userAgent: 'Suspicious Browser',
-        securityLevel: SecurityLevel.MEDIUM
+        securityLevel: SecurityLevel.MEDIUM,
       };
 
       const result = await service.validateOperation(
@@ -465,17 +461,17 @@ describe('SecurityValidationService', () => {
         sessionId: `session-${i}`,
         ipAddress: `192.168.1.${i + 100}`,
         userAgent: 'Test Browser',
-        securityLevel: SecurityLevel.MEDIUM
+        securityLevel: SecurityLevel.MEDIUM,
       }));
 
-      const validationPromises = contexts.map(context =>
+      const validationPromises = contexts.map((context) =>
         service.validateOperation(context, 'read:documents', ['doc-1'], {})
       );
 
       const results = await Promise.all(validationPromises);
 
       expect(results).toHaveLength(10);
-      results.forEach(result => {
+      results.forEach((result) => {
         expect(result).toBeDefined();
         expect(typeof result.allowed).toBe('boolean');
       });
@@ -487,17 +483,17 @@ describe('SecurityValidationService', () => {
         name: `Plan ${i}`,
         type: 'analysis',
         steps: [{ id: 'step-1', type: 'process' }],
-        estimatedDuration: 300 + i * 100
+        estimatedDuration: 300 + i * 100,
       }));
 
-      const assessmentPromises = plans.map(plan =>
+      const assessmentPromises = plans.map((plan) =>
         service.assessRisk(plan as ExecutionPlan, { securityLevel: 'medium' })
       );
 
       const results = await Promise.all(assessmentPromises);
 
       expect(results).toHaveLength(5);
-      results.forEach(result => {
+      results.forEach((result) => {
         expect(result).toBeDefined();
         expect(result.level).toBeDefined();
         expect(result.score).toBeGreaterThanOrEqual(0);
@@ -511,7 +507,7 @@ describe('SecurityValidationService', () => {
       sessionId: 'session-456',
       ipAddress: '192.168.1.100',
       userAgent: 'Mozilla/5.0 Test Browser',
-      securityLevel: SecurityLevel.MEDIUM
+      securityLevel: SecurityLevel.MEDIUM,
     };
 
     it('should handle database service unavailability gracefully', async () => {
@@ -519,12 +515,9 @@ describe('SecurityValidationService', () => {
         new Error('Database connection timeout')
       );
 
-      await expect(service.validateOperation(
-        testSecurityContext,
-        'read:documents',
-        ['doc-1'],
-        {}
-      )).rejects.toThrow('Security validation failed');
+      await expect(
+        service.validateOperation(testSecurityContext, 'read:documents', ['doc-1'], {})
+      ).rejects.toThrow('Security validation failed');
     });
 
     it('should handle malformed security contexts', async () => {
@@ -533,21 +526,23 @@ describe('SecurityValidationService', () => {
         sessionId: null,
         ipAddress: 'invalid-ip',
         userAgent: '',
-        securityLevel: 'invalid' as any
+        securityLevel: 'invalid' as any,
       };
 
-      await expect(service.validateOperation(
-        malformedContext as SecurityContext,
-        'read:documents',
-        ['doc-1'],
-        {}
-      )).rejects.toThrow();
+      await expect(
+        service.validateOperation(
+          malformedContext as SecurityContext,
+          'read:documents',
+          ['doc-1'],
+          {}
+        )
+      ).rejects.toThrow();
     });
 
     it('should provide meaningful error messages for validation failures', async () => {
       mockDatabaseService.getUserPermissions.mockResolvedValueOnce({
         rolePermissions: [],
-        directPermissions: []
+        directPermissions: [],
       });
 
       const result = await service.validateOperation(
@@ -575,7 +570,7 @@ expect.extend({
         : `expected ${received} to be one of [${items.join(', ')}]`;
 
     return { message, pass };
-  }
+  },
 });
 
 // Extend Jest matchers type

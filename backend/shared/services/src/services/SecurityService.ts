@@ -1,5 +1,9 @@
 import { TypeOrmService } from '../typeormService.js';
-import { SecurityPolicyRepository, ApprovalWorkflowRepository, ApprovalDecisionRepository } from '../database/repositories/SecurityRepository.js';
+import {
+  SecurityPolicyRepository,
+  ApprovalWorkflowRepository,
+  ApprovalDecisionRepository,
+} from '../database/repositories/SecurityRepository.js';
 import { SecurityPolicy } from '../entities/securityPolicy.entity.js';
 import { ApprovalWorkflow } from '../entities/approvalWorkflow.entity.js';
 import { ApprovalDecision } from '../entities/approvalDecision.entity.js';

@@ -3,7 +3,7 @@
 // Part of capability-registry microservice
 
 import { ToolExecution, ToolUsageRecord, ToolExecutionStatus } from '@uaip/types';
-import {  DatabaseService, ToolService } from '@uaip/shared-services';
+import { DatabaseService, ToolService } from '@uaip/shared-services';
 import { logger } from '@uaip/utils';
 import { ToolRegistry } from './toolRegistry.js';
 import { BaseToolExecutor } from './baseToolExecutor.js';
@@ -16,7 +16,7 @@ const ExecutionParametersSchema = z.object({
   agentId: z.string().min(1),
   parameters: z.record(z.any()),
   timeout: z.number().positive().optional(),
-  priority: z.enum(['low', 'normal', 'high']).optional()
+  priority: z.enum(['low', 'normal', 'high']).optional(),
 });
 
 export interface ExecutionOptions {
@@ -49,7 +49,7 @@ export class ToolExecutor {
       agentId,
       parameters,
       timeout: options.timeout,
-      priority: options.priority
+      priority: options.priority,
     });
 
     // Get tool definition
@@ -78,8 +78,8 @@ export class ToolExecutor {
       metadata: {
         priority: options.priority || 'normal',
         timeout: options.timeout || 30000,
-        retryOnFailure: options.retryOnFailure || false
-      }
+        retryOnFailure: options.retryOnFailure || false,
+      },
     };
 
     try {
@@ -89,7 +89,9 @@ export class ToolExecutor {
       // Check if approval is required
       if (tool.requiresApproval) {
         execution.status = ToolExecutionStatus.APPROVAL_REQUIRED;
-        await this.toolService.updateToolExecution(execution.id, { status: ToolExecutionStatus.APPROVAL_REQUIRED });
+        await this.toolService.updateToolExecution(execution.id, {
+          status: ToolExecutionStatus.APPROVAL_REQUIRED,
+        });
         logger.info(`Tool execution requires approval: ${execution.id}`);
         return execution;
       }
@@ -103,24 +105,26 @@ export class ToolExecutor {
         type: 'execution',
         message: error.message,
         details: { stack: error.stack },
-        recoverable: false
+        recoverable: false,
       };
       execution.endTime = new Date();
 
       await this.toolService.updateToolExecution(execution.id, execution);
       await this.recordUsage(execution, false);
-      
+
       throw error;
     }
   }
 
   private async performExecution(execution: ToolExecution, tool: any): Promise<ToolExecution> {
     const startTime = Date.now();
-    
+
     try {
       // Update status to running
       execution.status = ToolExecutionStatus.RUNNING;
-      await this.toolService.updateToolExecution(execution.id, { status: ToolExecutionStatus.RUNNING });
+      await this.toolService.updateToolExecution(execution.id, {
+        status: ToolExecutionStatus.RUNNING,
+      });
 
       // Execute the tool logic
       const result = await this.executeToolLogic(
@@ -130,7 +134,7 @@ export class ToolExecutor {
       );
 
       const executionTime = Date.now() - startTime;
-      
+
       // Update execution with success
       execution.status = ToolExecutionStatus.COMPLETED;
       execution.result = result;
@@ -143,7 +147,7 @@ export class ToolExecutor {
         result,
         endTime: execution.endTime,
         executionTimeMs: executionTime,
-        cost: execution.cost
+        cost: execution.cost,
       });
 
       // Record successful usage with enhanced TypeORM tracking
@@ -153,17 +157,16 @@ export class ToolExecutor {
 
       logger.info(`Tool execution completed: ${execution.id} (${executionTime}ms)`);
       return execution;
-
     } catch (error) {
       const executionTime = Date.now() - startTime;
-      
+
       // Update execution with failure
       execution.status = ToolExecutionStatus.FAILED;
       execution.error = {
         type: this.categorizeError(error),
         message: error.message,
         details: { stack: error.stack },
-        recoverable: this.isRecoverableError(error)
+        recoverable: this.isRecoverableError(error),
       };
       execution.endTime = new Date();
       execution.executionTimeMs = executionTime;
@@ -172,7 +175,7 @@ export class ToolExecutor {
         status: ToolExecutionStatus.FAILED,
         error: execution.error,
         endTime: execution.endTime,
-        executionTimeMs: executionTime
+        executionTimeMs: executionTime,
       });
 
       // Record failed usage with enhanced TypeORM tracking
@@ -181,11 +184,13 @@ export class ToolExecutor {
       // Usage pattern tracking handled by knowledge graph service
 
       logger.error(`Tool execution failed: ${execution.id} (${executionTime}ms)`, error);
-      
+
       // Retry if configured and error is recoverable
-      if (execution.metadata?.retryOnFailure && 
-          execution.error.recoverable && 
-          execution.retryCount < execution.maxRetries) {
+      if (
+        execution.metadata?.retryOnFailure &&
+        execution.error.recoverable &&
+        execution.retryCount < execution.maxRetries
+      ) {
         return await this.retryExecution(execution.id);
       }
 
@@ -210,7 +215,7 @@ export class ToolExecutor {
           executionId: execution.id,
           priority: execution.metadata?.priority,
           retryCount: execution.retryCount,
-          error: execution.error
+          error: execution.error,
         }
       );
     } catch (error) {
@@ -241,7 +246,7 @@ export class ToolExecutor {
       status: ToolExecutionStatus.PENDING,
       startTime: execution.startTime,
       endTime: null,
-      error: null
+      error: null,
     });
 
     logger.info(`Retrying tool execution: ${executionId} (attempt ${execution.retryCount})`);
@@ -257,13 +262,17 @@ export class ToolExecutor {
         return false;
       }
 
-      if (execution.status === ToolExecutionStatus.COMPLETED || execution.status === ToolExecutionStatus.FAILED || execution.status === ToolExecutionStatus.CANCELLED) {
+      if (
+        execution.status === ToolExecutionStatus.COMPLETED ||
+        execution.status === ToolExecutionStatus.FAILED ||
+        execution.status === ToolExecutionStatus.CANCELLED
+      ) {
         return false; // Cannot cancel already finished executions
       }
 
       await this.toolService.updateToolExecution(executionId, {
         status: ToolExecutionStatus.CANCELLED,
-        endTime: new Date()
+        endTime: new Date(),
       });
 
       logger.info(`Tool execution cancelled: ${executionId}`);
@@ -288,7 +297,7 @@ export class ToolExecutor {
     await this.toolService.updateToolExecution(executionId, {
       approvedBy,
       approvedAt: new Date(),
-      status: ToolExecutionStatus.PENDING
+      status: ToolExecutionStatus.PENDING,
     });
 
     execution.approvedBy = approvedBy;
@@ -347,7 +356,7 @@ export class ToolExecutor {
         executionId: execution.id,
         executionTime: execution.executionTimeMs,
         success,
-        error: execution.error?.message
+        error: execution.error?.message,
       };
 
       await this.toolService.trackUsage(usage);
@@ -356,7 +365,6 @@ export class ToolExecutor {
     }
   }
 
-
   private calculateCost(tool: any, executionTime: number): number {
     // Simple cost calculation based on tool's cost estimate and execution time
     const baseCost = tool.costEstimate;
@@ -364,7 +372,9 @@ export class ToolExecutor {
     return baseCost * timeFactor;
   }
 
-  private categorizeError(error: Error): 'validation' | 'execution' | 'timeout' | 'permission' | 'quota' | 'dependency' | 'unknown' {
+  private categorizeError(
+    error: Error
+  ): 'validation' | 'execution' | 'timeout' | 'permission' | 'quota' | 'dependency' | 'unknown' {
     if (error.message.includes('timeout')) return 'timeout';
     if (error.message.includes('permission')) return 'permission';
     if (error.message.includes('validation')) return 'validation';
@@ -385,16 +395,23 @@ export class ToolExecutor {
     const filters: any = { days };
     if (toolId) filters.toolId = toolId;
     if (agentId) filters.agentId = agentId;
-    const stats = await this.toolService.getToolUsageStats(filters.toolId || '', filters.days || 30);
-    
+    const stats = await this.toolService.getToolUsageStats(
+      filters.toolId || '',
+      filters.days || 30
+    );
+
     return {
       totalExecutions: stats.reduce((sum, stat) => sum + parseInt(stat.total_uses), 0),
       successfulExecutions: stats.reduce((sum, stat) => sum + parseInt(stat.successful_uses), 0),
-      averageExecutionTime: stats.reduce((sum, stat) => sum + parseFloat(stat.avg_execution_time || '0'), 0) / stats.length,
+      averageExecutionTime:
+        stats.reduce((sum, stat) => sum + parseFloat(stat.avg_execution_time || '0'), 0) /
+        stats.length,
       totalCost: stats.reduce((sum, stat) => sum + parseFloat(stat.total_cost || '0'), 0),
-      successRate: stats.length > 0 ? 
-        stats.reduce((sum, stat) => sum + parseInt(stat.successful_uses), 0) / 
-        stats.reduce((sum, stat) => sum + parseInt(stat.total_uses), 0) : 0
+      successRate:
+        stats.length > 0
+          ? stats.reduce((sum, stat) => sum + parseInt(stat.successful_uses), 0) /
+            stats.reduce((sum, stat) => sum + parseInt(stat.total_uses), 0)
+          : 0,
     };
   }
 
@@ -404,14 +421,14 @@ export class ToolExecutor {
       const activeExecutions = await this.getActiveExecutions();
       return {
         status: 'healthy',
-        activeExecutions: activeExecutions.length
+        activeExecutions: activeExecutions.length,
       };
     } catch (error) {
       logger.error('Tool executor health check failed:', error);
       return {
         status: 'unhealthy',
-        activeExecutions: -1
+        activeExecutions: -1,
       };
     }
   }
-} 
+}

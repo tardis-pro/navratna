@@ -1,13 +1,7 @@
-
 import { logger } from '@uaip/utils';
 import { ApiError } from '@uaip/utils';
 import { AuditService as DomainAuditService } from '@uaip/shared-services';
-import {
-  AuditEvent,
-  AuditEventType,
-  SecurityLevel,
-  User
-} from '@uaip/types';
+import { AuditEvent, AuditEventType, SecurityLevel, User } from '@uaip/types';
 
 export interface AuditLogRequest {
   eventType: AuditEventType;
@@ -106,7 +100,7 @@ export class AuditService {
         riskLevel: request.riskLevel || this.calculateRiskLevel(request),
         timestamp: new Date(),
         createdAt: new Date(),
-        updatedAt: new Date()
+        updatedAt: new Date(),
       };
 
       // Save to database
@@ -118,18 +112,17 @@ export class AuditService {
         eventType: auditEvent.eventType,
         userId: auditEvent.userId,
         resourceType: auditEvent.resourceType,
-        riskLevel: auditEvent.riskLevel
+        riskLevel: auditEvent.riskLevel,
       });
 
       // Check for security alerts
       await this.checkSecurityAlerts(savedEvent);
 
       return savedEvent;
-
     } catch (error) {
       logger.error('Failed to log audit event', {
         eventType: request.eventType,
-        error: error instanceof Error ? error.message : 'Unknown error'
+        error: error instanceof Error ? error.message : 'Unknown error',
       });
       throw error;
     }
@@ -151,15 +144,14 @@ export class AuditService {
         endDate: query.endDate,
         riskLevel: query.riskLevel,
         limit: query.limit,
-        offset: query.offset
+        offset: query.offset,
       });
 
       return events.map(this.mapEntityToAuditEvent);
-
     } catch (error) {
       logger.error('Failed to query audit events', {
         query,
-        error: error instanceof Error ? error.message : 'Unknown error'
+        error: error instanceof Error ? error.message : 'Unknown error',
       });
       throw error;
     }
@@ -181,14 +173,14 @@ export class AuditService {
       logger.info('Generating audit report', {
         startDate: startDate.toISOString(),
         endDate: endDate.toISOString(),
-        options
+        options,
       });
 
       // Get all events in date range
       const events = await this.queryEvents({
         startDate,
         endDate,
-        riskLevel: options?.filterRiskLevel
+        riskLevel: options?.filterRiskLevel,
       });
 
       // Generate summary
@@ -200,22 +192,21 @@ export class AuditService {
       const report: AuditReport = {
         summary,
         events: options?.includeDetails ? events : [],
-        trends
+        trends,
       };
 
       logger.info('Audit report generated successfully', {
         totalEvents: summary.totalEvents,
         uniqueUsers: summary.uniqueUsers,
-        timeRange: summary.timeRange
+        timeRange: summary.timeRange,
       });
 
       return report;
-
     } catch (error) {
       logger.error('Failed to generate audit report', {
         startDate,
         endDate,
-        error: error instanceof Error ? error.message : 'Unknown error'
+        error: error instanceof Error ? error.message : 'Unknown error',
       });
       throw error;
     }
@@ -224,33 +215,35 @@ export class AuditService {
   /**
    * Get security metrics
    */
-  public async getSecurityMetrics(
-    startDate: Date,
-    endDate: Date
-  ): Promise<SecurityMetrics> {
+  public async getSecurityMetrics(startDate: Date, endDate: Date): Promise<SecurityMetrics> {
     try {
       const events = await this.queryEvents({ startDate, endDate });
 
       const metrics: SecurityMetrics = {
         totalSecurityEvents: events.length,
-        criticalEvents: events.filter(e => e.riskLevel === SecurityLevel.CRITICAL).length,
-        highRiskEvents: events.filter(e => e.riskLevel === SecurityLevel.HIGH).length,
-        failedLogins: events.filter(e => e.eventType === AuditEventType.USER_LOGIN && e.details.success === false).length,
-        permissionDenials: events.filter(e => e.eventType === AuditEventType.PERMISSION_DENIED).length,
-        approvalRequests: events.filter(e => e.eventType === AuditEventType.APPROVAL_REQUESTED).length,
-        approvalDenials: events.filter(e => e.eventType === AuditEventType.APPROVAL_DENIED).length,
-        securityViolations: events.filter(e => e.eventType === AuditEventType.SECURITY_VIOLATION).length,
+        criticalEvents: events.filter((e) => e.riskLevel === SecurityLevel.CRITICAL).length,
+        highRiskEvents: events.filter((e) => e.riskLevel === SecurityLevel.HIGH).length,
+        failedLogins: events.filter(
+          (e) => e.eventType === AuditEventType.USER_LOGIN && e.details.success === false
+        ).length,
+        permissionDenials: events.filter((e) => e.eventType === AuditEventType.PERMISSION_DENIED)
+          .length,
+        approvalRequests: events.filter((e) => e.eventType === AuditEventType.APPROVAL_REQUESTED)
+          .length,
+        approvalDenials: events.filter((e) => e.eventType === AuditEventType.APPROVAL_DENIED)
+          .length,
+        securityViolations: events.filter((e) => e.eventType === AuditEventType.SECURITY_VIOLATION)
+          .length,
         averageRiskScore: this.calculateAverageRiskScore(events),
-        complianceScore: this.calculateComplianceScore(events)
+        complianceScore: this.calculateComplianceScore(events),
       };
 
       return metrics;
-
     } catch (error) {
       logger.error('Failed to get security metrics', {
         startDate,
         endDate,
-        error: error instanceof Error ? error.message : 'Unknown error'
+        error: error instanceof Error ? error.message : 'Unknown error',
       });
       throw error;
     }
@@ -277,13 +270,12 @@ export class AuditService {
         default:
           throw new ApiError(400, 'Unsupported export format', 'INVALID_FORMAT');
       }
-
     } catch (error) {
       logger.error('Failed to export audit logs', {
         startDate,
         endDate,
         format,
-        error: error instanceof Error ? error.message : 'Unknown error'
+        error: error instanceof Error ? error.message : 'Unknown error',
       });
       throw error;
     }
@@ -311,17 +303,16 @@ export class AuditService {
         archived: archivedCount,
         deleted: deletedCount,
         compressionDate: compressionDate.toISOString(),
-        cutoffDate: cutoffDate.toISOString()
+        cutoffDate: cutoffDate.toISOString(),
       });
 
       return {
         archived: archivedCount,
-        deleted: deletedCount
+        deleted: deletedCount,
       };
-
     } catch (error) {
       logger.error('Failed to archive audit logs', {
-        error: error instanceof Error ? error.message : 'Unknown error'
+        error: error instanceof Error ? error.message : 'Unknown error',
       });
       throw error;
     }
@@ -371,11 +362,10 @@ export class AuditService {
       if (alerts.length > 0) {
         await this.sendSecurityAlert(event, alerts);
       }
-
     } catch (error) {
       logger.error('Failed to check security alerts', {
         eventId: event.id,
-        error: error instanceof Error ? error.message : 'Unknown error'
+        error: error instanceof Error ? error.message : 'Unknown error',
       });
     }
   }
@@ -407,7 +397,7 @@ export class AuditService {
       eventType: event.eventType,
       userId: event.userId,
       alerts,
-      riskLevel: event.riskLevel
+      riskLevel: event.riskLevel,
     });
 
     // Here you would integrate with alerting systems like:
@@ -425,14 +415,14 @@ export class AuditService {
     const highRiskEvents = [
       AuditEventType.SECURITY_VIOLATION,
       AuditEventType.PERMISSION_DENIED,
-      AuditEventType.APPROVAL_DENIED
+      AuditEventType.APPROVAL_DENIED,
     ];
 
     // Medium-risk event types
     const mediumRiskEvents = [
       AuditEventType.APPROVAL_REQUESTED,
       AuditEventType.CONFIGURATION_CHANGED,
-      AuditEventType.DATA_ACCESS
+      AuditEventType.DATA_ACCESS,
     ];
 
     if (highRiskEvents.includes(request.eventType)) {
@@ -452,13 +442,13 @@ export class AuditService {
     const eventsByRiskLevel: Record<string, number> = {};
     const uniqueUsers = new Set<string>();
 
-    events.forEach(event => {
+    events.forEach((event) => {
       // Count by type
-      eventsByType[event.eventType] = (eventsByType[event.eventType]) + 1;
+      eventsByType[event.eventType] = eventsByType[event.eventType] + 1;
 
       // Count by risk level
       if (event.riskLevel) {
-        eventsByRiskLevel[event.riskLevel] = (eventsByRiskLevel[event.riskLevel]) + 1;
+        eventsByRiskLevel[event.riskLevel] = eventsByRiskLevel[event.riskLevel] + 1;
       }
 
       // Track unique users
@@ -474,8 +464,8 @@ export class AuditService {
       uniqueUsers: uniqueUsers.size,
       timeRange: {
         start: startDate,
-        end: endDate
-      }
+        end: endDate,
+      },
     };
   }
 
@@ -493,7 +483,7 @@ export class AuditService {
 
     // Top users by activity
     const userActivity: Record<string, { total: number; risk: number }> = {};
-    events.forEach(event => {
+    events.forEach((event) => {
       if (event.userId) {
         if (!userActivity[event.userId]) {
           userActivity[event.userId] = { total: 0, risk: 0 };
@@ -509,17 +499,17 @@ export class AuditService {
       .map(([userId, activity]) => ({
         userId,
         eventCount: activity.total,
-        riskEvents: activity.risk
+        riskEvents: activity.risk,
       }))
       .sort((a, b) => b.eventCount - a.eventCount)
       .slice(0, 10);
 
     // Top resources by activity
     const resourceActivity: Record<string, number> = {};
-    events.forEach(event => {
+    events.forEach((event) => {
       if (event.resourceType && event.resourceId) {
         const key = `${event.resourceType}:${event.resourceId}`;
-        resourceActivity[key] = (resourceActivity[key]) + 1;
+        resourceActivity[key] = resourceActivity[key] + 1;
       }
     });
 
@@ -534,7 +524,7 @@ export class AuditService {
     return {
       dailyActivity,
       topUsers,
-      topResources
+      topResources,
     };
   }
 
@@ -544,7 +534,7 @@ export class AuditService {
   private groupEventsByTime(events: AuditEvent[], groupBy: 'day' | 'hour') {
     const grouped: Record<string, { count: number; riskEvents: number }> = {};
 
-    events.forEach(event => {
+    events.forEach((event) => {
       const date = new Date(event.timestamp);
       let key: string;
 
@@ -568,7 +558,7 @@ export class AuditService {
       .map(([date, data]) => ({
         date,
         count: data.count,
-        riskEvents: data.riskEvents
+        riskEvents: data.riskEvents,
       }))
       .sort((a, b) => a.date.localeCompare(b.date));
   }
@@ -579,13 +569,18 @@ export class AuditService {
   private calculateAverageRiskScore(events: AuditEvent[]): number {
     if (events.length === 0) return 0;
 
-    const riskScores = events.map(event => {
+    const riskScores = events.map((event) => {
       switch (event.riskLevel) {
-        case SecurityLevel.CRITICAL: return 4;
-        case SecurityLevel.HIGH: return 3;
-        case SecurityLevel.MEDIUM: return 2;
-        case SecurityLevel.LOW: return 1;
-        default: return 1;
+        case SecurityLevel.CRITICAL:
+          return 4;
+        case SecurityLevel.HIGH:
+          return 3;
+        case SecurityLevel.MEDIUM:
+          return 2;
+        case SecurityLevel.LOW:
+          return 1;
+        default:
+          return 1;
       }
     });
 
@@ -598,9 +593,10 @@ export class AuditService {
   private calculateComplianceScore(events: AuditEvent[]): number {
     if (events.length === 0) return 100;
 
-    const violations = events.filter(e => 
-      e.eventType === AuditEventType.SECURITY_VIOLATION ||
-      e.eventType === AuditEventType.PERMISSION_DENIED
+    const violations = events.filter(
+      (e) =>
+        e.eventType === AuditEventType.SECURITY_VIOLATION ||
+        e.eventType === AuditEventType.PERMISSION_DENIED
     ).length;
 
     return Math.max(0, 100 - (violations / events.length) * 100);
@@ -611,11 +607,20 @@ export class AuditService {
    */
   private convertToCSV(events: AuditEvent[]): string {
     const headers = [
-      'ID', 'Event Type', 'User ID', 'Agent ID', 'Resource Type', 'Resource ID',
-      'Risk Level', 'IP Address', 'User Agent', 'Timestamp', 'Details'
+      'ID',
+      'Event Type',
+      'User ID',
+      'Agent ID',
+      'Resource Type',
+      'Resource ID',
+      'Risk Level',
+      'IP Address',
+      'User Agent',
+      'Timestamp',
+      'Details',
     ];
 
-    const rows = events.map(event => [
+    const rows = events.map((event) => [
       event.id,
       event.eventType,
       event.userId,
@@ -626,19 +631,19 @@ export class AuditService {
       event.ipAddress || '',
       event.userAgent || '',
       event.timestamp.toISOString(),
-      JSON.stringify(event.details)
+      JSON.stringify(event.details),
     ]);
 
-    return [headers, ...rows]
-      .map(row => row.map(cell => `"${cell}"`).join(','))
-      .join('\n');
+    return [headers, ...rows].map((row) => row.map((cell) => `"${cell}"`).join(',')).join('\n');
   }
 
   /**
    * Convert events to XML format
    */
   private convertToXML(events: AuditEvent[]): string {
-    const xmlEvents = events.map(event => `
+    const xmlEvents = events
+      .map(
+        (event) => `
       <event>
         <id>${event.id}</id>
         <eventType>${event.eventType}</eventType>
@@ -652,7 +657,9 @@ export class AuditService {
         <timestamp>${event.timestamp.toISOString()}</timestamp>
         <details><![CDATA[${JSON.stringify(event.details)}]]></details>
       </event>
-    `).join('');
+    `
+      )
+      .join('');
 
     return `<?xml version="1.0" encoding="UTF-8"?>
     <auditLog>
@@ -678,7 +685,7 @@ export class AuditService {
       ipAddress: event.ipAddress,
       userAgent: event.userAgent,
       riskLevel: event.riskLevel,
-      timestamp: event.timestamp
+      timestamp: event.timestamp,
     });
     return savedEvent;
   }
@@ -700,7 +707,7 @@ export class AuditService {
       riskLevel: entity.riskLevel as SecurityLevel,
       timestamp: entity.timestamp,
       createdAt: entity.createdAt,
-      updatedAt: entity.updatedAt
+      updatedAt: entity.updatedAt,
     };
   }
 
@@ -761,13 +768,18 @@ export class AuditService {
     try {
       const events = await this.queryEvents({
         startDate: options.startDate,
-        endDate: options.endDate
+        endDate: options.endDate,
       });
 
       const complianceScore = this.calculateComplianceScore(events);
-      const criticalViolations = events.filter(e => 
-        e.riskLevel === 'critical' && 
-        [AuditEventType.PERMISSION_DENIED, AuditEventType.SECURITY_VIOLATION, AuditEventType.UNAUTHORIZED_ACCESS].includes(e.eventType)
+      const criticalViolations = events.filter(
+        (e) =>
+          e.riskLevel === 'critical' &&
+          [
+            AuditEventType.PERMISSION_DENIED,
+            AuditEventType.SECURITY_VIOLATION,
+            AuditEventType.UNAUTHORIZED_ACCESS,
+          ].includes(e.eventType)
       ).length;
 
       const violations = this.analyzeViolations(events);
@@ -778,10 +790,10 @@ export class AuditService {
           totalEvents: events.length,
           complianceScore,
           criticalViolations,
-          recommendations: this.generateComplianceRecommendations(events)
+          recommendations: this.generateComplianceRecommendations(events),
         },
         violations,
-        trends
+        trends,
       };
     } catch (error) {
       logger.error('Failed to generate compliance report', { error });
@@ -800,15 +812,29 @@ export class AuditService {
   }
 
   private analyzeViolations(events: AuditEvent[]) {
-    const violationTypes = new Map<string, { count: number; severity: string; description: string }>();
+    const violationTypes = new Map<
+      string,
+      { count: number; severity: string; description: string }
+    >();
 
-    events.forEach(event => {
-      if ([AuditEventType.PERMISSION_DENIED, AuditEventType.SECURITY_VIOLATION, AuditEventType.UNAUTHORIZED_ACCESS, AuditEventType.FAILED_LOGIN].includes(event.eventType)) {
+    events.forEach((event) => {
+      if (
+        [
+          AuditEventType.PERMISSION_DENIED,
+          AuditEventType.SECURITY_VIOLATION,
+          AuditEventType.UNAUTHORIZED_ACCESS,
+          AuditEventType.FAILED_LOGIN,
+        ].includes(event.eventType)
+      ) {
         const key = event.eventType;
-        const existing = violationTypes.get(key) || { count: 0, severity: 'medium', description: '' };
-        
+        const existing = violationTypes.get(key) || {
+          count: 0,
+          severity: 'medium',
+          description: '',
+        };
+
         existing.count++;
-        
+
         switch (event.eventType) {
           case AuditEventType.PERMISSION_DENIED:
             existing.severity = 'medium';
@@ -827,7 +853,7 @@ export class AuditService {
             existing.description = 'Failed login attempts';
             break;
         }
-        
+
         violationTypes.set(key, existing);
       }
     });
@@ -836,36 +862,42 @@ export class AuditService {
       type,
       severity: data.severity,
       count: data.count,
-      description: data.description
+      description: data.description,
     }));
   }
 
   private generateComplianceTrends(events: AuditEvent[], startDate: Date, endDate: Date) {
     const dailyEvents = this.groupEventsByTime(events, 'day');
-    
+
     return {
       complianceScoreOverTime: dailyEvents.map(({ date, count, riskEvents }) => ({
         date,
-        score: count > 0 ? Math.max(0, 100 - (riskEvents / count) * 100) : 100
-      }))
+        score: count > 0 ? Math.max(0, 100 - (riskEvents / count) * 100) : 100,
+      })),
     };
   }
 
   private generateComplianceRecommendations(events: AuditEvent[]): string[] {
     const recommendations: string[] = [];
-    
-    const failedLogins = events.filter(e => e.eventType === AuditEventType.FAILED_LOGIN).length;
-    const permissionDenials = events.filter(e => e.eventType === AuditEventType.PERMISSION_DENIED).length;
-    const securityViolations = events.filter(e => e.eventType === AuditEventType.SECURITY_VIOLATION).length;
+
+    const failedLogins = events.filter((e) => e.eventType === AuditEventType.FAILED_LOGIN).length;
+    const permissionDenials = events.filter(
+      (e) => e.eventType === AuditEventType.PERMISSION_DENIED
+    ).length;
+    const securityViolations = events.filter(
+      (e) => e.eventType === AuditEventType.SECURITY_VIOLATION
+    ).length;
 
     if (failedLogins > 100) {
-      recommendations.push('Consider implementing stronger password policies and account lockout mechanisms');
+      recommendations.push(
+        'Consider implementing stronger password policies and account lockout mechanisms'
+      );
     }
-    
+
     if (permissionDenials > 50) {
       recommendations.push('Review and optimize role-based access control (RBAC) policies');
     }
-    
+
     if (securityViolations > 10) {
       recommendations.push('Investigate and address recurring security policy violations');
     }
@@ -876,4 +908,4 @@ export class AuditService {
 
     return recommendations;
   }
-} 
+}

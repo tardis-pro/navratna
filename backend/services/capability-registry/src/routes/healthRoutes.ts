@@ -9,4 +9,3 @@ export function registerHealthRoutes(app: any) {
       .get('/live', () => ({ status: 'alive', service: 'capability-registry' }))
   );
 }
-

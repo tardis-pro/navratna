@@ -15,7 +15,7 @@ export class ApiError extends Error {
     stack?: string
   ) {
     super(message);
-    
+
     this.name = this.constructor.name;
     this.statusCode = statusCode;
     this.code = code;
@@ -36,7 +36,7 @@ export class ApiError extends Error {
       statusCode: this.statusCode,
       code: this.code,
       details: this.details,
-      stack: process.env.NODE_ENV === 'development' ? this.stack : undefined
+      stack: process.env.NODE_ENV === 'development' ? this.stack : undefined,
     };
   }
 }
@@ -107,14 +107,14 @@ export const createValidationError = (field: string, value: any, constraint: str
   return new ValidationError(`Validation failed for field '${field}'`, {
     field,
     value,
-    constraint
+    constraint,
   });
 };
 
 export const createNotFoundError = (resource: string, identifier: string) => {
   return new NotFoundError(`${resource} not found`, {
     resource,
-    identifier
+    identifier,
   });
 };
 
@@ -122,7 +122,7 @@ export const createConflictError = (resource: string, field: string, value: any)
   return new ConflictError(`${resource} already exists`, {
     resource,
     field,
-    value
+    value,
   });
 };
 
@@ -133,38 +133,38 @@ export const ErrorCodes = {
   TOKEN_EXPIRED: 'TOKEN_EXPIRED',
   MISSING_TOKEN: 'MISSING_TOKEN',
   INSUFFICIENT_PERMISSIONS: 'INSUFFICIENT_PERMISSIONS',
-  
+
   // Validation
   VALIDATION_ERROR: 'VALIDATION_ERROR',
   INVALID_INPUT: 'INVALID_INPUT',
   MISSING_REQUIRED_FIELD: 'MISSING_REQUIRED_FIELD',
-  
+
   // Resources
   RESOURCE_NOT_FOUND: 'RESOURCE_NOT_FOUND',
   RESOURCE_ALREADY_EXISTS: 'RESOURCE_ALREADY_EXISTS',
   RESOURCE_LOCKED: 'RESOURCE_LOCKED',
-  
+
   // Operations
   OPERATION_FAILED: 'OPERATION_FAILED',
   OPERATION_NOT_ALLOWED: 'OPERATION_NOT_ALLOWED',
   OPERATION_TIMEOUT: 'OPERATION_TIMEOUT',
-  
+
   // Agent-specific
   AGENT_NOT_FOUND: 'AGENT_NOT_FOUND',
   AGENT_DISABLED: 'AGENT_DISABLED',
   ANALYSIS_FAILED: 'ANALYSIS_FAILED',
   PLAN_GENERATION_FAILED: 'PLAN_GENERATION_FAILED',
-  
+
   // Security
   SECURITY_VIOLATION: 'SECURITY_VIOLATION',
   APPROVAL_REQUIRED: 'APPROVAL_REQUIRED',
   RISK_TOO_HIGH: 'RISK_TOO_HIGH',
-  
+
   // System
   DATABASE_ERROR: 'DATABASE_ERROR',
   EXTERNAL_SERVICE_ERROR: 'EXTERNAL_SERVICE_ERROR',
   INTERNAL_ERROR: 'INTERNAL_ERROR',
-  SERVICE_UNAVAILABLE: 'SERVICE_UNAVAILABLE'
+  SERVICE_UNAVAILABLE: 'SERVICE_UNAVAILABLE',
 } as const;
 
 // Helper function to determine if an error is operational
@@ -180,7 +180,7 @@ export const getStatusCodeFromError = (error: Error): number => {
   if (error instanceof ApiError) {
     return error.statusCode;
   }
-  
+
   // Default to 500 for unknown errors
   return 500;
 };
@@ -194,10 +194,10 @@ export const sanitizeErrorDetails = (error: ApiError): any => {
       code: error.code,
       message: error.message,
       // Optionally include some details based on error type
-      ...(error.statusCode < 500 && error.details && { details: error.details })
+      ...(error.statusCode < 500 && error.details && { details: error.details }),
     };
   }
-  
+
   // In development, return all details
   return error.toJSON();
 };
@@ -209,8 +209,8 @@ export const createErrorResponse = (error: Error, requestId?: string) => {
     success: false,
     error: {
       message: 'Internal server error',
-      code: 'INTERNAL_ERROR'
-    }
+      code: 'INTERNAL_ERROR',
+    },
   };
 
   if (error instanceof ApiError) {
@@ -250,26 +250,46 @@ export const logAndCreateError = (
 };
 
 // Convenience functions for common errors
-export const createAndLogValidationError = (logger: winston.Logger, message: string, context: Record<string, any> = {}) => {
+export const createAndLogValidationError = (
+  logger: winston.Logger,
+  message: string,
+  context: Record<string, any> = {}
+) => {
   return logAndCreateError(logger, 400, message, 'VALIDATION_ERROR', context);
 };
 
-export const createAndLogNotFoundError = (logger: winston.Logger, resource: string, identifier: string) => {
+export const createAndLogNotFoundError = (
+  logger: winston.Logger,
+  resource: string,
+  identifier: string
+) => {
   return logAndCreateError(logger, 404, `${resource} not found`, 'RESOURCE_NOT_FOUND', {
     resource,
-    identifier
+    identifier,
   });
 };
 
-export const createAndLogAuthError = (logger: winston.Logger, message: string, context: Record<string, any> = {}) => {
+export const createAndLogAuthError = (
+  logger: winston.Logger,
+  message: string,
+  context: Record<string, any> = {}
+) => {
   return logAndCreateError(logger, 401, message, 'AUTHENTICATION_ERROR', context);
 };
 
-export const createAndLogAuthzError = (logger: winston.Logger, message: string, context: Record<string, any> = {}) => {
+export const createAndLogAuthzError = (
+  logger: winston.Logger,
+  message: string,
+  context: Record<string, any> = {}
+) => {
   return logAndCreateError(logger, 403, message, 'AUTHORIZATION_ERROR', context);
 };
 
-export const createAndLogDatabaseError = (logger: winston.Logger, message: string, context: Record<string, any> = {}) => {
+export const createAndLogDatabaseError = (
+  logger: winston.Logger,
+  message: string,
+  context: Record<string, any> = {}
+) => {
   return logAndCreateError(logger, 500, message, 'DATABASE_ERROR', context);
 };
 
@@ -281,28 +301,28 @@ export const transformDatabaseError = (error: any): ApiError => {
       case '23505': // unique violation
         return new ConflictError('Resource already exists', {
           constraint: error.constraint,
-          detail: error.detail
+          detail: error.detail,
         });
       case '23503': // foreign key violation
         return new ValidationError('Invalid reference', {
           constraint: error.constraint,
-          detail: error.detail
+          detail: error.detail,
         });
       case '23502': // not null violation
         return new ValidationError('Required field missing', {
           column: error.column,
-          detail: error.detail
+          detail: error.detail,
         });
       case '42P01': // undefined table
         return new InternalServerError('Database schema error');
       default:
         return new DatabaseError('Database operation failed', {
           code: error.code,
-          detail: error.detail
+          detail: error.detail,
         });
     }
   }
-  
+
   return new DatabaseError('Database operation failed', { error: error.message });
 };
 
@@ -312,7 +332,7 @@ export const errorHandler = (error: Error, req: any, res: any, next: any) => {
   console.error('Error:', error);
 
   const { statusCode, response } = createErrorResponse(error, req.id);
-  
+
   res.status(statusCode).json(response);
 };
 
@@ -335,4 +355,4 @@ export const isAuthorizationError = (error: any): error is AuthorizationError =>
 
 export const isNotFoundError = (error: any): error is NotFoundError => {
   return error instanceof NotFoundError;
-}; 
+};

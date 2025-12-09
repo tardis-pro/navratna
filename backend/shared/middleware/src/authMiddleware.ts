@@ -26,8 +26,8 @@ export function attachAuth(app: Elysia): Elysia {
         id: result.userId!,
         email: result.email!,
         role: result.role!,
-        sessionId: result.sessionId
-      } as UserContext
+        sessionId: result.sessionId,
+      } as UserContext,
     };
   });
 }
@@ -36,12 +36,15 @@ export function attachAuth(app: Elysia): Elysia {
 export function requireAuth(app: Elysia): Elysia {
   return app.guard({
     beforeHandle(context) {
-      const { user, set } = context as unknown as { user: UserContext | null; set: { status: number } };
+      const { user, set } = context as unknown as {
+        user: UserContext | null;
+        set: { status: number };
+      };
       if (!user) {
         set.status = 401;
         return { error: 'Authentication required', code: 'AUTH_REQUIRED' };
       }
-    }
+    },
   });
 }
 
@@ -49,7 +52,10 @@ export function requireAuth(app: Elysia): Elysia {
 export function requireAdmin(app: Elysia): Elysia {
   return app.guard({
     beforeHandle(context) {
-      const { user, set } = context as unknown as { user: UserContext | null; set: { status: number } };
+      const { user, set } = context as unknown as {
+        user: UserContext | null;
+        set: { status: number };
+      };
       if (!user) {
         set.status = 401;
         return { error: 'Authentication required', code: 'AUTH_REQUIRED' };
@@ -57,12 +63,12 @@ export function requireAdmin(app: Elysia): Elysia {
       if (user.role !== 'admin') {
         logger.warn('Non-admin user attempted admin access', {
           userId: user.id,
-          role: user.role
+          role: user.role,
         });
         set.status = 403;
         return { error: 'Admin access required', code: 'ADMIN_REQUIRED' };
       }
-    }
+    },
   });
 }
 
@@ -70,7 +76,10 @@ export function requireAdmin(app: Elysia): Elysia {
 export function requireOperator(app: Elysia): Elysia {
   return app.guard({
     beforeHandle(context) {
-      const { user, set } = context as unknown as { user: UserContext | null; set: { status: number } };
+      const { user, set } = context as unknown as {
+        user: UserContext | null;
+        set: { status: number };
+      };
       if (!user) {
         set.status = 401;
         return { error: 'Authentication required', code: 'AUTH_REQUIRED' };
@@ -83,12 +92,12 @@ export function requireOperator(app: Elysia): Elysia {
         logger.warn('Insufficient privileges for operator access', {
           userId: user.id,
           role: user.role,
-          requiredRoles: allowedRoles
+          requiredRoles: allowedRoles,
         });
         set.status = 403;
         return { error: 'Operator access required', code: 'OPERATOR_REQUIRED' };
       }
-    }
+    },
   });
 }
 
@@ -142,7 +151,7 @@ export const validateJWTSetup = (): void => {
   if (!validation.isValid) {
     logger.error('JWT configuration is invalid', {
       warnings: validation.warnings,
-      environment: config.environment
+      environment: config.environment,
     });
     throw new Error('JWT configuration is invalid - service cannot start');
   }
@@ -150,7 +159,7 @@ export const validateJWTSetup = (): void => {
   if (validation.warnings.length > 0) {
     logger.warn('JWT configuration warnings', {
       warnings: validation.warnings,
-      environment: config.environment
+      environment: config.environment,
     });
   }
 
@@ -160,12 +169,14 @@ export const validateJWTSetup = (): void => {
     issuer: config.jwt.issuer,
     audience: config.jwt.audience,
     expiresIn: config.jwt.expiresIn,
-    environment: config.environment
+    environment: config.environment,
   });
 };
 
 // Utility function to help diagnose JWT signature issues
-export const diagnoseJWTSignatureError = (token: string): {
+export const diagnoseJWTSignatureError = (
+  token: string
+): {
   tokenInfo: any;
   possibleCauses: string[];
   recommendations: string[];
@@ -177,7 +188,7 @@ export const diagnoseJWTSignatureError = (token: string): {
     'Token has been tampered with or corrupted',
     'Token was issued by a different service/environment',
     'Clock skew between token issuer and verifier',
-    'Token issuer/audience mismatch'
+    'Token issuer/audience mismatch',
   ];
 
   const recommendations = [
@@ -186,7 +197,7 @@ export const diagnoseJWTSignatureError = (token: string): {
     'Ensure token has not been modified during transmission',
     'Verify the token format and structure',
     'Check system clocks are synchronized',
-    'Validate issuer and audience claims match configuration'
+    'Validate issuer and audience claims match configuration',
   ];
 
   let tokenInfo: any = {};
@@ -199,13 +210,13 @@ export const diagnoseJWTSignatureError = (token: string): {
       header: decoded?.header,
       payload: decoded?.payload,
       isValidFormat: !!decoded,
-      tokenLength: token.length
+      tokenLength: token.length,
     };
   } catch (error) {
     tokenInfo = {
       error: 'Failed to decode token structure',
       tokenLength: token.length,
-      isValidFormat: false
+      isValidFormat: false,
     };
   }
 
@@ -214,14 +225,16 @@ export const diagnoseJWTSignatureError = (token: string): {
     expectedAudience: config.jwt.audience,
     secretLength: config.jwt.secret.length,
     environment: config.environment,
-    expiresIn: config.jwt.expiresIn
+    expiresIn: config.jwt.expiresIn,
   };
 
   return { tokenInfo, possibleCauses, recommendations, configInfo };
 };
 
 // Utility function to test JWT token validation (for debugging)
-export const testJWTToken = (token: string): {
+export const testJWTToken = (
+  token: string
+): {
   isValid: boolean;
   error?: string;
   payload?: any;
@@ -239,21 +252,23 @@ export const testJWTToken = (token: string): {
         exp: decoded.exp,
         isExpired: decoded.exp && Date.now() >= decoded.exp * 1000,
         issuer: decoded.iss,
-        audience: decoded.aud
-      }
+        audience: decoded.aud,
+      },
     };
   } catch (error) {
     const diagnostics = diagnoseJWTSignatureError(token);
     return {
       isValid: false,
       error: error instanceof Error ? error.message : 'Unknown error',
-      diagnostics
+      diagnostics,
     };
   }
 };
 
 // Standalone JWT validation function for WebSocket and other contexts
-export const validateJWTToken = async (token: string): Promise<{
+export const validateJWTToken = async (
+  token: string
+): Promise<{
   valid: boolean;
   userId?: string;
   email?: string;
@@ -269,7 +284,7 @@ export const validateJWTToken = async (token: string): Promise<{
       logger.warn('JWT token validation timed out', { tokenLength: token?.length || 0 });
       resolve({
         valid: false,
-        reason: 'Authentication service timeout'
+        reason: 'Authentication service timeout',
       });
     }, 5000);
 
@@ -281,7 +296,7 @@ export const validateJWTToken = async (token: string): Promise<{
       if (!decoded.userId || !decoded.email || !decoded.role) {
         resolve({
           valid: false,
-          reason: 'Invalid token payload - missing required fields'
+          reason: 'Invalid token payload - missing required fields',
         });
         return;
       }
@@ -289,7 +304,7 @@ export const validateJWTToken = async (token: string): Promise<{
       if (decoded.exp && Date.now() >= decoded.exp * 1000) {
         resolve({
           valid: false,
-          reason: 'Token expired'
+          reason: 'Token expired',
         });
         return;
       }
@@ -300,22 +315,22 @@ export const validateJWTToken = async (token: string): Promise<{
         email: decoded.email,
         role: decoded.role,
         username: decoded.email.split('@')[0],
-        sessionId: decoded.sessionId || `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+        sessionId:
+          decoded.sessionId || `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
         securityLevel: 3,
-        complianceFlags: []
+        complianceFlags: [],
       });
-
     } catch (error) {
       clearTimeout(timeout);
 
       logger.warn('JWT token validation failed', {
         error: error instanceof Error ? error.message : 'Unknown error',
-        tokenLength: token?.length || 0
+        tokenLength: token?.length || 0,
       });
 
       resolve({
         valid: false,
-        reason: error instanceof Error ? error.message : 'Token validation failed'
+        reason: error instanceof Error ? error.message : 'Token validation failed',
       });
     }
   });

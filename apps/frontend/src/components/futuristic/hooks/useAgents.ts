@@ -35,12 +35,15 @@ export const useAgents = () => {
     try {
       setLoading(true);
       setError(null);
-      
+
       // Try to fetch from the actual API
       const response = await uaipAPI.get('/agents');
       if (response.data && Array.isArray(response.data)) {
         const agentsData = response.data.map((agent: any) => ({
-          id: agent.id || agent.name?.toLowerCase().replace(/\s+/g, '-') || Math.random().toString(36).substr(2, 9),
+          id:
+            agent.id ||
+            agent.name?.toLowerCase().replace(/\s+/g, '-') ||
+            Math.random().toString(36).substr(2, 9),
           name: agent.name || 'Unknown Agent',
           type: agent.type || 'general',
           status: agent.status || 'idle',
@@ -51,8 +54,8 @@ export const useAgents = () => {
           metrics: agent.metrics || {
             tasksCompleted: Math.floor(Math.random() * 100),
             uptime: Math.random() * 100,
-            efficiency: Math.random() * 100
-          }
+            efficiency: Math.random() * 100,
+          },
         }));
         setAgents(agentsData);
       } else {
@@ -82,8 +85,8 @@ export const useAgents = () => {
       metrics: {
         tasksCompleted: 47,
         uptime: 98.5,
-        efficiency: 94.2
-      }
+        efficiency: 94.2,
+      },
     },
     {
       id: 'agent-beta',
@@ -96,8 +99,8 @@ export const useAgents = () => {
       metrics: {
         tasksCompleted: 32,
         uptime: 96.8,
-        efficiency: 89.7
-      }
+        efficiency: 89.7,
+      },
     },
     {
       id: 'agent-gamma',
@@ -110,8 +113,8 @@ export const useAgents = () => {
       metrics: {
         tasksCompleted: 23,
         uptime: 92.3,
-        efficiency: 87.1
-      }
+        efficiency: 87.1,
+      },
     },
     {
       id: 'agent-delta',
@@ -124,8 +127,8 @@ export const useAgents = () => {
       metrics: {
         tasksCompleted: 156,
         uptime: 99.9,
-        efficiency: 96.8
-      }
+        efficiency: 96.8,
+      },
     },
     {
       id: 'agent-epsilon',
@@ -138,9 +141,9 @@ export const useAgents = () => {
       metrics: {
         tasksCompleted: 12,
         uptime: 78.4,
-        efficiency: 82.3
-      }
-    }
+        efficiency: 82.3,
+      },
+    },
   ];
 
   // Fetch agent activities
@@ -149,10 +152,12 @@ export const useAgents = () => {
       // Try to fetch from API
       const response = await uaipAPI.get('/agents/activities');
       if (response.data && Array.isArray(response.data)) {
-        setActivities(response.data.map((activity: any) => ({
-          ...activity,
-          timestamp: new Date(activity.timestamp)
-        })));
+        setActivities(
+          response.data.map((activity: any) => ({
+            ...activity,
+            timestamp: new Date(activity.timestamp),
+          }))
+        );
       }
     } catch (err) {
       console.warn('Failed to fetch agent activities:', err);
@@ -161,50 +166,59 @@ export const useAgents = () => {
         {
           agentId: 'agent-alpha',
           action: 'Completed research task',
-          timestamp: new Date(Date.now() - 5 * 60 * 1000)
+          timestamp: new Date(Date.now() - 5 * 60 * 1000),
         },
         {
           agentId: 'agent-beta',
           action: 'Started new discussion',
-          timestamp: new Date(Date.now() - 2 * 60 * 1000)
+          timestamp: new Date(Date.now() - 2 * 60 * 1000),
         },
         {
           agentId: 'agent-delta',
           action: 'Security scan completed',
-          timestamp: new Date(Date.now() - 1 * 60 * 1000)
-        }
+          timestamp: new Date(Date.now() - 1 * 60 * 1000),
+        },
       ]);
     }
   }, []);
 
   // Get agent by ID
-  const getAgent = useCallback((agentId: string) => {
-    return agents.find(agent => agent.id === agentId);
-  }, [agents]);
+  const getAgent = useCallback(
+    (agentId: string) => {
+      return agents.find((agent) => agent.id === agentId);
+    },
+    [agents]
+  );
 
   // Get agents by status
-  const getAgentsByStatus = useCallback((status: Agent['status']) => {
-    return agents.filter(agent => agent.status === status);
-  }, [agents]);
+  const getAgentsByStatus = useCallback(
+    (status: Agent['status']) => {
+      return agents.filter((agent) => agent.status === status);
+    },
+    [agents]
+  );
 
   // Get agent activities
-  const getAgentActivities = useCallback((agentId: string) => {
-    return activities.filter(activity => activity.agentId === agentId);
-  }, [activities]);
+  const getAgentActivities = useCallback(
+    (agentId: string) => {
+      return activities.filter((activity) => activity.agentId === agentId);
+    },
+    [activities]
+  );
 
   // Update agent status
   const updateAgentStatus = useCallback(async (agentId: string, status: Agent['status']) => {
     try {
       await uaipAPI.patch(`/agents/${agentId}`, { status });
-      setAgents(prev => prev.map(agent => 
-        agent.id === agentId ? { ...agent, status } : agent
-      ));
+      setAgents((prev) =>
+        prev.map((agent) => (agent.id === agentId ? { ...agent, status } : agent))
+      );
     } catch (err) {
       console.error('Failed to update agent status:', err);
       // Update locally anyway for demo purposes
-      setAgents(prev => prev.map(agent => 
-        agent.id === agentId ? { ...agent, status } : agent
-      ));
+      setAgents((prev) =>
+        prev.map((agent) => (agent.id === agentId ? { ...agent, status } : agent))
+      );
     }
   }, []);
 
@@ -238,6 +252,6 @@ export const useAgents = () => {
     getAgentsByStatus,
     getAgentActivities,
     updateAgentStatus,
-    refresh
+    refresh,
   };
 };

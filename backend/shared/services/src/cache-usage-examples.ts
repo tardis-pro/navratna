@@ -10,7 +10,7 @@ import { createLogger } from '@uaip/utils';
 const logger = createLogger({
   serviceName: 'cache-examples',
   environment: process.env.NODE_ENV || 'development',
-  logLevel: process.env.LOG_LEVEL || 'info'
+  logLevel: process.env.LOG_LEVEL || 'info',
 });
 
 /**
@@ -29,7 +29,7 @@ export class CachedSecurityGatewayService {
    */
   async getSecurityPolicies(useCache = true): Promise<any[]> {
     const cacheKey = 'security_policies:active';
-    
+
     if (useCache) {
       // Try to get from cache first
       const cached = await redisCacheService.get<any[]>(cacheKey);
@@ -58,7 +58,7 @@ export class CachedSecurityGatewayService {
    */
   async getUserPermissions(userId: string, useCache = true): Promise<any> {
     const cacheKey = `user_permissions:${userId}`;
-    
+
     if (useCache) {
       const cached = await redisCacheService.get(cacheKey);
       if (cached) {
@@ -68,13 +68,15 @@ export class CachedSecurityGatewayService {
     }
 
     // Get from database
-    const permissions = await getDataSource()
-      .query(`
+    const permissions = await getDataSource().query(
+      `
         SELECT p.* 
         FROM user_permissions up
         JOIN permissions p ON up.permission_id = p.id
         WHERE up.user_id = $1
-      `, [userId]);
+      `,
+      [userId]
+    );
 
     // Cache the result
     if (useCache) {
@@ -100,11 +102,11 @@ export class CachedSecurityGatewayService {
   async getCachedRiskAssessment(userId: string, operationType: string): Promise<any | null> {
     const cacheKey = `risk_assessment:${userId}:${operationType}`;
     const cached = await redisCacheService.get(cacheKey);
-    
+
     if (cached) {
       logger.debug('Risk assessment retrieved from cache', { userId, operationType });
     }
-    
+
     return cached;
   }
 
@@ -138,7 +140,7 @@ export class CachedSecurityGatewayService {
    */
   async getAuditStats(timeRange: 'day' | 'week' | 'month'): Promise<any> {
     const cacheKey = `audit_stats:${timeRange}`;
-    
+
     // Try cache first
     const cached = await redisCacheService.get(cacheKey);
     if (cached) {
@@ -148,7 +150,7 @@ export class CachedSecurityGatewayService {
 
     // Calculate from database
     const stats = await this.calculateAuditStats(timeRange);
-    
+
     // Cache the result
     await redisCacheService.set(cacheKey, stats, this.CACHE_TTL.AUDIT_STATS);
     logger.debug('Audit stats calculated and cached', { timeRange });
@@ -163,7 +165,7 @@ export class CachedSecurityGatewayService {
       totalEvents: 1000,
       securityViolations: 5,
       approvalRequests: 25,
-      calculatedAt: new Date().toISOString()
+      calculatedAt: new Date().toISOString(),
     };
   }
 }
@@ -183,7 +185,7 @@ export class CachedAgentIntelligenceService {
    */
   async getAgentMetrics(agentId: string): Promise<any> {
     const cacheKey = `agent_metrics:${agentId}`;
-    
+
     // Try cache first
     const cached = await redisCacheService.get(cacheKey);
     if (cached) {
@@ -250,7 +252,7 @@ export class CacheHealthMonitor {
     sampleOperations: any;
   }> {
     const serviceHealth = await redisCacheService.healthCheck();
-    
+
     // Get cache statistics
     const client = await redisCacheService.getClient();
     let statistics = null;
@@ -261,18 +263,18 @@ export class CacheHealthMonitor {
         // Get Redis info
         const info = await client.info('memory');
         const keyCount = await client.dbsize();
-        
+
         statistics = {
           keyCount,
           memoryInfo: info,
           connected: serviceHealth.connected,
-          responseTime: serviceHealth.responseTime
+          responseTime: serviceHealth.responseTime,
         };
 
         // Test sample operations
         const testKey = 'health_check_test';
         const testValue = { timestamp: Date.now(), test: true };
-        
+
         const setResult = await redisCacheService.set(testKey, testValue, 10);
         const getValue = await redisCacheService.get(testKey);
         const delResult = await redisCacheService.del(testKey);
@@ -281,9 +283,8 @@ export class CacheHealthMonitor {
           set: setResult,
           get: getValue !== null,
           delete: delResult,
-          roundTrip: getValue?.timestamp === testValue.timestamp
+          roundTrip: getValue?.timestamp === testValue.timestamp,
         };
-
       } catch (error) {
         logger.error('Error getting cache statistics', { error: error.message });
       }
@@ -292,7 +293,7 @@ export class CacheHealthMonitor {
     return {
       service: serviceHealth,
       statistics,
-      sampleOperations
+      sampleOperations,
     };
   }
 
@@ -301,18 +302,18 @@ export class CacheHealthMonitor {
    */
   async monitorPerformance(): Promise<void> {
     const health = await this.getHealthStatus();
-    
+
     logger.info('Cache performance report', {
       healthy: health.service.healthy,
       responseTime: health.service.responseTime,
       keyCount: health.statistics?.keyCount,
-      operations: health.sampleOperations
+      operations: health.sampleOperations,
     });
 
     // Alert if performance is degraded
     if (health.service.responseTime && health.service.responseTime > 1000) {
-      logger.warn('Cache response time is high', { 
-        responseTime: health.service.responseTime 
+      logger.warn('Cache response time is high', {
+        responseTime: health.service.responseTime,
       });
     }
 
@@ -329,4 +330,4 @@ export const cacheHealthMonitor = new CacheHealthMonitor();
 
 // Export convenience functions
 export const getCacheHealth = () => cacheHealthMonitor.getHealthStatus();
-export const monitorCachePerformance = () => cacheHealthMonitor.monitorPerformance(); 
+export const monitorCachePerformance = () => cacheHealthMonitor.monitorPerformance();

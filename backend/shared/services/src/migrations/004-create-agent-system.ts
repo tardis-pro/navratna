@@ -2,12 +2,12 @@ import { MigrationInterface, QueryRunner, Table, Index } from 'typeorm';
 
 /**
  * Agent System Migration
- * 
+ *
  * Creates the agent management tables:
  * - agents: Core agent definitions with persona relationships
  * - agent_capability_metrics: Agent capability tracking and performance
  * - conversation_contexts: Agent conversation contexts and memory
- * 
+ *
  * These tables manage agent definitions, capabilities, and conversational contexts.
  * Dependencies: users, personas tables
  */
@@ -35,7 +35,15 @@ export class CreateAgentSystem1703004000000 implements MigrationInterface {
           {
             name: 'role',
             type: 'enum',
-            enum: ['assistant', 'specialist', 'coordinator', 'analyst', 'executor', 'monitor', 'custom'],
+            enum: [
+              'assistant',
+              'specialist',
+              'coordinator',
+              'analyst',
+              'executor',
+              'monitor',
+              'custom',
+            ],
           },
           {
             name: 'persona_id',
@@ -512,34 +520,112 @@ export class CreateAgentSystem1703004000000 implements MigrationInterface {
     );
 
     // Create indexes for performance
-    await queryRunner.createIndex('agents', new Index('IDX_agents_role_is_active', ['role', 'is_active']));
+    await queryRunner.createIndex(
+      'agents',
+      new Index('IDX_agents_role_is_active', ['role', 'is_active'])
+    );
     await queryRunner.createIndex('agents', new Index('IDX_agents_created_by', ['created_by']));
-    await queryRunner.createIndex('agents', new Index('IDX_agents_last_active_at', ['last_active_at']));
-    await queryRunner.createIndex('agents', new Index('IDX_agents_security_level', ['security_level']));
+    await queryRunner.createIndex(
+      'agents',
+      new Index('IDX_agents_last_active_at', ['last_active_at'])
+    );
+    await queryRunner.createIndex(
+      'agents',
+      new Index('IDX_agents_security_level', ['security_level'])
+    );
     await queryRunner.createIndex('agents', new Index('IDX_agents_persona_id', ['persona_id']));
     await queryRunner.createIndex('agents', new Index('IDX_agents_api_type', ['api_type']));
-    await queryRunner.createIndex('agents', new Index('IDX_agents_deployment_environment', ['deployment_environment']));
-    
-    await queryRunner.createIndex('agent_capability_metrics', new Index('IDX_agent_capability_metrics_agent_id', ['agent_id']));
-    await queryRunner.createIndex('agent_capability_metrics', new Index('IDX_agent_capability_metrics_capability_name', ['capability_name']));
-    await queryRunner.createIndex('agent_capability_metrics', new Index('IDX_agent_capability_metrics_metric_type', ['metric_type']));
-    await queryRunner.createIndex('agent_capability_metrics', new Index('IDX_agent_capability_metrics_recorded_at', ['recorded_at']));
-    await queryRunner.createIndex('agent_capability_metrics', new Index('IDX_agent_capability_metrics_trend_direction', ['trend_direction']));
-    await queryRunner.createIndex('agent_capability_metrics', new Index('IDX_agent_capability_metrics_measurement_period', ['measurement_period_start', 'measurement_period_end']));
-    
-    await queryRunner.createIndex('conversation_contexts', new Index('IDX_conversation_contexts_agent_id', ['agent_id']));
-    await queryRunner.createIndex('conversation_contexts', new Index('IDX_conversation_contexts_user_id', ['user_id']));
-    await queryRunner.createIndex('conversation_contexts', new Index('IDX_conversation_contexts_session_id', ['session_id']));
-    await queryRunner.createIndex('conversation_contexts', new Index('IDX_conversation_contexts_context_type', ['context_type']));
-    await queryRunner.createIndex('conversation_contexts', new Index('IDX_conversation_contexts_is_active', ['is_active']));
-    await queryRunner.createIndex('conversation_contexts', new Index('IDX_conversation_contexts_expires_at', ['expires_at']));
-    await queryRunner.createIndex('conversation_contexts', new Index('IDX_conversation_contexts_last_accessed_at', ['last_accessed_at']));
-    await queryRunner.createIndex('conversation_contexts', new Index('IDX_conversation_contexts_priority_level', ['priority_level']));
-    
+    await queryRunner.createIndex(
+      'agents',
+      new Index('IDX_agents_deployment_environment', ['deployment_environment'])
+    );
+
+    await queryRunner.createIndex(
+      'agent_capability_metrics',
+      new Index('IDX_agent_capability_metrics_agent_id', ['agent_id'])
+    );
+    await queryRunner.createIndex(
+      'agent_capability_metrics',
+      new Index('IDX_agent_capability_metrics_capability_name', ['capability_name'])
+    );
+    await queryRunner.createIndex(
+      'agent_capability_metrics',
+      new Index('IDX_agent_capability_metrics_metric_type', ['metric_type'])
+    );
+    await queryRunner.createIndex(
+      'agent_capability_metrics',
+      new Index('IDX_agent_capability_metrics_recorded_at', ['recorded_at'])
+    );
+    await queryRunner.createIndex(
+      'agent_capability_metrics',
+      new Index('IDX_agent_capability_metrics_trend_direction', ['trend_direction'])
+    );
+    await queryRunner.createIndex(
+      'agent_capability_metrics',
+      new Index('IDX_agent_capability_metrics_measurement_period', [
+        'measurement_period_start',
+        'measurement_period_end',
+      ])
+    );
+
+    await queryRunner.createIndex(
+      'conversation_contexts',
+      new Index('IDX_conversation_contexts_agent_id', ['agent_id'])
+    );
+    await queryRunner.createIndex(
+      'conversation_contexts',
+      new Index('IDX_conversation_contexts_user_id', ['user_id'])
+    );
+    await queryRunner.createIndex(
+      'conversation_contexts',
+      new Index('IDX_conversation_contexts_session_id', ['session_id'])
+    );
+    await queryRunner.createIndex(
+      'conversation_contexts',
+      new Index('IDX_conversation_contexts_context_type', ['context_type'])
+    );
+    await queryRunner.createIndex(
+      'conversation_contexts',
+      new Index('IDX_conversation_contexts_is_active', ['is_active'])
+    );
+    await queryRunner.createIndex(
+      'conversation_contexts',
+      new Index('IDX_conversation_contexts_expires_at', ['expires_at'])
+    );
+    await queryRunner.createIndex(
+      'conversation_contexts',
+      new Index('IDX_conversation_contexts_last_accessed_at', ['last_accessed_at'])
+    );
+    await queryRunner.createIndex(
+      'conversation_contexts',
+      new Index('IDX_conversation_contexts_priority_level', ['priority_level'])
+    );
+
     // Composite indexes for common queries
-    await queryRunner.createIndex('agent_capability_metrics', new Index('IDX_agent_capability_metrics_agent_capability_time', ['agent_id', 'capability_name', 'recorded_at']));
-    await queryRunner.createIndex('conversation_contexts', new Index('IDX_conversation_contexts_agent_user_session', ['agent_id', 'user_id', 'session_id']));
-    await queryRunner.createIndex('conversation_contexts', new Index('IDX_conversation_contexts_agent_type_active', ['agent_id', 'context_type', 'is_active']));
+    await queryRunner.createIndex(
+      'agent_capability_metrics',
+      new Index('IDX_agent_capability_metrics_agent_capability_time', [
+        'agent_id',
+        'capability_name',
+        'recorded_at',
+      ])
+    );
+    await queryRunner.createIndex(
+      'conversation_contexts',
+      new Index('IDX_conversation_contexts_agent_user_session', [
+        'agent_id',
+        'user_id',
+        'session_id',
+      ])
+    );
+    await queryRunner.createIndex(
+      'conversation_contexts',
+      new Index('IDX_conversation_contexts_agent_type_active', [
+        'agent_id',
+        'context_type',
+        'is_active',
+      ])
+    );
   }
 
   public async down(queryRunner: QueryRunner): Promise<void> {
@@ -548,4 +634,4 @@ export class CreateAgentSystem1703004000000 implements MigrationInterface {
     await queryRunner.dropTable('agent_capability_metrics');
     await queryRunner.dropTable('agents');
   }
-} 
+}

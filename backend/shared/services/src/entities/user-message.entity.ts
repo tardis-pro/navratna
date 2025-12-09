@@ -8,14 +8,14 @@ export enum MessageType {
   IMAGE = 'image',
   VOICE = 'voice',
   VIDEO = 'video',
-  SYSTEM = 'system'
+  SYSTEM = 'system',
 }
 
 export enum MessageStatus {
   SENT = 'sent',
   DELIVERED = 'delivered',
   READ = 'read',
-  FAILED = 'failed'
+  FAILED = 'failed',
 }
 
 export interface MessageAttachment {
@@ -55,17 +55,17 @@ export class UserMessageEntity extends BaseEntity {
   @Column({ type: 'text' })
   content!: string;
 
-  @Column({ 
-    type: 'enum', 
-    enum: MessageType, 
-    default: MessageType.TEXT 
+  @Column({
+    type: 'enum',
+    enum: MessageType,
+    default: MessageType.TEXT,
   })
   type!: MessageType;
 
-  @Column({ 
-    type: 'enum', 
-    enum: MessageStatus, 
-    default: MessageStatus.SENT 
+  @Column({
+    type: 'enum',
+    enum: MessageStatus,
+    default: MessageStatus.SENT,
   })
   status!: MessageStatus;
 

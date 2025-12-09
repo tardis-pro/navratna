@@ -10,19 +10,25 @@ export function registerTaskRoutes(app: Elysia, taskController: TaskController):
         params,
         query,
         body,
-        user: { id: headers['x-user-id'] }
+        user: { id: headers['x-user-id'] },
       };
 
       let responseData: any;
       let statusCode = 200;
 
       const res = {
-        json: (data: any) => { responseData = data; return res; },
+        json: (data: any) => {
+          responseData = data;
+          return res;
+        },
         status: (code: number) => {
           statusCode = code;
           return res;
         },
-        send: (data: any) => { responseData = data; return res; }
+        send: (data: any) => {
+          responseData = data;
+          return res;
+        },
       };
 
       await method.call(taskController, req, res);
@@ -36,40 +42,35 @@ export function registerTaskRoutes(app: Elysia, taskController: TaskController):
   };
 
   // Project tasks
-  app.get('/api/v1/projects/:projectId/tasks',
-    wrapController(taskController.getProjectTasks));
+  app.get('/api/v1/projects/:projectId/tasks', wrapController(taskController.getProjectTasks));
 
-  app.post('/api/v1/projects/:projectId/tasks',
-    wrapController(taskController.createTask));
+  app.post('/api/v1/projects/:projectId/tasks', wrapController(taskController.createTask));
 
-  app.get('/api/v1/projects/:projectId/tasks/statistics',
-    wrapController(taskController.getTaskStatistics));
+  app.get(
+    '/api/v1/projects/:projectId/tasks/statistics',
+    wrapController(taskController.getTaskStatistics)
+  );
 
   // Individual tasks
-  app.get('/api/v1/tasks/:taskId',
-    wrapController(taskController.getTask));
+  app.get('/api/v1/tasks/:taskId', wrapController(taskController.getTask));
 
-  app.put('/api/v1/tasks/:taskId',
-    wrapController(taskController.updateTask));
+  app.put('/api/v1/tasks/:taskId', wrapController(taskController.updateTask));
 
-  app.delete('/api/v1/tasks/:taskId',
-    wrapController(taskController.deleteTask));
+  app.delete('/api/v1/tasks/:taskId', wrapController(taskController.deleteTask));
 
   // Task assignment
-  app.post('/api/v1/tasks/:taskId/assign',
-    wrapController(taskController.assignTask));
+  app.post('/api/v1/tasks/:taskId/assign', wrapController(taskController.assignTask));
 
-  app.get('/api/v1/tasks/:taskId/assignment-suggestions',
-    wrapController(taskController.getAssignmentSuggestions));
+  app.get(
+    '/api/v1/tasks/:taskId/assignment-suggestions',
+    wrapController(taskController.getAssignmentSuggestions)
+  );
 
   // Task progress
-  app.put('/api/v1/tasks/:taskId/progress',
-    wrapController(taskController.updateTaskProgress));
+  app.put('/api/v1/tasks/:taskId/progress', wrapController(taskController.updateTaskProgress));
 
   // User and agent tasks
-  app.get('/api/v1/users/:userId/tasks',
-    wrapController(taskController.getUserTasks));
+  app.get('/api/v1/users/:userId/tasks', wrapController(taskController.getUserTasks));
 
-  app.get('/api/v1/agents/:agentId/tasks',
-    wrapController(taskController.getAgentTasks));
+  app.get('/api/v1/agents/:agentId/tasks', wrapController(taskController.getAgentTasks));
 }

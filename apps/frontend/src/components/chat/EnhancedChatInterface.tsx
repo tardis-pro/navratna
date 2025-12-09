@@ -30,7 +30,7 @@ export const EnhancedChatInterface: React.FC<EnhancedChatInterfaceProps> = ({
   conversationId,
   onSendMessage,
   messages,
-  className
+  className,
 }) => {
   const [showIntentInfo, setShowIntentInfo] = useState(true);
   const [toolPreview, setToolPreview] = useState<any>(null);
@@ -43,7 +43,7 @@ export const EnhancedChatInterface: React.FC<EnhancedChatInterfaceProps> = ({
     promptSuggestions,
     generateTopic,
     requestPromptSuggestions,
-    loading
+    loading,
   } = useConversationIntelligence({
     agentId,
     conversationId,
@@ -51,16 +51,16 @@ export const EnhancedChatInterface: React.FC<EnhancedChatInterfaceProps> = ({
       if (preview) {
         setToolPreview(preview);
       }
-    }
+    },
   });
 
   // Generate topic when messages change
   useEffect(() => {
     if (messages.length >= 3) {
-      const recentMessages = messages.slice(-10).map(m => ({
+      const recentMessages = messages.slice(-10).map((m) => ({
         content: m.content,
         role: m.role,
-        timestamp: m.timestamp
+        timestamp: m.timestamp,
       }));
       generateTopic(recentMessages, currentTopic || undefined);
     }
@@ -68,15 +68,15 @@ export const EnhancedChatInterface: React.FC<EnhancedChatInterfaceProps> = ({
 
   // Request prompt suggestions based on conversation context
   useEffect(() => {
-    const recentMessages = messages.slice(-5).map(m => ({
+    const recentMessages = messages.slice(-5).map((m) => ({
       content: m.content,
       role: m.role,
-      timestamp: m.timestamp
+      timestamp: m.timestamp,
     }));
 
     requestPromptSuggestions({
       currentTopic,
-      recentMessages
+      recentMessages,
     });
   }, [messages, currentTopic, requestPromptSuggestions]);
 
@@ -97,9 +97,7 @@ export const EnhancedChatInterface: React.FC<EnhancedChatInterfaceProps> = ({
       {!connected && (
         <Alert>
           <InfoIcon className="h-4 w-4" />
-          <AlertDescription>
-            Connecting to conversation intelligence...
-          </AlertDescription>
+          <AlertDescription>Connecting to conversation intelligence...</AlertDescription>
         </Alert>
       )}
 
@@ -122,19 +120,17 @@ export const EnhancedChatInterface: React.FC<EnhancedChatInterfaceProps> = ({
             <div className="flex items-center gap-2 text-sm">
               <BrainIcon className="w-4 h-4 text-muted-foreground" />
               <span className="text-muted-foreground">Detected:</span>
-              
+
               {currentIntent && (
                 <Badge variant="secondary">
                   {currentIntent.category}: {currentIntent.subType}
                 </Badge>
               )}
-              
+
               {toolPreview && (
                 <div className="flex items-center gap-2 ml-auto">
                   <span className="text-muted-foreground">Will use:</span>
-                  <Badge variant="outline">
-                    {toolPreview.name}
-                  </Badge>
+                  <Badge variant="outline">{toolPreview.name}</Badge>
                   {toolPreview.estimatedDuration && (
                     <span className="text-xs text-muted-foreground">
                       ~{Math.round(toolPreview.estimatedDuration / 1000)}s
@@ -143,20 +139,16 @@ export const EnhancedChatInterface: React.FC<EnhancedChatInterfaceProps> = ({
                 </div>
               )}
             </div>
-            
+
             {currentIntent?.reasoning && (
-              <p className="text-xs text-muted-foreground mt-1">
-                {currentIntent.reasoning}
-              </p>
+              <p className="text-xs text-muted-foreground mt-1">{currentIntent.reasoning}</p>
             )}
           </CardContent>
         </Card>
       )}
 
       {/* Messages would be rendered here */}
-      <div className="flex-1 overflow-y-auto">
-        {/* Message list component */}
-      </div>
+      <div className="flex-1 overflow-y-auto">{/* Message list component */}</div>
 
       {/* Prompt Suggestions */}
       {promptSuggestions.length > 0 && (
@@ -164,11 +156,11 @@ export const EnhancedChatInterface: React.FC<EnhancedChatInterfaceProps> = ({
           agentId={agentId}
           conversationContext={{
             currentTopic,
-            recentMessages: messages.slice(-5).map(m => ({
+            recentMessages: messages.slice(-5).map((m) => ({
               content: m.content,
               role: m.role,
-              timestamp: m.timestamp
-            }))
+              timestamp: m.timestamp,
+            })),
           }}
           onSelectPrompt={handleSelectPrompt}
         />

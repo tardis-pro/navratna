@@ -1,4 +1,13 @@
-import { Entity, Column, PrimaryGeneratedColumn, CreateDateColumn, UpdateDateColumn, ManyToOne, JoinColumn, Index } from 'typeorm';
+import {
+  Entity,
+  Column,
+  PrimaryGeneratedColumn,
+  CreateDateColumn,
+  UpdateDateColumn,
+  ManyToOne,
+  JoinColumn,
+  Index,
+} from 'typeorm';
 import { BaseEntity } from './base.entity.js';
 import { UserEntity } from './user.entity.js';
 
@@ -8,8 +17,6 @@ import { UserEntity } from './user.entity.js';
 @Index(['expiresAt'])
 @Index(['usedAt'])
 export class PasswordResetTokenEntity extends BaseEntity {
-
-
   @Column({ type: 'varchar', name: 'user_id' })
   userId!: string;
 
@@ -26,4 +33,4 @@ export class PasswordResetTokenEntity extends BaseEntity {
   @ManyToOne(() => UserEntity, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'user_id' })
   user!: UserEntity;
-} 
+}

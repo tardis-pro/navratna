@@ -10,7 +10,7 @@ import {
   StepResult,
   OperationError,
   StepMetrics,
-  ParallelExecutionPolicy
+  ParallelExecutionPolicy,
 } from '@uaip/types';
 import { logger } from '@uaip/utils';
 import { StepExecutorService, ResourceManagerService } from '@uaip/shared-services';
@@ -33,10 +33,7 @@ export class StepExecutionManager extends EventEmitter {
     super();
   }
 
-  async executeStep(
-    step: ExecutionStep,
-    context: StepExecutionContext
-  ): Promise<StepResult> {
+  async executeStep(step: ExecutionStep, context: StepExecutionContext): Promise<StepResult> {
     const startTime = Date.now();
     this.activeSteps.set(step.id, step);
 
@@ -45,7 +42,7 @@ export class StepExecutionManager extends EventEmitter {
       this.emit('step:started', {
         stepId: step.id,
         operationId: context.operationId,
-        timestamp: new Date()
+        timestamp: new Date(),
       });
 
       // Set timeout if specified
@@ -83,7 +80,7 @@ export class StepExecutionManager extends EventEmitter {
       const metrics: StepMetrics = {
         executionTime: duration,
         resourceUsage: await this.getResourceUsage(step.id),
-        retryCount: step.retryCount || 0
+        retryCount: step.retryCount || 0,
       };
 
       result.metrics = metrics;
@@ -94,13 +91,13 @@ export class StepExecutionManager extends EventEmitter {
         stepId: step.id,
         operationId: context.operationId,
         result,
-        timestamp: new Date()
+        timestamp: new Date(),
       });
 
       return result;
     } catch (error) {
       this.clearStepTimeout(step.id);
-      
+
       // Handle retry logic
       if (step.retryPolicy && (step.retryCount || 0) < step.retryPolicy.maxRetries) {
         return await this.retryStep(step, context, error);
@@ -111,7 +108,7 @@ export class StepExecutionManager extends EventEmitter {
         stepId: step.id,
         operationId: context.operationId,
         error: error.message,
-        timestamp: new Date()
+        timestamp: new Date(),
       });
 
       throw error;
@@ -125,14 +122,18 @@ export class StepExecutionManager extends EventEmitter {
     context: StepExecutionContext
   ): Promise<StepResult> {
     const params = this.resolveParameters(step.parameters, context);
-    
-    const result = await this.stepExecutorService.executeAgentAction(step, params, new AbortController().signal);
+
+    const result = await this.stepExecutorService.executeAgentAction(
+      step,
+      params,
+      new AbortController().signal
+    );
 
     return {
       stepId: step.id,
       status: StepStatus.COMPLETED,
       output: result,
-      startedAt: new Date()
+      startedAt: new Date(),
     };
   }
 
@@ -141,14 +142,18 @@ export class StepExecutionManager extends EventEmitter {
     context: StepExecutionContext
   ): Promise<StepResult> {
     const input = this.resolveParameters(step.input, context);
-    
-    const result = await this.stepExecutorService.executeTool(step, input, new AbortController().signal);
+
+    const result = await this.stepExecutorService.executeTool(
+      step,
+      input,
+      new AbortController().signal
+    );
 
     return {
       stepId: step.id,
       status: StepStatus.COMPLETED,
       output: result,
-      startedAt: new Date()
+      startedAt: new Date(),
     };
   }
 
@@ -165,9 +170,9 @@ export class StepExecutionManager extends EventEmitter {
       output: {
         conditionResult: condition,
         selectedBranch: condition ? 'true' : 'false',
-        nextSteps: branch || []
+        nextSteps: branch || [],
       },
-      startedAt: new Date()
+      startedAt: new Date(),
     };
   }
 
@@ -177,7 +182,7 @@ export class StepExecutionManager extends EventEmitter {
   ): Promise<StepResult> {
     const policy = step.policy || ParallelExecutionPolicy.ALL_SUCCESS;
     const branches = step.branches || [];
-    
+
     const branchPromises = branches.map(async (branch, index) => {
       try {
         // Execute branch steps sequentially
@@ -193,9 +198,7 @@ export class StepExecutionManager extends EventEmitter {
     });
 
     const results = await Promise.allSettled(branchPromises);
-    const successCount = results.filter(r => 
-      r.status === 'fulfilled' && r.value.success
-    ).length;
+    const successCount = results.filter((r) => r.status === 'fulfilled' && r.value.success).length;
 
     let overallSuccess = false;
     const policyValue = typeof policy === 'string' ? policy : policy.policy;
@@ -225,9 +228,9 @@ export class StepExecutionManager extends EventEmitter {
         branchResults: results,
         successCount,
         totalBranches: branches.length,
-        policy
+        policy,
       },
-      startedAt: new Date()
+      startedAt: new Date(),
     };
   }
 
@@ -243,11 +246,11 @@ export class StepExecutionManager extends EventEmitter {
       attempt: step.retryCount,
       maxRetries: step.retryPolicy!.maxRetries,
       backoffMs: backoff,
-      error: error.message
+      error: error.message,
     });
 
     // Wait for backoff period
-    await new Promise(resolve => setTimeout(resolve, backoff));
+    await new Promise((resolve) => setTimeout(resolve, backoff));
 
     // Retry execution
     return this.executeStep(step, context);
@@ -265,7 +268,7 @@ export class StepExecutionManager extends EventEmitter {
       this.emit('step:timeout', {
         stepId: step.id,
         operationId: context.operationId,
-        timeout: step.timeout
+        timeout: step.timeout,
       });
 
       // Force fail the step
@@ -291,7 +294,7 @@ export class StepExecutionManager extends EventEmitter {
     const resourceLimits = {
       maxMemory: required.memory || 1024 * 1024 * 1024, // 1GB default
       maxCpu: required.cpu || 1, // 1 core default
-      maxDuration: required.estimatedDuration || 3600000 // 1 hour default
+      maxDuration: required.estimatedDuration || 3600000, // 1 hour default
     };
 
     const available = await this.resourceManagerService.checkAvailability(resourceLimits);
@@ -312,7 +315,7 @@ export class StepExecutionManager extends EventEmitter {
       const path = params.substring(2);
       const [stepId, ...propertyPath] = path.split('.');
       const stepResult = context.previousResults.get(stepId);
-      
+
       if (stepResult?.output) {
         return this.getNestedProperty(stepResult.output, propertyPath);
       }
@@ -340,7 +343,7 @@ export class StepExecutionManager extends EventEmitter {
       // Create a safe evaluation context
       const evalContext = {
         ...context.globalContext,
-        results: Object.fromEntries(context.previousResults)
+        results: Object.fromEntries(context.previousResults),
       };
 
       // This is a simplified example - in production use a proper expression evaluator

@@ -39,17 +39,19 @@ export class TEIEmbeddingService {
   async checkHealth(): Promise<{ embedding: TEIHealthStatus; reranker: TEIHealthStatus }> {
     const [embeddingHealth, rerankerHealth] = await Promise.allSettled([
       this.fetchWithTimeout(`${this.embeddingBaseUrl}/health`),
-      this.fetchWithTimeout(`${this.rerankerBaseUrl}/health`)
+      this.fetchWithTimeout(`${this.rerankerBaseUrl}/health`),
     ]);
 
     // Helper to safely parse TEI health response
-    const parseTEIHealth = async (result: PromiseFulfilledResult<Response> | PromiseRejectedResult): Promise<TEIHealthStatus> => {
+    const parseTEIHealth = async (
+      result: PromiseFulfilledResult<Response> | PromiseRejectedResult
+    ): Promise<TEIHealthStatus> => {
       if (result.status !== 'fulfilled') {
         console.error('TEI health check failed: request was not fulfilled', result);
         return { status: 'error', message: 'Request not fulfilled' };
       }
       try {
-        if(result.value.status === 200) {
+        if (result.value.status === 200) {
           return { status: 'ready', message: 'Ready' };
         } else {
           return { status: 'error', message: 'Error' };
@@ -62,10 +64,8 @@ export class TEIEmbeddingService {
 
     const health = {
       embedding: await parseTEIHealth(embeddingHealth),
-      reranker: await parseTEIHealth(rerankerHealth)
+      reranker: await parseTEIHealth(rerankerHealth),
     };
-
-  
 
     return health;
   }
@@ -82,7 +82,7 @@ export class TEIEmbeddingService {
       const response = await this.fetchWithRetry(`${this.embeddingBaseUrl}/embed`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ inputs: text })
+        body: JSON.stringify({ inputs: text }),
       });
 
       if (!response.ok) {
@@ -90,7 +90,7 @@ export class TEIEmbeddingService {
       }
 
       const data = await response.json();
-      
+
       // TEI returns array of embeddings, we want the first one for single input
       return Array.isArray(data) && Array.isArray(data[0]) ? data[0] : data;
     } catch (error) {
@@ -108,7 +108,7 @@ export class TEIEmbeddingService {
     }
 
     // Filter out empty texts
-    const validTexts = texts.filter(text => text && text.trim().length > 0);
+    const validTexts = texts.filter((text) => text && text.trim().length > 0);
     if (validTexts.length === 0) {
       return [];
     }
@@ -117,7 +117,7 @@ export class TEIEmbeddingService {
       // TEI supports up to 32 inputs per batch by default
       const batchSize = 32;
       const batches: string[][] = [];
-      
+
       for (let i = 0; i < validTexts.length; i += batchSize) {
         batches.push(validTexts.slice(i, i + batchSize));
       }
@@ -126,7 +126,7 @@ export class TEIEmbeddingService {
         const response = await this.fetchWithRetry(`${this.embeddingBaseUrl}/embed`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ inputs: batch })
+          body: JSON.stringify({ inputs: batch }),
         });
 
         if (!response.ok) {
@@ -157,7 +157,7 @@ export class TEIEmbeddingService {
     }
 
     // Filter out empty documents
-    const validDocuments = documents.filter(doc => doc && doc.trim().length > 0);
+    const validDocuments = documents.filter((doc) => doc && doc.trim().length > 0);
     if (validDocuments.length === 0) {
       return [];
     }
@@ -166,10 +166,10 @@ export class TEIEmbeddingService {
       const response = await this.fetchWithRetry(`${this.rerankerBaseUrl}/rerank`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
+        body: JSON.stringify({
           query: query.trim(),
-          texts: validDocuments
-        })
+          texts: validDocuments,
+        }),
       });
 
       if (!response.ok) {
@@ -177,10 +177,10 @@ export class TEIEmbeddingService {
       }
 
       const results: RerankResult[] = await response.json();
-      
+
       // Sort by score descending and optionally limit results
       results.sort((a, b) => b.score - a.score);
-      
+
       return topK ? results.slice(0, topK) : results;
     } catch (error) {
       console.error('TEI reranking failed:', error);
@@ -299,7 +299,7 @@ export class TEIEmbeddingService {
     // Add conversation history
     if (context.conversationHistory && context.conversationHistory.length > 0) {
       parts.push('Conversation History:');
-      context.conversationHistory.forEach(msg => {
+      context.conversationHistory.forEach((msg) => {
         parts.push(`${msg.role}: ${msg.content}`);
       });
     }
@@ -322,7 +322,7 @@ export class TEIEmbeddingService {
     try {
       const response = await fetch(url, {
         ...options,
-        signal: controller.signal
+        signal: controller.signal,
       });
       clearTimeout(timeoutId);
       return response;
@@ -344,28 +344,31 @@ export class TEIEmbeddingService {
     for (let attempt = 1; attempt <= this.retryAttempts; attempt++) {
       try {
         const response = await this.fetchWithTimeout(url, options);
-        
+
         // Don't retry on client errors (4xx), only on server errors (5xx) and network issues
         if (response.ok || (response.status >= 400 && response.status < 500)) {
           return response;
         }
-        
+
         throw new Error(`Server error: ${response.status} ${response.statusText}`);
       } catch (error) {
         lastError = error;
-        
+
         if (attempt === this.retryAttempts) {
           break;
         }
 
         // Exponential backoff: 1s, 2s, 4s...
         const delay = Math.pow(2, attempt - 1) * 1000;
-        console.warn(`TEI request failed (attempt ${attempt}/${this.retryAttempts}), retrying in ${delay}ms:`, error.message);
-        
-        await new Promise(resolve => setTimeout(resolve, delay));
+        console.warn(
+          `TEI request failed (attempt ${attempt}/${this.retryAttempts}), retrying in ${delay}ms:`,
+          error.message
+        );
+
+        await new Promise((resolve) => setTimeout(resolve, delay));
       }
     }
 
     throw lastError;
   }
-} 
+}

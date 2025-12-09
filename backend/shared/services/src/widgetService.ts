@@ -1,4 +1,4 @@
-import { 
+import {
   BaseWidget,
   WidgetInstance,
   WidgetRegistration,
@@ -11,7 +11,7 @@ import {
   WidgetPermission,
   WidgetCategory,
   WidgetStatus,
-  SecurityLevel
+  SecurityLevel,
 } from '@uaip/types';
 import { DatabaseService } from './databaseService.js';
 import { logger } from '@uaip/utils';
@@ -28,10 +28,7 @@ export class WidgetService {
   private databaseService: DatabaseService;
   private options: WidgetServiceOptions;
 
-  constructor(
-    databaseService: DatabaseService,
-    options: Partial<WidgetServiceOptions> = {}
-  ) {
+  constructor(databaseService: DatabaseService, options: Partial<WidgetServiceOptions> = {}) {
     this.databaseService = databaseService;
     this.options = {
       enableRBAC: true,
@@ -39,7 +36,7 @@ export class WidgetService {
       defaultPermissions: [WidgetPermission.VIEW],
       maxWidgetsPerUser: 10,
       allowDynamicRegistration: true,
-      ...options
+      ...options,
     };
   }
 
@@ -51,10 +48,10 @@ export class WidgetService {
       throw new Error('Dynamic widget registration is disabled');
     }
 
-    logger.info('Registering new widget', { 
+    logger.info('Registering new widget', {
       name: registration.widget.name,
       category: registration.widget.category,
-      registeredBy: registration.registeredBy
+      registeredBy: registration.registeredBy,
     });
 
     // Validate widget registration
@@ -62,12 +59,12 @@ export class WidgetService {
 
     // Create widget ID
     const widgetId = this.generateWidgetId();
-    
+
     const widget: BaseWidget = {
       ...registration.widget,
       id: widgetId,
       createdAt: new Date(),
-      updatedAt: new Date()
+      updatedAt: new Date(),
     };
 
     // Store widget in database
@@ -78,7 +75,7 @@ export class WidgetService {
       await this.logAuditEvent('widget_registered', registration.registeredBy, {
         widgetId,
         widgetName: widget.name,
-        category: widget.category
+        category: widget.category,
       });
     }
 
@@ -89,7 +86,7 @@ export class WidgetService {
    * Get widgets accessible by a user
    */
   async getUserWidgets(
-    userId: string, 
+    userId: string,
     query: Partial<WidgetRegistryQuery> = {}
   ): Promise<{
     widgets: BaseWidget[];
@@ -101,23 +98,20 @@ export class WidgetService {
 
     // Get user context for RBAC
     const userContext = await this.getUserContext(userId);
-    
+
     // Build database query
     const dbQuery = this.buildDatabaseQuery(query, userContext);
-    
+
     // Execute query
     const result = await this.executeWidgetQuery(dbQuery, userContext);
-    
+
     return result;
   }
 
   /**
    * Check widget access for a user
    */
-  async checkWidgetAccess(
-    widgetId: string, 
-    userId: string
-  ): Promise<WidgetAccessResponse> {
+  async checkWidgetAccess(widgetId: string, userId: string): Promise<WidgetAccessResponse> {
     logger.debug('Checking widget access', { widgetId, userId });
 
     if (!this.options.enableRBAC) {
@@ -127,14 +121,14 @@ export class WidgetService {
         hasAccess: true,
         grantedPermissions: Object.values(WidgetPermission),
         deniedPermissions: [],
-        accessLevel: WidgetPermission.ADMIN
+        accessLevel: WidgetPermission.ADMIN,
       };
     }
 
     // Get widget and user data
     const [widget, userContext] = await Promise.all([
       this.getWidget(widgetId),
-      this.getUserContext(userId)
+      this.getUserContext(userId),
     ]);
 
     if (!widget) {
@@ -145,7 +139,7 @@ export class WidgetService {
         grantedPermissions: [],
         deniedPermissions: Object.values(WidgetPermission),
         accessLevel: WidgetPermission.VIEW,
-        reason: 'Widget not found'
+        reason: 'Widget not found',
       };
     }
 
@@ -197,7 +191,7 @@ export class WidgetService {
       isMaximized: false,
       instanceConfig: instanceConfig.config || {},
       lastInteraction: new Date(),
-      sessionId: this.generateSessionId()
+      sessionId: this.generateSessionId(),
     };
 
     // Store instance
@@ -209,7 +203,7 @@ export class WidgetService {
       userId,
       action: 'open',
       sessionId: instance.sessionId,
-      timestamp: new Date()
+      timestamp: new Date(),
     });
 
     return instance;
@@ -221,7 +215,12 @@ export class WidgetService {
   async updateWidgetInstance(
     instanceId: string,
     userId: string,
-    updates: Partial<Pick<WidgetInstance, 'position' | 'size' | 'isVisible' | 'isMinimized' | 'isMaximized' | 'instanceConfig'>>
+    updates: Partial<
+      Pick<
+        WidgetInstance,
+        'position' | 'size' | 'isVisible' | 'isMinimized' | 'isMaximized' | 'instanceConfig'
+      >
+    >
   ): Promise<WidgetInstance> {
     logger.debug('Updating widget instance', { instanceId, userId });
 
@@ -234,7 +233,7 @@ export class WidgetService {
       ...instance,
       ...updates,
       lastInteraction: new Date(),
-      updatedAt: new Date()
+      updatedAt: new Date(),
     };
 
     await this.storeWidgetInstance(updatedInstance);
@@ -246,7 +245,7 @@ export class WidgetService {
       action: 'interact',
       sessionId: instance.sessionId,
       metadata: { updateType: Object.keys(updates) },
-      timestamp: new Date()
+      timestamp: new Date(),
     });
 
     return updatedInstance;
@@ -264,7 +263,7 @@ export class WidgetService {
     }
 
     // Calculate session duration
-    const duration = instance.lastInteraction 
+    const duration = instance.lastInteraction
       ? Math.floor((Date.now() - instance.lastInteraction.getTime()) / 1000)
       : 0;
 
@@ -275,7 +274,7 @@ export class WidgetService {
       action: 'close',
       sessionId: instance.sessionId,
       duration,
-      timestamp: new Date()
+      timestamp: new Date(),
     });
 
     // Delete instance
@@ -294,10 +293,10 @@ export class WidgetService {
    * Log widget usage
    */
   async logWidgetUsage(usage: WidgetUsage): Promise<void> {
-    logger.debug('Logging widget usage', { 
-      widgetId: usage.widgetId, 
-      userId: usage.userId, 
-      action: usage.action 
+    logger.debug('Logging widget usage', {
+      widgetId: usage.widgetId,
+      userId: usage.userId,
+      action: usage.action,
     });
 
     await this.storeWidgetUsage(usage);
@@ -312,7 +311,7 @@ export class WidgetService {
       userId: error.userId,
       errorName: error.error.name,
       errorMessage: error.error.message,
-      severity: error.severity
+      severity: error.severity,
     });
 
     await this.storeWidgetError(error);
@@ -345,7 +344,10 @@ export class WidgetService {
 
     // Validate registering user permissions
     const userContext = await this.getUserContext(registration.registeredBy);
-    if (!userContext.permissions.includes('widget:register') && !userContext.permissions.includes('*')) {
+    if (
+      !userContext.permissions.includes('widget:register') &&
+      !userContext.permissions.includes('*')
+    ) {
       throw new Error('Insufficient permissions to register widgets');
     }
 
@@ -374,8 +376,8 @@ export class WidgetService {
     // TODO: Implement getUserPermissions in UserService
     const permissions = { rolePermissions: [], directPermissions: [] };
     const allPermissions = [
-      ...permissions.rolePermissions.flatMap(rp => rp.operations),
-      ...permissions.directPermissions.flatMap(dp => dp.operations)
+      ...permissions.rolePermissions.flatMap((rp) => rp.operations),
+      ...permissions.directPermissions.flatMap((dp) => dp.operations),
     ];
 
     return {
@@ -383,13 +385,19 @@ export class WidgetService {
       role: user.role,
       permissions: allPermissions,
       department: user.department,
-      securityLevel: user.securityClearance || SecurityLevel.MEDIUM
+      securityLevel: user.securityClearance || SecurityLevel.MEDIUM,
     };
   }
 
   private evaluateWidgetAccess(
-    widget: BaseWidget, 
-    userContext: { id: string; role: string; permissions: string[]; department?: string; securityLevel: SecurityLevel }
+    widget: BaseWidget,
+    userContext: {
+      id: string;
+      role: string;
+      permissions: string[];
+      department?: string;
+      securityLevel: SecurityLevel;
+    }
   ): WidgetAccessResponse {
     const rbac = widget.rbac;
     const grantedPermissions: WidgetPermission[] = [];
@@ -404,13 +412,16 @@ export class WidgetService {
         grantedPermissions: [],
         deniedPermissions: Object.values(WidgetPermission),
         accessLevel: WidgetPermission.VIEW,
-        reason: 'User explicitly denied access'
+        reason: 'User explicitly denied access',
       };
     }
 
     // Check security level
-    if (rbac.requiredSecurityLevel && 
-        this.getSecurityLevelValue(userContext.securityLevel) < this.getSecurityLevelValue(rbac.requiredSecurityLevel)) {
+    if (
+      rbac.requiredSecurityLevel &&
+      this.getSecurityLevelValue(userContext.securityLevel) <
+        this.getSecurityLevelValue(rbac.requiredSecurityLevel)
+    ) {
       return {
         widgetId: widget.id,
         userId: userContext.id,
@@ -418,7 +429,7 @@ export class WidgetService {
         grantedPermissions: [],
         deniedPermissions: Object.values(WidgetPermission),
         accessLevel: WidgetPermission.VIEW,
-        reason: 'Insufficient security clearance'
+        reason: 'Insufficient security clearance',
       };
     }
 
@@ -432,7 +443,7 @@ export class WidgetService {
           grantedPermissions: [],
           deniedPermissions: Object.values(WidgetPermission),
           accessLevel: WidgetPermission.VIEW,
-          reason: 'Role not authorized'
+          reason: 'Role not authorized',
         };
       }
     }
@@ -447,7 +458,7 @@ export class WidgetService {
           grantedPermissions: [],
           deniedPermissions: Object.values(WidgetPermission),
           accessLevel: WidgetPermission.VIEW,
-          reason: 'Department not authorized'
+          reason: 'Department not authorized',
         };
       }
     }
@@ -461,17 +472,18 @@ export class WidgetService {
         grantedPermissions: Object.values(WidgetPermission),
         deniedPermissions: [],
         accessLevel: WidgetPermission.ADMIN,
-        reason: 'User explicitly granted access'
+        reason: 'User explicitly granted access',
       };
     }
 
     // Evaluate permissions
     const userPermissionSet = new Set(userContext.permissions);
-    
+
     for (const permission of Object.values(WidgetPermission)) {
-      const hasPermission = userPermissionSet.has(`widget:${permission}`) ||
-                           userPermissionSet.has('widget:*') ||
-                           userPermissionSet.has('*');
+      const hasPermission =
+        userPermissionSet.has(`widget:${permission}`) ||
+        userPermissionSet.has('widget:*') ||
+        userPermissionSet.has('*');
 
       if (hasPermission) {
         grantedPermissions.push(permission);
@@ -481,7 +493,7 @@ export class WidgetService {
     }
 
     // Check minimum required permissions
-    const hasRequiredPermissions = rbac.requiredPermissions.every(reqPerm => 
+    const hasRequiredPermissions = rbac.requiredPermissions.every((reqPerm) =>
       grantedPermissions.includes(reqPerm)
     );
 
@@ -493,7 +505,7 @@ export class WidgetService {
         grantedPermissions,
         deniedPermissions,
         accessLevel: WidgetPermission.VIEW,
-        reason: 'Insufficient permissions'
+        reason: 'Insufficient permissions',
       };
     }
 
@@ -515,17 +527,22 @@ export class WidgetService {
       hasAccess: true,
       grantedPermissions,
       deniedPermissions,
-      accessLevel
+      accessLevel,
     };
   }
 
   private getSecurityLevelValue(level: SecurityLevel): number {
     switch (level) {
-      case SecurityLevel.LOW: return 1;
-      case SecurityLevel.MEDIUM: return 2;
-      case SecurityLevel.HIGH: return 3;
-      case SecurityLevel.CRITICAL: return 4;
-      default: return 0;
+      case SecurityLevel.LOW:
+        return 1;
+      case SecurityLevel.MEDIUM:
+        return 2;
+      case SecurityLevel.HIGH:
+        return 3;
+      case SecurityLevel.CRITICAL:
+        return 4;
+      default:
+        return 0;
     }
   }
 
@@ -569,7 +586,10 @@ export class WidgetService {
     return {};
   }
 
-  private async executeWidgetQuery(dbQuery: any, userContext: any): Promise<{
+  private async executeWidgetQuery(
+    dbQuery: any,
+    userContext: any
+  ): Promise<{
     widgets: BaseWidget[];
     total: number;
     page: number;
@@ -582,7 +602,7 @@ export class WidgetService {
       widgets: [],
       total: 0,
       page: 1,
-      limit: 20
+      limit: 20,
     };
   }
 
@@ -591,7 +611,10 @@ export class WidgetService {
     // TODO: Implement database storage
   }
 
-  private async getWidgetInstance(instanceId: string, userId: string): Promise<WidgetInstance | null> {
+  private async getWidgetInstance(
+    instanceId: string,
+    userId: string
+  ): Promise<WidgetInstance | null> {
     logger.debug('Getting widget instance', { instanceId, userId });
     // TODO: Implement database retrieval
     return null;
@@ -625,7 +648,10 @@ export class WidgetService {
     // TODO: Implement database storage
   }
 
-  private async calculateWidgetAnalytics(widgetId: string, timeRange: { start: Date; end: Date }): Promise<{
+  private async calculateWidgetAnalytics(
+    widgetId: string,
+    timeRange: { start: Date; end: Date }
+  ): Promise<{
     totalUsage: number;
     uniqueUsers: number;
     averageSessionDuration: number;
@@ -639,7 +665,7 @@ export class WidgetService {
       uniqueUsers: 0,
       averageSessionDuration: 0,
       errorRate: 0,
-      popularActions: []
+      popularActions: [],
     };
   }
 
@@ -647,4 +673,4 @@ export class WidgetService {
     logger.info('Widget audit event', { event, userId, details });
     // TODO: Implement audit logging
   }
-} 
+}

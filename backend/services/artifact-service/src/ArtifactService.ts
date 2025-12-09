@@ -1,12 +1,12 @@
 import { IArtifactService } from './interfaces/ArtifactTypes.js';
-import { 
-  ArtifactGenerationRequest, 
-  ArtifactGenerationResponse, 
-  ArtifactGenerationTemplate as ArtifactTemplate, 
-  ValidationResult, 
+import {
+  ArtifactGenerationRequest,
+  ArtifactGenerationResponse,
+  ArtifactGenerationTemplate as ArtifactTemplate,
+  ValidationResult,
   Artifact as GeneratedArtifact,
   ArtifactMetadata,
-  ArtifactType
+  ArtifactType,
 } from '@uaip/types';
 import { CodeGenerator } from './generators/CodeGenerator.js';
 import { TestGenerator } from './generators/TestGenerator.js';
@@ -56,19 +56,21 @@ export class ArtifactService implements IArtifactService {
 
   async initialize(): Promise<void> {
     logger.info('Initializing ArtifactService...');
-    
+
     // Initialize templates
     await this.templateManager.initialize();
-    
+
     // Set up LLM response event listener
     await this.setupLLMEventListeners();
-    
+
     // Validate generator initialization
     if (this.generators.size === 0) {
       throw new Error('No generators initialized');
     }
-    
-    logger.info(`ArtifactService initialized with ${this.generators.size} generators and ${this.templateManager.listTemplates().length} templates`);
+
+    logger.info(
+      `ArtifactService initialized with ${this.generators.size} generators and ${this.templateManager.listTemplates().length} templates`
+    );
   }
 
   private async setupLLMEventListeners(): Promise<void> {
@@ -77,11 +79,11 @@ export class ArtifactService implements IArtifactService {
       await this.eventBusService.subscribe('llm.generate.response', async (eventMessage) => {
         await this.handleLLMGenerationResponse(eventMessage);
       });
-      
+
       logger.info('LLM event listeners set up successfully');
     } catch (error) {
       logger.error('Failed to set up LLM event listeners', {
-        error: error instanceof Error ? error.message : 'Unknown error'
+        error: error instanceof Error ? error.message : 'Unknown error',
       });
     }
   }
@@ -90,7 +92,7 @@ export class ArtifactService implements IArtifactService {
     try {
       const response: LLMGenerationResponse = eventMessage.data;
       const requestId = eventMessage.metadata?.requestId;
-      
+
       if (!requestId) {
         logger.warn('Received LLM response without requestId', { response });
         return;
@@ -99,14 +101,14 @@ export class ArtifactService implements IArtifactService {
       logger.info('Received LLM generation response', {
         requestId,
         success: response.success,
-        contentLength: response.content?.length || 0
+        contentLength: response.content?.length || 0,
       });
 
       // Find and resolve pending request
       const pendingRequest = this.pendingLLMRequests.get(requestId);
       if (pendingRequest) {
         this.pendingLLMRequests.delete(requestId);
-        
+
         if (response.success && response.content) {
           pendingRequest.resolve(response);
         } else {
@@ -118,17 +120,17 @@ export class ArtifactService implements IArtifactService {
     } catch (error) {
       logger.error('Error handling LLM generation response', {
         error: error instanceof Error ? error.message : 'Unknown error',
-        eventMessage: eventMessage.data
+        eventMessage: eventMessage.data,
       });
     }
   }
 
   async generateArtifact(request: ArtifactGenerationRequest): Promise<ArtifactGenerationResponse> {
     const startTime = Date.now();
-    
+
     logger.info('Generating artifact', {
       type: request.type,
-      contextId: request.context.conversationId || 'unknown'
+      contextId: request.context.conversationId || 'unknown',
     });
 
     try {
@@ -142,14 +144,13 @@ export class ArtifactService implements IArtifactService {
         // Use local generator
         return await this.generateArtifactLocally(request, startTime);
       }
-
     } catch (error) {
       const duration = Date.now() - startTime;
-      
+
       logger.error('Artifact generation failed', {
         type: request.type,
         duration,
-        error: error instanceof Error ? error.message : 'Unknown error'
+        error: error instanceof Error ? error.message : 'Unknown error',
       });
 
       return {
@@ -157,8 +158,8 @@ export class ArtifactService implements IArtifactService {
         error: {
           code: 'GENERATION_FAILED',
           message: error instanceof Error ? error.message : 'Unknown error occurred',
-          details: { duration }
-        }
+          details: { duration },
+        },
       };
     }
   }
@@ -166,16 +167,20 @@ export class ArtifactService implements IArtifactService {
   private shouldUseLLMService(artifactType: string, context: any): boolean {
     // Determine if we need advanced LLM generation based on complexity
     const complexArtifactTypes = ['code', 'prd', 'analysis', 'workflow'];
-    const hasComplexContext = context.messages?.length > 10 || 
-                             context.decisions?.length > 3 ||
-                             context.actionItems?.length > 5;
+    const hasComplexContext =
+      context.messages?.length > 10 ||
+      context.decisions?.length > 3 ||
+      context.actionItems?.length > 5;
 
     return complexArtifactTypes.includes(artifactType) || hasComplexContext;
   }
 
-  private async generateArtifactWithLLMService(request: ArtifactGenerationRequest, startTime: number): Promise<ArtifactGenerationResponse> {
+  private async generateArtifactWithLLMService(
+    request: ArtifactGenerationRequest,
+    startTime: number
+  ): Promise<ArtifactGenerationResponse> {
     const requestId = `artifact_req_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-    
+
     try {
       // Prepare LLM generation request
       const llmRequest: LLMGenerationRequest = {
@@ -185,13 +190,13 @@ export class ArtifactService implements IArtifactService {
         options: {
           language: request.options?.language,
           framework: request.options?.framework,
-          template: request.options?.template
+          template: request.options?.template,
         },
         metadata: {
           requestId,
           conversationId: request.context.conversationId,
-          timestamp: new Date()
-        }
+          timestamp: new Date(),
+        },
       };
 
       // Send request to LLM service and wait for response
@@ -212,8 +217,8 @@ export class ArtifactService implements IArtifactService {
             template: request.options?.template,
             language: request.options?.language,
             framework: request.options?.framework,
-            createdAt: new Date()
-          }
+            createdAt: new Date(),
+          },
         };
 
         // Validate the generated artifact
@@ -221,13 +226,13 @@ export class ArtifactService implements IArtifactService {
         artifact.validation = validation;
 
         const duration = Date.now() - startTime;
-        
+
         logger.info('LLM artifact generated successfully', {
           type: request.type,
           duration,
           requestId,
           isValid: validation.isValid,
-          score: validation.score
+          score: validation.score,
         });
 
         return {
@@ -236,35 +241,38 @@ export class ArtifactService implements IArtifactService {
           metadata: {
             generationMethod: 'llm-service',
             requestId,
-            duration
-          }
+            duration,
+          },
         };
       } else {
         return {
           success: false,
           error: response.error || {
             code: 'LLM_GENERATION_FAILED',
-            message: 'LLM service failed to generate content'
-          }
+            message: 'LLM service failed to generate content',
+          },
         };
       }
     } catch (error) {
       logger.error('LLM-based artifact generation failed', {
         requestId,
-        error: error instanceof Error ? error.message : 'Unknown error'
+        error: error instanceof Error ? error.message : 'Unknown error',
       });
 
       return {
         success: false,
         error: {
           code: 'LLM_SERVICE_ERROR',
-          message: error instanceof Error ? error.message : 'LLM service integration error'
-        }
+          message: error instanceof Error ? error.message : 'LLM service integration error',
+        },
       };
     }
   }
 
-  private async generateArtifactLocally(request: ArtifactGenerationRequest, startTime: number): Promise<ArtifactGenerationResponse> {
+  private async generateArtifactLocally(
+    request: ArtifactGenerationRequest,
+    startTime: number
+  ): Promise<ArtifactGenerationResponse> {
     // Get appropriate generator
     const generator = this.generators.get(request.type);
     if (!generator) {
@@ -273,8 +281,8 @@ export class ArtifactService implements IArtifactService {
         error: {
           code: 'UNSUPPORTED_TYPE',
           message: `Artifact type '${request.type}' is not supported`,
-          details: { supportedTypes: Array.from(this.generators.keys()) }
-        }
+          details: { supportedTypes: Array.from(this.generators.keys()) },
+        },
       };
     }
 
@@ -284,17 +292,17 @@ export class ArtifactService implements IArtifactService {
         success: false,
         error: {
           code: 'CONTEXT_INCOMPATIBLE',
-          message: `Generator cannot handle the provided context for type '${request.type}'`
-        }
+          message: `Generator cannot handle the provided context for type '${request.type}'`,
+        },
       };
     }
 
     // Generate content
     const content = await generator.generate(request.context);
-    
+
     // Validate generated content
     const validation = this.validator.validate(content, request.type);
-    
+
     // Create artifact metadata
     const metadata: ArtifactMetadata = {
       title: `Generated ${request.type}`,
@@ -304,7 +312,7 @@ export class ArtifactService implements IArtifactService {
       template: request.options?.template,
       language: request.options?.language,
       framework: request.options?.framework,
-      createdAt: new Date()
+      createdAt: new Date(),
     };
 
     // Create artifact
@@ -313,16 +321,16 @@ export class ArtifactService implements IArtifactService {
       type: request.type,
       content,
       metadata,
-      validation
+      validation,
     };
 
     const duration = Date.now() - startTime;
-    
+
     logger.info('Local artifact generated successfully', {
       type: request.type,
       duration,
       isValid: validation.isValid,
-      score: validation.score
+      score: validation.score,
     });
 
     return {
@@ -330,12 +338,15 @@ export class ArtifactService implements IArtifactService {
       artifact,
       metadata: {
         generationMethod: 'local-factory',
-        duration
-      }
+        duration,
+      },
     };
   }
 
-  private async sendLLMRequest(llmRequest: LLMGenerationRequest, requestId: string): Promise<LLMGenerationResponse> {
+  private async sendLLMRequest(
+    llmRequest: LLMGenerationRequest,
+    requestId: string
+  ): Promise<LLMGenerationResponse> {
     return new Promise((resolve, reject) => {
       // Store the pending request
       this.pendingLLMRequests.set(requestId, { resolve, reject });
@@ -360,19 +371,21 @@ export class ArtifactService implements IArtifactService {
       };
 
       // Update the stored request with cleanup versions
-      this.pendingLLMRequests.set(requestId, { 
-        resolve: resolveWithCleanup, 
-        reject: rejectWithCleanup 
+      this.pendingLLMRequests.set(requestId, {
+        resolve: resolveWithCleanup,
+        reject: rejectWithCleanup,
       });
 
       // Send request to LLM service
-      this.eventBusService.publish('llm.generate.request', llmRequest, {
-        metadata: { requestId }
-      }).catch((error) => {
-        this.pendingLLMRequests.delete(requestId);
-        clearTimeout(timeout);
-        reject(error);
-      });
+      this.eventBusService
+        .publish('llm.generate.request', llmRequest, {
+          metadata: { requestId },
+        })
+        .catch((error) => {
+          this.pendingLLMRequests.delete(requestId);
+          clearTimeout(timeout);
+          reject(error);
+        });
     });
   }
 
@@ -385,24 +398,25 @@ export class ArtifactService implements IArtifactService {
       decisions: context.decisions,
       actionItems: context.actionItems,
       keyMessages: context.messages?.slice(-10) || [], // Last 10 messages for context
-      participantRoles: context.participants?.map(p => ({
-        id: p.id,
-        role: p.role,
-        messageCount: p.messageCount
-      })) || [],
+      participantRoles:
+        context.participants?.map((p) => ({
+          id: p.id,
+          role: p.role,
+          messageCount: p.messageCount,
+        })) || [],
       technical: context.technical,
       metadata: {
         totalMessages: context.messages?.length || 0,
         discussionDuration: context.metadata?.discussionDuration,
-        discussionTopic: context.metadata?.discussionTopic
-      }
+        discussionTopic: context.metadata?.discussionTopic,
+      },
     };
   }
 
   private estimateEffort(artifactType: string, content: string): 'low' | 'medium' | 'high' {
     const contentLength = content.length;
     const complexTypes = ['code', 'prd', 'analysis'];
-    
+
     if (complexTypes.includes(artifactType) && contentLength > 2000) {
       return 'high';
     } else if (contentLength > 1000) {
@@ -439,19 +453,23 @@ export class ArtifactService implements IArtifactService {
       return {
         status: 'invalid',
         isValid: false,
-        errors: [{
-          code: 'VALIDATION_ERROR',
-          message: 'Internal validation error',
-          severity: 'error'
-        }],
+        errors: [
+          {
+            code: 'VALIDATION_ERROR',
+            message: 'Internal validation error',
+            severity: 'error',
+          },
+        ],
         warnings: [],
         suggestions: [],
         score: 0,
-        issues: [{
-          code: 'VALIDATION_ERROR',
-          message: 'Internal validation error',
-          severity: 'error'
-        }]
+        issues: [
+          {
+            code: 'VALIDATION_ERROR',
+            message: 'Internal validation error',
+            severity: 'error',
+          },
+        ],
       };
     }
   }
@@ -459,25 +477,25 @@ export class ArtifactService implements IArtifactService {
   // Service health and metrics
   getServiceHealth() {
     const generators = Object.fromEntries(
-      Array.from(this.generators.entries()).map(([type, generator]) => [
-        type, 
-        generator !== null
-      ])
+      Array.from(this.generators.entries()).map(([type, generator]) => [type, generator !== null])
     );
 
     const templates = this.templateManager.listTemplates();
-    const templatesByType = templates.reduce((acc, template) => {
-      acc[template.type] = (acc[template.type]) + 1;
-      return acc;
-    }, {} as { [key: string]: number });
+    const templatesByType = templates.reduce(
+      (acc, template) => {
+        acc[template.type] = acc[template.type] + 1;
+        return acc;
+      },
+      {} as { [key: string]: number }
+    );
 
     return {
       status: 'healthy' as const,
       generators,
       templates: {
         total: templates.length,
-        byType: templatesByType
-      }
+        byType: templatesByType,
+      },
     };
   }
 
@@ -494,4 +512,4 @@ export class ArtifactService implements IArtifactService {
       throw new Error('Service initialization failed');
     }
   }
-} 
+}

@@ -1,9 +1,26 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, Index, BeforeInsert, BeforeUpdate, ManyToOne, JoinColumn } from 'typeorm';
+import {
+  Entity,
+  PrimaryGeneratedColumn,
+  Column,
+  CreateDateColumn,
+  UpdateDateColumn,
+  Index,
+  BeforeInsert,
+  BeforeUpdate,
+  ManyToOne,
+  JoinColumn,
+} from 'typeorm';
 import { BaseEntity } from './base.entity.js';
 import { UserEntity } from './user.entity.js';
 import * as crypto from 'crypto';
 
-export type UserLLMProviderType = 'openai' | 'anthropic' | 'google' | 'ollama' | 'llmstudio' | 'custom';
+export type UserLLMProviderType =
+  | 'openai'
+  | 'anthropic'
+  | 'google'
+  | 'ollama'
+  | 'llmstudio'
+  | 'custom';
 export type UserLLMProviderStatus = 'active' | 'inactive' | 'error' | 'testing';
 
 @Entity('user_llm_providers')
@@ -11,7 +28,6 @@ export type UserLLMProviderStatus = 'active' | 'inactive' | 'error' | 'testing';
 @Index(['userId', 'isActive'])
 @Index(['userId', 'type', 'priority']) // For efficient provider selection by type and priority
 export class UserLLMProvider extends BaseEntity {
-  
   @Column({ type: 'uuid' })
   userId!: string;
 
@@ -27,7 +43,7 @@ export class UserLLMProvider extends BaseEntity {
 
   @Column({
     type: 'enum',
-    enum: ['openai', 'anthropic', 'google', 'ollama', 'llmstudio', 'custom']
+    enum: ['openai', 'anthropic', 'google', 'ollama', 'llmstudio', 'custom'],
   })
   type!: UserLLMProviderType;
 
@@ -39,7 +55,6 @@ export class UserLLMProvider extends BaseEntity {
 
   @Column({ type: 'varchar', length: 255, nullable: true })
   defaultModel?: string;
-
 
   @Column({ type: 'json', nullable: true })
   configuration?: {
@@ -57,7 +72,7 @@ export class UserLLMProvider extends BaseEntity {
   @Column({
     type: 'enum',
     enum: ['active', 'inactive', 'error', 'testing'],
-    default: 'testing'
+    default: 'testing',
   })
   status!: UserLLMProviderStatus;
 
@@ -91,12 +106,15 @@ export class UserLLMProvider extends BaseEntity {
   };
 
   // Encryption key for API keys - should be set from environment
-  private static readonly ENCRYPTION_KEY = process.env.USER_LLM_PROVIDER_ENCRYPTION_KEY || process.env.LLM_PROVIDER_ENCRYPTION_KEY || 'default-key-change-in-production';
+  private static readonly ENCRYPTION_KEY =
+    process.env.USER_LLM_PROVIDER_ENCRYPTION_KEY ||
+    process.env.LLM_PROVIDER_ENCRYPTION_KEY ||
+    'default-key-change-in-production';
 
   // Get properly sized encryption key for AES-256 (32 bytes)
   private getEncryptionKey(): Buffer {
     const key = UserLLMProvider.ENCRYPTION_KEY;
-    
+
     // For AES-256, we need exactly 32 bytes
     if (key.length === 32) {
       return Buffer.from(key, 'utf8');
@@ -122,7 +140,7 @@ export class UserLLMProvider extends BaseEntity {
     const cipher = crypto.createCipheriv('aes-256-cbc', this.getEncryptionKey(), iv);
     let encrypted = cipher.update(apiKey, 'utf8', 'hex');
     encrypted += cipher.final('hex');
-    
+
     // Store IV + encrypted data (IV is not secret)
     this.apiKeyEncrypted = iv.toString('hex') + ':' + encrypted;
   }
@@ -143,7 +161,7 @@ export class UserLLMProvider extends BaseEntity {
 
       const iv = Buffer.from(parts[0], 'hex');
       const encryptedData = parts[1];
-      
+
       const decipher = crypto.createDecipheriv('aes-256-cbc', this.getEncryptionKey(), iv);
       let decrypted = decipher.update(encryptedData, 'hex', 'utf8');
       decrypted += decipher.final('utf8');
@@ -200,22 +218,26 @@ export class UserLLMProvider extends BaseEntity {
   updateUsageStats(tokensUsed: number, isError: boolean = false): void {
     this.totalTokensUsed = (BigInt(this.totalTokensUsed) + BigInt(tokensUsed)).toString();
     this.totalRequests = (BigInt(this.totalRequests) + BigInt(1)).toString();
-    
+
     if (isError) {
       this.totalErrors = (BigInt(this.totalErrors) + BigInt(1)).toString();
     }
-    
+
     this.lastUsedAt = new Date();
   }
 
   // Method to update health check result
-  updateHealthCheck(result: { status: 'healthy' | 'unhealthy'; latency?: number; error?: string }): void {
+  updateHealthCheck(result: {
+    status: 'healthy' | 'unhealthy';
+    latency?: number;
+    error?: string;
+  }): void {
     this.healthCheckResult = {
       ...result,
       checkedAt: new Date(),
     };
     this.lastHealthCheckAt = new Date();
-    
+
     // Update status based on health check
     if (result.status === 'unhealthy') {
       this.status = 'error';
@@ -223,7 +245,6 @@ export class UserLLMProvider extends BaseEntity {
       this.status = 'active';
     }
   }
-
 
   @BeforeInsert()
   @BeforeUpdate()
@@ -256,4 +277,4 @@ export class UserLLMProvider extends BaseEntity {
       throw new Error(`API key is required for ${this.type} provider`);
     }
   }
-} 
+}

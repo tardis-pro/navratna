@@ -19,16 +19,19 @@ VITE_ORCHESTRATION_SERVICE_URL=http://localhost:3002
 ## Configuration Modes
 
 ### Development with Proxy (Default - Recommended)
+
 - Set `VITE_API_BASE_URL=` (empty string)
 - All API calls go through Vite proxy to avoid CORS
 - Proxy forwards to API Gateway at `localhost:8081`
 
 ### Development without Proxy
+
 - Set `VITE_API_BASE_URL=http://localhost:8081`
 - Direct calls to API Gateway
 - Requires proper CORS configuration on backend
 
 ### Production
+
 - Set `VITE_API_BASE_URL=https://your-api-domain.com`
 - Or leave empty to use same origin as frontend
 
@@ -55,4 +58,4 @@ console.log('Base URL:', envInfo.baseURL);
 
 1. **CORS Errors**: Use proxy mode (default) or ensure backend has proper CORS headers
 2. **Connection Refused**: Check if backend services are running
-3. **Environment Variables**: Ensure they start with `VITE_` prefix for Vite to include them 
+3. **Environment Variables**: Ensure they start with `VITE_` prefix for Vite to include them

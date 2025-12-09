@@ -1,4 +1,13 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, Index, ManyToOne, JoinColumn } from 'typeorm';
+import {
+  Entity,
+  PrimaryGeneratedColumn,
+  Column,
+  CreateDateColumn,
+  UpdateDateColumn,
+  Index,
+  ManyToOne,
+  JoinColumn,
+} from 'typeorm';
 import { BaseEntity } from './base.entity.js';
 import { LLMProvider } from './llmProvider.entity.js';
 
@@ -7,7 +16,6 @@ import { LLMProvider } from './llmProvider.entity.js';
 @Index(['providerId', 'isAvailable'])
 @Index(['isAvailable', 'isActive'])
 export class LLMModel extends BaseEntity {
-  
   @Column({ type: 'varchar', length: 255 })
   name!: string;
 
@@ -96,22 +104,26 @@ export class LLMModel extends BaseEntity {
   updateUsageStats(tokensUsed: number, isError: boolean = false): void {
     this.totalTokensUsed = (BigInt(this.totalTokensUsed) + BigInt(tokensUsed)).toString();
     this.totalRequests = (BigInt(this.totalRequests) + BigInt(1)).toString();
-    
+
     if (isError) {
       this.totalErrors = (BigInt(this.totalErrors) + BigInt(1)).toString();
     }
-    
+
     this.lastUsedAt = new Date();
   }
 
   // Method to update health status
-  updateHealthStatus(result: { status: 'healthy' | 'unhealthy'; latency?: number; error?: string }): void {
+  updateHealthStatus(result: {
+    status: 'healthy' | 'unhealthy';
+    latency?: number;
+    error?: string;
+  }): void {
     this.healthStatus = {
       ...result,
       checkedAt: new Date(),
     };
     this.lastCheckedAt = new Date();
-    
+
     // Update availability based on health status
     if (result.status === 'unhealthy') {
       this.isAvailable = false;

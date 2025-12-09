@@ -29,7 +29,7 @@ const githubProviderConfig: OAuthProviderConfig = {
     requireState: true,
     allowedDomains: ['yourcompany.com'],
     minimumSecurityLevel: 'medium',
-    allowedUserTypes: ['human', 'agent']
+    allowedUserTypes: ['human', 'agent'],
   },
   agentConfig: {
     allowAgentAccess: true,
@@ -37,14 +37,14 @@ const githubProviderConfig: OAuthProviderConfig = {
     permissions: ['clone', 'pull', 'push', 'create_branch', 'create_pr'],
     rateLimit: {
       requests: 1000,
-      windowMs: 3600000 // 1 hour
+      windowMs: 3600000, // 1 hour
     },
     monitoring: {
       logAllRequests: true,
       alertOnSuspiciousActivity: true,
-      maxDailyRequests: 500
-    }
-  }
+      maxDailyRequests: 500,
+    },
+  },
 };
 ```
 
@@ -61,7 +61,7 @@ const gmailProviderConfig: OAuthProviderConfig = {
   scope: [
     'https://www.googleapis.com/auth/gmail.readonly',
     'https://www.googleapis.com/auth/gmail.send',
-    'https://www.googleapis.com/auth/userinfo.email'
+    'https://www.googleapis.com/auth/userinfo.email',
   ],
   authorizationUrl: 'https://accounts.google.com/o/oauth2/v2/auth',
   tokenUrl: 'https://oauth2.googleapis.com/token',
@@ -73,14 +73,14 @@ const gmailProviderConfig: OAuthProviderConfig = {
     permissions: ['read', 'send', 'search'],
     rateLimit: {
       requests: 100,
-      windowMs: 86400000 // 24 hours
+      windowMs: 86400000, // 24 hours
     },
     monitoring: {
       logAllRequests: true,
       alertOnSuspiciousActivity: true,
-      maxDailyRequests: 50
-    }
-  }
+      maxDailyRequests: 50,
+    },
+  },
 };
 ```
 
@@ -105,7 +105,7 @@ const agentUser: EnhancedUser = {
     capabilities: [
       AgentCapability.CODE_REPOSITORY,
       AgentCapability.EMAIL_ACCESS,
-      AgentCapability.NOTE_TAKING
+      AgentCapability.NOTE_TAKING,
     ],
     maxConcurrentSessions: 3,
     allowedProviders: [OAuthProviderType.GITHUB, OAuthProviderType.GMAIL],
@@ -114,25 +114,22 @@ const agentUser: EnhancedUser = {
       logLevel: 'detailed',
       alertOnNewProvider: true,
       alertOnUnusualActivity: true,
-      maxDailyOperations: 200
+      maxDailyOperations: 200,
     },
     restrictions: {
       allowedOperationTypes: ['read', 'write', 'create'],
       maxFileSize: 10485760, // 10MB
-      allowedFileTypes: ['.js', '.ts', '.md', '.txt', '.json']
-    }
-  }
+      allowedFileTypes: ['.js', '.ts', '.md', '.txt', '.json'],
+    },
+  },
 };
 
 // Agent authentication request
 const authRequest: AgentAuthRequest = {
   agentId: 'agent-001',
   agentToken: 'secure-agent-token-here',
-  capabilities: [
-    AgentCapability.CODE_REPOSITORY,
-    AgentCapability.EMAIL_ACCESS
-  ],
-  requestedScopes: ['repo:read', 'email:read']
+  capabilities: [AgentCapability.CODE_REPOSITORY, AgentCapability.EMAIL_ACCESS],
+  requestedScopes: ['repo:read', 'email:read'],
 };
 
 // Authenticate the agent
@@ -159,13 +156,13 @@ const authorizationRequest = {
   provider_id: 'github-provider-1',
   redirect_uri: 'https://your-app.com/oauth/callback',
   user_type: UserType.HUMAN,
-  scope: ['repo', 'user:email']
+  scope: ['repo', 'user:email'],
 };
 
 const response = await fetch('/api/oauth/authorize', {
   method: 'POST',
   headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify(authorizationRequest)
+  body: JSON.stringify(authorizationRequest),
 });
 
 const { authorization_url, state } = await response.json();
@@ -177,13 +174,13 @@ window.location.href = authorization_url;
 const callbackData = {
   code: 'authorization-code-from-provider',
   state: 'state-from-step-1',
-  redirect_uri: 'https://your-app.com/oauth/callback'
+  redirect_uri: 'https://your-app.com/oauth/callback',
 };
 
 const callbackResponse = await fetch('/api/oauth/callback', {
   method: 'POST',
   headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify(callbackData)
+  body: JSON.stringify(callbackData),
 });
 
 const authResult = await callbackResponse.json();
@@ -201,7 +198,7 @@ const agentOAuthRequest = {
   provider_id: 'github-provider-1',
   redirect_uri: 'https://your-app.com/agent/oauth/callback',
   user_type: UserType.AGENT,
-  agent_capabilities: [AgentCapability.CODE_REPOSITORY]
+  agent_capabilities: [AgentCapability.CODE_REPOSITORY],
 };
 
 // After OAuth flow completion, create agent connection
@@ -213,7 +210,7 @@ const connectionId = await oauthProviderService.createAgentOAuthConnection(
     refresh_token: 'github-refresh-token',
     expires_in: 3600,
     token_type: 'Bearer',
-    scope: 'repo user:email'
+    scope: 'repo user:email',
   },
   [AgentCapability.CODE_REPOSITORY],
   ['clone', 'pull', 'push', 'create_branch']
@@ -251,19 +248,21 @@ const enhancedSecurityContext: EnhancedSecurityContext = {
     agentId: 'agent-001',
     agentName: 'Code Assistant Agent',
     capabilities: [AgentCapability.CODE_REPOSITORY],
-    connectedProviders: [{
-      providerId: 'github-provider-1',
-      providerType: OAuthProviderType.GITHUB,
-      capabilities: [AgentCapability.CODE_REPOSITORY],
-      lastUsed: new Date()
-    }],
+    connectedProviders: [
+      {
+        providerId: 'github-provider-1',
+        providerType: OAuthProviderType.GITHUB,
+        capabilities: [AgentCapability.CODE_REPOSITORY],
+        lastUsed: new Date(),
+      },
+    ],
     operationLimits: {
       maxDailyOperations: 200,
       currentDailyOperations: 45,
       maxConcurrentOperations: 3,
-      currentConcurrentOperations: 1
-    }
-  }
+      currentConcurrentOperations: 1,
+    },
+  },
 };
 
 // Security validation request
@@ -275,21 +274,20 @@ const validationRequest: EnhancedSecurityValidationRequest = {
     context: {
       repository: 'my-project',
       branch: 'feature/new-feature',
-      files: ['src/app.js', 'README.md']
-    }
+      files: ['src/app.js', 'README.md'],
+    },
   },
   securityContext: enhancedSecurityContext,
   requestMetadata: {
     requestId: 'req-123',
     source: 'agent-client',
-    priority: 'normal'
-  }
+    priority: 'normal',
+  },
 };
 
 // Validate security
-const validationResult = await enhancedSecurityGatewayService.validateEnhancedSecurity(
-  validationRequest
-);
+const validationResult =
+  await enhancedSecurityGatewayService.validateEnhancedSecurity(validationRequest);
 
 console.log('Operation allowed:', validationResult.allowed);
 console.log('Approval required:', validationResult.approvalRequired);
@@ -304,10 +302,7 @@ console.log('Agent restrictions:', validationResult.agentRestrictions);
 
 ```typescript
 // List repositories for agent
-const repos = await oauthProviderService.getGitHubRepos(
-  'agent-001',
-  'github-provider-1'
-);
+const repos = await oauthProviderService.getGitHubRepos('agent-001', 'github-provider-1');
 
 console.log('Available repositories:', repos.length);
 
@@ -316,17 +311,17 @@ const githubRequest = {
   operation: 'list_repos',
   parameters: {
     type: 'private',
-    sort: 'updated'
-  }
+    sort: 'updated',
+  },
 };
 
 const response = await fetch('/api/oauth/agent/github/github-provider-1', {
   method: 'POST',
   headers: {
-    'Authorization': 'Bearer agent-access-token',
-    'Content-Type': 'application/json'
+    Authorization: 'Bearer agent-access-token',
+    'Content-Type': 'application/json',
   },
-  body: JSON.stringify(githubRequest)
+  body: JSON.stringify(githubRequest),
 });
 
 const result = await response.json();
@@ -352,17 +347,17 @@ const gmailRequest = {
   operation: 'search_messages',
   query: 'is:unread from:important@company.com',
   parameters: {
-    maxResults: 10
-  }
+    maxResults: 10,
+  },
 };
 
 const response = await fetch('/api/oauth/agent/gmail/gmail-provider-1', {
   method: 'POST',
   headers: {
-    'Authorization': 'Bearer agent-access-token',
-    'Content-Type': 'application/json'
+    Authorization: 'Bearer agent-access-token',
+    'Content-Type': 'application/json',
   },
-  body: JSON.stringify(gmailRequest)
+  body: JSON.stringify(gmailRequest),
 });
 
 const result = await response.json();
@@ -387,7 +382,7 @@ await oauthProviderService.recordAgentOperation(
 // Get agent usage statistics
 const connection = await databaseService.findOne('agent_oauth_connections', {
   agentId: 'agent-001',
-  providerId: 'github-provider-1'
+  providerId: 'github-provider-1',
 });
 
 console.log('Usage stats:', connection.usageStats);
@@ -409,10 +404,10 @@ const auditEvents = await auditService.queryEvents({
   eventTypes: [
     AuditEventType.AGENT_OPERATION_SUCCESS,
     AuditEventType.AGENT_OPERATION_FAILED,
-    AuditEventType.PERMISSION_DENIED
+    AuditEventType.PERMISSION_DENIED,
   ],
   startDate: new Date(Date.now() - 24 * 60 * 60 * 1000), // Last 24 hours
-  limit: 100
+  limit: 100,
 });
 
 console.log('Recent agent events:', auditEvents.length);
@@ -428,8 +423,8 @@ const sampleEvent = {
     repository: 'my-project',
     provider: 'github',
     duration: 1250, // ms
-    filesProcessed: 45
-  }
+    filesProcessed: 45,
+  },
 };
 ```
 
@@ -446,10 +441,10 @@ try {
     ipAddress,
     userAgent
   );
-  
+
   if (!authResult.success) {
     console.error('OAuth authentication failed:', authResult.error);
-    
+
     // Handle specific error cases
     switch (authResult.error) {
       case 'invalid_grant':
@@ -467,7 +462,7 @@ try {
   }
 } catch (error) {
   console.error('OAuth flow error:', error.message);
-  
+
   // Log security event
   await auditService.logEvent({
     eventType: AuditEventType.OAUTH_ERROR,
@@ -476,8 +471,8 @@ try {
       code,
       state,
       ipAddress,
-      userAgent
-    }
+      userAgent,
+    },
   });
 }
 ```
@@ -492,10 +487,10 @@ try {
     'push_code',
     AgentCapability.CODE_REPOSITORY
   );
-  
+
   if (!validation.allowed) {
     console.error('Agent operation denied:', validation.reason);
-    
+
     // Handle specific denial reasons
     switch (validation.reason) {
       case 'Missing capability: code_repository':
@@ -511,16 +506,15 @@ try {
       default:
         console.log('Operation denied for unknown reason');
     }
-    
+
     return;
   }
-  
+
   // Proceed with operation
   const result = await performGitPushOperation();
-  
 } catch (error) {
   console.error('Agent operation error:', error.message);
-  
+
   // Record failed operation
   await oauthProviderService.recordAgentOperation(
     'agent-001',
@@ -551,7 +545,7 @@ const encryptedToken = await encryptToken(accessToken, encryptionKey);
 const agentRateLimit = {
   requests: 100,
   windowMs: 3600000, // 1 hour
-  burstLimit: 10 // Allow short bursts
+  burstLimit: 10, // Allow short bursts
 };
 
 // 4. Monitor agent operations continuously
@@ -559,7 +553,7 @@ const monitoringConfig = {
   logAllRequests: true,
   alertOnSuspiciousActivity: true,
   maxDailyRequests: 500,
-  errorThreshold: 0.05 // 5% error rate
+  errorThreshold: 0.05, // 5% error rate
 };
 ```
 
@@ -575,7 +569,7 @@ async function retryWithBackoff(operation: () => Promise<any>, maxRetries = 3) {
       if (error.message.includes('rate limit') && attempt < maxRetries) {
         const delay = Math.pow(2, attempt) * 1000; // Exponential backoff
         console.log(`Rate limited, retrying in ${delay}ms...`);
-        await new Promise(resolve => setTimeout(resolve, delay));
+        await new Promise((resolve) => setTimeout(resolve, delay));
         continue;
       }
       throw error;
@@ -584,9 +578,9 @@ async function retryWithBackoff(operation: () => Promise<any>, maxRetries = 3) {
 }
 
 // Usage
-const repos = await retryWithBackoff(() => 
+const repos = await retryWithBackoff(() =>
   oauthProviderService.getGitHubRepos('agent-001', 'github-provider-1')
 );
 ```
 
-This enhanced security system provides comprehensive protection while enabling powerful agent capabilities and seamless OAuth integration. The examples above demonstrate how to implement secure authentication, authorization, and monitoring for both human users and AI agents. 
+This enhanced security system provides comprehensive protection while enabling powerful agent capabilities and seamless OAuth integration. The examples above demonstrate how to implement secure authentication, authorization, and monitoring for both human users and AI agents.

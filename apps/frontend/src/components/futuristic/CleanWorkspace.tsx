@@ -1,25 +1,22 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import {
-  User,
-  Activity,
-  Clock
-} from 'lucide-react';
+import { User, Activity, Clock } from 'lucide-react';
 import { RoleBasedDesktopConfig, DesktopIconConfig } from './desktop/RoleBasedDesktopConfig';
 import { useAuth } from '@/contexts/AuthContext';
 import { PortalWorkspace } from './PortalWorkspace';
 
-const DesktopIcon: React.FC<{ 
-  config: DesktopIconConfig; 
+const DesktopIcon: React.FC<{
+  config: DesktopIconConfig;
   size: 'small' | 'large';
   onClick: () => void;
 }> = ({ config, size, onClick }) => {
   const Icon = config.icon;
-  
-  const sizeClasses = size === 'small' 
-    ? { container: 'w-16 h-20', icon: 'w-12 h-12', iconSize: 'w-6 h-6' }
-    : { container: 'w-20 h-24', icon: 'w-16 h-16', iconSize: 'w-8 h-8' };
-  
+
+  const sizeClasses =
+    size === 'small'
+      ? { container: 'w-16 h-20', icon: 'w-12 h-12', iconSize: 'w-6 h-6' }
+      : { container: 'w-20 h-24', icon: 'w-16 h-16', iconSize: 'w-8 h-8' };
+
   return (
     <motion.div
       className={`${sizeClasses.container} flex flex-col items-center justify-center cursor-pointer group relative`}
@@ -27,7 +24,7 @@ const DesktopIcon: React.FC<{
       whileTap={{ scale: 0.95 }}
       onClick={onClick}
     >
-      <div 
+      <div
         className={`
           ${sizeClasses.icon} rounded-2xl backdrop-blur-sm border
           flex items-center justify-center
@@ -37,15 +34,12 @@ const DesktopIcon: React.FC<{
         style={{
           backgroundColor: `${config.color.primary}15`,
           borderColor: `${config.color.primary}30`,
-          boxShadow: `0 0 20px ${config.color.primary}10`
+          boxShadow: `0 0 20px ${config.color.primary}10`,
         }}
       >
-        <Icon 
-          className={`${sizeClasses.iconSize}`} 
-          style={{ color: config.color.primary }}
-        />
+        <Icon className={`${sizeClasses.iconSize}`} style={{ color: config.color.primary }} />
       </div>
-      
+
       {/* Badge */}
       {config.badge && (
         <div className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 rounded-full flex items-center justify-center">
@@ -54,16 +48,17 @@ const DesktopIcon: React.FC<{
           </span>
         </div>
       )}
-      
-      <span className={`
+
+      <span
+        className={`
         mt-2 text-xs font-medium text-center
         max-w-full truncate px-1 leading-tight
       `}
-      style={{ color: config.color.primary }}
+        style={{ color: config.color.primary }}
       >
         {config.title}
       </span>
-      
+
       {/* Shortcut hint */}
       {config.shortcut && size === 'large' && (
         <span className="text-xs opacity-60 mt-1" style={{ color: config.color.secondary }}>
@@ -79,10 +74,10 @@ export const CleanWorkspace: React.FC = () => {
   const [viewport, setViewport] = useState({
     width: typeof window !== 'undefined' ? window.innerWidth : 1024,
     height: typeof window !== 'undefined' ? window.innerHeight : 768,
-    isMobile: false
+    isMobile: false,
   });
   const [showPortals, setShowPortals] = useState(false);
-  
+
   const { user } = useAuth();
   const userRole = user?.role || 'guest';
 
@@ -108,7 +103,7 @@ export const CleanWorkspace: React.FC = () => {
       setViewport({
         width,
         height,
-        isMobile: width < 768
+        isMobile: width < 768,
       });
     };
     updateViewport();
@@ -119,15 +114,17 @@ export const CleanWorkspace: React.FC = () => {
   const handleIconClick = (config: DesktopIconConfig) => {
     console.log(`Opening ${config.portalType} portal`);
     setShowPortals(true);
-    
+
     // Trigger portal opening via custom event
-    window.dispatchEvent(new CustomEvent('openPortal', { 
-      detail: { 
-        type: config.portalType,
-        title: config.title,
-        config: config
-      } 
-    }));
+    window.dispatchEvent(
+      new CustomEvent('openPortal', {
+        detail: {
+          type: config.portalType,
+          title: config.title,
+          config: config,
+        },
+      })
+    );
   };
 
   if (showPortals) {
@@ -142,11 +139,9 @@ export const CleanWorkspace: React.FC = () => {
           <div className="w-8 h-8 bg-gradient-to-br from-blue-400 to-cyan-400 rounded-lg flex items-center justify-center flex-shrink-0">
             <span className="text-white font-bold text-sm">🏛️</span>
           </div>
-          <h1 className="text-white font-semibold text-lg truncate">
-            Navratna
-          </h1>
+          <h1 className="text-white font-semibold text-lg truncate">Navratna</h1>
         </div>
-        
+
         <div className="flex items-center gap-2 md:gap-4 text-slate-300 flex-shrink-0">
           <div className="hidden sm:flex items-center gap-2 px-3 py-1 bg-white/10 rounded-full">
             <Activity className="w-4 h-4 text-green-400" />
@@ -222,9 +217,7 @@ export const CleanWorkspace: React.FC = () => {
           {/* Restricted Icons */}
           {desktopLayout.restrictedIcons.length > 0 && !viewport.isMobile && (
             <div className="mb-8">
-              <h2 className="text-red-400 text-sm font-medium mb-4 px-2 truncate">
-                System Level
-              </h2>
+              <h2 className="text-red-400 text-sm font-medium mb-4 px-2 truncate">System Level</h2>
               <div className="grid grid-cols-6 gap-6">
                 {desktopLayout.restrictedIcons.map((icon) => (
                   <DesktopIcon
@@ -252,7 +245,7 @@ export const CleanWorkspace: React.FC = () => {
             {Object.values(desktopLayout).flat().length} Apps Available
           </div>
         </div>
-        
+
         <div className="flex items-center gap-2 text-slate-400 min-w-0 flex-shrink-0">
           <User className="w-4 h-4" />
           <span className="text-sm truncate max-w-20 md:max-w-32 capitalize">

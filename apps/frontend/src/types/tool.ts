@@ -25,5 +25,5 @@ export type {
   ToolPermissionManager,
   ToolEvent,
   ToolEventHandler,
-  ToolSystemConfig
-} from '@uaip/types'; 
+  ToolSystemConfig,
+} from '@uaip/types';

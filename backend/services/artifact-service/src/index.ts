@@ -21,9 +21,9 @@ class ArtifactServiceApp extends BaseService {
       version: '1.0.0',
       rateLimitConfig: {
         windowMs: 15 * 60 * 1000, // 15 minutes
-        max: 100 // limit each IP to 100 requests per windowMs
+        max: 100, // limit each IP to 100 requests per windowMs
       },
-      customMiddleware: []
+      customMiddleware: [],
     };
     super(serviceConfig);
     this.artifactFactory = new ArtifactFactory();
@@ -33,13 +33,13 @@ class ArtifactServiceApp extends BaseService {
 
   protected async initialize(): Promise<void> {
     logger.info('Initializing Artifact Service...');
-    
+
     // Service-specific initialization
     await this.artifactService.initialize();
-    
+
     // Set up event listeners for discussion completion
     await this.setupDiscussionEventListeners();
-    
+
     logger.info('Artifact Service initialized successfully');
   }
 
@@ -49,19 +49,20 @@ class ArtifactServiceApp extends BaseService {
       await this.eventBusService.subscribe('discussion.completed', async (eventMessage) => {
         await this.handleDiscussionCompletion(eventMessage);
       });
-      
+
       logger.info('Discussion event listeners set up successfully');
     } catch (error) {
       logger.error('Failed to set up discussion event listeners', {
-        error: error instanceof Error ? error.message : 'Unknown error'
+        error: error instanceof Error ? error.message : 'Unknown error',
       });
     }
   }
 
   private async handleDiscussionCompletion(eventMessage: any): Promise<void> {
     try {
-      const { discussionId, discussion, messages, participants, artifactGeneration } = eventMessage.data;
-      
+      const { discussionId, discussion, messages, participants, artifactGeneration } =
+        eventMessage.data;
+
       logger.info('Received discussion completion event', {
         discussionId,
         discussionTitle: discussion.title,
@@ -69,7 +70,7 @@ class ArtifactServiceApp extends BaseService {
         suggestedArtifactType: artifactGeneration.suggestedType,
         priority: artifactGeneration.priority,
         messageCount: messages.length,
-        participantCount: participants.length
+        participantCount: participants.length,
       });
 
       // Create conversation context for analysis
@@ -82,15 +83,15 @@ class ArtifactServiceApp extends BaseService {
           timestamp: new Date(msg.timestamp),
           metadata: {
             participantId: msg.participantId,
-            messageType: msg.messageType
-          }
+            messageType: msg.messageType,
+          },
         })),
         participants: participants.map((p: any) => ({
           id: p.id,
           agentId: p.agentId,
           userId: p.userId,
           role: p.role,
-          messageCount: p.messageCount
+          messageCount: p.messageCount,
         })),
         summary: `Discussion: ${discussion.title} - ${discussion.description}`,
         topics: [discussion.topic || discussion.title],
@@ -103,13 +104,14 @@ class ArtifactServiceApp extends BaseService {
           discussionTopic: discussion.topic,
           completionReason: discussion.completionReason,
           discussionMetrics: discussion.metrics,
-          ...artifactGeneration.metadata
-        }
+          ...artifactGeneration.metadata,
+        },
       };
 
       // Use ConversationAnalyzer to analyze the discussion
-      const conversationSummary = await this.conversationAnalyzer.analyzeConversation(conversationContext);
-      
+      const conversationSummary =
+        await this.conversationAnalyzer.analyzeConversation(conversationContext);
+
       // Update context with analyzed data
       conversationContext.decisions = conversationSummary.decisions;
       conversationContext.actionItems = conversationSummary.actionItems;
@@ -123,20 +125,20 @@ class ArtifactServiceApp extends BaseService {
           autoGenerate: true,
           template: this.selectTemplateForArtifact(artifactGeneration.suggestedType, discussion),
           language: this.inferLanguageFromDiscussion(messages),
-          framework: this.inferFrameworkFromDiscussion(messages)
-        }
+          framework: this.inferFrameworkFromDiscussion(messages),
+        },
       };
 
       // Generate the artifact
       const result = await this.artifactService.generateArtifact(artifactRequest);
-      
+
       if (result.success) {
         logger.info('Artifact generated successfully from discussion completion', {
           discussionId,
           artifactType: artifactGeneration.suggestedType,
           artifactId: result.artifact?.id,
           isValid: result.artifact?.validation?.isValid,
-          validationScore: result.artifact?.validation?.score
+          validationScore: result.artifact?.validation?.score,
         });
 
         // Generate short link for the artifact if autoShare is enabled
@@ -146,19 +148,19 @@ class ArtifactServiceApp extends BaseService {
             const shortLinkResponse = await this.createArtifactShareLink(result.artifact.id, {
               title: `${result.artifact.metadata?.title || 'Generated Artifact'}`,
               description: `Auto-shared artifact from discussion: ${discussion.title}`,
-              generateQR: true
+              generateQR: true,
             });
             shareUrl = shortLinkResponse.shortUrl;
             logger.info('Share URL generated for artifact', {
               discussionId,
               artifactId: result.artifact.id,
-              shareUrl
+              shareUrl,
             });
           } catch (error) {
             logger.error('Failed to create share link for artifact', {
               discussionId,
               artifactId: result.artifact.id,
-              error: error instanceof Error ? error.message : 'Unknown error'
+              error: error instanceof Error ? error.message : 'Unknown error',
             });
           }
         }
@@ -172,14 +174,14 @@ class ArtifactServiceApp extends BaseService {
           success: true,
           artifact: result.artifact,
           shareUrl,
-          timestamp: new Date()
+          timestamp: new Date(),
         });
       } else {
         logger.error('Failed to generate artifact from discussion completion', {
           discussionId,
           artifactType: artifactGeneration.suggestedType,
           error: result.error?.message,
-          errorCode: result.error?.code
+          errorCode: result.error?.code,
         });
 
         // Emit artifact generation failure event
@@ -189,13 +191,13 @@ class ArtifactServiceApp extends BaseService {
           generationTrigger: 'discussion_completion',
           success: false,
           error: result.error,
-          timestamp: new Date()
+          timestamp: new Date(),
         });
       }
     } catch (error) {
       logger.error('Error handling discussion completion event', {
         error: error instanceof Error ? error.message : 'Unknown error',
-        eventMessage: eventMessage.data
+        eventMessage: eventMessage.data,
       });
     }
   }
@@ -218,8 +220,8 @@ class ArtifactServiceApp extends BaseService {
 
   private inferLanguageFromDiscussion(messages: any[]): string | undefined {
     // Analyze messages to infer programming language
-    const messageContent = messages.map(m => m.content.toLowerCase()).join(' ');
-    
+    const messageContent = messages.map((m) => m.content.toLowerCase()).join(' ');
+
     if (messageContent.includes('typescript') || messageContent.includes('tsx')) {
       return 'typescript';
     } else if (messageContent.includes('javascript') || messageContent.includes('js')) {
@@ -233,14 +235,14 @@ class ArtifactServiceApp extends BaseService {
     } else if (messageContent.includes('go') || messageContent.includes('golang')) {
       return 'go';
     }
-    
+
     return undefined;
   }
 
   private inferFrameworkFromDiscussion(messages: any[]): string | undefined {
     // Analyze messages to infer framework
-    const messageContent = messages.map(m => m.content.toLowerCase()).join(' ');
-    
+    const messageContent = messages.map((m) => m.content.toLowerCase()).join(' ');
+
     if (messageContent.includes('react') || messageContent.includes('jsx')) {
       return 'react';
     } else if (messageContent.includes('vue') || messageContent.includes('nuxt')) {
@@ -254,10 +256,9 @@ class ArtifactServiceApp extends BaseService {
     } else if (messageContent.includes('spring') || messageContent.includes('springboot')) {
       return 'spring';
     }
-    
+
     return undefined;
   }
-
 
   protected async setupRoutes(): Promise<void> {
     // Register Elysia route groups
@@ -272,7 +273,7 @@ class ArtifactServiceApp extends BaseService {
         service: this.config.name,
         version: this.config.version,
         factory: factoryStatus,
-        serviceHealth
+        serviceHealth,
       };
     });
   }
@@ -297,7 +298,7 @@ class ArtifactServiceApp extends BaseService {
   }
 
   private async createArtifactShareLink(
-    artifactId: string, 
+    artifactId: string,
     options: {
       title?: string;
       description?: string;
@@ -312,15 +313,15 @@ class ArtifactServiceApp extends BaseService {
         headers: {
           'Content-Type': 'application/json',
           // Use system authentication for internal service calls
-          'Authorization': `Bearer ${process.env.INTERNAL_SERVICE_TOKEN || 'system-internal-token'}`
+          Authorization: `Bearer ${process.env.INTERNAL_SERVICE_TOKEN || 'system-internal-token'}`,
         },
         body: JSON.stringify({
           title: options.title,
           description: options.description,
           generateQR: options.generateQR,
           maxClicks: 10000, // High limit for public artifacts
-          tags: ['artifact', 'auto-generated', 'discussion-triggered']
-        })
+          tags: ['artifact', 'auto-generated', 'discussion-triggered'],
+        }),
       });
 
       if (!response.ok) {
@@ -328,19 +329,19 @@ class ArtifactServiceApp extends BaseService {
       }
 
       const data = await response.json();
-      
+
       if (!data.success) {
         throw new Error(data.message || 'Failed to create share link');
       }
 
       return {
         shortUrl: data.data.shortUrl,
-        qrCode: data.data.qrCode
+        qrCode: data.data.qrCode,
       };
     } catch (error) {
       logger.error('Failed to create artifact share link via security gateway', {
         artifactId,
-        error: error instanceof Error ? error.message : 'Unknown error'
+        error: error instanceof Error ? error.message : 'Unknown error',
       });
       throw error;
     }
@@ -351,7 +352,7 @@ class ArtifactServiceApp extends BaseService {
 const service = new ArtifactServiceApp();
 
 // Start the service
-service.start().catch(error => {
+service.start().catch((error) => {
   logger.error('Failed to start Artifact Service:', error);
   process.exit(1);
 });

@@ -21,7 +21,7 @@ export class LocationService {
             latitude: position.coords.latitude,
             longitude: position.coords.longitude,
             accuracy: position.coords.accuracy,
-            timestamp: position.timestamp
+            timestamp: position.timestamp,
           });
         },
         (error) => {
@@ -31,33 +31,40 @@ export class LocationService {
         {
           enableHighAccuracy: true,
           timeout: 10000,
-          maximumAge: 300000 // 5 minutes
+          maximumAge: 300000, // 5 minutes
         }
       );
     });
   }
 
-  static async reverseGeocode(lat: number, lng: number): Promise<{city?: string, country?: string}> {
+  static async reverseGeocode(
+    lat: number,
+    lng: number
+  ): Promise<{ city?: string; country?: string }> {
     try {
       // Using OpenStreetMap Nominatim (free)
       const response = await fetch(
         `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=10&addressdetails=1`,
         {
           headers: {
-            'User-Agent': 'Council-of-Nycea/1.0'
-          }
+            'User-Agent': 'Council-of-Nycea/1.0',
+          },
         }
       );
-      
+
       if (!response.ok) {
         throw new Error('Geocoding request failed');
       }
-      
+
       const data = await response.json();
-      
+
       return {
-        city: data.address?.city || data.address?.town || data.address?.village || data.address?.municipality,
-        country: data.address?.country
+        city:
+          data.address?.city ||
+          data.address?.town ||
+          data.address?.village ||
+          data.address?.municipality,
+        country: data.address?.country,
       };
     } catch (error) {
       console.warn('Reverse geocoding failed:', error);
@@ -76,7 +83,7 @@ export class LocationService {
       const locationData = localStorage.getItem('userLocation');
       const consent = localStorage.getItem('locationConsent');
       const timestamp = localStorage.getItem('locationTimestamp');
-      
+
       if (!locationData || consent !== 'true') {
         return null;
       }

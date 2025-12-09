@@ -14,7 +14,7 @@ const defaultOptions: RequestLoggerOptions = {
   includeBody: false,
   includeHeaders: false,
   excludePaths: ['/health', '/metrics'],
-  maxBodyLength: 1000
+  maxBodyLength: 1000,
 };
 
 // Elysia request logger plugin
@@ -29,7 +29,7 @@ export function requestLogger(options: RequestLoggerOptions = {}) {
         const url = new URL(request.url);
 
         // Skip logging for excluded paths
-        const shouldLog = !opts.excludePaths?.some(path => url.pathname.startsWith(path));
+        const shouldLog = !opts.excludePaths?.some((path) => url.pathname.startsWith(path));
 
         if (shouldLog) {
           const forwarded = request.headers.get('x-forwarded-for');
@@ -42,7 +42,7 @@ export function requestLogger(options: RequestLoggerOptions = {}) {
             path: url.pathname,
             userAgent: request.headers.get('user-agent'),
             ip,
-            timestamp: new Date().toISOString()
+            timestamp: new Date().toISOString(),
           };
 
           if (opts.includeHeaders) {
@@ -80,7 +80,7 @@ export function requestLogger(options: RequestLoggerOptions = {}) {
           url: request.url,
           statusCode,
           duration,
-          contentLength: set.headers?.['content-length'] || 0
+          contentLength: set.headers?.['content-length'] || 0,
         };
 
         if (statusCode >= 400) {

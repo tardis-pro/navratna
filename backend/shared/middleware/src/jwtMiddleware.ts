@@ -10,7 +10,7 @@ const jwtPayloadSchema = z.object({
   role: z.string().optional(),
   permissions: z.array(z.string()).optional(),
   iat: z.number(),
-  exp: z.number()
+  exp: z.number(),
 });
 
 export type JWTPayload = z.infer<typeof jwtPayloadSchema>;
@@ -37,7 +37,7 @@ export class JWTValidator {
       algorithm: 'HS256',
       expiresIn: '1h',
       refreshExpiresIn: '7d',
-      ...config
+      ...config,
     };
 
     // Clean cache periodically
@@ -74,7 +74,7 @@ export class JWTValidator {
       const decoded = jwt.verify(token, this.config.secret, {
         algorithms: [this.config.algorithm || 'HS256'],
         issuer: this.config.issuer,
-        audience: this.config.audience
+        audience: this.config.audience,
       }) as any;
 
       const payload = jwtPayloadSchema.parse(decoded);
@@ -82,23 +82,28 @@ export class JWTValidator {
       // Cache the result
       this.tokenCache.set(token, {
         payload,
-        expiry: payload.exp * 1000
+        expiry: payload.exp * 1000,
       });
 
       return payload;
     } catch (error) {
-      logger.warn('JWT verification failed', { error: error instanceof Error ? error.message : 'Unknown error' });
+      logger.warn('JWT verification failed', {
+        error: error instanceof Error ? error.message : 'Unknown error',
+      });
       throw error;
     }
   }
 
-  public sign(payload: Omit<JWTPayload, 'iat' | 'exp'>, options?: { expiresIn?: string | number }): string {
+  public sign(
+    payload: Omit<JWTPayload, 'iat' | 'exp'>,
+    options?: { expiresIn?: string | number }
+  ): string {
     const expiresIn = options?.expiresIn || this.config.expiresIn;
     const signOptions: jwt.SignOptions = {
       algorithm: this.config.algorithm || 'HS256',
       issuer: this.config.issuer,
       audience: this.config.audience,
-      ...(expiresIn && { expiresIn: expiresIn as jwt.SignOptions['expiresIn'] })
+      ...(expiresIn && { expiresIn: expiresIn as jwt.SignOptions['expiresIn'] }),
     };
 
     return jwt.sign(payload, this.config.secret, signOptions);
@@ -108,9 +113,10 @@ export class JWTValidator {
     const expiresIn = this.config.refreshExpiresIn;
     const signOptions: jwt.SignOptions = {
       algorithm: this.config.algorithm || 'HS256',
-      expiresIn: typeof expiresIn === 'number' ? expiresIn : expiresIn as jwt.SignOptions['expiresIn'],
+      expiresIn:
+        typeof expiresIn === 'number' ? expiresIn : (expiresIn as jwt.SignOptions['expiresIn']),
       issuer: this.config.issuer,
-      audience: this.config.audience
+      audience: this.config.audience,
     };
 
     return jwt.sign(payload, this.config.secret, signOptions);
@@ -165,12 +171,12 @@ export function createJWTMiddleware(options?: {
             id: payload.userId,
             email: payload.email,
             role: payload.role,
-            permissions: payload.permissions || []
-          }
+            permissions: payload.permissions || [],
+          },
         };
       } catch (error) {
         logger.warn('JWT middleware authentication failed', {
-          error: error instanceof Error ? error.message : 'Unknown error'
+          error: error instanceof Error ? error.message : 'Unknown error',
         });
 
         if (options?.optional) {
@@ -182,8 +188,8 @@ export function createJWTMiddleware(options?: {
           user: null,
           authError: {
             error: 'Invalid token',
-            details: error instanceof Error ? error.message : 'Token verification failed'
-          }
+            details: error instanceof Error ? error.message : 'Token verification failed',
+          },
         };
       }
     });
@@ -195,7 +201,10 @@ export function requireRole(...roles: string[]) {
   return (app: Elysia) => {
     return app.guard({
       beforeHandle(ctx) {
-        const { user, set } = ctx as unknown as { user: { role: string } | null; set: { status: number } };
+        const { user, set } = ctx as unknown as {
+          user: { role: string } | null;
+          set: { status: number };
+        };
         if (!user) {
           set.status = 401;
           return { error: 'Authentication required' };
@@ -206,10 +215,10 @@ export function requireRole(...roles: string[]) {
           return {
             error: 'Insufficient role',
             required: roles,
-            current: user.role
+            current: user.role,
           };
         }
-      }
+      },
     });
   };
 }
@@ -219,24 +228,27 @@ export function requirePermissions(...permissions: string[]) {
   return (app: Elysia) => {
     return app.guard({
       beforeHandle(ctx) {
-        const { user, set } = ctx as unknown as { user: { role: string; permissions?: string[] } | null; set: { status: number } };
+        const { user, set } = ctx as unknown as {
+          user: { role: string; permissions?: string[] } | null;
+          set: { status: number };
+        };
         if (!user) {
           set.status = 401;
           return { error: 'Authentication required' };
         }
 
         const userPermissions = user.permissions || [];
-        const hasPermissions = permissions.every(p => userPermissions.includes(p));
+        const hasPermissions = permissions.every((p) => userPermissions.includes(p));
 
         if (!hasPermissions && user.role !== 'admin') {
           set.status = 403;
           return {
             error: 'Insufficient permissions',
             required: permissions,
-            current: userPermissions
+            current: userPermissions,
           };
         }
-      }
+      },
     });
   };
 }
@@ -251,7 +263,7 @@ export async function refreshTokenMiddleware(request: Request): Promise<Response
     if (!refreshToken) {
       return new Response(JSON.stringify({ error: 'Refresh token required' }), {
         status: 400,
-        headers: { 'Content-Type': 'application/json' }
+        headers: { 'Content-Type': 'application/json' },
       });
     }
 
@@ -262,27 +274,33 @@ export async function refreshTokenMiddleware(request: Request): Promise<Response
       userId: payload.userId,
       email: payload.email,
       role: payload.role,
-      permissions: payload.permissions
+      permissions: payload.permissions,
     });
 
-    return new Response(JSON.stringify({
-      accessToken: newAccessToken,
-      tokenType: 'Bearer'
-    }), {
-      status: 200,
-      headers: { 'Content-Type': 'application/json' }
-    });
+    return new Response(
+      JSON.stringify({
+        accessToken: newAccessToken,
+        tokenType: 'Bearer',
+      }),
+      {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      }
+    );
   } catch (error) {
     logger.warn('Refresh token failed', {
-      error: error instanceof Error ? error.message : 'Unknown error'
+      error: error instanceof Error ? error.message : 'Unknown error',
     });
 
-    return new Response(JSON.stringify({
-      error: 'Invalid refresh token',
-      details: error instanceof Error ? error.message : 'Token verification failed'
-    }), {
-      status: 401,
-      headers: { 'Content-Type': 'application/json' }
-    });
+    return new Response(
+      JSON.stringify({
+        error: 'Invalid refresh token',
+        details: error instanceof Error ? error.message : 'Token verification failed',
+      }),
+      {
+        status: 401,
+        headers: { 'Content-Type': 'application/json' },
+      }
+    );
   }
 }

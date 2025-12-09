@@ -7,13 +7,13 @@ export enum KnowledgeType {
   CONCEPTUAL = 'CONCEPTUAL',
   EXPERIENTIAL = 'EXPERIENTIAL',
   EPISODIC = 'EPISODIC',
-  SEMANTIC = 'SEMANTIC'
+  SEMANTIC = 'SEMANTIC',
 }
 
 // Knowledge Scope for three-layered architecture
 export interface KnowledgeScope {
-  userId?: string;    // User-specific knowledge
-  agentId?: string;   // Agent-specific knowledge  
+  userId?: string; // User-specific knowledge
+  agentId?: string; // Agent-specific knowledge
   // When both are null, it's general knowledge
 }
 
@@ -27,14 +27,14 @@ export enum SourceType {
   USER_INPUT = 'USER_INPUT',
   AGENT_EPISODE = 'AGENT_EPISODE',
   AGENT_CONCEPT = 'AGENT_CONCEPT',
-  CLUSTERED = 'CLUSTERED'
+  CLUSTERED = 'CLUSTERED',
 }
 
 export enum SyncStatusType {
   PENDING = 'pending',
   IN_PROGRESS = 'in_progress',
   COMPLETED = 'completed',
-  FAILED = 'failed'
+  FAILED = 'failed',
 }
 
 // Core Knowledge Item
@@ -54,9 +54,9 @@ export interface KnowledgeItem {
   organizationId?: string;
   accessLevel: string;
   // Three-layered knowledge architecture
-  userId?: string;    // User-specific knowledge layer
-  agentId?: string;   // Agent-specific knowledge layer
-  summary?: string;   // Optional summary for large content
+  userId?: string; // User-specific knowledge layer
+  agentId?: string; // Agent-specific knowledge layer
+  summary?: string; // Optional summary for large content
 }
 
 // Knowledge Search Interfaces
@@ -147,9 +147,9 @@ export interface KnowledgeRelationship {
   confidence: number;
   createdAt: Date;
   // Three-layered knowledge architecture
-  userId?: string;    // User-specific relationship layer
-  agentId?: string;   // Agent-specific relationship layer
-  summary?: string;   // Optional summary for complex relationships
+  userId?: string; // User-specific relationship layer
+  agentId?: string; // Agent-specific relationship layer
+  summary?: string; // Optional summary for complex relationships
 }
 
 // Knowledge Sources
@@ -350,7 +350,6 @@ export interface Action {
   metadata?: Record<string, any>;
 }
 
-
 export interface Outcome {
   id: string;
   description: string;
@@ -476,4 +475,4 @@ export interface WorkingMemoryUpdate {
   environment?: Record<string, any>;
   agentState?: Record<string, any>;
   knowledgeUpdated?: Record<string, any>;
-} 
+}

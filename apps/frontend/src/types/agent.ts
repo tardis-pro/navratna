@@ -20,7 +20,7 @@ export type {
   ActionRecommendation,
   AgentAnalysisResult,
   ExecutionPlan,
-  LearningResult
+  LearningResult,
 } from '@uaip/types';
 
 // Import frontend extensions
@@ -31,7 +31,7 @@ export type {
   AgentProps,
   AgentContextValue,
   ModelProvider,
-  ModelInfo
+  ModelInfo,
 } from './frontend-extensions';
 
 // Import tool types
@@ -43,8 +43,8 @@ export type {
   ToolExecution,
   ToolPreferences,
   ToolBudget,
-  ToolCapableMessage
+  ToolCapableMessage,
 } from '@uaip/types';
 
 // Re-export the helper function
-export { createAgentStateFromShared as createAgentStateFromBackend } from './frontend-extensions'; 
+export { createAgentStateFromShared as createAgentStateFromBackend } from './frontend-extensions';

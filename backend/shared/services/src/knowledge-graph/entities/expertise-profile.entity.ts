@@ -7,14 +7,14 @@ export enum ExpertiseLevel {
   INTERMEDIATE = 'intermediate',
   ADVANCED = 'advanced',
   EXPERT = 'expert',
-  MASTER = 'master'
+  MASTER = 'master',
 }
 
 export enum ExpertiseConfidence {
   LOW = 'low',
   MEDIUM = 'medium',
   HIGH = 'high',
-  VERY_HIGH = 'very_high'
+  VERY_HIGH = 'very_high',
 }
 
 @Entity('expertise_profiles')
@@ -43,14 +43,14 @@ export class ExpertiseProfileEntity extends BaseEntity {
     type: 'enum',
     enum: ExpertiseLevel,
     name: 'expertise_level',
-    default: ExpertiseLevel.INTERMEDIATE
+    default: ExpertiseLevel.INTERMEDIATE,
   })
   expertiseLevel!: ExpertiseLevel;
 
   @Column({
     type: 'enum',
     enum: ExpertiseConfidence,
-    default: ExpertiseConfidence.MEDIUM
+    default: ExpertiseConfidence.MEDIUM,
   })
   confidence!: ExpertiseConfidence;
 

@@ -36,7 +36,7 @@ export type {
   StepExecutionResult,
   ParallelExecutionPolicy,
   FailurePolicy,
-  ResourceRequirements
+  ResourceRequirements,
 } from '@uaip/types';
 
 // Frontend-specific extensions
@@ -44,4 +44,4 @@ export interface UIOperationExtensions {
   progress?: number;
   startTime?: Date;
   endTime?: Date;
-} 
+}

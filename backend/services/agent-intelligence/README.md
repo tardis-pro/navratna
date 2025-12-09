@@ -33,6 +33,7 @@ npm start
 ## API Endpoints
 
 ### Agent Management
+
 - `GET /api/v1/agents` - List all agents
 - `POST /api/v1/agents` - Create new agent
 - `GET /api/v1/agents/:id` - Get agent details
@@ -40,22 +41,26 @@ npm start
 - `DELETE /api/v1/agents/:id` - Delete agent
 
 ### Chat Interface
+
 - `POST /api/v1/agents/:id/chat` - Chat with agent (see [Chat Endpoint Guide](./CHAT_ENDPOINT_GUIDE.md))
 - `GET /api/v1/agents/:id/conversations` - Get conversation history
 - `POST /api/v1/agents/:id/conversations/:conversationId/context` - Add conversation context
 
 ### Memory Management
+
 - `GET /api/v1/agents/:id/memory` - Get agent memory state
 - `POST /api/v1/agents/:id/memory/episodes` - Add episodic memory
 - `PUT /api/v1/agents/:id/memory/working` - Update working memory
 - `DELETE /api/v1/agents/:id/memory/clear` - Clear specific memory types
 
 ### Discussion Integration
+
 - `POST /api/v1/agents/:id/discussions/:discussionId/participate` - Join discussion
 - `GET /api/v1/agents/:id/discussions/active` - Get active discussions
 - `POST /api/v1/agents/:id/discussions/:discussionId/response` - Generate discussion response
 
 ### Analytics & Insights
+
 - `GET /api/v1/agents/:id/analytics` - Get agent performance metrics
 - `GET /api/v1/agents/:id/learning-progress` - Get learning progress
 - `POST /api/v1/agents/:id/feedback` - Provide learning feedback
@@ -101,6 +106,7 @@ CACHE_TTL_SECONDS=300
 ### Agent Configuration
 
 #### Basic Agent Configuration
+
 ```typescript
 {
   "id": "agent-123",
@@ -134,6 +140,7 @@ CACHE_TTL_SECONDS=300
 ```
 
 #### Advanced Agent Configuration
+
 ```typescript
 {
   "memoryConfig": {
@@ -191,13 +198,13 @@ Integration with Capability Registry enables:
 const relevantTools = await capabilityRegistry.getRecommendations({
   agentId: 'agent-123',
   context: conversationContext,
-  capabilities: agentCapabilities
+  capabilities: agentCapabilities,
 });
 
 const toolResult = await capabilityRegistry.executeTool({
   toolId: 'code-analyzer',
   parameters: { code: userProvidedCode },
-  agentId: 'agent-123'
+  agentId: 'agent-123',
 });
 ```
 
@@ -302,7 +309,7 @@ interface AgentCapability {
 export class CodeAnalysisCapability implements AgentCapability {
   name = 'code-analysis';
   description = 'Analyze code quality and provide suggestions';
-  
+
   async execute(context: CapabilityContext): Promise<CapabilityResult> {
     // Implementation
   }
@@ -323,7 +330,7 @@ export class CustomMemoryProvider implements MemoryProvider {
   async store(memory: MemoryItem): Promise<void> {
     // Custom storage logic
   }
-  
+
   async retrieve(query: MemoryQuery): Promise<MemoryItem[]> {
     // Custom retrieval logic
   }
@@ -353,12 +360,14 @@ curl -X POST http://localhost:3002/api/v1/agents/agent-123/chat \
 ## Performance Metrics
 
 ### Response Time Targets
+
 - Simple chat responses: < 500ms
 - Complex analysis: < 2000ms
 - Memory operations: < 100ms
 - Discussion participation: < 1000ms
 
 ### Throughput Targets
+
 - Concurrent chat sessions: 500+
 - Messages per second: 1000+
 - Memory operations per second: 5000+
@@ -396,6 +405,7 @@ The service exposes Prometheus metrics:
 ### Common Issues
 
 #### Slow Response Times
+
 ```bash
 # Check LLM provider status
 GET /health/llm
@@ -408,6 +418,7 @@ GET /health/memory
 ```
 
 #### Memory Issues
+
 ```bash
 # Check memory usage
 GET /api/v1/agents/:id/memory
@@ -420,6 +431,7 @@ PUT /api/v1/agents/:id/config
 ```
 
 #### Integration Problems
+
 ```bash
 # Test discussion integration
 POST /api/v1/agents/:id/discussions/test/participate
@@ -431,6 +443,7 @@ GET /api/v1/agents/:id/capabilities/available
 ## Security
 
 ### Authentication
+
 All endpoints require authentication via JWT tokens:
 
 ```typescript
@@ -441,6 +454,7 @@ All endpoints require authentication via JWT tokens:
 ```
 
 ### Data Privacy
+
 - Conversation data is encrypted at rest
 - Memory data follows retention policies
 - PII is automatically detected and protected
@@ -457,4 +471,4 @@ All endpoints require authentication via JWT tokens:
 
 ## License
 
-MIT License - see [LICENSE](../../LICENSE) for details. 
+MIT License - see [LICENSE](../../LICENSE) for details.

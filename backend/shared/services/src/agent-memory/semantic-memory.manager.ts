@@ -6,37 +6,39 @@ export class SemanticMemoryManager {
 
   async storeConcept(agentId: string, concept: SemanticMemory): Promise<void> {
     try {
-      await this.knowledgeGraph.ingest([{
-        content: `Concept: ${concept.concept}
+      await this.knowledgeGraph.ingest([
+        {
+          content: `Concept: ${concept.concept}
 Definition: ${concept.knowledge.definition}
 Properties: ${JSON.stringify(concept.knowledge.properties)}
 Examples: ${concept.knowledge.examples.join(', ')}
 Counter-examples: ${concept.knowledge.counterExamples.join(', ')}
-Relationships: ${concept.knowledge.relationships.map(r => `${r.relatedConcept} (${r.relationshipType})`).join(', ')}
+Relationships: ${concept.knowledge.relationships.map((r) => `${r.relatedConcept} (${r.relationshipType})`).join(', ')}
 Confidence: ${concept.confidence}
 Usage: Accessed ${concept.usage.timesAccessed} times, Success rate: ${concept.usage.successRate}`,
-        type: KnowledgeType.SEMANTIC,
-        tags: [
-          'agent-memory',
-          `agent-${agentId}`,
-          'concept',
-          concept.concept.toLowerCase().replace(/\s+/g, '-'),
-          `confidence-${Math.round(concept.confidence * 10)}`
-        ],
-        source: {
-          type: SourceType.AGENT_CONCEPT,
-          identifier: `${agentId}-concept-${concept.concept}`,
-          metadata: {
-            agentId,
-            concept: concept.concept,
-            confidence: concept.confidence,
-            usage: concept.usage,
-            knowledge: concept.knowledge,
-            sources: concept.sources
-          }
+          type: KnowledgeType.SEMANTIC,
+          tags: [
+            'agent-memory',
+            `agent-${agentId}`,
+            'concept',
+            concept.concept.toLowerCase().replace(/\s+/g, '-'),
+            `confidence-${Math.round(concept.confidence * 10)}`,
+          ],
+          source: {
+            type: SourceType.AGENT_CONCEPT,
+            identifier: `${agentId}-concept-${concept.concept}`,
+            metadata: {
+              agentId,
+              concept: concept.concept,
+              confidence: concept.confidence,
+              usage: concept.usage,
+              knowledge: concept.knowledge,
+              sources: concept.sources,
+            },
+          },
+          confidence: concept.confidence,
         },
-        confidence: concept.confidence
-      }]);
+      ]);
     } catch (error) {
       console.error('Concept storage error:', error);
       throw new Error(`Failed to store concept: ${error.message}`);
@@ -49,10 +51,10 @@ Usage: Accessed ${concept.usage.timesAccessed} times, Success rate: ${concept.us
         query: `concept ${conceptName}`,
         filters: {
           tags: [`agent-${agentId}`, 'concept'],
-          types: [KnowledgeType.SEMANTIC]
+          types: [KnowledgeType.SEMANTIC],
         },
         options: { limit: 1 },
-        timestamp: Date.now()
+        timestamp: Date.now(),
       });
 
       if (results.items.length > 0) {
@@ -71,13 +73,13 @@ Usage: Accessed ${concept.usage.timesAccessed} times, Success rate: ${concept.us
       if (concept) {
         concept.usage.timesAccessed++;
         concept.usage.lastUsed = new Date();
-        
+
         // Update success rate
         const totalUses = concept.usage.timesAccessed;
         const currentSuccessCount = concept.usage.successRate * (totalUses - 1);
         const newSuccessCount = currentSuccessCount + (success ? 1 : 0);
         concept.usage.successRate = newSuccessCount / totalUses;
-        
+
         await this.storeConcept(agentId, concept);
       }
     } catch (error) {
@@ -93,108 +95,128 @@ Usage: Accessed ${concept.usage.timesAccessed} times, Success rate: ${concept.us
           query: `agent concepts`,
           filters: {
             tags: [`agent-${agentId}`, 'concept'],
-            types: [KnowledgeType.SEMANTIC]
+            types: [KnowledgeType.SEMANTIC],
           },
           options: { limit: 50 },
-          timestamp: Date.now()
+          timestamp: Date.now(),
         });
-        return results.items.map(item => this.itemToSemanticMemory(item));
+        return results.items.map((item) => this.itemToSemanticMemory(item));
       }
 
       const results = await this.knowledgeGraph.search({
         query: `related to ${conceptName}`,
         filters: {
           tags: [`agent-${agentId}`, 'concept'],
-          types: [KnowledgeType.SEMANTIC]
+          types: [KnowledgeType.SEMANTIC],
         },
         options: { limit: 10, similarityThreshold: 0.6 },
-        timestamp: Date.now()
+        timestamp: Date.now(),
       });
 
-      return results.items.map(item => this.itemToSemanticMemory(item));
+      return results.items.map((item) => this.itemToSemanticMemory(item));
     } catch (error) {
       console.error('Related concepts retrieval error:', error);
       return [];
     }
   }
 
-  async getConceptsByUsage(agentId: string, minUsage: number = 1, limit: number = 10): Promise<SemanticMemory[]> {
+  async getConceptsByUsage(
+    agentId: string,
+    minUsage: number = 1,
+    limit: number = 10
+  ): Promise<SemanticMemory[]> {
     try {
       const results = await this.knowledgeGraph.search({
         query: `frequently used concepts`,
         filters: {
           tags: [`agent-${agentId}`, 'concept'],
-          types: [KnowledgeType.SEMANTIC]
+          types: [KnowledgeType.SEMANTIC],
         },
         options: { limit },
-        timestamp: Date.now()
+        timestamp: Date.now(),
       });
 
-      const concepts = results.items.map(item => this.itemToSemanticMemory(item));
-      return concepts.filter(concept => concept.usage.timesAccessed >= minUsage);
+      const concepts = results.items.map((item) => this.itemToSemanticMemory(item));
+      return concepts.filter((concept) => concept.usage.timesAccessed >= minUsage);
     } catch (error) {
       console.error('Concepts by usage retrieval error:', error);
       return [];
     }
   }
 
-  async getConceptsByConfidence(agentId: string, minConfidence: number = 0.7, limit: number = 10): Promise<SemanticMemory[]> {
+  async getConceptsByConfidence(
+    agentId: string,
+    minConfidence: number = 0.7,
+    limit: number = 10
+  ): Promise<SemanticMemory[]> {
     try {
       const results = await this.knowledgeGraph.search({
         query: `high confidence concepts`,
         filters: {
           tags: [`agent-${agentId}`, 'concept'],
           types: [KnowledgeType.SEMANTIC],
-          confidence: minConfidence
+          confidence: minConfidence,
         },
         options: { limit },
-        timestamp: Date.now()
+        timestamp: Date.now(),
       });
 
-      return results.items.map(item => this.itemToSemanticMemory(item));
+      return results.items.map((item) => this.itemToSemanticMemory(item));
     } catch (error) {
       console.error('Concepts by confidence retrieval error:', error);
       return [];
     }
   }
 
-  async searchConcepts(agentId: string, query: string, limit: number = 10): Promise<SemanticMemory[]> {
+  async searchConcepts(
+    agentId: string,
+    query: string,
+    limit: number = 10
+  ): Promise<SemanticMemory[]> {
     try {
       const results = await this.knowledgeGraph.search({
         query: `concept search: ${query}`,
         filters: {
           tags: [`agent-${agentId}`, 'concept'],
-          types: [KnowledgeType.SEMANTIC]
+          types: [KnowledgeType.SEMANTIC],
         },
         options: { limit, similarityThreshold: 0.5 },
-        timestamp: Date.now()
+        timestamp: Date.now(),
       });
 
-      return results.items.map(item => this.itemToSemanticMemory(item));
+      return results.items.map((item) => this.itemToSemanticMemory(item));
     } catch (error) {
       console.error('Concept search error:', error);
       return [];
     }
   }
 
-  async addConceptRelationship(agentId: string, conceptName: string, relatedConcept: string, relationshipType: string, strength: number): Promise<void> {
+  async addConceptRelationship(
+    agentId: string,
+    conceptName: string,
+    relatedConcept: string,
+    relationshipType: string,
+    strength: number
+  ): Promise<void> {
     try {
       const concept = await this.getConcept(agentId, conceptName);
       if (concept) {
         // Add or update relationship
-        const existingRelIndex = concept.knowledge.relationships.findIndex(r => r.relatedConcept === relatedConcept);
-        
+        const existingRelIndex = concept.knowledge.relationships.findIndex(
+          (r) => r.relatedConcept === relatedConcept
+        );
+
         if (existingRelIndex >= 0) {
           concept.knowledge.relationships[existingRelIndex] = {
             relatedConcept,
             relationshipType,
-            strength
+            strength,
           };
         } else {
           concept.knowledge.relationships.push({
             relatedConcept,
             relationshipType,
-            strength
+            strength,
           });
         }
 
@@ -210,7 +232,7 @@ Usage: Accessed ${concept.usage.timesAccessed} times, Success rate: ${concept.us
       const concept = await this.getConcept(agentId, conceptName);
       if (concept) {
         concept.sources.reinforcements++;
-        
+
         if (newExample) {
           concept.knowledge.examples.push(newExample);
           // Keep only the most recent examples
@@ -231,7 +253,7 @@ Usage: Accessed ${concept.usage.timesAccessed} times, Success rate: ${concept.us
 
   private itemToSemanticMemory(item: any): SemanticMemory {
     const metadata = item.source?.metadata || item.metadata;
-    
+
     if (!metadata) {
       // Fallback parsing from content
       return this.parseSemanticMemoryFromContent(item);
@@ -245,27 +267,27 @@ Usage: Accessed ${concept.usage.timesAccessed} times, Success rate: ${concept.us
         properties: {},
         relationships: [],
         examples: [],
-        counterExamples: []
+        counterExamples: [],
       },
       confidence: metadata.confidence || item.confidence || 0.5,
       sources: metadata.sources || {
         episodeIds: [],
         externalSources: [],
-        reinforcements: 0
+        reinforcements: 0,
       },
       usage: metadata.usage || {
         timesAccessed: 0,
         lastUsed: new Date(),
         successRate: 1.0,
-        contexts: []
-      }
+        contexts: [],
+      },
     };
   }
 
   private parseSemanticMemoryFromContent(item: any): SemanticMemory {
     const content = item.content || '';
     const lines = content.split('\n');
-    
+
     let concept = 'unknown';
     let definition = '';
     let properties = {};
@@ -278,7 +300,10 @@ Usage: Accessed ${concept.usage.timesAccessed} times, Success rate: ${concept.us
       } else if (line.startsWith('Definition:')) {
         definition = line.replace('Definition:', '').trim();
       } else if (line.startsWith('Examples:')) {
-        examples = line.replace('Examples:', '').split(',').map(e => e.trim());
+        examples = line
+          .replace('Examples:', '')
+          .split(',')
+          .map((e) => e.trim());
       } else if (line.startsWith('Properties:')) {
         try {
           properties = JSON.parse(line.replace('Properties:', '').trim());
@@ -296,20 +321,20 @@ Usage: Accessed ${concept.usage.timesAccessed} times, Success rate: ${concept.us
         properties,
         relationships: [],
         examples,
-        counterExamples: []
+        counterExamples: [],
       },
       confidence: item.confidence || 0.5,
       sources: {
         episodeIds: [],
         externalSources: [],
-        reinforcements: 0
+        reinforcements: 0,
       },
       usage: {
         timesAccessed: 0,
         lastUsed: new Date(),
         successRate: 1.0,
-        contexts: []
-      }
+        contexts: [],
+      },
     };
   }
-} 
+}

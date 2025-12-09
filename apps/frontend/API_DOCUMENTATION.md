@@ -16,9 +16,11 @@ This document provides comprehensive documentation for all API endpoints and Web
 ### Base URL: `/api/v1/auth`
 
 #### POST `/api/v1/auth/login`
+
 **Description**: Authenticate user and get access tokens
 
 **Request Body**:
+
 ```typescript
 {
   email: string;
@@ -27,6 +29,7 @@ This document provides comprehensive documentation for all API endpoints and Web
 ```
 
 **Response**:
+
 ```typescript
 {
   token: string;           // JWT access token
@@ -41,6 +44,7 @@ This document provides comprehensive documentation for all API endpoints and Web
 ```
 
 #### POST `/api/v1/auth/logout`
+
 **Description**: Invalidate current session
 
 **Request Body**: `{}`
@@ -48,9 +52,11 @@ This document provides comprehensive documentation for all API endpoints and Web
 **Response**: `void`
 
 #### POST `/api/v1/auth/refresh`
+
 **Description**: Get new access token using refresh token
 
 **Request Body**:
+
 ```typescript
 {
   refreshToken: string;
@@ -58,6 +64,7 @@ This document provides comprehensive documentation for all API endpoints and Web
 ```
 
 **Response**:
+
 ```typescript
 {
   token: string;
@@ -66,11 +73,13 @@ This document provides comprehensive documentation for all API endpoints and Web
 ```
 
 #### GET `/api/v1/auth/me`
+
 **Description**: Get current authenticated user information
 
 **Headers**: `Authorization: Bearer <token>`
 
 **Response**:
+
 ```typescript
 {
   id: string;
@@ -81,9 +90,11 @@ This document provides comprehensive documentation for all API endpoints and Web
 ```
 
 #### POST `/api/v1/auth/change-password`
+
 **Description**: Change user password
 
 **Request Body**:
+
 ```typescript
 {
   currentPassword: string;
@@ -92,6 +103,7 @@ This document provides comprehensive documentation for all API endpoints and Web
 ```
 
 **Response**:
+
 ```typescript
 {
   message: string;
@@ -99,9 +111,11 @@ This document provides comprehensive documentation for all API endpoints and Web
 ```
 
 #### POST `/api/v1/auth/forgot-password`
+
 **Description**: Request password reset
 
 **Request Body**:
+
 ```typescript
 {
   email: string;
@@ -109,6 +123,7 @@ This document provides comprehensive documentation for all API endpoints and Web
 ```
 
 **Response**:
+
 ```typescript
 {
   message: string;
@@ -122,15 +137,18 @@ This document provides comprehensive documentation for all API endpoints and Web
 ### Base URL: `/api/v1/agents`
 
 #### GET `/api/v1/agents`
+
 **Description**: List all agents
 
 **Query Parameters**:
+
 - `limit?: number` - Max results (default: 50)
 - `offset?: number` - Pagination offset
 - `status?: string` - Filter by status
 - `search?: string` - Search by name/description
 
 **Response**:
+
 ```typescript
 {
   agents: Agent[];
@@ -140,9 +158,11 @@ This document provides comprehensive documentation for all API endpoints and Web
 ```
 
 #### GET `/api/v1/agents/{agentId}`
+
 **Description**: Get specific agent details
 
 **Response**:
+
 ```typescript
 {
   id: string;
@@ -158,9 +178,11 @@ This document provides comprehensive documentation for all API endpoints and Web
 ```
 
 #### POST `/api/v1/agents`
+
 **Description**: Create new agent (admin only)
 
 **Request Body**:
+
 ```typescript
 {
   name: string;
@@ -172,9 +194,11 @@ This document provides comprehensive documentation for all API endpoints and Web
 ```
 
 #### POST `/api/v1/agents/{agentId}/chat`
+
 **Description**: Chat with an agent
 
 **Request Body**:
+
 ```typescript
 {
   message: string;
@@ -188,6 +212,7 @@ This document provides comprehensive documentation for all API endpoints and Web
 ```
 
 **Response**:
+
 ```typescript
 {
   response: string;
@@ -205,9 +230,11 @@ This document provides comprehensive documentation for all API endpoints and Web
 ```
 
 #### POST `/api/v1/agents/{agentId}/analyze`
+
 **Description**: Analyze context for agent
 
 **Request Body**:
+
 ```typescript
 {
   context: Record<string, any>;
@@ -216,9 +243,11 @@ This document provides comprehensive documentation for all API endpoints and Web
 ```
 
 #### POST `/api/v1/agents/{agentId}/plan`
+
 **Description**: Create execution plan
 
 **Request Body**:
+
 ```typescript
 {
   goal: string;
@@ -234,13 +263,16 @@ This document provides comprehensive documentation for all API endpoints and Web
 ### Base URL: `/api/v1/personas`
 
 #### GET `/api/v1/personas`
+
 **Description**: List personas
 
 **Query Parameters**:
+
 - `search?: string` - Search query
 - `expertise?: string` - Filter by expertise domain
 
 **Response**:
+
 ```typescript
 {
   personas: Persona[];
@@ -250,9 +282,11 @@ This document provides comprehensive documentation for all API endpoints and Web
 ```
 
 #### GET `/api/v1/personas/display`
+
 **Description**: Get personas formatted for display with categories
 
 **Response**:
+
 ```typescript
 {
   personas: PersonaDisplay[];
@@ -262,9 +296,11 @@ This document provides comprehensive documentation for all API endpoints and Web
 ```
 
 #### POST `/api/v1/personas`
+
 **Description**: Create new persona
 
 **Request Body**:
+
 ```typescript
 {
   name: string;
@@ -278,9 +314,11 @@ This document provides comprehensive documentation for all API endpoints and Web
 ```
 
 #### GET `/api/v1/personas/templates`
+
 **Description**: Get persona templates
 
 **Response**:
+
 ```typescript
 PersonaTemplate[]
 ```
@@ -292,14 +330,17 @@ PersonaTemplate[]
 ### Base URL: `/api/v1/tools`
 
 #### GET `/api/v1/tools`
+
 **Description**: List available tools
 
 **Query Parameters**:
+
 - `category?: string` - Filter by category
 - `status?: string` - Filter by status
 - `search?: string` - Search tools
 
 **Response**:
+
 ```typescript
 {
   tools: Tool[];
@@ -313,9 +354,11 @@ PersonaTemplate[]
 ```
 
 #### GET `/api/v1/tools/{toolId}`
+
 **Description**: Get tool details
 
 **Response**:
+
 ```typescript
 {
   id: string;
@@ -336,9 +379,11 @@ PersonaTemplate[]
 ```
 
 #### POST `/api/v1/tools`
+
 **Description**: Register new tool
 
 **Request Body**:
+
 ```typescript
 {
   name: string;
@@ -351,9 +396,11 @@ PersonaTemplate[]
 ```
 
 #### POST `/api/v1/tools/{toolId}/execute`
+
 **Description**: Execute a tool
 
 **Request Body**:
+
 ```typescript
 {
   parameters: Record<string, any>;
@@ -363,6 +410,7 @@ PersonaTemplate[]
 ```
 
 **Response**:
+
 ```typescript
 {
   executionId: string;
@@ -380,26 +428,31 @@ PersonaTemplate[]
 ```
 
 #### GET `/api/v1/tools/categories`
+
 **Description**: Get available tool categories
 
 **Response**:
+
 ```typescript
 string[]  // ['System', 'External', 'Analysis', 'Communication', 'Development']
 ```
 
 #### GET `/api/v1/tools/recommendations`
+
 **Description**: Get tool recommendations based on context
 
 **Query Parameters**:
+
 - `context?: string` - Context for recommendations
 - `agentId?: string` - Agent requesting recommendations
 
 **Response**:
+
 ```typescript
 {
   recommendations: Array<{
     tool: Tool;
-    score: number;           // 0-1 relevance score
+    score: number; // 0-1 relevance score
     reason: string;
   }>;
 }
@@ -412,13 +465,16 @@ string[]  // ['System', 'External', 'Analysis', 'Communication', 'Development']
 ### Base URL: `/api/v1/discussions`
 
 #### GET `/api/v1/discussions`
+
 **Description**: List discussions
 
 **Query Parameters**:
+
 - `status?: string` - Filter by status
 - `search?: string` - Search discussions
 
 **Response**:
+
 ```typescript
 {
   discussions: Discussion[];
@@ -428,9 +484,11 @@ string[]  // ['System', 'External', 'Analysis', 'Communication', 'Development']
 ```
 
 #### GET `/api/v1/discussions/{discussionId}`
+
 **Description**: Get discussion details
 
 **Response**:
+
 ```typescript
 {
   id: string;
@@ -447,9 +505,11 @@ string[]  // ['System', 'External', 'Analysis', 'Communication', 'Development']
 ```
 
 #### POST `/api/v1/discussions`
+
 **Description**: Create new discussion
 
 **Request Body**:
+
 ```typescript
 {
   title: string;
@@ -463,12 +523,15 @@ string[]  // ['System', 'External', 'Analysis', 'Communication', 'Development']
 ```
 
 #### POST `/api/v1/discussions/{discussionId}/start`
+
 **Description**: Start a discussion
 
 #### POST `/api/v1/discussions/{discussionId}/participants`
+
 **Description**: Add participant to discussion
 
 **Request Body**:
+
 ```typescript
 {
   agentId: string;
@@ -477,9 +540,11 @@ string[]  // ['System', 'External', 'Analysis', 'Communication', 'Development']
 ```
 
 #### POST `/api/v1/discussions/{discussionId}/messages`
+
 **Description**: Send message to discussion
 
 **Request Body**:
+
 ```typescript
 {
   participantId: string;
@@ -490,9 +555,11 @@ string[]  // ['System', 'External', 'Analysis', 'Communication', 'Development']
 ```
 
 #### GET `/api/v1/discussions/{discussionId}/messages`
+
 **Description**: Get discussion messages
 
 **Query Parameters**:
+
 - `limit?: number`
 - `offset?: number`
 - `since?: string` - ISO timestamp
@@ -504,17 +571,21 @@ string[]  // ['System', 'External', 'Analysis', 'Communication', 'Development']
 ### Base URL: `/api/v1/user/llm`
 
 #### GET `/api/v1/user/llm/models`
+
 **Description**: Get user's available LLM models
 
 **Response**:
+
 ```typescript
 LLMModel[]
 ```
 
 #### GET `/api/v1/user/llm/providers`
+
 **Description**: Get user's LLM providers
 
 **Response**:
+
 ```typescript
 Array<{
   id: string;
@@ -530,13 +601,15 @@ Array<{
   hasApiKey: boolean;
   createdAt: string;
   updatedAt: string;
-}>
+}>;
 ```
 
 #### POST `/api/v1/user/llm/providers`
+
 **Description**: Create new LLM provider
 
 **Request Body**:
+
 ```typescript
 {
   name: string;
@@ -549,9 +622,11 @@ Array<{
 ```
 
 #### POST `/api/v1/user/llm/generate`
+
 **Description**: Generate LLM response
 
 **Request Body**:
+
 ```typescript
 {
   prompt: string;
@@ -570,9 +645,11 @@ Array<{
 ### Base URL: `/api/v1/operations`
 
 #### POST `/api/v1/operations`
+
 **Description**: Execute operation
 
 **Request Body**:
+
 ```typescript
 {
   type: string;
@@ -583,9 +660,11 @@ Array<{
 ```
 
 #### GET `/api/v1/operations/{operationId}/status`
+
 **Description**: Get operation status
 
 **Response**:
+
 ```typescript
 {
   id: string;
@@ -605,9 +684,11 @@ Array<{
 ### Base URL: `/api/v1/approvals`
 
 #### GET `/api/v1/approvals/pending`
+
 **Description**: Get pending approvals for current user
 
 **Response**:
+
 ```typescript
 Array<{
   id: string;
@@ -621,13 +702,15 @@ Array<{
   status: 'pending' | 'approved' | 'rejected';
   expiresAt: string;
   createdAt: string;
-}>
+}>;
 ```
 
 #### POST `/api/v1/approvals/{approvalId}/decision`
+
 **Description**: Submit approval decision
 
 **Request Body**:
+
 ```typescript
 {
   decision: 'approve' | 'reject';
@@ -644,17 +727,21 @@ Array<{
 ### Base URL: `/api/v1/knowledge`
 
 #### POST `/api/v1/knowledge/upload`
+
 **Description**: Upload knowledge items
 
 **Request Body**:
+
 ```typescript
 KnowledgeIngestRequest[]
 ```
 
 #### POST `/api/v1/knowledge/search`
+
 **Description**: Search knowledge base
 
 **Request Body**:
+
 ```typescript
 {
   query: string;
@@ -665,6 +752,7 @@ KnowledgeIngestRequest[]
 ```
 
 **Response**:
+
 ```typescript
 {
   items: KnowledgeItem[];
@@ -675,9 +763,11 @@ KnowledgeIngestRequest[]
 ```
 
 #### GET `/api/v1/knowledge/stats`
+
 **Description**: Get knowledge statistics
 
 **Response**:
+
 ```typescript
 {
   totalItems: number;
@@ -700,20 +790,22 @@ KnowledgeIngestRequest[]
 The system uses **Socket.IO** for real-time communication with fallback to raw WebSockets.
 
 #### Connection Setup:
+
 ```typescript
 import { io } from 'socket.io-client';
 
 const socket = io('/socket.io', {
   auth: {
-    token: 'Bearer <access_token>'
+    token: 'Bearer <access_token>',
   },
-  transports: ['websocket', 'polling']
+  transports: ['websocket', 'polling'],
 });
 ```
 
 #### Events:
 
 **Client → Server**:
+
 - `join_discussion` - Join a discussion room
 - `leave_discussion` - Leave a discussion room
 - `send_message` - Send discussion message
@@ -721,6 +813,7 @@ const socket = io('/socket.io', {
 - `request_turn` - Request discussion turn
 
 **Server → Client**:
+
 - `discussion_message` - New message in discussion
 - `discussion_update` - Discussion state changed
 - `turn_change` - Discussion turn changed
@@ -729,6 +822,7 @@ const socket = io('/socket.io', {
 - `tool_execution` - Tool execution update
 
 #### Discussion Events:
+
 ```typescript
 // Join discussion
 socket.emit('join_discussion', { discussionId: 'disc_123' });
@@ -762,6 +856,7 @@ All API responses use consistent error format:
 ```
 
 Common error codes:
+
 - `AUTH_REQUIRED` - Authentication required
 - `AUTH_INVALID` - Invalid/expired token
 - `PERMISSION_DENIED` - Insufficient permissions
@@ -798,18 +893,19 @@ Common error codes:
    - `VITE_API_BASE_URL` - Override API base URL
    - `VITE_WS_URL` - Override WebSocket URL
 
-2. **CORS Configuration**: 
+2. **CORS Configuration**:
    - All CORS handled at nginx gateway level
    - Development proxy configured for localhost:5173
 
 3. **Authentication Flow**:
+
    ```typescript
    // Check if authenticated
    const token = uaipAPI.client.getAuthToken();
    if (token && uaipAPI.client.isAuthenticated()) {
      // Make authenticated requests
    }
-   
+
    // Listen for auth failures
    window.addEventListener('auth:unauthorized', () => {
      // Handle auth failure
@@ -834,12 +930,14 @@ Common error codes:
 ## API Testing
 
 Use the following tools for testing:
+
 - **Frontend**: Built-in API debugging components
 - **Postman**: Import OpenAPI specs from `/api/v1/docs`
 - **curl**: Direct API testing with bearer tokens
 - **WebSocket**: Use browser dev tools or Socket.IO client
 
 Example curl request:
+
 ```bash
 curl -H "Authorization: Bearer <token>" \
      -H "Content-Type: application/json" \

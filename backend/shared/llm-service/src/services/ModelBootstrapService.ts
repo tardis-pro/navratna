@@ -15,7 +15,7 @@ export class ModelBootstrapService {
   private userLLMService: UserLLMService;
   private userService: UserService;
   private modelSyncService: ModelSyncService;
-  
+
   // Cache keys and TTL (6 hours for boot cache = 21600 seconds)
   private static readonly BOOT_CACHE_TTL = 21600;
   private static readonly ALL_USER_MODELS_CACHE_KEY = 'llm:models:all_users_boot';
@@ -54,11 +54,11 @@ export class ModelBootstrapService {
         const lastBootstrapTime = new Date(lastBootstrap.timestamp);
         const timeSinceLastBootstrap = Date.now() - lastBootstrapTime.getTime();
         const oneHour = 60 * 60 * 1000; // 1 hour in milliseconds
-        
+
         if (timeSinceLastBootstrap < oneHour) {
           logger.info('Model bootstrap was completed recently, skipping...', {
             lastBootstrap: lastBootstrapTime,
-            timeSinceLastBootstrap: `${Math.round(timeSinceLastBootstrap / 1000 / 60)} minutes`
+            timeSinceLastBootstrap: `${Math.round(timeSinceLastBootstrap / 1000 / 60)} minutes`,
           });
           return;
         }
@@ -77,13 +77,12 @@ export class ModelBootstrapService {
       const totalTime = Date.now() - startTime;
       logger.info('Model bootstrap process completed successfully', {
         duration: `${totalTime}ms`,
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
       });
-
     } catch (error) {
       logger.error('Model bootstrap process failed', {
         error: error instanceof Error ? error.message : error,
-        duration: `${Date.now() - startTime}ms`
+        duration: `${Date.now() - startTime}ms`,
       });
       // Don't throw - let the system continue even if bootstrap fails
     }
@@ -94,42 +93,41 @@ export class ModelBootstrapService {
    */
   private async syncModelsToDatabase(): Promise<void> {
     logger.info('Syncing models from provider APIs to database...');
-    
+
     try {
       // Initialize ModelSyncService lazily
       if (!this.modelSyncService) {
         const dataSource = await DatabaseService.getInstance().getDataSource();
         this.modelSyncService = new ModelSyncService(dataSource);
       }
-      
+
       // Get all configured providers from LLMService
       const providers = this.llmService.getProvidersMap();
-      
+
       // Sync models to database
       const syncResults = await this.modelSyncService.syncAllProvidersModels(providers);
-      
+
       // Log summary
       const totalModels = syncResults.reduce((sum, r) => sum + r.modelsFound, 0);
       const totalCreated = syncResults.reduce((sum, r) => sum + r.modelsCreated, 0);
       const totalUpdated = syncResults.reduce((sum, r) => sum + r.modelsUpdated, 0);
       const totalErrors = syncResults.reduce((sum, r) => sum + r.errors.length, 0);
-      
+
       logger.info('Model sync to database completed', {
         providerCount: syncResults.length,
         totalModels,
         totalCreated,
         totalUpdated,
         totalErrors,
-        results: syncResults.map(r => ({
+        results: syncResults.map((r) => ({
           provider: r.providerName,
           models: r.modelsFound,
-          errors: r.errors.length
-        }))
+          errors: r.errors.length,
+        })),
       });
-      
+
       // Clean up stale models
       await this.modelSyncService.cleanupStaleModels(24);
-      
     } catch (error) {
       logger.error('Failed to sync models to database', { error });
       // Don't throw - let the system continue even if sync fails
@@ -141,23 +139,22 @@ export class ModelBootstrapService {
    */
   private async cacheGlobalModels(): Promise<void> {
     logger.info('Caching global system models...');
-    
+
     try {
       // This will trigger caching in LLMService.getAvailableModels()
       const globalModels = await this.llmService.getAvailableModels();
-      
+
       // Additional cache with longer TTL for boot cache
       await this.cacheService.set(
         ModelBootstrapService.GLOBAL_MODELS_CACHE_KEY,
         globalModels,
         ModelBootstrapService.BOOT_CACHE_TTL
       );
-      
+
       logger.info('Global models cached successfully', {
         modelCount: globalModels.length,
-        providers: [...new Set(globalModels.map(m => m.provider))]
+        providers: [...new Set(globalModels.map((m) => m.provider))],
       });
-
     } catch (error) {
       logger.error('Failed to cache global models', { error });
       throw error;
@@ -169,17 +166,17 @@ export class ModelBootstrapService {
    */
   private async cacheAllUserModels(): Promise<void> {
     logger.info('Caching user-specific models...');
-    
+
     try {
       // Get all users who have LLM providers
       const usersWithProviders = await this.getUsersWithProviders();
-      
+
       logger.info('Found users with LLM providers', {
-        userCount: usersWithProviders.length
+        userCount: usersWithProviders.length,
       });
 
       const userModelData = [];
-      
+
       for (const userId of usersWithProviders) {
         try {
           // Cache user's models
@@ -187,9 +184,8 @@ export class ModelBootstrapService {
           userModelData.push({
             userId,
             modelCount: userModels.length,
-            providers: [...new Set(userModels.map(m => m.provider))]
+            providers: [...new Set(userModels.map((m) => m.provider))],
           });
-          
         } catch (error) {
           logger.error('Failed to cache models for user', { userId, error });
           // Continue with other users
@@ -202,16 +198,15 @@ export class ModelBootstrapService {
         {
           userCount: usersWithProviders.length,
           timestamp: new Date().toISOString(),
-          users: userModelData
+          users: userModelData,
         },
         ModelBootstrapService.BOOT_CACHE_TTL
       );
 
       logger.info('User-specific models cached successfully', {
         totalUsers: usersWithProviders.length,
-        successfulUsers: userModelData.length
+        successfulUsers: userModelData.length,
       });
-
     } catch (error) {
       logger.error('Failed to cache user models', { error });
       throw error;
@@ -223,22 +218,21 @@ export class ModelBootstrapService {
    */
   private async cacheUserModels(userId: string): Promise<any[]> {
     const cacheKey = `${ModelBootstrapService.USER_MODELS_CACHE_PREFIX}${userId}`;
-    
+
     try {
       // Get user's models using UserLLMService
       const userModels = await this.userLLMService.getAvailableModels(userId);
-      
+
       // Cache with longer TTL for boot cache
       await this.cacheService.set(cacheKey, userModels, ModelBootstrapService.BOOT_CACHE_TTL);
-      
+
       logger.debug('Cached models for user', {
         userId,
         modelCount: userModels.length,
-        cacheKey
+        cacheKey,
       });
 
       return userModels;
-      
     } catch (error) {
       logger.error('Failed to cache models for user', { userId, error });
       throw error;
@@ -253,13 +247,15 @@ export class ModelBootstrapService {
       // Use a simpler approach: query all users and check if they have providers
       const userRepository = this.userService.getUserRepository();
       const allUsers = await userRepository.findMany();
-      
+
       const usersWithProviders: string[] = [];
-      
+
       // Check each user for LLM providers
       for (const user of allUsers) {
         try {
-          const providers = await this.userService.getUserLLMProviderRepository().findAllProvidersByUser(user.id);
+          const providers = await this.userService
+            .getUserLLMProviderRepository()
+            .findAllProvidersByUser(user.id);
           if (providers.length > 0) {
             usersWithProviders.push(user.id);
           }
@@ -268,9 +264,8 @@ export class ModelBootstrapService {
           // Continue with other users
         }
       }
-      
+
       return usersWithProviders;
-      
     } catch (error) {
       logger.error('Failed to get users with providers', { error });
       // Return empty array rather than throwing to allow system to continue
@@ -286,15 +281,14 @@ export class ModelBootstrapService {
       const status = {
         timestamp: new Date().toISOString(),
         version: '1.0.0',
-        status: 'completed'
+        status: 'completed',
       };
-      
+
       await this.cacheService.set(
         ModelBootstrapService.BOOTSTRAP_STATUS_KEY,
         status,
         ModelBootstrapService.BOOT_CACHE_TTL
       );
-      
     } catch (error) {
       logger.warn('Failed to mark bootstrap as completed', { error });
       // Don't throw - this is not critical
@@ -306,19 +300,18 @@ export class ModelBootstrapService {
    */
   async getCachedUserModels(userId: string): Promise<any[] | null> {
     const cacheKey = `${ModelBootstrapService.USER_MODELS_CACHE_PREFIX}${userId}`;
-    
+
     try {
       const cachedModels = await this.cacheService.get(cacheKey);
       if (cachedModels) {
         logger.debug('Returning cached user models', {
           userId,
-          modelCount: cachedModels.length
+          modelCount: cachedModels.length,
         });
         return cachedModels;
       }
-      
+
       return null;
-      
     } catch (error) {
       logger.warn('Failed to get cached user models', { userId, error });
       return null;
@@ -330,16 +323,17 @@ export class ModelBootstrapService {
    */
   async getCachedGlobalModels(): Promise<any[] | null> {
     try {
-      const cachedModels = await this.cacheService.get(ModelBootstrapService.GLOBAL_MODELS_CACHE_KEY);
+      const cachedModels = await this.cacheService.get(
+        ModelBootstrapService.GLOBAL_MODELS_CACHE_KEY
+      );
       if (cachedModels) {
         logger.debug('Returning cached global models', {
-          modelCount: cachedModels.length
+          modelCount: cachedModels.length,
         });
         return cachedModels;
       }
-      
+
       return null;
-      
     } catch (error) {
       logger.warn('Failed to get cached global models', { error });
       return null;
@@ -351,7 +345,7 @@ export class ModelBootstrapService {
    */
   async refreshUserModels(userId: string): Promise<void> {
     logger.info('Refreshing models for user', { userId });
-    
+
     try {
       await this.cacheUserModels(userId);
     } catch (error) {
@@ -366,9 +360,13 @@ export class ModelBootstrapService {
   async getBootstrapStatus(): Promise<any> {
     try {
       const status = await this.cacheService.get(ModelBootstrapService.BOOTSTRAP_STATUS_KEY);
-      const globalModels = await this.cacheService.get(ModelBootstrapService.GLOBAL_MODELS_CACHE_KEY);
-      const userModelsSummary = await this.cacheService.get(ModelBootstrapService.ALL_USER_MODELS_CACHE_KEY);
-      
+      const globalModels = await this.cacheService.get(
+        ModelBootstrapService.GLOBAL_MODELS_CACHE_KEY
+      );
+      const userModelsSummary = await this.cacheService.get(
+        ModelBootstrapService.ALL_USER_MODELS_CACHE_KEY
+      );
+
       return {
         lastBootstrap: status,
         globalModelsCount: globalModels ? globalModels.length : 0,
@@ -376,10 +374,9 @@ export class ModelBootstrapService {
         cacheKeys: {
           bootstrap: ModelBootstrapService.BOOTSTRAP_STATUS_KEY,
           globalModels: ModelBootstrapService.GLOBAL_MODELS_CACHE_KEY,
-          userModelsSummary: ModelBootstrapService.ALL_USER_MODELS_CACHE_KEY
-        }
+          userModelsSummary: ModelBootstrapService.ALL_USER_MODELS_CACHE_KEY,
+        },
       };
-      
     } catch (error) {
       logger.error('Failed to get bootstrap status', { error });
       return { error: 'Failed to get bootstrap status' };

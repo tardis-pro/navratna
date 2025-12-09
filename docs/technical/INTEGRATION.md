@@ -9,6 +9,7 @@ The UAIP uses a multi-layered integration approach combining REST APIs, WebSocke
 ### Synchronous Communication (REST)
 
 #### Request-Response Pattern
+
 ```typescript
 interface ServiceRequest {
   method: 'GET' | 'POST' | 'PUT' | 'DELETE';
@@ -29,6 +30,7 @@ interface ServiceResponse {
 ```
 
 #### Service Discovery
+
 ```typescript
 interface ServiceRegistry {
   services: {
@@ -45,6 +47,7 @@ interface ServiceRegistry {
 ### Asynchronous Communication (Message Queue)
 
 #### Message Structure
+
 ```typescript
 interface ServiceMessage {
   id: string;
@@ -59,6 +62,7 @@ interface ServiceMessage {
 ```
 
 #### Queue Configuration
+
 ```yaml
 # RabbitMQ exchange configuration
 exchanges:
@@ -74,6 +78,7 @@ exchanges:
 ### Real-time Communication (WebSocket)
 
 #### Event Structure
+
 ```typescript
 interface WebSocketEvent {
   type: string;
@@ -84,6 +89,7 @@ interface WebSocketEvent {
 ```
 
 #### Connection Management
+
 ```typescript
 interface WebSocketConnection {
   id: string;
@@ -107,7 +113,7 @@ class AgentServiceIntegration {
   async analyzeContext(context: Context): Promise<Analysis> {
     const response = await httpClient.post('/api/v1/agents/analyze', {
       context,
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
     });
     return response.data;
   }
@@ -117,7 +123,7 @@ class AgentServiceIntegration {
     const operationId = generateId();
     await messageQueue.publish('agent.operations', {
       type: 'OPERATION_START',
-      payload: { operation, operationId }
+      payload: { operation, operationId },
     });
     return operationId;
   }
@@ -139,7 +145,7 @@ class DiscussionServiceIntegration {
     await wsClient.send('discussion.message', {
       discussionId,
       message,
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
     });
   }
 
@@ -153,6 +159,7 @@ class DiscussionServiceIntegration {
 ## Integration Patterns
 
 ### Circuit Breaker Pattern
+
 ```typescript
 interface CircuitBreakerConfig {
   failureThreshold: number;
@@ -178,6 +185,7 @@ class CircuitBreaker {
 ```
 
 ### Retry Pattern
+
 ```typescript
 interface RetryConfig {
   maxAttempts: number;
@@ -207,6 +215,7 @@ class RetryHandler {
 ## Error Handling
 
 ### Error Propagation
+
 ```typescript
 interface ServiceError {
   code: string;
@@ -220,17 +229,18 @@ class ErrorHandler {
   handleServiceError(error: ServiceError): void {
     logger.error('Service error:', {
       ...error,
-      stack: error.stack
+      stack: error.stack,
     });
     metrics.incrementCounter('service_errors', {
       code: error.code,
-      source: error.source
+      source: error.source,
     });
   }
 }
 ```
 
 ### Fallback Mechanisms
+
 ```typescript
 interface FallbackConfig {
   enabled: boolean;
@@ -255,6 +265,7 @@ class FallbackHandler {
 ## Monitoring & Tracing
 
 ### Request Tracing
+
 ```typescript
 interface TraceContext {
   traceId: string;
@@ -283,6 +294,7 @@ class RequestTracer {
 ```
 
 ### Performance Metrics
+
 ```typescript
 interface ServiceMetrics {
   requestCount: number;
@@ -302,12 +314,10 @@ interface ServiceMetrics {
 ## Integration Testing
 
 ### Service Mocks
+
 ```typescript
 class ServiceMock {
-  async simulateResponse(
-    request: ServiceRequest,
-    config: MockConfig
-  ): Promise<ServiceResponse> {
+  async simulateResponse(request: ServiceRequest, config: MockConfig): Promise<ServiceResponse> {
     await this.delay(config.latency);
     if (Math.random() < config.errorRate) {
       throw new Error('Simulated error');
@@ -318,13 +328,14 @@ class ServiceMock {
 ```
 
 ### Integration Tests
+
 ```typescript
 describe('Service Integration', () => {
   it('should handle successful requests', async () => {
     const service = new ServiceIntegration();
     const result = await service.executeOperation({
       type: 'TEST',
-      payload: { data: 'test' }
+      payload: { data: 'test' },
     });
     expect(result.status).toBe('success');
   });
@@ -334,24 +345,28 @@ describe('Service Integration', () => {
 ## Best Practices
 
 ### 1. Service Independence
+
 - Loose coupling between services
 - Independent deployment capability
 - Isolated data storage
 - Service-specific authentication
 
 ### 2. Resilience
+
 - Circuit breaker implementation
 - Retry mechanisms
 - Fallback strategies
 - Error handling
 
 ### 3. Monitoring
+
 - Request tracing
 - Performance metrics
 - Error tracking
 - Health checks
 
 ### 4. Documentation
+
 - API specifications
 - Integration patterns
 - Error codes

@@ -15,7 +15,7 @@ import {
   SecurityLevel,
   GitHubProviderConfig,
   EmailProviderConfig,
-  AuditEventType
+  AuditEventType,
 } from '@uaip/types';
 import { AuditService } from './auditService.js';
 import { config } from '@uaip/config';
@@ -59,9 +59,7 @@ export class OAuthProviderService {
   private providerEndpoints: Map<OAuthProviderType, ProviderEndpoints> = new Map();
   private oauthService: OAuthService;
 
-  constructor(
-    private auditService: AuditService
-  ) {
+  constructor(private auditService: AuditService) {
     this.oauthService = OAuthService.getInstance();
     this.initializeProviderEndpoints();
     this.loadProviders();
@@ -75,49 +73,49 @@ export class OAuthProviderService {
       authorization: 'https://github.com/login/oauth/authorize',
       token: 'https://github.com/login/oauth/access_token',
       userInfo: 'https://api.github.com/user',
-      revoke: 'https://api.github.com/applications/{client_id}/grant'
+      revoke: 'https://api.github.com/applications/{client_id}/grant',
     });
 
     this.providerEndpoints.set(OAuthProviderType.GOOGLE, {
       authorization: 'https://accounts.google.com/o/oauth2/v2/auth',
       token: 'https://oauth2.googleapis.com/token',
       userInfo: 'https://www.googleapis.com/oauth2/v2/userinfo',
-      revoke: 'https://oauth2.googleapis.com/revoke'
+      revoke: 'https://oauth2.googleapis.com/revoke',
     });
 
     this.providerEndpoints.set(OAuthProviderType.GMAIL, {
       authorization: 'https://accounts.google.com/o/oauth2/v2/auth',
       token: 'https://oauth2.googleapis.com/token',
       userInfo: 'https://www.googleapis.com/oauth2/v2/userinfo',
-      revoke: 'https://oauth2.googleapis.com/revoke'
+      revoke: 'https://oauth2.googleapis.com/revoke',
     });
 
     this.providerEndpoints.set(OAuthProviderType.ZOHO, {
       authorization: 'https://accounts.zoho.com/oauth/v2/auth',
       token: 'https://accounts.zoho.com/oauth/v2/token',
       userInfo: 'https://accounts.zoho.com/oauth/user/info',
-      revoke: 'https://accounts.zoho.com/oauth/v2/token/revoke'
+      revoke: 'https://accounts.zoho.com/oauth/v2/token/revoke',
     });
 
     this.providerEndpoints.set(OAuthProviderType.ZOHO_MAIL, {
       authorization: 'https://accounts.zoho.com/oauth/v2/auth',
       token: 'https://accounts.zoho.com/oauth/v2/token',
       userInfo: 'https://accounts.zoho.com/oauth/user/info',
-      revoke: 'https://accounts.zoho.com/oauth/v2/token/revoke'
+      revoke: 'https://accounts.zoho.com/oauth/v2/token/revoke',
     });
 
     this.providerEndpoints.set(OAuthProviderType.MICROSOFT, {
       authorization: 'https://login.microsoftonline.com/common/oauth2/v2.0/authorize',
       token: 'https://login.microsoftonline.com/common/oauth2/v2.0/token',
       userInfo: 'https://graph.microsoft.com/v1.0/me',
-      revoke: 'https://login.microsoftonline.com/common/oauth2/v2.0/logout'
+      revoke: 'https://login.microsoftonline.com/common/oauth2/v2.0/logout',
     });
 
     this.providerEndpoints.set(OAuthProviderType.OUTLOOK, {
       authorization: 'https://login.microsoftonline.com/common/oauth2/v2.0/authorize',
       token: 'https://login.microsoftonline.com/common/oauth2/v2.0/token',
       userInfo: 'https://graph.microsoft.com/v1.0/me',
-      revoke: 'https://login.microsoftonline.com/common/oauth2/v2.0/logout'
+      revoke: 'https://login.microsoftonline.com/common/oauth2/v2.0/logout',
     });
   }
 
@@ -132,7 +130,9 @@ export class OAuthProviderService {
       }
       logger.info('OAuth providers loaded', { count: providers.length });
     } catch (error) {
-      logger.error('Failed to load OAuth providers', { error: error instanceof Error ? error.message : 'Unknown error' });
+      logger.error('Failed to load OAuth providers', {
+        error: error instanceof Error ? error.message : 'Unknown error',
+      });
     }
   }
 
@@ -161,7 +161,7 @@ export class OAuthProviderService {
         tokenUrl: config.tokenUrl,
         userInfoUrl: config.userInfoUrl,
         revokeUrl: (config as any).revokeUrl,
-        isEnabled: config.isEnabled || true
+        isEnabled: config.isEnabled || true,
       });
       this.providers.set(savedProvider.id, savedProvider as any);
 
@@ -171,19 +171,21 @@ export class OAuthProviderService {
           action: 'create_oauth_provider',
           providerId: savedProvider.id,
           providerType: savedProvider.type,
-          agentAccess: savedProvider.agentConfig?.allowAgentAccess || false
-        }
+          agentAccess: savedProvider.agentConfig?.allowAgentAccess || false,
+        },
       });
 
       logger.info('OAuth provider created', {
         providerId: savedProvider.id,
         type: savedProvider.type,
-        agentAccess: savedProvider.agentConfig?.allowAgentAccess || false
+        agentAccess: savedProvider.agentConfig?.allowAgentAccess || false,
       });
 
       return savedProvider as any;
     } catch (error) {
-      logger.error('Failed to create OAuth provider', { error: error instanceof Error ? error.message : 'Unknown error' });
+      logger.error('Failed to create OAuth provider', {
+        error: error instanceof Error ? error.message : 'Unknown error',
+      });
       throw new ApiError(500, 'Failed to create OAuth provider', 'PROVIDER_CREATION_FAILED');
     }
   }
@@ -211,15 +213,23 @@ export class OAuthProviderService {
       // For agents, check capabilities and permissions
       if (userType === UserType.AGENT) {
         if (!provider.agentConfig?.allowAgentAccess) {
-          throw new ApiError(403, 'Agent access not allowed for this provider', 'AGENT_ACCESS_DENIED');
+          throw new ApiError(
+            403,
+            'Agent access not allowed for this provider',
+            'AGENT_ACCESS_DENIED'
+          );
         }
 
         if (agentCapabilities && provider.agentConfig?.requiredCapabilities) {
-          const hasRequiredCapabilities = provider.agentConfig.requiredCapabilities.every(
-            cap => agentCapabilities.includes(cap)
+          const hasRequiredCapabilities = provider.agentConfig.requiredCapabilities.every((cap) =>
+            agentCapabilities.includes(cap)
           );
           if (!hasRequiredCapabilities) {
-            throw new ApiError(403, 'Agent lacks required capabilities', 'INSUFFICIENT_CAPABILITIES');
+            throw new ApiError(
+              403,
+              'Agent lacks required capabilities',
+              'INSUFFICIENT_CAPABILITIES'
+            );
           }
         }
       }
@@ -231,7 +241,9 @@ export class OAuthProviderService {
 
       // Generate secure state and PKCE parameters
       const state = this.generateSecureState();
-      const codeVerifier = provider.securityConfig?.requirePKCE ? this.generateCodeVerifier() : undefined;
+      const codeVerifier = provider.securityConfig?.requirePKCE
+        ? this.generateCodeVerifier()
+        : undefined;
       const codeChallenge = codeVerifier ? this.generateCodeChallenge(codeVerifier) : undefined;
 
       // Store OAuth state with expiration
@@ -244,7 +256,7 @@ export class OAuthProviderService {
         userType,
         agentCapabilities,
         createdAt: new Date(),
-        expiresAt: new Date(Date.now() + 10 * 60 * 1000) // 10 minutes
+        expiresAt: new Date(Date.now() + 10 * 60 * 1000), // 10 minutes
       };
 
       const stateEntity = await this.oauthService.createOAuthState({
@@ -252,7 +264,7 @@ export class OAuthProviderService {
         redirectUri,
         userType,
         agentCapabilities,
-        codeVerifier: codeVerifier
+        codeVerifier: codeVerifier,
       });
 
       // Build authorization URL with proper parameters
@@ -264,9 +276,9 @@ export class OAuthProviderService {
         state: stateEntity.state,
         ...(provider.securityConfig?.requirePKCE && {
           code_challenge: codeChallenge,
-          code_challenge_method: 'S256'
+          code_challenge_method: 'S256',
         }),
-        ...provider.additionalParams
+        ...provider.additionalParams,
       });
 
       const authUrl = `${endpoints.authorization}?${params.toString()}`;
@@ -275,7 +287,7 @@ export class OAuthProviderService {
         providerId,
         providerType: provider.type,
         userType,
-        agentCapabilities: agentCapabilities?.length || 0
+        agentCapabilities: agentCapabilities?.length || 0,
       });
 
       return { url: authUrl, state, codeVerifier };
@@ -283,7 +295,7 @@ export class OAuthProviderService {
       logger.error('Failed to generate authorization URL', {
         providerId,
         userType,
-        error: error instanceof Error ? error.message : 'Unknown error'
+        error: error instanceof Error ? error.message : 'Unknown error',
       });
       throw error;
     }
@@ -308,7 +320,7 @@ export class OAuthProviderService {
       if (!oauthStateEntity) {
         throw new ApiError(400, 'Invalid or expired OAuth state', 'INVALID_STATE');
       }
-      
+
       // Map entity to expected format
       const oauthState: OAuthState = {
         state: oauthStateEntity.state,
@@ -319,7 +331,7 @@ export class OAuthProviderService {
         userType: oauthStateEntity.userType,
         agentCapabilities: oauthStateEntity.agentCapabilities,
         createdAt: oauthStateEntity.createdAt,
-        expiresAt: oauthStateEntity.expiresAt
+        expiresAt: oauthStateEntity.expiresAt,
       };
 
       const provider = this.providers.get(oauthState.providerId);
@@ -356,22 +368,22 @@ export class OAuthProviderService {
           userInfo: {
             id: userInfo.id,
             email: userInfo.email,
-            name: userInfo.name || userInfo.login
-          }
-        }
+            name: userInfo.name || userInfo.login,
+          },
+        },
       });
 
       logger.info('OAuth callback handled successfully', {
         providerId: provider.id,
         providerType: provider.type,
         userType: oauthState.userType,
-        userId: userInfo.id
+        userId: userInfo.id,
       });
 
       return { tokens, userInfo, provider, oauthState };
     } catch (error) {
       logger.error('OAuth callback failed', {
-        error: error instanceof Error ? error.message : 'Unknown error'
+        error: error instanceof Error ? error.message : 'Unknown error',
       });
       throw error;
     }
@@ -390,13 +402,18 @@ export class OAuthProviderService {
     try {
       const provider = this.providers.get(providerId);
       if (!provider || !provider.agentConfig?.allowAgentAccess) {
-        throw new ApiError(403, 'Agent access not allowed for this provider', 'AGENT_ACCESS_DENIED');
+        throw new ApiError(
+          403,
+          'Agent access not allowed for this provider',
+          'AGENT_ACCESS_DENIED'
+        );
       }
 
       // Encrypt sensitive tokens
       const encryptedAccessToken = await this.encryptSecret(tokens.access_token);
-      const encryptedRefreshToken = tokens.refresh_token ?
-        await this.encryptSecret(tokens.refresh_token) : undefined;
+      const encryptedRefreshToken = tokens.refresh_token
+        ? await this.encryptSecret(tokens.refresh_token)
+        : undefined;
 
       const connection: AgentOAuthConnection = {
         id: crypto.randomUUID(),
@@ -406,8 +423,9 @@ export class OAuthProviderService {
         capabilities,
         accessToken: encryptedAccessToken,
         refreshToken: encryptedRefreshToken,
-        tokenExpiresAt: tokens.expires_in ?
-          new Date(Date.now() + tokens.expires_in * 1000) : undefined,
+        tokenExpiresAt: tokens.expires_in
+          ? new Date(Date.now() + tokens.expires_in * 1000)
+          : undefined,
         scope: provider.scope,
         permissions,
         isActive: true,
@@ -416,7 +434,7 @@ export class OAuthProviderService {
           dailyRequests: 0,
           lastResetDate: new Date(),
           errors: 0,
-          rateLimitHits: 0
+          rateLimitHits: 0,
         },
         // createdAt: new Date(), // This will be set by the database
         // updatedAt: new Date() // This will be set by the database
@@ -429,8 +447,10 @@ export class OAuthProviderService {
         capabilities,
         accessToken: encryptedAccessToken,
         refreshToken: encryptedRefreshToken,
-        tokenExpiresAt: tokens.expires_in ? new Date(Date.now() + tokens.expires_in * 1000) : undefined,
-        scope: provider.scope
+        tokenExpiresAt: tokens.expires_in
+          ? new Date(Date.now() + tokens.expires_in * 1000)
+          : undefined,
+        scope: provider.scope,
       });
 
       await this.auditService.logEvent({
@@ -441,8 +461,8 @@ export class OAuthProviderService {
           providerId,
           providerType: provider.type,
           capabilities,
-          permissions
-        }
+          permissions,
+        },
       });
 
       logger.info('Agent OAuth connection created', {
@@ -450,7 +470,7 @@ export class OAuthProviderService {
         providerId,
         providerType: provider.type,
         capabilities,
-        permissions: permissions.length
+        permissions: permissions.length,
       });
 
       return savedConnection;
@@ -458,7 +478,7 @@ export class OAuthProviderService {
       logger.error('Failed to create agent OAuth connection', {
         agentId,
         providerId,
-        error: error instanceof Error ? error.message : 'Unknown error'
+        error: error instanceof Error ? error.message : 'Unknown error',
       });
       throw error;
     }
@@ -482,7 +502,7 @@ export class OAuthProviderService {
       logger.error('Failed to get agent access token', {
         agentId,
         providerId,
-        error: error instanceof Error ? error.message : 'Unknown error'
+        error: error instanceof Error ? error.message : 'Unknown error',
       });
       return null;
     }
@@ -514,8 +534,10 @@ export class OAuthProviderService {
       }
 
       // Check restrictions
-      if (connection.restrictions?.allowedOperations &&
-        !connection.restrictions.allowedOperations.includes(operation)) {
+      if (
+        connection.restrictions?.allowedOperations &&
+        !connection.restrictions.allowedOperations.includes(operation)
+      ) {
         return { allowed: false, reason: 'Operation not in allowed list' };
       }
 
@@ -531,20 +553,26 @@ export class OAuthProviderService {
         const windowStart = new Date(now.getTime() - rateLimit.windowMs);
 
         // Reset daily counter if needed
-        if (connection.usageStats.lastResetDate < new Date(now.getFullYear(), now.getMonth(), now.getDate())) {
+        if (
+          connection.usageStats.lastResetDate <
+          new Date(now.getFullYear(), now.getMonth(), now.getDate())
+        ) {
           connection.usageStats.dailyRequests = 0;
           connection.usageStats.lastResetDate = now;
           await this.updateConnectionUsageStats(connection.id, connection.usageStats);
         }
 
-        if (connection.usageStats.dailyRequests >= (provider.agentConfig?.monitoring?.maxDailyRequests || 1000)) {
+        if (
+          connection.usageStats.dailyRequests >=
+          (provider.agentConfig?.monitoring?.maxDailyRequests || 1000)
+        ) {
           return {
             allowed: false,
             reason: 'Daily rate limit exceeded',
             rateLimit: {
               remaining: 0,
-              resetTime: new Date(now.getTime() + 24 * 60 * 60 * 1000)
-            }
+              resetTime: new Date(now.getTime() + 24 * 60 * 60 * 1000),
+            },
           };
         }
       }
@@ -556,7 +584,7 @@ export class OAuthProviderService {
         providerId,
         operation,
         capability,
-        error: error instanceof Error ? error.message : 'Unknown error'
+        error: error instanceof Error ? error.message : 'Unknown error',
       });
       return { allowed: false, reason: error instanceof Error ? error.message : 'Unknown error' };
     }
@@ -564,7 +592,10 @@ export class OAuthProviderService {
 
   // Private helper methods
 
-  private async getAgentConnection(agentId: string, providerId: string): Promise<AgentOAuthConnection | null> {
+  private async getAgentConnection(
+    agentId: string,
+    providerId: string
+  ): Promise<AgentOAuthConnection | null> {
     try {
       const connection = await this.oauthService.findAgentOAuthConnection(agentId, providerId);
       if (!connection || !connection.isActive) {
@@ -581,18 +612,20 @@ export class OAuthProviderService {
       logger.error('Failed to get agent OAuth connection', {
         agentId,
         providerId,
-        error: error instanceof Error ? error.message : 'Unknown error'
+        error: error instanceof Error ? error.message : 'Unknown error',
       });
       return null;
     }
   }
 
-  private async refreshAgentToken(connection: AgentOAuthConnection): Promise<AgentOAuthConnection | null> {
+  private async refreshAgentToken(
+    connection: AgentOAuthConnection
+  ): Promise<AgentOAuthConnection | null> {
     try {
       if (!connection.refreshToken) {
         logger.warn('No refresh token available', {
           agentId: connection.agentId,
-          providerId: connection.providerId
+          providerId: connection.providerId,
         });
         return null;
       }
@@ -615,22 +648,28 @@ export class OAuthProviderService {
       const updatedConnection = {
         ...connection,
         accessToken: await this.encryptSecret(tokens.access_token),
-        refreshToken: tokens.refresh_token ?
-          await this.encryptSecret(tokens.refresh_token) : connection.refreshToken,
-        tokenExpiresAt: tokens.expires_in ?
-          new Date(Date.now() + tokens.expires_in * 1000) : undefined,
-        updatedAt: new Date()
+        refreshToken: tokens.refresh_token
+          ? await this.encryptSecret(tokens.refresh_token)
+          : connection.refreshToken,
+        tokenExpiresAt: tokens.expires_in
+          ? new Date(Date.now() + tokens.expires_in * 1000)
+          : undefined,
+        updatedAt: new Date(),
       };
 
       await this.oauthService.updateOAuthConnectionToken(connection.id, {
         accessToken: await this.encryptSecret(tokens.access_token),
-        refreshToken: tokens.refresh_token ? await this.encryptSecret(tokens.refresh_token) : undefined,
-        tokenExpiresAt: tokens.expires_in ? new Date(Date.now() + tokens.expires_in * 1000) : undefined
+        refreshToken: tokens.refresh_token
+          ? await this.encryptSecret(tokens.refresh_token)
+          : undefined,
+        tokenExpiresAt: tokens.expires_in
+          ? new Date(Date.now() + tokens.expires_in * 1000)
+          : undefined,
       });
 
       logger.info('Agent OAuth token refreshed', {
         agentId: connection.agentId,
-        providerId: connection.providerId
+        providerId: connection.providerId,
       });
 
       return updatedConnection;
@@ -638,7 +677,7 @@ export class OAuthProviderService {
       logger.error('Failed to refresh agent OAuth token', {
         agentId: connection.agentId,
         providerId: connection.providerId,
-        error: error instanceof Error ? error.message : 'Unknown error'
+        error: error instanceof Error ? error.message : 'Unknown error',
       });
       return null;
     }
@@ -657,38 +696,34 @@ export class OAuthProviderService {
       code,
       redirect_uri: redirectUri,
       grant_type: 'authorization_code',
-      ...(codeVerifier && { code_verifier: codeVerifier })
+      ...(codeVerifier && { code_verifier: codeVerifier }),
     });
 
-    const response: AxiosResponse<OAuthTokenResponse> = await axios.post(
-      endpoints.token,
-      params,
-      {
-        headers: {
-          'Content-Type': 'application/x-www-form-urlencoded',
-          'Accept': 'application/json'
-        }
-      }
-    );
+    const response: AxiosResponse<OAuthTokenResponse> = await axios.post(endpoints.token, params, {
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+        Accept: 'application/json',
+      },
+    });
 
     return response.data;
   }
 
-  private async getUserInfo(providerType: OAuthProviderType, accessToken: string): Promise<OAuthUserInfo> {
+  private async getUserInfo(
+    providerType: OAuthProviderType,
+    accessToken: string
+  ): Promise<OAuthUserInfo> {
     const endpoints = this.providerEndpoints.get(providerType);
     if (!endpoints) {
       throw new ApiError(500, 'Provider endpoints not configured', 'ENDPOINTS_NOT_CONFIGURED');
     }
 
-    const response: AxiosResponse<OAuthUserInfo> = await axios.get(
-      endpoints.userInfo,
-      {
-        headers: {
-          'Authorization': `Bearer ${accessToken}`,
-          'Accept': 'application/json'
-        }
-      }
-    );
+    const response: AxiosResponse<OAuthUserInfo> = await axios.get(endpoints.userInfo, {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        Accept: 'application/json',
+      },
+    });
 
     return response.data;
   }
@@ -702,19 +737,15 @@ export class OAuthProviderService {
       client_id: provider.clientId,
       client_secret: provider.clientSecret ? await this.decryptSecret(provider.clientSecret) : '',
       refresh_token: refreshToken,
-      grant_type: 'refresh_token'
+      grant_type: 'refresh_token',
     });
 
-    const response: AxiosResponse<OAuthTokenResponse> = await axios.post(
-      endpoints.token,
-      params,
-      {
-        headers: {
-          'Content-Type': 'application/x-www-form-urlencoded',
-          'Accept': 'application/json'
-        }
-      }
-    );
+    const response: AxiosResponse<OAuthTokenResponse> = await axios.post(endpoints.token, params, {
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+        Accept: 'application/json',
+      },
+    });
 
     return response.data;
   }
@@ -737,14 +768,14 @@ export class OAuthProviderService {
         ...connection.usageStats,
         totalRequests: (connection.usageStats?.totalRequests || 0) + 1,
         dailyRequests: dailyRequests + 1,
-        lastResetDate
+        lastResetDate,
       };
 
       // TODO: Implement usage stats update in domain service
       // await this.oauthService.updateConnectionUsageStats(connection.id, updatedStats);
     } catch (error) {
       logger.error('Failed to update connection usage', {
-        error: error instanceof Error ? error.message : 'Unknown error'
+        error: error instanceof Error ? error.message : 'Unknown error',
       });
     }
   }
@@ -763,7 +794,11 @@ export class OAuthProviderService {
 
   private async encryptSecret(secret: string): Promise<string> {
     const algorithm = 'aes-256-gcm';
-    const key = crypto.scryptSync((config as any).security?.encryptionKey || 'default-key', 'salt', 32);
+    const key = crypto.scryptSync(
+      (config as any).security?.encryptionKey || 'default-key',
+      'salt',
+      32
+    );
     const iv = crypto.randomBytes(16);
     const cipher = crypto.createCipheriv(algorithm, key, iv);
 
@@ -775,7 +810,11 @@ export class OAuthProviderService {
 
   private async decryptSecret(encryptedSecret: string): Promise<string> {
     const algorithm = 'aes-256-gcm';
-    const key = crypto.scryptSync((config as any).security?.encryptionKey || 'default-key', 'salt', 32);
+    const key = crypto.scryptSync(
+      (config as any).security?.encryptionKey || 'default-key',
+      'salt',
+      32
+    );
 
     const [ivHex, encrypted] = encryptedSecret.split(':');
     const iv = Buffer.from(ivHex, 'hex');
@@ -814,7 +853,7 @@ export class OAuthProviderService {
     } catch (error) {
       await this.auditService.logEvent({
         eventType: AuditEventType.SYSTEM_ERROR,
-        details: { error: error.message, operation: 'getProviderConfig', providerId }
+        details: { error: error.message, operation: 'getProviderConfig', providerId },
       });
       throw error;
     }
@@ -829,11 +868,13 @@ export class OAuthProviderService {
   /**
    * Get available providers for a user type
    */
-  public async getAvailableProviders(userType: UserType = UserType.HUMAN): Promise<OAuthProviderConfig[]> {
+  public async getAvailableProviders(
+    userType: UserType = UserType.HUMAN
+  ): Promise<OAuthProviderConfig[]> {
     const allProviders = Array.from(this.providers.values());
-    return allProviders.filter(provider =>
-      provider.isEnabled &&
-      provider.securityConfig?.allowedUserTypes?.includes(userType)
+    return allProviders.filter(
+      (provider) =>
+        provider.isEnabled && provider.securityConfig?.allowedUserTypes?.includes(userType)
     );
   }
 
@@ -897,15 +938,15 @@ export class OAuthProviderService {
           action: 'oauth_operation',
           providerId,
           operation,
-          result: result ? 'success' : 'failure'
-        }
+          result: result ? 'success' : 'failure',
+        },
       });
     } catch (error) {
       logger.error('Failed to record agent operation', {
         agentId,
         providerId,
         operation,
-        error: error instanceof Error ? error.message : 'Unknown error'
+        error: error instanceof Error ? error.message : 'Unknown error',
       });
     }
   }

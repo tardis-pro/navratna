@@ -27,10 +27,10 @@ export class DiscussionMessage extends BaseEntity {
   @Column({ type: 'text' })
   content: string;
 
-  @Column({ 
-    type: 'enum', 
-    enum: MessageType, 
-    default: MessageType.MESSAGE 
+  @Column({
+    type: 'enum',
+    enum: MessageType,
+    default: MessageType.MESSAGE,
   })
   messageType: MessageType;
 

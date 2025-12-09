@@ -20,7 +20,7 @@ export enum ToolCategory {
   AUTOMATION = 'automation',
   SECURITY = 'security',
   DATA = 'data',
-  AI = 'ai'
+  AI = 'ai',
 }
 
 export enum ToolExecutionStatus {
@@ -29,7 +29,7 @@ export enum ToolExecutionStatus {
   COMPLETED = 'completed',
   FAILED = 'failed',
   CANCELLED = 'cancelled',
-  APPROVAL_REQUIRED = 'approval-required'
+  APPROVAL_REQUIRED = 'approval-required',
 }
 
 // Tool type definitions
@@ -136,4 +136,4 @@ export interface ToolBudget {
   currentHourlySpent: number;
   dailyResetTime?: Date;
   hourlyResetTime?: Date;
-} 
+}

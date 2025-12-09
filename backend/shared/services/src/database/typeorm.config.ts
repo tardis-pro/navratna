@@ -58,7 +58,18 @@ import { UserContactEntity } from '../entities/user-contact.entity.js';
 import { UserMessageEntity } from '../entities/user-message.entity.js';
 import { UserPresenceEntity } from '../entities/user-presence.entity.js';
 import { ShortLinkEntity } from '../entities/short-link.entity.js';
-import { Project, ProjectTask, ProjectToolUsage, ProjectAgent, ProjectWorkflow, TaskExecution } from '../entities/Project.js';
+import {
+  Project,
+  ProjectTask,
+  ProjectToolUsage,
+  ProjectAgent,
+  ProjectWorkflow,
+  TaskExecution,
+} from '../entities/Project.js';
+import { ProjectEntity } from '../entities/project.entity.js';
+import { ProjectMemberEntity } from '../entities/project-member.entity.js';
+import { ProjectFileEntity } from '../entities/project-file.entity.js';
+import { TaskEntity } from '../entities/task.entity.js';
 import { MCPServerSubscriber } from '../subscribers/MCPServerSubscriber.js';
 import { MCPToolCallSubscriber } from '../subscribers/MCPToolCallSubscriber.js';
 
@@ -71,7 +82,7 @@ import { MCPToolCallSubscriber } from '../subscribers/MCPToolCallSubscriber.js';
 const logger = createLogger({
   serviceName: 'typeorm-config',
   environment: process.env.NODE_ENV || 'development',
-  logLevel: process.env.LOG_LEVEL || 'info'
+  logLevel: process.env.LOG_LEVEL || 'info',
 });
 
 // All entities array for easy management
@@ -129,13 +140,15 @@ export const allEntities = [
   ProjectAgent,
   ProjectWorkflow,
   TaskExecution,
+  // New Project System entities
+  ProjectEntity,
+  ProjectMemberEntity,
+  ProjectFileEntity,
+  TaskEntity,
 ];
 
 // All subscribers array
-export const allSubscribers = [
-  MCPServerSubscriber,
-  MCPToolCallSubscriber,
-];
+export const allSubscribers = [MCPServerSubscriber, MCPToolCallSubscriber];
 
 /**
  * Create base TypeORM configuration
@@ -151,7 +164,7 @@ function createBaseConfig(): PostgresConnectionOptions {
         port: parseInt(url.port) || 5432,
         username: url.username,
         password: url.password,
-        database: url.pathname.slice(1) // Remove leading slash
+        database: url.pathname.slice(1), // Remove leading slash
       };
     } catch (error) {
       logger.warn('Failed to parse POSTGRES_URL, falling back to individual env vars');
@@ -160,7 +173,7 @@ function createBaseConfig(): PostgresConnectionOptions {
         port: parseInt(process.env.POSTGRES_PORT || '5432'),
         username: process.env.POSTGRES_USER || 'uaip_user',
         password: process.env.POSTGRES_PASSWORD || 'uaip_password',
-        database: process.env.POSTGRES_DB || 'uaip'
+        database: process.env.POSTGRES_DB || 'uaip',
       };
     }
   } else {
@@ -169,7 +182,7 @@ function createBaseConfig(): PostgresConnectionOptions {
       port: parseInt(process.env.POSTGRES_PORT || '5432'),
       username: process.env.POSTGRES_USER || 'uaip_user',
       password: process.env.POSTGRES_PASSWORD || 'uaip_password',
-      database: process.env.POSTGRES_DB || 'uaip'
+      database: process.env.POSTGRES_DB || 'uaip',
     };
   }
 
@@ -182,12 +195,15 @@ function createBaseConfig(): PostgresConnectionOptions {
     subscribers: allSubscribers,
     migrations: [join(__dirname, '..', 'migrations', '*{.ts,.js}')],
     migrationsRun: true, // Enable automatic migrations to fix schema issues
-    ssl: process.env.DB_SSL === 'true' || process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
+    ssl:
+      process.env.DB_SSL === 'true' || process.env.NODE_ENV === 'production'
+        ? { rejectUnauthorized: false }
+        : false,
     maxQueryExecutionTime: parseInt(process.env.DB_TIMEOUT || '30000'),
     extra: {
       max: parseInt(process.env.DB_MAX_CONNECTIONS || '20'),
       connectionTimeoutMillis: parseInt(process.env.DB_TIMEOUT || '30000'),
-    }
+    },
   };
 }
 
@@ -203,7 +219,7 @@ class RedisCacheManager {
   private redis: IORedis | null = null;
   private isConnected = false;
 
-  private constructor() { }
+  private constructor() {}
 
   static getInstance(): RedisCacheManager {
     if (!RedisCacheManager.instance) {
@@ -242,7 +258,7 @@ class RedisCacheManager {
       host: finalRedisConfig.host,
       port: finalRedisConfig.port,
       db: finalRedisConfig.db,
-      hasPassword: !!finalRedisConfig.password
+      hasPassword: !!finalRedisConfig.password,
     });
 
     this.redis = new IORedis(finalRedisConfig);
@@ -275,9 +291,7 @@ class RedisCacheManager {
     try {
       await Promise.race([
         this.redis.ping(),
-        new Promise((_, reject) =>
-          setTimeout(() => reject(new Error('Redis ping timeout')), 5000)
-        )
+        new Promise((_, reject) => setTimeout(() => reject(new Error('Redis ping timeout')), 5000)),
       ]);
 
       this.isConnected = true;
@@ -344,7 +358,7 @@ function isSystemQuery(key: string): boolean {
     'pg_constraint',
     'pg_index',
     'pg_proc',
-    'pg_description'
+    'pg_description',
   ];
 
   // Check if key contains any system patterns
@@ -360,11 +374,13 @@ function isSystemQuery(key: string): boolean {
   }
 
   // Skip queries that look like schema introspection
-  if (lowerKey.includes('table_schema') ||
+  if (
+    lowerKey.includes('table_schema') ||
     lowerKey.includes('column_name') ||
     lowerKey.includes('constraint_name') ||
     lowerKey.includes('pg_stat_') ||
-    lowerKey.includes('pg_settings')) {
+    lowerKey.includes('pg_settings')
+  ) {
     return true;
   }
 
@@ -451,7 +467,9 @@ async function createCacheConfig(): Promise<any | undefined> {
 /**
  * Create complete TypeORM configuration
  */
-export async function createTypeOrmConfig(disableCache = false): Promise<DataSourceOptions & PostgresConnectionOptions> {
+export async function createTypeOrmConfig(
+  disableCache = false
+): Promise<DataSourceOptions & PostgresConnectionOptions> {
   const baseConfig = createBaseConfig();
 
   if (disableCache) {
@@ -475,7 +493,7 @@ export class TypeOrmDataSourceManager {
   private dataSource: DataSource | null = null;
   private initializationPromise: Promise<DataSource> | null = null;
 
-  private constructor() { }
+  private constructor() {}
 
   static getInstance(): TypeOrmDataSourceManager {
     if (!TypeOrmDataSourceManager.instance) {
@@ -496,7 +514,10 @@ export class TypeOrmDataSourceManager {
     return this.initializationPromise;
   }
 
-  private async performInitialization(maxRetries: number, disableCache: boolean): Promise<DataSource> {
+  private async performInitialization(
+    maxRetries: number,
+    disableCache: boolean
+  ): Promise<DataSource> {
     let lastError: Error;
 
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
@@ -508,7 +529,7 @@ export class TypeOrmDataSourceManager {
           host: config.host,
           port: config.port,
           database: config.database,
-          cacheEnabled: !!config.cache
+          cacheEnabled: !!config.cache,
         });
 
         this.dataSource = new DataSource(config);
@@ -519,19 +540,21 @@ export class TypeOrmDataSourceManager {
       } catch (error) {
         lastError = error as Error;
         logger.error(`TypeORM initialization failed (attempt ${attempt}/${maxRetries})`, {
-          error: error.message
+          error: error.message,
         });
 
         if (attempt < maxRetries) {
           const delay = Math.min(1000 * Math.pow(2, attempt - 1), 10000);
           logger.info(`Retrying in ${delay}ms...`);
-          await new Promise(resolve => setTimeout(resolve, delay));
+          await new Promise((resolve) => setTimeout(resolve, delay));
         }
       }
     }
 
     this.initializationPromise = null;
-    throw new Error(`Failed to initialize TypeORM after ${maxRetries} attempts. Last error: ${lastError.message}`);
+    throw new Error(
+      `Failed to initialize TypeORM after ${maxRetries} attempts. Last error: ${lastError.message}`
+    );
   }
 
   /**
@@ -668,7 +691,7 @@ export const getAppDataSource = async (): Promise<DataSource> => {
 export const AppDataSource = new Proxy({} as DataSource, {
   get(target, prop) {
     throw new Error('AppDataSource must be initialized first. Use getAppDataSource() instead.');
-  }
+  },
 });
 
-export default AppDataSource; 
+export default AppDataSource;

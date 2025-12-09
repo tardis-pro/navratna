@@ -4,13 +4,23 @@ import { useOnboarding } from '../contexts/OnboardingContext';
 import { AgentSettings } from './AgentSettings';
 import { ModelProviderSettings } from './ModelProviderSettings';
 import { Button } from './ui/button';
-import { Bot, Server, Settings, Users, AlertCircle, CheckCircle2, RefreshCw, Sparkles, RotateCcw } from 'lucide-react';
+import {
+  Bot,
+  Server,
+  Settings,
+  Users,
+  AlertCircle,
+  CheckCircle2,
+  RefreshCw,
+  Sparkles,
+  RotateCcw,
+} from 'lucide-react';
 
 type SettingsTab = 'agents' | 'providers' | 'general';
 
 export const SettingsContent: React.FC = () => {
-  const { 
-    agents, 
+  const {
+    agents,
     updateAgentState,
     modelState,
     loadProviders,
@@ -21,11 +31,11 @@ export const SettingsContent: React.FC = () => {
     testProvider,
     deleteProvider,
     getModelsForProvider,
-    getRecommendedModels
+    getRecommendedModels,
   } = useAgents();
-  
+
   const { restartOnboarding } = useOnboarding();
-  
+
   const [activeTab, setActiveTab] = useState<SettingsTab>('agents');
   const [initializationStatus, setInitializationStatus] = useState<{
     loading: boolean;
@@ -38,7 +48,7 @@ export const SettingsContent: React.FC = () => {
     error: null,
     providersLoaded: false,
     modelsLoaded: false,
-    initialized: false
+    initialized: false,
   });
 
   // Initialize providers and models on component mount (only once)
@@ -47,35 +57,33 @@ export const SettingsContent: React.FC = () => {
       return; // Prevent multiple initializations
     }
 
-    setInitializationStatus(prev => ({ ...prev, loading: true, error: null }));
-    
+    setInitializationStatus((prev) => ({ ...prev, loading: true, error: null }));
+
     try {
       // Load providers and models in parallel
-      const results = await Promise.allSettled([
-        loadProviders(),
-        loadModels()
-      ]);
+      const results = await Promise.allSettled([loadProviders(), loadModels()]);
 
       const providersResult = results[0];
       const modelsResult = results[1];
 
-      setInitializationStatus(prev => ({ 
-        ...prev, 
+      setInitializationStatus((prev) => ({
+        ...prev,
         loading: false,
         initialized: true,
         providersLoaded: providersResult.status === 'fulfilled',
         modelsLoaded: modelsResult.status === 'fulfilled',
-        error: providersResult.status === 'rejected' || modelsResult.status === 'rejected' 
-          ? 'Failed to load some model data' 
-          : null
+        error:
+          providersResult.status === 'rejected' || modelsResult.status === 'rejected'
+            ? 'Failed to load some model data'
+            : null,
       }));
     } catch (error) {
       console.error('Failed to initialize model data:', error);
-      setInitializationStatus(prev => ({ 
-        ...prev, 
+      setInitializationStatus((prev) => ({
+        ...prev,
         loading: false,
         initialized: true,
-        error: error instanceof Error ? error.message : 'Failed to load model data'
+        error: error instanceof Error ? error.message : 'Failed to load model data',
       }));
     }
   }, [loadProviders, loadModels, initializationStatus.initialized, initializationStatus.loading]);
@@ -93,28 +101,28 @@ export const SettingsContent: React.FC = () => {
   }, []);
 
   const handleRefreshProviders = useCallback(async () => {
-    setInitializationStatus(prev => ({ ...prev, loading: true, error: null }));
-    
+    setInitializationStatus((prev) => ({ ...prev, loading: true, error: null }));
+
     try {
       await refreshModelData();
-      setInitializationStatus(prev => ({ ...prev, loading: false }));
+      setInitializationStatus((prev) => ({ ...prev, loading: false }));
     } catch (error) {
       console.error('Failed to refresh providers:', error);
-      setInitializationStatus(prev => ({ 
-        ...prev, 
-        loading: false, 
-        error: error instanceof Error ? error.message : 'Failed to refresh providers'
+      setInitializationStatus((prev) => ({
+        ...prev,
+        loading: false,
+        error: error instanceof Error ? error.message : 'Failed to refresh providers',
       }));
     }
   }, [refreshModelData]);
 
   // Calculate statistics
   const agentCount = Object.keys(agents).length;
-  const activeAgentCount = Object.values(agents).filter(agent => agent.isActive !== false).length;
+  const activeAgentCount = Object.values(agents).filter((agent) => agent.isActive !== false).length;
   const providerCount = modelState.providers.length;
-  const activeProviderCount = modelState.providers.filter(p => p.isActive).length;
+  const activeProviderCount = modelState.providers.filter((p) => p.isActive).length;
   const modelCount = modelState.models.length;
-  const availableModelCount = modelState.models.filter(m => m.isAvailable).length;
+  const availableModelCount = modelState.models.filter((m) => m.isAvailable).length;
 
   return (
     <div className="space-y-6">
@@ -122,14 +130,12 @@ export const SettingsContent: React.FC = () => {
       <div className="border-b border-slate-200 dark:border-slate-700 pb-6">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-bold text-slate-900 dark:text-white mb-2">
-              Settings
-            </h1>
+            <h1 className="text-2xl font-bold text-slate-900 dark:text-white mb-2">Settings</h1>
             <p className="text-slate-600 dark:text-slate-400">
               Configure your AI agents, model providers, and system preferences
             </p>
           </div>
-          
+
           {/* Status Indicators */}
           <div className="flex items-center space-x-4">
             {initializationStatus.loading && (
@@ -140,7 +146,7 @@ export const SettingsContent: React.FC = () => {
                 </span>
               </div>
             )}
-            
+
             {initializationStatus.error && (
               <div className="flex items-center space-x-2 px-3 py-2 bg-red-50 dark:bg-red-900/20 rounded-lg">
                 <AlertCircle className="w-4 h-4 text-red-600" />
@@ -149,7 +155,7 @@ export const SettingsContent: React.FC = () => {
                 </span>
               </div>
             )}
-            
+
             {!initializationStatus.loading && !initializationStatus.error && (
               <div className="flex items-center space-x-2 px-3 py-2 bg-green-50 dark:bg-green-900/20 rounded-lg">
                 <CheckCircle2 className="w-4 h-4 text-green-600" />
@@ -158,7 +164,7 @@ export const SettingsContent: React.FC = () => {
                 </span>
               </div>
             )}
-            
+
             <Button
               onClick={handleRefreshProviders}
               disabled={initializationStatus.loading}
@@ -166,12 +172,14 @@ export const SettingsContent: React.FC = () => {
               size="sm"
               className="flex items-center gap-2"
             >
-              <RefreshCw className={`w-4 h-4 ${initializationStatus.loading ? 'animate-spin' : ''}`} />
+              <RefreshCw
+                className={`w-4 h-4 ${initializationStatus.loading ? 'animate-spin' : ''}`}
+              />
               Refresh
             </Button>
           </div>
         </div>
-        
+
         {/* Quick Stats */}
         <div className="flex items-center space-x-6 mt-4">
           <div className="flex items-center space-x-2">
@@ -244,9 +252,7 @@ export const SettingsContent: React.FC = () => {
             <h3 className="text-sm font-semibold text-red-700 dark:text-red-300 mb-1">
               Initialization Error
             </h3>
-            <p className="text-sm text-red-600 dark:text-red-400">
-              {initializationStatus.error}
-            </p>
+            <p className="text-sm text-red-600 dark:text-red-400">{initializationStatus.error}</p>
             <button
               onClick={handleRefreshProviders}
               className="mt-2 text-sm text-red-700 dark:text-red-300 hover:text-red-800 dark:hover:text-red-200 font-medium underline"
@@ -260,7 +266,7 @@ export const SettingsContent: React.FC = () => {
       {/* Settings Content */}
       <div className="min-h-[500px]">
         {activeTab === 'agents' && (
-          <AgentSettings 
+          <AgentSettings
             agents={agents}
             onUpdateAgent={updateAgentState}
             onRefreshAgents={handleRefreshAgents}
@@ -270,9 +276,9 @@ export const SettingsContent: React.FC = () => {
             getModelsForProvider={getModelsForProvider}
           />
         )}
-        
+
         {activeTab === 'providers' && (
-          <ModelProviderSettings 
+          <ModelProviderSettings
             // Pass enhanced props for better integration
             providers={modelState.providers}
             models={modelState.models}
@@ -285,7 +291,7 @@ export const SettingsContent: React.FC = () => {
             onRefresh={handleRefreshProviders}
           />
         )}
-        
+
         {activeTab === 'general' && (
           <div className="space-y-8">
             {/* Onboarding Section */}
@@ -303,7 +309,7 @@ export const SettingsContent: React.FC = () => {
                   </p>
                 </div>
               </div>
-              
+
               <div className="space-y-4">
                 <div className="flex items-start justify-between">
                   <div className="flex-1">
@@ -311,8 +317,8 @@ export const SettingsContent: React.FC = () => {
                       Restart Onboarding
                     </h4>
                     <p className="text-sm text-slate-600 dark:text-slate-400">
-                      Go through the welcome flow again to update your preferences and work style settings. 
-                      This will help us better customize your experience.
+                      Go through the welcome flow again to update your preferences and work style
+                      settings. This will help us better customize your experience.
                     </p>
                   </div>
                   <Button
@@ -342,7 +348,7 @@ export const SettingsContent: React.FC = () => {
                   </p>
                 </div>
               </div>
-              
+
               <div className="space-y-4">
                 <div className="flex items-center justify-between py-3 border-b border-slate-200 dark:border-slate-700 last:border-b-0">
                   <div>
@@ -353,11 +359,9 @@ export const SettingsContent: React.FC = () => {
                       Control UI animations and transitions
                     </p>
                   </div>
-                  <div className="text-sm text-slate-500 dark:text-slate-400">
-                    Coming soon
-                  </div>
+                  <div className="text-sm text-slate-500 dark:text-slate-400">Coming soon</div>
                 </div>
-                
+
                 <div className="flex items-center justify-between py-3 border-b border-slate-200 dark:border-slate-700 last:border-b-0">
                   <div>
                     <h4 className="font-medium text-slate-900 dark:text-white">
@@ -367,11 +371,9 @@ export const SettingsContent: React.FC = () => {
                       Manage how you receive updates and alerts
                     </p>
                   </div>
-                  <div className="text-sm text-slate-500 dark:text-slate-400">
-                    Coming soon
-                  </div>
+                  <div className="text-sm text-slate-500 dark:text-slate-400">Coming soon</div>
                 </div>
-                
+
                 <div className="flex items-center justify-between py-3">
                   <div>
                     <h4 className="font-medium text-slate-900 dark:text-white">
@@ -381,9 +383,7 @@ export const SettingsContent: React.FC = () => {
                       Set your preferred language and regional settings
                     </p>
                   </div>
-                  <div className="text-sm text-slate-500 dark:text-slate-400">
-                    Coming soon
-                  </div>
+                  <div className="text-sm text-slate-500 dark:text-slate-400">Coming soon</div>
                 </div>
               </div>
             </div>
@@ -403,34 +403,26 @@ export const SettingsContent: React.FC = () => {
                   </p>
                 </div>
               </div>
-              
+
               <div className="space-y-4">
                 <div className="flex items-center justify-between py-3 border-b border-slate-200 dark:border-slate-700 last:border-b-0">
                   <div>
-                    <h4 className="font-medium text-slate-900 dark:text-white">
-                      Data Export
-                    </h4>
+                    <h4 className="font-medium text-slate-900 dark:text-white">Data Export</h4>
                     <p className="text-sm text-slate-600 dark:text-slate-400">
                       Download your data and conversation history
                     </p>
                   </div>
-                  <div className="text-sm text-slate-500 dark:text-slate-400">
-                    Coming soon
-                  </div>
+                  <div className="text-sm text-slate-500 dark:text-slate-400">Coming soon</div>
                 </div>
-                
+
                 <div className="flex items-center justify-between py-3">
                   <div>
-                    <h4 className="font-medium text-slate-900 dark:text-white">
-                      Privacy Controls
-                    </h4>
+                    <h4 className="font-medium text-slate-900 dark:text-white">Privacy Controls</h4>
                     <p className="text-sm text-slate-600 dark:text-slate-400">
                       Control how your data is used and stored
                     </p>
                   </div>
-                  <div className="text-sm text-slate-500 dark:text-slate-400">
-                    Coming soon
-                  </div>
+                  <div className="text-sm text-slate-500 dark:text-slate-400">Coming soon</div>
                 </div>
               </div>
             </div>
@@ -439,4 +431,4 @@ export const SettingsContent: React.FC = () => {
       </div>
     </div>
   );
-}; 
+};

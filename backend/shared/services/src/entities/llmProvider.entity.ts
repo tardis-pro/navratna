@@ -1,15 +1,21 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, Index, BeforeInsert, BeforeUpdate } from 'typeorm';
+import {
+  Entity,
+  PrimaryGeneratedColumn,
+  Column,
+  CreateDateColumn,
+  UpdateDateColumn,
+  Index,
+  BeforeInsert,
+  BeforeUpdate,
+} from 'typeorm';
 import { BaseEntity } from './base.entity.js';
 import * as crypto from 'crypto';
 import { LLMProviderStatus, LLMProviderType } from '@uaip/types';
-
-
 
 @Entity('llm_providers')
 @Index(['name'], { unique: true })
 @Index(['type', 'isActive'])
 export class LLMProvider extends BaseEntity {
-  
   @Column({ type: 'varchar', length: 255, unique: true })
   name!: string;
 
@@ -19,7 +25,7 @@ export class LLMProvider extends BaseEntity {
   @Column({
     type: 'enum',
     enum: LLMProviderType,
-    default: LLMProviderType.CUSTOM
+    default: LLMProviderType.CUSTOM,
   })
   type!: LLMProviderType;
 
@@ -31,7 +37,6 @@ export class LLMProvider extends BaseEntity {
 
   @Column({ type: 'varchar', length: 255, nullable: true })
   defaultModel?: string;
-
 
   @Column({ type: 'json', nullable: true })
   configuration?: {
@@ -49,7 +54,7 @@ export class LLMProvider extends BaseEntity {
   @Column({
     type: 'enum',
     enum: LLMProviderStatus,
-    default: LLMProviderStatus.ACTIVE
+    default: LLMProviderStatus.ACTIVE,
   })
   status!: LLMProviderStatus;
 
@@ -89,12 +94,13 @@ export class LLMProvider extends BaseEntity {
   updatedBy?: string;
 
   // Encryption key for API keys - should be set from environment
-  private static readonly ENCRYPTION_KEY = process.env.LLM_PROVIDER_ENCRYPTION_KEY || 'default-key-change-in-production';
+  private static readonly ENCRYPTION_KEY =
+    process.env.LLM_PROVIDER_ENCRYPTION_KEY || 'default-key-change-in-production';
 
   // Get properly sized encryption key for AES-256 (32 bytes)
   private getEncryptionKey(): Buffer {
     const key = LLMProvider.ENCRYPTION_KEY;
-    
+
     // For AES-256, we need exactly 32 bytes
     if (key.length === 32) {
       return Buffer.from(key, 'utf8');
@@ -120,7 +126,7 @@ export class LLMProvider extends BaseEntity {
     const cipher = crypto.createCipheriv('aes-256-cbc', this.getEncryptionKey(), iv);
     let encrypted = cipher.update(apiKey, 'utf8', 'hex');
     encrypted += cipher.final('hex');
-    
+
     // Store IV + encrypted data (IV is not secret)
     this.apiKeyEncrypted = iv.toString('hex') + ':' + encrypted;
   }
@@ -141,7 +147,7 @@ export class LLMProvider extends BaseEntity {
 
       const iv = Buffer.from(parts[0], 'hex');
       const encryptedData = parts[1];
-      
+
       const decipher = crypto.createDecipheriv('aes-256-cbc', this.getEncryptionKey(), iv);
       let decrypted = decipher.update(encryptedData, 'hex', 'utf8');
       decrypted += decipher.final('utf8');
@@ -180,22 +186,26 @@ export class LLMProvider extends BaseEntity {
   updateUsageStats(tokensUsed: number, isError: boolean = false): void {
     this.totalTokensUsed = (BigInt(this.totalTokensUsed) + BigInt(tokensUsed)).toString();
     this.totalRequests = (BigInt(this.totalRequests) + BigInt(1)).toString();
-    
+
     if (isError) {
       this.totalErrors = (BigInt(this.totalErrors) + BigInt(1)).toString();
     }
-    
+
     this.lastUsedAt = new Date();
   }
 
   // Method to update health check result
-  updateHealthCheck(result: { status: 'healthy' | 'unhealthy'; latency?: number; error?: string }): void {
+  updateHealthCheck(result: {
+    status: 'healthy' | 'unhealthy';
+    latency?: number;
+    error?: string;
+  }): void {
     this.healthCheckResult = {
       ...result,
       checkedAt: new Date(),
     };
     this.lastHealthCheckAt = new Date();
-    
+
     // Update status based on health check
     if (result.status === 'unhealthy') {
       this.status = LLMProviderStatus.INACTIVE;
@@ -233,4 +243,4 @@ export class LLMProvider extends BaseEntity {
     if (!this.totalRequests) this.totalRequests = '0';
     if (!this.totalErrors) this.totalErrors = '0';
   }
-} 
+}

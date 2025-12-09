@@ -13,13 +13,15 @@ export abstract class BaseProvider {
 
   abstract generateResponse(request: LLMRequest): Promise<LLMResponse>;
 
-  async getAvailableModels(): Promise<Array<{
-    id: string;
-    name: string;
-    description?: string;
-    source: string;
-    apiEndpoint: string;
-  }>> {
+  async getAvailableModels(): Promise<
+    Array<{
+      id: string;
+      name: string;
+      description?: string;
+      source: string;
+      apiEndpoint: string;
+    }>
+  > {
     // Default implementation - should be overridden by specific providers
     try {
       logger.info(`${this.name}: Fetching models from ${this.config.baseUrl}`);
@@ -27,22 +29,24 @@ export abstract class BaseProvider {
       logger.info(`${this.name}: Successfully fetched ${models.length} models`);
       return models;
     } catch (error) {
-      logger.error(`Failed to fetch models from ${this.name}`, { 
+      logger.error(`Failed to fetch models from ${this.name}`, {
         error: error instanceof Error ? error.message : error,
         baseUrl: this.config.baseUrl,
-        stack: error instanceof Error ? error.stack : undefined
+        stack: error instanceof Error ? error.stack : undefined,
       });
       return [];
     }
   }
 
-  protected async fetchModelsFromProvider(): Promise<Array<{
-    id: string;
-    name: string;
-    description?: string;
-    source: string;
-    apiEndpoint: string;
-  }>> {
+  protected async fetchModelsFromProvider(): Promise<
+    Array<{
+      id: string;
+      name: string;
+      description?: string;
+      source: string;
+      apiEndpoint: string;
+    }>
+  > {
     // Base implementation - should be overridden by specific providers
     return [];
   }
@@ -149,17 +153,14 @@ export abstract class BaseProvider {
 
         // Exponential backoff
         const delay = Math.min(1000 * Math.pow(2, attempt - 1), 10000);
-        await new Promise(resolve => setTimeout(resolve, delay));
+        await new Promise((resolve) => setTimeout(resolve, delay));
       }
     }
 
     throw new Error(`Failed after ${maxRetries} attempts`);
   }
 
-  protected async makeGetRequest(
-    url: string,
-    headers: Record<string, string> = {}
-  ): Promise<any> {
+  protected async makeGetRequest(url: string, headers: Record<string, string> = {}): Promise<any> {
     const defaultHeaders = {
       ...headers,
     };
@@ -215,7 +216,7 @@ export abstract class BaseProvider {
 
         // Exponential backoff
         const delay = Math.min(1000 * Math.pow(2, attempt - 1), 10000);
-        await new Promise(resolve => setTimeout(resolve, delay));
+        await new Promise((resolve) => setTimeout(resolve, delay));
       }
     }
 
@@ -227,10 +228,11 @@ export abstract class BaseProvider {
     logger.error(`${this.name} ${context} error`, { error: errorMessage });
 
     return {
-      content: 'I apologize, but I am currently unable to generate a response. Please try again later.',
+      content:
+        'I apologize, but I am currently unable to generate a response. Please try again later.',
       model: this.config.defaultModel || 'unknown',
       error: errorMessage,
       finishReason: 'error',
     };
   }
-} 
+}

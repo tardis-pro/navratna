@@ -66,12 +66,9 @@ export class BatchProcessorService {
     private knowledgeGraph: KnowledgeGraphService
   ) {}
 
-  async startBatchJob(
-    files: FileData[],
-    options: ProcessingOptions = {}
-  ): Promise<string> {
+  async startBatchJob(files: FileData[], options: ProcessingOptions = {}): Promise<string> {
     const jobId = uuidv4();
-    
+
     // Validate files
     const validFiles = this.validateFiles(files);
     if (validFiles.length === 0) {
@@ -94,14 +91,14 @@ export class BatchProcessorService {
         extractKnowledge: options.extractKnowledge ?? true,
         saveToGraph: options.saveToGraph ?? true,
         generateEmbeddings: options.generateEmbeddings ?? true,
-        ...options
-      }
+        ...options,
+      },
     };
 
     this.jobs.set(jobId, job);
 
     // Start processing asynchronously
-    this.processJobAsync(jobId, validFiles).catch(error => {
+    this.processJobAsync(jobId, validFiles).catch((error) => {
       logger.error('Batch job failed:', { jobId, error: error.message });
       this.updateJobStatus(jobId, 'failed', error.message);
     });
@@ -114,15 +111,15 @@ export class BatchProcessorService {
   }
 
   private validateFiles(files: FileData[]): FileData[] {
-    return files.filter(file => {
+    return files.filter((file) => {
       if (file.size > this.MAX_FILE_SIZE) {
-        logger.warn(`File ${file.name} exceeds size limit`, { 
-          size: file.size, 
-          limit: this.MAX_FILE_SIZE 
+        logger.warn(`File ${file.name} exceeds size limit`, {
+          size: file.size,
+          limit: this.MAX_FILE_SIZE,
         });
         return false;
       }
-      
+
       if (!file.content || file.content.trim().length === 0) {
         logger.warn(`File ${file.name} is empty`);
         return false;
@@ -138,9 +135,9 @@ export class BatchProcessorService {
       throw new Error(`Job ${jobId} not found`);
     }
 
-    logger.info(`Starting batch job ${jobId}`, { 
+    logger.info(`Starting batch job ${jobId}`, {
       totalFiles: files.length,
-      options: job.options 
+      options: job.options,
     });
 
     this.updateJobStatus(jobId, 'processing');
@@ -148,43 +145,42 @@ export class BatchProcessorService {
     try {
       const batchSize = job.options.batchSize || this.DEFAULT_BATCH_SIZE;
       const results: ProcessingResult[] = [];
-      
+
       // Process files in batches
       for (let i = 0; i < files.length; i += batchSize) {
         const batch = files.slice(i, i + batchSize);
         const batchResults = await this.processFileChunk(batch, job.options);
-        
+
         results.push(...batchResults);
-        
+
         // Update progress
         const processed = Math.min(i + batchSize, files.length);
         const progress = Math.round((processed / files.length) * 100);
         const extractedItems = results.reduce((sum, r) => sum + r.knowledgeExtracted, 0);
-        
+
         this.updateJobProgress(jobId, progress, processed, extractedItems);
-        
-        logger.info(`Batch job ${jobId} progress`, { 
-          processed, 
-          total: files.length, 
+
+        logger.info(`Batch job ${jobId} progress`, {
+          processed,
+          total: files.length,
           progress: `${progress}%`,
-          extractedItems 
+          extractedItems,
         });
       }
 
       // Job completed
       const totalExtracted = results.reduce((sum, r) => sum + r.knowledgeExtracted, 0);
-      const successCount = results.filter(r => r.success).length;
-      const failCount = results.filter(r => !r.success).length;
-      
+      const successCount = results.filter((r) => r.success).length;
+      const failCount = results.filter((r) => !r.success).length;
+
       this.updateJobStatus(jobId, 'completed');
-      
+
       logger.info(`Batch job ${jobId} completed`, {
         totalFiles: files.length,
         successful: successCount,
         failed: failCount,
-        totalExtracted
+        totalExtracted,
       });
-      
     } catch (error) {
       logger.error(`Batch job ${jobId} failed`, { error: error.message });
       this.updateJobStatus(jobId, 'failed', error.message);
@@ -198,14 +194,14 @@ export class BatchProcessorService {
   ): Promise<ProcessingResult[]> {
     const concurrency = options.concurrency || this.DEFAULT_CONCURRENCY;
     const results: ProcessingResult[] = [];
-    
+
     // Process files with controlled concurrency
     for (let i = 0; i < files.length; i += concurrency) {
       const batch = files.slice(i, i + concurrency);
-      const batchPromises = batch.map(file => this.processFile(file, options));
-      
+      const batchPromises = batch.map((file) => this.processFile(file, options));
+
       const batchResults = await Promise.allSettled(batchPromises);
-      
+
       for (const result of batchResults) {
         if (result.status === 'fulfilled') {
           results.push(result.value);
@@ -216,25 +212,22 @@ export class BatchProcessorService {
             conversationsFound: 0,
             knowledgeExtracted: 0,
             error: result.reason.message,
-            processingTime: 0
+            processingTime: 0,
           });
         }
       }
     }
-    
+
     return results;
   }
 
-  private async processFile(
-    file: FileData,
-    options: ProcessingOptions
-  ): Promise<ProcessingResult> {
+  private async processFile(file: FileData, options: ProcessingOptions): Promise<ProcessingResult> {
     const startTime = Date.now();
-    
+
     try {
-      logger.debug(`Processing file ${file.name}`, { 
-        size: file.size, 
-        type: file.type 
+      logger.debug(`Processing file ${file.name}`, {
+        size: file.size,
+        type: file.type,
       });
 
       // Parse conversations
@@ -248,7 +241,7 @@ export class BatchProcessorService {
           conversationsFound: 0,
           knowledgeExtracted: 0,
           error: 'No conversations found in file',
-          processingTime: Date.now() - startTime
+          processingTime: Date.now() - startTime,
         };
       }
 
@@ -263,11 +256,12 @@ export class BatchProcessorService {
               extractQA: true,
               extractDecisions: true,
               extractExpertise: true,
-              extractLearning: true
+              extractLearning: true,
             }
           );
 
-          totalKnowledgeExtracted += knowledge.extractedKnowledge.length +
+          totalKnowledgeExtracted +=
+            knowledge.extractedKnowledge.length +
             knowledge.qaPairs.length +
             knowledge.decisionPoints.length +
             knowledge.expertiseAreas.length +
@@ -285,22 +279,21 @@ export class BatchProcessorService {
         success: true,
         conversationsFound: conversations.length,
         knowledgeExtracted: totalKnowledgeExtracted,
-        processingTime: Date.now() - startTime
+        processingTime: Date.now() - startTime,
       };
-      
     } catch (error) {
-      logger.error(`Error processing file ${file.name}`, { 
+      logger.error(`Error processing file ${file.name}`, {
         error: error.message,
-        fileId: file.id 
+        fileId: file.id,
       });
-      
+
       return {
         fileId: file.id,
         success: false,
         conversationsFound: 0,
         knowledgeExtracted: 0,
         error: error.message,
-        processingTime: Date.now() - startTime
+        processingTime: Date.now() - startTime,
       };
     }
   }
@@ -312,17 +305,17 @@ export class BatchProcessorService {
     // Save extracted knowledge items
     if (knowledge.extractedKnowledge?.length > 0) {
       ingestItems.push(
-        ...knowledge.extractedKnowledge.map(item => ({
+        ...knowledge.extractedKnowledge.map((item) => ({
           content: item.content,
           metadata: {
             confidence: item.confidence,
             context: item.context,
             tags: item.tags,
             type: item.type,
-            extractedFrom: 'chat'
+            extractedFrom: 'chat',
           },
           source: item.source || 'chat',
-          userId
+          userId,
         }))
       );
     }
@@ -330,7 +323,7 @@ export class BatchProcessorService {
     // Save Q&A pairs
     if (knowledge.qaPairs?.length > 0) {
       ingestItems.push(
-        ...knowledge.qaPairs.map(qa => ({
+        ...knowledge.qaPairs.map((qa) => ({
           content: `Q: ${qa.question}\nA: ${qa.answer}`,
           metadata: {
             question: qa.question,
@@ -338,10 +331,10 @@ export class BatchProcessorService {
             confidence: qa.confidence,
             context: qa.context,
             tags: qa.tags,
-            extractedFrom: 'chat'
+            extractedFrom: 'chat',
           },
           source: qa.source || 'chat',
-          userId
+          userId,
         }))
       );
     }
@@ -349,7 +342,7 @@ export class BatchProcessorService {
     // Save decision points
     if (knowledge.decisionPoints?.length > 0) {
       ingestItems.push(
-        ...knowledge.decisionPoints.map(decision => ({
+        ...knowledge.decisionPoints.map((decision) => ({
           content: decision.decision,
           metadata: {
             options: decision.options,
@@ -358,10 +351,10 @@ export class BatchProcessorService {
             confidence: decision.confidence,
             context: decision.context,
             tags: decision.tags,
-            extractedFrom: 'chat'
+            extractedFrom: 'chat',
           },
           source: decision.source || 'chat',
-          userId
+          userId,
         }))
       );
     }
@@ -440,7 +433,7 @@ export class BatchProcessorService {
       pending: 0,
       processing: 0,
       completed: 0,
-      failed: 0
+      failed: 0,
     };
 
     for (const job of this.jobs.values()) {

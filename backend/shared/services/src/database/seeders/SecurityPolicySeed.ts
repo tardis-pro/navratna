@@ -19,7 +19,7 @@ export class SecurityPolicySeed extends BaseSeed<SecurityPolicy> {
   }
 
   async getSeedData(): Promise<DeepPartial<SecurityPolicy>[]> {
-    const adminUser = this.users.find(u => u.role === 'system_admin') || this.users[0];
+    const adminUser = this.users.find((u) => u.role === 'system_admin') || this.users[0];
 
     return [
       {
@@ -32,34 +32,34 @@ export class SecurityPolicySeed extends BaseSeed<SecurityPolicy> {
           timeRestrictions: {
             allowedHours: [9, 17],
             allowedDays: [1, 2, 3, 4, 5],
-            timezone: 'UTC'
+            timezone: 'UTC',
           },
           environmentRestrictions: ['production'],
           riskThresholds: {
             minRiskScore: 0.8,
-            maxRiskScore: 0.95
-          }
+            maxRiskScore: 0.95,
+          },
         },
         actions: {
           requireApproval: true,
           approvalRequirements: {
             minimumApprovers: 2,
             requiredRoles: ['system_admin', 'operations_manager'],
-            timeoutHours: 24
+            timeoutHours: 24,
           },
           blockOperation: true,
           logLevel: 'error',
           notificationChannels: ['email', 'slack'],
           additionalActions: {
             auditLog: true,
-            notification: true
-          }
+            notification: true,
+          },
         },
         isActive: true,
         createdBy: adminUser.id,
         priority: 1,
         createdAt: new Date(),
-        updatedAt: new Date()
+        updatedAt: new Date(),
       },
       {
         name: 'Standard Operations Policy',
@@ -71,34 +71,34 @@ export class SecurityPolicySeed extends BaseSeed<SecurityPolicy> {
           timeRestrictions: {
             allowedHours: [9, 17],
             allowedDays: [1, 2, 3, 4, 5],
-            timezone: 'UTC'
+            timezone: 'UTC',
           },
           environmentRestrictions: ['production'],
           riskThresholds: {
             minRiskScore: 0.8,
-            maxRiskScore: 0.95
-          }
+            maxRiskScore: 0.95,
+          },
         },
         actions: {
           requireApproval: true,
           approvalRequirements: {
             minimumApprovers: 1,
             requiredRoles: ['guest'],
-            timeoutHours: 24
+            timeoutHours: 24,
           },
           blockOperation: true,
           logLevel: 'error',
           notificationChannels: ['email', 'slack'],
           additionalActions: {
             auditLog: true,
-            notification: true
-          }
+            notification: true,
+          },
         },
         isActive: true,
         createdBy: adminUser.id,
         priority: 2,
         createdAt: new Date(),
-        updatedAt: new Date()
+        updatedAt: new Date(),
       },
       {
         name: 'Guest Access Policy',
@@ -110,35 +110,35 @@ export class SecurityPolicySeed extends BaseSeed<SecurityPolicy> {
           timeRestrictions: {
             allowedHours: [9, 17],
             allowedDays: [1, 2, 3, 4, 5],
-            timezone: 'UTC'
+            timezone: 'UTC',
           },
           environmentRestrictions: ['production'],
           riskThresholds: {
             minRiskScore: 0.8,
-            maxRiskScore: 0.95
-          }
+            maxRiskScore: 0.95,
+          },
         },
         actions: {
           requireApproval: true,
           approvalRequirements: {
             minimumApprovers: 1,
             requiredRoles: ['guest'],
-            timeoutHours: 24
+            timeoutHours: 24,
           },
           blockOperation: true,
           logLevel: 'error',
           notificationChannels: ['email', 'slack'],
           additionalActions: {
             auditLog: true,
-            notification: true
-          }
+            notification: true,
+          },
         },
         isActive: true,
         createdBy: adminUser.id,
         priority: 3,
         createdAt: new Date(),
-        updatedAt: new Date()
-      }
+        updatedAt: new Date(),
+      },
     ];
   }
 }

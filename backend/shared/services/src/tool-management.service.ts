@@ -9,7 +9,7 @@ export class ToolManagementService {
   private logger = createLogger({
     serviceName: 'tool-management-service',
     environment: process.env.NODE_ENV || 'development',
-    logLevel: process.env.LOG_LEVEL || 'info'
+    logLevel: process.env.LOG_LEVEL || 'info',
   });
 
   // Tool Definition Operations
@@ -74,11 +74,14 @@ export class ToolManagementService {
         ...usageData,
         timestamp: new Date(),
         createdAt: new Date(),
-        updatedAt: new Date()
+        updatedAt: new Date(),
       };
-      
+
       await typeormService.create('ToolUsageRecord', usageRecord);
-      this.logger.info('Tool usage recorded', { toolId: usageData.toolId, agentId: usageData.agentId });
+      this.logger.info('Tool usage recorded', {
+        toolId: usageData.toolId,
+        agentId: usageData.agentId,
+      });
     } catch (error) {
       this.logger.error('Failed to record tool usage', { error: error.message, usageData });
       throw error;
@@ -94,18 +97,20 @@ export class ToolManagementService {
       const { MoreThanOrEqual } = await import('typeorm');
       const repository = typeormService.getRepository(ToolUsageRecord);
       const usageRecords = await repository.find({
-        where: { 
+        where: {
           toolId,
-          usedAt: MoreThanOrEqual(since)
-        } as any
+          usedAt: MoreThanOrEqual(since),
+        } as any,
       });
 
       const totalUsage = usageRecords.length;
       const successfulUsage = usageRecords.filter((r: any) => r.success).length;
       const totalCost = usageRecords.reduce((sum: number, r: any) => sum + (r.cost || 0), 0);
-      const avgExecutionTime = usageRecords.length > 0 
-        ? usageRecords.reduce((sum: number, r: any) => sum + r.executionTime, 0) / usageRecords.length 
-        : 0;
+      const avgExecutionTime =
+        usageRecords.length > 0
+          ? usageRecords.reduce((sum: number, r: any) => sum + r.executionTime, 0) /
+            usageRecords.length
+          : 0;
 
       return {
         toolId,
@@ -115,7 +120,7 @@ export class ToolManagementService {
         successRate: totalUsage > 0 ? successfulUsage / totalUsage : 0,
         totalCost,
         averageExecutionTime: avgExecutionTime,
-        uniqueAgents: new Set(usageRecords.map((r: any) => r.agentId)).size
+        uniqueAgents: new Set(usageRecords.map((r: any) => r.agentId)).size,
       };
     } catch (error) {
       this.logger.error('Failed to get tool usage stats', { error: error.message, toolId });
@@ -133,9 +138,9 @@ export class ToolManagementService {
     try {
       const { AgentCapabilityMetric } = await import('./entities/index.js');
       const repository = typeormService.getRepository(AgentCapabilityMetric);
-      
+
       const metric = await repository.findOne({
-        where: { agentId: data.agentId, toolId: data.toolId } as any
+        where: { agentId: data.agentId, toolId: data.toolId } as any,
       });
 
       if (metric) {
@@ -151,7 +156,7 @@ export class ToolManagementService {
           averageExecutionTime: totalExecutionTime / totalExecutions,
           successRate: successfulExecutions / totalExecutions,
           lastUsed: new Date(),
-          updatedAt: new Date()
+          updatedAt: new Date(),
         });
       } else {
         // Create new metric
@@ -165,7 +170,7 @@ export class ToolManagementService {
           successRate: data.success ? 1.0 : 0.0,
           lastUsed: new Date(),
           createdAt: new Date(),
-          updatedAt: new Date()
+          updatedAt: new Date(),
         };
 
         await typeormService.create('AgentCapabilityMetric', newMetric);
@@ -181,10 +186,13 @@ export class ToolManagementService {
       const { AgentCapabilityMetric } = await import('./entities/index.js');
       const repository = typeormService.getRepository(AgentCapabilityMetric);
       return await repository.find({
-        where: { agentId }
+        where: { agentId },
       });
     } catch (error) {
-      this.logger.error('Failed to get agent capability metrics', { error: error.message, agentId });
+      this.logger.error('Failed to get agent capability metrics', {
+        error: error.message,
+        agentId,
+      });
       throw error;
     }
   }
@@ -198,4 +206,4 @@ export class ToolManagementService {
       return false;
     }
   }
-} 
+}

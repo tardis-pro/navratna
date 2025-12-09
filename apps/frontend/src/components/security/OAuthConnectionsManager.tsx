@@ -23,7 +23,7 @@ import {
   RefreshCw,
   Key,
   Calendar,
-  Activity
+  Activity,
 } from 'lucide-react';
 import { OAuthProviderType, AgentOAuthConnection } from '@uaip/types';
 import { api } from '@/utils/api';
@@ -48,7 +48,7 @@ const providers: OAuthProvider[] = [
     description: 'Connect to repositories, issues, and pull requests',
     capabilities: ['Code Access', 'Issue Management', 'PR Automation'],
     color: 'text-slate-900',
-    bgGradient: 'from-slate-100 to-slate-200'
+    bgGradient: 'from-slate-100 to-slate-200',
   },
   {
     id: 'gmail',
@@ -58,7 +58,7 @@ const providers: OAuthProvider[] = [
     description: 'Access and manage emails programmatically',
     capabilities: ['Email Reading', 'Email Sending', 'Label Management'],
     color: 'text-red-600',
-    bgGradient: 'from-red-50 to-red-100'
+    bgGradient: 'from-red-50 to-red-100',
   },
   {
     id: 'confluence',
@@ -68,7 +68,7 @@ const providers: OAuthProvider[] = [
     description: 'Access and create documentation',
     capabilities: ['Page Creation', 'Content Search', 'Space Management'],
     color: 'text-blue-600',
-    bgGradient: 'from-blue-50 to-blue-100'
+    bgGradient: 'from-blue-50 to-blue-100',
   },
   {
     id: 'jira',
@@ -78,8 +78,8 @@ const providers: OAuthProvider[] = [
     description: 'Manage projects and track issues',
     capabilities: ['Issue Tracking', 'Sprint Management', 'Reporting'],
     color: 'text-indigo-600',
-    bgGradient: 'from-indigo-50 to-indigo-100'
-  }
+    bgGradient: 'from-indigo-50 to-indigo-100',
+  },
 ];
 
 export const OAuthConnectionsManager: React.FC<{ agentId?: string }> = ({ agentId }) => {
@@ -96,13 +96,15 @@ export const OAuthConnectionsManager: React.FC<{ agentId?: string }> = ({ agentI
   const fetchConnections = async () => {
     try {
       setLoading(true);
-      const response = await api.get(`/security/oauth/connections${agentId ? `?agentId=${agentId}` : ''}`);
+      const response = await api.get(
+        `/security/oauth/connections${agentId ? `?agentId=${agentId}` : ''}`
+      );
       setConnections(response.data);
     } catch (error) {
       toast({
         title: 'Error',
         description: 'Failed to fetch OAuth connections',
-        variant: 'destructive'
+        variant: 'destructive',
       });
     } finally {
       setLoading(false);
@@ -114,16 +116,16 @@ export const OAuthConnectionsManager: React.FC<{ agentId?: string }> = ({ agentI
       setConnecting(providerId);
       const response = await api.post('/security/oauth/authorize', {
         providerId,
-        agentId
+        agentId,
       });
-      
+
       // Redirect to OAuth authorization URL
       window.location.href = response.data.authorizationUrl;
     } catch (error) {
       toast({
         title: 'Connection Failed',
         description: 'Failed to initiate OAuth connection',
-        variant: 'destructive'
+        variant: 'destructive',
       });
       setConnecting(null);
     }
@@ -132,7 +134,7 @@ export const OAuthConnectionsManager: React.FC<{ agentId?: string }> = ({ agentI
   const handleDisconnect = async (connectionId: string, providerName: string) => {
     try {
       await api.delete(`/security/oauth/connections/${connectionId}`);
-      setConnections(prev => prev.filter(c => c.id !== connectionId));
+      setConnections((prev) => prev.filter((c) => c.id !== connectionId));
       toast({
         title: 'Disconnected',
         description: `Successfully disconnected from ${providerName}`,
@@ -141,7 +143,7 @@ export const OAuthConnectionsManager: React.FC<{ agentId?: string }> = ({ agentI
       toast({
         title: 'Error',
         description: 'Failed to disconnect OAuth provider',
-        variant: 'destructive'
+        variant: 'destructive',
       });
     }
   };
@@ -159,7 +161,7 @@ export const OAuthConnectionsManager: React.FC<{ agentId?: string }> = ({ agentI
       toast({
         title: 'Refresh Failed',
         description: 'Failed to refresh access token',
-        variant: 'destructive'
+        variant: 'destructive',
       });
     } finally {
       setRefreshing(null);
@@ -167,7 +169,7 @@ export const OAuthConnectionsManager: React.FC<{ agentId?: string }> = ({ agentI
   };
 
   const getConnectionForProvider = (providerId: string) => {
-    return connections.find(c => c.providerId === providerId);
+    return connections.find((c) => c.providerId === providerId);
   };
 
   const renderProviderCard = (provider: OAuthProvider) => {
@@ -182,12 +184,16 @@ export const OAuthConnectionsManager: React.FC<{ agentId?: string }> = ({ agentI
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.3 }}
       >
-        <Card className={`relative overflow-hidden border-2 transition-all duration-300 ${
-          isConnected ? 'border-green-200 shadow-lg' : 'border-gray-200 hover:border-gray-300 hover:shadow-md'
-        }`}>
+        <Card
+          className={`relative overflow-hidden border-2 transition-all duration-300 ${
+            isConnected
+              ? 'border-green-200 shadow-lg'
+              : 'border-gray-200 hover:border-gray-300 hover:shadow-md'
+          }`}
+        >
           {/* Background Gradient */}
           <div className={`absolute inset-0 bg-gradient-to-br ${provider.bgGradient} opacity-10`} />
-          
+
           <CardHeader className="relative">
             <div className="flex items-start justify-between">
               <div className="flex items-center gap-3">
@@ -199,9 +205,12 @@ export const OAuthConnectionsManager: React.FC<{ agentId?: string }> = ({ agentI
                   <p className="text-sm text-muted-foreground mt-1">{provider.description}</p>
                 </div>
               </div>
-              
+
               {isConnected && (
-                <Badge variant={isExpired ? "destructive" : "success"} className="flex items-center gap-1">
+                <Badge
+                  variant={isExpired ? 'destructive' : 'success'}
+                  className="flex items-center gap-1"
+                >
                   {isExpired ? (
                     <>
                       <AlertCircle className="w-3 h-3" />
@@ -250,7 +259,11 @@ export const OAuthConnectionsManager: React.FC<{ agentId?: string }> = ({ agentI
                     <Activity className="w-3 h-3" />
                     Last Used:
                   </span>
-                  <span>{connection.lastUsedAt ? new Date(connection.lastUsedAt).toLocaleDateString() : 'Never'}</span>
+                  <span>
+                    {connection.lastUsedAt
+                      ? new Date(connection.lastUsedAt).toLocaleDateString()
+                      : 'Never'}
+                  </span>
                 </div>
               </div>
             )}
@@ -352,16 +365,14 @@ export const OAuthConnectionsManager: React.FC<{ agentId?: string }> = ({ agentI
       <Alert>
         <Shield className="h-4 w-4" />
         <AlertDescription>
-          OAuth connections use secure token-based authentication. Your credentials are never stored directly.
-          All connections follow the principle of least privilege access.
+          OAuth connections use secure token-based authentication. Your credentials are never stored
+          directly. All connections follow the principle of least privilege access.
         </AlertDescription>
       </Alert>
 
       {/* Provider Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <AnimatePresence>
-          {providers.map(renderProviderCard)}
-        </AnimatePresence>
+        <AnimatePresence>{providers.map(renderProviderCard)}</AnimatePresence>
       </div>
     </div>
   );

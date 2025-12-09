@@ -5,7 +5,12 @@ import { logger } from '@uaip/utils';
 import { ApiError } from '@uaip/utils';
 import { authMiddleware, requireAdmin, requireOperator } from '@uaip/middleware';
 import { validateRequest } from '@uaip/middleware';
-import { SecurityService, EventBusService, AuditService as DomainAuditService, DatabaseService } from '@uaip/shared-services';
+import {
+  SecurityService,
+  EventBusService,
+  AuditService as DomainAuditService,
+  DatabaseService,
+} from '@uaip/shared-services';
 import { AuditService } from '../services/auditService.js';
 import { NotificationService } from '../services/notificationService.js';
 import { AuditEventType, SecurityLevel } from '@uaip/types';
@@ -13,7 +18,7 @@ import { SecurityGatewayService } from '../services/securityGatewayService.js';
 import { ApprovalWorkflowService } from '../services/approvalWorkflowService.js';
 import { config } from '@uaip/config';
 
-const router= Router();
+const router = Router();
 
 // Lazy initialization of services
 let securityService: SecurityService | null = null;
@@ -40,21 +45,21 @@ async function getSecurityServices() {
   // Use a proper DatabaseService instance
   const databaseService = DatabaseService.getInstance();
   await databaseService.initialize();
-  
+
   if (!notificationService) {
     notificationService = new NotificationService();
   }
-  
+
   if (!eventBusService) {
     eventBusService = new EventBusService(
       {
         url: process.env.RABBITMQ_URL || 'amqp://localhost:5672',
-        serviceName: 'security-gateway'
+        serviceName: 'security-gateway',
       },
       logger
     );
   }
-  
+
   if (!approvalWorkflowService) {
     approvalWorkflowService = new ApprovalWorkflowService(
       databaseService,
@@ -63,18 +68,22 @@ async function getSecurityServices() {
       auditService
     );
   }
-  
+
   if (!securityGatewayService) {
-    securityGatewayService = new SecurityGatewayService(databaseService, approvalWorkflowService, auditService);
+    securityGatewayService = new SecurityGatewayService(
+      databaseService,
+      approvalWorkflowService,
+      auditService
+    );
   }
-  
-  return { 
-    databaseService, 
-    auditService, 
-    notificationService, 
-    eventBusService, 
-    approvalWorkflowService, 
-    securityGatewayService 
+
+  return {
+    databaseService,
+    auditService,
+    notificationService,
+    eventBusService,
+    approvalWorkflowService,
+    securityGatewayService,
   };
 }
 
@@ -83,12 +92,14 @@ const riskAssessmentSchema = z.object({
   operationType: z.enum(['CREATE', 'READ', 'UPDATE', 'DELETE', 'EXECUTE', 'DEPLOY', 'CONFIGURE']),
   resourceType: z.enum(['AGENT', 'WORKFLOW', 'DATA', 'SYSTEM', 'USER', 'POLICY', 'CONFIGURATION']),
   resourceId: z.string().optional(),
-  context: z.object({
-    environment: z.enum(['development', 'staging', 'production']).optional(),
-    urgency: z.enum(['low', 'medium', 'high', 'critical']).optional(),
-    businessJustification: z.string().optional(),
-    additionalContext: z.record(z.any()).optional()
-  }).optional()
+  context: z
+    .object({
+      environment: z.enum(['development', 'staging', 'production']).optional(),
+      urgency: z.enum(['low', 'medium', 'high', 'critical']).optional(),
+      businessJustification: z.string().optional(),
+      additionalContext: z.record(z.any()).optional(),
+    })
+    .optional(),
 });
 
 const securityPolicySchema = z.object({
@@ -100,29 +111,35 @@ const securityPolicySchema = z.object({
     operationTypes: z.array(z.string()).optional(),
     resourceTypes: z.array(z.string()).optional(),
     userRoles: z.array(z.string()).optional(),
-    timeRestrictions: z.object({
-      allowedHours: z.array(z.number().min(0).max(23)).optional(),
-      allowedDays: z.array(z.number().min(0).max(6)).optional(),
-      timezone: z.string().optional()
-    }).optional(),
+    timeRestrictions: z
+      .object({
+        allowedHours: z.array(z.number().min(0).max(23)).optional(),
+        allowedDays: z.array(z.number().min(0).max(6)).optional(),
+        timezone: z.string().optional(),
+      })
+      .optional(),
     environmentRestrictions: z.array(z.string()).optional(),
-    riskThresholds: z.object({
-      minRiskScore: z.number().min(0).max(100).optional(),
-      maxRiskScore: z.number().min(0).max(100).optional()
-    }).optional()
+    riskThresholds: z
+      .object({
+        minRiskScore: z.number().min(0).max(100).optional(),
+        maxRiskScore: z.number().min(0).max(100).optional(),
+      })
+      .optional(),
   }),
   actions: z.object({
     requireApproval: z.boolean().default(false),
-    approvalRequirements: z.object({
-      minimumApprovers: z.number().int().min(1).optional(),
-      requiredRoles: z.array(z.string()).optional(),
-      timeoutHours: z.number().min(1).max(168).optional() // 1 hour to 1 week
-    }).optional(),
+    approvalRequirements: z
+      .object({
+        minimumApprovers: z.number().int().min(1).optional(),
+        requiredRoles: z.array(z.string()).optional(),
+        timeoutHours: z.number().min(1).max(168).optional(), // 1 hour to 1 week
+      })
+      .optional(),
     blockOperation: z.boolean().default(false),
     logLevel: z.enum(['info', 'warn', 'error']).default('info'),
     notificationChannels: z.array(z.string()).optional(),
-    additionalActions: z.record(z.any()).optional()
-  })
+    additionalActions: z.record(z.any()).optional(),
+  }),
 });
 
 const updatePolicySchema = securityPolicySchema.partial({ name: true });
@@ -135,12 +152,12 @@ const validateWithZod = (schema: z.ZodSchema, data: any) => {
   } else {
     return {
       error: {
-        details: result.error.errors.map(err => ({
+        details: result.error.errors.map((err) => ({
           message: err.message,
-          path: err.path.join('.')
-        }))
+          path: err.path.join('.'),
+        })),
       },
-      value: null
+      value: null,
     };
   }
 };
@@ -158,10 +175,8 @@ router.post('/assess-risk', authMiddleware, async (req, res) => {
     if (error) {
       res.status(400).json({
         error: 'Validation Error',
-        details: error.details.map(d => d.message)
+        details: error.details.map((d) => d.message),
       });
-
-  
     }
 
     const userId = (req as any).user.userId;
@@ -175,7 +190,7 @@ router.post('/assess-risk', authMiddleware, async (req, res) => {
       userRole,
       timestamp: new Date(),
       ipAddress: req.ip,
-      userAgent: req.headers['user-agent']
+      userAgent: req.headers['user-agent'],
     });
 
     await auditService.logSecurityEvent({
@@ -186,25 +201,22 @@ router.post('/assess-risk', authMiddleware, async (req, res) => {
         resourceType: value.resourceType,
         resourceId: value.resourceId,
         riskScore: riskAssessment.score,
-        riskLevel: riskAssessment.overallRisk
+        riskLevel: riskAssessment.overallRisk,
       },
       ipAddress: req.ip,
-      userAgent: req.headers['user-agent']
+      userAgent: req.headers['user-agent'],
     });
 
     res.json({
       message: 'Risk assessment completed',
-      assessment: riskAssessment
+      assessment: riskAssessment,
     });
-
   } catch (error) {
     logger.error('Risk assessment error', { error, userId: (req as any).user?.userId });
     res.status(500).json({
       error: 'Internal Server Error',
-      message: 'An error occurred during risk assessment'
+      message: 'An error occurred during risk assessment',
     });
-
-  
   }
 });
 
@@ -219,10 +231,8 @@ router.post('/check-approval-required', authMiddleware, async (req, res) => {
     if (error) {
       res.status(400).json({
         error: 'Validation Error',
-        details: error.details.map(d => d.message)
+        details: error.details.map((d) => d.message),
       });
-
-  
     }
 
     const userId = (req as any).user.userId;
@@ -236,24 +246,21 @@ router.post('/check-approval-required', authMiddleware, async (req, res) => {
       userRole,
       timestamp: new Date(),
       ipAddress: req.ip,
-      userAgent: req.headers['user-agent']
+      userAgent: req.headers['user-agent'],
     });
 
     res.json({
       message: 'Approval requirement check completed',
       requiresApproval: approvalRequired.required,
       requirements: approvalRequired.requirements,
-      matchedPolicies: approvalRequired.matchedPolicies
+      matchedPolicies: approvalRequired.matchedPolicies,
     });
-
   } catch (error) {
     logger.error('Approval check error', { error, userId: (req as any).user?.userId });
     res.status(500).json({
       error: 'Internal Server Error',
-      message: 'An error occurred during approval requirement check'
+      message: 'An error occurred during approval requirement check',
     });
-
-  
   }
 });
 
@@ -266,17 +273,17 @@ router.get('/policies', authMiddleware, requireAdmin, async (req, res) => {
   try {
     const { securityService } = await getServices();
     const { page = 1, limit = 20, active, search } = req.query;
-    
+
     const filters: any = {};
-    
+
     if (active !== undefined) {
       filters.active = active === 'true';
     }
-    
+
     if (search) {
       filters.search = search as string;
     }
-    
+
     filters.limit = Number(limit);
     filters.offset = (Number(page) - 1) * Number(limit);
 
@@ -290,18 +297,15 @@ router.get('/policies', authMiddleware, requireAdmin, async (req, res) => {
         page: Number(page),
         limit: Number(limit),
         total,
-        pages: Math.ceil(total / Number(limit))
-      }
+        pages: Math.ceil(total / Number(limit)),
+      },
     });
-
   } catch (error) {
     logger.error('Get policies error', { error, userId: (req as any).user?.userId });
     res.status(500).json({
       error: 'Internal Server Error',
-      message: 'An error occurred while retrieving security policies'
+      message: 'An error occurred while retrieving security policies',
     });
-
-  
   }
 });
 
@@ -317,29 +321,24 @@ router.get('/policies/:policyId', authMiddleware, requireAdmin, async (req, res)
 
     const securityPolicyRepo = securityService.getSecurityPolicyRepository();
     const policy = await securityPolicyRepo.getSecurityPolicy(policyId);
-    
+
     if (!policy) {
       res.status(404).json({
         error: 'Policy Not Found',
-        message: 'Security policy not found'
+        message: 'Security policy not found',
       });
-
-  
     }
 
     res.json({
       message: 'Security policy retrieved successfully',
-      policy
+      policy,
     });
-
   } catch (error) {
     logger.error('Get policy error', { error, policyId: req.params.policyId });
     res.status(500).json({
       error: 'Internal Server Error',
-      message: 'An error occurred while retrieving the security policy'
+      message: 'An error occurred while retrieving the security policy',
     });
-
-  
   }
 });
 
@@ -355,9 +354,8 @@ router.post('/policies', authMiddleware, requireAdmin, async (req, res) => {
     if (error) {
       res.status(400).json({
         error: 'Validation Error',
-        details: error.details.map(d => d.message)
+        details: error.details.map((d) => d.message),
       });
-
     }
 
     const userId = (req as any).user.userId;
@@ -371,7 +369,7 @@ router.post('/policies', authMiddleware, requireAdmin, async (req, res) => {
       isActive: value.isActive,
       conditions: value.conditions,
       actions: value.actions,
-      createdBy: userId
+      createdBy: userId,
     });
 
     const { auditService } = await getSecurityServices();
@@ -382,27 +380,22 @@ router.post('/policies', authMiddleware, requireAdmin, async (req, res) => {
         policyId: newPolicy.id,
         policyName: newPolicy.name,
         priority: newPolicy.priority,
-        isActive: newPolicy.isActive
+        isActive: newPolicy.isActive,
       },
       ipAddress: req.ip,
-      userAgent: req.headers['user-agent']
+      userAgent: req.headers['user-agent'],
     });
 
     res.status(201).json({
       message: 'Security policy created successfully',
-      policy: newPolicy
+      policy: newPolicy,
     });
-
-  
-
   } catch (error) {
     logger.error('Create policy error', { error, userId: (req as any).user?.userId });
     res.status(500).json({
       error: 'Internal Server Error',
-      message: 'An error occurred while creating the security policy'
+      message: 'An error occurred while creating the security policy',
     });
-
-  
   }
 });
 
@@ -419,10 +412,8 @@ router.put('/policies/:policyId', authMiddleware, requireAdmin, async (req, res)
     if (error) {
       res.status(400).json({
         error: 'Validation Error',
-        details: error.details.map(d => d.message)
+        details: error.details.map((d) => d.message),
       });
-
-  
     }
 
     const userId = (req as any).user.userId;
@@ -434,19 +425,15 @@ router.put('/policies/:policyId', authMiddleware, requireAdmin, async (req, res)
     if (!existingPolicy) {
       res.status(404).json({
         error: 'Policy Not Found',
-        message: 'Security policy not found'
+        message: 'Security policy not found',
       });
-
-  
     }
 
     if (Object.keys(value).length === 0) {
       res.status(400).json({
         error: 'No Updates',
-        message: 'No valid fields provided for update'
+        message: 'No valid fields provided for update',
       });
-
-  
     }
 
     // Update policy using SecurityService
@@ -455,10 +442,8 @@ router.put('/policies/:policyId', authMiddleware, requireAdmin, async (req, res)
     if (!updatedPolicy) {
       res.status(500).json({
         error: 'Update Failed',
-        message: 'Failed to update security policy'
+        message: 'Failed to update security policy',
       });
-
-  
     }
 
     const { auditService } = await getSecurityServices();
@@ -470,25 +455,22 @@ router.put('/policies/:policyId', authMiddleware, requireAdmin, async (req, res)
         policyName: updatedPolicy.name,
         changes: Object.keys(value),
         priority: updatedPolicy.priority,
-        isActive: updatedPolicy.isActive
+        isActive: updatedPolicy.isActive,
       },
       ipAddress: req.ip,
-      userAgent: req.headers['user-agent']
+      userAgent: req.headers['user-agent'],
     });
 
     res.json({
       message: 'Security policy updated successfully',
-      policy: updatedPolicy
+      policy: updatedPolicy,
     });
-
   } catch (error) {
     logger.error('Update policy error', { error, policyId: req.params.policyId });
     res.status(500).json({
       error: 'Internal Server Error',
-      message: 'An error occurred while updating the security policy'
+      message: 'An error occurred while updating the security policy',
     });
-
-  
   }
 });
 
@@ -510,10 +492,8 @@ router.delete('/policies/:policyId', authMiddleware, requireAdmin, async (req, r
     if (!existingPolicy) {
       res.status(404).json({
         error: 'Policy Not Found',
-        message: 'Security policy not found'
+        message: 'Security policy not found',
       });
-
-  
     }
 
     // Delete policy using SecurityService
@@ -522,10 +502,8 @@ router.delete('/policies/:policyId', authMiddleware, requireAdmin, async (req, r
     if (!deleted) {
       res.status(500).json({
         error: 'Delete Failed',
-        message: 'Failed to delete security policy'
+        message: 'Failed to delete security policy',
       });
-
-  
     }
 
     const { auditService } = await getSecurityServices();
@@ -536,24 +514,21 @@ router.delete('/policies/:policyId', authMiddleware, requireAdmin, async (req, r
         policyId: existingPolicy.id,
         policyName: existingPolicy.name,
         priority: existingPolicy.priority,
-        wasActive: existingPolicy.isActive
+        wasActive: existingPolicy.isActive,
       },
       ipAddress: req.ip,
-      userAgent: req.headers['user-agent']
+      userAgent: req.headers['user-agent'],
     });
 
     res.json({
-      message: 'Security policy deleted successfully'
+      message: 'Security policy deleted successfully',
     });
-
   } catch (error) {
     logger.error('Delete policy error', { error, policyId: req.params.policyId });
     res.status(500).json({
       error: 'Internal Server Error',
-      message: 'An error occurred while deleting the security policy'
+      message: 'An error occurred while deleting the security policy',
     });
-
-  
   }
 });
 
@@ -565,10 +540,10 @@ router.delete('/policies/:policyId', authMiddleware, requireAdmin, async (req, r
 router.get('/stats', authMiddleware, requireAdmin, async (req, res) => {
   try {
     const { timeframe = '24h' } = req.query;
-    
+
     let startDate: Date;
     const endDate = new Date();
-    
+
     switch (timeframe) {
       case '1h':
         startDate = new Date(endDate.getTime() - 60 * 60 * 1000);
@@ -592,41 +567,47 @@ router.get('/stats', authMiddleware, requireAdmin, async (req, res) => {
     const eventStats = await auditRepo.queryAuditEvents({
       startDate,
       endDate,
-      limit: 1000
+      limit: 1000,
     });
 
     // Group events by type
-    const eventsByType = eventStats.reduce((acc: Record<AuditEventType, number>, event) => {
-      acc[event.eventType] = (acc[event.eventType]) + 1;
-      return acc;
-    }, {} as Record<AuditEventType, number>);
+    const eventsByType = eventStats.reduce(
+      (acc: Record<AuditEventType, number>, event) => {
+        acc[event.eventType] = acc[event.eventType] + 1;
+        return acc;
+      },
+      {} as Record<AuditEventType, number>
+    );
 
     // Get risk assessment statistics
     const riskAssessmentEvents = await auditRepo.queryAuditEvents({
       eventTypes: [AuditEventType.RISK_ASSESSMENT],
       startDate,
       endDate,
-      limit: 1000
+      limit: 1000,
     });
 
-    const riskStats = riskAssessmentEvents.reduce((acc, event) => {
-      const riskScore = event.details?.riskScore;
-      if (typeof riskScore === 'number') {
-        acc.totalAssessments++;
-        acc.totalRiskScore += riskScore;
-        
-        if (riskScore >= 70) acc.highRiskCount++;
-        else if (riskScore >= 40) acc.mediumRiskCount++;
-        else acc.lowRiskCount++;
+    const riskStats = riskAssessmentEvents.reduce(
+      (acc, event) => {
+        const riskScore = event.details?.riskScore;
+        if (typeof riskScore === 'number') {
+          acc.totalAssessments++;
+          acc.totalRiskScore += riskScore;
+
+          if (riskScore >= 70) acc.highRiskCount++;
+          else if (riskScore >= 40) acc.mediumRiskCount++;
+          else acc.lowRiskCount++;
+        }
+        return acc;
+      },
+      {
+        totalAssessments: 0,
+        totalRiskScore: 0,
+        highRiskCount: 0,
+        mediumRiskCount: 0,
+        lowRiskCount: 0,
       }
-      return acc;
-    }, {
-      totalAssessments: 0,
-      totalRiskScore: 0,
-      highRiskCount: 0,
-      mediumRiskCount: 0,
-      lowRiskCount: 0
-    });
+    );
 
     // Get active policies count using SecurityService
     const { securityService } = await getServices();
@@ -639,34 +620,32 @@ router.get('/stats', authMiddleware, requireAdmin, async (req, res) => {
       statistics: {
         events: Object.entries(eventsByType).map(([eventType, count]) => ({
           event_type: eventType,
-          count
+          count,
         })),
         riskAssessments: {
           total_assessments: riskStats.totalAssessments,
-          avg_risk_score: riskStats.totalAssessments > 0 
-            ? riskStats.totalRiskScore / riskStats.totalAssessments 
-            : 0,
+          avg_risk_score:
+            riskStats.totalAssessments > 0
+              ? riskStats.totalRiskScore / riskStats.totalAssessments
+              : 0,
           high_risk_count: riskStats.highRiskCount,
           medium_risk_count: riskStats.mediumRiskCount,
-          low_risk_count: riskStats.lowRiskCount
+          low_risk_count: riskStats.lowRiskCount,
         },
         policies: {
           total_policies: policyStats.totalPolicies,
           active_policies: policyStats.activePolicies,
-          inactive_policies: policyStats.inactivePolicies
-        }
-      }
+          inactive_policies: policyStats.inactivePolicies,
+        },
+      },
     });
-
   } catch (error) {
     logger.error('Get security stats error', { error, userId: (req as any).user?.userId });
     res.status(500).json({
       error: 'Internal Server Error',
-      message: 'An error occurred while retrieving security statistics'
+      message: 'An error occurred while retrieving security statistics',
     });
-
-  
   }
 });
 
-export default router; 
+export default router;

@@ -40,20 +40,17 @@ export class LLMStudioProvider extends BaseProvider {
     }
   }
 
-  protected async fetchModelsFromProvider(): Promise<Array<{
-    id: string;
-    name: string;
-    description?: string;
-    source: string;
-    apiEndpoint: string;
-  }>> {
+  protected async fetchModelsFromProvider(): Promise<
+    Array<{
+      id: string;
+      name: string;
+      description?: string;
+      source: string;
+      apiEndpoint: string;
+    }>
+  > {
     // Try multiple common LLM Studio endpoints
-    const endpoints = [
-      '/v1/models',
-      '/api/models', 
-      '/models',
-      '/api/tags'
-    ];
+    const endpoints = ['/v1/models', '/api/models', '/models', '/api/tags'];
 
     for (const endpoint of endpoints) {
       try {
@@ -61,10 +58,10 @@ export class LLMStudioProvider extends BaseProvider {
         console.log(`LLM Studio: Trying endpoint ${url}`);
         const data = await this.makeGetRequest(url);
         console.log('LLM Studio response:', data);
-        
+
         // Handle different response formats
         let models = [];
-        
+
         if (data.data && Array.isArray(data.data)) {
           // OpenAI/LM Studio format
           models = data.data;
@@ -72,13 +69,13 @@ export class LLMStudioProvider extends BaseProvider {
           // Ollama models format
           models = data.models.map((model: any) => ({
             id: model.name || model.model || model.id,
-            owned_by: model.details?.families || 'ollama'
+            owned_by: model.details?.families || 'ollama',
           }));
         } else if (Array.isArray(data)) {
           // Direct array format
           models = data.map((model: any) => ({
             id: model.name || model.model || model.id || model,
-            owned_by: 'llmstudio'
+            owned_by: 'llmstudio',
           }));
         }
 
@@ -89,16 +86,21 @@ export class LLMStudioProvider extends BaseProvider {
             name: model.id,
             description: `LLM Studio model: ${model.id}${model.owned_by ? ` (${model.owned_by})` : ''}`,
             source: this.config.baseUrl,
-            apiEndpoint: `${this.config.baseUrl}/v1/chat/completions`
+            apiEndpoint: `${this.config.baseUrl}/v1/chat/completions`,
           }));
         }
       } catch (error) {
-        console.log(`LLM Studio: Endpoint ${endpoint} failed:`, error instanceof Error ? error.message : error);
+        console.log(
+          `LLM Studio: Endpoint ${endpoint} failed:`,
+          error instanceof Error ? error.message : error
+        );
         // Continue to next endpoint
       }
     }
 
     // If all endpoints fail, throw error
-    throw new Error(`LLM Studio connection failed: No working endpoint found among ${endpoints.join(', ')}`);
+    throw new Error(
+      `LLM Studio connection failed: No working endpoint found among ${endpoints.join(', ')}`
+    );
   }
-} 
+}

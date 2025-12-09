@@ -43,7 +43,7 @@ class CapabilityRegistryService extends BaseService {
     super({
       name: 'capability-registry',
       port: config.port || 3003,
-      enableNeo4j: true
+      enableNeo4j: true,
     });
   }
 
@@ -76,7 +76,10 @@ class CapabilityRegistryService extends BaseService {
       await this.neo4j.verifyConnectivity();
       logger.info('Neo4j database initialized');
     } catch (error) {
-      logger.warn('Neo4j initialization failed, continuing with degraded functionality:', error.message);
+      logger.warn(
+        'Neo4j initialization failed, continuing with degraded functionality:',
+        error.message
+      );
       logger.warn('Graph-based features (recommendations, relationships) will be unavailable');
       // Don't throw - allow service to start without Neo4j
     }
@@ -92,11 +95,7 @@ class CapabilityRegistryService extends BaseService {
     this.toolRegistry = new ToolRegistry(this.eventBusService);
 
     // Initialize tool executor
-    this.toolExecutor = new ToolExecutor(
-      this.postgresql,
-      this.toolRegistry,
-      this.baseExecutor
-    );
+    this.toolExecutor = new ToolExecutor(this.postgresql, this.toolRegistry, this.baseExecutor);
 
     // Initialize MCP Client Service
     this.mcpClientService = MCPClientService.getInstance();
@@ -112,7 +111,9 @@ class CapabilityRegistryService extends BaseService {
     this.integrationService = IntegrationService.getInstance();
     await this.integrationService.initialize();
     this.integrationService.start();
-    logger.info('Integration Service initialized - Starting 5-second sync cadence for PostgreSQL ↔ Neo4j ↔ Qdrant');
+    logger.info(
+      'Integration Service initialized - Starting 5-second sync cadence for PostgreSQL ↔ Neo4j ↔ Qdrant'
+    );
 
     // Initialize unified services
     this.unifiedToolRegistry = new UnifiedToolRegistry();
@@ -122,7 +123,7 @@ class CapabilityRegistryService extends BaseService {
     this.enterpriseToolRegistry = new EnterpriseToolRegistry({
       eventBusService: this.eventBusService,
       databaseService: this.databaseService,
-      serviceName: 'capability-registry'
+      serviceName: 'capability-registry',
     });
     await this.enterpriseToolRegistry.initialize();
     logger.info('Enterprise Tool Registry initialized');
@@ -174,8 +175,8 @@ class CapabilityRegistryService extends BaseService {
         'Graph-based Relationships',
         'Smart Recommendations',
         'Usage Analytics',
-        'Approval Workflows'
-      ]
+        'Approval Workflows',
+      ],
     }));
 
     // Register Elysia route groups (tools + MCP + health + capabilities)
@@ -210,16 +211,17 @@ class CapabilityRegistryService extends BaseService {
         id,
         name: config.name,
         capabilities: config.capabilities.length,
-        webhookSupport: config.webhookSupport
-      }))
+        webhookSupport: config.webhookSupport,
+      })),
     };
 
     // Get Integration Service status
     const integrationStatus = await this.integrationService?.healthCheck();
-    
+
     // Calculate total OAuth capabilities
     oauthStatus.availableCapabilities = oauthStatus.providers.reduce(
-      (total, provider) => total + provider.capabilities, 0
+      (total, provider) => total + provider.capabilities,
+      0
     );
 
     // Get cache statistics
@@ -237,8 +239,8 @@ class CapabilityRegistryService extends BaseService {
         neo4j: {
           status: neo4jStatus,
           database: neo4jConnectionStatus?.database || 'unknown',
-          retries: neo4jConnectionStatus?.retries
-        }
+          retries: neo4jConnectionStatus?.retries,
+        },
       },
       mcp: {
         status: mcpStatus?.healthStatus || 'unknown',
@@ -246,7 +248,7 @@ class CapabilityRegistryService extends BaseService {
         runningServers: mcpStatus?.runningServers || 0,
         errorServers: mcpStatus?.errorServers || 0,
         totalTools: mcpStatus?.totalTools || 0,
-        uptime: mcpStatus?.uptime || 0
+        uptime: mcpStatus?.uptime || 0,
       },
       oauth: oauthStatus,
       integration: {
@@ -254,25 +256,25 @@ class CapabilityRegistryService extends BaseService {
         syncCadence: '5 seconds',
         syncEnabled: true,
         databases: ['PostgreSQL', 'Neo4j', 'Qdrant'],
-        details: integrationStatus?.details || {}
+        details: integrationStatus?.details || {},
       },
       cache: {
         memoryCacheSize: cacheStats?.memoryCacheSize || 0,
         redisCacheSize: cacheStats?.redisCacheSize || 0,
         hitRate: cacheStats?.hitRate || 0,
-        missRate: cacheStats?.missRate || 0
+        missRate: cacheStats?.missRate || 0,
       },
       sandbox: {
         activeExecutions: sandboxMetrics?.activeExecutions || 0,
         totalExecutions: sandboxMetrics?.totalExecutions || 0,
         averageExecutionTime: sandboxMetrics?.averageExecutionTime || 0,
-        failureRate: sandboxMetrics?.failureRate || 0
+        failureRate: sandboxMetrics?.failureRate || 0,
       },
       execution: {
         total: executionMetrics?.total || 0,
         successful: executionMetrics?.successful || 0,
         failed: executionMetrics?.failed || 0,
-        averageExecutionTime: executionMetrics?.averageExecutionTime || 0
+        averageExecutionTime: executionMetrics?.averageExecutionTime || 0,
       },
       features: {
         toolManagement: 'available',
@@ -284,8 +286,8 @@ class CapabilityRegistryService extends BaseService {
         oauthIntegration: oauthStatus.connectedProviders > 0 ? 'available' : 'ready',
         graphRelationships: neo4jStatus === 'connected' ? 'available' : 'degraded',
         recommendations: neo4jStatus === 'connected' ? 'available' : 'degraded',
-        databaseSync: integrationStatus?.status === 'healthy' ? 'available' : 'degraded'
-      }
+        databaseSync: integrationStatus?.status === 'healthy' ? 'available' : 'degraded',
+      },
     };
   }
 

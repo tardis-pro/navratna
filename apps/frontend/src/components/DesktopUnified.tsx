@@ -1,11 +1,60 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  Home, Bot, Package, MessageSquare, Brain, Settings, BarChart3, Search, Target, TrendingUp,
-  Wrench, Plus, User, Activity, Clock, X, Minimize2, Shield, Menu, Power, Monitor, Folder,
-  Terminal, Globe, Calculator, Command, Image, StickyNote, Cloud, Edit3, Save, Trash2,
-  Sun, CloudSun, CloudRain, CloudSnow, MapPin, Thermometer, Wind, Droplets, History, Users, Upload,
-  Map, Layers, ZoomIn, ZoomOut, Navigation, RotateCcw, Eye, EyeOff, Moon, Palette, RefreshCw
+  Home,
+  Bot,
+  Package,
+  MessageSquare,
+  Brain,
+  Settings,
+  BarChart3,
+  Search,
+  Target,
+  TrendingUp,
+  Wrench,
+  Plus,
+  User,
+  Activity,
+  Clock,
+  X,
+  Minimize2,
+  Shield,
+  Menu,
+  Power,
+  Monitor,
+  Folder,
+  Terminal,
+  Globe,
+  Calculator,
+  Command,
+  Image,
+  StickyNote,
+  Cloud,
+  Edit3,
+  Save,
+  Trash2,
+  Sun,
+  CloudSun,
+  CloudRain,
+  CloudSnow,
+  MapPin,
+  Thermometer,
+  Wind,
+  Droplets,
+  History,
+  Users,
+  Upload,
+  Map,
+  Layers,
+  ZoomIn,
+  ZoomOut,
+  Navigation,
+  RotateCcw,
+  Eye,
+  EyeOff,
+  Moon,
+  Palette,
+  RefreshCw,
 } from 'lucide-react';
 
 // Import portal components
@@ -124,36 +173,180 @@ interface WeatherData {
 
 const ALL_APPLICATIONS: Application[] = [
   // Core applications - available to all users
-  { id: 'dashboard', title: 'Dashboard', icon: Home, color: 'text-blue-400', component: DashboardPortal, category: 'core', minimumRole: 'guest' },
-  { id: 'agents', title: 'Agent Manager', icon: Bot, color: 'text-cyan-400', component: AgentManager, category: 'core', minimumRole: 'user' },
-  { id: 'chat', title: 'User Chat', icon: MessageSquare, color: 'text-green-400', component: UserChatPortal, category: 'core', minimumRole: 'user' },
+  {
+    id: 'dashboard',
+    title: 'Dashboard',
+    icon: Home,
+    color: 'text-blue-400',
+    component: DashboardPortal,
+    category: 'core',
+    minimumRole: 'guest',
+  },
+  {
+    id: 'agents',
+    title: 'Agent Manager',
+    icon: Bot,
+    color: 'text-cyan-400',
+    component: AgentManager,
+    category: 'core',
+    minimumRole: 'user',
+  },
+  {
+    id: 'chat',
+    title: 'User Chat',
+    icon: MessageSquare,
+    color: 'text-green-400',
+    component: UserChatPortal,
+    category: 'core',
+    minimumRole: 'user',
+  },
 
   // Data & Knowledge
-  { id: 'knowledge', title: 'Knowledge', icon: Brain, color: 'text-orange-400', component: KnowledgePortal, category: 'data', minimumRole: 'user' },
-  { id: 'artifacts', title: 'Artifacts', icon: Package, color: 'text-purple-400', component: ArtifactsPortal, category: 'data', minimumRole: 'user' },
-  { id: 'intelligence', title: 'Intelligence', icon: BarChart3, color: 'text-pink-400', component: IntelligencePanelPortal, category: 'data', minimumRole: 'moderator' },
+  {
+    id: 'knowledge',
+    title: 'Knowledge',
+    icon: Brain,
+    color: 'text-orange-400',
+    component: KnowledgePortal,
+    category: 'data',
+    minimumRole: 'user',
+  },
+  {
+    id: 'artifacts',
+    title: 'Artifacts',
+    icon: Package,
+    color: 'text-purple-400',
+    component: ArtifactsPortal,
+    category: 'data',
+    minimumRole: 'user',
+  },
+  {
+    id: 'intelligence',
+    title: 'Intelligence',
+    icon: BarChart3,
+    color: 'text-pink-400',
+    component: IntelligencePanelPortal,
+    category: 'data',
+    minimumRole: 'moderator',
+  },
 
   // Project Management - NEW
-  { id: 'projects', title: 'Projects', icon: Folder, color: 'text-green-500', component: ProjectManagementPortal, category: 'core', minimumRole: 'user' },
-  { id: 'tasks', title: 'Task Manager', icon: Activity, color: 'text-emerald-500', component: ProjectTaskManager, category: 'core', minimumRole: 'user' },
+  {
+    id: 'projects',
+    title: 'Projects',
+    icon: Folder,
+    color: 'text-green-500',
+    component: ProjectManagementPortal,
+    category: 'core',
+    minimumRole: 'user',
+  },
+  {
+    id: 'tasks',
+    title: 'Task Manager',
+    icon: Activity,
+    color: 'text-emerald-500',
+    component: ProjectTaskManager,
+    category: 'core',
+    minimumRole: 'user',
+  },
 
   // Tools & Utilities
-  { id: 'search', title: 'Search', icon: Search, color: 'text-cyan-300', component: () => <div className="p-4 text-white">Global Search Portal</div>, category: 'tools', minimumRole: 'user' },
-  { id: 'mini-browser', title: 'Browser', icon: Globe, color: 'text-blue-400', component: MiniBrowserPortal, category: 'tools', minimumRole: 'user' },
-  { id: 'tools', title: 'Tools', icon: Wrench, color: 'text-violet-400', component: ToolManagementPortal, category: 'tools', minimumRole: 'moderator' },
-  { id: 'integrations', title: 'Integrations', icon: Wrench, color: 'text-cyan-400', component: ToolsIntegrationsPortal, category: 'tools', minimumRole: 'moderator' },
+  {
+    id: 'search',
+    title: 'Search',
+    icon: Search,
+    color: 'text-cyan-300',
+    component: () => <div className="p-4 text-white">Global Search Portal</div>,
+    category: 'tools',
+    minimumRole: 'user',
+  },
+  {
+    id: 'mini-browser',
+    title: 'Browser',
+    icon: Globe,
+    color: 'text-blue-400',
+    component: MiniBrowserPortal,
+    category: 'tools',
+    minimumRole: 'user',
+  },
+  {
+    id: 'tools',
+    title: 'Tools',
+    icon: Wrench,
+    color: 'text-violet-400',
+    component: ToolManagementPortal,
+    category: 'tools',
+    minimumRole: 'moderator',
+  },
+  {
+    id: 'integrations',
+    title: 'Integrations',
+    icon: Wrench,
+    color: 'text-cyan-400',
+    component: ToolsIntegrationsPortal,
+    category: 'tools',
+    minimumRole: 'moderator',
+  },
 
   // Discussion & Communication
-  { id: 'discussion', title: 'AI Discussions', icon: MessageSquare, color: 'text-cyan-400', component: DiscussionPortal, category: 'core', minimumRole: 'user' },
+  {
+    id: 'discussion',
+    title: 'AI Discussions',
+    icon: MessageSquare,
+    color: 'text-cyan-400',
+    component: DiscussionPortal,
+    category: 'core',
+    minimumRole: 'user',
+  },
 
   // Admin & Security
-  { id: 'settings', title: 'Settings', icon: Settings, color: 'text-gray-400', component: SettingsPortal, category: 'security', minimumRole: 'admin' },
-  { id: 'system', title: 'System', icon: Target, color: 'text-indigo-400', component: SystemConfigPortal, category: 'security', minimumRole: 'admin' },
-  { id: 'security', title: 'Security', icon: Shield, color: 'text-red-400', component: SecurityPortal, category: 'security', minimumRole: 'admin' },
-  { id: 'providers', title: 'Providers', icon: Plus, color: 'text-yellow-400', component: ProviderSettingsPortal, category: 'security', minimumRole: 'admin' },
+  {
+    id: 'settings',
+    title: 'Settings',
+    icon: Settings,
+    color: 'text-gray-400',
+    component: SettingsPortal,
+    category: 'security',
+    minimumRole: 'admin',
+  },
+  {
+    id: 'system',
+    title: 'System',
+    icon: Target,
+    color: 'text-indigo-400',
+    component: SystemConfigPortal,
+    category: 'security',
+    minimumRole: 'admin',
+  },
+  {
+    id: 'security',
+    title: 'Security',
+    icon: Shield,
+    color: 'text-red-400',
+    component: SecurityPortal,
+    category: 'security',
+    minimumRole: 'admin',
+  },
+  {
+    id: 'providers',
+    title: 'Providers',
+    icon: Plus,
+    color: 'text-yellow-400',
+    component: ProviderSettingsPortal,
+    category: 'security',
+    minimumRole: 'admin',
+  },
 
   // System Level
-  { id: 'terminal', title: 'Terminal', icon: Terminal, color: 'text-red-500', component: () => <div className="p-4 text-white">System Terminal</div>, category: 'security', minimumRole: 'system' },
+  {
+    id: 'terminal',
+    title: 'Terminal',
+    icon: Terminal,
+    color: 'text-red-500',
+    component: () => <div className="p-4 text-white">System Terminal</div>,
+    category: 'security',
+    minimumRole: 'system',
+  },
 ];
 
 const Button: React.FC<{
@@ -204,14 +397,18 @@ const DesktopIcon: React.FC<{ app: Application; onClick: () => void }> = ({ app,
         onClick();
       }}
     >
-      <div className={`
+      <div
+        className={`
         w-12 h-12 ${DESIGN_TOKENS.radius.lg} ${DESIGN_TOKENS.colors.surface} ${DESIGN_TOKENS.colors.border} border
         flex items-center justify-center group-hover:bg-slate-700/60 group-hover:border-slate-600/60 
         ${DESIGN_TOKENS.transition} shadow-lg mb-1 pointer-events-auto
-      `}>
+      `}
+      >
         <Icon className={`w-6 h-6 ${app.color} pointer-events-none`} />
       </div>
-      <span className={`text-xs ${app.color} font-medium text-center w-full truncate px-0.5 drop-shadow-sm leading-tight pointer-events-none`}>
+      <span
+        className={`text-xs ${app.color} font-medium text-center w-full truncate px-0.5 drop-shadow-sm leading-tight pointer-events-none`}
+      >
         {app.title.replace('Manager', 'Man.').replace('Graph', '...')}
       </span>
     </motion.div>
@@ -249,47 +446,50 @@ const Window: React.FC<{
   };
 
   // Handle resize during mouse move
-  const handleResize = useCallback((e: MouseEvent) => {
-    if (!isResizing || !resizeHandle) return;
+  const handleResize = useCallback(
+    (e: MouseEvent) => {
+      if (!isResizing || !resizeHandle) return;
 
-    const deltaX = e.clientX - startMousePos.x;
-    const deltaY = e.clientY - startMousePos.y;
+      const deltaX = e.clientX - startMousePos.x;
+      const deltaY = e.clientY - startMousePos.y;
 
-    let newWidth = startWindowSize.width;
-    let newHeight = startWindowSize.height;
-    let newX = startWindowPos.x;
-    let newY = startWindowPos.y;
+      let newWidth = startWindowSize.width;
+      let newHeight = startWindowSize.height;
+      let newX = startWindowPos.x;
+      let newY = startWindowPos.y;
 
-    // Handle different resize directions
-    if (resizeHandle.includes('right')) {
-      newWidth = Math.max(300, startWindowSize.width + deltaX);
-    }
-    if (resizeHandle.includes('left')) {
-      newWidth = Math.max(300, startWindowSize.width - deltaX);
-      newX = startWindowPos.x + deltaX;
-      // Adjust if minimum width is reached
-      if (newWidth === 300) {
-        newX = startWindowPos.x + startWindowSize.width - 300;
+      // Handle different resize directions
+      if (resizeHandle.includes('right')) {
+        newWidth = Math.max(300, startWindowSize.width + deltaX);
       }
-    }
-    if (resizeHandle.includes('bottom')) {
-      newHeight = Math.max(200, startWindowSize.height + deltaY);
-    }
-    if (resizeHandle.includes('top')) {
-      newHeight = Math.max(200, startWindowSize.height - deltaY);
-      newY = startWindowPos.y + deltaY;
-      // Adjust if minimum height is reached
-      if (newHeight === 200) {
-        newY = startWindowPos.y + startWindowSize.height - 200;
+      if (resizeHandle.includes('left')) {
+        newWidth = Math.max(300, startWindowSize.width - deltaX);
+        newX = startWindowPos.x + deltaX;
+        // Adjust if minimum width is reached
+        if (newWidth === 300) {
+          newX = startWindowPos.x + startWindowSize.width - 300;
+        }
       }
-    }
+      if (resizeHandle.includes('bottom')) {
+        newHeight = Math.max(200, startWindowSize.height + deltaY);
+      }
+      if (resizeHandle.includes('top')) {
+        newHeight = Math.max(200, startWindowSize.height - deltaY);
+        newY = startWindowPos.y + deltaY;
+        // Adjust if minimum height is reached
+        if (newHeight === 200) {
+          newY = startWindowPos.y + startWindowSize.height - 200;
+        }
+      }
 
-    // Update window size and position
-    onUpdate(window.id, {
-      size: { width: newWidth, height: newHeight },
-      position: { x: newX, y: newY }
-    });
-  }, [isResizing, resizeHandle, startMousePos, startWindowPos, startWindowSize, window, onUpdate]);
+      // Update window size and position
+      onUpdate(window.id, {
+        size: { width: newWidth, height: newHeight },
+        position: { x: newX, y: newY },
+      });
+    },
+    [isResizing, resizeHandle, startMousePos, startWindowPos, startWindowSize, window, onUpdate]
+  );
 
   // Handle resize end
   const handleResizeEnd = useCallback(() => {
@@ -334,21 +534,39 @@ const Window: React.FC<{
       onClick={onFocus}
     >
       {/* Window Header */}
-      <div className={`
+      <div
+        className={`
         h-12 bg-slate-800/50 ${DESIGN_TOKENS.colors.border} border-b 
         flex items-center justify-between px-4 cursor-move select-none
         ${isDragging ? 'cursor-grabbing' : 'cursor-grab'}
-      `}>
+      `}
+      >
         <div className={`flex items-center ${DESIGN_TOKENS.spacing.sm}`}>
           <Icon className={`w-4 h-4 ${window.app.color}`} />
-          <span className={`${DESIGN_TOKENS.colors.text} text-sm font-medium truncate`}>{window.app.title}</span>
+          <span className={`${DESIGN_TOKENS.colors.text} text-sm font-medium truncate`}>
+            {window.app.title}
+          </span>
         </div>
 
         <div className={`flex items-center ${DESIGN_TOKENS.spacing.xs}`}>
-          <Button variant="secondary" size="sm" onClick={(e) => { e.stopPropagation(); onMinimize(); }}>
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={(e) => {
+              e.stopPropagation();
+              onMinimize();
+            }}
+          >
             <Minimize2 className="w-3 h-3" />
           </Button>
-          <Button variant="destructive" size="sm" onClick={(e) => { e.stopPropagation(); onClose(); }}>
+          <Button
+            variant="destructive"
+            size="sm"
+            onClick={(e) => {
+              e.stopPropagation();
+              onClose();
+            }}
+          >
             <X className="w-3 h-3" />
           </Button>
         </div>
@@ -356,7 +574,15 @@ const Window: React.FC<{
 
       {/* Window Content */}
       <div className="flex-1 overflow-auto bg-white/5">
-        <Component viewport={{ width: window.size.width, height: window.size.height, isMobile: false, isTablet: false, isDesktop: true }} />
+        <Component
+          viewport={{
+            width: window.size.width,
+            height: window.size.height,
+            isMobile: false,
+            isTablet: false,
+            isDesktop: true,
+          }}
+        />
       </div>
 
       {/* Resize Handles */}
@@ -497,7 +723,7 @@ const MapControlPanel: React.FC<{
       <motion.div
         animate={{
           opacity: showControls ? 0 : 1,
-          scale: showControls ? 0.8 : 1
+          scale: showControls ? 0.8 : 1,
         }}
         transition={{ duration: 0.2 }}
         className={`
@@ -533,15 +759,13 @@ const MapControlPanel: React.FC<{
 
             <div className="space-y-2">
               <Button
-                variant={isInteractive ? "primary" : "secondary"}
+                variant={isInteractive ? 'primary' : 'secondary'}
                 size="sm"
                 onClick={onToggleInteractive}
                 className="w-full justify-start"
               >
                 {isInteractive ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
-                <span className="ml-2">
-                  {isInteractive ? 'Interactive' : 'Static'}
-                </span>
+                <span className="ml-2">{isInteractive ? 'Interactive' : 'Static'}</span>
               </Button>
 
               {/* Theme Controls */}
@@ -549,7 +773,7 @@ const MapControlPanel: React.FC<{
                 <div className="text-xs font-medium text-slate-300 mb-2">Map Theme</div>
                 <div className="flex gap-1">
                   <Button
-                    variant={effectiveTheme === 'light' ? "primary" : "secondary"}
+                    variant={effectiveTheme === 'light' ? 'primary' : 'secondary'}
                     size="sm"
                     onClick={() => setTheme('light')}
                     className="flex-1"
@@ -558,7 +782,7 @@ const MapControlPanel: React.FC<{
                     <Sun className="w-3 h-3" />
                   </Button>
                   <Button
-                    variant={effectiveTheme === 'dark' ? "primary" : "secondary"}
+                    variant={effectiveTheme === 'dark' ? 'primary' : 'secondary'}
                     size="sm"
                     onClick={() => setTheme('dark')}
                     className="flex-1"
@@ -567,7 +791,7 @@ const MapControlPanel: React.FC<{
                     <Moon className="w-3 h-3" />
                   </Button>
                   <Button
-                    variant={preferences.theme === 'auto' ? "primary" : "secondary"}
+                    variant={preferences.theme === 'auto' ? 'primary' : 'secondary'}
                     size="sm"
                     onClick={() => setTheme('auto')}
                     className="flex-1"
@@ -585,8 +809,7 @@ const MapControlPanel: React.FC<{
               <div className="text-xs text-slate-400 px-2">
                 {isInteractive
                   ? 'Map is interactive - hover over map for more controls'
-                  : 'Map is display only - click to enable interaction'
-                }
+                  : 'Map is display only - click to enable interaction'}
               </div>
             </div>
           </motion.div>
@@ -639,7 +862,7 @@ const WeatherWidget: React.FC<{
       <motion.div
         animate={{
           opacity: showDetails ? 0 : 1,
-          scale: showDetails ? 0.8 : 1
+          scale: showDetails ? 0.8 : 1,
         }}
         transition={{ duration: 0.2 }}
         className={`
@@ -672,7 +895,9 @@ const WeatherWidget: React.FC<{
                 <div className={`text-xl font-bold ${DESIGN_TOKENS.colors.text}`}>
                   {weather.temperature}°C
                 </div>
-                <div className={`text-xs ${DESIGN_TOKENS.colors.textMuted} flex items-center gap-1 justify-end`}>
+                <div
+                  className={`text-xs ${DESIGN_TOKENS.colors.textMuted} flex items-center gap-1 justify-end`}
+                >
                   <MapPin className="w-3 h-3" />
                   {weather.location}
                 </div>
@@ -700,9 +925,13 @@ const WeatherWidget: React.FC<{
                       <span className="text-slate-400 w-16 truncate">{day.day}</span>
                       <div className="flex items-center gap-1">
                         <div className="w-4 h-4 flex items-center justify-center">
-                          {React.cloneElement(getWeatherIcon(day.condition), { className: 'w-3 h-3' })}
+                          {React.cloneElement(getWeatherIcon(day.condition), {
+                            className: 'w-3 h-3',
+                          })}
                         </div>
-                        <span className="text-slate-300 text-xs">{day.high}°/{day.low}°</span>
+                        <span className="text-slate-300 text-xs">
+                          {day.high}°/{day.low}°
+                        </span>
                       </div>
                     </div>
                   ))}
@@ -727,14 +956,23 @@ const ActionsMenu: React.FC<{
   onShowGlobalUpload: () => void;
   onShowChatIngestion: () => void;
   onShowProjectOnboarding: () => void;
-}> = ({ isOpen, onClose, onAppSelect, applications, onLogout, onShowGlobalUpload, onShowChatIngestion, onShowProjectOnboarding }) => {
+}> = ({
+  isOpen,
+  onClose,
+  onAppSelect,
+  applications,
+  onLogout,
+  onShowGlobalUpload,
+  onShowChatIngestion,
+  onShowProjectOnboarding,
+}) => {
   if (!isOpen) return null;
 
   const categories = {
-    core: applications.filter(app => app.category === 'core'),
-    tools: applications.filter(app => app.category === 'tools'),
-    data: applications.filter(app => app.category === 'data'),
-    security: applications.filter(app => app.category === 'security'),
+    core: applications.filter((app) => app.category === 'core'),
+    tools: applications.filter((app) => app.category === 'tools'),
+    data: applications.filter((app) => app.category === 'data'),
+    security: applications.filter((app) => app.category === 'security'),
   };
 
   const quickActions = [
@@ -759,14 +997,19 @@ const ActionsMenu: React.FC<{
       >
         {/* Quick Actions */}
         <div className={`${DESIGN_TOKENS.padding.md} ${DESIGN_TOKENS.colors.border} border-b`}>
-          <h4 className={`${DESIGN_TOKENS.colors.textSecondary} text-sm font-medium mb-3`}>Quick Actions</h4>
+          <h4 className={`${DESIGN_TOKENS.colors.textSecondary} text-sm font-medium mb-3`}>
+            Quick Actions
+          </h4>
           <div className="grid grid-cols-4 gap-2">
             {quickActions.map((action, index) => (
               <Button
                 key={index}
                 variant="secondary"
                 size="sm"
-                onClick={() => { action.action(); onClose(); }}
+                onClick={() => {
+                  action.action();
+                  onClose();
+                }}
                 className="flex-col h-16"
               >
                 <action.icon className="w-5 h-5 mb-1" />
@@ -779,8 +1022,13 @@ const ActionsMenu: React.FC<{
         {/* Applications by Category */}
         <div className="max-h-80 overflow-y-auto">
           {Object.entries(categories).map(([categoryKey, apps]) => (
-            <div key={categoryKey} className={`${DESIGN_TOKENS.padding.md} border-b border-slate-700/30 last:border-b-0`}>
-              <h4 className={`${DESIGN_TOKENS.colors.textSecondary} text-sm font-medium mb-3 capitalize`}>
+            <div
+              key={categoryKey}
+              className={`${DESIGN_TOKENS.padding.md} border-b border-slate-700/30 last:border-b-0`}
+            >
+              <h4
+                className={`${DESIGN_TOKENS.colors.textSecondary} text-sm font-medium mb-3 capitalize`}
+              >
                 {categoryKey}
               </h4>
               <div className="space-y-1">
@@ -790,7 +1038,10 @@ const ActionsMenu: React.FC<{
                     <Button
                       key={app.id}
                       variant="ghost"
-                      onClick={() => { onAppSelect(app); onClose(); }}
+                      onClick={() => {
+                        onAppSelect(app);
+                        onClose();
+                      }}
                       className="w-full justify-start"
                     >
                       <Icon className={`w-4 h-4 ${app.color}`} />
@@ -806,7 +1057,9 @@ const ActionsMenu: React.FC<{
         {/* System Actions */}
         <div className={`${DESIGN_TOKENS.padding.md} ${DESIGN_TOKENS.colors.border} border-t`}>
           <div className="space-y-2 mb-4">
-            <h4 className={`${DESIGN_TOKENS.colors.textSecondary} text-sm font-medium`}>Global Shortcuts</h4>
+            <h4 className={`${DESIGN_TOKENS.colors.textSecondary} text-sm font-medium`}>
+              Global Shortcuts
+            </h4>
             <div className="space-y-1 text-xs text-slate-400">
               <div className="flex justify-between">
                 <span>Knowledge Search</span>
@@ -847,17 +1100,21 @@ const ActionsMenu: React.FC<{
               <Command className="w-4 h-4" />
               Close
             </Button>
-            <Button variant="destructive" size="sm" onClick={async () => {
-              if (confirm('Sign out?')) {
-                try {
-                  onClose();
-                  await onLogout();
-                } catch (error) {
-                  console.error('Logout failed:', error);
-                  window.location.reload();
+            <Button
+              variant="destructive"
+              size="sm"
+              onClick={async () => {
+                if (confirm('Sign out?')) {
+                  try {
+                    onClose();
+                    await onLogout();
+                  } catch (error) {
+                    console.error('Logout failed:', error);
+                    window.location.reload();
+                  }
                 }
-              }
-            }}>
+              }}
+            >
               <Power className="w-4 h-4" />
               Sign Out
             </Button>
@@ -919,7 +1176,7 @@ const ShortcutBar: React.FC<{
       initial={{ opacity: 0, y: -20 }}
       animate={{
         opacity: autoHideActive ? 0.2 : 1,
-        y: autoHideActive ? -10 : 0
+        y: autoHideActive ? -10 : 0,
       }}
       exit={{ opacity: 0, y: -20 }}
       transition={{ duration: 0.3 }}
@@ -927,12 +1184,14 @@ const ShortcutBar: React.FC<{
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
     >
-      <div className={`
+      <div
+        className={`
         flex items-center ${DESIGN_TOKENS.spacing.xs} px-3 py-2
         ${DESIGN_TOKENS.colors.surface} ${DESIGN_TOKENS.backdrop} ${DESIGN_TOKENS.radius.lg} 
         ${DESIGN_TOKENS.colors.border} border ${DESIGN_TOKENS.shadow}
         transition-all duration-300
-      `}>
+      `}
+      >
         {favoriteApps.map((app) => {
           const Icon = app.icon;
           return (
@@ -967,13 +1226,17 @@ const Taskbar: React.FC<{
   userRole: string;
 }> = ({ windows, onWindowClick, onActionsMenuToggle, onCustomizationToggle, time, userRole }) => {
   return (
-    <div className={`
+    <div
+      className={`
       fixed top-0 left-0 right-0 h-12 ${DESIGN_TOKENS.colors.surface} ${DESIGN_TOKENS.backdrop} 
       ${DESIGN_TOKENS.colors.border} border-t flex items-center justify-between px-4 max-w-full z-50
-    `}>
+    `}
+    >
       {/* Start Button */}
       <Button variant="ghost" onClick={onActionsMenuToggle}>
-        <div className={`w-8 h-8 bg-gradient-to-br ${DESIGN_TOKENS.colors.primary} ${DESIGN_TOKENS.radius.md} flex items-center justify-center`}>
+        <div
+          className={`w-8 h-8 bg-gradient-to-br ${DESIGN_TOKENS.colors.primary} ${DESIGN_TOKENS.radius.md} flex items-center justify-center`}
+        >
           <span className="text-white font-bold text-sm">🏛️</span>
         </div>
         <div className="hidden md:flex flex-col">
@@ -989,7 +1252,7 @@ const Taskbar: React.FC<{
           return (
             <Button
               key={window.id}
-              variant={window.isMinimized ? "secondary" : "ghost"}
+              variant={window.isMinimized ? 'secondary' : 'ghost'}
               size="sm"
               onClick={() => onWindowClick(window.id)}
             >
@@ -1001,7 +1264,9 @@ const Taskbar: React.FC<{
       </div>
 
       {/* System Tray */}
-      <div className={`flex items-center ${DESIGN_TOKENS.spacing.sm} ${DESIGN_TOKENS.colors.textSecondary}`}>
+      <div
+        className={`flex items-center ${DESIGN_TOKENS.spacing.sm} ${DESIGN_TOKENS.colors.textSecondary}`}
+      >
         <Button variant="ghost" size="sm" onClick={onCustomizationToggle} title="Customize Desktop">
           <Settings className="w-4 h-4 text-gray-400" />
         </Button>
@@ -1031,13 +1296,13 @@ export const Desktop: React.FC = () => {
 
   // Role weight for comparison
   const getRoleWeight = (role: string): number => {
-    const weights = { 'guest': 0, 'user': 1, 'moderator': 2, 'admin': 3, 'system': 4 };
+    const weights = { guest: 0, user: 1, moderator: 2, admin: 3, system: 4 };
     return weights[role as keyof typeof weights] || 0;
   };
 
   // Filter applications by user role
-  const APPLICATIONS = ALL_APPLICATIONS.filter(app =>
-    !app.minimumRole || getRoleWeight(userRole) >= getRoleWeight(app.minimumRole)
+  const APPLICATIONS = ALL_APPLICATIONS.filter(
+    (app) => !app.minimumRole || getRoleWeight(userRole) >= getRoleWeight(app.minimumRole)
   );
   const [showActionsMenu, setShowActionsMenu] = useState(false);
   const [showShortcutBar, setShowShortcutBar] = useState(true);
@@ -1050,7 +1315,7 @@ export const Desktop: React.FC = () => {
     currentTheme,
     availableThemes,
     preferences: wallpaperPreferences,
-    getCurrentImageUrl
+    getCurrentImageUrl,
   } = useWallpaper();
   const [weather, setWeather] = useState<WeatherData>({
     location: 'Loading...',
@@ -1062,8 +1327,8 @@ export const Desktop: React.FC = () => {
     forecast: [
       { day: 'Tomorrow', high: 25, low: 18, condition: 'Sunny', icon: '☀️' },
       { day: 'Friday', high: 23, low: 16, condition: 'Cloudy', icon: '☁️' },
-      { day: 'Saturday', high: 20, low: 14, condition: 'Rainy', icon: '🌧️' }
-    ]
+      { day: 'Saturday', high: 20, low: 14, condition: 'Rainy', icon: '🌧️' },
+    ],
   });
   const [showCustomization, setShowCustomization] = useState(false);
   const [showGlobalUpload, setShowGlobalUpload] = useState(false);
@@ -1121,9 +1386,12 @@ export const Desktop: React.FC = () => {
   useEffect(() => {
     if (!userLocation) return;
 
-    const refreshInterval = setInterval(() => {
-      fetchWeatherForLocation(userLocation);
-    }, 30 * 60 * 1000); // 30 minutes
+    const refreshInterval = setInterval(
+      () => {
+        fetchWeatherForLocation(userLocation);
+      },
+      30 * 60 * 1000
+    ); // 30 minutes
 
     return () => clearInterval(refreshInterval);
   }, [userLocation]);
@@ -1182,19 +1450,19 @@ export const Desktop: React.FC = () => {
       content: 'New note...',
       position: { x: Math.random() * 300 + 100, y: Math.random() * 300 + 100 },
       color: '#fef3c7',
-      timestamp: Date.now()
+      timestamp: Date.now(),
     };
-    setNotes(prev => [...prev, newNote]);
+    setNotes((prev) => [...prev, newNote]);
   };
 
   const updateNote = (id: string, content: string) => {
-    setNotes(prev => prev.map(note =>
-      note.id === id ? { ...note, content, timestamp: Date.now() } : note
-    ));
+    setNotes((prev) =>
+      prev.map((note) => (note.id === id ? { ...note, content, timestamp: Date.now() } : note))
+    );
   };
 
   const deleteNote = (id: string) => {
-    setNotes(prev => prev.filter(note => note.id !== id));
+    setNotes((prev) => prev.filter((note) => note.id !== id));
   };
 
   // Fetch weather based on location
@@ -1248,7 +1516,7 @@ export const Desktop: React.FC = () => {
   const handleProjectCreated = (projectData: any) => {
     console.log('Project created:', projectData);
     // Optionally open the project management portal
-    const projectApp = APPLICATIONS.find(app => app.id === 'projects');
+    const projectApp = APPLICATIONS.find((app) => app.id === 'projects');
     if (projectApp) {
       openApplication(projectApp);
     }
@@ -1266,7 +1534,7 @@ export const Desktop: React.FC = () => {
       await userPersonaAPI.trackInteraction({
         type: 'preference_change',
         data: { action: 'onboarding_completed', personaData: data.personaData },
-        timestamp: new Date()
+        timestamp: new Date(),
       });
     } catch (error) {
       console.error('Error completing persona onboarding:', error);
@@ -1283,7 +1551,7 @@ export const Desktop: React.FC = () => {
     const handleOpenKnowledgePortal = (event: CustomEvent) => {
       const { itemId } = event.detail;
       // Open knowledge portal and select specific item
-      const knowledgeApp = APPLICATIONS.find(app => app.id === 'knowledge');
+      const knowledgeApp = APPLICATIONS.find((app) => app.id === 'knowledge');
       if (knowledgeApp) {
         openApplication(knowledgeApp);
         // TODO: Pass itemId to the portal for selection
@@ -1291,22 +1559,22 @@ export const Desktop: React.FC = () => {
     };
 
     window.addEventListener('openKnowledgePortal', handleOpenKnowledgePortal as EventListener);
-    return () => window.removeEventListener('openKnowledgePortal', handleOpenKnowledgePortal as EventListener);
+    return () =>
+      window.removeEventListener('openKnowledgePortal', handleOpenKnowledgePortal as EventListener);
   }, []);
-
 
   // Get current wallpaper URL for display
   const currentWallpaperUrl = getCurrentImageUrl(2560, 1440);
 
   const openApplication = (app: Application) => {
-    const existingWindow = windows.find(w => w.app.id === app.id);
+    const existingWindow = windows.find((w) => w.app.id === app.id);
     if (existingWindow) {
-      setWindows(prev => prev.map(w =>
-        w.id === existingWindow.id
-          ? { ...w, isMinimized: false, zIndex: nextZIndex }
-          : w
-      ));
-      setNextZIndex(prev => prev + 1);
+      setWindows((prev) =>
+        prev.map((w) =>
+          w.id === existingWindow.id ? { ...w, isMinimized: false, zIndex: nextZIndex } : w
+        )
+      );
+      setNextZIndex((prev) => prev + 1);
       setActiveWindowId(existingWindow.id);
       return;
     }
@@ -1326,52 +1594,44 @@ export const Desktop: React.FC = () => {
       isMinimized: false,
       position: {
         x: Math.max(50, Math.min(100 + offsetX, screenWidth - windowWidth - 50)),
-        y: Math.max(50, Math.min(100 + offsetY, screenHeight - windowHeight - 100))
+        y: Math.max(50, Math.min(100 + offsetY, screenHeight - windowHeight - 100)),
       },
       size: { width: windowWidth, height: windowHeight },
-      zIndex: nextZIndex
+      zIndex: nextZIndex,
     };
 
-    setWindows(prev => [...prev, newWindow]);
-    setNextZIndex(prev => prev + 1);
+    setWindows((prev) => [...prev, newWindow]);
+    setNextZIndex((prev) => prev + 1);
     setActiveWindowId(newWindow.id);
   };
 
   const closeWindow = (windowId: string) => {
-    setWindows(prev => prev.filter(w => w.id !== windowId));
+    setWindows((prev) => prev.filter((w) => w.id !== windowId));
     if (activeWindowId === windowId) setActiveWindowId(null);
   };
 
   const minimizeWindow = (windowId: string) => {
-    setWindows(prev => prev.map(w =>
-      w.id === windowId ? { ...w, isMinimized: true } : w
-    ));
+    setWindows((prev) => prev.map((w) => (w.id === windowId ? { ...w, isMinimized: true } : w)));
     if (activeWindowId === windowId) setActiveWindowId(null);
   };
 
   const focusWindow = (windowId: string) => {
-    setWindows(prev => prev.map(w =>
-      w.id === windowId
-        ? { ...w, zIndex: nextZIndex, isMinimized: false }
-        : w
-    ));
-    setNextZIndex(prev => prev + 1);
+    setWindows((prev) =>
+      prev.map((w) => (w.id === windowId ? { ...w, zIndex: nextZIndex, isMinimized: false } : w))
+    );
+    setNextZIndex((prev) => prev + 1);
     setActiveWindowId(windowId);
   };
 
   const updateWindow = (windowId: string, updates: Partial<OpenWindow>) => {
-    setWindows(prev => prev.map(w =>
-      w.id === windowId
-        ? { ...w, ...updates }
-        : w
-    ));
+    setWindows((prev) => prev.map((w) => (w.id === windowId ? { ...w, ...updates } : w)));
   };
 
   const memoizedMapLocation = React.useMemo(() => {
     if (!userLocation) return null;
     return {
       lat: userLocation.latitude,
-      lng: userLocation.longitude
+      lng: userLocation.longitude,
     };
   }, [userLocation?.latitude, userLocation?.longitude]);
 
@@ -1410,11 +1670,7 @@ export const Desktop: React.FC = () => {
       <div className="p-6 mt-10 pb-20 relative z-10" onMouseDown={() => setIsDragging(false)}>
         <div className="grid grid-cols-4 md:grid-cols-8 gap-4 auto-rows-min justify-items-center">
           {APPLICATIONS.map((app) => (
-            <DesktopIcon
-              key={app.id}
-              app={app}
-              onClick={() => openApplication(app)}
-            />
+            <DesktopIcon key={app.id} app={app} onClick={() => openApplication(app)} />
           ))}
         </div>
       </div>
@@ -1422,12 +1678,7 @@ export const Desktop: React.FC = () => {
       {/* Desktop Notes */}
       <AnimatePresence>
         {notes.map((note) => (
-          <DesktopNote
-            key={note.id}
-            note={note}
-            onUpdate={updateNote}
-            onDelete={deleteNote}
-          />
+          <DesktopNote key={note.id} note={note} onUpdate={updateNote} onDelete={deleteNote} />
         ))}
       </AnimatePresence>
 
@@ -1525,7 +1776,10 @@ export const Desktop: React.FC = () => {
                 </Button>
               </div>
               <div className="p-6 overflow-y-auto max-h-[calc(90vh-120px)] relative z-[10001]">
-                <div className="chat-ingestion-container relative z-[10002]" style={{ zIndex: 10002 }}>
+                <div
+                  className="chat-ingestion-container relative z-[10002]"
+                  style={{ zIndex: 10002 }}
+                >
                   <ChatKnowledgeUploader
                     onUploadComplete={() => {
                       console.log('Chat ingestion completed');
@@ -1555,7 +1809,7 @@ export const Desktop: React.FC = () => {
         onClose={() => setShowDiscussionConfig(false)}
         onDiscussionStarted={(discussionId) => {
           // Open the discussion portal after discussion starts
-          const discussionApp = ALL_APPLICATIONS.find(app => app.id === 'discussion');
+          const discussionApp = ALL_APPLICATIONS.find((app) => app.id === 'discussion');
           if (discussionApp) {
             openApplication(discussionApp);
           }
@@ -1585,10 +1839,7 @@ export const Desktop: React.FC = () => {
               </Button>
             </div>
             <div className="h-full">
-              <AtomicKnowledgeViewer
-                item={selectedKnowledgeItem}
-                className="h-full"
-              />
+              <AtomicKnowledgeViewer item={selectedKnowledgeItem} className="h-full" />
             </div>
           </div>
         </div>
@@ -1636,7 +1887,7 @@ export const Desktop: React.FC = () => {
                 // Close history modal and open chat
                 setShowChatHistory(false);
                 const chatEvent = new CustomEvent('openAgentChat', {
-                  detail: { agentId, agentName, sessionId }
+                  detail: { agentId, agentName, sessionId },
                 });
                 window.dispatchEvent(chatEvent);
               }}

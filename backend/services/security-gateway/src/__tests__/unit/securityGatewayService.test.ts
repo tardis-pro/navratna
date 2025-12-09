@@ -3,7 +3,7 @@ import { SecurityGatewayService } from '../../services/securityGatewayService.js
 import {
   createMockDatabaseService,
   createMockAuditService,
-  createMockApprovalWorkflowService
+  createMockApprovalWorkflowService,
 } from '../utils/mockServices.js';
 import {
   SecurityValidationRequest,
@@ -11,20 +11,20 @@ import {
   RiskLevel,
   AuditEventType,
   Operation,
-  SecurityContext
+  SecurityContext,
 } from '@uaip/types';
 
 // Mock the services
 jest.mock('@uaip/shared-services', () => ({
-  DatabaseService: jest.fn().mockImplementation(() => createMockDatabaseService())
+  DatabaseService: jest.fn().mockImplementation(() => createMockDatabaseService()),
 }));
 
 jest.mock('../../services/auditService.js', () => ({
-  AuditService: jest.fn().mockImplementation(() => createMockAuditService())
+  AuditService: jest.fn().mockImplementation(() => createMockAuditService()),
 }));
 
 jest.mock('../../services/approvalWorkflowService.js', () => ({
-  ApprovalWorkflowService: jest.fn().mockImplementation(() => createMockApprovalWorkflowService())
+  ApprovalWorkflowService: jest.fn().mockImplementation(() => createMockApprovalWorkflowService()),
 }));
 
 describe('SecurityGatewayService', () => {
@@ -50,20 +50,22 @@ describe('SecurityGatewayService', () => {
   });
 
   // Helper function to create test security validation requests
-  const createSecurityValidationRequest = (overrides: Partial<SecurityValidationRequest> = {}): SecurityValidationRequest => ({
+  const createSecurityValidationRequest = (
+    overrides: Partial<SecurityValidationRequest> = {}
+  ): SecurityValidationRequest => ({
     operation: {
       type: 'read',
       resource: 'user_data',
-      context: {}
+      context: {},
     },
     securityContext: {
       userId: 'user-123',
       role: 'user',
       ipAddress: '127.0.0.1',
       userAgent: 'test-agent',
-      sessionId: 'session-123'
+      sessionId: 'session-123',
     },
-    ...overrides
+    ...overrides,
   });
 
   describe('validateSecurity', () => {
@@ -72,8 +74,8 @@ describe('SecurityGatewayService', () => {
         operation: {
           type: 'read',
           resource: 'public_data',
-          context: {}
-        }
+          context: {},
+        },
       });
 
       const result = await securityGatewayService.validateSecurity(request);
@@ -88,7 +90,7 @@ describe('SecurityGatewayService', () => {
       expect(mockAuditService.logEvent).toHaveBeenCalledWith(
         expect.objectContaining({
           eventType: AuditEventType.PERMISSION_GRANTED,
-          userId: 'user-123'
+          userId: 'user-123',
         })
       );
     });
@@ -98,8 +100,8 @@ describe('SecurityGatewayService', () => {
         operation: {
           type: 'system_configuration_change',
           resource: 'system_configuration',
-          context: {}
-        }
+          context: {},
+        },
       });
 
       const result = await securityGatewayService.validateSecurity(request);
@@ -121,8 +123,8 @@ describe('SecurityGatewayService', () => {
         operation: {
           type: 'write',
           resource: 'user_data',
-          context: {}
-        }
+          context: {},
+        },
       });
 
       const result = await securityGatewayService.validateSecurity(request);
@@ -139,9 +141,9 @@ describe('SecurityGatewayService', () => {
           context: {
             containsSensitiveData: true,
             externalAccess: true,
-            bulkOperation: true
-          }
-        }
+            bulkOperation: true,
+          },
+        },
       });
 
       const result = await securityGatewayService.validateSecurity(request);
@@ -158,14 +160,14 @@ describe('SecurityGatewayService', () => {
           id: 'event-1',
           eventType: AuditEventType.PERMISSION_DENIED,
           userId: 'user-123',
-          timestamp: new Date(Date.now() - 24 * 60 * 60 * 1000) // Yesterday
+          timestamp: new Date(Date.now() - 24 * 60 * 60 * 1000), // Yesterday
         },
         {
           id: 'event-2',
           eventType: AuditEventType.SECURITY_VIOLATION,
           userId: 'user-123',
-          timestamp: new Date(Date.now() - 48 * 60 * 60 * 1000) // 2 days ago
-        }
+          timestamp: new Date(Date.now() - 48 * 60 * 60 * 1000), // 2 days ago
+        },
       ] as any);
 
       const request = createSecurityValidationRequest();
@@ -179,8 +181,8 @@ describe('SecurityGatewayService', () => {
           eventTypes: [
             AuditEventType.PERMISSION_DENIED,
             AuditEventType.SECURITY_VIOLATION,
-            AuditEventType.APPROVAL_DENIED
-          ]
+            AuditEventType.APPROVAL_DENIED,
+          ],
         })
       );
     });
@@ -190,12 +192,14 @@ describe('SecurityGatewayService', () => {
 
       const request = createSecurityValidationRequest();
 
-      await expect(securityGatewayService.validateSecurity(request)).rejects.toThrow('Audit service error');
+      await expect(securityGatewayService.validateSecurity(request)).rejects.toThrow(
+        'Audit service error'
+      );
 
       // Should log security violation
       expect(mockAuditService.logEvent).toHaveBeenCalledWith(
         expect.objectContaining({
-          eventType: AuditEventType.SECURITY_VIOLATION
+          eventType: AuditEventType.SECURITY_VIOLATION,
         })
       );
     });
@@ -205,8 +209,8 @@ describe('SecurityGatewayService', () => {
         operation: {
           type: 'system_configuration_change',
           resource: 'system_configuration',
-          context: {}
-        }
+          context: {},
+        },
       });
 
       const result = await securityGatewayService.validateSecurity(request);
@@ -221,11 +225,15 @@ describe('SecurityGatewayService', () => {
   describe('assessRisk', () => {
     it('should assess operation type risk correctly', async () => {
       const lowRiskRequest = createSecurityValidationRequest({
-        operation: { type: 'read', resource: 'public_data', context: {} }
+        operation: { type: 'read', resource: 'public_data', context: {} },
       });
 
       const highRiskRequest = createSecurityValidationRequest({
-        operation: { type: 'security_policy_change', resource: 'system_configuration', context: {} }
+        operation: {
+          type: 'security_policy_change',
+          resource: 'system_configuration',
+          context: {},
+        },
       });
 
       const lowRiskAssessment = await securityGatewayService.assessRisk(lowRiskRequest);
@@ -245,11 +253,11 @@ describe('SecurityGatewayService', () => {
 
     it('should assess resource type risk correctly', async () => {
       const publicDataRequest = createSecurityValidationRequest({
-        operation: { type: 'read', resource: 'public_data', context: {} }
+        operation: { type: 'read', resource: 'public_data', context: {} },
       });
 
       const financialDataRequest = createSecurityValidationRequest({
-        operation: { type: 'read', resource: 'financial_data', context: {} }
+        operation: { type: 'read', resource: 'financial_data', context: {} },
       });
 
       const publicDataAssessment = await securityGatewayService.assessRisk(publicDataRequest);
@@ -259,7 +267,9 @@ describe('SecurityGatewayService', () => {
       expect(financialDataAssessment.score).toBeGreaterThan(publicDataAssessment.score);
 
       // Check that appropriate factors are included
-      const resourceFactors = financialDataAssessment.factors.filter(f => f.type === 'resource_type');
+      const resourceFactors = financialDataAssessment.factors.filter(
+        (f) => f.type === 'resource_type'
+      );
       expect(resourceFactors.length).toBeGreaterThan(0);
     });
 
@@ -267,7 +277,7 @@ describe('SecurityGatewayService', () => {
       const request = createSecurityValidationRequest();
       const assessment = await securityGatewayService.assessRisk(request);
 
-      const factorTypes = assessment.factors.map(f => f.type);
+      const factorTypes = assessment.factors.map((f) => f.type);
       expect(factorTypes).toContain('operation_type');
       expect(factorTypes).toContain('resource_type');
       expect(factorTypes).toContain('user_role');
@@ -276,7 +286,7 @@ describe('SecurityGatewayService', () => {
       expect(factorTypes).toContain('historical');
 
       // Each factor should have required properties
-      assessment.factors.forEach(factor => {
+      assessment.factors.forEach((factor) => {
         expect(factor.type).toBeDefined();
         expect(factor.level).toBeDefined();
         expect(factor.description).toBeDefined();
@@ -293,8 +303,8 @@ describe('SecurityGatewayService', () => {
 
       // Should still complete assessment with fallback historical factor
       expect(assessment.factors.length).toBeGreaterThan(0);
-      
-      const historicalFactor = assessment.factors.find(f => f.type === 'historical');
+
+      const historicalFactor = assessment.factors.find((f) => f.type === 'historical');
       expect(historicalFactor).toBeDefined();
       expect(historicalFactor?.description).toContain('unavailable');
     });
@@ -306,8 +316,8 @@ describe('SecurityGatewayService', () => {
         operation: {
           type: 'system_configuration_change',
           resource: 'system_configuration',
-          context: {}
-        }
+          context: {},
+        },
       });
 
       const riskAssessment = await securityGatewayService.assessRisk(request);
@@ -327,8 +337,8 @@ describe('SecurityGatewayService', () => {
           context: expect.objectContaining({
             operation: request.operation,
             riskAssessment,
-            securityContext: request.securityContext
-          })
+            securityContext: request.securityContext,
+          }),
         })
       );
     });
@@ -340,9 +350,9 @@ describe('SecurityGatewayService', () => {
           resource: 'system_configuration',
           context: {
             containsSensitiveData: true,
-            externalAccess: true
-          }
-        }
+            externalAccess: true,
+          },
+        },
       });
 
       const riskAssessment = await securityGatewayService.assessRisk(criticalRequest);
@@ -354,7 +364,7 @@ describe('SecurityGatewayService', () => {
 
       expect(mockApprovalWorkflowService.createApprovalWorkflow).toHaveBeenCalledWith(
         expect.objectContaining({
-          expirationHours: expect.any(Number)
+          expirationHours: expect.any(Number),
         })
       );
 
@@ -385,8 +395,8 @@ describe('SecurityGatewayService', () => {
         operation: {
           type: 'user_privilege_escalation',
           resource: 'user_data',
-          context: {}
-        }
+          context: {},
+        },
       });
 
       const result = await securityGatewayService.requiresApproval(highRiskRequest);
@@ -403,8 +413,8 @@ describe('SecurityGatewayService', () => {
         operation: {
           type: 'read',
           resource: 'public_data',
-          context: {}
-        }
+          context: {},
+        },
       });
 
       const result = await securityGatewayService.requiresApproval(lowRiskRequest);
@@ -419,7 +429,9 @@ describe('SecurityGatewayService', () => {
 
       const request = createSecurityValidationRequest();
 
-      await expect(securityGatewayService.requiresApproval(request)).rejects.toThrow('Service error');
+      await expect(securityGatewayService.requiresApproval(request)).rejects.toThrow(
+        'Service error'
+      );
     });
   });
 
@@ -435,8 +447,8 @@ describe('SecurityGatewayService', () => {
         operation: {
           type: 'delete',
           resource: 'production_database',
-          context: {}
-        }
+          context: {},
+        },
       });
 
       const result = await securityGatewayService.validateSecurity(highRiskRequest);
@@ -450,8 +462,8 @@ describe('SecurityGatewayService', () => {
         operation: {
           type: 'system_configuration_change',
           resource: 'system_configuration',
-          context: {}
-        }
+          context: {},
+        },
       });
 
       const result = await securityGatewayService.validateSecurity(systemConfigRequest);
@@ -465,11 +477,11 @@ describe('SecurityGatewayService', () => {
   describe('Risk Configuration', () => {
     it('should use appropriate operation type weights', async () => {
       const readRequest = createSecurityValidationRequest({
-        operation: { type: 'read', resource: 'user_data', context: {} }
+        operation: { type: 'read', resource: 'user_data', context: {} },
       });
 
       const deleteRequest = createSecurityValidationRequest({
-        operation: { type: 'delete', resource: 'user_data', context: {} }
+        operation: { type: 'delete', resource: 'user_data', context: {} },
       });
 
       const readAssessment = await securityGatewayService.assessRisk(readRequest);
@@ -481,18 +493,24 @@ describe('SecurityGatewayService', () => {
 
     it('should calculate validity periods based on risk level', async () => {
       const lowRiskRequest = createSecurityValidationRequest({
-        operation: { type: 'read', resource: 'public_data', context: {} }
+        operation: { type: 'read', resource: 'public_data', context: {} },
       });
 
       const highRiskRequest = createSecurityValidationRequest({
-        operation: { type: 'security_policy_change', resource: 'system_configuration', context: {} }
+        operation: {
+          type: 'security_policy_change',
+          resource: 'system_configuration',
+          context: {},
+        },
       });
 
       const lowRiskResult = await securityGatewayService.validateSecurity(lowRiskRequest);
       const highRiskResult = await securityGatewayService.validateSecurity(highRiskRequest);
 
       // High-risk operations should have shorter validity periods
-      expect(lowRiskResult.validUntil.getTime()).toBeGreaterThan(highRiskResult.validUntil.getTime());
+      expect(lowRiskResult.validUntil.getTime()).toBeGreaterThan(
+        highRiskResult.validUntil.getTime()
+      );
     });
   });
 
@@ -504,9 +522,9 @@ describe('SecurityGatewayService', () => {
           resource: 'financial_data',
           context: {
             containsSensitiveData: true,
-            externalAccess: true
-          }
-        }
+            externalAccess: true,
+          },
+        },
       });
 
       const assessment = await securityGatewayService.assessRisk(sensitiveDataRequest);
@@ -525,9 +543,9 @@ describe('SecurityGatewayService', () => {
           context: {
             containsSensitiveData: true,
             externalAccess: true,
-            bulkOperation: true
-          }
-        }
+            bulkOperation: true,
+          },
+        },
       });
 
       const assessment = await securityGatewayService.assessRisk(criticalRiskRequest);

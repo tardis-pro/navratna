@@ -1,17 +1,13 @@
 import { Router, Request, Response } from '@uaip/shared-services';
-import {
-  KnowledgeIngestRequest,
-  KnowledgeSearchRequest,
-  KnowledgeItem
-} from '@uaip/types';
+import { KnowledgeIngestRequest, KnowledgeSearchRequest, KnowledgeItem } from '@uaip/types';
 import {
   UserKnowledgeService,
   getUserKnowledgeService,
-  servicesHealthCheck
+  servicesHealthCheck,
 } from '@uaip/shared-services';
 import { authMiddleware } from '@uaip/middleware';
 
-const router= Router();
+const router = Router();
 
 // Service access with proper dependency injection
 async function getServices(): Promise<{
@@ -46,7 +42,7 @@ router.post('/', authMiddleware, async (req: Request, res: Response) => {
     if (initializationError) {
       res.status(503).json({
         error: 'Knowledge service not available',
-        details: initializationError
+        details: initializationError,
       });
       return;
     }
@@ -72,10 +68,10 @@ router.post('/', authMiddleware, async (req: Request, res: Response) => {
               uploadedAt: new Date().toISOString(),
               title: item.title,
               category: item.category,
-              ...item.metadata
-            }
+              ...item.metadata,
+            },
           },
-          confidence: 0.8
+          confidence: 0.8,
         };
       }
     });
@@ -84,7 +80,7 @@ router.post('/', authMiddleware, async (req: Request, res: Response) => {
     for (const item of knowledgeItems) {
       if (!item.content) {
         res.status(400).json({
-          error: 'Each knowledge item must have content'
+          error: 'Each knowledge item must have content',
         });
         return;
       }
@@ -95,13 +91,13 @@ router.post('/', authMiddleware, async (req: Request, res: Response) => {
     res.status(201).json({
       success: true,
       data: result,
-      message: `Successfully added ${result.processedCount} knowledge items`
+      message: `Successfully added ${result.processedCount} knowledge items`,
     });
   } catch (error) {
     console.error('Error adding user knowledge:', error);
     res.status(500).json({
       error: 'Failed to add knowledge',
-      details: error instanceof Error ? error.message : 'Unknown error'
+      details: error instanceof Error ? error.message : 'Unknown error',
     });
   }
 });
@@ -122,7 +118,7 @@ router.get('/', authMiddleware, async (req: Request, res: Response) => {
     if (initializationError) {
       res.status(503).json({
         error: 'Knowledge service not available',
-        details: initializationError
+        details: initializationError,
       });
       return;
     }
@@ -133,22 +129,26 @@ router.get('/', authMiddleware, async (req: Request, res: Response) => {
       tags,
       types,
       sortBy = 'created_at',
-      sortOrder = 'desc'
+      sortOrder = 'desc',
     } = req.query;
 
     // Use search with empty query to get all items
     const searchRequest = {
       query: '',
       filters: {
-        tags: tags ? (typeof tags === 'string' ? tags.split(',') : tags as string[]) : undefined,
-        types: types ? (typeof types === 'string' ? types.split(',') : types as any[]) : undefined
+        tags: tags ? (typeof tags === 'string' ? tags.split(',') : (tags as string[])) : undefined,
+        types: types
+          ? typeof types === 'string'
+            ? types.split(',')
+            : (types as any[])
+          : undefined,
       },
       options: {
         limit: parseInt(limit as string),
         offset: parseInt(offset as string),
-        includeRelationships: false
+        includeRelationships: false,
       },
-      timestamp: Date.now()
+      timestamp: Date.now(),
     };
 
     const result = await userKnowledgeService!.search(userId, searchRequest);
@@ -160,15 +160,15 @@ router.get('/', authMiddleware, async (req: Request, res: Response) => {
         total: result.totalCount,
         limit: parseInt(limit as string),
         offset: parseInt(offset as string),
-        searchMetadata: result.searchMetadata
+        searchMetadata: result.searchMetadata,
       },
-      message: `Retrieved ${result.items.length} knowledge items`
+      message: `Retrieved ${result.items.length} knowledge items`,
     });
   } catch (error) {
     console.error('Error retrieving user knowledge:', error);
     res.status(500).json({
       error: 'Failed to retrieve knowledge items',
-      details: error instanceof Error ? error.message : 'Unknown error'
+      details: error instanceof Error ? error.message : 'Unknown error',
     });
   }
 });
@@ -189,7 +189,7 @@ router.get('/search', authMiddleware, async (req: Request, res: Response) => {
     if (initializationError) {
       res.status(503).json({
         error: 'Knowledge service not available',
-        details: initializationError
+        details: initializationError,
       });
       return;
     }
@@ -200,7 +200,7 @@ router.get('/search', authMiddleware, async (req: Request, res: Response) => {
       types,
       limit = '20',
       confidence,
-      includeRelationships = 'false'
+      includeRelationships = 'false',
     } = req.query;
 
     if (!query || typeof query !== 'string') {
@@ -211,15 +211,19 @@ router.get('/search', authMiddleware, async (req: Request, res: Response) => {
     const searchRequest: Omit<KnowledgeSearchRequest, 'scope'> = {
       query,
       filters: {
-        tags: tags ? (typeof tags === 'string' ? tags.split(',') : tags as string[]) : undefined,
-        types: types ? (typeof types === 'string' ? types.split(',') : types as any[]) : undefined,
-        confidence: confidence ? parseFloat(confidence as string) : undefined
+        tags: tags ? (typeof tags === 'string' ? tags.split(',') : (tags as string[])) : undefined,
+        types: types
+          ? typeof types === 'string'
+            ? types.split(',')
+            : (types as any[])
+          : undefined,
+        confidence: confidence ? parseFloat(confidence as string) : undefined,
       },
       options: {
         limit: parseInt(limit as string),
-        includeRelationships: includeRelationships === 'true'
+        includeRelationships: includeRelationships === 'true',
       },
-      timestamp: Date.now()
+      timestamp: Date.now(),
     };
 
     const result = await userKnowledgeService!.search(userId, searchRequest);
@@ -227,13 +231,13 @@ router.get('/search', authMiddleware, async (req: Request, res: Response) => {
     res.json({
       success: true,
       data: result,
-      message: `Found ${result.totalCount} knowledge items`
+      message: `Found ${result.totalCount} knowledge items`,
     });
   } catch (error) {
     console.error('Error searching user knowledge:', error);
     res.status(500).json({
       error: 'Failed to search knowledge',
-      details: error instanceof Error ? error.message : 'Unknown error'
+      details: error instanceof Error ? error.message : 'Unknown error',
     });
   }
 });
@@ -254,7 +258,7 @@ router.get('/tags/:tag', authMiddleware, async (req: Request, res: Response) => 
     if (initializationError) {
       res.status(503).json({
         error: 'Knowledge service not available',
-        details: initializationError
+        details: initializationError,
       });
       return;
     }
@@ -271,13 +275,13 @@ router.get('/tags/:tag', authMiddleware, async (req: Request, res: Response) => 
     res.json({
       success: true,
       data: items,
-      message: `Found ${items.length} items with tag "${tag}"`
+      message: `Found ${items.length} items with tag "${tag}"`,
     });
   } catch (error) {
     console.error('Error getting knowledge by tag:', error);
     res.status(500).json({
       error: 'Failed to get knowledge by tag',
-      details: error instanceof Error ? error.message : 'Unknown error'
+      details: error instanceof Error ? error.message : 'Unknown error',
     });
   }
 });
@@ -298,7 +302,7 @@ router.get('/stats', authMiddleware, async (req: Request, res: Response) => {
     if (initializationError) {
       res.status(503).json({
         error: 'Knowledge service not available',
-        details: initializationError
+        details: initializationError,
       });
       return;
     }
@@ -308,13 +312,13 @@ router.get('/stats', authMiddleware, async (req: Request, res: Response) => {
     res.json({
       success: true,
       data: stats,
-      message: 'Knowledge statistics retrieved successfully'
+      message: 'Knowledge statistics retrieved successfully',
     });
   } catch (error) {
     console.error('Error getting knowledge stats:', error);
     res.status(500).json({
       error: 'Failed to get knowledge statistics',
-      details: error instanceof Error ? error.message : 'Unknown error'
+      details: error instanceof Error ? error.message : 'Unknown error',
     });
   }
 });
@@ -335,7 +339,7 @@ router.patch('/:itemId', authMiddleware, async (req: Request, res: Response) => 
     if (initializationError) {
       res.status(503).json({
         error: 'Knowledge service not available',
-        details: initializationError
+        details: initializationError,
       });
       return;
     }
@@ -360,19 +364,19 @@ router.patch('/:itemId', authMiddleware, async (req: Request, res: Response) => 
     res.json({
       success: true,
       data: updatedItem,
-      message: 'Knowledge item updated successfully'
+      message: 'Knowledge item updated successfully',
     });
   } catch (error) {
     console.error('Error updating knowledge item:', error);
     if (error instanceof Error && error.message.includes('not found or not accessible')) {
       res.status(404).json({
         error: 'Knowledge item not found or access denied',
-        details: error.message
+        details: error.message,
       });
     } else {
       res.status(500).json({
         error: 'Failed to update knowledge item',
-        details: error instanceof Error ? error.message : 'Unknown error'
+        details: error instanceof Error ? error.message : 'Unknown error',
       });
     }
   }
@@ -394,7 +398,7 @@ router.delete('/:itemId', authMiddleware, async (req: Request, res: Response) =>
     if (initializationError) {
       res.status(503).json({
         error: 'Knowledge service not available',
-        details: initializationError
+        details: initializationError,
       });
       return;
     }
@@ -410,19 +414,19 @@ router.delete('/:itemId', authMiddleware, async (req: Request, res: Response) =>
 
     res.json({
       success: true,
-      message: 'Knowledge item deleted successfully'
+      message: 'Knowledge item deleted successfully',
     });
   } catch (error) {
     console.error('Error deleting knowledge item:', error);
     if (error instanceof Error && error.message.includes('not found or not accessible')) {
       res.status(404).json({
         error: 'Knowledge item not found or access denied',
-        details: error.message
+        details: error.message,
       });
     } else {
       res.status(500).json({
         error: 'Failed to delete knowledge item',
-        details: error instanceof Error ? error.message : 'Unknown error'
+        details: error instanceof Error ? error.message : 'Unknown error',
       });
     }
   }
@@ -444,7 +448,7 @@ router.get('/:itemId/related', authMiddleware, async (req: Request, res: Respons
     if (initializationError) {
       res.status(503).json({
         error: 'Knowledge service not available',
-        details: initializationError
+        details: initializationError,
       });
       return;
     }
@@ -461,13 +465,13 @@ router.get('/:itemId/related', authMiddleware, async (req: Request, res: Respons
     res.json({
       success: true,
       data: relatedItems,
-      message: `Found ${relatedItems.length} related items`
+      message: `Found ${relatedItems.length} related items`,
     });
   } catch (error) {
     console.error('Error getting related knowledge:', error);
     res.status(500).json({
       error: 'Failed to get related knowledge',
-      details: error instanceof Error ? error.message : 'Unknown error'
+      details: error instanceof Error ? error.message : 'Unknown error',
     });
   }
 });
@@ -488,36 +492,35 @@ router.get('/graph', authMiddleware, async (req: Request, res: Response) => {
     if (initializationError) {
       res.status(503).json({
         error: 'Knowledge service not available',
-        details: initializationError
+        details: initializationError,
       });
       return;
     }
 
-    const {
-      limit = '50',
-      types,
-      tags,
-      includeRelationships = 'true'
-    } = req.query;
+    const { limit = '50', types, tags, includeRelationships = 'true' } = req.query;
 
     // Get user's knowledge items
     const searchRequest = {
       query: '',
       filters: {
-        types: types ? (typeof types === 'string' ? types.split(',') : types as any[]) : undefined,
-        tags: tags ? (typeof tags === 'string' ? tags.split(',') : tags as string[]) : undefined
+        types: types
+          ? typeof types === 'string'
+            ? types.split(',')
+            : (types as any[])
+          : undefined,
+        tags: tags ? (typeof tags === 'string' ? tags.split(',') : (tags as string[])) : undefined,
       },
       options: {
         limit: parseInt(limit as string),
-        includeRelationships: includeRelationships === 'true'
+        includeRelationships: includeRelationships === 'true',
       },
-      timestamp: Date.now()
+      timestamp: Date.now(),
     };
 
     const searchResult = await userKnowledgeService!.search(userId, searchRequest);
 
     // Transform knowledge items to graph format
-    const nodes = searchResult.items.map(item => ({
+    const nodes = searchResult.items.map((item) => ({
       id: item.id,
       type: 'knowledge',
       data: {
@@ -527,8 +530,8 @@ router.get('/graph', authMiddleware, async (req: Request, res: Response) => {
         confidence: item.confidence,
         sourceType: item.sourceType,
         createdAt: item.createdAt,
-        fullContent: item.content
-      }
+        fullContent: item.content,
+      },
     }));
 
     // Get relationships for all items
@@ -537,9 +540,9 @@ router.get('/graph', authMiddleware, async (req: Request, res: Response) => {
       for (const item of searchResult.items) {
         try {
           const relatedItems = await userKnowledgeService!.findRelatedKnowledge(userId, item.id);
-          relatedItems.forEach(relatedItem => {
+          relatedItems.forEach((relatedItem) => {
             // Only include edges where both nodes exist in our result set
-            if (searchResult.items.some(i => i.id === relatedItem.id)) {
+            if (searchResult.items.some((i) => i.id === relatedItem.id)) {
               edges.push({
                 id: `${item.id}-${relatedItem.id}`,
                 source: item.id,
@@ -547,8 +550,8 @@ router.get('/graph', authMiddleware, async (req: Request, res: Response) => {
                 type: 'relationship',
                 data: {
                   relationshipType: 'related',
-                  confidence: 0.8
-                }
+                  confidence: 0.8,
+                },
               });
             }
           });
@@ -566,18 +569,17 @@ router.get('/graph', authMiddleware, async (req: Request, res: Response) => {
         metadata: {
           totalNodes: nodes.length,
           totalEdges: edges.length,
-          searchMetadata: searchResult.searchMetadata
-        }
+          searchMetadata: searchResult.searchMetadata,
+        },
       },
-      message: `Retrieved knowledge graph with ${nodes.length} nodes and ${edges.length} relationships`
+      message: `Retrieved knowledge graph with ${nodes.length} nodes and ${edges.length} relationships`,
     });
-
   } catch (error) {
     console.error('Knowledge graph retrieval error:', error);
     res.status(500).json({
       success: false,
       error: 'Failed to retrieve knowledge graph',
-      details: error instanceof Error ? error.message : 'Unknown error'
+      details: error instanceof Error ? error.message : 'Unknown error',
     });
   }
 });
@@ -598,7 +600,7 @@ router.get('/graph/relationships/:itemId', authMiddleware, async (req: Request, 
     if (initializationError) {
       res.status(503).json({
         error: 'Knowledge service not available',
-        details: initializationError
+        details: initializationError,
       });
       return;
     }
@@ -619,14 +621,16 @@ router.get('/graph/relationships/:itemId', authMiddleware, async (req: Request, 
     }
 
     // Get related items
-    const types = relationshipTypes ?
-      (typeof relationshipTypes === 'string' ? relationshipTypes.split(',') : relationshipTypes as string[]) :
-      undefined;
+    const types = relationshipTypes
+      ? typeof relationshipTypes === 'string'
+        ? relationshipTypes.split(',')
+        : (relationshipTypes as string[])
+      : undefined;
 
     const relatedItems = await userKnowledgeService!.findRelatedKnowledge(userId, itemId, types);
 
     // Transform to graph format
-    const relationships = relatedItems.slice(0, parseInt(limit as string)).map(relatedItem => ({
+    const relationships = relatedItems.slice(0, parseInt(limit as string)).map((relatedItem) => ({
       id: `${itemId}-${relatedItem.id}`,
       source: itemId,
       target: relatedItem.id,
@@ -636,11 +640,12 @@ router.get('/graph/relationships/:itemId', authMiddleware, async (req: Request, 
         confidence: 0.8,
         targetItem: {
           id: relatedItem.id,
-          label: relatedItem.content.substring(0, 50) + (relatedItem.content.length > 50 ? '...' : ''),
+          label:
+            relatedItem.content.substring(0, 50) + (relatedItem.content.length > 50 ? '...' : ''),
           knowledgeType: relatedItem.type,
-          tags: relatedItem.tags
-        }
-      }
+          tags: relatedItem.tags,
+        },
+      },
     }));
 
     res.json({
@@ -648,17 +653,16 @@ router.get('/graph/relationships/:itemId', authMiddleware, async (req: Request, 
       data: {
         itemId,
         relationships,
-        totalCount: relatedItems.length
+        totalCount: relatedItems.length,
       },
-      message: `Found ${relationships.length} relationships for knowledge item`
+      message: `Found ${relationships.length} relationships for knowledge item`,
     });
-
   } catch (error) {
     console.error('Knowledge relationships retrieval error:', error);
     res.status(500).json({
       success: false,
       error: 'Failed to retrieve knowledge relationships',
-      details: error instanceof Error ? error.message : 'Unknown error'
+      details: error instanceof Error ? error.message : 'Unknown error',
     });
   }
 });
@@ -675,20 +679,20 @@ router.get('/health', async (req: Request, res: Response) => {
       res.json({
         success: true,
         data: healthStatus,
-        message: 'Knowledge services are healthy'
+        message: 'Knowledge services are healthy',
       });
     } else {
       res.status(503).json({
         success: false,
         data: healthStatus,
-        message: 'Knowledge services are not healthy'
+        message: 'Knowledge services are not healthy',
       });
     }
   } catch (error) {
     res.status(500).json({
       success: false,
       error: 'Health check failed',
-      details: error instanceof Error ? error.message : 'Unknown error'
+      details: error instanceof Error ? error.message : 'Unknown error',
     });
   }
 });
@@ -709,30 +713,26 @@ router.post('/sync', authMiddleware, async (req: Request, res: Response) => {
     if (initializationError) {
       res.status(503).json({
         error: 'Knowledge service not available',
-        details: initializationError
+        details: initializationError,
       });
       return;
     }
 
     // Import required services
-    const { 
-      KnowledgeBootstrapService,
-      DatabaseService,
-      QdrantService,
-      SmartEmbeddingService
-    } = await import('@uaip/shared-services');
-    
+    const { KnowledgeBootstrapService, DatabaseService, QdrantService, SmartEmbeddingService } =
+      await import('@uaip/shared-services');
+
     // Get service instances
     const databaseService = DatabaseService.getInstance();
     const qdrantService = new QdrantService();
-    
+
     // Initialize database service if needed
     await databaseService.initialize();
 
     // Create embedding service
     const embeddingService = new SmartEmbeddingService({
       preferTEI: true,
-      fallbackToOpenAI: false
+      fallbackToOpenAI: false,
     });
 
     // Get required repositories
@@ -752,13 +752,13 @@ router.post('/sync', authMiddleware, async (req: Request, res: Response) => {
     res.json({
       success: true,
       data: result,
-      message: 'Knowledge clustering sync completed successfully'
+      message: 'Knowledge clustering sync completed successfully',
     });
   } catch (error) {
     console.error('Error running knowledge sync:', error);
     res.status(500).json({
       error: 'Failed to run knowledge sync',
-      details: error instanceof Error ? error.message : 'Unknown error'
+      details: error instanceof Error ? error.message : 'Unknown error',
     });
   }
 });

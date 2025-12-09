@@ -11,9 +11,9 @@ interface DiscussionHistoryProps {
   className?: string;
 }
 
-export const DiscussionHistory: React.FC<DiscussionHistoryProps> = ({ 
-  onSelectDiscussion, 
-  className 
+export const DiscussionHistory: React.FC<DiscussionHistoryProps> = ({
+  onSelectDiscussion,
+  className,
 }) => {
   const [discussions, setDiscussions] = useState<Discussion[]>([]);
   const [isOpen, setIsOpen] = useState(false);
@@ -32,10 +32,10 @@ export const DiscussionHistory: React.FC<DiscussionHistoryProps> = ({
     setIsLoading(true);
     setError(null);
     try {
-      const discussionList = await discussionsAPI.list({ 
-        limit: 20, 
-        sortBy: 'updatedAt', 
-        sortOrder: 'desc' 
+      const discussionList = await discussionsAPI.list({
+        limit: 20,
+        sortBy: 'updatedAt',
+        sortOrder: 'desc',
       });
       setDiscussions(discussionList);
     } catch (err) {
@@ -49,17 +49,17 @@ export const DiscussionHistory: React.FC<DiscussionHistoryProps> = ({
   const handleSelectDiscussion = async (discussion: Discussion) => {
     try {
       console.log('🔍 Loading discussion:', discussion.id);
-      
+
       // Force reload by clearing current discussion first
       if (loadHistory) {
         await loadHistory(discussion.id);
       }
-      
+
       // Notify parent component
       if (onSelectDiscussion) {
         onSelectDiscussion(discussion.id);
       }
-      
+
       setIsOpen(false);
     } catch (err) {
       console.error('Failed to load discussion history:', err);
@@ -88,7 +88,7 @@ export const DiscussionHistory: React.FC<DiscussionHistoryProps> = ({
   };
 
   return (
-    <div className={cn("relative", className)}>
+    <div className={cn('relative', className)}>
       {/* Dropdown Trigger */}
       <button
         onClick={() => setIsOpen(!isOpen)}
@@ -97,18 +97,20 @@ export const DiscussionHistory: React.FC<DiscussionHistoryProps> = ({
         <div className="flex items-center space-x-3">
           <MessageSquare className="w-5 h-5 text-slate-600 dark:text-slate-400" />
           <div className="text-left">
-            <div className="font-medium text-slate-900 dark:text-white">
-              Discussion History
-            </div>
+            <div className="font-medium text-slate-900 dark:text-white">Discussion History</div>
             <div className="text-sm text-slate-500 dark:text-slate-400">
-              {discussions.length > 0 ? `${discussions.length} discussions` : 'View past discussions'}
+              {discussions.length > 0
+                ? `${discussions.length} discussions`
+                : 'View past discussions'}
             </div>
           </div>
         </div>
-        <ChevronDown className={cn(
-          "w-4 h-4 text-slate-400 transition-transform duration-200",
-          isOpen && "rotate-180"
-        )} />
+        <ChevronDown
+          className={cn(
+            'w-4 h-4 text-slate-400 transition-transform duration-200',
+            isOpen && 'rotate-180'
+          )}
+        />
       </button>
 
       {/* Dropdown Content */}
@@ -120,11 +122,7 @@ export const DiscussionHistory: React.FC<DiscussionHistoryProps> = ({
             </div>
           )}
 
-          {error && (
-            <div className="p-4 text-center text-red-600 dark:text-red-400">
-              {error}
-            </div>
-          )}
+          {error && <div className="p-4 text-center text-red-600 dark:text-red-400">{error}</div>}
 
           {!isLoading && !error && discussions.length === 0 && (
             <div className="p-4 text-center text-slate-500 dark:text-slate-400">
@@ -139,8 +137,8 @@ export const DiscussionHistory: React.FC<DiscussionHistoryProps> = ({
                   key={discussion.id}
                   onClick={() => handleSelectDiscussion(discussion)}
                   className={cn(
-                    "w-full px-4 py-3 text-left hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors border-b border-slate-100 dark:border-slate-700 last:border-b-0",
-                    currentDiscussionId === discussion.id && "bg-blue-50 dark:bg-blue-900/20"
+                    'w-full px-4 py-3 text-left hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors border-b border-slate-100 dark:border-slate-700 last:border-b-0',
+                    currentDiscussionId === discussion.id && 'bg-blue-50 dark:bg-blue-900/20'
                   )}
                 >
                   <div className="flex items-start justify-between">
@@ -149,14 +147,16 @@ export const DiscussionHistory: React.FC<DiscussionHistoryProps> = ({
                         <h4 className="font-medium text-slate-900 dark:text-white truncate">
                           {discussion.title || 'Untitled Discussion'}
                         </h4>
-                        <span className={cn(
-                          "px-2 py-1 text-xs rounded-full",
-                          getStatusColor(discussion.status)
-                        )}>
+                        <span
+                          className={cn(
+                            'px-2 py-1 text-xs rounded-full',
+                            getStatusColor(discussion.status)
+                          )}
+                        >
                           {discussion.status}
                         </span>
                       </div>
-                      
+
                       <div className="flex items-center space-x-4 text-sm text-slate-500 dark:text-slate-400">
                         <div className="flex items-center space-x-1">
                           <Clock className="w-3 h-3" />
@@ -167,14 +167,14 @@ export const DiscussionHistory: React.FC<DiscussionHistoryProps> = ({
                           <span>{formatParticipantCount(discussion)}</span>
                         </div>
                       </div>
-                      
+
                       {discussion.description && (
                         <p className="text-sm text-slate-600 dark:text-slate-300 mt-1 line-clamp-2">
                           {discussion.description}
                         </p>
                       )}
                     </div>
-                    
+
                     {currentDiscussionId === discussion.id && (
                       <div className="ml-2 flex items-center text-blue-600 dark:text-blue-400">
                         <Eye className="w-4 h-4" />

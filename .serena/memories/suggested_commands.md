@@ -1,6 +1,7 @@
 # Suggested Commands
 
 ## Development Environment Setup
+
 ```bash
 # Full system (takes ~2 minutes to start)
 pnpm run dev
@@ -11,7 +12,7 @@ pnpm run dev
 # Backend services only
 pnpm run dev:backend
 
-# Frontend only  
+# Frontend only
 pnpm run dev:frontend
 
 # Minimal development (core services only)
@@ -19,6 +20,7 @@ cd backend && pnpm run dev:minimal
 ```
 
 ## Build Commands
+
 ```bash
 # Build everything (shared packages, backend, frontend)
 pnpm run build
@@ -37,6 +39,7 @@ pnpm run build:dev
 ```
 
 ## Testing Commands
+
 ```bash
 # Run all tests across packages
 pnpm test
@@ -56,6 +59,7 @@ pnpm run test:integration:security
 ```
 
 ## Linting & Code Quality
+
 ```bash
 # Lint all packages
 pnpm run lint
@@ -68,6 +72,7 @@ pnpm run clean
 ```
 
 ## Development Utilities
+
 ```bash
 # Generate SDK
 pnpm run generate:sdk
@@ -80,6 +85,7 @@ pnpm run generate:sdk:watch
 ```
 
 ## Docker Commands
+
 ```bash
 # Start infrastructure services
 docker-compose up -d

@@ -1,4 +1,12 @@
-import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, CreateDateColumn, UpdateDateColumn, Index } from 'typeorm';
+import {
+  Entity,
+  PrimaryGeneratedColumn,
+  Column,
+  ManyToOne,
+  CreateDateColumn,
+  UpdateDateColumn,
+  Index,
+} from 'typeorm';
 import { Agent } from './agent.entity.js';
 import { ToolDefinition } from './toolDefinition.entity.js';
 
@@ -8,10 +16,10 @@ export class ToolAssignment {
   @PrimaryGeneratedColumn('uuid')
   id!: string;
 
-  @ManyToOne(() => Agent, agent => agent.toolAssignments)
+  @ManyToOne(() => Agent, (agent) => agent.toolAssignments)
   agent!: Agent;
 
-  @ManyToOne(() => ToolDefinition, tool => tool.assignments)
+  @ManyToOne(() => ToolDefinition, (tool) => tool.assignments)
   tool!: ToolDefinition;
 
   @Column({ default: true })

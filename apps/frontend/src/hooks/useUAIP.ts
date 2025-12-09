@@ -1,16 +1,16 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useAuth } from '../contexts/AuthContext';
-import { 
-  EnhancedAgentState, 
-  Operation, 
-  Capability, 
+import {
+  EnhancedAgentState,
+  Operation,
+  Capability,
   ApprovalWorkflow,
   SystemMetrics,
   OperationEvent,
   AIInsight,
   DataState,
   UIError,
-  WebSocketEvent
+  WebSocketEvent,
 } from '../types/uaip-interfaces';
 import { uaipAPI } from '../utils/uaip-api';
 import { getWebSocketURL } from '../config/apiConfig';
@@ -22,7 +22,7 @@ const createUIError = (error: any, context: string): UIError => ({
   message: error instanceof Error ? error.message : 'Unknown error',
   details: { error, context },
   timestamp: new Date(),
-  resolved: false
+  resolved: false,
 });
 
 // Generic hook for data fetching - PRODUCTION READY (No Mock Data)
@@ -34,12 +34,12 @@ export function useAsyncData<T>(
     data: null,
     isLoading: true,
     error: undefined,
-    lastUpdated: undefined
+    lastUpdated: undefined,
   });
 
   const fetchData = useCallback(async () => {
-    setState(prev => ({ ...prev, isLoading: true, error: undefined }));
-    
+    setState((prev) => ({ ...prev, isLoading: true, error: undefined }));
+
     try {
       const data = await fetchFn();
       setState({
@@ -47,24 +47,24 @@ export function useAsyncData<T>(
         isLoading: false,
         error: undefined,
         lastUpdated: new Date(),
-        refetch: fetchData
+        refetch: fetchData,
       });
     } catch (error: any) {
       // Handle 404 errors gracefully - backend services might not be running
       if (error.message?.includes('404') || error.message?.includes('not found')) {
         console.warn('Backend service not available, using fallback data:', error.message);
-        setState(prev => ({
+        setState((prev) => ({
           ...prev,
           isLoading: false,
           error: undefined, // Don't show error for missing backend services
-          refetch: fetchData
+          refetch: fetchData,
         }));
       } else {
-        setState(prev => ({
+        setState((prev) => ({
           ...prev,
           isLoading: false,
           error: createUIError(error, 'data fetch'),
-          refetch: fetchData
+          refetch: fetchData,
         }));
       }
     }
@@ -88,7 +88,7 @@ const adaptBackendAgentToFrontend = (agent: any): EnhancedAgentState => ({
     totalOperations: agent.metrics?.totalOperations || 0,
     successRate: agent.metrics?.successRate || 0.95,
     averageResponseTime: agent.metrics?.averageResponseTime || 250,
-    uptime: agent.metrics?.uptime || 0.99
+    uptime: agent.metrics?.uptime || 0.99,
   },
   configuration: agent.configuration,
   capabilities: agent.persona?.capabilities || [],
@@ -97,8 +97,8 @@ const adaptBackendAgentToFrontend = (agent: any): EnhancedAgentState => ({
     decisionAccuracy: agent.intelligenceMetrics?.decisionAccuracy || 0.87,
     contextUnderstanding: agent.intelligenceMetrics?.contextUnderstanding || 0.92,
     adaptationRate: agent.intelligenceMetrics?.adaptationRate || 0.15,
-    learningProgress: agent.intelligenceMetrics?.learningProgress || 0.68
-  }
+    learningProgress: agent.intelligenceMetrics?.learningProgress || 0.68,
+  },
 });
 
 const adaptBackendOperationToFrontend = (operation: any): Operation => ({
@@ -118,7 +118,7 @@ const adaptBackendOperationToFrontend = (operation: any): Operation => ({
   estimatedDuration: operation.estimatedDuration,
   priority: operation.priority,
   createdAt: operation.createdAt,
-  updatedAt: operation.updatedAt
+  updatedAt: operation.updatedAt,
 });
 
 const adaptBackendCapabilityToFrontend = (capability: any): Capability => ({
@@ -134,7 +134,7 @@ const adaptBackendCapabilityToFrontend = (capability: any): Capability => ({
   securityRequirements: capability.securityRequirements,
   artifactConfig: capability.artifactConfig,
   createdAt: capability.createdAt,
-  updatedAt: capability.updatedAt
+  updatedAt: capability.updatedAt,
 });
 
 // Hook for managing agents - PRODUCTION READY
@@ -161,18 +161,21 @@ export function useAgents() {
     }
   }, [agentsState.data]);
 
-  const updateAgent = useCallback(async (agentId: string, updates: any) => {
-    try {
-      const response = await uaipAPI.client.agents.update(agentId, updates);
-      if (response.success) {
-        await agentsState.refetch?.();
+  const updateAgent = useCallback(
+    async (agentId: string, updates: any) => {
+      try {
+        const response = await uaipAPI.client.agents.update(agentId, updates);
+        if (response.success) {
+          await agentsState.refetch?.();
+        }
+        return response;
+      } catch (error) {
+        console.error('Failed to update agent:', error);
+        throw error;
       }
-      return response;
-    } catch (error) {
-      console.error('Failed to update agent:', error);
-      throw error;
-    }
-  }, [agentsState.refetch]);
+    },
+    [agentsState.refetch]
+  );
 
   return {
     ...agentsState,
@@ -180,7 +183,7 @@ export function useAgents() {
     selectedAgent,
     setSelectedAgent,
     updateAgent,
-    refreshAgents: agentsState.refetch
+    refreshAgents: agentsState.refetch,
   };
 }
 
@@ -218,44 +221,53 @@ export function useOperations() {
     }
   }, [operationsState.data]);
 
-  const executeOperation = useCallback(async (operationRequest: any) => {
-    try {
-      const response = await uaipAPI.client.orchestration.execute(operationRequest);
-      if (response.success) {
-        await operationsState.refetch?.();
+  const executeOperation = useCallback(
+    async (operationRequest: any) => {
+      try {
+        const response = await uaipAPI.client.orchestration.execute(operationRequest);
+        if (response.success) {
+          await operationsState.refetch?.();
+        }
+        return response;
+      } catch (error) {
+        console.error('Failed to execute operation:', error);
+        throw error;
       }
-      return response;
-    } catch (error) {
-      console.error('Failed to execute operation:', error);
-      throw error;
-    }
-  }, [operationsState.refetch]);
+    },
+    [operationsState.refetch]
+  );
 
-  const pauseOperation = useCallback(async (operationId: string, reason: string) => {
-    try {
-      const response = await uaipAPI.client.orchestration.pause(operationId, { reason });
-      if (response.success) {
-        await operationsState.refetch?.();
+  const pauseOperation = useCallback(
+    async (operationId: string, reason: string) => {
+      try {
+        const response = await uaipAPI.client.orchestration.pause(operationId, { reason });
+        if (response.success) {
+          await operationsState.refetch?.();
+        }
+        return response;
+      } catch (error) {
+        console.error('Failed to pause operation:', error);
+        throw error;
       }
-      return response;
-    } catch (error) {
-      console.error('Failed to pause operation:', error);
-      throw error;
-    }
-  }, [operationsState.refetch]);
+    },
+    [operationsState.refetch]
+  );
 
-  const cancelOperation = useCallback(async (operationId: string, reason: string) => {
-    try {
-      const response = await uaipAPI.client.orchestration.cancel(operationId, { reason });
-      if (response.success) {
-        await operationsState.refetch?.();
+  const cancelOperation = useCallback(
+    async (operationId: string, reason: string) => {
+      try {
+        const response = await uaipAPI.client.orchestration.cancel(operationId, { reason });
+        if (response.success) {
+          await operationsState.refetch?.();
+        }
+        return response;
+      } catch (error) {
+        console.error('Failed to cancel operation:', error);
+        throw error;
       }
-      return response;
-    } catch (error) {
-      console.error('Failed to cancel operation:', error);
-      throw error;
-    }
-  }, [operationsState.refetch]);
+    },
+    [operationsState.refetch]
+  );
 
   return {
     ...operationsState,
@@ -265,7 +277,7 @@ export function useOperations() {
     executeOperation,
     pauseOperation,
     cancelOperation,
-    refreshOperations: operationsState.refetch
+    refreshOperations: operationsState.refetch,
   };
 }
 
@@ -277,7 +289,9 @@ export function useCapabilities() {
     try {
       const response = await uaipAPI.client.capabilities.search({});
       if (response.success && response.data) {
-        const adaptedCapabilities = response.data.capabilities.map(adaptBackendCapabilityToFrontend);
+        const adaptedCapabilities = response.data.capabilities.map(
+          adaptBackendCapabilityToFrontend
+        );
         setCapabilities(adaptedCapabilities);
         return adaptedCapabilities;
       }
@@ -298,8 +312,8 @@ export function useCapabilities() {
             metadata: {},
             securityRequirements: [],
             createdAt: new Date(),
-            updatedAt: new Date()
-          }
+            updatedAt: new Date(),
+          },
         ];
         setCapabilities(fallbackCapabilities);
         return fallbackCapabilities;
@@ -326,25 +340,28 @@ export function useCapabilities() {
     }
   }, []);
 
-  const registerCapability = useCallback(async (capability: any) => {
-    try {
-      const response = await uaipAPI.client.capabilities.register(capability);
-      if (response.success) {
-        await capabilitiesState.refetch?.();
+  const registerCapability = useCallback(
+    async (capability: any) => {
+      try {
+        const response = await uaipAPI.client.capabilities.register(capability);
+        if (response.success) {
+          await capabilitiesState.refetch?.();
+        }
+        return response;
+      } catch (error) {
+        console.error('Failed to register capability:', error);
+        throw error;
       }
-      return response;
-    } catch (error) {
-      console.error('Failed to register capability:', error);
-      throw error;
-    }
-  }, [capabilitiesState.refetch]);
+    },
+    [capabilitiesState.refetch]
+  );
 
   return {
     ...capabilitiesState,
     capabilities,
     searchCapabilities,
     registerCapability,
-    refreshCapabilities: capabilitiesState.refetch
+    refreshCapabilities: capabilitiesState.refetch,
   };
 }
 
@@ -381,7 +398,7 @@ export function useSystemMetrics() {
   return {
     ...metricsState,
     metrics,
-    refreshMetrics: metricsState.refetch
+    refreshMetrics: metricsState.refetch,
   };
 }
 
@@ -407,31 +424,30 @@ export function useApprovals() {
     }
   }, [approvalsState.data]);
 
-  const processApproval = useCallback(async (
-    workflowId: string, 
-    decision: 'approved' | 'rejected', 
-    reason?: string
-  ) => {
-    try {
-      const response = await uaipAPI.client.security.processApproval(workflowId, {
-        decision,
-        reason
-      });
-      if (response.success) {
-        await approvalsState.refetch?.();
+  const processApproval = useCallback(
+    async (workflowId: string, decision: 'approved' | 'rejected', reason?: string) => {
+      try {
+        const response = await uaipAPI.client.security.processApproval(workflowId, {
+          decision,
+          reason,
+        });
+        if (response.success) {
+          await approvalsState.refetch?.();
+        }
+        return response;
+      } catch (error) {
+        console.error('Failed to process approval:', error);
+        throw error;
       }
-      return response;
-    } catch (error) {
-      console.error('Failed to process approval:', error);
-      throw error;
-    }
-  }, [approvalsState.refetch]);
+    },
+    [approvalsState.refetch]
+  );
 
   return {
     ...approvalsState,
     approvals,
     processApproval,
-    refreshApprovals: approvalsState.refetch
+    refreshApprovals: approvalsState.refetch,
   };
 }
 
@@ -447,30 +463,33 @@ export function useWebSocket(url?: string) {
 
   const connect = useCallback(async () => {
     // Get authentication token for WebSocket connection
-    const token = typeof window !== 'undefined' 
-      ? (localStorage.getItem('accessToken') || sessionStorage.getItem('accessToken'))
-      : null;
-    
+    const token =
+      typeof window !== 'undefined'
+        ? localStorage.getItem('accessToken') || sessionStorage.getItem('accessToken')
+        : null;
+
     if (!token) {
       setError('Authentication required for WebSocket connection');
-      console.warn('[UAIP WebSocket] No authentication token found - WebSocket connection requires authentication');
+      console.warn(
+        '[UAIP WebSocket] No authentication token found - WebSocket connection requires authentication'
+      );
       return;
     }
 
     // Include token in WebSocket URL as query parameter
     const baseUrl = url || getWebSocketURL().replace('/socket.io', '/ws');
     const wsUrl = `${baseUrl}?token=${encodeURIComponent(token)}`;
-    
+
     try {
       wsRef.current = new WebSocket(wsUrl);
-      
+
       wsRef.current.onopen = () => {
         setIsConnected(true);
         setError(null);
         reconnectAttempts.current = 0;
         console.log('[UAIP WebSocket] Connected successfully');
       };
-      
+
       wsRef.current.onmessage = (event) => {
         try {
           const data = JSON.parse(event.data) as WebSocketEvent;
@@ -479,25 +498,27 @@ export function useWebSocket(url?: string) {
           console.error('[UAIP WebSocket] Failed to parse message:', err);
         }
       };
-      
+
       wsRef.current.onclose = () => {
         setIsConnected(false);
         console.log('[UAIP WebSocket] Disconnected');
-        
+
         // Attempt to reconnect if we haven't exceeded max attempts
         if (reconnectAttempts.current < maxReconnectAttempts) {
           const delay = Math.min(1000 * Math.pow(2, reconnectAttempts.current), 30000);
           reconnectAttempts.current++;
-          
+
           reconnectTimeoutRef.current = setTimeout(() => {
-            console.log(`[UAIP WebSocket] Reconnection attempt ${reconnectAttempts.current}/${maxReconnectAttempts}`);
+            console.log(
+              `[UAIP WebSocket] Reconnection attempt ${reconnectAttempts.current}/${maxReconnectAttempts}`
+            );
             connect();
           }, delay);
         } else {
           setError('Max reconnection attempts reached');
         }
       };
-      
+
       wsRef.current.onerror = (error) => {
         setError('WebSocket connection error');
         console.error('[UAIP WebSocket] Error:', error);
@@ -512,12 +533,12 @@ export function useWebSocket(url?: string) {
     if (reconnectTimeoutRef.current) {
       clearTimeout(reconnectTimeoutRef.current);
     }
-    
+
     if (wsRef.current) {
       wsRef.current.close();
       wsRef.current = null;
     }
-    
+
     setIsConnected(false);
     reconnectAttempts.current = 0;
   }, []);
@@ -541,7 +562,7 @@ export function useWebSocket(url?: string) {
     error,
     connect,
     disconnect,
-    sendMessage
+    sendMessage,
   };
 }
 
@@ -567,23 +588,26 @@ export function useInsights() {
     }
   }, [insightsState.data]);
 
-  const generateInsight = useCallback(async (request: any) => {
-    try {
-      const response = await uaipAPI.client.intelligence.generateInsight(request);
-      if (response.success) {
-        await insightsState.refetch?.();
+  const generateInsight = useCallback(
+    async (request: any) => {
+      try {
+        const response = await uaipAPI.client.intelligence.generateInsight(request);
+        if (response.success) {
+          await insightsState.refetch?.();
+        }
+        return response;
+      } catch (error) {
+        console.error('Failed to generate insight:', error);
+        throw error;
       }
-      return response;
-    } catch (error) {
-      console.error('Failed to generate insight:', error);
-      throw error;
-    }
-  }, [insightsState.refetch]);
+    },
+    [insightsState.refetch]
+  );
 
   return {
     ...insightsState,
     insights,
     generateInsight,
-    refreshInsights: insightsState.refetch
+    refreshInsights: insightsState.refetch,
   };
-} 
+}

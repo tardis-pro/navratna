@@ -1,12 +1,12 @@
 import { Entity, Column, Index, OneToMany } from 'typeorm';
 import { BaseEntity } from '@uaip/shared-services';
-import { 
+import {
   MarketplaceItemType,
   MarketplaceCategory,
   MarketplaceItemStatus,
   PricingModel,
   MarketplaceUsageStats,
-  MarketplaceShowcase
+  MarketplaceShowcase,
 } from '@uaip/types';
 
 @Entity('marketplace_items')
@@ -78,7 +78,12 @@ export class MarketplaceItem extends BaseEntity {
   @Column({ length: 3, default: 'USD' })
   currency: string;
 
-  @Column({ name: 'billing_period', type: 'enum', enum: ['one_time', 'monthly', 'yearly'], nullable: true })
+  @Column({
+    name: 'billing_period',
+    type: 'enum',
+    enum: ['one_time', 'monthly', 'yearly'],
+    nullable: true,
+  })
   billingPeriod?: string;
 
   @Column({ name: 'trial_days', type: 'int', nullable: true })

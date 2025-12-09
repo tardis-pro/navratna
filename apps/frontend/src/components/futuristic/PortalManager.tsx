@@ -65,7 +65,7 @@ const PORTAL_TEMPLATES: PortalConfig[] = [
         </div>
       </div>
     ),
-    props: { name: 'Assistant' }
+    props: { name: 'Assistant' },
   },
   {
     id: 'tool-template',
@@ -108,7 +108,7 @@ const PORTAL_TEMPLATES: PortalConfig[] = [
           </div>
         </motion.div>
       </div>
-    )
+    ),
   },
   {
     id: 'data-template',
@@ -142,8 +142,8 @@ const PORTAL_TEMPLATES: PortalConfig[] = [
           <span>Live connection established</span>
         </div>
       </div>
-    )
-  }
+    ),
+  },
 ];
 
 export const PortalManager: React.FC = () => {
@@ -159,43 +159,59 @@ export const PortalManager: React.FC = () => {
   }, []);
 
   // Create a new portal
-  const createPortal = useCallback((template: PortalConfig, customProps?: any) => {
-    const newPortal: PortalInstance = {
-      ...template,
-      id: generatePortalId(),
-      props: { ...template.props, ...customProps },
-      createdAt: new Date(),
-      lastActive: new Date(),
-      initialPosition: {
-        x: Math.random() * 300 + 50,
-        y: Math.random() * 200 + 50
-      }
-    };
+  const createPortal = useCallback(
+    (template: PortalConfig, customProps?: any) => {
+      const newPortal: PortalInstance = {
+        ...template,
+        id: generatePortalId(),
+        props: { ...template.props, ...customProps },
+        createdAt: new Date(),
+        lastActive: new Date(),
+        initialPosition: {
+          x: Math.random() * 300 + 50,
+          y: Math.random() * 200 + 50,
+        },
+      };
 
-    setPortals(prev => [...prev, newPortal]);
-    return newPortal.id;
-  }, [generatePortalId]);
+      setPortals((prev) => [...prev, newPortal]);
+      return newPortal.id;
+    },
+    [generatePortalId]
+  );
 
   // Remove a portal
   const removePortal = useCallback((portalId: string) => {
-    setPortals(prev => prev.filter(p => p.id !== portalId));
-    setConnections(prev => prev.filter(c => c.from !== portalId && c.to !== portalId));
+    setPortals((prev) => prev.filter((p) => p.id !== portalId));
+    setConnections((prev) => prev.filter((c) => c.from !== portalId && c.to !== portalId));
   }, []);
 
   // Create  connection between portals
-  const createConnection = useCallback((from: string, to: string, type: NeuralConnection['type'] = 'data') => {
-    const connection: NeuralConnection = {
-      id: `connection-${from}-${to}`,
-      from,
-      to,
-      type,
-      strength: Math.random() * 0.5 + 0.5,
-      animated: true,
-      color: type === 'data' ? '#00D4FF' : type === 'control' ? '#8B5CF6' : type === 'feedback' ? '#06FFA5' : '#FF006E'
-    };
+  const createConnection = useCallback(
+    (from: string, to: string, type: NeuralConnection['type'] = 'data') => {
+      const connection: NeuralConnection = {
+        id: `connection-${from}-${to}`,
+        from,
+        to,
+        type,
+        strength: Math.random() * 0.5 + 0.5,
+        animated: true,
+        color:
+          type === 'data'
+            ? '#00D4FF'
+            : type === 'control'
+              ? '#8B5CF6'
+              : type === 'feedback'
+                ? '#06FFA5'
+                : '#FF006E',
+      };
 
-    setConnections(prev => [...prev.filter(c => !(c.from === from && c.to === to)), connection]);
-  }, []);
+      setConnections((prev) => [
+        ...prev.filter((c) => !(c.from === from && c.to === to)),
+        connection,
+      ]);
+    },
+    []
+  );
 
   // Handle keyboard shortcuts
   useEffect(() => {
@@ -212,9 +228,9 @@ export const PortalManager: React.FC = () => {
 
   // Calculate connection paths
   const getConnectionPath = (from: string, to: string) => {
-    const fromPortal = portals.find(p => p.id === from);
-    const toPortal = portals.find(p => p.id === to);
-    
+    const fromPortal = portals.find((p) => p.id === from);
+    const toPortal = portals.find((p) => p.id === to);
+
     if (!fromPortal || !toPortal) return '';
 
     const fromPos = fromPortal.initialPosition || { x: 0, y: 0 };
@@ -233,18 +249,24 @@ export const PortalManager: React.FC = () => {
   };
 
   return (
-    <div ref={containerRef} className="relative w-full h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-800 overflow-hidden">
+    <div
+      ref={containerRef}
+      className="relative w-full h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-800 overflow-hidden"
+    >
       {/*  Background Grid */}
       <div className="absolute inset-0 opacity-20">
-        <div className="absolute inset-0" style={{
-          backgroundImage: `
+        <div
+          className="absolute inset-0"
+          style={{
+            backgroundImage: `
             radial-gradient(circle at 25% 25%, rgba(59, 130, 246, 0.1) 0%, transparent 50%),
             radial-gradient(circle at 75% 75%, rgba(139, 92, 246, 0.1) 0%, transparent 50%),
             linear-gradient(90deg, rgba(255, 255, 255, 0.02) 1px, transparent 1px),
             linear-gradient(rgba(255, 255, 255, 0.02) 1px, transparent 1px)
           `,
-          backgroundSize: '100% 100%, 100% 100%, 50px 50px, 50px 50px'
-        }} />
+            backgroundSize: '100% 100%, 100% 100%, 50px 50px, 50px 50px',
+          }}
+        />
       </div>
 
       {/*  Connections SVG */}
@@ -256,8 +278,8 @@ export const PortalManager: React.FC = () => {
             <stop offset="100%" stopColor="#06FFA5" stopOpacity="0" />
           </linearGradient>
         </defs>
-        
-        {connections.map(connection => (
+
+        {connections.map((connection) => (
           <motion.path
             key={connection.id}
             d={getConnectionPath(connection.from, connection.to)}
@@ -266,14 +288,14 @@ export const PortalManager: React.FC = () => {
             fill="none"
             initial={{ pathLength: 0, opacity: 0 }}
             animate={{ pathLength: 1, opacity: connection.strength }}
-            transition={{ duration: 2, ease: "easeInOut" }}
+            transition={{ duration: 2, ease: 'easeInOut' }}
           />
         ))}
       </svg>
 
       {/* Portals */}
       <AnimatePresence>
-        {portals.map(portal => {
+        {portals.map((portal) => {
           const PortalComponent = portal.component;
           return (
             <Portal
@@ -295,7 +317,7 @@ export const PortalManager: React.FC = () => {
         className="fixed bottom-8 right-8 z-50"
         initial={{ scale: 0, rotate: -180 }}
         animate={{ scale: 1, rotate: 0 }}
-        transition={{ type: "spring", stiffness: 260, damping: 20 }}
+        transition={{ type: 'spring', stiffness: 260, damping: 20 }}
       >
         <motion.button
           whileHover={{ scale: 1.1 }}
@@ -320,14 +342,22 @@ export const PortalManager: React.FC = () => {
             onClick={() => createPortal(template)}
             className={`
               w-12 h-12 rounded-xl shadow-lg flex items-center justify-center text-white transition-all
-              ${template.type === 'agent' ? 'bg-gradient-to-br from-blue-500 to-cyan-500 shadow-blue-500/25' :
-                template.type === 'tool' ? 'bg-gradient-to-br from-purple-500 to-pink-500 shadow-purple-500/25' :
-                'bg-gradient-to-br from-emerald-500 to-teal-500 shadow-emerald-500/25'}
+              ${
+                template.type === 'agent'
+                  ? 'bg-gradient-to-br from-blue-500 to-cyan-500 shadow-blue-500/25'
+                  : template.type === 'tool'
+                    ? 'bg-gradient-to-br from-purple-500 to-pink-500 shadow-purple-500/25'
+                    : 'bg-gradient-to-br from-emerald-500 to-teal-500 shadow-emerald-500/25'
+              }
             `}
           >
-            {template.type === 'agent' ? <Zap className="w-5 h-5" /> :
-             template.type === 'tool' ? <BarChart3 className="w-5 h-5" /> :
-             <Database className="w-5 h-5" />}
+            {template.type === 'agent' ? (
+              <Zap className="w-5 h-5" />
+            ) : template.type === 'tool' ? (
+              <BarChart3 className="w-5 h-5" />
+            ) : (
+              <Database className="w-5 h-5" />
+            )}
           </motion.button>
         ))}
       </div>
@@ -352,11 +382,11 @@ export const PortalManager: React.FC = () => {
           <div className="w-px h-4 bg-white/20" />
           <span className="text-white/70 text-sm">{connections.length} Connections</span>
         </div>
-        
+
         <div className="bg-black/20 backdrop-blur-xl rounded-2xl px-4 py-2 border border-white/10">
           <span className="text-white/70 text-xs">⌘K to summon</span>
         </div>
       </div>
     </div>
   );
-}; 
+};

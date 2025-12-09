@@ -12,19 +12,22 @@ export interface AuthenticationResult {
 /**
  * Authenticate WebSocket connection using JWT token
  */
-export function authenticateConnection(request: IncomingMessage, connectionId: string): AuthenticationResult {
+export function authenticateConnection(
+  request: IncomingMessage,
+  connectionId: string
+): AuthenticationResult {
   try {
     // Extract token from various sources
     const url = new URL(request.url || '', `http://${request.headers.host}`);
     let token = url.searchParams.get('token');
-    
+
     if (!token && request.headers.authorization) {
       const authHeader = request.headers.authorization;
       if (authHeader.startsWith('Bearer ')) {
         token = authHeader.substring(7);
       }
     }
-    
+
     if (!token && request.headers['sec-websocket-protocol']) {
       // Check if token is in WebSocket protocol header
       const protocols = request.headers['sec-websocket-protocol'] as string;
@@ -37,58 +40,57 @@ export function authenticateConnection(request: IncomingMessage, connectionId: s
     if (!token) {
       return {
         authenticated: false,
-        reason: 'No authentication token provided'
+        reason: 'No authentication token provided',
       };
     }
 
     // Validate JWT token
     const tokenValidation = testJWTToken(token);
-    
+
     if (!tokenValidation.isValid) {
       logger.warn('Invalid JWT token for WebSocket connection', {
         connectionId,
         error: tokenValidation.error,
-        ip: request.socket.remoteAddress
+        ip: request.socket.remoteAddress,
       });
-      
+
       return {
         authenticated: false,
-        reason: 'Invalid or expired token'
+        reason: 'Invalid or expired token',
       };
     }
 
     const payload = tokenValidation.payload;
-    
+
     if (!payload || !payload.userId) {
       return {
         authenticated: false,
-        reason: 'Invalid token payload'
+        reason: 'Invalid token payload',
       };
     }
 
     if (payload.isExpired) {
       return {
         authenticated: false,
-        reason: 'Token expired'
+        reason: 'Token expired',
       };
     }
 
     return {
       authenticated: true,
       userId: payload.userId,
-      securityLevel: getSecurityLevelFromRole(payload.role)
+      securityLevel: getSecurityLevelFromRole(payload.role),
     };
-
   } catch (error) {
     logger.error('WebSocket authentication error', {
       connectionId,
       error: error instanceof Error ? error.message : 'Unknown error',
-      ip: request.socket.remoteAddress
+      ip: request.socket.remoteAddress,
     });
-    
+
     return {
       authenticated: false,
-      reason: 'Authentication failed'
+      reason: 'Authentication failed',
     };
   }
 }
@@ -98,11 +100,16 @@ export function authenticateConnection(request: IncomingMessage, connectionId: s
  */
 function getSecurityLevelFromRole(role: string): number {
   switch (role) {
-    case 'admin': return 5;
-    case 'operator': return 4;
-    case 'moderator': return 3;
-    case 'user': return 2;
-    default: return 1;
+    case 'admin':
+      return 5;
+    case 'operator':
+      return 4;
+    case 'moderator':
+      return 3;
+    case 'user':
+      return 2;
+    default:
+      return 1;
   }
 }
 
@@ -143,22 +150,22 @@ export function checkWebSocketRateLimit(
 ): boolean {
   const now = Date.now();
   let limit = rateLimits.get(connectionId);
-  
+
   if (!limit) {
     limit = { count: 0, resetTime: now + 60000 };
     rateLimits.set(connectionId, limit);
   }
-  
+
   // Reset if time window passed
   if (now > limit.resetTime) {
     limit.count = 0;
     limit.resetTime = now + 60000;
   }
-  
+
   if (limit.count >= maxPerMinute) {
     return false;
   }
-  
+
   limit.count++;
   return true;
 }

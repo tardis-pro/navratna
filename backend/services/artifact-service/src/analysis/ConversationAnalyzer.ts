@@ -1,15 +1,15 @@
 // Conversation Analysis Service
 // Epic 4 Implementation
 
-import { 
-  ArtifactConversationContext, 
+import {
+  ArtifactConversationContext,
   ConversationMessage,
   GenerationTrigger,
   ConversationPhaseDetails as ConversationPhase,
   Requirement,
   ConversationSummary,
   Decision,
-  ActionItem
+  ActionItem,
 } from '@uaip/types';
 
 import { ConversationAnalyzer } from '../interfaces';
@@ -20,19 +20,19 @@ export class ConversationAnalyzerImpl implements ConversationAnalyzer {
       /can you (generate|create|draft|write|refactor|fix)/i,
       /let's (implement|code|build|create)/i,
       /need to (implement|code|build|write)/i,
-      /how about we (implement|code|create)/i
+      /how about we (implement|code|create)/i,
     ],
     testRequest: [
       /need (tests|testing|test coverage)/i,
       /write (tests|unit tests|integration tests)/i,
       /test (this|the code|coverage)/i,
-      /add test/i
+      /add test/i,
     ],
     prdRequest: [
       /let's document/i,
       /create (prd|requirements|specification)/i,
       /need (requirements|specs|documentation)/i,
-      /document (this|the requirements)/i
+      /document (this|the requirements)/i,
     ],
     decisionPoint: [
       /we should/i,
@@ -40,28 +40,16 @@ export class ConversationAnalyzerImpl implements ConversationAnalyzer {
       /agreed on/i,
       /decided to/i,
       /the decision is/i,
-      /we'll use/i
+      /we'll use/i,
     ],
-    implementation: [
-      /implement/i,
-      /build/i,
-      /develop/i,
-      /create/i,
-      /code/i
-    ],
-    review: [
-      /review/i,
-      /check/i,
-      /look at/i,
-      /feedback/i,
-      /approve/i
-    ]
+    implementation: [/implement/i, /build/i, /develop/i, /create/i, /code/i],
+    review: [/review/i, /check/i, /look at/i, /feedback/i, /approve/i],
   };
 
   private readonly commands = {
     generate: /\/gen\s+(code|test|prd|doc)\b/i,
     help: /\/help\s*$/i,
-    status: /\/status\s*$/i
+    status: /\/status\s*$/i,
   };
 
   /**
@@ -69,7 +57,7 @@ export class ConversationAnalyzerImpl implements ConversationAnalyzer {
    */
   async analyzeConversation(context: ArtifactConversationContext): Promise<ConversationSummary> {
     const messages = context.messages;
-    
+
     const keyPoints = this.extractKeyPoints(messages);
     const decisions = this.extractDecisions(messages);
     const actionItems = this.extractActionItems(messages);
@@ -82,14 +70,16 @@ export class ConversationAnalyzerImpl implements ConversationAnalyzer {
       actionItems,
       participants,
       phase: phase.current,
-      confidence: phase.confidence
+      confidence: phase.confidence,
     };
   }
 
   /**
    * Detect generation triggers in conversation
    */
-  async detectGenerationTriggers(context: ArtifactConversationContext): Promise<GenerationTrigger[]> {
+  async detectGenerationTriggers(
+    context: ArtifactConversationContext
+  ): Promise<GenerationTrigger[]> {
     const triggers: GenerationTrigger[] = [];
     const recentMessages = this.getRecentMessages(context.messages, 10);
 
@@ -129,10 +119,10 @@ export class ConversationAnalyzerImpl implements ConversationAnalyzer {
 
     // Analyze recent message content
     const phaseIndicators = this.analyzePhaseIndicators(recentMessages);
-    
+
     // Determine current phase
     const phase = this.determinePhase(phaseIndicators);
-    
+
     // Calculate confidence
     const confidence = this.calculatePhaseConfidence(phaseIndicators, phase);
 
@@ -142,7 +132,7 @@ export class ConversationAnalyzerImpl implements ConversationAnalyzer {
     return {
       current: phase,
       confidence,
-      suggestedActions
+      suggestedActions,
     };
   }
 
@@ -166,7 +156,7 @@ export class ConversationAnalyzerImpl implements ConversationAnalyzer {
           artifactType: this.mapArtifactType(artifactType),
           confidence: 0.95,
           context: `Explicit command detected: ${message.content}`,
-          detectedAt: message.timestamp.toISOString()
+          detectedAt: message.timestamp.toISOString(),
         });
       }
     }
@@ -185,7 +175,7 @@ export class ConversationAnalyzerImpl implements ConversationAnalyzer {
           artifactType: 'code',
           confidence: 0.8,
           context: `Code request pattern detected: ${message.content}`,
-          detectedAt: message.timestamp.toISOString()
+          detectedAt: message.timestamp.toISOString(),
         });
       }
 
@@ -196,7 +186,7 @@ export class ConversationAnalyzerImpl implements ConversationAnalyzer {
           artifactType: 'test',
           confidence: 0.8,
           context: `Test request pattern detected: ${message.content}`,
-          detectedAt: message.timestamp.toISOString()
+          detectedAt: message.timestamp.toISOString(),
         });
       }
 
@@ -207,7 +197,7 @@ export class ConversationAnalyzerImpl implements ConversationAnalyzer {
           artifactType: 'prd',
           confidence: 0.7,
           context: `PRD request pattern detected: ${message.content}`,
-          detectedAt: message.timestamp.toISOString()
+          detectedAt: message.timestamp.toISOString(),
         });
       }
     }
@@ -225,7 +215,7 @@ export class ConversationAnalyzerImpl implements ConversationAnalyzer {
         artifactType: 'code',
         confidence: phase.confidence,
         context: `Implementation phase detected with high confidence`,
-        detectedAt: new Date().toISOString()
+        detectedAt: new Date().toISOString(),
       });
     }
 
@@ -235,7 +225,7 @@ export class ConversationAnalyzerImpl implements ConversationAnalyzer {
         artifactType: 'documentation',
         confidence: phase.confidence,
         context: `Decision phase detected - documentation recommended`,
-        detectedAt: new Date().toISOString()
+        detectedAt: new Date().toISOString(),
       });
     }
 
@@ -248,19 +238,27 @@ export class ConversationAnalyzerImpl implements ConversationAnalyzer {
       discussion: 0,
       decision: 0,
       implementation: 0,
-      review: 0
+      review: 0,
     };
 
     for (const message of messages) {
       const content = message.content.toLowerCase();
 
       // Planning indicators
-      if (content.includes('plan') || content.includes('strategy') || content.includes('approach')) {
+      if (
+        content.includes('plan') ||
+        content.includes('strategy') ||
+        content.includes('approach')
+      ) {
         indicators.planning += 1;
       }
 
       // Discussion indicators
-      if (content.includes('think') || content.includes('consider') || content.includes('what if')) {
+      if (
+        content.includes('think') ||
+        content.includes('consider') ||
+        content.includes('what if')
+      ) {
         indicators.discussion += 1;
       }
 
@@ -284,17 +282,18 @@ export class ConversationAnalyzerImpl implements ConversationAnalyzer {
   }
 
   private determinePhase(indicators: Record<string, number>): string {
-    const maxIndicator = Object.entries(indicators)
-      .reduce((max, [phase, count]) => count > max.count ? { phase, count } : max, 
-              { phase: 'discussion', count: 0 });
-    
+    const maxIndicator = Object.entries(indicators).reduce(
+      (max, [phase, count]) => (count > max.count ? { phase, count } : max),
+      { phase: 'discussion', count: 0 }
+    );
+
     return maxIndicator.phase;
   }
 
   private calculatePhaseConfidence(indicators: Record<string, number>, phase: string): number {
     const total = Object.values(indicators).reduce((sum, count) => sum + count, 0);
     if (total === 0) return 0.5;
-    
+
     return Math.min(indicators[phase] / total, 1.0);
   }
 
@@ -304,7 +303,7 @@ export class ConversationAnalyzerImpl implements ConversationAnalyzer {
       discussion: ['Continue exploring options', 'Gather more input', 'Clarify requirements'],
       decision: ['Document decisions', 'Create action items', 'Assign responsibilities'],
       implementation: ['Generate code', 'Create tests', 'Set up development environment'],
-      review: ['Review code', 'Test functionality', 'Gather feedback']
+      review: ['Review code', 'Test functionality', 'Gather feedback'],
     };
 
     return actions[phase] || ['Continue conversation'];
@@ -334,7 +333,7 @@ export class ConversationAnalyzerImpl implements ConversationAnalyzer {
           chosen: this.extractDecisionText(message.content),
           reasoning: this.extractRationale(message.content),
           timestamp: message.timestamp,
-          confidence: 0.8
+          confidence: 0.8,
         });
       }
     }
@@ -352,7 +351,7 @@ export class ConversationAnalyzerImpl implements ConversationAnalyzer {
           description: this.extractActionDescription(message.content),
           assignee: this.extractAssignee(message.content),
           priority: this.determinePriority(message.content),
-          createdAt: message.timestamp.toISOString()
+          createdAt: message.timestamp.toISOString(),
         });
       }
     }
@@ -362,9 +361,9 @@ export class ConversationAnalyzerImpl implements ConversationAnalyzer {
 
   private getUniqueParticipants(messages: ConversationMessage[]): string[] {
     // Extract participants from message metadata or use role as fallback
-    const participants = new Set(messages.map(m => 
-      m.metadata?.author || m.metadata?.userId || m.role || 'unknown'
-    ));
+    const participants = new Set(
+      messages.map((m) => m.metadata?.author || m.metadata?.userId || m.role || 'unknown')
+    );
     return Array.from(participants);
   }
 
@@ -373,16 +372,32 @@ export class ConversationAnalyzerImpl implements ConversationAnalyzer {
     const content = message.content;
 
     const patterns = [
-      { regex: /must (have|be|do|support)/gi, type: 'functional' as const, priority: 'must_have' as const },
-      { regex: /should (have|be|do|support)/gi, type: 'functional' as const, priority: 'should_have' as const },
-      { regex: /could (have|be|do|support)/gi, type: 'functional' as const, priority: 'could_have' as const },
-      { regex: /need to (have|be|do|support)/gi, type: 'functional' as const, priority: 'must_have' as const },
+      {
+        regex: /must (have|be|do|support)/gi,
+        type: 'functional' as const,
+        priority: 'must_have' as const,
+      },
+      {
+        regex: /should (have|be|do|support)/gi,
+        type: 'functional' as const,
+        priority: 'should_have' as const,
+      },
+      {
+        regex: /could (have|be|do|support)/gi,
+        type: 'functional' as const,
+        priority: 'could_have' as const,
+      },
+      {
+        regex: /need to (have|be|do|support)/gi,
+        type: 'functional' as const,
+        priority: 'must_have' as const,
+      },
       { regex: /required to/gi, type: 'functional' as const, priority: 'must_have' as const },
       { regex: /performance/gi, type: 'non_functional' as const, priority: 'should_have' as const },
-      { regex: /security/gi, type: 'non_functional' as const, priority: 'must_have' as const }
+      { regex: /security/gi, type: 'non_functional' as const, priority: 'must_have' as const },
     ];
 
-    patterns.forEach(pattern => {
+    patterns.forEach((pattern) => {
       const matches = content.match(pattern.regex);
       if (matches) {
         requirements.push({
@@ -391,7 +406,7 @@ export class ConversationAnalyzerImpl implements ConversationAnalyzer {
           description: this.extractRequirementText(content, pattern.regex),
           priority: pattern.priority,
           source: message.id,
-          extractedAt: message.timestamp.toISOString()
+          extractedAt: message.timestamp.toISOString(),
         });
       }
     });
@@ -400,26 +415,28 @@ export class ConversationAnalyzerImpl implements ConversationAnalyzer {
   }
 
   private matchesPatterns(text: string, patterns: RegExp[]): boolean {
-    return patterns.some(pattern => pattern.test(text));
+    return patterns.some((pattern) => pattern.test(text));
   }
 
   private mapArtifactType(type: string): string {
     const mapping: Record<string, string> = {
-      'code': 'code',
-      'test': 'test',
-      'prd': 'prd',
-      'doc': 'documentation'
+      code: 'code',
+      test: 'test',
+      prd: 'prd',
+      doc: 'documentation',
     };
     return mapping[type] || type;
   }
 
   private isKeyPoint(message: ConversationMessage): boolean {
     const content = message.content.toLowerCase();
-    return content.includes('important') || 
-           content.includes('key') || 
-           content.includes('critical') ||
-           content.includes('main') ||
-           content.length > 100; // Longer messages likely contain key points
+    return (
+      content.includes('important') ||
+      content.includes('key') ||
+      content.includes('critical') ||
+      content.includes('main') ||
+      content.length > 100
+    ); // Longer messages likely contain key points
   }
 
   private extractKeyPoint(message: ConversationMessage): string {
@@ -431,7 +448,10 @@ export class ConversationAnalyzerImpl implements ConversationAnalyzer {
   private extractDecisionText(content: string): string {
     // Extract the decision from the content
     const sentences = content.split(/[.!?]+/);
-    return sentences.find(s => this.patterns.decisionPoint.some(p => p.test(s)))?.trim() || content.substring(0, 100);
+    return (
+      sentences.find((s) => this.patterns.decisionPoint.some((p) => p.test(s)))?.trim() ||
+      content.substring(0, 100)
+    );
   }
 
   private extractRationale(content: string): string {
@@ -442,28 +462,36 @@ export class ConversationAnalyzerImpl implements ConversationAnalyzer {
 
   private containsActionItem(message: ConversationMessage): boolean {
     const content = message.content.toLowerCase();
-    return content.includes('todo') || 
-           content.includes('action item') ||
-           content.includes('need to') ||
-           content.includes('should do') ||
-           content.includes('will do');
+    return (
+      content.includes('todo') ||
+      content.includes('action item') ||
+      content.includes('need to') ||
+      content.includes('should do') ||
+      content.includes('will do')
+    );
   }
 
   private extractActionDescription(content: string): string {
     // Extract action from content
-    const actionMatch = content.match(/(?:todo|action item|need to|should do|will do):\s*(.+?)(?:[.!?]|$)/i);
+    const actionMatch = content.match(
+      /(?:todo|action item|need to|should do|will do):\s*(.+?)(?:[.!?]|$)/i
+    );
     return actionMatch ? actionMatch[1].trim() : content.substring(0, 100);
   }
 
   private extractAssignee(content: string): string | undefined {
     // Look for @mentions or "assigned to" patterns
     const assigneeMatch = content.match(/@(\w+)|assigned to (\w+)/i);
-    return assigneeMatch ? (assigneeMatch[1] || assigneeMatch[2]) : undefined;
+    return assigneeMatch ? assigneeMatch[1] || assigneeMatch[2] : undefined;
   }
 
   private determinePriority(content: string): 'low' | 'medium' | 'high' {
     const lowerContent = content.toLowerCase();
-    if (lowerContent.includes('urgent') || lowerContent.includes('critical') || lowerContent.includes('asap')) {
+    if (
+      lowerContent.includes('urgent') ||
+      lowerContent.includes('critical') ||
+      lowerContent.includes('asap')
+    ) {
       return 'high';
     }
     if (lowerContent.includes('important') || lowerContent.includes('priority')) {
@@ -477,7 +505,7 @@ export class ConversationAnalyzerImpl implements ConversationAnalyzer {
     if (match) {
       // Extract the sentence containing the requirement
       const sentences = content.split(/[.!?]+/);
-      const requirementSentence = sentences.find(s => pattern.test(s));
+      const requirementSentence = sentences.find((s) => pattern.test(s));
       return requirementSentence?.trim() || match[0];
     }
     return content.substring(0, 100);
@@ -485,7 +513,7 @@ export class ConversationAnalyzerImpl implements ConversationAnalyzer {
 
   private deduplicateRequirements(requirements: Requirement[]): Requirement[] {
     const seen = new Set<string>();
-    return requirements.filter(req => {
+    return requirements.filter((req) => {
       const key = req.description.toLowerCase().trim();
       if (seen.has(key)) {
         return false;
@@ -494,4 +522,4 @@ export class ConversationAnalyzerImpl implements ConversationAnalyzer {
       return true;
     });
   }
-} 
+}

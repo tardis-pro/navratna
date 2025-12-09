@@ -2,11 +2,11 @@
 // This file shows usage patterns - copy these into your actual service files
 
 import { createErrorLogger, withErrorTracking, withSyncErrorTracking } from './errorLogger';
-import { 
-  DatabaseConnectionError, 
-  ValidationError, 
-  AuthenticationError, 
-  BusinessLogicError 
+import {
+  DatabaseConnectionError,
+  ValidationError,
+  AuthenticationError,
+  BusinessLogicError,
 } from './errorLogger';
 
 // 1. Create service-specific error logger
@@ -23,10 +23,10 @@ export async function getUserById(userId: string) {
       return user;
     },
     errorLogger,
-    { 
+    {
       endpoint: '/api/v1/users/:id',
       userId,
-      metadata: { operation: 'getUserById' }
+      metadata: { operation: 'getUserById' },
     }
   );
 }
@@ -44,10 +44,10 @@ export function validateUserInput(userData: any) {
   } catch (error) {
     errorLogger.error(error as Error, {
       endpoint: '/api/v1/users/validate',
-      metadata: { 
+      metadata: {
         inputFields: Object.keys(userData),
-        validationStep: 'user_input' 
-      }
+        validationStep: 'user_input',
+      },
     });
     throw error;
   }
@@ -63,10 +63,10 @@ export async function authenticateUser(token: string) {
       const authError = new AuthenticationError('Invalid JWT token');
       errorLogger.error(authError, {
         endpoint: '/api/v1/auth/verify',
-        metadata: { 
+        metadata: {
           tokenLength: token.length,
-          errorType: error.name 
-        }
+          errorType: error.name,
+        },
       });
       throw authError;
     }
@@ -80,7 +80,7 @@ export async function callExternalService(apiUrl: string, data: any) {
     const response = await fetch(apiUrl, {
       method: 'POST',
       body: JSON.stringify(data),
-      headers: { 'Content-Type': 'application/json' }
+      headers: { 'Content-Type': 'application/json' },
     });
 
     if (!response.ok) {
@@ -94,8 +94,8 @@ export async function callExternalService(apiUrl: string, data: any) {
       metadata: {
         externalUrl: apiUrl,
         requestSize: JSON.stringify(data).length,
-        operation: 'external_api_call'
-      }
+        operation: 'external_api_call',
+      },
     });
     throw error;
   }
@@ -112,8 +112,8 @@ export async function connectToDatabase() {
       endpoint: 'database_connection',
       metadata: {
         connectionAttempt: Date.now(),
-        databaseType: 'postgresql'
-      }
+        databaseType: 'postgresql',
+      },
     });
     throw dbError;
   }
@@ -124,17 +124,13 @@ export const handleUserCreation = async (req: Request, res: Response, next: Next
   try {
     // Validate input
     validateUserInput(req.body);
-    
+
     // Create user with error tracking
-    const user = await withErrorTracking(
-      () => userService.createUser(req.body),
-      errorLogger,
-      {
-        endpoint: req.route?.path,
-        userId: req.user?.id,
-        metadata: { operation: 'user_creation' }
-      }
-    );
+    const user = await withErrorTracking(() => userService.createUser(req.body), errorLogger, {
+      endpoint: req.route?.path,
+      userId: req.user?.id,
+      metadata: { operation: 'user_creation' },
+    });
 
     res.status(201).json({ user });
   } catch (error) {
@@ -147,17 +143,17 @@ export const handleUserCreation = async (req: Request, res: Response, next: Next
 export async function processUserPreferences(userId: string, preferences: any) {
   try {
     const user = await getUserById(userId);
-    
+
     // Some business logic that might have non-critical issues
     if (preferences.theme && !['light', 'dark'].includes(preferences.theme)) {
       const warning = new ValidationError('theme', preferences.theme, 'light|dark');
       errorLogger.warning(warning, {
         endpoint: '/api/v1/users/preferences',
         userId,
-        metadata: { 
+        metadata: {
           operation: 'theme_validation',
-          fallbackUsed: true 
-        }
+          fallbackUsed: true,
+        },
       });
       preferences.theme = 'light'; // fallback
     }
@@ -167,7 +163,7 @@ export async function processUserPreferences(userId: string, preferences: any) {
     errorLogger.business(error as Error, {
       endpoint: '/api/v1/users/preferences',
       userId,
-      metadata: { operation: 'preferences_update' }
+      metadata: { operation: 'preferences_update' },
     });
     throw error;
   }
@@ -178,10 +174,10 @@ export function setupErrorLogging() {
   // This should be called in your service initialization
   const serviceName = process.env.SERVICE_NAME || 'unknown-service';
   const errorLogger = createErrorLogger(serviceName);
-  
+
   // Make error logger available globally in your service
   (global as any).errorLogger = errorLogger;
-  
+
   logger.info(`Error logging initialized for service: ${serviceName}`);
 }
 
@@ -193,14 +189,14 @@ export class YourService extends BaseService {
     this.errorLogger.error(error, {
       endpoint: context?.endpoint,
       userId: context?.userId,
-      metadata: context?.metadata
+      metadata: context?.metadata,
     });
   }
 
   protected async handleCriticalError(error: Error, context?: any) {
     this.errorLogger.critical(error, {
       endpoint: context?.endpoint,
-      metadata: { ...context?.metadata, critical: true }
+      metadata: { ...context?.metadata, critical: true },
     });
   }
 }

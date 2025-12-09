@@ -5,22 +5,26 @@
 ### 🔴 Critical Issues
 
 **1. Oversized Files (4 files >500 lines)**
+
 - `discussionOrchestrationService.ts`: **1,906 lines** - Massive god class
-- `enterpriseWebSocketHandler.ts`: **1,029 lines** - Complex WebSocket management  
+- `enterpriseWebSocketHandler.ts`: **1,029 lines** - Complex WebSocket management
 - `discussionSocket.ts`: **1,010 lines** - Socket.IO handler duplication
 - `index.ts`: **805 lines** - Heavy server initialization
 
 **2. Duplicate WebSocket Handlers**
+
 - Both `EnterpriseWebSocketHandler` and Socket.IO handlers exist
 - Code comments indicate `EnterpriseWebSocketHandler` is being phased out
 - Duplicate authentication and message handling logic
 
 **3. Manual Service Instantiation**
+
 - Services created with `new` instead of dependency injection
 - Direct instantiation: `new TurnStrategyService()`, `new ParticipantManagementService()`
 - Tight coupling between components
 
 **4. Memory Management Issues**
+
 - Multiple Map-based caches without proper cleanup
 - Timer management spread across multiple files
 - Race condition detection but no systematic prevention
@@ -28,11 +32,13 @@
 ### 🟡 Moderate Issues
 
 **5. Event-Driven Complexity**
+
 - Event subscription logic scattered across multiple files
 - No centralized event coordination
 - Duplicate event handlers for similar functionality
 
 **6. Missing Abstractions**
+
 - No interface abstractions for core services
 - Strategy pattern implementation incomplete
 - Direct service dependencies instead of contracts
@@ -44,12 +50,13 @@
 #### 1.1 Break Down DiscussionOrchestrationService (1,906 → ~300 lines)
 
 **Current State:**
+
 ```typescript
 // discussionOrchestrationService.ts - 1,906 lines
 export class DiscussionOrchestrationService extends EventEmitter {
   // All responsibilities mixed together:
   // - Discussion lifecycle management
-  // - Turn management 
+  // - Turn management
   // - Participant management
   // - Message orchestration
   // - Cleanup and memory management
@@ -60,6 +67,7 @@ export class DiscussionOrchestrationService extends EventEmitter {
 ```
 
 **Proposed Structure:**
+
 ```typescript
 // Core service (300 lines)
 src/services/discussionOrchestrationService.ts
@@ -67,7 +75,7 @@ src/services/discussionOrchestrationService.ts
 // Extract into separate services:
 src/services/discussion/
 ├── discussionLifecycleService.ts     // Create, start, end discussions
-├── turnManagementService.ts          // Turn advancement logic  
+├── turnManagementService.ts          // Turn advancement logic
 ├── participantManagementService.ts   // Add/remove participants
 ├── messageOrchestrationService.ts    // Message handling
 └── discussionCleanupService.ts       // Cleanup and memory management
@@ -78,7 +86,10 @@ src/services/discussion/
 ```typescript
 // src/services/discussion/discussionLifecycleService.ts
 export interface IDiscussionLifecycleService {
-  createDiscussion(request: CreateDiscussionRequest, createdBy: string): Promise<DiscussionOrchestrationResult>;
+  createDiscussion(
+    request: CreateDiscussionRequest,
+    createdBy: string
+  ): Promise<DiscussionOrchestrationResult>;
   startDiscussion(discussionId: string, userId: string): Promise<DiscussionOrchestrationResult>;
   endDiscussion(discussionId: string, userId: string): Promise<DiscussionOrchestrationResult>;
   pauseDiscussion(discussionId: string, userId: string): Promise<DiscussionOrchestrationResult>;
@@ -101,11 +112,11 @@ export class DiscussionLifecycleService implements IDiscussionLifecycleService {
         request.turnStrategy.strategy,
         request.turnStrategy
       );
-      
+
       if (!validation.isValid) {
         return {
           success: false,
-          error: `Invalid turn strategy configuration: ${validation.errors.join(', ')}`
+          error: `Invalid turn strategy configuration: ${validation.errors.join(', ')}`,
         };
       }
 
@@ -113,14 +124,14 @@ export class DiscussionLifecycleService implements IDiscussionLifecycleService {
       const discussion = await this.discussionService.createDiscussion({
         ...request,
         createdBy,
-        status: DiscussionStatus.DRAFT
+        status: DiscussionStatus.DRAFT,
       });
 
       // Emit lifecycle event
       await this.eventBusService.publish('discussion.lifecycle.created', {
         discussionId: discussion.id,
         createdBy,
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
       });
 
       return { success: true, data: discussion };
@@ -173,7 +184,7 @@ export class TurnManagementService implements ITurnManagementService {
       const updatedDiscussion = await this.discussionService.updateDiscussion(discussionId, {
         currentTurn: turnResult.nextParticipantId,
         turnCount: (discussion.turnCount || 0) + 1,
-        lastActivity: new Date()
+        lastActivity: new Date(),
       });
 
       // Emit turn advancement event
@@ -181,7 +192,7 @@ export class TurnManagementService implements ITurnManagementService {
         discussionId,
         previousParticipant: discussion.currentTurn,
         nextParticipant: turnResult.nextParticipantId,
-        turnCount: updatedDiscussion.turnCount
+        turnCount: updatedDiscussion.turnCount,
       });
 
       return { success: true, data: turnResult };
@@ -193,7 +204,7 @@ export class TurnManagementService implements ITurnManagementService {
 
   setTurnTimer(discussionId: string, timeoutMs: number): void {
     this.clearTurnTimer(discussionId);
-    
+
     const timer = setTimeout(async () => {
       logger.info('Turn timeout reached', { discussionId });
       await this.advanceTurn(discussionId);
@@ -217,19 +228,21 @@ export class TurnManagementService implements ITurnManagementService {
 #### 1.2 Consolidate WebSocket Handlers (1,029 + 1,010 → 400 lines)
 
 **Current Duplication:**
+
 ```typescript
 // enterpriseWebSocketHandler.ts - 1,029 lines (being deprecated)
 export class EnterpriseWebSocketHandler extends EventEmitter {
   // Complex WebSocket logic with authentication
 }
 
-// discussionSocket.ts - 1,010 lines  
+// discussionSocket.ts - 1,010 lines
 export function setupWebSocketHandlers(io: SocketIOServer, orchestrationService) {
   // Duplicate authentication and message handling
 }
 ```
 
 **Proposed Consolidation:**
+
 ```typescript
 // Remove enterpriseWebSocketHandler.ts completely
 // Consolidate into:
@@ -237,7 +250,7 @@ src/websocket/
 ├── socketIOHandler.ts               // Main Socket.IO logic (400 lines)
 ├── handlers/
 │   ├── discussionHandler.ts         // Discussion-specific events
-│   ├── chatHandler.ts              // User chat events  
+│   ├── chatHandler.ts              // User chat events
 │   └── authHandler.ts              // Authentication logic
 └── middleware/
     └── socketAuthMiddleware.ts      // Centralized auth middleware
@@ -272,9 +285,9 @@ export class SocketIOHandler {
     this.handlers.set('auth', new AuthHandler(this.eventBusService));
 
     this.io.on('connection', (socket) => {
-      logger.info('Socket.IO client connected', { 
+      logger.info('Socket.IO client connected', {
         socketId: socket.id,
-        userId: socket.data.user?.userId 
+        userId: socket.data.user?.userId,
       });
 
       // Register all handlers
@@ -284,7 +297,7 @@ export class SocketIOHandler {
 
       socket.on('disconnect', () => {
         logger.info('Socket.IO client disconnected', { socketId: socket.id });
-        this.handlers.forEach(handler => handler.unregister(socket));
+        this.handlers.forEach((handler) => handler.unregister(socket));
       });
     });
   }
@@ -321,7 +334,7 @@ export class DiscussionHandler implements ISocketHandler {
       const userId = socket.data.user.userId;
 
       const result = await this.orchestrationService.startDiscussion(discussionId, userId);
-      
+
       if (result.success) {
         socket.join(`discussion:${discussionId}`);
         socket.emit('discussion_started', { discussionId, success: true });
@@ -344,29 +357,30 @@ export class DiscussionHandler implements ISocketHandler {
 export function createSocketAuthMiddleware(eventBusService: EventBusService) {
   return async (socket: Socket, next: (err?: Error) => void) => {
     try {
-      const token = socket.handshake.auth?.token || 
-                   socket.handshake.headers?.authorization?.replace('Bearer ', '') ||
-                   socket.handshake.query?.token;
-      
+      const token =
+        socket.handshake.auth?.token ||
+        socket.handshake.headers?.authorization?.replace('Bearer ', '') ||
+        socket.handshake.query?.token;
+
       if (!token) {
         return next(new Error('Authentication token required'));
       }
-      
+
       // Validate token through Security Gateway
       const authResponse = await validateSocketIOToken(token, eventBusService);
-      
+
       if (!authResponse.valid) {
         return next(new Error(`Authentication failed: ${authResponse.reason}`));
       }
-      
+
       // Store user info in socket data
       socket.data.user = {
         userId: authResponse.userId,
         sessionId: authResponse.sessionId,
         securityLevel: authResponse.securityLevel || 3,
-        complianceFlags: authResponse.complianceFlags || []
+        complianceFlags: authResponse.complianceFlags || [],
       };
-      
+
       next();
     } catch (error) {
       next(new Error('Authentication service unavailable'));
@@ -374,30 +388,33 @@ export function createSocketAuthMiddleware(eventBusService: EventBusService) {
   };
 }
 
-async function validateSocketIOToken(token: string, eventBusService: EventBusService): Promise<any> {
+async function validateSocketIOToken(
+  token: string,
+  eventBusService: EventBusService
+): Promise<any> {
   const correlationId = `socketio_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-  
+
   return new Promise(async (resolve) => {
     const timeoutId = setTimeout(() => {
       resolve({ valid: false, reason: 'Authentication service timeout' });
     }, 10000);
-    
+
     const responseHandler = (response: any) => {
       clearTimeout(timeoutId);
       resolve(response);
     };
-    
+
     // Use proper event subscription pattern
     await eventBusService.subscribeOnce('security.auth.response', responseHandler, {
-      filter: { correlationId }
+      filter: { correlationId },
     });
-    
+
     await eventBusService.publish('security.auth.validate', {
       token,
       service: 'discussion-orchestration',
       operation: 'socketio_auth',
       correlationId,
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
     });
   });
 }
@@ -406,6 +423,7 @@ async function validateSocketIOToken(token: string, eventBusService: EventBusSer
 #### 1.3 Slim Down Main Server (805 → 200 lines)
 
 **Current Monolithic Server:**
+
 ```typescript
 // index.ts - 805 lines
 class DiscussionOrchestrationServer extends BaseService {
@@ -422,6 +440,7 @@ class DiscussionOrchestrationServer extends BaseService {
 ```
 
 **Proposed Structure:**
+
 ```typescript
 // Extract into:
 src/server/
@@ -451,23 +470,20 @@ export class DiscussionOrchestrationServer extends BaseService {
       name: 'discussion-orchestration',
       port: config.discussionOrchestration.port || 3005,
       enableEnterpriseEventBus: true,
-      enableWebSocket: true
+      enableWebSocket: true,
     });
 
-    this.serviceInitializer = new ServiceInitializer(
-      this.databaseService,
-      this.eventBusService
-    );
+    this.serviceInitializer = new ServiceInitializer(this.databaseService, this.eventBusService);
   }
 
   protected async initialize(): Promise<void> {
     // Initialize services through service initializer
     await this.serviceInitializer.initializeServices();
     this.orchestrationService = this.serviceInitializer.getOrchestrationService();
-    
+
     // Subscribe to events
     await setupEventSubscriptions(this.eventBusService, this.orchestrationService);
-    
+
     logger.info('Discussion Orchestration Service initialized');
   }
 
@@ -482,30 +498,30 @@ export class DiscussionOrchestrationServer extends BaseService {
 
   public async start(): Promise<void> {
     await super.start();
-    
+
     // Setup Socket.IO after server is created
     this.socketIOHandler = new SocketIOHandler(
       this.createSocketIOServer(),
       this.eventBusService,
       this.orchestrationService
     );
-    
+
     logger.info('Discussion Orchestration Service started', {
       port: this.config.port,
-      websocketEnabled: true
+      websocketEnabled: true,
     });
   }
 
   private createSocketIOServer(): SocketIOServer {
     const io = new SocketIOServer({
-      cors: { origin: false }
+      cors: { origin: false },
     });
-    
+
     io.attach(this.server, {
       cors: { origin: false },
-      transports: ['websocket', 'polling']
+      transports: ['websocket', 'polling'],
     });
-    
+
     return io;
   }
 
@@ -522,7 +538,7 @@ export class DiscussionOrchestrationServer extends BaseService {
 // src/server/startup/serviceInitializer.ts
 export class ServiceInitializer {
   private container: ServiceContainer;
-  
+
   constructor(
     private databaseService: DatabaseService,
     private eventBusService: EventBusService
@@ -533,78 +549,95 @@ export class ServiceInitializer {
 
   private registerServices(): void {
     // Register core services
-    this.container.register('personaService', () => 
-      new PersonaService({
-        databaseService: this.databaseService,
-        eventBusService: this.eventBusService,
-        cacheConfig: {
-          redis: getDatabaseConnectionString('discussion-orchestration', 'redis', 'redis-application'),
-          ttl: 300,
-          securityLevel: 3
-        }
-      })
+    this.container.register(
+      'personaService',
+      () =>
+        new PersonaService({
+          databaseService: this.databaseService,
+          eventBusService: this.eventBusService,
+          cacheConfig: {
+            redis: getDatabaseConnectionString(
+              'discussion-orchestration',
+              'redis',
+              'redis-application'
+            ),
+            ttl: 300,
+            securityLevel: 3,
+          },
+        })
     );
 
-    this.container.register('discussionService', () =>
-      new DiscussionService({
-        databaseService: this.databaseService,
-        eventBusService: this.eventBusService,
-        personaService: this.container.resolve('personaService'),
-        enableRealTimeEvents: true,
-        enableAnalytics: false,
-        auditMode: 'comprehensive'
-      })
+    this.container.register(
+      'discussionService',
+      () =>
+        new DiscussionService({
+          databaseService: this.databaseService,
+          eventBusService: this.eventBusService,
+          personaService: this.container.resolve('personaService'),
+          enableRealTimeEvents: true,
+          enableAnalytics: false,
+          auditMode: 'comprehensive',
+        })
     );
 
     // Register orchestration services
     this.container.register('turnStrategyService', () => new TurnStrategyService());
-    
-    this.container.register('discussionLifecycleService', () =>
-      new DiscussionLifecycleService(
-        this.container.resolve('discussionService'),
-        this.eventBusService,
-        this.container.resolve('turnStrategyService')
-      )
+
+    this.container.register(
+      'discussionLifecycleService',
+      () =>
+        new DiscussionLifecycleService(
+          this.container.resolve('discussionService'),
+          this.eventBusService,
+          this.container.resolve('turnStrategyService')
+        )
     );
 
-    this.container.register('turnManagementService', () =>
-      new TurnManagementService(
-        this.container.resolve('discussionService'),
-        this.container.resolve('turnStrategyService'),
-        this.eventBusService
-      )
+    this.container.register(
+      'turnManagementService',
+      () =>
+        new TurnManagementService(
+          this.container.resolve('discussionService'),
+          this.container.resolve('turnStrategyService'),
+          this.eventBusService
+        )
     );
 
-    this.container.register('participantManagementService', () =>
-      new ParticipantManagementService(
-        this.container.resolve('discussionService'),
-        this.eventBusService
-      )
+    this.container.register(
+      'participantManagementService',
+      () =>
+        new ParticipantManagementService(
+          this.container.resolve('discussionService'),
+          this.eventBusService
+        )
     );
 
-    this.container.register('messageOrchestrationService', () =>
-      new MessageOrchestrationService(
-        this.container.resolve('discussionService'),
-        this.eventBusService
-      )
+    this.container.register(
+      'messageOrchestrationService',
+      () =>
+        new MessageOrchestrationService(
+          this.container.resolve('discussionService'),
+          this.eventBusService
+        )
     );
 
-    this.container.register('discussionCleanupService', () =>
-      new DiscussionCleanupService(
-        this.container.resolve('discussionService')
-      )
+    this.container.register(
+      'discussionCleanupService',
+      () => new DiscussionCleanupService(this.container.resolve('discussionService'))
     );
 
     // Register main orchestration service
-    this.container.register('orchestrationService', () =>
-      new DiscussionOrchestrationService(
-        this.container.resolve('discussionLifecycleService'),
-        this.container.resolve('turnManagementService'),
-        this.container.resolve('participantManagementService'),
-        this.container.resolve('messageOrchestrationService'),
-        this.container.resolve('discussionCleanupService'),
-        this.eventBusService
-      )
+    this.container.register(
+      'orchestrationService',
+      () =>
+        new DiscussionOrchestrationService(
+          this.container.resolve('discussionLifecycleService'),
+          this.container.resolve('turnManagementService'),
+          this.container.resolve('participantManagementService'),
+          this.container.resolve('messageOrchestrationService'),
+          this.container.resolve('discussionCleanupService'),
+          this.eventBusService
+        )
     );
   }
 
@@ -612,7 +645,7 @@ export class ServiceInitializer {
     // Initialize services that need async setup
     const personaService = this.container.resolve('personaService');
     await personaService.initialize();
-    
+
     const discussionService = this.container.resolve('discussionService');
     await discussionService.initialize();
   }
@@ -625,25 +658,29 @@ export class ServiceInitializer {
 
 ```typescript
 // src/server/routes/healthRoutes.ts
-export function setupHealthRoutes(app: Express, orchestrationService: DiscussionOrchestrationService): void {
+export function setupHealthRoutes(
+  app: Express,
+  orchestrationService: DiscussionOrchestrationService
+): void {
   app.get('/api/v1/info', (req, res) => {
     res.json({
       service: 'discussion-orchestration',
       version: process.env.npm_package_version || '1.0.0',
-      description: 'UAIP Discussion Orchestration Service - Manages discussion lifecycle, turn strategies, and real-time coordination',
+      description:
+        'UAIP Discussion Orchestration Service - Manages discussion lifecycle, turn strategies, and real-time coordination',
       features: [
         'Discussion lifecycle management',
         'Multiple turn strategies (Round Robin, Moderated, Context Aware)',
         'Real-time WebSocket communication',
         'Event-driven architecture',
-        'Comprehensive turn management'
+        'Comprehensive turn management',
       ],
       endpoints: {
         websocket: '/socket.io',
         conversationIntelligence: '/socket.io/conversation-intelligence',
         health: '/health',
-        info: '/api/v1/info'
-      }
+        info: '/api/v1/info',
+      },
     });
   });
 
@@ -651,17 +688,17 @@ export function setupHealthRoutes(app: Express, orchestrationService: Discussion
     try {
       const status = orchestrationService.getStatus();
       const healthy = await orchestrationService.checkHealth();
-      
+
       res.status(healthy ? 200 : 503).json({
         status: healthy ? 'healthy' : 'unhealthy',
         timestamp: new Date().toISOString(),
-        ...status
+        ...status,
       });
     } catch (error) {
       res.status(503).json({
         status: 'unhealthy',
         error: error.message,
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
       });
     }
   });
@@ -673,10 +710,13 @@ export function setupHealthRoutes(app: Express, orchestrationService: Discussion
 #### 2.1 Create Service Container
 
 **Current Manual Instantiation:**
+
 ```typescript
 // Multiple places with direct instantiation
 this.turnStrategyService = new TurnStrategyService();
-const participantManagementService = new ParticipantManagementService((this.discussionService as any).databaseService);
+const participantManagementService = new ParticipantManagementService(
+  (this.discussionService as any).databaseService
+);
 ```
 
 **Proposed Service Container:**
@@ -698,13 +738,13 @@ export class ServiceContainer {
   private scopes = new WeakMap<object, Map<string, any>>();
 
   register<T>(
-    name: string, 
-    factory: ServiceFactory<T>, 
+    name: string,
+    factory: ServiceFactory<T>,
     options: { singleton?: boolean } = { singleton: true }
   ): void {
     this.services.set(name, {
       factory,
-      singleton: options.singleton ?? true
+      singleton: options.singleton ?? true,
     });
   }
 
@@ -783,17 +823,20 @@ export function createServiceContainer(): ServiceContainer {
 
   // Register services with proper dependency injection
   container.register('config', () => config);
-  
-  container.register('turnStrategyService', () => 
-    new TurnStrategyService(container.resolve('config'))
+
+  container.register(
+    'turnStrategyService',
+    () => new TurnStrategyService(container.resolve('config'))
   );
-  
-  container.register('discussionLifecycleService', () =>
-    new DiscussionLifecycleService(
-      container.resolve('discussionService'),
-      container.resolve('eventBusService'),
-      container.resolve('turnStrategyService')
-    )
+
+  container.register(
+    'discussionLifecycleService',
+    () =>
+      new DiscussionLifecycleService(
+        container.resolve('discussionService'),
+        container.resolve('eventBusService'),
+        container.resolve('turnStrategyService')
+      )
   );
 
   return container;
@@ -803,6 +846,7 @@ export function createServiceContainer(): ServiceContainer {
 #### 2.2 Service Interfaces
 
 **Current Concrete Dependencies:**
+
 ```typescript
 // Direct coupling to concrete classes
 constructor(
@@ -817,9 +861,21 @@ constructor(
 // src/interfaces/services/ITurnStrategyService.ts
 export interface ITurnStrategyService {
   validateStrategyConfig(strategy: string, config: TurnStrategyConfig): ValidationResult;
-  advanceTurn(discussion: Discussion, participants: DiscussionParticipant[], config: TurnStrategyConfig): Promise<TurnResult>;
-  canParticipantTakeTurn(discussion: Discussion, participant: DiscussionParticipant, config: TurnStrategyConfig): Promise<boolean>;
-  getNextParticipant(discussion: Discussion, participants: DiscussionParticipant[], config: TurnStrategyConfig): Promise<DiscussionParticipant | null>;
+  advanceTurn(
+    discussion: Discussion,
+    participants: DiscussionParticipant[],
+    config: TurnStrategyConfig
+  ): Promise<TurnResult>;
+  canParticipantTakeTurn(
+    discussion: Discussion,
+    participant: DiscussionParticipant,
+    config: TurnStrategyConfig
+  ): Promise<boolean>;
+  getNextParticipant(
+    discussion: Discussion,
+    participants: DiscussionParticipant[],
+    config: TurnStrategyConfig
+  ): Promise<DiscussionParticipant | null>;
   resetStrategy(discussionId: string): void;
 }
 
@@ -839,11 +895,22 @@ export interface TurnResult {
 ```typescript
 // src/interfaces/services/IParticipantManagementService.ts
 export interface IParticipantManagementService {
-  addParticipant(discussionId: string, participantData: AddParticipantRequest): Promise<DiscussionOrchestrationResult>;
-  removeParticipant(discussionId: string, participantId: string, removedBy: string): Promise<DiscussionOrchestrationResult>;
+  addParticipant(
+    discussionId: string,
+    participantData: AddParticipantRequest
+  ): Promise<DiscussionOrchestrationResult>;
+  removeParticipant(
+    discussionId: string,
+    participantId: string,
+    removedBy: string
+  ): Promise<DiscussionOrchestrationResult>;
   verifyParticipantAccess(discussionId: string, participantId: string): Promise<boolean>;
   getActiveParticipants(discussionId: string): Promise<DiscussionParticipant[]>;
-  updateParticipantStatus(discussionId: string, participantId: string, status: ParticipantStatus): Promise<void>;
+  updateParticipantStatus(
+    discussionId: string,
+    participantId: string,
+    status: ParticipantStatus
+  ): Promise<void>;
 }
 
 export interface AddParticipantRequest {
@@ -858,7 +925,10 @@ export interface AddParticipantRequest {
 ```typescript
 // src/interfaces/services/IDiscussionLifecycleService.ts
 export interface IDiscussionLifecycleService {
-  createDiscussion(request: CreateDiscussionRequest, createdBy: string): Promise<DiscussionOrchestrationResult>;
+  createDiscussion(
+    request: CreateDiscussionRequest,
+    createdBy: string
+  ): Promise<DiscussionOrchestrationResult>;
   startDiscussion(discussionId: string, userId: string): Promise<DiscussionOrchestrationResult>;
   endDiscussion(discussionId: string, userId: string): Promise<DiscussionOrchestrationResult>;
   pauseDiscussion(discussionId: string, userId: string): Promise<DiscussionOrchestrationResult>;
@@ -870,9 +940,18 @@ export interface IDiscussionLifecycleService {
 ```typescript
 // src/interfaces/services/IMessageOrchestrationService.ts
 export interface IMessageOrchestrationService {
-  sendMessage(discussionId: string, participantId: string, content: string, messageType?: string, metadata?: any): Promise<DiscussionOrchestrationResult>;
+  sendMessage(
+    discussionId: string,
+    participantId: string,
+    content: string,
+    messageType?: string,
+    metadata?: any
+  ): Promise<DiscussionOrchestrationResult>;
   broadcastMessage(discussionId: string, message: DiscussionMessage): Promise<void>;
-  getDiscussionMessages(discussionId: string, options?: MessageQueryOptions): Promise<DiscussionMessage[]>;
+  getDiscussionMessages(
+    discussionId: string,
+    options?: MessageQueryOptions
+  ): Promise<DiscussionMessage[]>;
   validateMessageContent(content: string, messageType: string): ValidationResult;
   enhanceMessage(message: DiscussionMessage): Promise<DiscussionMessage>;
 }
@@ -895,9 +974,9 @@ export class TurnManagementService implements ITurnManagementService {
   private turnTimers: Map<string, NodeJS.Timeout> = new Map();
 
   constructor(
-    private discussionService: IDiscussionService,  // Interface dependency
-    private turnStrategyService: ITurnStrategyService,  // Interface dependency
-    private eventBusService: IEventBusService  // Interface dependency
+    private discussionService: IDiscussionService, // Interface dependency
+    private turnStrategyService: ITurnStrategyService, // Interface dependency
+    private eventBusService: IEventBusService // Interface dependency
   ) {}
 
   async advanceTurn(discussionId: string): Promise<DiscussionOrchestrationResult> {
@@ -921,7 +1000,7 @@ export class TurnManagementService implements ITurnManagementService {
       const updatedDiscussion = await this.discussionService.updateDiscussion(discussionId, {
         currentTurn: turnResult.nextParticipantId,
         turnCount: (discussion.turnCount || 0) + 1,
-        lastActivity: new Date()
+        lastActivity: new Date(),
       });
 
       // Emit turn advancement event
@@ -930,7 +1009,7 @@ export class TurnManagementService implements ITurnManagementService {
         previousParticipant: discussion.currentTurn,
         nextParticipant: turnResult.nextParticipantId,
         turnCount: updatedDiscussion.turnCount,
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
       });
 
       return { success: true, data: turnResult };
@@ -949,6 +1028,7 @@ export class TurnManagementService implements ITurnManagementService {
 #### 3.1 Centralized Event Coordination
 
 **Current Scattered Events:**
+
 ```typescript
 // Events scattered across multiple files
 await this.eventBusService.publish('discussion.events', event);
@@ -984,56 +1064,56 @@ export class EventCoordinator implements IEventCoordinator {
 
   async emitDiscussionEvent(event: DiscussionEvent): Promise<void> {
     const processedEvent = await this.processEvent(event);
-    
+
     // Emit to internal handlers
     await this.emitToHandlers(`discussion.${event.type}`, processedEvent);
-    
+
     // Emit to event bus for other services
     await this.eventBusService.publish('discussion.events', processedEvent);
-    
+
     logger.info('Discussion event emitted', {
       type: event.type,
       discussionId: event.discussionId,
-      timestamp: event.timestamp
+      timestamp: event.timestamp,
     });
   }
 
   async emitParticipantEvent(event: ParticipantEvent): Promise<void> {
     const processedEvent = await this.processEvent(event);
-    
+
     await this.emitToHandlers(`participant.${event.type}`, processedEvent);
     await this.eventBusService.publish('discussion.participant.events', processedEvent);
-    
+
     logger.info('Participant event emitted', {
       type: event.type,
       discussionId: event.discussionId,
-      participantId: event.participantId
+      participantId: event.participantId,
     });
   }
 
   async emitMessageEvent(event: MessageEvent): Promise<void> {
     const processedEvent = await this.processEvent(event);
-    
+
     await this.emitToHandlers(`message.${event.type}`, processedEvent);
     await this.eventBusService.publish('discussion.message.events', processedEvent);
-    
+
     logger.info('Message event emitted', {
       type: event.type,
       discussionId: event.discussionId,
-      messageId: event.messageId
+      messageId: event.messageId,
     });
   }
 
   async emitTurnEvent(event: TurnEvent): Promise<void> {
     const processedEvent = await this.processEvent(event);
-    
+
     await this.emitToHandlers(`turn.${event.type}`, processedEvent);
     await this.eventBusService.publish('discussion.turn.events', processedEvent);
-    
+
     logger.info('Turn event emitted', {
       type: event.type,
       discussionId: event.discussionId,
-      currentParticipant: event.currentParticipant
+      currentParticipant: event.currentParticipant,
     });
   }
 
@@ -1056,12 +1136,12 @@ export class EventCoordinator implements IEventCoordinator {
 
   private async processEvent<T extends BaseEvent>(event: T): Promise<T> {
     let processedEvent = { ...event };
-    
+
     // Apply middleware
     for (const middleware of this.middleware) {
       processedEvent = await middleware.process(processedEvent);
     }
-    
+
     return processedEvent;
   }
 
@@ -1069,12 +1149,12 @@ export class EventCoordinator implements IEventCoordinator {
     const handlers = this.handlers.get(eventType);
     if (!handlers) return;
 
-    const promises = Array.from(handlers).map(handler => 
-      handler.handle(event).catch(error => 
-        logger.error('Event handler error', { 
-          eventType, 
+    const promises = Array.from(handlers).map((handler) =>
+      handler.handle(event).catch((error) =>
+        logger.error('Event handler error', {
+          eventType,
           error: error.message,
-          handlerName: handler.constructor.name 
+          handlerName: handler.constructor.name,
         })
       )
     );
@@ -1091,7 +1171,7 @@ export class EventCoordinator implements IEventCoordinator {
         messageId: event.messageId,
         participantId: event.agentId,
         timestamp: new Date().toISOString(),
-        data: event
+        data: event,
       });
     });
 
@@ -1102,7 +1182,7 @@ export class EventCoordinator implements IEventCoordinator {
         messageId: event.messageId,
         participantId: event.participantId,
         timestamp: new Date().toISOString(),
-        data: event
+        data: event,
       });
     });
   }
@@ -1181,37 +1261,37 @@ export class DiscussionEventHandler implements EventHandler<DiscussionEvent> {
 
   private async handleDiscussionCreated(event: DiscussionEvent): Promise<void> {
     logger.info('Discussion created', { discussionId: event.discussionId });
-    
+
     // Schedule cleanup for draft discussions
     await this.cleanupService.scheduleDraftCleanup(event.discussionId, 24 * 60 * 60 * 1000); // 24 hours
-    
+
     // Notify participants
     await this.notificationService.notifyDiscussionCreated(event);
   }
 
   private async handleDiscussionStarted(event: DiscussionEvent): Promise<void> {
     logger.info('Discussion started', { discussionId: event.discussionId });
-    
+
     // Cancel draft cleanup
     await this.cleanupService.cancelDraftCleanup(event.discussionId);
-    
+
     // Start activity monitoring
     await this.cleanupService.startActivityMonitoring(event.discussionId);
   }
 
   private async handleDiscussionEnded(event: DiscussionEvent): Promise<void> {
     logger.info('Discussion ended', { discussionId: event.discussionId });
-    
+
     // Stop activity monitoring
     await this.cleanupService.stopActivityMonitoring(event.discussionId);
-    
+
     // Schedule archive after 30 days
     await this.cleanupService.scheduleArchival(event.discussionId, 30 * 24 * 60 * 60 * 1000);
   }
 
   private async handleDiscussionArchived(event: DiscussionEvent): Promise<void> {
     logger.info('Discussion archived', { discussionId: event.discussionId });
-    
+
     // Clean up all resources
     await this.cleanupService.cleanupDiscussionResources(event.discussionId);
   }
@@ -1236,7 +1316,7 @@ export class EventValidationMiddleware implements EventMiddleware {
     if (!event.timestamp) {
       event.timestamp = new Date().toISOString();
     }
-    
+
     return event;
   }
 }
@@ -1252,20 +1332,20 @@ export class EventAuditMiddleware implements EventMiddleware {
           service: 'discussion-orchestration',
           version: process.env.npm_package_version || '1.0.0',
           environment: process.env.NODE_ENV || 'development',
-          traceId: this.generateTraceId()
-        }
-      }
+          traceId: this.generateTraceId(),
+        },
+      },
     };
-    
+
     // Log for audit trail
     logger.info('AUDIT: Event processed', {
       type: event.type,
       discussionId: event.discussionId,
       timestamp: event.timestamp,
       auditEvent: 'EVENT_PROCESSED',
-      compliance: true
+      compliance: true,
     });
-    
+
     return auditedEvent;
   }
 
@@ -1290,20 +1370,20 @@ export class EventEnrichmentMiddleware implements EventMiddleware {
               title: discussion.title,
               status: discussion.status,
               strategy: discussion.turnStrategy?.strategy,
-              participantCount: discussion.participants?.length || 0
-            }
-          }
+              participantCount: discussion.participants?.length || 0,
+            },
+          },
         };
       }
     } catch (error) {
       // Don't fail the event if enrichment fails
-      logger.warn('Failed to enrich event', { 
-        eventType: event.type, 
+      logger.warn('Failed to enrich event', {
+        eventType: event.type,
         discussionId: event.discussionId,
-        error: error.message 
+        error: error.message,
       });
     }
-    
+
     return event;
   }
 }
@@ -1314,6 +1394,7 @@ export class EventEnrichmentMiddleware implements EventMiddleware {
 #### 4.1 Complete Strategy Abstraction
 
 **Current Incomplete Strategy Pattern:**
+
 ```typescript
 // Partial implementation in turnStrategyService.ts
 export class TurnStrategyService {
@@ -1340,11 +1421,17 @@ export interface IDiscussionStrategy {
   readonly name: string;
   readonly description: string;
   readonly defaultConfig: Partial<TurnStrategyConfig>;
-  
+
   validateConfig(config: TurnStrategyConfig): ValidationResult;
   initialize(discussion: Discussion, participants: DiscussionParticipant[]): Promise<void>;
-  getNextParticipant(discussion: Discussion, participants: DiscussionParticipant[]): Promise<DiscussionParticipant | null>;
-  canParticipantTakeTurn(participant: DiscussionParticipant, discussion: Discussion): Promise<boolean>;
+  getNextParticipant(
+    discussion: Discussion,
+    participants: DiscussionParticipant[]
+  ): Promise<DiscussionParticipant | null>;
+  canParticipantTakeTurn(
+    participant: DiscussionParticipant,
+    discussion: Discussion
+  ): Promise<boolean>;
   onParticipantJoined(participant: DiscussionParticipant, discussion: Discussion): Promise<void>;
   onParticipantLeft(participant: DiscussionParticipant, discussion: Discussion): Promise<void>;
   onTurnCompleted(participant: DiscussionParticipant, discussion: Discussion): Promise<void>;
@@ -1369,27 +1456,30 @@ export abstract class BaseDiscussionStrategy implements IDiscussionStrategy {
   abstract readonly description: string;
   abstract readonly defaultConfig: Partial<TurnStrategyConfig>;
 
-  abstract getNextParticipant(discussion: Discussion, participants: DiscussionParticipant[]): Promise<DiscussionParticipant | null>;
+  abstract getNextParticipant(
+    discussion: Discussion,
+    participants: DiscussionParticipant[]
+  ): Promise<DiscussionParticipant | null>;
 
   validateConfig(config: TurnStrategyConfig): ValidationResult {
     const errors: string[] = [];
-    
+
     // Common validation
     if (config.timeoutMs && (config.timeoutMs < 1000 || config.timeoutMs > 300000)) {
       errors.push('Timeout must be between 1 second and 5 minutes');
     }
-    
+
     if (config.maxParticipants && (config.maxParticipants < 2 || config.maxParticipants > 50)) {
       errors.push('Maximum participants must be between 2 and 50');
     }
-    
+
     // Strategy-specific validation
     const strategyErrors = this.validateStrategySpecificConfig(config);
     errors.push(...strategyErrors);
-    
+
     return {
       isValid: errors.length === 0,
-      errors
+      errors,
     };
   }
 
@@ -1399,45 +1489,54 @@ export abstract class BaseDiscussionStrategy implements IDiscussionStrategy {
       currentTurn: discussion.currentTurn,
       turnCount: discussion.turnCount || 0,
       lastActivity: discussion.lastActivity || new Date(),
-      metadata: {}
+      metadata: {},
     });
-    
+
     logger.info(`${this.name} strategy initialized`, {
       discussionId: discussion.id,
-      participantCount: participants.length
+      participantCount: participants.length,
     });
   }
 
-  async canParticipantTakeTurn(participant: DiscussionParticipant, discussion: Discussion): Promise<boolean> {
+  async canParticipantTakeTurn(
+    participant: DiscussionParticipant,
+    discussion: Discussion
+  ): Promise<boolean> {
     // Common checks
     if (participant.status !== 'active') {
       return false;
     }
-    
+
     if (participant.permissions && !participant.permissions.includes('send_message')) {
       return false;
     }
-    
+
     // Strategy-specific checks
     return this.canParticipantTakeTurnStrategy(participant, discussion);
   }
 
-  async onParticipantJoined(participant: DiscussionParticipant, discussion: Discussion): Promise<void> {
+  async onParticipantJoined(
+    participant: DiscussionParticipant,
+    discussion: Discussion
+  ): Promise<void> {
     logger.info(`Participant joined discussion with ${this.name} strategy`, {
       discussionId: discussion.id,
       participantId: participant.id,
-      role: participant.role
+      role: participant.role,
     });
-    
+
     await this.onParticipantJoinedStrategy(participant, discussion);
   }
 
-  async onParticipantLeft(participant: DiscussionParticipant, discussion: Discussion): Promise<void> {
+  async onParticipantLeft(
+    participant: DiscussionParticipant,
+    discussion: Discussion
+  ): Promise<void> {
     logger.info(`Participant left discussion with ${this.name} strategy`, {
       discussionId: discussion.id,
-      participantId: participant.id
+      participantId: participant.id,
     });
-    
+
     await this.onParticipantLeftStrategy(participant, discussion);
   }
 
@@ -1447,7 +1546,7 @@ export abstract class BaseDiscussionStrategy implements IDiscussionStrategy {
       context.turnCount++;
       context.lastActivity = new Date();
     }
-    
+
     await this.onTurnCompletedStrategy(participant, discussion);
   }
 
@@ -1469,10 +1568,22 @@ export abstract class BaseDiscussionStrategy implements IDiscussionStrategy {
 
   // Abstract methods for strategy-specific implementation
   protected abstract validateStrategySpecificConfig(config: TurnStrategyConfig): string[];
-  protected abstract canParticipantTakeTurnStrategy(participant: DiscussionParticipant, discussion: Discussion): Promise<boolean>;
-  protected abstract onParticipantJoinedStrategy(participant: DiscussionParticipant, discussion: Discussion): Promise<void>;
-  protected abstract onParticipantLeftStrategy(participant: DiscussionParticipant, discussion: Discussion): Promise<void>;
-  protected abstract onTurnCompletedStrategy(participant: DiscussionParticipant, discussion: Discussion): Promise<void>;
+  protected abstract canParticipantTakeTurnStrategy(
+    participant: DiscussionParticipant,
+    discussion: Discussion
+  ): Promise<boolean>;
+  protected abstract onParticipantJoinedStrategy(
+    participant: DiscussionParticipant,
+    discussion: Discussion
+  ): Promise<void>;
+  protected abstract onParticipantLeftStrategy(
+    participant: DiscussionParticipant,
+    discussion: Discussion
+  ): Promise<void>;
+  protected abstract onTurnCompletedStrategy(
+    participant: DiscussionParticipant,
+    discussion: Discussion
+  ): Promise<void>;
 }
 ```
 
@@ -1486,11 +1597,14 @@ export class RoundRobinStrategy extends BaseDiscussionStrategy {
   readonly defaultConfig: Partial<TurnStrategyConfig> = {
     timeoutMs: 30000,
     allowSkipping: true,
-    maxConsecutiveTurns: 1
+    maxConsecutiveTurns: 1,
   };
 
-  async getNextParticipant(discussion: Discussion, participants: DiscussionParticipant[]): Promise<DiscussionParticipant | null> {
-    const activeParticipants = participants.filter(p => p.status === 'active');
+  async getNextParticipant(
+    discussion: Discussion,
+    participants: DiscussionParticipant[]
+  ): Promise<DiscussionParticipant | null> {
+    const activeParticipants = participants.filter((p) => p.status === 'active');
     if (activeParticipants.length === 0) {
       return null;
     }
@@ -1502,7 +1616,7 @@ export class RoundRobinStrategy extends BaseDiscussionStrategy {
     }
 
     // Find current participant index
-    const currentIndex = activeParticipants.findIndex(p => p.id === discussion.currentTurn);
+    const currentIndex = activeParticipants.findIndex((p) => p.id === discussion.currentTurn);
     if (currentIndex === -1) {
       // Current participant not found, start from beginning
       return activeParticipants[0];
@@ -1515,26 +1629,35 @@ export class RoundRobinStrategy extends BaseDiscussionStrategy {
 
   protected validateStrategySpecificConfig(config: TurnStrategyConfig): string[] {
     const errors: string[] = [];
-    
+
     if (config.maxConsecutiveTurns && config.maxConsecutiveTurns !== 1) {
       errors.push('Round robin strategy only supports maxConsecutiveTurns = 1');
     }
-    
+
     return errors;
   }
 
-  protected async canParticipantTakeTurnStrategy(participant: DiscussionParticipant, discussion: Discussion): Promise<boolean> {
+  protected async canParticipantTakeTurnStrategy(
+    participant: DiscussionParticipant,
+    discussion: Discussion
+  ): Promise<boolean> {
     // In round robin, only the next participant can take a turn
     const nextParticipant = await this.getNextParticipant(discussion, [participant]);
     return nextParticipant?.id === participant.id;
   }
 
-  protected async onParticipantJoinedStrategy(participant: DiscussionParticipant, discussion: Discussion): Promise<void> {
+  protected async onParticipantJoinedStrategy(
+    participant: DiscussionParticipant,
+    discussion: Discussion
+  ): Promise<void> {
     // Round robin doesn't need special handling for new participants
     // They'll be included in the rotation automatically
   }
 
-  protected async onParticipantLeftStrategy(participant: DiscussionParticipant, discussion: Discussion): Promise<void> {
+  protected async onParticipantLeftStrategy(
+    participant: DiscussionParticipant,
+    discussion: Discussion
+  ): Promise<void> {
     // If the leaving participant was current, advance to next
     if (discussion.currentTurn === participant.id) {
       const context = this.getContext(discussion.id);
@@ -1545,11 +1668,14 @@ export class RoundRobinStrategy extends BaseDiscussionStrategy {
     }
   }
 
-  protected async onTurnCompletedStrategy(participant: DiscussionParticipant, discussion: Discussion): Promise<void> {
+  protected async onTurnCompletedStrategy(
+    participant: DiscussionParticipant,
+    discussion: Discussion
+  ): Promise<void> {
     // Update context to track turn completion
     this.updateContext(discussion.id, {
       currentTurn: participant.id,
-      lastActivity: new Date()
+      lastActivity: new Date(),
     });
   }
 }
@@ -1565,20 +1691,23 @@ export class ContextAwareStrategy extends BaseDiscussionStrategy {
     allowSkipping: false,
     contextAnalysisEnabled: true,
     expertiseWeight: 0.7,
-    engagementWeight: 0.3
+    engagementWeight: 0.3,
   };
 
   private participantScores: Map<string, Map<string, number>> = new Map(); // discussionId -> participantId -> score
 
-  async getNextParticipant(discussion: Discussion, participants: DiscussionParticipant[]): Promise<DiscussionParticipant | null> {
-    const activeParticipants = participants.filter(p => p.status === 'active');
+  async getNextParticipant(
+    discussion: Discussion,
+    participants: DiscussionParticipant[]
+  ): Promise<DiscussionParticipant | null> {
+    const activeParticipants = participants.filter((p) => p.status === 'active');
     if (activeParticipants.length === 0) {
       return null;
     }
 
     // Calculate scores for each participant based on context
     const scores = await this.calculateParticipantScores(discussion, activeParticipants);
-    
+
     // Select participant with highest score
     let bestParticipant = activeParticipants[0];
     let bestScore = scores.get(bestParticipant.id) || 0;
@@ -1595,13 +1724,16 @@ export class ContextAwareStrategy extends BaseDiscussionStrategy {
       discussionId: discussion.id,
       selectedParticipant: bestParticipant.id,
       score: bestScore,
-      scores: Object.fromEntries(scores)
+      scores: Object.fromEntries(scores),
     });
 
     return bestParticipant;
   }
 
-  private async calculateParticipantScores(discussion: Discussion, participants: DiscussionParticipant[]): Promise<Map<string, number>> {
+  private async calculateParticipantScores(
+    discussion: Discussion,
+    participants: DiscussionParticipant[]
+  ): Promise<Map<string, number>> {
     const scores = new Map<string, number>();
     const config = discussion.turnStrategy;
 
@@ -1631,26 +1763,32 @@ export class ContextAwareStrategy extends BaseDiscussionStrategy {
     return scores;
   }
 
-  private async calculateExpertiseScore(participant: DiscussionParticipant, discussion: Discussion): Promise<number> {
+  private async calculateExpertiseScore(
+    participant: DiscussionParticipant,
+    discussion: Discussion
+  ): Promise<number> {
     // This would integrate with agent intelligence service to analyze
     // participant expertise vs current discussion topics
-    
+
     // Placeholder implementation
     const baseScore = participant.role === 'expert' ? 0.8 : 0.5;
-    
+
     // Adjust based on recent contribution relevance
     const context = this.getContext(discussion.id);
     const participantScores = this.participantScores.get(discussion.id);
-    
+
     if (context && participantScores) {
       const historicalScore = participantScores.get(participant.id) || 0.5;
       return (baseScore + historicalScore) / 2;
     }
-    
+
     return baseScore;
   }
 
-  private async calculateEngagementScore(participant: DiscussionParticipant, discussion: Discussion): Promise<number> {
+  private async calculateEngagementScore(
+    participant: DiscussionParticipant,
+    discussion: Discussion
+  ): Promise<number> {
     // Calculate based on recent participation frequency and quality
     const context = this.getContext(discussion.id);
     if (!context || !context.metadata.participantStats) {
@@ -1665,7 +1803,7 @@ export class ContextAwareStrategy extends BaseDiscussionStrategy {
     // Score based on time since last contribution
     const timeSinceLastContribution = Date.now() - (stats.lastContribution || 0);
     const hoursAgo = timeSinceLastContribution / (1000 * 60 * 60);
-    
+
     if (hoursAgo > 2) return 0.9; // High score for participants who haven't contributed recently
     if (hoursAgo > 1) return 0.7;
     if (hoursAgo > 0.5) return 0.5;
@@ -1674,38 +1812,53 @@ export class ContextAwareStrategy extends BaseDiscussionStrategy {
 
   protected validateStrategySpecificConfig(config: TurnStrategyConfig): string[] {
     const errors: string[] = [];
-    
-    if (config.expertiseWeight !== undefined && (config.expertiseWeight < 0 || config.expertiseWeight > 1)) {
+
+    if (
+      config.expertiseWeight !== undefined &&
+      (config.expertiseWeight < 0 || config.expertiseWeight > 1)
+    ) {
       errors.push('Expertise weight must be between 0 and 1');
     }
-    
-    if (config.engagementWeight !== undefined && (config.engagementWeight < 0 || config.engagementWeight > 1)) {
+
+    if (
+      config.engagementWeight !== undefined &&
+      (config.engagementWeight < 0 || config.engagementWeight > 1)
+    ) {
       errors.push('Engagement weight must be between 0 and 1');
     }
-    
-    if (config.expertiseWeight && config.engagementWeight && 
-        (config.expertiseWeight + config.engagementWeight) > 1) {
+
+    if (
+      config.expertiseWeight &&
+      config.engagementWeight &&
+      config.expertiseWeight + config.engagementWeight > 1
+    ) {
       errors.push('Combined expertise and engagement weights cannot exceed 1');
     }
-    
+
     return errors;
   }
 
-  protected async canParticipantTakeTurnStrategy(participant: DiscussionParticipant, discussion: Discussion): Promise<boolean> {
+  protected async canParticipantTakeTurnStrategy(
+    participant: DiscussionParticipant,
+    discussion: Discussion
+  ): Promise<boolean> {
     // Context-aware strategy allows any active participant to take turns
     // The selection logic in getNextParticipant handles prioritization
     return true;
   }
 
-  protected async onParticipantJoinedStrategy(participant: DiscussionParticipant, discussion: Discussion): Promise<void> {
+  protected async onParticipantJoinedStrategy(
+    participant: DiscussionParticipant,
+    discussion: Discussion
+  ): Promise<void> {
     // Initialize participant scores
     if (!this.participantScores.has(discussion.id)) {
       this.participantScores.set(discussion.id, new Map());
     }
-    
+
     const scores = this.participantScores.get(discussion.id)!;
     scores.set(participant.id, 0.6); // Default score for new participants
-    
+
     // Update context metadata
     const context = this.getContext(discussion.id);
     if (context) {
@@ -1715,25 +1868,31 @@ export class ContextAwareStrategy extends BaseDiscussionStrategy {
       context.metadata.participantStats[participant.id] = {
         joinedAt: Date.now(),
         messageCount: 0,
-        lastContribution: null
+        lastContribution: null,
       };
     }
   }
 
-  protected async onParticipantLeftStrategy(participant: DiscussionParticipant, discussion: Discussion): Promise<void> {
+  protected async onParticipantLeftStrategy(
+    participant: DiscussionParticipant,
+    discussion: Discussion
+  ): Promise<void> {
     // Clean up participant data
     const scores = this.participantScores.get(discussion.id);
     if (scores) {
       scores.delete(participant.id);
     }
-    
+
     const context = this.getContext(discussion.id);
     if (context && context.metadata.participantStats) {
       delete context.metadata.participantStats[participant.id];
     }
   }
 
-  protected async onTurnCompletedStrategy(participant: DiscussionParticipant, discussion: Discussion): Promise<void> {
+  protected async onTurnCompletedStrategy(
+    participant: DiscussionParticipant,
+    discussion: Discussion
+  ): Promise<void> {
     // Update participant statistics
     const context = this.getContext(discussion.id);
     if (context && context.metadata.participantStats) {
@@ -1743,7 +1902,7 @@ export class ContextAwareStrategy extends BaseDiscussionStrategy {
         stats.lastContribution = Date.now();
       }
     }
-    
+
     // Update participant score based on contribution quality
     // This would integrate with conversation enhancement service
     const scores = this.participantScores.get(discussion.id);
@@ -1765,35 +1924,39 @@ export class ContextAwareStrategy extends BaseDiscussionStrategy {
 // src/strategies/implementations/AdaptiveStrategy.ts
 export class AdaptiveStrategy extends BaseDiscussionStrategy {
   readonly name = 'adaptive';
-  readonly description = 'Dynamically adapts turn-taking based on discussion flow and participant behavior';
+  readonly description =
+    'Dynamically adapts turn-taking based on discussion flow and participant behavior';
   readonly defaultConfig: Partial<TurnStrategyConfig> = {
     timeoutMs: 60000,
     allowSkipping: true,
     adaptationEnabled: true,
     flowAnalysisDepth: 10,
-    behaviorLearningEnabled: true
+    behaviorLearningEnabled: true,
   };
 
   private adaptationHistory: Map<string, AdaptationRecord[]> = new Map();
 
-  async getNextParticipant(discussion: Discussion, participants: DiscussionParticipant[]): Promise<DiscussionParticipant | null> {
-    const activeParticipants = participants.filter(p => p.status === 'active');
+  async getNextParticipant(
+    discussion: Discussion,
+    participants: DiscussionParticipant[]
+  ): Promise<DiscussionParticipant | null> {
+    const activeParticipants = participants.filter((p) => p.status === 'active');
     if (activeParticipants.length === 0) {
       return null;
     }
 
     // Analyze current discussion flow
     const flowAnalysis = await this.analyzeDiscussionFlow(discussion);
-    
+
     // Select strategy based on current situation
     const adaptedStrategy = this.selectAdaptedStrategy(flowAnalysis, discussion);
-    
+
     // Record adaptation decision
     this.recordAdaptation(discussion.id, {
       timestamp: new Date(),
       flowAnalysis,
       selectedStrategy: adaptedStrategy,
-      participants: activeParticipants.map(p => p.id)
+      participants: activeParticipants.map((p) => p.id),
     });
 
     // Apply selected strategy
@@ -1803,16 +1966,16 @@ export class AdaptiveStrategy extends BaseDiscussionStrategy {
   private async analyzeDiscussionFlow(discussion: Discussion): Promise<FlowAnalysis> {
     // This would integrate with conversation enhancement service
     // For now, simplified analysis based on recent activity
-    
+
     const context = this.getContext(discussion.id);
     const recentActivity = context?.metadata.recentActivity || [];
-    
+
     return {
       momentum: this.calculateMomentum(recentActivity),
       engagement: this.calculateEngagement(recentActivity),
       topicShifts: this.detectTopicShifts(recentActivity),
       participantDistribution: this.analyzeParticipantDistribution(recentActivity),
-      conflictLevel: this.detectConflict(recentActivity)
+      conflictLevel: this.detectConflict(recentActivity),
     };
   }
 
@@ -1821,33 +1984,33 @@ export class AdaptiveStrategy extends BaseDiscussionStrategy {
     if (flowAnalysis.engagement > 0.7 && flowAnalysis.participantDistribution > 0.6) {
       return 'maintain';
     }
-    
+
     // Low engagement -> encourage participation
     if (flowAnalysis.engagement < 0.3) {
       return 'encourage';
     }
-    
+
     // Unbalanced participation -> rebalance
     if (flowAnalysis.participantDistribution < 0.4) {
       return 'rebalance';
     }
-    
+
     // High conflict -> moderate
     if (flowAnalysis.conflictLevel > 0.6) {
       return 'moderate';
     }
-    
+
     // Topic shift detected -> context-aware
     if (flowAnalysis.topicShifts > 2) {
       return 'context_aware';
     }
-    
+
     return 'round_robin'; // Default
   }
 
   private async applyAdaptedStrategy(
-    strategy: string, 
-    discussion: Discussion, 
+    strategy: string,
+    discussion: Discussion,
     participants: DiscussionParticipant[]
   ): Promise<DiscussionParticipant | null> {
     switch (strategy) {
@@ -1866,42 +2029,51 @@ export class AdaptiveStrategy extends BaseDiscussionStrategy {
     }
   }
 
-  private maintainCurrentPattern(discussion: Discussion, participants: DiscussionParticipant[]): DiscussionParticipant | null {
+  private maintainCurrentPattern(
+    discussion: Discussion,
+    participants: DiscussionParticipant[]
+  ): DiscussionParticipant | null {
     // Continue with the current successful pattern
     const context = this.getContext(discussion.id);
     const recentPattern = context?.metadata.successfulPattern;
-    
+
     if (recentPattern) {
-      return participants.find(p => p.id === recentPattern.nextParticipant) || participants[0];
+      return participants.find((p) => p.id === recentPattern.nextParticipant) || participants[0];
     }
-    
+
     return participants[0];
   }
 
-  private encourageParticipation(discussion: Discussion, participants: DiscussionParticipant[]): DiscussionParticipant | null {
+  private encourageParticipation(
+    discussion: Discussion,
+    participants: DiscussionParticipant[]
+  ): DiscussionParticipant | null {
     // Select participants who haven't contributed recently
     const context = this.getContext(discussion.id);
     const participantStats = context?.metadata.participantStats || {};
-    
-    const inactiveParticipants = participants.filter(p => {
+
+    const inactiveParticipants = participants.filter((p) => {
       const stats = participantStats[p.id];
       if (!stats) return true; // New participants
-      
+
       const timeSinceLastContribution = Date.now() - (stats.lastContribution || 0);
       return timeSinceLastContribution > 300000; // 5 minutes
     });
-    
+
     return inactiveParticipants.length > 0 ? inactiveParticipants[0] : participants[0];
   }
 
-  private rebalanceParticipation(discussion: Discussion, participants: DiscussionParticipant[]): DiscussionParticipant | null {
+  private rebalanceParticipation(
+    discussion: Discussion,
+    participants: DiscussionParticipant[]
+  ): DiscussionParticipant | null {
     // Select participant with lowest contribution count
     const context = this.getContext(discussion.id);
     const participantStats = context?.metadata.participantStats || {};
-    
+
     let leastActiveParticipant = participants[0];
     let lowestCount = participantStats[participants[0].id]?.messageCount || 0;
-    
+
     for (const participant of participants) {
       const count = participantStats[participant.id]?.messageCount || 0;
       if (count < lowestCount) {
@@ -1909,38 +2081,47 @@ export class AdaptiveStrategy extends BaseDiscussionStrategy {
         leastActiveParticipant = participant;
       }
     }
-    
+
     return leastActiveParticipant;
   }
 
-  private moderateDiscussion(discussion: Discussion, participants: DiscussionParticipant[]): DiscussionParticipant | null {
+  private moderateDiscussion(
+    discussion: Discussion,
+    participants: DiscussionParticipant[]
+  ): DiscussionParticipant | null {
     // Prefer moderators or neutral participants
-    const moderators = participants.filter(p => p.role === 'moderator');
+    const moderators = participants.filter((p) => p.role === 'moderator');
     if (moderators.length > 0) {
       return moderators[0];
     }
-    
+
     // Select participant least involved in recent conflict
     const context = this.getContext(discussion.id);
     const conflictParticipants = context?.metadata.conflictParticipants || new Set();
-    
-    const neutralParticipants = participants.filter(p => !conflictParticipants.has(p.id));
+
+    const neutralParticipants = participants.filter((p) => !conflictParticipants.has(p.id));
     return neutralParticipants.length > 0 ? neutralParticipants[0] : participants[0];
   }
 
-  private selectByContext(discussion: Discussion, participants: DiscussionParticipant[]): DiscussionParticipant | null {
+  private selectByContext(
+    discussion: Discussion,
+    participants: DiscussionParticipant[]
+  ): DiscussionParticipant | null {
     // Use context-aware strategy logic
     // This would integrate with the ContextAwareStrategy
     return participants[0]; // Simplified for example
   }
 
-  private roundRobinSelection(discussion: Discussion, participants: DiscussionParticipant[]): DiscussionParticipant | null {
+  private roundRobinSelection(
+    discussion: Discussion,
+    participants: DiscussionParticipant[]
+  ): DiscussionParticipant | null {
     // Standard round-robin logic
     if (!discussion.currentTurn) {
       return participants[0];
     }
-    
-    const currentIndex = participants.findIndex(p => p.id === discussion.currentTurn);
+
+    const currentIndex = participants.findIndex((p) => p.id === discussion.currentTurn);
     const nextIndex = (currentIndex + 1) % participants.length;
     return participants[nextIndex];
   }
@@ -1953,7 +2134,7 @@ export class AdaptiveStrategy extends BaseDiscussionStrategy {
 
   private calculateEngagement(recentActivity: any[]): number {
     // Simplified engagement calculation
-    const uniqueParticipants = new Set(recentActivity.map(a => a.participantId)).size;
+    const uniqueParticipants = new Set(recentActivity.map((a) => a.participantId)).size;
     return Math.min(1.0, uniqueParticipants / 5);
   }
 
@@ -1965,14 +2146,14 @@ export class AdaptiveStrategy extends BaseDiscussionStrategy {
   private analyzeParticipantDistribution(recentActivity: any[]): number {
     // Simplified distribution analysis
     const participantCounts = new Map();
-    recentActivity.forEach(a => {
+    recentActivity.forEach((a) => {
       participantCounts.set(a.participantId, (participantCounts.get(a.participantId) || 0) + 1);
     });
-    
+
     const counts = Array.from(participantCounts.values());
     const max = Math.max(...counts);
     const min = Math.min(...counts);
-    
+
     return max > 0 ? min / max : 1.0;
   }
 
@@ -1986,10 +2167,10 @@ export class AdaptiveStrategy extends BaseDiscussionStrategy {
     if (!this.adaptationHistory.has(discussionId)) {
       this.adaptationHistory.set(discussionId, []);
     }
-    
+
     const history = this.adaptationHistory.get(discussionId)!;
     history.push(record);
-    
+
     // Keep only recent history
     if (history.length > 50) {
       history.splice(0, history.length - 50);
@@ -1999,20 +2180,29 @@ export class AdaptiveStrategy extends BaseDiscussionStrategy {
   // Required abstract method implementations
   protected validateStrategySpecificConfig(config: TurnStrategyConfig): string[] {
     const errors: string[] = [];
-    
-    if (config.flowAnalysisDepth !== undefined && (config.flowAnalysisDepth < 1 || config.flowAnalysisDepth > 50)) {
+
+    if (
+      config.flowAnalysisDepth !== undefined &&
+      (config.flowAnalysisDepth < 1 || config.flowAnalysisDepth > 50)
+    ) {
       errors.push('Flow analysis depth must be between 1 and 50');
     }
-    
+
     return errors;
   }
 
-  protected async canParticipantTakeTurnStrategy(participant: DiscussionParticipant, discussion: Discussion): Promise<boolean> {
+  protected async canParticipantTakeTurnStrategy(
+    participant: DiscussionParticipant,
+    discussion: Discussion
+  ): Promise<boolean> {
     // Adaptive strategy allows flexible turn-taking
     return true;
   }
 
-  protected async onParticipantJoinedStrategy(participant: DiscussionParticipant, discussion: Discussion): Promise<void> {
+  protected async onParticipantJoinedStrategy(
+    participant: DiscussionParticipant,
+    discussion: Discussion
+  ): Promise<void> {
     // Initialize tracking for new participant
     const context = this.getContext(discussion.id);
     if (context) {
@@ -2022,12 +2212,15 @@ export class AdaptiveStrategy extends BaseDiscussionStrategy {
       context.metadata.participantStats[participant.id] = {
         joinedAt: Date.now(),
         messageCount: 0,
-        lastContribution: null
+        lastContribution: null,
       };
     }
   }
 
-  protected async onParticipantLeftStrategy(participant: DiscussionParticipant, discussion: Discussion): Promise<void> {
+  protected async onParticipantLeftStrategy(
+    participant: DiscussionParticipant,
+    discussion: Discussion
+  ): Promise<void> {
     // Clean up participant tracking
     const context = this.getContext(discussion.id);
     if (context && context.metadata.participantStats) {
@@ -2035,31 +2228,34 @@ export class AdaptiveStrategy extends BaseDiscussionStrategy {
     }
   }
 
-  protected async onTurnCompletedStrategy(participant: DiscussionParticipant, discussion: Discussion): Promise<void> {
+  protected async onTurnCompletedStrategy(
+    participant: DiscussionParticipant,
+    discussion: Discussion
+  ): Promise<void> {
     // Update participant activity tracking
     const context = this.getContext(discussion.id);
     if (context) {
       if (!context.metadata.participantStats) {
         context.metadata.participantStats = {};
       }
-      
+
       const stats = context.metadata.participantStats[participant.id];
       if (stats) {
         stats.messageCount++;
         stats.lastContribution = Date.now();
       }
-      
+
       // Track recent activity for flow analysis
       if (!context.metadata.recentActivity) {
         context.metadata.recentActivity = [];
       }
-      
+
       context.metadata.recentActivity.push({
         participantId: participant.id,
         timestamp: Date.now(),
-        type: 'message'
+        type: 'message',
       });
-      
+
       // Keep only recent activity
       if (context.metadata.recentActivity.length > 20) {
         context.metadata.recentActivity.splice(0, context.metadata.recentActivity.length - 20);
@@ -2129,7 +2325,7 @@ export class StrategyFactory {
       return {
         name: strategy.name,
         description: strategy.description,
-        defaultConfig: strategy.defaultConfig
+        defaultConfig: strategy.defaultConfig,
       };
     } catch {
       return null;
@@ -2147,7 +2343,7 @@ export class StrategyConfigService {
     } catch (error) {
       return {
         isValid: false,
-        errors: [`Invalid strategy: ${strategy}`]
+        errors: [`Invalid strategy: ${strategy}`],
       };
     }
   }
@@ -2166,14 +2362,19 @@ export class StrategyConfigService {
     return {
       strategy,
       ...defaultConfig,
-      ...config
+      ...config,
     } as TurnStrategyConfig;
   }
 
   getAllStrategiesInfo(): Array<{ name: string; description: string; defaultConfig: any }> {
-    return this.strategyFactory.getAvailableStrategies()
-      .map(name => this.strategyFactory.getStrategyInfo(name))
-      .filter(info => info !== null) as Array<{ name: string; description: string; defaultConfig: any }>;
+    return this.strategyFactory
+      .getAvailableStrategies()
+      .map((name) => this.strategyFactory.getStrategyInfo(name))
+      .filter((info) => info !== null) as Array<{
+      name: string;
+      description: string;
+      defaultConfig: any;
+    }>;
   }
 }
 ```
@@ -2266,6 +2467,7 @@ src/
 ## 🎯 Benefits Summary
 
 **Code Quality Improvements:**
+
 - **90% reduction** in largest file sizes (1,906 → 300 lines)
 - **Eliminated all duplication** in WebSocket handlers
 - **Complete separation** of concerns with single responsibility classes
@@ -2273,6 +2475,7 @@ src/
 - **Strategy pattern** enabling flexible discussion management
 
 **Architectural Benefits:**
+
 - **Dependency injection** for loose coupling and easy testing
 - **Event-driven architecture** with centralized coordination
 - **Pluggable strategies** for different discussion types
@@ -2280,6 +2483,7 @@ src/
 - **Comprehensive error handling** and logging
 
 **Maintainability Gains:**
+
 - **Focused, single-purpose files** easy to understand and modify
 - **Clear dependency relationships** through interfaces
 - **Extensible strategy system** for new discussion types
@@ -2287,12 +2491,14 @@ src/
 - **Systematic testing approach** with proper mocking
 
 **Performance Improvements:**
+
 - **Reduced memory footprint** through better cleanup
 - **Faster startup times** with lazy service initialization
 - **Better scalability** with service isolation
 - **Optimized event processing** through middleware pipeline
 
 **Developer Experience:**
+
 - **Easier debugging** with smaller, focused components
 - **Better IDE support** with proper TypeScript interfaces
 - **Clear architectural guidelines** for new features

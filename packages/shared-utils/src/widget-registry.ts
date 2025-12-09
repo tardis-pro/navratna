@@ -1,13 +1,13 @@
-import { 
-  BaseWidget, 
-  WidgetInstance, 
-  WidgetAccessResponse, 
-  WidgetPermission, 
+import {
+  BaseWidget,
+  WidgetInstance,
+  WidgetAccessResponse,
+  WidgetPermission,
   WidgetCategory,
   WidgetStatus,
   WidgetRegistryQuery,
   WidgetRBAC,
-  SecurityLevel
+  SecurityLevel,
 } from '@uaip/types';
 
 export interface UserContext {
@@ -38,7 +38,7 @@ export class WidgetRegistry {
       defaultPermissions: [WidgetPermission.VIEW],
       allowDynamicRegistration: true,
       auditEnabled: true,
-      ...options
+      ...options,
     };
   }
 
@@ -83,20 +83,22 @@ export class WidgetRegistry {
    */
   getAccessibleWidgets(userContext: UserContext): BaseWidget[] {
     if (!this.options.enableRBAC) {
-      return this.getAllWidgets().filter(w => w.status === WidgetStatus.ACTIVE);
+      return this.getAllWidgets().filter((w) => w.status === WidgetStatus.ACTIVE);
     }
 
-    return this.getAllWidgets()
-      .filter(widget => {
-        const access = this.checkWidgetAccess(widget.id, userContext);
-        return access.hasAccess && widget.status === WidgetStatus.ACTIVE;
-      });
+    return this.getAllWidgets().filter((widget) => {
+      const access = this.checkWidgetAccess(widget.id, userContext);
+      return access.hasAccess && widget.status === WidgetStatus.ACTIVE;
+    });
   }
 
   /**
    * Query widgets with filters
    */
-  queryWidgets(query: WidgetRegistryQuery, userContext?: UserContext): {
+  queryWidgets(
+    query: WidgetRegistryQuery,
+    userContext?: UserContext
+  ): {
     widgets: BaseWidget[];
     total: number;
     page: number;
@@ -106,7 +108,7 @@ export class WidgetRegistry {
 
     // Apply user access filter if RBAC is enabled and user context provided
     if (this.options.enableRBAC && userContext) {
-      widgets = widgets.filter(widget => {
+      widgets = widgets.filter((widget) => {
         const access = this.checkWidgetAccess(widget.id, userContext);
         return access.hasAccess;
       });
@@ -114,33 +116,32 @@ export class WidgetRegistry {
 
     // Apply filters
     if (query.category) {
-      widgets = widgets.filter(w => w.category === query.category);
+      widgets = widgets.filter((w) => w.category === query.category);
     }
 
     if (query.status) {
-      widgets = widgets.filter(w => w.status === query.status);
+      widgets = widgets.filter((w) => w.status === query.status);
     }
 
     if (query.search) {
       const searchLower = query.search.toLowerCase();
-      widgets = widgets.filter(w => 
-        w.name.toLowerCase().includes(searchLower) ||
-        w.title.toLowerCase().includes(searchLower) ||
-        w.metadata.description?.toLowerCase().includes(searchLower) ||
-        w.metadata.tags?.some(tag => tag.toLowerCase().includes(searchLower))
+      widgets = widgets.filter(
+        (w) =>
+          w.name.toLowerCase().includes(searchLower) ||
+          w.title.toLowerCase().includes(searchLower) ||
+          w.metadata.description?.toLowerCase().includes(searchLower) ||
+          w.metadata.tags?.some((tag) => tag.toLowerCase().includes(searchLower))
       );
     }
 
     if (query.tags && query.tags.length > 0) {
-      widgets = widgets.filter(w => 
-        query.tags!.some(tag => w.metadata.tags?.includes(tag))
-      );
+      widgets = widgets.filter((w) => query.tags!.some((tag) => w.metadata.tags?.includes(tag)));
     }
 
     // Sort widgets
     widgets.sort((a, b) => {
       let aValue: any, bValue: any;
-      
+
       switch (query.sortBy) {
         case 'name':
           aValue = a.name;
@@ -174,7 +175,7 @@ export class WidgetRegistry {
       widgets: paginatedWidgets,
       total,
       page: query.page,
-      limit: query.limit
+      limit: query.limit,
     };
   }
 
@@ -189,7 +190,7 @@ export class WidgetRegistry {
         hasAccess: true,
         grantedPermissions: Object.values(WidgetPermission),
         deniedPermissions: [],
-        accessLevel: WidgetPermission.ADMIN
+        accessLevel: WidgetPermission.ADMIN,
       };
     }
 
@@ -208,12 +209,12 @@ export class WidgetRegistry {
         grantedPermissions: [],
         deniedPermissions: Object.values(WidgetPermission),
         accessLevel: WidgetPermission.VIEW,
-        reason: 'Widget not found'
+        reason: 'Widget not found',
       };
     }
 
     const accessResponse = this.evaluateWidgetAccess(widget, userContext);
-    
+
     // Cache the result
     if (!this.userAccess.has(userContext.id)) {
       this.userAccess.set(userContext.id, new Map());
@@ -241,10 +242,10 @@ export class WidgetRegistry {
 
     const updatedWidget = { ...widget, ...updates, updatedAt: new Date() };
     this.validateWidget(updatedWidget);
-    
+
     this.widgets.set(widgetId, updatedWidget);
     this.clearWidgetAccessCache(widgetId);
-    
+
     return true;
   }
 
@@ -298,13 +299,16 @@ export class WidgetRegistry {
         grantedPermissions: [],
         deniedPermissions: Object.values(WidgetPermission),
         accessLevel: WidgetPermission.VIEW,
-        reason: 'User explicitly denied access'
+        reason: 'User explicitly denied access',
       };
     }
 
     // Check security level requirement
-    if (rbac.requiredSecurityLevel && 
-        this.getSecurityLevelValue(userContext.securityLevel) < this.getSecurityLevelValue(rbac.requiredSecurityLevel)) {
+    if (
+      rbac.requiredSecurityLevel &&
+      this.getSecurityLevelValue(userContext.securityLevel) <
+        this.getSecurityLevelValue(rbac.requiredSecurityLevel)
+    ) {
       return {
         widgetId: widget.id,
         userId: userContext.id,
@@ -312,7 +316,7 @@ export class WidgetRegistry {
         grantedPermissions: [],
         deniedPermissions: Object.values(WidgetPermission),
         accessLevel: WidgetPermission.VIEW,
-        reason: 'Insufficient security clearance'
+        reason: 'Insufficient security clearance',
       };
     }
 
@@ -326,7 +330,7 @@ export class WidgetRegistry {
           grantedPermissions: [],
           deniedPermissions: Object.values(WidgetPermission),
           accessLevel: WidgetPermission.VIEW,
-          reason: 'Role not authorized'
+          reason: 'Role not authorized',
         };
       }
     }
@@ -341,7 +345,7 @@ export class WidgetRegistry {
           grantedPermissions: [],
           deniedPermissions: Object.values(WidgetPermission),
           accessLevel: WidgetPermission.VIEW,
-          reason: 'Department not authorized'
+          reason: 'Department not authorized',
         };
       }
     }
@@ -355,18 +359,19 @@ export class WidgetRegistry {
         grantedPermissions: Object.values(WidgetPermission),
         deniedPermissions: [],
         accessLevel: WidgetPermission.ADMIN,
-        reason: 'User explicitly granted access'
+        reason: 'User explicitly granted access',
       };
     }
 
     // Evaluate permissions based on user permissions and widget requirements
     const userPermissionSet = new Set(userContext.permissions);
-    
+
     for (const permission of Object.values(WidgetPermission)) {
       // Check if user has the specific permission or a wildcard permission
-      const hasPermission = userPermissionSet.has(`widget:${permission}`) ||
-                           userPermissionSet.has('widget:*') ||
-                           userPermissionSet.has('*');
+      const hasPermission =
+        userPermissionSet.has(`widget:${permission}`) ||
+        userPermissionSet.has('widget:*') ||
+        userPermissionSet.has('*');
 
       if (hasPermission) {
         grantedPermissions.push(permission);
@@ -376,7 +381,7 @@ export class WidgetRegistry {
     }
 
     // Check if user has minimum required permissions
-    const hasRequiredPermissions = rbac.requiredPermissions.every(reqPerm => 
+    const hasRequiredPermissions = rbac.requiredPermissions.every((reqPerm) =>
       grantedPermissions.includes(reqPerm)
     );
 
@@ -388,7 +393,7 @@ export class WidgetRegistry {
         grantedPermissions,
         deniedPermissions,
         accessLevel: WidgetPermission.VIEW,
-        reason: 'Insufficient permissions'
+        reason: 'Insufficient permissions',
       };
     }
 
@@ -414,14 +419,17 @@ export class WidgetRegistry {
       grantedPermissions,
       deniedPermissions,
       accessLevel,
-      restrictions
+      restrictions,
     };
   }
 
   /**
    * Evaluate conditional access restrictions
    */
-  private evaluateConditionalAccess(rbac: WidgetRBAC, userContext: UserContext): {
+  private evaluateConditionalAccess(
+    rbac: WidgetRBAC,
+    userContext: UserContext
+  ): {
     timeRestricted: boolean;
     ipRestricted: boolean;
     deviceRestricted: boolean;
@@ -429,7 +437,7 @@ export class WidgetRegistry {
     const restrictions = {
       timeRestricted: false,
       ipRestricted: false,
-      deviceRestricted: false
+      deviceRestricted: false,
     };
 
     if (rbac.conditionalAccess) {
@@ -442,7 +450,7 @@ export class WidgetRegistry {
 
       // IP restrictions
       if (rbac.conditionalAccess.ipRestrictions && userContext.ipAddress) {
-        const isAllowedIP = rbac.conditionalAccess.ipRestrictions.some(allowedIP => 
+        const isAllowedIP = rbac.conditionalAccess.ipRestrictions.some((allowedIP) =>
           this.matchesIPPattern(userContext.ipAddress!, allowedIP)
         );
         restrictions.ipRestricted = !isAllowedIP;
@@ -450,7 +458,7 @@ export class WidgetRegistry {
 
       // Device restrictions
       if (rbac.conditionalAccess.deviceRestrictions && userContext.userAgent) {
-        const isAllowedDevice = rbac.conditionalAccess.deviceRestrictions.some(allowedDevice =>
+        const isAllowedDevice = rbac.conditionalAccess.deviceRestrictions.some((allowedDevice) =>
           userContext.userAgent!.includes(allowedDevice)
         );
         restrictions.deviceRestricted = !isAllowedDevice;
@@ -478,14 +486,19 @@ export class WidgetRegistry {
    */
   private getSecurityLevelValue(level: SecurityLevel): number {
     switch (level) {
-      case SecurityLevel.LOW: return 1;
-      case SecurityLevel.MEDIUM: return 2;
-      case SecurityLevel.HIGH: return 3;
-      case SecurityLevel.CRITICAL: return 4;
-      default: return 0;
+      case SecurityLevel.LOW:
+        return 1;
+      case SecurityLevel.MEDIUM:
+        return 2;
+      case SecurityLevel.HIGH:
+        return 3;
+      case SecurityLevel.CRITICAL:
+        return 4;
+      default:
+        return 0;
     }
   }
 }
 
 // Singleton instance for global widget registry
-export const globalWidgetRegistry = new WidgetRegistry(); 
+export const globalWidgetRegistry = new WidgetRegistry();

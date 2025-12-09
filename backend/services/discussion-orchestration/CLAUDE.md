@@ -9,6 +9,7 @@ This is the **Discussion Orchestration Service** - one of 7 microservices in the
 ## Service Architecture
 
 ### Core Responsibilities
+
 - **Real-time Discussion Management** - WebSocket-based coordination via Socket.IO
 - **Turn Strategy System** - Multiple strategies (Round Robin, Context-Aware, Moderated)
 - **Participant Management** - Dynamic participant addition/removal with role management
@@ -16,6 +17,7 @@ This is the **Discussion Orchestration Service** - one of 7 microservices in the
 - **Discussion Analytics** - Real-time metrics and insights
 
 ### Key Components
+
 ```
 src/
 ├── index.ts                     # Service entry point (extends BaseService)
@@ -42,6 +44,7 @@ src/
 ## Common Development Commands
 
 ### Service Development
+
 ```bash
 # Development mode (hot reload)
 npm run dev
@@ -57,6 +60,7 @@ npm run build:watch
 ```
 
 ### Testing
+
 ```bash
 # Run all tests
 npm test
@@ -72,6 +76,7 @@ npm run test:ci
 ```
 
 ### Code Quality
+
 ```bash
 # Lint TypeScript
 npm run lint
@@ -95,6 +100,7 @@ npm run clean
 ## Architecture Patterns
 
 ### Event-Driven Communication
+
 ```typescript
 // Subscribe to agent messages
 await this.eventBusService.subscribe('discussion.agent.message', async (event) => {
@@ -106,6 +112,7 @@ await this.eventBusService.publish('orchestration.control', event);
 ```
 
 ### WebSocket Authentication
+
 ```typescript
 // Socket.IO middleware for token validation
 this.io.use(async (socket, next) => {
@@ -117,6 +124,7 @@ this.io.use(async (socket, next) => {
 ```
 
 ### Turn Strategy Pattern
+
 ```typescript
 // Strategy interface implementation
 export class CustomStrategy implements TurnStrategy {
@@ -132,16 +140,19 @@ this.strategies.set('custom', new CustomStrategy());
 ## Integration Points
 
 ### With Agent Intelligence Service
+
 - Receives agent messages via `discussion.agent.message` events
 - Coordinates agent participation in discussions
 - Provides discussion context for AI responses
 
 ### With Security Gateway
+
 - Validates WebSocket authentication tokens
 - Enforces user authorization for discussions
 - Maintains compliance audit trails
 
 ### With Shared Services
+
 - Uses `DiscussionService` for data persistence
 - Leverages `PersonaService` for agent management
 - Integrates with enterprise event bus and caching
@@ -149,6 +160,7 @@ this.strategies.set('custom', new CustomStrategy());
 ## Configuration
 
 ### Environment Variables
+
 ```bash
 PORT=3005
 NODE_ENV=development
@@ -162,6 +174,7 @@ MAX_PARTICIPANTS=50
 ```
 
 ### Turn Strategy Configuration
+
 ```typescript
 // Round Robin
 {
@@ -175,7 +188,7 @@ MAX_PARTICIPANTS=50
 
 // Context-Aware
 {
-  "type": "context-aware", 
+  "type": "context-aware",
   "config": {
     "relevanceThreshold": 0.7,
     "maxConsecutiveTurns": 3,
@@ -187,14 +200,16 @@ MAX_PARTICIPANTS=50
 ## WebSocket Events
 
 ### Discussion Events
+
 - `discussion:join` - Join discussion room
-- `discussion:leave` - Leave discussion room  
+- `discussion:leave` - Leave discussion room
 - `discussion:message` - Send discussion message
 - `discussion:turn-request` - Request speaking turn
 - `discussion:turn-granted` - Turn granted notification
 - `discussion:participant-joined` - New participant notification
 
 ### Socket.IO Namespaces
+
 - Main namespace: `/` (default)
 - Conversation Intelligence: `/conversation-intelligence`
 - Task Notifications: `/task-notifications`
@@ -222,11 +237,12 @@ private async acquireLock(operationId: string): Promise<boolean> {
 ## Debugging & Monitoring
 
 ### Debug Endpoints
+
 ```bash
 # Race condition detection
 GET /api/v1/debug/race-conditions
 
-# Memory usage monitoring  
+# Memory usage monitoring
 GET /api/v1/debug/memory-usage
 
 # Force cleanup trigger
@@ -237,6 +253,7 @@ GET /api/v1/debug/pending-requests
 ```
 
 ### Health Checks
+
 ```bash
 # Service health
 GET /health
@@ -264,7 +281,7 @@ import { DiscussionOrchestrationService } from './services/discussionOrchestrati
 ## Performance Targets
 
 - Discussion creation: < 100ms
-- Turn management: < 50ms  
+- Turn management: < 50ms
 - WebSocket message delivery: < 10ms
 - Strategy execution: < 200ms
 - Concurrent discussions: 1000+

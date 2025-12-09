@@ -1,9 +1,24 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  User, Brain, MessageSquare, Settings, ArrowRight, ArrowLeft, 
-  Check, Clock, Target, Lightbulb, Shield, Users, Zap,
-  BookOpen, Timer, AlertCircle, CheckCircle, X
+  User,
+  Brain,
+  MessageSquare,
+  Settings,
+  ArrowRight,
+  ArrowLeft,
+  Check,
+  Clock,
+  Target,
+  Lightbulb,
+  Shield,
+  Users,
+  Zap,
+  BookOpen,
+  Timer,
+  AlertCircle,
+  CheckCircle,
+  X,
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -63,28 +78,28 @@ const ONBOARDING_STEPS: OnboardingStep[] = [
             label: 'Collaborative',
             description: 'I thrive in team environments and frequent discussions',
             icon: Users,
-            value: 'collaborative'
+            value: 'collaborative',
           },
           {
             id: 'independent',
             label: 'Independent',
             description: 'I prefer working alone and minimal interruptions',
             icon: User,
-            value: 'independent'
+            value: 'independent',
           },
           {
             id: 'hybrid',
             label: 'Hybrid',
             description: 'I adapt based on the task and situation',
             icon: Settings,
-            value: 'hybrid'
-          }
+            value: 'hybrid',
+          },
         ],
-        required: true
+        required: true,
       },
       {
         id: 'workflow-style',
-        question: 'What\'s your preferred workflow style?',
+        question: "What's your preferred workflow style?",
         description: 'This influences how we organize your tasks and information',
         options: [
           {
@@ -92,26 +107,26 @@ const ONBOARDING_STEPS: OnboardingStep[] = [
             label: 'Structured',
             description: 'I prefer clear processes and defined steps',
             icon: Target,
-            value: 'structured'
+            value: 'structured',
           },
           {
             id: 'flexible',
             label: 'Flexible',
             description: 'I adapt my approach based on the situation',
             icon: Zap,
-            value: 'flexible'
+            value: 'flexible',
           },
           {
             id: 'experimental',
             label: 'Experimental',
             description: 'I like to try new approaches and innovate',
             icon: Lightbulb,
-            value: 'experimental'
-          }
+            value: 'experimental',
+          },
         ],
-        required: true
-      }
-    ]
+        required: true,
+      },
+    ],
   },
   {
     id: 'communication',
@@ -130,24 +145,24 @@ const ONBOARDING_STEPS: OnboardingStep[] = [
             label: 'Brief & Concise',
             description: 'Get to the point quickly with key highlights',
             icon: Zap,
-            value: 'brief'
+            value: 'brief',
           },
           {
             id: 'detailed',
             label: 'Detailed & Thorough',
             description: 'I want comprehensive information and context',
             icon: BookOpen,
-            value: 'detailed'
+            value: 'detailed',
           },
           {
             id: 'visual',
             label: 'Visual & Interactive',
             description: 'Show me charts, diagrams, and visual aids',
             icon: Target,
-            value: 'visual'
-          }
+            value: 'visual',
+          },
         ],
-        required: true
+        required: true,
       },
       {
         id: 'feedback-preference',
@@ -159,26 +174,26 @@ const ONBOARDING_STEPS: OnboardingStep[] = [
             label: 'Immediate',
             description: 'Real-time updates and instant notifications',
             icon: Zap,
-            value: 'immediate'
+            value: 'immediate',
           },
           {
             id: 'summary',
             label: 'Summary',
             description: 'Periodic summaries of key developments',
             icon: Clock,
-            value: 'summary'
+            value: 'summary',
           },
           {
             id: 'detailed',
             label: 'Detailed Reports',
             description: 'Comprehensive reports with full context',
             icon: BookOpen,
-            value: 'detailed'
-          }
+            value: 'detailed',
+          },
         ],
-        required: true
-      }
-    ]
+        required: true,
+      },
+    ],
   },
   {
     id: 'expertise',
@@ -198,47 +213,47 @@ const ONBOARDING_STEPS: OnboardingStep[] = [
             label: 'Software Development',
             description: 'Programming, architecture, and technical implementation',
             icon: Settings,
-            value: 'software-development'
+            value: 'software-development',
           },
           {
             id: 'product-management',
             label: 'Product Management',
             description: 'Product strategy, roadmaps, and user experience',
             icon: Target,
-            value: 'product-management'
+            value: 'product-management',
           },
           {
             id: 'data-science',
             label: 'Data Science',
             description: 'Analytics, machine learning, and data insights',
             icon: Brain,
-            value: 'data-science'
+            value: 'data-science',
           },
           {
             id: 'design',
             label: 'Design',
             description: 'UI/UX, visual design, and user research',
             icon: Lightbulb,
-            value: 'design'
+            value: 'design',
           },
           {
             id: 'marketing',
             label: 'Marketing',
             description: 'Growth, campaigns, and customer acquisition',
             icon: MessageSquare,
-            value: 'marketing'
+            value: 'marketing',
           },
           {
             id: 'operations',
             label: 'Operations',
             description: 'Process optimization, automation, and efficiency',
             icon: Settings,
-            value: 'operations'
-          }
+            value: 'operations',
+          },
         ],
-        required: true
-      }
-    ]
+        required: true,
+      },
+    ],
   },
   {
     id: 'preferences',
@@ -257,24 +272,24 @@ const ONBOARDING_STEPS: OnboardingStep[] = [
             label: 'Analytical',
             description: 'Break down problems systematically with data',
             icon: Brain,
-            value: 'analytical'
+            value: 'analytical',
           },
           {
             id: 'creative',
             label: 'Creative',
             description: 'Explore innovative solutions and alternatives',
             icon: Lightbulb,
-            value: 'creative'
+            value: 'creative',
           },
           {
             id: 'pragmatic',
             label: 'Pragmatic',
             description: 'Focus on practical, actionable solutions',
             icon: Target,
-            value: 'pragmatic'
-          }
+            value: 'pragmatic',
+          },
         ],
-        required: false
+        required: false,
       },
       {
         id: 'decision-making',
@@ -286,24 +301,24 @@ const ONBOARDING_STEPS: OnboardingStep[] = [
             label: 'Quick Decisions',
             description: 'I prefer to move fast with available information',
             icon: Zap,
-            value: 'quick'
+            value: 'quick',
           },
           {
             id: 'deliberate',
             label: 'Deliberate Analysis',
             description: 'I take time to analyze all options thoroughly',
             icon: Clock,
-            value: 'deliberate'
+            value: 'deliberate',
           },
           {
             id: 'consensus',
             label: 'Consensus Building',
             description: 'I prefer to involve others in decision-making',
             icon: Users,
-            value: 'consensus'
-          }
+            value: 'consensus',
+          },
         ],
-        required: false
+        required: false,
       },
       {
         id: 'time-management',
@@ -315,33 +330,33 @@ const ONBOARDING_STEPS: OnboardingStep[] = [
             label: 'Deadline-Driven',
             description: 'I work best with clear deadlines and urgency',
             icon: Timer,
-            value: 'deadline-driven'
+            value: 'deadline-driven',
           },
           {
             id: 'flexible',
             label: 'Flexible Schedule',
             description: 'I prefer to adapt my schedule as needed',
             icon: Clock,
-            value: 'flexible'
+            value: 'flexible',
           },
           {
             id: 'time-blocked',
             label: 'Time-Blocked',
             description: 'I plan specific time blocks for different activities',
             icon: Target,
-            value: 'time-blocked'
-          }
+            value: 'time-blocked',
+          },
         ],
-        required: false
-      }
-    ]
-  }
+        required: false,
+      },
+    ],
+  },
 ];
 
 export const UserPersonaOnboardingFlow: React.FC<UserPersonaOnboardingFlowProps> = ({
   isOpen,
   onClose,
-  onComplete
+  onComplete,
 }) => {
   const { user } = useAuth();
   const [currentStep, setCurrentStep] = useState(0);
@@ -351,20 +366,20 @@ export const UserPersonaOnboardingFlow: React.FC<UserPersonaOnboardingFlowProps>
   const currentStepData = ONBOARDING_STEPS[currentStep];
 
   const handleResponse = (questionId: string, selectedValues: string[]) => {
-    setResponses(prev => ({
+    setResponses((prev) => ({
       ...prev,
       [questionId]: {
         questionId,
         selectedValues,
-        timestamp: new Date()
-      }
+        timestamp: new Date(),
+      },
     }));
   };
 
   const canProceedToNext = () => {
-    const currentStepQuestions = currentStepData.questions.filter(q => q.required);
-    return currentStepQuestions.every(question => 
-      responses[question.id] && responses[question.id].selectedValues.length > 0
+    const currentStepQuestions = currentStepData.questions.filter((q) => q.required);
+    return currentStepQuestions.every(
+      (question) => responses[question.id] && responses[question.id].selectedValues.length > 0
     );
   };
 
@@ -384,12 +399,13 @@ export const UserPersonaOnboardingFlow: React.FC<UserPersonaOnboardingFlowProps>
 
   const handleComplete = async () => {
     setIsSubmitting(true);
-    
+
     try {
       // Transform responses into persona data
       const personaData = {
         workStyle: responses['collaboration-preference']?.selectedValues[0] || 'hybrid',
-        communicationPreference: responses['communication-preference']?.selectedValues[0] || 'detailed',
+        communicationPreference:
+          responses['communication-preference']?.selectedValues[0] || 'detailed',
         domainExpertise: responses['domain-expertise']?.selectedValues || [],
         toolPreferences: [], // Will be populated based on expertise
         workflowStyle: responses['workflow-style']?.selectedValues[0] || 'flexible',
@@ -397,16 +413,16 @@ export const UserPersonaOnboardingFlow: React.FC<UserPersonaOnboardingFlowProps>
         decisionMaking: responses['decision-making']?.selectedValues[0] || 'deliberate',
         learningStyle: 'hands-on', // Default for now
         timeManagement: responses['time-management']?.selectedValues[0] || 'flexible',
-        riskTolerance: 'moderate' // Default for now
+        riskTolerance: 'moderate', // Default for now
       };
 
       const onboardingProgress = {
         isCompleted: true,
         currentStep: ONBOARDING_STEPS.length,
-        completedSteps: ONBOARDING_STEPS.map(step => step.id),
+        completedSteps: ONBOARDING_STEPS.map((step) => step.id),
         startedAt: new Date(),
         completedAt: new Date(),
-        responses: responses
+        responses: responses,
       };
 
       await onComplete({ personaData, onboardingProgress });
@@ -432,19 +448,19 @@ export const UserPersonaOnboardingFlow: React.FC<UserPersonaOnboardingFlowProps>
           {question.options.map((option) => {
             const Icon = option.icon;
             const isSelected = selectedValues.includes(option.value);
-            
+
             return (
               <motion.div
                 key={option.id}
                 className={`p-4 rounded-xl border cursor-pointer transition-all duration-200 ${
-                  isSelected 
-                    ? 'border-blue-500/50 bg-blue-500/10 shadow-lg shadow-blue-500/20' 
+                  isSelected
+                    ? 'border-blue-500/50 bg-blue-500/10 shadow-lg shadow-blue-500/20'
                     : 'border-slate-700/50 bg-slate-800/50 hover:border-slate-600/50'
                 }`}
                 onClick={() => {
                   if (question.allowMultiple) {
-                    const newValues = isSelected 
-                      ? selectedValues.filter(v => v !== option.value)
+                    const newValues = isSelected
+                      ? selectedValues.filter((v) => v !== option.value)
                       : [...selectedValues, option.value];
                     handleResponse(question.id, newValues);
                   } else {
@@ -455,10 +471,14 @@ export const UserPersonaOnboardingFlow: React.FC<UserPersonaOnboardingFlowProps>
                 whileTap={{ scale: 0.98 }}
               >
                 <div className="flex items-start gap-3">
-                  <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
-                    isSelected ? 'bg-blue-500/20 border border-blue-500/30' : 'bg-slate-700/50'
-                  }`}>
-                    <Icon className={`w-5 h-5 ${isSelected ? 'text-blue-400' : 'text-slate-400'}`} />
+                  <div
+                    className={`w-10 h-10 rounded-lg flex items-center justify-center ${
+                      isSelected ? 'bg-blue-500/20 border border-blue-500/30' : 'bg-slate-700/50'
+                    }`}
+                  >
+                    <Icon
+                      className={`w-5 h-5 ${isSelected ? 'text-blue-400' : 'text-slate-400'}`}
+                    />
                   </div>
                   <div className="flex-1">
                     <div className="flex items-center justify-between mb-1">
@@ -474,17 +494,22 @@ export const UserPersonaOnboardingFlow: React.FC<UserPersonaOnboardingFlowProps>
         </div>
 
         {question.allowMultiple && selectedValues.length > 0 && (
-          <motion.div 
+          <motion.div
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             className="mt-4 p-3 bg-blue-500/10 border border-blue-500/20 rounded-lg"
           >
-            <p className="text-blue-400 text-sm font-medium mb-2">Selected ({selectedValues.length}):</p>
+            <p className="text-blue-400 text-sm font-medium mb-2">
+              Selected ({selectedValues.length}):
+            </p>
             <div className="flex flex-wrap gap-2">
-              {selectedValues.map(value => {
-                const option = question.options.find(opt => opt.value === value);
+              {selectedValues.map((value) => {
+                const option = question.options.find((opt) => opt.value === value);
                 return (
-                  <span key={value} className="px-2 py-1 bg-blue-500/20 text-blue-300 rounded text-sm">
+                  <span
+                    key={value}
+                    className="px-2 py-1 bg-blue-500/20 text-blue-300 rounded text-sm"
+                  >
                     {option?.label}
                   </span>
                 );
@@ -525,22 +550,26 @@ export const UserPersonaOnboardingFlow: React.FC<UserPersonaOnboardingFlowProps>
               <X className="w-5 h-5 text-slate-400" />
             </button>
           </div>
-          
+
           {/* Progress Bar */}
           <div className="mt-6">
             <div className="flex items-center justify-between mb-2">
-              <span className="text-sm text-slate-400">Step {currentStep + 1} of {ONBOARDING_STEPS.length}</span>
-              <span className="text-sm text-slate-400">{Math.round(((currentStep + 1) / ONBOARDING_STEPS.length) * 100)}%</span>
+              <span className="text-sm text-slate-400">
+                Step {currentStep + 1} of {ONBOARDING_STEPS.length}
+              </span>
+              <span className="text-sm text-slate-400">
+                {Math.round(((currentStep + 1) / ONBOARDING_STEPS.length) * 100)}%
+              </span>
             </div>
             <div className="w-full bg-slate-800 rounded-full h-2">
-              <div 
+              <div
                 className="h-2 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-full transition-all duration-300"
                 style={{ width: `${((currentStep + 1) / ONBOARDING_STEPS.length) * 100}%` }}
               />
             </div>
           </div>
         </div>
-        
+
         {/* Content */}
         <div className="p-6 overflow-y-auto flex-1">
           <AnimatePresence mode="wait">
@@ -558,7 +587,7 @@ export const UserPersonaOnboardingFlow: React.FC<UserPersonaOnboardingFlowProps>
             </motion.div>
           </AnimatePresence>
         </div>
-        
+
         {/* Footer */}
         <div className="p-6 border-t border-slate-800/50 flex items-center justify-between">
           <button
@@ -569,7 +598,7 @@ export const UserPersonaOnboardingFlow: React.FC<UserPersonaOnboardingFlowProps>
             <ArrowLeft className="w-4 h-4" />
             Back
           </button>
-          
+
           <div className="flex items-center gap-2">
             {ONBOARDING_STEPS.map((_, index) => (
               <div
@@ -580,7 +609,7 @@ export const UserPersonaOnboardingFlow: React.FC<UserPersonaOnboardingFlowProps>
               />
             ))}
           </div>
-          
+
           <button
             onClick={handleNext}
             disabled={!canProceedToNext() || isSubmitting}

@@ -78,24 +78,24 @@ export interface TaxonomyGenerationResult {
 
 export class TaxonomyGeneratorService {
   private readonly categoryTemplates = {
-    'programming': [
+    programming: [
       { name: 'Languages', keywords: ['language', 'programming', 'syntax', 'compiler'] },
       { name: 'Frameworks', keywords: ['framework', 'library', 'tool', 'package'] },
       { name: 'Concepts', keywords: ['concept', 'pattern', 'principle', 'methodology'] },
-      { name: 'Practices', keywords: ['practice', 'technique', 'approach', 'method'] }
+      { name: 'Practices', keywords: ['practice', 'technique', 'approach', 'method'] },
     ],
-    'business': [
+    business: [
       { name: 'Strategy', keywords: ['strategy', 'planning', 'goal', 'objective'] },
       { name: 'Operations', keywords: ['process', 'operation', 'workflow', 'procedure'] },
       { name: 'Finance', keywords: ['finance', 'budget', 'cost', 'revenue'] },
-      { name: 'Management', keywords: ['management', 'leadership', 'team', 'organization'] }
+      { name: 'Management', keywords: ['management', 'leadership', 'team', 'organization'] },
     ],
-    'science': [
+    science: [
       { name: 'Research', keywords: ['research', 'study', 'experiment', 'analysis'] },
       { name: 'Methods', keywords: ['method', 'technique', 'approach', 'protocol'] },
       { name: 'Results', keywords: ['result', 'finding', 'outcome', 'conclusion'] },
-      { name: 'Theory', keywords: ['theory', 'hypothesis', 'model', 'framework'] }
-    ]
+      { name: 'Theory', keywords: ['theory', 'hypothesis', 'model', 'framework'] },
+    ],
   };
 
   constructor(
@@ -121,9 +121,8 @@ export class TaxonomyGeneratorService {
       // Filter knowledge items by domain if specified
       let items = knowledgeItems;
       if (domain) {
-        items = items.filter(item => 
-          item.tags.includes(domain) || 
-          item.metadata.domain === domain
+        items = items.filter(
+          (item) => item.tags.includes(domain) || item.metadata.domain === domain
         );
       }
 
@@ -132,7 +131,9 @@ export class TaxonomyGeneratorService {
       }
 
       const detectedDomain = domain || this.detectDomain(items);
-      logger.info(`Generating taxonomy for domain: ${detectedDomain} with ${items.length} knowledge items`);
+      logger.info(
+        `Generating taxonomy for domain: ${detectedDomain} with ${items.length} knowledge items`
+      );
 
       // Step 1: Generate categories
       const categoryStartTime = Date.now();
@@ -141,7 +142,11 @@ export class TaxonomyGeneratorService {
 
       // Step 2: Generate classification rules
       const ruleStartTime = Date.now();
-      const classificationRules = await this.generateClassificationRules(categories, items, detectedDomain);
+      const classificationRules = await this.generateClassificationRules(
+        categories,
+        items,
+        detectedDomain
+      );
       const ruleGenerationTime = Date.now() - ruleStartTime;
 
       // Step 3: Build hierarchy
@@ -154,12 +159,16 @@ export class TaxonomyGeneratorService {
 
       if (options?.autoClassify !== false) {
         for (const item of items) {
-          const categoryIds = await this.classifyKnowledgeItem(item, classificationRules, categories);
+          const categoryIds = await this.classifyKnowledgeItem(
+            item,
+            classificationRules,
+            categories
+          );
           if (categoryIds.length > 0) {
             classificationResults.set(item.id, categoryIds);
             // Update category knowledge items
             for (const categoryId of categoryIds) {
-              const category = categories.find(c => c.id === categoryId);
+              const category = categories.find((c) => c.id === categoryId);
               if (category && !category.knowledgeItems.includes(item.id)) {
                 category.knowledgeItems.push(item.id);
               }
@@ -174,7 +183,8 @@ export class TaxonomyGeneratorService {
 
       // Step 5: Calculate metadata
       const coverage = ((items.length - unclassifiedItems.length) / items.length) * 100;
-      const avgCategoryConfidence = categories.reduce((sum, cat) => sum + cat.confidence, 0) / categories.length;
+      const avgCategoryConfidence =
+        categories.reduce((sum, cat) => sum + cat.confidence, 0) / categories.length;
 
       // Step 6: Create taxonomy
       const taxonomyId = uuidv4();
@@ -192,17 +202,21 @@ export class TaxonomyGeneratorService {
           avgCategoryConfidence,
           buildTime: Date.now() - startTime,
           lastUpdated: new Date(),
-          coverage
-        }
+          coverage,
+        },
       };
 
       // Add warnings for low coverage
       if (coverage < 70) {
-        warnings.push(`Low classification coverage: ${coverage.toFixed(1)}%. Consider refining classification rules.`);
+        warnings.push(
+          `Low classification coverage: ${coverage.toFixed(1)}%. Consider refining classification rules.`
+        );
       }
 
       const totalTime = Date.now() - startTime;
-      logger.info(`Taxonomy generated successfully for ${detectedDomain}: ${categories.length} categories, ${classificationRules.length} rules, ${coverage.toFixed(1)}% coverage in ${totalTime}ms`);
+      logger.info(
+        `Taxonomy generated successfully for ${detectedDomain}: ${categories.length} categories, ${classificationRules.length} rules, ${coverage.toFixed(1)}% coverage in ${totalTime}ms`
+      );
 
       return {
         taxonomy,
@@ -214,13 +228,14 @@ export class TaxonomyGeneratorService {
           categoryGenerationTime,
           ruleGenerationTime,
           classificationTime,
-          totalTime
-        }
+          totalTime,
+        },
       };
-
     } catch (error) {
       logger.error('Error generating taxonomy:', error);
-      throw new Error(`Taxonomy generation failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw new Error(
+        `Taxonomy generation failed: ${error instanceof Error ? error.message : 'Unknown error'}`
+      );
     }
   }
 
@@ -253,7 +268,7 @@ export class TaxonomyGeneratorService {
           keywords: template.keywords,
           examples: [],
           confidence: 0.8,
-          knowledgeItems: []
+          knowledgeItems: [],
         };
         categories.push(category);
       }
@@ -272,7 +287,7 @@ export class TaxonomyGeneratorService {
 
     // Filter by minimum size and maximum count
     const filteredCategories = mergedCategories
-      .filter(cat => cat.knowledgeItems.length >= minCategorySize || cat.keywords.length > 0)
+      .filter((cat) => cat.knowledgeItems.length >= minCategorySize || cat.keywords.length > 0)
       .slice(0, maxCategories);
 
     // Ensure each category has a proper level
@@ -300,7 +315,7 @@ export class TaxonomyGeneratorService {
         keywords: [rootConcept.name, ...rootConcept.synonyms],
         examples: rootConcept.instances,
         confidence: rootConcept.confidence,
-        knowledgeItems: []
+        knowledgeItems: [],
       };
       categories.push(category);
 
@@ -318,7 +333,7 @@ export class TaxonomyGeneratorService {
           keywords: [childConcept.name, ...childConcept.synonyms],
           examples: childConcept.instances,
           confidence: childConcept.confidence,
-          knowledgeItems: []
+          knowledgeItems: [],
         };
         categories.push(childCategory);
         category.children.push(childCategoryId);
@@ -328,7 +343,10 @@ export class TaxonomyGeneratorService {
     return categories;
   }
 
-  private async generateCategoriesFromContent(items: KnowledgeItem[], domain: string): Promise<TaxonomyCategory[]> {
+  private async generateCategoriesFromContent(
+    items: KnowledgeItem[],
+    domain: string
+  ): Promise<TaxonomyCategory[]> {
     const categories: TaxonomyCategory[] = [];
     const topicMap = new Map<string, KnowledgeItem[]>();
 
@@ -349,7 +367,8 @@ export class TaxonomyGeneratorService {
 
     // Create categories from topics
     for (const [topic, relatedItems] of topicMap) {
-      if (relatedItems.length >= 2) { // Minimum 2 items per category
+      if (relatedItems.length >= 2) {
+        // Minimum 2 items per category
         const categoryId = uuidv4();
         const category: TaxonomyCategory = {
           id: categoryId,
@@ -358,9 +377,9 @@ export class TaxonomyGeneratorService {
           level: 0,
           children: [],
           keywords: [topic],
-          examples: relatedItems.slice(0, 3).map(item => item.content.substring(0, 100)),
+          examples: relatedItems.slice(0, 3).map((item) => item.content.substring(0, 100)),
           confidence: 0.7,
-          knowledgeItems: relatedItems.map(item => item.id)
+          knowledgeItems: relatedItems.map((item) => item.id),
         };
         categories.push(category);
       }
@@ -376,7 +395,8 @@ export class TaxonomyGeneratorService {
     // Group items by tags
     for (const item of items) {
       for (const tag of item.tags) {
-        if (tag !== domain && tag.length > 2) { // Exclude domain tag and short tags
+        if (tag !== domain && tag.length > 2) {
+          // Exclude domain tag and short tags
           if (!tagMap.has(tag)) {
             tagMap.set(tag, []);
           }
@@ -396,9 +416,9 @@ export class TaxonomyGeneratorService {
           level: 0,
           children: [],
           keywords: [tag],
-          examples: relatedItems.slice(0, 3).map(item => item.content.substring(0, 100)),
+          examples: relatedItems.slice(0, 3).map((item) => item.content.substring(0, 100)),
           confidence: 0.6,
-          knowledgeItems: relatedItems.map(item => item.id)
+          knowledgeItems: relatedItems.map((item) => item.id),
         };
         categories.push(category);
       }
@@ -414,25 +434,26 @@ export class TaxonomyGeneratorService {
     for (const category of categories) {
       if (used.has(category.id)) continue;
 
-      const similar = categories.filter(other => 
-        other.id !== category.id && 
-        !used.has(other.id) &&
-        this.categoriesSimilar(category, other)
+      const similar = categories.filter(
+        (other) =>
+          other.id !== category.id && !used.has(other.id) && this.categoriesSimilar(category, other)
       );
 
       if (similar.length > 0) {
         // Merge similar categories
         const mergedCategory: TaxonomyCategory = {
           ...category,
-          keywords: [...new Set([...category.keywords, ...similar.flatMap(s => s.keywords)])],
-          examples: [...new Set([...category.examples, ...similar.flatMap(s => s.examples)])],
-          knowledgeItems: [...new Set([...category.knowledgeItems, ...similar.flatMap(s => s.knowledgeItems)])],
-          confidence: Math.max(category.confidence, ...similar.map(s => s.confidence))
+          keywords: [...new Set([...category.keywords, ...similar.flatMap((s) => s.keywords)])],
+          examples: [...new Set([...category.examples, ...similar.flatMap((s) => s.examples)])],
+          knowledgeItems: [
+            ...new Set([...category.knowledgeItems, ...similar.flatMap((s) => s.knowledgeItems)]),
+          ],
+          confidence: Math.max(category.confidence, ...similar.map((s) => s.confidence)),
         };
 
         merged.push(mergedCategory);
         used.add(category.id);
-        similar.forEach(s => used.add(s.id));
+        similar.forEach((s) => used.add(s.id));
       } else {
         merged.push(category);
         used.add(category.id);
@@ -443,29 +464,29 @@ export class TaxonomyGeneratorService {
   }
 
   private categoriesSimilar(cat1: TaxonomyCategory, cat2: TaxonomyCategory): boolean {
-    const commonKeywords = cat1.keywords.filter(k => cat2.keywords.includes(k));
-    const commonItems = cat1.knowledgeItems.filter(i => cat2.knowledgeItems.includes(i));
-    
+    const commonKeywords = cat1.keywords.filter((k) => cat2.keywords.includes(k));
+    const commonItems = cat1.knowledgeItems.filter((i) => cat2.knowledgeItems.includes(i));
+
     return commonKeywords.length >= 2 || commonItems.length >= 1;
   }
 
   private buildTaxonomyHierarchy(categories: TaxonomyCategory[]): TaxonomyHierarchy {
     const allCategories = new Map<string, TaxonomyCategory>();
     const depth = new Map<string, number>();
-    
+
     for (const category of categories) {
       allCategories.set(category.id, category);
       depth.set(category.id, category.level);
     }
 
-    const rootCategories = categories.filter(cat => !cat.parent);
+    const rootCategories = categories.filter((cat) => !cat.parent);
     const maxDepth = Math.max(...Array.from(depth.values()));
 
     return {
       rootCategories,
       allCategories,
       depth,
-      maxDepth
+      maxDepth,
     };
   }
 
@@ -482,17 +503,17 @@ export class TaxonomyGeneratorService {
         const keywordRule: ClassificationRule = {
           id: uuidv4(),
           name: `${category.name} Keyword Rule`,
-          conditions: category.keywords.map(keyword => ({
+          conditions: category.keywords.map((keyword) => ({
             type: 'KEYWORD',
             field: 'content',
             operator: 'CONTAINS',
             value: keyword,
-            weight: 1.0
+            weight: 1.0,
           })),
           targetCategory: category.id,
           confidence: 0.8,
           priority: 1,
-          description: `Classify items containing keywords: ${category.keywords.join(', ')}`
+          description: `Classify items containing keywords: ${category.keywords.join(', ')}`,
         };
         rules.push(keywordRule);
       }
@@ -501,17 +522,17 @@ export class TaxonomyGeneratorService {
       const tagRule: ClassificationRule = {
         id: uuidv4(),
         name: `${category.name} Tag Rule`,
-        conditions: category.keywords.map(keyword => ({
+        conditions: category.keywords.map((keyword) => ({
           type: 'METADATA',
           field: 'tags',
           operator: 'CONTAINS',
           value: keyword,
-          weight: 1.5
+          weight: 1.5,
         })),
         targetCategory: category.id,
         confidence: 0.9,
         priority: 2,
-        description: `Classify items with relevant tags for ${category.name}`
+        description: `Classify items with relevant tags for ${category.name}`,
       };
       rules.push(tagRule);
     }
@@ -584,23 +605,32 @@ export class TaxonomyGeneratorService {
     switch (condition.operator) {
       case 'CONTAINS':
         if (Array.isArray(fieldValue)) {
-          return fieldValue.some(v => v.toString().toLowerCase().includes(condition.value.toString().toLowerCase())) ? 1 : 0;
+          return fieldValue.some((v) =>
+            v.toString().toLowerCase().includes(condition.value.toString().toLowerCase())
+          )
+            ? 1
+            : 0;
         }
-        return fieldValue.toString().toLowerCase().includes(condition.value.toString().toLowerCase()) ? 1 : 0;
-      
+        return fieldValue
+          .toString()
+          .toLowerCase()
+          .includes(condition.value.toString().toLowerCase())
+          ? 1
+          : 0;
+
       case 'EQUALS':
         return fieldValue === condition.value ? 1 : 0;
-      
+
       case 'MATCHES':
         const regex = new RegExp(condition.value.toString(), 'i');
         return regex.test(fieldValue.toString()) ? 1 : 0;
-      
+
       case 'GREATER_THAN':
         return Number(fieldValue) > Number(condition.value) ? 1 : 0;
-      
+
       case 'LESS_THAN':
         return Number(fieldValue) < Number(condition.value) ? 1 : 0;
-      
+
       default:
         return 0;
     }
@@ -608,22 +638,22 @@ export class TaxonomyGeneratorService {
 
   private detectDomain(items: KnowledgeItem[]): string {
     const tagCounts = new Map<string, number>();
-    
+
     for (const item of items) {
       for (const tag of item.tags) {
         tagCounts.set(tag, (tagCounts.get(tag) || 0) + 1);
       }
     }
 
-    const mostCommonTag = Array.from(tagCounts.entries())
-      .sort((a, b) => b[1] - a[1])[0];
+    const mostCommonTag = Array.from(tagCounts.entries()).sort((a, b) => b[1] - a[1])[0];
 
     return mostCommonTag ? mostCommonTag[0] : 'general';
   }
 
   private formatCategoryName(name: string): string {
-    return name.split(/[-_\s]+/)
-      .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+    return name
+      .split(/[-_\s]+/)
+      .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
       .join(' ');
   }
 }

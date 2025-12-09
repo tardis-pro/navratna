@@ -18,15 +18,12 @@ export class AgentTaskTypeResolver {
     this.databaseService = databaseService;
   }
 
-  async determineTaskType(
-    agent: Agent,
-    context?: TaskTypeContext
-  ): Promise<LLMTaskType> {
+  async determineTaskType(agent: Agent, context?: TaskTypeContext): Promise<LLMTaskType> {
     logger.info('Determining task type for agent', {
       agentId: agent.id,
       agentName: agent.name,
       agentRole: agent.role,
-      context: context ? Object.keys(context) : 'none'
+      context: context ? Object.keys(context) : 'none',
     });
 
     try {
@@ -37,7 +34,7 @@ export class AgentTaskTypeResolver {
         logger.info('Task type determined from agent preferences', {
           agentId: agent.id,
           taskType,
-          preferencesCount: agentPreferences.length
+          preferencesCount: agentPreferences.length,
         });
         return taskType;
       }
@@ -48,7 +45,7 @@ export class AgentTaskTypeResolver {
         logger.info('Task type determined from agent role', {
           agentId: agent.id,
           role: agent.role,
-          taskType: roleBasedTaskType
+          taskType: roleBasedTaskType,
         });
         return roleBasedTaskType;
       }
@@ -59,7 +56,7 @@ export class AgentTaskTypeResolver {
         logger.info('Task type determined from agent capabilities', {
           agentId: agent.id,
           capabilities: agent.capabilities,
-          taskType: capabilityBasedTaskType
+          taskType: capabilityBasedTaskType,
         });
         return capabilityBasedTaskType;
       }
@@ -70,7 +67,7 @@ export class AgentTaskTypeResolver {
         logger.info('Task type determined from agent name/description', {
           agentId: agent.id,
           name: agent.name,
-          taskType: nameBasedTaskType
+          taskType: nameBasedTaskType,
         });
         return nameBasedTaskType;
       }
@@ -81,7 +78,7 @@ export class AgentTaskTypeResolver {
         if (contextTaskType) {
           logger.info('Task type determined from context', {
             agentId: agent.id,
-            taskType: contextTaskType
+            taskType: contextTaskType,
           });
           return contextTaskType;
         }
@@ -90,14 +87,14 @@ export class AgentTaskTypeResolver {
       // 6. Default fallback
       logger.info('Task type using default fallback', {
         agentId: agent.id,
-        taskType: LLMTaskType.REASONING
+        taskType: LLMTaskType.REASONING,
       });
       return LLMTaskType.REASONING;
     } catch (error) {
       logger.error('Error determining task type, using default', {
         agentId: agent.id,
         error: error.message,
-        taskType: LLMTaskType.REASONING
+        taskType: LLMTaskType.REASONING,
       });
       return LLMTaskType.REASONING;
     }
@@ -108,13 +105,13 @@ export class AgentTaskTypeResolver {
       const repository = await this.databaseService.getRepository(AgentLLMPreference);
       const preferences = await repository.find({
         where: { agentId },
-        order: { priority: 'DESC' }
+        order: { priority: 'DESC' },
       });
       return preferences;
     } catch (error) {
       logger.error('Error fetching agent LLM preferences', {
         agentId,
-        error: error.message
+        error: error.message,
       });
       return [];
     }
@@ -126,7 +123,7 @@ export class AgentTaskTypeResolver {
   ): LLMTaskType {
     // Sort by priority (highest first) and return the task type of the best preference
     const sortedPreferences = preferences.sort((a, b) => b.priority - a.priority);
-    
+
     // TODO: In the future, we could add context-aware selection logic here
     // For now, just return the highest priority task type
     return sortedPreferences[0].taskType;
@@ -145,7 +142,7 @@ export class AgentTaskTypeResolver {
       [AgentRole.VALIDATOR]: LLMTaskType.CLASSIFICATION,
       [AgentRole.REVIEWER]: LLMTaskType.SUMMARIZATION,
       [AgentRole.ORCHESTRATOR]: LLMTaskType.REASONING,
-      [AgentRole.ASSISTANT]: LLMTaskType.REASONING
+      [AgentRole.ASSISTANT]: LLMTaskType.REASONING,
     };
     return roleTaskMap[role] || null;
   }
@@ -154,14 +151,14 @@ export class AgentTaskTypeResolver {
     const capabilityTaskMap: Record<string, LLMTaskType> = {
       'code-generation': LLMTaskType.CODE_GENERATION,
       'creative-writing': LLMTaskType.CREATIVE_WRITING,
-      'translation': LLMTaskType.TRANSLATION,
-      'summarization': LLMTaskType.SUMMARIZATION,
-      'classification': LLMTaskType.CLASSIFICATION,
+      translation: LLMTaskType.TRANSLATION,
+      summarization: LLMTaskType.SUMMARIZATION,
+      classification: LLMTaskType.CLASSIFICATION,
       'tool-execution': LLMTaskType.TOOL_CALLING,
       'speech-recognition': LLMTaskType.SPEECH_TO_TEXT,
       'text-to-speech': LLMTaskType.TEXT_TO_SPEECH,
       'vision-analysis': LLMTaskType.VISION,
-      'embedding-generation': LLMTaskType.EMBEDDINGS
+      'embedding-generation': LLMTaskType.EMBEDDINGS,
     };
 
     // Find the first matching capability
@@ -177,17 +174,29 @@ export class AgentTaskTypeResolver {
     const nameDesc = `${name} ${description}`.toLowerCase();
 
     // Code-focused agents
-    if (nameDesc.includes('engineer') || nameDesc.includes('developer') || nameDesc.includes('code')) {
+    if (
+      nameDesc.includes('engineer') ||
+      nameDesc.includes('developer') ||
+      nameDesc.includes('code')
+    ) {
       return LLMTaskType.CODE_GENERATION;
     }
 
     // Creative agents
-    if (nameDesc.includes('creative') || nameDesc.includes('writer') || nameDesc.includes('content')) {
+    if (
+      nameDesc.includes('creative') ||
+      nameDesc.includes('writer') ||
+      nameDesc.includes('content')
+    ) {
       return LLMTaskType.CREATIVE_WRITING;
     }
 
     // Research and analysis agents
-    if (nameDesc.includes('research') || nameDesc.includes('analyst') || nameDesc.includes('analysis')) {
+    if (
+      nameDesc.includes('research') ||
+      nameDesc.includes('analyst') ||
+      nameDesc.includes('analysis')
+    ) {
       return LLMTaskType.REASONING;
     }
 
@@ -213,14 +222,14 @@ export class AgentTaskTypeResolver {
     // Map discussion domains to task types
     if (context.domain) {
       const domainTaskMap: Record<string, LLMTaskType> = {
-        'code_review': LLMTaskType.CODE_GENERATION,
-        'creative_brainstorming': LLMTaskType.CREATIVE_WRITING,
-        'technical_support': LLMTaskType.CLASSIFICATION,
-        'content_creation': LLMTaskType.CREATIVE_WRITING,
-        'data_analysis': LLMTaskType.REASONING,
-        'project_planning': LLMTaskType.REASONING
+        code_review: LLMTaskType.CODE_GENERATION,
+        creative_brainstorming: LLMTaskType.CREATIVE_WRITING,
+        technical_support: LLMTaskType.CLASSIFICATION,
+        content_creation: LLMTaskType.CREATIVE_WRITING,
+        data_analysis: LLMTaskType.REASONING,
+        project_planning: LLMTaskType.REASONING,
       };
-      
+
       const domainStr = context.domain.toString().toLowerCase();
       if (domainTaskMap[domainStr]) {
         return domainTaskMap[domainStr];

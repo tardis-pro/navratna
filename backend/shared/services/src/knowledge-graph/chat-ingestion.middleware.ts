@@ -82,14 +82,14 @@ const ChatIngestionOptionsSchema = z.object({
   generateEmbeddings: z.boolean().optional().default(true),
   batchSize: z.number().min(1).max(100).optional().default(5),
   concurrency: z.number().min(1).max(10).optional().default(3),
-  userId: z.string().uuid()
+  userId: z.string().uuid(),
 });
 
 const SupportedFileTypes = [
   'text/plain',
   'application/json',
   'text/csv',
-  'application/octet-stream'
+  'application/octet-stream',
 ];
 
 const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB
@@ -114,30 +114,38 @@ export class ChatIngestionMiddleware {
           return {
             uploadError: {
               error: 'No files uploaded',
-              message: 'Please upload files using multipart/form-data'
-            }
+              message: 'Please upload files using multipart/form-data',
+            },
           };
         }
 
         // Validate file limits
-        for (const file of files as Array<{ size: number; mimetype?: string; type?: string; originalname?: string; name?: string }>) {
+        for (const file of files as Array<{
+          size: number;
+          mimetype?: string;
+          type?: string;
+          originalname?: string;
+          name?: string;
+        }>) {
           if (file.size > MAX_FILE_SIZE) {
             set.status = 413;
             return {
               uploadError: {
                 error: 'File too large',
-                message: `File ${file.originalname || file.name} exceeds maximum size of ${MAX_FILE_SIZE / 1024 / 1024}MB`
-              }
+                message: `File ${file.originalname || file.name} exceeds maximum size of ${MAX_FILE_SIZE / 1024 / 1024}MB`,
+              },
             };
           }
 
-          if (!this.isFileTypeSupported(file.mimetype || file.type, file.originalname || file.name)) {
+          if (
+            !this.isFileTypeSupported(file.mimetype || file.type, file.originalname || file.name)
+          ) {
             set.status = 415;
             return {
               uploadError: {
                 error: 'Unsupported file type',
-                message: `File type ${file.mimetype || file.type} is not supported`
-              }
+                message: `File type ${file.mimetype || file.type} is not supported`,
+              },
             };
           }
         }
@@ -166,8 +174,8 @@ export class ChatIngestionMiddleware {
             return {
               validationError: {
                 error: 'No files uploaded',
-                message: 'Please upload at least one chat file'
-              }
+                message: 'Please upload at least one chat file',
+              },
             };
           }
 
@@ -177,18 +185,17 @@ export class ChatIngestionMiddleware {
             return {
               validationError: {
                 error: 'Too many files',
-                message: `Maximum ${MAX_FILES_PER_BATCH} files allowed per batch`
-              }
+                message: `Maximum ${MAX_FILES_PER_BATCH} files allowed per batch`,
+              },
             };
           }
 
           logger.info('Chat ingestion request validated', {
             fileCount: uploadedFiles.length,
-            userId: options.userId
+            userId: options.userId,
           });
 
           return { validatedOptions: options as ChatIngestionOptions };
-
         } catch (error: unknown) {
           const err = error as Error & { errors?: unknown[] };
           logger.error('Chat ingestion validation failed', { error: err.message });
@@ -197,8 +204,8 @@ export class ChatIngestionMiddleware {
             validationError: {
               error: 'Invalid request',
               message: err.message,
-              details: err.errors || []
-            }
+              details: err.errors || [],
+            },
           };
         }
       });
@@ -218,15 +225,19 @@ export class ChatIngestionMiddleware {
             return {
               formatError: {
                 error: 'Internal error',
-                message: 'Files or options not available'
-              }
+                message: 'Files or options not available',
+              },
             };
           }
 
           const processedFiles: ProcessedChatFile[] = [];
           const validationErrors: string[] = [];
 
-          for (const file of uploadedFiles as Array<{ originalname?: string; name?: string; size: number }>) {
+          for (const file of uploadedFiles as Array<{
+            originalname?: string;
+            name?: string;
+            size: number;
+          }>) {
             try {
               const processedFile = await this.processFile(file, validatedOptions.userId);
               processedFiles.push(processedFile);
@@ -243,15 +254,15 @@ export class ChatIngestionMiddleware {
           }
 
           // Check if we have any valid files
-          const validFiles = processedFiles.filter(f => f.validationResult.isValid);
+          const validFiles = processedFiles.filter((f) => f.validationResult.isValid);
           if (validFiles.length === 0) {
             set.status = 400;
             return {
               formatError: {
                 error: 'No valid files',
                 message: 'All uploaded files failed validation',
-                details: validationErrors
-              }
+                details: validationErrors,
+              },
             };
           }
 
@@ -260,18 +271,17 @@ export class ChatIngestionMiddleware {
             logger.warn('Some files failed validation', {
               validFiles: validFiles.length,
               invalidFiles: validationErrors.length,
-              errors: validationErrors
+              errors: validationErrors,
             });
           }
 
           logger.info('File format validation completed', {
             totalFiles: uploadedFiles.length,
             validFiles: validFiles.length,
-            invalidFiles: validationErrors.length
+            invalidFiles: validationErrors.length,
           });
 
           return { chatFiles: processedFiles, validationWarnings: validationErrors };
-
         } catch (error: unknown) {
           const err = error as Error;
           logger.error('File format validation failed', { error: err.message });
@@ -279,8 +289,8 @@ export class ChatIngestionMiddleware {
           return {
             formatError: {
               error: 'Validation failed',
-              message: err.message
-            }
+              message: err.message,
+            },
           };
         }
       });
@@ -300,8 +310,8 @@ export class ChatIngestionMiddleware {
             return {
               parseError: {
                 error: 'Internal error',
-                message: 'Files not processed'
-              }
+                message: 'Files not processed',
+              },
             };
           }
 
@@ -323,12 +333,11 @@ export class ChatIngestionMiddleware {
                 fileId: file.id,
                 fileName: file.originalName,
                 conversationsFound: conversations.length,
-                success: true
+                success: true,
               });
 
               // Update file validation metadata
               file.validationResult.metadata.estimatedConversations = conversations.length;
-
             } catch (error: unknown) {
               const err = error as Error;
               parseResults.push({
@@ -336,7 +345,7 @@ export class ChatIngestionMiddleware {
                 fileName: file.originalName,
                 conversationsFound: 0,
                 success: false,
-                error: err.message
+                error: err.message,
               });
 
               // Mark file as invalid
@@ -346,26 +355,28 @@ export class ChatIngestionMiddleware {
           }
 
           // Check if any files were successfully parsed
-          const successfulParses = parseResults.filter(r => r.success);
+          const successfulParses = parseResults.filter((r) => r.success);
           if (successfulParses.length === 0) {
             set.status = 400;
             return {
               parseError: {
                 error: 'No files could be parsed',
                 message: 'All files failed content parsing',
-                details: parseResults
-              }
+                details: parseResults,
+              },
             };
           }
 
           logger.info('File content parsing completed', {
             totalFiles: validFiles.length,
             successfulParses: successfulParses.length,
-            totalConversations: successfulParses.reduce((sum: number, r) => sum + r.conversationsFound, 0)
+            totalConversations: successfulParses.reduce(
+              (sum: number, r) => sum + r.conversationsFound,
+              0
+            ),
           });
 
           return { parseResults };
-
         } catch (error: unknown) {
           const err = error as Error;
           logger.error('File content parsing failed', { error: err.message });
@@ -373,8 +384,8 @@ export class ChatIngestionMiddleware {
           return {
             parseError: {
               error: 'Parsing failed',
-              message: err.message
-            }
+              message: err.message,
+            },
           };
         }
       });
@@ -394,29 +405,31 @@ export class ChatIngestionMiddleware {
             return {
               jobError: {
                 error: 'Internal error',
-                message: 'Files not processed'
-              }
+                message: 'Files not processed',
+              },
             };
           }
 
           const validFiles = chatFiles.filter((f: ProcessedChatFile) => f.validationResult.isValid);
-          const totalSize = validFiles.reduce((sum: number, f: ProcessedChatFile) => sum + f.size, 0);
+          const totalSize = validFiles.reduce(
+            (sum: number, f: ProcessedChatFile) => sum + f.size,
+            0
+          );
 
           const job: ChatIngestionJob = {
             jobId: uuidv4(),
             fileCount: validFiles.length,
-            totalSize
+            totalSize,
           };
 
           logger.info('Chat ingestion job created', {
             jobId: job.jobId,
             fileCount: job.fileCount,
             totalSize: job.totalSize,
-            userId: validatedOptions?.userId
+            userId: validatedOptions?.userId,
           });
 
           return { chatIngestionJob: job };
-
         } catch (error: unknown) {
           const err = error as Error;
           logger.error('Job creation failed', { error: err.message });
@@ -424,8 +437,8 @@ export class ChatIngestionMiddleware {
           return {
             jobError: {
               error: 'Job creation failed',
-              message: err.message
-            }
+              message: err.message,
+            },
           };
         }
       });
@@ -447,7 +460,10 @@ export class ChatIngestionMiddleware {
     return false;
   }
 
-  private async processFile(file: { originalname?: string; name?: string; buffer?: Buffer; content?: string; size: number }, userId: string): Promise<ProcessedChatFile> {
+  private async processFile(
+    file: { originalname?: string; name?: string; buffer?: Buffer; content?: string; size: number },
+    userId: string
+  ): Promise<ProcessedChatFile> {
     const fileName = file.originalname || file.name || 'unknown';
     const content = file.buffer?.toString('utf-8') || (file.content as string) || '';
 
@@ -465,23 +481,38 @@ export class ChatIngestionMiddleware {
       type: platform,
       userId,
       detectedPlatform: platform,
-      validationResult
+      validationResult,
     };
   }
 
-  private detectPlatform(fileName: string, content: string): 'claude' | 'gpt' | 'whatsapp' | 'generic' {
+  private detectPlatform(
+    fileName: string,
+    content: string
+  ): 'claude' | 'gpt' | 'whatsapp' | 'generic' {
     const lowerName = fileName.toLowerCase();
     const lowerContent = content.toLowerCase().slice(0, 1000);
 
-    if (lowerName.includes('claude') || lowerContent.includes('claude') || lowerContent.includes('anthropic')) {
+    if (
+      lowerName.includes('claude') ||
+      lowerContent.includes('claude') ||
+      lowerContent.includes('anthropic')
+    ) {
       return 'claude';
     }
 
-    if (lowerName.includes('gpt') || lowerName.includes('chatgpt') || lowerContent.includes('openai') || lowerContent.includes('gpt-')) {
+    if (
+      lowerName.includes('gpt') ||
+      lowerName.includes('chatgpt') ||
+      lowerContent.includes('openai') ||
+      lowerContent.includes('gpt-')
+    ) {
       return 'gpt';
     }
 
-    if (lowerName.includes('whatsapp') || lowerContent.match(/\[\d{1,2}\/\d{1,2}\/\d{2,4},\s*\d{1,2}:\d{2}(?::\d{2})?\s*(?:am|pm)?\]/i)) {
+    if (
+      lowerName.includes('whatsapp') ||
+      lowerContent.match(/\[\d{1,2}\/\d{1,2}\/\d{2,4},\s*\d{1,2}:\d{2}(?::\d{2})?\s*(?:am|pm)?\]/i)
+    ) {
       return 'whatsapp';
     }
 
@@ -516,20 +547,23 @@ export class ChatIngestionMiddleware {
     }
 
     // Estimate conversations
-    const conversationMarkers = content.match(/(?:^|\n)(?:Human|User|Assistant|AI|You|ChatGPT|Claude):/gi) || [];
+    const conversationMarkers =
+      content.match(/(?:^|\n)(?:Human|User|Assistant|AI|You|ChatGPT|Claude):/gi) || [];
     metadata.estimatedConversations = Math.ceil(conversationMarkers.length / 2);
 
     return {
       isValid: errors.length === 0,
       errors,
       warnings,
-      metadata
+      metadata,
     };
   }
 }
 
 // Factory function to create middleware
-export function createChatIngestionMiddleware(chatParser: ChatParserService): ChatIngestionMiddleware {
+export function createChatIngestionMiddleware(
+  chatParser: ChatParserService
+): ChatIngestionMiddleware {
   return new ChatIngestionMiddleware(chatParser);
 }
 

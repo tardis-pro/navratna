@@ -14,17 +14,17 @@ describe('Agent', () => {
   it('should analyze context correctly', async () => {
     const agent = new Agent({
       id: 'test-agent',
-      capabilities: ['analyze']
+      capabilities: ['analyze'],
     });
 
     const result = await agent.analyzeContext({
       text: 'test message',
-      metadata: {}
+      metadata: {},
     });
 
     expect(result).toMatchObject({
       intent: expect.any(String),
-      confidence: expect.any(Number)
+      confidence: expect.any(Number),
     });
   });
 });
@@ -42,17 +42,17 @@ describe('DiscussionService', () => {
 
   it('should create and manage discussions', async () => {
     const service = new DiscussionService();
-    
+
     // Create discussion
     const discussion = await service.createDiscussion({
       title: 'Test Discussion',
-      participants: ['agent1', 'agent2']
+      participants: ['agent1', 'agent2'],
     });
 
     // Add message
     await service.addMessage(discussion.id, {
       content: 'Test message',
-      sender: 'agent1'
+      sender: 'agent1',
     });
 
     // Verify state
@@ -104,20 +104,20 @@ import { check, sleep } from 'k6';
 export const options = {
   stages: [
     { duration: '30s', target: 20 }, // Ramp up
-    { duration: '1m', target: 20 },  // Stay at peak
-    { duration: '30s', target: 0 },  // Ramp down
+    { duration: '1m', target: 20 }, // Stay at peak
+    { duration: '30s', target: 0 }, // Ramp down
   ],
 };
 
-export default function() {
+export default function () {
   const res = http.post('http://localhost:3000/api/v1/discussions', {
     title: 'Performance Test',
-    content: 'Test message'
+    content: 'Test message',
   });
 
   check(res, {
     'status is 200': (r) => r.status === 200,
-    'response time < 200ms': (r) => r.timings.duration < 200
+    'response time < 200ms': (r) => r.timings.duration < 200,
   });
 
   sleep(1);
@@ -133,10 +133,10 @@ class TestDatabaseSetup {
   async setup(): Promise<void> {
     // Create test database
     await this.createTestDatabase();
-    
+
     // Run migrations
     await this.runMigrations();
-    
+
     // Seed test data
     await this.seedTestData();
   }
@@ -155,14 +155,14 @@ class MockAgentService implements AgentService {
     return {
       intent: 'mock-intent',
       confidence: 0.95,
-      entities: []
+      entities: [],
     };
   }
 
   async executeOperation(operation: Operation): Promise<Result> {
     return {
       status: 'success',
-      data: { mockResult: true }
+      data: { mockResult: true },
     };
   }
 }
@@ -178,7 +178,7 @@ class TestDataFactory {
       email: faker.internet.email(),
       name: faker.name.fullName(),
       role: 'user',
-      ...overrides
+      ...overrides,
     };
   }
 
@@ -189,7 +189,7 @@ class TestDataFactory {
       status: 'active',
       participants: [],
       messages: [],
-      ...overrides
+      ...overrides,
     };
   }
 }
@@ -210,14 +210,10 @@ module.exports = {
       branches: 80,
       functions: 80,
       lines: 80,
-      statements: 80
-    }
+      statements: 80,
+    },
   },
-  collectCoverageFrom: [
-    'src/**/*.ts',
-    '!src/**/*.d.ts',
-    '!src/**/*.test.ts'
-  ]
+  collectCoverageFrom: ['src/**/*.ts', '!src/**/*.d.ts', '!src/**/*.test.ts'],
 };
 ```
 
@@ -228,8 +224,7 @@ class TestHelper {
   static async createAuthenticatedAgent(): Promise<TestAgent> {
     const user = await TestDataFactory.createUser();
     const token = generateTestToken(user);
-    return request(app)
-      .set('Authorization', `Bearer ${token}`);
+    return request(app).set('Authorization', `Bearer ${token}`);
   }
 
   static async simulateWebSocketConnection(): Promise<WebSocket> {
@@ -269,13 +264,11 @@ describe('OperationExecutor', () => {
     // Arrange
     const executor = new OperationExecutor();
     const operation = TestDataFactory.createOperation({
-      shouldFail: true
+      shouldFail: true,
     });
 
     // Act & Assert
-    await expect(executor.execute(operation))
-      .rejects
-      .toThrow('Operation failed');
+    await expect(executor.execute(operation)).rejects.toThrow('Operation failed');
   });
 });
 ```
@@ -293,25 +286,25 @@ describe('Discussion Integration', () => {
   it('should handle real-time updates', async () => {
     // Setup WebSocket connection
     const ws = await TestHelper.simulateWebSocketConnection();
-    
+
     // Create discussion
     const discussion = await discussionService.create({
-      title: 'Integration Test'
+      title: 'Integration Test',
     });
 
     // Send message
     await discussionService.sendMessage(discussion.id, {
-      content: 'Test message'
+      content: 'Test message',
     });
 
     // Verify WebSocket received update
-    const update = await new Promise(resolve => {
+    const update = await new Promise((resolve) => {
       ws.on('message', resolve);
     });
 
     expect(JSON.parse(update)).toMatchObject({
       type: 'NEW_MESSAGE',
-      discussionId: discussion.id
+      discussionId: discussion.id,
     });
   });
 });
@@ -329,30 +322,30 @@ on: [push, pull_request]
 jobs:
   test:
     runs-on: ubuntu-latest
-    
+
     steps:
       - uses: actions/checkout@v2
-      
+
       - name: Setup Node.js
         uses: actions/setup-node@v2
         with:
           node-version: '20'
-          
+
       - name: Install dependencies
         run: npm ci
-        
+
       - name: Run linting
         run: npm run lint
-        
+
       - name: Run unit tests
         run: npm run test:unit
-        
+
       - name: Run integration tests
         run: npm run test:integration
-        
+
       - name: Run E2E tests
         run: npm run test:e2e
-        
+
       - name: Upload coverage
         uses: codecov/codecov-action@v2
 ```
@@ -416,3 +409,4 @@ interface PerformanceBenchmark {
     errorRate: number;
   };
 }
+```

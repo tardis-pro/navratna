@@ -13,7 +13,7 @@ export enum OperationType {
   PERSONA_INTELLIGENCE = 'persona_intelligence',
   DISCUSSION_ANALYSIS = 'discussion_analysis',
   TURN_MANAGEMENT = 'turn_management',
-  CONSENSUS_BUILDING = 'consensus_building'
+  CONSENSUS_BUILDING = 'consensus_building',
 }
 
 export enum OperationStatus {
@@ -25,14 +25,14 @@ export enum OperationStatus {
   CANCELLED = 'cancelled',
   SUSPENDED = 'suspended',
   PAUSED = 'paused',
-  COMPENSATING = 'compensating'
+  COMPENSATING = 'compensating',
 }
 
 export enum OperationPriority {
   LOW = 'low',
   MEDIUM = 'medium',
   HIGH = 'high',
-  URGENT = 'urgent'
+  URGENT = 'urgent',
 }
 
 // New enums and types for orchestration engine
@@ -42,7 +42,7 @@ export enum StepStatus {
   COMPLETED = 'completed',
   FAILED = 'failed',
   SKIPPED = 'skipped',
-  CANCELLED = 'cancelled'
+  CANCELLED = 'cancelled',
 }
 
 export enum OperationEventType {
@@ -54,13 +54,13 @@ export enum OperationEventType {
   STEP_STARTED = 'step_started',
   STEP_COMPLETED = 'step_completed',
   STEP_FAILED = 'step_failed',
-  CHECKPOINT_CREATED = 'checkpoint_created'
+  CHECKPOINT_CREATED = 'checkpoint_created',
 }
 
 export enum CheckpointType {
   STATE_SNAPSHOT = 'state_snapshot',
   PROGRESS_MARKER = 'progress_marker',
-  ERROR_RECOVERY = 'error_recovery'
+  ERROR_RECOVERY = 'error_recovery',
 }
 
 // Execution context
@@ -73,10 +73,13 @@ export const ExecutionContextSchema = z.object({
   metadata: z.record(z.any()).optional(),
   timeout: z.number().min(0).default(300000), // 5 minutes default
   resourceLimits: z.object({
-    maxMemory: z.number().min(0).default(1024 * 1024 * 1024), // 1GB default
+    maxMemory: z
+      .number()
+      .min(0)
+      .default(1024 * 1024 * 1024), // 1GB default
     maxCpu: z.number().min(0).default(2), // 2 CPU cores default
-    maxDuration: z.number().min(0).default(3600000) // 1 hour default
-  })
+    maxDuration: z.number().min(0).default(3600000), // 1 hour default
+  }),
 });
 
 export type ExecutionContext = z.infer<typeof ExecutionContextSchema>;
@@ -88,7 +91,7 @@ export const ResourceRequirementsSchema = z.object({
   storage: z.number().min(0).optional(),
   network: z.boolean().default(false),
   gpu: z.boolean().default(false),
-  estimatedDuration: z.number().min(0).optional()
+  estimatedDuration: z.number().min(0).optional(),
 });
 
 export type ResourceRequirements = z.infer<typeof ResourceRequirementsSchema>;
@@ -97,7 +100,18 @@ export type ResourceRequirements = z.infer<typeof ResourceRequirementsSchema>;
 export const ExecutionStepSchema = z.object({
   id: IDSchema,
   name: z.string(),
-  type: z.enum(['tool', 'artifact', 'validation', 'approval', 'delay', 'decision', 'agent-action', 'tool-execution', 'conditional', 'parallel']),
+  type: z.enum([
+    'tool',
+    'artifact',
+    'validation',
+    'approval',
+    'delay',
+    'decision',
+    'agent-action',
+    'tool-execution',
+    'conditional',
+    'parallel',
+  ]),
   status: z.nativeEnum(StepStatus).default(StepStatus.PENDING),
   input: z.record(z.any()).optional(),
   output: z.record(z.any()).optional(),
@@ -121,14 +135,16 @@ export const ExecutionStepSchema = z.object({
   falseBranch: z.array(z.any()).optional(),
   policy: z.record(z.any()).optional(),
   branches: z.array(z.any()).optional(),
-  retryPolicy: z.object({
-    maxAttempts: z.number().min(0).default(3),
-    maxRetries: z.number().min(0).default(3),
-    backoffStrategy: z.enum(['fixed', 'exponential', 'linear']).default('exponential'),
-    retryDelay: z.number().min(0).default(1000),
-    backoffMultiplier: z.number().min(1).default(2).optional()
-  }).optional(),
-  resourceRequirements: ResourceRequirementsSchema.optional()
+  retryPolicy: z
+    .object({
+      maxAttempts: z.number().min(0).default(3),
+      maxRetries: z.number().min(0).default(3),
+      backoffStrategy: z.enum(['fixed', 'exponential', 'linear']).default('exponential'),
+      retryDelay: z.number().min(0).default(1000),
+      backoffMultiplier: z.number().min(1).default(2).optional(),
+    })
+    .optional(),
+  resourceRequirements: ResourceRequirementsSchema.optional(),
 });
 
 export type ExecutionStep = z.infer<typeof ExecutionStepSchema>;
@@ -145,7 +161,7 @@ export const OperationStepSchema = z.object({
   startedAt: z.date().optional(),
   completedAt: z.date().optional(),
   retryCount: z.number().min(0).default(0),
-  maxRetries: z.number().min(0).default(3)
+  maxRetries: z.number().min(0).default(3),
 });
 
 export type OperationStep = z.infer<typeof OperationStepSchema>;
@@ -153,7 +169,7 @@ export type OperationStep = z.infer<typeof OperationStepSchema>;
 // Step dependency
 export const StepDependencySchema = z.object({
   stepId: IDSchema,
-  dependsOn: z.array(IDSchema)
+  dependsOn: z.array(IDSchema),
 });
 
 export type StepDependency = z.infer<typeof StepDependencySchema>;
@@ -162,7 +178,7 @@ export type StepDependency = z.infer<typeof StepDependencySchema>;
 export const ParallelExecutionPolicySchema = z.object({
   policy: z.enum(['all_success', 'any_success', 'majority_success']).default('all_success'),
   maxConcurrency: z.number().min(1).default(5),
-  timeoutPolicy: z.enum(['wait_all', 'fail_fast']).default('fail_fast')
+  timeoutPolicy: z.enum(['wait_all', 'fail_fast']).default('fail_fast'),
 });
 
 export type ParallelExecutionPolicy = z.infer<typeof ParallelExecutionPolicySchema>;
@@ -170,15 +186,15 @@ export type ParallelExecutionPolicy = z.infer<typeof ParallelExecutionPolicySche
 // ParallelExecutionPolicy enum for switch statements
 export const ParallelExecutionPolicy = {
   ALL_SUCCESS: 'all_success' as const,
-  ANY_SUCCESS: 'any_success' as const, 
-  MAJORITY_SUCCESS: 'majority_success' as const
+  ANY_SUCCESS: 'any_success' as const,
+  MAJORITY_SUCCESS: 'majority_success' as const,
 } as const;
 
 // Parallel group
 export const ParallelGroupSchema = z.object({
   id: IDSchema,
   stepIds: z.array(IDSchema),
-  policy: ParallelExecutionPolicySchema
+  policy: ParallelExecutionPolicySchema,
 });
 
 export type ParallelGroup = z.infer<typeof ParallelGroupSchema>;
@@ -187,11 +203,13 @@ export type ParallelGroup = z.infer<typeof ParallelGroupSchema>;
 export const FailurePolicySchema = z.object({
   onStepFailure: z.enum(['fail_immediately', 'continue', 'compensate']).default('fail_immediately'),
   compensationRequired: z.boolean().default(true),
-  retryPolicy: z.object({
-    maxAttempts: z.number().min(0).default(3),
-    backoffStrategy: z.enum(['fixed', 'exponential', 'linear']).default('exponential'),
-    retryDelay: z.number().min(0).default(1000)
-  }).optional()
+  retryPolicy: z
+    .object({
+      maxAttempts: z.number().min(0).default(3),
+      backoffStrategy: z.enum(['fixed', 'exponential', 'linear']).default('exponential'),
+      retryDelay: z.number().min(0).default(1000),
+    })
+    .optional(),
 });
 
 export type FailurePolicy = z.infer<typeof FailurePolicySchema>;
@@ -218,10 +236,10 @@ export const OperationPlanSchema = z.object({
   riskAssessment: z.object({
     level: z.enum(['low', 'medium', 'high', 'critical']),
     factors: z.array(z.string()),
-    mitigations: z.array(z.string()).optional()
+    mitigations: z.array(z.string()).optional(),
   }),
   approvalRequired: z.boolean().default(false),
-  createdAt: z.date()
+  createdAt: z.date(),
 });
 
 export type OperationPlan = z.infer<typeof OperationPlanSchema>;
@@ -238,7 +256,7 @@ export const StepResultSchema = z.object({
   output: z.record(z.any()).optional(),
   metrics: z.record(z.any()).optional(),
   completedAt: z.date().optional(),
-  startedAt: z.date().optional()
+  startedAt: z.date().optional(),
 });
 
 export type StepResult = z.infer<typeof StepResultSchema>;
@@ -259,7 +277,7 @@ export const OperationStateSchema = z.object({
   error: z.string().optional(),
   result: z.record(z.any()).optional(),
   // Add missing properties
-  workflowInstanceId: IDSchema.optional()
+  workflowInstanceId: IDSchema.optional(),
 });
 
 export type OperationState = z.infer<typeof OperationStateSchema>;
@@ -281,7 +299,7 @@ export const WorkflowInstanceSchema = z.object({
   startTime: z.number().optional(),
   endTime: z.number().optional(),
   retryCount: z.number().min(0).default(0),
-  error: z.string().optional()
+  error: z.string().optional(),
 });
 
 export type WorkflowInstance = z.infer<typeof WorkflowInstanceSchema>;
@@ -292,7 +310,7 @@ export const OperationEventSchema = z.object({
   eventType: z.nativeEnum(OperationEventType),
   data: z.record(z.any()),
   timestamp: z.date(),
-  source: z.string()
+  source: z.string(),
 });
 
 export type OperationEvent = z.infer<typeof OperationEventSchema>;
@@ -305,9 +323,9 @@ export const CheckpointSchema = z.object({
   data: z.object({
     operationState: OperationStateSchema,
     timestamp: z.date(),
-    version: z.string()
+    version: z.string(),
   }),
-  timestamp: z.date()
+  timestamp: z.date(),
 });
 
 export type Checkpoint = z.infer<typeof CheckpointSchema>;
@@ -318,7 +336,7 @@ export const CompensationActionSchema = z.object({
   stepId: IDSchema,
   action: z.enum(['undo', 'cleanup', 'notify']),
   parameters: z.record(z.any()).optional(),
-  timeout: z.number().min(0).default(30000)
+  timeout: z.number().min(0).default(30000),
 });
 
 export type CompensationAction = z.infer<typeof CompensationActionSchema>;
@@ -333,7 +351,7 @@ export const OperationErrorSchema = z.object({
   code: z.string().optional(),
   details: z.record(z.any()).optional(),
   timestamp: z.date(),
-  resolved: z.boolean().default(false)
+  resolved: z.boolean().default(false),
 });
 
 export type OperationErrorType = z.infer<typeof OperationErrorSchema>;
@@ -343,18 +361,14 @@ export class OperationError extends Error {
   public readonly code: string;
   public readonly details?: Record<string, any>;
   public readonly timestamp: Date;
-  
-  constructor(
-    message: string,
-    code: string = 'OPERATION_ERROR',
-    details?: Record<string, any>
-  ) {
+
+  constructor(message: string, code: string = 'OPERATION_ERROR', details?: Record<string, any>) {
     super(message);
     this.name = 'OperationError';
     this.code = code;
     this.details = details;
     this.timestamp = new Date();
-    
+
     // Maintains proper stack trace for where our error was thrown (only available on V8)
     if ((Error as any).captureStackTrace) {
       (Error as any).captureStackTrace(this, OperationError);
@@ -366,7 +380,7 @@ export class OperationError extends Error {
 export const ResourceUsageSchema = z.object({
   cpu: z.number().min(0),
   memory: z.number().min(0),
-  network: z.number().min(0)
+  network: z.number().min(0),
 });
 
 export type ResourceUsage = z.infer<typeof ResourceUsageSchema>;
@@ -377,7 +391,7 @@ export const StepMetricsSchema = z.object({
   executionTime: z.number().min(0),
   resourceUsage: ResourceUsageSchema,
   retryCount: z.number().min(0),
-  errorCount: z.number().min(0)
+  errorCount: z.number().min(0),
 });
 
 export type StepMetrics = z.infer<typeof StepMetricsSchema>;
@@ -390,7 +404,7 @@ export const OperationMetricsSchema = z.object({
   throughput: z.number().min(0),
   errorRate: z.number().min(0).max(1),
   totalExecutionTime: z.number().min(0).optional(),
-  stepExecutionTime: z.number().min(0).optional()
+  stepExecutionTime: z.number().min(0).optional(),
 });
 
 export type OperationMetrics = z.infer<typeof OperationMetricsSchema>;
@@ -401,7 +415,7 @@ export const OperationResultSchema = z.object({
   status: z.nativeEnum(OperationStatus),
   result: z.record(z.any()),
   metrics: OperationMetricsSchema,
-  completedAt: z.date()
+  completedAt: z.date(),
 });
 
 export type OperationResult = z.infer<typeof OperationResultSchema>;
@@ -415,7 +429,7 @@ export const OperationSchema = BaseEntitySchema.extend({
   userId: IDSchema,
   plan: OperationPlanSchema,
   context: z.object({
-    executionContext: ExecutionContextSchema
+    executionContext: ExecutionContextSchema,
   }),
   executionPlan: ExecutionPlanSchema,
   estimatedDuration: z.number().min(0),
@@ -423,7 +437,7 @@ export const OperationSchema = BaseEntitySchema.extend({
   progress: z.object({
     completedSteps: z.number().min(0),
     totalSteps: z.number().min(0),
-    percentage: z.number().min(0).max(100)
+    percentage: z.number().min(0).max(100),
   }),
   results: z.record(z.any()).optional(),
   error: z.string().optional(),
@@ -433,11 +447,13 @@ export const OperationSchema = BaseEntitySchema.extend({
   // Add missing properties that are referenced in orchestration engine
   steps: z.array(ExecutionStepSchema).optional(),
   timeout: z.number().min(0).optional(),
-  metadata: z.object({
-    priority: z.nativeEnum(OperationPriority).optional(),
-    tags: z.array(z.string()).optional(),
-    environment: z.string().optional()
-  }).optional()
+  metadata: z
+    .object({
+      priority: z.nativeEnum(OperationPriority).optional(),
+      tags: z.array(z.string()).optional(),
+      environment: z.string().optional(),
+    })
+    .optional(),
 });
 
 export type Operation = z.infer<typeof OperationSchema>;
@@ -445,26 +461,36 @@ export type Operation = z.infer<typeof OperationSchema>;
 // Operation execution request
 export const ExecuteOperationRequestSchema = z.object({
   operationPlan: OperationPlanSchema,
-  executionOptions: z.object({
-    priority: z.nativeEnum(OperationPriority).optional(),
-    timeout: z.number().min(0).optional(),
-    retryPolicy: z.object({
-      maxRetries: z.number().min(0).default(3),
-      backoffStrategy: z.enum(['fixed', 'exponential', 'linear']).default('exponential'),
-      retryDelay: z.number().min(0).default(1000)
-    }).optional(),
-    notificationSettings: z.object({
-      onStart: z.boolean().default(false),
-      onComplete: z.boolean().default(true),
-      onFailure: z.boolean().default(true),
-      webhookUrl: z.string().url().optional()
-    }).optional()
-  }).optional(),
-  approvals: z.array(z.object({
-    approverId: IDSchema,
-    approvedAt: z.date(),
-    conditions: z.array(z.string()).optional()
-  })).optional()
+  executionOptions: z
+    .object({
+      priority: z.nativeEnum(OperationPriority).optional(),
+      timeout: z.number().min(0).optional(),
+      retryPolicy: z
+        .object({
+          maxRetries: z.number().min(0).default(3),
+          backoffStrategy: z.enum(['fixed', 'exponential', 'linear']).default('exponential'),
+          retryDelay: z.number().min(0).default(1000),
+        })
+        .optional(),
+      notificationSettings: z
+        .object({
+          onStart: z.boolean().default(false),
+          onComplete: z.boolean().default(true),
+          onFailure: z.boolean().default(true),
+          webhookUrl: z.string().url().optional(),
+        })
+        .optional(),
+    })
+    .optional(),
+  approvals: z
+    .array(
+      z.object({
+        approverId: IDSchema,
+        approvedAt: z.date(),
+        conditions: z.array(z.string()).optional(),
+      })
+    )
+    .optional(),
 });
 
 export type ExecuteOperationRequest = z.infer<typeof ExecuteOperationRequestSchema>;
@@ -477,14 +503,18 @@ export const OperationStatusResponseSchema = z.object({
     completedSteps: z.number(),
     totalSteps: z.number(),
     percentage: z.number(),
-    estimatedTimeRemaining: z.number().optional()
+    estimatedTimeRemaining: z.number().optional(),
   }),
-  logs: z.array(z.object({
-    timestamp: z.date(),
-    level: z.enum(['info', 'warn', 'error', 'debug']),
-    message: z.string(),
-    metadata: z.record(z.any()).optional()
-  })).optional()
+  logs: z
+    .array(
+      z.object({
+        timestamp: z.date(),
+        level: z.enum(['info', 'warn', 'error', 'debug']),
+        message: z.string(),
+        metadata: z.record(z.any()).optional(),
+      })
+    )
+    .optional(),
 });
 
 export type OperationStatusResponse = z.infer<typeof OperationStatusResponseSchema>;
@@ -496,7 +526,7 @@ export enum StepType {
   VALIDATION = 'validation',
   APPROVAL = 'approval',
   DELAY = 'delay',
-  DECISION = 'decision'
+  DECISION = 'decision',
 }
 
 // Retry policy
@@ -504,7 +534,7 @@ export const RetryPolicySchema = z.object({
   maxAttempts: z.number().min(0).default(3),
   backoffStrategy: z.enum(['fixed', 'exponential', 'linear']).default('exponential'),
   retryDelay: z.number().min(0).default(1000),
-  retryConditions: z.array(z.string()).optional()
+  retryConditions: z.array(z.string()).optional(),
 });
 
 export type RetryPolicy = z.infer<typeof RetryPolicySchema>;
@@ -514,13 +544,15 @@ export const ValidationStepSchema = z.object({
   id: IDSchema,
   name: z.string(),
   type: z.literal('validation'),
-  validationRules: z.array(z.object({
-    field: z.string(),
-    rule: z.string(),
-    message: z.string()
-  })),
+  validationRules: z.array(
+    z.object({
+      field: z.string(),
+      rule: z.string(),
+      message: z.string(),
+    })
+  ),
   required: z.boolean().default(true),
-  timeout: z.number().min(0).default(30000)
+  timeout: z.number().min(0).default(30000),
 });
 
 export type ValidationStep = z.infer<typeof ValidationStepSchema>;
@@ -533,7 +565,7 @@ export const StepExecutionResultSchema = z.object({
   error: z.string().optional(),
   executionTime: z.number().min(0),
   retryCount: z.number().min(0).default(0),
-  metadata: z.record(z.any()).optional()
+  metadata: z.record(z.any()).optional(),
 });
 
 export type StepExecutionResult = z.infer<typeof StepExecutionResultSchema>;
@@ -546,7 +578,7 @@ export const DiscussionOperationContextSchema = ExecutionContextSchema.extend({
   participantIds: z.array(IDSchema),
   turnStrategy: z.string(),
   moderatorId: IDSchema.optional(),
-  discussionSettings: z.record(z.any()).optional()
+  discussionSettings: z.record(z.any()).optional(),
 });
 
 export type DiscussionOperationContext = z.infer<typeof DiscussionOperationContextSchema>;
@@ -562,41 +594,51 @@ export enum DiscussionStepType {
   ANALYZE_SENTIMENT = 'analyze_sentiment',
   BUILD_CONSENSUS = 'build_consensus',
   GENERATE_SUMMARY = 'generate_summary',
-  END_DISCUSSION = 'end_discussion'
+  END_DISCUSSION = 'end_discussion',
 }
 
 // Discussion operation step
 export const DiscussionOperationStepSchema = ExecutionStepSchema.extend({
   type: z.nativeEnum(DiscussionStepType),
-  discussionContext: z.object({
-    discussionId: IDSchema,
-    participantId: IDSchema.optional(),
-    messageId: IDSchema.optional(),
-    turnNumber: z.number().min(0).optional(),
-    expectedOutcome: z.string().optional()
-  }).optional(),
-  discussionInput: z.object({
-    content: z.string().optional(),
-    messageType: z.string().optional(),
-    targetParticipants: z.array(IDSchema).optional(),
-    moderationRules: z.array(z.string()).optional(),
-    analysisType: z.string().optional()
-  }).optional(),
-  discussionOutput: z.object({
-    messageId: IDSchema.optional(),
-    sentimentScore: z.number().min(-1).max(1).optional(),
-    consensusLevel: z.number().min(0).max(1).optional(),
-    moderationResult: z.object({
-      approved: z.boolean(),
-      reason: z.string().optional(),
-      suggestedChanges: z.array(z.string()).optional()
-    }).optional(),
-    summaryData: z.object({
-      keyPoints: z.array(z.string()),
-      decisions: z.array(z.string()),
-      actionItems: z.array(z.string())
-    }).optional()
-  }).optional()
+  discussionContext: z
+    .object({
+      discussionId: IDSchema,
+      participantId: IDSchema.optional(),
+      messageId: IDSchema.optional(),
+      turnNumber: z.number().min(0).optional(),
+      expectedOutcome: z.string().optional(),
+    })
+    .optional(),
+  discussionInput: z
+    .object({
+      content: z.string().optional(),
+      messageType: z.string().optional(),
+      targetParticipants: z.array(IDSchema).optional(),
+      moderationRules: z.array(z.string()).optional(),
+      analysisType: z.string().optional(),
+    })
+    .optional(),
+  discussionOutput: z
+    .object({
+      messageId: IDSchema.optional(),
+      sentimentScore: z.number().min(-1).max(1).optional(),
+      consensusLevel: z.number().min(0).max(1).optional(),
+      moderationResult: z
+        .object({
+          approved: z.boolean(),
+          reason: z.string().optional(),
+          suggestedChanges: z.array(z.string()).optional(),
+        })
+        .optional(),
+      summaryData: z
+        .object({
+          keyPoints: z.array(z.string()),
+          decisions: z.array(z.string()),
+          actionItems: z.array(z.string()),
+        })
+        .optional(),
+    })
+    .optional(),
 });
 
 export type DiscussionOperationStep = z.infer<typeof DiscussionOperationStepSchema>;
@@ -609,28 +651,40 @@ export const PersonaIntelligenceOperationSchema = OperationSchema.extend({
     analysisType: z.enum(['compatibility', 'recommendation', 'optimization', 'validation']),
     targetContext: z.string().optional(),
     comparisonPersonas: z.array(IDSchema).optional(),
-    optimizationGoals: z.array(z.string()).optional()
+    optimizationGoals: z.array(z.string()).optional(),
   }),
-  intelligenceResults: z.object({
-    compatibilityScore: z.number().min(0).max(1).optional(),
-    recommendations: z.array(z.object({
-      type: z.string(),
-      suggestion: z.string(),
-      confidence: z.number().min(0).max(1),
-      impact: z.enum(['low', 'medium', 'high'])
-    })).optional(),
-    optimizations: z.array(z.object({
-      field: z.string(),
-      currentValue: z.any(),
-      suggestedValue: z.any(),
-      reason: z.string()
-    })).optional(),
-    validationResults: z.object({
-      isValid: z.boolean(),
-      issues: z.array(z.string()),
-      suggestions: z.array(z.string())
-    }).optional()
-  }).optional()
+  intelligenceResults: z
+    .object({
+      compatibilityScore: z.number().min(0).max(1).optional(),
+      recommendations: z
+        .array(
+          z.object({
+            type: z.string(),
+            suggestion: z.string(),
+            confidence: z.number().min(0).max(1),
+            impact: z.enum(['low', 'medium', 'high']),
+          })
+        )
+        .optional(),
+      optimizations: z
+        .array(
+          z.object({
+            field: z.string(),
+            currentValue: z.any(),
+            suggestedValue: z.any(),
+            reason: z.string(),
+          })
+        )
+        .optional(),
+      validationResults: z
+        .object({
+          isValid: z.boolean(),
+          issues: z.array(z.string()),
+          suggestions: z.array(z.string()),
+        })
+        .optional(),
+    })
+    .optional(),
 });
 
 export type PersonaIntelligenceOperation = z.infer<typeof PersonaIntelligenceOperationSchema>;
@@ -641,45 +695,61 @@ export const DiscussionAnalysisOperationSchema = OperationSchema.extend({
   analysisContext: z.object({
     discussionId: IDSchema,
     analysisType: z.enum(['sentiment', 'engagement', 'consensus', 'quality', 'comprehensive']),
-    timeframe: z.object({
-      start: z.date(),
-      end: z.date()
-    }).optional(),
+    timeframe: z
+      .object({
+        start: z.date(),
+        end: z.date(),
+      })
+      .optional(),
     participants: z.array(IDSchema).optional(),
-    metrics: z.array(z.string()).optional()
+    metrics: z.array(z.string()).optional(),
   }),
-  analysisResults: z.object({
-    sentimentAnalysis: z.object({
-      overallSentiment: z.enum(['positive', 'neutral', 'negative', 'mixed']),
-      sentimentProgression: z.array(z.object({
-        timestamp: z.date(),
-        sentiment: z.number().min(-1).max(1),
-        confidence: z.number().min(0).max(1)
-      })),
-      participantSentiments: z.record(z.number())
-    }).optional(),
-    engagementAnalysis: z.object({
-      overallEngagement: z.number().min(0).max(100),
-      participationBalance: z.number().min(0).max(1),
-      messageFrequency: z.array(z.object({
-        timestamp: z.date(),
-        count: z.number()
-      })),
-      dominanceIndex: z.number().min(0).max(1)
-    }).optional(),
-    consensusAnalysis: z.object({
-      consensusLevel: z.number().min(0).max(1),
-      agreementPoints: z.array(z.string()),
-      disagreementPoints: z.array(z.string()),
-      convergenceRate: z.number()
-    }).optional(),
-    qualityAnalysis: z.object({
-      coherenceScore: z.number().min(0).max(100),
-      relevanceScore: z.number().min(0).max(100),
-      productivityScore: z.number().min(0).max(100),
-      insightfulness: z.number().min(0).max(100)
-    }).optional()
-  }).optional()
+  analysisResults: z
+    .object({
+      sentimentAnalysis: z
+        .object({
+          overallSentiment: z.enum(['positive', 'neutral', 'negative', 'mixed']),
+          sentimentProgression: z.array(
+            z.object({
+              timestamp: z.date(),
+              sentiment: z.number().min(-1).max(1),
+              confidence: z.number().min(0).max(1),
+            })
+          ),
+          participantSentiments: z.record(z.number()),
+        })
+        .optional(),
+      engagementAnalysis: z
+        .object({
+          overallEngagement: z.number().min(0).max(100),
+          participationBalance: z.number().min(0).max(1),
+          messageFrequency: z.array(
+            z.object({
+              timestamp: z.date(),
+              count: z.number(),
+            })
+          ),
+          dominanceIndex: z.number().min(0).max(1),
+        })
+        .optional(),
+      consensusAnalysis: z
+        .object({
+          consensusLevel: z.number().min(0).max(1),
+          agreementPoints: z.array(z.string()),
+          disagreementPoints: z.array(z.string()),
+          convergenceRate: z.number(),
+        })
+        .optional(),
+      qualityAnalysis: z
+        .object({
+          coherenceScore: z.number().min(0).max(100),
+          relevanceScore: z.number().min(0).max(100),
+          productivityScore: z.number().min(0).max(100),
+          insightfulness: z.number().min(0).max(100),
+        })
+        .optional(),
+    })
+    .optional(),
 });
 
 export type DiscussionAnalysisOperation = z.infer<typeof DiscussionAnalysisOperationSchema>;
@@ -693,15 +763,17 @@ export const TurnManagementOperationSchema = OperationSchema.extend({
     turnStrategy: z.string(),
     turnNumber: z.number().min(0),
     expectedDuration: z.number().min(0).optional(),
-    turnRules: z.array(z.string()).optional()
+    turnRules: z.array(z.string()).optional(),
   }),
-  turnDecision: z.object({
-    nextParticipantId: IDSchema.optional(),
-    turnDuration: z.number().min(0).optional(),
-    skipReason: z.string().optional(),
-    moderationRequired: z.boolean().default(false),
-    specialInstructions: z.array(z.string()).optional()
-  }).optional()
+  turnDecision: z
+    .object({
+      nextParticipantId: IDSchema.optional(),
+      turnDuration: z.number().min(0).optional(),
+      skipReason: z.string().optional(),
+      moderationRequired: z.boolean().default(false),
+      specialInstructions: z.array(z.string()).optional(),
+    })
+    .optional(),
 });
 
 export type TurnManagementOperation = z.infer<typeof TurnManagementOperationSchema>;
@@ -713,30 +785,38 @@ export const ConsensusBuildingOperationSchema = OperationSchema.extend({
     discussionId: IDSchema,
     topic: z.string(),
     participants: z.array(IDSchema),
-          currentPositions: z.array(z.object({
+    currentPositions: z.array(
+      z.object({
         participantId: IDSchema,
-      position: z.string(),
-      confidence: z.number().min(0).max(1),
-      reasoning: z.string().optional()
-    })),
+        position: z.string(),
+        confidence: z.number().min(0).max(1),
+        reasoning: z.string().optional(),
+      })
+    ),
     targetConsensusLevel: z.number().min(0).max(1).default(0.8),
-    maxIterations: z.number().min(1).default(10)
+    maxIterations: z.number().min(1).default(10),
   }),
-  consensusProgress: z.object({
-    currentConsensusLevel: z.number().min(0).max(1),
-    convergenceRate: z.number(),
-    remainingDivergences: z.array(z.object({
-      topic: z.string(),
-      positions: z.array(z.string()),
-      participantCount: z.number()
-    })),
-    suggestedActions: z.array(z.object({
-      action: z.string(),
-      rationale: z.string(),
-      expectedImpact: z.number().min(0).max(1)
-    })),
-    consensusAchieved: z.boolean().default(false)
-  }).optional()
+  consensusProgress: z
+    .object({
+      currentConsensusLevel: z.number().min(0).max(1),
+      convergenceRate: z.number(),
+      remainingDivergences: z.array(
+        z.object({
+          topic: z.string(),
+          positions: z.array(z.string()),
+          participantCount: z.number(),
+        })
+      ),
+      suggestedActions: z.array(
+        z.object({
+          action: z.string(),
+          rationale: z.string(),
+          expectedImpact: z.number().min(0).max(1),
+        })
+      ),
+      consensusAchieved: z.boolean().default(false),
+    })
+    .optional(),
 });
 
 export type ConsensusBuildingOperation = z.infer<typeof ConsensusBuildingOperationSchema>;
@@ -749,40 +829,50 @@ export const DiscussionOrchestrationOperationSchema = OperationSchema.extend({
     orchestrationMode: z.enum(['automatic', 'semi_automatic', 'manual']),
     objectives: z.array(z.string()),
     constraints: z.array(z.string()),
-    qualityThresholds: z.object({
-      minEngagement: z.number().min(0).max(100).default(60),
-      minConsensus: z.number().min(0).max(1).default(0.7),
-      maxDuration: z.number().min(0).optional(),
-      maxMessages: z.number().min(0).optional()
-    }).optional()
+    qualityThresholds: z
+      .object({
+        minEngagement: z.number().min(0).max(100).default(60),
+        minConsensus: z.number().min(0).max(1).default(0.7),
+        maxDuration: z.number().min(0).optional(),
+        maxMessages: z.number().min(0).optional(),
+      })
+      .optional(),
   }),
-  orchestrationState: z.object({
-    currentPhase: z.enum(['initialization', 'discussion', 'synthesis', 'conclusion']),
-    completedObjectives: z.array(z.string()),
-    activeConstraints: z.array(z.string()),
-    qualityMetrics: z.object({
-      currentEngagement: z.number().min(0).max(100),
-      currentConsensus: z.number().min(0).max(1),
-      currentDuration: z.number().min(0),
-      currentMessageCount: z.number().min(0)
-    }),
-    nextActions: z.array(z.object({
-      action: z.string(),
-      priority: z.enum(['low', 'medium', 'high', 'urgent']),
-      scheduledFor: z.date().optional()
-    })),
-    interventionsRequired: z.array(z.object({
-      type: z.string(),
-      reason: z.string(),
-      urgency: z.enum(['low', 'medium', 'high', 'critical'])
-    }))
-  }).optional()
+  orchestrationState: z
+    .object({
+      currentPhase: z.enum(['initialization', 'discussion', 'synthesis', 'conclusion']),
+      completedObjectives: z.array(z.string()),
+      activeConstraints: z.array(z.string()),
+      qualityMetrics: z.object({
+        currentEngagement: z.number().min(0).max(100),
+        currentConsensus: z.number().min(0).max(1),
+        currentDuration: z.number().min(0),
+        currentMessageCount: z.number().min(0),
+      }),
+      nextActions: z.array(
+        z.object({
+          action: z.string(),
+          priority: z.enum(['low', 'medium', 'high', 'urgent']),
+          scheduledFor: z.date().optional(),
+        })
+      ),
+      interventionsRequired: z.array(
+        z.object({
+          type: z.string(),
+          reason: z.string(),
+          urgency: z.enum(['low', 'medium', 'high', 'critical']),
+        })
+      ),
+    })
+    .optional(),
 });
 
-export type DiscussionOrchestrationOperation = z.infer<typeof DiscussionOrchestrationOperationSchema>;
+export type DiscussionOrchestrationOperation = z.infer<
+  typeof DiscussionOrchestrationOperationSchema
+>;
 
 // Union type for all discussion operations
-export type DiscussionOperation = 
+export type DiscussionOperation =
   | PersonaIntelligenceOperation
   | DiscussionAnalysisOperation
   | TurnManagementOperation
@@ -802,7 +892,7 @@ export const createDiscussionOperation = (
     agentId,
     userId,
     createdAt: new Date(),
-    updatedAt: new Date()
+    updatedAt: new Date(),
   };
 
   switch (type) {
@@ -819,4 +909,4 @@ export const createDiscussionOperation = (
     default:
       return { ...baseOperation, type };
   }
-}; 
+};

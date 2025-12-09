@@ -1,11 +1,35 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  Folder, Plus, Users, Calendar, Target, BarChart3, Search, Filter,
-  MoreVertical, Edit3, Trash2, Archive, Star, Clock, CheckCircle2,
-  AlertCircle, PlayCircle, PauseCircle, Settings, GitBranch, Upload,
-  Download, Share2, MessageSquare, FileText, Code, Image, Database,
-  RefreshCw
+  Folder,
+  Plus,
+  Users,
+  Calendar,
+  Target,
+  BarChart3,
+  Search,
+  Filter,
+  MoreVertical,
+  Edit3,
+  Trash2,
+  Archive,
+  Star,
+  Clock,
+  CheckCircle2,
+  AlertCircle,
+  PlayCircle,
+  PauseCircle,
+  Settings,
+  GitBranch,
+  Upload,
+  Download,
+  Share2,
+  MessageSquare,
+  FileText,
+  Code,
+  Image,
+  Database,
+  RefreshCw,
 } from 'lucide-react';
 import { useAuth } from '../../../contexts/AuthContext';
 import { ProjectOnboardingFlow } from './ProjectOnboardingFlow';
@@ -77,14 +101,19 @@ const StatusBadge: React.FC<{ status: Project['status'] }> = ({ status }) => {
     planning: { color: 'bg-blue-500/10 text-blue-400 border-blue-500/20', icon: Target },
     active: { color: 'bg-green-500/10 text-green-400 border-green-500/20', icon: PlayCircle },
     paused: { color: 'bg-yellow-500/10 text-yellow-400 border-yellow-500/20', icon: PauseCircle },
-    completed: { color: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20', icon: CheckCircle2 },
-    archived: { color: 'bg-gray-500/10 text-gray-400 border-gray-500/20', icon: Archive }
+    completed: {
+      color: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20',
+      icon: CheckCircle2,
+    },
+    archived: { color: 'bg-gray-500/10 text-gray-400 border-gray-500/20', icon: Archive },
   };
-  
+
   const { color, icon: Icon } = config[status];
-  
+
   return (
-    <div className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium border backdrop-blur-sm ${color}`}>
+    <div
+      className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium border backdrop-blur-sm ${color}`}
+    >
       <Icon className="w-3 h-3" />
     </div>
   );
@@ -95,18 +124,20 @@ const PriorityBadge: React.FC<{ priority: Project['priority'] }> = ({ priority }
     low: 'bg-gray-500/10 text-gray-400 border-gray-500/20',
     medium: 'bg-blue-500/10 text-blue-400 border-blue-500/20',
     high: 'bg-orange-500/10 text-orange-400 border-orange-500/20',
-    critical: 'bg-red-500/10 text-red-400 border-red-500/20'
+    critical: 'bg-red-500/10 text-red-400 border-red-500/20',
   };
-  
+
   const dots = {
     low: 1,
     medium: 2,
     high: 3,
-    critical: 4
+    critical: 4,
   };
-  
+
   return (
-    <div className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium border backdrop-blur-sm ${config[priority]}`}>
+    <div
+      className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium border backdrop-blur-sm ${config[priority]}`}
+    >
       {Array.from({ length: dots[priority] }).map((_, i) => (
         <div key={i} className="w-1 h-1 rounded-full bg-current" />
       ))}
@@ -114,15 +145,20 @@ const PriorityBadge: React.FC<{ priority: Project['priority'] }> = ({ priority }
   );
 };
 
-const ProjectCard: React.FC<{ 
-  project: Project; 
+const ProjectCard: React.FC<{
+  project: Project;
   onEdit: (project: Project) => void;
   onDelete: (id: string) => void;
   onSelect: (project: Project) => void;
 }> = ({ project, onEdit, onDelete, onSelect }) => {
-  const progressColor = project.progress >= 80 ? 'bg-green-500' : 
-                       project.progress >= 50 ? 'bg-blue-500' : 
-                       project.progress >= 25 ? 'bg-yellow-500' : 'bg-red-500';
+  const progressColor =
+    project.progress >= 80
+      ? 'bg-green-500'
+      : project.progress >= 50
+        ? 'bg-blue-500'
+        : project.progress >= 25
+          ? 'bg-yellow-500'
+          : 'bg-red-500';
 
   return (
     <motion.div
@@ -142,36 +178,47 @@ const ProjectCard: React.FC<{
         </div>
         <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-all duration-300 relative z-10">
           <button
-            onClick={(e) => { e.stopPropagation(); onEdit(project); }}
+            onClick={(e) => {
+              e.stopPropagation();
+              onEdit(project);
+            }}
             className="p-2 hover:bg-slate-700/50 rounded-lg transition-all duration-200 hover:scale-105 relative z-20 bg-slate-800/80 backdrop-blur-sm"
           >
             <Edit3 className="w-4 h-4 text-slate-400 hover:text-blue-400 transition-colors pointer-events-none" />
           </button>
           <button
-            onClick={(e) => { e.stopPropagation(); onDelete(project.id); }}
+            onClick={(e) => {
+              e.stopPropagation();
+              onDelete(project.id);
+            }}
             className="p-2 hover:bg-slate-700/50 rounded-lg transition-all duration-200 hover:scale-105 relative z-20 bg-slate-800/80 backdrop-blur-sm"
           >
             <Trash2 className="w-4 h-4 text-slate-400 hover:text-red-400 transition-colors pointer-events-none" />
           </button>
         </div>
       </div>
-      
-      <p className="text-slate-400 text-sm mb-4 line-clamp-2 leading-relaxed">{project.description}</p>
-      
+
+      <p className="text-slate-400 text-sm mb-4 line-clamp-2 leading-relaxed">
+        {project.description}
+      </p>
+
       <div className="flex items-center gap-2 mb-4">
         <StatusBadge status={project.status} />
         <PriorityBadge priority={project.priority} />
       </div>
-      
+
       <div className="space-y-3 mb-4">
         <div className="flex items-center justify-between text-xs">
           <span className="text-slate-500 font-medium">{project.progress}%</span>
         </div>
         <div className="w-full bg-slate-800 rounded-full h-1.5 overflow-hidden">
-          <div className={`h-1.5 rounded-full transition-all duration-500 ${progressColor}`} style={{ width: `${project.progress}%` }} />
+          <div
+            className={`h-1.5 rounded-full transition-all duration-500 ${progressColor}`}
+            style={{ width: `${project.progress}%` }}
+          />
         </div>
       </div>
-      
+
       <div className="flex items-center justify-between text-xs text-slate-500">
         <div className="flex items-center gap-2">
           <div className="flex items-center gap-1">
@@ -180,7 +227,9 @@ const ProjectCard: React.FC<{
           </div>
           <div className="flex items-center gap-1">
             <CheckCircle2 className="w-3 h-3" />
-            <span>{project.tasks.filter(t => t.status === 'done').length}/{project.tasks.length}</span>
+            <span>
+              {project.tasks.filter((t) => t.status === 'done').length}/{project.tasks.length}
+            </span>
           </div>
         </div>
       </div>
@@ -201,7 +250,7 @@ const CreateProjectModal: React.FC<{
     status: 'planning' as Project['status'],
     priority: 'medium' as Project['priority'],
     dueDate: '',
-    tags: [] as string[]
+    tags: [] as string[],
   });
 
   useEffect(() => {
@@ -212,7 +261,7 @@ const CreateProjectModal: React.FC<{
         status: editProject.status,
         priority: editProject.priority,
         dueDate: editProject.dueDate ? editProject.dueDate.toISOString().split('T')[0] : '',
-        tags: editProject.tags
+        tags: editProject.tags,
       });
     } else {
       setFormData({
@@ -221,7 +270,7 @@ const CreateProjectModal: React.FC<{
         status: 'planning',
         priority: 'medium',
         dueDate: '',
-        tags: []
+        tags: [],
       });
     }
   }, [editProject, isOpen]);
@@ -237,7 +286,7 @@ const CreateProjectModal: React.FC<{
       team: editProject?.team || [],
       resources: editProject?.resources || [],
       tasks: editProject?.tasks || [],
-      createdBy: user?.id || `anonymous-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
+      createdBy: user?.id || `anonymous-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
     };
     onSave(projectData);
     onClose();
@@ -259,35 +308,37 @@ const CreateProjectModal: React.FC<{
           </div>
           {editProject ? 'Edit Project' : 'Create Project'}
         </h2>
-        
+
         <form onSubmit={handleSubmit} className="space-y-6">
           <div>
             <input
               type="text"
               placeholder="Project name"
               value={formData.name}
-              onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
+              onChange={(e) => setFormData((prev) => ({ ...prev, name: e.target.value }))}
               className="w-full px-4 py-3 bg-slate-800/50 border border-slate-700/50 rounded-xl text-white placeholder-slate-500 focus:border-blue-500/50 focus:outline-none focus:ring-2 focus:ring-blue-500/20 transition-all duration-200"
               required
             />
           </div>
-          
+
           <div>
             <textarea
               placeholder="Project description"
               value={formData.description}
-              onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
+              onChange={(e) => setFormData((prev) => ({ ...prev, description: e.target.value }))}
               className="w-full px-4 py-3 bg-slate-800/50 border border-slate-700/50 rounded-xl text-white placeholder-slate-500 focus:border-blue-500/50 focus:outline-none focus:ring-2 focus:ring-blue-500/20 transition-all duration-200 resize-none"
               rows={3}
               required
             />
           </div>
-          
+
           <div className="grid grid-cols-2 gap-4">
             <div>
               <select
                 value={formData.status}
-                onChange={(e) => setFormData(prev => ({ ...prev, status: e.target.value as Project['status'] }))}
+                onChange={(e) =>
+                  setFormData((prev) => ({ ...prev, status: e.target.value as Project['status'] }))
+                }
                 className="w-full px-4 py-3 bg-slate-800/50 border border-slate-700/50 rounded-xl text-white focus:border-blue-500/50 focus:outline-none focus:ring-2 focus:ring-blue-500/20 transition-all duration-200 appearance-none"
               >
                 <option value="planning">Planning</option>
@@ -296,11 +347,16 @@ const CreateProjectModal: React.FC<{
                 <option value="completed">Completed</option>
               </select>
             </div>
-            
+
             <div>
               <select
                 value={formData.priority}
-                onChange={(e) => setFormData(prev => ({ ...prev, priority: e.target.value as Project['priority'] }))}
+                onChange={(e) =>
+                  setFormData((prev) => ({
+                    ...prev,
+                    priority: e.target.value as Project['priority'],
+                  }))
+                }
                 className="w-full px-4 py-3 bg-slate-800/50 border border-slate-700/50 rounded-xl text-white focus:border-blue-500/50 focus:outline-none focus:ring-2 focus:ring-blue-500/20 transition-all duration-200 appearance-none"
               >
                 <option value="low">Low</option>
@@ -310,16 +366,16 @@ const CreateProjectModal: React.FC<{
               </select>
             </div>
           </div>
-          
+
           <div>
             <input
               type="date"
               value={formData.dueDate}
-              onChange={(e) => setFormData(prev => ({ ...prev, dueDate: e.target.value }))}
+              onChange={(e) => setFormData((prev) => ({ ...prev, dueDate: e.target.value }))}
               className="w-full px-4 py-3 bg-slate-800/50 border border-slate-700/50 rounded-xl text-white focus:border-blue-500/50 focus:outline-none focus:ring-2 focus:ring-blue-500/20 transition-all duration-200"
             />
           </div>
-          
+
           <div className="flex gap-3 pt-6">
             <button
               type="button"
@@ -341,9 +397,9 @@ const CreateProjectModal: React.FC<{
   );
 };
 
-export const ProjectManagementPortal: React.FC<ProjectManagementPortalProps> = ({ 
-  viewport, 
-  className = '' 
+export const ProjectManagementPortal: React.FC<ProjectManagementPortalProps> = ({
+  viewport,
+  className = '',
 }) => {
   const [projects, setProjects] = useState<Project[]>([]);
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
@@ -367,9 +423,9 @@ export const ProjectManagementPortal: React.FC<ProjectManagementPortalProps> = (
         console.log('🔄 Loading projects from API...');
         const apiProjects = await projectsAPI.list();
         console.log('📊 Loaded projects:', apiProjects.length, 'projects');
-        
+
         // Convert API projects to local Project interface
-        const convertedProjects: Project[] = apiProjects.map(apiProject => ({
+        const convertedProjects: Project[] = apiProjects.map((apiProject) => ({
           id: apiProject.id,
           name: apiProject.name,
           description: apiProject.description || '',
@@ -384,27 +440,30 @@ export const ProjectManagementPortal: React.FC<ProjectManagementPortalProps> = (
           tasks: apiProject.metadata?.tasks || [],
           createdBy: apiProject.ownerId,
           createdAt: new Date(apiProject.createdAt),
-          updatedAt: new Date(apiProject.updatedAt)
+          updatedAt: new Date(apiProject.updatedAt),
         }));
-        
+
         setProjects(convertedProjects);
-        console.log('✅ Projects loaded successfully:', convertedProjects.map(p => p.name));
+        console.log(
+          '✅ Projects loaded successfully:',
+          convertedProjects.map((p) => p.name)
+        );
       } catch (error) {
         console.error('Failed to load projects:', error);
         // Fallback to empty array or could show error state
         setProjects([]);
       }
     };
-    
+
     loadProjects();
   }, []);
-  
+
   // Add a function to refresh projects when needed
   const refreshProjects = async () => {
     try {
       console.log('🔄 Refreshing projects...');
       const apiProjects = await projectsAPI.list();
-      const convertedProjects: Project[] = apiProjects.map(apiProject => ({
+      const convertedProjects: Project[] = apiProjects.map((apiProject) => ({
         id: apiProject.id,
         name: apiProject.name,
         description: apiProject.description || '',
@@ -419,7 +478,7 @@ export const ProjectManagementPortal: React.FC<ProjectManagementPortalProps> = (
         tasks: apiProject.metadata?.tasks || [],
         createdBy: apiProject.ownerId,
         createdAt: new Date(apiProject.createdAt),
-        updatedAt: new Date(apiProject.updatedAt)
+        updatedAt: new Date(apiProject.updatedAt),
       }));
       setProjects(convertedProjects);
       console.log('✅ Projects refreshed successfully');
@@ -428,9 +487,10 @@ export const ProjectManagementPortal: React.FC<ProjectManagementPortalProps> = (
     }
   };
 
-  const filteredProjects = projects.filter(project => {
-    const matchesSearch = project.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         project.description.toLowerCase().includes(searchTerm.toLowerCase());
+  const filteredProjects = projects.filter((project) => {
+    const matchesSearch =
+      project.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      project.description.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesStatus = statusFilter === 'all' || project.status === statusFilter;
     return matchesSearch && matchesStatus;
   });
@@ -438,7 +498,7 @@ export const ProjectManagementPortal: React.FC<ProjectManagementPortalProps> = (
   const handleCreateProject = async (projectData: any) => {
     try {
       console.log('🚀 Creating project:', projectData);
-      
+
       // If projectData is already an API project (from onboarding flow), just add it
       if (projectData.id && projectData.ownerId) {
         // Convert API project to local format
@@ -450,18 +510,20 @@ export const ProjectManagementPortal: React.FC<ProjectManagementPortalProps> = (
           priority: (projectData.metadata?.priority as Project['priority']) || 'medium',
           progress: projectData.metadata?.progress || 0,
           startDate: new Date(projectData.createdAt),
-          dueDate: projectData.metadata?.dueDate ? new Date(projectData.metadata.dueDate) : undefined,
+          dueDate: projectData.metadata?.dueDate
+            ? new Date(projectData.metadata.dueDate)
+            : undefined,
           team: projectData.metadata?.team || [],
           tags: projectData.metadata?.tags || [],
           resources: projectData.metadata?.resources || [],
           tasks: projectData.metadata?.tasks || [],
           createdBy: projectData.ownerId,
           createdAt: new Date(projectData.createdAt),
-          updatedAt: new Date(projectData.updatedAt)
+          updatedAt: new Date(projectData.updatedAt),
         };
-        setProjects(prev => [convertedProject, ...prev]);
+        setProjects((prev) => [convertedProject, ...prev]);
         console.log('✅ Project added to local state:', convertedProject.name);
-        
+
         // Refresh projects from API to ensure consistency
         await refreshProjects();
       } else {
@@ -470,12 +532,12 @@ export const ProjectManagementPortal: React.FC<ProjectManagementPortalProps> = (
           ...projectData,
           id: Date.now().toString(),
           createdAt: new Date(),
-          updatedAt: new Date()
+          updatedAt: new Date(),
         };
-        setProjects(prev => [newProject, ...prev]);
+        setProjects((prev) => [newProject, ...prev]);
         console.log('✅ Legacy project added to local state:', newProject.name);
       }
-      
+
       // Close the onboarding flow
       setShowOnboardingFlow(false);
     } catch (error) {
@@ -485,34 +547,38 @@ export const ProjectManagementPortal: React.FC<ProjectManagementPortalProps> = (
 
   const handleEditProject = (projectData: Omit<Project, 'id' | 'createdAt' | 'updatedAt'>) => {
     if (!editingProject) return;
-    
+
     const updatedProject: Project = {
       ...editingProject,
       ...projectData,
-      updatedAt: new Date()
+      updatedAt: new Date(),
     };
-    
-    setProjects(prev => prev.map(p => p.id === editingProject.id ? updatedProject : p));
+
+    setProjects((prev) => prev.map((p) => (p.id === editingProject.id ? updatedProject : p)));
     setEditingProject(null);
   };
 
   const handleDeleteProject = (id: string) => {
     if (confirm('Are you sure you want to delete this project?')) {
-      setProjects(prev => prev.filter(p => p.id !== id));
+      setProjects((prev) => prev.filter((p) => p.id !== id));
     }
   };
 
   if (selectedProject) {
     return (
       <div className={`h-full bg-slate-900 p-${isMobile ? '4' : '6'} overflow-auto ${className}`}>
-        <div className={`flex items-center gap-${isMobile ? '2' : '4'} mb-${isMobile ? '4' : '6'} ${isMobile ? 'flex-wrap' : ''}`}>
+        <div
+          className={`flex items-center gap-${isMobile ? '2' : '4'} mb-${isMobile ? '4' : '6'} ${isMobile ? 'flex-wrap' : ''}`}
+        >
           <button
             onClick={() => setSelectedProject(null)}
             className="p-2 hover:bg-slate-800 rounded-lg transition-colors z-10"
           >
             ←
           </button>
-          <h1 className={`${isMobile ? 'text-xl' : 'text-2xl'} font-bold text-white ${isMobile ? 'w-full' : ''}`}>
+          <h1
+            className={`${isMobile ? 'text-xl' : 'text-2xl'} font-bold text-white ${isMobile ? 'w-full' : ''}`}
+          >
             {selectedProject.name}
           </h1>
           {!isMobile && (
@@ -528,20 +594,27 @@ export const ProjectManagementPortal: React.FC<ProjectManagementPortalProps> = (
             </div>
           )}
         </div>
-        
-        <div className={`grid grid-cols-1 ${isDesktop ? 'lg:grid-cols-3' : ''} gap-${isMobile ? '4' : '6'}`}>
+
+        <div
+          className={`grid grid-cols-1 ${isDesktop ? 'lg:grid-cols-3' : ''} gap-${isMobile ? '4' : '6'}`}
+        >
           <div className={`${isDesktop ? 'lg:col-span-2' : ''} space-y-${isMobile ? '4' : '6'}`}>
             <div className="bg-slate-800/50 rounded-xl p-4">
               <h3 className="font-semibold text-white mb-2">Description</h3>
               <p className="text-slate-300">{selectedProject.description}</p>
             </div>
-            
+
             <div className="bg-slate-800/50 rounded-xl p-4">
               <h3 className="font-semibold text-white mb-4">Tasks</h3>
               <div className="space-y-2">
-                {selectedProject.tasks.map(task => (
-                  <div key={task.id} className="flex items-center gap-3 p-3 bg-slate-700/50 rounded-lg">
-                    <CheckCircle2 className={`w-4 h-4 ${task.status === 'done' ? 'text-green-400' : 'text-slate-400'}`} />
+                {selectedProject.tasks.map((task) => (
+                  <div
+                    key={task.id}
+                    className="flex items-center gap-3 p-3 bg-slate-700/50 rounded-lg"
+                  >
+                    <CheckCircle2
+                      className={`w-4 h-4 ${task.status === 'done' ? 'text-green-400' : 'text-slate-400'}`}
+                    />
                     <span className="flex-1 text-white">{task.title}</span>
                     <PriorityBadge priority={task.priority} />
                   </div>
@@ -549,7 +622,7 @@ export const ProjectManagementPortal: React.FC<ProjectManagementPortalProps> = (
               </div>
             </div>
           </div>
-          
+
           <div className="space-y-6">
             <div className="bg-slate-800/50 rounded-xl p-4">
               <h3 className="font-semibold text-white mb-4">Progress</h3>
@@ -559,18 +632,18 @@ export const ProjectManagementPortal: React.FC<ProjectManagementPortalProps> = (
                   <span className="text-white font-medium">{selectedProject.progress}%</span>
                 </div>
                 <div className="w-full bg-slate-700 rounded-full h-3">
-                  <div 
-                    className="h-3 bg-blue-500 rounded-full transition-all" 
-                    style={{ width: `${selectedProject.progress}%` }} 
+                  <div
+                    className="h-3 bg-blue-500 rounded-full transition-all"
+                    style={{ width: `${selectedProject.progress}%` }}
                   />
                 </div>
               </div>
             </div>
-            
+
             <div className="bg-slate-800/50 rounded-xl p-4">
               <h3 className="font-semibold text-white mb-4">Team</h3>
               <div className="space-y-3">
-                {selectedProject.team.map(member => (
+                {selectedProject.team.map((member) => (
                   <div key={member.id} className="flex items-center gap-3">
                     <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center text-white text-sm font-medium">
                       {member.name.charAt(0)}
@@ -579,10 +652,15 @@ export const ProjectManagementPortal: React.FC<ProjectManagementPortalProps> = (
                       <div className="text-white text-sm font-medium">{member.name}</div>
                       <div className="text-slate-400 text-xs">{member.role}</div>
                     </div>
-                    <div className={`w-2 h-2 rounded-full ${
-                      member.status === 'online' ? 'bg-green-400' :
-                      member.status === 'busy' ? 'bg-yellow-400' : 'bg-slate-500'
-                    }`} />
+                    <div
+                      className={`w-2 h-2 rounded-full ${
+                        member.status === 'online'
+                          ? 'bg-green-400'
+                          : member.status === 'busy'
+                            ? 'bg-yellow-400'
+                            : 'bg-slate-500'
+                      }`}
+                    />
                   </div>
                 ))}
               </div>
@@ -594,10 +672,18 @@ export const ProjectManagementPortal: React.FC<ProjectManagementPortalProps> = (
   }
 
   return (
-    <div className={`h-full bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 p-${isMobile ? '4' : '8'} overflow-auto ${className}`}>
-      <div className={`flex items-center justify-between mb-${isMobile ? '6' : '8'} ${isMobile ? 'flex-col gap-4' : ''}`}>
-        <h1 className={`${isMobile ? 'text-2xl' : 'text-3xl'} font-bold text-white flex items-center gap-3 ${isMobile ? 'w-full' : ''}`}>
-          <div className={`${isMobile ? 'w-8 h-8' : 'w-10 h-10'} bg-gradient-to-br from-blue-500/20 to-cyan-500/20 rounded-xl flex items-center justify-center border border-blue-500/20`}>
+    <div
+      className={`h-full bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 p-${isMobile ? '4' : '8'} overflow-auto ${className}`}
+    >
+      <div
+        className={`flex items-center justify-between mb-${isMobile ? '6' : '8'} ${isMobile ? 'flex-col gap-4' : ''}`}
+      >
+        <h1
+          className={`${isMobile ? 'text-2xl' : 'text-3xl'} font-bold text-white flex items-center gap-3 ${isMobile ? 'w-full' : ''}`}
+        >
+          <div
+            className={`${isMobile ? 'w-8 h-8' : 'w-10 h-10'} bg-gradient-to-br from-blue-500/20 to-cyan-500/20 rounded-xl flex items-center justify-center border border-blue-500/20`}
+          >
             <Folder className={`${isMobile ? 'w-4 h-4' : 'w-5 h-5'} text-blue-400`} />
           </div>
           Projects
@@ -628,8 +714,10 @@ export const ProjectManagementPortal: React.FC<ProjectManagementPortalProps> = (
           </button>
         </div>
       </div>
-      
-      <div className={`flex items-center gap-4 mb-${isMobile ? '6' : '8'} ${isMobile ? 'flex-col' : ''}`}>
+
+      <div
+        className={`flex items-center gap-4 mb-${isMobile ? '6' : '8'} ${isMobile ? 'flex-col' : ''}`}
+      >
         <div className={`${isMobile ? 'w-full' : 'flex-1'} relative`}>
           <Search className="w-5 h-5 absolute left-4 top-1/2 transform -translate-y-1/2 text-slate-500 z-10" />
           <input
@@ -640,7 +728,7 @@ export const ProjectManagementPortal: React.FC<ProjectManagementPortalProps> = (
             className="w-full pl-12 pr-4 py-3 bg-slate-800/50 border border-slate-700/50 rounded-xl text-white placeholder-slate-500 focus:border-blue-500/50 focus:outline-none focus:ring-2 focus:ring-blue-500/20 transition-all duration-200 backdrop-blur-sm"
           />
         </div>
-        
+
         <select
           value={statusFilter}
           onChange={(e) => setStatusFilter(e.target.value as Project['status'] | 'all')}
@@ -655,9 +743,12 @@ export const ProjectManagementPortal: React.FC<ProjectManagementPortalProps> = (
         </select>
       </div>
 
-      <div className={`grid gap-${isMobile ? '4' : '6'}`} style={{ gridTemplateColumns: `repeat(${gridCols}, minmax(0, 1fr))` }}>
+      <div
+        className={`grid gap-${isMobile ? '4' : '6'}`}
+        style={{ gridTemplateColumns: `repeat(${gridCols}, minmax(0, 1fr))` }}
+      >
         <AnimatePresence>
-          {filteredProjects.map(project => (
+          {filteredProjects.map((project) => (
             <ProjectCard
               key={project.id}
               project={project}
@@ -679,7 +770,9 @@ export const ProjectManagementPortal: React.FC<ProjectManagementPortalProps> = (
           </div>
           <h3 className="text-xl font-medium text-slate-300 mb-3">No projects found</h3>
           <p className="text-slate-500 mb-6">
-            {searchTerm || statusFilter !== 'all' ? 'Try adjusting your search or filters' : 'Create your first project to get started'}
+            {searchTerm || statusFilter !== 'all'
+              ? 'Try adjusting your search or filters'
+              : 'Create your first project to get started'}
           </p>
           {!searchTerm && statusFilter === 'all' && (
             <div className="flex gap-3">
@@ -709,7 +802,7 @@ export const ProjectManagementPortal: React.FC<ProjectManagementPortalProps> = (
         onSave={editingProject ? handleEditProject : handleCreateProject}
         editProject={editingProject}
       />
-      
+
       <ProjectOnboardingFlow
         isOpen={showOnboardingFlow}
         onClose={() => setShowOnboardingFlow(false)}

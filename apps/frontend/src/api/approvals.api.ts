@@ -87,7 +87,10 @@ export const approvalsAPI = {
     return APIClient.post<ApprovalWorkflow>(API_ROUTES.APPROVALS.CREATE, workflow);
   },
 
-  async submitDecision(workflowId: string, decision: ApprovalDecisionRequest): Promise<ApprovalDecision> {
+  async submitDecision(
+    workflowId: string,
+    decision: ApprovalDecisionRequest
+  ): Promise<ApprovalDecision> {
     return APIClient.post<ApprovalDecision>(
       `${API_ROUTES.APPROVALS.SUBMIT_DECISION}/${workflowId}/decisions`,
       decision
@@ -96,7 +99,7 @@ export const approvalsAPI = {
 
   async getPending(options?: ApprovalListOptions): Promise<ApprovalWorkflow[]> {
     return APIClient.get<ApprovalWorkflow[]>(API_ROUTES.APPROVALS.PENDING, {
-      params: { ...options, status: 'pending' }
+      params: { ...options, status: 'pending' },
     });
   },
 
@@ -135,7 +138,10 @@ export const approvalsAPI = {
     return APIClient.get<ApprovalWorkflow[]>(API_ROUTES.APPROVALS.HISTORY, { params: options });
   },
 
-  async bulkApprove(workflowIds: string[], reason?: string): Promise<{
+  async bulkApprove(
+    workflowIds: string[],
+    reason?: string
+  ): Promise<{
     success: number;
     failed: number;
     errors?: string[];
@@ -143,7 +149,10 @@ export const approvalsAPI = {
     return APIClient.post(API_ROUTES.APPROVALS.BULK_APPROVE, { workflowIds, reason });
   },
 
-  async bulkReject(workflowIds: string[], reason?: string): Promise<{
+  async bulkReject(
+    workflowIds: string[],
+    reason?: string
+  ): Promise<{
     success: number;
     failed: number;
     errors?: string[];
@@ -155,11 +164,14 @@ export const approvalsAPI = {
     return APIClient.get<ApprovalDecision[]>(`${API_ROUTES.APPROVALS.GET}/${workflowId}/decisions`);
   },
 
-  async export(format: 'csv' | 'json' | 'pdf' = 'csv', filters?: ApprovalListOptions): Promise<Blob> {
+  async export(
+    format: 'csv' | 'json' | 'pdf' = 'csv',
+    filters?: ApprovalListOptions
+  ): Promise<Blob> {
     const response = await APIClient.get(API_ROUTES.APPROVALS.EXPORT, {
       params: { format, ...filters },
-      responseType: 'blob'
+      responseType: 'blob',
     });
     return response;
-  }
+  },
 };

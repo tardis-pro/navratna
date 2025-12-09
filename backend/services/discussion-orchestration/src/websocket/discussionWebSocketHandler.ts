@@ -10,7 +10,7 @@ import {
   sanitizeContent,
   generateSecureConnectionId,
   checkWebSocketRateLimit,
-  validateMessageSize
+  validateMessageSize,
 } from './websocket-security-utils.js';
 import { RedisSessionManager } from './redis-session-manager.js';
 
@@ -33,14 +33,14 @@ export interface WebSocketConnection {
 const WebSocketMessageSchema = z.object({
   type: z.string(),
   data: z.record(z.any()).optional(),
-  messageId: z.string().optional()
+  messageId: z.string().optional(),
 });
 
 // Rate limiting constants
 const WS_RATE_LIMITS = {
   MESSAGES_PER_MINUTE: 60,
   MAX_MESSAGE_SIZE: 32768, // 32KB
-  MAX_CONNECTIONS_PER_USER: 5
+  MAX_CONNECTIONS_PER_USER: 5,
 };
 
 export class DiscussionWebSocketHandler {
@@ -53,15 +53,15 @@ export class DiscussionWebSocketHandler {
 
   constructor(orchestrationService: DiscussionOrchestrationService) {
     this.orchestrationService = orchestrationService;
-    
+
     // Initialize Redis session manager
     this.redisSessionManager = new RedisSessionManager({
       host: process.env.REDIS_HOST || 'localhost',
       port: parseInt(process.env.REDIS_PORT || '6379'),
       password: process.env.REDIS_PASSWORD,
-      db: 2 // Use separate DB for WebSocket sessions
+      db: 2, // Use separate DB for WebSocket sessions
     });
-    
+
     // Start heartbeat to keep connections alive
     this.heartbeatInterval = setInterval(() => {
       this.heartbeat();
@@ -81,7 +81,7 @@ export class DiscussionWebSocketHandler {
    */
   async handleConnection(ws: WebSocket, request: IncomingMessage): Promise<void> {
     const connectionId = this.generateConnectionId();
-    
+
     try {
       // Extract discussion ID from URL path
       const url = new URL(request.url || '', `http://${request.headers.host}`);
@@ -92,7 +92,7 @@ export class DiscussionWebSocketHandler {
         logger.warn('WebSocket connection rejected: invalid discussion ID', {
           connectionId,
           discussionId,
-          ip: request.socket.remoteAddress
+          ip: request.socket.remoteAddress,
         });
         ws.close(1008, 'Invalid discussion ID');
         return;
@@ -105,7 +105,7 @@ export class DiscussionWebSocketHandler {
           connectionId,
           discussionId,
           reason: authResult.reason,
-          ip: request.socket.remoteAddress
+          ip: request.socket.remoteAddress,
         });
         ws.close(1008, authResult.reason || 'Authentication failed');
         return;
@@ -127,31 +127,37 @@ export class DiscussionWebSocketHandler {
         securityLevel,
         messageCount: 0,
         lastActivity: new Date(),
-        rateLimitReset: Date.now() + 60000
+        rateLimitReset: Date.now() + 60000,
       };
 
       // Check connection limits per user using Redis
-      const canConnect = await this.redisSessionManager.checkConnectionLimits(userId, WS_RATE_LIMITS.MAX_CONNECTIONS_PER_USER);
+      const canConnect = await this.redisSessionManager.checkConnectionLimits(
+        userId,
+        WS_RATE_LIMITS.MAX_CONNECTIONS_PER_USER
+      );
       if (!canConnect) {
         logger.warn('WebSocket connection rejected: too many connections', {
           connectionId,
           userId,
-          discussionId
+          discussionId,
         });
         ws.close(1008, 'Too many connections');
         return;
       }
-      
+
       // Continue with connection setup if allowed
-      await this.continueConnectionSetup(connection, request.socket.remoteAddress, request.headers['user-agent'] as string);
-      
+      await this.continueConnectionSetup(
+        connection,
+        request.socket.remoteAddress,
+        request.headers['user-agent'] as string
+      );
     } catch (error) {
       logger.error('Error handling WebSocket connection', {
         connectionId,
         error: error instanceof Error ? error.message : 'Unknown error',
         stack: error instanceof Error ? error.stack : undefined,
         url: request.url,
-        ip: request.socket.remoteAddress
+        ip: request.socket.remoteAddress,
       });
       ws.close(1011, 'Internal server error');
     }
@@ -160,12 +166,16 @@ export class DiscussionWebSocketHandler {
   /**
    * Connection setup continuation method
    */
-  private async continueConnectionSetup(connection: WebSocketConnection, ipAddress?: string, userAgent?: string): Promise<void> {
+  private async continueConnectionSetup(
+    connection: WebSocketConnection,
+    ipAddress?: string,
+    userAgent?: string
+  ): Promise<void> {
     try {
       logger.info('Setting up WebSocket connection', {
         connectionId: connection.connectionId,
         discussionId: connection.discussionId,
-        userId: connection.userId
+        userId: connection.userId,
       });
 
       // Add connection atomically and store in Redis
@@ -179,8 +189,8 @@ export class DiscussionWebSocketHandler {
           connectionId: connection.connectionId,
           securityLevel: connection.securityLevel,
           rateLimits: WS_RATE_LIMITS,
-          timestamp: new Date()
-        }
+          timestamp: new Date(),
+        },
       });
 
       // Set up WebSocket event handlers
@@ -188,12 +198,11 @@ export class DiscussionWebSocketHandler {
 
       // Verify participant access
       this.verifyAndNotifyAccess(connection);
-
     } catch (error) {
       logger.error('Error in connection setup continuation', {
         connectionId: connection.connectionId,
         error: error instanceof Error ? error.message : 'Unknown error',
-        stack: error instanceof Error ? error.stack : undefined
+        stack: error instanceof Error ? error.stack : undefined,
       });
       connection.ws.close(1011, 'Internal server error');
     }
@@ -202,30 +211,34 @@ export class DiscussionWebSocketHandler {
   /**
    * Add connection atomically to prevent race conditions
    */
-  private async addConnectionAtomic(connection: WebSocketConnection, ipAddress?: string, userAgent?: string): Promise<void> {
+  private async addConnectionAtomic(
+    connection: WebSocketConnection,
+    ipAddress?: string,
+    userAgent?: string
+  ): Promise<void> {
     try {
       // Add to discussion-specific connections
       if (!this.connections.has(connection.discussionId)) {
         this.connections.set(connection.discussionId, new Set());
       }
       this.connections.get(connection.discussionId)!.add(connection);
-      
+
       // Add to connection ID lookup
       this.connectionById.set(connection.connectionId, connection);
-      
+
       // Store session in Redis
       await this.redisSessionManager.createSession(connection, ipAddress, userAgent);
-      
+
       logger.debug('Connection added atomically with Redis session', {
         connectionId: connection.connectionId,
         discussionId: connection.discussionId,
         userId: connection.userId,
-        totalConnections: this.connectionById.size
+        totalConnections: this.connectionById.size,
       });
     } catch (error) {
       logger.error('Failed to add connection atomically', {
         connectionId: connection.connectionId,
-        error: error instanceof Error ? error.message : 'Unknown error'
+        error: error instanceof Error ? error.message : 'Unknown error',
       });
       throw error;
     }
@@ -244,23 +257,23 @@ export class DiscussionWebSocketHandler {
           this.connections.delete(connection.discussionId);
         }
       }
-      
+
       // Remove from connection ID lookup
       this.connectionById.delete(connection.connectionId);
-      
+
       // Remove session from Redis
       await this.redisSessionManager.removeSession(connection.connectionId);
-      
+
       logger.debug('Connection removed atomically with Redis cleanup', {
         connectionId: connection.connectionId,
         discussionId: connection.discussionId,
         userId: connection.userId,
-        totalConnections: this.connectionById.size
+        totalConnections: this.connectionById.size,
       });
     } catch (error) {
       logger.error('Failed to remove connection atomically', {
         connectionId: connection.connectionId,
-        error: error instanceof Error ? error.message : 'Unknown error'
+        error: error instanceof Error ? error.message : 'Unknown error',
       });
     }
   }
@@ -286,26 +299,25 @@ export class DiscussionWebSocketHandler {
     try {
       // Clean up Redis sessions
       await this.redisSessionManager.cleanupExpiredSessions();
-      
+
       // Log session statistics
       const stats = await this.redisSessionManager.getSessionStats();
-      
+
       logger.debug('Stale data cleanup completed', {
         localConnections: this.connectionById.size,
-        redisStats: stats
+        redisStats: stats,
       });
-      
+
       // Sync local connections with Redis if there's a mismatch
       if (stats.totalSessions !== this.connectionById.size) {
         logger.warn('Local connections out of sync with Redis', {
           localCount: this.connectionById.size,
-          redisCount: stats.totalSessions
+          redisCount: stats.totalSessions,
         });
       }
-      
     } catch (error) {
       logger.error('Failed to cleanup stale data', {
-        error: error instanceof Error ? error.message : 'Unknown error'
+        error: error instanceof Error ? error.message : 'Unknown error',
       });
     }
   }
@@ -327,7 +339,7 @@ export class DiscussionWebSocketHandler {
     ws.on('error', (error) => {
       logger.error('WebSocket error', {
         connectionId: connection.connectionId,
-        error: error.message
+        error: error.message,
       });
     });
 
@@ -365,14 +377,13 @@ export class DiscussionWebSocketHandler {
         default:
           logger.warn('Unknown message type', {
             connectionId: connection.connectionId,
-            type: validatedMessage.type
+            type: validatedMessage.type,
           });
       }
-
     } catch (error) {
       logger.error('Error handling message', {
         connectionId: connection.connectionId,
-        error: error instanceof Error ? error.message : 'Unknown error'
+        error: error instanceof Error ? error.message : 'Unknown error',
       });
       this.sendError(connection.connectionId, 'Message processing failed');
     }
@@ -381,13 +392,17 @@ export class DiscussionWebSocketHandler {
   /**
    * Handle WebSocket disconnection
    */
-  private async handleDisconnection(connection: WebSocketConnection, code: number, reason?: string): Promise<void> {
+  private async handleDisconnection(
+    connection: WebSocketConnection,
+    code: number,
+    reason?: string
+  ): Promise<void> {
     logger.info('WebSocket disconnected', {
       connectionId: connection.connectionId,
       discussionId: connection.discussionId,
       userId: connection.userId,
       code,
-      reason
+      reason,
     });
 
     await this.removeConnectionAtomic(connection);
@@ -410,7 +425,7 @@ export class DiscussionWebSocketHandler {
     if (connection) {
       this.sendToConnection(connection, {
         type: 'error',
-        data: { message }
+        data: { message },
       });
     }
   }
@@ -431,8 +446,8 @@ export class DiscussionWebSocketHandler {
           type: 'access.verified',
           data: {
             discussionId: connection.discussionId,
-            participantId: connection.participantId
-          }
+            participantId: connection.participantId,
+          },
         });
       } else {
         connection.ws.close(1008, 'Access denied');
@@ -440,7 +455,7 @@ export class DiscussionWebSocketHandler {
     } catch (error) {
       logger.error('Failed to verify participant access', {
         connectionId: connection.connectionId,
-        error: error instanceof Error ? error.message : 'Unknown error'
+        error: error instanceof Error ? error.message : 'Unknown error',
       });
       connection.ws.close(1011, 'Verification failed');
     }
@@ -453,7 +468,7 @@ export class DiscussionWebSocketHandler {
     this.orchestrationService.on('discussion_event', (event: DiscussionEvent) => {
       this.broadcastToDiscussion(event.discussionId, {
         type: 'discussion.event',
-        data: event
+        data: event,
       });
     });
   }
@@ -464,7 +479,7 @@ export class DiscussionWebSocketHandler {
   public broadcastToDiscussion(discussionId: string, message: any): void {
     const connections = this.connections.get(discussionId);
     if (connections) {
-      connections.forEach(connection => {
+      connections.forEach((connection) => {
         this.sendToConnection(connection, message);
       });
     }
@@ -504,7 +519,7 @@ export class DiscussionWebSocketHandler {
     return {
       totalConnections,
       discussionsWithConnections: this.connections.size,
-      connectionsByDiscussion
+      connectionsByDiscussion,
     };
   }
 
@@ -515,11 +530,11 @@ export class DiscussionWebSocketHandler {
     if (this.heartbeatInterval) {
       clearInterval(this.heartbeatInterval);
     }
-    
+
     if (this.cleanupInterval) {
       clearInterval(this.cleanupInterval);
     }
-    
+
     // Close all connections
     for (const connection of this.connectionById.values()) {
       connection.ws.close(1001, 'Server shutting down');
@@ -529,18 +544,18 @@ export class DiscussionWebSocketHandler {
       } catch (error) {
         logger.error('Failed to remove session during shutdown', {
           connectionId: connection.connectionId,
-          error: error instanceof Error ? error.message : 'Unknown error'
+          error: error instanceof Error ? error.message : 'Unknown error',
         });
       }
     }
-    
+
     // Clear all data structures
     this.connections.clear();
     this.connectionById.clear();
-    
+
     // Close Redis connection
     await this.redisSessionManager.destroy();
-    
+
     logger.info('WebSocket handler destroyed and cleaned up');
   }
 }

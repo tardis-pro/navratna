@@ -3,14 +3,14 @@ describe('DiscussionWebSocketHandler', () => {
     handleConnection: jest.fn(),
     broadcastToDiscussion: jest.fn(),
     getStats: jest.fn(),
-    cleanup: jest.fn()
+    cleanup: jest.fn(),
   };
 
   let webSocketHandler: any;
 
   beforeEach(() => {
     jest.clearAllMocks();
-    
+
     // Setup mock implementations
     (mockWebSocketHandler.handleConnection as any).mockReturnValue({
       ws: { on: jest.fn(), send: jest.fn() },
@@ -18,20 +18,22 @@ describe('DiscussionWebSocketHandler', () => {
       userId: 'user-123',
       participantId: 'participant-123',
       isAlive: true,
-      lastPing: new Date()
+      lastPing: new Date(),
     });
 
-    (mockWebSocketHandler.broadcastToDiscussion as any).mockImplementation((discussionId, event) => {
-      expect(discussionId).toBe('discussion-123');
-      expect(event).toBeDefined();
-    });
+    (mockWebSocketHandler.broadcastToDiscussion as any).mockImplementation(
+      (discussionId, event) => {
+        expect(discussionId).toBe('discussion-123');
+        expect(event).toBeDefined();
+      }
+    );
 
     (mockWebSocketHandler.getStats as any).mockReturnValue({
       totalConnections: 2,
       discussionsWithConnections: 1,
       connectionsByDiscussion: {
-        'discussion-123': 2
-      }
+        'discussion-123': 2,
+      },
     });
 
     (mockWebSocketHandler.cleanup as any).mockImplementation(() => {
@@ -51,7 +53,7 @@ describe('DiscussionWebSocketHandler', () => {
       const mockRequest = {
         url: '/discussions/discussion-123/ws?userId=user-123&participantId=participant-123',
         headers: { host: 'localhost:3005' },
-        socket: { remoteAddress: '127.0.0.1' }
+        socket: { remoteAddress: '127.0.0.1' },
       };
 
       const connection = webSocketHandler.handleConnection(mockWebSocket, mockRequest);
@@ -80,7 +82,7 @@ describe('DiscussionWebSocketHandler', () => {
       const mockWebSocket = { on: jest.fn(), send: jest.fn() };
       const mockRequest = {
         url: '/discussions/discussion-123/ws?userId=user-123&participantId=participant-123',
-        headers: { 'x-user-id': 'user-123' }
+        headers: { 'x-user-id': 'user-123' },
       };
 
       const connection = webSocketHandler.handleConnection(mockWebSocket, mockRequest);
@@ -93,11 +95,11 @@ describe('DiscussionWebSocketHandler', () => {
       const mockWebSocket = { on: jest.fn(), send: jest.fn() };
       const mockRequest = {
         url: '/discussions/discussion-123/ws?userId=user-123',
-        headers: {}
+        headers: {},
       };
 
       webSocketHandler.handleConnection(mockWebSocket, mockRequest);
-      
+
       expect(webSocketHandler.handleConnection).toHaveBeenCalledWith(mockWebSocket, mockRequest);
     });
   });
@@ -105,7 +107,7 @@ describe('DiscussionWebSocketHandler', () => {
   describe('Message Handling', () => {
     it('should handle ping/pong messages', () => {
       const pingMessage = { type: 'ping' };
-      
+
       // In real implementation, this would trigger pong response
       expect(webSocketHandler).toBeDefined();
     });
@@ -115,8 +117,8 @@ describe('DiscussionWebSocketHandler', () => {
         type: 'message.send',
         data: {
           content: 'Hello everyone!',
-          messageType: 'text'
-        }
+          messageType: 'text',
+        },
       };
 
       // Mock the service response
@@ -125,8 +127,8 @@ describe('DiscussionWebSocketHandler', () => {
         data: {
           id: 'message-123',
           content: 'Hello everyone!',
-          participantId: 'participant-123'
-        }
+          participantId: 'participant-123',
+        },
       };
 
       expect(mockResult.success).toBe(true);
@@ -137,7 +139,7 @@ describe('DiscussionWebSocketHandler', () => {
 
       const mockResult = {
         success: true,
-        data: { status: 'active', message: 'It is already your turn' }
+        data: { status: 'active', message: 'It is already your turn' },
       };
 
       expect(mockResult.success).toBe(true);
@@ -148,7 +150,7 @@ describe('DiscussionWebSocketHandler', () => {
 
       const mockResult = {
         success: true,
-        data: { message: 'Turn ended successfully' }
+        data: { message: 'Turn ended successfully' },
       };
 
       expect(mockResult.success).toBe(true);
@@ -159,8 +161,8 @@ describe('DiscussionWebSocketHandler', () => {
         type: 'reaction.add',
         data: {
           messageId: 'message-123',
-          emoji: '👍'
-        }
+          emoji: '👍',
+        },
       };
 
       const mockResult = {
@@ -168,8 +170,8 @@ describe('DiscussionWebSocketHandler', () => {
         data: {
           id: 'reaction-123',
           emoji: '👍',
-          participantId: 'participant-123'
-        }
+          participantId: 'participant-123',
+        },
       };
 
       expect(mockResult.success).toBe(true);
@@ -184,11 +186,11 @@ describe('DiscussionWebSocketHandler', () => {
 
     it('should require participant ID for participant actions', () => {
       const requestWithoutParticipant = {
-        url: '/discussions/discussion-123/ws?userId=user-123'
+        url: '/discussions/discussion-123/ws?userId=user-123',
       };
 
       const connection = webSocketHandler.handleConnection({}, requestWithoutParticipant);
-      
+
       expect(webSocketHandler.handleConnection).toHaveBeenCalled();
     });
   });
@@ -203,15 +205,18 @@ describe('DiscussionWebSocketHandler', () => {
           message: {
             id: 'message-123',
             content: 'Hello!',
-            participantId: 'participant-1'
-          }
+            participantId: 'participant-1',
+          },
         },
-        timestamp: new Date()
+        timestamp: new Date(),
       };
 
       webSocketHandler.broadcastToDiscussion('discussion-123', discussionEvent);
 
-      expect(webSocketHandler.broadcastToDiscussion).toHaveBeenCalledWith('discussion-123', discussionEvent);
+      expect(webSocketHandler.broadcastToDiscussion).toHaveBeenCalledWith(
+        'discussion-123',
+        discussionEvent
+      );
     });
 
     it('should handle turn change events', () => {
@@ -222,14 +227,17 @@ describe('DiscussionWebSocketHandler', () => {
         data: {
           previousParticipantId: 'participant-1',
           currentParticipantId: 'participant-2',
-          turnNumber: 2
+          turnNumber: 2,
         },
-        timestamp: new Date()
+        timestamp: new Date(),
       };
 
       webSocketHandler.broadcastToDiscussion('discussion-123', turnChangeEvent);
 
-      expect(webSocketHandler.broadcastToDiscussion).toHaveBeenCalledWith('discussion-123', turnChangeEvent);
+      expect(webSocketHandler.broadcastToDiscussion).toHaveBeenCalledWith(
+        'discussion-123',
+        turnChangeEvent
+      );
     });
 
     it('should handle status change events', () => {
@@ -239,14 +247,17 @@ describe('DiscussionWebSocketHandler', () => {
         discussionId: 'discussion-123',
         data: {
           oldStatus: 'draft',
-          newStatus: 'active'
+          newStatus: 'active',
         },
-        timestamp: new Date()
+        timestamp: new Date(),
       };
 
       webSocketHandler.broadcastToDiscussion('discussion-123', statusChangeEvent);
 
-      expect(webSocketHandler.broadcastToDiscussion).toHaveBeenCalledWith('discussion-123', statusChangeEvent);
+      expect(webSocketHandler.broadcastToDiscussion).toHaveBeenCalledWith(
+        'discussion-123',
+        statusChangeEvent
+      );
     });
 
     it('should handle participant joined events', () => {
@@ -258,36 +269,39 @@ describe('DiscussionWebSocketHandler', () => {
           participant: {
             id: 'participant-3',
             agentId: 'agent-3',
-            role: 'participant'
-          }
+            role: 'participant',
+          },
         },
-        timestamp: new Date()
+        timestamp: new Date(),
       };
 
       webSocketHandler.broadcastToDiscussion('discussion-123', participantJoinedEvent);
 
-      expect(webSocketHandler.broadcastToDiscussion).toHaveBeenCalledWith('discussion-123', participantJoinedEvent);
+      expect(webSocketHandler.broadcastToDiscussion).toHaveBeenCalledWith(
+        'discussion-123',
+        participantJoinedEvent
+      );
     });
   });
 
   describe('Connection Lifecycle', () => {
     it('should handle connection close events', () => {
       const connection = webSocketHandler.handleConnection({}, {});
-      
+
       // In real implementation, would remove connection from tracking
       expect(webSocketHandler.handleConnection).toHaveBeenCalled();
     });
 
     it('should handle connection error events', () => {
       const connection = webSocketHandler.handleConnection({}, {});
-      
+
       // In real implementation, would clean up connection
       expect(webSocketHandler.handleConnection).toHaveBeenCalled();
     });
 
     it('should handle heartbeat/ping responses', () => {
       const connection = webSocketHandler.handleConnection({}, {});
-      
+
       // In real implementation, would update connection status
       expect(webSocketHandler.handleConnection).toHaveBeenCalled();
     });
@@ -299,7 +313,7 @@ describe('DiscussionWebSocketHandler', () => {
       expect(stats.totalConnections).toBe(2);
       expect(stats.discussionsWithConnections).toBe(1);
       expect(stats.connectionsByDiscussion).toEqual({
-        'discussion-123': 2
+        'discussion-123': 2,
       });
       expect(webSocketHandler.getStats).toHaveBeenCalled();
     });
@@ -314,7 +328,7 @@ describe('DiscussionWebSocketHandler', () => {
     it('should handle service operation failures', async () => {
       const mockResult = {
         success: false,
-        error: 'It is not your turn to speak'
+        error: 'It is not your turn to speak',
       };
 
       expect(mockResult.success).toBe(false);
@@ -332,7 +346,7 @@ describe('DiscussionWebSocketHandler', () => {
       const mockWebSocket = { close: jest.fn() };
       const requestWithoutUserId = {
         url: '/discussions/discussion-123/ws',
-        headers: {}
+        headers: {},
       };
 
       webSocketHandler.handleConnection = jest.fn().mockImplementation((ws) => {
@@ -360,7 +374,7 @@ describe('DiscussionWebSocketHandler', () => {
 
     it('should manage connection memory efficiently', () => {
       const stats = webSocketHandler.getStats();
-      
+
       expect(stats.totalConnections).toBeGreaterThanOrEqual(0);
       expect(stats.discussionsWithConnections).toBeGreaterThanOrEqual(0);
     });
@@ -373,12 +387,15 @@ describe('DiscussionWebSocketHandler', () => {
         type: 'message_sent',
         discussionId: 'discussion-123',
         data: { message: { content: 'Real-time message!' } },
-        timestamp: new Date()
+        timestamp: new Date(),
       };
 
       webSocketHandler.broadcastToDiscussion('discussion-123', messageEvent);
 
-      expect(webSocketHandler.broadcastToDiscussion).toHaveBeenCalledWith('discussion-123', messageEvent);
+      expect(webSocketHandler.broadcastToDiscussion).toHaveBeenCalledWith(
+        'discussion-123',
+        messageEvent
+      );
     });
 
     it('should support real-time turn management', () => {
@@ -387,12 +404,15 @@ describe('DiscussionWebSocketHandler', () => {
         type: 'turn_changed',
         discussionId: 'discussion-123',
         data: { currentParticipantId: 'participant-2' },
-        timestamp: new Date()
+        timestamp: new Date(),
       };
 
       webSocketHandler.broadcastToDiscussion('discussion-123', turnEvent);
 
-      expect(webSocketHandler.broadcastToDiscussion).toHaveBeenCalledWith('discussion-123', turnEvent);
+      expect(webSocketHandler.broadcastToDiscussion).toHaveBeenCalledWith(
+        'discussion-123',
+        turnEvent
+      );
     });
 
     it('should support real-time reactions', () => {
@@ -401,17 +421,20 @@ describe('DiscussionWebSocketHandler', () => {
         type: 'reaction_added',
         discussionId: 'discussion-123',
         data: { emoji: '👍', messageId: 'message-123' },
-        timestamp: new Date()
+        timestamp: new Date(),
       };
 
       webSocketHandler.broadcastToDiscussion('discussion-123', reactionEvent);
 
-      expect(webSocketHandler.broadcastToDiscussion).toHaveBeenCalledWith('discussion-123', reactionEvent);
+      expect(webSocketHandler.broadcastToDiscussion).toHaveBeenCalledWith(
+        'discussion-123',
+        reactionEvent
+      );
     });
 
     it('should handle connection state management', () => {
       const stats = webSocketHandler.getStats();
-      
+
       expect(stats.totalConnections).toBeDefined();
       expect(stats.discussionsWithConnections).toBeDefined();
       expect(stats.connectionsByDiscussion).toBeDefined();

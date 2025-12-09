@@ -6,7 +6,7 @@ import { useOnboarding } from '../contexts/OnboardingContext';
 
 /**
  * OnboardingManager - Orchestrates the complete onboarding experience
- * 
+ *
  * Flow:
  * 1. Welcome Screen - Introduces the platform and features
  * 2. User Persona Onboarding - Captures user preferences and work style
@@ -19,7 +19,7 @@ export const OnboardingManager: React.FC = () => {
     onboardingStep,
     completeWelcome,
     completeOnboarding,
-    skipOnboarding
+    skipOnboarding,
   } = useOnboarding();
 
   // Don't render anything if onboarding isn't active

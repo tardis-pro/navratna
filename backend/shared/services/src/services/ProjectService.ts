@@ -8,7 +8,7 @@ import { ProjectFileEntity, FileType, FileStatus } from '../entities/project-fil
 const logger = createLogger({
   serviceName: 'project-service',
   environment: process.env.NODE_ENV || 'development',
-  logLevel: process.env.LOG_LEVEL || 'info'
+  logLevel: process.env.LOG_LEVEL || 'info',
 });
 
 export class ProjectService {
@@ -41,14 +41,18 @@ export class ProjectService {
 
   public getProjectMemberRepository(): Repository<ProjectMemberEntity> {
     if (!this.projectMemberRepository) {
-      this.projectMemberRepository = this.typeormService.getDataSource().getRepository(ProjectMemberEntity);
+      this.projectMemberRepository = this.typeormService
+        .getDataSource()
+        .getRepository(ProjectMemberEntity);
     }
     return this.projectMemberRepository;
   }
 
   public getProjectFileRepository(): Repository<ProjectFileEntity> {
     if (!this.projectFileRepository) {
-      this.projectFileRepository = this.typeormService.getDataSource().getRepository(ProjectFileEntity);
+      this.projectFileRepository = this.typeormService
+        .getDataSource()
+        .getRepository(ProjectFileEntity);
     }
     return this.projectFileRepository;
   }
@@ -64,10 +68,10 @@ export class ProjectService {
     metadata?: any;
   }): Promise<ProjectEntity> {
     const projectRepo = this.getProjectRepository();
-    
+
     // Generate a unique slug for the project
     const slug = await this.generateProjectSlug(data.name);
-    
+
     const project = projectRepo.create({
       name: data.name,
       description: data.description,
@@ -78,9 +82,9 @@ export class ProjectService {
       settings: {
         allowFileUploads: true,
         allowArtifactGeneration: true,
-        ...data.settings
+        ...data.settings,
       },
-      metadata: data.metadata
+      metadata: data.metadata,
     });
 
     const savedProject = await projectRepo.save(project);
@@ -94,14 +98,14 @@ export class ProjectService {
   public async findProjectById(id: string): Promise<ProjectEntity | null> {
     return await this.getProjectRepository().findOne({
       where: { id },
-      relations: ['owner', 'members', 'members.user', 'files']
+      relations: ['owner', 'members', 'members.user', 'files'],
     });
   }
 
   public async findProjectsByOwner(ownerId: string): Promise<ProjectEntity[]> {
     return await this.getProjectRepository().find({
       where: { owner: { id: ownerId } },
-      relations: ['members']
+      relations: ['members'],
     });
   }
 
@@ -109,13 +113,16 @@ export class ProjectService {
     const memberRepo = this.getProjectMemberRepository();
     const memberships = await memberRepo.find({
       where: { user: { id: userId } },
-      relations: ['project', 'project.owner']
+      relations: ['project', 'project.owner'],
     });
 
-    return memberships.map(m => m.project);
+    return memberships.map((m) => m.project);
   }
 
-  public async updateProject(id: string, data: Partial<ProjectEntity>): Promise<ProjectEntity | null> {
+  public async updateProject(
+    id: string,
+    data: Partial<ProjectEntity>
+  ): Promise<ProjectEntity | null> {
     await this.getProjectRepository().update(id, data);
     return await this.findProjectById(id);
   }
@@ -140,7 +147,7 @@ export class ProjectService {
 
     // Check if already a member
     const existing = await memberRepo.findOne({
-      where: { project: { id: projectId }, user: { id: userId } }
+      where: { project: { id: projectId }, user: { id: userId } },
     });
 
     if (existing) {
@@ -156,7 +163,7 @@ export class ProjectService {
     const member = memberRepo.create({
       project: { id: projectId },
       user: { id: userId },
-      role
+      role,
     });
 
     return await memberRepo.save(member);
@@ -165,7 +172,7 @@ export class ProjectService {
   public async removeProjectMember(projectId: string, userId: string): Promise<boolean> {
     const result = await this.getProjectMemberRepository().delete({
       project: { id: projectId },
-      user: { id: userId }
+      user: { id: userId },
     });
     return result.affected !== 0;
   }
@@ -185,7 +192,7 @@ export class ProjectService {
   public async getProjectMembers(projectId: string): Promise<ProjectMemberEntity[]> {
     return await this.getProjectMemberRepository().find({
       where: { project: { id: projectId } },
-      relations: ['user']
+      relations: ['user'],
     });
   }
 
@@ -205,22 +212,25 @@ export class ProjectService {
       uploadedById: data.uploadedById,
       name: data.path.split('/').pop() || 'unnamed',
       path: data.path,
-      type: data.type ? data.type as FileType : FileType.OTHER,
+      type: data.type ? (data.type as FileType) : FileType.OTHER,
       size: data.size || 0,
-      mimeType: data.mimeType
+      mimeType: data.mimeType,
     });
 
     return await fileRepo.save(file);
   }
 
-  public async updateProjectFile(id: string, data: {
-    name?: string;
-    description?: string;
-    url?: string;
-    size?: number;
-    mimeType?: string;
-    status?: FileStatus;
-  }): Promise<ProjectFileEntity | null> {
+  public async updateProjectFile(
+    id: string,
+    data: {
+      name?: string;
+      description?: string;
+      url?: string;
+      size?: number;
+      mimeType?: string;
+      status?: FileStatus;
+    }
+  ): Promise<ProjectFileEntity | null> {
     await this.getProjectFileRepository().update(id, data);
     return await this.getProjectFileRepository().findOne({ where: { id } });
   }
@@ -233,7 +243,7 @@ export class ProjectService {
   public async getProjectFiles(projectId: string): Promise<ProjectFileEntity[]> {
     return await this.getProjectFileRepository().find({
       where: { project: { id: projectId } },
-      order: { path: 'ASC' }
+      order: { path: 'ASC' },
     });
   }
 
@@ -250,8 +260,8 @@ export class ProjectService {
     await this.updateProject(projectId, {
       metadata: {
         ...metadata,
-        allowedTools: newTools
-      }
+        allowedTools: newTools,
+      },
     });
   }
 
@@ -261,13 +271,13 @@ export class ProjectService {
 
     const metadata = project.metadata || {};
     const currentTools = metadata.allowedTools || [];
-    const remainingTools = currentTools.filter(id => !toolIds.includes(id));
+    const remainingTools = currentTools.filter((id) => !toolIds.includes(id));
 
     await this.updateProject(projectId, {
       metadata: {
         ...metadata,
-        allowedTools: remainingTools
-      }
+        allowedTools: remainingTools,
+      },
     });
   }
 
@@ -278,7 +288,7 @@ export class ProjectService {
     requiredRole?: ProjectRole
   ): Promise<boolean> {
     const member = await this.getProjectMemberRepository().findOne({
-      where: { project: { id: projectId }, user: { id: userId } }
+      where: { project: { id: projectId }, user: { id: userId } },
     });
 
     if (!member) return false;
@@ -289,32 +299,36 @@ export class ProjectService {
       [ProjectRole.VIEWER]: 1,
       [ProjectRole.MEMBER]: 2,
       [ProjectRole.ADMIN]: 3,
-      [ProjectRole.OWNER]: 4
+      [ProjectRole.OWNER]: 4,
     };
 
     return roleHierarchy[member.role] >= roleHierarchy[requiredRole];
   }
 
   // Bulk operations
-  public async createBulkProjects(projects: Array<{
-    name: string;
-    description?: string;
-    ownerId: string;
-    type?: string;
-  }>): Promise<ProjectEntity[]> {
+  public async createBulkProjects(
+    projects: Array<{
+      name: string;
+      description?: string;
+      ownerId: string;
+      type?: string;
+    }>
+  ): Promise<ProjectEntity[]> {
     const projectRepo = this.getProjectRepository();
-    const entities = projects.map(project => projectRepo.create({
-      name: project.name,
-      description: project.description,
-      ownerId: project.ownerId,
-      status: ProjectStatus.ACTIVE,
-      visibility: ProjectVisibility.PRIVATE
-    }));
+    const entities = projects.map((project) =>
+      projectRepo.create({
+        name: project.name,
+        description: project.description,
+        ownerId: project.ownerId,
+        status: ProjectStatus.ACTIVE,
+        visibility: ProjectVisibility.PRIVATE,
+      })
+    );
 
     const savedProjects = await projectRepo.save(entities);
 
     // Add owners as admin members
-    const memberPromises = savedProjects.map(project =>
+    const memberPromises = savedProjects.map((project) =>
       this.addProjectMember(project.id, project.ownerId, ProjectRole.ADMIN)
     );
     await Promise.all(memberPromises);
@@ -344,18 +358,18 @@ export class ProjectService {
       .toUpperCase()
       .replace(/[^A-Z0-9]/g, '')
       .substring(0, 6);
-    
+
     // Add random suffix to ensure uniqueness
     const suffix = Math.random().toString(36).substring(2, 5).toUpperCase();
     const slug = `${baseSlug}${suffix}`;
-    
+
     // Check if slug already exists
     const existing = await this.getProjectRepository().findOne({ where: { slug } });
     if (existing) {
       // Recursively try again with new random suffix
       return this.generateProjectSlug(name);
     }
-    
+
     return slug;
   }
 }

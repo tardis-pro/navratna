@@ -1,5 +1,9 @@
 import { UserLLMProviderRepository } from './UserLLMProviderRepository.js';
-import { UserLLMProvider, UserLLMProviderType, UserLLMProviderStatus } from '../../entities/userLLMProvider.entity.js';
+import {
+  UserLLMProvider,
+  UserLLMProviderType,
+  UserLLMProviderStatus,
+} from '../../entities/userLLMProvider.entity.js';
 import { redisCacheService } from '../../redis-cache.service.js';
 import { logger } from '@uaip/utils';
 
@@ -20,9 +24,9 @@ export class CachedUserLLMProviderRepository extends UserLLMProviderRepository {
     ACTIVE_PROVIDERS: (userId: string) => `llm_providers:active:${userId}`,
     ALL_PROVIDERS: (userId: string) => `llm_providers:all:${userId}`,
     PROVIDER_STATS: (id: string, userId: string) => `llm_provider_stats:${id}:${userId}`,
-    BEST_PROVIDER: (userId: string, type?: UserLLMProviderType) => 
+    BEST_PROVIDER: (userId: string, type?: UserLLMProviderType) =>
       `llm_provider:best:${userId}:${type || 'any'}`,
-    PROVIDERS_BY_TYPE: (userId: string, type: UserLLMProviderType) => 
+    PROVIDERS_BY_TYPE: (userId: string, type: UserLLMProviderType) =>
       `llm_providers:type:${userId}:${type}`,
     HEALTH_CHECK_PROVIDERS: (userId: string) => `llm_providers:health_check:${userId}`,
   };
@@ -32,7 +36,7 @@ export class CachedUserLLMProviderRepository extends UserLLMProviderRepository {
    */
   async findActiveProvidersByUser(userId: string, useCache = true): Promise<UserLLMProvider[]> {
     const cacheKey = this.CACHE_KEYS.ACTIVE_PROVIDERS(userId);
-    
+
     if (useCache) {
       const cached = await redisCacheService.get<UserLLMProvider[]>(cacheKey);
       if (cached) {
@@ -43,7 +47,7 @@ export class CachedUserLLMProviderRepository extends UserLLMProviderRepository {
 
     // Cache miss - get from database
     const providers = await super.findActiveProvidersByUser(userId);
-    
+
     // Cache the result
     if (useCache) {
       await redisCacheService.set(cacheKey, providers, this.CACHE_TTL.ACTIVE_PROVIDERS);
@@ -58,7 +62,7 @@ export class CachedUserLLMProviderRepository extends UserLLMProviderRepository {
    */
   async findAllProvidersByUser(userId: string, useCache = true): Promise<UserLLMProvider[]> {
     const cacheKey = this.CACHE_KEYS.ALL_PROVIDERS(userId);
-    
+
     if (useCache) {
       const cached = await redisCacheService.get<UserLLMProvider[]>(cacheKey);
       if (cached) {
@@ -69,7 +73,7 @@ export class CachedUserLLMProviderRepository extends UserLLMProviderRepository {
 
     // Cache miss - get from database
     const providers = await super.findAllProvidersByUser(userId);
-    
+
     // Cache the result
     if (useCache) {
       await redisCacheService.set(cacheKey, providers, this.CACHE_TTL.ACTIVE_PROVIDERS);
@@ -82,9 +86,13 @@ export class CachedUserLLMProviderRepository extends UserLLMProviderRepository {
   /**
    * Find the best available provider for a user with caching
    */
-  async findBestProviderForUser(userId: string, type?: UserLLMProviderType, useCache = true): Promise<UserLLMProvider | null> {
+  async findBestProviderForUser(
+    userId: string,
+    type?: UserLLMProviderType,
+    useCache = true
+  ): Promise<UserLLMProvider | null> {
     const cacheKey = this.CACHE_KEYS.BEST_PROVIDER(userId, type);
-    
+
     if (useCache) {
       const cached = await redisCacheService.get<UserLLMProvider | null>(cacheKey);
       if (cached) {
@@ -95,7 +103,7 @@ export class CachedUserLLMProviderRepository extends UserLLMProviderRepository {
 
     // Cache miss - get from database
     const provider = await super.findBestProviderForUser(userId, type);
-    
+
     // Cache the result
     if (useCache) {
       await redisCacheService.set(cacheKey, provider, this.CACHE_TTL.BEST_PROVIDER);
@@ -108,9 +116,13 @@ export class CachedUserLLMProviderRepository extends UserLLMProviderRepository {
   /**
    * Find providers by user and type with caching
    */
-  async findProvidersByUserAndType(userId: string, type: UserLLMProviderType, useCache = true): Promise<UserLLMProvider[]> {
+  async findProvidersByUserAndType(
+    userId: string,
+    type: UserLLMProviderType,
+    useCache = true
+  ): Promise<UserLLMProvider[]> {
     const cacheKey = this.CACHE_KEYS.PROVIDERS_BY_TYPE(userId, type);
-    
+
     if (useCache) {
       const cached = await redisCacheService.get<UserLLMProvider[]>(cacheKey);
       if (cached) {
@@ -121,7 +133,7 @@ export class CachedUserLLMProviderRepository extends UserLLMProviderRepository {
 
     // Cache miss - get from database
     const providers = await super.findProvidersByUserAndType(userId, type);
-    
+
     // Cache the result
     if (useCache) {
       await redisCacheService.set(cacheKey, providers, this.CACHE_TTL.PROVIDERS_BY_TYPE);
@@ -134,7 +146,11 @@ export class CachedUserLLMProviderRepository extends UserLLMProviderRepository {
   /**
    * Get provider statistics with caching
    */
-  async getProviderStats(id: string, userId: string, useCache = true): Promise<{
+  async getProviderStats(
+    id: string,
+    userId: string,
+    useCache = true
+  ): Promise<{
     totalRequests: string;
     totalTokensUsed: string;
     totalErrors: string;
@@ -143,7 +159,7 @@ export class CachedUserLLMProviderRepository extends UserLLMProviderRepository {
     healthStatus?: string;
   } | null> {
     const cacheKey = this.CACHE_KEYS.PROVIDER_STATS(id, userId);
-    
+
     if (useCache) {
       const cached = await redisCacheService.get(cacheKey);
       if (cached) {
@@ -154,7 +170,7 @@ export class CachedUserLLMProviderRepository extends UserLLMProviderRepository {
 
     // Cache miss - get from database
     const stats = await super.getProviderStats(id, userId);
-    
+
     // Cache the result
     if (useCache && stats) {
       await redisCacheService.set(cacheKey, stats, this.CACHE_TTL.PROVIDER_STATS);
@@ -167,9 +183,13 @@ export class CachedUserLLMProviderRepository extends UserLLMProviderRepository {
   /**
    * Get providers needing health check with caching
    */
-  async getProvidersNeedingHealthCheck(userId: string, minutesThreshold: number = 30, useCache = true): Promise<UserLLMProvider[]> {
+  async getProvidersNeedingHealthCheck(
+    userId: string,
+    minutesThreshold: number = 30,
+    useCache = true
+  ): Promise<UserLLMProvider[]> {
     const cacheKey = this.CACHE_KEYS.HEALTH_CHECK_PROVIDERS(userId);
-    
+
     if (useCache) {
       const cached = await redisCacheService.get<UserLLMProvider[]>(cacheKey);
       if (cached) {
@@ -180,7 +200,7 @@ export class CachedUserLLMProviderRepository extends UserLLMProviderRepository {
 
     // Cache miss - get from database
     const providers = await super.getProvidersNeedingHealthCheck(userId, minutesThreshold);
-    
+
     // Cache the result (shorter TTL for health check data)
     if (useCache) {
       await redisCacheService.set(cacheKey, providers, this.CACHE_TTL.HEALTH_CHECK_PROVIDERS);
@@ -206,26 +226,30 @@ export class CachedUserLLMProviderRepository extends UserLLMProviderRepository {
     priority?: number;
   }): Promise<UserLLMProvider> {
     const provider = await super.createUserProvider(data);
-    
+
     // Invalidate relevant caches
     await this.invalidateUserProviderCache(data.userId);
-    
+
     return provider;
   }
 
   /**
    * Update provider configuration and invalidate cache
    */
-  async updateProviderConfig(id: string, userId: string, config: {
-    name?: string;
-    description?: string;
-    baseUrl?: string;
-    defaultModel?: string;
-    priority?: number;
-    configuration?: any;
-  }): Promise<void> {
+  async updateProviderConfig(
+    id: string,
+    userId: string,
+    config: {
+      name?: string;
+      description?: string;
+      baseUrl?: string;
+      defaultModel?: string;
+      priority?: number;
+      configuration?: any;
+    }
+  ): Promise<void> {
     await super.updateProviderConfig(id, userId, config);
-    
+
     // Invalidate relevant caches
     await this.invalidateUserProviderCache(userId);
     await this.invalidateProviderSpecificCache(id, userId);
@@ -236,7 +260,7 @@ export class CachedUserLLMProviderRepository extends UserLLMProviderRepository {
    */
   async updateApiKey(id: string, apiKey: string, userId: string): Promise<void> {
     await super.updateApiKey(id, apiKey, userId);
-    
+
     // Invalidate relevant caches
     await this.invalidateUserProviderCache(userId);
     await this.invalidateProviderSpecificCache(id, userId);
@@ -247,7 +271,7 @@ export class CachedUserLLMProviderRepository extends UserLLMProviderRepository {
    */
   async updateStatus(id: string, status: UserLLMProviderStatus, userId: string): Promise<void> {
     await super.updateStatus(id, status, userId);
-    
+
     // Invalidate relevant caches
     await this.invalidateUserProviderCache(userId);
     await this.invalidateProviderSpecificCache(id, userId);
@@ -258,7 +282,7 @@ export class CachedUserLLMProviderRepository extends UserLLMProviderRepository {
    */
   async updateUsageStats(id: string, tokensUsed: number, isError: boolean = false): Promise<void> {
     await super.updateUsageStats(id, tokensUsed, isError);
-    
+
     // Get provider to find userId for cache invalidation
     const provider = await super.findById(id);
     if (provider) {
@@ -270,11 +294,11 @@ export class CachedUserLLMProviderRepository extends UserLLMProviderRepository {
    * Update health check result and invalidate cache
    */
   async updateHealthCheck(
-    id: string, 
+    id: string,
     result: { status: 'healthy' | 'unhealthy'; latency?: number; error?: string }
   ): Promise<void> {
     await super.updateHealthCheck(id, result);
-    
+
     // Get provider to find userId for cache invalidation
     const provider = await super.findById(id);
     if (provider) {
@@ -288,7 +312,7 @@ export class CachedUserLLMProviderRepository extends UserLLMProviderRepository {
    */
   async deleteUserProvider(id: string, userId: string): Promise<void> {
     await super.deleteUserProvider(id, userId);
-    
+
     // Invalidate relevant caches
     await this.invalidateUserProviderCache(userId);
     await this.invalidateProviderSpecificCache(id, userId);
@@ -325,9 +349,7 @@ export class CachedUserLLMProviderRepository extends UserLLMProviderRepository {
    * Invalidate provider-specific caches
    */
   async invalidateProviderSpecificCache(id: string, userId: string): Promise<void> {
-    const patterns = [
-      this.CACHE_KEYS.PROVIDER_STATS(id, userId),
-    ];
+    const patterns = [this.CACHE_KEYS.PROVIDER_STATS(id, userId)];
 
     for (const pattern of patterns) {
       await redisCacheService.del(pattern);
@@ -342,16 +364,16 @@ export class CachedUserLLMProviderRepository extends UserLLMProviderRepository {
   async bulkInvalidateProviderCache(providerIds: string[], userId: string): Promise<void> {
     // Invalidate user-level caches
     await this.invalidateUserProviderCache(userId);
-    
+
     // Invalidate provider-specific caches
     for (const id of providerIds) {
       await this.invalidateProviderSpecificCache(id, userId);
     }
 
-    logger.info('Bulk provider cache invalidation completed', { 
-      providerIds, 
-      userId, 
-      count: providerIds.length 
+    logger.info('Bulk provider cache invalidation completed', {
+      providerIds,
+      userId,
+      count: providerIds.length,
     });
   }
 
@@ -383,9 +405,9 @@ export class CachedUserLLMProviderRepository extends UserLLMProviderRepository {
     };
 
     return {
-      cached: Object.values(stats).some(cached => cached),
+      cached: Object.values(stats).some((cached) => cached),
       keys,
-      stats
+      stats,
     };
   }
 }

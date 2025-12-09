@@ -8,7 +8,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 // Context
 import { useAgents } from '../contexts/AgentContext';
 
-
 // Icons
 import {
   ShieldCheckIcon,
@@ -16,30 +15,45 @@ import {
   ChartBarIcon,
   CommandLineIcon,
   SignalIcon,
-  LightBulbIcon
+  LightBulbIcon,
 } from '@heroicons/react/24/outline';
 
 // Types
-import { EnhancedAgentState, Operation, ApprovalWorkflow, Capability } from '../types/uaip-interfaces';
+import {
+  EnhancedAgentState,
+  Operation,
+  ApprovalWorkflow,
+  Capability,
+} from '../types/uaip-interfaces';
 
 // Hooks - PRODUCTION READY
 import { useOperations, useApprovals, useCapabilities, useSystemMetrics } from '../hooks/useUAIP';
 
-type PanelType = 'intelligence' | 'operations' | 'security' | 'capabilities' | 'insights' | 'tools' | 'events';
+type PanelType =
+  | 'intelligence'
+  | 'operations'
+  | 'security'
+  | 'capabilities'
+  | 'insights'
+  | 'tools'
+  | 'events';
 
 interface UAIPDashboardProps {
   agents?: EnhancedAgentState[]; // Made optional
   className?: string;
 }
 
-export const UAIPDashboard: React.FC<UAIPDashboardProps> = ({ agents: propAgents, className = '' }) => {
+export const UAIPDashboard: React.FC<UAIPDashboardProps> = ({
+  agents: propAgents,
+  className = '',
+}) => {
   const [activePanel, setActivePanel] = useState<PanelType>('intelligence');
   const [isExpanded, setIsExpanded] = useState(true);
   const [systemStatus, setSystemStatus] = useState({
     operationsActive: 0,
     pendingApprovals: 0,
     systemHealth: 'healthy' as 'healthy' | 'warning' | 'critical',
-    lastUpdate: new Date()
+    lastUpdate: new Date(),
   });
 
   // Get agents from context if not provided as prop
@@ -49,14 +63,19 @@ export const UAIPDashboard: React.FC<UAIPDashboardProps> = ({ agents: propAgents
   // Real backend data hooks
   const { operations, isLoading: operationsLoading, error: operationsError } = useOperations();
   const { approvals, isLoading: approvalsLoading, error: approvalsError } = useApprovals();
-  const { capabilities, isLoading: capabilitiesLoading, error: capabilitiesError } = useCapabilities();
+  const {
+    capabilities,
+    isLoading: capabilitiesLoading,
+    error: capabilitiesError,
+  } = useCapabilities();
   const { metrics, isLoading: metricsLoading, error: metricsError } = useSystemMetrics();
 
   // Update system status based on real data
   useEffect(() => {
-    const activeOperations = operations?.filter(op => op.status === 'running' || op.status === 'queued') || [];
-    const pendingApprovals = approvals?.filter(approval => approval.status === 'pending') || [];
-    
+    const activeOperations =
+      operations?.filter((op) => op.status === 'running' || op.status === 'queued') || [];
+    const pendingApprovals = approvals?.filter((approval) => approval.status === 'pending') || [];
+
     // Determine system health based on errors and data
     let health: 'healthy' | 'warning' | 'critical' = 'healthy';
     if (operationsError || approvalsError || capabilitiesError || metricsError) {
@@ -69,44 +88,54 @@ export const UAIPDashboard: React.FC<UAIPDashboardProps> = ({ agents: propAgents
       operationsActive: activeOperations.length,
       pendingApprovals: pendingApprovals.length,
       systemHealth: health,
-      lastUpdate: new Date()
+      lastUpdate: new Date(),
     });
   }, [operations, approvals, operationsError, approvalsError, capabilitiesError, metricsError]);
 
   // Set up real-time updates for system status
   useEffect(() => {
     const interval = setInterval(() => {
-      setSystemStatus(prev => ({
+      setSystemStatus((prev) => ({
         ...prev,
-        lastUpdate: new Date()
+        lastUpdate: new Date(),
       }));
     }, 1000);
 
     return () => clearInterval(interval);
   }, []);
 
-  
-
   const getPanelIcon = (panel: PanelType) => {
-    const iconClass = "w-4 h-4";
+    const iconClass = 'w-4 h-4';
     switch (panel) {
-      case 'intelligence': return <ChartBarIcon className={iconClass} />;
-      case 'operations': return <CommandLineIcon className={iconClass} />;
-      case 'security': return <ShieldCheckIcon className={iconClass} />;
-      case 'capabilities': return <WrenchScrewdriverIcon className={iconClass} />;
-      case 'insights': return <LightBulbIcon className={iconClass} />;
-      case 'tools': return <ChartBarIcon className={iconClass} />;
-      case 'events': return <SignalIcon className={iconClass} />;
-      default: return <ChartBarIcon className={iconClass} />;
+      case 'intelligence':
+        return <ChartBarIcon className={iconClass} />;
+      case 'operations':
+        return <CommandLineIcon className={iconClass} />;
+      case 'security':
+        return <ShieldCheckIcon className={iconClass} />;
+      case 'capabilities':
+        return <WrenchScrewdriverIcon className={iconClass} />;
+      case 'insights':
+        return <LightBulbIcon className={iconClass} />;
+      case 'tools':
+        return <ChartBarIcon className={iconClass} />;
+      case 'events':
+        return <SignalIcon className={iconClass} />;
+      default:
+        return <ChartBarIcon className={iconClass} />;
     }
   };
 
   const getSystemHealthColor = () => {
     switch (systemStatus.systemHealth) {
-      case 'healthy': return 'text-green-600 bg-green-50 border-green-200';
-      case 'warning': return 'text-yellow-600 bg-yellow-50 border-yellow-200';
-      case 'critical': return 'text-red-600 bg-red-50 border-red-200';
-      default: return 'text-gray-600 bg-gray-50 border-gray-200';
+      case 'healthy':
+        return 'text-green-600 bg-green-50 border-green-200';
+      case 'warning':
+        return 'text-yellow-600 bg-yellow-50 border-yellow-200';
+      case 'critical':
+        return 'text-red-600 bg-red-50 border-red-200';
+      default:
+        return 'text-gray-600 bg-gray-50 border-gray-200';
     }
   };
 
@@ -121,7 +150,9 @@ export const UAIPDashboard: React.FC<UAIPDashboardProps> = ({ agents: propAgents
           <CardHeader className="pb-3">
             <div className="flex items-center justify-between">
               <CardTitle className="text-lg font-semibold">UAIP System Status</CardTitle>
-              <div className={`px-3 py-1 rounded-full text-xs font-medium border ${getSystemHealthColor()}`}>
+              <div
+                className={`px-3 py-1 rounded-full text-xs font-medium border ${getSystemHealthColor()}`}
+              >
                 {systemStatus.systemHealth.toUpperCase()}
               </div>
             </div>
@@ -133,11 +164,15 @@ export const UAIPDashboard: React.FC<UAIPDashboardProps> = ({ agents: propAgents
                 <div className="text-xs text-gray-500">Active Agents</div>
               </div>
               <div className="text-center">
-                <div className="text-2xl font-bold text-orange-600">{systemStatus.operationsActive}</div>
+                <div className="text-2xl font-bold text-orange-600">
+                  {systemStatus.operationsActive}
+                </div>
                 <div className="text-xs text-gray-500">Active Operations</div>
               </div>
               <div className="text-center">
-                <div className="text-2xl font-bold text-red-600">{systemStatus.pendingApprovals}</div>
+                <div className="text-2xl font-bold text-red-600">
+                  {systemStatus.pendingApprovals}
+                </div>
                 <div className="text-xs text-gray-500">Pending Approvals</div>
               </div>
               <div className="text-center">
@@ -145,7 +180,7 @@ export const UAIPDashboard: React.FC<UAIPDashboardProps> = ({ agents: propAgents
                 <div className="text-xs text-gray-500">Available Capabilities</div>
               </div>
             </div>
-            
+
             {hasError && (
               <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-lg">
                 <div className="flex items-center space-x-2">
@@ -154,7 +189,7 @@ export const UAIPDashboard: React.FC<UAIPDashboardProps> = ({ agents: propAgents
                 </div>
               </div>
             )}
-            
+
             <div className="mt-4 text-xs text-gray-400 text-center">
               Last updated: {systemStatus.lastUpdate.toLocaleTimeString()}
             </div>
@@ -167,11 +202,7 @@ export const UAIPDashboard: React.FC<UAIPDashboardProps> = ({ agents: propAgents
         <CardHeader className="pb-3">
           <div className="flex items-center justify-between">
             <CardTitle className="text-lg font-semibold">System Control Panel</CardTitle>
-            <Button 
-              variant="outline" 
-              size="sm"
-              onClick={() => setIsExpanded(!isExpanded)}
-            >
+            <Button variant="outline" size="sm" onClick={() => setIsExpanded(!isExpanded)}>
               {isExpanded ? 'Collapse' : 'Expand'}
             </Button>
           </div>
@@ -210,13 +241,11 @@ export const UAIPDashboard: React.FC<UAIPDashboardProps> = ({ agents: propAgents
                 </TabsTrigger>
               </TabsList>
             </div>
-            
+
             <Separator />
-            
-          
           </Tabs>
         </CardContent>
       </Card>
     </div>
   );
-}; 
+};

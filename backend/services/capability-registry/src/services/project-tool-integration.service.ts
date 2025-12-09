@@ -77,7 +77,7 @@ export class ProjectToolIntegrationService {
         toolId: request.toolId,
         operation: request.operation,
         projectId: request.context.projectId,
-        agentId: request.context.agentId
+        agentId: request.context.agentId,
       });
 
       // Validate project context
@@ -90,7 +90,7 @@ export class ProjectToolIntegrationService {
       await this.validateToolPermissions(request);
 
       // Check if approval is required
-      if (request.context.approvalRequired || await this.requiresApproval(request)) {
+      if (request.context.approvalRequired || (await this.requiresApproval(request))) {
         return await this.handleApprovalRequired(request, executionId);
       }
 
@@ -105,8 +105,8 @@ export class ProjectToolIntegrationService {
           agentId: request.context.agentId,
           securityContext: {
             level: request.context.securityLevel,
-            permissions: request.context.permissions
-          }
+            permissions: request.context.permissions,
+          },
         }
       );
 
@@ -131,8 +131,8 @@ export class ProjectToolIntegrationService {
           projectId: request.context.projectId,
           taskId: request.context.taskId,
           agentId: request.context.agentId,
-          timestamp: new Date()
-        }
+          timestamp: new Date(),
+        },
       };
 
       // Emit success event
@@ -141,26 +141,25 @@ export class ProjectToolIntegrationService {
         ...executionResult.metadata,
         success: true,
         cost: actualCost,
-        duration: executionTime
+        duration: executionTime,
       });
 
       logger.info('Project tool execution completed successfully', {
         executionId,
         toolId: request.toolId,
         executionTime,
-        actualCost
+        actualCost,
       });
 
       return executionResult;
-
     } catch (error) {
       const executionTime = Date.now() - startTime;
-      
+
       logger.error('Project tool execution failed', {
         executionId,
         error,
         toolId: request.toolId,
-        projectId: request.context.projectId
+        projectId: request.context.projectId,
       });
 
       // Record failed usage
@@ -172,7 +171,7 @@ export class ProjectToolIntegrationService {
         toolId: request.toolId,
         projectId: request.context.projectId,
         error: error.message,
-        duration: executionTime
+        duration: executionTime,
       });
 
       return {
@@ -186,8 +185,8 @@ export class ProjectToolIntegrationService {
           projectId: request.context.projectId,
           taskId: request.context.taskId,
           agentId: request.context.agentId,
-          timestamp: new Date()
-        }
+          timestamp: new Date(),
+        },
       };
     }
   }
@@ -203,22 +202,24 @@ export class ProjectToolIntegrationService {
       agentId?: string;
       usedTools?: string[];
     }
-  ): Promise<Array<{
-    toolId: string;
-    score: number;
-    reason: string;
-    projectUsage: {
-      usageCount: number;
-      successRate: number;
-      averageCost: number;
-    };
-  }>> {
+  ): Promise<
+    Array<{
+      toolId: string;
+      score: number;
+      reason: string;
+      projectUsage: {
+        usageCount: number;
+        successRate: number;
+        averageCost: number;
+      };
+    }>
+  > {
     try {
       // Get base recommendations from unified registry
       const baseRecommendations = await this.toolRegistry.getRecommendations({
         projectId,
         currentTools: context?.usedTools,
-        objective: context?.objective
+        objective: context?.objective,
       });
 
       // Enhance with project-specific data
@@ -226,17 +227,17 @@ export class ProjectToolIntegrationService {
 
       for (const rec of baseRecommendations) {
         const projectUsage = await this.getProjectToolUsage(projectId, rec.toolId);
-        
+
         // Adjust score based on project history
         let adjustedScore = rec.score;
-        
+
         if (projectUsage.usageCount > 0) {
           // Boost score for tools with good project history
           adjustedScore += projectUsage.successRate * 0.2;
-          
+
           // Reduce score if tool is expensive relative to project budget
           const project = await this.projectService.getProject(projectId);
-          if (project && projectUsage.averageCost > (project.budget * 0.1)) {
+          if (project && projectUsage.averageCost > project.budget * 0.1) {
             adjustedScore -= 0.1;
           }
         }
@@ -244,17 +245,15 @@ export class ProjectToolIntegrationService {
         enhancedRecommendations.push({
           toolId: rec.toolId,
           score: Math.min(adjustedScore, 1.0),
-          reason: projectUsage.usageCount > 0 
-            ? `${rec.reason} (${projectUsage.usageCount} uses in project, ${Math.round(projectUsage.successRate * 100)}% success)`
-            : rec.reason,
-          projectUsage
+          reason:
+            projectUsage.usageCount > 0
+              ? `${rec.reason} (${projectUsage.usageCount} uses in project, ${Math.round(projectUsage.successRate * 100)}% success)`
+              : rec.reason,
+          projectUsage,
         });
       }
 
-      return enhancedRecommendations
-        .sort((a, b) => b.score - a.score)
-        .slice(0, 10);
-
+      return enhancedRecommendations.sort((a, b) => b.score - a.score).slice(0, 10);
     } catch (error) {
       logger.error('Failed to get project tool recommendations', { error, projectId });
       return [];
@@ -264,10 +263,13 @@ export class ProjectToolIntegrationService {
   /**
    * Get project tool usage analytics
    */
-  async getProjectToolAnalytics(projectId: string, timeframe: {
-    startDate?: Date;
-    endDate?: Date;
-  } = {}): Promise<{
+  async getProjectToolAnalytics(
+    projectId: string,
+    timeframe: {
+      startDate?: Date;
+      endDate?: Date;
+    } = {}
+  ): Promise<{
     totalUsages: number;
     totalCost: number;
     averageExecutionTime: number;
@@ -302,11 +304,16 @@ export class ProjectToolIntegrationService {
 
       // Calculate additional analytics
       const totalUsages = metrics.toolUsageStats.reduce((sum, tool) => sum + tool.usageCount, 0);
-      const totalCost = metrics.toolUsageStats.reduce((sum, tool) => sum + (tool.averageCost * tool.usageCount), 0);
+      const totalCost = metrics.toolUsageStats.reduce(
+        (sum, tool) => sum + tool.averageCost * tool.usageCount,
+        0
+      );
       const averageExecutionTime = metrics.averageTaskDuration;
-      const successRate = metrics.toolUsageStats.length > 0 
-        ? metrics.toolUsageStats.reduce((sum, tool) => sum + tool.successRate, 0) / metrics.toolUsageStats.length
-        : 0;
+      const successRate =
+        metrics.toolUsageStats.length > 0
+          ? metrics.toolUsageStats.reduce((sum, tool) => sum + tool.successRate, 0) /
+            metrics.toolUsageStats.length
+          : 0;
 
       // Get time-based cost trend (simplified - would use proper time-series query in production)
       const costTrend = await this.getCostTrend(projectId, timeframe);
@@ -316,22 +323,21 @@ export class ProjectToolIntegrationService {
         totalCost,
         averageExecutionTime,
         successRate,
-        topTools: metrics.toolUsageStats.slice(0, 10).map(tool => ({
+        topTools: metrics.toolUsageStats.slice(0, 10).map((tool) => ({
           toolId: tool.toolId,
           toolName: tool.toolName,
           usageCount: tool.usageCount,
           totalCost: tool.averageCost * tool.usageCount,
-          successRate: tool.successRate
+          successRate: tool.successRate,
         })),
         costTrend,
-        agentUsage: metrics.agentPerformance.map(agent => ({
+        agentUsage: metrics.agentPerformance.map((agent) => ({
           agentId: agent.agentId,
           usageCount: agent.tasksCompleted,
           successRate: agent.successRate,
-          totalCost: 0 // Would be calculated from actual usage records
-        }))
+          totalCost: 0, // Would be calculated from actual usage records
+        })),
       };
-
     } catch (error) {
       logger.error('Failed to get project tool analytics', { error, projectId });
       throw error;
@@ -357,28 +363,35 @@ export class ProjectToolIntegrationService {
     const estimatedCost = request.estimatedCost || 0;
 
     if (estimatedCost > remainingBudget) {
-      throw new Error(`Insufficient budget. Required: ${estimatedCost}, Available: ${remainingBudget}`);
+      throw new Error(
+        `Insufficient budget. Required: ${estimatedCost}, Available: ${remainingBudget}`
+      );
     }
 
     if (request.context.budget.limit && estimatedCost > request.context.budget.limit) {
-      throw new Error(`Cost exceeds limit. Required: ${estimatedCost}, Limit: ${request.context.budget.limit}`);
+      throw new Error(
+        `Cost exceeds limit. Required: ${estimatedCost}, Limit: ${request.context.budget.limit}`
+      );
     }
   }
 
   private async validateToolPermissions(request: ToolExecutionRequest): Promise<void> {
     // Check if tool is allowed in project
     const project = await this.projectService.getProject(request.context.projectId);
-    
-    if (project?.settings?.allowedTools && !project.settings.allowedTools.includes(request.toolId)) {
+
+    if (
+      project?.settings?.allowedTools &&
+      !project.settings.allowedTools.includes(request.toolId)
+    ) {
       throw new Error(`Tool ${request.toolId} is not allowed in this project`);
     }
 
     // Check agent-specific tool permissions
     if (request.context.agentId) {
       // Would check agent tool permissions here
-      logger.debug('Agent tool permissions validated', { 
-        agentId: request.context.agentId, 
-        toolId: request.toolId 
+      logger.debug('Agent tool permissions validated', {
+        agentId: request.context.agentId,
+        toolId: request.toolId,
       });
     }
   }
@@ -386,7 +399,7 @@ export class ProjectToolIntegrationService {
   private async requiresApproval(request: ToolExecutionRequest): Promise<boolean> {
     // Check tool definition for approval requirement
     const tool = await this.toolRegistry.getTool(request.toolId);
-    
+
     if (tool?.requiresApproval) return true;
 
     // Check project settings
@@ -399,7 +412,10 @@ export class ProjectToolIntegrationService {
     return false;
   }
 
-  private async handleApprovalRequired(request: ToolExecutionRequest, executionId: string): Promise<ToolExecutionResult> {
+  private async handleApprovalRequired(
+    request: ToolExecutionRequest,
+    executionId: string
+  ): Promise<ToolExecutionResult> {
     // Store pending approval
     this.pendingApprovals.set(executionId, request);
 
@@ -410,7 +426,7 @@ export class ProjectToolIntegrationService {
       operation: request.operation,
       projectId: request.context.projectId,
       estimatedCost: request.estimatedCost,
-      requester: request.context.userId
+      requester: request.context.userId,
     });
 
     return {
@@ -424,14 +440,14 @@ export class ProjectToolIntegrationService {
         projectId: request.context.projectId,
         taskId: request.context.taskId,
         agentId: request.context.agentId,
-        timestamp: new Date()
-      }
+        timestamp: new Date(),
+      },
     };
   }
 
   private async calculateActualCost(
-    request: ToolExecutionRequest, 
-    result: any, 
+    request: ToolExecutionRequest,
+    result: any,
     executionTime: number
   ): Promise<number> {
     // Base cost calculation
@@ -476,8 +492,8 @@ export class ProjectToolIntegrationService {
         metadata: {
           priority: request.priority,
           estimatedCost: request.estimatedCost,
-          estimatedDuration: request.estimatedDuration
-        }
+          estimatedDuration: request.estimatedDuration,
+        },
       });
     } catch (error) {
       logger.error('Failed to record project tool usage', { error, request });
@@ -495,7 +511,10 @@ export class ProjectToolIntegrationService {
     }
   }
 
-  private async getProjectToolUsage(projectId: string, toolId: string): Promise<{
+  private async getProjectToolUsage(
+    projectId: string,
+    toolId: string
+  ): Promise<{
     usageCount: number;
     successRate: number;
     averageCost: number;
@@ -505,7 +524,7 @@ export class ProjectToolIntegrationService {
       return {
         usageCount: 0,
         successRate: 0,
-        averageCost: 0
+        averageCost: 0,
       };
     } catch (error) {
       logger.error('Failed to get project tool usage', { error, projectId, toolId });
@@ -513,27 +532,32 @@ export class ProjectToolIntegrationService {
     }
   }
 
-  private async getCostTrend(projectId: string, timeframe: { startDate?: Date; endDate?: Date }): Promise<Array<{
-    date: string;
-    cost: number;
-    usageCount: number;
-  }>> {
+  private async getCostTrend(
+    projectId: string,
+    timeframe: { startDate?: Date; endDate?: Date }
+  ): Promise<
+    Array<{
+      date: string;
+      cost: number;
+      usageCount: number;
+    }>
+  > {
     // Simplified implementation - would use proper time-series query
     return [];
   }
 
   private sanitizeData(data: any): any {
     if (!data) return null;
-    
+
     // Remove sensitive information
     const sanitized = JSON.parse(JSON.stringify(data));
-    
+
     // Remove common sensitive fields
     const sensitiveFields = ['password', 'token', 'key', 'secret', 'credential'];
     const remove = (obj: any) => {
       if (typeof obj === 'object' && obj !== null) {
         for (const key in obj) {
-          if (sensitiveFields.some(field => key.toLowerCase().includes(field))) {
+          if (sensitiveFields.some((field) => key.toLowerCase().includes(field))) {
             obj[key] = '[REDACTED]';
           } else if (typeof obj[key] === 'object') {
             remove(obj[key]);
@@ -541,7 +565,7 @@ export class ProjectToolIntegrationService {
         }
       }
     };
-    
+
     remove(sanitized);
     return sanitized;
   }
@@ -561,7 +585,7 @@ export class ProjectToolIntegrationService {
 
   private async handleApprovalResponse(event: any): Promise<void> {
     const { executionId, approved, approver } = event;
-    
+
     const request = this.pendingApprovals.get(executionId);
     if (!request) {
       logger.warn('Approval response for unknown execution', { executionId });
@@ -576,13 +600,13 @@ export class ProjectToolIntegrationService {
       await this.executeToolInProject(request);
     } else {
       logger.info('Tool execution rejected', { executionId, approver });
-      
+
       // Emit rejection event
       await this.eventBusService.publish('project.tool.execution.rejected', {
         executionId,
         toolId: request.toolId,
         projectId: request.context.projectId,
-        approver
+        approver,
       });
     }
   }

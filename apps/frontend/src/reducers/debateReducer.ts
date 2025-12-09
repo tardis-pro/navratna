@@ -24,7 +24,10 @@ export type DebateAction =
   | { type: 'SET_THINKING'; payload: boolean }
   | { type: 'ADD_MESSAGE'; payload: DebateMessageData }
   | { type: 'SET_ERROR'; payload: string | null }
-  | { type: 'SET_MODELS'; payload: { llama1: ModelOption; llama2: ModelOption; judge: ModelOption } }
+  | {
+      type: 'SET_MODELS';
+      payload: { llama1: ModelOption; llama2: ModelOption; judge: ModelOption };
+    }
   | { type: 'START_DEBATE' }
   | { type: 'NEXT_TURN' }
   | { type: 'FINISH_DEBATE' };
@@ -41,7 +44,7 @@ export const initialDebateState: DebateState = {
   llama2Model: null,
   judgeModel: null,
   isDebateStarted: false,
-  isDebateFinished: false
+  isDebateFinished: false,
 };
 
 export const debateReducer = (state: DebateState, action: DebateAction): DebateState => {
@@ -65,14 +68,14 @@ export const debateReducer = (state: DebateState, action: DebateAction): DebateS
         ...state,
         llama1Model: action.payload.llama1,
         llama2Model: action.payload.llama2,
-        judgeModel: action.payload.judge
+        judgeModel: action.payload.judge,
       };
     case 'START_DEBATE':
       return {
         ...state,
         isDebateStarted: true,
         currentSpeaker: 'llama1',
-        currentRound: 1
+        currentRound: 1,
       };
     case 'NEXT_TURN': {
       const nextSpeaker = state.currentSpeaker === 'llama1' ? 'llama2' : 'judge';
@@ -80,15 +83,15 @@ export const debateReducer = (state: DebateState, action: DebateAction): DebateS
       return {
         ...state,
         currentSpeaker: nextSpeaker,
-        currentRound: nextRound
+        currentRound: nextRound,
       };
     }
     case 'FINISH_DEBATE':
       return {
         ...state,
-        isDebateFinished: true
+        isDebateFinished: true,
       };
     default:
       return state;
   }
-}; 
+};

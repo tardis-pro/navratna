@@ -1,16 +1,14 @@
 // Test Generator - Generates test cases and test suites
 // Epic 4 Implementation
 
-import { 
-  ArtifactConversationContext
-} from '@uaip/types';
+import { ArtifactConversationContext } from '@uaip/types';
 
 import { ArtifactGenerator } from '../interfaces';
 import { logger } from '@uaip/utils';
 
 export class TestGenerator implements ArtifactGenerator {
   private readonly supportedType = 'test';
-  
+
   /**
    * Check if this generator can handle the given context
    */
@@ -20,13 +18,18 @@ export class TestGenerator implements ArtifactGenerator {
 
     // Look for test-related keywords
     const testKeywords = [
-      'test', 'testing', 'unit test', 'integration test', 'spec', 'jest', 'mocha', 'pytest'
+      'test',
+      'testing',
+      'unit test',
+      'integration test',
+      'spec',
+      'jest',
+      'mocha',
+      'pytest',
     ];
 
-    const hasTestContext = recentMessages.some(message => 
-      testKeywords.some(keyword => 
-        message.content.toLowerCase().includes(keyword)
-      )
+    const hasTestContext = recentMessages.some((message) =>
+      testKeywords.some((keyword) => message.content.toLowerCase().includes(keyword))
     );
 
     // Check for explicit test requests
@@ -35,11 +38,11 @@ export class TestGenerator implements ArtifactGenerator {
       /create.*test/i,
       /test.*code/i,
       /unit.*test/i,
-      /integration.*test/i
+      /integration.*test/i,
     ];
 
-    const hasTestRequest = recentMessages.some(message =>
-      testRequestPatterns.some(pattern => pattern.test(message.content))
+    const hasTestRequest = recentMessages.some((message) =>
+      testRequestPatterns.some((pattern) => pattern.test(message.content))
     );
 
     return hasTestContext || hasTestRequest;
@@ -51,24 +54,25 @@ export class TestGenerator implements ArtifactGenerator {
   async generate(context: ArtifactConversationContext): Promise<string> {
     logger.info('Generating test artifact', {
       conversationId: context.conversationId,
-      messageCount: context.messages.length
+      messageCount: context.messages.length,
     });
 
     try {
       // Extract test requirements from conversation
       const testRequirements = this.extractTestRequirements(context.messages);
       const functionName = this.extractFunctionName(context.messages) || 'testFunction';
-      
+
       // Detect language/framework from context
       const language = this.detectLanguage(context.messages) || 'typescript';
       const framework = this.detectTestFramework(context.messages) || 'jest';
-      
+
       // Generate tests based on language and framework
       return this.generateTestCode(functionName, testRequirements, language, framework);
-
     } catch (error) {
       logger.error('Test generation failed:', error);
-      throw new Error(`Test generation failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw new Error(
+        `Test generation failed: ${error instanceof Error ? error.message : 'Unknown error'}`
+      );
     }
   }
 
@@ -90,10 +94,10 @@ export class TestGenerator implements ArtifactGenerator {
 
   private extractTestRequirements(messages: any[]): string[] {
     const requirements: string[] = [];
-    
+
     for (const message of messages) {
       const content = message.content.toLowerCase();
-      
+
       // Look for test requirement patterns
       if (content.includes('should') || content.includes('expect') || content.includes('test')) {
         const sentences = message.content.split(/[.!?]+/);
@@ -104,7 +108,7 @@ export class TestGenerator implements ArtifactGenerator {
         }
       }
     }
-    
+
     return requirements.slice(0, 5);
   }
 
@@ -125,14 +129,14 @@ export class TestGenerator implements ArtifactGenerator {
       python: ['python', 'py', 'pytest', 'unittest'],
       java: ['java', 'junit', 'testng'],
       rust: ['rust', 'cargo test'],
-      go: ['golang', 'go test']
+      go: ['golang', 'go test'],
     };
 
     for (const message of messages) {
       const content = message.content.toLowerCase();
-      
+
       for (const [language, keywords] of Object.entries(languageKeywords)) {
-        if (keywords.some(keyword => content.includes(keyword))) {
+        if (keywords.some((keyword) => content.includes(keyword))) {
           return language;
         }
       }
@@ -146,14 +150,14 @@ export class TestGenerator implements ArtifactGenerator {
       jest: ['jest', 'describe', 'it(', 'expect('],
       mocha: ['mocha', 'chai', 'assert'],
       pytest: ['pytest', 'def test_'],
-      junit: ['junit', '@test', 'assertthat']
+      junit: ['junit', '@test', 'assertthat'],
     };
 
     for (const message of messages) {
       const content = message.content.toLowerCase();
-      
+
       for (const [framework, keywords] of Object.entries(frameworks)) {
-        if (keywords.some(keyword => content.includes(keyword))) {
+        if (keywords.some((keyword) => content.includes(keyword))) {
           return framework;
         }
       }
@@ -162,7 +166,12 @@ export class TestGenerator implements ArtifactGenerator {
     return 'jest'; // Default
   }
 
-  private generateTestCode(functionName: string, requirements: string[], language: string, framework: string): string {
+  private generateTestCode(
+    functionName: string,
+    requirements: string[],
+    language: string,
+    framework: string
+  ): string {
     switch (language.toLowerCase()) {
       case 'typescript':
       case 'javascript':
@@ -176,10 +185,13 @@ export class TestGenerator implements ArtifactGenerator {
     }
   }
 
-  private generateJavaScriptTests(functionName: string, requirements: string[], framework: string): string {
-    const requirementsComment = requirements.length > 0 
-      ? `// Test requirements:\n// ${requirements.join('\n// ')}\n\n`
-      : '';
+  private generateJavaScriptTests(
+    functionName: string,
+    requirements: string[],
+    framework: string
+  ): string {
+    const requirementsComment =
+      requirements.length > 0 ? `// Test requirements:\n// ${requirements.join('\n// ')}\n\n` : '';
 
     if (framework === 'jest') {
       return `${requirementsComment}import { ${functionName} } from './${functionName}';
@@ -197,7 +209,9 @@ describe('${functionName}', () => {
     expect(${functionName}).toBeDefined();
   });
 
-  ${requirements.map((req, index) => `
+  ${requirements
+    .map(
+      (req, index) => `
   it('${req}', () => {
     // TODO: Implement test case
     // Arrange
@@ -209,7 +223,9 @@ describe('${functionName}', () => {
 
     // Assert
     expect(result).toEqual(expected);
-  });`).join('\n')}
+  });`
+    )
+    .join('\n')}
 
   it('should handle edge cases', () => {
     // TODO: Test edge cases
@@ -232,9 +248,8 @@ describe('${functionName}', function() {
   }
 
   private generatePythonTests(functionName: string, requirements: string[]): string {
-    const requirementsComment = requirements.length > 0 
-      ? `# Test requirements:\n# ${requirements.join('\n# ')}\n\n`
-      : '';
+    const requirementsComment =
+      requirements.length > 0 ? `# Test requirements:\n# ${requirements.join('\n# ')}\n\n` : '';
 
     return `${requirementsComment}import pytest
 from ${functionName} import ${functionName}
@@ -252,7 +267,9 @@ class Test${this.capitalizeFirst(functionName)}:
         """Test that function is defined"""
         assert ${functionName} is not None
 
-    ${requirements.map((req, index) => `
+    ${requirements
+      .map(
+        (req, index) => `
     def test_${functionName}_requirement_${index + 1}(self):
         """${req}"""
         # TODO: Implement test case
@@ -264,7 +281,9 @@ class Test${this.capitalizeFirst(functionName)}:
         result = ${functionName}(input_data)
 
         # Assert
-        assert result == expected`).join('\n')}
+        assert result == expected`
+      )
+      .join('\n')}
 
     def test_${functionName}_edge_cases(self):
         """Test edge cases"""
@@ -281,10 +300,11 @@ class Test${this.capitalizeFirst(functionName)}:
   private generateJavaTests(functionName: string, requirements: string[]): string {
     const className = this.capitalizeFirst(functionName) + 'Test';
     const serviceClass = this.capitalizeFirst(functionName) + 'Service';
-    
-    const requirementsComment = requirements.length > 0 
-      ? `    // Test requirements:\n    // ${requirements.join('\n    // ')}\n\n`
-      : '';
+
+    const requirementsComment =
+      requirements.length > 0
+        ? `    // Test requirements:\n    // ${requirements.join('\n    // ')}\n\n`
+        : '';
 
     return `${requirementsComment}import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.BeforeEach;
@@ -309,7 +329,9 @@ public class ${className} {
         assertNotNull(service);
     }
 
-    ${requirements.map((req, index) => `
+    ${requirements
+      .map(
+        (req, index) => `
     @Test
     void ${functionName}_requirement${index + 1}() {
         // ${req}
@@ -323,7 +345,9 @@ public class ${className} {
 
         // Assert
         assertEquals(expected, result);
-    }`).join('\n')}
+    }`
+      )
+      .join('\n')}
 
     @Test
     void ${functionName}_shouldHandleEdgeCases() {
@@ -341,10 +365,13 @@ public class ${className} {
 }`;
   }
 
-  private generateGenericTests(functionName: string, requirements: string[], language: string): string {
-    const requirementsComment = requirements.length > 0 
-      ? `// Test requirements:\n// ${requirements.join('\n// ')}\n\n`
-      : '';
+  private generateGenericTests(
+    functionName: string,
+    requirements: string[],
+    language: string
+  ): string {
+    const requirementsComment =
+      requirements.length > 0 ? `// Test requirements:\n// ${requirements.join('\n// ')}\n\n` : '';
 
     return `${requirementsComment}// ${language} test structure
 // TODO: Implement tests for ${functionName}
@@ -361,13 +388,17 @@ test('${functionName} should work correctly', () => {
     assert(result === expected);
 });
 
-${requirements.map((req, index) => `
+${requirements
+  .map(
+    (req, index) => `
 test('${req}', () => {
     // TODO: Implement test case for requirement ${index + 1}
-});`).join('\n')}`;
+});`
+  )
+  .join('\n')}`;
   }
 
   private capitalizeFirst(str: string): string {
     return str.charAt(0).toUpperCase() + str.slice(1);
   }
-} 
+}

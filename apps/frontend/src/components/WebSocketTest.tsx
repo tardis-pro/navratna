@@ -5,7 +5,7 @@ import { useAuth } from '@/contexts/AuthContext';
 export const WebSocketTest: React.FC = () => {
   const { user } = useAuth();
   const [connectionAttempted, setConnectionAttempted] = useState(false);
-  
+
   const {
     isConnected,
     connectionType,
@@ -14,7 +14,7 @@ export const WebSocketTest: React.FC = () => {
     connect,
     disconnect,
     sendMessage,
-    addEventListener
+    addEventListener,
   } = useEnhancedWebSocket();
 
   useEffect(() => {
@@ -43,7 +43,7 @@ export const WebSocketTest: React.FC = () => {
     sendMessage({
       type: 'user_connect',
       username: user?.username || 'Test User',
-      token: localStorage.getItem('accessToken') || ''
+      token: localStorage.getItem('accessToken') || '',
     });
   };
 
@@ -54,33 +54,39 @@ export const WebSocketTest: React.FC = () => {
   return (
     <div className="p-4 bg-gray-100 rounded-lg">
       <h3 className="text-lg font-semibold mb-4">WebSocket Connection Test</h3>
-      
+
       <div className="space-y-2 mb-4">
         <div className="flex items-center space-x-2">
           <span className="font-medium">Status:</span>
-          <span className={`px-2 py-1 rounded text-sm ${
-            isConnected ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
-          }`}>
+          <span
+            className={`px-2 py-1 rounded text-sm ${
+              isConnected ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+            }`}
+          >
             {isConnected ? 'Connected' : 'Disconnected'}
           </span>
         </div>
-        
+
         <div className="flex items-center space-x-2">
           <span className="font-medium">Type:</span>
           <span className="text-gray-700">{connectionType || 'None'}</span>
         </div>
-        
+
         <div className="flex items-center space-x-2">
           <span className="font-medium">Auth:</span>
-          <span className={`px-2 py-1 rounded text-sm ${
-            authStatus === 'authenticated' ? 'bg-green-100 text-green-800' :
-            authStatus === 'unauthenticated' ? 'bg-red-100 text-red-800' :
-            'bg-yellow-100 text-yellow-800'
-          }`}>
+          <span
+            className={`px-2 py-1 rounded text-sm ${
+              authStatus === 'authenticated'
+                ? 'bg-green-100 text-green-800'
+                : authStatus === 'unauthenticated'
+                  ? 'bg-red-100 text-red-800'
+                  : 'bg-yellow-100 text-yellow-800'
+            }`}
+          >
             {authStatus}
           </span>
         </div>
-        
+
         {error && (
           <div className="flex items-center space-x-2">
             <span className="font-medium">Error:</span>
@@ -88,7 +94,7 @@ export const WebSocketTest: React.FC = () => {
           </div>
         )}
       </div>
-      
+
       <div className="space-x-2">
         <button
           onClick={connect}
@@ -97,7 +103,7 @@ export const WebSocketTest: React.FC = () => {
         >
           Connect
         </button>
-        
+
         <button
           onClick={disconnect}
           disabled={!isConnected}
@@ -105,7 +111,7 @@ export const WebSocketTest: React.FC = () => {
         >
           Disconnect
         </button>
-        
+
         <button
           onClick={handleSendTest}
           disabled={!isConnected}

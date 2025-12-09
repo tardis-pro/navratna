@@ -14,12 +14,14 @@ This project adheres to the Contributor Covenant Code of Conduct. By participati
 
 1. Fork the repository
 2. Clone your fork:
+
 ```bash
 git clone https://github.com/your-username/uaip.git
 cd uaip
 ```
 
 3. Set up development environment:
+
 ```bash
 # Install dependencies
 npm install
@@ -70,7 +72,7 @@ interface UserData {
 enum UserRole {
   ADMIN = 'admin',
   USER = 'user',
-  GUEST = 'guest'
+  GUEST = 'guest',
 }
 
 // Document complex functions
@@ -80,10 +82,7 @@ enum UserRole {
  * @param options Processing options
  * @returns Updated user data
  */
-async function processUser(
-  userData: UserData,
-  options: ProcessOptions
-): Promise<ProcessedUser> {
+async function processUser(userData: UserData, options: ProcessOptions): Promise<ProcessedUser> {
   // Implementation
 }
 ```
@@ -91,35 +90,35 @@ async function processUser(
 ### Testing Requirements
 
 1. **Unit Tests**
+
 ```typescript
 describe('UserService', () => {
   it('should process user data correctly', async () => {
     const userData = {
       id: '123',
       name: 'Test User',
-      role: UserRole.USER
+      role: UserRole.USER,
     };
-    
+
     const result = await userService.processUser(userData);
     expect(result).toMatchObject({
       id: '123',
-      processed: true
+      processed: true,
     });
   });
 });
 ```
 
 2. **Integration Tests**
+
 ```typescript
 describe('API Integration', () => {
   it('should handle user creation flow', async () => {
-    const response = await request(app)
-      .post('/api/users')
-      .send({
-        name: 'Test User',
-        role: 'user'
-      });
-    
+    const response = await request(app).post('/api/users').send({
+      name: 'Test User',
+      role: 'user',
+    });
+
     expect(response.status).toBe(200);
     expect(response.body).toHaveProperty('id');
   });
@@ -172,18 +171,22 @@ git commit -m "feat: add new feature"
 
 ```markdown
 ## Description
+
 Brief description of changes
 
 ## Type of Change
+
 - [ ] Bug fix
 - [ ] New feature
 - [ ] Breaking change
 - [ ] Documentation update
 
 ## Testing
+
 Describe testing performed
 
 ## Related Issues
+
 Fixes #issue_number
 ```
 
@@ -253,15 +256,19 @@ Fixes #issue_number
 ## [Version] - YYYY-MM-DD
 
 ### Added
+
 - New features
 
 ### Changed
+
 - Updates
 
 ### Fixed
+
 - Bug fixes
 
 ### Breaking Changes
+
 - List breaking changes
 ```
 

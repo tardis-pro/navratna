@@ -5,6 +5,7 @@ This directory contains the integration of Hugging Face's Text Embeddings Infere
 ## 🎯 Overview
 
 **What's New:**
+
 - **Self-hosted embeddings**: No more OpenAI API dependencies for embeddings
 - **Reranking capabilities**: Improved search relevance with dedicated reranking models
 - **GPU acceleration**: Optimized for NVIDIA GPUs with fallback to CPU
@@ -12,6 +13,7 @@ This directory contains the integration of Hugging Face's Text Embeddings Infere
 - **Enhanced privacy**: All data stays local
 
 **Services Added:**
+
 - `tei-embeddings`: GPU-accelerated embedding service (BAAI/bge-large-en-v1.5)
 - `tei-reranker`: GPU-accelerated reranking service (BAAI/bge-reranker-base)
 - `tei-embeddings-cpu`: CPU-only embedding service for development/testing
@@ -61,6 +63,7 @@ curl -X POST http://localhost:8082/embed \
 ## 📋 Service Details
 
 ### TEI Embeddings (GPU)
+
 - **Model**: BAAI/bge-large-en-v1.5 (384 dimensions)
 - **Port**: 8080 (HTTP), 9080 (Metrics)
 - **Performance**: ~2-5x faster than OpenAI API
@@ -68,6 +71,7 @@ curl -X POST http://localhost:8082/embed \
 - **Max tokens**: 16,384 per batch
 
 ### TEI Reranker (GPU)
+
 - **Model**: BAAI/bge-reranker-base
 - **Port**: 8081 (HTTP), 9081 (Metrics)
 - **Use case**: Improve search relevance by reranking results
@@ -75,6 +79,7 @@ curl -X POST http://localhost:8082/embed \
 - **Max tokens**: 8,192 per batch
 
 ### TEI Embeddings CPU (Development)
+
 - **Model**: sentence-transformers/all-mpnet-base-v2
 - **Port**: 8082 (HTTP), 9082 (Metrics)
 - **Use case**: Development/testing without GPU requirements
@@ -111,19 +116,20 @@ import { TEIEmbeddingService } from '@uaip/shared-services';
 const embeddingService = new TEIEmbeddingService();
 
 // Generate single embedding
-const embedding = await embeddingService.generateEmbedding("Hello, world!");
+const embedding = await embeddingService.generateEmbedding('Hello, world!');
 
 // Generate batch embeddings
 const embeddings = await embeddingService.generateBatchEmbeddings([
-  "First document",
-  "Second document"
+  'First document',
+  'Second document',
 ]);
 
 // Rerank documents
-const results = await embeddingService.rerank(
-  "machine learning query",
-  ["AI document", "cooking document", "ML paper"]
-);
+const results = await embeddingService.rerank('machine learning query', [
+  'AI document',
+  'cooking document',
+  'ML paper',
+]);
 ```
 
 ### Enhanced RAG Service
@@ -134,19 +140,19 @@ import { EnhancedRAGService, ServiceFactory } from '@uaip/shared-services';
 const ragService = await ServiceFactory.getEnhancedRAGService();
 
 // Semantic search with reranking
-const searchResults = await ragService.semanticSearch("machine learning", {
+const searchResults = await ragService.semanticSearch('machine learning', {
   topK: 10,
   useReranking: true,
-  minScore: 0.7
+  minScore: 0.7,
 });
 
 // Index new documents
 await ragService.indexDocuments([
   {
-    id: "doc1",
-    content: "Machine learning is a subset of AI...",
-    metadata: { category: "AI", author: "John Doe" }
-  }
+    id: 'doc1',
+    content: 'Machine learning is a subset of AI...',
+    metadata: { category: 'AI', author: 'John Doe' },
+  },
 ]);
 ```
 
@@ -184,33 +190,37 @@ open http://localhost:8082/docs  # CPU embedding docs
 ### Common Issues
 
 1. **GPU not detected**
+
    ```bash
    # Check NVIDIA Docker runtime
    docker run --rm --gpus all nvidia/cuda:11.0-base nvidia-smi
-   
+
    # If fails, install NVIDIA Container Toolkit
    # https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/install-guide.html
    ```
 
 2. **Models not downloading**
+
    ```bash
    # Check logs for download progress
    docker compose logs tei-embeddings
-   
+
    # Models are cached in volumes, first startup takes longer
    ```
 
 3. **Out of memory**
+
    ```bash
    # Reduce batch sizes in docker-compose.yml
    command: --model-id BAAI/bge-large-en-v1.5 --max-batch-tokens 8192 --max-concurrent-requests 256
    ```
 
 4. **Service not responding**
+
    ```bash
    # Check service status
    docker compose ps
-   
+
    # View detailed logs
    docker compose logs -f tei-embeddings
    ```
@@ -237,32 +247,34 @@ The new TEI services are automatically used when available. The system falls bac
 ### Manual Migration
 
 1. **Update Service Factory** (already done)
+
    ```typescript
    // Old
    const embeddingService = await ServiceFactory.getEmbeddingService();
-   
+
    // New
    const teiService = await ServiceFactory.getTEIEmbeddingService();
    const ragService = await ServiceFactory.getEnhancedRAGService();
    ```
 
 2. **Environment Variables**
+
    ```bash
    # Remove or comment out
    # OPENAI_API_KEY=...
-   
+
    # TEI is configured automatically via Docker Compose
    ```
 
 ## 📊 Performance Comparison
 
-| Metric | OpenAI API | TEI (GPU) | TEI (CPU) |
-|--------|------------|-----------|-----------|
-| Latency | 200-500ms | 10-50ms | 100-300ms |
-| Throughput | Limited by API | High | Medium |
-| Cost | $0.0001/1K tokens | $0 (after setup) | $0 (after setup) |
-| Privacy | External | Local | Local |
-| Offline | ❌ | ✅ | ✅ |
+| Metric     | OpenAI API        | TEI (GPU)        | TEI (CPU)        |
+| ---------- | ----------------- | ---------------- | ---------------- |
+| Latency    | 200-500ms         | 10-50ms          | 100-300ms        |
+| Throughput | Limited by API    | High             | Medium           |
+| Cost       | $0.0001/1K tokens | $0 (after setup) | $0 (after setup) |
+| Privacy    | External          | Local            | Local            |
+| Offline    | ❌                | ✅               | ✅               |
 
 ## 🛠 Advanced Configuration
 
@@ -273,7 +285,7 @@ The new TEI services are automatically used when available. The system falls bac
 tei-embeddings:
   command: --model-id your-org/your-model --port 80 --auto-truncate
   environment:
-    - HF_TOKEN=your_huggingface_token  # For private models
+    - HF_TOKEN=your_huggingface_token # For private models
 ```
 
 ### Scaling
@@ -283,12 +295,12 @@ tei-embeddings:
 tei-embeddings-1:
   # ... same config
   ports:
-    - "8080:80"
+    - '8080:80'
 
 tei-embeddings-2:
-  # ... same config  
+  # ... same config
   ports:
-    - "8083:80"
+    - '8083:80'
 ```
 
 ### Production Deployment
@@ -308,10 +320,10 @@ tei-embeddings:
             capabilities: [gpu]
   restart: always
   logging:
-    driver: "json-file"
+    driver: 'json-file'
     options:
-      max-size: "10m"
-      max-file: "3"
+      max-size: '10m'
+      max-file: '3'
 ```
 
 ## 📚 Additional Resources
@@ -328,4 +340,4 @@ When adding new embedding features:
 1. Update the `TEIEmbeddingService` class
 2. Add tests for new functionality
 3. Update this documentation
-4. Consider backward compatibility with OpenAI service 
+4. Consider backward compatibility with OpenAI service

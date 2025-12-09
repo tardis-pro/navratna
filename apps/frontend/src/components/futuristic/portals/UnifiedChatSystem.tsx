@@ -51,9 +51,16 @@ import {
   Radar,
   MonitorSpeaker,
   Headphones,
-  Mic
+  Mic,
 } from 'lucide-react';
-import { Discussion, CreateDiscussionRequest, DiscussionMessage, MessageType, TurnStrategy, DiscussionStatus } from '@uaip/types';
+import {
+  Discussion,
+  CreateDiscussionRequest,
+  DiscussionMessage,
+  MessageType,
+  TurnStrategy,
+  DiscussionStatus,
+} from '@uaip/types';
 
 interface ChatMessage {
   id: string;
@@ -100,22 +107,27 @@ interface UnifiedChatSystemProps {
 }
 
 // Helper function to create a new discussion for agent chat
-const createAgentChatDiscussion = async (agentId: string, agentName: string): Promise<Discussion> => {
+const createAgentChatDiscussion = async (
+  agentId: string,
+  agentName: string
+): Promise<Discussion> => {
   const discussionRequest: CreateDiscussionRequest = {
     title: `Chat with ${agentName}`,
     description: `Direct chat conversation with agent ${agentName}`,
     topic: `Direct chat conversation with agent ${agentName}`,
     objectives: ['agent-chat'],
-    initialParticipants: [{
-      agentId: agentId,
-      role: 'participant'
-    }],
+    initialParticipants: [
+      {
+        agentId: agentId,
+        role: 'participant',
+      },
+    ],
     turnStrategy: {
       strategy: TurnStrategy.FREE_FORM,
       config: {
         type: 'free_form',
-        cooldownPeriod: 5
-      }
+        cooldownPeriod: 5,
+      },
     },
     settings: {
       maxParticipants: 2,
@@ -129,14 +141,14 @@ const createAgentChatDiscussion = async (agentId: string, agentName: string): Pr
       enableAnalytics: true,
       turnTimeout: 300,
       responseTimeout: 60,
-      moderationRules: []
+      moderationRules: [],
     },
     metadata: {
       chatType: 'agent-chat',
       agentId: agentId,
       agentName: agentName,
-      createdBy: 'current-user' // TODO: Get from auth context
-    }
+      createdBy: 'current-user', // TODO: Get from auth context
+    },
   };
 
   const discussion = await discussionsAPI.create(discussionRequest);
@@ -146,7 +158,7 @@ const createAgentChatDiscussion = async (agentId: string, agentName: string): Pr
 
 // Helper function to convert discussion messages to chat messages
 const convertDiscussionMessagesToChatMessages = (messages: DiscussionMessage[]): ChatMessage[] => {
-  return messages.map(msg => ({
+  return messages.map((msg) => ({
     id: msg.id,
     content: msg.content,
     sender: msg.metadata?.sender || (msg.metadata?.agentId ? 'agent' : 'user'),
@@ -158,12 +170,15 @@ const convertDiscussionMessagesToChatMessages = (messages: DiscussionMessage[]):
     memoryEnhanced: msg.metadata?.memoryEnhanced,
     knowledgeUsed: msg.metadata?.knowledgeUsed,
     toolsExecuted: msg.metadata?.toolsExecuted,
-    metadata: msg.metadata
+    metadata: msg.metadata,
   }));
 };
 
 // Helper function to store a chat message to discussion
-const addMessageToDiscussion = async (discussionId: string, message: ChatMessage): Promise<void> => {
+const addMessageToDiscussion = async (
+  discussionId: string,
+  message: ChatMessage
+): Promise<void> => {
   await discussionsAPI.sendMessage(discussionId, {
     content: message.content,
     metadata: {
@@ -175,72 +190,102 @@ const addMessageToDiscussion = async (discussionId: string, message: ChatMessage
       knowledgeUsed: message.knowledgeUsed,
       toolsExecuted: message.toolsExecuted,
       originalMessageId: message.id,
-      ...message.metadata
-    }
+      ...message.metadata,
+    },
   });
 };
 
 export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
   className,
   mode = 'hybrid',
-  defaultAgentId
+  defaultAgentId,
 }) => {
   const { agents } = useAgents();
   const { isAuthenticated, user } = useAuth();
-  const { 
-    isConnected: isWebSocketConnected, 
-    sendMessage: sendWebSocketMessage, 
+  const {
+    isConnected: isWebSocketConnected,
+    sendMessage: sendWebSocketMessage,
     lastEvent,
     connectionType,
     authStatus,
     error: wsError,
     addEventListener,
-    connect
+    connect,
   } = useEnhancedWebSocket();
 
   // State management
   const [chatWindows, setChatWindows] = useState<ChatWindow[]>([]);
   const [currentMessage, setCurrentMessage] = useState<{ [windowId: string]: string }>({});
-  const [viewMode, setViewMode] = useState<'floating' | 'portal'>(mode === 'portal' ? 'portal' : 'floating');
+  const [viewMode, setViewMode] = useState<'floating' | 'portal'>(
+    mode === 'portal' ? 'portal' : 'floating'
+  );
   const [selectedAgentId, setSelectedAgentId] = useState<string>(defaultAgentId || '');
   const [portalMessages, setPortalMessages] = useState<ChatMessage[]>([]);
-  const [conversationHistory, setConversationHistory] = useState<Array<{ content: string; sender: string; timestamp: string }>>([]);
+  const [conversationHistory, setConversationHistory] = useState<
+    Array<{ content: string; sender: string; timestamp: string }>
+  >([]);
   const [conversationTopics, setConversationTopics] = useState<{ [windowId: string]: string }>({});
   const [conversationIds, setConversationIds] = useState<{ [windowId: string]: string }>({});
-  
+
   // Enhanced AI Sidekick State
-  const [windowPositions, setWindowPositions] = useState<{ [windowId: string]: { x: number; y: number } }>({});
-  const [windowSizes, setWindowSizes] = useState<{ [windowId: string]: { width: number; height: number } }>({});
-  const [windowSnapMode, setWindowSnapMode] = useState<{ [windowId: string]: 'none' | 'edge' | 'corner' }>({});
+  const [windowPositions, setWindowPositions] = useState<{
+    [windowId: string]: { x: number; y: number };
+  }>({});
+  const [windowSizes, setWindowSizes] = useState<{
+    [windowId: string]: { width: number; height: number };
+  }>({});
+  const [windowSnapMode, setWindowSnapMode] = useState<{
+    [windowId: string]: 'none' | 'edge' | 'corner';
+  }>({});
   const [thinkingParticles, setThinkingParticles] = useState<{ [windowId: string]: boolean }>({});
   const [confidenceMetrics, setConfidenceMetrics] = useState<{ [windowId: string]: number }>({});
   const [knowledgeSources, setKnowledgeSources] = useState<{ [windowId: string]: string[] }>({});
-  const [toolExecutionProgress, setToolExecutionProgress] = useState<{ [windowId: string]: Array<{ toolName: string; progress: number; status: 'running' | 'completed' | 'failed' }> }>({});
-  const [memoryEnhancementBadges, setMemoryEnhancementBadges] = useState<{ [windowId: string]: boolean }>({});
-  const [quickActionsPanelOpen, setQuickActionsPanelOpen] = useState<{ [windowId: string]: boolean }>({});
-  const [contextualSuggestions, setContextualSuggestions] = useState<{ [windowId: string]: string[] }>({});
+  const [toolExecutionProgress, setToolExecutionProgress] = useState<{
+    [windowId: string]: Array<{
+      toolName: string;
+      progress: number;
+      status: 'running' | 'completed' | 'failed';
+    }>;
+  }>({});
+  const [memoryEnhancementBadges, setMemoryEnhancementBadges] = useState<{
+    [windowId: string]: boolean;
+  }>({});
+  const [quickActionsPanelOpen, setQuickActionsPanelOpen] = useState<{
+    [windowId: string]: boolean;
+  }>({});
+  const [contextualSuggestions, setContextualSuggestions] = useState<{
+    [windowId: string]: string[];
+  }>({});
   const [isResizing, setIsResizing] = useState<{ [windowId: string]: boolean }>({});
   const [isDragging, setIsDragging] = useState<{ [windowId: string]: boolean }>({});
   const [focusedWindow, setFocusedWindow] = useState<string | null>(null);
-  const [loadingStates, setLoadingStates] = useState<{ [windowId: string]: { isLoading: boolean; loadingText?: string; progress?: number } }>({});
+  const [loadingStates, setLoadingStates] = useState<{
+    [windowId: string]: { isLoading: boolean; loadingText?: string; progress?: number };
+  }>({});
   const [typingIndicators, setTypingIndicators] = useState<{ [windowId: string]: boolean }>({});
-  
+
   // Track processed message IDs to prevent duplicates
   const processedMessageIds = useRef<Set<string>>(new Set());
 
   // Track which agents have open windows to ensure uniqueness
   const openAgentWindows = useRef<Set<string>>(new Set());
-  
+
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const agentList = Object.values(agents);
-  const selectedAgent = agentList.find(agent => agent.id === selectedAgentId);
-  
+  const selectedAgent = agentList.find((agent) => agent.id === selectedAgentId);
+
   // Enhanced AI Sidekick Refs
   const windowRefs = useRef<{ [windowId: string]: HTMLDivElement | null }>({});
   const draggingRef = useRef<{ windowId: string; offset: { x: number; y: number } } | null>(null);
-  const resizingRef = useRef<{ windowId: string; startSize: { width: number; height: number }; startMouse: { x: number; y: number } } | null>(null);
+  const resizingRef = useRef<{
+    windowId: string;
+    startSize: { width: number; height: number };
+    startMouse: { x: number; y: number };
+  } | null>(null);
   const keyboardShortcutsRef = useRef<{ [key: string]: () => void }>({});
-  const contextualAnalysisRef = useRef<{ [windowId: string]: { sentiment: number; complexity: number; urgency: number } }>({});
+  const contextualAnalysisRef = useRef<{
+    [windowId: string]: { sentiment: number; complexity: number; urgency: number };
+  }>({});
   const loadingTimeouts = useRef<{ [windowId: string]: NodeJS.Timeout }>({});
 
   // Conversation Intelligence for portal mode
@@ -248,20 +293,23 @@ export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
     agentId: selectedAgentId,
     conversationId: conversationIds['portal'],
     onTopicGenerated: (topic: string, confidence: number) => {
-      setConversationTopics(prev => ({ ...prev, portal: topic }));
-    }
+      setConversationTopics((prev) => ({ ...prev, portal: topic }));
+    },
   });
 
   // Conversation Intelligence for floating windows
   const floatingConversationIntelligence = useMemo(() => {
-    return chatWindows.reduce((acc, window) => {
-      acc[window.id] = {
-        agentId: window.agentId,
-        conversationId: window.sessionId || '',
-        topic: conversationTopics[window.id] || window.agentName
-      };
-      return acc;
-    }, {} as Record<string, { agentId: string; conversationId: string; topic: string }>);
+    return chatWindows.reduce(
+      (acc, window) => {
+        acc[window.id] = {
+          agentId: window.agentId,
+          conversationId: window.sessionId || '',
+          topic: conversationTopics[window.id] || window.agentName,
+        };
+        return acc;
+      },
+      {} as Record<string, { agentId: string; conversationId: string; topic: string }>
+    );
   }, [chatWindows, conversationTopics]);
 
   // Connect WebSocket only when authenticated
@@ -275,16 +323,25 @@ export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
   // Listen for WebSocket agent responses
   useEffect(() => {
     if (lastEvent && lastEvent.type === 'agent_response') {
-      const { agentId, response, agentName, confidence, memoryEnhanced, knowledgeUsed, toolsExecuted, messageId } = lastEvent.payload;
-      
+      const {
+        agentId,
+        response,
+        agentName,
+        confidence,
+        memoryEnhanced,
+        knowledgeUsed,
+        toolsExecuted,
+        messageId,
+      } = lastEvent.payload;
+
       // Prevent duplicate processing of the same message
       if (messageId && processedMessageIds.current.has(messageId)) {
         console.log('🚫 Duplicate agent response ignored:', messageId);
         return;
       }
-      
+
       console.log('🔥 WebSocket agent_response received:', lastEvent);
-      
+
       // Mark message as processed
       if (messageId) {
         processedMessageIds.current.add(messageId);
@@ -311,17 +368,24 @@ export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
           confidence,
           memoryEnhanced,
           knowledgeUsed,
-          toolsExecuted
-        }
+          toolsExecuted,
+        },
       };
 
       // Update floating windows using functional state update to avoid stale closure
       let targetWindowForPersistence: ChatWindow | null = null;
-      
-      setChatWindows(prev => {
-        const targetWindow = prev.find(w => w.agentId === agentId);
-        console.log('🎯 Looking for target window with agentId:', agentId, 'Found:', !!targetWindow, 'Chat windows:', prev.map(w => ({ id: w.id, agentId: w.agentId, agentName: w.agentName })));
-        
+
+      setChatWindows((prev) => {
+        const targetWindow = prev.find((w) => w.agentId === agentId);
+        console.log(
+          '🎯 Looking for target window with agentId:',
+          agentId,
+          'Found:',
+          !!targetWindow,
+          'Chat windows:',
+          prev.map((w) => ({ id: w.id, agentId: w.agentId, agentName: w.agentName }))
+        );
+
         if (!targetWindow) {
           return prev; // No window found, no update needed
         }
@@ -334,45 +398,54 @@ export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
           clearInterval(loadingTimeouts.current[targetWindow.id]);
           delete loadingTimeouts.current[targetWindow.id];
         }
-        setLoadingStates(prevLoadingStates => {
+        setLoadingStates((prevLoadingStates) => {
           const newStates = { ...prevLoadingStates };
           delete newStates[targetWindow.id];
           return newStates;
         });
-        setTypingIndicators(prevTyping => ({ ...prevTyping, [targetWindow.id]: false }));
+        setTypingIndicators((prevTyping) => ({ ...prevTyping, [targetWindow.id]: false }));
 
-        return prev.map(w => w.id === targetWindow.id ? {
-          ...w,
-          messages: [...w.messages, agentMessage],
-          isLoading: false,
-          error: null
-        } : w);
+        return prev.map((w) =>
+          w.id === targetWindow.id
+            ? {
+                ...w,
+                messages: [...w.messages, agentMessage],
+                isLoading: false,
+                error: null,
+              }
+            : w
+        );
       });
 
       // Persist agent message to backend discussion
       if (targetWindowForPersistence?.discussionId) {
-        addMessageToDiscussion(targetWindowForPersistence.discussionId, agentMessage).catch(error => {
-          console.error('Failed to persist agent message to discussion:', error);
-        });
+        addMessageToDiscussion(targetWindowForPersistence.discussionId, agentMessage).catch(
+          (error) => {
+            console.error('Failed to persist agent message to discussion:', error);
+          }
+        );
       }
 
       // Update portal mode if current agent
       if (viewMode === 'portal' && agentId === selectedAgentId) {
-        setPortalMessages(prev => [...prev, agentMessage]);
-        setConversationHistory(prev => [...prev, { content: response, sender: agentName, timestamp: new Date().toISOString() }]);
-        
+        setPortalMessages((prev) => [...prev, agentMessage]);
+        setConversationHistory((prev) => [
+          ...prev,
+          { content: response, sender: agentName, timestamp: new Date().toISOString() },
+        ]);
+
         // Clear loading states for portal mode
         const portalWindowId = 'portal';
         if (loadingTimeouts.current[portalWindowId]) {
           clearInterval(loadingTimeouts.current[portalWindowId]);
           delete loadingTimeouts.current[portalWindowId];
         }
-        setLoadingStates(prev => {
+        setLoadingStates((prev) => {
           const newStates = { ...prev };
           delete newStates[portalWindowId];
           return newStates;
         });
-        setTypingIndicators(prev => ({ ...prev, [portalWindowId]: false }));
+        setTypingIndicators((prev) => ({ ...prev, [portalWindowId]: false }));
       }
     }
   }, [lastEvent, viewMode, selectedAgentId]);
@@ -388,82 +461,95 @@ export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
   }, [portalMessages]);
 
   // Define openChatWindowWithSession function for resuming specific discussions
-  const openChatWindowWithSession = useCallback(async (agentId: string, agentName: string, discussionId: string) => {
-    // Check if chat window already exists for this specific discussion
-    const existingWindow = chatWindows.find(w => w.discussionId === discussionId);
-    if (existingWindow) {
-      console.log(`Chat window for discussion ${discussionId} already exists - focusing existing window`);
-      // Focus/restore existing window
-      setChatWindows(prev =>
-        prev.map(w => w.discussionId === discussionId ? { ...w, isMinimized: false } : w)
-      );
-      return;
-    }
-
-    console.log(`Opening existing chat discussion ${discussionId} with agent ${agentName} (${agentId})`);
-
-    try {
-      // Get the existing discussion
-      const discussion = await discussionsAPI.get(discussionId);
-      if (!discussion) {
-        throw new Error(`Discussion ${discussionId} not found`);
+  const openChatWindowWithSession = useCallback(
+    async (agentId: string, agentName: string, discussionId: string) => {
+      // Check if chat window already exists for this specific discussion
+      const existingWindow = chatWindows.find((w) => w.discussionId === discussionId);
+      if (existingWindow) {
+        console.log(
+          `Chat window for discussion ${discussionId} already exists - focusing existing window`
+        );
+        // Focus/restore existing window
+        setChatWindows((prev) =>
+          prev.map((w) => (w.discussionId === discussionId ? { ...w, isMinimized: false } : w))
+        );
+        return;
       }
-      
-      // Set up conversation ID for this window
-      const windowId = `chat-${Date.now()}-${agentId}`;
-      setConversationIds(prev => ({ ...prev, [windowId]: discussion.id }));
-      
-      // Load existing messages from the specific discussion
-      const existingMessages = await discussionsAPI.getMessages(discussionId, { limit: 50 });
-      
-      // Convert discussion messages to chat messages
-      const chatMessages = convertDiscussionMessagesToChatMessages(existingMessages);
 
-      // Create new floating chat window with existing discussion data
-      const newWindow: ChatWindow = {
-        id: windowId,
-        agentId,
-        agentName,
-        discussionId: discussion.id,
-        messages: chatMessages,
-        isMinimized: false,
-        isLoading: false,
-        error: null,
-        hasLoadedHistory: true,
-        totalMessages: chatMessages.length,
-        canLoadMore: existingMessages.length >= 50,
-        mode: 'floating'
-      };
+      console.log(
+        `Opening existing chat discussion ${discussionId} with agent ${agentName} (${agentId})`
+      );
 
-      // Note: Not adding to agent tracking set since this is a specific discussion
-      
-      setChatWindows(prev => [...prev, newWindow]);
-      setCurrentMessage(prev => ({ ...prev, [newWindow.id]: '' }));
-      
-      // Set initial window size
-      setWindowSizes(prev => ({ 
-        ...prev, 
-        [newWindow.id]: { width: 320, height: 400 } 
-      }));
+      try {
+        // Get the existing discussion
+        const discussion = await discussionsAPI.get(discussionId);
+        if (!discussion) {
+          throw new Error(`Discussion ${discussionId} not found`);
+        }
 
-      console.log(`Resumed chat discussion with agent:`, agentName, `(${chatMessages.length} messages loaded)`);
-    } catch (error) {
-      console.error('Failed to open chat discussion:', error);
-      
-      // Fallback to creating a new chat window
-      console.log('Falling back to new chat window...');
-      openChatWindow(agentId, agentName);
-    }
-  }, [chatWindows]);
+        // Set up conversation ID for this window
+        const windowId = `chat-${Date.now()}-${agentId}`;
+        setConversationIds((prev) => ({ ...prev, [windowId]: discussion.id }));
+
+        // Load existing messages from the specific discussion
+        const existingMessages = await discussionsAPI.getMessages(discussionId, { limit: 50 });
+
+        // Convert discussion messages to chat messages
+        const chatMessages = convertDiscussionMessagesToChatMessages(existingMessages);
+
+        // Create new floating chat window with existing discussion data
+        const newWindow: ChatWindow = {
+          id: windowId,
+          agentId,
+          agentName,
+          discussionId: discussion.id,
+          messages: chatMessages,
+          isMinimized: false,
+          isLoading: false,
+          error: null,
+          hasLoadedHistory: true,
+          totalMessages: chatMessages.length,
+          canLoadMore: existingMessages.length >= 50,
+          mode: 'floating',
+        };
+
+        // Note: Not adding to agent tracking set since this is a specific discussion
+
+        setChatWindows((prev) => [...prev, newWindow]);
+        setCurrentMessage((prev) => ({ ...prev, [newWindow.id]: '' }));
+
+        // Set initial window size
+        setWindowSizes((prev) => ({
+          ...prev,
+          [newWindow.id]: { width: 320, height: 400 },
+        }));
+
+        console.log(
+          `Resumed chat discussion with agent:`,
+          agentName,
+          `(${chatMessages.length} messages loaded)`
+        );
+      } catch (error) {
+        console.error('Failed to open chat discussion:', error);
+
+        // Fallback to creating a new chat window
+        console.log('Falling back to new chat window...');
+        openChatWindow(agentId, agentName);
+      }
+    },
+    [chatWindows]
+  );
 
   // Define openChatWindow function before it's used
   const openChatWindow = useCallback(async (agentId: string, agentName: string) => {
     // Check if chat window already exists for this agent
     if (openAgentWindows.current.has(agentId)) {
-      console.log(`Chat window for agent ${agentName} (${agentId}) already exists - focusing existing window`);
+      console.log(
+        `Chat window for agent ${agentName} (${agentId}) already exists - focusing existing window`
+      );
       // Focus/restore existing window
-      setChatWindows(prev =>
-        prev.map(w => w.agentId === agentId ? { ...w, isMinimized: false } : w)
+      setChatWindows((prev) =>
+        prev.map((w) => (w.agentId === agentId ? { ...w, isMinimized: false } : w))
       );
       return;
     }
@@ -473,14 +559,14 @@ export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
     try {
       // Create new discussion for this agent
       const discussion = await createAgentChatDiscussion(agentId, agentName);
-      
+
       // Set up conversation ID for this window
       const windowId = `chat-${Date.now()}-${agentId}`;
-      setConversationIds(prev => ({ ...prev, [windowId]: discussion.id }));
-      
+      setConversationIds((prev) => ({ ...prev, [windowId]: discussion.id }));
+
       // Load existing messages (should be empty for new discussion)
       const existingMessages = await discussionsAPI.getMessages(discussion.id, { limit: 50 });
-      
+
       // Convert discussion messages to chat messages
       const chatMessages = convertDiscussionMessagesToChatMessages(existingMessages);
 
@@ -497,25 +583,25 @@ export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
         hasLoadedHistory: true,
         totalMessages: chatMessages.length,
         canLoadMore: existingMessages.length >= 50,
-        mode: 'floating'
+        mode: 'floating',
       };
 
       // Add agent to tracking set
       openAgentWindows.current.add(agentId);
-      
-      setChatWindows(prev => [...prev, newWindow]);
-      setCurrentMessage(prev => ({ ...prev, [newWindow.id]: '' }));
-      
+
+      setChatWindows((prev) => [...prev, newWindow]);
+      setCurrentMessage((prev) => ({ ...prev, [newWindow.id]: '' }));
+
       // Set initial window size
-      setWindowSizes(prev => ({ 
-        ...prev, 
-        [newWindow.id]: { width: 320, height: 400 } 
+      setWindowSizes((prev) => ({
+        ...prev,
+        [newWindow.id]: { width: 320, height: 400 },
       }));
 
       console.log(`Opened new chat discussion with agent:`, agentName);
     } catch (error) {
       console.error('Failed to open chat window:', error);
-      
+
       // Fallback to non-persistent chat
       const newWindow: ChatWindow = {
         id: `chat-${Date.now()}-${agentId}`,
@@ -529,41 +615,43 @@ export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
         hasLoadedHistory: true,
         totalMessages: 0,
         canLoadMore: false,
-        mode: 'floating'
+        mode: 'floating',
       };
 
       // Add agent to tracking set (fallback case)
       openAgentWindows.current.add(agentId);
-      
-      setChatWindows(prev => [...prev, newWindow]);
-      setCurrentMessage(prev => ({ ...prev, [newWindow.id]: '' }));
-      
+
+      setChatWindows((prev) => [...prev, newWindow]);
+      setCurrentMessage((prev) => ({ ...prev, [newWindow.id]: '' }));
+
       // Set initial window size
-      setWindowSizes(prev => ({ 
-        ...prev, 
-        [newWindow.id]: { width: 320, height: 400 } 
+      setWindowSizes((prev) => ({
+        ...prev,
+        [newWindow.id]: { width: 320, height: 400 },
       }));
     }
   }, []); // Remove chatWindows dependency to prevent stale closures
 
   // Keep tracking set in sync with actual windows
   useEffect(() => {
-    const currentAgentIds = new Set(chatWindows.map(w => w.agentId));
+    const currentAgentIds = new Set(chatWindows.map((w) => w.agentId));
     openAgentWindows.current = currentAgentIds;
   }, [chatWindows]);
 
   // Define openNewChatWindow function for forced new chats
   const openNewChatWindow = useCallback(async (agentId: string, agentName: string) => {
-    console.log(`Creating NEW chat window for agent ${agentName} (${agentId}) - ignoring existing discussions`);
+    console.log(
+      `Creating NEW chat window for agent ${agentName} (${agentId}) - ignoring existing discussions`
+    );
 
     try {
       // Force create a new discussion without checking for existing ones
       const discussion = await createAgentChatDiscussion(agentId, agentName);
-      
+
       // Set up conversation ID for this window
       const windowId = `chat-${Date.now()}-${agentId}-new`;
-      setConversationIds(prev => ({ ...prev, [windowId]: discussion.id }));
-      
+      setConversationIds((prev) => ({ ...prev, [windowId]: discussion.id }));
+
       // Create new floating chat window
       const newWindow: ChatWindow = {
         id: windowId,
@@ -577,22 +665,22 @@ export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
         hasLoadedHistory: true,
         totalMessages: 0,
         canLoadMore: false,
-        mode: 'floating'
+        mode: 'floating',
       };
 
-      setChatWindows(prev => [...prev, newWindow]);
-      setCurrentMessage(prev => ({ ...prev, [newWindow.id]: '' }));
-      
+      setChatWindows((prev) => [...prev, newWindow]);
+      setCurrentMessage((prev) => ({ ...prev, [newWindow.id]: '' }));
+
       // Set initial window size
-      setWindowSizes(prev => ({ 
-        ...prev, 
-        [newWindow.id]: { width: 320, height: 400 } 
+      setWindowSizes((prev) => ({
+        ...prev,
+        [newWindow.id]: { width: 320, height: 400 },
       }));
 
       console.log(`Opened NEW chat discussion with agent:`, agentName);
     } catch (error) {
       console.error('Failed to create new chat window:', error);
-      
+
       // Fallback to non-persistent chat
       const newWindow: ChatWindow = {
         id: `chat-${Date.now()}-${agentId}-new`,
@@ -606,331 +694,355 @@ export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
         hasLoadedHistory: true,
         totalMessages: 0,
         canLoadMore: false,
-        mode: 'floating'
+        mode: 'floating',
       };
-      
-      setChatWindows(prev => [...prev, newWindow]);
-      setCurrentMessage(prev => ({ ...prev, [newWindow.id]: '' }));
-      
+
+      setChatWindows((prev) => [...prev, newWindow]);
+      setCurrentMessage((prev) => ({ ...prev, [newWindow.id]: '' }));
+
       // Set initial window size
-      setWindowSizes(prev => ({ 
-        ...prev, 
-        [newWindow.id]: { width: 320, height: 400 } 
+      setWindowSizes((prev) => ({
+        ...prev,
+        [newWindow.id]: { width: 320, height: 400 },
       }));
     }
   }, []);
 
   // Enhanced send functions for conversation intelligence integration
-  const sendFloatingMessageWithText = useCallback(async (windowId: string, messageText: string, intent?: any) => {
-    const window = chatWindows.find(w => w.id === windowId);
+  const sendFloatingMessageWithText = useCallback(
+    async (windowId: string, messageText: string, intent?: any) => {
+      const window = chatWindows.find((w) => w.id === windowId);
 
-    if (!window || !messageText?.trim() || window.isLoading) return;
+      if (!window || !messageText?.trim() || window.isLoading) return;
 
-    const trimmedMessage = messageText.trim();
+      const trimmedMessage = messageText.trim();
 
-    const userMessage: ChatMessage = {
-      id: `msg-${Date.now()}`,
-      content: trimmedMessage,
-      sender: 'user',
-      senderName: 'You',
-      timestamp: new Date().toISOString(),
-      messageType: MessageType.MESSAGE,
-      metadata: { agentId: window.agentId, intent }
-    };
+      const userMessage: ChatMessage = {
+        id: `msg-${Date.now()}`,
+        content: trimmedMessage,
+        sender: 'user',
+        senderName: 'You',
+        timestamp: new Date().toISOString(),
+        messageType: MessageType.MESSAGE,
+        metadata: { agentId: window.agentId, intent },
+      };
 
-    setChatWindows(prev =>
-      prev.map(w => w.id === windowId ? {
-        ...w,
-        messages: [...w.messages, userMessage],
-        isLoading: true,
-        error: null
-      } : w)
-    );
-    
-    // Set loading state with typing indicator
-    setLoadingStates(prev => ({
-      ...prev,
-      [windowId]: { 
-        isLoading: true, 
-        loadingText: 'Agent is thinking...', 
-        progress: 0 
+      setChatWindows((prev) =>
+        prev.map((w) =>
+          w.id === windowId
+            ? {
+                ...w,
+                messages: [...w.messages, userMessage],
+                isLoading: true,
+                error: null,
+              }
+            : w
+        )
+      );
+
+      // Set loading state with typing indicator
+      setLoadingStates((prev) => ({
+        ...prev,
+        [windowId]: {
+          isLoading: true,
+          loadingText: 'Agent is thinking...',
+          progress: 0,
+        },
+      }));
+      setTypingIndicators((prev) => ({ ...prev, [windowId]: true }));
+
+      // Simulate progress updates
+      let progress = 0;
+      const progressInterval = setInterval(() => {
+        progress += Math.random() * 25;
+        if (progress < 90) {
+          setLoadingStates((prev) => ({
+            ...prev,
+            [windowId]: {
+              ...prev[windowId],
+              progress: Math.min(progress, 90),
+            },
+          }));
+        }
+      }, 200);
+
+      // Store interval for cleanup
+      if (loadingTimeouts.current[windowId]) {
+        clearInterval(loadingTimeouts.current[windowId]);
       }
-    }));
-    setTypingIndicators(prev => ({ ...prev, [windowId]: true }));
-    
-    // Simulate progress updates
-    let progress = 0;
-    const progressInterval = setInterval(() => {
-      progress += Math.random() * 25;
-      if (progress < 90) {
-        setLoadingStates(prev => ({
-          ...prev,
-          [windowId]: { 
-            ...prev[windowId],
-            progress: Math.min(progress, 90)
-          }
-        }));
-      }
-    }, 200);
-    
-    // Store interval for cleanup
-    if (loadingTimeouts.current[windowId]) {
-      clearInterval(loadingTimeouts.current[windowId]);
-    }
-    loadingTimeouts.current[windowId] = progressInterval;
+      loadingTimeouts.current[windowId] = progressInterval;
 
-    // Persist user message to backend discussion
-    if (window.discussionId) {
+      // Persist user message to backend discussion
+      if (window.discussionId) {
+        try {
+          await addMessageToDiscussion(window.discussionId, userMessage);
+        } catch (error) {
+          console.error('Failed to persist user message to discussion:', error);
+        }
+      }
+
       try {
-        await addMessageToDiscussion(window.discussionId, userMessage);
-      } catch (error) {
-        console.error('Failed to persist user message to discussion:', error);
-      }
-    }
-
-    try {
-      console.log('💭 Floating chat send status:', { 
-        isWebSocketConnected, 
-        connectionType, 
-        authStatus, 
-        wsError,
-        agentId: window.agentId 
-      });
-      
-      if (isWebSocketConnected) {
-        const chatMessage = {
+        console.log('💭 Floating chat send status:', {
+          isWebSocketConnected,
+          connectionType,
+          authStatus,
+          wsError,
           agentId: window.agentId,
-          message: trimmedMessage,
-          conversationHistory: window.messages.slice(-10).map(m => ({
-            content: m.content,
-            sender: m.sender === 'user' ? 'user' : m.senderName,
-            timestamp: m.timestamp
-          })),
-          context: { intent },
-          messageId: `msg-${Date.now()}`,
-          timestamp: new Date().toISOString()
-        };
-
-        // Send directly as 'agent_chat' event instead of wrapped message
-        sendWebSocketMessage('agent_chat', chatMessage);
-        console.log('🚀 Floating chat message sent via WebSocket:', chatMessage);
-      } else {
-        console.log('WebSocket not connected, using direct API call for floating chat');
-        
-        const response = await uaipAPI.client.agents.chat(window.agentId, {
-          message: trimmedMessage,
-          conversationHistory: window.messages.slice(-10).map(m => ({
-            content: m.content,
-            sender: m.sender === 'user' ? 'user' : m.senderName,
-            timestamp: m.timestamp
-          })),
-          context: { intent }
         });
 
-        if (response.success && response.data) {
-          const agentMessage: ChatMessage = {
-            id: `msg-${Date.now()}-agent`,
-            content: response.data.response,
-            sender: 'agent',
-            senderName: response.data.agentName || window.agentName,
+        if (isWebSocketConnected) {
+          const chatMessage = {
+            agentId: window.agentId,
+            message: trimmedMessage,
+            conversationHistory: window.messages.slice(-10).map((m) => ({
+              content: m.content,
+              sender: m.sender === 'user' ? 'user' : m.senderName,
+              timestamp: m.timestamp,
+            })),
+            context: { intent },
+            messageId: `msg-${Date.now()}`,
             timestamp: new Date().toISOString(),
-            messageType: MessageType.MESSAGE,
-            confidence: response.data.confidence,
-            memoryEnhanced: response.data.memoryEnhanced,
-            knowledgeUsed: response.data.knowledgeUsed,
-            toolsExecuted: response.data.toolsExecuted,
-            agentId: window.agentId
           };
 
-          setChatWindows(prev =>
-            prev.map(w => w.id === windowId ? {
-              ...w,
-              messages: [...w.messages, agentMessage],
-              isLoading: false,
-              error: null
-            } : w)
-          );
-          
-          // Clear loading states
-          if (loadingTimeouts.current[windowId]) {
-            clearInterval(loadingTimeouts.current[windowId]);
-            delete loadingTimeouts.current[windowId];
-          }
-          setLoadingStates(prev => {
-            const newStates = { ...prev };
-            delete newStates[windowId];
-            return newStates;
-          });
-          setTypingIndicators(prev => ({ ...prev, [windowId]: false }));
+          // Send directly as 'agent_chat' event instead of wrapped message
+          sendWebSocketMessage('agent_chat', chatMessage);
+          console.log('🚀 Floating chat message sent via WebSocket:', chatMessage);
+        } else {
+          console.log('WebSocket not connected, using direct API call for floating chat');
 
-          if (window.discussionId) {
-            try {
-              await addMessageToDiscussion(window.discussionId, agentMessage);
-            } catch (error) {
-              console.error('Failed to persist agent message to discussion:', error);
+          const response = await uaipAPI.client.agents.chat(window.agentId, {
+            message: trimmedMessage,
+            conversationHistory: window.messages.slice(-10).map((m) => ({
+              content: m.content,
+              sender: m.sender === 'user' ? 'user' : m.senderName,
+              timestamp: m.timestamp,
+            })),
+            context: { intent },
+          });
+
+          if (response.success && response.data) {
+            const agentMessage: ChatMessage = {
+              id: `msg-${Date.now()}-agent`,
+              content: response.data.response,
+              sender: 'agent',
+              senderName: response.data.agentName || window.agentName,
+              timestamp: new Date().toISOString(),
+              messageType: MessageType.MESSAGE,
+              confidence: response.data.confidence,
+              memoryEnhanced: response.data.memoryEnhanced,
+              knowledgeUsed: response.data.knowledgeUsed,
+              toolsExecuted: response.data.toolsExecuted,
+              agentId: window.agentId,
+            };
+
+            setChatWindows((prev) =>
+              prev.map((w) =>
+                w.id === windowId
+                  ? {
+                      ...w,
+                      messages: [...w.messages, agentMessage],
+                      isLoading: false,
+                      error: null,
+                    }
+                  : w
+              )
+            );
+
+            // Clear loading states
+            if (loadingTimeouts.current[windowId]) {
+              clearInterval(loadingTimeouts.current[windowId]);
+              delete loadingTimeouts.current[windowId];
+            }
+            setLoadingStates((prev) => {
+              const newStates = { ...prev };
+              delete newStates[windowId];
+              return newStates;
+            });
+            setTypingIndicators((prev) => ({ ...prev, [windowId]: false }));
+
+            if (window.discussionId) {
+              try {
+                await addMessageToDiscussion(window.discussionId, agentMessage);
+              } catch (error) {
+                console.error('Failed to persist agent message to discussion:', error);
+              }
             }
           }
         }
+      } catch (error) {
+        console.error('Chat error:', error);
+        setChatWindows((prev) =>
+          prev.map((w) =>
+            w.id === windowId
+              ? {
+                  ...w,
+                  isLoading: false,
+                  error: 'Failed to send message. Please try again.',
+                }
+              : w
+          )
+        );
+
+        // Clear loading states on error
+        if (loadingTimeouts.current[windowId]) {
+          clearInterval(loadingTimeouts.current[windowId]);
+          delete loadingTimeouts.current[windowId];
+        }
+        setLoadingStates((prev) => {
+          const newStates = { ...prev };
+          delete newStates[windowId];
+          return newStates;
+        });
+        setTypingIndicators((prev) => ({ ...prev, [windowId]: false }));
       }
-    } catch (error) {
-      console.error('Chat error:', error);
-      setChatWindows(prev =>
-        prev.map(w => w.id === windowId ? {
-          ...w,
-          isLoading: false,
-          error: 'Failed to send message. Please try again.'
-        } : w)
-      );
-      
-      // Clear loading states on error
-      if (loadingTimeouts.current[windowId]) {
-        clearInterval(loadingTimeouts.current[windowId]);
-        delete loadingTimeouts.current[windowId];
+    },
+    [chatWindows, isWebSocketConnected, sendWebSocketMessage]
+  );
+
+  const sendPortalMessageWithText = useCallback(
+    async (messageText: string, intent?: any) => {
+      if (!messageText?.trim() || !selectedAgentId) return;
+
+      const trimmedMessage = messageText.trim();
+
+      const userMessage: ChatMessage = {
+        id: `msg-${Date.now()}`,
+        content: trimmedMessage,
+        sender: 'user',
+        senderName: 'You',
+        timestamp: new Date().toISOString(),
+        messageType: MessageType.MESSAGE,
+      };
+
+      setPortalMessages((prev) => [...prev, userMessage]);
+      setConversationHistory((prev) => [
+        ...prev,
+        { content: trimmedMessage, sender: 'user', timestamp: new Date().toISOString() },
+      ]);
+
+      // Set loading state for portal mode
+      const portalWindowId = 'portal';
+      setLoadingStates((prev) => ({
+        ...prev,
+        [portalWindowId]: {
+          isLoading: true,
+          loadingText: 'Agent is thinking...',
+          progress: 0,
+        },
+      }));
+      setTypingIndicators((prev) => ({ ...prev, [portalWindowId]: true }));
+
+      // Simulate progress updates
+      let progress = 0;
+      const progressInterval = setInterval(() => {
+        progress += Math.random() * 25;
+        if (progress < 90) {
+          setLoadingStates((prev) => ({
+            ...prev,
+            [portalWindowId]: {
+              ...prev[portalWindowId],
+              progress: Math.min(progress, 90),
+            },
+          }));
+        }
+      }, 200);
+
+      // Store interval for cleanup
+      if (loadingTimeouts.current[portalWindowId]) {
+        clearInterval(loadingTimeouts.current[portalWindowId]);
       }
-      setLoadingStates(prev => {
-        const newStates = { ...prev };
-        delete newStates[windowId];
-        return newStates;
-      });
-      setTypingIndicators(prev => ({ ...prev, [windowId]: false }));
-    }
-  }, [chatWindows, isWebSocketConnected, sendWebSocketMessage]);
+      loadingTimeouts.current[portalWindowId] = progressInterval;
 
-  const sendPortalMessageWithText = useCallback(async (messageText: string, intent?: any) => {
-    if (!messageText?.trim() || !selectedAgentId) return;
+      try {
+        if (isWebSocketConnected) {
+          const chatMessage = {
+            type: 'agent_chat',
+            payload: {
+              agentId: selectedAgentId,
+              message: trimmedMessage,
+              conversationHistory: conversationHistory.slice(-10),
+              context: { intent },
+              messageId: `msg-${Date.now()}`,
+              timestamp: new Date().toISOString(),
+            },
+          };
 
-    const trimmedMessage = messageText.trim();
+          sendWebSocketMessage(chatMessage);
+          console.log('Message sent via WebSocket');
+        } else {
+          console.log('WebSocket not connected, using direct API call');
 
-    const userMessage: ChatMessage = {
-      id: `msg-${Date.now()}`,
-      content: trimmedMessage,
-      sender: 'user',
-      senderName: 'You',
-      timestamp: new Date().toISOString(),
-      messageType: MessageType.MESSAGE
-    };
-
-    setPortalMessages(prev => [...prev, userMessage]);
-    setConversationHistory(prev => [...prev, { content: trimmedMessage, sender: 'user', timestamp: new Date().toISOString() }]);
-    
-    // Set loading state for portal mode
-    const portalWindowId = 'portal';
-    setLoadingStates(prev => ({
-      ...prev,
-      [portalWindowId]: { 
-        isLoading: true, 
-        loadingText: 'Agent is thinking...', 
-        progress: 0 
-      }
-    }));
-    setTypingIndicators(prev => ({ ...prev, [portalWindowId]: true }));
-    
-    // Simulate progress updates
-    let progress = 0;
-    const progressInterval = setInterval(() => {
-      progress += Math.random() * 25;
-      if (progress < 90) {
-        setLoadingStates(prev => ({
-          ...prev,
-          [portalWindowId]: { 
-            ...prev[portalWindowId],
-            progress: Math.min(progress, 90)
-          }
-        }));
-      }
-    }, 200);
-    
-    // Store interval for cleanup
-    if (loadingTimeouts.current[portalWindowId]) {
-      clearInterval(loadingTimeouts.current[portalWindowId]);
-    }
-    loadingTimeouts.current[portalWindowId] = progressInterval;
-
-    try {
-      if (isWebSocketConnected) {
-        const chatMessage = {
-          type: 'agent_chat',
-          payload: {
-            agentId: selectedAgentId,
+          const response = await uaipAPI.client.agents.chat(selectedAgentId, {
             message: trimmedMessage,
             conversationHistory: conversationHistory.slice(-10),
             context: { intent },
-            messageId: `msg-${Date.now()}`,
-            timestamp: new Date().toISOString()
-          }
-        };
-        
-        sendWebSocketMessage(chatMessage);
-        console.log('Message sent via WebSocket');
-      } else {
-        console.log('WebSocket not connected, using direct API call');
-        
-        const response = await uaipAPI.client.agents.chat(selectedAgentId, {
-          message: trimmedMessage,
-          conversationHistory: conversationHistory.slice(-10),
-          context: { intent }
-        });
-
-        if (response.success && response.data) {
-          const agentMessage: ChatMessage = {
-            id: `msg-${Date.now()}-agent`,
-            content: response.data.response,
-            sender: 'agent',
-            senderName: response.data.agentName || 'Assistant',
-            timestamp: new Date().toISOString(),
-            messageType: MessageType.MESSAGE,
-            confidence: response.data.confidence,
-            memoryEnhanced: response.data.memoryEnhanced,
-            knowledgeUsed: response.data.knowledgeUsed,
-            toolsExecuted: response.data.toolsExecuted
-          };
-
-          setPortalMessages(prev => [...prev, agentMessage]);
-          setConversationHistory(prev => [...prev, { 
-            content: response.data.response, 
-            sender: 'agent', 
-            timestamp: new Date().toISOString() 
-          }]);
-          
-          // Clear loading states for direct API response
-          if (loadingTimeouts.current[portalWindowId]) {
-            clearInterval(loadingTimeouts.current[portalWindowId]);
-            delete loadingTimeouts.current[portalWindowId];
-          }
-          setLoadingStates(prev => {
-            const newStates = { ...prev };
-            delete newStates[portalWindowId];
-            return newStates;
           });
-          setTypingIndicators(prev => ({ ...prev, [portalWindowId]: false }));
+
+          if (response.success && response.data) {
+            const agentMessage: ChatMessage = {
+              id: `msg-${Date.now()}-agent`,
+              content: response.data.response,
+              sender: 'agent',
+              senderName: response.data.agentName || 'Assistant',
+              timestamp: new Date().toISOString(),
+              messageType: MessageType.MESSAGE,
+              confidence: response.data.confidence,
+              memoryEnhanced: response.data.memoryEnhanced,
+              knowledgeUsed: response.data.knowledgeUsed,
+              toolsExecuted: response.data.toolsExecuted,
+            };
+
+            setPortalMessages((prev) => [...prev, agentMessage]);
+            setConversationHistory((prev) => [
+              ...prev,
+              {
+                content: response.data.response,
+                sender: 'agent',
+                timestamp: new Date().toISOString(),
+              },
+            ]);
+
+            // Clear loading states for direct API response
+            if (loadingTimeouts.current[portalWindowId]) {
+              clearInterval(loadingTimeouts.current[portalWindowId]);
+              delete loadingTimeouts.current[portalWindowId];
+            }
+            setLoadingStates((prev) => {
+              const newStates = { ...prev };
+              delete newStates[portalWindowId];
+              return newStates;
+            });
+            setTypingIndicators((prev) => ({ ...prev, [portalWindowId]: false }));
+          }
         }
+      } catch (error) {
+        console.error('Portal chat error:', error);
+
+        // Clear loading states on error
+        if (loadingTimeouts.current[portalWindowId]) {
+          clearInterval(loadingTimeouts.current[portalWindowId]);
+          delete loadingTimeouts.current[portalWindowId];
+        }
+        setLoadingStates((prev) => {
+          const newStates = { ...prev };
+          delete newStates[portalWindowId];
+          return newStates;
+        });
+        setTypingIndicators((prev) => ({ ...prev, [portalWindowId]: false }));
+
+        const errorMessage: ChatMessage = {
+          id: `msg-${Date.now()}-error`,
+          content: 'Sorry, I encountered an error. Please try again.',
+          sender: 'system',
+          senderName: 'System',
+          timestamp: new Date().toISOString(),
+          messageType: MessageType.MESSAGE,
+        };
+        setPortalMessages((prev) => [...prev, errorMessage]);
       }
-    } catch (error) {
-      console.error('Portal chat error:', error);
-      
-      // Clear loading states on error
-      if (loadingTimeouts.current[portalWindowId]) {
-        clearInterval(loadingTimeouts.current[portalWindowId]);
-        delete loadingTimeouts.current[portalWindowId];
-      }
-      setLoadingStates(prev => {
-        const newStates = { ...prev };
-        delete newStates[portalWindowId];
-        return newStates;
-      });
-      setTypingIndicators(prev => ({ ...prev, [portalWindowId]: false }));
-      
-      const errorMessage: ChatMessage = {
-        id: `msg-${Date.now()}-error`,
-        content: 'Sorry, I encountered an error. Please try again.',
-        sender: 'system',
-        senderName: 'System',
-        timestamp: new Date().toISOString(),
-        messageType: MessageType.MESSAGE
-      };
-      setPortalMessages(prev => [...prev, errorMessage]);
-    }
-  }, [selectedAgentId, conversationHistory, isWebSocketConnected, sendWebSocketMessage]);
+    },
+    [selectedAgentId, conversationHistory, isWebSocketConnected, sendWebSocketMessage]
+  );
 
   // Listen for agent chat open events
   useEffect(() => {
@@ -955,7 +1067,7 @@ export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
 
     window.addEventListener('openAgentChat', handleOpenAgentChat as EventListener);
     window.addEventListener('openNewAgentChat', handleOpenNewAgentChat as EventListener);
-    
+
     return () => {
       window.removeEventListener('openAgentChat', handleOpenAgentChat as EventListener);
       window.removeEventListener('openNewAgentChat', handleOpenNewAgentChat as EventListener);
@@ -976,273 +1088,293 @@ export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
       setConversationHistory([]);
       // Generate new conversation ID for portal mode
       const portalConversationId = `portal-${selectedAgentId}-${Date.now()}`;
-      setConversationIds(prev => ({ ...prev, portal: portalConversationId }));
+      setConversationIds((prev) => ({ ...prev, portal: portalConversationId }));
     }
   }, [selectedAgentId, viewMode]);
 
-  const closeChatWindow = useCallback(async (windowId: string) => {
-    let windowToClose: ChatWindow | undefined;
-    
-    setChatWindows(prev => {
-      windowToClose = prev.find(w => w.id === windowId);
-      if (windowToClose) {
-        console.log(`Closing chat window for agent ${windowToClose.agentName} (${windowToClose.agentId})`);
-        // Remove agent from tracking set when window is closed
-        openAgentWindows.current.delete(windowToClose.agentId);
+  const closeChatWindow = useCallback(
+    async (windowId: string) => {
+      let windowToClose: ChatWindow | undefined;
+
+      setChatWindows((prev) => {
+        windowToClose = prev.find((w) => w.id === windowId);
+        if (windowToClose) {
+          console.log(
+            `Closing chat window for agent ${windowToClose.agentName} (${windowToClose.agentId})`
+          );
+          // Remove agent from tracking set when window is closed
+          openAgentWindows.current.delete(windowToClose.agentId);
+        }
+        return prev.filter((w) => w.id !== windowId);
+      });
+
+      // Clean up WebSocket connection for this specific chat
+      if (windowToClose && isWebSocketConnected) {
+        try {
+          // Send a cleanup message to the server to close this specific chat session
+          sendWebSocketMessage('chat_window_closed', {
+            agentId: windowToClose.agentId,
+            discussionId: windowToClose.discussionId,
+            conversationId: conversationIds[windowId],
+            timestamp: new Date().toISOString(),
+          });
+        } catch (error) {
+          console.error('Error notifying server of chat window closure:', error);
+        }
       }
-      return prev.filter(w => w.id !== windowId);
-    });
-    
-    // Clean up WebSocket connection for this specific chat
-    if (windowToClose && isWebSocketConnected) {
-      try {
-        // Send a cleanup message to the server to close this specific chat session
-        sendWebSocketMessage('chat_window_closed', {
-          agentId: windowToClose.agentId,
-          discussionId: windowToClose.discussionId,
-          conversationId: conversationIds[windowId],
-          timestamp: new Date().toISOString()
-        });
-      } catch (error) {
-        console.error('Error notifying server of chat window closure:', error);
+
+      // No local persistence to clear - everything is now handled by backend discussions
+      if (windowToClose?.discussionId) {
+        console.log(`Chat window closed for discussion: ${windowToClose.discussionId}`);
       }
-    }
-    
-    // No local persistence to clear - everything is now handled by backend discussions
-    if (windowToClose?.discussionId) {
-      console.log(`Chat window closed for discussion: ${windowToClose.discussionId}`);
-    }
-    
-    setCurrentMessage(prev => {
-      const newMessages = { ...prev };
-      delete newMessages[windowId];
-      return newMessages;
-    });
-    
-    // Clean up window-specific state
-    setWindowPositions(prev => {
-      const newPositions = { ...prev };
-      delete newPositions[windowId];
-      return newPositions;
-    });
-    setWindowSizes(prev => {
-      const newSizes = { ...prev };
-      delete newSizes[windowId];
-      return newSizes;
-    });
-    setLoadingStates(prev => {
-      const newStates = { ...prev };
-      delete newStates[windowId];
-      return newStates;
-    });
-    setTypingIndicators(prev => {
-      const newIndicators = { ...prev };
-      delete newIndicators[windowId];
-      return newIndicators;
-    });
-    setIsDragging(prev => {
-      const newDragging = { ...prev };
-      delete newDragging[windowId];
-      return newDragging;
-    });
-    setIsResizing(prev => {
-      const newResizing = { ...prev };
-      delete newResizing[windowId];
-      return newResizing;
-    });
-    
-    // Clear any ongoing loading timeouts
-    if (loadingTimeouts.current[windowId]) {
-      clearInterval(loadingTimeouts.current[windowId]);
-      delete loadingTimeouts.current[windowId];
-    }
-    
-    // Clean up conversation intelligence data
-    setConversationTopics(prev => {
-      const newTopics = { ...prev };
-      delete newTopics[windowId];
-      return newTopics;
-    });
-    setConversationIds(prev => {
-      const newIds = { ...prev };
-      delete newIds[windowId];
-      return newIds;
-    });
-    
-    // Clear enhanced AI sidekick state
-    setThinkingParticles(prev => {
-      const newParticles = { ...prev };
-      delete newParticles[windowId];
-      return newParticles;
-    });
-    setConfidenceMetrics(prev => {
-      const newMetrics = { ...prev };
-      delete newMetrics[windowId];
-      return newMetrics;
-    });
-    setKnowledgeSources(prev => {
-      const newSources = { ...prev };
-      delete newSources[windowId];
-      return newSources;
-    });
-    setToolExecutionProgress(prev => {
-      const newProgress = { ...prev };
-      delete newProgress[windowId];
-      return newProgress;
-    });
-    setMemoryEnhancementBadges(prev => {
-      const newBadges = { ...prev };
-      delete newBadges[windowId];
-      return newBadges;
-    });
-    setQuickActionsPanelOpen(prev => {
-      const newPanels = { ...prev };
-      delete newPanels[windowId];
-      return newPanels;
-    });
-    setContextualSuggestions(prev => {
-      const newSuggestions = { ...prev };
-      delete newSuggestions[windowId];
-      return newSuggestions;
-    });
-    
-    // Clean up window refs
-    if (windowRefs.current[windowId]) {
-      delete windowRefs.current[windowId];
-    }
-    
-    // Clear contextual analysis data
-    if (contextualAnalysisRef.current[windowId]) {
-      delete contextualAnalysisRef.current[windowId];
-    }
-    
-    console.log(`Chat window ${windowId} fully cleaned up`);
-  }, [isWebSocketConnected, sendWebSocketMessage, conversationIds]);
+
+      setCurrentMessage((prev) => {
+        const newMessages = { ...prev };
+        delete newMessages[windowId];
+        return newMessages;
+      });
+
+      // Clean up window-specific state
+      setWindowPositions((prev) => {
+        const newPositions = { ...prev };
+        delete newPositions[windowId];
+        return newPositions;
+      });
+      setWindowSizes((prev) => {
+        const newSizes = { ...prev };
+        delete newSizes[windowId];
+        return newSizes;
+      });
+      setLoadingStates((prev) => {
+        const newStates = { ...prev };
+        delete newStates[windowId];
+        return newStates;
+      });
+      setTypingIndicators((prev) => {
+        const newIndicators = { ...prev };
+        delete newIndicators[windowId];
+        return newIndicators;
+      });
+      setIsDragging((prev) => {
+        const newDragging = { ...prev };
+        delete newDragging[windowId];
+        return newDragging;
+      });
+      setIsResizing((prev) => {
+        const newResizing = { ...prev };
+        delete newResizing[windowId];
+        return newResizing;
+      });
+
+      // Clear any ongoing loading timeouts
+      if (loadingTimeouts.current[windowId]) {
+        clearInterval(loadingTimeouts.current[windowId]);
+        delete loadingTimeouts.current[windowId];
+      }
+
+      // Clean up conversation intelligence data
+      setConversationTopics((prev) => {
+        const newTopics = { ...prev };
+        delete newTopics[windowId];
+        return newTopics;
+      });
+      setConversationIds((prev) => {
+        const newIds = { ...prev };
+        delete newIds[windowId];
+        return newIds;
+      });
+
+      // Clear enhanced AI sidekick state
+      setThinkingParticles((prev) => {
+        const newParticles = { ...prev };
+        delete newParticles[windowId];
+        return newParticles;
+      });
+      setConfidenceMetrics((prev) => {
+        const newMetrics = { ...prev };
+        delete newMetrics[windowId];
+        return newMetrics;
+      });
+      setKnowledgeSources((prev) => {
+        const newSources = { ...prev };
+        delete newSources[windowId];
+        return newSources;
+      });
+      setToolExecutionProgress((prev) => {
+        const newProgress = { ...prev };
+        delete newProgress[windowId];
+        return newProgress;
+      });
+      setMemoryEnhancementBadges((prev) => {
+        const newBadges = { ...prev };
+        delete newBadges[windowId];
+        return newBadges;
+      });
+      setQuickActionsPanelOpen((prev) => {
+        const newPanels = { ...prev };
+        delete newPanels[windowId];
+        return newPanels;
+      });
+      setContextualSuggestions((prev) => {
+        const newSuggestions = { ...prev };
+        delete newSuggestions[windowId];
+        return newSuggestions;
+      });
+
+      // Clean up window refs
+      if (windowRefs.current[windowId]) {
+        delete windowRefs.current[windowId];
+      }
+
+      // Clear contextual analysis data
+      if (contextualAnalysisRef.current[windowId]) {
+        delete contextualAnalysisRef.current[windowId];
+      }
+
+      console.log(`Chat window ${windowId} fully cleaned up`);
+    },
+    [isWebSocketConnected, sendWebSocketMessage, conversationIds]
+  );
 
   const minimizeChatWindow = useCallback((windowId: string) => {
-    setChatWindows(prev =>
-      prev.map(w => w.id === windowId ? { ...w, isMinimized: !w.isMinimized } : w)
+    setChatWindows((prev) =>
+      prev.map((w) => (w.id === windowId ? { ...w, isMinimized: !w.isMinimized } : w))
     );
   }, []);
 
-  const sendFloatingMessage = useCallback(async (windowId: string) => {
-    const window = chatWindows.find(w => w.id === windowId);
-    const messageText = currentMessage[windowId]?.trim();
+  const sendFloatingMessage = useCallback(
+    async (windowId: string) => {
+      const window = chatWindows.find((w) => w.id === windowId);
+      const messageText = currentMessage[windowId]?.trim();
 
-    if (!window || !messageText || window.isLoading) return;
+      if (!window || !messageText || window.isLoading) return;
 
-    // Remove the WebSocket requirement - we'll handle fallback in the send logic
+      // Remove the WebSocket requirement - we'll handle fallback in the send logic
 
-    const userMessage: ChatMessage = {
-      id: `msg-${Date.now()}`,
-      content: messageText,
-      sender: 'user',
-      senderName: 'You',
-      timestamp: new Date().toISOString(),
-      messageType: MessageType.MESSAGE,
-      metadata: { agentId: window.agentId }
-    };
+      const userMessage: ChatMessage = {
+        id: `msg-${Date.now()}`,
+        content: messageText,
+        sender: 'user',
+        senderName: 'You',
+        timestamp: new Date().toISOString(),
+        messageType: MessageType.MESSAGE,
+        metadata: { agentId: window.agentId },
+      };
 
-    setChatWindows(prev =>
-      prev.map(w => w.id === windowId ? {
-        ...w,
-        messages: [...w.messages, userMessage],
-        isLoading: true,
-        error: null
-      } : w)
-    );
+      setChatWindows((prev) =>
+        prev.map((w) =>
+          w.id === windowId
+            ? {
+                ...w,
+                messages: [...w.messages, userMessage],
+                isLoading: true,
+                error: null,
+              }
+            : w
+        )
+      );
 
-    setCurrentMessage(prev => ({ ...prev, [windowId]: '' }));
+      setCurrentMessage((prev) => ({ ...prev, [windowId]: '' }));
 
-    // Persist user message to backend discussion
-    if (window.discussionId) {
-      try {
-        await addMessageToDiscussion(window.discussionId, userMessage);
-      } catch (error) {
-        console.error('Failed to persist user message to discussion:', error);
+      // Persist user message to backend discussion
+      if (window.discussionId) {
+        try {
+          await addMessageToDiscussion(window.discussionId, userMessage);
+        } catch (error) {
+          console.error('Failed to persist user message to discussion:', error);
+        }
       }
-    }
 
-    try {
-      if (isWebSocketConnected) {
-        // Try WebSocket first
-        const chatMessage = {
-          type: 'agent_chat',
-          payload: {
-            agentId: window.agentId,
-            message: messageText,
-            conversationHistory: window.messages.slice(-10).map(m => ({
-              content: m.content,
-              sender: m.sender === 'user' ? 'user' : m.senderName,
-              timestamp: m.timestamp
-            })),
-            context: {},
-            messageId: `msg-${Date.now()}`,
-            timestamp: new Date().toISOString()
-          }
-        };
-
-        sendWebSocketMessage(chatMessage);
-        console.log('Floating chat message sent via WebSocket');
-      } else {
-        // Fallback to direct API call
-        console.log('WebSocket not connected, using direct API call for floating chat');
-        
-        const response = await uaipAPI.client.agents.chat(window.agentId, {
-          message: messageText,
-          conversationHistory: window.messages.slice(-10).map(m => ({
-            content: m.content,
-            sender: m.sender === 'user' ? 'user' : m.senderName,
-            timestamp: m.timestamp
-          })),
-          context: {}
-        });
-
-        if (response.success && response.data) {
-          const agentMessage: ChatMessage = {
-            id: `msg-${Date.now()}-agent`,
-            content: response.data.response,
-            sender: 'agent',
-            senderName: response.data.agentName || window.agentName,
-            timestamp: new Date().toISOString(),
-            messageType: MessageType.MESSAGE,
-            confidence: response.data.confidence,
-            memoryEnhanced: response.data.memoryEnhanced,
-            knowledgeUsed: response.data.knowledgeUsed,
-            toolsExecuted: response.data.toolsExecuted,
-            agentId: window.agentId
+      try {
+        if (isWebSocketConnected) {
+          // Try WebSocket first
+          const chatMessage = {
+            type: 'agent_chat',
+            payload: {
+              agentId: window.agentId,
+              message: messageText,
+              conversationHistory: window.messages.slice(-10).map((m) => ({
+                content: m.content,
+                sender: m.sender === 'user' ? 'user' : m.senderName,
+                timestamp: m.timestamp,
+              })),
+              context: {},
+              messageId: `msg-${Date.now()}`,
+              timestamp: new Date().toISOString(),
+            },
           };
 
-          setChatWindows(prev =>
-            prev.map(w => w.id === windowId ? {
-              ...w,
-              messages: [...w.messages, agentMessage],
-              isLoading: false,
-              error: null
-            } : w)
-          );
+          sendWebSocketMessage(chatMessage);
+          console.log('Floating chat message sent via WebSocket');
+        } else {
+          // Fallback to direct API call
+          console.log('WebSocket not connected, using direct API call for floating chat');
 
-          // Persist agent message if session exists
-          if (window.discussionId) {
-            try {
-              await addMessageToDiscussion(window.discussionId, agentMessage);
-            } catch (error) {
-              console.error('Failed to persist agent message to discussion:', error);
+          const response = await uaipAPI.client.agents.chat(window.agentId, {
+            message: messageText,
+            conversationHistory: window.messages.slice(-10).map((m) => ({
+              content: m.content,
+              sender: m.sender === 'user' ? 'user' : m.senderName,
+              timestamp: m.timestamp,
+            })),
+            context: {},
+          });
+
+          if (response.success && response.data) {
+            const agentMessage: ChatMessage = {
+              id: `msg-${Date.now()}-agent`,
+              content: response.data.response,
+              sender: 'agent',
+              senderName: response.data.agentName || window.agentName,
+              timestamp: new Date().toISOString(),
+              messageType: MessageType.MESSAGE,
+              confidence: response.data.confidence,
+              memoryEnhanced: response.data.memoryEnhanced,
+              knowledgeUsed: response.data.knowledgeUsed,
+              toolsExecuted: response.data.toolsExecuted,
+              agentId: window.agentId,
+            };
+
+            setChatWindows((prev) =>
+              prev.map((w) =>
+                w.id === windowId
+                  ? {
+                      ...w,
+                      messages: [...w.messages, agentMessage],
+                      isLoading: false,
+                      error: null,
+                    }
+                  : w
+              )
+            );
+
+            // Persist agent message if session exists
+            if (window.discussionId) {
+              try {
+                await addMessageToDiscussion(window.discussionId, agentMessage);
+              } catch (error) {
+                console.error('Failed to persist agent message to discussion:', error);
+              }
             }
           }
         }
+      } catch (error) {
+        console.error('Chat error:', error);
+        setChatWindows((prev) =>
+          prev.map((w) =>
+            w.id === windowId
+              ? {
+                  ...w,
+                  isLoading: false,
+                  error: 'Failed to send message. Please try again.',
+                }
+              : w
+          )
+        );
       }
-    } catch (error) {
-      console.error('Chat error:', error);
-      setChatWindows(prev =>
-        prev.map(w => w.id === windowId ? {
-          ...w,
-          isLoading: false,
-          error: 'Failed to send message. Please try again.'
-        } : w)
-      );
-    }
-  }, [chatWindows, currentMessage, isWebSocketConnected, sendWebSocketMessage]);
+    },
+    [chatWindows, currentMessage, isWebSocketConnected, sendWebSocketMessage]
+  );
 
   const sendPortalMessage = useCallback(async () => {
     const messageText = currentMessage['portal']?.trim();
@@ -1254,24 +1386,27 @@ export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
       sender: 'user',
       senderName: 'You',
       timestamp: new Date().toISOString(),
-      messageType: MessageType.MESSAGE
+      messageType: MessageType.MESSAGE,
     };
 
-    setPortalMessages(prev => [...prev, userMessage]);
-    setCurrentMessage(prev => ({ ...prev, portal: '' }));
-    setConversationHistory(prev => [...prev, { content: messageText, sender: 'user', timestamp: new Date().toISOString() }]);
-    
+    setPortalMessages((prev) => [...prev, userMessage]);
+    setCurrentMessage((prev) => ({ ...prev, portal: '' }));
+    setConversationHistory((prev) => [
+      ...prev,
+      { content: messageText, sender: 'user', timestamp: new Date().toISOString() },
+    ]);
+
     // Set loading state for portal mode
     const portalWindowId = 'portal';
-    setLoadingStates(prev => ({
+    setLoadingStates((prev) => ({
       ...prev,
-      [portalWindowId]: { 
-        isLoading: true, 
-        loadingText: 'Agent is thinking...', 
-        progress: 0 
-      }
+      [portalWindowId]: {
+        isLoading: true,
+        loadingText: 'Agent is thinking...',
+        progress: 0,
+      },
     }));
-    setTypingIndicators(prev => ({ ...prev, [portalWindowId]: true }));
+    setTypingIndicators((prev) => ({ ...prev, [portalWindowId]: true }));
 
     try {
       if (isWebSocketConnected) {
@@ -1282,19 +1417,19 @@ export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
           conversationHistory: conversationHistory.slice(-10),
           context: {},
           messageId: `msg-${Date.now()}`,
-          timestamp: new Date().toISOString()
+          timestamp: new Date().toISOString(),
         };
-        
+
         sendWebSocketMessage('agent_chat', chatMessage);
         console.log('🚀 Portal message sent via WebSocket:', chatMessage);
       } else {
         // Fallback to direct API call
         console.log('WebSocket not connected, using direct API call');
-        
+
         const response = await uaipAPI.client.agents.chat(selectedAgentId, {
           message: messageText,
           conversationHistory: conversationHistory.slice(-10),
-          context: {}
+          context: {},
         });
 
         if (response.success && response.data) {
@@ -1308,36 +1443,39 @@ export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
             confidence: response.data.confidence,
             memoryEnhanced: response.data.memoryEnhanced,
             knowledgeUsed: response.data.knowledgeUsed,
-            toolsExecuted: response.data.toolsExecuted
+            toolsExecuted: response.data.toolsExecuted,
           };
 
-          setPortalMessages(prev => [...prev, agentMessage]);
-          setConversationHistory(prev => [...prev, { 
-            content: response.data.response, 
-            sender: 'agent', 
-            timestamp: new Date().toISOString() 
-          }]);
-          
+          setPortalMessages((prev) => [...prev, agentMessage]);
+          setConversationHistory((prev) => [
+            ...prev,
+            {
+              content: response.data.response,
+              sender: 'agent',
+              timestamp: new Date().toISOString(),
+            },
+          ]);
+
           // Clear loading states for direct API response
-          setLoadingStates(prev => {
+          setLoadingStates((prev) => {
             const newStates = { ...prev };
             delete newStates[portalWindowId];
             return newStates;
           });
-          setTypingIndicators(prev => ({ ...prev, [portalWindowId]: false }));
+          setTypingIndicators((prev) => ({ ...prev, [portalWindowId]: false }));
         }
       }
     } catch (error) {
       console.error('Portal chat error:', error);
-      
+
       // Clear loading states on error
-      setLoadingStates(prev => {
+      setLoadingStates((prev) => {
         const newStates = { ...prev };
         delete newStates[portalWindowId];
         return newStates;
       });
-      setTypingIndicators(prev => ({ ...prev, [portalWindowId]: false }));
-      
+      setTypingIndicators((prev) => ({ ...prev, [portalWindowId]: false }));
+
       // Add error message to chat
       const errorMessage: ChatMessage = {
         id: `msg-${Date.now()}-error`,
@@ -1345,22 +1483,31 @@ export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
         sender: 'system',
         senderName: 'System',
         timestamp: new Date().toISOString(),
-        messageType: MessageType.MESSAGE
+        messageType: MessageType.MESSAGE,
       };
-      setPortalMessages(prev => [...prev, errorMessage]);
+      setPortalMessages((prev) => [...prev, errorMessage]);
     }
-  }, [currentMessage, selectedAgentId, conversationHistory, isWebSocketConnected, sendWebSocketMessage]);
+  }, [
+    currentMessage,
+    selectedAgentId,
+    conversationHistory,
+    isWebSocketConnected,
+    sendWebSocketMessage,
+  ]);
 
-  const handleKeyPress = useCallback((e: React.KeyboardEvent, windowId: string) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      if (windowId === 'portal') {
-        sendPortalMessage();
-      } else {
-        sendFloatingMessage(windowId);
+  const handleKeyPress = useCallback(
+    (e: React.KeyboardEvent, windowId: string) => {
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        if (windowId === 'portal') {
+          sendPortalMessage();
+        } else {
+          sendFloatingMessage(windowId);
+        }
       }
-    }
-  }, [sendPortalMessage, sendFloatingMessage]);
+    },
+    [sendPortalMessage, sendFloatingMessage]
+  );
 
   const clearPortalConversation = useCallback(() => {
     setPortalMessages([]);
@@ -1376,7 +1523,7 @@ export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
   }, []);
 
   useEffect(() => {
-    chatWindows.forEach(window => {
+    chatWindows.forEach((window) => {
       if (!window.isMinimized) {
         scrollToBottom(window.id);
       }
@@ -1400,18 +1547,20 @@ export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
         if (chatWindows.length > 0) {
           const latestWindow = chatWindows[chatWindows.length - 1];
           setFocusedWindow(latestWindow.id);
-          const inputElement = document.querySelector(`#chat-input-${latestWindow.id}`) as HTMLInputElement;
+          const inputElement = document.querySelector(
+            `#chat-input-${latestWindow.id}`
+          ) as HTMLInputElement;
           inputElement?.focus();
         }
       }
-      
+
       // Toggle all windows minimize with Cmd+M / Ctrl+M
       if ((e.metaKey || e.ctrlKey) && e.key === 'm') {
         e.preventDefault();
-        const allMinimized = chatWindows.every(w => w.isMinimized);
-        setChatWindows(prev => prev.map(w => ({ ...w, isMinimized: !allMinimized })));
+        const allMinimized = chatWindows.every((w) => w.isMinimized);
+        setChatWindows((prev) => prev.map((w) => ({ ...w, isMinimized: !allMinimized })));
       }
-      
+
       // Close all windows with Cmd+W / Ctrl+W
       if ((e.metaKey || e.ctrlKey) && e.key === 'w') {
         e.preventDefault();
@@ -1419,128 +1568,144 @@ export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
         openAgentWindows.current.clear();
       }
     };
-    
+
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [chatWindows]);
-  
+
   // Contextual analysis for enhanced AI features
   const analyzeMessageContext = useCallback((message: string) => {
     const sentiment = message.includes('?') ? 0.3 : message.includes('!') ? 0.8 : 0.5;
-    const complexity = message.split(' ').length > 20 ? 0.8 : message.split(' ').length > 10 ? 0.6 : 0.4;
-    const urgency = message.toLowerCase().includes('urgent') || message.toLowerCase().includes('asap') ? 0.9 : 0.3;
+    const complexity =
+      message.split(' ').length > 20 ? 0.8 : message.split(' ').length > 10 ? 0.6 : 0.4;
+    const urgency =
+      message.toLowerCase().includes('urgent') || message.toLowerCase().includes('asap')
+        ? 0.9
+        : 0.3;
     return { sentiment, complexity, urgency };
   }, []);
-  
+
   // Enhanced window positioning with smart cascade and collision detection
-  const calculateWindowPosition = useCallback((windowId: string, index: number) => {
-    const windowWidth = windowSizes[windowId]?.width || 320;
-    const windowHeight = windowSizes[windowId]?.height || 400;
-    const padding = 20;
-    const titleBarHeight = 40;
-    
-    // If position already set, use it
-    if (windowPositions[windowId]) {
-      return windowPositions[windowId];
-    }
-    
-    const snapMode = windowSnapMode[windowId] || 'none';
-    
-    if (snapMode === 'edge') {
-      return { 
-        x: window.innerWidth - windowWidth - padding, 
-        y: 50 + (index * (titleBarHeight + 10)) 
-      };
-    } else if (snapMode === 'corner') {
-      return { 
-        x: window.innerWidth - windowWidth - padding, 
-        y: window.innerHeight - windowHeight - padding 
-      };
-    }
-    
-    // Smart cascade positioning to avoid overlap
-    const cascadeOffset = 30;
-    const baseX = window.innerWidth - windowWidth - padding;
-    const baseY = window.innerHeight - windowHeight - padding;
-    
-    // Calculate position based on existing windows to avoid collision
-    let proposedX = baseX - (index * cascadeOffset);
-    let proposedY = baseY - (index * cascadeOffset);
-    
-    // Ensure window stays within viewport
-    proposedX = Math.max(padding, Math.min(proposedX, window.innerWidth - windowWidth - padding));
-    proposedY = Math.max(padding + titleBarHeight, Math.min(proposedY, window.innerHeight - windowHeight - padding));
-    
-    return { x: proposedX, y: proposedY };
-  }, [windowPositions, windowSizes, windowSnapMode]);
-  
-  // Mouse event handlers for dragging and resizing
-  const handleMouseDown = useCallback((e: React.MouseEvent, windowId: string, action: 'drag' | 'resize') => {
-    e.preventDefault();
-    const windowElement = windowRefs.current[windowId];
-    if (!windowElement) return;
-
-    const rect = windowElement.getBoundingClientRect();
-    
-    if (action === 'drag') {
-      setIsDragging(prev => ({ ...prev, [windowId]: true }));
-      draggingRef.current = {
-        windowId,
-        offset: { x: e.clientX - rect.left, y: e.clientY - rect.top }
-      };
-    } else if (action === 'resize') {
-      setIsResizing(prev => ({ ...prev, [windowId]: true }));
-      resizingRef.current = {
-        windowId,
-        startSize: { width: rect.width, height: rect.height },
-        startMouse: { x: e.clientX, y: e.clientY }
-      };
-    }
-    
-    setFocusedWindow(windowId);
-  }, []);
-
-  const handleMouseMove = useCallback((e: MouseEvent) => {
-    if (draggingRef.current) {
-      const { windowId, offset } = draggingRef.current;
-      const newPosition = {
-        x: e.clientX - offset.x,
-        y: e.clientY - offset.y
-      };
-      
-      // Constrain to viewport
+  const calculateWindowPosition = useCallback(
+    (windowId: string, index: number) => {
       const windowWidth = windowSizes[windowId]?.width || 320;
       const windowHeight = windowSizes[windowId]?.height || 400;
-      newPosition.x = Math.max(0, Math.min(newPosition.x, window.innerWidth - windowWidth));
-      newPosition.y = Math.max(0, Math.min(newPosition.y, window.innerHeight - windowHeight));
-      
-      setWindowPositions(prev => ({ ...prev, [windowId]: newPosition }));
-    }
-    
-    if (resizingRef.current) {
-      const { windowId, startSize, startMouse } = resizingRef.current;
-      const deltaX = e.clientX - startMouse.x;
-      const deltaY = e.clientY - startMouse.y;
-      
-      const newSize = {
-        width: Math.max(280, Math.min(startSize.width + deltaX, window.innerWidth * 0.8)),
-        height: Math.max(300, Math.min(startSize.height + deltaY, window.innerHeight * 0.8))
-      };
-      
-      setWindowSizes(prev => ({ ...prev, [windowId]: newSize }));
-    }
-  }, [windowSizes]);
+      const padding = 20;
+      const titleBarHeight = 40;
+
+      // If position already set, use it
+      if (windowPositions[windowId]) {
+        return windowPositions[windowId];
+      }
+
+      const snapMode = windowSnapMode[windowId] || 'none';
+
+      if (snapMode === 'edge') {
+        return {
+          x: window.innerWidth - windowWidth - padding,
+          y: 50 + index * (titleBarHeight + 10),
+        };
+      } else if (snapMode === 'corner') {
+        return {
+          x: window.innerWidth - windowWidth - padding,
+          y: window.innerHeight - windowHeight - padding,
+        };
+      }
+
+      // Smart cascade positioning to avoid overlap
+      const cascadeOffset = 30;
+      const baseX = window.innerWidth - windowWidth - padding;
+      const baseY = window.innerHeight - windowHeight - padding;
+
+      // Calculate position based on existing windows to avoid collision
+      let proposedX = baseX - index * cascadeOffset;
+      let proposedY = baseY - index * cascadeOffset;
+
+      // Ensure window stays within viewport
+      proposedX = Math.max(padding, Math.min(proposedX, window.innerWidth - windowWidth - padding));
+      proposedY = Math.max(
+        padding + titleBarHeight,
+        Math.min(proposedY, window.innerHeight - windowHeight - padding)
+      );
+
+      return { x: proposedX, y: proposedY };
+    },
+    [windowPositions, windowSizes, windowSnapMode]
+  );
+
+  // Mouse event handlers for dragging and resizing
+  const handleMouseDown = useCallback(
+    (e: React.MouseEvent, windowId: string, action: 'drag' | 'resize') => {
+      e.preventDefault();
+      const windowElement = windowRefs.current[windowId];
+      if (!windowElement) return;
+
+      const rect = windowElement.getBoundingClientRect();
+
+      if (action === 'drag') {
+        setIsDragging((prev) => ({ ...prev, [windowId]: true }));
+        draggingRef.current = {
+          windowId,
+          offset: { x: e.clientX - rect.left, y: e.clientY - rect.top },
+        };
+      } else if (action === 'resize') {
+        setIsResizing((prev) => ({ ...prev, [windowId]: true }));
+        resizingRef.current = {
+          windowId,
+          startSize: { width: rect.width, height: rect.height },
+          startMouse: { x: e.clientX, y: e.clientY },
+        };
+      }
+
+      setFocusedWindow(windowId);
+    },
+    []
+  );
+
+  const handleMouseMove = useCallback(
+    (e: MouseEvent) => {
+      if (draggingRef.current) {
+        const { windowId, offset } = draggingRef.current;
+        const newPosition = {
+          x: e.clientX - offset.x,
+          y: e.clientY - offset.y,
+        };
+
+        // Constrain to viewport
+        const windowWidth = windowSizes[windowId]?.width || 320;
+        const windowHeight = windowSizes[windowId]?.height || 400;
+        newPosition.x = Math.max(0, Math.min(newPosition.x, window.innerWidth - windowWidth));
+        newPosition.y = Math.max(0, Math.min(newPosition.y, window.innerHeight - windowHeight));
+
+        setWindowPositions((prev) => ({ ...prev, [windowId]: newPosition }));
+      }
+
+      if (resizingRef.current) {
+        const { windowId, startSize, startMouse } = resizingRef.current;
+        const deltaX = e.clientX - startMouse.x;
+        const deltaY = e.clientY - startMouse.y;
+
+        const newSize = {
+          width: Math.max(280, Math.min(startSize.width + deltaX, window.innerWidth * 0.8)),
+          height: Math.max(300, Math.min(startSize.height + deltaY, window.innerHeight * 0.8)),
+        };
+
+        setWindowSizes((prev) => ({ ...prev, [windowId]: newSize }));
+      }
+    },
+    [windowSizes]
+  );
 
   const handleMouseUp = useCallback(() => {
     if (draggingRef.current) {
       const windowId = draggingRef.current.windowId;
-      setIsDragging(prev => ({ ...prev, [windowId]: false }));
+      setIsDragging((prev) => ({ ...prev, [windowId]: false }));
       draggingRef.current = null;
     }
-    
+
     if (resizingRef.current) {
       const windowId = resizingRef.current.windowId;
-      setIsResizing(prev => ({ ...prev, [windowId]: false }));
+      setIsResizing((prev) => ({ ...prev, [windowId]: false }));
       resizingRef.current = null;
     }
   }, []);
@@ -1549,7 +1714,7 @@ export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
   useEffect(() => {
     document.addEventListener('mousemove', handleMouseMove);
     document.addEventListener('mouseup', handleMouseUp);
-    
+
     return () => {
       document.removeEventListener('mousemove', handleMouseMove);
       document.removeEventListener('mouseup', handleMouseUp);
@@ -1560,23 +1725,23 @@ export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
   const TypingIndicator: React.FC<{ windowId: string }> = ({ windowId }) => {
     const isTyping = typingIndicators[windowId] || false;
     const loadingState = loadingStates[windowId];
-    
+
     if (!isTyping && !loadingState?.isLoading) return null;
-    
+
     const handleCancel = () => {
       // Clear loading states
       if (loadingTimeouts.current[windowId]) {
         clearInterval(loadingTimeouts.current[windowId]);
         delete loadingTimeouts.current[windowId];
       }
-      setLoadingStates(prev => {
+      setLoadingStates((prev) => {
         const newStates = { ...prev };
         delete newStates[windowId];
         return newStates;
       });
-      setTypingIndicators(prev => ({ ...prev, [windowId]: false }));
+      setTypingIndicators((prev) => ({ ...prev, [windowId]: false }));
     };
-    
+
     return (
       <motion.div
         initial={{ opacity: 0, y: 10 }}
@@ -1591,13 +1756,13 @@ export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
               className="w-2 h-2 bg-cyan-400 rounded-full"
               animate={{
                 y: [0, -8, 0],
-                opacity: [0.4, 1, 0.4]
+                opacity: [0.4, 1, 0.4],
               }}
               transition={{
                 duration: 1.2,
                 repeat: Infinity,
                 delay: i * 0.2,
-                ease: "easeInOut"
+                ease: 'easeInOut',
               }}
             />
           ))}
@@ -1636,11 +1801,13 @@ export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
           const isLoading = window.isLoading || loadingStates[window.id]?.isLoading;
           const isDrag = isDragging[window.id];
           const isResize = isResizing[window.id];
-          
+
           return (
             <motion.div
               key={window.id}
-              ref={(el) => { windowRefs.current[window.id] = el; }}
+              ref={(el) => {
+                windowRefs.current[window.id] = el;
+              }}
               className={`fixed bg-gradient-to-br from-slate-800/95 via-slate-900/95 to-slate-800/95 
                          backdrop-blur-xl rounded-xl border border-slate-600/30 text-white pointer-events-auto 
                          flex flex-col shadow-2xl shadow-black/50 overflow-hidden
@@ -1652,42 +1819,42 @@ export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
                 top: position.y,
                 width: size.width,
                 height: window.isMinimized ? 'auto' : size.height,
-                zIndex: focusedWindow === window.id ? 60 : 50
+                zIndex: focusedWindow === window.id ? 60 : 50,
               }}
-              initial={{ 
-                opacity: 0, 
+              initial={{
+                opacity: 0,
                 scale: 0.8,
                 y: 100,
-                rotateX: -15
+                rotateX: -15,
               }}
-              animate={{ 
-                opacity: 1, 
+              animate={{
+                opacity: 1,
                 scale: isDrag ? 1.05 : isResize ? 1.02 : 1,
                 y: 0,
-                rotateX: 0
+                rotateX: 0,
               }}
-              exit={{ 
-                opacity: 0, 
+              exit={{
+                opacity: 0,
                 scale: 0.8,
                 y: 100,
-                rotateX: 15
+                rotateX: 15,
               }}
               transition={{
-                type: "spring",
+                type: 'spring',
                 stiffness: 300,
-                damping: 30
+                damping: 30,
               }}
-              whileHover={{ 
+              whileHover={{
                 scale: isDrag || isResize ? undefined : 1.01,
-                boxShadow: "0 25px 50px -12px rgba(0, 0, 0, 0.5)"
+                boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)',
               }}
               onClick={() => setFocusedWindow(window.id)}
             >
               {/* Animated background gradient */}
               <div className="absolute inset-0 bg-gradient-to-br from-cyan-500/5 via-transparent to-purple-500/5 opacity-50" />
-              
+
               {/* Chat Header */}
-              <div 
+              <div
                 className="relative flex items-center justify-between p-4 bg-gradient-to-r from-slate-700/50 to-slate-800/50 border-b border-slate-600/30 cursor-grab active:cursor-grabbing"
                 onMouseDown={(e) => handleMouseDown(e, window.id, 'drag')}
               >
@@ -1695,15 +1862,17 @@ export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
                   <motion.div
                     className="w-8 h-8 bg-gradient-to-br from-cyan-500 to-blue-600 rounded-lg flex items-center justify-center"
                     animate={{
-                      boxShadow: isLoading ? [
-                        '0 0 10px rgba(6, 182, 212, 0.5)',
-                        '0 0 20px rgba(6, 182, 212, 0.8)',
-                        '0 0 10px rgba(6, 182, 212, 0.5)'
-                      ] : '0 0 10px rgba(6, 182, 212, 0.3)'
+                      boxShadow: isLoading
+                        ? [
+                            '0 0 10px rgba(6, 182, 212, 0.5)',
+                            '0 0 20px rgba(6, 182, 212, 0.8)',
+                            '0 0 10px rgba(6, 182, 212, 0.5)',
+                          ]
+                        : '0 0 10px rgba(6, 182, 212, 0.3)',
                     }}
                     transition={{
                       duration: 2,
-                      repeat: isLoading ? Infinity : 0
+                      repeat: isLoading ? Infinity : 0,
                     }}
                   >
                     <Bot className="w-4 h-4 text-white" />
@@ -1711,14 +1880,16 @@ export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
                   <div>
                     <h3 className="font-semibold text-white text-sm">{window.agentName}</h3>
                     <div className="flex items-center gap-2 text-xs">
-                      <div className={`w-1.5 h-1.5 rounded-full ${window.isLoading ? 'bg-yellow-400 animate-pulse' : 'bg-green-400'}`} />
+                      <div
+                        className={`w-1.5 h-1.5 rounded-full ${window.isLoading ? 'bg-yellow-400 animate-pulse' : 'bg-green-400'}`}
+                      />
                       <span className="text-slate-400">
                         {window.isLoading ? 'Processing...' : 'Online'}
                       </span>
                     </div>
                   </div>
                 </div>
-                
+
                 <div className="flex items-center gap-1">
                   <button
                     onClick={(e) => {
@@ -1746,12 +1917,12 @@ export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
               {!window.isMinimized && (
                 <>
                   {/* Messages Area */}
-                  <div 
+                  <div
                     id={`messages-${window.id}`}
                     className="flex-1 overflow-y-auto p-4 space-y-3 min-h-0"
-                    style={{ 
-                      scrollbarWidth: 'thin', 
-                      scrollbarColor: 'rgba(59, 130, 246, 0.3) transparent' 
+                    style={{
+                      scrollbarWidth: 'thin',
+                      scrollbarColor: 'rgba(59, 130, 246, 0.3) transparent',
                     }}
                   >
                     <AnimatePresence>
@@ -1763,14 +1934,14 @@ export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
                         >
                           <motion.div
                             className="w-12 h-12 mx-auto mb-3 bg-slate-700/50 rounded-full flex items-center justify-center"
-                            animate={{ 
+                            animate={{
                               rotate: [0, 10, -10, 0],
-                              scale: [1, 1.1, 1]
+                              scale: [1, 1.1, 1],
                             }}
                             transition={{
                               duration: 4,
                               repeat: Infinity,
-                              ease: "easeInOut"
+                              ease: 'easeInOut',
                             }}
                           >
                             <MessageSquare className="w-6 h-6 text-slate-500" />
@@ -1779,75 +1950,80 @@ export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
                         </motion.div>
                       ) : (
                         window.messages.map((msg, idx) => (
-                          <motion.div 
+                          <motion.div
                             key={msg.id || `msg-${idx}-${msg.timestamp || Date.now()}`}
                             initial={{ opacity: 0, y: 20, scale: 0.95 }}
                             animate={{ opacity: 1, y: 0, scale: 1 }}
-                            transition={{ 
+                            transition={{
                               delay: idx * 0.03,
-                              type: "spring",
+                              type: 'spring',
                               stiffness: 400,
-                              damping: 25
+                              damping: 25,
                             }}
                             className={`flex items-start gap-2 ${msg.sender === 'user' ? 'justify-end' : 'justify-start'}`}
                           >
                             {msg.sender !== 'user' && (
-                              <motion.div 
+                              <motion.div
                                 className="w-6 h-6 bg-gradient-to-br from-purple-500 to-indigo-500 rounded-full flex items-center justify-center flex-shrink-0 mt-1"
                                 whileHover={{ scale: 1.1, rotate: 5 }}
                               >
                                 <Bot className="w-3 h-3 text-white" />
                               </motion.div>
                             )}
-                            
-                            <motion.div 
+
+                            <motion.div
                               className={`max-w-[75%] p-3 rounded-xl text-sm leading-relaxed ${
-                                msg.sender === 'user' 
-                                  ? 'bg-gradient-to-br from-cyan-500 to-blue-600 text-white' 
+                                msg.sender === 'user'
+                                  ? 'bg-gradient-to-br from-cyan-500 to-blue-600 text-white'
                                   : 'bg-slate-700/80 text-slate-100 border border-slate-600/50'
                               }`}
-                              whileHover={{ 
+                              whileHover={{
                                 scale: 1.02,
-                                boxShadow: msg.sender === 'user' 
-                                  ? '0 8px 25px rgba(6, 182, 212, 0.3)'
-                                  : '0 8px 25px rgba(0, 0, 0, 0.3)'
+                                boxShadow:
+                                  msg.sender === 'user'
+                                    ? '0 8px 25px rgba(6, 182, 212, 0.3)'
+                                    : '0 8px 25px rgba(0, 0, 0, 0.3)',
                               }}
                             >
                               <p>{msg.content}</p>
-                              
+
                               {/* Message metadata for agent responses */}
-                              {msg.sender !== 'user' && (msg.confidence || msg.memoryEnhanced || msg.knowledgeUsed || msg.toolsExecuted?.length) && (
-                                <div className="flex items-center gap-3 mt-2 pt-2 border-t border-slate-600/30 text-xs">
-                                  {msg.confidence && (
-                                    <div className="flex items-center gap-1 text-emerald-400">
-                                      <CheckCircle2 className="w-3 h-3" />
-                                      <span>{Math.round(msg.confidence * 100)}%</span>
-                                    </div>
-                                  )}
-                                  {msg.memoryEnhanced && (
-                                    <div className="flex items-center gap-1 text-purple-400">
-                                      <Brain className="w-3 h-3" />
-                                      <span>Memory</span>
-                                    </div>
-                                  )}
-                                  {msg.knowledgeUsed && msg.knowledgeUsed > 0 && (
-                                    <div className="flex items-center gap-1 text-yellow-400">
-                                      <Sparkles className="w-3 h-3" />
-                                      <span>{msg.knowledgeUsed} KB</span>
-                                    </div>
-                                  )}
-                                  {msg.toolsExecuted && msg.toolsExecuted.length > 0 && (
-                                    <div className="flex items-center gap-1 text-cyan-400">
-                                      <Zap className="w-3 h-3" />
-                                      <span>{msg.toolsExecuted.length} tools</span>
-                                    </div>
-                                  )}
-                                </div>
-                              )}
+                              {msg.sender !== 'user' &&
+                                (msg.confidence ||
+                                  msg.memoryEnhanced ||
+                                  msg.knowledgeUsed ||
+                                  msg.toolsExecuted?.length) && (
+                                  <div className="flex items-center gap-3 mt-2 pt-2 border-t border-slate-600/30 text-xs">
+                                    {msg.confidence && (
+                                      <div className="flex items-center gap-1 text-emerald-400">
+                                        <CheckCircle2 className="w-3 h-3" />
+                                        <span>{Math.round(msg.confidence * 100)}%</span>
+                                      </div>
+                                    )}
+                                    {msg.memoryEnhanced && (
+                                      <div className="flex items-center gap-1 text-purple-400">
+                                        <Brain className="w-3 h-3" />
+                                        <span>Memory</span>
+                                      </div>
+                                    )}
+                                    {msg.knowledgeUsed && msg.knowledgeUsed > 0 && (
+                                      <div className="flex items-center gap-1 text-yellow-400">
+                                        <Sparkles className="w-3 h-3" />
+                                        <span>{msg.knowledgeUsed} KB</span>
+                                      </div>
+                                    )}
+                                    {msg.toolsExecuted && msg.toolsExecuted.length > 0 && (
+                                      <div className="flex items-center gap-1 text-cyan-400">
+                                        <Zap className="w-3 h-3" />
+                                        <span>{msg.toolsExecuted.length} tools</span>
+                                      </div>
+                                    )}
+                                  </div>
+                                )}
                             </motion.div>
-                            
+
                             {msg.sender === 'user' && (
-                              <motion.div 
+                              <motion.div
                                 className="w-6 h-6 bg-gradient-to-br from-emerald-500 to-teal-500 rounded-full flex items-center justify-center flex-shrink-0 mt-1"
                                 whileHover={{ scale: 1.1, rotate: -5 }}
                               >
@@ -1858,7 +2034,7 @@ export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
                         ))
                       )}
                     </AnimatePresence>
-                    
+
                     {/* Typing Indicator */}
                     <TypingIndicator windowId={window.id} />
                   </div>
@@ -1875,9 +2051,9 @@ export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
                       disabled={isLoading}
                       className="w-full bg-slate-700/50 border border-slate-600/50 rounded-lg px-3 py-2 text-white placeholder-slate-400 text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500/50 focus:border-cyan-400/50 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200"
                     />
-                    
+
                     {window.error && (
-                      <motion.div 
+                      <motion.div
                         initial={{ opacity: 0, y: -10 }}
                         animate={{ opacity: 1, y: 0 }}
                         className="mt-2 p-2 bg-red-500/20 border border-red-500/30 rounded-md text-red-400 text-xs"
@@ -1906,7 +2082,6 @@ export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
     </div>
   );
 
-
   // Render portal mode
   const renderPortalMode = () => (
     <div className={`flex flex-col h-full space-y-6 ${className}`}>
@@ -1925,8 +2100,8 @@ export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
                 boxShadow: [
                   '0 0 20px rgba(59, 130, 246, 0.3)',
                   '0 0 30px rgba(6, 182, 212, 0.4)',
-                  '0 0 20px rgba(59, 130, 246, 0.3)'
-                ]
+                  '0 0 20px rgba(59, 130, 246, 0.3)',
+                ],
               }}
               transition={{ duration: 2, repeat: Infinity }}
             >
@@ -1937,19 +2112,28 @@ export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
                 <ConversationTopicDisplay
                   conversationId={conversationIds['portal'] || ''}
                   agentId={selectedAgentId}
-                  initialTopic={conversationTopics['portal'] || (selectedAgent ? `Chat with ${selectedAgent.name}` : 'Agent Chat')}
+                  initialTopic={
+                    conversationTopics['portal'] ||
+                    (selectedAgent ? `Chat with ${selectedAgent.name}` : 'Agent Chat')
+                  }
                   onTopicChange={(newTopic) => {
-                    setConversationTopics(prev => ({ ...prev, portal: newTopic }));
+                    setConversationTopics((prev) => ({ ...prev, portal: newTopic }));
                   }}
                   className="text-xl font-bold text-white"
                 />
               </div>
               <div className="flex items-center gap-3">
                 <p className="text-slate-300">
-                  {selectedAgent ? `Chatting with ${selectedAgent.name}` : 'Select an agent to start chatting'}
+                  {selectedAgent
+                    ? `Chatting with ${selectedAgent.name}`
+                    : 'Select an agent to start chatting'}
                 </p>
-                <div className={`w-2 h-2 rounded-full ${isWebSocketConnected ? 'bg-green-400 animate-pulse' : 'bg-red-400'}`} />
-                <span className={`text-xs ${isWebSocketConnected ? 'text-green-400' : 'text-red-400'}`}>
+                <div
+                  className={`w-2 h-2 rounded-full ${isWebSocketConnected ? 'bg-green-400 animate-pulse' : 'bg-red-400'}`}
+                />
+                <span
+                  className={`text-xs ${isWebSocketConnected ? 'text-green-400' : 'text-red-400'}`}
+                >
                   {isWebSocketConnected ? 'Real-time' : 'Offline'}
                 </span>
               </div>
@@ -1960,21 +2144,21 @@ export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
             {portalMessages.length > 0 && (
               <DiscussionTrigger
                 trigger={
-                  <button
-                    className="px-4 py-2 text-sm bg-gradient-to-r from-cyan-500/20 to-blue-500/20 text-cyan-300 rounded-xl border border-cyan-500/30 hover:from-cyan-500/30 hover:to-blue-500/30 transition-all flex items-center gap-2 hover:scale-105 active:scale-95"
-                  >
+                  <button className="px-4 py-2 text-sm bg-gradient-to-r from-cyan-500/20 to-blue-500/20 text-cyan-300 rounded-xl border border-cyan-500/30 hover:from-cyan-500/30 hover:to-blue-500/30 transition-all flex items-center gap-2 hover:scale-105 active:scale-95">
                     <Users className="w-4 h-4" />
                     Discuss
                   </button>
                 }
                 contextType="chat"
                 contextData={{
-                  chatHistory: portalMessages.map(msg => ({
+                  chatHistory: portalMessages.map((msg) => ({
                     content: msg.content,
                     sender: msg.sender,
-                    timestamp: msg.timestamp
+                    timestamp: msg.timestamp,
                   })),
-                  topic: selectedAgent ? `Chat with ${selectedAgent.name}` : 'Agent Chat Discussion'
+                  topic: selectedAgent
+                    ? `Chat with ${selectedAgent.name}`
+                    : 'Agent Chat Discussion',
                 }}
                 preselectedAgents={selectedAgentId ? [selectedAgentId] : []}
               />
@@ -1991,7 +2175,11 @@ export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
               onClick={() => setViewMode(viewMode === 'floating' ? 'portal' : 'floating')}
               className="px-4 py-2 text-sm bg-slate-700/50 text-slate-300 rounded-xl border border-slate-600/30 hover:bg-slate-600/50 transition-colors flex items-center gap-2 hover:scale-105 active:scale-95"
             >
-              {viewMode === 'floating' ? <LayoutGrid className="w-4 h-4" /> : <Maximize className="w-4 h-4" />}
+              {viewMode === 'floating' ? (
+                <LayoutGrid className="w-4 h-4" />
+              ) : (
+                <Maximize className="w-4 h-4" />
+              )}
               {viewMode === 'floating' ? 'Portal' : 'Float'}
             </button>
           </div>
@@ -2005,7 +2193,8 @@ export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
               onChange={(e) => setSelectedAgentId(e.target.value)}
               className="w-full bg-slate-800/50 border border-slate-600/30 rounded-xl px-4 py-3 text-white text-sm focus:outline-none focus:border-cyan-500/50 transition-all duration-300 hover:scale-[1.01] focus:scale-[1.02]"
               style={{
-                background: 'linear-gradient(135deg, rgba(15, 23, 42, 0.6), rgba(30, 58, 138, 0.3))'
+                background:
+                  'linear-gradient(135deg, rgba(15, 23, 42, 0.6), rgba(30, 58, 138, 0.3))',
               }}
             >
               <option value="">Select an agent...</option>
@@ -2078,7 +2267,15 @@ export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
       >
         <div className="absolute inset-0 bg-gradient-to-r from-cyan-500/5 via-transparent to-purple-500/5" />
         <div className="relative flex flex-col h-full">
-          <div className="flex-1 overflow-y-auto p-6 space-y-4" style={{ scrollbarWidth: 'thin', scrollbarColor: 'rgba(59, 130, 246, 0.3) transparent', minHeight: 0, maxHeight: '100%' }}>
+          <div
+            className="flex-1 overflow-y-auto p-6 space-y-4"
+            style={{
+              scrollbarWidth: 'thin',
+              scrollbarColor: 'rgba(59, 130, 246, 0.3) transparent',
+              minHeight: 0,
+              maxHeight: '100%',
+            }}
+          >
             <AnimatePresence>
               {portalMessages.length === 0 && (
                 <motion.div
@@ -2091,18 +2288,20 @@ export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
                       className="w-16 h-16 mx-auto mb-4 rounded-full bg-gradient-to-br from-slate-700 to-slate-800 flex items-center justify-center"
                       animate={{
                         rotate: [0, 5, -5, 0],
-                        scale: [1, 1.05, 1]
+                        scale: [1, 1.05, 1],
                       }}
                       transition={{
                         duration: 4,
                         repeat: Infinity,
-                        ease: "easeInOut"
+                        ease: 'easeInOut',
                       }}
                     >
                       <Bot className="w-8 h-8 text-slate-400" />
                     </motion.div>
                     <p className="text-slate-400 text-lg">
-                      {selectedAgent ? `Start a conversation with ${selectedAgent.name}` : 'Select an agent to begin chatting'}
+                      {selectedAgent
+                        ? `Start a conversation with ${selectedAgent.name}`
+                        : 'Select an agent to begin chatting'}
                     </p>
                   </div>
                 </motion.div>
@@ -2115,8 +2314,8 @@ export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
                   animate={{ opacity: 1, y: 0, scale: 1 }}
                   transition={{
                     delay: index * 0.05,
-                    type: "spring",
-                    stiffness: 200
+                    type: 'spring',
+                    stiffness: 200,
                   }}
                   className={`flex gap-4 ${message.sender === 'user' ? 'justify-end' : 'justify-start'}`}
                 >
@@ -2131,12 +2330,13 @@ export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
 
                   <div className={`max-w-[80%] ${message.sender === 'user' ? 'order-1' : ''}`}>
                     <motion.div
-                      className={`relative overflow-hidden rounded-2xl ${message.sender === 'user'
-                        ? 'bg-gradient-to-br from-blue-500 to-cyan-500 text-white ml-auto'
-                        : 'bg-slate-800/50 text-white border border-slate-600/30'
-                        }`}
+                      className={`relative overflow-hidden rounded-2xl ${
+                        message.sender === 'user'
+                          ? 'bg-gradient-to-br from-blue-500 to-cyan-500 text-white ml-auto'
+                          : 'bg-slate-800/50 text-white border border-slate-600/30'
+                      }`}
                       whileHover={{ scale: 1.01, y: -1 }}
-                      transition={{ type: "spring", stiffness: 300 }}
+                      transition={{ type: 'spring', stiffness: 300 }}
                     >
                       <div className="p-4">
                         <p className="text-sm leading-relaxed">{message.content}</p>
@@ -2172,31 +2372,34 @@ export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
                         )}
 
                         {/* Tool Execution Results */}
-                        {message.sender !== 'user' && message.toolsExecuted && message.toolsExecuted.length > 0 && (
-                          <div className="mt-3 pt-3 border-t border-slate-600/30">
-                            <div className="text-xs text-slate-400 mb-2">Tools Executed:</div>
-                            <div className="space-y-2">
-                              {message.toolsExecuted.map((tool, toolIndex) => (
-                                <motion.div
-                                  key={`${tool.name || 'tool'}-${toolIndex}-${tool.timestamp || Date.now()}`}
-                                  className={`flex items-center gap-2 text-xs px-3 py-2 rounded-lg ${tool.success
-                                    ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
-                                    : 'bg-red-500/10 text-red-400 border border-red-500/20'
+                        {message.sender !== 'user' &&
+                          message.toolsExecuted &&
+                          message.toolsExecuted.length > 0 && (
+                            <div className="mt-3 pt-3 border-t border-slate-600/30">
+                              <div className="text-xs text-slate-400 mb-2">Tools Executed:</div>
+                              <div className="space-y-2">
+                                {message.toolsExecuted.map((tool, toolIndex) => (
+                                  <motion.div
+                                    key={`${tool.name || 'tool'}-${toolIndex}-${tool.timestamp || Date.now()}`}
+                                    className={`flex items-center gap-2 text-xs px-3 py-2 rounded-lg ${
+                                      tool.success
+                                        ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
+                                        : 'bg-red-500/10 text-red-400 border border-red-500/20'
                                     }`}
-                                  whileHover={{ scale: 1.02 }}
-                                >
-                                  <Zap className="w-3 h-3" />
-                                  <span className="font-medium">{tool.toolName}</span>
-                                  {tool.success ? (
-                                    <CheckCircle2 className="w-3 h-3" />
-                                  ) : (
-                                    <AlertCircle className="w-3 h-3" />
-                                  )}
-                                </motion.div>
-                              ))}
+                                    whileHover={{ scale: 1.02 }}
+                                  >
+                                    <Zap className="w-3 h-3" />
+                                    <span className="font-medium">{tool.toolName}</span>
+                                    {tool.success ? (
+                                      <CheckCircle2 className="w-3 h-3" />
+                                    ) : (
+                                      <AlertCircle className="w-3 h-3" />
+                                    )}
+                                  </motion.div>
+                                ))}
+                              </div>
                             </div>
-                          </div>
-                        )}
+                          )}
                       </div>
                     </motion.div>
 
@@ -2216,7 +2419,7 @@ export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
                 </motion.div>
               ))}
             </AnimatePresence>
-            
+
             {/* Typing Indicator for Portal Mode */}
             <TypingIndicator windowId="portal" />
 
@@ -2235,12 +2438,14 @@ export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
               <PromptSuggestions
                 agentId={selectedAgentId}
                 conversationContext={{
-                  currentTopic: conversationTopics['portal'] || (selectedAgent ? `Chat with ${selectedAgent.name}` : 'Agent Chat'),
-                  recentMessages: portalMessages.slice(-5).map(msg => ({
+                  currentTopic:
+                    conversationTopics['portal'] ||
+                    (selectedAgent ? `Chat with ${selectedAgent.name}` : 'Agent Chat'),
+                  recentMessages: portalMessages.slice(-5).map((msg) => ({
                     content: msg.content,
                     role: msg.sender === 'user' ? 'user' : 'assistant',
-                    timestamp: new Date(msg.timestamp)
-                  }))
+                    timestamp: new Date(msg.timestamp),
+                  })),
                 }}
                 onSelectPrompt={(prompt) => {
                   // Auto-submit the selected prompt
@@ -2249,12 +2454,14 @@ export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
                 className="mb-2"
               />
             </div>
-            
+
             <div className="flex gap-4 items-end">
               <SmartInputField
                 agentId={selectedAgentId}
                 conversationId={conversationIds['portal']}
-                placeholder={selectedAgent ? `Message ${selectedAgent.name}...` : "Select an agent first..."}
+                placeholder={
+                  selectedAgent ? `Message ${selectedAgent.name}...` : 'Select an agent first...'
+                }
                 onSubmit={(text, intent) => {
                   // Use a custom sendMessage function that handles the smart input properly
                   sendPortalMessageWithText(text, intent);

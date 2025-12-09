@@ -11,7 +11,7 @@ export const modelServiceConfig: ServiceConfig = {
       // 'http://server2:1234',
     ],
     modelsPath: '/v1/models',
-    chatPath: '/v1/chat/completions'
+    chatPath: '/v1/chat/completions',
   },
   ollama: {
     baseUrls: [
@@ -20,8 +20,8 @@ export const modelServiceConfig: ServiceConfig = {
       // 'http://192.168.1.101:11434',
     ],
     modelsPath: '/api/tags',
-    generatePath: '/api/generate'
-  }
+    generatePath: '/api/generate',
+  },
 };
 
 // Environment-based configuration override
@@ -32,13 +32,13 @@ export const getModelServiceConfig = (): ServiceConfig => {
   // LM Studio base URLs from environment
   const llmStudioUrls = import.meta.env.VITE_LLM_STUDIO_URLS;
   if (llmStudioUrls) {
-    envConfig.llmStudio.baseUrls = llmStudioUrls.split(',').map(url => url.trim());
+    envConfig.llmStudio.baseUrls = llmStudioUrls.split(',').map((url) => url.trim());
   }
 
   // Ollama base URLs from environment
   const ollamaUrls = import.meta.env.VITE_OLLAMA_URLS;
   if (ollamaUrls) {
-    envConfig.ollama.baseUrls = ollamaUrls.split(',').map(url => url.trim());
+    envConfig.ollama.baseUrls = ollamaUrls.split(',').map((url) => url.trim());
   }
 
   return envConfig;
@@ -55,10 +55,7 @@ export const validateServiceConfig = (config: ServiceConfig): boolean => {
     }
   };
 
-  const allUrls = [
-    ...config.llmStudio.baseUrls,
-    ...config.ollama.baseUrls
-  ];
+  const allUrls = [...config.llmStudio.baseUrls, ...config.ollama.baseUrls];
 
   return allUrls.every(isValidUrl);
-}; 
+};

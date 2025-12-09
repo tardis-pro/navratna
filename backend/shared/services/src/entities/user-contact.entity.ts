@@ -6,13 +6,13 @@ export enum ContactStatus {
   PENDING = 'pending',
   ACCEPTED = 'accepted',
   BLOCKED = 'blocked',
-  REJECTED = 'rejected'
+  REJECTED = 'rejected',
 }
 
 export enum ContactType {
   FRIEND = 'friend',
   COLLEAGUE = 'colleague',
-  PUBLIC = 'public'
+  PUBLIC = 'public',
 }
 
 @Entity('user_contacts')
@@ -36,17 +36,17 @@ export class UserContactEntity extends BaseEntity {
   @JoinColumn({ name: 'target_id' })
   target!: UserEntity;
 
-  @Column({ 
-    type: 'enum', 
-    enum: ContactStatus, 
-    default: ContactStatus.PENDING 
+  @Column({
+    type: 'enum',
+    enum: ContactStatus,
+    default: ContactStatus.PENDING,
   })
   status!: ContactStatus;
 
-  @Column({ 
-    type: 'enum', 
-    enum: ContactType, 
-    default: ContactType.FRIEND 
+  @Column({
+    type: 'enum',
+    enum: ContactType,
+    default: ContactType.FRIEND,
   })
   type!: ContactType;
 

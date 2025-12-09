@@ -1,9 +1,6 @@
 import { Entity, Column, Index, OneToMany } from 'typeorm';
 import { BaseEntity } from './base.entity.js';
-import { 
-  ArtifactType, 
-  ValidationResult 
-} from '@uaip/types';
+import { ArtifactType, ValidationResult } from '@uaip/types';
 
 // Note: Using string-based relationships to avoid circular dependencies
 
@@ -17,7 +14,21 @@ import {
 @Index(['generatedBy'])
 @Index(['language', 'framework'])
 export class Artifact extends BaseEntity {
-  @Column({ type: 'enum', enum: ['code', 'test', 'documentation', 'prd', 'config', 'deployment', 'script', 'template', 'report', 'analysis'] })
+  @Column({
+    type: 'enum',
+    enum: [
+      'code',
+      'test',
+      'documentation',
+      'prd',
+      'config',
+      'deployment',
+      'script',
+      'template',
+      'report',
+      'analysis',
+    ],
+  })
   type: ArtifactType;
 
   @Column({ type: 'text' })
@@ -38,7 +49,12 @@ export class Artifact extends BaseEntity {
   @Column({ name: 'target_file', nullable: true })
   targetFile?: string;
 
-  @Column({ name: 'estimated_effort', type: 'enum', enum: ['low', 'medium', 'high'], nullable: true })
+  @Column({
+    name: 'estimated_effort',
+    type: 'enum',
+    enum: ['low', 'medium', 'high'],
+    nullable: true,
+  })
   estimatedEffort?: 'low' | 'medium' | 'high';
 
   @Column({ type: 'jsonb', default: '[]' })
@@ -73,7 +89,12 @@ export class Artifact extends BaseEntity {
   @Column({ name: 'validation_result', type: 'jsonb', nullable: true })
   validationResult?: ValidationResult;
 
-  @Column({ name: 'validation_status', type: 'enum', enum: ['pending', 'valid', 'invalid', 'warning'], default: 'pending' })
+  @Column({
+    name: 'validation_status',
+    type: 'enum',
+    enum: ['pending', 'valid', 'invalid', 'warning'],
+    default: 'pending',
+  })
   validationStatus: 'pending' | 'valid' | 'invalid' | 'warning';
 
   @Column({ name: 'validation_score', type: 'decimal', precision: 3, scale: 2, nullable: true })
@@ -93,7 +114,11 @@ export class Artifact extends BaseEntity {
   isLatestVersion: boolean;
 
   // Status and lifecycle
-  @Column({ type: 'enum', enum: ['draft', 'review', 'approved', 'deployed', 'archived'], default: 'draft' })
+  @Column({
+    type: 'enum',
+    enum: ['draft', 'review', 'approved', 'deployed', 'archived'],
+    default: 'draft',
+  })
   status: 'draft' | 'review' | 'approved' | 'deployed' | 'archived';
 
   @Column({ name: 'approved_by', type: 'varchar', nullable: true })
@@ -135,7 +160,12 @@ export class Artifact extends BaseEntity {
   complexityScore?: number;
 
   // Security and compliance
-  @Column({ name: 'security_level', type: 'enum', enum: ['low', 'medium', 'high', 'critical'], default: 'medium' })
+  @Column({
+    name: 'security_level',
+    type: 'enum',
+    enum: ['low', 'medium', 'high', 'critical'],
+    default: 'medium',
+  })
   securityLevel: 'low' | 'medium' | 'high' | 'critical';
 
   @Column({ name: 'compliance_tags', type: 'jsonb', default: '[]' })
@@ -173,4 +203,4 @@ export class Artifact extends BaseEntity {
 
   @OneToMany('ArtifactDeployment', 'artifact')
   deployments: any[];
-} 
+}

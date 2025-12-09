@@ -3,7 +3,11 @@ import { logger } from '@uaip/utils';
 // Express middlewares are not compatible with Elysia; implement minimal handlers inline
 import { DatabaseService } from './databaseService.js';
 import { EventBusService } from './eventBusService.js';
-import { UnifiedModelSelectionFacade, UnifiedModelSelection, UnifiedSelectionRequest } from './services/UnifiedModelSelectionFacade.js';
+import {
+  UnifiedModelSelectionFacade,
+  UnifiedModelSelection,
+  UnifiedSelectionRequest,
+} from './services/UnifiedModelSelectionFacade.js';
 import { LLMTaskType } from '@uaip/types';
 import { Agent } from './entities/agent.entity.js';
 import { UserLLMPreference } from './entities/userLLMPreference.entity.js';
@@ -43,21 +47,27 @@ export abstract class BaseService {
     this.config = config;
     this.app = createAppServer();
     this.databaseService = new DatabaseService();
-    
+
     // Initialize EventBusService singleton for first time
-    this.eventBusService = EventBusService.getInstance({
-      url: config.rabbitMQUrl || process.env.RABBITMQ_URL || 'amqp://localhost',
-      serviceName: config.name
-    }, logger);
+    this.eventBusService = EventBusService.getInstance(
+      {
+        url: config.rabbitMQUrl || process.env.RABBITMQ_URL || 'amqp://localhost',
+        serviceName: config.name,
+      },
+      logger
+    );
 
     // Initialize enterprise event bus if enabled
     if (config.enableEnterpriseEventBus) {
-      this.enterpriseEventBusService = new EventBusService({
-        url: config.rabbitMQUrl || process.env.RABBITMQ_URL || 'amqp://localhost',
-        serviceName: config.name,
-        exchangePrefix: 'uaip.enterprise',
-        complianceMode: true
-      }, logger);
+      this.enterpriseEventBusService = new EventBusService(
+        {
+          url: config.rabbitMQUrl || process.env.RABBITMQ_URL || 'amqp://localhost',
+          serviceName: config.name,
+          exchangePrefix: 'uaip.enterprise',
+          complianceMode: true,
+        },
+        logger
+      );
     }
   }
 
@@ -66,23 +76,23 @@ export abstract class BaseService {
     this.app.onRequest(({ request, set }) => {
       const id = request.headers.get('x-request-id') || `${Date.now()}-${Math.random()}`;
       set.headers['X-Request-ID'] = id;
-      const ip = (request.headers.get('x-forwarded-for') || '') || 'unknown';
+      const ip = request.headers.get('x-forwarded-for') || '' || 'unknown';
       logger.info('Incoming request', {
         method: request.method,
         path: new URL(request.url).pathname,
         userAgent: request.headers.get('user-agent'),
         ip,
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
       });
     });
 
     // Global error handler
     this.app.onError(({ code, error }) => {
       logger.error(`${this.config.name}: onError`, { code, error: (error as any)?.message });
-      return new Response(
-        JSON.stringify({ error: 'Internal Server Error' }),
-        { status: 500, headers: { 'content-type': 'application/json' } }
-      );
+      return new Response(JSON.stringify({ error: 'Internal Server Error' }), {
+        status: 500,
+        headers: { 'content-type': 'application/json' },
+      });
     });
 
     // 404 handled by Elysia default response
@@ -105,8 +115,8 @@ export abstract class BaseService {
           checks: {
             database: dbHealthy ? 'connected' : 'disconnected',
             eventBus: eventBusHealthy ? 'connected' : 'disconnected',
-            service: serviceHealthy ? 'healthy' : 'unhealthy'
-          }
+            service: serviceHealthy ? 'healthy' : 'unhealthy',
+          },
         };
       } catch (error) {
         logger.error(`Health check failed for ${this.config.name}:`, error);
@@ -114,7 +124,7 @@ export abstract class BaseService {
         return {
           status: 'error',
           service: this.config.name,
-          error: error instanceof Error ? error.message : 'Unknown error'
+          error: error instanceof Error ? error.message : 'Unknown error',
         };
       }
     });
@@ -126,7 +136,7 @@ export abstract class BaseService {
       uptime: process.uptime(),
       memory: process.memoryUsage(),
       pid: process.pid,
-      node: process.version
+      node: process.version,
     }));
 
     // Metrics endpoint (basic placeholder)
@@ -145,10 +155,9 @@ export abstract class BaseService {
     try {
       await this.databaseService.initialize();
       logger.info(`${this.config.name}: Database initialized`);
-      
+
       // Initialize unified model selection facade
       await this.initializeModelSelection();
-      
     } catch (error) {
       logger.error(`${this.config.name}: Database initialization failed:`, error);
       throw error;
@@ -159,7 +168,7 @@ export abstract class BaseService {
     try {
       // Get TypeORM repositories for the facade
       const dataSource = await this.databaseService.getDataSource();
-      
+
       this.modelSelectionFacade = new UnifiedModelSelectionFacade(
         dataSource.getRepository(Agent),
         dataSource.getRepository(UserLLMPreference),
@@ -168,7 +177,10 @@ export abstract class BaseService {
       );
       logger.info(`${this.config.name}: Unified model selection initialized`);
     } catch (error) {
-      logger.warn(`${this.config.name}: Model selection initialization failed, continuing without it:`, error);
+      logger.warn(
+        `${this.config.name}: Model selection initialization failed, continuing without it:`,
+        error
+      );
       // Service can still function without model selection
     }
   }
@@ -187,7 +199,10 @@ export abstract class BaseService {
       await this.setupEventSubscriptions();
       logger.info(`${this.config.name}: Event subscriptions configured`);
     } catch (error) {
-      logger.warn(`${this.config.name}: Event bus connection failed, continuing without event publishing:`, error);
+      logger.warn(
+        `${this.config.name}: Event bus connection failed, continuing without event publishing:`,
+        error
+      );
       // Service can still function without event bus for basic operations
     }
   }
@@ -363,12 +378,20 @@ export abstract class BaseService {
     quality?: number
   ): Promise<void> {
     if (!this.modelSelectionFacade) {
-      logger.warn(`Model selection not initialized, skipping usage stats update in ${this.config.name}`);
+      logger.warn(
+        `Model selection not initialized, skipping usage stats update in ${this.config.name}`
+      );
       return;
     }
 
     try {
-      await this.modelSelectionFacade.updateUsageStats(selection, request, responseTime, success, quality);
+      await this.modelSelectionFacade.updateUsageStats(
+        selection,
+        request,
+        responseTime,
+        success,
+        quality
+      );
     } catch (error) {
       logger.error(`Failed to update model usage stats in ${this.config.name}:`, error);
     }

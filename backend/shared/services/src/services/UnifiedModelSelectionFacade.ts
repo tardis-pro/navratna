@@ -3,11 +3,11 @@ import { UserLLMPreference } from '../entities/userLLMPreference.entity.js';
 import { AgentLLMPreference } from '../entities/agentLLMPreference.entity.js';
 import { Agent } from '../entities/agent.entity.js';
 import { LLMProvider } from '../entities/llmProvider.entity.js';
-import { 
+import {
   ModelSelectionOrchestrator,
   ModelSelectionRequest,
   ModelSelectionResult,
-  FallbackChain
+  FallbackChain,
 } from './ModelSelectionOrchestrator.js';
 // Fallback service removed - no fallback logic allowed
 import { LLMTaskType, LLMProviderType, RoutingRequest } from '@uaip/types';
@@ -20,10 +20,10 @@ import { logger } from '@uaip/utils';
 export interface UnifiedModelSelection {
   // Model selection result
   model: ModelSelectionResult;
-  
+
   // Complete fallback chain
   fallbackChain: FallbackChain;
-  
+
   // Selection metadata
   metadata: {
     selectionTimeMs: number;
@@ -35,21 +35,21 @@ export interface UnifiedSelectionRequest {
   // Agent context
   agentId?: string;
   agentProviderId?: string;
-  
-  // User context  
+
+  // User context
   userId?: string;
   userProviders?: any[];
-  
+
   // Task details
   taskType: LLMTaskType;
   requestedModel?: string;
   requestedProvider?: string;
-  
+
   // Context and constraints
   context?: RoutingRequest;
   urgency?: 'low' | 'medium' | 'high' | 'critical';
   complexity?: 'low' | 'medium' | 'high';
-  
+
   // Fallback preferences
   allowFallbacks?: boolean;
   maxFallbacks?: number;
@@ -90,7 +90,7 @@ export class UnifiedModelSelectionFacade {
       successfulSelections: 0,
       averageSelectionTimeMs: 0,
       strategyUsageCount: {},
-      providerUsageCount: {}
+      providerUsageCount: {},
     };
   }
 
@@ -114,7 +114,7 @@ export class UnifiedModelSelectionFacade {
         requestedProvider: request.requestedProvider,
         context: request.context,
         urgency: request.urgency,
-        complexity: request.complexity
+        complexity: request.complexity,
       };
 
       const modelSelection = await this.orchestrator.selectModel(modelRequest);
@@ -130,8 +130,8 @@ export class UnifiedModelSelectionFacade {
         fallbackChain,
         metadata: {
           selectionTimeMs: selectionTime,
-          strategiesAttempted
-        }
+          strategiesAttempted,
+        },
       };
 
       // Update metrics
@@ -142,19 +142,18 @@ export class UnifiedModelSelectionFacade {
         provider: modelSelection.provider,
         strategy: modelSelection.selectionStrategy,
         confidence: modelSelection.confidence,
-        selectionTimeMs: selectionTime
+        selectionTimeMs: selectionTime,
       });
 
       return result;
-
     } catch (error) {
       const selectionTime = Date.now() - startTime;
-      
+
       logger.error('Unified model selection failed', {
         error: error instanceof Error ? error.message : 'Unknown error',
         taskType: request.taskType,
         selectionTimeMs: selectionTime,
-        strategiesAttempted
+        strategiesAttempted,
       });
 
       // Update metrics for failure
@@ -169,8 +168,8 @@ export class UnifiedModelSelectionFacade {
    * Simplified selection method for common use cases
    */
   async selectForAgent(
-    agentId: string, 
-    taskType: LLMTaskType, 
+    agentId: string,
+    taskType: LLMTaskType,
     options?: {
       model?: string;
       provider?: string;
@@ -186,7 +185,7 @@ export class UnifiedModelSelectionFacade {
       urgency: options?.urgency,
       context: options?.context,
       allowFallbacks: true,
-      requireHealthyProvider: true
+      requireHealthyProvider: true,
     });
   }
 
@@ -211,7 +210,7 @@ export class UnifiedModelSelectionFacade {
       userProviders: options?.userProviders,
       urgency: options?.urgency,
       allowFallbacks: true,
-      requireHealthyProvider: true
+      requireHealthyProvider: true,
     });
   }
 
@@ -232,7 +231,7 @@ export class UnifiedModelSelectionFacade {
       requestedProvider: options?.provider,
       urgency: options?.urgency,
       allowFallbacks: true,
-      requireHealthyProvider: false // System tasks are more tolerant
+      requireHealthyProvider: false, // System tasks are more tolerant
     });
   }
 
@@ -253,7 +252,7 @@ export class UnifiedModelSelectionFacade {
           agentId: request.agentId,
           userId: request.userId,
           taskType: request.taskType,
-          context: request.context
+          context: request.context,
         },
         selection.model,
         responseTime,
@@ -271,12 +270,11 @@ export class UnifiedModelSelectionFacade {
         provider: selection.model.provider,
         success,
         responseTime,
-        quality
+        quality,
       });
-
     } catch (error) {
-      logger.error('Failed to update usage stats', { 
-        error: error instanceof Error ? error.message : 'Unknown error' 
+      logger.error('Failed to update usage stats', {
+        error: error instanceof Error ? error.message : 'Unknown error',
       });
     }
   }
@@ -297,7 +295,7 @@ export class UnifiedModelSelectionFacade {
       successfulSelections: 0,
       averageSelectionTimeMs: 0,
       strategyUsageCount: {},
-      providerUsageCount: {}
+      providerUsageCount: {},
     };
   }
 
@@ -309,17 +307,20 @@ export class UnifiedModelSelectionFacade {
     if (result) {
       // Update strategy usage
       const strategy = result.model.selectionStrategy;
-      this.metrics.strategyUsageCount[strategy] = (this.metrics.strategyUsageCount[strategy] || 0) + 1;
+      this.metrics.strategyUsageCount[strategy] =
+        (this.metrics.strategyUsageCount[strategy] || 0) + 1;
 
       // Update provider usage (if available)
       if (result.model.provider) {
-        this.metrics.providerUsageCount[result.model.provider] = (this.metrics.providerUsageCount[result.model.provider] || 0) + 1;
+        this.metrics.providerUsageCount[result.model.provider] =
+          (this.metrics.providerUsageCount[result.model.provider] || 0) + 1;
       }
 
       // Update average selection time
       const currentAvg = this.metrics.averageSelectionTimeMs;
       const newTime = result.metadata.selectionTimeMs;
-      this.metrics.averageSelectionTimeMs = (currentAvg * (this.metrics.totalSelections - 1) + newTime) / this.metrics.totalSelections;
+      this.metrics.averageSelectionTimeMs =
+        (currentAvg * (this.metrics.totalSelections - 1) + newTime) / this.metrics.totalSelections;
     }
 
     if (success) {

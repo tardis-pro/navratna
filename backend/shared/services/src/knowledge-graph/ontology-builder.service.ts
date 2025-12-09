@@ -1,7 +1,12 @@
 import { v4 as uuidv4 } from 'uuid';
 import { logger } from '@uaip/utils';
 import { KnowledgeItem, KnowledgeType, SourceType } from '@uaip/types';
-import { ConceptExtractorService, ConceptNode, ConceptRelationship, ConceptExtractionResult } from './concept-extractor.service.js';
+import {
+  ConceptExtractorService,
+  ConceptNode,
+  ConceptRelationship,
+  ConceptExtractionResult,
+} from './concept-extractor.service.js';
 import { KnowledgeRepository } from '../database/repositories/knowledge.repository.js';
 import { KnowledgeSyncService } from './knowledge-sync.service.js';
 
@@ -56,18 +61,18 @@ export class OntologyBuilderService {
     CONSTRAINT: [
       'A concept cannot be both an instance and a class of the same thing',
       'Circular IS_A relationships are not allowed',
-      'A concept cannot be part of itself'
+      'A concept cannot be part of itself',
     ],
     INFERENCE: [
       'If A IS_A B and B IS_A C, then A IS_A C',
       'If A PART_OF B and B PART_OF C, then A PART_OF C',
-      'If A CAUSES B and B CAUSES C, then A may CAUSE C'
+      'If A CAUSES B and B CAUSES C, then A may CAUSE C',
     ],
     VALIDATION: [
       'All concepts must have at least one definition',
       'Relationship confidence must be between 0 and 1',
-      'Domain-specific concepts should be linked to domain root'
-    ]
+      'Domain-specific concepts should be linked to domain root',
+    ],
   };
 
   constructor(
@@ -77,7 +82,7 @@ export class OntologyBuilderService {
   ) {}
 
   async buildDomainOntology(
-    domain: string, 
+    domain: string,
     knowledgeItems?: KnowledgeItem[],
     options?: {
       includeInstances?: boolean;
@@ -104,7 +109,7 @@ export class OntologyBuilderService {
 
       // Apply filters
       if (options?.minConfidence) {
-        items = items.filter(item => item.confidence >= options.minConfidence!);
+        items = items.filter((item) => item.confidence >= options.minConfidence!);
       }
       if (options?.maxConcepts) {
         items = items.slice(0, options.maxConcepts);
@@ -121,7 +126,10 @@ export class OntologyBuilderService {
 
       // Step 2: Build concept hierarchy
       const hierarchyStartTime = Date.now();
-      const hierarchy = this.buildConceptHierarchy(extractionResult.concepts, extractionResult.relationships);
+      const hierarchy = this.buildConceptHierarchy(
+        extractionResult.concepts,
+        extractionResult.relationships
+      );
       const hierarchyBuildTime = Date.now() - hierarchyStartTime;
 
       // Step 3: Generate ontology rules
@@ -150,8 +158,8 @@ export class OntologyBuilderService {
           avgConfidence: extractionResult.extractionMetrics.avgConfidence,
           buildTime: Date.now() - startTime,
           lastUpdated: new Date(),
-          sourceKnowledgeItems: items.length
-        }
+          sourceKnowledgeItems: items.length,
+        },
       };
 
       // Step 6: Save to knowledge graph if requested
@@ -160,8 +168,10 @@ export class OntologyBuilderService {
       }
 
       const totalBuildTime = Date.now() - startTime;
-      
-      logger.info(`Domain ontology built successfully for ${domain}: ${ontology.metadata.totalConcepts} concepts, ${ontology.metadata.totalRelationships} relationships in ${totalBuildTime}ms`);
+
+      logger.info(
+        `Domain ontology built successfully for ${domain}: ${ontology.metadata.totalConcepts} concepts, ${ontology.metadata.totalRelationships} relationships in ${totalBuildTime}ms`
+      );
 
       return {
         ontology,
@@ -171,31 +181,35 @@ export class OntologyBuilderService {
           conceptExtractionTime,
           hierarchyBuildTime,
           ruleGenerationTime,
-          totalBuildTime
-        }
+          totalBuildTime,
+        },
       };
-
     } catch (error) {
       logger.error(`Error building domain ontology for ${domain}:`, error);
-      throw new Error(`Ontology building failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw new Error(
+        `Ontology building failed: ${error instanceof Error ? error.message : 'Unknown error'}`
+      );
     }
   }
 
-  private buildConceptHierarchy(concepts: ConceptNode[], relationships: ConceptRelationship[]): ConceptHierarchy {
+  private buildConceptHierarchy(
+    concepts: ConceptNode[],
+    relationships: ConceptRelationship[]
+  ): ConceptHierarchy {
     const hierarchy = new Map<string, ConceptNode[]>();
     const depth = new Map<string, number>();
     const parentMap = new Map<string, string>();
-    
+
     // Build parent-child relationships from IS_A relationships
     for (const rel of relationships) {
       if (rel.relationshipType === 'IS_A') {
         parentMap.set(rel.sourceConceptId, rel.targetConceptId);
-        
+
         if (!hierarchy.has(rel.targetConceptId)) {
           hierarchy.set(rel.targetConceptId, []);
         }
-        
-        const child = concepts.find(c => c.id === rel.sourceConceptId);
+
+        const child = concepts.find((c) => c.id === rel.sourceConceptId);
         if (child) {
           hierarchy.get(rel.targetConceptId)!.push(child);
         }
@@ -203,21 +217,21 @@ export class OntologyBuilderService {
     }
 
     // Find root concepts (concepts with no parents)
-    const rootConcepts = concepts.filter(concept => !parentMap.has(concept.id));
+    const rootConcepts = concepts.filter((concept) => !parentMap.has(concept.id));
 
     // Calculate depths
     let maxDepth = 0;
     const calculateDepth = (conceptId: string, currentDepth: number) => {
       if (depth.has(conceptId)) return depth.get(conceptId)!;
-      
+
       depth.set(conceptId, currentDepth);
       maxDepth = Math.max(maxDepth, currentDepth);
-      
+
       const children = hierarchy.get(conceptId) || [];
       for (const child of children) {
         calculateDepth(child.id, currentDepth + 1);
       }
-      
+
       return currentDepth;
     };
 
@@ -229,11 +243,14 @@ export class OntologyBuilderService {
       rootConcepts,
       hierarchy,
       depth,
-      maxDepth
+      maxDepth,
     };
   }
 
-  private generateOntologyRules(extractionResult: ConceptExtractionResult, domain: string): OntologyRule[] {
+  private generateOntologyRules(
+    extractionResult: ConceptExtractionResult,
+    domain: string
+  ): OntologyRule[] {
     const rules: OntologyRule[] = [];
 
     // Generate constraint rules
@@ -244,7 +261,7 @@ export class OntologyBuilderService {
         condition: template,
         action: 'REJECT',
         confidence: 0.9,
-        domain
+        domain,
       });
     }
 
@@ -256,7 +273,7 @@ export class OntologyBuilderService {
         condition: template,
         action: 'INFER',
         confidence: 0.8,
-        domain
+        domain,
       });
     }
 
@@ -268,12 +285,12 @@ export class OntologyBuilderService {
         condition: template,
         action: 'VALIDATE',
         confidence: 0.95,
-        domain
+        domain,
       });
     }
 
     // Generate domain-specific rules based on concepts
-    const conceptTypes = new Set(extractionResult.concepts.map(c => c.domain));
+    const conceptTypes = new Set(extractionResult.concepts.map((c) => c.domain));
     if (conceptTypes.size > 1) {
       rules.push({
         id: uuidv4(),
@@ -281,7 +298,7 @@ export class OntologyBuilderService {
         condition: 'Concepts from different domains should be explicitly linked',
         action: 'WARN',
         confidence: 0.7,
-        domain
+        domain,
       });
     }
 
@@ -299,25 +316,25 @@ export class OntologyBuilderService {
     // Check for circular relationships
     const visited = new Set<string>();
     const recursionStack = new Set<string>();
-    
+
     const detectCircular = (conceptId: string): boolean => {
       if (recursionStack.has(conceptId)) {
         errors.push(`Circular IS_A relationship detected involving concept: ${conceptId}`);
         return true;
       }
-      
+
       if (visited.has(conceptId)) return false;
-      
+
       visited.add(conceptId);
       recursionStack.add(conceptId);
-      
+
       const children = hierarchy.hierarchy.get(conceptId) || [];
       for (const child of children) {
         if (detectCircular(child.id)) {
           return true;
         }
       }
-      
+
       recursionStack.delete(conceptId);
       return false;
     };
@@ -331,7 +348,7 @@ export class OntologyBuilderService {
       if (!concept.definition || concept.definition.trim().length < 10) {
         warnings.push(`Concept "${concept.name}" has insufficient definition`);
       }
-      
+
       if (concept.confidence < 0.5) {
         warnings.push(`Concept "${concept.name}" has low confidence: ${concept.confidence}`);
       }
@@ -340,13 +357,17 @@ export class OntologyBuilderService {
     // Check relationship quality
     for (const rel of extractionResult.relationships) {
       if (rel.confidence < 0.3) {
-        warnings.push(`Relationship ${rel.sourceConceptId} -> ${rel.targetConceptId} has low confidence: ${rel.confidence}`);
+        warnings.push(
+          `Relationship ${rel.sourceConceptId} -> ${rel.targetConceptId} has low confidence: ${rel.confidence}`
+        );
       }
     }
 
     // Check hierarchy balance
     if (hierarchy.maxDepth > 10) {
-      warnings.push(`Concept hierarchy is very deep (${hierarchy.maxDepth} levels). Consider restructuring.`);
+      warnings.push(
+        `Concept hierarchy is very deep (${hierarchy.maxDepth} levels). Consider restructuring.`
+      );
     }
 
     return { warnings, errors };
@@ -355,7 +376,7 @@ export class OntologyBuilderService {
   private async saveOntologyToKnowledgeGraph(ontology: DomainOntology): Promise<void> {
     try {
       // Create knowledge ingest requests for each concept
-      const conceptItems = ontology.concepts.map(concept => ({
+      const conceptItems = ontology.concepts.map((concept) => ({
         content: `${concept.name}: ${concept.definition}`,
         type: KnowledgeType.CONCEPTUAL,
         source: {
@@ -367,24 +388,24 @@ export class OntologyBuilderService {
             ontologyId: ontology.id,
             conceptType: 'definition',
             properties: concept.properties,
-            instances: concept.instances
-          }
+            instances: concept.instances,
+          },
         },
         tags: [...concept.synonyms, concept.domain, 'ontology', 'concept'],
         confidence: concept.confidence,
-        accessLevel: 'public'
+        accessLevel: 'public',
       }));
 
       // Save concepts to knowledge graph
       for (const item of conceptItems) {
         const createdItem = await this.knowledgeRepository.create(item);
-        
+
         // Sync to Neo4j and Qdrant
         await this.knowledgeSync.syncKnowledgeItem(createdItem);
       }
 
       // Create relationship items
-      const relationshipItems = ontology.relationships.map(rel => ({
+      const relationshipItems = ontology.relationships.map((rel) => ({
         content: `${rel.sourceConceptId} ${rel.relationshipType} ${rel.targetConceptId}`,
         type: KnowledgeType.SEMANTIC,
         source: {
@@ -397,12 +418,12 @@ export class OntologyBuilderService {
             relationshipType: rel.relationshipType,
             sourceConceptId: rel.sourceConceptId,
             targetConceptId: rel.targetConceptId,
-            evidence: rel.evidence
-          }
+            evidence: rel.evidence,
+          },
         },
         tags: [ontology.domain, 'ontology', 'relationship', rel.relationshipType.toLowerCase()],
         confidence: rel.confidence,
-        accessLevel: 'public'
+        accessLevel: 'public',
       }));
 
       // Save relationships to knowledge graph
@@ -423,29 +444,36 @@ export class OntologyBuilderService {
             domain: ontology.domain,
             ontologyId: ontology.id,
             ontologyVersion: ontology.version,
-            ...ontology.metadata
-          }
+            ...ontology.metadata,
+          },
         },
         tags: [ontology.domain, 'ontology', 'metadata'],
         confidence: 0.95,
-        accessLevel: 'public'
+        accessLevel: 'public',
       };
 
       const createdMetadataItem = await this.knowledgeRepository.create(ontologyMetadataItem);
       await this.knowledgeSync.syncKnowledgeItem(createdMetadataItem);
 
-      logger.info(`Ontology for domain ${ontology.domain} saved to knowledge graph with ${conceptItems.length} concepts and ${relationshipItems.length} relationships`);
-
+      logger.info(
+        `Ontology for domain ${ontology.domain} saved to knowledge graph with ${conceptItems.length} concepts and ${relationshipItems.length} relationships`
+      );
     } catch (error) {
       logger.error('Error saving ontology to knowledge graph:', error);
-      throw new Error(`Failed to save ontology: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw new Error(
+        `Failed to save ontology: ${error instanceof Error ? error.message : 'Unknown error'}`
+      );
     }
   }
 
   async getOntologyForDomain(domain: string): Promise<DomainOntology | null> {
     try {
       // Find ontology metadata in knowledge graph
-      const ontologyItems = await this.knowledgeRepository.findByTags([domain, 'ontology', 'metadata']);
+      const ontologyItems = await this.knowledgeRepository.findByTags([
+        domain,
+        'ontology',
+        'metadata',
+      ]);
 
       if (ontologyItems.length === 0) {
         return null;
@@ -455,11 +483,19 @@ export class OntologyBuilderService {
       const ontologyId = metadataItem.metadata.ontologyId;
 
       // Reconstruct ontology from knowledge graph
-      const conceptItems = await this.knowledgeRepository.findByTags([domain, 'ontology', 'concept']);
+      const conceptItems = await this.knowledgeRepository.findByTags([
+        domain,
+        'ontology',
+        'concept',
+      ]);
 
-      const relationshipItems = await this.knowledgeRepository.findByTags([domain, 'ontology', 'relationship']);
+      const relationshipItems = await this.knowledgeRepository.findByTags([
+        domain,
+        'ontology',
+        'relationship',
+      ]);
 
-      const concepts: ConceptNode[] = conceptItems.map(item => ({
+      const concepts: ConceptNode[] = conceptItems.map((item) => ({
         id: item.id,
         name: item.content.split(':')[0].trim(),
         definition: item.content.split(':').slice(1).join(':').trim(),
@@ -467,25 +503,34 @@ export class OntologyBuilderService {
         confidence: item.confidence,
         properties: item.metadata.properties || [],
         instances: item.metadata.instances || [],
-        synonyms: item.tags.filter(tag => tag !== domain && tag !== 'ontology' && tag !== 'concept'),
-        relatedConcepts: []
+        synonyms: item.tags.filter(
+          (tag) => tag !== domain && tag !== 'ontology' && tag !== 'concept'
+        ),
+        relatedConcepts: [],
       }));
 
-      const relationships: ConceptRelationship[] = relationshipItems.map(item => ({
+      const relationships: ConceptRelationship[] = relationshipItems.map((item) => ({
         sourceConceptId: item.metadata.sourceConceptId,
         targetConceptId: item.metadata.targetConceptId,
         relationshipType: item.metadata.relationshipType,
         confidence: item.confidence,
-        evidence: item.metadata.evidence || []
+        evidence: item.metadata.evidence || [],
       }));
 
       const hierarchy = this.buildConceptHierarchy(concepts, relationships);
-      const rules = this.generateOntologyRules({ concepts, relationships, extractionMetrics: {
-        totalConcepts: concepts.length,
-        avgConfidence: concepts.reduce((sum, c) => sum + c.confidence, 0) / concepts.length,
-        processingTime: 0,
-        sourceItems: 0
-      }}, domain);
+      const rules = this.generateOntologyRules(
+        {
+          concepts,
+          relationships,
+          extractionMetrics: {
+            totalConcepts: concepts.length,
+            avgConfidence: concepts.reduce((sum, c) => sum + c.confidence, 0) / concepts.length,
+            processingTime: 0,
+            sourceItems: 0,
+          },
+        },
+        domain
+      );
 
       const ontology: DomainOntology = {
         id: ontologyId,
@@ -501,12 +546,11 @@ export class OntologyBuilderService {
           avgConfidence: concepts.reduce((sum, c) => sum + c.confidence, 0) / concepts.length,
           buildTime: metadataItem.metadata.buildTime || 0,
           lastUpdated: metadataItem.updatedAt,
-          sourceKnowledgeItems: metadataItem.metadata.sourceKnowledgeItems || 0
-        }
+          sourceKnowledgeItems: metadataItem.metadata.sourceKnowledgeItems || 0,
+        },
       };
 
       return ontology;
-
     } catch (error) {
       logger.error(`Error retrieving ontology for domain ${domain}:`, error);
       return null;

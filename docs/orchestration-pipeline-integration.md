@@ -3,21 +3,27 @@
 ## Service Overviews
 
 ### Orchestration Pipeline Service
+
 Manages complex workflow operations through their entire lifecycle. Key features:
+
 - Operation execution with state management
 - Pause/resume with checkpointing
 - Compensation logic for rollbacks
 - monitoring of monitoring of dependent services
 
 ### Artifact Service
+
 Generates technical artifacts from discussions. Key features:
+
 - Listens to `discussion.completed` events
 - Analyzes conversations using NLP
 - Generates code, tests, docs, etc.
 - Auto-shares artifacts via short links
 
 ### Agent Intelligence Service
+
 Manages AI agents and conversations. Key features:
+
 - Processes `agent.chat.request` events
 - Provides conversational interfaces
 - Manages personas and knowledge
@@ -49,6 +55,7 @@ sequenceDiagram
 ```
 
 ## Event Integration
+
 ```mermaid
 flowchart LR
     OP[Orchestration Pipeline] -->|operation.completed| AI[Agent Intelligence]
@@ -57,6 +64,7 @@ flowchart LR
 ```
 
 ## Code Integration Points
+
 1. **Artifact Service Trigger**:
    - Orchestration Pipeline can call `POST /api/v1/artifacts`
    - Or emit `discussion.completed` events with operation context
@@ -69,4 +77,4 @@ flowchart LR
    - Event bus (`@uaip/event-bus`)
    - Database service (`@uaip/database`)
    - Authentication (`line_count>50line_count>50line_count>50line_count>50line_count>50</line_count>
-</write_to_file>
+     </write_to_file>

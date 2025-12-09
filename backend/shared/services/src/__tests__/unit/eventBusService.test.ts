@@ -7,13 +7,13 @@ describe('EventBusService', () => {
     // EventBusService requires config and logger parameters
     const mockConfig = {
       url: 'amqp://localhost',
-      serviceName: 'test-service'
+      serviceName: 'test-service',
     };
     const mockLogger = {
       info: jest.fn(),
       error: jest.fn(),
       warn: jest.fn(),
-      debug: jest.fn()
+      debug: jest.fn(),
     } as any;
     service = new EventBusService(mockConfig, mockLogger);
   });

@@ -4,9 +4,7 @@ import { IntegrationEvent } from './IntegrationEvent.js';
 import { logger } from '@uaip/utils';
 
 export class OutboxPublisher {
-  constructor(
-    private readonly integrationEventRepository: Repository<IntegrationEventEntity>
-  ) {}
+  constructor(private readonly integrationEventRepository: Repository<IntegrationEventEntity>) {}
 
   /**
    * Publish an integration event to the outbox
@@ -25,23 +23,23 @@ export class OutboxPublisher {
         payload,
         processed: false,
         retries: 0,
-        version: 1
+        version: 1,
       });
 
       await this.integrationEventRepository.save(event);
-      
+
       logger.debug('Integration event published', {
         eventId: event.id,
         entityType,
         entityId,
-        action
+        action,
       });
     } catch (error) {
       logger.error('Failed to publish integration event', {
         entityType,
         entityId,
         action,
-        error: error instanceof Error ? error.message : 'Unknown error'
+        error: error instanceof Error ? error.message : 'Unknown error',
       });
       throw error;
     }
@@ -98,7 +96,7 @@ export class OutboxPublisher {
     return this.integrationEventRepository.find({
       where: { processed: false },
       order: { timestamp: 'ASC' },
-      take: limit
+      take: limit,
     });
   }
 
@@ -108,7 +106,7 @@ export class OutboxPublisher {
   async markEventProcessed(eventId: string): Promise<void> {
     await this.integrationEventRepository.update(eventId, {
       processed: true,
-      processedAt: new Date()
+      processedAt: new Date(),
     });
   }
 
@@ -117,7 +115,7 @@ export class OutboxPublisher {
    */
   async markEventFailed(eventId: string, error: string): Promise<void> {
     const event = await this.integrationEventRepository.findOne({
-      where: { id: eventId }
+      where: { id: eventId },
     });
 
     if (!event) {
@@ -126,7 +124,7 @@ export class OutboxPublisher {
 
     const retries = event.retries + 1;
     const maxRetries = 5;
-    
+
     // Calculate next retry time with exponential backoff
     const nextRetryAt = new Date();
     nextRetryAt.setMinutes(nextRetryAt.getMinutes() + Math.pow(2, retries));
@@ -134,7 +132,7 @@ export class OutboxPublisher {
     await this.integrationEventRepository.update(eventId, {
       retries,
       lastError: error,
-      nextRetryAt: retries < maxRetries ? nextRetryAt : null
+      nextRetryAt: retries < maxRetries ? nextRetryAt : null,
     });
   }
 
@@ -168,4 +166,4 @@ export class OutboxPublisher {
 
     return result.affected || 0;
   }
-} 
+}

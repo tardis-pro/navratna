@@ -5,6 +5,7 @@
 The LLM Service has **moderate technical debt** with some critical syntax issues requiring immediate attention. While the service demonstrates good architectural foundations using BaseService patterns and proper event-driven integration, it suffers from method complexity, syntax errors, and architectural inconsistencies that impact maintainability and deployment reliability.
 
 **Key Metrics:**
+
 - **Main File Size**: 651 lines (`src/index.ts`)
 - **Largest Method**: 257 lines (`handleAgentGenerateRequest`)
 - **Critical Syntax Errors**: 8+ duplicate return statements
@@ -17,11 +18,13 @@ The LLM Service has **moderate technical debt** with some critical syntax issues
 ### 🔴 Critical Issues (Must Fix Immediately)
 
 #### 1. Syntax Errors - Duplicate Return Statements
+
 **Priority**: CRITICAL  
 **Impact**: Deployment blocking, unreachable code  
 **Files Affected**: `src/routes/llmRoutes.ts`
 
 **Examples:**
+
 ```typescript
 // Lines 85-86 in llmRoutes.ts
 res.status(400).json({
@@ -48,35 +51,38 @@ return; // ❌ DUPLICATE RETURN
 ```
 
 **Solution:**
+
 ```typescript
 // Fixed version
 res.status(400).json({
   success: false,
-  error: 'Prompt is required'
+  error: 'Prompt is required',
 });
 return; // ✅ Single return statement
 ```
 
 #### 2. Massive Event Handler Method
+
 **Priority**: CRITICAL  
 **Impact**: Unmaintainable, untestable code  
 **File**: `src/index.ts:148-405`  
 **Size**: 257 lines in single method
 
 **Current Code Structure:**
+
 ```typescript
 private async handleAgentGenerateRequest(event: any): Promise<void> {
   try {
     // 50+ lines of parameter extraction and validation
     const { requestId, agentId, messages, systemPrompt, maxTokens, temperature, model, provider } = event.data || event;
-    
+
     // 30+ lines of agent retrieval logic
     let agent = null;
     if (agentId) {
       const { AgentService } = await import('@uaip/shared-services');
       // ... complex agent loading
     }
-    
+
     // 60+ lines of provider resolution logic
     const effectiveModel = agent?.modelId || model || 'llama2';
     let effectiveProvider = provider;
@@ -85,12 +91,12 @@ private async handleAgentGenerateRequest(event: any): Promise<void> {
     } else if (agent?.userLLMProviderId) {
       // ... more complex logic
     }
-    
+
     // 40+ lines of model determination
     if (!effectiveProvider && agent?.createdBy) {
       // ... UUID parsing and provider matching
     }
-    
+
     // 30+ lines of LLM service calls
     const prompt = this.buildPromptFromMessages(messages);
     let response;
@@ -99,12 +105,12 @@ private async handleAgentGenerateRequest(event: any): Promise<void> {
     } else {
       // ... Global LLMService logic
     }
-    
+
     // 20+ lines of response publishing
     await this.eventBusService.publish('llm.agent.generate.response', {
       // ... response formatting
     });
-    
+
   } catch (error) {
     // 30+ lines of error handling
   }
@@ -112,11 +118,13 @@ private async handleAgentGenerateRequest(event: any): Promise<void> {
 ```
 
 #### 3. Console.log in Production Code
+
 **Priority**: HIGH  
 **Impact**: Performance, security, unprofessional output  
 **File**: `src/routes/userLLMRoutes.ts:362-365`
 
 **Current Code:**
+
 ```typescript
 // ❌ Debug statements in production
 console.log('Getting available models for user', userId);
@@ -126,6 +134,7 @@ console.log('healthResults', healthResults);
 ```
 
 **Should Be:**
+
 ```typescript
 // ✅ Proper logging
 logger.info('Getting available models for user', { userId });
@@ -137,18 +146,20 @@ logger.debug('Health check results', { userId, healthResults });
 ### 🟠 High Priority Issues
 
 #### 4. Complex Provider Resolution Logic
+
 **Priority**: HIGH  
 **Impact**: Hard to test, maintain, and debug  
 **File**: `src/index.ts:226-287`  
 **Size**: 61 lines of embedded logic
 
 **Current Structure:**
+
 ```typescript
 // ❌ All logic embedded in event handler
 if (!effectiveProvider && agent?.createdBy) {
   logger.info('Looking for user provider that supports model', {
     userId: agent.createdBy,
-    effectiveModel
+    effectiveModel,
   });
 
   try {
@@ -162,7 +173,7 @@ if (!effectiveProvider && agent?.createdBy) {
 
     if (uuidMatch) {
       const providerId = uuidMatch[1];
-      const matchingProvider = userProviders.find(p => p.id === providerId);
+      const matchingProvider = userProviders.find((p) => p.id === providerId);
       if (matchingProvider && matchingProvider.isActive) {
         effectiveProvider = matchingProvider.type;
         // ... more logic
@@ -172,7 +183,7 @@ if (!effectiveProvider && agent?.createdBy) {
     // Fallback to simple model-to-provider mapping
     if (!effectiveProvider) {
       if (effectiveModel.includes('gpt') || effectiveModel.includes('openai')) {
-        const openaiProvider = userProviders.find(p => p.type === 'openai');
+        const openaiProvider = userProviders.find((p) => p.type === 'openai');
         // ... more logic
       } else if (effectiveModel.includes('claude') || effectiveModel.includes('anthropic')) {
         // ... more logic
@@ -185,11 +196,13 @@ if (!effectiveProvider && agent?.createdBy) {
 ```
 
 #### 5. Lazy Service Initialization Anti-Pattern
+
 **Priority**: HIGH  
 **Impact**: Testing complexity, race conditions  
 **File**: `src/routes/userLLMRoutes.ts:8-16`
 
 **Current Pattern:**
+
 ```typescript
 // ❌ Manual lazy loading
 let userLLMService: UserLLMService | null = null;
@@ -206,11 +219,12 @@ const providers = await getUserLLMService().getUserProviders(userId);
 ```
 
 **Better Pattern:**
+
 ```typescript
 // ✅ Proper dependency injection
 class UserLLMController {
   constructor(private userLLMService: UserLLMService) {}
-  
+
   async getProviders(req: Request, res: Response) {
     const providers = await this.userLLMService.getUserProviders(userId);
   }
@@ -218,11 +232,13 @@ class UserLLMController {
 ```
 
 #### 6. Direct Database Access in Routes
+
 **Priority**: HIGH  
 **Impact**: Tight coupling, testing difficulties  
 **File**: `src/routes/userLLMRoutes.ts:493-496, 553-558`
 
 **Current Anti-Pattern:**
+
 ```typescript
 // ❌ Routes directly accessing database
 const databaseService = DatabaseService.getInstance();
@@ -231,12 +247,13 @@ const userLLMProviderRepo = dataSource.getRepository('UserLLMProvider');
 const userProviders = await userLLMProviderRepo.find({ where: { userId } });
 
 // More direct repository access
-const provider = await userLLMProviderRepo.findOne({ 
-  where: { id: providerId, userId } 
+const provider = await userLLMProviderRepo.findOne({
+  where: { id: providerId, userId },
 });
 ```
 
 **Should Use Services:**
+
 ```typescript
 // ✅ Use existing service layer
 const providers = await this.userLLMService.getUserProviders(userId);
@@ -246,48 +263,54 @@ const provider = await this.userLLMService.getUserProviderById(userId, providerI
 ### 🟡 Medium Priority Issues
 
 #### 7. Inconsistent Error Handling
+
 **Files**: All route files  
 **Impact**: Poor debugging experience, inconsistent API responses
 
 **Examples of Inconsistency:**
+
 ```typescript
 // Pattern 1 - Good
-logger.error('Error getting available models', { 
+logger.error('Error getting available models', {
   error: error instanceof Error ? error.message : error,
-  stack: error instanceof Error ? error.stack : undefined 
+  stack: error instanceof Error ? error.stack : undefined,
 });
 res.status(500).json({
   success: false,
   error: 'Failed to get available models',
-  details: error instanceof Error ? error.message : 'Unknown error'
+  details: error instanceof Error ? error.message : 'Unknown error',
 });
 
 // Pattern 2 - Missing details
 logger.error('Error generating LLM response', { error, body: req.body });
 res.status(500).json({
   success: false,
-  error: 'Failed to generate response'
+  error: 'Failed to generate response',
 });
 
 // Pattern 3 - Inconsistent logging
 logger.error('Error testing user provider', {
   userId: req.user?.id,
   providerId: req.params.providerId,
-  error: error instanceof Error ? error.message : error
+  error: error instanceof Error ? error.message : error,
 });
 ```
 
 #### 8. Method Length and Complexity
+
 **File**: `src/index.ts`
 
 **Examples:**
+
 - `handleAgentGenerateRequest`: 257 lines
-- `handleUserLLMRequest`: 65 lines  
+- `handleUserLLMRequest`: 65 lines
 - `handleGlobalLLMRequest`: 33 lines
 - `determineProviderAndModel`: 85 lines
 
 #### 9. Magic Numbers and Hardcoded Values
+
 **Examples:**
+
 ```typescript
 // ❌ Magic numbers
 confidence *= 0.5;
@@ -341,6 +364,7 @@ const uuidRegex = /^([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12
 ### 🚀 Performance & Quality Impact
 
 **Immediate Benefits Realized:**
+
 - **Build Success**: All TypeScript compilation errors resolved
 - **Code Readability**: 66% reduction in main file size
 - **Maintainability**: Complex logic extracted into focused services
@@ -348,6 +372,7 @@ const uuidRegex = /^([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12
 - **Reusability**: Provider resolution logic available to other services
 
 **Technical Metrics Achieved:**
+
 - ✅ Main file size target (<300 lines): **223 lines**
 - ✅ Largest method target (<50 lines): **3 lines**
 - ✅ Zero syntax errors
@@ -382,6 +407,7 @@ const uuidRegex = /^([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12
 ### 🚀 Combined Phase 1 + 2 Impact
 
 **Total Technical Debt Reduction:**
+
 - **Main index.ts**: 651 → 228 lines (-65% reduction)
 - **Routes file**: 354 → 219 lines (-38% reduction)
 - **Largest method**: 257 → 3 lines (-99% reduction)
@@ -390,6 +416,7 @@ const uuidRegex = /^([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12
 - **Build status**: ✅ Clean TypeScript compilation
 
 **Quality Improvements:**
+
 - ✅ **Deployment Ready**: No blocking syntax errors
 - ✅ **Production Monitoring**: Error tracking and metrics integration
 - ✅ **Clean Architecture**: Proper separation of concerns
@@ -399,6 +426,7 @@ const uuidRegex = /^([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12
 ### 📝 Remaining Optional Improvements
 
 **Phase 3 - Code Organization (Low Priority):**
+
 1. **Route Domain Splitting** - Split userLLMRoutes.ts (684 lines) by feature
 2. **Input Validation** - Add Zod schemas for request validation
 3. **AsyncHandler Integration** - Use proper @uaip/utils export when shared packages rebuilt
@@ -410,14 +438,16 @@ const uuidRegex = /^([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12
 ### Phase 1: Critical Fixes (Week 1)
 
 #### 1.1 Fix Syntax Errors
+
 **Effort**: 2 hours  
 **Files**: `src/routes/llmRoutes.ts`
 
 **Tasks:**
+
 ```bash
 # Remove duplicate returns at these lines:
 - Line 85-86: /generate endpoint
-- Line 121-122: /agent-response endpoint  
+- Line 121-122: /agent-response endpoint
 - Line 156-157: /artifact endpoint
 - Line 192-193: /analyze-context endpoint
 - Line 213-214: /providers/stats endpoint
@@ -429,12 +459,13 @@ const uuidRegex = /^([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12
 ```
 
 **Implementation:**
+
 ```typescript
 // Before (❌)
 if (!prompt) {
   res.status(400).json({
     success: false,
-    error: 'Prompt is defined in the body'
+    error: 'Prompt is defined in the body',
   });
   return;
   return; // REMOVE THIS
@@ -444,20 +475,26 @@ if (!prompt) {
 if (!prompt) {
   res.status(400).json({
     success: false,
-    error: 'Prompt is required'
+    error: 'Prompt is required',
   });
   return;
 }
 ```
 
 #### 1.2 Extract Provider Resolution Service
+
 **Effort**: 1 day  
 **Files**: Create `src/services/ProviderResolutionService.ts`
 
 **Service Interface:**
+
 ```typescript
 export interface IProviderResolutionService {
-  resolveProvider(agent: any, requestedModel?: string, requestedProvider?: string): Promise<ProviderResolution>;
+  resolveProvider(
+    agent: any,
+    requestedModel?: string,
+    requestedProvider?: string
+  ): Promise<ProviderResolution>;
   validateProvider(providerType: string, model: string): boolean;
   getProviderCapabilities(providerType: string): ProviderCapabilities;
 }
@@ -477,8 +514,8 @@ export class ProviderResolutionService implements IProviderResolutionService {
   ) {}
 
   async resolveProvider(
-    agent: any, 
-    requestedModel?: string, 
+    agent: any,
+    requestedModel?: string,
     requestedProvider?: string
   ): Promise<ProviderResolution> {
     // 1. Try agent-specific provider
@@ -509,14 +546,14 @@ export class ProviderResolutionService implements IProviderResolutionService {
           effectiveProvider: provider.type,
           effectiveModel: model || agent.modelId || provider.defaultModel || 'llama2',
           resolutionPath: 'agent-specific',
-          confidence: 0.9
+          confidence: 0.9,
         };
       }
     } catch (error) {
-      this.logger.warn('Failed to resolve agent provider', { 
-        agentId: agent.id, 
+      this.logger.warn('Failed to resolve agent provider', {
+        agentId: agent.id,
         providerId: agent.userLLMProviderId,
-        error: error.message 
+        error: error.message,
       });
     }
 
@@ -539,7 +576,7 @@ export class ProviderResolutionService implements IProviderResolutionService {
           effectiveProvider: providerFromModel.type,
           effectiveModel,
           resolutionPath: 'user-provider',
-          confidence: 0.8
+          confidence: 0.8,
         };
       }
 
@@ -550,14 +587,14 @@ export class ProviderResolutionService implements IProviderResolutionService {
           effectiveProvider: providerFromMapping.type,
           effectiveModel,
           resolutionPath: 'user-provider',
-          confidence: 0.7
+          confidence: 0.7,
         };
       }
     } catch (error) {
-      this.logger.warn('Failed to resolve user provider', { 
+      this.logger.warn('Failed to resolve user provider', {
         userId: agent.createdBy,
         model,
-        error: error.message 
+        error: error.message,
       });
     }
 
@@ -572,46 +609,46 @@ export class ProviderResolutionService implements IProviderResolutionService {
       effectiveProvider,
       effectiveModel,
       resolutionPath: 'global-fallback',
-      confidence: 0.5
+      confidence: 0.5,
     };
   }
 
   private extractProviderFromModelId(modelId: string, providers: any[]): any | null {
     const UUID_REGEX = /^([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})/i;
     const match = modelId.match(UUID_REGEX);
-    
+
     if (match) {
-      return providers.find(p => p.id === match[1] && p.isActive);
+      return providers.find((p) => p.id === match[1] && p.isActive);
     }
-    
+
     return null;
   }
 
   private findProviderByModelType(model: string, providers: any[]): any | null {
     const modelLower = model.toLowerCase();
-    
+
     if (modelLower.includes('gpt') || modelLower.includes('openai')) {
-      return providers.find(p => p.type === 'openai' && p.isActive);
+      return providers.find((p) => p.type === 'openai' && p.isActive);
     }
-    
+
     if (modelLower.includes('claude') || modelLower.includes('anthropic')) {
-      return providers.find(p => p.type === 'anthropic' && p.isActive);
+      return providers.find((p) => p.type === 'anthropic' && p.isActive);
     }
-    
+
     if (modelLower.includes('llama') || modelLower.includes('ollama')) {
-      return providers.find(p => p.type === 'ollama' && p.isActive);
+      return providers.find((p) => p.type === 'ollama' && p.isActive);
     }
-    
+
     return null;
   }
 
   private getProviderTypeFromModel(model: string): string {
     const modelLower = model.toLowerCase();
-    
+
     if (modelLower.includes('gpt') || modelLower.includes('openai')) return 'openai';
     if (modelLower.includes('claude') || modelLower.includes('anthropic')) return 'anthropic';
     if (modelLower.includes('llama') || modelLower.includes('ollama')) return 'ollama';
-    
+
     return 'ollama'; // Default fallback
   }
 
@@ -624,17 +661,19 @@ export class ProviderResolutionService implements IProviderResolutionService {
     return {
       supportsStreaming: true,
       maxTokens: 4096,
-      supportedModalities: ['text']
+      supportedModalities: ['text'],
     };
   }
 }
 ```
 
 #### 1.3 Decompose Event Handlers
+
 **Effort**: 1 day  
 **Files**: Create `src/handlers/` directory
 
 **Handler Structure:**
+
 ```typescript
 // src/handlers/AgentGenerationHandler.ts
 export class AgentGenerationHandler {
@@ -651,18 +690,18 @@ export class AgentGenerationHandler {
       const request = this.validateRequest(event);
       const agent = await this.loadAgent(request.agentId);
       const resolution = await this.providerResolver.resolveProvider(
-        agent, 
-        request.model, 
+        agent,
+        request.model,
         request.provider
       );
       const response = await this.generateResponse(request, agent, resolution);
       await this.publishResponse(request.requestId, request.agentId, response);
-      
+
       this.logger.info('Agent generation completed', {
         requestId: request.requestId,
         agentId: request.agentId,
         provider: resolution.effectiveProvider,
-        model: resolution.effectiveModel
+        model: resolution.effectiveModel,
       });
     } catch (error) {
       await this.handleError(event, error);
@@ -670,12 +709,13 @@ export class AgentGenerationHandler {
   }
 
   private validateRequest(event: any): AgentGenerationRequest {
-    const { requestId, agentId, messages, systemPrompt, maxTokens, temperature, model, provider } = event.data || event;
-    
+    const { requestId, agentId, messages, systemPrompt, maxTokens, temperature, model, provider } =
+      event.data || event;
+
     if (!requestId) {
       throw new Error('RequestId is required');
     }
-    
+
     if (!messages || !Array.isArray(messages)) {
       throw new Error('Messages array is required');
     }
@@ -688,7 +728,7 @@ export class AgentGenerationHandler {
       maxTokens,
       temperature,
       model,
-      provider
+      provider,
     };
   }
 
@@ -710,8 +750,8 @@ export class AgentGenerationHandler {
   }
 
   private async generateResponse(
-    request: AgentGenerationRequest, 
-    agent: any, 
+    request: AgentGenerationRequest,
+    agent: any,
     resolution: ProviderResolution
   ): Promise<any> {
     const prompt = this.buildPromptFromMessages(request.messages);
@@ -720,7 +760,7 @@ export class AgentGenerationHandler {
       systemPrompt: request.systemPrompt,
       maxTokens: request.maxTokens || agent?.maxTokens || 500,
       temperature: request.temperature || agent?.temperature || 0.7,
-      model: resolution.effectiveModel
+      model: resolution.effectiveModel,
     };
 
     // Use user-specific service if agent has user context
@@ -731,7 +771,7 @@ export class AgentGenerationHandler {
         this.logger.warn('UserLLMService failed, falling back to global', {
           agentId: agent.id,
           userId: agent.createdBy,
-          error: error.message
+          error: error.message,
         });
       }
     }
@@ -743,9 +783,11 @@ export class AgentGenerationHandler {
   private buildPromptFromMessages(messages: any[]): string {
     if (!messages?.length) return '';
 
-    return messages
-      .map(msg => `${msg.sender === 'user' ? 'User' : 'Assistant'}: ${msg.content}`)
-      .join('\n') + '\nAssistant:';
+    return (
+      messages
+        .map((msg) => `${msg.sender === 'user' ? 'User' : 'Assistant'}: ${msg.content}`)
+        .join('\n') + '\nAssistant:'
+    );
   }
 
   private async publishResponse(requestId: string, agentId: string, response: any): Promise<void> {
@@ -758,7 +800,7 @@ export class AgentGenerationHandler {
       model: response.model,
       finishReason: response.finishReason,
       tokensUsed: response.tokensUsed,
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
     });
   }
 
@@ -769,9 +811,15 @@ export class AgentGenerationHandler {
     let confidence = 0.8;
 
     switch (response.finishReason) {
-      case 'stop': confidence = 0.9; break;
-      case 'length': confidence = 0.7; break;
-      case 'error': confidence = 0.1; break;
+      case 'stop':
+        confidence = 0.9;
+        break;
+      case 'length':
+        confidence = 0.7;
+        break;
+      case 'error':
+        confidence = 0.1;
+        break;
     }
 
     const contentLength = response.content.trim().length;
@@ -786,7 +834,7 @@ export class AgentGenerationHandler {
       error: error.message,
       stack: error.stack,
       requestId: event?.data?.requestId || event?.requestId,
-      agentId: event?.data?.agentId || event?.agentId
+      agentId: event?.data?.agentId || event?.agentId,
     });
 
     await this.eventBus.publish('llm.agent.generate.response', {
@@ -797,7 +845,7 @@ export class AgentGenerationHandler {
       confidence: 0,
       model: 'unknown',
       finishReason: 'error',
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
     });
   }
 }
@@ -806,9 +854,11 @@ export class AgentGenerationHandler {
 ### Phase 2: Architecture Improvements (Week 2)
 
 #### 2.1 Service Layer Organization
+
 **Effort**: 2 days
 
 **Create Service Layer:**
+
 ```typescript
 // src/services/LLMOrchestrationService.ts
 export class LLMOrchestrationService {
@@ -829,7 +879,10 @@ export class LLMOrchestrationService {
     return this.responseProcessor.processResponse(response, request);
   }
 
-  private async callLLMService(request: GenerationRequest, resolution: ProviderResolution): Promise<any> {
+  private async callLLMService(
+    request: GenerationRequest,
+    resolution: ProviderResolution
+  ): Promise<any> {
     // Implementation for calling appropriate LLM service
   }
 }
@@ -845,8 +898,8 @@ export class ResponseProcessingService {
       finishReason: response.finishReason,
       metadata: {
         processingTime: Date.now() - request.startTime,
-        provider: response.provider
-      }
+        provider: response.provider,
+      },
     };
   }
 
@@ -857,9 +910,11 @@ export class ResponseProcessingService {
 ```
 
 #### 2.2 Replace Direct Database Access
+
 **Effort**: 1 day
 
 **Before (❌):**
+
 ```typescript
 // Direct repository access in routes
 const databaseService = DatabaseService.getInstance();
@@ -869,6 +924,7 @@ const userProviders = await userLLMProviderRepo.find({ where: { userId } });
 ```
 
 **After (✅):**
+
 ```typescript
 // Use existing service layer
 const capabilities = await this.userLLMService.getUserProviderCapabilities(userId);
@@ -876,9 +932,11 @@ const provider = await this.userLLMService.getUserProviderById(userId, providerI
 ```
 
 #### 2.3 Standardize Error Handling
+
 **Effort**: 1 day
 
 **Create Error Handler:**
+
 ```typescript
 // src/middleware/errorHandler.ts
 export interface ErrorResponse {
@@ -897,7 +955,7 @@ export class APIErrorHandler {
       error: error.message || 'Internal server error',
       details: error instanceof Error ? error.message : 'Unknown error',
       timestamp: new Date().toISOString(),
-      requestId: req.headers['x-request-id'] as string
+      requestId: req.headers['x-request-id'] as string,
     };
 
     let statusCode = 500;
@@ -912,7 +970,7 @@ export class APIErrorHandler {
       stack: error.stack,
       statusCode,
       context,
-      requestId: errorResponse.requestId
+      requestId: errorResponse.requestId,
     });
 
     res.status(statusCode).json(errorResponse);
@@ -931,9 +989,11 @@ try {
 ### Phase 3: Code Quality Improvements (Week 3)
 
 #### 3.1 Remove Debug Code and Add Constants
+
 **Effort**: 0.5 days
 
 **Replace Debug Code:**
+
 ```typescript
 // ❌ Remove console.log
 console.log('Getting available models for user', userId);
@@ -945,6 +1005,7 @@ logger.debug('Health check results', { userId, healthResults });
 ```
 
 **Add Configuration Constants:**
+
 ```typescript
 // src/config/constants.ts
 export const LLM_CONFIG = {
@@ -954,17 +1015,19 @@ export const LLM_CONFIG = {
   CONFIDENCE_THRESHOLDS: {
     HIGH: 0.9,
     MEDIUM: 0.7,
-    LOW: 0.5
+    LOW: 0.5,
   },
   RESPONSE_TIMEOUT: 30000,
-  UUID_REGEX: /^([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})/i
+  UUID_REGEX: /^([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})/i,
 } as const;
 ```
 
 #### 3.2 Improve Route Organization
+
 **Effort**: 1 day
 
 **Split Route Files:**
+
 ```
 src/routes/
 ├── llm/
@@ -979,6 +1042,7 @@ src/routes/
 ```
 
 **Example Route File:**
+
 ```typescript
 // src/routes/llm/generation.routes.ts
 import { Router } from 'express';
@@ -989,13 +1053,15 @@ import { generationRequestSchema, agentResponseSchema } from '../schemas/llm.sch
 const router = Router();
 const controller = new LLMGenerationController();
 
-router.post('/generate', 
+router.post(
+  '/generate',
   validateRequest(generationRequestSchema),
   controller.generateResponse.bind(controller)
 );
 
-router.post('/agent-response',
-  validateRequest(agentResponseSchema), 
+router.post(
+  '/agent-response',
+  validateRequest(agentResponseSchema),
   controller.generateAgentResponse.bind(controller)
 );
 
@@ -1003,9 +1069,11 @@ export default router;
 ```
 
 #### 3.3 Add Input Validation with Zod
+
 **Effort**: 1 day
 
 **Create Validation Schemas:**
+
 ```typescript
 // src/schemas/llm.schemas.ts
 import { z } from 'zod';
@@ -1017,8 +1085,8 @@ export const generationRequestSchema = z.object({
     maxTokens: z.number().min(1).max(4096).optional(),
     temperature: z.number().min(0).max(2).optional(),
     model: z.string().optional(),
-    preferredType: z.string().optional()
-  })
+    preferredType: z.string().optional(),
+  }),
 });
 
 export const agentResponseSchema = z.object({
@@ -1028,18 +1096,22 @@ export const agentResponseSchema = z.object({
       name: z.string(),
       modelId: z.string().optional(),
       maxTokens: z.number().optional(),
-      temperature: z.number().optional()
+      temperature: z.number().optional(),
     }),
-    messages: z.array(z.object({
-      id: z.string(),
-      content: z.string(),
-      sender: z.enum(['user', 'assistant']),
-      timestamp: z.string(),
-      type: z.enum(['user', 'assistant'])
-    })).min(1, 'At least one message is required'),
+    messages: z
+      .array(
+        z.object({
+          id: z.string(),
+          content: z.string(),
+          sender: z.enum(['user', 'assistant']),
+          timestamp: z.string(),
+          type: z.enum(['user', 'assistant']),
+        })
+      )
+      .min(1, 'At least one message is required'),
     context: z.any().optional(),
-    tools: z.array(z.any()).optional()
-  })
+    tools: z.array(z.any()).optional(),
+  }),
 });
 
 export const userProviderSchema = z.object({
@@ -1051,8 +1123,8 @@ export const userProviderSchema = z.object({
     apiKey: z.string().min(1, 'API key is required'),
     defaultModel: z.string().optional(),
     configuration: z.any().optional(),
-    priority: z.number().min(1).max(10).optional()
-  })
+    priority: z.number().min(1).max(10).optional(),
+  }),
 });
 ```
 
@@ -1061,6 +1133,7 @@ export const userProviderSchema = z.object({
 ## 📊 Implementation Metrics & Success Criteria
 
 ### Current State Metrics (Updated 2025-01-13)
+
 - **Main File Size**: ~~651 lines~~ → **223 lines** ✅ (-66% reduction)
 - **Largest Method**: ~~257 lines (`handleAgentGenerateRequest`)~~ → **3 lines** ✅ (-99% reduction)
 - **Event Handler Count**: ~~4 large methods~~ → **4 focused classes** ✅
@@ -1071,6 +1144,7 @@ export const userProviderSchema = z.object({
 - **Test Coverage**: ~10% (estimated)
 
 ### Target State Metrics
+
 - **Main File Size**: <200 lines (orchestration only)
 - **Largest Method**: <50 lines
 - **Event Handler Count**: 4 focused classes (~30 lines each)
@@ -1083,13 +1157,15 @@ export const userProviderSchema = z.object({
 ### Success Criteria
 
 #### Week 1 Success Criteria ✅ COMPLETED
+
 - [x] All syntax errors fixed (0 duplicate returns)
 - [x] `ProviderResolutionService` created and tested
 - [x] Event handlers decomposed into separate classes
 - [x] Main `index.ts` reduced to <300 lines (223 lines achieved)
 - [x] Clean build passes
 
-#### Week 2 Success Criteria ✅ COMPLETED  
+#### Week 2 Success Criteria ✅ COMPLETED
+
 - [x] Service layer properly organized (ProviderResolutionService, AgentGenerationHandler)
 - [x] All direct database access removed (replaced with service calls)
 - [x] Consistent error handling across all routes (errorTrackingMiddleware + asyncHandler)
@@ -1097,6 +1173,7 @@ export const userProviderSchema = z.object({
 - [x] Clean separation between routes and business logic
 
 #### Week 3 Success Criteria
+
 - [ ] All debug code removed
 - [ ] Constants file created and used
 - [ ] Routes split by domain (<100 lines each)
@@ -1107,6 +1184,7 @@ export const userProviderSchema = z.object({
 ### Quality Gates
 
 #### Code Quality Gates
+
 - **Complexity**: No method >50 lines
 - **Coverage**: >70% test coverage
 - **Linting**: 0 ESLint errors
@@ -1114,6 +1192,7 @@ export const userProviderSchema = z.object({
 - **Performance**: No performance regression
 
 #### Architecture Quality Gates
+
 - **Separation of Concerns**: Routes only handle HTTP, services handle business logic
 - **Dependency Injection**: All services properly injected
 - **Error Handling**: Consistent across all endpoints
@@ -1125,24 +1204,28 @@ export const userProviderSchema = z.object({
 ## 🎯 Expected Benefits
 
 ### Immediate Benefits (Week 1)
+
 - **Deployment Reliability**: Fixes syntax errors blocking deployment
 - **Debugging**: Smaller methods easier to debug
 - **Testing**: Provider logic can be unit tested independently
 - **Maintainability**: Complex logic separated into focused services
 
 ### Medium-term Benefits (Week 2-3)
+
 - **Developer Experience**: Faster onboarding with cleaner code structure
 - **Feature Velocity**: Easier to add new LLM providers and capabilities
 - **Error Tracking**: Better error messages and debugging information
 - **Code Reuse**: Provider resolution logic reusable across services
 
 ### Long-term Benefits
+
 - **Scalability**: Clean architecture supports additional LLM features
 - **Testing**: High test coverage prevents regressions
 - **Performance**: Optimized provider selection reduces response times
 - **Monitoring**: Better observability into LLM service performance
 
 ### Risk Mitigation
+
 - **Phased Approach**: Each week delivers working, improved code
 - **Backward Compatibility**: All existing APIs remain functional
 - **Incremental Testing**: Each phase includes comprehensive testing
@@ -1153,6 +1236,7 @@ export const userProviderSchema = z.object({
 ## 📅 Implementation Timeline
 
 ### Week 1: Critical Fixes
+
 - **Day 1**: Fix syntax errors, create provider resolution service
 - **Day 2**: Decompose event handlers, update main orchestration
 - **Day 3**: Testing and integration
@@ -1160,6 +1244,7 @@ export const userProviderSchema = z.object({
 - **Day 5**: Deploy and monitor
 
 ### Week 2: Architecture
+
 - **Day 1**: Create service layer organization
 - **Day 2**: Remove direct database access
 - **Day 3**: Implement consistent error handling
@@ -1167,6 +1252,7 @@ export const userProviderSchema = z.object({
 - **Day 5**: Performance testing and optimization
 
 ### Week 3: Quality
+
 - **Day 1**: Remove debug code, add constants
 - **Day 2**: Split and reorganize routes
 - **Day 3**: Add Zod validation

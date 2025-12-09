@@ -13,11 +13,14 @@ export class ServiceErrorLogger implements StructuredErrorLogger {
     setupGlobalErrorHandlers(serviceName);
   }
 
-  private createContext(severity: 'error' | 'critical' | 'warning', partialContext?: Partial<ErrorContext>): ErrorContext {
+  private createContext(
+    severity: 'error' | 'critical' | 'warning',
+    partialContext?: Partial<ErrorContext>
+  ): ErrorContext {
     return {
       service: this.serviceName,
       severity,
-      ...partialContext
+      ...partialContext,
     };
   }
 
@@ -35,13 +38,16 @@ export class ServiceErrorLogger implements StructuredErrorLogger {
 
   business(error: Error, context?: Partial<ErrorContext>): void {
     // Business logic errors are typically non-critical but important for analytics
-    recordError(error, this.createContext('error', {
-      ...context,
-      metadata: { 
-        category: 'business-logic',
-        ...context?.metadata 
-      }
-    }));
+    recordError(
+      error,
+      this.createContext('error', {
+        ...context,
+        metadata: {
+          category: 'business-logic',
+          ...context?.metadata,
+        },
+      })
+    );
   }
 }
 

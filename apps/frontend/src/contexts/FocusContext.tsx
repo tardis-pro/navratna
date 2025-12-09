@@ -37,7 +37,7 @@ export const FocusProvider: React.FC<FocusProviderProps> = ({ children }) => {
   return (
     <FocusContext.Provider value={focusManager}>
       {children}
-      
+
       {/* Global preview overlay */}
       <FocusPreview
         isVisible={focusManager.isPreviewVisible}

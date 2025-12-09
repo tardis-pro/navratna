@@ -1,9 +1,11 @@
 # Tool System Implementation Plan
 
 ## Overview
+
 This plan outlines the implementation of the tool system evolution tasks, leveraging existing infrastructure and following event-driven patterns already established in the codebase.
 
 ## Architecture Principles
+
 1. **Build on existing infrastructure** - Don't reinvent the wheel
 2. **Event-driven by design** - Use RabbitMQ event bus for all inter-service communication
 3. **Leverage existing patterns** - Follow established patterns from OrchestrationEngine
@@ -12,6 +14,7 @@ This plan outlines the implementation of the tool system evolution tasks, levera
 ## Task 1: Tool Execution Engine Implementation
 
 ### Current State
+
 - ✅ StepExecutorService handles tool execution as part of operation steps
 - ✅ ToolExecutor provides retry logic and approval workflows
 - ✅ BaseToolExecutor has concrete implementations
@@ -21,6 +24,7 @@ This plan outlines the implementation of the tool system evolution tasks, levera
 ### Implementation Steps
 
 #### 1.1 Create Tool Execution Coordinator Service
+
 ```typescript
 // Location: backend/services/capability-registry/src/services/tool-execution-coordinator.service.ts
 
@@ -32,6 +36,7 @@ Key Features:
 ```
 
 #### 1.2 Implement Sandbox Execution Handler
+
 ```typescript
 // Location: backend/services/capability-registry/src/services/sandbox-execution.service.ts
 
@@ -43,20 +48,22 @@ Key Features:
 ```
 
 #### 1.3 Enhance Event Bus Integration
+
 ```typescript
 // Events to implement:
-- tool.execute.request
-- tool.execute.response
-- tool.execution.started
-- tool.execution.completed
-- tool.execution.failed
-- sandbox.execute.tool
-- sandbox.execute.response
+-tool.execute.request -
+  tool.execute.response -
+  tool.execution.started -
+  tool.execution.completed -
+  tool.execution.failed -
+  sandbox.execute.tool -
+  sandbox.execute.response;
 ```
 
 ## Task 2: Neo4j Integration for Tool Relationships
 
 ### Current State
+
 - ✅ ToolGraphDatabase service exists with comprehensive methods
 - ✅ Graph schema defined (Tool nodes, relationships)
 - ❌ Not connected to tool execution flow
@@ -65,6 +72,7 @@ Key Features:
 ### Implementation Steps
 
 #### 2.1 Connect Graph Updates to Tool Execution
+
 ```typescript
 // Location: Enhance existing ToolExecutor
 
@@ -75,6 +83,7 @@ Key Features:
 ```
 
 #### 2.2 Implement Tool Recommendation Service
+
 ```typescript
 // Location: backend/services/capability-registry/src/services/tool-recommendation.service.ts
 
@@ -86,6 +95,7 @@ Key Features:
 ```
 
 #### 2.3 Create Graph Analytics Jobs
+
 ```typescript
 // Scheduled jobs for:
 - Tool relationship discovery
@@ -97,6 +107,7 @@ Key Features:
 ## Task 3: Redis Cache Layer Implementation
 
 ### Current State
+
 - ✅ RedisService exists with basic operations
 - ✅ Connection management implemented
 - ❌ No tool-specific caching logic
@@ -105,6 +116,7 @@ Key Features:
 ### Implementation Steps
 
 #### 3.1 Implement Tool Definition Cache
+
 ```typescript
 // Location: backend/services/capability-registry/src/services/tool-cache.service.ts
 
@@ -116,6 +128,7 @@ Key Features:
 ```
 
 #### 3.2 Add Execution Result Caching
+
 ```typescript
 // For deterministic tools:
 - Cache key: toolId + parameter hash
@@ -125,6 +138,7 @@ Key Features:
 ```
 
 #### 3.3 Implement Distributed Locking
+
 ```typescript
 // For exclusive tool execution:
 - Redis-based distributed locks
@@ -136,6 +150,7 @@ Key Features:
 ## Task 4: Project-Tool Integration
 
 ### Current State
+
 - ✅ Project entity exists with settings
 - ✅ allowedTools array in project settings
 - ❌ Tool access control not enforced
@@ -144,6 +159,7 @@ Key Features:
 ### Implementation Steps
 
 #### 4.1 Enhance Tool Security Validation
+
 ```typescript
 // Location: Enhance UnifiedToolRegistry.executeTool
 
@@ -154,6 +170,7 @@ Key Features:
 ```
 
 #### 4.2 Implement Project Tool Management API
+
 ```typescript
 // New endpoints:
 - GET /projects/:id/tools - List allowed tools
@@ -165,6 +182,7 @@ Key Features:
 ## Task 5: Enterprise Tool Adapter Expansion
 
 ### Current State
+
 - ✅ Base OAuth tool executor exists
 - ✅ Placeholder implementations
 - ❌ No actual OAuth provider integrations
@@ -173,17 +191,19 @@ Key Features:
 ### Implementation Steps
 
 #### 5.1 Implement OAuth Provider Adapters
+
 ```typescript
 // Location: backend/services/capability-registry/src/adapters/
 
 Providers to implement:
 - GitHubToolAdapter
-- JiraToolAdapter  
+- JiraToolAdapter
 - SlackToolAdapter
 - ConfluenceToolAdapter
 ```
 
 #### 5.2 Create Tool Adapter Framework
+
 ```typescript
 // Base classes:
 - OAuthToolAdapter (base class)
@@ -195,38 +215,45 @@ Providers to implement:
 ## Implementation Order & Dependencies
 
 ### Phase 1: Foundation (Week 1)
+
 1. Tool Execution Coordinator (Task 1.1)
 2. Tool Definition Cache (Task 3.1)
 3. Connect Neo4j to execution flow (Task 2.1)
 
 ### Phase 2: Core Features (Week 2)
+
 1. Sandbox Execution Handler (Task 1.2)
 2. Execution Result Caching (Task 3.2)
 3. Tool Recommendation Service (Task 2.2)
 4. Project Tool Security (Task 4.1)
 
 ### Phase 3: Advanced Features (Week 3)
+
 1. Distributed Locking (Task 3.3)
 2. Graph Analytics Jobs (Task 2.3)
 3. Project Tool Management API (Task 4.2)
 
 ### Phase 4: Enterprise Integration (Week 4)
+
 1. OAuth Provider Adapters (Task 5.1)
 2. Tool Adapter Framework (Task 5.2)
 
 ## Testing Strategy
 
 ### Unit Tests
+
 - Test each service in isolation
 - Mock external dependencies
 - Focus on business logic
 
 ### Integration Tests
+
 - Test event flow end-to-end
 - Verify database updates
 - Test cache invalidation
 
 ### Performance Tests
+
 - Load test tool execution
 - Measure cache hit rates
 - Graph query performance
@@ -234,6 +261,7 @@ Providers to implement:
 ## Monitoring & Observability
 
 ### Metrics to Track
+
 - Tool execution success rate
 - Average execution time
 - Cache hit/miss rates
@@ -241,6 +269,7 @@ Providers to implement:
 - Resource usage per tool
 
 ### Dashboards
+
 - Tool execution dashboard
 - Performance analytics
 - Error tracking

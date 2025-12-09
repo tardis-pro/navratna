@@ -7,7 +7,7 @@ import {
   createMockAuditService,
   createMockApprovalWorkflowService,
   createMockOAuthProviderService,
-  createMockEnhancedAuthService
+  createMockEnhancedAuthService,
 } from '../utils/mockServices.js';
 import {
   EnhancedSecurityValidationRequest,
@@ -19,13 +19,13 @@ import {
   OAuthProviderType,
   AuthenticationMethod,
   MFAMethod,
-  AuditEventType
+  AuditEventType,
 } from '@uaip/types';
 import { ApiError } from '@uaip/utils';
 
 // Mock external dependencies
 jest.mock('@uaip/shared-services', () => ({
-  DatabaseService: jest.fn().mockImplementation(() => createMockDatabaseService())
+  DatabaseService: jest.fn().mockImplementation(() => createMockDatabaseService()),
 }));
 
 jest.mock('@uaip/utils', () => ({
@@ -33,14 +33,14 @@ jest.mock('@uaip/utils', () => ({
     info: jest.fn(),
     warn: jest.fn(),
     error: jest.fn(),
-    debug: jest.fn()
+    debug: jest.fn(),
   },
   ApiError: jest.fn().mockImplementation((status: number, message: string, code?: string) => {
     const error = new Error(message);
     (error as any).status = status;
     (error as any).code = code;
     return error;
-  })
+  }),
 }));
 
 describe('EnhancedSecurityGatewayService', () => {
@@ -74,12 +74,14 @@ describe('EnhancedSecurityGatewayService', () => {
   });
 
   // Helper function to create enhanced security requests
-  const createEnhancedSecurityRequest = (overrides: any = {}): EnhancedSecurityValidationRequest => ({
+  const createEnhancedSecurityRequest = (
+    overrides: any = {}
+  ): EnhancedSecurityValidationRequest => ({
     operation: {
       type: 'read',
       resource: 'test_resource',
       action: 'view',
-      context: {}
+      context: {},
     },
     securityContext: {
       userId: 'user-123',
@@ -97,14 +99,14 @@ describe('EnhancedSecurityGatewayService', () => {
       authenticationMethod: AuthenticationMethod.PASSWORD,
       deviceTrusted: false,
       locationTrusted: true,
-      ...overrides.securityContext
+      ...overrides.securityContext,
     },
     requestMetadata: {
       requestId: 'req-123',
       source: 'test',
-      priority: 'normal'
+      priority: 'normal',
     },
-    ...overrides
+    ...overrides,
   });
 
   describe('Service Initialization', () => {
@@ -120,7 +122,6 @@ describe('EnhancedSecurityGatewayService', () => {
   });
 
   describe('Enhanced Security Validation', () => {
-
     it('should validate human user operations successfully', async () => {
       const request = createEnhancedSecurityRequest();
 
@@ -138,7 +139,7 @@ describe('EnhancedSecurityGatewayService', () => {
         operation: {
           type: 'git_clone',
           resource: 'repository',
-          action: 'clone'
+          action: 'clone',
         },
         securityContext: {
           userType: UserType.AGENT,
@@ -152,10 +153,10 @@ describe('EnhancedSecurityGatewayService', () => {
               maxDailyOperations: 100,
               currentDailyOperations: 10,
               maxConcurrentOperations: 5,
-              currentConcurrentOperations: 1
-            }
-          }
-        }
+              currentConcurrentOperations: 1,
+            },
+          },
+        },
       });
 
       const result = await enhancedSecurityGatewayService.validateEnhancedSecurity(request);
@@ -171,7 +172,7 @@ describe('EnhancedSecurityGatewayService', () => {
         operation: {
           type: 'git_clone',
           resource: 'repository',
-          action: 'clone'
+          action: 'clone',
         },
         securityContext: {
           userType: UserType.AGENT,
@@ -185,10 +186,10 @@ describe('EnhancedSecurityGatewayService', () => {
               maxDailyOperations: 100,
               currentDailyOperations: 10,
               maxConcurrentOperations: 5,
-              currentConcurrentOperations: 1
-            }
-          }
-        }
+              currentConcurrentOperations: 1,
+            },
+          },
+        },
       });
 
       await expect(
@@ -201,12 +202,12 @@ describe('EnhancedSecurityGatewayService', () => {
         operation: {
           type: 'delete',
           resource: 'production_database',
-          action: 'delete'
+          action: 'delete',
         },
         securityContext: {
           securityLevel: SecurityLevel.HIGH,
-          mfaVerified: false
-        }
+          mfaVerified: false,
+        },
       });
 
       const result = await enhancedSecurityGatewayService.validateEnhancedSecurity(request);
@@ -220,7 +221,7 @@ describe('EnhancedSecurityGatewayService', () => {
         operation: {
           type: 'git_push',
           resource: 'production_repository',
-          action: 'push'
+          action: 'push',
         },
         securityContext: {
           userType: UserType.AGENT,
@@ -235,10 +236,10 @@ describe('EnhancedSecurityGatewayService', () => {
               maxDailyOperations: 100,
               currentDailyOperations: 10,
               maxConcurrentOperations: 5,
-              currentConcurrentOperations: 1
-            }
-          }
-        }
+              currentConcurrentOperations: 1,
+            },
+          },
+        },
       });
 
       const result = await enhancedSecurityGatewayService.validateEnhancedSecurity(request);
@@ -250,14 +251,14 @@ describe('EnhancedSecurityGatewayService', () => {
     it('should validate OAuth provider operations', async () => {
       mockOAuthProviderService.validateAgentOperation.mockResolvedValue({
         allowed: true,
-        reason: 'Valid OAuth operation'
+        reason: 'Valid OAuth operation',
       });
 
       const request = createEnhancedSecurityRequest({
         operation: {
           type: 'email_read',
           resource: 'inbox',
-          action: 'read'
+          action: 'read',
         },
         securityContext: {
           userType: UserType.AGENT,
@@ -267,20 +268,22 @@ describe('EnhancedSecurityGatewayService', () => {
             agentId: 'agent-123',
             agentName: 'Test Agent',
             capabilities: [AgentCapability.EMAIL_ACCESS],
-            connectedProviders: [{
-              providerId: 'gmail-provider-1',
-              providerType: OAuthProviderType.GMAIL,
-              capabilities: [AgentCapability.EMAIL_ACCESS],
-              lastUsed: new Date()
-            }],
+            connectedProviders: [
+              {
+                providerId: 'gmail-provider-1',
+                providerType: OAuthProviderType.GMAIL,
+                capabilities: [AgentCapability.EMAIL_ACCESS],
+                lastUsed: new Date(),
+              },
+            ],
             operationLimits: {
               maxDailyOperations: 100,
               currentDailyOperations: 10,
               maxConcurrentOperations: 5,
-              currentConcurrentOperations: 1
-            }
-          }
-        }
+              currentConcurrentOperations: 1,
+            },
+          },
+        },
       });
 
       const result = await enhancedSecurityGatewayService.validateEnhancedSecurity(request);
@@ -298,8 +301,8 @@ describe('EnhancedSecurityGatewayService', () => {
       const request = createEnhancedSecurityRequest({
         securityContext: {
           userType: UserType.AGENT,
-          agentContext: null // Missing agent context
-        }
+          agentContext: null, // Missing agent context
+        },
       });
 
       await expect(
@@ -308,7 +311,7 @@ describe('EnhancedSecurityGatewayService', () => {
 
       expect(mockAuditService.logEvent).toHaveBeenCalledWith(
         expect.objectContaining({
-          eventType: AuditEventType.SECURITY_VIOLATION
+          eventType: AuditEventType.SECURITY_VIOLATION,
         })
       );
     });
@@ -329,27 +332,31 @@ describe('EnhancedSecurityGatewayService', () => {
               maxDailyOperations: 100,
               currentDailyOperations: 10,
               maxConcurrentOperations: 5,
-              currentConcurrentOperations: 1
-            }
-          }
-        }
+              currentConcurrentOperations: 1,
+            },
+          },
+        },
       });
 
       const result = await enhancedSecurityGatewayService.validateEnhancedSecurity(agentRequest);
 
-      expect([SecurityLevel.MEDIUM, SecurityLevel.HIGH, SecurityLevel.CRITICAL]).toContain(result.riskLevel);
+      expect([SecurityLevel.MEDIUM, SecurityLevel.HIGH, SecurityLevel.CRITICAL]).toContain(
+        result.riskLevel
+      );
     });
 
     it('should assess authentication method risk', async () => {
       const apiKeyRequest = createEnhancedSecurityRequest({
         securityContext: {
-          authenticationMethod: AuthenticationMethod.API_KEY
-        }
+          authenticationMethod: AuthenticationMethod.API_KEY,
+        },
       });
 
       const result = await enhancedSecurityGatewayService.validateEnhancedSecurity(apiKeyRequest);
 
-      expect([SecurityLevel.MEDIUM, SecurityLevel.HIGH, SecurityLevel.CRITICAL]).toContain(result.riskLevel);
+      expect([SecurityLevel.MEDIUM, SecurityLevel.HIGH, SecurityLevel.CRITICAL]).toContain(
+        result.riskLevel
+      );
     });
 
     it('should assess OAuth provider risk', async () => {
@@ -367,13 +374,14 @@ describe('EnhancedSecurityGatewayService', () => {
               maxDailyOperations: 100,
               currentDailyOperations: 10,
               maxConcurrentOperations: 5,
-              currentConcurrentOperations: 1
-            }
-          }
-        }
+              currentConcurrentOperations: 1,
+            },
+          },
+        },
       });
 
-      const result = await enhancedSecurityGatewayService.validateEnhancedSecurity(customProviderRequest);
+      const result =
+        await enhancedSecurityGatewayService.validateEnhancedSecurity(customProviderRequest);
 
       expect([SecurityLevel.HIGH, SecurityLevel.CRITICAL]).toContain(result.riskLevel);
     });
@@ -385,7 +393,7 @@ describe('EnhancedSecurityGatewayService', () => {
           agentCapabilities: [
             AgentCapability.CODE_REPOSITORY,
             AgentCapability.EMAIL_ACCESS,
-            AgentCapability.FILE_MANAGEMENT
+            AgentCapability.FILE_MANAGEMENT,
           ],
           agentContext: {
             agentId: 'agent-123',
@@ -393,22 +401,26 @@ describe('EnhancedSecurityGatewayService', () => {
             capabilities: [
               AgentCapability.CODE_REPOSITORY,
               AgentCapability.EMAIL_ACCESS,
-              AgentCapability.FILE_MANAGEMENT
+              AgentCapability.FILE_MANAGEMENT,
             ],
             connectedProviders: [],
             operationLimits: {
               maxDailyOperations: 100,
               currentDailyOperations: 10,
               maxConcurrentOperations: 5,
-              currentConcurrentOperations: 1
-            }
-          }
-        }
+              currentConcurrentOperations: 1,
+            },
+          },
+        },
       });
 
-      const result = await enhancedSecurityGatewayService.validateEnhancedSecurity(highRiskCapabilitiesRequest);
+      const result = await enhancedSecurityGatewayService.validateEnhancedSecurity(
+        highRiskCapabilitiesRequest
+      );
 
-      expect([SecurityLevel.MEDIUM, SecurityLevel.HIGH, SecurityLevel.CRITICAL]).toContain(result.riskLevel);
+      expect([SecurityLevel.MEDIUM, SecurityLevel.HIGH, SecurityLevel.CRITICAL]).toContain(
+        result.riskLevel
+      );
       expect(result.agentRestrictions).toBeDefined();
       expect(result.agentRestrictions.rateLimit).toBeDefined();
     });
@@ -417,21 +429,24 @@ describe('EnhancedSecurityGatewayService', () => {
       const untrustedDeviceRequest = createEnhancedSecurityRequest({
         securityContext: {
           deviceTrusted: false,
-          locationTrusted: false
-        }
+          locationTrusted: false,
+        },
       });
 
-      const result = await enhancedSecurityGatewayService.validateEnhancedSecurity(untrustedDeviceRequest);
+      const result =
+        await enhancedSecurityGatewayService.validateEnhancedSecurity(untrustedDeviceRequest);
 
-      expect([SecurityLevel.MEDIUM, SecurityLevel.HIGH, SecurityLevel.CRITICAL]).toContain(result.riskLevel);
+      expect([SecurityLevel.MEDIUM, SecurityLevel.HIGH, SecurityLevel.CRITICAL]).toContain(
+        result.riskLevel
+      );
     });
 
     it('should increase risk when MFA is not verified', async () => {
       const noMfaRequest = createEnhancedSecurityRequest({
         securityContext: {
           mfaVerified: false,
-          securityLevel: SecurityLevel.HIGH
-        }
+          securityLevel: SecurityLevel.HIGH,
+        },
       });
 
       const result = await enhancedSecurityGatewayService.validateEnhancedSecurity(noMfaRequest);
@@ -455,10 +470,10 @@ describe('EnhancedSecurityGatewayService', () => {
               maxDailyOperations: 10,
               currentDailyOperations: 10, // At limit
               maxConcurrentOperations: 5,
-              currentConcurrentOperations: 1
-            }
-          }
-        }
+              currentConcurrentOperations: 1,
+            },
+          },
+        },
       });
 
       await expect(
@@ -480,10 +495,10 @@ describe('EnhancedSecurityGatewayService', () => {
               maxDailyOperations: 100,
               currentDailyOperations: 10,
               maxConcurrentOperations: 2,
-              currentConcurrentOperations: 2 // At limit
-            }
-          }
-        }
+              currentConcurrentOperations: 2, // At limit
+            },
+          },
+        },
       });
 
       await expect(
@@ -498,12 +513,12 @@ describe('EnhancedSecurityGatewayService', () => {
         operation: {
           type: 'delete',
           resource: 'production_database',
-          action: 'delete'
+          action: 'delete',
         },
         securityContext: {
           securityLevel: SecurityLevel.CRITICAL,
-          mfaVerified: false
-        }
+          mfaVerified: false,
+        },
       });
 
       const result = await enhancedSecurityGatewayService.validateEnhancedSecurity(criticalRequest);
@@ -518,7 +533,7 @@ describe('EnhancedSecurityGatewayService', () => {
         operation: {
           type: 'email_send',
           resource: 'email',
-          action: 'send'
+          action: 'send',
         },
         securityContext: {
           userType: UserType.AGENT,
@@ -533,13 +548,14 @@ describe('EnhancedSecurityGatewayService', () => {
               maxDailyOperations: 100,
               currentDailyOperations: 10,
               maxConcurrentOperations: 5,
-              currentConcurrentOperations: 1
-            }
-          }
-        }
+              currentConcurrentOperations: 1,
+            },
+          },
+        },
       });
 
-      const result = await enhancedSecurityGatewayService.validateEnhancedSecurity(sensitiveAgentRequest);
+      const result =
+        await enhancedSecurityGatewayService.validateEnhancedSecurity(sensitiveAgentRequest);
 
       expect(result.mfaRequired).toBe(true);
       expect(result.mfaMethods).toContain(MFAMethod.TOTP);
@@ -549,8 +565,8 @@ describe('EnhancedSecurityGatewayService', () => {
       const verifiedRequest = createEnhancedSecurityRequest({
         securityContext: {
           mfaVerified: true,
-          securityLevel: SecurityLevel.HIGH
-        }
+          securityLevel: SecurityLevel.HIGH,
+        },
       });
 
       const result = await enhancedSecurityGatewayService.validateEnhancedSecurity(verifiedRequest);

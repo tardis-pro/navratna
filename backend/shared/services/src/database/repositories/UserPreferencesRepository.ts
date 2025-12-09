@@ -1,5 +1,8 @@
 import { BaseRepository } from '../base/BaseRepository.js';
-import { UserPreferencesEntity, UserPreferencesData } from '../../entities/user-preferences.entity.js';
+import {
+  UserPreferencesEntity,
+  UserPreferencesData,
+} from '../../entities/user-preferences.entity.js';
 
 export class UserPreferencesRepository extends BaseRepository<UserPreferencesEntity> {
   constructor() {
@@ -9,11 +12,14 @@ export class UserPreferencesRepository extends BaseRepository<UserPreferencesEnt
   async findByUserId(userId: string): Promise<UserPreferencesEntity | null> {
     return await this.repository.findOne({
       where: { userId },
-      relations: ['user']
+      relations: ['user'],
     });
   }
 
-  async createOrUpdate(userId: string, preferences: UserPreferencesData): Promise<UserPreferencesEntity> {
+  async createOrUpdate(
+    userId: string,
+    preferences: UserPreferencesData
+  ): Promise<UserPreferencesEntity> {
     let userPrefs = await this.findByUserId(userId);
 
     if (userPrefs) {
@@ -24,14 +30,17 @@ export class UserPreferencesRepository extends BaseRepository<UserPreferencesEnt
       userPrefs = this.repository.create({
         userId,
         preferences,
-        lastSyncedAt: new Date()
+        lastSyncedAt: new Date(),
       });
     }
 
     return await this.repository.save(userPrefs);
   }
 
-  async updatePreferences(userId: string, preferences: Partial<UserPreferencesData>): Promise<UserPreferencesEntity | null> {
+  async updatePreferences(
+    userId: string,
+    preferences: Partial<UserPreferencesData>
+  ): Promise<UserPreferencesEntity | null> {
     const userPrefs = await this.findByUserId(userId);
     if (!userPrefs) {
       return await this.createOrUpdate(userId, preferences as UserPreferencesData);
@@ -54,24 +63,24 @@ export class UserPreferencesRepository extends BaseRepository<UserPreferencesEnt
   }
 
   async updateLastSyncTime(userId: string): Promise<void> {
-    await this.repository.update(
-      { userId },
-      { lastSyncedAt: new Date() }
-    );
+    await this.repository.update({ userId }, { lastSyncedAt: new Date() });
   }
 
   async findRecentlyUpdated(since: Date, limit: number = 100): Promise<UserPreferencesEntity[]> {
     return await this.repository.find({
       where: {
-        lastSyncedAt: since
+        lastSyncedAt: since,
       },
       relations: ['user'],
       order: { lastSyncedAt: 'DESC' },
-      take: limit
+      take: limit,
     });
   }
 
-  private mergePreferences(existing: UserPreferencesData, updates: Partial<UserPreferencesData>): UserPreferencesData {
+  private mergePreferences(
+    existing: UserPreferencesData,
+    updates: Partial<UserPreferencesData>
+  ): UserPreferencesData {
     const merged = { ...existing };
 
     if (updates.theme !== undefined) {
@@ -85,28 +94,28 @@ export class UserPreferencesRepository extends BaseRepository<UserPreferencesEnt
     if (updates.notifications) {
       merged.notifications = {
         ...merged.notifications,
-        ...updates.notifications
+        ...updates.notifications,
       };
     }
 
     if (updates.privacy) {
       merged.privacy = {
         ...merged.privacy,
-        ...updates.privacy
+        ...updates.privacy,
       };
     }
 
     if (updates.ui) {
       merged.ui = {
         ...merged.ui,
-        ...updates.ui
+        ...updates.ui,
       };
     }
 
     if (updates.desktop) {
       merged.desktop = {
         ...merged.desktop,
-        ...updates.desktop
+        ...updates.desktop,
       };
     }
 
@@ -121,23 +130,23 @@ export class UserPreferencesRepository extends BaseRepository<UserPreferencesEnt
         email: true,
         push: true,
         desktop: true,
-        sound: true
+        sound: true,
       },
       privacy: {
         showOnlineStatus: true,
         allowDirectMessages: true,
-        showProfile: true
+        showProfile: true,
       },
       ui: {
         compactMode: false,
         fontSize: 'medium',
-        sidebarCollapsed: false
+        sidebarCollapsed: false,
       },
       desktop: {
         windowMode: 'hybrid',
         autoMinimize: false,
-        showDesktopNotifications: true
-      }
+        showDesktopNotifications: true,
+      },
     };
   }
 
@@ -150,7 +159,10 @@ export class UserPreferencesRepository extends BaseRepository<UserPreferencesEnt
     return userPrefs?.preferences || null;
   }
 
-  async importPreferences(userId: string, preferences: UserPreferencesData): Promise<UserPreferencesEntity> {
+  async importPreferences(
+    userId: string,
+    preferences: UserPreferencesData
+  ): Promise<UserPreferencesEntity> {
     return await this.createOrUpdate(userId, preferences);
   }
 }

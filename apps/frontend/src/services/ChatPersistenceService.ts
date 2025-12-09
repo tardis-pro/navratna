@@ -52,24 +52,32 @@ export class ChatPersistenceService {
   /**
    * @deprecated Use discussionsAPI.create() and discussionsAPI.start() instead
    */
-  public async createChatSession(agentId: string, agentName: string, makePersistent = true): Promise<ChatSession> {
-    console.warn('ChatPersistenceService.createChatSession is deprecated. Use discussionsAPI.create() instead.');
-    
+  public async createChatSession(
+    agentId: string,
+    agentName: string,
+    makePersistent = true
+  ): Promise<ChatSession> {
+    console.warn(
+      'ChatPersistenceService.createChatSession is deprecated. Use discussionsAPI.create() instead.'
+    );
+
     const discussionRequest: CreateDiscussionRequest = {
       title: `Chat with ${agentName}`,
       description: `Direct chat conversation with agent ${agentName}`,
       topic: `Direct chat conversation with agent ${agentName}`,
       objectives: ['agent-chat'],
-      initialParticipants: [{
-        agentId: agentId,
-        role: 'participant'
-      }],
+      initialParticipants: [
+        {
+          agentId: agentId,
+          role: 'participant',
+        },
+      ],
       turnStrategy: {
         strategy: TurnStrategy.FREE_FORM,
         config: {
           type: 'free_form',
-          cooldownPeriod: 5
-        }
+          cooldownPeriod: 5,
+        },
       },
       settings: {
         maxParticipants: 2,
@@ -83,14 +91,14 @@ export class ChatPersistenceService {
         enableAnalytics: true,
         turnTimeout: 300,
         responseTimeout: 60,
-        moderationRules: []
+        moderationRules: [],
       },
       metadata: {
         chatType: 'agent-chat',
         agentId: agentId,
         agentName: agentName,
-        createdBy: 'current-user'
-      }
+        createdBy: 'current-user',
+      },
     };
 
     const discussion = await discussionsAPI.create(discussionRequest);
@@ -104,7 +112,7 @@ export class ChatPersistenceService {
       isPersistent: makePersistent,
       createdAt: new Date(),
       lastActivity: new Date(),
-      messageCount: 0
+      messageCount: 0,
     };
 
     return session;
@@ -113,13 +121,19 @@ export class ChatPersistenceService {
   /**
    * @deprecated Use discussionsAPI.getMessages() instead
    */
-  public async getMessages(sessionId: string, limit = 50, offset = 0): Promise<PersistentChatMessage[]> {
-    console.warn('ChatPersistenceService.getMessages is deprecated. Use discussionsAPI.getMessages() instead.');
-    
+  public async getMessages(
+    sessionId: string,
+    limit = 50,
+    offset = 0
+  ): Promise<PersistentChatMessage[]> {
+    console.warn(
+      'ChatPersistenceService.getMessages is deprecated. Use discussionsAPI.getMessages() instead.'
+    );
+
     try {
       const discussionMessages = await discussionsAPI.getMessages(sessionId, { limit, offset });
-      
-      return discussionMessages.map(msg => ({
+
+      return discussionMessages.map((msg) => ({
         id: msg.id,
         content: msg.content,
         sender: msg.metadata?.sender || (msg.metadata?.agentId ? 'agent' : 'user'),
@@ -131,7 +145,7 @@ export class ChatPersistenceService {
         memoryEnhanced: msg.metadata?.memoryEnhanced,
         knowledgeUsed: msg.metadata?.knowledgeUsed,
         toolsExecuted: msg.metadata?.toolsExecuted,
-        metadata: msg.metadata
+        metadata: msg.metadata,
       }));
     } catch (error) {
       console.error('Failed to load messages from discussion service:', error);
@@ -143,18 +157,20 @@ export class ChatPersistenceService {
    * @deprecated Use discussionsAPI.list() instead
    */
   public async getAllSessions(): Promise<ChatSession[]> {
-    console.warn('ChatPersistenceService.getAllSessions is deprecated. Use discussionsAPI.list() instead.');
-    
+    console.warn(
+      'ChatPersistenceService.getAllSessions is deprecated. Use discussionsAPI.list() instead.'
+    );
+
     try {
       const discussions = await discussionsAPI.list({
         limit: 100,
         sortBy: 'updatedAt',
-        sortOrder: 'desc'
+        sortOrder: 'desc',
       });
 
       return discussions
-        .filter(discussion => discussion.metadata?.chatType === 'agent-chat')
-        .map(discussion => ({
+        .filter((discussion) => discussion.metadata?.chatType === 'agent-chat')
+        .map((discussion) => ({
           id: discussion.id,
           agentId: discussion.metadata?.agentId || '',
           agentName: discussion.metadata?.agentName || 'Unknown Agent',
@@ -162,7 +178,7 @@ export class ChatPersistenceService {
           isPersistent: true,
           createdAt: new Date(discussion.createdAt),
           lastActivity: new Date(discussion.updatedAt),
-          messageCount: discussion.messageCount || 0
+          messageCount: discussion.messageCount || 0,
         }));
     } catch (error) {
       console.error('Failed to load discussions:', error);
@@ -174,7 +190,9 @@ export class ChatPersistenceService {
    * @deprecated Use discussionsAPI.list() instead
    */
   public getAllChatSessions(): ChatSession[] {
-    console.warn('ChatPersistenceService.getAllChatSessions is deprecated. Use discussionsAPI.list() instead.');
+    console.warn(
+      'ChatPersistenceService.getAllChatSessions is deprecated. Use discussionsAPI.list() instead.'
+    );
     // This is a synchronous method, so we can't easily convert it to async
     // Return empty array for now
     return [];
@@ -184,8 +202,10 @@ export class ChatPersistenceService {
    * @deprecated Use discussionsAPI.end() instead
    */
   public async deleteChatSession(sessionId: string): Promise<void> {
-    console.warn('ChatPersistenceService.deleteChatSession is deprecated. Use discussionsAPI.end() instead.');
-    
+    console.warn(
+      'ChatPersistenceService.deleteChatSession is deprecated. Use discussionsAPI.end() instead.'
+    );
+
     try {
       await discussionsAPI.end(sessionId);
     } catch (error) {
@@ -197,7 +217,9 @@ export class ChatPersistenceService {
    * @deprecated No longer needed - backend handles all persistence
    */
   public async clearSession(sessionId: string): Promise<void> {
-    console.warn('ChatPersistenceService.clearSession is deprecated. No action needed - backend handles all persistence.');
+    console.warn(
+      'ChatPersistenceService.clearSession is deprecated. No action needed - backend handles all persistence.'
+    );
     // No action needed - backend handles all persistence
   }
 
@@ -205,8 +227,10 @@ export class ChatPersistenceService {
    * @deprecated Use discussionsAPI.sendMessage() instead
    */
   public async addMessage(sessionId: string, message: PersistentChatMessage): Promise<void> {
-    console.warn('ChatPersistenceService.addMessage is deprecated. Use discussionsAPI.sendMessage() instead.');
-    
+    console.warn(
+      'ChatPersistenceService.addMessage is deprecated. Use discussionsAPI.sendMessage() instead.'
+    );
+
     try {
       await discussionsAPI.sendMessage(sessionId, {
         content: message.content,
@@ -219,8 +243,8 @@ export class ChatPersistenceService {
           knowledgeUsed: message.knowledgeUsed,
           toolsExecuted: message.toolsExecuted,
           originalMessageId: message.id,
-          ...message.metadata
-        }
+          ...message.metadata,
+        },
       });
     } catch (error) {
       console.error('Failed to persist message to discussion service:', error);
@@ -231,7 +255,9 @@ export class ChatPersistenceService {
    * @deprecated Use discussionsAPI.get() instead
    */
   public getChatSession(sessionId: string): ChatSession | undefined {
-    console.warn('ChatPersistenceService.getChatSession is deprecated. Use discussionsAPI.get() instead.');
+    console.warn(
+      'ChatPersistenceService.getChatSession is deprecated. Use discussionsAPI.get() instead.'
+    );
     // This is a synchronous method, so we can't easily convert it to async
     return undefined;
   }
@@ -240,7 +266,9 @@ export class ChatPersistenceService {
    * @deprecated Use discussionsAPI.list() with agent filter instead
    */
   public findSessionByAgent(agentId: string): ChatSession | undefined {
-    console.warn('ChatPersistenceService.findSessionByAgent is deprecated. Use discussionsAPI.list() with agent filter instead.');
+    console.warn(
+      'ChatPersistenceService.findSessionByAgent is deprecated. Use discussionsAPI.list() with agent filter instead.'
+    );
     // This is a synchronous method, so we can't easily convert it to async
     return undefined;
   }

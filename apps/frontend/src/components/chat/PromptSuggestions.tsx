@@ -26,14 +26,14 @@ const CATEGORY_COLORS = {
   command: 'bg-green-100 text-green-800',
   tool_request: 'bg-purple-100 text-purple-800',
   conversation: 'bg-gray-100 text-gray-800',
-  clarification: 'bg-yellow-100 text-yellow-800'
+  clarification: 'bg-yellow-100 text-yellow-800',
 };
 
 export const PromptSuggestions: React.FC<PromptSuggestionsProps> = ({
   agentId,
   conversationContext,
   onSelectPrompt,
-  className
+  className,
 }) => {
   const [suggestions, setSuggestions] = useState<PromptSuggestion[]>([]);
   const [loading, setLoading] = useState(false);
@@ -46,7 +46,7 @@ export const PromptSuggestions: React.FC<PromptSuggestionsProps> = ({
 
     const newSocket = io('/conversation-intelligence', {
       auth: { token: user.token },
-      query: { agentId }
+      query: { agentId },
     });
 
     newSocket.on('connected', (data) => {
@@ -80,9 +80,9 @@ export const PromptSuggestions: React.FC<PromptSuggestionsProps> = ({
     activeSocket.emit('request_prompt_suggestions', {
       conversationContext: conversationContext || {
         recentMessages: [],
-        currentTopic: ''
+        currentTopic: '',
       },
-      count: 3
+      count: 3,
     });
   };
 
@@ -121,7 +121,7 @@ export const PromptSuggestions: React.FC<PromptSuggestionsProps> = ({
       <div className="grid gap-2">
         {loading ? (
           <div className="grid gap-2">
-            {[1, 2, 3].map(i => (
+            {[1, 2, 3].map((i) => (
               <Card key={i} className="animate-pulse">
                 <CardContent className="p-3">
                   <div className="h-4 bg-muted rounded w-3/4 mb-2" />
@@ -140,24 +140,22 @@ export const PromptSuggestions: React.FC<PromptSuggestionsProps> = ({
               <CardContent className="p-3">
                 <div className="flex items-start justify-between gap-2">
                   <p className="text-sm flex-1">{suggestion.prompt}</p>
-                  <Badge 
-                    variant="secondary" 
+                  <Badge
+                    variant="secondary"
                     className={`text-xs ${CATEGORY_COLORS[suggestion.category] || ''}`}
                   >
                     {suggestion.category}
                   </Badge>
                 </div>
-                
+
                 {suggestion.reasoning && (
-                  <p className="text-xs text-muted-foreground mt-1">
-                    {suggestion.reasoning}
-                  </p>
+                  <p className="text-xs text-muted-foreground mt-1">{suggestion.reasoning}</p>
                 )}
-                
+
                 <div className="flex items-center gap-2 mt-2">
                   <div className="flex items-center gap-1">
                     <div className="w-16 h-1 bg-muted rounded-full overflow-hidden">
-                      <div 
+                      <div
                         className="h-full bg-primary transition-all"
                         style={{ width: `${suggestion.confidence * 100}%` }}
                       />
@@ -166,7 +164,7 @@ export const PromptSuggestions: React.FC<PromptSuggestionsProps> = ({
                       {Math.round(suggestion.confidence * 100)}%
                     </span>
                   </div>
-                  
+
                   {suggestion.basedOn && suggestion.basedOn.length > 0 && (
                     <div className="flex gap-1 ml-auto">
                       {suggestion.basedOn.map((source, i) => (

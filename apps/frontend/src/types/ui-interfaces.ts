@@ -8,7 +8,7 @@ import type {
   OperationStatus,
   OperationPriority,
   Capability,
-  ApprovalWorkflow as SharedApprovalWorkflow
+  ApprovalWorkflow as SharedApprovalWorkflow,
 } from '@uaip/types';
 
 // Enhanced frontend-specific interfaces
@@ -213,7 +213,12 @@ export interface CapabilityUsage {
 
 // WebSocket events for real-time UI updates
 export interface WebSocketEvent {
-  type: 'operation_update' | 'agent_status' | 'approval_request' | 'system_alert' | 'insight_generated';
+  type:
+    | 'operation_update'
+    | 'agent_status'
+    | 'approval_request'
+    | 'system_alert'
+    | 'insight_generated';
   data: any;
   timestamp: Date;
 }
@@ -256,4 +261,4 @@ export interface DataState<T> {
   error?: UIError;
   lastUpdated?: Date;
   refetch?: () => Promise<void>;
-} 
+}

@@ -28,7 +28,7 @@ export const DiscussionTrigger: React.FC<DiscussionTriggerProps> = ({
   contextType = 'general',
   contextData,
   preselectedAgents = [],
-  className
+  className,
 }) => {
   const handleClick = () => {
     // Trigger the global discussion portal
@@ -36,8 +36,8 @@ export const DiscussionTrigger: React.FC<DiscussionTriggerProps> = ({
       detail: {
         contextType,
         contextData,
-        preselectedAgents
-      }
+        preselectedAgents,
+      },
     });
     window.dispatchEvent(event);
   };

@@ -18,7 +18,7 @@ export class CapabilityRepository extends BaseRepository<Capability> {
   }): Promise<any[]> {
     try {
       const manager = this.getEntityManager();
-      
+
       let sqlQuery = `
         SELECT 
           id, name, description, type, status, metadata, 
@@ -28,7 +28,7 @@ export class CapabilityRepository extends BaseRepository<Capability> {
         FROM capabilities 
         WHERE status = 'active'
       `;
-      
+
       const queryParams: any[] = [];
       let paramIndex = 1;
 
@@ -83,7 +83,7 @@ export class CapabilityRepository extends BaseRepository<Capability> {
   public async getCapabilitiesByIds(capabilityIds: string[]): Promise<any[]> {
     try {
       const manager = this.getEntityManager();
-      
+
       if (capabilityIds.length === 0) {
         return [];
       }
@@ -102,7 +102,10 @@ export class CapabilityRepository extends BaseRepository<Capability> {
       const result = await manager.query(query, [capabilityIds]);
       return result;
     } catch (error) {
-      logger.error('Error getting capabilities by IDs', { capabilityIds, error: (error as Error).message });
+      logger.error('Error getting capabilities by IDs', {
+        capabilityIds,
+        error: (error as Error).message,
+      });
       throw error;
     }
   }
@@ -113,7 +116,7 @@ export class CapabilityRepository extends BaseRepository<Capability> {
   public async getCapabilityById(capabilityId: string): Promise<any | null> {
     try {
       const manager = this.getEntityManager();
-      
+
       const query = `
         SELECT 
           id, name, description, type, status, metadata, 
@@ -127,7 +130,10 @@ export class CapabilityRepository extends BaseRepository<Capability> {
       const result = await manager.query(query, [capabilityId]);
       return result.length > 0 ? result[0] : null;
     } catch (error) {
-      logger.error('Error getting capability by ID', { capabilityId, error: (error as Error).message });
+      logger.error('Error getting capability by ID', {
+        capabilityId,
+        error: (error as Error).message,
+      });
       throw error;
     }
   }
@@ -138,7 +144,7 @@ export class CapabilityRepository extends BaseRepository<Capability> {
   public async getCapabilityDependencies(dependencyIds: string[]): Promise<any[]> {
     try {
       const manager = this.getEntityManager();
-      
+
       if (dependencyIds.length === 0) {
         return [];
       }
@@ -150,11 +156,14 @@ export class CapabilityRepository extends BaseRepository<Capability> {
         FROM capabilities 
         WHERE id = ANY($1) AND status = 'active'
       `;
-      
+
       const result = await manager.query(query, [dependencyIds]);
       return result;
     } catch (error) {
-      logger.error('Error getting capability dependencies', { dependencyIds, error: (error as Error).message });
+      logger.error('Error getting capability dependencies', {
+        dependencyIds,
+        error: (error as Error).message,
+      });
       throw error;
     }
   }
@@ -165,7 +174,7 @@ export class CapabilityRepository extends BaseRepository<Capability> {
   public async getCapabilityDependents(capabilityId: string): Promise<any[]> {
     try {
       const manager = this.getEntityManager();
-      
+
       const query = `
         SELECT 
           id, name, description, type, status, metadata, 
@@ -173,11 +182,14 @@ export class CapabilityRepository extends BaseRepository<Capability> {
         FROM capabilities 
         WHERE $1 = ANY(dependencies) AND status = 'active'
       `;
-      
+
       const result = await manager.query(query, [capabilityId]);
       return result;
     } catch (error) {
-      logger.error('Error getting capability dependents', { capabilityId, error: (error as Error).message });
+      logger.error('Error getting capability dependents', {
+        capabilityId,
+        error: (error as Error).message,
+      });
       throw error;
     }
   }
@@ -196,7 +208,7 @@ export class CapabilityRepository extends BaseRepository<Capability> {
   }): Promise<{ capabilities: any[]; totalCount: number }> {
     try {
       const manager = this.getEntityManager();
-      
+
       let sqlQuery = `
         SELECT 
           id, name, description, type, status, metadata, 
@@ -206,7 +218,7 @@ export class CapabilityRepository extends BaseRepository<Capability> {
         FROM capabilities 
         WHERE 1=1
       `;
-      
+
       const queryParams: any[] = [];
       let paramIndex = 1;
 
@@ -244,12 +256,14 @@ export class CapabilityRepository extends BaseRepository<Capability> {
 
       // Tag filter
       if (searchParams.tags && searchParams.tags.length > 0) {
-        const tagConditions = searchParams.tags.map(() => {
-          const condition = `metadata->'tags' ? $${paramIndex}`;
-          paramIndex++;
-          return condition;
-        }).join(' OR ');
-        
+        const tagConditions = searchParams.tags
+          .map(() => {
+            const condition = `metadata->'tags' ? $${paramIndex}`;
+            paramIndex++;
+            return condition;
+          })
+          .join(' OR ');
+
         sqlQuery += ` AND (${tagConditions})`;
         queryParams.push(...searchParams.tags);
       }
@@ -268,7 +282,7 @@ export class CapabilityRepository extends BaseRepository<Capability> {
         END,
         created_at DESC
         LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`;
-      
+
       const limit = Math.min(searchParams.limit || 20, 100);
       const offset = searchParams.offset;
       queryParams.push(limit, offset);
@@ -277,8 +291,11 @@ export class CapabilityRepository extends BaseRepository<Capability> {
 
       return { capabilities, totalCount };
     } catch (error) {
-      logger.error('Error in advanced capability search', { searchParams, error: (error as Error).message });
+      logger.error('Error in advanced capability search', {
+        searchParams,
+        error: (error as Error).message,
+      });
       throw error;
     }
   }
-} 
+}

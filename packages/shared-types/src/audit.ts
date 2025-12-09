@@ -64,7 +64,7 @@ export enum AuditEventType {
   SECURITY_CONFIG_CHANGE = 'security_config_change',
   MFA_SUCCESS = 'mfa_success',
   MFA_FAILED = 'mfa_failed',
-  SYSTEM_ERROR = 'system_error'
+  SYSTEM_ERROR = 'system_error',
 }
 
 // Audit log entry
@@ -82,7 +82,7 @@ export const AuditLogSchema = BaseEntitySchema.extend({
   userAgent: z.string().optional(),
   sessionId: z.string().optional(),
   correlationId: z.string().optional(),
-  timestamp: z.date()
+  timestamp: z.date(),
 });
 
 export type AuditLog = z.infer<typeof AuditLogSchema>;
@@ -98,7 +98,7 @@ export const AuditSearchFiltersSchema = z.object({
   startDate: z.string().optional(),
   endDate: z.string().optional(),
   limit: z.number().min(1).max(1000).default(100),
-  offset: z.number().min(0).default(0)
+  offset: z.number().min(0).default(0),
 });
 
 export type AuditSearchFilters = z.infer<typeof AuditSearchFiltersSchema>;
@@ -109,19 +109,23 @@ export const AuditStatsSchema = z.object({
   eventsByType: z.record(z.number()),
   eventsByOutcome: z.record(z.number()),
   eventsBySeverity: z.record(z.number()),
-  topUsers: z.array(z.object({
-    userId: IDSchema,
-    eventCount: z.number()
-  })),
-  topResources: z.array(z.object({
-    resourceType: z.string(),
-    eventCount: z.number()
-  })),
+  topUsers: z.array(
+    z.object({
+      userId: IDSchema,
+      eventCount: z.number(),
+    })
+  ),
+  topResources: z.array(
+    z.object({
+      resourceType: z.string(),
+      eventCount: z.number(),
+    })
+  ),
   timeRange: z.object({
     startDate: z.date(),
-    endDate: z.date()
+    endDate: z.date(),
   }),
-  generatedAt: z.date()
+  generatedAt: z.date(),
 });
 
 export type AuditStats = z.infer<typeof AuditStatsSchema>;
@@ -132,7 +136,7 @@ export const AuditExportConfigSchema = z.object({
   filters: AuditSearchFiltersSchema,
   includeDetails: z.boolean().default(true),
   includeMetadata: z.boolean().default(false),
-  compressionLevel: z.enum(['none', 'low', 'medium', 'high']).default('medium')
+  compressionLevel: z.enum(['none', 'low', 'medium', 'high']).default('medium'),
 });
 
 export type AuditExportConfig = z.infer<typeof AuditExportConfigSchema>;
@@ -143,28 +147,30 @@ export const ComplianceReportSchema = z.object({
   reportType: z.enum(['sox', 'gdpr', 'hipaa', 'pci', 'custom']),
   period: z.object({
     startDate: z.date(),
-    endDate: z.date()
+    endDate: z.date(),
   }),
   metrics: z.object({
     totalEvents: z.number(),
     complianceViolations: z.number(),
     securityIncidents: z.number(),
     dataAccessEvents: z.number(),
-    unauthorizedAttempts: z.number()
+    unauthorizedAttempts: z.number(),
   }),
-  findings: z.array(z.object({
-    category: z.string(),
-    severity: z.enum(['low', 'medium', 'high', 'critical']),
-    description: z.string(),
-    recommendation: z.string(),
-    affectedResources: z.array(z.string())
-  })),
+  findings: z.array(
+    z.object({
+      category: z.string(),
+      severity: z.enum(['low', 'medium', 'high', 'critical']),
+      description: z.string(),
+      recommendation: z.string(),
+      affectedResources: z.array(z.string()),
+    })
+  ),
   recommendations: z.array(z.string()),
   includeMetrics: z.boolean().default(true),
   includeRecommendations: z.boolean().default(true),
   format: z.enum(['pdf', 'html', 'json']).default('pdf'),
   generatedAt: z.date(),
-  generatedBy: IDSchema
+  generatedBy: IDSchema,
 });
 
 export type ComplianceReport = z.infer<typeof ComplianceReportSchema>;
@@ -174,7 +180,7 @@ export const UserActivitySummarySchema = z.object({
   userId: IDSchema,
   period: z.object({
     startDate: z.date(),
-    endDate: z.date()
+    endDate: z.date(),
   }),
   totalEvents: z.number(),
   eventsByType: z.record(z.number()),
@@ -183,12 +189,14 @@ export const UserActivitySummarySchema = z.object({
   resourcesAccessed: z.array(z.string()),
   lastActivity: z.date().optional(),
   riskScore: z.number().min(0).max(10).default(0),
-  anomalies: z.array(z.object({
-    type: z.string(),
-    description: z.string(),
-    severity: z.enum(['low', 'medium', 'high']),
-    timestamp: z.date()
-  }))
+  anomalies: z.array(
+    z.object({
+      type: z.string(),
+      description: z.string(),
+      severity: z.enum(['low', 'medium', 'high']),
+      timestamp: z.date(),
+    })
+  ),
 });
 
 export type UserActivitySummary = z.infer<typeof UserActivitySummarySchema>;
@@ -201,7 +209,7 @@ export const AuditCleanupResultSchema = z.object({
   eventTypesProcessed: z.array(z.string()),
   oldestDeletedDate: z.date().optional(),
   newestDeletedDate: z.date().optional(),
-  processedAt: z.date()
+  processedAt: z.date(),
 });
 
-export type AuditCleanupResult = z.infer<typeof AuditCleanupResultSchema>; 
+export type AuditCleanupResult = z.infer<typeof AuditCleanupResultSchema>;

@@ -1,11 +1,7 @@
 import { Elysia } from 'elysia';
 import { z } from 'zod';
 import { logger, ApiError } from '@uaip/utils';
-import {
-  AgentCreateRequestSchema,
-  AgentUpdateSchema,
-  AgentRole
-} from '@uaip/types';
+import { AgentCreateRequestSchema, AgentUpdateSchema, AgentRole } from '@uaip/types';
 import { AgentTransformationService } from './agentTransformationService.js';
 
 // Validation metadata interface
@@ -20,7 +16,6 @@ export interface ValidationMeta {
  * Handles both persona and agent formats with comprehensive validation
  */
 export class AgentValidationMiddleware {
-
   /**
    * Elysia plugin for agent creation validation with persona transformation support
    */
@@ -35,8 +30,8 @@ export class AgentValidationMiddleware {
             return {
               validationError: {
                 error: 'Request body is required and must be an object',
-                code: 'INVALID_REQUEST_BODY'
-              }
+                code: 'INVALID_REQUEST_BODY',
+              },
             };
           }
 
@@ -45,7 +40,7 @@ export class AgentValidationMiddleware {
             hasRole: !!rawData.role,
             hasCapabilities: !!rawData.capabilities,
             hasPersona: !!rawData.persona,
-            inputFormat: AgentValidationMiddleware.detectInputFormat(rawData)
+            inputFormat: AgentValidationMiddleware.detectInputFormat(rawData),
           });
 
           const needsTransformation = AgentValidationMiddleware.needsPersonaTransformation(rawData);
@@ -55,20 +50,21 @@ export class AgentValidationMiddleware {
           if (needsTransformation) {
             logger.info('Applying persona transformation', { name: rawData.name });
 
-            const transformedData = AgentTransformationService.transformPersonaToAgentRequest(rawData);
+            const transformedData =
+              AgentTransformationService.transformPersonaToAgentRequest(rawData);
             validatedData = AgentCreateRequestSchema.parse(transformedData);
 
             logger.info('Persona transformation and validation successful', {
               originalRole: rawData.role || rawData.persona?.role,
               transformedRole: validatedData.role,
-              capabilities: validatedData.capabilities?.length
+              capabilities: validatedData.capabilities?.length,
             });
           } else {
             validatedData = AgentCreateRequestSchema.parse(rawData);
 
             logger.info('Direct agent validation successful', {
               role: validatedData.role,
-              capabilities: validatedData.capabilities?.length
+              capabilities: validatedData.capabilities?.length,
             });
           }
 
@@ -78,14 +74,13 @@ export class AgentValidationMiddleware {
           const validationMeta: ValidationMeta = {
             transformationApplied: needsTransformation,
             originalFormat: AgentValidationMiddleware.detectInputFormat(rawData),
-            validatedAt: new Date()
+            validatedAt: new Date(),
           };
 
           return {
             validatedBody: validatedData,
-            validationMeta
+            validationMeta,
           };
-
         } catch (error) {
           return AgentValidationMiddleware.handleValidationError(error, 'agent creation', set);
         }
@@ -107,8 +102,8 @@ export class AgentValidationMiddleware {
             return {
               validationError: {
                 error: 'Request body is required and must be an object',
-                code: 'INVALID_REQUEST_BODY'
-              }
+                code: 'INVALID_REQUEST_BODY',
+              },
             };
           }
 
@@ -125,14 +120,13 @@ export class AgentValidationMiddleware {
           const validationMeta: ValidationMeta = {
             transformationApplied: false,
             originalFormat: 'agent-update',
-            validatedAt: new Date()
+            validatedAt: new Date(),
           };
 
           return {
             validatedBody: validatedData,
-            validationMeta
+            validationMeta,
           };
-
         } catch (error) {
           return AgentValidationMiddleware.handleValidationError(error, 'agent update', set);
         }
@@ -149,13 +143,27 @@ export class AgentValidationMiddleware {
         try {
           const querySchema = z.object({
             role: z.nativeEnum(AgentRole).optional(),
-            isActive: z.string().transform(val => val === 'true').optional(),
-            capabilities: z.string().transform(val => val.split(',')).optional(),
+            isActive: z
+              .string()
+              .transform((val) => val === 'true')
+              .optional(),
+            capabilities: z
+              .string()
+              .transform((val) => val.split(','))
+              .optional(),
             securityLevel: z.enum(['low', 'medium', 'high', 'critical']).optional(),
-            limit: z.string().transform(val => parseInt(val, 10)).refine(val => val > 0 && val <= 100).optional(),
-            offset: z.string().transform(val => parseInt(val, 10)).refine(val => val >= 0).optional(),
+            limit: z
+              .string()
+              .transform((val) => parseInt(val, 10))
+              .refine((val) => val > 0 && val <= 100)
+              .optional(),
+            offset: z
+              .string()
+              .transform((val) => parseInt(val, 10))
+              .refine((val) => val >= 0)
+              .optional(),
             sortBy: z.enum(['name', 'role', 'createdAt', 'lastActiveAt']).optional(),
-            sortOrder: z.enum(['asc', 'desc']).optional()
+            sortOrder: z.enum(['asc', 'desc']).optional(),
           });
 
           const validatedQuery = querySchema.parse(query);
@@ -163,14 +171,13 @@ export class AgentValidationMiddleware {
           const validationMeta: ValidationMeta = {
             transformationApplied: false,
             originalFormat: 'query-parameters',
-            validatedAt: new Date()
+            validatedAt: new Date(),
           };
 
           return {
             validatedQuery,
-            validationMeta
+            validationMeta,
           };
-
         } catch (error) {
           return AgentValidationMiddleware.handleValidationError(error, 'agent query', set);
         }
@@ -182,7 +189,8 @@ export class AgentValidationMiddleware {
    * Detects if the input needs persona transformation
    */
   private static needsPersonaTransformation(input: any): boolean {
-    const hasPersonaStructure = input.persona ||
+    const hasPersonaStructure =
+      input.persona ||
       (input.role && !Object.values(AgentRole).includes(input.role)) ||
       (input.expertise && !input.capabilities) ||
       input.traits ||
@@ -226,7 +234,7 @@ export class AgentValidationMiddleware {
     if (!Object.values(AgentRole).includes(role)) {
       throw new ApiError(400, `Invalid agent role: ${role}`, 'INVALID_ROLE', {
         validRoles: Object.values(AgentRole),
-        hint: 'Use AgentTransformationService.mapPersonaRoleToAgentRole() for persona roles'
+        hint: 'Use AgentTransformationService.mapPersonaRoleToAgentRole() for persona roles',
       });
     }
   }
@@ -239,12 +247,16 @@ export class AgentValidationMiddleware {
       throw new ApiError(400, 'Capabilities must be a non-empty array', 'INVALID_CAPABILITIES');
     }
 
-    const invalidCapabilities = capabilities.filter(cap =>
-      typeof cap !== 'string' || cap.trim().length === 0
+    const invalidCapabilities = capabilities.filter(
+      (cap) => typeof cap !== 'string' || cap.trim().length === 0
     );
 
     if (invalidCapabilities.length > 0) {
-      throw new ApiError(400, 'All capabilities must be non-empty strings', 'INVALID_CAPABILITY_FORMAT');
+      throw new ApiError(
+        400,
+        'All capabilities must be non-empty strings',
+        'INVALID_CAPABILITY_FORMAT'
+      );
     }
 
     if (capabilities.length > 50) {
@@ -273,11 +285,17 @@ export class AgentValidationMiddleware {
    */
   private static validateConfiguration(config: any, role: AgentRole): void {
     if (config.analysisDepth === 'advanced' && role === AgentRole.ASSISTANT) {
-      logger.warn('Advanced analysis depth for assistant role', { role, analysisDepth: config.analysisDepth });
+      logger.warn('Advanced analysis depth for assistant role', {
+        role,
+        analysisDepth: config.analysisDepth,
+      });
     }
 
     if (config.collaborationMode === 'independent' && role === AgentRole.ASSISTANT) {
-      logger.warn('Independent collaboration mode for assistant role', { role, collaborationMode: config.collaborationMode });
+      logger.warn('Independent collaboration mode for assistant role', {
+        role,
+        collaborationMode: config.collaborationMode,
+      });
     }
 
     if (config.temperature && (config.temperature < 0 || config.temperature > 2)) {
@@ -288,11 +306,15 @@ export class AgentValidationMiddleware {
   /**
    * Enhanced error handling with transformation context
    */
-  private static handleValidationError(error: any, operation: string, set: { status?: number | string }): any {
+  private static handleValidationError(
+    error: any,
+    operation: string,
+    set: { status?: number | string }
+  ): any {
     logger.error(`Agent validation error during ${operation}`, {
       error: error.message,
       stack: error.stack,
-      operation
+      operation,
     });
 
     if (error instanceof z.ZodError) {
@@ -302,16 +324,16 @@ export class AgentValidationMiddleware {
           success: false,
           message: 'Request validation failed',
           code: 'VALIDATION_ERROR',
-          details: error.errors.map(err => ({
+          details: error.errors.map((err) => ({
             field: err.path.join('.'),
             message: err.message,
             code: err.code,
-            received: 'received' in err ? err.received : undefined
+            received: 'received' in err ? err.received : undefined,
           })),
           hint: 'If sending persona data, ensure it includes name, role, and expertise/capabilities fields',
           supportedFormats: ['agent-standard', 'persona-legacy'],
-          transformationStats: AgentTransformationService.getTransformationStats()
-        }
+          transformationStats: AgentTransformationService.getTransformationStats(),
+        },
       };
     } else if (error instanceof ApiError) {
       set.status = error.statusCode;
@@ -320,8 +342,8 @@ export class AgentValidationMiddleware {
           success: false,
           message: error.message,
           code: error.code,
-          details: error.details
-        }
+          details: error.details,
+        },
       };
     } else {
       set.status = 500;
@@ -329,8 +351,8 @@ export class AgentValidationMiddleware {
         validationError: {
           success: false,
           message: `Internal validation error during ${operation}`,
-          code: 'INTERNAL_VALIDATION_ERROR'
-        }
+          code: 'INTERNAL_VALIDATION_ERROR',
+        },
       };
     }
   }

@@ -7,6 +7,7 @@ The Unified Agent Intelligence Platform (UAIP) is built on a microservices archi
 ## Core Components
 
 ### 1. Agent Intelligence Service (Port 3001)
+
 - **Purpose**: Manages agent personas, context analysis, and decision-making
 - **Key Features**:
   - Context-aware decision engine
@@ -16,6 +17,7 @@ The Unified Agent Intelligence Platform (UAIP) is built on a microservices archi
 - **Implementation Status**: ✅ COMPLETE
 
 ### 2. Orchestration Pipeline Service (Port 3002)
+
 - **Purpose**: Coordinates workflows and manages operations
 - **Key Features**:
   - Asynchronous operation pipeline
@@ -25,6 +27,7 @@ The Unified Agent Intelligence Platform (UAIP) is built on a microservices archi
 - **Implementation Status**: ✅ COMPLETE
 
 ### 3. Capability Registry Service (Port 3003)
+
 - **Purpose**: Manages tools and execution capabilities
 - **Key Features**:
   - Tool registration and discovery
@@ -34,6 +37,7 @@ The Unified Agent Intelligence Platform (UAIP) is built on a microservices archi
 - **Implementation Status**: ✅ COMPLETE
 
 ### 4. Security Gateway Service (Port 3004)
+
 - **Purpose**: Handles authentication, authorization, and security
 - **Key Features**:
   - JWT-based authentication
@@ -43,6 +47,7 @@ The Unified Agent Intelligence Platform (UAIP) is built on a microservices archi
 - **Implementation Status**: ✅ COMPLETE
 
 ### 5. Discussion Orchestration Service (Port 3005)
+
 - **Purpose**: Manages real-time collaborative discussions
 - **Key Features**:
   - WebSocket-based real-time updates
@@ -54,6 +59,7 @@ The Unified Agent Intelligence Platform (UAIP) is built on a microservices archi
 ## Data Models
 
 ### Agent State Model
+
 ```typescript
 interface AgentState {
   id: string;
@@ -84,6 +90,7 @@ interface AgentCapabilities {
 ```
 
 ### Operation Model
+
 ```typescript
 interface Operation {
   id: string;
@@ -102,13 +109,14 @@ enum OperationType {
   TOOL_EXECUTION = 'tool_execution',
   ARTIFACT_GENERATION = 'artifact_generation',
   HYBRID_WORKFLOW = 'hybrid_workflow',
-  APPROVAL_REQUEST = 'approval_request'
+  APPROVAL_REQUEST = 'approval_request',
 }
 ```
 
 ## Infrastructure
 
 ### Database Layer
+
 - **PostgreSQL**: Primary relational database
   - User management
   - Operation history
@@ -128,6 +136,7 @@ enum OperationType {
   - Temporary storage
 
 ### Message Queue
+
 - **RabbitMQ**: Event messaging
   - Service communication
   - Event distribution
@@ -135,6 +144,7 @@ enum OperationType {
   - Async processing
 
 ### API Gateway
+
 - **Nginx-based Gateway**: Central entry point
   - Route management
   - Rate limiting
@@ -144,18 +154,21 @@ enum OperationType {
 ## Security Architecture
 
 ### Authentication System
+
 - JWT-based token authentication
 - Refresh token rotation
 - Session management
 - Multi-factor authentication support
 
 ### Authorization System
+
 - Role-based access control (RBAC)
 - Fine-grained permissions
 - Resource-level access control
 - Action-based restrictions
 
 ### Audit System
+
 - Comprehensive audit logging
 - Operation tracking
 - Security event monitoring
@@ -164,12 +177,14 @@ enum OperationType {
 ## Performance Considerations
 
 ### Caching Strategy
+
 - Redis-based caching
 - Multi-level cache architecture
 - Cache invalidation patterns
 - Performance metrics tracking
 
 ### Scaling Approach
+
 - Horizontal service scaling
 - Database replication
 - Load balancing
@@ -178,12 +193,14 @@ enum OperationType {
 ## Integration Patterns
 
 ### Service Communication
+
 - REST APIs for synchronous operations
 - WebSockets for real-time updates
 - Message queues for async operations
 - Event-driven architecture
 
 ### External Integration
+
 - Webhook support
 - API versioning
 - Rate limiting
@@ -192,18 +209,21 @@ enum OperationType {
 ## Monitoring and Operations
 
 ### Health Monitoring
+
 - Service health checks
 - Database monitoring
 - Queue monitoring
 - Performance metrics
 
 ### Logging System
+
 - Centralized logging
 - Log levels and categories
 - Error tracking
 - Performance logging
 
 ### Metrics Collection
+
 - Prometheus metrics
 - Grafana dashboards
 - Custom metrics
@@ -212,9 +232,10 @@ enum OperationType {
 ## Development Workflow
 
 ### Code Organization
+
 ```
 ├── services/                 # Microservices
-│   ├── agent-intelligence/  
+│   ├── agent-intelligence/
 │   ├── orchestration/
 │   ├── capability-registry/
 │   ├── security-gateway/
@@ -230,6 +251,7 @@ enum OperationType {
 ```
 
 ### Deployment Process
+
 1. Service building and testing
 2. Container image creation
 3. Infrastructure provisioning
@@ -239,12 +261,14 @@ enum OperationType {
 ## Future Architecture Considerations
 
 ### Planned Enhancements
+
 - Mobile application support
 - Advanced analytics integration
 - Machine learning pipeline
 - Enhanced security features
 
 ### Scalability Roadmap
+
 - Global deployment support
 - Multi-region architecture
 - Enhanced caching system

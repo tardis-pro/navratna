@@ -12,7 +12,7 @@ export enum ConceptType {
   ROLE = 'role',
   FUNCTION = 'function',
   PRINCIPLE = 'principle',
-  PATTERN = 'pattern'
+  PATTERN = 'pattern',
 }
 
 export enum ConceptCategory {
@@ -23,7 +23,7 @@ export enum ConceptCategory {
   THEORETICAL = 'theoretical',
   PRACTICAL = 'practical',
   ABSTRACT = 'abstract',
-  CONCRETE = 'concrete'
+  CONCRETE = 'concrete',
 }
 
 export enum ConceptStatus {
@@ -31,14 +31,14 @@ export enum ConceptStatus {
   REVIEW = 'review',
   VALIDATED = 'validated',
   PUBLISHED = 'published',
-  DEPRECATED = 'deprecated'
+  DEPRECATED = 'deprecated',
 }
 
 export enum ConceptComplexity {
   BASIC = 'basic',
   INTERMEDIATE = 'intermediate',
   ADVANCED = 'advanced',
-  EXPERT = 'expert'
+  EXPERT = 'expert',
 }
 
 @Entity('concept_definitions')
@@ -62,28 +62,28 @@ export class ConceptDefinitionEntity extends BaseEntity {
   @Column({
     type: 'enum',
     enum: ConceptType,
-    name: 'concept_type'
+    name: 'concept_type',
   })
   conceptType!: ConceptType;
 
   @Column({
     type: 'enum',
     enum: ConceptCategory,
-    default: ConceptCategory.TECHNICAL
+    default: ConceptCategory.TECHNICAL,
   })
   category!: ConceptCategory;
 
   @Column({
     type: 'enum',
     enum: ConceptStatus,
-    default: ConceptStatus.DRAFT
+    default: ConceptStatus.DRAFT,
   })
   status!: ConceptStatus;
 
   @Column({
     type: 'enum',
     enum: ConceptComplexity,
-    default: ConceptComplexity.INTERMEDIATE
+    default: ConceptComplexity.INTERMEDIATE,
   })
   complexity!: ConceptComplexity;
 

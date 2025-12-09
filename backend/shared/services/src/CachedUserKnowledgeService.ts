@@ -1,13 +1,13 @@
 import { UserKnowledgeService } from './user-knowledge.service.js';
 import { KnowledgeGraphService } from './knowledge-graph/knowledge-graph.service.js';
-import { 
-  KnowledgeItem, 
+import {
+  KnowledgeItem,
   KnowledgeSearchRequest,
   KnowledgeSearchResponse,
   KnowledgeIngestRequest,
   KnowledgeIngestResponse,
   KnowledgeType,
-  SourceType
+  SourceType,
 } from '@uaip/types';
 import { redisCacheService } from './redis-cache.service.js';
 import { logger } from '@uaip/utils';
@@ -30,17 +30,17 @@ export class CachedUserKnowledgeService extends UserKnowledgeService {
 
   private readonly CACHE_KEYS = {
     USER_KNOWLEDGE_STATS: (userId: string) => `knowledge:stats:${userId}`,
-    KNOWLEDGE_SEARCH: (userId: string, query: string, filters: string) => 
+    KNOWLEDGE_SEARCH: (userId: string, query: string, filters: string) =>
       `knowledge:search:${userId}:${this.hashString(query + filters)}`,
-    KNOWLEDGE_BY_TAGS: (userId: string, tags: string[], limit: number) => 
+    KNOWLEDGE_BY_TAGS: (userId: string, tags: string[], limit: number) =>
       `knowledge:tags:${userId}:${tags.sort().join(',')}:${limit}`,
-    CONVERSATION_HISTORY: (userId: string, filters: string) => 
+    CONVERSATION_HISTORY: (userId: string, filters: string) =>
       `knowledge:conversations:${userId}:${this.hashString(filters)}`,
-    USER_PREFERENCES: (userId: string, type?: string) => 
+    USER_PREFERENCES: (userId: string, type?: string) =>
       `knowledge:preferences:${userId}:${type || 'all'}`,
-    CONVERSATION_PATTERNS: (userId: string, type?: string) => 
+    CONVERSATION_PATTERNS: (userId: string, type?: string) =>
       `knowledge:patterns:${userId}:${type || 'all'}`,
-    RELATED_KNOWLEDGE: (userId: string, itemId: string, relationshipTypes?: string[]) => 
+    RELATED_KNOWLEDGE: (userId: string, itemId: string, relationshipTypes?: string[]) =>
       `knowledge:related:${userId}:${itemId}:${relationshipTypes?.join(',') || 'all'}`,
     KNOWLEDGE_ITEM: (userId: string, itemId: string) => `knowledge:item:${userId}:${itemId}`,
   };
@@ -52,7 +52,10 @@ export class CachedUserKnowledgeService extends UserKnowledgeService {
   /**
    * Get user knowledge statistics with caching
    */
-  async getUserKnowledgeStats(userId: string, useCache = true): Promise<{
+  async getUserKnowledgeStats(
+    userId: string,
+    useCache = true
+  ): Promise<{
     totalItems: number;
     itemsByType: Record<string, number>;
     recentActivity: {
@@ -65,7 +68,7 @@ export class CachedUserKnowledgeService extends UserKnowledgeService {
     };
   }> {
     const cacheKey = this.CACHE_KEYS.USER_KNOWLEDGE_STATS(userId);
-    
+
     if (useCache) {
       const cached = await redisCacheService.get(cacheKey);
       if (cached) {
@@ -76,7 +79,7 @@ export class CachedUserKnowledgeService extends UserKnowledgeService {
 
     // Cache miss - get from database
     const stats = await super.getUserKnowledgeStats(userId);
-    
+
     // Cache the result
     if (useCache) {
       await redisCacheService.set(cacheKey, stats, this.CACHE_TTL.USER_KNOWLEDGE_STATS);
@@ -89,25 +92,36 @@ export class CachedUserKnowledgeService extends UserKnowledgeService {
   /**
    * Search user knowledge with caching
    */
-  async search(userId: string, request: Omit<KnowledgeSearchRequest, 'scope'>, useCache = true): Promise<KnowledgeSearchResponse> {
+  async search(
+    userId: string,
+    request: Omit<KnowledgeSearchRequest, 'scope'>,
+    useCache = true
+  ): Promise<KnowledgeSearchResponse> {
     const filtersString = JSON.stringify(request.filters || {});
     const cacheKey = this.CACHE_KEYS.KNOWLEDGE_SEARCH(userId, request.query, filtersString);
-    
+
     if (useCache) {
       const cached = await redisCacheService.get<KnowledgeSearchResponse>(cacheKey);
       if (cached) {
-        logger.debug('Knowledge search results retrieved from cache', { userId, query: request.query });
+        logger.debug('Knowledge search results retrieved from cache', {
+          userId,
+          query: request.query,
+        });
         return cached;
       }
     }
 
     // Cache miss - get from database
     const results = await super.search(userId, request);
-    
+
     // Cache the result
     if (useCache) {
       await redisCacheService.set(cacheKey, results, this.CACHE_TTL.KNOWLEDGE_SEARCH);
-      logger.debug('Knowledge search results cached', { userId, query: request.query, count: results.items.length });
+      logger.debug('Knowledge search results cached', {
+        userId,
+        query: request.query,
+        count: results.items.length,
+      });
     }
 
     return results;
@@ -116,9 +130,14 @@ export class CachedUserKnowledgeService extends UserKnowledgeService {
   /**
    * Get knowledge by tags with caching
    */
-  async getKnowledgeByTags(userId: string, tags: string[], limit: number = 20, useCache = true): Promise<KnowledgeItem[]> {
+  async getKnowledgeByTags(
+    userId: string,
+    tags: string[],
+    limit: number = 20,
+    useCache = true
+  ): Promise<KnowledgeItem[]> {
     const cacheKey = this.CACHE_KEYS.KNOWLEDGE_BY_TAGS(userId, tags, limit);
-    
+
     if (useCache) {
       const cached = await redisCacheService.get<KnowledgeItem[]>(cacheKey);
       if (cached) {
@@ -129,7 +148,7 @@ export class CachedUserKnowledgeService extends UserKnowledgeService {
 
     // Cache miss - get from database
     const items = await super.getKnowledgeByTags(userId, tags, limit);
-    
+
     // Cache the result
     if (useCache) {
       await redisCacheService.set(cacheKey, items, this.CACHE_TTL.KNOWLEDGE_BY_TAGS);
@@ -142,9 +161,13 @@ export class CachedUserKnowledgeService extends UserKnowledgeService {
   /**
    * Get knowledge item with caching
    */
-  async getKnowledgeItem(userId: string, itemId: string, useCache = true): Promise<KnowledgeItem | null> {
+  async getKnowledgeItem(
+    userId: string,
+    itemId: string,
+    useCache = true
+  ): Promise<KnowledgeItem | null> {
     const cacheKey = this.CACHE_KEYS.KNOWLEDGE_ITEM(userId, itemId);
-    
+
     if (useCache) {
       const cached = await redisCacheService.get<KnowledgeItem | null>(cacheKey);
       if (cached) {
@@ -155,7 +178,7 @@ export class CachedUserKnowledgeService extends UserKnowledgeService {
 
     // Cache miss - get from database
     const item = await super.getKnowledgeItem(userId, itemId);
-    
+
     // Cache the result
     if (useCache) {
       await redisCacheService.set(cacheKey, item, this.CACHE_TTL.KNOWLEDGE_ITEM);
@@ -180,7 +203,7 @@ export class CachedUserKnowledgeService extends UserKnowledgeService {
   ): Promise<KnowledgeItem[]> {
     const filtersString = JSON.stringify(filters || {});
     const cacheKey = this.CACHE_KEYS.CONVERSATION_HISTORY(userId, filtersString);
-    
+
     if (useCache) {
       const cached = await redisCacheService.get<KnowledgeItem[]>(cacheKey);
       if (cached) {
@@ -191,7 +214,7 @@ export class CachedUserKnowledgeService extends UserKnowledgeService {
 
     // Cache miss - get from database
     const history = await super.getConversationHistory(userId, filters);
-    
+
     // Cache the result
     if (useCache) {
       await redisCacheService.set(cacheKey, history, this.CACHE_TTL.CONVERSATION_HISTORY);
@@ -204,15 +227,21 @@ export class CachedUserKnowledgeService extends UserKnowledgeService {
   /**
    * Get user preferences with caching
    */
-  async getUserPreferences(userId: string, type?: string, useCache = true): Promise<Array<{
-    type: string;
-    value: any;
-    confidence: number;
-    source: string;
-    updatedAt: Date;
-  }>> {
+  async getUserPreferences(
+    userId: string,
+    type?: string,
+    useCache = true
+  ): Promise<
+    Array<{
+      type: string;
+      value: any;
+      confidence: number;
+      source: string;
+      updatedAt: Date;
+    }>
+  > {
     const cacheKey = this.CACHE_KEYS.USER_PREFERENCES(userId, type);
-    
+
     if (useCache) {
       const cached = await redisCacheService.get(cacheKey);
       if (cached) {
@@ -223,7 +252,7 @@ export class CachedUserKnowledgeService extends UserKnowledgeService {
 
     // Cache miss - get from database
     const preferences = await super.getUserPreferences(userId, type);
-    
+
     // Cache the result
     if (useCache) {
       await redisCacheService.set(cacheKey, preferences, this.CACHE_TTL.USER_PREFERENCES);
@@ -236,16 +265,22 @@ export class CachedUserKnowledgeService extends UserKnowledgeService {
   /**
    * Get conversation patterns with caching
    */
-  async getConversationPatterns(userId: string, type?: string, useCache = true): Promise<Array<{
-    type: string;
-    description: string;
-    frequency: number;
-    confidence: number;
-    examples: string[];
-    lastObserved: Date;
-  }>> {
+  async getConversationPatterns(
+    userId: string,
+    type?: string,
+    useCache = true
+  ): Promise<
+    Array<{
+      type: string;
+      description: string;
+      frequency: number;
+      confidence: number;
+      examples: string[];
+      lastObserved: Date;
+    }>
+  > {
     const cacheKey = this.CACHE_KEYS.CONVERSATION_PATTERNS(userId, type);
-    
+
     if (useCache) {
       const cached = await redisCacheService.get(cacheKey);
       if (cached) {
@@ -256,7 +291,7 @@ export class CachedUserKnowledgeService extends UserKnowledgeService {
 
     // Cache miss - get from database
     const patterns = await super.getConversationPatterns(userId, type);
-    
+
     // Cache the result
     if (useCache) {
       await redisCacheService.set(cacheKey, patterns, this.CACHE_TTL.CONVERSATION_PATTERNS);
@@ -269,24 +304,38 @@ export class CachedUserKnowledgeService extends UserKnowledgeService {
   /**
    * Find related knowledge with caching
    */
-  async findRelatedKnowledge(userId: string, itemId: string, relationshipTypes?: string[], useCache = true): Promise<KnowledgeItem[]> {
+  async findRelatedKnowledge(
+    userId: string,
+    itemId: string,
+    relationshipTypes?: string[],
+    useCache = true
+  ): Promise<KnowledgeItem[]> {
     const cacheKey = this.CACHE_KEYS.RELATED_KNOWLEDGE(userId, itemId, relationshipTypes);
-    
+
     if (useCache) {
       const cached = await redisCacheService.get<KnowledgeItem[]>(cacheKey);
       if (cached) {
-        logger.debug('Related knowledge retrieved from cache', { userId, itemId, relationshipTypes });
+        logger.debug('Related knowledge retrieved from cache', {
+          userId,
+          itemId,
+          relationshipTypes,
+        });
         return cached;
       }
     }
 
     // Cache miss - get from database
     const related = await super.findRelatedKnowledge(userId, itemId, relationshipTypes);
-    
+
     // Cache the result
     if (useCache) {
       await redisCacheService.set(cacheKey, related, this.CACHE_TTL.RELATED_KNOWLEDGE);
-      logger.debug('Related knowledge cached', { userId, itemId, relationshipTypes, count: related.length });
+      logger.debug('Related knowledge cached', {
+        userId,
+        itemId,
+        relationshipTypes,
+        count: related.length,
+      });
     }
 
     return related;
@@ -305,8 +354,12 @@ export class CachedUserKnowledgeService extends UserKnowledgeService {
     useCache = true
   ): Promise<KnowledgeItem[]> {
     const optionsString = JSON.stringify(options || {});
-    const cacheKey = this.CACHE_KEYS.KNOWLEDGE_SEARCH(userId, `conversations:${query}`, optionsString);
-    
+    const cacheKey = this.CACHE_KEYS.KNOWLEDGE_SEARCH(
+      userId,
+      `conversations:${query}`,
+      optionsString
+    );
+
     if (useCache) {
       const cached = await redisCacheService.get<KnowledgeItem[]>(cacheKey);
       if (cached) {
@@ -317,7 +370,7 @@ export class CachedUserKnowledgeService extends UserKnowledgeService {
 
     // Cache miss - get from database
     const results = await super.searchConversations(userId, query, options);
-    
+
     // Cache the result
     if (useCache) {
       await redisCacheService.set(cacheKey, results, this.CACHE_TTL.KNOWLEDGE_SEARCH);
@@ -330,25 +383,32 @@ export class CachedUserKnowledgeService extends UserKnowledgeService {
   /**
    * Add knowledge and invalidate cache
    */
-  async addKnowledge(userId: string, items: KnowledgeIngestRequest[]): Promise<KnowledgeIngestResponse> {
+  async addKnowledge(
+    userId: string,
+    items: KnowledgeIngestRequest[]
+  ): Promise<KnowledgeIngestResponse> {
     const result = await super.addKnowledge(userId, items);
-    
+
     // Invalidate relevant caches
     await this.invalidateUserKnowledgeCache(userId);
-    
+
     return result;
   }
 
   /**
    * Update knowledge and invalidate cache
    */
-  async updateKnowledge(userId: string, itemId: string, updates: Partial<KnowledgeItem>): Promise<KnowledgeItem> {
+  async updateKnowledge(
+    userId: string,
+    itemId: string,
+    updates: Partial<KnowledgeItem>
+  ): Promise<KnowledgeItem> {
     const result = await super.updateKnowledge(userId, itemId, updates);
-    
+
     // Invalidate relevant caches
     await this.invalidateUserKnowledgeCache(userId);
     await this.invalidateKnowledgeItemCache(userId, itemId);
-    
+
     return result;
   }
 
@@ -357,7 +417,7 @@ export class CachedUserKnowledgeService extends UserKnowledgeService {
    */
   async deleteKnowledge(userId: string, itemId: string): Promise<void> {
     await super.deleteKnowledge(userId, itemId);
-    
+
     // Invalidate relevant caches
     await this.invalidateUserKnowledgeCache(userId);
     await this.invalidateKnowledgeItemCache(userId, itemId);
@@ -378,12 +438,18 @@ export class CachedUserKnowledgeService extends UserKnowledgeService {
       sentiment?: string;
     }
   ): Promise<KnowledgeItem> {
-    const result = await super.storeConversationMemory(userId, conversationId, userMessage, assistantResponse, metadata);
-    
+    const result = await super.storeConversationMemory(
+      userId,
+      conversationId,
+      userMessage,
+      assistantResponse,
+      metadata
+    );
+
     // Invalidate relevant caches
     await this.invalidateUserKnowledgeCache(userId);
     await this.invalidateConversationCache(userId);
-    
+
     return result;
   }
 
@@ -400,10 +466,10 @@ export class CachedUserKnowledgeService extends UserKnowledgeService {
     }
   ): Promise<KnowledgeItem> {
     const result = await super.storeUserPreference(userId, preference);
-    
+
     // Invalidate preference cache
     await this.invalidateUserPreferencesCache(userId);
-    
+
     return result;
   }
 
@@ -421,10 +487,10 @@ export class CachedUserKnowledgeService extends UserKnowledgeService {
     }
   ): Promise<KnowledgeItem> {
     const result = await super.storeConversationPattern(userId, pattern);
-    
+
     // Invalidate pattern cache
     await this.invalidateConversationPatternsCache(userId);
-    
+
     return result;
   }
 
@@ -477,9 +543,7 @@ export class CachedUserKnowledgeService extends UserKnowledgeService {
    * Invalidate user preferences cache
    */
   async invalidateUserPreferencesCache(userId: string): Promise<void> {
-    const patterns = [
-      `knowledge:preferences:${userId}:*`,
-    ];
+    const patterns = [`knowledge:preferences:${userId}:*`];
 
     for (const pattern of patterns) {
       const keys = await redisCacheService.keys(pattern);
@@ -495,9 +559,7 @@ export class CachedUserKnowledgeService extends UserKnowledgeService {
    * Invalidate conversation patterns cache
    */
   async invalidateConversationPatternsCache(userId: string): Promise<void> {
-    const patterns = [
-      `knowledge:patterns:${userId}:*`,
-    ];
+    const patterns = [`knowledge:patterns:${userId}:*`];
 
     for (const pattern of patterns) {
       const keys = await redisCacheService.keys(pattern);
@@ -537,20 +599,20 @@ export class CachedUserKnowledgeService extends UserKnowledgeService {
    */
   async warmUpUserCache(userId: string): Promise<void> {
     logger.info('Warming up user knowledge cache...', { userId });
-    
+
     try {
       // Pre-load user knowledge stats
       await this.getUserKnowledgeStats(userId, true);
-      
+
       // Pre-load recent conversations
       await this.getConversationHistory(userId, { limit: 20 }, true);
-      
+
       // Pre-load user preferences
       await this.getUserPreferences(userId, undefined, true);
-      
+
       // Pre-load conversation patterns
       await this.getConversationPatterns(userId, undefined, true);
-      
+
       logger.info('User knowledge cache warmed up successfully', { userId });
     } catch (error) {
       logger.error('Error warming up user knowledge cache', { userId, error: error.message });
@@ -591,9 +653,9 @@ export class CachedUserKnowledgeService extends UserKnowledgeService {
     stats.searchCacheCount = searchKeys.length;
 
     return {
-      cached: Object.values(stats).some(cached => cached) || stats.searchCacheCount > 0,
+      cached: Object.values(stats).some((cached) => cached) || stats.searchCacheCount > 0,
       keys: [...keys, ...searchKeys],
-      stats
+      stats,
     };
   }
 
@@ -604,7 +666,7 @@ export class CachedUserKnowledgeService extends UserKnowledgeService {
     let hash = 0;
     for (let i = 0; i < str.length; i++) {
       const char = str.charCodeAt(i);
-      hash = ((hash << 5) - hash) + char;
+      hash = (hash << 5) - hash + char;
       hash = hash & hash; // Convert to 32-bit integer
     }
     return Math.abs(hash).toString(16);

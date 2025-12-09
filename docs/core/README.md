@@ -9,6 +9,7 @@
 The **Unified Agent Intelligence Platform (UAIP)** is a production-ready backend infrastructure for multi-agent collaboration, intelligent discussion orchestration, and capability-driven automation. The system provides a comprehensive foundation for building AI-powered collaborative platforms.
 
 ### Key Capabilities
+
 - **Multi-Agent Collaboration**: Sophisticated agent personas with contextual awareness
 - **Real-time Discussion Management**: WebSocket-based collaborative discussions
 - **Intelligent Tool Execution**: Sandboxed capability registry with security controls
@@ -18,6 +19,7 @@ The **Unified Agent Intelligence Platform (UAIP)** is a production-ready backend
 ## 🏗️ System Architecture
 
 ### Backend Services (All Operational ✅)
+
 - **Agent Intelligence Service** (Port 3001) - Context analysis, persona management
 - **Orchestration Pipeline Service** (Port 3002) - Workflow coordination, operation management
 - **Capability Registry Service** (Port 3003) - Tool management, sandboxed execution
@@ -26,6 +28,7 @@ The **Unified Agent Intelligence Platform (UAIP)** is a production-ready backend
 - **API Gateway** (Port 8081) - Centralized routing, rate limiting, documentation
 
 ### Infrastructure (All Operational ✅)
+
 - **PostgreSQL** (Port 5432) - Primary database with complete schema
 - **Neo4j** (Port 7474/7687) - Graph database for relationships
 - **Redis** (Port 6379) - Caching and session management
@@ -34,11 +37,13 @@ The **Unified Agent Intelligence Platform (UAIP)** is a production-ready backend
 ## 🚀 Quick Start
 
 ### Prerequisites
+
 - Node.js >= 20.x
 - Docker & Docker Compose
 - Git
 
 ### Basic Setup
+
 ```bash
 # Clone repository
 git clone <repository-url>
@@ -59,6 +64,7 @@ npm run dev:frontend
 ```
 
 ### Access Points
+
 - Frontend: http://localhost:3000
 - API Gateway: http://localhost:8081
 - API Documentation: http://localhost:8081/docs
@@ -67,12 +73,14 @@ npm run dev:frontend
 ## 📚 Documentation Structure
 
 ### Core Documentation
+
 - [Development Setup](DEVELOPMENT.md) - Complete development environment setup
 - [Architecture](ARCHITECTURE.md) - System design and technical specifications
 - [API Reference](API_REFERENCE.md) - API documentation and usage
 - [Deployment](DEPLOYMENT.md) - Deployment and operations guide
 
 ### Technical Guides
+
 - [Security](../technical/SECURITY.md) - Security implementation details
 - [Integration](../technical/INTEGRATION.md) - Service integration patterns
 - [Database](../technical/DATABASE.md) - Data models and schema
@@ -80,6 +88,7 @@ npm run dev:frontend
 - [Performance](../technical/PERFORMANCE.md) - Optimization and monitoring
 
 ### Feature Documentation
+
 - [Agents](../features/AGENTS.md) - Agent system and personas
 - [Capabilities](../features/CAPABILITIES.md) - Tool registry and execution
 - [Discussions](../features/DISCUSSIONS.md) - Real-time collaboration
@@ -87,6 +96,7 @@ npm run dev:frontend
 - [UI Components](../features/UI_COMPONENTS.md) - Frontend architecture
 
 ### Project Management
+
 - [Changelog](../project/CHANGELOG.md) - Version history
 - [Contributing](../project/CONTRIBUTING.md) - Contribution guidelines
 - [Roadmap](../project/ROADMAP.md) - Future plans

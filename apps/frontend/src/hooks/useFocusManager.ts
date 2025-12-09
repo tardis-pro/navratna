@@ -25,9 +25,9 @@ export const useFocusManager = () => {
     elementId: null,
     startTime: null,
     isPreviewVisible: false,
-    previewPosition: null
+    previewPosition: null,
   });
-  
+
   const focusableElements = useRef<Map<string, FocusableElement>>(new Map());
   const hoverTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const previewTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -35,13 +35,13 @@ export const useFocusManager = () => {
   // Register a focusable element
   const registerElement = useCallback((element: FocusableElement) => {
     focusableElements.current.set(element.id, element);
-    
+
     // Add click listener for focus
     const handleClick = (e: Event) => {
       e.stopPropagation();
       setFocusedElement(element);
     };
-    
+
     // Add hover listeners for preview
     const handleMouseEnter = (e: MouseEvent) => {
       const rect = element.element.getBoundingClientRect();
@@ -51,42 +51,42 @@ export const useFocusManager = () => {
         isPreviewVisible: false,
         previewPosition: {
           x: rect.left + rect.width / 2,
-          y: rect.top - 10
-        }
+          y: rect.top - 10,
+        },
       });
-      
+
       // Clear any existing timeout
       if (hoverTimeoutRef.current) {
         clearTimeout(hoverTimeoutRef.current);
       }
-      
+
       // Set timeout for preview (10 seconds)
       hoverTimeoutRef.current = setTimeout(() => {
-        setHoverState(prev => ({
+        setHoverState((prev) => ({
           ...prev,
-          isPreviewVisible: true
+          isPreviewVisible: true,
         }));
       }, 10000);
     };
-    
+
     const handleMouseLeave = () => {
       if (hoverTimeoutRef.current) {
         clearTimeout(hoverTimeoutRef.current);
         hoverTimeoutRef.current = null;
       }
-      
+
       setHoverState({
         elementId: null,
         startTime: null,
         isPreviewVisible: false,
-        previewPosition: null
+        previewPosition: null,
       });
     };
-    
+
     element.element.addEventListener('click', handleClick);
     element.element.addEventListener('mouseenter', handleMouseEnter);
     element.element.addEventListener('mouseleave', handleMouseLeave);
-    
+
     // Return cleanup function
     return () => {
       element.element.removeEventListener('click', handleClick);
@@ -97,20 +97,23 @@ export const useFocusManager = () => {
   }, []);
 
   // Unregister element
-  const unregisterElement = useCallback((elementId: string) => {
-    focusableElements.current.delete(elementId);
-    if (focusedElement?.id === elementId) {
-      setFocusedElement(null);
-    }
-    if (hoverState.elementId === elementId) {
-      setHoverState({
-        elementId: null,
-        startTime: null,
-        isPreviewVisible: false,
-        previewPosition: null
-      });
-    }
-  }, [focusedElement?.id, hoverState.elementId]);
+  const unregisterElement = useCallback(
+    (elementId: string) => {
+      focusableElements.current.delete(elementId);
+      if (focusedElement?.id === elementId) {
+        setFocusedElement(null);
+      }
+      if (hoverState.elementId === elementId) {
+        setHoverState({
+          elementId: null,
+          startTime: null,
+          isPreviewVisible: false,
+          previewPosition: null,
+        });
+      }
+    },
+    [focusedElement?.id, hoverState.elementId]
+  );
 
   // Focus specific element programmatically
   const focusElement = useCallback((elementId: string) => {
@@ -124,11 +127,11 @@ export const useFocusManager = () => {
 
   // Close preview
   const closePreview = useCallback(() => {
-    setHoverState(prev => ({
+    setHoverState((prev) => ({
       ...prev,
-      isPreviewVisible: false
+      isPreviewVisible: false,
     }));
-    
+
     // Auto-close preview after 5 seconds
     if (previewTimeoutRef.current) {
       clearTimeout(previewTimeoutRef.current);
@@ -138,7 +141,7 @@ export const useFocusManager = () => {
         elementId: null,
         startTime: null,
         isPreviewVisible: false,
-        previewPosition: null
+        previewPosition: null,
       });
     }, 5000);
   }, []);
@@ -146,7 +149,7 @@ export const useFocusManager = () => {
   // Get preview data for current hovered element
   const getPreviewData = useCallback(() => {
     if (!hoverState.elementId || !hoverState.isPreviewVisible) return null;
-    
+
     const element = focusableElements.current.get(hoverState.elementId);
     return element?.preview || null;
   }, [hoverState.elementId, hoverState.isPreviewVisible]);
@@ -174,6 +177,6 @@ export const useFocusManager = () => {
     isFocused: (elementId: string) => focusedElement?.id === elementId,
     isHovered: (elementId: string) => hoverState.elementId === elementId,
     isPreviewVisible: hoverState.isPreviewVisible,
-    previewPosition: hoverState.previewPosition
+    previewPosition: hoverState.previewPosition,
   };
 };

@@ -52,11 +52,11 @@ export function errorHandler(app: Elysia): Elysia {
       errorCode = 'VALIDATION_ERROR';
       message = 'Request validation failed';
       details = {
-        validationErrors: err.errors.map(e => ({
+        validationErrors: err.errors.map((e) => ({
           path: e.path.join('.'),
           message: e.message,
-          code: e.code
-        }))
+          code: e.code,
+        })),
       };
     } else if (code === 'NOT_FOUND') {
       statusCode = 404;
@@ -78,7 +78,7 @@ export function errorHandler(app: Elysia): Elysia {
       path: url.pathname,
       method: request.method,
       userAgent: request.headers.get('user-agent') || 'unknown',
-      requestId: request.headers.get('x-request-id')
+      requestId: request.headers.get('x-request-id'),
     });
 
     set.status = statusCode;
@@ -88,13 +88,13 @@ export function errorHandler(app: Elysia): Elysia {
       error: {
         code: errorCode,
         message,
-        ...(details && { details })
+        ...(details && { details }),
       },
       meta: {
         timestamp: new Date(),
         requestId: request.headers.get('x-request-id'),
-        version: config.environment
-      }
+        version: config.environment,
+      },
     };
   });
 }
@@ -111,10 +111,10 @@ export function buildErrorResponse(
     error: {
       code,
       message,
-      ...(details && { details })
+      ...(details && { details }),
     },
     meta: {
-      timestamp: new Date()
-    }
+      timestamp: new Date(),
+    },
   };
 }

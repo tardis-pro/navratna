@@ -3,7 +3,7 @@
 **Project**: Council of Nycea - Desktop Workspace Refactoring  
 **Timeline**: 4 weeks (28 days)  
 **Priority**: High - Technical Debt Reduction  
-**Impact**: 40% code reduction, unified architecture, improved maintainability  
+**Impact**: 40% code reduction, unified architecture, improved maintainability
 
 ---
 
@@ -23,7 +23,9 @@
 ## Executive Summary
 
 ### Problem Statement
+
 The desktop workspace has evolved into a complex system with:
+
 - **7 different desktop implementations** causing architectural confusion
 - **22 portal components** with inconsistent interfaces
 - **20+ unused/legacy components** creating maintenance burden
@@ -31,13 +33,16 @@ The desktop workspace has evolved into a complex system with:
 - **Technical debt accumulation** impacting development velocity
 
 ### Solution Overview
+
 Implement a **4-phase cleanup strategy** over 28 days:
+
 1. **Immediate Cleanup** (Days 1-7): Remove legacy files and unused components
 2. **Architecture Consolidation** (Days 8-14): Unify desktop and portal systems
 3. **Code Quality Enhancement** (Days 15-21): Modernize patterns and complete TODOs
 4. **Performance Optimization** (Days 22-28): Implement lazy loading and state persistence
 
 ### Expected Outcomes
+
 - **Reduce codebase by 3,000-4,000 lines**
 - **Eliminate 15-20 redundant files**
 - **Unify 7 desktop variants into 1 system**
@@ -51,6 +56,7 @@ Implement a **4-phase cleanup strategy** over 28 days:
 ### Component Inventory
 
 #### Desktop Implementations (7 total)
+
 ```
 src/components/
 ├── Desktop.tsx                    # Legacy desktop (1,000+ lines) - REMOVE
@@ -64,6 +70,7 @@ src/components/
 ```
 
 #### Portal System (22 components)
+
 ```
 src/components/futuristic/portals/
 ├── Core Portals (Keep & Standardize)
@@ -88,6 +95,7 @@ src/components/futuristic/portals/
 ```
 
 #### Chat System (6 implementations)
+
 ```
 src/components/
 ├── UnifiedChatSystem.tsx         # Main chat (2,200+ lines) - KEEP
@@ -99,6 +107,7 @@ src/components/
 ```
 
 #### Legacy/Unused Components (20+ files)
+
 ```
 src/components/
 ├── AgentManager.tsx.old          # Legacy agent manager - DELETE
@@ -118,6 +127,7 @@ src/components/
 ## Target Architecture
 
 ### Unified Desktop System Structure
+
 ```
 src/components/desktop/
 ├── DesktopWorkspace.tsx          # Main unified desktop component
@@ -147,6 +157,7 @@ src/components/desktop/
 ```
 
 ### Standardized Portal System
+
 ```
 src/components/portals/
 ├── core/
@@ -178,6 +189,7 @@ src/components/portals/
 ```
 
 ### Unified Chat System
+
 ```
 src/components/chat/
 ├── ChatSystem.tsx               # Main chat component (renamed from UnifiedChatSystem)
@@ -206,9 +218,11 @@ src/components/chat/
 ### Phase 1: Immediate Cleanup (Days 1-7)
 
 #### Day 1-2: Legacy File Removal
+
 **Objective**: Remove all legacy and unused files
 
 **Files to Delete**:
+
 ```bash
 # Legacy files with .old extension
 rm src/components/AgentManager.tsx.old
@@ -237,16 +251,20 @@ rm src/components/futuristic/portals/CapabilityRegistry.tsx
 ```
 
 **Validation Steps**:
+
 1. Run `npm run build` to ensure no broken imports
 2. Run `npm run lint` to check for any reference issues
 3. Search codebase for any remaining references to deleted files
 4. Test application startup and basic functionality
 
 #### Day 3-4: Import Cleanup and Reference Updates
+
 **Objective**: Clean up all imports and references to removed files
 
 **Tasks**:
+
 1. **Search and remove imports**:
+
    ```bash
    # Search for imports of removed files
    grep -r "AgentManager.tsx.old" src/
@@ -265,15 +283,18 @@ rm src/components/futuristic/portals/CapabilityRegistry.tsx
    - Update barrel exports (index.ts files)
 
 **Validation Steps**:
+
 1. Full TypeScript compilation: `npm run build`
 2. Linting check: `npm run lint`
 3. Unit test run: `npm test`
 4. Manual smoke test of application
 
 #### Day 5-7: Console Logging and Debug Code Cleanup
+
 **Objective**: Remove all debug code and console statements from production components
 
 **Files to Clean**:
+
 ```typescript
 // Priority files with extensive debug logging
 src/contexts/UAIPContext.tsx        # Remove debug console.log statements
@@ -283,7 +304,9 @@ src/contexts/AuthContext.tsx        # Remove debug outputs
 ```
 
 **Cleanup Process**:
+
 1. **Create debug utility**:
+
    ```typescript
    // src/utils/debug.ts
    export const debug = {
@@ -304,6 +327,7 @@ src/contexts/AuthContext.tsx        # Remove debug outputs
    - Remove mock data
 
 **Validation Steps**:
+
 1. Search for remaining console statements: `grep -r "console\." src/`
 2. Test application in production build mode
 3. Verify no sensitive information is logged
@@ -311,9 +335,11 @@ src/contexts/AuthContext.tsx        # Remove debug outputs
 ### Phase 2: Architecture Consolidation (Days 8-14)
 
 #### Day 8-10: Create Unified Desktop System
+
 **Objective**: Merge the best features from multiple desktop implementations into a single system
 
 **Step 1: Create Base Desktop Structure**
+
 ```typescript
 // src/components/desktop/DesktopWorkspace.tsx
 import React, { useState, useEffect, useCallback } from 'react';
@@ -340,7 +366,7 @@ export const DesktopWorkspace: React.FC<DesktopWorkspaceProps> = ({
   const { settings, updateSettings } = useDesktopSettings();
 
   // Component implementation details...
-  
+
   return (
     <div className="desktop-workspace" data-mode={mode}>
       {enableSidebar && (
@@ -349,14 +375,14 @@ export const DesktopWorkspace: React.FC<DesktopWorkspaceProps> = ({
           onToggle={(collapsed) => updateSettings({ sidebarCollapsed: collapsed })}
         />
       )}
-      
+
       <div className="desktop-main">
         <DesktopHeader
           title="Council of Nycea"
           showMenuButton={true}
           onMenuClick={() => updateSettings({ sidebarCollapsed: !settings.sidebarCollapsed })}
         />
-        
+
         <div className="desktop-content">
           <WindowManager
             windows={windows}
@@ -366,7 +392,7 @@ export const DesktopWorkspace: React.FC<DesktopWorkspaceProps> = ({
             onWindowMaximize={maximizeWindow}
             onLayoutChange={updateLayout}
           />
-          
+
           {enablePortals && (
             <PortalContainer
               portals={settings.enabledPortals}
@@ -374,7 +400,7 @@ export const DesktopWorkspace: React.FC<DesktopWorkspaceProps> = ({
             />
           )}
         </div>
-        
+
         {enableStatusBar && (
           <DesktopStatusBar
             connectionStatus={settings.connectionStatus}
@@ -388,6 +414,7 @@ export const DesktopWorkspace: React.FC<DesktopWorkspaceProps> = ({
 ```
 
 **Step 2: Create Desktop Types**
+
 ```typescript
 // src/components/desktop/types/desktop.types.ts
 export interface DesktopWorkspaceProps {
@@ -443,6 +470,7 @@ export interface ConnectionStatus {
 ```
 
 **Step 3: Implement Window Manager**
+
 ```typescript
 // src/components/desktop/components/WindowManager.tsx
 import React, { useCallback } from 'react';
@@ -525,15 +553,18 @@ export const WindowManager: React.FC<WindowManagerProps> = ({
 ```
 
 **Validation Steps**:
+
 1. Create new desktop component and test basic functionality
 2. Ensure window management works (resize, drag, minimize, maximize, close)
 3. Test layout persistence
 4. Verify responsive behavior
 
 #### Day 11-12: Implement Portal System Standardization
+
 **Objective**: Create standardized portal interface and migrate existing portals
 
 **Step 1: Create Base Portal Component**
+
 ```typescript
 // src/components/portals/core/BasePortal.tsx
 import React, { useState, useEffect, useCallback } from 'react';
@@ -612,7 +643,7 @@ export const BasePortal: React.FC<BasePortalProps> = ({
         onMaximize={handleMaximize}
         onClose={handleClose}
       />
-      
+
       <div className="portal-content">
         <ErrorBoundary>
           {children}
@@ -624,6 +655,7 @@ export const BasePortal: React.FC<BasePortalProps> = ({
 ```
 
 **Step 2: Create Portal Types**
+
 ```typescript
 // src/components/portals/types/portal.types.ts
 export interface BasePortalProps {
@@ -683,6 +715,7 @@ export interface PortalRegistration {
 ```
 
 **Step 3: Migrate Existing Portals**
+
 ```typescript
 // src/components/portals/primary/DashboardPortal.tsx
 import React from 'react';
@@ -718,15 +751,18 @@ export const dashboardPortalConfig: PortalConfig = {
 ```
 
 **Validation Steps**:
+
 1. Test portal creation and basic functionality
 2. Verify portal state management (minimize, maximize, close)
 3. Test portal registration system
 4. Ensure error boundaries work correctly
 
 #### Day 13-14: Chat System Consolidation
+
 **Objective**: Merge multiple chat implementations into a single, unified system
 
 **Step 1: Rename and Organize Chat Components**
+
 ```bash
 # Rename main chat component
 mv src/components/futuristic/portals/UnifiedChatSystem.tsx src/components/chat/ChatSystem.tsx
@@ -736,6 +772,7 @@ mkdir -p src/components/chat/{components,hooks,types,utils}
 ```
 
 **Step 2: Create Unified Chat Component**
+
 ```typescript
 // src/components/chat/ChatSystem.tsx
 import React, { useState, useEffect, useCallback } from 'react';
@@ -806,7 +843,7 @@ export const ChatSystem: React.FC<ChatSystemProps> = ({
         onToggleSidebar={() => setSidebarVisible(!sidebarVisible)}
         onReconnect={reconnect}
       />
-      
+
       <div className="chat-content">
         {sidebarVisible && enableSidebar && (
           <ChatSidebar
@@ -816,7 +853,7 @@ export const ChatSystem: React.FC<ChatSystemProps> = ({
             onClose={() => setSidebarVisible(false)}
           />
         )}
-        
+
         <ChatInterface
           messages={messages}
           isLoading={isLoading}
@@ -832,6 +869,7 @@ export const ChatSystem: React.FC<ChatSystemProps> = ({
 ```
 
 **Step 3: Create Chat Portal Wrapper**
+
 ```typescript
 // src/components/portals/primary/ChatPortal.tsx
 import React from 'react';
@@ -867,6 +905,7 @@ export const ChatPortal: React.FC<ChatPortalProps> = ({
 ```
 
 **Step 4: Remove Redundant Chat Components**
+
 ```bash
 # Remove redundant chat implementations
 rm src/components/EnhancedChatManager.tsx
@@ -875,6 +914,7 @@ rm src/components/futuristic/portals/MultiChatManager.tsx
 ```
 
 **Validation Steps**:
+
 1. Test unified chat system functionality
 2. Verify WebSocket connections work correctly
 3. Test chat history persistence
@@ -884,52 +924,63 @@ rm src/components/futuristic/portals/MultiChatManager.tsx
 ### Phase 3: Code Quality Enhancement (Days 15-21)
 
 #### Day 15-17: TODO/FIXME Cleanup
+
 **Objective**: Complete or remove all TODO comments and incomplete implementations
 
 **Priority Files with TODOs**:
+
 1. **UnifiedChatSystem.tsx** (now ChatSystem.tsx) - 63 TODO comments
 2. **ProjectManagementPortal.tsx** - Multiple unimplemented features
 3. **ToolsIntegrationsPortal.tsx** - Placeholder implementations
 4. **KnowledgePortal.tsx** - Unfinished knowledge management
 
 **TODO Cleanup Process**:
+
 ```typescript
 // Example: Complete TODO in ChatSystem.tsx
 // Before:
 // TODO: Implement message search functionality
 
 // After:
-const handleSearchMessages = useCallback(async (query: string) => {
-  try {
-    const results = await chatApi.searchMessages({
-      agentId,
-      query,
-      limit: 50,
-      includeContext: true,
-    });
-    setSearchResults(results);
-  } catch (error) {
-    console.error('Message search failed:', error);
-    setSearchError('Search functionality is temporarily unavailable');
-  }
-}, [agentId]);
+const handleSearchMessages = useCallback(
+  async (query: string) => {
+    try {
+      const results = await chatApi.searchMessages({
+        agentId,
+        query,
+        limit: 50,
+        includeContext: true,
+      });
+      setSearchResults(results);
+    } catch (error) {
+      console.error('Message search failed:', error);
+      setSearchError('Search functionality is temporarily unavailable');
+    }
+  },
+  [agentId]
+);
 ```
 
 **Implementation Plan**:
+
 1. **Day 15**: Audit all TODO comments across the codebase
 2. **Day 16**: Implement high-priority TODOs (core functionality)
 3. **Day 17**: Remove or defer low-priority TODOs
 
 **Validation Steps**:
+
 1. Search for remaining TODO comments: `grep -r "TODO\|FIXME" src/`
 2. Test newly implemented functionality
 3. Update documentation for completed features
 
 #### Day 18-19: React Pattern Modernization
+
 **Objective**: Update to modern React patterns and remove deprecated code
 
 **Pattern Updates**:
+
 1. **Replace React.FC with direct function declarations**:
+
    ```typescript
    // Before:
    const MyComponent: React.FC<Props> = ({ prop1, prop2 }) => {
@@ -943,6 +994,7 @@ const handleSearchMessages = useCallback(async (query: string) => {
    ```
 
 2. **Update to modern hook patterns**:
+
    ```typescript
    // Before: Complex useEffect with multiple dependencies
    useEffect(() => {
@@ -978,14 +1030,17 @@ const handleSearchMessages = useCallback(async (query: string) => {
    ```
 
 **Validation Steps**:
+
 1. TypeScript compilation: `npm run build`
 2. Test functionality after pattern updates
 3. Performance testing for React.memo optimizations
 
 #### Day 20-21: Component Organization and Barrel Exports
+
 **Objective**: Organize components into logical directories and create proper exports
 
 **Directory Reorganization**:
+
 ```
 src/components/
 ├── core/                    # Core application components
@@ -1018,6 +1073,7 @@ src/components/
 ```
 
 **Create Barrel Exports**:
+
 ```typescript
 // src/components/desktop/index.ts
 export { DesktopWorkspace } from './DesktopWorkspace';
@@ -1049,6 +1105,7 @@ export * from './ui';
 ```
 
 **Update Import Statements**:
+
 ```typescript
 // Before: Deep imports
 import { DesktopWorkspace } from './components/desktop/DesktopWorkspace';
@@ -1062,6 +1119,7 @@ import { BasePortal } from './components/portals';
 ```
 
 **Validation Steps**:
+
 1. Update all import statements across the codebase
 2. Test that barrel exports work correctly
 3. Verify tree-shaking still works with webpack
@@ -1069,9 +1127,11 @@ import { BasePortal } from './components/portals';
 ### Phase 4: Performance Optimization (Days 22-28)
 
 #### Day 22-24: Lazy Loading Implementation
+
 **Objective**: Implement lazy loading for portals and heavy components
 
 **Step 1: Create Lazy Portal Loading**
+
 ```typescript
 // src/components/portals/core/LazyPortal.tsx
 import React, { Suspense, lazy } from 'react';
@@ -1110,6 +1170,7 @@ export const LazyPortal: React.FC<LazyPortalProps> = ({
 ```
 
 **Step 2: Implement Portal Registry with Lazy Loading**
+
 ```typescript
 // src/components/portals/core/PortalRegistry.tsx
 import React, { useState, useCallback, useMemo } from 'react';
@@ -1122,7 +1183,7 @@ export function usePortalRegistry() {
 
   const createPortal = useCallback((registration: PortalRegistration, props: any) => {
     const portalId = `${registration.id}-${Date.now()}`;
-    
+
     const portal = (
       <LazyPortal
         key={portalId}
@@ -1135,7 +1196,7 @@ export function usePortalRegistry() {
 
     setPortalInstances(prev => new Map(prev).set(portalId, portal));
     setLoadedPortals(prev => new Set(prev).add(registration.id));
-    
+
     return portalId;
   }, []);
 
@@ -1157,6 +1218,7 @@ export function usePortalRegistry() {
 ```
 
 **Step 3: Optimize Chat System Loading**
+
 ```typescript
 // src/components/chat/hooks/useChatOptimization.tsx
 import { useMemo, useCallback } from 'react';
@@ -1165,15 +1227,16 @@ import { debounce } from 'lodash';
 export function useChatOptimization() {
   // Debounce message sending to prevent spam
   const debouncedSendMessage = useMemo(
-    () => debounce(async (message: string) => {
-      // Send message logic
-    }, 300),
+    () =>
+      debounce(async (message: string) => {
+        // Send message logic
+      }, 300),
     []
   );
 
   // Memoize expensive calculations
   const processedMessages = useMemo(() => {
-    return messages.map(message => ({
+    return messages.map((message) => ({
       ...message,
       formattedTime: formatMessageTime(message.timestamp),
       isFromCurrentUser: message.userId === currentUserId,
@@ -1183,10 +1246,7 @@ export function useChatOptimization() {
   // Virtualized rendering for large message lists
   const visibleMessages = useMemo(() => {
     const startIndex = Math.max(0, scrollTop / MESSAGE_HEIGHT - BUFFER_SIZE);
-    const endIndex = Math.min(
-      messages.length,
-      startIndex + VISIBLE_COUNT + BUFFER_SIZE * 2
-    );
+    const endIndex = Math.min(messages.length, startIndex + VISIBLE_COUNT + BUFFER_SIZE * 2);
     return messages.slice(startIndex, endIndex);
   }, [messages, scrollTop]);
 
@@ -1199,15 +1259,18 @@ export function useChatOptimization() {
 ```
 
 **Validation Steps**:
+
 1. Test lazy loading functionality
 2. Measure bundle size improvements
 3. Test loading performance with network throttling
 4. Verify error handling for failed lazy loads
 
 #### Day 25-26: State Persistence Implementation
+
 **Objective**: Implement comprehensive state persistence for desktop layout and settings
 
 **Step 1: Create Storage Utilities**
+
 ```typescript
 // src/components/desktop/utils/storageUtils.ts
 interface StorageManager {
@@ -1245,7 +1308,7 @@ class LocalStorageManager implements StorageManager {
 
   async clear(): Promise<void> {
     const keys = Object.keys(localStorage);
-    keys.forEach(key => {
+    keys.forEach((key) => {
       if (key.startsWith(this.prefix)) {
         localStorage.removeItem(key);
       }
@@ -1257,6 +1320,7 @@ export const storageManager = new LocalStorageManager();
 ```
 
 **Step 2: Implement Layout Persistence**
+
 ```typescript
 // src/components/desktop/hooks/useDesktopLayout.tsx
 import { useState, useEffect, useCallback } from 'react';
@@ -1294,18 +1358,19 @@ export function useDesktopLayout(initialLayout?: WorkspaceLayout) {
   }, []);
 
   // Update specific layout area
-  const updateLayoutArea = useCallback((areaId: string, updates: Partial<LayoutArea>) => {
-    if (!layout) return;
+  const updateLayoutArea = useCallback(
+    (areaId: string, updates: Partial<LayoutArea>) => {
+      if (!layout) return;
 
-    const newLayout = {
-      ...layout,
-      areas: layout.areas.map(area =>
-        area.id === areaId ? { ...area, ...updates } : area
-      ),
-    };
-    
-    saveLayout(newLayout);
-  }, [layout, saveLayout]);
+      const newLayout = {
+        ...layout,
+        areas: layout.areas.map((area) => (area.id === areaId ? { ...area, ...updates } : area)),
+      };
+
+      saveLayout(newLayout);
+    },
+    [layout, saveLayout]
+  );
 
   // Reset to default layout
   const resetLayout = useCallback(() => {
@@ -1342,6 +1407,7 @@ function getDefaultLayout(): WorkspaceLayout {
 ```
 
 **Step 3: Implement Settings Persistence**
+
 ```typescript
 // src/components/desktop/hooks/useDesktopSettings.tsx
 import { useState, useEffect, useCallback } from 'react';
@@ -1383,16 +1449,19 @@ export function useDesktopSettings() {
   }, []);
 
   // Update settings
-  const updateSettings = useCallback(async (updates: Partial<DesktopSettings>) => {
-    const newSettings = { ...settings, ...updates };
-    
-    try {
-      await storageManager.save('settings', newSettings);
-      setSettings(newSettings);
-    } catch (error) {
-      console.error('Failed to save settings:', error);
-    }
-  }, [settings]);
+  const updateSettings = useCallback(
+    async (updates: Partial<DesktopSettings>) => {
+      const newSettings = { ...settings, ...updates };
+
+      try {
+        await storageManager.save('settings', newSettings);
+        setSettings(newSettings);
+      } catch (error) {
+        console.error('Failed to save settings:', error);
+      }
+    },
+    [settings]
+  );
 
   // Reset settings
   const resetSettings = useCallback(async () => {
@@ -1414,15 +1483,18 @@ export function useDesktopSettings() {
 ```
 
 **Validation Steps**:
+
 1. Test layout persistence across browser sessions
 2. Verify settings are saved and restored correctly
 3. Test error handling for storage failures
 4. Verify performance with large datasets
 
 #### Day 27-28: Performance Monitoring and Final Optimization
+
 **Objective**: Implement performance monitoring and final optimizations
 
 **Step 1: Add Performance Monitoring**
+
 ```typescript
 // src/utils/performance.ts
 export class PerformanceMonitor {
@@ -1443,21 +1515,21 @@ export class PerformanceMonitor {
   endMeasure(name: string): number {
     performance.mark(`${name}-end`);
     performance.measure(name, `${name}-start`, `${name}-end`);
-    
+
     const measure = performance.getEntriesByName(name, 'measure')[0];
     const duration = measure.duration;
-    
+
     // Store metric
     if (!this.metrics.has(name)) {
       this.metrics.set(name, []);
     }
     this.metrics.get(name)!.push(duration);
-    
+
     // Clean up
     performance.clearMarks(`${name}-start`);
     performance.clearMarks(`${name}-end`);
     performance.clearMeasures(name);
-    
+
     return duration;
   }
 
@@ -1466,7 +1538,7 @@ export class PerformanceMonitor {
     if (values.length === 0) {
       return { avg: 0, min: 0, max: 0, count: 0 };
     }
-    
+
     return {
       avg: values.reduce((a, b) => a + b, 0) / values.length,
       min: Math.min(...values),
@@ -1483,7 +1555,7 @@ export class PerformanceMonitor {
 // Hook for component performance monitoring
 export function usePerformanceMonitor(componentName: string) {
   const monitor = PerformanceMonitor.getInstance();
-  
+
   useEffect(() => {
     monitor.startMeasure(`${componentName}-render`);
     return () => {
@@ -1500,6 +1572,7 @@ export function usePerformanceMonitor(componentName: string) {
 ```
 
 **Step 2: Optimize React Rendering**
+
 ```typescript
 // src/components/desktop/DesktopWorkspace.tsx
 import React, { memo, useMemo, useCallback } from 'react';
@@ -1540,14 +1613,14 @@ export const DesktopWorkspace = memo<DesktopWorkspaceProps>(({
           onToggle={handleSidebarToggle}
         />
       )}
-      
+
       <div className="desktop-main">
         <DesktopHeader
           title="Council of Nycea"
           layoutConfig={layoutConfig}
           onMenuClick={handleMenuClick}
         />
-        
+
         <div className="desktop-content">
           <MemoizedWindowManager
             windows={windows}
@@ -1555,7 +1628,7 @@ export const DesktopWorkspace = memo<DesktopWorkspaceProps>(({
             onWindowCreate={handleWindowCreate}
             onLayoutChange={handleLayoutChange}
           />
-          
+
           {enablePortals && (
             <MemoizedPortalContainer
               portals={settings.enabledPortals}
@@ -1563,7 +1636,7 @@ export const DesktopWorkspace = memo<DesktopWorkspaceProps>(({
             />
           )}
         </div>
-        
+
         {enableStatusBar && (
           <DesktopStatusBar
             connectionStatus={settings.connectionStatus}
@@ -1579,6 +1652,7 @@ DesktopWorkspace.displayName = 'DesktopWorkspace';
 ```
 
 **Step 3: Final Bundle Analysis and Optimization**
+
 ```bash
 # Analyze bundle size
 npm run build
@@ -1589,6 +1663,7 @@ npm run test:performance
 ```
 
 **Final Validation Steps**:
+
 1. Run complete test suite: `npm test`
 2. Performance testing with lighthouse
 3. Bundle size analysis
@@ -1600,6 +1675,7 @@ npm run test:performance
 ## File-by-File Migration Guide
 
 ### Critical Files to Remove (Day 1-2)
+
 ```bash
 # High Priority Deletions
 rm src/components/AgentManager.tsx.old           # 780 lines legacy code
@@ -1628,6 +1704,7 @@ rm src/components/futuristic/portals/CapabilityRegistry.tsx   # Minimal usage
 ### Files to Migrate/Merge (Day 8-14)
 
 #### Desktop System Consolidation
+
 ```bash
 # Create new desktop structure
 mkdir -p src/components/desktop/{components,hooks,types,utils}
@@ -1635,11 +1712,12 @@ mkdir -p src/components/desktop/{components,hooks,types,utils}
 # Merge desktop implementations
 # Source files: DesktopUnified.tsx + DesktopWorkspace.tsx → DesktopWorkspace.tsx
 # Keep: Portal system from DesktopUnified
-# Keep: Mode switching from DesktopWorkspace  
+# Keep: Mode switching from DesktopWorkspace
 # Remove: Desktop.tsx (legacy), PortalWorkspace.tsx (features merged)
 ```
 
 #### Portal System Standardization
+
 ```bash
 # Create portal structure
 mkdir -p src/components/portals/{core,primary,secondary,specialized,shared}
@@ -1664,6 +1742,7 @@ mv src/components/futuristic/portals/WorkflowPortal.tsx src/components/portals/s
 ```
 
 #### Chat System Consolidation
+
 ```bash
 # Create chat structure
 mkdir -p src/components/chat/{components,hooks,types,utils}
@@ -1683,6 +1762,7 @@ rm src/components/futuristic/portals/MultiChatManager.tsx # Simple wrapper
 ### Files to Refactor (Day 15-21)
 
 #### High TODO Count Files
+
 1. **src/components/chat/ChatSystem.tsx** (formerly UnifiedChatSystem.tsx)
    - 63 TODO comments to resolve
    - Priority: Complete message search, file upload, agent switching
@@ -1700,14 +1780,16 @@ rm src/components/futuristic/portals/MultiChatManager.tsx # Simple wrapper
    - Priority: Complete search, organization, sharing
 
 #### Context Files (Debug Cleanup)
+
 1. **src/contexts/UAIPContext.tsx** - Remove debug console.log statements
-2. **src/contexts/AgentContext.tsx** - Remove development logging  
+2. **src/contexts/AgentContext.tsx** - Remove development logging
 3. **src/contexts/DiscussionContext.tsx** - Clean up console logging
 4. **src/contexts/AuthContext.tsx** - Remove debug outputs
 
 ### New Files to Create (Day 8-28)
 
 #### Desktop System Files
+
 ```
 src/components/desktop/
 ├── DesktopWorkspace.tsx              # Main unified desktop
@@ -1738,6 +1820,7 @@ src/components/desktop/
 ```
 
 #### Portal System Files
+
 ```
 src/components/portals/
 ├── core/
@@ -1757,6 +1840,7 @@ src/components/portals/
 ```
 
 #### Chat System Files
+
 ```
 src/components/chat/
 ├── components/
@@ -1788,12 +1872,14 @@ src/components/chat/
 ### Unit Testing (Days 1-28, ongoing)
 
 #### Test Coverage Targets
+
 - **Desktop System**: 90% coverage
-- **Portal System**: 85% coverage  
+- **Portal System**: 85% coverage
 - **Chat System**: 80% coverage
 - **Utility Functions**: 95% coverage
 
 #### Key Test Files
+
 ```
 src/components/desktop/__tests__/
 ├── DesktopWorkspace.test.tsx
@@ -1824,6 +1910,7 @@ src/components/chat/__tests__/
 ```
 
 #### Sample Test Implementation
+
 ```typescript
 // src/components/desktop/__tests__/DesktopWorkspace.test.tsx
 import React from 'react';
@@ -1838,23 +1925,23 @@ describe('DesktopWorkspace', () => {
         <DesktopWorkspace />
       </TestProviders>
     );
-    
+
     expect(screen.getByText('Council of Nycea')).toBeInTheDocument();
     expect(screen.getByRole('main')).toBeInTheDocument();
   });
 
   it('handles mode switching', async () => {
     const onModeChange = jest.fn();
-    
+
     render(
       <TestProviders>
         <DesktopWorkspace mode="full" onModeChange={onModeChange} />
       </TestProviders>
     );
-    
+
     const modeButton = screen.getByRole('button', { name: /switch mode/i });
     fireEvent.click(modeButton);
-    
+
     await waitFor(() => {
       expect(onModeChange).toHaveBeenCalledWith('minimal');
     });
@@ -1866,13 +1953,13 @@ describe('DesktopWorkspace', () => {
         <DesktopWorkspace />
       </TestProviders>
     );
-    
+
     // Simulate layout change
     const resizeHandle = screen.getByTestId('resize-handle');
     fireEvent.mouseDown(resizeHandle);
     fireEvent.mouseMove(resizeHandle, { clientX: 100, clientY: 100 });
     fireEvent.mouseUp(resizeHandle);
-    
+
     // Verify layout is saved
     await waitFor(() => {
       expect(localStorage.getItem('uaip-desktop-layout')).toBeTruthy();
@@ -1884,6 +1971,7 @@ describe('DesktopWorkspace', () => {
 ### Integration Testing (Days 15-28)
 
 #### Test Scenarios
+
 1. **Desktop to Portal Integration**
    - Portal creation from desktop
    - Portal state synchronization
@@ -1900,25 +1988,26 @@ describe('DesktopWorkspace', () => {
    - Session management
 
 #### Sample Integration Test
+
 ```typescript
 // src/integration/__tests__/desktop-portal-integration.test.tsx
 describe('Desktop Portal Integration', () => {
   it('creates and manages portals correctly', async () => {
     const { user } = renderWithProviders(<DesktopWorkspace />);
-    
+
     // Create a chat portal
     await user.click(screen.getByRole('button', { name: /create chat/i }));
-    
+
     // Verify portal is created
     expect(screen.getByTestId('chat-portal')).toBeInTheDocument();
-    
+
     // Verify portal can be moved
     const portal = screen.getByTestId('chat-portal');
     await user.drag(portal, { x: 100, y: 50 });
-    
+
     // Verify position is updated
     expect(portal).toHaveStyle({ left: '100px', top: '50px' });
-    
+
     // Verify layout is persisted
     const savedLayout = JSON.parse(localStorage.getItem('uaip-desktop-layout') || '{}');
     expect(savedLayout.areas).toContainEqual(
@@ -1931,21 +2020,22 @@ describe('Desktop Portal Integration', () => {
 ### Performance Testing (Days 22-28)
 
 #### Performance Benchmarks
+
 ```typescript
 // src/performance/__tests__/desktop-performance.test.tsx
 describe('Desktop Performance', () => {
   it('renders within performance budget', async () => {
     const startTime = performance.now();
-    
+
     render(
       <TestProviders>
         <DesktopWorkspace />
       </TestProviders>
     );
-    
+
     const endTime = performance.now();
     const renderTime = endTime - startTime;
-    
+
     // Should render within 100ms
     expect(renderTime).toBeLessThan(100);
   });
@@ -1956,18 +2046,18 @@ describe('Desktop Performance', () => {
       type: 'secondary' as const,
       component: 'test',
     }));
-    
+
     const startTime = performance.now();
-    
+
     render(
       <TestProviders>
         <DesktopWorkspace initialPortals={portals} />
       </TestProviders>
     );
-    
+
     const endTime = performance.now();
     const renderTime = endTime - startTime;
-    
+
     // Should handle 20 portals within 500ms
     expect(renderTime).toBeLessThan(500);
   });
@@ -1977,35 +2067,36 @@ describe('Desktop Performance', () => {
 ### End-to-End Testing (Days 25-28)
 
 #### E2E Test Scenarios
+
 ```typescript
 // cypress/integration/desktop-workflow.spec.ts
 describe('Desktop Workflow', () => {
   it('completes full desktop workflow', () => {
     cy.visit('/');
     cy.login('admin', 'admin');
-    
+
     // Create agent portal
     cy.get('[data-testid="create-portal-button"]').click();
     cy.get('[data-testid="agent-portal-option"]').click();
-    
+
     // Verify portal is created and functional
     cy.get('[data-testid="agent-portal"]').should('be.visible');
     cy.get('[data-testid="agent-list"]').should('be.visible');
-    
+
     // Create chat portal
     cy.get('[data-testid="create-portal-button"]').click();
     cy.get('[data-testid="chat-portal-option"]').click();
-    
+
     // Send a message
     cy.get('[data-testid="chat-input"]').type('Hello, agent!');
     cy.get('[data-testid="send-button"]').click();
-    
+
     // Verify message appears
     cy.get('[data-testid="message-list"]').should('contain', 'Hello, agent!');
-    
+
     // Save layout
     cy.get('[data-testid="save-layout-button"]').click();
-    
+
     // Refresh page and verify layout persists
     cy.reload();
     cy.get('[data-testid="agent-portal"]').should('be.visible');
@@ -2021,27 +2112,33 @@ describe('Desktop Workflow', () => {
 ### Technical Risks
 
 #### Risk 1: Breaking Changes During Migration
+
 **Probability**: Medium  
 **Impact**: High  
 **Mitigation**:
+
 - Implement feature flags for gradual rollout
 - Maintain backward compatibility during transition
 - Create comprehensive rollback procedures
 - Use TypeScript for compile-time error detection
 
 #### Risk 2: Performance Regression
+
 **Probability**: Low  
 **Impact**: Medium  
 **Mitigation**:
+
 - Implement performance monitoring from Day 1
 - Set performance budgets and automated testing
 - Use React DevTools Profiler for optimization
 - Implement lazy loading for non-critical components
 
 #### Risk 3: State Management Complexity
+
 **Probability**: Medium  
 **Impact**: Medium  
 **Mitigation**:
+
 - Use established patterns (React Context + hooks)
 - Implement proper error boundaries
 - Create clear state flow documentation
@@ -2050,18 +2147,22 @@ describe('Desktop Workflow', () => {
 ### Business Risks
 
 #### Risk 4: Extended Development Timeline
+
 **Probability**: Medium  
 **Impact**: Medium  
 **Mitigation**:
+
 - Break work into small, deliverable chunks
 - Implement parallel development streams
 - Regular progress checkpoints and adjustments
 - Prioritize high-impact, low-risk changes first
 
 #### Risk 5: User Experience Disruption
+
 **Probability**: Low  
 **Impact**: High  
 **Mitigation**:
+
 - Maintain feature parity during migration
 - Implement gradual rollout with user feedback
 - Create user documentation and training materials
@@ -2070,6 +2171,7 @@ describe('Desktop Workflow', () => {
 ### Rollback Procedures
 
 #### Immediate Rollback (< 1 hour)
+
 ```bash
 # Revert to previous commit
 git revert HEAD~1
@@ -2083,6 +2185,7 @@ npm run deploy
 ```
 
 #### Partial Rollback (Component-level)
+
 ```typescript
 // Use feature flags to disable new components
 const useNewDesktop = process.env.REACT_APP_USE_NEW_DESKTOP === 'true';
@@ -2091,6 +2194,7 @@ return useNewDesktop ? <NewDesktopWorkspace /> : <LegacyDesktop />;
 ```
 
 #### Data Recovery
+
 ```typescript
 // Restore from localStorage backup
 const restoreLayout = () => {
@@ -2109,6 +2213,7 @@ const restoreLayout = () => {
 ### Code Quality Metrics
 
 #### Before Cleanup (Baseline)
+
 - **Total Components**: ~150
 - **Desktop Implementations**: 7
 - **Unused Components**: 20+ (13% waste)
@@ -2119,6 +2224,7 @@ const restoreLayout = () => {
 - **Bundle Size**: ~2.5MB (gzipped: ~800KB)
 
 #### After Cleanup (Targets)
+
 - **Total Components**: ~130 (13% reduction)
 - **Desktop Implementations**: 1 (86% reduction)
 - **Unused Components**: 0 (100% reduction)
@@ -2131,12 +2237,14 @@ const restoreLayout = () => {
 ### Performance Metrics
 
 #### Rendering Performance
+
 - **Initial Load Time**: <2 seconds (target: <1.5 seconds)
 - **Portal Creation Time**: <200ms (target: <100ms)
 - **Layout Save Time**: <100ms (target: <50ms)
 - **Memory Usage**: <150MB (target: <120MB)
 
 #### Bundle Performance
+
 - **Code Splitting Efficiency**: 80% (target: 90%)
 - **Lazy Loading Coverage**: 60% (target: 80%)
 - **Tree Shaking Effectiveness**: 70% (target: 85%)
@@ -2144,12 +2252,14 @@ const restoreLayout = () => {
 ### Developer Experience Metrics
 
 #### Development Velocity
+
 - **Build Time**: ~30 seconds (target: <25 seconds)
 - **Hot Reload Time**: ~2 seconds (target: <1 second)
 - **Test Suite Runtime**: ~60 seconds (target: <45 seconds)
 - **Type Check Time**: ~10 seconds (target: <8 seconds)
 
 #### Code Maintainability
+
 - **Cyclomatic Complexity**: <10 per function
 - **File Size**: <500 lines per file (target: <300 lines)
 - **Import Depth**: <3 levels
@@ -2158,12 +2268,14 @@ const restoreLayout = () => {
 ### User Experience Metrics
 
 #### Usability
+
 - **Portal Creation**: <3 clicks
 - **Layout Customization**: <5 clicks
 - **Settings Access**: <2 clicks
 - **Error Recovery**: <10 seconds
 
 #### Accessibility
+
 - **Keyboard Navigation**: 100% coverage
 - **Screen Reader Support**: WCAG 2.1 AA compliance
 - **Color Contrast**: 4.5:1 minimum ratio
@@ -2172,6 +2284,7 @@ const restoreLayout = () => {
 ### Monitoring and Alerting
 
 #### Automated Monitoring
+
 ```typescript
 // Performance monitoring alerts
 const performanceThresholds = {
@@ -2191,6 +2304,7 @@ const qualityThresholds = {
 ```
 
 #### Success Criteria Validation
+
 - [ ] All unused components removed
 - [ ] Single desktop implementation functional
 - [ ] Portal system standardized and working
@@ -2207,6 +2321,7 @@ const qualityThresholds = {
 This technical plan provides a comprehensive, detailed roadmap for cleaning up the desktop workspace component architecture. The 4-phase approach ensures minimal disruption while achieving significant improvements in code quality, performance, and maintainability.
 
 The plan addresses the "devil in the details" by providing:
+
 - **Exact file paths and operations**
 - **Detailed implementation code examples**
 - **Comprehensive testing strategies**
@@ -2214,6 +2329,7 @@ The plan addresses the "devil in the details" by providing:
 - **Success metrics and monitoring**
 
 Upon completion, the codebase will have:
+
 - **40% reduction in duplicate code**
 - **Unified, maintainable architecture**
 - **Improved performance and user experience**

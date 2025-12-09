@@ -19,14 +19,14 @@ export class SlackAdapter {
   constructor(toolDefinition: ToolDefinition) {
     this.toolDefinition = toolDefinition;
     this.baseUrl = 'https://slack.com/api';
-    
+
     this.axiosInstance = axios.create({
       baseURL: this.baseUrl,
       timeout: 30000,
       headers: {
         'Content-Type': 'application/json',
-        'Accept': 'application/json'
-      }
+        Accept: 'application/json',
+      },
     });
 
     // Request interceptor to add authentication
@@ -48,7 +48,7 @@ export class SlackAdapter {
         if (error.response?.status === 401) {
           // Token expired, try to refresh
           await this.refreshAccessToken();
-          
+
           // Retry the original request
           const originalRequest = error.config;
           if (!originalRequest._retry) {
@@ -120,7 +120,7 @@ export class SlackAdapter {
       const response = await this.axiosInstance.post('/chat.postMessage', {
         channel: channelId,
         text,
-        ...options
+        ...options,
       });
 
       if (!response.data.ok) {
@@ -141,7 +141,7 @@ export class SlackAdapter {
   public async getChannelInfo(channelId: string): Promise<any> {
     try {
       const response = await this.axiosInstance.get('/conversations.info', {
-        params: { channel: channelId }
+        params: { channel: channelId },
       });
 
       if (!response.data.ok) {
@@ -164,8 +164,8 @@ export class SlackAdapter {
         params: {
           types: 'public_channel,private_channel',
           limit: options.limit || 100,
-          cursor: options.cursor
-        }
+          cursor: options.cursor,
+        },
       });
 
       if (!response.data.ok) {

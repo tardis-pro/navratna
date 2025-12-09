@@ -10,13 +10,13 @@ export class UserPresenceRepository extends BaseRepository<UserPresenceEntity> {
   async findByUserId(userId: string): Promise<UserPresenceEntity | null> {
     return await this.repository.findOne({
       where: { userId },
-      relations: ['user']
+      relations: ['user'],
     });
   }
 
   async updatePresence(
-    userId: string, 
-    status: PresenceStatus, 
+    userId: string,
+    status: PresenceStatus,
     customStatus?: string,
     deviceId?: string
   ): Promise<UserPresenceEntity> {
@@ -26,7 +26,7 @@ export class UserPresenceRepository extends BaseRepository<UserPresenceEntity> {
       presence.status = status;
       presence.customStatus = customStatus;
       presence.lastSeenAt = new Date();
-      
+
       // Handle device tracking
       if (deviceId) {
         const devices = presence.activeDevices || [];
@@ -50,7 +50,7 @@ export class UserPresenceRepository extends BaseRepository<UserPresenceEntity> {
         status,
         customStatus,
         lastSeenAt: new Date(),
-        activeDevices: deviceId ? [deviceId] : []
+        activeDevices: deviceId ? [deviceId] : [],
       });
     }
 
@@ -64,8 +64,8 @@ export class UserPresenceRepository extends BaseRepository<UserPresenceEntity> {
     if (deviceId) {
       // Remove specific device
       const devices = presence.activeDevices || [];
-      presence.activeDevices = devices.filter(id => id !== deviceId);
-      
+      presence.activeDevices = devices.filter((id) => id !== deviceId);
+
       // If no active devices remain, set offline
       if (presence.activeDevices.length === 0) {
         presence.status = PresenceStatus.OFFLINE;
@@ -85,34 +85,40 @@ export class UserPresenceRepository extends BaseRepository<UserPresenceEntity> {
       where: [
         { status: PresenceStatus.ONLINE },
         { status: PresenceStatus.AWAY },
-        { status: PresenceStatus.BUSY }
+        { status: PresenceStatus.BUSY },
       ],
       relations: ['user'],
       order: { lastSeenAt: 'DESC' },
-      take: limit
+      take: limit,
     });
   }
 
-  async findUsersByStatus(status: PresenceStatus, limit: number = 100): Promise<UserPresenceEntity[]> {
+  async findUsersByStatus(
+    status: PresenceStatus,
+    limit: number = 100
+  ): Promise<UserPresenceEntity[]> {
     return await this.repository.find({
       where: { status },
       relations: ['user'],
       order: { lastSeenAt: 'DESC' },
-      take: limit
+      take: limit,
     });
   }
 
-  async findRecentlyActive(minutes: number = 30, limit: number = 100): Promise<UserPresenceEntity[]> {
+  async findRecentlyActive(
+    minutes: number = 30,
+    limit: number = 100
+  ): Promise<UserPresenceEntity[]> {
     const since = new Date();
     since.setMinutes(since.getMinutes() - minutes);
 
     return await this.repository.find({
       where: {
-        lastSeenAt: MoreThan(since)
+        lastSeenAt: MoreThan(since),
       },
       relations: ['user'],
       order: { lastSeenAt: 'DESC' },
-      take: limit
+      take: limit,
     });
   }
 
@@ -120,12 +126,12 @@ export class UserPresenceRepository extends BaseRepository<UserPresenceEntity> {
     const now = new Date();
     const result = await this.repository.update(
       {
-        statusExpiresAt: LessThan(now)
+        statusExpiresAt: LessThan(now),
       },
       {
         status: PresenceStatus.ONLINE,
         statusExpiresAt: null,
-        customStatus: null
+        customStatus: null,
       }
     );
 
@@ -136,7 +142,11 @@ export class UserPresenceRepository extends BaseRepository<UserPresenceEntity> {
     return await this.updatePresence(userId, PresenceStatus.INVISIBLE);
   }
 
-  async setCustomStatus(userId: string, customStatus: string, duration?: number): Promise<UserPresenceEntity | null> {
+  async setCustomStatus(
+    userId: string,
+    customStatus: string,
+    duration?: number
+  ): Promise<UserPresenceEntity | null> {
     const presence = await this.findByUserId(userId);
     if (!presence) return null;
 
@@ -175,7 +185,7 @@ export class UserPresenceRepository extends BaseRepository<UserPresenceEntity> {
       this.repository.count({ where: { status: PresenceStatus.BUSY } }),
       this.repository.count({ where: { status: PresenceStatus.OFFLINE } }),
       this.repository.count({ where: { status: PresenceStatus.INVISIBLE } }),
-      this.repository.count()
+      this.repository.count(),
     ]);
 
     return { online, away, busy, offline, invisible, total };
@@ -184,11 +194,11 @@ export class UserPresenceRepository extends BaseRepository<UserPresenceEntity> {
   async findUsersWithCustomStatus(limit: number = 50): Promise<UserPresenceEntity[]> {
     return await this.repository.find({
       where: {
-        customStatus: MoreThan('')
+        customStatus: MoreThan(''),
       },
       relations: ['user'],
       order: { lastSeenAt: 'DESC' },
-      take: limit
+      take: limit,
     });
   }
 
@@ -196,7 +206,7 @@ export class UserPresenceRepository extends BaseRepository<UserPresenceEntity> {
     const presence = await this.findByUserId(userId);
     if (presence) {
       presence.lastSeenAt = new Date();
-      
+
       if (deviceId) {
         const devices = presence.activeDevices || [];
         if (!devices.includes(deviceId)) {
@@ -216,11 +226,11 @@ export class UserPresenceRepository extends BaseRepository<UserPresenceEntity> {
     const result = await this.repository.update(
       {
         lastSeenAt: LessThan(cutoff),
-        status: MoreThan(PresenceStatus.OFFLINE)
+        status: MoreThan(PresenceStatus.OFFLINE),
       },
       {
         status: PresenceStatus.OFFLINE,
-        activeDevices: []
+        activeDevices: [],
       }
     );
 

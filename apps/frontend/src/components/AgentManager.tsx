@@ -8,18 +8,18 @@ import { Persona, PersonaDisplay } from '../types/persona';
 import { useDiscussion } from '../contexts/DiscussionContext';
 import { uaipAPI } from '../utils/uaip-api';
 import { AgentRole, LLMModel, LLMProviderType, LLMTaskType, AgentLLMPreference } from '@uaip/types';
-import { 
-  Users, 
-  Plus, 
-  Trash2, 
-  Bot, 
-  Cpu, 
-  AlertCircle, 
-  CheckCircle2, 
-  User, 
-  Server, 
-  Zap, 
-  Globe, 
+import {
+  Users,
+  Plus,
+  Trash2,
+  Bot,
+  Cpu,
+  AlertCircle,
+  CheckCircle2,
+  User,
+  Server,
+  Zap,
+  Globe,
   X,
   Edit3,
   Save,
@@ -53,7 +53,7 @@ import {
   Gauge,
   Lightbulb,
   MessageSquare,
-  Bookmark
+  Bookmark,
 } from 'lucide-react';
 import { ModelOption } from '@/types/models';
 import { useToast } from '@/components/ui/use-toast';
@@ -80,25 +80,26 @@ const getModels = async (): Promise<ModelOption[]> => {
   try {
     const response = await uaipAPI.llm.getModels();
     const models = Array.isArray(response) ? response : [];
-    
+
     if (models.length > 0) {
-      return models.map(model => ({
+      return models.map((model) => ({
         id: model.id,
         name: model.name,
         description: model.description,
         source: model.source,
         apiEndpoint: model.apiEndpoint,
-        apiType: (model.apiType === 'ollama' || model.apiType === 'llmstudio') 
-          ? model.apiType 
-          : 'ollama' as const,
+        apiType:
+          model.apiType === 'ollama' || model.apiType === 'llmstudio'
+            ? model.apiType
+            : ('ollama' as const),
         provider: model.provider,
-        isAvailable: model.isAvailable ?? true
+        isAvailable: model.isAvailable ?? true,
       }));
     }
   } catch (error) {
     console.warn('Failed to fetch models from API, using fallback models:', error);
   }
-  
+
   // Fallback models when API is unavailable
   return [
     {
@@ -109,7 +110,7 @@ const getModels = async (): Promise<ModelOption[]> => {
       apiEndpoint: 'https://api.openai.com/v1',
       apiType: 'llmstudio' as const,
       provider: 'OpenAI',
-      isAvailable: true
+      isAvailable: true,
     },
     {
       id: 'claude-3-5-sonnet-20241022',
@@ -119,7 +120,7 @@ const getModels = async (): Promise<ModelOption[]> => {
       apiEndpoint: 'https://api.anthropic.com',
       apiType: 'llmstudio' as const,
       provider: 'Anthropic',
-      isAvailable: true
+      isAvailable: true,
     },
     {
       id: 'llama-3.2-3b-instruct',
@@ -129,7 +130,7 @@ const getModels = async (): Promise<ModelOption[]> => {
       apiEndpoint: 'http://localhost:11434',
       apiType: 'ollama' as const,
       provider: 'Meta',
-      isAvailable: true
+      isAvailable: true,
     },
     {
       id: 'mistral-7b-instruct',
@@ -139,8 +140,8 @@ const getModels = async (): Promise<ModelOption[]> => {
       apiEndpoint: 'http://localhost:11434',
       apiType: 'ollama' as const,
       provider: 'Mistral AI',
-      isAvailable: true
-    }
+      isAvailable: true,
+    },
   ];
 };
 
@@ -150,20 +151,20 @@ const getServerIcon = (apiType: string) => {
 
 const getServerDisplayName = (source: string, apiType: string): string => {
   const serviceName = apiType === 'ollama' ? 'Ollama' : 'LLM Studio';
-  
+
   if (!source || source === 'local' || source === 'unknown') {
     return serviceName;
   }
-  
+
   try {
     const url = new URL(source);
     const hostname = url.hostname;
     const port = url.port;
-    
+
     if (hostname === 'localhost' || hostname === '127.0.0.1') {
       return port ? `${serviceName} (localhost:${port})` : `${serviceName} (localhost)`;
     }
-    
+
     return `${serviceName} (${hostname}${port ? ':' + port : ''})`;
   } catch {
     return `${serviceName} (${source.split('/').pop() || source.substring(0, 10)})`;
@@ -172,50 +173,51 @@ const getServerDisplayName = (source: string, apiType: string): string => {
 
 const groupModelsByProvider = (models: ModelOption[]) => {
   const grouped: Record<string, ModelOption[]> = {};
-  
+
   if (!models || !Array.isArray(models)) {
     return grouped;
   }
-  
-  models.forEach(model => {
+
+  models.forEach((model) => {
     if (!model || !model.id) return;
-    
+
     const providerKey = `${model.apiType}:${model.source}`;
     if (!grouped[providerKey]) {
       grouped[providerKey] = [];
     }
     grouped[providerKey].push(model);
   });
-  
+
   return grouped;
 };
 
-export const AgentManager: React.FC<AgentManagerProps> = ({ 
-  className, 
+export const AgentManager: React.FC<AgentManagerProps> = ({
+  className,
   viewport,
   defaultView = 'grid',
-  mode = 'manager'
+  mode = 'manager',
 }) => {
   // Default viewport if not provided
   const defaultViewport: ViewportSize = {
     width: typeof window !== 'undefined' ? window.innerWidth : 1024,
     height: typeof window !== 'undefined' ? window.innerHeight : 768,
     isMobile: typeof window !== 'undefined' ? window.innerWidth < 768 : false,
-    isTablet: typeof window !== 'undefined' ? window.innerWidth >= 768 && window.innerWidth < 1024 : false,
-    isDesktop: typeof window !== 'undefined' ? window.innerWidth >= 1024 : true
+    isTablet:
+      typeof window !== 'undefined' ? window.innerWidth >= 768 && window.innerWidth < 1024 : false,
+    isDesktop: typeof window !== 'undefined' ? window.innerWidth >= 1024 : true,
   };
 
   const currentViewport = viewport || defaultViewport;
 
-  const { 
-    agents, 
-    addAgent, 
-    removeAgent, 
+  const {
+    agents,
+    addAgent,
+    removeAgent,
     updateAgentState,
     modelState,
     getRecommendedModels,
     getModelsForProvider,
-    refreshModelData
+    refreshModelData,
   } = useAgents();
   const discussion = useDiscussion();
   const { toast } = useToast();
@@ -241,22 +243,29 @@ export const AgentManager: React.FC<AgentManagerProps> = ({
     personaId: '',
     description: '',
     isActive: true,
-    attachedTools: [] as Array<{toolId: string, toolName: string, category: string, permissions?: string[]}>,
+    attachedTools: [] as Array<{
+      toolId: string;
+      toolName: string;
+      category: string;
+      permissions?: string[];
+    }>,
     llmPreferences: [] as Omit<AgentLLMPreference, 'agentId'>[],
     chatConfig: {
       enableKnowledgeAccess: true,
       enableToolExecution: true,
       enableMemoryEnhancement: true,
       maxConcurrentChats: 5,
-      conversationTimeout: 3600000
-    }
+      conversationTimeout: 3600000,
+    },
   });
 
   // Selected persona state for confirmation step
   const [selectedPersona, setSelectedPersona] = useState<PersonaDisplay | null>(null);
 
   // Available tools state
-  const [availableTools, setAvailableTools] = useState<Array<{id: string, name: string, category: string, description: string}>>([]);
+  const [availableTools, setAvailableTools] = useState<
+    Array<{ id: string; name: string; category: string; description: string }>
+  >([]);
 
   // Form state for persona creation
   const [personaForm, setPersonaForm] = useState({
@@ -268,7 +277,7 @@ export const AgentManager: React.FC<AgentManagerProps> = ({
     tags: [] as string[],
     expertise: [] as string[],
     status: 'active' as const,
-    visibility: 'public' as const
+    visibility: 'public' as const,
   });
 
   // Pagination state
@@ -279,16 +288,22 @@ export const AgentManager: React.FC<AgentManagerProps> = ({
   const loadModels = async () => {
     setModelsLoading(true);
     setModelsError(null);
-    
+
     try {
       const models = await getModels();
       setAvailableModels(models);
-      
+
       if (models.length === 0) {
         setModelsError('No models available');
-      } else if (models.some(m => m.source === 'localhost:11434' || m.source === 'openai' || m.source === 'anthropic')) {
+      } else if (
+        models.some(
+          (m) => m.source === 'localhost:11434' || m.source === 'openai' || m.source === 'anthropic'
+        )
+      ) {
         // If we have fallback models, show a warning that backend is unavailable
-        const hasAPIModels = models.some(m => !['localhost:11434', 'openai', 'anthropic'].includes(m.source));
+        const hasAPIModels = models.some(
+          (m) => !['localhost:11434', 'openai', 'anthropic'].includes(m.source)
+        );
         if (!hasAPIModels) {
           setModelsError('Backend unavailable - using fallback models');
         }
@@ -306,7 +321,7 @@ export const AgentManager: React.FC<AgentManagerProps> = ({
     try {
       console.log('🔄 Loading agents from API...');
       const response = await uaipAPI.agents.list();
-      
+
       // Handle response properly - the API returns {agents: Array(7), total: 7, filters: {...}}
       let agentsArray = [];
       if (Array.isArray(response.agents)) {
@@ -318,19 +333,21 @@ export const AgentManager: React.FC<AgentManagerProps> = ({
       } else if (Array.isArray(response)) {
         // Fallback for direct array response
         agentsArray = response;
-        console.log(`📥 Received ${agentsArray.length} agents from API (direct array):`, agentsArray);
+        console.log(
+          `📥 Received ${agentsArray.length} agents from API (direct array):`,
+          agentsArray
+        );
       } else {
         console.log('⚠️ Unexpected API response format:', response);
         return;
       }
-      
+
       if (agentsArray.length > 0) {
-        
         // Instead of clearing and re-adding, let's just add missing agents
         // and update existing ones
         const currentAgentIds = new Set(Object.keys(agents || {}));
-        const incomingAgentIds = new Set(agentsArray.map(agent => agent.id));
-        
+        const incomingAgentIds = new Set(agentsArray.map((agent) => agent.id));
+
         // Add or update agents from the API
         for (const agentData of agentsArray) {
           try {
@@ -341,7 +358,7 @@ export const AgentManager: React.FC<AgentManagerProps> = ({
             console.error(`❌ Failed to process agent ${agentData.id}:`, error);
           }
         }
-        
+
         // Remove agents that no longer exist in the API
         for (const agentId of currentAgentIds) {
           if (!incomingAgentIds.has(agentId)) {
@@ -349,8 +366,10 @@ export const AgentManager: React.FC<AgentManagerProps> = ({
             removeAgent(agentId);
           }
         }
-        
-        console.log(`✅ Agent sync complete: ${agentsArray.length} agents from API, ${Object.keys(agents || {}).length} in context`);
+
+        console.log(
+          `✅ Agent sync complete: ${agentsArray.length} agents from API, ${Object.keys(agents || {}).length} in context`
+        );
       } else {
         console.log('⚠️ No agents found in API response');
       }
@@ -370,8 +389,8 @@ export const AgentManager: React.FC<AgentManagerProps> = ({
     const agentCount = Object.keys(agents || {}).length;
     console.log(`🔍 Agent Manager: ${agentCount} agents in context`, {
       agentIds: Object.keys(agents || {}),
-      agentNames: Object.values(agents || {}).map(a => a.name),
-      filteredCount: filteredAgents?.length || 0
+      agentNames: Object.values(agents || {}).map((a) => a.name),
+      filteredCount: filteredAgents?.length || 0,
     });
   }, [agents]);
 
@@ -379,7 +398,7 @@ export const AgentManager: React.FC<AgentManagerProps> = ({
   const navigateToAgent = (agentId: string, action: ActionMode = 'view') => {
     setSelectedAgentId(agentId);
     setActionMode(action);
-    
+
     // If editing, populate the form with existing agent data
     if (action === 'edit' && agents[agentId]) {
       const agent = agents[agentId];
@@ -397,10 +416,10 @@ export const AgentManager: React.FC<AgentManagerProps> = ({
           enableToolExecution: true,
           enableMemoryEnhancement: true,
           maxConcurrentChats: 5,
-          conversationTimeout: 3600000
-        }
+          conversationTimeout: 3600000,
+        },
       });
-      
+
       // Set the selected persona if available
       if (agent.persona) {
         setSelectedPersona(agent.persona);
@@ -426,8 +445,8 @@ export const AgentManager: React.FC<AgentManagerProps> = ({
         enableToolExecution: true,
         enableMemoryEnhancement: true,
         maxConcurrentChats: 5,
-        conversationTimeout: 3600000
-      }
+        conversationTimeout: 3600000,
+      },
     });
   };
 
@@ -444,7 +463,7 @@ export const AgentManager: React.FC<AgentManagerProps> = ({
       tags: [],
       expertise: [],
       status: 'active',
-      visibility: 'public'
+      visibility: 'public',
     });
   };
 
@@ -473,10 +492,14 @@ export const AgentManager: React.FC<AgentManagerProps> = ({
         personaId: selectedPersona.id,
         description: agentForm.description.trim(),
         isActive: agentForm.isActive,
-        capabilities: Array.isArray(selectedPersona.expertise) ? selectedPersona.expertise : 
-                     (selectedPersona.expertise && typeof selectedPersona.expertise === 'string') ? 
-                     selectedPersona.expertise.split(',').map(s => s.trim()).filter(s => s.length > 0) :
-                     ['general-assistance'],
+        capabilities: Array.isArray(selectedPersona.expertise)
+          ? selectedPersona.expertise
+          : selectedPersona.expertise && typeof selectedPersona.expertise === 'string'
+            ? selectedPersona.expertise
+                .split(',')
+                .map((s) => s.trim())
+                .filter((s) => s.length > 0)
+            : ['general-assistance'],
         systemPrompt: selectedPersona.background || selectedPersona.description || '',
         temperature: 0.7,
         maxTokens: 2000,
@@ -486,31 +509,31 @@ export const AgentManager: React.FC<AgentManagerProps> = ({
         // Enhanced agent functionality
         attachedTools: agentForm.attachedTools,
         llmPreferences: agentForm.llmPreferences,
-        chatConfig: agentForm.chatConfig
+        chatConfig: agentForm.chatConfig,
       };
 
       // Validate required fields before sending
       console.log('Creating agent with data:', {
         ...agentData,
         capabilities: agentData.capabilities,
-        capabilitiesLength: agentData.capabilities?.length
+        capabilitiesLength: agentData.capabilities?.length,
       });
 
       if (!agentData.capabilities || agentData.capabilities.length === 0) {
         toast({
           title: 'Validation Error',
           description: 'Agent must have at least one capability',
-          variant: 'destructive'
+          variant: 'destructive',
         });
         return;
       }
 
       const response = await uaipAPI.agents.create(agentData);
-      
+
       if (response.success && response.data) {
         const newAgent = createAgentStateFromBackend(response.data);
         addAgent(newAgent);
-        
+
         // Show success message
         toast({
           title: 'Agent Created',
@@ -519,7 +542,7 @@ export const AgentManager: React.FC<AgentManagerProps> = ({
 
         // Refresh the agents list to ensure UI is updated
         await loadExistingAgents();
-        
+
         // Reset form and navigate back
         setAgentForm({
           name: '',
@@ -535,11 +558,11 @@ export const AgentManager: React.FC<AgentManagerProps> = ({
             enableToolExecution: true,
             enableMemoryEnhancement: true,
             maxConcurrentChats: 5,
-            conversationTimeout: 3600000
-          }
+            conversationTimeout: 3600000,
+          },
         });
         setSelectedPersona(null);
-        
+
         navigateToView();
       }
     } catch (error) {
@@ -558,16 +581,18 @@ export const AgentManager: React.FC<AgentManagerProps> = ({
         role: personaForm.role.trim(),
         description: personaForm.description.trim(),
         background: personaForm.background.trim(),
-        systemPrompt: personaForm.systemPrompt.trim() || `You are a ${personaForm.role} named ${personaForm.name}. ${personaForm.description}`,
+        systemPrompt:
+          personaForm.systemPrompt.trim() ||
+          `You are a ${personaForm.role} named ${personaForm.name}. ${personaForm.description}`,
         traits: [], // Will be populated based on role
-        expertise: personaForm.expertise.map(exp => ({
+        expertise: personaForm.expertise.map((exp) => ({
           id: `exp-${Date.now()}-${Math.random()}`,
           name: exp,
           category: 'general',
           level: 'intermediate' as const,
           description: `Expertise in ${exp}`,
           keywords: [exp],
-          relatedDomains: []
+          relatedDomains: [],
         })),
         conversationalStyle: {
           tone: 'professional' as const,
@@ -578,15 +603,15 @@ export const AgentManager: React.FC<AgentManagerProps> = ({
           creativity: 0.5,
           analyticalDepth: 0.7,
           questioningStyle: 'direct' as const,
-          responsePattern: 'structured' as const
+          responsePattern: 'structured' as const,
         },
         status: personaForm.status,
         visibility: personaForm.visibility,
-        tags: personaForm.tags
+        tags: personaForm.tags,
       };
 
       const response = await uaipAPI.personas.create(personaData);
-      
+
       if (response) {
         // Reset form and navigate back
         setPersonaForm({
@@ -598,10 +623,10 @@ export const AgentManager: React.FC<AgentManagerProps> = ({
           tags: [],
           expertise: [],
           status: 'active',
-          visibility: 'public'
+          visibility: 'public',
         });
         navigateToView();
-        
+
         // Optionally refresh personas in PersonaSelector
         console.log('Persona created successfully:', response);
       }
@@ -615,10 +640,10 @@ export const AgentManager: React.FC<AgentManagerProps> = ({
 
     try {
       await uaipAPI.agents.delete(agentId);
-      
+
       // If no error was thrown, assume success
       removeAgent(agentId);
-      
+
       // If we're viewing this agent, go back to main view
       if (selectedAgentId === agentId) {
         navigateToView();
@@ -635,16 +660,17 @@ export const AgentManager: React.FC<AgentManagerProps> = ({
     // Apply search filter
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase();
-      filtered = filtered.filter(agent =>
-        agent.name.toLowerCase().includes(query) ||
-        agent.role.toLowerCase().includes(query) ||
-        agent.description?.toLowerCase().includes(query)
+      filtered = filtered.filter(
+        (agent) =>
+          agent.name.toLowerCase().includes(query) ||
+          agent.role.toLowerCase().includes(query) ||
+          agent.description?.toLowerCase().includes(query)
       );
     }
 
     // Apply role filter
     if (filterRole) {
-      filtered = filtered.filter(agent => agent.role === filterRole);
+      filtered = filtered.filter((agent) => agent.role === filterRole);
     }
 
     return filtered;
@@ -682,7 +708,7 @@ export const AgentManager: React.FC<AgentManagerProps> = ({
       if (agent.personaId) {
         // Try to extract a readable name from persona ID
         const parts = agent.personaId.split('-');
-        return parts.map(part => part.charAt(0).toUpperCase() + part.slice(1)).join(' ');
+        return parts.map((part) => part.charAt(0).toUpperCase() + part.slice(1)).join(' ');
       }
       return 'No persona';
     };
@@ -690,8 +716,10 @@ export const AgentManager: React.FC<AgentManagerProps> = ({
     // Get agent health status
     const getAgentHealth = (agent: AgentState) => {
       if (!agent.isActive) return { status: 'offline', color: 'bg-gray-500', text: 'Offline' };
-      if (agent.modelId && agent.personaId) return { status: 'healthy', color: 'bg-green-500', text: 'Healthy' };
-      if (agent.modelId || agent.personaId) return { status: 'warning', color: 'bg-yellow-500', text: 'Partial' };
+      if (agent.modelId && agent.personaId)
+        return { status: 'healthy', color: 'bg-green-500', text: 'Healthy' };
+      if (agent.modelId || agent.personaId)
+        return { status: 'warning', color: 'bg-yellow-500', text: 'Partial' };
       return { status: 'error', color: 'bg-red-500', text: 'Error' };
     };
 
@@ -705,26 +733,26 @@ export const AgentManager: React.FC<AgentManagerProps> = ({
         transition={{ delay, duration: 0.3 }}
         className={`
           relative group cursor-pointer overflow-hidden
-          ${viewMode === 'grid' 
-            ? 'bg-slate-800/60 hover:bg-slate-700/70 border border-slate-600/30 hover:border-slate-500/50 rounded-lg p-4 transition-all duration-200 shadow-lg hover:shadow-xl' 
-            : 'bg-slate-800/40 hover:bg-slate-700/50 border-l-2 border-l-blue-500 border-y border-r border-slate-600/30 p-3 transition-all duration-200'
+          ${
+            viewMode === 'grid'
+              ? 'bg-slate-800/60 hover:bg-slate-700/70 border border-slate-600/30 hover:border-slate-500/50 rounded-lg p-4 transition-all duration-200 shadow-lg hover:shadow-xl'
+              : 'bg-slate-800/40 hover:bg-slate-700/50 border-l-2 border-l-blue-500 border-y border-r border-slate-600/30 p-3 transition-all duration-200'
           }
           ${isSelected ? 'ring-1 ring-blue-400 bg-blue-500/5 border-blue-400' : ''}
         `}
         onClick={() => {
           // Open chat portal with this agent
-          const chatEvent = new CustomEvent('openAgentChat', { 
-            detail: { 
-              agentId: agent.id, 
+          const chatEvent = new CustomEvent('openAgentChat', {
+            detail: {
+              agentId: agent.id,
               agentName: agent.name,
-              persona: agent.persona 
-            } 
+              persona: agent.persona,
+            },
           });
           window.dispatchEvent(chatEvent);
         }}
         whileHover={{ scale: viewMode === 'grid' ? 1.02 : 1.01 }}
       >
-
         {/* Agent Status */}
         <div className="absolute top-2 right-2">
           <div className={`w-2 h-2 rounded-full ${health.color}`} />
@@ -761,7 +789,7 @@ export const AgentManager: React.FC<AgentManagerProps> = ({
           <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-500 rounded-lg flex items-center justify-center flex-shrink-0">
             <Bot className="w-5 h-5 text-white" />
           </div>
-          
+
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 mb-1">
               <h3 className="font-semibold text-white truncate" title={agent.name}>
@@ -771,12 +799,15 @@ export const AgentManager: React.FC<AgentManagerProps> = ({
                 {agent.role}
               </span>
             </div>
-            
+
             <div className="text-xs text-slate-400 truncate" title={getPersonaDisplayName(agent)}>
               {getPersonaDisplayName(agent)}
             </div>
-            
-            <div className="text-xs text-slate-500 truncate" title={`Model: ${getModelDisplayName(agent.modelId)}`}>
+
+            <div
+              className="text-xs text-slate-500 truncate"
+              title={`Model: ${getModelDisplayName(agent.modelId)}`}
+            >
               {getModelDisplayName(agent.modelId)}
             </div>
           </div>
@@ -817,7 +848,6 @@ export const AgentManager: React.FC<AgentManagerProps> = ({
             )}
           </div>
         </div>
-
       </motion.div>
     );
   };
@@ -831,7 +861,7 @@ export const AgentManager: React.FC<AgentManagerProps> = ({
     { value: LLMTaskType.CLASSIFICATION, label: 'Classification' },
     { value: LLMTaskType.TRANSLATION, label: 'Translation' },
     { value: LLMTaskType.TOOL_CALLING, label: 'Tool Calling' },
-    { value: LLMTaskType.VISION, label: 'Vision Analysis' }
+    { value: LLMTaskType.VISION, label: 'Vision Analysis' },
   ];
 
   // LLM Provider Types for UI
@@ -840,7 +870,7 @@ export const AgentManager: React.FC<AgentManagerProps> = ({
     { value: LLMProviderType.OPENAI, label: 'OpenAI' },
     { value: LLMProviderType.OLLAMA, label: 'Ollama' },
     { value: LLMProviderType.LLMSTUDIO, label: 'LLM Studio' },
-    { value: LLMProviderType.CUSTOM, label: 'Custom' }
+    { value: LLMProviderType.CUSTOM, label: 'Custom' },
   ];
 
   // Helper functions for LLM preferences
@@ -850,73 +880,124 @@ export const AgentManager: React.FC<AgentManagerProps> = ({
       preferredProvider: LLMProviderType.ANTHROPIC,
       preferredModel: 'claude-3-5-sonnet-20241022',
       isActive: true,
-      priority: 50
+      priority: 50,
     };
-    setAgentForm(prev => ({
+    setAgentForm((prev) => ({
       ...prev,
-      llmPreferences: [...prev.llmPreferences, newPreference]
+      llmPreferences: [...prev.llmPreferences, newPreference],
     }));
   };
 
-  const updateLLMPreference = (index: number, updates: Partial<Omit<AgentLLMPreference, 'agentId'>>) => {
-    setAgentForm(prev => ({
+  const updateLLMPreference = (
+    index: number,
+    updates: Partial<Omit<AgentLLMPreference, 'agentId'>>
+  ) => {
+    setAgentForm((prev) => ({
       ...prev,
-      llmPreferences: prev.llmPreferences.map((pref, i) => 
+      llmPreferences: prev.llmPreferences.map((pref, i) =>
         i === index ? { ...pref, ...updates } : pref
-      )
+      ),
     }));
   };
 
   const removeLLMPreference = (index: number) => {
-    setAgentForm(prev => ({
+    setAgentForm((prev) => ({
       ...prev,
-      llmPreferences: prev.llmPreferences.filter((_, i) => i !== index)
+      llmPreferences: prev.llmPreferences.filter((_, i) => i !== index),
     }));
   };
 
   // Helper functions for tool attachment and chat configuration
   const mockAvailableTools = [
-    { id: 'web-search', name: 'Web Search', category: 'search', description: 'Search the web for information' },
-    { id: 'document-analyzer', name: 'Document Analyzer', category: 'analysis', description: 'Analyze documents and extract insights' },
-    { id: 'code-executor', name: 'Code Executor', category: 'development', description: 'Execute and test code snippets' },
-    { id: 'data-processor', name: 'Data Processor', category: 'data', description: 'Process and transform data' },
-    { id: 'image-generator', name: 'Image Generator', category: 'creative', description: 'Generate images from text descriptions' },
-    { id: 'email-sender', name: 'Email Sender', category: 'communication', description: 'Send emails and notifications' },
-    { id: 'calendar-manager', name: 'Calendar Manager', category: 'productivity', description: 'Manage calendar events and scheduling' },
-    { id: 'file-manager', name: 'File Manager', category: 'utility', description: 'Manage files and directories' }
+    {
+      id: 'web-search',
+      name: 'Web Search',
+      category: 'search',
+      description: 'Search the web for information',
+    },
+    {
+      id: 'document-analyzer',
+      name: 'Document Analyzer',
+      category: 'analysis',
+      description: 'Analyze documents and extract insights',
+    },
+    {
+      id: 'code-executor',
+      name: 'Code Executor',
+      category: 'development',
+      description: 'Execute and test code snippets',
+    },
+    {
+      id: 'data-processor',
+      name: 'Data Processor',
+      category: 'data',
+      description: 'Process and transform data',
+    },
+    {
+      id: 'image-generator',
+      name: 'Image Generator',
+      category: 'creative',
+      description: 'Generate images from text descriptions',
+    },
+    {
+      id: 'email-sender',
+      name: 'Email Sender',
+      category: 'communication',
+      description: 'Send emails and notifications',
+    },
+    {
+      id: 'calendar-manager',
+      name: 'Calendar Manager',
+      category: 'productivity',
+      description: 'Manage calendar events and scheduling',
+    },
+    {
+      id: 'file-manager',
+      name: 'File Manager',
+      category: 'utility',
+      description: 'Manage files and directories',
+    },
   ];
 
-  const toggleToolAttachment = (tool: {id: string, name: string, category: string, description: string}) => {
-    setAgentForm(prev => {
-      const isAttached = prev.attachedTools?.some(t => t.toolId === tool.id) || false;
+  const toggleToolAttachment = (tool: {
+    id: string;
+    name: string;
+    category: string;
+    description: string;
+  }) => {
+    setAgentForm((prev) => {
+      const isAttached = prev.attachedTools?.some((t) => t.toolId === tool.id) || false;
       if (isAttached) {
         return {
           ...prev,
-          attachedTools: (prev.attachedTools || []).filter(t => t.toolId !== tool.id)
+          attachedTools: (prev.attachedTools || []).filter((t) => t.toolId !== tool.id),
         };
       } else {
         return {
           ...prev,
-          attachedTools: [...(prev.attachedTools || []), {
-            toolId: tool.id,
-            toolName: tool.name,
-            category: tool.category,
-            permissions: ['execute', 'read']
-          }]
+          attachedTools: [
+            ...(prev.attachedTools || []),
+            {
+              toolId: tool.id,
+              toolName: tool.name,
+              category: tool.category,
+              permissions: ['execute', 'read'],
+            },
+          ],
         };
       }
     });
   };
 
   const removeToolAttachment = (toolId: string) => {
-    setAgentForm(prev => ({
+    setAgentForm((prev) => ({
       ...prev,
-      attachedTools: prev.attachedTools.filter(t => t.toolId !== toolId)
+      attachedTools: prev.attachedTools.filter((t) => t.toolId !== toolId),
     }));
   };
 
   const updateChatConfig = (key: string, value: any) => {
-    setAgentForm(prev => ({
+    setAgentForm((prev) => ({
       ...prev,
       chatConfig: {
         enableKnowledgeAccess: true,
@@ -925,8 +1006,8 @@ export const AgentManager: React.FC<AgentManagerProps> = ({
         maxConcurrentChats: 5,
         conversationTimeout: 3600000,
         ...prev.chatConfig,
-        [key]: value
-      }
+        [key]: value,
+      },
     }));
   };
 
@@ -934,9 +1015,13 @@ export const AgentManager: React.FC<AgentManagerProps> = ({
     <div className="flex items-center justify-between mb-6">
       <div className="flex items-center gap-4">
         <div className="w-10 h-10 bg-gradient-to-br from-blue-500 via-cyan-500 to-purple-500 rounded-xl flex items-center justify-center shadow-lg ring-2 ring-blue-500/20">
-          {mode === 'spawner' ? <Zap className="w-5 h-5 text-white" /> : 
-           mode === 'monitor' ? <Activity className="w-5 h-5 text-white" /> :
-           <Users className="w-5 h-5 text-white" />}
+          {mode === 'spawner' ? (
+            <Zap className="w-5 h-5 text-white" />
+          ) : mode === 'monitor' ? (
+            <Activity className="w-5 h-5 text-white" />
+          ) : (
+            <Users className="w-5 h-5 text-white" />
+          )}
         </div>
         <div>
           {/* <h2 className="text-2xl font-bold text-white">
@@ -947,22 +1032,29 @@ export const AgentManager: React.FC<AgentManagerProps> = ({
           </h2> */}
           <div className="flex items-center gap-4">
             <p className="text-sm text-slate-400">
-              {mode === 'spawner' ? 'Create and deploy new agents' :
-               mode === 'monitor' ? 'Monitor agent performance and status' :
-               viewMode === 'settings' ? 'Configure agent models and personas' :
-               `${Object.values(agents || {}).length} agent${Object.values(agents || {}).length !== 1 ? 's' : ''}`}
+              {mode === 'spawner'
+                ? 'Create and deploy new agents'
+                : mode === 'monitor'
+                  ? 'Monitor agent performance and status'
+                  : viewMode === 'settings'
+                    ? 'Configure agent models and personas'
+                    : `${Object.values(agents || {}).length} agent${Object.values(agents || {}).length !== 1 ? 's' : ''}`}
             </p>
             {Object.values(agents || {}).length > 0 && viewMode !== 'settings' && (
               <div className="flex items-center gap-3 text-xs">
                 <div className="flex items-center gap-1">
                   <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse" />
-                  <span className="text-green-400 font-medium">{Object.values(agents || {}).filter(a => a.isActive).length}</span>
+                  <span className="text-green-400 font-medium">
+                    {Object.values(agents || {}).filter((a) => a.isActive).length}
+                  </span>
                   <span className="text-slate-500">online</span>
                 </div>
                 <div className="w-px h-3 bg-slate-600" />
                 <div className="flex items-center gap-1">
                   <CheckCircle2 className="w-3 h-3 text-blue-400" />
-                  <span className="text-blue-400 font-medium">{Object.values(agents || {}).filter(a => a.modelId && a.personaId).length}</span>
+                  <span className="text-blue-400 font-medium">
+                    {Object.values(agents || {}).filter((a) => a.modelId && a.personaId).length}
+                  </span>
                   <span className="text-slate-500">ready</span>
                 </div>
               </div>
@@ -979,8 +1071,8 @@ export const AgentManager: React.FC<AgentManagerProps> = ({
           <button
             onClick={() => setViewMode('grid')}
             className={`p-2 rounded-md transition-all duration-200 ${
-              viewMode === 'grid' 
-                ? 'bg-blue-500/20 text-blue-400 shadow-sm' 
+              viewMode === 'grid'
+                ? 'bg-blue-500/20 text-blue-400 shadow-sm'
                 : 'text-slate-400 hover:text-white hover:bg-slate-700/50'
             }`}
             title="Grid View"
@@ -990,8 +1082,8 @@ export const AgentManager: React.FC<AgentManagerProps> = ({
           <button
             onClick={() => setViewMode('list')}
             className={`p-2 rounded-md transition-all duration-200 ${
-              viewMode === 'list' 
-                ? 'bg-blue-500/20 text-blue-400 shadow-sm' 
+              viewMode === 'list'
+                ? 'bg-blue-500/20 text-blue-400 shadow-sm'
                 : 'text-slate-400 hover:text-white hover:bg-slate-700/50'
             }`}
             title="List View"
@@ -1001,8 +1093,8 @@ export const AgentManager: React.FC<AgentManagerProps> = ({
           <button
             onClick={() => setViewMode('settings')}
             className={`p-2 rounded-md transition-all duration-200 ${
-              viewMode === 'settings' 
-                ? 'bg-blue-500/20 text-blue-400 shadow-sm' 
+              viewMode === 'settings'
+                ? 'bg-blue-500/20 text-blue-400 shadow-sm'
                 : 'text-slate-400 hover:text-white hover:bg-slate-700/50'
             }`}
             title="Settings View"
@@ -1016,16 +1108,16 @@ export const AgentManager: React.FC<AgentManagerProps> = ({
           onClick={() => {
             console.log('🔄 Manual refresh triggered');
             setRefreshing(true);
-            Promise.all([
-              loadModels(),
-              loadExistingAgents()
-            ]).then(() => {
-              console.log('✅ Manual refresh completed');
-            }).catch(error => {
-              console.error('❌ Manual refresh failed:', error);
-            }).finally(() => {
-              setRefreshing(false);
-            });
+            Promise.all([loadModels(), loadExistingAgents()])
+              .then(() => {
+                console.log('✅ Manual refresh completed');
+              })
+              .catch((error) => {
+                console.error('❌ Manual refresh failed:', error);
+              })
+              .finally(() => {
+                setRefreshing(false);
+              });
           }}
           disabled={refreshing}
           className="p-2 bg-slate-800/50 hover:bg-slate-700/50 rounded-lg text-slate-400 hover:text-white transition-colors disabled:opacity-50 border border-slate-700/50 shadow-sm"
@@ -1044,7 +1136,7 @@ export const AgentManager: React.FC<AgentManagerProps> = ({
               <User className="w-4 h-4" />
               {currentViewport.isMobile ? '' : 'Create Persona'}
             </button>
-            
+
             <button
               onClick={navigateToCreate}
               className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 text-white rounded-lg transition-all duration-300 font-semibold shadow-lg hover:shadow-xl transform hover:scale-105"
@@ -1172,13 +1264,11 @@ export const AgentManager: React.FC<AgentManagerProps> = ({
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {/* Agent Name */}
         <div>
-          <label className="block text-sm font-medium text-slate-300 mb-2">
-            Agent Name
-          </label>
+          <label className="block text-sm font-medium text-slate-300 mb-2">Agent Name</label>
           <input
             type="text"
             value={agentForm.name}
-            onChange={(e) => setAgentForm(prev => ({ ...prev, name: e.target.value }))}
+            onChange={(e) => setAgentForm((prev) => ({ ...prev, name: e.target.value }))}
             placeholder="Enter agent name..."
             className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700/50 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-colors"
           />
@@ -1186,12 +1276,12 @@ export const AgentManager: React.FC<AgentManagerProps> = ({
 
         {/* Agent Role */}
         <div>
-          <label className="block text-sm font-medium text-slate-300 mb-2">
-            Role
-          </label>
+          <label className="block text-sm font-medium text-slate-300 mb-2">Role</label>
           <select
             value={agentForm.role}
-            onChange={(e) => setAgentForm(prev => ({ ...prev, role: e.target.value as AgentRole }))}
+            onChange={(e) =>
+              setAgentForm((prev) => ({ ...prev, role: e.target.value as AgentRole }))
+            }
             className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700/50 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-colors"
           >
             <option value="assistant">Assistant</option>
@@ -1203,12 +1293,10 @@ export const AgentManager: React.FC<AgentManagerProps> = ({
 
         {/* Model Selection */}
         <div>
-          <label className="block text-sm font-medium text-slate-300 mb-2">
-            Language Model
-          </label>
+          <label className="block text-sm font-medium text-slate-300 mb-2">Language Model</label>
           <select
             value={agentForm.modelId}
-            onChange={(e) => setAgentForm(prev => ({ ...prev, modelId: e.target.value }))}
+            onChange={(e) => setAgentForm((prev) => ({ ...prev, modelId: e.target.value }))}
             className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700/50 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-colors"
             disabled={modelsLoading}
           >
@@ -1216,10 +1304,10 @@ export const AgentManager: React.FC<AgentManagerProps> = ({
             {Object.entries(groupModelsByProvider(availableModels)).map(([providerKey, models]) => {
               const [apiType, source] = providerKey.split(':');
               const providerName = getServerDisplayName(source, apiType);
-              
+
               return (
                 <optgroup key={providerKey} label={providerName}>
-                  {models.map(model => (
+                  {models.map((model) => (
                     <option key={model.id} value={model.id} disabled={!model.isAvailable}>
                       {model.name} {!model.isAvailable ? '(Unavailable)' : ''}
                     </option>
@@ -1228,12 +1316,8 @@ export const AgentManager: React.FC<AgentManagerProps> = ({
               );
             })}
           </select>
-          {modelsLoading && (
-            <div className="text-xs text-slate-400 mt-1">Loading models...</div>
-          )}
-          {modelsError && (
-            <div className="text-xs text-red-400 mt-1">{modelsError}</div>
-          )}
+          {modelsLoading && <div className="text-xs text-slate-400 mt-1">Loading models...</div>}
+          {modelsError && <div className="text-xs text-red-400 mt-1">{modelsError}</div>}
         </div>
       </div>
 
@@ -1244,7 +1328,7 @@ export const AgentManager: React.FC<AgentManagerProps> = ({
         </label>
         <textarea
           value={agentForm.description}
-          onChange={(e) => setAgentForm(prev => ({ ...prev, description: e.target.value }))}
+          onChange={(e) => setAgentForm((prev) => ({ ...prev, description: e.target.value }))}
           placeholder="Describe the agent's purpose and capabilities..."
           rows={3}
           className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700/50 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-colors resize-none"
@@ -1286,7 +1370,10 @@ export const AgentManager: React.FC<AgentManagerProps> = ({
             {selectedPersona.tags && selectedPersona.tags.length > 0 && (
               <div className="flex flex-wrap gap-1">
                 {selectedPersona.tags.map((tag, index) => (
-                  <span key={index} className="text-xs px-2 py-1 bg-slate-700/50 text-slate-300 rounded">
+                  <span
+                    key={index}
+                    className="text-xs px-2 py-1 bg-slate-700/50 text-slate-300 rounded"
+                  >
                     {tag}
                   </span>
                 ))}
@@ -1312,27 +1399,36 @@ export const AgentManager: React.FC<AgentManagerProps> = ({
               Add Preference
             </button>
           </div>
-          
+
           <div className="space-y-3">
             {agentForm.llmPreferences.length === 0 ? (
               <div className="text-center py-4 border-2 border-dashed border-slate-600/50 rounded-lg">
                 <Cpu className="w-6 h-6 mx-auto mb-2 text-slate-500" />
                 <p className="text-xs text-slate-500">No task-specific preferences configured</p>
-                <p className="text-xs text-slate-600 mt-1">Add preferences to optimize model selection for different tasks</p>
+                <p className="text-xs text-slate-600 mt-1">
+                  Add preferences to optimize model selection for different tasks
+                </p>
               </div>
             ) : (
               agentForm.llmPreferences.map((preference, index) => (
-                <div key={index} className="border border-slate-600/30 rounded-lg p-3 bg-slate-900/30">
+                <div
+                  key={index}
+                  className="border border-slate-600/30 rounded-lg p-3 bg-slate-900/30"
+                >
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                     <div>
                       <label className="block text-xs text-slate-400 mb-1">Task Type</label>
                       <select
                         value={preference.taskType}
-                        onChange={(e) => updateLLMPreference(index, { taskType: e.target.value as LLMTaskType })}
+                        onChange={(e) =>
+                          updateLLMPreference(index, { taskType: e.target.value as LLMTaskType })
+                        }
                         className="w-full px-2 py-1 text-xs bg-slate-800/50 border border-slate-700/50 rounded text-white"
                       >
-                        {LLM_TASK_TYPE_OPTIONS.map(type => (
-                          <option key={type.value} value={type.value}>{type.label}</option>
+                        {LLM_TASK_TYPE_OPTIONS.map((type) => (
+                          <option key={type.value} value={type.value}>
+                            {type.label}
+                          </option>
                         ))}
                       </select>
                     </div>
@@ -1341,11 +1437,17 @@ export const AgentManager: React.FC<AgentManagerProps> = ({
                       <label className="block text-xs text-slate-400 mb-1">Provider</label>
                       <select
                         value={preference.preferredProvider}
-                        onChange={(e) => updateLLMPreference(index, { preferredProvider: e.target.value as LLMProviderType })}
+                        onChange={(e) =>
+                          updateLLMPreference(index, {
+                            preferredProvider: e.target.value as LLMProviderType,
+                          })
+                        }
                         className="w-full px-2 py-1 text-xs bg-slate-800/50 border border-slate-700/50 rounded text-white"
                       >
-                        {LLM_PROVIDER_TYPE_OPTIONS.map(provider => (
-                          <option key={provider.value} value={provider.value}>{provider.label}</option>
+                        {LLM_PROVIDER_TYPE_OPTIONS.map((provider) => (
+                          <option key={provider.value} value={provider.value}>
+                            {provider.label}
+                          </option>
                         ))}
                       </select>
                     </div>
@@ -1355,19 +1457,25 @@ export const AgentManager: React.FC<AgentManagerProps> = ({
                       <div className="flex gap-1">
                         <select
                           value={preference.preferredModel}
-                          onChange={(e) => updateLLMPreference(index, { preferredModel: e.target.value })}
+                          onChange={(e) =>
+                            updateLLMPreference(index, { preferredModel: e.target.value })
+                          }
                           className="flex-1 px-2 py-1 text-xs bg-slate-800/50 border border-slate-700/50 rounded text-white"
                         >
                           {availableModels
-                            .filter(m => 
-                              m.apiType === preference.preferredProvider || 
-                              (preference.preferredProvider === LLMProviderType.ANTHROPIC && m.name?.toLowerCase().includes('claude')) ||
-                              (preference.preferredProvider === LLMProviderType.OPENAI && m.name?.toLowerCase().includes('gpt'))
+                            .filter(
+                              (m) =>
+                                m.apiType === preference.preferredProvider ||
+                                (preference.preferredProvider === LLMProviderType.ANTHROPIC &&
+                                  m.name?.toLowerCase().includes('claude')) ||
+                                (preference.preferredProvider === LLMProviderType.OPENAI &&
+                                  m.name?.toLowerCase().includes('gpt'))
                             )
-                            .map(model => (
-                              <option key={model.id} value={model.id}>{model.name}</option>
-                            ))
-                          }
+                            .map((model) => (
+                              <option key={model.id} value={model.id}>
+                                {model.name}
+                              </option>
+                            ))}
                           <option value="claude-3-5-sonnet-20241022">Claude 3.5 Sonnet</option>
                           <option value="gpt-4o-mini">GPT-4O Mini</option>
                         </select>
@@ -1390,7 +1498,9 @@ export const AgentManager: React.FC<AgentManagerProps> = ({
                         min="1"
                         max="100"
                         value={preference.priority}
-                        onChange={(e) => updateLLMPreference(index, { priority: parseInt(e.target.value) })}
+                        onChange={(e) =>
+                          updateLLMPreference(index, { priority: parseInt(e.target.value) })
+                        }
                         className="w-full px-2 py-1 text-xs bg-slate-800/50 border border-slate-700/50 rounded text-white"
                       />
                     </div>
@@ -1403,9 +1513,14 @@ export const AgentManager: React.FC<AgentManagerProps> = ({
                         max="2"
                         step="0.1"
                         value={preference.settings?.temperature || 0.7}
-                        onChange={(e) => updateLLMPreference(index, { 
-                          settings: { ...preference.settings, temperature: parseFloat(e.target.value) }
-                        })}
+                        onChange={(e) =>
+                          updateLLMPreference(index, {
+                            settings: {
+                              ...preference.settings,
+                              temperature: parseFloat(e.target.value),
+                            },
+                          })
+                        }
                         className="w-full px-2 py-1 text-xs bg-slate-800/50 border border-slate-700/50 rounded text-white"
                       />
                     </div>
@@ -1415,7 +1530,9 @@ export const AgentManager: React.FC<AgentManagerProps> = ({
                         <input
                           type="checkbox"
                           checked={preference.isActive}
-                          onChange={(e) => updateLLMPreference(index, { isActive: e.target.checked })}
+                          onChange={(e) =>
+                            updateLLMPreference(index, { isActive: e.target.checked })
+                          }
                           className="mr-1 w-3 h-3 text-blue-600 bg-slate-800 border-slate-600 rounded focus:ring-blue-500 focus:ring-1"
                         />
                         Active
@@ -1442,7 +1559,7 @@ export const AgentManager: React.FC<AgentManagerProps> = ({
                   <div
                     key={tool.id}
                     className={`p-2 border rounded cursor-pointer transition-colors ${
-                      agentForm.attachedTools?.some(t => t.toolId === tool.id)
+                      agentForm.attachedTools?.some((t) => t.toolId === tool.id)
                         ? 'border-blue-500 bg-blue-500/10 text-blue-300'
                         : 'border-slate-600 hover:border-slate-500 text-slate-300'
                     }`}
@@ -1450,14 +1567,16 @@ export const AgentManager: React.FC<AgentManagerProps> = ({
                   >
                     <div className="flex justify-between items-center">
                       <span className="text-xs font-medium">{tool.name}</span>
-                      <span className="text-xs px-1 py-0.5 bg-slate-600 rounded">{tool.category}</span>
+                      <span className="text-xs px-1 py-0.5 bg-slate-600 rounded">
+                        {tool.category}
+                      </span>
                     </div>
                     <p className="text-xs text-slate-400 mt-1">{tool.description}</p>
                   </div>
                 ))}
               </div>
             </div>
-            
+
             {/* Attached Tools Summary */}
             {(agentForm.attachedTools?.length || 0) > 0 && (
               <div>
@@ -1502,7 +1621,7 @@ export const AgentManager: React.FC<AgentManagerProps> = ({
                 />
                 <span className="text-xs text-slate-300">Knowledge Access</span>
               </label>
-              
+
               <label className="flex items-center space-x-2 cursor-pointer">
                 <input
                   type="checkbox"
@@ -1512,7 +1631,7 @@ export const AgentManager: React.FC<AgentManagerProps> = ({
                 />
                 <span className="text-xs text-slate-300">Tool Execution</span>
               </label>
-              
+
               <label className="flex items-center space-x-2 cursor-pointer">
                 <input
                   type="checkbox"
@@ -1537,15 +1656,19 @@ export const AgentManager: React.FC<AgentManagerProps> = ({
                   className="w-full px-2 py-1 text-xs bg-slate-800/50 border border-slate-700/50 rounded text-white"
                 />
               </div>
-              
+
               <div>
-                <label className="block text-xs text-slate-400 mb-1">Conversation Timeout (minutes)</label>
+                <label className="block text-xs text-slate-400 mb-1">
+                  Conversation Timeout (minutes)
+                </label>
                 <input
                   type="number"
                   min="5"
                   max="1440"
                   value={Math.floor((agentForm.chatConfig?.conversationTimeout || 3600000) / 60000)}
-                  onChange={(e) => updateChatConfig('conversationTimeout', parseInt(e.target.value) * 60000)}
+                  onChange={(e) =>
+                    updateChatConfig('conversationTimeout', parseInt(e.target.value) * 60000)
+                  }
                   className="w-full px-2 py-1 text-xs bg-slate-800/50 border border-slate-700/50 rounded text-white"
                 />
               </div>
@@ -1589,13 +1712,11 @@ export const AgentManager: React.FC<AgentManagerProps> = ({
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {/* Persona Name */}
         <div>
-          <label className="block text-sm font-medium text-slate-300 mb-2">
-            Persona Name *
-          </label>
+          <label className="block text-sm font-medium text-slate-300 mb-2">Persona Name *</label>
           <input
             type="text"
             value={personaForm.name}
-            onChange={(e) => setPersonaForm(prev => ({ ...prev, name: e.target.value }))}
+            onChange={(e) => setPersonaForm((prev) => ({ ...prev, name: e.target.value }))}
             placeholder="Enter persona name..."
             className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700/50 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500/50 transition-colors"
           />
@@ -1603,13 +1724,11 @@ export const AgentManager: React.FC<AgentManagerProps> = ({
 
         {/* Persona Role */}
         <div>
-          <label className="block text-sm font-medium text-slate-300 mb-2">
-            Role/Title *
-          </label>
+          <label className="block text-sm font-medium text-slate-300 mb-2">Role/Title *</label>
           <input
             type="text"
             value={personaForm.role}
-            onChange={(e) => setPersonaForm(prev => ({ ...prev, role: e.target.value }))}
+            onChange={(e) => setPersonaForm((prev) => ({ ...prev, role: e.target.value }))}
             placeholder="e.g., Software Engineer, Data Scientist..."
             className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700/50 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500/50 transition-colors"
           />
@@ -1617,12 +1736,15 @@ export const AgentManager: React.FC<AgentManagerProps> = ({
 
         {/* Status */}
         <div>
-          <label className="block text-sm font-medium text-slate-300 mb-2">
-            Status
-          </label>
+          <label className="block text-sm font-medium text-slate-300 mb-2">Status</label>
           <select
             value={personaForm.status}
-            onChange={(e) => setPersonaForm(prev => ({ ...prev, status: e.target.value as 'active' | 'inactive' }))}
+            onChange={(e) =>
+              setPersonaForm((prev) => ({
+                ...prev,
+                status: e.target.value as 'active' | 'inactive',
+              }))
+            }
             className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700/50 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500/50 transition-colors"
           >
             <option value="active">Active</option>
@@ -1632,12 +1754,15 @@ export const AgentManager: React.FC<AgentManagerProps> = ({
 
         {/* Visibility */}
         <div>
-          <label className="block text-sm font-medium text-slate-300 mb-2">
-            Visibility
-          </label>
+          <label className="block text-sm font-medium text-slate-300 mb-2">Visibility</label>
           <select
             value={personaForm.visibility}
-            onChange={(e) => setPersonaForm(prev => ({ ...prev, visibility: e.target.value as 'public' | 'private' }))}
+            onChange={(e) =>
+              setPersonaForm((prev) => ({
+                ...prev,
+                visibility: e.target.value as 'public' | 'private',
+              }))
+            }
             className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700/50 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500/50 transition-colors"
           >
             <option value="public">Public</option>
@@ -1648,12 +1773,10 @@ export const AgentManager: React.FC<AgentManagerProps> = ({
 
       {/* Description */}
       <div>
-        <label className="block text-sm font-medium text-slate-300 mb-2">
-          Description *
-        </label>
+        <label className="block text-sm font-medium text-slate-300 mb-2">Description *</label>
         <textarea
           value={personaForm.description}
-          onChange={(e) => setPersonaForm(prev => ({ ...prev, description: e.target.value }))}
+          onChange={(e) => setPersonaForm((prev) => ({ ...prev, description: e.target.value }))}
           placeholder="Describe the persona's characteristics and purpose..."
           rows={3}
           className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700/50 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500/50 transition-colors resize-none"
@@ -1667,7 +1790,7 @@ export const AgentManager: React.FC<AgentManagerProps> = ({
         </label>
         <textarea
           value={personaForm.background}
-          onChange={(e) => setPersonaForm(prev => ({ ...prev, background: e.target.value }))}
+          onChange={(e) => setPersonaForm((prev) => ({ ...prev, background: e.target.value }))}
           placeholder="Provide detailed background information about the persona's experience and history..."
           rows={4}
           className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700/50 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500/50 transition-colors resize-none"
@@ -1682,10 +1805,15 @@ export const AgentManager: React.FC<AgentManagerProps> = ({
         <input
           type="text"
           value={personaForm.expertise.join(', ')}
-          onChange={(e) => setPersonaForm(prev => ({ 
-            ...prev, 
-            expertise: e.target.value.split(',').map(s => s.trim()).filter(s => s.length > 0)
-          }))}
+          onChange={(e) =>
+            setPersonaForm((prev) => ({
+              ...prev,
+              expertise: e.target.value
+                .split(',')
+                .map((s) => s.trim())
+                .filter((s) => s.length > 0),
+            }))
+          }
           placeholder="Enter expertise areas separated by commas (e.g., Python, Machine Learning, Data Analysis)"
           className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700/50 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500/50 transition-colors"
         />
@@ -1694,16 +1822,19 @@ export const AgentManager: React.FC<AgentManagerProps> = ({
 
       {/* Tags */}
       <div>
-        <label className="block text-sm font-medium text-slate-300 mb-2">
-          Tags (Optional)
-        </label>
+        <label className="block text-sm font-medium text-slate-300 mb-2">Tags (Optional)</label>
         <input
           type="text"
           value={personaForm.tags.join(', ')}
-          onChange={(e) => setPersonaForm(prev => ({ 
-            ...prev, 
-            tags: e.target.value.split(',').map(s => s.trim()).filter(s => s.length > 0)
-          }))}
+          onChange={(e) =>
+            setPersonaForm((prev) => ({
+              ...prev,
+              tags: e.target.value
+                .split(',')
+                .map((s) => s.trim())
+                .filter((s) => s.length > 0),
+            }))
+          }
           placeholder="Enter tags separated by commas (e.g., technical, analytical, creative)"
           className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700/50 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500/50 transition-colors"
         />
@@ -1717,12 +1848,15 @@ export const AgentManager: React.FC<AgentManagerProps> = ({
         </label>
         <textarea
           value={personaForm.systemPrompt}
-          onChange={(e) => setPersonaForm(prev => ({ ...prev, systemPrompt: e.target.value }))}
+          onChange={(e) => setPersonaForm((prev) => ({ ...prev, systemPrompt: e.target.value }))}
           placeholder="Custom system prompt for the persona (if left empty, will be auto-generated)"
           rows={4}
           className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700/50 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500/50 transition-colors resize-none"
         />
-        <p className="text-xs text-slate-500 mt-1">If empty, a system prompt will be generated automatically based on the role and description</p>
+        <p className="text-xs text-slate-500 mt-1">
+          If empty, a system prompt will be generated automatically based on the role and
+          description
+        </p>
       </div>
 
       {/* Create Button */}
@@ -1735,7 +1869,9 @@ export const AgentManager: React.FC<AgentManagerProps> = ({
         </button>
         <button
           onClick={handleCreatePersona}
-          disabled={!personaForm.name.trim() || !personaForm.role.trim() || !personaForm.description.trim()}
+          disabled={
+            !personaForm.name.trim() || !personaForm.role.trim() || !personaForm.description.trim()
+          }
           className="flex items-center gap-2 px-6 py-2 bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 disabled:from-slate-600 disabled:to-slate-600 text-white rounded-lg transition-all duration-300 font-semibold disabled:cursor-not-allowed"
         >
           <User className="w-4 h-4" />
@@ -1793,13 +1929,11 @@ export const AgentManager: React.FC<AgentManagerProps> = ({
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {/* Agent Name */}
             <div>
-              <label className="block text-sm font-medium text-slate-300 mb-2">
-                Agent Name *
-              </label>
+              <label className="block text-sm font-medium text-slate-300 mb-2">Agent Name *</label>
               <input
                 type="text"
                 value={agentForm.name}
-                onChange={(e) => setAgentForm(prev => ({ ...prev, name: e.target.value }))}
+                onChange={(e) => setAgentForm((prev) => ({ ...prev, name: e.target.value }))}
                 placeholder="Enter agent name..."
                 className="w-full px-3 py-2 bg-slate-700/50 border border-slate-600/50 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-orange-500/50 focus:border-orange-500/50 transition-colors"
               />
@@ -1807,12 +1941,12 @@ export const AgentManager: React.FC<AgentManagerProps> = ({
 
             {/* Agent Role */}
             <div>
-              <label className="block text-sm font-medium text-slate-300 mb-2">
-                Role *
-              </label>
+              <label className="block text-sm font-medium text-slate-300 mb-2">Role *</label>
               <select
                 value={agentForm.role}
-                onChange={(e) => setAgentForm(prev => ({ ...prev, role: e.target.value as AgentRole }))}
+                onChange={(e) =>
+                  setAgentForm((prev) => ({ ...prev, role: e.target.value as AgentRole }))
+                }
                 className="w-full px-3 py-2 bg-slate-700/50 border border-slate-600/50 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-orange-500/50 focus:border-orange-500/50 transition-colors"
               >
                 <option value="assistant">Assistant</option>
@@ -1833,7 +1967,7 @@ export const AgentManager: React.FC<AgentManagerProps> = ({
             </label>
             <select
               value={agentForm.modelId}
-              onChange={(e) => setAgentForm(prev => ({ ...prev, modelId: e.target.value }))}
+              onChange={(e) => setAgentForm((prev) => ({ ...prev, modelId: e.target.value }))}
               className="w-full px-3 py-2 bg-slate-700/50 border border-slate-600/50 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-orange-500/50 focus:border-orange-500/50 transition-colors"
             >
               <option value="">Select a model...</option>
@@ -1847,12 +1981,10 @@ export const AgentManager: React.FC<AgentManagerProps> = ({
 
           {/* Description */}
           <div className="mt-4">
-            <label className="block text-sm font-medium text-slate-300 mb-2">
-              Description
-            </label>
+            <label className="block text-sm font-medium text-slate-300 mb-2">Description</label>
             <textarea
               value={agentForm.description}
-              onChange={(e) => setAgentForm(prev => ({ ...prev, description: e.target.value }))}
+              onChange={(e) => setAgentForm((prev) => ({ ...prev, description: e.target.value }))}
               placeholder="Describe the agent's purpose and capabilities..."
               rows={3}
               className="w-full px-3 py-2 bg-slate-700/50 border border-slate-600/50 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-orange-500/50 focus:border-orange-500/50 transition-colors resize-none"
@@ -1884,120 +2016,154 @@ export const AgentManager: React.FC<AgentManagerProps> = ({
                 Add
               </button>
             </div>
-            
+
             <div className="space-y-3 max-h-80 overflow-y-auto">
               {agentForm.llmPreferences.length === 0 ? (
-                  <div className="text-center py-4 border-2 border-dashed border-slate-600/50 rounded-lg">
-                    <Cpu className="w-6 h-6 mx-auto mb-2 text-slate-500" />
-                    <p className="text-xs text-slate-500">No task-specific preferences configured</p>
-                    <p className="text-xs text-slate-600 mt-1">Add preferences to optimize model selection for different tasks</p>
-                  </div>
-                ) : (
-                  agentForm.llmPreferences.map((preference, index) => (
-                    <div key={index} className="border border-slate-600/30 rounded-lg p-3 bg-slate-900/30">
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                        <div>
-                          <label className="block text-xs text-slate-400 mb-1">Task Type</label>
-                          <select
-                            value={preference.taskType}
-                            onChange={(e) => updateLLMPreference(index, { taskType: e.target.value as LLMTaskType })}
-                            className="w-full px-2 py-1 text-xs bg-slate-800/50 border border-slate-700/50 rounded text-white"
-                          >
-                            {LLM_TASK_TYPE_OPTIONS.map(type => (
-                              <option key={type.value} value={type.value}>{type.label}</option>
-                            ))}
-                          </select>
-                        </div>
-
-                        <div>
-                          <label className="block text-xs text-slate-400 mb-1">Provider</label>
-                          <select
-                            value={preference.preferredProvider}
-                            onChange={(e) => updateLLMPreference(index, { preferredProvider: e.target.value as LLMProviderType })}
-                            className="w-full px-2 py-1 text-xs bg-slate-800/50 border border-slate-700/50 rounded text-white"
-                          >
-                            {LLM_PROVIDER_TYPE_OPTIONS.map(provider => (
-                              <option key={provider.value} value={provider.value}>{provider.label}</option>
-                            ))}
-                          </select>
-                        </div>
-
-                        <div>
-                          <label className="block text-xs text-slate-400 mb-1">Model</label>
-                          <div className="flex gap-1">
-                            <select
-                              value={preference.preferredModel}
-                              onChange={(e) => updateLLMPreference(index, { preferredModel: e.target.value })}
-                              className="flex-1 px-2 py-1 text-xs bg-slate-800/50 border border-slate-700/50 rounded text-white"
-                            >
-                              {availableModels
-                                .filter(m => 
-                                  m.apiType === preference.preferredProvider || 
-                                  (preference.preferredProvider === LLMProviderType.ANTHROPIC && m.name?.toLowerCase().includes('claude')) ||
-                                  (preference.preferredProvider === LLMProviderType.OPENAI && m.name?.toLowerCase().includes('gpt'))
-                                )
-                                .map(model => (
-                                  <option key={model.id} value={model.id}>{model.name}</option>
-                                ))
-                              }
-                              <option value="claude-3-5-sonnet-20241022">Claude 3.5 Sonnet</option>
-                              <option value="gpt-4o-mini">GPT-4O Mini</option>
-                            </select>
-                            <button
-                              onClick={() => removeLLMPreference(index)}
-                              className="px-2 py-1 bg-red-500/20 hover:bg-red-500/30 text-red-400 rounded text-xs transition-colors"
-                              title="Remove preference"
-                            >
-                              <Trash2 className="w-3 h-3" />
-                            </button>
-                          </div>
-                        </div>
+                <div className="text-center py-4 border-2 border-dashed border-slate-600/50 rounded-lg">
+                  <Cpu className="w-6 h-6 mx-auto mb-2 text-slate-500" />
+                  <p className="text-xs text-slate-500">No task-specific preferences configured</p>
+                  <p className="text-xs text-slate-600 mt-1">
+                    Add preferences to optimize model selection for different tasks
+                  </p>
+                </div>
+              ) : (
+                agentForm.llmPreferences.map((preference, index) => (
+                  <div
+                    key={index}
+                    className="border border-slate-600/30 rounded-lg p-3 bg-slate-900/30"
+                  >
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                      <div>
+                        <label className="block text-xs text-slate-400 mb-1">Task Type</label>
+                        <select
+                          value={preference.taskType}
+                          onChange={(e) =>
+                            updateLLMPreference(index, { taskType: e.target.value as LLMTaskType })
+                          }
+                          className="w-full px-2 py-1 text-xs bg-slate-800/50 border border-slate-700/50 rounded text-white"
+                        >
+                          {LLM_TASK_TYPE_OPTIONS.map((type) => (
+                            <option key={type.value} value={type.value}>
+                              {type.label}
+                            </option>
+                          ))}
+                        </select>
                       </div>
 
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mt-3">
-                        <div>
-                          <label className="block text-xs text-slate-400 mb-1">Priority (1-100)</label>
-                          <input
-                            type="number"
-                            min="1"
-                            max="100"
-                            value={preference.priority}
-                            onChange={(e) => updateLLMPreference(index, { priority: parseInt(e.target.value) })}
-                            className="w-full px-2 py-1 text-xs bg-slate-800/50 border border-slate-700/50 rounded text-white"
-                          />
-                        </div>
+                      <div>
+                        <label className="block text-xs text-slate-400 mb-1">Provider</label>
+                        <select
+                          value={preference.preferredProvider}
+                          onChange={(e) =>
+                            updateLLMPreference(index, {
+                              preferredProvider: e.target.value as LLMProviderType,
+                            })
+                          }
+                          className="w-full px-2 py-1 text-xs bg-slate-800/50 border border-slate-700/50 rounded text-white"
+                        >
+                          {LLM_PROVIDER_TYPE_OPTIONS.map((provider) => (
+                            <option key={provider.value} value={provider.value}>
+                              {provider.label}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
 
-                        <div>
-                          <label className="block text-xs text-slate-400 mb-1">Temperature (0-2)</label>
-                          <input
-                            type="number"
-                            min="0"
-                            max="2"
-                            step="0.1"
-                            value={preference.settings?.temperature || 0.7}
-                            onChange={(e) => updateLLMPreference(index, { 
-                              settings: { ...preference.settings, temperature: parseFloat(e.target.value) }
-                            })}
-                            className="w-full px-2 py-1 text-xs bg-slate-800/50 border border-slate-700/50 rounded text-white"
-                          />
-                        </div>
-
-                        <div className="flex items-center">
-                          <label className="flex items-center text-xs text-slate-400">
-                            <input
-                              type="checkbox"
-                              checked={preference.isActive}
-                              onChange={(e) => updateLLMPreference(index, { isActive: e.target.checked })}
-                              className="mr-1 w-3 h-3 text-blue-600 bg-slate-800 border-slate-600 rounded focus:ring-blue-500 focus:ring-1"
-                            />
-                            Active
-                          </label>
+                      <div>
+                        <label className="block text-xs text-slate-400 mb-1">Model</label>
+                        <div className="flex gap-1">
+                          <select
+                            value={preference.preferredModel}
+                            onChange={(e) =>
+                              updateLLMPreference(index, { preferredModel: e.target.value })
+                            }
+                            className="flex-1 px-2 py-1 text-xs bg-slate-800/50 border border-slate-700/50 rounded text-white"
+                          >
+                            {availableModels
+                              .filter(
+                                (m) =>
+                                  m.apiType === preference.preferredProvider ||
+                                  (preference.preferredProvider === LLMProviderType.ANTHROPIC &&
+                                    m.name?.toLowerCase().includes('claude')) ||
+                                  (preference.preferredProvider === LLMProviderType.OPENAI &&
+                                    m.name?.toLowerCase().includes('gpt'))
+                              )
+                              .map((model) => (
+                                <option key={model.id} value={model.id}>
+                                  {model.name}
+                                </option>
+                              ))}
+                            <option value="claude-3-5-sonnet-20241022">Claude 3.5 Sonnet</option>
+                            <option value="gpt-4o-mini">GPT-4O Mini</option>
+                          </select>
+                          <button
+                            onClick={() => removeLLMPreference(index)}
+                            className="px-2 py-1 bg-red-500/20 hover:bg-red-500/30 text-red-400 rounded text-xs transition-colors"
+                            title="Remove preference"
+                          >
+                            <Trash2 className="w-3 h-3" />
+                          </button>
                         </div>
                       </div>
                     </div>
-                  ))
-                )}
-              </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mt-3">
+                      <div>
+                        <label className="block text-xs text-slate-400 mb-1">
+                          Priority (1-100)
+                        </label>
+                        <input
+                          type="number"
+                          min="1"
+                          max="100"
+                          value={preference.priority}
+                          onChange={(e) =>
+                            updateLLMPreference(index, { priority: parseInt(e.target.value) })
+                          }
+                          className="w-full px-2 py-1 text-xs bg-slate-800/50 border border-slate-700/50 rounded text-white"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-xs text-slate-400 mb-1">
+                          Temperature (0-2)
+                        </label>
+                        <input
+                          type="number"
+                          min="0"
+                          max="2"
+                          step="0.1"
+                          value={preference.settings?.temperature || 0.7}
+                          onChange={(e) =>
+                            updateLLMPreference(index, {
+                              settings: {
+                                ...preference.settings,
+                                temperature: parseFloat(e.target.value),
+                              },
+                            })
+                          }
+                          className="w-full px-2 py-1 text-xs bg-slate-800/50 border border-slate-700/50 rounded text-white"
+                        />
+                      </div>
+
+                      <div className="flex items-center">
+                        <label className="flex items-center text-xs text-slate-400">
+                          <input
+                            type="checkbox"
+                            checked={preference.isActive}
+                            onChange={(e) =>
+                              updateLLMPreference(index, { isActive: e.target.checked })
+                            }
+                            className="mr-1 w-3 h-3 text-blue-600 bg-slate-800 border-slate-600 rounded focus:ring-blue-500 focus:ring-1"
+                          />
+                          Active
+                        </label>
+                      </div>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
           </div>
         )}
 
@@ -2007,13 +2173,15 @@ export const AgentManager: React.FC<AgentManagerProps> = ({
             <div className="space-y-4">
               {/* Available Tools */}
               <div>
-                <label className="block text-sm font-medium text-slate-300 mb-3">Available Tools</label>
+                <label className="block text-sm font-medium text-slate-300 mb-3">
+                  Available Tools
+                </label>
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 max-h-48 overflow-y-auto">
                   {mockAvailableTools.map((tool) => (
                     <div
                       key={tool.id}
                       className={`p-3 border rounded-lg cursor-pointer transition-colors ${
-                        agentForm.attachedTools?.some(t => t.toolId === tool.id)
+                        agentForm.attachedTools?.some((t) => t.toolId === tool.id)
                           ? 'border-orange-500 bg-orange-500/10 text-orange-300'
                           : 'border-slate-600 hover:border-slate-500 text-slate-300'
                       }`}
@@ -2021,14 +2189,16 @@ export const AgentManager: React.FC<AgentManagerProps> = ({
                     >
                       <div className="flex justify-between items-center mb-1">
                         <span className="text-sm font-medium">{tool.name}</span>
-                        <span className="text-xs px-2 py-1 bg-slate-600 rounded">{tool.category}</span>
+                        <span className="text-xs px-2 py-1 bg-slate-600 rounded">
+                          {tool.category}
+                        </span>
                       </div>
                       <p className="text-xs text-slate-400">{tool.description}</p>
                     </div>
                   ))}
                 </div>
               </div>
-              
+
               {/* Attached Tools Summary */}
               {(agentForm.attachedTools?.length || 0) > 0 && (
                 <div>
@@ -2076,7 +2246,7 @@ export const AgentManager: React.FC<AgentManagerProps> = ({
                   personaId: agentForm.personaId,
                   attachedTools: agentForm.attachedTools || [],
                   llmPreferences: agentForm.llmPreferences,
-                  chatConfig: agentForm.chatConfig
+                  chatConfig: agentForm.chatConfig,
                 });
                 navigateToView();
               } catch (error) {
@@ -2100,20 +2270,22 @@ export const AgentManager: React.FC<AgentManagerProps> = ({
     return (
       <div className="flex items-center justify-between mt-6">
         <div className="text-sm text-slate-400">
-          Showing {(currentPage - 1) * itemsPerPage + 1} to {Math.min(currentPage * itemsPerPage, filteredAgents.length)} of {filteredAgents.length} agents
+          Showing {(currentPage - 1) * itemsPerPage + 1} to{' '}
+          {Math.min(currentPage * itemsPerPage, filteredAgents.length)} of {filteredAgents.length}{' '}
+          agents
         </div>
-        
+
         <div className="flex items-center gap-2">
           <button
-            onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+            onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
             disabled={currentPage === 1}
             className="p-2 bg-slate-800/50 hover:bg-slate-700/50 rounded-lg text-slate-400 hover:text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <ChevronLeft className="w-4 h-4" />
           </button>
-          
+
           <div className="flex items-center gap-1">
-            {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
+            {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
               <button
                 key={page}
                 onClick={() => setCurrentPage(page)}
@@ -2127,9 +2299,9 @@ export const AgentManager: React.FC<AgentManagerProps> = ({
               </button>
             ))}
           </div>
-          
+
           <button
-            onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+            onClick={() => setCurrentPage((prev) => Math.min(totalPages, prev + 1))}
             disabled={currentPage === totalPages}
             className="p-2 bg-slate-800/50 hover:bg-slate-700/50 rounded-lg text-slate-400 hover:text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
@@ -2174,9 +2346,7 @@ export const AgentManager: React.FC<AgentManagerProps> = ({
             <span className="text-sm font-semibold text-red-700 dark:text-red-300 block">
               Model Loading Error
             </span>
-            <span className="text-xs text-red-600 dark:text-red-400 block">
-              {modelsError}
-            </span>
+            <span className="text-xs text-red-600 dark:text-red-400 block">{modelsError}</span>
           </div>
         </div>
       )}
@@ -2188,12 +2358,16 @@ export const AgentManager: React.FC<AgentManagerProps> = ({
             <div className="w-20 h-20 bg-gradient-to-br from-slate-100 to-slate-200 dark:from-slate-800 dark:to-slate-700 rounded-3xl flex items-center justify-center mx-auto mb-6 shadow-inner">
               <Bot className="w-10 h-10 text-slate-400" />
             </div>
-            <p className="text-slate-600 dark:text-slate-300 font-semibold text-base">No agents configured</p>
-            <p className="text-sm text-slate-500 dark:text-slate-400 mt-2">Create agents first to configure their model associations</p>
+            <p className="text-slate-600 dark:text-slate-300 font-semibold text-base">
+              No agents configured
+            </p>
+            <p className="text-sm text-slate-500 dark:text-slate-400 mt-2">
+              Create agents first to configure their model associations
+            </p>
           </div>
         ) : (
           Object.values(agents).map((agent) => {
-            const modelInfo = availableModels.find(m => m.id === agent.modelId);
+            const modelInfo = availableModels.find((m) => m.id === agent.modelId);
             const hasValidModel = !!modelInfo;
             const hasPersona = !!agent.personaId;
             const isFullyConfigured = hasValidModel && hasPersona;
@@ -2217,15 +2391,19 @@ export const AgentManager: React.FC<AgentManagerProps> = ({
                       <div className="w-14 h-14 bg-gradient-to-br from-blue-500 via-purple-500 to-indigo-600 rounded-xl flex items-center justify-center shadow-lg shadow-blue-500/25">
                         <Bot className="w-7 h-7 text-white" />
                       </div>
-                      <div className={`absolute -bottom-1 -right-1 w-5 h-5 border-2 border-white dark:border-slate-800 rounded-full ${
-                        agent.isActive ? 'bg-green-500' : 'bg-gray-400'
-                      }`}></div>
+                      <div
+                        className={`absolute -bottom-1 -right-1 w-5 h-5 border-2 border-white dark:border-slate-800 rounded-full ${
+                          agent.isActive ? 'bg-green-500' : 'bg-gray-400'
+                        }`}
+                      ></div>
                     </div>
 
                     {/* Agent Info */}
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center space-x-3 mb-2">
-                        <h3 className="font-bold text-base text-slate-900 dark:text-white">{agent.name}</h3>
+                        <h3 className="font-bold text-base text-slate-900 dark:text-white">
+                          {agent.name}
+                        </h3>
                         <span className="inline-flex items-center px-2 py-1 bg-gradient-to-r from-blue-100 to-indigo-100 dark:from-blue-900/30 dark:to-indigo-900/30 text-blue-700 dark:text-blue-300 text-xs rounded-full font-medium border border-blue-200 dark:border-blue-800">
                           {agent.role}
                         </span>
@@ -2310,21 +2488,30 @@ export const AgentManager: React.FC<AgentManagerProps> = ({
         <div className="absolute inset-0 bg-gradient-to-br from-slate-900/95 via-slate-800/90 to-slate-900/95 backdrop-blur-xl" />
         <div className="absolute inset-0 bg-gradient-to-tr from-blue-500/5 via-transparent to-cyan-500/10" />
         <div className="absolute inset-0 bg-gradient-to-bl from-purple-500/5 via-transparent to-pink-500/5" />
-        
+
         {/* Animated background elements */}
         <div className="absolute top-1/4 left-1/4 w-64 h-64 bg-gradient-to-br from-blue-500/10 to-transparent rounded-full blur-3xl animate-pulse" />
-        <div className="absolute bottom-1/4 right-1/4 w-48 h-48 bg-gradient-to-tl from-cyan-500/10 to-transparent rounded-full blur-2xl animate-pulse" style={{ animationDelay: '1s' }} />
-        <div className="absolute top-1/2 right-1/3 w-32 h-32 bg-gradient-to-tr from-purple-500/10 to-transparent rounded-full blur-xl animate-pulse" style={{ animationDelay: '2s' }} />
-        
+        <div
+          className="absolute bottom-1/4 right-1/4 w-48 h-48 bg-gradient-to-tl from-cyan-500/10 to-transparent rounded-full blur-2xl animate-pulse"
+          style={{ animationDelay: '1s' }}
+        />
+        <div
+          className="absolute top-1/2 right-1/3 w-32 h-32 bg-gradient-to-tr from-purple-500/10 to-transparent rounded-full blur-xl animate-pulse"
+          style={{ animationDelay: '2s' }}
+        />
+
         {/* Grid pattern overlay */}
-        <div className="absolute inset-0 opacity-[0.02]" style={{
-          backgroundImage: `
+        <div
+          className="absolute inset-0 opacity-[0.02]"
+          style={{
+            backgroundImage: `
             linear-gradient(rgba(59, 130, 246, 0.5) 1px, transparent 1px),
             linear-gradient(90deg, rgba(59, 130, 246, 0.5) 1px, transparent 1px)
           `,
-          backgroundSize: '50px 50px'
-        }} />
-        
+            backgroundSize: '50px 50px',
+          }}
+        />
+
         {/* Main content */}
         <div className="relative h-full border border-slate-700/30 rounded-2xl backdrop-blur-sm shadow-2xl">
           <div className="h-full p-4 md:p-6 overflow-y-auto custom-scrollbar">
@@ -2340,18 +2527,23 @@ export const AgentManager: React.FC<AgentManagerProps> = ({
               <>
                 {renderHeader()}
                 {renderFilters()}
-                
+
                 {/* Agents Grid/List */}
-                <div className={`
-                  ${viewMode === 'grid' 
-                    ? `grid gap-3 ${
-                        currentViewport.isMobile ? 'grid-cols-1' : 
-                        currentViewport.isTablet ? 'grid-cols-2' : 
-                        'grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5'
-                      }`
-                    : 'space-y-2'
+                <div
+                  className={`
+                  ${
+                    viewMode === 'grid'
+                      ? `grid gap-3 ${
+                          currentViewport.isMobile
+                            ? 'grid-cols-1'
+                            : currentViewport.isTablet
+                              ? 'grid-cols-2'
+                              : 'grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5'
+                        }`
+                      : 'space-y-2'
                   }
-                `}>
+                `}
+                >
                   <AnimatePresence>
                     {paginatedAgents.map((agent, index) => renderAgentCard(agent, index))}
                   </AnimatePresence>
@@ -2369,7 +2561,7 @@ export const AgentManager: React.FC<AgentManagerProps> = ({
                       <div className="w-24 h-24 bg-gradient-to-br from-slate-800/50 via-slate-700/50 to-slate-600/50 rounded-3xl flex items-center justify-center mx-auto border border-slate-600/30 shadow-xl">
                         <Bot className="w-12 h-12 text-slate-400" />
                       </div>
-                      
+
                       {/* Floating Elements */}
                       <div className="absolute -top-2 -right-2 w-8 h-8 bg-gradient-to-br from-blue-500/20 to-cyan-500/20 rounded-full flex items-center justify-center border border-blue-500/30">
                         <Sparkles className="w-4 h-4 text-blue-400" />
@@ -2377,7 +2569,7 @@ export const AgentManager: React.FC<AgentManagerProps> = ({
                       <div className="absolute -bottom-2 -left-2 w-6 h-6 bg-gradient-to-br from-purple-500/20 to-pink-500/20 rounded-full flex items-center justify-center border border-purple-500/30">
                         <Brain className="w-3 h-3 text-purple-400" />
                       </div>
-                      
+
                       {/* Pulse Effect */}
                       <div className="absolute inset-0 w-24 h-24 mx-auto bg-gradient-to-br from-blue-500/10 to-cyan-500/10 rounded-3xl animate-pulse" />
                     </div>
@@ -2387,10 +2579,9 @@ export const AgentManager: React.FC<AgentManagerProps> = ({
                         {searchQuery || filterRole ? 'No agents found' : 'Welcome to Agent Manager'}
                       </h3>
                       <p className="text-slate-400 mb-8 leading-relaxed">
-                        {searchQuery || filterRole 
+                        {searchQuery || filterRole
                           ? 'No agents match your current search criteria. Try adjusting your filters or search terms.'
-                          : 'Create intelligent AI agents to automate tasks, analyze data, and collaborate with your team. Each agent can have unique personalities, skills, and capabilities.'
-                        }
+                          : 'Create intelligent AI agents to automate tasks, analyze data, and collaborate with your team. Each agent can have unique personalities, skills, and capabilities.'}
                       </p>
 
                       {!searchQuery && !filterRole ? (
@@ -2402,7 +2593,7 @@ export const AgentManager: React.FC<AgentManagerProps> = ({
                             <Plus className="w-5 h-5" />
                             Create Your First Agent
                           </button>
-                          
+
                           <div className="flex items-center justify-center gap-4 text-xs text-slate-500">
                             <div className="flex items-center gap-1">
                               <Lightbulb className="w-3 h-3" />
@@ -2453,4 +2644,4 @@ export const AgentManager: React.FC<AgentManagerProps> = ({
       </div>
     </motion.div>
   );
-}; 
+};

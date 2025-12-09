@@ -2,11 +2,11 @@ import { MigrationInterface, QueryRunner, Table, Index } from 'typeorm';
 
 /**
  * Discussion System Migration
- * 
+ *
  * Creates the discussion management tables:
  * - discussions: Core discussion/conversation management
  * - discussion_participants: Participants in discussions (agents/personas)
- * 
+ *
  * These tables manage multi-participant discussions and conversations.
  * Dependencies: users, personas tables
  */
@@ -399,34 +399,109 @@ export class CreateDiscussionSystem1703005000000 implements MigrationInterface {
     );
 
     // Create indexes for performance
-    await queryRunner.createIndex('discussions', new Index('IDX_discussions_status_visibility', ['status', 'visibility']));
-    await queryRunner.createIndex('discussions', new Index('IDX_discussions_created_by', ['created_by']));
-    await queryRunner.createIndex('discussions', new Index('IDX_discussions_organization_id', ['organization_id']));
+    await queryRunner.createIndex(
+      'discussions',
+      new Index('IDX_discussions_status_visibility', ['status', 'visibility'])
+    );
+    await queryRunner.createIndex(
+      'discussions',
+      new Index('IDX_discussions_created_by', ['created_by'])
+    );
+    await queryRunner.createIndex(
+      'discussions',
+      new Index('IDX_discussions_organization_id', ['organization_id'])
+    );
     await queryRunner.createIndex('discussions', new Index('IDX_discussions_team_id', ['team_id']));
-    await queryRunner.createIndex('discussions', new Index('IDX_discussions_started_at', ['started_at']));
-    await queryRunner.createIndex('discussions', new Index('IDX_discussions_ended_at', ['ended_at']));
-    await queryRunner.createIndex('discussions', new Index('IDX_discussions_scheduled_for', ['scheduled_for']));
-    await queryRunner.createIndex('discussions', new Index('IDX_discussions_parent_discussion_id', ['parent_discussion_id']));
+    await queryRunner.createIndex(
+      'discussions',
+      new Index('IDX_discussions_started_at', ['started_at'])
+    );
+    await queryRunner.createIndex(
+      'discussions',
+      new Index('IDX_discussions_ended_at', ['ended_at'])
+    );
+    await queryRunner.createIndex(
+      'discussions',
+      new Index('IDX_discussions_scheduled_for', ['scheduled_for'])
+    );
+    await queryRunner.createIndex(
+      'discussions',
+      new Index('IDX_discussions_parent_discussion_id', ['parent_discussion_id'])
+    );
     await queryRunner.createIndex('discussions', new Index('IDX_discussions_tags', ['tags']));
-    
-    await queryRunner.createIndex('discussion_participants', new Index('IDX_discussion_participants_discussion_id', ['discussion_id']));
-    await queryRunner.createIndex('discussion_participants', new Index('IDX_discussion_participants_participant_type', ['participant_type']));
-    await queryRunner.createIndex('discussion_participants', new Index('IDX_discussion_participants_participant_id', ['participant_id']));
-    await queryRunner.createIndex('discussion_participants', new Index('IDX_discussion_participants_persona_id', ['persona_id']));
-    await queryRunner.createIndex('discussion_participants', new Index('IDX_discussion_participants_agent_id', ['agent_id']));
-    await queryRunner.createIndex('discussion_participants', new Index('IDX_discussion_participants_user_id', ['user_id']));
-    await queryRunner.createIndex('discussion_participants', new Index('IDX_discussion_participants_role_in_discussion', ['role_in_discussion']));
-    await queryRunner.createIndex('discussion_participants', new Index('IDX_discussion_participants_is_active', ['is_active']));
-    await queryRunner.createIndex('discussion_participants', new Index('IDX_discussion_participants_turn_order', ['turn_order']));
-    await queryRunner.createIndex('discussion_participants', new Index('IDX_discussion_participants_joined_at', ['joined_at']));
-    await queryRunner.createIndex('discussion_participants', new Index('IDX_discussion_participants_last_active_at', ['last_active_at']));
-    
+
+    await queryRunner.createIndex(
+      'discussion_participants',
+      new Index('IDX_discussion_participants_discussion_id', ['discussion_id'])
+    );
+    await queryRunner.createIndex(
+      'discussion_participants',
+      new Index('IDX_discussion_participants_participant_type', ['participant_type'])
+    );
+    await queryRunner.createIndex(
+      'discussion_participants',
+      new Index('IDX_discussion_participants_participant_id', ['participant_id'])
+    );
+    await queryRunner.createIndex(
+      'discussion_participants',
+      new Index('IDX_discussion_participants_persona_id', ['persona_id'])
+    );
+    await queryRunner.createIndex(
+      'discussion_participants',
+      new Index('IDX_discussion_participants_agent_id', ['agent_id'])
+    );
+    await queryRunner.createIndex(
+      'discussion_participants',
+      new Index('IDX_discussion_participants_user_id', ['user_id'])
+    );
+    await queryRunner.createIndex(
+      'discussion_participants',
+      new Index('IDX_discussion_participants_role_in_discussion', ['role_in_discussion'])
+    );
+    await queryRunner.createIndex(
+      'discussion_participants',
+      new Index('IDX_discussion_participants_is_active', ['is_active'])
+    );
+    await queryRunner.createIndex(
+      'discussion_participants',
+      new Index('IDX_discussion_participants_turn_order', ['turn_order'])
+    );
+    await queryRunner.createIndex(
+      'discussion_participants',
+      new Index('IDX_discussion_participants_joined_at', ['joined_at'])
+    );
+    await queryRunner.createIndex(
+      'discussion_participants',
+      new Index('IDX_discussion_participants_last_active_at', ['last_active_at'])
+    );
+
     // Composite indexes for common queries
-    await queryRunner.createIndex('discussion_participants', new Index('IDX_discussion_participants_discussion_type_active', ['discussion_id', 'participant_type', 'is_active']));
-    await queryRunner.createIndex('discussion_participants', new Index('IDX_discussion_participants_discussion_role_order', ['discussion_id', 'role_in_discussion', 'turn_order']));
-    
+    await queryRunner.createIndex(
+      'discussion_participants',
+      new Index('IDX_discussion_participants_discussion_type_active', [
+        'discussion_id',
+        'participant_type',
+        'is_active',
+      ])
+    );
+    await queryRunner.createIndex(
+      'discussion_participants',
+      new Index('IDX_discussion_participants_discussion_role_order', [
+        'discussion_id',
+        'role_in_discussion',
+        'turn_order',
+      ])
+    );
+
     // Unique constraints
-    await queryRunner.createIndex('discussion_participants', new Index('IDX_discussion_participants_unique_discussion_participant', ['discussion_id', 'participant_type', 'participant_id'], { isUnique: true }));
+    await queryRunner.createIndex(
+      'discussion_participants',
+      new Index(
+        'IDX_discussion_participants_unique_discussion_participant',
+        ['discussion_id', 'participant_type', 'participant_id'],
+        { isUnique: true }
+      )
+    );
   }
 
   public async down(queryRunner: QueryRunner): Promise<void> {
@@ -434,4 +509,4 @@ export class CreateDiscussionSystem1703005000000 implements MigrationInterface {
     await queryRunner.dropTable('discussion_participants');
     await queryRunner.dropTable('discussions');
   }
-} 
+}

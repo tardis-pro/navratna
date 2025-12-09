@@ -10,7 +10,11 @@ import { BaseEntity } from './base.entity.js';
 @Index(['timestamp'])
 @Index(['retries'])
 export class IntegrationEventEntity extends BaseEntity {
-  @Column({ name: 'entity_type', type: 'enum', enum: ['MCPServer', 'MCPToolCall', 'Tool', 'Agent'] })
+  @Column({
+    name: 'entity_type',
+    type: 'enum',
+    enum: ['MCPServer', 'MCPToolCall', 'Tool', 'Agent'],
+  })
   entityType: 'MCPServer' | 'MCPToolCall' | 'Tool' | 'Agent';
 
   @Column({ name: 'entity_id', type: 'varchar' })
@@ -45,4 +49,4 @@ export class IntegrationEventEntity extends BaseEntity {
 
   @Column({ name: 'batch_id', nullable: true })
   batchId?: string;
-} 
+}

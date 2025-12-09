@@ -9,15 +9,11 @@ export {
   type ValidationResult,
   type ArtifactMetadata,
   type Artifact,
-  type AgentPreferences
+  type AgentPreferences,
 } from '@uaip/types';
 
 // Import types that are also used but defined elsewhere
-export {
-  type Agent,
-  type Persona,
-  type Message
-} from '@uaip/types';
+export { type Agent, type Persona, type Message } from '@uaip/types';
 
 // Keep only service-specific extensions here if any
 // All core artifact types should be imported from @uaip/types

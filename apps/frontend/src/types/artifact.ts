@@ -11,7 +11,7 @@ export {
   type ArtifactMetadata,
   type Artifact,
   type TraceabilityInfo,
-  type AgentPreferences
+  type AgentPreferences,
 } from '@uaip/types';
 
 // Keep only frontend-specific extensions here if any

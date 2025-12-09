@@ -101,29 +101,30 @@ export const knowledgeAPI = {
     // Convert to query parameters to match backend GET /api/v1/knowledge/search
     const params = new URLSearchParams();
     params.append('q', request.query);
-    
+
     if (request.type) params.append('types', request.type);
     if (request.tags && request.tags.length > 0) params.append('tags', request.tags.join(','));
     if (request.limit) params.append('limit', request.limit.toString());
-    if (request.similarityThreshold) params.append('confidence', request.similarityThreshold.toString());
-    
+    if (request.similarityThreshold)
+      params.append('confidence', request.similarityThreshold.toString());
+
     const url = `${API_ROUTES.KNOWLEDGE.SEARCH}?${params.toString()}`;
-    
+
     // Backend returns {success: true, data: {items: [], ...}} OR {items: [], totalCount: number, searchMetadata: {}}
     const response = await APIClient.get<any>(url);
-    
+
     // Handle both wrapped and unwrapped response formats
     let searchData = response;
     if (response.success && response.data) {
       searchData = response.data;
     }
-    
+
     // Validate response structure
     if (!searchData || !searchData.items || !Array.isArray(searchData.items)) {
       console.warn('Invalid search response structure:', response);
       return [];
     }
-    
+
     // Transform backend response to expected format
     return searchData.items.map((item: any) => ({
       item: {
@@ -134,11 +135,11 @@ export const knowledgeAPI = {
         tags: item.tags || [],
         createdAt: item.createdAt,
         updatedAt: item.updatedAt,
-        metadata: item.metadata
+        metadata: item.metadata,
       },
       score: item.confidence || 0.8,
       highlights: [],
-      relatedItems: []
+      relatedItems: [],
     }));
   },
 
@@ -157,28 +158,30 @@ export const knowledgeAPI = {
   async getStats(): Promise<KnowledgeStats> {
     try {
       // Backend returns {success: true, data: {totalItems, itemsByType, recentActivity, generalKnowledge}}
-      const response = await APIClient.get<{success: boolean; data: any}>(API_ROUTES.KNOWLEDGE.STATS);
-      
+      const response = await APIClient.get<{ success: boolean; data: any }>(
+        API_ROUTES.KNOWLEDGE.STATS
+      );
+
       // Safely access nested properties with defaults
       const stats = response.data || {};
       const userStats = {
         totalItems: stats.totalItems || 0,
         itemsByType: stats.itemsByType || {},
-        recentActivity: stats.recentActivity || {}
+        recentActivity: stats.recentActivity || {},
       };
       const generalStats = stats.generalKnowledge || {};
-      
+
       return {
         totalItems: userStats.totalItems + (generalStats.totalItems || 0),
         itemsByType: {
           ...userStats.itemsByType,
-          ...generalStats.itemsByType
+          ...generalStats.itemsByType,
         },
         itemsByCategory: {},
         totalRelations: 0,
         recentUploads: userStats.recentActivity.itemsThisWeek || 0,
         storageUsed: 0,
-        topTags: [] // TODO: Add top tags when backend provides them
+        topTags: [], // TODO: Add top tags when backend provides them
       };
     } catch (error) {
       console.warn('Knowledge stats API error:', error);
@@ -190,16 +193,20 @@ export const knowledgeAPI = {
         totalRelations: 0,
         recentUploads: 0,
         storageUsed: 0,
-        topTags: []
+        topTags: [],
       };
     }
   },
 
   async getRelations(itemId: string): Promise<KnowledgeRelation[]> {
-    return APIClient.get<KnowledgeRelation[]>(`${API_ROUTES.KNOWLEDGE.RELATIONS}/${itemId}/relations`);
+    return APIClient.get<KnowledgeRelation[]>(
+      `${API_ROUTES.KNOWLEDGE.RELATIONS}/${itemId}/relations`
+    );
   },
 
-  async createRelation(relation: Omit<KnowledgeRelation, 'id' | 'createdAt'>): Promise<KnowledgeRelation> {
+  async createRelation(
+    relation: Omit<KnowledgeRelation, 'id' | 'createdAt'>
+  ): Promise<KnowledgeRelation> {
     return APIClient.post<KnowledgeRelation>(API_ROUTES.KNOWLEDGE.RELATIONS, relation);
   },
 
@@ -216,69 +223,77 @@ export const knowledgeAPI = {
     try {
       // Convert to query parameters to match backend GET /api/v1/knowledge/graph
       const params = new URLSearchParams();
-      
+
       if (options?.limit) params.append('limit', options.limit.toString());
-      if (options?.types && options.types.length > 0) params.append('types', options.types.join(','));
+      if (options?.types && options.types.length > 0)
+        params.append('types', options.types.join(','));
       params.append('includeRelationships', 'true');
-      
+
       const url = `${API_ROUTES.KNOWLEDGE.GRAPH}?${params.toString()}`;
-      
+
       // Backend returns {success: true, data: {nodes: [], edges: [], metadata: {}}}
-      const response = await APIClient.get<{success: boolean; data: {nodes: any[], edges: any[], metadata?: any}}>(url);
-      
+      const response = await APIClient.get<{
+        success: boolean;
+        data: { nodes: any[]; edges: any[]; metadata?: any };
+      }>(url);
+
       // Safely access nested properties with defaults
       const graphData = response.data || {};
       const nodes = graphData.nodes || [];
       const edges = graphData.edges || [];
-      
+
       return {
         nodes: nodes.map((node: any) => ({
           id: node.id,
           label: node.data?.label || node.id,
           type: node.data?.knowledgeType || 'knowledge',
-          properties: node.data
+          properties: node.data,
         })),
         edges: edges.map((edge: any) => ({
           source: edge.source,
           target: edge.target,
           type: edge.data?.relationshipType || 'related',
-          properties: edge.data
-        }))
+          properties: edge.data,
+        })),
       };
     } catch (error) {
       console.warn('Knowledge graph API error:', error);
       // Return empty graph as fallback
       return {
         nodes: [],
-        edges: []
+        edges: [],
       };
     }
   },
 
   async findSimilar(id: string, limit: number = 10): Promise<KnowledgeSearchResult[]> {
     return APIClient.get<KnowledgeSearchResult[]>(`${API_ROUTES.KNOWLEDGE.GET}/${id}/similar`, {
-      params: { limit }
+      params: { limit },
     });
   },
 
-  async getCategories(): Promise<Array<{
-    name: string;
-    count: number;
-  }>> {
+  async getCategories(): Promise<
+    Array<{
+      name: string;
+      count: number;
+    }>
+  > {
     return APIClient.get(API_ROUTES.KNOWLEDGE.CATEGORIES);
   },
 
-  async getTags(): Promise<Array<{
-    name: string;
-    count: number;
-  }>> {
+  async getTags(): Promise<
+    Array<{
+      name: string;
+      count: number;
+    }>
+  > {
     return APIClient.get(API_ROUTES.KNOWLEDGE.TAGS);
   },
 
   async export(format: 'json' | 'csv' = 'json', filters?: any): Promise<Blob> {
     const response = await APIClient.get(API_ROUTES.KNOWLEDGE.EXPORT, {
       params: { format, ...filters },
-      responseType: 'blob'
+      responseType: 'blob',
     });
     return response;
   },
@@ -301,12 +316,15 @@ export const knowledgeAPI = {
   },
 
   // Chat ingestion methods
-  async importChatFile(file: File, options?: {
-    extractWorkflows?: boolean;
-    generateQA?: boolean;
-    analyzeExpertise?: boolean;
-    detectLearning?: boolean;
-  }): Promise<{
+  async importChatFile(
+    file: File,
+    options?: {
+      extractWorkflows?: boolean;
+      generateQA?: boolean;
+      analyzeExpertise?: boolean;
+      detectLearning?: boolean;
+    }
+  ): Promise<{
     jobId: string;
     status: 'pending' | 'processing' | 'completed' | 'failed';
     message?: string;
@@ -338,7 +356,10 @@ export const knowledgeAPI = {
     return APIClient.get(`${API_ROUTES.KNOWLEDGE.CHAT_JOBS}/${jobId}`);
   },
 
-  async generateQAFromKnowledge(domain?: string, limit?: number): Promise<{
+  async generateQAFromKnowledge(
+    domain?: string,
+    limit?: number
+  ): Promise<{
     qaPairs: Array<{
       question: string;
       answer: string;
@@ -351,7 +372,7 @@ export const knowledgeAPI = {
     const params = new URLSearchParams();
     if (domain) params.append('domain', domain);
     if (limit) params.append('limit', limit.toString());
-    
+
     const url = `${API_ROUTES.KNOWLEDGE.GENERATE_QA}?${params.toString()}`;
     return APIClient.post(url);
   },
@@ -413,8 +434,8 @@ export const knowledgeAPI = {
   }> {
     const params = new URLSearchParams();
     if (participant) params.append('participant', participant);
-    
+
     const url = `${API_ROUTES.KNOWLEDGE.LEARNING_INSIGHTS}?${params.toString()}`;
     return APIClient.get(url);
-  }
+  },
 };

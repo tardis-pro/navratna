@@ -83,10 +83,12 @@ export class OperationValidator {
         action: z.string(),
         parameters: z.any().optional(),
         timeout: z.number().optional(),
-        retryPolicy: z.object({
-          maxRetries: z.number(),
-          backoffMultiplier: z.number().optional()
-        }).optional()
+        retryPolicy: z
+          .object({
+            maxRetries: z.number(),
+            backoffMultiplier: z.number().optional(),
+          })
+          .optional(),
       }),
       'tool-execution': z.object({
         id: z.string(),
@@ -94,23 +96,23 @@ export class OperationValidator {
         type: z.literal('tool-execution'),
         toolId: z.string(),
         input: z.any(),
-        timeout: z.number().optional()
+        timeout: z.number().optional(),
       }),
-      'conditional': z.object({
+      conditional: z.object({
         id: z.string(),
         name: z.string(),
         type: z.literal('conditional'),
         condition: z.string(),
         trueBranch: z.array(z.string()),
-        falseBranch: z.array(z.string()).optional()
+        falseBranch: z.array(z.string()).optional(),
       }),
-      'parallel': z.object({
+      parallel: z.object({
         id: z.string(),
         name: z.string(),
         type: z.literal('parallel'),
         branches: z.array(z.array(z.string())),
-        policy: z.enum(['all-success', 'any-success', 'best-effort']).optional()
-      })
+        policy: z.enum(['all-success', 'any-success', 'best-effort']).optional(),
+      }),
     };
 
     const schema = schemas[step.type];
@@ -127,7 +129,7 @@ export class OperationValidator {
   }
 
   private validateStepDependencies(operation: Operation): void {
-    const stepIds = new Set(operation.steps.map(s => s.id));
+    const stepIds = new Set(operation.steps.map((s) => s.id));
     const visited = new Set<string>();
     const visiting = new Set<string>();
 
@@ -174,7 +176,7 @@ export class OperationValidator {
 
     if (step.dependsOn) {
       for (const depId of step.dependsOn) {
-        const depStep = allSteps.find(s => s.id === depId);
+        const depStep = allSteps.find((s) => s.id === depId);
         if (depStep) {
           this.checkCircularDependencies(depStep, allSteps, visited, visiting);
         }

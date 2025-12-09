@@ -34,13 +34,15 @@ export class OllamaProvider extends BaseProvider {
     }
   }
 
-  protected async fetchModelsFromProvider(): Promise<Array<{
-    id: string;
-    name: string;
-    description?: string;
-    source: string;
-    apiEndpoint: string;
-  }>> {
+  protected async fetchModelsFromProvider(): Promise<
+    Array<{
+      id: string;
+      name: string;
+      description?: string;
+      source: string;
+      apiEndpoint: string;
+    }>
+  > {
     try {
       const url = `${this.config.baseUrl}/api/tags`;
       const data = await this.makeGetRequest(url);
@@ -54,7 +56,7 @@ export class OllamaProvider extends BaseProvider {
         name: model.name,
         description: `Ollama model: ${model.name}${model.size ? ` (${this.formatSize(model.size)})` : ''}`,
         source: this.config.baseUrl,
-        apiEndpoint: `${this.config.baseUrl}/api/generate`
+        apiEndpoint: `${this.config.baseUrl}/api/generate`,
       }));
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
@@ -68,6 +70,6 @@ export class OllamaProvider extends BaseProvider {
     const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
     if (bytes === 0) return '0 B';
     const i = Math.floor(Math.log(bytes) / Math.log(1024));
-    return Math.round(bytes / Math.pow(1024, i) * 100) / 100 + ' ' + sizes[i];
+    return Math.round((bytes / Math.pow(1024, i)) * 100) / 100 + ' ' + sizes[i];
   }
-} 
+}

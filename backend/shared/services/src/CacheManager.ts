@@ -41,17 +41,20 @@ export class CacheManager {
 
     // Initialize Redis cache service
     await redisCacheService.initialize();
-    
+
     logger.info('Cache manager initialized successfully');
   }
 
   /**
    * User-related cache operations
    */
-  public async invalidateUserCache(userId: string, options: {
-    includeProviders?: boolean;
-    includeKnowledge?: boolean;
-  } = {}): Promise<void> {
+  public async invalidateUserCache(
+    userId: string,
+    options: {
+      includeProviders?: boolean;
+      includeKnowledge?: boolean;
+    } = {}
+  ): Promise<void> {
     const { includeProviders = true, includeKnowledge = true } = options;
 
     logger.info('Invalidating user cache', { userId, includeProviders, includeKnowledge });
@@ -92,7 +95,9 @@ export class CacheManager {
 
     // Invalidate user-specific provider cache
     if (userId && this.cachedUserLLMProviderRepository) {
-      promises.push(this.cachedUserLLMProviderRepository.invalidateProviderSpecificCache(providerId, userId));
+      promises.push(
+        this.cachedUserLLMProviderRepository.invalidateProviderSpecificCache(providerId, userId)
+      );
     }
 
     await Promise.all(promises);
@@ -164,7 +169,7 @@ export class CacheManager {
   public async bulkInvalidateUserCaches(userIds: string[]): Promise<void> {
     logger.info('Bulk invalidating user caches', { userCount: userIds.length });
 
-    const promises = userIds.map(userId => this.invalidateUserCache(userId));
+    const promises = userIds.map((userId) => this.invalidateUserCache(userId));
     await Promise.all(promises);
 
     logger.info('Bulk user cache invalidation completed', { userCount: userIds.length });
@@ -173,7 +178,7 @@ export class CacheManager {
   public async bulkWarmUpUserCaches(userIds: string[]): Promise<void> {
     logger.info('Bulk warming up user caches', { userCount: userIds.length });
 
-    const promises = userIds.map(userId => this.warmUpUserCache(userId));
+    const promises = userIds.map((userId) => this.warmUpUserCache(userId));
     await Promise.all(promises);
 
     logger.info('Bulk user cache warm-up completed', { userCount: userIds.length });
@@ -265,10 +270,7 @@ export class CacheManager {
 
       // Redis automatically handles TTL expiration, but we can manually clean up
       // specific patterns if needed
-      const patterns = [
-        'refresh_token:*',
-        'password_reset_token:*',
-      ];
+      const patterns = ['refresh_token:*', 'password_reset_token:*'];
 
       for (const pattern of patterns) {
         const keys = await redisCacheService.keys(pattern);
@@ -366,19 +368,22 @@ export class CacheManager {
   public startCacheMaintenance(intervalMinutes: number = 30): void {
     logger.info('Starting cache maintenance scheduler', { intervalMinutes });
 
-    setInterval(async () => {
-      try {
-        await this.cleanupExpiredKeys();
-        
-        const health = await this.getHealthStatus();
-        logger.info('Cache maintenance completed', {
-          totalKeys: health.statistics.totalKeys,
-          memoryUsage: health.statistics.memoryUsage,
-        });
-      } catch (error) {
-        logger.error('Error during scheduled cache maintenance', { error: error.message });
-      }
-    }, intervalMinutes * 60 * 1000);
+    setInterval(
+      async () => {
+        try {
+          await this.cleanupExpiredKeys();
+
+          const health = await this.getHealthStatus();
+          logger.info('Cache maintenance completed', {
+            totalKeys: health.statistics.totalKeys,
+            memoryUsage: health.statistics.memoryUsage,
+          });
+        } catch (error) {
+          logger.error('Error during scheduled cache maintenance', { error: error.message });
+        }
+      },
+      intervalMinutes * 60 * 1000
+    );
   }
 
   /**

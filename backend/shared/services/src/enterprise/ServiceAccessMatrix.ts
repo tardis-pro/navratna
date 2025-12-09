@@ -1,17 +1,17 @@
 /**
  * Service Access Matrix - Zero Trust Implementation
  * Phase 0: Enterprise Database Compartmentalization
- * 
+ *
  * Defines which services can access which databases and with what permissions
  * Implements Zero Trust principles with least privilege access
  */
 
 export enum DatabaseTier {
-  SECURITY = 'security',        // Level 4 Restricted
-  APPLICATION = 'application',  // Level 3 Confidential  
-  ANALYTICS = 'analytics',      // Level 2 Internal
-  OPERATIONS = 'operations',    // Level 2 Internal
-  DMZ = 'dmz'                  // Level 1 Public
+  SECURITY = 'security', // Level 4 Restricted
+  APPLICATION = 'application', // Level 3 Confidential
+  ANALYTICS = 'analytics', // Level 2 Internal
+  OPERATIONS = 'operations', // Level 2 Internal
+  DMZ = 'dmz', // Level 1 Public
 }
 
 export enum AccessLevel {
@@ -19,7 +19,7 @@ export enum AccessLevel {
   WRITE = 'WRITE',
   DELETE = 'DELETE',
   ADMIN = 'ADMIN',
-  AUDIT = 'AUDIT'
+  AUDIT = 'AUDIT',
 }
 
 export interface DatabaseConnection {
@@ -34,7 +34,7 @@ export interface DatabaseConnection {
 
 export interface ServiceAccess {
   serviceName: string;
-  securityLevel: number;  // 1-5 security clearance level
+  securityLevel: number; // 1-5 security clearance level
   databases: DatabaseConnection[];
   networkSegments: string[];
   complianceFlags: string[];
@@ -65,7 +65,7 @@ export const SERVICE_ACCESS_MATRIX: Record<string, ServiceAccess> = {
         port: 5433,
         permissions: [AccessLevel.READ, AccessLevel.WRITE, AccessLevel.AUDIT],
         encryption: 'required',
-        auditLevel: 'comprehensive'
+        auditLevel: 'comprehensive',
       },
       {
         type: 'neo4j',
@@ -74,7 +74,7 @@ export const SERVICE_ACCESS_MATRIX: Record<string, ServiceAccess> = {
         port: 7687,
         permissions: [AccessLevel.READ, AccessLevel.WRITE, AccessLevel.AUDIT],
         encryption: 'required',
-        auditLevel: 'comprehensive'
+        auditLevel: 'comprehensive',
       },
       {
         type: 'qdrant',
@@ -83,7 +83,7 @@ export const SERVICE_ACCESS_MATRIX: Record<string, ServiceAccess> = {
         port: 6333,
         permissions: [AccessLevel.READ, AccessLevel.WRITE],
         encryption: 'required',
-        auditLevel: 'comprehensive'
+        auditLevel: 'comprehensive',
       },
       {
         type: 'redis',
@@ -92,11 +92,11 @@ export const SERVICE_ACCESS_MATRIX: Record<string, ServiceAccess> = {
         port: 6380,
         permissions: [AccessLevel.READ, AccessLevel.WRITE],
         encryption: 'required',
-        auditLevel: 'comprehensive'
-      }
+        auditLevel: 'comprehensive',
+      },
     ],
     networkSegments: ['uaip-security-network', 'uaip-management-network'],
-    complianceFlags: ['SOC2_CC6_1', 'HIPAA_164_312', 'PCI_DSS_7', 'ISO27001_A_9']
+    complianceFlags: ['SOC2_CC6_1', 'HIPAA_164_312', 'PCI_DSS_7', 'ISO27001_A_9'],
   },
 
   // =============================================================================
@@ -114,7 +114,7 @@ export const SERVICE_ACCESS_MATRIX: Record<string, ServiceAccess> = {
         port: 5432,
         permissions: [AccessLevel.READ, AccessLevel.WRITE],
         encryption: 'required',
-        auditLevel: 'standard'
+        auditLevel: 'standard',
       },
       {
         type: 'neo4j',
@@ -123,7 +123,7 @@ export const SERVICE_ACCESS_MATRIX: Record<string, ServiceAccess> = {
         port: 7688,
         permissions: [AccessLevel.READ, AccessLevel.WRITE],
         encryption: 'optional',
-        auditLevel: 'standard'
+        auditLevel: 'standard',
       },
       {
         type: 'neo4j',
@@ -132,7 +132,7 @@ export const SERVICE_ACCESS_MATRIX: Record<string, ServiceAccess> = {
         port: 7689,
         permissions: [AccessLevel.READ, AccessLevel.WRITE],
         encryption: 'optional',
-        auditLevel: 'standard'
+        auditLevel: 'standard',
       },
       {
         type: 'qdrant',
@@ -141,7 +141,7 @@ export const SERVICE_ACCESS_MATRIX: Record<string, ServiceAccess> = {
         port: 6335,
         permissions: [AccessLevel.READ, AccessLevel.WRITE],
         encryption: 'optional',
-        auditLevel: 'standard'
+        auditLevel: 'standard',
       },
       {
         type: 'qdrant',
@@ -150,7 +150,7 @@ export const SERVICE_ACCESS_MATRIX: Record<string, ServiceAccess> = {
         port: 6337,
         permissions: [AccessLevel.READ, AccessLevel.WRITE],
         encryption: 'optional',
-        auditLevel: 'standard'
+        auditLevel: 'standard',
       },
       {
         type: 'redis',
@@ -159,11 +159,11 @@ export const SERVICE_ACCESS_MATRIX: Record<string, ServiceAccess> = {
         port: 6379,
         permissions: [AccessLevel.READ, AccessLevel.WRITE],
         encryption: 'optional',
-        auditLevel: 'standard'
-      }
+        auditLevel: 'standard',
+      },
     ],
     networkSegments: ['uaip-application-network'],
-    complianceFlags: ['SOC2_CC6_6', 'HIPAA_164_312_C', 'DATA_CLASS_3']
+    complianceFlags: ['SOC2_CC6_6', 'HIPAA_164_312_C', 'DATA_CLASS_3'],
   },
 
   'capability-registry': {
@@ -177,7 +177,7 @@ export const SERVICE_ACCESS_MATRIX: Record<string, ServiceAccess> = {
         port: 5432,
         permissions: [AccessLevel.READ, AccessLevel.WRITE],
         encryption: 'required',
-        auditLevel: 'standard'
+        auditLevel: 'standard',
       },
       {
         type: 'qdrant',
@@ -186,7 +186,7 @@ export const SERVICE_ACCESS_MATRIX: Record<string, ServiceAccess> = {
         port: 6335,
         permissions: [AccessLevel.READ],
         encryption: 'optional',
-        auditLevel: 'standard'
+        auditLevel: 'standard',
       },
       {
         type: 'redis',
@@ -195,11 +195,11 @@ export const SERVICE_ACCESS_MATRIX: Record<string, ServiceAccess> = {
         port: 6379,
         permissions: [AccessLevel.READ, AccessLevel.WRITE],
         encryption: 'optional',
-        auditLevel: 'standard'
-      }
+        auditLevel: 'standard',
+      },
     ],
     networkSegments: ['uaip-application-network'],
-    complianceFlags: ['SOC2_CC6_6', 'DATA_CLASS_3']
+    complianceFlags: ['SOC2_CC6_6', 'DATA_CLASS_3'],
   },
 
   'discussion-orchestration': {
@@ -213,7 +213,7 @@ export const SERVICE_ACCESS_MATRIX: Record<string, ServiceAccess> = {
         port: 5432,
         permissions: [AccessLevel.READ, AccessLevel.WRITE],
         encryption: 'required',
-        auditLevel: 'standard'
+        auditLevel: 'standard',
       },
       {
         type: 'redis',
@@ -222,11 +222,11 @@ export const SERVICE_ACCESS_MATRIX: Record<string, ServiceAccess> = {
         port: 6379,
         permissions: [AccessLevel.READ, AccessLevel.WRITE],
         encryption: 'optional',
-        auditLevel: 'standard'
-      }
+        auditLevel: 'standard',
+      },
     ],
     networkSegments: ['uaip-application-network'],
-    complianceFlags: ['SOC2_CC6_6', 'DATA_CLASS_3']
+    complianceFlags: ['SOC2_CC6_6', 'DATA_CLASS_3'],
   },
 
   'artifact-service': {
@@ -240,7 +240,7 @@ export const SERVICE_ACCESS_MATRIX: Record<string, ServiceAccess> = {
         port: 5432,
         permissions: [AccessLevel.READ, AccessLevel.WRITE],
         encryption: 'required',
-        auditLevel: 'standard'
+        auditLevel: 'standard',
       },
       {
         type: 'redis',
@@ -249,11 +249,11 @@ export const SERVICE_ACCESS_MATRIX: Record<string, ServiceAccess> = {
         port: 6379,
         permissions: [AccessLevel.READ, AccessLevel.WRITE],
         encryption: 'optional',
-        auditLevel: 'standard'
-      }
+        auditLevel: 'standard',
+      },
     ],
     networkSegments: ['uaip-application-network'],
-    complianceFlags: ['SOC2_CC6_6', 'DATA_CLASS_3']
+    complianceFlags: ['SOC2_CC6_6', 'DATA_CLASS_3'],
   },
 
   'llm-service': {
@@ -267,7 +267,7 @@ export const SERVICE_ACCESS_MATRIX: Record<string, ServiceAccess> = {
         port: 5432,
         permissions: [AccessLevel.READ, AccessLevel.WRITE],
         encryption: 'required',
-        auditLevel: 'standard'
+        auditLevel: 'standard',
       },
       {
         type: 'redis',
@@ -276,11 +276,11 @@ export const SERVICE_ACCESS_MATRIX: Record<string, ServiceAccess> = {
         port: 6379,
         permissions: [AccessLevel.READ, AccessLevel.WRITE],
         encryption: 'optional',
-        auditLevel: 'standard'
-      }
+        auditLevel: 'standard',
+      },
     ],
     networkSegments: ['uaip-application-network'],
-    complianceFlags: ['SOC2_CC6_6', 'DATA_CLASS_3']
+    complianceFlags: ['SOC2_CC6_6', 'DATA_CLASS_3'],
   },
 
   // =============================================================================
@@ -298,7 +298,7 @@ export const SERVICE_ACCESS_MATRIX: Record<string, ServiceAccess> = {
         port: 5432,
         permissions: [AccessLevel.READ, AccessLevel.WRITE],
         encryption: 'required',
-        auditLevel: 'standard'
+        auditLevel: 'standard',
       },
       {
         type: 'postgresql',
@@ -307,7 +307,7 @@ export const SERVICE_ACCESS_MATRIX: Record<string, ServiceAccess> = {
         port: 5435,
         permissions: [AccessLevel.READ, AccessLevel.WRITE],
         encryption: 'optional',
-        auditLevel: 'standard'
+        auditLevel: 'standard',
       },
       {
         type: 'neo4j',
@@ -316,7 +316,7 @@ export const SERVICE_ACCESS_MATRIX: Record<string, ServiceAccess> = {
         port: 7690,
         permissions: [AccessLevel.READ, AccessLevel.WRITE],
         encryption: 'optional',
-        auditLevel: 'standard'
+        auditLevel: 'standard',
       },
       {
         type: 'redis',
@@ -325,15 +325,15 @@ export const SERVICE_ACCESS_MATRIX: Record<string, ServiceAccess> = {
         port: 6379,
         permissions: [AccessLevel.READ, AccessLevel.WRITE],
         encryption: 'optional',
-        auditLevel: 'standard'
-      }
+        auditLevel: 'standard',
+      },
     ],
     networkSegments: ['uaip-application-network', 'uaip-analytics-network'],
-    complianceFlags: ['SOC2_CC6_6', 'DATA_CLASS_3', 'DATA_CLASS_2']
+    complianceFlags: ['SOC2_CC6_6', 'DATA_CLASS_3', 'DATA_CLASS_2'],
   },
 
   // =============================================================================
-  // LEVEL 2 INTERNAL - ANALYTICS TIER  
+  // LEVEL 2 INTERNAL - ANALYTICS TIER
   // =============================================================================
 
   'analytics-service': {
@@ -347,7 +347,7 @@ export const SERVICE_ACCESS_MATRIX: Record<string, ServiceAccess> = {
         port: 5434,
         permissions: [AccessLevel.READ, AccessLevel.WRITE],
         encryption: 'optional',
-        auditLevel: 'minimal'
+        auditLevel: 'minimal',
       },
       {
         type: 'qdrant',
@@ -356,11 +356,11 @@ export const SERVICE_ACCESS_MATRIX: Record<string, ServiceAccess> = {
         port: 6339,
         permissions: [AccessLevel.READ, AccessLevel.WRITE],
         encryption: 'optional',
-        auditLevel: 'minimal'
-      }
+        auditLevel: 'minimal',
+      },
     ],
     networkSegments: ['uaip-analytics-network'],
-    complianceFlags: ['DATA_CLASS_2']
+    complianceFlags: ['DATA_CLASS_2'],
   },
 
   'reporting-service': {
@@ -374,7 +374,7 @@ export const SERVICE_ACCESS_MATRIX: Record<string, ServiceAccess> = {
         port: 5434,
         permissions: [AccessLevel.READ],
         encryption: 'optional',
-        auditLevel: 'minimal'
+        auditLevel: 'minimal',
       },
       {
         type: 'postgresql',
@@ -383,12 +383,12 @@ export const SERVICE_ACCESS_MATRIX: Record<string, ServiceAccess> = {
         port: 5435,
         permissions: [AccessLevel.READ],
         encryption: 'optional',
-        auditLevel: 'minimal'
-      }
+        auditLevel: 'minimal',
+      },
     ],
     networkSegments: ['uaip-analytics-network'],
-    complianceFlags: ['DATA_CLASS_2']
-  }
+    complianceFlags: ['DATA_CLASS_2'],
+  },
 };
 
 /**
@@ -402,7 +402,7 @@ export const NETWORK_SEGMENTS = {
     isolation: 'internal',
     description: 'Level 4 Restricted - Security services only',
     allowedServices: ['security-gateway'],
-    firewallRules: ['deny-all-external', 'allow-management-internal']
+    firewallRules: ['deny-all-external', 'allow-management-internal'],
   },
   'uaip-management-network': {
     level: 4,
@@ -410,15 +410,22 @@ export const NETWORK_SEGMENTS = {
     isolation: 'controlled',
     description: 'Level 4 Management - Admin access only',
     allowedServices: ['security-gateway', 'monitoring', 'backup'],
-    firewallRules: ['admin-access-only', 'audit-all-traffic']
+    firewallRules: ['admin-access-only', 'audit-all-traffic'],
   },
   'uaip-application-network': {
     level: 3,
     subnet: '172.20.3.0/24',
     isolation: 'segmented',
     description: 'Level 3 Confidential - Business services',
-    allowedServices: ['agent-intelligence', 'capability-registry', 'discussion-orchestration', 'artifact-service', 'llm-service', 'orchestration-pipeline'],
-    firewallRules: ['inter-service-communication', 'external-api-controlled']
+    allowedServices: [
+      'agent-intelligence',
+      'capability-registry',
+      'discussion-orchestration',
+      'artifact-service',
+      'llm-service',
+      'orchestration-pipeline',
+    ],
+    firewallRules: ['inter-service-communication', 'external-api-controlled'],
   },
   'uaip-analytics-network': {
     level: 2,
@@ -426,7 +433,7 @@ export const NETWORK_SEGMENTS = {
     isolation: 'monitored',
     description: 'Level 2 Internal - Read-only services',
     allowedServices: ['analytics-service', 'reporting-service', 'orchestration-pipeline'],
-    firewallRules: ['read-only-access', 'data-export-controlled']
+    firewallRules: ['read-only-access', 'data-export-controlled'],
   },
   'uaip-dmz-network': {
     level: 1,
@@ -434,8 +441,8 @@ export const NETWORK_SEGMENTS = {
     isolation: 'public',
     description: 'Level 1 Public - DMZ services',
     allowedServices: ['api-gateway', 'frontend', 'load-balancer'],
-    firewallRules: ['public-access', 'ddos-protection', 'rate-limiting']
-  }
+    firewallRules: ['public-access', 'ddos-protection', 'rate-limiting'],
+  },
 };
 
 /**
@@ -446,28 +453,34 @@ export const COMPLIANCE_CONTROLS = {
   SOC2_CC6_1: {
     description: 'Logical access controls',
     requirements: ['role-based-access', 'least-privilege', 'periodic-review'],
-    applicableServices: ['security-gateway', 'agent-intelligence', 'capability-registry']
+    applicableServices: ['security-gateway', 'agent-intelligence', 'capability-registry'],
   },
   SOC2_CC6_6: {
     description: 'Data classification and handling',
     requirements: ['data-classification', 'encryption-at-rest', 'secure-transmission'],
-    applicableServices: ['agent-intelligence', 'capability-registry', 'discussion-orchestration']
+    applicableServices: ['agent-intelligence', 'capability-registry', 'discussion-orchestration'],
   },
   HIPAA_164_312: {
     description: 'Technical safeguards',
-    requirements: ['access-control', 'audit-controls', 'integrity', 'person-authentication', 'transmission-security'],
-    applicableServices: ['security-gateway']
+    requirements: [
+      'access-control',
+      'audit-controls',
+      'integrity',
+      'person-authentication',
+      'transmission-security',
+    ],
+    applicableServices: ['security-gateway'],
   },
   PCI_DSS_7: {
     description: 'Restrict access by business need to know',
     requirements: ['role-based-access', 'default-deny', 'access-control-systems'],
-    applicableServices: ['security-gateway']
+    applicableServices: ['security-gateway'],
   },
   ISO27001_A_9: {
     description: 'Access control',
     requirements: ['access-control-policy', 'user-access-management', 'privileged-access-rights'],
-    applicableServices: ['security-gateway']
-  }
+    applicableServices: ['security-gateway'],
+  },
 };
 
 /**
@@ -488,7 +501,7 @@ export const STANDARD_SERVICE_ACCESS_MATRIX: Record<string, ServiceAccess> = {
         port: 5432,
         permissions: [AccessLevel.READ, AccessLevel.WRITE],
         encryption: 'optional',
-        auditLevel: 'minimal'
+        auditLevel: 'minimal',
       },
       {
         type: 'neo4j',
@@ -497,7 +510,7 @@ export const STANDARD_SERVICE_ACCESS_MATRIX: Record<string, ServiceAccess> = {
         port: 7687,
         permissions: [AccessLevel.READ, AccessLevel.WRITE],
         encryption: 'optional',
-        auditLevel: 'minimal'
+        auditLevel: 'minimal',
       },
       {
         type: 'redis',
@@ -506,7 +519,7 @@ export const STANDARD_SERVICE_ACCESS_MATRIX: Record<string, ServiceAccess> = {
         port: 6379,
         permissions: [AccessLevel.READ, AccessLevel.WRITE],
         encryption: 'optional',
-        auditLevel: 'minimal'
+        auditLevel: 'minimal',
       },
       {
         type: 'qdrant',
@@ -515,11 +528,11 @@ export const STANDARD_SERVICE_ACCESS_MATRIX: Record<string, ServiceAccess> = {
         port: 6333,
         permissions: [AccessLevel.READ, AccessLevel.WRITE],
         encryption: 'optional',
-        auditLevel: 'minimal'
-      }
+        auditLevel: 'minimal',
+      },
     ],
     networkSegments: ['uaip-network'],
-    complianceFlags: ['DEV_MODE']
+    complianceFlags: ['DEV_MODE'],
   },
 
   'capability-registry': {
@@ -533,7 +546,7 @@ export const STANDARD_SERVICE_ACCESS_MATRIX: Record<string, ServiceAccess> = {
         port: 5432,
         permissions: [AccessLevel.READ, AccessLevel.WRITE],
         encryption: 'optional',
-        auditLevel: 'minimal'
+        auditLevel: 'minimal',
       },
       {
         type: 'redis',
@@ -542,7 +555,7 @@ export const STANDARD_SERVICE_ACCESS_MATRIX: Record<string, ServiceAccess> = {
         port: 6379,
         permissions: [AccessLevel.READ, AccessLevel.WRITE],
         encryption: 'optional',
-        auditLevel: 'minimal'
+        auditLevel: 'minimal',
       },
       {
         type: 'qdrant',
@@ -551,11 +564,11 @@ export const STANDARD_SERVICE_ACCESS_MATRIX: Record<string, ServiceAccess> = {
         port: 6333,
         permissions: [AccessLevel.READ],
         encryption: 'optional',
-        auditLevel: 'minimal'
-      }
+        auditLevel: 'minimal',
+      },
     ],
     networkSegments: ['uaip-network'],
-    complianceFlags: ['DEV_MODE']
+    complianceFlags: ['DEV_MODE'],
   },
 
   'orchestration-pipeline': {
@@ -569,7 +582,7 @@ export const STANDARD_SERVICE_ACCESS_MATRIX: Record<string, ServiceAccess> = {
         port: 5432,
         permissions: [AccessLevel.READ, AccessLevel.WRITE],
         encryption: 'optional',
-        auditLevel: 'minimal'
+        auditLevel: 'minimal',
       },
       {
         type: 'redis',
@@ -578,7 +591,7 @@ export const STANDARD_SERVICE_ACCESS_MATRIX: Record<string, ServiceAccess> = {
         port: 6379,
         permissions: [AccessLevel.READ, AccessLevel.WRITE],
         encryption: 'optional',
-        auditLevel: 'minimal'
+        auditLevel: 'minimal',
       },
       {
         type: 'rabbitmq',
@@ -587,11 +600,11 @@ export const STANDARD_SERVICE_ACCESS_MATRIX: Record<string, ServiceAccess> = {
         port: 5672,
         permissions: [AccessLevel.READ, AccessLevel.WRITE],
         encryption: 'optional',
-        auditLevel: 'minimal'
-      }
+        auditLevel: 'minimal',
+      },
     ],
     networkSegments: ['uaip-network'],
-    complianceFlags: ['DEV_MODE']
+    complianceFlags: ['DEV_MODE'],
   },
 
   'discussion-orchestration': {
@@ -605,7 +618,7 @@ export const STANDARD_SERVICE_ACCESS_MATRIX: Record<string, ServiceAccess> = {
         port: 5432,
         permissions: [AccessLevel.READ, AccessLevel.WRITE],
         encryption: 'optional',
-        auditLevel: 'minimal'
+        auditLevel: 'minimal',
       },
       {
         type: 'redis',
@@ -614,7 +627,7 @@ export const STANDARD_SERVICE_ACCESS_MATRIX: Record<string, ServiceAccess> = {
         port: 6379,
         permissions: [AccessLevel.READ, AccessLevel.WRITE],
         encryption: 'optional',
-        auditLevel: 'minimal'
+        auditLevel: 'minimal',
       },
       {
         type: 'rabbitmq',
@@ -623,11 +636,11 @@ export const STANDARD_SERVICE_ACCESS_MATRIX: Record<string, ServiceAccess> = {
         port: 5672,
         permissions: [AccessLevel.READ, AccessLevel.WRITE],
         encryption: 'optional',
-        auditLevel: 'minimal'
-      }
+        auditLevel: 'minimal',
+      },
     ],
     networkSegments: ['uaip-network'],
-    complianceFlags: ['DEV_MODE']
+    complianceFlags: ['DEV_MODE'],
   },
 
   'security-gateway': {
@@ -641,7 +654,7 @@ export const STANDARD_SERVICE_ACCESS_MATRIX: Record<string, ServiceAccess> = {
         port: 5432,
         permissions: [AccessLevel.READ, AccessLevel.WRITE],
         encryption: 'optional',
-        auditLevel: 'minimal'
+        auditLevel: 'minimal',
       },
       {
         type: 'redis',
@@ -650,12 +663,12 @@ export const STANDARD_SERVICE_ACCESS_MATRIX: Record<string, ServiceAccess> = {
         port: 6379,
         permissions: [AccessLevel.READ, AccessLevel.WRITE],
         encryption: 'optional',
-        auditLevel: 'minimal'
-      }
+        auditLevel: 'minimal',
+      },
     ],
     networkSegments: ['uaip-network'],
-    complianceFlags: ['DEV_MODE']
-  }
+    complianceFlags: ['DEV_MODE'],
+  },
 };
 
 /**
@@ -677,7 +690,7 @@ export function validateServiceAccess(
   }
 
   const dbAccess = serviceAccess.databases.find(
-    db => db.type === databaseType && db.instance === databaseInstance
+    (db) => db.type === databaseType && db.instance === databaseInstance
   );
 
   if (!dbAccess) {
@@ -701,7 +714,7 @@ export function getDatabaseConnectionString(
   }
 
   const dbAccess = serviceAccess.databases.find(
-    db => db.type === databaseType && db.instance === databaseInstance
+    (db) => db.type === databaseType && db.instance === databaseInstance
   );
 
   if (!dbAccess) {
@@ -743,7 +756,7 @@ function getCredentialsForService(serviceName: string, databaseInstance: string)
     'neo4j-security': 'neo4j:${NEO4J_SECURITY_PASSWORD}',
     'neo4j-knowledge': 'neo4j:${NEO4J_KNOWLEDGE_PASSWORD}',
     'neo4j-agent': 'neo4j:${NEO4J_AGENT_PASSWORD}',
-    'neo4j-operations': 'neo4j:${NEO4J_OPERATIONS_PASSWORD}'
+    'neo4j-operations': 'neo4j:${NEO4J_OPERATIONS_PASSWORD}',
   };
 
   return credentialMap[databaseInstance] || '';
@@ -752,7 +765,7 @@ function getCredentialsForService(serviceName: string, databaseInstance: string)
 function getPasswordForService(serviceName: string, databaseInstance: string): string {
   const passwordMap: Record<string, string> = {
     'redis-security': '${REDIS_SECURITY_PASSWORD}',
-    'redis-application': '${REDIS_APPLICATION_PASSWORD}'
+    'redis-application': '${REDIS_APPLICATION_PASSWORD}',
   };
 
   return passwordMap[databaseInstance] || '';
@@ -764,7 +777,7 @@ function getDatabaseName(tier: DatabaseTier): string {
     [DatabaseTier.APPLICATION]: 'uaip_application',
     [DatabaseTier.ANALYTICS]: 'uaip_analytics',
     [DatabaseTier.OPERATIONS]: 'uaip_operations',
-    [DatabaseTier.DMZ]: 'uaip_dmz'
+    [DatabaseTier.DMZ]: 'uaip_dmz',
   };
 
   return dbNameMap[tier];

@@ -6,13 +6,13 @@ import {
   SelectItem,
   SelectLabel,
   SelectTrigger,
-  SelectValue
-} from "@/components/ui/select";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { Label } from "@/components/ui/label";
-import { Brain, Sparkles, Zap, Cpu, Server, LucideIcon, Scale } from "lucide-react";
-import { cn } from "@/lib/utils";
-import { getModelServiceConfig } from "@/config/modelConfig";
+  SelectValue,
+} from '@/components/ui/select';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { Label } from '@/components/ui/label';
+import { Brain, Sparkles, Zap, Cpu, Server, LucideIcon, Scale } from 'lucide-react';
+import { cn } from '@/lib/utils';
+import { getModelServiceConfig } from '@/config/modelConfig';
 
 export interface ModelOption {
   id: string;
@@ -47,25 +47,24 @@ interface ModelSelectorProps {
   className?: string;
 }
 
-
 // Helper function to create a short server identifier
 const getServerIdentifier = (baseUrl: string): string => {
   try {
     const url = new URL(baseUrl);
     const hostname = url.hostname;
     const port = url.port;
-    
+
     // If it's localhost, use port to differentiate
     if (hostname === 'localhost' || hostname === '127.0.0.1') {
       return port ? `:${port}` : ':80';
     }
-    
+
     // For IP addresses, use last octet + port
     if (/^\d+\.\d+\.\d+\.\d+$/.test(hostname)) {
       const lastOctet = hostname.split('.').pop();
       return port ? `.${lastOctet}:${port}` : `.${lastOctet}`;
     }
-    
+
     // For hostnames, use first part + port
     const hostPart = hostname.split('.')[0];
     return port ? `${hostPart}:${port}` : hostPart;
@@ -78,7 +77,7 @@ const getServerIdentifier = (baseUrl: string): string => {
 // Helper function to get display name with server info
 const getModelDisplayName = (model: ModelOption): string => {
   if (!model.source) return model.name;
-  
+
   const serverInfo = getServerIdentifier(model.source);
   return `${model.name} (${serverInfo})`;
 };
@@ -101,13 +100,16 @@ export const extractModelName = (modelId: string): string => {
 };
 
 // Helper function to find a model by name (without server prefix)
-export const findModelByName = (allModels: ModelOption[], modelName: string): ModelOption | undefined => {
-  return allModels.find(model => extractModelName(model.id) === modelName);
+export const findModelByName = (
+  allModels: ModelOption[],
+  modelName: string
+): ModelOption | undefined => {
+  return allModels.find((model) => extractModelName(model.id) === modelName);
 };
 
 // Helper function to find all models with a specific name across all servers
 export const findModelsByName = (allModels: ModelOption[], modelName: string): ModelOption[] => {
-  return allModels.filter(model => extractModelName(model.id) === modelName);
+  return allModels.filter((model) => extractModelName(model.id) === modelName);
 };
 
 // Helper function to get model info from a server-prefixed ID
@@ -129,7 +131,7 @@ const ModelSelector: React.FC<ModelSelectorProps> = ({
   allModels,
   label,
   icon: IconComponent,
-  className
+  className,
 }) => {
   const defaultLabel = side === 'llama1' ? 'Debater 1' : side === 'llama2' ? 'Debater 2' : 'Judge';
   const displayLabel = label || defaultLabel;
@@ -137,32 +139,40 @@ const ModelSelector: React.FC<ModelSelectorProps> = ({
   const Icon = IconComponent || DefaultIcon;
 
   // Find the selected model to show its display name
-  const selectedModelObj = allModels.find(model => model.id === selectedModel);
+  const selectedModelObj = allModels.find((model) => model.id === selectedModel);
 
   // Group models by API type and source
-  const groupedModels = allModels.reduce((acc, model) => {
-    const sourceId = model.source || `fallback-${model.id || Math.random().toString(36).substr(2, 9)}`;
-    const key = `${model.apiType}-${sourceId}`;
-    if (!acc[key]) {
-      acc[key] = {
-        apiType: model.apiType,
-        source: model.source || 'Unknown Source',
-        models: []
-      };
-    }
-    acc[key].models.push(model);
-    return acc;
-  }, {} as Record<string, { apiType: string; source: string; models: ModelOption[] }>);
+  const groupedModels = allModels.reduce(
+    (acc, model) => {
+      const sourceId =
+        model.source || `fallback-${model.id || Math.random().toString(36).substr(2, 9)}`;
+      const key = `${model.apiType}-${sourceId}`;
+      if (!acc[key]) {
+        acc[key] = {
+          apiType: model.apiType,
+          source: model.source || 'Unknown Source',
+          models: [],
+        };
+      }
+      acc[key].models.push(model);
+      return acc;
+    },
+    {} as Record<string, { apiType: string; source: string; models: ModelOption[] }>
+  );
 
   const borderClass =
-    side === 'llama1' ? 'border-llama1/50 focus-within:border-llama1' :
-    side === 'llama2' ? 'border-llama2/50 focus-within:border-llama2' :
-    'border-amber-500/50 focus-within:border-amber-500';
+    side === 'llama1'
+      ? 'border-llama1/50 focus-within:border-llama1'
+      : side === 'llama2'
+        ? 'border-llama2/50 focus-within:border-llama2'
+        : 'border-amber-500/50 focus-within:border-amber-500';
 
   const gradientClass =
-    side === 'llama1' ? 'from-llama1/10' :
-    side === 'llama2' ? 'from-llama2/10' :
-    'from-amber-600/10';
+    side === 'llama1'
+      ? 'from-llama1/10'
+      : side === 'llama2'
+        ? 'from-llama2/10'
+        : 'from-amber-600/10';
 
   const handleModelChange = (modelId: string) => {
     onSelectModel(modelId);
@@ -173,22 +183,40 @@ const ModelSelector: React.FC<ModelSelectorProps> = ({
   };
 
   return (
-    <div className={cn(`relative p-4 rounded-lg border bg-black/20 backdrop-blur-sm transition-all duration-300 ${borderClass}`, className)}>
-      <div className={`absolute inset-0 rounded-lg bg-gradient-to-r ${gradientClass} to-transparent opacity-50 pointer-events-none`} />
-      <Label htmlFor={`${side}-model-select`} className="flex items-center text-sm font-medium mb-2 z-10 relative">
-        <Icon className={cn("mr-2 h-4 w-4",
-           side === 'llama1' ? 'text-llama1' : side === 'llama2' ? 'text-llama2' : 'text-amber-400'
-        )} />
+    <div
+      className={cn(
+        `relative p-4 rounded-lg border bg-black/20 backdrop-blur-sm transition-all duration-300 ${borderClass}`,
+        className
+      )}
+    >
+      <div
+        className={`absolute inset-0 rounded-lg bg-gradient-to-r ${gradientClass} to-transparent opacity-50 pointer-events-none`}
+      />
+      <Label
+        htmlFor={`${side}-model-select`}
+        className="flex items-center text-sm font-medium mb-2 z-10 relative"
+      >
+        <Icon
+          className={cn(
+            'mr-2 h-4 w-4',
+            side === 'llama1' ? 'text-llama1' : side === 'llama2' ? 'text-llama2' : 'text-amber-400'
+          )}
+        />
         {displayLabel}
       </Label>
       <Select
-        value={selectedModel || ""}
+        value={selectedModel || ''}
         onValueChange={handleModelChange}
         disabled={disabled || allModels.length === 0}
       >
-        <SelectTrigger id={`${side}-model-select`} className="w-full bg-black/30 border-gray-700 focus:ring-offset-0 focus:ring-transparent z-10 relative">
-          <SelectValue placeholder={allModels.length === 0 ? "No models found" : "Select a model..."}>
-            {selectedModelObj ? getModelDisplayName(selectedModelObj) : ""}
+        <SelectTrigger
+          id={`${side}-model-select`}
+          className="w-full bg-black/30 border-gray-700 focus:ring-offset-0 focus:ring-transparent z-10 relative"
+        >
+          <SelectValue
+            placeholder={allModels.length === 0 ? 'No models found' : 'Select a model...'}
+          >
+            {selectedModelObj ? getModelDisplayName(selectedModelObj) : ''}
           </SelectValue>
         </SelectTrigger>
         <SelectContent className="bg-gray-900 border-gray-700 backdrop-blur-xl max-h-60 overflow-y-auto z-50">

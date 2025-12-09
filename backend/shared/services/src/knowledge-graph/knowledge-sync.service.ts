@@ -58,7 +58,7 @@ export class KnowledgeSyncService {
         return {
           success: false,
           knowledgeItemId,
-          error: 'Knowledge item or user not found'
+          error: 'Knowledge item or user not found',
         };
       }
 
@@ -70,7 +70,7 @@ export class KnowledgeSyncService {
           domainExpertise: user.userPersona?.domainExpertise,
           communicationPreference: user.userPersona?.communicationPreference,
           workflowStyle: user.userPersona?.workflowStyle,
-          learningStyle: user.userPersona?.learningStyle
+          learningStyle: user.userPersona?.learningStyle,
         },
         userContext: {
           userId: user.id,
@@ -78,14 +78,14 @@ export class KnowledgeSyncService {
           department: user.department,
           activeHours: user.behavioralPatterns?.activeHours,
           preferredTools: user.behavioralPatterns?.frequentlyUsedTools,
-          interactionStyle: user.behavioralPatterns?.interactionStyle
+          interactionStyle: user.behavioralPatterns?.interactionStyle,
         },
-        personaRelevance: this.calculatePersonaRelevance(knowledgeItem, user)
+        personaRelevance: this.calculatePersonaRelevance(knowledgeItem, user),
       };
 
       // Update knowledge item with enhanced metadata
       await this.knowledgeRepository.update(knowledgeItemId, {
-        metadata: enhancedMetadata
+        metadata: enhancedMetadata,
       });
 
       // Sync to Neo4j with persona relationships
@@ -97,27 +97,26 @@ export class KnowledgeSyncService {
       logger.info('Knowledge item synced with user persona context', {
         knowledgeItemId,
         userId,
-        personaRelevance: enhancedMetadata.personaRelevance
+        personaRelevance: enhancedMetadata.personaRelevance,
       });
 
       return {
         success: true,
         knowledgeItemId,
         neo4jSynced: true,
-        qdrantSynced: true
+        qdrantSynced: true,
       };
-
     } catch (error) {
       logger.error('Error syncing knowledge item with user persona', {
         knowledgeItemId,
         userId,
-        error: error instanceof Error ? error.message : 'Unknown error'
+        error: error instanceof Error ? error.message : 'Unknown error',
       });
 
       return {
         success: false,
         knowledgeItemId,
-        error: error instanceof Error ? error.message : 'Unknown error'
+        error: error instanceof Error ? error.message : 'Unknown error',
       };
     }
   }
@@ -135,10 +134,11 @@ export class KnowledgeSyncService {
 
     // Domain expertise alignment
     if (persona.domainExpertise && knowledgeItem.tags) {
-      const expertiseMatch = knowledgeItem.tags.some(tag => 
-        persona.domainExpertise.some(domain => 
-          tag.toLowerCase().includes(domain.toLowerCase()) || 
-          domain.toLowerCase().includes(tag.toLowerCase())
+      const expertiseMatch = knowledgeItem.tags.some((tag) =>
+        persona.domainExpertise.some(
+          (domain) =>
+            tag.toLowerCase().includes(domain.toLowerCase()) ||
+            domain.toLowerCase().includes(tag.toLowerCase())
         )
       );
       if (expertiseMatch) relevanceScore += 0.3;
@@ -161,8 +161,8 @@ export class KnowledgeSyncService {
 
     // Behavioral pattern alignment
     if (behavioral?.frequentlyUsedTools && knowledgeItem.tags) {
-      const toolMatch = knowledgeItem.tags.some(tag => 
-        behavioral.frequentlyUsedTools.some(tool => 
+      const toolMatch = knowledgeItem.tags.some((tag) =>
+        behavioral.frequentlyUsedTools.some((tool) =>
           tag.toLowerCase().includes(tool.toLowerCase())
         )
       );
@@ -175,10 +175,14 @@ export class KnowledgeSyncService {
   /**
    * Sync knowledge item to Neo4j with persona-based relationships
    */
-  private async syncToNeo4jWithPersona(knowledgeItem: KnowledgeItemEntity, user: UserEntity): Promise<void> {
+  private async syncToNeo4jWithPersona(
+    knowledgeItem: KnowledgeItemEntity,
+    user: UserEntity
+  ): Promise<void> {
     try {
       // Create or update knowledge node
-      await this.graphDb.runQuery(`
+      await this.graphDb.runQuery(
+        `
         MERGE (k:Knowledge {id: $knowledgeId})
         SET k.content = $content,
             k.type = $type,
@@ -188,53 +192,60 @@ export class KnowledgeSyncService {
             k.userId = $userId,
             k.userRole = $userRole,
             k.department = $department
-      `, {
-        knowledgeId: knowledgeItem.id,
-        content: knowledgeItem.content,
-        type: knowledgeItem.type,
-        tags: knowledgeItem.tags,
-        confidence: knowledgeItem.confidence,
-        userId: user.id,
-        userRole: user.role,
-        department: user.department
-      });
+      `,
+        {
+          knowledgeId: knowledgeItem.id,
+          content: knowledgeItem.content,
+          type: knowledgeItem.type,
+          tags: knowledgeItem.tags,
+          confidence: knowledgeItem.confidence,
+          userId: user.id,
+          userRole: user.role,
+          department: user.department,
+        }
+      );
 
       // Create persona-based relationships
       if (user.userPersona?.domainExpertise) {
         for (const domain of user.userPersona.domainExpertise) {
-          await this.graphDb.runQuery(`
+          await this.graphDb.runQuery(
+            `
             MATCH (k:Knowledge {id: $knowledgeId})
             MERGE (d:Domain {name: $domain})
             MERGE (k)-[:RELEVANT_TO {relevance: $relevance}]->(d)
-          `, {
-            knowledgeId: knowledgeItem.id,
-            domain,
-            relevance: this.calculatePersonaRelevance(knowledgeItem, user)
-          });
+          `,
+            {
+              knowledgeId: knowledgeItem.id,
+              domain,
+              relevance: this.calculatePersonaRelevance(knowledgeItem, user),
+            }
+          );
         }
       }
 
       // Create user-knowledge relationships
-      await this.graphDb.runQuery(`
+      await this.graphDb.runQuery(
+        `
         MATCH (k:Knowledge {id: $knowledgeId})
         MERGE (u:User {id: $userId})
         SET u.workStyle = $workStyle,
             u.communicationPreference = $communicationPreference,
             u.role = $role
         MERGE (u)-[:CREATED {timestamp: datetime()}]->(k)
-      `, {
-        knowledgeId: knowledgeItem.id,
-        userId: user.id,
-        workStyle: user.userPersona?.workStyle,
-        communicationPreference: user.userPersona?.communicationPreference,
-        role: user.role
-      });
-
+      `,
+        {
+          knowledgeId: knowledgeItem.id,
+          userId: user.id,
+          workStyle: user.userPersona?.workStyle,
+          communicationPreference: user.userPersona?.communicationPreference,
+          role: user.role,
+        }
+      );
     } catch (error) {
       logger.error('Error syncing to Neo4j with persona', {
         knowledgeItemId: knowledgeItem.id,
         userId: user.id,
-        error: error instanceof Error ? error.message : 'Unknown error'
+        error: error instanceof Error ? error.message : 'Unknown error',
       });
       throw error;
     }
@@ -243,7 +254,10 @@ export class KnowledgeSyncService {
   /**
    * Sync knowledge item to Qdrant with persona-weighted embeddings
    */
-  private async syncToQdrantWithPersona(knowledgeItem: KnowledgeItemEntity, user: UserEntity): Promise<void> {
+  private async syncToQdrantWithPersona(
+    knowledgeItem: KnowledgeItemEntity,
+    user: UserEntity
+  ): Promise<void> {
     try {
       // Create enhanced content for embedding that includes persona context
       const enhancedContent = [
@@ -252,8 +266,10 @@ export class KnowledgeSyncService {
         user.userPersona?.workStyle || '',
         user.userPersona?.communicationPreference || '',
         user.role,
-        user.department || ''
-      ].filter(Boolean).join(' ');
+        user.department || '',
+      ]
+        .filter(Boolean)
+        .join(' ');
 
       // Generate embedding with persona context
       const embedding = await this.embeddingService.generateEmbedding(enhancedContent);
@@ -272,21 +288,22 @@ export class KnowledgeSyncService {
         communicationPreference: user.userPersona?.communicationPreference,
         personaRelevance: this.calculatePersonaRelevance(knowledgeItem, user),
         createdAt: knowledgeItem.createdAt.toISOString(),
-        updatedAt: knowledgeItem.updatedAt.toISOString()
+        updatedAt: knowledgeItem.updatedAt.toISOString(),
       };
 
       // Upsert to Qdrant
-      await this.qdrantService.upsertPoints([{
-        id: knowledgeItem.id,
-        vector: embedding,
-        payload: metadata
-      }]);
-
+      await this.qdrantService.upsertPoints([
+        {
+          id: knowledgeItem.id,
+          vector: embedding,
+          payload: metadata,
+        },
+      ]);
     } catch (error) {
       logger.error('Error syncing to Qdrant with persona', {
         knowledgeItemId: knowledgeItem.id,
         userId: user.id,
-        error: error instanceof Error ? error.message : 'Unknown error'
+        error: error instanceof Error ? error.message : 'Unknown error',
       });
       throw error;
     }
@@ -298,7 +315,7 @@ export class KnowledgeSyncService {
    */
   async universalSync(): Promise<UniversalSyncResult> {
     logger.info('Starting universal knowledge graph synchronization');
-    
+
     const result: UniversalSyncResult = {
       totalFound: 0,
       totalSynced: 0,
@@ -306,23 +323,23 @@ export class KnowledgeSyncService {
       syncedFromPostgres: 0,
       syncedFromNeo4j: 0,
       syncedFromQdrant: 0,
-      errors: []
+      errors: [],
     };
 
     try {
       // 1. Discover all unique knowledge items across all systems
       const allItems = await this.discoverAllKnowledgeItems();
       result.totalFound = allItems.size;
-      
+
       logger.info(`Discovered ${allItems.size} unique knowledge items across all systems`);
 
       // 2. Process each unique item and sync to missing systems
       const batchSize = 10;
       const itemArray = Array.from(allItems.values());
-      
+
       for (let i = 0; i < itemArray.length; i += batchSize) {
         const batch = itemArray.slice(i, i + batchSize);
-        
+
         const batchPromises = batch.map(async (item) => {
           try {
             const syncResult = await this.syncUniversalItem(item);
@@ -337,25 +354,30 @@ export class KnowledgeSyncService {
             }
           } catch (error) {
             result.totalFailed++;
-            result.errors.push(`Item ${item.id}: ${error instanceof Error ? error.message : 'Unknown error'}`);
+            result.errors.push(
+              `Item ${item.id}: ${error instanceof Error ? error.message : 'Unknown error'}`
+            );
           }
         });
 
         await Promise.allSettled(batchPromises);
-        
+
         // Brief pause between batches
-        await new Promise(resolve => setTimeout(resolve, 100));
+        await new Promise((resolve) => setTimeout(resolve, 100));
       }
 
       // 3. Sync relationships after all items are processed
       await this.syncAllRelationships();
 
-      logger.info(`Universal sync completed. Found: ${result.totalFound}, Synced: ${result.totalSynced}, Failed: ${result.totalFailed}`);
+      logger.info(
+        `Universal sync completed. Found: ${result.totalFound}, Synced: ${result.totalSynced}, Failed: ${result.totalFailed}`
+      );
       return result;
-
     } catch (error) {
       logger.error('Universal sync failed:', error);
-      result.errors.push(`Universal sync failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      result.errors.push(
+        `Universal sync failed: ${error instanceof Error ? error.message : 'Unknown error'}`
+      );
       return result;
     }
   }
@@ -365,12 +387,12 @@ export class KnowledgeSyncService {
    */
   async bootstrapSync(): Promise<KnowledgeBootstrapResult> {
     const universalResult = await this.universalSync();
-    
+
     return {
       totalProcessed: universalResult.totalFound,
       successful: universalResult.totalSynced,
       failed: universalResult.totalFailed,
-      errors: universalResult.errors
+      errors: universalResult.errors,
     };
   }
 
@@ -383,7 +405,7 @@ export class KnowledgeSyncService {
       success: false,
       knowledgeItemId: item.id,
       neo4jSynced: false,
-      qdrantSynced: false
+      qdrantSynced: false,
     };
 
     // 1. PostgreSQL UUID (should already exist)
@@ -409,7 +431,7 @@ export class KnowledgeSyncService {
 
     // Success if at least one system synced (PostgreSQL always exists)
     result.success = result.neo4jSynced || result.qdrantSynced;
-    
+
     if (!result.success) {
       result.error = 'All sync operations failed, but item exists in PostgreSQL';
       logger.warn(`All sync operations failed for ${item.id}, but PostgreSQL record exists`);
@@ -429,7 +451,7 @@ export class KnowledgeSyncService {
     agentId?: string
   ): Promise<KnowledgeSyncResult> {
     const itemId = uuidv4();
-    
+
     try {
       // 1. Create in PostgreSQL first
       const knowledgeItem = await this.knowledgeRepository.create({
@@ -438,18 +460,17 @@ export class KnowledgeSyncService {
         source: {
           type: SourceType.USER_INPUT,
           identifier: `direct-${itemId}`,
-          metadata
+          metadata,
         },
         tags: metadata.tags || [],
         confidence: metadata.confidence || 0.8,
         accessLevel: metadata.accessLevel || 'STANDARD',
         userId,
-        agentId
+        agentId,
       });
 
       // 2. Sync to other systems
       return await this.syncKnowledgeItem(knowledgeItem);
-
     } catch (error) {
       logger.error(`Failed to create knowledge item:`, error);
       return {
@@ -457,7 +478,7 @@ export class KnowledgeSyncService {
         knowledgeItemId: itemId,
         neo4jSynced: false,
         qdrantSynced: false,
-        error: error instanceof Error ? error.message : 'Unknown error'
+        error: error instanceof Error ? error.message : 'Unknown error',
       };
     }
   }
@@ -494,7 +515,7 @@ export class KnowledgeSyncService {
       accessLevel: item.accessLevel,
       summary: item.summary,
       createdAt: item.createdAt.toISOString(),
-      updatedAt: item.updatedAt.toISOString()
+      updatedAt: item.updatedAt.toISOString(),
     };
 
     await this.graphDb.runQuery(cypher, params);
@@ -503,7 +524,7 @@ export class KnowledgeSyncService {
     if (item.userId) {
       await this.createUserKnowledgeRelationship(item.userId, item.id);
     }
-    
+
     if (item.agentId) {
       await this.createAgentKnowledgeRelationship(item.agentId, item.id);
     }
@@ -530,8 +551,8 @@ export class KnowledgeSyncService {
         agent_id: item.agentId,
         access_level: item.accessLevel,
         created_at: item.createdAt.toISOString(),
-        updated_at: item.updatedAt.toISOString()
-      }
+        updated_at: item.updatedAt.toISOString(),
+      },
     };
 
     // Store in Qdrant
@@ -541,7 +562,10 @@ export class KnowledgeSyncService {
   /**
    * Create user-knowledge relationship in Neo4j
    */
-  private async createUserKnowledgeRelationship(userId: string, knowledgeId: string): Promise<void> {
+  private async createUserKnowledgeRelationship(
+    userId: string,
+    knowledgeId: string
+  ): Promise<void> {
     const cypher = `
       MATCH (u:User {id: $userId})
       MATCH (k:KnowledgeItem {id: $knowledgeId})
@@ -554,7 +578,10 @@ export class KnowledgeSyncService {
   /**
    * Create agent-knowledge relationship in Neo4j
    */
-  private async createAgentKnowledgeRelationship(agentId: string, knowledgeId: string): Promise<void> {
+  private async createAgentKnowledgeRelationship(
+    agentId: string,
+    knowledgeId: string
+  ): Promise<void> {
     const cypher = `
       MATCH (a:Agent {id: $agentId})
       MATCH (k:KnowledgeItem {id: $knowledgeId})
@@ -569,13 +596,13 @@ export class KnowledgeSyncService {
    */
   private async syncAllRelationships(): Promise<void> {
     logger.info('Syncing knowledge relationships to Neo4j');
-    
+
     const relationships = await this.knowledgeRepository.findAllRelationships();
-    
+
     for (const rel of relationships) {
       await this.syncRelationshipToNeo4j(rel);
     }
-    
+
     logger.info(`Synced ${relationships.length} knowledge relationships`);
   }
 
@@ -601,7 +628,7 @@ export class KnowledgeSyncService {
       confidence: rel.confidence,
       summary: rel.summary,
       createdAt: rel.createdAt.toISOString(),
-      updatedAt: rel.updatedAt.toISOString()
+      updatedAt: rel.updatedAt.toISOString(),
     };
 
     await this.graphDb.runQuery(cypher, params);
@@ -616,10 +643,13 @@ export class KnowledgeSyncService {
       await this.knowledgeRepository.delete(itemId);
 
       // Delete from Neo4j
-      await this.graphDb.runQuery(`
+      await this.graphDb.runQuery(
+        `
         MATCH (k:KnowledgeItem {id: $id})
         DETACH DELETE k
-      `, { id: itemId });
+      `,
+        { id: itemId }
+      );
 
       // Delete from Qdrant
       await this.qdrantService.deletePoints([itemId]);
@@ -648,7 +678,7 @@ export class KnowledgeSyncService {
           metadata: item.metadata,
           source: 'postgres',
           existsIn: { postgres: true, neo4j: false, qdrant: false },
-          pgEntity: item
+          pgEntity: item,
         });
       }
       logger.info(`Found ${pgItems.length} items in PostgreSQL`);
@@ -658,7 +688,8 @@ export class KnowledgeSyncService {
 
     // 2. Discover from Neo4j - find ALL nodes and convert to knowledge items
     try {
-      const neo4jResult = await this.graphDb.runQuery(`
+      const neo4jResult = await this.graphDb.runQuery(
+        `
         MATCH (n) 
         RETURN 
           COALESCE(n.id, toString(id(n))) as id,
@@ -667,53 +698,65 @@ export class KnowledgeSyncService {
           n as node,
           labels(n) as labels
         LIMIT 500
-      `, {});
-      
+      `,
+        {}
+      );
+
       for (const record of neo4jResult.records) {
         let id = record.get('id');
         const content = record.get('content');
         const type = record.get('type');
         const labels = record.get('labels');
         const node = record.get('node');
-        
+
         // Generate UUID if needed
-        if (!id || typeof id !== 'string' || !id.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)) {
+        if (
+          !id ||
+          typeof id !== 'string' ||
+          !id.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)
+        ) {
           id = uuidv4();
         }
-        
+
         // Extract meaningful content
         let extractedContent = content;
         if (!extractedContent || extractedContent === '[object Object]') {
           // Try to extract meaningful content from node properties
           const nodeProps = node?.properties || {};
-          extractedContent = nodeProps.description || nodeProps.summary || nodeProps.name || 
-                           nodeProps.title || `${labels?.join(', ') || type} node`;
+          extractedContent =
+            nodeProps.description ||
+            nodeProps.summary ||
+            nodeProps.name ||
+            nodeProps.title ||
+            `${labels?.join(', ') || type} node`;
         }
-        
+
         if (itemsMap.has(id)) {
           itemsMap.get(id)!.existsIn.neo4j = true;
         } else {
           const originalType = type === 'Memory' && labels?.length > 1 ? labels[1] : type;
-          
+
           itemsMap.set(id, {
             id,
             content: extractedContent,
             type: this.mapToKnowledgeType(originalType),
             metadata: {
-              originalType,           // Preserve exact original type
+              originalType, // Preserve exact original type
               originalLabels: labels, // Preserve all Neo4j labels
               sourceNode: 'neo4j-conversion',
               originalProperties: node?.properties || {}, // Preserve all original properties
-              neo4jInternalId: node?.identity?.toString(),  // Preserve Neo4j internal ID
-              conversionTimestamp: new Date().toISOString()
+              neo4jInternalId: node?.identity?.toString(), // Preserve Neo4j internal ID
+              conversionTimestamp: new Date().toISOString(),
             },
             source: 'neo4j',
             existsIn: { postgres: false, neo4j: true, qdrant: false },
-            needsConversion: true // Flag to indicate this needs conversion to KnowledgeItem
+            needsConversion: true, // Flag to indicate this needs conversion to KnowledgeItem
           });
         }
       }
-      logger.info(`Found ${neo4jResult.records.length} items in Neo4j (including non-KnowledgeItem nodes)`);
+      logger.info(
+        `Found ${neo4jResult.records.length} items in Neo4j (including non-KnowledgeItem nodes)`
+      );
     } catch (error) {
       logger.warn('Failed to discover Neo4j items:', error);
     }
@@ -723,15 +766,15 @@ export class KnowledgeSyncService {
       // Get collection info to see how many points we have
       const collectionInfo = await this.qdrantService.getCollectionInfo();
       const pointsCount = collectionInfo.result?.points_count || 0;
-      
+
       if (pointsCount > 0) {
         // Use scroll to get all points (Qdrant doesn't have a "get all" method)
         const qdrantPoints = await this.scrollAllQdrantPoints();
-        
+
         for (const point of qdrantPoints) {
           const id = point.payload?.knowledge_item_id;
           if (!id) continue;
-          
+
           if (itemsMap.has(id)) {
             itemsMap.get(id)!.existsIn.qdrant = true;
           } else {
@@ -742,7 +785,7 @@ export class KnowledgeSyncService {
               metadata: {},
               source: 'qdrant',
               existsIn: { postgres: false, neo4j: false, qdrant: true },
-              qdrantPayload: point.payload
+              qdrantPayload: point.payload,
             });
           }
         }
@@ -763,7 +806,7 @@ export class KnowledgeSyncService {
       success: false,
       knowledgeItemId: item.id,
       neo4jSynced: item.existsIn.neo4j,
-      qdrantSynced: item.existsIn.qdrant
+      qdrantSynced: item.existsIn.qdrant,
     };
 
     try {
@@ -777,7 +820,7 @@ export class KnowledgeSyncService {
 
       // 2. Sync to Neo4j if missing or needs conversion
       if (!item.existsIn.neo4j) {
-        const entity = item.pgEntity || await this.createKnowledgeEntityFromItem(item);
+        const entity = item.pgEntity || (await this.createKnowledgeEntityFromItem(item));
         await this.syncToNeo4j(entity);
         result.neo4jSynced = true;
       } else if (item.needsConversion) {
@@ -788,13 +831,12 @@ export class KnowledgeSyncService {
 
       // 3. Sync to Qdrant if missing
       if (!item.existsIn.qdrant) {
-        const entity = item.pgEntity || await this.createKnowledgeEntityFromItem(item);
+        const entity = item.pgEntity || (await this.createKnowledgeEntityFromItem(item));
         await this.syncToQdrant(entity);
         result.qdrantSynced = true;
       }
 
       result.success = true;
-
     } catch (error) {
       result.error = error instanceof Error ? error.message : 'Unknown error';
       logger.warn(`Failed to sync universal item ${item.id}:`, error);
@@ -814,9 +856,9 @@ export class KnowledgeSyncService {
       const searchResult = await this.qdrantService.search(dummyVector, {
         limit: 10000, // High limit to get all points
         threshold: 0, // Very low threshold to get all points
-        filters: {}
+        filters: {},
       });
-      
+
       return searchResult;
     } catch (error) {
       logger.warn('Failed to scroll Qdrant points:', error);
@@ -834,18 +876,20 @@ export class KnowledgeSyncService {
       source: {
         type: SourceType.EXTERNAL_API,
         identifier: `sync-${item.source}-${item.id}`,
-        metadata: item.metadata
+        metadata: item.metadata,
       },
       tags: [],
       confidence: 0.8,
-      accessLevel: 'STANDARD'
+      accessLevel: 'STANDARD',
     });
   }
 
   /**
    * Create a KnowledgeItemEntity from universal item
    */
-  private async createKnowledgeEntityFromItem(item: UniversalKnowledgeItem): Promise<KnowledgeItemEntity> {
+  private async createKnowledgeEntityFromItem(
+    item: UniversalKnowledgeItem
+  ): Promise<KnowledgeItemEntity> {
     if (item.pgEntity) {
       return item.pgEntity;
     }
@@ -883,15 +927,17 @@ export class KnowledgeSyncService {
       status.postgres = !!pgItem;
 
       // Check Neo4j
-      const neo4jResult = await this.graphDb.runQuery(`
+      const neo4jResult = await this.graphDb.runQuery(
+        `
         MATCH (k:KnowledgeItem {id: $id}) RETURN k LIMIT 1
-      `, { id: itemId });
+      `,
+        { id: itemId }
+      );
       status.neo4j = neo4jResult.records.length > 0;
 
       // Check Qdrant
       const qdrantResult = await this.qdrantService.getPoints([itemId]);
       status.qdrant = qdrantResult.length > 0;
-
     } catch (error) {
       logger.error(`Error verifying sync status for ${itemId}:`, error);
     }
@@ -946,31 +992,30 @@ export class KnowledgeSyncService {
           ...pgEntity.metadata,
           converted: true,
           originalLabels: item.metadata.originalLabels,
-          conversionDate: new Date().toISOString()
+          conversionDate: new Date().toISOString(),
         }),
         accessLevel: pgEntity.accessLevel,
         summary: pgEntity.summary,
         createdAt: pgEntity.createdAt.toISOString(),
-        updatedAt: pgEntity.updatedAt.toISOString()
+        updatedAt: pgEntity.updatedAt.toISOString(),
       };
 
       const result = await this.graphDb.runQuery(cypher, params);
-      
+
       if (result.records.length > 0) {
         logger.info(`Successfully converted Neo4j node to KnowledgeItem: ${pgEntity.id}`);
-        
+
         // Create user/agent relationships if they exist
         if (pgEntity.userId) {
           await this.createUserKnowledgeRelationship(pgEntity.userId, pgEntity.id);
         }
-        
+
         if (pgEntity.agentId) {
           await this.createAgentKnowledgeRelationship(pgEntity.agentId, pgEntity.id);
         }
       } else {
         logger.warn(`No Neo4j node found to convert for item: ${item.content}`);
       }
-
     } catch (error) {
       logger.error(`Failed to convert Neo4j node to KnowledgeItem for ${item.id}:`, error);
       throw error;
@@ -985,162 +1030,162 @@ export class KnowledgeSyncService {
     // Comprehensive mapping that doesn't lose any semantic meaning
     const typeMap: Record<string, KnowledgeType> = {
       // Project/Work concepts
-      'WorkItem': KnowledgeType.PROCEDURAL,
-      'Epic': KnowledgeType.CONCEPTUAL,
-      'Module': KnowledgeType.CONCEPTUAL,
-      'Component': KnowledgeType.CONCEPTUAL,
-      'Task': KnowledgeType.PROCEDURAL,
-      'Phase': KnowledgeType.PROCEDURAL,
-      'Sprint': KnowledgeType.PROCEDURAL,
-      'Milestone': KnowledgeType.PROCEDURAL,
-      'ActionItem': KnowledgeType.PROCEDURAL,
-      'ActionPhase': KnowledgeType.PROCEDURAL,
-      'ActionPlan': KnowledgeType.PROCEDURAL,
-      
+      WorkItem: KnowledgeType.PROCEDURAL,
+      Epic: KnowledgeType.CONCEPTUAL,
+      Module: KnowledgeType.CONCEPTUAL,
+      Component: KnowledgeType.CONCEPTUAL,
+      Task: KnowledgeType.PROCEDURAL,
+      Phase: KnowledgeType.PROCEDURAL,
+      Sprint: KnowledgeType.PROCEDURAL,
+      Milestone: KnowledgeType.PROCEDURAL,
+      ActionItem: KnowledgeType.PROCEDURAL,
+      ActionPhase: KnowledgeType.PROCEDURAL,
+      ActionPlan: KnowledgeType.PROCEDURAL,
+
       // Technical concepts
-      'Microservice': KnowledgeType.CONCEPTUAL,
-      'Database': KnowledgeType.CONCEPTUAL,
-      'Technology': KnowledgeType.CONCEPTUAL,
-      'Platform': KnowledgeType.CONCEPTUAL,
-      'Infrastructure': KnowledgeType.CONCEPTUAL,
-      'ArchitectureComponent': KnowledgeType.CONCEPTUAL,
-      'ArchitecturalPattern': KnowledgeType.CONCEPTUAL,
-      'SystemComponent': KnowledgeType.CONCEPTUAL,
-      'DataSchema': KnowledgeType.CONCEPTUAL,
-      'DataFlow': KnowledgeType.CONCEPTUAL,
-      'DataConnector': KnowledgeType.CONCEPTUAL,
-      
+      Microservice: KnowledgeType.CONCEPTUAL,
+      Database: KnowledgeType.CONCEPTUAL,
+      Technology: KnowledgeType.CONCEPTUAL,
+      Platform: KnowledgeType.CONCEPTUAL,
+      Infrastructure: KnowledgeType.CONCEPTUAL,
+      ArchitectureComponent: KnowledgeType.CONCEPTUAL,
+      ArchitecturalPattern: KnowledgeType.CONCEPTUAL,
+      SystemComponent: KnowledgeType.CONCEPTUAL,
+      DataSchema: KnowledgeType.CONCEPTUAL,
+      DataFlow: KnowledgeType.CONCEPTUAL,
+      DataConnector: KnowledgeType.CONCEPTUAL,
+
       // Documentation and information
-      'Document': KnowledgeType.FACTUAL,
-      'Metric': KnowledgeType.FACTUAL,
-      'Analysis': KnowledgeType.FACTUAL,
-      'ExecutiveSummary': KnowledgeType.FACTUAL,
-      'BudgetAnalysis': KnowledgeType.FACTUAL,
-      'Summary': KnowledgeType.FACTUAL,
-      
+      Document: KnowledgeType.FACTUAL,
+      Metric: KnowledgeType.FACTUAL,
+      Analysis: KnowledgeType.FACTUAL,
+      ExecutiveSummary: KnowledgeType.FACTUAL,
+      BudgetAnalysis: KnowledgeType.FACTUAL,
+      Summary: KnowledgeType.FACTUAL,
+
       // Geographic and places
-      'city': KnowledgeType.FACTUAL,
-      'City': KnowledgeType.FACTUAL,
-      'Location': KnowledgeType.FACTUAL,
-      'Country': KnowledgeType.FACTUAL,
-      'State': KnowledgeType.FACTUAL,
-      'MountainRange': KnowledgeType.FACTUAL,
-      'River': KnowledgeType.FACTUAL,
-      
+      city: KnowledgeType.FACTUAL,
+      City: KnowledgeType.FACTUAL,
+      Location: KnowledgeType.FACTUAL,
+      Country: KnowledgeType.FACTUAL,
+      State: KnowledgeType.FACTUAL,
+      MountainRange: KnowledgeType.FACTUAL,
+      River: KnowledgeType.FACTUAL,
+
       // People and organizations
-      'Person': KnowledgeType.FACTUAL,
-      'Stakeholder': KnowledgeType.FACTUAL,
-      'Company': KnowledgeType.FACTUAL,
-      'Organization': KnowledgeType.FACTUAL,
-      'Workplace': KnowledgeType.FACTUAL,
-      
+      Person: KnowledgeType.FACTUAL,
+      Stakeholder: KnowledgeType.FACTUAL,
+      Company: KnowledgeType.FACTUAL,
+      Organization: KnowledgeType.FACTUAL,
+      Workplace: KnowledgeType.FACTUAL,
+
       // Cultural and historical
-      'Empire': KnowledgeType.FACTUAL,
-      'HistoricalEvent': KnowledgeType.FACTUAL,
-      'HistoricalCivilization': KnowledgeType.FACTUAL,
-      'HistoricalPeriod': KnowledgeType.FACTUAL,
-      'ColonialPeriod': KnowledgeType.FACTUAL,
-      'CulturalAspect': KnowledgeType.FACTUAL,
-      'Festival': KnowledgeType.FACTUAL,
-      'Religion': KnowledgeType.FACTUAL,
-      'TraditionalArt': KnowledgeType.FACTUAL,
-      
+      Empire: KnowledgeType.FACTUAL,
+      HistoricalEvent: KnowledgeType.FACTUAL,
+      HistoricalCivilization: KnowledgeType.FACTUAL,
+      HistoricalPeriod: KnowledgeType.FACTUAL,
+      ColonialPeriod: KnowledgeType.FACTUAL,
+      CulturalAspect: KnowledgeType.FACTUAL,
+      Festival: KnowledgeType.FACTUAL,
+      Religion: KnowledgeType.FACTUAL,
+      TraditionalArt: KnowledgeType.FACTUAL,
+
       // Business concepts
-      'BusinessMetric': KnowledgeType.FACTUAL,
-      'BusinessProcess': KnowledgeType.PROCEDURAL,
-      'BusinessModel': KnowledgeType.CONCEPTUAL,
-      'BusinessStrategy': KnowledgeType.CONCEPTUAL,
-      'BusinessRisk': KnowledgeType.FACTUAL,
-      'Strategy': KnowledgeType.CONCEPTUAL,
-      'BrandStrategy': KnowledgeType.CONCEPTUAL,
-      'EconomicProfile': KnowledgeType.FACTUAL,
-      'EconomicSector': KnowledgeType.FACTUAL,
-      
+      BusinessMetric: KnowledgeType.FACTUAL,
+      BusinessProcess: KnowledgeType.PROCEDURAL,
+      BusinessModel: KnowledgeType.CONCEPTUAL,
+      BusinessStrategy: KnowledgeType.CONCEPTUAL,
+      BusinessRisk: KnowledgeType.FACTUAL,
+      Strategy: KnowledgeType.CONCEPTUAL,
+      BrandStrategy: KnowledgeType.CONCEPTUAL,
+      EconomicProfile: KnowledgeType.FACTUAL,
+      EconomicSector: KnowledgeType.FACTUAL,
+
       // Risks and compliance
-      'Risk': KnowledgeType.FACTUAL,
-      'SecurityThreat': KnowledgeType.FACTUAL,
-      'OperationalRisk': KnowledgeType.FACTUAL,
-      'ComplianceRisk': KnowledgeType.FACTUAL,
-      'ComplianceRequirement': KnowledgeType.PROCEDURAL,
-      
+      Risk: KnowledgeType.FACTUAL,
+      SecurityThreat: KnowledgeType.FACTUAL,
+      OperationalRisk: KnowledgeType.FACTUAL,
+      ComplianceRisk: KnowledgeType.FACTUAL,
+      ComplianceRequirement: KnowledgeType.PROCEDURAL,
+
       // Tools and capabilities
-      'PersonalTool': KnowledgeType.PROCEDURAL,
-      'Capability': KnowledgeType.CONCEPTUAL,
-      'Feature': KnowledgeType.CONCEPTUAL,
-      'FeatureList': KnowledgeType.CONCEPTUAL,
-      'Enhancement': KnowledgeType.CONCEPTUAL,
-      'EnhancementSystem': KnowledgeType.CONCEPTUAL,
-      
+      PersonalTool: KnowledgeType.PROCEDURAL,
+      Capability: KnowledgeType.CONCEPTUAL,
+      Feature: KnowledgeType.CONCEPTUAL,
+      FeatureList: KnowledgeType.CONCEPTUAL,
+      Enhancement: KnowledgeType.CONCEPTUAL,
+      EnhancementSystem: KnowledgeType.CONCEPTUAL,
+
       // Processes and frameworks
-      'Guideline': KnowledgeType.PROCEDURAL,
-      'QualityFramework': KnowledgeType.CONCEPTUAL,
-      'PedagogicalFramework': KnowledgeType.CONCEPTUAL,
-      'TestingFramework': KnowledgeType.CONCEPTUAL,
-      
+      Guideline: KnowledgeType.PROCEDURAL,
+      QualityFramework: KnowledgeType.CONCEPTUAL,
+      PedagogicalFramework: KnowledgeType.CONCEPTUAL,
+      TestingFramework: KnowledgeType.CONCEPTUAL,
+
       // Additional types from your Neo4j data
-      'Opportunity': KnowledgeType.CONCEPTUAL,
-      'CriticalTask': KnowledgeType.PROCEDURAL,
-      'Disruptor': KnowledgeType.FACTUAL,
-      'Project': KnowledgeType.CONCEPTUAL,
-      'UserPersona': KnowledgeType.FACTUAL,
-      'ValidationCheckpoint': KnowledgeType.PROCEDURAL,
-      'ResourceRequirement': KnowledgeType.PROCEDURAL,
-      'DecisionPoint': KnowledgeType.CONCEPTUAL,
-      'MagicService': KnowledgeType.CONCEPTUAL,
-      'Status': KnowledgeType.FACTUAL,
-      'Priority': KnowledgeType.FACTUAL,
-      'ImplementationPhase': KnowledgeType.PROCEDURAL,
-      'SuccessCriteria': KnowledgeType.CONCEPTUAL,
-      'InfrastructureComponent': KnowledgeType.CONCEPTUAL,
-      'ExternalIntegration': KnowledgeType.CONCEPTUAL,
-      'TechnicalSolution': KnowledgeType.CONCEPTUAL,
-      'MediaPlatform': KnowledgeType.FACTUAL,
-      'FuturePlan': KnowledgeType.CONCEPTUAL,
-      'AIPlatform': KnowledgeType.CONCEPTUAL,
-      'CinemaIndustry': KnowledgeType.FACTUAL,
-      'CollectionOfSymbols': KnowledgeType.FACTUAL,
-      'Policy': KnowledgeType.PROCEDURAL,
-      'AncientInstitution': KnowledgeType.FACTUAL,
-      'Scientist': KnowledgeType.FACTUAL,
-      'Software': KnowledgeType.CONCEPTUAL,
-      'LearningJourney': KnowledgeType.EXPERIENTIAL,
-      'LearningOutcome': KnowledgeType.CONCEPTUAL,
-      'QualityAssurance': KnowledgeType.PROCEDURAL,
-      'TechnicalPlan': KnowledgeType.PROCEDURAL,
-      'AIService': KnowledgeType.CONCEPTUAL,
-      'IntegrationLayer': KnowledgeType.CONCEPTUAL,
-      'CapabilitySystem': KnowledgeType.CONCEPTUAL,
-      'PersonaSystem': KnowledgeType.CONCEPTUAL,
-      'VectorDatabase': KnowledgeType.CONCEPTUAL,
-      'KnowledgeService': KnowledgeType.CONCEPTUAL,
-      'DataModel': KnowledgeType.CONCEPTUAL,
-      'DevelopmentTracker': KnowledgeType.PROCEDURAL,
-      'DevelopmentStandards': KnowledgeType.PROCEDURAL,
-      'DataArchitecture': KnowledgeType.CONCEPTUAL,
-      'SearchSystem': KnowledgeType.CONCEPTUAL,
-      'FutureFeature': KnowledgeType.CONCEPTUAL,
-      'Meta': KnowledgeType.FACTUAL,
-      'TechnicalComponent': KnowledgeType.CONCEPTUAL,
-      'TechnicalArchitecture': KnowledgeType.CONCEPTUAL,
-      'Service': KnowledgeType.CONCEPTUAL,
-      'Application': KnowledgeType.CONCEPTUAL,
-      'ProjectStatus': KnowledgeType.FACTUAL,
-      'DevelopmentPhase': KnowledgeType.PROCEDURAL,
-      'Movement': KnowledgeType.FACTUAL,
-      'TimelineAnalysis': KnowledgeType.FACTUAL,
-      
+      Opportunity: KnowledgeType.CONCEPTUAL,
+      CriticalTask: KnowledgeType.PROCEDURAL,
+      Disruptor: KnowledgeType.FACTUAL,
+      Project: KnowledgeType.CONCEPTUAL,
+      UserPersona: KnowledgeType.FACTUAL,
+      ValidationCheckpoint: KnowledgeType.PROCEDURAL,
+      ResourceRequirement: KnowledgeType.PROCEDURAL,
+      DecisionPoint: KnowledgeType.CONCEPTUAL,
+      MagicService: KnowledgeType.CONCEPTUAL,
+      Status: KnowledgeType.FACTUAL,
+      Priority: KnowledgeType.FACTUAL,
+      ImplementationPhase: KnowledgeType.PROCEDURAL,
+      SuccessCriteria: KnowledgeType.CONCEPTUAL,
+      InfrastructureComponent: KnowledgeType.CONCEPTUAL,
+      ExternalIntegration: KnowledgeType.CONCEPTUAL,
+      TechnicalSolution: KnowledgeType.CONCEPTUAL,
+      MediaPlatform: KnowledgeType.FACTUAL,
+      FuturePlan: KnowledgeType.CONCEPTUAL,
+      AIPlatform: KnowledgeType.CONCEPTUAL,
+      CinemaIndustry: KnowledgeType.FACTUAL,
+      CollectionOfSymbols: KnowledgeType.FACTUAL,
+      Policy: KnowledgeType.PROCEDURAL,
+      AncientInstitution: KnowledgeType.FACTUAL,
+      Scientist: KnowledgeType.FACTUAL,
+      Software: KnowledgeType.CONCEPTUAL,
+      LearningJourney: KnowledgeType.EXPERIENTIAL,
+      LearningOutcome: KnowledgeType.CONCEPTUAL,
+      QualityAssurance: KnowledgeType.PROCEDURAL,
+      TechnicalPlan: KnowledgeType.PROCEDURAL,
+      AIService: KnowledgeType.CONCEPTUAL,
+      IntegrationLayer: KnowledgeType.CONCEPTUAL,
+      CapabilitySystem: KnowledgeType.CONCEPTUAL,
+      PersonaSystem: KnowledgeType.CONCEPTUAL,
+      VectorDatabase: KnowledgeType.CONCEPTUAL,
+      KnowledgeService: KnowledgeType.CONCEPTUAL,
+      DataModel: KnowledgeType.CONCEPTUAL,
+      DevelopmentTracker: KnowledgeType.PROCEDURAL,
+      DevelopmentStandards: KnowledgeType.PROCEDURAL,
+      DataArchitecture: KnowledgeType.CONCEPTUAL,
+      SearchSystem: KnowledgeType.CONCEPTUAL,
+      FutureFeature: KnowledgeType.CONCEPTUAL,
+      Meta: KnowledgeType.FACTUAL,
+      TechnicalComponent: KnowledgeType.CONCEPTUAL,
+      TechnicalArchitecture: KnowledgeType.CONCEPTUAL,
+      Service: KnowledgeType.CONCEPTUAL,
+      Application: KnowledgeType.CONCEPTUAL,
+      ProjectStatus: KnowledgeType.FACTUAL,
+      DevelopmentPhase: KnowledgeType.PROCEDURAL,
+      Movement: KnowledgeType.FACTUAL,
+      TimelineAnalysis: KnowledgeType.FACTUAL,
+
       // Geographic compound labels
-      'mountain': KnowledgeType.FACTUAL,
-      'river': KnowledgeType.FACTUAL,
-      'person': KnowledgeType.FACTUAL,
-      'monument': KnowledgeType.FACTUAL,
-      'Building': KnowledgeType.FACTUAL,
-      'state': KnowledgeType.FACTUAL,
-      'country': KnowledgeType.FACTUAL,
-      
+      mountain: KnowledgeType.FACTUAL,
+      river: KnowledgeType.FACTUAL,
+      person: KnowledgeType.FACTUAL,
+      monument: KnowledgeType.FACTUAL,
+      Building: KnowledgeType.FACTUAL,
+      state: KnowledgeType.FACTUAL,
+      country: KnowledgeType.FACTUAL,
+
       // Default mappings
-      'Memory': KnowledgeType.EPISODIC,
-      'GENERAL': KnowledgeType.FACTUAL
+      Memory: KnowledgeType.EPISODIC,
+      GENERAL: KnowledgeType.FACTUAL,
     };
 
     // Return mapped type or default to FACTUAL while preserving original type in metadata

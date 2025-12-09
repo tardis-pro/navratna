@@ -31,7 +31,7 @@ import {
   Music,
   Image,
   FileText,
-  Command
+  Command,
 } from 'lucide-react';
 
 // Import portal components
@@ -66,18 +66,90 @@ interface OpenWindow {
 }
 
 const APPLICATIONS: Application[] = [
-  { id: 'dashboard', title: 'Dashboard', icon: Home, color: 'text-blue-400', component: DashboardPortal },
-  { id: 'agents', title: 'Agent Manager', icon: Bot, color: 'text-cyan-400', component: AgentManagerPortal },
-  { id: 'chat', title: 'Chat Portal', icon: MessageSquare, color: 'text-green-400', component: ChatPortal },
-  { id: 'knowledge', title: 'Knowledge Graph', icon: Brain, color: 'text-orange-400', component: KnowledgePortal },
-  { id: 'artifacts', title: 'Artifacts', icon: Package, color: 'text-purple-400', component: ArtifactsPortal },
-  { id: 'settings', title: 'Settings', icon: Settings, color: 'text-gray-400', component: SettingsPortal },
-  { id: 'intelligence', title: 'Intelligence', icon: BarChart3, color: 'text-pink-400', component: IntelligencePanelPortal },
-  { id: 'security', title: 'Security', icon: Shield, color: 'text-red-400', component: SecurityPortal },
-  { id: 'system', title: 'System Config', icon: Target, color: 'text-indigo-400', component: SystemConfigPortal },
-  { id: 'tools', title: 'Tool Manager', icon: Wrench, color: 'text-violet-400', component: ToolManagementPortal },
-  { id: 'discussion', title: 'Discussion Hub', icon: TrendingUp, color: 'text-emerald-400', component: DiscussionControlsPortal },
-  { id: 'providers', title: 'Providers', icon: Plus, color: 'text-yellow-400', component: ProviderSettingsPortal },
+  {
+    id: 'dashboard',
+    title: 'Dashboard',
+    icon: Home,
+    color: 'text-blue-400',
+    component: DashboardPortal,
+  },
+  {
+    id: 'agents',
+    title: 'Agent Manager',
+    icon: Bot,
+    color: 'text-cyan-400',
+    component: AgentManagerPortal,
+  },
+  {
+    id: 'chat',
+    title: 'Chat Portal',
+    icon: MessageSquare,
+    color: 'text-green-400',
+    component: ChatPortal,
+  },
+  {
+    id: 'knowledge',
+    title: 'Knowledge Graph',
+    icon: Brain,
+    color: 'text-orange-400',
+    component: KnowledgePortal,
+  },
+  {
+    id: 'artifacts',
+    title: 'Artifacts',
+    icon: Package,
+    color: 'text-purple-400',
+    component: ArtifactsPortal,
+  },
+  {
+    id: 'settings',
+    title: 'Settings',
+    icon: Settings,
+    color: 'text-gray-400',
+    component: SettingsPortal,
+  },
+  {
+    id: 'intelligence',
+    title: 'Intelligence',
+    icon: BarChart3,
+    color: 'text-pink-400',
+    component: IntelligencePanelPortal,
+  },
+  {
+    id: 'security',
+    title: 'Security',
+    icon: Shield,
+    color: 'text-red-400',
+    component: SecurityPortal,
+  },
+  {
+    id: 'system',
+    title: 'System Config',
+    icon: Target,
+    color: 'text-indigo-400',
+    component: SystemConfigPortal,
+  },
+  {
+    id: 'tools',
+    title: 'Tool Manager',
+    icon: Wrench,
+    color: 'text-violet-400',
+    component: ToolManagementPortal,
+  },
+  {
+    id: 'discussion',
+    title: 'Discussion Hub',
+    icon: TrendingUp,
+    color: 'text-emerald-400',
+    component: DiscussionControlsPortal,
+  },
+  {
+    id: 'providers',
+    title: 'Providers',
+    icon: Plus,
+    color: 'text-yellow-400',
+    component: ProviderSettingsPortal,
+  },
 ];
 
 const DesktopIcon: React.FC<{
@@ -96,7 +168,9 @@ const DesktopIcon: React.FC<{
       <div className="w-16 h-16 rounded-2xl bg-slate-800/50 backdrop-blur-sm border border-slate-700/50 flex items-center justify-center group-hover:bg-slate-700/60 group-hover:border-slate-600/60 transition-all duration-200">
         <Icon className={`w-8 h-8 ${app.color}`} />
       </div>
-      <span className={`mt-2 text-xs ${app.color} font-medium text-center max-w-full truncate px-1 leading-tight`}>
+      <span
+        className={`mt-2 text-xs ${app.color} font-medium text-center max-w-full truncate px-1 leading-tight`}
+      >
         {app.title}
       </span>
     </motion.div>
@@ -133,14 +207,16 @@ const Window: React.FC<{
         height: window.size.height,
         zIndex: window.zIndex,
       }}
-      className={`bg-slate-900/95 backdrop-blur-xl rounded-xl border ${isActive ? 'border-blue-500/50 shadow-2xl shadow-blue-500/20' : 'border-slate-700/50'
-        } overflow-hidden flex flex-col`}
+      className={`bg-slate-900/95 backdrop-blur-xl rounded-xl border ${
+        isActive ? 'border-blue-500/50 shadow-2xl shadow-blue-500/20' : 'border-slate-700/50'
+      } overflow-hidden flex flex-col`}
       onClick={onFocus}
     >
       {/* Window Header */}
       <div
-        className={`h-12 bg-slate-800/50 border-b border-slate-700/50 flex items-center justify-between px-4 cursor-move select-none ${isDragging ? 'cursor-grabbing' : 'cursor-grab'
-          }`}
+        className={`h-12 bg-slate-800/50 border-b border-slate-700/50 flex items-center justify-between px-4 cursor-move select-none ${
+          isDragging ? 'cursor-grabbing' : 'cursor-grab'
+        }`}
         onMouseDown={onFocus}
       >
         <div className="flex items-center gap-3">
@@ -172,7 +248,15 @@ const Window: React.FC<{
 
       {/* Window Content */}
       <div className="flex-1 overflow-auto bg-white/5">
-        <Component viewport={{ width: window.size.width, height: window.size.height, isMobile: false, isTablet: false, isDesktop: true }} />
+        <Component
+          viewport={{
+            width: window.size.width,
+            height: window.size.height,
+            isMobile: false,
+            isTablet: false,
+            isDesktop: true,
+          }}
+        />
       </div>
     </motion.div>
   );
@@ -187,10 +271,12 @@ const ActionsMenu: React.FC<{
   if (!isOpen) return null;
 
   const categories = {
-    core: applications.filter(app => ['dashboard', 'agents', 'chat'].includes(app.id)),
-    tools: applications.filter(app => ['tools', 'system', 'settings', 'providers'].includes(app.id)),
-    data: applications.filter(app => ['knowledge', 'artifacts', 'intelligence'].includes(app.id)),
-    security: applications.filter(app => ['security', 'discussion'].includes(app.id))
+    core: applications.filter((app) => ['dashboard', 'agents', 'chat'].includes(app.id)),
+    tools: applications.filter((app) =>
+      ['tools', 'system', 'settings', 'providers'].includes(app.id)
+    ),
+    data: applications.filter((app) => ['knowledge', 'artifacts', 'intelligence'].includes(app.id)),
+    security: applications.filter((app) => ['security', 'discussion'].includes(app.id)),
   };
 
   const quickActions = [
@@ -203,10 +289,7 @@ const ActionsMenu: React.FC<{
   return (
     <>
       {/* Backdrop */}
-      <div
-        className="fixed inset-0 bg-black/20 backdrop-blur-sm z-40"
-        onClick={onClose}
-      />
+      <div className="fixed inset-0 bg-black/20 backdrop-blur-sm z-40" onClick={onClose} />
 
       {/* Menu */}
       <motion.div
@@ -242,7 +325,9 @@ const ActionsMenu: React.FC<{
                 className="p-3 rounded-xl bg-slate-800/50 hover:bg-slate-700/50 transition-colors group"
               >
                 <action.icon className="w-6 h-6 text-slate-400 group-hover:text-white mx-auto mb-1" />
-                <span className="text-xs text-slate-400 group-hover:text-white block truncate">{action.label}</span>
+                <span className="text-xs text-slate-400 group-hover:text-white block truncate">
+                  {action.label}
+                </span>
               </button>
             ))}
           </div>
@@ -252,7 +337,9 @@ const ActionsMenu: React.FC<{
         <div className="max-h-96 overflow-y-auto">
           {Object.entries(categories).map(([category, apps]) => (
             <div key={category} className="p-4 border-b border-slate-700/30 last:border-b-0">
-              <h4 className="text-slate-300 text-sm font-medium mb-3 capitalize">{category} Applications</h4>
+              <h4 className="text-slate-300 text-sm font-medium mb-3 capitalize">
+                {category} Applications
+              </h4>
               <div className="space-y-1">
                 {apps.map((app) => {
                   const Icon = app.icon;
@@ -265,8 +352,12 @@ const ActionsMenu: React.FC<{
                       }}
                       className="w-full flex items-center gap-3 p-2 rounded-lg hover:bg-slate-800/50 transition-colors group"
                     >
-                      <Icon className={`w-5 h-5 ${app.color} group-hover:scale-110 transition-transform`} />
-                      <span className="text-slate-300 group-hover:text-white text-sm truncate">{app.title}</span>
+                      <Icon
+                        className={`w-5 h-5 ${app.color} group-hover:scale-110 transition-transform`}
+                      />
+                      <span className="text-slate-300 group-hover:text-white text-sm truncate">
+                        {app.title}
+                      </span>
                     </button>
                   );
                 })}
@@ -367,7 +458,9 @@ const Taskbar: React.FC<{
         <div className="w-8 h-8 bg-gradient-to-br from-blue-400 to-cyan-400 rounded-lg flex items-center justify-center group-hover:scale-110 transition-transform">
           <span className="text-white font-bold text-sm">🏛️</span>
         </div>
-        <span className="text-white font-medium text-sm hidden md:inline group-hover:text-blue-200">Navratna</span>
+        <span className="text-white font-medium text-sm hidden md:inline group-hover:text-blue-200">
+          Navratna
+        </span>
       </button>
 
       {/* Window Buttons */}
@@ -378,10 +471,9 @@ const Taskbar: React.FC<{
             <button
               key={window.id}
               onClick={() => onWindowClick(window.id)}
-              className={`h-8 px-3 rounded flex items-center gap-2 transition-colors ${window.isMinimized
-                  ? 'bg-slate-700/50 text-slate-400'
-                  : 'bg-slate-600/50 text-white'
-                }`}
+              className={`h-8 px-3 rounded flex items-center gap-2 transition-colors ${
+                window.isMinimized ? 'bg-slate-700/50 text-slate-400' : 'bg-slate-600/50 text-white'
+              }`}
             >
               <Icon className="w-4 h-4" />
               <span className="text-xs truncate max-w-20">{window.app.title}</span>
@@ -426,15 +518,15 @@ export const Desktop: React.FC = () => {
 
   const openApplication = (app: Application) => {
     // Check if app is already open
-    const existingWindow = windows.find(w => w.app.id === app.id);
+    const existingWindow = windows.find((w) => w.app.id === app.id);
     if (existingWindow) {
       // Bring to front and unminimize
-      setWindows(prev => prev.map(w =>
-        w.id === existingWindow.id
-          ? { ...w, isMinimized: false, zIndex: nextZIndex }
-          : w
-      ));
-      setNextZIndex(prev => prev + 1);
+      setWindows((prev) =>
+        prev.map((w) =>
+          w.id === existingWindow.id ? { ...w, isMinimized: false, zIndex: nextZIndex } : w
+        )
+      );
+      setNextZIndex((prev) => prev + 1);
       setActiveWindowId(existingWindow.id);
       return;
     }
@@ -445,41 +537,37 @@ export const Desktop: React.FC = () => {
       app,
       isMinimized: false,
       position: {
-        x: 100 + (windows.length * 30),
-        y: 100 + (windows.length * 30)
+        x: 100 + windows.length * 30,
+        y: 100 + windows.length * 30,
       },
       size: { width: 800, height: 600 },
-      zIndex: nextZIndex
+      zIndex: nextZIndex,
     };
 
-    setWindows(prev => [...prev, newWindow]);
-    setNextZIndex(prev => prev + 1);
+    setWindows((prev) => [...prev, newWindow]);
+    setNextZIndex((prev) => prev + 1);
     setActiveWindowId(newWindow.id);
   };
 
   const closeWindow = (windowId: string) => {
-    setWindows(prev => prev.filter(w => w.id !== windowId));
+    setWindows((prev) => prev.filter((w) => w.id !== windowId));
     if (activeWindowId === windowId) {
       setActiveWindowId(null);
     }
   };
 
   const minimizeWindow = (windowId: string) => {
-    setWindows(prev => prev.map(w =>
-      w.id === windowId ? { ...w, isMinimized: true } : w
-    ));
+    setWindows((prev) => prev.map((w) => (w.id === windowId ? { ...w, isMinimized: true } : w)));
     if (activeWindowId === windowId) {
       setActiveWindowId(null);
     }
   };
 
   const focusWindow = (windowId: string) => {
-    setWindows(prev => prev.map(w =>
-      w.id === windowId
-        ? { ...w, zIndex: nextZIndex, isMinimized: false }
-        : w
-    ));
-    setNextZIndex(prev => prev + 1);
+    setWindows((prev) =>
+      prev.map((w) => (w.id === windowId ? { ...w, zIndex: nextZIndex, isMinimized: false } : w))
+    );
+    setNextZIndex((prev) => prev + 1);
     setActiveWindowId(windowId);
   };
 
@@ -529,11 +617,7 @@ export const Desktop: React.FC = () => {
       <div className="p-8 pb-20">
         <div className="grid grid-cols-4 md:grid-cols-6 lg:grid-cols-8 xl:grid-cols-12 gap-6">
           {APPLICATIONS.map((app) => (
-            <DesktopIcon
-              key={app.id}
-              app={app}
-              onDoubleClick={() => openApplication(app)}
-            />
+            <DesktopIcon key={app.id} app={app} onDoubleClick={() => openApplication(app)} />
           ))}
         </div>
       </div>

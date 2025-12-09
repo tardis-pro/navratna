@@ -1,4 +1,12 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, Index, ManyToOne, JoinColumn } from 'typeorm';
+import {
+  Entity,
+  PrimaryGeneratedColumn,
+  Column,
+  CreateDateColumn,
+  Index,
+  ManyToOne,
+  JoinColumn,
+} from 'typeorm';
 import { KnowledgeItemEntity } from './knowledge-item.entity.js';
 import { BaseEntity } from './base.entity.js';
 
@@ -9,7 +17,6 @@ import { BaseEntity } from './base.entity.js';
 @Index(['userId', 'relationshipType'])
 @Index(['agentId', 'relationshipType'])
 export class KnowledgeRelationshipEntity extends BaseEntity {
-
   @Column('varchar')
   sourceItemId: string;
 
@@ -39,4 +46,4 @@ export class KnowledgeRelationshipEntity extends BaseEntity {
   @ManyToOne(() => KnowledgeItemEntity, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'targetItemId' })
   targetItem: KnowledgeItemEntity;
-} 
+}

@@ -1,7 +1,7 @@
 /**
  * Legacy API wrapper for backward compatibility
  * This file maintains the old API structure while delegating to the new modular API
- * 
+ *
  * @deprecated Use the modular API imports from @/api instead
  */
 
@@ -17,7 +17,7 @@ export type {
   User,
   Discussion,
   DiscussionParticipant,
-  KnowledgeItem
+  KnowledgeItem,
 } from '@uaip/types';
 export * from '@/api';
 
@@ -29,7 +29,7 @@ export const API = {
   // Agents namespace
   agents: {
     ...api.agents,
-    health: api.agents.health
+    health: api.agents.health,
   },
 
   // Personas namespace
@@ -62,11 +62,11 @@ export const API = {
   // LLM namespace
   llm: {
     ...api.llm,
-    userLLM: api.llm.userLLM
+    userLLM: api.llm.userLLM,
   },
 
   // Knowledge namespace
-  knowledge: api.knowledge
+  knowledge: api.knowledge,
 };
 
 // Legacy helper functions

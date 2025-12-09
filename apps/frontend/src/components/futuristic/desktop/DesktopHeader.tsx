@@ -11,7 +11,7 @@ import {
   Moon,
   Sun,
   Maximize,
-  Minimize
+  Minimize,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -27,13 +27,13 @@ interface ViewportSize {
 
 interface DesktopTheme {
   colors: {
-    background: { primary: string; secondary: string; };
-    surface: { primary: string; secondary: string; };
-    text: { primary: string; secondary: string; muted: string; };
-    accent: { primary: string; secondary: string; };
-    border: { primary: string; secondary: string; };
+    background: { primary: string; secondary: string };
+    surface: { primary: string; secondary: string };
+    text: { primary: string; secondary: string; muted: string };
+    accent: { primary: string; secondary: string };
+    border: { primary: string; secondary: string };
   };
-  effects: { blur: string; shadow: string; };
+  effects: { blur: string; shadow: string };
 }
 
 interface DesktopHeaderProps {
@@ -49,7 +49,7 @@ export const DesktopHeader: React.FC<DesktopHeaderProps> = ({
   onToggleRecentPanel,
   showRecentPanel,
   onOpenSettings,
-  theme
+  theme,
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [showUserMenu, setShowUserMenu] = useState(false);
@@ -60,7 +60,7 @@ export const DesktopHeader: React.FC<DesktopHeaderProps> = ({
   const notifications = [
     { id: 1, title: 'Agent Alpha completed task', time: '2m ago', type: 'success' },
     { id: 2, title: 'New discussion started', time: '5m ago', type: 'info' },
-    { id: 3, title: 'System update available', time: '10m ago', type: 'warning' }
+    { id: 3, title: 'System update available', time: '10m ago', type: 'warning' },
   ];
 
   const unreadCount = notifications.length;
@@ -82,7 +82,7 @@ export const DesktopHeader: React.FC<DesktopHeaderProps> = ({
       className="h-16 bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 backdrop-blur-xl border-b border-slate-700/50 shadow-lg flex items-center justify-between px-6 relative z-50"
       initial={{ y: -64 }}
       animate={{ y: 0 }}
-      transition={{ type: "spring", stiffness: 300, damping: 30 }}
+      transition={{ type: 'spring', stiffness: 300, damping: 30 }}
     >
       {/* Left Section - Logo and Navigation */}
       <div className="flex items-center space-x-4">
@@ -211,10 +211,15 @@ export const DesktopHeader: React.FC<DesktopHeaderProps> = ({
                       className="p-3 border-b border-slate-700/50 hover:bg-slate-700/30 cursor-pointer"
                     >
                       <div className="flex items-start space-x-3">
-                        <div className={`w-2 h-2 rounded-full mt-2 ${notification.type === 'success' ? 'bg-green-500' :
-                          notification.type === 'warning' ? 'bg-yellow-500' :
-                            'bg-blue-500'
-                          }`} />
+                        <div
+                          className={`w-2 h-2 rounded-full mt-2 ${
+                            notification.type === 'success'
+                              ? 'bg-green-500'
+                              : notification.type === 'warning'
+                                ? 'bg-yellow-500'
+                                : 'bg-blue-500'
+                          }`}
+                        />
                         <div className="flex-1">
                           <p className="text-white text-sm">{notification.title}</p>
                           <p className="text-slate-400 text-xs">{notification.time}</p>
@@ -224,7 +229,11 @@ export const DesktopHeader: React.FC<DesktopHeaderProps> = ({
                   ))}
                 </div>
                 <div className="p-3 border-t border-slate-700">
-                  <Button variant="ghost" size="sm" className="w-full text-slate-400 hover:text-white">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="w-full text-slate-400 hover:text-white"
+                  >
                     View All Notifications
                   </Button>
                 </div>
@@ -244,9 +253,7 @@ export const DesktopHeader: React.FC<DesktopHeaderProps> = ({
             <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-500 rounded-full flex items-center justify-center">
               <User size={16} className="text-white" />
             </div>
-            {!viewport.isMobile && (
-              <span className="text-sm">Admin</span>
-            )}
+            {!viewport.isMobile && <span className="text-sm">Admin</span>}
           </Button>
 
           {/* User Menu Dropdown */}
@@ -290,8 +297,9 @@ export const DesktopHeader: React.FC<DesktopHeaderProps> = ({
             variant="ghost"
             size="sm"
             onClick={onToggleRecentPanel}
-            className={`text-slate-400 hover:text-white hover:bg-slate-700/50 w-10 h-10 p-0 ${showRecentPanel ? 'bg-slate-700/50 text-white' : ''
-              }`}
+            className={`text-slate-400 hover:text-white hover:bg-slate-700/50 w-10 h-10 p-0 ${
+              showRecentPanel ? 'bg-slate-700/50 text-white' : ''
+            }`}
           >
             {showRecentPanel ? <Minimize size={18} /> : <Maximize size={18} />}
           </Button>

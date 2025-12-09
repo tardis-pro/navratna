@@ -10,13 +10,13 @@ enum SecurityLevel {
   LOW = 'low',
   MEDIUM = 'medium',
   HIGH = 'high',
-  CRITICAL = 'critical'
+  CRITICAL = 'critical',
 }
 
 enum UserType {
   HUMAN = 'human',
   AGENT = 'agent',
-  SYSTEM = 'system'
+  SYSTEM = 'system',
 }
 
 enum AgentCapability {
@@ -29,7 +29,7 @@ enum AgentCapability {
   TASK_AUTOMATION = 'task_automation',
   CONTENT_CREATION = 'content_creation',
   INTEGRATION = 'integration',
-  MONITORING = 'monitoring'
+  MONITORING = 'monitoring',
 }
 
 enum OAuthProviderType {
@@ -37,25 +37,24 @@ enum OAuthProviderType {
   GMAIL = 'gmail',
   ZOHO = 'zoho',
   MICROSOFT = 'microsoft',
-  CUSTOM = 'custom'
+  CUSTOM = 'custom',
 }
 
 enum AuthenticationMethod {
   PASSWORD = 'password',
   OAUTH = 'oauth',
   API_KEY = 'api_key',
-  AGENT_TOKEN = 'agent_token'
+  AGENT_TOKEN = 'agent_token',
 }
 
 enum MFAMethod {
   TOTP = 'totp',
   SMS = 'sms',
   HARDWARE_TOKEN = 'hardware_token',
-  BIOMETRIC = 'biometric'
+  BIOMETRIC = 'biometric',
 }
 
 describe('Enhanced Security Implementation Demo', () => {
-
   describe('Security Types and Interfaces', () => {
     it('should have comprehensive security types defined', () => {
       // Verify core security enums exist
@@ -108,8 +107,8 @@ describe('Enhanced Security Implementation Demo', () => {
           action: 'clone',
           context: {
             repository: 'company/repo',
-            branch: 'main'
-          }
+            branch: 'main',
+          },
         },
         securityContext: {
           userId: 'agent-123',
@@ -133,31 +132,35 @@ describe('Enhanced Security Implementation Demo', () => {
             agentId: 'agent-123',
             agentName: 'GitHub Integration Agent',
             capabilities: [AgentCapability.CODE_REPOSITORY],
-            connectedProviders: [{
-              providerId: 'github-provider-1',
-              providerType: OAuthProviderType.GITHUB,
-              capabilities: [AgentCapability.CODE_REPOSITORY],
-              lastUsed: new Date()
-            }],
+            connectedProviders: [
+              {
+                providerId: 'github-provider-1',
+                providerType: OAuthProviderType.GITHUB,
+                capabilities: [AgentCapability.CODE_REPOSITORY],
+                lastUsed: new Date(),
+              },
+            ],
             operationLimits: {
               maxDailyOperations: 1000,
               currentDailyOperations: 50,
               maxConcurrentOperations: 10,
-              currentConcurrentOperations: 2
-            }
-          }
+              currentConcurrentOperations: 2,
+            },
+          },
         },
         requestMetadata: {
           requestId: 'req-demo-123',
           source: 'agent-orchestrator',
-          priority: 'normal'
-        }
+          priority: 'normal',
+        },
       };
 
       // Verify the request structure is valid
       expect(securityRequest.operation.type).toBe('git_clone');
       expect(securityRequest.securityContext.userType).toBe(UserType.AGENT);
-      expect(securityRequest.securityContext.agentCapabilities).toContain(AgentCapability.CODE_REPOSITORY);
+      expect(securityRequest.securityContext.agentCapabilities).toContain(
+        AgentCapability.CODE_REPOSITORY
+      );
       expect(securityRequest.securityContext.oauthProvider).toBe(OAuthProviderType.GITHUB);
       expect(securityRequest.securityContext.agentContext?.agentId).toBe('agent-123');
     });
@@ -180,7 +183,7 @@ describe('Enhanced Security Implementation Demo', () => {
           requirePKCE: true,
           requireState: true,
           allowedUserTypes: [UserType.HUMAN, UserType.AGENT],
-          minimumSecurityLevel: SecurityLevel.MEDIUM
+          minimumSecurityLevel: SecurityLevel.MEDIUM,
         },
         agentConfig: {
           allowAgentAccess: true,
@@ -188,21 +191,23 @@ describe('Enhanced Security Implementation Demo', () => {
           permissions: ['clone', 'pull', 'push'],
           rateLimit: {
             requests: 5000,
-            windowMs: 3600000 // 1 hour
+            windowMs: 3600000, // 1 hour
           },
           monitoring: {
             logAllRequests: true,
             alertOnSuspiciousActivity: true,
-            maxDailyRequests: 1000
-          }
-        }
+            maxDailyRequests: 1000,
+          },
+        },
       };
 
       // Verify OAuth provider configuration structure
       expect(githubConfig.type).toBe(OAuthProviderType.GITHUB);
       expect(githubConfig.securityConfig?.requirePKCE).toBe(true);
       expect(githubConfig.agentConfig?.allowAgentAccess).toBe(true);
-      expect(githubConfig.agentConfig?.requiredCapabilities).toContain(AgentCapability.CODE_REPOSITORY);
+      expect(githubConfig.agentConfig?.requiredCapabilities).toContain(
+        AgentCapability.CODE_REPOSITORY
+      );
       expect(githubConfig.agentConfig?.rateLimit?.requests).toBe(5000);
     });
   });
@@ -243,7 +248,7 @@ describe('Enhanced Security Implementation Demo', () => {
         deviceTrusted: true,
         locationTrusted: true,
         mfaVerified: true,
-        securityLevel: SecurityLevel.MEDIUM
+        securityLevel: SecurityLevel.MEDIUM,
       };
 
       const lowRisk = calculateRiskScore(lowRiskContext);
@@ -257,7 +262,7 @@ describe('Enhanced Security Implementation Demo', () => {
         deviceTrusted: false,
         locationTrusted: false,
         mfaVerified: false,
-        securityLevel: SecurityLevel.HIGH
+        securityLevel: SecurityLevel.HIGH,
       };
 
       const highRisk = calculateRiskScore(highRiskContext);
@@ -274,21 +279,16 @@ describe('Enhanced Security Implementation Demo', () => {
       };
 
       // Test valid capability
-      const agentCapabilities = [
-        AgentCapability.CODE_REPOSITORY,
-        AgentCapability.EMAIL_ACCESS
-      ];
+      const agentCapabilities = [AgentCapability.CODE_REPOSITORY, AgentCapability.EMAIL_ACCESS];
 
-      expect(validateAgentCapability(
-        AgentCapability.CODE_REPOSITORY,
-        agentCapabilities
-      )).toBe(true);
+      expect(validateAgentCapability(AgentCapability.CODE_REPOSITORY, agentCapabilities)).toBe(
+        true
+      );
 
       // Test invalid capability
-      expect(validateAgentCapability(
-        AgentCapability.FILE_MANAGEMENT,
-        agentCapabilities
-      )).toBe(false);
+      expect(validateAgentCapability(AgentCapability.FILE_MANAGEMENT, agentCapabilities)).toBe(
+        false
+      );
     });
 
     it('should demonstrate rate limiting logic', () => {
@@ -301,7 +301,7 @@ describe('Enhanced Security Implementation Demo', () => {
         if (currentUsage >= maxUsage) {
           return {
             allowed: false,
-            reason: `${timeWindow} limit of ${maxUsage} operations exceeded`
+            reason: `${timeWindow} limit of ${maxUsage} operations exceeded`,
           };
         }
         return { allowed: true };
@@ -328,9 +328,11 @@ describe('Enhanced Security Implementation Demo', () => {
         capability: AgentCapability
       ): { allowed: boolean; reason: string } => {
         // Simulate provider-specific validation
-        if (providerType === OAuthProviderType.GITHUB &&
+        if (
+          providerType === OAuthProviderType.GITHUB &&
           capability === AgentCapability.CODE_REPOSITORY &&
-          operation.startsWith('git_')) {
+          operation.startsWith('git_')
+        ) {
           return { allowed: true, reason: 'Valid GitHub operation' };
         }
 

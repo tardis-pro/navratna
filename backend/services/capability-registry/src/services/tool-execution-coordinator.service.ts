@@ -74,16 +74,22 @@ export class ToolExecutionCoordinator {
       // Initialize dependencies
       await this.toolRegistry.initialize();
       await this.redis.initialize();
-      
+
       // Subscribe to tool execution requests
-      await this.eventBus.subscribe('tool.execute.request', this.handleToolExecutionRequest.bind(this));
-      
+      await this.eventBus.subscribe(
+        'tool.execute.request',
+        this.handleToolExecutionRequest.bind(this)
+      );
+
       // Subscribe to sandbox execution requests
-      await this.eventBus.subscribe('sandbox.execute.tool', this.handleSandboxExecutionRequest.bind(this));
-      
+      await this.eventBus.subscribe(
+        'sandbox.execute.tool',
+        this.handleSandboxExecutionRequest.bind(this)
+      );
+
       // Subscribe to tool cancellation requests
       await this.eventBus.subscribe('tool.execute.cancel', this.handleToolCancellation.bind(this));
-      
+
       this.isListening = true;
       logger.info('Tool execution coordinator initialized and listening');
     } catch (error) {
@@ -95,14 +101,14 @@ export class ToolExecutionCoordinator {
   private async handleToolExecutionRequest(event: ToolExecutionEvent): Promise<void> {
     const startTime = Date.now();
     const requestId = event.requestId || randomUUID();
-    
+
     try {
       logger.info('Processing tool execution request', {
         requestId,
         toolId: event.toolId,
         userId: event.userId,
         agentId: event.agentId,
-        projectId: event.projectId
+        projectId: event.projectId,
       });
 
       // Store execution status in Redis
@@ -116,8 +122,8 @@ export class ToolExecutionCoordinator {
           agentId: event.agentId,
           projectId: event.projectId,
           conversationId: event.conversationId,
-          operationId: event.operationId
-        }
+          operationId: event.operationId,
+        },
       };
 
       await this.updateExecutionStatus(executionStatus);
@@ -127,7 +133,7 @@ export class ToolExecutionCoordinator {
         requestId,
         toolId: event.toolId,
         timestamp: new Date(),
-        context: event.context
+        context: event.context,
       });
 
       // Execute the tool through the unified registry
@@ -138,7 +144,7 @@ export class ToolExecutionCoordinator {
         {
           userId: event.userId || '',
           agentId: event.agentId,
-          projectId: event.projectId
+          projectId: event.projectId,
         }
       );
 
@@ -156,13 +162,13 @@ export class ToolExecutionCoordinator {
         result: result,
         executionTime: Date.now() - startTime,
         metadata: {
-          executionId: requestId
-        }
+          executionId: requestId,
+        },
       };
 
       // Publish response event
       await this.eventBus.publish(`tool.response.${requestId}`, response);
-      
+
       // Publish completion event
       await this.eventBus.publish('tool.execution.completed', {
         requestId,
@@ -170,12 +176,12 @@ export class ToolExecutionCoordinator {
         executionTime: response.executionTime,
         userId: event.userId,
         agentId: event.agentId,
-        timestamp: new Date()
+        timestamp: new Date(),
       });
 
       logger.info('Tool execution completed successfully', {
         requestId,
-        executionTime: response.executionTime
+        executionTime: response.executionTime,
       });
     } catch (error) {
       await this.handleExecutionError(requestId, event, error, startTime);
@@ -185,11 +191,11 @@ export class ToolExecutionCoordinator {
   private async handleSandboxExecutionRequest(event: ToolExecutionEvent): Promise<void> {
     const startTime = Date.now();
     const requestId = event.requestId || randomUUID();
-    
+
     try {
       logger.info('Processing sandbox execution request', {
         requestId,
-        toolId: event.toolId
+        toolId: event.toolId,
       });
 
       // For now, delegate to regular execution with sandbox context
@@ -201,7 +207,7 @@ export class ToolExecutionCoordinator {
         {
           userId: event.userId || '',
           agentId: event.agentId,
-          projectId: event.projectId
+          projectId: event.projectId,
         }
       );
 
@@ -211,23 +217,26 @@ export class ToolExecutionCoordinator {
         status: 'SUCCESS',
         result: result,
         executionTime: Date.now() - startTime,
-        sandbox: true
+        sandbox: true,
       });
 
       logger.info('Sandbox execution completed', {
         requestId,
-        executionTime: Date.now() - startTime
+        executionTime: Date.now() - startTime,
       });
     } catch (error) {
       await this.handleSandboxExecutionError(requestId, event, error, startTime);
     }
   }
 
-  private async handleToolCancellation(event: { requestId: string; reason?: string }): Promise<void> {
+  private async handleToolCancellation(event: {
+    requestId: string;
+    reason?: string;
+  }): Promise<void> {
     try {
       logger.info('Processing tool cancellation request', {
         requestId: event.requestId,
-        reason: event.reason
+        reason: event.reason,
       });
 
       // Update execution status
@@ -242,7 +251,7 @@ export class ToolExecutionCoordinator {
         await this.eventBus.publish('tool.execution.cancelled', {
           requestId: event.requestId,
           reason: event.reason,
-          timestamp: new Date()
+          timestamp: new Date(),
         });
       }
     } catch (error) {
@@ -259,7 +268,7 @@ export class ToolExecutionCoordinator {
     logger.error('Tool execution failed', {
       requestId,
       toolId: event.toolId,
-      error: error.message || String(error)
+      error: error.message || String(error),
     });
 
     // Update execution status
@@ -269,7 +278,7 @@ export class ToolExecutionCoordinator {
       status: 'FAILED',
       startTime,
       endTime: Date.now(),
-      error: error.message || 'Tool execution failed'
+      error: error.message || 'Tool execution failed',
     };
     await this.updateExecutionStatus(executionStatus);
 
@@ -279,12 +288,12 @@ export class ToolExecutionCoordinator {
       toolId: event.toolId,
       status: 'ERROR',
       error: error.message || 'Tool execution failed',
-      executionTime: Date.now() - startTime
+      executionTime: Date.now() - startTime,
     };
 
     // Publish error response
     await this.eventBus.publish(`tool.response.${requestId}`, errorResponse);
-    
+
     // Publish failure event
     await this.eventBus.publish('tool.execution.failed', {
       requestId,
@@ -292,7 +301,7 @@ export class ToolExecutionCoordinator {
       error: errorResponse.error,
       userId: event.userId,
       agentId: event.agentId,
-      timestamp: new Date()
+      timestamp: new Date(),
     });
   }
 
@@ -305,7 +314,7 @@ export class ToolExecutionCoordinator {
     logger.error('Sandbox execution failed', {
       requestId,
       toolId: event.toolId,
-      error: error.message || String(error)
+      error: error.message || String(error),
     });
 
     await this.eventBus.publish(`sandbox.response.${requestId}`, {
@@ -313,7 +322,7 @@ export class ToolExecutionCoordinator {
       status: 'ERROR',
       error: error.message || 'Sandbox execution failed',
       executionTime: Date.now() - startTime,
-      sandbox: true
+      sandbox: true,
     });
   }
 
@@ -370,7 +379,7 @@ export class ToolExecutionCoordinator {
       successful: 0,
       failed: 0,
       averageExecutionTime: 0,
-      byTool: {}
+      byTool: {},
     };
   }
 }

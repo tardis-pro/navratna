@@ -8,7 +8,7 @@ import {
   UserEntity,
   SecurityPolicy as SecurityPolicyEntity,
   AuditEvent as AuditLogEntity,
-  SessionEntity
+  SessionEntity,
 } from '@uaip/shared-services';
 import crypto from 'crypto';
 
@@ -63,8 +63,8 @@ describe('Security Validation Integration Tests', () => {
       metadata: {
         version: '1.0.0',
         lastValidated: new Date(),
-        securityProfile: 'standard'
-      }
+        securityProfile: 'standard',
+      },
     });
     await agentRepo.save(testAgent);
 
@@ -79,11 +79,11 @@ describe('Security Validation Integration Tests', () => {
         blockedOperations: ['system_admin'],
         rateLimits: {
           requestsPerMinute: 60,
-          burstLimit: 10
-        }
+          burstLimit: 10,
+        },
       },
       isActive: true,
-      priority: 100
+      priority: 100,
     });
     await policyRepo.save(securityPolicy);
   };
@@ -97,8 +97,8 @@ describe('Security Validation Integration Tests', () => {
           operation: 'data_read',
           context: {
             resource: 'user_files',
-            metadata: { fileType: 'document' }
-          }
+            metadata: { fileType: 'document' },
+          },
         })
         .expect(200);
 
@@ -119,7 +119,7 @@ describe('Security Validation Integration Tests', () => {
         .post('/api/security/agent/authenticate')
         .send({
           agentId: testAgent.id,
-          operation: 'data_read'
+          operation: 'data_read',
         })
         .expect(403);
 
@@ -138,8 +138,8 @@ describe('Security Validation Integration Tests', () => {
           agentId: testAgent.id,
           operation: 'system_admin', // Not in agent capabilities
           context: {
-            resource: 'system_settings'
-          }
+            resource: 'system_settings',
+          },
         })
         .expect(403);
 
@@ -155,8 +155,8 @@ describe('Security Validation Integration Tests', () => {
           operation: 'data_read',
           context: {
             resource: 'sensitive_data',
-            riskLevel: 'CRITICAL' // High risk operation
-          }
+            riskLevel: 'CRITICAL', // High risk operation
+          },
         })
         .expect(200);
 
@@ -177,8 +177,8 @@ describe('Security Validation Integration Tests', () => {
           context: {
             targetDomain: 'api.github.com',
             dataTypes: ['code', 'user_data'],
-            requestSize: 1024
-          }
+            requestSize: 1024,
+          },
         })
         .expect(200);
 
@@ -199,8 +199,8 @@ describe('Security Validation Integration Tests', () => {
           context: {
             fileSize: 50 * 1024 * 1024, // 50MB
             fileType: 'executable',
-            destination: 'external_storage'
-          }
+            destination: 'external_storage',
+          },
         })
         .expect(200);
 
@@ -221,14 +221,14 @@ describe('Security Validation Integration Tests', () => {
             operation: 'data_read',
             context: {
               sessionId: `concurrent-session-${i}`,
-              resource: `resource-${i}`
-            }
+              resource: `resource-${i}`,
+            },
           })
       );
 
       const responses = await Promise.all(requests);
 
-      responses.forEach(response => {
+      responses.forEach((response) => {
         expect(response.status).toBe(200);
         expect(response.body).toHaveProperty('riskScore');
         expect(response.body).toHaveProperty('riskLevel');
@@ -249,7 +249,7 @@ describe('Security Validation Integration Tests', () => {
             .send({
               agentId,
               operation: 'data_read',
-              context: { requestId: i }
+              context: { requestId: i },
             })
         );
       }
@@ -257,7 +257,7 @@ describe('Security Validation Integration Tests', () => {
       const responses = await Promise.all(requests);
 
       // Most should succeed
-      const successfulRequests = responses.filter(r => r.status === 200);
+      const successfulRequests = responses.filter((r) => r.status === 200);
       expect(successfulRequests.length).toBeGreaterThan(50);
 
       // Additional request should be rate limited
@@ -265,7 +265,7 @@ describe('Security Validation Integration Tests', () => {
         .post('/api/security/agent/authenticate')
         .send({
           agentId,
-          operation: 'data_read'
+          operation: 'data_read',
         })
         .expect(429);
 
@@ -284,14 +284,14 @@ describe('Security Validation Integration Tests', () => {
           .send({
             agentId,
             operation: 'data_read',
-            context: { burstRequest: i }
+            context: { burstRequest: i },
           })
       );
 
       const responses = await Promise.all(burstRequests);
 
-      const successfulRequests = responses.filter(r => r.status === 200);
-      const rateLimitedRequests = responses.filter(r => r.status === 429);
+      const successfulRequests = responses.filter((r) => r.status === 200);
+      const rateLimitedRequests = responses.filter((r) => r.status === 429);
 
       expect(successfulRequests.length).toBeLessThanOrEqual(10); // Burst limit
       expect(rateLimitedRequests.length).toBeGreaterThan(0);
@@ -305,7 +305,7 @@ describe('Security Validation Integration Tests', () => {
         .post('/api/security/agent/authenticate')
         .send({
           agentId,
-          operation: 'data_read'
+          operation: 'data_read',
         })
         .expect(200);
 
@@ -328,18 +328,19 @@ describe('Security Validation Integration Tests', () => {
           operation: 'data_read',
           context: {
             resource: 'test_resource',
-            auditTest: true
-          }
+            auditTest: true,
+          },
         })
         .expect(200);
 
       // Check audit log was created
-      const auditLogs = await dataSource.getRepository(AuditLogEntity)
+      const auditLogs = await dataSource
+        .getRepository(AuditLogEntity)
         .find({ where: { agentId: testAgent.id } });
 
       expect(auditLogs.length).toBeGreaterThan(0);
 
-      const authLog = auditLogs.find(log => log.eventType === 'AUTHENTICATION');
+      const authLog = auditLogs.find((log) => log.eventType === 'AUTHENTICATION');
       expect(authLog).toBeTruthy();
       expect(authLog?.agentId).toBe(testAgent.id);
       expect(authLog?.operation).toBe('data_read');
@@ -351,15 +352,16 @@ describe('Security Validation Integration Tests', () => {
         .post('/api/security/agent/authenticate')
         .send({
           agentId: 'non-existent-agent',
-          operation: 'data_read'
+          operation: 'data_read',
         })
         .expect(404);
 
       // Check audit log for failed attempt
-      const auditLogs = await dataSource.getRepository(AuditLogEntity)
+      const auditLogs = await dataSource
+        .getRepository(AuditLogEntity)
         .find({ where: { eventType: 'AUTHENTICATION' } });
 
-      const failedLog = auditLogs.find(log => log.outcome === 'FAILURE');
+      const failedLog = auditLogs.find((log) => log.outcome === 'FAILURE');
       expect(failedLog).toBeTruthy();
       expect(failedLog?.details).toContain('non-existent-agent');
     });
@@ -368,7 +370,7 @@ describe('Security Validation Integration Tests', () => {
       const testContext = {
         resource: 'sensitive_document',
         classification: 'confidential',
-        requestor: 'automated_test'
+        requestor: 'automated_test',
       };
 
       await request(app)
@@ -376,11 +378,12 @@ describe('Security Validation Integration Tests', () => {
         .send({
           agentId: testAgent.id,
           operation: 'data_read',
-          context: testContext
+          context: testContext,
         })
         .expect(200);
 
-      const auditLogs = await dataSource.getRepository(AuditLogEntity)
+      const auditLogs = await dataSource
+        .getRepository(AuditLogEntity)
         .find({ where: { agentId: testAgent.id } });
 
       const log = auditLogs[auditLogs.length - 1]; // Most recent
@@ -394,30 +397,26 @@ describe('Security Validation Integration Tests', () => {
         .post('/api/security/agent/authenticate')
         .send({
           agentId: testAgent.id,
-          operation: 'data_read'
+          operation: 'data_read',
         })
         .expect(200);
 
       const sessionId = authResponse.body.sessionId;
 
       // End session
-      await request(app)
-        .post('/api/security/session/end')
-        .send({ sessionId })
-        .expect(200);
+      await request(app).post('/api/security/session/end').send({ sessionId }).expect(200);
 
       // Check session lifecycle logs
-      const auditLogs = await dataSource.getRepository(AuditLogEntity)
-        .find({
-          where: { agentId: testAgent.id },
-          order: { timestamp: 'ASC' }
-        });
+      const auditLogs = await dataSource.getRepository(AuditLogEntity).find({
+        where: { agentId: testAgent.id },
+        order: { timestamp: 'ASC' },
+      });
 
-      const sessionStartLog = auditLogs.find(log =>
-        log.eventType === 'SESSION' && log.operation === 'session_start'
+      const sessionStartLog = auditLogs.find(
+        (log) => log.eventType === 'SESSION' && log.operation === 'session_start'
       );
-      const sessionEndLog = auditLogs.find(log =>
-        log.eventType === 'SESSION' && log.operation === 'session_end'
+      const sessionEndLog = auditLogs.find(
+        (log) => log.eventType === 'SESSION' && log.operation === 'session_end'
       );
 
       expect(sessionStartLog).toBeTruthy();
@@ -437,10 +436,10 @@ describe('Security Validation Integration Tests', () => {
         rules: {
           maxRiskLevel: 'LOW',
           blockedOperations: ['external_api'],
-          requiredCapabilities: ['data_read', 'security_validated']
+          requiredCapabilities: ['data_read', 'security_validated'],
         },
         isActive: true,
-        priority: 200 // Higher priority than test policy
+        priority: 200, // Higher priority than test policy
       });
       await dataSource.getRepository(SecurityPolicyEntity).save(restrictivePolicy);
 
@@ -450,8 +449,8 @@ describe('Security Validation Integration Tests', () => {
           agentId: testAgent.id,
           operation: 'external_api', // Blocked by policy
           context: {
-            targetDomain: 'api.example.com'
-          }
+            targetDomain: 'api.example.com',
+          },
         })
         .expect(403);
 
@@ -471,10 +470,10 @@ describe('Security Validation Integration Tests', () => {
         type: 'AGENT_ACCESS',
         rules: {
           maxRiskLevel: 'CRITICAL',
-          allowedOperations: ['external_api', 'data_read']
+          allowedOperations: ['external_api', 'data_read'],
         },
         isActive: true,
-        priority: 300 // Highest priority
+        priority: 300, // Highest priority
       });
       await dataSource.getRepository(SecurityPolicyEntity).save(permissivePolicy);
 
@@ -484,8 +483,8 @@ describe('Security Validation Integration Tests', () => {
           agentId: testAgent.id,
           operation: 'external_api',
           context: {
-            targetDomain: 'api.github.com'
-          }
+            targetDomain: 'api.github.com',
+          },
         })
         .expect(200);
 
@@ -509,8 +508,8 @@ describe('Security Validation Integration Tests', () => {
           operation: 'data_read',
           context: {
             performanceTest: true,
-            resource: 'benchmark_data'
-          }
+            resource: 'benchmark_data',
+          },
         })
         .expect(200);
 
@@ -533,8 +532,8 @@ describe('Security Validation Integration Tests', () => {
             operation: 'data_read',
             context: {
               concurrentTest: true,
-              requestId: i
-            }
+              requestId: i,
+            },
           })
       );
 
@@ -543,7 +542,7 @@ describe('Security Validation Integration Tests', () => {
       const totalTime = endTime - startTime;
 
       // All requests should succeed
-      responses.forEach(response => {
+      responses.forEach((response) => {
         expect(response.status).toBe(200);
         expect(response.body).toHaveProperty('success', true);
       });

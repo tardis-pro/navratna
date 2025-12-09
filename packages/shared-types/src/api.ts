@@ -1,21 +1,22 @@
 import { z } from 'zod';
 import { IDSchema } from './common.js';
 
-
 // Standard API response wrapper
 export const APIResponseSchema = z.object({
   success: z.boolean(),
   data: z.any().optional(),
-  error: z.object({
-    code: z.string(),
-    message: z.string(),
-    details: z.record(z.any()).optional()
-  }).optional(),
+  error: z
+    .object({
+      code: z.string(),
+      message: z.string(),
+      details: z.record(z.any()).optional(),
+    })
+    .optional(),
   meta: z.object({
     timestamp: z.date(),
     requestId: z.string().optional(),
-    version: z.string().optional()
-  })
+    version: z.string().optional(),
+  }),
 });
 
 export type APIResponse<T = unknown> = {
@@ -56,22 +57,22 @@ export enum HTTPStatus {
   TOO_MANY_REQUESTS = 429,
   INTERNAL_SERVER_ERROR = 500,
   BAD_GATEWAY = 502,
-  SERVICE_UNAVAILABLE = 503
+  SERVICE_UNAVAILABLE = 503,
 }
 
 // Agent Intelligence API Types
 export const AgentAnalysisRequestSchema = z.object({
   conversationContext: z.any(), // ConversationContext
   userRequest: z.string(),
-  constraints: z.record(z.any()).optional()
+  constraints: z.record(z.any()).optional(),
 });
 
 export type AgentAnalysisRequest = z.infer<typeof AgentAnalysisRequestSchema>;
 
 export const AgentPlanRequestSchema = z.object({
-  analysis: z.any(), // AgentAnalysis 
+  analysis: z.any(), // AgentAnalysis
   userPreferences: z.record(z.any()).optional(),
-  securityContext: z.record(z.any()).optional()
+  securityContext: z.record(z.any()).optional(),
 });
 
 export type AgentPlanRequest = z.infer<typeof AgentPlanRequestSchema>;
@@ -87,8 +88,8 @@ export const AgentAnalysisResponseSchema = z.object({
     timestamp: z.date(),
     processingTime: z.number(),
     agentId: IDSchema,
-    version: z.string()
-  })
+    version: z.string(),
+  }),
 });
 
 export type AgentAnalysisResponse = z.infer<typeof AgentAnalysisResponseSchema>;
@@ -103,8 +104,8 @@ export const AgentPlanResponseSchema = z.object({
     timestamp: z.date(),
     processingTime: z.number(),
     agentId: IDSchema,
-    version: z.string()
-  })
+    version: z.string(),
+  }),
 });
 
-export type AgentPlanResponse = z.infer<typeof AgentPlanResponseSchema>; 
+export type AgentPlanResponse = z.infer<typeof AgentPlanResponseSchema>;

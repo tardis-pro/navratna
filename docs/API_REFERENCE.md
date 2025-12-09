@@ -7,12 +7,15 @@
 The UAIP platform provides RESTful APIs across 5 microservices, all accessible through the API Gateway at `http://localhost:8081`. All endpoints require authentication unless otherwise specified.
 
 ### Base URLs
+
 - **API Gateway**: `http://localhost:8081`
 - **Interactive Documentation**: `http://localhost:8081/docs`
 - **Health Check**: `http://localhost:8081/health`
 
 ### Authentication
+
 All API requests require a valid JWT token in the Authorization header:
+
 ```bash
 Authorization: Bearer <your-jwt-token>
 ```
@@ -20,9 +23,11 @@ Authorization: Bearer <your-jwt-token>
 ## 🔐 Authentication Endpoints
 
 ### POST /api/auth/login
+
 **Description**: Authenticate user and receive JWT token
 
 **Request**:
+
 ```json
 {
   "username": "string",
@@ -31,6 +36,7 @@ Authorization: Bearer <your-jwt-token>
 ```
 
 **Response**:
+
 ```json
 {
   "success": true,
@@ -48,6 +54,7 @@ Authorization: Bearer <your-jwt-token>
 ```
 
 **Example**:
+
 ```bash
 curl -X POST http://localhost:8081/api/auth/login \
   -H "Content-Type: application/json" \
@@ -55,11 +62,13 @@ curl -X POST http://localhost:8081/api/auth/login \
 ```
 
 ### POST /api/auth/logout
+
 **Description**: Invalidate current session
 
 **Headers**: `Authorization: Bearer <token>`
 
 **Response**:
+
 ```json
 {
   "success": true,
@@ -69,11 +78,13 @@ curl -X POST http://localhost:8081/api/auth/login \
 ```
 
 ### GET /api/auth/me
+
 **Description**: Get current user information
 
 **Headers**: `Authorization: Bearer <token>`
 
 **Response**:
+
 ```json
 {
   "success": true,
@@ -90,14 +101,17 @@ curl -X POST http://localhost:8081/api/auth/login \
 ## 🤖 Agent Intelligence API
 
 ### GET /api/agents
+
 **Description**: List all agents
 
 **Query Parameters**:
+
 - `page` (number, optional): Page number (default: 1)
 - `limit` (number, optional): Items per page (default: 20)
 - `search` (string, optional): Search by name or description
 
 **Response**:
+
 ```json
 {
   "success": true,
@@ -124,9 +138,11 @@ curl -X POST http://localhost:8081/api/auth/login \
 ```
 
 ### POST /api/agents
+
 **Description**: Create a new agent
 
 **Request**:
+
 ```json
 {
   "name": "string",
@@ -142,6 +158,7 @@ curl -X POST http://localhost:8081/api/auth/login \
 ```
 
 **Response**:
+
 ```json
 {
   "success": true,
@@ -156,9 +173,11 @@ curl -X POST http://localhost:8081/api/auth/login \
 ```
 
 ### GET /api/agents/{id}
+
 **Description**: Get agent details
 
 **Response**:
+
 ```json
 {
   "success": true,
@@ -183,9 +202,11 @@ curl -X POST http://localhost:8081/api/auth/login \
 ```
 
 ### POST /api/agents/{id}/chat
+
 **Description**: Send message to agent
 
 **Request**:
+
 ```json
 {
   "message": "string",
@@ -203,6 +224,7 @@ curl -X POST http://localhost:8081/api/auth/login \
 ```
 
 **Response**:
+
 ```json
 {
   "success": true,
@@ -223,14 +245,17 @@ curl -X POST http://localhost:8081/api/auth/login \
 ## 🔄 Orchestration Pipeline API
 
 ### GET /api/operations
+
 **Description**: List operations
 
 **Query Parameters**:
+
 - `status` (string, optional): Filter by status
 - `page` (number, optional): Page number
 - `limit` (number, optional): Items per page
 
 **Response**:
+
 ```json
 {
   "success": true,
@@ -251,9 +276,11 @@ curl -X POST http://localhost:8081/api/auth/login \
 ```
 
 ### POST /api/operations
+
 **Description**: Create new operation
 
 **Request**:
+
 ```json
 {
   "type": "agent.chat|tool.execute|workflow.run",
@@ -267,6 +294,7 @@ curl -X POST http://localhost:8081/api/auth/login \
 ```
 
 **Response**:
+
 ```json
 {
   "success": true,
@@ -280,9 +308,11 @@ curl -X POST http://localhost:8081/api/auth/login \
 ```
 
 ### GET /api/operations/{id}
+
 **Description**: Get operation details
 
 **Response**:
+
 ```json
 {
   "success": true,
@@ -307,9 +337,11 @@ curl -X POST http://localhost:8081/api/auth/login \
 ```
 
 ### WebSocket: /ws/operations/{id}
+
 **Description**: Real-time operation updates
 
 **Events**:
+
 ```json
 {
   "type": "operation.progress",
@@ -325,14 +357,17 @@ curl -X POST http://localhost:8081/api/auth/login \
 ## 🛠️ Capability Registry API
 
 ### GET /api/tools
+
 **Description**: List available tools
 
 **Query Parameters**:
+
 - `category` (string, optional): Filter by category
 - `security` (string, optional): Filter by security level
 - `search` (string, optional): Search tools
 
 **Response**:
+
 ```json
 {
   "success": true,
@@ -360,9 +395,11 @@ curl -X POST http://localhost:8081/api/auth/login \
 ```
 
 ### POST /api/tools
+
 **Description**: Register new tool
 
 **Request**:
+
 ```json
 {
   "name": "string",
@@ -387,9 +424,11 @@ curl -X POST http://localhost:8081/api/auth/login \
 ```
 
 ### POST /api/tools/{id}/execute
+
 **Description**: Execute tool
 
 **Request**:
+
 ```json
 {
   "parameters": {
@@ -404,6 +443,7 @@ curl -X POST http://localhost:8081/api/auth/login \
 ```
 
 **Response**:
+
 ```json
 {
   "success": true,
@@ -416,9 +456,11 @@ curl -X POST http://localhost:8081/api/auth/login \
 ```
 
 ### GET /api/executions/{id}
+
 **Description**: Get execution status
 
 **Response**:
+
 ```json
 {
   "success": true,
@@ -441,9 +483,11 @@ curl -X POST http://localhost:8081/api/auth/login \
 ```
 
 ### WebSocket: /ws/executions/{id}
+
 **Description**: Real-time execution updates
 
 **Events**:
+
 ```json
 {
   "type": "execution.output",
@@ -458,9 +502,11 @@ curl -X POST http://localhost:8081/api/auth/login \
 ## 🔒 Security Gateway API
 
 ### GET /api/permissions
+
 **Description**: List user permissions
 
 **Response**:
+
 ```json
 {
   "success": true,
@@ -479,9 +525,11 @@ curl -X POST http://localhost:8081/api/auth/login \
 ```
 
 ### POST /api/permissions/check
+
 **Description**: Check specific permission
 
 **Request**:
+
 ```json
 {
   "permission": "agent.create",
@@ -491,6 +539,7 @@ curl -X POST http://localhost:8081/api/auth/login \
 ```
 
 **Response**:
+
 ```json
 {
   "success": true,
@@ -503,15 +552,18 @@ curl -X POST http://localhost:8081/api/auth/login \
 ```
 
 ### GET /api/audit
+
 **Description**: Get audit logs
 
 **Query Parameters**:
+
 - `userId` (string, optional): Filter by user
 - `action` (string, optional): Filter by action
 - `from` (string, optional): Start date (ISO format)
 - `to` (string, optional): End date (ISO format)
 
 **Response**:
+
 ```json
 {
   "success": true,
@@ -535,9 +587,11 @@ curl -X POST http://localhost:8081/api/auth/login \
 ## 💬 Discussion Orchestration API
 
 ### GET /api/discussions
+
 **Description**: List discussions
 
 **Response**:
+
 ```json
 {
   "success": true,
@@ -564,9 +618,11 @@ curl -X POST http://localhost:8081/api/auth/login \
 ```
 
 ### POST /api/discussions
+
 **Description**: Create new discussion
 
 **Request**:
+
 ```json
 {
   "title": "string",
@@ -583,9 +639,11 @@ curl -X POST http://localhost:8081/api/auth/login \
 ```
 
 ### GET /api/discussions/{id}/messages
+
 **Description**: Get discussion messages
 
 **Response**:
+
 ```json
 {
   "success": true,
@@ -605,9 +663,11 @@ curl -X POST http://localhost:8081/api/auth/login \
 ```
 
 ### POST /api/discussions/{id}/messages
+
 **Description**: Send message to discussion
 
 **Request**:
+
 ```json
 {
   "content": "string",
@@ -617,9 +677,11 @@ curl -X POST http://localhost:8081/api/auth/login \
 ```
 
 ### WebSocket: /ws/discussions/{id}
+
 **Description**: Real-time discussion updates
 
 **Events**:
+
 ```json
 {
   "type": "message.new",
@@ -638,9 +700,11 @@ curl -X POST http://localhost:8081/api/auth/login \
 ## 📊 System Endpoints
 
 ### GET /health
+
 **Description**: System health check
 
 **Response**:
+
 ```json
 {
   "status": "healthy",
@@ -661,14 +725,17 @@ curl -X POST http://localhost:8081/api/auth/login \
 ```
 
 ### GET /metrics
+
 **Description**: Prometheus metrics
 
 **Response**: Prometheus format metrics
 
 ### GET /api/system/info
+
 **Description**: System information
 
 **Response**:
+
 ```json
 {
   "success": true,
@@ -686,6 +753,7 @@ curl -X POST http://localhost:8081/api/auth/login \
 ## 🔧 Error Handling
 
 ### Standard Error Response
+
 ```json
 {
   "success": false,
@@ -697,6 +765,7 @@ curl -X POST http://localhost:8081/api/auth/login \
 ```
 
 ### HTTP Status Codes
+
 - **200**: Success
 - **201**: Created
 - **400**: Bad Request
@@ -707,6 +776,7 @@ curl -X POST http://localhost:8081/api/auth/login \
 - **500**: Internal Server Error
 
 ### Common Error Codes
+
 - `AUTHENTICATION_REQUIRED`: JWT token required
 - `INVALID_TOKEN`: JWT token invalid or expired
 - `PERMISSION_DENIED`: Insufficient permissions
@@ -717,12 +787,14 @@ curl -X POST http://localhost:8081/api/auth/login \
 ## 📡 WebSocket Events
 
 ### Connection
+
 ```javascript
 const ws = new WebSocket('ws://localhost:8081/ws');
 ws.onopen = () => console.log('Connected');
 ```
 
 ### Authentication
+
 ```json
 {
   "type": "auth",
@@ -731,6 +803,7 @@ ws.onopen = () => console.log('Connected');
 ```
 
 ### Subscription
+
 ```json
 {
   "type": "subscribe",
@@ -742,6 +815,7 @@ ws.onopen = () => console.log('Connected');
 ## 🧪 Testing Examples
 
 ### Complete Workflow Test
+
 ```bash
 # 1. Login
 TOKEN=$(curl -s -X POST http://localhost:8081/api/auth/login \

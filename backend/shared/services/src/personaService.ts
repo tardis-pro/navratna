@@ -12,7 +12,7 @@ import {
   PersonaVisibility,
   ExpertiseDomain,
   PersonaTrait,
-  ConversationalStyle
+  ConversationalStyle,
 } from '@uaip/types';
 import { DatabaseService } from './databaseService.js';
 import { EventBusService } from './eventBusService.js';
@@ -87,14 +87,14 @@ export class PersonaService {
           uniqueUsers: 0,
           averageSessionDuration: 0,
           popularityScore: 0,
-          feedbackCount: 0
+          feedbackCount: 0,
         },
         configuration: request.configuration || {},
         capabilities: request.capabilities || [],
         restrictions: request.restrictions || {},
         metadata: request.metadata,
         createdAt: new Date(),
-        updatedAt: new Date()
+        updatedAt: new Date(),
       };
 
       const savedEntity = await personaRepo.save(personaData);
@@ -106,12 +106,11 @@ export class PersonaService {
         personaId: persona.id,
         createdBy: persona.createdBy,
         name: persona.name,
-        timestamp: new Date()
+        timestamp: new Date(),
       });
 
       logger.info('Persona created successfully', { personaId: persona.id });
       return persona;
-
     } catch (error) {
       logger.error('Failed to create persona', { error: (error as Error).message, request });
       throw error;
@@ -135,7 +134,6 @@ export class PersonaService {
       const persona = this.entityToPersona(entity);
       this.cachePersona(persona);
       return persona;
-
     } catch (error) {
       logger.error('Failed to get persona', { error: (error as Error).message, personaId: id });
       throw error;
@@ -164,7 +162,7 @@ export class PersonaService {
         ...updateData,
         validation,
         version: existingPersona.version + 1,
-        updatedAt: new Date()
+        updatedAt: new Date(),
       });
 
       const updatedEntity = await personaRepo.findOne({ where: { id } });
@@ -179,12 +177,11 @@ export class PersonaService {
         personaId: persona.id,
         updatedBy: existingPersona.createdBy,
         changes: Object.keys(updates),
-        timestamp: new Date()
+        timestamp: new Date(),
       });
 
       logger.info('Persona updated successfully', { personaId: id });
       return persona;
-
     } catch (error) {
       logger.error('Failed to update persona', { error: (error as Error).message, personaId: id });
       throw error;
@@ -204,7 +201,7 @@ export class PersonaService {
       if (usageCount > 0) {
         await this.updatePersona(id, {
           status: PersonaStatus.ARCHIVED,
-          updatedAt: new Date()
+          updatedAt: new Date(),
         });
         logger.info('Persona archived due to active usage', { personaId: id, usageCount });
         return;
@@ -218,11 +215,10 @@ export class PersonaService {
       await this.safePublishEvent('persona.deleted', {
         personaId: id,
         deletedBy,
-        timestamp: new Date()
+        timestamp: new Date(),
       });
 
       logger.info('Persona deleted successfully', { personaId: id });
-
     } catch (error) {
       logger.error('Failed to delete persona', { error: (error as Error).message, personaId: id });
       throw error;
@@ -231,7 +227,11 @@ export class PersonaService {
 
   // ===== PERSONA SEARCH AND DISCOVERY =====
 
-  async searchPersonas(filters: PersonaSearchFilters, limit = 20, offset = 0): Promise<{
+  async searchPersonas(
+    filters: PersonaSearchFilters,
+    limit = 20,
+    offset = 0
+  ): Promise<{
     personas: Persona[];
     total: number;
     hasMore: boolean;
@@ -244,20 +244,16 @@ export class PersonaService {
 
       const total = await queryBuilder.getCount();
 
-      queryBuilder
-        .orderBy('persona.createdAt', 'DESC')
-        .skip(offset)
-        .take(limit);
+      queryBuilder.orderBy('persona.createdAt', 'DESC').skip(offset).take(limit);
 
       const entities = await queryBuilder.getMany();
-      const personas = entities.map(entity => this.entityToPersona(entity));
+      const personas = entities.map((entity) => this.entityToPersona(entity));
 
       return {
         personas,
         total,
-        hasMore: offset + personas.length < total
+        hasMore: offset + personas.length < total,
       };
-
     } catch (error) {
       logger.error('Failed to search personas', { error: (error as Error).message, filters });
       throw error;
@@ -280,9 +276,11 @@ export class PersonaService {
       const recommendations = await this.generateRecommendations(userHistory, context, limit);
 
       return recommendations;
-
     } catch (error) {
-      logger.error('Failed to get persona recommendations', { error: (error as Error).message, userId });
+      logger.error('Failed to get persona recommendations', {
+        error: (error as Error).message,
+        userId,
+      });
       throw error;
     }
   }
@@ -338,9 +336,8 @@ export class PersonaService {
         warnings,
         suggestions,
         score,
-        validatedAt: new Date()
+        validatedAt: new Date(),
       };
-
     } catch (error) {
       logger.error('Persona validation failed', { error: (error as Error).message });
       throw error;
@@ -349,10 +346,13 @@ export class PersonaService {
 
   // ===== PERSONA ANALYTICS =====
 
-  async getPersonaAnalytics(personaId: string, timeframe?: {
-    start: Date;
-    end: Date;
-  }): Promise<PersonaAnalytics | null> {
+  async getPersonaAnalytics(
+    personaId: string,
+    timeframe?: {
+      start: Date;
+      end: Date;
+    }
+  ): Promise<PersonaAnalytics | null> {
     if (!this.enableAnalytics) {
       return null;
     }
@@ -365,7 +365,7 @@ export class PersonaService {
 
       const defaultTimeframe = {
         start: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000),
-        end: new Date()
+        end: new Date(),
       };
 
       const analyticsTimeframe = timeframe || defaultTimeframe;
@@ -381,21 +381,26 @@ export class PersonaService {
         metrics,
         trends,
         topInteractions,
-        commonIssues
+        commonIssues,
       };
-
     } catch (error) {
-      logger.error('Failed to get persona analytics', { error: (error as Error).message, personaId });
+      logger.error('Failed to get persona analytics', {
+        error: (error as Error).message,
+        personaId,
+      });
       throw error;
     }
   }
 
-  async updatePersonaUsage(personaId: string, sessionData: {
-    userId: string;
-    duration: number;
-    messageCount: number;
-    satisfactionScore?: number;
-  }): Promise<void> {
+  async updatePersonaUsage(
+    personaId: string,
+    sessionData: {
+      userId: string;
+      duration: number;
+      messageCount: number;
+      satisfactionScore?: number;
+    }
+  ): Promise<void> {
     try {
       const persona = await this.getPersona(personaId);
       if (!persona) {
@@ -407,7 +412,7 @@ export class PersonaService {
         uniqueUsers: 0,
         averageSessionDuration: 0,
         popularityScore: 0,
-        feedbackCount: 0
+        feedbackCount: 0,
       };
 
       const updatedStats: PersonaUsageStats = {
@@ -418,7 +423,7 @@ export class PersonaService {
           currentStats.averageSessionDuration,
           currentStats.totalUsages,
           sessionData.duration
-        )
+        ),
       };
 
       if (sessionData.satisfactionScore !== undefined) {
@@ -439,11 +444,13 @@ export class PersonaService {
         userId: sessionData.userId,
         duration: sessionData.duration,
         messageCount: sessionData.messageCount,
-        timestamp: new Date()
+        timestamp: new Date(),
       });
-
     } catch (error) {
-      logger.error('Failed to update persona usage', { error: (error as Error).message, personaId });
+      logger.error('Failed to update persona usage', {
+        error: (error as Error).message,
+        personaId,
+      });
       throw error;
     }
   }
@@ -462,18 +469,20 @@ export class PersonaService {
       queryBuilder.orderBy('persona.totalInteractions', 'DESC');
       const entities = await queryBuilder.getMany();
 
-      return entities.map(entity => ({
+      return entities.map((entity) => ({
         id: entity.id,
         name: entity.name,
         description: entity.description,
         category: 'general',
         traits: entity.traits,
         expertise: entity.expertise,
-        usageCount: entity.totalInteractions
+        usageCount: entity.totalInteractions,
       }));
-
     } catch (error) {
-      logger.error('Failed to get persona templates', { error: (error as Error).message, category });
+      logger.error('Failed to get persona templates', {
+        error: (error as Error).message,
+        category,
+      });
       throw error;
     }
   }
@@ -497,7 +506,8 @@ export class PersonaService {
         expertise: customizations.expertise || templatePersona.expertise,
         background: customizations.background || templatePersona.background,
         systemPrompt: customizations.systemPrompt || templatePersona.systemPrompt,
-        conversationalStyle: customizations.conversationalStyle || templatePersona.conversationalStyle,
+        conversationalStyle:
+          customizations.conversationalStyle || templatePersona.conversationalStyle,
         status: customizations.status || PersonaStatus.ACTIVE,
         visibility: customizations.visibility || PersonaVisibility.PRIVATE,
         createdBy,
@@ -508,7 +518,7 @@ export class PersonaService {
         configuration: customizations.configuration || templatePersona.configuration,
         capabilities: customizations.capabilities || templatePersona.capabilities,
         restrictions: customizations.restrictions || templatePersona.restrictions,
-        metadata: customizations.metadata || templatePersona.metadata
+        metadata: customizations.metadata || templatePersona.metadata,
       };
 
       const persona = await this.createPersona(personaRequest);
@@ -516,13 +526,15 @@ export class PersonaService {
       await this.updatePersonaUsage(templateId, {
         userId: createdBy,
         duration: 0,
-        messageCount: 0
+        messageCount: 0,
       });
 
       return persona;
-
     } catch (error) {
-      logger.error('Failed to create persona from template', { error: (error as Error).message, templateId });
+      logger.error('Failed to create persona from template', {
+        error: (error as Error).message,
+        templateId,
+      });
       throw error;
     }
   }
@@ -530,13 +542,13 @@ export class PersonaService {
   // ===== PRIVATE HELPER METHODS =====
 
   private extractExpertiseNames(expertise: ExpertiseDomain[]): string[] {
-    return expertise.map(exp => exp.name);
+    return expertise.map((exp) => exp.name);
   }
 
   private cachePersona(persona: Persona): void {
     this.personaCache.set(persona.id!, {
       persona,
-      timestamp: Date.now()
+      timestamp: Date.now(),
     });
   }
 
@@ -554,7 +566,10 @@ export class PersonaService {
     return cached.persona;
   }
 
-  private applySearchFilters(queryBuilder: SelectQueryBuilder<PersonaEntity>, filters: PersonaSearchFilters): void {
+  private applySearchFilters(
+    queryBuilder: SelectQueryBuilder<PersonaEntity>,
+    filters: PersonaSearchFilters
+  ): void {
     if (filters.query) {
       queryBuilder.andWhere(
         '(persona.name ILIKE :query OR persona.description ILIKE :query OR persona.role ILIKE :query)',
@@ -574,15 +589,21 @@ export class PersonaService {
     }
 
     if (filters.visibility && filters.visibility.length > 0) {
-      queryBuilder.andWhere('persona.visibility IN (:...visibility)', { visibility: filters.visibility });
+      queryBuilder.andWhere('persona.visibility IN (:...visibility)', {
+        visibility: filters.visibility,
+      });
     }
 
     if (filters.createdBy && filters.createdBy.length > 0) {
-      queryBuilder.andWhere('persona.createdBy IN (:...createdBy)', { createdBy: filters.createdBy });
+      queryBuilder.andWhere('persona.createdBy IN (:...createdBy)', {
+        createdBy: filters.createdBy,
+      });
     }
 
     if (filters.organizationId) {
-      queryBuilder.andWhere('persona.organizationId = :organizationId', { organizationId: filters.organizationId });
+      queryBuilder.andWhere('persona.organizationId = :organizationId', {
+        organizationId: filters.organizationId,
+      });
     }
 
     if (filters.teamId) {
@@ -597,19 +618,27 @@ export class PersonaService {
     }
 
     if (filters.minUsageCount !== undefined) {
-      queryBuilder.andWhere('persona.totalInteractions >= :minUsageCount', { minUsageCount: filters.minUsageCount });
+      queryBuilder.andWhere('persona.totalInteractions >= :minUsageCount', {
+        minUsageCount: filters.minUsageCount,
+      });
     }
 
     if (filters.minFeedbackScore !== undefined) {
-      queryBuilder.andWhere('persona.userSatisfaction >= :minFeedbackScore', { minFeedbackScore: filters.minFeedbackScore });
+      queryBuilder.andWhere('persona.userSatisfaction >= :minFeedbackScore', {
+        minFeedbackScore: filters.minFeedbackScore,
+      });
     }
 
     if (filters.createdAfter) {
-      queryBuilder.andWhere('persona.createdAt >= :createdAfter', { createdAfter: filters.createdAfter });
+      queryBuilder.andWhere('persona.createdAt >= :createdAfter', {
+        createdAfter: filters.createdAfter,
+      });
     }
 
     if (filters.createdBefore) {
-      queryBuilder.andWhere('persona.createdAt <= :createdBefore', { createdBefore: filters.createdBefore });
+      queryBuilder.andWhere('persona.createdAt <= :createdBefore', {
+        createdBefore: filters.createdBefore,
+      });
     }
   }
 
@@ -647,7 +676,10 @@ export class PersonaService {
     return Math.max(0, Math.min(100, score));
   }
 
-  private async calculatePersonaMetrics(personaId: string, timeframe: { start: Date; end: Date }): Promise<any> {
+  private async calculatePersonaMetrics(
+    personaId: string,
+    timeframe: { start: Date; end: Date }
+  ): Promise<any> {
     return {
       totalSessions: 0,
       totalMessages: 0,
@@ -655,23 +687,32 @@ export class PersonaService {
       uniqueUsers: 0,
       satisfactionScore: 0,
       completionRate: 0,
-      errorRate: 0
+      errorRate: 0,
     };
   }
 
-  private async calculatePersonaTrends(personaId: string, timeframe: { start: Date; end: Date }): Promise<any> {
+  private async calculatePersonaTrends(
+    personaId: string,
+    timeframe: { start: Date; end: Date }
+  ): Promise<any> {
     return {
       usageGrowth: 0,
       satisfactionTrend: 0,
-      popularityRank: 1
+      popularityRank: 1,
     };
   }
 
-  private async getTopInteractions(personaId: string, timeframe: { start: Date; end: Date }): Promise<any[]> {
+  private async getTopInteractions(
+    personaId: string,
+    timeframe: { start: Date; end: Date }
+  ): Promise<any[]> {
     return [];
   }
 
-  private async getCommonIssues(personaId: string, timeframe: { start: Date; end: Date }): Promise<any[]> {
+  private async getCommonIssues(
+    personaId: string,
+    timeframe: { start: Date; end: Date }
+  ): Promise<any[]> {
     return [];
   }
 
@@ -717,7 +758,7 @@ export class PersonaService {
         category: 'general',
         level: 'intermediate' as const,
         keywords: [],
-        relatedDomains: []
+        relatedDomains: [],
       })),
       background: entity.background,
       systemPrompt: entity.systemPrompt,
@@ -738,14 +779,14 @@ export class PersonaService {
         lastUsedAt: entity.lastUsedAt || undefined,
         popularityScore: 0,
         feedbackScore: entity.userSatisfaction,
-        feedbackCount: 0
+        feedbackCount: 0,
       },
       configuration: entity.configuration || {},
       capabilities: entity.capabilities || [],
       restrictions: entity.restrictions || {},
       metadata: entity.metadata,
       createdAt: entity.createdAt,
-      updatedAt: entity.updatedAt
+      updatedAt: entity.updatedAt,
     };
   }
 
@@ -772,7 +813,7 @@ export class PersonaService {
     try {
       const searchResult = await this.searchPersonas(filters || {});
 
-      const displayPersonas = searchResult.personas.map(persona => ({
+      const displayPersonas = searchResult.personas.map((persona) => ({
         id: persona.id,
         name: persona.name,
         role: persona.role,
@@ -780,13 +821,13 @@ export class PersonaService {
         tags: persona.tags,
         expertise: this.extractExpertiseNames(persona.expertise),
         status: persona.status,
-        category: this.categorizePersonaRole(persona.role)
+        category: this.categorizePersonaRole(persona.role),
       }));
 
       return {
         personas: displayPersonas,
         total: searchResult.total,
-        hasMore: searchResult.hasMore
+        hasMore: searchResult.hasMore,
       };
     } catch (error) {
       logger.error('Failed to get personas for display', { error: (error as Error).message });
@@ -823,10 +864,13 @@ export class PersonaService {
         status: persona.status,
         category: this.categorizePersonaRole(persona.role),
         background: persona.background,
-        conversationalStyle: persona.conversationalStyle
+        conversationalStyle: persona.conversationalStyle,
       };
     } catch (error) {
-      logger.error('Failed to get persona for display', { error: (error as Error).message, personaId: id });
+      logger.error('Failed to get persona for display', {
+        error: (error as Error).message,
+        personaId: id,
+      });
       throw error;
     }
   }
@@ -834,7 +878,10 @@ export class PersonaService {
   /**
    * Search personas with text query - simplified for frontend
    */
-  async searchPersonasSimple(query?: string, expertiseFilter?: string): Promise<{
+  async searchPersonasSimple(
+    query?: string,
+    expertiseFilter?: string
+  ): Promise<{
     personas: Array<{
       id: string;
       name: string;
@@ -859,18 +906,22 @@ export class PersonaService {
       const result = await this.getPersonasForDisplay(filters);
 
       return {
-        personas: result.personas.map(p => ({
+        personas: result.personas.map((p) => ({
           id: p.id,
           name: p.name,
           role: p.role,
           description: p.description,
           tags: p.tags,
           expertise: p.expertise,
-          category: p.category
-        }))
+          category: p.category,
+        })),
       };
     } catch (error) {
-      logger.error('Failed to search personas', { error: (error as Error).message, query, expertiseFilter });
+      logger.error('Failed to search personas', {
+        error: (error as Error).message,
+        query,
+        expertiseFilter,
+      });
       throw error;
     }
   }
@@ -889,7 +940,7 @@ export class PersonaService {
       'Technical',
       'Management',
       'Research',
-      'Design'
+      'Design',
     ];
   }
 
@@ -939,7 +990,7 @@ export class PersonaService {
       // Policy/Legal
       'Policy Analyst': 'Policy',
       'Legal Expert': 'Policy',
-      'Economist': 'Policy',
+      Economist: 'Policy',
       'Social Scientist': 'Policy',
       'Environmental Expert': 'Policy',
 
@@ -953,35 +1004,35 @@ export class PersonaService {
       'Innovation Consultant': 'Creative',
 
       // Research/Academic
-      'Researcher': 'Research',
+      Researcher: 'Research',
       'Academic Researcher': 'Research',
-      'Educator': 'Research',
+      Educator: 'Research',
 
       // Social/Community
-      'Psychologist': 'Social',
+      Psychologist: 'Social',
       'Community Organizer': 'Social',
-      'Philosopher': 'Analysis', // Moved to Analysis as it's more analytical thinking
+      Philosopher: 'Analysis', // Moved to Analysis as it's more analytical thinking
 
       // Business/Entrepreneurship
-      'Entrepreneur': 'Business',
+      Entrepreneur: 'Business',
       'Business Development': 'Business',
       'Sales Manager': 'Business',
       'Marketing Manager': 'Business',
 
       // Generic roles
-      'Assistant': 'Business',
-      'Specialist': 'Technical',
-      'Analyzer': 'Analysis',
-      'Orchestrator': 'Management',
+      Assistant: 'Business',
+      Specialist: 'Technical',
+      Analyzer: 'Analysis',
+      Orchestrator: 'Management',
       'General Assistant': 'Business',
-      'Expert': 'Technical',
-      'Consultant': 'Business'
+      Expert: 'Technical',
+      Consultant: 'Business',
     };
 
     // Log the role categorization for debugging
     const category = roleToCategory[role] || 'Business';
     console.log(`[PersonaService] Categorizing role "${role}" -> "${category}"`);
-    
+
     return category;
   }
-} 
+}

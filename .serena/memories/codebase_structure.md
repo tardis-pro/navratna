@@ -1,6 +1,7 @@
 # Codebase Structure
 
 ## Monorepo Organization
+
 This is a **TypeScript monorepo** managed with pnpm workspaces:
 
 ```
@@ -28,6 +29,7 @@ council-of-nycea/
 ```
 
 ## Port Allocation
+
 - **Frontend**: 5173 (Vite dev server)
 - **API Gateway**: 8081 (centralized routing)
 - **Agent Intelligence**: 3001
@@ -42,6 +44,7 @@ council-of-nycea/
 - **Qdrant**: 6333
 
 ## Import Path Aliases
+
 - `@uaip/types` → packages/shared-types/src
 - `@uaip/utils` → packages/shared-utils/src
 - `@uaip/shared-services` → backend/shared/services

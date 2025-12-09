@@ -45,10 +45,10 @@ export class QABotAgent extends BaseAgent {
         AgentCapability.KNOWLEDGE_RETRIEVAL,
         AgentCapability.CONTEXT_AWARENESS,
         AgentCapability.LEARNING,
-        AgentCapability.TOOL_EXECUTION
+        AgentCapability.TOOL_EXECUTION,
       ],
       eventBusService: config.eventBusService,
-      serviceName: 'qa-bot-agent'
+      serviceName: 'qa-bot-agent',
     });
 
     this.knowledgeGraphService = config.knowledgeGraphService;
@@ -63,12 +63,15 @@ export class QABotAgent extends BaseAgent {
     // Set up Q&A specific event subscriptions
     await this.eventBusService.subscribe('qa.question.ask', this.handleQuestion.bind(this));
     await this.eventBusService.subscribe('qa.feedback.received', this.handleFeedback.bind(this));
-    await this.eventBusService.subscribe('qa.knowledge.update', this.handleKnowledgeUpdate.bind(this));
+    await this.eventBusService.subscribe(
+      'qa.knowledge.update',
+      this.handleKnowledgeUpdate.bind(this)
+    );
 
     logger.info('Q&A Bot Agent initialized', {
       agent: this.agent.name,
       knowledgeSources: this.knowledgeSources,
-      responseSettings: this.responseSettings
+      responseSettings: this.responseSettings,
     });
   }
 
@@ -89,7 +92,7 @@ export class QABotAgent extends BaseAgent {
       logger.info('Processing Q&A request', {
         questionLength: question.length,
         userId,
-        contextId: context.contextId
+        contextId: context.contextId,
       });
 
       // Step 1: Analyze the question
@@ -107,11 +110,7 @@ export class QABotAgent extends BaseAgent {
       );
 
       // Step 4: Generate follow-up suggestions
-      const followUps = await this.generateFollowUpQuestions(
-        question,
-        answer.answer,
-        context
-      );
+      const followUps = await this.generateFollowUpQuestions(question, answer.answer, context);
 
       // Step 5: Store interaction for learning
       await this.storeInteraction(question, answer, context, userId);
@@ -121,14 +120,13 @@ export class QABotAgent extends BaseAgent {
         questionType: questionAnalysis.type,
         confidence: answer.confidence,
         sourcesUsed: answer.sources.length,
-        responseTime: Date.now() - questionAnalysis.timestamp
+        responseTime: Date.now() - questionAnalysis.timestamp,
       });
 
       return {
         ...answer,
-        suggestedFollowUps: followUps
+        suggestedFollowUps: followUps,
       };
-
     } catch (error) {
       logger.error('Failed to process Q&A request', { error, question });
       return this.handleQuestionError(question, error);
@@ -172,7 +170,7 @@ export class QABotAgent extends BaseAgent {
       complexity,
       timestamp: Date.now(),
       requiresTools,
-      suggestedSources
+      suggestedSources,
     };
   }
 
@@ -195,32 +193,26 @@ export class QABotAgent extends BaseAgent {
       this.knowledgeGraphService.search({
         query: analysis.intent,
         filters: {
-          confidence: 0.7
+          confidence: 0.7,
         },
         options: {
-          limit: 10
+          limit: 10,
         },
-        timestamp: Date.now()
+        timestamp: Date.now(),
       })
     );
 
     // Vector similarity search - temporarily disabled until embedding service is available
-    searchPromises.push(
-      Promise.resolve({ results: [] })
-    );
+    searchPromises.push(Promise.resolve({ results: [] }));
 
     // Search Confluence if enabled
     if (this.knowledgeSources.confluence) {
-      searchPromises.push(
-        this.searchConfluence(analysis.intent, analysis.entities)
-      );
+      searchPromises.push(this.searchConfluence(analysis.intent, analysis.entities));
     }
 
     // Search previous conversations if enabled
     if (this.knowledgeSources.previousConversations) {
-      searchPromises.push(
-        this.searchConversations(analysis.intent, context)
-      );
+      searchPromises.push(this.searchConversations(analysis.intent, context));
     }
 
     const results = await Promise.allSettled(searchPromises);
@@ -229,7 +221,7 @@ export class QABotAgent extends BaseAgent {
       knowledgeGraphResults: results[0]?.status === 'fulfilled' ? results[0].value.items : [],
       vectorSearchResults: results[1]?.status === 'fulfilled' ? results[1].value.results : [],
       confluenceResults: results[2]?.status === 'fulfilled' ? results[2].value : [],
-      conversationResults: results[3]?.status === 'fulfilled' ? results[3].value : []
+      conversationResults: results[3]?.status === 'fulfilled' ? results[3].value : [],
     };
   }
 
@@ -255,26 +247,18 @@ export class QABotAgent extends BaseAgent {
     }
 
     // Generate answer using LLM with retrieved context
-    const answerResponse = await this.generateLLMAnswer(
-      question,
-      relevantInfo,
-      context
-    );
+    const answerResponse = await this.generateLLMAnswer(question, relevantInfo, context);
 
     // Extract sources
     const sources = this.extractSources(relevantInfo);
 
     // Calculate confidence
-    const confidence = this.calculateAnswerConfidence(
-      answerResponse,
-      relevantInfo,
-      analysis
-    );
+    const confidence = this.calculateAnswerConfidence(answerResponse, relevantInfo, analysis);
 
     return {
       answer: answerResponse.text,
       confidence,
-      sources
+      sources,
     };
   }
 
@@ -301,7 +285,7 @@ Generate questions that:
 
       const response = await this.callLLM(prompt, {
         temperature: 0.8,
-        maxTokens: 200
+        maxTokens: 200,
       });
 
       return this.parseFollowUpQuestions(response.text);
@@ -327,7 +311,7 @@ Generate questions that:
         feedbackType: event.feedback,
         comments: event.additionalComments,
         userId: event.userId,
-        timestamp: new Date()
+        timestamp: new Date(),
       });
 
       // Adjust confidence scores based on feedback
@@ -345,9 +329,8 @@ Generate questions that:
       this.auditLog('QA_FEEDBACK_RECEIVED', {
         questionId: event.questionId,
         feedback: event.feedback,
-        userId: event.userId
+        userId: event.userId,
       });
-
     } catch (error) {
       logger.error('Failed to process feedback', { error, event });
     }
@@ -356,19 +339,16 @@ Generate questions that:
   /**
    * Search Confluence for relevant documentation
    */
-  private async searchConfluence(
-    query: string,
-    entities: string[]
-  ): Promise<any[]> {
+  private async searchConfluence(query: string, entities: string[]): Promise<any[]> {
     try {
       const searchRequest = {
         query,
         filters: {
           space: ['TECH', 'DOCS', 'KB'], // Relevant Confluence spaces
           type: ['page', 'blogpost'],
-          labels: entities
+          labels: entities,
         },
-        limit: 5
+        limit: 5,
       };
 
       // Request Confluence search through tool execution
@@ -393,14 +373,21 @@ Generate questions that:
       return 'conceptual';
     } else if (lowerQuestion.includes('why') || lowerQuestion.includes('when')) {
       return 'factual';
-    } else if (lowerQuestion.includes('error') || lowerQuestion.includes('issue') || lowerQuestion.includes('problem')) {
+    } else if (
+      lowerQuestion.includes('error') ||
+      lowerQuestion.includes('issue') ||
+      lowerQuestion.includes('problem')
+    ) {
       return 'troubleshooting';
     }
 
     return 'factual';
   }
 
-  private assessComplexity(question: string, entities: string[]): 'simple' | 'moderate' | 'complex' {
+  private assessComplexity(
+    question: string,
+    entities: string[]
+  ): 'simple' | 'moderate' | 'complex' {
     const wordCount = question.split(' ').length;
     const entityCount = entities.length;
 
@@ -415,7 +402,7 @@ Generate questions that:
 
     // Check for action-oriented keywords
     const actionKeywords = ['create', 'update', 'delete', 'modify', 'check', 'verify'];
-    return actionKeywords.some(keyword => question.toLowerCase().includes(keyword));
+    return actionKeywords.some((keyword) => question.toLowerCase().includes(keyword));
   }
 
   private suggestKnowledgeSources(type: string, entities: string[]): string[] {
@@ -425,7 +412,9 @@ Generate questions that:
       sources.push('confluence');
     }
 
-    if (entities.some(e => e.toLowerCase().includes('previous') || e.toLowerCase().includes('last'))) {
+    if (
+      entities.some((e) => e.toLowerCase().includes('previous') || e.toLowerCase().includes('last'))
+    ) {
       sources.push('conversations');
     }
 
@@ -435,10 +424,11 @@ Generate questions that:
   private async extractEntities(text: string): Promise<string[]> {
     // Simple entity extraction - in production, use NER
     const words = text.split(' ');
-    const entities = words.filter(word =>
-      word.length > 3 &&
-      word[0] === word[0].toUpperCase() &&
-      !['What', 'When', 'Where', 'Why', 'How', 'The'].includes(word)
+    const entities = words.filter(
+      (word) =>
+        word.length > 3 &&
+        word[0] === word[0].toUpperCase() &&
+        !['What', 'When', 'Where', 'Why', 'How', 'The'].includes(word)
     );
 
     return [...new Set(entities)];
@@ -458,18 +448,18 @@ Generate questions that:
       ...searchResults.knowledgeGraphResults,
       ...searchResults.vectorSearchResults,
       ...(searchResults.confluenceResults || []),
-      ...(searchResults.conversationResults || [])
+      ...(searchResults.conversationResults || []),
     ];
 
     // Score and rank results
-    const scoredResults = allResults.map(result => ({
+    const scoredResults = allResults.map((result) => ({
       ...result,
-      relevanceScore: this.calculateRelevance(result, analysis)
+      relevanceScore: this.calculateRelevance(result, analysis),
     }));
 
     // Filter by confidence threshold and sort by relevance
     return scoredResults
-      .filter(r => r.relevanceScore >= this.responseSettings.confidenceThreshold)
+      .filter((r) => r.relevanceScore >= this.responseSettings.confidenceThreshold)
       .sort((a, b) => b.relevanceScore - a.relevanceScore)
       .slice(0, 5); // Top 5 results
   }
@@ -503,11 +493,15 @@ If information is incomplete, acknowledge limitations. Always cite sources when 
 Question: ${question}
 
 Relevant Context:
-${relevantInfo.map((info, idx) => `
+${relevantInfo
+  .map(
+    (info, idx) => `
 [${idx + 1}] ${info.content}
 Source: ${info.source || 'Knowledge Base'}
 Confidence: ${info.relevanceScore}
-`).join('\n')}
+`
+  )
+  .join('\n')}
 
 Please provide a clear, accurate answer based on this context. If the context doesn't fully answer the question, acknowledge what's missing.
 `;
@@ -515,17 +509,17 @@ Please provide a clear, accurate answer based on this context. If the context do
     const response = await this.callLLM(userPrompt, {
       systemPrompt,
       temperature: 0.3,
-      maxTokens: this.responseSettings.maxTokens
+      maxTokens: this.responseSettings.maxTokens,
     });
 
     return { text: response.text };
   }
 
   private extractSources(relevantInfo: any[]): any[] {
-    return relevantInfo.map(info => ({
+    return relevantInfo.map((info) => ({
       type: info.sourceType || 'knowledge_base',
       reference: info.source || info.id || 'Unknown',
-      relevance: info.relevanceScore || 0.5
+      relevance: info.relevanceScore || 0.5,
     }));
   }
 
@@ -537,7 +531,8 @@ Please provide a clear, accurate answer based on this context. If the context do
     let confidence = 0.5;
 
     // Factor in source quality
-    const avgSourceScore = relevantInfo.reduce((sum, r) => sum + r.relevanceScore, 0) / relevantInfo.length;
+    const avgSourceScore =
+      relevantInfo.reduce((sum, r) => sum + r.relevanceScore, 0) / relevantInfo.length;
     confidence = avgSourceScore;
 
     // Adjust based on number of sources
@@ -556,10 +551,11 @@ Please provide a clear, accurate answer based on this context. If the context do
 
     switch (this.responseSettings.fallbackBehavior) {
       case 'admit_unknowns':
-        answer += " This topic might be outside my current knowledge base.";
+        answer += ' This topic might be outside my current knowledge base.';
         break;
       case 'suggest_alternatives':
-        answer += " You might want to try rephrasing your question or asking about a related topic.";
+        answer +=
+          ' You might want to try rephrasing your question or asking about a related topic.';
         break;
       case 'escalate':
         answer += " I'm escalating this to a human expert who can provide better assistance.";
@@ -570,17 +566,17 @@ Please provide a clear, accurate answer based on this context. If the context do
     return {
       answer,
       confidence: 0.1,
-      sources: []
+      sources: [],
     };
   }
 
   private parseFollowUpQuestions(text: string): string[] {
     // Parse numbered list or bullet points
-    const lines = text.split('\n').filter(line => line.trim());
+    const lines = text.split('\n').filter((line) => line.trim());
     const questions = lines
-      .filter(line => /^[\d\-\*•]/.test(line.trim()))
-      .map(line => line.replace(/^[\d\-\*•\.\)]\s*/, '').trim())
-      .filter(q => q.endsWith('?'));
+      .filter((line) => /^[\d\-\*•]/.test(line.trim()))
+      .map((line) => line.replace(/^[\d\-\*•\.\)]\s*/, '').trim())
+      .filter((q) => q.endsWith('?'));
 
     return questions.slice(0, 3);
   }
@@ -599,7 +595,7 @@ Please provide a clear, accurate answer based on this context. If the context do
       sources: answer.sources,
       userId,
       contextId: context.contextId,
-      timestamp: new Date()
+      timestamp: new Date(),
     };
 
     await this.knowledgeGraphService.storeInteraction(interaction);
@@ -620,10 +616,11 @@ Please provide a clear, accurate answer based on this context. If the context do
     logger.error('Q&A processing error', { question, error });
 
     return {
-      answer: "I encountered an error while processing your question. Please try again or rephrase your question.",
+      answer:
+        'I encountered an error while processing your question. Please try again or rephrase your question.',
       confidence: 0,
       sources: [],
-      suggestedFollowUps: []
+      suggestedFollowUps: [],
     };
   }
 
@@ -632,7 +629,7 @@ Please provide a clear, accurate answer based on this context. If the context do
       question,
       analysis,
       timestamp: new Date().toISOString(),
-      priority: analysis.complexity === 'complex' ? 'high' : 'medium'
+      priority: analysis.complexity === 'complex' ? 'high' : 'medium',
     });
   }
 
@@ -640,7 +637,10 @@ Please provide a clear, accurate answer based on this context. If the context do
     // Search through previous conversations for similar Q&As
     try {
       // Temporarily disabled until proper embedding integration
-      logger.info('Conversation search requested but temporarily disabled', { query, contextId: context.contextId });
+      logger.info('Conversation search requested but temporarily disabled', {
+        query,
+        contextId: context.contextId,
+      });
       return [];
     } catch (error) {
       logger.warn('Conversation search failed', { error });
@@ -679,7 +679,7 @@ Please provide a clear, accurate answer based on this context. If the context do
       activeConversations: this.conversationMemory.size,
       knowledgeSources: this.knowledgeSources,
       responseSettings: this.responseSettings,
-      status: 'healthy'
+      status: 'healthy',
     };
   }
 

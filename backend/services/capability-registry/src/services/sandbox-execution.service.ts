@@ -39,7 +39,7 @@ export class SandboxExecutionService {
     maxCpu: '0.5',
     networkAccess: false,
     fileSystemAccess: 'readonly',
-    allowedPaths: ['/tmp/sandbox']
+    allowedPaths: ['/tmp/sandbox'],
   };
 
   private constructor() {
@@ -62,7 +62,7 @@ export class SandboxExecutionService {
     try {
       // Subscribe to sandbox execution events
       await this.eventBus.subscribe('sandbox.execute.tool', this.handleSandboxExecution.bind(this));
-      
+
       this.isListening = true;
       logger.info('Sandbox execution service initialized');
     } catch (error) {
@@ -74,45 +74,45 @@ export class SandboxExecutionService {
   private async handleSandboxExecution(event: any): Promise<void> {
     const executionId = event.requestId || randomUUID();
     const { toolId, parameters, config: userConfig } = event;
-    
+
     const execution: SandboxExecution = {
       id: executionId,
       toolId,
       parameters,
       config: { ...this.DEFAULT_CONFIG, ...userConfig },
       status: 'pending',
-      startTime: Date.now()
+      startTime: Date.now(),
     };
-    
+
     this.executions.set(executionId, execution);
-    
+
     try {
       logger.info('Starting sandbox execution', {
         executionId,
         toolId,
-        config: execution.config
+        config: execution.config,
       });
-      
+
       // For now, simulate sandbox execution
       // In production, this would use proper isolation
       const result = await this.simulateSandboxExecution(execution);
-      
+
       execution.status = 'completed';
       execution.endTime = Date.now();
       execution.result = result;
-      
+
       // Publish success response
       await this.eventBus.publish(`sandbox.response.${executionId}`, {
         requestId: executionId,
         status: 'SUCCESS',
         result,
         executionTime: execution.endTime - execution.startTime,
-        sandbox: true
+        sandbox: true,
       });
-      
+
       logger.info('Sandbox execution completed', {
         executionId,
-        executionTime: execution.endTime - execution.startTime
+        executionTime: execution.endTime - execution.startTime,
       });
     } catch (error) {
       await this.handleExecutionError(execution, error);
@@ -130,20 +130,20 @@ export class SandboxExecutionService {
   private async simulateSandboxExecution(execution: SandboxExecution): Promise<any> {
     return new Promise((resolve, reject) => {
       execution.status = 'running';
-      
+
       // Set execution timeout
       const timeout = setTimeout(() => {
         execution.status = 'timeout';
         reject(new Error('Execution timeout exceeded'));
       }, execution.config.maxExecutionTime);
-      
+
       // Simulate execution
       setTimeout(() => {
         clearTimeout(timeout);
         resolve({
           message: `Sandbox execution of ${execution.toolId} completed`,
           parameters: execution.parameters,
-          sandbox: true
+          sandbox: true,
         });
       }, 1000); // 1 second simulation
     });
@@ -153,19 +153,19 @@ export class SandboxExecutionService {
     logger.error('Sandbox execution failed', {
       executionId: execution.id,
       toolId: execution.toolId,
-      error: error.message || String(error)
+      error: error.message || String(error),
     });
-    
+
     execution.status = 'failed';
     execution.endTime = Date.now();
     execution.error = error.message || 'Sandbox execution failed';
-    
+
     await this.eventBus.publish(`sandbox.response.${execution.id}`, {
       requestId: execution.id,
       status: 'ERROR',
       error: execution.error,
       executionTime: execution.endTime - execution.startTime,
-      sandbox: true
+      sandbox: true,
     });
   }
 
@@ -193,13 +193,13 @@ export class SandboxExecutionService {
       execution.status = 'failed';
       execution.error = 'Execution terminated by user';
       execution.endTime = Date.now();
-      
+
       await this.eventBus.publish(`sandbox.response.${executionId}`, {
         requestId: executionId,
         status: 'ERROR',
         error: execution.error,
         executionTime: execution.endTime - execution.startTime,
-        sandbox: true
+        sandbox: true,
       });
     }
   }
@@ -214,16 +214,16 @@ export class SandboxExecutionService {
     failureRate: number;
   }> {
     const executions = Array.from(this.executions.values());
-    const completed = executions.filter(e => e.status === 'completed' || e.status === 'failed');
-    const failed = executions.filter(e => e.status === 'failed' || e.status === 'timeout');
-    
+    const completed = executions.filter((e) => e.status === 'completed' || e.status === 'failed');
+    const failed = executions.filter((e) => e.status === 'failed' || e.status === 'timeout');
+
     const totalTime = completed.reduce((sum, e) => sum + (e.endTime! - e.startTime), 0);
-    
+
     return {
-      activeExecutions: executions.filter(e => e.status === 'running').length,
+      activeExecutions: executions.filter((e) => e.status === 'running').length,
       totalExecutions: executions.length,
       averageExecutionTime: completed.length > 0 ? totalTime / completed.length : 0,
-      failureRate: executions.length > 0 ? failed.length / executions.length : 0
+      failureRate: executions.length > 0 ? failed.length / executions.length : 0,
     };
   }
 }

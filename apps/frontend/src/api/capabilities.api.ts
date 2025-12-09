@@ -10,7 +10,7 @@ import type {
   CapabilityType,
   CapabilityStatus,
   CapabilitySearchRequest,
-  CapabilityRecommendation
+  CapabilityRecommendation,
 } from '@uaip/types';
 
 export interface CapabilityCreate {
@@ -101,15 +101,25 @@ export const capabilitiesAPI = {
   },
 
   async getRecommendations(context?: any): Promise<CapabilityRecommendation[]> {
-    return APIClient.post<CapabilityRecommendation[]>(API_ROUTES.CAPABILITIES.RECOMMENDATIONS, { context });
+    return APIClient.post<CapabilityRecommendation[]>(API_ROUTES.CAPABILITIES.RECOMMENDATIONS, {
+      context,
+    });
   },
 
   async getDependencies(id: string): Promise<CapabilityDependency> {
-    return APIClient.get<CapabilityDependency>(`${API_ROUTES.CAPABILITIES.DEPENDENCIES}/${id}/dependencies`);
+    return APIClient.get<CapabilityDependency>(
+      `${API_ROUTES.CAPABILITIES.DEPENDENCIES}/${id}/dependencies`
+    );
   },
 
-  async updateDependencies(id: string, dependencies: Omit<CapabilityDependency, 'capabilityId'>): Promise<void> {
-    return APIClient.put(`${API_ROUTES.CAPABILITIES.DEPENDENCIES}/${id}/dependencies`, dependencies);
+  async updateDependencies(
+    id: string,
+    dependencies: Omit<CapabilityDependency, 'capabilityId'>
+  ): Promise<void> {
+    return APIClient.put(
+      `${API_ROUTES.CAPABILITIES.DEPENDENCIES}/${id}/dependencies`,
+      dependencies
+    );
   },
 
   async validate(capability: CapabilityCreate | CapabilityUpdate): Promise<CapabilityValidation> {
@@ -124,7 +134,10 @@ export const capabilitiesAPI = {
     return APIClient.post<Capability>(`${API_ROUTES.CAPABILITIES.UPDATE}/${id}/disable`);
   },
 
-  async test(id: string, testData?: any): Promise<{
+  async test(
+    id: string,
+    testData?: any
+  ): Promise<{
     success: boolean;
     result?: any;
     error?: string;
@@ -133,19 +146,23 @@ export const capabilitiesAPI = {
     return APIClient.post(`${API_ROUTES.CAPABILITIES.GET}/${id}/test`, testData);
   },
 
-  async getProviders(): Promise<Array<{
-    name: string;
-    displayName: string;
-    capabilityCount: number;
-    status: 'active' | 'inactive';
-  }>> {
+  async getProviders(): Promise<
+    Array<{
+      name: string;
+      displayName: string;
+      capabilityCount: number;
+      status: 'active' | 'inactive';
+    }>
+  > {
     return APIClient.get(API_ROUTES.CAPABILITIES.PROVIDERS);
   },
 
-  async getTags(): Promise<Array<{
-    name: string;
-    count: number;
-  }>> {
+  async getTags(): Promise<
+    Array<{
+      name: string;
+      count: number;
+    }>
+  > {
     return APIClient.get(API_ROUTES.CAPABILITIES.TAGS);
   },
 
@@ -163,7 +180,7 @@ export const capabilitiesAPI = {
   async export(format: 'json' | 'yaml' = 'json'): Promise<Blob> {
     const response = await APIClient.get(`${API_ROUTES.CAPABILITIES.LIST}/export`, {
       params: { format },
-      responseType: 'blob'
+      responseType: 'blob',
     });
     return response;
   },
@@ -176,5 +193,5 @@ export const capabilitiesAPI = {
     const formData = new FormData();
     formData.append('file', file);
     return APIClient.post(`${API_ROUTES.CAPABILITIES.REGISTER}/import`, formData);
-  }
+  },
 };

@@ -60,13 +60,13 @@ export class ModelSyncService {
       modelsCreated: 0,
       modelsUpdated: 0,
       modelsMarkedUnavailable: 0,
-      errors: []
+      errors: [],
     };
 
     try {
-      logger.info('Starting model sync for provider', { 
-        providerId, 
-        providerName: provider.getName()
+      logger.info('Starting model sync for provider', {
+        providerId,
+        providerName: provider.getName(),
       });
 
       // Get models from provider API
@@ -74,15 +74,15 @@ export class ModelSyncService {
       result.modelsFound = providerModels.length;
 
       if (providerModels.length === 0) {
-        logger.warn('No models found from provider', { 
-          providerId, 
-          providerName: provider.getName() 
+        logger.warn('No models found from provider', {
+          providerId,
+          providerName: provider.getName(),
         });
         return result;
       }
 
       // Convert provider models to database format
-      const modelData: Partial<LLMModel>[] = providerModels.map(model => ({
+      const modelData: Partial<LLMModel>[] = providerModels.map((model) => ({
         name: model.name,
         description: model.description,
         providerId,
@@ -92,7 +92,7 @@ export class ModelSyncService {
         priority: 100, // Default priority
         totalTokensUsed: '0',
         totalRequests: '0',
-        totalErrors: '0'
+        totalErrors: '0',
       }));
 
       // Batch upsert models
@@ -111,27 +111,23 @@ export class ModelSyncService {
       }
 
       // Mark models not returned by provider as unavailable
-      const currentModelNames = providerModels.map(m => m.name);
-      const unavailableCount = await this.markModelsUnavailable(
-        providerId,
-        currentModelNames
-      );
+      const currentModelNames = providerModels.map((m) => m.name);
+      const unavailableCount = await this.markModelsUnavailable(providerId, currentModelNames);
       result.modelsMarkedUnavailable = unavailableCount;
 
       logger.info('Model sync completed successfully', {
         providerId,
         providerName: provider.getName(),
-        result
+        result,
       });
-
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       result.errors.push(errorMessage);
-      
+
       logger.error('Model sync failed for provider', {
         providerId,
         providerName: provider.getName(),
-        error: errorMessage
+        error: errorMessage,
       });
     }
 
@@ -146,17 +142,17 @@ export class ModelSyncService {
 
     // Get all active user providers from database
     const dbProviders = await this.userLLMProviderRepository.findActiveProviders();
-    
-    logger.info('Starting model sync for all user providers', { 
-      providerCount: dbProviders.length 
+
+    logger.info('Starting model sync for all user providers', {
+      providerCount: dbProviders.length,
     });
 
     for (const dbProvider of dbProviders) {
       const provider = providers.get(dbProvider.type);
       if (!provider) {
-        logger.warn('Provider implementation not found', { 
+        logger.warn('Provider implementation not found', {
           providerId: dbProvider.id,
-          providerType: dbProvider.type 
+          providerType: dbProvider.type,
         });
         continue;
       }
@@ -176,7 +172,7 @@ export class ModelSyncService {
       totalModels,
       totalCreated,
       totalUpdated,
-      totalErrors
+      totalErrors,
     });
 
     return results;
@@ -196,9 +192,9 @@ export class ModelSyncService {
     const result = await this.dataSource
       .createQueryBuilder()
       .update(LLMModel)
-      .set({ 
-        isAvailable: false, 
-        lastCheckedAt: new Date() 
+      .set({
+        isAvailable: false,
+        lastCheckedAt: new Date(),
       })
       .where('providerId = :providerId', { providerId })
       .andWhere('name NOT IN (:...names)', { names: availableModelNames })
@@ -212,14 +208,12 @@ export class ModelSyncService {
    * Clean up stale models (not checked in X hours)
    */
   async cleanupStaleModels(staleThresholdHours: number = 24): Promise<number> {
-    await this.llmModelRepository.markStaleModelsAsUnavailable(
-      staleThresholdHours
-    );
-    
-    logger.info('Cleaned up stale models', { 
-      staleThresholdHours
+    await this.llmModelRepository.markStaleModelsAsUnavailable(staleThresholdHours);
+
+    logger.info('Cleaned up stale models', {
+      staleThresholdHours,
     });
-    
+
     return 0; // markStaleModelsAsUnavailable returns void
   }
 
@@ -237,13 +231,13 @@ export class ModelSyncService {
       this.llmModelRepository.count(),
       this.llmModelRepository.count({ where: { isAvailable: true } }),
       this.userLLMProviderRepository.count(),
-      this.userLLMProviderRepository.count({ where: { isActive: true } })
+      this.userLLMProviderRepository.count({ where: { isActive: true } }),
     ]);
 
     // Get last sync time from most recently checked model
     const lastSyncResult = await this.llmModelRepository.findOne({
       order: { lastCheckedAt: 'DESC' },
-      select: ['lastCheckedAt']
+      select: ['lastCheckedAt'],
     });
 
     return {
@@ -251,7 +245,7 @@ export class ModelSyncService {
       availableModels,
       totalProviders,
       activeProviders,
-      lastSyncTime: lastSyncResult?.lastCheckedAt
+      lastSyncTime: lastSyncResult?.lastCheckedAt,
     };
   }
 }

@@ -98,18 +98,22 @@ export const securityAPI = {
     return APIClient.post<RiskAssessment>(API_ROUTES.SECURITY.ASSESS_RISK, {
       resource,
       action,
-      context
+      context,
     });
   },
 
-  async checkApprovalRequired(resource: string, action: string, context?: any): Promise<{
+  async checkApprovalRequired(
+    resource: string,
+    action: string,
+    context?: any
+  ): Promise<{
     required: boolean;
     requirements?: ApprovalRequirement[];
   }> {
     return APIClient.post(API_ROUTES.SECURITY.CHECK_APPROVAL, {
       resource,
       action,
-      context
+      context,
     });
   },
 
@@ -143,7 +147,9 @@ export const securityAPI = {
   },
 
   async deactivatePolicy(id: string): Promise<SecurityPolicy> {
-    return APIClient.post<SecurityPolicy>(`${API_ROUTES.SECURITY.DEACTIVATE_POLICY}/${id}/deactivate`);
+    return APIClient.post<SecurityPolicy>(
+      `${API_ROUTES.SECURITY.DEACTIVATE_POLICY}/${id}/deactivate`
+    );
   },
 
   // Security events
@@ -169,7 +175,10 @@ export const securityAPI = {
   },
 
   // Compliance
-  async checkCompliance(resource: string, action: string): Promise<{
+  async checkCompliance(
+    resource: string,
+    action: string
+  ): Promise<{
     compliant: boolean;
     violations?: string[];
     recommendations?: string[];
@@ -180,8 +189,8 @@ export const securityAPI = {
   async exportSecurityReport(format: 'pdf' | 'csv' | 'json' = 'pdf'): Promise<Blob> {
     const response = await APIClient.get(`${API_ROUTES.SECURITY.EXPORT}/report`, {
       params: { format },
-      responseType: 'blob'
+      responseType: 'blob',
     });
     return response;
-  }
+  },
 };

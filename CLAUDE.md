@@ -16,6 +16,7 @@ Council of Nycea is a **Unified Agent Intelligence Platform (UAIP)** - a product
 ## Common Development Commands
 
 ### Start Development Environment
+
 ```bash
 # Full system (takes ~2 minutes to start)
 pnpm run dev
@@ -26,7 +27,7 @@ pnpm run dev
 # Backend services only
 pnpm run dev:backend
 
-# Frontend only  
+# Frontend only
 pnpm run dev:frontend
 
 # Minimal development (core services only)
@@ -34,6 +35,7 @@ cd backend && pnpm run dev:minimal
 ```
 
 ### Build Commands
+
 ```bash
 # Build everything (shared packages, backend, frontend)
 pnpm run build
@@ -49,6 +51,7 @@ pnpm run build:frontend
 ```
 
 ### Testing
+
 ```bash
 # Run all tests across packages
 pnpm test
@@ -66,16 +69,18 @@ pnpm run test:artifacts:code
 ```
 
 **Test Coverage Status:**
+
 - ✅ **Middleware Package**: Complete test suite with 8 test suites and 132 passing tests
   - Authentication & authorization middleware
   - Error handling and transformation
-  - Request validation with Zod schemas  
+  - Request validation with Zod schemas
   - Rate limiting functionality
   - Request/response logging
   - Prometheus metrics collection
   - Agent validation and transformation logic
 
 ### Linting
+
 ```bash
 # Lint all packages
 npm run lint
@@ -87,6 +92,7 @@ npm run lint:fix
 ## Architecture Overview
 
 ### Monorepo Structure
+
 This is a **TypeScript monorepo** managed with pnpm workspaces:
 
 ```
@@ -94,7 +100,7 @@ council-of-nycea/
 ├── apps/frontend/              # React frontend (port 3000)
 ├── packages/                   # Shared packages
 │   ├── shared-types/          # @uaip/types
-│   └── shared-utils/          # @uaip/utils  
+│   └── shared-utils/          # @uaip/utils
 ├── backend/
 │   ├── services/              # 7 microservices (ports 3001-3005)
 │   │   ├── agent-intelligence/
@@ -112,6 +118,7 @@ council-of-nycea/
 ```
 
 ### Core Services
+
 - **Agent Intelligence** (3001) - Modular AI agent management with 6 specialized microservices, context analysis, persona handling
 - **Orchestration Pipeline** (3002) - Workflow coordination, operation management, tool execution orchestration
 - **Capability Registry** (3003) - Tool management, sandboxed execution, enterprise tool adapters (Jira, Confluence, Slack)
@@ -121,13 +128,15 @@ council-of-nycea/
 - **Artifact Service** (artifact-service) - Code generation, documentation, PRD creation
 
 ### Database Architecture
+
 - **PostgreSQL** (port 5432) - Primary database with TypeORM entities
-- **Neo4j** (port 7474/7687) - Graph database for agent relationships and knowledge graph  
+- **Neo4j** (port 7474/7687) - Graph database for agent relationships and knowledge graph
 - **Qdrant** (port 6333) - Vector database for semantic search and embeddings
 - **Redis** (port 6379) - Caching, sessions, pub/sub
 - **RabbitMQ** (port 5672) - Event-driven messaging between services
 
 ### Knowledge Graph Architecture
+
 The platform implements a **triple-store knowledge architecture** where every knowledge item exists with the same UUID across three specialized systems:
 
 - **PostgreSQL**: Structured data, metadata, relationships, access control
@@ -135,6 +144,7 @@ The platform implements a **triple-store knowledge architecture** where every kn
 - **Qdrant**: Vector embeddings, semantic search, similarity matching
 
 **Universal Sync Process:**
+
 ```typescript
 // Automatic bidirectional synchronization
 KnowledgeBootstrapService.runPostSeedSync() → {
@@ -151,6 +161,7 @@ KnowledgeBootstrapService.runPostSeedSync() → {
 **This is a monorepo** - always use workspace imports, never relative paths across packages.
 
 ### ✅ Correct monorepo imports:
+
 ```typescript
 // Cross-package imports
 import { Operation } from '@uaip/types/operation';
@@ -163,17 +174,18 @@ import { AgentService } from '@/services/agentService';
 ```
 
 ### ❌ Never use relative paths across packages:
+
 ```typescript
 // DON'T DO THIS
 import { Operation } from '../../../shared/types/src/operation';
 import { logger } from '../../../shared/utils/src/logger';
 ```
 
-## Build Dependencies 
+## Build Dependencies
 
-**Build  ** - Just build it will building the entire set:
+**Build ** - Just build it will building the entire set:
 
-1. `pnpm build` - Build packages/shared-types, packages/shared-utils, backend/shared/*
+1. `pnpm build` - Build packages/shared-types, packages/shared-utils, backend/shared/\*
 
 ## Key Technologies
 
@@ -188,9 +200,10 @@ import { logger } from '../../../shared/utils/src/logger';
 - **Package Manager**: pnpm with workspace support
 
 ## Development Workflow
-3. You are in a ec2 work instance, you make a change, its hot reloaded. 
-4. always use pupeeter to test some ui things, 
-4. **Access system**: Frontend at http://localhost:3000, API docs at http://localhost:8081/docs
+
+3. You are in a ec2 work instance, you make a change, its hot reloaded.
+4. always use pupeeter to test some ui things,
+5. **Access system**: Frontend at http://localhost:3000, API docs at http://localhost:8081/docs
 
 For focused development, use minimal services: `cd backend && npm run dev:minimal`
 
@@ -229,6 +242,7 @@ For focused development, use minimal services: `cd backend && npm run dev:minima
 Successfully implemented a comprehensive **bidirectional knowledge synchronization system** that ensures every knowledge item has a consistent UUID across PostgreSQL, Neo4j, and Qdrant:
 
 **🌟 Key Features:**
+
 - **Universal Discovery**: Automatically discovers existing knowledge items across all three systems
 - **Bidirectional Sync**: Handles data starting in PostgreSQL → Neo4j + Qdrant, Neo4j → PostgreSQL + Qdrant, or Qdrant → PostgreSQL + Neo4j
 - **UUID Consistency**: Every knowledge item maintains the same UUID across all systems
@@ -237,12 +251,14 @@ Successfully implemented a comprehensive **bidirectional knowledge synchronizati
 - **Resilient Architecture**: Continues even if individual systems fail, graceful degradation
 
 **📁 Implementation Files:**
+
 - `/backend/shared/services/src/knowledge-graph/knowledge-sync.service.ts` - Core synchronization logic
 - `/backend/shared/services/src/knowledge-graph/bootstrap.service.ts` - Startup and post-seed coordination
 - Enhanced `QdrantService` with UUID-based point operations
 - Extended `KnowledgeRepository` with bidirectional discovery methods
 
 **🔄 Sync Process:**
+
 1. **Discovery Phase**: Scans PostgreSQL, Neo4j, and Qdrant for existing knowledge items
 2. **Universal Mapping**: Creates unified view of which items exist where
 3. **Smart Sync**: Only syncs to missing systems (efficient, no duplicates)
@@ -250,6 +266,7 @@ Successfully implemented a comprehensive **bidirectional knowledge synchronizati
 5. **Vector Embedding**: Generates and stores embeddings in Qdrant with UUID metadata
 
 **🚀 Usage:**
+
 ```typescript
 // Post-seed synchronization
 const bootstrapService = new KnowledgeBootstrapService(dependencies);
@@ -265,9 +282,11 @@ const stats = await bootstrapService.getSyncStatistics();
 ```
 
 ### ✅ Tool System Architecture Alignment (2025-01-04)
+
 Successfully resolved all build errors and aligned the tool system with the vision of **universal augments for both humans and agents**:
 
 **Key Improvements:**
+
 - **Unified Security Model**: Removed separate `ToolSecurityLevel` enum, aligned all tools to use universal `SecurityLevel` (LOW, MEDIUM, HIGH, CRITICAL)
 - **Type System Consolidation**: Fixed `UnifiedToolDefinition` to properly extend base `ToolDefinition` without conflicts
 - **Project Management Enhancement**: Added `PAUSED` status to `ProjectStatus`, extended project settings with `allowedTools` array
@@ -275,8 +294,9 @@ Successfully resolved all build errors and aligned the tool system with the visi
 - **Technical Debt Removal**: Eliminated type mismatches, fixed validation schemas, streamlined repository access patterns
 
 **Build Status:** ✅ **All packages now build successfully**
+
 - Shared packages: ✅ Clean builds
-- Backend services: ✅ Full compilation success  
+- Backend services: ✅ Full compilation success
 - Frontend: ✅ Production build ready
 
 ### ✅ Unified Knowledge Architecture Implementation (2025-01-07)
@@ -284,6 +304,7 @@ Successfully resolved all build errors and aligned the tool system with the visi
 Successfully implemented a **unified knowledge system architecture** with clear separation of concerns and complete frontend integration:
 
 **🌟 Key Achievements:**
+
 - **Service Separation**: Clean split between Security Gateway (personal knowledge CRUD) and Agent Intelligence (AI processing)
 - **API Route Consolidation**: Eliminated duplicate routes, established clear endpoint responsibilities
 - **Production Controller**: Created chatIngestionController.ts with real service integration and comprehensive error handling
@@ -292,6 +313,7 @@ Successfully implemented a **unified knowledge system architecture** with clear 
 - **Syntax Corrections**: Fixed JSX fragment structure and modal nesting issues
 
 **📁 Implementation Files:**
+
 - `/backend/services/agent-intelligence/src/controllers/chatIngestionController.ts` - Production-ready chat ingestion with job tracking
 - `/backend/services/agent-intelligence/src/routes/knowledgeRoutes.ts` - AI-focused knowledge processing routes
 - `/backend/services/security-gateway/src/routes/knowledgeRoutes.ts` - Personal knowledge CRUD operations
@@ -300,6 +322,7 @@ Successfully implemented a **unified knowledge system architecture** with clear 
 - `/apps/frontend/src/api/knowledge.api.ts` - Extended with chat ingestion endpoints
 
 **🔄 Architecture Pattern:**
+
 ```typescript
 // Security Gateway: Personal Knowledge Management
 GET/POST/PUT/DELETE /api/v1/knowledge/* → User knowledge CRUD
@@ -315,6 +338,7 @@ GET /api/v1/knowledge/expertise/:participant → Expertise analysis
 ```
 
 **🚀 Frontend Integration Features:**
+
 - **Multiple Access Methods**: Actions Menu dropdown, keyboard shortcuts (Ctrl+Shift+K), floating action button
 - **Z-Index Management**: Comprehensive layering (modal 9999, content 10000, containers 10001-10002, dropdowns 10003)
 - **Platform Support**: Claude, ChatGPT, WhatsApp, and generic conversation formats
@@ -324,6 +348,7 @@ GET /api/v1/knowledge/expertise/:participant → Expertise analysis
 ### 🎯 Next Steps: Knowledge Graph Evolution
 
 **Immediate Priorities:**
+
 1. **Production Testing**: End-to-end testing of complete chat ingestion pipeline
 2. **Performance Optimization**: Load testing and batch processing optimization
 3. **Real-time Sync**: Implement real-time knowledge item sync during runtime operations
@@ -331,6 +356,7 @@ GET /api/v1/knowledge/expertise/:participant → Expertise analysis
 5. **Vector Search Enhancement**: Improve Qdrant similarity search with metadata filtering
 
 **Architecture Goals:**
+
 - **Self-Healing System**: Automatic detection and repair of sync inconsistencies
 - **Intelligent Deduplication**: Smart merge of similar knowledge items across systems
 - **Graph Analytics**: Neo4j-powered knowledge relationship insights and recommendations
@@ -353,18 +379,19 @@ GET /api/v1/knowledge/expertise/:participant → Expertise analysis
 - **Embedding failures**: Check TEI/embedding service availability and dimensions match (default: 768)
 - **UUID mismatches**: Run `bootstrapService.verifyItemSync(itemId)` to check consistency
 - **Performance issues**: Monitor batch sizes in sync operations, adjust `batchSize` config
-Council of Nycea: Technical Debt Cleanup Plan
+  Council of Nycea: Technical Debt Cleanup Plan
 
   Executive Summary
 
   Based on comprehensive analysis, the codebase has
-   moderate technical debt with excellent
+  moderate technical debt with excellent
   foundational architecture. Redis and Neo4j are
   fully integrated. The main issues center around
   duplicate patterns, large files, and insufficient
-   testing coverage.
+  testing coverage.
 
-  ---
+  ***
+
   🔴 Phase 1: Critical Foundation (Weeks 1-2)
 
   1.1 Service Pattern Consolidation
@@ -374,18 +401,18 @@ Council of Nycea: Technical Debt Cleanup Plan
 
   Tasks:
   - Create BaseService class in
-  /backend/shared/services/src/BaseService.ts
+    /backend/shared/services/src/BaseService.ts
   - Consolidate duplicate Express setup patterns
-  across 7 services
+    across 7 services
   - Extract common middleware chains (helmet,
-  compression, rate limiting)
+    compression, rate limiting)
   - Standardize graceful shutdown logic
 
   Files to Refactor:
-  - /backend/services/*/src/index.ts (7 services)
+  - /backend/services/\*/src/index.ts (7 services)
   - /backend/shared/services/src/ (new BaseService)
 
-  1.2 DatabaseService Decomposition ✅ COMPLETED
+    1.2 DatabaseService Decomposition ✅ COMPLETED
 
   Priority: CRITICALImpact: Improved
   maintainability, reduced couplingEffort: 1 week
@@ -393,23 +420,23 @@ Council of Nycea: Technical Debt Cleanup Plan
   Completed Tasks:
   ✅ Break down 2,175-line DatabaseService into
   domain services:
-    ✅ UserService (user operations + LLM providers)
-    ✅ ToolService (tool operations + executions)
-    ✅ AgentService (agent operations)
-    ✅ ProjectService (project operations)
-    ✅ SecurityService (security policies)
-    ✅ AuditService (audit trails)
-    ✅ ArtifactService (artifact management)
-    ✅ SessionService (session management)
-    ✅ MFAService (multi-factor auth)
-    ✅ OAuthService (OAuth providers)
+  ✅ UserService (user operations + LLM providers)
+  ✅ ToolService (tool operations + executions)
+  ✅ AgentService (agent operations)
+  ✅ ProjectService (project operations)
+  ✅ SecurityService (security policies)
+  ✅ AuditService (audit trails)
+  ✅ ArtifactService (artifact management)
+  ✅ SessionService (session management)
+  ✅ MFAService (multi-factor auth)
+  ✅ OAuthService (OAuth providers)
   ✅ Implement proper dependency injection
   ✅ Fix lazy loading race conditions
   ✅ Domain-specific repository organization
 
   Files Refactored:
   ✅ /backend/shared/services/src/databaseService.ts
-   (delegated to domain services)
+  (delegated to domain services)
   ✅ Created 10+ domain service files with proper
   abstractions
   ✅ Fixed LLM provider repository organization
@@ -419,22 +446,21 @@ Council of Nycea: Technical Debt Cleanup Plan
   Priority: CRITICAL (Security)Impact: Single
   source of truth for authenticationEffort: 3 days
 
-
   Tasks:
   - Consolidate JWT validation logic from 4+
-  locations
+    locations
   - Create unified JWTValidator class
   - Standardize token validation patterns
   - Remove duplicate authentication middleware
 
   Files to Refactor:
-  -
-  /backend/shared/middleware/src/authMiddleware.ts
+  - /backend/shared/middleware/src/authMiddleware.ts
   - /backend/services/security-gateway/src/index.ts
   - /backend/services/security-gateway/src/services
-  /enhancedAuthService.ts
+    /enhancedAuthService.ts
 
-  ---
+  ***
+
   🟠 Phase 2: Large File Refactoring (Weeks 3-4)
 
   2.1 Frontend API Utility Breakdown
@@ -444,53 +470,54 @@ Council of Nycea: Technical Debt Cleanup Plan
 
   Tasks:
   - Split 2,295-line
-  /apps/frontend/src/utils/api.ts into:
+    /apps/frontend/src/utils/api.ts into:
     - authApi.ts (authentication endpoints)
     - agentApi.ts (agent management)
     - toolApi.ts (tool operations)
     - projectApi.ts (project management)
     - discussionApi.ts (discussion endpoints)
 
-  2.2 Backend Controller Refactoring
+    2.2 Backend Controller Refactoring
 
   Priority: HIGHImpact: Better code
   organizationEffort: 3 days
 
   Tasks:
   - Refactor /backend/services/agent-intelligence/s
-  rc/controllers/agentController.ts (1,332 lines)
+    rc/controllers/agentController.ts (1,332 lines)
   - Refactor /backend/services/orchestration-pipeli
-  ne/src/orchestrationEngine.ts (1,328 lines)
+    ne/src/orchestrationEngine.ts (1,328 lines)
   - Split into focused, single-responsibility
-  modules
+    modules
 
-  2.3 Legacy Pattern Modernization
+    2.3 Legacy Pattern Modernization
 
   Priority: HIGHImpact: Consistency and
   maintainabilityEffort: 3 days
 
   Tasks:
   - Replace Promise chains with async/await (25+
-  files)
+    files)
   - Enable TypeScript strict mode gradually
-star
+    star
 
-  ---
+  ***
+
   🟡 Phase 3: Testing & Quality (Weeks 5-6)
 
   3.1 Integration Test Implementation
 
   Priority: HIGHImpact: Improved reliabilityEffort:
-   1 week
+  1 week
 
   Tasks:
   - Add integration tests for authentication flows
   - Test core database operations (currently 0%
-  coverage)
+    coverage)
   - Create WebSocket handler tests
   - Implement agent orchestration tests
 
-  3.2 Unit Test Coverage
+    3.2 Unit Test Coverage
 
   Priority: MEDIUMImpact: Better code
   qualityEffort: 1 week
@@ -501,23 +528,24 @@ star
   - Mock external dependencies properly
   - Achieve 80% coverage target
 
-  ---
+  ***
+
   🟢 Phase 4: Performance & Architecture (Weeks
   7-8)
 
   4.1 Database Optimization
 
   Priority: MEDIUMImpact: Better performanceEffort:
-   4 days
+  4 days
 
   Tasks:
   - Add database indexes on frequently queried
-  fields
+    fields
   - Fix N+1 query problems in repository patterns
   - Implement proper connection pooling
   - Add query performance monitoring
 
-  4.2 Architecture Improvements
+    4.2 Architecture Improvements
 
   Priority: MEDIUMImpact: Better
   maintainabilityEffort: 4 days
@@ -528,7 +556,8 @@ star
   - Standardize error handling patterns
   - Add proper logging throughout
 
-  ---
+  ***
+
   🔧 Implementation Strategy
 
   Week-by-Week Breakdown
@@ -547,7 +576,7 @@ star
   ✅ Phase 1.2 Complete: DatabaseService decomposition
   🔄 Phase 1.1 In Progress: Service pattern consolidation
   🔄 Phase 1.3 Pending: JWT validation consolidation
-  
+
   Key Achievements:
   - Successfully organized repositories by domain
   - Fixed build errors in ToolService
@@ -555,28 +584,27 @@ star
   - LLM providers properly organized in UserService domain
 
   Risk Mitigation
-
   - Gradual Migration: Implement new patterns
-  alongside old ones
+    alongside old ones
   - Feature Flags: Use feature toggles for major
-  changes
+    changes
   - Rollback Strategy: Keep original
-  implementations until new ones are proven
+    implementations until new ones are proven
   - Testing: Comprehensive testing before removing
-  old code
+    old code
 
   Success Metrics
-
   - Code Reduction: 40% reduction in duplicate code
   - File Size: No files >500 lines (target: <300
-  lines)
+    lines)
   - Test Coverage: 80% coverage on business logic
   - Performance: 25% improvement in API response
-  times
+    times
   - Maintainability: Reduced complexity scores
-  across all services
+    across all services
 
-  ---
+  ***
+
   📊 Resource Requirements
 
   Team Size: 2-3 developersTimeline: 8 weeksRisk
@@ -587,9 +615,9 @@ star
   - Maintenance Time: 50% reduction in bug fix time
   - New Feature Velocity: 30% improvement
   - Code Quality: Significantly improved
-  maintainability
+    maintainability
   - Developer Experience: Better onboarding and
-  debugging
+    debugging
 
   This plan addresses the real technical debt
   issues while preserving the excellent

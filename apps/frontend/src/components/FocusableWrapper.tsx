@@ -25,7 +25,7 @@ export const FocusableWrapper: React.FC<FocusableWrapperProps> = ({
   children,
   className = '',
   focusClassName = 'ring-2 ring-cyan-500/50 ring-offset-2 ring-offset-slate-900',
-  hoverClassName = 'ring-1 ring-blue-400/30'
+  hoverClassName = 'ring-1 ring-blue-400/30',
 }) => {
   const elementRef = useRef<HTMLDivElement>(null);
   const { registerElement, unregisterElement, isFocused, isHovered } = useFocusManager();
@@ -39,7 +39,7 @@ export const FocusableWrapper: React.FC<FocusableWrapperProps> = ({
       type,
       element,
       data,
-      preview
+      preview,
     });
 
     return () => {
@@ -62,12 +62,12 @@ export const FocusableWrapper: React.FC<FocusableWrapperProps> = ({
       `}
       animate={{
         scale: focused ? 1.02 : 1,
-        z: focused ? 10 : 1
+        z: focused ? 10 : 1,
       }}
       transition={{
-        type: "spring",
+        type: 'spring',
         stiffness: 300,
-        damping: 30
+        damping: 30,
       }}
     >
       {/* Focus indicator */}
@@ -91,9 +91,7 @@ export const FocusableWrapper: React.FC<FocusableWrapperProps> = ({
       )}
 
       {/* Content */}
-      <div className="relative z-10">
-        {children}
-      </div>
+      <div className="relative z-10">{children}</div>
 
       {/* Focus pulse animation */}
       {focused && (
@@ -101,12 +99,12 @@ export const FocusableWrapper: React.FC<FocusableWrapperProps> = ({
           className="absolute inset-0 border-2 border-cyan-400/30 rounded-lg"
           animate={{
             opacity: [0.3, 0.6, 0.3],
-            scale: [1, 1.02, 1]
+            scale: [1, 1.02, 1],
           }}
           transition={{
             duration: 2,
             repeat: Infinity,
-            ease: "easeInOut"
+            ease: 'easeInOut',
           }}
         />
       )}

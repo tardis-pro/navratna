@@ -26,7 +26,7 @@ enum CapabilityType {
   TOOL = 'tool',
   GENERATOR = 'generator',
   ANALYZER = 'analyzer',
-  TRANSFORMER = 'transformer'
+  TRANSFORMER = 'transformer',
 }
 ```
 
@@ -212,11 +212,11 @@ interface ResourceLimits {
 ```typescript
 abstract class BaseTool implements Capability {
   abstract execute(params: any): Promise<any>;
-  
+
   async validate(params: any): Promise<boolean> {
     return this.validateParameters(params);
   }
-  
+
   async cleanup(): Promise<void> {
     // Cleanup resources
   }
@@ -264,23 +264,23 @@ const codeAnalyzer = {
     type: 'node',
     handler: async (params) => {
       // Implementation
-    }
+    },
   },
   parameters: [
     {
       name: 'source',
       type: 'string',
-      required: true
+      required: true,
     },
     {
       name: 'language',
       type: 'string',
       required: true,
       validation: {
-        enum: ['javascript', 'typescript', 'python']
-      }
-    }
-  ]
+        enum: ['javascript', 'typescript', 'python'],
+      },
+    },
+  ],
 };
 
 await registry.registerCapability(codeAnalyzer);
@@ -294,20 +294,21 @@ const result = await executor.execute({
   capability: 'code-analyzer',
   parameters: {
     source: sourceCode,
-    language: 'typescript'
+    language: 'typescript',
   },
   context: {
     requestId: 'req-123',
     security: {
-      permissions: ['read_source']
-    }
-  }
+      permissions: ['read_source'],
+    },
+  },
 });
 ```
 
 ## Best Practices
 
 ### Tool Development
+
 1. Clear parameter definitions
 2. Comprehensive validation
 3. Proper error handling
@@ -315,6 +316,7 @@ const result = await executor.execute({
 5. Security considerations
 
 ### Registry Management
+
 1. Version control
 2. Conflict resolution
 3. Discovery optimization
@@ -322,6 +324,7 @@ const result = await executor.execute({
 5. Security enforcement
 
 ### Execution
+
 1. Context validation
 2. Resource management
 3. Error handling

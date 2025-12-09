@@ -11,7 +11,7 @@ export class LLMModelRepository extends Repository<LLMModel> {
     return this.find({
       where: { isAvailable: true, isActive: true },
       relations: ['provider'],
-      order: { priority: 'ASC', name: 'ASC' }
+      order: { priority: 'ASC', name: 'ASC' },
     });
   }
 
@@ -20,7 +20,7 @@ export class LLMModelRepository extends Repository<LLMModel> {
     return this.find({
       where: { providerId, isActive: true },
       relations: ['provider'],
-      order: { priority: 'ASC', name: 'ASC' }
+      order: { priority: 'ASC', name: 'ASC' },
     });
   }
 
@@ -45,16 +45,13 @@ export class LLMModelRepository extends Repository<LLMModel> {
   async findByNameAndProvider(name: string, providerId: string): Promise<LLMModel | null> {
     return this.findOne({
       where: { name, providerId },
-      relations: ['provider']
+      relations: ['provider'],
     });
   }
 
   // Upsert model (create or update)
   async upsertModel(modelData: Partial<LLMModel>): Promise<LLMModel> {
-    const existingModel = await this.findByNameAndProvider(
-      modelData.name!,
-      modelData.providerId!
-    );
+    const existingModel = await this.findByNameAndProvider(modelData.name!, modelData.providerId!);
 
     if (existingModel) {
       // Update existing model
@@ -70,19 +67,22 @@ export class LLMModelRepository extends Repository<LLMModel> {
   }
 
   // Batch upsert models for a provider
-  async upsertModelsForProvider(providerId: string, models: Partial<LLMModel>[]): Promise<LLMModel[]> {
+  async upsertModelsForProvider(
+    providerId: string,
+    models: Partial<LLMModel>[]
+  ): Promise<LLMModel[]> {
     const results: LLMModel[] = [];
 
     for (const modelData of models) {
       const model = await this.upsertModel({
         ...modelData,
-        providerId
+        providerId,
       });
       results.push(model);
     }
 
     // Mark models not in the current list as unavailable
-    const currentModelNames = models.map(m => m.name);
+    const currentModelNames = models.map((m) => m.name);
     if (currentModelNames.length > 0) {
       await this.createQueryBuilder()
         .update(LLMModel)
@@ -115,7 +115,7 @@ export class LLMModelRepository extends Repository<LLMModel> {
       totalRequests: model.totalRequests,
       totalTokensUsed: model.totalTokensUsed,
       totalErrors: model.totalErrors,
-      errorRate
+      errorRate,
     };
   }
 
@@ -133,7 +133,7 @@ export class LLMModelRepository extends Repository<LLMModel> {
   // Mark models as unhealthy if not checked recently
   async markStaleModelsAsUnavailable(staleThresholdHours: number = 24): Promise<void> {
     const staleThreshold = new Date(Date.now() - staleThresholdHours * 60 * 60 * 1000);
-    
+
     await this.createQueryBuilder()
       .update(LLMModel)
       .set({ isAvailable: false })

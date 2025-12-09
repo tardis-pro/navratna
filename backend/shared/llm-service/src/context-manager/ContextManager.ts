@@ -43,7 +43,7 @@ export class ContextManager {
       summarizationThreshold: 50,
       tokensPerMessage: 25, // Average tokens per message
       tokensPerChar: 0.25, // Rough estimate for token counting
-      ...config
+      ...config,
     };
   }
 
@@ -51,7 +51,7 @@ export class ContextManager {
    * Create a rolling window context that fits within token budget
    */
   public createRollingWindow(
-    messages: Message[], 
+    messages: Message[],
     systemPromptTokens: number,
     toolsCount: number = 0,
     contextDocuments: DocumentContext[] = []
@@ -60,13 +60,14 @@ export class ContextManager {
     const availableForMessages = budget.messages;
 
     // If messages fit within budget, return all
-    const totalMessageTokens = this.estimateTokens(messages.map(m => m.content).join(' '));
+    const totalMessageTokens = this.estimateTokens(messages.map((m) => m.content).join(' '));
     if (totalMessageTokens <= availableForMessages) {
       return {
         recentMessages: messages,
         contextDocuments,
-        estimatedTokens: totalMessageTokens + systemPromptTokens + (toolsCount * this.config.toolsTokensPerTool),
-        windowSize: messages.length
+        estimatedTokens:
+          totalMessageTokens + systemPromptTokens + toolsCount * this.config.toolsTokensPerTool,
+        windowSize: messages.length,
       };
     }
 
@@ -99,7 +100,7 @@ export class ContextManager {
    */
   public deduplicateContext(contexts: DocumentContext[]): DocumentContext[] {
     const seen = new Set<string>();
-    return contexts.filter(context => {
+    return contexts.filter((context) => {
       const key = `${context.title}-${context.content.substring(0, 100)}`;
       if (seen.has(key)) {
         return false;
@@ -126,7 +127,7 @@ export class ContextManager {
   } {
     const warnings: string[] = [];
     const recommendations: string[] = [];
-    
+
     if (window.estimatedTokens > this.config.maxTokens * 0.9) {
       warnings.push('Context approaching token limit');
       recommendations.push('Consider more aggressive summarization');
@@ -142,8 +143,8 @@ export class ContextManager {
       recommendations.push('Consider hierarchical summarization');
     }
 
-    const status = warnings.length === 0 ? 'healthy' : 
-                   warnings.length <= 2 ? 'warning' : 'critical';
+    const status =
+      warnings.length === 0 ? 'healthy' : warnings.length <= 2 ? 'warning' : 'critical';
 
     return { status, warnings, recommendations };
   }
@@ -159,19 +160,19 @@ export class ContextManager {
       messages: availableForMessages,
       tools: toolsTokens,
       response: this.config.responseTokensReserved,
-      total: this.config.maxTokens
+      total: this.config.maxTokens,
     };
   }
 
   private createSummarizedWindow(
-    messages: Message[], 
-    availableTokens: number, 
+    messages: Message[],
+    availableTokens: number,
     contextDocuments: DocumentContext[]
   ): ContextWindow {
     // Keep most recent messages that fit in budget
     const recentMessages: Message[] = [];
     let usedTokens = 0;
-    
+
     // Reserve space for summary (roughly 20% of available tokens)
     const summaryReserve = Math.min(500, availableTokens * 0.2);
     const availableForRecent = availableTokens - summaryReserve;
@@ -190,7 +191,7 @@ export class ContextManager {
     // Create summary of older messages if any exist
     const olderMessages = messages.slice(0, messages.length - recentMessages.length);
     let summarizedContext: string | undefined;
-    
+
     if (olderMessages.length > 0) {
       summarizedContext = this.summarizeMessages(olderMessages);
     }
@@ -200,7 +201,7 @@ export class ContextManager {
       summarizedContext,
       contextDocuments: this.deduplicateContext(contextDocuments),
       estimatedTokens: usedTokens + this.estimateTokens(summarizedContext || ''),
-      windowSize: recentMessages.length
+      windowSize: recentMessages.length,
     };
   }
 
@@ -208,13 +209,13 @@ export class ContextManager {
     // Create a conversation summary that preserves key information
     const participantCounts = new Map<string, number>();
     const keyTopics = new Set<string>();
-    
-    messages.forEach(msg => {
+
+    messages.forEach((msg) => {
       participantCounts.set(msg.sender, (participantCounts.get(msg.sender) || 0) + 1);
-      
+
       // Extract potential key topics (simple keyword extraction)
       const words = msg.content.toLowerCase().split(/\s+/);
-      words.forEach(word => {
+      words.forEach((word) => {
         if (word.length > 4 && !this.isCommonWord(word)) {
           keyTopics.add(word);
         }
@@ -223,41 +224,104 @@ export class ContextManager {
 
     const participants = Array.from(participantCounts.keys());
     const topTopics = Array.from(keyTopics).slice(0, 5);
-    
+
     let summary = `[Earlier conversation summary: ${messages.length} messages between ${participants.join(', ')}`;
-    
+
     if (topTopics.length > 0) {
       summary += `. Discussion topics included: ${topTopics.join(', ')}`;
     }
-    
+
     // Add key decisions or actions if we can detect them
-    const actionMessages = messages.filter(m => 
-      m.content.toLowerCase().includes('decided') ||
-      m.content.toLowerCase().includes('agreed') ||
-      m.content.toLowerCase().includes('action') ||
-      m.content.toLowerCase().includes('will do')
+    const actionMessages = messages.filter(
+      (m) =>
+        m.content.toLowerCase().includes('decided') ||
+        m.content.toLowerCase().includes('agreed') ||
+        m.content.toLowerCase().includes('action') ||
+        m.content.toLowerCase().includes('will do')
     );
-    
+
     if (actionMessages.length > 0) {
       summary += '. Key decisions/actions were mentioned.';
     }
-    
+
     summary += ']';
-    
+
     return summary;
   }
 
-
   private isCommonWord(word: string): boolean {
     const commonWords = new Set([
-      'the', 'a', 'an', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for', 
-      'of', 'with', 'by', 'from', 'up', 'about', 'into', 'through', 'during',
-      'before', 'after', 'above', 'below', 'between', 'among', 'this', 'that',
-      'these', 'those', 'i', 'you', 'he', 'she', 'it', 'we', 'they', 'me',
-      'him', 'her', 'us', 'them', 'my', 'your', 'his', 'her', 'its', 'our',
-      'their', 'have', 'has', 'had', 'do', 'does', 'did', 'will', 'would',
-      'could', 'should', 'may', 'might', 'must', 'can', 'be', 'am', 'is',
-      'are', 'was', 'were', 'being', 'been'
+      'the',
+      'a',
+      'an',
+      'and',
+      'or',
+      'but',
+      'in',
+      'on',
+      'at',
+      'to',
+      'for',
+      'of',
+      'with',
+      'by',
+      'from',
+      'up',
+      'about',
+      'into',
+      'through',
+      'during',
+      'before',
+      'after',
+      'above',
+      'below',
+      'between',
+      'among',
+      'this',
+      'that',
+      'these',
+      'those',
+      'i',
+      'you',
+      'he',
+      'she',
+      'it',
+      'we',
+      'they',
+      'me',
+      'him',
+      'her',
+      'us',
+      'them',
+      'my',
+      'your',
+      'his',
+      'her',
+      'its',
+      'our',
+      'their',
+      'have',
+      'has',
+      'had',
+      'do',
+      'does',
+      'did',
+      'will',
+      'would',
+      'could',
+      'should',
+      'may',
+      'might',
+      'must',
+      'can',
+      'be',
+      'am',
+      'is',
+      'are',
+      'was',
+      'were',
+      'being',
+      'been',
     ]);
     return commonWords.has(word);
   }

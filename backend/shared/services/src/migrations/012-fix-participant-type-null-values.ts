@@ -2,7 +2,7 @@ import { MigrationInterface, QueryRunner } from 'typeorm';
 
 /**
  * Fix Participant Type Null Values Migration
- * 
+ *
  * Fixes null values in discussion_participants.participant_type column
  * by setting appropriate default values based on existing data patterns.
  */
@@ -26,7 +26,7 @@ export class FixParticipantTypeNullValues1703011000000 implements MigrationInter
       AND agent_id IS NOT NULL
     `);
 
-    // If persona_id is present, set to 'persona' 
+    // If persona_id is present, set to 'persona'
     await queryRunner.query(`
       UPDATE discussion_participants 
       SET participant_type = 'persona' 

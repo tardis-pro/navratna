@@ -16,7 +16,11 @@ export class ArtifactDeployment extends BaseEntity {
   @Column({ length: 100 })
   environment: string;
 
-  @Column({ type: 'enum', enum: ['pending', 'deploying', 'deployed', 'failed', 'rolled_back'], default: 'pending' })
+  @Column({
+    type: 'enum',
+    enum: ['pending', 'deploying', 'deployed', 'failed', 'rolled_back'],
+    default: 'pending',
+  })
   status: 'pending' | 'deploying' | 'deployed' | 'failed' | 'rolled_back';
 
   @Column({ name: 'deployed_by', type: 'varchar' })
@@ -52,7 +56,12 @@ export class ArtifactDeployment extends BaseEntity {
   @Column({ name: 'health_check_url', type: 'text', nullable: true })
   healthCheckUrl?: string;
 
-  @Column({ name: 'health_status', type: 'enum', enum: ['unknown', 'healthy', 'unhealthy', 'degraded'], default: 'unknown' })
+  @Column({
+    name: 'health_status',
+    type: 'enum',
+    enum: ['unknown', 'healthy', 'unhealthy', 'degraded'],
+    default: 'unknown',
+  })
   healthStatus: 'unknown' | 'healthy' | 'unhealthy' | 'degraded';
 
   @Column({ name: 'last_health_check', type: 'timestamp', nullable: true })
@@ -71,4 +80,4 @@ export class ArtifactDeployment extends BaseEntity {
   @ManyToOne('Artifact', 'deployments')
   @JoinColumn({ name: 'artifact_id' })
   artifact: any;
-} 
+}

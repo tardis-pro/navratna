@@ -39,6 +39,7 @@ The Capability Registry is the execution backbone of the UAIP platform, providin
 ## Quick Start
 
 ### Prerequisites
+
 - Node.js >= 18.x
 - Docker & Docker Compose
 - PostgreSQL 14+
@@ -73,6 +74,7 @@ The service will be available at `http://localhost:3003`.
 ## API Endpoints
 
 ### Tool Management
+
 - `GET /api/v1/tools` - List all tools
 - `POST /api/v1/tools` - Register new tool
 - `GET /api/v1/tools/:id` - Get tool details
@@ -80,16 +82,19 @@ The service will be available at `http://localhost:3003`.
 - `DELETE /api/v1/tools/:id` - Delete tool
 
 ### Tool Execution
+
 - `POST /api/v1/tools/:id/execute` - Execute tool
 - `GET /api/v1/executions/:id` - Get execution status
 - `POST /api/v1/executions/:id/cancel` - Cancel execution
 
 ### Discovery & Recommendations
+
 - `GET /api/v1/tools/search` - Search tools
 - `GET /api/v1/tools/recommendations` - Get recommendations
 - `GET /api/v1/tools/:id/related` - Get related tools
 
 ### Analytics & Monitoring
+
 - `GET /api/v1/analytics/usage` - Usage statistics
 - `GET /api/v1/analytics/performance` - Performance metrics
 - `GET /api/v1/health` - Service health status
@@ -138,24 +143,26 @@ For detailed configuration options, see the [Configuration Guide](./docs/configu
 ### With Discussion Orchestration
 
 Enables tool execution in discussion context:
+
 ```typescript
 // Execute tool in discussion
 const execution = await capabilityRegistry.executeTool({
   toolId: 'code-analyzer',
   parameters: { code: discussionContext.code },
-  discussionId: 'disc-123'
+  discussionId: 'disc-123',
 });
 ```
 
 ### With Agent Intelligence
 
 Provides tool discovery and execution for agents:
+
 ```typescript
 // Agent discovers tools
 const tools = await capabilityRegistry.discoverTools({
   agentId: 'agent-123',
   context: 'code analysis',
-  capabilities: ['programming']
+  capabilities: ['programming'],
 });
 ```
 

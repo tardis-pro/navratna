@@ -1,15 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { PersonaDisplay } from '../types/frontend-extensions';
 import { uaipAPI } from '@/utils/uaip-api';
-import { 
-  Users, 
-  Sparkles, 
+import {
+  Users,
+  Sparkles,
   TrendingUp,
   BookOpen,
   Search,
   AlertCircle,
   Loader2,
-  RefreshCw
+  RefreshCw,
 } from 'lucide-react';
 
 interface PersonaSelectorProps {
@@ -17,10 +17,9 @@ interface PersonaSelectorProps {
   disabled?: boolean;
 }
 
-
-export const PersonaSelector: React.FC<PersonaSelectorProps> = ({ 
-  onSelectPersona, 
-  disabled = false 
+export const PersonaSelector: React.FC<PersonaSelectorProps> = ({
+  onSelectPersona,
+  disabled = false,
 }) => {
   const [personas, setPersonas] = useState<PersonaDisplay[]>([]);
   const [loading, setLoading] = useState(false);
@@ -36,14 +35,14 @@ export const PersonaSelector: React.FC<PersonaSelectorProps> = ({
   const loadData = async () => {
     setLoading(true);
     setError(null);
-    
+
     try {
       // Try to load personas using the display API endpoint
       const personasResult = await uaipAPI.personas.getForDisplay();
       setPersonas(personasResult.personas || []);
     } catch (err) {
       console.warn('Failed to load persona data from API, using fallback data:', err);
-      
+
       // Fallback to mock data when API is not available
       const mockPersonas: PersonaDisplay[] = [
         {
@@ -55,7 +54,8 @@ export const PersonaSelector: React.FC<PersonaSelectorProps> = ({
           expertise: ['JavaScript', 'TypeScript', 'React', 'Node.js', 'Python', 'Database Design'],
           status: 'active',
           category: 'Development',
-          background: 'A seasoned software engineer with 8+ years of experience building scalable web applications. Specializes in full-stack development, system architecture, and code optimization.'
+          background:
+            'A seasoned software engineer with 8+ years of experience building scalable web applications. Specializes in full-stack development, system architecture, and code optimization.',
         },
         {
           id: 'data-scientist',
@@ -66,7 +66,8 @@ export const PersonaSelector: React.FC<PersonaSelectorProps> = ({
           expertise: ['Python', 'R', 'Machine Learning', 'Statistics', 'Data Visualization', 'SQL'],
           status: 'active',
           category: 'Analysis',
-          background: 'PhD in Statistics with 6+ years of experience in data science and machine learning. Expert in predictive modeling, data mining, and business intelligence.'
+          background:
+            'PhD in Statistics with 6+ years of experience in data science and machine learning. Expert in predictive modeling, data mining, and business intelligence.',
         },
         {
           id: 'product-manager',
@@ -74,10 +75,18 @@ export const PersonaSelector: React.FC<PersonaSelectorProps> = ({
           role: 'Manager',
           description: 'Strategic product leader focused on user experience and business outcomes',
           tags: ['strategy', 'user-research', 'roadmap'],
-          expertise: ['Product Strategy', 'User Research', 'Agile', 'Analytics', 'Market Analysis', 'Roadmapping'],
+          expertise: [
+            'Product Strategy',
+            'User Research',
+            'Agile',
+            'Analytics',
+            'Market Analysis',
+            'Roadmapping',
+          ],
           status: 'active',
           category: 'Management',
-          background: 'Senior Product Manager with 7+ years of experience launching successful products. Expert in user-centered design, market research, and cross-functional team leadership.'
+          background:
+            'Senior Product Manager with 7+ years of experience launching successful products. Expert in user-centered design, market research, and cross-functional team leadership.',
         },
         {
           id: 'ux-designer',
@@ -85,21 +94,38 @@ export const PersonaSelector: React.FC<PersonaSelectorProps> = ({
           role: 'Designer',
           description: 'User experience designer passionate about creating intuitive interfaces',
           tags: ['design', 'user-research', 'prototyping'],
-          expertise: ['User Research', 'Wireframing', 'Prototyping', 'Figma', 'Design Systems', 'Usability Testing'],
+          expertise: [
+            'User Research',
+            'Wireframing',
+            'Prototyping',
+            'Figma',
+            'Design Systems',
+            'Usability Testing',
+          ],
           status: 'active',
           category: 'Creative',
-          background: 'Creative UX Designer with 5+ years of experience designing digital products. Specializes in user research, interaction design, and design system development.'
+          background:
+            'Creative UX Designer with 5+ years of experience designing digital products. Specializes in user research, interaction design, and design system development.',
         },
         {
           id: 'business-analyst',
           name: 'Business Analyst',
           role: 'Analyst',
-          description: 'Strategic analyst focused on business process optimization and requirements gathering',
+          description:
+            'Strategic analyst focused on business process optimization and requirements gathering',
           tags: ['analysis', 'requirements', 'process'],
-          expertise: ['Business Analysis', 'Requirements Gathering', 'Process Mapping', 'SQL', 'Data Analysis', 'Stakeholder Management'],
+          expertise: [
+            'Business Analysis',
+            'Requirements Gathering',
+            'Process Mapping',
+            'SQL',
+            'Data Analysis',
+            'Stakeholder Management',
+          ],
           status: 'active',
           category: 'Business',
-          background: 'Experienced Business Analyst with 6+ years of experience optimizing business processes and gathering requirements for complex projects.'
+          background:
+            'Experienced Business Analyst with 6+ years of experience optimizing business processes and gathering requirements for complex projects.',
         },
         {
           id: 'devops-engineer',
@@ -107,13 +133,21 @@ export const PersonaSelector: React.FC<PersonaSelectorProps> = ({
           role: 'Engineer',
           description: 'Infrastructure and automation expert focused on CI/CD and cloud platforms',
           tags: ['automation', 'cloud', 'infrastructure'],
-          expertise: ['Docker', 'Kubernetes', 'AWS', 'CI/CD', 'Infrastructure as Code', 'Monitoring'],
+          expertise: [
+            'Docker',
+            'Kubernetes',
+            'AWS',
+            'CI/CD',
+            'Infrastructure as Code',
+            'Monitoring',
+          ],
           status: 'active',
           category: 'Technical',
-          background: 'DevOps Engineer with 7+ years of experience building and maintaining scalable cloud infrastructure. Expert in automation, containerization, and deployment pipelines.'
-        }
+          background:
+            'DevOps Engineer with 7+ years of experience building and maintaining scalable cloud infrastructure. Expert in automation, containerization, and deployment pipelines.',
+        },
       ];
-      
+
       setPersonas(mockPersonas);
     } finally {
       setLoading(false);
@@ -122,10 +156,10 @@ export const PersonaSelector: React.FC<PersonaSelectorProps> = ({
 
   const handleSearch = async () => {
     if (disabled || loading) return;
-    
+
     setLoading(true);
     setError(null);
-    
+
     try {
       const result = await uaipAPI.personas.search(
         searchQuery.trim() || undefined,
@@ -134,20 +168,21 @@ export const PersonaSelector: React.FC<PersonaSelectorProps> = ({
       setPersonas(result.personas || []);
     } catch (err) {
       console.warn('Failed to search personas via API, filtering fallback data:', err);
-      
+
       // Filter the current personas (which should be the fallback data)
       const query = searchQuery.toLowerCase();
-      
-      const filtered = personas.filter(persona => {
-        const matchesQuery = !query || 
+
+      const filtered = personas.filter((persona) => {
+        const matchesQuery =
+          !query ||
           persona.name.toLowerCase().includes(query) ||
           persona.role.toLowerCase().includes(query) ||
           persona.description.toLowerCase().includes(query) ||
           persona.background?.toLowerCase().includes(query);
-          
+
         return matchesQuery;
       });
-      
+
       setPersonas(filtered);
     } finally {
       setLoading(false);
@@ -172,13 +207,15 @@ export const PersonaSelector: React.FC<PersonaSelectorProps> = ({
   };
 
   // Filter personas by search query
-  const filteredPersonas = searchQuery 
-    ? personas.filter(persona => {
+  const filteredPersonas = searchQuery
+    ? personas.filter((persona) => {
         const query = searchQuery.toLowerCase();
-        return persona.name.toLowerCase().includes(query) ||
-               persona.role.toLowerCase().includes(query) ||
-               persona.description.toLowerCase().includes(query) ||
-               persona.background?.toLowerCase().includes(query);
+        return (
+          persona.name.toLowerCase().includes(query) ||
+          persona.role.toLowerCase().includes(query) ||
+          persona.description.toLowerCase().includes(query) ||
+          persona.background?.toLowerCase().includes(query)
+        );
       })
     : personas;
 
@@ -187,7 +224,9 @@ export const PersonaSelector: React.FC<PersonaSelectorProps> = ({
     return (
       <div className="flex flex-col items-center justify-center py-16 space-y-4">
         <Loader2 className="w-8 h-8 text-blue-500 animate-spin" />
-        <p className="text-slate-600 dark:text-slate-400 font-medium">Loading personas from API...</p>
+        <p className="text-slate-600 dark:text-slate-400 font-medium">
+          Loading personas from API...
+        </p>
       </div>
     );
   }
@@ -229,7 +268,9 @@ export const PersonaSelector: React.FC<PersonaSelectorProps> = ({
               <Users className="w-5 h-5 text-white" />
             </div>
             <div>
-              <h3 className="font-bold text-xl text-slate-900 dark:text-white">Choose Agent Persona</h3>
+              <h3 className="font-bold text-xl text-slate-900 dark:text-white">
+                Choose Agent Persona
+              </h3>
               <p className="text-sm text-slate-600 dark:text-slate-400">
                 Select from {personas.length} available personas
               </p>
@@ -292,7 +333,6 @@ export const PersonaSelector: React.FC<PersonaSelectorProps> = ({
         )}
       </div>
 
-
       {/* Enhanced Persona Grid */}
       <div className="grid grid-cols-1 gap-4">
         {filteredPersonas.length > 0 ? (
@@ -315,10 +355,16 @@ export const PersonaSelector: React.FC<PersonaSelectorProps> = ({
                   <Users className="w-5 h-5 text-white" />
                 </div>
                 <div className="flex-1">
-                  <div className="font-bold text-lg text-slate-900 dark:text-white">{persona.name}</div>
-                  <div className="text-sm text-slate-600 dark:text-slate-400 font-medium">{persona.role}</div>
+                  <div className="font-bold text-lg text-slate-900 dark:text-white">
+                    {persona.name}
+                  </div>
+                  <div className="text-sm text-slate-600 dark:text-slate-400 font-medium">
+                    {persona.role}
+                  </div>
                 </div>
-                <div className={`transition-opacity duration-200 ${hoveredPersona === persona.id && !disabled && !loading ? 'opacity-100' : 'opacity-0'}`}>
+                <div
+                  className={`transition-opacity duration-200 ${hoveredPersona === persona.id && !disabled && !loading ? 'opacity-100' : 'opacity-0'}`}
+                >
                   <div className="w-8 h-8 bg-gradient-to-r from-green-500 to-emerald-600 rounded-lg flex items-center justify-center">
                     {loading ? (
                       <Loader2 className="w-4 h-4 text-white animate-spin" />
@@ -333,7 +379,7 @@ export const PersonaSelector: React.FC<PersonaSelectorProps> = ({
               <div className="text-sm text-slate-700 dark:text-slate-300 mb-4 leading-relaxed">
                 {persona.background || persona.description}
               </div>
-              
+
               {/* Expertise Section */}
               {persona.expertise && persona.expertise.length > 0 && (
                 <div className="w-full">
@@ -416,4 +462,4 @@ export const PersonaSelector: React.FC<PersonaSelectorProps> = ({
       )}
     </div>
   );
-}; 
+};

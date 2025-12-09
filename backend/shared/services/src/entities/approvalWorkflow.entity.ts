@@ -20,7 +20,11 @@ export class ApprovalWorkflow extends BaseEntity {
   @Column({ name: 'current_approvers', type: 'jsonb', default: '[]' })
   currentApprovers: string[];
 
-  @Column({ type: 'enum', enum: ['pending', 'approved', 'rejected', 'expired', 'cancelled'], default: 'pending' })
+  @Column({
+    type: 'enum',
+    enum: ['pending', 'approved', 'rejected', 'expired', 'cancelled'],
+    default: 'pending',
+  })
   status: 'pending' | 'approved' | 'rejected' | 'expired' | 'cancelled';
 
   @Column({ name: 'expires_at', type: 'timestamp', nullable: true })
@@ -36,4 +40,4 @@ export class ApprovalWorkflow extends BaseEntity {
   @ManyToOne('Operation', 'approvals', { nullable: true })
   @JoinColumn({ name: 'operation_id' })
   operation?: any;
-} 
+}

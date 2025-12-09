@@ -20,13 +20,15 @@ export class ToolRepository extends BaseRepository<ToolDefinition> {
   /**
    * Get tools with optional filtering
    */
-  public async getTools(filters: {
-    category?: string;
-    enabled?: boolean;
-    securityLevel?: string;
-    limit?: number;
-    offset?: number;
-  } = {}): Promise<ToolDefinition[]> {
+  public async getTools(
+    filters: {
+      category?: string;
+      enabled?: boolean;
+      securityLevel?: string;
+      limit?: number;
+      offset?: number;
+    } = {}
+  ): Promise<ToolDefinition[]> {
     const queryBuilder = this.repository.createQueryBuilder('tool');
 
     if (filters.category) {
@@ -38,7 +40,9 @@ export class ToolRepository extends BaseRepository<ToolDefinition> {
     }
 
     if (filters.securityLevel) {
-      queryBuilder.andWhere('tool.securityLevel = :securityLevel', { securityLevel: filters.securityLevel });
+      queryBuilder.andWhere('tool.securityLevel = :securityLevel', {
+        securityLevel: filters.securityLevel,
+      });
     }
 
     queryBuilder.orderBy('tool.name', 'ASC');
@@ -57,11 +61,14 @@ export class ToolRepository extends BaseRepository<ToolDefinition> {
   /**
    * Search tools with advanced filtering and ranking
    */
-  public async searchTools(searchQuery: string, filters: {
-    category?: string;
-    securityLevel?: string;
-    limit?: number;
-  } = {}): Promise<ToolDefinition[]> {
+  public async searchTools(
+    searchQuery: string,
+    filters: {
+      category?: string;
+      securityLevel?: string;
+      limit?: number;
+    } = {}
+  ): Promise<ToolDefinition[]> {
     const queryBuilder = this.repository.createQueryBuilder('tool');
 
     // Base condition: only enabled tools
@@ -80,18 +87,23 @@ export class ToolRepository extends BaseRepository<ToolDefinition> {
     }
 
     if (filters.securityLevel) {
-      queryBuilder.andWhere('tool.securityLevel = :securityLevel', { securityLevel: filters.securityLevel });
+      queryBuilder.andWhere('tool.securityLevel = :securityLevel', {
+        securityLevel: filters.securityLevel,
+      });
     }
 
     // Ranking by relevance and usage
-    queryBuilder.orderBy(`
+    queryBuilder.orderBy(
+      `
       CASE 
         WHEN tool.name ILIKE :searchTerm THEN 1
         WHEN tool.description ILIKE :searchTerm THEN 2
         WHEN :searchQuery = ANY(tool.tags) THEN 3
         ELSE 4
       END
-    `, 'ASC');
+    `,
+      'ASC'
+    );
     queryBuilder.addOrderBy('tool.totalExecutions', 'DESC');
 
     if (filters.limit) {
@@ -104,12 +116,16 @@ export class ToolRepository extends BaseRepository<ToolDefinition> {
   /**
    * Update tool success metrics
    */
-  public async updateToolSuccessMetrics(toolId: string, wasSuccessful: boolean, executionTime?: number): Promise<void> {
+  public async updateToolSuccessMetrics(
+    toolId: string,
+    wasSuccessful: boolean,
+    executionTime?: number
+  ): Promise<void> {
     try {
       if (wasSuccessful) {
         const updateData: any = {
           successfulExecutions: () => 'successful_executions + 1',
-          updatedAt: new Date()
+          updatedAt: new Date(),
         };
 
         if (executionTime) {
@@ -130,7 +146,12 @@ export class ToolRepository extends BaseRepository<ToolDefinition> {
           .execute();
       }
     } catch (error) {
-      logger.error('Error updating tool success metrics', { toolId, wasSuccessful, executionTime, error: (error as Error).message });
+      logger.error('Error updating tool success metrics', {
+        toolId,
+        wasSuccessful,
+        executionTime,
+        error: (error as Error).message,
+      });
       // Don't throw here as this is a background operation
     }
   }
@@ -146,12 +167,15 @@ export class ToolRepository extends BaseRepository<ToolDefinition> {
         .set({
           totalExecutions: () => 'total_executions + 1',
           lastUsedAt: new Date(),
-          updatedAt: new Date()
+          updatedAt: new Date(),
         })
         .where('id = :toolId', { toolId })
         .execute();
     } catch (error) {
-      logger.error('Error incrementing tool usage count', { toolId, error: (error as Error).message });
+      logger.error('Error incrementing tool usage count', {
+        toolId,
+        error: (error as Error).message,
+      });
       // Don't throw here as this is a background operation
     }
   }
@@ -179,7 +203,7 @@ export class ToolRepository extends BaseRepository<ToolDefinition> {
       'tool.successfulExecutions',
       'CASE WHEN tool.totalExecutions > 0 THEN (tool.successfulExecutions::float / tool.totalExecutions * 100) ELSE 0 END as successRate',
       'tool.averageExecutionTime',
-      'tool.lastUsedAt'
+      'tool.lastUsedAt',
     ]);
 
     if (toolId) {
@@ -217,13 +241,15 @@ export class ToolExecutionRepository extends BaseRepository<ToolExecution> {
   /**
    * Get tool executions with filtering
    */
-  public async getToolExecutions(filters: {
-    toolId?: string;
-    agentId?: string;
-    status?: string;
-    limit?: number;
-    offset?: number;
-  } = {}): Promise<ToolExecution[]> {
+  public async getToolExecutions(
+    filters: {
+      toolId?: string;
+      agentId?: string;
+      status?: string;
+      limit?: number;
+      offset?: number;
+    } = {}
+  ): Promise<ToolExecution[]> {
     const queryBuilder = this.repository.createQueryBuilder('execution');
 
     if (filters.toolId) {
@@ -257,7 +283,7 @@ export class ToolExecutionRepository extends BaseRepository<ToolExecution> {
   public async getToolExecutionWithRelations(id: string): Promise<ToolExecution | null> {
     return await this.repository.findOne({
       where: { id },
-      relations: ['tool', 'agent']
+      relations: ['tool', 'agent'],
     });
   }
 }
@@ -288,11 +314,13 @@ export class ToolUsageRepository extends BaseRepository<ToolUsageRecord> {
   /**
    * Get tool usage statistics
    */
-  public async getToolUsageStats(filters: {
-    toolId?: string;
-    agentId?: string;
-    days?: number;
-  } = {}): Promise<any[]> {
+  public async getToolUsageStats(
+    filters: {
+      toolId?: string;
+      agentId?: string;
+      days?: number;
+    } = {}
+  ): Promise<any[]> {
     const queryBuilder = this.repository.createQueryBuilder('usage');
 
     // Default to last 30 days
@@ -308,7 +336,7 @@ export class ToolUsageRepository extends BaseRepository<ToolUsageRecord> {
         'COUNT(*) FILTER (WHERE usage.success = true) as successfulUses',
         'AVG(usage.executionTimeMs) as avgExecutionTime',
         'SUM(usage.cost) as totalCost',
-        'DATE_TRUNC(\'day\', usage.usedAt) as date'
+        "DATE_TRUNC('day', usage.usedAt) as date",
       ])
       .where('usage.usedAt >= :startDate', { startDate });
 
@@ -321,9 +349,9 @@ export class ToolUsageRepository extends BaseRepository<ToolUsageRecord> {
     }
 
     queryBuilder
-      .groupBy('usage.toolId, usage.agentId, DATE_TRUNC(\'day\', usage.usedAt)')
+      .groupBy("usage.toolId, usage.agentId, DATE_TRUNC('day', usage.usedAt)")
       .orderBy('date', 'DESC');
 
     return await queryBuilder.getRawMany();
   }
-} 
+}

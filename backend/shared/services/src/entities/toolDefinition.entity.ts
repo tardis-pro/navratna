@@ -1,11 +1,6 @@
 import { Entity, Column, Index, OneToMany } from 'typeorm';
 import { BaseEntity } from './base.entity.js';
-import { 
-  ToolCategory, 
-  JSONSchema, 
-  ToolExample,
-  SecurityLevel
-} from '@uaip/types';
+import { ToolCategory, JSONSchema, ToolExample, SecurityLevel } from '@uaip/types';
 
 // Related entities will be referenced by string to avoid circular dependencies
 
@@ -74,7 +69,13 @@ export class ToolDefinition extends BaseEntity {
   @Column({ name: 'successful_executions', default: 0 })
   successfulExecutions: number;
 
-  @Column({ name: 'average_execution_time', type: 'decimal', precision: 10, scale: 2, nullable: true })
+  @Column({
+    name: 'average_execution_time',
+    type: 'decimal',
+    precision: 10,
+    scale: 2,
+    nullable: true,
+  })
   averageExecutionTime?: number;
 
   @Column({ name: 'last_used_at', type: 'timestamp', nullable: true })
@@ -104,7 +105,12 @@ export class ToolDefinition extends BaseEntity {
   @Column({ name: 'user_rating', type: 'decimal', precision: 3, scale: 2, nullable: true })
   userRating?: number;
 
-  @Column({ name: 'maintenance_status', type: 'enum', enum: ['active', 'maintenance', 'deprecated', 'archived'], default: 'active' })
+  @Column({
+    name: 'maintenance_status',
+    type: 'enum',
+    enum: ['active', 'maintenance', 'deprecated', 'archived'],
+    default: 'active',
+  })
   maintenanceStatus: 'active' | 'maintenance' | 'deprecated' | 'archived';
 
   // Relationships
@@ -116,4 +122,4 @@ export class ToolDefinition extends BaseEntity {
 
   @OneToMany('ToolAssignment', 'tool')
   assignments: any[];
-} 
+}

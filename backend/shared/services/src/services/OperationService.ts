@@ -1,5 +1,10 @@
 import { TypeOrmService } from '../typeormService.js';
-import { OperationRepository, OperationStateRepository, OperationCheckpointRepository, StepResultRepository } from '../database/repositories/OperationRepository.js';
+import {
+  OperationRepository,
+  OperationStateRepository,
+  OperationCheckpointRepository,
+  StepResultRepository,
+} from '../database/repositories/OperationRepository.js';
 import { Operation } from '../entities/operation.entity.js';
 import { OperationState } from '../entities/operationState.entity.js';
 import { OperationCheckpoint } from '../entities/operationCheckpoint.entity.js';

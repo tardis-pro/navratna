@@ -36,22 +36,18 @@ export interface ChatParsingResult {
 
 export class ChatParserService {
   private readonly platformDetectors = {
-    claude: [
-      /Claude|Anthropic/i,
-      /Human:|Assistant:/i,
-      /"role":\s*"(human|assistant)"/i
-    ],
+    claude: [/Claude|Anthropic/i, /Human:|Assistant:/i, /"role":\s*"(human|assistant)"/i],
     gpt: [
       /ChatGPT|OpenAI/i,
       /gpt-\d+/i,
       /"role":\s*"(user|assistant|system)"/i,
-      /You said:|ChatGPT said:/i
+      /You said:|ChatGPT said:/i,
     ],
     whatsapp: [
       /\[\d{1,2}\/\d{1,2}\/\d{2,4},\s*\d{1,2}:\d{2}:\d{2}\s*(AM|PM)?\]/i,
       /\d{1,2}\/\d{1,2}\/\d{2,4},\s*\d{1,2}:\d{2}\s*-\s*.+?:/i,
-      /WhatsApp Chat with/i
-    ]
+      /WhatsApp Chat with/i,
+    ],
   };
 
   async parseFile(content: string, filename: string): Promise<ChatParsingResult> {
@@ -81,7 +77,7 @@ export class ChatParserService {
       }
 
       // Validate conversations
-      const validatedConversations = conversations.filter(conv => {
+      const validatedConversations = conversations.filter((conv) => {
         const isValid = this.validateConversation(conv);
         if (!isValid) {
           parsingErrors.push(`Invalid conversation: ${conv.id}`);
@@ -89,10 +85,15 @@ export class ChatParserService {
         return isValid;
       });
 
-      const totalMessages = validatedConversations.reduce((sum, conv) => sum + conv.messages.length, 0);
+      const totalMessages = validatedConversations.reduce(
+        (sum, conv) => sum + conv.messages.length,
+        0
+      );
       const processingTime = Date.now() - startTime;
 
-      logger.info(`Chat parsing completed: ${validatedConversations.length} conversations, ${totalMessages} messages in ${processingTime}ms`);
+      logger.info(
+        `Chat parsing completed: ${validatedConversations.length} conversations, ${totalMessages} messages in ${processingTime}ms`
+      );
 
       return {
         conversations: validatedConversations,
@@ -100,12 +101,13 @@ export class ChatParserService {
         totalConversations: validatedConversations.length,
         parsingErrors,
         processingTime,
-        detectedPlatform
+        detectedPlatform,
       };
-
     } catch (error) {
       logger.error('Error parsing chat file:', error);
-      throw new Error(`Chat parsing failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw new Error(
+        `Chat parsing failed: ${error instanceof Error ? error.message : 'Unknown error'}`
+      );
     }
   }
 
@@ -120,8 +122,9 @@ export class ChatParserService {
 
     // Check content patterns
     for (const [platform, patterns] of Object.entries(this.platformDetectors)) {
-      const matchCount = patterns.filter(pattern => pattern.test(content)).length;
-      if (matchCount >= 2) { // Require at least 2 pattern matches for confidence
+      const matchCount = patterns.filter((pattern) => pattern.test(content)).length;
+      if (matchCount >= 2) {
+        // Require at least 2 pattern matches for confidence
         return platform;
       }
     }
@@ -129,7 +132,10 @@ export class ChatParserService {
     return 'generic';
   }
 
-  private async parseClaudeExport(content: string, filename: string): Promise<ParsedConversation[]> {
+  private async parseClaudeExport(
+    content: string,
+    filename: string
+  ): Promise<ParsedConversation[]> {
     try {
       // Try JSON format first (Claude API exports)
       if (content.trim().startsWith('{') || content.trim().startsWith('[')) {
@@ -147,7 +153,7 @@ export class ChatParserService {
   private parseClaudeJSON(content: string, filename: string): ParsedConversation[] {
     const data = JSON.parse(content);
     const conversations: ParsedConversation[] = [];
-    
+
     // Handle different Claude JSON structures
     if (Array.isArray(data)) {
       // Array of conversations
@@ -171,7 +177,7 @@ export class ChatParserService {
 
     for (const line of lines) {
       const trimmedLine = line.trim();
-      
+
       if (trimmedLine.startsWith('Human:') || trimmedLine.startsWith('User:')) {
         if (currentContent && currentSender) {
           messages.push(this.createMessage(currentSender, currentContent, messageCounter++));
@@ -236,7 +242,7 @@ export class ChatParserService {
 
     for (const line of lines) {
       const trimmedLine = line.trim();
-      
+
       if (trimmedLine.startsWith('You:') || trimmedLine.startsWith('User:')) {
         if (currentContent && currentSender) {
           messages.push(this.createMessage(currentSender, currentContent, messageCounter++));
@@ -262,19 +268,23 @@ export class ChatParserService {
     return this.createConversationFromMessages(messages, 'gpt', filename);
   }
 
-  private async parseWhatsAppExport(content: string, filename: string): Promise<ParsedConversation[]> {
+  private async parseWhatsAppExport(
+    content: string,
+    filename: string
+  ): Promise<ParsedConversation[]> {
     const lines = content.split('\n');
     const messages: ParsedMessage[] = [];
     let messageCounter = 0;
 
     // WhatsApp format: [date, time] sender: message
-    const whatsappPattern = /\[?(\d{1,2}\/\d{1,2}\/\d{2,4}),?\s*(\d{1,2}:\d{2}(?::\d{2})?)\s*(?:AM|PM)?\]?\s*-?\s*([^:]+):\s*(.*)/i;
-    
+    const whatsappPattern =
+      /\[?(\d{1,2}\/\d{1,2}\/\d{2,4}),?\s*(\d{1,2}:\d{2}(?::\d{2})?)\s*(?:AM|PM)?\]?\s*-?\s*([^:]+):\s*(.*)/i;
+
     for (const line of lines) {
       const match = line.match(whatsappPattern);
       if (match) {
         const [, dateStr, timeStr, sender, content] = match;
-        
+
         try {
           const timestamp = this.parseWhatsAppTimestamp(dateStr, timeStr);
           messages.push({
@@ -283,7 +293,7 @@ export class ChatParserService {
             sender: sender.trim(),
             content: content.trim(),
             type: 'text',
-            metadata: { lineNumber: messageCounter }
+            metadata: { lineNumber: messageCounter },
           });
           messageCounter++;
         } catch (error) {
@@ -303,9 +313,9 @@ export class ChatParserService {
 
     // Common patterns for generic chats
     const patterns = [
-      /^(.+?):\s*(.+)$/,  // sender: message
-      /^(.+?)\s*-\s*(.+)$/,  // sender - message
-      /^(.+?)\s*>\s*(.+)$/,  // sender > message
+      /^(.+?):\s*(.+)$/, // sender: message
+      /^(.+?)\s*-\s*(.+)$/, // sender - message
+      /^(.+?)\s*>\s*(.+)$/, // sender > message
     ];
 
     for (const line of lines) {
@@ -327,7 +337,11 @@ export class ChatParserService {
     return this.createConversationFromMessages(messages, 'generic', filename);
   }
 
-  private convertClaudeConversation(data: any, filename: string, index: number): ParsedConversation {
+  private convertClaudeConversation(
+    data: any,
+    filename: string,
+    index: number
+  ): ParsedConversation {
     const messages: ParsedMessage[] = [];
     const conversationId = uuidv4();
 
@@ -339,13 +353,21 @@ export class ChatParserService {
           sender: msg.role === 'human' ? 'Human' : 'Assistant',
           content: msg.content || msg.message || '',
           type: 'text',
-          metadata: { messageIndex: msgIndex, originalRole: msg.role }
+          metadata: { messageIndex: msgIndex, originalRole: msg.role },
         });
       });
     }
 
-    const conversations = this.createConversationFromMessages(messages, 'claude', filename, conversationId, data.title);
-    return conversations.length > 0 ? conversations[0] : this.createEmptyConversation('claude', filename, conversationId);
+    const conversations = this.createConversationFromMessages(
+      messages,
+      'claude',
+      filename,
+      conversationId,
+      data.title
+    );
+    return conversations.length > 0
+      ? conversations[0]
+      : this.createEmptyConversation('claude', filename, conversationId);
   }
 
   private convertGPTConversation(data: any, filename: string, index: number): ParsedConversation {
@@ -360,13 +382,21 @@ export class ChatParserService {
           sender: msg.role === 'user' ? 'User' : msg.role === 'assistant' ? 'Assistant' : 'System',
           content: msg.content || msg.message || '',
           type: 'text',
-          metadata: { messageIndex: msgIndex, originalRole: msg.role }
+          metadata: { messageIndex: msgIndex, originalRole: msg.role },
         });
       });
     }
 
-    const conversations = this.createConversationFromMessages(messages, 'gpt', filename, conversationId, data.title);
-    return conversations.length > 0 ? conversations[0] : this.createEmptyConversation('gpt', filename, conversationId);
+    const conversations = this.createConversationFromMessages(
+      messages,
+      'gpt',
+      filename,
+      conversationId,
+      data.title
+    );
+    return conversations.length > 0
+      ? conversations[0]
+      : this.createEmptyConversation('gpt', filename, conversationId);
   }
 
   private createMessage(sender: string, content: string, index: number): ParsedMessage {
@@ -376,13 +406,13 @@ export class ChatParserService {
       sender: sender.trim(),
       content: content.trim(),
       type: 'text',
-      metadata: { messageIndex: index }
+      metadata: { messageIndex: index },
     };
   }
 
   private createConversationFromMessages(
-    messages: ParsedMessage[], 
-    platform: string, 
+    messages: ParsedMessage[],
+    platform: string,
     filename: string,
     id?: string,
     title?: string
@@ -391,30 +421,42 @@ export class ChatParserService {
       return [];
     }
 
-    const participants = [...new Set(messages.map(m => m.sender))];
-    const timestamps = messages.map(m => m.timestamp).filter(t => t);
+    const participants = [...new Set(messages.map((m) => m.sender))];
+    const timestamps = messages.map((m) => m.timestamp).filter((t) => t);
     const dateRange = {
-      start: timestamps.length > 0 ? new Date(Math.min(...timestamps.map(t => t.getTime()))) : new Date(),
-      end: timestamps.length > 0 ? new Date(Math.max(...timestamps.map(t => t.getTime()))) : new Date()
+      start:
+        timestamps.length > 0
+          ? new Date(Math.min(...timestamps.map((t) => t.getTime())))
+          : new Date(),
+      end:
+        timestamps.length > 0
+          ? new Date(Math.max(...timestamps.map((t) => t.getTime())))
+          : new Date(),
     };
 
-    return [{
-      id: id || uuidv4(),
-      platform: platform as any,
-      title: title || `${platform} conversation from ${filename}`,
-      participants,
-      messages,
-      metadata: {
-        totalMessages: messages.length,
-        dateRange,
-        fileSize: 0, // Will be set by the caller
-        originalFilename: filename,
-        parsedAt: new Date()
-      }
-    }];
+    return [
+      {
+        id: id || uuidv4(),
+        platform: platform as any,
+        title: title || `${platform} conversation from ${filename}`,
+        participants,
+        messages,
+        metadata: {
+          totalMessages: messages.length,
+          dateRange,
+          fileSize: 0, // Will be set by the caller
+          originalFilename: filename,
+          parsedAt: new Date(),
+        },
+      },
+    ];
   }
 
-  private createEmptyConversation(platform: string, filename: string, id?: string): ParsedConversation {
+  private createEmptyConversation(
+    platform: string,
+    filename: string,
+    id?: string
+  ): ParsedConversation {
     return {
       id: id || uuidv4(),
       platform: platform as any,
@@ -426,8 +468,8 @@ export class ChatParserService {
         dateRange: { start: new Date(), end: new Date() },
         fileSize: 0,
         originalFilename: filename,
-        parsedAt: new Date()
-      }
+        parsedAt: new Date(),
+      },
     };
   }
 
@@ -468,7 +510,7 @@ export class ChatParserService {
     if (!conversation.id || !conversation.platform) return false;
     if (!conversation.participants || conversation.participants.length === 0) return false;
     if (!conversation.messages || conversation.messages.length === 0) return false;
-    
+
     // Validate messages
     for (const message of conversation.messages) {
       if (!message.id || !message.sender || !message.content) return false;
@@ -478,18 +520,22 @@ export class ChatParserService {
     return true;
   }
 
-  async parseMultipleFiles(files: { content: string; filename: string }[]): Promise<ChatParsingResult> {
+  async parseMultipleFiles(
+    files: { content: string; filename: string }[]
+  ): Promise<ChatParsingResult> {
     const startTime = Date.now();
     const allConversations: ParsedConversation[] = [];
     const allErrors: string[] = [];
-    
+
     for (const file of files) {
       try {
         const result = await this.parseFile(file.content, file.filename);
         allConversations.push(...result.conversations);
         allErrors.push(...result.parsingErrors);
       } catch (error) {
-        allErrors.push(`Failed to parse ${file.filename}: ${error instanceof Error ? error.message : 'Unknown error'}`);
+        allErrors.push(
+          `Failed to parse ${file.filename}: ${error instanceof Error ? error.message : 'Unknown error'}`
+        );
       }
     }
 
@@ -502,7 +548,7 @@ export class ChatParserService {
       totalConversations: allConversations.length,
       parsingErrors: allErrors,
       processingTime,
-      detectedPlatform: 'multiple'
+      detectedPlatform: 'multiple',
     };
   }
 }

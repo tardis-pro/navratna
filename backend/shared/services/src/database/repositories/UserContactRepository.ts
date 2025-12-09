@@ -1,6 +1,10 @@
 import { FindManyOptions, FindOneOptions } from 'typeorm';
 import { BaseRepository } from '../base/BaseRepository.js';
-import { UserContactEntity, ContactStatus, ContactType } from '../../entities/user-contact.entity.js';
+import {
+  UserContactEntity,
+  ContactStatus,
+  ContactType,
+} from '../../entities/user-contact.entity.js';
 
 // Re-export types for convenience
 export { ContactStatus, ContactType };
@@ -18,15 +22,12 @@ export class UserContactRepository extends BaseRepository<UserContactEntity> {
   async findById(id: string): Promise<UserContactEntity | null> {
     return await this.repository.findOne({
       where: { id },
-      relations: ['requester', 'target']
+      relations: ['requester', 'target'],
     });
   }
 
   async findUserContacts(userId: string, status?: ContactStatus): Promise<UserContactEntity[]> {
-    const whereCondition: any = [
-      { requesterId: userId },
-      { targetId: userId }
-    ];
+    const whereCondition: any = [{ requesterId: userId }, { targetId: userId }];
 
     if (status) {
       whereCondition.forEach((condition: any) => {
@@ -37,17 +38,20 @@ export class UserContactRepository extends BaseRepository<UserContactEntity> {
     return await this.repository.find({
       where: whereCondition,
       relations: ['requester', 'target'],
-      order: { createdAt: 'DESC' }
+      order: { createdAt: 'DESC' },
     });
   }
 
-  async findContactByUsers(requesterId: string, targetId: string): Promise<UserContactEntity | null> {
+  async findContactByUsers(
+    requesterId: string,
+    targetId: string
+  ): Promise<UserContactEntity | null> {
     return await this.repository.findOne({
       where: [
         { requesterId, targetId },
-        { requesterId: targetId, targetId: requesterId }
+        { requesterId: targetId, targetId: requesterId },
       ],
-      relations: ['requester', 'target']
+      relations: ['requester', 'target'],
     });
   }
 
@@ -55,17 +59,17 @@ export class UserContactRepository extends BaseRepository<UserContactEntity> {
     return await this.repository.find({
       where: {
         targetId: userId,
-        status: ContactStatus.PENDING
+        status: ContactStatus.PENDING,
       },
       relations: ['requester'],
-      order: { createdAt: 'DESC' }
+      order: { createdAt: 'DESC' },
     });
   }
 
   async findAcceptedContacts(userId: string, type?: ContactType): Promise<UserContactEntity[]> {
     const whereCondition: any = [
       { requesterId: userId, status: ContactStatus.ACCEPTED },
-      { targetId: userId, status: ContactStatus.ACCEPTED }
+      { targetId: userId, status: ContactStatus.ACCEPTED },
     ];
 
     if (type) {
@@ -77,7 +81,7 @@ export class UserContactRepository extends BaseRepository<UserContactEntity> {
     return await this.repository.find({
       where: whereCondition,
       relations: ['requester', 'target'],
-      order: { acceptedAt: 'DESC' }
+      order: { acceptedAt: 'DESC' },
     });
   }
 
@@ -87,11 +91,11 @@ export class UserContactRepository extends BaseRepository<UserContactEntity> {
     return await this.repository.find({
       where: {
         type: ContactType.PUBLIC,
-        status: ContactStatus.ACCEPTED
+        status: ContactStatus.ACCEPTED,
       },
       relations: ['requester', 'target'],
       take: limit,
-      order: { createdAt: 'DESC' }
+      order: { createdAt: 'DESC' },
     });
   }
 
@@ -126,7 +130,7 @@ export class UserContactRepository extends BaseRepository<UserContactEntity> {
       targetId,
       status: ContactStatus.BLOCKED,
       type: ContactType.FRIEND,
-      blockedAt: new Date()
+      blockedAt: new Date(),
     });
   }
 

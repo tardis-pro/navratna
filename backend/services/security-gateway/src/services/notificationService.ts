@@ -45,7 +45,7 @@ export class NotificationService {
       logger.info('Sending approval notification', {
         type: notification.type,
         recipientId: notification.recipientId,
-        workflowId: notification.workflowId
+        workflowId: notification.workflowId,
       });
 
       // Get recipient details
@@ -53,15 +53,15 @@ export class NotificationService {
       if (!recipient) {
         logger.warn('Recipient not found for notification', {
           recipientId: notification.recipientId,
-          workflowId: notification.workflowId
+          workflowId: notification.workflowId,
         });
         return;
       }
 
       // Send via enabled channels
       const promises = this.channels
-        .filter(channel => channel.enabled)
-        .map(channel => this.sendViaChannel(channel, notification, recipient));
+        .filter((channel) => channel.enabled)
+        .map((channel) => this.sendViaChannel(channel, notification, recipient));
 
       await Promise.allSettled(promises);
 
@@ -69,15 +69,14 @@ export class NotificationService {
         type: notification.type,
         recipientId: notification.recipientId,
         workflowId: notification.workflowId,
-        channels: this.channels.filter(c => c.enabled).map(c => c.type)
+        channels: this.channels.filter((c) => c.enabled).map((c) => c.type),
       });
-
     } catch (error) {
       logger.error('Failed to send approval notification', {
         type: notification.type,
         recipientId: notification.recipientId,
         workflowId: notification.workflowId,
-        error: error instanceof Error ? error.message : 'Unknown error'
+        error: error instanceof Error ? error.message : 'Unknown error',
       });
       throw error;
     }
@@ -112,7 +111,7 @@ export class NotificationService {
       logger.error(`Failed to send notification via ${channel.type}`, {
         workflowId: notification.workflowId,
         recipientId: notification.recipientId,
-        error: error instanceof Error ? error.message : 'Unknown error'
+        error: error instanceof Error ? error.message : 'Unknown error',
       });
     }
   }
@@ -126,7 +125,7 @@ export class NotificationService {
   ): Promise<void> {
     if (!this.emailTransporter || !recipient.email) {
       logger.warn('Email transporter not configured or recipient has no email', {
-        recipientId: notification.recipientId
+        recipientId: notification.recipientId,
       });
       return;
     }
@@ -145,7 +144,7 @@ export class NotificationService {
       to: recipient.email,
       subject: renderedTemplate.subject,
       html: renderedTemplate.htmlBody,
-      text: renderedTemplate.textBody
+      text: renderedTemplate.textBody,
     };
 
     await this.emailTransporter.sendMail(mailOptions);
@@ -153,7 +152,7 @@ export class NotificationService {
     logger.info('Email notification sent', {
       recipientId: notification.recipientId,
       email: recipient.email,
-      type: notification.type
+      type: notification.type,
     });
   }
 
@@ -174,10 +173,10 @@ export class NotificationService {
       data: {
         workflowId: notification.workflowId,
         operationId: notification.operationId,
-        ...notification.metadata
+        ...notification.metadata,
       },
       read: false,
-      createdAt: new Date()
+      createdAt: new Date(),
     };
 
     // Save to database (assuming we have a notifications table)
@@ -189,7 +188,7 @@ export class NotificationService {
     logger.info('In-app notification sent', {
       recipientId: notification.recipientId,
       type: notification.type,
-      notificationId: inAppNotification.id
+      notificationId: inAppNotification.id,
     });
   }
 
@@ -211,24 +210,24 @@ export class NotificationService {
       recipient: {
         id: recipient.id,
         email: recipient.email,
-        name: recipient.name
+        name: recipient.name,
       },
       workflow: {
         id: notification.workflowId,
-        operationId: notification.operationId
+        operationId: notification.operationId,
       },
       metadata: notification.metadata,
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
     };
 
     const response = await fetch(webhookConfig.url, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': webhookConfig.authHeader || '',
-        'X-UAIP-Signature': this.generateWebhookSignature(payload, webhookConfig.secret)
+        Authorization: webhookConfig.authHeader || '',
+        'X-UAIP-Signature': this.generateWebhookSignature(payload, webhookConfig.secret),
       },
-      body: JSON.stringify(payload)
+      body: JSON.stringify(payload),
     });
 
     if (!response.ok) {
@@ -238,7 +237,7 @@ export class NotificationService {
     logger.info('Webhook notification sent', {
       recipientId: notification.recipientId,
       webhookUrl: webhookConfig.url,
-      status: response.status
+      status: response.status,
     });
   }
 
@@ -252,7 +251,7 @@ export class NotificationService {
   ): Promise<void> {
     if (!recipient.phone || !smsConfig.provider) {
       logger.warn('SMS not configured or recipient has no phone', {
-        recipientId: notification.recipientId
+        recipientId: notification.recipientId,
       });
       return;
     }
@@ -265,7 +264,7 @@ export class NotificationService {
       recipientId: notification.recipientId,
       phone: recipient.phone,
       message,
-      provider: smsConfig.provider
+      provider: smsConfig.provider,
     });
 
     // TODO: Implement actual SMS sending based on provider
@@ -286,13 +285,13 @@ export class NotificationService {
         preferences: {
           email: true,
           inApp: true,
-          sms: false
-        }
+          sms: false,
+        },
       };
     } catch (error) {
       logger.error('Failed to get recipient details', {
         recipientId,
-        error: error instanceof Error ? error.message : 'Unknown error'
+        error: error instanceof Error ? error.message : 'Unknown error',
       });
       return null;
     }
@@ -320,13 +319,13 @@ export class NotificationService {
       operationType: notification.metadata?.operationType || 'Unknown',
       securityLevel: notification.metadata?.securityLevel || 'Unknown',
       approvalUrl: `${config.frontend.baseUrl}/approvals/${notification.workflowId}`,
-      ...notification.metadata
+      ...notification.metadata,
     };
 
     return {
       subject: this.interpolateTemplate(template.subject, data),
       htmlBody: this.interpolateTemplate(template.htmlBody, data),
-      textBody: this.interpolateTemplate(template.textBody, data)
+      textBody: this.interpolateTemplate(template.textBody, data),
     };
   }
 
@@ -349,7 +348,7 @@ export class NotificationService {
       approval_completed: 'Approval Completed',
       approval_rejected: 'Approval Rejected',
       approval_expired: 'Approval Expired',
-      approval_cancelled: 'Approval Cancelled'
+      approval_cancelled: 'Approval Cancelled',
     };
 
     return titles[type] || 'Notification';
@@ -365,7 +364,7 @@ export class NotificationService {
       approval_completed: `Operation has been approved: ${notification.metadata?.operationType || 'Unknown'}`,
       approval_rejected: `Operation has been rejected: ${notification.metadata?.operationType || 'Unknown'}`,
       approval_expired: `Approval request has expired: ${notification.metadata?.operationType || 'Unknown'}`,
-      approval_cancelled: `Approval request has been cancelled: ${notification.metadata?.operationType || 'Unknown'}`
+      approval_cancelled: `Approval request has been cancelled: ${notification.metadata?.operationType || 'Unknown'}`,
     };
 
     return messages[notification.type] || 'You have a new notification';
@@ -376,7 +375,7 @@ export class NotificationService {
    */
   private getSMSMessage(notification: ApprovalNotification): string {
     const operationType = notification.metadata?.operationType || 'Unknown';
-    
+
     switch (notification.type) {
       case 'approval_requested':
         return `UAIP: Approval required for ${operationType}. Check your dashboard.`;
@@ -394,7 +393,7 @@ export class NotificationService {
     // This would save to a notifications table
     logger.info('In-app notification saved', {
       notificationId: notification.id,
-      userId: notification.userId
+      userId: notification.userId,
     });
   }
 
@@ -405,7 +404,7 @@ export class NotificationService {
     // This would send via WebSocket or SSE
     logger.info('Real-time notification sent', {
       userId,
-      notificationId: notification.id
+      notificationId: notification.id,
     });
   }
 
@@ -414,7 +413,7 @@ export class NotificationService {
    */
   private generateWebhookSignature(payload: any, secret?: string): string {
     if (!secret) return '';
-    
+
     const hmac = crypto.createHmac('sha256', secret);
     hmac.update(JSON.stringify(payload));
     return `sha256=${hmac.digest('hex')}`;
@@ -439,8 +438,8 @@ export class NotificationService {
           secure: config.email.smtp.secure,
           auth: {
             user: config.email.smtp.user,
-            pass: config.email.smtp.password
-          }
+            pass: config.email.smtp.password,
+          },
         });
 
         logger.info('Email transporter initialized');
@@ -486,7 +485,7 @@ export class NotificationService {
         
         Best regards,
         UAIP Security Team
-      `
+      `,
     });
 
     // Approval reminder template
@@ -519,7 +518,7 @@ export class NotificationService {
         
         Best regards,
         UAIP Security Team
-      `
+      `,
     });
 
     // Add more templates...
@@ -551,11 +550,11 @@ export class NotificationService {
         
         Best regards,
         UAIP Security Team
-      `
+      `,
     });
 
     logger.info('Notification templates loaded', {
-      templateCount: this.templates.size
+      templateCount: this.templates.size,
     });
   }
 
@@ -567,32 +566,32 @@ export class NotificationService {
       {
         type: 'email',
         enabled: true,
-        config: {}
+        config: {},
       },
       {
         type: 'in_app',
         enabled: true,
-        config: {}
+        config: {},
       },
       {
         type: 'webhook',
         enabled: false,
         config: {
           url: config.notifications?.webhook?.url,
-          secret: config.notifications?.webhook?.secret
-        }
+          secret: config.notifications?.webhook?.secret,
+        },
       },
       {
         type: 'sms',
         enabled: false,
         config: {
-          provider: config.notifications?.sms?.provider
-        }
-      }
+          provider: config.notifications?.sms?.provider,
+        },
+      },
     ];
 
     logger.info('Notification channels configured', {
-      enabledChannels: this.channels.filter(c => c.enabled).map(c => c.type)
+      enabledChannels: this.channels.filter((c) => c.enabled).map((c) => c.type),
     });
   }
 
@@ -609,7 +608,7 @@ export class NotificationService {
     try {
       logger.info('Sending general notification', {
         type: notification.type,
-        recipient: notification.recipient
+        recipient: notification.recipient,
       });
 
       // Convert to approval notification format for compatibility
@@ -621,19 +620,18 @@ export class NotificationService {
         metadata: {
           subject: notification.subject,
           message: notification.message,
-          ...notification.data
-        }
+          ...notification.data,
+        },
       };
 
       await this.sendApprovalNotification(approvalNotification);
-
     } catch (error) {
       logger.error('Failed to send general notification', {
         type: notification.type,
         recipient: notification.recipient,
-        error: error instanceof Error ? error.message : 'Unknown error'
+        error: error instanceof Error ? error.message : 'Unknown error',
       });
       throw error;
     }
   }
-} 
+}

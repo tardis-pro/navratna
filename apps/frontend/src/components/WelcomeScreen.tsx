@@ -10,7 +10,7 @@ import {
   Shield,
   Brain,
   Settings,
-  X
+  X,
 } from 'lucide-react';
 import { Button } from './ui/button';
 import { useAuth } from '../contexts/AuthContext';
@@ -21,7 +21,12 @@ interface WelcomeScreenProps {
   onSkip: () => void;
 }
 
-const FeatureCard = ({ icon: Icon, title, description, delay = 0 }: {
+const FeatureCard = ({
+  icon: Icon,
+  title,
+  description,
+  delay = 0,
+}: {
   icon: React.ComponentType<any>;
   title: string;
   description: string;
@@ -45,11 +50,7 @@ const FeatureCard = ({ icon: Icon, title, description, delay = 0 }: {
   </motion.div>
 );
 
-export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
-  isOpen,
-  onGetStarted,
-  onSkip
-}) => {
+export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ isOpen, onGetStarted, onSkip }) => {
   const { user } = useAuth();
 
   if (!isOpen) return null;
@@ -58,33 +59,37 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
     {
       icon: Bot,
       title: 'AI Agent Collaboration',
-      description: 'Work with specialized AI agents that understand your workflow and adapt to your preferences.'
+      description:
+        'Work with specialized AI agents that understand your workflow and adapt to your preferences.',
     },
     {
       icon: MessageSquare,
       title: 'Intelligent Discussions',
-      description: 'Engage in contextual conversations with agents that remember your history and learn from interactions.'
+      description:
+        'Engage in contextual conversations with agents that remember your history and learn from interactions.',
     },
     {
       icon: Zap,
       title: 'Powerful Automation',
-      description: 'Automate complex workflows with intelligent tools and enterprise integrations.'
+      description: 'Automate complex workflows with intelligent tools and enterprise integrations.',
     },
     {
       icon: Shield,
       title: 'Enterprise Security',
-      description: 'Bank-level security with role-based access control and comprehensive audit trails.'
+      description:
+        'Bank-level security with role-based access control and comprehensive audit trails.',
     },
     {
       icon: Brain,
       title: 'Knowledge Management',
-      description: 'Centralized knowledge base with semantic search and intelligent recommendations.'
+      description:
+        'Centralized knowledge base with semantic search and intelligent recommendations.',
     },
     {
       icon: Users,
       title: 'Team Collaboration',
-      description: 'Seamless collaboration tools designed for modern distributed teams.'
-    }
+      description: 'Seamless collaboration tools designed for modern distributed teams.',
+    },
   ];
 
   return (
@@ -134,7 +139,8 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
               transition={{ duration: 0.6, delay: 0.2 }}
               className="text-white/80 text-lg"
             >
-              Hello, <span className="text-white font-semibold">{user.firstName || user.email}</span>! 
+              Hello,{' '}
+              <span className="text-white font-semibold">{user.firstName || user.email}</span>!
               Let's get you set up for success.
             </motion.div>
           )}
@@ -143,11 +149,7 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
         {/* Features Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-12">
           {features.map((feature, index) => (
-            <FeatureCard
-              key={feature.title}
-              {...feature}
-              delay={0.1 * index}
-            />
+            <FeatureCard key={feature.title} {...feature} delay={0.1 * index} />
           ))}
         </div>
 
@@ -166,7 +168,7 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
             Get Started
             <ArrowRight className="w-5 h-5 ml-2 group-hover:translate-x-1 transition-transform duration-200" />
           </Button>
-          
+
           <Button
             onClick={onSkip}
             variant="ghost"
@@ -185,7 +187,8 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
           className="text-center mt-8"
         >
           <p className="text-white/60 text-sm">
-            This quick setup will help us customize your experience. You can always change these preferences later in 
+            This quick setup will help us customize your experience. You can always change these
+            preferences later in
             <Settings className="w-4 h-4 inline mx-1" />
             Settings.
           </p>

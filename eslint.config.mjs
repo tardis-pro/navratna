@@ -2,6 +2,7 @@
 
 import eslint from '@eslint/js';
 import tseslint from 'typescript-eslint';
+import eslintPluginPrettier from 'eslint-plugin-prettier/recommended';
 
 export default tseslint.config(
   {
@@ -11,11 +12,12 @@ export default tseslint.config(
       '**/node_modules/**',
       '**/*.js',
       '**/*.d.ts',
-      '**/*.tsbuildinfo'
+      '**/*.tsbuildinfo',
     ],
   },
   eslint.configs.recommended,
   ...tseslint.configs.recommended,
+  eslintPluginPrettier,
   {
     // TypeScript-specific configuration
     files: ['**/*.ts', '**/*.tsx'],
@@ -28,7 +30,7 @@ export default tseslint.config(
     },
     rules: {
       '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_' }],
-      '@typescript-eslint/no-explicit-any': 'warn',
+      '@typescript-eslint/no-explicit-any': 'error',
       '@typescript-eslint/explicit-function-return-type': 'off',
       '@typescript-eslint/explicit-module-boundary-types': 'off',
       'no-console': 'off',

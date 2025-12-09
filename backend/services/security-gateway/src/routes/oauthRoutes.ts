@@ -10,7 +10,7 @@ import {
   OAuthProviderType,
   GitHubProviderConfig,
   EmailProviderConfig,
-  AuditEventType
+  AuditEventType,
 } from '@uaip/types';
 import { authMiddleware } from '@uaip/middleware';
 import { z } from 'zod';
@@ -35,14 +35,14 @@ const AuthorizeRequestSchema = z.object({
   redirect_uri: z.string().url(),
   user_type: z.nativeEnum(UserType).optional().default(UserType.HUMAN),
   agent_capabilities: z.array(z.nativeEnum(AgentCapability)).optional(),
-  scope: z.array(z.string()).optional()
+  scope: z.array(z.string()).optional(),
 });
 
 const CallbackRequestSchema = z.object({
   code: z.string().min(1),
   state: z.string().min(1),
   error: z.string().optional(),
-  error_description: z.string().optional()
+  error_description: z.string().optional(),
 });
 
 const AgentAuthRequestSchema = z.object({
@@ -50,20 +50,20 @@ const AgentAuthRequestSchema = z.object({
   agent_token: z.string().min(1),
   capabilities: z.array(z.nativeEnum(AgentCapability)),
   requested_scopes: z.array(z.string()).optional(),
-  requested_providers: z.array(z.string()).optional()
+  requested_providers: z.array(z.string()).optional(),
 });
 
 const GitHubOperationSchema = z.object({
   operation: z.enum(['list_repos', 'get_repo', 'create_repo', 'clone_repo']),
   repository: z.string().optional(),
-  parameters: z.record(z.any()).optional()
+  parameters: z.record(z.any()).optional(),
 });
 
 const EmailOperationSchema = z.object({
   operation: z.enum(['list_messages', 'get_message', 'send_message', 'search_messages']),
   query: z.string().optional(),
   message_id: z.string().optional(),
-  parameters: z.record(z.any()).optional()
+  parameters: z.record(z.any()).optional(),
 });
 
 export function createOAuthRoutes(
@@ -78,28 +78,28 @@ export function createOAuthRoutes(
    */
   router.get('/providers', async (req: Request, res: Response) => {
     try {
-      const userType = req.query.userType as UserType || UserType.HUMAN;
+      const userType = (req.query.userType as UserType) || UserType.HUMAN;
       const providers = await oauthProviderService.getAvailableProviders(userType);
 
       res.json({
         success: true,
-        providers: providers.map(p => ({
+        providers: providers.map((p) => ({
           id: p.id,
           name: p.name,
           type: p.type,
           isEnabled: p.isEnabled,
           agentAccess: p.agentConfig?.allowAgentAccess || false,
           requiredCapabilities: p.agentConfig?.requiredCapabilities || [],
-          scope: p.scope
-        }))
+          scope: p.scope,
+        })),
       });
     } catch (error) {
       logger.error('Failed to get OAuth providers', {
-        error: error instanceof Error ? error.message : 'Unknown error'
+        error: error instanceof Error ? error.message : 'Unknown error',
       });
       res.status(500).json({
         success: false,
-        error: 'Failed to get OAuth providers'
+        error: 'Failed to get OAuth providers',
       });
     }
   });
@@ -129,14 +129,14 @@ export function createOAuthRoutes(
           userType: validatedData.user_type,
           agentCapabilities: validatedData.agent_capabilities,
           ipAddress,
-          userAgent
-        }
+          userAgent,
+        },
       });
 
       res.json({
         success: true,
         authorization_url: url,
-        state
+        state,
       });
     } catch (error) {
       await auditService.logEvent({
@@ -144,13 +144,13 @@ export function createOAuthRoutes(
         details: {
           error: error.message,
           ipAddress: req.ip,
-          userAgent: req.get('User-Agent')
-        }
+          userAgent: req.get('User-Agent'),
+        },
       });
 
       res.status(400).json({
         success: false,
-        error: error.message
+        error: error.message,
       });
     }
   });
@@ -172,14 +172,14 @@ export function createOAuthRoutes(
             error: validatedData.error,
             errorDescription: validatedData.error_description,
             ipAddress,
-            userAgent
-          }
+            userAgent,
+          },
         });
 
         return res.status(400).json({
           success: false,
           error: validatedData.error,
-          error_description: validatedData.error_description
+          error_description: validatedData.error_description,
         });
       }
 
@@ -188,7 +188,7 @@ export function createOAuthRoutes(
       if (!redirectUri) {
         return res.status(400).json({
           success: false,
-          error: 'Missing redirect URI'
+          error: 'Missing redirect URI',
         });
       }
 
@@ -208,13 +208,13 @@ export function createOAuthRoutes(
         httpOnly: true,
         secure: process.env.NODE_ENV === 'production',
         sameSite: 'strict' as const,
-        maxAge: 24 * 60 * 60 * 1000 // 24 hours
+        maxAge: 24 * 60 * 60 * 1000, // 24 hours
       };
 
       res.cookie('access_token', authResult.tokens.accessToken, cookieOptions);
       res.cookie('refresh_token', authResult.tokens.refreshToken, {
         ...cookieOptions,
-        maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
+        maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
       });
 
       // Session data is managed by OAuth state entity, no cleanup needed
@@ -224,8 +224,8 @@ export function createOAuthRoutes(
         userId: authResult.user.id,
         details: {
           userType: authResult.user.userType,
-          sessionId: authResult.session.id
-        }
+          sessionId: authResult.session.id,
+        },
       });
 
       res.json({
@@ -235,20 +235,20 @@ export function createOAuthRoutes(
           email: authResult.user.email,
           name: authResult.user.name,
           userType: authResult.user.userType,
-          role: authResult.user.role
+          role: authResult.user.role,
         },
         session: {
           id: authResult.session.id,
-          expiresAt: authResult.session.expiresAt
+          expiresAt: authResult.session.expiresAt,
         },
         tokens: {
           access_token: authResult.tokens.accessToken,
           refresh_token: authResult.tokens.refreshToken,
           expires_at: authResult.session.expiresAt,
-          token_type: 'Bearer'
+          token_type: 'Bearer',
         },
         mfa_required: authResult.requiresMFA,
-        mfa_challenge: authResult.mfaChallenge
+        mfa_challenge: authResult.mfaChallenge,
       });
     } catch (error) {
       await auditService.logEvent({
@@ -256,13 +256,13 @@ export function createOAuthRoutes(
         details: {
           error: error.message,
           ipAddress: req.ip,
-          userAgent: req.get('User-Agent')
-        }
+          userAgent: req.get('User-Agent'),
+        },
       });
 
       res.status(500).json({
         success: false,
-        error: error.message
+        error: error.message,
       });
     }
   }) as any);
@@ -282,7 +282,7 @@ export function createOAuthRoutes(
         capabilities: validatedData.capabilities,
         requestedProviders: (validatedData.requested_providers || []) as OAuthProviderType[],
         ipAddress,
-        userAgent
+        userAgent,
       });
 
       // AuthenticationResult doesn't have success property - it throws on error
@@ -292,8 +292,8 @@ export function createOAuthRoutes(
         agentId: validatedData.agent_id,
         details: {
           capabilities: validatedData.capabilities,
-          requestedProviders: validatedData.requested_providers
-        }
+          requestedProviders: validatedData.requested_providers,
+        },
       });
 
       res.json({
@@ -302,18 +302,18 @@ export function createOAuthRoutes(
           id: authResult.user.id,
           name: authResult.user.name,
           capabilities: authResult.user.agentConfig?.capabilities || [],
-          userType: authResult.user.userType
+          userType: authResult.user.userType,
         },
         tokens: {
           access_token: authResult.tokens.accessToken,
           refresh_token: authResult.tokens.refreshToken,
           expires_at: authResult.session.expiresAt,
-          token_type: 'Bearer'
+          token_type: 'Bearer',
         },
         session: {
           id: authResult.session.id,
-          expiresAt: authResult.session.expiresAt
-        }
+          expiresAt: authResult.session.expiresAt,
+        },
       });
     } catch (error) {
       await auditService.logEvent({
@@ -322,13 +322,13 @@ export function createOAuthRoutes(
         details: {
           error: error.message,
           ipAddress: req.ip,
-          userAgent: req.get('User-Agent')
-        }
+          userAgent: req.get('User-Agent'),
+        },
       });
 
       res.status(500).json({
         success: false,
-        error: error.message
+        error: error.message,
       });
     }
   });
@@ -346,10 +346,15 @@ export function createOAuthRoutes(
       }
 
       if (!code || !state) {
-        throw new ApiError(400, 'Authorization code and state are required', 'MISSING_OAUTH_PARAMS');
+        throw new ApiError(
+          400,
+          'Authorization code and state are required',
+          'MISSING_OAUTH_PARAMS'
+        );
       }
 
-      const baseRedirectUri = redirectUri || `${req.protocol}://${req.get('host')}/api/auth/oauth/callback`;
+      const baseRedirectUri =
+        redirectUri || `${req.protocol}://${req.get('host')}/api/auth/oauth/callback`;
 
       const result = await enhancedAuthService.connectOAuthProvider(
         userId,
@@ -360,28 +365,28 @@ export function createOAuthRoutes(
 
       logger.info('OAuth provider connected', {
         userId,
-        success: result.success
+        success: result.success,
       });
 
       res.json({
         success: result.success,
-        message: 'OAuth provider connected successfully'
+        message: 'OAuth provider connected successfully',
       });
     } catch (error) {
       logger.error('Failed to connect OAuth provider', {
-        error: error instanceof Error ? error.message : 'Unknown error'
+        error: error instanceof Error ? error.message : 'Unknown error',
       });
 
       if (error instanceof ApiError) {
         res.status(error.statusCode).json({
           success: false,
           error: error.message,
-          code: error.code
+          code: error.code,
         });
       } else {
         res.status(500).json({
           success: false,
-          error: 'Failed to connect OAuth provider'
+          error: 'Failed to connect OAuth provider',
         });
       }
     }
@@ -404,7 +409,7 @@ export function createOAuthRoutes(
 
       res.json({
         success: true,
-        connections: connections.map(conn => ({
+        connections: connections.map((conn) => ({
           id: conn.id,
           providerId: conn.providerId,
           providerType: conn.providerType,
@@ -412,24 +417,24 @@ export function createOAuthRoutes(
           permissions: conn.permissions,
           isActive: conn.isActive,
           lastUsedAt: conn.lastUsedAt,
-          usageStats: conn.usageStats
-        }))
+          usageStats: conn.usageStats,
+        })),
       });
     } catch (error) {
       logger.error('Failed to get agent OAuth connections', {
-        error: error instanceof Error ? error.message : 'Unknown error'
+        error: error instanceof Error ? error.message : 'Unknown error',
       });
 
       if (error instanceof ApiError) {
         res.status(error.statusCode).json({
           success: false,
           error: error.message,
-          code: error.code
+          code: error.code,
         });
       } else {
         res.status(500).json({
           success: false,
-          error: 'Failed to get agent OAuth connections'
+          error: 'Failed to get agent OAuth connections',
         });
       }
     }
@@ -438,49 +443,53 @@ export function createOAuthRoutes(
   /**
    * Revoke agent's OAuth connection
    */
-  router.delete('/agent/:agentId/connections/:providerId', authMiddleware, async (req: Request, res: Response) => {
-    try {
-      const { agentId, providerId } = req.params;
-      const userId = req.user?.id;
+  router.delete(
+    '/agent/:agentId/connections/:providerId',
+    authMiddleware,
+    async (req: Request, res: Response) => {
+      try {
+        const { agentId, providerId } = req.params;
+        const userId = req.user?.id;
 
-      // Verify agent access (note: req.user doesn't have userType property)
-      if (userId !== agentId) {
-        throw new ApiError(403, 'Access denied', 'ACCESS_DENIED');
-      }
+        // Verify agent access (note: req.user doesn't have userType property)
+        if (userId !== agentId) {
+          throw new ApiError(403, 'Access denied', 'ACCESS_DENIED');
+        }
 
-      const revoked = await oauthProviderService.revokeAgentConnection(agentId, providerId);
+        const revoked = await oauthProviderService.revokeAgentConnection(agentId, providerId);
 
-      if (revoked) {
-        logger.info('Agent OAuth connection revoked', { agentId, providerId });
-        res.json({
-          success: true,
-          message: 'OAuth connection revoked successfully'
+        if (revoked) {
+          logger.info('Agent OAuth connection revoked', { agentId, providerId });
+          res.json({
+            success: true,
+            message: 'OAuth connection revoked successfully',
+          });
+        } else {
+          res.status(404).json({
+            success: false,
+            error: 'OAuth connection not found',
+          });
+        }
+      } catch (error) {
+        logger.error('Failed to revoke agent OAuth connection', {
+          error: error instanceof Error ? error.message : 'Unknown error',
         });
-      } else {
-        res.status(404).json({
-          success: false,
-          error: 'OAuth connection not found'
-        });
-      }
-    } catch (error) {
-      logger.error('Failed to revoke agent OAuth connection', {
-        error: error instanceof Error ? error.message : 'Unknown error'
-      });
 
-      if (error instanceof ApiError) {
-        res.status(error.statusCode).json({
-          success: false,
-          error: error.message,
-          code: error.code
-        });
-      } else {
-        res.status(500).json({
-          success: false,
-          error: 'Failed to revoke OAuth connection'
-        });
+        if (error instanceof ApiError) {
+          res.status(error.statusCode).json({
+            success: false,
+            error: error.message,
+            code: error.code,
+          });
+        } else {
+          res.status(500).json({
+            success: false,
+            error: 'Failed to revoke OAuth connection',
+          });
+        }
       }
     }
-  });
+  );
 
   /**
    * Provider-specific routes for common operations
@@ -496,7 +505,7 @@ export function createOAuthRoutes(
       if (!agentId) {
         return res.status(401).json({
           success: false,
-          error: 'Agent authentication required'
+          error: 'Agent authentication required',
         });
       }
 
@@ -509,7 +518,7 @@ export function createOAuthRoutes(
           if (!validatedData.repository) {
             return res.status(400).json({
               success: false,
-              error: 'Repository name required'
+              error: 'Repository name required',
             });
           }
           // Implement get specific repo
@@ -518,7 +527,7 @@ export function createOAuthRoutes(
         default:
           return res.status(400).json({
             success: false,
-            error: `Unsupported operation: ${validatedData.operation}`
+            error: `Unsupported operation: ${validatedData.operation}`,
           });
       }
 
@@ -529,14 +538,14 @@ export function createOAuthRoutes(
           providerId,
           operation: validatedData.operation,
           repository: validatedData.repository,
-          resultCount: Array.isArray(result) ? result.length : 1
-        }
+          resultCount: Array.isArray(result) ? result.length : 1,
+        },
       });
 
       res.json({
         success: true,
         operation: validatedData.operation,
-        data: result
+        data: result,
       });
     } catch (error) {
       const agentId = req.user?.id;
@@ -546,13 +555,13 @@ export function createOAuthRoutes(
         details: {
           error: error.message,
           providerId: req.params.providerId,
-          operation: req.body.operation
-        }
+          operation: req.body.operation,
+        },
       });
 
       res.status(500).json({
         success: false,
-        error: error.message
+        error: error.message,
       });
     }
   }) as any);
@@ -567,7 +576,7 @@ export function createOAuthRoutes(
       if (!agentId) {
         return res.status(401).json({
           success: false,
-          error: 'Agent authentication required'
+          error: 'Agent authentication required',
         });
       }
 
@@ -585,7 +594,7 @@ export function createOAuthRoutes(
           if (!validatedData.message_id) {
             return res.status(400).json({
               success: false,
-              error: 'Message ID required'
+              error: 'Message ID required',
             });
           }
           // Implement get specific message
@@ -594,7 +603,7 @@ export function createOAuthRoutes(
         default:
           return res.status(400).json({
             success: false,
-            error: `Unsupported operation: ${validatedData.operation}`
+            error: `Unsupported operation: ${validatedData.operation}`,
           });
       }
 
@@ -606,14 +615,14 @@ export function createOAuthRoutes(
           operation: validatedData.operation,
           query: validatedData.query,
           messageId: validatedData.message_id,
-          resultCount: Array.isArray(result) ? result.length : 1
-        }
+          resultCount: Array.isArray(result) ? result.length : 1,
+        },
       });
 
       res.json({
         success: true,
         operation: validatedData.operation,
-        data: result
+        data: result,
       });
     } catch (error) {
       const agentId = req.user?.id;
@@ -623,13 +632,13 @@ export function createOAuthRoutes(
         details: {
           error: error.message,
           providerId: req.params.providerId,
-          operation: req.body.operation
-        }
+          operation: req.body.operation,
+        },
       });
 
       res.status(500).json({
         success: false,
-        error: error.message
+        error: error.message,
       });
     }
   }) as any);
@@ -644,8 +653,8 @@ export function createOAuthRoutes(
         services: {
           oauth_provider: 'healthy',
           auth_service: 'healthy',
-          database: 'healthy'
-        }
+          database: 'healthy',
+        },
       };
 
       res.json(health);
@@ -653,7 +662,7 @@ export function createOAuthRoutes(
       res.status(503).json({
         status: 'unhealthy',
         error: error.message,
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
       });
     }
   });
@@ -665,10 +674,10 @@ export function createOAuthRoutes(
 async function makeGitHubAPICall(endpoint: string, accessToken: string): Promise<any> {
   const response = await fetch(`https://api.github.com${endpoint}`, {
     headers: {
-      'Authorization': `Bearer ${accessToken}`,
-      'Accept': 'application/vnd.github.v3+json',
-      'User-Agent': 'UAIP-Agent/1.0'
-    }
+      Authorization: `Bearer ${accessToken}`,
+      Accept: 'application/vnd.github.v3+json',
+      'User-Agent': 'UAIP-Agent/1.0',
+    },
   });
 
   if (!response.ok) {
@@ -681,9 +690,9 @@ async function makeGitHubAPICall(endpoint: string, accessToken: string): Promise
 async function makeGmailAPICall(endpoint: string, accessToken: string): Promise<any> {
   const response = await fetch(`https://www.googleapis.com${endpoint}`, {
     headers: {
-      'Authorization': `Bearer ${accessToken}`,
-      'Accept': 'application/json'
-    }
+      Authorization: `Bearer ${accessToken}`,
+      Accept: 'application/json',
+    },
   });
 
   if (!response.ok) {
@@ -691,4 +700,4 @@ async function makeGmailAPICall(endpoint: string, accessToken: string): Promise<
   }
 
   return await response.json();
-} 
+}

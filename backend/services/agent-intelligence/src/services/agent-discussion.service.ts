@@ -11,7 +11,7 @@ import {
   WorkingMemoryUpdate,
   KnowledgeType,
   SourceType,
-  LLMTaskType
+  LLMTaskType,
 } from '@uaip/types';
 import { logger, ApiError } from '@uaip/utils';
 import {
@@ -20,7 +20,7 @@ import {
   KnowledgeGraphService,
   AgentMemoryService,
   DiscussionService,
-  LLMRequestTracker
+  LLMRequestTracker,
 } from '@uaip/shared-services';
 import { LLMService, UserLLMService, LLMRequest } from '@uaip/llm-service';
 
@@ -46,14 +46,17 @@ export class AgentDiscussionService {
   private userLLMService: UserLLMService;
   private serviceName: string;
   private securityLevel: number;
-  
+
   // Track active LLM requests to prevent duplicates and monitor leaks
-  private activeRequests = new Map<string, {
-    timestamp: number;
-    timeout: NodeJS.Timeout | null;
-    responseChannel: string;
-    handler: ((responseData: any) => Promise<void>) | null;
-  }>();
+  private activeRequests = new Map<
+    string,
+    {
+      timestamp: number;
+      timeout: NodeJS.Timeout | null;
+      responseChannel: string;
+      handler: ((responseData: any) => Promise<void>) | null;
+    }
+  >();
 
   // Redis-based LLM request tracker for persistence
   private llmRequestTracker: LLMRequestTracker;
@@ -68,7 +71,7 @@ export class AgentDiscussionService {
     this.userLLMService = config.userLLMService;
     this.serviceName = config.serviceName;
     this.securityLevel = config.securityLevel;
-    
+
     // Initialize Redis-based LLM request tracker
     this.llmRequestTracker = new LLMRequestTracker(
       'agent-discussion',
@@ -87,7 +90,7 @@ export class AgentDiscussionService {
 
     logger.info('Agent Discussion Service initialized', {
       service: this.serviceName,
-      securityLevel: this.securityLevel
+      securityLevel: this.securityLevel,
     });
   }
 
@@ -98,15 +101,15 @@ export class AgentDiscussionService {
     // Subscribe to LLM generation responses
     await this.eventBusService.subscribe('llm.agent.generate.response', async (event) => {
       const { requestId, content, error, confidence, model } = event.data;
-      
+
       const isPending = await this.llmRequestTracker.isPending(requestId);
       if (!isPending) {
         const pendingCount = await this.llmRequestTracker.getPendingCount();
         const pendingKeys = await this.llmRequestTracker.getPendingRequestIds();
-        logger.warn('Received LLM response for unknown agent discussion request', { 
-          requestId, 
+        logger.warn('Received LLM response for unknown agent discussion request', {
+          requestId,
           pendingCount,
-          pendingKeys
+          pendingKeys,
         });
         return;
       }
@@ -117,13 +120,13 @@ export class AgentDiscussionService {
         await this.llmRequestTracker.completePendingRequest(requestId, {
           content: 'I appreciate the opportunity to respond.',
           confidence: 0.3,
-          model: model || 'fallback'
+          model: model || 'fallback',
         });
       } else {
         await this.llmRequestTracker.completePendingRequest(requestId, {
           content: content || 'I have some thoughts on this.',
           confidence: confidence || 0.7,
-          model: model || 'unknown'
+          model: model || 'unknown',
         });
       }
     });
@@ -146,7 +149,7 @@ export class AgentDiscussionService {
   ): Promise<{ content: string; confidence: number; model: string }> {
     return new Promise(async (resolve, reject) => {
       const requestId = `agent_disc_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-      
+
       // Add to Redis-based request tracker (30 seconds timeout)
       await this.llmRequestTracker.addPendingRequest(
         requestId,
@@ -168,34 +171,35 @@ export class AgentDiscussionService {
           selectedModel,
           selectedProvider,
           providerId,
-          hasPreSelection: !!preSelectedModel
+          hasPreSelection: !!preSelectedModel,
         });
 
         // Publish LLM generation request via event bus
         await this.eventBusService.publish('llm.agent.generate.request', {
           requestId,
           agentId: agentId || null,
-          messages: [{
-            id: `msg_${Date.now()}`,
-            content: prompt,
-            sender: 'user',
-            timestamp: new Date().toISOString(),
-            type: 'user' as const
-          }],
+          messages: [
+            {
+              id: `msg_${Date.now()}`,
+              content: prompt,
+              sender: 'user',
+              timestamp: new Date().toISOString(),
+              type: 'user' as const,
+            },
+          ],
           systemPrompt,
           maxTokens: maxTokens,
           temperature: temperature,
           model: selectedModel,
           provider: selectedProvider,
-          providerId: providerId
+          providerId: providerId,
         });
 
         const pendingCount = await this.llmRequestTracker.getPendingCount();
-        logger.debug('Agent discussion LLM request published', { 
-          requestId, 
-          pendingCount
+        logger.debug('Agent discussion LLM request published', {
+          requestId,
+          pendingCount,
         });
-
       } catch (error) {
         await this.llmRequestTracker.failPendingRequest(requestId, error);
       }
@@ -212,10 +216,10 @@ export class AgentDiscussionService {
     activeRequestsInMemory: number;
   }> {
     const totalActiveRequests = await this.llmRequestTracker.getPendingCount();
-    
+
     return {
       totalActiveRequests,
-      activeRequestsInMemory: this.activeRequests.size
+      activeRequestsInMemory: this.activeRequests.size,
     };
   }
 
@@ -225,12 +229,23 @@ export class AgentDiscussionService {
   private async setupEventSubscriptions(): Promise<void> {
     // DISABLED: Direct agent participation - using only enhanced responses from ConversationEnhancementService
     // await this.eventBusService.subscribe('agent.discussion.participate', this.handleParticipateInDiscussion.bind(this));
-    
-    await this.eventBusService.subscribe('agent.discussion.generate', this.handleGenerateResponse.bind(this));
-    await this.eventBusService.subscribe('agent.discussion.process', this.handleProcessInput.bind(this));
-    await this.eventBusService.subscribe('agent.discussion.trigger', this.handleTriggerParticipation.bind(this));
 
-    logger.info('Agent Discussion Service event subscriptions configured (direct participation disabled)');
+    await this.eventBusService.subscribe(
+      'agent.discussion.generate',
+      this.handleGenerateResponse.bind(this)
+    );
+    await this.eventBusService.subscribe(
+      'agent.discussion.process',
+      this.handleProcessInput.bind(this)
+    );
+    await this.eventBusService.subscribe(
+      'agent.discussion.trigger',
+      this.handleTriggerParticipation.bind(this)
+    );
+
+    logger.info(
+      'Agent Discussion Service event subscriptions configured (direct participation disabled)'
+    );
   }
 
   /**
@@ -252,13 +267,13 @@ export class AgentDiscussionService {
     metadata?: any;
   }> {
     const { agentId, message, userId, conversationHistory = [], context = {} } = params;
-    
+
     try {
-      logger.info('Processing direct agent chat', { 
+      logger.info('Processing direct agent chat', {
         agentId: agentId?.substring(0, 8) + '...',
         userId: userId?.substring(0, 8) + '...',
         messageLength: message?.length || 0,
-        historyLength: conversationHistory.length
+        historyLength: conversationHistory.length,
       });
 
       // Get agent data
@@ -277,19 +292,20 @@ export class AgentDiscussionService {
               participants: [userId],
               myRole: 'assistant',
               conversationHistory: conversationHistory.slice(-10),
-              currentGoals: ['assist user', 'provide helpful responses']
-            }
-          }
+              currentGoals: ['assist user', 'provide helpful responses'],
+            },
+          },
         });
       }
 
       // Get contextual knowledge for the chat
-      const contextualKnowledge = this.knowledgeGraphService ?
-        await this.knowledgeGraphService.getContextualKnowledge({
-          discussionHistory: conversationHistory,
-          relevantTags: ['chat', 'conversation'],
-          scope: { agentId, userId }
-        }) : [];
+      const contextualKnowledge = this.knowledgeGraphService
+        ? await this.knowledgeGraphService.getContextualKnowledge({
+            discussionHistory: conversationHistory,
+            relevantTags: ['chat', 'conversation'],
+            scope: { agentId, userId },
+          })
+        : [];
 
       // Handle "system" userId by using agent's creator
       const effectiveUserId = userId === 'system' ? agent.createdBy : userId;
@@ -315,42 +331,46 @@ export class AgentDiscussionService {
             who: [userId, agentId],
             what: `Direct chat with user ${userId}`,
             why: 'User initiated chat conversation',
-            how: 'Real-time chat interface'
+            how: 'Real-time chat interface',
           },
           experience: {
-            actions: [{
-              id: `action-${Date.now()}`,
-              description: 'Process user message and generate response',
-              type: 'chat-response',
-              timestamp: new Date(),
-              success: true,
-              metadata: { userMessage: message, agentResponse: response }
-            }],
+            actions: [
+              {
+                id: `action-${Date.now()}`,
+                description: 'Process user message and generate response',
+                type: 'chat-response',
+                timestamp: new Date(),
+                success: true,
+                metadata: { userMessage: message, agentResponse: response },
+              },
+            ],
             decisions: [],
-            outcomes: [{
-              id: `outcome-${Date.now()}`,
-              description: 'Successfully responded to user query',
-              type: 'chat-completion',
-              success: true,
-              impact: 0.5,
-              timestamp: new Date(),
-              metadata: { responseLength: response.length }
-            }],
+            outcomes: [
+              {
+                id: `outcome-${Date.now()}`,
+                description: 'Successfully responded to user query',
+                type: 'chat-completion',
+                success: true,
+                impact: 0.5,
+                timestamp: new Date(),
+                metadata: { responseLength: response.length },
+              },
+            ],
             emotions: [],
-            learnings: contextualKnowledge ? ['Applied contextual knowledge in response'] : []
+            learnings: contextualKnowledge ? ['Applied contextual knowledge in response'] : [],
           },
           significance: {
             importance: 0.3,
             novelty: 0.2,
             success: 1.0,
-            impact: 0.4
+            impact: 0.4,
           },
           connections: {
             relatedEpisodes: [],
             triggeredBy: [],
             ledTo: [],
-            similarTo: []
-          }
+            similarTo: [],
+          },
         } as Episode);
       }
 
@@ -362,10 +382,9 @@ export class AgentDiscussionService {
           agentId,
           timestamp: new Date().toISOString(),
           knowledgeUsed: contextualKnowledge.length,
-          historyLength: conversationHistory.length
-        }
+          historyLength: conversationHistory.length,
+        },
       };
-
     } catch (error) {
       logger.error('Direct agent chat failed', { error, agentId, userId });
       throw error;
@@ -375,7 +394,11 @@ export class AgentDiscussionService {
   /**
    * Legacy method for discussion participation
    */
-  async participateInDiscussionLegacy(agentId: string, discussionId: string, message: string): Promise<{
+  async participateInDiscussionLegacy(
+    agentId: string,
+    discussionId: string,
+    message: string
+  ): Promise<{
     response: string;
     confidence: number;
     knowledgeContributed: boolean;
@@ -401,14 +424,15 @@ export class AgentDiscussionService {
         filters: {
           tags: [discussion.topic],
           agentId: agentId,
-          discussionId: discussion.id
+          discussionId: discussion.id,
         },
-        scope: 'agent' as any
+        scope: 'agent' as any,
       };
 
       // Get contextual knowledge
-      const contextualKnowledge = this.knowledgeGraphService ?
-        await this.knowledgeGraphService.getContextualKnowledge(context) : [];
+      const contextualKnowledge = this.knowledgeGraphService
+        ? await this.knowledgeGraphService.getContextualKnowledge(context)
+        : [];
 
       // Update working memory with discussion context
       if (this.agentMemoryService) {
@@ -417,12 +441,12 @@ export class AgentDiscussionService {
             activeDiscussion: {
               discussionId,
               topic: discussion.topic,
-              participants: discussion.participants.map(p => p.id),
+              participants: discussion.participants.map((p) => p.id),
               myRole: 'participant',
               conversationHistory: discussionMessages?.messages?.slice(-5) || [],
-              currentGoals: ['contribute meaningfully', 'share relevant knowledge']
-            }
-          }
+              currentGoals: ['contribute meaningfully', 'share relevant knowledge'],
+            },
+          },
         });
       }
 
@@ -447,10 +471,10 @@ export class AgentDiscussionService {
           context: {
             when: new Date(),
             where: 'discussion-platform',
-            who: discussion.participants.map(p => p.id),
+            who: discussion.participants.map((p) => p.id),
             what: `Participated in discussion about ${discussion.topic}`,
             why: 'Knowledge sharing and collaboration',
-            how: 'Text-based discussion'
+            how: 'Text-based discussion',
           },
           experience: {
             actions: [
@@ -459,26 +483,26 @@ export class AgentDiscussionService {
                 type: 'respond',
                 description: 'Generated response to discussion',
                 timestamp: new Date(),
-                success: true
-              }
+                success: true,
+              },
             ],
             decisions: [],
             outcomes: [],
             emotions: [],
-            learnings: [`Contributed to discussion on ${discussion.topic}`]
+            learnings: [`Contributed to discussion on ${discussion.topic}`],
           },
           significance: {
             importance: 0.7,
             novelty: 0.5,
             success: 1.0,
-            impact: 0.6
+            impact: 0.6,
           },
           connections: {
             relatedEpisodes: [],
             triggeredBy: [`discussion-${discussionId}`],
             ledTo: [],
-            similarTo: []
-          }
+            similarTo: [],
+          },
         };
 
         await this.agentMemoryService.storeEpisode(agentId, episode);
@@ -489,19 +513,19 @@ export class AgentDiscussionService {
         agentId,
         discussionId,
         responseLength: response.length,
-        knowledgeUsed: contextualKnowledge.length
+        knowledgeUsed: contextualKnowledge.length,
       });
 
       this.auditLog('DISCUSSION_PARTICIPATED', {
         agentId,
         discussionId,
-        topic: discussion.topic
+        topic: discussion.topic,
       });
 
       return {
         response,
         confidence: 0.8,
-        knowledgeContributed: contextualKnowledge.length > 0
+        knowledgeContributed: contextualKnowledge.length > 0,
       };
     } catch (error) {
       logger.error('Failed to participate in discussion', { error, agentId, discussionId });
@@ -543,12 +567,14 @@ export class AgentDiscussionService {
       const userMessage = messages[messages.length - 1]?.content || '';
 
       // Search for relevant knowledge
-      const relevantKnowledge = this.knowledgeGraphService ?
-        await this.searchRelevantKnowledge(agentId, userMessage, { ...context, userId }) : [];
+      const relevantKnowledge = this.knowledgeGraphService
+        ? await this.searchRelevantKnowledge(agentId, userMessage, { ...context, userId })
+        : [];
 
       // Get working memory
-      const workingMemory = this.agentMemoryService ?
-        await this.agentMemoryService.getWorkingMemory(agentId) : null;
+      const workingMemory = this.agentMemoryService
+        ? await this.agentMemoryService.getWorkingMemory(agentId)
+        : null;
 
       // Build agent request for LLM
       const agentRequest = {
@@ -558,12 +584,14 @@ export class AgentDiscussionService {
         context: {
           ...context,
           relevantKnowledge: relevantKnowledge.slice(0, 5), // Limit to top 5
-          workingMemory: workingMemory ? {
-            lastInteraction: null,
-            currentGoals: workingMemory?.currentContext?.activeDiscussion?.currentGoals || []
-          } : null,
-          agentPersona: agent.persona
-        }
+          workingMemory: workingMemory
+            ? {
+                lastInteraction: null,
+                currentGoals: workingMemory?.currentContext?.activeDiscussion?.currentGoals || [],
+              }
+            : null,
+          agentPersona: agent.persona,
+        },
       };
 
       // Use provided userId or fall back to agent's creator
@@ -575,11 +603,13 @@ export class AgentDiscussionService {
         logger.info('Requesting user-specific LLM response via event bus', {
           agentId,
           userId: effectiveUserId,
-          source: userId ? 'provided' : 'agent-creator'
+          source: userId ? 'provided' : 'agent-creator',
         });
         llmResponse = await this.requestLLMResponse(agentRequest, effectiveUserId);
       } else {
-        logger.warn('No userId available, requesting global LLM response via event bus', { agentId });
+        logger.warn('No userId available, requesting global LLM response via event bus', {
+          agentId,
+        });
         llmResponse = await this.requestLLMResponse(agentRequest);
       }
 
@@ -591,10 +621,10 @@ export class AgentDiscussionService {
               input: userMessage,
               response: llmResponse.content,
               timestamp: new Date(),
-              confidence: llmResponse.confidence || 0.8
+              confidence: llmResponse.confidence || 0.8,
             },
             currentInput: userMessage,
-            retrievedEpisodes: []
+            retrievedEpisodes: [],
           };
           await this.agentMemoryService.updateWorkingMemory(agentId, memoryUpdate);
         } catch (memoryError) {
@@ -619,14 +649,20 @@ export class AgentDiscussionService {
         hasExtractedContent: !!responseContent,
         extractedContentLength: responseContent?.length || 0,
         extractedContent: responseContent?.substring(0, 100) || 'No content',
-        originalResponseStructure: llmResponse ? Object.keys(llmResponse) : 'null'
+        originalResponseStructure: llmResponse ? Object.keys(llmResponse) : 'null',
       });
 
       // Store interaction as knowledge
-      await this.storeInteractionKnowledge(agentId, { message: userMessage, context }, responseContent, []);
+      await this.storeInteractionKnowledge(
+        agentId,
+        { message: userMessage, context },
+        responseContent,
+        []
+      );
 
       return {
-        response: responseContent || 'I apologize, but I encountered an issue generating a response.',
+        response:
+          responseContent || 'I apologize, but I encountered an issue generating a response.',
         model: llmResponse.model || 'unknown',
         tokensUsed: llmResponse.tokensUsed,
         confidence: llmResponse.confidence,
@@ -634,15 +670,15 @@ export class AgentDiscussionService {
         knowledgeUsed: relevantKnowledge.length,
         memoryEnhanced: !!workingMemory,
         suggestedTools: llmResponse.suggestedTools || [],
-        toolsExecuted: llmResponse.toolsExecuted || []
+        toolsExecuted: llmResponse.toolsExecuted || [],
       };
     } catch (error) {
-      logger.error('Failed to generate agent response', { 
-        error: error.message, 
+      logger.error('Failed to generate agent response', {
+        error: error.message,
         errorDetails: error,
         agentId,
         hasUserLLMService: !!this.userLLMService,
-        hasLLMService: !!this.llmService
+        hasLLMService: !!this.llmService,
       });
       return {
         response: 'I apologize, but I encountered an error while processing your request.',
@@ -651,7 +687,7 @@ export class AgentDiscussionService {
         knowledgeUsed: 0,
         memoryEnhanced: false,
         suggestedTools: [],
-        toolsExecuted: []
+        toolsExecuted: [],
       };
     }
   }
@@ -659,13 +695,16 @@ export class AgentDiscussionService {
   /**
    * Process agent input with knowledge-enhanced reasoning and LLM-powered responses
    */
-  async processAgentInput(agentId: string, input: {
-    message: string;
-    context?: any;
-    discussionId?: string;
-    operationId?: string;
-    userId?: string;
-  }): Promise<{
+  async processAgentInput(
+    agentId: string,
+    input: {
+      message: string;
+      context?: any;
+      discussionId?: string;
+      operationId?: string;
+      userId?: string;
+    }
+  ): Promise<{
     response: string;
     reasoning: string[];
     knowledgeUsed: KnowledgeItem[];
@@ -684,23 +723,31 @@ export class AgentDiscussionService {
       }
 
       // Search for relevant knowledge
-      const relevantKnowledge = this.knowledgeGraphService ?
-        await this.searchRelevantKnowledge(agentId, input.message, {
-          ...input.context,
-          userId: input.userId,
-          discussionId: input.discussionId
-        }) : [];
+      const relevantKnowledge = this.knowledgeGraphService
+        ? await this.searchRelevantKnowledge(agentId, input.message, {
+            ...input.context,
+            userId: input.userId,
+            discussionId: input.discussionId,
+          })
+        : [];
 
       // Get similar episodes from memory
-      const similarEpisodes = this.agentMemoryService ?
-        await this.agentMemoryService.findSimilarEpisodes(agentId, input.message) : [];
+      const similarEpisodes = this.agentMemoryService
+        ? await this.agentMemoryService.findSimilarEpisodes(agentId, input.message)
+        : [];
 
       // Get working memory
-      const workingMemory = this.agentMemoryService ?
-        await this.agentMemoryService.getWorkingMemory(agentId) : null;
+      const workingMemory = this.agentMemoryService
+        ? await this.agentMemoryService.getWorkingMemory(agentId)
+        : null;
 
       // Generate reasoning based on knowledge and memory
-      const reasoning = await this.generateReasoning(input.message, relevantKnowledge, similarEpisodes, workingMemory);
+      const reasoning = await this.generateReasoning(
+        input.message,
+        relevantKnowledge,
+        similarEpisodes,
+        workingMemory
+      );
 
       // Generate LLM-enhanced agent response
       const effectiveUserId = input.userId || agent.createdBy;
@@ -708,10 +755,17 @@ export class AgentDiscussionService {
         agentId,
         userId: effectiveUserId,
         source: input.userId ? 'provided' : 'agent-creator',
-        hasUserContext: !!effectiveUserId
+        hasUserContext: !!effectiveUserId,
       });
 
-      const response = await this.generateLLMAgentResponse(agent, input, relevantKnowledge, reasoning, workingMemory, effectiveUserId);
+      const response = await this.generateLLMAgentResponse(
+        agent,
+        input,
+        relevantKnowledge,
+        reasoning,
+        workingMemory,
+        effectiveUserId
+      );
 
       // Update working memory with this interaction
       if (this.agentMemoryService) {
@@ -720,10 +774,10 @@ export class AgentDiscussionService {
             input: input.message,
             response,
             timestamp: new Date(),
-            confidence: 0.8
+            confidence: 0.8,
           },
           currentInput: input.message,
-          retrievedEpisodes: similarEpisodes
+          retrievedEpisodes: similarEpisodes,
         };
 
         await this.agentMemoryService.updateWorkingMemory(agentId, memoryUpdate);
@@ -737,7 +791,7 @@ export class AgentDiscussionService {
         reasoning,
         knowledgeUsed: relevantKnowledge,
         memoryUpdated: !!this.agentMemoryService,
-        llmEnhanced: true
+        llmEnhanced: true,
       };
     } catch (error) {
       logger.error('Failed to process agent input', { error, agentId });
@@ -776,19 +830,20 @@ export class AgentDiscussionService {
       }
 
       // Get relevant knowledge for the discussion
-      const relevantKnowledge = this.knowledgeGraphService ?
-        await this.searchRelevantKnowledge(
-          agentId,
-          context.lastMessage || context.discussionTopic || '',
-          context
-        ) : [];
+      const relevantKnowledge = this.knowledgeGraphService
+        ? await this.searchRelevantKnowledge(
+            agentId,
+            context.lastMessage || context.discussionTopic || '',
+            context
+          )
+        : [];
 
       // Generate reasoning
       const reasoning = [
         `Analyzing discussion context for agent ${agent.name}`,
         `Topic: ${context.discussionTopic || 'General discussion'}`,
         `Participants: ${context.participantCount || 1}`,
-        `Available knowledge: ${relevantKnowledge.length} items`
+        `Available knowledge: ${relevantKnowledge.length} items`,
       ];
 
       // Generate response using LLM
@@ -801,17 +856,13 @@ export class AgentDiscussionService {
       );
 
       // Calculate confidence based on knowledge availability and context clarity
-      const confidence = this.calculateResponseConfidence(
-        context,
-        relevantKnowledge,
-        agent
-      );
+      const confidence = this.calculateResponseConfidence(context, relevantKnowledge, agent);
 
       return {
         response,
         confidence,
         reasoning,
-        shouldRespond: true
+        shouldRespond: true,
       };
     } catch (error) {
       logger.error('Failed to generate discussion response', { error, agentId, discussionId });
@@ -849,9 +900,9 @@ export class AgentDiscussionService {
       // Generate agent's response to the discussion with context-aware prompts
       const discussionMessages = await this.getDiscussionMessages(discussionId);
       const messageCount = discussionMessages?.length || 0;
-      
+
       let discussionPrompt: string;
-      
+
       if (messageCount === 0) {
         // First message - start the discussion
         discussionPrompt = comment
@@ -859,25 +910,33 @@ export class AgentDiscussionService {
           : `You're the first to speak in this discussion. Share an interesting perspective or ask a thought-provoking question.`;
       } else if (messageCount <= 2) {
         // Early discussion - build on what's been said
-        const recentContent = discussionMessages.slice(-2).map(m => m.content).join(' ');
+        const recentContent = discussionMessages
+          .slice(-2)
+          .map((m) => m.content)
+          .join(' ');
         discussionPrompt = comment
           ? `Discussion context: ${comment}. Recent messages: "${recentContent}". Build on what's been discussed or add your perspective.`
           : `Recent discussion: "${recentContent}". Add your thoughts or ask a follow-up question.`;
       } else {
         // Ongoing discussion - continue the conversation naturally
-        const recentContent = discussionMessages.slice(-3).map(m => m.content).join(' ');
+        const recentContent = discussionMessages
+          .slice(-3)
+          .map((m) => m.content)
+          .join(' ');
         discussionPrompt = comment
           ? `Context: ${comment}. Current discussion: "${recentContent}". Continue the conversation naturally.`
           : `Current discussion: "${recentContent}". Share your thoughts or respond to what's been said.`;
       }
 
-      const response = await this.generateAgentResponse(agentId, [{
-        id: 'trigger-prompt',
-        content: discussionPrompt,
-        sender: 'user',
-        timestamp: new Date().toISOString(),
-        type: 'user'
-      }]);
+      const response = await this.generateAgentResponse(agentId, [
+        {
+          id: 'trigger-prompt',
+          content: discussionPrompt,
+          sender: 'user',
+          timestamp: new Date().toISOString(),
+          type: 'user',
+        },
+      ]);
 
       // Log the response (in a real implementation, this would be sent to the discussion service)
       logger.info(`Agent ${agent.name} response:`, response.response);
@@ -890,7 +949,7 @@ export class AgentDiscussionService {
       logger.error('Failed to trigger agent participation', { error });
       return {
         success: false,
-        error: error instanceof Error ? error.message : 'Unknown error occurred'
+        error: error instanceof Error ? error.message : 'Unknown error occurred',
       };
     }
   }
@@ -902,7 +961,7 @@ export class AgentDiscussionService {
     // Extract data from the correct event structure
     const { requestId } = event;
     const { agentId, discussionId, participantId, discussionContext } = event.data || {};
-    
+
     // Debug logging to understand what's being received
     logger.info('Received participation event', {
       eventKeys: Object.keys(event),
@@ -912,9 +971,9 @@ export class AgentDiscussionService {
       agentIdType: typeof agentId,
       discussionId: discussionId || 'MISSING',
       participantId: participantId || 'MISSING',
-      hasDiscussionContext: !!discussionContext
+      hasDiscussionContext: !!discussionContext,
     });
-    
+
     // Validate agentId before processing
     if (!agentId || typeof agentId !== 'string' || agentId.trim() === '') {
       logger.error('Invalid agentId in participation event', {
@@ -922,11 +981,11 @@ export class AgentDiscussionService {
         agentIdType: typeof agentId,
         eventKeys: Object.keys(event),
         requestId,
-        discussionId
+        discussionId,
       });
-      await this.respondToRequest(requestId, { 
-        success: false, 
-        error: `Invalid agentId: received ${agentId} (${typeof agentId})` 
+      await this.respondToRequest(requestId, {
+        success: false,
+        error: `Invalid agentId: received ${agentId} (${typeof agentId})`,
       });
       return;
     }
@@ -935,56 +994,63 @@ export class AgentDiscussionService {
       // Build context-aware participation message based on recent messages
       let participationPrompt = '';
       let conversationHistory = [];
-      
+
       if (discussionContext?.recentMessages && discussionContext.recentMessages.length > 0) {
         // Filter out error messages and extract conversation history from recent messages
-        const validMessages = discussionContext.recentMessages.filter(msg => {
+        const validMessages = discussionContext.recentMessages.filter((msg) => {
           // Filter out common error messages
           const content = msg.content?.toLowerCase() || '';
-          return !content.includes('i apologize, but i encountered an error') &&
-                 !content.includes('please try again') &&
-                 !content.includes('check your provider configuration') &&
-                 !content.includes('error while processing') &&
-                 !content.includes('error while generating') &&
-                 content.trim().length > 0;
+          return (
+            !content.includes('i apologize, but i encountered an error') &&
+            !content.includes('please try again') &&
+            !content.includes('check your provider configuration') &&
+            !content.includes('error while processing') &&
+            !content.includes('error while generating') &&
+            content.trim().length > 0
+          );
         });
-        
-        conversationHistory = validMessages.map(msg => {
+
+        conversationHistory = validMessages.map((msg) => {
           // Resolve participant name from available data
           let participantName = 'Unknown';
           if (msg.participantName) {
             participantName = msg.participantName;
           } else if (msg.agentId && discussionContext.activeParticipants) {
             // Find agent participant
-            const agentParticipant = discussionContext.activeParticipants.find(p => p.agentId === msg.agentId);
+            const agentParticipant = discussionContext.activeParticipants.find(
+              (p) => p.agentId === msg.agentId
+            );
             participantName = agentParticipant?.displayName || agentParticipant?.agentId || 'Agent';
           } else if (msg.participantId && discussionContext.activeParticipants) {
             // Find participant by ID
-            const participant = discussionContext.activeParticipants.find(p => p.id === msg.participantId);
+            const participant = discussionContext.activeParticipants.find(
+              (p) => p.id === msg.participantId
+            );
             participantName = participant?.displayName || participant?.agentId || 'User';
           }
-          
+
           return {
             id: msg.id,
             content: msg.content,
             sender: participantName,
             timestamp: msg.timestamp,
-            type: msg.agentId ? 'agent' : 'user'
+            type: msg.agentId ? 'agent' : 'user',
           };
         });
-        
+
         // Check if this agent has already introduced itself (use filtered messages)
         const hasIntroduced = validMessages.some(
-          msg => msg.agentId === agentId && 
-                 (msg.content.toLowerCase().includes('hello') || 
-                  msg.content.toLowerCase().includes('i\'m') ||
-                  msg.content.toLowerCase().includes('excited to join'))
+          (msg) =>
+            msg.agentId === agentId &&
+            (msg.content.toLowerCase().includes('hello') ||
+              msg.content.toLowerCase().includes("i'm") ||
+              msg.content.toLowerCase().includes('excited to join'))
         );
-        
+
         // Get the last few messages for immediate context (use filtered messages)
         const lastMessages = validMessages.slice(-3);
         const lastMessageContent = lastMessages[lastMessages.length - 1]?.content || '';
-        
+
         // Resolve last speaker name using the same logic as above
         let lastSpeaker = '';
         const lastMessage = lastMessages[lastMessages.length - 1];
@@ -992,30 +1058,36 @@ export class AgentDiscussionService {
           if (lastMessage.participantName) {
             lastSpeaker = lastMessage.participantName;
           } else if (lastMessage.agentId && discussionContext.activeParticipants) {
-            const agentParticipant = discussionContext.activeParticipants.find(p => p.agentId === lastMessage.agentId);
+            const agentParticipant = discussionContext.activeParticipants.find(
+              (p) => p.agentId === lastMessage.agentId
+            );
             lastSpeaker = agentParticipant?.displayName || agentParticipant?.agentId || 'Agent';
           } else if (lastMessage.participantId && discussionContext.activeParticipants) {
-            const participant = discussionContext.activeParticipants.find(p => p.id === lastMessage.participantId);
+            const participant = discussionContext.activeParticipants.find(
+              (p) => p.id === lastMessage.participantId
+            );
             lastSpeaker = participant?.displayName || participant?.agentId || 'User';
           }
         }
-        
+
         if (hasIntroduced) {
           // Agent has already introduced, respond to the conversation
-          participationPrompt = `You are participating in a discussion about "${discussionContext.topic}". ` +
+          participationPrompt =
+            `You are participating in a discussion about "${discussionContext.topic}". ` +
             `The last message was from ${lastSpeaker}: "${lastMessageContent}". ` +
             `Please provide a thoughtful response that adds value to the discussion. ` +
             `Do NOT re-introduce yourself as you have already done so.`;
         } else {
           // First participation - introduce and respond to context
-          participationPrompt = `You are joining a discussion about "${discussionContext.topic}". ` +
+          participationPrompt =
+            `You are joining a discussion about "${discussionContext.topic}". ` +
             `There have been ${discussionContext.messageCount} messages so far. ` +
             `Please introduce yourself briefly and then contribute to the discussion based on what has been said. ` +
             `The most recent message was: "${lastMessageContent}"`;
         }
       } else {
         // Fallback to basic participation message
-        participationPrompt = discussionContext 
+        participationPrompt = discussionContext
           ? `You are participating in a discussion titled "${discussionContext.title}" about "${discussionContext.topic}". ` +
             `The discussion is in the ${discussionContext.phase} phase. Please contribute meaningfully to the discussion.`
           : 'You are participating in a discussion. Please share your thoughts.';
@@ -1030,14 +1102,14 @@ export class AgentDiscussionService {
           discussionId,
           topic: discussionContext?.topic,
           phase: discussionContext?.phase,
-          activeParticipants: discussionContext?.activeParticipants || []
-        }
+          activeParticipants: discussionContext?.activeParticipants || [],
+        },
       });
 
       // Look up the correct participant ID for this agent in the discussion
       const discussionService = await this.databaseService.getDiscussionService();
       const discussion = await discussionService.getDiscussion(discussionId);
-      const participant = discussion?.participants?.find(p => p.agentId === agentId);
+      const participant = discussion?.participants?.find((p) => p.agentId === agentId);
 
       if (participant && result.response) {
         // Send the generated response back to the discussion orchestration
@@ -1050,24 +1122,27 @@ export class AgentDiscussionService {
           metadata: {
             agentId,
             isInitialParticipation: true,
-            participationContext: discussionContext
-          }
+            participationContext: discussionContext,
+          },
         });
 
         logger.info('Agent participation message sent to discussion', {
           discussionId,
           agentId,
           participantId: participant.id,
-          contentLength: result.response.length
+          contentLength: result.response.length,
         });
       } else {
-        logger.warn('Could not send participation message - participant not found or no response generated', {
-          discussionId,
-          agentId,
-          hasParticipant: !!participant,
-          hasResponse: !!result.response,
-          participantId: participant?.id
-        });
+        logger.warn(
+          'Could not send participation message - participant not found or no response generated',
+          {
+            discussionId,
+            agentId,
+            hasParticipant: !!participant,
+            hasResponse: !!result.response,
+            participantId: participant?.id,
+          }
+        );
       }
 
       await this.respondToRequest(requestId, { success: true, data: result });
@@ -1112,33 +1187,36 @@ export class AgentDiscussionService {
   private async requestLLMResponse(agentRequest: any, userId?: string): Promise<any> {
     try {
       const requestId = `llm-request-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-      
+
       // Check if we already have an active request with this ID (shouldn't happen, but safety check)
       if (this.activeRequests.has(requestId)) {
-        logger.warn('Duplicate request ID detected', { requestId, activeRequestCount: this.activeRequests.size });
+        logger.warn('Duplicate request ID detected', {
+          requestId,
+          activeRequestCount: this.activeRequests.size,
+        });
         throw new Error(`Duplicate request ID: ${requestId}`);
       }
-      
+
       // Publish LLM request event
       const eventType = userId ? 'llm.user.request' : 'llm.global.request';
       const eventData = {
         requestId,
         agentRequest,
         userId,
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
       };
-      
+
       await this.eventBusService.publish(eventType, eventData);
-      
+
       // Wait for response (with timeout)
       return new Promise((resolve, reject) => {
         const responseChannel = `llm.response.${requestId}`;
         let responseHandler: ((responseData: any) => Promise<void>) | null = null;
-        
+
         // Cleanup function
         const cleanup = async (reason: string) => {
           logger.debug(`Cleaning up LLM request: ${reason}`, { requestId, responseChannel });
-          
+
           // Remove from tracking
           const request = this.activeRequests.get(requestId);
           if (request) {
@@ -1147,51 +1225,55 @@ export class AgentDiscussionService {
             }
             this.activeRequests.delete(requestId);
           }
-          
+
           // Unsubscribe handler
           if (responseHandler) {
             try {
               await this.eventBusService.unsubscribe(responseChannel, responseHandler);
-              logger.debug('Successfully cleaned up subscription', { requestId, responseChannel, reason });
-            } catch (cleanupError) {
-              logger.warn('Failed to cleanup subscription', { 
-                requestId, 
-                responseChannel, 
+              logger.debug('Successfully cleaned up subscription', {
+                requestId,
+                responseChannel,
                 reason,
-                error: cleanupError.message 
+              });
+            } catch (cleanupError) {
+              logger.warn('Failed to cleanup subscription', {
+                requestId,
+                responseChannel,
+                reason,
+                error: cleanupError.message,
               });
             }
           }
         };
-        
+
         const timeout = setTimeout(async () => {
-          logger.warn('LLM request timeout', { 
-            requestId, 
-            eventType, 
-            activeRequestCount: this.activeRequests.size 
+          logger.warn('LLM request timeout', {
+            requestId,
+            eventType,
+            activeRequestCount: this.activeRequests.size,
           });
           await cleanup('timeout');
           reject(new Error('LLM request timeout'));
         }, 30000); // 30 second timeout
-        
+
         // Define response handler with cleanup
         responseHandler = async (responseData: any) => {
           logger.info('LLM response received', { requestId, hasResponseData: !!responseData });
-          
+
           try {
             // Extract content from event data structure
             let actualResponse = responseData;
             if (responseData && responseData.data) {
               actualResponse = responseData.data;
             }
-            
-            logger.info('LLM response data extracted', { 
-              requestId, 
+
+            logger.info('LLM response data extracted', {
+              requestId,
               hasActualResponse: !!actualResponse,
               actualResponseKeys: actualResponse ? Object.keys(actualResponse) : 'none',
-              hasContent: !!actualResponse?.content
+              hasContent: !!actualResponse?.content,
             });
-            
+
             await cleanup('response_received');
             resolve(actualResponse);
           } catch (error) {
@@ -1200,19 +1282,19 @@ export class AgentDiscussionService {
             reject(error);
           }
         };
-        
+
         // Track the request
         this.activeRequests.set(requestId, {
           timestamp: Date.now(),
           timeout,
           responseChannel,
-          handler: responseHandler
+          handler: responseHandler,
         });
-        
+
         // Subscribe to response
-        logger.info('Subscribing to LLM response', { 
-          responseChannel, 
-          activeRequestCount: this.activeRequests.size 
+        logger.info('Subscribing to LLM response', {
+          responseChannel,
+          activeRequestCount: this.activeRequests.size,
         });
         this.eventBusService.subscribe(responseChannel, responseHandler);
       });
@@ -1222,7 +1304,7 @@ export class AgentDiscussionService {
       return {
         response: 'I apologize, but I cannot process your request at the moment.',
         model: 'fallback',
-        error: error.message
+        error: error.message,
       };
     }
   }
@@ -1246,7 +1328,10 @@ Context: ${input.context ? JSON.stringify(input.context) : 'No additional contex
 User Message: ${input.message}
 
 Relevant Knowledge:
-${relevantKnowledge.slice(0, 3).map(k => `- ${k.content}`).join('\n')}
+${relevantKnowledge
+  .slice(0, 3)
+  .map((k) => `- ${k.content}`)
+  .join('\n')}
 
 Reasoning:
 ${reasoning.join('\n')}
@@ -1256,7 +1341,7 @@ Please provide a helpful and contextually appropriate response.`,
 ${agent.persona?.description ? `Your personality: ${agent.persona.description}` : ''}
 Be helpful, knowledgeable, and maintain consistency with your character.`,
         maxTokens: 500,
-        temperature: 0.7
+        temperature: 0.7,
       };
 
       // Use event-driven LLM generation
@@ -1289,10 +1374,17 @@ Be helpful, knowledgeable, and maintain consistency with your character.`,
 
 Message to respond to: ${message}
 
-${knowledge.length > 0 ? `Relevant knowledge:\n${knowledge.slice(0, 3).map(k => `- ${k.content}`).join('\n')}\n` : ''}Provide a direct, thoughtful response. Avoid generic greetings or introductions.`,
+${
+  knowledge.length > 0
+    ? `Relevant knowledge:\n${knowledge
+        .slice(0, 3)
+        .map((k) => `- ${k.content}`)
+        .join('\n')}\n`
+    : ''
+}Provide a direct, thoughtful response. Avoid generic greetings or introductions.`,
         systemPrompt: `You are an AI assistant in an ongoing discussion. Be direct and substantive. Focus on the content rather than pleasantries. Contribute meaningful insights without repeating what others have said.`,
         maxTokens: 200,
-        temperature: 0.7
+        temperature: 0.7,
       };
 
       let response;
@@ -1326,7 +1418,10 @@ Topic: ${context.discussionTopic || 'General discussion'}
 ${context.lastMessage ? `Recent message: ${context.lastMessage}` : 'Start the conversation'}
 
 Available Knowledge:
-${knowledge.slice(0, 3).map(k => `- ${k.content}`).join('\n')}
+${knowledge
+  .slice(0, 3)
+  .map((k) => `- ${k.content}`)
+  .join('\n')}
 
 Reasoning:
 ${reasoning.join('\n')}
@@ -1336,7 +1431,7 @@ Please provide a thoughtful contribution to the discussion.`,
 ${agent.persona?.description ? `Your personality: ${agent.persona.description}` : ''}
 Participate constructively in discussions while staying true to your character.`,
         maxTokens: 300,
-        temperature: 0.7
+        temperature: 0.7,
       };
 
       let response;
@@ -1360,7 +1455,7 @@ Participate constructively in discussions while staying true to your character.`
     workingMemory: any
   ): Promise<string[]> {
     const reasoning = [
-      `Analyzing message: "${message.substring(0, 100)}${message.length > 100 ? '...' : ''}"`
+      `Analyzing message: "${message.substring(0, 100)}${message.length > 100 ? '...' : ''}"`,
     ];
 
     if (knowledge.length > 0) {
@@ -1379,14 +1474,22 @@ Participate constructively in discussions while staying true to your character.`
     return reasoning;
   }
 
-  private generateFallbackResponse(message: string, reasoning: string[], knowledge: KnowledgeItem[]): string {
+  private generateFallbackResponse(
+    message: string,
+    reasoning: string[],
+    knowledge: KnowledgeItem[]
+  ): string {
     if (knowledge.length > 0) {
       return `Based on the available information, I can help with that. ${knowledge[0].content.substring(0, 200)}...`;
     }
     return `I understand you're asking about "${message.substring(0, 50)}...". Let me help you with that.`;
   }
 
-  private calculateResponseConfidence(context: any, knowledge: KnowledgeItem[], agent: Agent): number {
+  private calculateResponseConfidence(
+    context: any,
+    knowledge: KnowledgeItem[],
+    agent: Agent
+  ): number {
     let confidence = 0.5; // Base confidence
 
     // Boost confidence if we have relevant knowledge
@@ -1398,7 +1501,7 @@ Participate constructively in discussions while staying true to your character.`
     if (context.discussionTopic && agent.persona?.capabilities) {
       const topicKeywords = context.discussionTopic.toLowerCase().split(' ');
       const hasRelevantExpertise = agent.persona.capabilities.some((capability: string) =>
-        topicKeywords.some(keyword => capability.toLowerCase().includes(keyword))
+        topicKeywords.some((keyword) => capability.toLowerCase().includes(keyword))
       );
 
       if (hasRelevantExpertise) {
@@ -1422,40 +1525,46 @@ Participate constructively in discussions while staying true to your character.`
   ): Promise<void> {
     if (this.knowledgeGraphService) {
       try {
-        await this.knowledgeGraphService.ingest([{
-          content: `Agent Interaction:
+        await this.knowledgeGraphService.ingest([
+          {
+            content: `Agent Interaction:
 Input: ${input.message}
 Response: ${response}
 Context: ${input.context ? JSON.stringify(input.context) : 'None'}
 Reasoning: ${reasoning.join('; ')}`,
-          type: KnowledgeType.EXPERIENTIAL,
-          tags: ['agent-interaction', `agent-${agentId}`, 'discussion'],
-          source: {
-            type: SourceType.AGENT_INTERACTION,
-            identifier: `interaction-${Date.now()}`,
-            metadata: { agentId, input, response }
+            type: KnowledgeType.EXPERIENTIAL,
+            tags: ['agent-interaction', `agent-${agentId}`, 'discussion'],
+            source: {
+              type: SourceType.AGENT_INTERACTION,
+              identifier: `interaction-${Date.now()}`,
+              metadata: { agentId, input, response },
+            },
+            confidence: 0.7,
           },
-          confidence: 0.7
-        }]);
+        ]);
       } catch (error) {
         logger.warn('Failed to store interaction knowledge', { error, agentId });
       }
     }
   }
 
-  private async searchRelevantKnowledge(agentId: string, query: string, context?: any): Promise<KnowledgeItem[]> {
+  private async searchRelevantKnowledge(
+    agentId: string,
+    query: string,
+    context?: any
+  ): Promise<KnowledgeItem[]> {
     if (!this.knowledgeGraphService) return [];
 
     try {
       const searchResult = await this.knowledgeGraphService.search({
         query,
         filters: {
-          agentId
+          agentId,
         },
         options: {
-          limit: 10
+          limit: 10,
         },
-        timestamp: Date.now()
+        timestamp: Date.now(),
       });
       return searchResult.items;
     } catch (error) {
@@ -1472,30 +1581,32 @@ Reasoning: ${reasoning.join('; ')}`,
         databaseService: this.databaseService,
         eventBusService: this.eventBusService,
         serviceName: this.serviceName,
-        securityLevel: this.securityLevel
+        securityLevel: this.securityLevel,
       });
-      
+
       await agentCoreService.initialize();
       // Use getAgentWithPersona to get complete agent data including persona
       const agentWithPersona = await agentCoreService.getAgentWithPersona(agentId);
-      
+
       if (agentWithPersona && agentWithPersona.personaData) {
         // Map personaData to persona for compatibility with LLM service expectations
         (agentWithPersona as any).persona = agentWithPersona.personaData;
-        logger.info('Agent data retrieved with persona', { 
-          agentId, 
+        logger.info('Agent data retrieved with persona', {
+          agentId,
           agentName: agentWithPersona.name,
           hasPersona: !!agentWithPersona.personaData,
-          personaKeys: agentWithPersona.personaData ? Object.keys(agentWithPersona.personaData) : []
+          personaKeys: agentWithPersona.personaData
+            ? Object.keys(agentWithPersona.personaData)
+            : [],
         });
       }
-      
+
       return agentWithPersona;
     } catch (error) {
-      logger.warn('Failed to get agent data', { 
+      logger.warn('Failed to get agent data', {
         error: error instanceof Error ? error.message : String(error),
         errorStack: error instanceof Error ? error.stack : undefined,
-        agentId 
+        agentId,
       });
       return null;
     }
@@ -1516,19 +1627,21 @@ Reasoning: ${reasoning.join('; ')}`,
       // Get messages directly from database
       const discussionService = await this.databaseService.getDiscussionService();
       const messages = await discussionService.getDiscussionMessages(discussionId);
-      
+
       logger.debug('Retrieved discussion messages for context', {
         discussionId,
-        messageCount: messages?.length || 0
+        messageCount: messages?.length || 0,
       });
-      
+
       // Format messages for conversation history
-      return messages?.map(msg => ({
-        content: msg.content,
-        sender: msg.participantId === 'system' ? 'system' : 'participant',
-        timestamp: msg.createdAt,
-        participantId: msg.participantId
-      })) || [];
+      return (
+        messages?.map((msg) => ({
+          content: msg.content,
+          sender: msg.participantId === 'system' ? 'system' : 'participant',
+          timestamp: msg.createdAt,
+          participantId: msg.participantId,
+        })) || []
+      );
     } catch (error) {
       logger.warn('Failed to get discussion messages', { error, discussionId });
       return [];
@@ -1547,7 +1660,7 @@ Reasoning: ${reasoning.join('; ')}`,
         ...data,
         source: this.serviceName,
         securityLevel: this.securityLevel,
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
       });
     } catch (error) {
       logger.error('Failed to publish discussion event', { channel, error });
@@ -1566,14 +1679,15 @@ Reasoning: ${reasoning.join('; ')}`,
   ): Promise<string> {
     try {
       // Build conversation context from history using actual participant names
-      const historyContext = conversationHistory.map(entry => 
-        `${entry.sender}: ${entry.content}`
-      ).join('\n');
+      const historyContext = conversationHistory
+        .map((entry) => `${entry.sender}: ${entry.content}`)
+        .join('\n');
 
       // Build knowledge context
-      const knowledgeContext = contextualKnowledge.length > 0 
-        ? `\n\nRelevant knowledge:\n${contextualKnowledge.map(k => `- ${k.content}`).join('\n')}`
-        : '';
+      const knowledgeContext =
+        contextualKnowledge.length > 0
+          ? `\n\nRelevant knowledge:\n${contextualKnowledge.map((k) => `- ${k.content}`).join('\n')}`
+          : '';
 
       // Create agent request for event bus
       const agentRequest = {
@@ -1586,26 +1700,26 @@ Reasoning: ${reasoning.join('; ')}`,
           temperature: agent.temperature || 0.7,
           modelId: agent.modelId,
           configuration: agent.configuration,
-          persona: (agent as any).persona // Include persona data for enhanced prompts
+          persona: (agent as any).persona, // Include persona data for enhanced prompts
         },
         messages: [
-          ...conversationHistory.map(entry => ({
+          ...conversationHistory.map((entry) => ({
             content: entry.content,
             sender: entry.sender,
-            timestamp: entry.timestamp
+            timestamp: entry.timestamp,
           })),
           {
             content: message,
             sender: 'user',
-            timestamp: new Date().toISOString()
-          }
+            timestamp: new Date().toISOString(),
+          },
         ],
-        context: knowledgeContext ? { knowledgeContext } : undefined
+        context: knowledgeContext ? { knowledgeContext } : undefined,
       };
 
-      logger.info('Requesting LLM response via event bus', { 
-        agentId: agent.id, 
-        userId, 
+      logger.info('Requesting LLM response via event bus', {
+        agentId: agent.id,
+        userId,
         messageLength: message.length,
         historyLength: conversationHistory.length,
         agentRequestStructure: {
@@ -1613,30 +1727,35 @@ Reasoning: ${reasoning.join('; ')}`,
           hasPersona: !!agentRequest.agent?.persona,
           personaKeys: agentRequest.agent?.persona ? Object.keys(agentRequest.agent.persona) : [],
           messagesCount: agentRequest.messages?.length || 0,
-          hasContext: !!agentRequest.context
+          hasContext: !!agentRequest.context,
         },
-        agentPersonaData: agentRequest.agent?.persona ? {
-          description: agentRequest.agent.persona.description,
-          capabilities: agentRequest.agent.persona.capabilities,
-          role: agentRequest.agent.persona.role
-        } : 'No persona data'
+        agentPersonaData: agentRequest.agent?.persona
+          ? {
+              description: agentRequest.agent.persona.description,
+              capabilities: agentRequest.agent.persona.capabilities,
+              role: agentRequest.agent.persona.role,
+            }
+          : 'No persona data',
       });
 
       // Use event-driven LLM request - only pass userId if it's a valid UUID
-      const llmResponse = await this.requestLLMResponse(agentRequest, userId && userId !== 'system' ? userId : undefined);
-      
-      logger.info('LLM response received from event bus', { 
+      const llmResponse = await this.requestLLMResponse(
+        agentRequest,
+        userId && userId !== 'system' ? userId : undefined
+      );
+
+      logger.info('LLM response received from event bus', {
         agentId: agent.id,
         hasContent: !!llmResponse?.content,
         contentLength: llmResponse?.content?.length || 0,
         hasError: !!llmResponse?.error,
         responseStructure: llmResponse ? Object.keys(llmResponse) : 'null',
-        rawResponse: JSON.stringify(llmResponse).substring(0, 200)
+        rawResponse: JSON.stringify(llmResponse).substring(0, 200),
       });
 
       // Extract content from response - handle different possible structures
       let responseContent = llmResponse?.content;
-      
+
       // Fallback to other possible content fields
       if (!responseContent && llmResponse?.response) {
         responseContent = llmResponse.response;
@@ -1652,14 +1771,16 @@ Reasoning: ${reasoning.join('; ')}`,
         agentId: agent.id,
         hasExtractedContent: !!responseContent,
         extractedContentLength: responseContent?.length || 0,
-        extractedContent: responseContent?.substring(0, 100) || 'No content'
+        extractedContent: responseContent?.substring(0, 100) || 'No content',
       });
 
-      return responseContent || "I apologize, but I'm having trouble generating a response right now. Please try again.";
-
+      return (
+        responseContent ||
+        "I apologize, but I'm having trouble generating a response right now. Please try again."
+      );
     } catch (error) {
       logger.error('Failed to generate chat response', { error, agentId: agent.id });
-      return "I apologize, but I encountered an error while processing your message. Please try again.";
+      return 'I apologize, but I encountered an error while processing your message. Please try again.';
     }
   }
 
@@ -1667,7 +1788,7 @@ Reasoning: ${reasoning.join('; ')}`,
     await this.eventBusService.publish('agent.discussion.response', {
       requestId,
       ...response,
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
     });
   }
 
@@ -1685,7 +1806,7 @@ Reasoning: ${reasoning.join('; ')}`,
     try {
       // Create system prompt for agent
       const systemPrompt = `You are a helpful AI assistant. Provide a natural, conversational response to the user's message.`;
-      
+
       // Extract model selection info if available
       const selectedModel = params.modelSelection?.model?.model;
       const selectedProvider = params.modelSelection?.provider?.effectiveProvider;
@@ -1710,7 +1831,7 @@ Reasoning: ${reasoning.join('; ')}`,
         conversationId: params.conversationId,
         message: params.message,
         response: llmResponse.content,
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
       });
 
       return {
@@ -1721,18 +1842,19 @@ Reasoning: ${reasoning.join('; ')}`,
           agentId: params.agentId,
           confidence: llmResponse.confidence,
           model: llmResponse.model,
-          responseType: 'event-driven'
-        }
+          responseType: 'event-driven',
+        },
       };
     } catch (error) {
       logger.error('Failed to process discussion message', { error, agentId: params.agentId });
       return {
-        response: 'I apologize, but I encountered an error processing your message. Please try again.',
+        response:
+          'I apologize, but I encountered an error processing your message. Please try again.',
         metadata: {
           error: true,
           conversationId: params.conversationId,
-          agentId: params.agentId
-        }
+          agentId: params.agentId,
+        },
       };
     }
   }
@@ -1742,7 +1864,7 @@ Reasoning: ${reasoning.join('; ')}`,
       ...data,
       service: this.serviceName,
       timestamp: new Date().toISOString(),
-      compliance: true
+      compliance: true,
     });
   }
 }

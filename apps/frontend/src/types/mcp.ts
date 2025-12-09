@@ -19,7 +19,7 @@ export {
   MCPResourceType,
   MCPRegistrySchema,
   MCPServerConfigSchema,
-  MCPToolCallSchema
+  MCPToolCallSchema,
 } from '@uaip/types/mcp';
 
 // Keep only frontend-specific MCP extensions here if any

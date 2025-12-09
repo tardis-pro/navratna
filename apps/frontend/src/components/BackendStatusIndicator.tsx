@@ -7,9 +7,9 @@ interface BackendStatusIndicatorProps {
   showDetails?: boolean;
 }
 
-export function BackendStatusIndicator({ 
-  className = '', 
-  showDetails = false 
+export function BackendStatusIndicator({
+  className = '',
+  showDetails = false,
 }: BackendStatusIndicatorProps) {
   const [status, setStatus] = useState<'checking' | 'online' | 'offline'>('checking');
   const [lastCheck, setLastCheck] = useState<Date | null>(null);
@@ -23,11 +23,11 @@ export function BackendStatusIndicator({
       const response = await fetch(`${uaipAPI.getEnvironmentInfo().baseURL}/health`, {
         method: 'GET',
         headers: {
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
         },
-        signal: AbortSignal.timeout(5000)
+        signal: AbortSignal.timeout(5000),
       });
-      
+
       setStatus(response.ok ? 'online' : 'offline');
       setLastCheck(new Date());
       setEnvironmentInfo(uaipAPI.getEnvironmentInfo());
@@ -40,7 +40,7 @@ export function BackendStatusIndicator({
 
   useEffect(() => {
     checkStatus();
-    
+
     // Check status every 30 seconds
     const interval = setInterval(checkStatus, 30000);
     return () => clearInterval(interval);
@@ -92,7 +92,7 @@ export function BackendStatusIndicator({
 
   return (
     <div className={`relative ${className}`}>
-      <div 
+      <div
         className={`inline-flex items-center space-x-2 px-3 py-2 rounded-lg border bg-gradient-to-r ${getStatusColor()} cursor-pointer transition-all duration-200 hover:shadow-md`}
         onMouseEnter={() => setShowTooltip(true)}
         onMouseLeave={() => setShowTooltip(false)}
@@ -100,11 +100,7 @@ export function BackendStatusIndicator({
       >
         {getStatusIcon()}
         <span className="text-sm font-medium">{getStatusText()}</span>
-        {lastCheck && (
-          <span className="text-xs opacity-75">
-            {lastCheck.toLocaleTimeString()}
-          </span>
-        )}
+        {lastCheck && <span className="text-xs opacity-75">{lastCheck.toLocaleTimeString()}</span>}
       </div>
 
       {/* Tooltip */}
@@ -113,14 +109,10 @@ export function BackendStatusIndicator({
           <div className="space-y-3">
             <div className="flex items-center space-x-2">
               {getStatusIcon()}
-              <span className="font-semibold text-gray-900 dark:text-white">
-                Backend Status
-              </span>
+              <span className="font-semibold text-gray-900 dark:text-white">Backend Status</span>
             </div>
-            
-            <p className="text-sm text-gray-600 dark:text-gray-300">
-              {getStatusMessage()}
-            </p>
+
+            <p className="text-sm text-gray-600 dark:text-gray-300">{getStatusMessage()}</p>
 
             {environmentInfo && (
               <div className="space-y-2 text-xs text-gray-500 dark:text-gray-400">
@@ -134,7 +126,11 @@ export function BackendStatusIndicator({
                 </div>
                 <div className="flex justify-between">
                   <span>WebSocket:</span>
-                  <span className={environmentInfo.websocketConnected ? 'text-green-600' : 'text-red-600'}>
+                  <span
+                    className={
+                      environmentInfo.websocketConnected ? 'text-green-600' : 'text-red-600'
+                    }
+                  >
                     {environmentInfo.websocketConnected ? 'Connected' : 'Disconnected'}
                   </span>
                 </div>
@@ -167,4 +163,4 @@ export function BackendStatusIndicator({
       )}
     </div>
   );
-} 
+}

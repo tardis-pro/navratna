@@ -10,7 +10,7 @@ import { createLogger } from '@uaip/utils';
 const logger = createLogger({
   serviceName: 'redis-cache-service',
   environment: process.env.NODE_ENV || 'development',
-  logLevel: process.env.LOG_LEVEL || 'info'
+  logLevel: process.env.LOG_LEVEL || 'info',
 });
 
 export class RedisCacheService {
@@ -42,7 +42,7 @@ export class RedisCacheService {
     }
 
     this.connectionPromise = this.createConnection();
-    
+
     try {
       await this.connectionPromise;
       return this.isConnected;
@@ -79,7 +79,7 @@ export class RedisCacheService {
         host: connectionConfig.host,
         port: connectionConfig.port,
         db: connectionConfig.db,
-        hasPassword: !!connectionConfig.password
+        hasPassword: !!connectionConfig.password,
       });
 
       this.redis = new IORedis(connectionConfig);
@@ -111,15 +111,12 @@ export class RedisCacheService {
       // Test connection with timeout
       await Promise.race([
         this.redis.ping(),
-        new Promise((_, reject) => 
-          setTimeout(() => reject(new Error('Redis ping timeout')), 5000)
-        )
+        new Promise((_, reject) => setTimeout(() => reject(new Error('Redis ping timeout')), 5000)),
       ]);
 
       this.isConnected = true;
       logger.info('Redis cache service connection verified');
       return this.redis;
-
     } catch (error) {
       logger.error('Redis cache service connection failed', { error: error.message });
       await this.close();
@@ -156,13 +153,13 @@ export class RedisCacheService {
       if (!client) return false;
 
       const serializedValue = typeof value === 'string' ? value : JSON.stringify(value);
-      
+
       if (ttlSeconds) {
         await client.setex(key, ttlSeconds, serializedValue);
       } else {
         await client.set(key, serializedValue);
       }
-      
+
       return true;
     } catch (error) {
       logger.error('Redis SET failed', { key, error: error.message });
@@ -269,14 +266,14 @@ export class RedisCacheService {
     error?: string;
   }> {
     const startTime = Date.now();
-    
+
     try {
       const client = await this.getClient();
       if (!client) {
         return {
           healthy: false,
           connected: false,
-          error: 'No Redis connection'
+          error: 'No Redis connection',
         };
       }
 
@@ -286,14 +283,14 @@ export class RedisCacheService {
       return {
         healthy: true,
         connected: true,
-        responseTime
+        responseTime,
       };
     } catch (error) {
       return {
         healthy: false,
         connected: false,
         responseTime: Date.now() - startTime,
-        error: error.message
+        error: error.message,
       };
     }
   }
@@ -307,4 +304,4 @@ export const initializeRedisCache = () => redisCacheService.initialize();
 export const getRedisClient = () => redisCacheService.getClient();
 export const isRedisCacheHealthy = () => redisCacheService.isHealthy();
 
-export default redisCacheService; 
+export default redisCacheService;

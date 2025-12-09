@@ -1,4 +1,10 @@
-import express, { Router, Request, Response, NextFunction, RouterType } from '@uaip/shared-services';
+import express, {
+  Router,
+  Request,
+  Response,
+  NextFunction,
+  RouterType,
+} from '@uaip/shared-services';
 import { z } from 'zod';
 import { logger } from '@uaip/utils';
 import { ApiError } from '@uaip/utils';
@@ -8,15 +14,10 @@ import { ApprovalWorkflowService } from '../services/approvalWorkflowService.js'
 import { AuditService } from '../services/auditService.js';
 import { DatabaseService, EventBusService } from '@uaip/shared-services';
 import { NotificationService } from '../services/notificationService.js';
-import {
-  ApprovalDecision,
-  ApprovalStatus,
-  SecurityLevel,
-  AuditEventType
-} from '@uaip/types';
+import { ApprovalDecision, ApprovalStatus, SecurityLevel, AuditEventType } from '@uaip/types';
 import { config } from '@uaip/config';
 
-const router= Router();
+const router = Router();
 
 // Lazy initialization of services
 let databaseService: DatabaseService | null = null;
@@ -30,16 +31,16 @@ async function getServices() {
     await databaseService.initialize();
     auditService = new AuditService();
     notificationService = new NotificationService();
-    
+
     // Initialize EventBusService and ApprovalWorkflowService
     const eventBusService = new EventBusService(
       {
         url: process.env.RABBITMQ_URL || 'amqp://localhost:5672',
-        serviceName: 'security-gateway'
+        serviceName: 'security-gateway',
       },
       logger
     );
-    
+
     approvalWorkflowService = new ApprovalWorkflowService(
       databaseService,
       eventBusService,
@@ -47,11 +48,11 @@ async function getServices() {
       auditService
     );
   }
-  return { 
-    databaseService, 
-    auditService: auditService!, 
+  return {
+    databaseService,
+    auditService: auditService!,
     notificationService: notificationService!,
-    approvalWorkflowService: approvalWorkflowService!
+    approvalWorkflowService: approvalWorkflowService!,
   };
 }
 
@@ -63,14 +64,14 @@ const createWorkflowSchema = z.object({
   securityLevel: z.nativeEnum(SecurityLevel),
   context: z.record(z.any()),
   expirationHours: z.number().min(1).max(168).optional(), // Max 1 week
-  metadata: z.record(z.any()).optional()
+  metadata: z.record(z.any()).optional(),
 });
 
 const approvalDecisionSchema = z.object({
   workflowId: z.string(),
   decision: z.enum(['approve', 'reject']),
   conditions: z.array(z.string()).optional(),
-  feedback: z.string().max(1000).optional()
+  feedback: z.string().max(1000).optional(),
 });
 
 const queryWorkflowsSchema = z.object({
@@ -80,14 +81,15 @@ const queryWorkflowsSchema = z.object({
   startDate: z.coerce.date().optional(),
   endDate: z.coerce.date().optional(),
   limit: z.coerce.number().min(1).max(100).default(20),
-  offset: z.coerce.number().min(0).default(0)
+  offset: z.coerce.number().min(0).default(0),
 });
 
 /**
  * POST /api/v1/approvals/workflows
  * Create a new approval workflow
  */
-router.post('/workflows',
+router.post(
+  '/workflows',
   authMiddleware,
   requireOperator,
   validateRequest({ body: createWorkflowSchema }),
@@ -97,7 +99,7 @@ router.post('/workflows',
         operationId: req.body.operationId,
         operationType: req.body.operationType,
         // @ts-ignore
-        userId: req.user?.id
+        userId: req.user?.id,
       });
 
       const { approvalWorkflowService, auditService } = await getServices();
@@ -113,8 +115,8 @@ router.post('/workflows',
           ...req.body.metadata,
           // @ts-ignore
           createdBy: req.user?.id,
-          createdAt: new Date().toISOString()
-        }
+          createdAt: new Date().toISOString(),
+        },
       });
 
       // Audit log
@@ -128,28 +130,29 @@ router.post('/workflows',
           operationId: req.body.operationId,
           operationType: req.body.operationType,
           requiredApprovers: req.body.requiredApprovers.length,
-          securityLevel: req.body.securityLevel
+          securityLevel: req.body.securityLevel,
         },
         ipAddress: req.ip,
-        userAgent: Array.isArray(req.headers['user-agent']) ? req.headers['user-agent'][0] : req.headers['user-agent'],
-        riskLevel: req.body.securityLevel
+        userAgent: Array.isArray(req.headers['user-agent'])
+          ? req.headers['user-agent'][0]
+          : req.headers['user-agent'],
+        riskLevel: req.body.securityLevel,
       });
 
       res.status(201).json({
         success: true,
         data: {
           workflow,
-          approvalUrl: `${process.env.FRONTEND_URL || 'http://localhost:3000'}/approvals/${workflow.id}`
+          approvalUrl: `${process.env.FRONTEND_URL || 'http://localhost:3000'}/approvals/${workflow.id}`,
         },
-        message: 'Approval workflow created successfully'
+        message: 'Approval workflow created successfully',
       });
       return;
-        return;
-
+      return;
     } catch (error) {
       logger.error('Failed to create approval workflow', {
         operationId: req.body.operationId,
-        error: error instanceof Error ? error.message : 'Unknown error'
+        error: error instanceof Error ? error.message : 'Unknown error',
       });
       next(error);
     }
@@ -160,7 +163,8 @@ router.post('/workflows',
  * GET /api/v1/approvals/workflows
  * Get approval workflows (for current user or all if admin)
  */
-router.get('/workflows',
+router.get(
+  '/workflows',
   authMiddleware,
   validateRequest({ query: queryWorkflowsSchema }),
   async (req: Request, res: Response, next: NextFunction) => {
@@ -173,7 +177,7 @@ router.get('/workflows',
         status,
         operationType,
         limit,
-        offset
+        offset,
       });
 
       let workflows;
@@ -201,29 +205,25 @@ router.get('/workflows',
       let filteredWorkflows = workflows;
 
       if (operationType) {
-        filteredWorkflows = filteredWorkflows.filter(w => 
-          w.metadata?.operationType === operationType
+        filteredWorkflows = filteredWorkflows.filter(
+          (w) => w.metadata?.operationType === operationType
         );
       }
 
       if (securityLevel) {
-        filteredWorkflows = filteredWorkflows.filter(w => 
-          w.metadata?.securityLevel === securityLevel
+        filteredWorkflows = filteredWorkflows.filter(
+          (w) => w.metadata?.securityLevel === securityLevel
         );
       }
 
       if (startDate) {
         const start = new Date(startDate as string);
-        filteredWorkflows = filteredWorkflows.filter(w => 
-          w.createdAt >= start
-        );
+        filteredWorkflows = filteredWorkflows.filter((w) => w.createdAt >= start);
       }
 
       if (endDate) {
         const end = new Date(endDate as string);
-        filteredWorkflows = filteredWorkflows.filter(w => 
-          w.createdAt <= end
-        );
+        filteredWorkflows = filteredWorkflows.filter((w) => w.createdAt <= end);
       }
 
       // Apply pagination
@@ -241,17 +241,16 @@ router.get('/workflows',
             total,
             limit: Number(limit),
             offset: Number(offset),
-            hasMore: Number(offset) + Number(limit) < total
-          }
+            hasMore: Number(offset) + Number(limit) < total,
+          },
         },
-        message: 'Approval workflows retrieved successfully'
+        message: 'Approval workflows retrieved successfully',
       });
-
     } catch (error) {
       logger.error('Failed to query approval workflows', {
         // @ts-ignore
         userId: req.user?.id,
-        error: error instanceof Error ? error.message : 'Unknown error'
+        error: error instanceof Error ? error.message : 'Unknown error',
       });
       next(error);
     }
@@ -262,74 +261,79 @@ router.get('/workflows',
  * GET /api/v1/approvals/pending
  * Get pending approvals for current user
  */
-router.get('/pending',
-  authMiddleware,
-  async (req: Request, res: Response, next: NextFunction) => {
-    try {
-      logger.debug('Getting pending approvals', {
-        // @ts-ignore
-        userId: req.user?.id
-      });
+router.get('/pending', authMiddleware, async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    logger.debug('Getting pending approvals', {
+      // @ts-ignore
+      userId: req.user?.id,
+    });
 
-      const { approvalWorkflowService } = await getServices();
+    const { approvalWorkflowService } = await getServices();
 
-      const pendingWorkflows = await approvalWorkflowService.getUserWorkflows(
-        // @ts-ignore
-        req.user!.id,
-        ApprovalStatus.PENDING
-      );
+    const pendingWorkflows = await approvalWorkflowService.getUserWorkflows(
+      // @ts-ignore
+      req.user!.id,
+      ApprovalStatus.PENDING
+    );
 
-      // Get detailed status for each workflow
-      const workflowsWithStatus = await Promise.all(
-        pendingWorkflows.map(async (workflow) => {
-          const status = await approvalWorkflowService.getWorkflowStatus(workflow.id);
-          return {
-            workflow,
-            status,
-            // @ts-ignore
-            isPendingForUser: status.pendingApprovers.includes(req.user!.id),
-            urgency: workflow ? calculateUrgency(workflow) : 50 // Default medium urgency as number
-          };
-        })
-      );
+    // Get detailed status for each workflow
+    const workflowsWithStatus = await Promise.all(
+      pendingWorkflows.map(async (workflow) => {
+        const status = await approvalWorkflowService.getWorkflowStatus(workflow.id);
+        return {
+          workflow,
+          status,
+          // @ts-ignore
+          isPendingForUser: status.pendingApprovers.includes(req.user!.id),
+          urgency: workflow ? calculateUrgency(workflow) : 50, // Default medium urgency as number
+        };
+      })
+    );
 
-      // Filter to only workflows pending for this user
-      const userPendingWorkflows = workflowsWithStatus.filter(w => w.isPendingForUser);
+    // Filter to only workflows pending for this user
+    const userPendingWorkflows = workflowsWithStatus.filter((w) => w.isPendingForUser);
 
-      // Sort by urgency (most urgent first)
-      userPendingWorkflows.sort((a, b) => b.urgency - a.urgency);
+    // Sort by urgency (most urgent first)
+    userPendingWorkflows.sort((a, b) => b.urgency - a.urgency);
 
-      res.json({
-        success: true,
-        data: {
-          pendingApprovals: userPendingWorkflows,
-          count: userPendingWorkflows.length,
-          summary: {
-            critical: userPendingWorkflows.filter(w => w.workflow.metadata?.securityLevel === SecurityLevel.CRITICAL).length,
-            high: userPendingWorkflows.filter(w => w.workflow.metadata?.securityLevel === SecurityLevel.HIGH).length,
-            medium: userPendingWorkflows.filter(w => w.workflow.metadata?.securityLevel === SecurityLevel.MEDIUM).length,
-            low: userPendingWorkflows.filter(w => w.workflow.metadata?.securityLevel === SecurityLevel.LOW).length
-          }
+    res.json({
+      success: true,
+      data: {
+        pendingApprovals: userPendingWorkflows,
+        count: userPendingWorkflows.length,
+        summary: {
+          critical: userPendingWorkflows.filter(
+            (w) => w.workflow.metadata?.securityLevel === SecurityLevel.CRITICAL
+          ).length,
+          high: userPendingWorkflows.filter(
+            (w) => w.workflow.metadata?.securityLevel === SecurityLevel.HIGH
+          ).length,
+          medium: userPendingWorkflows.filter(
+            (w) => w.workflow.metadata?.securityLevel === SecurityLevel.MEDIUM
+          ).length,
+          low: userPendingWorkflows.filter(
+            (w) => w.workflow.metadata?.securityLevel === SecurityLevel.LOW
+          ).length,
         },
-        message: 'Pending approvals retrieved successfully'
-      });
-
-    } catch (error) {
-      logger.error('Failed to get pending approvals', {
-        // @ts-ignore
-        userId: req.user?.id,
-        error: error instanceof Error ? error.message : 'Unknown error'
-      });
-      next(error);
-    }
+      },
+      message: 'Pending approvals retrieved successfully',
+    });
+  } catch (error) {
+    logger.error('Failed to get pending approvals', {
+      // @ts-ignore
+      userId: req.user?.id,
+      error: error instanceof Error ? error.message : 'Unknown error',
+    });
+    next(error);
   }
-);
+});
 
 /**
  * POST /api/v1/approvals/:workflowId/cancel
  * Cancel an approval workflow
  */
-router.post('/:workflowId/cancel',
+router.post(
+  '/:workflowId/cancel',
   authMiddleware,
   requireOperator,
   async (req: Request, res: Response, next: NextFunction) => {
@@ -341,7 +345,7 @@ router.post('/:workflowId/cancel',
         workflowId,
         reason,
         // @ts-ignore
-        userId: req.user?.id
+        userId: req.user?.id,
       });
 
       if (!reason || reason.trim().length === 0) {
@@ -363,22 +367,23 @@ router.post('/:workflowId/cancel',
           action: 'cancelled',
           reason,
           // @ts-ignore
-          cancelledBy: req.user?.id
+          cancelledBy: req.user?.id,
         },
         ipAddress: req.ip,
-        userAgent: Array.isArray(req.headers['user-agent']) ? req.headers['user-agent'][0] : req.headers['user-agent'],
-        riskLevel: SecurityLevel.MEDIUM
+        userAgent: Array.isArray(req.headers['user-agent'])
+          ? req.headers['user-agent'][0]
+          : req.headers['user-agent'],
+        riskLevel: SecurityLevel.MEDIUM,
       });
 
       res.json({
         success: true,
-        message: 'Approval workflow cancelled successfully'
+        message: 'Approval workflow cancelled successfully',
       });
-
     } catch (error) {
       logger.error('Failed to cancel approval workflow', {
         workflowId: req.params.workflowId,
-        error: error instanceof Error ? error.message : 'Unknown error'
+        error: error instanceof Error ? error.message : 'Unknown error',
       });
       next(error);
     }
@@ -389,7 +394,8 @@ router.post('/:workflowId/cancel',
  * GET /api/v1/approvals/stats
  * Get approval statistics
  */
-router.get('/stats',
+router.get(
+  '/stats',
   authMiddleware,
   requireOperator,
   async (req: Request, res: Response, next: NextFunction) => {
@@ -401,7 +407,7 @@ router.get('/stats',
       logger.debug('Getting approval statistics', {
         days,
         // @ts-ignore
-        userId: req.user?.id
+        userId: req.user?.id,
       });
 
       const { approvalWorkflowService } = await getServices();
@@ -409,24 +415,31 @@ router.get('/stats',
       // Get all workflows in the time period
       const allWorkflows = await approvalWorkflowService.getUserWorkflows(''); // Get all
 
-      const filteredWorkflows = allWorkflows.filter(w => w.createdAt >= startDate);
+      const filteredWorkflows = allWorkflows.filter((w) => w.createdAt >= startDate);
 
       // Calculate statistics
       const stats = {
         total: filteredWorkflows.length,
         byStatus: {
-          pending: filteredWorkflows.filter(w => w.status === ApprovalStatus.PENDING).length,
-          approved: filteredWorkflows.filter(w => w.status === ApprovalStatus.APPROVED).length,
-          rejected: filteredWorkflows.filter(w => w.status === ApprovalStatus.REJECTED).length,
-          expired: filteredWorkflows.filter(w => w.status === ApprovalStatus.EXPIRED).length
+          pending: filteredWorkflows.filter((w) => w.status === ApprovalStatus.PENDING).length,
+          approved: filteredWorkflows.filter((w) => w.status === ApprovalStatus.APPROVED).length,
+          rejected: filteredWorkflows.filter((w) => w.status === ApprovalStatus.REJECTED).length,
+          expired: filteredWorkflows.filter((w) => w.status === ApprovalStatus.EXPIRED).length,
         },
         bySecurityLevel: {
-          critical: filteredWorkflows.filter(w => w.metadata?.securityLevel === SecurityLevel.CRITICAL).length,
-          high: filteredWorkflows.filter(w => w.metadata?.securityLevel === SecurityLevel.HIGH).length,
-          medium: filteredWorkflows.filter(w => w.metadata?.securityLevel === SecurityLevel.MEDIUM).length,
-          low: filteredWorkflows.filter(w => w.metadata?.securityLevel === SecurityLevel.LOW).length
+          critical: filteredWorkflows.filter(
+            (w) => w.metadata?.securityLevel === SecurityLevel.CRITICAL
+          ).length,
+          high: filteredWorkflows.filter((w) => w.metadata?.securityLevel === SecurityLevel.HIGH)
+            .length,
+          medium: filteredWorkflows.filter(
+            (w) => w.metadata?.securityLevel === SecurityLevel.MEDIUM
+          ).length,
+          low: filteredWorkflows.filter((w) => w.metadata?.securityLevel === SecurityLevel.LOW)
+            .length,
         },
-        averageApprovalTime: filteredWorkflows.length > 0 ? calculateAverageApprovalTime(filteredWorkflows) : 0
+        averageApprovalTime:
+          filteredWorkflows.length > 0 ? calculateAverageApprovalTime(filteredWorkflows) : 0,
       };
 
       res.json({
@@ -436,15 +449,14 @@ router.get('/stats',
           period: {
             days: Number(days),
             startDate,
-            endDate: new Date()
-          }
+            endDate: new Date(),
+          },
         },
-        message: 'Approval statistics retrieved successfully'
+        message: 'Approval statistics retrieved successfully',
       });
-
     } catch (error) {
       logger.error('Failed to get approval statistics', {
-        error: error instanceof Error ? error.message : 'Unknown error'
+        error: error instanceof Error ? error.message : 'Unknown error',
       });
       next(error);
     }
@@ -457,7 +469,8 @@ router.get('/stats',
  * IMPORTANT: This route must come AFTER specific routes like /workflows, /pending, /stats
  * to avoid matching them as workflowId parameters
  */
-router.get('/:workflowId',
+router.get(
+  '/:workflowId',
   authMiddleware,
   async (req: Request, res: Response, next: NextFunction) => {
     try {
@@ -471,7 +484,7 @@ router.get('/:workflowId',
       logger.debug('Getting approval workflow status', {
         workflowId,
         // @ts-ignore
-        userId: req.user?.id
+        userId: req.user?.id,
       });
 
       const { approvalWorkflowService } = await getServices();
@@ -479,28 +492,32 @@ router.get('/:workflowId',
 
       // Check if user is authorized to view this workflow
       // @ts-ignore
-      const isAuthorized = status.workflow.requiredApprovers.includes(req.user!.id) ||
-                          // @ts-ignore
-                          status.workflow.metadata?.createdBy === req.user!.id ||
-                          // @ts-ignore
-                          req.user!.role === 'admin' ||
-                          // @ts-ignore
-                          req.user!.role === 'security-admin';
+      const isAuthorized =
+        status.workflow.requiredApprovers.includes(req.user!.id) ||
+        // @ts-ignore
+        status.workflow.metadata?.createdBy === req.user!.id ||
+        // @ts-ignore
+        req.user!.role === 'admin' ||
+        // @ts-ignore
+        req.user!.role === 'security-admin';
 
       if (!isAuthorized) {
-        throw new ApiError(403, 'Not authorized to view this approval workflow', 'UNAUTHORIZED_ACCESS');
+        throw new ApiError(
+          403,
+          'Not authorized to view this approval workflow',
+          'UNAUTHORIZED_ACCESS'
+        );
       }
 
       res.json({
         success: true,
         data: status,
-        message: 'Approval workflow status retrieved successfully'
+        message: 'Approval workflow status retrieved successfully',
       });
-
     } catch (error) {
       logger.error('Failed to get approval workflow status', {
         workflowId: req.params.workflowId,
-        error: error instanceof Error ? error.message : 'Unknown error'
+        error: error instanceof Error ? error.message : 'Unknown error',
       });
       next(error);
     }
@@ -511,7 +528,8 @@ router.get('/:workflowId',
  * POST /api/v1/approvals/:workflowId/decisions
  * Submit an approval decision
  */
-router.post('/:workflowId/decisions',
+router.post(
+  '/:workflowId/decisions',
   authMiddleware,
   validateRequest({ body: approvalDecisionSchema }),
   async (req: Request, res: Response, next: NextFunction) => {
@@ -528,7 +546,7 @@ router.post('/:workflowId/decisions',
         workflowId,
         decision,
         // @ts-ignore
-        approverId: req.user?.id
+        approverId: req.user?.id,
       });
 
       const approvalDecision: ApprovalDecision = {
@@ -538,7 +556,7 @@ router.post('/:workflowId/decisions',
         decision,
         conditions,
         feedback,
-        decidedAt: new Date()
+        decidedAt: new Date(),
       };
 
       const { approvalWorkflowService, auditService } = await getServices();
@@ -547,9 +565,8 @@ router.post('/:workflowId/decisions',
 
       // Audit log
       await auditService.logEvent({
-        eventType: decision === 'approve' 
-          ? AuditEventType.APPROVAL_GRANTED 
-          : AuditEventType.APPROVAL_DENIED,
+        eventType:
+          decision === 'approve' ? AuditEventType.APPROVAL_GRANTED : AuditEventType.APPROVAL_DENIED,
         // @ts-ignore
         userId: req.user?.id,
         resourceType: 'approval_workflow',
@@ -559,11 +576,13 @@ router.post('/:workflowId/decisions',
           conditions,
           feedback,
           workflowStatus: status.isComplete ? 'completed' : 'pending',
-          canProceed: status.canProceed
+          canProceed: status.canProceed,
         },
         ipAddress: req.ip,
-        userAgent: Array.isArray(req.headers['user-agent']) ? req.headers['user-agent'][0] : req.headers['user-agent'],
-        riskLevel: decision === 'reject' ? SecurityLevel.MEDIUM : SecurityLevel.LOW
+        userAgent: Array.isArray(req.headers['user-agent'])
+          ? req.headers['user-agent'][0]
+          : req.headers['user-agent'],
+        riskLevel: decision === 'reject' ? SecurityLevel.MEDIUM : SecurityLevel.LOW,
       });
 
       res.json({
@@ -571,18 +590,19 @@ router.post('/:workflowId/decisions',
         data: {
           decision: approvalDecision,
           status,
-          message: status.isComplete 
-            ? (status.canProceed ? 'Operation approved and can proceed' : 'Operation rejected')
-            : 'Decision recorded, waiting for additional approvals'
+          message: status.isComplete
+            ? status.canProceed
+              ? 'Operation approved and can proceed'
+              : 'Operation rejected'
+            : 'Decision recorded, waiting for additional approvals',
         },
-        message: 'Approval decision processed successfully'
+        message: 'Approval decision processed successfully',
       });
-
     } catch (error) {
       logger.error('Failed to process approval decision', {
         workflowId: req.params.workflowId,
         decision: req.body.decision,
-        error: error instanceof Error ? error.message : 'Unknown error'
+        error: error instanceof Error ? error.message : 'Unknown error',
       });
       next(error);
     }
@@ -636,8 +656,8 @@ function calculateUrgency(workflow: any): number {
 }
 
 function calculateAverageApprovalTime(workflows: any[]): number {
-  const completedWorkflows = workflows.filter(w => 
-    w.status === ApprovalStatus.APPROVED || w.status === ApprovalStatus.REJECTED
+  const completedWorkflows = workflows.filter(
+    (w) => w.status === ApprovalStatus.APPROVED || w.status === ApprovalStatus.REJECTED
   );
 
   if (completedWorkflows.length === 0) return 0;
@@ -649,7 +669,7 @@ function calculateAverageApprovalTime(workflows: any[]): number {
   }, 0);
 
   // Return average time in hours
-  return (totalTime / completedWorkflows.length) / (1000 * 60 * 60);
+  return totalTime / completedWorkflows.length / (1000 * 60 * 60);
 }
 
-export default router; 
+export default router;

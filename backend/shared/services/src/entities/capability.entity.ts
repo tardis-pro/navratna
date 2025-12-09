@@ -19,11 +19,11 @@ export class Capability extends BaseEntity {
   @Column({ type: 'jsonb', nullable: true })
   config?: Record<string, any>;
 
-  @ManyToMany(() => Agent, agent => agent.capabilities)
+  @ManyToMany(() => Agent, (agent) => agent.capabilities)
   @JoinTable({
     name: 'agent_capabilities',
     joinColumn: { name: 'capability_id', referencedColumnName: 'id' },
-    inverseJoinColumn: { name: 'agent_id', referencedColumnName: 'id' }
+    inverseJoinColumn: { name: 'agent_id', referencedColumnName: 'id' },
   })
   agents!: Agent[];
 }

@@ -1,10 +1,31 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  Folder, ArrowRight, ArrowLeft, Check, Github, ExternalLink, 
-  Settings, Key, Link, Search, Upload, Download, GitBranch,
-  MessageSquare, FileText, Database, Zap, Shield, Users,
-  Play, Pause, AlertCircle, CheckCircle, X, Plus
+  Folder,
+  ArrowRight,
+  ArrowLeft,
+  Check,
+  Github,
+  ExternalLink,
+  Settings,
+  Key,
+  Link,
+  Search,
+  Upload,
+  Download,
+  GitBranch,
+  MessageSquare,
+  FileText,
+  Database,
+  Zap,
+  Shield,
+  Users,
+  Play,
+  Pause,
+  AlertCircle,
+  CheckCircle,
+  X,
+  Plus,
 } from 'lucide-react';
 import { useAuth } from '../../../contexts/AuthContext';
 import { projectsAPI, type ProjectCreate } from '../../../api/projects.api';
@@ -48,16 +69,17 @@ const PROJECT_TEMPLATES: ProjectTemplate[] = [
     icon: GitBranch,
     category: 'software',
     tools: ['github', 'jira', 'confluence', 'slack'],
-    estimatedSetupTime: '10-15 minutes'
+    estimatedSetupTime: '10-15 minutes',
   },
   {
     id: 'ai-research',
     name: 'AI Research Project',
-    description: 'Research project with knowledge management, experiment tracking, and collaboration',
+    description:
+      'Research project with knowledge management, experiment tracking, and collaboration',
     icon: Database,
     category: 'research',
     tools: ['github', 'notion', 'slack'],
-    estimatedSetupTime: '5-10 minutes'
+    estimatedSetupTime: '5-10 minutes',
   },
   {
     id: 'marketing-campaign',
@@ -66,7 +88,7 @@ const PROJECT_TEMPLATES: ProjectTemplate[] = [
     icon: MessageSquare,
     category: 'marketing',
     tools: ['notion', 'slack', 'figma'],
-    estimatedSetupTime: '8-12 minutes'
+    estimatedSetupTime: '8-12 minutes',
   },
   {
     id: 'custom',
@@ -75,8 +97,8 @@ const PROJECT_TEMPLATES: ProjectTemplate[] = [
     icon: Settings,
     category: 'operations',
     tools: [],
-    estimatedSetupTime: '5-20 minutes'
-  }
+    estimatedSetupTime: '5-20 minutes',
+  },
 ];
 
 const TOOL_INTEGRATIONS: ToolIntegration[] = [
@@ -92,7 +114,7 @@ const TOOL_INTEGRATIONS: ToolIntegration[] = [
       'Connect GitHub account via OAuth',
       'Select repository or create new one',
       'Configure webhooks for real-time updates',
-      'Set up issue and PR templates'
+      'Set up issue and PR templates',
     ],
     capabilities: [
       'Repository management',
@@ -100,8 +122,8 @@ const TOOL_INTEGRATIONS: ToolIntegration[] = [
       'Pull request workflows',
       'CI/CD pipeline integration',
       'Code search and analysis',
-      'Release management'
-    ]
+      'Release management',
+    ],
   },
   {
     id: 'jira',
@@ -115,7 +137,7 @@ const TOOL_INTEGRATIONS: ToolIntegration[] = [
       'Connect Jira instance with API token',
       'Select project or create new one',
       'Configure issue types and workflows',
-      'Set up sprint boards and filters'
+      'Set up sprint boards and filters',
     ],
     capabilities: [
       'Advanced issue management',
@@ -123,8 +145,8 @@ const TOOL_INTEGRATIONS: ToolIntegration[] = [
       'Custom workflows',
       'Reporting and analytics',
       'Time tracking',
-      'Advanced search and JQL'
-    ]
+      'Advanced search and JQL',
+    ],
   },
   {
     id: 'confluence',
@@ -138,7 +160,7 @@ const TOOL_INTEGRATIONS: ToolIntegration[] = [
       'Connect Confluence space',
       'Set up page templates',
       'Configure permissions and access',
-      'Enable content indexing for search'
+      'Enable content indexing for search',
     ],
     capabilities: [
       'Document management',
@@ -146,8 +168,8 @@ const TOOL_INTEGRATIONS: ToolIntegration[] = [
       'Page templates and blueprints',
       'Content search and indexing',
       'Collaborative editing',
-      'Version control for documents'
-    ]
+      'Version control for documents',
+    ],
   },
   {
     id: 'slack',
@@ -161,7 +183,7 @@ const TOOL_INTEGRATIONS: ToolIntegration[] = [
       'Install Navratna Slack app',
       'Select channels for notifications',
       'Configure notification preferences',
-      'Set up slash commands'
+      'Set up slash commands',
     ],
     capabilities: [
       'Real-time notifications',
@@ -169,9 +191,9 @@ const TOOL_INTEGRATIONS: ToolIntegration[] = [
       'Interactive commands',
       'File sharing integration',
       'Status updates',
-      'Team coordination'
-    ]
-  }
+      'Team coordination',
+    ],
+  },
 ];
 
 interface ProjectOnboardingFlowProps {
@@ -183,7 +205,7 @@ interface ProjectOnboardingFlowProps {
 export const ProjectOnboardingFlow: React.FC<ProjectOnboardingFlowProps> = ({
   isOpen,
   onClose,
-  onProjectCreate
+  onProjectCreate,
 }) => {
   const { user } = useAuth();
   const [currentStep, setCurrentStep] = useState(0);
@@ -194,12 +216,14 @@ export const ProjectOnboardingFlow: React.FC<ProjectOnboardingFlowProps> = ({
     status: 'planning' as const,
     priority: 'medium' as const,
     dueDate: '',
-    tags: [] as string[]
+    tags: [] as string[],
   });
   const [selectedTools, setSelectedTools] = useState<string[]>([]);
   const [toolConfigurations, setToolConfigurations] = useState<Record<string, any>>({});
   const [isSetupInProgress, setIsSetupInProgress] = useState(false);
-  const [setupProgress, setSetupProgress] = useState<Record<string, 'pending' | 'in_progress' | 'completed' | 'error'>>({});
+  const [setupProgress, setSetupProgress] = useState<
+    Record<string, 'pending' | 'in_progress' | 'completed' | 'error'>
+  >({});
 
   const resetOnboardingState = () => {
     setCurrentStep(0);
@@ -210,7 +234,7 @@ export const ProjectOnboardingFlow: React.FC<ProjectOnboardingFlowProps> = ({
       status: 'planning',
       priority: 'medium',
       dueDate: '',
-      tags: []
+      tags: [],
     });
     setSelectedTools([]);
     setToolConfigurations({});
@@ -231,13 +255,13 @@ export const ProjectOnboardingFlow: React.FC<ProjectOnboardingFlowProps> = ({
           {PROJECT_TEMPLATES.map((template) => {
             const Icon = template.icon;
             const isSelected = selectedTemplate?.id === template.id;
-            
+
             return (
               <motion.div
                 key={template.id}
                 className={`p-6 rounded-2xl border cursor-pointer transition-all duration-200 relative z-10 pointer-events-auto ${
-                  isSelected 
-                    ? 'border-blue-500/50 bg-blue-500/10 shadow-lg shadow-blue-500/20' 
+                  isSelected
+                    ? 'border-blue-500/50 bg-blue-500/10 shadow-lg shadow-blue-500/20'
                     : 'border-slate-700/50 bg-slate-800/50 hover:border-slate-600/50 hover:bg-slate-700/50'
                 }`}
                 onClick={(e) => {
@@ -249,20 +273,28 @@ export const ProjectOnboardingFlow: React.FC<ProjectOnboardingFlowProps> = ({
                 whileTap={{ scale: 0.98 }}
               >
                 <div className="flex items-start gap-4">
-                  <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${
-                    isSelected ? 'bg-blue-500/20 border border-blue-500/30' : 'bg-slate-700/50'
-                  }`}>
-                    <Icon className={`w-6 h-6 ${isSelected ? 'text-blue-400' : 'text-slate-400'} pointer-events-none`} />
+                  <div
+                    className={`w-12 h-12 rounded-xl flex items-center justify-center ${
+                      isSelected ? 'bg-blue-500/20 border border-blue-500/30' : 'bg-slate-700/50'
+                    }`}
+                  >
+                    <Icon
+                      className={`w-6 h-6 ${isSelected ? 'text-blue-400' : 'text-slate-400'} pointer-events-none`}
+                    />
                   </div>
                   <div className="flex-1 pointer-events-none">
                     <h3 className="font-semibold text-white mb-1">{template.name}</h3>
-                    <p className="text-sm text-slate-400 mb-3 leading-relaxed">{template.description}</p>
+                    <p className="text-sm text-slate-400 mb-3 leading-relaxed">
+                      {template.description}
+                    </p>
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
                         <span className="text-xs px-2 py-1 bg-slate-700/50 rounded-full text-slate-300 capitalize">
                           {template.category}
                         </span>
-                        <span className="text-xs text-slate-500">{template.estimatedSetupTime}</span>
+                        <span className="text-xs text-slate-500">
+                          {template.estimatedSetupTime}
+                        </span>
                       </div>
                       {isSelected && <Check className="w-4 h-4 text-blue-400" />}
                     </div>
@@ -285,30 +317,32 @@ export const ProjectOnboardingFlow: React.FC<ProjectOnboardingFlowProps> = ({
             type="text"
             placeholder="Enter project name..."
             value={projectData.name}
-            onChange={(e) => setProjectData(prev => ({ ...prev, name: e.target.value }))}
+            onChange={(e) => setProjectData((prev) => ({ ...prev, name: e.target.value }))}
             className="w-full px-4 py-3 bg-slate-800/50 border border-slate-700/50 rounded-xl text-white placeholder-slate-500 focus:border-blue-500/50 focus:outline-none focus:ring-2 focus:ring-blue-500/20 transition-all duration-200"
             required
           />
         </div>
-        
+
         <div>
           <label className="block text-sm font-medium text-slate-300 mb-2">Description</label>
           <textarea
             placeholder="Describe your project goals and objectives..."
             value={projectData.description}
-            onChange={(e) => setProjectData(prev => ({ ...prev, description: e.target.value }))}
+            onChange={(e) => setProjectData((prev) => ({ ...prev, description: e.target.value }))}
             className="w-full px-4 py-3 bg-slate-800/50 border border-slate-700/50 rounded-xl text-white placeholder-slate-500 focus:border-blue-500/50 focus:outline-none focus:ring-2 focus:ring-blue-500/20 transition-all duration-200 resize-none"
             rows={4}
             required
           />
         </div>
-        
+
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
             <label className="block text-sm font-medium text-slate-300 mb-2">Initial Status</label>
             <select
               value={projectData.status}
-              onChange={(e) => setProjectData(prev => ({ ...prev, status: e.target.value as any }))}
+              onChange={(e) =>
+                setProjectData((prev) => ({ ...prev, status: e.target.value as any }))
+              }
               className="w-full px-4 py-3 bg-slate-800/50 border border-slate-700/50 rounded-xl text-white focus:border-blue-500/50 focus:outline-none focus:ring-2 focus:ring-blue-500/20 transition-all duration-200 appearance-none"
             >
               <option value="planning">Planning</option>
@@ -316,12 +350,14 @@ export const ProjectOnboardingFlow: React.FC<ProjectOnboardingFlowProps> = ({
               <option value="paused">Paused</option>
             </select>
           </div>
-          
+
           <div>
             <label className="block text-sm font-medium text-slate-300 mb-2">Priority Level</label>
             <select
               value={projectData.priority}
-              onChange={(e) => setProjectData(prev => ({ ...prev, priority: e.target.value as any }))}
+              onChange={(e) =>
+                setProjectData((prev) => ({ ...prev, priority: e.target.value as any }))
+              }
               className="w-full px-4 py-3 bg-slate-800/50 border border-slate-700/50 rounded-xl text-white focus:border-blue-500/50 focus:outline-none focus:ring-2 focus:ring-blue-500/20 transition-all duration-200 appearance-none"
             >
               <option value="low">Low Priority</option>
@@ -331,13 +367,15 @@ export const ProjectOnboardingFlow: React.FC<ProjectOnboardingFlowProps> = ({
             </select>
           </div>
         </div>
-        
+
         <div>
-          <label className="block text-sm font-medium text-slate-300 mb-2">Due Date (Optional)</label>
+          <label className="block text-sm font-medium text-slate-300 mb-2">
+            Due Date (Optional)
+          </label>
           <input
             type="date"
             value={projectData.dueDate}
-            onChange={(e) => setProjectData(prev => ({ ...prev, dueDate: e.target.value }))}
+            onChange={(e) => setProjectData((prev) => ({ ...prev, dueDate: e.target.value }))}
             className="w-full px-4 py-3 bg-slate-800/50 border border-slate-700/50 rounded-xl text-white focus:border-blue-500/50 focus:outline-none focus:ring-2 focus:ring-blue-500/20 transition-all duration-200"
           />
         </div>
@@ -352,18 +390,18 @@ export const ProjectOnboardingFlow: React.FC<ProjectOnboardingFlowProps> = ({
           <h3 className="text-lg font-semibold text-white mb-2">Select Your Tools</h3>
           <p className="text-slate-400">Choose the tools you want to integrate with your project</p>
         </div>
-        
+
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {TOOL_INTEGRATIONS.map((tool) => {
             const Icon = tool.icon;
             const isSelected = selectedTools.includes(tool.id);
-            
+
             return (
               <motion.div
                 key={tool.id}
                 className={`p-6 rounded-2xl border cursor-pointer transition-all duration-200 pointer-events-auto ${
-                  isSelected 
-                    ? 'border-blue-500/50 bg-blue-500/10 shadow-lg shadow-blue-500/20' 
+                  isSelected
+                    ? 'border-blue-500/50 bg-blue-500/10 shadow-lg shadow-blue-500/20'
                     : 'border-slate-700/50 bg-slate-800/50 hover:border-slate-600/50'
                 }`}
                 onClick={(e) => {
@@ -375,10 +413,14 @@ export const ProjectOnboardingFlow: React.FC<ProjectOnboardingFlowProps> = ({
                 whileTap={{ scale: 0.98 }}
               >
                 <div className="flex items-start gap-4">
-                  <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${
-                    isSelected ? 'bg-blue-500/20 border border-blue-500/30' : 'bg-slate-700/50'
-                  }`}>
-                    <Icon className={`w-6 h-6 ${isSelected ? 'text-blue-400' : 'text-slate-400'} pointer-events-none`} />
+                  <div
+                    className={`w-12 h-12 rounded-xl flex items-center justify-center ${
+                      isSelected ? 'bg-blue-500/20 border border-blue-500/30' : 'bg-slate-700/50'
+                    }`}
+                  >
+                    <Icon
+                      className={`w-6 h-6 ${isSelected ? 'text-blue-400' : 'text-slate-400'} pointer-events-none`}
+                    />
                   </div>
                   <div className="flex-1 pointer-events-none">
                     <div className="flex items-center justify-between mb-2">
@@ -400,20 +442,25 @@ export const ProjectOnboardingFlow: React.FC<ProjectOnboardingFlowProps> = ({
             );
           })}
         </div>
-        
+
         {selectedTools.length > 0 && (
-          <motion.div 
+          <motion.div
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             className="mt-6 p-4 bg-blue-500/10 border border-blue-500/20 rounded-xl"
           >
-            <h4 className="text-blue-400 font-medium mb-2">Selected Tools ({selectedTools.length})</h4>
+            <h4 className="text-blue-400 font-medium mb-2">
+              Selected Tools ({selectedTools.length})
+            </h4>
             <div className="flex flex-wrap gap-2">
-              {selectedTools.map(toolId => {
-                const tool = TOOL_INTEGRATIONS.find(t => t.id === toolId);
+              {selectedTools.map((toolId) => {
+                const tool = TOOL_INTEGRATIONS.find((t) => t.id === toolId);
                 if (!tool) return null;
                 return (
-                  <span key={toolId} className="px-2 py-1 bg-blue-500/20 text-blue-300 rounded-lg text-sm">
+                  <span
+                    key={toolId}
+                    className="px-2 py-1 bg-blue-500/20 text-blue-300 rounded-lg text-sm"
+                  >
                     {tool.name}
                   </span>
                 );
@@ -427,27 +474,29 @@ export const ProjectOnboardingFlow: React.FC<ProjectOnboardingFlowProps> = ({
 
   const SetupAndDeploy: React.FC = () => {
     const hasToolsToSetup = selectedTools.length > 0;
-    
+
     return (
       <div className="space-y-6">
         <div className="text-center mb-6">
           <h3 className="text-lg font-semibold text-white mb-2">Setup & Deploy</h3>
-          <p className="text-slate-400">Configure your selected tools and deploy your project workspace</p>
+          <p className="text-slate-400">
+            Configure your selected tools and deploy your project workspace
+          </p>
         </div>
-        
+
         {hasToolsToSetup ? (
           <>
             <div className="space-y-4">
-              {selectedTools.map(toolId => {
-                const tool = TOOL_INTEGRATIONS.find(t => t.id === toolId);
+              {selectedTools.map((toolId) => {
+                const tool = TOOL_INTEGRATIONS.find((t) => t.id === toolId);
                 if (!tool) return null;
-                
+
                 const Icon = tool.icon;
                 const status = setupProgress[toolId] || 'pending';
-                
+
                 return (
-                  <motion.div 
-                    key={toolId} 
+                  <motion.div
+                    key={toolId}
                     className="p-4 bg-slate-800/50 rounded-xl border border-slate-700/50"
                     initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}
@@ -461,11 +510,15 @@ export const ProjectOnboardingFlow: React.FC<ProjectOnboardingFlowProps> = ({
                         <p className="text-sm text-slate-400">{tool.description}</p>
                       </div>
                       <div className="flex items-center gap-2">
-                        {status === 'pending' && <div className="w-4 h-4 border border-slate-600 rounded-full" />}
+                        {status === 'pending' && (
+                          <div className="w-4 h-4 border border-slate-600 rounded-full" />
+                        )}
                         {status === 'in_progress' && (
                           <div className="w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
                         )}
-                        {status === 'completed' && <CheckCircle className="w-4 h-4 text-green-400" />}
+                        {status === 'completed' && (
+                          <CheckCircle className="w-4 h-4 text-green-400" />
+                        )}
                         {status === 'error' && <AlertCircle className="w-4 h-4 text-red-400" />}
                       </div>
                     </div>
@@ -473,7 +526,7 @@ export const ProjectOnboardingFlow: React.FC<ProjectOnboardingFlowProps> = ({
                 );
               })}
             </div>
-            
+
             {!isSetupInProgress && Object.keys(setupProgress).length === 0 && (
               <button
                 onClick={handleSetupTools}
@@ -482,9 +535,9 @@ export const ProjectOnboardingFlow: React.FC<ProjectOnboardingFlowProps> = ({
                 Start Tool Setup
               </button>
             )}
-            
+
             {isSetupInProgress && (
-              <motion.div 
+              <motion.div
                 className="text-center py-4"
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
@@ -495,14 +548,16 @@ export const ProjectOnboardingFlow: React.FC<ProjectOnboardingFlowProps> = ({
             )}
           </>
         ) : (
-          <motion.div 
+          <motion.div
             className="text-center py-8"
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
           >
             <Settings className="w-16 h-16 text-slate-600 mx-auto mb-4" />
             <h3 className="text-lg font-medium text-slate-400 mb-2">No tools selected</h3>
-            <p className="text-slate-500">You can add integrations later from your project settings</p>
+            <p className="text-slate-500">
+              You can add integrations later from your project settings
+            </p>
           </motion.div>
         )}
       </div>
@@ -515,22 +570,24 @@ export const ProjectOnboardingFlow: React.FC<ProjectOnboardingFlowProps> = ({
         <motion.div
           initial={{ scale: 0 }}
           animate={{ scale: 1 }}
-          transition={{ delay: 0.2, type: "spring", stiffness: 200, damping: 10 }}
+          transition={{ delay: 0.2, type: 'spring', stiffness: 200, damping: 10 }}
           className="w-20 h-20 bg-gradient-to-br from-green-500/20 to-emerald-500/20 rounded-2xl flex items-center justify-center mx-auto border border-green-500/20"
         >
           <Check className="w-10 h-10 text-green-400" />
         </motion.div>
-        
+
         <motion.div
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.4 }}
         >
           <h3 className="text-2xl font-bold text-white mb-2">Project Created Successfully!</h3>
-          <p className="text-slate-400">Your {selectedTemplate?.name || 'Custom'} project is ready to go</p>
+          <p className="text-slate-400">
+            Your {selectedTemplate?.name || 'Custom'} project is ready to go
+          </p>
         </motion.div>
-        
-        <motion.div 
+
+        <motion.div
           className="bg-slate-800/50 rounded-xl p-6 text-left"
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -560,7 +617,7 @@ export const ProjectOnboardingFlow: React.FC<ProjectOnboardingFlowProps> = ({
             </div>
           </div>
         </motion.div>
-        
+
         <motion.button
           onClick={handleProjectComplete}
           className="w-full px-6 py-3 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-xl hover:from-green-700 hover:to-emerald-700 transition-all duration-200 font-medium shadow-lg shadow-green-500/20 hover:shadow-xl hover:shadow-green-500/30 transform hover:scale-105"
@@ -582,36 +639,36 @@ export const ProjectOnboardingFlow: React.FC<ProjectOnboardingFlowProps> = ({
       title: 'Choose Template',
       description: 'Select a project template or start from scratch',
       component: TemplateSelection,
-      isOptional: false
+      isOptional: false,
     },
     {
       id: 'details',
       title: 'Project Details',
       description: 'Configure your project name, description, and settings',
       component: ProjectDetails,
-      isOptional: false
+      isOptional: false,
     },
     {
       id: 'tools',
       title: 'Tool Integration',
       description: 'Connect and configure your development and collaboration tools',
       component: ToolIntegration,
-      isOptional: true
+      isOptional: true,
     },
     {
       id: 'setup',
       title: 'Setup & Deploy',
       description: 'Configure integrations and deploy your project workspace',
       component: SetupAndDeploy,
-      isOptional: false
+      isOptional: false,
     },
     {
       id: 'complete',
       title: 'Complete',
       description: 'Your project is ready! Start collaborating with your team',
       component: CompletionStep,
-      isOptional: false
-    }
+      isOptional: false,
+    },
   ];
 
   const currentStepData = steps[currentStep];
@@ -648,27 +705,25 @@ export const ProjectOnboardingFlow: React.FC<ProjectOnboardingFlowProps> = ({
   const handleTemplateSelect = (template: ProjectTemplate) => {
     setSelectedTemplate(template);
     setSelectedTools(template.tools);
-    setProjectData(prev => ({
+    setProjectData((prev) => ({
       ...prev,
       name: template.name === 'Custom Project' ? '' : `${template.name} Project`,
-      description: template.description
+      description: template.description,
     }));
   };
 
   const handleToolToggle = (toolId: string) => {
-    setSelectedTools(prev => 
-      prev.includes(toolId) 
-        ? prev.filter(id => id !== toolId)
-        : [...prev, toolId]
+    setSelectedTools((prev) =>
+      prev.includes(toolId) ? prev.filter((id) => id !== toolId) : [...prev, toolId]
     );
   };
 
   const handleSetupTools = async () => {
     setIsSetupInProgress(true);
     const progress: Record<string, 'pending' | 'in_progress' | 'completed' | 'error'> = {};
-    
+
     // Initialize progress
-    selectedTools.forEach(toolId => {
+    selectedTools.forEach((toolId) => {
       progress[toolId] = 'pending';
     });
     setSetupProgress(progress);
@@ -677,26 +732,26 @@ export const ProjectOnboardingFlow: React.FC<ProjectOnboardingFlowProps> = ({
     for (const toolId of selectedTools) {
       progress[toolId] = 'in_progress';
       setSetupProgress({ ...progress });
-      
+
       try {
         // Get tool details and verify it exists
         const tool = await toolsAPI.get(toolId);
-        
+
         // For OAuth-based tools, initiate OAuth flow
         if (tool.type === 'oauth') {
           // Store configuration for OAuth completion
-          setToolConfigurations(prev => ({
+          setToolConfigurations((prev) => ({
             ...prev,
-            [toolId]: { status: 'oauth_pending', tool }
+            [toolId]: { status: 'oauth_pending', tool },
           }));
         }
-        
+
         progress[toolId] = 'completed';
       } catch (error) {
         console.error(`Failed to setup tool ${toolId}:`, error);
         progress[toolId] = 'error';
       }
-      
+
       setSetupProgress({ ...progress });
     }
 
@@ -717,19 +772,19 @@ export const ProjectOnboardingFlow: React.FC<ProjectOnboardingFlowProps> = ({
           template: selectedTemplate?.id,
           toolConfigurations,
           priority: projectData.priority,
-          dueDate: projectData.dueDate || null
+          dueDate: projectData.dueDate || null,
         },
         metadata: {
           progress: 0,
           tasks: generateInitialTasks(selectedTemplate),
           onboardingCompleted: true,
-          template: selectedTemplate?.name || 'Custom'
-        }
+          template: selectedTemplate?.name || 'Custom',
+        },
       };
 
       // Create project via API
       const createdProject = await projectsAPI.create(projectCreateData);
-      
+
       // Assign tools to the project if any were selected
       if (selectedTools.length > 0) {
         await projectsAPI.assignTools(createdProject.id, selectedTools);
@@ -747,29 +802,101 @@ export const ProjectOnboardingFlow: React.FC<ProjectOnboardingFlowProps> = ({
 
   const generateInitialTasks = (template: ProjectTemplate | null) => {
     if (!template) return [];
-    
+
     const baseTasks = [
-      { id: '1', title: 'Project kickoff meeting', status: 'todo' as const, priority: 'high' as const, createdAt: new Date() },
-      { id: '2', title: 'Set up project workspace', status: 'todo' as const, priority: 'high' as const, createdAt: new Date() },
-      { id: '3', title: 'Configure team permissions', status: 'todo' as const, priority: 'medium' as const, createdAt: new Date() }
+      {
+        id: '1',
+        title: 'Project kickoff meeting',
+        status: 'todo' as const,
+        priority: 'high' as const,
+        createdAt: new Date(),
+      },
+      {
+        id: '2',
+        title: 'Set up project workspace',
+        status: 'todo' as const,
+        priority: 'high' as const,
+        createdAt: new Date(),
+      },
+      {
+        id: '3',
+        title: 'Configure team permissions',
+        status: 'todo' as const,
+        priority: 'medium' as const,
+        createdAt: new Date(),
+      },
     ];
 
     const templateSpecificTasks: Record<string, any[]> = {
       'software-dev': [
-        { id: '4', title: 'Set up development environment', status: 'todo' as const, priority: 'high' as const, createdAt: new Date() },
-        { id: '5', title: 'Create initial repository structure', status: 'todo' as const, priority: 'medium' as const, createdAt: new Date() },
-        { id: '6', title: 'Configure CI/CD pipeline', status: 'todo' as const, priority: 'medium' as const, createdAt: new Date() }
+        {
+          id: '4',
+          title: 'Set up development environment',
+          status: 'todo' as const,
+          priority: 'high' as const,
+          createdAt: new Date(),
+        },
+        {
+          id: '5',
+          title: 'Create initial repository structure',
+          status: 'todo' as const,
+          priority: 'medium' as const,
+          createdAt: new Date(),
+        },
+        {
+          id: '6',
+          title: 'Configure CI/CD pipeline',
+          status: 'todo' as const,
+          priority: 'medium' as const,
+          createdAt: new Date(),
+        },
       ],
       'ai-research': [
-        { id: '4', title: 'Set up experiment tracking', status: 'todo' as const, priority: 'high' as const, createdAt: new Date() },
-        { id: '5', title: 'Prepare dataset and baseline', status: 'todo' as const, priority: 'medium' as const, createdAt: new Date() },
-        { id: '6', title: 'Literature review and documentation', status: 'todo' as const, priority: 'low' as const, createdAt: new Date() }
+        {
+          id: '4',
+          title: 'Set up experiment tracking',
+          status: 'todo' as const,
+          priority: 'high' as const,
+          createdAt: new Date(),
+        },
+        {
+          id: '5',
+          title: 'Prepare dataset and baseline',
+          status: 'todo' as const,
+          priority: 'medium' as const,
+          createdAt: new Date(),
+        },
+        {
+          id: '6',
+          title: 'Literature review and documentation',
+          status: 'todo' as const,
+          priority: 'low' as const,
+          createdAt: new Date(),
+        },
       ],
       'marketing-campaign': [
-        { id: '4', title: 'Define campaign objectives', status: 'todo' as const, priority: 'high' as const, createdAt: new Date() },
-        { id: '5', title: 'Create content calendar', status: 'todo' as const, priority: 'medium' as const, createdAt: new Date() },
-        { id: '6', title: 'Set up analytics tracking', status: 'todo' as const, priority: 'medium' as const, createdAt: new Date() }
-      ]
+        {
+          id: '4',
+          title: 'Define campaign objectives',
+          status: 'todo' as const,
+          priority: 'high' as const,
+          createdAt: new Date(),
+        },
+        {
+          id: '5',
+          title: 'Create content calendar',
+          status: 'todo' as const,
+          priority: 'medium' as const,
+          createdAt: new Date(),
+        },
+        {
+          id: '6',
+          title: 'Set up analytics tracking',
+          status: 'todo' as const,
+          priority: 'medium' as const,
+          createdAt: new Date(),
+        },
+      ],
     };
 
     return [...baseTasks, ...(templateSpecificTasks[template.id] || [])];
@@ -804,22 +931,26 @@ export const ProjectOnboardingFlow: React.FC<ProjectOnboardingFlowProps> = ({
               <X className="w-5 h-5 text-slate-400 pointer-events-none" />
             </button>
           </div>
-          
+
           {/* Progress Bar */}
           <div className="mt-6">
             <div className="flex items-center justify-between mb-2">
-              <span className="text-sm text-slate-400">Step {currentStep + 1} of {steps.length}</span>
-              <span className="text-sm text-slate-400">{Math.round(((currentStep + 1) / steps.length) * 100)}%</span>
+              <span className="text-sm text-slate-400">
+                Step {currentStep + 1} of {steps.length}
+              </span>
+              <span className="text-sm text-slate-400">
+                {Math.round(((currentStep + 1) / steps.length) * 100)}%
+              </span>
             </div>
             <div className="w-full bg-slate-800 rounded-full h-2">
-              <div 
+              <div
                 className="h-2 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-full transition-all duration-300"
                 style={{ width: `${((currentStep + 1) / steps.length) * 100}%` }}
               />
             </div>
           </div>
         </div>
-        
+
         {/* Content */}
         <div className="p-4 md:p-8 overflow-y-auto flex-1">
           <AnimatePresence mode="wait">
@@ -834,7 +965,7 @@ export const ProjectOnboardingFlow: React.FC<ProjectOnboardingFlowProps> = ({
             </motion.div>
           </AnimatePresence>
         </div>
-        
+
         {/* Footer */}
         <div className="p-4 md:p-8 border-t border-slate-800/50 flex items-center justify-between flex-wrap gap-4">
           <button
@@ -845,7 +976,7 @@ export const ProjectOnboardingFlow: React.FC<ProjectOnboardingFlowProps> = ({
             <ArrowLeft className="w-4 h-4 pointer-events-none" />
             Back
           </button>
-          
+
           <div className="flex items-center gap-2">
             {steps.map((_, index) => (
               <div
@@ -856,7 +987,7 @@ export const ProjectOnboardingFlow: React.FC<ProjectOnboardingFlowProps> = ({
               />
             ))}
           </div>
-          
+
           <button
             onClick={handleNext}
             disabled={currentStep === steps.length - 1 || !canProceedToNext()}

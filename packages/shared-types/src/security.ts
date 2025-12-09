@@ -7,21 +7,21 @@ export enum SecurityLevel {
   LOW = 'low',
   MEDIUM = 'medium',
   HIGH = 'high',
-  CRITICAL = 'critical'
+  CRITICAL = 'critical',
 }
 
 export enum PermissionType {
   READ = 'read',
   WRITE = 'write',
   EXECUTE = 'execute',
-  ADMIN = 'admin'
+  ADMIN = 'admin',
 }
 
 export enum ApprovalStatus {
   PENDING = 'pending',
   APPROVED = 'approved',
   REJECTED = 'rejected',
-  EXPIRED = 'expired'
+  EXPIRED = 'expired',
 }
 
 // Risk assessment types
@@ -29,7 +29,7 @@ export enum RiskLevel {
   LOW = 'low',
   MEDIUM = 'medium',
   HIGH = 'high',
-  CRITICAL = 'critical'
+  CRITICAL = 'critical',
 }
 
 // OAuth Provider Types
@@ -44,7 +44,7 @@ export enum OAuthProviderType {
   GMAIL = 'gmail',
   OUTLOOK = 'outlook',
   ZOHO_MAIL = 'zoho_mail',
-  CUSTOM = 'custom'
+  CUSTOM = 'custom',
 }
 
 export enum AuthenticationMethod {
@@ -55,7 +55,7 @@ export enum AuthenticationMethod {
   API_KEY = 'api_key',
   CERTIFICATE = 'certificate',
   BIOMETRIC = 'biometric',
-  AGENT_TOKEN = 'agent_token'
+  AGENT_TOKEN = 'agent_token',
 }
 
 export enum MFAMethod {
@@ -65,14 +65,14 @@ export enum MFAMethod {
   PUSH = 'push',
   HARDWARE_TOKEN = 'hardware_token',
   BIOMETRIC = 'biometric',
-  BACKUP_CODES = 'backup_codes'
+  BACKUP_CODES = 'backup_codes',
 }
 
 export enum SessionStatus {
   ACTIVE = 'active',
   EXPIRED = 'expired',
   REVOKED = 'revoked',
-  SUSPENDED = 'suspended'
+  SUSPENDED = 'suspended',
 }
 
 // User Types - including agents
@@ -80,28 +80,28 @@ export enum UserType {
   HUMAN = 'human',
   AGENT = 'agent',
   SERVICE = 'service',
-  SYSTEM = 'system'
+  SYSTEM = 'system',
 }
 
 export enum AgentCapability {
-  CODE_REPOSITORY = 'code_repository',     // GitHub access
-  EMAIL_ACCESS = 'email_access',            // Email read/send
-  NOTE_TAKING = 'note_taking',              // Audio/video/text notes
-  FILE_MANAGEMENT = 'file_management',      // File operations
-  COMMUNICATION = 'communication',          // Chat/messaging
-  DATA_ANALYSIS = 'data_analysis',          // Data processing
-  TASK_AUTOMATION = 'task_automation',      // Workflow automation
-  CONTENT_CREATION = 'content_creation',    // Document/media creation
-  INTEGRATION = 'integration',              // API integrations
-  MONITORING = 'monitoring',                // System monitoring
-  TOOL_EXECUTION = 'tool_execution',        // Execute tools and APIs
-  REPORTING = 'reporting',                  // Generate reports
-  COLLABORATION = 'collaboration',          // Team collaboration
+  CODE_REPOSITORY = 'code_repository', // GitHub access
+  EMAIL_ACCESS = 'email_access', // Email read/send
+  NOTE_TAKING = 'note_taking', // Audio/video/text notes
+  FILE_MANAGEMENT = 'file_management', // File operations
+  COMMUNICATION = 'communication', // Chat/messaging
+  DATA_ANALYSIS = 'data_analysis', // Data processing
+  TASK_AUTOMATION = 'task_automation', // Workflow automation
+  CONTENT_CREATION = 'content_creation', // Document/media creation
+  INTEGRATION = 'integration', // API integrations
+  MONITORING = 'monitoring', // System monitoring
+  TOOL_EXECUTION = 'tool_execution', // Execute tools and APIs
+  REPORTING = 'reporting', // Generate reports
+  COLLABORATION = 'collaboration', // Team collaboration
   WORKFLOW_MANAGEMENT = 'workflow_management', // Manage workflows
   NATURAL_LANGUAGE_PROCESSING = 'natural_language_processing', // NLP capabilities
   KNOWLEDGE_RETRIEVAL = 'knowledge_retrieval', // Knowledge base access
-  CONTEXT_AWARENESS = 'context_awareness',  // Context understanding
-  LEARNING = 'learning'                     // Learning and adaptation
+  CONTEXT_AWARENESS = 'context_awareness', // Context understanding
+  LEARNING = 'learning', // Learning and adaptation
 }
 
 // OAuth Provider Configuration
@@ -121,37 +121,47 @@ export const OAuthProviderConfigSchema = z.object({
   additionalParams: z.record(z.string()).optional(),
   isEnabled: z.boolean().default(true),
   priority: z.number().min(0).default(0),
-  rateLimit: z.object({
-    requests: z.number().min(1),
-    windowMs: z.number().min(1000)
-  }).optional(),
-  securityConfig: z.object({
-    requirePKCE: z.boolean().default(true),
-    requireState: z.boolean().default(true),
-    allowedDomains: z.array(z.string()).optional(),
-    blockedDomains: z.array(z.string()).optional(),
-    minimumSecurityLevel: z.nativeEnum(SecurityLevel).default(SecurityLevel.MEDIUM),
-    allowedUserTypes: z.array(z.nativeEnum(UserType)).default([UserType.HUMAN]),
-    requiredCapabilities: z.array(z.nativeEnum(AgentCapability)).optional()
-  }).optional(),
-  agentConfig: z.object({
-    allowAgentAccess: z.boolean().default(false),
-    requiredCapabilities: z.array(z.nativeEnum(AgentCapability)).default([]),
-    permissions: z.array(z.string()).default([]),
-    rateLimit: z.object({
+  rateLimit: z
+    .object({
       requests: z.number().min(1),
-      windowMs: z.number().min(1000)
-    }).optional(),
-    monitoring: z.object({
-      logAllRequests: z.boolean().default(true),
-      alertOnSuspiciousActivity: z.boolean().default(true),
-      maxDailyRequests: z.number().optional()
-    }).default({
-      logAllRequests: true,
-      alertOnSuspiciousActivity: true
+      windowMs: z.number().min(1000),
     })
-  }).optional(),
-  metadata: z.record(z.any()).optional()
+    .optional(),
+  securityConfig: z
+    .object({
+      requirePKCE: z.boolean().default(true),
+      requireState: z.boolean().default(true),
+      allowedDomains: z.array(z.string()).optional(),
+      blockedDomains: z.array(z.string()).optional(),
+      minimumSecurityLevel: z.nativeEnum(SecurityLevel).default(SecurityLevel.MEDIUM),
+      allowedUserTypes: z.array(z.nativeEnum(UserType)).default([UserType.HUMAN]),
+      requiredCapabilities: z.array(z.nativeEnum(AgentCapability)).optional(),
+    })
+    .optional(),
+  agentConfig: z
+    .object({
+      allowAgentAccess: z.boolean().default(false),
+      requiredCapabilities: z.array(z.nativeEnum(AgentCapability)).default([]),
+      permissions: z.array(z.string()).default([]),
+      rateLimit: z
+        .object({
+          requests: z.number().min(1),
+          windowMs: z.number().min(1000),
+        })
+        .optional(),
+      monitoring: z
+        .object({
+          logAllRequests: z.boolean().default(true),
+          alertOnSuspiciousActivity: z.boolean().default(true),
+          maxDailyRequests: z.number().optional(),
+        })
+        .default({
+          logAllRequests: true,
+          alertOnSuspiciousActivity: true,
+        }),
+    })
+    .optional(),
+  metadata: z.record(z.any()).optional(),
 });
 
 export type OAuthProviderConfig = z.infer<typeof OAuthProviderConfigSchema>;
@@ -170,24 +180,30 @@ export const AgentOAuthConnectionSchema = z.object({
   permissions: z.array(z.string()),
   isActive: z.boolean().default(true),
   lastUsedAt: z.date().optional(),
-  usageStats: z.object({
-    totalRequests: z.number().min(0).default(0),
-    dailyRequests: z.number().min(0).default(0),
-    lastResetDate: z.date(),
-    errors: z.number().min(0).default(0),
-    rateLimitHits: z.number().min(0).default(0)
-  }).optional(),
-  restrictions: z.object({
-    allowedOperations: z.array(z.string()).optional(),
-    blockedOperations: z.array(z.string()).optional(),
-    timeRestrictions: z.object({
-      allowedHours: z.array(z.number().min(0).max(23)).optional(),
-      allowedDays: z.array(z.number().min(0).max(6)).optional(),
-      timezone: z.string().optional()
-    }).optional(),
-    ipRestrictions: z.array(z.string()).optional()
-  }).optional(),
-  metadata: z.record(z.any()).optional()
+  usageStats: z
+    .object({
+      totalRequests: z.number().min(0).default(0),
+      dailyRequests: z.number().min(0).default(0),
+      lastResetDate: z.date(),
+      errors: z.number().min(0).default(0),
+      rateLimitHits: z.number().min(0).default(0),
+    })
+    .optional(),
+  restrictions: z
+    .object({
+      allowedOperations: z.array(z.string()).optional(),
+      blockedOperations: z.array(z.string()).optional(),
+      timeRestrictions: z
+        .object({
+          allowedHours: z.array(z.number().min(0).max(23)).optional(),
+          allowedDays: z.array(z.number().min(0).max(6)).optional(),
+          timezone: z.string().optional(),
+        })
+        .optional(),
+      ipRestrictions: z.array(z.string()).optional(),
+    })
+    .optional(),
+  metadata: z.record(z.any()).optional(),
 });
 
 export type AgentOAuthConnection = z.infer<typeof AgentOAuthConnectionSchema>;
@@ -210,108 +226,130 @@ export const EnhancedUserSchema = BaseEntitySchema.extend({
   lastLoginAt: z.date().optional(),
 
   // Agent-specific fields
-  agentConfig: z.object({
-    capabilities: z.array(z.nativeEnum(AgentCapability)).default([]),
-    maxConcurrentSessions: z.number().min(1).default(5),
-    allowedProviders: z.array(z.nativeEnum(OAuthProviderType)).default([]),
-    securityLevel: z.nativeEnum(SecurityLevel).default(SecurityLevel.MEDIUM),
-    monitoring: z.object({
-      logLevel: z.enum(['minimal', 'standard', 'detailed', 'verbose']).default('standard'),
-      alertOnNewProvider: z.boolean().default(true),
-      alertOnUnusualActivity: z.boolean().default(true),
-      maxDailyOperations: z.number().optional()
-    }).default({
-      logLevel: 'standard',
-      alertOnNewProvider: true,
-      alertOnUnusualActivity: true
-    }),
-    restrictions: z.object({
-      allowedOperationTypes: z.array(z.string()).optional(),
-      blockedOperationTypes: z.array(z.string()).optional(),
-      maxFileSize: z.number().optional(), // bytes
-      allowedFileTypes: z.array(z.string()).optional(),
-      blockedFileTypes: z.array(z.string()).optional()
-    }).optional()
-  }).optional(),
+  agentConfig: z
+    .object({
+      capabilities: z.array(z.nativeEnum(AgentCapability)).default([]),
+      maxConcurrentSessions: z.number().min(1).default(5),
+      allowedProviders: z.array(z.nativeEnum(OAuthProviderType)).default([]),
+      securityLevel: z.nativeEnum(SecurityLevel).default(SecurityLevel.MEDIUM),
+      monitoring: z
+        .object({
+          logLevel: z.enum(['minimal', 'standard', 'detailed', 'verbose']).default('standard'),
+          alertOnNewProvider: z.boolean().default(true),
+          alertOnUnusualActivity: z.boolean().default(true),
+          maxDailyOperations: z.number().optional(),
+        })
+        .default({
+          logLevel: 'standard',
+          alertOnNewProvider: true,
+          alertOnUnusualActivity: true,
+        }),
+      restrictions: z
+        .object({
+          allowedOperationTypes: z.array(z.string()).optional(),
+          blockedOperationTypes: z.array(z.string()).optional(),
+          maxFileSize: z.number().optional(), // bytes
+          allowedFileTypes: z.array(z.string()).optional(),
+          blockedFileTypes: z.array(z.string()).optional(),
+        })
+        .optional(),
+    })
+    .optional(),
 
   // OAuth specific fields
-  oauthProviders: z.array(z.object({
-    providerId: IDSchema,
-    providerType: z.nativeEnum(OAuthProviderType),
-    providerUserId: z.string(),
-    email: z.string().email().optional(),
-    displayName: z.string().optional(),
-    avatarUrl: z.string().url().optional(),
-    accessToken: z.string().optional(), // Encrypted
-    refreshToken: z.string().optional(), // Encrypted
-    tokenExpiresAt: z.date().optional(),
-    isVerified: z.boolean().default(false),
-    isPrimary: z.boolean().default(false),
-    linkedAt: z.date(),
-    lastUsedAt: z.date().optional(),
-    capabilities: z.array(z.nativeEnum(AgentCapability)).optional(), // For agent connections
-    metadata: z.record(z.any()).optional()
-  })).default([]),
+  oauthProviders: z
+    .array(
+      z.object({
+        providerId: IDSchema,
+        providerType: z.nativeEnum(OAuthProviderType),
+        providerUserId: z.string(),
+        email: z.string().email().optional(),
+        displayName: z.string().optional(),
+        avatarUrl: z.string().url().optional(),
+        accessToken: z.string().optional(), // Encrypted
+        refreshToken: z.string().optional(), // Encrypted
+        tokenExpiresAt: z.date().optional(),
+        isVerified: z.boolean().default(false),
+        isPrimary: z.boolean().default(false),
+        linkedAt: z.date(),
+        lastUsedAt: z.date().optional(),
+        capabilities: z.array(z.nativeEnum(AgentCapability)).optional(), // For agent connections
+        metadata: z.record(z.any()).optional(),
+      })
+    )
+    .default([]),
 
   // MFA Configuration
   mfaEnabled: z.boolean().default(false),
-  mfaMethods: z.array(z.object({
-    id: IDSchema,
-    type: z.nativeEnum(MFAMethod),
-    isEnabled: z.boolean().default(true),
-    isPrimary: z.boolean().default(false),
-    secret: z.string().optional(), // Encrypted
-    backupCodes: z.array(z.string()).optional(), // Encrypted
-    phoneNumber: z.string().optional(), // For SMS
-    email: z.string().email().optional(), // For email MFA
-    deviceInfo: z.record(z.any()).optional(),
-    configuredAt: z.date(),
-    lastUsedAt: z.date().optional(),
-    metadata: z.record(z.any()).optional()
-  })).default([]),
+  mfaMethods: z
+    .array(
+      z.object({
+        id: IDSchema,
+        type: z.nativeEnum(MFAMethod),
+        isEnabled: z.boolean().default(true),
+        isPrimary: z.boolean().default(false),
+        secret: z.string().optional(), // Encrypted
+        backupCodes: z.array(z.string()).optional(), // Encrypted
+        phoneNumber: z.string().optional(), // For SMS
+        email: z.string().email().optional(), // For email MFA
+        deviceInfo: z.record(z.any()).optional(),
+        configuredAt: z.date(),
+        lastUsedAt: z.date().optional(),
+        metadata: z.record(z.any()).optional(),
+      })
+    )
+    .default([]),
 
   // Security preferences
-  securityPreferences: z.object({
-    requireMFAForSensitiveOperations: z.boolean().default(true),
-    sessionTimeout: z.number().min(300).max(86400).default(3600), // seconds
-    allowMultipleSessions: z.boolean().default(true),
-    trustedDevices: z.array(z.object({
-      deviceId: z.string(),
-      deviceName: z.string(),
-      userAgent: z.string(),
-      ipAddress: z.string(),
-      trustedAt: z.date(),
-      expiresAt: z.date().optional()
-    })).default([]),
-    securityNotifications: z.object({
-      newDevice: z.boolean().default(true),
-      suspiciousActivity: z.boolean().default(true),
-      passwordChange: z.boolean().default(true),
-      mfaChange: z.boolean().default(true),
-      oauthProviderChange: z.boolean().default(true),
-      agentActivityAlerts: z.boolean().default(true)
-    }).default({
-      newDevice: true,
-      suspiciousActivity: true,
-      passwordChange: true,
-      mfaChange: true,
-      oauthProviderChange: true,
-      agentActivityAlerts: true
+  securityPreferences: z
+    .object({
+      requireMFAForSensitiveOperations: z.boolean().default(true),
+      sessionTimeout: z.number().min(300).max(86400).default(3600), // seconds
+      allowMultipleSessions: z.boolean().default(true),
+      trustedDevices: z
+        .array(
+          z.object({
+            deviceId: z.string(),
+            deviceName: z.string(),
+            userAgent: z.string(),
+            ipAddress: z.string(),
+            trustedAt: z.date(),
+            expiresAt: z.date().optional(),
+          })
+        )
+        .default([]),
+      securityNotifications: z
+        .object({
+          newDevice: z.boolean().default(true),
+          suspiciousActivity: z.boolean().default(true),
+          passwordChange: z.boolean().default(true),
+          mfaChange: z.boolean().default(true),
+          oauthProviderChange: z.boolean().default(true),
+          agentActivityAlerts: z.boolean().default(true),
+        })
+        .default({
+          newDevice: true,
+          suspiciousActivity: true,
+          passwordChange: true,
+          mfaChange: true,
+          oauthProviderChange: true,
+          agentActivityAlerts: true,
+        }),
     })
-  }).default({
-    requireMFAForSensitiveOperations: true,
-    sessionTimeout: 3600,
-    allowMultipleSessions: true,
-    trustedDevices: [],
-    securityNotifications: {
-      newDevice: true,
-      suspiciousActivity: true,
-      passwordChange: true,
-      mfaChange: true,
-      oauthProviderChange: true,
-      agentActivityAlerts: true
-    }
-  })
+    .default({
+      requireMFAForSensitiveOperations: true,
+      sessionTimeout: 3600,
+      allowMultipleSessions: true,
+      trustedDevices: [],
+      securityNotifications: {
+        newDevice: true,
+        suspiciousActivity: true,
+        passwordChange: true,
+        mfaChange: true,
+        oauthProviderChange: true,
+        agentActivityAlerts: true,
+      },
+    }),
 });
 
 export type EnhancedUser = z.infer<typeof EnhancedUserSchema>;
@@ -325,24 +363,30 @@ export const SessionSchema = BaseEntitySchema.extend({
   userType: z.nativeEnum(UserType).default(UserType.HUMAN),
   ipAddress: z.string().optional(),
   userAgent: z.string().optional(),
-  deviceInfo: z.object({
-    deviceId: z.string(),
-    deviceName: z.string(),
-    deviceType: z.enum(['desktop', 'mobile', 'tablet', 'server', 'agent', 'unknown']),
-    os: z.string().optional(),
-    browser: z.string().optional(),
-    isTrusted: z.boolean().default(false)
-  }).optional(),
-  location: z.object({
-    country: z.string().optional(),
-    region: z.string().optional(),
-    city: z.string().optional(),
-    timezone: z.string().optional(),
-    coordinates: z.object({
-      latitude: z.number(),
-      longitude: z.number()
-    }).optional()
-  }).optional(),
+  deviceInfo: z
+    .object({
+      deviceId: z.string(),
+      deviceName: z.string(),
+      deviceType: z.enum(['desktop', 'mobile', 'tablet', 'server', 'agent', 'unknown']),
+      os: z.string().optional(),
+      browser: z.string().optional(),
+      isTrusted: z.boolean().default(false),
+    })
+    .optional(),
+  location: z
+    .object({
+      country: z.string().optional(),
+      region: z.string().optional(),
+      city: z.string().optional(),
+      timezone: z.string().optional(),
+      coordinates: z
+        .object({
+          latitude: z.number(),
+          longitude: z.number(),
+        })
+        .optional(),
+    })
+    .optional(),
   authenticationMethod: z.nativeEnum(AuthenticationMethod),
   oauthProvider: z.nativeEnum(OAuthProviderType).optional(),
   agentCapabilities: z.array(z.nativeEnum(AgentCapability)).optional(),
@@ -350,7 +394,7 @@ export const SessionSchema = BaseEntitySchema.extend({
   riskScore: z.number().min(0).max(10).default(0),
   expiresAt: z.date(),
   lastActivityAt: z.date(),
-  metadata: z.record(z.any()).optional()
+  metadata: z.record(z.any()).optional(),
 });
 
 export type Session = z.infer<typeof SessionSchema>;
@@ -376,35 +420,45 @@ export const EnhancedSecurityContextSchema = z.object({
   agentCapabilities: z.array(z.nativeEnum(AgentCapability)).optional(),
   deviceTrusted: z.boolean().default(false),
   locationTrusted: z.boolean().default(false),
-  sessionRisk: z.object({
-    score: z.number().min(0).max(10),
-    factors: z.array(z.string()),
-    mitigations: z.array(z.string())
-  }).optional(),
-  compliance: z.object({
-    frameworks: z.array(z.string()),
-    requirements: z.array(z.string()),
-    status: z.enum(['compliant', 'non_compliant', 'pending'])
-  }).optional(),
+  sessionRisk: z
+    .object({
+      score: z.number().min(0).max(10),
+      factors: z.array(z.string()),
+      mitigations: z.array(z.string()),
+    })
+    .optional(),
+  compliance: z
+    .object({
+      frameworks: z.array(z.string()),
+      requirements: z.array(z.string()),
+      status: z.enum(['compliant', 'non_compliant', 'pending']),
+    })
+    .optional(),
 
   // Agent-specific context
-  agentContext: z.object({
-    agentId: IDSchema,
-    agentName: z.string(),
-    capabilities: z.array(z.nativeEnum(AgentCapability)),
-    connectedProviders: z.array(z.object({
-      providerId: IDSchema,
-      providerType: z.nativeEnum(OAuthProviderType),
+  agentContext: z
+    .object({
+      agentId: IDSchema,
+      agentName: z.string(),
       capabilities: z.array(z.nativeEnum(AgentCapability)),
-      lastUsed: z.date().optional()
-    })),
-    operationLimits: z.object({
-      maxDailyOperations: z.number().optional(),
-      currentDailyOperations: z.number().default(0),
-      maxConcurrentOperations: z.number().default(5),
-      currentConcurrentOperations: z.number().default(0)
-    }).optional()
-  }).optional()
+      connectedProviders: z.array(
+        z.object({
+          providerId: IDSchema,
+          providerType: z.nativeEnum(OAuthProviderType),
+          capabilities: z.array(z.nativeEnum(AgentCapability)),
+          lastUsed: z.date().optional(),
+        })
+      ),
+      operationLimits: z
+        .object({
+          maxDailyOperations: z.number().optional(),
+          currentDailyOperations: z.number().default(0),
+          maxConcurrentOperations: z.number().default(5),
+          currentConcurrentOperations: z.number().default(0),
+        })
+        .optional(),
+    })
+    .optional(),
 });
 
 export type EnhancedSecurityContext = z.infer<typeof EnhancedSecurityContextSchema>;
@@ -422,7 +476,7 @@ export const OAuthStateSchema = z.object({
   agentCapabilities: z.array(z.nativeEnum(AgentCapability)).optional(),
   metadata: z.record(z.any()).optional(),
   createdAt: z.date(),
-  expiresAt: z.date()
+  expiresAt: z.date(),
 });
 
 export type OAuthState = z.infer<typeof OAuthStateSchema>;
@@ -440,7 +494,7 @@ export const MFAChallengeSchema = z.object({
   createdAt: z.date(),
   expiresAt: z.date(),
   verifiedAt: z.date().optional(),
-  metadata: z.record(z.any()).optional()
+  metadata: z.record(z.any()).optional(),
 });
 
 export type MFAChallenge = z.infer<typeof MFAChallengeSchema>;
@@ -448,48 +502,96 @@ export type MFAChallenge = z.infer<typeof MFAChallengeSchema>;
 // Provider-specific configurations for common services
 export const GitHubProviderConfigSchema = OAuthProviderConfigSchema.extend({
   type: z.literal(OAuthProviderType.GITHUB),
-  scope: z.array(z.enum(['repo', 'user', 'read:user', 'user:email', 'public_repo', 'write:repo_hook', 'read:repo_hook'])).default(['repo', 'user:email']),
-  agentConfig: z.object({
-    allowAgentAccess: z.boolean().default(true),
-    requiredCapabilities: z.array(z.nativeEnum(AgentCapability)).default([AgentCapability.CODE_REPOSITORY]),
-    permissions: z.array(z.enum(['clone', 'pull', 'push', 'create_branch', 'create_pr', 'merge_pr', 'create_issue', 'comment'])).default(['clone', 'pull']),
-    rateLimit: z.object({
-      requests: z.number().min(1).default(5000),
-      windowMs: z.number().min(1000).default(3600000) // 1 hour
-    }).optional(),
-    monitoring: z.object({
-      logAllRequests: z.boolean().default(true),
-      alertOnSuspiciousActivity: z.boolean().default(true),
-      maxDailyRequests: z.number().default(1000)
-    }).default({
-      logAllRequests: true,
-      alertOnSuspiciousActivity: true,
-      maxDailyRequests: 1000
+  scope: z
+    .array(
+      z.enum([
+        'repo',
+        'user',
+        'read:user',
+        'user:email',
+        'public_repo',
+        'write:repo_hook',
+        'read:repo_hook',
+      ])
+    )
+    .default(['repo', 'user:email']),
+  agentConfig: z
+    .object({
+      allowAgentAccess: z.boolean().default(true),
+      requiredCapabilities: z
+        .array(z.nativeEnum(AgentCapability))
+        .default([AgentCapability.CODE_REPOSITORY]),
+      permissions: z
+        .array(
+          z.enum([
+            'clone',
+            'pull',
+            'push',
+            'create_branch',
+            'create_pr',
+            'merge_pr',
+            'create_issue',
+            'comment',
+          ])
+        )
+        .default(['clone', 'pull']),
+      rateLimit: z
+        .object({
+          requests: z.number().min(1).default(5000),
+          windowMs: z.number().min(1000).default(3600000), // 1 hour
+        })
+        .optional(),
+      monitoring: z
+        .object({
+          logAllRequests: z.boolean().default(true),
+          alertOnSuspiciousActivity: z.boolean().default(true),
+          maxDailyRequests: z.number().default(1000),
+        })
+        .default({
+          logAllRequests: true,
+          alertOnSuspiciousActivity: true,
+          maxDailyRequests: 1000,
+        }),
     })
-  }).optional()
+    .optional(),
 });
 
 export const EmailProviderConfigSchema = OAuthProviderConfigSchema.extend({
   type: z.enum([OAuthProviderType.GMAIL, OAuthProviderType.OUTLOOK, OAuthProviderType.ZOHO_MAIL]),
-  scope: z.array(z.string()).default(['https://www.googleapis.com/auth/gmail.readonly', 'https://www.googleapis.com/auth/gmail.send']),
-  agentConfig: z.object({
-    allowAgentAccess: z.boolean().default(true),
-    requiredCapabilities: z.array(z.nativeEnum(AgentCapability)).default([AgentCapability.EMAIL_ACCESS]),
-    permissions: z.array(z.enum(['read', 'send', 'search', 'label', 'archive', 'delete'])).default(['read']),
-    rateLimit: z.object({
-      requests: z.number().min(1).default(250),
-      windowMs: z.number().min(1000).default(86400000) // 24 hours
-    }).optional(),
-    monitoring: z.object({
-      logAllRequests: z.boolean().default(true),
-      alertOnSuspiciousActivity: z.boolean().default(true),
-      maxDailyRequests: z.number().default(100)
-    }).default({
-      logAllRequests: true,
-      alertOnSuspiciousActivity: true,
-      maxDailyRequests: 100
+  scope: z
+    .array(z.string())
+    .default([
+      'https://www.googleapis.com/auth/gmail.readonly',
+      'https://www.googleapis.com/auth/gmail.send',
+    ]),
+  agentConfig: z
+    .object({
+      allowAgentAccess: z.boolean().default(true),
+      requiredCapabilities: z
+        .array(z.nativeEnum(AgentCapability))
+        .default([AgentCapability.EMAIL_ACCESS]),
+      permissions: z
+        .array(z.enum(['read', 'send', 'search', 'label', 'archive', 'delete']))
+        .default(['read']),
+      rateLimit: z
+        .object({
+          requests: z.number().min(1).default(250),
+          windowMs: z.number().min(1000).default(86400000), // 24 hours
+        })
+        .optional(),
+      monitoring: z
+        .object({
+          logAllRequests: z.boolean().default(true),
+          alertOnSuspiciousActivity: z.boolean().default(true),
+          maxDailyRequests: z.number().default(100),
+        })
+        .default({
+          logAllRequests: true,
+          alertOnSuspiciousActivity: true,
+          maxDailyRequests: 100,
+        }),
     })
-  }).optional()
+    .optional(),
 });
 
 export type GitHubProviderConfig = z.infer<typeof GitHubProviderConfigSchema>;
@@ -500,7 +602,7 @@ export const RiskFactorSchema = z.object({
   level: z.nativeEnum(RiskLevel),
   description: z.string(),
   score: z.number().min(0).max(10),
-  mitigations: z.array(z.string()).optional()
+  mitigations: z.array(z.string()).optional(),
 });
 
 export type RiskFactor = z.infer<typeof RiskFactorSchema>;
@@ -514,7 +616,7 @@ export const RiskAssessmentSchema = z.object({
   mitigations: z.array(z.string()).optional(),
   assessedAt: z.date(),
   assessedBy: IDSchema.optional(),
-  validUntil: z.date().optional()
+  validUntil: z.date().optional(),
 });
 
 export type RiskAssessment = z.infer<typeof RiskAssessmentSchema>;
@@ -525,7 +627,7 @@ export const PermissionSchema = BaseEntitySchema.extend({
   resource: z.string(),
   operations: z.array(z.string()),
   conditions: z.record(z.any()).optional(),
-  expiresAt: z.date().optional()
+  expiresAt: z.date().optional(),
 });
 
 export type Permission = z.infer<typeof PermissionSchema>;
@@ -536,7 +638,7 @@ export const RoleSchema = BaseEntitySchema.extend({
   permissions: z.array(IDSchema),
   isSystemRole: z.boolean().default(false),
   allowedUserTypes: z.array(z.nativeEnum(UserType)).default([UserType.HUMAN]),
-  agentCapabilities: z.array(z.nativeEnum(AgentCapability)).optional()
+  agentCapabilities: z.array(z.nativeEnum(AgentCapability)).optional(),
 });
 
 export type Role = z.infer<typeof RoleSchema>;
@@ -547,19 +649,23 @@ export const EnhancedSecurityValidationRequestSchema = z.object({
     type: z.string(),
     resource: z.string(),
     action: z.string(),
-    context: z.record(z.any()).optional()
+    context: z.record(z.any()).optional(),
   }),
   securityContext: EnhancedSecurityContextSchema,
-  requestMetadata: z.object({
-    requestId: z.string().optional(),
-    correlationId: z.string().optional(),
-    source: z.string().optional(),
-    priority: z.enum(['low', 'normal', 'high', 'urgent']).default('normal'),
-    deadline: z.date().optional()
-  }).optional()
+  requestMetadata: z
+    .object({
+      requestId: z.string().optional(),
+      correlationId: z.string().optional(),
+      source: z.string().optional(),
+      priority: z.enum(['low', 'normal', 'high', 'urgent']).default('normal'),
+      deadline: z.date().optional(),
+    })
+    .optional(),
 });
 
-export type EnhancedSecurityValidationRequest = z.infer<typeof EnhancedSecurityValidationRequestSchema>;
+export type EnhancedSecurityValidationRequest = z.infer<
+  typeof EnhancedSecurityValidationRequestSchema
+>;
 
 export const SecurityValidationResultSchema = z.object({
   allowed: z.boolean(),
@@ -574,30 +680,40 @@ export const SecurityValidationResultSchema = z.object({
   mfaRequired: z.boolean().default(false),
   mfaMethods: z.array(z.nativeEnum(MFAMethod)).optional(),
   additionalVerification: z.array(z.string()).optional(),
-  complianceStatus: z.object({
-    compliant: z.boolean(),
-    violations: z.array(z.string()),
-    requirements: z.array(z.string())
-  }).optional(),
-  monitoring: z.object({
-    enhanced: z.boolean().default(false),
-    duration: z.number().optional(), // minutes
-    alerts: z.array(z.string()).optional()
-  }).optional(),
+  complianceStatus: z
+    .object({
+      compliant: z.boolean(),
+      violations: z.array(z.string()),
+      requirements: z.array(z.string()),
+    })
+    .optional(),
+  monitoring: z
+    .object({
+      enhanced: z.boolean().default(false),
+      duration: z.number().optional(), // minutes
+      alerts: z.array(z.string()).optional(),
+    })
+    .optional(),
 
   // Agent-specific result fields
-  agentRestrictions: z.object({
-    allowedOperations: z.array(z.string()).optional(),
-    blockedOperations: z.array(z.string()).optional(),
-    rateLimit: z.object({
-      requests: z.number(),
-      windowMs: z.number()
-    }).optional(),
-    monitoring: z.object({
-      logLevel: z.enum(['minimal', 'standard', 'detailed', 'verbose']),
-      alertThresholds: z.record(z.number()).optional()
-    }).optional()
-  }).optional()
+  agentRestrictions: z
+    .object({
+      allowedOperations: z.array(z.string()).optional(),
+      blockedOperations: z.array(z.string()).optional(),
+      rateLimit: z
+        .object({
+          requests: z.number(),
+          windowMs: z.number(),
+        })
+        .optional(),
+      monitoring: z
+        .object({
+          logLevel: z.enum(['minimal', 'standard', 'detailed', 'verbose']),
+          alertThresholds: z.record(z.number()).optional(),
+        })
+        .optional(),
+    })
+    .optional(),
 });
 
 export type SecurityValidationResult = z.infer<typeof SecurityValidationResultSchema>;
@@ -614,7 +730,7 @@ export const SecurityContextSchema = z.object({
   securityLevel: z.nativeEnum(SecurityLevel),
   lastAuthentication: z.date(),
   mfaVerified: z.boolean().default(false),
-  riskScore: z.number().min(0).max(10).default(0)
+  riskScore: z.number().min(0).max(10).default(0),
 });
 
 export type SecurityContext = z.infer<typeof SecurityContextSchema>;
@@ -624,9 +740,9 @@ export const SecurityValidationRequestSchema = z.object({
     type: z.string(),
     resource: z.string(),
     action: z.string(),
-    context: z.record(z.any()).optional()
+    context: z.record(z.any()).optional(),
   }),
-  securityContext: SecurityContextSchema
+  securityContext: SecurityContextSchema,
 });
 
 export type SecurityValidationRequest = z.infer<typeof SecurityValidationRequestSchema>;
@@ -644,7 +760,7 @@ export const UserSchema = BaseEntitySchema.extend({
   failedLoginAttempts: z.number().int().min(0).default(0),
   lockedUntil: z.date().optional(),
   passwordChangedAt: z.date().optional(),
-  lastLoginAt: z.date().optional()
+  lastLoginAt: z.date().optional(),
 });
 
 export type User = z.infer<typeof UserSchema>;
@@ -656,7 +772,7 @@ export const ApprovalWorkflowSchema = BaseEntitySchema.extend({
   currentApprovers: z.array(IDSchema).default([]),
   status: z.nativeEnum(ApprovalStatus).default(ApprovalStatus.PENDING),
   expiresAt: z.date().optional(),
-  metadata: z.record(z.any()).optional()
+  metadata: z.record(z.any()).optional(),
 });
 
 export type ApprovalWorkflow = z.infer<typeof ApprovalWorkflowSchema>;
@@ -667,7 +783,7 @@ export const ApprovalDecisionSchema = z.object({
   decision: z.enum(['approve', 'reject']),
   conditions: z.array(z.string()).optional(),
   feedback: z.string().optional(),
-  decidedAt: z.date()
+  decidedAt: z.date(),
 });
 
 export type ApprovalDecision = z.infer<typeof ApprovalDecisionSchema>;
@@ -685,7 +801,7 @@ export const AuditEventSchema = BaseEntitySchema.extend({
   ipAddress: z.string().ip().optional(),
   userAgent: z.string().optional(),
   riskLevel: z.nativeEnum(SecurityLevel).optional(),
-  timestamp: z.date()
+  timestamp: z.date(),
 });
 
 export type AuditEvent = z.infer<typeof AuditEventSchema>;
@@ -699,7 +815,7 @@ export const JWTPayloadSchema = z.object({
   iat: z.number(),
   exp: z.number(),
   iss: z.string().optional(),
-  aud: z.string().optional()
+  aud: z.string().optional(),
 });
 
 export type JWTPayload = z.infer<typeof JWTPayloadSchema>;
@@ -710,7 +826,7 @@ export const RateLimitSchema = z.object({
   limit: z.number().positive(),
   window: z.number().positive(), // seconds
   current: z.number().min(0),
-  resetTime: z.date()
+  resetTime: z.date(),
 });
 
 export type RateLimit = z.infer<typeof RateLimitSchema>;
@@ -719,34 +835,45 @@ export type RateLimit = z.infer<typeof RateLimitSchema>;
 export const SecurityPolicySchema = BaseEntitySchema.extend({
   name: z.string().min(1).max(255),
   description: z.string(),
-  category: z.enum(['access_control', 'data_protection', 'audit', 'compliance', 'incident_response', 'general']),
+  category: z.enum([
+    'access_control',
+    'data_protection',
+    'audit',
+    'compliance',
+    'incident_response',
+    'general',
+  ]),
   priority: z.enum(['low', 'medium', 'high', 'critical']).default('medium'),
-  rules: z.array(z.object({
-    id: z.string(),
-    condition: z.string(),
-    action: z.enum(['allow', 'deny', 'require_approval', 'log']),
-    parameters: z.record(z.any()).optional()
-  })),
+  rules: z.array(
+    z.object({
+      id: z.string(),
+      condition: z.string(),
+      action: z.enum(['allow', 'deny', 'require_approval', 'log']),
+      parameters: z.record(z.any()).optional(),
+    })
+  ),
   scope: z.object({
     resourceTypes: z.array(z.string()),
     userRoles: z.array(z.string()),
-    departments: z.array(z.string()).optional()
+    departments: z.array(z.string()).optional(),
   }),
   enforcement: z.object({
     enabled: z.boolean().default(true),
     mode: z.enum(['enforce', 'monitor', 'disabled']).default('enforce'),
-    exceptions: z.array(z.string()).optional()
+    exceptions: z.array(z.string()).optional(),
   }),
-  compliance: z.object({
-    frameworks: z.array(z.enum(['sox', 'gdpr', 'hipaa', 'pci', 'iso27001'])),
-    requirements: z.array(z.string())
-  }).optional(),
+  compliance: z
+    .object({
+      frameworks: z.array(z.enum(['sox', 'gdpr', 'hipaa', 'pci', 'iso27001'])),
+      requirements: z.array(z.string()),
+    })
+    .optional(),
   version: z.string(),
   effectiveDate: z.date(),
   expiryDate: z.date().optional(),
   approvedBy: IDSchema,
   lastReviewDate: z.date().optional(),
-  nextReviewDate: z.date().optional()
+  nextReviewDate: z.date().optional(),
 });
 
 export type SecurityPolicy = z.infer<typeof SecurityPolicySchema>;
@@ -762,16 +889,18 @@ export const SecurityStatsSchema = z.object({
     low: z.number(),
     medium: z.number(),
     high: z.number(),
-    critical: z.number()
+    critical: z.number(),
   }),
-  topViolatedPolicies: z.array(z.object({
-    policyId: IDSchema,
-    policyName: z.string(),
-    violationCount: z.number()
-  })),
+  topViolatedPolicies: z.array(
+    z.object({
+      policyId: IDSchema,
+      policyName: z.string(),
+      violationCount: z.number(),
+    })
+  ),
   complianceScore: z.number().min(0).max(100),
   lastAssessment: z.date().optional(),
-  generatedAt: z.date()
+  generatedAt: z.date(),
 });
 
 export type SecurityStats = z.infer<typeof SecurityStatsSchema>;
@@ -782,11 +911,15 @@ export const ApprovalRequirementSchema = z.object({
   approvers: z.array(IDSchema).optional(),
   reason: z.string().optional(),
   estimatedTime: z.string().optional(),
-  escalationPath: z.array(z.object({
-    level: z.number(),
-    approvers: z.array(IDSchema),
-    timeoutHours: z.number()
-  })).optional()
+  escalationPath: z
+    .array(
+      z.object({
+        level: z.number(),
+        approvers: z.array(IDSchema),
+        timeoutHours: z.number(),
+      })
+    )
+    .optional(),
 });
 
 export type ApprovalRequirement = z.infer<typeof ApprovalRequirementSchema>;
@@ -797,12 +930,12 @@ export const OperationSecurityRequestSchema = z.object({
     type: z.string(),
     resource: z.string(),
     action: z.string(),
-    parameters: z.record(z.any()).optional()
+    parameters: z.record(z.any()).optional(),
   }),
   context: SecurityContextSchema,
   purpose: z.string().optional(),
   urgency: z.enum(['low', 'normal', 'high', 'critical']).default('normal'),
-  requestedAt: z.date()
+  requestedAt: z.date(),
 });
 
 export type OperationSecurityRequest = z.infer<typeof OperationSecurityRequestSchema>;
@@ -812,7 +945,12 @@ export const SecurityViolationSchema = BaseEntitySchema.extend({
   policyId: IDSchema,
   userId: IDSchema.optional(),
   agentId: IDSchema.optional(),
-  violationType: z.enum(['policy_violation', 'unauthorized_access', 'data_breach', 'suspicious_activity']),
+  violationType: z.enum([
+    'policy_violation',
+    'unauthorized_access',
+    'data_breach',
+    'suspicious_activity',
+  ]),
   severity: z.nativeEnum(SecurityLevel),
   description: z.string(),
   evidence: z.record(z.any()),
@@ -822,7 +960,7 @@ export const SecurityViolationSchema = BaseEntitySchema.extend({
   resolvedBy: IDSchema.optional(),
   resolvedAt: z.date().optional(),
   reportedBy: IDSchema.optional(),
-  occurredAt: z.date()
+  occurredAt: z.date(),
 });
 
 export type SecurityViolation = z.infer<typeof SecurityViolationSchema>;
@@ -843,12 +981,14 @@ export const ProviderConfigSchema = BaseEntitySchema.extend({
   totalRequests: z.number().min(0).default(0),
   totalErrors: z.number().min(0).default(0),
   lastUsedAt: z.date().optional(),
-  healthCheckResult: z.object({
-    success: z.boolean(),
-    latency: z.number().optional(),
-    error: z.string().optional(),
-    checkedAt: z.date()
-  }).optional()
+  healthCheckResult: z
+    .object({
+      success: z.boolean(),
+      latency: z.number().optional(),
+      error: z.string().optional(),
+      checkedAt: z.date(),
+    })
+    .optional(),
 });
 
 export type ProviderConfig = z.infer<typeof ProviderConfigSchema>;
@@ -860,7 +1000,7 @@ export const ProviderTestResultSchema = z.object({
   latency: z.number().optional(),
   responseTime: z.number().optional(),
   modelAvailable: z.boolean().optional(),
-  testedAt: z.date()
+  testedAt: z.date(),
 });
 
 export type ProviderTestResult = z.infer<typeof ProviderTestResultSchema>;
@@ -873,12 +1013,16 @@ export const CreateApprovalWorkflowRequestSchema = z.object({
   description: z.string(),
   priority: z.enum(['low', 'normal', 'high', 'urgent']).default('normal'),
   requiredApprovers: z.array(IDSchema),
-  autoApprovalRules: z.array(z.object({
-    condition: z.string(),
-    action: z.enum(['approve', 'reject', 'escalate'])
-  })).optional(),
+  autoApprovalRules: z
+    .array(
+      z.object({
+        condition: z.string(),
+        action: z.enum(['approve', 'reject', 'escalate']),
+      })
+    )
+    .optional(),
   expiresAt: z.date().optional(),
-  metadata: z.record(z.any()).optional()
+  metadata: z.record(z.any()).optional(),
 });
 
 export type CreateApprovalWorkflowRequest = z.infer<typeof CreateApprovalWorkflowRequestSchema>;
@@ -891,13 +1035,15 @@ export const ApprovalStatsSchema = z.object({
   expiredToday: z.number().min(0),
   averageApprovalTime: z.number().min(0), // minutes
   approvalsByType: z.record(z.number()),
-  approverStats: z.array(z.object({
-    approverId: IDSchema,
-    totalApprovals: z.number().min(0),
-    averageTime: z.number().min(0),
-    rejectionRate: z.number().min(0).max(100)
-  })),
-  generatedAt: z.date()
+  approverStats: z.array(
+    z.object({
+      approverId: IDSchema,
+      totalApprovals: z.number().min(0),
+      averageTime: z.number().min(0),
+      rejectionRate: z.number().min(0).max(100),
+    })
+  ),
+  generatedAt: z.date(),
 });
 
-export type ApprovalStats = z.infer<typeof ApprovalStatsSchema>; 
+export type ApprovalStats = z.infer<typeof ApprovalStatsSchema>;

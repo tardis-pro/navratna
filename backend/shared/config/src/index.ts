@@ -1,6 +1,6 @@
 // Configuration exports
 export { config } from './config.js';
-export type { 
+export type {
   Config,
   DatabaseConfig,
   RedisConfig,
@@ -16,5 +16,5 @@ export type {
   JwtConfig,
   EmailConfig,
   FrontendConfig,
-  NotificationsConfig
-} from './config.js'; 
+  NotificationsConfig,
+} from './config.js';

@@ -6,7 +6,7 @@ const logLevels = {
   warn: 1,
   info: 2,
   http: 3,
-  debug: 4
+  debug: 4,
 };
 
 // Add colors for custom levels
@@ -15,7 +15,7 @@ winston.addColors({
   warn: 'yellow',
   info: 'green',
   http: 'magenta',
-  debug: 'cyan'
+  debug: 'cyan',
 });
 
 // Logger configuration interface
@@ -53,7 +53,7 @@ export const createLogger = (config: LoggerConfig) => {
         service: config.serviceName,
         environment: config.environment,
         version: config.version || '1.0.0',
-        ...meta
+        ...meta,
       });
     })
   );
@@ -66,7 +66,7 @@ export const createLogger = (config: LoggerConfig) => {
     transports.push(
       new winston.transports.Console({
         level: config.logLevel,
-        format: config.environment === 'development' ? developmentFormat : productionFormat
+        format: config.environment === 'development' ? developmentFormat : productionFormat,
       })
     );
 
@@ -79,7 +79,7 @@ export const createLogger = (config: LoggerConfig) => {
           level: 'error',
           format: productionFormat,
           maxsize: 5242880, // 5MB
-          maxFiles: 5
+          maxFiles: 5,
         })
       );
 
@@ -89,7 +89,7 @@ export const createLogger = (config: LoggerConfig) => {
           filename: `logs/${config.serviceName}-combined.log`,
           format: productionFormat,
           maxsize: 5242880, // 5MB
-          maxFiles: 10
+          maxFiles: 10,
         })
       );
     }
@@ -106,7 +106,7 @@ export const createLogger = (config: LoggerConfig) => {
       winston.format.errors({ stack: true })
     ),
     transports: getTransports(),
-    exitOnError: false
+    exitOnError: false,
   });
 
   // Handle uncaught exceptions and unhandled rejections
@@ -114,14 +114,14 @@ export const createLogger = (config: LoggerConfig) => {
     logger.exceptions.handle(
       new winston.transports.File({
         filename: `logs/${config.serviceName}-exceptions.log`,
-        format: productionFormat
+        format: productionFormat,
       })
     );
 
     logger.rejections.handle(
       new winston.transports.File({
         filename: `logs/${config.serviceName}-rejections.log`,
-        format: productionFormat
+        format: productionFormat,
       })
     );
   }
@@ -133,19 +133,15 @@ export const createLogger = (config: LoggerConfig) => {
 export const createLoggerStream = (logger: winston.Logger) => ({
   write: (message: string) => {
     logger.http(message.trim());
-  }
+  },
 });
 
 // Helper functions for structured logging
-export const createLogContext = (
-  requestId?: string,
-  userId?: string,
-  operation?: string
-) => ({
+export const createLogContext = (requestId?: string, userId?: string, operation?: string) => ({
   requestId,
   userId,
   operation,
-  timestamp: new Date().toISOString()
+  timestamp: new Date().toISOString(),
 });
 
 export const logWithContext = (
@@ -157,7 +153,7 @@ export const logWithContext = (
 ) => {
   logger.log(level, message, {
     ...context,
-    service: serviceName
+    service: serviceName,
   });
 };
 
@@ -172,7 +168,7 @@ export const logPerformance = (
   logger.info(`Performance: ${operation}`, {
     operation,
     duration,
-    ...context
+    ...context,
   });
 };
 
@@ -186,9 +182,9 @@ export const logError = (
     error: {
       name: error.name,
       message: error.message,
-      stack: error.stack
+      stack: error.stack,
     },
-    ...context
+    ...context,
   });
 };
 
@@ -201,7 +197,7 @@ export const logSecurityEvent = (
   logger.warn(`Security Event: ${event}`, {
     event,
     severity: 'security',
-    ...details
+    ...details,
   });
 };
 
@@ -219,7 +215,7 @@ export const logAudit = (
     resource,
     timestamp: new Date().toISOString(),
     auditType: 'action',
-    ...details
+    ...details,
   });
 };
 
@@ -236,7 +232,7 @@ export const logMetric = (
     value,
     unit,
     tags,
-    timestamp: new Date().toISOString()
+    timestamp: new Date().toISOString(),
   });
 };
 
@@ -257,7 +253,7 @@ export const logRequest = (
     duration,
     userId,
     requestId,
-    timestamp: new Date().toISOString()
+    timestamp: new Date().toISOString(),
   });
 };
 
@@ -266,8 +262,8 @@ const defaultConfig: LoggerConfig = {
   serviceName: process.env.SERVICE_NAME || 'uaip-service',
   environment: process.env.NODE_ENV || 'development',
   logLevel: process.env.LOG_LEVEL || 'info',
-  version: process.env.VERSION || '1.0.0'
+  version: process.env.VERSION || '1.0.0',
 };
 
 // Export default logger instance
-export const logger = createLogger(defaultConfig); 
+export const logger = createLogger(defaultConfig);

@@ -31,4 +31,4 @@ export class ApprovalDecision extends BaseEntity {
   @ManyToOne('ApprovalWorkflow', 'decisions')
   @JoinColumn({ name: 'workflow_id' })
   workflow?: any;
-} 
+}

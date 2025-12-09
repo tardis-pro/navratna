@@ -25,8 +25,8 @@ export function loadAgentContext(app: Elysia): Elysia {
         agentContext: null as AgentContext | null,
         agentValidationError: {
           error: 'Invalid agent ID format',
-          details: validation.error.errors
-        }
+          details: validation.error.errors,
+        },
       };
     }
 
@@ -38,12 +38,12 @@ export function loadAgentContext(app: Elysia): Elysia {
       securityLevel: SecurityLevel.LOW,
       role: AgentRole.ASSISTANT,
       status: AgentStatus.ACTIVE,
-      metadata: {}
+      metadata: {},
     };
 
     logger.debug('Agent context initialized', {
       agentId,
-      userId: user?.id
+      userId: user?.id,
     });
 
     return { agentContext: context };
@@ -54,12 +54,15 @@ export function loadAgentContext(app: Elysia): Elysia {
 export function requireAgentContext(app: Elysia): Elysia {
   return app.guard({
     beforeHandle(ctx) {
-      const { agentContext, set } = ctx as unknown as { agentContext: AgentContext | null; set: { status: number } };
+      const { agentContext, set } = ctx as unknown as {
+        agentContext: AgentContext | null;
+        set: { status: number };
+      };
       if (!agentContext) {
         set.status = 401;
         return { error: 'Agent context required' };
       }
-    }
+    },
   });
 }
 
@@ -68,7 +71,10 @@ export function requireAgentPermission(requiredPermission: string) {
   return (app: Elysia) => {
     return app.guard({
       beforeHandle(ctx) {
-        const { agentContext, set } = ctx as unknown as { agentContext: AgentContext | null; set: { status: number } };
+        const { agentContext, set } = ctx as unknown as {
+          agentContext: AgentContext | null;
+          set: { status: number };
+        };
         if (!agentContext) {
           set.status = 401;
           return { error: 'Agent context required' };
@@ -82,10 +88,10 @@ export function requireAgentPermission(requiredPermission: string) {
           return {
             error: 'Insufficient permissions',
             required: requiredPermission,
-            available: agentContext.permissions
+            available: agentContext.permissions,
           };
         }
-      }
+      },
     });
   };
 }
@@ -95,22 +101,27 @@ export function requireSecurityLevel(minLevel: SecurityLevel) {
   return (app: Elysia) => {
     return app.guard({
       beforeHandle(ctx) {
-        const { agentContext, set } = ctx as unknown as { agentContext: AgentContext | null; set: { status: number } };
+        const { agentContext, set } = ctx as unknown as {
+          agentContext: AgentContext | null;
+          set: { status: number };
+        };
         if (!agentContext) {
           set.status = 401;
           return { error: 'Agent context required' };
         }
 
         if (agentContext.securityLevel < minLevel) {
-          logger.warn(`Agent ${agentContext.agentId} security level ${agentContext.securityLevel} insufficient for required ${minLevel}`);
+          logger.warn(
+            `Agent ${agentContext.agentId} security level ${agentContext.securityLevel} insufficient for required ${minLevel}`
+          );
           set.status = 403;
           return {
             error: 'Insufficient security level',
             required: minLevel,
-            current: agentContext.securityLevel
+            current: agentContext.securityLevel,
           };
         }
-      }
+      },
     });
   };
 }
@@ -124,13 +135,13 @@ export function trackAgentOperation(operationName: string) {
         const agentExecution: AgentExecution = {
           startTime: Date.now(),
           operations: [operationName],
-          results: []
+          results: [],
         };
 
         logger.debug('Agent operation started', {
           agentId: agentContext?.agentId,
           operation: operationName,
-          timestamp: new Date()
+          timestamp: new Date(),
         });
 
         return { agentExecution };
@@ -145,7 +156,7 @@ export function trackAgentOperation(operationName: string) {
           const result = {
             operation: operationName,
             duration: Date.now() - agentExecution.startTime,
-            status: (typeof set.status === 'number' ? set.status : 200)
+            status: typeof set.status === 'number' ? set.status : 200,
           };
 
           agentExecution.results.push(result);
@@ -154,7 +165,7 @@ export function trackAgentOperation(operationName: string) {
             agentId: agentContext?.agentId,
             operation: operationName,
             duration: result.duration,
-            status: result.status
+            status: result.status,
           });
         }
       });
@@ -197,10 +208,10 @@ export function agentRateLimit(maxRequests = 100, windowMs = 60000) {
           set.status = 429;
           return {
             error: 'Rate limit exceeded',
-            retryAfter: Math.ceil((requestData.resetTime - now) / 1000)
+            retryAfter: Math.ceil((requestData.resetTime - now) / 1000),
           };
         }
-      }
+      },
     });
   };
 }
@@ -210,7 +221,10 @@ export function requireAgentStatus(...allowedStatuses: AgentStatus[]) {
   return (app: Elysia) => {
     return app.guard({
       beforeHandle(ctx) {
-        const { agentContext, set } = ctx as unknown as { agentContext: AgentContext | null; set: { status: number } };
+        const { agentContext, set } = ctx as unknown as {
+          agentContext: AgentContext | null;
+          set: { status: number };
+        };
         if (!agentContext) {
           set.status = 401;
           return { error: 'Agent context required' };
@@ -222,10 +236,10 @@ export function requireAgentStatus(...allowedStatuses: AgentStatus[]) {
           return {
             error: 'Agent status not allowed',
             required: allowedStatuses,
-            current: agentContext.status
+            current: agentContext.status,
           };
         }
-      }
+      },
     });
   };
 }
@@ -235,7 +249,10 @@ export function requireAgentCapability(requiredCapability: string) {
   return (app: Elysia) => {
     return app.guard({
       beforeHandle(ctx) {
-        const { agentContext, set } = ctx as unknown as { agentContext: AgentContext | null; set: { status: number } };
+        const { agentContext, set } = ctx as unknown as {
+          agentContext: AgentContext | null;
+          set: { status: number };
+        };
         if (!agentContext) {
           set.status = 401;
           return { error: 'Agent context required' };
@@ -248,10 +265,10 @@ export function requireAgentCapability(requiredCapability: string) {
           set.status = 403;
           return {
             error: 'Required capability not available',
-            required: requiredCapability
+            required: requiredCapability,
           };
         }
-      }
+      },
     });
   };
 }
@@ -272,15 +289,15 @@ export function executeAgentOperation(
       if (!agentContext) {
         set.status = 401;
         return {
-          operationError: { error: 'Agent context required' }
+          operationError: { error: 'Agent context required' },
         };
       }
 
       try {
         const result = await operationHandler(agentContext, {
-          ...(body as object || {}),
+          ...((body as object) || {}),
           ...(query || {}),
-          ...(params || {})
+          ...(params || {}),
         });
 
         return {
@@ -289,16 +306,16 @@ export function executeAgentOperation(
             data: result,
             metadata: {
               agentId: agentContext.agentId,
-              timestamp: new Date()
-            }
-          }
+              timestamp: new Date(),
+            },
+          },
         };
       } catch (error) {
         logger.error('Agent operation failed:', error);
         return {
           operationError: {
-            error: error instanceof Error ? error.message : 'Operation failed'
-          }
+            error: error instanceof Error ? error.message : 'Operation failed',
+          },
         };
       }
     });
@@ -309,12 +326,15 @@ export function executeAgentOperation(
 export function executeAgentTool(toolName: string) {
   return (app: Elysia) => {
     return app.derive((ctx) => {
-      const { agentContext, body } = ctx as unknown as { agentContext?: AgentContext; body?: unknown };
+      const { agentContext, body } = ctx as unknown as {
+        agentContext?: AgentContext;
+        body?: unknown;
+      };
       if (agentContext) {
         logger.debug('Agent tool execution started', {
           agentId: agentContext.agentId,
           toolName,
-          parameters: body
+          parameters: body,
         });
       }
       return { executingTool: toolName };

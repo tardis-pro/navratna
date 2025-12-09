@@ -38,10 +38,13 @@ export class UserRepository extends BaseRepository<UserEntity> {
   /**
    * Update user with partial data
    */
-  public async updateUser(userId: string, updates: Partial<UserEntity>): Promise<UserEntity | null> {
+  public async updateUser(
+    userId: string,
+    updates: Partial<UserEntity>
+  ): Promise<UserEntity | null> {
     await this.repository.update(userId, {
       ...updates,
-      updatedAt: new Date()
+      updatedAt: new Date(),
     });
     return await this.repository.findOne({ where: { id: userId } });
   }
@@ -49,11 +52,15 @@ export class UserRepository extends BaseRepository<UserEntity> {
   /**
    * Update user login attempts and lock status
    */
-  public async updateUserLoginAttempts(userId: string, failedAttempts: number, lockedUntil?: Date): Promise<void> {
+  public async updateUserLoginAttempts(
+    userId: string,
+    failedAttempts: number,
+    lockedUntil?: Date
+  ): Promise<void> {
     await this.repository.update(userId, {
       failedLoginAttempts: failedAttempts,
       lockedUntil: lockedUntil,
-      updatedAt: new Date()
+      updatedAt: new Date(),
     });
   }
 
@@ -65,7 +72,7 @@ export class UserRepository extends BaseRepository<UserEntity> {
       failedLoginAttempts: 0,
       lockedUntil: null,
       lastLoginAt: new Date(),
-      updatedAt: new Date()
+      updatedAt: new Date(),
     });
   }
 
@@ -75,7 +82,7 @@ export class UserRepository extends BaseRepository<UserEntity> {
   public async deactivateUser(userId: string): Promise<void> {
     await this.repository.update(userId, {
       isActive: false,
-      updatedAt: new Date()
+      updatedAt: new Date(),
     });
   }
 
@@ -85,7 +92,7 @@ export class UserRepository extends BaseRepository<UserEntity> {
   public async activateUser(userId: string): Promise<void> {
     await this.repository.update(userId, {
       isActive: true,
-      updatedAt: new Date()
+      updatedAt: new Date(),
     });
   }
 
@@ -142,14 +149,17 @@ export class UserRepository extends BaseRepository<UserEntity> {
   /**
    * Update user login tracking (failed attempts, last login, etc.)
    */
-  public async updateUserLoginTracking(userId: string, updates: {
-    failedLoginAttempts?: number;
-    lockedUntil?: Date | null;
-    lastLoginAt?: Date;
-  }): Promise<void> {
+  public async updateUserLoginTracking(
+    userId: string,
+    updates: {
+      failedLoginAttempts?: number;
+      lockedUntil?: Date | null;
+      lastLoginAt?: Date;
+    }
+  ): Promise<void> {
     await this.repository.update(userId, {
       ...updates,
-      updatedAt: new Date()
+      updatedAt: new Date(),
     });
   }
 
@@ -162,7 +172,7 @@ export class UserRepository extends BaseRepository<UserEntity> {
       passwordChangedAt: new Date(),
       failedLoginAttempts: 0,
       lockedUntil: null,
-      updatedAt: new Date()
+      updatedAt: new Date(),
     });
   }
 
@@ -218,17 +228,20 @@ export class UserRepository extends BaseRepository<UserEntity> {
   /**
    * Update user profile
    */
-  public async updateUserProfile(userId: string, updates: {
-    firstName?: string;
-    lastName?: string;
-    department?: string;
-    role?: string;
-    securityClearance?: SecurityLevel;
-    isActive?: boolean;
-  }): Promise<UserEntity | null> {
+  public async updateUserProfile(
+    userId: string,
+    updates: {
+      firstName?: string;
+      lastName?: string;
+      department?: string;
+      role?: string;
+      securityClearance?: SecurityLevel;
+      isActive?: boolean;
+    }
+  ): Promise<UserEntity | null> {
     await this.repository.update(userId, {
       ...updates,
-      updatedAt: new Date()
+      updatedAt: new Date(),
     });
     return await this.repository.findOne({ where: { id: userId } });
   }
@@ -246,7 +259,7 @@ export class UserRepository extends BaseRepository<UserEntity> {
   }> {
     const [totalUsers, activeUsers] = await Promise.all([
       this.repository.count(),
-      this.repository.count({ where: { isActive: true } })
+      this.repository.count({ where: { isActive: true } }),
     ]);
 
     const inactiveUsers = totalUsers - activeUsers;
@@ -291,18 +304,18 @@ export class UserRepository extends BaseRepository<UserEntity> {
       totalUsers,
       activeUsers,
       inactiveUsers,
-      roleStats: roleStats.map(stat => ({
+      roleStats: roleStats.map((stat) => ({
         role: stat.role,
-        count: parseInt(stat.count)
+        count: parseInt(stat.count),
       })),
-      departmentStats: departmentStats.map(stat => ({
+      departmentStats: departmentStats.map((stat) => ({
         department: stat.department,
-        count: parseInt(stat.count)
+        count: parseInt(stat.count),
       })),
-      recentActivity: recentActivity.map(activity => ({
+      recentActivity: recentActivity.map((activity) => ({
         date: activity.date,
-        loginCount: parseInt(activity.loginCount)
-      }))
+        loginCount: parseInt(activity.loginCount),
+      })),
     };
   }
 
@@ -318,15 +331,17 @@ export class UserRepository extends BaseRepository<UserEntity> {
     try {
       const user = await this.repository.findOne({
         where: { id: userId },
-        select: ['id', 'isActive', 'role', 'securityClearance']
+        select: ['id', 'isActive', 'role', 'securityClearance'],
       });
 
-      return user ? {
-        id: user.id,
-        isActive: user.isActive,
-        role: user.role,
-        securityClearance: user.securityClearance
-      } : null;
+      return user
+        ? {
+            id: user.id,
+            isActive: user.isActive,
+            role: user.role,
+            securityClearance: user.securityClearance,
+          }
+        : null;
     } catch (error) {
       logger.error('Error getting user auth details', { userId, error: (error as Error).message });
       throw error;
@@ -365,19 +380,19 @@ export class UserRepository extends BaseRepository<UserEntity> {
 
       const [roleResults, directResults] = await Promise.all([
         manager.query(rolePermissionsQuery, [userId]),
-        manager.query(directPermissionsQuery, [userId])
+        manager.query(directPermissionsQuery, [userId]),
       ]);
 
       return {
         rolePermissions: roleResults.map((row: any) => ({
           roleName: row.role_name,
           permissionType: row.permission_type,
-          operations: row.operations || []
+          operations: row.operations || [],
         })),
         directPermissions: directResults.map((row: any) => ({
           permissionType: row.permission_type,
-          operations: row.operations || []
-        }))
+          operations: row.operations || [],
+        })),
       };
     } catch (error) {
       logger.error('Error getting user permissions', { userId, error: (error as Error).message });
@@ -422,7 +437,7 @@ export class UserRepository extends BaseRepository<UserEntity> {
         role: user.role,
         lastLoginAt: user.last_login_at,
         createdAt: user.created_at,
-        recentActivityCount: parseInt(user.recent_activity_count)
+        recentActivityCount: parseInt(user.recent_activity_count),
       };
     } catch (error) {
       logger.error('Error getting user risk data', { userId, error: (error as Error).message });
@@ -486,7 +501,7 @@ export class RefreshTokenRepository extends BaseRepository<RefreshTokenEntity> {
   public async getRefreshTokenWithUser(token: string): Promise<RefreshTokenEntity | null> {
     return await this.repository.findOne({
       where: { token },
-      relations: ['user']
+      relations: ['user'],
     });
   }
 
@@ -494,10 +509,7 @@ export class RefreshTokenRepository extends BaseRepository<RefreshTokenEntity> {
    * Revoke refresh token
    */
   public async revokeRefreshToken(token: string): Promise<void> {
-    await this.repository.update(
-      { token },
-      { revokedAt: new Date(), updatedAt: new Date() }
-    );
+    await this.repository.update({ token }, { revokedAt: new Date(), updatedAt: new Date() });
   }
 
   /**
@@ -515,7 +527,7 @@ export class RefreshTokenRepository extends BaseRepository<RefreshTokenEntity> {
    */
   public async cleanupExpiredRefreshTokens(): Promise<number> {
     const result = await this.repository.delete({
-      expiresAt: LessThan(new Date())
+      expiresAt: LessThan(new Date()),
     });
     return result.affected;
   }
@@ -541,10 +553,12 @@ export class PasswordResetTokenRepository extends BaseRepository<PasswordResetTo
   /**
    * Get password reset token with user data
    */
-  public async getPasswordResetTokenWithUser(token: string): Promise<PasswordResetTokenEntity | null> {
+  public async getPasswordResetTokenWithUser(
+    token: string
+  ): Promise<PasswordResetTokenEntity | null> {
     return await this.repository.findOne({
       where: { token, usedAt: null },
-      relations: ['user']
+      relations: ['user'],
     });
   }
 
@@ -552,10 +566,7 @@ export class PasswordResetTokenRepository extends BaseRepository<PasswordResetTo
    * Mark password reset token as used
    */
   public async markPasswordResetTokenAsUsed(token: string): Promise<void> {
-    await this.repository.update(
-      { token },
-      { usedAt: new Date(), updatedAt: new Date() }
-    );
+    await this.repository.update({ token }, { usedAt: new Date(), updatedAt: new Date() });
   }
 
   /**
@@ -563,7 +574,7 @@ export class PasswordResetTokenRepository extends BaseRepository<PasswordResetTo
    */
   public async cleanupExpiredPasswordResetTokens(): Promise<number> {
     const result = await this.repository.delete({
-      expiresAt: LessThan(new Date())
+      expiresAt: LessThan(new Date()),
     });
     return result.affected;
   }
@@ -571,7 +582,10 @@ export class PasswordResetTokenRepository extends BaseRepository<PasswordResetTo
   /**
    * Get user by OAuth provider
    */
-  public async getUserByOAuthProvider(providerId: string, providerUserId: string): Promise<UserEntity | null> {
+  public async getUserByOAuthProvider(
+    providerId: string,
+    providerUserId: string
+  ): Promise<UserEntity | null> {
     try {
       // Query through agent OAuth connections table to find the user
       const manager = this.getEntityManager();
@@ -612,7 +626,7 @@ export class PasswordResetTokenRepository extends BaseRepository<PasswordResetTo
         lastLoginAt: userData.last_login_at,
         permissions: userData.permissions,
         createdAt: userData.created_at,
-        updatedAt: userData.updated_at
+        updatedAt: userData.updated_at,
       });
 
       return user;
@@ -620,7 +634,7 @@ export class PasswordResetTokenRepository extends BaseRepository<PasswordResetTo
       logger.error('Error getting user by OAuth provider', {
         providerId,
         providerUserId,
-        error: (error as Error).message
+        error: (error as Error).message,
       });
       return null;
     }

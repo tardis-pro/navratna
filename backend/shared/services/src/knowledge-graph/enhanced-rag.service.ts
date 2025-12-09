@@ -40,7 +40,7 @@ export class EnhancedRAGService {
    * Perform semantic search with optional reranking
    */
   async semanticSearch(
-    query: string, 
+    query: string,
     options: SearchOptions = {}
   ): Promise<EnhancedSearchResult[]> {
     const {
@@ -49,7 +49,7 @@ export class EnhancedRAGService {
       useReranking = true,
       rerankTopK = topK * 2,
       includeEmbeddings = false,
-      filters = {}
+      filters = {},
     } = options;
 
     if (!query || query.trim().length === 0) {
@@ -65,11 +65,11 @@ export class EnhancedRAGService {
       const candidates = await this.vectorStore.search(queryEmbedding, {
         limit: searchLimit,
         threshold: minScore,
-        filters: filters
+        filters: filters,
       });
 
       // Filter by minimum score
-      const filteredCandidates = candidates.filter(c => c.score >= minScore);
+      const filteredCandidates = candidates.filter((c) => c.score >= minScore);
 
       if (filteredCandidates.length === 0) {
         return [];
@@ -79,11 +79,11 @@ export class EnhancedRAGService {
 
       if (useReranking && filteredCandidates.length > 1) {
         // Step 3: Rerank results for better relevance
-        const candidatesWithContent = filteredCandidates.map(c => ({
+        const candidatesWithContent = filteredCandidates.map((c) => ({
           id: c.id,
           content: c.payload?.content || '',
           metadata: c.payload?.metadata,
-          score: c.score
+          score: c.score,
         }));
         results = await this.rerankResults(query, candidatesWithContent, topK);
       } else {
@@ -95,7 +95,7 @@ export class EnhancedRAGService {
           score: candidate.score,
           originalScore: candidate.score,
           rank: index + 1,
-          embedding: includeEmbeddings ? candidate.payload?.embedding : undefined
+          embedding: includeEmbeddings ? candidate.payload?.embedding : undefined,
         }));
       }
 
@@ -115,7 +115,7 @@ export class EnhancedRAGService {
     options: SearchOptions = {}
   ): Promise<EnhancedSearchResult[]> {
     const semanticResults = await this.semanticSearch(query, options);
-    
+
     // Combine and deduplicate results
     const combinedResults = this.combineSearchResults(
       keywordResults,
@@ -142,7 +142,7 @@ export class EnhancedRAGService {
 
     try {
       // Generate embeddings for all documents
-      const contents = documents.map(doc => doc.content);
+      const contents = documents.map((doc) => doc.content);
       const embeddings = await this.embeddingService.generateBatchEmbeddings(contents);
 
       // Prepare documents for vector store
@@ -150,7 +150,7 @@ export class EnhancedRAGService {
         id: doc.id,
         content: doc.content,
         embedding: embeddings[index],
-        metadata: doc.metadata || {}
+        metadata: doc.metadata || {},
       }));
 
       // Store in vector database
@@ -177,18 +177,15 @@ export class EnhancedRAGService {
       }
 
       // Search for similar documents
-      const candidates = await this.vectorStore.search(
-        document.embedding,
-        {
-          limit: topK + 1, // +1 to exclude the original document
-          threshold: minScore,
-          filters: { exclude_ids: [documentId] }
-        }
-      );
+      const candidates = await this.vectorStore.search(document.embedding, {
+        limit: topK + 1, // +1 to exclude the original document
+        threshold: minScore,
+        filters: { exclude_ids: [documentId] },
+      });
 
       // Filter by minimum score and format results
       return candidates
-        .filter(c => c.score >= minScore)
+        .filter((c) => c.score >= minScore)
         .slice(0, topK)
         .map((candidate, index) => ({
           id: candidate.id,
@@ -196,7 +193,7 @@ export class EnhancedRAGService {
           metadata: candidate.payload?.metadata,
           score: candidate.score,
           originalScore: candidate.score,
-          rank: index + 1
+          rank: index + 1,
         }));
     } catch (error) {
       console.error('Similar documents search failed:', error);
@@ -222,7 +219,7 @@ export class EnhancedRAGService {
 
       // Calculate similarities
       const similarities = await Promise.all(
-        queryEmbeddings.map(embedding => 
+        queryEmbeddings.map((embedding) =>
           this.embeddingService.calculateSimilarity(queryEmbedding, embedding)
         )
       );
@@ -232,7 +229,7 @@ export class EnhancedRAGService {
         .map((query, index) => ({ query, similarity: similarities[index] }))
         .sort((a, b) => b.similarity - a.similarity)
         .slice(0, topK)
-        .map(item => item.query);
+        .map((item) => item.query);
 
       return suggestions;
     } catch (error) {
@@ -252,20 +249,21 @@ export class EnhancedRAGService {
     try {
       const [teiHealth, vectorStoreHealth] = await Promise.allSettled([
         this.embeddingService.checkHealth(),
-        Promise.resolve(this.vectorStore.isHealthy())
+        Promise.resolve(this.vectorStore.isHealthy()),
       ]);
 
       return {
-        embedding: teiHealth.status === 'fulfilled' ? teiHealth.value.embedding : { status: 'error' },
+        embedding:
+          teiHealth.status === 'fulfilled' ? teiHealth.value.embedding : { status: 'error' },
         reranker: teiHealth.status === 'fulfilled' ? teiHealth.value.reranker : { status: 'error' },
-        vectorStore: vectorStoreHealth.status === 'fulfilled' ? vectorStoreHealth.value : false
+        vectorStore: vectorStoreHealth.status === 'fulfilled' ? vectorStoreHealth.value : false,
       };
     } catch (error) {
       console.error('Health check failed:', error);
       return {
         embedding: { status: 'error' },
         reranker: { status: 'error' },
-        vectorStore: false
+        vectorStore: false,
       };
     }
   }
@@ -279,7 +277,7 @@ export class EnhancedRAGService {
     topK: number
   ): Promise<EnhancedSearchResult[]> {
     try {
-      const documents = candidates.map(c => c.content);
+      const documents = candidates.map((c) => c.content);
       const rerankResults = await this.embeddingService.rerank(query, documents, topK);
 
       // Map rerank results back to original candidates
@@ -290,19 +288,19 @@ export class EnhancedRAGService {
           rerankScore: rerankResult.score,
           originalScore: originalCandidate.score,
           rank: rank + 1,
-          score: rerankResult.score // Use rerank score as primary score
+          score: rerankResult.score, // Use rerank score as primary score
         };
       });
 
       return enhancedResults;
     } catch (error) {
       console.error('Reranking failed, falling back to vector scores:', error);
-      
+
       // Fallback to original vector similarity scores
       return candidates.slice(0, topK).map((candidate, index) => ({
         ...candidate,
         originalScore: candidate.score,
-        rank: index + 1
+        rank: index + 1,
       }));
     }
   }
@@ -319,7 +317,7 @@ export class EnhancedRAGService {
     const resultMap = new Map<string, EnhancedSearchResult>();
 
     // Add semantic results first (they have rerank scores)
-    semanticResults.forEach(result => {
+    semanticResults.forEach((result) => {
       resultMap.set(result.id, result);
     });
 
@@ -329,7 +327,7 @@ export class EnhancedRAGService {
         resultMap.set(result.id, {
           ...result,
           originalScore: result.score,
-          rank: semanticResults.length + index + 1
+          rank: semanticResults.length + index + 1,
         });
       }
     });
@@ -346,4 +344,4 @@ export class EnhancedRAGService {
 
     return combinedResults;
   }
-} 
+}

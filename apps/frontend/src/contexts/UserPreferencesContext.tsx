@@ -57,14 +57,14 @@ const defaultPreferences: UserPreferences = {
     agentUpdates: true,
     systemAlerts: true,
     securityWarnings: true,
-    sound: false
+    sound: false,
   },
   ui: {
     showDescriptions: true,
     compactMode: false,
     animations: true,
     gridView: true,
-    autoSave: true
+    autoSave: true,
   },
   desktop: {
     wallpaper: 'gradient',
@@ -72,8 +72,8 @@ const defaultPreferences: UserPreferences = {
     taskbarPosition: 'bottom',
     iconSize: 'medium',
     enableAnimations: true,
-    compactMode: false
-  }
+    compactMode: false,
+  },
 };
 
 const UserPreferencesContext = createContext<UserPreferencesContextType | undefined>(undefined);
@@ -143,27 +143,27 @@ export const UserPreferencesProvider: React.FC<UserPreferencesProviderProps> = (
   }, [effectiveTheme]);
 
   const updatePreferences = (updates: Partial<UserPreferences>) => {
-    setPreferences(prev => ({ ...prev, ...updates }));
+    setPreferences((prev) => ({ ...prev, ...updates }));
   };
 
   const updateUIPreferences = (updates: Partial<UIPreferences>) => {
-    setPreferences(prev => ({
+    setPreferences((prev) => ({
       ...prev,
-      ui: { ...prev.ui, ...updates }
+      ui: { ...prev.ui, ...updates },
     }));
   };
 
   const updateDesktopPreferences = (updates: Partial<DesktopPreferences>) => {
-    setPreferences(prev => ({
+    setPreferences((prev) => ({
       ...prev,
-      desktop: { ...prev.desktop, ...updates }
+      desktop: { ...prev.desktop, ...updates },
     }));
   };
 
   const updateNotificationSettings = (updates: Partial<NotificationSettings>) => {
-    setPreferences(prev => ({
+    setPreferences((prev) => ({
       ...prev,
-      notifications: { ...prev.notifications, ...updates }
+      notifications: { ...prev.notifications, ...updates },
     }));
   };
 
@@ -191,12 +191,10 @@ export const UserPreferencesProvider: React.FC<UserPreferencesProviderProps> = (
     setTheme,
     toggleTheme,
     effectiveTheme,
-    isLoading
+    isLoading,
   };
 
   return (
-    <UserPreferencesContext.Provider value={value}>
-      {children}
-    </UserPreferencesContext.Provider>
+    <UserPreferencesContext.Provider value={value}>{children}</UserPreferencesContext.Provider>
   );
 };

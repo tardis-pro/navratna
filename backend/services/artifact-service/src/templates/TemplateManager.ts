@@ -1,8 +1,8 @@
 import { ITemplateManager, TemplateFilters } from '../interfaces/ArtifactTypes.js';
-import { 
-  ArtifactGenerationTemplate as ArtifactTemplate, 
-  ArtifactConversationContext as GenerationContext, 
-  ArtifactType 
+import {
+  ArtifactGenerationTemplate as ArtifactTemplate,
+  ArtifactConversationContext as GenerationContext,
+  ArtifactType,
 } from '@uaip/types';
 import { logger } from '@uaip/utils';
 
@@ -20,18 +20,24 @@ export class TemplateManager implements ITemplateManager {
 
   selectTemplate(context: GenerationContext): ArtifactTemplate | null {
     const { agent, persona, technical } = context;
-    
+
     // Try to find a template that matches the context
     for (const template of this.templates.values()) {
       // Check if template matches technical requirements
-      if (technical?.language && template.language &&
-          template.language.toLowerCase() !== technical.language.toLowerCase()) {
+      if (
+        technical?.language &&
+        template.language &&
+        template.language.toLowerCase() !== technical.language.toLowerCase()
+      ) {
         continue;
       }
 
       // Check framework compatibility
-      if (technical?.framework && template.framework &&
-          template.framework.toLowerCase() !== technical.framework.toLowerCase()) {
+      if (
+        technical?.framework &&
+        template.framework &&
+        template.framework.toLowerCase() !== technical.framework.toLowerCase()
+      ) {
         continue;
       }
 
@@ -58,21 +64,23 @@ export class TemplateManager implements ITemplateManager {
 
   listTemplates(filters?: TemplateFilters): ArtifactTemplate[] {
     let templates = Array.from(this.templates.values());
-    
+
     if (filters) {
       if (filters.type) {
-        templates = templates.filter(t => t.type === filters.type);
+        templates = templates.filter((t) => t.type === filters.type);
       }
       if (filters.language) {
-        templates = templates.filter(t => 
-          !t.language || t.language.toLowerCase() === filters.language!.toLowerCase());
+        templates = templates.filter(
+          (t) => !t.language || t.language.toLowerCase() === filters.language!.toLowerCase()
+        );
       }
       if (filters.framework) {
-        templates = templates.filter(t => 
-          !t.framework || t.framework.toLowerCase() === filters.framework!.toLowerCase());
+        templates = templates.filter(
+          (t) => !t.framework || t.framework.toLowerCase() === filters.framework!.toLowerCase()
+        );
       }
     }
-    
+
     return templates;
   }
 
@@ -82,9 +90,9 @@ export class TemplateManager implements ITemplateManager {
 
   private getDefaultTemplate(context: GenerationContext): ArtifactTemplate | null {
     // Score templates based on context compatibility
-    const scoredTemplates = Array.from(this.templates.values()).map(template => {
+    const scoredTemplates = Array.from(this.templates.values()).map((template) => {
       let score = 0;
-      
+
       // Prefer templates that match technical requirements
       if (context.technical?.language && template.language === context.technical.language) {
         score += 10;
@@ -92,7 +100,7 @@ export class TemplateManager implements ITemplateManager {
       if (context.technical?.framework && template.framework === context.technical.framework) {
         score += 10;
       }
-      
+
       return { template, score };
     });
 
@@ -101,7 +109,10 @@ export class TemplateManager implements ITemplateManager {
     return scoredTemplates.length > 0 ? scoredTemplates[0].template : null;
   }
 
-  private createReplacementMap(context: GenerationContext, template: ArtifactTemplate): Record<string, string> {
+  private createReplacementMap(
+    context: GenerationContext,
+    template: ArtifactTemplate
+  ): Record<string, string> {
     const requirements = this.extractRequirements(context.discussion?.messages || []);
     const functionName = this.extractFunctionName(context.discussion?.messages || []);
     const className = this.extractClassName(context.discussion?.messages || []);
@@ -115,22 +126,22 @@ export class TemplateManager implements ITemplateManager {
       '{{AUTHOR}}': context.persona?.role || 'Developer',
       '{{TIMESTAMP}}': new Date().toISOString(),
       '{{COMMUNICATION_STYLE}}': context.persona?.communicationStyle || 'professional',
-      '{{CONVERSATION_ID}}': context.conversationId
+      '{{CONVERSATION_ID}}': context.conversationId,
     };
   }
 
   private extractRequirements(messages: any[]): string {
     const requirements: string[] = [];
-    
+
     for (const message of messages) {
       const content = message.content?.toLowerCase() || '';
-      
+
       // Look for requirement indicators
       if (content.includes('need') || content.includes('require') || content.includes('must')) {
         requirements.push(message.content);
       }
     }
-    
+
     return requirements.length > 0 ? requirements.join('\n- ') : 'No specific requirements found';
   }
 
@@ -175,18 +186,18 @@ export function {{FUNCTION_NAME}}(): void {
   // TODO: Implement function logic
   console.log('{{FUNCTION_NAME}} called');
 }`,
-      variables: { 
+      variables: {
         FUNCTION_NAME: 'string',
         AUTHOR: 'string',
         REQUIREMENTS: 'string',
-        TIMESTAMP: 'string'
+        TIMESTAMP: 'string',
       },
       examples: [],
       tags: ['typescript', 'function'],
       version: '1.0.0',
       author: 'system',
       isEnabled: true,
-      language: 'typescript'
+      language: 'typescript',
     });
 
     // TypeScript class template
@@ -216,14 +227,14 @@ export class {{CLASS_NAME}} {
         CLASS_NAME: 'string',
         AUTHOR: 'string',
         REQUIREMENTS: 'string',
-        TIMESTAMP: 'string'
+        TIMESTAMP: 'string',
       },
       examples: [],
       tags: ['typescript', 'class'],
       version: '1.0.0',
       author: 'system',
       isEnabled: true,
-      language: 'typescript'
+      language: 'typescript',
     });
 
     // Test template
@@ -253,14 +264,14 @@ describe('{{FUNCTION_NAME}}', () => {
       variables: {
         FUNCTION_NAME: 'string',
         AUTHOR: 'string',
-        TIMESTAMP: 'string'
+        TIMESTAMP: 'string',
       },
       examples: [],
       tags: ['jest', 'test', 'typescript'],
       version: '1.0.0',
       author: 'system',
       isEnabled: true,
-      language: 'typescript'
+      language: 'typescript',
     });
 
     // Add missing required properties to existing templates
@@ -299,13 +310,13 @@ Generated at: {{TIMESTAMP}}
         AUTHOR: 'string',
         REQUIREMENTS: 'string',
         LANGUAGE: 'string',
-        TIMESTAMP: 'string'
+        TIMESTAMP: 'string',
       },
       examples: [],
       tags: ['documentation', 'api'],
       version: '1.0.0',
       author: 'system',
-      isEnabled: true
+      isEnabled: true,
     });
 
     this.templates.set('basic-prd', {
@@ -349,15 +360,15 @@ TODO: Add specific implementation details
         COMMUNICATION_STYLE: 'string',
         LANGUAGE: 'string',
         FRAMEWORK: 'string',
-        TIMESTAMP: 'string'
+        TIMESTAMP: 'string',
       },
       examples: [],
       tags: ['prd', 'requirements'],
       version: '1.0.0',
       author: 'system',
-      isEnabled: true
+      isEnabled: true,
     });
 
     logger.info(`Initialized ${this.templates.size} default templates`);
   }
-} 
+}

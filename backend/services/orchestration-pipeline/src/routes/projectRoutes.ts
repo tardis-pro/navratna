@@ -16,7 +16,7 @@ const createProjectSchema = z.object({
   endDate: z.string().datetime().optional(),
   budget: z.number().min(0).optional(),
   settings: z.record(z.any()).optional(),
-  metadata: z.record(z.any()).optional()
+  metadata: z.record(z.any()).optional(),
 });
 
 const updateProjectSchema = z.object({
@@ -31,7 +31,7 @@ const updateProjectSchema = z.object({
   endDate: z.string().datetime().optional(),
   budget: z.number().min(0).optional(),
   settings: z.record(z.any()).optional(),
-  metadata: z.record(z.any()).optional()
+  metadata: z.record(z.any()).optional(),
 });
 
 const createTaskSchema = z.object({
@@ -44,13 +44,13 @@ const createTaskSchema = z.object({
   tools: z.array(z.string()).optional(),
   estimatedCost: z.number().min(0).optional(),
   estimatedDuration: z.number().min(0).optional(),
-  dueDate: z.string().datetime().optional()
+  dueDate: z.string().datetime().optional(),
 });
 
 const addAgentSchema = z.object({
   agentId: z.string().min(1, 'Agent ID is required'),
   role: z.string().optional(),
-  permissions: z.array(z.string()).optional()
+  permissions: z.array(z.string()).optional(),
 });
 
 const recordToolUsageSchema = z.object({
@@ -61,8 +61,8 @@ const recordToolUsageSchema = z.object({
     outputTokens: z.number().min(0).optional(),
     cost: z.number().min(0).optional(),
     success: z.boolean(),
-    error: z.string().optional()
-  })
+    error: z.string().optional(),
+  }),
 });
 
 // Initialize services
@@ -102,7 +102,7 @@ export function registerProjectRoutes(app: Elysia): void {
         endDate: validatedBody.endDate ? new Date(validatedBody.endDate) : undefined,
         budget: validatedBody.budget,
         settings: validatedBody.settings,
-        metadata: validatedBody.metadata
+        metadata: validatedBody.metadata,
       });
 
       set.status = 201;
@@ -219,7 +219,7 @@ export function registerProjectRoutes(app: Elysia): void {
         tools: validatedBody.tools,
         estimatedCost: validatedBody.estimatedCost,
         estimatedDuration: validatedBody.estimatedDuration,
-        dueDate: validatedBody.dueDate ? new Date(validatedBody.dueDate) : undefined
+        dueDate: validatedBody.dueDate ? new Date(validatedBody.dueDate) : undefined,
       });
       set.status = 201;
       return task;
@@ -289,7 +289,7 @@ export function registerProjectRoutes(app: Elysia): void {
         success: validatedBody.usage.success,
         executionTime: validatedBody.usage.duration || 0,
         cost: validatedBody.usage.cost,
-        errorMessage: validatedBody.usage.error
+        errorMessage: validatedBody.usage.error,
       };
       await projectService.recordToolUsage(toolUsage);
       set.status = 201;

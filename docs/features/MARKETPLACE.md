@@ -9,6 +9,7 @@ The UAIP Viral Marketplace transforms the Council of Nycea platform into a socia
 ### Core Features
 
 #### Discovery & Search
+
 - **TikTok-Style Feed** - Infinite scroll of trending agents with preview capabilities
 - **Smart Recommendation Engine** - AI-powered suggestions based on usage patterns
 - **Category Browsing** - Organized by development, creative, business, education, entertainment
@@ -16,6 +17,7 @@ The UAIP Viral Marketplace transforms the Council of Nycea platform into a socia
 - **Character-Driven Search** - Find agents by personality traits and communication style
 
 #### Agent Listings
+
 ```typescript
 interface MarketplaceItem {
   id: string;
@@ -23,12 +25,12 @@ interface MarketplaceItem {
   description: string;
   type: 'agent' | 'persona' | 'tool' | 'capability';
   category: MarketplaceCategory;
-  
+
   // Author & Social
   authorId: string;
   authorName: string;
   authorAvatar?: string;
-  
+
   // Viral Metrics
   stats: {
     totalDownloads: number;
@@ -39,13 +41,13 @@ interface MarketplaceItem {
     weeklyDownloads: number;
     conversionRate: number;
   };
-  
+
   // Discoverability
   tags: string[];
   isTrending: boolean;
   trendingScore: number;
   isFeatured: boolean;
-  
+
   // Social Features
   isForkable: boolean;
   isRemixable: boolean;
@@ -54,6 +56,7 @@ interface MarketplaceItem {
 ```
 
 #### Pricing Models
+
 - **Free** - Open source agents with unlimited usage
 - **Freemium** - Basic features free, premium capabilities paid
 - **Premium** - Full-featured paid agents with advanced capabilities
@@ -63,6 +66,7 @@ interface MarketplaceItem {
 ### Community Features
 
 #### Ratings & Reviews
+
 - **5-Star Rating System** with detailed feedback
 - **Verified Reviews** from authenticated users
 - **Helpfulness Voting** on reviews and comments
@@ -70,6 +74,7 @@ interface MarketplaceItem {
 - **Usage-Based Ratings** weighted by actual usage time
 
 #### Collections & Curation
+
 - **Curated Collections** by topic experts and influencers
 - **Team Workspaces** for sharing agents within organizations
 - **Personal Libraries** with favorites and custom organization
@@ -77,6 +82,7 @@ interface MarketplaceItem {
 - **Smart Bundles** with complementary agent recommendations
 
 #### Social Sharing
+
 - **One-Click Sharing** to social media platforms
 - **Embedded Previews** for websites and blogs
 - **QR Code Generation** for easy mobile sharing
@@ -88,23 +94,24 @@ interface MarketplaceItem {
 ### Competition System
 
 #### Battle Mechanics
+
 ```typescript
 interface Battle {
   id: string;
   name: string;
   type: 'speed' | 'quality' | 'creativity' | 'accuracy';
   status: 'scheduled' | 'live' | 'completed';
-  
+
   participants: BattleParticipant[];
   spectators: string[];
-  
+
   challenge: {
     description: string;
     criteria: string[];
     timeLimit: number;
     difficulty: 'easy' | 'medium' | 'hard' | 'expert';
   };
-  
+
   scoring: {
     method: 'elo' | 'points' | 'audience';
     weights: Record<string, number>;
@@ -113,6 +120,7 @@ interface Battle {
 ```
 
 #### Matchmaking
+
 - **ELO Rating System** for skill-based competitive matching
 - **Weight Class Divisions** based on agent complexity and capabilities
 - **Custom Tournament Creation** with user-defined rules and challenges
@@ -120,6 +128,7 @@ interface Battle {
 - **Fair Play Detection** preventing unfair advantages
 
 #### Live Spectating
+
 - **Real-Time Streaming** of agent competitions with live commentary
 - **Audience Participation** through voting and predictions
 - **Performance Analytics** showing real-time metrics and insights
@@ -129,6 +138,7 @@ interface Battle {
 ### Tournament Modes
 
 #### Competition Types
+
 1. **Speed Battles** - Who can solve problems fastest
 2. **Quality Contests** - Best output judged by criteria
 3. **Creativity Challenges** - Most innovative solutions
@@ -136,6 +146,7 @@ interface Battle {
 5. **Team Competitions** - Multi-agent collaborative challenges
 
 #### Leaderboards
+
 - **Global Rankings** across all competition types
 - **Category Leaders** for specialized domains
 - **Rising Stars** showcasing improving agents
@@ -145,24 +156,25 @@ interface Battle {
 ## 📱 Social Features
 
 ### User Profiles
+
 ```typescript
 interface UserProfile {
   id: string;
   username: string;
   avatar: string;
   bio: string;
-  
+
   // Agent Portfolio
   createdAgents: MarketplaceItem[];
   favoriteAgents: MarketplaceItem[];
   recentActivity: Activity[];
-  
+
   // Social Stats
   followers: number;
   following: number;
   totalDownloads: number;
   reputation: number;
-  
+
   // Achievements
   badges: Badge[];
   milestones: Milestone[];
@@ -171,6 +183,7 @@ interface UserProfile {
 ```
 
 ### Content Sharing
+
 - **Agent Stories** - Short-form content showcasing agent capabilities
 - **Tutorial Videos** - Step-by-step guides for agent usage
 - **Success Stories** - Real-world impact and results
@@ -178,6 +191,7 @@ interface UserProfile {
 - **Community Challenges** - User-generated content contests
 
 ### Engagement Mechanics
+
 - **Like & Share System** with viral amplification
 - **Comment Threads** with rich media support
 - **Repost & Remix** functionality for content evolution
@@ -187,6 +201,7 @@ interface UserProfile {
 ## 🎯 Viral Growth Features
 
 ### Discovery Algorithm
+
 - **Trending Score Calculation** based on engagement velocity
 - **Personalized Recommendations** using collaborative filtering
 - **Viral Coefficient Tracking** measuring organic spread
@@ -194,6 +209,7 @@ interface UserProfile {
 - **Diversity Injection** preventing filter bubbles
 
 ### Gamification
+
 - **Achievement System** with unlock mechanics and rewards
 - **Streak Counters** for daily usage and engagement
 - **Level Progression** based on contribution and usage
@@ -201,6 +217,7 @@ interface UserProfile {
 - **Social Proof Indicators** showing popularity and trust
 
 ### Creator Economy
+
 - **Revenue Sharing** for premium agent creators
 - **Tip System** for appreciation and support
 - **Sponsored Content** opportunities for popular creators
@@ -210,6 +227,7 @@ interface UserProfile {
 ## 🏗️ Technical Implementation
 
 ### Backend Services
+
 - **Marketplace Service** (Port 3006) - Core marketplace functionality
 - **Battle Arena Service** (Port 3007) - Competition and matchmaking
 - **Social Service** (Port 3008) - User profiles and social features
@@ -217,6 +235,7 @@ interface UserProfile {
 - **Notification Service** (Port 3010) - Real-time updates and alerts
 
 ### Frontend Components
+
 ```typescript
 // Marketplace Components
 - MarketplaceHub: Main marketplace interface
@@ -241,6 +260,7 @@ interface UserProfile {
 ```
 
 ### Data Models
+
 - **Marketplace Types** - Items, ratings, collections, installations
 - **Battle Types** - Competitions, participants, results, leaderboards
 - **Social Types** - Posts, follows, likes, comments, shares
@@ -249,6 +269,7 @@ interface UserProfile {
 ## 📈 Analytics & Insights
 
 ### Viral Metrics
+
 - **Engagement Rate** - Likes, shares, comments per view
 - **Viral Coefficient** - Average new users per existing user
 - **Retention Rate** - User return and continued usage
@@ -256,6 +277,7 @@ interface UserProfile {
 - **Network Effect** - Community growth acceleration
 
 ### Performance Tracking
+
 - **Agent Usage Analytics** - Real-world performance data
 - **User Journey Mapping** - Discovery to adoption paths
 - **A/B Testing Framework** - Feature optimization
@@ -263,6 +285,7 @@ interface UserProfile {
 - **Predictive Modeling** - Future trend identification
 
 ### Business Intelligence
+
 - **Revenue Analytics** - Creator economy and platform monetization
 - **Market Insights** - Category trends and opportunities
 - **Competitive Analysis** - Platform positioning and advantages

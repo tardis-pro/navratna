@@ -1,9 +1,4 @@
-import {
-  WorkingMemory,
-  WorkingMemoryUpdate,
-  Interaction,
-  EmotionalState
-} from '@uaip/types';
+import { WorkingMemory, WorkingMemoryUpdate, Interaction, EmotionalState } from '@uaip/types';
 
 export class WorkingMemoryManager {
   private redisUrl: string;
@@ -25,8 +20,8 @@ export class WorkingMemoryManager {
           reasoning: [],
           hypotheses: [],
           nextActions: [],
-          uncertainties: []
-        }
+          uncertainties: [],
+        },
       },
       shortTermMemory: {
         recentInteractions: [],
@@ -36,21 +31,21 @@ export class WorkingMemoryManager {
           mood: 'neutral',
           confidence: 0.7,
           engagement: 0.8,
-          stress: 0.2
-        }
+          stress: 0.2,
+        },
       },
       workingSet: {
         relevantKnowledge: [],
         activeSkills: [],
         availableTools: [],
-        currentStrategy: 'adaptive'
+        currentStrategy: 'adaptive',
       },
       metadata: {
         lastUpdated: new Date(),
         sessionStarted: new Date(),
         memoryPressure: 0.0,
-        consolidationNeeded: false
-      }
+        consolidationNeeded: false,
+      },
     };
 
     await this.storeWorkingMemory(agentId, workingMemory);
@@ -89,11 +84,11 @@ export class WorkingMemoryManager {
       // Add retrieved episodes to working set
       current.workingSet.relevantKnowledge = [
         ...current.workingSet.relevantKnowledge,
-        ...update.retrievedEpisodes.map(episode => ({
+        ...update.retrievedEpisodes.map((episode) => ({
           itemId: episode.episodeId,
           relevance: episode.significance.importance,
-          lastAccessed: new Date()
-        }))
+          lastAccessed: new Date(),
+        })),
       ];
     }
 
@@ -101,11 +96,11 @@ export class WorkingMemoryManager {
       // Add concepts to working set
       current.workingSet.relevantKnowledge = [
         ...current.workingSet.relevantKnowledge,
-        ...update.relevantConcepts.map(concept => ({
+        ...update.relevantConcepts.map((concept) => ({
           itemId: concept.concept,
           relevance: concept.confidence,
-          lastAccessed: new Date()
-        }))
+          lastAccessed: new Date(),
+        })),
       ];
     }
 
@@ -125,13 +120,14 @@ export class WorkingMemoryManager {
           emotion: 'neutral',
           intensity: 0.5,
           trigger: 'interaction',
-          timestamp: new Date()
-        }
+          timestamp: new Date(),
+        },
       });
 
       // Keep only recent interactions
       if (current.shortTermMemory.recentInteractions.length > 20) {
-        current.shortTermMemory.recentInteractions = current.shortTermMemory.recentInteractions.slice(0, 20);
+        current.shortTermMemory.recentInteractions =
+          current.shortTermMemory.recentInteractions.slice(0, 20);
       }
     }
 
@@ -143,7 +139,11 @@ export class WorkingMemoryManager {
     await this.storeWorkingMemory(agentId, current);
   }
 
-  async addThought(agentId: string, thought: string, type: 'reasoning' | 'hypothesis' | 'action' | 'uncertainty'): Promise<void> {
+  async addThought(
+    agentId: string,
+    thought: string,
+    type: 'reasoning' | 'hypothesis' | 'action' | 'uncertainty'
+  ): Promise<void> {
     const current = await this.getWorkingMemory(agentId);
     if (!current) return;
 
@@ -175,7 +175,7 @@ export class WorkingMemoryManager {
 
     current.shortTermMemory.emotionalState = {
       ...current.shortTermMemory.emotionalState,
-      ...emotion
+      ...emotion,
     };
     current.metadata.lastUpdated = new Date();
 
@@ -190,7 +190,10 @@ export class WorkingMemoryManager {
 
     // Keep only last 20 interactions in working memory
     if (current.shortTermMemory.recentInteractions.length > 20) {
-      current.shortTermMemory.recentInteractions = current.shortTermMemory.recentInteractions.slice(0, 20);
+      current.shortTermMemory.recentInteractions = current.shortTermMemory.recentInteractions.slice(
+        0,
+        20
+      );
     }
 
     current.metadata.lastUpdated = new Date();
@@ -220,11 +223,15 @@ export class WorkingMemoryManager {
   private trimWorkingMemory(memory: WorkingMemory): void {
     // Trim thoughts to keep most recent and important
     const maxThoughts = 10;
-    Object.keys(memory.currentContext.activeThoughts).forEach(key => {
-      const thoughts = memory.currentContext.activeThoughts[key as keyof typeof memory.currentContext.activeThoughts];
+    Object.keys(memory.currentContext.activeThoughts).forEach((key) => {
+      const thoughts =
+        memory.currentContext.activeThoughts[
+          key as keyof typeof memory.currentContext.activeThoughts
+        ];
       if (thoughts.length > maxThoughts) {
-        memory.currentContext.activeThoughts[key as keyof typeof memory.currentContext.activeThoughts] = 
-          thoughts.slice(-maxThoughts);
+        memory.currentContext.activeThoughts[
+          key as keyof typeof memory.currentContext.activeThoughts
+        ] = thoughts.slice(-maxThoughts);
       }
     });
   }
@@ -232,4 +239,4 @@ export class WorkingMemoryManager {
   // Simple in-memory cache for demonstration
   // In production, this would be replaced with actual Redis client
   private memoryCache = new Map<string, string>();
-} 
+}

@@ -60,7 +60,11 @@ export class RedisSessionManager {
   /**
    * Create a new WebSocket session
    */
-  async createSession(connection: WebSocketConnection, ipAddress?: string, userAgent?: string): Promise<void> {
+  async createSession(
+    connection: WebSocketConnection,
+    ipAddress?: string,
+    userAgent?: string
+  ): Promise<void> {
     try {
       const session: WebSocketSession = {
         connectionId: connection.connectionId,
@@ -74,11 +78,11 @@ export class RedisSessionManager {
         messageCount: 0,
         rateLimitReset: Date.now() + 60000,
         ipAddress,
-        userAgent
+        userAgent,
       };
 
       const pipeline = this.redis.pipeline();
-      
+
       // Store session data
       pipeline.setex(
         `${this.SESSION_PREFIX}${connection.connectionId}`,
@@ -87,10 +91,7 @@ export class RedisSessionManager {
       );
 
       // Add connection to user's connection set
-      pipeline.sadd(
-        `${this.USER_CONNECTIONS_PREFIX}${connection.userId}`,
-        connection.connectionId
-      );
+      pipeline.sadd(`${this.USER_CONNECTIONS_PREFIX}${connection.userId}`, connection.connectionId);
       pipeline.expire(`${this.USER_CONNECTIONS_PREFIX}${connection.userId}`, this.SESSION_TTL);
 
       // Add connection to discussion's connection set
@@ -98,16 +99,19 @@ export class RedisSessionManager {
         `${this.DISCUSSION_CONNECTIONS_PREFIX}${connection.discussionId}`,
         connection.connectionId
       );
-      pipeline.expire(`${this.DISCUSSION_CONNECTIONS_PREFIX}${connection.discussionId}`, this.SESSION_TTL);
+      pipeline.expire(
+        `${this.DISCUSSION_CONNECTIONS_PREFIX}${connection.discussionId}`,
+        this.SESSION_TTL
+      );
 
       // Initialize rate limiting data
       const rateLimitData: RateLimitData = {
         messages: { count: 0, resetTime: Date.now() + 60000 },
         typing: { count: 0, resetTime: Date.now() + 60000 },
         reactions: { count: 0, resetTime: Date.now() + 60000 },
-        turns: { count: 0, resetTime: Date.now() + 60000 }
+        turns: { count: 0, resetTime: Date.now() + 60000 },
       };
-      
+
       pipeline.setex(
         `${this.RATE_LIMIT_PREFIX}${connection.connectionId}`,
         this.RATE_LIMIT_TTL,
@@ -120,13 +124,12 @@ export class RedisSessionManager {
         connectionId: connection.connectionId,
         userId: connection.userId,
         discussionId: connection.discussionId,
-        securityLevel: connection.securityLevel
+        securityLevel: connection.securityLevel,
       });
-
     } catch (error) {
       logger.error('Failed to create WebSocket session in Redis', {
         connectionId: connection.connectionId,
-        error: error instanceof Error ? error.message : 'Unknown error'
+        error: error instanceof Error ? error.message : 'Unknown error',
       });
       throw error;
     }
@@ -138,13 +141,13 @@ export class RedisSessionManager {
   async getSession(connectionId: string): Promise<WebSocketSession | null> {
     try {
       const sessionData = await this.redis.get(`${this.SESSION_PREFIX}${connectionId}`);
-      
+
       if (!sessionData) {
         return null;
       }
 
       const session = JSON.parse(sessionData) as WebSocketSession;
-      
+
       // Convert date strings back to Date objects
       session.connectedAt = new Date(session.connectedAt);
       session.lastActivity = new Date(session.lastActivity);
@@ -153,7 +156,7 @@ export class RedisSessionManager {
     } catch (error) {
       logger.error('Failed to get WebSocket session from Redis', {
         connectionId,
-        error: error instanceof Error ? error.message : 'Unknown error'
+        error: error instanceof Error ? error.message : 'Unknown error',
       });
       return null;
     }
@@ -180,11 +183,10 @@ export class RedisSessionManager {
         this.SESSION_TTL,
         JSON.stringify(session)
       );
-
     } catch (error) {
       logger.error('Failed to update session activity', {
         connectionId,
-        error: error instanceof Error ? error.message : 'Unknown error'
+        error: error instanceof Error ? error.message : 'Unknown error',
       });
     }
   }
@@ -196,28 +198,28 @@ export class RedisSessionManager {
     try {
       // Get session first to know what to clean up
       const session = await this.getSession(connectionId);
-      
+
       if (session) {
         const pipeline = this.redis.pipeline();
-        
+
         // Remove session data
         pipeline.del(`${this.SESSION_PREFIX}${connectionId}`);
-        
+
         // Remove from user connections
         pipeline.srem(`${this.USER_CONNECTIONS_PREFIX}${session.userId}`, connectionId);
-        
+
         // Remove from discussion connections
         pipeline.srem(`${this.DISCUSSION_CONNECTIONS_PREFIX}${session.discussionId}`, connectionId);
-        
+
         // Remove rate limiting data
         pipeline.del(`${this.RATE_LIMIT_PREFIX}${connectionId}`);
-        
+
         await pipeline.exec();
 
         logger.info('WebSocket session removed from Redis', {
           connectionId,
           userId: session.userId,
-          discussionId: session.discussionId
+          discussionId: session.discussionId,
         });
       } else {
         // Still try to clean up any orphaned data
@@ -226,11 +228,10 @@ export class RedisSessionManager {
         pipeline.del(`${this.RATE_LIMIT_PREFIX}${connectionId}`);
         await pipeline.exec();
       }
-
     } catch (error) {
       logger.error('Failed to remove WebSocket session from Redis', {
         connectionId,
-        error: error instanceof Error ? error.message : 'Unknown error'
+        error: error instanceof Error ? error.message : 'Unknown error',
       });
     }
   }
@@ -244,7 +245,7 @@ export class RedisSessionManager {
     } catch (error) {
       logger.error('Failed to get user connections from Redis', {
         userId,
-        error: error instanceof Error ? error.message : 'Unknown error'
+        error: error instanceof Error ? error.message : 'Unknown error',
       });
       return [];
     }
@@ -259,7 +260,7 @@ export class RedisSessionManager {
     } catch (error) {
       logger.error('Failed to get discussion connections from Redis', {
         discussionId,
-        error: error instanceof Error ? error.message : 'Unknown error'
+        error: error instanceof Error ? error.message : 'Unknown error',
       });
       return [];
     }
@@ -275,7 +276,7 @@ export class RedisSessionManager {
     } catch (error) {
       logger.error('Failed to check connection limits', {
         userId,
-        error: error instanceof Error ? error.message : 'Unknown error'
+        error: error instanceof Error ? error.message : 'Unknown error',
       });
       return false; // Deny on error
     }
@@ -284,32 +285,36 @@ export class RedisSessionManager {
   /**
    * Check and update rate limits
    */
-  async checkRateLimit(connectionId: string, type: keyof RateLimitData, maxPerMinute: number): Promise<boolean> {
+  async checkRateLimit(
+    connectionId: string,
+    type: keyof RateLimitData,
+    maxPerMinute: number
+  ): Promise<boolean> {
     try {
       const rateLimitData = await this.redis.get(`${this.RATE_LIMIT_PREFIX}${connectionId}`);
-      
+
       if (!rateLimitData) {
         // Initialize if not exists
         const newRateLimitData: RateLimitData = {
           messages: { count: 0, resetTime: Date.now() + 60000 },
           typing: { count: 0, resetTime: Date.now() + 60000 },
           reactions: { count: 0, resetTime: Date.now() + 60000 },
-          turns: { count: 0, resetTime: Date.now() + 60000 }
+          turns: { count: 0, resetTime: Date.now() + 60000 },
         };
-        
+
         await this.redis.setex(
           `${this.RATE_LIMIT_PREFIX}${connectionId}`,
           this.RATE_LIMIT_TTL,
           JSON.stringify(newRateLimitData)
         );
-        
+
         newRateLimitData[type].count = 1;
         await this.redis.setex(
           `${this.RATE_LIMIT_PREFIX}${connectionId}`,
           this.RATE_LIMIT_TTL,
           JSON.stringify(newRateLimitData)
         );
-        
+
         return true;
       }
 
@@ -330,7 +335,7 @@ export class RedisSessionManager {
 
       // Increment counter
       typeLimit.count++;
-      
+
       // Update in Redis
       await this.redis.setex(
         `${this.RATE_LIMIT_PREFIX}${connectionId}`,
@@ -339,12 +344,11 @@ export class RedisSessionManager {
       );
 
       return true;
-
     } catch (error) {
       logger.error('Failed to check rate limit', {
         connectionId,
         type,
-        error: error instanceof Error ? error.message : 'Unknown error'
+        error: error instanceof Error ? error.message : 'Unknown error',
       });
       return false; // Deny on error
     }
@@ -366,16 +370,16 @@ export class RedisSessionManager {
       return {
         totalSessions: sessionKeys.length,
         activeUsers: userKeys.length,
-        activeDiscussions: discussionKeys.length
+        activeDiscussions: discussionKeys.length,
       };
     } catch (error) {
       logger.error('Failed to get session stats', {
-        error: error instanceof Error ? error.message : 'Unknown error'
+        error: error instanceof Error ? error.message : 'Unknown error',
       });
       return {
         totalSessions: 0,
         activeUsers: 0,
-        activeDiscussions: 0
+        activeDiscussions: 0,
       };
     }
   }
@@ -392,14 +396,14 @@ export class RedisSessionManager {
       for (const userKey of userKeys) {
         const connections = await this.redis.smembers(userKey);
         const validConnections = [];
-        
+
         for (const connectionId of connections) {
           const exists = await this.redis.exists(`${this.SESSION_PREFIX}${connectionId}`);
           if (exists) {
             validConnections.push(connectionId);
           }
         }
-        
+
         if (validConnections.length !== connections.length) {
           if (validConnections.length === 0) {
             await this.redis.del(userKey);
@@ -415,14 +419,14 @@ export class RedisSessionManager {
       for (const discussionKey of discussionKeys) {
         const connections = await this.redis.smembers(discussionKey);
         const validConnections = [];
-        
+
         for (const connectionId of connections) {
           const exists = await this.redis.exists(`${this.SESSION_PREFIX}${connectionId}`);
           if (exists) {
             validConnections.push(connectionId);
           }
         }
-        
+
         if (validConnections.length !== connections.length) {
           if (validConnections.length === 0) {
             await this.redis.del(discussionKey);
@@ -435,10 +439,9 @@ export class RedisSessionManager {
       }
 
       logger.debug('WebSocket session cleanup completed');
-
     } catch (error) {
       logger.error('Failed to cleanup expired sessions', {
-        error: error instanceof Error ? error.message : 'Unknown error'
+        error: error instanceof Error ? error.message : 'Unknown error',
       });
     }
   }
@@ -452,7 +455,7 @@ export class RedisSessionManager {
       logger.info('Redis WebSocket session manager disconnected');
     } catch (error) {
       logger.error('Error closing Redis connection', {
-        error: error instanceof Error ? error.message : 'Unknown error'
+        error: error instanceof Error ? error.message : 'Unknown error',
       });
     }
   }

@@ -31,21 +31,25 @@ This integration layer provides seamless synchronization between PostgreSQL (rel
 ## Components
 
 ### 1. IntegrationEvent (Outbox Pattern)
+
 - **Purpose**: Ensures reliable event delivery between PostgreSQL and Neo4j
 - **Benefits**: ACID transactions, retry logic, failure handling
 - **Storage**: `integration_events` table in PostgreSQL
 
 ### 2. OutboxPublisher
+
 - **Purpose**: Publishes integration events to the outbox table
 - **Triggers**: Automatically via TypeORM subscribers
 - **Features**: Batching, retry scheduling, cleanup
 
 ### 3. GraphSyncWorker
+
 - **Purpose**: Background worker that processes outbox events
 - **Features**: Batch processing, exponential backoff, error handling
 - **Frequency**: Every 5 seconds (configurable)
 
 ### 4. ToolGraphDatabase Extensions
+
 - **Purpose**: Neo4j operations for MCP entities
 - **New Methods**:
   - `createMcpServerNode()` - Create/update MCP server nodes
@@ -54,6 +58,7 @@ This integration layer provides seamless synchronization between PostgreSQL (rel
   - `getMcpToolCallAnalytics()` - Get tool call metrics
 
 ### 5. TypeORM Subscribers
+
 - **MCPServerSubscriber**: Auto-publishes MCP server changes
 - **MCPToolCallSubscriber**: Auto-publishes tool call changes
 - **Features**: Automatic event publishing on CREATE/UPDATE/DELETE
@@ -76,18 +81,18 @@ integrationService.start();
 const outboxPublisher = integrationService.getOutboxPublisher();
 
 // Publish MCP Server event
-await outboxPublisher.publishMCPServerEvent(
-  'server-123',
-  'CREATE',
-  { name: 'My MCP Server', type: 'stdio', status: 'running' }
-);
+await outboxPublisher.publishMCPServerEvent('server-123', 'CREATE', {
+  name: 'My MCP Server',
+  type: 'stdio',
+  status: 'running',
+});
 
 // Publish Tool Call event
-await outboxPublisher.publishMCPToolCallEvent(
-  'call-456',
-  'CREATE',
-  { serverId: 'server-123', toolName: 'filesystem', status: 'completed' }
-);
+await outboxPublisher.publishMCPToolCallEvent('call-456', 'CREATE', {
+  serverId: 'server-123',
+  toolName: 'filesystem',
+  status: 'completed',
+});
 ```
 
 ### Query Neo4j Graph Data
@@ -143,17 +148,20 @@ console.log('Worker running:', health.details.workerRunning);
 ## Monitoring & Maintenance
 
 ### Cleanup Old Events
+
 ```typescript
 const deletedCount = await integrationService.cleanupOldEvents(7); // 7 days
 console.log(`Cleaned up ${deletedCount} old events`);
 ```
 
 ### Process Retries Manually
+
 ```typescript
 await integrationService.processRetries();
 ```
 
 ### Get Service Status
+
 ```typescript
 const status = integrationService.getStatus();
 console.log('Initialized:', status.isInitialized);
@@ -164,6 +172,7 @@ console.log('Neo4j connected:', status.neo4j?.isConnected);
 ## Configuration
 
 Environment variables:
+
 - `NEO4J_URI`: Neo4j connection URI
 - `NEO4J_USERNAME`: Neo4j username
 - `NEO4J_PASSWORD`: Neo4j password
@@ -172,8 +181,9 @@ Environment variables:
 ## Migration
 
 Run the integration events migration:
+
 ```bash
 npm run migration:run
 ```
 
-This creates the `integration_events` table with proper indexes for optimal performance. 
+This creates the `integration_events` table with proper indexes for optimal performance.

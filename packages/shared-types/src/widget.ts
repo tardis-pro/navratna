@@ -8,7 +8,7 @@ export enum WidgetPermission {
   INTERACT = 'interact',
   CONFIGURE = 'configure',
   MANAGE = 'manage',
-  ADMIN = 'admin'
+  ADMIN = 'admin',
 }
 
 // Widget Categories for organization
@@ -21,7 +21,7 @@ export enum WidgetCategory {
   TOOLS = 'tools',
   SECURITY = 'security',
   SYSTEM = 'system',
-  CUSTOM = 'custom'
+  CUSTOM = 'custom',
 }
 
 // Widget Status
@@ -30,7 +30,7 @@ export enum WidgetStatus {
   INACTIVE = 'inactive',
   BETA = 'beta',
   DEPRECATED = 'deprecated',
-  MAINTENANCE = 'maintenance'
+  MAINTENANCE = 'maintenance',
 }
 
 // Widget Size Configurations
@@ -41,21 +41,21 @@ export const WidgetSizeSchema = z.object({
   minHeight: z.number().min(150).optional(),
   maxWidth: z.number().max(2000).optional(),
   maxHeight: z.number().max(1500).optional(),
-  aspectRatio: z.number().positive().optional()
+  aspectRatio: z.number().positive().optional(),
 });
 
 // Responsive size configurations
 export const ResponsiveSizeSchema = z.object({
   desktop: WidgetSizeSchema,
   tablet: WidgetSizeSchema,
-  mobile: WidgetSizeSchema
+  mobile: WidgetSizeSchema,
 });
 
 // Widget positioning
 export const WidgetPositionSchema = z.object({
   x: z.number().min(0),
   y: z.number().min(0),
-  zIndex: z.number().min(0).optional()
+  zIndex: z.number().min(0).optional(),
 });
 
 // Widget configuration schema
@@ -71,7 +71,7 @@ export const WidgetConfigSchema = z.object({
   persistState: z.boolean().default(true),
   showHeader: z.boolean().default(true),
   showFooter: z.boolean().default(false),
-  customSettings: z.record(z.any()).optional()
+  customSettings: z.record(z.any()).optional(),
 });
 
 // Widget metadata
@@ -84,11 +84,15 @@ export const WidgetMetadataSchema = z.object({
   license: z.string().optional(),
   tags: z.array(z.string()).default([]),
   dependencies: z.array(z.string()).default([]),
-  changelog: z.array(z.object({
-    version: z.string(),
-    date: z.string(),
-    changes: z.array(z.string())
-  })).optional()
+  changelog: z
+    .array(
+      z.object({
+        version: z.string(),
+        date: z.string(),
+        changes: z.array(z.string()),
+      })
+    )
+    .optional(),
 });
 
 // Widget RBAC configuration
@@ -99,16 +103,20 @@ export const WidgetRBACSchema = z.object({
   allowedDepartments: z.array(z.string()).optional(),
   deniedUsers: z.array(IDSchema).default([]),
   allowedUsers: z.array(IDSchema).optional(),
-  conditionalAccess: z.object({
-    timeRestrictions: z.object({
-      startTime: z.string().optional(), // HH:MM format
-      endTime: z.string().optional(),   // HH:MM format
-      timezone: z.string().optional(),
-      daysOfWeek: z.array(z.number().min(0).max(6)).optional() // 0=Sunday
-    }).optional(),
-    ipRestrictions: z.array(z.string()).optional(),
-    deviceRestrictions: z.array(z.string()).optional()
-  }).optional()
+  conditionalAccess: z
+    .object({
+      timeRestrictions: z
+        .object({
+          startTime: z.string().optional(), // HH:MM format
+          endTime: z.string().optional(), // HH:MM format
+          timezone: z.string().optional(),
+          daysOfWeek: z.array(z.number().min(0).max(6)).optional(), // 0=Sunday
+        })
+        .optional(),
+      ipRestrictions: z.array(z.string()).optional(),
+      deviceRestrictions: z.array(z.string()).optional(),
+    })
+    .optional(),
 });
 
 // Base widget definition
@@ -125,7 +133,7 @@ export const BaseWidgetSchema = z.object({
   metadata: WidgetMetadataSchema.default({}),
   rbac: WidgetRBACSchema.default({}),
   createdAt: TimestampSchema,
-  updatedAt: TimestampSchema
+  updatedAt: TimestampSchema,
 });
 
 // Widget instance (runtime instance of a widget)
@@ -139,7 +147,7 @@ export const WidgetInstanceSchema = BaseWidgetSchema.extend({
   isMaximized: z.boolean().default(false),
   instanceConfig: z.record(z.any()).default({}),
   lastInteraction: z.date().optional(),
-  sessionId: z.string().optional()
+  sessionId: z.string().optional(),
 });
 
 // Widget registration request
@@ -148,13 +156,13 @@ export const WidgetRegistrationSchema = z.object({
   componentPath: z.string(), // Path to the widget component
   previewImage: z.string().url().optional(),
   registeredBy: IDSchema,
-  registrationReason: z.string().optional()
+  registrationReason: z.string().optional(),
 });
 
 // Widget update request
-export const WidgetUpdateSchema = BaseWidgetSchema.partial().omit({ 
-  id: true, 
-  createdAt: true 
+export const WidgetUpdateSchema = BaseWidgetSchema.partial().omit({
+  id: true,
+  createdAt: true,
 });
 
 // Widget access request
@@ -164,7 +172,7 @@ export const WidgetAccessRequestSchema = z.object({
   requestedPermissions: z.array(z.nativeEnum(WidgetPermission)),
   justification: z.string().optional(),
   requestedBy: IDSchema.optional(),
-  expiresAt: z.date().optional()
+  expiresAt: z.date().optional(),
 });
 
 // Widget access response
@@ -175,13 +183,15 @@ export const WidgetAccessResponseSchema = z.object({
   grantedPermissions: z.array(z.nativeEnum(WidgetPermission)),
   deniedPermissions: z.array(z.nativeEnum(WidgetPermission)),
   accessLevel: z.nativeEnum(WidgetPermission),
-  restrictions: z.object({
-    timeRestricted: z.boolean().default(false),
-    ipRestricted: z.boolean().default(false),
-    deviceRestricted: z.boolean().default(false)
-  }).optional(),
+  restrictions: z
+    .object({
+      timeRestricted: z.boolean().default(false),
+      ipRestricted: z.boolean().default(false),
+      deviceRestricted: z.boolean().default(false),
+    })
+    .optional(),
   expiresAt: z.date().optional(),
-  reason: z.string().optional()
+  reason: z.string().optional(),
 });
 
 // Widget registry query
@@ -195,7 +205,7 @@ export const WidgetRegistryQuerySchema = z.object({
   page: z.number().min(1).default(1),
   limit: z.number().min(1).max(100).default(20),
   sortBy: z.enum(['name', 'category', 'createdAt', 'lastUsed', 'popularity']).default('name'),
-  sortOrder: z.enum(['asc', 'desc']).default('asc')
+  sortOrder: z.enum(['asc', 'desc']).default('asc'),
 });
 
 // Widget usage analytics
@@ -206,7 +216,7 @@ export const WidgetUsageSchema = z.object({
   sessionId: z.string().optional(),
   duration: z.number().min(0).optional(), // seconds
   metadata: z.record(z.any()).optional(),
-  timestamp: z.date().default(() => new Date())
+  timestamp: z.date().default(() => new Date()),
 });
 
 // Widget error reporting
@@ -218,19 +228,23 @@ export const WidgetErrorSchema = z.object({
     name: z.string(),
     message: z.string(),
     stack: z.string().optional(),
-    code: z.string().optional()
+    code: z.string().optional(),
   }),
-  context: z.object({
-    userAgent: z.string().optional(),
-    viewport: z.object({
-      width: z.number(),
-      height: z.number()
-    }).optional(),
-    url: z.string().optional(),
-    timestamp: z.date().default(() => new Date())
-  }).optional(),
+  context: z
+    .object({
+      userAgent: z.string().optional(),
+      viewport: z
+        .object({
+          width: z.number(),
+          height: z.number(),
+        })
+        .optional(),
+      url: z.string().optional(),
+      timestamp: z.date().default(() => new Date()),
+    })
+    .optional(),
   severity: z.enum(['low', 'medium', 'high', 'critical']).default('medium'),
-  resolved: z.boolean().default(false)
+  resolved: z.boolean().default(false),
 });
 
 // Type exports
@@ -248,4 +262,4 @@ export type WidgetAccessRequest = z.infer<typeof WidgetAccessRequestSchema>;
 export type WidgetAccessResponse = z.infer<typeof WidgetAccessResponseSchema>;
 export type WidgetRegistryQuery = z.infer<typeof WidgetRegistryQuerySchema>;
 export type WidgetUsage = z.infer<typeof WidgetUsageSchema>;
-export type WidgetError = z.infer<typeof WidgetErrorSchema>; 
+export type WidgetError = z.infer<typeof WidgetErrorSchema>;

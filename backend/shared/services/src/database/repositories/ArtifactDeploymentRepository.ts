@@ -14,7 +14,10 @@ export class ArtifactDeploymentRepository extends BaseRepository<ArtifactDeploym
     try {
       return await this.findMany({ artifactId });
     } catch (error) {
-      logger.error('Error finding deployments by artifact', { artifactId, error: (error as Error).message });
+      logger.error('Error finding deployments by artifact', {
+        artifactId,
+        error: (error as Error).message,
+      });
       throw error;
     }
   }
@@ -26,7 +29,10 @@ export class ArtifactDeploymentRepository extends BaseRepository<ArtifactDeploym
     try {
       return await this.findMany({ environment });
     } catch (error) {
-      logger.error('Error finding deployments by environment', { environment, error: (error as Error).message });
+      logger.error('Error finding deployments by environment', {
+        environment,
+        error: (error as Error).message,
+      });
       throw error;
     }
   }
@@ -38,7 +44,10 @@ export class ArtifactDeploymentRepository extends BaseRepository<ArtifactDeploym
     try {
       return await this.findMany({ status });
     } catch (error) {
-      logger.error('Error finding deployments by status', { status, error: (error as Error).message });
+      logger.error('Error finding deployments by status', {
+        status,
+        error: (error as Error).message,
+      });
       throw error;
     }
   }
@@ -46,7 +55,11 @@ export class ArtifactDeploymentRepository extends BaseRepository<ArtifactDeploym
   /**
    * Update deployment status
    */
-  public async updateStatus(id: string, status: string, errorMessage?: string): Promise<ArtifactDeployment | null> {
+  public async updateStatus(
+    id: string,
+    status: string,
+    errorMessage?: string
+  ): Promise<ArtifactDeployment | null> {
     try {
       const updateData: any = { status };
       if (errorMessage) {
@@ -54,7 +67,11 @@ export class ArtifactDeploymentRepository extends BaseRepository<ArtifactDeploym
       }
       return await this.update(id, updateData);
     } catch (error) {
-      logger.error('Error updating deployment status', { id, status, error: (error as Error).message });
+      logger.error('Error updating deployment status', {
+        id,
+        status,
+        error: (error as Error).message,
+      });
       throw error;
     }
   }
@@ -66,11 +83,16 @@ export class ArtifactDeploymentRepository extends BaseRepository<ArtifactDeploym
     try {
       const deployments = await this.findMany({ artifactId });
       if (deployments.length === 0) return null;
-      
+
       // Sort by deployedAt descending and return the first one
-      return deployments.sort((a, b) => new Date(b.deployedAt).getTime() - new Date(a.deployedAt).getTime())[0];
+      return deployments.sort(
+        (a, b) => new Date(b.deployedAt).getTime() - new Date(a.deployedAt).getTime()
+      )[0];
     } catch (error) {
-      logger.error('Error finding latest deployment', { artifactId, error: (error as Error).message });
+      logger.error('Error finding latest deployment', {
+        artifactId,
+        error: (error as Error).message,
+      });
       throw error;
     }
   }

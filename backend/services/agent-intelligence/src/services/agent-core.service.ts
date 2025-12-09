@@ -4,9 +4,23 @@
  * Part of the refactored agent-intelligence microservices
  */
 
-import { Agent, AgentStatus, AgentRole, CreateAgentRequest, AgentIntelligenceConfig, AgentSecurityContext } from '@uaip/types';
+import {
+  Agent,
+  AgentStatus,
+  AgentRole,
+  CreateAgentRequest,
+  AgentIntelligenceConfig,
+  AgentSecurityContext,
+} from '@uaip/types';
 import { logger } from '@uaip/utils';
-import { DatabaseService, EventBusService, Repository, validateServiceAccess, AccessLevel, PersonaService } from '@uaip/shared-services';
+import {
+  DatabaseService,
+  EventBusService,
+  Repository,
+  validateServiceAccess,
+  AccessLevel,
+  PersonaService,
+} from '@uaip/shared-services';
 import { config } from '@uaip/config';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -68,15 +82,29 @@ export class AgentCoreService {
 
   async initialize(): Promise<void> {
     // Safely access enterprise configuration with fallback
-    const enterpriseConfig = config.enterprise || { enabled: false, zeroTrustMode: false, serviceAccessMatrix: 'standard' };
+    const enterpriseConfig = config.enterprise || {
+      enabled: false,
+      zeroTrustMode: false,
+      serviceAccessMatrix: 'standard',
+    };
 
     // Determine database instance name based on enterprise mode
     const databaseInstance = enterpriseConfig.enabled ? 'postgres-application' : 'postgres';
     const useEnterpriseMatrix = enterpriseConfig.enabled;
 
     // Validate database access using appropriate matrix
-    if (!validateServiceAccess(this.serviceName, 'postgresql', databaseInstance, AccessLevel.WRITE, useEnterpriseMatrix)) {
-      throw new Error(`Service lacks required database permissions for agents (instance: ${databaseInstance}, enterprise: ${useEnterpriseMatrix})`);
+    if (
+      !validateServiceAccess(
+        this.serviceName,
+        'postgresql',
+        databaseInstance,
+        AccessLevel.WRITE,
+        useEnterpriseMatrix
+      )
+    ) {
+      throw new Error(
+        `Service lacks required database permissions for agents (instance: ${databaseInstance}, enterprise: ${useEnterpriseMatrix})`
+      );
     }
 
     logger.debug('Database access validation passed', {
@@ -84,7 +112,7 @@ export class AgentCoreService {
       databaseInstance,
       enterpriseMode: enterpriseConfig.enabled,
       useEnterpriseMatrix,
-      configAvailable: !!config.enterprise
+      configAvailable: !!config.enterprise,
     });
 
     // Initialize agent repository
@@ -98,7 +126,7 @@ export class AgentCoreService {
       securityLevel: this.securityLevel,
       environment: process.env.NODE_ENV,
       enterpriseMode: enterpriseConfig.enabled,
-      databaseInstance
+      databaseInstance,
     });
   }
 
@@ -107,14 +135,26 @@ export class AgentCoreService {
    */
   private async setupEventSubscriptions(): Promise<void> {
     // Subscribe to agent commands
-    await this.eventBusService.subscribe('agent.command.create', this.handleCreateCommand.bind(this));
-    await this.eventBusService.subscribe('agent.command.update', this.handleUpdateCommand.bind(this));
-    await this.eventBusService.subscribe('agent.command.delete', this.handleDeleteCommand.bind(this));
+    await this.eventBusService.subscribe(
+      'agent.command.create',
+      this.handleCreateCommand.bind(this)
+    );
+    await this.eventBusService.subscribe(
+      'agent.command.update',
+      this.handleUpdateCommand.bind(this)
+    );
+    await this.eventBusService.subscribe(
+      'agent.command.delete',
+      this.handleDeleteCommand.bind(this)
+    );
 
     // Subscribe to agent queries
     await this.eventBusService.subscribe('agent.query.get', this.handleGetQuery.bind(this));
     await this.eventBusService.subscribe('agent.query.list', this.handleListQuery.bind(this));
-    await this.eventBusService.subscribe('agent.query.getWithPersona', this.handleGetWithPersonaQuery.bind(this));
+    await this.eventBusService.subscribe(
+      'agent.query.getWithPersona',
+      this.handleGetWithPersonaQuery.bind(this)
+    );
 
     logger.info('Agent Core Service event subscriptions configured');
   }
@@ -136,16 +176,20 @@ export class AgentCoreService {
         contextWindowSize: 4000,
         decisionThreshold: 0.7,
         learningEnabled: true,
-        collaborationMode: 'collaborative' as 'independent' | 'collaborative' | 'supervised'
+        collaborationMode: 'collaborative' as 'independent' | 'collaborative' | 'supervised',
       };
 
       // Create default security context
       const defaultSecurityContext = {
-        securityLevel: (agentData.securityLevel || 'medium') as 'low' | 'medium' | 'high' | 'critical',
+        securityLevel: (agentData.securityLevel || 'medium') as
+          | 'low'
+          | 'medium'
+          | 'high'
+          | 'critical',
         allowedCapabilities: agentData.capabilities || [],
         restrictedDomains: [],
         approvalRequired: false,
-        auditLevel: 'standard' as 'minimal' | 'standard' | 'comprehensive'
+        auditLevel: 'standard' as 'minimal' | 'standard' | 'comprehensive',
       };
 
       const agent: Agent = {
@@ -182,14 +226,14 @@ export class AgentCoreService {
       await this.publishAgentEvent('agent.event.created', {
         agent: savedAgent,
         createdBy,
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
       });
 
       this.auditLog('AGENT_CREATED', {
         agentId: savedAgent.id,
         name: savedAgent.name,
         role: savedAgent.role,
-        createdBy
+        createdBy,
       });
 
       return savedAgent;
@@ -207,14 +251,14 @@ export class AgentCoreService {
       this.validateID(agentId, 'agentId');
 
       const agent = await this.agentRepository.findOne({
-        where: { id: agentId }
+        where: { id: agentId },
       });
 
       if (agent) {
         // Publish agent accessed event for analytics
         await this.publishAgentEvent('agent.event.accessed', {
           agentId,
-          timestamp: new Date().toISOString()
+          timestamp: new Date().toISOString(),
         });
       }
 
@@ -228,7 +272,9 @@ export class AgentCoreService {
   /**
    * Get agent with persona data
    */
-  async getAgentWithPersona(agentId: string): Promise<Agent & { personaData?: Record<string, unknown> } | null> {
+  async getAgentWithPersona(
+    agentId: string
+  ): Promise<(Agent & { personaData?: Record<string, unknown> }) | null> {
     try {
       const agent = await this.getAgent(agentId);
       if (!agent) return null;
@@ -238,7 +284,7 @@ export class AgentCoreService {
         const personaResponse = await this.requestPersonaData(agent.personaId);
         return {
           ...agent,
-          personaData: personaResponse
+          personaData: personaResponse,
         };
       }
 
@@ -290,7 +336,7 @@ export class AgentCoreService {
       await this.publishAgentEvent('agent.event.listed', {
         count: agents.length,
         filters,
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
       });
 
       return agents;
@@ -303,7 +349,11 @@ export class AgentCoreService {
   /**
    * Update an agent
    */
-  async updateAgent(agentId: string, updateData: Partial<CreateAgentRequest>, updatedBy: string): Promise<Agent | null> {
+  async updateAgent(
+    agentId: string,
+    updateData: Partial<CreateAgentRequest>,
+    updatedBy: string
+  ): Promise<Agent | null> {
     try {
       this.validateID(agentId, 'agentId');
 
@@ -334,13 +384,13 @@ export class AgentCoreService {
         previousVersion: existingAgent.version,
         updatedBy,
         changes: Object.keys(updateData),
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
       });
 
       this.auditLog('AGENT_UPDATED', {
         agentId,
         updatedBy,
-        changes: Object.keys(updateData)
+        changes: Object.keys(updateData),
       });
 
       return updatedAgent;
@@ -371,8 +421,8 @@ export class AgentCoreService {
           deletedBy,
           metadata: {
             ...agent.metadata,
-            deletedFrom: this.serviceName
-          }
+            deletedFrom: this.serviceName,
+          },
         }
       );
 
@@ -380,12 +430,12 @@ export class AgentCoreService {
       await this.publishAgentEvent('agent.event.deleted', {
         agentId,
         deletedBy,
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
       });
 
       this.auditLog('AGENT_DELETED', {
         agentId,
-        deletedBy
+        deletedBy,
       });
     } catch (error) {
       logger.error('Failed to delete agent', { error, agentId });
@@ -485,18 +535,21 @@ export class AgentCoreService {
       await this.eventBusService.publish(channel, {
         ...data,
         source: this.serviceName,
-        securityLevel: this.securityLevel
+        securityLevel: this.securityLevel,
       });
     } catch (error) {
       logger.error('Failed to publish agent event', { channel, error });
     }
   }
 
-  private async respondToRequest(requestId: string, response: Record<string, unknown>): Promise<void> {
+  private async respondToRequest(
+    requestId: string,
+    response: Record<string, unknown>
+  ): Promise<void> {
     await this.eventBusService.publish('agent.response', {
       requestId,
       ...response,
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
     });
   }
 
@@ -508,11 +561,11 @@ export class AgentCoreService {
         eventBusService: this.eventBusService,
         enableAnalytics: false,
         enableRecommendations: false,
-        enableCaching: false
+        enableCaching: false,
       });
-      
+
       const persona = await personaService.getPersona(personaId);
-      return persona ? persona as Record<string, unknown> : null;
+      return persona ? (persona as Record<string, unknown>) : null;
     } catch (error) {
       logger.warn('Failed to fetch persona data', { personaId, error });
       return null;
@@ -524,7 +577,7 @@ export class AgentCoreService {
       ...data,
       service: this.serviceName,
       timestamp: new Date().toISOString(),
-      compliance: true
+      compliance: true,
     });
   }
 }

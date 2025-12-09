@@ -7,20 +7,20 @@ vi.mock('@uaip/shared-services', () => ({
   DatabaseService: vi.fn().mockImplementation(() => createMockDatabaseService()),
   EventBusService: vi.fn().mockImplementation(() => createMockEventBusService()),
   KnowledgeGraphService: vi.fn().mockImplementation(() => ({
-    healthCheck: vi.fn().mockResolvedValue({ status: 'healthy' })
+    healthCheck: vi.fn().mockResolvedValue({ status: 'healthy' }),
   })),
   AgentMemoryService: vi.fn().mockImplementation(() => ({
-    healthCheck: vi.fn().mockResolvedValue({ status: 'healthy' })
+    healthCheck: vi.fn().mockResolvedValue({ status: 'healthy' }),
   })),
   PersonaService: vi.fn().mockImplementation(() => ({
-    healthCheck: vi.fn().mockResolvedValue({ status: 'healthy' })
+    healthCheck: vi.fn().mockResolvedValue({ status: 'healthy' }),
   })),
   DiscussionService: vi.fn().mockImplementation(() => ({
-    healthCheck: vi.fn().mockResolvedValue({ status: 'healthy' })
+    healthCheck: vi.fn().mockResolvedValue({ status: 'healthy' }),
   })),
   CapabilityDiscoveryService: vi.fn().mockImplementation(() => ({
     discoverCapabilities: vi.fn().mockResolvedValue([]),
-    getAgentCapabilities: vi.fn().mockResolvedValue([])
+    getAgentCapabilities: vi.fn().mockResolvedValue([]),
   })),
   SecurityValidationService: vi.fn().mockImplementation(() => ({
     validateOperation: vi.fn().mockResolvedValue({
@@ -28,7 +28,7 @@ vi.mock('@uaip/shared-services', () => ({
       riskLevel: 'MEDIUM',
       approvalRequired: false,
       conditions: [],
-      reasoning: 'Operation approved'
+      reasoning: 'Operation approved',
     }),
     assessRisk: vi.fn().mockResolvedValue({
       level: 'MEDIUM',
@@ -38,9 +38,9 @@ vi.mock('@uaip/shared-services', () => ({
       recommendations: [],
       mitigations: [],
       assessedAt: new Date(),
-      assessedBy: 'system'
-    })
-  }))
+      assessedBy: 'system',
+    }),
+  })),
 }));
 
 describe('Agent Intelligence Service Integration', () => {
@@ -105,7 +105,7 @@ describe('Agent Intelligence Service Integration', () => {
       const service1 = (controller as any).agentIntelligenceService;
       const service2 = (controller as any).capabilityDiscoveryService;
       const service3 = (controller as any).securityValidationService;
-      
+
       expect(service1).not.toBe(service2);
       expect(service1).not.toBe(service3);
       expect(service2).not.toBe(service3);

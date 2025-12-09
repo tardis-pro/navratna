@@ -12,7 +12,7 @@ const mockRedis = {
   ttl: jest.fn().mockResolvedValue(-1),
   info: jest.fn().mockResolvedValue('keyspace_hits:100\r\nkeyspace_misses:20\r\n'),
   quit: jest.fn().mockResolvedValue('OK'),
-  on: jest.fn()
+  on: jest.fn(),
 };
 
 // Mock ioredis
@@ -30,13 +30,13 @@ jest.mock('@uaip/config', () => ({
       db: 0,
       maxRetriesPerRequest: 3,
       retryDelayOnFailover: 100,
-      enableOfflineQueue: false
+      enableOfflineQueue: false,
     }),
     getStateConfig: jest.fn().mockReturnValue({
       compressionEnabled: true,
-      maxCheckpointSize: 1048576 // 1MB
-    })
-  }
+      maxCheckpointSize: 1048576, // 1MB
+    }),
+  },
 }));
 
 // Mock DatabaseService
@@ -52,7 +52,7 @@ const createMockDatabaseService = () => ({
     totalOperations: 100,
     activeOperations: 15,
     totalCheckpoints: 50,
-    averageStateSize: 2048
+    averageStateSize: 2048,
   }),
   healthCheck: jest.fn().mockResolvedValue({
     status: 'healthy',
@@ -61,9 +61,9 @@ const createMockDatabaseService = () => ({
       totalConnections: 1,
       idleConnections: 0,
       waitingConnections: 0,
-      responseTime: 5
-    }
-  })
+      responseTime: 5,
+    },
+  }),
 });
 
 describe('StateManagerService', () => {
@@ -99,7 +99,7 @@ describe('StateManagerService', () => {
       failedSteps: [],
       variables: { userId: 'user-123', config: 'test' },
       checkpoints: ['checkpoint-1'],
-      lastUpdated: new Date()
+      lastUpdated: new Date(),
     };
 
     describe('initializeOperationState', () => {
@@ -126,18 +126,20 @@ describe('StateManagerService', () => {
           completedSteps: 'not-an-array', // Invalid type
           failedSteps: [],
           variables: null, // Invalid type
-          checkpoints: []
+          checkpoints: [],
         };
 
-        await expect(service.initializeOperationState(mockOperationId, invalidState as any))
-          .rejects.toThrow();
+        await expect(
+          service.initializeOperationState(mockOperationId, invalidState as any)
+        ).rejects.toThrow();
       });
 
       it('should handle Redis storage errors gracefully', async () => {
         mockRedis.setex.mockRejectedValueOnce(new Error('Redis connection failed'));
 
-        await expect(service.initializeOperationState(mockOperationId, mockOperationState))
-          .rejects.toThrow('Failed to initialize operation state');
+        await expect(
+          service.initializeOperationState(mockOperationId, mockOperationState)
+        ).rejects.toThrow('Failed to initialize operation state');
       });
     });
 
@@ -192,7 +194,7 @@ describe('StateManagerService', () => {
       const updateOptions: StateUpdateOptions = {
         currentStep: 'step-2',
         completedSteps: ['step-0', 'step-1'],
-        variables: { userId: 'user-123', newValue: 'updated' }
+        variables: { userId: 'user-123', newValue: 'updated' },
       };
 
       beforeEach(() => {
@@ -207,7 +209,7 @@ describe('StateManagerService', () => {
           currentStep: 'step-2',
           completedSteps: ['step-0', 'step-1'],
           variables: { ...mockOperationState.variables, newValue: 'updated' },
-          lastUpdated: expect.any(Date)
+          lastUpdated: expect.any(Date),
         };
 
         expect(mockRedis.setex).toHaveBeenCalledWith(
@@ -226,7 +228,7 @@ describe('StateManagerService', () => {
       it('should create automatic checkpoint for significant changes', async () => {
         const significantUpdate: StateUpdateOptions = {
           status: 'completed',
-          completedSteps: ['step-0', 'step-1', 'step-2']
+          completedSteps: ['step-0', 'step-1', 'step-2'],
         };
 
         await service.updateOperationState(mockOperationId, significantUpdate);
@@ -238,8 +240,9 @@ describe('StateManagerService', () => {
         mockRedis.get.mockResolvedValueOnce(null);
         mockDatabaseService.getOperationState.mockResolvedValueOnce(null);
 
-        await expect(service.updateOperationState(mockOperationId, updateOptions))
-          .rejects.toThrow(`Operation state not found for ${mockOperationId}`);
+        await expect(service.updateOperationState(mockOperationId, updateOptions)).rejects.toThrow(
+          `Operation state not found for ${mockOperationId}`
+        );
       });
     });
   });
@@ -259,10 +262,10 @@ describe('StateManagerService', () => {
           failedSteps: [],
           variables: {},
           checkpoints: [],
-          lastUpdated: new Date()
-        }
+          lastUpdated: new Date(),
+        },
       },
-      timestamp: new Date()
+      timestamp: new Date(),
     };
 
     describe('saveCheckpoint', () => {
@@ -285,12 +288,13 @@ describe('StateManagerService', () => {
           ...mockCheckpoint,
           data: {
             ...mockCheckpoint.data,
-            largeData: 'x'.repeat(2000000) // 2MB of data
-          }
+            largeData: 'x'.repeat(2000000), // 2MB of data
+          },
         };
 
-        await expect(service.saveCheckpoint('test-op', largeCheckpoint))
-          .rejects.toThrow('Checkpoint size');
+        await expect(service.saveCheckpoint('test-op', largeCheckpoint)).rejects.toThrow(
+          'Checkpoint size'
+        );
       });
 
       it('should compress checkpoint when compression is enabled', async () => {
@@ -304,8 +308,9 @@ describe('StateManagerService', () => {
       it('should require checkpoint ID', async () => {
         const checkpointWithoutId = { ...mockCheckpoint, id: undefined };
 
-        await expect(service.saveCheckpoint('test-op', checkpointWithoutId as any))
-          .rejects.toThrow('Checkpoint ID is required');
+        await expect(service.saveCheckpoint('test-op', checkpointWithoutId as any)).rejects.toThrow(
+          'Checkpoint ID is required'
+        );
       });
     });
 
@@ -339,7 +344,7 @@ describe('StateManagerService', () => {
       it('should decompress checkpoint when compression flag is present', async () => {
         const compressedCheckpoint = {
           ...mockCheckpoint,
-          data: { ...mockCheckpoint.data, compressed: true }
+          data: { ...mockCheckpoint.data, compressed: true },
         };
         mockRedis.get.mockResolvedValueOnce(JSON.stringify(compressedCheckpoint));
 
@@ -354,7 +359,7 @@ describe('StateManagerService', () => {
       it('should retrieve checkpoints from database and sort by timestamp', async () => {
         const checkpoints = [
           { ...mockCheckpoint, id: 'cp1', timestamp: new Date('2023-01-01') },
-          { ...mockCheckpoint, id: 'cp2', timestamp: new Date('2023-01-02') }
+          { ...mockCheckpoint, id: 'cp2', timestamp: new Date('2023-01-02') },
         ];
         mockDatabaseService.listCheckpoints.mockResolvedValueOnce(checkpoints);
 
@@ -374,7 +379,7 @@ describe('StateManagerService', () => {
         const result = await service.restoreFromCheckpoint('test-op', 'checkpoint-123');
 
         expect(result).toEqual(mockCheckpoint.data.operationState);
-        
+
         // Should update both cache and database
         expect(mockRedis.setex).toHaveBeenCalledWith(
           'operation:state:test-op',
@@ -388,8 +393,8 @@ describe('StateManagerService', () => {
           {
             metadata: {
               restoredFromCheckpoint: 'checkpoint-123',
-              restoredAt: expect.any(Date)
-            }
+              restoredAt: expect.any(Date),
+            },
           }
         );
       });
@@ -398,19 +403,21 @@ describe('StateManagerService', () => {
         mockRedis.get.mockResolvedValueOnce(null);
         mockDatabaseService.getCheckpoint.mockResolvedValueOnce(null);
 
-        await expect(service.restoreFromCheckpoint('test-op', 'missing-checkpoint'))
-          .rejects.toThrow('Checkpoint missing-checkpoint not found');
+        await expect(
+          service.restoreFromCheckpoint('test-op', 'missing-checkpoint')
+        ).rejects.toThrow('Checkpoint missing-checkpoint not found');
       });
 
       it('should validate checkpoint contains operation state', async () => {
         const invalidCheckpoint = {
           ...mockCheckpoint,
-          data: { timestamp: new Date(), version: '1.0' } // Missing operationState
+          data: { timestamp: new Date(), version: '1.0' }, // Missing operationState
         };
         mockRedis.get.mockResolvedValueOnce(JSON.stringify(invalidCheckpoint));
 
-        await expect(service.restoreFromCheckpoint('test-op', 'checkpoint-123'))
-          .rejects.toThrow('does not contain operation state');
+        await expect(service.restoreFromCheckpoint('test-op', 'checkpoint-123')).rejects.toThrow(
+          'does not contain operation state'
+        );
       });
     });
   });
@@ -425,9 +432,7 @@ describe('StateManagerService', () => {
         await service.cleanupOldStates(maxAge);
 
         // Should delete old states from database
-        expect(mockDatabaseService.deleteOldOperationStates).toHaveBeenCalledWith(
-          expect.any(Date)
-        );
+        expect(mockDatabaseService.deleteOldOperationStates).toHaveBeenCalledWith(expect.any(Date));
 
         // Should set expiration on cache keys without TTL
         expect(mockRedis.expire).toHaveBeenCalledWith('operation:state:op1', 3600);
@@ -437,9 +442,7 @@ describe('StateManagerService', () => {
       it('should use default maxAge when not provided', async () => {
         await service.cleanupOldStates();
 
-        expect(mockDatabaseService.deleteOldOperationStates).toHaveBeenCalledWith(
-          expect.any(Date)
-        );
+        expect(mockDatabaseService.deleteOldOperationStates).toHaveBeenCalledWith(expect.any(Date));
       });
     });
 
@@ -452,7 +455,7 @@ describe('StateManagerService', () => {
           activeOperations: 15,
           totalCheckpoints: 50,
           cacheHitRate: 100 / (100 + 20), // Based on mocked Redis info
-          averageStateSize: 2048
+          averageStateSize: 2048,
         });
 
         expect(mockDatabaseService.getStateStatistics).toHaveBeenCalled();
@@ -476,7 +479,7 @@ describe('StateManagerService', () => {
       expect(result).toEqual({
         redis: true,
         database: true,
-        overall: true
+        overall: true,
       });
 
       expect(mockDatabaseService.healthCheck).toHaveBeenCalled();
@@ -485,7 +488,7 @@ describe('StateManagerService', () => {
     it('should return false overall status when any component is unhealthy', async () => {
       mockDatabaseService.healthCheck.mockResolvedValueOnce({
         status: 'unhealthy',
-        details: { connected: false }
+        details: { connected: false },
       });
 
       const result = await service.healthCheck();
@@ -493,7 +496,7 @@ describe('StateManagerService', () => {
       expect(result).toEqual({
         redis: true,
         database: false,
-        overall: false
+        overall: false,
       });
     });
   });
@@ -515,21 +518,23 @@ describe('StateManagerService', () => {
   describe('Cache Performance', () => {
     it('should handle high-frequency state updates efficiently', async () => {
       // Setup initial state
-      mockRedis.get.mockResolvedValue(JSON.stringify({
-        operationId: 'high-freq-op',
-        currentStep: 'step-0',
-        completedSteps: [],
-        failedSteps: [],
-        variables: {},
-        checkpoints: [],
-        lastUpdated: new Date()
-      }));
+      mockRedis.get.mockResolvedValue(
+        JSON.stringify({
+          operationId: 'high-freq-op',
+          currentStep: 'step-0',
+          completedSteps: [],
+          failedSteps: [],
+          variables: {},
+          checkpoints: [],
+          lastUpdated: new Date(),
+        })
+      );
 
       // Perform multiple rapid updates
-      const updates = Array.from({ length: 10 }, (_, i) => 
+      const updates = Array.from({ length: 10 }, (_, i) =>
         service.updateOperationState('high-freq-op', {
           currentStep: `step-${i}`,
-          variables: { counter: i }
+          variables: { counter: i },
         })
       );
 
@@ -555,21 +560,19 @@ describe('StateManagerService', () => {
             failedSteps: [],
             variables: {},
             checkpoints: [],
-            lastUpdated: new Date()
-          }
+            lastUpdated: new Date(),
+          },
         },
-        timestamp: new Date()
+        timestamp: new Date(),
       };
 
       const checkpoints = Array.from({ length: 5 }, (_, i) => ({
         ...baseCheckpoint,
         id: `checkpoint-${i}`,
-        stepId: `step-${i}`
+        stepId: `step-${i}`,
       }));
 
-      const saveOperations = checkpoints.map(cp => 
-        service.saveCheckpoint('test-op', cp)
-      );
+      const saveOperations = checkpoints.map((cp) => service.saveCheckpoint('test-op', cp));
 
       await Promise.all(saveOperations);
 
@@ -588,7 +591,7 @@ describe('StateManagerService', () => {
         failedSteps: [],
         variables: {},
         checkpoints: [],
-        lastUpdated: new Date()
+        lastUpdated: new Date(),
       });
 
       const result = await service.getOperationState('test-op');
@@ -600,15 +603,17 @@ describe('StateManagerService', () => {
     it('should handle database failures gracefully during state operations', async () => {
       mockDatabaseService.saveOperationState.mockRejectedValueOnce(new Error('Database error'));
 
-      await expect(service.initializeOperationState('test-op', {
-        operationId: 'test-op',
-        currentStep: 'step-1',
-        completedSteps: [],
-        failedSteps: [],
-        variables: {},
-        checkpoints: [],
-        lastUpdated: new Date()
-      })).rejects.toThrow('Failed to initialize operation state');
+      await expect(
+        service.initializeOperationState('test-op', {
+          operationId: 'test-op',
+          currentStep: 'step-1',
+          completedSteps: [],
+          failedSteps: [],
+          variables: {},
+          checkpoints: [],
+          lastUpdated: new Date(),
+        })
+      ).rejects.toThrow('Failed to initialize operation state');
     });
   });
 });

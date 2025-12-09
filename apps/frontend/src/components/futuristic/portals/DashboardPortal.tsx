@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { 
+import {
   Home,
   Activity,
   Users,
@@ -16,7 +16,7 @@ import {
   BarChart3,
   AlertTriangle,
   CheckCircle,
-  XCircle
+  XCircle,
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -55,10 +55,7 @@ interface QuickStat {
   color: string;
 }
 
-export const DashboardPortal: React.FC<DashboardPortalProps> = ({
-  viewport,
-  className = ''
-}) => {
+export const DashboardPortal: React.FC<DashboardPortalProps> = ({ viewport, className = '' }) => {
   const [systemMetrics, setSystemMetrics] = useState<SystemMetric[]>([]);
   const [quickStats, setQuickStats] = useState<QuickStat[]>([]);
   const [systemStatus, setSystemStatus] = useState<'online' | 'degraded' | 'offline'>('online');
@@ -73,7 +70,7 @@ export const DashboardPortal: React.FC<DashboardPortalProps> = ({
         unit: '%',
         status: 'good',
         trend: 'stable',
-        icon: Server
+        icon: Server,
       },
       {
         id: 'memory',
@@ -82,7 +79,7 @@ export const DashboardPortal: React.FC<DashboardPortalProps> = ({
         unit: '%',
         status: 'warning',
         trend: 'up',
-        icon: Database
+        icon: Database,
       },
       {
         id: 'response_time',
@@ -91,7 +88,7 @@ export const DashboardPortal: React.FC<DashboardPortalProps> = ({
         unit: 'ms',
         status: 'good',
         trend: 'down',
-        icon: Zap
+        icon: Zap,
       },
       {
         id: 'uptime',
@@ -100,8 +97,8 @@ export const DashboardPortal: React.FC<DashboardPortalProps> = ({
         unit: '%',
         status: 'good',
         trend: 'stable',
-        icon: Shield
-      }
+        icon: Shield,
+      },
     ];
 
     const mockStats: QuickStat[] = [
@@ -112,7 +109,7 @@ export const DashboardPortal: React.FC<DashboardPortalProps> = ({
         change: '+2 from yesterday',
         changeType: 'positive',
         icon: Users,
-        color: 'text-cyan-400'
+        color: 'text-cyan-400',
       },
       {
         id: 'discussions',
@@ -121,7 +118,7 @@ export const DashboardPortal: React.FC<DashboardPortalProps> = ({
         change: '+3 from yesterday',
         changeType: 'positive',
         icon: MessageSquare,
-        color: 'text-green-400'
+        color: 'text-green-400',
       },
       {
         id: 'knowledge_items',
@@ -130,7 +127,7 @@ export const DashboardPortal: React.FC<DashboardPortalProps> = ({
         change: '+15 this week',
         changeType: 'positive',
         icon: Brain,
-        color: 'text-orange-400'
+        color: 'text-orange-400',
       },
       {
         id: 'artifacts',
@@ -139,8 +136,8 @@ export const DashboardPortal: React.FC<DashboardPortalProps> = ({
         change: '+5 this week',
         changeType: 'positive',
         icon: Package,
-        color: 'text-purple-400'
-      }
+        color: 'text-purple-400',
+      },
     ];
 
     setSystemMetrics(mockMetrics);
@@ -187,7 +184,9 @@ export const DashboardPortal: React.FC<DashboardPortalProps> = ({
   };
 
   return (
-    <div className={`h-full bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 ${className}`}>
+    <div
+      className={`h-full bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 ${className}`}
+    >
       {/* Header */}
       <div className="p-6 border-b border-blue-500/20 bg-black/20 backdrop-blur-sm">
         <div className="flex items-center justify-between">
@@ -199,11 +198,15 @@ export const DashboardPortal: React.FC<DashboardPortalProps> = ({
             </div>
           </div>
           <div className="flex items-center space-x-2">
-            <div className={`w-3 h-3 rounded-full ${
-              systemStatus === 'online' ? 'bg-green-400 animate-pulse' :
-              systemStatus === 'degraded' ? 'bg-yellow-400' :
-              'bg-red-400'
-            }`} />
+            <div
+              className={`w-3 h-3 rounded-full ${
+                systemStatus === 'online'
+                  ? 'bg-green-400 animate-pulse'
+                  : systemStatus === 'degraded'
+                    ? 'bg-yellow-400'
+                    : 'bg-red-400'
+              }`}
+            />
             <span className="text-white font-medium capitalize">{systemStatus}</span>
           </div>
         </div>
@@ -228,15 +231,21 @@ export const DashboardPortal: React.FC<DashboardPortalProps> = ({
                       <div>
                         <p className="text-slate-400 text-sm">{stat.title}</p>
                         <p className="text-2xl font-bold text-white">{stat.value}</p>
-                        <p className={`text-xs ${
-                          stat.changeType === 'positive' ? 'text-green-400' :
-                          stat.changeType === 'negative' ? 'text-red-400' :
-                          'text-slate-400'
-                        }`}>
+                        <p
+                          className={`text-xs ${
+                            stat.changeType === 'positive'
+                              ? 'text-green-400'
+                              : stat.changeType === 'negative'
+                                ? 'text-red-400'
+                                : 'text-slate-400'
+                          }`}
+                        >
                           {stat.change}
                         </p>
                       </div>
-                      <div className={`w-12 h-12 rounded-lg bg-slate-700/50 flex items-center justify-center ${stat.color}`}>
+                      <div
+                        className={`w-12 h-12 rounded-lg bg-slate-700/50 flex items-center justify-center ${stat.color}`}
+                      >
                         <IconComponent size={24} />
                       </div>
                     </div>
@@ -261,7 +270,7 @@ export const DashboardPortal: React.FC<DashboardPortalProps> = ({
                 {systemMetrics.map((metric) => {
                   const IconComponent = metric.icon;
                   const StatusIcon = getStatusIcon(metric.status);
-                  
+
                   return (
                     <div key={metric.id} className="flex items-center justify-between">
                       <div className="flex items-center space-x-3">
@@ -280,13 +289,11 @@ export const DashboardPortal: React.FC<DashboardPortalProps> = ({
                       </div>
                       <div className="text-right">
                         <p className="text-white font-semibold">
-                          {metric.value}{metric.unit}
+                          {metric.value}
+                          {metric.unit}
                         </p>
                         {metric.unit === '%' && (
-                          <Progress 
-                            value={metric.value} 
-                            className="w-16 h-2 mt-1"
-                          />
+                          <Progress value={metric.value} className="w-16 h-2 mt-1" />
                         )}
                       </div>
                     </div>
@@ -307,18 +314,34 @@ export const DashboardPortal: React.FC<DashboardPortalProps> = ({
             <CardContent>
               <div className="space-y-3">
                 {[
-                  { action: 'Agent Alpha started new discussion', time: '2 minutes ago', type: 'agent' },
+                  {
+                    action: 'Agent Alpha started new discussion',
+                    time: '2 minutes ago',
+                    type: 'agent',
+                  },
                   { action: 'Knowledge base updated', time: '5 minutes ago', type: 'knowledge' },
                   { action: 'New artifact generated', time: '8 minutes ago', type: 'artifact' },
-                  { action: 'System health check completed', time: '15 minutes ago', type: 'system' }
+                  {
+                    action: 'System health check completed',
+                    time: '15 minutes ago',
+                    type: 'system',
+                  },
                 ].map((activity, index) => (
-                  <div key={index} className="flex items-center space-x-3 p-2 bg-slate-700/30 rounded-lg">
-                    <div className={`w-2 h-2 rounded-full ${
-                      activity.type === 'agent' ? 'bg-cyan-400' :
-                      activity.type === 'knowledge' ? 'bg-orange-400' :
-                      activity.type === 'artifact' ? 'bg-purple-400' :
-                      'bg-blue-400'
-                    }`} />
+                  <div
+                    key={index}
+                    className="flex items-center space-x-3 p-2 bg-slate-700/30 rounded-lg"
+                  >
+                    <div
+                      className={`w-2 h-2 rounded-full ${
+                        activity.type === 'agent'
+                          ? 'bg-cyan-400'
+                          : activity.type === 'knowledge'
+                            ? 'bg-orange-400'
+                            : activity.type === 'artifact'
+                              ? 'bg-purple-400'
+                              : 'bg-blue-400'
+                      }`}
+                    />
                     <div className="flex-1">
                       <p className="text-white text-sm">{activity.action}</p>
                       <p className="text-slate-400 text-xs">{activity.time}</p>
@@ -342,9 +365,17 @@ export const DashboardPortal: React.FC<DashboardPortalProps> = ({
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
               {[
                 { label: 'Create Agent', icon: Users, color: 'bg-cyan-500/20 text-cyan-400' },
-                { label: 'Start Discussion', icon: MessageSquare, color: 'bg-green-500/20 text-green-400' },
+                {
+                  label: 'Start Discussion',
+                  icon: MessageSquare,
+                  color: 'bg-green-500/20 text-green-400',
+                },
                 { label: 'Add Knowledge', icon: Brain, color: 'bg-orange-500/20 text-orange-400' },
-                { label: 'View Analytics', icon: BarChart3, color: 'bg-purple-500/20 text-purple-400' }
+                {
+                  label: 'View Analytics',
+                  icon: BarChart3,
+                  color: 'bg-purple-500/20 text-purple-400',
+                },
               ].map((action, index) => {
                 const IconComponent = action.icon;
                 return (

@@ -2,12 +2,29 @@ import { EntityTarget, ObjectLiteral } from 'typeorm';
 import { TypeOrmService } from '../../typeormService.js';
 
 // Repository imports
-import { UserRepository, RefreshTokenRepository, PasswordResetTokenRepository } from '../repositories/UserRepository.js';
+import {
+  UserRepository,
+  RefreshTokenRepository,
+  PasswordResetTokenRepository,
+} from '../repositories/UserRepository.js';
 import { AgentRepository } from '../repositories/AgentRepository.js';
 import { AuditRepository } from '../repositories/AuditRepository.js';
-import { ToolRepository, ToolExecutionRepository, ToolUsageRepository } from '../repositories/ToolRepository.js';
-import { OperationRepository, OperationStateRepository, OperationCheckpointRepository, StepResultRepository } from '../repositories/OperationRepository.js';
-import { SecurityPolicyRepository, ApprovalWorkflowRepository, ApprovalDecisionRepository } from '../repositories/SecurityRepository.js';
+import {
+  ToolRepository,
+  ToolExecutionRepository,
+  ToolUsageRepository,
+} from '../repositories/ToolRepository.js';
+import {
+  OperationRepository,
+  OperationStateRepository,
+  OperationCheckpointRepository,
+  StepResultRepository,
+} from '../repositories/OperationRepository.js';
+import {
+  SecurityPolicyRepository,
+  ApprovalWorkflowRepository,
+  ApprovalDecisionRepository,
+} from '../repositories/SecurityRepository.js';
 import { DiscussionRepository } from '../repositories/DiscussionRepository.js';
 import { LLMProviderRepository } from '../repositories/LLMProviderRepository.js';
 import { UserLLMProviderRepository } from '../repositories/UserLLMProviderRepository.js';
@@ -53,7 +70,10 @@ export class RepositoryFactory {
   }
 
   public getPasswordResetTokenRepository(): PasswordResetTokenRepository {
-    return this.getOrCreateRepository('passwordResetToken', () => new PasswordResetTokenRepository());
+    return this.getOrCreateRepository(
+      'passwordResetToken',
+      () => new PasswordResetTokenRepository()
+    );
   }
 
   public getAgentRepository(): AgentRepository {
@@ -85,7 +105,10 @@ export class RepositoryFactory {
   }
 
   public getOperationCheckpointRepository(): OperationCheckpointRepository {
-    return this.getOrCreateRepository('operationCheckpoint', () => new OperationCheckpointRepository());
+    return this.getOrCreateRepository(
+      'operationCheckpoint',
+      () => new OperationCheckpointRepository()
+    );
   }
 
   public getStepResultRepository(): StepResultRepository {
@@ -119,9 +142,13 @@ export class RepositoryFactory {
   public getKnowledgeRepository(): KnowledgeRepository {
     return this.getOrCreateRepository('knowledge', () => {
       const { KnowledgeItemEntity } = require('../../entities/knowledge-item.entity.js');
-      const { KnowledgeRelationshipEntity } = require('../../entities/knowledge-relationship.entity.js');
+      const {
+        KnowledgeRelationshipEntity,
+      } = require('../../entities/knowledge-relationship.entity.js');
       const knowledgeRepo = this.typeormService.getRepository(KnowledgeItemEntity) as any;
-      const relationshipRepo = this.typeormService.getRepository(KnowledgeRelationshipEntity) as any;
+      const relationshipRepo = this.typeormService.getRepository(
+        KnowledgeRelationshipEntity
+      ) as any;
       return new KnowledgeRepository(knowledgeRepo, relationshipRepo);
     });
   }

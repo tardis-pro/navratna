@@ -11,7 +11,7 @@ import type {
   OperationType,
   OperationPriority,
   ExecuteOperationRequest,
-  OperationStatusResponse
+  OperationStatusResponse,
 } from '@uaip/types';
 
 export interface WorkflowDefinition {
@@ -83,12 +83,19 @@ export interface OperationListOptions {
 }
 
 export const orchestrationAPI = {
-  async executeOperation(request: ExecuteOperationRequest): Promise<{ workflowInstanceId: string }> {
-    return APIClient.post<{ workflowInstanceId: string }>(API_ROUTES.ORCHESTRATION.EXECUTE, request);
+  async executeOperation(
+    request: ExecuteOperationRequest
+  ): Promise<{ workflowInstanceId: string }> {
+    return APIClient.post<{ workflowInstanceId: string }>(
+      API_ROUTES.ORCHESTRATION.EXECUTE,
+      request
+    );
   },
 
   async getOperationStatus(operationId: string): Promise<OperationStatusResponse> {
-    return APIClient.get<OperationStatusResponse>(`${API_ROUTES.ORCHESTRATION.STATUS}/${operationId}/status`);
+    return APIClient.get<OperationStatusResponse>(
+      `${API_ROUTES.ORCHESTRATION.STATUS}/${operationId}/status`
+    );
   },
 
   async pauseOperation(operationId: string, reason?: string): Promise<void> {
@@ -96,7 +103,9 @@ export const orchestrationAPI = {
   },
 
   async resumeOperation(operationId: string, checkpointId?: string): Promise<void> {
-    return APIClient.post(`${API_ROUTES.ORCHESTRATION.RESUME}/${operationId}/resume`, { checkpointId });
+    return APIClient.post(`${API_ROUTES.ORCHESTRATION.RESUME}/${operationId}/resume`, {
+      checkpointId,
+    });
   },
 
   async cancelOperation(operationId: string, reason?: string): Promise<void> {
@@ -126,40 +135,65 @@ export const orchestrationAPI = {
     isActive?: boolean;
   }): Promise<WorkflowDefinition[]> {
     return APIClient.get<WorkflowDefinition[]>(`${API_ROUTES.ORCHESTRATION.WORKFLOWS}/workflows`, {
-      params: options
+      params: options,
     });
   },
 
   async getWorkflow(workflowId: string): Promise<WorkflowDefinition> {
-    return APIClient.get<WorkflowDefinition>(`${API_ROUTES.ORCHESTRATION.WORKFLOWS}/workflows/${workflowId}`);
+    return APIClient.get<WorkflowDefinition>(
+      `${API_ROUTES.ORCHESTRATION.WORKFLOWS}/workflows/${workflowId}`
+    );
   },
 
-  async createWorkflow(workflow: Omit<WorkflowDefinition, 'id' | 'createdAt' | 'updatedAt'>): Promise<WorkflowDefinition> {
-    return APIClient.post<WorkflowDefinition>(`${API_ROUTES.ORCHESTRATION.WORKFLOWS}/workflows`, workflow);
+  async createWorkflow(
+    workflow: Omit<WorkflowDefinition, 'id' | 'createdAt' | 'updatedAt'>
+  ): Promise<WorkflowDefinition> {
+    return APIClient.post<WorkflowDefinition>(
+      `${API_ROUTES.ORCHESTRATION.WORKFLOWS}/workflows`,
+      workflow
+    );
   },
 
-  async updateWorkflow(workflowId: string, updates: Partial<WorkflowDefinition>): Promise<WorkflowDefinition> {
-    return APIClient.put<WorkflowDefinition>(`${API_ROUTES.ORCHESTRATION.WORKFLOWS}/workflows/${workflowId}`, updates);
+  async updateWorkflow(
+    workflowId: string,
+    updates: Partial<WorkflowDefinition>
+  ): Promise<WorkflowDefinition> {
+    return APIClient.put<WorkflowDefinition>(
+      `${API_ROUTES.ORCHESTRATION.WORKFLOWS}/workflows/${workflowId}`,
+      updates
+    );
   },
 
   async deleteWorkflow(workflowId: string): Promise<void> {
     return APIClient.delete(`${API_ROUTES.ORCHESTRATION.WORKFLOWS}/workflows/${workflowId}`);
   },
 
-  async executeWorkflow(workflowId: string, input?: Record<string, any>): Promise<WorkflowExecution> {
-    return APIClient.post<WorkflowExecution>(`${API_ROUTES.ORCHESTRATION.WORKFLOWS}/workflows/${workflowId}/execute`, {
-      input
-    });
+  async executeWorkflow(
+    workflowId: string,
+    input?: Record<string, any>
+  ): Promise<WorkflowExecution> {
+    return APIClient.post<WorkflowExecution>(
+      `${API_ROUTES.ORCHESTRATION.WORKFLOWS}/workflows/${workflowId}/execute`,
+      {
+        input,
+      }
+    );
   },
 
-  async getWorkflowExecutions(workflowId: string, options?: {
-    page?: number;
-    limit?: number;
-    status?: OperationStatus;
-  }): Promise<WorkflowExecution[]> {
-    return APIClient.get<WorkflowExecution[]>(`${API_ROUTES.ORCHESTRATION.WORKFLOWS}/workflows/${workflowId}/executions`, {
-      params: options
-    });
+  async getWorkflowExecutions(
+    workflowId: string,
+    options?: {
+      page?: number;
+      limit?: number;
+      status?: OperationStatus;
+    }
+  ): Promise<WorkflowExecution[]> {
+    return APIClient.get<WorkflowExecution[]>(
+      `${API_ROUTES.ORCHESTRATION.WORKFLOWS}/workflows/${workflowId}/executions`,
+      {
+        params: options,
+      }
+    );
   },
 
   async getWorkflowExecution(workflowId: string, executionId: string): Promise<WorkflowExecution> {
@@ -178,5 +212,5 @@ export const orchestrationAPI = {
     operationsByStatus: Record<OperationStatus, number>;
   }> {
     return APIClient.get(`${API_ROUTES.ORCHESTRATION.STATS}/stats`, { params: { days } });
-  }
+  },
 };

@@ -11,8 +11,8 @@ export const createMockDatabaseService = (): any => ({
       totalConnections: 1,
       idleConnections: 0,
       waitingConnections: 0,
-      responseTime: 5
-    }
+      responseTime: 5,
+    },
   }),
   close: vi.fn().mockResolvedValue(undefined),
   createAgent: vi.fn().mockResolvedValue({
@@ -21,19 +21,19 @@ export const createMockDatabaseService = (): any => ({
     type: 'analytical',
     status: 'active',
     createdAt: new Date(),
-    updatedAt: new Date()
+    updatedAt: new Date(),
   }),
   getAgentById: vi.fn().mockResolvedValue({
     id: 'agent-123',
     name: 'Test Agent',
     type: 'analytical',
-    status: 'active'
+    status: 'active',
   }),
   updateAgent: vi.fn().mockResolvedValue({
     id: 'agent-123',
     name: 'Updated Agent',
     type: 'analytical',
-    status: 'active'
+    status: 'active',
   }),
   deleteAgent: vi.fn().mockResolvedValue(true),
   findAgents: vi.fn().mockResolvedValue([
@@ -41,9 +41,9 @@ export const createMockDatabaseService = (): any => ({
       id: 'agent-123',
       name: 'Test Agent',
       type: 'analytical',
-      status: 'active'
-    }
-  ])
+      status: 'active',
+    },
+  ]),
 });
 
 // Mock EventBusService
@@ -52,7 +52,7 @@ export const createMockEventBusService = (): any => ({
   close: vi.fn().mockResolvedValue(undefined),
   publish: vi.fn().mockResolvedValue(undefined),
   subscribe: vi.fn().mockResolvedValue(undefined),
-  healthCheck: vi.fn().mockResolvedValue({ status: 'healthy' })
+  healthCheck: vi.fn().mockResolvedValue({ status: 'healthy' }),
 });
 
 // Mock PersonaService
@@ -63,24 +63,24 @@ export const createMockPersonaService = (): any => ({
     description: 'A test persona',
     traits: ['analytical', 'precise'],
     instructions: 'Test instructions',
-    createdAt: new Date()
+    createdAt: new Date(),
   }),
   getPersonaById: vi.fn().mockResolvedValue({
     id: 'persona-123',
     name: 'Test Persona',
-    description: 'A test persona'
+    description: 'A test persona',
   }),
   updatePersona: vi.fn().mockResolvedValue({
     id: 'persona-123',
-    name: 'Updated Persona'
+    name: 'Updated Persona',
   }),
   deletePersona: vi.fn().mockResolvedValue(true),
   listPersonas: vi.fn().mockResolvedValue([
     {
       id: 'persona-123',
-      name: 'Test Persona'
-    }
-  ])
+      name: 'Test Persona',
+    },
+  ]),
 });
 
 // Mock DiscussionService
@@ -91,31 +91,31 @@ export const createMockDiscussionService = (): any => ({
     topic: 'Test Topic',
     status: 'draft',
     participants: [],
-    createdAt: new Date()
+    createdAt: new Date(),
   }),
   getDiscussion: vi.fn().mockResolvedValue({
     id: 'discussion-123',
     title: 'Test Discussion',
-    status: 'active'
+    status: 'active',
   }),
   updateDiscussion: vi.fn().mockResolvedValue({
     id: 'discussion-123',
-    title: 'Updated Discussion'
+    title: 'Updated Discussion',
   }),
   startDiscussion: vi.fn().mockResolvedValue({
     id: 'discussion-123',
-    status: 'active'
+    status: 'active',
   }),
   endDiscussion: vi.fn().mockResolvedValue({
     id: 'discussion-123',
-    status: 'completed'
+    status: 'completed',
   }),
   addParticipant: vi.fn().mockResolvedValue({
     id: 'participant-123',
     discussionId: 'discussion-123',
     agentId: 'agent-123',
-    role: 'participant'
-  })
+    role: 'participant',
+  }),
 });
 
 // Mock KnowledgeGraphService
@@ -126,7 +126,7 @@ export const createMockKnowledgeGraphService = (): any => ({
   getNodeById: vi.fn().mockResolvedValue({ id: 'node-123' }),
   updateNode: vi.fn().mockResolvedValue({ id: 'node-123' }),
   deleteNode: vi.fn().mockResolvedValue(true),
-  healthCheck: vi.fn().mockResolvedValue({ status: 'healthy' })
+  healthCheck: vi.fn().mockResolvedValue({ status: 'healthy' }),
 });
 
 // Mock AgentMemoryService
@@ -135,18 +135,18 @@ export const createMockAgentMemoryService = (): any => ({
     id: 'memory-123',
     agentId: 'agent-123',
     content: 'Test memory',
-    type: 'interaction'
+    type: 'interaction',
   }),
   retrieveMemories: vi.fn().mockResolvedValue([
     {
       id: 'memory-123',
       agentId: 'agent-123',
-      content: 'Test memory'
-    }
+      content: 'Test memory',
+    },
   ]),
   searchMemories: vi.fn().mockResolvedValue([]),
   deleteMemory: vi.fn().mockResolvedValue(true),
-  healthCheck: vi.fn().mockResolvedValue({ status: 'healthy' })
+  healthCheck: vi.fn().mockResolvedValue({ status: 'healthy' }),
 });
 
 // Mock CapabilityDiscoveryService
@@ -156,15 +156,15 @@ export const createMockCapabilityDiscoveryService = (): any => ({
       id: 'capability-123',
       name: 'analysis',
       type: 'cognitive',
-      confidence: 0.9
-    }
+      confidence: 0.9,
+    },
   ]),
   analyzeAgentCapabilities: vi.fn().mockResolvedValue({
     agentId: 'agent-123',
     capabilities: ['analysis', 'reasoning'],
     strengths: ['logical thinking'],
-    limitations: ['emotional analysis']
-  })
+    limitations: ['emotional analysis'],
+  }),
 });
 
 // Mock SecurityValidationService
@@ -174,7 +174,7 @@ export const createMockSecurityValidationService = (): any => ({
     riskLevel: SecurityLevel.MEDIUM,
     approvalRequired: false,
     conditions: [],
-    reasoning: 'Operation approved'
+    reasoning: 'Operation approved',
   }),
   assessRisk: vi.fn().mockResolvedValue({
     level: SecurityLevel.MEDIUM,
@@ -184,10 +184,10 @@ export const createMockSecurityValidationService = (): any => ({
     recommendations: [],
     mitigations: [],
     assessedAt: new Date(),
-    assessedBy: 'system'
+    assessedBy: 'system',
   }),
   filterSensitiveData: vi.fn().mockImplementation((data) => data),
-  createApprovalWorkflow: vi.fn().mockResolvedValue('workflow-123')
+  createApprovalWorkflow: vi.fn().mockResolvedValue('workflow-123'),
 });
 
 // --- Mocks for Refactored Agent Intelligence Services ---
@@ -207,7 +207,7 @@ export const createMockAgentContextService = () => ({
     analysis: 'Context analysis result',
     recommendations: ['action1', 'action2'],
     confidence: 0.85,
-    explanation: 'Test explanation'
+    explanation: 'Test explanation',
   }),
 });
 
@@ -217,7 +217,7 @@ export const createMockAgentPlanningService = () => ({
     type: 'analysis',
     steps: [{ id: 'step-1', name: 'Analysis', type: 'cognitive' }],
     estimatedDuration: 30,
-    dependencies: []
+    dependencies: [],
   }),
 });
 
@@ -251,15 +251,15 @@ export const createMockAgent = (overrides: Partial<Agent> = {}): Agent => ({
     contextWindowSize: 4000,
     decisionThreshold: 0.7,
     learningEnabled: true,
-    collaborationMode: 'collaborative'
+    collaborationMode: 'collaborative',
   },
   securityContext: {
     securityLevel: 'medium',
     allowedCapabilities: ['analysis', 'reasoning'],
     approvalRequired: false,
-    auditLevel: 'standard'
+    auditLevel: 'standard',
   },
   createdAt: new Date('2023-01-01'),
   updatedAt: new Date('2023-01-01'),
-  ...overrides
+  ...overrides,
 });

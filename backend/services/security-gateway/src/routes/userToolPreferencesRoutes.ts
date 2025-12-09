@@ -4,7 +4,7 @@ import { UserToolPreferencesService, DatabaseService } from '@uaip/shared-servic
 import { z } from 'zod';
 import { Request, Response } from '@uaip/shared-services';
 
-const router= Router();
+const router = Router();
 
 export interface UserToolPreferencesData {
   userId: string;
@@ -44,15 +44,15 @@ const setPreferencesSchema = z.object({
   rateLimits: z.record(z.number()).optional(),
   budgetLimit: z.number().optional(),
   notifyOnCompletion: z.boolean().optional(),
-  notifyOnError: z.boolean().optional()
+  notifyOnError: z.boolean().optional(),
 });
 
 const userIdSchema = z.object({
-  userId: z.string().uuid()
+  userId: z.string().uuid(),
 });
 
 const toolIdSchema = z.object({
-  toolId: z.string().uuid()
+  toolId: z.string().uuid(),
 });
 
 /**
@@ -63,33 +63,33 @@ router.get(
   '/:userId/tool-preferences',
   authMiddleware,
   validateRequest({
-    params: userIdSchema
+    params: userIdSchema,
   }),
   async (req: Request, res: Response): Promise<void> => {
     try {
       const { userId } = req.params;
-      
+
       // Authorization check - users can only access their own preferences
       if (req.user?.id !== userId && req.user?.role !== 'system_admin') {
         res.status(403).json({
           success: false,
-          message: 'Access denied. You can only view your own tool preferences.'
+          message: 'Access denied. You can only view your own tool preferences.',
         });
         return;
       }
 
       const service = await getService();
       const toolAccess = await service.getUserToolAccess(userId);
-      
+
       res.json({
         success: true,
-        data: toolAccess
+        data: toolAccess,
       });
     } catch (error) {
       console.error('Error getting user tool preferences:', error);
       res.status(500).json({
         success: false,
-        message: 'Failed to retrieve tool preferences'
+        message: 'Failed to retrieve tool preferences',
       });
     }
   }
@@ -103,33 +103,33 @@ router.get(
   '/:userId/available-tools',
   authMiddleware,
   validateRequest({
-    params: userIdSchema
+    params: userIdSchema,
   }),
   async (req: Request, res: Response): Promise<void> => {
     try {
       const { userId } = req.params;
-      
+
       // Authorization check
       if (req.user?.id !== userId && req.user?.role !== 'system_admin') {
         res.status(403).json({
           success: false,
-          message: 'Access denied. You can only view available tools for your account.'
+          message: 'Access denied. You can only view available tools for your account.',
         });
         return;
       }
 
       const service = await getService();
       const availableTools = await service.getAvailableToolsForUser(userId);
-      
+
       res.json({
         success: true,
-        data: availableTools
+        data: availableTools,
       });
     } catch (error) {
       console.error('Error getting available tools:', error);
       res.status(500).json({
         success: false,
-        message: 'Failed to retrieve available tools'
+        message: 'Failed to retrieve available tools',
       });
     }
   }
@@ -144,39 +144,39 @@ router.post(
   authMiddleware,
   validateRequest({
     params: userIdSchema,
-    body: setPreferencesSchema
+    body: setPreferencesSchema,
   }),
   async (req: Request, res: Response): Promise<void> => {
     try {
       const { userId } = req.params;
       const preferencesData = req.body;
-      
+
       // Authorization check
       if (req.user?.id !== userId && req.user?.role !== 'system_admin') {
         res.status(403).json({
           success: false,
-          message: 'Access denied. You can only modify your own tool preferences.'
+          message: 'Access denied. You can only modify your own tool preferences.',
         });
         return;
       }
 
       const data: UserToolPreferencesData = {
         userId,
-        ...preferencesData
+        ...preferencesData,
       };
 
       const service = await getService();
       const preferences = await service.setUserToolPreferences(data);
-      
+
       res.json({
         success: true,
-        data: preferences
+        data: preferences,
       });
     } catch (error) {
       console.error('Error setting user tool preferences:', error);
       res.status(500).json({
         success: false,
-        message: 'Failed to set tool preferences'
+        message: 'Failed to set tool preferences',
       });
     }
   }
@@ -190,41 +190,41 @@ router.get(
   '/:userId/tool-preferences/:toolId',
   authMiddleware,
   validateRequest({
-    params: userIdSchema.merge(toolIdSchema)
+    params: userIdSchema.merge(toolIdSchema),
   }),
   async (req: Request, res: Response): Promise<void> => {
     try {
       const { userId, toolId } = req.params;
-      
+
       // Authorization check
       if (req.user?.id !== userId && req.user?.role !== 'system_admin') {
         res.status(403).json({
           success: false,
-          message: 'Access denied. You can only view your own tool preferences.'
+          message: 'Access denied. You can only view your own tool preferences.',
         });
         return;
       }
 
       const service = await getService();
       const preferences = await service.getUserToolPreferences(userId, toolId);
-      
+
       if (!preferences) {
         res.status(404).json({
           success: false,
-          message: 'Tool preferences not found'
+          message: 'Tool preferences not found',
         });
         return;
       }
 
       res.json({
         success: true,
-        data: preferences
+        data: preferences,
       });
     } catch (error) {
       console.error('Error getting tool preferences:', error);
       res.status(500).json({
         success: false,
-        message: 'Failed to retrieve tool preferences'
+        message: 'Failed to retrieve tool preferences',
       });
     }
   }
@@ -238,33 +238,33 @@ router.get(
   '/:userId/favorite-tools',
   authMiddleware,
   validateRequest({
-    params: userIdSchema
+    params: userIdSchema,
   }),
   async (req: Request, res: Response): Promise<void> => {
     try {
       const { userId } = req.params;
-      
+
       // Authorization check
       if (req.user?.id !== userId && req.user?.role !== 'system_admin') {
         res.status(403).json({
           success: false,
-          message: 'Access denied. You can only view your own favorite tools.'
+          message: 'Access denied. You can only view your own favorite tools.',
         });
         return;
       }
 
       const service = await getService();
       const favoriteTools = await service.getUserFavoriteTools(userId);
-      
+
       res.json({
         success: true,
-        data: favoriteTools
+        data: favoriteTools,
       });
     } catch (error) {
       console.error('Error getting favorite tools:', error);
       res.status(500).json({
         success: false,
-        message: 'Failed to retrieve favorite tools'
+        message: 'Failed to retrieve favorite tools',
       });
     }
   }
@@ -278,33 +278,33 @@ router.get(
   '/:userId/tool-usage-stats',
   authMiddleware,
   validateRequest({
-    params: userIdSchema
+    params: userIdSchema,
   }),
   async (req: Request, res: Response): Promise<void> => {
     try {
       const { userId } = req.params;
-      
+
       // Authorization check
       if (req.user?.id !== userId && req.user?.role !== 'system_admin') {
         res.status(403).json({
           success: false,
-          message: 'Access denied. You can only view your own usage statistics.'
+          message: 'Access denied. You can only view your own usage statistics.',
         });
         return;
       }
 
       const service = await getService();
       const stats = await service.getUserToolUsageStats(userId);
-      
+
       res.json({
         success: true,
-        data: stats
+        data: stats,
       });
     } catch (error) {
       console.error('Error getting tool usage stats:', error);
       res.status(500).json({
         success: false,
-        message: 'Failed to retrieve tool usage statistics'
+        message: 'Failed to retrieve tool usage statistics',
       });
     }
   }
@@ -318,37 +318,37 @@ router.post(
   '/:userId/tools/:toolId/check-access',
   authMiddleware,
   validateRequest({
-    params: userIdSchema.merge(toolIdSchema)
+    params: userIdSchema.merge(toolIdSchema),
   }),
   async (req: Request, res: Response): Promise<void> => {
     try {
       const { userId, toolId } = req.params;
-      
+
       // Authorization check
       if (req.user?.id !== userId && req.user?.role !== 'system_admin') {
         res.status(403).json({
           success: false,
-          message: 'Access denied. You can only check access for your own account.'
+          message: 'Access denied. You can only check access for your own account.',
         });
         return;
       }
 
       const service = await getService();
       const canAccess = await service.canUserAccessTool(userId, toolId);
-      
+
       res.json({
         success: true,
         data: {
           canAccess,
           userId,
-          toolId
-        }
+          toolId,
+        },
       });
     } catch (error) {
       console.error('Error checking tool access:', error);
       res.status(500).json({
         success: false,
-        message: 'Failed to check tool access'
+        message: 'Failed to check tool access',
       });
     }
   }

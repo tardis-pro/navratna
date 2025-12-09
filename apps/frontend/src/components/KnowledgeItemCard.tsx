@@ -1,5 +1,17 @@
 import React from 'react';
-import { Calendar, Tag, Database, FileText, Brain, Link, TrendingUp, Eye, Edit3, Trash2, ExternalLink } from 'lucide-react';
+import {
+  Calendar,
+  Tag,
+  Database,
+  FileText,
+  Brain,
+  Link,
+  TrendingUp,
+  Eye,
+  Edit3,
+  Trash2,
+  ExternalLink,
+} from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -41,13 +53,13 @@ export const KnowledgeItemCard: React.FC<KnowledgeItemCardProps> = ({
   onViewRelated,
   onTagClick,
   className,
-  compact = false
+  compact = false,
 }) => {
   const formatDate = (date: string | Date) => {
     return new Date(date).toLocaleDateString('en-US', {
       year: 'numeric',
       month: 'short',
-      day: 'numeric'
+      day: 'numeric',
     });
   };
 
@@ -63,25 +75,21 @@ export const KnowledgeItemCard: React.FC<KnowledgeItemCardProps> = ({
   };
 
   return (
-    <Card className={`bg-black/20 border-blue-500/20 hover:bg-blue-500/10 transition-all duration-200 ${className}`}>
+    <Card
+      className={`bg-black/20 border-blue-500/20 hover:bg-blue-500/10 transition-all duration-200 ${className}`}
+    >
       <CardHeader className={compact ? 'p-3' : 'p-4'}>
         <div className="flex items-start justify-between">
           <div className="flex items-center space-x-2 flex-1">
             {KNOWLEDGE_TYPE_ICONS[item.type]}
-            <Badge 
-              variant="outline" 
-              className={`text-xs ${KNOWLEDGE_TYPE_COLORS[item.type]}`}
-            >
+            <Badge variant="outline" className={`text-xs ${KNOWLEDGE_TYPE_COLORS[item.type]}`}>
               {item.type}
             </Badge>
-            <Badge 
-              variant="secondary" 
-              className={`text-xs ${getConfidenceColor(item.confidence)}`}
-            >
+            <Badge variant="secondary" className={`text-xs ${getConfidenceColor(item.confidence)}`}>
               {(item.confidence * 100).toFixed(0)}%
             </Badge>
           </div>
-          
+
           {!compact && (
             <div className="flex items-center space-x-1">
               {onEdit && (
@@ -118,19 +126,15 @@ export const KnowledgeItemCard: React.FC<KnowledgeItemCardProps> = ({
           )}
         </div>
       </CardHeader>
-      
+
       <CardContent className={compact ? 'p-3 pt-0' : 'p-4 pt-0'}>
         {/* Content */}
         <div className="mb-3">
           {compact ? (
-            <p className="text-white text-sm line-clamp-2">
-              {truncateContent(item.content, 100)}
-            </p>
+            <p className="text-white text-sm line-clamp-2">{truncateContent(item.content, 100)}</p>
           ) : (
             <ScrollArea className="h-20">
-              <p className="text-white text-sm">
-                {item.content}
-              </p>
+              <p className="text-white text-sm">{item.content}</p>
             </ScrollArea>
           )}
         </div>
@@ -169,7 +173,7 @@ export const KnowledgeItemCard: React.FC<KnowledgeItemCardProps> = ({
               {item.sourceType}
             </span>
           </div>
-          
+
           {item.sourceUrl && (
             <Button
               size="sm"
@@ -185,9 +189,7 @@ export const KnowledgeItemCard: React.FC<KnowledgeItemCardProps> = ({
         {/* Summary (if available) */}
         {item.summary && !compact && (
           <div className="mt-3 pt-3 border-t border-blue-500/20">
-            <p className="text-gray-300 text-xs italic">
-              Summary: {item.summary}
-            </p>
+            <p className="text-gray-300 text-xs italic">Summary: {item.summary}</p>
           </div>
         )}
 
@@ -199,14 +201,16 @@ export const KnowledgeItemCard: React.FC<KnowledgeItemCardProps> = ({
                 Metadata ({Object.keys(item.metadata).length} items)
               </summary>
               <div className="mt-2 space-y-1">
-                {Object.entries(item.metadata).slice(0, 5).map(([key, value]) => (
-                  <div key={key} className="flex justify-between">
-                    <span className="text-gray-400">{key}:</span>
-                    <span className="text-gray-300 max-w-32 truncate">
-                      {typeof value === 'string' ? value : JSON.stringify(value)}
-                    </span>
-                  </div>
-                ))}
+                {Object.entries(item.metadata)
+                  .slice(0, 5)
+                  .map(([key, value]) => (
+                    <div key={key} className="flex justify-between">
+                      <span className="text-gray-400">{key}:</span>
+                      <span className="text-gray-300 max-w-32 truncate">
+                        {typeof value === 'string' ? value : JSON.stringify(value)}
+                      </span>
+                    </div>
+                  ))}
                 {Object.keys(item.metadata).length > 5 && (
                   <p className="text-gray-500 text-center">
                     +{Object.keys(item.metadata).length - 5} more
@@ -219,4 +223,4 @@ export const KnowledgeItemCard: React.FC<KnowledgeItemCardProps> = ({
       </CardContent>
     </Card>
   );
-}; 
+};

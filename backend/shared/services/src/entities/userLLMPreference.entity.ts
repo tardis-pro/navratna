@@ -1,4 +1,13 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, Index, ManyToOne, JoinColumn } from 'typeorm';
+import {
+  Entity,
+  PrimaryGeneratedColumn,
+  Column,
+  CreateDateColumn,
+  UpdateDateColumn,
+  Index,
+  ManyToOne,
+  JoinColumn,
+} from 'typeorm';
 import { BaseEntity } from './base.entity.js';
 import { UserEntity } from './user.entity.js';
 import { LLMTaskType, LLMProviderType } from '@uaip/types';
@@ -7,19 +16,18 @@ import { LLMTaskType, LLMProviderType } from '@uaip/types';
 @Index(['userId', 'taskType'], { unique: true }) // One preference per task type per user
 @Index(['taskType', 'isActive'])
 export class UserLLMPreference extends BaseEntity {
-  
   @Column({ type: 'uuid' })
   userId!: string;
 
   @Column({
     type: 'enum',
-    enum: LLMTaskType
+    enum: LLMTaskType,
   })
   taskType!: LLMTaskType;
 
   @Column({
     type: 'enum',
-    enum: LLMProviderType
+    enum: LLMProviderType,
   })
   preferredProvider!: LLMProviderType;
 
@@ -101,7 +109,7 @@ export class UserLLMPreference extends BaseEntity {
       temperature: this.settings?.temperature,
       maxTokens: this.settings?.maxTokens,
       topP: this.settings?.topP,
-      systemPrompt: this.settings?.systemPrompt
+      systemPrompt: this.settings?.systemPrompt,
     };
   }
 
@@ -109,19 +117,19 @@ export class UserLLMPreference extends BaseEntity {
     // Calculate performance score based on success rate and response time
     const successWeight = 0.7;
     const speedWeight = 0.3;
-    
+
     let score = 0;
-    
+
     if (this.successRate !== undefined) {
       score += this.successRate * successWeight;
     }
-    
+
     if (this.averageResponseTime !== undefined) {
       // Normalize response time: assume 5 seconds is "poor", 1 second is "excellent"
       const normalizedSpeed = Math.max(0, Math.min(1, (5 - this.averageResponseTime) / 4));
       score += normalizedSpeed * speedWeight;
     }
-    
+
     return Math.min(1, Math.max(0, score));
   }
 }

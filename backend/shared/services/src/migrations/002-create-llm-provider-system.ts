@@ -2,11 +2,11 @@ import { MigrationInterface, QueryRunner, Table, Index } from 'typeorm';
 
 /**
  * LLM Provider System Migration
- * 
+ *
  * Creates the LLM provider management tables:
  * - llm_providers: System-wide LLM provider configurations
  * - user_llm_providers: User-specific LLM provider settings
- * 
+ *
  * These tables manage LLM provider configurations and user access.
  * Dependencies: users table
  */
@@ -45,7 +45,16 @@ export class CreateLlmProviderSystem1703002000000 implements MigrationInterface 
           {
             name: 'provider_type',
             type: 'enum',
-            enum: ['ollama', 'llmstudio', 'openai', 'anthropic', 'azure', 'google', 'huggingface', 'custom'],
+            enum: [
+              'ollama',
+              'llmstudio',
+              'openai',
+              'anthropic',
+              'azure',
+              'google',
+              'huggingface',
+              'custom',
+            ],
           },
           {
             name: 'base_url',
@@ -438,30 +447,75 @@ export class CreateLlmProviderSystem1703002000000 implements MigrationInterface 
     );
 
     // Create indexes for performance
-    await queryRunner.createIndex('llm_providers', new Index('IDX_llm_providers_provider_type', ['provider_type']));
-    await queryRunner.createIndex('llm_providers', new Index('IDX_llm_providers_is_enabled', ['is_enabled']));
-    await queryRunner.createIndex('llm_providers', new Index('IDX_llm_providers_status', ['status']));
-    await queryRunner.createIndex('llm_providers', new Index('IDX_llm_providers_is_system_default', ['is_system_default']));
-    await queryRunner.createIndex('llm_providers', new Index('IDX_llm_providers_created_by', ['created_by']));
-    await queryRunner.createIndex('llm_providers', new Index('IDX_llm_providers_health_status', ['health_status']));
-    
-    await queryRunner.createIndex('user_llm_providers', new Index('IDX_user_llm_providers_user_id', ['user_id']));
-    await queryRunner.createIndex('user_llm_providers', new Index('IDX_user_llm_providers_provider_id', ['provider_id']));
-    await queryRunner.createIndex('user_llm_providers', new Index('IDX_user_llm_providers_is_enabled', ['is_enabled']));
-    await queryRunner.createIndex('user_llm_providers', new Index('IDX_user_llm_providers_is_default', ['is_default']));
-    await queryRunner.createIndex('user_llm_providers', new Index('IDX_user_llm_providers_validation_status', ['validation_status']));
-    await queryRunner.createIndex('user_llm_providers', new Index('IDX_user_llm_providers_user_provider', ['user_id', 'provider_id']));
-    await queryRunner.createIndex('user_llm_providers', new Index('IDX_user_llm_providers_last_used_at', ['last_used_at']));
+    await queryRunner.createIndex(
+      'llm_providers',
+      new Index('IDX_llm_providers_provider_type', ['provider_type'])
+    );
+    await queryRunner.createIndex(
+      'llm_providers',
+      new Index('IDX_llm_providers_is_enabled', ['is_enabled'])
+    );
+    await queryRunner.createIndex(
+      'llm_providers',
+      new Index('IDX_llm_providers_status', ['status'])
+    );
+    await queryRunner.createIndex(
+      'llm_providers',
+      new Index('IDX_llm_providers_is_system_default', ['is_system_default'])
+    );
+    await queryRunner.createIndex(
+      'llm_providers',
+      new Index('IDX_llm_providers_created_by', ['created_by'])
+    );
+    await queryRunner.createIndex(
+      'llm_providers',
+      new Index('IDX_llm_providers_health_status', ['health_status'])
+    );
+
+    await queryRunner.createIndex(
+      'user_llm_providers',
+      new Index('IDX_user_llm_providers_user_id', ['user_id'])
+    );
+    await queryRunner.createIndex(
+      'user_llm_providers',
+      new Index('IDX_user_llm_providers_provider_id', ['provider_id'])
+    );
+    await queryRunner.createIndex(
+      'user_llm_providers',
+      new Index('IDX_user_llm_providers_is_enabled', ['is_enabled'])
+    );
+    await queryRunner.createIndex(
+      'user_llm_providers',
+      new Index('IDX_user_llm_providers_is_default', ['is_default'])
+    );
+    await queryRunner.createIndex(
+      'user_llm_providers',
+      new Index('IDX_user_llm_providers_validation_status', ['validation_status'])
+    );
+    await queryRunner.createIndex(
+      'user_llm_providers',
+      new Index('IDX_user_llm_providers_user_provider', ['user_id', 'provider_id'])
+    );
+    await queryRunner.createIndex(
+      'user_llm_providers',
+      new Index('IDX_user_llm_providers_last_used_at', ['last_used_at'])
+    );
 
     // Create unique constraint for system default provider (only one can be default)
-    await queryRunner.createIndex('llm_providers', new Index('IDX_llm_providers_unique_system_default', ['is_system_default'], { 
-      where: 'is_system_default = true' 
-    }));
+    await queryRunner.createIndex(
+      'llm_providers',
+      new Index('IDX_llm_providers_unique_system_default', ['is_system_default'], {
+        where: 'is_system_default = true',
+      })
+    );
 
     // Create unique constraint for user default provider per user
-    await queryRunner.createIndex('user_llm_providers', new Index('IDX_user_llm_providers_unique_user_default', ['user_id', 'is_default'], { 
-      where: 'is_default = true' 
-    }));
+    await queryRunner.createIndex(
+      'user_llm_providers',
+      new Index('IDX_user_llm_providers_unique_user_default', ['user_id', 'is_default'], {
+        where: 'is_default = true',
+      })
+    );
   }
 
   public async down(queryRunner: QueryRunner): Promise<void> {
@@ -469,4 +523,4 @@ export class CreateLlmProviderSystem1703002000000 implements MigrationInterface 
     await queryRunner.dropTable('user_llm_providers');
     await queryRunner.dropTable('llm_providers');
   }
-} 
+}

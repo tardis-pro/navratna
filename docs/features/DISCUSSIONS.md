@@ -24,7 +24,7 @@ enum DiscussionStatus {
   ACTIVE = 'active',
   PAUSED = 'paused',
   COMPLETED = 'completed',
-  ARCHIVED = 'archived'
+  ARCHIVED = 'archived',
 }
 
 interface Participant {
@@ -84,7 +84,7 @@ enum EventType {
   PARTICIPANT_JOINED = 'participant.joined',
   PARTICIPANT_LEFT = 'participant.left',
   DISCUSSION_UPDATED = 'discussion.updated',
-  TYPING_INDICATOR = 'typing.indicator'
+  TYPING_INDICATOR = 'typing.indicator',
 }
 ```
 
@@ -152,8 +152,8 @@ class DiscussionStateManager {
       ...update,
       metadata: {
         ...discussion.metadata,
-        lastUpdated: new Date()
-      }
+        lastUpdated: new Date(),
+      },
     };
 
     // Persist changes
@@ -202,10 +202,7 @@ class ContextManager {
     const updatedContext = {
       ...discussion.context,
       ...contextUpdates,
-      history: [
-        ...discussion.context.history,
-        this.createHistoryEntry(message)
-      ]
+      history: [...discussion.context.history, this.createHistoryEntry(message)],
     };
 
     // Apply context update
@@ -265,7 +262,7 @@ class MessageBatcher {
 
   async addToQueue(message: Message): Promise<void> {
     this.queue.push(message);
-    
+
     if (this.queue.length >= this.batchSize) {
       await this.flush();
     }

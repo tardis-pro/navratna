@@ -43,17 +43,22 @@ export abstract class BaseSeed<T> {
       try {
         await this.repository.upsert(seedData as any[], {
           conflictPaths: [uniqueField as string],
-          skipUpdateIfNoValuesChanged: true
+          skipUpdateIfNoValuesChanged: true,
         });
-        console.log(`   ✅ ${this.entityName} seeding completed: ${seedData.length} entities processed (upsert)`);
+        console.log(
+          `   ✅ ${this.entityName} seeding completed: ${seedData.length} entities processed (upsert)`
+        );
       } catch (upsertError) {
-        console.warn(`   ⚠️ Upsert failed for ${this.entityName}, falling back to manual upsert:`, upsertError.message);
-        
+        console.warn(
+          `   ⚠️ Upsert failed for ${this.entityName}, falling back to manual upsert:`,
+          upsertError.message
+        );
+
         // Fallback: Manual upsert logic
         for (const item of seedData) {
           try {
             const existingEntity = await this.findByField(uniqueField, (item as any)[uniqueField]);
-            
+
             if (existingEntity) {
               // Update existing entity
               await this.repository.update(
@@ -70,7 +75,9 @@ export abstract class BaseSeed<T> {
             continue;
           }
         }
-        console.log(`   ✅ ${this.entityName} seeding completed: ${seedData.length} entities processed (manual fallback)`);
+        console.log(
+          `   ✅ ${this.entityName} seeding completed: ${seedData.length} entities processed (manual fallback)`
+        );
       }
 
       // Return all entities of this type (simple approach)
@@ -80,7 +87,7 @@ export abstract class BaseSeed<T> {
       console.error(`   ❌ ${this.entityName} seeding failed:`, error);
       // Don't throw the error - allow other seeders to continue
       console.warn(`   ⚠️ Continuing without ${this.entityName} seeding...`);
-      
+
       // Return existing entities if any
       try {
         return await this.repository.find();
@@ -96,7 +103,7 @@ export abstract class BaseSeed<T> {
    */
   protected async findByField(field: keyof T, value: any): Promise<T | null> {
     return await this.repository.findOne({
-      where: { [field]: value } as any
+      where: { [field]: value } as any,
     });
   }
 
@@ -105,7 +112,7 @@ export abstract class BaseSeed<T> {
    */
   protected async findManyByField(field: keyof T, values: any[]): Promise<T[]> {
     return await this.repository.find({
-      where: values.map(value => ({ [field]: value })) as any
+      where: values.map((value) => ({ [field]: value })) as any,
     });
   }
 

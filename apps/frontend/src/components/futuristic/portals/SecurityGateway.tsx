@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useUAIP } from '@/contexts/UAIPContext';
 import { motion } from 'framer-motion';
-import { 
-  ShieldCheckIcon, 
+import {
+  ShieldCheckIcon,
   LightBulbIcon,
   CheckCircleIcon,
   XCircleIcon,
@@ -12,7 +12,7 @@ import {
   LockClosedIcon,
   EyeIcon,
   ArrowPathIcon,
-  ExclamationTriangleIcon
+  ExclamationTriangleIcon,
 } from '@heroicons/react/24/outline';
 
 interface SecurityMetrics {
@@ -50,7 +50,14 @@ interface SecurityGatewayPortalProps {
 }
 
 export const SecurityGateway: React.FC<SecurityGatewayPortalProps> = ({ className, viewport }) => {
-  const { approvals, systemMetrics, refreshData, isWebSocketConnected, approveExecution, rejectExecution } = useUAIP();
+  const {
+    approvals,
+    systemMetrics,
+    refreshData,
+    isWebSocketConnected,
+    approveExecution,
+    rejectExecution,
+  } = useUAIP();
   const [auditEntries, setAuditEntries] = useState<AuditEntry[]>([]);
   const [selectedApproval, setSelectedApproval] = useState<string | null>(null);
   const [actionsInProgress, setActionsInProgress] = useState<Set<string>>(new Set());
@@ -60,7 +67,8 @@ export const SecurityGateway: React.FC<SecurityGatewayPortalProps> = ({ classNam
     width: typeof window !== 'undefined' ? window.innerWidth : 1024,
     height: typeof window !== 'undefined' ? window.innerHeight : 768,
     isMobile: typeof window !== 'undefined' ? window.innerWidth < 768 : false,
-    isTablet: typeof window !== 'undefined' ? window.innerWidth >= 768 && window.innerWidth < 1024 : false,
+    isTablet:
+      typeof window !== 'undefined' ? window.innerWidth >= 768 && window.innerWidth < 1024 : false,
     isDesktop: typeof window !== 'undefined' ? window.innerWidth >= 1024 : true,
   };
 
@@ -70,15 +78,15 @@ export const SecurityGateway: React.FC<SecurityGatewayPortalProps> = ({ classNam
   const metrics: SecurityMetrics = React.useMemo(() => {
     const approvalsData = approvals.data;
     const totalApprovals = approvalsData.length;
-    const pending = approvalsData.filter(a => a.status === 'pending').length;
-    const approved = approvalsData.filter(a => a.status === 'approved').length;
-    const rejected = approvalsData.filter(a => a.status === 'rejected').length;
+    const pending = approvalsData.filter((a) => a.status === 'pending').length;
+    const approved = approvalsData.filter((a) => a.status === 'approved').length;
+    const rejected = approvalsData.filter((a) => a.status === 'rejected').length;
 
     // Determine overall risk level based on pending approvals and system metrics
-    const highRiskApprovals = approvalsData.filter(a => 
-      a.riskLevel === 'high' || a.riskLevel === 'critical'
+    const highRiskApprovals = approvalsData.filter(
+      (a) => a.riskLevel === 'high' || a.riskLevel === 'critical'
     ).length;
-    
+
     let riskLevel: 'low' | 'medium' | 'high' | 'critical' = systemMetrics.data.security.threatLevel;
     if (highRiskApprovals > 2) riskLevel = 'critical';
     else if (highRiskApprovals > 1) riskLevel = 'high';
@@ -90,7 +98,7 @@ export const SecurityGateway: React.FC<SecurityGatewayPortalProps> = ({ classNam
       approved,
       rejected,
       averageApprovalTime: 245, // This would come from actual approval timing data
-      riskLevel
+      riskLevel,
     };
   }, [approvals.data, systemMetrics.data.security.threatLevel]);
 
@@ -105,7 +113,7 @@ export const SecurityGateway: React.FC<SecurityGatewayPortalProps> = ({ classNam
         resource: 'file-system-access',
         result: 'success',
         details: 'Successfully executed file read operation',
-        riskLevel: 'low'
+        riskLevel: 'low',
       },
       {
         id: 'audit-2',
@@ -115,7 +123,7 @@ export const SecurityGateway: React.FC<SecurityGatewayPortalProps> = ({ classNam
         resource: 'external-service',
         result: 'denied',
         details: 'Access denied due to insufficient permissions',
-        riskLevel: 'medium'
+        riskLevel: 'medium',
       },
       {
         id: 'audit-3',
@@ -125,38 +133,44 @@ export const SecurityGateway: React.FC<SecurityGatewayPortalProps> = ({ classNam
         resource: 'sensitive-database',
         result: 'success',
         details: 'Approved database query executed successfully',
-        riskLevel: 'high'
-      }
+        riskLevel: 'high',
+      },
     ];
     setAuditEntries(sampleAuditEntries);
   }, []);
 
-  const handleApproval = async (approvalId: string, decision: 'approve' | 'reject', reason?: string) => {
+  const handleApproval = async (
+    approvalId: string,
+    decision: 'approve' | 'reject',
+    reason?: string
+  ) => {
     // Prevent rapid clicks by checking if action is already in progress
     const actionKey = `${approvalId}-${decision}`;
-    
+
     if (actionsInProgress.has(actionKey)) {
       console.warn('Action already in progress, ignoring duplicate request');
       return;
     }
-    
+
     try {
-      setActionsInProgress(prev => new Set(prev).add(actionKey));
-      
+      setActionsInProgress((prev) => new Set(prev).add(actionKey));
+
       if (decision === 'approve') {
         await approveExecution(approvalId);
       } else {
         await rejectExecution(approvalId, reason || 'Rejected by security gateway');
       }
-      
+
       // Refresh data after approval action
       await refreshData();
     } catch (error) {
       console.error(`Failed to ${decision} approval ${approvalId}:`, error);
       // Show user-friendly error message
-      alert(`Failed to ${decision} approval: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      alert(
+        `Failed to ${decision} approval: ${error instanceof Error ? error.message : 'Unknown error'}`
+      );
     } finally {
-      setActionsInProgress(prev => {
+      setActionsInProgress((prev) => {
         const newSet = new Set(prev);
         newSet.delete(actionKey);
         return newSet;
@@ -166,32 +180,44 @@ export const SecurityGateway: React.FC<SecurityGatewayPortalProps> = ({ classNam
 
   const getRiskColor = (risk: string) => {
     switch (risk) {
-      case 'critical': return 'text-red-600 bg-red-100 border-red-200';
-      case 'high': return 'text-orange-600 bg-orange-100 border-orange-200';
-      case 'medium': return 'text-yellow-600 bg-yellow-100 border-yellow-200';
-      default: return 'text-green-600 bg-green-100 border-green-200';
+      case 'critical':
+        return 'text-red-600 bg-red-100 border-red-200';
+      case 'high':
+        return 'text-orange-600 bg-orange-100 border-orange-200';
+      case 'medium':
+        return 'text-yellow-600 bg-yellow-100 border-yellow-200';
+      default:
+        return 'text-green-600 bg-green-100 border-green-200';
     }
   };
 
   const getStatusIcon = (status: string) => {
     switch (status) {
-      case 'approved': return <CheckCircleIcon className="w-4 h-4 text-green-500" />;
-      case 'rejected': return <XCircleIcon className="w-4 h-4 text-red-500" />;
-      case 'pending': return <ClockIcon className="w-4 h-4 text-yellow-500" />;
-      default: return <ClockIcon className="w-4 h-4 text-gray-400" />;
+      case 'approved':
+        return <CheckCircleIcon className="w-4 h-4 text-green-500" />;
+      case 'rejected':
+        return <XCircleIcon className="w-4 h-4 text-red-500" />;
+      case 'pending':
+        return <ClockIcon className="w-4 h-4 text-yellow-500" />;
+      default:
+        return <ClockIcon className="w-4 h-4 text-gray-400" />;
     }
   };
 
   const getResultIcon = (result: string) => {
     switch (result) {
-      case 'success': return <CheckCircleIcon className="w-4 h-4 text-green-500" />;
-      case 'failure': return <XCircleIcon className="w-4 h-4 text-red-500" />;
-      case 'denied': return <LightBulbIcon className="w-4 h-4 text-orange-500" />;
-      default: return <ClockIcon className="w-4 h-4 text-gray-400" />;
+      case 'success':
+        return <CheckCircleIcon className="w-4 h-4 text-green-500" />;
+      case 'failure':
+        return <XCircleIcon className="w-4 h-4 text-red-500" />;
+      case 'denied':
+        return <LightBulbIcon className="w-4 h-4 text-orange-500" />;
+      default:
+        return <ClockIcon className="w-4 h-4 text-gray-400" />;
     }
   };
 
-  const selectedApprovalData = approvals.data.find(a => a.id === selectedApproval);
+  const selectedApprovalData = approvals.data.find((a) => a.id === selectedApproval);
 
   // Show error state
   if (approvals.error) {
@@ -201,7 +227,9 @@ export const SecurityGateway: React.FC<SecurityGatewayPortalProps> = ({ classNam
           <div className="text-center">
             <ExclamationTriangleIcon className="w-8 h-8 text-red-400 mx-auto mb-2" />
             <p className="text-red-500 dark:text-red-400">Failed to load security data</p>
-            <p className="text-sm text-gray-400 dark:text-gray-500 mb-4">{approvals.error.message}</p>
+            <p className="text-sm text-gray-400 dark:text-gray-500 mb-4">
+              {approvals.error.message}
+            </p>
             <button
               onClick={refreshData}
               className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
@@ -240,7 +268,9 @@ export const SecurityGateway: React.FC<SecurityGatewayPortalProps> = ({ classNam
           </h2>
           <div className="flex items-center space-x-4">
             <div className="flex items-center space-x-2">
-              <div className={`w-2 h-2 rounded-full ${isWebSocketConnected ? 'bg-green-500 animate-pulse' : 'bg-gray-400'}`} />
+              <div
+                className={`w-2 h-2 rounded-full ${isWebSocketConnected ? 'bg-green-500 animate-pulse' : 'bg-gray-400'}`}
+              />
               <span className="text-sm text-gray-500">
                 {isWebSocketConnected ? 'Live' : 'Offline'}
               </span>
@@ -264,7 +294,9 @@ export const SecurityGateway: React.FC<SecurityGatewayPortalProps> = ({ classNam
           <div className="text-center">
             <ShieldCheckIcon className="w-8 h-8 text-gray-400 mx-auto mb-2" />
             <p className="text-gray-500 dark:text-gray-400">No security approvals pending</p>
-            <p className="text-sm text-gray-400 dark:text-gray-500">All operations are within approved security parameters</p>
+            <p className="text-sm text-gray-400 dark:text-gray-500">
+              All operations are within approved security parameters
+            </p>
           </div>
         </div>
       </div>
@@ -285,7 +317,9 @@ export const SecurityGateway: React.FC<SecurityGatewayPortalProps> = ({ classNam
         </h2>
         <div className="flex items-center space-x-4">
           <div className="flex items-center space-x-2">
-            <div className={`w-2 h-2 rounded-full ${isWebSocketConnected ? 'bg-green-500 animate-pulse' : 'bg-gray-400'}`} />
+            <div
+              className={`w-2 h-2 rounded-full ${isWebSocketConnected ? 'bg-green-500 animate-pulse' : 'bg-gray-400'}`}
+            />
             <span className="text-sm text-gray-500">
               {isWebSocketConnected ? 'Live' : 'Offline'}
             </span>
@@ -311,7 +345,9 @@ export const SecurityGateway: React.FC<SecurityGatewayPortalProps> = ({ classNam
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium text-red-600 dark:text-red-400">Risk Level</p>
-              <p className="text-2xl font-bold text-red-900 dark:text-red-100 capitalize">{metrics.riskLevel}</p>
+              <p className="text-2xl font-bold text-red-900 dark:text-red-100 capitalize">
+                {metrics.riskLevel}
+              </p>
             </div>
             <ShieldCheckIcon className="w-8 h-8 text-red-500" />
           </div>
@@ -321,7 +357,9 @@ export const SecurityGateway: React.FC<SecurityGatewayPortalProps> = ({ classNam
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium text-yellow-600 dark:text-yellow-400">Pending</p>
-              <p className="text-2xl font-bold text-yellow-900 dark:text-yellow-100">{metrics.pendingApprovals}</p>
+              <p className="text-2xl font-bold text-yellow-900 dark:text-yellow-100">
+                {metrics.pendingApprovals}
+              </p>
             </div>
             <ClockIcon className="w-8 h-8 text-yellow-500" />
           </div>
@@ -331,7 +369,9 @@ export const SecurityGateway: React.FC<SecurityGatewayPortalProps> = ({ classNam
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium text-green-600 dark:text-green-400">Approved</p>
-              <p className="text-2xl font-bold text-green-900 dark:text-green-100">{metrics.approved}</p>
+              <p className="text-2xl font-bold text-green-900 dark:text-green-100">
+                {metrics.approved}
+              </p>
             </div>
             <CheckCircleIcon className="w-8 h-8 text-green-500" />
           </div>
@@ -341,7 +381,9 @@ export const SecurityGateway: React.FC<SecurityGatewayPortalProps> = ({ classNam
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium text-blue-600 dark:text-blue-400">Total</p>
-              <p className="text-2xl font-bold text-blue-900 dark:text-blue-100">{metrics.totalApprovals}</p>
+              <p className="text-2xl font-bold text-blue-900 dark:text-blue-100">
+                {metrics.totalApprovals}
+              </p>
             </div>
             <DocumentTextIcon className="w-8 h-8 text-blue-500" />
           </div>
@@ -355,65 +397,69 @@ export const SecurityGateway: React.FC<SecurityGatewayPortalProps> = ({ classNam
             <LockClosedIcon className="w-5 h-5 mr-2 text-orange-500" />
             Pending Approvals ({metrics.pendingApprovals})
           </h3>
-          
+
           <div className="space-y-3">
-            {approvals.data.filter(a => a.status === 'pending').map((approval) => (
-              <div 
-                key={approval.id}
-                className={`bg-white dark:bg-slate-700 rounded-xl p-4 border cursor-pointer transition-all ${
-                  selectedApproval === approval.id 
-                    ? 'border-blue-500 ring-2 ring-blue-500/20' 
-                    : 'border-slate-200 dark:border-slate-600 hover:border-blue-300'
-                }`}
-                onClick={() => setSelectedApproval(approval.id)}
-              >
-                <div className="flex items-start justify-between mb-3">
-                  <div className="flex-1">
-                    <h4 className="font-semibold text-gray-900 dark:text-white">
-                      {approval.operationType || 'Security Approval Required'}
-                    </h4>
-                    <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
-                      {approval.description || 'Approval required for operation execution'}
-                    </p>
+            {approvals.data
+              .filter((a) => a.status === 'pending')
+              .map((approval) => (
+                <div
+                  key={approval.id}
+                  className={`bg-white dark:bg-slate-700 rounded-xl p-4 border cursor-pointer transition-all ${
+                    selectedApproval === approval.id
+                      ? 'border-blue-500 ring-2 ring-blue-500/20'
+                      : 'border-slate-200 dark:border-slate-600 hover:border-blue-300'
+                  }`}
+                  onClick={() => setSelectedApproval(approval.id)}
+                >
+                  <div className="flex items-start justify-between mb-3">
+                    <div className="flex-1">
+                      <h4 className="font-semibold text-gray-900 dark:text-white">
+                        {approval.operationType || 'Security Approval Required'}
+                      </h4>
+                      <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                        {approval.description || 'Approval required for operation execution'}
+                      </p>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      {getStatusIcon(approval.status)}
+                      <span
+                        className={`px-2 py-1 rounded-md text-xs font-medium border ${getRiskColor(approval.riskLevel || 'medium')}`}
+                      >
+                        {(approval.riskLevel || 'medium').toUpperCase()}
+                      </span>
+                    </div>
                   </div>
-                  <div className="flex items-center space-x-2">
-                    {getStatusIcon(approval.status)}
-                    <span className={`px-2 py-1 rounded-md text-xs font-medium border ${getRiskColor(approval.riskLevel || 'medium')}`}>
-                      {(approval.riskLevel || 'medium').toUpperCase()}
-                    </span>
+
+                  <div className="flex items-center justify-between">
+                    <div className="text-sm text-gray-500">
+                      <p>Requested: {new Date(approval.createdAt).toLocaleTimeString()}</p>
+                      <p>Requester: {approval.requestedBy || 'System'}</p>
+                    </div>
+
+                    <div className="flex space-x-2">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleApproval(approval.id, 'approve');
+                        }}
+                        className="px-3 py-1 bg-green-500 text-white text-xs rounded-md hover:bg-green-600 transition-colors"
+                      >
+                        Approve
+                      </button>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleApproval(approval.id, 'reject', 'Rejected via security gateway');
+                        }}
+                        className="px-3 py-1 bg-red-500 text-white text-xs rounded-md hover:bg-red-600 transition-colors"
+                      >
+                        Reject
+                      </button>
+                    </div>
                   </div>
                 </div>
-                
-                <div className="flex items-center justify-between">
-                  <div className="text-sm text-gray-500">
-                    <p>Requested: {new Date(approval.createdAt).toLocaleTimeString()}</p>
-                    <p>Requester: {approval.requestedBy || 'System'}</p>
-                  </div>
-                  
-                  <div className="flex space-x-2">
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleApproval(approval.id, 'approve');
-                      }}
-                      className="px-3 py-1 bg-green-500 text-white text-xs rounded-md hover:bg-green-600 transition-colors"
-                    >
-                      Approve
-                    </button>
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleApproval(approval.id, 'reject', 'Rejected via security gateway');
-                      }}
-                      className="px-3 py-1 bg-red-500 text-white text-xs rounded-md hover:bg-red-600 transition-colors"
-                    >
-                      Reject
-                    </button>
-                  </div>
-                </div>
-              </div>
-            ))}
-            
+              ))}
+
             {metrics.pendingApprovals === 0 && (
               <div className="text-center py-8">
                 <CheckCircleIcon className="w-8 h-8 text-green-400 mx-auto mb-2" />
@@ -429,22 +475,31 @@ export const SecurityGateway: React.FC<SecurityGatewayPortalProps> = ({ classNam
             <DocumentTextIcon className="w-5 h-5 mr-2 text-blue-500" />
             Recent Audit Log
           </h3>
-          
+
           <div className="space-y-3 max-h-96 overflow-y-auto">
             {auditEntries.map((entry) => (
-              <div key={entry.id} className="bg-white dark:bg-slate-700 rounded-lg p-3 border border-slate-200 dark:border-slate-600">
+              <div
+                key={entry.id}
+                className="bg-white dark:bg-slate-700 rounded-lg p-3 border border-slate-200 dark:border-slate-600"
+              >
                 <div className="flex items-start space-x-3">
                   {getResultIcon(entry.result)}
                   <div className="flex-1">
                     <div className="flex items-center justify-between">
-                      <span className="text-sm font-medium text-gray-900 dark:text-white">{entry.action}</span>
-                      <span className="text-xs text-gray-500">{entry.timestamp.toLocaleTimeString()}</span>
+                      <span className="text-sm font-medium text-gray-900 dark:text-white">
+                        {entry.action}
+                      </span>
+                      <span className="text-xs text-gray-500">
+                        {entry.timestamp.toLocaleTimeString()}
+                      </span>
                     </div>
                     <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">{entry.details}</p>
                     <div className="flex items-center space-x-4 mt-2 text-xs">
                       <span className="text-gray-500">User: {entry.userId}</span>
                       <span className="text-gray-500">Resource: {entry.resource}</span>
-                      <span className={`px-2 py-1 rounded-md font-medium border ${getRiskColor(entry.riskLevel)}`}>
+                      <span
+                        className={`px-2 py-1 rounded-md font-medium border ${getRiskColor(entry.riskLevel)}`}
+                      >
                         {entry.riskLevel.toUpperCase()}
                       </span>
                     </div>
@@ -463,31 +518,47 @@ export const SecurityGateway: React.FC<SecurityGatewayPortalProps> = ({ classNam
             <EyeIcon className="w-5 h-5 mr-2 text-purple-500" />
             Approval Details
           </h3>
-          
+
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
-              <h4 className="font-semibold text-gray-900 dark:text-white mb-2">Request Information</h4>
+              <h4 className="font-semibold text-gray-900 dark:text-white mb-2">
+                Request Information
+              </h4>
               <div className="space-y-2 text-sm">
-                <p><span className="font-medium">Operation:</span> {selectedApprovalData.operationType || 'N/A'}</p>
-                <p><span className="font-medium">Requested By:</span> {selectedApprovalData.requestedBy || 'System'}</p>
-                <p><span className="font-medium">Created:</span> {new Date(selectedApprovalData.createdAt).toLocaleString()}</p>
-                <p><span className="font-medium">Risk Level:</span> 
-                  <span className={`ml-2 px-2 py-1 rounded-md text-xs font-medium border ${getRiskColor(selectedApprovalData.riskLevel || 'medium')}`}>
+                <p>
+                  <span className="font-medium">Operation:</span>{' '}
+                  {selectedApprovalData.operationType || 'N/A'}
+                </p>
+                <p>
+                  <span className="font-medium">Requested By:</span>{' '}
+                  {selectedApprovalData.requestedBy || 'System'}
+                </p>
+                <p>
+                  <span className="font-medium">Created:</span>{' '}
+                  {new Date(selectedApprovalData.createdAt).toLocaleString()}
+                </p>
+                <p>
+                  <span className="font-medium">Risk Level:</span>
+                  <span
+                    className={`ml-2 px-2 py-1 rounded-md text-xs font-medium border ${getRiskColor(selectedApprovalData.riskLevel || 'medium')}`}
+                  >
                     {(selectedApprovalData.riskLevel || 'medium').toUpperCase()}
                   </span>
                 </p>
               </div>
             </div>
-            
+
             <div>
               <h4 className="font-semibold text-gray-900 dark:text-white mb-2">Description</h4>
               <p className="text-sm text-gray-600 dark:text-gray-400">
                 {selectedApprovalData.description || 'No description provided'}
               </p>
-              
+
               {selectedApprovalData.metadata && (
                 <>
-                  <h4 className="font-semibold text-gray-900 dark:text-white mb-2 mt-4">Additional Details</h4>
+                  <h4 className="font-semibold text-gray-900 dark:text-white mb-2 mt-4">
+                    Additional Details
+                  </h4>
                   <pre className="text-xs bg-gray-100 dark:bg-gray-800 p-2 rounded overflow-x-auto">
                     {JSON.stringify(selectedApprovalData.metadata, null, 2)}
                   </pre>
@@ -495,10 +566,12 @@ export const SecurityGateway: React.FC<SecurityGatewayPortalProps> = ({ classNam
               )}
             </div>
           </div>
-          
+
           <div className="flex justify-end space-x-4 mt-6">
             <button
-              onClick={() => handleApproval(selectedApprovalData.id, 'reject', 'Rejected after review')}
+              onClick={() =>
+                handleApproval(selectedApprovalData.id, 'reject', 'Rejected after review')
+              }
               className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors"
             >
               Reject
@@ -514,4 +587,4 @@ export const SecurityGateway: React.FC<SecurityGatewayPortalProps> = ({ classNam
       )}
     </motion.div>
   );
-}; 
+};

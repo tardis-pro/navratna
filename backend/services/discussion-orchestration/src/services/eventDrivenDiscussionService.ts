@@ -21,7 +21,10 @@ export class EventDrivenDiscussionService extends EventEmitter {
   private serviceName: string;
   private securityLevel: number;
   private complianceFlags: string[];
-  private pendingRequests = new Map<string, { resolve: Function, reject: Function, timeout: NodeJS.Timeout }>();
+  private pendingRequests = new Map<
+    string,
+    { resolve: Function; reject: Function; timeout: NodeJS.Timeout }
+  >();
 
   constructor(config: EventDrivenConfig) {
     super();
@@ -61,8 +64,8 @@ export class EventDrivenDiscussionService extends EventEmitter {
         'discussion.turn.changed',
         'agent.joined',
         'agent.left',
-        'agent.response'
-      ]
+        'agent.response',
+      ],
     });
   }
 
@@ -79,7 +82,7 @@ export class EventDrivenDiscussionService extends EventEmitter {
       userId,
       source: this.serviceName,
       timestamp: new Date().toISOString(),
-      securityLevel: this.securityLevel
+      securityLevel: this.securityLevel,
     };
 
     return this.publishAndWait('discussion.command.create', event, requestId);
@@ -98,7 +101,7 @@ export class EventDrivenDiscussionService extends EventEmitter {
       userId,
       source: this.serviceName,
       timestamp: new Date().toISOString(),
-      securityLevel: this.securityLevel
+      securityLevel: this.securityLevel,
     };
 
     return this.publishAndWait('discussion.query.get', event, requestId);
@@ -107,7 +110,11 @@ export class EventDrivenDiscussionService extends EventEmitter {
   /**
    * Update discussion status through event bus
    */
-  async updateDiscussionStatus(discussionId: string, status: DiscussionStatus, userId: string): Promise<void> {
+  async updateDiscussionStatus(
+    discussionId: string,
+    status: DiscussionStatus,
+    userId: string
+  ): Promise<void> {
     const event = {
       operation: 'update_status',
       discussionId,
@@ -115,7 +122,7 @@ export class EventDrivenDiscussionService extends EventEmitter {
       userId,
       source: this.serviceName,
       timestamp: new Date().toISOString(),
-      securityLevel: this.securityLevel
+      securityLevel: this.securityLevel,
     };
 
     await this.eventBusService.publish('discussion.command.update_status', event);
@@ -123,7 +130,7 @@ export class EventDrivenDiscussionService extends EventEmitter {
     this.auditLog('DISCUSSION_STATUS_UPDATED', {
       discussionId,
       status,
-      userId
+      userId,
     });
   }
 
@@ -137,14 +144,14 @@ export class EventDrivenDiscussionService extends EventEmitter {
       userId,
       source: this.serviceName,
       timestamp: new Date().toISOString(),
-      securityLevel: this.securityLevel
+      securityLevel: this.securityLevel,
     };
 
     await this.eventBusService.publish('discussion.command.start', event);
 
     this.auditLog('DISCUSSION_STARTED', {
       discussionId,
-      userId
+      userId,
     });
   }
 
@@ -158,21 +165,25 @@ export class EventDrivenDiscussionService extends EventEmitter {
       userId,
       source: this.serviceName,
       timestamp: new Date().toISOString(),
-      securityLevel: this.securityLevel
+      securityLevel: this.securityLevel,
     };
 
     await this.eventBusService.publish('discussion.command.end', event);
 
     this.auditLog('DISCUSSION_ENDED', {
       discussionId,
-      userId
+      userId,
     });
   }
 
   /**
    * Add message to discussion through event bus
    */
-  async addMessage(discussionId: string, message: Partial<Message>, userId: string): Promise<Message> {
+  async addMessage(
+    discussionId: string,
+    message: Partial<Message>,
+    userId: string
+  ): Promise<Message> {
     const requestId = this.generateRequestId();
 
     const event = {
@@ -183,7 +194,7 @@ export class EventDrivenDiscussionService extends EventEmitter {
       userId,
       source: this.serviceName,
       timestamp: new Date().toISOString(),
-      securityLevel: this.securityLevel
+      securityLevel: this.securityLevel,
     };
 
     return this.publishAndWait('discussion.command.add_message', event, requestId);
@@ -192,7 +203,11 @@ export class EventDrivenDiscussionService extends EventEmitter {
   /**
    * Update turn strategy through event bus
    */
-  async updateTurnStrategy(discussionId: string, strategy: TurnStrategy, userId: string): Promise<void> {
+  async updateTurnStrategy(
+    discussionId: string,
+    strategy: TurnStrategy,
+    userId: string
+  ): Promise<void> {
     const event = {
       operation: 'update_turn_strategy',
       discussionId,
@@ -200,7 +215,7 @@ export class EventDrivenDiscussionService extends EventEmitter {
       userId,
       source: this.serviceName,
       timestamp: new Date().toISOString(),
-      securityLevel: this.securityLevel
+      securityLevel: this.securityLevel,
     };
 
     await this.eventBusService.publish('discussion.command.update_turn_strategy', event);
@@ -208,7 +223,7 @@ export class EventDrivenDiscussionService extends EventEmitter {
     this.auditLog('TURN_STRATEGY_UPDATED', {
       discussionId,
       strategy: strategy,
-      userId
+      userId,
     });
   }
 
@@ -223,7 +238,7 @@ export class EventDrivenDiscussionService extends EventEmitter {
       userId,
       source: this.serviceName,
       timestamp: new Date().toISOString(),
-      securityLevel: this.securityLevel
+      securityLevel: this.securityLevel,
     };
 
     await this.eventBusService.publish('discussion.command.add_agent', event);
@@ -231,14 +246,18 @@ export class EventDrivenDiscussionService extends EventEmitter {
     this.auditLog('AGENT_ADDED_TO_DISCUSSION', {
       discussionId,
       agentId,
-      userId
+      userId,
     });
   }
 
   /**
    * Remove agent from discussion through event bus
    */
-  async removeAgentFromDiscussion(discussionId: string, agentId: string, userId: string): Promise<void> {
+  async removeAgentFromDiscussion(
+    discussionId: string,
+    agentId: string,
+    userId: string
+  ): Promise<void> {
     const event = {
       operation: 'remove_agent',
       discussionId,
@@ -246,7 +265,7 @@ export class EventDrivenDiscussionService extends EventEmitter {
       userId,
       source: this.serviceName,
       timestamp: new Date().toISOString(),
-      securityLevel: this.securityLevel
+      securityLevel: this.securityLevel,
     };
 
     await this.eventBusService.publish('discussion.command.remove_agent', event);
@@ -254,14 +273,19 @@ export class EventDrivenDiscussionService extends EventEmitter {
     this.auditLog('AGENT_REMOVED_FROM_DISCUSSION', {
       discussionId,
       agentId,
-      userId
+      userId,
     });
   }
 
   /**
    * Publish event and wait for response with timeout
    */
-  private async publishAndWait<T>(channel: string, event: any, requestId: string, timeout = 5000): Promise<T> {
+  private async publishAndWait<T>(
+    channel: string,
+    event: any,
+    requestId: string,
+    timeout = 5000
+  ): Promise<T> {
     return new Promise((resolve, reject) => {
       // Set up timeout
       const timeoutHandle = setTimeout(() => {
@@ -273,11 +297,11 @@ export class EventDrivenDiscussionService extends EventEmitter {
       this.pendingRequests.set(requestId, {
         resolve,
         reject,
-        timeout: timeoutHandle
+        timeout: timeoutHandle,
       });
 
       // Publish event
-      this.eventBusService.publish(channel, event).catch(error => {
+      this.eventBusService.publish(channel, event).catch((error) => {
         clearTimeout(timeoutHandle);
         this.pendingRequests.delete(requestId);
         reject(error);
@@ -376,7 +400,7 @@ export class EventDrivenDiscussionService extends EventEmitter {
       service: this.serviceName,
       timestamp: new Date().toISOString(),
       compliance: true,
-      complianceFlags: this.complianceFlags
+      complianceFlags: this.complianceFlags,
     });
   }
 

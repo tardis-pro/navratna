@@ -27,11 +27,11 @@ export class AgentGenerationHandler {
       const agent = await this.loadAgent(request.agentId);
       const response = await this.generateResponse(request, agent);
       await this.publishResponse(request.requestId, request.agentId, response);
-      
+
       logger.info('Agent generation completed', {
         requestId: request.requestId,
         agentId: request.agentId,
-        responseLength: response.content?.length || 0
+        responseLength: response.content?.length || 0,
       });
     } catch (error) {
       await this.handleError(event, error);
@@ -39,12 +39,13 @@ export class AgentGenerationHandler {
   }
 
   private validateRequest(event: any): AgentGenerationRequest {
-    const { requestId, agentId, messages, systemPrompt, maxTokens, temperature, model, provider } = event.data || event;
-    
+    const { requestId, agentId, messages, systemPrompt, maxTokens, temperature, model, provider } =
+      event.data || event;
+
     if (!requestId) {
       throw new Error('RequestId is required');
     }
-    
+
     if (!messages || !Array.isArray(messages)) {
       throw new Error('Messages array is required');
     }
@@ -57,7 +58,7 @@ export class AgentGenerationHandler {
       maxTokens,
       temperature,
       model,
-      provider
+      provider,
     };
   }
 
@@ -78,17 +79,14 @@ export class AgentGenerationHandler {
     return agent;
   }
 
-  private async generateResponse(
-    request: AgentGenerationRequest, 
-    agent: any
-  ): Promise<any> {
+  private async generateResponse(request: AgentGenerationRequest, agent: any): Promise<any> {
     const prompt = this.buildPromptFromMessages(request.messages);
     const generationRequest = {
       prompt,
       systemPrompt: request.systemPrompt,
       maxTokens: request.maxTokens || agent?.maxTokens || 1000,
       temperature: request.temperature || agent?.temperature || 0.7,
-      model: request.model || agent?.configuration?.model
+      model: request.model || agent?.configuration?.model,
     };
 
     // Use user-specific service if agent has user context
@@ -99,7 +97,7 @@ export class AgentGenerationHandler {
         logger.warn('UserLLMService failed, falling back to global', {
           agentId: agent.id,
           userId: agent.createdBy,
-          error: error instanceof Error ? error.message : 'Unknown error'
+          error: error instanceof Error ? error.message : 'Unknown error',
         });
       }
     }
@@ -111,12 +109,18 @@ export class AgentGenerationHandler {
   private buildPromptFromMessages(messages: any[]): string {
     if (!messages?.length) return '';
 
-    return messages
-      .map(msg => `${msg.sender === 'user' ? 'User' : 'Assistant'}: ${msg.content}`)
-      .join('\n') + '\nAssistant:';
+    return (
+      messages
+        .map((msg) => `${msg.sender === 'user' ? 'User' : 'Assistant'}: ${msg.content}`)
+        .join('\n') + '\nAssistant:'
+    );
   }
 
-  private async publishResponse(requestId: string, agentId: string | undefined, response: any): Promise<void> {
+  private async publishResponse(
+    requestId: string,
+    agentId: string | undefined,
+    response: any
+  ): Promise<void> {
     await this.eventBus.publish('llm.agent.generate.response', {
       requestId,
       agentId,
@@ -126,7 +130,7 @@ export class AgentGenerationHandler {
       model: response.model,
       finishReason: response.finishReason,
       tokensUsed: response.tokensUsed,
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
     });
   }
 
@@ -137,9 +141,15 @@ export class AgentGenerationHandler {
     let confidence = 0.8;
 
     switch (response.finishReason) {
-      case 'stop': confidence = 0.9; break;
-      case 'length': confidence = 0.7; break;
-      case 'error': confidence = 0.1; break;
+      case 'stop':
+        confidence = 0.9;
+        break;
+      case 'length':
+        confidence = 0.7;
+        break;
+      case 'error':
+        confidence = 0.1;
+        break;
     }
 
     const contentLength = response.content.trim().length;
@@ -158,7 +168,7 @@ export class AgentGenerationHandler {
       error: errorMessage,
       stack: error instanceof Error ? error.stack : undefined,
       requestId,
-      agentId
+      agentId,
     });
 
     await this.eventBus.publish('llm.agent.generate.response', {
@@ -169,7 +179,7 @@ export class AgentGenerationHandler {
       confidence: 0,
       model: 'unknown',
       finishReason: 'error',
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
     });
   }
 }

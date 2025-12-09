@@ -130,7 +130,7 @@ CREATE INDEX idx_audit_logs_user ON audit_logs(user_id, created_at);
 
 -- Materialized view for heavy analytics queries
 CREATE MATERIALIZED VIEW operation_stats AS
-SELECT 
+SELECT
   date_trunc('hour', created_at) as hour,
   status,
   COUNT(*) as count,
@@ -152,11 +152,11 @@ interface PoolConfig {
 class ConnectionPoolManager {
   async optimizePool(metrics: PoolMetrics): Promise<void> {
     const { activeConnections, waitingRequests } = metrics;
-    
+
     if (waitingRequests > 0 && activeConnections < this.config.maxConnections) {
       await this.increasePoolSize();
     }
-    
+
     if (waitingRequests === 0 && activeConnections > this.config.minConnections) {
       await this.decreasePoolSize();
     }
@@ -174,27 +174,27 @@ import { check, sleep } from 'k6';
 
 export const options = {
   stages: [
-    { duration: '2m', target: 100 },  // Ramp up
-    { duration: '5m', target: 100 },  // Stay at peak
-    { duration: '2m', target: 0 },    // Ramp down
+    { duration: '2m', target: 100 }, // Ramp up
+    { duration: '5m', target: 100 }, // Stay at peak
+    { duration: '2m', target: 0 }, // Ramp down
   ],
   thresholds: {
-    http_req_duration: ['p95<500'],   // 95% requests within 500ms
-    http_req_failed: ['rate<0.01'],   // Less than 1% errors
+    http_req_duration: ['p95<500'], // 95% requests within 500ms
+    http_req_failed: ['rate<0.01'], // Less than 1% errors
   },
 };
 
-export default function() {
+export default function () {
   const response = http.post('http://api.example.com/operations', {
     type: 'test',
-    payload: { data: 'test' }
+    payload: { data: 'test' },
   });
-  
+
   check(response, {
     'is status 200': (r) => r.status === 200,
     'response time < 500ms': (r) => r.timings.duration < 500,
   });
-  
+
   sleep(1);
 }
 ```
@@ -217,11 +217,11 @@ interface MemoryConfig {
 class MemoryMonitor {
   async monitor(): Promise<void> {
     const usage = process.memoryUsage();
-    
+
     if (usage.heapUsed > this.config.gcThreshold) {
-      global.gc();  // Trigger garbage collection
+      global.gc(); // Trigger garbage collection
     }
-    
+
     if (usage.heapUsed > this.config.heapSizeLimit) {
       this.handleMemoryPressure();
     }
@@ -236,11 +236,11 @@ class CPUProfiler {
   async startProfiling(): Promise<void> {
     const profiler = require('v8-profiler-next');
     profiler.startProfiling('CPU Profile');
-    
+
     setTimeout(() => {
       const profile = profiler.stopProfiling();
       profile.export().pipe(fs.createWriteStream('./cpu-profile.cpuprofile'));
-    }, 30000);  // Profile for 30 seconds
+    }, 30000); // Profile for 30 seconds
   }
 }
 ```
@@ -266,7 +266,7 @@ class WebSocketManager {
       socket.close(1013, 'Maximum connections reached');
       return;
     }
-    
+
     this.setupHeartbeat(socket);
     this.monitorLatency(socket);
   }
@@ -279,11 +279,11 @@ class WebSocketManager {
 class MessageBatcher {
   private queue: Message[] = [];
   private batchSize = 100;
-  private flushInterval = 100;  // ms
+  private flushInterval = 100; // ms
 
   async addMessage(message: Message): Promise<void> {
     this.queue.push(message);
-    
+
     if (this.queue.length >= this.batchSize) {
       await this.flush();
     }
@@ -311,7 +311,7 @@ class RateLimiter {
   async checkLimit(req: Request): Promise<boolean> {
     const key = this.config.keyGenerator(req);
     const count = await this.increment(key);
-    
+
     return count <= this.config.maxRequests;
   }
 }
@@ -339,6 +339,7 @@ class ResponseCompressor {
 ## Performance Best Practices
 
 ### Code Level
+
 1. Async/await for I/O operations
 2. Proper error handling
 3. Memory leak prevention
@@ -346,6 +347,7 @@ class ResponseCompressor {
 5. Code splitting and lazy loading
 
 ### Infrastructure Level
+
 1. Load balancing
 2. Auto-scaling
 3. CDN usage
@@ -353,6 +355,7 @@ class ResponseCompressor {
 5. Caching strategies
 
 ### Monitoring Level
+
 1. Real-time metrics
 2. Performance alerts
 3. Resource monitoring

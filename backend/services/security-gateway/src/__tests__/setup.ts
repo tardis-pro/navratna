@@ -5,7 +5,7 @@ const mockLogger: any = {
   info: jest.fn(),
   warn: jest.fn(),
   error: jest.fn(),
-  debug: jest.fn()
+  debug: jest.fn(),
 };
 
 expect.extend({
@@ -14,15 +14,15 @@ expect.extend({
     if (pass) {
       return {
         message: () => `expected ${received} not to be one of ${expected.join(', ')}`,
-        pass: true
+        pass: true,
       };
     } else {
       return {
         message: () => `expected ${received} to be one of ${expected.join(', ')}`,
-        pass: false
+        pass: false,
       };
     }
-  }
+  },
 });
 
 // Global test setup
@@ -37,19 +37,19 @@ afterEach(() => {
 });
 
 // Global test utilities
-export const createMockRequest: (
-  body?: any,
-  params?: any,
-  query?: any,
-  user?: any
-) => any = (body = {}, params = {}, query = {}, user = { id: 'test-user-id', role: 'user' }) => ({
+export const createMockRequest: (body?: any, params?: any, query?: any, user?: any) => any = (
+  body = {},
+  params = {},
+  query = {},
+  user = { id: 'test-user-id', role: 'user' }
+) => ({
   body,
   params,
   query,
   headers: {},
   user,
   ip: '127.0.0.1',
-  get: jest.fn().mockReturnValue('test-value')
+  get: jest.fn().mockReturnValue('test-value'),
 });
 
 export const createMockResponse: () => any = () => {
@@ -60,7 +60,7 @@ export const createMockResponse: () => any = () => {
     cookie: jest.fn().mockReturnThis(),
     clearCookie: jest.fn().mockReturnThis(),
     header: jest.fn().mockReturnThis(),
-    redirect: jest.fn().mockReturnThis()
+    redirect: jest.fn().mockReturnThis(),
   };
   return res;
 };
@@ -85,8 +85,8 @@ Object.defineProperty(global, 'crypto', {
         arr[i] = Math.floor(Math.random() * 256);
       }
       return arr;
-    })
-  }
+    }),
+  },
 });
 
 // Mock Date.now for consistent timestamps

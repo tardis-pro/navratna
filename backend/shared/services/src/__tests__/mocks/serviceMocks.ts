@@ -65,7 +65,7 @@ export class ServiceMockFactory {
     return {
       generateCompletion: jest.fn().mockResolvedValue({
         content: 'Mock AI response',
-        usage: { prompt_tokens: 10, completion_tokens: 20, total_tokens: 30 }
+        usage: { prompt_tokens: 10, completion_tokens: 20, total_tokens: 30 },
       }),
       generateEmbedding: jest.fn().mockResolvedValue([0.1, 0.2, 0.3]),
       listModels: jest.fn().mockResolvedValue(['gpt-4', 'gpt-3.5-turbo']),
@@ -74,7 +74,7 @@ export class ServiceMockFactory {
         id: 'gpt-4',
         name: 'GPT-4',
         maxTokens: 8192,
-        supportsFunctions: true
+        supportsFunctions: true,
       }),
     };
   }

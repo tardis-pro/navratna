@@ -1,14 +1,19 @@
 import { ConversationPattern } from '@uaip/types';
-import { 
+import {
   shouldPersonaActivate,
-  getBuildOnPattern, 
+  getBuildOnPattern,
   getActivationPhrase,
   getConcernFlag,
-  contextualTriggers 
+  contextualTriggers,
 } from '@uaip/types';
 
 // Simple pattern type for conversation flow detection
-type SimpleConversationPattern = 'interruption' | 'build-on' | 'clarification' | 'concern' | 'expertise';
+type SimpleConversationPattern =
+  | 'interruption'
+  | 'build-on'
+  | 'clarification'
+  | 'concern'
+  | 'expertise';
 
 export interface ConversationState {
   activePersonas: Set<string>;
@@ -25,7 +30,7 @@ export class ConversationFlowManager {
       activePersonas: new Set(),
       lastSpeaker: null,
       conversationPhase: 'discussion',
-      recentTopics: []
+      recentTopics: [],
     };
   }
 
@@ -34,8 +39,10 @@ export class ConversationFlowManager {
     const lowerContent = content.toLowerCase();
 
     if (lowerContent.includes('wait,') || lowerContent.includes('hold on')) return 'interruption';
-    if (lowerContent.includes('building on') || lowerContent.includes('adding to')) return 'build-on';
-    if (lowerContent.includes('can someone explain') || lowerContent.includes('i\'m not sure')) return 'clarification';
+    if (lowerContent.includes('building on') || lowerContent.includes('adding to'))
+      return 'build-on';
+    if (lowerContent.includes('can someone explain') || lowerContent.includes("i'm not sure"))
+      return 'clarification';
     if (lowerContent.includes('what about') || lowerContent.includes('how do we')) return 'concern';
     if (lowerContent.includes('from a') && lowerContent.includes('perspective')) return 'expertise';
 
@@ -48,11 +55,19 @@ export class ConversationFlowManager {
 
     // Check all available personas for triggers
     const personaIds = [
-      'tech-lead', 'software-engineer', 'qa-engineer', 'junior-dev', 'devops-engineer',
-      'policy-analyst', 'economist', 'legal-expert', 'social-scientist', 'environmental-expert'
+      'tech-lead',
+      'software-engineer',
+      'qa-engineer',
+      'junior-dev',
+      'devops-engineer',
+      'policy-analyst',
+      'economist',
+      'legal-expert',
+      'social-scientist',
+      'environmental-expert',
     ];
 
-    personaIds.forEach(personaId => {
+    personaIds.forEach((personaId) => {
       if (shouldPersonaActivate(personaId, content, contextualTriggers)) {
         triggered.push(personaId);
       }
@@ -64,11 +79,17 @@ export class ConversationFlowManager {
   // Get appropriate response starter for a persona based on context
   getResponseStarter(personaId: string, pattern: SimpleConversationPattern | null): string {
     if (pattern === 'build-on') {
-      return getBuildOnPattern(personaId, contextualTriggers) || getActivationPhrase(personaId, contextualTriggers);
+      return (
+        getBuildOnPattern(personaId, contextualTriggers) ||
+        getActivationPhrase(personaId, contextualTriggers)
+      );
     }
 
     if (pattern === 'concern') {
-      return getConcernFlag(personaId, contextualTriggers) || getActivationPhrase(personaId, contextualTriggers);
+      return (
+        getConcernFlag(personaId, contextualTriggers) ||
+        getActivationPhrase(personaId, contextualTriggers)
+      );
     }
 
     return getActivationPhrase(personaId, contextualTriggers);
@@ -79,7 +100,7 @@ export class ConversationFlowManager {
     this.state.lastSpeaker = speaker;
 
     // Add triggered personas to active set
-    triggeredPersonas.forEach(persona => {
+    triggeredPersonas.forEach((persona) => {
       this.state.activePersonas.add(persona);
     });
 
@@ -94,13 +115,26 @@ export class ConversationFlowManager {
   // Simple topic extraction
   private extractTopics(content: string): string[] {
     const topicKeywords = [
-      'architecture', 'testing', 'deployment', 'security', 'performance',
-      'policy', 'cost', 'legal', 'environment', 'social', 'implementation',
-      'design', 'quality', 'infrastructure', 'compliance', 'budget'
+      'architecture',
+      'testing',
+      'deployment',
+      'security',
+      'performance',
+      'policy',
+      'cost',
+      'legal',
+      'environment',
+      'social',
+      'implementation',
+      'design',
+      'quality',
+      'infrastructure',
+      'compliance',
+      'budget',
     ];
 
     const lowerContent = content.toLowerCase();
-    return topicKeywords.filter(keyword => lowerContent.includes(keyword));
+    return topicKeywords.filter((keyword) => lowerContent.includes(keyword));
   }
 
   // Update conversation phase based on content
@@ -129,7 +163,7 @@ export class ConversationFlowManager {
       activePersonas: new Set(),
       lastSpeaker: null,
       conversationPhase: 'discussion',
-      recentTopics: []
+      recentTopics: [],
     };
   }
 }

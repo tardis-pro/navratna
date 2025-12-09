@@ -176,4 +176,4 @@ export interface ContextAnalysis extends LLMResponse {
       estimatedDuration: number;
     }[];
   };
-} 
+}

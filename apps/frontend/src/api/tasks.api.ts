@@ -25,7 +25,15 @@ export interface CreateTaskRequest {
   description?: string;
   projectId: string;
   priority?: 'low' | 'medium' | 'high' | 'urgent';
-  type?: 'feature' | 'bug' | 'enhancement' | 'research' | 'documentation' | 'testing' | 'deployment' | 'maintenance';
+  type?:
+    | 'feature'
+    | 'bug'
+    | 'enhancement'
+    | 'research'
+    | 'documentation'
+    | 'testing'
+    | 'deployment'
+    | 'maintenance';
   assigneeType?: 'human' | 'agent';
   assignedToUserId?: string;
   assignedToAgentId?: string;
@@ -43,7 +51,15 @@ export interface UpdateTaskRequest {
   description?: string;
   status?: 'todo' | 'in_progress' | 'in_review' | 'blocked' | 'completed' | 'cancelled';
   priority?: 'low' | 'medium' | 'high' | 'urgent';
-  type?: 'feature' | 'bug' | 'enhancement' | 'research' | 'documentation' | 'testing' | 'deployment' | 'maintenance';
+  type?:
+    | 'feature'
+    | 'bug'
+    | 'enhancement'
+    | 'research'
+    | 'documentation'
+    | 'testing'
+    | 'deployment'
+    | 'maintenance';
   assigneeType?: 'human' | 'agent';
   assignedToUserId?: string;
   assignedToAgentId?: string;
@@ -72,7 +88,7 @@ export const tasksApi = {
   // Get tasks for a project
   async getProjectTasks(projectId: string, filters?: TaskFilters) {
     const params = new URLSearchParams();
-    
+
     if (filters) {
       Object.entries(filters).forEach(([key, value]) => {
         if (value !== undefined && value !== null && value !== '') {
@@ -89,7 +105,7 @@ export const tasksApi = {
 
     const queryString = params.toString();
     const url = `/projects/${projectId}/tasks${queryString ? `?${queryString}` : ''}`;
-    
+
     const response = await APIClient.get(url);
     return response;
   },
@@ -145,7 +161,7 @@ export const tasksApi = {
   // Get tasks assigned to a user
   async getUserTasks(userId: string, filters?: TaskFilters) {
     const params = new URLSearchParams();
-    
+
     if (filters) {
       Object.entries(filters).forEach(([key, value]) => {
         if (value !== undefined && value !== null && value !== '') {
@@ -162,7 +178,7 @@ export const tasksApi = {
 
     const queryString = params.toString();
     const url = `/users/${userId}/tasks${queryString ? `?${queryString}` : ''}`;
-    
+
     const response = await APIClient.get(url);
     return response;
   },
@@ -170,7 +186,7 @@ export const tasksApi = {
   // Get tasks assigned to an agent
   async getAgentTasks(agentId: string, filters?: TaskFilters) {
     const params = new URLSearchParams();
-    
+
     if (filters) {
       Object.entries(filters).forEach(([key, value]) => {
         if (value !== undefined && value !== null && value !== '') {
@@ -187,10 +203,10 @@ export const tasksApi = {
 
     const queryString = params.toString();
     const url = `/agents/${agentId}/tasks${queryString ? `?${queryString}` : ''}`;
-    
+
     const response = await APIClient.get(url);
     return response;
-  }
+  },
 };
 
 // React Query hooks for better state management
@@ -198,7 +214,7 @@ export const useTasksQuery = (projectId: string, filters?: TaskFilters) => {
   return {
     queryKey: ['tasks', projectId, filters],
     queryFn: () => tasksApi.getProjectTasks(projectId, filters),
-    enabled: !!projectId
+    enabled: !!projectId,
   };
 };
 
@@ -206,7 +222,7 @@ export const useTaskQuery = (taskId: string) => {
   return {
     queryKey: ['task', taskId],
     queryFn: () => tasksApi.getTask(taskId),
-    enabled: !!taskId
+    enabled: !!taskId,
   };
 };
 
@@ -214,7 +230,7 @@ export const useTaskStatisticsQuery = (projectId: string) => {
   return {
     queryKey: ['taskStatistics', projectId],
     queryFn: () => tasksApi.getTaskStatistics(projectId),
-    enabled: !!projectId
+    enabled: !!projectId,
   };
 };
 
@@ -222,7 +238,7 @@ export const useAssignmentSuggestionsQuery = (taskId: string) => {
   return {
     queryKey: ['assignmentSuggestions', taskId],
     queryFn: () => tasksApi.getAssignmentSuggestions(taskId),
-    enabled: !!taskId
+    enabled: !!taskId,
   };
 };
 
@@ -234,7 +250,7 @@ export const getTaskStatusColor = (status: string) => {
     in_review: 'bg-yellow-100 text-yellow-800',
     blocked: 'bg-red-100 text-red-800',
     completed: 'bg-green-100 text-green-800',
-    cancelled: 'bg-gray-100 text-gray-500'
+    cancelled: 'bg-gray-100 text-gray-500',
   };
   return colors[status as keyof typeof colors] || 'bg-gray-100 text-gray-800';
 };
@@ -244,7 +260,7 @@ export const getTaskPriorityColor = (priority: string) => {
     low: 'bg-gray-500',
     medium: 'bg-blue-500',
     high: 'bg-orange-500',
-    urgent: 'bg-red-500'
+    urgent: 'bg-red-500',
   };
   return colors[priority as keyof typeof colors] || 'bg-gray-500';
 };
@@ -258,7 +274,7 @@ export const getTaskTypeIcon = (type: string) => {
     documentation: '📝',
     testing: '🧪',
     deployment: '🚀',
-    maintenance: '⚙️'
+    maintenance: '⚙️',
   };
   return icons[type as keyof typeof icons] || '📋';
 };
@@ -276,12 +292,12 @@ export const isTaskOverdue = (dueDate?: string, status?: string) => {
 
 export const getTimeUntilDue = (dueDate?: string) => {
   if (!dueDate) return null;
-  
+
   const due = new Date(dueDate);
   const now = new Date();
   const diffMs = due.getTime() - now.getTime();
   const diffDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
-  
+
   if (diffDays < 0) {
     return `${Math.abs(diffDays)} days overdue`;
   } else if (diffDays === 0) {
@@ -300,21 +316,22 @@ export const calculateTaskProgress = (task: any) => {
 
 export const getEstimatedVsActualTime = (task: any) => {
   if (!task.metrics) return { estimated: 0, actual: 0, variance: 0 };
-  
+
   const estimated = task.metrics.estimatedTime || 0;
   const actual = task.metrics.timeSpent || 0;
   const variance = estimated > 0 ? ((actual - estimated) / estimated) * 100 : 0;
-  
+
   return { estimated, actual, variance };
 };
 
 export const getTaskAssigneeDisplay = (task: any) => {
   if (!task.assigneeType) return 'Unassigned';
-  
+
   const prefix = task.assigneeType === 'agent' ? '🤖' : '👤';
-  const name = task.assigneeType === 'human' 
-    ? (task.assignedToUser?.name || task.assignedToUser?.email)
-    : task.assignedToAgent?.name;
-  
+  const name =
+    task.assigneeType === 'human'
+      ? task.assignedToUser?.name || task.assignedToUser?.email
+      : task.assignedToAgent?.name;
+
   return name ? `${prefix} ${name}` : 'Unassigned';
 };

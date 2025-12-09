@@ -38,14 +38,21 @@ export class OAuthCapabilityDiscovery {
       category: 'repository',
       parameters: {
         type: { type: 'string', enum: ['all', 'owner', 'member'], default: 'all' },
-        sort: { type: 'string', enum: ['created', 'updated', 'pushed', 'full_name'], default: 'updated' },
-        per_page: { type: 'number', minimum: 1, maximum: 100, default: 30 }
+        sort: {
+          type: 'string',
+          enum: ['created', 'updated', 'pushed', 'full_name'],
+          default: 'updated',
+        },
+        per_page: { type: 'number', minimum: 1, maximum: 100, default: 30 },
       },
       returnType: { type: 'array', items: { type: 'object' } },
       scopes: ['repo'],
       examples: [
-        { input: { type: 'owner', sort: 'updated' }, description: 'List owned repositories by update date' }
-      ]
+        {
+          input: { type: 'owner', sort: 'updated' },
+          description: 'List owned repositories by update date',
+        },
+      ],
     },
     {
       action: 'create-repo',
@@ -56,13 +63,16 @@ export class OAuthCapabilityDiscovery {
         name: { type: 'string', required: true },
         description: { type: 'string' },
         private: { type: 'boolean', default: false },
-        auto_init: { type: 'boolean', default: false }
+        auto_init: { type: 'boolean', default: false },
       },
       returnType: { type: 'object' },
       scopes: ['repo'],
       examples: [
-        { input: { name: 'my-new-repo', description: 'A test repository', private: false }, description: 'Create a public repository' }
-      ]
+        {
+          input: { name: 'my-new-repo', description: 'A test repository', private: false },
+          description: 'Create a public repository',
+        },
+      ],
     },
     {
       action: 'list-issues',
@@ -74,13 +84,16 @@ export class OAuthCapabilityDiscovery {
         repo: { type: 'string', required: true },
         state: { type: 'string', enum: ['open', 'closed', 'all'], default: 'open' },
         labels: { type: 'string' },
-        per_page: { type: 'number', minimum: 1, maximum: 100, default: 30 }
+        per_page: { type: 'number', minimum: 1, maximum: 100, default: 30 },
       },
       returnType: { type: 'array', items: { type: 'object' } },
       scopes: ['repo'],
       examples: [
-        { input: { owner: 'octocat', repo: 'Hello-World', state: 'open' }, description: 'List open issues' }
-      ]
+        {
+          input: { owner: 'octocat', repo: 'Hello-World', state: 'open' },
+          description: 'List open issues',
+        },
+      ],
     },
     {
       action: 'create-issue',
@@ -93,13 +106,21 @@ export class OAuthCapabilityDiscovery {
         title: { type: 'string', required: true },
         body: { type: 'string' },
         labels: { type: 'array', items: { type: 'string' } },
-        assignees: { type: 'array', items: { type: 'string' } }
+        assignees: { type: 'array', items: { type: 'string' } },
       },
       returnType: { type: 'object' },
       scopes: ['repo'],
       examples: [
-        { input: { owner: 'octocat', repo: 'Hello-World', title: 'Bug report', body: 'Something is broken' }, description: 'Create a bug report issue' }
-      ]
+        {
+          input: {
+            owner: 'octocat',
+            repo: 'Hello-World',
+            title: 'Bug report',
+            body: 'Something is broken',
+          },
+          description: 'Create a bug report issue',
+        },
+      ],
     },
     {
       action: 'list-pull-requests',
@@ -111,13 +132,16 @@ export class OAuthCapabilityDiscovery {
         repo: { type: 'string', required: true },
         state: { type: 'string', enum: ['open', 'closed', 'all'], default: 'open' },
         head: { type: 'string' },
-        base: { type: 'string' }
+        base: { type: 'string' },
       },
       returnType: { type: 'array', items: { type: 'object' } },
       scopes: ['repo'],
       examples: [
-        { input: { owner: 'octocat', repo: 'Hello-World', state: 'open' }, description: 'List open pull requests' }
-      ]
+        {
+          input: { owner: 'octocat', repo: 'Hello-World', state: 'open' },
+          description: 'List open pull requests',
+        },
+      ],
     },
     {
       action: 'get-user',
@@ -127,10 +151,8 @@ export class OAuthCapabilityDiscovery {
       parameters: {},
       returnType: { type: 'object' },
       scopes: ['user:read'],
-      examples: [
-        { input: {}, description: 'Get current user profile' }
-      ]
-    }
+      examples: [{ input: {}, description: 'Get current user profile' }],
+    },
   ];
 
   // Gmail OAuth capabilities
@@ -138,18 +160,18 @@ export class OAuthCapabilityDiscovery {
     {
       action: 'list-messages',
       name: 'List Messages',
-      description: 'List messages in the user\'s mailbox',
+      description: "List messages in the user's mailbox",
       category: 'messages',
       parameters: {
         q: { type: 'string', description: 'Search query' },
         labelIds: { type: 'array', items: { type: 'string' } },
-        maxResults: { type: 'number', minimum: 1, maximum: 500, default: 100 }
+        maxResults: { type: 'number', minimum: 1, maximum: 500, default: 100 },
       },
       returnType: { type: 'object' },
       scopes: ['https://www.googleapis.com/auth/gmail.readonly'],
       examples: [
-        { input: { q: 'is:unread', maxResults: 10 }, description: 'List 10 unread messages' }
-      ]
+        { input: { q: 'is:unread', maxResults: 10 }, description: 'List 10 unread messages' },
+      ],
     },
     {
       action: 'get-message',
@@ -158,13 +180,16 @@ export class OAuthCapabilityDiscovery {
       category: 'messages',
       parameters: {
         id: { type: 'string', required: true },
-        format: { type: 'string', enum: ['minimal', 'full', 'raw', 'metadata'], default: 'full' }
+        format: { type: 'string', enum: ['minimal', 'full', 'raw', 'metadata'], default: 'full' },
       },
       returnType: { type: 'object' },
       scopes: ['https://www.googleapis.com/auth/gmail.readonly'],
       examples: [
-        { input: { id: '16c9b9b5a5b9b5a5', format: 'full' }, description: 'Get full message content' }
-      ]
+        {
+          input: { id: '16c9b9b5a5b9b5a5', format: 'full' },
+          description: 'Get full message content',
+        },
+      ],
     },
     {
       action: 'send-message',
@@ -176,25 +201,26 @@ export class OAuthCapabilityDiscovery {
         subject: { type: 'string', required: true },
         body: { type: 'string', required: true },
         cc: { type: 'string' },
-        bcc: { type: 'string' }
+        bcc: { type: 'string' },
       },
       returnType: { type: 'object' },
       scopes: ['https://www.googleapis.com/auth/gmail.send'],
       examples: [
-        { input: { to: 'example@gmail.com', subject: 'Hello', body: 'Hello World!' }, description: 'Send a simple email' }
-      ]
+        {
+          input: { to: 'example@gmail.com', subject: 'Hello', body: 'Hello World!' },
+          description: 'Send a simple email',
+        },
+      ],
     },
     {
       action: 'list-labels',
       name: 'List Labels',
-      description: 'List all labels in the user\'s mailbox',
+      description: "List all labels in the user's mailbox",
       category: 'labels',
       parameters: {},
       returnType: { type: 'object' },
       scopes: ['https://www.googleapis.com/auth/gmail.readonly'],
-      examples: [
-        { input: {}, description: 'Get all available labels' }
-      ]
+      examples: [{ input: {}, description: 'Get all available labels' }],
     },
     {
       action: 'search-messages',
@@ -203,13 +229,16 @@ export class OAuthCapabilityDiscovery {
       category: 'messages',
       parameters: {
         query: { type: 'string', required: true },
-        maxResults: { type: 'number', minimum: 1, maximum: 500, default: 50 }
+        maxResults: { type: 'number', minimum: 1, maximum: 500, default: 50 },
       },
       returnType: { type: 'object' },
       scopes: ['https://www.googleapis.com/auth/gmail.readonly'],
       examples: [
-        { input: { query: 'from:noreply subject:invoice', maxResults: 20 }, description: 'Search for invoice emails' }
-      ]
+        {
+          input: { query: 'from:noreply subject:invoice', maxResults: 20 },
+          description: 'Search for invoice emails',
+        },
+      ],
     },
     {
       action: 'create-draft',
@@ -219,14 +248,17 @@ export class OAuthCapabilityDiscovery {
       parameters: {
         to: { type: 'string', required: true },
         subject: { type: 'string', required: true },
-        body: { type: 'string', required: true }
+        body: { type: 'string', required: true },
       },
       returnType: { type: 'object' },
       scopes: ['https://www.googleapis.com/auth/gmail.compose'],
       examples: [
-        { input: { to: 'example@gmail.com', subject: 'Draft', body: 'This is a draft message' }, description: 'Create an email draft' }
-      ]
-    }
+        {
+          input: { to: 'example@gmail.com', subject: 'Draft', body: 'This is a draft message' },
+          description: 'Create an email draft',
+        },
+      ],
+    },
   ];
 
   private constructor() {}
@@ -271,7 +303,7 @@ export class OAuthCapabilityDiscovery {
 
       // Get capabilities for the connected provider
       const capabilities = this.getProviderCapabilities(provider, scopes);
-      
+
       if (capabilities.length > 0) {
         // Store provider connection
         this.connectedProviders.set(`${provider}-${userId}`, {
@@ -279,7 +311,7 @@ export class OAuthCapabilityDiscovery {
           baseUrl: this.getProviderBaseUrl(provider),
           capabilities,
           authScopes: scopes || [],
-          webhookSupport: this.supportsWebhooks(provider)
+          webhookSupport: this.supportsWebhooks(provider),
         });
 
         // Publish capabilities discovered event
@@ -289,7 +321,7 @@ export class OAuthCapabilityDiscovery {
           capabilities,
           connectionId: `${provider}-${userId}`,
           scopes: scopes || [],
-          totalCapabilities: capabilities.length
+          totalCapabilities: capabilities.length,
         });
 
         logger.info(`Discovered ${capabilities.length} capabilities for ${provider}`);
@@ -303,15 +335,15 @@ export class OAuthCapabilityDiscovery {
     try {
       const { provider, userId } = event;
       const connectionId = `${provider}-${userId}`;
-      
+
       if (this.connectedProviders.has(connectionId)) {
         this.connectedProviders.delete(connectionId);
-        
+
         // Publish capabilities removed event
         await this.publishEvent('oauth.capabilities.removed', {
           provider,
           userId,
-          connectionId
+          connectionId,
         });
 
         logger.info(`Removed OAuth capabilities for ${provider} user ${userId}`);
@@ -339,8 +371,8 @@ export class OAuthCapabilityDiscovery {
 
     // Filter capabilities based on available scopes
     if (scopes && scopes.length > 0) {
-      return allCapabilities.filter(capability => {
-        return capability.scopes?.some(scope => scopes.includes(scope));
+      return allCapabilities.filter((capability) => {
+        return capability.scopes?.some((scope) => scopes.includes(scope));
       });
     }
 
@@ -378,7 +410,7 @@ export class OAuthCapabilityDiscovery {
       await this.eventBusService.publish(channel, {
         ...data,
         source: 'oauth-capability-discovery',
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
       });
     } catch (error) {
       logger.error('Failed to publish OAuth capability event:', { channel, error });
@@ -386,9 +418,13 @@ export class OAuthCapabilityDiscovery {
   }
 
   // Public API for manual capability discovery
-  async discoverCapabilities(provider: string, userId: string, scopes?: string[]): Promise<OAuthCapability[]> {
+  async discoverCapabilities(
+    provider: string,
+    userId: string,
+    scopes?: string[]
+  ): Promise<OAuthCapability[]> {
     const capabilities = this.getProviderCapabilities(provider, scopes);
-    
+
     if (capabilities.length > 0) {
       await this.publishEvent('oauth.capabilities.discovered', {
         provider,
@@ -397,7 +433,7 @@ export class OAuthCapabilityDiscovery {
         connectionId: `${provider}-${userId}`,
         scopes: scopes || [],
         totalCapabilities: capabilities.length,
-        manualDiscovery: true
+        manualDiscovery: true,
       });
     }
 

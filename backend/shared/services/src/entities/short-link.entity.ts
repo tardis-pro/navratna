@@ -7,14 +7,14 @@ export enum LinkType {
   ARTIFACT = 'artifact',
   PROJECT_FILE = 'project_file',
   DOCUMENT = 'document',
-  EXTERNAL = 'external'
+  EXTERNAL = 'external',
 }
 
 export enum LinkStatus {
   ACTIVE = 'active',
   EXPIRED = 'expired',
   DISABLED = 'disabled',
-  DELETED = 'deleted'
+  DELETED = 'deleted',
 }
 
 export interface LinkAccessRestrictions {
@@ -64,17 +64,17 @@ export class ShortLinkEntity extends BaseEntity {
   @Column({ type: 'text', nullable: true })
   description?: string;
 
-  @Column({ 
-    type: 'enum', 
-    enum: LinkType, 
-    default: LinkType.EXTERNAL 
+  @Column({
+    type: 'enum',
+    enum: LinkType,
+    default: LinkType.EXTERNAL,
   })
   type!: LinkType;
 
-  @Column({ 
-    type: 'enum', 
-    enum: LinkStatus, 
-    default: LinkStatus.ACTIVE 
+  @Column({
+    type: 'enum',
+    enum: LinkStatus,
+    default: LinkStatus.ACTIVE,
   })
   status!: LinkStatus;
 

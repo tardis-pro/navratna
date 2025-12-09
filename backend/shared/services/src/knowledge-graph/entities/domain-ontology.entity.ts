@@ -9,7 +9,7 @@ export enum OntologyType {
   TAXONOMY = 'taxonomy',
   WORKFLOW_ONTOLOGY = 'workflow_ontology',
   SKILL_ONTOLOGY = 'skill_ontology',
-  TOOL_ONTOLOGY = 'tool_ontology'
+  TOOL_ONTOLOGY = 'tool_ontology',
 }
 
 export enum OntologyStatus {
@@ -17,7 +17,7 @@ export enum OntologyStatus {
   REVIEW = 'review',
   APPROVED = 'approved',
   PUBLISHED = 'published',
-  DEPRECATED = 'deprecated'
+  DEPRECATED = 'deprecated',
 }
 
 export enum OntologyScope {
@@ -25,7 +25,7 @@ export enum OntologyScope {
   ORGANIZATIONAL = 'organizational',
   PROJECT = 'project',
   TEAM = 'team',
-  PERSONAL = 'personal'
+  PERSONAL = 'personal',
 }
 
 @Entity('domain_ontologies')
@@ -48,7 +48,7 @@ export class DomainOntologyEntity extends BaseEntity {
   @Column({
     type: 'enum',
     enum: OntologyType,
-    name: 'ontology_type'
+    name: 'ontology_type',
   })
   ontologyType!: OntologyType;
 
@@ -58,14 +58,14 @@ export class DomainOntologyEntity extends BaseEntity {
   @Column({
     type: 'enum',
     enum: OntologyStatus,
-    default: OntologyStatus.DRAFT
+    default: OntologyStatus.DRAFT,
   })
   status!: OntologyStatus;
 
   @Column({
     type: 'enum',
     enum: OntologyScope,
-    default: OntologyScope.ORGANIZATIONAL
+    default: OntologyScope.ORGANIZATIONAL,
   })
   scope!: OntologyScope;
 

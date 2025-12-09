@@ -4,7 +4,7 @@ import {
   ExecutionStep,
   StepStatus,
   WorkflowInstance,
-  OperationState
+  OperationState,
 } from '@uaip/types';
 import { logger } from '@uaip/utils';
 import { DatabaseService } from './databaseService.js';
@@ -36,7 +36,10 @@ export interface CompensationResult {
 export class CompensationService extends EventEmitter {
   private databaseService: DatabaseService;
   private eventBusService: EventBusService;
-  private activeCompensations = new Map<string, { steps: CompensationStep[]; controller: AbortController }>();
+  private activeCompensations = new Map<
+    string,
+    { steps: CompensationStep[]; controller: AbortController }
+  >();
 
   constructor(databaseService: DatabaseService, eventBusService: EventBusService) {
     super();
@@ -70,7 +73,7 @@ export class CompensationService extends EventEmitter {
       logger.info('Starting compensation', {
         operationId,
         completedStepsCount: completedStepIds.length,
-        reason
+        reason,
       });
 
       // Get operation details
@@ -108,7 +111,7 @@ export class CompensationService extends EventEmitter {
         await this.eventBusService.publishEvent('compensation.step.completed', {
           operationId,
           compensationStepId: compensationStep.id,
-          result
+          result,
         });
       }
 
@@ -118,33 +121,31 @@ export class CompensationService extends EventEmitter {
         reason,
         stepCount: results.length,
         duration: Date.now() - startTime,
-        results
+        results,
       });
 
       logger.info('Compensation completed', {
         operationId,
         stepCount: results.length,
-        duration: Date.now() - startTime
+        duration: Date.now() - startTime,
       });
 
       return results;
-
     } catch (error) {
       logger.error('Compensation failed', {
         operationId,
         error: error instanceof Error ? error.message : String(error),
-        duration: Date.now() - startTime
+        duration: Date.now() - startTime,
       });
 
       // Emit compensation failed event
       await this.eventBusService.publishEvent('compensation.failed', {
         operationId,
         reason,
-        error: error instanceof Error ? error.message : String(error)
+        error: error instanceof Error ? error.message : String(error),
       });
 
       throw error;
-
     } finally {
       // Clean up active compensation
       this.activeCompensations.delete(operationId);
@@ -165,7 +166,7 @@ export class CompensationService extends EventEmitter {
       // Emit compensation cancelled event
       await this.eventBusService.publishEvent('compensation.cancelled', {
         operationId,
-        reason
+        reason,
       });
     }
   }
@@ -183,7 +184,7 @@ export class CompensationService extends EventEmitter {
     return {
       isActive: !!activeCompensation,
       stepsCount: activeCompensation?.steps.length,
-      steps: activeCompensation?.steps || []
+      steps: activeCompensation?.steps || [],
     };
   }
 
@@ -198,8 +199,8 @@ export class CompensationService extends EventEmitter {
     const compensationSteps: CompensationStep[] = [];
 
     // Find completed steps that need compensation
-    const completedSteps = operation.executionPlan.steps.filter((step: ExecutionStep) =>
-      step.id && completedStepIds.includes(step.id)
+    const completedSteps = operation.executionPlan.steps.filter(
+      (step: ExecutionStep) => step.id && completedStepIds.includes(step.id)
     );
 
     for (const step of completedSteps) {
@@ -212,7 +213,9 @@ export class CompensationService extends EventEmitter {
     return compensationSteps;
   }
 
-  private async createCompensationStep(originalStep: ExecutionStep): Promise<CompensationStep | null> {
+  private async createCompensationStep(
+    originalStep: ExecutionStep
+  ): Promise<CompensationStep | null> {
     // Create compensation step based on the original step type
     switch (originalStep.type) {
       case 'tool':
@@ -239,14 +242,14 @@ export class CompensationService extends EventEmitter {
       compensationData: {
         originalStepId: originalStep.id,
         originalStepName: originalStep.name,
-        toolType: originalStep.input?.toolType || 'unknown'
+        toolType: originalStep.input?.toolType || 'unknown',
       },
       timeout: 30000, // 30 seconds
       retryPolicy: {
         maxAttempts: 3,
         backoffStrategy: 'exponential',
-        retryDelay: 1000
-      }
+        retryDelay: 1000,
+      },
     };
   }
 
@@ -259,14 +262,14 @@ export class CompensationService extends EventEmitter {
       compensationData: {
         originalStepId: originalStep.id,
         originalStepName: originalStep.name,
-        artifactType: originalStep.input?.artifactType || 'unknown'
+        artifactType: originalStep.input?.artifactType || 'unknown',
       },
       timeout: 15000, // 15 seconds
       retryPolicy: {
         maxAttempts: 2,
         backoffStrategy: 'fixed',
-        retryDelay: 2000
-      }
+        retryDelay: 2000,
+      },
     };
   }
 
@@ -279,14 +282,14 @@ export class CompensationService extends EventEmitter {
       compensationData: {
         originalStepId: originalStep.id,
         originalStepName: originalStep.name,
-        approvalType: originalStep.input?.approvalType || 'unknown'
+        approvalType: originalStep.input?.approvalType || 'unknown',
       },
       timeout: 10000, // 10 seconds
       retryPolicy: {
         maxAttempts: 2,
         backoffStrategy: 'fixed',
-        retryDelay: 1000
-      }
+        retryDelay: 1000,
+      },
     };
   }
 
@@ -300,7 +303,7 @@ export class CompensationService extends EventEmitter {
       logger.info('Executing compensation step', {
         compensationStepId: compensationStep.id,
         action: compensationStep.action,
-        originalStepId: compensationStep.stepId
+        originalStepId: compensationStep.stepId,
       });
 
       // Execute compensation based on action type
@@ -326,16 +329,15 @@ export class CompensationService extends EventEmitter {
         compensationStepId: compensationStep.id,
         status: StepStatus.COMPLETED,
         executionTime: Date.now() - startTime,
-        compensationData
+        compensationData,
       };
 
       logger.info('Compensation step completed', {
         compensationStepId: compensationStep.id,
-        executionTime: result.executionTime
+        executionTime: result.executionTime,
       });
 
       return result;
-
     } catch (error) {
       const result: CompensationResult = {
         stepId: compensationStep.stepId,
@@ -343,13 +345,13 @@ export class CompensationService extends EventEmitter {
         status: StepStatus.FAILED,
         error: error instanceof Error ? error.message : String(error),
         executionTime: Date.now() - startTime,
-        compensationData: {}
+        compensationData: {},
       };
 
       logger.error('Compensation step failed', {
         compensationStepId: compensationStep.id,
         error: result.error,
-        executionTime: result.executionTime
+        executionTime: result.executionTime,
       });
 
       return result;
@@ -367,7 +369,7 @@ export class CompensationService extends EventEmitter {
       action: 'undo_tool_execution',
       originalStepId: compensationStep.stepId,
       undoResult: 'Tool execution effects reversed',
-      undoneAt: new Date().toISOString()
+      undoneAt: new Date().toISOString(),
     };
   }
 
@@ -382,7 +384,7 @@ export class CompensationService extends EventEmitter {
       action: 'cleanup_artifact',
       originalStepId: compensationStep.stepId,
       cleanupResult: 'Artifact removed successfully',
-      cleanedUpAt: new Date().toISOString()
+      cleanedUpAt: new Date().toISOString(),
     };
   }
 
@@ -397,7 +399,7 @@ export class CompensationService extends EventEmitter {
       action: 'notify_approval_cancelled',
       originalStepId: compensationStep.stepId,
       notificationResult: 'Approval cancellation notification sent',
-      notifiedAt: new Date().toISOString()
+      notifiedAt: new Date().toISOString(),
     };
   }
 
@@ -412,7 +414,7 @@ export class CompensationService extends EventEmitter {
       action: compensationStep.action,
       originalStepId: compensationStep.stepId,
       result: 'Generic compensation completed',
-      executedAt: new Date().toISOString()
+      executedAt: new Date().toISOString(),
     };
   }
 
@@ -432,4 +434,4 @@ export class CompensationService extends EventEmitter {
       }, ms);
     });
   }
-} 
+}

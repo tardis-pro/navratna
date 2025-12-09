@@ -1,10 +1,10 @@
-import { 
-  Discussion, 
-  DiscussionParticipant, 
-  TurnStrategy, 
+import {
+  Discussion,
+  DiscussionParticipant,
+  TurnStrategy,
   TurnStrategyConfig,
   ParticipantRole,
-  DiscussionMessage 
+  DiscussionMessage,
 } from '@uaip/types';
 import { logger } from '@uaip/utils';
 import { TurnStrategyInterface } from './RoundRobinStrategy.js';
@@ -23,7 +23,7 @@ interface ContextAnalysis {
     nextSpeaker: string;
     reason: string;
     confidence: number;
-    alternatives: Array<{  participantId: string; score: number; reason: string }>;
+    alternatives: Array<{ participantId: string; score: number; reason: string }>;
   };
 }
 
@@ -40,14 +40,12 @@ export class ContextAwareStrategy implements TurnStrategyInterface {
   ): Promise<DiscussionParticipant | null> {
     try {
       // Get active participants
-      const activeParticipants = participants.filter(p => 
-        p.isActive
-      );
+      const activeParticipants = participants.filter((p) => p.isActive);
 
       if (activeParticipants.length === 0) {
         logger.warn('No active participants available for context-aware strategy', {
           discussionId: discussion.id,
-          totalParticipants: participants.length
+          totalParticipants: participants.length,
         });
         return null;
       }
@@ -58,22 +56,24 @@ export class ContextAwareStrategy implements TurnStrategyInterface {
 
       // Analyze discussion context
       const contextAnalysis = await this.analyzeDiscussionContext(discussion, activeParticipants);
-      
+
       // Find the recommended next participant
       const recommendedParticipantId = contextAnalysis.recommendations.nextSpeaker;
-      const nextParticipant = activeParticipants.find(p => p.id === recommendedParticipantId);
+      const nextParticipant = activeParticipants.find((p) => p.id === recommendedParticipantId);
 
       if (!nextParticipant) {
         // Fallback to highest scoring alternative
         const alternatives = contextAnalysis.recommendations.alternatives;
         if (alternatives.length > 0) {
-          const fallbackParticipant = activeParticipants.find(p => p.id === alternatives[0].participantId);
+          const fallbackParticipant = activeParticipants.find(
+            (p) => p.id === alternatives[0].participantId
+          );
           if (fallbackParticipant) {
             logger.info('Using fallback participant for context-aware strategy', {
               discussionId: discussion.id,
               recommendedId: recommendedParticipantId,
               fallbackId: fallbackParticipant.id,
-              reason: alternatives[0].reason
+              reason: alternatives[0].reason,
             });
             return fallbackParticipant;
           }
@@ -90,7 +90,7 @@ export class ContextAwareStrategy implements TurnStrategyInterface {
         selectedParticipantId: nextParticipant.id,
         reason: contextAnalysis.recommendations.reason,
         confidence: contextAnalysis.recommendations.confidence,
-        alternatives: contextAnalysis.recommendations.alternatives.length
+        alternatives: contextAnalysis.recommendations.alternatives.length,
       });
 
       return nextParticipant;
@@ -98,11 +98,11 @@ export class ContextAwareStrategy implements TurnStrategyInterface {
       logger.error('Error in context-aware strategy getNextParticipant', {
         error: error instanceof Error ? error.message : 'Unknown error',
         discussionId: discussion.id,
-        participantCount: participants.length
+        participantCount: participants.length,
       });
-      
+
       // Fallback to round-robin on error
-      const activeParticipants = participants.filter(p => p.isActive);
+      const activeParticipants = participants.filter((p) => p.isActive);
       if (activeParticipants.length > 0) {
         const currentTurnNumber = discussion.state.currentTurn.turnNumber;
         const fallbackIndex = currentTurnNumber % activeParticipants.length;
@@ -131,31 +131,33 @@ export class ContextAwareStrategy implements TurnStrategyInterface {
 
       // Context-aware specific checks
       const contextAnalysis = await this.getOrCreateContextAnalysis(discussion, [participant]);
-      
+
       // Check if participant is contextually relevant
       const relevanceScore = contextAnalysis.topicRelevance.get(participant.id);
-      const minRelevanceThreshold = (config?.config.type === 'context_aware' ? config.config.relevanceThreshold : 0.3);
-      
+      const minRelevanceThreshold =
+        config?.config.type === 'context_aware' ? config.config.relevanceThreshold : 0.3;
+
       if (relevanceScore < minRelevanceThreshold) {
         logger.debug('Participant below relevance threshold', {
           participantId: participant.id,
           discussionId: discussion.id,
           relevanceScore,
-          threshold: minRelevanceThreshold
+          threshold: minRelevanceThreshold,
         });
         return false;
       }
 
       // Check engagement level
       const engagementScore = contextAnalysis.engagementLevel.get(participant.id);
-      const minEngagementThreshold = (config?.config.type === 'context_aware' ? config.config.engagementWeight : 0.2);
-      
+      const minEngagementThreshold =
+        config?.config.type === 'context_aware' ? config.config.engagementWeight : 0.2;
+
       if (engagementScore < minEngagementThreshold) {
         logger.debug('Participant below engagement threshold', {
           participantId: participant.id,
           discussionId: discussion.id,
           engagementScore,
-          threshold: minEngagementThreshold
+          threshold: minEngagementThreshold,
         });
         return false;
       }
@@ -165,7 +167,7 @@ export class ContextAwareStrategy implements TurnStrategyInterface {
       logger.error('Error checking if participant can take turn in context-aware strategy', {
         error: error instanceof Error ? error.message : 'Unknown error',
         participantId: participant.id,
-        discussionId: discussion.id
+        discussionId: discussion.id,
       });
       return true; // Default to allowing on error
     }
@@ -179,25 +181,27 @@ export class ContextAwareStrategy implements TurnStrategyInterface {
     try {
       const now = new Date();
       const turnStartTime = discussion.state.currentTurn.startedAt;
-      
+
       if (!turnStartTime) {
         return true;
       }
 
       // Analyze context to determine if turn should advance
-      const contextAnalysis = await this.getOrCreateContextAnalysis(discussion, [currentParticipant]);
-      
+      const contextAnalysis = await this.getOrCreateContextAnalysis(discussion, [
+        currentParticipant,
+      ]);
+
       // Check if participant has addressed pending questions or topics
       const hasAddressedPendingItems = await this.hasAddressedPendingItems(
-        currentParticipant, 
-        discussion, 
+        currentParticipant,
+        discussion,
         contextAnalysis
       );
 
       if (hasAddressedPendingItems) {
         logger.info('Participant has addressed pending items, advancing turn', {
           discussionId: discussion.id,
-          participantId: currentParticipant.id
+          participantId: currentParticipant.id,
         });
         return true;
       }
@@ -213,7 +217,7 @@ export class ContextAwareStrategy implements TurnStrategyInterface {
       if (shouldYieldToMoreRelevant) {
         logger.info('More relevant participant available, advancing turn', {
           discussionId: discussion.id,
-          currentParticipantId: currentParticipant.id
+          currentParticipantId: currentParticipant.id,
         });
         return true;
       }
@@ -221,21 +225,21 @@ export class ContextAwareStrategy implements TurnStrategyInterface {
       // Check timeout with context-aware adjustments
       const turnDuration = now.getTime() - new Date(turnStartTime).getTime();
       const baseTimeout = discussion.settings.turnTimeout || 30;
-      
+
       // Adjust timeout based on context
       const adjustedTimeout = this.calculateContextAwareTimeout(
         baseTimeout,
         currentParticipant,
         contextAnalysis
       );
-      
+
       if (turnDuration >= adjustedTimeout * 1000) {
         logger.info('Context-aware timeout reached, advancing turn', {
           discussionId: discussion.id,
           participantId: currentParticipant.id,
           turnDuration: turnDuration / 1000,
           adjustedTimeout,
-          baseTimeout
+          baseTimeout,
         });
         return true;
       }
@@ -245,7 +249,7 @@ export class ContextAwareStrategy implements TurnStrategyInterface {
       logger.error('Error checking if turn should advance in context-aware strategy', {
         error: error instanceof Error ? error.message : 'Unknown error',
         discussionId: discussion.id,
-        participantId: currentParticipant.id
+        participantId: currentParticipant.id,
       });
       return true;
     }
@@ -258,10 +262,10 @@ export class ContextAwareStrategy implements TurnStrategyInterface {
   ): Promise<number> {
     try {
       const baseDuration = discussion.settings.turnTimeout || 30;
-      
+
       // Get context analysis
       const contextAnalysis = await this.getOrCreateContextAnalysis(discussion, [participant]);
-      
+
       // Calculate context-aware duration
       const adjustedDuration = this.calculateContextAwareTimeout(
         baseDuration,
@@ -275,7 +279,7 @@ export class ContextAwareStrategy implements TurnStrategyInterface {
         baseDuration,
         adjustedDuration,
         relevanceScore: contextAnalysis.topicRelevance.get(participant.id),
-        expertiseScore: contextAnalysis.expertiseMatch.get(participant.id)
+        expertiseScore: contextAnalysis.expertiseMatch.get(participant.id),
       });
 
       return Math.round(adjustedDuration);
@@ -283,7 +287,7 @@ export class ContextAwareStrategy implements TurnStrategyInterface {
       logger.error('Error calculating context-aware turn duration', {
         error: error instanceof Error ? error.message : 'Unknown error',
         participantId: participant.id,
-        discussionId: discussion.id
+        discussionId: discussion.id,
       });
       return discussion.settings.turnTimeout || 30;
     }
@@ -298,22 +302,22 @@ export class ContextAwareStrategy implements TurnStrategyInterface {
     try {
       // Check cache first
       const cached = this.contextCache.get(discussion.id);
-      if (cached && (new Date().getTime() - cached.timestamp.getTime()) < this.cacheTimeout) {
+      if (cached && new Date().getTime() - cached.timestamp.getTime() < this.cacheTimeout) {
         return cached.analysis;
       }
 
       // Analyze topic relevance
       const topicRelevance = await this.analyzeTopicRelevance(discussion, participants);
-      
+
       // Analyze expertise match
       const expertiseMatch = await this.analyzeExpertiseMatch(discussion, participants);
-      
+
       // Analyze engagement levels
       const engagementLevel = await this.analyzeEngagementLevel(discussion, participants);
-      
+
       // Analyze conversation flow
       const conversationFlow = await this.analyzeConversationFlow(discussion);
-      
+
       // Generate recommendations
       const recommendations = await this.generateRecommendations(
         participants,
@@ -328,22 +332,22 @@ export class ContextAwareStrategy implements TurnStrategyInterface {
         expertiseMatch,
         engagementLevel,
         conversationFlow,
-        recommendations
+        recommendations,
       };
 
       // Cache the analysis
       this.contextCache.set(discussion.id, {
         analysis,
-        timestamp: new Date()
+        timestamp: new Date(),
       });
 
       return analysis;
     } catch (error) {
       logger.error('Error analyzing discussion context', {
         error: error instanceof Error ? error.message : 'Unknown error',
-        discussionId: discussion.id
+        discussionId: discussion.id,
       });
-      
+
       // Return default analysis on error
       return this.getDefaultContextAnalysis(participants);
     }
@@ -354,37 +358,38 @@ export class ContextAwareStrategy implements TurnStrategyInterface {
     participants: DiscussionParticipant[]
   ): Promise<Map<string, number>> {
     const relevanceMap = new Map<string, number>();
-    
+
     // This would typically use NLP/AI to analyze topic relevance
     // For now, use a simplified heuristic based on participant expertise and recent messages
-    
+
     for (const participant of participants) {
       let relevanceScore = 0.5; // Base score
-      
+
       // Boost score based on expertise match with discussion topic
       if (discussion.topic) {
         // Simplified keyword matching - in real implementation, use semantic analysis
         const topicKeywords = discussion.topic.toLowerCase().split(' ');
-                const participantExpertise = participant.agentId ?
-          await this.getParticipantExpertise(participant.agentId) : [];
-        
-        const expertiseMatch = participantExpertise.some(expertise =>
-          topicKeywords.some(keyword => expertise.toLowerCase().includes(keyword))
+        const participantExpertise = participant.agentId
+          ? await this.getParticipantExpertise(participant.agentId)
+          : [];
+
+        const expertiseMatch = participantExpertise.some((expertise) =>
+          topicKeywords.some((keyword) => expertise.toLowerCase().includes(keyword))
         );
-        
+
         if (expertiseMatch) {
           relevanceScore += 0.3;
         }
       }
-      
+
       // Adjust based on recent participation
       if (participant.messageCount > 0) {
         relevanceScore += Math.min(participant.messageCount * 0.05, 0.2);
       }
-      
+
       relevanceMap.set(participant.id, Math.min(relevanceScore, 1.0));
     }
-    
+
     return relevanceMap;
   }
 
@@ -393,27 +398,27 @@ export class ContextAwareStrategy implements TurnStrategyInterface {
     participants: DiscussionParticipant[]
   ): Promise<Map<string, number>> {
     const expertiseMap = new Map<string, number>();
-    
+
     for (const participant of participants) {
       let expertiseScore = 0.5; // Base score
-      
+
       // Boost for facilitator role (closest to expert)
       if (participant.role === ParticipantRole.FACILITATOR) {
         expertiseScore += 0.3;
       }
-      
+
       // Boost for moderator role
       if (participant.role === ParticipantRole.MODERATOR) {
         expertiseScore += 0.2;
       }
-      
+
       // Boost based on historical performance in similar discussions
       // This would query historical data in real implementation
       expertiseScore += Math.random() * 0.2; // Placeholder
-      
+
       expertiseMap.set(participant.id, Math.min(expertiseScore, 1.0));
     }
-    
+
     return expertiseMap;
   }
 
@@ -422,41 +427,44 @@ export class ContextAwareStrategy implements TurnStrategyInterface {
     participants: DiscussionParticipant[]
   ): Promise<Map<string, number>> {
     const engagementMap = new Map<string, number>();
-    
+
     for (const participant of participants) {
       let engagementScore = 0.5; // Base score
-      
+
       // Recent activity boost
       if (participant.lastMessageAt) {
-        const timeSinceActive = new Date().getTime() - new Date(participant.lastMessageAt).getTime();
+        const timeSinceActive =
+          new Date().getTime() - new Date(participant.lastMessageAt).getTime();
         const hoursSinceActive = timeSinceActive / (1000 * 60 * 60);
-        
+
         if (hoursSinceActive < 1) {
           engagementScore += 0.3;
         } else if (hoursSinceActive < 24) {
           engagementScore += 0.1;
         }
       }
-      
+
       // Message frequency boost
       const messageRatio = participant.messageCount / Math.max(discussion.state.messageCount, 1);
       engagementScore += Math.min(messageRatio * 0.3, 0.2);
-      
+
       engagementMap.set(participant.id, Math.min(engagementScore, 1.0));
     }
-    
+
     return engagementMap;
   }
 
-  private async analyzeConversationFlow(discussion: Discussion): Promise<ContextAnalysis['conversationFlow']> {
+  private async analyzeConversationFlow(
+    discussion: Discussion
+  ): Promise<ContextAnalysis['conversationFlow']> {
     // This would analyze recent messages to understand conversation flow
     // For now, return simplified analysis
-    
+
     return {
       lastSpeakers: [], // Would contain recent speaker IDs
       topicShifts: 0, // Number of topic changes detected
       questionsPending: [], // Unanswered questions
-      consensusLevel: discussion.state.consensusLevel
+      consensusLevel: discussion.state.consensusLevel,
     };
   }
 
@@ -467,48 +475,51 @@ export class ContextAwareStrategy implements TurnStrategyInterface {
     engagementLevel: Map<string, number>,
     conversationFlow: ContextAnalysis['conversationFlow']
   ): Promise<ContextAnalysis['recommendations']> {
-    
     // Calculate composite scores for each participant
-    const participantScores = participants.map(participant => {
+    const participantScores = participants.map((participant) => {
       const relevance = topicRelevance.get(participant.id);
       const expertise = expertiseMatch.get(participant.id);
       const engagement = engagementLevel.get(participant.id);
-      
+
       // Weighted composite score
-      const compositeScore = (relevance * 0.4) + (expertise * 0.3) + (engagement * 0.3);
-      
+      const compositeScore = relevance * 0.4 + expertise * 0.3 + engagement * 0.3;
+
       return {
         participantId: participant.id,
         score: compositeScore,
-        reason: this.generateRecommendationReason(relevance, expertise, engagement)
+        reason: this.generateRecommendationReason(relevance, expertise, engagement),
       };
     });
-    
+
     // Sort by score
     participantScores.sort((a, b) => b.score - a.score);
-    
+
     const topChoice = participantScores[0];
     const alternatives = participantScores.slice(1, 4); // Top 3 alternatives
-    
+
     return {
       nextSpeaker: topChoice.participantId,
       reason: topChoice.reason,
       confidence: topChoice.score,
-      alternatives
+      alternatives,
     };
   }
 
-  private generateRecommendationReason(relevance: number, expertise: number, engagement: number): string {
+  private generateRecommendationReason(
+    relevance: number,
+    expertise: number,
+    engagement: number
+  ): string {
     const factors = [];
-    
+
     if (relevance > 0.7) factors.push('high topic relevance');
     if (expertise > 0.7) factors.push('strong expertise match');
     if (engagement > 0.7) factors.push('high engagement level');
-    
+
     if (factors.length === 0) {
       return 'balanced participant selection';
     }
-    
+
     return `Selected based on ${factors.join(', ')}`;
   }
 
@@ -519,10 +530,10 @@ export class ContextAwareStrategy implements TurnStrategyInterface {
     participants: DiscussionParticipant[]
   ): Promise<ContextAnalysis> {
     const cached = this.contextCache.get(discussion.id);
-    if (cached && (new Date().getTime() - cached.timestamp.getTime()) < this.cacheTimeout) {
+    if (cached && new Date().getTime() - cached.timestamp.getTime() < this.cacheTimeout) {
       return cached.analysis;
     }
-    
+
     return await this.analyzeDiscussionContext(discussion, participants);
   }
 
@@ -549,14 +560,14 @@ export class ContextAwareStrategy implements TurnStrategyInterface {
   ): Promise<boolean> {
     const currentRelevance = contextAnalysis.topicRelevance.get(currentParticipant.id);
     const threshold = 0.3; // Default threshold since config.contextAware doesn't exist
-    
+
     // Check if any other participant has significantly higher relevance
     for (const [participantId, relevance] of contextAnalysis.topicRelevance) {
       if (participantId !== currentParticipant.id && relevance > currentRelevance + threshold) {
         return true;
       }
     }
-    
+
     return false;
   }
 
@@ -566,24 +577,24 @@ export class ContextAwareStrategy implements TurnStrategyInterface {
     contextAnalysis: ContextAnalysis
   ): number {
     let adjustedTimeout = baseTimeout;
-    
+
     const relevance = contextAnalysis.topicRelevance.get(participant.id) || 0.5;
     const expertise = contextAnalysis.expertiseMatch.get(participant.id) || 0.5;
-    
+
     // Give more time to highly relevant/expert participants
     if (relevance > 0.8 || expertise > 0.8) {
       adjustedTimeout *= 1.5;
     } else if (relevance < 0.3 && expertise < 0.3) {
       adjustedTimeout *= 0.7;
     }
-    
+
     return adjustedTimeout;
   }
 
   private getDefaultContextAnalysis(participants: DiscussionParticipant[]): ContextAnalysis {
     const defaultMap = new Map<string, number>();
-    participants.forEach(p => defaultMap.set(p.id, 0.5));
-    
+    participants.forEach((p) => defaultMap.set(p.id, 0.5));
+
     return {
       topicRelevance: defaultMap,
       expertiseMatch: defaultMap,
@@ -592,14 +603,14 @@ export class ContextAwareStrategy implements TurnStrategyInterface {
         lastSpeakers: [],
         topicShifts: 0,
         questionsPending: [],
-        consensusLevel: 0
+        consensusLevel: 0,
       },
       recommendations: {
         nextSpeaker: participants[0]?.id,
         reason: 'Default selection',
         confidence: 0.5,
-        alternatives: []
-      }
+        alternatives: [],
+      },
     };
   }
 
@@ -618,8 +629,8 @@ export class ContextAwareStrategy implements TurnStrategyInterface {
         type: 'context_aware',
         relevanceThreshold: 0.3,
         expertiseWeight: 0.4,
-        engagementWeight: 0.3
-      }
+        engagementWeight: 0.3,
+      },
     };
   }
-} 
+}

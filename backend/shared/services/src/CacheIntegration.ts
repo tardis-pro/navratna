@@ -88,7 +88,9 @@ export class CacheIntegration {
    */
   public getUserKnowledgeService(): CachedUserKnowledgeService {
     if (!this.cachedUserKnowledgeService) {
-      throw new Error('User knowledge service not initialized. Ensure KnowledgeGraphService is provided during initialization.');
+      throw new Error(
+        'User knowledge service not initialized. Ensure KnowledgeGraphService is provided during initialization.'
+      );
     }
     return this.cachedUserKnowledgeService;
   }
@@ -123,10 +125,13 @@ export class CacheIntegration {
   /**
    * Quick cache operations
    */
-  public async invalidateUserCache(userId: string, options?: {
-    includeProviders?: boolean;
-    includeKnowledge?: boolean;
-  }): Promise<void> {
+  public async invalidateUserCache(
+    userId: string,
+    options?: {
+      includeProviders?: boolean;
+      includeKnowledge?: boolean;
+    }
+  ): Promise<void> {
     await this.cacheManager.invalidateUserCache(userId, options);
   }
 
@@ -183,7 +188,7 @@ export class CacheIntegration {
    */
   public async shutdown(): Promise<void> {
     logger.info('Shutting down cache integration...');
-    
+
     try {
       // Perform any cleanup operations here
       this.initialized = false;
@@ -198,23 +203,21 @@ export class CacheIntegration {
 export const cacheIntegration = CacheIntegration.getInstance();
 
 // Export convenience functions
-export const initializeCaching = (knowledgeGraphService?: KnowledgeGraphService) => 
+export const initializeCaching = (knowledgeGraphService?: KnowledgeGraphService) =>
   cacheIntegration.initialize(knowledgeGraphService);
 
 export const getCachedUserService = () => cacheIntegration.getUserService();
 export const getCachedUserKnowledgeService = () => cacheIntegration.getUserKnowledgeService();
-export const getCachedUserLLMProviderRepository = () => cacheIntegration.getUserLLMProviderRepository();
+export const getCachedUserLLMProviderRepository = () =>
+  cacheIntegration.getUserLLMProviderRepository();
 export const getCachedLLMProviderRepository = () => cacheIntegration.getLLMProviderRepository();
 export const getCacheManager = () => cacheIntegration.getCacheManager();
 
-export const invalidateUserCache = (userId: string, options?: any) => 
+export const invalidateUserCache = (userId: string, options?: any) =>
   cacheIntegration.invalidateUserCache(userId, options);
 
-export const warmUpUserCache = (userId: string) => 
-  cacheIntegration.warmUpUserCache(userId);
+export const warmUpUserCache = (userId: string) => cacheIntegration.warmUpUserCache(userId);
 
-export const getCacheHealthStatus = () => 
-  cacheIntegration.getHealthStatus();
+export const getCacheHealthStatus = () => cacheIntegration.getHealthStatus();
 
-export const getCachePerformanceMetrics = () => 
-  cacheIntegration.getPerformanceMetrics();
+export const getCachePerformanceMetrics = () => cacheIntegration.getPerformanceMetrics();

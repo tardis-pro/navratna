@@ -9,12 +9,14 @@ The UAIP platform uses environment variables for configuration across all servic
 ## 📋 Configuration Files
 
 ### Primary Configuration Files
+
 - **`.env`** - Main environment configuration
 - **`sample.env`** - Template with all available options
 - **`docker-compose.yml`** - Docker service configuration
 - **`package.json`** - Node.js dependencies and scripts
 
 ### Service-Specific Configuration
+
 - Each service has its own environment variables
 - Shared configuration through monorepo workspace
 - Override capabilities for different environments
@@ -22,6 +24,7 @@ The UAIP platform uses environment variables for configuration across all servic
 ## 🔧 Core Configuration
 
 ### Application Settings
+
 ```bash
 # Environment
 NODE_ENV=development|production|test
@@ -40,6 +43,7 @@ API_GATEWAY_PORT=8081
 ```
 
 ### Service Ports
+
 ```bash
 # Backend Services
 AGENT_INTELLIGENCE_PORT=3001
@@ -60,6 +64,7 @@ RABBITMQ_MANAGEMENT_PORT=15672
 ## 🗄️ Database Configuration
 
 ### PostgreSQL Settings
+
 ```bash
 # Connection
 POSTGRESQL_HOST=localhost
@@ -83,6 +88,7 @@ POSTGRESQL_SSL_CA_PATH=/path/to/ca.pem
 ```
 
 ### Neo4j Settings
+
 ```bash
 # Connection
 NEO4J_HOST=localhost
@@ -105,6 +111,7 @@ NEO4J_PAGECACHE_SIZE=1G
 ```
 
 ### Redis Settings
+
 ```bash
 # Connection
 REDIS_HOST=localhost
@@ -125,6 +132,7 @@ REDIS_CLUSTER_NODES=redis1:6379,redis2:6379,redis3:6379
 ```
 
 ### RabbitMQ Settings
+
 ```bash
 # Connection
 RABBITMQ_HOST=localhost
@@ -148,6 +156,7 @@ RABBITMQ_PREFETCH_COUNT=10
 ## 🔐 Security Configuration
 
 ### JWT Settings
+
 ```bash
 # JWT Configuration
 JWT_SECRET=your-super-secret-jwt-key-here
@@ -166,6 +175,7 @@ SESSION_SAME_SITE=lax
 ```
 
 ### Security Settings
+
 ```bash
 # CORS Configuration
 CORS_ORIGIN=http://localhost:3000,http://localhost:8081
@@ -185,6 +195,7 @@ HSTS_ENABLED=true
 ```
 
 ### Authentication Providers
+
 ```bash
 # OAuth Configuration
 OAUTH_GITHUB_CLIENT_ID=your-github-client-id
@@ -199,6 +210,7 @@ OAUTH_GOOGLE_CALLBACK_URL=http://localhost:8081/auth/google/callback
 ## 🤖 AI/LLM Configuration
 
 ### OpenAI Settings
+
 ```bash
 # OpenAI Configuration
 OPENAI_API_KEY=sk-your-openai-api-key-here
@@ -210,6 +222,7 @@ OPENAI_TIMEOUT=30000
 ```
 
 ### Anthropic Settings
+
 ```bash
 # Anthropic Configuration
 ANTHROPIC_API_KEY=sk-ant-your-anthropic-api-key-here
@@ -220,6 +233,7 @@ ANTHROPIC_TIMEOUT=30000
 ```
 
 ### Local LLM Settings
+
 ```bash
 # Ollama Configuration
 OLLAMA_ENABLED=true
@@ -237,6 +251,7 @@ CUSTOM_LLM_MODEL=your-model-name
 ## 🚀 Service-Specific Configuration
 
 ### Agent Intelligence Service
+
 ```bash
 # Agent Intelligence Configuration
 AGENT_INTELLIGENCE_URL=http://localhost:3001
@@ -252,6 +267,7 @@ CONTEXT_COMPRESSION_ENABLED=true
 ```
 
 ### Orchestration Pipeline Service
+
 ```bash
 # Orchestration Configuration
 ORCHESTRATION_PIPELINE_URL=http://localhost:3002
@@ -267,6 +283,7 @@ WORKFLOW_PARALLEL_EXECUTION=true
 ```
 
 ### Capability Registry Service
+
 ```bash
 # Capability Registry Configuration
 CAPABILITY_REGISTRY_URL=http://localhost:3003
@@ -288,6 +305,7 @@ MCP_SERVERS_TIMEOUT=30000
 ```
 
 ### Security Gateway Service
+
 ```bash
 # Security Gateway Configuration
 SECURITY_GATEWAY_URL=http://localhost:3004
@@ -302,6 +320,7 @@ AUDIT_LOG_ENCRYPTION=true
 ```
 
 ### Discussion Orchestration Service
+
 ```bash
 # Discussion Orchestration Configuration
 DISCUSSION_ORCHESTRATION_URL=http://localhost:3005
@@ -318,6 +337,7 @@ WEBSOCKET_MESSAGE_QUEUE_SIZE=100
 ## 🔧 Development Configuration
 
 ### Development-Specific Settings
+
 ```bash
 # Development Features
 ENABLE_HOT_RELOAD=true
@@ -337,6 +357,7 @@ ENABLE_PROMETHEUS_METRICS=true
 ```
 
 ### Testing Configuration
+
 ```bash
 # Test Environment
 TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/uaip_test
@@ -353,6 +374,7 @@ TEST_MOCK_EXTERNAL_APIS=true
 ## 🏭 Production Configuration
 
 ### Production-Specific Settings
+
 ```bash
 # Production Environment
 NODE_ENV=production
@@ -373,6 +395,7 @@ COMPRESSION_ENABLED=true
 ```
 
 ### SSL/TLS Configuration
+
 ```bash
 # SSL Configuration
 SSL_CERT_PATH=/path/to/cert.pem
@@ -386,6 +409,7 @@ TLS_CIPHERS=ECDHE-RSA-AES128-GCM-SHA256:ECDHE-RSA-AES256-GCM-SHA384
 ```
 
 ### Monitoring Configuration
+
 ```bash
 # Prometheus Configuration
 PROMETHEUS_ENABLED=true
@@ -406,6 +430,7 @@ HEALTH_CHECK_TIMEOUT=5000
 ## 🐳 Docker Configuration
 
 ### Docker Environment Variables
+
 ```bash
 # Docker Configuration
 DOCKER_REGISTRY=your-registry.com
@@ -424,6 +449,7 @@ CONFIG_VOLUME_PATH=/etc/uaip
 ```
 
 ### Docker Compose Override
+
 ```yaml
 # docker-compose.override.yml
 version: '3.8'
@@ -439,6 +465,7 @@ services:
 ## 📝 Configuration Templates
 
 ### Development Template (.env.development)
+
 ```bash
 # Development Environment
 NODE_ENV=development
@@ -465,6 +492,7 @@ CHOKIDAR_USEPOLLING=true
 ```
 
 ### Production Template (.env.production)
+
 ```bash
 # Production Environment
 NODE_ENV=production
@@ -499,6 +527,7 @@ CACHE_ENABLED=true
 ## 🔍 Configuration Validation
 
 ### Environment Validation Script
+
 ```bash
 #!/bin/bash
 # validate-env.sh
@@ -509,7 +538,7 @@ echo "Validating environment configuration..."
 required_vars=(
   "NODE_ENV"
   "POSTGRESQL_URL"
-  "NEO4J_URL" 
+  "NEO4J_URL"
   "REDIS_URL"
   "JWT_SECRET"
 )
@@ -530,24 +559,19 @@ echo "✅ Environment configuration is valid"
 ```
 
 ### Configuration Health Check
+
 ```typescript
 // config-health.ts
 export async function validateConfiguration(): Promise<boolean> {
-  const requiredVars = [
-    'NODE_ENV',
-    'POSTGRESQL_URL',
-    'NEO4J_URL',
-    'REDIS_URL',
-    'JWT_SECRET'
-  ];
-  
+  const requiredVars = ['NODE_ENV', 'POSTGRESQL_URL', 'NEO4J_URL', 'REDIS_URL', 'JWT_SECRET'];
+
   for (const varName of requiredVars) {
     if (!process.env[varName]) {
       console.error(`Missing required environment variable: ${varName}`);
       return false;
     }
   }
-  
+
   // Test database connections
   try {
     await testDatabaseConnections();
@@ -562,6 +586,7 @@ export async function validateConfiguration(): Promise<boolean> {
 ## 🚨 Security Considerations
 
 ### Secrets Management
+
 ```bash
 # Use environment-specific secrets
 # Development: .env file (not committed)
@@ -573,10 +598,11 @@ echo "your-db-password" | docker secret create db_password -
 ```
 
 ### Environment Isolation
+
 ```bash
 # Separate configurations per environment
 .env.development
-.env.staging  
+.env.staging
 .env.production
 
 # Load appropriate configuration
@@ -588,6 +614,7 @@ NODE_ENV=development npm start
 ### Common Configuration Issues
 
 #### Database Connection Failures
+
 ```bash
 # Check database URLs
 echo $POSTGRESQL_URL
@@ -600,6 +627,7 @@ redis-cli -u "$REDIS_URL" ping
 ```
 
 #### Service Communication Issues
+
 ```bash
 # Check service URLs
 curl http://localhost:3001/health
@@ -612,6 +640,7 @@ docker network inspect uaip-network
 ```
 
 #### Authentication Issues
+
 ```bash
 # Verify JWT configuration
 echo $JWT_SECRET | wc -c  # Should be at least 32 characters
@@ -626,9 +655,10 @@ curl -X POST http://localhost:8081/api/auth/login \
 ---
 
 **Configuration Checklist**:
+
 - [ ] All required environment variables set
 - [ ] Database connections tested
 - [ ] API keys configured (if using external LLMs)
 - [ ] Security settings appropriate for environment
 - [ ] Service URLs accessible
-- [ ] Log levels appropriate for environment 
+- [ ] Log levels appropriate for environment

@@ -142,21 +142,26 @@ class APIClientClass {
   public getAuthToken(): string | null {
     if (!this.authToken) {
       // Check both authToken and accessToken for backwards compatibility
-      this.authToken = localStorage.getItem('authToken') || 
-                      localStorage.getItem('accessToken') || 
-                      sessionStorage.getItem('accessToken');
+      this.authToken =
+        localStorage.getItem('authToken') ||
+        localStorage.getItem('accessToken') ||
+        sessionStorage.getItem('accessToken');
     }
     return this.authToken;
   }
 
   private transformResponse<T>(responseData: any): T {
     // If response has the nested format { success: true, data: ... }, unwrap it
-    if (responseData && typeof responseData === 'object' && 
-        'success' in responseData && 'data' in responseData && 
-        responseData.success === true) {
+    if (
+      responseData &&
+      typeof responseData === 'object' &&
+      'success' in responseData &&
+      'data' in responseData &&
+      responseData.success === true
+    ) {
       return responseData.data as T;
     }
-    
+
     // Otherwise return the response as-is
     return responseData as T;
   }

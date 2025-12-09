@@ -26,7 +26,7 @@ export class OperationRepository extends BaseRepository<Operation> {
       result,
       status: 'completed' as any,
       completedAt: new Date(),
-      updatedAt: new Date()
+      updatedAt: new Date(),
     });
   }
 
@@ -40,7 +40,10 @@ export class OperationRepository extends BaseRepository<Operation> {
       const result = await manager.query(query, [operationId]);
       return result.length > 0 ? result[0] : null;
     } catch (error) {
-      logger.error('Error getting operation by ID', { operationId, error: (error as Error).message });
+      logger.error('Error getting operation by ID', {
+        operationId,
+        error: (error as Error).message,
+      });
       throw error;
     }
   }
@@ -58,18 +61,18 @@ export class OperationStateRepository extends BaseRepository<OperationState> {
     try {
       // Check if state already exists
       const existingState = await this.repository.findOne({
-        where: { operationId }
+        where: { operationId },
       });
 
       if (existingState) {
         // Update existing state
         await this.repository.update(
           { operationId },
-          { 
+          {
             toStatus: state.status || existingState.toStatus,
             context: state,
             transitionedAt: new Date(),
-            updatedAt: new Date()
+            updatedAt: new Date(),
           }
         );
       } else {
@@ -79,12 +82,15 @@ export class OperationStateRepository extends BaseRepository<OperationState> {
           toStatus: state.status || 'pending',
           context: state,
           transitionedAt: new Date(),
-          isAutomatic: true
+          isAutomatic: true,
         });
         await this.repository.save(newState);
       }
     } catch (error) {
-      logger.error('Failed to save operation state', { operationId, error: (error as Error).message });
+      logger.error('Failed to save operation state', {
+        operationId,
+        error: (error as Error).message,
+      });
       throw error;
     }
   }
@@ -96,11 +102,14 @@ export class OperationStateRepository extends BaseRepository<OperationState> {
     try {
       const state = await this.repository.findOne({
         where: { operationId },
-        order: { transitionedAt: 'DESC' }
+        order: { transitionedAt: 'DESC' },
       });
       return state?.context || null;
     } catch (error) {
-      logger.error('Failed to get operation state', { operationId, error: (error as Error).message });
+      logger.error('Failed to get operation state', {
+        operationId,
+        error: (error as Error).message,
+      });
       throw error;
     }
   }
@@ -112,14 +121,17 @@ export class OperationStateRepository extends BaseRepository<OperationState> {
     try {
       await this.repository.update(
         { operationId },
-        { 
+        {
           context: { ...state, ...updates },
           transitionedAt: new Date(),
-          updatedAt: new Date()
+          updatedAt: new Date(),
         }
       );
     } catch (error) {
-      logger.error('Failed to update operation state', { operationId, error: (error as Error).message });
+      logger.error('Failed to update operation state', {
+        operationId,
+        error: (error as Error).message,
+      });
       throw error;
     }
   }
@@ -136,7 +148,10 @@ export class OperationStateRepository extends BaseRepository<OperationState> {
         .execute();
       return result.affected;
     } catch (error) {
-      logger.error('Failed to delete old operation states', { cutoffDate, error: (error as Error).message });
+      logger.error('Failed to delete old operation states', {
+        cutoffDate,
+        error: (error as Error).message,
+      });
       throw error;
     }
   }
@@ -156,16 +171,16 @@ export class OperationStateRepository extends BaseRepository<OperationState> {
       const [totalOperations, activeOperations, totalCheckpoints] = await Promise.all([
         this.repository.count(),
         this.repository.count({
-          where: { toStatus: 'running' as any }
+          where: { toStatus: 'running' as any },
         }),
-        checkpointRepo.count()
+        checkpointRepo.count(),
       ]);
 
       return {
         totalOperations,
         activeOperations,
         totalCheckpoints,
-        averageStateSize: 0 // Would need complex query to calculate
+        averageStateSize: 0, // Would need complex query to calculate
       };
     } catch (error) {
       logger.error('Failed to get state statistics', { error: (error as Error).message });
@@ -190,11 +205,15 @@ export class OperationCheckpointRepository extends BaseRepository<OperationCheck
         name: checkpoint.name || `Checkpoint ${checkpoint.id}`,
         checkpointType: checkpoint.type || 'automatic',
         state: checkpoint,
-        createdAt: new Date()
+        createdAt: new Date(),
       });
       await this.repository.save(newCheckpoint);
     } catch (error) {
-      logger.error('Failed to save checkpoint', { operationId, checkpointId: checkpoint.id, error: (error as Error).message });
+      logger.error('Failed to save checkpoint', {
+        operationId,
+        checkpointId: checkpoint.id,
+        error: (error as Error).message,
+      });
       throw error;
     }
   }
@@ -205,11 +224,15 @@ export class OperationCheckpointRepository extends BaseRepository<OperationCheck
   public async getCheckpoint(operationId: string, checkpointId: string): Promise<any> {
     try {
       const checkpoint = await this.repository.findOne({
-        where: { operationId, id: checkpointId }
+        where: { operationId, id: checkpointId },
       });
       return checkpoint?.state || null;
     } catch (error) {
-      logger.error('Failed to get checkpoint', { operationId, checkpointId, error: (error as Error).message });
+      logger.error('Failed to get checkpoint', {
+        operationId,
+        checkpointId,
+        error: (error as Error).message,
+      });
       throw error;
     }
   }
@@ -221,9 +244,9 @@ export class OperationCheckpointRepository extends BaseRepository<OperationCheck
     try {
       const checkpoints = await this.repository.find({
         where: { operationId },
-        order: { createdAt: 'DESC' }
+        order: { createdAt: 'DESC' },
       });
-      return checkpoints.map(cp => cp.state);
+      return checkpoints.map((cp) => cp.state);
     } catch (error) {
       logger.error('Failed to list checkpoints', { operationId, error: (error as Error).message });
       throw error;
@@ -249,11 +272,15 @@ export class StepResultRepository extends BaseRepository<StepResult> {
         status: result.status || 'completed',
         output: result,
         completedAt: new Date(),
-        createdAt: new Date()
+        createdAt: new Date(),
       });
       await this.repository.save(stepResult);
     } catch (error) {
-      logger.error('Failed to save step result', { operationId, stepId: result.stepId, error: (error as Error).message });
+      logger.error('Failed to save step result', {
+        operationId,
+        stepId: result.stepId,
+        error: (error as Error).message,
+      });
       throw error;
     }
   }
@@ -261,10 +288,10 @@ export class StepResultRepository extends BaseRepository<StepResult> {
   /**
    * Get step results for an operation
    */
-    public async getStepResults(operationId: string): Promise<StepResult[]> {
+  public async getStepResults(operationId: string): Promise<StepResult[]> {
     return await this.repository.find({
       where: { operationId },
-      order: { stepNumber: 'ASC', createdAt: 'ASC' }
+      order: { stepNumber: 'ASC', createdAt: 'ASC' },
     });
   }
-} 
+}

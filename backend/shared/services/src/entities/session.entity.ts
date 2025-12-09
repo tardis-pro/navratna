@@ -1,5 +1,18 @@
-import { Entity, Column, PrimaryGeneratedColumn, CreateDateColumn, UpdateDateColumn, Index } from 'typeorm';
-import { SessionStatus, UserType, AuthenticationMethod, OAuthProviderType, AgentCapability } from '@uaip/types';
+import {
+  Entity,
+  Column,
+  PrimaryGeneratedColumn,
+  CreateDateColumn,
+  UpdateDateColumn,
+  Index,
+} from 'typeorm';
+import {
+  SessionStatus,
+  UserType,
+  AuthenticationMethod,
+  OAuthProviderType,
+  AgentCapability,
+} from '@uaip/types';
 
 @Entity('sessions')
 @Index(['userId'])

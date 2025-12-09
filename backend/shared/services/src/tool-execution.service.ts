@@ -17,9 +17,7 @@ export interface ToolExecutionOptions {
  * the capability-registry service.
  */
 export class ToolExecutionService {
-  constructor(
-    private databaseService: DatabaseService
-  ) {}
+  constructor(private databaseService: DatabaseService) {}
 
   /**
    * Execute a tool with the given parameters
@@ -27,13 +25,15 @@ export class ToolExecutionService {
    * Supports both object-style and parameter-style calls for agent compatibility
    */
   async executeTool(
-    toolIdOrRequest: string | {
-      toolId: string;
-      operation?: string;
-      parameters: Record<string, any>;
-      userId?: string;
-      securityContext?: any;
-    },
+    toolIdOrRequest:
+      | string
+      | {
+          toolId: string;
+          operation?: string;
+          parameters: Record<string, any>;
+          userId?: string;
+          securityContext?: any;
+        },
     agentId?: string,
     parameters?: Record<string, any>,
     options: ToolExecutionOptions = {}
@@ -42,13 +42,13 @@ export class ToolExecutionService {
     let toolId: string;
     let actualAgentId: string;
     let actualParameters: Record<string, any>;
-    
+
     if (typeof toolIdOrRequest === 'object') {
       toolId = toolIdOrRequest.toolId;
       actualAgentId = toolIdOrRequest.userId || 'unknown';
       actualParameters = {
         operation: toolIdOrRequest.operation,
-        ...toolIdOrRequest.parameters
+        ...toolIdOrRequest.parameters,
       };
     } else {
       // Handle parameter-style call
@@ -72,18 +72,18 @@ export class ToolExecutionService {
       metadata: {
         priority: options.priority || 'normal',
         timeout: options.timeout || 30000,
-        retryOnFailure: options.retryOnFailure || false
-      }
+        retryOnFailure: options.retryOnFailure || false,
+      },
     };
 
     try {
       // Store initial execution record
       await this.databaseService.tools.createToolExecution(execution as any);
-      
+
       logger.info(`Tool execution initiated: ${execution.id}`, {
         toolId,
         agentId: actualAgentId,
-        options
+        options,
       });
 
       return execution;
@@ -95,7 +95,7 @@ export class ToolExecutionService {
         type: 'execution',
         message: error.message,
         details: { stack: error.stack },
-        recoverable: false
+        recoverable: false,
       };
       execution.endTime = new Date();
 
@@ -108,7 +108,7 @@ export class ToolExecutionService {
    */
   async getExecution(executionId: string): Promise<ToolExecutionType | null> {
     try {
-      return await this.databaseService.tools.getToolExecution(executionId) as any;
+      return (await this.databaseService.tools.getToolExecution(executionId)) as any;
     } catch (error) {
       logger.error(`Failed to get tool execution ${executionId}:`, error);
       return null;
@@ -118,10 +118,7 @@ export class ToolExecutionService {
   /**
    * Update tool execution status
    */
-  async updateExecution(
-    executionId: string,
-    updates: Partial<ToolExecution>
-  ): Promise<void> {
+  async updateExecution(executionId: string, updates: Partial<ToolExecution>): Promise<void> {
     try {
       await this.databaseService.tools.updateToolExecution(executionId, updates);
       logger.debug(`Tool execution updated: ${executionId}`, updates);
@@ -138,7 +135,7 @@ export class ToolExecutionService {
     try {
       await this.updateExecution(executionId, {
         status: ToolExecutionStatus.CANCELLED,
-        endTime: new Date()
+        endTime: new Date(),
       });
       logger.info(`Tool execution cancelled: ${executionId}`);
     } catch (error) {

@@ -9,7 +9,7 @@ import {
   PersonaUsageStats,
   PersonaTone,
   PersonaStyle,
-  PersonaEnergyLevel
+  PersonaEnergyLevel,
 } from '@uaip/types';
 
 // Related entities will be referenced by string to avoid circular dependencies
@@ -152,4 +152,4 @@ export class Persona extends BaseEntity {
 
   @OneToMany('PersonaAnalytics', 'persona')
   analytics: any[];
-} 
+}

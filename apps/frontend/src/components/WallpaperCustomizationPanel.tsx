@@ -1,9 +1,24 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  X, Image, Globe, MapPin, StickyNote, RefreshCw, Cloud, Play, Pause, 
-  SkipForward, SkipBack, Settings, Monitor, Shuffle, Timer, 
-  ChevronLeft, ChevronRight, Info
+  X,
+  Image,
+  Globe,
+  MapPin,
+  StickyNote,
+  RefreshCw,
+  Cloud,
+  Play,
+  Pause,
+  SkipForward,
+  SkipBack,
+  Settings,
+  Monitor,
+  Shuffle,
+  Timer,
+  ChevronLeft,
+  ChevronRight,
+  Info,
 } from 'lucide-react';
 import { useWallpaper } from '../hooks/useWallpaper';
 import { LocationData } from '../services/LocationService';
@@ -57,7 +72,7 @@ const Button: React.FC<{
     ghost: `${DESIGN_TOKENS.colors.surfaceHover} ${DESIGN_TOKENS.colors.textSecondary}`,
     danger: 'bg-red-500/20 hover:bg-red-500/30 text-red-400',
   };
-  
+
   const sizes = {
     sm: `${DESIGN_TOKENS.padding.sm} text-xs`,
     md: `${DESIGN_TOKENS.padding.md} text-sm`,
@@ -87,7 +102,7 @@ export const WallpaperCustomizationPanel: React.FC<WallpaperCustomizationPanelPr
   onLocationRequest,
   onCreateNote,
   onRefreshWeather,
-  onClose
+  onClose,
 }) => {
   const {
     currentImage,
@@ -102,7 +117,7 @@ export const WallpaperCustomizationPanel: React.FC<WallpaperCustomizationPanelPr
     toggleSlideshow,
     setSlideshowInterval,
     updatePreferences,
-    getCurrentImageUrl
+    getCurrentImageUrl,
   } = useWallpaper();
 
   const [selectedThemeId, setSelectedThemeId] = useState(currentTheme?.id || 'space');
@@ -110,7 +125,7 @@ export const WallpaperCustomizationPanel: React.FC<WallpaperCustomizationPanelPr
   const [customUrl, setCustomUrl] = useState('');
 
   const handleThemeChange = (themeId: string) => {
-    const theme = availableThemes.find(t => t.id === themeId);
+    const theme = availableThemes.find((t) => t.id === themeId);
     if (theme) {
       setSelectedThemeId(themeId);
       setTheme(theme);
@@ -127,12 +142,14 @@ export const WallpaperCustomizationPanel: React.FC<WallpaperCustomizationPanelPr
         category: 'custom' as const,
         slideshow: false,
         interval: 0,
-        images: [{
-          id: 'custom-image',
-          url: customUrl.trim(),
-          title: 'Custom Wallpaper',
-          description: 'User-provided image'
-        }]
+        images: [
+          {
+            id: 'custom-image',
+            url: customUrl.trim(),
+            title: 'Custom Wallpaper',
+            description: 'User-provided image',
+          },
+        ],
       };
       setTheme(customTheme);
       setCustomUrl('');
@@ -144,13 +161,13 @@ export const WallpaperCustomizationPanel: React.FC<WallpaperCustomizationPanelPr
     { value: 300, label: '5 minutes' },
     { value: 600, label: '10 minutes' },
     { value: 1800, label: '30 minutes' },
-    { value: 3600, label: '1 hour' }
+    { value: 3600, label: '1 hour' },
   ];
 
   const qualityOptions = [
     { value: 'high', label: 'High Quality' },
     { value: 'medium', label: 'Medium Quality' },
-    { value: 'low', label: 'Low Quality' }
+    { value: 'low', label: 'Low Quality' },
   ];
 
   if (isLoading) {
@@ -167,7 +184,7 @@ export const WallpaperCustomizationPanel: React.FC<WallpaperCustomizationPanelPr
   return (
     <>
       <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[90]" onClick={onClose} />
-      
+
       <motion.div
         initial={{ opacity: 0, scale: 0.95, y: 20 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
@@ -180,7 +197,9 @@ export const WallpaperCustomizationPanel: React.FC<WallpaperCustomizationPanelPr
       >
         <div className={`${DESIGN_TOKENS.padding.lg} ${DESIGN_TOKENS.colors.border} border-b`}>
           <div className="flex items-center justify-between">
-            <h2 className={`text-xl font-bold ${DESIGN_TOKENS.colors.text} flex items-center gap-2`}>
+            <h2
+              className={`text-xl font-bold ${DESIGN_TOKENS.colors.text} flex items-center gap-2`}
+            >
               <Monitor className="w-6 h-6 text-blue-400" />
               Desktop Customization
             </h2>
@@ -192,7 +211,9 @@ export const WallpaperCustomizationPanel: React.FC<WallpaperCustomizationPanelPr
 
         <div className="max-h-[75vh] overflow-y-auto">
           {/* Current Wallpaper Status */}
-          <div className={`${DESIGN_TOKENS.padding.lg} ${DESIGN_TOKENS.colors.border} border-b bg-gradient-to-r from-blue-500/10 to-purple-500/10`}>
+          <div
+            className={`${DESIGN_TOKENS.padding.lg} ${DESIGN_TOKENS.colors.border} border-b bg-gradient-to-r from-blue-500/10 to-purple-500/10`}
+          >
             <div className="flex items-center justify-between mb-4">
               <div>
                 <h3 className={`text-lg font-semibold ${DESIGN_TOKENS.colors.text}`}>
@@ -204,11 +225,7 @@ export const WallpaperCustomizationPanel: React.FC<WallpaperCustomizationPanelPr
               </div>
               <div className="flex items-center gap-2">
                 {currentImage && (
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    onClick={() => setShowImagePreview(true)}
-                  >
+                  <Button variant="secondary" size="sm" onClick={() => setShowImagePreview(true)}>
                     <Info className="w-4 h-4" />
                     Preview
                   </Button>
@@ -220,22 +237,26 @@ export const WallpaperCustomizationPanel: React.FC<WallpaperCustomizationPanelPr
             {currentTheme?.slideshow && (
               <div className="flex items-center gap-2 mb-4">
                 <Button
-                  variant={preferences.slideshowEnabled ? "primary" : "secondary"}
+                  variant={preferences.slideshowEnabled ? 'primary' : 'secondary'}
                   size="sm"
                   onClick={toggleSlideshow}
                 >
-                  {preferences.slideshowEnabled ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4" />}
+                  {preferences.slideshowEnabled ? (
+                    <Pause className="w-4 h-4" />
+                  ) : (
+                    <Play className="w-4 h-4" />
+                  )}
                   {preferences.slideshowEnabled ? 'Pause' : 'Play'}
                 </Button>
-                
+
                 <Button variant="secondary" size="sm" onClick={previousImage}>
                   <SkipBack className="w-4 h-4" />
                 </Button>
-                
+
                 <Button variant="secondary" size="sm" onClick={nextImage}>
                   <SkipForward className="w-4 h-4" />
                 </Button>
-                
+
                 <div className="flex items-center gap-2 ml-4">
                   <Timer className="w-4 h-4 text-slate-400" />
                   <select
@@ -243,16 +264,16 @@ export const WallpaperCustomizationPanel: React.FC<WallpaperCustomizationPanelPr
                     onChange={(e) => setSlideshowInterval(Number(e.target.value))}
                     className="bg-slate-800 border border-slate-700 rounded px-2 py-1 text-sm text-white"
                   >
-                    {intervalOptions.map(option => (
+                    {intervalOptions.map((option) => (
                       <option key={option.value} value={option.value}>
                         {option.label}
                       </option>
                     ))}
                   </select>
                 </div>
-                
+
                 <Button
-                  variant={preferences.randomOrder ? "primary" : "secondary"}
+                  variant={preferences.randomOrder ? 'primary' : 'secondary'}
                   size="sm"
                   onClick={() => updatePreferences({ randomOrder: !preferences.randomOrder })}
                   title="Random order"
@@ -278,7 +299,8 @@ export const WallpaperCustomizationPanel: React.FC<WallpaperCustomizationPanelPr
                   </div>
                   <div className="text-right">
                     <p className={`text-xs ${DESIGN_TOKENS.colors.textMuted}`}>
-                      {currentTheme?.images.indexOf(currentImage) + 1} of {currentTheme?.images.length}
+                      {currentTheme?.images.indexOf(currentImage) + 1} of{' '}
+                      {currentTheme?.images.length}
                     </p>
                   </div>
                 </div>
@@ -288,8 +310,10 @@ export const WallpaperCustomizationPanel: React.FC<WallpaperCustomizationPanelPr
 
           {/* Theme Selection */}
           <div className={`${DESIGN_TOKENS.padding.lg} ${DESIGN_TOKENS.colors.border} border-b`}>
-            <h3 className={`text-lg font-semibold ${DESIGN_TOKENS.colors.text} mb-4`}>Wallpaper Themes</h3>
-            
+            <h3 className={`text-lg font-semibold ${DESIGN_TOKENS.colors.text} mb-4`}>
+              Wallpaper Themes
+            </h3>
+
             <div className="grid grid-cols-2 gap-4 mb-6">
               {availableThemes.map((theme) => (
                 <button
@@ -301,9 +325,7 @@ export const WallpaperCustomizationPanel: React.FC<WallpaperCustomizationPanelPr
                   `}
                 >
                   <div className="flex items-start justify-between mb-2">
-                    <h4 className={`font-medium ${DESIGN_TOKENS.colors.text}`}>
-                      {theme.name}
-                    </h4>
+                    <h4 className={`font-medium ${DESIGN_TOKENS.colors.text}`}>{theme.name}</h4>
                     {theme.slideshow && (
                       <div className="flex items-center gap-1">
                         <Play className="w-3 h-3 text-blue-400" />
@@ -328,7 +350,9 @@ export const WallpaperCustomizationPanel: React.FC<WallpaperCustomizationPanelPr
 
             {/* Custom URL Input */}
             <div className="border-t border-slate-700/50 pt-4">
-              <h4 className={`text-sm font-medium ${DESIGN_TOKENS.colors.text} mb-2`}>Custom Image</h4>
+              <h4 className={`text-sm font-medium ${DESIGN_TOKENS.colors.text} mb-2`}>
+                Custom Image
+              </h4>
               <div className="flex gap-2">
                 <input
                   type="url"
@@ -341,11 +365,7 @@ export const WallpaperCustomizationPanel: React.FC<WallpaperCustomizationPanelPr
                     focus:outline-none focus:border-blue-400
                   `}
                 />
-                <Button
-                  variant="primary"
-                  onClick={handleCustomUrl}
-                  disabled={!customUrl.trim()}
-                >
+                <Button variant="primary" onClick={handleCustomUrl} disabled={!customUrl.trim()}>
                   <Image className="w-4 h-4" />
                   Apply
                 </Button>
@@ -355,16 +375,20 @@ export const WallpaperCustomizationPanel: React.FC<WallpaperCustomizationPanelPr
 
           {/* Map Wallpaper Section */}
           <div className={`${DESIGN_TOKENS.padding.lg} ${DESIGN_TOKENS.colors.border} border-b`}>
-            <h3 className={`text-lg font-semibold ${DESIGN_TOKENS.colors.text} mb-4 flex items-center gap-2`}>
+            <h3
+              className={`text-lg font-semibold ${DESIGN_TOKENS.colors.text} mb-4 flex items-center gap-2`}
+            >
               <Globe className="w-5 h-5 text-blue-400" />
               Map Wallpaper
             </h3>
-            
+
             <div className="space-y-4">
               <div className="flex items-center justify-between p-3 bg-slate-800/30 rounded-lg border border-slate-700/30">
                 <div>
                   <p className="text-white font-medium">Enable Map Background</p>
-                  <p className="text-slate-400 text-sm">Use an interactive map as your desktop wallpaper</p>
+                  <p className="text-slate-400 text-sm">
+                    Use an interactive map as your desktop wallpaper
+                  </p>
                 </div>
                 <button
                   onClick={() => onMapWallpaperToggle(!useMapWallpaper)}
@@ -389,10 +413,9 @@ export const WallpaperCustomizationPanel: React.FC<WallpaperCustomizationPanelPr
                         <span className="text-green-300 font-medium">Location Active</span>
                       </div>
                       <p className="text-green-400/80 text-sm">
-                        {userLocation.city && userLocation.country 
+                        {userLocation.city && userLocation.country
                           ? `${userLocation.city}, ${userLocation.country}`
-                          : `Coordinates: ${userLocation.latitude.toFixed(2)}, ${userLocation.longitude.toFixed(2)}`
-                        }
+                          : `Coordinates: ${userLocation.latitude.toFixed(2)}, ${userLocation.longitude.toFixed(2)}`}
                       </p>
                     </div>
                   ) : (
@@ -422,11 +445,13 @@ export const WallpaperCustomizationPanel: React.FC<WallpaperCustomizationPanelPr
 
           {/* Settings */}
           <div className={`${DESIGN_TOKENS.padding.lg} ${DESIGN_TOKENS.colors.border} border-b`}>
-            <h3 className={`text-lg font-semibold ${DESIGN_TOKENS.colors.text} mb-4 flex items-center gap-2`}>
+            <h3
+              className={`text-lg font-semibold ${DESIGN_TOKENS.colors.text} mb-4 flex items-center gap-2`}
+            >
               <Settings className="w-5 h-5 text-gray-400" />
               Settings
             </h3>
-            
+
             <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <div>
@@ -435,10 +460,12 @@ export const WallpaperCustomizationPanel: React.FC<WallpaperCustomizationPanelPr
                 </div>
                 <select
                   value={preferences.quality}
-                  onChange={(e) => updatePreferences({ quality: e.target.value as 'high' | 'medium' | 'low' })}
+                  onChange={(e) =>
+                    updatePreferences({ quality: e.target.value as 'high' | 'medium' | 'low' })
+                  }
                   className="bg-slate-800 border border-slate-700 rounded px-3 py-2 text-sm text-white"
                 >
-                  {qualityOptions.map(option => (
+                  {qualityOptions.map((option) => (
                     <option key={option.value} value={option.value}>
                       {option.label}
                     </option>
@@ -450,21 +477,28 @@ export const WallpaperCustomizationPanel: React.FC<WallpaperCustomizationPanelPr
 
           {/* Widgets Section */}
           <div className={`${DESIGN_TOKENS.padding.lg}`}>
-            <h3 className={`text-lg font-semibold ${DESIGN_TOKENS.colors.text} mb-4`}>Desktop Widgets</h3>
-            
+            <h3 className={`text-lg font-semibold ${DESIGN_TOKENS.colors.text} mb-4`}>
+              Desktop Widgets
+            </h3>
+
             <div className="grid grid-cols-2 gap-3">
               <Button
                 variant="secondary"
-                onClick={() => { onCreateNote(); onClose(); }}
+                onClick={() => {
+                  onCreateNote();
+                  onClose();
+                }}
                 className="flex-col h-20"
               >
                 <StickyNote className="w-6 h-6 mb-2 text-yellow-400" />
                 <span>Add Sticky Note</span>
               </Button>
-              
+
               <Button
                 variant="secondary"
-                onClick={() => { onRefreshWeather(); }}
+                onClick={() => {
+                  onRefreshWeather();
+                }}
                 className="flex-col h-20"
                 title="Refresh weather data"
               >
@@ -480,10 +514,10 @@ export const WallpaperCustomizationPanel: React.FC<WallpaperCustomizationPanelPr
                   <span className="text-blue-300 font-medium text-sm">Weather Active</span>
                 </div>
                 <p className="text-blue-400/80 text-xs">
-                  Weather data for {userLocation.city && userLocation.country 
+                  Weather data for{' '}
+                  {userLocation.city && userLocation.country
                     ? `${userLocation.city}, ${userLocation.country}`
-                    : 'your location'
-                  }
+                    : 'your location'}
                 </p>
               </div>
             )}
@@ -527,7 +561,8 @@ export const WallpaperCustomizationPanel: React.FC<WallpaperCustomizationPanelPr
                 />
                 <div className="absolute bottom-4 right-4 bg-black/50 backdrop-blur-sm rounded-lg p-2">
                   <p className="text-white text-sm">
-                    {currentTheme?.images.indexOf(currentImage) + 1} of {currentTheme?.images.length}
+                    {currentTheme?.images.indexOf(currentImage) + 1} of{' '}
+                    {currentTheme?.images.length}
                   </p>
                 </div>
               </div>

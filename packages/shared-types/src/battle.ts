@@ -10,7 +10,7 @@ export enum BattleType {
   TRIVIA = 'trivia',
   STORYTELLING = 'storytelling',
   CODE_REVIEW = 'code_review',
-  MARKETING_PITCH = 'marketing_pitch'
+  MARKETING_PITCH = 'marketing_pitch',
 }
 
 // Battle status
@@ -21,7 +21,7 @@ export enum BattleStatus {
   IN_PROGRESS = 'in_progress',
   JUDGING = 'judging',
   COMPLETED = 'completed',
-  CANCELLED = 'cancelled'
+  CANCELLED = 'cancelled',
 }
 
 // Battle participant role
@@ -29,7 +29,7 @@ export enum BattleParticipantRole {
   COMPETITOR = 'competitor',
   SPECTATOR = 'spectator',
   JUDGE = 'judge',
-  MODERATOR = 'moderator'
+  MODERATOR = 'moderator',
 }
 
 // Battle judging criteria
@@ -37,7 +37,7 @@ export const JudgingCriteriaSchema = z.object({
   name: z.string(),
   description: z.string(),
   maxScore: z.number().min(1).max(100).default(10),
-  weight: z.number().min(0).max(1).default(1.0)
+  weight: z.number().min(0).max(1).default(1.0),
 });
 
 export type JudgingCriteria = z.infer<typeof JudgingCriteriaSchema>;
@@ -53,7 +53,7 @@ export const BattleSettingsSchema = z.object({
   prizePool: z.number().min(0).default(0),
   entryFee: z.number().min(0).default(0),
   skillLevel: z.enum(['beginner', 'intermediate', 'advanced', 'expert']).default('intermediate'),
-  tags: z.array(z.string()).default([])
+  tags: z.array(z.string()).default([]),
 });
 
 export type BattleSettings = z.infer<typeof BattleSettingsSchema>;
@@ -73,14 +73,16 @@ export const BattleParticipantSchema = z.object({
   rank: z.number().min(1).optional(),
   submission: z.string().optional(),
   submittedAt: z.date().optional(),
-  performance: z.object({
-    responseTime: z.number().optional(),
-    creativity: z.number().min(0).max(10).optional(),
-    accuracy: z.number().min(0).max(10).optional(),
-    efficiency: z.number().min(0).max(10).optional(),
-    engagement: z.number().min(0).max(10).optional()
-  }).optional(),
-  metadata: z.record(z.any()).optional()
+  performance: z
+    .object({
+      responseTime: z.number().optional(),
+      creativity: z.number().min(0).max(10).optional(),
+      accuracy: z.number().min(0).max(10).optional(),
+      efficiency: z.number().min(0).max(10).optional(),
+      engagement: z.number().min(0).max(10).optional(),
+    })
+    .optional(),
+  metadata: z.record(z.any()).optional(),
 });
 
 export type BattleParticipant = z.infer<typeof BattleParticipantSchema>;
@@ -95,20 +97,28 @@ export const BattleRoundSchema = z.object({
   startedAt: z.date().optional(),
   endedAt: z.date().optional(),
   timeLimit: z.number().min(0),
-  submissions: z.array(z.object({
-    participantId: IDSchema,
-    content: z.string(),
-    submittedAt: z.date(),
-    metadata: z.record(z.any()).optional()
-  })).default([]),
-  scores: z.array(z.object({
-    participantId: IDSchema,
-    judgeId: IDSchema,
-    criteriaScores: z.record(z.number()),
-    totalScore: z.number(),
-    feedback: z.string().optional()
-  })).default([]),
-  winner: IDSchema.optional()
+  submissions: z
+    .array(
+      z.object({
+        participantId: IDSchema,
+        content: z.string(),
+        submittedAt: z.date(),
+        metadata: z.record(z.any()).optional(),
+      })
+    )
+    .default([]),
+  scores: z
+    .array(
+      z.object({
+        participantId: IDSchema,
+        judgeId: IDSchema,
+        criteriaScores: z.record(z.number()),
+        totalScore: z.number(),
+        feedback: z.string().optional(),
+      })
+    )
+    .default([]),
+  winner: IDSchema.optional(),
 });
 
 export type BattleRound = z.infer<typeof BattleRoundSchema>;
@@ -117,11 +127,20 @@ export type BattleRound = z.infer<typeof BattleRoundSchema>;
 export const BattleLiveEventSchema = z.object({
   id: IDSchema,
   battleId: IDSchema,
-  type: z.enum(['participant_joined', 'battle_started', 'round_started', 'submission_received', 'round_ended', 'battle_ended', 'spectator_message', 'judge_comment']),
+  type: z.enum([
+    'participant_joined',
+    'battle_started',
+    'round_started',
+    'submission_received',
+    'round_ended',
+    'battle_ended',
+    'spectator_message',
+    'judge_comment',
+  ]),
   participantId: IDSchema.optional(),
   data: z.record(z.any()),
   timestamp: z.date(),
-  isPublic: z.boolean().default(true)
+  isPublic: z.boolean().default(true),
 });
 
 export type BattleLiveEvent = z.infer<typeof BattleLiveEventSchema>;
@@ -133,57 +152,61 @@ export const BattleSchema = BaseEntitySchema.extend({
   description: z.string().max(2000).optional(),
   type: z.nativeEnum(BattleType),
   status: z.nativeEnum(BattleStatus).default(BattleStatus.CREATED),
-  
+
   // Battle configuration
   settings: BattleSettingsSchema,
   judgingCriteria: z.array(JudgingCriteriaSchema).default([]),
-  
+
   // Timing
   scheduledStartTime: z.date().optional(),
   actualStartTime: z.date().optional(),
   endTime: z.date().optional(),
-  
+
   // Creator info
   createdBy: IDSchema,
   creatorName: z.string(),
-  
+
   // Participants
   participants: z.array(BattleParticipantSchema).default([]),
   maxParticipants: z.number().min(2).max(8).default(2),
   currentParticipants: z.number().min(0).default(0),
-  
+
   // Battle state
   currentRound: z.number().min(0).default(0),
   totalRounds: z.number().min(1).default(1),
   rounds: z.array(BattleRoundSchema).default([]),
-  
+
   // Results
   winner: BattleParticipantSchema.optional(),
-  finalScores: z.array(z.object({
-    participantId: IDSchema,
-    agentName: z.string(),
-    totalScore: z.number(),
-    rank: z.number(),
-    badges: z.array(z.string()).default([])
-  })).default([]),
-  
+  finalScores: z
+    .array(
+      z.object({
+        participantId: IDSchema,
+        agentName: z.string(),
+        totalScore: z.number(),
+        rank: z.number(),
+        badges: z.array(z.string()).default([]),
+      })
+    )
+    .default([]),
+
   // Engagement
   spectatorCount: z.number().min(0).default(0),
   totalViews: z.number().min(0).default(0),
   likes: z.number().min(0).default(0),
   chatMessages: z.number().min(0).default(0),
-  
+
   // Viral metrics
   viralScore: z.number().min(0).default(0),
   shareCount: z.number().min(0).default(0),
   clipCount: z.number().min(0).default(0), // number of highlights created
-  
+
   // Monetization
   prizePool: z.number().min(0).default(0),
   sponsorshipAmount: z.number().min(0).default(0),
   ticketRevenue: z.number().min(0).default(0),
-  
-  metadata: z.record(z.any()).optional()
+
+  metadata: z.record(z.any()).optional(),
 });
 
 export type Battle = z.infer<typeof BattleSchema>;
@@ -207,7 +230,7 @@ export const CreateBattleRequestSchema = BattleSchema.omit({
   viralScore: true,
   shareCount: true,
   clipCount: true,
-  ticketRevenue: true
+  ticketRevenue: true,
 });
 
 export type CreateBattleRequest = z.infer<typeof CreateBattleRequestSchema>;
@@ -227,7 +250,7 @@ export const BattleSearchFiltersSchema = z.object({
   sortBy: z.enum(['created', 'startTime', 'prizePool', 'participants', 'viral']).default('created'),
   sortOrder: z.enum(['asc', 'desc']).default('desc'),
   limit: z.number().min(1).max(100).default(20),
-  offset: z.number().min(0).default(0)
+  offset: z.number().min(0).default(0),
 });
 
 export type BattleSearchFilters = z.infer<typeof BattleSearchFiltersSchema>;
@@ -243,13 +266,13 @@ export const BattleAnalyticsSchema = z.object({
     peakViewers: z.number(),
     shareRate: z.number(),
     commentRate: z.number(),
-    clipCreationRate: z.number()
+    clipCreationRate: z.number(),
   }),
   qualityMetrics: z.object({
     averageSubmissionQuality: z.number().min(0).max(10),
     judgeConsistency: z.number().min(0).max(1),
-    audienceSatisfaction: z.number().min(0).max(5)
-  })
+    audienceSatisfaction: z.number().min(0).max(5),
+  }),
 });
 
 export type BattleAnalytics = z.infer<typeof BattleAnalyticsSchema>;
@@ -262,39 +285,41 @@ export const LeaderboardEntrySchema = z.object({
   userId: IDSchema,
   userName: z.string(),
   avatar: z.string().optional(),
-  
+
   // Battle stats
   totalBattles: z.number().min(0).default(0),
   wins: z.number().min(0).default(0),
   losses: z.number().min(0).default(0),
   winRate: z.number().min(0).max(1).default(0),
-  
+
   // Performance metrics
   averageScore: z.number().min(0).default(0),
   totalScore: z.number().min(0).default(0),
   bestScore: z.number().min(0).default(0),
   averageRank: z.number().min(1).default(1),
-  
+
   // Engagement
   totalSpectators: z.number().min(0).default(0),
   totalLikes: z.number().min(0).default(0),
   fanCount: z.number().min(0).default(0),
-  
+
   // Achievements
   badges: z.array(z.string()).default([]),
   titles: z.array(z.string()).default([]),
-  streaks: z.object({
-    current: z.number().min(0).default(0),
-    longest: z.number().min(0).default(0)
-  }).default({ current: 0, longest: 0 }),
-  
+  streaks: z
+    .object({
+      current: z.number().min(0).default(0),
+      longest: z.number().min(0).default(0),
+    })
+    .default({ current: 0, longest: 0 }),
+
   // Specialties
   bestCategories: z.array(z.nativeEnum(BattleType)).default([]),
   skillRating: z.number().min(0).max(3000).default(1000), // ELO-style rating
-  
+
   lastBattleAt: z.date().optional(),
   createdAt: z.date(),
-  updatedAt: z.date()
+  updatedAt: z.date(),
 });
 
 export type LeaderboardEntry = z.infer<typeof LeaderboardEntrySchema>;
@@ -310,5 +335,5 @@ export const BattleSchemas = {
   CreateBattleRequest: CreateBattleRequestSchema,
   BattleSearchFilters: BattleSearchFiltersSchema,
   BattleAnalytics: BattleAnalyticsSchema,
-  LeaderboardEntry: LeaderboardEntrySchema
+  LeaderboardEntry: LeaderboardEntrySchema,
 };

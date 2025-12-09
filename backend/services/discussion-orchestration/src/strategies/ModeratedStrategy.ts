@@ -1,9 +1,9 @@
-import { 
-  Discussion, 
-  DiscussionParticipant, 
-  TurnStrategy, 
+import {
+  Discussion,
+  DiscussionParticipant,
+  TurnStrategy,
   TurnStrategyConfig,
-  ParticipantRole 
+  ParticipantRole,
 } from '@uaip/types';
 import { logger } from '@uaip/utils';
 import { TurnStrategyInterface } from './RoundRobinStrategy.js';
@@ -20,24 +20,24 @@ export class ModeratedStrategy implements TurnStrategyInterface {
     try {
       // In moderated strategy, the moderator decides who goes next
       // This method would typically be called after moderator selection
-      
+
       // Find moderators
-      const moderators = participants.filter(p => 
-        p.role === ParticipantRole.MODERATOR && p.isActive
+      const moderators = participants.filter(
+        (p) => p.role === ParticipantRole.MODERATOR && p.isActive
       );
 
       if (moderators.length === 0) {
         logger.warn('No active moderators found for moderated discussion', {
           discussionId: discussion.id,
-          totalParticipants: participants.length
+          totalParticipants: participants.length,
         });
-        
+
         // Fallback: auto-assign first active participant as moderator
-        const activeParticipants = participants.filter(p => p.isActive);
+        const activeParticipants = participants.filter((p) => p.isActive);
         if (activeParticipants.length > 0) {
           logger.info('Auto-assigning moderator role', {
             discussionId: discussion.id,
-            newModeratorId: activeParticipants[0].id
+            newModeratorId: activeParticipants[0].id,
           });
           return activeParticipants[0];
         }
@@ -47,12 +47,14 @@ export class ModeratedStrategy implements TurnStrategyInterface {
       // Check if there's a pending moderator selection in discussion state
       const pendingSelection = this.getPendingModeratorSelection(discussion);
       if (pendingSelection) {
-        const selectedParticipant = participants.find(p => p.id === pendingSelection.participantId);
+        const selectedParticipant = participants.find(
+          (p) => p.id === pendingSelection.participantId
+        );
         if (selectedParticipant && selectedParticipant.isActive) {
           logger.info('Moderator selected next participant', {
             discussionId: discussion.id,
             selectedParticipantId: selectedParticipant.id,
-            moderatorId: pendingSelection.moderatorId
+            moderatorId: pendingSelection.moderatorId,
           });
           return selectedParticipant;
         }
@@ -60,10 +62,10 @@ export class ModeratedStrategy implements TurnStrategyInterface {
 
       // If no pending selection, return the moderator to make the selection
       const primaryModerator = moderators[0]; // Use first moderator as primary
-      
+
       logger.debug('Returning moderator for participant selection', {
         discussionId: discussion.id,
-        moderatorId: primaryModerator.id
+        moderatorId: primaryModerator.id,
       });
 
       return primaryModerator;
@@ -71,7 +73,7 @@ export class ModeratedStrategy implements TurnStrategyInterface {
       logger.error('Error in moderated strategy getNextParticipant', {
         error: error instanceof Error ? error.message : 'Unknown error',
         discussionId: discussion.id,
-        participantCount: participants.length
+        participantCount: participants.length,
       });
       return null;
     }
@@ -119,7 +121,7 @@ export class ModeratedStrategy implements TurnStrategyInterface {
       logger.error('Error checking if participant can take turn in moderated strategy', {
         error: error instanceof Error ? error.message : 'Unknown error',
         participantId: participant.id,
-        discussionId: discussion.id
+        discussionId: discussion.id,
       });
       return false;
     }
@@ -133,7 +135,7 @@ export class ModeratedStrategy implements TurnStrategyInterface {
     try {
       const now = new Date();
       const turnStartTime = discussion.state.currentTurn.startedAt;
-      
+
       if (!turnStartTime) {
         return true;
       }
@@ -144,7 +146,7 @@ export class ModeratedStrategy implements TurnStrategyInterface {
         logger.info('Moderator explicitly advanced turn', {
           discussionId: discussion.id,
           participantId: currentParticipant.id,
-          moderatorId: moderatorAdvance.moderatorId
+          moderatorId: moderatorAdvance.moderatorId,
         });
         return true;
       }
@@ -152,13 +154,13 @@ export class ModeratedStrategy implements TurnStrategyInterface {
       // Check timeout (longer timeout for moderated discussions)
       const turnDuration = now.getTime() - new Date(turnStartTime).getTime();
       const timeoutMs = (discussion.settings.turnTimeout || 600) * 1000; // Default 10 minutes
-      
+
       if (turnDuration >= timeoutMs) {
         logger.info('Turn timeout reached in moderated discussion', {
           discussionId: discussion.id,
           participantId: currentParticipant.id,
           turnDuration: turnDuration / 1000,
-          timeoutSeconds: timeoutMs / 1000
+          timeoutSeconds: timeoutMs / 1000,
         });
         return true;
       }
@@ -173,7 +175,7 @@ export class ModeratedStrategy implements TurnStrategyInterface {
       logger.error('Error checking if turn should advance in moderated strategy', {
         error: error instanceof Error ? error.message : 'Unknown error',
         discussionId: discussion.id,
-        participantId: currentParticipant.id
+        participantId: currentParticipant.id,
       });
       return true;
     }
@@ -213,7 +215,7 @@ export class ModeratedStrategy implements TurnStrategyInterface {
         discussionId: discussion.id,
         participantRole: participant.role,
         estimatedDuration: baseDuration,
-        baseDuration: discussion.settings.turnTimeout || 600
+        baseDuration: discussion.settings.turnTimeout || 600,
       });
 
       return Math.round(baseDuration);
@@ -221,7 +223,7 @@ export class ModeratedStrategy implements TurnStrategyInterface {
       logger.error('Error calculating estimated turn duration for moderated strategy', {
         error: error instanceof Error ? error.message : 'Unknown error',
         participantId: participant.id,
-        discussionId: discussion.id
+        discussionId: discussion.id,
       });
       return discussion.settings.turnTimeout || 600;
     }
@@ -229,14 +231,19 @@ export class ModeratedStrategy implements TurnStrategyInterface {
 
   // Helper methods for moderated strategy specific logic
 
-  private getPendingModeratorSelection(discussion: Discussion): {  participantId: string; moderatorId: string; timestamp: Date } | null {
+  private getPendingModeratorSelection(
+    discussion: Discussion
+  ): { participantId: string; moderatorId: string; timestamp: Date } | null {
     // This would check discussion state for pending moderator selections
     // For now, return null - in real implementation, this would check discussion.state.metadata
     const metadata = discussion.metadata as any;
     return metadata?.pendingModeratorSelection || null;
   }
 
-  private hasModeratorApproval(participant: DiscussionParticipant, discussion: Discussion): boolean {
+  private hasModeratorApproval(
+    participant: DiscussionParticipant,
+    discussion: Discussion
+  ): boolean {
     // Check if participant has received moderator approval
     // This would typically be stored in discussion state or participant metadata
     const metadata = discussion.metadata as any;
@@ -244,13 +251,18 @@ export class ModeratedStrategy implements TurnStrategyInterface {
     return approvals.includes(participant.id);
   }
 
-  private hasModeratorAdvancedTurn(discussion: Discussion): { moderatorId: string; timestamp: Date } | null {
+  private hasModeratorAdvancedTurn(
+    discussion: Discussion
+  ): { moderatorId: string; timestamp: Date } | null {
     // Check if moderator has explicitly advanced the turn
     const metadata = discussion.metadata as any;
     return metadata?.moderatorTurnAdvance || null;
   }
 
-  private hasParticipantIndicatedCompletion(participant: DiscussionParticipant, discussion: Discussion): boolean {
+  private hasParticipantIndicatedCompletion(
+    participant: DiscussionParticipant,
+    discussion: Discussion
+  ): boolean {
     // Check if participant has indicated they're done with their turn
     // This could be through specific keywords, commands, or explicit signals
     const metadata = participant.metadata as any;
@@ -266,22 +278,24 @@ export class ModeratedStrategy implements TurnStrategyInterface {
   ): Promise<boolean> {
     try {
       // Validate moderator permissions
-      const moderator = discussion.participants.find(p => p.id === moderatorId);
+      const moderator = discussion.participants.find((p) => p.id === moderatorId);
       if (!moderator || moderator.role !== ParticipantRole.MODERATOR) {
         logger.warn('Non-moderator attempted to select next participant', {
           moderatorId,
-          discussionId: discussion.id
+          discussionId: discussion.id,
         });
         return false;
       }
 
       // Validate selected participant
-      const selectedParticipant = discussion.participants.find(p => p.id === selectedParticipantId);
+      const selectedParticipant = discussion.participants.find(
+        (p) => p.id === selectedParticipantId
+      );
       if (!selectedParticipant || !selectedParticipant.isActive) {
         logger.warn('Invalid participant selected by moderator', {
           moderatorId,
           selectedParticipantId,
-          discussionId: discussion.id
+          discussionId: discussion.id,
         });
         return false;
       }
@@ -291,7 +305,7 @@ export class ModeratedStrategy implements TurnStrategyInterface {
       logger.info('Moderator selected next participant', {
         moderatorId,
         selectedParticipantId,
-        discussionId: discussion.id
+        discussionId: discussion.id,
       });
 
       return true;
@@ -300,7 +314,7 @@ export class ModeratedStrategy implements TurnStrategyInterface {
         error: error instanceof Error ? error.message : 'Unknown error',
         moderatorId,
         selectedParticipantId,
-        discussionId: discussion.id
+        discussionId: discussion.id,
       });
       return false;
     }
@@ -309,11 +323,11 @@ export class ModeratedStrategy implements TurnStrategyInterface {
   async advanceTurn(moderatorId: string, discussion: Discussion): Promise<boolean> {
     try {
       // Validate moderator permissions
-      const moderator = discussion.participants.find(p => p.id === moderatorId);
+      const moderator = discussion.participants.find((p) => p.id === moderatorId);
       if (!moderator || moderator.role !== ParticipantRole.MODERATOR) {
         logger.warn('Non-moderator attempted to advance turn', {
           moderatorId,
-          discussionId: discussion.id
+          discussionId: discussion.id,
         });
         return false;
       }
@@ -321,7 +335,7 @@ export class ModeratedStrategy implements TurnStrategyInterface {
       // Store the advance action in discussion metadata
       logger.info('Moderator advanced turn', {
         moderatorId,
-        discussionId: discussion.id
+        discussionId: discussion.id,
       });
 
       return true;
@@ -329,7 +343,7 @@ export class ModeratedStrategy implements TurnStrategyInterface {
       logger.error('Error in moderator turn advance', {
         error: error instanceof Error ? error.message : 'Unknown error',
         moderatorId,
-        discussionId: discussion.id
+        discussionId: discussion.id,
       });
       return false;
     }
@@ -350,8 +364,8 @@ export class ModeratedStrategy implements TurnStrategyInterface {
         type: 'moderated',
         moderatorId: '',
         requireApproval: true,
-        autoAdvance: false
-      }
+        autoAdvance: false,
+      },
     };
   }
-} 
+}

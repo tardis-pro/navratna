@@ -22,7 +22,11 @@ export class StepResult extends BaseEntity {
   @Column({ name: 'step_type', length: 100 })
   stepType: string;
 
-  @Column({ type: 'enum', enum: ['pending', 'running', 'completed', 'failed', 'skipped', 'cancelled'], default: 'pending' })
+  @Column({
+    type: 'enum',
+    enum: ['pending', 'running', 'completed', 'failed', 'skipped', 'cancelled'],
+    default: 'pending',
+  })
   status: 'pending' | 'running' | 'completed' | 'failed' | 'skipped' | 'cancelled';
 
   @Column({ name: 'started_at', type: 'timestamp', nullable: true })
@@ -71,4 +75,4 @@ export class StepResult extends BaseEntity {
   @ManyToOne('Operation', 'stepResults')
   @JoinColumn({ name: 'operation_id' })
   operation: any;
-} 
+}

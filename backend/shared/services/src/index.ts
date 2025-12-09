@@ -38,7 +38,7 @@ export { EventBusService } from './eventBusService.js';
 // =============================================================================
 
 // Unified Model Selection System (replaces distributed selection logic)
-export { 
+export {
   ModelSelectionOrchestrator,
   ModelSelectionRequest,
   ModelSelectionResult,
@@ -50,15 +50,14 @@ export {
   PerformanceOptimizedStrategy,
   ContextAwareStrategy,
   SystemDefaultStrategy,
-  UNIFIED_SYSTEM_DEFAULTS
+  UNIFIED_SYSTEM_DEFAULTS,
 } from './services/ModelSelectionOrchestrator.js';
-
 
 export {
   UnifiedModelSelectionFacade,
   UnifiedModelSelection,
   UnifiedSelectionRequest,
-  SelectionMetrics
+  SelectionMetrics,
 } from './services/UnifiedModelSelectionFacade.js';
 
 // Conversation Utilities
@@ -93,7 +92,7 @@ export type {
   CreateTaskRequest,
   UpdateTaskRequest,
   TaskAssignmentRequest,
-  TaskFilters
+  TaskFilters,
 } from './services/task.service.js';
 
 // Agent Intelligence Services
@@ -135,7 +134,12 @@ export { ResourceManagerService } from './resourceManagerService.js';
 // =============================================================================
 
 // Enterprise Services
-export { SERVICE_ACCESS_MATRIX, validateServiceAccess, AccessLevel, getDatabaseConnectionString } from './enterprise/ServiceAccessMatrix.js';
+export {
+  SERVICE_ACCESS_MATRIX,
+  validateServiceAccess,
+  AccessLevel,
+  getDatabaseConnectionString,
+} from './enterprise/ServiceAccessMatrix.js';
 
 // =============================================================================
 // SPECIALIZED SERVICES
@@ -145,7 +149,7 @@ export { SERVICE_ACCESS_MATRIX, validateServiceAccess, AccessLevel, getDatabaseC
 export type {
   ToolRelationship,
   ToolRecommendation,
-  UsagePattern
+  UsagePattern,
 } from './database/toolGraphDatabase.js';
 
 // Knowledge Graph Services
@@ -173,7 +177,7 @@ export {
   ProjectToolUsage,
   ProjectAgent,
   ProjectWorkflow,
-  TaskExecution
+  TaskExecution,
 } from './entities/Project.js';
 
 // Contact Management Entities
@@ -199,5 +203,5 @@ export {
   getAgentMemoryService,
   initializeServices,
   servicesHealthCheck,
-  resetServices
+  resetServices,
 } from './ServiceFactory.js';

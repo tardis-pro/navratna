@@ -1,52 +1,60 @@
-import { 
-  KnowledgeItem, 
+import {
+  KnowledgeItem,
   KnowledgeSearchRequest,
   KnowledgeSearchResponse,
   KnowledgeIngestRequest,
   KnowledgeIngestResponse,
   KnowledgeFilters,
   KnowledgeType,
-  SourceType
+  SourceType,
 } from '@uaip/types';
 import { KnowledgeGraphService } from './knowledge-graph/knowledge-graph.service.js';
 
 export class UserKnowledgeService {
-  constructor(
-    private readonly knowledgeGraphService: KnowledgeGraphService
-  ) {}
+  constructor(private readonly knowledgeGraphService: KnowledgeGraphService) {}
 
   /**
    * Search user-specific knowledge
    */
-  async search(userId: string, request: Omit<KnowledgeSearchRequest, 'scope'>): Promise<KnowledgeSearchResponse> {
+  async search(
+    userId: string,
+    request: Omit<KnowledgeSearchRequest, 'scope'>
+  ): Promise<KnowledgeSearchResponse> {
     return this.knowledgeGraphService.search({
       ...request,
-      scope: { userId }
+      scope: { userId },
     });
   }
 
   /**
    * Add knowledge to user's personal knowledge base
    */
-  async addKnowledge(userId: string, items: KnowledgeIngestRequest[]): Promise<KnowledgeIngestResponse> {
-    const scopedItems = items.map(item => ({
+  async addKnowledge(
+    userId: string,
+    items: KnowledgeIngestRequest[]
+  ): Promise<KnowledgeIngestResponse> {
+    const scopedItems = items.map((item) => ({
       ...item,
-      scope: { userId }
+      scope: { userId },
     }));
-    
+
     return this.knowledgeGraphService.ingest(scopedItems);
   }
 
   /**
    * Update user knowledge item
    */
-  async updateKnowledge(userId: string, itemId: string, updates: Partial<KnowledgeItem>): Promise<KnowledgeItem> {
+  async updateKnowledge(
+    userId: string,
+    itemId: string,
+    updates: Partial<KnowledgeItem>
+  ): Promise<KnowledgeItem> {
     // Ensure the item belongs to the user before updating
     const existingItem = await this.getKnowledgeItem(userId, itemId);
     if (!existingItem) {
       throw new Error('Knowledge item not found or not accessible by user');
     }
-    
+
     return this.knowledgeGraphService.updateKnowledge(itemId, updates);
   }
 
@@ -59,7 +67,7 @@ export class UserKnowledgeService {
     if (!existingItem) {
       throw new Error('Knowledge item not found or not accessible by user');
     }
-    
+
     return this.knowledgeGraphService.deleteKnowledge(itemId);
   }
 
@@ -69,27 +77,31 @@ export class UserKnowledgeService {
   async getKnowledgeItem(userId: string, itemId: string): Promise<KnowledgeItem | null> {
     const results = await this.knowledgeGraphService.search({
       query: '',
-      filters: { },
+      filters: {},
       options: { limit: 1 },
       timestamp: Date.now(),
-      scope: { userId }
+      scope: { userId },
     });
-    
-    return results.items.find(item => item.id === itemId) || null;
+
+    return results.items.find((item) => item.id === itemId) || null;
   }
 
   /**
    * Get user's knowledge by tags
    */
-  async getKnowledgeByTags(userId: string, tags: string[], limit: number = 20): Promise<KnowledgeItem[]> {
+  async getKnowledgeByTags(
+    userId: string,
+    tags: string[],
+    limit: number = 20
+  ): Promise<KnowledgeItem[]> {
     const results = await this.knowledgeGraphService.search({
       query: tags.join(' '),
       filters: { tags },
       options: { limit },
       timestamp: Date.now(),
-      scope: { userId }
+      scope: { userId },
     });
-    
+
     return results.items;
   }
 
@@ -110,76 +122,80 @@ export class UserKnowledgeService {
   }> {
     const oneWeekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
     const oneMonthAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
-    
+
     // Get user-specific knowledge
     const userResults = await this.knowledgeGraphService.search({
       query: '',
       filters: {},
       options: { limit: 1000 },
       timestamp: Date.now(),
-      scope: { userId }
+      scope: { userId },
     });
-    
+
     // Get general knowledge (no userId scope - this includes your 370 synced nodes!)
     const generalResults = await this.knowledgeGraphService.search({
       query: '',
       filters: {},
       options: { limit: 2000 }, // Increased limit to capture all your synced nodes
       timestamp: Date.now(),
-      scope: {} // No scope = general knowledge
+      scope: {}, // No scope = general knowledge
     });
-    
+
     // Get recent user knowledge
     const recentWeek = await this.knowledgeGraphService.search({
       query: '',
-      filters: { 
-        dateRange: { start: oneWeekAgo, end: new Date() }
+      filters: {
+        dateRange: { start: oneWeekAgo, end: new Date() },
       },
       options: { limit: 1000 },
       timestamp: Date.now(),
-      scope: { userId }
+      scope: { userId },
     });
-    
+
     const recentMonth = await this.knowledgeGraphService.search({
       query: '',
-      filters: { 
-        dateRange: { start: oneMonthAgo, end: new Date() }
+      filters: {
+        dateRange: { start: oneMonthAgo, end: new Date() },
       },
       options: { limit: 1000 },
       timestamp: Date.now(),
-      scope: { userId }
+      scope: { userId },
     });
-    
+
     // Calculate user knowledge statistics
     const userItemsByType: Record<string, number> = {};
-    userResults.items.forEach(item => {
+    userResults.items.forEach((item) => {
       userItemsByType[item.type] = (userItemsByType[item.type] || 0) + 1;
     });
-    
-    // Calculate general knowledge statistics  
+
+    // Calculate general knowledge statistics
     const generalItemsByType: Record<string, number> = {};
-    generalResults.items.forEach(item => {
+    generalResults.items.forEach((item) => {
       generalItemsByType[item.type] = (generalItemsByType[item.type] || 0) + 1;
     });
-    
+
     return {
       totalItems: userResults.items.length,
       itemsByType: userItemsByType,
       recentActivity: {
         itemsThisWeek: recentWeek.items.length,
-        itemsThisMonth: recentMonth.items.length
+        itemsThisMonth: recentMonth.items.length,
       },
       generalKnowledge: {
         totalItems: generalResults.items.length,
-        itemsByType: generalItemsByType
-      }
+        itemsByType: generalItemsByType,
+      },
     };
   }
 
   /**
    * Find related knowledge items for a user
    */
-  async findRelatedKnowledge(userId: string, itemId: string, relationshipTypes?: string[]): Promise<KnowledgeItem[]> {
+  async findRelatedKnowledge(
+    userId: string,
+    itemId: string,
+    relationshipTypes?: string[]
+  ): Promise<KnowledgeItem[]> {
     return this.knowledgeGraphService.findRelated(itemId, relationshipTypes, { userId });
   }
 
@@ -203,20 +219,22 @@ export class UserKnowledgeService {
       userMessage,
       assistantResponse,
       timestamp: new Date(),
-      ...metadata
+      ...metadata,
     };
 
-    const items = await this.addKnowledge(userId, [{
-      content: JSON.stringify(conversationTurn),
-      type: KnowledgeType.EPISODIC,
-      tags: ['conversation', 'memory', metadata?.topic || 'general'].filter(Boolean),
-      source: {
-        type: SourceType.AGENT_INTERACTION,
-        identifier: metadata?.agentId || conversationId,
-        metadata: { conversationId }
+    const items = await this.addKnowledge(userId, [
+      {
+        content: JSON.stringify(conversationTurn),
+        type: KnowledgeType.EPISODIC,
+        tags: ['conversation', 'memory', metadata?.topic || 'general'].filter(Boolean),
+        source: {
+          type: SourceType.AGENT_INTERACTION,
+          identifier: metadata?.agentId || conversationId,
+          metadata: { conversationId },
+        },
+        confidence: 1.0,
       },
-      confidence: 1.0
-    }]);
+    ]);
 
     return items.items[0];
   }
@@ -235,7 +253,7 @@ export class UserKnowledgeService {
   ): Promise<KnowledgeItem[]> {
     const searchFilters: KnowledgeFilters = {
       tags: ['conversation', 'memory'],
-      types: [KnowledgeType.EPISODIC]
+      types: [KnowledgeType.EPISODIC],
     };
 
     if (filters?.dateRange) {
@@ -246,21 +264,21 @@ export class UserKnowledgeService {
       query: filters?.conversationId || '',
       filters: searchFilters,
       options: {
-        limit: filters?.limit || 50
+        limit: filters?.limit || 50,
       },
-      timestamp: Date.now()
+      timestamp: Date.now(),
     });
 
     // Filter by conversation or agent if specified
     let items = results.items;
     if (filters?.conversationId) {
-      items = items.filter(item => {
+      items = items.filter((item) => {
         const content = JSON.parse(item.content);
         return content.conversationId === filters.conversationId;
       });
     }
     if (filters?.agentId) {
-      items = items.filter(item => {
+      items = items.filter((item) => {
         const content = JSON.parse(item.content);
         return content.agentId === filters.agentId;
       });
@@ -281,16 +299,18 @@ export class UserKnowledgeService {
       source: string;
     }
   ): Promise<KnowledgeItem> {
-    const items = await this.addKnowledge(userId, [{
-      content: JSON.stringify(preference),
-      type: KnowledgeType.CONCEPTUAL,
-      tags: ['preference', 'user-behavior', preference.type],
-      source: {
-        type: SourceType.AGENT_EPISODE,
-        identifier: preference.source
+    const items = await this.addKnowledge(userId, [
+      {
+        content: JSON.stringify(preference),
+        type: KnowledgeType.CONCEPTUAL,
+        tags: ['preference', 'user-behavior', preference.type],
+        source: {
+          type: SourceType.AGENT_EPISODE,
+          identifier: preference.source,
+        },
+        confidence: preference.confidence,
       },
-      confidence: preference.confidence
-    }]);
+    ]);
 
     return items.items[0];
   }
@@ -298,25 +318,30 @@ export class UserKnowledgeService {
   /**
    * Get user preferences
    */
-  async getUserPreferences(userId: string, type?: string): Promise<Array<{
-    type: string;
-    value: any;
-    confidence: number;
-    source: string;
-    updatedAt: Date;
-  }>> {
+  async getUserPreferences(
+    userId: string,
+    type?: string
+  ): Promise<
+    Array<{
+      type: string;
+      value: any;
+      confidence: number;
+      source: string;
+      updatedAt: Date;
+    }>
+  > {
     const tags = ['preference'];
     if (type) {
       tags.push(type);
     }
 
     const items = await this.getKnowledgeByTags(userId, tags, 100);
-    
-    return items.map(item => {
+
+    return items.map((item) => {
       const pref = JSON.parse(item.content);
       return {
         ...pref,
-        updatedAt: item.updatedAt
+        updatedAt: item.updatedAt,
       };
     });
   }
@@ -334,19 +359,21 @@ export class UserKnowledgeService {
       examples: string[];
     }
   ): Promise<KnowledgeItem> {
-    const items = await this.addKnowledge(userId, [{
-      content: JSON.stringify({
-        ...pattern,
-        lastObserved: new Date()
-      }),
-      type: KnowledgeType.PROCEDURAL,
-      tags: ['pattern', 'conversation', pattern.type],
-      source: {
-        type: SourceType.AGENT_EPISODE,
-        identifier: 'pattern-detection'
+    const items = await this.addKnowledge(userId, [
+      {
+        content: JSON.stringify({
+          ...pattern,
+          lastObserved: new Date(),
+        }),
+        type: KnowledgeType.PROCEDURAL,
+        tags: ['pattern', 'conversation', pattern.type],
+        source: {
+          type: SourceType.AGENT_EPISODE,
+          identifier: 'pattern-detection',
+        },
+        confidence: pattern.confidence,
       },
-      confidence: pattern.confidence
-    }]);
+    ]);
 
     return items.items[0];
   }
@@ -357,24 +384,24 @@ export class UserKnowledgeService {
   async getConversationPatterns(
     userId: string,
     type?: string
-  ): Promise<Array<{
-    type: string;
-    description: string;
-    frequency: number;
-    confidence: number;
-    examples: string[];
-    lastObserved: Date;
-  }>> {
+  ): Promise<
+    Array<{
+      type: string;
+      description: string;
+      frequency: number;
+      confidence: number;
+      examples: string[];
+      lastObserved: Date;
+    }>
+  > {
     const tags = ['pattern', 'conversation'];
     if (type) {
       tags.push(type);
     }
 
     const items = await this.getKnowledgeByTags(userId, tags, 50);
-    
-    return items
-      .map(item => JSON.parse(item.content))
-      .sort((a, b) => b.frequency - a.frequency);
+
+    return items.map((item) => JSON.parse(item.content)).sort((a, b) => b.frequency - a.frequency);
   }
 
   /**
@@ -392,15 +419,15 @@ export class UserKnowledgeService {
       query,
       filters: {
         tags: ['conversation', 'memory'],
-        types: [KnowledgeType.EPISODIC]
+        types: [KnowledgeType.EPISODIC],
       },
       options: {
         limit: options?.limit || 10,
-        similarityThreshold: options?.similarityThreshold || 0.7
+        similarityThreshold: options?.similarityThreshold || 0.7,
       },
-      timestamp: Date.now()
+      timestamp: Date.now(),
     });
 
     return results.items;
   }
-} 
+}

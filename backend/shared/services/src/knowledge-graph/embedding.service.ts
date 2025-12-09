@@ -7,7 +7,7 @@ export class EmbeddingService {
   constructor(openaiApiKey?: string, embeddingModel: string = 'text-embedding-ada-002') {
     this.openaiApiKey = openaiApiKey || process.env.OPENAI_API_KEY || '';
     this.embeddingModel = embeddingModel;
-    
+
     if (!this.openaiApiKey) {
       console.warn('OPENAI_API_KEY not found in environment variables');
     }
@@ -18,13 +18,13 @@ export class EmbeddingService {
       const response = await fetch('https://api.openai.com/v1/embeddings', {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${this.openaiApiKey}`,
+          Authorization: `Bearer ${this.openaiApiKey}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
           input: text,
-          model: this.embeddingModel
-        })
+          model: this.embeddingModel,
+        }),
       });
 
       if (!response.ok) {
@@ -64,13 +64,13 @@ export class EmbeddingService {
       const response = await fetch('https://api.openai.com/v1/embeddings', {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${this.openaiApiKey}`,
+          Authorization: `Bearer ${this.openaiApiKey}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
           input: texts,
-          model: this.embeddingModel
-        })
+          model: this.embeddingModel,
+        }),
       });
 
       if (!response.ok) {
@@ -163,7 +163,7 @@ export class EmbeddingService {
     // Add conversation history
     if (context.conversationHistory && context.conversationHistory.length > 0) {
       parts.push('Conversation History:');
-      context.conversationHistory.forEach(msg => {
+      context.conversationHistory.forEach((msg) => {
         parts.push(`${msg.role}: ${msg.content}`);
       });
     }
@@ -195,4 +195,4 @@ export class EmbeddingService {
     const similarity = dotProduct / (Math.sqrt(norm1) * Math.sqrt(norm2));
     return similarity;
   }
-} 
+}

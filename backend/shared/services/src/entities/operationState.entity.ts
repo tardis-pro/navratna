@@ -45,4 +45,4 @@ export class OperationState extends BaseEntity {
   @ManyToOne('Operation', 'states')
   @JoinColumn({ name: 'operation_id' })
   operation: any;
-} 
+}

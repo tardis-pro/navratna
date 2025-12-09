@@ -41,10 +41,9 @@ export class SecurityPolicyRepository extends BaseRepository<SecurityPolicy> {
     }
 
     if (filters.search) {
-      queryBuilder.andWhere(
-        '(policy.name ILIKE :search OR policy.description ILIKE :search)',
-        { search: `%${filters.search}%` }
-      );
+      queryBuilder.andWhere('(policy.name ILIKE :search OR policy.description ILIKE :search)', {
+        search: `%${filters.search}%`,
+      });
     }
 
     queryBuilder.orderBy('policy.priority', 'DESC').addOrderBy('policy.createdAt', 'DESC');
@@ -75,7 +74,10 @@ export class SecurityPolicyRepository extends BaseRepository<SecurityPolicy> {
   /**
    * Update security policy
    */
-  public async updateSecurityPolicy(id: string, updates: Partial<SecurityPolicy>): Promise<SecurityPolicy | null> {
+  public async updateSecurityPolicy(
+    id: string,
+    updates: Partial<SecurityPolicy>
+  ): Promise<SecurityPolicy | null> {
     await this.repository.update(id, updates);
     return await this.repository.findOne({ where: { id } });
   }
@@ -98,13 +100,13 @@ export class SecurityPolicyRepository extends BaseRepository<SecurityPolicy> {
   }> {
     const [totalPolicies, activePolicies] = await Promise.all([
       this.repository.count(),
-      this.repository.count({ where: { isActive: true } })
+      this.repository.count({ where: { isActive: true } }),
     ]);
 
     return {
       totalPolicies,
       activePolicies,
-      inactivePolicies: totalPolicies - activePolicies
+      inactivePolicies: totalPolicies - activePolicies,
     };
   }
 }
@@ -133,7 +135,7 @@ export class ApprovalWorkflowRepository extends BaseRepository<ApprovalWorkflow>
       currentApprovers: workflowData.currentApprovers || [],
       status: workflowData.status as any,
       expiresAt: workflowData.expiresAt,
-      metadata: workflowData.metadata
+      metadata: workflowData.metadata,
     });
     return await this.repository.save(workflow);
   }
@@ -141,7 +143,10 @@ export class ApprovalWorkflowRepository extends BaseRepository<ApprovalWorkflow>
   /**
    * Update approval workflow
    */
-  public async updateApprovalWorkflow(workflowId: string, updates: Partial<ApprovalWorkflow>): Promise<ApprovalWorkflow | null> {
+  public async updateApprovalWorkflow(
+    workflowId: string,
+    updates: Partial<ApprovalWorkflow>
+  ): Promise<ApprovalWorkflow | null> {
     await this.repository.update(workflowId, { ...updates, updatedAt: new Date() });
     return await this.repository.findOne({ where: { id: workflowId } });
   }
@@ -149,30 +154,36 @@ export class ApprovalWorkflowRepository extends BaseRepository<ApprovalWorkflow>
   /**
    * Get workflows for a user (as approver)
    */
-  public async getUserApprovalWorkflows(userId: string, status?: string): Promise<ApprovalWorkflow[]> {
-    const queryBuilder = this.repository.createQueryBuilder('workflow')
-      .where('workflow.requiredApprovers @> :userId', { 
-        userId: JSON.stringify([userId]) 
+  public async getUserApprovalWorkflows(
+    userId: string,
+    status?: string
+  ): Promise<ApprovalWorkflow[]> {
+    const queryBuilder = this.repository
+      .createQueryBuilder('workflow')
+      .where('workflow.requiredApprovers @> :userId', {
+        userId: JSON.stringify([userId]),
       });
 
     if (status) {
       queryBuilder.andWhere('workflow.status = :status', { status });
     }
 
-    return await queryBuilder
-      .orderBy('workflow.createdAt', 'DESC')
-      .getMany();
+    return await queryBuilder.orderBy('workflow.createdAt', 'DESC').getMany();
   }
 
   /**
    * Get pending workflows for reminders
    */
-  public async getPendingWorkflowsForReminders(reminderThreshold: Date): Promise<ApprovalWorkflow[]> {
+  public async getPendingWorkflowsForReminders(
+    reminderThreshold: Date
+  ): Promise<ApprovalWorkflow[]> {
     return await this.repository
       .createQueryBuilder('workflow')
       .where('workflow.status = :status', { status: 'pending' })
       .andWhere('workflow.createdAt <= :threshold', { threshold: reminderThreshold })
-      .andWhere('(workflow.lastReminderAt IS NULL OR workflow.lastReminderAt <= :threshold)', { threshold: reminderThreshold })
+      .andWhere('(workflow.lastReminderAt IS NULL OR workflow.lastReminderAt <= :threshold)', {
+        threshold: reminderThreshold,
+      })
       .getMany();
   }
 
@@ -182,9 +193,9 @@ export class ApprovalWorkflowRepository extends BaseRepository<ApprovalWorkflow>
   public async getExpiredWorkflows(): Promise<ApprovalWorkflow[]> {
     try {
       const now = new Date();
-      logger.debug('Querying for expired workflows', { 
+      logger.debug('Querying for expired workflows', {
         currentTime: now.toISOString(),
-        query: 'status = pending AND expiresAt <= now'
+        query: 'status = pending AND expiresAt <= now',
       });
 
       const workflows = await this.repository
@@ -193,19 +204,22 @@ export class ApprovalWorkflowRepository extends BaseRepository<ApprovalWorkflow>
         .andWhere('workflow.expiresAt <= :now', { now })
         .getMany();
 
-      logger.debug('Expired workflows query result', { 
+      logger.debug('Expired workflows query result', {
         count: workflows.length,
-        workflowIds: workflows.map(w => w.id)
+        workflowIds: workflows.map((w) => w.id),
       });
 
       return workflows;
     } catch (error) {
       logger.error('Failed to query expired workflows', {
-        error: error instanceof Error ? {
-          message: error.message,
-          stack: error.stack,
-          name: error.name
-        } : error
+        error:
+          error instanceof Error
+            ? {
+                message: error.message,
+                stack: error.stack,
+                name: error.name,
+              }
+            : error,
       });
       throw error;
     }
@@ -239,7 +253,7 @@ export class ApprovalDecisionRepository extends BaseRepository<ApprovalDecision>
   public async getApprovalDecisions(workflowId: string): Promise<ApprovalDecision[]> {
     return await this.repository.find({
       where: { workflowId },
-      order: { decidedAt: 'ASC' }
+      order: { decidedAt: 'ASC' },
     });
   }
-} 
+}

@@ -1,16 +1,16 @@
 import React, { useState } from 'react';
-import { cn } from "@/lib/utils";
-import { 
-  Play, 
-  Pause, 
-  RotateCcw, 
-  AlertCircle, 
+import { cn } from '@/lib/utils';
+import {
+  Play,
+  Pause,
+  RotateCcw,
+  AlertCircle,
   Activity,
   Settings,
   Brain,
   Code,
   FileText,
-  TrendingUp
+  TrendingUp,
 } from 'lucide-react';
 import { useDiscussion } from '../contexts/DiscussionContext';
 import { useAgents } from '../contexts/AgentContext';
@@ -21,23 +21,23 @@ interface DiscussionControlsProps {
   showThinkTokens?: boolean;
 }
 
-export const DiscussionControls: React.FC<DiscussionControlsProps> = ({ 
-  className, 
+export const DiscussionControls: React.FC<DiscussionControlsProps> = ({
+  className,
   onThinkTokensToggle,
-  showThinkTokens = false 
+  showThinkTokens = false,
 }) => {
-  const { 
-    isActive, 
-    start, 
-    stop, 
+  const {
+    isActive,
+    start,
+    stop,
     reset,
-    history, 
+    history,
     currentRound,
     analyzeConversation,
     generateArtifact,
-    discussionOrchestration
+    discussionOrchestration,
   } = useDiscussion();
-  
+
   const { agents } = useAgents();
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -99,23 +99,31 @@ export const DiscussionControls: React.FC<DiscussionControlsProps> = ({
   };
 
   return (
-    <div className={cn("space-y-4", className)}>
+    <div className={cn('space-y-4', className)}>
       {/* Status Stats */}
       <div className="grid grid-cols-4 gap-3 mb-6">
         <div className="bg-white/60 dark:bg-slate-800/60 rounded-xl p-3 text-center backdrop-blur-sm border border-slate-200/50 dark:border-slate-700/50">
-          <div className="text-xl font-bold bg-gradient-to-r from-blue-600 to-blue-700 dark:from-blue-400 dark:to-blue-500 bg-clip-text text-transparent">{agentCount}</div>
+          <div className="text-xl font-bold bg-gradient-to-r from-blue-600 to-blue-700 dark:from-blue-400 dark:to-blue-500 bg-clip-text text-transparent">
+            {agentCount}
+          </div>
           <div className="text-xs font-medium text-slate-600 dark:text-slate-400">Agents</div>
         </div>
         <div className="bg-white/60 dark:bg-slate-800/60 rounded-xl p-3 text-center backdrop-blur-sm border border-slate-200/50 dark:border-slate-700/50">
-          <div className="text-xl font-bold bg-gradient-to-r from-emerald-600 to-emerald-700 dark:from-emerald-400 dark:to-emerald-500 bg-clip-text text-transparent">{messageCount}</div>
+          <div className="text-xl font-bold bg-gradient-to-r from-emerald-600 to-emerald-700 dark:from-emerald-400 dark:to-emerald-500 bg-clip-text text-transparent">
+            {messageCount}
+          </div>
           <div className="text-xs font-medium text-slate-600 dark:text-slate-400">Messages</div>
         </div>
         <div className="bg-white/60 dark:bg-slate-800/60 rounded-xl p-3 text-center backdrop-blur-sm border border-slate-200/50 dark:border-slate-700/50">
-          <div className="text-xl font-bold bg-gradient-to-r from-purple-600 to-purple-700 dark:from-purple-400 dark:to-purple-500 bg-clip-text text-transparent">{currentRound}</div>
+          <div className="text-xl font-bold bg-gradient-to-r from-purple-600 to-purple-700 dark:from-purple-400 dark:to-purple-500 bg-clip-text text-transparent">
+            {currentRound}
+          </div>
           <div className="text-xs font-medium text-slate-600 dark:text-slate-400">Round</div>
         </div>
         <div className="bg-white/60 dark:bg-slate-800/60 rounded-xl p-3 text-center backdrop-blur-sm border border-slate-200/50 dark:border-slate-700/50">
-          <div className="text-xl font-bold bg-gradient-to-r from-orange-600 to-orange-700 dark:from-orange-400 dark:to-orange-500 bg-clip-text text-transparent">0</div>
+          <div className="text-xl font-bold bg-gradient-to-r from-orange-600 to-orange-700 dark:from-orange-400 dark:to-orange-500 bg-clip-text text-transparent">
+            0
+          </div>
           <div className="text-xs font-medium text-slate-600 dark:text-slate-400">Active</div>
         </div>
       </div>
@@ -141,7 +149,7 @@ export const DiscussionControls: React.FC<DiscussionControlsProps> = ({
             <span>Stop</span>
           </button>
         )}
-        
+
         <button
           onClick={handleReset}
           disabled={isLoading}
@@ -170,9 +178,16 @@ export const DiscussionControls: React.FC<DiscussionControlsProps> = ({
       <div className="flex items-center justify-between p-3 bg-white/60 dark:bg-slate-800/60 rounded-xl border border-slate-200/50 dark:border-slate-700/50">
         <span className="text-sm font-medium text-slate-700 dark:text-slate-300">Status</span>
         <div className="flex items-center gap-2">
-          <Activity className={cn("w-4 h-4", isActive ? "text-emerald-500" : "text-slate-400")} />
-          <span className={cn("text-sm font-medium", isActive ? "text-emerald-600 dark:text-emerald-400" : "text-slate-600 dark:text-slate-400")}>
-            {isActive ? "Active" : "Inactive"}
+          <Activity className={cn('w-4 h-4', isActive ? 'text-emerald-500' : 'text-slate-400')} />
+          <span
+            className={cn(
+              'text-sm font-medium',
+              isActive
+                ? 'text-emerald-600 dark:text-emerald-400'
+                : 'text-slate-600 dark:text-slate-400'
+            )}
+          >
+            {isActive ? 'Active' : 'Inactive'}
           </span>
         </div>
       </div>
@@ -190,7 +205,7 @@ export const DiscussionControls: React.FC<DiscussionControlsProps> = ({
               <Brain className="w-4 h-4" />
               <span>Analyze</span>
             </button>
-            
+
             <button
               onClick={() => handleQuickAction('sentiment')}
               disabled={isLoading || messageCount === 0}
@@ -199,7 +214,7 @@ export const DiscussionControls: React.FC<DiscussionControlsProps> = ({
               <TrendingUp className="w-4 h-4" />
               <span>Sentiment</span>
             </button>
-            
+
             <button
               onClick={() => handleQuickAction('code')}
               disabled={isLoading}
@@ -208,7 +223,7 @@ export const DiscussionControls: React.FC<DiscussionControlsProps> = ({
               <Code className="w-4 h-4" />
               <span>Code</span>
             </button>
-            
+
             <button
               onClick={() => handleQuickAction('summary')}
               disabled={isLoading || messageCount === 0}
@@ -226,17 +241,19 @@ export const DiscussionControls: React.FC<DiscussionControlsProps> = ({
               <button
                 onClick={() => onThinkTokensToggle?.(!showThinkTokens)}
                 className={cn(
-                  "w-8 h-4 rounded-full transition-colors",
-                  showThinkTokens ? "bg-blue-600" : "bg-slate-300 dark:bg-slate-600"
+                  'w-8 h-4 rounded-full transition-colors',
+                  showThinkTokens ? 'bg-blue-600' : 'bg-slate-300 dark:bg-slate-600'
                 )}
               >
-                <div className={cn(
-                  "w-3 h-3 bg-white rounded-full transition-transform mt-0.5",
-                  showThinkTokens ? "translate-x-4" : "translate-x-0.5"
-                )} />
+                <div
+                  className={cn(
+                    'w-3 h-3 bg-white rounded-full transition-transform mt-0.5',
+                    showThinkTokens ? 'translate-x-4' : 'translate-x-0.5'
+                  )}
+                />
               </button>
             </div>
-            
+
             <div className="text-xs text-slate-500 dark:text-slate-400 space-y-1">
               <div className="flex items-center justify-between">
                 <span>Security Gateway</span>
@@ -260,4 +277,4 @@ export const DiscussionControls: React.FC<DiscussionControlsProps> = ({
       )}
     </div>
   );
-}; 
+};

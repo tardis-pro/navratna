@@ -48,27 +48,45 @@ export class ConceptExtractorService {
       /(.+?)\s+(?:is|are|means?|refers?\s+to|defined\s+as)\s+(.+)/gi,
       /(.+?)\s*[:：]\s*(.+)/gi,
       /define\s+(.+?)\s+as\s+(.+)/gi,
-      /(.+?)\s+can\s+be\s+described\s+as\s+(.+)/gi
+      /(.+?)\s+can\s+be\s+described\s+as\s+(.+)/gi,
     ],
-    
+
     // Property extraction patterns
     properties: [
       /(.+?)\s+(?:has|have|contains?|includes?)\s+(.+)/gi,
       /(.+?)\s+(?:with|featuring)\s+(.+)/gi,
-      /(.+?)\s*[:：]\s*(.+?)(?:,|;|\.|\n)/gi
+      /(.+?)\s*[:：]\s*(.+?)(?:,|;|\.|\n)/gi,
     ],
-    
+
     // Relationship patterns
     relationships: {
       IS_A: [/(.+?)\s+(?:is\s+a|are|is\s+an?)\s+(.+)/gi],
       PART_OF: [/(.+?)\s+(?:is\s+part\s+of|belongs\s+to|is\s+in)\s+(.+)/gi],
       CAUSES: [/(.+?)\s+(?:causes?|leads?\s+to|results?\s+in)\s+(.+)/gi],
-      USED_FOR: [/(.+?)\s+(?:is\s+used\s+for|used\s+to|helps?\s+with)\s+(.+)/gi]
-    }
+      USED_FOR: [/(.+?)\s+(?:is\s+used\s+for|used\s+to|helps?\s+with)\s+(.+)/gi],
+    },
   };
 
   private readonly stopWords = new Set([
-    'the', 'a', 'an', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for', 'of', 'with', 'by', 'it', 'this', 'that', 'these', 'those'
+    'the',
+    'a',
+    'an',
+    'and',
+    'or',
+    'but',
+    'in',
+    'on',
+    'at',
+    'to',
+    'for',
+    'of',
+    'with',
+    'by',
+    'it',
+    'this',
+    'that',
+    'these',
+    'those',
   ]);
 
   constructor(
@@ -76,17 +94,23 @@ export class ConceptExtractorService {
     private readonly embeddingService: EmbeddingService
   ) {}
 
-  async extractConcepts(knowledgeItems: KnowledgeItem[], domain?: string): Promise<ConceptExtractionResult> {
+  async extractConcepts(
+    knowledgeItems: KnowledgeItem[],
+    domain?: string
+  ): Promise<ConceptExtractionResult> {
     const startTime = Date.now();
-    
+
     try {
       // Filter items by domain and semantic/conceptual types
-      const relevantItems = knowledgeItems.filter(item => 
-        (item.type === KnowledgeType.SEMANTIC || item.type === KnowledgeType.CONCEPTUAL) &&
-        (!domain || item.tags.includes(domain) || item.metadata.domain === domain)
+      const relevantItems = knowledgeItems.filter(
+        (item) =>
+          (item.type === KnowledgeType.SEMANTIC || item.type === KnowledgeType.CONCEPTUAL) &&
+          (!domain || item.tags.includes(domain) || item.metadata.domain === domain)
       );
 
-      logger.info(`Extracting concepts from ${relevantItems.length} knowledge items${domain ? ` in domain: ${domain}` : ''}`);
+      logger.info(
+        `Extracting concepts from ${relevantItems.length} knowledge items${domain ? ` in domain: ${domain}` : ''}`
+      );
 
       const concepts = new Map<string, ConceptNode>();
       const relationships: ConceptRelationship[] = [];
@@ -101,7 +125,8 @@ export class ConceptExtractorService {
 
       // Calculate metrics
       const conceptArray = Array.from(concepts.values());
-      const avgConfidence = conceptArray.reduce((sum, c) => sum + c.confidence, 0) / conceptArray.length;
+      const avgConfidence =
+        conceptArray.reduce((sum, c) => sum + c.confidence, 0) / conceptArray.length;
       const processingTime = Date.now() - startTime;
 
       const result: ConceptExtractionResult = {
@@ -111,58 +136,61 @@ export class ConceptExtractorService {
           totalConcepts: conceptArray.length,
           avgConfidence: avgConfidence || 0,
           processingTime,
-          sourceItems: relevantItems.length
-        }
+          sourceItems: relevantItems.length,
+        },
       };
 
-      logger.info(`Concept extraction completed: ${result.extractionMetrics.totalConcepts} concepts, ${relationships.length} relationships in ${processingTime}ms`);
+      logger.info(
+        `Concept extraction completed: ${result.extractionMetrics.totalConcepts} concepts, ${relationships.length} relationships in ${processingTime}ms`
+      );
       return result;
-
     } catch (error) {
       logger.error('Error extracting concepts:', error);
-      throw new Error(`Concept extraction failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw new Error(
+        `Concept extraction failed: ${error instanceof Error ? error.message : 'Unknown error'}`
+      );
     }
   }
 
   private async processKnowledgeItem(
-    item: KnowledgeItem, 
+    item: KnowledgeItem,
     concepts: Map<string, ConceptNode>,
     relationships: ConceptRelationship[]
   ): Promise<void> {
     const content = item.content;
-    
+
     // Extract explicit definitions
     await this.extractDefinitions(content, concepts, item);
-    
+
     // Extract properties for existing concepts
     await this.extractProperties(content, concepts, item);
-    
+
     // Extract relationships
     await this.extractRelationships(content, concepts, relationships, item);
-    
+
     // Extract instances/examples
     await this.extractInstances(content, concepts, item);
   }
 
   private async extractDefinitions(
-    content: string, 
+    content: string,
     concepts: Map<string, ConceptNode>,
     sourceItem: KnowledgeItem
   ): Promise<void> {
     for (const pattern of this.conceptPatterns.definitions) {
       let match;
       pattern.lastIndex = 0; // Reset regex
-      
+
       while ((match = pattern.exec(content)) !== null) {
         const [, conceptName, definition] = match;
-        
+
         if (conceptName && definition) {
           const cleanName = this.cleanConceptName(conceptName);
           const cleanDefinition = definition.trim();
-          
+
           if (cleanName && cleanDefinition && !this.isStopWord(cleanName)) {
             const conceptId = this.generateConceptId(cleanName);
-            
+
             const existing = concepts.get(conceptId);
             if (existing) {
               // Merge definitions
@@ -178,7 +206,7 @@ export class ConceptExtractorService {
                 properties: [],
                 instances: [],
                 synonyms: [],
-                relatedConcepts: []
+                relatedConcepts: [],
               });
             }
           }
@@ -195,26 +223,26 @@ export class ConceptExtractorService {
     for (const pattern of this.conceptPatterns.properties) {
       let match;
       pattern.lastIndex = 0;
-      
+
       while ((match = pattern.exec(content)) !== null) {
         const [, subject, property] = match;
-        
+
         if (subject && property) {
           const cleanSubject = this.cleanConceptName(subject);
           const conceptId = this.generateConceptId(cleanSubject);
-          
+
           const concept = concepts.get(conceptId);
           if (concept) {
             const propertyValue = property.trim();
-            
+
             // Determine property type
             const propType = this.inferPropertyType(propertyValue);
-            
+
             concept.properties.push({
               name: 'attribute',
               value: propertyValue,
               type: propType,
-              confidence: 0.7
+              confidence: 0.7,
             });
           }
         }
@@ -232,21 +260,21 @@ export class ConceptExtractorService {
       for (const pattern of patterns) {
         let match;
         pattern.lastIndex = 0;
-        
+
         while ((match = pattern.exec(content)) !== null) {
           const [fullMatch, source, target] = match;
-          
+
           if (source && target) {
             const sourceId = this.generateConceptId(this.cleanConceptName(source));
             const targetId = this.generateConceptId(this.cleanConceptName(target));
-            
+
             if (sourceId !== targetId) {
               relationships.push({
                 sourceConceptId: sourceId,
                 targetConceptId: targetId,
                 relationshipType: relType as any,
                 confidence: 0.75,
-                evidence: [fullMatch.trim()]
+                evidence: [fullMatch.trim()],
               });
             }
           }
@@ -264,16 +292,16 @@ export class ConceptExtractorService {
     const examplePatterns = [
       /(?:examples?|instances?|such as|including|like)\s+(.+)/gi,
       /for\s+example[,:]?\s+(.+)/gi,
-      /e\.g\.[\s,]*(.+)/gi
+      /e\.g\.[\s,]*(.+)/gi,
     ];
 
     for (const pattern of examplePatterns) {
       let match;
       pattern.lastIndex = 0;
-      
+
       while ((match = pattern.exec(content)) !== null) {
-        const examples = match[1].split(/[,;]/).map(e => e.trim());
-        
+        const examples = match[1].split(/[,;]/).map((e) => e.trim());
+
         // Try to match examples to concepts
         for (const [conceptId, concept] of concepts) {
           for (const example of examples) {
@@ -292,7 +320,7 @@ export class ConceptExtractorService {
   ): Promise<void> {
     // Use embeddings to find semantically similar concepts
     const embeddings = new Map<string, number[]>();
-    
+
     for (const concept of concepts) {
       try {
         const embedding = await this.embeddingService.generateEmbedding(
@@ -309,33 +337,40 @@ export class ConceptExtractorService {
       for (let j = i + 1; j < concepts.length; j++) {
         const concept1 = concepts[i];
         const concept2 = concepts[j];
-        
+
         const embedding1 = embeddings.get(concept1.id);
         const embedding2 = embeddings.get(concept2.id);
-        
+
         if (embedding1 && embedding2) {
           try {
-            const similarity = await this.embeddingService.calculateSimilarity(embedding1, embedding2);
-            
+            const similarity = await this.embeddingService.calculateSimilarity(
+              embedding1,
+              embedding2
+            );
+
             if (similarity > 0.7) {
               // Check if relationship already exists
-              const existingRel = relationships.find(r => 
-                (r.sourceConceptId === concept1.id && r.targetConceptId === concept2.id) ||
-                (r.sourceConceptId === concept2.id && r.targetConceptId === concept1.id)
+              const existingRel = relationships.find(
+                (r) =>
+                  (r.sourceConceptId === concept1.id && r.targetConceptId === concept2.id) ||
+                  (r.sourceConceptId === concept2.id && r.targetConceptId === concept1.id)
               );
-              
+
               if (!existingRel) {
                 relationships.push({
                   sourceConceptId: concept1.id,
                   targetConceptId: concept2.id,
                   relationshipType: 'RELATED_TO',
                   confidence: similarity,
-                  evidence: [`Semantic similarity: ${similarity.toFixed(3)}`]
+                  evidence: [`Semantic similarity: ${similarity.toFixed(3)}`],
                 });
               }
             }
           } catch (error) {
-            logger.warn(`Failed to calculate similarity between ${concept1.name} and ${concept2.name}:`, error);
+            logger.warn(
+              `Failed to calculate similarity between ${concept1.name} and ${concept2.name}:`,
+              error
+            );
           }
         }
       }
@@ -361,14 +396,14 @@ export class ConceptExtractorService {
   private inferDomain(tags: string[]): string {
     // Simple domain inference from tags
     const domainKeywords = {
-      'programming': ['code', 'software', 'development', 'programming'],
-      'business': ['business', 'strategy', 'management', 'enterprise'],
-      'science': ['research', 'analysis', 'study', 'experiment'],
-      'technology': ['tech', 'system', 'infrastructure', 'platform']
+      programming: ['code', 'software', 'development', 'programming'],
+      business: ['business', 'strategy', 'management', 'enterprise'],
+      science: ['research', 'analysis', 'study', 'experiment'],
+      technology: ['tech', 'system', 'infrastructure', 'platform'],
     };
 
     for (const [domain, keywords] of Object.entries(domainKeywords)) {
-      if (tags.some(tag => keywords.includes(tag.toLowerCase()))) {
+      if (tags.some((tag) => keywords.includes(tag.toLowerCase()))) {
         return domain;
       }
     }

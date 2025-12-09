@@ -48,13 +48,13 @@ export class WorkflowPersistenceService {
       patternName: pattern.name,
       status: 'running',
       startTime: new Date(),
-      metadata
+      metadata,
     };
 
     this.workflows.set(workflowId, execution);
-    
+
     // Initialize step executions
-    const stepExecutions = pattern.steps.map(step => ({
+    const stepExecutions = pattern.steps.map((step) => ({
       id: `step-exec-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
       workflowExecutionId: execution.id,
       stepId: step.id,
@@ -62,7 +62,7 @@ export class WorkflowPersistenceService {
       assignedAgentId: step.assignedAgentId,
       status: step.status,
       input: step.input,
-      metadata: step.metadata
+      metadata: step.metadata,
     }));
 
     this.steps.set(workflowId, stepExecutions);
@@ -114,7 +114,7 @@ export class WorkflowPersistenceService {
       return;
     }
 
-    const stepExecution = stepExecutions.find(s => s.stepId === step.id);
+    const stepExecution = stepExecutions.find((s) => s.stepId === step.id);
     if (!stepExecution) {
       logger.warn(`Step execution not found: ${step.id} in workflow ${workflowId}`);
       return;
@@ -155,9 +155,9 @@ export class WorkflowPersistenceService {
 
   async getAgentWorkflowHistory(agentId: string, limit = 20): Promise<WorkflowStepExecution[]> {
     const allSteps: WorkflowStepExecution[] = [];
-    
+
     for (const stepExecutions of this.steps.values()) {
-      const agentSteps = stepExecutions.filter(s => s.assignedAgentId === agentId);
+      const agentSteps = stepExecutions.filter((s) => s.assignedAgentId === agentId);
       allSteps.push(...agentSteps);
     }
 
@@ -177,21 +177,18 @@ export class WorkflowPersistenceService {
     averageDuration: number;
     successRate: number;
   }> {
-    const executions = workflowId 
-      ? [this.workflows.get(workflowId)].filter(Boolean) as WorkflowExecution[]
+    const executions = workflowId
+      ? ([this.workflows.get(workflowId)].filter(Boolean) as WorkflowExecution[])
       : Array.from(this.workflows.values());
 
     const totalExecutions = executions.length;
-    const completedExecutions = executions.filter(e => e.status === 'completed').length;
-    const failedExecutions = executions.filter(e => e.status === 'failed').length;
-    
-    const durations = executions
-      .filter(e => e.duration !== undefined)
-      .map(e => e.duration!);
-    
-    const averageDuration = durations.length > 0 
-      ? durations.reduce((sum, d) => sum + d, 0) / durations.length 
-      : 0;
+    const completedExecutions = executions.filter((e) => e.status === 'completed').length;
+    const failedExecutions = executions.filter((e) => e.status === 'failed').length;
+
+    const durations = executions.filter((e) => e.duration !== undefined).map((e) => e.duration!);
+
+    const averageDuration =
+      durations.length > 0 ? durations.reduce((sum, d) => sum + d, 0) / durations.length : 0;
 
     const successRate = totalExecutions > 0 ? completedExecutions / totalExecutions : 0;
 
@@ -200,7 +197,7 @@ export class WorkflowPersistenceService {
       completedExecutions,
       failedExecutions,
       averageDuration,
-      successRate
+      successRate,
     };
   }
 

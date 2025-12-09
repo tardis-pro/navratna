@@ -7,7 +7,7 @@ describe('PersonaService', () => {
     const mockConfig = {
       databaseService: null,
       eventBusService: null,
-      llmService: null
+      llmService: null,
     };
     service = new PersonaService(mockConfig);
   });

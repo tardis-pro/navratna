@@ -1,11 +1,6 @@
 import Redis from 'ioredis';
 
-import {
-  OperationState,
-  Checkpoint,
-  CheckpointType,
-  WorkflowInstance
-} from '@uaip/types';
+import { OperationState, Checkpoint, CheckpointType, WorkflowInstance } from '@uaip/types';
 import { logger, ApiError } from '@uaip/utils';
 import { config } from '@uaip/config';
 import { DatabaseService } from './databaseService.js';
@@ -43,7 +38,7 @@ export class StateManagerService {
 
   constructor(databaseService: DatabaseService) {
     this.databaseService = databaseService;
-    
+
     // Create Redis connection with proper IORedis configuration
     const redisConfig = config.getRedisConfig();
     this.redis = new Redis({
@@ -57,7 +52,7 @@ export class StateManagerService {
       lazyConnect: true,
       commandTimeout: 5000,
     });
-    
+
     this.compressionEnabled = config.getStateConfig().compressionEnabled;
     this.maxCheckpointSize = config.getStateConfig().maxCheckpointSize;
 
@@ -85,14 +80,13 @@ export class StateManagerService {
 
       logger.info('Operation state initialized', {
         operationId,
-        stateKeys: Object.keys(initialState)
+        stateKeys: Object.keys(initialState),
       });
-
     } catch (error) {
       const errorMessage = getErrorMessage(error);
       logger.error('Failed to initialize operation state', {
         operationId,
-        error: errorMessage
+        error: errorMessage,
       });
       throw new ApiError(500, `Failed to initialize operation state: ${errorMessage}`);
     }
@@ -112,7 +106,7 @@ export class StateManagerService {
     try {
       // Try Redis first for performance
       let state = await this.getOperationStateFromCache(operationId);
-      
+
       if (state) {
         logger.debug('Operation state retrieved from cache', { operationId });
         return state;
@@ -120,7 +114,7 @@ export class StateManagerService {
 
       // Fallback to database
       state = await this.databaseService.getOperationState(operationId);
-      
+
       if (state) {
         // Cache for future requests
         await this.setOperationStateInCache(operationId, state);
@@ -128,12 +122,11 @@ export class StateManagerService {
       }
 
       return state;
-
     } catch (error) {
       const errorMessage = getErrorMessage(error);
       logger.error('Failed to get operation state', {
         operationId,
-        error: errorMessage
+        error: errorMessage,
       });
       throw new ApiError(500, `Failed to get operation state: ${errorMessage}`);
     }
@@ -158,13 +151,13 @@ export class StateManagerService {
       // Apply updates
       const updatedState: OperationState = {
         ...currentState,
-        ...(updates.currentStep && { currentStep: updates.currentStep  }),
+        ...(updates.currentStep && { currentStep: updates.currentStep }),
         ...(updates.completedSteps && { completedSteps: updates.completedSteps }),
         ...(updates.failedSteps && { failedSteps: updates.failedSteps }),
-        ...(updates.variables && { 
-          variables: { ...currentState.variables, ...updates.variables }
+        ...(updates.variables && {
+          variables: { ...currentState.variables, ...updates.variables },
         }),
-        lastUpdated: new Date()
+        lastUpdated: new Date(),
       };
 
       // Validate updated state
@@ -183,14 +176,13 @@ export class StateManagerService {
 
       logger.debug('Operation state updated successfully', {
         operationId,
-        updatedFields: Object.keys(updates)
+        updatedFields: Object.keys(updates),
       });
-
     } catch (error) {
       const errorMessage = getErrorMessage(error);
       logger.error('Failed to update operation state', {
         operationId,
-        error: errorMessage
+        error: errorMessage,
       });
       throw new ApiError(500, `Failed to update operation state: ${errorMessage}`);
     }
@@ -199,25 +191,24 @@ export class StateManagerService {
   /**
    * Save checkpoint
    */
-  public async saveCheckpoint(
-    operationId: string,
-    checkpoint: Checkpoint
-  ): Promise<void> {
+  public async saveCheckpoint(operationId: string, checkpoint: Checkpoint): Promise<void> {
     try {
       logger.debug('Saving checkpoint', {
         operationId,
         checkpointId: checkpoint.id,
-        type: checkpoint.type
+        type: checkpoint.type,
       });
 
       // Validate checkpoint size
       const checkpointSize = this.calculateCheckpointSize(checkpoint);
       if (checkpointSize > this.maxCheckpointSize) {
-        throw new Error(`Checkpoint size (${checkpointSize}) exceeds maximum allowed (${this.maxCheckpointSize})`);
+        throw new Error(
+          `Checkpoint size (${checkpointSize}) exceeds maximum allowed (${this.maxCheckpointSize})`
+        );
       }
 
       // Compress if enabled
-      const processedCheckpoint = this.compressionEnabled 
+      const processedCheckpoint = this.compressionEnabled
         ? await this.compressCheckpoint(checkpoint)
         : checkpoint;
 
@@ -225,7 +216,7 @@ export class StateManagerService {
       if (!checkpoint.id) {
         throw new Error('Checkpoint ID is required');
       }
-      
+
       const cacheKey = this.getCheckpointCacheKey(operationId, checkpoint.id);
       await this.redis.setex(
         cacheKey,
@@ -254,15 +245,14 @@ export class StateManagerService {
         operationId,
         checkpointId: checkpoint.id,
         type: checkpoint.type,
-        size: checkpointSize
+        size: checkpointSize,
       });
-
     } catch (error) {
       const errorMessage = getErrorMessage(error);
       logger.error('Failed to save checkpoint', {
         operationId,
         checkpointId: checkpoint.id,
-        error: errorMessage
+        error: errorMessage,
       });
       throw new ApiError(500, `Failed to save checkpoint: ${errorMessage}`);
     }
@@ -281,20 +271,20 @@ export class StateManagerService {
       // Try cache first
       const cacheKey = this.getCheckpointCacheKey(operationId, checkpointId);
       const cachedData = await this.redis.get(cacheKey);
-      
+
       if (cachedData) {
         const checkpoint = JSON.parse(cachedData);
         const decompressedCheckpoint = this.compressionEnabled
           ? await this.decompressCheckpoint(checkpoint)
           : checkpoint;
-        
+
         logger.debug('Checkpoint retrieved from cache', { operationId, checkpointId });
         return decompressedCheckpoint;
       }
 
       // Fallback to database
       const checkpoint = await this.databaseService.getCheckpoint(operationId, checkpointId);
-      
+
       if (checkpoint) {
         const decompressedCheckpoint = this.compressionEnabled
           ? await this.decompressCheckpoint(checkpoint)
@@ -302,19 +292,21 @@ export class StateManagerService {
 
         // Cache for future requests
         await this.redis.setex(cacheKey, 3600, JSON.stringify(checkpoint));
-        
-        logger.debug('Checkpoint retrieved from database and cached', { operationId, checkpointId });
+
+        logger.debug('Checkpoint retrieved from database and cached', {
+          operationId,
+          checkpointId,
+        });
         return decompressedCheckpoint;
       }
 
       return null;
-
     } catch (error) {
       const errorMessage = getErrorMessage(error);
       logger.error('Failed to get checkpoint', {
         operationId,
         checkpointId,
-        error: errorMessage
+        error: errorMessage,
       });
       throw new ApiError(500, `Failed to get checkpoint: ${errorMessage}`);
     }
@@ -328,22 +320,21 @@ export class StateManagerService {
       logger.debug('Listing checkpoints', { operationId });
 
       const checkpoints = await this.databaseService.listCheckpoints(operationId);
-      
+
       // Sort by timestamp (newest first)
       checkpoints.sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
 
       logger.debug('Checkpoints retrieved', {
         operationId,
-        count: checkpoints.length
+        count: checkpoints.length,
       });
 
       return checkpoints;
-
     } catch (error) {
       const errorMessage = getErrorMessage(error);
       logger.error('Failed to list checkpoints', {
         operationId,
-        error: errorMessage
+        error: errorMessage,
       });
       throw new ApiError(500, `Failed to list checkpoints: ${errorMessage}`);
     }
@@ -379,14 +370,14 @@ export class StateManagerService {
       }
 
       const restoredState = checkpoint.data.operationState as OperationState;
-      
+
       // Validate restored state
       this.validateOperationState(restoredState);
 
       // Update cache and database
       await this.setOperationStateInCache(operationId, restoredState);
       await this.databaseService.updateOperationState(operationId, restoredState, {
-        metadata: { restoredFromCheckpoint: checkpointId, restoredAt: new Date() }
+        metadata: { restoredFromCheckpoint: checkpointId, restoredAt: new Date() },
       });
 
       logger.info('Operation state restored from checkpoint', {
@@ -395,18 +386,17 @@ export class StateManagerService {
         restoredState: {
           currentStep: restoredState.currentStep,
           completedSteps: restoredState.completedSteps?.length,
-          failedSteps: restoredState.failedSteps?.length
-        }
+          failedSteps: restoredState.failedSteps?.length,
+        },
       });
 
       return restoredState;
-
     } catch (error) {
       const errorMessage = getErrorMessage(error);
       logger.error('Failed to restore from checkpoint', {
         operationId,
         checkpointId,
-        error: errorMessage
+        error: errorMessage,
       });
       throw new ApiError(500, `Failed to restore from checkpoint: ${errorMessage}`);
     }
@@ -420,19 +410,20 @@ export class StateManagerService {
       logger.info('Starting state cleanup', { maxAgeMs: maxAge });
 
       const cutoffDate = new Date(Date.now() - maxAge);
-      
+
       // Clean up database
       const deletedCount = await this.databaseService.deleteOldOperationStates(cutoffDate);
-      
+
       // Clean up cache (Redis handles TTL automatically)
       // But we can clean up keys that match patterns
       const pattern = this.getOperationStateCacheKey('0');
       const keys = await this.redis.keys(pattern);
-      
+
       let expiredKeys = 0;
       for (const key of keys) {
         const ttl = await this.redis.ttl(key);
-        if (ttl === -1) { // No expiration set
+        if (ttl === -1) {
+          // No expiration set
           await this.redis.expire(key, 3600); // Set 1 hour expiration
           expiredKeys++;
         }
@@ -440,9 +431,8 @@ export class StateManagerService {
 
       logger.info('State cleanup completed', {
         deletedFromDatabase: deletedCount,
-        cacheKeysExpired: expiredKeys
+        cacheKeysExpired: expiredKeys,
       });
-
     } catch (error) {
       const errorMessage = getErrorMessage(error);
       logger.error('Failed to cleanup old states', { error: errorMessage });
@@ -462,7 +452,7 @@ export class StateManagerService {
   }> {
     try {
       const stats = await this.databaseService.getStateStatistics();
-      
+
       // Get cache statistics
       const cacheInfo = await this.redis.info('stats');
       const cacheStats = this.parseCacheStats(cacheInfo);
@@ -472,9 +462,8 @@ export class StateManagerService {
         activeOperations: stats.activeOperations,
         totalCheckpoints: stats.totalCheckpoints,
         cacheHitRate: cacheStats.hitRate,
-        averageStateSize: stats.averageStateSize
+        averageStateSize: stats.averageStateSize,
       };
-
     } catch (error) {
       const errorMessage = getErrorMessage(error);
       logger.error('Failed to get state statistics', { error: errorMessage });
@@ -510,7 +499,7 @@ export class StateManagerService {
     try {
       const cacheKey = this.getOperationStateCacheKey(operationId);
       const data = await this.redis.get(cacheKey);
-      
+
       if (!data) {
         return null;
       }
@@ -580,9 +569,9 @@ export class StateManagerService {
         data: {
           timestamp: new Date(),
           version: '1.0',
-          operationState: state
+          operationState: state,
         },
-        timestamp: new Date()
+        timestamp: new Date(),
       };
 
       await this.saveCheckpoint(operationId, checkpoint);
@@ -590,7 +579,7 @@ export class StateManagerService {
       const errorMessage = getErrorMessage(error);
       logger.warn('Failed to create automatic checkpoint', {
         operationId,
-        error: errorMessage
+        error: errorMessage,
       });
     }
   }
@@ -606,8 +595,8 @@ export class StateManagerService {
       ...checkpoint,
       data: {
         ...checkpoint.data,
-        compressed: true
-      } as any // Type assertion for the compression flag
+        compressed: true,
+      } as any, // Type assertion for the compression flag
     };
     return compressed;
   }
@@ -619,8 +608,8 @@ export class StateManagerService {
       const decompressed: Checkpoint = {
         ...checkpoint,
         data: {
-          ...checkpoint.data
-        }
+          ...checkpoint.data,
+        },
       };
       // Remove compression flag
       const decompressedData = { ...decompressed.data } as any;
@@ -668,11 +657,11 @@ export class StateManagerService {
     const redisHealth = this.isConnected;
     const databaseHealthResult = await this.databaseService.healthCheck();
     const databaseHealth = databaseHealthResult.status === 'healthy';
-    
+
     return {
       redis: redisHealth,
       database: databaseHealth,
-      overall: redisHealth && databaseHealth
+      overall: redisHealth && databaseHealth,
     };
   }
 
@@ -688,4 +677,4 @@ export class StateManagerService {
       logger.error('Error during StateManagerService cleanup', { error: errorMessage });
     }
   }
-} 
+}

@@ -19,7 +19,7 @@ import {
   X,
   Globe,
   Shield,
-  Zap
+  Zap,
 } from 'lucide-react';
 import { DesktopIcon } from './desktop/DesktopIcon';
 import { RecentItemsPanel } from './desktop/RecentItemsPanel';
@@ -75,7 +75,7 @@ const DESKTOP_ICONS: DesktopIconConfig[] = [
     portalType: 'dashboard',
     category: 'primary',
     description: 'System overview and metrics',
-    shortcut: 'Ctrl+1'
+    shortcut: 'Ctrl+1',
   },
   {
     id: 'agents',
@@ -86,7 +86,7 @@ const DESKTOP_ICONS: DesktopIconConfig[] = [
     category: 'primary',
     badge: { count: 12, status: 'online' },
     description: 'Manage AI agents and spawning',
-    shortcut: 'Ctrl+2'
+    shortcut: 'Ctrl+2',
   },
   {
     id: 'artifacts',
@@ -97,7 +97,7 @@ const DESKTOP_ICONS: DesktopIconConfig[] = [
     category: 'primary',
     badge: { count: 3 },
     description: 'Code artifacts and repositories',
-    shortcut: 'Ctrl+3'
+    shortcut: 'Ctrl+3',
   },
   {
     id: 'discussions',
@@ -108,7 +108,7 @@ const DESKTOP_ICONS: DesktopIconConfig[] = [
     category: 'primary',
     badge: { count: 5, status: 'warning' },
     description: 'Agent conversations and chats',
-    shortcut: 'Ctrl+4'
+    shortcut: 'Ctrl+4',
   },
   {
     id: 'knowledge',
@@ -119,7 +119,7 @@ const DESKTOP_ICONS: DesktopIconConfig[] = [
     category: 'primary',
     badge: { text: 'New' },
     description: 'Knowledge base and learning',
-    shortcut: 'Ctrl+5'
+    shortcut: 'Ctrl+5',
   },
   {
     id: 'settings',
@@ -129,7 +129,7 @@ const DESKTOP_ICONS: DesktopIconConfig[] = [
     portalType: 'system-hub',
     category: 'primary',
     description: 'System configuration',
-    shortcut: 'Ctrl+6'
+    shortcut: 'Ctrl+6',
   },
   // Secondary Row
   {
@@ -139,7 +139,7 @@ const DESKTOP_ICONS: DesktopIconConfig[] = [
     color: { primary: '#EC4899', secondary: '#DB2777' },
     portalType: 'intelligence-hub',
     category: 'secondary',
-    description: 'Performance analytics and insights'
+    description: 'Performance analytics and insights',
   },
   {
     id: 'search',
@@ -148,7 +148,7 @@ const DESKTOP_ICONS: DesktopIconConfig[] = [
     color: { primary: '#14B8A6', secondary: '#0D9488' },
     portalType: 'search',
     category: 'secondary',
-    description: 'Search across all systems'
+    description: 'Search across all systems',
   },
   {
     id: 'tasks',
@@ -157,7 +157,7 @@ const DESKTOP_ICONS: DesktopIconConfig[] = [
     color: { primary: '#F97316', secondary: '#EA580C' },
     portalType: 'tasks',
     category: 'secondary',
-    description: 'Task and workflow management'
+    description: 'Task and workflow management',
   },
   {
     id: 'reports',
@@ -166,7 +166,7 @@ const DESKTOP_ICONS: DesktopIconConfig[] = [
     color: { primary: '#84CC16', secondary: '#65A30D' },
     portalType: 'monitoring-hub',
     category: 'secondary',
-    description: 'System reports and metrics'
+    description: 'System reports and metrics',
   },
   {
     id: 'tools',
@@ -175,7 +175,7 @@ const DESKTOP_ICONS: DesktopIconConfig[] = [
     color: { primary: '#A855F7', secondary: '#9333EA' },
     portalType: 'tool-management',
     category: 'secondary',
-    description: 'Development tools and utilities'
+    description: 'Development tools and utilities',
   },
   {
     id: 'create',
@@ -184,7 +184,7 @@ const DESKTOP_ICONS: DesktopIconConfig[] = [
     color: { primary: '#EF4444', secondary: '#DC2626' },
     portalType: 'create',
     category: 'secondary',
-    description: 'Create new resources'
+    description: 'Create new resources',
   },
   {
     id: 'mini-browser',
@@ -194,8 +194,8 @@ const DESKTOP_ICONS: DesktopIconConfig[] = [
     portalType: 'mini-browser',
     category: 'secondary',
     description: 'Web browser with screenshot capture',
-    shortcut: 'Ctrl+B'
-  }
+    shortcut: 'Ctrl+B',
+  },
 ];
 
 interface DesktopWorkspaceProps {
@@ -209,7 +209,7 @@ export const DesktopWorkspace: React.FC<DesktopWorkspaceProps> = ({
   onOpenPortal,
   isPortalOpen,
   portals = [],
-  viewport: externalViewport
+  viewport: externalViewport,
 }) => {
   const [viewport, setViewport] = useState<ViewportSize>(
     externalViewport || {
@@ -217,7 +217,7 @@ export const DesktopWorkspace: React.FC<DesktopWorkspaceProps> = ({
       height: typeof window !== 'undefined' ? window.innerHeight : 768,
       isMobile: false,
       isTablet: false,
-      isDesktop: true
+      isDesktop: true,
     }
   );
 
@@ -228,7 +228,7 @@ export const DesktopWorkspace: React.FC<DesktopWorkspaceProps> = ({
   const [selectedIconId, setSelectedIconId] = useState<string | null>(null);
   const [showAllActions, setShowAllActions] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
-  
+
   // Map wallpaper state
   const [userLocation, setUserLocation] = useState<LocationData | null>(null);
 
@@ -241,7 +241,7 @@ export const DesktopWorkspace: React.FC<DesktopWorkspaceProps> = ({
     addRecentItem,
     updatePreferences,
     getActivityStats,
-    getTrendingItems
+    getTrendingItems,
   } = useDesktop();
 
   // Use external portal functions if provided, otherwise use internal ones
@@ -274,8 +274,8 @@ export const DesktopWorkspace: React.FC<DesktopWorkspaceProps> = ({
     secondaryIcons: desktopLayout.secondaryIcons.length,
     adminIcons: desktopLayout.adminIcons.length,
     restrictedIcons: desktopLayout.restrictedIcons.length,
-    primaryIconIds: desktopLayout.primaryIcons.map(i => i.id),
-    secondaryIconIds: desktopLayout.secondaryIcons.map(i => i.id)
+    primaryIconIds: desktopLayout.primaryIcons.map((i) => i.id),
+    secondaryIconIds: desktopLayout.secondaryIcons.map((i) => i.id),
   });
 
   // Calculate activity stats
@@ -303,7 +303,7 @@ export const DesktopWorkspace: React.FC<DesktopWorkspaceProps> = ({
         height,
         isMobile: width < 768,
         isTablet: width >= 768 && width < 1024,
-        isDesktop: width >= 1024
+        isDesktop: width >= 1024,
       });
     };
 
@@ -368,42 +368,50 @@ export const DesktopWorkspace: React.FC<DesktopWorkspaceProps> = ({
   }, []);
 
   // Handle icon click
-  const handleIconClick = useCallback((iconConfig: DesktopIconConfig) => {
-    setSelectedIconId(iconConfig.id);
+  const handleIconClick = useCallback(
+    (iconConfig: DesktopIconConfig) => {
+      setSelectedIconId(iconConfig.id);
 
-    // Add to recent items
-    addRecentItem({
-      id: iconConfig.id,
-      title: iconConfig.title,
-      type: iconConfig.portalType,
-      timestamp: new Date(),
-      icon: iconConfig.icon
-    });
+      // Add to recent items
+      addRecentItem({
+        id: iconConfig.id,
+        title: iconConfig.title,
+        type: iconConfig.portalType,
+        timestamp: new Date(),
+        icon: iconConfig.icon,
+      });
 
-    // Switch to portal view and trigger portal opening
-    setShowPortals(true);
-    
-    // Dispatch custom event to open the specific portal
-    setTimeout(() => {
-      window.dispatchEvent(new CustomEvent('openPortal', { 
-        detail: { 
-          type: iconConfig.portalType,
-          title: iconConfig.title,
-          config: iconConfig
-        } 
-      }));
-    }, 100);
-  }, [addRecentItem]);
+      // Switch to portal view and trigger portal opening
+      setShowPortals(true);
+
+      // Dispatch custom event to open the specific portal
+      setTimeout(() => {
+        window.dispatchEvent(
+          new CustomEvent('openPortal', {
+            detail: {
+              type: iconConfig.portalType,
+              title: iconConfig.title,
+              config: iconConfig,
+            },
+          })
+        );
+      }, 100);
+    },
+    [addRecentItem]
+  );
 
   // Handle icon double-click (same as single click for now)
-  const handleIconDoubleClick = useCallback((iconConfig: DesktopIconConfig) => {
-    handleIconClick(iconConfig);
-  }, [handleIconClick]);
+  const handleIconDoubleClick = useCallback(
+    (iconConfig: DesktopIconConfig) => {
+      handleIconClick(iconConfig);
+    },
+    [handleIconClick]
+  );
 
   // Get grid configuration based on viewport and orientation
   const getGridConfig = () => {
     const isPortrait = viewport.height > viewport.width;
-    
+
     if (viewport.isMobile) {
       return {
         columns: 4,
@@ -411,7 +419,7 @@ export const DesktopWorkspace: React.FC<DesktopWorkspaceProps> = ({
         gap: 12,
         padding: 16,
         maxIconsPerRow: 4,
-        showSecondaryRow: true
+        showSecondaryRow: true,
       };
     } else {
       // iPad and above (tablet + desktop)
@@ -421,7 +429,7 @@ export const DesktopWorkspace: React.FC<DesktopWorkspaceProps> = ({
         gap: 20,
         padding: 24,
         maxIconsPerRow: 8,
-        showSecondaryRow: true
+        showSecondaryRow: true,
       };
     }
   };
@@ -441,28 +449,43 @@ export const DesktopWorkspace: React.FC<DesktopWorkspaceProps> = ({
   const secondaryIcons = desktopLayout.secondaryIcons;
 
   // Create agent icons
-  const agentIcons = agents.map(agent => ({
+  const agentIcons = agents.map((agent) => ({
     id: agent.id,
     title: agent.name,
     icon: Bot,
     color: {
-      primary: agent.status === 'active' ? '#10B981' :
-        agent.status === 'idle' ? '#F59E0B' :
-          agent.status === 'error' ? '#EF4444' : '#6B7280',
-      secondary: agent.status === 'active' ? '#059669' :
-        agent.status === 'idle' ? '#D97706' :
-          agent.status === 'error' ? '#DC2626' : '#4B5563'
+      primary:
+        agent.status === 'active'
+          ? '#10B981'
+          : agent.status === 'idle'
+            ? '#F59E0B'
+            : agent.status === 'error'
+              ? '#EF4444'
+              : '#6B7280',
+      secondary:
+        agent.status === 'active'
+          ? '#059669'
+          : agent.status === 'idle'
+            ? '#D97706'
+            : agent.status === 'error'
+              ? '#DC2626'
+              : '#4B5563',
     },
     portalType: 'agent-hub',
     category: 'agent' as const,
     badge: {
-      status: agent.status === 'active' ? 'online' as const :
-        agent.status === 'error' ? 'error' as const :
-          agent.status === 'idle' ? 'warning' as const : undefined,
-      text: agent.status === 'offline' ? 'OFF' : undefined
+      status:
+        agent.status === 'active'
+          ? ('online' as const)
+          : agent.status === 'error'
+            ? ('error' as const)
+            : agent.status === 'idle'
+              ? ('warning' as const)
+              : undefined,
+      text: agent.status === 'offline' ? 'OFF' : undefined,
     },
     description: agent.description || `${agent.type} agent`,
-    agentData: agent
+    agentData: agent,
   }));
 
   // Show PortalWorkspace when portals are active
@@ -473,7 +496,9 @@ export const DesktopWorkspace: React.FC<DesktopWorkspaceProps> = ({
   // Loading screen
   if (isLoading) {
     return (
-      <div className={`h-screen w-full bg-gradient-to-br ${currentTheme.colors.background.primary} flex items-center justify-center`}>
+      <div
+        className={`h-screen w-full bg-gradient-to-br ${currentTheme.colors.background.primary} flex items-center justify-center`}
+      >
         <motion.div
           className="text-center"
           initial={{ opacity: 0, scale: 0.8 }}
@@ -483,11 +508,9 @@ export const DesktopWorkspace: React.FC<DesktopWorkspaceProps> = ({
           <motion.div
             className="w-16 h-16 border-4 border-blue-500/30 border-t-blue-500 rounded-full mx-auto mb-4"
             animate={{ rotate: 360 }}
-            transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+            transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}
           />
-          <h2 className={`text-xl font-bold ${currentTheme.colors.text.primary} mb-2`}>
-            Navratna
-          </h2>
+          <h2 className={`text-xl font-bold ${currentTheme.colors.text.primary} mb-2`}>Navratna</h2>
           <p className={`${currentTheme.colors.text.secondary}`}>
             Initializing Desktop Workspace...
           </p>
@@ -508,7 +531,7 @@ export const DesktopWorkspace: React.FC<DesktopWorkspaceProps> = ({
         <MapWallpaper
           userLocation={{
             lat: userLocation.latitude,
-            lng: userLocation.longitude
+            lng: userLocation.longitude,
           }}
           theme={preferences.theme === 'light' ? 'light' : 'dark'}
           interactive={false}
@@ -518,13 +541,16 @@ export const DesktopWorkspace: React.FC<DesktopWorkspaceProps> = ({
 
       {/* AI Grid Background */}
       <div className="absolute inset-0 opacity-[0.02] z-[1]">
-        <div className="absolute inset-0" style={{
-          backgroundImage: `
+        <div
+          className="absolute inset-0"
+          style={{
+            backgroundImage: `
             linear-gradient(rgba(59, 130, 246, 0.1) 1px, transparent 1px),
             linear-gradient(90deg, rgba(59, 130, 246, 0.1) 1px, transparent 1px)
           `,
-          backgroundSize: '50px 50px'
-        }} />
+            backgroundSize: '50px 50px',
+          }}
+        />
       </div>
 
       {/* Subtle AI Glow Effects */}
@@ -545,7 +571,9 @@ export const DesktopWorkspace: React.FC<DesktopWorkspaceProps> = ({
             </div>
             <div>
               <div className="text-white font-medium">Navratna</div>
-              <div className="text-xs text-white/60">Role: {userRole} | Icons: {Object.values(desktopLayout).flat().length}</div>
+              <div className="text-xs text-white/60">
+                Role: {userRole} | Icons: {Object.values(desktopLayout).flat().length}
+              </div>
             </div>
           </div>
 
@@ -576,7 +604,10 @@ export const DesktopWorkspace: React.FC<DesktopWorkspaceProps> = ({
             className="min-h-full"
             style={{
               padding: `${gridConfig.padding}px`,
-              paddingRight: showRecentPanel && viewport.isDesktop && !viewport.height > viewport.width ? gridConfig.padding : gridConfig.padding,
+              paddingRight:
+                showRecentPanel && viewport.isDesktop && !viewport.height > viewport.width
+                  ? gridConfig.padding
+                  : gridConfig.padding,
             }}
           >
             {/* Primary Icons Rows */}
@@ -587,7 +618,7 @@ export const DesktopWorkspace: React.FC<DesktopWorkspaceProps> = ({
                 style={{
                   gridTemplateColumns: `repeat(${Math.min(gridConfig.maxIconsPerRow, iconChunk.length)}, 1fr)`,
                   gap: gridConfig.gap,
-                  justifyItems: 'center'
+                  justifyItems: 'center',
                 }}
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
@@ -601,9 +632,9 @@ export const DesktopWorkspace: React.FC<DesktopWorkspaceProps> = ({
                     transition={{
                       delay: 0.7 + (chunkIndex * gridConfig.maxIconsPerRow + index) * 0.1,
                       duration: 0.4,
-                      type: "spring",
+                      type: 'spring',
                       stiffness: 300,
-                      damping: 25
+                      damping: 25,
                     }}
                   >
                     <DesktopIcon
@@ -621,30 +652,31 @@ export const DesktopWorkspace: React.FC<DesktopWorkspaceProps> = ({
             ))}
 
             {/* Secondary Icons Rows - Only show on larger screens */}
-            {gridConfig.showSecondaryRow && chunkIcons(secondaryIcons, gridConfig.maxIconsPerRow).map((iconChunk, chunkIndex) => (
-              <div
-                key={`secondary-chunk-${chunkIndex}`}
-                className="grid w-full mb-6"
-                style={{
-                  gridTemplateColumns: `repeat(${Math.min(gridConfig.maxIconsPerRow, iconChunk.length)}, 1fr)`,
-                  gap: gridConfig.gap,
-                  justifyItems: 'center'
-                }}
-              >
-                {iconChunk.map((iconConfig) => (
-                  <DesktopIcon
-                    key={iconConfig.id}
-                    config={iconConfig}
-                    size={gridConfig.iconSize}
-                    isSelected={selectedIconId === iconConfig.id}
-                    isActive={isPortalOpenFn(iconConfig.portalType as any)}
-                    onClick={() => handleIconClick(iconConfig)}
-                    onDoubleClick={() => handleIconDoubleClick(iconConfig)}
-                    viewport={viewport}
-                  />
-                ))}
-              </div>
-            ))}
+            {gridConfig.showSecondaryRow &&
+              chunkIcons(secondaryIcons, gridConfig.maxIconsPerRow).map((iconChunk, chunkIndex) => (
+                <div
+                  key={`secondary-chunk-${chunkIndex}`}
+                  className="grid w-full mb-6"
+                  style={{
+                    gridTemplateColumns: `repeat(${Math.min(gridConfig.maxIconsPerRow, iconChunk.length)}, 1fr)`,
+                    gap: gridConfig.gap,
+                    justifyItems: 'center',
+                  }}
+                >
+                  {iconChunk.map((iconConfig) => (
+                    <DesktopIcon
+                      key={iconConfig.id}
+                      config={iconConfig}
+                      size={gridConfig.iconSize}
+                      isSelected={selectedIconId === iconConfig.id}
+                      isActive={isPortalOpenFn(iconConfig.portalType as any)}
+                      onClick={() => handleIconClick(iconConfig)}
+                      onDoubleClick={() => handleIconDoubleClick(iconConfig)}
+                      viewport={viewport}
+                    />
+                  ))}
+                </div>
+              ))}
 
             {/* Mobile Secondary Icons - Show as expandable section */}
             {!gridConfig.showSecondaryRow && secondaryIcons.length > 0 && (
@@ -653,7 +685,7 @@ export const DesktopWorkspace: React.FC<DesktopWorkspaceProps> = ({
                 initial={{ opacity: 0, height: 0 }}
                 animate={{
                   opacity: showAllActions ? 1 : 0.7,
-                  height: showAllActions ? 'auto' : 60
+                  height: showAllActions ? 'auto' : 60,
                 }}
                 transition={{ duration: 0.3 }}
               >
@@ -675,7 +707,7 @@ export const DesktopWorkspace: React.FC<DesktopWorkspaceProps> = ({
                     style={{
                       gridTemplateColumns: `repeat(${gridConfig.maxIconsPerRow}, 1fr)`,
                       gap: gridConfig.gap,
-                      justifyItems: 'center'
+                      justifyItems: 'center',
                     }}
                   >
                     {secondaryIcons.map((iconConfig) => (
@@ -707,7 +739,9 @@ export const DesktopWorkspace: React.FC<DesktopWorkspaceProps> = ({
                   <h3 className="text-white/80 font-medium text-sm flex items-center space-x-2">
                     <Bot className="w-4 h-4" />
                     <span>Active Agents</span>
-                    <span className="text-xs text-white/50">({agents.filter(a => a.status === 'active').length} online)</span>
+                    <span className="text-xs text-white/50">
+                      ({agents.filter((a) => a.status === 'active').length} online)
+                    </span>
                   </h3>
                 </div>
 
@@ -716,7 +750,7 @@ export const DesktopWorkspace: React.FC<DesktopWorkspaceProps> = ({
                   style={{
                     gridTemplateColumns: `repeat(${gridConfig.maxIconsPerRow}, 1fr)`,
                     gap: gridConfig.gap,
-                    justifyItems: 'center'
+                    justifyItems: 'center',
                   }}
                 >
                   {agentIcons.map((agentIcon, index) => (
@@ -727,9 +761,9 @@ export const DesktopWorkspace: React.FC<DesktopWorkspaceProps> = ({
                       transition={{
                         delay: 1.3 + index * 0.1,
                         duration: 0.4,
-                        type: "spring",
+                        type: 'spring',
                         stiffness: 300,
-                        damping: 25
+                        damping: 25,
                       }}
                     >
                       <DesktopIcon
@@ -768,7 +802,7 @@ export const DesktopWorkspace: React.FC<DesktopWorkspaceProps> = ({
                   style={{
                     gridTemplateColumns: `repeat(${gridConfig.maxIconsPerRow}, 1fr)`,
                     gap: gridConfig.gap,
-                    justifyItems: 'center'
+                    justifyItems: 'center',
                   }}
                 >
                   {desktopLayout.adminIcons.map((iconConfig) => (
@@ -808,7 +842,7 @@ export const DesktopWorkspace: React.FC<DesktopWorkspaceProps> = ({
                   style={{
                     gridTemplateColumns: `repeat(${gridConfig.maxIconsPerRow}, 1fr)`,
                     gap: gridConfig.gap,
-                    justifyItems: 'center'
+                    justifyItems: 'center',
                   }}
                 >
                   {desktopLayout.restrictedIcons.map((iconConfig) => (
@@ -849,7 +883,7 @@ export const DesktopWorkspace: React.FC<DesktopWorkspaceProps> = ({
       <motion.div
         initial={{ y: 100, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
-        transition={{ delay: 1.2, duration: 0.5, type: "spring", stiffness: 300, damping: 30 }}
+        transition={{ delay: 1.2, duration: 0.5, type: 'spring', stiffness: 300, damping: 30 }}
       >
         <QuickActionsDock
           viewport={viewport}

@@ -3,9 +3,22 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { useKnowledge } from '@/contexts/KnowledgeContext';
 import { KnowledgeType, SourceType } from '@uaip/types';
@@ -33,7 +46,7 @@ import {
   Tablet,
   ZoomIn,
   ZoomOut,
-  RotateCw
+  RotateCw,
 } from 'lucide-react';
 
 interface Screenshot {
@@ -97,8 +110,8 @@ export const MiniBrowserPortal: React.FC<MiniBrowserPortalProps> = ({ className 
       title: 'Example.com',
       isLoading: false,
       canGoBack: false,
-      canGoForward: false
-    }
+      canGoForward: false,
+    },
   ]);
   const [activeTabId, setActiveTabId] = useState('tab-1');
   const [urlInput, setUrlInput] = useState('https://example.com');
@@ -118,12 +131,12 @@ export const MiniBrowserPortal: React.FC<MiniBrowserPortalProps> = ({ className 
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
-  
+
   // Container dimensions state
   const [containerDimensions, setContainerDimensions] = useState({ width: 0, height: 0 });
   const [zoomLevel, setZoomLevel] = useState(1);
 
-  const activeTab = tabs.find(tab => tab.id === activeTabId);
+  const activeTab = tabs.find((tab) => tab.id === activeTabId);
 
   // ResizeObserver to track container dimensions
   useEffect(() => {
@@ -160,39 +173,45 @@ export const MiniBrowserPortal: React.FC<MiniBrowserPortalProps> = ({ className 
   // Calculate iframe scale based on container dimensions and zoom level
   const calculateIframeScale = useCallback(() => {
     if (containerDimensions.width === 0 || containerDimensions.height === 0) return 0.5 * zoomLevel;
-    
+
     // Account for padding and ensure we have actual usable space
     const availableWidth = Math.max(containerDimensions.width - 64, 200);
     const availableHeight = Math.max(containerDimensions.height - 64, 200);
-    
+
     const scaleX = availableWidth / currentViewport.width;
     const scaleY = availableHeight / currentViewport.height;
-    
+
     // Base scale calculation
     const baseScale = Math.min(scaleX, scaleY, 1);
     const finalScale = Math.max(baseScale, 0.3) * zoomLevel; // Minimum 30% base scale
-    
+
     // Allow zoom up to 300%
     return Math.min(finalScale, 3);
   }, [containerDimensions, currentViewport, zoomLevel]);
 
-  const navigateToUrl = useCallback((url: string) => {
-    if (!url.startsWith('http://') && !url.startsWith('https://')) {
-      url = 'https://' + url;
-    }
+  const navigateToUrl = useCallback(
+    (url: string) => {
+      if (!url.startsWith('http://') && !url.startsWith('https://')) {
+        url = 'https://' + url;
+      }
 
-    setTabs(prev => prev.map(tab => 
-      tab.id === activeTabId 
-        ? { ...tab, url, isLoading: true, title: 'Loading...' }
-        : tab
-    ));
-    setUrlInput(url);
-  }, [activeTabId]);
+      setTabs((prev) =>
+        prev.map((tab) =>
+          tab.id === activeTabId ? { ...tab, url, isLoading: true, title: 'Loading...' } : tab
+        )
+      );
+      setUrlInput(url);
+    },
+    [activeTabId]
+  );
 
-  const handleUrlSubmit = useCallback((e: React.FormEvent) => {
-    e.preventDefault();
-    navigateToUrl(urlInput);
-  }, [urlInput, navigateToUrl]);
+  const handleUrlSubmit = useCallback(
+    (e: React.FormEvent) => {
+      e.preventDefault();
+      navigateToUrl(urlInput);
+    },
+    [urlInput, navigateToUrl]
+  );
 
   const addNewTab = useCallback(() => {
     const newTab: BrowserTab = {
@@ -201,27 +220,30 @@ export const MiniBrowserPortal: React.FC<MiniBrowserPortalProps> = ({ className 
       title: 'New Tab',
       isLoading: false,
       canGoBack: false,
-      canGoForward: false
+      canGoForward: false,
     };
-    setTabs(prev => [...prev, newTab]);
+    setTabs((prev) => [...prev, newTab]);
     setActiveTabId(newTab.id);
     setUrlInput(newTab.url);
   }, []);
 
-  const closeTab = useCallback((tabId: string) => {
-    if (tabs.length === 1) return; // Don't close last tab
+  const closeTab = useCallback(
+    (tabId: string) => {
+      if (tabs.length === 1) return; // Don't close last tab
 
-    setTabs(prev => {
-      const newTabs = prev.filter(tab => tab.id !== tabId);
-      if (activeTabId === tabId) {
-        const currentIndex = prev.findIndex(tab => tab.id === tabId);
-        const newActiveTab = newTabs[Math.max(0, currentIndex - 1)];
-        setActiveTabId(newActiveTab.id);
-        setUrlInput(newActiveTab.url);
-      }
-      return newTabs;
-    });
-  }, [tabs.length, activeTabId]);
+      setTabs((prev) => {
+        const newTabs = prev.filter((tab) => tab.id !== tabId);
+        if (activeTabId === tabId) {
+          const currentIndex = prev.findIndex((tab) => tab.id === tabId);
+          const newActiveTab = newTabs[Math.max(0, currentIndex - 1)];
+          setActiveTabId(newActiveTab.id);
+          setUrlInput(newActiveTab.url);
+        }
+        return newTabs;
+      });
+    },
+    [tabs.length, activeTabId]
+  );
 
   const captureScreenshot = useCallback(async () => {
     if (!activeTab) return;
@@ -234,29 +256,37 @@ export const MiniBrowserPortal: React.FC<MiniBrowserPortalProps> = ({ className 
       if (ctx) {
         canvas.width = currentViewport.width;
         canvas.height = currentViewport.height;
-        
+
         // Create a gradient background
         const gradient = ctx.createLinearGradient(0, 0, canvas.width, canvas.height);
         gradient.addColorStop(0, '#1e293b');
         gradient.addColorStop(1, '#334155');
         ctx.fillStyle = gradient;
         ctx.fillRect(0, 0, canvas.width, canvas.height);
-        
+
         // Add website info
         ctx.fillStyle = '#94a3b8';
         ctx.font = 'bold 24px Arial';
         ctx.textAlign = 'center';
         ctx.fillText(`Screenshot: ${activeTab.title}`, canvas.width / 2, canvas.height / 2 - 40);
-        
+
         ctx.fillStyle = '#64748b';
         ctx.font = '16px Arial';
         ctx.fillText(activeTab.url, canvas.width / 2, canvas.height / 2);
-        
+
         ctx.fillStyle = '#475569';
         ctx.font = '14px Arial';
-        ctx.fillText(`Captured: ${new Date().toLocaleString()}`, canvas.width / 2, canvas.height / 2 + 30);
-        ctx.fillText('(Browser-based screenshot - HTML2Canvas integration pending)', canvas.width / 2, canvas.height / 2 + 50);
-        
+        ctx.fillText(
+          `Captured: ${new Date().toLocaleString()}`,
+          canvas.width / 2,
+          canvas.height / 2 + 30
+        );
+        ctx.fillText(
+          '(Browser-based screenshot - HTML2Canvas integration pending)',
+          canvas.width / 2,
+          canvas.height / 2 + 50
+        );
+
         const dataUrl = canvas.toDataURL('image/png');
         const screenshot: Screenshot = {
           id: `screenshot-${Date.now()}`,
@@ -267,10 +297,10 @@ export const MiniBrowserPortal: React.FC<MiniBrowserPortalProps> = ({ className 
           dimensions: { width: canvas.width, height: canvas.height },
           tags: [],
           notes: 'Placeholder screenshot - full implementation with html2canvas pending',
-          saved: false
+          saved: false,
         };
 
-        setScreenshots(prev => [screenshot, ...prev]);
+        setScreenshots((prev) => [screenshot, ...prev]);
         setCurrentScreenshot(screenshot);
         setShowSaveDialog(true);
       }
@@ -281,61 +311,61 @@ export const MiniBrowserPortal: React.FC<MiniBrowserPortalProps> = ({ className 
     }
   }, [activeTab, currentViewport]);
 
-  const saveScreenshotToKnowledge = useCallback(async (screenshot: Screenshot, tags: string[], notes: string, knowledgeType: KnowledgeType) => {
-    setIsUploading(true);
-    try {
-      const knowledgeItem = {
-        content: `Screenshot from ${screenshot.url}\n\nTitle: ${screenshot.title}\nCaptured: ${screenshot.timestamp.toLocaleString()}\nDimensions: ${screenshot.dimensions.width}x${screenshot.dimensions.height}\n\nNotes:\n${notes}`,
-        type: knowledgeType,
-        tags: [...tags, 'screenshot', 'web-capture', screenshot.url.split('/')[2] || 'unknown'],
-        source: {
-          type: SourceType.EXTERNAL_API,
-          identifier: screenshot.url,
-          metadata: {
-            screenshotId: screenshot.id,
-            captureDate: screenshot.timestamp.toISOString(),
-            dimensions: screenshot.dimensions,
-            dataUrl: screenshot.dataUrl
-          }
-        },
-        confidence: 0.9
-      };
+  const saveScreenshotToKnowledge = useCallback(
+    async (screenshot: Screenshot, tags: string[], notes: string, knowledgeType: KnowledgeType) => {
+      setIsUploading(true);
+      try {
+        const knowledgeItem = {
+          content: `Screenshot from ${screenshot.url}\n\nTitle: ${screenshot.title}\nCaptured: ${screenshot.timestamp.toLocaleString()}\nDimensions: ${screenshot.dimensions.width}x${screenshot.dimensions.height}\n\nNotes:\n${notes}`,
+          type: knowledgeType,
+          tags: [...tags, 'screenshot', 'web-capture', screenshot.url.split('/')[2] || 'unknown'],
+          source: {
+            type: SourceType.EXTERNAL_API,
+            identifier: screenshot.url,
+            metadata: {
+              screenshotId: screenshot.id,
+              captureDate: screenshot.timestamp.toISOString(),
+              dimensions: screenshot.dimensions,
+              dataUrl: screenshot.dataUrl,
+            },
+          },
+          confidence: 0.9,
+        };
 
-      await uploadKnowledge([knowledgeItem]);
-      
-      // Mark screenshot as saved
-      setScreenshots(prev => prev.map(s => 
-        s.id === screenshot.id ? { ...s, saved: true, tags, notes } : s
-      ));
+        await uploadKnowledge([knowledgeItem]);
 
-      setShowSaveDialog(false);
-      setCurrentScreenshot(null);
+        // Mark screenshot as saved
+        setScreenshots((prev) =>
+          prev.map((s) => (s.id === screenshot.id ? { ...s, saved: true, tags, notes } : s))
+        );
 
-    } catch (error) {
-      console.error('Failed to save screenshot to knowledge base:', error);
-    } finally {
-      setIsUploading(false);
-    }
-  }, [uploadKnowledge]);
+        setShowSaveDialog(false);
+        setCurrentScreenshot(null);
+      } catch (error) {
+        console.error('Failed to save screenshot to knowledge base:', error);
+      } finally {
+        setIsUploading(false);
+      }
+    },
+    [uploadKnowledge]
+  );
 
   // Handle iframe load events
   const handleIframeLoad = useCallback(() => {
     if (!iframeRef.current) return;
 
-    setTabs(prev => prev.map(tab => 
-      tab.id === activeTabId 
-        ? { ...tab, isLoading: false, hasError: false, errorMessage: undefined }
-        : tab
-    ));
+    setTabs((prev) =>
+      prev.map((tab) =>
+        tab.id === activeTabId
+          ? { ...tab, isLoading: false, hasError: false, errorMessage: undefined }
+          : tab
+      )
+    );
 
     try {
       const iframe = iframeRef.current;
       const title = iframe.contentDocument?.title || 'Untitled';
-      setTabs(prev => prev.map(tab => 
-        tab.id === activeTabId 
-          ? { ...tab, title }
-          : tab
-      ));
+      setTabs((prev) => prev.map((tab) => (tab.id === activeTabId ? { ...tab, title } : tab)));
     } catch (error) {
       // Cross-origin access blocked
       console.log('Cannot access iframe content due to CORS policy');
@@ -344,24 +374,27 @@ export const MiniBrowserPortal: React.FC<MiniBrowserPortalProps> = ({ className 
 
   // Handle iframe errors
   const handleIframeError = useCallback(() => {
-    setTabs(prev => prev.map(tab => 
-      tab.id === activeTabId 
-        ? { 
-            ...tab, 
-            isLoading: false, 
-            hasError: true, 
-            errorMessage: 'This site cannot be displayed in a frame (X-Frame-Options restriction)'
-          }
-        : tab
-    ));
+    setTabs((prev) =>
+      prev.map((tab) =>
+        tab.id === activeTabId
+          ? {
+              ...tab,
+              isLoading: false,
+              hasError: true,
+              errorMessage:
+                'This site cannot be displayed in a frame (X-Frame-Options restriction)',
+            }
+          : tab
+      )
+    );
   }, [activeTabId]);
 
   return (
-    <div className={`h-full flex flex-col bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 text-white ${className}`}>
+    <div
+      className={`h-full flex flex-col bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 text-white ${className}`}
+    >
       {/* Header */}
       <div className="p-4 border-b border-slate-700/50 bg-black/20 backdrop-blur-sm">
-        
-
         {/* Browser Controls */}
         <div className="space-y-3">
           {/* Tabs */}
@@ -417,9 +450,9 @@ export const MiniBrowserPortal: React.FC<MiniBrowserPortalProps> = ({ className 
               <Button size="sm" variant="outline" disabled className="border-slate-600/50">
                 <ArrowRight className="w-4 h-4" />
               </Button>
-              <Button 
-                size="sm" 
-                variant="outline" 
+              <Button
+                size="sm"
+                variant="outline"
                 className="border-slate-600/50 hover:bg-slate-700/50"
                 onClick={() => {
                   if (iframeRef.current) {
@@ -430,15 +463,12 @@ export const MiniBrowserPortal: React.FC<MiniBrowserPortalProps> = ({ className 
                 <RotateCcw className="w-4 h-4" />
               </Button>
               <Button
-              onClick={captureScreenshot}
-              disabled={isCapturing}
-              className={`bg-${isCapturing? "purple" : "pink"}-600 hover:bg-purple-700`}
-            >
-              
-                  <Camera className="w-4 h-4 mr-2" />
-                  
-                
-            </Button>
+                onClick={captureScreenshot}
+                disabled={isCapturing}
+                className={`bg-${isCapturing ? 'purple' : 'pink'}-600 hover:bg-purple-700`}
+              >
+                <Camera className="w-4 h-4 mr-2" />
+              </Button>
             </div>
 
             <form onSubmit={handleUrlSubmit} className="flex-1">
@@ -456,7 +486,7 @@ export const MiniBrowserPortal: React.FC<MiniBrowserPortalProps> = ({ className 
                 <Button
                   key={viewport.name}
                   size="sm"
-                  variant={currentViewport.name === viewport.name ? "default" : "outline"}
+                  variant={currentViewport.name === viewport.name ? 'default' : 'outline'}
                   onClick={() => setCurrentViewport(viewport)}
                   className="border-slate-600/50 hover:bg-slate-700/50"
                   title={`${viewport.name} (${viewport.width}x${viewport.height})`}
@@ -471,7 +501,7 @@ export const MiniBrowserPortal: React.FC<MiniBrowserPortalProps> = ({ className 
               <Button
                 size="sm"
                 variant="outline"
-                onClick={() => setZoomLevel(prev => Math.max(0.25, prev - 0.25))}
+                onClick={() => setZoomLevel((prev) => Math.max(0.25, prev - 0.25))}
                 className="border-slate-600/50 hover:bg-slate-700/50"
                 title="Zoom Out"
               >
@@ -483,7 +513,7 @@ export const MiniBrowserPortal: React.FC<MiniBrowserPortalProps> = ({ className 
               <Button
                 size="sm"
                 variant="outline"
-                onClick={() => setZoomLevel(prev => Math.min(3, prev + 0.25))}
+                onClick={() => setZoomLevel((prev) => Math.min(3, prev + 0.25))}
                 className="border-slate-600/50 hover:bg-slate-700/50"
                 title="Zoom In"
               >
@@ -500,7 +530,11 @@ export const MiniBrowserPortal: React.FC<MiniBrowserPortalProps> = ({ className 
               </Button>
             </div>
 
-            <Button size="sm" variant="outline" className="border-slate-600/50 hover:bg-slate-700/50">
+            <Button
+              size="sm"
+              variant="outline"
+              className="border-slate-600/50 hover:bg-slate-700/50"
+            >
               <Bookmark className="w-4 h-4" />
             </Button>
           </div>
@@ -508,7 +542,9 @@ export const MiniBrowserPortal: React.FC<MiniBrowserPortalProps> = ({ className 
 
         {/* Quick Access Panel */}
         <div className="mt-4 p-3 bg-slate-800/30 rounded-lg border border-slate-700/50">
-          <h3 className="text-sm font-medium text-white mb-2">Quick Access (Iframe-friendly sites):</h3>
+          <h3 className="text-sm font-medium text-white mb-2">
+            Quick Access (Iframe-friendly sites):
+          </h3>
           <div className="flex flex-wrap gap-2">
             {[
               { name: 'Example.com', url: 'https://example.com' },
@@ -516,7 +552,7 @@ export const MiniBrowserPortal: React.FC<MiniBrowserPortalProps> = ({ className 
               { name: 'MDN Docs', url: 'https://developer.mozilla.org' },
               { name: 'DevDocs', url: 'https://devdocs.io' },
               { name: 'DevHints', url: 'https://devhint.io' },
-              { name: '3D Kitchen Sink', url: 'https://tardis3d.netlify.app/' }
+              { name: '3D Kitchen Sink', url: 'https://tardis3d.netlify.app/' },
             ].map((site) => (
               <Button
                 key={site.url}
@@ -538,20 +574,20 @@ export const MiniBrowserPortal: React.FC<MiniBrowserPortalProps> = ({ className 
         <div className="flex-1 flex flex-col bg-white">
           <div ref={containerRef} className="flex-1 relative overflow-auto">
             {!activeTab?.hasError ? (
-              <div 
+              <div
                 className="flex items-center justify-center p-4 min-h-full"
                 style={{
                   minWidth: '100%',
-                  minHeight: '100%'
+                  minHeight: '100%',
                 }}
               >
-                <div 
+                <div
                   className="relative border border-gray-300 shadow-lg bg-white"
                   style={{
                     width: currentViewport.width * calculateIframeScale(),
                     height: currentViewport.height * calculateIframeScale(),
                     minWidth: currentViewport.width * calculateIframeScale(),
-                    minHeight: currentViewport.height * calculateIframeScale()
+                    minHeight: currentViewport.height * calculateIframeScale(),
                   }}
                 >
                   <iframe
@@ -564,7 +600,7 @@ export const MiniBrowserPortal: React.FC<MiniBrowserPortalProps> = ({ className 
                       width: currentViewport.width,
                       height: currentViewport.height,
                       transform: `scale(${calculateIframeScale()})`,
-                      transformOrigin: 'top left'
+                      transformOrigin: 'top left',
                     }}
                     sandbox="allow-same-origin allow-scripts allow-forms allow-links allow-popups"
                     title="Mini Browser"
@@ -584,7 +620,6 @@ export const MiniBrowserPortal: React.FC<MiniBrowserPortalProps> = ({ className 
                         { name: 'Example.com', url: 'https://example.com' },
                         { name: 'Wikipedia', url: 'https://en.wikipedia.org' },
                         { name: 'MDN Docs', url: 'https://developer.mozilla.org' },
-                       
                       ].map((site) => (
                         <Button
                           key={site.url}
@@ -620,7 +655,7 @@ export const MiniBrowserPortal: React.FC<MiniBrowserPortalProps> = ({ className 
               Screenshots ({screenshots.length})
             </h3>
           </div>
-          
+
           <div className="flex-1 overflow-y-auto p-4 space-y-3">
             <AnimatePresence>
               {screenshots.map((screenshot) => (
@@ -642,14 +677,12 @@ export const MiniBrowserPortal: React.FC<MiniBrowserPortalProps> = ({ className 
                           <h4 className="text-sm font-medium text-white truncate">
                             {screenshot.title}
                           </h4>
-                          <p className="text-xs text-slate-400 truncate">
-                            {screenshot.url}
-                          </p>
+                          <p className="text-xs text-slate-400 truncate">{screenshot.url}</p>
                           <p className="text-xs text-slate-500">
                             {screenshot.timestamp.toLocaleString()}
                           </p>
                         </div>
-                        
+
                         {screenshot.tags.length > 0 && (
                           <div className="flex flex-wrap gap-1">
                             {screenshot.tags.map((tag, index) => (
@@ -682,7 +715,7 @@ export const MiniBrowserPortal: React.FC<MiniBrowserPortalProps> = ({ className 
                               </Button>
                             )}
                           </div>
-                          
+
                           <div className="text-xs text-slate-500">
                             {screenshot.dimensions.width}x{screenshot.dimensions.height}
                           </div>
@@ -693,7 +726,7 @@ export const MiniBrowserPortal: React.FC<MiniBrowserPortalProps> = ({ className 
                 </motion.div>
               ))}
             </AnimatePresence>
-            
+
             {screenshots.length === 0 && (
               <div className="text-center py-8">
                 <Camera className="w-12 h-12 text-slate-500 mx-auto mb-3" />
@@ -722,7 +755,12 @@ interface SaveScreenshotDialogProps {
   screenshot: Screenshot | null;
   isOpen: boolean;
   onClose: () => void;
-  onSave: (screenshot: Screenshot, tags: string[], notes: string, knowledgeType: KnowledgeType) => Promise<void>;
+  onSave: (
+    screenshot: Screenshot,
+    tags: string[],
+    notes: string,
+    knowledgeType: KnowledgeType
+  ) => Promise<void>;
   isUploading: boolean;
 }
 
@@ -731,7 +769,7 @@ const SaveScreenshotDialog: React.FC<SaveScreenshotDialogProps> = ({
   isOpen,
   onClose,
   onSave,
-  isUploading
+  isUploading,
 }) => {
   const [tags, setTags] = useState('');
   const [notes, setNotes] = useState('');
@@ -739,10 +777,13 @@ const SaveScreenshotDialog: React.FC<SaveScreenshotDialogProps> = ({
 
   const handleSave = async () => {
     if (!screenshot) return;
-    
-    const tagArray = tags.split(',').map(tag => tag.trim()).filter(Boolean);
+
+    const tagArray = tags
+      .split(',')
+      .map((tag) => tag.trim())
+      .filter(Boolean);
     await onSave(screenshot, tagArray, notes, knowledgeType);
-    
+
     // Reset form
     setTags('');
     setNotes('');
@@ -773,10 +814,18 @@ const SaveScreenshotDialog: React.FC<SaveScreenshotDialogProps> = ({
               className="w-full rounded border"
             />
             <div className="text-sm space-y-1">
-              <p><strong>Title:</strong> {screenshot.title}</p>
-              <p><strong>URL:</strong> {screenshot.url}</p>
-              <p><strong>Captured:</strong> {screenshot.timestamp.toLocaleString()}</p>
-              <p><strong>Size:</strong> {screenshot.dimensions.width}x{screenshot.dimensions.height}</p>
+              <p>
+                <strong>Title:</strong> {screenshot.title}
+              </p>
+              <p>
+                <strong>URL:</strong> {screenshot.url}
+              </p>
+              <p>
+                <strong>Captured:</strong> {screenshot.timestamp.toLocaleString()}
+              </p>
+              <p>
+                <strong>Size:</strong> {screenshot.dimensions.width}x{screenshot.dimensions.height}
+              </p>
             </div>
           </div>
 
@@ -784,7 +833,10 @@ const SaveScreenshotDialog: React.FC<SaveScreenshotDialogProps> = ({
           <div className="space-y-4">
             <div>
               <label className="text-sm font-medium mb-2 block">Knowledge Type</label>
-              <Select value={knowledgeType} onValueChange={(value: KnowledgeType) => setKnowledgeType(value)}>
+              <Select
+                value={knowledgeType}
+                onValueChange={(value: KnowledgeType) => setKnowledgeType(value)}
+              >
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
@@ -823,7 +875,7 @@ const SaveScreenshotDialog: React.FC<SaveScreenshotDialogProps> = ({
           <Button variant="outline" onClick={onClose}>
             Cancel
           </Button>
-          <Button 
+          <Button
             onClick={handleSave}
             disabled={isUploading}
             className="bg-blue-600 hover:bg-blue-700"

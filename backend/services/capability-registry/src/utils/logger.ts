@@ -1,1 +1,1 @@
-export { logger } from '@uaip/utils'; 
+export { logger } from '@uaip/utils';

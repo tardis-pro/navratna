@@ -30,7 +30,7 @@ export class ModelService {
     try {
       // Get user's provider IDs from the database (UserLLMProvider IDs)
       const userProviderIds = await this.getUserProviderIds(userId);
-      
+
       if (userProviderIds.length === 0) {
         logger.warn('No LLM providers found for user', { userId });
         return [];
@@ -38,14 +38,14 @@ export class ModelService {
 
       // Get models from database using UserLLMProvider IDs as providerId
       const models = await this.llmModelRepository.findByUserProviders(userProviderIds);
-      
-      logger.info('Retrieved models for user from database', { 
-        userId, 
-        modelCount: models.length, 
-        providerCount: userProviderIds.length 
+
+      logger.info('Retrieved models for user from database', {
+        userId,
+        modelCount: models.length,
+        providerCount: userProviderIds.length,
       });
 
-      return models.map(model => this.transformToLegacyFormat(model));
+      return models.map((model) => this.transformToLegacyFormat(model));
     } catch (error) {
       logger.error('Error getting models for user', { error, userId });
       throw error;
@@ -58,12 +58,12 @@ export class ModelService {
   async getAllAvailableModels(): Promise<ModelForUser[]> {
     try {
       const models = await this.llmModelRepository.findAvailableModels();
-      
-      logger.info('Retrieved all available models from database', { 
-        modelCount: models.length 
+
+      logger.info('Retrieved all available models from database', {
+        modelCount: models.length,
       });
 
-      return models.map(model => this.transformToLegacyFormat(model));
+      return models.map((model) => this.transformToLegacyFormat(model));
     } catch (error) {
       logger.error('Error getting all available models', { error });
       throw error;
@@ -76,13 +76,13 @@ export class ModelService {
   async getModelsForProvider(providerId: string): Promise<ModelForUser[]> {
     try {
       const models = await this.llmModelRepository.findByProviderId(providerId);
-      
-      logger.info('Retrieved models for provider from database', { 
+
+      logger.info('Retrieved models for provider from database', {
         providerId,
-        modelCount: models.length 
+        modelCount: models.length,
       });
 
-      return models.map(model => this.transformToLegacyFormat(model));
+      return models.map((model) => this.transformToLegacyFormat(model));
     } catch (error) {
       logger.error('Error getting models for provider', { error, providerId });
       throw error;
@@ -94,13 +94,16 @@ export class ModelService {
    */
   private async getUserProviderIds(userId: string): Promise<string[]> {
     try {
-      const result = await this.dataSource.query(`
+      const result = await this.dataSource.query(
+        `
         SELECT DISTINCT id 
         FROM user_llm_providers 
         WHERE "userId" = $1 
         AND "isActive" = true
         AND status IN ('active', 'testing')
-      `, [userId]);
+      `,
+        [userId]
+      );
 
       return result.map((row: any) => row.id);
     } catch (error) {
@@ -123,7 +126,7 @@ export class ModelService {
       provider: model.provider?.name || 'unknown',
       providerId: model.providerId,
       isAvailable: model.isAvailable,
-      isDefault: false // We don't have this info in the new format
+      isDefault: false, // We don't have this info in the new format
     };
   }
 

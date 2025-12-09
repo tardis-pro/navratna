@@ -2,14 +2,14 @@ import { MigrationInterface, QueryRunner, Table, Index } from 'typeorm';
 
 /**
  * Core Foundation Tables Migration
- * 
+ *
  * Creates the foundational tables that have no dependencies:
  * - users: Core user management
  * - refresh_tokens: User authentication tokens
  * - password_reset_tokens: Password reset functionality
  * - security_policies: System security policies
  * - integration_events: System integration events
- * 
+ *
  * These tables form the foundation and are referenced by other entities.
  */
 export class CreateCoreFoundationTables1703001000000 implements MigrationInterface {
@@ -352,20 +352,50 @@ export class CreateCoreFoundationTables1703001000000 implements MigrationInterfa
     await queryRunner.createIndex('users', new Index('IDX_users_email', ['email']));
     await queryRunner.createIndex('users', new Index('IDX_users_is_active', ['is_active']));
     await queryRunner.createIndex('users', new Index('IDX_users_role', ['role']));
-    
-    await queryRunner.createIndex('refresh_tokens', new Index('IDX_refresh_tokens_user_id', ['user_id']));
-    await queryRunner.createIndex('refresh_tokens', new Index('IDX_refresh_tokens_expires_at', ['expires_at']));
-    
-    await queryRunner.createIndex('password_reset_tokens', new Index('IDX_password_reset_tokens_user_id', ['user_id']));
-    await queryRunner.createIndex('password_reset_tokens', new Index('IDX_password_reset_tokens_expires_at', ['expires_at']));
-    
-    await queryRunner.createIndex('security_policies', new Index('IDX_security_policies_is_active', ['is_active']));
-    await queryRunner.createIndex('security_policies', new Index('IDX_security_policies_created_by', ['created_by']));
-    
-    await queryRunner.createIndex('integration_events', new Index('IDX_integration_events_status', ['status']));
-    await queryRunner.createIndex('integration_events', new Index('IDX_integration_events_event_type', ['event_type']));
-    await queryRunner.createIndex('integration_events', new Index('IDX_integration_events_source_system', ['source_system']));
-    await queryRunner.createIndex('integration_events', new Index('IDX_integration_events_created_at', ['created_at']));
+
+    await queryRunner.createIndex(
+      'refresh_tokens',
+      new Index('IDX_refresh_tokens_user_id', ['user_id'])
+    );
+    await queryRunner.createIndex(
+      'refresh_tokens',
+      new Index('IDX_refresh_tokens_expires_at', ['expires_at'])
+    );
+
+    await queryRunner.createIndex(
+      'password_reset_tokens',
+      new Index('IDX_password_reset_tokens_user_id', ['user_id'])
+    );
+    await queryRunner.createIndex(
+      'password_reset_tokens',
+      new Index('IDX_password_reset_tokens_expires_at', ['expires_at'])
+    );
+
+    await queryRunner.createIndex(
+      'security_policies',
+      new Index('IDX_security_policies_is_active', ['is_active'])
+    );
+    await queryRunner.createIndex(
+      'security_policies',
+      new Index('IDX_security_policies_created_by', ['created_by'])
+    );
+
+    await queryRunner.createIndex(
+      'integration_events',
+      new Index('IDX_integration_events_status', ['status'])
+    );
+    await queryRunner.createIndex(
+      'integration_events',
+      new Index('IDX_integration_events_event_type', ['event_type'])
+    );
+    await queryRunner.createIndex(
+      'integration_events',
+      new Index('IDX_integration_events_source_system', ['source_system'])
+    );
+    await queryRunner.createIndex(
+      'integration_events',
+      new Index('IDX_integration_events_created_at', ['created_at'])
+    );
   }
 
   public async down(queryRunner: QueryRunner): Promise<void> {
@@ -376,4 +406,4 @@ export class CreateCoreFoundationTables1703001000000 implements MigrationInterfa
     await queryRunner.dropTable('refresh_tokens');
     await queryRunner.dropTable('users');
   }
-} 
+}

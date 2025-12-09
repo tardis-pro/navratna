@@ -14,7 +14,7 @@ import type {
   TurnStrategyConfig,
   CreateDiscussionRequest,
   UpdateDiscussionRequest,
-  DiscussionAnalytics as SharedDiscussionAnalytics
+  DiscussionAnalytics as SharedDiscussionAnalytics,
 } from '@uaip/types';
 
 export type DiscussionCreate = CreateDiscussionRequest;
@@ -66,8 +66,8 @@ export const discussionsAPI = {
   },
 
   async start(id: string, startedBy?: string): Promise<Discussion> {
-    return APIClient.post<Discussion>(`${API_ROUTES.DISCUSSIONS.START}/${id}/start`, { 
-      startedBy: startedBy || 'current-user' // TODO: Get from auth context
+    return APIClient.post<Discussion>(`${API_ROUTES.DISCUSSIONS.START}/${id}/start`, {
+      startedBy: startedBy || 'current-user', // TODO: Get from auth context
     });
   },
 
@@ -84,10 +84,15 @@ export const discussionsAPI = {
   },
 
   async complete(id: string, summary?: string): Promise<Discussion> {
-    return APIClient.post<Discussion>(`${API_ROUTES.DISCUSSIONS.COMPLETE}/${id}/complete`, { summary });
+    return APIClient.post<Discussion>(`${API_ROUTES.DISCUSSIONS.COMPLETE}/${id}/complete`, {
+      summary,
+    });
   },
 
-  async addParticipant(discussionId: string, participantId: string): Promise<DiscussionParticipant> {
+  async addParticipant(
+    discussionId: string,
+    participantId: string
+  ): Promise<DiscussionParticipant> {
     return APIClient.post<DiscussionParticipant>(
       `${API_ROUTES.DISCUSSIONS.ADD_PARTICIPANT}/${discussionId}/participants`,
       { participantId }
@@ -107,11 +112,14 @@ export const discussionsAPI = {
     );
   },
 
-  async getMessages(discussionId: string, options?: {
-    page?: number;
-    limit?: number;
-    since?: string;
-  }): Promise<DiscussionMessage[]> {
+  async getMessages(
+    discussionId: string,
+    options?: {
+      page?: number;
+      limit?: number;
+      since?: string;
+    }
+  ): Promise<DiscussionMessage[]> {
     return APIClient.get<DiscussionMessage[]>(
       `${API_ROUTES.DISCUSSIONS.MESSAGES}/${discussionId}/messages`,
       { params: options }
@@ -132,13 +140,10 @@ export const discussionsAPI = {
   },
 
   async export(discussionId: string, format: 'json' | 'text' | 'pdf' = 'json'): Promise<Blob> {
-    const response = await APIClient.get(
-      `${API_ROUTES.DISCUSSIONS.GET}/${discussionId}/export`,
-      {
-        params: { format },
-        responseType: 'blob'
-      }
-    );
+    const response = await APIClient.get(`${API_ROUTES.DISCUSSIONS.GET}/${discussionId}/export`, {
+      params: { format },
+      responseType: 'blob',
+    });
     return response;
   },
 
@@ -148,7 +153,7 @@ export const discussionsAPI = {
 
   async search(query: string, filters?: any): Promise<Discussion[]> {
     return APIClient.get<Discussion[]>(API_ROUTES.DISCUSSIONS.SEARCH, {
-      params: { q: query, ...filters }
+      params: { q: query, ...filters },
     });
-  }
+  },
 };

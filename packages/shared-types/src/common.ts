@@ -12,21 +12,21 @@ export const OptionalTimestampSchema = z.date().optional();
 export enum ServiceStatus {
   HEALTHY = 'healthy',
   DEGRADED = 'degraded',
-  UNHEALTHY = 'unhealthy'
+  UNHEALTHY = 'unhealthy',
 }
 
 export enum LogLevel {
   ERROR = 'error',
-  WARN = 'warn', 
+  WARN = 'warn',
   INFO = 'info',
-  DEBUG = 'debug'
+  DEBUG = 'debug',
 }
 
 // Pagination schemas
 export const PaginationSchema = z.object({
   page: z.number().int().positive().default(1),
   limit: z.number().int().positive().max(100).default(10),
-  offset: z.number().int().nonnegative().optional()
+  offset: z.number().int().nonnegative().optional(),
 });
 
 export type Pagination = z.infer<typeof PaginationSchema>;
@@ -35,7 +35,7 @@ export type Pagination = z.infer<typeof PaginationSchema>;
 export const BaseEntitySchema = z.object({
   id: IDSchema,
   createdAt: TimestampSchema,
-  updatedAt: TimestampSchema.optional()
+  updatedAt: TimestampSchema.optional(),
 });
 
 export type BaseEntity = z.infer<typeof BaseEntitySchema>;
@@ -46,8 +46,8 @@ export const PaginatedResultSchema = z.object({
     page: z.number(),
     limit: z.number(),
     total: z.number(),
-    totalPages: z.number()
-  })
+    totalPages: z.number(),
+  }),
 });
 
 export type PaginatedResult<T> = {
@@ -65,7 +65,7 @@ export const APIErrorSchema = z.object({
   code: z.string(),
   message: z.string(),
   details: z.record(z.any()).optional(),
-  timestamp: TimestampSchema
+  timestamp: TimestampSchema,
 });
 
 export type APIError = z.infer<typeof APIErrorSchema>;
@@ -76,7 +76,7 @@ export const HealthCheckSchema = z.object({
   timestamp: TimestampSchema,
   uptime: z.number(),
   version: z.string(),
-  dependencies: z.record(z.nativeEnum(ServiceStatus)).optional()
+  dependencies: z.record(z.nativeEnum(ServiceStatus)).optional(),
 });
 
-export type HealthCheck = z.infer<typeof HealthCheckSchema>; 
+export type HealthCheck = z.infer<typeof HealthCheckSchema>;

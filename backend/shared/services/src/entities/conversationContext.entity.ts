@@ -19,7 +19,11 @@ export class ConversationContext extends BaseEntity {
   @Column({ name: 'session_id', type: 'varchar' })
   sessionId: string;
 
-  @Column({ type: 'enum', enum: ['active', 'paused', 'completed', 'terminated'], default: 'active' })
+  @Column({
+    type: 'enum',
+    enum: ['active', 'paused', 'completed', 'terminated'],
+    default: 'active',
+  })
   status: 'active' | 'paused' | 'completed' | 'terminated';
 
   @Column({ type: 'jsonb', default: '[]' })
@@ -65,4 +69,4 @@ export class ConversationContext extends BaseEntity {
   @ManyToOne('Agent', 'conversations')
   @JoinColumn({ name: 'agent_id' })
   agent: any;
-} 
+}

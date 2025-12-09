@@ -1,5 +1,22 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Search, Upload, Database, Brain, FileText, Tag, TrendingUp, Link, Filter, Download, Trash2, Edit3, Eye, Plus, MessageSquare, Copy } from 'lucide-react';
+import {
+  Search,
+  Upload,
+  Database,
+  Brain,
+  FileText,
+  Tag,
+  TrendingUp,
+  Link,
+  Filter,
+  Download,
+  Trash2,
+  Edit3,
+  Eye,
+  Plus,
+  MessageSquare,
+  Copy,
+} from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -7,9 +24,22 @@ import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Progress } from '@/components/ui/progress';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useKnowledge } from '@/contexts/KnowledgeContext';
@@ -27,7 +57,11 @@ const KNOWLEDGE_TYPES: { value: KnowledgeType; label: string; icon: React.ReactN
   { value: KnowledgeType.FACTUAL, label: 'Factual', icon: <FileText className="w-4 h-4" /> },
   { value: KnowledgeType.PROCEDURAL, label: 'Procedural', icon: <Brain className="w-4 h-4" /> },
   { value: KnowledgeType.CONCEPTUAL, label: 'Conceptual', icon: <Database className="w-4 h-4" /> },
-  { value: KnowledgeType.EXPERIENTIAL, label: 'Experiential', icon: <TrendingUp className="w-4 h-4" /> },
+  {
+    value: KnowledgeType.EXPERIENTIAL,
+    label: 'Experiential',
+    icon: <TrendingUp className="w-4 h-4" />,
+  },
   { value: KnowledgeType.EPISODIC, label: 'Episodic', icon: <Link className="w-4 h-4" /> },
   { value: KnowledgeType.SEMANTIC, label: 'Semantic', icon: <Tag className="w-4 h-4" /> },
 ];
@@ -92,7 +126,9 @@ export const KnowledgePortal: React.FC<KnowledgePortalProps> = ({ className }) =
   }, [searchQuery, searchKnowledge]);
 
   return (
-    <div className={`h-full flex flex-col bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 ${className}`}>
+    <div
+      className={`h-full flex flex-col bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 ${className}`}
+    >
       {/* Search Bar */}
       <div className="p-4 border-b border-blue-500/20">
         <div className="flex space-x-2">
@@ -131,12 +167,16 @@ export const KnowledgePortal: React.FC<KnowledgePortalProps> = ({ className }) =
 
       {/* Main Content */}
       <div className="flex-1 overflow-hidden">
-        <Tabs value={activeTab} onValueChange={(value) => {
-          if (value === 'atomic' && !selectedItemForAtomic) {
-            return;
-          }
-          setActiveTab(value);
-        }} className="h-full flex flex-col">
+        <Tabs
+          value={activeTab}
+          onValueChange={(value) => {
+            if (value === 'atomic' && !selectedItemForAtomic) {
+              return;
+            }
+            setActiveTab(value);
+          }}
+          className="h-full flex flex-col"
+        >
           <TabsList className="grid w-full grid-cols-3 bg-black/20 mx-4 mt-4">
             <TabsTrigger value="browse">List</TabsTrigger>
             <TabsTrigger value="graph">Graph</TabsTrigger>
@@ -159,7 +199,11 @@ export const KnowledgePortal: React.FC<KnowledgePortalProps> = ({ className }) =
                           {item.content || 'No content'}
                         </p>
                         <div className="flex items-center gap-2 text-xs text-gray-400">
-                          <span>{item.createdAt ? new Date(item.createdAt).toLocaleDateString() : 'No date'}</span>
+                          <span>
+                            {item.createdAt
+                              ? new Date(item.createdAt).toLocaleDateString()
+                              : 'No date'}
+                          </span>
                           {(item.tags || []).slice(0, 2).map((tag) => (
                             <Badge key={tag} variant="outline" className="text-xs">
                               {tag}
@@ -211,8 +255,8 @@ export const KnowledgePortal: React.FC<KnowledgePortalProps> = ({ className }) =
                               id: item.id,
                               content: item.content || '',
                               type: item.type,
-                              tags: item.tags || []
-                            }
+                              tags: item.tags || [],
+                            },
                           }}
                         />
                         <Button
@@ -266,7 +310,11 @@ export const KnowledgePortal: React.FC<KnowledgePortalProps> = ({ className }) =
                           {item.content || 'No content'}
                         </p>
                         <div className="flex items-center gap-2 text-xs text-gray-400">
-                          <span>{item.createdAt ? new Date(item.createdAt).toLocaleDateString() : 'No date'}</span>
+                          <span>
+                            {item.createdAt
+                              ? new Date(item.createdAt).toLocaleDateString()
+                              : 'No date'}
+                          </span>
                           {(item.tags || []).slice(0, 2).map((tag) => (
                             <Badge key={tag} variant="outline" className="text-xs">
                               {tag}
@@ -306,11 +354,11 @@ export const KnowledgePortal: React.FC<KnowledgePortalProps> = ({ className }) =
 
           {/* Graph View Tab */}
           <TabsContent value="graph" className="flex-1 overflow-hidden">
-            <KnowledgeGraphVisualization 
-              className="h-full" 
+            <KnowledgeGraphVisualization
+              className="h-full"
               onNodeSelect={(nodeData) => {
                 // Find the knowledge item from the node data
-                const item = Object.values(items).find(item => item.id === nodeData.id);
+                const item = Object.values(items).find((item) => item.id === nodeData.id);
                 if (item) {
                   setSelectedItemForAtomic(item);
                   setActiveTab('atomic');
@@ -348,13 +396,21 @@ export const KnowledgePortal: React.FC<KnowledgePortalProps> = ({ className }) =
                 <div className="text-center p-8">
                   <Brain className="w-16 h-16 text-slate-500 mx-auto mb-4" />
                   <h3 className="text-xl font-semibold text-white mb-2">No Item Selected</h3>
-                  <p className="text-slate-400 mb-4">Select a knowledge item to examine in detail</p>
+                  <p className="text-slate-400 mb-4">
+                    Select a knowledge item to examine in detail
+                  </p>
                   <div className="space-y-2">
                     <p className="text-sm text-slate-500">You can select items from:</p>
                     <div className="flex justify-center gap-2">
-                      <Badge variant="outline" className="text-xs">Browse tab</Badge>
-                      <Badge variant="outline" className="text-xs">Search results</Badge>
-                      <Badge variant="outline" className="text-xs">Graph view</Badge>
+                      <Badge variant="outline" className="text-xs">
+                        Browse tab
+                      </Badge>
+                      <Badge variant="outline" className="text-xs">
+                        Search results
+                      </Badge>
+                      <Badge variant="outline" className="text-xs">
+                        Graph view
+                      </Badge>
                     </div>
                   </div>
                 </div>
@@ -363,7 +419,6 @@ export const KnowledgePortal: React.FC<KnowledgePortalProps> = ({ className }) =
           </TabsContent>
         </Tabs>
       </div>
-
     </div>
   );
-}; 
+};

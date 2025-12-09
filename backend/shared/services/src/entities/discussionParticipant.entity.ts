@@ -3,10 +3,10 @@ import { BaseEntity } from './base.entity.js';
 
 /**
  * Discussion Participant Entity - Enterprise Multi-Agent Collaboration System
- * 
+ *
  * This entity manages participant identity in enterprise-scale discussions where
  * multiple AI agents (like 10 Claude Opus models) collaborate on complex projects.
- * 
+ *
  * Key Design Principles:
  * - Each participant has a unique identity per discussion
  * - Supports multiple participant types (agent, persona, user, system)
@@ -25,11 +25,11 @@ export class DiscussionParticipant extends BaseEntity {
   @Column({ name: 'discussion_id', type: 'uuid' })
   discussionId: string;
 
-  @Column({ 
-    name: 'participant_type', 
-    type: 'enum', 
+  @Column({
+    name: 'participant_type',
+    type: 'enum',
     enum: ['agent', 'persona', 'user', 'system'],
-    default: 'agent'
+    default: 'agent',
   })
   participantType: 'agent' | 'persona' | 'user' | 'system';
 
@@ -50,11 +50,11 @@ export class DiscussionParticipant extends BaseEntity {
   @Column({ name: 'display_name', type: 'varchar', length: 255, nullable: true })
   displayName?: string;
 
-  @Column({ 
-    name: 'role_in_discussion', 
-    type: 'enum', 
+  @Column({
+    name: 'role_in_discussion',
+    type: 'enum',
     enum: ['moderator', 'participant', 'observer', 'facilitator', 'expert', 'critic'],
-    default: 'participant'
+    default: 'participant',
   })
   roleInDiscussion: 'moderator' | 'participant' | 'observer' | 'facilitator' | 'expert' | 'critic';
 
@@ -144,7 +144,7 @@ export class DiscussionParticipant extends BaseEntity {
   metadata?: Record<string, any>;
 
   // === Computed Properties ===
-  
+
   /**
    * Get the unique participant identifier - this is what should be used
    * throughout the system for participant identification
@@ -201,4 +201,4 @@ export class DiscussionParticipant extends BaseEntity {
   @ManyToOne('Persona', { nullable: true })
   @JoinColumn({ name: 'persona_id' })
   persona?: any;
-} 
+}

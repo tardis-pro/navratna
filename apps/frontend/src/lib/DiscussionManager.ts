@@ -34,7 +34,7 @@ export interface IDiscussionManager {
   removeAgent: (agentId: string) => void;
   updateDocument: (document: DocumentContext | null) => void;
   overrideTurn: (agentId: string) => void;
-  detectAgreementDisagreement: () => { agrees: string[], disagrees: string[] };
+  detectAgreementDisagreement: () => { agrees: string[]; disagrees: string[] };
   createCheckpoint: () => string;
   restoreCheckpoint: (checkpointId: string) => boolean;
   summarizeDiscussion: () => Promise<string>;
@@ -76,14 +76,14 @@ export class DiscussionManager implements IDiscussionManager {
   ) {
     this.instanceId = crypto.randomUUID().slice(0, 8);
     console.log(`🏗️ Creating DiscussionManager instance: ${this.instanceId}`);
-    
+
     this.context = {
       topic: '',
       maxRounds: 3,
       currentRound: 0,
       isActive: false,
-      agents: new Map(),  // We'll use agentContext instead
-      history: []
+      agents: new Map(), // We'll use agentContext instead
+      history: [],
     };
     this.turnStrategy = 'round_robin';
     this.currentTurn = null;
@@ -99,7 +99,7 @@ export class DiscussionManager implements IDiscussionManager {
       currentRound: 0,
       lastError: null,
     };
-    
+
     // Initialize documents array with primary document if available
     if (document) {
       this.documents = [document];
@@ -119,7 +119,7 @@ export class DiscussionManager implements IDiscussionManager {
 
   public removeAgent(agentId: string): void {
     this.agentContext.removeAgent(agentId);
-    this.state.turnQueue = this.state.turnQueue.filter(id => id !== agentId);
+    this.state.turnQueue = this.state.turnQueue.filter((id) => id !== agentId);
     if (this.state.currentSpeakerId === agentId) {
       this.moveToNextTurn();
     }
@@ -161,13 +161,13 @@ export class DiscussionManager implements IDiscussionManager {
       currentRound: 0,
       lastError: null,
     };
-    
+
     console.log('Discussion initialized with state:', this.state);
     this.updateCallback(this.state);
-    
+
     // Start processing turns
     console.log('Starting turn processing');
-    this.processNextTurn().catch(error => {
+    this.processNextTurn().catch((error) => {
       console.error('Error processing turn:', error);
       this.state.lastError = error instanceof Error ? error.message : 'Unknown error occurred';
       this.updateCallback(this.state);
@@ -187,17 +187,17 @@ export class DiscussionManager implements IDiscussionManager {
       isRunning: false,
       currentSpeakerId: null,
       turnQueue: [],
-      lastError: null
+      lastError: null,
     };
     this.context.isActive = false;
     this.currentTurn = null;
 
     // Reset agent states
-    Object.keys(this.agentContext.agents).forEach(agentId => {
+    Object.keys(this.agentContext.agents).forEach((agentId) => {
       this.agentContext.updateAgentState(agentId, {
         isThinking: false,
         error: null,
-        currentResponse: null
+        currentResponse: null,
       });
     });
 
@@ -209,7 +209,7 @@ export class DiscussionManager implements IDiscussionManager {
       throw new Error('Discussion is not active');
     }
     if (agentId !== this.state.currentSpeakerId) {
-      throw new Error('Not this agent\'s turn to speak');
+      throw new Error("Not this agent's turn to speak");
     }
 
     const agent = this.agents[agentId];
@@ -220,9 +220,9 @@ export class DiscussionManager implements IDiscussionManager {
     // Find thread info if replying
     let threadRoot: string | undefined;
     let threadDepth = 0;
-    
+
     if (replyTo) {
-      const parentMessage = this.state.messageHistory.find(m => m.id === replyTo);
+      const parentMessage = this.state.messageHistory.find((m) => m.id === replyTo);
       if (parentMessage) {
         threadRoot = parentMessage.threadRoot || parentMessage.id;
         threadDepth = (parentMessage.threadDepth || 0) + 1;
@@ -231,20 +231,53 @@ export class DiscussionManager implements IDiscussionManager {
 
     // Extract mentions
     const mentions = Object.values(this.agents)
-      .map(a => a.name)
-      .filter(name => content.includes(name));
+      .map((a) => a.name)
+      .filter((name) => content.includes(name));
 
     // Analyze sentiment
     const sentimentKeywords = {
-      positive: ['agree', 'good', 'excellent', 'right', 'correct', 'better', 'best', 'improve', 'helpful', 'effective', 'success', 'benefit', 'advantage', 'support', 'clear', 'well'],
-      negative: ['disagree', 'bad', 'wrong', 'poor', 'worse', 'worst', 'problem', 'issue', 'difficult', 'fail', 'drawback', 'disadvantage', 'oppose', 'unclear', 'confusing']
+      positive: [
+        'agree',
+        'good',
+        'excellent',
+        'right',
+        'correct',
+        'better',
+        'best',
+        'improve',
+        'helpful',
+        'effective',
+        'success',
+        'benefit',
+        'advantage',
+        'support',
+        'clear',
+        'well',
+      ],
+      negative: [
+        'disagree',
+        'bad',
+        'wrong',
+        'poor',
+        'worse',
+        'worst',
+        'problem',
+        'issue',
+        'difficult',
+        'fail',
+        'drawback',
+        'disadvantage',
+        'oppose',
+        'unclear',
+        'confusing',
+      ],
     };
 
     const words = content.toLowerCase().split(/\W+/);
     let sentimentScore = 0;
     const matchedKeywords: string[] = [];
 
-    words.forEach(word => {
+    words.forEach((word) => {
       if (sentimentKeywords.positive.includes(word)) {
         sentimentScore += 0.2;
         matchedKeywords.push(word);
@@ -259,37 +292,37 @@ export class DiscussionManager implements IDiscussionManager {
 
     // Analyze logical fallacies
     const fallacyPatterns = {
-      'ad_hominem': {
-        patterns: ['you are', 'you\'re just', 'clearly you', 'obviously you'],
-        confidence: 0.7
+      ad_hominem: {
+        patterns: ['you are', "you're just", 'clearly you', 'obviously you'],
+        confidence: 0.7,
       },
-      'false_dichotomy': {
+      false_dichotomy: {
         patterns: ['either', 'or else', 'must be either', 'can only be'],
-        confidence: 0.6
+        confidence: 0.6,
       },
-      'appeal_to_authority': {
+      appeal_to_authority: {
         patterns: ['experts say', 'studies show', 'research proves', 'scientists agree'],
-        confidence: 0.5
+        confidence: 0.5,
       },
-      'hasty_generalization': {
+      hasty_generalization: {
         patterns: ['always', 'never', 'everyone', 'nobody', 'all people'],
-        confidence: 0.6
+        confidence: 0.6,
       },
-      'slippery_slope': {
+      slippery_slope: {
         patterns: ['will lead to', 'eventually', 'next thing you know', 'down this path'],
-        confidence: 0.5
-      }
+        confidence: 0.5,
+      },
     };
 
     const fallacies: Array<{ type: string; confidence: number; snippet: string }> = [];
     const contentLower = content.toLowerCase();
-    
+
     Object.entries(fallacyPatterns).forEach(([fallacyType, { patterns, confidence }]) => {
-      patterns.forEach(pattern => {
+      patterns.forEach((pattern) => {
         if (contentLower.includes(pattern)) {
           // Get surrounding context
           const words = contentLower.split(' ');
-          const patternIndex = words.findIndex(w => w.includes(pattern));
+          const patternIndex = words.findIndex((w) => w.includes(pattern));
           if (patternIndex !== -1) {
             const start = Math.max(0, patternIndex - 3);
             const end = Math.min(words.length, patternIndex + 4);
@@ -297,7 +330,7 @@ export class DiscussionManager implements IDiscussionManager {
             fallacies.push({
               type: fallacyType,
               confidence,
-              snippet
+              snippet,
             });
           }
         }
@@ -305,10 +338,11 @@ export class DiscussionManager implements IDiscussionManager {
     });
 
     // Check for valid argument structure
-    const hasValidArgument = content.toLowerCase().includes('because') || 
-                           content.toLowerCase().includes('therefore') ||
-                           content.toLowerCase().includes('since') ||
-                           content.toLowerCase().includes('consequently');
+    const hasValidArgument =
+      content.toLowerCase().includes('because') ||
+      content.toLowerCase().includes('therefore') ||
+      content.toLowerCase().includes('since') ||
+      content.toLowerCase().includes('consequently');
 
     const message: Message = {
       id: crypto.randomUUID(),
@@ -322,12 +356,12 @@ export class DiscussionManager implements IDiscussionManager {
       mentions,
       sentiment: {
         score: sentimentScore,
-        keywords: matchedKeywords
+        keywords: matchedKeywords,
       },
       logicalAnalysis: {
         fallacies,
-        hasValidArgument
-      }
+        hasValidArgument,
+      },
     };
 
     // Add message to state
@@ -336,16 +370,16 @@ export class DiscussionManager implements IDiscussionManager {
       id: message.id,
       sender: message.sender,
       type: message.type,
-      totalMessages: this.state.messageHistory.length
+      totalMessages: this.state.messageHistory.length,
     });
-    
+
     // Update agent with new conversation history
     this.agentContext.updateAgentState(agentId, {
-      conversationHistory: [...this.state.messageHistory]
+      conversationHistory: [...this.state.messageHistory],
     });
-    
+
     this.updateCallback(this.state);
-    
+
     // Move to next turn
     this.moveToNextTurn();
   }
@@ -355,7 +389,7 @@ export class DiscussionManager implements IDiscussionManager {
     if (this.state.currentSpeakerId) {
       this.state.turnQueue.push(this.state.currentSpeakerId);
     }
-    
+
     // Clear current speaker
     this.state.currentSpeakerId = null;
     this.updateCallback(this.state);
@@ -390,8 +424,7 @@ export class DiscussionManager implements IDiscussionManager {
   }
 
   private handleRoundRobinTurn(): void {
-    const agents = Array.from(this.context.agents.keys())
-      .filter(id => id !== this.moderatorId);
+    const agents = Array.from(this.context.agents.keys()).filter((id) => id !== this.moderatorId);
 
     if (!this.currentTurn) {
       // Start with first agent
@@ -423,11 +456,11 @@ export class DiscussionManager implements IDiscussionManager {
     // Get the last few messages for analysis
     const recentMessages = this.state.messageHistory.slice(-3);
     const lastMessage = recentMessages[recentMessages.length - 1];
-    
+
     // Check for explicit mentions first
     const agents = Object.values(this.agents);
-    const mentioned = agents.find(agent => 
-      lastMessage.mentions?.includes(agent.name) && agent.id !== lastMessage.sender
+    const mentioned = agents.find(
+      (agent) => lastMessage.mentions?.includes(agent.name) && agent.id !== lastMessage.sender
     );
 
     if (mentioned) {
@@ -439,24 +472,33 @@ export class DiscussionManager implements IDiscussionManager {
     const currentCluster = this.getTopicClusters()[0];
     if (currentCluster) {
       // Find agent most relevant to current topic
-      const agentScores = Object.values(this.agents).map(agent => {
+      const agentScores = Object.values(this.agents).map((agent) => {
         if (agent.id === lastMessage.sender) return { agent, score: -1 }; // Exclude last speaker
-        
+
         let score = 0;
         // Check agent's expertise against topic keywords
         const agentPersona = agent.persona;
-        if (agentPersona && typeof agentPersona === 'object' && 'expertise' in agentPersona && agentPersona.expertise) {
+        if (
+          agentPersona &&
+          typeof agentPersona === 'object' &&
+          'expertise' in agentPersona &&
+          agentPersona.expertise
+        ) {
           const expertise = agentPersona.expertise;
           if (Array.isArray(expertise)) {
-            score += currentCluster.keywords.filter(keyword => 
-              expertise.some(exp => typeof exp === 'string' && exp.toLowerCase().includes(keyword))
-            ).length * 2;
+            score +=
+              currentCluster.keywords.filter((keyword) =>
+                expertise.some(
+                  (exp) => typeof exp === 'string' && exp.toLowerCase().includes(keyword)
+                )
+              ).length * 2;
           }
         }
-        
+
         // Check agent's previous contributions to this topic
-        const agentMessages = this.getClusterMessages(currentCluster.id)
-          .filter(m => m.sender === agent.name);
+        const agentMessages = this.getClusterMessages(currentCluster.id).filter(
+          (m) => m.sender === agent.name
+        );
         score += agentMessages.length;
 
         // Bonus for valid arguments, penalty for fallacies
@@ -470,7 +512,7 @@ export class DiscussionManager implements IDiscussionManager {
       });
 
       // Select agent with highest score
-      const bestAgent = agentScores.reduce((best, current) => 
+      const bestAgent = agentScores.reduce((best, current) =>
         current.score > best.score ? current : best
       );
 
@@ -513,23 +555,22 @@ export class DiscussionManager implements IDiscussionManager {
       type: 'general',
       metadata: {
         createdAt: new Date(),
-        lastModified: new Date()
+        lastModified: new Date(),
       },
-      tags: []
+      tags: [],
     };
 
     // Update both the document reference and context
     this.document = documentContext;
     this.context.initialDocument = document;
-    
+
     // Add to documents array
     this.addDocument(documentContext);
   }
 
   private initializeTurnQueue(): string[] {
     // Get all agent IDs except moderator
-    const agentIds = Object.keys(this.agentContext.agents)
-      .filter(id => id !== this.moderatorId);
+    const agentIds = Object.keys(this.agentContext.agents).filter((id) => id !== this.moderatorId);
     // Randomize initial order
     return agentIds.sort(() => Math.random() - 0.5);
   }
@@ -543,7 +584,7 @@ export class DiscussionManager implements IDiscussionManager {
     if (this.state.turnQueue.length === 0) {
       this.state.turnQueue = this.initializeTurnQueue();
       this.state.currentRound++;
-      
+
       // Check if we've reached max rounds
       if (this.state.currentRound > this.context.maxRounds) {
         this.stop();
@@ -572,7 +613,7 @@ export class DiscussionManager implements IDiscussionManager {
         this.agentContext.updateAgentState(nextSpeakerId, {
           isThinking: true,
           error: null,
-          currentResponse: null
+          currentResponse: null,
         });
 
         // Generate response
@@ -582,9 +623,9 @@ export class DiscussionManager implements IDiscussionManager {
         this.agentContext.updateAgentState(nextSpeakerId, {
           isThinking: false,
           error: error instanceof Error ? error.message : 'Unknown error',
-          currentResponse: null
+          currentResponse: null,
         });
-        
+
         // Move to next turn
         this.moveToNextTurn();
       }
@@ -594,26 +635,26 @@ export class DiscussionManager implements IDiscussionManager {
   private async generateResponse(agentId: string): Promise<void> {
     const agent = this.agents[agentId];
     if (!agent) return Promise.resolve();
-    
+
     // Create a new abort controller for this response
     this.abortController = new AbortController();
-    
+
     // Set agent to thinking state
-    this.agentContext.updateAgentState(agentId, { 
-      isThinking: true, 
+    this.agentContext.updateAgentState(agentId, {
+      isThinking: true,
       error: null,
-      currentResponse: null 
+      currentResponse: null,
     });
-    
+
     // Generate the "thinking" message
     const thinkingMessage: Message = {
       id: crypto.randomUUID(),
       sender: agent.name,
-      content: "Thinking...",
-      type: "thought",
+      content: 'Thinking...',
+      type: 'thought',
       timestamp: new Date(),
     };
-    
+
     // Add thinking message to state
     this.state.messageHistory.push(thinkingMessage);
     this.updateCallback(this.state);
@@ -621,61 +662,65 @@ export class DiscussionManager implements IDiscussionManager {
     try {
       // Generate the agent's response based on context
       const documentContent = this.getCombinedDocumentContent();
-      
+
       // Get optimized conversation history
       const conversationHistory = this.getOptimizedHistory(agent);
-      
+
       const response = await generateAgentResponse(
         agent,
         documentContent,
         conversationHistory,
         this.abortController?.signal
       );
-      
+
       // Create response message
       const responseMessage: Message = {
         id: crypto.randomUUID(),
         sender: agent.name,
         content: response,
-        type: "response",
+        type: 'response',
         timestamp: new Date(),
       };
-      
+
       // Remove thinking message from state
-      this.state.messageHistory = this.state.messageHistory.filter(m => m.id !== thinkingMessage.id);
-      
+      this.state.messageHistory = this.state.messageHistory.filter(
+        (m) => m.id !== thinkingMessage.id
+      );
+
       // Add response message to state
       this.state.messageHistory.push(responseMessage);
-      
+
       // Update agent state with new message and response
       // Use the full message history to keep all agents in sync
       this.agentContext.updateAgentState(agentId, {
         isThinking: false,
         currentResponse: response,
         error: null,
-        conversationHistory: [...this.state.messageHistory]
+        conversationHistory: [...this.state.messageHistory],
       });
-      
+
       this.updateCallback(this.state);
-      
+
       // Notify parent component
       this.responseCallback(agentId, response);
-      
+
       // Move to next turn
       this.moveToNextTurn();
     } catch (error) {
       // Remove thinking message from state
-      this.state.messageHistory = this.state.messageHistory.filter(m => m.id !== thinkingMessage.id);
-      
+      this.state.messageHistory = this.state.messageHistory.filter(
+        (m) => m.id !== thinkingMessage.id
+      );
+
       // Update agent state to error
       this.agentContext.updateAgentState(agentId, {
         isThinking: false,
         error: error instanceof Error ? error.message : 'Unknown error',
-        currentResponse: null
+        currentResponse: null,
       });
-      
+
       this.updateCallback(this.state);
-      
+
       throw error;
     }
   }
@@ -683,38 +728,38 @@ export class DiscussionManager implements IDiscussionManager {
   /**
    * Gets optimized conversation history for context windows
    * Limits to last 2-3 messages plus original document to reduce token usage
-   * 
+   *
    * NOTE: This is ONLY for LLM context - the UI should show ALL messages
    * The UI gets the complete history from state.messageHistory via DiscussionContext
    */
   private getOptimizedHistory(currentAgent: AgentState): Message[] {
     const MAX_RECENT_MESSAGES = 3; // Limit to last 2-3 messages for LLM efficiency
-    
+
     // Filter out thought messages to keep only actual conversation
-    const conversationHistory = this.state.messageHistory.filter(m => m.type !== "thought");
-    
+    const conversationHistory = this.state.messageHistory.filter((m) => m.type !== 'thought');
+
     // If we have very few messages, return all of them
     if (conversationHistory.length <= MAX_RECENT_MESSAGES) {
       return conversationHistory;
     }
-    
+
     // Always include the first message (usually contains initial context/document)
     const initialContext = conversationHistory.slice(0, 1);
-    
+
     // Get the last 2-3 messages for immediate context
     const recentMessages = conversationHistory.slice(-MAX_RECENT_MESSAGES);
-    
+
     // Combine initial context with recent messages
     // Remove duplicates in case the conversation is very short
     const optimizedHistory = [...initialContext];
-    
-    recentMessages.forEach(message => {
+
+    recentMessages.forEach((message) => {
       // Only add if not already in initial context
-      if (!optimizedHistory.some(existing => existing.id === message.id)) {
+      if (!optimizedHistory.some((existing) => existing.id === message.id)) {
         optimizedHistory.push(message);
       }
     });
-    
+
     return optimizedHistory;
   }
 
@@ -755,13 +800,13 @@ export class DiscussionManager implements IDiscussionManager {
       currentRound: 0,
       lastError: null,
     };
-    
+
     this.updateCallback(this.state);
   }
 
   public updateDocument(document: DocumentContext | null): void {
     this.document = document;
-    
+
     // Update documents array
     if (document) {
       this.addDocument(document);
@@ -782,13 +827,13 @@ export class DiscussionManager implements IDiscussionManager {
 
     // Set the current speaker to the specified agent
     this.state.currentSpeakerId = agentId;
-    
+
     // Update turn queue to prioritize this agent
-    this.state.turnQueue = this.state.turnQueue.filter(id => id !== agentId);
+    this.state.turnQueue = this.state.turnQueue.filter((id) => id !== agentId);
     this.state.turnQueue.unshift(agentId);
-    
+
     this.updateCallback(this.state);
-    
+
     // Resume if paused
     if (!this.state.isRunning) {
       this.resume();
@@ -802,54 +847,67 @@ export class DiscussionManager implements IDiscussionManager {
    * Analyzes recent messages to detect agreement and disagreement between agents
    * @returns Object containing arrays of agent IDs that agree or disagree
    */
-  public detectAgreementDisagreement(): { agrees: string[], disagrees: string[] } {
+  public detectAgreementDisagreement(): { agrees: string[]; disagrees: string[] } {
     const result = {
       agrees: [] as string[],
-      disagrees: [] as string[]
+      disagrees: [] as string[],
     };
-    
+
     // Only analyze if we have enough messages
     if (this.state.messageHistory.length < 3) {
       return result;
     }
-    
+
     // Get the last few messages for analysis
-    const recentMessages = this.state.messageHistory
-      .filter(m => m.type === 'response')
-      .slice(-5);
-    
+    const recentMessages = this.state.messageHistory.filter((m) => m.type === 'response').slice(-5);
+
     // Simple keyword-based detection
     const agreementKeywords = [
-      'agree', 'concur', 'correct', 'right', 'yes', 'indeed',
-      'good point', 'I support', 'makes sense'
+      'agree',
+      'concur',
+      'correct',
+      'right',
+      'yes',
+      'indeed',
+      'good point',
+      'I support',
+      'makes sense',
     ];
-    
+
     const disagreementKeywords = [
-      'disagree', 'incorrect', 'wrong', 'no', 'however', 'but',
-      'I don\'t think', 'not necessarily', 'I\'m not sure', 'on the contrary'
+      'disagree',
+      'incorrect',
+      'wrong',
+      'no',
+      'however',
+      'but',
+      "I don't think",
+      'not necessarily',
+      "I'm not sure",
+      'on the contrary',
     ];
-    
+
     // Check each agent's last message
-    Object.values(this.agents).forEach(agent => {
+    Object.values(this.agents).forEach((agent) => {
       // Find the agent's most recent message
-      const lastMessage = recentMessages.find(m => m.sender === agent.name);
+      const lastMessage = recentMessages.find((m) => m.sender === agent.name);
       if (!lastMessage) return;
-      
+
       // Check for agreement
-      if (agreementKeywords.some(keyword => 
-        lastMessage.content.toLowerCase().includes(keyword)
-      )) {
+      if (
+        agreementKeywords.some((keyword) => lastMessage.content.toLowerCase().includes(keyword))
+      ) {
         result.agrees.push(agent.id);
       }
-      
+
       // Check for disagreement
-      if (disagreementKeywords.some(keyword => 
-        lastMessage.content.toLowerCase().includes(keyword)
-      )) {
+      if (
+        disagreementKeywords.some((keyword) => lastMessage.content.toLowerCase().includes(keyword))
+      ) {
         result.disagrees.push(agent.id);
       }
     });
-    
+
     return result;
   }
 
@@ -859,29 +917,29 @@ export class DiscussionManager implements IDiscussionManager {
    */
   public createCheckpoint(): string {
     const checkpointId = `checkpoint-${Date.now()}`;
-    
+
     // Deep clone the current state to preserve it
     const stateClone: DiscussionState = {
       isRunning: this.state.isRunning,
       currentSpeakerId: this.state.currentSpeakerId,
       turnQueue: [...this.state.turnQueue],
-      messageHistory: this.state.messageHistory.map(msg => ({...msg})),
+      messageHistory: this.state.messageHistory.map((msg) => ({ ...msg })),
       currentRound: this.state.currentRound,
       lastError: this.state.lastError,
     };
-    
+
     this.checkpoints.set(checkpointId, stateClone);
-    
+
     // Keep only the last 5 checkpoints to save memory
     const checkpointKeys = Array.from(this.checkpoints.keys());
     if (checkpointKeys.length > 5) {
       const oldestKey = checkpointKeys[0];
       this.checkpoints.delete(oldestKey);
     }
-    
+
     return checkpointId;
   }
-  
+
   /**
    * Restores the discussion state from a checkpoint
    * @param checkpointId The ID of the checkpoint to restore
@@ -893,85 +951,85 @@ export class DiscussionManager implements IDiscussionManager {
       this.setError(`Checkpoint ${checkpointId} not found.`);
       return false;
     }
-    
+
     // Pause any ongoing processes
     if (this.abortController) {
       this.abortController.abort();
       this.abortController = null;
     }
-    
+
     // Restore state from checkpoint
     this.state = {
       isRunning: false, // Always restore in paused state for safety
       currentSpeakerId: checkpoint.currentSpeakerId,
       turnQueue: [...checkpoint.turnQueue],
-      messageHistory: checkpoint.messageHistory.map(msg => ({...msg})),
+      messageHistory: checkpoint.messageHistory.map((msg) => ({ ...msg })),
       currentRound: checkpoint.currentRound,
       lastError: null,
     };
-    
+
     this.updateCallback(this.state);
     return true;
   }
-  
+
   /**
    * Generates a summary of the current discussion
    * @returns A promise that resolves to the summary text
    */
   public async summarizeDiscussion(): Promise<string> {
     if (this.state.messageHistory.length === 0) {
-      return "No discussion to summarize yet.";
+      return 'No discussion to summarize yet.';
     }
-    
+
     // Use the first available agent to generate the summary
     const summarizingAgent = Object.values(this.agents)[0];
     if (!summarizingAgent) {
-      return "No agents available to generate summary.";
+      return 'No agents available to generate summary.';
     }
-    
+
     // Create a copy of the agent with system prompt for summarization
     const summaryAgent: AgentState = {
       ...summarizingAgent,
       systemPrompt: `You are a helpful assistant that summarizes discussions. 
       Please provide a concise summary of the following discussion, 
-      highlighting the key points, agreements, and disagreements.`
+      highlighting the key points, agreements, and disagreements.`,
     };
-    
+
     // Only include response messages (not thoughts or system)
-    const conversationHistory = this.state.messageHistory.filter(
-      m => m.type === 'response'
-    );
-    
+    const conversationHistory = this.state.messageHistory.filter((m) => m.type === 'response');
+
     try {
-      const documentContent = this.document?.content || "";
+      const documentContent = this.document?.content || '';
       const summary = await generateAgentResponse(
         summaryAgent,
         documentContent,
         conversationHistory,
         null
       );
-      
+
       // Create a system message with the summary
       const summaryMessage: Message = {
         id: crypto.randomUUID(),
-        sender: "system",
+        sender: 'system',
         content: `## Discussion Summary\n\n${summary}`,
-        type: "system",
+        type: 'system',
         timestamp: new Date(),
       };
-      
+
       // Add summary message to both state and all agent histories
       this.state.messageHistory.push(summaryMessage);
-      Object.values(this.agents).forEach(agent => {
+      Object.values(this.agents).forEach((agent) => {
         agent.conversationHistory.push(summaryMessage);
       });
-      
+
       this.updateCallback(this.state);
-      
+
       return summary;
     } catch (error) {
-      this.setError(`Error generating summary: ${error instanceof Error ? error.message : String(error)}`);
-      return "Failed to generate summary.";
+      this.setError(
+        `Error generating summary: ${error instanceof Error ? error.message : String(error)}`
+      );
+      return 'Failed to generate summary.';
     }
   }
 
@@ -981,7 +1039,7 @@ export class DiscussionManager implements IDiscussionManager {
    */
   public addDocument(document: DocumentContext): void {
     // Check if document already exists
-    const existingIndex = this.documents.findIndex(doc => doc.id === document.id);
+    const existingIndex = this.documents.findIndex((doc) => doc.id === document.id);
     if (existingIndex >= 0) {
       // Update existing document
       this.documents[existingIndex] = document;
@@ -989,26 +1047,26 @@ export class DiscussionManager implements IDiscussionManager {
       // Add new document
       this.documents.push(document);
     }
-    
+
     // If no primary document is set, set this as primary
     if (!this.document) {
       this.document = document;
     }
   }
-  
+
   /**
    * Removes a document from the discussion
    * @param documentId The ID of the document to remove
    */
   public removeDocument(documentId: string): void {
-    this.documents = this.documents.filter(doc => doc.id !== documentId);
-    
+    this.documents = this.documents.filter((doc) => doc.id !== documentId);
+
     // If we removed the primary document, update it
     if (this.document?.id === documentId) {
       this.document = this.documents.length > 0 ? this.documents[0] : null;
     }
   }
-  
+
   /**
    * Gets all documents in the discussion
    * @returns Array of document contexts
@@ -1016,51 +1074,52 @@ export class DiscussionManager implements IDiscussionManager {
   public getDocuments(): DocumentContext[] {
     return [...this.documents];
   }
-  
+
   /**
    * Combines content from all documents into a single context for the discussion
    * @returns Combined document content
    */
   private getCombinedDocumentContent(): string {
     if (this.documents.length === 0) {
-      return "";
+      return '';
     }
-    
+
     if (this.documents.length === 1) {
-      return this.documents[0].content || "";
+      return this.documents[0].content || '';
     }
-    
+
     // Combine documents with headers
-    return this.documents.map(doc => {
-      return `## Document: ${doc.title || 'Untitled'}\n\n${doc.content}\n\n`;
-    }).join('---\n\n');
+    return this.documents
+      .map((doc) => {
+        return `## Document: ${doc.title || 'Untitled'}\n\n${doc.content}\n\n`;
+      })
+      .join('---\n\n');
   }
 
   private updateTopicClusters(message: Message) {
     const content = message.content.toLowerCase();
-    const words = content.split(/\W+/).filter(w => w.length > 3);
-    
+    const words = content.split(/\W+/).filter((w) => w.length > 3);
+
     // Extract potential keywords (nouns, key terms)
-    const keywords = words.filter(word => 
-      !['this', 'that', 'have', 'been', 'would', 'could', 'should'].includes(word)
+    const keywords = words.filter(
+      (word) => !['this', 'that', 'have', 'been', 'would', 'could', 'should'].includes(word)
     );
-    
+
     // Find matching clusters or create new one
     let bestCluster: TopicCluster | null = null;
     let bestScore = 0;
-    
-    this.topicClusters.forEach(cluster => {
-      const score = keywords.filter(word => 
-        cluster.keywords.includes(word)
-      ).length;
-      
+
+    this.topicClusters.forEach((cluster) => {
+      const score = keywords.filter((word) => cluster.keywords.includes(word)).length;
+
       if (score > bestScore) {
         bestScore = score;
         bestCluster = cluster;
       }
     });
-    
-    if (bestScore >= 2) { // Threshold for topic similarity
+
+    if (bestScore >= 2) {
+      // Threshold for topic similarity
       // Add to existing cluster
       bestCluster!.messages.push(message.id);
       bestCluster!.keywords = [...new Set([...bestCluster!.keywords, ...keywords])];
@@ -1072,27 +1131,26 @@ export class DiscussionManager implements IDiscussionManager {
         topic: keywords.slice(0, 3).join(', '), // Simple topic from first few keywords
         keywords,
         messages: [message.id],
-        score: 1
+        score: 1,
       };
       this.topicClusters.set(newCluster.id, newCluster);
     }
   }
 
   public getTopicClusters(): TopicCluster[] {
-    return Array.from(this.topicClusters.values())
-      .sort((a, b) => b.score - a.score);
+    return Array.from(this.topicClusters.values()).sort((a, b) => b.score - a.score);
   }
 
   public getClusterMessages(clusterId: string): Message[] {
     const cluster = this.topicClusters.get(clusterId);
     if (!cluster) return [];
-    
+
     return this.state.messageHistory
-      .filter(message => cluster.messages.includes(message.id))
+      .filter((message) => cluster.messages.includes(message.id))
       .sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
   }
 
   public getState(): DiscussionState {
     return { ...this.state };
   }
-} 
+}

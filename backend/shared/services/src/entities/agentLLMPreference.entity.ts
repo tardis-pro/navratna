@@ -1,4 +1,13 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, Index, ManyToOne, JoinColumn } from 'typeorm';
+import {
+  Entity,
+  PrimaryGeneratedColumn,
+  Column,
+  CreateDateColumn,
+  UpdateDateColumn,
+  Index,
+  ManyToOne,
+  JoinColumn,
+} from 'typeorm';
 import { BaseEntity } from './base.entity.js';
 import { Agent } from './agent.entity.js';
 import { LLMTaskType, LLMProviderType } from '@uaip/types';
@@ -7,19 +16,18 @@ import { LLMTaskType, LLMProviderType } from '@uaip/types';
 @Index(['agentId', 'taskType'], { unique: true }) // One preference per task type per agent
 @Index(['taskType', 'isActive'])
 export class AgentLLMPreference extends BaseEntity {
-  
   @Column({ type: 'uuid' })
   agentId!: string;
 
   @Column({
     type: 'enum',
-    enum: LLMTaskType
+    enum: LLMTaskType,
   })
   taskType!: LLMTaskType;
 
   @Column({
     type: 'enum',
-    enum: LLMProviderType
+    enum: LLMProviderType,
   })
   preferredProvider!: LLMProviderType;
 
@@ -117,7 +125,7 @@ export class AgentLLMPreference extends BaseEntity {
       temperature: this.settings?.temperature,
       maxTokens: this.settings?.maxTokens,
       topP: this.settings?.topP,
-      systemPrompt: this.settings?.systemPrompt
+      systemPrompt: this.settings?.systemPrompt,
     };
   }
 
@@ -126,13 +134,13 @@ export class AgentLLMPreference extends BaseEntity {
     const successWeight = 0.4;
     const speedWeight = 0.2;
     const qualityWeight = 0.4;
-    
+
     let score = 0;
-    
+
     if (this.successRate !== undefined) {
       score += this.successRate * successWeight;
     }
-    
+
     if (this.averageResponseTime !== undefined) {
       // Normalize response time: assume 5 seconds is "poor", 1 second is "excellent"
       const normalizedSpeed = Math.max(0, Math.min(1, (5 - this.averageResponseTime) / 4));
@@ -142,7 +150,7 @@ export class AgentLLMPreference extends BaseEntity {
     if (this.qualityScore !== undefined) {
       score += this.qualityScore * qualityWeight;
     }
-    
+
     return Math.min(1, Math.max(0, score));
   }
 
@@ -150,10 +158,7 @@ export class AgentLLMPreference extends BaseEntity {
     // Determine if this agent's preference is performing well for this task
     const minUsage = 5; // Need at least 5 uses to be considered reliable
     const minPerformance = 0.7; // Need 70% performance score
-    
-    return (
-      Number(this.usageCount) >= minUsage &&
-      this.getPerformanceScore() >= minPerformance
-    );
+
+    return Number(this.usageCount) >= minUsage && this.getPerformanceScore() >= minPerformance;
   }
 }

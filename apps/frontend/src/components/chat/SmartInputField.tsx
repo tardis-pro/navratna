@@ -3,7 +3,13 @@ import { io, Socket } from 'socket.io-client';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { CommandIcon, FileTextIcon, SearchIcon, MessageSquareIcon, HelpCircleIcon } from 'lucide-react';
+import {
+  CommandIcon,
+  FileTextIcon,
+  SearchIcon,
+  MessageSquareIcon,
+  HelpCircleIcon,
+} from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useDebounce } from '@/hooks/useDebounce';
 import { AutocompleteSuggestion, ConversationWebSocketEventType } from '@uaip/types';
@@ -21,7 +27,7 @@ const SUGGESTION_ICONS = {
   tool: <FileTextIcon className="w-4 h-4" />,
   previous: <SearchIcon className="w-4 h-4" />,
   common: <MessageSquareIcon className="w-4 h-4" />,
-  question: <HelpCircleIcon className="w-4 h-4" />
+  question: <HelpCircleIcon className="w-4 h-4" />,
 };
 
 export const SmartInputField: React.FC<SmartInputFieldProps> = ({
@@ -29,7 +35,7 @@ export const SmartInputField: React.FC<SmartInputFieldProps> = ({
   conversationId,
   onSubmit,
   placeholder = 'Type a message...',
-  className
+  className,
 }) => {
   const [inputValue, setInputValue] = useState('');
   const [suggestions, setSuggestions] = useState<AutocompleteSuggestion[]>([]);
@@ -37,7 +43,7 @@ export const SmartInputField: React.FC<SmartInputFieldProps> = ({
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [detectedIntent, setDetectedIntent] = useState<any>(null);
   const [socket, setSocket] = useState<Socket | null>(null);
-  
+
   const inputRef = useRef<HTMLInputElement>(null);
   const suggestionsRef = useRef<HTMLDivElement>(null);
   const { user } = useAuth();
@@ -49,7 +55,7 @@ export const SmartInputField: React.FC<SmartInputFieldProps> = ({
 
     const newSocket = io('/conversation-intelligence', {
       auth: { token: user.token },
-      query: { agentId, conversationId }
+      query: { agentId, conversationId },
     });
 
     newSocket.on('connected', (data) => {
@@ -87,7 +93,7 @@ export const SmartInputField: React.FC<SmartInputFieldProps> = ({
     socket.emit('autocomplete_query', {
       partial: debouncedValue,
       context: { conversationId },
-      limit: 5
+      limit: 5,
     });
   }, [socket, debouncedValue, conversationId]);
 
@@ -101,7 +107,7 @@ export const SmartInputField: React.FC<SmartInputFieldProps> = ({
     socket.emit('request_intent_detection', {
       text: debouncedValue,
       conversationId,
-      context: {}
+      context: {},
     });
   }, [socket, debouncedValue, conversationId]);
 
@@ -122,18 +128,14 @@ export const SmartInputField: React.FC<SmartInputFieldProps> = ({
     switch (e.key) {
       case 'ArrowDown':
         e.preventDefault();
-        setSelectedIndex(prev => 
-          prev < suggestions.length - 1 ? prev + 1 : 0
-        );
+        setSelectedIndex((prev) => (prev < suggestions.length - 1 ? prev + 1 : 0));
         break;
-      
+
       case 'ArrowUp':
         e.preventDefault();
-        setSelectedIndex(prev => 
-          prev > 0 ? prev - 1 : suggestions.length - 1
-        );
+        setSelectedIndex((prev) => (prev > 0 ? prev - 1 : suggestions.length - 1));
         break;
-      
+
       case 'Tab':
       case 'Enter':
         e.preventDefault();
@@ -143,7 +145,7 @@ export const SmartInputField: React.FC<SmartInputFieldProps> = ({
           handleSubmit();
         }
         break;
-      
+
       case 'Escape':
         setShowSuggestions(false);
         setSelectedIndex(-1);
@@ -160,7 +162,7 @@ export const SmartInputField: React.FC<SmartInputFieldProps> = ({
 
   const handleSubmit = () => {
     if (!inputValue.trim()) return;
-    
+
     onSubmit(inputValue.trim(), detectedIntent);
     setInputValue('');
     setDetectedIntent(null);
@@ -197,7 +199,7 @@ export const SmartInputField: React.FC<SmartInputFieldProps> = ({
           className={`pr-20 ${className}`}
           autoComplete="off"
         />
-        
+
         {/* Intent indicator */}
         {detectedIntent && (
           <div className="absolute right-2 top-1/2 -translate-y-1/2">
@@ -210,10 +212,7 @@ export const SmartInputField: React.FC<SmartInputFieldProps> = ({
 
       {/* Autocomplete suggestions */}
       {showSuggestions && suggestions.length > 0 && (
-        <Card 
-          ref={suggestionsRef}
-          className="absolute z-50 w-full mt-1 shadow-lg"
-        >
+        <Card ref={suggestionsRef} className="absolute z-50 w-full mt-1 shadow-lg">
           <CardContent className="p-0">
             {suggestions.map((suggestion, index) => (
               <div

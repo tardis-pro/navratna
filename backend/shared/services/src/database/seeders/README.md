@@ -22,20 +22,26 @@ seeders/
 ## Key Features
 
 ### 1. Graceful Updates ("If Exists Update" Pattern)
+
 Each seeder implements an upsert pattern:
+
 - **Insert** if the entity doesn't exist
 - **Update** if the entity already exists
 - Uses unique fields to determine existence (email for users, name for most others)
 
 ### 2. Base Seeder Class
+
 All seeders extend `BaseSeed<T>` which provides:
+
 - Common upsert logic
 - Helper methods for finding entities
 - Consistent error handling and logging
 - Random data generation utilities
 
 ### 3. Dependency Management
+
 The `DatabaseSeeder` class orchestrates seeding in proper dependency order:
+
 1. Users (no dependencies)
 2. Security Policies (depends on Users)
 3. Personas (depends on Users)
@@ -44,6 +50,7 @@ The `DatabaseSeeder` class orchestrates seeding in proper dependency order:
 6. ... (additional seeders as needed)
 
 ### 4. Modular Data Organization
+
 - Core seeder logic in individual files
 - Complex data sets in separate data files
 - Easy to add new seeders without modifying existing ones
@@ -51,6 +58,7 @@ The `DatabaseSeeder` class orchestrates seeding in proper dependency order:
 ## Prerequisites
 
 ### Database Migration
+
 Before using the new seeders, you must run the migration to add unique constraints:
 
 ```bash
@@ -59,11 +67,13 @@ pnpm migration:run
 ```
 
 This adds unique constraints to:
+
 - `agents.name`
 - `personas.name`
 - `security_policies.name`
 
 ### Verification
+
 Test the seeder functionality:
 
 ```bash
@@ -74,6 +84,7 @@ npx tsx src/database/seeders/test-unique-constraints.ts
 ## Usage
 
 ### Basic Usage
+
 ```typescript
 import { seedDatabase } from './seeders/index.js';
 
@@ -82,6 +93,7 @@ await seedDatabase();
 ```
 
 ### Advanced Usage
+
 ```typescript
 import { DatabaseSeeder, UserSeed, AgentSeed } from './seeders/index.js';
 import { initializeDatabase } from './typeorm.config.js';
@@ -103,6 +115,7 @@ const seededUsers = seeder.getSeededEntities('Users');
 ### Creating New Seeders
 
 1. **Create a new seeder class:**
+
 ```typescript
 import { DataSource, DeepPartial } from 'typeorm';
 import { BaseSeed } from './BaseSeed.js';
@@ -122,13 +135,14 @@ export class YourEntitySeed extends BaseSeed<YourEntity> {
       {
         name: 'Example Entity',
         // ... other properties
-      }
+      },
     ];
   }
 }
 ```
 
 2. **Add to DatabaseSeeder:**
+
 ```typescript
 // In DatabaseSeeder.ts
 import { YourEntitySeed } from './YourEntitySeed.js';
@@ -146,6 +160,7 @@ private async seedYourEntities(dependencies: any[]): Promise<YourEntity[]> {
 ```
 
 3. **Export from index.ts:**
+
 ```typescript
 export { YourEntitySeed } from './YourEntitySeed.js';
 ```

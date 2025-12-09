@@ -10,7 +10,7 @@ export const AgentAvatar: React.FC<AgentAvatarProps> = ({ name, className }) => 
   // Get initials from name
   const initials = name
     .split(' ')
-    .map(part => part[0])
+    .map((part) => part[0])
     .join('')
     .toUpperCase()
     .slice(0, 2);
@@ -20,4 +20,4 @@ export const AgentAvatar: React.FC<AgentAvatarProps> = ({ name, className }) => 
       <AvatarFallback>{initials}</AvatarFallback>
     </Avatar>
   );
-}; 
+};

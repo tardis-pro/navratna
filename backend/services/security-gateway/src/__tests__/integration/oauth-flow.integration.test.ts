@@ -8,7 +8,7 @@ import {
   Agent as AgentEntity,
   UserEntity,
   AgentOAuthConnectionEntity,
-  OAuthStateEntity
+  OAuthStateEntity,
 } from '@uaip/shared-services';
 import crypto from 'crypto';
 
@@ -85,14 +85,14 @@ describe('OAuth Flow Integration Tests', () => {
         tokenEncryption: true,
         rateLimiting: {
           requestsPerMinute: 60,
-          burstLimit: 10
-        }
+          burstLimit: 10,
+        },
       },
       agentConfig: {
         allowedCapabilities: ['github_read', 'github_write', 'github_admin'],
         maxConnections: 5,
-        tokenRefreshEnabled: true
-      }
+        tokenRefreshEnabled: true,
+      },
     });
     await providerRepo.save(githubProvider);
   };
@@ -105,7 +105,7 @@ describe('OAuth Flow Integration Tests', () => {
           providerId: githubProvider.id,
           agentId: testAgent.id,
           capabilities: ['github_read'],
-          redirectUri: 'http://localhost:3000/oauth/callback'
+          redirectUri: 'http://localhost:3000/oauth/callback',
         })
         .expect(200);
 
@@ -116,7 +116,8 @@ describe('OAuth Flow Integration Tests', () => {
       expect(response.body.authorizationUrl).toContain('code_challenge_method=S256');
 
       // Verify state was stored in database
-      const oauthState = await dataSource.getRepository(OAuthStateEntity)
+      const oauthState = await dataSource
+        .getRepository(OAuthStateEntity)
         .findOne({ where: { state: response.body.state } });
 
       expect(oauthState).toBeTruthy();
@@ -133,7 +134,7 @@ describe('OAuth Flow Integration Tests', () => {
           providerId: githubProvider.id,
           agentId: testAgent.id,
           capabilities: ['github_read'],
-          redirectUri: 'http://localhost:3000/oauth/callback'
+          redirectUri: 'http://localhost:3000/oauth/callback',
         });
 
       const { state } = authResponse.body;
@@ -144,7 +145,7 @@ describe('OAuth Flow Integration Tests', () => {
         .send({
           code: 'mock-authorization-code',
           state: state,
-          providerId: githubProvider.id
+          providerId: githubProvider.id,
         })
         .expect(200);
 
@@ -153,7 +154,8 @@ describe('OAuth Flow Integration Tests', () => {
       expect(response.body).toHaveProperty('agentId', testAgent.id);
 
       // Verify OAuth connection was created
-      const connection = await dataSource.getRepository(AgentOAuthConnectionEntity)
+      const connection = await dataSource
+        .getRepository(AgentOAuthConnectionEntity)
         .findOne({ where: { agentId: testAgent.id, providerId: githubProvider.id } });
 
       expect(connection).toBeTruthy();
@@ -167,7 +169,7 @@ describe('OAuth Flow Integration Tests', () => {
         .send({
           code: 'mock-authorization-code',
           state: 'invalid-state',
-          providerId: githubProvider.id
+          providerId: githubProvider.id,
         })
         .expect(400);
 
@@ -183,7 +185,7 @@ describe('OAuth Flow Integration Tests', () => {
           providerId: githubProvider.id,
           agentId: testAgent.id,
           capabilities: ['github_read'],
-          redirectUri: 'http://localhost:3000/oauth/callback'
+          redirectUri: 'http://localhost:3000/oauth/callback',
         });
 
       const { state } = authResponse.body;
@@ -193,7 +195,7 @@ describe('OAuth Flow Integration Tests', () => {
         .send({
           error: 'access_denied',
           error_description: 'User denied authorization',
-          state: state
+          state: state,
         })
         .expect(400);
 
@@ -222,8 +224,8 @@ describe('OAuth Flow Integration Tests', () => {
           totalRequests: 0,
           requestsThisHour: 0,
           requestsToday: 0,
-          lastReset: new Date()
-        }
+          lastReset: new Date(),
+        },
       });
       await connectionRepo.save(oauthConnection);
     });
@@ -234,7 +236,7 @@ describe('OAuth Flow Integration Tests', () => {
         .send({
           agentId: testAgent.id,
           providerId: githubProvider.id,
-          operation: 'github_read_repos'
+          operation: 'github_read_repos',
         })
         .expect(200);
 
@@ -254,7 +256,7 @@ describe('OAuth Flow Integration Tests', () => {
         .send({
           agentId: testAgent.id,
           providerId: githubProvider.id,
-          operation: 'github_read_repos'
+          operation: 'github_read_repos',
         })
         .expect(403);
 
@@ -268,7 +270,7 @@ describe('OAuth Flow Integration Tests', () => {
         .send({
           agentId: testAgent.id,
           providerId: githubProvider.id,
-          operation: 'github_admin_delete_repo'  // Not in allowed capabilities
+          operation: 'github_admin_delete_repo', // Not in allowed capabilities
         })
         .expect(403);
 
@@ -296,8 +298,8 @@ describe('OAuth Flow Integration Tests', () => {
           totalRequests: 0,
           requestsThisHour: 0,
           requestsToday: 0,
-          lastReset: new Date()
-        }
+          lastReset: new Date(),
+        },
       });
       await connectionRepo.save(oauthConnection);
     });
@@ -308,7 +310,7 @@ describe('OAuth Flow Integration Tests', () => {
         .send({
           agentId: testAgent.id,
           providerId: githubProvider.id,
-          operation: 'github_read_repos'
+          operation: 'github_read_repos',
         })
         .expect(200);
 
@@ -316,7 +318,8 @@ describe('OAuth Flow Integration Tests', () => {
       expect(response.body).toHaveProperty('tokenRefreshed', true);
 
       // Verify token was updated in database
-      const updatedConnection = await dataSource.getRepository(AgentOAuthConnectionEntity)
+      const updatedConnection = await dataSource
+        .getRepository(AgentOAuthConnectionEntity)
         .findOne({ where: { id: oauthConnection.id } });
 
       expect(updatedConnection?.expiresAt).toBeInstanceOf(Date);
@@ -342,8 +345,8 @@ describe('OAuth Flow Integration Tests', () => {
           totalRequests: 59, // Near rate limit
           requestsThisHour: 59,
           requestsToday: 59,
-          lastReset: new Date()
-        }
+          lastReset: new Date(),
+        },
       });
       await connectionRepo.save(oauthConnection);
     });
@@ -355,7 +358,7 @@ describe('OAuth Flow Integration Tests', () => {
         .send({
           agentId: testAgent.id,
           providerId: githubProvider.id,
-          operation: 'github_read_repos'
+          operation: 'github_read_repos',
         })
         .expect(200);
 
@@ -367,7 +370,7 @@ describe('OAuth Flow Integration Tests', () => {
         .send({
           agentId: testAgent.id,
           providerId: githubProvider.id,
-          operation: 'github_read_repos'
+          operation: 'github_read_repos',
         })
         .expect(429);
 
@@ -381,12 +384,13 @@ describe('OAuth Flow Integration Tests', () => {
         .send({
           agentId: testAgent.id,
           providerId: githubProvider.id,
-          operation: 'github_read_repos'
+          operation: 'github_read_repos',
         })
         .expect(200);
 
       // Verify usage stats were updated
-      const updatedConnection = await dataSource.getRepository(AgentOAuthConnectionEntity)
+      const updatedConnection = await dataSource
+        .getRepository(AgentOAuthConnectionEntity)
         .findOne({ where: { id: oauthConnection.id } });
 
       expect(updatedConnection?.usageStats.totalRequests).toBe(60);
@@ -412,8 +416,8 @@ describe('OAuth Flow Integration Tests', () => {
           totalRequests: 10,
           requestsThisHour: 5,
           requestsToday: 10,
-          lastReset: new Date()
-        }
+          lastReset: new Date(),
+        },
       });
       await connectionRepo.save(connection);
 
@@ -444,8 +448,8 @@ describe('OAuth Flow Integration Tests', () => {
           totalRequests: 0,
           requestsThisHour: 0,
           requestsToday: 0,
-          lastReset: new Date()
-        }
+          lastReset: new Date(),
+        },
       });
       await connectionRepo.save(connection);
 

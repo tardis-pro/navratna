@@ -1,8 +1,21 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { 
-  Database, Search, Filter, TrendingUp, Brain, Network, 
-  FileText, Users, Workflow, MessageSquare, BarChart3,
-  Eye, Download, RefreshCw, Settings, Info
+import {
+  Database,
+  Search,
+  Filter,
+  TrendingUp,
+  Brain,
+  Network,
+  FileText,
+  Users,
+  Workflow,
+  MessageSquare,
+  BarChart3,
+  Eye,
+  Download,
+  RefreshCw,
+  Settings,
+  Info,
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -11,7 +24,13 @@ import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { knowledgeAPI } from '@/api/knowledge.api';
 import { ChatKnowledgeUploader } from './ChatKnowledgeUploader';
 
@@ -103,7 +122,6 @@ export const KnowledgeDashboard: React.FC<KnowledgeDashboardProps> = ({ classNam
       const graphData = await knowledgeAPI.getGraph({ limit: 100 });
       setGraphNodes(graphData.nodes);
       setGraphEdges(graphData.edges);
-
     } catch (err) {
       console.error('Error loading dashboard data:', err);
       setError(err instanceof Error ? err.message : 'Failed to load dashboard data');
@@ -137,17 +155,19 @@ export const KnowledgeDashboard: React.FC<KnowledgeDashboardProps> = ({ classNam
     try {
       const insightsData = await knowledgeAPI.getLearningInsights();
       // Transform insights into expertise profiles for display
-      const profiles: ExpertiseProfile[] = insightsData.progressions.map(progression => ({
+      const profiles: ExpertiseProfile[] = insightsData.progressions.map((progression) => ({
         participant: progression.learner,
-        domains: [{
-          domain: progression.topic,
-          confidence: 0.8,
-          topics: [progression.topic],
-          evidenceCount: progression.progression.length
-        }],
+        domains: [
+          {
+            domain: progression.topic,
+            confidence: 0.8,
+            topics: [progression.topic],
+            evidenceCount: progression.progression.length,
+          },
+        ],
         overallConfidence: 0.8,
         totalInteractions: progression.progression.length,
-        knowledgeAreas: [progression.topic]
+        knowledgeAreas: [progression.topic],
       }));
       setExpertiseProfiles(profiles);
     } catch (err) {
@@ -176,21 +196,24 @@ export const KnowledgeDashboard: React.FC<KnowledgeDashboardProps> = ({ classNam
   }, [activeTab, selectedDomain, loadQAPairs, loadWorkflows, loadLearningInsights]);
 
   // Filter Q&A pairs
-  const filteredQAPairs = qaPairs.filter(qa => 
-    searchQuery === '' || 
-    qa.question.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    qa.answer.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    qa.topic.toLowerCase().includes(searchQuery.toLowerCase())
+  const filteredQAPairs = qaPairs.filter(
+    (qa) =>
+      searchQuery === '' ||
+      qa.question.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      qa.answer.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      qa.topic.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   // Filter workflows
-  const filteredWorkflows = workflows.filter(workflow =>
-    searchQuery === '' ||
-    workflow.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    workflow.steps.some(step => 
-      step.action.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      step.description.toLowerCase().includes(searchQuery.toLowerCase())
-    )
+  const filteredWorkflows = workflows.filter(
+    (workflow) =>
+      searchQuery === '' ||
+      workflow.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      workflow.steps.some(
+        (step) =>
+          step.action.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          step.description.toLowerCase().includes(searchQuery.toLowerCase())
+      )
   );
 
   // Get unique domains from stats
@@ -231,7 +254,12 @@ export const KnowledgeDashboard: React.FC<KnowledgeDashboardProps> = ({ classNam
         <Alert className="border-red-500/50 bg-red-500/10">
           <AlertDescription className="text-red-300">
             {error}
-            <Button variant="ghost" size="sm" onClick={() => setError(null)} className="ml-2 h-auto p-1">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setError(null)}
+              className="ml-2 h-auto p-1"
+            >
               ✕
             </Button>
           </AlertDescription>
@@ -255,7 +283,7 @@ export const KnowledgeDashboard: React.FC<KnowledgeDashboardProps> = ({ classNam
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All Domains</SelectItem>
-            {domains.map(domain => (
+            {domains.map((domain) => (
               <SelectItem key={domain} value={domain}>
                 {domain}
               </SelectItem>
@@ -285,7 +313,9 @@ export const KnowledgeDashboard: React.FC<KnowledgeDashboardProps> = ({ classNam
                     <Database className="w-5 h-5 text-blue-400" />
                     <div>
                       <p className="text-sm text-gray-300">Total Items</p>
-                      <p className="text-2xl font-bold text-white">{stats.totalItems.toLocaleString()}</p>
+                      <p className="text-2xl font-bold text-white">
+                        {stats.totalItems.toLocaleString()}
+                      </p>
                     </div>
                   </div>
                 </CardContent>
@@ -309,7 +339,9 @@ export const KnowledgeDashboard: React.FC<KnowledgeDashboardProps> = ({ classNam
                     <Network className="w-5 h-5 text-purple-400" />
                     <div>
                       <p className="text-sm text-gray-300">Knowledge Types</p>
-                      <p className="text-2xl font-bold text-white">{Object.keys(stats.itemsByType).length}</p>
+                      <p className="text-2xl font-bold text-white">
+                        {Object.keys(stats.itemsByType).length}
+                      </p>
                     </div>
                   </div>
                 </CardContent>
@@ -345,7 +377,9 @@ export const KnowledgeDashboard: React.FC<KnowledgeDashboardProps> = ({ classNam
                     <div key={type} className="space-y-1">
                       <div className="flex justify-between text-sm">
                         <span className="text-gray-300">{type}</span>
-                        <span className="text-white">{count} ({percentage.toFixed(1)}%)</span>
+                        <span className="text-white">
+                          {count} ({percentage.toFixed(1)}%)
+                        </span>
                       </div>
                       <Progress value={percentage} className="h-2" />
                     </div>
@@ -366,11 +400,21 @@ export const KnowledgeDashboard: React.FC<KnowledgeDashboardProps> = ({ classNam
             <CardContent>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <p className="text-sm text-gray-300">Nodes: <span className="text-white font-medium">{graphNodes.length}</span></p>
-                  <p className="text-sm text-gray-300">Edges: <span className="text-white font-medium">{graphEdges.length}</span></p>
-                  <p className="text-sm text-gray-300">Connectivity: <span className="text-white font-medium">
-                    {graphNodes.length > 0 ? ((graphEdges.length / graphNodes.length) * 100).toFixed(1) : 0}%
-                  </span></p>
+                  <p className="text-sm text-gray-300">
+                    Nodes: <span className="text-white font-medium">{graphNodes.length}</span>
+                  </p>
+                  <p className="text-sm text-gray-300">
+                    Edges: <span className="text-white font-medium">{graphEdges.length}</span>
+                  </p>
+                  <p className="text-sm text-gray-300">
+                    Connectivity:{' '}
+                    <span className="text-white font-medium">
+                      {graphNodes.length > 0
+                        ? ((graphEdges.length / graphNodes.length) * 100).toFixed(1)
+                        : 0}
+                      %
+                    </span>
+                  </p>
                 </div>
                 <div className="flex flex-col space-y-2">
                   <Button variant="outline" size="sm" className="justify-start">
@@ -399,7 +443,9 @@ export const KnowledgeDashboard: React.FC<KnowledgeDashboardProps> = ({ classNam
               <MessageSquare className="w-5 h-5 mr-2" />
               Q&A Pairs ({filteredQAPairs.length})
             </h3>
-            <Button onClick={() => loadQAPairs(selectedDomain === 'all' ? undefined : selectedDomain)}>
+            <Button
+              onClick={() => loadQAPairs(selectedDomain === 'all' ? undefined : selectedDomain)}
+            >
               <RefreshCw className="w-4 h-4 mr-2" />
               Generate New Q&A
             </Button>
@@ -412,7 +458,9 @@ export const KnowledgeDashboard: React.FC<KnowledgeDashboardProps> = ({ classNam
                   <div className="space-y-3">
                     <div>
                       <div className="flex items-center justify-between mb-2">
-                        <Badge variant="outline" className="text-xs">{qa.topic}</Badge>
+                        <Badge variant="outline" className="text-xs">
+                          {qa.topic}
+                        </Badge>
                         <Badge variant="secondary" className="text-xs">
                           {(qa.confidence * 100).toFixed(0)}% confidence
                         </Badge>
@@ -476,7 +524,9 @@ export const KnowledgeDashboard: React.FC<KnowledgeDashboardProps> = ({ classNam
                     <ol className="space-y-2">
                       {workflow.steps.map((step, i) => (
                         <li key={i} className="flex items-start space-x-3">
-                          <Badge variant="outline" className="text-xs mt-0.5">{step.order}</Badge>
+                          <Badge variant="outline" className="text-xs mt-0.5">
+                            {step.order}
+                          </Badge>
                           <div>
                             <p className="text-white font-medium">{step.action}</p>
                             <p className="text-gray-400 text-sm">{step.description}</p>
@@ -541,11 +591,14 @@ export const KnowledgeDashboard: React.FC<KnowledgeDashboardProps> = ({ classNam
                           <div key={i} className="space-y-1">
                             <div className="flex justify-between text-sm">
                               <span className="text-white">{domain.domain}</span>
-                              <span className="text-gray-400">{(domain.confidence * 100).toFixed(0)}%</span>
+                              <span className="text-gray-400">
+                                {(domain.confidence * 100).toFixed(0)}%
+                              </span>
                             </div>
                             <Progress value={domain.confidence * 100} className="h-1" />
                             <p className="text-xs text-gray-400">
-                              {domain.evidenceCount} interactions • Topics: {domain.topics.join(', ')}
+                              {domain.evidenceCount} interactions • Topics:{' '}
+                              {domain.topics.join(', ')}
                             </p>
                           </div>
                         ))}
@@ -555,10 +608,12 @@ export const KnowledgeDashboard: React.FC<KnowledgeDashboardProps> = ({ classNam
                       <p className="text-sm text-gray-300 mb-2">Statistics:</p>
                       <div className="space-y-1 text-sm">
                         <p className="text-gray-400">
-                          Total Interactions: <span className="text-white">{profile.totalInteractions}</span>
+                          Total Interactions:{' '}
+                          <span className="text-white">{profile.totalInteractions}</span>
                         </p>
                         <p className="text-gray-400">
-                          Knowledge Areas: <span className="text-white">{profile.knowledgeAreas.length}</span>
+                          Knowledge Areas:{' '}
+                          <span className="text-white">{profile.knowledgeAreas.length}</span>
                         </p>
                       </div>
                     </div>

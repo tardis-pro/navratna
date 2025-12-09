@@ -78,7 +78,7 @@ export class QAGeneratorService {
     // Comparison patterns
     /(.+?)\s+(?:vs|versus|compared to|differs from)\s+(.+)/gi,
     // Causal patterns
-    /(.+?)\s+(?:because|due to|caused by|results in)\s+(.+)/gi
+    /(.+?)\s+(?:because|due to|caused by|results in)\s+(.+)/gi,
   ];
 
   private readonly answerValidationPatterns = [
@@ -87,7 +87,7 @@ export class QAGeneratorService {
     // Has subject and verb
     /\b(?:is|are|was|were|has|have|can|will|would|should|could)\b/gi,
     // Minimum length check (at least 10 characters)
-    /.{10,}/
+    /.{10,}/,
   ];
 
   private generationCache = new Map<string, GeneratedQA[]>();
@@ -109,16 +109,16 @@ export class QAGeneratorService {
     options: QAGenerationOptions = {}
   ): Promise<GeneratedQA[]> {
     const startTime = Date.now();
-    
+
     try {
       logger.info('Starting Q&A generation from knowledge', {
         itemCount: items.length,
-        options
+        options,
       });
 
       // Apply filters
       const filteredItems = this.filterKnowledgeItems(items, options);
-      
+
       if (filteredItems.length === 0) {
         logger.warn('No knowledge items match the criteria');
         return [];
@@ -152,7 +152,7 @@ export class QAGeneratorService {
 
       // Apply confidence threshold
       if (options.minConfidence) {
-        processedQA = processedQA.filter(qa => qa.confidence >= options.minConfidence!);
+        processedQA = processedQA.filter((qa) => qa.confidence >= options.minConfidence!);
       }
 
       // Limit final results
@@ -161,15 +161,14 @@ export class QAGeneratorService {
       }
 
       const processingTime = Date.now() - startTime;
-      
+
       logger.info('Q&A generation completed', {
         generated: processedQA.length,
         processingTime,
-        averageConfidence: this.calculateAverageConfidence(processedQA)
+        averageConfidence: this.calculateAverageConfidence(processedQA),
       });
 
       return processedQA;
-
     } catch (error) {
       logger.error('Q&A generation from knowledge failed', { error: error.message });
       throw new Error(`Q&A generation failed: ${error.message}`);
@@ -184,11 +183,11 @@ export class QAGeneratorService {
     options: QAGenerationOptions = {}
   ): Promise<GeneratedQA[]> {
     const startTime = Date.now();
-    
+
     try {
       logger.info('Starting Q&A generation from conversations', {
         conversationCount: conversations.length,
-        options
+        options,
       });
 
       const qaPairs: GeneratedQA[] = [];
@@ -205,7 +204,7 @@ export class QAGeneratorService {
         } catch (error) {
           logger.warn('Failed to extract Q&A from conversation', {
             conversationId: conversation.id,
-            error: error.message
+            error: error.message,
           });
         }
       }
@@ -223,7 +222,7 @@ export class QAGeneratorService {
 
       // Apply confidence threshold
       if (options.minConfidence) {
-        processedQA = processedQA.filter(qa => qa.confidence >= options.minConfidence!);
+        processedQA = processedQA.filter((qa) => qa.confidence >= options.minConfidence!);
       }
 
       // Limit final results
@@ -232,15 +231,14 @@ export class QAGeneratorService {
       }
 
       const processingTime = Date.now() - startTime;
-      
+
       logger.info('Q&A generation from conversations completed', {
         generated: processedQA.length,
         processingTime,
-        averageConfidence: this.calculateAverageConfidence(processedQA)
+        averageConfidence: this.calculateAverageConfidence(processedQA),
       });
 
       return processedQA;
-
     } catch (error) {
       logger.error('Q&A generation from conversations failed', { error: error.message });
       throw new Error(`Q&A generation failed: ${error.message}`);
@@ -271,7 +269,7 @@ export class QAGeneratorService {
       advanced: [],
       expert: [],
       total: pairs.length,
-      averageConfidence: this.calculateAverageConfidence(pairs)
+      averageConfidence: this.calculateAverageConfidence(pairs),
     };
 
     for (const pair of pairs) {
@@ -290,7 +288,7 @@ export class QAGeneratorService {
       beginner: 0,
       intermediate: 0,
       advanced: 0,
-      expert: 0
+      expert: 0,
     };
     const qualityDistribution = { high: 0, medium: 0, low: 0 };
 
@@ -301,19 +299,19 @@ export class QAGeneratorService {
     for (const pair of pairs) {
       // Count topics
       categoryCounts[pair.topic] = (categoryCounts[pair.topic] || 0) + 1;
-      
+
       // Count difficulty
       difficultyDistribution[pair.difficulty]++;
-      
+
       // Count quality
       if (pair.metadata.qualityScore >= 0.8) qualityDistribution.high++;
       else if (pair.metadata.qualityScore >= 0.6) qualityDistribution.medium++;
       else qualityDistribution.low++;
-      
+
       // Count validation status
       if (pair.metadata.reviewStatus === 'approved') validated++;
       else if (pair.metadata.reviewStatus === 'rejected') rejected++;
-      
+
       totalConfidence += pair.confidence;
     }
 
@@ -325,7 +323,7 @@ export class QAGeneratorService {
       processingTime: 0, // This would be set by the caller
       categoryCounts,
       difficultyDistribution,
-      qualityDistribution
+      qualityDistribution,
     };
   }
 
@@ -346,7 +344,7 @@ export class QAGeneratorService {
       } catch (error) {
         logger.warn('Failed to generate Q&A from item', {
           itemId: item.id,
-          error: error.message
+          error: error.message,
         });
       }
     }
@@ -395,7 +393,7 @@ export class QAGeneratorService {
     // Generate meta-questions if requested
     if (options.includeMetaQuestions) {
       const metaQA = this.generateMetaQuestions(item, sourceType);
-      qaPairs.push(...metaQA.filter(qa => this.meetsQualityThreshold(qa)));
+      qaPairs.push(...metaQA.filter((qa) => this.meetsQualityThreshold(qa)));
     }
 
     return qaPairs;
@@ -480,7 +478,7 @@ export class QAGeneratorService {
       confidence: Math.max(0, Math.min(1, confidence)),
       issues,
       suggestions,
-      qualityScore
+      qualityScore,
     };
   }
 
@@ -494,7 +492,7 @@ export class QAGeneratorService {
     for (const pair of pairs) {
       const normalized = this.normalizeQuestion(pair.question);
       const fingerprint = await this.generateQuestionFingerprint(normalized);
-      
+
       if (!seen.has(fingerprint)) {
         seen.add(fingerprint);
         deduped.push(pair);
@@ -506,7 +504,7 @@ export class QAGeneratorService {
     logger.info('Question deduplication completed', {
       original: pairs.length,
       deduplicated: deduped.length,
-      removed: pairs.length - deduped.length
+      removed: pairs.length - deduped.length,
     });
 
     return deduped;
@@ -520,13 +518,13 @@ export class QAGeneratorService {
 
     for (const pair of pairs) {
       const validation = await this.validateSingleQA(pair);
-      
+
       if (validation.isValid || validation.qualityScore >= 0.5) {
         // Update metadata with validation results
         pair.confidence = validation.confidence;
         pair.metadata.qualityScore = validation.qualityScore;
         pair.metadata.reviewStatus = validation.isValid ? 'approved' : 'pending';
-        
+
         enhanced.push(pair);
       }
     }
@@ -537,14 +535,14 @@ export class QAGeneratorService {
   // Helper methods for content analysis
   private extractFacts(content: string): string[] {
     const facts: string[] = [];
-    const sentences = content.split(/[.!?]+/).filter(s => s.trim().length > 0);
-    
+    const sentences = content.split(/[.!?]+/).filter((s) => s.trim().length > 0);
+
     for (const sentence of sentences) {
       if (this.isFactualStatement(sentence.trim())) {
         facts.push(sentence.trim());
       }
     }
-    
+
     return facts;
   }
 
@@ -553,7 +551,7 @@ export class QAGeneratorService {
     const procedurePatterns = [
       /(?:to|how to|in order to)\s+(.+)/gi,
       /(?:step|first|then|next|finally|lastly)\s+(.+)/gi,
-      /(?:\d+\.|\d+\))\s+(.+)/gi
+      /(?:\d+\.|\d+\))\s+(.+)/gi,
     ];
 
     for (const pattern of procedurePatterns) {
@@ -566,12 +564,9 @@ export class QAGeneratorService {
     return procedures;
   }
 
-  private extractDefinitions(content: string): Array<{term: string, definition: string}> {
-    const definitions: Array<{term: string, definition: string}> = [];
-    const definitionPatterns = [
-      /(.+?)\s+(?:is|are|means|refers to)\s+(.+)/gi,
-      /(.+?):\s*(.+)/gi
-    ];
+  private extractDefinitions(content: string): Array<{ term: string; definition: string }> {
+    const definitions: Array<{ term: string; definition: string }> = [];
+    const definitionPatterns = [/(.+?)\s+(?:is|are|means|refers to)\s+(.+)/gi, /(.+?):\s*(.+)/gi];
 
     for (const pattern of definitionPatterns) {
       let match;
@@ -579,7 +574,7 @@ export class QAGeneratorService {
         if (match[1] && match[2] && match[1].trim().length > 0 && match[2].trim().length > 0) {
           definitions.push({
             term: match[1].trim(),
-            definition: match[2].trim()
+            definition: match[2].trim(),
           });
         }
       }
@@ -591,9 +586,9 @@ export class QAGeneratorService {
   // Q&A generation methods
   private generateFactualQA(fact: string, item: any, sourceType: string): GeneratedQA | null {
     const patterns = [
-      { pattern: /(.+?)\s+(?:is|are)\s+(.+)/, questionTemplate: "What is {0}?" },
-      { pattern: /(.+?)\s+(?:has|have)\s+(.+)/, questionTemplate: "What does {0} have?" },
-      { pattern: /(.+?)\s+(?:can|could)\s+(.+)/, questionTemplate: "What can {0} do?" }
+      { pattern: /(.+?)\s+(?:is|are)\s+(.+)/, questionTemplate: 'What is {0}?' },
+      { pattern: /(.+?)\s+(?:has|have)\s+(.+)/, questionTemplate: 'What does {0} have?' },
+      { pattern: /(.+?)\s+(?:can|could)\s+(.+)/, questionTemplate: 'What can {0} do?' },
     ];
 
     for (const { pattern, questionTemplate } of patterns) {
@@ -601,7 +596,7 @@ export class QAGeneratorService {
       if (match) {
         const question = questionTemplate.replace('{0}', match[1].trim());
         const answer = fact;
-        
+
         return this.createQAObject(question, answer, item, sourceType, 'factual');
       }
     }
@@ -609,33 +604,47 @@ export class QAGeneratorService {
     return null;
   }
 
-  private generateProceduralQA(procedure: string, item: any, sourceType: string): GeneratedQA | null {
+  private generateProceduralQA(
+    procedure: string,
+    item: any,
+    sourceType: string
+  ): GeneratedQA | null {
     const howToPattern = /(?:to|how to)\s+(.+)/gi;
     const match = procedure.match(howToPattern);
-    
+
     if (match) {
       const question = `How do you ${match[1].trim()}?`;
       const answer = procedure;
-      
+
       return this.createQAObject(question, answer, item, sourceType, 'procedural');
     }
 
     return null;
   }
 
-  private generateDefinitionQA(definition: {term: string, definition: string}, item: any, sourceType: string): GeneratedQA | null {
+  private generateDefinitionQA(
+    definition: { term: string; definition: string },
+    item: any,
+    sourceType: string
+  ): GeneratedQA | null {
     const question = `What is ${definition.term}?`;
     const answer = definition.definition;
-    
+
     return this.createQAObject(question, answer, item, sourceType, 'definition');
   }
 
   private generateMetaQuestions(item: any, sourceType: string): GeneratedQA[] {
     const metaQAs: GeneratedQA[] = [];
     const templates = [
-      { question: "What is the main topic of this information?", answer: item.metadata?.topic || "General knowledge" },
-      { question: "When was this information created?", answer: new Date(item.createdAt || Date.now()).toISOString() },
-      { question: "What is the source of this information?", answer: item.source || "Unknown" }
+      {
+        question: 'What is the main topic of this information?',
+        answer: item.metadata?.topic || 'General knowledge',
+      },
+      {
+        question: 'When was this information created?',
+        answer: new Date(item.createdAt || Date.now()).toISOString(),
+      },
+      { question: 'What is the source of this information?', answer: item.source || 'Unknown' },
     ];
 
     for (const template of templates) {
@@ -648,10 +657,14 @@ export class QAGeneratorService {
     return metaQAs;
   }
 
-  private createQAFromMessages(questionMsg: any, answerMsg: any, conversation: ParsedConversation): GeneratedQA | null {
+  private createQAFromMessages(
+    questionMsg: any,
+    answerMsg: any,
+    conversation: ParsedConversation
+  ): GeneratedQA | null {
     const question = this.cleanQuestion(questionMsg.content);
     const answer = this.cleanAnswer(answerMsg.content);
-    
+
     if (!question || !answer) return null;
 
     return {
@@ -669,15 +682,19 @@ export class QAGeneratorService {
         method: 'conversation_extraction',
         sourceIds: [questionMsg.id, answerMsg.id],
         reviewStatus: 'pending',
-        qualityScore: 0.8
-      }
+        qualityScore: 0.8,
+      },
     };
   }
 
-  private createExplanationQA(requestMsg: any, explanationMsg: any, conversation: ParsedConversation): GeneratedQA | null {
+  private createExplanationQA(
+    requestMsg: any,
+    explanationMsg: any,
+    conversation: ParsedConversation
+  ): GeneratedQA | null {
     const question = this.extractExplanationQuestion(requestMsg.content);
     const answer = explanationMsg.content;
-    
+
     if (!question || !answer) return null;
 
     return {
@@ -695,12 +712,18 @@ export class QAGeneratorService {
         method: 'explanation_extraction',
         sourceIds: [requestMsg.id, explanationMsg.id],
         reviewStatus: 'pending',
-        qualityScore: 0.75
-      }
+        qualityScore: 0.75,
+      },
     };
   }
 
-  private createQAObject(question: string, answer: string, item: any, sourceType: string, method: string): GeneratedQA | null {
+  private createQAObject(
+    question: string,
+    answer: string,
+    item: any,
+    sourceType: string,
+    method: string
+  ): GeneratedQA | null {
     if (!question || !answer) return null;
 
     return {
@@ -718,14 +741,14 @@ export class QAGeneratorService {
         method,
         sourceIds: [item.id].filter(Boolean),
         reviewStatus: 'pending',
-        qualityScore: this.calculateInitialQuality(question, answer)
-      }
+        qualityScore: this.calculateInitialQuality(question, answer),
+      },
     };
   }
 
   // Utility and validation methods
   private filterKnowledgeItems(items: any[], options: QAGenerationOptions): any[] {
-    return items.filter(item => {
+    return items.filter((item) => {
       if (options.categories && !options.categories.includes(item.category)) {
         return false;
       }
@@ -734,8 +757,11 @@ export class QAGeneratorService {
   }
 
   private isQuestion(text: string): boolean {
-    return /^(what|how|why|when|where|who|which|can|could|would|should|is|are|do|does|did)\b/i.test(text.trim()) || 
-           text.trim().endsWith('?');
+    return (
+      /^(what|how|why|when|where|who|which|can|could|would|should|is|are|do|does|did)\b/i.test(
+        text.trim()
+      ) || text.trim().endsWith('?')
+    );
   }
 
   private isAnswer(text: string): boolean {
@@ -747,27 +773,34 @@ export class QAGeneratorService {
   }
 
   private isFactualStatement(sentence: string): boolean {
-    return /\b(?:is|are|was|were|has|have|can|will|would|should|could)\b/i.test(sentence) &&
-           sentence.length > 10 &&
-           !this.isQuestion(sentence);
+    return (
+      /\b(?:is|are|was|were|has|have|can|will|would|should|could)\b/i.test(sentence) &&
+      sentence.length > 10 &&
+      !this.isQuestion(sentence)
+    );
   }
 
   private isValidQuestion(question: string): boolean {
-    return question.length >= 5 && 
-           (question.endsWith('?') || this.isQuestion(question)) &&
-           /\b(?:what|how|why|when|where|who|which)\b/i.test(question);
+    return (
+      question.length >= 5 &&
+      (question.endsWith('?') || this.isQuestion(question)) &&
+      /\b(?:what|how|why|when|where|who|which)\b/i.test(question)
+    );
   }
 
   private isValidAnswer(answer: string): boolean {
-    return answer.length >= 10 && 
-           this.answerValidationPatterns.some(pattern => pattern.test(answer));
+    return (
+      answer.length >= 10 && this.answerValidationPatterns.some((pattern) => pattern.test(answer))
+    );
   }
 
   private meetsQualityThreshold(qa: GeneratedQA): boolean {
-    return qa.confidence >= 0.5 && 
-           qa.metadata.qualityScore >= 0.5 &&
-           qa.question.length >= 5 &&
-           qa.answer.length >= 10;
+    return (
+      qa.confidence >= 0.5 &&
+      qa.metadata.qualityScore >= 0.5 &&
+      qa.question.length >= 5 &&
+      qa.answer.length >= 10
+    );
   }
 
   private findExplanation(messages: any[], startIndex: number): any | null {
@@ -780,32 +813,84 @@ export class QAGeneratorService {
   }
 
   private cleanQuestion(question: string): string {
-    return question.trim()
-      .replace(/^[^\w]+/, '')
-      .replace(/[^\w\s?]+$/, '')
-      + (question.endsWith('?') ? '' : '?');
+    return (
+      question
+        .trim()
+        .replace(/^[^\w]+/, '')
+        .replace(/[^\w\s?]+$/, '') + (question.endsWith('?') ? '' : '?')
+    );
   }
 
   private cleanAnswer(answer: string): string {
-    return answer.trim()
+    return answer
+      .trim()
       .replace(/^[^\w]+/, '')
       .replace(/[^\w\s.!]+$/, '');
   }
 
   private extractTopic(text: string): string {
     // Simple topic extraction - in production, use ML-based topic modeling
-    const words = text.toLowerCase().split(/\W+/).filter(w => w.length > 3);
-    const commonWords = new Set(['what', 'how', 'why', 'when', 'where', 'who', 'which', 'that', 'this', 'with', 'from', 'they', 'them', 'their', 'have', 'been', 'were', 'said', 'each', 'more', 'some', 'like', 'into', 'time', 'very', 'then', 'than', 'only', 'come', 'over', 'just', 'also']);
-    
-    const keywords = words.filter(w => !commonWords.has(w));
+    const words = text
+      .toLowerCase()
+      .split(/\W+/)
+      .filter((w) => w.length > 3);
+    const commonWords = new Set([
+      'what',
+      'how',
+      'why',
+      'when',
+      'where',
+      'who',
+      'which',
+      'that',
+      'this',
+      'with',
+      'from',
+      'they',
+      'them',
+      'their',
+      'have',
+      'been',
+      'were',
+      'said',
+      'each',
+      'more',
+      'some',
+      'like',
+      'into',
+      'time',
+      'very',
+      'then',
+      'than',
+      'only',
+      'come',
+      'over',
+      'just',
+      'also',
+    ]);
+
+    const keywords = words.filter((w) => !commonWords.has(w));
     return keywords[0] || 'general';
   }
 
   private extractTags(text: string): string[] {
-    const words = text.toLowerCase().split(/\W+/).filter(w => w.length > 3);
-    const commonWords = new Set(['what', 'how', 'why', 'when', 'where', 'who', 'which', 'that', 'this']);
-    
-    return [...new Set(words.filter(w => !commonWords.has(w)))].slice(0, 5);
+    const words = text
+      .toLowerCase()
+      .split(/\W+/)
+      .filter((w) => w.length > 3);
+    const commonWords = new Set([
+      'what',
+      'how',
+      'why',
+      'when',
+      'where',
+      'who',
+      'which',
+      'that',
+      'this',
+    ]);
+
+    return [...new Set(words.filter((w) => !commonWords.has(w)))].slice(0, 5);
   }
 
   private extractExplanationQuestion(text: string): string {
@@ -813,7 +898,7 @@ export class QAGeneratorService {
       /explain (.+)/i,
       /tell me (?:more )?about (.+)/i,
       /what (?:is|are) (.+)/i,
-      /how (?:does|do) (.+)/i
+      /how (?:does|do) (.+)/i,
     ];
 
     for (const pattern of explanationPatterns) {
@@ -826,9 +911,12 @@ export class QAGeneratorService {
     return text.endsWith('?') ? text : text + '?';
   }
 
-  private assessDifficulty(question: string, answer: string): 'beginner' | 'intermediate' | 'advanced' | 'expert' {
+  private assessDifficulty(
+    question: string,
+    answer: string
+  ): 'beginner' | 'intermediate' | 'advanced' | 'expert' {
     const complexity = this.calculateComplexity(question, answer);
-    
+
     if (complexity < 0.3) return 'beginner';
     if (complexity < 0.6) return 'intermediate';
     if (complexity < 0.8) return 'advanced';
@@ -839,11 +927,11 @@ export class QAGeneratorService {
     const questionLength = question.split(/\s+/).length;
     const answerLength = answer.split(/\s+/).length;
     const technicalTerms = this.countTechnicalTerms(question + ' ' + answer);
-    
+
     // Normalize and combine factors
     const lengthScore = Math.min(1, (questionLength + answerLength) / 50);
     const technicalScore = Math.min(1, technicalTerms / 5);
-    
+
     return (lengthScore + technicalScore) / 2;
   }
 
@@ -851,51 +939,51 @@ export class QAGeneratorService {
     const technicalPatterns = [
       /\b[A-Z]{2,}\b/g, // Acronyms
       /\b\w*(?:tion|sion|ment|ness|ity|ism)\b/g, // Complex suffixes
-      /\b(?:implement|configure|initialize|optimize|algorithm|architecture|infrastructure)\b/gi // Technical words
+      /\b(?:implement|configure|initialize|optimize|algorithm|architecture|infrastructure)\b/gi, // Technical words
     ];
-    
+
     let count = 0;
     for (const pattern of technicalPatterns) {
       const matches = text.match(pattern);
       if (matches) count += matches.length;
     }
-    
+
     return count;
   }
 
   private calculateInitialConfidence(question: string, answer: string, method: string): number {
     let confidence = 0.7; // Base confidence
-    
+
     // Adjust based on method
     const methodBonuses = {
-      'factual': 0.1,
-      'procedural': 0.05,
-      'definition': 0.15,
-      'conversation_extraction': 0.1,
-      'explanation_extraction': 0.05,
-      'meta': -0.1
+      factual: 0.1,
+      procedural: 0.05,
+      definition: 0.15,
+      conversation_extraction: 0.1,
+      explanation_extraction: 0.05,
+      meta: -0.1,
     };
-    
+
     confidence += methodBonuses[method] || 0;
-    
+
     // Adjust based on content quality
     if (this.isValidQuestion(question)) confidence += 0.1;
     if (this.isValidAnswer(answer)) confidence += 0.1;
-    
+
     return Math.max(0, Math.min(1, confidence));
   }
 
   private calculateInitialQuality(question: string, answer: string): number {
     let quality = 0.6; // Base quality
-    
+
     // Check question quality
     if (this.isValidQuestion(question)) quality += 0.2;
     if (question.length > 10) quality += 0.1;
-    
+
     // Check answer quality
     if (this.isValidAnswer(answer)) quality += 0.2;
     if (answer.length > 50) quality += 0.1;
-    
+
     return Math.max(0, Math.min(1, quality));
   }
 
@@ -903,12 +991,22 @@ export class QAGeneratorService {
     try {
       // In production, use semantic similarity with embeddings
       // For now, use simple keyword overlap
-      const questionWords = new Set(question.toLowerCase().split(/\W+/).filter(w => w.length > 2));
-      const answerWords = new Set(answer.toLowerCase().split(/\W+/).filter(w => w.length > 2));
-      
-      const intersection = new Set([...questionWords].filter(w => answerWords.has(w)));
+      const questionWords = new Set(
+        question
+          .toLowerCase()
+          .split(/\W+/)
+          .filter((w) => w.length > 2)
+      );
+      const answerWords = new Set(
+        answer
+          .toLowerCase()
+          .split(/\W+/)
+          .filter((w) => w.length > 2)
+      );
+
+      const intersection = new Set([...questionWords].filter((w) => answerWords.has(w)));
       const union = new Set([...questionWords, ...answerWords]);
-      
+
       return intersection.size / union.size;
     } catch (error) {
       logger.warn('Failed to calculate relevance', { error: error.message });
@@ -918,25 +1016,26 @@ export class QAGeneratorService {
 
   private calculateQualityScore(pair: GeneratedQA, relevanceScore: number): number {
     let score = 0;
-    
+
     // Question quality (30%)
     if (this.isValidQuestion(pair.question)) score += 0.15;
     if (pair.question.length > 10) score += 0.1;
     if (pair.question.length > 20) score += 0.05;
-    
+
     // Answer quality (40%)
     if (this.isValidAnswer(pair.answer)) score += 0.2;
     if (pair.answer.length > 50) score += 0.1;
     if (pair.answer.length > 100) score += 0.1;
-    
+
     // Relevance (30%)
     score += relevanceScore * 0.3;
-    
+
     return Math.max(0, Math.min(1, score));
   }
 
   private normalizeQuestion(question: string): string {
-    return question.toLowerCase()
+    return question
+      .toLowerCase()
       .replace(/[^\w\s]/g, ' ')
       .replace(/\s+/g, ' ')
       .trim();

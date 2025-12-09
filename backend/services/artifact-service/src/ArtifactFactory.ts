@@ -1,24 +1,24 @@
 // Main Artifact Factory - Core orchestration service
 // Epic 4 Implementation
 
-import { 
-  Artifact, 
-  ArtifactConversationContext, 
-  OperationResult, 
+import {
+  Artifact,
+  ArtifactConversationContext,
+  OperationResult,
   Participant,
   ValidationStatus,
   ValidationResult as SharedValidationResult,
   ValidationError,
-  ValidationWarning
+  ValidationWarning,
 } from '@uaip/types';
 
 import { logger } from '@uaip/utils';
 
-import { 
-  ArtifactGenerator, 
-  ArtifactValidator, 
+import {
+  ArtifactGenerator,
+  ArtifactValidator,
   SecurityManager,
-  ConversationAnalyzer 
+  ConversationAnalyzer,
 } from './interfaces';
 
 import { ConversationAnalyzerImpl } from './analysis/ConversationAnalyzer.js';
@@ -92,10 +92,10 @@ export class ArtifactFactory {
       new CodeGenerator(),
       new TestGenerator(),
       new PRDGenerator(),
-      new DocumentationGenerator()
+      new DocumentationGenerator(),
     ];
 
-    generators.forEach(generator => {
+    generators.forEach((generator) => {
       this.generators.set(generator.getSupportedType(), generator);
     });
   }
@@ -120,19 +120,19 @@ export class ArtifactFactory {
   private mapValidationResult(localResult: LocalValidationResult): SharedValidationResult {
     // Convert ValidationIssues to ValidationErrors and ValidationWarnings
     const errors: ValidationError[] = localResult.errors
-      .filter(issue => issue.severity === 'error' || issue.severity === 'warning')
-      .map(issue => ({
+      .filter((issue) => issue.severity === 'error' || issue.severity === 'warning')
+      .map((issue) => ({
         code: issue.code,
         message: issue.message,
-        severity: issue.severity as 'error' | 'warning'
+        severity: issue.severity as 'error' | 'warning',
       }));
 
     const warnings: ValidationWarning[] = localResult.warnings
-      .filter(issue => issue.severity === 'warning')
-      .map(issue => ({
+      .filter((issue) => issue.severity === 'warning')
+      .map((issue) => ({
         code: issue.code,
         message: issue.message,
-        severity: 'warning' as const
+        severity: 'warning' as const,
       }));
 
     return {
@@ -141,7 +141,7 @@ export class ArtifactFactory {
       errors,
       warnings,
       suggestions: localResult.suggestions,
-      score: localResult.score
+      score: localResult.score,
     };
   }
 
@@ -149,27 +149,25 @@ export class ArtifactFactory {
    * Main artifact generation method
    */
   public async generateArtifact(
-    type: string, 
+    type: string,
     context: ArtifactConversationContext
   ): Promise<ArtifactResult> {
     try {
-      logger.info('Starting artifact generation', { 
-        type, 
-        conversationId: context.conversationId 
+      logger.info('Starting artifact generation', {
+        type,
+        conversationId: context.conversationId,
       });
 
       // 1. Security validation
-      const isSecure = await this.securityManager.validateContent(
-        JSON.stringify(context)
-      );
-      
+      const isSecure = await this.securityManager.validateContent(JSON.stringify(context));
+
       if (!isSecure) {
         return {
           success: false,
           error: {
             code: 'SECURITY_VIOLATION',
-            message: 'Content failed security validation'
-          }
+            message: 'Content failed security validation',
+          },
         };
       }
 
@@ -180,8 +178,8 @@ export class ArtifactFactory {
           success: false,
           error: {
             code: 'UNSUPPORTED_TYPE',
-            message: `No generator available for type: ${type}`
-          }
+            message: `No generator available for type: ${type}`,
+          },
         };
       }
 
@@ -191,8 +189,8 @@ export class ArtifactFactory {
           success: false,
           error: {
             code: 'CONTEXT_INCOMPATIBLE',
-            message: `Generator cannot handle the provided context`
-          }
+            message: `Generator cannot handle the provided context`,
+          },
         };
       }
 
@@ -211,35 +209,34 @@ export class ArtifactFactory {
           title: `Generated ${type}`,
           description: `Auto-generated ${type} artifact`,
           estimatedEffort: 'medium',
-          tags: [type, 'auto-generated']
+          tags: [type, 'auto-generated'],
         },
-        validation: this.mapValidationResult(validation)
+        validation: this.mapValidationResult(validation),
       };
 
-      logger.info('Artifact generation completed', { 
-        type, 
+      logger.info('Artifact generation completed', {
+        type,
         conversationId: context.conversationId,
-        validationStatus: validation.status
+        validationStatus: validation.status,
       });
 
       return {
         success: true,
-        data: artifact
+        data: artifact,
       };
-
     } catch (error) {
-      logger.error('Artifact generation failed', { 
-        type, 
-        conversationId: context.conversationId, 
-        error 
+      logger.error('Artifact generation failed', {
+        type,
+        conversationId: context.conversationId,
+        error,
       });
 
       return {
         success: false,
         error: {
           code: 'GENERATION_FAILED',
-          message: error instanceof Error ? error.message : 'Unknown error'
-        }
+          message: error instanceof Error ? error.message : 'Unknown error',
+        },
       };
     }
   }
@@ -247,9 +244,7 @@ export class ArtifactFactory {
   /**
    * Analyze conversation for generation opportunities
    */
-  public async analyzeConversation(
-    context: ArtifactConversationContext
-  ): Promise<AnalysisResult> {
+  public async analyzeConversation(context: ArtifactConversationContext): Promise<AnalysisResult> {
     try {
       const analysis = await this.conversationAnalyzer.analyzeConversation(context);
       const triggers = await this.conversationAnalyzer.detectGenerationTriggers(context);
@@ -260,22 +255,21 @@ export class ArtifactFactory {
         data: {
           summary: analysis,
           triggers,
-          requirements
-        }
+          requirements,
+        },
       };
-
     } catch (error) {
-      logger.error('Conversation analysis failed', { 
-        conversationId: context.conversationId, 
-        error 
+      logger.error('Conversation analysis failed', {
+        conversationId: context.conversationId,
+        error,
       });
 
       return {
         success: false,
         error: {
           code: 'ANALYSIS_FAILED',
-          message: error instanceof Error ? error.message : 'Unknown error'
-        }
+          message: error instanceof Error ? error.message : 'Unknown error',
+        },
       };
     }
   }
@@ -303,7 +297,7 @@ export class ArtifactFactory {
     return {
       available: true,
       canHandleContext: generator.canHandle.bind(generator),
-      getSupportedType: generator.getSupportedType.bind(generator)
+      getSupportedType: generator.getSupportedType.bind(generator),
     };
   }
 
@@ -322,26 +316,25 @@ export class ArtifactFactory {
         data: {
           triggers,
           requirements,
-          suggestedArtifacts: triggers.map(t => ({
+          suggestedArtifacts: triggers.map((t) => ({
             type: t.artifactType,
             confidence: t.confidence,
-            reason: t.context
-          }))
-        }
+            reason: t.context,
+          })),
+        },
       };
-
     } catch (error) {
-      logger.error('Conversation insights failed', { 
-        conversationId: context.conversationId, 
-        error 
+      logger.error('Conversation insights failed', {
+        conversationId: context.conversationId,
+        error,
       });
 
       return {
         success: false,
         error: {
           code: 'INSIGHTS_FAILED',
-          message: error instanceof Error ? error.message : 'Unknown error'
-        }
+          message: error instanceof Error ? error.message : 'Unknown error',
+        },
       };
     }
   }
@@ -364,11 +357,11 @@ export class ArtifactFactory {
       services: {
         validator: !!this.validator,
         securityManager: !!this.securityManager,
-        conversationAnalyzer: !!this.conversationAnalyzer
-      }
+        conversationAnalyzer: !!this.conversationAnalyzer,
+      },
     };
   }
 }
 
 // Export singleton instance
-export const artifactFactory = new ArtifactFactory(); 
+export const artifactFactory = new ArtifactFactory();

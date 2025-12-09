@@ -7,10 +7,31 @@ import { Sparkles, Zap, Brain, Activity, Search } from 'lucide-react';
 
 // --- Global Action Search Bar ---
 const GLOBAL_ACTIONS = [
-  { label: 'Open Agent Hub', action: () => window.dispatchEvent(new CustomEvent('launchPortal', { detail: { portalType: 'agent-hub' } })) },
-  { label: 'Open Discussion Hub', action: () => window.dispatchEvent(new CustomEvent('launchPortal', { detail: { portalType: 'discussion-hub' } })) },
-  { label: 'Open Intelligence Hub', action: () => window.dispatchEvent(new CustomEvent('launchPortal', { detail: { portalType: 'intelligence-hub' } })) },
-  { label: 'Close All Portals', action: () => window.dispatchEvent(new CustomEvent('closeAllPortals')) },
+  {
+    label: 'Open Agent Hub',
+    action: () =>
+      window.dispatchEvent(
+        new CustomEvent('launchPortal', { detail: { portalType: 'agent-hub' } })
+      ),
+  },
+  {
+    label: 'Open Discussion Hub',
+    action: () =>
+      window.dispatchEvent(
+        new CustomEvent('launchPortal', { detail: { portalType: 'discussion-hub' } })
+      ),
+  },
+  {
+    label: 'Open Intelligence Hub',
+    action: () =>
+      window.dispatchEvent(
+        new CustomEvent('launchPortal', { detail: { portalType: 'intelligence-hub' } })
+      ),
+  },
+  {
+    label: 'Close All Portals',
+    action: () => window.dispatchEvent(new CustomEvent('closeAllPortals')),
+  },
   { label: 'Help', action: () => alert('Show help overlay (placeholder)') },
 ];
 
@@ -19,7 +40,9 @@ const GlobalActionSearchBar: React.FC = () => {
   const [query, setQuery] = useState('');
   const [highlight, setHighlight] = useState(0);
   const inputRef = React.useRef<HTMLInputElement>(null);
-  const filtered = GLOBAL_ACTIONS.filter(a => a.label.toLowerCase().includes(query.toLowerCase()));
+  const filtered = GLOBAL_ACTIONS.filter((a) =>
+    a.label.toLowerCase().includes(query.toLowerCase())
+  );
 
   // Keyboard shortcut
   useEffect(() => {
@@ -32,10 +55,10 @@ const GlobalActionSearchBar: React.FC = () => {
       if (open) {
         if (e.key === 'ArrowDown') {
           e.preventDefault();
-          setHighlight(h => Math.min(h + 1, filtered.length - 1));
+          setHighlight((h) => Math.min(h + 1, filtered.length - 1));
         } else if (e.key === 'ArrowUp') {
           e.preventDefault();
-          setHighlight(h => Math.max(h - 1, 0));
+          setHighlight((h) => Math.max(h - 1, 0));
         } else if (e.key === 'Enter') {
           e.preventDefault();
           if (filtered[highlight]) {
@@ -72,7 +95,9 @@ const GlobalActionSearchBar: React.FC = () => {
         >
           <Search className="w-5 h-5 text-blue-400" />
           <span className="flex-1 text-left text-sm opacity-80">Search actions...</span>
-          <span className="ml-2 text-xs bg-slate-800/80 px-2 py-1 rounded font-mono text-slate-400 border border-slate-700/60">⌘K</span>
+          <span className="ml-2 text-xs bg-slate-800/80 px-2 py-1 rounded font-mono text-slate-400 border border-slate-700/60">
+            ⌘K
+          </span>
         </button>
       </div>
       <AnimatePresence>
@@ -89,7 +114,7 @@ const GlobalActionSearchBar: React.FC = () => {
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.95, opacity: 0 }}
               className="mt-32 w-full max-w-lg bg-slate-900/95 border border-slate-700/70 rounded-2xl shadow-2xl p-6 pointer-events-auto"
-              onClick={e => e.stopPropagation()}
+              onClick={(e) => e.stopPropagation()}
             >
               <div className="flex items-center gap-2 mb-4">
                 <Search className="w-5 h-5 text-blue-400" />
@@ -98,7 +123,10 @@ const GlobalActionSearchBar: React.FC = () => {
                   className="flex-1 bg-transparent outline-none text-slate-200 text-lg placeholder:text-slate-500"
                   placeholder="Type an action..."
                   value={query}
-                  onChange={e => { setQuery(e.target.value); setHighlight(0); }}
+                  onChange={(e) => {
+                    setQuery(e.target.value);
+                    setHighlight(0);
+                  }}
                 />
               </div>
               <div className="divide-y divide-slate-700/60">
@@ -109,7 +137,10 @@ const GlobalActionSearchBar: React.FC = () => {
                   <button
                     key={a.label}
                     className={`w-full text-left px-3 py-3 rounded-lg flex items-center gap-2 transition-all duration-150 ${i === highlight ? 'bg-blue-600/20 text-blue-200' : 'hover:bg-slate-800/80 text-slate-300'}`}
-                    onClick={() => { a.action(); setOpen(false); }}
+                    onClick={() => {
+                      a.action();
+                      setOpen(false);
+                    }}
                     onMouseEnter={() => setHighlight(i)}
                   >
                     {a.label}
@@ -148,18 +179,18 @@ export const PortalDemo: React.FC = () => {
         >
           <motion.div
             className="w-20 h-20 mx-auto mb-8 bg-gradient-to-r from-blue-500 via-purple-500 to-cyan-500 rounded-2xl flex items-center justify-center"
-            animate={{ 
+            animate={{
               rotate: [0, 360],
-              scale: [1, 1.1, 1]
+              scale: [1, 1.1, 1],
             }}
-            transition={{ 
-              rotate: { duration: 2, repeat: Infinity, ease: "linear" },
-              scale: { duration: 1, repeat: Infinity }
+            transition={{
+              rotate: { duration: 2, repeat: Infinity, ease: 'linear' },
+              scale: { duration: 1, repeat: Infinity },
             }}
           >
             <Sparkles className="w-10 h-10 text-white" />
           </motion.div>
-          
+
           <motion.h1
             className="text-4xl font-bold bg-gradient-to-r from-blue-400 via-purple-400 to-cyan-400 bg-clip-text text-transparent mb-4"
             animate={{ opacity: [0.5, 1, 0.5] }}
@@ -167,9 +198,9 @@ export const PortalDemo: React.FC = () => {
           >
             Initializing Portal System
           </motion.h1>
-          
+
           <motion.div className="flex items-center justify-center gap-4 text-slate-400">
-            <motion.div 
+            <motion.div
               className="flex items-center gap-2"
               animate={{ opacity: [0.3, 1, 0.3] }}
               transition={{ duration: 1.5, repeat: Infinity, delay: 0 }}
@@ -177,7 +208,7 @@ export const PortalDemo: React.FC = () => {
               <Brain className="w-5 h-5" />
               <span>AI Intelligence</span>
             </motion.div>
-            <motion.div 
+            <motion.div
               className="flex items-center gap-2"
               animate={{ opacity: [0.3, 1, 0.3] }}
               transition={{ duration: 1.5, repeat: Infinity, delay: 0.5 }}
@@ -185,7 +216,7 @@ export const PortalDemo: React.FC = () => {
               <Zap className="w-5 h-5" />
               <span>Agent Spawner</span>
             </motion.div>
-            <motion.div 
+            <motion.div
               className="flex items-center gap-2"
               animate={{ opacity: [0.3, 1, 0.3] }}
               transition={{ duration: 1.5, repeat: Infinity, delay: 1 }}
@@ -226,8 +257,8 @@ export const PortalDemo: React.FC = () => {
               >
                 <motion.div
                   className="text-6xl font-bold bg-gradient-to-r from-green-400 via-blue-500 to-purple-600 bg-clip-text text-transparent mb-4"
-                  animate={{ 
-                    backgroundPosition: ['0%', '100%', '0%']
+                  animate={{
+                    backgroundPosition: ['0%', '100%', '0%'],
                   }}
                   transition={{ duration: 3, repeat: Infinity }}
                 >
@@ -277,7 +308,7 @@ export const PortalDemo: React.FC = () => {
                   <span>Use corner handles to resize</span>
                 </div>
               </div>
-              
+
               <motion.button
                 onClick={() => {
                   // Auto-spawn a demo configuration
@@ -296,4 +327,4 @@ export const PortalDemo: React.FC = () => {
       </DiscussionProvider>
     </AgentProvider>
   );
-}; 
+};

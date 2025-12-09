@@ -9,6 +9,7 @@ The UAIP uses a hybrid database approach combining PostgreSQL for relational dat
 ### Core Schema
 
 #### Users and Authentication
+
 ```sql
 CREATE TABLE users (
   id UUID PRIMARY KEY,
@@ -29,6 +30,7 @@ CREATE TABLE sessions (
 ```
 
 #### Operations and Execution
+
 ```sql
 CREATE TABLE operations (
   id UUID PRIMARY KEY,
@@ -54,6 +56,7 @@ CREATE TABLE execution_steps (
 ```
 
 #### Audit and Logging
+
 ```sql
 CREATE TABLE audit_logs (
   id UUID PRIMARY KEY,
@@ -67,6 +70,7 @@ CREATE TABLE audit_logs (
 ```
 
 ### Indexes and Performance
+
 ```sql
 -- User lookups
 CREATE INDEX idx_users_email ON users(email);
@@ -86,6 +90,7 @@ CREATE INDEX idx_audit_user ON audit_logs(user_id);
 ### Graph Model
 
 #### Agent Relationships
+
 ```cypher
 CREATE (a:Agent {
   id: string,
@@ -107,6 +112,7 @@ CREATE (a:Agent)-[:PARTICIPATES_IN]->(d:Discussion {
 ```
 
 #### Knowledge Graph
+
 ```cypher
 CREATE (c:Concept {
   id: string,
@@ -125,6 +131,7 @@ CREATE (c:Concept)-[:APPEARS_IN]->(d:Discussion);
 ### Query Patterns
 
 #### Agent Capability Discovery
+
 ```cypher
 MATCH (a:Agent)-[:CAN_USE]->(t:Tool)
 WHERE a.id = $agentId
@@ -136,6 +143,7 @@ RETURN a.id, d.id, d.title;
 ```
 
 #### Knowledge Navigation
+
 ```cypher
 MATCH (c:Concept)-[r:RELATES_TO]->(c2:Concept)
 WHERE c.id = $conceptId
@@ -149,34 +157,37 @@ LIMIT 10;
 ### Data Structures
 
 #### Session Management
+
 ```typescript
 interface SessionCache {
-  key: `session:${string}`;  // session:userId
+  key: `session:${string}`; // session:userId
   value: {
     token: string;
     userData: object;
     permissions: string[];
   };
-  expiry: number;  // TTL in seconds
+  expiry: number; // TTL in seconds
 }
 ```
 
 #### Real-time State
+
 ```typescript
 interface OperationState {
-  key: `operation:${string}`;  // operation:operationId
+  key: `operation:${string}`; // operation:operationId
   value: {
     status: string;
     progress: number;
     lastUpdate: string;
   };
-  expiry: 3600;  // 1 hour TTL
+  expiry: 3600; // 1 hour TTL
 }
 ```
 
 ### Caching Patterns
 
 #### Request Caching
+
 ```typescript
 class RequestCache {
   async getCached(key: string): Promise<any> {
@@ -196,6 +207,7 @@ class RequestCache {
 ```
 
 #### Rate Limiting
+
 ```typescript
 class RateLimiter {
   async checkLimit(key: string, limit: number, window: number): Promise<boolean> {
@@ -213,6 +225,7 @@ class RateLimiter {
 ### Backup Strategy
 
 #### PostgreSQL Backups
+
 ```bash
 # Full backup
 pg_dump -Fc -f backup.dump uaip_database
@@ -225,6 +238,7 @@ pg_restore -d uaip_database backup.dump
 ```
 
 #### Neo4j Backups
+
 ```bash
 # Full backup
 neo4j-admin backup --backup-dir=/backups --database=neo4j
@@ -236,6 +250,7 @@ neo4j-admin restore --from=/backups --database=neo4j
 ### Data Migration
 
 #### Schema Migrations
+
 ```typescript
 interface Migration {
   id: string;
@@ -259,6 +274,7 @@ class MigrationRunner {
 ```
 
 #### Data Transformations
+
 ```typescript
 interface DataTransform {
   sourceSchema: string;
@@ -270,7 +286,7 @@ interface DataTransform {
 
 class DataTransformer {
   async transform(data: any[], transform: DataTransform): Promise<any[]> {
-    return data.map(item => {
+    return data.map((item) => {
       const transformed = {};
       for (const [key, fn] of Object.entries(transform.transformations)) {
         transformed[key] = fn(item[key]);
@@ -284,6 +300,7 @@ class DataTransformer {
 ## Monitoring and Maintenance
 
 ### Health Checks
+
 ```typescript
 interface DatabaseHealth {
   postgres: {
@@ -309,6 +326,7 @@ interface DatabaseHealth {
 ```
 
 ### Performance Monitoring
+
 ```typescript
 interface DatabaseMetrics {
   queryLatency: {
@@ -329,6 +347,7 @@ interface DatabaseMetrics {
 ```
 
 ### Maintenance Tasks
+
 ```typescript
 class DatabaseMaintenance {
   async runVacuum(): Promise<void> {
@@ -347,3 +366,4 @@ class DatabaseMaintenance {
     await this.redis.flushdb();
   }
 }
+```

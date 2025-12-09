@@ -13,14 +13,14 @@ import {
   WorkingMemoryUpdate,
   KnowledgeType,
   SourceType,
-  KnowledgeItem
+  KnowledgeItem,
 } from '@uaip/types';
 import { logger, ApiError } from '@uaip/utils';
 import {
   DatabaseService,
   EventBusService,
   KnowledgeGraphService,
-  AgentMemoryService
+  AgentMemoryService,
 } from '@uaip/shared-services';
 
 export interface AgentLearningConfig {
@@ -55,7 +55,7 @@ export class AgentLearningService {
 
     logger.info('Agent Learning Service initialized', {
       service: this.serviceName,
-      securityLevel: this.securityLevel
+      securityLevel: this.securityLevel,
     });
   }
 
@@ -63,10 +63,22 @@ export class AgentLearningService {
    * Set up event bus subscriptions for learning operations
    */
   private async setupEventSubscriptions(): Promise<void> {
-    await this.eventBusService.subscribe('agent.learning.operation', this.handleLearnFromOperation.bind(this));
-    await this.eventBusService.subscribe('agent.learning.interaction', this.handleLearnFromInteraction.bind(this));
-    await this.eventBusService.subscribe('agent.learning.consolidate', this.handleConsolidateMemory.bind(this));
-    await this.eventBusService.subscribe('agent.learning.update', this.handleUpdateKnowledge.bind(this));
+    await this.eventBusService.subscribe(
+      'agent.learning.operation',
+      this.handleLearnFromOperation.bind(this)
+    );
+    await this.eventBusService.subscribe(
+      'agent.learning.interaction',
+      this.handleLearnFromInteraction.bind(this)
+    );
+    await this.eventBusService.subscribe(
+      'agent.learning.consolidate',
+      this.handleConsolidateMemory.bind(this)
+    );
+    await this.eventBusService.subscribe(
+      'agent.learning.update',
+      this.handleUpdateKnowledge.bind(this)
+    );
 
     logger.info('Agent Learning Service event subscriptions configured');
   }
@@ -99,7 +111,14 @@ export class AgentLearningService {
       await this.updateKnowledgeGraph(agentId, learningData);
 
       // Store learning as episodic memory
-      await this.storeOperationEpisode(agentId, operationId, operation, outcomes, feedback, learningData);
+      await this.storeOperationEpisode(
+        agentId,
+        operationId,
+        operation,
+        outcomes,
+        feedback,
+        learningData
+      );
 
       // Update semantic memory
       await this.updateSemanticMemoryFromOperation(agentId, learningData);
@@ -113,13 +132,18 @@ export class AgentLearningService {
       );
 
       // Store enhanced learning record
-      await this.storeEnhancedLearningRecord(agentId, operationId, learningData, confidenceAdjustments);
+      await this.storeEnhancedLearningRecord(
+        agentId,
+        operationId,
+        learningData,
+        confidenceAdjustments
+      );
 
       const result: LearningResult = {
         learningApplied: true,
         confidenceAdjustments,
         newKnowledge: learningData.newKnowledge,
-        improvedCapabilities: learningData.improvedCapabilities
+        improvedCapabilities: learningData.improvedCapabilities,
       };
 
       // Publish learning applied event
@@ -127,14 +151,14 @@ export class AgentLearningService {
         agentId,
         operationId,
         learningData: result,
-        knowledgeUpdated: true
+        knowledgeUpdated: true,
       });
 
       this.auditLog('LEARNING_APPLIED', {
         agentId,
         operationId,
         newKnowledgeCount: learningData.newKnowledge?.length || 0,
-        capabilitiesImproved: learningData.improvedCapabilities?.length || 0
+        capabilitiesImproved: learningData.improvedCapabilities?.length || 0,
       });
 
       return result;
@@ -151,7 +175,10 @@ export class AgentLearningService {
     try {
       this.validateID(agentId, 'agentId');
 
-      logger.info('Learning from interaction', { agentId, interactionType: interaction.interactionType });
+      logger.info('Learning from interaction', {
+        agentId,
+        interactionType: interaction.interactionType,
+      });
 
       // Extract learnings from the interaction
       const learnings = this.extractLearnings(interaction);
@@ -166,20 +193,20 @@ export class AgentLearningService {
             properties: learning.properties || {},
             relationships: [],
             examples: [interaction.context],
-            counterExamples: []
+            counterExamples: [],
           },
           confidence: learning.confidence,
           sources: {
             episodeIds: [],
             externalSources: [interaction.interactionType],
-            reinforcements: 1
+            reinforcements: 1,
           },
           usage: {
             timesAccessed: 1,
             lastUsed: new Date(),
             successRate: interaction.outcome === 'success' ? 1.0 : 0.0,
-            contexts: [interaction.interactionType]
-          }
+            contexts: [interaction.interactionType],
+          },
         };
 
         if (this.agentMemoryService) {
@@ -189,30 +216,32 @@ export class AgentLearningService {
 
       // Store interaction as knowledge in the Knowledge Graph
       if (this.knowledgeGraphService) {
-        await this.knowledgeGraphService.ingest([{
-          content: `Agent Interaction: ${interaction.interactionType}
+        await this.knowledgeGraphService.ingest([
+          {
+            content: `Agent Interaction: ${interaction.interactionType}
 Context: ${interaction.context}
 Outcome: ${interaction.outcome}
 Learning Points: ${interaction.learningPoints.join('; ')}
 Performance: Efficiency=${interaction.performanceMetrics.efficiency}, Accuracy=${interaction.performanceMetrics.accuracy}`,
-          type: KnowledgeType.EXPERIENTIAL,
-          tags: [
-            'agent-learning',
-            `agent-${agentId}`,
-            interaction.interactionType,
-            interaction.outcome
-          ],
-          source: {
-            type: SourceType.AGENT_INTERACTION,
-            identifier: `interaction-${Date.now()}`,
-            metadata: { agentId, interaction }
+            type: KnowledgeType.EXPERIENTIAL,
+            tags: [
+              'agent-learning',
+              `agent-${agentId}`,
+              interaction.interactionType,
+              interaction.outcome,
+            ],
+            source: {
+              type: SourceType.AGENT_INTERACTION,
+              identifier: `interaction-${Date.now()}`,
+              metadata: { agentId, interaction },
+            },
+            confidence: interaction.performanceMetrics.efficiency,
           },
-          confidence: interaction.performanceMetrics.efficiency
-        }]);
+        ]);
       }
 
       // Check if memory consolidation is needed
-      if (this.agentMemoryService && await this.agentMemoryService.shouldConsolidate(agentId)) {
+      if (this.agentMemoryService && (await this.agentMemoryService.shouldConsolidate(agentId))) {
         await this.consolidateMemory(agentId);
       }
 
@@ -221,13 +250,13 @@ Performance: Efficiency=${interaction.performanceMetrics.efficiency}, Accuracy=$
         agentId,
         interactionType: interaction.interactionType,
         outcome: interaction.outcome,
-        learningsCount: learnings.length
+        learningsCount: learnings.length,
       });
 
       this.auditLog('INTERACTION_LEARNED', {
         agentId,
         interactionType: interaction.interactionType,
-        outcome: interaction.outcome
+        outcome: interaction.outcome,
       });
     } catch (error) {
       logger.error('Failed to learn from interaction', { error, agentId });
@@ -246,16 +275,16 @@ Performance: Efficiency=${interaction.performanceMetrics.efficiency}, Accuracy=$
 
       if (this.knowledgeGraphService) {
         // Convert knowledge items to ingestible format
-        const ingestItems = knowledgeItems.map(item => ({
+        const ingestItems = knowledgeItems.map((item) => ({
           content: item.content,
           type: item.type || KnowledgeType.FACTUAL,
           tags: [...(item.tags || []), `agent-${agentId}`, 'knowledge-update'],
           source: {
             type: SourceType.AGENT_INTERACTION,
             identifier: `knowledge-update-${Date.now()}`,
-            metadata: { agentId, updateType: 'manual' }
+            metadata: { agentId, updateType: 'manual' },
           },
-          confidence: item.confidence || 0.8
+          confidence: item.confidence || 0.8,
         }));
 
         await this.knowledgeGraphService.ingest(ingestItems);
@@ -267,8 +296,8 @@ Performance: Efficiency=${interaction.performanceMetrics.efficiency}, Accuracy=$
           knowledgeUpdated: {
             timestamp: new Date(),
             itemsAdded: knowledgeItems.length,
-            categories: [...new Set(knowledgeItems.map(item => item.type))]
-          }
+            categories: [...new Set(knowledgeItems.map((item) => item.type))],
+          },
         };
         await this.agentMemoryService.updateWorkingMemory(agentId, memoryUpdate);
       }
@@ -277,12 +306,12 @@ Performance: Efficiency=${interaction.performanceMetrics.efficiency}, Accuracy=$
       await this.publishLearningEvent('agent.knowledge.updated', {
         agentId,
         itemsCount: knowledgeItems.length,
-        categories: [...new Set(knowledgeItems.map(item => item.type))]
+        categories: [...new Set(knowledgeItems.map((item) => item.type))],
       });
 
       this.auditLog('KNOWLEDGE_UPDATED', {
         agentId,
-        itemsCount: knowledgeItems.length
+        itemsCount: knowledgeItems.length,
       });
     } catch (error) {
       logger.error('Failed to update agent knowledge', { error, agentId });
@@ -306,7 +335,7 @@ Performance: Efficiency=${interaction.performanceMetrics.efficiency}, Accuracy=$
       // Publish memory consolidated event
       await this.publishLearningEvent('agent.memory.consolidated', {
         agentId,
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
       });
 
       this.auditLog('MEMORY_CONSOLIDATED', { agentId });
@@ -362,31 +391,37 @@ Performance: Efficiency=${interaction.performanceMetrics.efficiency}, Accuracy=$
   /**
    * Helper methods
    */
-  private async extractEnhancedLearning(operation: any, outcomes: any, feedback: any): Promise<any> {
+  private async extractEnhancedLearning(
+    operation: any,
+    outcomes: any,
+    feedback: any
+  ): Promise<any> {
     return {
       newKnowledge: feedback?.insights || [],
       improvedCapabilities: outcomes?.successfulActions || [],
       adjustedStrategies: feedback?.improvements || [],
       enhancedInsights: [
         `Operation ${operation.id} completed with ${outcomes?.success ? 'success' : 'failure'}`,
-        `Key learnings: ${feedback?.keyLearnings?.join(', ') || 'None specified'}`
-      ]
+        `Key learnings: ${feedback?.keyLearnings?.join(', ') || 'None specified'}`,
+      ],
     };
   }
 
   private async updateKnowledgeGraph(agentId: string, learningData: any): Promise<void> {
     if (this.knowledgeGraphService && learningData.enhancedInsights?.length > 0) {
-      await this.knowledgeGraphService.ingest(learningData.enhancedInsights.map((insight: string) => ({
-        content: insight,
-        type: KnowledgeType.EXPERIENTIAL,
-        tags: ['agent-learning', `agent-${agentId}`, 'operation-feedback'],
-        source: {
-          type: SourceType.AGENT_INTERACTION,
-          identifier: `learning-${Date.now()}`,
-          metadata: { agentId, learningData }
-        },
-        confidence: 0.8
-      })));
+      await this.knowledgeGraphService.ingest(
+        learningData.enhancedInsights.map((insight: string) => ({
+          content: insight,
+          type: KnowledgeType.EXPERIENTIAL,
+          tags: ['agent-learning', `agent-${agentId}`, 'operation-feedback'],
+          source: {
+            type: SourceType.AGENT_INTERACTION,
+            identifier: `learning-${Date.now()}`,
+            metadata: { agentId, learningData },
+          },
+          confidence: 0.8,
+        }))
+      );
     }
   }
 
@@ -410,34 +445,37 @@ Performance: Efficiency=${interaction.performanceMetrics.efficiency}, Accuracy=$
           what: `Executed operation: ${operation.type}`,
           why: 'Learning from operation outcomes',
           how: 'Automated operation execution',
-          operationType: operation.type
+          operationType: operation.type,
         },
         experience: {
           actions: operation.actions || [],
           decisions: [],
           outcomes: [],
           emotions: [],
-          learnings: learningData.enhancedInsights || []
+          learnings: learningData.enhancedInsights || [],
         },
         significance: {
           importance: 0.8,
           novelty: 0.6,
           success: outcomes?.success ? 1.0 : 0.2,
-          impact: 0.7
+          impact: 0.7,
         },
         connections: {
           relatedEpisodes: [],
           triggeredBy: [`operation-${operationId}`],
           ledTo: [],
-          similarTo: []
-        }
+          similarTo: [],
+        },
       };
 
       await this.agentMemoryService.storeEpisode(agentId, episode);
     }
   }
 
-  private async updateSemanticMemoryFromOperation(agentId: string, learningData: any): Promise<void> {
+  private async updateSemanticMemoryFromOperation(
+    agentId: string,
+    learningData: any
+  ): Promise<void> {
     if (this.agentMemoryService && learningData.newKnowledge?.length > 0) {
       for (const knowledge of learningData.newKnowledge) {
         const concept: SemanticMemory = {
@@ -448,20 +486,20 @@ Performance: Efficiency=${interaction.performanceMetrics.efficiency}, Accuracy=$
             properties: {},
             relationships: [],
             examples: [],
-            counterExamples: []
+            counterExamples: [],
           },
           confidence: 0.7,
           sources: {
             episodeIds: [],
             externalSources: ['operation_feedback'],
-            reinforcements: 1
+            reinforcements: 1,
           },
           usage: {
             timesAccessed: 1,
             lastUsed: new Date(),
             successRate: 1.0,
-            contexts: ['operation_learning']
-          }
+            contexts: ['operation_learning'],
+          },
         };
 
         await this.agentMemoryService.updateSemanticMemory(agentId, concept);
@@ -480,12 +518,15 @@ Performance: Efficiency=${interaction.performanceMetrics.efficiency}, Accuracy=$
     const learningAdjustment = learningData.newKnowledge?.length > 0 ? 0.02 : 0;
 
     return {
-      overall: Math.max(-0.2, Math.min(0.2, baseAdjustment + feedbackAdjustment + learningAdjustment)),
+      overall: Math.max(
+        -0.2,
+        Math.min(0.2, baseAdjustment + feedbackAdjustment + learningAdjustment)
+      ),
       specific: {
         operationType: operation.type,
         adjustment: baseAdjustment,
-        reason: outcomes?.success ? 'successful_operation' : 'failed_operation'
-      }
+        reason: outcomes?.success ? 'successful_operation' : 'failed_operation',
+      },
     };
   }
 
@@ -501,7 +542,7 @@ Performance: Efficiency=${interaction.performanceMetrics.efficiency}, Accuracy=$
         learningData,
         confidenceAdjustments,
         timestamp: new Date(),
-        version: '2.0.0'
+        version: '2.0.0',
       });
     } catch (error) {
       logger.warn('Failed to store learning record', { error, agentId, operationId });
@@ -524,9 +565,9 @@ Performance: Efficiency=${interaction.performanceMetrics.efficiency}, Accuracy=$
           context: interaction.context,
           outcome: interaction.outcome,
           efficiency: interaction.performanceMetrics.efficiency,
-          accuracy: interaction.performanceMetrics.accuracy
+          accuracy: interaction.performanceMetrics.accuracy,
         },
-        confidence: interaction.performanceMetrics.efficiency
+        confidence: interaction.performanceMetrics.efficiency,
       });
     }
 
@@ -537,9 +578,9 @@ Performance: Efficiency=${interaction.performanceMetrics.efficiency}, Accuracy=$
         description: point,
         properties: {
           source: interaction.interactionType,
-          context: interaction.context
+          context: interaction.context,
         },
-        confidence: 0.7
+        confidence: 0.7,
       });
     });
 
@@ -558,7 +599,7 @@ Performance: Efficiency=${interaction.performanceMetrics.efficiency}, Accuracy=$
         ...data,
         source: this.serviceName,
         securityLevel: this.securityLevel,
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
       });
     } catch (error) {
       logger.error('Failed to publish learning event', { channel, error });
@@ -569,7 +610,7 @@ Performance: Efficiency=${interaction.performanceMetrics.efficiency}, Accuracy=$
     await this.eventBusService.publish('agent.learning.response', {
       requestId,
       ...response,
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
     });
   }
 
@@ -583,9 +624,9 @@ Performance: Efficiency=${interaction.performanceMetrics.efficiency}, Accuracy=$
   }): Promise<LearningResult> {
     try {
       // Extract operation info from execution data
-      const operationId = params.executionData.operationId as string || 'unknown';
-      const outcome = params.executionData.outcome as Record<string, unknown> || {};
-      
+      const operationId = (params.executionData.operationId as string) || 'unknown';
+      const outcome = (params.executionData.outcome as Record<string, unknown>) || {};
+
       // Create a simplified learning interaction
       const interaction: AgentInteraction = {
         agentId: params.agentId,
@@ -594,16 +635,16 @@ Performance: Efficiency=${interaction.performanceMetrics.efficiency}, Accuracy=$
         outcome: outcome.success ? 'success' : 'failure',
         learningPoints: [],
         performanceMetrics: {
-          efficiency: outcome.efficiency as number || 0.5,
-          accuracy: outcome.accuracy as number || 0.5,
-          userSatisfaction: outcome.userSatisfaction as number || 0.5
+          efficiency: (outcome.efficiency as number) || 0.5,
+          accuracy: (outcome.accuracy as number) || 0.5,
+          userSatisfaction: (outcome.userSatisfaction as number) || 0.5,
         },
-        timestamp: new Date()
+        timestamp: new Date(),
       };
 
       // Process learning from this interaction
       await this.learnFromInteraction(params.agentId, interaction);
-      
+
       // Return a learning result
       return {
         learningApplied: true,
@@ -611,11 +652,11 @@ Performance: Efficiency=${interaction.performanceMetrics.efficiency}, Accuracy=$
           overallAdjustment: 0.05,
           specificAdjustments: {
             operationType: operationId,
-            outcome: interaction.outcome
-          }
+            outcome: interaction.outcome,
+          },
         },
         newKnowledge: [`Learned from ${operationId} execution`],
-        improvedCapabilities: []
+        improvedCapabilities: [],
       };
     } catch (error) {
       logger.error('Failed to process learning data', { error, agentId: params.agentId });
@@ -623,10 +664,10 @@ Performance: Efficiency=${interaction.performanceMetrics.efficiency}, Accuracy=$
         learningApplied: false,
         confidenceAdjustments: {
           overallAdjustment: 0,
-          specificAdjustments: {}
+          specificAdjustments: {},
         },
         newKnowledge: [],
-        improvedCapabilities: []
+        improvedCapabilities: [],
       };
     }
   }
@@ -636,7 +677,7 @@ Performance: Efficiency=${interaction.performanceMetrics.efficiency}, Accuracy=$
       ...data,
       service: this.serviceName,
       timestamp: new Date().toISOString(),
-      compliance: true
+      compliance: true,
     });
   }
 }

@@ -18,13 +18,20 @@ export function registerShortLinkRoutes(app: any) {
           }
           const svc = getShortLinkService();
           const shortLink = await svc.createShortLink(body.originalUrl, userId, body);
-          logger.info('Short link created', { shortCode: shortLink.shortCode, userId, originalUrl: body.originalUrl });
+          logger.info('Short link created', {
+            shortCode: shortLink.shortCode,
+            userId,
+            originalUrl: body.originalUrl,
+          });
           set.status = 201;
           return { success: true, data: shortLink };
         } catch (error) {
           logger.error('Error creating short link:', error);
           set.status = 500;
-          return { success: false, error: error instanceof Error ? error.message : 'Failed to create short link' };
+          return {
+            success: false,
+            error: error instanceof Error ? error.message : 'Failed to create short link',
+          };
         }
       })
 
@@ -40,7 +47,7 @@ export function registerShortLinkRoutes(app: any) {
             page: parseInt(String(query.page ?? 1)),
             limit: parseInt(String(query.limit ?? 20)),
             type: query.type,
-            search: query.search
+            search: query.search,
           } as any;
           const links = await svc.getUserLinks(userId, options);
           return { success: true, data: links };
@@ -86,7 +93,10 @@ export function registerShortLinkRoutes(app: any) {
         } catch (error) {
           logger.error('Error updating link:', error);
           set.status = 500;
-          return { success: false, error: error instanceof Error ? error.message : 'Failed to update link' };
+          return {
+            success: false,
+            error: error instanceof Error ? error.message : 'Failed to update link',
+          };
         }
       })
 
@@ -104,7 +114,10 @@ export function registerShortLinkRoutes(app: any) {
         } catch (error) {
           logger.error('Error deleting link:', error);
           set.status = 500;
-          return { success: false, error: error instanceof Error ? error.message : 'Failed to delete link' };
+          return {
+            success: false,
+            error: error instanceof Error ? error.message : 'Failed to delete link',
+          };
         }
       })
 
@@ -121,7 +134,10 @@ export function registerShortLinkRoutes(app: any) {
         } catch (error) {
           logger.error('Error generating QR code:', error);
           set.status = 500;
-          return { success: false, error: error instanceof Error ? error.message : 'Failed to generate QR code' };
+          return {
+            success: false,
+            error: error instanceof Error ? error.message : 'Failed to generate QR code',
+          };
         }
       })
 
@@ -153,7 +169,7 @@ export function registerShortLinkRoutes(app: any) {
           userId: headers['x-user-id'],
           userAgent: headers['user-agent'],
           ip: headers['x-forwarded-for'] || undefined,
-          referer: headers['referer']
+          referer: headers['referer'],
         });
 
         if ((result as any).requiresPassword) {
@@ -163,9 +179,18 @@ export function registerShortLinkRoutes(app: any) {
         return new Response(null, { status: 302, headers: { Location: (result as any).url } });
       } catch (error) {
         const message = error instanceof Error ? error.message : 'Failed to resolve link';
-        if (message.includes('not found')) return new Response(JSON.stringify({ success: false, error: 'Link not found' }), { status: 404 });
-        if (message.includes('expired')) return new Response(JSON.stringify({ success: false, error: 'Link has expired' }), { status: 410 });
-        if (message.includes('password')) return new Response(JSON.stringify({ success: false, error: 'Invalid password' }), { status: 401 });
+        if (message.includes('not found'))
+          return new Response(JSON.stringify({ success: false, error: 'Link not found' }), {
+            status: 404,
+          });
+        if (message.includes('expired'))
+          return new Response(JSON.stringify({ success: false, error: 'Link has expired' }), {
+            status: 410,
+          });
+        if (message.includes('password'))
+          return new Response(JSON.stringify({ success: false, error: 'Invalid password' }), {
+            status: 401,
+          });
         return new Response(JSON.stringify({ success: false, error: message }), { status: 500 });
       }
     })

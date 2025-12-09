@@ -9,6 +9,7 @@ The UAIP frontend implements a comprehensive component system using React with T
 ### Agent Components
 
 #### Agent Card
+
 ```typescript
 interface AgentCardProps {
   agent: Agent;
@@ -35,6 +36,7 @@ const AgentCard: React.FC<AgentCardProps> = ({
 ```
 
 #### Agent Manager
+
 ```typescript
 const AgentManager: React.FC = () => {
   const [agents, setAgents] = useState<Agent[]>([]);
@@ -65,6 +67,7 @@ const AgentManager: React.FC = () => {
 ### Discussion Components
 
 #### Discussion Log
+
 ```typescript
 interface DiscussionLogProps {
   discussionId: string;
@@ -100,6 +103,7 @@ const DiscussionLog: React.FC<DiscussionLogProps> = ({
 ```
 
 #### Message Composer
+
 ```typescript
 interface MessageComposerProps {
   discussionId: string;
@@ -116,7 +120,7 @@ const MessageComposer: React.FC<MessageComposerProps> = ({
 
   const handleSubmit = async () => {
     if (!content.trim() || isSubmitting) return;
-    
+
     setSubmitting(true);
     try {
       await onSend(content);
@@ -148,6 +152,7 @@ const MessageComposer: React.FC<MessageComposerProps> = ({
 ### Portal Components
 
 #### Portal Layout
+
 ```typescript
 interface PortalLayoutProps {
   title: string;
@@ -171,6 +176,7 @@ const PortalLayout: React.FC<PortalLayoutProps> = ({
 ```
 
 #### Portal Grid
+
 ```typescript
 interface PortalGridProps {
   items: PortalItem[];
@@ -200,6 +206,7 @@ const PortalGrid: React.FC<PortalGridProps> = ({
 ## Design System
 
 ### Theme Configuration
+
 ```typescript
 interface ThemeConfig {
   colors: {
@@ -241,6 +248,7 @@ interface ThemeConfig {
 ```
 
 ### Animation System
+
 ```typescript
 const animations = {
   fadeIn: keyframes`
@@ -255,18 +263,19 @@ const animations = {
     0% { transform: scale(1); }
     50% { transform: scale(1.05); }
     100% { transform: scale(1); }
-  `
+  `,
 };
 
 const AnimatedComponent = styled.div<{ isVisible: boolean }>`
-  opacity: ${props => props.isVisible ? 1 : 0};
-  animation: ${props => props.isVisible ? animations.fadeIn : 'none'} 0.3s ease;
+  opacity: ${(props) => (props.isVisible ? 1 : 0)};
+  animation: ${(props) => (props.isVisible ? animations.fadeIn : 'none')} 0.3s ease;
 `;
 ```
 
 ## Hooks and Utilities
 
 ### Custom Hooks
+
 ```typescript
 // Manage WebSocket connections
 const useWebSocket = (url: string) => {
@@ -296,7 +305,7 @@ const useRealtimeUpdates = (discussionId: string) => {
 
     socket.onmessage = (event) => {
       const update = JSON.parse(event.data);
-      setMessages(prev => [...prev, update]);
+      setMessages((prev) => [...prev, update]);
     };
   }, [socket, discussionId]);
 
@@ -305,6 +314,7 @@ const useRealtimeUpdates = (discussionId: string) => {
 ```
 
 ### Component Utilities
+
 ```typescript
 // Progressive loading
 const withProgressiveLoading = <P extends object>(
@@ -346,6 +356,7 @@ class ComponentErrorBoundary extends React.Component<
 ## Best Practices
 
 ### Component Design
+
 1. Single Responsibility
 2. Proper TypeScript types
 3. Error handling
@@ -353,6 +364,7 @@ class ComponentErrorBoundary extends React.Component<
 5. Accessibility
 
 ### Performance
+
 1. Memoization
 2. Code splitting
 3. Lazy loading
@@ -360,6 +372,7 @@ class ComponentErrorBoundary extends React.Component<
 5. Debouncing/throttling
 
 ### State Management
+
 1. Component state
 2. Context API
 3. Props drilling

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { 
+import {
   Settings,
   Palette,
   Grid,
@@ -18,7 +18,7 @@ import {
   Eye,
   EyeOff,
   Volume2,
-  VolumeX
+  VolumeX,
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -59,7 +59,7 @@ export const DesktopSettings: React.FC<DesktopSettingsProps> = ({
   onPreferencesChange,
   onClose,
   viewport,
-  className = ''
+  className = '',
 }) => {
   const [localPreferences, setLocalPreferences] = useState<DesktopPreferences>(preferences);
   const [hasChanges, setHasChanges] = useState(false);
@@ -68,7 +68,7 @@ export const DesktopSettings: React.FC<DesktopSettingsProps> = ({
     key: K,
     value: DesktopPreferences[K]
   ) => {
-    setLocalPreferences(prev => ({ ...prev, [key]: value }));
+    setLocalPreferences((prev) => ({ ...prev, [key]: value }));
     setHasChanges(true);
   };
 
@@ -86,7 +86,7 @@ export const DesktopSettings: React.FC<DesktopSettingsProps> = ({
       autoHideRecentPanel: false,
       maxRecentItems: 20,
       enableAnimations: true,
-      gridSpacing: 'normal'
+      gridSpacing: 'normal',
     };
     setLocalPreferences(defaultPreferences);
     setHasChanges(true);
@@ -94,10 +94,14 @@ export const DesktopSettings: React.FC<DesktopSettingsProps> = ({
 
   const getIconSizeValue = (size: string) => {
     switch (size) {
-      case 'small': return 60;
-      case 'medium': return 80;
-      case 'large': return 100;
-      default: return 80;
+      case 'small':
+        return 60;
+      case 'medium':
+        return 80;
+      case 'large':
+        return 100;
+      default:
+        return 80;
     }
   };
 
@@ -109,10 +113,14 @@ export const DesktopSettings: React.FC<DesktopSettingsProps> = ({
 
   const getSpacingValue = (spacing: string) => {
     switch (spacing) {
-      case 'compact': return 16;
-      case 'normal': return 24;
-      case 'spacious': return 32;
-      default: return 24;
+      case 'compact':
+        return 16;
+      case 'normal':
+        return 24;
+      case 'spacious':
+        return 32;
+      default:
+        return 24;
     }
   };
 
@@ -134,7 +142,7 @@ export const DesktopSettings: React.FC<DesktopSettingsProps> = ({
         initial={{ scale: 0.9, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
         exit={{ scale: 0.9, opacity: 0 }}
-        transition={{ type: "spring", stiffness: 300, damping: 30 }}
+        transition={{ type: 'spring', stiffness: 300, damping: 30 }}
       >
         {/* Header */}
         <div className="p-6 border-b border-slate-700 bg-slate-800/50">
@@ -148,9 +156,7 @@ export const DesktopSettings: React.FC<DesktopSettingsProps> = ({
             </div>
             <div className="flex items-center space-x-2">
               {hasChanges && (
-                <Badge className="bg-orange-500/20 text-orange-400">
-                  Unsaved Changes
-                </Badge>
+                <Badge className="bg-orange-500/20 text-orange-400">Unsaved Changes</Badge>
               )}
               <Button
                 variant="ghost"
@@ -187,7 +193,7 @@ export const DesktopSettings: React.FC<DesktopSettingsProps> = ({
                     {[
                       { value: 'light', label: 'Light', icon: Sun },
                       { value: 'dark', label: 'Dark', icon: Moon },
-                      { value: 'auto', label: 'Auto', icon: Monitor }
+                      { value: 'auto', label: 'Auto', icon: Monitor },
                     ].map(({ value, label, icon: Icon }) => (
                       <button
                         key={value}
@@ -224,7 +230,7 @@ export const DesktopSettings: React.FC<DesktopSettingsProps> = ({
                     </div>
                     <Slider
                       value={[getIconSizeValue(localPreferences.iconSize)]}
-                      onValueChange={([value]) => 
+                      onValueChange={([value]) =>
                         updatePreference('iconSize', getIconSizeFromValue(value))
                       }
                       min={60}
@@ -255,11 +261,13 @@ export const DesktopSettings: React.FC<DesktopSettingsProps> = ({
                       onCheckedChange={(checked) => updatePreference('showLabels', checked)}
                     />
                   </div>
-                  
+
                   <div className="flex items-center justify-between">
                     <div>
                       <p className="text-white font-medium">Show Descriptions</p>
-                      <p className="text-slate-400 text-sm">Display detailed descriptions on larger screens</p>
+                      <p className="text-slate-400 text-sm">
+                        Display detailed descriptions on larger screens
+                      </p>
                     </div>
                     <Switch
                       checked={localPreferences.showDescriptions}
@@ -289,7 +297,7 @@ export const DesktopSettings: React.FC<DesktopSettingsProps> = ({
                     </div>
                     <Slider
                       value={[getSpacingValue(localPreferences.gridSpacing)]}
-                      onValueChange={([value]) => 
+                      onValueChange={([value]) =>
                         updatePreference('gridSpacing', getSpacingFromValue(value))
                       }
                       min={16}
@@ -315,14 +323,18 @@ export const DesktopSettings: React.FC<DesktopSettingsProps> = ({
                   <div className="flex items-center justify-between">
                     <div>
                       <p className="text-white font-medium">Auto-hide Panel</p>
-                      <p className="text-slate-400 text-sm">Automatically hide recent items panel</p>
+                      <p className="text-slate-400 text-sm">
+                        Automatically hide recent items panel
+                      </p>
                     </div>
                     <Switch
                       checked={localPreferences.autoHideRecentPanel}
-                      onCheckedChange={(checked) => updatePreference('autoHideRecentPanel', checked)}
+                      onCheckedChange={(checked) =>
+                        updatePreference('autoHideRecentPanel', checked)
+                      }
                     />
                   </div>
-                  
+
                   <div className="space-y-2">
                     <div className="flex items-center justify-between">
                       <span className="text-slate-300">Max Recent Items</span>
@@ -378,13 +390,9 @@ export const DesktopSettings: React.FC<DesktopSettingsProps> = ({
               <RotateCcw className="w-4 h-4 mr-2" />
               Reset to Defaults
             </Button>
-            
+
             <div className="flex items-center space-x-3">
-              <Button
-                variant="ghost"
-                onClick={onClose}
-                className="text-slate-400 hover:text-white"
-              >
+              <Button variant="ghost" onClick={onClose} className="text-slate-400 hover:text-white">
                 Cancel
               </Button>
               <Button

@@ -1,17 +1,13 @@
 import { Repository } from 'typeorm';
 import { DatabaseService } from '@uaip/shared-services';
 import { logger } from '@uaip/utils';
-import { 
-  MarketplaceItem, 
-  MarketplaceRating, 
-  MarketplaceInstallation 
-} from '../entities/index.js';
-import { 
+import { MarketplaceItem, MarketplaceRating, MarketplaceInstallation } from '../entities/index.js';
+import {
   MarketplaceSearchFilters,
   MarketplaceItemType,
   MarketplaceCategory,
   MarketplaceItemStatus,
-  PricingModel
+  PricingModel,
 } from '@uaip/types';
 
 export class MarketplaceService {
@@ -29,19 +25,19 @@ export class MarketplaceService {
   async searchItems(filters: MarketplaceSearchFilters = {}) {
     try {
       const queryBuilder = this.marketplaceItemRepository.createQueryBuilder('item');
-      
+
       // Only show approved/featured items in public marketplace
-      queryBuilder.where('item.status IN (:...statuses)', { 
-        statuses: [MarketplaceItemStatus.APPROVED, MarketplaceItemStatus.FEATURED] 
+      queryBuilder.where('item.status IN (:...statuses)', {
+        statuses: [MarketplaceItemStatus.APPROVED, MarketplaceItemStatus.FEATURED],
       });
 
       // Text search
       if (filters.query) {
         queryBuilder.andWhere(
           '(item.name ILIKE :query OR item.description ILIKE :query OR item.tags @> :queryArray)',
-          { 
+          {
             query: `%${filters.query}%`,
-            queryArray: JSON.stringify([filters.query])
+            queryArray: JSON.stringify([filters.query]),
           }
         );
       }
@@ -53,7 +49,9 @@ export class MarketplaceService {
 
       // Filter by category
       if (filters.category && filters.category.length > 0) {
-        queryBuilder.andWhere('item.category IN (:...categories)', { categories: filters.category });
+        queryBuilder.andWhere('item.category IN (:...categories)', {
+          categories: filters.category,
+        });
       }
 
       // Filter by tags
@@ -73,15 +71,19 @@ export class MarketplaceService {
 
       // Filter by minimum rating
       if (filters.minRating) {
-        queryBuilder.leftJoin('item.ratings', 'rating')
-          .andWhere('(SELECT AVG(r.rating) FROM marketplace_ratings r WHERE r.item_id = item.id) >= :minRating', 
-            { minRating: filters.minRating });
+        queryBuilder
+          .leftJoin('item.ratings', 'rating')
+          .andWhere(
+            '(SELECT AVG(r.rating) FROM marketplace_ratings r WHERE r.item_id = item.id) >= :minRating',
+            { minRating: filters.minRating }
+          );
       }
 
       // Filter by minimum downloads
       if (filters.minDownloads) {
-        queryBuilder.andWhere("(item.stats->>'totalDownloads')::int >= :minDownloads", 
-          { minDownloads: filters.minDownloads });
+        queryBuilder.andWhere("(item.stats->>'totalDownloads')::int >= :minDownloads", {
+          minDownloads: filters.minDownloads,
+        });
       }
 
       // Filter featured items
@@ -105,21 +107,32 @@ export class MarketplaceService {
           queryBuilder.orderBy('item.name', filters.sortOrder?.toUpperCase() as 'ASC' | 'DESC');
           break;
         case 'downloads':
-          queryBuilder.orderBy("(item.stats->>'totalDownloads')::int", filters.sortOrder?.toUpperCase() as 'ASC' | 'DESC');
+          queryBuilder.orderBy(
+            "(item.stats->>'totalDownloads')::int",
+            filters.sortOrder?.toUpperCase() as 'ASC' | 'DESC'
+          );
           break;
         case 'rating':
-          queryBuilder.leftJoin('item.ratings', 'avgRating')
+          queryBuilder
+            .leftJoin('item.ratings', 'avgRating')
             .orderBy('AVG(avgRating.rating)', filters.sortOrder?.toUpperCase() as 'ASC' | 'DESC');
           break;
         case 'created':
-          queryBuilder.orderBy('item.createdAt', filters.sortOrder?.toUpperCase() as 'ASC' | 'DESC');
+          queryBuilder.orderBy(
+            'item.createdAt',
+            filters.sortOrder?.toUpperCase() as 'ASC' | 'DESC'
+          );
           break;
         case 'updated':
-          queryBuilder.orderBy('item.updatedAt', filters.sortOrder?.toUpperCase() as 'ASC' | 'DESC');
+          queryBuilder.orderBy(
+            'item.updatedAt',
+            filters.sortOrder?.toUpperCase() as 'ASC' | 'DESC'
+          );
           break;
         case 'trending':
         default:
-          queryBuilder.orderBy('item.trendingScore', 'DESC')
+          queryBuilder
+            .orderBy('item.trendingScore', 'DESC')
             .addOrderBy('item.isFeatured', 'DESC')
             .addOrderBy('item.createdAt', 'DESC');
           break;
@@ -137,12 +150,12 @@ export class MarketplaceService {
           const avgRating = await this.getAverageRating(item.id);
           const ratingCount = await this.getRatingCount(item.id);
           const installCount = await this.getInstallationCount(item.id);
-          
+
           return {
             ...item,
             averageRating: avgRating,
             ratingCount: ratingCount,
-            installationCount: installCount
+            installationCount: installCount,
           };
         })
       );
@@ -151,9 +164,8 @@ export class MarketplaceService {
         items: enrichedItems,
         total,
         page: Math.floor((filters.offset || 0) / (filters.limit || 20)) + 1,
-        totalPages: Math.ceil(total / (filters.limit || 20))
+        totalPages: Math.ceil(total / (filters.limit || 20)),
       };
-
     } catch (error) {
       logger.error('Error searching marketplace items:', error);
       throw error;
@@ -164,15 +176,15 @@ export class MarketplaceService {
   async getTrendingItems(limit: number = 20) {
     try {
       const items = await this.marketplaceItemRepository.find({
-        where: { 
+        where: {
           status: MarketplaceItemStatus.APPROVED,
-          isTrending: true 
+          isTrending: true,
         },
-        order: { 
+        order: {
           trendingScore: 'DESC',
-          createdAt: 'DESC' 
+          createdAt: 'DESC',
         },
-        take: limit
+        take: limit,
       });
 
       return await Promise.all(
@@ -180,7 +192,7 @@ export class MarketplaceService {
           ...item,
           averageRating: await this.getAverageRating(item.id),
           ratingCount: await this.getRatingCount(item.id),
-          installationCount: await this.getInstallationCount(item.id)
+          installationCount: await this.getInstallationCount(item.id),
         }))
       );
     } catch (error) {
@@ -193,12 +205,12 @@ export class MarketplaceService {
   async getFeaturedItems(limit: number = 10) {
     try {
       const items = await this.marketplaceItemRepository.find({
-        where: { 
+        where: {
           status: MarketplaceItemStatus.FEATURED,
-          isFeatured: true 
+          isFeatured: true,
         },
         order: { createdAt: 'DESC' },
-        take: limit
+        take: limit,
       });
 
       return await Promise.all(
@@ -206,7 +218,7 @@ export class MarketplaceService {
           ...item,
           averageRating: await this.getAverageRating(item.id),
           ratingCount: await this.getRatingCount(item.id),
-          installationCount: await this.getInstallationCount(item.id)
+          installationCount: await this.getInstallationCount(item.id),
         }))
       );
     } catch (error) {
@@ -218,9 +230,9 @@ export class MarketplaceService {
   // Get item by ID
   async getItemById(id: string) {
     try {
-      const item = await this.marketplaceItemRepository.findOne({ 
+      const item = await this.marketplaceItemRepository.findOne({
         where: { id },
-        relations: ['ratings', 'installations']
+        relations: ['ratings', 'installations'],
       });
 
       if (!item) {
@@ -231,7 +243,7 @@ export class MarketplaceService {
         ...item,
         averageRating: await this.getAverageRating(id),
         ratingCount: await this.getRatingCount(id),
-        installationCount: await this.getInstallationCount(id)
+        installationCount: await this.getInstallationCount(id),
       };
     } catch (error) {
       logger.error('Error getting marketplace item by ID:', error);
@@ -255,7 +267,7 @@ export class MarketplaceService {
     try {
       // Check if user already rated this item
       const existingRating = await this.ratingRepository.findOne({
-        where: { itemId, userId }
+        where: { itemId, userId },
       });
 
       if (existingRating) {
@@ -270,7 +282,7 @@ export class MarketplaceService {
           itemId,
           userId,
           rating,
-          review
+          review,
         });
         return await this.ratingRepository.save(newRating);
       }
@@ -285,7 +297,7 @@ export class MarketplaceService {
     try {
       // Check if already installed
       const existingInstallation = await this.installationRepository.findOne({
-        where: { itemId, userId }
+        where: { itemId, userId },
       });
 
       if (existingInstallation) {
@@ -301,13 +313,13 @@ export class MarketplaceService {
           itemId,
           userId,
           version,
-          usageCount: 1
+          usageCount: 1,
         });
         const saved = await this.installationRepository.save(installation);
 
         // Update item stats
         await this.updateItemStats(itemId);
-        
+
         return saved;
       }
     } catch (error) {
@@ -328,7 +340,7 @@ export class MarketplaceService {
 
       return categories.map((cat: any) => ({
         category: cat.category,
-        count: parseInt(cat.count)
+        count: parseInt(cat.count),
       }));
     } catch (error) {
       logger.error('Error getting categories with counts:', error);
@@ -343,7 +355,7 @@ export class MarketplaceService {
       .select('AVG(rating.rating)', 'avg')
       .where('rating.itemId = :itemId', { itemId })
       .getRawOne();
-    
+
     return result?.avg ? parseFloat(result.avg) : null;
   }
 
@@ -370,7 +382,7 @@ export class MarketplaceService {
         totalDownloads: installCount,
         totalInstalls: installCount,
         totalRatings: ratingCount,
-        averageRating: avgRating || 0
+        averageRating: avgRating || 0,
       };
 
       await this.marketplaceItemRepository.update(itemId, { stats: updatedStats });

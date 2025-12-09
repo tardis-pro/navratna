@@ -10,7 +10,7 @@ export type {
   OperationStatus,
   OperationPriority,
   Capability,
-  ApprovalWorkflow
+  ApprovalWorkflow,
 } from '@uaip/types';
 
 // Import UI-specific interfaces
@@ -30,7 +30,7 @@ export type {
   WebSocketEvent,
   UIState,
   UIError,
-  DataState
+  DataState,
 } from './ui-interfaces';
 
 // Re-export persona types
@@ -38,5 +38,5 @@ export type {
   PersonaAnalytics,
   PersonaValidation,
   PersonaUsageStats,
-  PersonaTemplate
-} from '@uaip/types'; 
+  PersonaTemplate,
+} from '@uaip/types';

@@ -24,7 +24,7 @@ export const createMockRequest = (body = {}, params = {}, query = {}) => ({
   params,
   query,
   headers: {},
-  user: { id: 'test-user-id', role: 'user' }
+  user: { id: 'test-user-id', role: 'user' },
 });
 
 export const createMockResponse = () => {
@@ -33,7 +33,7 @@ export const createMockResponse = () => {
     json: vi.fn().mockReturnThis(),
     send: vi.fn().mockReturnThis(),
     cookie: vi.fn().mockReturnThis(),
-    clearCookie: vi.fn().mockReturnThis()
+    clearCookie: vi.fn().mockReturnThis(),
   };
   return res;
 };

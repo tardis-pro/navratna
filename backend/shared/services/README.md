@@ -72,6 +72,7 @@ Migrations are stored in `src/migrations/` and are managed by TypeORM CLI.
 ## Database Connection
 
 The configuration automatically:
+
 - Loads entities from the entities directory
 - Configures PostgreSQL connection using shared config
 - Sets up Redis caching
@@ -83,10 +84,11 @@ The configuration automatically:
 Database configuration is handled by the shared config package (`@uaip/config`).
 
 Required environment variables:
+
 - `DB_HOST`
 - `DB_PORT`
 - `DB_USER`
 - `DB_PASSWORD`
 - `DB_NAME`
 - `REDIS_HOST`
-- `REDIS_PORT` 
+- `REDIS_PORT`

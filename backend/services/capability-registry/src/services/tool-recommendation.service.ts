@@ -56,7 +56,10 @@ export class ToolRecommendationService {
 
   private setupEventListeners(): void {
     // Listen for tool execution events to update patterns
-    this.eventBus.subscribe('tool.execution.completed', this.handleToolExecutionCompleted.bind(this));
+    this.eventBus.subscribe(
+      'tool.execution.completed',
+      this.handleToolExecutionCompleted.bind(this)
+    );
     this.eventBus.subscribe('tool.execution.failed', this.handleToolExecutionFailed.bind(this));
   }
 
@@ -69,20 +72,20 @@ export class ToolRecommendationService {
   ): Promise<ToolRecommendation[]> {
     try {
       const recommendations: ToolRecommendation[] = [];
-      
+
       // For now, return basic recommendations based on enabled tools
       // This would be enhanced with Neo4j when properly integrated
       const tools = await this.getBasicToolRecommendations(limit);
-      
+
       logger.info('Generated tool recommendations', {
         context: {
           agentId: context.agentId,
           projectId: context.projectId,
-          currentToolId: context.currentToolId
+          currentToolId: context.currentToolId,
         },
-        count: tools.length
+        count: tools.length,
       });
-      
+
       return tools;
     } catch (error) {
       logger.error('Failed to get tool recommendations', error);
@@ -110,10 +113,9 @@ export class ToolRecommendationService {
   private async handleToolExecutionCompleted(event: any): Promise<void> {
     try {
       const { toolId, agentId, userId, executionTime } = event;
-      
+
       // This would update usage patterns in Neo4j when properly integrated
       logger.debug('Tool execution completed', { toolId, agentId, executionTime });
-      
     } catch (error) {
       logger.error('Failed to handle tool execution completed', error);
     }
@@ -125,10 +127,9 @@ export class ToolRecommendationService {
   private async handleToolExecutionFailed(event: any): Promise<void> {
     try {
       const { toolId, agentId, error } = event;
-      
+
       // This would update failure patterns in Neo4j when properly integrated
       logger.debug('Tool execution failed', { toolId, agentId, error });
-      
     } catch (error) {
       logger.error('Failed to handle tool execution failed', error);
     }
@@ -154,9 +155,9 @@ export class ToolRecommendationService {
   async analyzeToolRelationships(): Promise<void> {
     try {
       logger.info('Starting tool relationship analysis');
-      
+
       // This would analyze patterns when Neo4j is properly integrated
-      
+
       logger.info('Tool relationship analysis completed');
     } catch (error) {
       logger.error('Failed to analyze tool relationships', error);

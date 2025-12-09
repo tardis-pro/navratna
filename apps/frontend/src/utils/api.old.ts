@@ -104,7 +104,7 @@ import type {
   ApprovalDecision,
   ApprovalStats,
   HealthStatus,
-  SystemMetrics
+  SystemMetrics,
 } from '@uaip/types';
 
 // Re-export shared types for convenience
@@ -139,7 +139,7 @@ export type {
   DiscussionAnalytics,
   DiscussionSummary,
   CreateDiscussionRequest,
-  UpdateDiscussionRequest
+  UpdateDiscussionRequest,
 };
 
 // Base configuration
@@ -270,13 +270,10 @@ export class UAIPAPIClient {
     };
   }
 
-  private async request<T>(
-    endpoint: string,
-    options: RequestInit = {}
-  ): Promise<APIResponse<T>> {
+  private async request<T>(endpoint: string, options: RequestInit = {}): Promise<APIResponse<T>> {
     // Handle both relative and absolute URLs properly
     let url: string;
-    
+
     if (endpoint.startsWith('http://') || endpoint.startsWith('https://')) {
       // Endpoint is already a full URL, use it as-is
       url = endpoint;
@@ -287,14 +284,14 @@ export class UAIPAPIClient {
       const cleanEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
       url = `${cleanBaseURL}${cleanEndpoint}`;
     }
-    
+
     const token = this.getStoredToken();
     const userId = this.getStoredUserId();
     const sessionId = this.getStoredSessionId();
 
     // Handle body serialization and Content-Type header
     let processedOptions = { ...options };
-    
+
     if (options.body && typeof options.body === 'object' && !(options.body instanceof FormData)) {
       // Automatically serialize objects to JSON and set Content-Type
       processedOptions.body = JSON.stringify(options.body);
@@ -307,7 +304,7 @@ export class UAIPAPIClient {
     // Build comprehensive headers including security and user context
     const headers: Record<string, string> = {
       ...(this.config.headers || {}),
-      ...(processedOptions.headers as Record<string, string> || {}),
+      ...((processedOptions.headers as Record<string, string>) || {}),
     };
 
     // Add authentication header
@@ -318,7 +315,7 @@ export class UAIPAPIClient {
     // Add security headers
     headers['X-Request-ID'] = this.generateRequestId();
     headers['X-Timestamp'] = new Date().toISOString();
-    
+
     // Add user context headers if available
     if (userId) {
       headers['X-User-ID'] = userId;
@@ -326,22 +323,24 @@ export class UAIPAPIClient {
       // For unauthenticated requests, use a temporary anonymous user ID
       headers['X-User-ID'] = 'anonymous_' + Date.now();
     }
-    
+
     if (sessionId) {
       headers['X-Session-ID'] = sessionId;
     } else {
       // Generate a temporary session ID for request tracking
-      headers['X-Session-ID'] = 'temp_sess_' + Date.now() + '_' + Math.random().toString(36).substr(2, 6);
+      headers['X-Session-ID'] =
+        'temp_sess_' + Date.now() + '_' + Math.random().toString(36).substr(2, 6);
     }
 
     // Add security level header for UAIP backend
     headers['X-Security-Level'] = 'standard';
-    
+
     // Add correlation ID for request tracing
     headers['X-Correlation-ID'] = this.generateCorrelationId();
 
     // Add CSRF protection for state-changing operations
-    const isStateChanging = options.method && !['GET', 'HEAD', 'OPTIONS'].includes(options.method.toUpperCase());
+    const isStateChanging =
+      options.method && !['GET', 'HEAD', 'OPTIONS'].includes(options.method.toUpperCase());
     if (isStateChanging) {
       try {
         const csrfHeaders = await csrfService.getHeaders();
@@ -389,12 +388,12 @@ export class UAIPAPIClient {
       }
 
       const data = await response.json();
-      
+
       // Ensure response follows APIResponse format
       if (data && typeof data === 'object' && 'success' in data) {
         return data;
       }
-      
+
       // Wrap raw data in APIResponse format
       return {
         success: true,
@@ -407,7 +406,7 @@ export class UAIPAPIClient {
       };
     } catch (error) {
       console.error('API Request failed:', error);
-      
+
       // Return error in APIResponse format
       return {
         success: false,
@@ -496,9 +495,10 @@ export class UAIPAPIClient {
    * Refresh authentication token
    */
   private async refreshAuthToken(): Promise<string | null> {
-    const refreshToken = typeof window !== 'undefined' 
-      ? localStorage.getItem('refreshToken') || sessionStorage.getItem('refreshToken')
-      : null;
+    const refreshToken =
+      typeof window !== 'undefined'
+        ? localStorage.getItem('refreshToken') || sessionStorage.getItem('refreshToken')
+        : null;
 
     if (!refreshToken) {
       throw new Error('No refresh token available');
@@ -509,7 +509,7 @@ export class UAIPAPIClient {
       const baseURL = this.config.baseURL || '';
       const cleanBaseURL = baseURL.endsWith('/') ? baseURL.slice(0, -1) : baseURL;
       const refreshUrl = `${cleanBaseURL}/api/v1/auth/refresh`;
-      
+
       const response = await fetch(refreshUrl, {
         method: 'POST',
         headers: {
@@ -523,7 +523,7 @@ export class UAIPAPIClient {
       }
 
       const data = await response.json();
-      
+
       // Handle both old and new response formats
       let newToken: string | null = null;
       if (data.success && data.data?.tokens?.accessToken) {
@@ -554,16 +554,16 @@ export class UAIPAPIClient {
    */
   private handleAuthFailure(): void {
     this.removeStoredToken();
-    
+
     // Notify all registered callbacks
-    this.authFailureCallbacks.forEach(callback => {
+    this.authFailureCallbacks.forEach((callback) => {
       try {
         callback();
       } catch (error) {
         console.error('Auth failure callback error:', error);
       }
     });
-    
+
     // Redirect to login if in browser environment and not already on login page
     if (typeof window !== 'undefined' && window.location) {
       const currentPath = window.location.pathname;
@@ -579,7 +579,7 @@ export class UAIPAPIClient {
    */
   public onAuthFailure(callback: () => void): () => void {
     this.authFailureCallbacks.add(callback);
-    
+
     // Return unsubscribe function
     return () => {
       this.authFailureCallbacks.delete(callback);
@@ -591,7 +591,7 @@ export class UAIPAPIClient {
    */
   public setAuthToken(token: string, refreshToken?: string, rememberMe = false): void {
     this.storeToken(token, rememberMe);
-    
+
     if (refreshToken && typeof window !== 'undefined') {
       if (rememberMe) {
         localStorage.setItem('refreshToken', refreshToken);
@@ -612,10 +612,10 @@ export class UAIPAPIClient {
     rememberMe?: boolean;
   }): void {
     const { token, refreshToken, userId, sessionId, rememberMe = false } = authData;
-    
+
     // Set authentication token
     this.setAuthToken(token, refreshToken, rememberMe);
-    
+
     // Set user context
     this.setUserContext(userId, sessionId, rememberMe);
   }
@@ -627,12 +627,13 @@ export class UAIPAPIClient {
     if (typeof window !== 'undefined') {
       const storage = rememberMe ? localStorage : sessionStorage;
       storage.setItem('userId', userId);
-      
+
       if (sessionId) {
         storage.setItem('sessionId', sessionId);
       } else {
         // Generate a session ID if not provided
-        const generatedSessionId = 'sess_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+        const generatedSessionId =
+          'sess_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
         storage.setItem('sessionId', generatedSessionId);
       }
     }
@@ -673,18 +674,18 @@ export class UAIPAPIClient {
   public isAuthenticated(): boolean {
     const token = this.getStoredToken();
     if (!token) return false;
-    
+
     try {
       // Basic JWT structure check without verification
       const parts = token.split('.');
       if (parts.length !== 3) return false;
-      
+
       // Decode payload to check expiration
       const payload = JSON.parse(atob(parts[1]));
       const now = Math.floor(Date.now() / 1000);
-      
+
       // Check if token is expired (with 30 second buffer)
-      return payload.exp && payload.exp > (now + 30);
+      return payload.exp && payload.exp > now + 30;
     } catch (error) {
       return false;
     }
@@ -708,11 +709,11 @@ export class UAIPAPIClient {
   private getAuthHeaders(): Record<string, string> {
     const token = this.getStoredToken();
     const headers: Record<string, string> = {};
-    
+
     if (token) {
       headers['Authorization'] = `Bearer ${token}`;
     }
-    
+
     return headers;
   }
 
@@ -770,17 +771,26 @@ export class UAIPAPIClient {
     /**
      * Analyze conversation context
      */
-    analyze: async (agentId: string, analysisRequest: AgentAnalysisRequest): Promise<APIResponse<AgentAnalysisResponse>> => {
-      return this.request<AgentAnalysisResponse>(buildAPIURL(`${API_ROUTES.AGENTS}/${agentId}/analyze`), {
-        method: 'POST',
-        body: JSON.stringify(analysisRequest),
-      });
+    analyze: async (
+      agentId: string,
+      analysisRequest: AgentAnalysisRequest
+    ): Promise<APIResponse<AgentAnalysisResponse>> => {
+      return this.request<AgentAnalysisResponse>(
+        buildAPIURL(`${API_ROUTES.AGENTS}/${agentId}/analyze`),
+        {
+          method: 'POST',
+          body: JSON.stringify(analysisRequest),
+        }
+      );
     },
 
     /**
      * Generate operation plan
      */
-    plan: async (agentId: string, planRequest: AgentPlanRequest): Promise<APIResponse<AgentPlanResponse>> => {
+    plan: async (
+      agentId: string,
+      planRequest: AgentPlanRequest
+    ): Promise<APIResponse<AgentPlanResponse>> => {
       return this.request<AgentPlanResponse>(buildAPIURL(`${API_ROUTES.AGENTS}/${agentId}/plan`), {
         method: 'POST',
         body: JSON.stringify(planRequest),
@@ -797,7 +807,10 @@ export class UAIPAPIClient {
     /**
      * Agent learning endpoint
      */
-    learn: async (agentId: string, learningData: Record<string, any>): Promise<APIResponse<void>> => {
+    learn: async (
+      agentId: string,
+      learningData: Record<string, any>
+    ): Promise<APIResponse<void>> => {
       return this.request<void>(buildAPIURL(`${API_ROUTES.AGENTS}/${agentId}/learn`), {
         method: 'POST',
         body: JSON.stringify(learningData),
@@ -807,10 +820,13 @@ export class UAIPAPIClient {
     /**
      * Agent participation in discussion
      */
-    participate: async (agentId: string, participationData: {
-      discussionId: string;
-      comment?: string;
-    }): Promise<APIResponse<any>> => {
+    participate: async (
+      agentId: string,
+      participationData: {
+        discussionId: string;
+        comment?: string;
+      }
+    ): Promise<APIResponse<any>> => {
       return this.request<any>(buildAPIURL(`${API_ROUTES.AGENTS}/${agentId}/participate`), {
         method: 'POST',
         body: JSON.stringify(participationData),
@@ -820,27 +836,32 @@ export class UAIPAPIClient {
     /**
      * Chat with agent
      */
-    chat: async (agentId: string, chatData: {
-      message: string;
-      conversationHistory?: Array<{
-        content: string;
-        sender: string;
-        timestamp: string;
-      }>;
-      context?: any;
-    }): Promise<APIResponse<{
-      response: string;
-      agentName: string;
-      confidence: number;
-      model?: string;
-      tokensUsed?: number;
-      memoryEnhanced?: boolean;
-      knowledgeUsed?: number;
-      persona?: any;
-      conversationContext?: any;
-      timestamp?: string;
-      toolsExecuted?: Array<any>;
-    }>> => {
+    chat: async (
+      agentId: string,
+      chatData: {
+        message: string;
+        conversationHistory?: Array<{
+          content: string;
+          sender: string;
+          timestamp: string;
+        }>;
+        context?: any;
+      }
+    ): Promise<
+      APIResponse<{
+        response: string;
+        agentName: string;
+        confidence: number;
+        model?: string;
+        tokensUsed?: number;
+        memoryEnhanced?: boolean;
+        knowledgeUsed?: number;
+        persona?: any;
+        conversationContext?: any;
+        timestamp?: string;
+        toolsExecuted?: Array<any>;
+      }>
+    > => {
       return this.request<{
         response: string;
         agentName: string;
@@ -930,7 +951,9 @@ export class UAIPAPIClient {
      * Get persona recommendations
      */
     getRecommendations: async (context: string): Promise<APIResponse<PersonaRecommendation[]>> => {
-      return this.request(buildAPIURL(`${API_ROUTES.PERSONAS}/recommendations?context=${encodeURIComponent(context)}`));
+      return this.request(
+        buildAPIURL(`${API_ROUTES.PERSONAS}/recommendations?context=${encodeURIComponent(context)}`)
+      );
     },
 
     /**
@@ -976,12 +999,15 @@ export class UAIPAPIClient {
     /**
      * Validate persona
      */
-    validatePersona: async (personaId: string, validationData: Record<string, unknown>): Promise<APIResponse<PersonaValidation>> => {
+    validatePersona: async (
+      personaId: string,
+      validationData: Record<string, unknown>
+    ): Promise<APIResponse<PersonaValidation>> => {
       return this.request(buildAPIURL(`${API_ROUTES.PERSONAS}/${personaId}/validate`), {
         method: 'POST',
         body: JSON.stringify(validationData),
       });
-    }
+    },
   };
 
   // ============================================================================
@@ -995,7 +1021,9 @@ export class UAIPAPIClient {
     /**
      * Search capabilities
      */
-    search: async (searchParams: CapabilitySearchRequest): Promise<APIResponse<CapabilitySearchResponse>> => {
+    search: async (
+      searchParams: CapabilitySearchRequest
+    ): Promise<APIResponse<CapabilitySearchResponse>> => {
       try {
         const params = new URLSearchParams();
 
@@ -1004,14 +1032,17 @@ export class UAIPAPIClient {
         if (searchParams.category) params.append('category', searchParams.category);
         if (searchParams.tags) params.append('tags', searchParams.tags.join(','));
         if (searchParams.securityLevel) params.append('securityLevel', searchParams.securityLevel);
-        if (searchParams.includeDeprecated) params.append('includeDeprecated', searchParams.includeDeprecated.toString());
+        if (searchParams.includeDeprecated)
+          params.append('includeDeprecated', searchParams.includeDeprecated.toString());
         if (searchParams.sortBy) params.append('sortBy', searchParams.sortBy);
         if (searchParams.sortOrder) params.append('sortOrder', searchParams.sortOrder);
         if (searchParams.limit) params.append('limit', searchParams.limit.toString());
         if (searchParams.offset) params.append('offset', searchParams.offset.toString());
 
-        const response = await this.request<CapabilitySearchResponse>(buildAPIURL(`${API_ROUTES.CAPABILITIES}/search?${params}`));
-        
+        const response = await this.request<CapabilitySearchResponse>(
+          buildAPIURL(`${API_ROUTES.CAPABILITIES}/search?${params}`)
+        );
+
         // DON'T RETRY - just return empty response if it fails
         if (!response.success) {
           console.warn('Capabilities search not available');
@@ -1021,15 +1052,15 @@ export class UAIPAPIClient {
               capabilities: [],
               totalCount: 0,
               recommendations: [],
-              searchTime: 0
+              searchTime: 0,
             },
             meta: {
               timestamp: new Date(),
-              requestId: this.generateRequestId()
-            }
+              requestId: this.generateRequestId(),
+            },
           };
         }
-        
+
         return response;
       } catch (error) {
         console.warn('Capabilities search failed:', error);
@@ -1040,12 +1071,12 @@ export class UAIPAPIClient {
             capabilities: [],
             totalCount: 0,
             recommendations: [],
-            searchTime: 0
+            searchTime: 0,
           },
           meta: {
             timestamp: new Date(),
-            requestId: this.generateRequestId()
-          }
+            requestId: this.generateRequestId(),
+          },
         };
       }
     },
@@ -1055,8 +1086,10 @@ export class UAIPAPIClient {
      */
     getCategories: async (): Promise<APIResponse<string[]>> => {
       try {
-        const response = await this.request<string[]>(buildAPIURL(`${API_ROUTES.CAPABILITIES}/categories`));
-        
+        const response = await this.request<string[]>(
+          buildAPIURL(`${API_ROUTES.CAPABILITIES}/categories`)
+        );
+
         // If the API call fails, return a mock successful response to prevent infinite retries
         if (!response.success) {
           console.warn('Capability categories API endpoint not available, returning mock response');
@@ -1065,11 +1098,11 @@ export class UAIPAPIClient {
             data: ['System', 'External', 'Analysis', 'Communication', 'Development'],
             meta: {
               timestamp: new Date(),
-              requestId: this.generateRequestId()
-            }
+              requestId: this.generateRequestId(),
+            },
           };
         }
-        
+
         return response;
       } catch (error) {
         console.warn('Failed to get capability categories, returning mock response:', error);
@@ -1079,8 +1112,8 @@ export class UAIPAPIClient {
           data: ['System', 'External', 'Analysis', 'Communication', 'Development'],
           meta: {
             timestamp: new Date(),
-            requestId: this.generateRequestId()
-          }
+            requestId: this.generateRequestId(),
+          },
         };
       }
     },
@@ -1088,15 +1121,21 @@ export class UAIPAPIClient {
     /**
      * Get capability recommendations
      */
-    getRecommendations: async (context?: Record<string, any>): Promise<APIResponse<CapabilityRecommendation[]>> => {
+    getRecommendations: async (
+      context?: Record<string, any>
+    ): Promise<APIResponse<CapabilityRecommendation[]>> => {
       const params = context ? `?${new URLSearchParams(context)}` : '';
-      return this.request<CapabilityRecommendation[]>(buildAPIURL(`${API_ROUTES.CAPABILITIES}/recommendations${params}`));
+      return this.request<CapabilityRecommendation[]>(
+        buildAPIURL(`${API_ROUTES.CAPABILITIES}/recommendations${params}`)
+      );
     },
 
     /**
      * Register new capability
      */
-    register: async (capability: Omit<Capability, 'id' | 'createdAt' | 'updatedAt'>): Promise<APIResponse<Capability>> => {
+    register: async (
+      capability: Omit<Capability, 'id' | 'createdAt' | 'updatedAt'>
+    ): Promise<APIResponse<Capability>> => {
       return this.request<Capability>(buildAPIURL(`${API_ROUTES.CAPABILITIES}/register`), {
         method: 'POST',
         body: JSON.stringify(capability),
@@ -1113,7 +1152,10 @@ export class UAIPAPIClient {
     /**
      * Update capability
      */
-    update: async (capabilityId: string, updates: Partial<Capability>): Promise<APIResponse<Capability>> => {
+    update: async (
+      capabilityId: string,
+      updates: Partial<Capability>
+    ): Promise<APIResponse<Capability>> => {
       return this.request<Capability>(buildAPIURL(`${API_ROUTES.CAPABILITIES}/${capabilityId}`), {
         method: 'PUT',
         body: JSON.stringify(updates),
@@ -1133,17 +1175,25 @@ export class UAIPAPIClient {
      * Get capability dependencies
      */
     getDependencies: async (capabilityId: string): Promise<APIResponse<string[]>> => {
-      return this.request<string[]>(buildAPIURL(`${API_ROUTES.CAPABILITIES}/${capabilityId}/dependencies`));
+      return this.request<string[]>(
+        buildAPIURL(`${API_ROUTES.CAPABILITIES}/${capabilityId}/dependencies`)
+      );
     },
 
     /**
      * Validate capability
      */
-    validate: async (capabilityId: string, validationData?: Record<string, any>): Promise<APIResponse<{ valid: boolean; errors?: string[] }>> => {
-      return this.request<{ valid: boolean; errors?: string[] }>(buildAPIURL(`${API_ROUTES.CAPABILITIES}/${capabilityId}/validate`), {
-        method: 'POST',
-        body: JSON.stringify(validationData || {}),
-      });
+    validate: async (
+      capabilityId: string,
+      validationData?: Record<string, any>
+    ): Promise<APIResponse<{ valid: boolean; errors?: string[] }>> => {
+      return this.request<{ valid: boolean; errors?: string[] }>(
+        buildAPIURL(`${API_ROUTES.CAPABILITIES}/${capabilityId}/validate`),
+        {
+          method: 'POST',
+          body: JSON.stringify(validationData || {}),
+        }
+      );
     },
   };
 
@@ -1177,9 +1227,9 @@ export class UAIPAPIClient {
 
         const queryString = params.toString();
         const endpoint = queryString ? `${API_ROUTES.TOOLS}?${queryString}` : API_ROUTES.TOOLS;
-        
+
         const response = await this.request<any[]>(buildAPIURL(endpoint));
-        
+
         if (!response.success) {
           console.warn('Tools API not available, returning empty array');
           return {
@@ -1187,11 +1237,11 @@ export class UAIPAPIClient {
             data: [],
             meta: {
               timestamp: new Date(),
-              requestId: this.generateRequestId()
-            }
+              requestId: this.generateRequestId(),
+            },
           };
         }
-        
+
         return response;
       } catch (error) {
         console.warn('Failed to fetch tools, returning empty array:', error);
@@ -1200,8 +1250,8 @@ export class UAIPAPIClient {
           data: [],
           meta: {
             timestamp: new Date(),
-            requestId: this.generateRequestId()
-          }
+            requestId: this.generateRequestId(),
+          },
         };
       }
     },
@@ -1245,11 +1295,15 @@ export class UAIPAPIClient {
     /**
      * Execute tool
      */
-    execute: async (toolId: string, parameters: any, options?: {
-      approvalRequired?: boolean;
-      maxCost?: number;
-      timeout?: number;
-    }): Promise<APIResponse<any>> => {
+    execute: async (
+      toolId: string,
+      parameters: any,
+      options?: {
+        approvalRequired?: boolean;
+        maxCost?: number;
+        timeout?: number;
+      }
+    ): Promise<APIResponse<any>> => {
       return this.request<any>(buildAPIURL(`${API_ROUTES.TOOLS}/${toolId}/execute`), {
         method: 'POST',
         body: JSON.stringify({ parameters, options }),
@@ -1261,8 +1315,10 @@ export class UAIPAPIClient {
      */
     getCategories: async (): Promise<APIResponse<string[]>> => {
       try {
-        const response = await this.request<string[]>(buildAPIURL(`${API_ROUTES.TOOLS}/categories`));
-        
+        const response = await this.request<string[]>(
+          buildAPIURL(`${API_ROUTES.TOOLS}/categories`)
+        );
+
         if (!response.success) {
           console.warn('Tool categories API not available, returning mock categories');
           return {
@@ -1270,11 +1326,11 @@ export class UAIPAPIClient {
             data: ['System', 'External', 'Analysis', 'Communication', 'Development'],
             meta: {
               timestamp: new Date(),
-              requestId: this.generateRequestId()
-            }
+              requestId: this.generateRequestId(),
+            },
           };
         }
-        
+
         return response;
       } catch (error) {
         console.warn('Failed to get tool categories, returning mock categories:', error);
@@ -1283,8 +1339,8 @@ export class UAIPAPIClient {
           data: ['System', 'External', 'Analysis', 'Communication', 'Development'],
           meta: {
             timestamp: new Date(),
-            requestId: this.generateRequestId()
-          }
+            requestId: this.generateRequestId(),
+          },
         };
       }
     },
@@ -1321,11 +1377,16 @@ export class UAIPAPIClient {
     /**
      * Validate tool
      */
-    validate: async (toolData: any): Promise<APIResponse<{ valid: boolean; errors?: string[] }>> => {
-      return this.request<{ valid: boolean; errors?: string[] }>(buildAPIURL(`${API_ROUTES.TOOLS}/validate`), {
-        method: 'POST',
-        body: JSON.stringify(toolData),
-      });
+    validate: async (
+      toolData: any
+    ): Promise<APIResponse<{ valid: boolean; errors?: string[] }>> => {
+      return this.request<{ valid: boolean; errors?: string[] }>(
+        buildAPIURL(`${API_ROUTES.TOOLS}/validate`),
+        {
+          method: 'POST',
+          body: JSON.stringify(toolData),
+        }
+      );
     },
 
     /**
@@ -1344,8 +1405,10 @@ export class UAIPAPIClient {
       if (filters?.offset) params.append('offset', filters.offset.toString());
 
       const queryString = params.toString();
-      const endpoint = queryString ? `${API_ROUTES.TOOLS}/executions?${queryString}` : `${API_ROUTES.TOOLS}/executions`;
-      
+      const endpoint = queryString
+        ? `${API_ROUTES.TOOLS}/executions?${queryString}`
+        : `${API_ROUTES.TOOLS}/executions`;
+
       return this.request<any[]>(buildAPIURL(endpoint));
     },
 
@@ -1363,7 +1426,7 @@ export class UAIPAPIClient {
     getPopular: async (limit?: number): Promise<APIResponse<any[]>> => {
       const params = limit ? `?limit=${limit}` : '';
       return this.request<any[]>(buildAPIURL(`${API_ROUTES.TOOLS}/analytics/popular${params}`));
-    }
+    },
   };
 
   // ============================================================================
@@ -1377,7 +1440,9 @@ export class UAIPAPIClient {
     /**
      * Execute operation
      */
-    execute: async (operationRequest: ExecuteOperationRequest): Promise<APIResponse<{ workflowInstanceId: string }>> => {
+    execute: async (
+      operationRequest: ExecuteOperationRequest
+    ): Promise<APIResponse<{ workflowInstanceId: string }>> => {
       return this.request<{ workflowInstanceId: string }>('/api/v1/operations', {
         method: 'POST',
         body: JSON.stringify(operationRequest),
@@ -1401,7 +1466,10 @@ export class UAIPAPIClient {
     /**
      * Pause operation
      */
-    pause: async (operationId: string, pauseRequest: PauseOperationRequest): Promise<APIResponse<OperationStatusResponse>> => {
+    pause: async (
+      operationId: string,
+      pauseRequest: PauseOperationRequest
+    ): Promise<APIResponse<OperationStatusResponse>> => {
       return this.request(`/api/v1/operations/${operationId}/pause`, {
         method: 'POST',
         body: JSON.stringify(pauseRequest),
@@ -1411,7 +1479,10 @@ export class UAIPAPIClient {
     /**
      * Resume operation
      */
-    resume: async (operationId: string, resumeRequest: ResumeOperationRequest): Promise<APIResponse<OperationStatusResponse>> => {
+    resume: async (
+      operationId: string,
+      resumeRequest: ResumeOperationRequest
+    ): Promise<APIResponse<OperationStatusResponse>> => {
       return this.request(`/api/v1/operations/${operationId}/resume`, {
         method: 'POST',
         body: JSON.stringify(resumeRequest),
@@ -1421,12 +1492,15 @@ export class UAIPAPIClient {
     /**
      * Cancel operation
      */
-    cancel: async (operationId: string, cancelRequest: CancelOperationRequest): Promise<APIResponse<OperationStatusResponse>> => {
+    cancel: async (
+      operationId: string,
+      cancelRequest: CancelOperationRequest
+    ): Promise<APIResponse<OperationStatusResponse>> => {
       return this.request(`/api/v1/operations/${operationId}/cancel`, {
         method: 'POST',
         body: JSON.stringify(cancelRequest),
       });
-    }
+    },
   };
 
   // ============================================================================
@@ -1467,7 +1541,10 @@ export class UAIPAPIClient {
     /**
      * Update discussion
      */
-    update: async (discussionId: string, updates: UpdateDiscussionRequest): Promise<APIResponse<Discussion>> => {
+    update: async (
+      discussionId: string,
+      updates: UpdateDiscussionRequest
+    ): Promise<APIResponse<Discussion>> => {
       return this.request(`/api/v1/discussions/${discussionId}`, {
         method: 'PUT',
         body: JSON.stringify(updates),
@@ -1486,10 +1563,13 @@ export class UAIPAPIClient {
     /**
      * End discussion
      */
-    end: async (discussionId: string, endData: {
-      reason: string;
-      summary: string;
-    }): Promise<APIResponse<DiscussionSummary>> => {
+    end: async (
+      discussionId: string,
+      endData: {
+        reason: string;
+        summary: string;
+      }
+    ): Promise<APIResponse<DiscussionSummary>> => {
       return this.request(`/api/v1/discussions/${discussionId}/end`, {
         method: 'POST',
         body: JSON.stringify(endData),
@@ -1499,7 +1579,10 @@ export class UAIPAPIClient {
     /**
      * Add participant
      */
-    addParticipant: async (discussionId: string, participantData: Omit<DiscussionParticipant, 'id' | 'createdAt' | 'updatedAt'>): Promise<APIResponse<DiscussionParticipant>> => {
+    addParticipant: async (
+      discussionId: string,
+      participantData: Omit<DiscussionParticipant, 'id' | 'createdAt' | 'updatedAt'>
+    ): Promise<APIResponse<DiscussionParticipant>> => {
       return this.request(`/api/v1/discussions/${discussionId}/participants`, {
         method: 'POST',
         body: JSON.stringify(participantData),
@@ -1509,7 +1592,10 @@ export class UAIPAPIClient {
     /**
      * Remove participant
      */
-    removeParticipant: async (discussionId: string, participantId: string): Promise<APIResponse<void>> => {
+    removeParticipant: async (
+      discussionId: string,
+      participantId: string
+    ): Promise<APIResponse<void>> => {
       return this.request(`/api/v1/discussions/${discussionId}/participants/${participantId}`, {
         method: 'DELETE',
       });
@@ -1518,27 +1604,43 @@ export class UAIPAPIClient {
     /**
      * Send message
      */
-    sendMessage: async (discussionId: string, participantId: string, messageData: Omit<DiscussionMessage, 'id' | 'createdAt' | 'updatedAt'>): Promise<APIResponse<DiscussionMessage>> => {
-      return this.request(`/api/v1/discussions/${discussionId}/participants/${participantId}/messages`, {
-        method: 'POST',
-        body: JSON.stringify(messageData),
-      });
+    sendMessage: async (
+      discussionId: string,
+      participantId: string,
+      messageData: Omit<DiscussionMessage, 'id' | 'createdAt' | 'updatedAt'>
+    ): Promise<APIResponse<DiscussionMessage>> => {
+      return this.request(
+        `/api/v1/discussions/${discussionId}/participants/${participantId}/messages`,
+        {
+          method: 'POST',
+          body: JSON.stringify(messageData),
+        }
+      );
     },
 
     /**
      * Get messages
      */
-    getMessages: async (discussionId: string, limit = 50, offset = 0): Promise<APIResponse<DiscussionMessage[]>> => {
-      return this.request(`/api/v1/discussions/${discussionId}/messages?limit=${limit}&offset=${offset}`);
+    getMessages: async (
+      discussionId: string,
+      limit = 50,
+      offset = 0
+    ): Promise<APIResponse<DiscussionMessage[]>> => {
+      return this.request(
+        `/api/v1/discussions/${discussionId}/messages?limit=${limit}&offset=${offset}`
+      );
     },
 
     /**
      * Advance turn
      */
-    advanceTurn: async (discussionId: string, turnData: {
-      force: boolean;
-      reason: string;
-    }): Promise<APIResponse<DiscussionState>> => {
+    advanceTurn: async (
+      discussionId: string,
+      turnData: {
+        force: boolean;
+        reason: string;
+      }
+    ): Promise<APIResponse<DiscussionState>> => {
       return this.request(`/api/v1/discussions/${discussionId}/advance-turn`, {
         method: 'POST',
         body: JSON.stringify(turnData),
@@ -1550,7 +1652,7 @@ export class UAIPAPIClient {
      */
     getAnalytics: async (discussionId: string): Promise<APIResponse<DiscussionAnalytics>> => {
       return this.request(`/api/v1/discussions/${discussionId}/analytics`);
-    }
+    },
   };
 
   // ============================================================================
@@ -1574,7 +1676,9 @@ export class UAIPAPIClient {
     /**
      * Refresh token
      */
-    refresh: async (refreshToken: string): Promise<APIResponse<{ tokens: { accessToken: string } }>> => {
+    refresh: async (
+      refreshToken: string
+    ): Promise<APIResponse<{ tokens: { accessToken: string } }>> => {
       return this.request('/api/v1/auth/refresh', {
         method: 'POST',
         body: JSON.stringify({ refreshToken }),
@@ -1615,7 +1719,7 @@ export class UAIPAPIClient {
         method: 'POST',
         body: JSON.stringify({ email }),
       });
-    }
+    },
   };
 
   /**
@@ -1681,7 +1785,9 @@ export class UAIPAPIClient {
     /**
      * Create policy
      */
-    createPolicy: async (policyData: Partial<SecurityPolicy>): Promise<APIResponse<SecurityPolicy>> => {
+    createPolicy: async (
+      policyData: Partial<SecurityPolicy>
+    ): Promise<APIResponse<SecurityPolicy>> => {
       return this.request('/api/v1/security/policies', {
         method: 'POST',
         body: JSON.stringify(policyData),
@@ -1691,7 +1797,10 @@ export class UAIPAPIClient {
     /**
      * Update policy
      */
-    updatePolicy: async (policyId: string, updates: Partial<SecurityPolicy>): Promise<APIResponse<SecurityPolicy>> => {
+    updatePolicy: async (
+      policyId: string,
+      updates: Partial<SecurityPolicy>
+    ): Promise<APIResponse<SecurityPolicy>> => {
       return this.request(`/api/v1/security/policies/${policyId}`, {
         method: 'PUT',
         body: JSON.stringify(updates),
@@ -1712,7 +1821,7 @@ export class UAIPAPIClient {
      */
     getStats: async (): Promise<APIResponse<SecurityStats>> => {
       return this.request('/api/v1/security/stats');
-    }
+    },
   };
 
   /**
@@ -1722,7 +1831,9 @@ export class UAIPAPIClient {
     /**
      * Create approval workflow
      */
-    createWorkflow: async (workflowData: CreateApprovalWorkflowRequest): Promise<APIResponse<ApprovalWorkflow>> => {
+    createWorkflow: async (
+      workflowData: CreateApprovalWorkflowRequest
+    ): Promise<APIResponse<ApprovalWorkflow>> => {
       return this.request('/api/v1/approvals/workflows', {
         method: 'POST',
         body: JSON.stringify(workflowData),
@@ -1732,7 +1843,10 @@ export class UAIPAPIClient {
     /**
      * Submit approval decision
      */
-    submitDecision: async (workflowId: string, decision: ApprovalDecision): Promise<APIResponse<ApprovalWorkflow>> => {
+    submitDecision: async (
+      workflowId: string,
+      decision: ApprovalDecision
+    ): Promise<APIResponse<ApprovalWorkflow>> => {
       return this.request(`/api/v1/approvals/${workflowId}/decisions`, {
         method: 'POST',
         body: JSON.stringify(decision),
@@ -1749,7 +1863,10 @@ export class UAIPAPIClient {
     /**
      * Get all workflows
      */
-    getWorkflows: async (status?: string, limit?: number): Promise<APIResponse<ApprovalWorkflow[]>> => {
+    getWorkflows: async (
+      status?: string,
+      limit?: number
+    ): Promise<APIResponse<ApprovalWorkflow[]>> => {
       const params = new URLSearchParams();
       if (status) params.append('status', status);
       if (limit) params.append('limit', limit.toString());
@@ -1762,7 +1879,7 @@ export class UAIPAPIClient {
     getPendingApprovals: async (): Promise<APIResponse<ApprovalWorkflow[]>> => {
       try {
         const response = await this.request<ApprovalWorkflow[]>('/api/v1/approvals/pending');
-        
+
         // DON'T RETRY - just return empty response if it fails
         if (!response.success) {
           console.warn('Pending approvals API not available');
@@ -1771,11 +1888,11 @@ export class UAIPAPIClient {
             data: [],
             meta: {
               timestamp: new Date(),
-              requestId: this.generateRequestId()
-            }
+              requestId: this.generateRequestId(),
+            },
           };
         }
-        
+
         return response;
       } catch (error) {
         console.warn('Failed to fetch pending approvals:', error);
@@ -1785,8 +1902,8 @@ export class UAIPAPIClient {
           data: [],
           meta: {
             timestamp: new Date(),
-            requestId: this.generateRequestId()
-          }
+            requestId: this.generateRequestId(),
+          },
         };
       }
     },
@@ -1794,7 +1911,10 @@ export class UAIPAPIClient {
     /**
      * Cancel workflow
      */
-    cancelWorkflow: async (workflowId: string, reason: string): Promise<APIResponse<ApprovalWorkflow>> => {
+    cancelWorkflow: async (
+      workflowId: string,
+      reason: string
+    ): Promise<APIResponse<ApprovalWorkflow>> => {
       return this.request(`/api/v1/approvals/${workflowId}/cancel`, {
         method: 'POST',
         body: JSON.stringify({ reason }),
@@ -1806,7 +1926,7 @@ export class UAIPAPIClient {
      */
     getStats: async (): Promise<APIResponse<ApprovalStats>> => {
       return this.request('/api/v1/approvals/stats');
-    }
+    },
   };
 
   /**
@@ -1865,7 +1985,10 @@ export class UAIPAPIClient {
     /**
      * Reset user password
      */
-    resetPassword: async (userId: string, passwordData: ResetPasswordRequest): Promise<APIResponse<void>> => {
+    resetPassword: async (
+      userId: string,
+      passwordData: ResetPasswordRequest
+    ): Promise<APIResponse<void>> => {
       return this.request(`/api/v1/users/${userId}/reset-password`, {
         method: 'POST',
         body: JSON.stringify(passwordData),
@@ -1885,7 +2008,14 @@ export class UAIPAPIClient {
     /**
      * Bulk user action
      */
-    bulkAction: async (actionData: BulkUserAction): Promise<APIResponse<{ affectedUsers: number; results: Array<{ userId: string; success: boolean; error?: string }> }>> => {
+    bulkAction: async (
+      actionData: BulkUserAction
+    ): Promise<
+      APIResponse<{
+        affectedUsers: number;
+        results: Array<{ userId: string; success: boolean; error?: string }>;
+      }>
+    > => {
       return this.request('/api/v1/users/bulk-action', {
         method: 'POST',
         body: JSON.stringify(actionData),
@@ -1897,7 +2027,7 @@ export class UAIPAPIClient {
      */
     getStats: async (): Promise<APIResponse<UserStats>> => {
       return this.request('/api/v1/users/stats');
-    }
+    },
   };
 
   /**
@@ -1973,7 +2103,11 @@ export class UAIPAPIClient {
     /**
      * Get user activity
      */
-    getUserActivity: async (userId: string, startDate?: string, endDate?: string): Promise<APIResponse<UserActivitySummary[]>> => {
+    getUserActivity: async (
+      userId: string,
+      startDate?: string,
+      endDate?: string
+    ): Promise<APIResponse<UserActivitySummary[]>> => {
       const params = new URLSearchParams();
       if (startDate) params.append('startDate', startDate);
       if (endDate) params.append('endDate', endDate);
@@ -2010,7 +2144,7 @@ export class UAIPAPIClient {
           ...this.getAuthHeaders(),
         },
       });
-    }
+    },
   };
 
   llm = {
@@ -2038,33 +2172,41 @@ export class UAIPAPIClient {
       });
     },
 
-    generateResponse: async (request: LLMGenerationRequest): Promise<APIResponse<LLMGenerationResponse>> => {
+    generateResponse: async (
+      request: LLMGenerationRequest
+    ): Promise<APIResponse<LLMGenerationResponse>> => {
       return this.request(`${API_ROUTES.LLM}/generate`, {
         method: 'POST',
         body: JSON.stringify(request),
       });
     },
 
-    generateAgentResponse: async (request: AgentLLMRequest): Promise<APIResponse<LLMGenerationResponse>> => {
+    generateAgentResponse: async (
+      request: AgentLLMRequest
+    ): Promise<APIResponse<LLMGenerationResponse>> => {
       return this.request(`${API_ROUTES.LLM}/agent-response`, {
         method: 'POST',
         body: JSON.stringify(request),
       });
     },
 
-    generateArtifact: async (request: ArtifactGenerationRequest): Promise<APIResponse<ArtifactGenerationResponse>> => {
+    generateArtifact: async (
+      request: ArtifactGenerationRequest
+    ): Promise<APIResponse<ArtifactGenerationResponse>> => {
       return this.request(`${API_ROUTES.LLM}/artifact`, {
         method: 'POST',
         body: JSON.stringify(request),
       });
     },
 
-    analyzeContext: async (request: ContextAnalysisRequest): Promise<APIResponse<ContextAnalysisResponse>> => {
+    analyzeContext: async (
+      request: ContextAnalysisRequest
+    ): Promise<APIResponse<ContextAnalysisResponse>> => {
       return this.request(`${API_ROUTES.LLM}/analyze-context`, {
         method: 'POST',
         body: JSON.stringify(request),
       });
-    }
+    },
   };
 
   // User-specific LLM methods (using user LLM routes)
@@ -2082,21 +2224,27 @@ export class UAIPAPIClient {
       });
     },
 
-    updateProviderConfig: async (providerId: string, config: {
-      name?: string;
-      description?: string;
-      baseUrl?: string;
-      defaultModel?: string;
-      priority?: number;
-      configuration?: Record<string, unknown>;
-    }): Promise<APIResponse<void>> => {
+    updateProviderConfig: async (
+      providerId: string,
+      config: {
+        name?: string;
+        description?: string;
+        baseUrl?: string;
+        defaultModel?: string;
+        priority?: number;
+        configuration?: Record<string, unknown>;
+      }
+    ): Promise<APIResponse<void>> => {
       return this.request(`${API_ROUTES.USER_LLM}/providers/${providerId}`, {
         method: 'PUT',
         body: JSON.stringify(config),
       });
     },
 
-    updateProviderApiKey: async (providerId: string, apiKey: string): Promise<APIResponse<void>> => {
+    updateProviderApiKey: async (
+      providerId: string,
+      apiKey: string
+    ): Promise<APIResponse<void>> => {
       return this.request(`${API_ROUTES.USER_LLM}/providers/${providerId}/api-key`, {
         method: 'PUT',
         body: JSON.stringify({ apiKey }),
@@ -2121,24 +2269,30 @@ export class UAIPAPIClient {
       });
     },
 
-    generateResponse: async (request: LLMGenerationRequest): Promise<APIResponse<LLMGenerationResponse>> => {
+    generateResponse: async (
+      request: LLMGenerationRequest
+    ): Promise<APIResponse<LLMGenerationResponse>> => {
       return this.request(`${API_ROUTES.USER_LLM}/generate`, {
         method: 'POST',
         body: JSON.stringify(request),
       });
     },
 
-    generateAgentResponse: async (request: AgentLLMRequest): Promise<APIResponse<LLMGenerationResponse>> => {
+    generateAgentResponse: async (
+      request: AgentLLMRequest
+    ): Promise<APIResponse<LLMGenerationResponse>> => {
       return this.request(`${API_ROUTES.USER_LLM}/agent-response`, {
         method: 'POST',
         body: JSON.stringify(request),
       });
-    }
+    },
   };
 
   // Knowledge Graph API methods
   knowledge = {
-    uploadKnowledge: async (items: KnowledgeIngestRequest[]): Promise<APIResponse<KnowledgeIngestResponse>> => {
+    uploadKnowledge: async (
+      items: KnowledgeIngestRequest[]
+    ): Promise<APIResponse<KnowledgeIngestResponse>> => {
       return this.request(`${API_ROUTES.KNOWLEDGE}`, {
         method: 'POST',
         body: JSON.stringify(items),
@@ -2148,17 +2302,19 @@ export class UAIPAPIClient {
       });
     },
 
-    searchKnowledge: async (query: KnowledgeSearchRequest): Promise<APIResponse<KnowledgeSearchResponse>> => {
+    searchKnowledge: async (
+      query: KnowledgeSearchRequest
+    ): Promise<APIResponse<KnowledgeSearchResponse>> => {
       const params = new URLSearchParams();
       params.append('query', query.query);
       if (query.filters?.tags) {
-        query.filters.tags.forEach(tag => params.append('tags', tag));
+        query.filters.tags.forEach((tag) => params.append('tags', tag));
       }
       if (query.filters?.types) {
-        query.filters.types.forEach(type => params.append('types', type));
+        query.filters.types.forEach((type) => params.append('types', type));
       }
       if (query.filters?.sourceTypes) {
-        query.filters.sourceTypes.forEach(sourceType => params.append('sourceTypes', sourceType));
+        query.filters.sourceTypes.forEach((sourceType) => params.append('sourceTypes', sourceType));
       }
       if (query.options?.limit) {
         params.append('limit', query.options.limit.toString());
@@ -2175,7 +2331,10 @@ export class UAIPAPIClient {
       });
     },
 
-    updateKnowledge: async (itemId: string, updates: Partial<KnowledgeItem>): Promise<APIResponse<KnowledgeItem>> => {
+    updateKnowledge: async (
+      itemId: string,
+      updates: Partial<KnowledgeItem>
+    ): Promise<APIResponse<KnowledgeItem>> => {
       return this.request(`${API_ROUTES.KNOWLEDGE}/${itemId}`, {
         method: 'PATCH',
         body: JSON.stringify(updates),
@@ -2194,16 +2353,18 @@ export class UAIPAPIClient {
       });
     },
 
-    getKnowledgeStats: async (): Promise<APIResponse<{
-      totalItems: number;
-      itemsByType: Record<KnowledgeType, number>;
-      itemsBySource: Record<SourceType, number>;
-      recentActivity: Array<{
-        date: string;
-        uploads: number;
-        searches: number;
-      }>;
-    }>> => {
+    getKnowledgeStats: async (): Promise<
+      APIResponse<{
+        totalItems: number;
+        itemsByType: Record<KnowledgeType, number>;
+        itemsBySource: Record<SourceType, number>;
+        recentActivity: Array<{
+          date: string;
+          uploads: number;
+          searches: number;
+        }>;
+      }>
+    > => {
       return this.request(`${API_ROUTES.KNOWLEDGE}/stats`, {
         method: 'GET',
         headers: {
@@ -2237,7 +2398,7 @@ export class UAIPAPIClient {
           ...this.getAuthHeaders(),
         },
       });
-    }
+    },
   };
 }
 
@@ -2264,7 +2425,9 @@ export const apiClient = createAPIClient();
 /**
  * Check if API response indicates success
  */
-export function isSuccessResponse<T>(response: APIResponse<T>): response is APIResponse<T> & { success: true; data: T } {
+export function isSuccessResponse<T>(
+  response: APIResponse<T>
+): response is APIResponse<T> & { success: true; data: T } {
   return response.success === true && response.data !== undefined;
 }
 
@@ -2285,7 +2448,9 @@ export function getErrorCode(response: APIResponse): string {
 /**
  * Type guard for checking if response has error
  */
-export function hasError(response: APIResponse): response is APIResponse & { success: false; error: NonNullable<APIResponse['error']> } {
+export function hasError(
+  response: APIResponse
+): response is APIResponse & { success: false; error: NonNullable<APIResponse['error']> } {
   return response.success === false && response.error !== undefined;
 }
 
@@ -2293,4 +2458,4 @@ export function hasError(response: APIResponse): response is APIResponse & { suc
 // EXPORTS
 // ============================================================================
 
-export default UAIPAPIClient; 
+export default UAIPAPIClient;

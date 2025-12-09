@@ -14,93 +14,93 @@ export class CreateUserToolPreferences1738941234567 implements MigrationInterfac
             type: 'uuid',
             isPrimary: true,
             generationStrategy: 'uuid',
-            default: 'gen_random_uuid()'
+            default: 'gen_random_uuid()',
           },
           {
             name: 'user_id',
             type: 'uuid',
-            isNullable: false
+            isNullable: false,
           },
           {
             name: 'tool_id',
             type: 'uuid',
-            isNullable: false
+            isNullable: false,
           },
           {
             name: 'parameter_defaults',
             type: 'jsonb',
-            isNullable: true
+            isNullable: true,
           },
           {
             name: 'custom_config',
             type: 'jsonb',
-            isNullable: true
+            isNullable: true,
           },
           {
             name: 'is_favorite',
             type: 'boolean',
-            default: false
+            default: false,
           },
           {
             name: 'is_enabled',
             type: 'boolean',
-            default: true
+            default: true,
           },
           {
             name: 'auto_approve',
             type: 'boolean',
-            default: false
+            default: false,
           },
           {
             name: 'usage_count',
             type: 'integer',
-            default: 0
+            default: 0,
           },
           {
             name: 'last_used_at',
             type: 'timestamp',
-            isNullable: true
+            isNullable: true,
           },
           {
             name: 'rate_limits',
             type: 'jsonb',
-            isNullable: true
+            isNullable: true,
           },
           {
             name: 'budget_limit',
             type: 'decimal',
             precision: 10,
             scale: 2,
-            isNullable: true
+            isNullable: true,
           },
           {
             name: 'budget_used',
             type: 'decimal',
             precision: 10,
             scale: 2,
-            default: 0
+            default: 0,
           },
           {
             name: 'notify_on_completion',
             type: 'boolean',
-            default: true
+            default: true,
           },
           {
             name: 'notify_on_error',
             type: 'boolean',
-            default: true
+            default: true,
           },
           {
             name: 'created_at',
             type: 'timestamp',
-            default: 'now()'
+            default: 'now()',
           },
           {
             name: 'updated_at',
             type: 'timestamp',
-            default: 'now()'
-          }
-        ]
+            default: 'now()',
+          },
+        ],
       }),
       true
     );
@@ -112,7 +112,7 @@ export class CreateUserToolPreferences1738941234567 implements MigrationInterfac
         columnNames: ['user_id'],
         referencedColumnNames: ['id'],
         referencedTableName: 'users',
-        onDelete: 'CASCADE'
+        onDelete: 'CASCADE',
       })
     );
 
@@ -123,15 +123,15 @@ export class CreateUserToolPreferences1738941234567 implements MigrationInterfac
         columnNames: ['tool_id'],
         referencedColumnNames: ['id'],
         referencedTableName: 'tool_definitions',
-        onDelete: 'CASCADE'
+        onDelete: 'CASCADE',
       })
     );
 
     // Add unique constraint on user_id + tool_id combination
     await queryRunner.createIndex(
       'user_tool_preferences',
-      new Index('idx_user_tool_preferences_user_tool_unique', ['user_id', 'tool_id'], { 
-        isUnique: true 
+      new Index('idx_user_tool_preferences_user_tool_unique', ['user_id', 'tool_id'], {
+        isUnique: true,
       })
     );
 

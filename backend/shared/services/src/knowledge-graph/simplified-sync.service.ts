@@ -50,7 +50,7 @@ export class SimplifiedSyncService {
   async runSimplifiedSync(): Promise<SimplifiedSyncResult> {
     const syncTimestamp = new Date();
     const errors: string[] = [];
-    
+
     try {
       console.log('Starting simplified Neo4j → Qdrant → PostgreSQL sync...');
 
@@ -65,7 +65,9 @@ export class SimplifiedSyncService {
 
       // Step 3: Cluster similar vectors in Qdrant
       const clusteringResult = await this.clusteringService.clusterSimilarKnowledge(20, 0.85);
-      console.log(`Created ${clusteringResult.totalClusters} clusters from ${clusteringResult.totalOriginalItems} items`);
+      console.log(
+        `Created ${clusteringResult.totalClusters} clusters from ${clusteringResult.totalOriginalItems} items`
+      );
 
       // Step 4: Sync clustered knowledge to PostgreSQL
       const postgresResult = await this.syncToPostgres(clusteringResult.clusters);
@@ -80,13 +82,12 @@ export class SimplifiedSyncService {
         clustersCreated: clusteringResult.totalClusters,
         reductionRatio: clusteringResult.reductionRatio,
         errors,
-        syncTimestamp
+        syncTimestamp,
       };
-
     } catch (error) {
       console.error('Simplified sync failed:', error);
       errors.push(`Sync failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
-      
+
       return {
         totalFromNeo4j: 0,
         totalToQdrant: 0,
@@ -95,7 +96,7 @@ export class SimplifiedSyncService {
         clustersCreated: 0,
         reductionRatio: 0,
         errors,
-        syncTimestamp
+        syncTimestamp,
       };
     }
   }
@@ -105,7 +106,8 @@ export class SimplifiedSyncService {
    */
   async extractFromNeo4j(): Promise<Neo4jKnowledgeItem[]> {
     try {
-      const result = await this.graphDb.runQuery(`
+      const result = await this.graphDb.runQuery(
+        `
         MATCH (n)
         WHERE n.content IS NOT NULL
         RETURN 
@@ -117,18 +119,19 @@ export class SimplifiedSyncService {
           COALESCE(n.sourceType, 'neo4j') as sourceType,
           properties(n) as metadata
         LIMIT 10000
-      `, {});
+      `,
+        {}
+      );
 
-      return result.records.map(record => ({
+      return result.records.map((record) => ({
         id: record.get('id'),
         content: record.get('content'),
         type: record.get('type'),
         tags: record.get('tags') || [],
         confidence: record.get('confidence'),
         sourceType: record.get('sourceType'),
-        metadata: record.get('metadata') || {}
+        metadata: record.get('metadata') || {},
       }));
-
     } catch (error) {
       console.error('Error extracting from Neo4j:', error);
       return [];
@@ -138,18 +141,20 @@ export class SimplifiedSyncService {
   /**
    * Step 2: Sync Neo4j items to Qdrant with embeddings
    */
-  async syncToQdrant(items: Neo4jKnowledgeItem[]): Promise<{ successful: number; errors: string[] }> {
+  async syncToQdrant(
+    items: Neo4jKnowledgeItem[]
+  ): Promise<{ successful: number; errors: string[] }> {
     const errors: string[] = [];
     let successful = 0;
 
     // Process in batches
     for (let i = 0; i < items.length; i += this.batchSize) {
       const batch = items.slice(i, i + this.batchSize);
-      
+
       try {
         // Generate embeddings for batch
         const embeddings = await this.embeddingService.generateBatchEmbeddings(
-          batch.map(item => item.content)
+          batch.map((item) => item.content)
         );
 
         // Prepare Qdrant points in the correct format
@@ -163,14 +168,13 @@ export class SimplifiedSyncService {
             confidence: item.confidence,
             sourceType: item.sourceType,
             originalMetadata: item.metadata,
-            syncedAt: new Date().toISOString()
-          }
+            syncedAt: new Date().toISOString(),
+          },
         }));
 
         // Upsert to Qdrant
         await this.qdrantService.upsert(qdrantDocs);
         successful += batch.length;
-
       } catch (error) {
         const errorMsg = `Batch ${i}-${i + batch.length} failed: ${error instanceof Error ? error.message : 'Unknown error'}`;
         console.error(errorMsg);
@@ -184,7 +188,9 @@ export class SimplifiedSyncService {
   /**
    * Step 3: Sync clustered knowledge to PostgreSQL
    */
-  async syncToPostgres(clusters: KnowledgeCluster[]): Promise<{ successful: number; errors: string[] }> {
+  async syncToPostgres(
+    clusters: KnowledgeCluster[]
+  ): Promise<{ successful: number; errors: string[] }> {
     const errors: string[] = [];
     let successful = 0;
 
@@ -192,7 +198,7 @@ export class SimplifiedSyncService {
       try {
         // Convert cluster to KnowledgeItemEntity
         const knowledgeItem = await this.clusteringService.consolidateCluster(cluster);
-        
+
         // Convert to ingest format
         const ingestData = {
           content: knowledgeItem.content,
@@ -201,18 +207,17 @@ export class SimplifiedSyncService {
           source: {
             type: knowledgeItem.sourceType,
             identifier: knowledgeItem.sourceIdentifier,
-            metadata: knowledgeItem.metadata
+            metadata: knowledgeItem.metadata,
           },
           confidence: knowledgeItem.confidence,
           userId: knowledgeItem.userId,
           agentId: knowledgeItem.agentId,
-          summary: knowledgeItem.summary
+          summary: knowledgeItem.summary,
         };
-        
+
         // Save to PostgreSQL using the correct method
         await this.knowledgeRepository.create(ingestData);
         successful++;
-
       } catch (error) {
         const errorMsg = `Cluster ${cluster.clusterId} sync failed: ${error instanceof Error ? error.message : 'Unknown error'}`;
         console.error(errorMsg);
@@ -234,11 +239,14 @@ export class SimplifiedSyncService {
   }> {
     try {
       // Count Neo4j items
-      const neo4jResult = await this.graphDb.runQuery(`
+      const neo4jResult = await this.graphDb.runQuery(
+        `
         MATCH (n)
         WHERE n.content IS NOT NULL
         RETURN count(n) as count
-      `, {});
+      `,
+        {}
+      );
       const neo4jItems = neo4jResult.records[0]?.get('count')?.toNumber() || 0;
 
       // Count Qdrant items
@@ -250,9 +258,9 @@ export class SimplifiedSyncService {
       const postgresItems = allItems.length;
 
       // Get last sync timestamp (from most recent item metadata)
-      const clusteredItems = allItems.filter(item => item.sourceType === SourceType.CLUSTERED);
-      const sortedItems = clusteredItems.sort((a, b) => 
-        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+      const clusteredItems = allItems.filter((item) => item.sourceType === SourceType.CLUSTERED);
+      const sortedItems = clusteredItems.sort(
+        (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
       );
       const lastSync = sortedItems.length > 0 ? sortedItems[0].createdAt : null;
 
@@ -260,16 +268,15 @@ export class SimplifiedSyncService {
         neo4jItems,
         qdrantItems,
         postgresItems,
-        lastSync
+        lastSync,
       };
-
     } catch (error) {
       console.error('Error getting sync statistics:', error);
       return {
         neo4jItems: 0,
         qdrantItems: 0,
         postgresItems: 0,
-        lastSync: null
+        lastSync: null,
       };
     }
   }
@@ -285,7 +292,7 @@ export class SimplifiedSyncService {
 
       // Clear PostgreSQL clustered items
       const allItems = await this.knowledgeRepository.findAll();
-      const clusteredItems = allItems.filter(item => item.sourceType === SourceType.CLUSTERED);
+      const clusteredItems = allItems.filter((item) => item.sourceType === SourceType.CLUSTERED);
       for (const item of clusteredItems) {
         await this.knowledgeRepository.delete(item.id);
       }
@@ -303,71 +310,71 @@ export class SimplifiedSyncService {
   private mapToKnowledgeType(type: string): KnowledgeType {
     const typeMapping: Record<string, KnowledgeType> = {
       // Business & Organizations
-      'Company': KnowledgeType.FACTUAL,
-      'Organization': KnowledgeType.FACTUAL,
-      'BusinessUnit': KnowledgeType.FACTUAL,
-      'Department': KnowledgeType.FACTUAL,
-      
+      Company: KnowledgeType.FACTUAL,
+      Organization: KnowledgeType.FACTUAL,
+      BusinessUnit: KnowledgeType.FACTUAL,
+      Department: KnowledgeType.FACTUAL,
+
       // People & Roles
-      'Person': KnowledgeType.FACTUAL,
-      'Employee': KnowledgeType.FACTUAL,
-      'Manager': KnowledgeType.FACTUAL,
-      'Developer': KnowledgeType.FACTUAL,
-      'Designer': KnowledgeType.FACTUAL,
-      'Engineer': KnowledgeType.FACTUAL,
-      
+      Person: KnowledgeType.FACTUAL,
+      Employee: KnowledgeType.FACTUAL,
+      Manager: KnowledgeType.FACTUAL,
+      Developer: KnowledgeType.FACTUAL,
+      Designer: KnowledgeType.FACTUAL,
+      Engineer: KnowledgeType.FACTUAL,
+
       // Opportunities & Business
-      'Opportunity': KnowledgeType.EXPERIENTIAL,
-      'Lead': KnowledgeType.EXPERIENTIAL,
-      'Deal': KnowledgeType.EXPERIENTIAL,
-      'Sale': KnowledgeType.EXPERIENTIAL,
-      'Campaign': KnowledgeType.EXPERIENTIAL,
-      
+      Opportunity: KnowledgeType.EXPERIENTIAL,
+      Lead: KnowledgeType.EXPERIENTIAL,
+      Deal: KnowledgeType.EXPERIENTIAL,
+      Sale: KnowledgeType.EXPERIENTIAL,
+      Campaign: KnowledgeType.EXPERIENTIAL,
+
       // Projects & Work
-      'Project': KnowledgeType.PROCEDURAL,
-      'Task': KnowledgeType.PROCEDURAL,
-      'Sprint': KnowledgeType.PROCEDURAL,
-      'Epic': KnowledgeType.PROCEDURAL,
-      'Feature': KnowledgeType.PROCEDURAL,
-      'Bug': KnowledgeType.PROCEDURAL,
-      
+      Project: KnowledgeType.PROCEDURAL,
+      Task: KnowledgeType.PROCEDURAL,
+      Sprint: KnowledgeType.PROCEDURAL,
+      Epic: KnowledgeType.PROCEDURAL,
+      Feature: KnowledgeType.PROCEDURAL,
+      Bug: KnowledgeType.PROCEDURAL,
+
       // Knowledge & Content
-      'Document': KnowledgeType.SEMANTIC,
-      'Article': KnowledgeType.SEMANTIC,
-      'Report': KnowledgeType.SEMANTIC,
-      'Wiki': KnowledgeType.SEMANTIC,
-      'Blog': KnowledgeType.SEMANTIC,
-      'Note': KnowledgeType.SEMANTIC,
-      
+      Document: KnowledgeType.SEMANTIC,
+      Article: KnowledgeType.SEMANTIC,
+      Report: KnowledgeType.SEMANTIC,
+      Wiki: KnowledgeType.SEMANTIC,
+      Blog: KnowledgeType.SEMANTIC,
+      Note: KnowledgeType.SEMANTIC,
+
       // Technical
-      'API': KnowledgeType.PROCEDURAL,
-      'Service': KnowledgeType.PROCEDURAL,
-      'Database': KnowledgeType.FACTUAL,
-      'Server': KnowledgeType.FACTUAL,
-      'Application': KnowledgeType.FACTUAL,
-      'Code': KnowledgeType.PROCEDURAL,
-      
+      API: KnowledgeType.PROCEDURAL,
+      Service: KnowledgeType.PROCEDURAL,
+      Database: KnowledgeType.FACTUAL,
+      Server: KnowledgeType.FACTUAL,
+      Application: KnowledgeType.FACTUAL,
+      Code: KnowledgeType.PROCEDURAL,
+
       // Events & Activities
-      'Meeting': KnowledgeType.EPISODIC,
-      'Event': KnowledgeType.EPISODIC,
-      'Conference': KnowledgeType.EPISODIC,
-      'Workshop': KnowledgeType.EPISODIC,
-      'Training': KnowledgeType.EPISODIC,
-      
+      Meeting: KnowledgeType.EPISODIC,
+      Event: KnowledgeType.EPISODIC,
+      Conference: KnowledgeType.EPISODIC,
+      Workshop: KnowledgeType.EPISODIC,
+      Training: KnowledgeType.EPISODIC,
+
       // Concepts & Ideas
-      'Concept': KnowledgeType.CONCEPTUAL,
-      'Idea': KnowledgeType.CONCEPTUAL,
-      'Strategy': KnowledgeType.CONCEPTUAL,
-      'Goal': KnowledgeType.CONCEPTUAL,
-      'Objective': KnowledgeType.CONCEPTUAL,
-      
+      Concept: KnowledgeType.CONCEPTUAL,
+      Idea: KnowledgeType.CONCEPTUAL,
+      Strategy: KnowledgeType.CONCEPTUAL,
+      Goal: KnowledgeType.CONCEPTUAL,
+      Objective: KnowledgeType.CONCEPTUAL,
+
       // Default mappings
-      'FACTUAL': KnowledgeType.FACTUAL,
-      'PROCEDURAL': KnowledgeType.PROCEDURAL,
-      'CONCEPTUAL': KnowledgeType.CONCEPTUAL,
-      'EXPERIENTIAL': KnowledgeType.EXPERIENTIAL,
-      'EPISODIC': KnowledgeType.EPISODIC,
-      'SEMANTIC': KnowledgeType.SEMANTIC
+      FACTUAL: KnowledgeType.FACTUAL,
+      PROCEDURAL: KnowledgeType.PROCEDURAL,
+      CONCEPTUAL: KnowledgeType.CONCEPTUAL,
+      EXPERIENTIAL: KnowledgeType.EXPERIENTIAL,
+      EPISODIC: KnowledgeType.EPISODIC,
+      SEMANTIC: KnowledgeType.SEMANTIC,
     };
 
     return typeMapping[type] || KnowledgeType.FACTUAL;

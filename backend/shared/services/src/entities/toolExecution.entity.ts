@@ -1,9 +1,6 @@
 import { Entity, Column, Index, ManyToOne, JoinColumn } from 'typeorm';
 import { BaseEntity } from './base.entity.js';
-import { 
-  ToolExecutionStatus, 
-  ToolExecutionError 
-} from '@uaip/types';
+import { ToolExecutionStatus, ToolExecutionError } from '@uaip/types';
 
 /**
  * Tool Execution Entity for the Tool System
@@ -97,7 +94,12 @@ export class ToolExecution extends BaseEntity {
   networkBytesReceived?: number;
 
   // Security and compliance
-  @Column({ name: 'security_level', type: 'enum', enum: ['low', 'medium', 'high', 'critical'], default: 'medium' })
+  @Column({
+    name: 'security_level',
+    type: 'enum',
+    enum: ['low', 'medium', 'high', 'critical'],
+    default: 'medium',
+  })
   securityLevel: 'low' | 'medium' | 'high' | 'critical';
 
   @Column({ name: 'compliance_tags', type: 'jsonb', default: '[]' })
@@ -150,4 +152,4 @@ export class ToolExecution extends BaseEntity {
   @ManyToOne('Agent', { eager: false })
   @JoinColumn({ name: 'agent_id' })
   agent: any;
-} 
+}

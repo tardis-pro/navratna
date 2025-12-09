@@ -97,7 +97,12 @@ export class MCPToolCall extends BaseEntity {
   userSatisfaction?: number;
 
   // Security and compliance
-  @Column({ name: 'security_level', type: 'enum', enum: ['low', 'medium', 'high', 'critical'], default: 'medium' })
+  @Column({
+    name: 'security_level',
+    type: 'enum',
+    enum: ['low', 'medium', 'high', 'critical'],
+    default: 'medium',
+  })
   securityLevel: 'low' | 'medium' | 'high' | 'critical';
 
   @Column({ name: 'approval_required', default: false })
@@ -119,7 +124,12 @@ export class MCPToolCall extends BaseEntity {
   @Column({ name: 'error_code', nullable: true })
   errorCode?: string;
 
-  @Column({ name: 'error_category', type: 'enum', enum: ['network', 'timeout', 'validation', 'execution', 'permission', 'resource'], nullable: true })
+  @Column({
+    name: 'error_category',
+    type: 'enum',
+    enum: ['network', 'timeout', 'validation', 'execution', 'permission', 'resource'],
+    nullable: true,
+  })
   errorCategory?: 'network' | 'timeout' | 'validation' | 'execution' | 'permission' | 'resource';
 
   @Column({ name: 'stack_trace', type: 'text', nullable: true })
@@ -171,4 +181,4 @@ export class MCPToolCall extends BaseEntity {
   @ManyToOne('MCPServer', { eager: false })
   @JoinColumn({ name: 'server_id' })
   server: any;
-} 
+}

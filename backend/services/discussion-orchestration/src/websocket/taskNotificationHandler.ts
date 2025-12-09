@@ -4,7 +4,14 @@ import { logger } from '@uaip/utils';
 import { authenticateConnection } from './websocket-security-utils.js';
 
 interface TaskNotification {
-  type: 'task_created' | 'task_updated' | 'task_assigned' | 'task_completed' | 'task_deleted' | 'task_status_changed' | 'task_progress_updated';
+  type:
+    | 'task_created'
+    | 'task_updated'
+    | 'task_assigned'
+    | 'task_completed'
+    | 'task_deleted'
+    | 'task_status_changed'
+    | 'task_progress_updated';
   taskId: string;
   projectId: string;
   task: any;
@@ -57,7 +64,7 @@ export class TaskNotificationHandler {
 
   private setupNamespace(): void {
     const taskNamespace = this.io.of('/task-notifications');
-    
+
     taskNamespace.use(async (socket, next) => {
       try {
         // Simple authentication for now - could be enhanced later
@@ -147,21 +154,21 @@ export class TaskNotificationHandler {
 
   private subscribeToProject(socket: Socket, projectId: string): void {
     socket.join(`project:${projectId}`);
-    
+
     if (!this.projectSubscriptions.has(projectId)) {
       this.projectSubscriptions.set(projectId, new Set());
     }
     this.projectSubscriptions.get(projectId)!.add(socket.id);
-    
+
     logger.debug(`Socket ${socket.id} subscribed to project ${projectId} task updates`);
-    
+
     // Send current project stats
     this.sendProjectStats(socket, projectId);
   }
 
   private unsubscribeFromProject(socket: Socket, projectId: string): void {
     socket.leave(`project:${projectId}`);
-    
+
     const subscriptions = this.projectSubscriptions.get(projectId);
     if (subscriptions) {
       subscriptions.delete(socket.id);
@@ -169,24 +176,24 @@ export class TaskNotificationHandler {
         this.projectSubscriptions.delete(projectId);
       }
     }
-    
+
     logger.debug(`Socket ${socket.id} unsubscribed from project ${projectId} task updates`);
   }
 
   private subscribeToTask(socket: Socket, taskId: string): void {
     socket.join(`task:${taskId}`);
-    
+
     if (!this.taskSubscriptions.has(taskId)) {
       this.taskSubscriptions.set(taskId, new Set());
     }
     this.taskSubscriptions.get(taskId)!.add(socket.id);
-    
+
     logger.debug(`Socket ${socket.id} subscribed to task ${taskId} updates`);
   }
 
   private unsubscribeFromTask(socket: Socket, taskId: string): void {
     socket.leave(`task:${taskId}`);
-    
+
     const subscriptions = this.taskSubscriptions.get(taskId);
     if (subscriptions) {
       subscriptions.delete(socket.id);
@@ -194,49 +201,63 @@ export class TaskNotificationHandler {
         this.taskSubscriptions.delete(taskId);
       }
     }
-    
+
     logger.debug(`Socket ${socket.id} unsubscribed from task ${taskId} updates`);
   }
 
-  private handleProgressUpdate(socket: Socket, userId: string, data: Partial<TaskProgressUpdate>): void {
+  private handleProgressUpdate(
+    socket: Socket,
+    userId: string,
+    data: Partial<TaskProgressUpdate>
+  ): void {
     if (!data.taskId || !data.projectId || data.completionPercentage === undefined) {
       socket.emit('error', { message: 'Invalid progress update data' });
       return;
     }
 
     const progressUpdate: TaskProgressUpdate = {
-      ...data as TaskProgressUpdate,
+      ...(data as TaskProgressUpdate),
       actor: {
         id: userId,
         name: socket.data.user?.name || 'Unknown User',
-        type: 'user'
+        type: 'user',
       },
-      timestamp: new Date()
+      timestamp: new Date(),
     };
 
     // Broadcast to project subscribers
-    this.io.of('/task-notifications')
+    this.io
+      .of('/task-notifications')
       .to(`project:${data.projectId}`)
       .emit('task_progress_updated', progressUpdate);
 
     // Broadcast to specific task subscribers
-    this.io.of('/task-notifications')
+    this.io
+      .of('/task-notifications')
       .to(`task:${data.taskId}`)
       .emit('task_progress_updated', progressUpdate);
 
-    logger.debug(`Progress update broadcast for task ${data.taskId}: ${data.completionPercentage}%`);
+    logger.debug(
+      `Progress update broadcast for task ${data.taskId}: ${data.completionPercentage}%`
+    );
   }
 
-  private broadcastTyping(socket: Socket, userId: string, taskId: string, projectId: string, isTyping: boolean): void {
+  private broadcastTyping(
+    socket: Socket,
+    userId: string,
+    taskId: string,
+    projectId: string,
+    isTyping: boolean
+  ): void {
     const typingData = {
       taskId,
       projectId,
       user: {
         id: userId,
-        name: socket.data.user?.name || 'Unknown User'
+        name: socket.data.user?.name || 'Unknown User',
       },
       isTyping,
-      timestamp: new Date()
+      timestamp: new Date(),
     };
 
     // Broadcast to all subscribers except the sender
@@ -324,16 +345,18 @@ export class TaskNotificationHandler {
       changes: data.changes,
       actor: data.actor || { id: 'system', name: 'System', type: 'system' },
       timestamp: new Date(),
-      message: this.generateNotificationMessage(type, data)
+      message: this.generateNotificationMessage(type, data),
     };
 
     // Broadcast to project subscribers
-    this.io.of('/task-notifications')
+    this.io
+      .of('/task-notifications')
       .to(`project:${data.projectId}`)
       .emit('task_notification', notification);
 
     // Broadcast to specific task subscribers
-    this.io.of('/task-notifications')
+    this.io
+      .of('/task-notifications')
       .to(`task:${data.taskId}`)
       .emit('task_notification', notification);
 
@@ -344,7 +367,8 @@ export class TaskNotificationHandler {
   }
 
   private handleProjectStatsUpdate(data: ProjectTaskStats): void {
-    this.io.of('/task-notifications')
+    this.io
+      .of('/task-notifications')
       .to(`project:${data.projectId}`)
       .emit('project_stats_updated', data);
 
@@ -353,17 +377,20 @@ export class TaskNotificationHandler {
 
   private sendPersonalNotifications(notification: TaskNotification): void {
     const { task } = notification;
-    
+
     // Notify assigned user
     if (task.assignedToUserId) {
       const userSockets = this.connectedUsers.get(task.assignedToUserId);
       if (userSockets) {
-        userSockets.forEach(socketId => {
-          this.io.of('/task-notifications').to(socketId).emit('personal_task_notification', {
-            ...notification,
-            personal: true,
-            reason: 'assigned_to_you'
-          });
+        userSockets.forEach((socketId) => {
+          this.io
+            .of('/task-notifications')
+            .to(socketId)
+            .emit('personal_task_notification', {
+              ...notification,
+              personal: true,
+              reason: 'assigned_to_you',
+            });
         });
       }
     }
@@ -372,12 +399,15 @@ export class TaskNotificationHandler {
     if (task.createdBy && task.createdBy !== notification.actor.id) {
       const creatorSockets = this.connectedUsers.get(task.createdBy);
       if (creatorSockets) {
-        creatorSockets.forEach(socketId => {
-          this.io.of('/task-notifications').to(socketId).emit('personal_task_notification', {
-            ...notification,
-            personal: true,
-            reason: 'task_you_created'
-          });
+        creatorSockets.forEach((socketId) => {
+          this.io
+            .of('/task-notifications')
+            .to(socketId)
+            .emit('personal_task_notification', {
+              ...notification,
+              personal: true,
+              reason: 'task_you_created',
+            });
         });
       }
     }
@@ -393,9 +423,10 @@ export class TaskNotificationHandler {
       case 'task_updated':
         return `${actorName} updated "${taskTitle}"`;
       case 'task_assigned':
-        const assigneeName = data.task.assigneeType === 'human' 
-          ? data.task.assignedToUser?.name 
-          : data.task.assignedToAgent?.name;
+        const assigneeName =
+          data.task.assigneeType === 'human'
+            ? data.task.assignedToUser?.name
+            : data.task.assignedToAgent?.name;
         return `${actorName} assigned "${taskTitle}" to ${assigneeName}`;
       case 'task_status_changed':
         const newStatus = data.changes?.status?.new?.replace('_', ' ') || 'unknown';
@@ -417,7 +448,13 @@ export class TaskNotificationHandler {
     this.handleTaskNotification('task_created', { taskId, projectId, task, actor });
   }
 
-  public broadcastTaskUpdated(taskId: string, projectId: string, task: any, changes: any, actor: any): void {
+  public broadcastTaskUpdated(
+    taskId: string,
+    projectId: string,
+    task: any,
+    changes: any,
+    actor: any
+  ): void {
     this.handleTaskNotification('task_updated', { taskId, projectId, task, changes, actor });
   }
 
@@ -425,7 +462,13 @@ export class TaskNotificationHandler {
     this.handleTaskNotification('task_assigned', { taskId, projectId, task, actor });
   }
 
-  public broadcastTaskStatusChanged(taskId: string, projectId: string, task: any, changes: any, actor: any): void {
+  public broadcastTaskStatusChanged(
+    taskId: string,
+    projectId: string,
+    task: any,
+    changes: any,
+    actor: any
+  ): void {
     this.handleTaskNotification('task_status_changed', { taskId, projectId, task, changes, actor });
   }
 
@@ -448,14 +491,16 @@ export class TaskNotificationHandler {
     taskSubscriptions: number;
     totalSockets: number;
   } {
-    const totalSockets = Array.from(this.connectedUsers.values())
-      .reduce((total, sockets) => total + sockets.size, 0);
+    const totalSockets = Array.from(this.connectedUsers.values()).reduce(
+      (total, sockets) => total + sockets.size,
+      0
+    );
 
     return {
       connectedUsers: this.connectedUsers.size,
       projectSubscriptions: this.projectSubscriptions.size,
       taskSubscriptions: this.taskSubscriptions.size,
-      totalSockets
+      totalSockets,
     };
   }
 }

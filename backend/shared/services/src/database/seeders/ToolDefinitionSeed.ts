@@ -20,8 +20,8 @@ export class ToolDefinitionSeed extends BaseSeed<ToolDefinition> {
   }
 
   async getSeedData(): Promise<DeepPartial<ToolDefinition>[]> {
-    const adminUser = this.users.find(u => u.role === 'system_admin') || this.users[0];
-    const developerUser = this.users.find(u => u.role === 'developer') || this.users[0];
+    const adminUser = this.users.find((u) => u.role === 'system_admin') || this.users[0];
+    const developerUser = this.users.find((u) => u.role === 'developer') || this.users[0];
 
     return [
       {
@@ -34,19 +34,19 @@ export class ToolDefinitionSeed extends BaseSeed<ToolDefinition> {
           properties: {
             path: {
               type: 'string',
-              description: 'Path to the file or directory to read'
+              description: 'Path to the file or directory to read',
             },
             encoding: {
               type: 'string',
               description: 'File encoding (default: utf-8)',
-              default: 'utf-8'
-            }
+              default: 'utf-8',
+            },
           },
-          required: ['path']
+          required: ['path'],
         },
         returnType: {
           type: 'string',
-          description: 'File content or directory listing'
+          description: 'File content or directory listing',
         },
         securityLevel: SecurityLevel.MEDIUM,
         author: 'UAIP System',
@@ -56,16 +56,16 @@ export class ToolDefinitionSeed extends BaseSeed<ToolDefinition> {
             name: 'Read text file',
             description: 'Read a text file from the filesystem',
             input: { path: '/home/user/document.txt' },
-            expectedOutput: 'File content as string'
-          }
+            expectedOutput: 'File content as string',
+          },
         ],
         rateLimits: {
           maxCallsPerMinute: 60,
-          maxCallsPerHour: 1000
+          maxCallsPerHour: 1000,
         },
         dependencies: [],
         isEnabled: true,
-        requiresApproval: false
+        requiresApproval: false,
       },
       {
         name: 'HTTP Request',
@@ -77,37 +77,37 @@ export class ToolDefinitionSeed extends BaseSeed<ToolDefinition> {
           properties: {
             url: {
               type: 'string',
-              description: 'URL to make the request to'
+              description: 'URL to make the request to',
             },
             method: {
               type: 'string',
               enum: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'],
               description: 'HTTP method',
-              default: 'GET'
+              default: 'GET',
             },
             headers: {
               type: 'object',
-              description: 'HTTP headers'
+              description: 'HTTP headers',
             },
             body: {
               type: 'object',
-              description: 'Request body for POST/PUT requests'
+              description: 'Request body for POST/PUT requests',
             },
             timeout: {
               type: 'number',
               description: 'Request timeout in milliseconds',
-              default: 30000
-            }
+              default: 30000,
+            },
           },
-          required: ['url']
+          required: ['url'],
         },
         returnType: {
           type: 'object',
           properties: {
             status: { type: 'number' },
             headers: { type: 'object' },
-            body: { type: 'any' }
-          }
+            body: { type: 'any' },
+          },
         },
         securityLevel: SecurityLevel.HIGH,
         author: 'UAIP System',
@@ -119,18 +119,18 @@ export class ToolDefinitionSeed extends BaseSeed<ToolDefinition> {
             input: {
               url: 'https://api.example.com/data',
               method: 'GET',
-              headers: { 'Authorization': 'Bearer token' }
+              headers: { Authorization: 'Bearer token' },
             },
-            expectedOutput: 'HTTP response object with status, headers, and body'
-          }
+            expectedOutput: 'HTTP response object with status, headers, and body',
+          },
         ],
         rateLimits: {
           maxCallsPerMinute: 30,
-          maxCallsPerHour: 500
+          maxCallsPerHour: 500,
         },
         dependencies: [],
         isEnabled: true,
-        requiresApproval: true
+        requiresApproval: true,
       },
       {
         name: 'Database Query',
@@ -142,24 +142,24 @@ export class ToolDefinitionSeed extends BaseSeed<ToolDefinition> {
           properties: {
             query: {
               type: 'string',
-              description: 'SQL query to execute'
+              description: 'SQL query to execute',
             },
             parameters: {
               type: 'array',
-              description: 'Query parameters for prepared statements'
+              description: 'Query parameters for prepared statements',
             },
             database: {
               type: 'string',
               description: 'Database connection name',
-              default: 'default'
-            }
+              default: 'default',
+            },
           },
-          required: ['query']
+          required: ['query'],
         },
         returnType: {
           type: 'array',
           items: { type: 'object' },
-          description: 'Query results as array of objects'
+          description: 'Query results as array of objects',
         },
         securityLevel: SecurityLevel.CRITICAL,
         author: 'UAIP System',
@@ -170,18 +170,18 @@ export class ToolDefinitionSeed extends BaseSeed<ToolDefinition> {
             description: 'Execute a SELECT query with parameters',
             input: {
               query: 'SELECT * FROM users WHERE id = ?',
-              parameters: [123]
+              parameters: [123],
             },
-            expectedOutput: 'Query results as array of objects'
-          }
+            expectedOutput: 'Query results as array of objects',
+          },
         ],
         rateLimits: {
           maxCallsPerMinute: 10,
-          maxCallsPerHour: 100
+          maxCallsPerHour: 100,
         },
         dependencies: [],
         isEnabled: true,
-        requiresApproval: true
+        requiresApproval: true,
       },
       {
         name: 'Code Executor',
@@ -193,32 +193,32 @@ export class ToolDefinitionSeed extends BaseSeed<ToolDefinition> {
           properties: {
             code: {
               type: 'string',
-              description: 'Code to execute'
+              description: 'Code to execute',
             },
             language: {
               type: 'string',
               enum: ['python', 'javascript', 'typescript', 'bash'],
-              description: 'Programming language'
+              description: 'Programming language',
             },
             timeout: {
               type: 'number',
               description: 'Execution timeout in milliseconds',
-              default: 30000
+              default: 30000,
             },
             environment: {
               type: 'object',
-              description: 'Environment variables'
-            }
+              description: 'Environment variables',
+            },
           },
-          required: ['code', 'language']
+          required: ['code', 'language'],
         },
         returnType: {
           type: 'object',
           properties: {
             stdout: { type: 'string' },
             stderr: { type: 'string' },
-            exitCode: { type: 'number' }
-          }
+            exitCode: { type: 'number' },
+          },
         },
         securityLevel: SecurityLevel.CRITICAL,
         author: 'UAIP System',
@@ -229,19 +229,19 @@ export class ToolDefinitionSeed extends BaseSeed<ToolDefinition> {
             description: 'Execute Python code in a sandbox',
             input: {
               code: 'print("Hello, World!")',
-              language: 'python'
+              language: 'python',
             },
-            expectedOutput: 'Execution result with stdout, stderr, and exit code'
-          }
+            expectedOutput: 'Execution result with stdout, stderr, and exit code',
+          },
         ],
         rateLimits: {
           maxCallsPerMinute: 5,
-          maxCallsPerHour: 50
+          maxCallsPerHour: 50,
         },
         dependencies: [],
         isEnabled: true,
-        requiresApproval: true
-      }
+        requiresApproval: true,
+      },
     ];
   }
 }

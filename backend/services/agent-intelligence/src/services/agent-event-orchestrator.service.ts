@@ -15,7 +15,7 @@ import {
   AgentDiscussionService,
   AgentMetricsService,
   AgentIntentService,
-  AgentInitializationService
+  AgentInitializationService,
 } from './index';
 
 export interface AgentEventOrchestratorConfig {
@@ -96,7 +96,7 @@ export class AgentEventOrchestrator {
     logger.info('Agent Event Orchestrator initialized', {
       service: this.serviceName,
       securityLevel: this.securityLevel,
-      servicesCount: Object.keys(services).length
+      servicesCount: Object.keys(services).length,
     });
   }
 
@@ -110,7 +110,7 @@ export class AgentEventOrchestrator {
       logger.info('Executing agent operation', {
         operationId,
         agentId: request.agentId,
-        operationType: request.operationType
+        operationType: request.operationType,
       });
 
       // Create operation for orchestration pipeline
@@ -124,20 +124,20 @@ export class AgentEventOrchestrator {
           executionContext: {
             agentId: request.agentId,
             userId: request.context?.userId || '',
-            environment: process.env.NODE_ENV as any || 'development',
+            environment: (process.env.NODE_ENV as any) || 'development',
             timeout: request.timeout || 300000,
             resourceLimits: {
               maxMemory: 1024 * 1024 * 1024, // 1GB
               maxCpu: 2,
-              maxDuration: request.timeout || 300000
-            }
+              maxDuration: request.timeout || 300000,
+            },
           },
         },
         metadata: {
-          priority: 'medium' as any
+          priority: 'medium' as any,
         },
         createdAt: new Date(),
-        updatedAt: new Date()
+        updatedAt: new Date(),
       };
 
       // Store operation locally
@@ -145,7 +145,7 @@ export class AgentEventOrchestrator {
         operation,
         request,
         startTime: Date.now(),
-        status: 'executing'
+        status: 'executing',
       });
 
       // Submit to orchestration pipeline
@@ -156,13 +156,13 @@ export class AgentEventOrchestrator {
         operationId,
         workflowInstanceId,
         agentId: request.agentId,
-        operationType: request.operationType
+        operationType: request.operationType,
       });
 
       this.auditLog('AGENT_OPERATION_STARTED', {
         operationId,
         agentId: request.agentId,
-        operationType: request.operationType
+        operationType: request.operationType,
       });
 
       return workflowInstanceId;
@@ -181,7 +181,7 @@ export class AgentEventOrchestrator {
         operationId,
         agentId: request.agentId,
         operationType: request.operationType,
-        error: error instanceof Error ? error.message : String(error)
+        error: error instanceof Error ? error.message : String(error),
       });
 
       throw error;
@@ -210,7 +210,12 @@ export class AgentEventOrchestrator {
           throw new Error(`Unknown workflow type: ${workflowType}`);
       }
     } catch (error) {
-      logger.error('Failed to execute agent workflow', { error, workflowId, agentId, workflowType });
+      logger.error('Failed to execute agent workflow', {
+        error,
+        workflowId,
+        agentId,
+        workflowType,
+      });
       throw error;
     }
   }
@@ -228,7 +233,7 @@ export class AgentEventOrchestrator {
       this.agentDiscussionService,
       this.agentMetricsService,
       this.agentIntentService,
-      this.agentInitializationService
+      this.agentInitializationService,
     ];
 
     // Services are ready to use (no initialize method needed)
@@ -247,7 +252,7 @@ export class AgentEventOrchestrator {
     await this.subscribeToEvent('agent.workflow.*', this.handleWorkflowEvent.bind(this));
 
     logger.info('Event subscriptions configured', {
-      subscriptionsCount: this.eventSubscriptions.size
+      subscriptionsCount: this.eventSubscriptions.size,
     });
   }
 
@@ -274,12 +279,20 @@ export class AgentEventOrchestrator {
           { id: 'get_agent', type: 'agent_query', name: 'Get Agent Data' },
           { id: 'analyze_context', type: 'context_analysis', name: 'Analyze Context' },
           { id: 'analyze_intent', type: 'intent_analysis', name: 'Analyze Intent' },
-          { id: 'generate_recommendations', type: 'recommendation_generation', name: 'Generate Recommendations' }
+          {
+            id: 'generate_recommendations',
+            type: 'recommendation_generation',
+            name: 'Generate Recommendations',
+          }
         );
         dependencies.push(
           { stepId: 'analyze_context', dependsOn: ['get_agent'], type: 'sequential' },
           { stepId: 'analyze_intent', dependsOn: ['get_agent'], type: 'sequential' },
-          { stepId: 'generate_recommendations', dependsOn: ['analyze_context', 'analyze_intent'], type: 'sequential' }
+          {
+            stepId: 'generate_recommendations',
+            dependsOn: ['analyze_context', 'analyze_intent'],
+            type: 'sequential',
+          }
         );
         break;
 
@@ -316,9 +329,11 @@ export class AgentEventOrchestrator {
           { id: 'get_agent', type: 'agent_query', name: 'Get Agent Data' },
           { id: 'execute_operation', type: 'operation_execution', name: 'Execute Operation' }
         );
-        dependencies.push(
-          { stepId: 'execute_operation', dependsOn: ['get_agent'], type: 'sequential' }
-        );
+        dependencies.push({
+          stepId: 'execute_operation',
+          dependsOn: ['get_agent'],
+          type: 'sequential',
+        });
     }
 
     return {
@@ -335,35 +350,42 @@ export class AgentEventOrchestrator {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${process.env.INTERNAL_SERVICE_TOKEN || 'internal-service'}`
+          Authorization: `Bearer ${process.env.INTERNAL_SERVICE_TOKEN || 'internal-service'}`,
         },
-        body: JSON.stringify(operation)
+        body: JSON.stringify(operation),
       });
 
       if (!response.ok) {
-        throw new Error(`Orchestration pipeline request failed: ${response.status} ${response.statusText}`);
+        throw new Error(
+          `Orchestration pipeline request failed: ${response.status} ${response.statusText}`
+        );
       }
 
       const result = await response.json();
       if (!result.success) {
-        throw new Error(`Orchestration pipeline error: ${result.error?.message || 'Unknown error'}`);
+        throw new Error(
+          `Orchestration pipeline error: ${result.error?.message || 'Unknown error'}`
+        );
       }
 
       return result.data.workflowInstanceId;
     } catch (error) {
-      logger.error('Failed to submit to orchestration pipeline', { error, operationId: operation.id });
+      logger.error('Failed to submit to orchestration pipeline', {
+        error,
+        operationId: operation.id,
+      });
       throw error;
     }
   }
 
   private estimateOperationDuration(operationType: string): number {
     const baseDurations = {
-      analyze: 30000,    // 30 seconds
-      plan: 60000,       // 1 minute
-      learn: 45000,      // 45 seconds
-      discuss: 20000,    // 20 seconds
+      analyze: 30000, // 30 seconds
+      plan: 60000, // 1 minute
+      learn: 45000, // 45 seconds
+      discuss: 20000, // 20 seconds
       initialize: 15000, // 15 seconds
-      metrics: 10000     // 10 seconds
+      metrics: 10000, // 10 seconds
     };
 
     return baseDurations[operationType] || 30000;
@@ -379,13 +401,13 @@ export class AgentEventOrchestrator {
         'agent.learn',
         'agent.discuss',
         'agent.initialize',
-        'agent.metrics'
+        'agent.metrics',
       ],
       endpoints: {
         health: '/health',
-        metrics: '/metrics'
+        metrics: '/metrics',
       },
-      securityLevel: this.securityLevel
+      securityLevel: this.securityLevel,
     };
 
     // This would typically be sent to a capability registry
@@ -395,7 +417,11 @@ export class AgentEventOrchestrator {
   /**
    * Workflow implementations
    */
-  private async executeFullAnalysisWorkflow(agentId: string, parameters: any, workflowId: string): Promise<any> {
+  private async executeFullAnalysisWorkflow(
+    agentId: string,
+    parameters: any,
+    workflowId: string
+  ): Promise<any> {
     logger.info('Executing full analysis workflow', { workflowId, agentId });
 
     try {
@@ -410,7 +436,7 @@ export class AgentEventOrchestrator {
         agentId,
         userRequest: parameters.userRequest,
         conversationContext: parameters.conversationContext,
-        constraints: parameters.constraints
+        constraints: parameters.constraints,
       });
 
       // Step 3: Analyze intent
@@ -418,7 +444,7 @@ export class AgentEventOrchestrator {
         userRequest: parameters.userRequest,
         conversationContext: parameters.conversationContext,
         agent: agent.data,
-        userId: parameters.userId
+        userId: parameters.userId,
       });
 
       // Step 4: Generate recommendations
@@ -429,7 +455,7 @@ export class AgentEventOrchestrator {
         constraints: parameters.constraints,
         relevantKnowledge: [],
         similarEpisodes: [],
-        userId: parameters.userId
+        userId: parameters.userId,
       });
 
       // Step 5: Calculate confidence
@@ -439,7 +465,7 @@ export class AgentEventOrchestrator {
         actionRecommendations: recommendations.data,
         intelligenceConfig: agent.data.intelligenceConfig,
         relevantKnowledge: [],
-        workingMemory: null
+        workingMemory: null,
       });
 
       // Step 6: Generate explanation
@@ -451,7 +477,7 @@ export class AgentEventOrchestrator {
         relevantKnowledge: [],
         similarEpisodes: [],
         agent: agent.data,
-        userId: parameters.userId
+        userId: parameters.userId,
       });
 
       const result = {
@@ -462,14 +488,14 @@ export class AgentEventOrchestrator {
         recommendations: recommendations.data,
         confidence: confidence.data,
         explanation: explanation.data,
-        timestamp: new Date()
+        timestamp: new Date(),
       };
 
       await this.publishEvent('agent.workflow.completed', {
         workflowId,
         workflowType: 'full_analysis',
         agentId,
-        result
+        result,
       });
 
       return result;
@@ -478,13 +504,17 @@ export class AgentEventOrchestrator {
         workflowId,
         workflowType: 'full_analysis',
         agentId,
-        error: error instanceof Error ? error.message : String(error)
+        error: error instanceof Error ? error.message : String(error),
       });
       throw error;
     }
   }
 
-  private async executeLearningCycleWorkflow(agentId: string, parameters: any, workflowId: string): Promise<any> {
+  private async executeLearningCycleWorkflow(
+    agentId: string,
+    parameters: any,
+    workflowId: string
+  ): Promise<any> {
     logger.info('Executing learning cycle workflow', { workflowId, agentId });
 
     try {
@@ -494,7 +524,7 @@ export class AgentEventOrchestrator {
           agentId,
           operationId: parameters.operationId,
           outcomes: parameters.outcomes,
-          feedback: parameters.feedback
+          feedback: parameters.feedback,
         });
       }
 
@@ -502,7 +532,7 @@ export class AgentEventOrchestrator {
       if (parameters.interaction) {
         await this.requestFromService('agent.learning.interaction', {
           agentId,
-          interaction: parameters.interaction
+          interaction: parameters.interaction,
         });
       }
 
@@ -510,7 +540,7 @@ export class AgentEventOrchestrator {
       if (parameters.knowledgeItems) {
         await this.requestFromService('agent.learning.update', {
           agentId,
-          knowledgeItems: parameters.knowledgeItems
+          knowledgeItems: parameters.knowledgeItems,
         });
       }
 
@@ -525,22 +555,22 @@ export class AgentEventOrchestrator {
           duration: Date.now() - parseInt(workflowId.split('_')[1]),
           success: true,
           context: parameters,
-          metadata: { workflowId }
-        }
+          metadata: { workflowId },
+        },
       });
 
       const result = {
         workflowId,
         agentId,
         learningCompleted: true,
-        timestamp: new Date()
+        timestamp: new Date(),
       };
 
       await this.publishEvent('agent.workflow.completed', {
         workflowId,
         workflowType: 'learning_cycle',
         agentId,
-        result
+        result,
       });
 
       return result;
@@ -549,13 +579,17 @@ export class AgentEventOrchestrator {
         workflowId,
         workflowType: 'learning_cycle',
         agentId,
-        error: error instanceof Error ? error.message : String(error)
+        error: error instanceof Error ? error.message : String(error),
       });
       throw error;
     }
   }
 
-  private async executeDiscussionWorkflow(agentId: string, parameters: any, workflowId: string): Promise<any> {
+  private async executeDiscussionWorkflow(
+    agentId: string,
+    parameters: any,
+    workflowId: string
+  ): Promise<any> {
     logger.info('Executing discussion workflow', { workflowId, agentId });
 
     try {
@@ -563,7 +597,7 @@ export class AgentEventOrchestrator {
       const participation = await this.requestFromService('agent.discussion.participate', {
         agentId,
         discussionId: parameters.discussionId,
-        message: parameters.message
+        message: parameters.message,
       });
 
       // Step 2: Track activity
@@ -574,22 +608,22 @@ export class AgentEventOrchestrator {
           duration: Date.now() - parseInt(workflowId.split('_')[1]),
           success: participation.success,
           context: parameters,
-          metadata: { workflowId, discussionId: parameters.discussionId }
-        }
+          metadata: { workflowId, discussionId: parameters.discussionId },
+        },
       });
 
       const result = {
         workflowId,
         agentId,
         participation: participation.data,
-        timestamp: new Date()
+        timestamp: new Date(),
       };
 
       await this.publishEvent('agent.workflow.completed', {
         workflowId,
         workflowType: 'discussion_participation',
         agentId,
-        result
+        result,
       });
 
       return result;
@@ -598,13 +632,17 @@ export class AgentEventOrchestrator {
         workflowId,
         workflowType: 'discussion_participation',
         agentId,
-        error: error instanceof Error ? error.message : String(error)
+        error: error instanceof Error ? error.message : String(error),
       });
       throw error;
     }
   }
 
-  private async executePerformanceOptimizationWorkflow(agentId: string, parameters: any, workflowId: string): Promise<any> {
+  private async executePerformanceOptimizationWorkflow(
+    agentId: string,
+    parameters: any,
+    workflowId: string
+  ): Promise<any> {
     logger.info('Executing performance optimization workflow', { workflowId, agentId });
 
     try {
@@ -613,8 +651,8 @@ export class AgentEventOrchestrator {
         agentId,
         timeRange: parameters.timeRange || {
           start: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000), // 7 days ago
-          end: new Date()
-        }
+          end: new Date(),
+        },
       });
 
       // Step 2: Generate metrics summary
@@ -622,8 +660,8 @@ export class AgentEventOrchestrator {
         agentId,
         timeRange: parameters.timeRange || {
           start: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000),
-          end: new Date()
-        }
+          end: new Date(),
+        },
       });
 
       // Step 3: Consolidate memory if needed
@@ -637,14 +675,14 @@ export class AgentEventOrchestrator {
         currentMetrics: currentMetrics.data,
         summary: metricsSummary.data,
         optimizationsApplied: ['memory_consolidation'],
-        timestamp: new Date()
+        timestamp: new Date(),
       };
 
       await this.publishEvent('agent.workflow.completed', {
         workflowId,
         workflowType: 'performance_optimization',
         agentId,
-        result
+        result,
       });
 
       return result;
@@ -653,7 +691,7 @@ export class AgentEventOrchestrator {
         workflowId,
         workflowType: 'performance_optimization',
         agentId,
-        error: error instanceof Error ? error.message : String(error)
+        error: error instanceof Error ? error.message : String(error),
       });
       throw error;
     }
@@ -681,7 +719,7 @@ export class AgentEventOrchestrator {
           await this.publishEvent('agent.operation.completed', {
             operationId,
             agentId: activeOp.request.agentId,
-            result: data.result
+            result: data.result,
           });
           break;
 
@@ -691,7 +729,7 @@ export class AgentEventOrchestrator {
           await this.publishEvent('agent.operation.failed', {
             operationId,
             agentId: activeOp.request.agentId,
-            error: data.error
+            error: data.error,
           });
           break;
 
@@ -700,7 +738,7 @@ export class AgentEventOrchestrator {
             operationId,
             agentId: activeOp.request.agentId,
             stepId: data.stepId,
-            result: data.result
+            result: data.result,
           });
           break;
 
@@ -709,7 +747,7 @@ export class AgentEventOrchestrator {
             operationId,
             agentId: activeOp.request.agentId,
             stepId: data.stepId,
-            error: data.error
+            error: data.error,
           });
           break;
       }
@@ -777,7 +815,7 @@ export class AgentEventOrchestrator {
         ...data,
         source: this.serviceName,
         securityLevel: this.securityLevel,
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
       });
     } catch (error) {
       logger.error('Failed to publish event', { channel, error });
@@ -793,7 +831,7 @@ export class AgentEventOrchestrator {
         requestId,
         ...data,
         source: this.serviceName,
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
       });
 
       // Wait for response (simplified - in production, use proper request/response pattern)
@@ -827,7 +865,7 @@ export class AgentEventOrchestrator {
       ...data,
       service: this.serviceName,
       timestamp: new Date().toISOString(),
-      compliance: true
+      compliance: true,
     });
   }
 
@@ -847,7 +885,7 @@ export class AgentEventOrchestrator {
       startTime: activeOp.startTime,
       duration: Date.now() - activeOp.startTime,
       result: activeOp.result,
-      error: activeOp.error
+      error: activeOp.error,
     };
   }
 
@@ -858,7 +896,7 @@ export class AgentEventOrchestrator {
       agentId: operation.request.agentId,
       operationType: operation.request.operationType,
       startTime: operation.startTime,
-      duration: Date.now() - operation.startTime
+      duration: Date.now() - operation.startTime,
     }));
   }
 
@@ -870,14 +908,17 @@ export class AgentEventOrchestrator {
 
     try {
       // Cancel in orchestration pipeline
-      const response = await fetch(`${this.orchestrationPipelineUrl}/api/v1/operations/${operationId}/cancel`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${process.env.INTERNAL_SERVICE_TOKEN || 'internal-service'}`
-        },
-        body: JSON.stringify({ reason, compensate: true, force: false })
-      });
+      const response = await fetch(
+        `${this.orchestrationPipelineUrl}/api/v1/operations/${operationId}/cancel`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${process.env.INTERNAL_SERVICE_TOKEN || 'internal-service'}`,
+          },
+          body: JSON.stringify({ reason, compensate: true, force: false }),
+        }
+      );
 
       if (!response.ok) {
         throw new Error(`Failed to cancel operation: ${response.status} ${response.statusText}`);
@@ -890,13 +931,13 @@ export class AgentEventOrchestrator {
       await this.publishEvent('agent.operation.cancelled', {
         operationId,
         agentId: activeOp.request.agentId,
-        reason
+        reason,
       });
 
       this.auditLog('OPERATION_CANCELLED', {
         operationId,
         agentId: activeOp.request.agentId,
-        reason
+        reason,
       });
     } catch (error) {
       logger.error('Failed to cancel operation', { error, operationId });

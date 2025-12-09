@@ -1,5 +1,11 @@
 import { Context } from 'elysia';
-import { TaskService, CreateTaskRequest, UpdateTaskRequest, TaskAssignmentRequest, TaskFilters } from '@uaip/shared-services';
+import {
+  TaskService,
+  CreateTaskRequest,
+  UpdateTaskRequest,
+  TaskAssignmentRequest,
+  TaskFilters,
+} from '@uaip/shared-services';
 import { logger } from '@uaip/utils';
 import { z } from 'zod';
 
@@ -19,7 +25,18 @@ const createTaskSchema = z.object({
   description: z.string().optional(),
   projectId: z.string().uuid(),
   priority: z.enum(['low', 'medium', 'high', 'urgent']).optional(),
-  type: z.enum(['feature', 'bug', 'enhancement', 'research', 'documentation', 'testing', 'deployment', 'maintenance']).optional(),
+  type: z
+    .enum([
+      'feature',
+      'bug',
+      'enhancement',
+      'research',
+      'documentation',
+      'testing',
+      'deployment',
+      'maintenance',
+    ])
+    .optional(),
   assigneeType: z.enum(['human', 'agent']).optional(),
   assignedToUserId: z.string().uuid().optional(),
   assignedToAgentId: z.string().uuid().optional(),
@@ -29,15 +46,28 @@ const createTaskSchema = z.object({
   epic: z.string().optional(),
   sprint: z.string().optional(),
   estimatedHours: z.number().min(0).optional(),
-  customFields: z.record(z.any()).optional()
+  customFields: z.record(z.any()).optional(),
 });
 
 const updateTaskSchema = z.object({
   title: z.string().min(1).max(255).optional(),
   description: z.string().optional(),
-  status: z.enum(['todo', 'in_progress', 'in_review', 'blocked', 'completed', 'cancelled']).optional(),
+  status: z
+    .enum(['todo', 'in_progress', 'in_review', 'blocked', 'completed', 'cancelled'])
+    .optional(),
   priority: z.enum(['low', 'medium', 'high', 'urgent']).optional(),
-  type: z.enum(['feature', 'bug', 'enhancement', 'research', 'documentation', 'testing', 'deployment', 'maintenance']).optional(),
+  type: z
+    .enum([
+      'feature',
+      'bug',
+      'enhancement',
+      'research',
+      'documentation',
+      'testing',
+      'deployment',
+      'maintenance',
+    ])
+    .optional(),
   assigneeType: z.enum(['human', 'agent']).optional(),
   assignedToUserId: z.string().uuid().optional(),
   assignedToAgentId: z.string().uuid().optional(),
@@ -46,29 +76,34 @@ const updateTaskSchema = z.object({
   labels: z.array(z.string()).optional(),
   epic: z.string().optional(),
   sprint: z.string().optional(),
-  customFields: z.record(z.any()).optional()
+  customFields: z.record(z.any()).optional(),
 });
 
-const assignTaskSchema = z.object({
-  assigneeType: z.enum(['human', 'agent']),
-  assignedToUserId: z.string().uuid().optional(),
-  assignedToAgentId: z.string().uuid().optional(),
-  reason: z.string().optional()
-}).refine(data => {
-  if (data.assigneeType === 'human' && !data.assignedToUserId) {
-    return false;
-  }
-  if (data.assigneeType === 'agent' && !data.assignedToAgentId) {
-    return false;
-  }
-  return true;
-}, {
-  message: "Must provide assignedToUserId for human or assignedToAgentId for agent"
-});
+const assignTaskSchema = z
+  .object({
+    assigneeType: z.enum(['human', 'agent']),
+    assignedToUserId: z.string().uuid().optional(),
+    assignedToAgentId: z.string().uuid().optional(),
+    reason: z.string().optional(),
+  })
+  .refine(
+    (data) => {
+      if (data.assigneeType === 'human' && !data.assignedToUserId) {
+        return false;
+      }
+      if (data.assigneeType === 'agent' && !data.assignedToAgentId) {
+        return false;
+      }
+      return true;
+    },
+    {
+      message: 'Must provide assignedToUserId for human or assignedToAgentId for agent',
+    }
+  );
 
 const progressUpdateSchema = z.object({
   completionPercentage: z.number().min(0).max(100),
-  timeSpent: z.number().min(0).optional()
+  timeSpent: z.number().min(0).optional(),
 });
 
 export class TaskController {
@@ -84,7 +119,7 @@ export class TaskController {
       const { projectId } = params as { projectId: string };
       const filters: TaskFilters = {
         ...query,
-        projectId
+        projectId,
       };
 
       // Parse array parameters
@@ -115,16 +150,15 @@ export class TaskController {
       return {
         success: true,
         data: tasks,
-        total: tasks.length
+        total: tasks.length,
       };
-
     } catch (error) {
       logger.error('Error getting project tasks:', error);
       set.status = 500;
       return {
         success: false,
         error: 'Failed to retrieve tasks',
-        details: error instanceof Error ? error.message : 'Unknown error'
+        details: error instanceof Error ? error.message : 'Unknown error',
       };
     }
   }
@@ -139,22 +173,21 @@ export class TaskController {
         set.status = 404;
         return {
           success: false,
-          error: 'Task not found'
+          error: 'Task not found',
         };
       }
 
       return {
         success: true,
-        data: task
+        data: task,
       };
-
     } catch (error) {
       logger.error('Error getting task:', error);
       set.status = 500;
       return {
         success: false,
         error: 'Failed to retrieve task',
-        details: error instanceof Error ? error.message : 'Unknown error'
+        details: error instanceof Error ? error.message : 'Unknown error',
       };
     }
   }
@@ -169,7 +202,7 @@ export class TaskController {
         set.status = 401;
         return {
           success: false,
-          error: 'User not authenticated'
+          error: 'User not authenticated',
         };
       }
 
@@ -191,7 +224,7 @@ export class TaskController {
         labels: validatedData.labels,
         epic: validatedData.epic,
         sprint: validatedData.sprint,
-        createdBy: userId
+        createdBy: userId,
       };
 
       const task = await this.taskService.createTask(createRequest);
@@ -200,18 +233,17 @@ export class TaskController {
       return {
         success: true,
         data: task,
-        message: `Task created: ${task.taskNumber}`
+        message: `Task created: ${task.taskNumber}`,
       };
-
     } catch (error) {
       logger.error('Error creating task:', error);
-      
+
       if (error instanceof z.ZodError) {
         set.status = 400;
         return {
           success: false,
           error: 'Validation failed',
-          details: error.errors
+          details: error.errors,
         };
       }
 
@@ -219,7 +251,7 @@ export class TaskController {
       return {
         success: false,
         error: 'Failed to create task',
-        details: error instanceof Error ? error.message : 'Unknown error'
+        details: error instanceof Error ? error.message : 'Unknown error',
       };
     }
   }
@@ -234,7 +266,7 @@ export class TaskController {
         set.status = 401;
         return {
           success: false,
-          error: 'User not authenticated'
+          error: 'User not authenticated',
         };
       }
 
@@ -256,7 +288,7 @@ export class TaskController {
         epic: validatedData.epic,
         sprint: validatedData.sprint,
         customFields: validatedData.customFields,
-        updatedBy: userId
+        updatedBy: userId,
       };
 
       const task = await this.taskService.updateTask(taskId, updateRequest);
@@ -264,18 +296,17 @@ export class TaskController {
       return {
         success: true,
         data: task,
-        message: `Task updated: ${task.taskNumber}`
+        message: `Task updated: ${task.taskNumber}`,
       };
-
     } catch (error) {
       logger.error('Error updating task:', error);
-      
+
       if (error instanceof z.ZodError) {
         set.status = 400;
         return {
           success: false,
           error: 'Validation failed',
-          details: error.errors
+          details: error.errors,
         };
       }
 
@@ -283,7 +314,7 @@ export class TaskController {
       return {
         success: false,
         error: 'Failed to update task',
-        details: error instanceof Error ? error.message : 'Unknown error'
+        details: error instanceof Error ? error.message : 'Unknown error',
       };
     }
   }
@@ -298,7 +329,7 @@ export class TaskController {
         set.status = 401;
         return {
           success: false,
-          error: 'User not authenticated'
+          error: 'User not authenticated',
         };
       }
 
@@ -311,7 +342,7 @@ export class TaskController {
         assigneeType: validatedData.assigneeType as any,
         assignedToUserId: validatedData.assignedToUserId,
         assignedToAgentId: validatedData.assignedToAgentId,
-        reason: validatedData.reason
+        reason: validatedData.reason,
       };
 
       const task = await this.taskService.assignTask(assignRequest);
@@ -319,18 +350,17 @@ export class TaskController {
       return {
         success: true,
         data: task,
-        message: `Task assigned to ${task.assigneeDisplayName}`
+        message: `Task assigned to ${task.assigneeDisplayName}`,
       };
-
     } catch (error) {
       logger.error('Error assigning task:', error);
-      
+
       if (error instanceof z.ZodError) {
         set.status = 400;
         return {
           success: false,
           error: 'Validation failed',
-          details: error.errors
+          details: error.errors,
         };
       }
 
@@ -338,7 +368,7 @@ export class TaskController {
       return {
         success: false,
         error: 'Failed to assign task',
-        details: error instanceof Error ? error.message : 'Unknown error'
+        details: error instanceof Error ? error.message : 'Unknown error',
       };
     }
   }
@@ -351,16 +381,15 @@ export class TaskController {
 
       return {
         success: true,
-        data: suggestions
+        data: suggestions,
       };
-
     } catch (error) {
       logger.error('Error getting assignment suggestions:', error);
       set.status = 500;
       return {
         success: false,
         error: 'Failed to get assignment suggestions',
-        details: error instanceof Error ? error.message : 'Unknown error'
+        details: error instanceof Error ? error.message : 'Unknown error',
       };
     }
   }
@@ -382,18 +411,17 @@ export class TaskController {
       return {
         success: true,
         data: task,
-        message: `Task progress updated: ${validatedData.completionPercentage}%`
+        message: `Task progress updated: ${validatedData.completionPercentage}%`,
       };
-
     } catch (error) {
       logger.error('Error updating task progress:', error);
-      
+
       if (error instanceof z.ZodError) {
         set.status = 400;
         return {
           success: false,
           error: 'Validation failed',
-          details: error.errors
+          details: error.errors,
         };
       }
 
@@ -401,7 +429,7 @@ export class TaskController {
       return {
         success: false,
         error: 'Failed to update task progress',
-        details: error instanceof Error ? error.message : 'Unknown error'
+        details: error instanceof Error ? error.message : 'Unknown error',
       };
     }
   }
@@ -416,7 +444,7 @@ export class TaskController {
         set.status = 401;
         return {
           success: false,
-          error: 'User not authenticated'
+          error: 'User not authenticated',
         };
       }
 
@@ -424,16 +452,15 @@ export class TaskController {
 
       return {
         success: true,
-        message: 'Task deleted successfully'
+        message: 'Task deleted successfully',
       };
-
     } catch (error) {
       logger.error('Error deleting task:', error);
       set.status = 500;
       return {
         success: false,
         error: 'Failed to delete task',
-        details: error instanceof Error ? error.message : 'Unknown error'
+        details: error instanceof Error ? error.message : 'Unknown error',
       };
     }
   }
@@ -446,16 +473,15 @@ export class TaskController {
 
       return {
         success: true,
-        data: statistics
+        data: statistics,
       };
-
     } catch (error) {
       logger.error('Error getting task statistics:', error);
       set.status = 500;
       return {
         success: false,
         error: 'Failed to get task statistics',
-        details: error instanceof Error ? error.message : 'Unknown error'
+        details: error instanceof Error ? error.message : 'Unknown error',
       };
     }
   }
@@ -471,13 +497,13 @@ export class TaskController {
         set.status = 403;
         return {
           success: false,
-          error: 'Forbidden: Can only view your own tasks'
+          error: 'Forbidden: Can only view your own tasks',
         };
       }
 
       const filters: TaskFilters = {
         assignedToUserId: userId,
-        ...query
+        ...query,
       };
 
       // Get tasks from all projects the user is assigned to
@@ -487,16 +513,15 @@ export class TaskController {
       return {
         success: true,
         data: [],
-        message: 'User task query needs project context or cross-project implementation'
+        message: 'User task query needs project context or cross-project implementation',
       };
-
     } catch (error) {
       logger.error('Error getting user tasks:', error);
       set.status = 500;
       return {
         success: false,
         error: 'Failed to get user tasks',
-        details: error instanceof Error ? error.message : 'Unknown error'
+        details: error instanceof Error ? error.message : 'Unknown error',
       };
     }
   }
@@ -508,7 +533,7 @@ export class TaskController {
 
       const filters: TaskFilters = {
         assignedToAgentId: agentId,
-        ...query
+        ...query,
       };
 
       // Similar to user tasks, this would need cross-project implementation
@@ -517,16 +542,15 @@ export class TaskController {
       return {
         success: true,
         data: [],
-        message: 'Agent task query needs project context or cross-project implementation'
+        message: 'Agent task query needs project context or cross-project implementation',
       };
-
     } catch (error) {
       logger.error('Error getting agent tasks:', error);
       set.status = 500;
       return {
         success: false,
         error: 'Failed to get agent tasks',
-        details: error instanceof Error ? error.message : 'Unknown error'
+        details: error instanceof Error ? error.message : 'Unknown error',
       };
     }
   }

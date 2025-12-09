@@ -62,7 +62,7 @@ export class KnowledgeClusteringService {
     similarityThreshold: number = this.similarityThreshold
   ): Promise<ClusteringResult> {
     console.log('Starting knowledge clustering process...');
-    
+
     // 1. Get all vectors from Qdrant
     const allPoints = await this.getAllQdrantPoints();
     console.log(`Found ${allPoints.length} vectors in Qdrant`);
@@ -75,12 +75,16 @@ export class KnowledgeClusteringService {
         totalConsolidatedItems: 0,
         reductionRatio: 0,
         averageClusterSize: 0,
-        clusters: []
+        clusters: [],
       };
     }
 
     // 2. Find clusters using similarity-based grouping
-    const clusters = await this.findSimilarityClusters(allPoints, minClusterSize, similarityThreshold);
+    const clusters = await this.findSimilarityClusters(
+      allPoints,
+      minClusterSize,
+      similarityThreshold
+    );
     console.log(`Created ${clusters.length} clusters`);
 
     // 3. Consolidate each cluster
@@ -88,9 +92,12 @@ export class KnowledgeClusteringService {
 
     // 4. Calculate metrics
     const totalConsolidatedItems = consolidatedClusters.length;
-    const reductionRatio = allPoints.length > 0 ? (allPoints.length - totalConsolidatedItems) / allPoints.length : 0;
-    const averageClusterSize = clusters.length > 0 ? 
-      clusters.reduce((sum, cluster) => sum + cluster.length, 0) / clusters.length : 0;
+    const reductionRatio =
+      allPoints.length > 0 ? (allPoints.length - totalConsolidatedItems) / allPoints.length : 0;
+    const averageClusterSize =
+      clusters.length > 0
+        ? clusters.reduce((sum, cluster) => sum + cluster.length, 0) / clusters.length
+        : 0;
 
     return {
       totalClusters: clusters.length,
@@ -98,14 +105,17 @@ export class KnowledgeClusteringService {
       totalConsolidatedItems,
       reductionRatio,
       averageClusterSize,
-      clusters: consolidatedClusters
+      clusters: consolidatedClusters,
     };
   }
 
   /**
    * Find similar vectors for a given vector ID
    */
-  async findSimilarChunks(vectorId: string, threshold: number = this.similarityThreshold): Promise<QdrantPoint[]> {
+  async findSimilarChunks(
+    vectorId: string,
+    threshold: number = this.similarityThreshold
+  ): Promise<QdrantPoint[]> {
     try {
       // Get the reference vector using the correct API
       const referencePoints = await this.qdrantService.getPoints([vectorId]);
@@ -116,15 +126,15 @@ export class KnowledgeClusteringService {
       const referencePoint = referencePoints[0];
 
       // Search for similar vectors
-      const searchResults = await this.qdrantService.search(
-        referencePoint.vector,
-        { limit: 50, threshold: threshold }
-      );
+      const searchResults = await this.qdrantService.search(referencePoint.vector, {
+        limit: 50,
+        threshold: threshold,
+      });
 
-      return searchResults.map(result => ({
+      return searchResults.map((result) => ({
         id: result.id.toString(),
         vector: [], // Search results don't include vectors by default
-        payload: result.payload as any
+        payload: result.payload as any,
       }));
     } catch (error) {
       console.error('Error finding similar chunks:', error);
@@ -138,13 +148,13 @@ export class KnowledgeClusteringService {
   async consolidateCluster(cluster: KnowledgeCluster): Promise<KnowledgeItemEntity> {
     // Create consolidated content
     const consolidatedContent = this.mergeContent(cluster.similarChunks);
-    
+
     // Determine the most common type
     const consolidatedType = this.getMostCommonType(cluster.similarChunks);
-    
+
     // Merge all tags
     const consolidatedTags = this.mergeTags(cluster.similarChunks);
-    
+
     // Calculate average confidence
     const averageConfidence = this.calculateAverageConfidence(cluster.similarChunks);
 
@@ -160,7 +170,7 @@ export class KnowledgeClusteringService {
       clusterId: cluster.clusterId,
       originalItemsCount: cluster.similarChunks.length,
       consolidatedAt: new Date().toISOString(),
-      sources: cluster.sources
+      sources: cluster.sources,
     };
 
     return knowledgeItem;
@@ -174,7 +184,7 @@ export class KnowledgeClusteringService {
       // Use scroll API to get all points
       const workingUrl = await (this.qdrantService as any).ensureConnection();
       const collectionName = (this.qdrantService as any).collectionName;
-      
+
       const response = await fetch(`${workingUrl}/collections/${collectionName}/points/scroll`, {
         method: 'POST',
         headers: {
@@ -183,8 +193,8 @@ export class KnowledgeClusteringService {
         body: JSON.stringify({
           limit: 10000,
           with_payload: true,
-          with_vector: true
-        })
+          with_vector: true,
+        }),
       });
 
       if (!response.ok) {
@@ -195,7 +205,7 @@ export class KnowledgeClusteringService {
       return data.result.points.map((point: any) => ({
         id: point.id.toString(),
         vector: point.vector || [],
-        payload: point.payload as any
+        payload: point.payload as any,
       }));
     } catch (error) {
       console.error('Error getting Qdrant points:', error);
@@ -219,13 +229,13 @@ export class KnowledgeClusteringService {
 
       // Find similar points
       const similarPoints = await this.findSimilarPoints(point, points, threshold);
-      
+
       // Only create cluster if it meets minimum size
       if (similarPoints.length >= minClusterSize) {
         clusters.push(similarPoints);
-        
+
         // Mark all points in this cluster as processed
-        similarPoints.forEach(p => processedIds.add(p.id));
+        similarPoints.forEach((p) => processedIds.add(p.id));
       }
     }
 
@@ -245,10 +255,7 @@ export class KnowledgeClusteringService {
     for (const point of allPoints) {
       if (point.id === referencePoint.id) continue;
 
-      const similarity = await this.calculateCosineSimilarity(
-        referencePoint.vector,
-        point.vector
-      );
+      const similarity = await this.calculateCosineSimilarity(referencePoint.vector, point.vector);
 
       if (similarity >= threshold) {
         similarPoints.push(point);
@@ -292,21 +299,21 @@ export class KnowledgeClusteringService {
     for (let i = 0; i < clusters.length; i++) {
       const cluster = clusters[i];
       const clusterId = `cluster_${Date.now()}_${i}`;
-      
+
       // Find the most representative point (highest confidence)
-      const primaryVector = cluster.reduce((best, current) => 
+      const primaryVector = cluster.reduce((best, current) =>
         current.payload.confidence > best.payload.confidence ? current : best
       );
 
       // Create consolidated content
       const consolidatedContent = this.mergeContent(cluster);
-      
+
       // Extract source metadata
-      const sources: SourceMetadata[] = cluster.map(point => ({
+      const sources: SourceMetadata[] = cluster.map((point) => ({
         id: point.id,
         sourceType: point.payload.sourceType,
         confidence: point.payload.confidence,
-        originalMetadata: point.payload.originalMetadata
+        originalMetadata: point.payload.originalMetadata,
       }));
 
       const consolidatedCluster: KnowledgeCluster = {
@@ -318,7 +325,7 @@ export class KnowledgeClusteringService {
         sources,
         consolidatedType: this.getMostCommonType(cluster),
         consolidatedTags: this.mergeTags(cluster),
-        averageConfidence: this.calculateAverageConfidence(cluster)
+        averageConfidence: this.calculateAverageConfidence(cluster),
       };
 
       consolidatedClusters.push(consolidatedCluster);
@@ -333,14 +340,15 @@ export class KnowledgeClusteringService {
   private mergeContent(chunks: QdrantPoint[]): string {
     // Sort by confidence (highest first)
     const sortedChunks = chunks.sort((a, b) => b.payload.confidence - a.payload.confidence);
-    
+
     // Take the most confident content as primary
     const primaryContent = sortedChunks[0].payload.content;
-    
+
     // Add additional context from other chunks if they provide new information
-    const additionalContext = sortedChunks.slice(1, 5) // Take top 5 additional chunks
-      .filter(chunk => !this.isContentSimilar(primaryContent, chunk.payload.content))
-      .map(chunk => chunk.payload.content)
+    const additionalContext = sortedChunks
+      .slice(1, 5) // Take top 5 additional chunks
+      .filter((chunk) => !this.isContentSimilar(primaryContent, chunk.payload.content))
+      .map((chunk) => chunk.payload.content)
       .join('\n\n');
 
     return additionalContext ? `${primaryContent}\n\n${additionalContext}` : primaryContent;
@@ -353,10 +361,10 @@ export class KnowledgeClusteringService {
     // Simple similarity check - can be enhanced with more sophisticated NLP
     const words1 = new Set(content1.toLowerCase().split(/\s+/));
     const words2 = new Set(content2.toLowerCase().split(/\s+/));
-    
-    const intersection = new Set([...words1].filter(word => words2.has(word)));
+
+    const intersection = new Set([...words1].filter((word) => words2.has(word)));
     const union = new Set([...words1, ...words2]);
-    
+
     return intersection.size / union.size > 0.7; // 70% overlap
   }
 
@@ -365,8 +373,8 @@ export class KnowledgeClusteringService {
    */
   private getMostCommonType(chunks: QdrantPoint[]): KnowledgeType {
     const typeCounts = new Map<KnowledgeType, number>();
-    
-    chunks.forEach(chunk => {
+
+    chunks.forEach((chunk) => {
       const type = chunk.payload.knowledgeType;
       typeCounts.set(type, (typeCounts.get(type) || 0) + 1);
     });
@@ -389,9 +397,9 @@ export class KnowledgeClusteringService {
    */
   private mergeTags(chunks: QdrantPoint[]): string[] {
     const tagSet = new Set<string>();
-    
-    chunks.forEach(chunk => {
-      chunk.payload.tags.forEach(tag => tagSet.add(tag));
+
+    chunks.forEach((chunk) => {
+      chunk.payload.tags.forEach((tag) => tagSet.add(tag));
     });
 
     return Array.from(tagSet);
@@ -402,7 +410,7 @@ export class KnowledgeClusteringService {
    */
   private calculateAverageConfidence(chunks: QdrantPoint[]): number {
     if (chunks.length === 0) return 0;
-    
+
     const totalConfidence = chunks.reduce((sum, chunk) => sum + chunk.payload.confidence, 0);
     return totalConfidence / chunks.length;
   }

@@ -106,13 +106,16 @@ export const llmAPI = {
     return APIClient.post<LLMGenerateResponse>(API_ROUTES.LLM.GENERATE, request);
   },
 
-  async analyzeContext(text: string, options?: {
-    includeSummary?: boolean;
-    maxTopics?: number;
-  }): Promise<LLMContextAnalysis> {
+  async analyzeContext(
+    text: string,
+    options?: {
+      includeSummary?: boolean;
+      maxTopics?: number;
+    }
+  ): Promise<LLMContextAnalysis> {
     return APIClient.post<LLMContextAnalysis>(API_ROUTES.LLM.ANALYZE_CONTEXT, {
       text,
-      ...options
+      ...options,
     });
   },
 
@@ -140,19 +143,25 @@ export const llmAPI = {
       return APIClient.post<UserLLMProvider>(API_ROUTES.USER_LLM.CREATE_PROVIDER, provider);
     },
 
-    async updateProvider(id: string, updates: {
-      name?: string;
-      description?: string;
-      baseUrl?: string;
-      apiKey?: string;
-      defaultModel?: string;
-      modelsList?: string[];
-      configuration?: Record<string, any>;
-      priority?: number;
-      status?: string;
-      isActive?: boolean;
-    }): Promise<UserLLMProvider> {
-      return APIClient.put<UserLLMProvider>(`${API_ROUTES.USER_LLM.UPDATE_PROVIDER}/${id}`, updates);
+    async updateProvider(
+      id: string,
+      updates: {
+        name?: string;
+        description?: string;
+        baseUrl?: string;
+        apiKey?: string;
+        defaultModel?: string;
+        modelsList?: string[];
+        configuration?: Record<string, any>;
+        priority?: number;
+        status?: string;
+        isActive?: boolean;
+      }
+    ): Promise<UserLLMProvider> {
+      return APIClient.put<UserLLMProvider>(
+        `${API_ROUTES.USER_LLM.UPDATE_PROVIDER}/${id}`,
+        updates
+      );
     },
 
     async deleteProvider(id: string): Promise<void> {
@@ -172,26 +181,17 @@ export const llmAPI = {
       return APIClient.post(`${API_ROUTES.USER_LLM.SET_DEFAULT}/${id}/default`);
     },
 
-    async generate(request: Omit<LLMGenerateRequest, 'modelId'> & {
-      providerId?: string;
-      model?: string;
-    }): Promise<LLMGenerateResponse> {
+    async generate(
+      request: Omit<LLMGenerateRequest, 'modelId'> & {
+        providerId?: string;
+        model?: string;
+      }
+    ): Promise<LLMGenerateResponse> {
       return APIClient.post<LLMGenerateResponse>(API_ROUTES.USER_LLM.GENERATE, request);
     },
 
-    async listModels(): Promise<Array<{
-      id: string;
-      name: string;
-      description?: string;
-      source: string;
-      apiEndpoint: string;
-      apiType: string;
-      provider: string;
-      providerId: string;
-      isAvailable: boolean;
-      isDefault: boolean;
-    }>> {
-      return APIClient.get<Array<{
+    async listModels(): Promise<
+      Array<{
         id: string;
         name: string;
         description?: string;
@@ -202,16 +202,35 @@ export const llmAPI = {
         providerId: string;
         isAvailable: boolean;
         isDefault: boolean;
-      }>>(API_ROUTES.USER_LLM.LIST_MODELS);
-    }
+      }>
+    > {
+      return APIClient.get<
+        Array<{
+          id: string;
+          name: string;
+          description?: string;
+          source: string;
+          apiEndpoint: string;
+          apiType: string;
+          provider: string;
+          providerId: string;
+          isAvailable: boolean;
+          isDefault: boolean;
+        }>
+      >(API_ROUTES.USER_LLM.LIST_MODELS);
+    },
   },
 
   // Cache management
-  async invalidateCache(type: 'models' | 'providers' | 'all' = 'all'): Promise<{ success: boolean; message: string }> {
-    return APIClient.post<{ success: boolean; message: string }>(API_ROUTES.LLM.CACHE_INVALIDATE, { type });
+  async invalidateCache(
+    type: 'models' | 'providers' | 'all' = 'all'
+  ): Promise<{ success: boolean; message: string }> {
+    return APIClient.post<{ success: boolean; message: string }>(API_ROUTES.LLM.CACHE_INVALIDATE, {
+      type,
+    });
   },
 
   async refreshCache(): Promise<{ success: boolean; message: string }> {
     return APIClient.post<{ success: boolean; message: string }>(API_ROUTES.LLM.CACHE_REFRESH);
-  }
+  },
 };

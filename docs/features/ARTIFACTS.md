@@ -24,7 +24,7 @@ enum ArtifactType {
   DOCUMENTATION = 'documentation',
   TEST = 'test',
   CONFIGURATION = 'configuration',
-  DIAGRAM = 'diagram'
+  DIAGRAM = 'diagram',
 }
 
 interface ArtifactMetadata {
@@ -118,7 +118,7 @@ class ContextPreparer {
       requirements,
       constraints,
       dependencies: await this.resolveDependencies(request),
-      settings: request.settings
+      settings: request.settings,
     };
   }
 }
@@ -151,10 +151,7 @@ class TemplateRegistry {
 
 ```typescript
 class TemplateCustomizer {
-  async customizeTemplate(
-    template: Template,
-    customization: Customization
-  ): Promise<Template> {
+  async customizeTemplate(template: Template, customization: Customization): Promise<Template> {
     // Apply customizations
     const customized = await this.applyCustomization(template, customization);
 
@@ -192,10 +189,7 @@ class CodeGenerator {
 
 ```typescript
 class DocumentationGenerator {
-  async generateDocs(
-    source: string,
-    options: DocGenOptions
-  ): Promise<string> {
+  async generateDocs(source: string, options: DocGenOptions): Promise<string> {
     // Extract documentation info
     const info = await this.extractInfo(source);
 
@@ -221,15 +215,12 @@ interface ValidationRules {
 }
 
 class ContentValidator {
-  async validate(
-    content: string,
-    rules: ValidationRules
-  ): Promise<ValidationResult> {
+  async validate(content: string, rules: ValidationRules): Promise<ValidationResult> {
     const results = await Promise.all([
       this.validateSyntax(content),
       this.validateStyle(content, rules.style),
       this.validatePatterns(content, rules.patterns),
-      this.runCustomValidations(content, rules.custom)
+      this.runCustomValidations(content, rules.custom),
     ]);
 
     return this.aggregateResults(results);
@@ -248,15 +239,15 @@ const componentSpec = {
   name: 'UserProfile',
   props: [
     { name: 'user', type: 'User', required: true },
-    { name: 'onUpdate', type: '(user: User) => void' }
+    { name: 'onUpdate', type: '(user: User) => void' },
   ],
-  features: ['state-management', 'error-handling']
+  features: ['state-management', 'error-handling'],
 };
 
 const component = await generator.generate({
   type: ArtifactType.CODE,
   template: 'react-component',
-  spec: componentSpec
+  spec: componentSpec,
 });
 ```
 
@@ -270,14 +261,14 @@ const apiSpec = {
   format: 'markdown',
   options: {
     includeExamples: true,
-    generateDiagrams: true
-  }
+    generateDiagrams: true,
+  },
 };
 
 const docs = await generator.generate({
   type: ArtifactType.DOCUMENTATION,
   template: 'api-docs',
-  spec: apiSpec
+  spec: apiSpec,
 });
 ```
 

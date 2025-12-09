@@ -17,6 +17,7 @@ The UAIP exposes RESTful APIs through an API Gateway (Port 8081) that provides c
 ## Authentication
 
 ### Login
+
 ```http
 POST /api/v1/auth/login
 Content-Type: application/json
@@ -28,6 +29,7 @@ Content-Type: application/json
 ```
 
 Response:
+
 ```json
 {
   "token": "jwt-token",
@@ -41,6 +43,7 @@ Response:
 ```
 
 ### Token Refresh
+
 ```http
 POST /api/v1/auth/refresh
 Authorization: Bearer refresh-token
@@ -49,6 +52,7 @@ Authorization: Bearer refresh-token
 ## Agent Intelligence API
 
 ### Analyze Context
+
 ```http
 POST /api/v1/agents/{agentId}/analyze
 Authorization: Bearer token
@@ -68,6 +72,7 @@ Content-Type: application/json
 ```
 
 Response:
+
 ```json
 {
   "analysis": {
@@ -86,6 +91,7 @@ Response:
 ```
 
 ### Execute Operation
+
 ```http
 POST /api/v1/operations/execute
 Authorization: Bearer token
@@ -101,6 +107,7 @@ Content-Type: application/json
 ```
 
 Response:
+
 ```json
 {
   "operationId": "string",
@@ -112,12 +119,14 @@ Response:
 ## Capability Registry API
 
 ### List Capabilities
+
 ```http
 GET /api/v1/capabilities
 Authorization: Bearer token
 ```
 
 Response:
+
 ```json
 {
   "capabilities": [
@@ -133,6 +142,7 @@ Response:
 ```
 
 ### Register Capability
+
 ```http
 POST /api/v1/capabilities
 Authorization: Bearer token
@@ -158,6 +168,7 @@ Content-Type: application/json
 ## Discussion Orchestration API
 
 ### Create Discussion
+
 ```http
 POST /api/v1/discussions
 Authorization: Bearer token
@@ -176,6 +187,7 @@ Content-Type: application/json
 ```
 
 ### Send Message
+
 ```http
 POST /api/v1/discussions/{discussionId}/messages
 Authorization: Bearer token
@@ -189,6 +201,7 @@ Content-Type: application/json
 ```
 
 ### WebSocket Events
+
 ```typescript
 // Connect to WebSocket
 const ws = new WebSocket('ws://localhost:8081/api/v1/discussions/ws');
@@ -235,6 +248,7 @@ All APIs use standard HTTP status codes and return errors in this format:
 ```
 
 Common Error Codes:
+
 - `400`: Bad Request
 - `401`: Unauthorized
 - `403`: Forbidden
@@ -246,11 +260,13 @@ Common Error Codes:
 ## Rate Limiting
 
 All APIs are rate-limited by the API Gateway:
+
 - 100 requests per minute per IP
 - 1000 requests per hour per user
 - WebSocket connections limited to 5 per user
 
 Headers:
+
 ```http
 X-RateLimit-Limit: 100
 X-RateLimit-Remaining: 95
@@ -262,6 +278,7 @@ X-RateLimit-Reset: 1625097600
 APIs are versioned in the URL path: `/api/v1/...`
 
 Version compatibility:
+
 - v1: Current stable version
 - v2: In development (see changelog)
 - v0: Deprecated
@@ -269,6 +286,7 @@ Version compatibility:
 ## Security Requirements
 
 1. All requests must include:
+
    ```http
    Authorization: Bearer <token>
    ```
@@ -286,11 +304,13 @@ Version compatibility:
 ## Monitoring Endpoints
 
 ### Health Check
+
 ```http
 GET /health
 ```
 
 Response:
+
 ```json
 {
   "status": "healthy",
@@ -304,6 +324,7 @@ Response:
 ```
 
 ### Metrics
+
 ```http
 GET /metrics
 Authorization: Bearer token

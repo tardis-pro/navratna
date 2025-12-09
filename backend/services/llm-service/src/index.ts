@@ -1,6 +1,11 @@
 import { BaseService } from '@uaip/shared-services';
 import { logger } from '@uaip/utils';
-import { LLMService, UserLLMService, ModelBootstrapService, ApiKeyDecryptionService } from '@uaip/llm-service';
+import {
+  LLMService,
+  UserLLMService,
+  ModelBootstrapService,
+  ApiKeyDecryptionService,
+} from '@uaip/llm-service';
 import { registerLLMRoutes } from './routes/llm.routes.js';
 import { registerUserLLMRoutes } from './routes/user-llm.routes.js';
 import { AgentGenerationHandler } from './handlers/AgentGenerationHandler.js';
@@ -16,7 +21,7 @@ class LLMServiceServer extends BaseService {
     super({
       name: 'llm-service',
       port: parseInt(process.env.PORT || '3007', 10),
-      enableEnterpriseEventBus: true
+      enableEnterpriseEventBus: true,
     });
 
     // Initialize LLM service only - UserLLMService will be created after facade is ready
@@ -33,7 +38,7 @@ class LLMServiceServer extends BaseService {
     logger.info('Debug: Facade state before creating UserLLMService', {
       facadeExists: !!this.modelSelectionFacade,
       facadeType: typeof this.modelSelectionFacade,
-      facadeConstructor: this.modelSelectionFacade?.constructor?.name
+      facadeConstructor: this.modelSelectionFacade?.constructor?.name,
     });
 
     // Create UserLLMService with facade (always pass it, even if null)
@@ -52,12 +57,14 @@ class LLMServiceServer extends BaseService {
     if (this.modelSelectionFacade) {
       logger.info('UserLLMService initialized with model selection facade');
     } else {
-      logger.warn('Model selection facade not available, UserLLMService will use fallback behavior');
+      logger.warn(
+        'Model selection facade not available, UserLLMService will use fallback behavior'
+      );
     }
 
     // Bootstrap all models on startup (run in background)
     logger.info('Starting model bootstrap process...');
-    this.modelBootstrapService.bootstrapAllModels().catch(error => {
+    this.modelBootstrapService.bootstrapAllModels().catch((error) => {
       logger.error('Model bootstrap failed, continuing with service startup', { error });
     });
 
@@ -77,11 +84,21 @@ class LLMServiceServer extends BaseService {
 
   protected async setupEventSubscriptions(): Promise<void> {
     // Subscribe to LLM request events
-    await this.eventBusService.subscribe('llm.user.request', (event: any) => this.handleUserLLMRequest(event));
-    await this.eventBusService.subscribe('llm.global.request', (event: any) => this.handleGlobalLLMRequest(event));
-    await this.eventBusService.subscribe('llm.agent.generate.request', (event: any) => this.handleAgentGenerateRequest(event));
-    await this.eventBusService.subscribe('llm.generate.request', (event: any) => this.handleArtifactGenerationRequest(event));
-    await this.eventBusService.subscribe('llm.provider.changed', (event: any) => this.handleProviderChanged(event));
+    await this.eventBusService.subscribe('llm.user.request', (event: any) =>
+      this.handleUserLLMRequest(event)
+    );
+    await this.eventBusService.subscribe('llm.global.request', (event: any) =>
+      this.handleGlobalLLMRequest(event)
+    );
+    await this.eventBusService.subscribe('llm.agent.generate.request', (event: any) =>
+      this.handleAgentGenerateRequest(event)
+    );
+    await this.eventBusService.subscribe('llm.generate.request', (event: any) =>
+      this.handleArtifactGenerationRequest(event)
+    );
+    await this.eventBusService.subscribe('llm.provider.changed', (event: any) =>
+      this.handleProviderChanged(event)
+    );
     logger.info('Event bus subscriptions configured');
   }
 
@@ -89,7 +106,11 @@ class LLMServiceServer extends BaseService {
     try {
       logger.info('Raw event received', { event });
       const { requestId, agentRequest, userId } = event.data || event;
-      logger.info('Processing user LLM request', { requestId, userId, hasAgentRequest: !!agentRequest });
+      logger.info('Processing user LLM request', {
+        requestId,
+        userId,
+        hasAgentRequest: !!agentRequest,
+      });
 
       // Validate userId is a proper UUID (reject "system" and other invalid UUIDs)
       const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -97,7 +118,7 @@ class LLMServiceServer extends BaseService {
         logger.warn('Invalid userId for user LLM request, falling back to global LLM', {
           userId,
           requestId,
-          reason: 'Invalid UUID format'
+          reason: 'Invalid UUID format',
         });
         // Fall back to global LLM request handling
         await this.handleGlobalLLMRequest(event);
@@ -114,14 +135,14 @@ class LLMServiceServer extends BaseService {
         agentRequestKeys: agentRequest ? Object.keys(agentRequest) : [],
         hasAgent: agentRequest?.agent ? true : false,
         hasMessages: agentRequest?.messages ? true : false,
-        hasContext: agentRequest?.context ? true : false
+        hasContext: agentRequest?.context ? true : false,
       });
       const response = await userLLMService.generateAgentResponse(userId, agentRequest);
       logger.info('UserLLMService response received', {
         hasResponse: !!response,
         responseContent: response?.content?.substring(0, 100),
         responseModel: response?.model,
-        responseError: response?.error
+        responseError: response?.error,
       });
 
       // Publish response
@@ -135,15 +156,18 @@ class LLMServiceServer extends BaseService {
         error: error.message,
         stack: error.stack,
         requestId: event?.data?.requestId || event?.requestId,
-        userId: event?.data?.userId || event?.userId
+        userId: event?.data?.userId || event?.userId,
       });
 
       // Publish error response
       try {
-        await this.eventBusService.publish(`llm.response.${event?.data?.requestId || event?.requestId}`, {
-          error: error.message,
-          success: false
-        });
+        await this.eventBusService.publish(
+          `llm.response.${event?.data?.requestId || event?.requestId}`,
+          {
+            error: error.message,
+            success: false,
+          }
+        );
       } catch (publishError) {
         logger.error('Failed to publish error response', { publishError });
       }
@@ -170,15 +194,18 @@ class LLMServiceServer extends BaseService {
       logger.error('Failed to process global LLM request', {
         error: error.message,
         stack: error.stack,
-        requestId: event?.data?.requestId || event?.requestId
+        requestId: event?.data?.requestId || event?.requestId,
       });
 
       // Publish error response
       try {
-        await this.eventBusService.publish(`llm.response.${event?.data?.requestId || event?.requestId}`, {
-          error: error.message,
-          success: false
-        });
+        await this.eventBusService.publish(
+          `llm.response.${event?.data?.requestId || event?.requestId}`,
+          {
+            error: error.message,
+            success: false,
+          }
+        );
       } catch (publishError) {
         logger.error('Failed to publish error response', { publishError });
       }
@@ -198,7 +225,7 @@ class LLMServiceServer extends BaseService {
         requestId,
         artifactType,
         type,
-        conversationId: context?.conversationId
+        conversationId: context?.conversationId,
       });
 
       if (type !== 'generate_artifact_content') {
@@ -207,8 +234,8 @@ class LLMServiceServer extends BaseService {
           success: false,
           error: {
             code: 'UNKNOWN_REQUEST_TYPE',
-            message: `Unknown request type: ${type}`
-          }
+            message: `Unknown request type: ${type}`,
+          },
         });
         return;
       }
@@ -227,18 +254,20 @@ class LLMServiceServer extends BaseService {
             capabilities: [artifactType, 'documentation', 'code_generation'],
             preferences: {
               communicationStyle: 'technical',
-              role: 'technical_writer'
-            }
-          }
+              role: 'technical_writer',
+            },
+          },
         },
-        messages: [{
-          id: `msg_${Date.now()}`,
-          role: 'user',
-          content: prompt,
-          sender: 'system',
-          timestamp: new Date().toISOString(),
-          type: 'user' as const
-        }],
+        messages: [
+          {
+            id: `msg_${Date.now()}`,
+            role: 'user',
+            content: prompt,
+            sender: 'system',
+            timestamp: new Date().toISOString(),
+            type: 'user' as const,
+          },
+        ],
         context: {
           id: context.conversationId || 'artifact-gen',
           title: `Generate ${artifactType} artifact`,
@@ -251,9 +280,9 @@ class LLMServiceServer extends BaseService {
             conversationId: context.conversationId,
             requiresStructuredOutput: true,
             artifactType,
-            outputFormat: this.getOutputFormat(artifactType)
-          }
-        }
+            outputFormat: this.getOutputFormat(artifactType),
+          },
+        },
       };
 
       // Generate response using LLM service
@@ -265,15 +294,17 @@ class LLMServiceServer extends BaseService {
           content: response.content,
           metadata: {
             model: response.model,
-            processingTime: Date.now() - (metadata?.timestamp ? new Date(metadata.timestamp).getTime() : Date.now()),
-            artifactType
-          }
+            processingTime:
+              Date.now() -
+              (metadata?.timestamp ? new Date(metadata.timestamp).getTime() : Date.now()),
+            artifactType,
+          },
         });
 
         logger.info('Artifact generation completed successfully', {
           requestId,
           artifactType,
-          contentLength: response.content.length
+          contentLength: response.content.length,
         });
       } else {
         await this.publishArtifactResponse(requestId, {
@@ -281,31 +312,30 @@ class LLMServiceServer extends BaseService {
           error: {
             code: 'GENERATION_FAILED',
             message: 'LLM failed to generate artifact content',
-            details: response?.error || 'No content generated'
-          }
+            details: response?.error || 'No content generated',
+          },
         });
 
         logger.error('Artifact generation failed', {
           requestId,
           artifactType,
-          error: response?.error || 'No content generated'
+          error: response?.error || 'No content generated',
         });
       }
-
     } catch (error) {
       const requestId = event.metadata?.requestId;
       logger.error('Failed to process artifact generation request', {
         error: error instanceof Error ? error.message : 'Unknown error',
         requestId,
-        eventData: event.data
+        eventData: event.data,
       });
 
       await this.publishArtifactResponse(requestId, {
         success: false,
         error: {
           code: 'PROCESSING_ERROR',
-          message: error instanceof Error ? error.message : 'Unknown error occurred'
-        }
+          message: error instanceof Error ? error.message : 'Unknown error occurred',
+        },
       });
     }
   }
@@ -406,12 +436,12 @@ class LLMServiceServer extends BaseService {
   private async publishArtifactResponse(requestId: string, response: any): Promise<void> {
     try {
       await this.eventBusService.publish('llm.generate.response', response, {
-        metadata: { requestId }
+        metadata: { requestId },
       });
     } catch (error) {
       logger.error('Failed to publish artifact response', {
         requestId,
-        error: error instanceof Error ? error.message : 'Unknown error'
+        error: error instanceof Error ? error.message : 'Unknown error',
       });
     }
   }
@@ -424,7 +454,7 @@ class LLMServiceServer extends BaseService {
         eventType,
         providerId,
         providerType,
-        agentId
+        agentId,
       });
 
       // Import and refresh LLM service providers
@@ -442,13 +472,12 @@ class LLMServiceServer extends BaseService {
         eventType,
         providerId,
         providerType,
-        agentId
+        agentId,
       });
-
     } catch (error) {
       logger.error('Failed to handle provider change event', {
         error: error.message,
-        event: event?.data || event
+        event: event?.data || event,
       });
     }
   }

@@ -8,14 +8,14 @@ export enum ProjectStatus {
   ARCHIVED = 'archived',
   COMPLETED = 'completed',
   PAUSED = 'paused',
-  CANCELLED = 'cancelled'
+  CANCELLED = 'cancelled',
 }
 
 export enum ProjectVisibility {
   PRIVATE = 'private',
   TEAM = 'team',
   PUBLIC = 'public',
-  ORGANIZATION = 'organization'
+  ORGANIZATION = 'organization',
 }
 
 export interface ProjectSettings {
@@ -41,10 +41,10 @@ export class ProjectEntity extends BaseEntity {
   @Column({ type: 'text', nullable: true })
   description?: string;
 
-  @Column({ 
-    type: 'enum', 
-    enum: ProjectType, 
-    default: ProjectType.GENERAL 
+  @Column({
+    type: 'enum',
+    enum: ProjectType,
+    default: ProjectType.GENERAL,
   })
   type!: ProjectType;
 
@@ -55,17 +55,17 @@ export class ProjectEntity extends BaseEntity {
   @JoinColumn({ name: 'owner_id' })
   owner!: UserEntity;
 
-  @Column({ 
-    type: 'enum', 
-    enum: ProjectStatus, 
-    default: ProjectStatus.ACTIVE 
+  @Column({
+    type: 'enum',
+    enum: ProjectStatus,
+    default: ProjectStatus.ACTIVE,
   })
   status!: ProjectStatus;
 
-  @Column({ 
-    type: 'enum', 
-    enum: ProjectVisibility, 
-    default: ProjectVisibility.PRIVATE 
+  @Column({
+    type: 'enum',
+    enum: ProjectVisibility,
+    default: ProjectVisibility.PRIVATE,
   })
   visibility!: ProjectVisibility;
 

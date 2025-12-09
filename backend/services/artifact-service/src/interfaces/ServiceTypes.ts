@@ -36,4 +36,4 @@ export interface TemplateListResponse {
 export interface ValidationResponse {
   success: boolean;
   validation: import('../types/artifact').ValidationResult;
-} 
+}

@@ -7,7 +7,7 @@ export enum ChatIngestionJobStatus {
   PROCESSING = 'processing',
   COMPLETED = 'completed',
   FAILED = 'failed',
-  CANCELLED = 'cancelled'
+  CANCELLED = 'cancelled',
 }
 
 @Entity('chat_ingestion_jobs')
@@ -25,7 +25,7 @@ export class ChatIngestionJobEntity extends BaseEntity {
   @Column({
     type: 'enum',
     enum: ChatIngestionJobStatus,
-    default: ChatIngestionJobStatus.PENDING
+    default: ChatIngestionJobStatus.PENDING,
   })
   status!: ChatIngestionJobStatus;
 

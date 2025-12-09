@@ -16,7 +16,11 @@ export class ArtifactReview extends BaseEntity {
   @Column({ name: 'reviewer_id', type: 'varchar' })
   reviewerId: string;
 
-  @Column({ type: 'enum', enum: ['pending', 'approved', 'rejected', 'needs-changes'], default: 'pending' })
+  @Column({
+    type: 'enum',
+    enum: ['pending', 'approved', 'rejected', 'needs-changes'],
+    default: 'pending',
+  })
   status: 'pending' | 'approved' | 'rejected' | 'needs-changes';
 
   @Column({ type: 'decimal', precision: 3, scale: 2, nullable: true })
@@ -41,7 +45,13 @@ export class ArtifactReview extends BaseEntity {
   @Column({ name: 'performance_score', type: 'decimal', precision: 3, scale: 2, nullable: true })
   performanceScore?: number;
 
-  @Column({ name: 'maintainability_score', type: 'decimal', precision: 3, scale: 2, nullable: true })
+  @Column({
+    name: 'maintainability_score',
+    type: 'decimal',
+    precision: 3,
+    scale: 2,
+    nullable: true,
+  })
   maintainabilityScore?: number;
 
   @Column({ name: 'documentation_score', type: 'decimal', precision: 3, scale: 2, nullable: true })
@@ -64,10 +74,20 @@ export class ArtifactReview extends BaseEntity {
   @Column({ name: 'review_duration_minutes', nullable: true })
   reviewDurationMinutes?: number;
 
-  @Column({ name: 'review_type', type: 'enum', enum: ['automated', 'manual', 'peer', 'expert'], default: 'manual' })
+  @Column({
+    name: 'review_type',
+    type: 'enum',
+    enum: ['automated', 'manual', 'peer', 'expert'],
+    default: 'manual',
+  })
   reviewType: 'automated' | 'manual' | 'peer' | 'expert';
 
-  @Column({ name: 'review_priority', type: 'enum', enum: ['low', 'medium', 'high', 'urgent'], default: 'medium' })
+  @Column({
+    name: 'review_priority',
+    type: 'enum',
+    enum: ['low', 'medium', 'high', 'urgent'],
+    default: 'medium',
+  })
   reviewPriority: 'low' | 'medium' | 'high' | 'urgent';
 
   @Column({ name: 'requires_follow_up', default: false })
@@ -77,7 +97,12 @@ export class ArtifactReview extends BaseEntity {
   followUpDate?: Date;
 
   // Approval workflow
-  @Column({ name: 'approval_level', type: 'enum', enum: ['junior', 'senior', 'lead', 'architect'], nullable: true })
+  @Column({
+    name: 'approval_level',
+    type: 'enum',
+    enum: ['junior', 'senior', 'lead', 'architect'],
+    nullable: true,
+  })
   approvalLevel?: 'junior' | 'senior' | 'lead' | 'architect';
 
   @Column({ name: 'escalated_to', type: 'varchar', nullable: true })
@@ -119,4 +144,4 @@ export class ArtifactReview extends BaseEntity {
   @ManyToOne('Artifact', { eager: false })
   @JoinColumn({ name: 'artifact_id' })
   artifact: any;
-} 
+}

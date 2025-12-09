@@ -139,11 +139,16 @@ export const toolsAPI = {
   },
 
   async execute(id: string, request: ToolExecutionRequest): Promise<ToolExecutionResponse> {
-    return APIClient.post<ToolExecutionResponse>(`${API_ROUTES.TOOLS.EXECUTE}/${id}/execute`, request);
+    return APIClient.post<ToolExecutionResponse>(
+      `${API_ROUTES.TOOLS.EXECUTE}/${id}/execute`,
+      request
+    );
   },
 
   async getExecutionStatus(toolId: string, executionId: string): Promise<ToolExecutionResponse> {
-    return APIClient.get<ToolExecutionResponse>(`${API_ROUTES.TOOLS.GET}/${toolId}/executions/${executionId}`);
+    return APIClient.get<ToolExecutionResponse>(
+      `${API_ROUTES.TOOLS.GET}/${toolId}/executions/${executionId}`
+    );
   },
 
   async getCategories(): Promise<ToolCategory[]> {
@@ -164,7 +169,7 @@ export const toolsAPI = {
 
   async getAnalytics(toolId: string, days: number = 30): Promise<ToolAnalytics> {
     return APIClient.get<ToolAnalytics>(`${API_ROUTES.TOOLS.ANALYTICS}/${toolId}/analytics`, {
-      params: { days }
+      params: { days },
     });
   },
 
@@ -174,7 +179,7 @@ export const toolsAPI = {
 
   async search(query: string, filters?: any): Promise<Tool[]> {
     return APIClient.get<Tool[]>(API_ROUTES.TOOLS.SEARCH, {
-      params: { q: query, ...filters }
+      params: { q: query, ...filters },
     });
   },
 
@@ -189,7 +194,7 @@ export const toolsAPI = {
   async exportTools(format: 'json' | 'yaml' = 'json'): Promise<Blob> {
     const response = await APIClient.get(`${API_ROUTES.TOOLS.LIST}/export`, {
       params: { format },
-      responseType: 'blob'
+      responseType: 'blob',
     });
     return response;
   },
@@ -198,5 +203,5 @@ export const toolsAPI = {
     const formData = new FormData();
     formData.append('file', file);
     return APIClient.post(`${API_ROUTES.TOOLS.CREATE}/import`, formData);
-  }
+  },
 };

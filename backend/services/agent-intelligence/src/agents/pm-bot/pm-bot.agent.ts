@@ -65,10 +65,10 @@ export class PMBotAgent extends BaseAgent {
         AgentCapability.TOOL_EXECUTION,
         AgentCapability.REPORTING,
         AgentCapability.COLLABORATION,
-        AgentCapability.WORKFLOW_MANAGEMENT
+        AgentCapability.WORKFLOW_MANAGEMENT,
       ],
       eventBusService: config.eventBusService,
-      serviceName: 'pm-bot-agent'
+      serviceName: 'pm-bot-agent',
     });
 
     this.toolExecutionService = config.toolExecutionService;
@@ -83,16 +83,22 @@ export class PMBotAgent extends BaseAgent {
     await this.eventBusService.subscribe('pm.task.create', this.handleCreateTask.bind(this));
     await this.eventBusService.subscribe('pm.task.update', this.handleUpdateTask.bind(this));
     await this.eventBusService.subscribe('pm.sprint.plan', this.handleSprintPlanning.bind(this));
-    await this.eventBusService.subscribe('pm.report.generate', this.handleReportGeneration.bind(this));
-    await this.eventBusService.subscribe('pm.meeting.document', this.handleMeetingDocumentation.bind(this));
+    await this.eventBusService.subscribe(
+      'pm.report.generate',
+      this.handleReportGeneration.bind(this)
+    );
+    await this.eventBusService.subscribe(
+      'pm.meeting.document',
+      this.handleMeetingDocumentation.bind(this)
+    );
 
     // Initialize tool integrations
     await this.initializeIntegrations();
 
     logger.info('PM Bot Agent initialized', {
       agent: this.agent.name,
-      integrations: Object.keys(this.integrations).filter(k => this.integrations[k]?.enabled),
-      capabilities: Object.keys(this.pmCapabilities).filter(k => this.pmCapabilities[k])
+      integrations: Object.keys(this.integrations).filter((k) => this.integrations[k]?.enabled),
+      capabilities: Object.keys(this.pmCapabilities).filter((k) => this.pmCapabilities[k]),
     });
   }
 
@@ -116,7 +122,7 @@ export class PMBotAgent extends BaseAgent {
       logger.info('Processing PM request', {
         requestLength: request.length,
         userId,
-        contextId: context.contextId
+        contextId: context.contextId,
       });
 
       // Analyze request intent
@@ -156,9 +162,8 @@ export class PMBotAgent extends BaseAgent {
       return {
         response: result.message,
         actions: result.actions || [],
-        suggestions
+        suggestions,
       };
-
     } catch (error) {
       logger.error('Failed to process PM request', { error, request });
       return this.handlePMError(request, error);
@@ -175,7 +180,7 @@ export class PMBotAgent extends BaseAgent {
     if (!this.pmCapabilities.createTasks) {
       return {
         message: "I don't have permission to create tasks. Please contact your administrator.",
-        actions: []
+        actions: [],
       };
     }
 
@@ -190,8 +195,8 @@ export class PMBotAgent extends BaseAgent {
           assignee: parameters.assignee ? { name: parameters.assignee } : null,
           labels: parameters.labels || [],
           components: parameters.components || [],
-          duedate: parameters.dueDate || null
-        }
+          duedate: parameters.dueDate || null,
+        },
       };
 
       // Add custom fields if specified
@@ -205,7 +210,7 @@ export class PMBotAgent extends BaseAgent {
         operation: 'createIssue',
         parameters: jiraPayload,
         userId,
-        securityContext: { level: 3 }
+        securityContext: { level: 3 },
       });
 
       if (response.success) {
@@ -213,63 +218,72 @@ export class PMBotAgent extends BaseAgent {
 
         // Document in Confluence if enabled
         if (this.integrations.confluence.enabled && parameters.documentInConfluence) {
-          await this.createConfluencePage({
-            title: `Task: ${parameters.title}`,
-            content: this.generateTaskDocumentation(issue, parameters),
-            spaceKey: parameters.spaceKey || this.integrations.confluence.spaceKeys[0],
-            parentId: parameters.confluenceParentId
-          }, userId);
+          await this.createConfluencePage(
+            {
+              title: `Task: ${parameters.title}`,
+              content: this.generateTaskDocumentation(issue, parameters),
+              spaceKey: parameters.spaceKey || this.integrations.confluence.spaceKeys[0],
+              parentId: parameters.confluenceParentId,
+            },
+            userId
+          );
         }
 
         // Notify via Slack if enabled
         if (this.integrations.slack?.enabled) {
           await this.notifySlack({
             message: `New task created: ${issue.key} - ${parameters.title}`,
-            attachments: [{
-              color: 'good',
-              fields: [
-                { title: 'Assignee', value: parameters.assignee || 'Unassigned', short: true },
-                { title: 'Priority', value: parameters.priority || 'Medium', short: true },
-                { title: 'Due Date', value: parameters.dueDate || 'Not set', short: true }
-              ]
-            }]
+            attachments: [
+              {
+                color: 'good',
+                fields: [
+                  { title: 'Assignee', value: parameters.assignee || 'Unassigned', short: true },
+                  { title: 'Priority', value: parameters.priority || 'Medium', short: true },
+                  { title: 'Due Date', value: parameters.dueDate || 'Not set', short: true },
+                ],
+              },
+            ],
           });
         }
 
         this.auditLog('TASK_CREATED', {
           issueKey: issue.key,
           projectKey: parameters.projectKey,
-          userId
+          userId,
         });
 
         return {
           message: `✅ Created task ${issue.key}: ${parameters.title}\n\nView in Jira: ${this.integrations.jira.baseUrl}/browse/${issue.key}`,
-          actions: [{
-            type: 'task_created',
-            status: 'completed',
-            details: {
-              issueKey: issue.key,
-              issueId: issue.id,
-              url: `${this.integrations.jira.baseUrl}/browse/${issue.key}`
-            }
-          }]
+          actions: [
+            {
+              type: 'task_created',
+              status: 'completed',
+              details: {
+                issueKey: issue.key,
+                issueId: issue.id,
+                url: `${this.integrations.jira.baseUrl}/browse/${issue.key}`,
+              },
+            },
+          ],
         };
       } else {
-        const errorMessage = typeof response.error === 'string' 
-          ? response.error 
-          : response.error?.message || 'Failed to create task';
+        const errorMessage =
+          typeof response.error === 'string'
+            ? response.error
+            : response.error?.message || 'Failed to create task';
         throw new Error(errorMessage);
       }
-
     } catch (error) {
       logger.error('Failed to create Jira task', { error, parameters });
       return {
         message: `❌ Failed to create task: ${error.message}`,
-        actions: [{
-          type: 'task_created',
-          status: 'failed',
-          details: { error: error.message }
-        }]
+        actions: [
+          {
+            type: 'task_created',
+            status: 'failed',
+            details: { error: error.message },
+          },
+        ],
       };
     }
   }
@@ -284,7 +298,7 @@ export class PMBotAgent extends BaseAgent {
     if (!this.pmCapabilities.updateTasks) {
       return {
         message: "I don't have permission to update tasks.",
-        actions: []
+        actions: [],
       };
     }
 
@@ -304,10 +318,10 @@ export class PMBotAgent extends BaseAgent {
         parameters: {
           issueIdOrKey: parameters.issueKey,
           fields: updates,
-          notifyUsers: parameters.notifyUsers !== false
+          notifyUsers: parameters.notifyUsers !== false,
         },
         userId,
-        securityContext: { level: 3 }
+        securityContext: { level: 3 },
       });
 
       if (response.success) {
@@ -318,31 +332,35 @@ export class PMBotAgent extends BaseAgent {
 
         return {
           message: `✅ Updated ${parameters.issueKey}\n${this.formatUpdateSummary(updates)}`,
-          actions: [{
-            type: 'task_updated',
-            status: 'completed',
-            details: {
-              issueKey: parameters.issueKey,
-              updates: Object.keys(updates)
-            }
-          }]
+          actions: [
+            {
+              type: 'task_updated',
+              status: 'completed',
+              details: {
+                issueKey: parameters.issueKey,
+                updates: Object.keys(updates),
+              },
+            },
+          ],
         };
       } else {
-        const errorMessage = typeof response.error === 'string' 
-          ? response.error 
-          : response.error?.message || 'Failed to update task';
+        const errorMessage =
+          typeof response.error === 'string'
+            ? response.error
+            : response.error?.message || 'Failed to update task';
         throw new Error(errorMessage);
       }
-
     } catch (error) {
       logger.error('Failed to update task', { error, parameters });
       return {
         message: `❌ Failed to update task: ${error.message}`,
-        actions: [{
-          type: 'task_updated',
-          status: 'failed',
-          details: { error: error.message }
-        }]
+        actions: [
+          {
+            type: 'task_updated',
+            status: 'failed',
+            details: { error: error.message },
+          },
+        ],
       };
     }
   }
@@ -350,9 +368,7 @@ export class PMBotAgent extends BaseAgent {
   /**
    * Check project status and generate summary
    */
-  private async checkProjectStatus(
-    parameters: any
-  ): Promise<{ message: string; actions: any[] }> {
+  private async checkProjectStatus(parameters: any): Promise<{ message: string; actions: any[] }> {
     try {
       const projectKey = parameters.projectKey || this.integrations.jira.projectKeys[0];
 
@@ -361,7 +377,7 @@ export class PMBotAgent extends BaseAgent {
         toolId: 'jira_api',
         operation: 'getActiveSprint',
         parameters: { projectKey },
-        securityContext: { level: 2 }
+        securityContext: { level: 2 },
       });
 
       // Get issue statistics
@@ -371,9 +387,9 @@ export class PMBotAgent extends BaseAgent {
         parameters: {
           jql: `project = ${projectKey} AND sprint in openSprints()`,
           fields: ['status', 'priority', 'assignee', 'issuetype'],
-          maxResults: 100
+          maxResults: 100,
         },
-        securityContext: { level: 2 }
+        securityContext: { level: 2 },
       });
 
       if (sprintResponse.success && statsResponse.success) {
@@ -384,29 +400,32 @@ export class PMBotAgent extends BaseAgent {
 
         return {
           message: summary,
-          actions: [{
-            type: 'status_checked',
-            status: 'completed',
-            details: {
-              projectKey,
-              sprintName: sprint?.name,
-              issueCount: issues.length
-            }
-          }]
+          actions: [
+            {
+              type: 'status_checked',
+              status: 'completed',
+              details: {
+                projectKey,
+                sprintName: sprint?.name,
+                issueCount: issues.length,
+              },
+            },
+          ],
         };
       } else {
         throw new Error('Failed to retrieve project status');
       }
-
     } catch (error) {
       logger.error('Failed to check project status', { error, parameters });
       return {
         message: `❌ Failed to check project status: ${error.message}`,
-        actions: [{
-          type: 'status_checked',
-          status: 'failed',
-          details: { error: error.message }
-        }]
+        actions: [
+          {
+            type: 'status_checked',
+            status: 'failed',
+            details: { error: error.message },
+          },
+        ],
       };
     }
   }
@@ -414,13 +433,11 @@ export class PMBotAgent extends BaseAgent {
   /**
    * Generate project report
    */
-  private async generateReport(
-    parameters: any
-  ): Promise<{ message: string; actions: any[] }> {
+  private async generateReport(parameters: any): Promise<{ message: string; actions: any[] }> {
     if (!this.pmCapabilities.generateReports) {
       return {
         message: "I don't have permission to generate reports.",
-        actions: []
+        actions: [],
       };
     }
 
@@ -448,47 +465,55 @@ export class PMBotAgent extends BaseAgent {
 
       // Create Confluence page with report
       if (this.integrations.confluence.enabled && parameters.publishToConfluence) {
-        const pageResponse = await this.createConfluencePage({
-          title: reportData.title,
-          content: reportData.content,
-          spaceKey: parameters.spaceKey || this.integrations.confluence.spaceKeys[0]
-        }, parameters.userId);
+        const pageResponse = await this.createConfluencePage(
+          {
+            title: reportData.title,
+            content: reportData.content,
+            spaceKey: parameters.spaceKey || this.integrations.confluence.spaceKeys[0],
+          },
+          parameters.userId
+        );
 
         return {
           message: `✅ Generated ${reportType} report\n\nView in Confluence: ${pageResponse.url}`,
-          actions: [{
-            type: 'report_generated',
-            status: 'completed',
-            details: {
-              reportType,
-              confluenceUrl: pageResponse.url,
-              metrics: reportData.metrics
-            }
-          }]
+          actions: [
+            {
+              type: 'report_generated',
+              status: 'completed',
+              details: {
+                reportType,
+                confluenceUrl: pageResponse.url,
+                metrics: reportData.metrics,
+              },
+            },
+          ],
         };
       }
 
       return {
         message: `✅ Generated ${reportType} report\n\n${reportData.summary}`,
-        actions: [{
-          type: 'report_generated',
-          status: 'completed',
-          details: {
-            reportType,
-            metrics: reportData.metrics
-          }
-        }]
+        actions: [
+          {
+            type: 'report_generated',
+            status: 'completed',
+            details: {
+              reportType,
+              metrics: reportData.metrics,
+            },
+          },
+        ],
       };
-
     } catch (error) {
       logger.error('Failed to generate report', { error, parameters });
       return {
         message: `❌ Failed to generate report: ${error.message}`,
-        actions: [{
-          type: 'report_generated',
-          status: 'failed',
-          details: { error: error.message }
-        }]
+        actions: [
+          {
+            type: 'report_generated',
+            status: 'failed',
+            details: { error: error.message },
+          },
+        ],
       };
     }
   }
@@ -503,7 +528,7 @@ export class PMBotAgent extends BaseAgent {
     if (!this.pmCapabilities.documentDecisions) {
       return {
         message: "I don't have permission to document meetings.",
-        actions: []
+        actions: [],
       };
     }
 
@@ -515,28 +540,34 @@ export class PMBotAgent extends BaseAgent {
         agenda: parameters.agenda || [],
         notes: parameters.notes || '',
         actionItems: parameters.actionItems || [],
-        decisions: parameters.decisions || []
+        decisions: parameters.decisions || [],
       });
 
-      const pageResponse = await this.createConfluencePage({
-        title: `Meeting Notes: ${parameters.title}`,
-        content: meetingContent,
-        spaceKey: parameters.spaceKey || this.integrations.confluence.spaceKeys[0],
-        labels: ['meeting-notes', parameters.projectKey].filter(Boolean)
-      }, userId);
+      const pageResponse = await this.createConfluencePage(
+        {
+          title: `Meeting Notes: ${parameters.title}`,
+          content: meetingContent,
+          spaceKey: parameters.spaceKey || this.integrations.confluence.spaceKeys[0],
+          labels: ['meeting-notes', parameters.projectKey].filter(Boolean),
+        },
+        userId
+      );
 
       // Create Jira tasks for action items if requested
       const createdTasks = [];
       if (parameters.createTasksForActionItems && parameters.actionItems?.length > 0) {
         for (const actionItem of parameters.actionItems) {
-          const taskResult = await this.createTask({
-            title: actionItem.task,
-            description: `Action item from meeting: ${parameters.title}\nAssigned to: ${actionItem.assignee}\nDue: ${actionItem.dueDate}`,
-            assignee: actionItem.assignee,
-            dueDate: actionItem.dueDate,
-            projectKey: parameters.projectKey,
-            labels: ['action-item', 'meeting']
-          }, userId);
+          const taskResult = await this.createTask(
+            {
+              title: actionItem.task,
+              description: `Action item from meeting: ${parameters.title}\nAssigned to: ${actionItem.assignee}\nDue: ${actionItem.dueDate}`,
+              assignee: actionItem.assignee,
+              dueDate: actionItem.dueDate,
+              projectKey: parameters.projectKey,
+              labels: ['action-item', 'meeting'],
+            },
+            userId
+          );
 
           if (taskResult.actions[0]?.status === 'completed') {
             createdTasks.push(taskResult.actions[0].details);
@@ -546,25 +577,28 @@ export class PMBotAgent extends BaseAgent {
 
       return {
         message: `✅ Documented meeting notes\n\nConfluence: ${pageResponse.url}\n${createdTasks.length > 0 ? `\nCreated ${createdTasks.length} action items in Jira` : ''}`,
-        actions: [{
-          type: 'meeting_documented',
-          status: 'completed',
-          details: {
-            confluenceUrl: pageResponse.url,
-            actionItemTasks: createdTasks
-          }
-        }]
+        actions: [
+          {
+            type: 'meeting_documented',
+            status: 'completed',
+            details: {
+              confluenceUrl: pageResponse.url,
+              actionItemTasks: createdTasks,
+            },
+          },
+        ],
       };
-
     } catch (error) {
       logger.error('Failed to document meeting', { error, parameters });
       return {
         message: `❌ Failed to document meeting: ${error.message}`,
-        actions: [{
-          type: 'meeting_documented',
-          status: 'failed',
-          details: { error: error.message }
-        }]
+        actions: [
+          {
+            type: 'meeting_documented',
+            status: 'failed',
+            details: { error: error.message },
+          },
+        ],
       };
     }
   }
@@ -582,12 +616,12 @@ export class PMBotAgent extends BaseAgent {
         operations: ['createIssue', 'updateIssue', 'searchIssues', 'getActiveSprint', 'addComment'],
         authentication: {
           type: 'oauth2',
-          scopes: ['read:jira-work', 'write:jira-work']
+          scopes: ['read:jira-work', 'write:jira-work'],
         },
         rateLimit: {
           requests: 100,
-          window: 60000 // 1 minute
-        }
+          window: 60000, // 1 minute
+        },
       });
     }
 
@@ -600,12 +634,12 @@ export class PMBotAgent extends BaseAgent {
         operations: ['createPage', 'updatePage', 'searchContent'],
         authentication: {
           type: 'oauth2',
-          scopes: ['read:confluence-content.all', 'write:confluence-content']
+          scopes: ['read:confluence-content.all', 'write:confluence-content'],
         },
         rateLimit: {
           requests: 50,
-          window: 60000
-        }
+          window: 60000,
+        },
       });
     }
 
@@ -618,8 +652,8 @@ export class PMBotAgent extends BaseAgent {
         operations: ['postMessage', 'updateMessage'],
         authentication: {
           type: 'oauth2',
-          scopes: ['chat:write', 'chat:write.public']
-        }
+          scopes: ['chat:write', 'chat:write.public'],
+        },
       });
     }
   }
@@ -631,46 +665,49 @@ export class PMBotAgent extends BaseAgent {
     const lowerRequest = request.toLowerCase();
 
     // Pattern matching for PM actions
-    if (lowerRequest.includes('create') && (lowerRequest.includes('task') || lowerRequest.includes('issue'))) {
+    if (
+      lowerRequest.includes('create') &&
+      (lowerRequest.includes('task') || lowerRequest.includes('issue'))
+    ) {
       return {
         action: 'create_task',
-        parameters: this.extractTaskParameters(request)
+        parameters: this.extractTaskParameters(request),
       };
     } else if (lowerRequest.includes('update') || lowerRequest.includes('change')) {
       return {
         action: 'update_task',
-        parameters: this.extractUpdateParameters(request)
+        parameters: this.extractUpdateParameters(request),
       };
     } else if (lowerRequest.includes('assign')) {
       return {
         action: 'assign_task',
-        parameters: this.extractAssignmentParameters(request)
+        parameters: this.extractAssignmentParameters(request),
       };
     } else if (lowerRequest.includes('status') || lowerRequest.includes('progress')) {
       return {
         action: 'check_status',
-        parameters: this.extractStatusParameters(request)
+        parameters: this.extractStatusParameters(request),
       };
     } else if (lowerRequest.includes('report') || lowerRequest.includes('summary')) {
       return {
         action: 'generate_report',
-        parameters: this.extractReportParameters(request)
+        parameters: this.extractReportParameters(request),
       };
     } else if (lowerRequest.includes('sprint') && lowerRequest.includes('plan')) {
       return {
         action: 'plan_sprint',
-        parameters: this.extractSprintParameters(request)
+        parameters: this.extractSprintParameters(request),
       };
     } else if (lowerRequest.includes('meeting') || lowerRequest.includes('notes')) {
       return {
         action: 'document_meeting',
-        parameters: this.extractMeetingParameters(request)
+        parameters: this.extractMeetingParameters(request),
       };
     }
 
     return {
       action: 'general_query',
-      parameters: { query: request }
+      parameters: { query: request },
     };
   }
 
@@ -738,7 +775,7 @@ export class PMBotAgent extends BaseAgent {
       summary += `• ${assignee}: ${count} issues\n`;
     });
 
-    const completionRate = statusCounts['Done'] / issues.length * 100;
+    const completionRate = (statusCounts['Done'] / issues.length) * 100;
     summary += `\n**Sprint Progress:** ${completionRate.toFixed(1)}% complete`;
 
     return summary;
@@ -817,9 +854,11 @@ h2. Decisions Made
 ${meeting.decisions.map((decision: string, i: number) => `${i + 1}. ${decision}`).join('\n')}
 
 h2. Action Items
-${meeting.actionItems.map((item: any) =>
-      `* ${item.task} - *Assignee:* ${item.assignee} - *Due:* ${item.dueDate || 'TBD'}`
-    ).join('\n')}
+${meeting.actionItems
+  .map(
+    (item: any) => `* ${item.task} - *Assignee:* ${item.assignee} - *Due:* ${item.dueDate || 'TBD'}`
+  )
+  .join('\n')}
 
 h2. Next Steps
 To be determined based on action items completion.
@@ -837,26 +876,27 @@ To be determined based on action items completion.
         body: {
           storage: {
             value: pageData.content,
-            representation: 'wiki'
-          }
+            representation: 'wiki',
+          },
         },
         metadata: {
-          labels: pageData.labels || []
-        }
+          labels: pageData.labels || [],
+        },
       },
       userId,
-      securityContext: { level: 3 }
+      securityContext: { level: 3 },
     });
 
     if (response.success) {
       return {
         id: response.data.id,
-        url: `${this.integrations.confluence.baseUrl}/pages/viewpage.action?pageId=${response.data.id}`
+        url: `${this.integrations.confluence.baseUrl}/pages/viewpage.action?pageId=${response.data.id}`,
       };
     } else {
-      const errorMessage = typeof response.error === 'string' 
-        ? response.error 
-        : response.error?.message || 'Failed to create Confluence page';
+      const errorMessage =
+        typeof response.error === 'string'
+          ? response.error
+          : response.error?.message || 'Failed to create Confluence page';
       throw new Error(errorMessage);
     }
   }
@@ -867,10 +907,10 @@ To be determined based on action items completion.
       operation: 'addComment',
       parameters: {
         issueIdOrKey: issueKey,
-        body: comment
+        body: comment,
       },
       userId,
-      securityContext: { level: 3 }
+      securityContext: { level: 3 },
     });
   }
 
@@ -883,9 +923,9 @@ To be determined based on action items completion.
       parameters: {
         channel: this.integrations.slack.channelId,
         text: notification.message,
-        attachments: notification.attachments
+        attachments: notification.attachments,
       },
-      securityContext: { level: 2 }
+      securityContext: { level: 2 },
     });
   }
 
@@ -898,8 +938,8 @@ To be determined based on action items completion.
       metrics: {
         velocity: 42,
         completionRate: 85,
-        burndownTrend: 'on-track'
-      }
+        burndownTrend: 'on-track',
+      },
     };
   }
 
@@ -911,8 +951,8 @@ To be determined based on action items completion.
       summary: 'Team velocity trends',
       metrics: {
         averageVelocity: 38,
-        trend: 'increasing'
-      }
+        trend: 'increasing',
+      },
     };
   }
 
@@ -925,8 +965,8 @@ To be determined based on action items completion.
       metrics: {
         remainingWork: 15,
         daysRemaining: 5,
-        projectedCompletion: 'on-time'
-      }
+        projectedCompletion: 'on-time',
+      },
     };
   }
 
@@ -939,8 +979,8 @@ To be determined based on action items completion.
       metrics: {
         throughput: 25,
         cycleTime: 3.2,
-        defectRate: 5
-      }
+        defectRate: 5,
+      },
     };
   }
 
@@ -950,7 +990,7 @@ To be determined based on action items completion.
       title: `Custom Report - ${projectKey}`,
       content: 'Custom report content',
       summary: 'Custom analysis',
-      metrics: {}
+      metrics: {},
     };
   }
 
@@ -975,12 +1015,12 @@ To be determined based on action items completion.
     const response = await this.callLLM(request, {
       systemPrompt: 'You are a project management expert. Provide helpful advice and guidance.',
       temperature: 0.7,
-      maxTokens: 500
+      maxTokens: 500,
     });
 
     return {
       message: response.text,
-      actions: []
+      actions: [],
     };
   }
 
@@ -989,16 +1029,18 @@ To be determined based on action items completion.
 
     return {
       response: `I encountered an error while processing your request: ${error.message}. Please try rephrasing or check your permissions.`,
-      actions: [{
-        type: 'error',
-        status: 'failed',
-        details: { error: error.message }
-      }],
+      actions: [
+        {
+          type: 'error',
+          status: 'failed',
+          details: { error: error.message },
+        },
+      ],
       suggestions: [
         'Check if you have the necessary permissions',
         'Verify the project key or issue ID',
-        'Try a simpler request'
-      ]
+        'Try a simpler request',
+      ],
     };
   }
 
@@ -1057,15 +1099,18 @@ To be determined based on action items completion.
     // Sprint planning implementation
     return {
       message: 'Sprint planning functionality',
-      actions: []
+      actions: [],
     };
   }
 
   private async assignTask(parameters: any, userId: string): Promise<any> {
-    return this.updateTask({
-      ...parameters,
-      assignee: parameters.assignee
-    }, userId);
+    return this.updateTask(
+      {
+        ...parameters,
+        assignee: parameters.assignee,
+      },
+      userId
+    );
   }
 
   private extractUpdateParameters(request: string): any {
@@ -1111,10 +1156,10 @@ To be determined based on action items completion.
       integrations: {
         jira: this.integrations.jira?.enabled || false,
         confluence: this.integrations.confluence?.enabled || false,
-        slack: this.integrations.slack?.enabled || false
+        slack: this.integrations.slack?.enabled || false,
       },
       capabilities: this.pmCapabilities,
-      status: 'healthy'
+      status: 'healthy',
     };
   }
 

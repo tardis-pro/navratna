@@ -10,10 +10,9 @@ interface ValidationIssue {
 }
 
 export class ArtifactValidator implements IArtifactValidator {
-
   validate(content: string, type: ArtifactType): ValidationResult {
     const issues: ValidationIssue[] = [];
-    
+
     try {
       // Type-specific validation
       switch (type) {
@@ -37,9 +36,9 @@ export class ArtifactValidator implements IArtifactValidator {
       const score = this.calculateScore(issues);
 
       // Separate issues by severity
-      const errors = issues.filter(i => i.severity === 'error');
-      const warnings = issues.filter(i => i.severity === 'warning');
-      const infos = issues.filter(i => i.severity === 'info');
+      const errors = issues.filter((i) => i.severity === 'error');
+      const warnings = issues.filter((i) => i.severity === 'warning');
+      const infos = issues.filter((i) => i.severity === 'info');
 
       // Determine status
       let status: 'valid' | 'invalid' | 'warning';
@@ -52,26 +51,27 @@ export class ArtifactValidator implements IArtifactValidator {
       }
 
       // Generate suggestions based on info-level issues
-      const suggestions = infos.map(issue => issue.message);
+      const suggestions = infos.map((issue) => issue.message);
 
       return {
         status,
         isValid: errors.length === 0,
         errors: errors as ValidationError[],
-        warnings: warnings.filter(w => w.severity === 'warning' || w.severity === 'info') as any[],
+        warnings: warnings.filter(
+          (w) => w.severity === 'warning' || w.severity === 'info'
+        ) as any[],
         suggestions,
         score,
-        issues: issues as ValidationError[] // For backward compatibility
+        issues: issues as ValidationError[], // For backward compatibility
       };
-
     } catch (error) {
       logger.error('Validation error:', error);
       const errorIssue: ValidationError = {
         code: 'VALIDATION_ERROR',
         message: 'Internal validation error',
-        severity: 'error'
+        severity: 'error',
       };
-      
+
       return {
         status: 'invalid',
         isValid: false,
@@ -79,7 +79,7 @@ export class ArtifactValidator implements IArtifactValidator {
         warnings: [],
         suggestions: [],
         score: 0,
-        issues: [errorIssue]
+        issues: [errorIssue],
       };
     }
   }
@@ -90,7 +90,7 @@ export class ArtifactValidator implements IArtifactValidator {
       issues.push({
         code: 'EMPTY_CODE',
         message: 'Code content is empty',
-        severity: 'error'
+        severity: 'error',
       });
       return;
     }
@@ -101,7 +101,7 @@ export class ArtifactValidator implements IArtifactValidator {
       issues.push({
         code: 'TODO_FOUND',
         message: `Found ${todoCount} TODO comment(s) - consider implementing`,
-        severity: 'warning'
+        severity: 'warning',
       });
     }
 
@@ -112,7 +112,7 @@ export class ArtifactValidator implements IArtifactValidator {
       issues.push({
         code: 'NO_CODE_STRUCTURE',
         message: 'No recognizable code structure found',
-        severity: 'warning'
+        severity: 'warning',
       });
     }
 
@@ -121,7 +121,7 @@ export class ArtifactValidator implements IArtifactValidator {
       issues.push({
         code: 'NO_ERROR_HANDLING',
         message: 'Consider adding error handling',
-        severity: 'info'
+        severity: 'info',
       });
     }
 
@@ -130,7 +130,7 @@ export class ArtifactValidator implements IArtifactValidator {
       issues.push({
         code: 'NO_DOCUMENTATION',
         message: 'Consider adding code documentation',
-        severity: 'info'
+        severity: 'info',
       });
     }
   }
@@ -140,7 +140,7 @@ export class ArtifactValidator implements IArtifactValidator {
       issues.push({
         code: 'EMPTY_TEST',
         message: 'Test content is empty',
-        severity: 'error'
+        severity: 'error',
       });
       return;
     }
@@ -154,7 +154,7 @@ export class ArtifactValidator implements IArtifactValidator {
       issues.push({
         code: 'NO_DESCRIBE_BLOCK',
         message: 'No describe block found',
-        severity: 'warning'
+        severity: 'warning',
       });
     }
 
@@ -162,7 +162,7 @@ export class ArtifactValidator implements IArtifactValidator {
       issues.push({
         code: 'NO_TEST_CASES',
         message: 'No test cases found (it/test blocks)',
-        severity: 'error'
+        severity: 'error',
       });
     }
 
@@ -170,7 +170,7 @@ export class ArtifactValidator implements IArtifactValidator {
       issues.push({
         code: 'NO_ASSERTIONS',
         message: 'No assertions found (expect statements)',
-        severity: 'warning'
+        severity: 'warning',
       });
     }
 
@@ -180,7 +180,7 @@ export class ArtifactValidator implements IArtifactValidator {
       issues.push({
         code: 'INCOMPLETE_TESTS',
         message: `Found ${todoCount} TODO comment(s) in tests`,
-        severity: 'warning'
+        severity: 'warning',
       });
     }
   }
@@ -190,7 +190,7 @@ export class ArtifactValidator implements IArtifactValidator {
       issues.push({
         code: 'EMPTY_DOCUMENTATION',
         message: 'Documentation content is empty',
-        severity: 'error'
+        severity: 'error',
       });
       return;
     }
@@ -200,7 +200,7 @@ export class ArtifactValidator implements IArtifactValidator {
       issues.push({
         code: 'NO_HEADERS',
         message: 'No headers found in documentation',
-        severity: 'warning'
+        severity: 'warning',
       });
     }
 
@@ -209,7 +209,7 @@ export class ArtifactValidator implements IArtifactValidator {
       issues.push({
         code: 'NO_CODE_EXAMPLES',
         message: 'Consider adding code examples',
-        severity: 'info'
+        severity: 'info',
       });
     }
 
@@ -219,7 +219,7 @@ export class ArtifactValidator implements IArtifactValidator {
       issues.push({
         code: 'INCOMPLETE_DOCUMENTATION',
         message: `Found ${todoCount} TODO item(s) to complete`,
-        severity: 'warning'
+        severity: 'warning',
       });
     }
 
@@ -228,7 +228,7 @@ export class ArtifactValidator implements IArtifactValidator {
       issues.push({
         code: 'SHORT_DOCUMENTATION',
         message: 'Documentation seems very short',
-        severity: 'info'
+        severity: 'info',
       });
     }
   }
@@ -238,7 +238,7 @@ export class ArtifactValidator implements IArtifactValidator {
       issues.push({
         code: 'EMPTY_PRD',
         message: 'PRD content is empty',
-        severity: 'error'
+        severity: 'error',
       });
       return;
     }
@@ -246,13 +246,13 @@ export class ArtifactValidator implements IArtifactValidator {
     // Check for essential PRD sections
     const requiredSections = ['overview', 'requirements', 'objectives', 'goals'];
     const lowerContent = content.toLowerCase();
-    
+
     for (const section of requiredSections) {
       if (!lowerContent.includes(section)) {
         issues.push({
           code: 'MISSING_SECTION',
           message: `Missing '${section}' section in PRD`,
-          severity: 'warning'
+          severity: 'warning',
         });
       }
     }
@@ -263,7 +263,7 @@ export class ArtifactValidator implements IArtifactValidator {
       issues.push({
         code: 'INCOMPLETE_PRD',
         message: `Found ${todoCount} TODO item(s) to complete`,
-        severity: 'warning'
+        severity: 'warning',
       });
     }
 
@@ -272,7 +272,7 @@ export class ArtifactValidator implements IArtifactValidator {
       issues.push({
         code: 'SHORT_PRD',
         message: 'PRD seems very short for a comprehensive document',
-        severity: 'info'
+        severity: 'info',
       });
     }
   }
@@ -282,7 +282,7 @@ export class ArtifactValidator implements IArtifactValidator {
       issues.push({
         code: 'EMPTY_CONTENT',
         message: 'Content is empty',
-        severity: 'error'
+        severity: 'error',
       });
     }
 
@@ -292,14 +292,14 @@ export class ArtifactValidator implements IArtifactValidator {
       issues.push({
         code: 'INCOMPLETE_CONTENT',
         message: `Found ${todoCount} TODO item(s) to complete`,
-        severity: 'info'
+        severity: 'info',
       });
     }
   }
 
   private calculateScore(issues: ValidationIssue[]): number {
     let score = 100;
-    
+
     for (const issue of issues) {
       switch (issue.severity) {
         case 'error':
@@ -313,7 +313,7 @@ export class ArtifactValidator implements IArtifactValidator {
           break;
       }
     }
-    
+
     return Math.max(0, score);
   }
-} 
+}

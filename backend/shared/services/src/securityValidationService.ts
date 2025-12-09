@@ -9,7 +9,7 @@ import {
   ApprovalWorkflow,
   Agent,
   ExecutionPlan,
-  SecurityLevel
+  SecurityLevel,
 } from '@uaip/types';
 
 export class SecurityValidationService {
@@ -34,9 +34,9 @@ export class SecurityValidationService {
     operationData: any
   ): Promise<SecurityValidationResult> {
     await this.ensureInitialized();
-    
+
     try {
-      logger.info('Validating operation security', { 
+      logger.info('Validating operation security', {
         userId: securityContext.userId,
         operation: operation,
       });
@@ -49,7 +49,7 @@ export class SecurityValidationService {
           riskLevel: SecurityLevel.HIGH,
           approvalRequired: false,
           conditions: [],
-          reasoning: 'User authentication failed'
+          reasoning: 'User authentication failed',
         };
       }
 
@@ -66,7 +66,7 @@ export class SecurityValidationService {
           riskLevel: SecurityLevel.HIGH,
           approvalRequired: false,
           conditions: [],
-          reasoning: 'Insufficient permissions'
+          reasoning: 'Insufficient permissions',
         };
       }
 
@@ -99,24 +99,20 @@ export class SecurityValidationService {
         riskLevel: riskAssessment.level || SecurityLevel.MEDIUM,
         approvalRequired,
         conditions,
-        reasoning: riskAssessment.factors?.join('; ') || 'No specific risk factors identified'
+        reasoning: riskAssessment.factors?.join('; ') || 'No specific risk factors identified',
       };
-
     } catch (error) {
-      logger.error('Error validating operation security', { 
-        securityContext, 
-        error: (error as Error).message 
+      logger.error('Error validating operation security', {
+        securityContext,
+        error: (error as Error).message,
       });
       throw new ApiError(500, 'Security validation failed', 'SECURITY_ERROR');
     }
   }
 
-  public async assessRisk(
-    plan: ExecutionPlan,
-    agentSecurityContext: any
-  ): Promise<RiskAssessment> {
+  public async assessRisk(plan: ExecutionPlan, agentSecurityContext: any): Promise<RiskAssessment> {
     await this.ensureInitialized();
-    
+
     try {
       logger.info('Assessing execution plan risk', { planId: plan.id });
 
@@ -150,7 +146,8 @@ export class SecurityValidationService {
       const overallRisk = this.calculateOverallRisk(riskFactors);
 
       // Determine if approval is required
-      const requiresApproval = overallRisk === RiskLevel.HIGH || 
+      const requiresApproval =
+        overallRisk === RiskLevel.HIGH ||
         riskFactors.some((f: RiskFactor) => f.type === 'security_sensitive');
 
       // Generate mitigation recommendations
@@ -164,11 +161,13 @@ export class SecurityValidationService {
         recommendations: recommendedMitigations,
         mitigations: recommendedMitigations,
         assessedAt: new Date(),
-        assessedBy: 'system'
+        assessedBy: 'system',
       };
-
     } catch (error) {
-      logger.error('Error assessing plan risk', { planId: plan.id, error: (error as Error).message });
+      logger.error('Error assessing plan risk', {
+        planId: plan.id,
+        error: (error as Error).message,
+      });
       throw new ApiError(500, 'Risk assessment failed', 'RISK_ASSESSMENT_ERROR');
     }
   }
@@ -179,7 +178,7 @@ export class SecurityValidationService {
     operation: 'read' | 'write' | 'delete'
   ): Promise<any> {
     await this.ensureInitialized();
-    
+
     try {
       // Get user's data access level
       const accessLevel = await this.getUserDataAccessLevel(userId);
@@ -192,7 +191,7 @@ export class SecurityValidationService {
         case 'admin':
           // Admin can see everything
           return filteredData;
-          
+
         case 'operator':
           // Remove highly sensitive fields
           if (filteredData.security_context) {
@@ -200,7 +199,7 @@ export class SecurityValidationService {
             delete filteredData.security_context.credentials;
           }
           break;
-          
+
         case 'viewer':
           // Remove all sensitive fields
           delete filteredData.security_context;
@@ -208,14 +207,18 @@ export class SecurityValidationService {
             delete filteredData.intelligence_config.internal_params;
           }
           break;
-          
+
         default:
           throw new ApiError(403, 'Access denied', 'ACCESS_DENIED');
       }
 
       return filteredData;
     } catch (error) {
-      logger.error('Error filtering sensitive data', { userId, operation, error: (error as Error).message });
+      logger.error('Error filtering sensitive data', {
+        userId,
+        operation,
+        error: (error as Error).message,
+      });
       throw error;
     }
   }
@@ -223,10 +226,10 @@ export class SecurityValidationService {
   public async createApprovalWorkflow(
     operationId: string,
     approvers: string[],
-    context: any  
+    context: any
   ): Promise<string> {
     await this.ensureInitialized();
-    
+
     try {
       const workflowId = `approval_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 
@@ -235,13 +238,16 @@ export class SecurityValidationService {
         operationId,
         requiredApprovers: approvers,
         status: 'pending',
-        metadata: context
+        metadata: context,
       });
 
       logger.info('Approval workflow created', { workflowId, operationId, approvers });
       return workflowId;
     } catch (error) {
-      logger.error('Error creating approval workflow', { operationId, error: (error as Error).message });
+      logger.error('Error creating approval workflow', {
+        operationId,
+        error: (error as Error).message,
+      });
       throw new ApiError(500, 'Failed to create approval workflow', 'WORKFLOW_ERROR');
     }
   }
@@ -251,7 +257,7 @@ export class SecurityValidationService {
   private async validateUserAuth(userId: string): Promise<{ valid: boolean; reason?: string }> {
     try {
       const user = await this.databaseService.getUserAuthDetails(userId);
-      
+
       if (!user) {
         return { valid: false, reason: 'User not found' };
       }
@@ -278,35 +284,40 @@ export class SecurityValidationService {
   }> {
     try {
       const permissions = await this.databaseService.getUserPermissions(userId);
-      
+
       const userPermissions = new Set<string>();
-      
+
       // Process role-based permissions
-      permissions.rolePermissions.forEach(rolePermission => {
+      permissions.rolePermissions.forEach((rolePermission) => {
         if (rolePermission.operations) {
           rolePermission.operations.forEach((op: string) => userPermissions.add(op));
         }
       });
 
       // Process direct permissions
-      permissions.directPermissions.forEach(directPermission => {
+      permissions.directPermissions.forEach((directPermission) => {
         if (directPermission.operations) {
           directPermission.operations.forEach((op: string) => userPermissions.add(op));
         }
       });
 
       // Check if user has permission for the specific operation
-      const hasPermission = userPermissions.has(operation) || 
-                          userPermissions.has('*') ||
-                          userPermissions.has(`${operation}:*`);
+      const hasPermission =
+        userPermissions.has(operation) ||
+        userPermissions.has('*') ||
+        userPermissions.has(`${operation}:*`);
 
       return {
         hasPermission,
         granted: Array.from(userPermissions),
-        required: [operation]
+        required: [operation],
       };
     } catch (error) {
-      logger.error('Error getting user permissions', { userId, operation, error: (error as Error).message });
+      logger.error('Error getting user permissions', {
+        userId,
+        operation,
+        error: (error as Error).message,
+      });
       return { hasPermission: false, granted: [], required: [operation] };
     }
   }
@@ -347,7 +358,7 @@ export class SecurityValidationService {
       recommendations: [],
       mitigations: [],
       assessedAt: new Date(),
-      assessedBy: 'system'
+      assessedBy: 'system',
     };
   }
 
@@ -355,13 +366,13 @@ export class SecurityValidationService {
     try {
       // Use DatabaseService getUserRiskData method instead of raw SQL
       const userData = await this.databaseService.getUserRiskData(userId);
-      
+
       if (!userData) {
         return {
           type: 'user_verification',
           level: RiskLevel.HIGH,
           score: 8,
-          description: 'User not found in system'
+          description: 'User not found in system',
         };
       }
 
@@ -371,7 +382,7 @@ export class SecurityValidationService {
           type: 'user_behavior',
           level: RiskLevel.MEDIUM,
           score: 6,
-          description: 'Unusually high activity detected'
+          description: 'Unusually high activity detected',
         };
       }
 
@@ -379,14 +390,14 @@ export class SecurityValidationService {
         type: 'user_verification',
         level: RiskLevel.LOW,
         score: 2,
-        description: 'User verification passed'
+        description: 'User verification passed',
       };
     } catch (error) {
       return {
         type: 'user_verification',
         level: RiskLevel.MEDIUM,
         score: 5,
-        description: 'Could not verify user risk level'
+        description: 'Could not verify user risk level',
       };
     }
   }
@@ -396,21 +407,17 @@ export class SecurityValidationService {
       'delete_agent',
       'modify_security_context',
       'execute_privileged_operation',
-      'access_external_systems'
+      'access_external_systems',
     ];
 
-    const mediumRiskOperations = [
-      'update_agent',
-      'create_operation',
-      'modify_permissions'
-    ];
+    const mediumRiskOperations = ['update_agent', 'create_operation', 'modify_permissions'];
 
     if (highRiskOperations.includes(operation)) {
       return {
         type: 'operation_type',
         level: RiskLevel.HIGH,
         score: 8,
-        description: `High-risk operation: ${operation}`
+        description: `High-risk operation: ${operation}`,
       };
     }
 
@@ -419,7 +426,7 @@ export class SecurityValidationService {
         type: 'operation_type',
         level: RiskLevel.MEDIUM,
         score: 5,
-        description: `Medium-risk operation: ${operation}`
+        description: `Medium-risk operation: ${operation}`,
       };
     }
 
@@ -427,7 +434,7 @@ export class SecurityValidationService {
       type: 'operation_type',
       level: RiskLevel.LOW,
       score: 2,
-      description: 'Standard operation'
+      description: 'Standard operation',
     };
   }
 
@@ -440,18 +447,18 @@ export class SecurityValidationService {
       /credential/i,
       /token/i,
       /\b\d{4}[-\s]?\d{4}[-\s]?\d{4}[-\s]?\d{4}\b/, // Credit card pattern
-      /\b\d{3}-\d{2}-\d{4}\b/ // SSN pattern
+      /\b\d{3}-\d{2}-\d{4}\b/, // SSN pattern
     ];
 
     const dataString = JSON.stringify(operationData);
-    
+
     for (const pattern of sensitivePatterns) {
       if (pattern.test(dataString)) {
         return {
           type: 'data_sensitivity',
           level: RiskLevel.HIGH,
           score: 9,
-          description: 'Sensitive data detected in operation'
+          description: 'Sensitive data detected in operation',
         };
       }
     }
@@ -460,7 +467,7 @@ export class SecurityValidationService {
       type: 'data_sensitivity',
       level: RiskLevel.LOW,
       score: 1,
-      description: 'No sensitive data detected'
+      description: 'No sensitive data detected',
     };
   }
 
@@ -468,21 +475,23 @@ export class SecurityValidationService {
     const stepCount = plan.steps?.length;
     const duration = plan.estimatedDuration;
 
-    if (stepCount > 10 || (duration && duration > 3600)) { // More than 10 steps or 1 hour
+    if (stepCount > 10 || (duration && duration > 3600)) {
+      // More than 10 steps or 1 hour
       return {
         type: 'complexity',
         level: RiskLevel.HIGH,
         score: 8,
-        description: 'High complexity operation with many steps or long duration'
+        description: 'High complexity operation with many steps or long duration',
       };
     }
 
-    if (stepCount > 5 || (duration && duration > 1800)) { // More than 5 steps or 30 minutes
+    if (stepCount > 5 || (duration && duration > 1800)) {
+      // More than 5 steps or 30 minutes
       return {
         type: 'complexity',
         level: RiskLevel.MEDIUM,
         score: 5,
-        description: 'Medium complexity operation'
+        description: 'Medium complexity operation',
       };
     }
 
@@ -490,28 +499,30 @@ export class SecurityValidationService {
       type: 'complexity',
       level: RiskLevel.LOW,
       score: 2,
-      description: 'Low complexity operation'
+      description: 'Low complexity operation',
     };
   }
 
   private assessDurationRisk(plan: ExecutionPlan): RiskFactor {
     const duration = plan.estimatedDuration;
 
-    if (duration && duration > 7200) { // More than 2 hours
+    if (duration && duration > 7200) {
+      // More than 2 hours
       return {
         type: 'duration',
         level: RiskLevel.HIGH,
         score: 7,
-        description: 'Very long running operation'
+        description: 'Very long running operation',
       };
     }
 
-    if (duration && duration > 3600) { // More than 1 hour
+    if (duration && duration > 3600) {
+      // More than 1 hour
       return {
         type: 'duration',
         level: RiskLevel.MEDIUM,
         score: 4,
-        description: 'Long running operation'
+        description: 'Long running operation',
       };
     }
 
@@ -519,20 +530,20 @@ export class SecurityValidationService {
       type: 'duration',
       level: RiskLevel.LOW,
       score: 1,
-      description: 'Short duration operation'
+      description: 'Short duration operation',
     };
   }
 
   private assessResourceRisk(plan: ExecutionPlan): RiskFactor {
     // Check if plan involves resource-intensive operations
     const resourceIntensiveTypes = ['data_processing', 'ml_training', 'bulk_operations'];
-    
+
     if (plan.type && resourceIntensiveTypes.includes(plan.type)) {
       return {
         type: 'resource',
         level: RiskLevel.MEDIUM,
         score: 5,
-        description: 'Resource-intensive operation type'
+        description: 'Resource-intensive operation type',
       };
     }
 
@@ -540,19 +551,19 @@ export class SecurityValidationService {
       type: 'resource',
       level: RiskLevel.LOW,
       score: 2,
-      description: 'Standard resource usage'
+      description: 'Standard resource usage',
     };
   }
 
   private assessAgentRisk(plan: ExecutionPlan, agentSecurityContext: any): RiskFactor {
     const securityLevel = agentSecurityContext?.securityLevel || 'medium';
-    
+
     if (securityLevel === 'high' && plan.type !== 'information_retrieval') {
       return {
         type: 'agent_security',
         level: RiskLevel.MEDIUM,
         score: 5,
-        description: 'High-security agent performing operational tasks'
+        description: 'High-security agent performing operational tasks',
       };
     }
 
@@ -560,28 +571,28 @@ export class SecurityValidationService {
       type: 'agent_security',
       level: RiskLevel.LOW,
       score: 2,
-      description: 'Agent security level appropriate for operation'
+      description: 'Agent security level appropriate for operation',
     };
   }
 
   private calculateOverallRisk(riskFactors: RiskFactor[]): RiskLevel {
-    if (riskFactors.some(f => f.level === RiskLevel.HIGH)) {
+    if (riskFactors.some((f) => f.level === RiskLevel.HIGH)) {
       return RiskLevel.HIGH;
     }
-    
-    if (riskFactors.filter(f => f.level === RiskLevel.MEDIUM).length >= 2) {
+
+    if (riskFactors.filter((f) => f.level === RiskLevel.MEDIUM).length >= 2) {
       return RiskLevel.HIGH;
     }
-    
-    if (riskFactors.some(f => f.level === RiskLevel.MEDIUM)) {
+
+    if (riskFactors.some((f) => f.level === RiskLevel.MEDIUM)) {
       return RiskLevel.MEDIUM;
     }
-    
+
     return RiskLevel.LOW;
   }
 
   private calculateRiskScore(riskFactors: RiskFactor[]): number {
-    const totalScore = riskFactors.reduce((sum, factor) => sum + (factor.score), 0);
+    const totalScore = riskFactors.reduce((sum, factor) => sum + factor.score, 0);
     return Math.min(totalScore, 100); // Cap at 100
   }
 
@@ -601,7 +612,7 @@ export class SecurityValidationService {
       'delete_agent',
       'modify_security',
       'external_api_call',
-      'data_export'
+      'data_export',
     ];
 
     if (approvalRequiredOperations.includes(operation)) {
@@ -649,7 +660,7 @@ export class SecurityValidationService {
   private generateMitigations(riskFactors: RiskFactor[], plan: ExecutionPlan): string[] {
     const mitigations: string[] = [];
 
-    riskFactors.forEach(factor => {
+    riskFactors.forEach((factor) => {
       switch (factor.type) {
         case 'complexity':
           mitigations.push('Break down into smaller operations');
@@ -673,14 +684,17 @@ export class SecurityValidationService {
     try {
       // Use DatabaseService getUserHighestRole method instead of raw SQL
       const roleName = await this.databaseService.getUserHighestRole(userId);
-      
+
       if (roleName) {
         return roleName;
       }
 
       return 'viewer'; // Default to most restrictive
     } catch (error) {
-      logger.error('Error getting user data access level', { userId, error: (error as Error).message });
+      logger.error('Error getting user data access level', {
+        userId,
+        error: (error as Error).message,
+      });
       return 'viewer'; // Default to most restrictive on error
     }
   }
@@ -697,4 +711,4 @@ export class SecurityValidationService {
         throw new Error('Invalid risk level');
     }
   }
-} 
+}

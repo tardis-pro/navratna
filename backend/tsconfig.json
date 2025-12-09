@@ -24,6 +24,7 @@
 
     /* safety + DX */
     "strict": false,
+    "noImplicitAny": true,
     "resolveJsonModule": true,
     "esModuleInterop": true,
     "allowSyntheticDefaultImports": true,

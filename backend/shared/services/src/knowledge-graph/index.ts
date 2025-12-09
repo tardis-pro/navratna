@@ -28,7 +28,10 @@ export { QdrantHealthService } from './qdrant-health.service.js';
 export { ChatParserService } from './chat-parser.service.js';
 export { ChatKnowledgeExtractorService } from './chat-knowledge-extractor.service.js';
 export { BatchProcessorService } from './batch-processor.service.js';
-export { ChatIngestionMiddleware, createChatIngestionMiddleware } from './chat-ingestion.middleware.js';
+export {
+  ChatIngestionMiddleware,
+  createChatIngestionMiddleware,
+} from './chat-ingestion.middleware.js';
 
 // Phase 2: Knowledge Enhancement services
 export { QAGeneratorService } from './qa-generator.service.js';
@@ -37,15 +40,15 @@ export { ExpertiseAnalyzerService } from './expertise-analyzer.service.js';
 export { LearningDetectorService } from './learning-detector.service.js';
 
 // Production Hardening services
-export { 
-  ProductionHardeningService, 
-  CircuitBreaker, 
-  RetryManager, 
-  RateLimiter, 
-  HealthCheckManager, 
-  MetricsCollector, 
+export {
+  ProductionHardeningService,
+  CircuitBreaker,
+  RetryManager,
+  RateLimiter,
+  HealthCheckManager,
+  MetricsCollector,
   SecurityValidator,
-  productionHardening 
+  productionHardening,
 } from './production-hardening.service.js';
 
 // Entities

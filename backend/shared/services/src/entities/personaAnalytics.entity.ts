@@ -44,7 +44,13 @@ export class PersonaAnalytics extends BaseEntity {
   @Column({ name: 'average_response_time_ms', nullable: true })
   averageResponseTimeMs?: number;
 
-  @Column({ name: 'user_satisfaction_score', type: 'decimal', precision: 3, scale: 2, nullable: true })
+  @Column({
+    name: 'user_satisfaction_score',
+    type: 'decimal',
+    precision: 3,
+    scale: 2,
+    nullable: true,
+  })
   userSatisfactionScore?: number;
 
   // Quality metrics
@@ -67,10 +73,22 @@ export class PersonaAnalytics extends BaseEntity {
   @Column({ name: 'most_common_topics', type: 'jsonb', default: '[]' })
   mostCommonTopics: string[];
 
-  @Column({ name: 'conversation_length_avg', type: 'decimal', precision: 10, scale: 2, nullable: true })
+  @Column({
+    name: 'conversation_length_avg',
+    type: 'decimal',
+    precision: 10,
+    scale: 2,
+    nullable: true,
+  })
   conversationLengthAvg?: number;
 
-  @Column({ name: 'repeat_user_percentage', type: 'decimal', precision: 5, scale: 2, nullable: true })
+  @Column({
+    name: 'repeat_user_percentage',
+    type: 'decimal',
+    precision: 5,
+    scale: 2,
+    nullable: true,
+  })
   repeatUserPercentage?: number;
 
   // Performance indicators
@@ -103,4 +121,4 @@ export class PersonaAnalytics extends BaseEntity {
   @ManyToOne('Persona', 'analytics')
   @JoinColumn({ name: 'persona_id' })
   persona: any;
-} 
+}

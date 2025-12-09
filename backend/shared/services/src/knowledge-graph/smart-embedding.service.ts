@@ -45,7 +45,7 @@ export class SmartEmbeddingService extends EmbeddingService {
     avgLatency: 0,
     successRate: 1.0,
     totalRequests: 0,
-    successfulRequests: 0
+    successfulRequests: 0,
   };
 
   constructor(config: Partial<EmbeddingServiceConfig> = {}) {
@@ -62,12 +62,12 @@ export class SmartEmbeddingService extends EmbeddingService {
       teiUrls: {
         embedding: process.env.TEI_EMBEDDING_URL || 'http://localhost:8080',
         reranker: process.env.TEI_RERANKER_URL || 'http://localhost:8083',
-        embeddingCPU: process.env.TEI_EMBEDDING_CPU_URL || 'http://localhost:8082'
+        embeddingCPU: process.env.TEI_EMBEDDING_CPU_URL || 'http://localhost:8082',
       },
       openaiApiKey: process.env.OPENAI_API_KEY,
       healthCheckInterval: 30000, // 30 seconds
       embeddingModel: 'text-embedding-ada-002',
-      ...config
+      ...config,
     };
 
     // Initialize services
@@ -81,7 +81,7 @@ export class SmartEmbeddingService extends EmbeddingService {
       activeService: 'tei',
       teiStatus: {
         embedding: { status: 'loading' },
-        reranker: { status: 'loading' }
+        reranker: { status: 'loading' },
       },
       openaiAvailable: !!this.config.openaiApiKey,
       lastHealthCheck: new Date(0),
@@ -89,8 +89,8 @@ export class SmartEmbeddingService extends EmbeddingService {
       performanceMetrics: {
         avgLatency: 0,
         successRate: 1.0,
-        totalRequests: 0
-      }
+        totalRequests: 0,
+      },
     };
 
     // Start health monitoring
@@ -114,7 +114,7 @@ export class SmartEmbeddingService extends EmbeddingService {
           return embedding;
         } catch (error) {
           console.warn('TEI embedding failed, trying fallback:', error.message);
-          
+
           if (this.config.fallbackToOpenAI && this.healthStatus.openaiAvailable) {
             const embedding = await super.generateEmbedding(text);
             this.recordSuccess(startTime);
@@ -153,7 +153,7 @@ export class SmartEmbeddingService extends EmbeddingService {
           return embeddings;
         } catch (error) {
           console.warn('TEI batch embedding failed, trying fallback:', error.message);
-          
+
           if (this.config.fallbackToOpenAI && this.healthStatus.openaiAvailable) {
             const embeddings = await super.generateBatchEmbeddings(texts);
             this.recordSuccess(startTime);
@@ -240,8 +240,8 @@ export class SmartEmbeddingService extends EmbeddingService {
       console.warn('Reranking not available, returning original order');
       return documents.map((doc, index) => ({
         index,
-        score: 1.0 - (index * 0.1), // Decreasing scores
-        document: doc
+        score: 1.0 - index * 0.1, // Decreasing scores
+        document: doc,
       }));
     }
   }
@@ -263,7 +263,7 @@ export class SmartEmbeddingService extends EmbeddingService {
       if (this.config.preferTEI) {
         this.healthStatus.teiStatus = await this.teiService.checkHealth();
       }
-      console.log(this.healthStatus)
+      console.log(this.healthStatus);
       // Check OpenAI availability (we assume it's available if API key is provided)
       this.healthStatus.openaiAvailable = !!this.config.openaiApiKey;
 
@@ -299,9 +299,11 @@ export class SmartEmbeddingService extends EmbeddingService {
    * Check if TEI should be used based on health and configuration
    */
   private shouldUseTEI(): boolean {
-    return this.config.preferTEI && 
-           this.healthStatus.teiStatus.embedding.status === 'ready' &&
-           this.healthStatus.teiStatus.reranker.status === 'ready';
+    return (
+      this.config.preferTEI &&
+      this.healthStatus.teiStatus.embedding.status === 'ready' &&
+      this.healthStatus.teiStatus.reranker.status === 'ready'
+    );
   }
 
   /**
@@ -310,7 +312,7 @@ export class SmartEmbeddingService extends EmbeddingService {
   private async ensureHealthy(): Promise<void> {
     const now = Date.now();
     const timeSinceLastCheck = now - this.lastHealthCheck.getTime();
-    
+
     if (timeSinceLastCheck > this.config.healthCheckInterval) {
       await this.checkHealth();
     }
@@ -321,7 +323,7 @@ export class SmartEmbeddingService extends EmbeddingService {
    */
   private startHealthMonitoring(): void {
     // Initial health check
-    this.checkHealth().catch(error => {
+    this.checkHealth().catch((error) => {
       console.error('Initial health check failed:', error);
     });
 
@@ -341,19 +343,22 @@ export class SmartEmbeddingService extends EmbeddingService {
   private recordSuccess(startTime: number): void {
     const latency = Date.now() - startTime;
     this.performanceMetrics.successfulRequests++;
-    
+
     // Update average latency
-    const totalLatency = this.performanceMetrics.avgLatency * (this.performanceMetrics.successfulRequests - 1) + latency;
+    const totalLatency =
+      this.performanceMetrics.avgLatency * (this.performanceMetrics.successfulRequests - 1) +
+      latency;
     this.performanceMetrics.avgLatency = totalLatency / this.performanceMetrics.successfulRequests;
-    
+
     // Update success rate
-    this.performanceMetrics.successRate = this.performanceMetrics.successfulRequests / this.performanceMetrics.totalRequests;
-    
+    this.performanceMetrics.successRate =
+      this.performanceMetrics.successfulRequests / this.performanceMetrics.totalRequests;
+
     // Update health status metrics
     this.healthStatus.performanceMetrics = {
       avgLatency: this.performanceMetrics.avgLatency,
       successRate: this.performanceMetrics.successRate,
-      totalRequests: this.performanceMetrics.totalRequests
+      totalRequests: this.performanceMetrics.totalRequests,
     };
   }
 
@@ -362,19 +367,18 @@ export class SmartEmbeddingService extends EmbeddingService {
    */
   private recordFailure(startTime: number): void {
     const latency = Date.now() - startTime;
-    
+
     // Update success rate
-    this.performanceMetrics.successRate = this.performanceMetrics.successfulRequests / this.performanceMetrics.totalRequests;
-    
+    this.performanceMetrics.successRate =
+      this.performanceMetrics.successfulRequests / this.performanceMetrics.totalRequests;
+
     // Update health status metrics
     this.healthStatus.performanceMetrics = {
       avgLatency: this.performanceMetrics.avgLatency,
       successRate: this.performanceMetrics.successRate,
-      totalRequests: this.performanceMetrics.totalRequests
+      totalRequests: this.performanceMetrics.totalRequests,
     };
   }
-
- 
 
   protected override buildContextText(context: ContextRequest): string {
     if (this.shouldUseTEI()) {
@@ -382,4 +386,4 @@ export class SmartEmbeddingService extends EmbeddingService {
     }
     return super.buildContextText(context);
   }
-} 
+}

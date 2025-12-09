@@ -1,7 +1,11 @@
 import { LLMService, ModelBootstrapService } from '@uaip/llm-service';
 import { logger, ValidationError } from '@uaip/utils';
 
-export function registerLLMRoutes(app: any, llmService: LLMService, modelBootstrapService: ModelBootstrapService): any {
+export function registerLLMRoutes(
+  app: any,
+  llmService: LLMService,
+  modelBootstrapService: ModelBootstrapService
+): any {
   return app.group('/api/v1/llm', (app: any) =>
     app
       // Get available models from all providers
@@ -14,7 +18,7 @@ export function registerLLMRoutes(app: any, llmService: LLMService, modelBootstr
 
         return {
           success: true,
-          data: models
+          data: models,
         };
       })
 
@@ -29,7 +33,7 @@ export function registerLLMRoutes(app: any, llmService: LLMService, modelBootstr
 
         return {
           success: true,
-          data: models
+          data: models,
         };
       })
 
@@ -41,17 +45,20 @@ export function registerLLMRoutes(app: any, llmService: LLMService, modelBootstr
           throw new ValidationError('Prompt is required');
         }
 
-        const response = await llmService.generateResponse({
-          prompt,
-          systemPrompt,
-          maxTokens,
-          temperature,
-          model
-        }, preferredType);
+        const response = await llmService.generateResponse(
+          {
+            prompt,
+            systemPrompt,
+            maxTokens,
+            temperature,
+            model,
+          },
+          preferredType
+        );
 
         return {
           success: true,
-          data: response
+          data: response,
         };
       })
 
@@ -67,12 +74,12 @@ export function registerLLMRoutes(app: any, llmService: LLMService, modelBootstr
           agent,
           messages,
           context,
-          tools
+          tools,
         });
 
         return {
           success: true,
-          data: response
+          data: response,
         };
       })
 
@@ -89,12 +96,12 @@ export function registerLLMRoutes(app: any, llmService: LLMService, modelBootstr
           context: prompt,
           language,
           requirements,
-          constraints: []
+          constraints: [],
         });
 
         return {
           success: true,
-          data: response
+          data: response,
         };
       })
 
@@ -110,12 +117,12 @@ export function registerLLMRoutes(app: any, llmService: LLMService, modelBootstr
           conversationHistory,
           currentContext,
           userRequest,
-          agentCapabilities
+          agentCapabilities,
         });
 
         return {
           success: true,
-          data: response
+          data: response,
         };
       })
 
@@ -125,7 +132,7 @@ export function registerLLMRoutes(app: any, llmService: LLMService, modelBootstr
 
         return {
           success: true,
-          data: stats
+          data: stats,
         };
       })
 
@@ -139,7 +146,7 @@ export function registerLLMRoutes(app: any, llmService: LLMService, modelBootstr
 
         return {
           success: true,
-          data: providers
+          data: providers,
         };
       })
 
@@ -149,7 +156,7 @@ export function registerLLMRoutes(app: any, llmService: LLMService, modelBootstr
 
         return {
           success: true,
-          data: healthResults
+          data: healthResults,
         };
       })
 
@@ -166,7 +173,9 @@ export function registerLLMRoutes(app: any, llmService: LLMService, modelBootstr
         return {
           success: true,
           data: result,
-          message: result.testSuccess ? 'Event integration test passed' : 'Event integration test failed'
+          message: result.testSuccess
+            ? 'Event integration test passed'
+            : 'Event integration test failed',
         };
       })
 
@@ -190,7 +199,7 @@ export function registerLLMRoutes(app: any, llmService: LLMService, modelBootstr
 
         return {
           success: true,
-          message: `Cache invalidated: ${type || 'all'}`
+          message: `Cache invalidated: ${type || 'all'}`,
         };
       })
 
@@ -199,7 +208,7 @@ export function registerLLMRoutes(app: any, llmService: LLMService, modelBootstr
 
         return {
           success: true,
-          message: 'Providers refreshed and cache cleared'
+          message: 'Providers refreshed and cache cleared',
         };
       })
 
@@ -209,7 +218,7 @@ export function registerLLMRoutes(app: any, llmService: LLMService, modelBootstr
 
         return {
           success: true,
-          data: status
+          data: status,
         };
       })
 
@@ -217,13 +226,13 @@ export function registerLLMRoutes(app: any, llmService: LLMService, modelBootstr
         logger.info('Manual model bootstrap refresh requested');
 
         // Run bootstrap in background
-        modelBootstrapService.bootstrapAllModels().catch(error => {
+        modelBootstrapService.bootstrapAllModels().catch((error) => {
           logger.error('Manual model bootstrap failed', { error });
         });
 
         return {
           success: true,
-          message: 'Model bootstrap refresh started'
+          message: 'Model bootstrap refresh started',
         };
       })
 
@@ -240,7 +249,7 @@ export function registerLLMRoutes(app: any, llmService: LLMService, modelBootstr
 
         return {
           success: true,
-          message: `Models refreshed for user ${userId}`
+          message: `Models refreshed for user ${userId}`,
         };
       })
   );

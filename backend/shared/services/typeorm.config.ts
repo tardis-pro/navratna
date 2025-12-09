@@ -11,14 +11,14 @@ import { logger } from '@uaip/utils';
 // Create DataSource for CLI operations with TypeScript paths for development
 const CLIDataSource = new DataSource({
   ...createTypeOrmConfig(undefined, true), // Disable cache for CLI operations
-  
+
   // Override paths for CLI operations (use TypeScript source files)
   entities: ['src/entities/**/*.ts', 'src/knowledge-graph/entities/**/*.ts'],
   migrations: ['src/migrations/**/*.ts'],
   subscribers: ['src/subscribers/**/*.ts'],
   synchronize: false, // Never synchronize in CLI operations
   dropSchema: false, // Never drop schema in CLI operations
-  
+
   // CLI-specific logging
   logging: ['query', 'error', 'warn', 'migration'],
   logger: 'advanced-console',
@@ -29,7 +29,7 @@ logger.info('TypeORM CLI configuration initialized', {
   entities: CLIDataSource.options.entities,
   migrations: CLIDataSource.options.migrations,
   subscribers: CLIDataSource.options.subscribers,
-  cache: CLIDataSource.options.cache ? 'enabled' : 'disabled'
+  cache: CLIDataSource.options.cache ? 'enabled' : 'disabled',
 });
 
-export default CLIDataSource; 
+export default CLIDataSource;

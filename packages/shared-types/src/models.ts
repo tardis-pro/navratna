@@ -24,7 +24,7 @@ export const ModelOptionSchema = z.object({
   apiType: z.string(),
   isAvailable: z.boolean().optional(),
   maxTokens: z.number().optional(),
-  temperature: z.number().optional()
+  temperature: z.number().optional(),
 });
 
 // Model provider configuration
@@ -46,7 +46,19 @@ export interface ModelInfo {
   inputCostPer1k?: number;
   outputCostPer1k?: number;
   provider: string;
-  capabilities: ('text' | 'code' | 'reasoning' | 'multimodal' | 'vision-to-text' | 'audio-to-text' | 'audio-to-audio' | 'tool-calling' | 'function-calling' | 'image-generation' | 'embeddings')[];
+  capabilities: (
+    | 'text'
+    | 'code'
+    | 'reasoning'
+    | 'multimodal'
+    | 'vision-to-text'
+    | 'audio-to-text'
+    | 'audio-to-audio'
+    | 'tool-calling'
+    | 'function-calling'
+    | 'image-generation'
+    | 'embeddings'
+  )[];
 }
 
 // Debate-specific message data
@@ -65,5 +77,5 @@ export const DebateMessageDataSchema = z.object({
   content: z.string(),
   timestamp: z.date(),
   modelId: z.string(),
-  apiType: z.string()
+  apiType: z.string(),
 });

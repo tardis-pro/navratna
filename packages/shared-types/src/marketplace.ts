@@ -4,11 +4,11 @@ import { BaseEntitySchema, IDSchema } from './common.js';
 // Marketplace item types
 export enum MarketplaceItemType {
   AGENT = 'agent',
-  PERSONA = 'persona', 
+  PERSONA = 'persona',
   TOOL = 'tool',
   CAPABILITY = 'capability',
   WORKFLOW = 'workflow',
-  TEMPLATE = 'template'
+  TEMPLATE = 'template',
 }
 
 // Marketplace categories
@@ -22,7 +22,7 @@ export enum MarketplaceCategory {
   ENTERTAINMENT = 'entertainment',
   BUSINESS = 'business',
   RESEARCH = 'research',
-  AUTOMATION = 'automation'
+  AUTOMATION = 'automation',
 }
 
 // Marketplace item status
@@ -33,7 +33,7 @@ export enum MarketplaceItemStatus {
   FEATURED = 'featured',
   REJECTED = 'rejected',
   SUSPENDED = 'suspended',
-  ARCHIVED = 'archived'
+  ARCHIVED = 'archived',
 }
 
 // Marketplace pricing model
@@ -42,7 +42,7 @@ export enum PricingModel {
   FREEMIUM = 'freemium',
   PREMIUM = 'premium',
   PAY_PER_USE = 'pay_per_use',
-  SUBSCRIPTION = 'subscription'
+  SUBSCRIPTION = 'subscription',
 }
 
 // Marketplace rating schema
@@ -56,7 +56,7 @@ export const MarketplaceRatingSchema = z.object({
   helpful: z.number().min(0).default(0),
   reported: z.boolean().default(false),
   createdAt: z.date(),
-  updatedAt: z.date()
+  updatedAt: z.date(),
 });
 
 export type MarketplaceRating = z.infer<typeof MarketplaceRatingSchema>;
@@ -74,7 +74,7 @@ export const MarketplaceUsageStatsSchema = z.object({
   weeklyDownloads: z.number().min(0).default(0),
   monthlyDownloads: z.number().min(0).default(0),
   conversionRate: z.number().min(0).max(1).default(0),
-  retentionRate: z.number().min(0).max(1).default(0)
+  retentionRate: z.number().min(0).max(1).default(0),
 });
 
 export type MarketplaceUsageStats = z.infer<typeof MarketplaceUsageStatsSchema>;
@@ -83,25 +83,37 @@ export type MarketplaceUsageStats = z.infer<typeof MarketplaceUsageStatsSchema>;
 export const MarketplaceShowcaseSchema = z.object({
   screenshots: z.array(z.string()).default([]),
   videos: z.array(z.string()).default([]),
-  demos: z.array(z.object({
-    title: z.string(),
-    description: z.string(),
-    url: z.string(),
-    type: z.enum(['video', 'interactive', 'code', 'live'])
-  })).default([]),
-  examples: z.array(z.object({
-    title: z.string(),
-    description: z.string(),
-    input: z.string(),
-    output: z.string(),
-    tags: z.array(z.string()).default([])
-  })).default([]),
-  testimonials: z.array(z.object({
-    user: z.string(),
-    comment: z.string(),
-    rating: z.number().min(1).max(5),
-    verified: z.boolean().default(false)
-  })).default([])
+  demos: z
+    .array(
+      z.object({
+        title: z.string(),
+        description: z.string(),
+        url: z.string(),
+        type: z.enum(['video', 'interactive', 'code', 'live']),
+      })
+    )
+    .default([]),
+  examples: z
+    .array(
+      z.object({
+        title: z.string(),
+        description: z.string(),
+        input: z.string(),
+        output: z.string(),
+        tags: z.array(z.string()).default([]),
+      })
+    )
+    .default([]),
+  testimonials: z
+    .array(
+      z.object({
+        user: z.string(),
+        comment: z.string(),
+        rating: z.number().min(1).max(5),
+        verified: z.boolean().default(false),
+      })
+    )
+    .default([]),
 });
 
 export type MarketplaceShowcase = z.infer<typeof MarketplaceShowcaseSchema>;
@@ -117,18 +129,18 @@ export const MarketplaceItemSchema = BaseEntitySchema.extend({
   tags: z.array(z.string()).default([]),
   status: z.nativeEnum(MarketplaceItemStatus).default(MarketplaceItemStatus.DRAFT),
   visibility: z.enum(['public', 'unlisted', 'private']).default('public'),
-  
+
   // Author information
   authorId: IDSchema,
   authorName: z.string(),
   authorAvatar: z.string().optional(),
   organizationId: IDSchema.optional(),
-  
+
   // Content references
   personaId: IDSchema.optional(), // For persona-based items
-  agentId: IDSchema.optional(),   // For agent-based items
-  toolId: IDSchema.optional(),    // For tool-based items
-  
+  agentId: IDSchema.optional(), // For agent-based items
+  toolId: IDSchema.optional(), // For tool-based items
+
   // Marketplace specific fields
   version: z.string().default('1.0.0'),
   pricing: z.object({
@@ -136,45 +148,49 @@ export const MarketplaceItemSchema = BaseEntitySchema.extend({
     price: z.number().min(0).default(0),
     currency: z.string().default('USD'),
     billingPeriod: z.enum(['one_time', 'monthly', 'yearly']).optional(),
-    trialDays: z.number().min(0).optional()
+    trialDays: z.number().min(0).optional(),
   }),
-  
+
   // Usage and performance
   stats: MarketplaceUsageStatsSchema.default({}),
   showcase: MarketplaceShowcaseSchema.default({}),
-  
+
   // Compatibility and requirements
-  requirements: z.object({
-    minVersion: z.string().optional(),
-    dependencies: z.array(z.string()).default([]),
-    capabilities: z.array(z.string()).default([]),
-    resourceRequirements: z.object({
-      minMemory: z.number().optional(),
-      minCpu: z.number().optional(),
-      maxExecutionTime: z.number().optional()
-    }).optional()
-  }).optional(),
-  
+  requirements: z
+    .object({
+      minVersion: z.string().optional(),
+      dependencies: z.array(z.string()).default([]),
+      capabilities: z.array(z.string()).default([]),
+      resourceRequirements: z
+        .object({
+          minMemory: z.number().optional(),
+          minCpu: z.number().optional(),
+          maxExecutionTime: z.number().optional(),
+        })
+        .optional(),
+    })
+    .optional(),
+
   // Social features
   isForkable: z.boolean().default(true),
   isRemixable: z.boolean().default(true),
   originalItemId: IDSchema.optional(), // For forks/remixes
   forkedFrom: IDSchema.optional(),
-  
+
   // Featured and trending
   isFeatured: z.boolean().default(false),
   isTrending: z.boolean().default(false),
   featuredUntil: z.date().optional(),
   trendingScore: z.number().min(0).default(0),
-  
+
   // Quality and safety
   qualityScore: z.number().min(0).max(100).optional(),
   safetyScore: z.number().min(0).max(100).optional(),
   isVerified: z.boolean().default(false),
   verifiedBy: IDSchema.optional(),
   verifiedAt: z.date().optional(),
-  
-  metadata: z.record(z.any()).optional()
+
+  metadata: z.record(z.any()).optional(),
 });
 
 export type MarketplaceItem = z.infer<typeof MarketplaceItemSchema>;
@@ -192,10 +208,12 @@ export const MarketplaceSearchFiltersSchema = z.object({
   featured: z.boolean().optional(),
   trending: z.boolean().optional(),
   verified: z.boolean().optional(),
-  sortBy: z.enum(['name', 'downloads', 'rating', 'created', 'updated', 'trending']).default('trending'),
+  sortBy: z
+    .enum(['name', 'downloads', 'rating', 'created', 'updated', 'trending'])
+    .default('trending'),
   sortOrder: z.enum(['asc', 'desc']).default('desc'),
   limit: z.number().min(1).max(100).default(20),
-  offset: z.number().min(0).default(0)
+  offset: z.number().min(0).default(0),
 });
 
 export type MarketplaceSearchFilters = z.infer<typeof MarketplaceSearchFiltersSchema>;
@@ -210,11 +228,13 @@ export const MarketplaceInstallationSchema = BaseEntitySchema.extend({
   lastUsedAt: z.date().optional(),
   usageCount: z.number().min(0).default(0),
   isActive: z.boolean().default(true),
-  feedback: z.object({
-    rating: z.number().min(1).max(5).optional(),
-    review: z.string().max(1000).optional(),
-    wouldRecommend: z.boolean().optional()
-  }).optional()
+  feedback: z
+    .object({
+      rating: z.number().min(1).max(5).optional(),
+      review: z.string().max(1000).optional(),
+      wouldRecommend: z.boolean().optional(),
+    })
+    .optional(),
 });
 
 export type MarketplaceInstallation = z.infer<typeof MarketplaceInstallationSchema>;
@@ -230,11 +250,13 @@ export const MarketplaceCollectionSchema = BaseEntitySchema.extend({
   isPublic: z.boolean().default(true),
   isFeatured: z.boolean().default(false),
   tags: z.array(z.string()).default([]),
-  stats: z.object({
-    followers: z.number().min(0).default(0),
-    totalViews: z.number().min(0).default(0),
-    totalLikes: z.number().min(0).default(0)
-  }).default({})
+  stats: z
+    .object({
+      followers: z.number().min(0).default(0),
+      totalViews: z.number().min(0).default(0),
+      totalLikes: z.number().min(0).default(0),
+    })
+    .default({}),
 });
 
 export type MarketplaceCollection = z.infer<typeof MarketplaceCollectionSchema>;
@@ -250,7 +272,7 @@ export const TrendingDataSchema = z.object({
   velocity: z.number().default(0),
   acceleration: z.number().default(0),
   trendingScore: z.number().min(0).default(0),
-  updatedAt: z.date()
+  updatedAt: z.date(),
 });
 
 export type TrendingData = z.infer<typeof TrendingDataSchema>;
@@ -264,5 +286,5 @@ export const MarketplaceSchemas = {
   MarketplaceSearchFilters: MarketplaceSearchFiltersSchema,
   MarketplaceInstallation: MarketplaceInstallationSchema,
   MarketplaceCollection: MarketplaceCollectionSchema,
-  TrendingData: TrendingDataSchema
+  TrendingData: TrendingDataSchema,
 };

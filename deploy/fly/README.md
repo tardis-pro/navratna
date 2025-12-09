@@ -27,15 +27,15 @@ fly auth login
 
 ## Services Deployed
 
-| Service | App Name | Port | URL |
-|---------|----------|------|-----|
-| Agent Intelligence | `navratna-agent-intelligence` | 3001 | https://navratna-agent-intelligence.fly.dev |
-| Orchestration Pipeline | `navratna-orchestration-pipeline` | 3002 | https://navratna-orchestration-pipeline.fly.dev |
-| Capability Registry | `navratna-capability-registry` | 3003 | https://navratna-capability-registry.fly.dev |
-| Security Gateway | `navratna-security-gateway` | 3004 | https://navratna-security-gateway.fly.dev |
+| Service                  | App Name                            | Port | URL                                               |
+| ------------------------ | ----------------------------------- | ---- | ------------------------------------------------- |
+| Agent Intelligence       | `navratna-agent-intelligence`       | 3001 | https://navratna-agent-intelligence.fly.dev       |
+| Orchestration Pipeline   | `navratna-orchestration-pipeline`   | 3002 | https://navratna-orchestration-pipeline.fly.dev   |
+| Capability Registry      | `navratna-capability-registry`      | 3003 | https://navratna-capability-registry.fly.dev      |
+| Security Gateway         | `navratna-security-gateway`         | 3004 | https://navratna-security-gateway.fly.dev         |
 | Discussion Orchestration | `navratna-discussion-orchestration` | 3005 | https://navratna-discussion-orchestration.fly.dev |
-| Artifact Service | `navratna-artifact-service` | 3006 | https://navratna-artifact-service.fly.dev |
-| LLM Service | `navratna-llm-service` | 3007 | https://navratna-llm-service.fly.dev |
+| Artifact Service         | `navratna-artifact-service`         | 3006 | https://navratna-artifact-service.fly.dev         |
+| LLM Service              | `navratna-llm-service`              | 3007 | https://navratna-llm-service.fly.dev              |
 
 ---
 
@@ -154,19 +154,19 @@ FRONTEND_URL=https://navratna.pages.dev
 
 ### Fly.io Pricing
 
-| Resource | Free Tier | Paid |
-|----------|-----------|------|
-| VMs | 3 shared-cpu-1x (256MB) | $1.94/mo per 256MB |
-| Bandwidth | 100GB/mo | $0.02/GB |
-| IPv4 | $2/mo per app | - |
+| Resource  | Free Tier               | Paid               |
+| --------- | ----------------------- | ------------------ |
+| VMs       | 3 shared-cpu-1x (256MB) | $1.94/mo per 256MB |
+| Bandwidth | 100GB/mo                | $0.02/GB           |
+| IPv4      | $2/mo per app           | -                  |
 
 ### Estimated Cost (7 services)
 
-| Config | Monthly Cost |
-|--------|-------------|
-| Minimal (256MB each, Bun) | ~$15/mo |
-| Standard (512MB each, Bun) | ~$30/mo |
-| Production (1GB + HA) | ~$100/mo |
+| Config                     | Monthly Cost |
+| -------------------------- | ------------ |
+| Minimal (256MB each, Bun)  | ~$15/mo      |
+| Standard (512MB each, Bun) | ~$30/mo      |
+| Production (1GB + HA)      | ~$100/mo     |
 
 **Note:** Using Bun runtime for faster startup and lower memory usage.
 

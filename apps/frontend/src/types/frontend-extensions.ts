@@ -71,15 +71,15 @@ import type {
 } from '@uaip/types';
 
 // Import enums separately (not as type imports)
-import { 
-  AgentRole, 
-  LLMProviderType, 
-  MessageType, 
-  SecurityLevel 
-} from '@uaip/types';
+import { AgentRole, LLMProviderType, MessageType, SecurityLevel } from '@uaip/types';
 
 // Frontend-specific message extensions
-export type ConversationPattern = 'interruption' | 'build-on' | 'clarification' | 'concern' | 'expertise';
+export type ConversationPattern =
+  | 'interruption'
+  | 'build-on'
+  | 'clarification'
+  | 'concern'
+  | 'expertise';
 
 export interface Message extends ToolCapableMessage {
   id: string;
@@ -99,8 +99,8 @@ export interface Message extends ToolCapableMessage {
   conversationPattern?: ConversationPattern;
   triggeredPersonas?: string[];
   sentiment?: {
-    score: number;  // -1 to 1, where -1 is very negative, 1 is very positive
-    keywords: string[];  // Words that influenced the sentiment
+    score: number; // -1 to 1, where -1 is very negative, 1 is very positive
+    keywords: string[]; // Words that influenced the sentiment
   };
   logicalAnalysis?: {
     fallacies: Array<{
@@ -111,7 +111,6 @@ export interface Message extends ToolCapableMessage {
     hasValidArgument: boolean;
   };
 }
-
 
 // Message search options for frontend API calls
 export interface MessageSearchOptions {
@@ -172,20 +171,20 @@ export interface DiscussionMessageCreate {
 // Frontend-specific agent state (extends shared Agent with runtime properties)
 export interface AgentState extends Agent {
   // Override apiType to include frontend-specific options
-  
+
   // Runtime State (frontend-only, not persisted)
   currentResponse: string | null;
   conversationHistory: Message[];
   isThinking: boolean;
   error: string | null;
-  
+
   // Model Configuration (frontend-specific)
   modelId: string;
   providerId?: string; // ID of the selected model provider
-  
+
   // Frontend persona integration
   persona?: Persona;
-  
+
   // Tool System (frontend runtime state)
   availableTools: string[];
   toolPermissions: ToolPermissionSet;
@@ -203,20 +202,20 @@ export const createAgentStateFromShared = (sharedAgent: Agent, persona?: Persona
     ...sharedAgent,
     // Ensure required properties are set
     role: sharedAgent.role || AgentRole.ASSISTANT,
-    
+
     // Runtime state (defaults)
     currentResponse: null,
     conversationHistory: [],
     isThinking: false,
     error: null,
-    
+
     // Model configuration from shared agent
     modelId: sharedAgent.modelId || 'unknown',
-    apiType: (sharedAgent.apiType || LLMProviderType.OLLAMA),
-    
+    apiType: sharedAgent.apiType || LLMProviderType.OLLAMA,
+
     // Frontend persona
     persona,
-    
+
     // Tool system (defaults)
     availableTools: [],
     toolPermissions: {
@@ -225,30 +224,30 @@ export const createAgentStateFromShared = (sharedAgent: Agent, persona?: Persona
       requireApprovalFor: [SecurityLevel.HIGH, SecurityLevel.CRITICAL],
       canApproveTools: false,
       maxCostPerHour: 100,
-      maxExecutionsPerHour: 50
+      maxExecutionsPerHour: 50,
     },
     toolUsageHistory: [],
     toolPreferences: {
       preferredTools: {
-        'api': [],
-        'computation': [],
+        api: [],
+        computation: [],
         'file-system': [],
-        'database': [],
+        database: [],
         'web-search': [],
         'code-execution': [],
-        'communication': [],
+        communication: [],
         'knowledge-graph': [],
-        'deployment': [],
-        'monitoring': [],
-        'analysis': [],
-        'generation': []
+        deployment: [],
+        monitoring: [],
+        analysis: [],
+        generation: [],
       },
       fallbackTools: {},
       timeoutPreference: 30000,
-      costLimit: 10
+      costLimit: 10,
     },
     maxConcurrentTools: 1,
-    isUsingTool: false
+    isUsingTool: false,
   };
 };
 
@@ -303,7 +302,7 @@ export interface AgentContextValue {
   addMessage: (agentId: string, message: Message) => void;
   removeMessage: (agentId: string, messageId: string) => void;
   getAllMessages: () => Message[];
-  
+
   // Tool-related methods
   executeToolCall: (agentId: string, toolCall: ToolCall) => Promise<ToolResult>;
   approveToolExecution: (executionId: string, approverId: string) => Promise<boolean>;
@@ -311,7 +310,7 @@ export interface AgentContextValue {
   updateToolPermissions: (agentId: string, permissions: Partial<ToolPermissionSet>) => void;
   setAgentModel: (agentId: string, modelId: string, providerId: string) => void;
   refreshAgents: () => Promise<void>;
-  
+
   // Model Provider Management
   modelState: {
     providers: ModelProvider[];
@@ -324,7 +323,7 @@ export interface AgentContextValue {
   loadProviders: () => Promise<void>;
   loadModels: () => Promise<void>;
   refreshModelData: () => Promise<void>;
-  
+
   // Provider management methods
   createProvider: (config: ModelProvider) => Promise<boolean>;
   updateProvider: (providerId: string, config: ModelProvider) => Promise<boolean>;
@@ -332,7 +331,7 @@ export interface AgentContextValue {
   deleteProvider: (providerId: string) => Promise<boolean>;
   getModelsForProvider: (providerId: string) => LLMModel[];
   getRecommendedModels: (agentRole?: string) => LLMModel[];
-  
+
   // UAIP Backend Flow Integration
   agentIntelligence: {
     registerAgent: (config: AgentCreateRequest) => Promise<string>;
@@ -340,7 +339,9 @@ export interface AgentContextValue {
     makeDecision: (options: Record<string, unknown>) => Promise<ActionRecommendation>;
     generatePlan: (request: ContextAnalysis) => Promise<ExecutionPlan>;
     discoverCapabilities: () => Promise<Capability[]>;
-    recognizeIntent: (input: string) => Promise<{ intent: string; confidence: number; entities: Record<string, unknown>[] }>;
+    recognizeIntent: (
+      input: string
+    ) => Promise<{ intent: string; confidence: number; entities: Record<string, unknown>[] }>;
     generateResponse: (context: ConversationContext) => Promise<string>;
     retrieveKnowledge: (query: string) => Promise<Record<string, unknown>>;
     adaptBehavior: (metrics: Record<string, unknown>) => Promise<void>;
@@ -352,14 +353,16 @@ export interface AgentContextValue {
     recognizeEmotion: (text: string) => Promise<{ emotion: string; confidence: number }>;
     manageGoals: (objectives: Record<string, unknown>) => Promise<Record<string, unknown>>;
     resolveConflict: (conflict: Record<string, unknown>) => Promise<Record<string, unknown>>;
-    assessQuality: (response: Record<string, unknown>) => Promise<{ score: number; feedback: string }>;
+    assessQuality: (
+      response: Record<string, unknown>
+    ) => Promise<{ score: number; feedback: string }>;
     managePersona: (persona: Persona) => Promise<string>;
     searchPersonas: (criteria: Record<string, unknown>) => Promise<PersonaRecommendation[]>;
     analyzePersona: (personaId: string) => Promise<PersonaAnalytics>;
     coordinateAgents: (tasks: Record<string, unknown>) => Promise<Record<string, unknown>>;
     switchContext: (newContext: ConversationContext) => Promise<void>;
   };
-  
+
   capabilityRegistry: {
     registerTool: (toolDef: ToolDefinition) => Promise<string>;
     discoverTools: (criteria: CapabilitySearchRequest) => Promise<Capability[]>;
@@ -382,7 +385,7 @@ export interface AgentContextValue {
     migrateTool: (toolId: string, target: Record<string, unknown>) => Promise<void>;
     auditCapabilities: () => Promise<Record<string, unknown>>;
   };
-  
+
   orchestrationPipeline: {
     createOperation: (operationDef: ExecuteOperationRequest) => Promise<string>;
     executeOperation: (operationId: string) => Promise<OperationStatusResponse>;
@@ -400,7 +403,7 @@ export interface AgentContextValue {
     scheduleOperation: (schedule: Record<string, unknown>) => Promise<string>;
     optimizePerformance: () => Promise<Record<string, unknown>>;
   };
-  
+
   artifactManagement: {
     generateArtifact: (request: ArtifactGenerationRequest) => Promise<ArtifactGenerationResponse>;
     generateCode: (requirements: Record<string, unknown>) => Promise<Artifact>;
@@ -415,17 +418,21 @@ export interface AgentContextValue {
     searchArtifacts: (query: string) => Promise<Artifact[]>;
     analyzeArtifactDependencies: (artifactId: string) => Promise<string[]>;
     collaborateOnArtifact: (artifactId: string) => Promise<Record<string, unknown>>;
-    testArtifactIntegration: (artifactId: string) => Promise<{ success: boolean; results: Record<string, unknown> }>;
+    testArtifactIntegration: (
+      artifactId: string
+    ) => Promise<{ success: boolean; results: Record<string, unknown> }>;
     getArtifactAnalytics: () => Promise<Record<string, unknown>>;
   };
-  
 
-  
   // UI State Management
   activeFlows: string[];
   flowResults: Map<string, Record<string, unknown>>;
   flowErrors: Map<string, string>;
-  executeFlow: (service: string, flow: string, params?: Record<string, unknown>) => Promise<Record<string, unknown>>;
+  executeFlow: (
+    service: string,
+    flow: string,
+    params?: Record<string, unknown>
+  ) => Promise<Record<string, unknown>>;
   getFlowStatus: (flowId: string) => 'idle' | 'running' | 'completed' | 'error';
   clearFlowResult: (flowId: string) => void;
-} 
+}

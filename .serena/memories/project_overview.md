@@ -1,9 +1,11 @@
 # Project Overview
 
 ## Project Purpose
+
 **Council of Nycea** (also known as **Navratna**) is a **Unified Agent Intelligence Platform (UAIP)** - a production-ready backend infrastructure for multi-agent collaboration, intelligent discussion orchestration, and capability-driven automation.
 
 ## Key Capabilities
+
 - **Multi-Agent Collaboration**: Sophisticated agent personas with contextual awareness
 - **Real-time Discussion Management**: WebSocket-based collaborative discussions
 - **Intelligent Tool Execution**: Sandboxed capability registry with security controls
@@ -12,6 +14,7 @@
 - **Enterprise Security**: Complete RBAC, audit trails, and approval workflows
 
 ## Current Status
+
 - **Backend Infrastructure**: All 5 microservices operational ✅
 - **Security Implementation**: Complete RBAC, JWT, audit trails ✅
 - **Database Integration**: Hybrid PostgreSQL/Neo4j with optimized queries ✅
@@ -20,6 +23,7 @@
 - **Frontend Integration**: React components and API integration (60% complete) 🔄
 
 ## Target Users
+
 - AI platform builders requiring multi-agent coordination
 - Enterprise teams needing intelligent automation
 - Developers building collaborative AI systems

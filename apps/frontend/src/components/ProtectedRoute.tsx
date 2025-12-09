@@ -41,4 +41,4 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
 
   // Show protected content if authenticated
   return <>{children}</>;
-}; 
+};

@@ -1,6 +1,6 @@
 /**
  * API Configuration for Frontend - PRODUCTION READY
- * 
+ *
  * This file centralizes all API endpoint configurations for production deployment.
  * All requests go directly to the API Gateway without proxy fallbacks.
  */
@@ -11,11 +11,10 @@ const isProduction = import.meta.env.PROD;
 
 /**
  * API Base URL Configuration - PRODUCTION READY
- * 
+ *
  * Uses environment variable or dynamically detects current origin
  */
 export const API_BASE_URL = import.meta.env.API_BASE_URL || 'http://localhost:8081';
-
 
 /**
  * API Gateway Configuration
@@ -30,7 +29,7 @@ export const API_GATEWAY_CONFIG = {
 
 /**
  * Service Route Configuration
- * 
+ *
  * These are the routes as defined in nginx.conf
  * All routes go through the API Gateway
  */
@@ -52,7 +51,7 @@ export const API_ROUTES = {
     LEARN: '/api/v1/agents',
     PARTICIPATE: '/api/v1/agents',
     CHAT: '/api/v1/agents',
-    HEALTH: '/api/v1/agents'
+    HEALTH: '/api/v1/agents',
   },
 
   // Orchestration Pipeline Service routes
@@ -71,7 +70,7 @@ export const API_ROUTES = {
     CATEGORIES: '/api/v1/tools/categories',
     RECOMMENDATIONS: '/api/v1/tools/recommendations',
     RELATIONS: '/api/v1/tools/relations',
-    ANALYTICS: '/api/v1/tools/analytics'
+    ANALYTICS: '/api/v1/tools/analytics',
   },
 
   // Persona Management Service routes
@@ -86,7 +85,7 @@ export const API_ROUTES = {
     RECOMMENDATIONS: '/api/v1/personas/recommendations',
     TEMPLATES: '/api/v1/personas/templates',
     ANALYTICS: '/api/v1/personas',
-    VALIDATE: '/api/v1/personas/validate'
+    VALIDATE: '/api/v1/personas/validate',
   },
 
   // Security Gateway Service routes
@@ -107,7 +106,7 @@ export const API_ROUTES = {
     HISTORY: '/api/v1/approvals/history',
     BULK_APPROVE: '/api/v1/approvals/bulk-approve',
     BULK_REJECT: '/api/v1/approvals/bulk-reject',
-    EXPORT: '/api/v1/approvals/export'
+    EXPORT: '/api/v1/approvals/export',
   },
 
   // Discussion Orchestration Service routes
@@ -129,7 +128,7 @@ export const API_ROUTES = {
     SEND_MESSAGE: '/api/v1/discussions',
     MESSAGES: '/api/v1/discussions',
     MANAGE_TURN: '/api/v1/discussions',
-    ANALYTICS: '/api/v1/discussions'
+    ANALYTICS: '/api/v1/discussions',
   },
 
   // LLM Service routes
@@ -142,7 +141,7 @@ export const API_ROUTES = {
     GENERATE: '/api/v1/llm/generate',
     ANALYZE_CONTEXT: '/api/v1/llm/analyze',
     CACHE_INVALIDATE: '/api/v1/llm/cache/invalidate',
-    CACHE_REFRESH: '/api/v1/llm/cache/refresh'
+    CACHE_REFRESH: '/api/v1/llm/cache/refresh',
   },
   USER_LLM: {
     BASE: '/api/v1/llm',
@@ -154,7 +153,7 @@ export const API_ROUTES = {
     TEST_PROVIDER: '/api/v1/llm/my-providers',
     SET_DEFAULT: '/api/v1/llm/my-providers',
     GENERATE: '/api/v1/llm/generate',
-    LIST_MODELS: '/api/v1/llm/my-providers/models'
+    LIST_MODELS: '/api/v1/llm/my-providers/models',
   },
 
   // Knowledge Graph Service routes
@@ -179,7 +178,7 @@ export const API_ROUTES = {
     GENERATE_QA: '/api/v1/knowledge/generate-qa',
     EXTRACT_WORKFLOWS: '/api/v1/knowledge/extract-workflows',
     EXPERTISE: '/api/v1/knowledge/expertise',
-    LEARNING_INSIGHTS: '/api/v1/knowledge/learning-insights'
+    LEARNING_INSIGHTS: '/api/v1/knowledge/learning-insights',
   },
 
   // Project Management Service routes
@@ -204,7 +203,7 @@ export const API_ROUTES = {
     UPDATE_AGENT: '/api/v1/projects',
     // Tool usage
     TOOL_USAGE: '/api/v1/projects',
-    RECORD_USAGE: '/api/v1/projects'
+    RECORD_USAGE: '/api/v1/projects',
   },
 
   // System metrics and monitoring
@@ -221,7 +220,7 @@ export const API_ROUTES = {
     RESET_PASSWORD: '/api/v1/auth/forgot-password',
     RESET_PASSWORD_CONFIRM: '/api/v1/auth/reset-password',
     CHANGE_PASSWORD: '/api/v1/auth/change-password',
-    VALIDATE_TOKEN: '/api/v1/auth/validate-token'
+    VALIDATE_TOKEN: '/api/v1/auth/validate-token',
   },
 } as const;
 
@@ -235,9 +234,9 @@ export const API_CONFIG = {
   headers: {
     'Content-Type': 'application/json',
     'X-Client-Version': '1.0.0',
-    'X-Environment': isDevelopment ? 'development' : 'production'
+    'X-Environment': isDevelopment ? 'development' : 'production',
   },
-  API_ROUTES
+  API_ROUTES,
 };
 
 /**
@@ -298,4 +297,4 @@ export const getWebSocketURL = () => {
   // Socket.IO client expects HTTP/HTTPS URL, not WS/WSS
   // The nginx configuration routes /socket.io/ to discussion-orchestration service
   return baseURL; // Returns http://localhost:8081
-}; 
+};

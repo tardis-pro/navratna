@@ -6,7 +6,7 @@ export {
   initializeDatabase,
   closeDatabase,
   getDataSource,
-  checkDatabaseHealth
+  checkDatabaseHealth,
 } from './typeorm.config.js';
 
 // TypeORM Types
@@ -15,11 +15,7 @@ export { Repository } from 'typeorm';
 export { seedDatabase } from './seedDatabase.js';
 export { DefaultUserLLMProviderSeed } from './seeders/DefaultUserLLMProviderSeed.js';
 // Legacy DataSource exports for backward compatibility
-export {
-  initializeDataSource,
-  closeDataSource,
-  createDataSource
-} from './dataSource.js';
+export { initializeDataSource, closeDataSource, createDataSource } from './dataSource.js';
 
 // Database Services
 export { DatabaseService, DatabaseError } from '../databaseService.js';
@@ -39,11 +35,11 @@ export * from './repositories/index.js';
 // Entities
 export { LLMProvider } from '../entities/llmProvider.entity.js';
 export { LLMModel } from '../entities/llmModel.entity.js';
-export { UserLLMProvider, UserLLMProviderType, UserLLMProviderStatus } from '../entities/userLLMProvider.entity.js';
+export {
+  UserLLMProvider,
+  UserLLMProviderType,
+  UserLLMProviderStatus,
+} from '../entities/userLLMProvider.entity.js';
 
 // Types
-export type {
-  ToolRelationship,
-  ToolRecommendation,
-  UsagePattern
-} from './toolGraphDatabase.js'; 
+export type { ToolRelationship, ToolRecommendation, UsagePattern } from './toolGraphDatabase.js';

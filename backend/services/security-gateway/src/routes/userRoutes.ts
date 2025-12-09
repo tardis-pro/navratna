@@ -11,7 +11,7 @@ import { Request, Response } from '@uaip/shared-services';
 import { config } from '@uaip/config';
 import { AuditEventType, LLMTaskType, LLMProviderType } from '@uaip/types';
 
-const router= Router();
+const router = Router();
 
 // Lazy initialization of services
 let databaseService: DatabaseService | null = null;
@@ -31,7 +31,8 @@ const notificationService = new NotificationService();
 // Validation schemas using Zod
 const createUserSchema = z.object({
   email: z.string().email('Invalid email format'),
-  password: z.string()
+  password: z
+    .string()
     .min(8, 'Password must be at least 8 characters')
     .regex(
       /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]/,
@@ -42,7 +43,7 @@ const createUserSchema = z.object({
   lastName: z.string().min(1).max(50).optional(),
   department: z.string().max(100).optional(),
   isActive: z.boolean().default(true),
-  sendWelcomeEmail: z.boolean().default(true)
+  sendWelcomeEmail: z.boolean().default(true),
 });
 
 const updateUserSchema = z.object({
@@ -51,7 +52,7 @@ const updateUserSchema = z.object({
   firstName: z.string().min(1).max(50).optional(),
   lastName: z.string().min(1).max(50).optional(),
   department: z.string().max(100).optional(),
-  isActive: z.boolean().optional()
+  isActive: z.boolean().optional(),
 });
 
 const userQuerySchema = z.object({
@@ -61,7 +62,7 @@ const userQuerySchema = z.object({
   isActive: z.coerce.boolean().optional(),
   search: z.string().max(100).optional(),
   sortBy: z.enum(['created_at', 'email', 'role', 'last_login_at']).default('created_at'),
-  sortOrder: z.enum(['asc', 'desc']).default('desc')
+  sortOrder: z.enum(['asc', 'desc']).default('desc'),
 });
 
 const publicUserQuerySchema = z.object({
@@ -69,23 +70,24 @@ const publicUserQuerySchema = z.object({
   limit: z.coerce.number().int().min(1).max(50).default(20),
   search: z.string().max(100).optional(),
   sortBy: z.enum(['created_at', 'email']).default('created_at'),
-  sortOrder: z.enum(['asc', 'desc']).default('desc')
+  sortOrder: z.enum(['asc', 'desc']).default('desc'),
 });
 
 const resetPasswordSchema = z.object({
-  newPassword: z.string()
+  newPassword: z
+    .string()
     .min(8, 'Password must be at least 8 characters')
     .regex(
       /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]/,
       'Password must contain at least one lowercase letter, one uppercase letter, one number, and one special character'
     ),
-  sendNotification: z.boolean().default(true)
+  sendNotification: z.boolean().default(true),
 });
 
 const bulkActionSchema = z.object({
   userIds: z.array(z.string()).min(1).max(100),
   action: z.enum(['activate', 'deactivate', 'delete', 'reset_password']),
-  reason: z.string().max(500).optional()
+  reason: z.string().max(500).optional(),
 });
 
 const userLLMPreferenceSchema = z.object({
@@ -93,20 +95,22 @@ const userLLMPreferenceSchema = z.object({
   preferredProvider: z.nativeEnum(LLMProviderType),
   preferredModel: z.string().min(1).max(255),
   fallbackModel: z.string().max(255).optional(),
-  settings: z.object({
-    temperature: z.number().min(0).max(2).optional(),
-    maxTokens: z.number().positive().optional(),
-    topP: z.number().min(0).max(1).optional(),
-    systemPrompt: z.string().max(1000).optional(),
-    customSettings: z.record(z.any()).optional()
-  }).optional(),
+  settings: z
+    .object({
+      temperature: z.number().min(0).max(2).optional(),
+      maxTokens: z.number().positive().optional(),
+      topP: z.number().min(0).max(1).optional(),
+      systemPrompt: z.string().max(1000).optional(),
+      customSettings: z.record(z.any()).optional(),
+    })
+    .optional(),
   description: z.string().max(500).optional(),
   priority: z.number().int().min(1).max(100).default(50),
-  isActive: z.boolean().default(true)
+  isActive: z.boolean().default(true),
 });
 
 const updateUserLLMPreferencesSchema = z.object({
-  preferences: z.array(userLLMPreferenceSchema)
+  preferences: z.array(userLLMPreferenceSchema),
 });
 
 // Helper function for Zod validation
@@ -117,12 +121,12 @@ const validateWithZod = (schema: z.ZodSchema, data: any) => {
   } else {
     return {
       error: {
-        details: result.error.errors.map(err => ({
+        details: result.error.errors.map((err) => ({
           message: err.message,
-          path: err.path.join('.')
-        }))
+          path: err.path.join('.'),
+        })),
       },
-      value: null
+      value: null,
     };
   }
 };
@@ -137,20 +141,23 @@ const generateRandomPassword = (): string => {
   const length = 12;
   const charset = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789@$!%*?&';
   let password = '';
-  
+
   // Ensure at least one character from each required category
   password += 'abcdefghijklmnopqrstuvwxyz'[Math.floor(Math.random() * 26)]; // lowercase
   password += 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'[Math.floor(Math.random() * 26)]; // uppercase
   password += '0123456789'[Math.floor(Math.random() * 10)]; // digit
   password += '@$!%*?&'[Math.floor(Math.random() * 7)]; // special character
-  
+
   // Fill the rest randomly
   for (let i = 4; i < length; i++) {
     password += charset[Math.floor(Math.random() * charset.length)];
   }
-  
+
   // Shuffle the password
-  return password.split('').sort(() => Math.random() - 0.5).join('');
+  return password
+    .split('')
+    .sort(() => Math.random() - 0.5)
+    .join('');
 };
 
 // Routes
@@ -160,21 +167,14 @@ const generateRandomPassword = (): string => {
  * @desc Get all users with filtering and pagination
  * @access Private - Admin/Security roles only
  */
-router.get('/', 
+router.get(
+  '/',
   authMiddleware,
   requireAdmin,
   validateRequest({ query: userQuerySchema }),
   async (req, res) => {
     try {
-      const {
-        page,
-        limit,
-        role,
-        isActive,
-        search,
-        sortBy,
-        sortOrder
-      } = req.query;
+      const { page, limit, role, isActive, search, sortBy, sortOrder } = req.query;
 
       // Parse and validate query parameters
       const pageQuery = parseInt(page as string) || 1;
@@ -182,7 +182,7 @@ router.get('/',
       const offset = (pageQuery - 1) * limitQuery;
 
       const { databaseService } = await getServices();
-      
+
       // Use UserRepository searchUsers method for TypeORM-based search
       const userRepo = databaseService.users.getUserRepository();
       const result = await userRepo.searchUsers({
@@ -190,7 +190,7 @@ router.get('/',
         role: role as string,
         isActive: isActive !== undefined ? Boolean(isActive) : undefined,
         limit: limitQuery,
-        offset: offset
+        offset: offset,
       });
 
       res.json({
@@ -200,53 +200,48 @@ router.get('/',
           page: pageQuery,
           limit: limitQuery,
           total: result.total,
-          pages: Math.ceil(result.total / limitQuery)
+          pages: Math.ceil(result.total / limitQuery),
         },
         filters: {
           role,
           isActive,
-          search
-        }
+          search,
+        },
       });
-
     } catch (error) {
       logger.error('Get users error', { error, userId: (req as any).user?.userId });
       res.status(500).json({
         error: 'Internal Server Error',
-        message: 'An error occurred while retrieving users'
+        message: 'An error occurred while retrieving users',
       });
       return;
-        return;
+      return;
     }
-  });
+  }
+);
 
 /**
  * @route GET /api/v1/users/public
  * @desc Get public users (excluding admin/manager roles)
  * @access Public with optional authentication
  */
-router.get('/public', 
+router.get(
+  '/public',
   optionalAuth,
   validateRequest({ query: publicUserQuerySchema }),
   async (req, res) => {
     try {
-      const {
-        page,
-        limit,
-        search,
-        sortBy,
-        sortOrder
-      } = req.query;
+      const { page, limit, search, sortBy, sortOrder } = req.query;
 
       const pageQuery = parseInt(page as string) || 1;
       const limitQuery = parseInt(limit as string) || 20;
       const offset = (pageQuery - 1) * limitQuery;
 
       const { databaseService } = await getServices();
-      
+
       // Get current user ID to exclude from results
       const currentUserId = (req as any).user?.userId;
-      
+
       // Use UserRepository searchUsers method with role filtering
       const userRepo = databaseService.users.getUserRepository();
       const result = await userRepo.searchUsers({
@@ -254,19 +249,20 @@ router.get('/public',
         role: 'user', // Only include regular users (exclude admin, security_admin, auditor)
         isActive: true, // Only show active users
         limit: limitQuery,
-        offset: offset
+        offset: offset,
       });
 
       // Filter out sensitive information for public response
-      const publicUsers = result.users.map(user => ({
+      const publicUsers = result.users.map((user) => ({
         id: user.id,
         email: user.email,
-        displayName: `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.email.split('@')[0],
+        displayName:
+          `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.email.split('@')[0],
         firstName: user.firstName,
         lastName: user.lastName,
         department: user.department,
         createdAt: user.createdAt,
-        lastLoginAt: user.lastLoginAt
+        lastLoginAt: user.lastLoginAt,
       }));
 
       res.json({
@@ -278,20 +274,20 @@ router.get('/public',
             page: pageQuery,
             limit: limitQuery,
             total: result.total,
-            pages: Math.ceil(result.total / limitQuery)
-          }
-        }
+            pages: Math.ceil(result.total / limitQuery),
+          },
+        },
       });
-
     } catch (error) {
       logger.error('Get public users error', { error, userId: (req as any).user?.userId });
       res.status(500).json({
         success: false,
         error: 'Internal Server Error',
-        message: 'An error occurred while retrieving public users'
+        message: 'An error occurred while retrieving public users',
       });
     }
-  });
+  }
+);
 
 /**
  * @route GET /api/v1/users/llm-preferences
@@ -301,28 +297,27 @@ router.get('/public',
 router.get('/llm-preferences', authMiddleware, async (req, res) => {
   try {
     const userId = (req as any).user?.id;
-    
+
     if (!userId) {
       res.status(401).json({
         error: 'Unauthorized',
-        message: 'User ID not found in token'
+        message: 'User ID not found in token',
       });
       return;
     }
 
     const { databaseService } = await getServices();
-    
+
     // Get user's LLM preferences using UserService
     const userLLMRepo = databaseService.users.getUserLLMPreferenceRepository();
     const preferences = await userLLMRepo.findByUser(userId);
 
     res.json(preferences);
-
   } catch (error) {
     logger.error('Get user LLM preferences error', { error, userId: (req as any).user?.id });
     res.status(500).json({
       error: 'Internal Server Error',
-      message: 'An error occurred while retrieving user LLM preferences'
+      message: 'An error occurred while retrieving user LLM preferences',
     });
   }
 });
@@ -332,17 +327,18 @@ router.get('/llm-preferences', authMiddleware, async (req, res) => {
  * @desc Update current user's LLM preferences
  * @access Private - Authenticated users only
  */
-router.put('/llm-preferences', 
+router.put(
+  '/llm-preferences',
   authMiddleware,
   validateRequest({ body: updateUserLLMPreferencesSchema }),
   async (req, res) => {
     try {
       const userId = (req as any).user?.id;
-      
+
       if (!userId) {
         res.status(401).json({
           error: 'Unauthorized',
-          message: 'User ID not found in token'
+          message: 'User ID not found in token',
         });
         return;
       }
@@ -351,17 +347,17 @@ router.put('/llm-preferences',
       if (error) {
         res.status(400).json({
           error: 'Validation Error',
-          details: error.details.map(d => d.message)
+          details: error.details.map((d) => d.message),
         });
         return;
       }
 
       const { preferences } = value;
       const { databaseService } = await getServices();
-      
+
       // Get user's LLM preference repository
       const userLLMRepo = databaseService.users.getUserLLMPreferenceRepository();
-      
+
       // Clear existing preferences for this user
       const existingPreferences = await userLLMRepo.findByUser(userId);
       for (const existing of existingPreferences) {
@@ -379,21 +375,21 @@ router.put('/llm-preferences',
           fallbackModel: prefData.fallbackModel,
           settings: prefData.settings,
           description: prefData.description,
-          priority: prefData.priority
+          priority: prefData.priority,
         });
         createdPreferences.push(created);
       }
 
       res.json(createdPreferences);
-
     } catch (error) {
       logger.error('Update user LLM preferences error', { error, userId: (req as any).user?.id });
       res.status(500).json({
         error: 'Internal Server Error',
-        message: 'An error occurred while updating the user'
+        message: 'An error occurred while updating the user',
       });
     }
-  });
+  }
+);
 
 /**
  * @route GET /api/v1/users/:userId
@@ -411,10 +407,10 @@ router.get('/:userId', authMiddleware, requireAdmin, async (req, res) => {
     if (!user) {
       res.status(404).json({
         error: 'User Not Found',
-        message: 'User not found'
+        message: 'User not found',
       });
       return;
-        return;
+      return;
     }
 
     // Remove sensitive data from response
@@ -422,17 +418,16 @@ router.get('/:userId', authMiddleware, requireAdmin, async (req, res) => {
 
     res.json({
       message: 'User retrieved successfully',
-      user: userResponse
+      user: userResponse,
     });
-
   } catch (error) {
     logger.error('Get user error', { error, userId: req.params.userId });
     res.status(500).json({
       error: 'Internal Server Error',
-      message: 'An error occurred while retrieving the user'
+      message: 'An error occurred while retrieving the user',
     });
-      return;
-        return;
+    return;
+    return;
   }
 });
 
@@ -447,10 +442,10 @@ router.post('/', authMiddleware, requireAdmin, async (req, res) => {
     if (error) {
       res.status(400).json({
         error: 'Validation Error',
-        details: error.details.map(d => d.message)
+        details: error.details.map((d) => d.message),
       });
       return;
-        return;
+      return;
     }
 
     const adminUserId = (req as any).user.userId;
@@ -462,10 +457,10 @@ router.post('/', authMiddleware, requireAdmin, async (req, res) => {
     if (existingUser) {
       res.status(409).json({
         error: 'User Already Exists',
-        message: 'A user with this email already exists'
+        message: 'A user with this email already exists',
       });
       return;
-        return;
+      return;
     }
 
     // Hash password
@@ -478,7 +473,7 @@ router.post('/', authMiddleware, requireAdmin, async (req, res) => {
       role: value.role,
       firstName: value.firstName,
       lastName: value.lastName,
-      department: value.department
+      department: value.department,
     });
 
     // Set user activation status if specified
@@ -500,8 +495,8 @@ router.post('/', authMiddleware, requireAdmin, async (req, res) => {
             name: value.firstName || 'User',
             email: value.email,
             role: value.role,
-            loginUrl: `${config.frontend.baseUrl}/login`
-          }
+            loginUrl: `${config.frontend.baseUrl}/login`,
+          },
         });
       } catch (emailError) {
         logger.warn('Failed to send welcome email', { error: emailError, userId: newUser.id });
@@ -515,30 +510,29 @@ router.post('/', authMiddleware, requireAdmin, async (req, res) => {
         createdUserId: newUser.id,
         createdUserEmail: newUser.email,
         createdUserRole: newUser.role,
-        isActive: newUser.isActive
+        isActive: newUser.isActive,
       },
       ipAddress: req.ip,
-      userAgent: req.headers['user-agent']
+      userAgent: req.headers['user-agent'],
     });
 
     // Remove sensitive data from response
     const { passwordHash: _, ...userResponse } = newUser;
-    
+
     res.status(201).json({
       message: 'User created successfully',
-      user: userResponse
+      user: userResponse,
     });
-      return;
-        return;
-
+    return;
+    return;
   } catch (error) {
     logger.error('Create user error', { error, adminUserId: (req as any).user?.userId });
     res.status(500).json({
       error: 'Internal Server Error',
-      message: 'An error occurred while creating the user'
+      message: 'An error occurred while creating the user',
     });
-      return;
-        return;
+    return;
+    return;
   }
 });
 
@@ -554,10 +548,10 @@ router.put('/:userId', authMiddleware, requireAdmin, async (req, res) => {
     if (error) {
       res.status(400).json({
         error: 'Validation Error',
-        details: error.details.map(d => d.message)
+        details: error.details.map((d) => d.message),
       });
       return;
-        return;
+      return;
     }
 
     const adminUserId = (req as any).user.userId;
@@ -569,10 +563,10 @@ router.put('/:userId', authMiddleware, requireAdmin, async (req, res) => {
     if (!currentUser) {
       res.status(404).json({
         error: 'User Not Found',
-        message: 'User not found'
+        message: 'User not found',
       });
       return;
-        return;
+      return;
     }
 
     // Check if email is being changed and if it conflicts
@@ -582,9 +576,9 @@ router.put('/:userId', authMiddleware, requireAdmin, async (req, res) => {
       if (emailCheck && emailCheck.id !== userId) {
         res.status(409).json({
           error: 'Email Already Exists',
-          message: 'Another user with this email already exists'
+          message: 'Another user with this email already exists',
         });
-      return;
+        return;
         return;
       }
     }
@@ -594,10 +588,10 @@ router.put('/:userId', authMiddleware, requireAdmin, async (req, res) => {
     if (!hasUpdates) {
       res.status(400).json({
         error: 'No Updates',
-        message: 'No valid fields provided for update'
+        message: 'No valid fields provided for update',
       });
       return;
-        return;
+      return;
     }
 
     // Update user using DatabaseService
@@ -606,7 +600,7 @@ router.put('/:userId', authMiddleware, requireAdmin, async (req, res) => {
       lastName: value.lastName,
       department: value.department,
       role: value.role,
-      isActive: value.isActive
+      isActive: value.isActive,
     });
 
     // Handle email update separately if needed (not in updateUserProfile)
@@ -623,10 +617,10 @@ router.put('/:userId', authMiddleware, requireAdmin, async (req, res) => {
     if (!updatedUser) {
       res.status(500).json({
         error: 'Update Failed',
-        message: 'Failed to update user'
+        message: 'Failed to update user',
       });
       return;
-        return;
+      return;
     }
 
     await auditService.logSecurityEvent({
@@ -639,10 +633,10 @@ router.put('/:userId', authMiddleware, requireAdmin, async (req, res) => {
         previousRole: currentUser.role,
         newRole: updatedUser.role,
         previousActive: currentUser.isActive,
-        newActive: updatedUser.isActive
+        newActive: updatedUser.isActive,
       },
       ipAddress: req.ip,
-      userAgent: req.headers['user-agent']
+      userAgent: req.headers['user-agent'],
     });
 
     // Remove sensitive data from response
@@ -650,17 +644,16 @@ router.put('/:userId', authMiddleware, requireAdmin, async (req, res) => {
 
     res.json({
       message: 'User updated successfully',
-      user: userResponse
+      user: userResponse,
     });
-
   } catch (error) {
     logger.error('Update user error', { error, userId: req.params.userId });
     res.status(500).json({
       error: 'Internal Server Error',
-      message: 'An error occurred while updating the user'
+      message: 'An error occurred while updating the user',
     });
-      return;
-        return;
+    return;
+    return;
   }
 });
 
@@ -679,10 +672,10 @@ router.delete('/:userId', authMiddleware, requireAdmin, async (req, res) => {
     if (userId === adminUserId) {
       res.status(400).json({
         error: 'Cannot Delete Self',
-        message: 'You cannot delete your own account'
+        message: 'You cannot delete your own account',
       });
       return;
-        return;
+      return;
     }
 
     // Check if user exists using DatabaseService
@@ -691,10 +684,10 @@ router.delete('/:userId', authMiddleware, requireAdmin, async (req, res) => {
     if (!user) {
       res.status(404).json({
         error: 'User Not Found',
-        message: 'User not found'
+        message: 'User not found',
       });
       return;
-        return;
+      return;
     }
 
     // Soft delete using DatabaseService (deactivates user)
@@ -703,10 +696,10 @@ router.delete('/:userId', authMiddleware, requireAdmin, async (req, res) => {
     if (!deleted) {
       res.status(500).json({
         error: 'Delete Failed',
-        message: 'Failed to delete user'
+        message: 'Failed to delete user',
       });
       return;
-        return;
+      return;
     }
 
     // Revoke all refresh tokens using DatabaseService
@@ -718,24 +711,23 @@ router.delete('/:userId', authMiddleware, requireAdmin, async (req, res) => {
       details: {
         deletedUserId: user.id,
         deletedUserEmail: user.email,
-        deletedUserRole: user.role
+        deletedUserRole: user.role,
       },
       ipAddress: req.ip,
-      userAgent: req.headers['user-agent']
+      userAgent: req.headers['user-agent'],
     });
 
     res.json({
-      message: 'User deleted successfully'
+      message: 'User deleted successfully',
     });
-
   } catch (error) {
     logger.error('Delete user error', { error, userId: req.params.userId });
     res.status(500).json({
       error: 'Internal Server Error',
-      message: 'An error occurred while deleting the user'
+      message: 'An error occurred while deleting the user',
     });
-      return;
-        return;
+    return;
+    return;
   }
 });
 
@@ -751,10 +743,10 @@ router.post('/:userId/reset-password', authMiddleware, requireAdmin, async (req,
     if (error) {
       res.status(400).json({
         error: 'Validation Error',
-        details: error.details.map(d => d.message)
+        details: error.details.map((d) => d.message),
       });
       return;
-        return;
+      return;
     }
 
     const adminUserId = (req as any).user.userId;
@@ -766,10 +758,10 @@ router.post('/:userId/reset-password', authMiddleware, requireAdmin, async (req,
     if (!user) {
       res.status(404).json({
         error: 'User Not Found',
-        message: 'User not found'
+        message: 'User not found',
       });
       return;
-        return;
+      return;
     }
 
     // Generate new password if not provided
@@ -793,8 +785,8 @@ router.post('/:userId/reset-password', authMiddleware, requireAdmin, async (req,
             name: user.firstName || 'User',
             email: user.email,
             newPassword: newPassword,
-            loginUrl: `${config.frontend.baseUrl}/login`
-          }
+            loginUrl: `${config.frontend.baseUrl}/login`,
+          },
         });
       } catch (emailError) {
         logger.warn('Failed to send password reset email', { error: emailError, userId });
@@ -807,25 +799,24 @@ router.post('/:userId/reset-password', authMiddleware, requireAdmin, async (req,
       details: {
         targetUserId: userId,
         targetUserEmail: user.email,
-        notificationSent: value.sendNotification
+        notificationSent: value.sendNotification,
       },
       ipAddress: req.ip,
-      userAgent: req.headers['user-agent']
+      userAgent: req.headers['user-agent'],
     });
 
     res.json({
       message: 'Password reset successfully',
-      ...(value.newPassword ? {} : { temporaryPassword: newPassword })
+      ...(value.newPassword ? {} : { temporaryPassword: newPassword }),
     });
-
   } catch (error) {
     logger.error('Reset password error', { error, userId: req.params.userId });
     res.status(500).json({
       error: 'Internal Server Error',
-      message: 'An error occurred while resetting the password'
+      message: 'An error occurred while resetting the password',
     });
-      return;
-        return;
+    return;
+    return;
   }
 });
 
@@ -846,10 +837,10 @@ router.post('/:userId/unlock', authMiddleware, requireAdmin, async (req, res) =>
     if (!user) {
       res.status(404).json({
         error: 'User Not Found',
-        message: 'User not found'
+        message: 'User not found',
       });
       return;
-        return;
+      return;
     }
 
     // Unlock the account using DatabaseService
@@ -862,24 +853,23 @@ router.post('/:userId/unlock', authMiddleware, requireAdmin, async (req, res) =>
         unlockedUserId: userId,
         unlockedUserEmail: user.email,
         previousFailedAttempts: user.failedLoginAttempts,
-        wasLockedUntil: user.lockedUntil
+        wasLockedUntil: user.lockedUntil,
       },
       ipAddress: req.ip,
-      userAgent: req.headers['user-agent']
+      userAgent: req.headers['user-agent'],
     });
 
     res.json({
-      message: 'User account unlocked successfully'
+      message: 'User account unlocked successfully',
     });
-
   } catch (error) {
     logger.error('Unlock user error', { error, userId: req.params.userId });
     res.status(500).json({
       error: 'Internal Server Error',
-      message: 'An error occurred while unlocking the user account'
+      message: 'An error occurred while unlocking the user account',
     });
-      return;
-        return;
+    return;
+    return;
   }
 });
 
@@ -894,10 +884,10 @@ router.post('/bulk-action', authMiddleware, requireAdmin, async (req, res) => {
     if (error) {
       res.status(400).json({
         error: 'Validation Error',
-        details: error.details.map(d => d.message)
+        details: error.details.map((d) => d.message),
       });
       return;
-        return;
+      return;
     }
 
     const adminUserId = (req as any).user.userId;
@@ -908,10 +898,10 @@ router.post('/bulk-action', authMiddleware, requireAdmin, async (req, res) => {
     if (userIds.includes(adminUserId)) {
       res.status(400).json({
         error: 'Cannot Perform Action on Self',
-        message: 'You cannot perform bulk actions on your own account'
+        message: 'You cannot perform bulk actions on your own account',
       });
       return;
-        return;
+      return;
     }
 
     const results: {
@@ -919,7 +909,7 @@ router.post('/bulk-action', authMiddleware, requireAdmin, async (req, res) => {
       failed: Array<{ userId: string; reason: string }>;
     } = {
       successful: [],
-      failed: []
+      failed: [],
     };
 
     for (const userId of userIds) {
@@ -971,12 +961,11 @@ router.post('/bulk-action', authMiddleware, requireAdmin, async (req, res) => {
             action,
             targetUserId: userId,
             targetUserEmail: user.email,
-            reason: reason || null
+            reason: reason || null,
           },
           ipAddress: req.ip,
-          userAgent: req.headers['user-agent']
+          userAgent: req.headers['user-agent'],
         });
-
       } catch (userError) {
         logger.error('Bulk action error for user', { error: userError, userId, action });
         results.failed.push({ userId, reason: 'Processing error' });
@@ -985,17 +974,16 @@ router.post('/bulk-action', authMiddleware, requireAdmin, async (req, res) => {
 
     res.json({
       message: `Bulk action '${action}' completed`,
-      results
+      results,
     });
-
   } catch (error) {
     logger.error('Bulk action error', { error, adminUserId: (req as any).user?.userId });
     res.status(500).json({
       error: 'Internal Server Error',
-      message: 'An error occurred while performing bulk action'
+      message: 'An error occurred while performing bulk action',
     });
-      return;
-        return;
+    return;
+    return;
   }
 });
 
@@ -1007,7 +995,7 @@ router.post('/bulk-action', authMiddleware, requireAdmin, async (req, res) => {
 router.get('/stats', authMiddleware, requireAdmin, async (req, res) => {
   try {
     const { databaseService } = await getServices();
-    
+
     // Use DatabaseService getUserStats method for TypeORM-based statistics
     const statistics = await databaseService.users.getUserRepository().getUserStats();
 
@@ -1017,29 +1005,28 @@ router.get('/stats', authMiddleware, requireAdmin, async (req, res) => {
         roleDistribution: statistics.roleStats,
         recentActivity: {
           new_users_24h: 0, // These would need additional methods in DatabaseService
-          new_users_7d: 0,  // for time-based queries if needed
+          new_users_7d: 0, // for time-based queries if needed
           active_users_24h: 0,
           active_users_7d: 0,
-          locked_users: 0
+          locked_users: 0,
         },
         departmentDistribution: statistics.departmentStats,
         summary: {
           totalUsers: statistics.totalUsers,
           activeUsers: statistics.activeUsers,
-          inactiveUsers: statistics.inactiveUsers
-        }
-      }
+          inactiveUsers: statistics.inactiveUsers,
+        },
+      },
     });
-
   } catch (error) {
     logger.error('Get user stats error', { error, userId: (req as any).user?.userId });
     res.status(500).json({
       error: 'Internal Server Error',
-      message: 'An error occurred while retrieving user statistics'
+      message: 'An error occurred while retrieving user statistics',
     });
-      return;
-        return;
+    return;
+    return;
   }
 });
 
-export default router; 
+export default router;

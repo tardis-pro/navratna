@@ -19,7 +19,12 @@ export class OperationCheckpoint extends BaseEntity {
   @Column({ type: 'text', nullable: true })
   description?: string;
 
-  @Column({ name: 'checkpoint_type', type: 'enum', enum: ['manual', 'automatic', 'step', 'milestone'], default: 'automatic' })
+  @Column({
+    name: 'checkpoint_type',
+    type: 'enum',
+    enum: ['manual', 'automatic', 'step', 'milestone'],
+    default: 'automatic',
+  })
   checkpointType: 'manual' | 'automatic' | 'step' | 'milestone';
 
   @Column({ name: 'step_number', nullable: true })
@@ -62,4 +67,4 @@ export class OperationCheckpoint extends BaseEntity {
   @ManyToOne('Operation', 'checkpoints')
   @JoinColumn({ name: 'operation_id' })
   operation: any;
-} 
+}

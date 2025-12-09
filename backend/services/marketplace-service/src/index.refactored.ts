@@ -6,7 +6,7 @@ class MarketplaceServiceServer extends BaseService {
   constructor() {
     super({
       name: 'marketplace-service',
-      port: parseInt(process.env.MARKETPLACE_SERVICE_PORT || '3006', 10)
+      port: parseInt(process.env.MARKETPLACE_SERVICE_PORT || '3006', 10),
     });
   }
 

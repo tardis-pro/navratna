@@ -86,9 +86,11 @@ export const authAPI = {
       user: {
         id: response.user.id,
         email: response.user.email,
-        name: `${response.user.firstName || ''} ${response.user.lastName || ''}`.trim() || response.user.email,
+        name:
+          `${response.user.firstName || ''} ${response.user.lastName || ''}`.trim() ||
+          response.user.email,
         role: response.user.role as UserRole,
-      }
+      },
     };
   },
 
@@ -154,5 +156,5 @@ export const authAPI = {
 
   async validateToken(token: string): Promise<{ valid: boolean; user?: LoginResponse['user'] }> {
     return APIClient.post(API_ROUTES.AUTH.VALIDATE_TOKEN, { token });
-  }
+  },
 };

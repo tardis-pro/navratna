@@ -8,7 +8,7 @@ describe('DiscussionService', () => {
       databaseService: null,
       eventBusService: null,
       agentIntelligenceService: null,
-      personaService: null
+      personaService: null,
     };
     service = new DiscussionService(mockConfig);
   });

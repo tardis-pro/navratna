@@ -8,7 +8,7 @@ import {
   IntentDetectionCompletedEvent,
   TopicGenerationCompletedEvent,
   PromptSuggestionsCompletedEvent,
-  AutocompleteSuggestionsReadyEvent
+  AutocompleteSuggestionsReadyEvent,
 } from '@uaip/types';
 
 interface ConversationIntelligenceConnection {
@@ -24,11 +24,11 @@ export class ConversationIntelligenceHandler {
   private eventBus: EventBusService;
   private connections: Map<string, ConversationIntelligenceConnection> = new Map();
   private userConnections: Map<string, Set<string>> = new Map(); // userId -> Set<socketId>
-  
+
   private logger = createLogger({
     serviceName: 'ConversationIntelligenceHandler',
     environment: process.env.NODE_ENV || 'development',
-    logLevel: process.env.LOG_LEVEL || 'info'
+    logLevel: process.env.LOG_LEVEL || 'info',
   });
 
   constructor(io: Server, eventBus: EventBusService) {
@@ -48,14 +48,16 @@ export class ConversationIntelligenceHandler {
       }
     } catch (error) {
       this.logger.error('Failed to create namespace:', error);
-      throw new Error('Namespace creation failed: ' + (error instanceof Error ? error.message : 'Unknown error'));
+      throw new Error(
+        'Namespace creation failed: ' + (error instanceof Error ? error.message : 'Unknown error')
+      );
     }
 
     ciNamespace.on('connection', async (socket: Socket) => {
       try {
         this.logger.info('New conversation intelligence connection attempt', {
           socketId: socket.id,
-          remoteAddress: socket.request.connection.remoteAddress
+          remoteAddress: socket.request.connection.remoteAddress,
         });
 
         // Authenticate the connection with proper error handling
@@ -66,19 +68,19 @@ export class ConversationIntelligenceHandler {
           socket.disconnect();
           return;
         }
-        
-        this.logger.debug('Token received for validation', { 
-          socketId: socket.id, 
-          tokenLength: token.length 
+
+        this.logger.debug('Token received for validation', {
+          socketId: socket.id,
+          tokenLength: token.length,
         });
-        
+
         let decoded;
         try {
           decoded = await validateJWTToken(token);
-          this.logger.debug('Token validation result:', { 
-            valid: decoded.valid, 
-            userId: decoded.userId, 
-            reason: decoded.reason 
+          this.logger.debug('Token validation result:', {
+            valid: decoded.valid,
+            userId: decoded.userId,
+            reason: decoded.reason,
           });
         } catch (error) {
           this.logger.error('Token validation exception:', error);
@@ -86,14 +88,16 @@ export class ConversationIntelligenceHandler {
           socket.disconnect();
           return;
         }
-        
+
         if (!decoded || !decoded.valid || !decoded.userId) {
-          this.logger.warn('Invalid token or missing userId', { 
-            valid: decoded?.valid, 
-            userId: decoded?.userId, 
-            reason: decoded?.reason 
+          this.logger.warn('Invalid token or missing userId', {
+            valid: decoded?.valid,
+            userId: decoded?.userId,
+            reason: decoded?.reason,
           });
-          socket.emit('error', { message: `Authentication failed: ${decoded?.reason || 'Invalid token'}` });
+          socket.emit('error', {
+            message: `Authentication failed: ${decoded?.reason || 'Invalid token'}`,
+          });
           socket.disconnect();
           return;
         }
@@ -111,11 +115,11 @@ export class ConversationIntelligenceHandler {
           agentId: effectiveAgentId,
           conversationId,
           socketId: socket.id,
-          lastActivity: new Date()
+          lastActivity: new Date(),
         };
 
         this.connections.set(socket.id, connection);
-        
+
         // Track user connections
         if (!this.userConnections.has(userId)) {
           this.userConnections.set(userId, new Set());
@@ -134,13 +138,19 @@ export class ConversationIntelligenceHandler {
           agentId: effectiveAgentId,
           originalAgentId: agentId,
           conversationId,
-          socketId: socket.id
+          socketId: socket.id,
         });
 
         // Set up socket event handlers
-        socket.on('request_intent_detection', (data) => this.handleIntentDetectionRequest(socket, data));
-        socket.on('request_topic_generation', (data) => this.handleTopicGenerationRequest(socket, data));
-        socket.on('request_prompt_suggestions', (data) => this.handlePromptSuggestionsRequest(socket, data));
+        socket.on('request_intent_detection', (data) =>
+          this.handleIntentDetectionRequest(socket, data)
+        );
+        socket.on('request_topic_generation', (data) =>
+          this.handleTopicGenerationRequest(socket, data)
+        );
+        socket.on('request_prompt_suggestions', (data) =>
+          this.handlePromptSuggestionsRequest(socket, data)
+        );
         socket.on('autocomplete_query', (data) => this.handleAutocompleteQuery(socket, data));
         socket.on('update_conversation', (data) => this.handleConversationUpdate(socket, data));
         socket.on('disconnect', () => this.handleDisconnect(socket));
@@ -148,9 +158,8 @@ export class ConversationIntelligenceHandler {
         // Send connection success
         socket.emit('connected', {
           status: 'connected',
-          features: ['intent_detection', 'topic_generation', 'prompt_suggestions', 'autocomplete']
+          features: ['intent_detection', 'topic_generation', 'prompt_suggestions', 'autocomplete'],
         });
-
       } catch (error) {
         this.logger.error('Failed to establish connection', error);
         socket.disconnect();
@@ -197,13 +206,12 @@ export class ConversationIntelligenceHandler {
           agentId: connection.agentId,
           conversationId: connection.conversationId || data.conversationId,
           text: data.text,
-          context: data.context
-        }
+          context: data.context,
+        },
       });
 
       // Send acknowledgment
       socket.emit('intent_detection_requested', { status: 'processing' });
-
     } catch (error) {
       this.logger.error('Failed to request intent detection', error);
       socket.emit('error', { error: 'Failed to process intent detection request' });
@@ -220,12 +228,11 @@ export class ConversationIntelligenceHandler {
         data: {
           conversationId: connection.conversationId || data.conversationId,
           messages: data.messages,
-          currentTopic: data.currentTopic
-        }
+          currentTopic: data.currentTopic,
+        },
       });
 
       socket.emit('topic_generation_requested', { status: 'processing' });
-
     } catch (error) {
       this.logger.error('Failed to request topic generation', error);
       socket.emit('error', { error: 'Failed to process topic generation request' });
@@ -243,12 +250,11 @@ export class ConversationIntelligenceHandler {
           userId: connection.userId,
           agentId: connection.agentId,
           conversationContext: data.conversationContext,
-          count: data.count || 3
-        }
+          count: data.count || 3,
+        },
       });
 
       socket.emit('prompt_suggestions_requested', { status: 'processing' });
-
     } catch (error) {
       this.logger.error('Failed to request prompt suggestions', error);
       socket.emit('error', { error: 'Failed to process prompt suggestions request' });
@@ -266,7 +272,7 @@ export class ConversationIntelligenceHandler {
         isGlobalUserLLM: connection.agentId.startsWith('user-'),
         userId: connection.userId,
         useDefaultLLMProvider: connection.agentId.startsWith('user-'),
-        requestType: data.context?.type || 'autocomplete'
+        requestType: data.context?.type || 'autocomplete',
       };
 
       await this.eventBus.publish(ConversationIntelligenceEventType.AUTOCOMPLETE_QUERY_REQUESTED, {
@@ -276,10 +282,9 @@ export class ConversationIntelligenceHandler {
           agentId: connection.agentId,
           partial: data.partial,
           context: enhancedContext,
-          limit: data.limit || 5
-        }
+          limit: data.limit || 5,
+        },
       });
-
     } catch (error) {
       this.logger.error('Failed to process autocomplete query', error);
       socket.emit('error', { error: 'Failed to process autocomplete query' });
@@ -296,7 +301,7 @@ export class ConversationIntelligenceHandler {
       if (connection.conversationId) {
         socket.leave(`conversation:${connection.conversationId}`);
       }
-      
+
       // Join new conversation room
       socket.join(`conversation:${data.conversationId}`);
       connection.conversationId = data.conversationId;
@@ -310,10 +315,10 @@ export class ConversationIntelligenceHandler {
     }
 
     connection.lastActivity = new Date();
-    
+
     socket.emit('conversation_updated', {
       conversationId: connection.conversationId,
-      agentId: connection.agentId
+      agentId: connection.agentId,
     });
   }
 
@@ -325,18 +330,18 @@ export class ConversationIntelligenceHandler {
     // Emit to specific user's connections
     const userSockets = this.userConnections.get(userId);
     if (userSockets) {
-      userSockets.forEach(socketId => {
+      userSockets.forEach((socketId) => {
         const socket = this.io.of('/conversation-intelligence').sockets.get(socketId);
         if (socket) {
           socket.emit(ConversationWebSocketEventType.INTENT_DETECTED, {
             intent,
-            toolPreview
+            toolPreview,
           });
 
           // Also emit suggestions if available
           if (suggestions && suggestions.length > 0) {
             socket.emit(ConversationWebSocketEventType.SUGGESTIONS_UPDATED, {
-              prompts: suggestions
+              prompts: suggestions,
             });
           }
         }
@@ -345,11 +350,12 @@ export class ConversationIntelligenceHandler {
 
     // Also emit to conversation room if available
     if (conversationId) {
-      this.io.of('/conversation-intelligence')
+      this.io
+        .of('/conversation-intelligence')
         .to(`conversation:${conversationId}`)
         .emit(ConversationWebSocketEventType.INTENT_DETECTED, {
           intent,
-          toolPreview
+          toolPreview,
         });
     }
   }
@@ -358,11 +364,12 @@ export class ConversationIntelligenceHandler {
     const { conversationId, topicName, confidence } = event.data;
 
     // Emit to conversation room
-    this.io.of('/conversation-intelligence')
+    this.io
+      .of('/conversation-intelligence')
       .to(`conversation:${conversationId}`)
       .emit(ConversationWebSocketEventType.TOPIC_GENERATED, {
         topicName,
-        confidence
+        confidence,
       });
   }
 
@@ -372,14 +379,14 @@ export class ConversationIntelligenceHandler {
     // Emit to user's connections
     const userSockets = this.userConnections.get(userId);
     if (userSockets) {
-      userSockets.forEach(socketId => {
+      userSockets.forEach((socketId) => {
         const socket = this.io.of('/conversation-intelligence').sockets.get(socketId);
         if (socket) {
           const connection = this.connections.get(socketId);
           // Only send if the agent matches
           if (connection && connection.agentId === agentId) {
             socket.emit(ConversationWebSocketEventType.SUGGESTIONS_UPDATED, {
-              prompts: suggestions
+              prompts: suggestions,
             });
           }
         }
@@ -393,7 +400,7 @@ export class ConversationIntelligenceHandler {
     // Emit to user's connections
     const userSockets = this.userConnections.get(userId);
     if (userSockets) {
-      userSockets.forEach(socketId => {
+      userSockets.forEach((socketId) => {
         const socket = this.io.of('/conversation-intelligence').sockets.get(socketId);
         if (socket) {
           const connection = this.connections.get(socketId);
@@ -401,7 +408,7 @@ export class ConversationIntelligenceHandler {
           if (connection && connection.agentId === agentId) {
             socket.emit(ConversationWebSocketEventType.AUTOCOMPLETE_RESULTS, {
               suggestions,
-              queryTime
+              queryTime,
             });
           }
         }
@@ -427,7 +434,7 @@ export class ConversationIntelligenceHandler {
       this.logger.info('Conversation intelligence connection closed', {
         userId: connection.userId,
         agentId: connection.agentId,
-        socketId: socket.id
+        socketId: socket.id,
       });
     }
   }
@@ -436,7 +443,7 @@ export class ConversationIntelligenceHandler {
   public emitToolPreview(userId: string, agentId: string, toolPreview: any) {
     const userSockets = this.userConnections.get(userId);
     if (userSockets) {
-      userSockets.forEach(socketId => {
+      userSockets.forEach((socketId) => {
         const socket = this.io.of('/conversation-intelligence').sockets.get(socketId);
         if (socket) {
           const connection = this.connections.get(socketId);

@@ -60,7 +60,7 @@ export class KnowledgeBootstrapService {
       batchSize: 10,
       retryAttempts: 3,
       retryDelay: 1000,
-      useSimplifiedSync: true
+      useSimplifiedSync: true,
     }
   ) {
     // Initialize smart embedding service with TEI preference
@@ -70,8 +70,8 @@ export class KnowledgeBootstrapService {
       teiUrls: {
         embedding: process.env.TEI_EMBEDDING_URL || 'http://localhost:8080',
         reranker: process.env.TEI_RERANKER_URL || 'http://localhost:8083',
-        embeddingCPU: process.env.TEI_EMBEDDING_CPU_URL || 'http://localhost:8082'
-      }
+        embeddingCPU: process.env.TEI_EMBEDDING_CPU_URL || 'http://localhost:8082',
+      },
     });
 
     // Initialize services
@@ -93,15 +93,37 @@ export class KnowledgeBootstrapService {
 
     // Initialize ontology services
     this.contentClassifier = new ContentClassifier();
-    this.conceptExtractor = new ConceptExtractorService(this.contentClassifier, this.embeddingService);
-    this.ontologyBuilder = new OntologyBuilderService(this.conceptExtractor, this.knowledgeRepository, this.syncService);
-    this.taxonomyGenerator = new TaxonomyGeneratorService(this.knowledgeRepository, this.contentClassifier);
-    this.reconciliationService = new ReconciliationService(this.embeddingService, this.knowledgeRepository, this.syncService);
-    this.qdrantHealthService = new QdrantHealthService(this.qdrantService, this.knowledgeRepository, this.embeddingService, this.graphDb);
-    
+    this.conceptExtractor = new ConceptExtractorService(
+      this.contentClassifier,
+      this.embeddingService
+    );
+    this.ontologyBuilder = new OntologyBuilderService(
+      this.conceptExtractor,
+      this.knowledgeRepository,
+      this.syncService
+    );
+    this.taxonomyGenerator = new TaxonomyGeneratorService(
+      this.knowledgeRepository,
+      this.contentClassifier
+    );
+    this.reconciliationService = new ReconciliationService(
+      this.embeddingService,
+      this.knowledgeRepository,
+      this.syncService
+    );
+    this.qdrantHealthService = new QdrantHealthService(
+      this.qdrantService,
+      this.knowledgeRepository,
+      this.embeddingService,
+      this.graphDb
+    );
+
     // Initialize chat services
     this.chatParser = new ChatParserService();
-    this.chatKnowledgeExtractor = new ChatKnowledgeExtractorService(this.contentClassifier, this.embeddingService);
+    this.chatKnowledgeExtractor = new ChatKnowledgeExtractorService(
+      this.contentClassifier,
+      this.embeddingService
+    );
     // Note: batchProcessor will be initialized after KnowledgeGraphService is available
   }
 
@@ -125,22 +147,21 @@ export class KnowledgeBootstrapService {
 
   private async performBootstrap(): Promise<void> {
     logger.info('Starting knowledge graph bootstrap process');
-    
+
     try {
       // 1. Ensure all services are ready
       await this.ensureServicesReady();
-      
+
       // 2. Perform initial sync if enabled
       if (this.config.syncOnStartup) {
         await this.performInitialSync();
       }
-      
+
       // 3. Mark as bootstrapped
       this.isBootstrapped = true;
       this.bootstrapPromise = null;
-      
+
       logger.info('Knowledge graph bootstrap completed successfully');
-      
     } catch (error) {
       logger.error('Knowledge graph bootstrap failed:', error);
       this.bootstrapPromise = null;
@@ -150,20 +171,20 @@ export class KnowledgeBootstrapService {
 
   private async ensureServicesReady(): Promise<void> {
     logger.info('Ensuring all services are ready for knowledge graph sync');
-    
+
     const serviceChecks = [
       this.checkQdrantService(),
       this.checkNeo4jService(),
-      this.checkEmbeddingService()
+      this.checkEmbeddingService(),
     ];
 
     const results = await Promise.allSettled(serviceChecks);
-    const failures = results.filter(r => r.status === 'rejected');
-    
+    const failures = results.filter((r) => r.status === 'rejected');
+
     if (failures.length > 0) {
-      const errors = failures.map(f => (f as PromiseRejectedResult).reason);
+      const errors = failures.map((f) => (f as PromiseRejectedResult).reason);
       logger.warn('Some services are not ready:', errors);
-      
+
       // Continue with degraded functionality
       logger.info('Continuing with available services');
     }
@@ -174,7 +195,7 @@ export class KnowledgeBootstrapService {
     if (!isHealthy) {
       throw new Error('Qdrant service is not healthy');
     }
-    
+
     // Ensure collection exists
     await this.qdrantService.ensureCollection();
     logger.info('✅ Qdrant service is ready');
@@ -200,14 +221,14 @@ export class KnowledgeBootstrapService {
 
   private async performInitialSync(): Promise<void> {
     logger.info('Starting universal knowledge graph synchronization');
-    
+
     let attempt = 0;
     let lastError: Error | null = null;
 
     while (attempt < this.config.retryAttempts) {
       try {
         const result = await this.syncService.universalSync();
-        
+
         logger.info('Universal sync completed:', {
           totalFound: result.totalFound,
           totalSynced: result.totalSynced,
@@ -215,7 +236,7 @@ export class KnowledgeBootstrapService {
           syncedFromPostgres: result.syncedFromPostgres,
           syncedFromNeo4j: result.syncedFromNeo4j,
           syncedFromQdrant: result.syncedFromQdrant,
-          errorCount: result.errors.length
+          errorCount: result.errors.length,
         });
 
         if (result.totalFailed > 0) {
@@ -223,20 +244,24 @@ export class KnowledgeBootstrapService {
         }
 
         return; // Success!
-        
       } catch (error) {
         attempt++;
         lastError = error as Error;
-        
+
         if (attempt < this.config.retryAttempts) {
-          logger.warn(`Universal sync attempt ${attempt} failed, retrying in ${this.config.retryDelay}ms:`, error);
-          await new Promise(resolve => setTimeout(resolve, this.config.retryDelay));
+          logger.warn(
+            `Universal sync attempt ${attempt} failed, retrying in ${this.config.retryDelay}ms:`,
+            error
+          );
+          await new Promise((resolve) => setTimeout(resolve, this.config.retryDelay));
         }
       }
     }
 
     // All retries failed
-    throw new Error(`Universal sync failed after ${this.config.retryAttempts} attempts. Last error: ${lastError?.message}`);
+    throw new Error(
+      `Universal sync failed after ${this.config.retryAttempts} attempts. Last error: ${lastError?.message}`
+    );
   }
 
   /**
@@ -248,7 +273,7 @@ export class KnowledgeBootstrapService {
   } {
     return {
       isBootstrapped: this.isBootstrapped,
-      isInProgress: this.bootstrapPromise !== null
+      isInProgress: this.bootstrapPromise !== null,
     };
   }
 
@@ -278,14 +303,14 @@ export class KnowledgeBootstrapService {
 
     // Convert to entity format for sync service
     const knowledgeItems = await this.knowledgeRepository.findAll();
-    const entity = knowledgeItems.find(e => e.id === itemId);
-    
+    const entity = knowledgeItems.find((e) => e.id === itemId);
+
     if (!entity) {
       throw new Error(`Knowledge item entity not found: ${itemId}`);
     }
 
     const result = await this.syncService.syncKnowledgeItem(entity);
-    
+
     if (!result.success) {
       throw new Error(`Failed to sync knowledge item ${itemId}: ${result.error}`);
     }
@@ -301,10 +326,10 @@ export class KnowledgeBootstrapService {
     allSynced: boolean;
   }> {
     const status = await this.syncService.verifySyncStatus(itemId);
-    
+
     return {
       ...status,
-      allSynced: status.postgres && status.neo4j && status.qdrant
+      allSynced: status.postgres && status.neo4j && status.qdrant,
     };
   }
 
@@ -314,25 +339,25 @@ export class KnowledgeBootstrapService {
    */
   async runPostSeedSync(): Promise<BootstrapStatus> {
     logger.info('🌱 Starting post-seed knowledge graph synchronization');
-    
+
     try {
       // Wait a bit for seeding to settle
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      
+      await new Promise((resolve) => setTimeout(resolve, 2000));
+
       if (this.config.useSimplifiedSync) {
         // Use new simplified sync pipeline
         const syncResult = await this.simplifiedSyncService.runSimplifiedSync();
-        
+
         logger.info('🎉 Simplified post-seed sync completed:', {
           totalFromNeo4j: syncResult.totalFromNeo4j,
           totalToQdrant: syncResult.totalToQdrant,
           clustersCreated: syncResult.clustersCreated,
           totalToPostgres: syncResult.totalToPostgres,
-          reductionRatio: syncResult.reductionRatio
+          reductionRatio: syncResult.reductionRatio,
         });
 
         const totalReduction = syncResult.totalFromNeo4j - syncResult.totalToPostgres;
-        
+
         // Mark as bootstrapped after successful post-seed sync
         this.isBootstrapped = true;
 
@@ -340,20 +365,19 @@ export class KnowledgeBootstrapService {
           syncResult,
           clusteringEnabled: true,
           totalReduction,
-          finalKnowledgeItems: syncResult.totalToPostgres
+          finalKnowledgeItems: syncResult.totalToPostgres,
         };
-        
       } else {
         // Use legacy universal sync
         const result = await this.syncService.universalSync();
-        
+
         logger.info('🎉 Legacy post-seed sync completed:', {
           totalFound: result.totalFound,
           totalSynced: result.totalSynced,
           totalFailed: result.totalFailed,
           syncedFromPostgres: result.syncedFromPostgres,
           syncedFromNeo4j: result.syncedFromNeo4j,
-          syncedFromQdrant: result.syncedFromQdrant
+          syncedFromQdrant: result.syncedFromQdrant,
         });
 
         if (result.totalFailed > 0) {
@@ -362,7 +386,7 @@ export class KnowledgeBootstrapService {
 
         // Mark as bootstrapped after successful post-seed sync
         this.isBootstrapped = true;
-        
+
         // Convert legacy result to new format
         const legacySyncResult: SimplifiedSyncResult = {
           totalFromNeo4j: result.syncedFromNeo4j,
@@ -372,17 +396,16 @@ export class KnowledgeBootstrapService {
           clustersCreated: 0,
           reductionRatio: 0,
           errors: result.errors,
-          syncTimestamp: new Date()
+          syncTimestamp: new Date(),
         };
 
         return {
           syncResult: legacySyncResult,
           clusteringEnabled: false,
           totalReduction: 0,
-          finalKnowledgeItems: result.syncedFromPostgres
+          finalKnowledgeItems: result.syncedFromPostgres,
         };
       }
-      
     } catch (error) {
       logger.error('❌ Post-seed sync failed:', error);
       throw error;
@@ -407,16 +430,19 @@ export class KnowledgeBootstrapService {
     partiallySync: number;
   }> {
     const stats = await this.knowledgeRepository.getStatistics();
-    
+
     // Check Neo4j sync status - handle disconnected state gracefully
     let syncedToNeo4j = 0;
     try {
       const connectionStatus = this.graphDb.getConnectionStatus();
       if (connectionStatus.isConnected) {
-        const neo4jResult = await this.graphDb.runQuery(`
+        const neo4jResult = await this.graphDb.runQuery(
+          `
           MATCH (k:KnowledgeItem) 
           RETURN count(k) as count
-        `, {});
+        `,
+          {}
+        );
         syncedToNeo4j = neo4jResult.records[0]?.get('count')?.toNumber() || 0;
       } else {
         logger.warn('Neo4j not connected, skipping sync statistics for Neo4j');
@@ -424,11 +450,11 @@ export class KnowledgeBootstrapService {
     } catch (error) {
       logger.warn('Failed to get Neo4j sync statistics:', error.message);
     }
-    
+
     // Check Qdrant sync status
     const qdrantInfo = await this.qdrantService.getCollectionInfo();
     const syncedToQdrant = qdrantInfo.result?.points_count || 0;
-    
+
     // Estimate fully synced items (conservative approach)
     const fullySynced = Math.min(stats.totalItems, syncedToNeo4j, syncedToQdrant);
     const partiallySync = stats.totalItems - fullySynced;
@@ -438,7 +464,7 @@ export class KnowledgeBootstrapService {
       syncedToNeo4j,
       syncedToQdrant,
       fullySynced,
-      partiallySync
+      partiallySync,
     };
   }
 
@@ -460,7 +486,6 @@ export class KnowledgeBootstrapService {
       await this.setupDomainOntologies();
 
       logger.info('Ontology services initialization completed');
-
     } catch (error) {
       logger.error('Error initializing ontology services:', error);
       throw error;
@@ -474,25 +499,27 @@ export class KnowledgeBootstrapService {
     try {
       // Discover domains from existing knowledge items
       const domains = await this.discoverDomains();
-      
+
       logger.info(`Setting up ontologies for ${domains.length} domains: ${domains.join(', ')}`);
 
       for (const domain of domains) {
         try {
           // Check if ontology already exists
           const existingOntology = await this.ontologyBuilder.getOntologyForDomain(domain);
-          
+
           if (!existingOntology) {
             logger.info(`Building ontology for domain: ${domain}`);
-            
+
             // Build and save ontology
             const result = await this.ontologyBuilder.buildDomainOntology(domain, undefined, {
               saveToKnowledgeGraph: true,
               minConfidence: 0.6,
-              maxConcepts: 50
+              maxConcepts: 50,
             });
 
-            logger.info(`Ontology built for ${domain}: ${result.ontology.metadata.totalConcepts} concepts, ${result.ontology.metadata.totalRelationships} relationships`);
+            logger.info(
+              `Ontology built for ${domain}: ${result.ontology.metadata.totalConcepts} concepts, ${result.ontology.metadata.totalRelationships} relationships`
+            );
           } else {
             logger.info(`Ontology already exists for domain: ${domain}`);
           }
@@ -500,7 +527,6 @@ export class KnowledgeBootstrapService {
           logger.warn(`Failed to build ontology for domain ${domain}:`, error);
         }
       }
-
     } catch (error) {
       logger.error('Error setting up domain ontologies:', error);
       throw error;
@@ -520,7 +546,7 @@ export class KnowledgeBootstrapService {
         {
           similarityThreshold: 0.85,
           maxConflictsPerBatch: 50,
-          autoResolve: false
+          autoResolve: false,
         }
       );
 
@@ -531,14 +557,15 @@ export class KnowledgeBootstrapService {
         const resolution = await this.reconciliationService.resolveConflicts(conflicts, {
           autoResolve: true,
           preserveHistory: true,
-          generateSummaries: true
+          generateSummaries: true,
         });
 
-        logger.info(`Knowledge reconciliation completed: ${resolution.statistics.conflictsResolved} resolved, ${resolution.statistics.itemsMerged} merged, ${resolution.statistics.itemsArchived} archived`);
+        logger.info(
+          `Knowledge reconciliation completed: ${resolution.statistics.conflictsResolved} resolved, ${resolution.statistics.itemsMerged} merged, ${resolution.statistics.itemsArchived} archived`
+        );
       } else {
         logger.info('No knowledge conflicts detected');
       }
-
     } catch (error) {
       logger.error('Error during knowledge reconciliation:', error);
       throw error;
@@ -551,21 +578,24 @@ export class KnowledgeBootstrapService {
   async generateDomainTaxonomies(): Promise<void> {
     try {
       const domains = await this.discoverDomains();
-      
+
       logger.info(`Generating taxonomies for ${domains.length} domains`);
 
       for (const domain of domains) {
         try {
           const items = await this.knowledgeRepository.findByDomain(domain, 100);
-          
-          if (items.length >= 10) { // Minimum items for meaningful taxonomy
+
+          if (items.length >= 10) {
+            // Minimum items for meaningful taxonomy
             const result = await this.taxonomyGenerator.generateTaxonomy(items, domain, {
               maxCategories: 15,
               minCategorySize: 2,
-              autoClassify: true
+              autoClassify: true,
             });
 
-            logger.info(`Taxonomy generated for ${domain}: ${result.taxonomy.metadata.totalCategories} categories, ${result.taxonomy.metadata.coverage.toFixed(1)}% coverage`);
+            logger.info(
+              `Taxonomy generated for ${domain}: ${result.taxonomy.metadata.totalCategories} categories, ${result.taxonomy.metadata.coverage.toFixed(1)}% coverage`
+            );
           } else {
             logger.info(`Skipping taxonomy for ${domain}: insufficient items (${items.length})`);
           }
@@ -573,7 +603,6 @@ export class KnowledgeBootstrapService {
           logger.warn(`Failed to generate taxonomy for domain ${domain}:`, error);
         }
       }
-
     } catch (error) {
       logger.error('Error generating domain taxonomies:', error);
       throw error;
@@ -612,7 +641,6 @@ export class KnowledgeBootstrapService {
         .slice(0, 10); // Top 10 domains
 
       return domains;
-
     } catch (error) {
       logger.error('Error discovering domains:', error);
       return [];
@@ -644,16 +672,16 @@ export class KnowledgeBootstrapService {
         }
       }
 
-      const averageConceptsPerDomain = domainsWithOntologies > 0 ? totalConcepts / domainsWithOntologies : 0;
+      const averageConceptsPerDomain =
+        domainsWithOntologies > 0 ? totalConcepts / domainsWithOntologies : 0;
 
       return {
         totalDomains: domains.length,
         totalConcepts,
         totalRelationships,
         totalTaxonomies: domainsWithOntologies,
-        averageConceptsPerDomain
+        averageConceptsPerDomain,
       };
-
     } catch (error) {
       logger.error('Error getting ontology statistics:', error);
       return {
@@ -661,7 +689,7 @@ export class KnowledgeBootstrapService {
         totalConcepts: 0,
         totalRelationships: 0,
         totalTaxonomies: 0,
-        averageConceptsPerDomain: 0
+        averageConceptsPerDomain: 0,
       };
     }
   }
@@ -681,14 +709,14 @@ export class KnowledgeBootstrapService {
 
       // Check initial health
       const healthBefore = await this.qdrantHealthService.checkHealth();
-      
+
       const repairNeeded = healthBefore.syncNeeded || !healthBefore.isConnected;
       let repairPerformed = false;
       let syncResult;
 
       if (repairNeeded) {
         logger.info('Qdrant repair needed, attempting automatic repair...');
-        
+
         try {
           if (!healthBefore.isConnected) {
             // Try to repair collection
@@ -697,7 +725,7 @@ export class KnowledgeBootstrapService {
             // Sync knowledge items
             syncResult = await this.qdrantHealthService.syncKnowledgeIfNeeded(100);
           }
-          
+
           repairPerformed = true;
           logger.info('Qdrant repair completed successfully');
         } catch (repairError) {
@@ -707,7 +735,7 @@ export class KnowledgeBootstrapService {
       }
 
       // Check health after repair
-      const healthAfter = repairPerformed 
+      const healthAfter = repairPerformed
         ? await this.qdrantHealthService.checkHealth()
         : healthBefore;
 
@@ -716,9 +744,8 @@ export class KnowledgeBootstrapService {
         repairNeeded,
         repairPerformed,
         healthAfter,
-        syncResult
+        syncResult,
       };
-
     } catch (error) {
       logger.error('Error during Qdrant health check and repair:', error);
       throw error;
@@ -750,10 +777,10 @@ export class KnowledgeBootstrapService {
   async initializeChatIngestion(): Promise<void> {
     try {
       logger.info('Initializing chat ingestion services...');
-      
+
       // Services are already initialized in constructor
       // Additional setup can be added here if needed
-      
+
       logger.info('Chat ingestion services initialized successfully');
     } catch (error) {
       logger.error('Failed to initialize chat ingestion services:', error);
@@ -767,10 +794,10 @@ export class KnowledgeBootstrapService {
   async setupOntologyServices(): Promise<void> {
     try {
       logger.info('Setting up ontology services...');
-      
+
       // Ontology services are already initialized in constructor
       // Additional setup can be added here if needed
-      
+
       logger.info('Ontology services setup completed');
     } catch (error) {
       logger.error('Failed to setup ontology services:', error);
@@ -784,9 +811,9 @@ export class KnowledgeBootstrapService {
   async runKnowledgeReconciliation(domain?: string): Promise<any> {
     try {
       logger.info('Running knowledge reconciliation...', { domain });
-      
+
       // Get knowledge items for the domain
-      const items = domain 
+      const items = domain
         ? await this.knowledgeRepository.findByDomain(domain)
         : await this.knowledgeRepository.findRecentItems(100);
 
@@ -797,17 +824,20 @@ export class KnowledgeBootstrapService {
       logger.info(`Detected ${conflicts.length} knowledge conflicts`);
 
       // Resolve conflicts
-      const resolution = conflicts.length > 0 
-        ? await this.reconciliationService.resolveConflicts(conflicts, {
-            autoResolve: true,
-            preserveHistory: true,
-            generateSummaries: true
-          })
-        : null;
+      const resolution =
+        conflicts.length > 0
+          ? await this.reconciliationService.resolveConflicts(conflicts, {
+              autoResolve: true,
+              preserveHistory: true,
+              generateSummaries: true,
+            })
+          : null;
 
       // Merge duplicates
       const mergeResult = await this.reconciliationService.mergeDuplicates(items);
-      logger.info(`Merged ${Array.isArray(mergeResult) ? mergeResult.length : 0} duplicate knowledge items`);
+      logger.info(
+        `Merged ${Array.isArray(mergeResult) ? mergeResult.length : 0} duplicate knowledge items`
+      );
 
       // Generate summaries
       const summaries = await this.reconciliationService.generateSummaries(items);
@@ -820,12 +850,11 @@ export class KnowledgeBootstrapService {
         conflictsResolved: resolution?.resolved || 0,
         duplicatesMerged: Array.isArray(mergeResult) ? mergeResult.length : 0,
         summariesGenerated: summaries.length,
-        processingTime: Date.now()
+        processingTime: Date.now(),
       };
 
       logger.info('Knowledge reconciliation completed', result);
       return result;
-
     } catch (error) {
       logger.error('Failed to run knowledge reconciliation:', error);
       throw error;

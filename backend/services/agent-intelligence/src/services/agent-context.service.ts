@@ -6,7 +6,11 @@
 
 import { Agent, ContextAnalysis, ConversationContext, EnvironmentFactors } from '@uaip/types';
 import { logger } from '@uaip/utils';
-import { EventBusService, KnowledgeGraphService, SERVICE_ACCESS_MATRIX } from '@uaip/shared-services';
+import {
+  EventBusService,
+  KnowledgeGraphService,
+  SERVICE_ACCESS_MATRIX,
+} from '@uaip/shared-services';
 import { LLMService } from '@uaip/llm-service';
 
 export interface AgentContextConfig {
@@ -38,7 +42,7 @@ export class AgentContextService {
 
     logger.info('Agent Context Service initialized', {
       service: this.serviceName,
-      securityLevel: this.securityLevel
+      securityLevel: this.securityLevel,
     });
   }
 
@@ -46,9 +50,18 @@ export class AgentContextService {
    * Set up event bus subscriptions for context operations
    */
   private async setupEventSubscriptions(): Promise<void> {
-    await this.eventBusService.subscribe('agent.context.analyze', this.handleAnalyzeContext.bind(this));
-    await this.eventBusService.subscribe('agent.context.update', this.handleUpdateContext.bind(this));
-    await this.eventBusService.subscribe('agent.context.extract', this.handleExtractContext.bind(this));
+    await this.eventBusService.subscribe(
+      'agent.context.analyze',
+      this.handleAnalyzeContext.bind(this)
+    );
+    await this.eventBusService.subscribe(
+      'agent.context.update',
+      this.handleUpdateContext.bind(this)
+    );
+    await this.eventBusService.subscribe(
+      'agent.context.extract',
+      this.handleExtractContext.bind(this)
+    );
 
     logger.info('Agent Context Service event subscriptions configured');
   }
@@ -66,7 +79,7 @@ export class AgentContextService {
       logger.info('Analyzing context for agent', {
         agentId,
         userId,
-        requestLength: userRequest.length
+        requestLength: userRequest.length,
       });
 
       // Get agent data through event bus
@@ -80,12 +93,12 @@ export class AgentContextService {
         query: userRequest,
         filters: {
           agentId,
-          userId: conversationContext.userId
+          userId: conversationContext.userId,
         },
         options: {
-          limit: 10
+          limit: 10,
         },
-        timestamp: Date.now()
+        timestamp: Date.now(),
       });
 
       // Perform base analysis
@@ -93,7 +106,7 @@ export class AgentContextService {
         userIntent: this.analyzeUserIntent(userRequest),
         contextualFactors: this.extractContextualInformation(conversationContext),
         environmentFactors: this.analyzeEnvironmentFactors(conversationContext),
-        relevantKnowledge: knowledge.items
+        relevantKnowledge: knowledge.items,
       };
 
       // Enhance with LLM if available
@@ -112,7 +125,7 @@ export class AgentContextService {
         userIntent: enhancedAnalysis?.userIntent || baseAnalysis.userIntent,
         contextualFactors: {
           ...baseAnalysis.contextualFactors,
-          ...enhancedAnalysis?.contextualFactors
+          ...enhancedAnalysis?.contextualFactors,
         },
         environmentFactors: baseAnalysis.environmentFactors,
         confidence: enhancedAnalysis?.confidence || this.calculateConfidence(baseAnalysis),
@@ -121,8 +134,8 @@ export class AgentContextService {
         metadata: {
           llmEnhanced: !!enhancedAnalysis,
           analysisVersion: '2.0',
-          service: this.serviceName
-        }
+          service: this.serviceName,
+        },
       };
 
       // Publish analysis completed event
@@ -130,13 +143,13 @@ export class AgentContextService {
         agentId,
         analysisId: contextAnalysis.id,
         confidence: contextAnalysis.confidence,
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
       });
 
       this.auditLog('CONTEXT_ANALYZED', {
         agentId,
         analysisId: contextAnalysis.id,
-        userId
+        userId,
       });
 
       return contextAnalysis;
@@ -158,10 +171,10 @@ export class AgentContextService {
       temporalContext: {
         sessionDuration: this.calculateSessionDuration(conversationContext),
         lastInteraction: conversationContext.lastInteractionTime,
-        interactionFrequency: this.calculateInteractionFrequency(conversationContext)
+        interactionFrequency: this.calculateInteractionFrequency(conversationContext),
       },
       emotionalContext: this.analyzeEmotionalContext(conversationContext),
-      taskContext: this.extractTaskContext(conversationContext)
+      taskContext: this.extractTaskContext(conversationContext),
     };
 
     return contextInfo;
@@ -180,7 +193,7 @@ export class AgentContextService {
       timezone: conversationContext.timezone || 'UTC',
       language: conversationContext.language || 'en',
       networkQuality: conversationContext.networkQuality || 'good',
-      securityLevel: this.securityLevel
+      securityLevel: this.securityLevel,
     };
   }
 
@@ -198,9 +211,10 @@ export class AgentContextService {
 
       const llmResponse = await this.llmService.generateResponse({
         prompt,
-        systemPrompt: 'You are an expert context analyst. Analyze the user request and conversation context to determine intent, relevant factors, and recommendations.',
+        systemPrompt:
+          'You are an expert context analyst. Analyze the user request and conversation context to determine intent, relevant factors, and recommendations.',
         temperature: 0.7,
-        maxTokens: 1000
+        maxTokens: 1000,
       });
 
       return llmResponse;
@@ -220,7 +234,7 @@ export class AgentContextService {
       secondary: [],
       confidence: 0.5,
       keywords: this.extractKeywords(userRequest),
-      sentiment: this.analyzeSentiment(userRequest)
+      sentiment: this.analyzeSentiment(userRequest),
     };
 
     // Pattern matching for common intents
@@ -260,7 +274,10 @@ export class AgentContextService {
       // Update context in knowledge graph - using updateKnowledge for now
       // TODO: Implement proper context update mechanism
       if (contextUpdate.knowledgeItemId) {
-        await this.knowledgeGraphService.updateKnowledge(contextUpdate.knowledgeItemId, contextUpdate);
+        await this.knowledgeGraphService.updateKnowledge(
+          contextUpdate.knowledgeItemId,
+          contextUpdate
+        );
       }
       await this.respondToRequest(requestId, { success: true });
     } catch (error) {
@@ -324,7 +341,7 @@ Please analyze:
 
     return context.messages
       .slice(-5) // Last 5 messages
-      .map(msg => `${msg.role}: ${msg.content}`)
+      .map((msg) => `${msg.role}: ${msg.content}`)
       .join('\n');
   }
 
@@ -353,7 +370,7 @@ Please analyze:
     return {
       userMood: 'neutral',
       frustrationLevel: 0,
-      satisfactionLevel: 0.5
+      satisfactionLevel: 0.5,
     };
   }
 
@@ -361,16 +378,17 @@ Please analyze:
     return {
       currentTask: null,
       completedTasks: [],
-      pendingTasks: []
+      pendingTasks: [],
     };
   }
 
   private extractKeywords(text: string): string[] {
     // Simple keyword extraction
-    return text.toLowerCase()
+    return text
+      .toLowerCase()
       .split(/\W+/)
-      .filter(word => word.length > 3)
-      .filter(word => !['the', 'and', 'for', 'with', 'from'].includes(word));
+      .filter((word) => word.length > 3)
+      .filter((word) => !['the', 'and', 'for', 'with', 'from'].includes(word));
   }
 
   private analyzeSentiment(text: string): string {
@@ -379,8 +397,8 @@ Please analyze:
     const negativeWords = ['bad', 'poor', 'terrible', 'unhappy', 'problem'];
 
     const words = text.toLowerCase().split(/\W+/);
-    const positiveCount = words.filter(w => positiveWords.includes(w)).length;
-    const negativeCount = words.filter(w => negativeWords.includes(w)).length;
+    const positiveCount = words.filter((w) => positiveWords.includes(w)).length;
+    const negativeCount = words.filter((w) => negativeWords.includes(w)).length;
 
     if (positiveCount > negativeCount) return 'positive';
     if (negativeCount > positiveCount) return 'negative';
@@ -416,7 +434,7 @@ Please analyze:
       await this.eventBusService.publish(channel, {
         ...data,
         source: this.serviceName,
-        securityLevel: this.securityLevel
+        securityLevel: this.securityLevel,
       });
     } catch (error) {
       logger.error('Failed to publish context event', { channel, error });
@@ -427,7 +445,7 @@ Please analyze:
     await this.eventBusService.publish('agent.context.response', {
       requestId,
       ...response,
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
     });
   }
 
@@ -436,7 +454,7 @@ Please analyze:
       ...data,
       service: this.serviceName,
       timestamp: new Date().toISOString(),
-      compliance: true
+      compliance: true,
     });
   }
 }

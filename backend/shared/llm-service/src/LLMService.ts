@@ -10,14 +10,20 @@ import {
   Message,
   DocumentContext,
   ToolCall,
-  ToolResult
+  ToolResult,
 } from './interfaces.js';
 import { getContextManager, ContextManager } from './context-manager/ContextManager.js';
 import { BaseProvider } from './providers/BaseProvider.js';
 import { OllamaProvider } from './providers/OllamaProvider.js';
 import { LLMStudioProvider } from './providers/LLMStudioProvider.js';
 import { OpenAIProvider } from './providers/OpenAIProvider.js';
-import { LLMProviderRepository, LLMProvider, UserLLMProviderRepository, UserLLMProvider, RedisCacheService } from '@uaip/shared-services';
+import {
+  LLMProviderRepository,
+  LLMProvider,
+  UserLLMProviderRepository,
+  UserLLMProvider,
+  RedisCacheService,
+} from '@uaip/shared-services';
 import { DatabaseService } from '@uaip/shared-services';
 import { logger } from '@uaip/utils';
 import { v4 as uuidv4 } from 'uuid';
@@ -63,7 +69,7 @@ export class LLMService {
 
       // Get active providers from all users (UserLLMProvider)
       const userProviders = await this.userLLMProviderRepository!.findActiveProviders();
-      
+
       logger.info(`Found ${userProviders.length} active user providers in database`);
 
       // Clear existing providers
@@ -87,7 +93,7 @@ export class LLMService {
           const llmProviderConfig = {
             ...providerConfig,
             type: providerConfig.type as 'ollama' | 'openai' | 'llmstudio' | 'anthropic' | 'custom',
-            baseUrl: providerConfig.baseUrl || 'http://localhost:11434' // Default baseUrl if not provided
+            baseUrl: providerConfig.baseUrl || 'http://localhost:11434', // Default baseUrl if not provided
           };
 
           switch (dbProvider.type) {
@@ -101,19 +107,21 @@ export class LLMService {
               provider = new OpenAIProvider(llmProviderConfig, dbProvider.name);
               break;
             default:
-              logger.warn(`Unsupported provider type: ${dbProvider.type}`, { providerId: dbProvider.id });
+              logger.warn(`Unsupported provider type: ${dbProvider.type}`, {
+                providerId: dbProvider.id,
+              });
               continue;
           }
 
           this.providers.set(dbProvider.type, provider);
           logger.info(`Initialized provider: ${dbProvider.name}`, {
             type: dbProvider.type,
-            id: dbProvider.id
+            id: dbProvider.id,
           });
         } catch (error) {
           logger.error(`Failed to initialize provider: ${dbProvider.name}`, {
             error,
-            providerId: dbProvider.id
+            providerId: dbProvider.id,
           });
         }
       }
@@ -126,12 +134,12 @@ export class LLMService {
 
       this.initialized = true;
       logger.info(`LLM Service initialized with ${this.providers.size} providers from database`, {
-        providerTypes: Array.from(this.providers.keys())
+        providerTypes: Array.from(this.providers.keys()),
       });
     } catch (error) {
       logger.error('Failed to initialize LLM service from database', {
         error: error instanceof Error ? error.message : error,
-        stack: error instanceof Error ? error.stack : undefined
+        stack: error instanceof Error ? error.stack : undefined,
       });
       // Fallback to environment-based initialization
       await this.initializeFallbackProviders();
@@ -142,33 +150,46 @@ export class LLMService {
     logger.info('Initializing fallback providers from environment');
 
     // Default Ollama provider
-    const ollamaProvider = new OllamaProvider({
-      type: 'ollama',
-      baseUrl: process.env.OLLAMA_URL || 'http://localhost:11434',
-      defaultModel: 'llama2',
-      timeout: 30000,
-      retries: 3
-    }, 'Default Ollama');
+    const ollamaProvider = new OllamaProvider(
+      {
+        type: 'ollama',
+        baseUrl: process.env.OLLAMA_URL || 'http://localhost:11434',
+        defaultModel: 'llama2',
+        timeout: 30000,
+        retries: 3,
+      },
+      'Default Ollama'
+    );
 
     // Default LLM Studio provider
-    const llmStudioProvider = new LLMStudioProvider({
-      type: 'llmstudio',
-      baseUrl: process.env.LLM_STUDIO_URL || 'http://192.168.1.9:1234',
-      defaultModel: 'gpt-3.5-turbo',
-      timeout: 30000,
-      retries: 3
-    }, 'Default LLM Studio');
+    const llmStudioProvider = new LLMStudioProvider(
+      {
+        type: 'llmstudio',
+        baseUrl: process.env.LLM_STUDIO_URL || 'http://192.168.1.9:1234',
+        defaultModel: 'gpt-3.5-turbo',
+        timeout: 30000,
+        retries: 3,
+      },
+      'Default LLM Studio'
+    );
 
     // OpenAI provider (if API key is available)
     if (process.env.OPENAI_API_KEY) {
-      const openaiProvider = new OpenAIProvider({
-        type: 'openai',
-        baseUrl: process.env.OPENAI_API_URL ? process.env.OPENAI_API_URL : 'https://api.openai.com',
-        apiKey: process.env.OPENAI_API_URL ? process.env.CUSTOM_OPENAI_API_KEY : process.env.OPENAI_API_KEY,
-        defaultModel: process.env.OPENAI_API_URL ? '' : 'gpt-3.5-turbo',
-        timeout: 30000,
-        retries: 3
-      }, 'OpenAI');
+      const openaiProvider = new OpenAIProvider(
+        {
+          type: 'openai',
+          baseUrl: process.env.OPENAI_API_URL
+            ? process.env.OPENAI_API_URL
+            : 'https://api.openai.com',
+          apiKey: process.env.OPENAI_API_URL
+            ? process.env.CUSTOM_OPENAI_API_KEY
+            : process.env.OPENAI_API_KEY,
+          defaultModel: process.env.OPENAI_API_URL ? '' : 'gpt-3.5-turbo',
+          timeout: 30000,
+          retries: 3,
+        },
+        'OpenAI'
+      );
 
       this.providers.set('openai', openaiProvider);
     }
@@ -178,7 +199,7 @@ export class LLMService {
 
     this.initialized = true;
     logger.info(`LLM Service initialized with ${this.providers.size} fallback providers`, {
-      providerTypes: Array.from(this.providers.keys())
+      providerTypes: Array.from(this.providers.keys()),
     });
   }
 
@@ -212,17 +233,18 @@ export class LLMService {
       const provider = await this.getBestProvider(preferredType);
       if (!provider) {
         return {
-          content: 'I apologize, but no LLM providers are currently available. Please check the system configuration.',
+          content:
+            'I apologize, but no LLM providers are currently available. Please check the system configuration.',
           model: 'unavailable',
           error: 'No active providers available',
-          finishReason: 'error'
+          finishReason: 'error',
         };
       }
 
       logger.info('Generating LLM response', {
         provider: preferredType || 'auto',
         promptLength: request.prompt.length,
-        model: request.model
+        model: request.model,
       });
 
       const response = await provider.generateResponse(request);
@@ -231,7 +253,7 @@ export class LLMService {
       logger.info('LLM response generated successfully', {
         tokensUsed: response.tokensUsed,
         duration,
-        isError: !!response.error
+        isError: !!response.error,
       });
 
       return response;
@@ -239,14 +261,15 @@ export class LLMService {
       const duration = Date.now() - startTime;
       logger.error('Error generating LLM response', {
         error,
-        duration
+        duration,
       });
 
       return {
-        content: 'I apologize, but I encountered an error generating my response. Please try again later.',
+        content:
+          'I apologize, but I encountered an error generating my response. Please try again later.',
         model: 'unknown',
         error: error instanceof Error ? error.message : 'Unknown error',
-        finishReason: 'error'
+        finishReason: 'error',
       };
     }
   }
@@ -261,13 +284,16 @@ export class LLMService {
       // Determine preferred provider type based on agent configuration
       const preferredType = this.getPreferredProviderType(request.agent);
 
-      const response = await this.generateResponse({
-        prompt,
-        systemPrompt,
-        maxTokens: request.agent.maxTokens || 500,
-        temperature: request.agent.temperature || 0.7,
-        model: request.agent.configuration?.model
-      }, preferredType);
+      const response = await this.generateResponse(
+        {
+          prompt,
+          systemPrompt,
+          maxTokens: request.agent.maxTokens || 500,
+          temperature: request.agent.temperature || 0.7,
+          model: request.agent.configuration?.model,
+        },
+        preferredType
+      );
 
       // Parse tool calls if agent has tools
       const { cleanContent, toolCalls } = this.parseToolCalls(response.content, request.tools);
@@ -275,19 +301,20 @@ export class LLMService {
       return {
         ...response,
         content: cleanContent,
-        toolCalls: toolCalls.length > 0 ? toolCalls : undefined
+        toolCalls: toolCalls.length > 0 ? toolCalls : undefined,
       };
     } catch (error) {
       logger.error('Error generating agent response', {
         agentId: request.agent.id,
-        error
+        error,
       });
 
       return {
-        content: 'I apologize, but I encountered an error generating my response. Please try again.',
+        content:
+          'I apologize, but I encountered an error generating my response. Please try again.',
         model: 'unknown',
         error: error instanceof Error ? error.message : 'Unknown error',
-        finishReason: 'error'
+        finishReason: 'error',
       };
     }
   }
@@ -311,14 +338,14 @@ export class LLMService {
         metadata: {
           language: request.language,
           framework: this.detectFramework(response.content, request.language),
-          dependencies: this.extractDependencies(response.content, request.language)
-        }
+          dependencies: this.extractDependencies(response.content, request.language),
+        },
       };
     } catch (error) {
       logger.error('Error generating artifact', {
         type: request.type,
         language: request.language,
-        error
+        error,
       });
 
       return {
@@ -328,8 +355,8 @@ export class LLMService {
         finishReason: 'error',
         artifactType: request.type,
         metadata: {
-          language: request.language
-        }
+          language: request.language,
+        },
       };
     }
   }
@@ -338,7 +365,8 @@ export class LLMService {
   async analyzeContext(request: ContextRequest): Promise<ContextAnalysis> {
     try {
       const prompt = this.buildContextAnalysisPrompt(request);
-      const systemPrompt = 'You are an expert conversation analyst. Analyze the context and provide structured insights in JSON format.';
+      const systemPrompt =
+        'You are an expert conversation analyst. Analyze the context and provide structured insights in JSON format.';
 
       const response = await this.generateResponse({
         prompt,
@@ -352,7 +380,7 @@ export class LLMService {
 
       return {
         ...response,
-        analysis
+        analysis,
       };
     } catch (error) {
       logger.error('Error analyzing context', { error });
@@ -367,50 +395,54 @@ export class LLMService {
           intent: {
             primary: 'unknown',
             secondary: [],
-            confidence: 0
+            confidence: 0,
           },
           context: {
             messageCount: request.conversationHistory.length,
-            participants: Array.from(new Set(request.conversationHistory.map(m => m.sender))),
+            participants: Array.from(new Set(request.conversationHistory.map((m) => m.sender))),
             topics: [],
             sentiment: 'neutral',
-            complexity: 'unknown'
+            complexity: 'unknown',
           },
-          recommendations: []
-        }
+          recommendations: [],
+        },
       };
     }
   }
 
   // Provider management methods
-  async getProviderStats(): Promise<Array<{
-    name: string;
-    type: string;
-    available: boolean;
-  }>> {
+  async getProviderStats(): Promise<
+    Array<{
+      name: string;
+      type: string;
+      available: boolean;
+    }>
+  > {
     const stats = [];
 
     for (const [name, provider] of this.providers) {
       stats.push({
         name,
         type: name, // Using name as type for now
-        available: true // Always true for initialized providers
+        available: true, // Always true for initialized providers
       });
     }
 
     return stats;
   }
 
-  async getAvailableModels(): Promise<Array<{
-    id: string;
-    name: string;
-    description?: string;
-    source: string;
-    apiEndpoint: string;
-    apiType: 'ollama' | 'llmstudio' | 'openai' | 'anthropic' | 'custom';
-    provider: string;
-    isAvailable: boolean;
-  }>> {
+  async getAvailableModels(): Promise<
+    Array<{
+      id: string;
+      name: string;
+      description?: string;
+      source: string;
+      apiEndpoint: string;
+      apiType: 'ollama' | 'llmstudio' | 'openai' | 'anthropic' | 'custom';
+      provider: string;
+      isAvailable: boolean;
+    }>
+  > {
     // Check cache first
     try {
       const cachedModels = await this.cacheService.get(LLMService.MODELS_CACHE_KEY);
@@ -437,7 +469,9 @@ export class LLMService {
       // Get only active providers from database
       const dbProviders = await this.llmProviderRepository.findActiveProviders();
 
-      logger.info(`Getting available models from ${dbProviders.length} database-configured providers`);
+      logger.info(
+        `Getting available models from ${dbProviders.length} database-configured providers`
+      );
 
       for (const dbProvider of dbProviders) {
         const provider = this.providers.get(dbProvider.type);
@@ -447,22 +481,27 @@ export class LLMService {
         }
 
         try {
-          logger.info(`Fetching models from database provider: ${dbProvider.name} (${dbProvider.type})`, {
-            baseUrl: dbProvider.baseUrl
-          });
+          logger.info(
+            `Fetching models from database provider: ${dbProvider.name} (${dbProvider.type})`,
+            {
+              baseUrl: dbProvider.baseUrl,
+            }
+          );
           const models = await provider.getAvailableModels();
           logger.info(`Provider ${dbProvider.name} returned ${models.length} models`);
-          allModels.push(...models.map(model => ({
-            ...model,
-            provider: dbProvider.type,
-            apiType: dbProvider.type as any,
-            isAvailable: true
-          })));
+          allModels.push(
+            ...models.map((model) => ({
+              ...model,
+              provider: dbProvider.type,
+              apiType: dbProvider.type as any,
+              isAvailable: true,
+            }))
+          );
         } catch (error) {
           logger.error(`Failed to get models from database provider ${dbProvider.name}`, {
             error: error instanceof Error ? error.message : error,
             stack: error instanceof Error ? error.stack : undefined,
-            baseUrl: dbProvider.baseUrl
+            baseUrl: dbProvider.baseUrl,
           });
         }
       }
@@ -483,24 +522,31 @@ export class LLMService {
     return allModels;
   }
 
-  async getModelsFromProvider(providerType: string): Promise<Array<{
-    id: string;
-    name: string;
-    description?: string;
-    source: string;
-    apiEndpoint: string;
-  }>> {
+  async getModelsFromProvider(providerType: string): Promise<
+    Array<{
+      id: string;
+      name: string;
+      description?: string;
+      source: string;
+      apiEndpoint: string;
+    }>
+  > {
     const cacheKey = `${LLMService.PROVIDER_MODELS_CACHE_PREFIX}${providerType}`;
 
     // Check cache first
     try {
       const cachedModels = await this.cacheService.get(cacheKey);
       if (cachedModels) {
-        logger.debug(`Returning cached models for provider ${providerType}`, { modelCount: cachedModels.length });
+        logger.debug(`Returning cached models for provider ${providerType}`, {
+          modelCount: cachedModels.length,
+        });
         return cachedModels;
       }
     } catch (error) {
-      logger.warn(`Failed to get models from cache for provider ${providerType}, proceeding with fresh fetch`, { error });
+      logger.warn(
+        `Failed to get models from cache for provider ${providerType}, proceeding with fresh fetch`,
+        { error }
+      );
     }
 
     if (!this.initialized) {
@@ -530,15 +576,17 @@ export class LLMService {
     }
   }
 
-  async getConfiguredProviders(): Promise<Array<{
-    name: string;
-    type: string;
-    baseUrl: string;
-    isActive: boolean;
-    defaultModel?: string;
-    modelCount: number;
-    status: 'active' | 'inactive' | 'error';
-  }>> {
+  async getConfiguredProviders(): Promise<
+    Array<{
+      name: string;
+      type: string;
+      baseUrl: string;
+      isActive: boolean;
+      defaultModel?: string;
+      modelCount: number;
+      status: 'active' | 'inactive' | 'error';
+    }>
+  > {
     // Check cache first
     try {
       const cachedProviders = await this.cacheService.get(LLMService.PROVIDERS_CACHE_KEY);
@@ -556,7 +604,7 @@ export class LLMService {
 
     logger.info(`Getting configured providers. Initialized providers: ${this.providers.size}`, {
       providerTypes: Array.from(this.providers.keys()),
-      hasRepository: !!this.llmProviderRepository
+      hasRepository: !!this.llmProviderRepository,
     });
 
     const providers = [];
@@ -585,7 +633,7 @@ export class LLMService {
             isActive: dbProvider.isActive && isInitialized,
             defaultModel: dbProvider.defaultModel,
             modelCount,
-            status: dbProvider.isActive && isInitialized ? 'active' : 'inactive'
+            status: dbProvider.isActive && isInitialized ? 'active' : 'inactive',
           });
         }
       } catch (error) {
@@ -607,14 +655,16 @@ export class LLMService {
   }
 
   // Health check method to test provider connectivity
-  async checkProviderHealth(): Promise<Array<{
-    name: string;
-    type: string;
-    baseUrl: string;
-    isHealthy: boolean;
-    error?: string;
-    modelCount: number;
-  }>> {
+  async checkProviderHealth(): Promise<
+    Array<{
+      name: string;
+      type: string;
+      baseUrl: string;
+      isHealthy: boolean;
+      error?: string;
+      modelCount: number;
+    }>
+  > {
     if (!this.initialized) {
       await this.initializeFromDatabase();
     }
@@ -633,7 +683,7 @@ export class LLMService {
           baseUrl: provider.getBaseUrl(),
           isHealthy: true,
           modelCount: models.length,
-          responseTime
+          responseTime,
         });
       } catch (error) {
         healthResults.push({
@@ -642,7 +692,7 @@ export class LLMService {
           baseUrl: provider.getBaseUrl(),
           isHealthy: false,
           error: error instanceof Error ? error.message : 'Unknown error',
-          modelCount: 0
+          modelCount: 0,
         });
       }
     }
@@ -653,27 +703,27 @@ export class LLMService {
   // Private helper methods
   private buildAgentPrompt(request: AgentResponseRequest): string {
     const { agent, messages, context, tools = [] } = request;
-    
+
     // Create optimized rolling window context
     const contextDocs = context ? [context] : [];
     const systemPrompt = this.buildAgentSystemPrompt(request);
     const systemPromptTokens = this.contextManager.estimateTokens(systemPrompt);
-    
+
     const window = this.contextManager.createRollingWindow(
-      messages, 
-      systemPromptTokens, 
-      tools.length, 
+      messages,
+      systemPromptTokens,
+      tools.length,
       contextDocs
     );
 
     // Log context health
     const health = this.contextManager.analyzeContextHealth(window);
     if (health.status !== 'healthy') {
-      logger.warn('Context health issue', { 
-        status: health.status, 
+      logger.warn('Context health issue', {
+        status: health.status,
         warnings: health.warnings,
         recommendations: health.recommendations,
-        agentId: agent.id 
+        agentId: agent.id,
       });
     }
 
@@ -681,7 +731,7 @@ export class LLMService {
 
     // Add deduplicated context documents
     if (window.contextDocuments.length > 0) {
-      window.contextDocuments.forEach(doc => {
+      window.contextDocuments.forEach((doc) => {
         prompt += `Context Document:\nTitle: ${doc.title}\nContent: ${doc.content}\n\n`;
       });
     }
@@ -694,23 +744,23 @@ export class LLMService {
     // Add recent conversation history
     if (window.recentMessages.length > 0) {
       prompt += 'Recent Conversation:\n';
-      window.recentMessages.forEach(msg => {
+      window.recentMessages.forEach((msg) => {
         prompt += `${msg.sender}: ${msg.content}\n`;
       });
       prompt += '\n';
     }
 
     prompt += `${agent.name}:`;
-    
+
     logger.info('Context window created', {
       agentId: agent.id,
       totalMessages: messages.length,
       recentMessages: window.recentMessages.length,
       hasSummary: !!window.summarizedContext,
       estimatedTokens: window.estimatedTokens,
-      contextHealth: health.status
+      contextHealth: health.status,
     });
-    
+
     return prompt;
   }
 
@@ -740,7 +790,8 @@ export class LLMService {
     systemPrompt += `RESPONSE GUIDELINES:\n`;
     systemPrompt += `- Keep responses under ${responseWordLimit} words unless the query explicitly requires more detail\n`;
     systemPrompt += '- Be direct and concise while maintaining helpfulness\n';
-    systemPrompt += '- Use structured format (bullet points, numbered lists) for complex information\n';
+    systemPrompt +=
+      '- Use structured format (bullet points, numbered lists) for complex information\n';
     systemPrompt += '- Offer to elaborate on specific aspects if the topic is complex\n\n';
 
     if (agent.persona?.capabilities && agent.persona.capabilities.length > 0) {
@@ -749,14 +800,14 @@ export class LLMService {
 
     if (tools.length > 0) {
       systemPrompt += '\nAvailable tools:\n';
-      tools.forEach(tool => {
+      tools.forEach((tool) => {
         systemPrompt += `- ${tool.name}: ${tool.description}\n`;
       });
     }
 
     // Cache the persona prompt to avoid rebuilding
     this.contextManager.cachePersonaPrompt(agent.id, systemPrompt);
-    
+
     return systemPrompt;
   }
 
@@ -770,13 +821,13 @@ export class LLMService {
     prompt += ` based on the following context and requirements:\n\n`;
     prompt += `Context: ${request.context}\n\n`;
     prompt += `Requirements:\n`;
-    request.requirements.forEach(req => {
+    request.requirements.forEach((req) => {
       prompt += `- ${req}\n`;
     });
 
     if (request.constraints && request.constraints.length > 0) {
       prompt += `\nConstraints:\n`;
-      request.constraints.forEach(constraint => {
+      request.constraints.forEach((constraint) => {
         prompt += `- ${constraint}\n`;
       });
     }
@@ -787,9 +838,10 @@ export class LLMService {
   private buildArtifactSystemPrompt(request: ArtifactRequest): string {
     const typePrompts = {
       code: 'You are an expert software engineer. Generate clean, well-structured, production-ready code with appropriate comments and error handling.',
-      documentation: 'You are a technical writer. Generate clear, comprehensive documentation that is easy to understand and follow.',
+      documentation:
+        'You are a technical writer. Generate clear, comprehensive documentation that is easy to understand and follow.',
       test: 'You are a QA engineer. Generate thorough test cases that cover edge cases and ensure code reliability.',
-      prd: 'You are a product manager. Generate detailed product requirements that are clear, actionable, and comprehensive.'
+      prd: 'You are a product manager. Generate detailed product requirements that are clear, actionable, and comprehensive.',
     };
 
     let systemPrompt = typePrompts[request.type] || 'You are an expert assistant.';
@@ -811,7 +863,7 @@ export class LLMService {
     }
 
     prompt += 'Conversation History:\n';
-    request.conversationHistory.forEach(msg => {
+    request.conversationHistory.forEach((msg) => {
       prompt += `${msg.sender}: ${msg.content}\n`;
     });
 
@@ -826,7 +878,6 @@ export class LLMService {
 
     return prompt;
   }
-
 
   private getPreferredProviderType(agent: any): string | undefined {
     // Logic to determine preferred provider based on agent configuration
@@ -845,7 +896,10 @@ export class LLMService {
     return 'llmstudio'; // Default fallback
   }
 
-  private parseToolCalls(content: string, tools?: any[]): { cleanContent: string; toolCalls: ToolCall[] } {
+  private parseToolCalls(
+    content: string,
+    tools?: any[]
+  ): { cleanContent: string; toolCalls: ToolCall[] } {
     // Simple tool call parsing - can be enhanced based on specific format
     const toolCallRegex = /\[TOOL_CALL:(\w+)\((.*?)\)\]/g;
     const toolCalls: ToolCall[] = [];
@@ -860,8 +914,8 @@ export class LLMService {
         type: 'function',
         function: {
           name: toolName,
-          arguments: args
-        }
+          arguments: args,
+        },
       });
 
       cleanContent = cleanContent.replace(fullMatch, '').trim();
@@ -886,16 +940,16 @@ export class LLMService {
       intent: {
         primary: this.extractPrimaryIntent(request.userRequest),
         secondary: [],
-        confidence: 0.5
+        confidence: 0.5,
       },
       context: {
         messageCount: request.conversationHistory.length,
-        participants: Array.from(new Set(request.conversationHistory.map(m => m.sender))),
+        participants: Array.from(new Set(request.conversationHistory.map((m) => m.sender))),
         topics: this.extractTopics(request.conversationHistory),
         sentiment: 'neutral',
-        complexity: request.conversationHistory.length > 10 ? 'high' : 'low'
+        complexity: request.conversationHistory.length > 10 ? 'high' : 'low',
       },
-      recommendations: []
+      recommendations: [],
     };
   }
 
@@ -905,10 +959,18 @@ export class LLMService {
     if (lowerRequest.includes('create') || lowerRequest.includes('generate')) {
       return 'creation';
     }
-    if (lowerRequest.includes('explain') || lowerRequest.includes('what') || lowerRequest.includes('how')) {
+    if (
+      lowerRequest.includes('explain') ||
+      lowerRequest.includes('what') ||
+      lowerRequest.includes('how')
+    ) {
       return 'explanation';
     }
-    if (lowerRequest.includes('fix') || lowerRequest.includes('debug') || lowerRequest.includes('error')) {
+    if (
+      lowerRequest.includes('fix') ||
+      lowerRequest.includes('debug') ||
+      lowerRequest.includes('error')
+    ) {
       return 'troubleshooting';
     }
 
@@ -918,11 +980,26 @@ export class LLMService {
   private extractTopics(messages: Message[]): string[] {
     // Simple topic extraction - can be enhanced with NLP
     const topics = new Set<string>();
-    const commonWords = new Set(['the', 'a', 'an', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for', 'of', 'with', 'by']);
+    const commonWords = new Set([
+      'the',
+      'a',
+      'an',
+      'and',
+      'or',
+      'but',
+      'in',
+      'on',
+      'at',
+      'to',
+      'for',
+      'of',
+      'with',
+      'by',
+    ]);
 
-    messages.forEach(msg => {
+    messages.forEach((msg) => {
       const words = msg.content.toLowerCase().split(/\s+/);
-      words.forEach(word => {
+      words.forEach((word) => {
         word = word.replace(/[^\w]/g, '');
         if (word.length > 3 && !commonWords.has(word)) {
           topics.add(word);
@@ -941,13 +1018,13 @@ export class LLMService {
       typescript: ['react', 'vue', 'angular', 'express', 'nestjs'],
       python: ['django', 'flask', 'fastapi', 'pandas', 'numpy'],
       java: ['spring', 'hibernate', 'junit'],
-      csharp: ['asp.net', '.net', 'entity framework']
+      csharp: ['asp.net', '.net', 'entity framework'],
     };
 
     const contentLower = content.toLowerCase();
     const possibleFrameworks = frameworks[language.toLowerCase()] || [];
 
-    return possibleFrameworks.find(fw => contentLower.includes(fw));
+    return possibleFrameworks.find((fw) => contentLower.includes(fw));
   }
 
   private extractDependencies(content: string, language?: string): string[] {
@@ -961,13 +1038,13 @@ export class LLMService {
       case 'typescript':
         const jsImports = content.match(/import .+ from ['"]([^'"]+)['"]/g) || [];
         const requires = content.match(/require\(['"]([^'"]+)['"]\)/g) || [];
-        deps.push(...jsImports.map(imp => imp.match(/['"]([^'"]+)['"]/)![1]));
-        deps.push(...requires.map(req => req.match(/['"]([^'"]+)['"]/)![1]));
+        deps.push(...jsImports.map((imp) => imp.match(/['"]([^'"]+)['"]/)![1]));
+        deps.push(...requires.map((req) => req.match(/['"]([^'"]+)['"]/)![1]));
         break;
 
       case 'python':
         const pythonImports = content.match(/(?:from|import)\s+(\w+)/g) || [];
-        deps.push(...pythonImports.map(imp => imp.replace(/(?:from|import)\s+/, '')));
+        deps.push(...pythonImports.map((imp) => imp.replace(/(?:from|import)\s+/, '')));
         break;
     }
 
@@ -1008,9 +1085,9 @@ export class LLMService {
       this.invalidateModelsCache(),
       this.invalidateProvidersCache(),
       // Invalidate all provider-specific model caches
-      ...Array.from(this.providers.keys()).map(providerType =>
+      ...Array.from(this.providers.keys()).map((providerType) =>
         this.invalidateProviderModelsCache(providerType)
-      )
+      ),
     ]);
     logger.info('Invalidated all LLM service caches');
   }
@@ -1032,4 +1109,4 @@ export class LLMService {
 }
 
 // Export singleton instance
-export const llmService = LLMService.getInstance(); 
+export const llmService = LLMService.getInstance();

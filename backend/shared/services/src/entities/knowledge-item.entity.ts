@@ -1,4 +1,11 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, Index } from 'typeorm';
+import {
+  Entity,
+  PrimaryGeneratedColumn,
+  Column,
+  CreateDateColumn,
+  UpdateDateColumn,
+  Index,
+} from 'typeorm';
 import { KnowledgeType, SourceType } from '@uaip/types';
 import { BaseEntity } from './base.entity.js';
 
@@ -11,21 +18,19 @@ import { BaseEntity } from './base.entity.js';
 @Index(['userId', 'type'])
 @Index(['agentId', 'type'])
 export class KnowledgeItemEntity extends BaseEntity {
-
-
   @Column('text')
   content: string;
 
   @Column({
     type: 'enum',
     enum: KnowledgeType,
-    default: KnowledgeType.FACTUAL
+    default: KnowledgeType.FACTUAL,
   })
   type: KnowledgeType;
 
   @Column({
     type: 'enum',
-    enum: SourceType
+    enum: SourceType,
   })
   sourceType: SourceType;
 
@@ -43,7 +48,6 @@ export class KnowledgeItemEntity extends BaseEntity {
 
   @Column('jsonb', { default: '{}' })
   metadata: Record<string, any>;
-
 
   @Column('varchar', { length: 36, nullable: true })
   createdBy?: string;
@@ -63,4 +67,4 @@ export class KnowledgeItemEntity extends BaseEntity {
 
   @Column('text', { nullable: true })
   summary?: string;
-} 
+}

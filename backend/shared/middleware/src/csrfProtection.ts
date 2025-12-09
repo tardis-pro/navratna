@@ -23,7 +23,7 @@ export class CSRFProtection {
       secretLength: csrfConfig.secretLength || 32,
       skipIfSafe: csrfConfig.skipIfSafe !== false,
       exemptPaths: csrfConfig.exemptPaths || ['/health', '/metrics', '/api/v1/auth/login'],
-      exemptMethods: csrfConfig.exemptMethods || ['GET', 'HEAD', 'OPTIONS']
+      exemptMethods: csrfConfig.exemptMethods || ['GET', 'HEAD', 'OPTIONS'],
     };
   }
 
@@ -32,10 +32,7 @@ export class CSRFProtection {
     const tokenValue = this.generateSecret();
     const token = `${tokenSecret}.${tokenValue}`;
 
-    const signature = crypto
-      .createHmac('sha256', tokenSecret)
-      .update(tokenValue)
-      .digest('hex');
+    const signature = crypto.createHmac('sha256', tokenSecret).update(tokenValue).digest('hex');
 
     return `${token}.${signature}`;
   }
@@ -98,16 +95,16 @@ export class CSRFProtection {
         const url = new URL(request.url);
 
         // Skip if path is exempt
-        if (this.config.exemptPaths.some(path => url.pathname.startsWith(path))) {
+        if (this.config.exemptPaths.some((path) => url.pathname.startsWith(path))) {
           return {
-            csrfToken: () => this.generateToken()
+            csrfToken: () => this.generateToken(),
           };
         }
 
         // Skip if method is safe and skipIfSafe is enabled
         if (this.config.skipIfSafe && this.config.exemptMethods.includes(request.method)) {
           return {
-            csrfToken: () => this.generateToken()
+            csrfToken: () => this.generateToken(),
           };
         }
 
@@ -118,7 +115,7 @@ export class CSRFProtection {
           if (!token) {
             logger.warn('CSRF protection: Missing token', {
               method: request.method,
-              path: url.pathname
+              path: url.pathname,
             });
             set.status = 403;
             return {
@@ -127,16 +124,16 @@ export class CSRFProtection {
                 success: false,
                 error: {
                   code: 'CSRF_TOKEN_MISSING',
-                  message: 'CSRF token is required for this operation'
-                }
-              }
+                  message: 'CSRF token is required for this operation',
+                },
+              },
             };
           }
 
           if (!this.verifyToken(token)) {
             logger.warn('CSRF protection: Invalid token', {
               method: request.method,
-              path: url.pathname
+              path: url.pathname,
             });
             set.status = 403;
             return {
@@ -145,15 +142,15 @@ export class CSRFProtection {
                 success: false,
                 error: {
                   code: 'CSRF_TOKEN_INVALID',
-                  message: 'Invalid CSRF token'
-                }
-              }
+                  message: 'Invalid CSRF token',
+                },
+              },
             };
           }
         }
 
         return {
-          csrfToken: () => this.generateToken()
+          csrfToken: () => this.generateToken(),
         };
       });
     };
@@ -165,31 +162,37 @@ export class CSRFProtection {
       try {
         const token = this.generateToken();
 
-        return new Response(JSON.stringify({
-          success: true,
-          data: {
-            token,
-            headerName: this.config.headerName
+        return new Response(
+          JSON.stringify({
+            success: true,
+            data: {
+              token,
+              headerName: this.config.headerName,
+            },
+          }),
+          {
+            status: 200,
+            headers: {
+              'Content-Type': 'application/json',
+              'Set-Cookie': `${this.config.cookieName}=${token}; HttpOnly=false; SameSite=Strict; Max-Age=3600`,
+            },
           }
-        }), {
-          status: 200,
-          headers: {
-            'Content-Type': 'application/json',
-            'Set-Cookie': `${this.config.cookieName}=${token}; HttpOnly=false; SameSite=Strict; Max-Age=3600`
-          }
-        });
+        );
       } catch (error) {
         logger.error('Error in CSRF token endpoint:', error);
-        return new Response(JSON.stringify({
-          success: false,
-          error: {
-            code: 'CSRF_TOKEN_ERROR',
-            message: 'Internal server error while generating CSRF token'
+        return new Response(
+          JSON.stringify({
+            success: false,
+            error: {
+              code: 'CSRF_TOKEN_ERROR',
+              message: 'Internal server error while generating CSRF token',
+            },
+          }),
+          {
+            status: 500,
+            headers: { 'Content-Type': 'application/json' },
           }
-        }), {
-          status: 500,
-          headers: { 'Content-Type': 'application/json' }
-        });
+        );
       }
     };
   }

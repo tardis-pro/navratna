@@ -44,6 +44,7 @@ POST /api/v1/artifacts/analyze
 ```
 
 **Request:**
+
 ```json
 {
   "context": {
@@ -73,6 +74,7 @@ POST /api/v1/artifacts/analyze
 ```
 
 **Response:**
+
 ```json
 {
   "triggers": [
@@ -110,6 +112,7 @@ POST /api/v1/artifacts/generate
 ```
 
 **Request:**
+
 ```json
 {
   "type": "code-diff",
@@ -141,6 +144,7 @@ POST /api/v1/artifacts/generate
 ```
 
 **Response:**
+
 ```json
 {
   "result": {
@@ -187,6 +191,7 @@ GET /api/v1/artifacts/types
 ```
 
 **Response:**
+
 ```json
 {
   "types": [
@@ -330,4 +335,4 @@ The service provides comprehensive monitoring through:
 
 ## License
 
-MIT License - see LICENSE file for details. 
+MIT License - see LICENSE file for details.

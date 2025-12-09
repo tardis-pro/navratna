@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { 
+import {
   Package,
   Plus,
   Search,
@@ -16,7 +16,7 @@ import {
   Clock,
   User,
   Eye,
-  MoreHorizontal
+  MoreHorizontal,
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -43,9 +43,7 @@ interface ArtifactsPortalProps {
   className?: string;
 }
 
-export const ArtifactsPortal: React.FC<ArtifactsPortalProps> = ({
-  className = ''
-}) => {
+export const ArtifactsPortal: React.FC<ArtifactsPortalProps> = ({ className = '' }) => {
   const [artifacts, setArtifacts] = useState<Artifact[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedType, setSelectedType] = useState<string>('all');
@@ -66,7 +64,7 @@ export const ArtifactsPortal: React.FC<ArtifactsPortalProps> = ({
         isFavorite: true,
         downloadCount: 45,
         version: '1.2.0',
-        status: 'published'
+        status: 'published',
       },
       {
         id: '2',
@@ -81,7 +79,7 @@ export const ArtifactsPortal: React.FC<ArtifactsPortalProps> = ({
         isFavorite: false,
         downloadCount: 12,
         version: '1.0.0',
-        status: 'published'
+        status: 'published',
       },
       {
         id: '3',
@@ -96,7 +94,7 @@ export const ArtifactsPortal: React.FC<ArtifactsPortalProps> = ({
         isFavorite: true,
         downloadCount: 28,
         version: '1.0.0',
-        status: 'published'
+        status: 'published',
       },
       {
         id: '4',
@@ -111,8 +109,8 @@ export const ArtifactsPortal: React.FC<ArtifactsPortalProps> = ({
         isFavorite: false,
         downloadCount: 3,
         version: '2024.01.20',
-        status: 'published'
-      }
+        status: 'published',
+      },
     ];
 
     setArtifacts(mockArtifacts);
@@ -120,9 +118,10 @@ export const ArtifactsPortal: React.FC<ArtifactsPortalProps> = ({
 
   // Filter artifacts
   const filteredArtifacts = artifacts
-    .filter(artifact => {
-      const matchesSearch = artifact.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                           artifact.description?.toLowerCase().includes(searchQuery.toLowerCase());
+    .filter((artifact) => {
+      const matchesSearch =
+        artifact.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        artifact.description?.toLowerCase().includes(searchQuery.toLowerCase());
       const matchesType = selectedType === 'all' || artifact.type === selectedType;
       return matchesSearch && matchesType;
     })
@@ -131,12 +130,12 @@ export const ArtifactsPortal: React.FC<ArtifactsPortalProps> = ({
   // Get type icon
   const getTypeIcon = (type: string) => {
     const icons = {
-      'code': Code,
-      'document': FileText,
-      'image': Image,
-      'video': Video,
-      'audio': Music,
-      'archive': Archive,
+      code: Code,
+      document: FileText,
+      image: Image,
+      video: Video,
+      audio: Music,
+      archive: Archive,
     };
     return icons[type as keyof typeof icons] || Package;
   };
@@ -144,12 +143,12 @@ export const ArtifactsPortal: React.FC<ArtifactsPortalProps> = ({
   // Get type color
   const getTypeColor = (type: string) => {
     const colors = {
-      'code': 'text-blue-400',
-      'document': 'text-green-400',
-      'image': 'text-purple-400',
-      'video': 'text-red-400',
-      'audio': 'text-yellow-400',
-      'archive': 'text-gray-400',
+      code: 'text-blue-400',
+      document: 'text-green-400',
+      image: 'text-purple-400',
+      video: 'text-red-400',
+      audio: 'text-yellow-400',
+      archive: 'text-gray-400',
     };
     return colors[type as keyof typeof colors] || 'text-slate-400';
   };
@@ -164,9 +163,11 @@ export const ArtifactsPortal: React.FC<ArtifactsPortalProps> = ({
   };
 
   return (
-    <div className={`h-full flex flex-col bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 ${className}`}>
+    <div
+      className={`h-full flex flex-col bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 ${className}`}
+    >
       {/* Minimal Header */}
-      <motion.div 
+      <motion.div
         className="p-6 border-b border-cyan-500/20 bg-slate-900/50 backdrop-blur-sm"
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -175,12 +176,12 @@ export const ArtifactsPortal: React.FC<ArtifactsPortalProps> = ({
           <div className="flex items-center gap-3">
             <motion.div
               className="w-12 h-12 rounded-xl bg-gradient-to-br from-cyan-500 to-blue-600 flex items-center justify-center"
-              animate={{ 
+              animate={{
                 boxShadow: [
                   '0 0 20px rgba(59, 130, 246, 0.3)',
                   '0 0 30px rgba(6, 182, 212, 0.4)',
-                  '0 0 20px rgba(59, 130, 246, 0.3)'
-                ]
+                  '0 0 20px rgba(59, 130, 246, 0.3)',
+                ],
               }}
               transition={{ duration: 2, repeat: Infinity }}
             >
@@ -191,10 +192,8 @@ export const ArtifactsPortal: React.FC<ArtifactsPortalProps> = ({
               <p className="text-slate-400">Digital assets and generated content</p>
             </div>
           </div>
-          
-          <button
-            className="px-6 py-3 bg-gradient-to-r from-cyan-500 to-blue-600 text-white rounded-xl hover:from-cyan-400 hover:to-blue-500 transition-all duration-300 flex items-center gap-2 hover:scale-105 active:scale-95"
-          >
+
+          <button className="px-6 py-3 bg-gradient-to-r from-cyan-500 to-blue-600 text-white rounded-xl hover:from-cyan-400 hover:to-blue-500 transition-all duration-300 flex items-center gap-2 hover:scale-105 active:scale-95">
             <Plus className="w-4 h-4" />
             Create
           </button>
@@ -212,7 +211,7 @@ export const ArtifactsPortal: React.FC<ArtifactsPortalProps> = ({
               className="pl-10 bg-slate-800/50 border-slate-600/30 text-white placeholder-slate-400 rounded-xl focus:border-cyan-500/50"
             />
           </div>
-          
+
           <select
             value={selectedType}
             onChange={(e) => setSelectedType(e.target.value)}
@@ -231,9 +230,7 @@ export const ArtifactsPortal: React.FC<ArtifactsPortalProps> = ({
       {/* Clean Content Grid */}
       <div className="flex-1 overflow-hidden p-6">
         <div className="mb-4 flex items-center justify-between">
-          <span className="text-slate-400 text-sm">
-            {filteredArtifacts.length} artifacts
-          </span>
+          <span className="text-slate-400 text-sm">{filteredArtifacts.length} artifacts</span>
         </div>
 
         <ScrollArea className="h-full">
@@ -241,7 +238,7 @@ export const ArtifactsPortal: React.FC<ArtifactsPortalProps> = ({
             <AnimatePresence>
               {filteredArtifacts.map((artifact, index) => {
                 const TypeIcon = getTypeIcon(artifact.type);
-                
+
                 return (
                   <motion.div
                     key={artifact.id}
@@ -256,18 +253,20 @@ export const ArtifactsPortal: React.FC<ArtifactsPortalProps> = ({
                     <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-slate-800/60 via-blue-900/30 to-purple-900/20 backdrop-blur-xl border border-cyan-500/20 hover:border-cyan-400/40 transition-all duration-300 p-6">
                       {/* Glow effect */}
                       <div className="absolute inset-0 bg-gradient-to-r from-cyan-500/5 via-transparent to-purple-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
-                      
+
                       {/* Header */}
                       <div className="relative flex items-start justify-between mb-4">
                         <div className="flex items-center gap-3">
-                          <div className={`w-10 h-10 rounded-xl bg-slate-700/50 flex items-center justify-center ${getTypeColor(artifact.type)}`}>
+                          <div
+                            className={`w-10 h-10 rounded-xl bg-slate-700/50 flex items-center justify-center ${getTypeColor(artifact.type)}`}
+                          >
                             <TypeIcon className="w-5 h-5" />
                           </div>
                           {artifact.isFavorite && (
                             <Star className="w-4 h-4 text-yellow-400 fill-current" />
                           )}
                         </div>
-                        
+
                         <button className="opacity-0 group-hover:opacity-100 transition-opacity p-1 hover:bg-slate-600/50 rounded-lg">
                           <MoreHorizontal className="w-4 h-4 text-slate-400" />
                         </button>
@@ -296,7 +295,7 @@ export const ArtifactsPortal: React.FC<ArtifactsPortalProps> = ({
                             <Download className="w-3 h-3" />
                             <span>{artifact.downloadCount}</span>
                           </div>
-                          
+
                           <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                             <button className="text-xs text-cyan-400 hover:text-cyan-300 px-2 py-1 rounded">
                               View
@@ -310,9 +309,9 @@ export const ArtifactsPortal: React.FC<ArtifactsPortalProps> = ({
                         {/* Tags */}
                         {artifact.tags.length > 0 && (
                           <div className="flex flex-wrap gap-1">
-                            {artifact.tags.slice(0, 2).map(tag => (
-                              <span 
-                                key={tag} 
+                            {artifact.tags.slice(0, 2).map((tag) => (
+                              <span
+                                key={tag}
                                 className="text-xs px-2 py-1 bg-slate-700/50 text-slate-300 rounded-md"
                               >
                                 {tag}

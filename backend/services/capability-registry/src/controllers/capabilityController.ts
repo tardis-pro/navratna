@@ -16,13 +16,17 @@ interface Response {
 }
 
 type NextFunction = (error?: any) => void;
-import { CapabilityDiscoveryService, SecurityValidationService, DatabaseService } from '@uaip/shared-services';
+import {
+  CapabilityDiscoveryService,
+  SecurityValidationService,
+  DatabaseService,
+} from '@uaip/shared-services';
 import {
   Capability,
   CapabilityType,
   SecurityLevel,
   SecurityContext,
-  CapabilitySearchQuery
+  CapabilitySearchQuery,
 } from '@uaip/types';
 
 export class CapabilityController {
@@ -35,7 +39,11 @@ export class CapabilityController {
   }
 
   // GET /api/v1/capabilities/search
-  public searchCapabilities = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  public searchCapabilities = async (
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> => {
     try {
       const { query, type, category, securityLevel, limit = 50, offset = 0 } = req.query;
 
@@ -46,11 +54,11 @@ export class CapabilityController {
       const searchQuery: CapabilitySearchQuery = {
         query: query as string,
         type: type as CapabilityType,
-        limit: parseInt(limit as string, 10)
+        limit: parseInt(limit as string, 10),
       };
 
       const securityContext = this.extractSecurityContext(req);
-      
+
       // Validate search permissions
       await this.securityValidationService.validateOperation(
         securityContext,
@@ -66,22 +74,25 @@ export class CapabilityController {
         data: {
           capabilities,
           totalCount: capabilities.length,
-          recommendations: []
+          recommendations: [],
         },
         meta: {
           query: searchQuery,
           timestamp: new Date(),
-          service: 'capability-registry'
-        }
+          service: 'capability-registry',
+        },
       });
-
     } catch (error) {
       next(error);
     }
   };
 
   // POST /api/v1/capabilities/register
-  public registerCapability = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  public registerCapability = async (
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> => {
     try {
       const capability: Capability = req.body;
 
@@ -103,20 +114,19 @@ export class CapabilityController {
       // This would need to be implemented in the CapabilityDiscoveryService
       logger.info('Capability registration requested', {
         capabilityName: capability.name,
-        userId: securityContext.userId
+        userId: securityContext.userId,
       });
 
       res.status(201).json({
         success: true,
         data: {
-          capability
+          capability,
         },
         meta: {
           timestamp: new Date(),
-          service: 'capability-registry'
-        }
+          service: 'capability-registry',
+        },
       });
-
     } catch (error) {
       next(error);
     }
@@ -150,21 +160,24 @@ export class CapabilityController {
       res.status(200).json({
         success: true,
         data: {
-          capability
+          capability,
         },
         meta: {
           timestamp: new Date(),
-          service: 'capability-registry'
-        }
+          service: 'capability-registry',
+        },
       });
-
     } catch (error) {
       next(error);
     }
   };
 
   // PUT /api/v1/capabilities/:id
-  public updateCapability = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  public updateCapability = async (
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> => {
     try {
       const { id } = req.params;
       const updateData = req.body;
@@ -186,27 +199,30 @@ export class CapabilityController {
       // For now, just return success since we don't have an update method
       logger.info('Capability update requested', {
         capabilityId: id,
-        userId: securityContext.userId
+        userId: securityContext.userId,
       });
 
       res.status(200).json({
         success: true,
         data: {
-          capability: { id, ...updateData }
+          capability: { id, ...updateData },
         },
         meta: {
           timestamp: new Date(),
-          service: 'capability-registry'
-        }
+          service: 'capability-registry',
+        },
       });
-
     } catch (error) {
       next(error);
     }
   };
 
   // DELETE /api/v1/capabilities/:id
-  public deleteCapability = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  public deleteCapability = async (
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> => {
     try {
       const { id } = req.params;
 
@@ -227,11 +243,10 @@ export class CapabilityController {
       // For now, just log the deletion request
       logger.info('Capability deletion requested', {
         capabilityId: id,
-        userId: securityContext.userId
+        userId: securityContext.userId,
       });
 
       res.status(204).send();
-
     } catch (error) {
       next(error);
     }
@@ -258,27 +273,30 @@ export class CapabilityController {
         'automation',
         'integration',
         'security',
-        'monitoring'
+        'monitoring',
       ];
 
       res.status(200).json({
         success: true,
         data: {
-          categories
+          categories,
         },
         meta: {
           timestamp: new Date(),
-          service: 'capability-registry'
-        }
+          service: 'capability-registry',
+        },
       });
-
     } catch (error) {
       next(error);
     }
   };
 
   // GET /api/v1/capabilities/:id/dependencies
-  public getCapabilityDependencies = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  public getCapabilityDependencies = async (
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> => {
     try {
       const { id } = req.params;
 
@@ -301,22 +319,25 @@ export class CapabilityController {
       res.status(200).json({
         success: true,
         data: {
-          dependencies
+          dependencies,
         },
         meta: {
           capabilityId: id,
           timestamp: new Date(),
-          service: 'capability-registry'
-        }
+          service: 'capability-registry',
+        },
       });
-
     } catch (error) {
       next(error);
     }
   };
 
   // POST /api/v1/capabilities/:id/validate
-  public validateCapability = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  public validateCapability = async (
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> => {
     try {
       const { id } = req.params;
       const validationContext = req.body;
@@ -339,28 +360,31 @@ export class CapabilityController {
       const validationResult = {
         valid: true,
         issues: [],
-        recommendations: []
+        recommendations: [],
       };
 
       res.status(200).json({
         success: true,
         data: {
-          validationResult
+          validationResult,
         },
         meta: {
           capabilityId: id,
           timestamp: new Date(),
-          service: 'capability-registry'
-        }
+          service: 'capability-registry',
+        },
       });
-
     } catch (error) {
       next(error);
     }
   };
 
   // GET /api/v1/capabilities/recommendations
-  public getRecommendations = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  public getRecommendations = async (
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> => {
     try {
       const { context, intent, limit = 10 } = req.query;
 
@@ -380,14 +404,13 @@ export class CapabilityController {
       res.status(200).json({
         success: true,
         data: {
-          recommendations
+          recommendations,
         },
         meta: {
           timestamp: new Date(),
-          service: 'capability-registry'
-        }
+          service: 'capability-registry',
+        },
       });
-
     } catch (error) {
       next(error);
     }
@@ -396,16 +419,16 @@ export class CapabilityController {
   private extractSecurityContext(req: Request): SecurityContext {
     // Extract security context from request headers/auth
     return {
-      userId: req.headers['x-user-id'] as string || 'anonymous',
-      sessionId: req.headers['x-session-id'] as string || 'unknown',
-      role: req.headers['x-user-role'] as string || 'user',
+      userId: (req.headers['x-user-id'] as string) || 'anonymous',
+      sessionId: (req.headers['x-session-id'] as string) || 'unknown',
+      role: (req.headers['x-user-role'] as string) || 'user',
       permissions: [], // Will be populated by security validation
       securityLevel: SecurityLevel.MEDIUM,
       lastAuthentication: new Date(),
       mfaVerified: false,
       riskScore: 0,
       ipAddress: req.ip,
-      userAgent: req.headers['user-agent']
+      userAgent: req.headers['user-agent'],
     };
   }
-} 
+}

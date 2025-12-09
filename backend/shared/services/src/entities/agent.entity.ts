@@ -4,7 +4,7 @@ import {
   AgentRole,
   AgentPersona,
   AgentIntelligenceConfig,
-  AgentSecurityContext
+  AgentSecurityContext,
 } from '@uaip/types';
 
 // Related entities will be referenced by string to avoid circular dependencies
@@ -12,7 +12,7 @@ import {
 /**
  * Enhanced Agent Entity with comprehensive intelligence and security features
  * Implements the enhanced agent model from the TypeORM migration plan
- * 
+ *
  * COMPOSITION MODEL: Agent → Persona
  * - Agent handles capabilities, execution, and intelligence
  * - Persona handles personality, behavior, and conversation style
@@ -64,10 +64,20 @@ export class Agent extends BaseEntity {
   @Column({ name: 'last_active_at', type: 'timestamp', nullable: true })
   lastActiveAt?: Date;
 
-  @Column({ 
-    type: 'enum', 
-    enum: ['initializing', 'idle', 'active', 'busy', 'error', 'offline', 'shutting_down', 'inactive', 'deleted'], 
-    default: 'idle' 
+  @Column({
+    type: 'enum',
+    enum: [
+      'initializing',
+      'idle',
+      'active',
+      'busy',
+      'error',
+      'offline',
+      'shutting_down',
+      'inactive',
+      'deleted',
+    ],
+    default: 'idle',
   })
   status: string;
 
@@ -85,7 +95,12 @@ export class Agent extends BaseEntity {
   performanceMetrics?: Record<string, any>;
 
   // Security and compliance
-  @Column({ name: 'security_level', type: 'enum', enum: ['low', 'medium', 'high', 'critical'], default: 'medium' })
+  @Column({
+    name: 'security_level',
+    type: 'enum',
+    enum: ['low', 'medium', 'high', 'critical'],
+    default: 'medium',
+  })
   securityLevel: 'low' | 'medium' | 'high' | 'critical';
 
   @Column({ name: 'compliance_tags', type: 'jsonb', default: '[]' })
@@ -121,7 +136,13 @@ export class Agent extends BaseEntity {
   @Column({ name: 'successful_operations', default: 0 })
   successfulOperations: number;
 
-  @Column({ name: 'average_response_time', type: 'decimal', precision: 10, scale: 2, nullable: true })
+  @Column({
+    name: 'average_response_time',
+    type: 'decimal',
+    precision: 10,
+    scale: 2,
+    nullable: true,
+  })
   averageResponseTime?: number;
 
   @Column({ name: 'last_performance_review', type: 'timestamp', nullable: true })
@@ -163,7 +184,12 @@ export class Agent extends BaseEntity {
   @Column({ name: 'model_id', nullable: true })
   modelId?: string;
 
-  @Column({ name: 'api_type', type: 'enum', enum: ['ollama', 'llmstudio', 'openai', 'anthropic', 'custom'], nullable: true })
+  @Column({
+    name: 'api_type',
+    type: 'enum',
+    enum: ['ollama', 'llmstudio', 'openai', 'anthropic', 'custom'],
+    nullable: true,
+  })
   apiType?: 'ollama' | 'llmstudio' | 'openai' | 'anthropic' | 'custom';
 
   // User LLM Provider Configuration - ties agent to user's specific provider
@@ -194,4 +220,4 @@ export class Agent extends BaseEntity {
 
   @OneToMany('ToolAssignment', 'agent')
   toolAssignments: any[];
-} 
+}

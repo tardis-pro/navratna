@@ -39,8 +39,14 @@ export class APIKeyAuthService {
       headerName: apiKeyConfig.headerName || 'x-api-key',
       queryParam: apiKeyConfig.queryParam || 'api_key',
       skipPaths: apiKeyConfig.skipPaths || ['/health', '/metrics', '/api/v1/auth'],
-      allowedServices: apiKeyConfig.allowedServices || ['agent-intelligence', 'orchestration-pipeline', 'capability-registry', 'security-gateway', 'discussion-orchestration'],
-      keyPrefix: apiKeyConfig.keyPrefix || 'uaip'
+      allowedServices: apiKeyConfig.allowedServices || [
+        'agent-intelligence',
+        'orchestration-pipeline',
+        'capability-registry',
+        'security-gateway',
+        'discussion-orchestration',
+      ],
+      keyPrefix: apiKeyConfig.keyPrefix || 'uaip',
     };
 
     this.initializeDefaultKeys();
@@ -54,13 +60,16 @@ export class APIKeyAuthService {
       'security-gateway',
       'discussion-orchestration',
       'llm-service',
-      'artifact-service'
+      'artifact-service',
     ];
 
     for (const service of services) {
-      const key = this.generateAPIKey(service, `Default ${service} service key`, [
-        'read', 'write', 'execute'
-      ], [`service:${service}`]);
+      const key = this.generateAPIKey(
+        service,
+        `Default ${service} service key`,
+        ['read', 'write', 'execute'],
+        [`service:${service}`]
+      );
 
       this.apiKeys.set(key.id, key);
 
@@ -90,7 +99,9 @@ export class APIKeyAuthService {
       scopes: [...scopes],
       isActive: true,
       createdAt: new Date(),
-      expiresAt: expiresInDays ? new Date(Date.now() + expiresInDays * 24 * 60 * 60 * 1000) : undefined
+      expiresAt: expiresInDays
+        ? new Date(Date.now() + expiresInDays * 24 * 60 * 60 * 1000)
+        : undefined,
     };
 
     return apiKey;
@@ -108,7 +119,9 @@ export class APIKeyAuthService {
     return `${this.config.keyPrefix}_${Buffer.from(payload).toString('base64')}.${signature}`;
   }
 
-  public parseAPIKey(apiKeyValue: string): { keyId: string; serviceName: string; timestamp: number } | null {
+  public parseAPIKey(
+    apiKeyValue: string
+  ): { keyId: string; serviceName: string; timestamp: number } | null {
     try {
       if (!apiKeyValue.startsWith(`${this.config.keyPrefix}_`)) {
         return null;
@@ -184,9 +197,12 @@ export class APIKeyAuthService {
 
     // Cache for 5 minutes
     this.keyCache.set(apiKeyValue, apiKey);
-    setTimeout(() => {
-      this.keyCache.delete(apiKeyValue);
-    }, 5 * 60 * 1000);
+    setTimeout(
+      () => {
+        this.keyCache.delete(apiKeyValue);
+      },
+      5 * 60 * 1000
+    );
 
     return apiKey;
   }
@@ -205,12 +221,13 @@ export class APIKeyAuthService {
         const url = new URL(request.url);
 
         // Skip authentication for certain paths
-        if (this.config.skipPaths.some(path => url.pathname.startsWith(path))) {
+        if (this.config.skipPaths.some((path) => url.pathname.startsWith(path))) {
           return { apiKey: null as APIKeyContext | null };
         }
 
         // Extract API key from header or query parameter
-        const apiKeyValue = request.headers.get(this.config.headerName) ||
+        const apiKeyValue =
+          request.headers.get(this.config.headerName) ||
           url.searchParams.get(this.config.queryParam);
 
         if (!apiKeyValue) {
@@ -221,9 +238,9 @@ export class APIKeyAuthService {
               success: false,
               error: {
                 code: 'API_KEY_MISSING',
-                message: 'API key is required for service-to-service communication'
-              }
-            }
+                message: 'API key is required for service-to-service communication',
+              },
+            },
           };
         }
 
@@ -234,7 +251,7 @@ export class APIKeyAuthService {
             logger.warn('Invalid API key attempt', {
               path: url.pathname,
               method: request.method,
-              keyPrefix: apiKeyValue.substring(0, 20) + '...'
+              keyPrefix: apiKeyValue.substring(0, 20) + '...',
             });
 
             set.status = 401;
@@ -244,9 +261,9 @@ export class APIKeyAuthService {
                 success: false,
                 error: {
                   code: 'API_KEY_INVALID',
-                  message: 'Invalid or expired API key'
-                }
-              }
+                  message: 'Invalid or expired API key',
+                },
+              },
             };
           }
 
@@ -258,9 +275,9 @@ export class APIKeyAuthService {
                 success: false,
                 error: {
                   code: 'SERVICE_NOT_ALLOWED',
-                  message: `Service '${apiKey.serviceName}' is not allowed to access this endpoint`
-                }
-              }
+                  message: `Service '${apiKey.serviceName}' is not allowed to access this endpoint`,
+                },
+              },
             };
           }
 
@@ -271,7 +288,7 @@ export class APIKeyAuthService {
             serviceName: apiKey.serviceName,
             keyId: apiKey.id,
             path: url.pathname,
-            method: request.method
+            method: request.method,
           });
 
           return {
@@ -279,8 +296,8 @@ export class APIKeyAuthService {
               id: apiKey.id,
               serviceName: apiKey.serviceName,
               permissions: apiKey.permissions,
-              scopes: apiKey.scopes
-            } as APIKeyContext
+              scopes: apiKey.scopes,
+            } as APIKeyContext,
           };
         } catch (error) {
           logger.error('API key authentication error:', error);
@@ -291,9 +308,9 @@ export class APIKeyAuthService {
               success: false,
               error: {
                 code: 'API_KEY_AUTH_ERROR',
-                message: 'Internal error during API key authentication'
-              }
-            }
+                message: 'Internal error during API key authentication',
+              },
+            },
           };
         }
       });
@@ -305,20 +322,24 @@ export class APIKeyAuthService {
     return (app: Elysia) => {
       return app.guard({
         beforeHandle(ctx) {
-          const { apiKey, set } = ctx as unknown as { apiKey: APIKeyContext | null; set: { status: number } };
+          const { apiKey, set } = ctx as unknown as {
+            apiKey: APIKeyContext | null;
+            set: { status: number };
+          };
           if (!apiKey) {
             set.status = 401;
             return {
               success: false,
               error: {
                 code: 'API_KEY_REQUIRED',
-                message: 'API key authentication required'
-              }
+                message: 'API key authentication required',
+              },
             };
           }
 
-          const hasPermissions = requiredPermissions.every(permission =>
-            apiKey.permissions.includes(permission) || apiKey.permissions.includes('*')
+          const hasPermissions = requiredPermissions.every(
+            (permission) =>
+              apiKey.permissions.includes(permission) || apiKey.permissions.includes('*')
           );
 
           if (!hasPermissions) {
@@ -327,11 +348,11 @@ export class APIKeyAuthService {
               success: false,
               error: {
                 code: 'INSUFFICIENT_PERMISSIONS',
-                message: `Missing required permissions: ${requiredPermissions.join(', ')}`
-              }
+                message: `Missing required permissions: ${requiredPermissions.join(', ')}`,
+              },
             };
           }
-        }
+        },
       });
     };
   }
@@ -341,20 +362,23 @@ export class APIKeyAuthService {
     return (app: Elysia) => {
       return app.guard({
         beforeHandle(ctx) {
-          const { apiKey, set } = ctx as unknown as { apiKey: APIKeyContext | null; set: { status: number } };
+          const { apiKey, set } = ctx as unknown as {
+            apiKey: APIKeyContext | null;
+            set: { status: number };
+          };
           if (!apiKey) {
             set.status = 401;
             return {
               success: false,
               error: {
                 code: 'API_KEY_REQUIRED',
-                message: 'API key authentication required'
-              }
+                message: 'API key authentication required',
+              },
             };
           }
 
-          const hasScopes = requiredScopes.every(scope =>
-            apiKey.scopes.includes(scope) || apiKey.scopes.includes('*')
+          const hasScopes = requiredScopes.every(
+            (scope) => apiKey.scopes.includes(scope) || apiKey.scopes.includes('*')
           );
 
           if (!hasScopes) {
@@ -363,11 +387,11 @@ export class APIKeyAuthService {
               success: false,
               error: {
                 code: 'INSUFFICIENT_SCOPES',
-                message: `Missing required scopes: ${requiredScopes.join(', ')}`
-              }
+                message: `Missing required scopes: ${requiredScopes.join(', ')}`,
+              },
             };
           }
-        }
+        },
       });
     };
   }

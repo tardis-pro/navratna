@@ -10,7 +10,7 @@ import type {
   PersonaAnalytics,
   PersonaValidation,
   PersonaRecommendation,
-  PersonaTemplate
+  PersonaTemplate,
 } from '@uaip/types';
 
 export interface PersonaCreate {
@@ -75,20 +75,28 @@ export const personasAPI = {
   },
 
   async getRecommendations(context?: any): Promise<PersonaRecommendation[]> {
-    return APIClient.post<PersonaRecommendation[]>(API_ROUTES.PERSONAS.RECOMMENDATIONS, { context });
+    return APIClient.post<PersonaRecommendation[]>(API_ROUTES.PERSONAS.RECOMMENDATIONS, {
+      context,
+    });
   },
 
   async getTemplates(): Promise<PersonaTemplate[]> {
     return APIClient.get<PersonaTemplate[]>(API_ROUTES.PERSONAS.TEMPLATES);
   },
 
-  async createFromTemplate(templateId: string, overrides?: Partial<PersonaCreate>): Promise<Persona> {
-    return APIClient.post<Persona>(`${API_ROUTES.PERSONAS.TEMPLATES}/${templateId}/apply`, overrides);
+  async createFromTemplate(
+    templateId: string,
+    overrides?: Partial<PersonaCreate>
+  ): Promise<Persona> {
+    return APIClient.post<Persona>(
+      `${API_ROUTES.PERSONAS.TEMPLATES}/${templateId}/apply`,
+      overrides
+    );
   },
 
   async getAnalytics(id: string, days: number = 30): Promise<PersonaAnalytics> {
     return APIClient.get<PersonaAnalytics>(`${API_ROUTES.PERSONAS.ANALYTICS}/${id}/analytics`, {
-      params: { days }
+      params: { days },
     });
   },
 
@@ -119,7 +127,7 @@ export const personasAPI = {
   async export(format: 'json' | 'yaml' = 'json'): Promise<Blob> {
     const response = await APIClient.get(`${API_ROUTES.PERSONAS.LIST}/export`, {
       params: { format },
-      responseType: 'blob'
+      responseType: 'blob',
     });
     return response;
   },
@@ -132,5 +140,5 @@ export const personasAPI = {
 
   async getForDisplay(options?: PersonaListOptions): Promise<Persona[]> {
     return APIClient.get<Persona[]>('/api/v1/personas/display', { params: options });
-  }
+  },
 };

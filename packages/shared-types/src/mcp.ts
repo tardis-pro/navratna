@@ -3,7 +3,7 @@
 
 export enum MCPServerType {
   FILESYSTEM = 'filesystem',
-  DATABASE = 'database', 
+  DATABASE = 'database',
   API = 'api',
   WEB_SEARCH = 'web-search',
   CODE_EXECUTION = 'code-execution',
@@ -11,7 +11,7 @@ export enum MCPServerType {
   MONITORING = 'monitoring',
   TOOL = 'tool',
   KNOWLEDGE = 'knowledge',
-  CUSTOM = 'custom'
+  CUSTOM = 'custom',
 }
 
 // Execution types for MCP servers
@@ -19,11 +19,11 @@ export type MCPServerExecutionType = 'npx' | 'uvx' | 'node' | 'python';
 
 export enum MCPServerStatus {
   STOPPED = 'stopped',
-  STARTING = 'starting', 
+  STARTING = 'starting',
   RUNNING = 'running',
   ERROR = 'error',
   STOPPING = 'stopping',
-  MAINTENANCE = 'maintenance'
+  MAINTENANCE = 'maintenance',
 }
 
 export interface MCPServerConfig {
@@ -131,12 +131,15 @@ export interface MCPToolResult {
 }
 
 // Events
-export type MCPServerEvent = 
+export type MCPServerEvent =
   | { type: 'server-started'; payload: { serverId: string; pid: number } }
   | { type: 'server-stopped'; payload: { serverId: string; reason: string } }
   | { type: 'server-error'; payload: { serverId: string; error: string } }
   | { type: 'tool-called'; payload: { serverId: string; tool: string; duration: number } }
-  | { type: 'capabilities-updated'; payload: { serverId: string; capabilities: MCPServerCapabilities } };
+  | {
+      type: 'capabilities-updated';
+      payload: { serverId: string; capabilities: MCPServerCapabilities };
+    };
 
 export type MCPServerEventHandler = (event: MCPServerEvent) => void;
 
@@ -175,7 +178,10 @@ export interface MCPServerRegistry {
   get: (serverId: string) => Promise<MCPServerConfig | null>;
   getAll: () => Promise<MCPServerConfig[]>;
   getPresets: () => Promise<MCPServerPreset[]>;
-  createFromPreset: (presetId: string, customizations?: Partial<MCPServerConfig>) => Promise<MCPServerConfig>;
+  createFromPreset: (
+    presetId: string,
+    customizations?: Partial<MCPServerConfig>
+  ) => Promise<MCPServerConfig>;
 }
 
 // Unified MCP Server interface
@@ -222,4 +228,4 @@ export interface MCPConnection {
   lastActivity?: Date;
   errorCount: number;
   metadata?: Record<string, any>;
-} 
+}

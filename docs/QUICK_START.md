@@ -12,6 +12,7 @@
 ## 🚀 Quick Setup (5 Minutes)
 
 ### 1. Clone and Install
+
 ```bash
 git clone <repository-url>
 cd council-of-nycea
@@ -19,6 +20,7 @@ npm install
 ```
 
 ### 2. Environment Setup
+
 ```bash
 # Copy sample environment file
 cp sample.env .env
@@ -28,6 +30,7 @@ nano .env
 ```
 
 ### 3. Start the System
+
 ```bash
 # Start all services with hot reloading
 ./dev-start.sh
@@ -37,6 +40,7 @@ nano .env
 ```
 
 ### 4. Verify Installation
+
 - **Frontend**: http://localhost:3000
 - **API Gateway**: http://localhost:8081
 - **API Documentation**: http://localhost:8081/docs
@@ -45,6 +49,7 @@ nano .env
 ## 🔧 Development Mode
 
 ### Hot Reloading Development
+
 ```bash
 # Start infrastructure in background
 ./dev-start.sh --services infrastructure --daemon
@@ -57,6 +62,7 @@ nano .env
 ```
 
 ### Service-Specific Development
+
 ```bash
 # Work on a specific backend service
 ./dev-start.sh --services "infrastructure agent-intelligence" --daemon
@@ -69,14 +75,16 @@ nano .env
 ## 📋 Service Overview
 
 ### Service Groups Available
-| Group | Services | Ports | Purpose |
-|-------|----------|-------|---------|
-| `infrastructure` | PostgreSQL, Neo4j, Redis, RabbitMQ | 5432, 7474, 6379, 5672 | Data layer |
-| `backend` | 5 microservices | 3001-3005 | Business logic |
-| `frontend` | React app | 3000 | User interface |
-| `gateway` | API Gateway | 8081 | Request routing |
+
+| Group            | Services                           | Ports                  | Purpose         |
+| ---------------- | ---------------------------------- | ---------------------- | --------------- |
+| `infrastructure` | PostgreSQL, Neo4j, Redis, RabbitMQ | 5432, 7474, 6379, 5672 | Data layer      |
+| `backend`        | 5 microservices                    | 3001-3005              | Business logic  |
+| `frontend`       | React app                          | 3000                   | User interface  |
+| `gateway`        | API Gateway                        | 8081                   | Request routing |
 
 ### Individual Services
+
 - **Agent Intelligence** (3001) - AI agent management and context analysis
 - **Orchestration Pipeline** (3002) - Workflow coordination and operation management
 - **Capability Registry** (3003) - Tool management and sandboxed execution
@@ -86,6 +94,7 @@ nano .env
 ## 🛠️ Common Commands
 
 ### Service Management
+
 ```bash
 # View service status
 ./dev-start.sh status
@@ -104,6 +113,7 @@ nano .env
 ```
 
 ### Development Workflows
+
 ```bash
 # Rebuild only backend (keeps databases running)
 ./dev-start.sh rebuild-backend
@@ -118,6 +128,7 @@ nano .env
 ## 🔍 Testing Your Setup
 
 ### 1. Health Checks
+
 ```bash
 # Check all services are healthy
 curl http://localhost:8081/health
@@ -129,6 +140,7 @@ curl http://localhost:3003/health
 ```
 
 ### 2. Basic API Test
+
 ```bash
 # Test authentication
 curl -X POST http://localhost:8081/api/auth/login \
@@ -141,6 +153,7 @@ curl http://localhost:8081/api/agents \
 ```
 
 ### 3. Frontend Test
+
 1. Open http://localhost:3000
 2. Login with default credentials (admin/admin)
 3. Navigate through the dashboard
@@ -149,6 +162,7 @@ curl http://localhost:8081/api/agents \
 ## 🐛 Troubleshooting
 
 ### Services Won't Start
+
 ```bash
 # Check Docker daemon is running
 docker --version
@@ -165,6 +179,7 @@ docker system prune -f
 ```
 
 ### Database Connection Issues
+
 ```bash
 # Ensure infrastructure is healthy
 ./dev-start.sh --services infrastructure --daemon
@@ -175,6 +190,7 @@ docker-compose exec postgres pg_isready
 ```
 
 ### Hot Reloading Not Working
+
 ```bash
 # Enable polling in .env file
 echo "CHOKIDAR_USEPOLLING=true" >> .env
@@ -185,6 +201,7 @@ echo "WATCHPACK_POLLING=true" >> .env
 ```
 
 ### Performance Issues
+
 ```bash
 # Check resource usage
 docker stats
@@ -196,16 +213,19 @@ docker stats
 ## 🎯 Next Steps
 
 ### For Developers
+
 1. **[Development Guide](DEVELOPMENT_GUIDE.md)** - Coding standards and best practices
 2. **[API Reference](API_REFERENCE.md)** - Complete API documentation
 3. **[Architecture](ARCHITECTURE.md)** - System design and technical details
 
 ### For Users
+
 1. **[Persona System](PERSONA_SYSTEM.md)** - Understanding AI agents and personas
 2. **[Frontend Integration](FRONTEND_INTEGRATION.md)** - Using the web interface
 3. **[Capability Registry](CAPABILITY_REGISTRY.md)** - Managing tools and capabilities
 
 ### For Operators
+
 1. **[Deployment Guide](DEPLOYMENT_GUIDE.md)** - Production deployment
 2. **[Operations Manual](OPERATIONS_MANUAL.md)** - Monitoring and maintenance
 3. **[Security Architecture](SECURITY_ARCHITECTURE.md)** - Security configuration
@@ -213,15 +233,17 @@ docker stats
 ## 📞 Getting Help
 
 ### Common Issues
+
 - **Port conflicts**: Change ports in `docker-compose.yml`
 - **Memory issues**: Increase Docker memory allocation
 - **Permission errors**: Check Docker daemon permissions
 
 ### Support Channels
+
 - **Documentation**: Check the specific guide for your use case
 - **GitHub Issues**: Report bugs and request features
 - **Community**: Join discussions for questions and tips
 
 ---
 
-**Success Indicator**: When you see the frontend at http://localhost:3000 and can login with admin/admin, you're ready to explore the system! 
+**Success Indicator**: When you see the frontend at http://localhost:3000 and can login with admin/admin, you're ready to explore the system!

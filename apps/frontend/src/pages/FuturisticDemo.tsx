@@ -6,7 +6,7 @@ export const FuturisticDemo: React.FC = () => {
     <div className="relative w-full h-screen">
       {/* Real Portal Workspace with Live Data */}
       <PortalWorkspace />
-      
+
       {/* Instructions Overlay */}
       <div className="fixed top-20 left-1/2 transform -translate-x-1/2 z-30 pointer-events-none">
         <div className="bg-black/40 backdrop-blur-xl rounded-2xl px-6 py-4 border border-white/10 max-w-md text-center">
@@ -21,4 +21,4 @@ export const FuturisticDemo: React.FC = () => {
       </div>
     </div>
   );
-}; 
+};

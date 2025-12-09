@@ -9,7 +9,7 @@ export class OperationManagementService {
   private logger = createLogger({
     serviceName: 'operation-management-service',
     environment: process.env.NODE_ENV || 'development',
-    logLevel: process.env.LOG_LEVEL || 'info'
+    logLevel: process.env.LOG_LEVEL || 'info',
   });
 
   // Operation Operations
@@ -35,7 +35,11 @@ export class OperationManagementService {
     try {
       return await typeormService.update('Operation', operationId, updates);
     } catch (error) {
-      this.logger.error('Failed to update operation', { error: error.message, operationId, updates });
+      this.logger.error('Failed to update operation', {
+        error: error.message,
+        operationId,
+        updates,
+      });
       throw error;
     }
   }
@@ -54,7 +58,11 @@ export class OperationManagementService {
     try {
       return await typeormService.update('OperationState', operationId, stateData);
     } catch (error) {
-      this.logger.error('Failed to update operation state', { error: error.message, operationId, stateData });
+      this.logger.error('Failed to update operation state', {
+        error: error.message,
+        operationId,
+        stateData,
+      });
       throw error;
     }
   }
@@ -75,7 +83,7 @@ export class OperationManagementService {
       const repository = typeormService.getRepository(OperationCheckpoint);
       return await repository.find({
         where: { operationId },
-        order: { createdAt: 'DESC' }
+        order: { createdAt: 'DESC' },
       });
     } catch (error) {
       this.logger.error('Failed to get checkpoints', { error: error.message, operationId });
@@ -99,7 +107,7 @@ export class OperationManagementService {
       const repository = typeormService.getRepository(StepResult);
       return await repository.find({
         where: { operationId },
-        order: { createdAt: 'ASC' }
+        order: { createdAt: 'ASC' },
       });
     } catch (error) {
       this.logger.error('Failed to get step results', { error: error.message, operationId });
@@ -112,7 +120,10 @@ export class OperationManagementService {
     try {
       return await typeormService.create('WorkflowInstance', workflowData);
     } catch (error) {
-      this.logger.error('Failed to create workflow instance', { error: error.message, workflowData });
+      this.logger.error('Failed to create workflow instance', {
+        error: error.message,
+        workflowData,
+      });
       throw error;
     }
   }
@@ -130,7 +141,11 @@ export class OperationManagementService {
     try {
       return await typeormService.update('WorkflowInstance', workflowId, updates);
     } catch (error) {
-      this.logger.error('Failed to update workflow instance', { error: error.message, workflowId, updates });
+      this.logger.error('Failed to update workflow instance', {
+        error: error.message,
+        workflowId,
+        updates,
+      });
       throw error;
     }
   }
@@ -142,7 +157,7 @@ export class OperationManagementService {
       const repository = typeormService.getRepository(Operation);
       return await repository.find({
         where: { status: status as any },
-        order: { createdAt: 'DESC' }
+        order: { createdAt: 'DESC' },
       });
     } catch (error) {
       this.logger.error('Failed to get operations by status', { error: error.message, status });
@@ -156,10 +171,10 @@ export class OperationManagementService {
       const { In } = await import('typeorm');
       const repository = typeormService.getRepository(Operation);
       return await repository.find({
-        where: { 
-          status: In(['running', 'pending', 'paused']) as any
+        where: {
+          status: In(['running', 'pending', 'paused']) as any,
         },
-        order: { createdAt: 'DESC' }
+        order: { createdAt: 'DESC' },
       });
     } catch (error) {
       this.logger.error('Failed to get active operations', { error: error.message });
@@ -173,11 +188,11 @@ export class OperationManagementService {
       const { In, LessThan } = await import('typeorm');
       const repository = typeormService.getRepository(Operation);
       return await repository.find({
-        where: { 
+        where: {
           status: In(['running', 'pending', 'paused']) as any,
-          updatedAt: LessThan(cutoffDate)
+          updatedAt: LessThan(cutoffDate),
         },
-        order: { updatedAt: 'ASC' }
+        order: { updatedAt: 'ASC' },
       });
     } catch (error) {
       this.logger.error('Failed to find stale operations', { error: error.message, cutoffDate });
@@ -204,4 +219,4 @@ export class OperationManagementService {
       return false;
     }
   }
-} 
+}

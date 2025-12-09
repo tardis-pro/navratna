@@ -11,29 +11,24 @@ interface DiscussionStarterProps {
 
 export const DiscussionStarter: React.FC<DiscussionStarterProps> = ({
   className,
-  discussionTopic = "AI and Technology Innovation"
+  discussionTopic = 'AI and Technology Innovation',
 }) => {
   const { agents } = useAgents();
   const agentList = Object.values(agents);
-  const { 
-    isActive, 
-    discussionId, 
-    participants, 
-    start, 
-    lastError,
-    isWebSocketConnected 
-  } = useDiscussion();
-  
+  const { isActive, discussionId, participants, start, lastError, isWebSocketConnected } =
+    useDiscussion();
+
   const [isStarting, setIsStarting] = useState(false);
   const [selectedAgents, setSelectedAgents] = useState<string[]>([]);
 
   const handleStartDiscussion = async () => {
     if (isStarting || isActive) return;
-    
+
     setIsStarting(true);
     try {
       // Start discussion with selected agents
-      const agentIds = selectedAgents.length > 0 ? selectedAgents : agentList.slice(0, 3).map(a => a.id);
+      const agentIds =
+        selectedAgents.length > 0 ? selectedAgents : agentList.slice(0, 3).map((a) => a.id);
       await start(discussionTopic, agentIds);
     } catch (error) {
       console.error('Failed to start discussion:', error);
@@ -43,33 +38,35 @@ export const DiscussionStarter: React.FC<DiscussionStarterProps> = ({
   };
 
   const handleAgentSelection = (agentId: string) => {
-    setSelectedAgents(prev => 
-      prev.includes(agentId) 
-        ? prev.filter(id => id !== agentId)
-        : [...prev, agentId]
+    setSelectedAgents((prev) =>
+      prev.includes(agentId) ? prev.filter((id) => id !== agentId) : [...prev, agentId]
     );
   };
 
-  const availableAgents = agentList.filter(agent => agent.status === 'active');
+  const availableAgents = agentList.filter((agent) => agent.status === 'active');
 
   return (
-    <div className={cn("space-y-4 p-4 border rounded-lg", className)}>
+    <div className={cn('space-y-4 p-4 border rounded-lg', className)}>
       <div className="flex items-center justify-between">
         <h3 className="text-lg font-semibold flex items-center gap-2">
           <MessageSquare className="w-5 h-5" />
           Discussion Control
         </h3>
-        
+
         <div className="flex items-center gap-2 text-sm">
-          <div className={cn(
-            "flex items-center gap-1",
-            isWebSocketConnected ? "text-green-600" : "text-red-600"
-          )}>
-            <div className={cn(
-              "w-2 h-2 rounded-full",
-              isWebSocketConnected ? "bg-green-500" : "bg-red-500"
-            )} />
-            {isWebSocketConnected ? "Connected" : "Disconnected"}
+          <div
+            className={cn(
+              'flex items-center gap-1',
+              isWebSocketConnected ? 'text-green-600' : 'text-red-600'
+            )}
+          >
+            <div
+              className={cn(
+                'w-2 h-2 rounded-full',
+                isWebSocketConnected ? 'bg-green-500' : 'bg-red-500'
+              )}
+            />
+            {isWebSocketConnected ? 'Connected' : 'Disconnected'}
           </div>
         </div>
       </div>
@@ -78,12 +75,12 @@ export const DiscussionStarter: React.FC<DiscussionStarterProps> = ({
       <div className="space-y-2">
         <label className="text-sm font-medium">Select Agents for Discussion:</label>
         <div className="grid grid-cols-2 gap-2">
-          {availableAgents.map(agent => (
+          {availableAgents.map((agent) => (
             <div
               key={agent.id}
               className={cn(
-                "flex items-center gap-2 p-2 border rounded cursor-pointer hover:bg-gray-50",
-                selectedAgents.includes(agent.id) ? "border-blue-500 bg-blue-50" : "border-gray-200"
+                'flex items-center gap-2 p-2 border rounded cursor-pointer hover:bg-gray-50',
+                selectedAgents.includes(agent.id) ? 'border-blue-500 bg-blue-50' : 'border-gray-200'
               )}
               onClick={() => handleAgentSelection(agent.id)}
             >
@@ -106,7 +103,9 @@ export const DiscussionStarter: React.FC<DiscussionStarterProps> = ({
         <input
           type="text"
           value={discussionTopic}
-          onChange={(e) => {/* Topic is controlled by parent */}}
+          onChange={(e) => {
+            /* Topic is controlled by parent */
+          }}
           className="w-full p-2 border rounded text-sm"
           placeholder="Enter discussion topic..."
           disabled={isActive}
@@ -135,10 +134,10 @@ export const DiscussionStarter: React.FC<DiscussionStarterProps> = ({
         onClick={handleStartDiscussion}
         disabled={isStarting || isActive || !isWebSocketConnected || availableAgents.length === 0}
         className={cn(
-          "w-full flex items-center justify-center gap-2 px-4 py-2 rounded font-medium transition-colors",
+          'w-full flex items-center justify-center gap-2 px-4 py-2 rounded font-medium transition-colors',
           isActive || !isWebSocketConnected || availableAgents.length === 0
-            ? "bg-gray-100 text-gray-400 cursor-not-allowed"
-            : "bg-blue-600 text-white hover:bg-blue-700"
+            ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+            : 'bg-blue-600 text-white hover:bg-blue-700'
         )}
       >
         {isStarting ? (
@@ -160,4 +159,4 @@ export const DiscussionStarter: React.FC<DiscussionStarterProps> = ({
       </button>
     </div>
   );
-}; 
+};

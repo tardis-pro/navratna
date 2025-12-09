@@ -9,7 +9,7 @@ import { createLogger } from '@uaip/utils';
 const logger = createLogger({
   serviceName: 'cache-enabler',
   environment: process.env.NODE_ENV || 'development',
-  logLevel: process.env.LOG_LEVEL || 'info'
+  logLevel: process.env.LOG_LEVEL || 'info',
 });
 
 /**
@@ -27,10 +27,10 @@ export async function enableCacheAfterInit(): Promise<boolean> {
 
     // Get cache manager and try to establish connection if not healthy
     const cacheManager = getCacheManager();
-    
+
     if (!cacheManager.isHealthy()) {
       logger.info('Redis cache manager not healthy, attempting to establish connection...');
-      
+
       try {
         // Try to create Redis connection
         await cacheManager.createConnection();
@@ -49,13 +49,13 @@ export async function enableCacheAfterInit(): Promise<boolean> {
 
     logger.info('✅ Redis cache is ready for use with explicit .cache() calls');
     logger.info('💡 Use .cache(duration) or .cache(key, duration) in your queries');
-    
+
     // Test cache functionality
     const redis = cacheManager.getConnection();
     if (redis) {
       await redis.set('cache_test', 'working', 'EX', 10);
       const testValue = await redis.get('cache_test');
-      
+
       if (testValue === 'working') {
         logger.info('🧪 Cache test successful - Redis is working');
         await redis.del('cache_test');
@@ -69,7 +69,7 @@ export async function enableCacheAfterInit(): Promise<boolean> {
     return false;
   } catch (error) {
     logger.error('Failed to enable cache after init', {
-      error: error.message
+      error: error.message,
     });
     return false;
   }
@@ -85,7 +85,7 @@ export const cacheExamples = {
       .getRepository('Agent')
       .find({
         where: { isActive: true },
-        cache: 300000 // 5 minutes
+        cache: 300000, // 5 minutes
       });
   },
 
@@ -104,23 +104,23 @@ export const cacheExamples = {
   async manualCacheOperations() {
     const cacheManager = getCacheManager();
     const redis = cacheManager.getConnection();
-    
+
     if (redis) {
       // Set cache
       await redis.set('my_key', JSON.stringify({ data: 'value' }), 'EX', 300);
-      
+
       // Get cache
       const cached = await redis.get('my_key');
       const data = cached ? JSON.parse(cached) : null;
-      
+
       // Clear cache
       await redis.del('my_key');
-      
+
       return data;
     }
-    
+
     return null;
-  }
+  },
 };
 
-export default enableCacheAfterInit; 
+export default enableCacheAfterInit;

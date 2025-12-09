@@ -1,10 +1,10 @@
-import { 
-  ArtifactGenerationRequest, 
-  ArtifactGenerationResponse, 
-  ArtifactGenerationTemplate as ArtifactTemplate, 
-  ValidationResult, 
+import {
+  ArtifactGenerationRequest,
+  ArtifactGenerationResponse,
+  ArtifactGenerationTemplate as ArtifactTemplate,
+  ValidationResult,
   ArtifactType,
-  ArtifactConversationContext as GenerationContext
+  ArtifactConversationContext as GenerationContext,
 } from '@uaip/types';
 
 // Local types that don't exist in shared types
@@ -17,11 +17,11 @@ export interface TemplateFilters {
 export interface IArtifactService {
   // Primary generation method
   generateArtifact(request: ArtifactGenerationRequest): Promise<ArtifactGenerationResponse>;
-  
+
   // Template operations
   listTemplates(type?: ArtifactType): Promise<ArtifactTemplate[]>;
   getTemplate(id: string): Promise<ArtifactTemplate | null>;
-  
+
   // Validation
   validateArtifact(content: string, type: ArtifactType): Promise<ValidationResult>;
 }
@@ -40,4 +40,4 @@ export interface ITemplateManager {
 
 export interface IArtifactValidator {
   validate(content: string, type: ArtifactType): ValidationResult;
-} 
+}

@@ -58,7 +58,7 @@ export class CachedUserService extends UserService {
    */
   public async findUserByEmail(email: string, useCache = true): Promise<UserEntity | null> {
     const cacheKey = this.CACHE_KEYS.USER_BY_EMAIL(email);
-    
+
     if (useCache) {
       const cached = await redisCacheService.get<UserEntity | null>(cacheKey);
       if (cached) {
@@ -69,7 +69,7 @@ export class CachedUserService extends UserService {
 
     // Cache miss - get from database
     const user = await super.findUserByEmail(email);
-    
+
     // Cache the result
     if (useCache) {
       await redisCacheService.set(cacheKey, user, this.CACHE_TTL.USER_BY_EMAIL);
@@ -84,7 +84,7 @@ export class CachedUserService extends UserService {
    */
   public async findUserById(id: string, useCache = true): Promise<UserEntity | null> {
     const cacheKey = this.CACHE_KEYS.USER_BY_ID(id);
-    
+
     if (useCache) {
       const cached = await redisCacheService.get<UserEntity | null>(cacheKey);
       if (cached) {
@@ -95,7 +95,7 @@ export class CachedUserService extends UserService {
 
     // Cache miss - get from database
     const user = await super.findUserById(id);
-    
+
     // Cache the result
     if (useCache) {
       await redisCacheService.set(cacheKey, user, this.CACHE_TTL.USER_BY_ID);
@@ -110,7 +110,7 @@ export class CachedUserService extends UserService {
    */
   public async findRefreshToken(token: string, useCache = true): Promise<any | null> {
     const cacheKey = this.CACHE_KEYS.REFRESH_TOKEN(token);
-    
+
     if (useCache) {
       const cached = await redisCacheService.get(cacheKey);
       if (cached) {
@@ -121,7 +121,7 @@ export class CachedUserService extends UserService {
 
     // Cache miss - get from database
     const refreshToken = await super.findRefreshToken(token);
-    
+
     // Cache the result
     if (useCache && refreshToken) {
       await redisCacheService.set(cacheKey, refreshToken, this.CACHE_TTL.REFRESH_TOKEN);
@@ -136,7 +136,7 @@ export class CachedUserService extends UserService {
    */
   public async findPasswordResetToken(token: string, useCache = true): Promise<any | null> {
     const cacheKey = this.CACHE_KEYS.PASSWORD_RESET_TOKEN(token);
-    
+
     if (useCache) {
       const cached = await redisCacheService.get(cacheKey);
       if (cached) {
@@ -147,7 +147,7 @@ export class CachedUserService extends UserService {
 
     // Cache miss - get from database
     const resetToken = await super.findPasswordResetToken(token);
-    
+
     // Cache the result
     if (useCache && resetToken) {
       await redisCacheService.set(cacheKey, resetToken, this.CACHE_TTL.PASSWORD_RESET_TOKEN);
@@ -170,10 +170,10 @@ export class CachedUserService extends UserService {
     isOAuthUser?: boolean;
   }): Promise<UserEntity> {
     const user = await super.createUser(data);
-    
+
     // Invalidate relevant caches
     await this.invalidateUserCache(user.id, user.email);
-    
+
     return user;
   }
 
@@ -182,12 +182,12 @@ export class CachedUserService extends UserService {
    */
   public async updateUser(id: string, data: Partial<UserEntity>): Promise<UserEntity | null> {
     const user = await super.updateUser(id, data);
-    
+
     if (user) {
       // Invalidate relevant caches
       await this.invalidateUserCache(id, user.email);
     }
-    
+
     return user;
   }
 
@@ -197,14 +197,14 @@ export class CachedUserService extends UserService {
   public async deleteUser(id: string): Promise<boolean> {
     // Get user first to get email for cache invalidation
     const user = await this.findUserById(id, false);
-    
+
     const result = await super.deleteUser(id);
-    
+
     if (result && user) {
       // Invalidate relevant caches
       await this.invalidateUserCache(id, user.email);
     }
-    
+
     return result;
   }
 
@@ -213,12 +213,12 @@ export class CachedUserService extends UserService {
    */
   public async revokeRefreshToken(token: string): Promise<boolean> {
     const result = await super.revokeRefreshToken(token);
-    
+
     if (result) {
       // Invalidate token cache
       await redisCacheService.del(this.CACHE_KEYS.REFRESH_TOKEN(token));
     }
-    
+
     return result;
   }
 
@@ -227,12 +227,12 @@ export class CachedUserService extends UserService {
    */
   public async usePasswordResetToken(token: string): Promise<boolean> {
     const result = await super.usePasswordResetToken(token);
-    
+
     if (result) {
       // Invalidate token cache
       await redisCacheService.del(this.CACHE_KEYS.PASSWORD_RESET_TOKEN(token));
     }
-    
+
     return result;
   }
 
@@ -241,7 +241,7 @@ export class CachedUserService extends UserService {
    */
   public async updatePassword(userId: string, newPassword: string): Promise<void> {
     await super.updatePassword(userId, newPassword);
-    
+
     // Invalidate user cache
     const user = await this.findUserById(userId, false);
     if (user) {
@@ -253,10 +253,7 @@ export class CachedUserService extends UserService {
    * Invalidate user-specific caches
    */
   private async invalidateUserCache(userId: string, email: string): Promise<void> {
-    const patterns = [
-      this.CACHE_KEYS.USER_BY_ID(userId),
-      this.CACHE_KEYS.USER_BY_EMAIL(email),
-    ];
+    const patterns = [this.CACHE_KEYS.USER_BY_ID(userId), this.CACHE_KEYS.USER_BY_EMAIL(email)];
 
     for (const pattern of patterns) {
       await redisCacheService.del(pattern);
@@ -299,15 +296,15 @@ export class CachedUserService extends UserService {
    */
   public async warmUpUserCache(userId: string): Promise<void> {
     logger.info('Warming up user cache...', { userId });
-    
+
     try {
       // Pre-load user data
       await this.findUserById(userId, true);
-      
+
       // Pre-load user LLM providers
       const cachedProviderRepo = this.getCachedUserLLMProviderRepository();
       await cachedProviderRepo.findActiveProvidersByUser(userId, true);
-      
+
       logger.info('User cache warmed up successfully', { userId });
     } catch (error) {
       logger.error('Error warming up user cache', { userId, error: error.message });
@@ -339,9 +336,11 @@ export class CachedUserService extends UserService {
     };
 
     return {
-      cached: Object.values(stats).some(cached => typeof cached === 'boolean' ? cached : cached.cached),
+      cached: Object.values(stats).some((cached) =>
+        typeof cached === 'boolean' ? cached : cached.cached
+      ),
       keys,
-      stats
+      stats,
     };
   }
 
@@ -350,10 +349,10 @@ export class CachedUserService extends UserService {
    */
   public async bulkWarmUpUserCaches(userIds: string[]): Promise<void> {
     logger.info('Bulk warming up user caches...', { userCount: userIds.length });
-    
-    const promises = userIds.map(userId => this.warmUpUserCache(userId));
+
+    const promises = userIds.map((userId) => this.warmUpUserCache(userId));
     await Promise.all(promises);
-    
+
     logger.info('Bulk user cache warm-up completed', { userCount: userIds.length });
   }
 
@@ -377,22 +376,16 @@ export class CachedUserService extends UserService {
         userCacheKeys: 0,
         llmProviderCacheKeys: 0,
         tokenCacheKeys: 0,
-        cacheHealth: { connected: false }
+        cacheHealth: { connected: false },
       };
     }
 
-    const [
-      totalKeys,
-      userKeys,
-      llmProviderKeys,
-      tokenKeys,
-      health
-    ] = await Promise.all([
+    const [totalKeys, userKeys, llmProviderKeys, tokenKeys, health] = await Promise.all([
       client.dbsize(),
       redisCacheService.keys('user:*'),
       redisCacheService.keys('llm_provider*'),
       redisCacheService.keys('*token*'),
-      redisCacheService.healthCheck()
+      redisCacheService.healthCheck(),
     ]);
 
     return {
@@ -402,8 +395,8 @@ export class CachedUserService extends UserService {
       tokenCacheKeys: tokenKeys.length,
       cacheHealth: {
         connected: health.connected,
-        responseTime: health.responseTime
-      }
+        responseTime: health.responseTime,
+      },
     };
   }
 }

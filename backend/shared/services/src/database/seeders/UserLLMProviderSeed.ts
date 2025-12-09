@@ -1,6 +1,10 @@
 import { DataSource, DeepPartial } from 'typeorm';
 import { BaseSeed } from './BaseSeed.js';
-import { UserLLMProvider, UserLLMProviderType, UserLLMProviderStatus } from '../../entities/userLLMProvider.entity.js';
+import {
+  UserLLMProvider,
+  UserLLMProviderType,
+  UserLLMProviderStatus,
+} from '../../entities/userLLMProvider.entity.js';
 import { UserEntity } from '../../entities/user.entity.js';
 import { SecurityLevel } from '@uaip/types';
 import { logger } from '@uaip/utils';
@@ -100,15 +104,15 @@ export class UserLLMProviderSeed extends BaseSeed<UserLLMProvider> {
           customEndpoints: {
             models: '/api/tags',
             chat: '/api/chat',
-            completions: '/api/generate'
-          }
+            completions: '/api/generate',
+          },
         },
         status: 'testing' as UserLLMProviderStatus, // Will test connection on first use
         isActive: true,
         priority: 10, // Lower priority than cloud providers
         totalTokensUsed: '0',
         totalRequests: '0',
-        totalErrors: '0'
+        totalErrors: '0',
       },
       {
         userId: user.id,
@@ -123,20 +127,20 @@ export class UserLLMProviderSeed extends BaseSeed<UserLLMProvider> {
           rateLimit: 5,
           headers: {
             'User-Agent': 'UAIP-Client/1.0',
-            'Content-Type': 'application/json'
+            'Content-Type': 'application/json',
           },
           customEndpoints: {
             models: '/v1/models',
             chat: '/v1/chat/completions',
-            completions: '/v1/completions'
-          }
+            completions: '/v1/completions',
+          },
         },
         status: 'testing' as UserLLMProviderStatus,
         isActive: true,
         priority: 1,
         totalTokensUsed: '0',
         totalRequests: '0',
-        totalErrors: '0'
+        totalErrors: '0',
       },
       {
         userId: user.id,
@@ -151,28 +155,31 @@ export class UserLLMProviderSeed extends BaseSeed<UserLLMProvider> {
           rateLimit: 5,
           headers: {
             'User-Agent': 'UAIP-Client/1.0',
-            'Content-Type': 'application/json'
+            'Content-Type': 'application/json',
           },
           customEndpoints: {
             models: '/v1/models',
             chat: '/v1/chat/completions',
-            completions: '/v1/completions'
-          }
+            completions: '/v1/completions',
+          },
         },
         status: 'testing' as UserLLMProviderStatus,
         isActive: true,
         priority: 1,
         totalTokensUsed: '0',
         totalRequests: '0',
-        totalErrors: '0'
-      }
+        totalErrors: '0',
+      },
     ];
   }
 
   /**
    * Create basic cloud providers (OpenAI, Anthropic)
    */
-  private createBasicCloudProviders(user: UserEntity, withDemoKeys: boolean): DeepPartial<UserLLMProvider>[] {
+  private createBasicCloudProviders(
+    user: UserEntity,
+    withDemoKeys: boolean
+  ): DeepPartial<UserLLMProvider>[] {
     const providers: DeepPartial<UserLLMProvider>[] = [];
 
     // OpenAI Provider
@@ -191,14 +198,16 @@ export class UserLLMProviderSeed extends BaseSeed<UserLLMProvider> {
         rateLimit: 60,
         headers: {
           'User-Agent': 'UAIP-Client/1.0',
-        }
+        },
       },
-      status: withDemoKeys ? 'active' as UserLLMProviderStatus : 'inactive' as UserLLMProviderStatus,
+      status: withDemoKeys
+        ? ('active' as UserLLMProviderStatus)
+        : ('inactive' as UserLLMProviderStatus),
       isActive: withDemoKeys,
       priority: 10, // High priority for OpenAI
       totalTokensUsed: '0',
       totalRequests: '0',
-      totalErrors: '0'
+      totalErrors: '0',
     };
 
     // Add API key - demo key for admins/demo users, placeholder for others
@@ -230,14 +239,16 @@ export class UserLLMProviderSeed extends BaseSeed<UserLLMProvider> {
         headers: {
           'anthropic-version': '2023-06-01',
           'User-Agent': 'UAIP-Client/1.0',
-        }
+        },
       },
-      status: withDemoKeys ? 'active' as UserLLMProviderStatus : 'inactive' as UserLLMProviderStatus,
+      status: withDemoKeys
+        ? ('active' as UserLLMProviderStatus)
+        : ('inactive' as UserLLMProviderStatus),
       isActive: withDemoKeys,
       priority: 20, // High priority for Anthropic
       totalTokensUsed: '0',
       totalRequests: '0',
-      totalErrors: '0'
+      totalErrors: '0',
     };
 
     // Add API key - demo key for admins/demo users, placeholder for others
@@ -258,7 +269,10 @@ export class UserLLMProviderSeed extends BaseSeed<UserLLMProvider> {
   /**
    * Create mainstream cloud providers (OpenAI, Anthropic, Google)
    */
-  private createMainstreamCloudProviders(user: UserEntity, withDemoKeys: boolean): DeepPartial<UserLLMProvider>[] {
+  private createMainstreamCloudProviders(
+    user: UserEntity,
+    withDemoKeys: boolean
+  ): DeepPartial<UserLLMProvider>[] {
     const providers = this.createBasicCloudProviders(user, withDemoKeys);
 
     // Add Google Gemini
@@ -277,14 +291,16 @@ export class UserLLMProviderSeed extends BaseSeed<UserLLMProvider> {
         rateLimit: 40,
         headers: {
           'User-Agent': 'UAIP-Client/1.0',
-        }
+        },
       },
-      status: withDemoKeys ? 'active' as UserLLMProviderStatus : 'inactive' as UserLLMProviderStatus,
+      status: withDemoKeys
+        ? ('active' as UserLLMProviderStatus)
+        : ('inactive' as UserLLMProviderStatus),
       isActive: withDemoKeys,
       priority: 30,
       totalTokensUsed: '0',
       totalRequests: '0',
-      totalErrors: '0'
+      totalErrors: '0',
     };
 
     // Add API key - demo key for admins/demo users, placeholder for others
@@ -316,15 +332,17 @@ export class UserLLMProviderSeed extends BaseSeed<UserLLMProvider> {
         headers: {
           'User-Agent': 'UAIP-Client/1.0',
           'HTTP-Referer': 'https://Navratna.tardis.digital',
-          'X-Title': 'Navratna'
-        }
+          'X-Title': 'Navratna',
+        },
       },
-      status: withDemoKeys ? 'active' as UserLLMProviderStatus : 'inactive' as UserLLMProviderStatus,
+      status: withDemoKeys
+        ? ('active' as UserLLMProviderStatus)
+        : ('inactive' as UserLLMProviderStatus),
       isActive: withDemoKeys,
       priority: 25, // Between Anthropic and Google
       totalTokensUsed: '0',
       totalRequests: '0',
-      totalErrors: '0'
+      totalErrors: '0',
     };
 
     // Add API key - demo key for admins/demo users, placeholder for others
@@ -345,7 +363,10 @@ export class UserLLMProviderSeed extends BaseSeed<UserLLMProvider> {
   /**
    * Create all cloud providers (for admins)
    */
-  private createAllCloudProviders(user: UserEntity, withDemoKeys: boolean): DeepPartial<UserLLMProvider>[] {
+  private createAllCloudProviders(
+    user: UserEntity,
+    withDemoKeys: boolean
+  ): DeepPartial<UserLLMProvider>[] {
     return this.createMainstreamCloudProviders(user, withDemoKeys);
   }
 
@@ -367,20 +388,20 @@ export class UserLLMProviderSeed extends BaseSeed<UserLLMProvider> {
           rateLimit: 5,
           headers: {
             'User-Agent': 'UAIP-Client/1.0',
-            'X-Environment': 'development'
+            'X-Environment': 'development',
           },
           customEndpoints: {
             models: '/v1/models',
             chat: '/v1/chat/completions',
-            completions: '/v1/completions'
-          }
+            completions: '/v1/completions',
+          },
         },
         status: 'testing' as UserLLMProviderStatus,
         isActive: false, // Disabled by default, admins can enable
         priority: 1, // Low priority
         totalTokensUsed: '0',
         totalRequests: '0',
-        totalErrors: '0'
+        totalErrors: '0',
       },
       {
         userId: user.id,
@@ -395,16 +416,16 @@ export class UserLLMProviderSeed extends BaseSeed<UserLLMProvider> {
           rateLimit: 100,
           headers: {
             'User-Agent': 'UAIP-Client/1.0',
-            'X-Environment': 'enterprise'
-          }
+            'X-Environment': 'enterprise',
+          },
         },
         status: 'inactive' as UserLLMProviderStatus,
         isActive: false,
         priority: 2,
         totalTokensUsed: '0',
         totalRequests: '0',
-        totalErrors: '0'
-      }
+        totalErrors: '0',
+      },
     ];
   }
 
@@ -417,8 +438,8 @@ export class UserLLMProviderSeed extends BaseSeed<UserLLMProvider> {
       defaultRetries: 3,
       defaultHeaders: {
         'User-Agent': 'UAIP-Client/1.0',
-        'Content-Type': 'application/json'
-      }
+        'Content-Type': 'application/json',
+      },
     };
   }
 
@@ -446,8 +467,8 @@ export class UserLLMProviderSeed extends BaseSeed<UserLLMProvider> {
           const existingProvider = await this.repository.findOne({
             where: {
               userId: providerData.userId,
-              name: providerData.name
-            }
+              name: providerData.name,
+            },
           });
 
           if (existingProvider) {
@@ -461,26 +482,30 @@ export class UserLLMProviderSeed extends BaseSeed<UserLLMProvider> {
             processedCount++;
           }
         } catch (itemError) {
-          logger.warn(`   ⚠️ Failed to process ${this.entityName} for user ${providerData.userId}:`, {
-            error: itemError.message,
-            stack: itemError.stack,
-            providerName: providerData.name,
-            providerType: providerData.type,
-            userId: providerData.userId
-          });
+          logger.warn(
+            `   ⚠️ Failed to process ${this.entityName} for user ${providerData.userId}:`,
+            {
+              error: itemError.message,
+              stack: itemError.stack,
+              providerName: providerData.name,
+              providerType: providerData.type,
+              userId: providerData.userId,
+            }
+          );
           skippedCount++;
           continue;
         }
       }
 
-      logger.info(`   ✅ ${this.entityName} seeding completed: ${processedCount} processed, ${skippedCount} skipped`);
+      logger.info(
+        `   ✅ ${this.entityName} seeding completed: ${processedCount} processed, ${skippedCount} skipped`
+      );
 
       // Return all user LLM providers
       return await this.repository.find({
         relations: ['user'],
-        order: { userId: 'ASC', priority: 'ASC' }
+        order: { userId: 'ASC', priority: 'ASC' },
       });
-
     } catch (error) {
       logger.error(`   ❌ ${this.entityName} seeding failed:`, error);
       logger.warn(`   ⚠️ Continuing without ${this.entityName} seeding...`);

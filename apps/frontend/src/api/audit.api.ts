@@ -103,14 +103,14 @@ export const auditAPI = {
 
   async export(options: AuditExportOptions): Promise<Blob> {
     const response = await APIClient.post(API_ROUTES.AUDIT.EXPORT, options, {
-      responseType: 'blob'
+      responseType: 'blob',
     });
     return response;
   },
 
   async search(query: string, filters?: any): Promise<AuditEvent[]> {
     return APIClient.get<AuditEvent[]>(API_ROUTES.AUDIT.SEARCH, {
-      params: { q: query, ...filters }
+      params: { q: query, ...filters },
     });
   },
 
@@ -121,7 +121,9 @@ export const auditAPI = {
     reportType?: string;
     status?: string;
   }): Promise<ComplianceReport[]> {
-    return APIClient.get<ComplianceReport[]>(API_ROUTES.AUDIT.COMPLIANCE_REPORTS, { params: options });
+    return APIClient.get<ComplianceReport[]>(API_ROUTES.AUDIT.COMPLIANCE_REPORTS, {
+      params: options,
+    });
   },
 
   async getComplianceReport(id: string): Promise<ComplianceReport> {
@@ -140,7 +142,7 @@ export const auditAPI = {
   async downloadComplianceReport(id: string, format: 'pdf' | 'csv' = 'pdf'): Promise<Blob> {
     const response = await APIClient.get(`${API_ROUTES.AUDIT.COMPLIANCE_REPORTS}/${id}/download`, {
       params: { format },
-      responseType: 'blob'
+      responseType: 'blob',
     });
     return response;
   },
@@ -153,13 +155,15 @@ export const auditAPI = {
   // User activity
   async getUserActivity(userId: string, days: number = 30): Promise<AuditEvent[]> {
     return APIClient.get<AuditEvent[]>(`${API_ROUTES.AUDIT.USER_ACTIVITY}/${userId}`, {
-      params: { days }
+      params: { days },
     });
   },
 
   // Resource history
   async getResourceHistory(resourceType: string, resourceId: string): Promise<AuditEvent[]> {
-    return APIClient.get<AuditEvent[]>(`${API_ROUTES.AUDIT.RESOURCE_HISTORY}/${resourceType}/${resourceId}`);
+    return APIClient.get<AuditEvent[]>(
+      `${API_ROUTES.AUDIT.RESOURCE_HISTORY}/${resourceType}/${resourceId}`
+    );
   },
 
   // Retention policy
@@ -177,5 +181,5 @@ export const auditAPI = {
     excludedEventTypes?: AuditEventType[];
   }): Promise<void> {
     return APIClient.put(API_ROUTES.AUDIT.RETENTION_POLICY, policy);
-  }
+  },
 };

@@ -56,10 +56,10 @@ export class UserToolPreferencesService {
     try {
       const preferences = await this.repository.find({
         where: { userId },
-        relations: ['tool']
+        relations: ['tool'],
       });
 
-      return preferences.map(pref => ({
+      return preferences.map((pref) => ({
         toolId: pref.toolId,
         toolName: pref.tool.name,
         toolDescription: pref.tool.description,
@@ -72,7 +72,7 @@ export class UserToolPreferencesService {
         lastUsedAt: pref.lastUsedAt,
         rateLimits: pref.rateLimits || pref.tool.rateLimits || {},
         budgetLimit: pref.budgetLimit,
-        budgetUsed: pref.budgetUsed
+        budgetUsed: pref.budgetUsed,
       }));
     } catch (error) {
       logger.error('Failed to get user tool access:', error);
@@ -94,8 +94,8 @@ export class UserToolPreferencesService {
       const availableTools = await this.toolRepository.find({
         where: {
           isEnabled: true,
-          securityLevel: user.securityClearance // Only tools within security clearance
-        }
+          securityLevel: user.securityClearance, // Only tools within security clearance
+        },
       });
 
       return availableTools;
@@ -124,7 +124,7 @@ export class UserToolPreferencesService {
 
       // Check if preference already exists
       let preference = await this.repository.findOne({
-        where: { userId: data.userId, toolId: data.toolId }
+        where: { userId: data.userId, toolId: data.toolId },
       });
 
       if (preference) {
@@ -145,11 +145,14 @@ export class UserToolPreferencesService {
   /**
    * Get user's specific tool preferences
    */
-  async getUserToolPreferences(userId: string, toolId: string): Promise<UserToolPreferences | null> {
+  async getUserToolPreferences(
+    userId: string,
+    toolId: string
+  ): Promise<UserToolPreferences | null> {
     try {
       return await this.repository.findOne({
         where: { userId, toolId },
-        relations: ['tool']
+        relations: ['tool'],
       });
     } catch (error) {
       logger.error('Failed to get user tool preferences:', error);
@@ -163,7 +166,7 @@ export class UserToolPreferencesService {
   async trackToolUsage(userId: string, toolId: string, costIncurred: number = 0): Promise<void> {
     try {
       let preference = await this.repository.findOne({
-        where: { userId, toolId }
+        where: { userId, toolId },
       });
 
       if (!preference) {
@@ -172,7 +175,7 @@ export class UserToolPreferencesService {
           userId,
           toolId,
           usageCount: 0,
-          budgetUsed: 0
+          budgetUsed: 0,
         });
       }
 
@@ -194,10 +197,10 @@ export class UserToolPreferencesService {
     try {
       const preferences = await this.repository.find({
         where: { userId, isFavorite: true },
-        relations: ['tool']
+        relations: ['tool'],
       });
 
-      return preferences.map(pref => pref.tool);
+      return preferences.map((pref) => pref.tool);
     } catch (error) {
       logger.error('Failed to get user favorite tools:', error);
       throw error;
@@ -228,7 +231,7 @@ export class UserToolPreferencesService {
 
       // Check user-specific preferences
       const preference = await this.repository.findOne({
-        where: { userId, toolId }
+        where: { userId, toolId },
       });
 
       if (preference && !preference.isEnabled) {
@@ -256,18 +259,19 @@ export class UserToolPreferencesService {
     try {
       const preferences = await this.repository.find({
         where: { userId },
-        relations: ['tool']
+        relations: ['tool'],
       });
 
       const stats = {
         totalTools: preferences.length,
-        enabledTools: preferences.filter(p => p.isEnabled).length,
-        favoriteTools: preferences.filter(p => p.isFavorite).length,
+        enabledTools: preferences.filter((p) => p.isEnabled).length,
+        favoriteTools: preferences.filter((p) => p.isFavorite).length,
         totalUsage: preferences.reduce((sum, p) => sum + p.usageCount, 0),
         totalBudgetUsed: preferences.reduce((sum, p) => sum + Number(p.budgetUsed), 0),
-        mostUsedTool: preferences.reduce((max, p) => 
-          p.usageCount > (max?.usageCount || 0) ? p : max, null as UserToolPreferences | null
-        )?.tool?.name
+        mostUsedTool: preferences.reduce(
+          (max, p) => (p.usageCount > (max?.usageCount || 0) ? p : max),
+          null as UserToolPreferences | null
+        )?.tool?.name,
       };
 
       return stats;

@@ -1,12 +1,12 @@
 import React, { createContext, useContext, useReducer, useCallback } from 'react';
-import type { 
-  KnowledgeItem, 
-  KnowledgeSearchRequest, 
+import type {
+  KnowledgeItem,
+  KnowledgeSearchRequest,
   KnowledgeSearchResponse,
   KnowledgeIngestRequest,
   KnowledgeIngestResponse,
   KnowledgeType,
-  SourceType
+  SourceType,
 } from '@uaip/types';
 import { uaipAPI } from '@/utils/uaip-api';
 
@@ -15,13 +15,13 @@ interface KnowledgeContextState {
   items: Record<string, KnowledgeItem>;
   searchResults: KnowledgeItem[];
   activeItemId: string | null;
-  
+
   // UI state
   isLoading: boolean;
   isUploading: boolean;
   isSearching: boolean;
   error: string | null;
-  
+
   // Search state
   lastSearchQuery: KnowledgeSearchRequest | null;
   searchMetadata: {
@@ -29,7 +29,7 @@ interface KnowledgeContextState {
     processingTime: number;
     filtersApplied: string[];
   } | null;
-  
+
   // Stats
   stats: {
     totalItems: number;
@@ -41,7 +41,7 @@ interface KnowledgeContextState {
       searches: number;
     }>;
   } | null;
-  
+
   // Upload queue
   uploadQueue: KnowledgeIngestRequest[];
   uploadProgress: number;
@@ -55,12 +55,12 @@ interface KnowledgeContextValue extends KnowledgeContextState {
   deleteKnowledge: (itemId: string) => Promise<void>;
   getRelatedKnowledge: (itemId: string) => Promise<KnowledgeItem[]>;
   getKnowledgeByTag: (tag: string) => Promise<KnowledgeItem[]>;
-  
+
   // UI operations
   setActiveItem: (itemId: string | null) => void;
   clearSearchResults: () => void;
   clearError: () => void;
-  
+
   // Stats operations
   refreshStats: () => Promise<void>;
 }
@@ -80,7 +80,7 @@ const initialState: KnowledgeContextState = {
   uploadProgress: 0,
 };
 
-type KnowledgeAction = 
+type KnowledgeAction =
   | { type: 'SET_LOADING'; payload: boolean }
   | { type: 'SET_UPLOADING'; payload: boolean }
   | { type: 'SET_SEARCHING'; payload: boolean }
@@ -89,13 +89,19 @@ type KnowledgeAction =
   | { type: 'ADD_KNOWLEDGE_ITEMS'; payload: KnowledgeItem[] }
   | { type: 'UPDATE_KNOWLEDGE_ITEM'; payload: KnowledgeItem }
   | { type: 'REMOVE_KNOWLEDGE_ITEM'; payload: string }
-  | { type: 'SET_SEARCH_RESULTS'; payload: { items: KnowledgeItem[]; query: KnowledgeSearchRequest; metadata: any } }
+  | {
+      type: 'SET_SEARCH_RESULTS';
+      payload: { items: KnowledgeItem[]; query: KnowledgeSearchRequest; metadata: any };
+    }
   | { type: 'CLEAR_SEARCH_RESULTS' }
   | { type: 'SET_STATS'; payload: KnowledgeContextState['stats'] }
   | { type: 'SET_UPLOAD_QUEUE'; payload: KnowledgeIngestRequest[] }
   | { type: 'SET_UPLOAD_PROGRESS'; payload: number };
 
-const knowledgeReducer = (state: KnowledgeContextState, action: KnowledgeAction): KnowledgeContextState => {
+const knowledgeReducer = (
+  state: KnowledgeContextState,
+  action: KnowledgeAction
+): KnowledgeContextState => {
   switch (action.type) {
     case 'SET_LOADING':
       return { ...state, isLoading: action.payload };
@@ -109,7 +115,7 @@ const knowledgeReducer = (state: KnowledgeContextState, action: KnowledgeAction)
       return { ...state, activeItemId: action.payload };
     case 'ADD_KNOWLEDGE_ITEMS': {
       const newItems = { ...state.items };
-      action.payload.forEach(item => {
+      action.payload.forEach((item) => {
         newItems[item.id] = item;
       });
       return { ...state, items: newItems };
@@ -160,76 +166,85 @@ const KnowledgeContext = createContext<KnowledgeContextValue | null>(null);
 export const KnowledgeProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [state, dispatch] = useReducer(knowledgeReducer, initialState);
 
-  const uploadKnowledge = useCallback(async (items: KnowledgeIngestRequest[]): Promise<KnowledgeIngestResponse> => {
-    dispatch({ type: 'SET_UPLOADING', payload: true });
-    dispatch({ type: 'SET_ERROR', payload: null });
-    dispatch({ type: 'SET_UPLOAD_QUEUE', payload: items });
-    dispatch({ type: 'SET_UPLOAD_PROGRESS', payload: 0 });
+  const uploadKnowledge = useCallback(
+    async (items: KnowledgeIngestRequest[]): Promise<KnowledgeIngestResponse> => {
+      dispatch({ type: 'SET_UPLOADING', payload: true });
+      dispatch({ type: 'SET_ERROR', payload: null });
+      dispatch({ type: 'SET_UPLOAD_QUEUE', payload: items });
+      dispatch({ type: 'SET_UPLOAD_PROGRESS', payload: 0 });
 
-    try {
-      // Use the unified knowledge API
-      const response = await uaipAPI.knowledge.uploadKnowledge(items);
-      
-      // Add uploaded items to state
-      dispatch({ type: 'ADD_KNOWLEDGE_ITEMS', payload: response.items });
-      dispatch({ type: 'SET_UPLOAD_PROGRESS', payload: 100 });
-      
-      return response;
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Failed to upload knowledge';
-      dispatch({ type: 'SET_ERROR', payload: errorMessage });
-      throw error;
-    } finally {
-      dispatch({ type: 'SET_UPLOADING', payload: false });
-      dispatch({ type: 'SET_UPLOAD_QUEUE', payload: [] });
-    }
-  }, []);
+      try {
+        // Use the unified knowledge API
+        const response = await uaipAPI.knowledge.uploadKnowledge(items);
 
-  const searchKnowledge = useCallback(async (query: KnowledgeSearchRequest): Promise<KnowledgeSearchResponse> => {
-    dispatch({ type: 'SET_SEARCHING', payload: true });
-    dispatch({ type: 'SET_ERROR', payload: null });
+        // Add uploaded items to state
+        dispatch({ type: 'ADD_KNOWLEDGE_ITEMS', payload: response.items });
+        dispatch({ type: 'SET_UPLOAD_PROGRESS', payload: 100 });
 
-    try {
-      const response = await uaipAPI.knowledge.searchKnowledge(query);
-      
-      dispatch({ 
-        type: 'SET_SEARCH_RESULTS', 
-        payload: { 
-          items: response.items, 
-          query, 
-          metadata: response.searchMetadata 
-        } 
-      });
-      
-      // Also add items to the main items collection
-      dispatch({ type: 'ADD_KNOWLEDGE_ITEMS', payload: response.items });
-      
-      return response;
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Failed to search knowledge';
-      dispatch({ type: 'SET_ERROR', payload: errorMessage });
-      throw error;
-    } finally {
-      dispatch({ type: 'SET_SEARCHING', payload: false });
-    }
-  }, []);
+        return response;
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : 'Failed to upload knowledge';
+        dispatch({ type: 'SET_ERROR', payload: errorMessage });
+        throw error;
+      } finally {
+        dispatch({ type: 'SET_UPLOADING', payload: false });
+        dispatch({ type: 'SET_UPLOAD_QUEUE', payload: [] });
+      }
+    },
+    []
+  );
 
-  const updateKnowledge = useCallback(async (itemId: string, updates: Partial<KnowledgeItem>): Promise<KnowledgeItem> => {
-    dispatch({ type: 'SET_LOADING', payload: true });
-    dispatch({ type: 'SET_ERROR', payload: null });
+  const searchKnowledge = useCallback(
+    async (query: KnowledgeSearchRequest): Promise<KnowledgeSearchResponse> => {
+      dispatch({ type: 'SET_SEARCHING', payload: true });
+      dispatch({ type: 'SET_ERROR', payload: null });
 
-    try {
-      const updatedItem = await uaipAPI.knowledge.updateKnowledge(itemId, updates);
-      dispatch({ type: 'UPDATE_KNOWLEDGE_ITEM', payload: updatedItem });
-      return updatedItem;
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Failed to update knowledge';
-      dispatch({ type: 'SET_ERROR', payload: errorMessage });
-      throw error;
-    } finally {
-      dispatch({ type: 'SET_LOADING', payload: false });
-    }
-  }, []);
+      try {
+        const response = await uaipAPI.knowledge.searchKnowledge(query);
+
+        dispatch({
+          type: 'SET_SEARCH_RESULTS',
+          payload: {
+            items: response.items,
+            query,
+            metadata: response.searchMetadata,
+          },
+        });
+
+        // Also add items to the main items collection
+        dispatch({ type: 'ADD_KNOWLEDGE_ITEMS', payload: response.items });
+
+        return response;
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : 'Failed to search knowledge';
+        dispatch({ type: 'SET_ERROR', payload: errorMessage });
+        throw error;
+      } finally {
+        dispatch({ type: 'SET_SEARCHING', payload: false });
+      }
+    },
+    []
+  );
+
+  const updateKnowledge = useCallback(
+    async (itemId: string, updates: Partial<KnowledgeItem>): Promise<KnowledgeItem> => {
+      dispatch({ type: 'SET_LOADING', payload: true });
+      dispatch({ type: 'SET_ERROR', payload: null });
+
+      try {
+        const updatedItem = await uaipAPI.knowledge.updateKnowledge(itemId, updates);
+        dispatch({ type: 'UPDATE_KNOWLEDGE_ITEM', payload: updatedItem });
+        return updatedItem;
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : 'Failed to update knowledge';
+        dispatch({ type: 'SET_ERROR', payload: errorMessage });
+        throw error;
+      } finally {
+        dispatch({ type: 'SET_LOADING', payload: false });
+      }
+    },
+    []
+  );
 
   const deleteKnowledge = useCallback(async (itemId: string): Promise<void> => {
     dispatch({ type: 'SET_LOADING', payload: true });
@@ -256,7 +271,8 @@ export const KnowledgeProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       dispatch({ type: 'ADD_KNOWLEDGE_ITEMS', payload: items });
       return items;
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Failed to get related knowledge';
+      const errorMessage =
+        error instanceof Error ? error.message : 'Failed to get related knowledge';
       dispatch({ type: 'SET_ERROR', payload: errorMessage });
       throw error;
     } finally {
@@ -273,7 +289,8 @@ export const KnowledgeProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       dispatch({ type: 'ADD_KNOWLEDGE_ITEMS', payload: items });
       return items;
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Failed to get knowledge by tag';
+      const errorMessage =
+        error instanceof Error ? error.message : 'Failed to get knowledge by tag';
       dispatch({ type: 'SET_ERROR', payload: errorMessage });
       throw error;
     } finally {
@@ -287,7 +304,7 @@ export const KnowledgeProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
     try {
       const stats = await uaipAPI.knowledge.getKnowledgeStats();
-      
+
       // Stats are already in the expected format from the unified API
       dispatch({ type: 'SET_STATS', payload: stats });
     } catch (error) {
@@ -325,11 +342,7 @@ export const KnowledgeProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     refreshStats,
   };
 
-  return (
-    <KnowledgeContext.Provider value={value}>
-      {children}
-    </KnowledgeContext.Provider>
-  );
+  return <KnowledgeContext.Provider value={value}>{children}</KnowledgeContext.Provider>;
 };
 
 export const useKnowledge = () => {
@@ -338,4 +351,4 @@ export const useKnowledge = () => {
     throw new Error('useKnowledge must be used within a KnowledgeProvider');
   }
   return context;
-}; 
+};

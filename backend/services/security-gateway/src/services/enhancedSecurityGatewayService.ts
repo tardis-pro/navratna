@@ -16,7 +16,7 @@ import {
   OAuthProviderType,
   AuthenticationMethod,
   MFAMethod,
-  ApprovalRequirement
+  ApprovalRequirement,
 } from '@uaip/types';
 import { SecurityGatewayService } from './securityGatewayService.js';
 import { OAuthProviderService } from './oauthProviderService.js';
@@ -72,7 +72,7 @@ export class EnhancedSecurityGatewayService extends SecurityGatewayService {
         resource: request.operation.resource,
         userId: request.securityContext.userId,
         userType: request.securityContext.userType,
-        agentCapabilities: request.securityContext.agentCapabilities?.length || 0
+        agentCapabilities: request.securityContext.agentCapabilities?.length || 0,
       });
 
       // Validate agent operations if applicable
@@ -109,7 +109,7 @@ export class EnhancedSecurityGatewayService extends SecurityGatewayService {
         validUntil: new Date(Date.now() + this.getValidityDuration(riskAssessment.overallRisk)),
         mfaRequired: mfaRequirement.required,
         mfaMethods: mfaRequirement.methods,
-        agentRestrictions
+        agentRestrictions,
       };
 
       // Log the validation event
@@ -117,20 +117,22 @@ export class EnhancedSecurityGatewayService extends SecurityGatewayService {
         eventType: result.allowed
           ? AuditEventType.PERMISSION_GRANTED
           : AuditEventType.PERMISSION_DENIED,
-        userId: request.securityContext.userType === UserType.AGENT
-          ? undefined
-          : request.securityContext.userId,
-        agentId: request.securityContext.userType === UserType.AGENT
-          ? request.securityContext.userId
-          : undefined,
+        userId:
+          request.securityContext.userType === UserType.AGENT
+            ? undefined
+            : request.securityContext.userId,
+        agentId:
+          request.securityContext.userType === UserType.AGENT
+            ? request.securityContext.userId
+            : undefined,
         details: {
           operation: request.operation,
           riskLevel: riskAssessment.level,
           approvalRequired: approvalRequirement.required,
           mfaRequired: mfaRequirement.required,
           agentCapabilities: request.securityContext.agentCapabilities,
-          oauthProvider: request.securityContext.oauthProvider
-        }
+          oauthProvider: request.securityContext.oauthProvider,
+        },
       });
 
       logger.info('Enhanced security validation completed', {
@@ -139,7 +141,7 @@ export class EnhancedSecurityGatewayService extends SecurityGatewayService {
         approvalRequired: result.approvalRequired,
         riskLevel: result.riskLevel,
         userType: request.securityContext.userType,
-        mfaRequired: result.mfaRequired
+        mfaRequired: result.mfaRequired,
       });
 
       return result;
@@ -147,7 +149,7 @@ export class EnhancedSecurityGatewayService extends SecurityGatewayService {
       logger.error('Enhanced security validation failed', {
         operationType: request.operation.type,
         userType: request.securityContext.userType,
-        error: error instanceof Error ? error.message : 'Unknown error'
+        error: error instanceof Error ? error.message : 'Unknown error',
       });
       await this.auditService.logEvent({
         eventType: AuditEventType.SECURITY_VIOLATION,
@@ -155,8 +157,8 @@ export class EnhancedSecurityGatewayService extends SecurityGatewayService {
         details: {
           error: error.message,
           operation: request.operation,
-          securityContext: request.securityContext
-        }
+          securityContext: request.securityContext,
+        },
       });
       throw error;
     }
@@ -168,13 +170,21 @@ export class EnhancedSecurityGatewayService extends SecurityGatewayService {
   private async validateAgentOperation(request: EnhancedSecurityValidationRequest): Promise<void> {
     const agentContext = request.securityContext.agentContext;
     if (!agentContext) {
-      throw new ApiError(400, 'Agent context required for agent operations', 'MISSING_AGENT_CONTEXT');
+      throw new ApiError(
+        400,
+        'Agent context required for agent operations',
+        'MISSING_AGENT_CONTEXT'
+      );
     }
 
     // Check if agent has required capabilities for the operation
     const requiredCapability = this.getRequiredCapabilityForOperation(request.operation.type);
     if (requiredCapability && !agentContext.capabilities.includes(requiredCapability)) {
-      throw new ApiError(403, `Agent lacks required capability: ${requiredCapability}`, 'INSUFFICIENT_CAPABILITY');
+      throw new ApiError(
+        403,
+        `Agent lacks required capability: ${requiredCapability}`,
+        'INSUFFICIENT_CAPABILITY'
+      );
     }
 
     // Check operation limits
@@ -185,7 +195,10 @@ export class EnhancedSecurityGatewayService extends SecurityGatewayService {
         throw new ApiError(429, 'Daily operation limit exceeded', 'DAILY_LIMIT_EXCEEDED');
       }
 
-      if (limits.maxConcurrentOperations && limits.currentConcurrentOperations >= limits.maxConcurrentOperations) {
+      if (
+        limits.maxConcurrentOperations &&
+        limits.currentConcurrentOperations >= limits.maxConcurrentOperations
+      ) {
         throw new ApiError(429, 'Concurrent operation limit exceeded', 'CONCURRENT_LIMIT_EXCEEDED');
       }
     }
@@ -194,7 +207,9 @@ export class EnhancedSecurityGatewayService extends SecurityGatewayService {
   /**
    * Validate OAuth provider permissions
    */
-  private async validateOAuthProviderPermissions(request: EnhancedSecurityValidationRequest): Promise<void> {
+  private async validateOAuthProviderPermissions(
+    request: EnhancedSecurityValidationRequest
+  ): Promise<void> {
     const { oauthProvider, userId, agentCapabilities } = request.securityContext;
 
     if (!oauthProvider) return;
@@ -249,8 +264,13 @@ export class EnhancedSecurityGatewayService extends SecurityGatewayService {
     }
 
     // Agent capability risk (if applicable)
-    if (request.securityContext.agentCapabilities && request.securityContext.agentCapabilities.length > 0) {
-      const capabilityRisk = this.assessAgentCapabilityRisk(request.securityContext.agentCapabilities);
+    if (
+      request.securityContext.agentCapabilities &&
+      request.securityContext.agentCapabilities.length > 0
+    ) {
+      const capabilityRisk = this.assessAgentCapabilityRisk(
+        request.securityContext.agentCapabilities
+      );
       factors.push(capabilityRisk);
       totalScore += capabilityRisk.score;
     }
@@ -262,7 +282,7 @@ export class EnhancedSecurityGatewayService extends SecurityGatewayService {
         level: this.scoreToRiskLevel(request.securityContext.sessionRisk.score),
         description: `Session risk score: ${request.securityContext.sessionRisk.score}`,
         score: request.securityContext.sessionRisk.score,
-        mitigations: request.securityContext.sessionRisk.mitigations
+        mitigations: request.securityContext.sessionRisk.mitigations,
       };
       factors.push(sessionRisk);
       totalScore += sessionRisk.score;
@@ -275,7 +295,7 @@ export class EnhancedSecurityGatewayService extends SecurityGatewayService {
         level: RiskLevel.MEDIUM,
         description: 'Multi-factor authentication not verified',
         score: 2,
-        mitigations: ['Require MFA verification']
+        mitigations: ['Require MFA verification'],
       };
       factors.push(mfaRisk);
       totalScore += mfaRisk.score;
@@ -288,7 +308,7 @@ export class EnhancedSecurityGatewayService extends SecurityGatewayService {
         level: RiskLevel.MEDIUM,
         description: 'Device not in trusted device list',
         score: 1,
-        mitigations: ['Enhanced monitoring', 'Additional verification']
+        mitigations: ['Enhanced monitoring', 'Additional verification'],
       };
       factors.push(deviceRisk);
       totalScore += deviceRisk.score;
@@ -314,7 +334,7 @@ export class EnhancedSecurityGatewayService extends SecurityGatewayService {
       recommendations: this.generateRecommendations(factors),
       mitigations: this.generateEnhancedMitigations(factors),
       assessedAt: new Date(),
-      validUntil: new Date(Date.now() + 60 * 60 * 1000) // 1 hour
+      validUntil: new Date(Date.now() + 60 * 60 * 1000), // 1 hour
     };
   }
 
@@ -375,7 +395,7 @@ export class EnhancedSecurityGatewayService extends SecurityGatewayService {
             agentId: request.securityContext.userId,
             provider: request.securityContext.oauthProvider,
             operation: request.operation.type,
-            error: error instanceof Error ? error.message : 'Unknown error'
+            error: error instanceof Error ? error.message : 'Unknown error',
           });
           return false;
         }
@@ -406,8 +426,8 @@ export class EnhancedSecurityGatewayService extends SecurityGatewayService {
         securityLevel: request.securityContext.securityLevel,
         lastAuthentication: request.securityContext.lastAuthentication,
         mfaVerified: request.securityContext.mfaVerified,
-        riskScore: request.securityContext.riskScore
-      }
+        riskScore: request.securityContext.riskScore,
+      },
     });
 
     // Additional approval requirements for agents
@@ -418,7 +438,7 @@ export class EnhancedSecurityGatewayService extends SecurityGatewayService {
           required: true,
           approvers: ['agent-supervisor', 'security-admin'],
           reason: 'Agent operation requires additional approval',
-          estimatedTime: '15-30 minutes'
+          estimatedTime: '15-30 minutes',
         };
       }
     }
@@ -429,7 +449,7 @@ export class EnhancedSecurityGatewayService extends SecurityGatewayService {
         required: true,
         approvers: ['oauth-admin', 'security-admin'],
         reason: 'High-risk OAuth operation requires approval',
-        estimatedTime: '30-60 minutes'
+        estimatedTime: '30-60 minutes',
       };
     }
 
@@ -447,7 +467,7 @@ export class EnhancedSecurityGatewayService extends SecurityGatewayService {
     if (riskAssessment.level === SecurityLevel.CRITICAL) {
       return {
         required: true,
-        methods: [MFAMethod.TOTP, MFAMethod.PUSH, MFAMethod.HARDWARE_TOKEN]
+        methods: [MFAMethod.TOTP, MFAMethod.PUSH, MFAMethod.HARDWARE_TOKEN],
       };
     }
 
@@ -455,7 +475,7 @@ export class EnhancedSecurityGatewayService extends SecurityGatewayService {
     if (riskAssessment.level === SecurityLevel.HIGH && !request.securityContext.mfaVerified) {
       return {
         required: true,
-        methods: [MFAMethod.TOTP, MFAMethod.SMS, MFAMethod.EMAIL]
+        methods: [MFAMethod.TOTP, MFAMethod.SMS, MFAMethod.EMAIL],
       };
     }
 
@@ -464,17 +484,17 @@ export class EnhancedSecurityGatewayService extends SecurityGatewayService {
       const sensitiveCapabilities = [
         AgentCapability.CODE_REPOSITORY,
         AgentCapability.EMAIL_ACCESS,
-        AgentCapability.FILE_MANAGEMENT
+        AgentCapability.FILE_MANAGEMENT,
       ];
 
-      const hasSensitiveCapability = request.securityContext.agentCapabilities?.some(
-        cap => sensitiveCapabilities.includes(cap)
+      const hasSensitiveCapability = request.securityContext.agentCapabilities?.some((cap) =>
+        sensitiveCapabilities.includes(cap)
       );
 
       if (hasSensitiveCapability && !request.securityContext.mfaVerified) {
         return {
           required: true,
-          methods: [MFAMethod.TOTP, MFAMethod.PUSH]
+          methods: [MFAMethod.TOTP, MFAMethod.PUSH],
         };
       }
     }
@@ -485,9 +505,7 @@ export class EnhancedSecurityGatewayService extends SecurityGatewayService {
   /**
    * Get agent-specific restrictions
    */
-  private async getAgentRestrictions(
-    request: EnhancedSecurityValidationRequest
-  ): Promise<any> {
+  private async getAgentRestrictions(request: EnhancedSecurityValidationRequest): Promise<any> {
     if (request.securityContext.userType !== UserType.AGENT) {
       return undefined;
     }
@@ -498,9 +516,9 @@ export class EnhancedSecurityGatewayService extends SecurityGatewayService {
         alertThresholds: {
           dailyOperations: 100,
           hourlyOperations: 20,
-          errorRate: 0.05
-        }
-      }
+          errorRate: 0.05,
+        },
+      },
     };
 
     // Add rate limiting based on agent capabilities
@@ -508,17 +526,17 @@ export class EnhancedSecurityGatewayService extends SecurityGatewayService {
       const highRiskCapabilities = [
         AgentCapability.CODE_REPOSITORY,
         AgentCapability.EMAIL_ACCESS,
-        AgentCapability.FILE_MANAGEMENT
+        AgentCapability.FILE_MANAGEMENT,
       ];
 
-      const hasHighRiskCapability = request.securityContext.agentCapabilities.some(
-        cap => highRiskCapabilities.includes(cap)
+      const hasHighRiskCapability = request.securityContext.agentCapabilities.some((cap) =>
+        highRiskCapabilities.includes(cap)
       );
 
       if (hasHighRiskCapability) {
         restrictions.rateLimit = {
           requests: 50,
-          windowMs: 60 * 60 * 1000 // 1 hour
+          windowMs: 60 * 60 * 1000, // 1 hour
         };
       }
     }
@@ -533,7 +551,7 @@ export class EnhancedSecurityGatewayService extends SecurityGatewayService {
       [UserType.HUMAN]: { score: 1, level: RiskLevel.LOW },
       [UserType.AGENT]: { score: 3, level: RiskLevel.MEDIUM },
       [UserType.SERVICE]: { score: 2, level: RiskLevel.LOW },
-      [UserType.SYSTEM]: { score: 4, level: RiskLevel.HIGH }
+      [UserType.SYSTEM]: { score: 4, level: RiskLevel.HIGH },
     };
 
     const risk = riskMap[userType];
@@ -542,7 +560,8 @@ export class EnhancedSecurityGatewayService extends SecurityGatewayService {
       level: risk.level,
       description: `User type: ${userType}`,
       score: risk.score,
-      mitigations: userType === UserType.AGENT ? ['Enhanced monitoring', 'Capability validation'] : []
+      mitigations:
+        userType === UserType.AGENT ? ['Enhanced monitoring', 'Capability validation'] : [],
     };
   }
 
@@ -555,7 +574,7 @@ export class EnhancedSecurityGatewayService extends SecurityGatewayService {
       [AuthenticationMethod.API_KEY]: { score: 4, level: RiskLevel.HIGH },
       [AuthenticationMethod.CERTIFICATE]: { score: 1, level: RiskLevel.LOW },
       [AuthenticationMethod.BIOMETRIC]: { score: 1, level: RiskLevel.LOW },
-      [AuthenticationMethod.AGENT_TOKEN]: { score: 3, level: RiskLevel.MEDIUM }
+      [AuthenticationMethod.AGENT_TOKEN]: { score: 3, level: RiskLevel.MEDIUM },
     };
 
     const risk = riskMap[authMethod];
@@ -564,7 +583,7 @@ export class EnhancedSecurityGatewayService extends SecurityGatewayService {
       level: risk.level,
       description: `Authentication method: ${authMethod}`,
       score: risk.score,
-      mitigations: risk.score > 2 ? ['MFA verification', 'Token rotation'] : []
+      mitigations: risk.score > 2 ? ['MFA verification', 'Token rotation'] : [],
     };
   }
 
@@ -580,7 +599,7 @@ export class EnhancedSecurityGatewayService extends SecurityGatewayService {
       [OAuthProviderType.LINKEDIN]: { score: 1, level: RiskLevel.LOW },
       [OAuthProviderType.SLACK]: { score: 2, level: RiskLevel.MEDIUM },
       [OAuthProviderType.DISCORD]: { score: 3, level: RiskLevel.MEDIUM },
-      [OAuthProviderType.CUSTOM]: { score: 4, level: RiskLevel.HIGH }
+      [OAuthProviderType.CUSTOM]: { score: 4, level: RiskLevel.HIGH },
     };
 
     const risk = riskMap[provider];
@@ -589,7 +608,7 @@ export class EnhancedSecurityGatewayService extends SecurityGatewayService {
       level: risk.level,
       description: `OAuth provider: ${provider}`,
       score: risk.score,
-      mitigations: ['Token validation', 'Scope verification']
+      mitigations: ['Token validation', 'Scope verification'],
     };
   }
 
@@ -604,7 +623,7 @@ export class EnhancedSecurityGatewayService extends SecurityGatewayService {
       [AgentCapability.TASK_AUTOMATION]: 3,
       [AgentCapability.CONTENT_CREATION]: 1,
       [AgentCapability.INTEGRATION]: 3,
-      [AgentCapability.MONITORING]: 2
+      [AgentCapability.MONITORING]: 2,
     };
 
     const totalScore = capabilities.reduce((sum, cap) => sum + capabilityRiskScores[cap], 0);
@@ -616,7 +635,7 @@ export class EnhancedSecurityGatewayService extends SecurityGatewayService {
       level,
       description: `Agent capabilities: ${capabilities.join(', ')}`,
       score: Math.min(averageScore, 5), // Cap at 5
-      mitigations: ['Capability validation', 'Operation monitoring', 'Rate limiting']
+      mitigations: ['Capability validation', 'Operation monitoring', 'Rate limiting'],
     };
   }
 
@@ -633,11 +652,11 @@ export class EnhancedSecurityGatewayService extends SecurityGatewayService {
     const sensitiveCapabilities = [
       AgentCapability.CODE_REPOSITORY,
       AgentCapability.EMAIL_ACCESS,
-      AgentCapability.FILE_MANAGEMENT
+      AgentCapability.FILE_MANAGEMENT,
     ];
 
-    const hasSensitiveCapability = request.securityContext.agentCapabilities?.some(
-      cap => sensitiveCapabilities.includes(cap)
+    const hasSensitiveCapability = request.securityContext.agentCapabilities?.some((cap) =>
+      sensitiveCapabilities.includes(cap)
     );
 
     if (hasSensitiveCapability && riskAssessment.level >= SecurityLevel.HIGH) {
@@ -647,8 +666,6 @@ export class EnhancedSecurityGatewayService extends SecurityGatewayService {
     return false;
   }
 
-
-
   private generateReasoning(
     request: EnhancedSecurityValidationRequest,
     riskAssessment: RiskAssessment,
@@ -656,10 +673,14 @@ export class EnhancedSecurityGatewayService extends SecurityGatewayService {
   ): string {
     const parts: string[] = [];
 
-    parts.push(`Risk assessment: ${riskAssessment.level} (score: ${riskAssessment.score.toFixed(2)})`);
+    parts.push(
+      `Risk assessment: ${riskAssessment.level} (score: ${riskAssessment.score.toFixed(2)})`
+    );
 
     if (request.securityContext.userType === UserType.AGENT) {
-      parts.push(`Agent operation with capabilities: ${request.securityContext.agentCapabilities?.join(', ')}`);
+      parts.push(
+        `Agent operation with capabilities: ${request.securityContext.agentCapabilities?.join(', ')}`
+      );
     }
 
     if (request.securityContext.oauthProvider) {
@@ -685,17 +706,17 @@ export class EnhancedSecurityGatewayService extends SecurityGatewayService {
         allowedProviders: [OAuthProviderType.GITHUB],
         conditions: {
           maxDailyCommits: 50,
-          allowedRepositories: ['public', 'approved-private']
+          allowedRepositories: ['public', 'approved-private'],
         },
         actions: {
           allow: true,
           rateLimits: {
             requestsPerHour: 100,
-            requestsPerDay: 1000
-          }
+            requestsPerDay: 1000,
+          },
         },
         priority: 10,
-        isActive: true
+        isActive: true,
       },
       {
         id: 'agent-email-access',
@@ -705,21 +726,21 @@ export class EnhancedSecurityGatewayService extends SecurityGatewayService {
         allowedProviders: [OAuthProviderType.GMAIL, OAuthProviderType.OUTLOOK],
         conditions: {
           maxDailyEmails: 100,
-          restrictedFolders: ['deleted', 'spam']
+          restrictedFolders: ['deleted', 'spam'],
         },
         actions: {
           allow: true,
           rateLimits: {
             requestsPerHour: 50,
-            requestsPerDay: 500
-          }
+            requestsPerDay: 500,
+          },
         },
         priority: 8,
-        isActive: true
-      }
+        isActive: true,
+      },
     ];
 
-    defaultAgentPolicies.forEach(policy => {
+    defaultAgentPolicies.forEach((policy) => {
       this.agentPolicies.set(policy.id, policy);
     });
 
@@ -731,14 +752,16 @@ export class EnhancedSecurityGatewayService extends SecurityGatewayService {
     request: EnhancedSecurityValidationRequest
   ): boolean {
     const agentCapabilities = request.securityContext.agentCapabilities || [];
-    const hasApplicableCapability = policy.applicableCapabilities.some(cap =>
+    const hasApplicableCapability = policy.applicableCapabilities.some((cap) =>
       agentCapabilities.includes(cap)
     );
 
     if (!hasApplicableCapability) return false;
 
-    if (request.securityContext.oauthProvider &&
-      !policy.allowedProviders.includes(request.securityContext.oauthProvider)) {
+    if (
+      request.securityContext.oauthProvider &&
+      !policy.allowedProviders.includes(request.securityContext.oauthProvider)
+    ) {
       return false;
     }
 
@@ -753,7 +776,7 @@ export class EnhancedSecurityGatewayService extends SecurityGatewayService {
     // This would typically query a rate limiting service or database
     // TODO: Implement agent usage tracking in AuditService
     const currentHourlyUsage = 0; // await this.databaseService.audit.getAgentHourlyUsage(agentId);
-    const currentDailyUsage = 0;  // await this.databaseService.audit.getAgentDailyUsage(agentId);
+    const currentDailyUsage = 0; // await this.databaseService.audit.getAgentDailyUsage(agentId);
 
     if (currentHourlyUsage >= rateLimits.requestsPerHour) {
       throw new ApiError(429, 'Hourly rate limit exceeded', 'HOURLY_RATE_LIMIT_EXCEEDED');
@@ -772,22 +795,25 @@ export class EnhancedSecurityGatewayService extends SecurityGatewayService {
   ): Promise<{ allowed: boolean; conditions: string[]; appliedPolicies: string[] }> {
     // Apply both regular and agent-specific policies
     // This would combine the results from both policy sets
-    return this.applySecurityPolicies({
-      operation: request.operation,
-      securityContext: {
-        userId: request.securityContext.userId,
-        sessionId: request.securityContext.sessionId,
-        ipAddress: request.securityContext.ipAddress,
-        userAgent: request.securityContext.userAgent,
-        department: request.securityContext.department,
-        role: request.securityContext.role,
-        permissions: request.securityContext.permissions,
-        securityLevel: request.securityContext.securityLevel,
-        lastAuthentication: request.securityContext.lastAuthentication,
-        mfaVerified: request.securityContext.mfaVerified,
-        riskScore: request.securityContext.riskScore
-      }
-    }, riskAssessment);
+    return this.applySecurityPolicies(
+      {
+        operation: request.operation,
+        securityContext: {
+          userId: request.securityContext.userId,
+          sessionId: request.securityContext.sessionId,
+          ipAddress: request.securityContext.ipAddress,
+          userAgent: request.securityContext.userAgent,
+          department: request.securityContext.department,
+          role: request.securityContext.role,
+          permissions: request.securityContext.permissions,
+          securityLevel: request.securityContext.securityLevel,
+          lastAuthentication: request.securityContext.lastAuthentication,
+          mfaVerified: request.securityContext.mfaVerified,
+          riskScore: request.securityContext.riskScore,
+        },
+      },
+      riskAssessment
+    );
   }
 
   private determineEnhancedApprovalRequirement(
@@ -796,31 +822,32 @@ export class EnhancedSecurityGatewayService extends SecurityGatewayService {
     policyResult: { allowed: boolean; conditions: string[]; appliedPolicies: string[] }
   ): boolean {
     // Enhanced approval logic for agents and OAuth operations
-    const baseRequirement = this.determineApprovalRequirement({
-      operation: request.operation,
-      securityContext: {
-        userId: request.securityContext.userId,
-        sessionId: request.securityContext.sessionId,
-        ipAddress: request.securityContext.ipAddress,
-        userAgent: request.securityContext.userAgent,
-        department: request.securityContext.department,
-        role: request.securityContext.role,
-        permissions: request.securityContext.permissions,
-        securityLevel: request.securityContext.securityLevel,
-        lastAuthentication: request.securityContext.lastAuthentication,
-        mfaVerified: request.securityContext.mfaVerified,
-        riskScore: request.securityContext.riskScore
-      }
-    }, riskAssessment, policyResult);
+    const baseRequirement = this.determineApprovalRequirement(
+      {
+        operation: request.operation,
+        securityContext: {
+          userId: request.securityContext.userId,
+          sessionId: request.securityContext.sessionId,
+          ipAddress: request.securityContext.ipAddress,
+          userAgent: request.securityContext.userAgent,
+          department: request.securityContext.department,
+          role: request.securityContext.role,
+          permissions: request.securityContext.permissions,
+          securityLevel: request.securityContext.securityLevel,
+          lastAuthentication: request.securityContext.lastAuthentication,
+          mfaVerified: request.securityContext.mfaVerified,
+          riskScore: request.securityContext.riskScore,
+        },
+      },
+      riskAssessment,
+      policyResult
+    );
 
     // Additional approval requirements for agents
     if (request.securityContext.userType === UserType.AGENT) {
-      const sensitiveCapabilities = [
-        AgentCapability.CODE_REPOSITORY,
-        AgentCapability.EMAIL_ACCESS
-      ];
+      const sensitiveCapabilities = [AgentCapability.CODE_REPOSITORY, AgentCapability.EMAIL_ACCESS];
 
-      const hasSensitiveCapability = request.securityContext.agentCapabilities?.some(cap =>
+      const hasSensitiveCapability = request.securityContext.agentCapabilities?.some((cap) =>
         sensitiveCapabilities.includes(cap)
       );
 
@@ -836,22 +863,25 @@ export class EnhancedSecurityGatewayService extends SecurityGatewayService {
     request: EnhancedSecurityValidationRequest,
     riskAssessment: RiskAssessment
   ): Promise<string[]> {
-    const baseApprovers = await this.getRequiredApprovers({
-      operation: request.operation,
-      securityContext: {
-        userId: request.securityContext.userId,
-        sessionId: request.securityContext.sessionId,
-        ipAddress: request.securityContext.ipAddress,
-        userAgent: request.securityContext.userAgent,
-        department: request.securityContext.department,
-        role: request.securityContext.role,
-        permissions: request.securityContext.permissions,
-        securityLevel: request.securityContext.securityLevel,
-        lastAuthentication: request.securityContext.lastAuthentication,
-        mfaVerified: request.securityContext.mfaVerified,
-        riskScore: request.securityContext.riskScore
-      }
-    }, riskAssessment);
+    const baseApprovers = await this.getRequiredApprovers(
+      {
+        operation: request.operation,
+        securityContext: {
+          userId: request.securityContext.userId,
+          sessionId: request.securityContext.sessionId,
+          ipAddress: request.securityContext.ipAddress,
+          userAgent: request.securityContext.userAgent,
+          department: request.securityContext.department,
+          role: request.securityContext.role,
+          permissions: request.securityContext.permissions,
+          securityLevel: request.securityContext.securityLevel,
+          lastAuthentication: request.securityContext.lastAuthentication,
+          mfaVerified: request.securityContext.mfaVerified,
+          riskScore: request.securityContext.riskScore,
+        },
+      },
+      riskAssessment
+    );
 
     const enhancedApprovers = [...baseApprovers];
 
@@ -873,27 +903,34 @@ export class EnhancedSecurityGatewayService extends SecurityGatewayService {
     policyResult: any,
     approvalRequired: boolean
   ): string {
-    const baseReasoning = this.buildReasoningText({
-      operation: request.operation,
-      securityContext: {
-        userId: request.securityContext.userId,
-        sessionId: request.securityContext.sessionId,
-        ipAddress: request.securityContext.ipAddress,
-        userAgent: request.securityContext.userAgent,
-        department: request.securityContext.department,
-        role: request.securityContext.role,
-        permissions: request.securityContext.permissions,
-        securityLevel: request.securityContext.securityLevel,
-        lastAuthentication: request.securityContext.lastAuthentication,
-        mfaVerified: request.securityContext.mfaVerified,
-        riskScore: request.securityContext.riskScore
-      }
-    }, riskAssessment, policyResult, approvalRequired);
+    const baseReasoning = this.buildReasoningText(
+      {
+        operation: request.operation,
+        securityContext: {
+          userId: request.securityContext.userId,
+          sessionId: request.securityContext.sessionId,
+          ipAddress: request.securityContext.ipAddress,
+          userAgent: request.securityContext.userAgent,
+          department: request.securityContext.department,
+          role: request.securityContext.role,
+          permissions: request.securityContext.permissions,
+          securityLevel: request.securityContext.securityLevel,
+          lastAuthentication: request.securityContext.lastAuthentication,
+          mfaVerified: request.securityContext.mfaVerified,
+          riskScore: request.securityContext.riskScore,
+        },
+      },
+      riskAssessment,
+      policyResult,
+      approvalRequired
+    );
 
     const enhancedReasons: string[] = [baseReasoning];
 
     if (request.securityContext.userType === UserType.AGENT) {
-      enhancedReasons.push(`Agent operation with ${request.securityContext.agentCapabilities?.length || 0} capabilities`);
+      enhancedReasons.push(
+        `Agent operation with ${request.securityContext.agentCapabilities?.length || 0} capabilities`
+      );
     }
 
     if (request.securityContext.oauthProvider) {
@@ -947,11 +984,16 @@ export class EnhancedSecurityGatewayService extends SecurityGatewayService {
    */
   private getValidityDuration(riskLevel: RiskLevel): number {
     switch (riskLevel) {
-      case RiskLevel.CRITICAL: return 15 * 60 * 1000; // 15 minutes
-      case RiskLevel.HIGH: return 30 * 60 * 1000; // 30 minutes
-      case RiskLevel.MEDIUM: return 60 * 60 * 1000; // 1 hour
-      case RiskLevel.LOW: return 4 * 60 * 60 * 1000; // 4 hours
-      default: return 60 * 60 * 1000; // 1 hour default
+      case RiskLevel.CRITICAL:
+        return 15 * 60 * 1000; // 15 minutes
+      case RiskLevel.HIGH:
+        return 30 * 60 * 1000; // 30 minutes
+      case RiskLevel.MEDIUM:
+        return 60 * 60 * 1000; // 1 hour
+      case RiskLevel.LOW:
+        return 4 * 60 * 60 * 1000; // 4 hours
+      default:
+        return 60 * 60 * 1000; // 1 hour default
     }
   }
 
@@ -992,7 +1034,7 @@ export class EnhancedSecurityGatewayService extends SecurityGatewayService {
       level,
       description: `Operation type: ${operationType}`,
       score,
-      mitigations
+      mitigations,
     };
   }
 
@@ -1011,11 +1053,16 @@ export class EnhancedSecurityGatewayService extends SecurityGatewayService {
    */
   private riskToSecurityLevel(riskLevel: RiskLevel): SecurityLevel {
     switch (riskLevel) {
-      case RiskLevel.CRITICAL: return SecurityLevel.CRITICAL;
-      case RiskLevel.HIGH: return SecurityLevel.HIGH;
-      case RiskLevel.MEDIUM: return SecurityLevel.MEDIUM;
-      case RiskLevel.LOW: return SecurityLevel.LOW;
-      default: return SecurityLevel.MEDIUM;
+      case RiskLevel.CRITICAL:
+        return SecurityLevel.CRITICAL;
+      case RiskLevel.HIGH:
+        return SecurityLevel.HIGH;
+      case RiskLevel.MEDIUM:
+        return SecurityLevel.MEDIUM;
+      case RiskLevel.LOW:
+        return SecurityLevel.LOW;
+      default:
+        return SecurityLevel.MEDIUM;
     }
   }
 
@@ -1034,7 +1081,9 @@ export class EnhancedSecurityGatewayService extends SecurityGatewayService {
       description: isOffHours ? 'Off-hours operation' : 'Business hours operation',
       score: isOffHours ? 1 : 0,
       level: isOffHours ? RiskLevel.MEDIUM : RiskLevel.LOW,
-      mitigations: isOffHours ? ['Schedule during business hours', 'Require additional approval'] : []
+      mitigations: isOffHours
+        ? ['Schedule during business hours', 'Require additional approval']
+        : [],
     };
   }
 
@@ -1044,7 +1093,7 @@ export class EnhancedSecurityGatewayService extends SecurityGatewayService {
   protected generateRecommendations(factors: RiskFactor[]): string[] {
     const recommendations: string[] = [];
 
-    factors.forEach(factor => {
+    factors.forEach((factor) => {
       switch (factor.type) {
         case 'user_type':
           if (factor.score > 0) {
@@ -1088,14 +1137,14 @@ export class EnhancedSecurityGatewayService extends SecurityGatewayService {
   protected generateEnhancedMitigations(factors: RiskFactor[]): string[] {
     const mitigations: string[] = [];
 
-    const highRiskFactors = factors.filter(f => f.score >= 2);
+    const highRiskFactors = factors.filter((f) => f.score >= 2);
 
     if (highRiskFactors.length > 0) {
       mitigations.push('Require additional approval');
       mitigations.push('Enable enhanced monitoring');
     }
 
-    const criticalFactors = factors.filter(f => f.score >= 3);
+    const criticalFactors = factors.filter((f) => f.score >= 3);
     if (criticalFactors.length > 0) {
       mitigations.push('Require MFA verification');
       mitigations.push('Limit operation scope');
@@ -1109,14 +1158,14 @@ export class EnhancedSecurityGatewayService extends SecurityGatewayService {
    */
   protected getRequiredCapabilityForOperation(operationType: string): AgentCapability | null {
     const operationCapabilityMap: Record<string, AgentCapability> = {
-      'git_clone': AgentCapability.CODE_REPOSITORY,
-      'git_push': AgentCapability.CODE_REPOSITORY,
-      'file_read': AgentCapability.FILE_MANAGEMENT,
-      'file_write': AgentCapability.FILE_MANAGEMENT,
-      'email_send': AgentCapability.EMAIL_ACCESS,
-      'email_read': AgentCapability.EMAIL_ACCESS,
-      'note_create': AgentCapability.NOTE_TAKING,
-      'note_update': AgentCapability.NOTE_TAKING
+      git_clone: AgentCapability.CODE_REPOSITORY,
+      git_push: AgentCapability.CODE_REPOSITORY,
+      file_read: AgentCapability.FILE_MANAGEMENT,
+      file_write: AgentCapability.FILE_MANAGEMENT,
+      email_send: AgentCapability.EMAIL_ACCESS,
+      email_read: AgentCapability.EMAIL_ACCESS,
+      note_create: AgentCapability.NOTE_TAKING,
+      note_update: AgentCapability.NOTE_TAKING,
     };
 
     return operationCapabilityMap[operationType] || null;

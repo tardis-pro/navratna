@@ -39,15 +39,18 @@ export class IntegrationService {
 
       // Initialize ToolGraphDatabase
       this.toolGraphDatabase = new ToolGraphDatabase(config.database.neo4j);
-      
+
       // Verify Neo4j connectivity (non-blocking)
       try {
         await this.toolGraphDatabase.verifyConnectivity();
         logger.info('Neo4j connectivity verified for integration service');
       } catch (error) {
-        logger.warn('Neo4j connectivity failed, integration will continue with degraded functionality', {
-          error: error instanceof Error ? error.message : 'Unknown error'
-        });
+        logger.warn(
+          'Neo4j connectivity failed, integration will continue with degraded functionality',
+          {
+            error: error instanceof Error ? error.message : 'Unknown error',
+          }
+        );
       }
 
       // Initialize OutboxPublisher
@@ -55,16 +58,13 @@ export class IntegrationService {
       this.outboxPublisher = new OutboxPublisher(integrationEventRepository);
 
       // Initialize GraphSyncWorker
-      this.graphSyncWorker = new GraphSyncWorker(
-        this.outboxPublisher,
-        this.toolGraphDatabase
-      );
+      this.graphSyncWorker = new GraphSyncWorker(this.outboxPublisher, this.toolGraphDatabase);
 
       this.isInitialized = true;
       logger.info('IntegrationService initialized successfully');
     } catch (error) {
       logger.error('Failed to initialize IntegrationService', {
-        error: error instanceof Error ? error.message : 'Unknown error'
+        error: error instanceof Error ? error.message : 'Unknown error',
       });
       throw error;
     }
@@ -165,7 +165,7 @@ export class IntegrationService {
     return {
       isInitialized: this.isInitialized,
       worker: this.graphSyncWorker ? this.graphSyncWorker.getStatus() : null,
-      neo4j: this.toolGraphDatabase ? this.toolGraphDatabase.getConnectionStatus() : null
+      neo4j: this.toolGraphDatabase ? this.toolGraphDatabase.getConnectionStatus() : null,
     };
   }
 
@@ -190,34 +190,32 @@ export class IntegrationService {
         pendingEvents = events.length;
       }
 
-      const isHealthy = status.isInitialized && 
-                       status.worker?.isRunning && 
-                       status.neo4j?.isConnected;
+      const isHealthy =
+        status.isInitialized && status.worker?.isRunning && status.neo4j?.isConnected;
 
-      const isDegraded = status.isInitialized && 
-                        status.worker?.isRunning && 
-                        !status.neo4j?.isConnected;
+      const isDegraded =
+        status.isInitialized && status.worker?.isRunning && !status.neo4j?.isConnected;
 
       return {
-        status: isHealthy ? 'healthy' : (isDegraded ? 'degraded' : 'unhealthy'),
+        status: isHealthy ? 'healthy' : isDegraded ? 'degraded' : 'unhealthy',
         details: {
           initialized: status.isInitialized,
           workerRunning: status.worker?.isRunning || false,
           neo4jConnected: status.neo4j?.isConnected || false,
-          pendingEvents
-        }
+          pendingEvents,
+        },
       };
     } catch (error) {
       logger.error('Integration service health check failed', {
-        error: error instanceof Error ? error.message : 'Unknown error'
+        error: error instanceof Error ? error.message : 'Unknown error',
       });
       return {
         status: 'unhealthy',
         details: {
           initialized: false,
           workerRunning: false,
-          neo4jConnected: false
-        }
+          neo4jConnected: false,
+        },
       };
     }
   }
@@ -228,7 +226,7 @@ export class IntegrationService {
   public async shutdown(): Promise<void> {
     try {
       this.stop();
-      
+
       if (this.toolGraphDatabase) {
         await this.toolGraphDatabase.close();
       }
@@ -237,8 +235,8 @@ export class IntegrationService {
       logger.info('IntegrationService shut down successfully');
     } catch (error) {
       logger.error('Error during IntegrationService shutdown', {
-        error: error instanceof Error ? error.message : 'Unknown error'
+        error: error instanceof Error ? error.message : 'Unknown error',
       });
     }
   }
-} 
+}

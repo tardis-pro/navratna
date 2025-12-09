@@ -1,9 +1,4 @@
-import { 
-  KnowledgeItem, 
-  KnowledgeScope, 
-  KnowledgeSearchRequest,
-  ContextRequest 
-} from '@uaip/types';
+import { KnowledgeItem, KnowledgeScope, KnowledgeSearchRequest, ContextRequest } from '@uaip/types';
 import { KnowledgeGraphService } from './knowledge-graph/knowledge-graph.service.js';
 
 export interface ContextOrchestrationConfig {
@@ -20,7 +15,7 @@ export class ContextOrchestrationService {
     agentWeight: 1.0,
     userWeight: 0.8,
     generalWeight: 0.6,
-    maxItemsPerLayer: 10
+    maxItemsPerLayer: 10,
   };
 
   constructor(
@@ -52,16 +47,22 @@ export class ContextOrchestrationService {
     truncated: boolean;
   }> {
     const finalConfig = { ...this.defaultConfig, ...this.config, ...options.config };
-    
+
     // Step 1: Retrieve from each layer
-    const layerResults = await this.retrieveFromLayers(query, agentId, userId, finalConfig, options);
-    
+    const layerResults = await this.retrieveFromLayers(
+      query,
+      agentId,
+      userId,
+      finalConfig,
+      options
+    );
+
     // Step 2: Rank and merge results
     const rankedResults = this.rankAndMergeResults(layerResults, finalConfig);
-    
+
     // Step 3: Apply token limits
     const finalResults = this.applyTokenLimits(rankedResults, finalConfig);
-    
+
     return finalResults;
   }
 
@@ -75,18 +76,15 @@ export class ContextOrchestrationService {
     } = {}
   ): Promise<KnowledgeItem[]> {
     const finalConfig = { ...this.defaultConfig, ...this.config, ...options.config };
-    
+
     // Extract query from context
     const query = this.extractQueryFromContext(context);
-    
+
     // Get orchestrated context
-    const result = await this.getOrchestatedContext(
-      query,
-      context.agentId,
-      context.userId,
-      { config: finalConfig }
-    );
-    
+    const result = await this.getOrchestatedContext(query, context.agentId, context.userId, {
+      config: finalConfig,
+    });
+
     return result.items;
   }
 
@@ -106,9 +104,9 @@ export class ContextOrchestrationService {
       options: {
         limit: config.maxItemsPerLayer,
         similarityThreshold: options.similarityThreshold || 0.7,
-        includeRelationships: options.includeRelationships || false
+        includeRelationships: options.includeRelationships || false,
       },
-      timestamp: Date.now()
+      timestamp: Date.now(),
     };
 
     const agentPromise = agentId
@@ -125,13 +123,13 @@ export class ContextOrchestrationService {
     const [agentResult, userResult, generalResult] = await Promise.all([
       agentPromise,
       userPromise,
-      generalPromise
+      generalPromise,
     ]);
 
     return {
       agent: agentResult ? agentResult.items : [],
       user: userResult ? userResult.items : [],
-      general: generalResult.items
+      general: generalResult.items,
     };
   }
 
@@ -139,46 +137,51 @@ export class ContextOrchestrationService {
     layerResults: { agent: KnowledgeItem[]; user: KnowledgeItem[]; general: KnowledgeItem[] },
     config: ContextOrchestrationConfig
   ): Array<KnowledgeItem & { score: number; layer: 'agent' | 'user' | 'general' }> {
-    const scoredResults: Array<KnowledgeItem & { score: number; layer: 'agent' | 'user' | 'general' }> = [];
-    
+    const scoredResults: Array<
+      KnowledgeItem & { score: number; layer: 'agent' | 'user' | 'general' }
+    > = [];
+
     // Score agent results
-    layerResults.agent.forEach(item => {
+    layerResults.agent.forEach((item) => {
       scoredResults.push({
         ...item,
         score: item.confidence * config.agentWeight,
-        layer: 'agent'
+        layer: 'agent',
       });
     });
-    
+
     // Score user results
-    layerResults.user.forEach(item => {
+    layerResults.user.forEach((item) => {
       scoredResults.push({
         ...item,
         score: item.confidence * config.userWeight,
-        layer: 'user'
+        layer: 'user',
       });
     });
-    
+
     // Score general results
-    layerResults.general.forEach(item => {
+    layerResults.general.forEach((item) => {
       scoredResults.push({
         ...item,
         score: item.confidence * config.generalWeight,
-        layer: 'general'
+        layer: 'general',
       });
     });
-    
+
     // Remove duplicates (prefer higher-scored layers)
-    const uniqueResults = new Map<string, KnowledgeItem & { score: number; layer: 'agent' | 'user' | 'general' }>();
-    
+    const uniqueResults = new Map<
+      string,
+      KnowledgeItem & { score: number; layer: 'agent' | 'user' | 'general' }
+    >();
+
     scoredResults
       .sort((a, b) => b.score - a.score) // Sort by score descending
-      .forEach(item => {
+      .forEach((item) => {
         if (!uniqueResults.has(item.id)) {
           uniqueResults.set(item.id, item);
         }
       });
-    
+
     return Array.from(uniqueResults.values()).sort((a, b) => b.score - a.score);
   }
 
@@ -195,46 +198,46 @@ export class ContextOrchestrationService {
     const layerBreakdown = { agent: 0, user: 0, general: 0 };
     let totalTokens = 0;
     let truncated = false;
-    
+
     for (const item of rankedResults) {
       const itemTokens = this.estimateTokens(item);
-      
+
       if (totalTokens + itemTokens > config.maxTokens) {
         truncated = true;
         break;
       }
-      
+
       finalItems.push(item);
       layerBreakdown[item.layer]++;
       totalTokens += itemTokens;
     }
-    
+
     return {
       items: finalItems,
       layerBreakdown,
       totalTokens,
-      truncated
+      truncated,
     };
   }
 
   private extractQueryFromContext(context: ContextRequest): string {
     // Extract meaningful query from context
     const queries: string[] = [];
-    
+
     if (context.discussionHistory?.length) {
       // Get recent discussion topics
       const recentMessages = context.discussionHistory.slice(-3);
-      queries.push(...recentMessages.map(msg => msg.content || '').filter(Boolean));
+      queries.push(...recentMessages.map((msg) => msg.content || '').filter(Boolean));
     }
-    
+
     if (context.relevantTags?.length) {
       queries.push(context.relevantTags.join(' '));
     }
-    
+
     if (context.participantExpertise?.length) {
       queries.push(context.participantExpertise.join(' '));
     }
-    
+
     return queries.join(' ').trim() || 'general knowledge';
   }
 
@@ -243,7 +246,7 @@ export class ContextOrchestrationService {
     const contentLength = item.content.length + (item.summary?.length || 0);
     const metadataLength = JSON.stringify(item.metadata).length;
     const tagsLength = item.tags.join(' ').length;
-    
+
     return Math.ceil((contentLength + metadataLength + tagsLength) / 4);
   }
-} 
+}

@@ -44,4 +44,4 @@ MarketplaceHubWidget.widgetMeta = {
   },
 };
 
-export default MarketplaceHubWidget; 
+export default MarketplaceHubWidget;

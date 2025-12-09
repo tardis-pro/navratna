@@ -42,7 +42,10 @@ export class ProjectEventPublisher {
       await this.eventBus.publish('project.created', event);
       logger.info('Published project created event', { projectId: event.projectId });
     } catch (error) {
-      logger.error('Failed to publish project created event', { error, projectId: event.projectId });
+      logger.error('Failed to publish project created event', {
+        error,
+        projectId: event.projectId,
+      });
       throw error;
     }
   }
@@ -60,7 +63,10 @@ export class ProjectEventPublisher {
   async publishToolUsed(event: ProjectToolUsedEvent): Promise<void> {
     try {
       await this.eventBus.publish('project.tool.used', event);
-      logger.info('Published tool used event', { projectId: event.projectId, toolId: event.toolId });
+      logger.info('Published tool used event', {
+        projectId: event.projectId,
+        toolId: event.toolId,
+      });
     } catch (error) {
       logger.error('Failed to publish tool used event', { error, projectId: event.projectId });
       throw error;

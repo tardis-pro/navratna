@@ -2,7 +2,16 @@ import { Pool } from 'pg';
 import { DatabaseService } from './databaseService.js';
 import { EventBusService } from './eventBusService.js';
 import { logger, ApiError } from '@uaip/utils';
-import { Agent, AgentAnalysis, AgentRole, ExecutionPlan, LearningResult, Persona, PersonaStatus, PersonaVisibility } from '@uaip/types';
+import {
+  Agent,
+  AgentAnalysis,
+  AgentRole,
+  ExecutionPlan,
+  LearningResult,
+  Persona,
+  PersonaStatus,
+  PersonaVisibility,
+} from '@uaip/types';
 
 interface MessageWithContent {
   content?: string;
@@ -15,10 +24,15 @@ export class AgentIntelligenceService {
 
   constructor(databaseService?: DatabaseService, eventBusService?: EventBusService) {
     this.databaseService = databaseService || new DatabaseService();
-    this.eventBusService = eventBusService || new EventBusService({
-      url: process.env.RABBITMQ_URL || 'amqp://localhost',
-      serviceName: 'agent-intelligence'
-    }, console as any);
+    this.eventBusService =
+      eventBusService ||
+      new EventBusService(
+        {
+          url: process.env.RABBITMQ_URL || 'amqp://localhost',
+          serviceName: 'agent-intelligence',
+        },
+        console as any
+      );
   }
 
   public async initialize(): Promise<void> {
@@ -40,13 +54,17 @@ export class AgentIntelligenceService {
         } catch (error) {
           retryCount++;
           const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-          logger.warn(`EventBus connection attempt ${retryCount}/${maxRetries} failed: ${errorMessage}`);
+          logger.warn(
+            `EventBus connection attempt ${retryCount}/${maxRetries} failed: ${errorMessage}`
+          );
 
           if (retryCount >= maxRetries) {
-            logger.error('Failed to initialize EventBus after max retries, continuing without event publishing');
+            logger.error(
+              'Failed to initialize EventBus after max retries, continuing without event publishing'
+            );
             this.isInitialized = true;
           } else {
-            await new Promise(resolve => setTimeout(resolve, 2000));
+            await new Promise((resolve) => setTimeout(resolve, 2000));
           }
         }
       }
@@ -63,7 +81,10 @@ export class AgentIntelligenceService {
       if (healthCheck.status === 'healthy') {
         await this.eventBusService.publish(eventType, eventData);
       } else {
-        logger.warn('EventBus not healthy, skipping event publish', { eventType, status: healthCheck.status });
+        logger.warn('EventBus not healthy, skipping event publish', {
+          eventType,
+          status: healthCheck.status,
+        });
       }
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
@@ -87,7 +108,7 @@ export class AgentIntelligenceService {
         return null;
       }
 
-      const mappedAgents: Agent[] = limitedAgents.map(agent => ({
+      const mappedAgents: Agent[] = limitedAgents.map((agent) => ({
         id: agent.id,
         name: agent.name,
         role: agent.role as AgentRole,
@@ -95,7 +116,7 @@ export class AgentIntelligenceService {
         intelligenceConfig: agent.intelligenceConfig,
         securityContext: agent.securityContext,
         configuration: agent.configuration,
-        isActive: agent.isActive
+        isActive: agent.isActive,
       }));
 
       return mappedAgents;
@@ -136,7 +157,7 @@ export class AgentIntelligenceService {
         apiType: agent.apiType,
         temperature: agent.temperature,
         maxTokens: agent.maxTokens,
-        systemPrompt: agent.systemPrompt
+        systemPrompt: agent.systemPrompt,
       };
 
       return mappedAgent;
@@ -188,19 +209,19 @@ export class AgentIntelligenceService {
           context: contextAnalysis,
           intent: intentAnalysis,
           agentCapabilities: this.extractAgentCapabilities(agent),
-          environmentFactors: this.analyzeEnvironmentFactors(conversationContext)
+          environmentFactors: this.analyzeEnvironmentFactors(conversationContext),
         },
         recommendedActions: actionRecommendations,
         confidence,
         explanation,
-        timestamp: new Date()
+        timestamp: new Date(),
       };
 
       await this.safePublishEvent('agent.context.analyzed', {
         agentId: agent.id,
         confidence,
         actionsCount: actionRecommendations.length,
-        timestamp: new Date()
+        timestamp: new Date(),
       });
 
       return analysis;
@@ -243,9 +264,9 @@ export class AgentIntelligenceService {
           generatedBy: agent.id,
           basedOnAnalysis: analysis.timestamp,
           userPreferences,
-          version: '1.0.0'
+          version: '1.0.0',
         },
-        created_at: new Date()
+        created_at: new Date(),
       };
 
       await this.validatePlanSecurity(plan, securityContext);
@@ -256,7 +277,7 @@ export class AgentIntelligenceService {
         planId: plan.id,
         planType,
         stepsCount: steps.length,
-        estimatedDuration
+        estimatedDuration,
       });
 
       return plan;
@@ -279,7 +300,8 @@ export class AgentIntelligenceService {
       if (updateData.name) updatePayload.name = updateData.name;
       if (updateData.persona) updatePayload.persona = updateData.persona;
       if (updateData.personaId) updatePayload.personaId = updateData.personaId;
-      if (updateData.intelligenceConfig) updatePayload.intelligenceConfig = updateData.intelligenceConfig;
+      if (updateData.intelligenceConfig)
+        updatePayload.intelligenceConfig = updateData.intelligenceConfig;
       if (updateData.securityContext) updatePayload.securityContext = updateData.securityContext;
       if (updateData.isActive !== undefined) updatePayload.isActive = updateData.isActive;
 
@@ -290,11 +312,15 @@ export class AgentIntelligenceService {
         // Extract modelId and apiType from configuration if present
         if (updateData.configuration.modelId && !updateData.modelId) {
           updatePayload.modelId = updateData.configuration.modelId;
-          logger.info('Extracted modelId from configuration', { modelId: updateData.configuration.modelId });
+          logger.info('Extracted modelId from configuration', {
+            modelId: updateData.configuration.modelId,
+          });
         }
         if (updateData.configuration.apiType && !updateData.apiType) {
           updatePayload.apiType = updateData.configuration.apiType;
-          logger.info('Extracted apiType from configuration', { apiType: updateData.configuration.apiType });
+          logger.info('Extracted apiType from configuration', {
+            apiType: updateData.configuration.apiType,
+          });
         }
       }
 
@@ -309,10 +335,13 @@ export class AgentIntelligenceService {
         agentId: validatedId,
         updateFields: Object.keys(updatePayload),
         modelId: updatePayload.modelId,
-        apiType: updatePayload.apiType
+        apiType: updatePayload.apiType,
       });
 
-      const updatedAgent = await this.databaseService.agents.updateAgent(validatedId, updatePayload);
+      const updatedAgent = await this.databaseService.agents.updateAgent(
+        validatedId,
+        updatePayload
+      );
       if (!updatedAgent) {
         throw new ApiError(404, 'Agent not found', 'AGENT_NOT_FOUND');
       }
@@ -329,7 +358,7 @@ export class AgentIntelligenceService {
         createdBy: updatedAgent.createdBy,
         lastActiveAt: updatedAgent.lastActiveAt,
         createdAt: updatedAgent.createdAt,
-        updatedAt: updatedAgent.updatedAt
+        updatedAt: updatedAgent.updatedAt,
       };
 
       return agent;
@@ -349,7 +378,7 @@ export class AgentIntelligenceService {
       logger.info('Creating new agent', {
         name: agentData.name,
         hasConfiguration: !!agentData.configuration,
-        configurationKeys: agentData.configuration ? Object.keys(agentData.configuration) : []
+        configurationKeys: agentData.configuration ? Object.keys(agentData.configuration) : [],
       });
 
       let agentId: string | undefined;
@@ -357,13 +386,10 @@ export class AgentIntelligenceService {
         agentId = this.validateIDParam(agentData.id, 'agentId');
       }
 
-      const intelligenceConfig = agentData.intelligenceConfig ||
-        agentData.intelligence_config ||
-        {};
+      const intelligenceConfig =
+        agentData.intelligenceConfig || agentData.intelligence_config || {};
 
-      const securityContext = agentData.securityContext ||
-        agentData.security_context ||
-        {};
+      const securityContext = agentData.securityContext || agentData.security_context || {};
 
       const configuration = agentData.configuration || {
         model: 'gpt-3.5-turbo',
@@ -372,7 +398,7 @@ export class AgentIntelligenceService {
         contextWindowSize: 4000,
         decisionThreshold: 0.7,
         learningEnabled: true,
-        collaborationMode: 'collaborative'
+        collaborationMode: 'collaborative',
       };
 
       const role = agentData.role || 'assistant';
@@ -402,8 +428,8 @@ export class AgentIntelligenceService {
           persona: agentData.persona || {},
           intelligenceConfig: intelligenceConfig,
           securityContext: securityContext,
-          createdBy: createdBy
-        }
+          createdBy: createdBy,
+        },
       };
 
       const savedAgent = await this.databaseService.agents.createAgent(createPayload);
@@ -420,7 +446,7 @@ export class AgentIntelligenceService {
         createdBy: savedAgent.createdBy,
         lastActiveAt: savedAgent.lastActiveAt,
         createdAt: savedAgent.createdAt,
-        updatedAt: savedAgent.updatedAt
+        updatedAt: savedAgent.updatedAt,
       };
 
       await this.safePublishEvent('agent.created', {
@@ -428,7 +454,7 @@ export class AgentIntelligenceService {
         name: agent.name,
         role: agent.role,
         createdBy: agent.createdBy,
-        timestamp: new Date()
+        timestamp: new Date(),
       });
 
       return agent;
@@ -452,7 +478,10 @@ export class AgentIntelligenceService {
     try {
       const validatedId = this.validateIDParam(agentId, 'agentId');
       const { AgentStatus } = await import('@uaip/types');
-      const wasDeactivated = await this.databaseService.agents.updateAgentStatus(validatedId, AgentStatus.INACTIVE);
+      const wasDeactivated = await this.databaseService.agents.updateAgentStatus(
+        validatedId,
+        AgentStatus.INACTIVE
+      );
 
       if (!wasDeactivated) {
         throw new ApiError(404, 'Agent not found', 'AGENT_NOT_FOUND');
@@ -460,9 +489,8 @@ export class AgentIntelligenceService {
 
       await this.safePublishEvent('agent.deleted', {
         agentId: validatedId,
-        timestamp: new Date()
+        timestamp: new Date(),
       });
-
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       logger.error('Error deleting agent', { agentId, error: errorMessage });
@@ -498,25 +526,34 @@ export class AgentIntelligenceService {
         feedback
       );
 
-      await this.storeLearningRecord(validatedAgentId, validatedOperationId, learningData, confidenceAdjustments);
+      await this.storeLearningRecord(
+        validatedAgentId,
+        validatedOperationId,
+        learningData,
+        confidenceAdjustments
+      );
 
       const result: LearningResult = {
         learningApplied: true,
         confidenceAdjustments,
         newKnowledge: learningData.newKnowledge,
-        improvedCapabilities: learningData.improvedCapabilities
+        improvedCapabilities: learningData.improvedCapabilities,
       };
 
       await this.safePublishEvent('agent.learning.applied', {
         agentId: validatedAgentId,
         operationId: validatedOperationId,
-        learningData: result
+        learningData: result,
       });
 
       return result;
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      logger.error('Error in learning from operation', { agentId, operationId, error: errorMessage });
+      logger.error('Error in learning from operation', {
+        agentId,
+        operationId,
+        error: errorMessage,
+      });
       throw error;
     }
   }
@@ -534,15 +571,16 @@ export class AgentIntelligenceService {
       role: personaData.role || 'Assistant',
       description: personaData.description || 'A helpful AI assistant',
       traits: personaData.traits || [],
-      expertise: personaData.expertise?.map((exp: any, index: number) => ({
-        id: `${Date.now()}-${index}`,
-        name: typeof exp === 'string' ? exp : exp.name || 'General',
-        description: '',
-        category: 'general',
-        level: 'intermediate' as const,
-        keywords: [],
-        relatedDomains: []
-      })) || [],
+      expertise:
+        personaData.expertise?.map((exp: any, index: number) => ({
+          id: `${Date.now()}-${index}`,
+          name: typeof exp === 'string' ? exp : exp.name || 'General',
+          description: '',
+          category: 'general',
+          level: 'intermediate' as const,
+          keywords: [],
+          relatedDomains: [],
+        })) || [],
       background: personaData.background || 'AI assistant background',
       systemPrompt: personaData.systemPrompt || 'You are a helpful AI assistant.',
       conversationalStyle: personaData.conversationalStyle || {
@@ -554,7 +592,7 @@ export class AgentIntelligenceService {
         creativity: 0.5,
         analyticalDepth: 0.6,
         questioningStyle: 'exploratory',
-        responsePattern: 'structured'
+        responsePattern: 'structured',
       },
       status: personaData.status || PersonaStatus.ACTIVE,
       visibility: personaData.visibility || PersonaVisibility.PRIVATE,
@@ -570,14 +608,14 @@ export class AgentIntelligenceService {
         uniqueUsers: 0,
         averageSessionDuration: 0,
         popularityScore: 0,
-        feedbackCount: 0
+        feedbackCount: 0,
       },
       configuration: personaData.configuration || {},
       capabilities: personaData.capabilities || [],
       restrictions: personaData.restrictions || {},
       metadata: personaData.metadata,
       createdAt: personaData.createdAt || new Date(),
-      updatedAt: personaData.updatedAt || new Date()
+      updatedAt: personaData.updatedAt || new Date(),
     };
   }
 
@@ -600,7 +638,7 @@ export class AgentIntelligenceService {
         creativity: 0.5,
         analyticalDepth: 0.6,
         questioningStyle: 'exploratory',
-        responsePattern: 'structured'
+        responsePattern: 'structured',
       },
       status: PersonaStatus.ACTIVE,
       visibility: PersonaVisibility.PRIVATE,
@@ -612,13 +650,13 @@ export class AgentIntelligenceService {
         uniqueUsers: 0,
         averageSessionDuration: 0,
         popularityScore: 0,
-        feedbackCount: 0
+        feedbackCount: 0,
       },
       configuration: {},
       capabilities: [],
       restrictions: {},
       createdAt: new Date(),
-      updatedAt: new Date()
+      updatedAt: new Date(),
     };
   }
 
@@ -629,7 +667,7 @@ export class AgentIntelligenceService {
       topics: this.extractTopics(conversationContext.messages || []),
       sentiment: this.analyzeSentiment(conversationContext.messages || []),
       complexity: this.assessComplexity(conversationContext),
-      urgency: this.detectUrgency(conversationContext)
+      urgency: this.detectUrgency(conversationContext),
     };
   }
 
@@ -639,7 +677,7 @@ export class AgentIntelligenceService {
       analyze: /analyze|examine|check|review|assess/i,
       modify: /change|update|modify|edit|fix/i,
       delete: /delete|remove|destroy|clean/i,
-      query: /find|search|get|show|list|what|how/i
+      query: /find|search|get|show|list|what|how/i,
     };
 
     const detectedIntents = Object.entries(intentPatterns)
@@ -651,7 +689,7 @@ export class AgentIntelligenceService {
       secondary: detectedIntents.slice(1),
       confidence: detectedIntents.length > 0 ? 0.8 : 0.3,
       entities: this.extractEntities(userRequest),
-      complexity: this.assessRequestComplexity(userRequest)
+      complexity: this.assessRequestComplexity(userRequest),
     };
   }
 
@@ -669,7 +707,7 @@ export class AgentIntelligenceService {
           type: 'artifact_generation',
           confidence: 0.8,
           description: 'Generate artifact based on requirements',
-          estimatedDuration: 120
+          estimatedDuration: 120,
         });
         break;
       case 'analyze':
@@ -677,7 +715,7 @@ export class AgentIntelligenceService {
           type: 'tool_execution',
           confidence: 0.9,
           description: 'Execute analysis tools',
-          estimatedDuration: 60
+          estimatedDuration: 60,
         });
         break;
       case 'modify':
@@ -685,7 +723,7 @@ export class AgentIntelligenceService {
           type: 'hybrid_workflow',
           confidence: 0.7,
           description: 'Analyze current state and apply modifications',
-          estimatedDuration: 180
+          estimatedDuration: 180,
         });
         break;
       default:
@@ -693,7 +731,7 @@ export class AgentIntelligenceService {
           type: 'information_retrieval',
           confidence: 0.6,
           description: 'Retrieve relevant information',
-          estimatedDuration: 30
+          estimatedDuration: 30,
         });
     }
 
@@ -708,9 +746,9 @@ export class AgentIntelligenceService {
   ): number {
     const baseConfidence = intentAnalysis.confidence;
     const contextQuality = Math.min(contextAnalysis.messageCount / 10, 1);
-    const recommendationConfidence = actionRecommendations.reduce(
-      (sum, rec) => sum + rec.confidence, 0
-    ) / actionRecommendations.length;
+    const recommendationConfidence =
+      actionRecommendations.reduce((sum, rec) => sum + rec.confidence, 0) /
+      actionRecommendations.length;
 
     return Math.min((baseConfidence + contextQuality + recommendationConfidence) / 3, 1);
   }
@@ -729,7 +767,7 @@ export class AgentIntelligenceService {
       tools: agent.intelligenceConfig?.collaborationMode || 'collaborative',
       artifacts: agent.intelligenceConfig?.analysisDepth || 'intermediate',
       specializations: agent.persona?.capabilities || [],
-      limitations: agent.securityContext?.restrictedDomains || []
+      limitations: agent.securityContext?.restrictedDomains || [],
     };
   }
 
@@ -738,17 +776,21 @@ export class AgentIntelligenceService {
       timeOfDay: new Date().getHours(),
       userLoad: conversationContext.participants?.length || 1,
       systemLoad: 'normal',
-      availableResources: 'high'
+      availableResources: 'high',
     };
   }
 
   private determinePlanType(analysis: any): string {
     const intent = analysis.intent?.primary;
     switch (intent) {
-      case 'create': return 'artifact_generation';
-      case 'analyze': return 'tool_execution';
-      case 'modify': return 'hybrid_workflow';
-      default: return 'information_retrieval';
+      case 'create':
+        return 'artifact_generation';
+      case 'analyze':
+        return 'tool_execution';
+      case 'modify':
+        return 'hybrid_workflow';
+      default:
+        return 'information_retrieval';
     }
   }
 
@@ -759,8 +801,8 @@ export class AgentIntelligenceService {
         type: 'validation',
         description: 'Validate input parameters and permissions',
         estimatedDuration: 10,
-        required: true
-      }
+        required: true,
+      },
     ];
 
     switch (planType) {
@@ -770,7 +812,7 @@ export class AgentIntelligenceService {
           type: 'execution',
           description: 'Execute selected tools',
           estimatedDuration: 60,
-          required: true
+          required: true,
         });
         break;
       case 'artifact_generation':
@@ -779,7 +821,7 @@ export class AgentIntelligenceService {
           type: 'generation',
           description: 'Generate requested artifact',
           estimatedDuration: 120,
-          required: true
+          required: true,
         });
         break;
       case 'hybrid_workflow':
@@ -789,21 +831,21 @@ export class AgentIntelligenceService {
             type: 'analysis',
             description: 'Analyze current system state',
             estimatedDuration: 30,
-            required: true
+            required: true,
           },
           {
             id: 'generate_modifications',
             type: 'generation',
             description: 'Generate necessary modifications',
             estimatedDuration: 90,
-            required: true
+            required: true,
           },
           {
             id: 'apply_changes',
             type: 'execution',
             description: 'Apply generated changes',
             estimatedDuration: 60,
-            required: true
+            required: true,
           }
         );
         break;
@@ -814,14 +856,14 @@ export class AgentIntelligenceService {
       type: 'finalization',
       description: 'Process and return results',
       estimatedDuration: 15,
-      required: true
+      required: true,
     });
 
     return baseSteps;
   }
 
   private async calculateDependencies(steps: any[]): Promise<string[]> {
-    return steps.slice(0, -1).map(step => step.id);
+    return steps.slice(0, -1).map((step) => step.id);
   }
 
   private estimateDuration(steps: any[], dependencies: string[]): number {
@@ -830,16 +872,20 @@ export class AgentIntelligenceService {
 
   private applyUserPreferences(steps: any[], userPreferences: any): any[] {
     if (userPreferences?.speed === 'fast') {
-      return steps.map(step => ({
+      return steps.map((step) => ({
         ...step,
-        estimatedDuration: Math.floor(step.estimatedDuration * 0.7)
+        estimatedDuration: Math.floor(step.estimatedDuration * 0.7),
       }));
     }
     return steps;
   }
 
   private async validatePlanSecurity(plan: ExecutionPlan, securityContext: any): Promise<void> {
-    if (securityContext?.maxDuration && plan.estimatedDuration && plan.estimatedDuration > securityContext.maxDuration) {
+    if (
+      securityContext?.maxDuration &&
+      plan.estimatedDuration &&
+      plan.estimatedDuration > securityContext.maxDuration
+    ) {
       throw new ApiError(403, 'Plan exceeds maximum allowed duration', 'SECURITY_VIOLATION');
     }
   }
@@ -852,7 +898,7 @@ export class AgentIntelligenceService {
       agentId: plan.agentId,
       executionPlan: plan,
       context: plan.metadata,
-      createdAt: plan.created_at
+      createdAt: plan.created_at,
     });
   }
 
@@ -866,7 +912,7 @@ export class AgentIntelligenceService {
     return {
       newKnowledge: feedback?.insights || [],
       improvedCapabilities: outcomes?.successfulActions || [],
-      adjustedStrategies: feedback?.improvements || []
+      adjustedStrategies: feedback?.improvements || [],
     };
   }
 
@@ -877,7 +923,7 @@ export class AgentIntelligenceService {
   private calculateConfidenceAdjustments(operation: any, outcomes: any, feedback: any): any {
     return {
       overallAdjustment: outcomes?.success ? 0.05 : -0.1,
-      specificAdjustments: feedback?.specificFeedback || {}
+      specificAdjustments: feedback?.specificFeedback || {},
     };
   }
 
@@ -892,8 +938,8 @@ export class AgentIntelligenceService {
 
   private extractTopics(messages: any[]): string[] {
     const commonWords = messages
-      .flatMap(msg => msg.content?.split(' ') || [])
-      .filter(word => word.length > 3)
+      .flatMap((msg) => msg.content?.split(' ') || [])
+      .filter((word) => word.length > 3)
       .slice(0, 10);
     return [...new Set(commonWords)];
   }
@@ -927,4 +973,4 @@ export class AgentIntelligenceService {
     if (wordCount > 20) return 'medium';
     return 'low';
   }
-} 
+}

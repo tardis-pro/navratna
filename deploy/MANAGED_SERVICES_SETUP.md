@@ -8,11 +8,11 @@ What you need from each managed service for Navratna.
 
 ### What You Need
 
-| Item | Value | Where to Find |
-|------|-------|---------------|
+| Item                  | Value                                                              | Where to Find                  |
+| --------------------- | ------------------------------------------------------------------ | ------------------------------ |
 | **Connection String** | `postgresql://user:pass@ep-xxx.neon.tech/navratna?sslmode=require` | Dashboard → Connection Details |
-| **Database Name** | `navratna` | Create in dashboard |
-| **SSL Mode** | `require` | Always use SSL |
+| **Database Name**     | `navratna`                                                         | Create in dashboard            |
+| **SSL Mode**          | `require`                                                          | Always use SSL                 |
 
 ### Setup Steps
 
@@ -40,11 +40,11 @@ POSTGRES_URL=postgresql://neondb_owner:xxx@ep-xxx-xxx.us-east-1.aws.neon.tech/na
 
 ### What You Need
 
-| Item | Value | Where to Find |
-|------|-------|---------------|
-| **Bolt URL** | `neo4j+s://xxx.databases.neo4j.io` | Instance details |
-| **Username** | `neo4j` | Default |
-| **Password** | Generated on creation | Save immediately! |
+| Item         | Value                              | Where to Find     |
+| ------------ | ---------------------------------- | ----------------- |
+| **Bolt URL** | `neo4j+s://xxx.databases.neo4j.io` | Instance details  |
+| **Username** | `neo4j`                            | Default           |
+| **Password** | Generated on creation              | Save immediately! |
 
 ### Setup Steps
 
@@ -74,7 +74,7 @@ NEO4J_PASSWORD=your-generated-password
 ```typescript
 // Update neo4j driver for Aura
 const driver = neo4j.driver(
-  process.env.NEO4J_URL,  // neo4j+s:// protocol for Aura
+  process.env.NEO4J_URL, // neo4j+s:// protocol for Aura
   neo4j.auth.basic(process.env.NEO4J_USER, process.env.NEO4J_PASSWORD)
 );
 ```
@@ -85,11 +85,11 @@ const driver = neo4j.driver(
 
 ### What You Need
 
-| Item | Value | Where to Find |
-|------|-------|---------------|
-| **AMQP URL** | `amqps://user:pass@host/vhost` | Instance details |
-| **Management URL** | `https://xxx.cloudamqp.com` | For web UI |
-| **Virtual Host** | Auto-created | Part of URL |
+| Item               | Value                          | Where to Find    |
+| ------------------ | ------------------------------ | ---------------- |
+| **AMQP URL**       | `amqps://user:pass@host/vhost` | Instance details |
+| **Management URL** | `https://xxx.cloudamqp.com`    | For web UI       |
+| **Virtual Host**   | Auto-created                   | Part of URL      |
 
 ### Setup Steps
 
@@ -125,11 +125,11 @@ RABBITMQ_URL=amqps://username:password@puffin.rmq2.cloudamqp.com/username
 
 ### What You Need
 
-| Item | Value | Where to Find |
-|------|-------|---------------|
-| **Redis URL** | `rediss://default:xxx@xxx.upstash.io:6379` | Database details |
-| **REST URL** | `https://xxx.upstash.io` | For REST API |
-| **REST Token** | `AXxxxx` | For REST API |
+| Item           | Value                                      | Where to Find    |
+| -------------- | ------------------------------------------ | ---------------- |
+| **Redis URL**  | `rediss://default:xxx@xxx.upstash.io:6379` | Database details |
+| **REST URL**   | `https://xxx.upstash.io`                   | For REST API     |
+| **REST Token** | `AXxxxx`                                   | For REST API     |
 
 ### Setup Steps
 
@@ -158,10 +158,10 @@ REDIS_URL=rediss://default:AXxxx@us1-xxx-xxx.upstash.io:6379
 
 ### What You Need
 
-| Item | Value | Where to Find |
-|------|-------|---------------|
-| **Cluster URL** | `https://xxx.cloud.qdrant.io:6333` | Cluster details |
-| **API Key** | `xxx` | Access Management |
+| Item            | Value                              | Where to Find     |
+| --------------- | ---------------------------------- | ----------------- |
+| **Cluster URL** | `https://xxx.cloud.qdrant.io:6333` | Cluster details   |
+| **API Key**     | `xxx`                              | Access Management |
 
 ### Setup Steps
 
@@ -190,13 +190,13 @@ QDRANT_API_KEY=your-api-key
 
 ### What You Need
 
-| Item | Value | Where to Find |
-|------|-------|---------------|
-| **Account ID** | `xxx` | Dashboard URL |
-| **Bucket Name** | `navratna-storage-prod` | R2 section |
-| **Access Key ID** | `xxx` | R2 API Tokens |
-| **Secret Access Key** | `xxx` | R2 API Tokens |
-| **Endpoint** | `https://<account-id>.r2.cloudflarestorage.com` | Derived |
+| Item                  | Value                                           | Where to Find |
+| --------------------- | ----------------------------------------------- | ------------- |
+| **Account ID**        | `xxx`                                           | Dashboard URL |
+| **Bucket Name**       | `navratna-storage-prod`                         | R2 section    |
+| **Access Key ID**     | `xxx`                                           | R2 API Tokens |
+| **Secret Access Key** | `xxx`                                           | R2 API Tokens |
+| **Endpoint**          | `https://<account-id>.r2.cloudflarestorage.com` | Derived       |
 
 ### Setup Steps
 
@@ -271,14 +271,14 @@ CORS_ORIGINS=https://navratna.app,https://www.navratna.app
 
 ## Service Signup Links
 
-| Service | Link | Free Tier |
-|---------|------|-----------|
-| **Neon (PostgreSQL)** | [neon.tech](https://neon.tech) | 0.5GB |
-| **Neo4j Aura** | [console.neo4j.io](https://console.neo4j.io) | 200K nodes |
-| **CloudAMQP** | [cloudamqp.com](https://cloudamqp.com) | 1M msgs/mo |
-| **Upstash (Redis)** | [upstash.com](https://upstash.com) | 10K cmds/day |
-| **Qdrant Cloud** | [cloud.qdrant.io](https://cloud.qdrant.io) | 1GB |
-| **Cloudflare R2** | [cloudflare.com/r2](https://cloudflare.com/r2) | 10GB |
+| Service               | Link                                           | Free Tier    |
+| --------------------- | ---------------------------------------------- | ------------ |
+| **Neon (PostgreSQL)** | [neon.tech](https://neon.tech)                 | 0.5GB        |
+| **Neo4j Aura**        | [console.neo4j.io](https://console.neo4j.io)   | 200K nodes   |
+| **CloudAMQP**         | [cloudamqp.com](https://cloudamqp.com)         | 1M msgs/mo   |
+| **Upstash (Redis)**   | [upstash.com](https://upstash.com)             | 10K cmds/day |
+| **Qdrant Cloud**      | [cloud.qdrant.io](https://cloud.qdrant.io)     | 1GB          |
+| **Cloudflare R2**     | [cloudflare.com/r2](https://cloudflare.com/r2) | 10GB         |
 
 ---
 
@@ -289,14 +289,11 @@ CORS_ORIGINS=https://navratna.app,https://www.navratna.app
 ```typescript
 // backend/shared/services/src/neo4jService.ts
 const driver = neo4j.driver(
-  process.env.NEO4J_URL,  // neo4j+s://xxx.databases.neo4j.io
-  neo4j.auth.basic(
-    process.env.NEO4J_USER || 'neo4j',
-    process.env.NEO4J_PASSWORD
-  ),
+  process.env.NEO4J_URL, // neo4j+s://xxx.databases.neo4j.io
+  neo4j.auth.basic(process.env.NEO4J_USER || 'neo4j', process.env.NEO4J_PASSWORD),
   {
-    encrypted: true,  // Required for Aura
-    trust: 'TRUST_SYSTEM_CA_SIGNED_CERTIFICATES'
+    encrypted: true, // Required for Aura
+    trust: 'TRUST_SYSTEM_CA_SIGNED_CERTIFICATES',
   }
 );
 ```

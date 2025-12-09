@@ -11,7 +11,7 @@ export enum FileType {
   ARCHIVE = 'archive',
   CODE = 'code',
   DATA = 'data',
-  OTHER = 'other'
+  OTHER = 'other',
 }
 
 export enum FileStatus {
@@ -20,7 +20,7 @@ export enum FileStatus {
   ARCHIVED = 'archived',
   DELETED = 'deleted',
   PROCESSING = 'processing',
-  ERROR = 'error'
+  ERROR = 'error',
 }
 
 export interface FileMetadata {
@@ -75,17 +75,17 @@ export class ProjectFileEntity extends BaseEntity {
   @JoinColumn({ name: 'uploaded_by_id' })
   uploadedBy!: UserEntity;
 
-  @Column({ 
-    type: 'enum', 
-    enum: FileType, 
-    default: FileType.OTHER 
+  @Column({
+    type: 'enum',
+    enum: FileType,
+    default: FileType.OTHER,
   })
   type!: FileType;
 
-  @Column({ 
-    type: 'enum', 
-    enum: FileStatus, 
-    default: FileStatus.UPLOADING 
+  @Column({
+    type: 'enum',
+    enum: FileStatus,
+    default: FileStatus.UPLOADING,
   })
   status!: FileStatus;
 

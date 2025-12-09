@@ -1,9 +1,11 @@
 # System Utilities and Commands
 
 ## Linux System Commands
+
 The system is running on **Linux** (specifically WSL2 on Windows):
 
 ### File Operations
+
 ```bash
 # List files and directories
 ls -la
@@ -20,6 +22,7 @@ pwd
 ```
 
 ### Process Management
+
 ```bash
 # View running processes
 ps aux
@@ -34,6 +37,7 @@ htop
 ```
 
 ### Network Operations
+
 ```bash
 # Check ports
 netstat -tulpn
@@ -45,6 +49,7 @@ wget -qO- http://localhost:8081/health
 ```
 
 ### Docker Operations
+
 ```bash
 # View containers
 docker ps -a
@@ -62,6 +67,7 @@ docker-compose logs -f
 ```
 
 ## Git Operations
+
 ```bash
 # Standard git commands
 git status
@@ -76,6 +82,7 @@ git merge main
 ```
 
 ## Package Management
+
 ```bash
 # pnpm commands (preferred)
 pnpm install
@@ -89,6 +96,7 @@ pnpm --filter "./packages/*" build  # Filter specific packages
 ```
 
 ## Environment Variables
+
 ```bash
 # View environment
 env
@@ -99,6 +107,7 @@ export VAR_NAME=value
 ```
 
 ## System Information
+
 ```bash
 # System info
 uname -a

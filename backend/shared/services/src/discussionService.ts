@@ -13,7 +13,7 @@ import {
   MessageType,
   ParticipantRole,
   DiscussionEventType,
-  MessageSentiment
+  MessageSentiment,
 } from '@uaip/types';
 import { Persona } from '@uaip/types';
 import { DiscussionRepository } from './database/repositories/DiscussionRepository.js';
@@ -65,7 +65,7 @@ export class DiscussionService {
       logger.info('Creating discussion', {
         title: request.title,
         createdBy: request.createdBy,
-        participantCount: request.initialParticipants?.length
+        participantCount: request.initialParticipants?.length,
       });
 
       // Validate discussion request
@@ -74,7 +74,7 @@ export class DiscussionService {
       // Initialize discussion state
       const initialState = {
         currentTurn: {
-          turnNumber: 0
+          turnNumber: 0,
         },
         phase: 'initialization' as const,
         messageCount: 0,
@@ -84,7 +84,7 @@ export class DiscussionService {
         topicDrift: 0,
         keyPoints: [],
         decisions: [],
-        actionItems: []
+        actionItems: [],
       };
 
       // Create discussion in database
@@ -116,11 +116,11 @@ export class DiscussionService {
           averageMessageLength: 0,
           participationDistribution: {},
           sentimentDistribution: {},
-          topicProgression: []
+          topicProgression: [],
         },
         metadata: request.metadata,
         createdAt: new Date(),
-        updatedAt: new Date()
+        updatedAt: new Date(),
       };
 
       const discussion = await this.databaseService.create<Discussion>(Discussion, discussionData);
@@ -130,14 +130,14 @@ export class DiscussionService {
         logger.debug('Adding initial participants', {
           discussionId: discussion.id,
           participantCount: request.initialParticipants.length,
-          discussionSettings: discussion.settings
+          discussionSettings: discussion.settings,
         });
         for (const participantRequest of request.initialParticipants) {
           if (participantRequest && participantRequest.agentId) {
             await this.addParticipant(discussion.id!, {
               agentId: participantRequest.agentId,
               role: participantRequest.role,
-              userId: undefined
+              userId: undefined,
             });
           }
         }
@@ -150,12 +150,11 @@ export class DiscussionService {
       await this.emitDiscussionEvent(discussion.id!, DiscussionEventType.STATUS_CHANGED, {
         oldStatus: null,
         newStatus: DiscussionStatus.DRAFT,
-        createdBy: discussion.createdBy
+        createdBy: discussion.createdBy,
       });
 
       logger.info('Discussion created successfully', { discussionId: discussion.id });
       return discussion;
-
     } catch (error) {
       logger.error('Failed to create discussion', { error: (error as Error).message, request });
       throw error;
@@ -173,15 +172,19 @@ export class DiscussionService {
       }
 
       // Fetch from database with relations
-      const discussion = await this.databaseService.findById<Discussion>(Discussion, id, ['participants']);
+      const discussion = await this.databaseService.findById<Discussion>(Discussion, id, [
+        'participants',
+      ]);
       if (discussion && discussion.status === DiscussionStatus.ACTIVE) {
         this.activeDiscussions.set(id, discussion);
       }
 
       return discussion;
-
     } catch (error) {
-      logger.error('Failed to get discussion', { error: (error as Error).message, discussionId: id });
+      logger.error('Failed to get discussion', {
+        error: (error as Error).message,
+        discussionId: id,
+      });
       throw error;
     }
   }
@@ -200,12 +203,14 @@ export class DiscussionService {
       const { participants, outcomes, analytics, ...discussionUpdates } = updates;
       await this.databaseService.update<Discussion>(Discussion, id, {
         ...discussionUpdates,
-        updatedAt: new Date()
+        updatedAt: new Date(),
       });
 
       // Fetch the updated discussion with all relations (especially participants)
-      const discussion = await this.databaseService.findById<Discussion>(Discussion, id, ['participants']);
-      
+      const discussion = await this.databaseService.findById<Discussion>(Discussion, id, [
+        'participants',
+      ]);
+
       if (!discussion) {
         throw new Error(`Failed to update discussion: ${id}`);
       }
@@ -220,14 +225,16 @@ export class DiscussionService {
       // Emit update event
       await this.emitDiscussionEvent(id, DiscussionEventType.SETTINGS_UPDATED, {
         changes: Object.keys(updates),
-        updatedBy: existingDiscussion.createdBy
+        updatedBy: existingDiscussion.createdBy,
       });
 
       logger.info('Discussion updated successfully', { discussionId: id });
       return discussion;
-
     } catch (error) {
-      logger.error('Failed to update discussion', { error: (error as Error).message, discussionId: id });
+      logger.error('Failed to update discussion', {
+        error: (error as Error).message,
+        discussionId: id,
+      });
       throw error;
     }
   }
@@ -249,7 +256,12 @@ export class DiscussionService {
       logger.debug('Validating participants for discussion start', {
         discussionId: id,
         participantsLength: discussion.participants?.length || 0,
-        participants: discussion.participants?.map(p => ({ id: p.id, agentId: p.agentId, isActive: p.isActive })) || []
+        participants:
+          discussion.participants?.map((p) => ({
+            id: p.id,
+            agentId: p.agentId,
+            isActive: p.isActive,
+          })) || [],
       });
 
       if (!discussion.participants || discussion.participants.length < 2) {
@@ -263,8 +275,8 @@ export class DiscussionService {
         state: {
           ...discussion.state,
           phase: 'discussion',
-          activeParticipants: (discussion.state?.activeParticipants) + 1
-        }
+          activeParticipants: discussion.state?.activeParticipants + 1,
+        },
       });
 
       // Initialize first turn
@@ -274,14 +286,16 @@ export class DiscussionService {
       await this.emitDiscussionEvent(id, DiscussionEventType.STATUS_CHANGED, {
         oldStatus: DiscussionStatus.DRAFT,
         newStatus: DiscussionStatus.ACTIVE,
-        startedBy
+        startedBy,
       });
 
       logger.info('Discussion started successfully', { discussionId: id });
       return updatedDiscussion;
-
     } catch (error) {
-      logger.error('Failed to start discussion', { error: (error as Error).message, discussionId: id });
+      logger.error('Failed to start discussion', {
+        error: (error as Error).message,
+        discussionId: id,
+      });
       throw error;
     }
   }
@@ -297,31 +311,35 @@ export class DiscussionService {
 
       // Allow ending discussions in ACTIVE or DRAFT status
       // DRAFT discussions can be "cancelled" and ACTIVE discussions can be "completed"
-      if (discussion.status !== DiscussionStatus.ACTIVE && discussion.status !== DiscussionStatus.DRAFT) {
+      if (
+        discussion.status !== DiscussionStatus.ACTIVE &&
+        discussion.status !== DiscussionStatus.DRAFT
+      ) {
         throw new Error(`Discussion cannot be ended from status: ${discussion.status}`);
       }
 
       // Calculate final metrics (only for ACTIVE discussions)
-      const finalAnalytics = discussion.status === DiscussionStatus.ACTIVE 
-        ? await this.calculateFinalAnalytics(id)
-        : null;
+      const finalAnalytics =
+        discussion.status === DiscussionStatus.ACTIVE
+          ? await this.calculateFinalAnalytics(id)
+          : null;
 
       // Determine final status based on current status
-      const finalStatus = discussion.status === DiscussionStatus.DRAFT 
-        ? DiscussionStatus.CANCELLED 
-        : DiscussionStatus.COMPLETED;
+      const finalStatus =
+        discussion.status === DiscussionStatus.DRAFT
+          ? DiscussionStatus.CANCELLED
+          : DiscussionStatus.COMPLETED;
 
       // Update discussion status
       const updatedDiscussion = await this.updateDiscussion(id, {
         status: finalStatus,
         endedAt: new Date(),
-        actualDuration: discussion.startedAt ?
-          Date.now() - discussion.startedAt.getTime() : 0,
+        actualDuration: discussion.startedAt ? Date.now() - discussion.startedAt.getTime() : 0,
         state: {
           ...discussion.state,
-          phase: 'conclusion'
+          phase: 'conclusion',
         },
-        analytics: finalAnalytics
+        analytics: finalAnalytics,
       });
 
       // Remove from active discussions
@@ -337,38 +355,43 @@ export class DiscussionService {
         oldStatus: DiscussionStatus.ACTIVE,
         newStatus: DiscussionStatus.COMPLETED,
         endedBy,
-        reason
+        reason,
       });
 
       logger.info('Discussion ended successfully', { discussionId: id });
       return updatedDiscussion;
-
     } catch (error) {
-      logger.error('Failed to end discussion', { error: (error as Error).message, discussionId: id });
+      logger.error('Failed to end discussion', {
+        error: (error as Error).message,
+        discussionId: id,
+      });
       throw error;
     }
   }
 
   // ===== PARTICIPANT MANAGEMENT =====
 
-  async addParticipant(discussionId: string, participantRequest: {
-    agentId: string;
-    role?: 'participant' | 'moderator' | 'observer' | 'facilitator';
-    userId?: string;
-    displayName?: string;
-    permissions?: string[];
-    turnOrder?: number;
-    turnWeight?: number;
-    participationConfig?: Record<string, any>;
-    behavioralConstraints?: Record<string, any>;
-    contextAwareness?: Record<string, any>;
-  }): Promise<DiscussionParticipantType> {
+  async addParticipant(
+    discussionId: string,
+    participantRequest: {
+      agentId: string;
+      role?: 'participant' | 'moderator' | 'observer' | 'facilitator';
+      userId?: string;
+      displayName?: string;
+      permissions?: string[];
+      turnOrder?: number;
+      turnWeight?: number;
+      participationConfig?: Record<string, any>;
+      behavioralConstraints?: Record<string, any>;
+      contextAwareness?: Record<string, any>;
+    }
+  ): Promise<DiscussionParticipantType> {
     try {
       logger.info('Adding participant to discussion using enterprise participant management', {
         discussionId,
         agentId: participantRequest.agentId,
         role: participantRequest.role,
-        displayName: participantRequest.displayName
+        displayName: participantRequest.displayName,
       });
 
       const discussion = await this.getDiscussion(discussionId, true);
@@ -378,14 +401,14 @@ export class DiscussionService {
 
       // Check participant limit - only count active participants
       const maxParticipants = discussion.settings?.maxParticipants || this.maxParticipants;
-      const activeParticipants = discussion.participants?.filter(p => p.isActive) || [];
+      const activeParticipants = discussion.participants?.filter((p) => p.isActive) || [];
       const currentParticipantCount = activeParticipants.length;
 
       logger.debug('Checking participant limit', {
         discussionId,
         totalParticipants: discussion.participants?.length || 0,
         activeParticipants: currentParticipantCount,
-        maxParticipants
+        maxParticipants,
       });
 
       if (currentParticipantCount >= maxParticipants) {
@@ -399,7 +422,9 @@ export class DiscussionService {
       }
 
       // Use enterprise participant management service
-      const participantManagementService = new (await import('./participant-management.service.js')).ParticipantManagementService(this.databaseService);
+      const participantManagementService = new (
+        await import('./participant-management.service.js')
+      ).ParticipantManagementService(this.databaseService);
 
       // Create participant using enterprise service
       const participant = await participantManagementService.createAgentParticipant({
@@ -412,15 +437,15 @@ export class DiscussionService {
         turnWeight: participantRequest.turnWeight,
         participationConfig: participantRequest.participationConfig,
         behavioralConstraints: participantRequest.behavioralConstraints,
-        contextAwareness: participantRequest.contextAwareness
+        contextAwareness: participantRequest.contextAwareness,
       });
 
       // Update discussion participant count
       await this.updateDiscussion(discussionId, {
         state: {
           ...discussion.state,
-          activeParticipants: (discussion.state?.activeParticipants || 0) + 1
-        }
+          activeParticipants: (discussion.state?.activeParticipants || 0) + 1,
+        },
       });
 
       // Emit participant joined event with proper participant ID
@@ -428,7 +453,7 @@ export class DiscussionService {
         participantId: participant.participantId, // Use the unique participant ID
         agentId: participant.agentId,
         role: participant.roleInDiscussion,
-        displayName: participant.displayName
+        displayName: participant.displayName,
       });
 
       logger.info('Enterprise participant added successfully', {
@@ -436,26 +461,36 @@ export class DiscussionService {
         participantId: participant.participantId,
         agentId: participant.agentId,
         displayName: participant.displayName,
-        role: participant.roleInDiscussion
+        role: participant.roleInDiscussion,
       });
 
       return participant;
-
     } catch (error) {
-      logger.error('Failed to add participant', { 
-        error: (error as Error).message, 
+      logger.error('Failed to add participant', {
+        error: (error as Error).message,
         discussionId,
-        agentId: participantRequest.agentId 
+        agentId: participantRequest.agentId,
       });
       throw error;
     }
   }
 
-  async removeParticipant(discussionId: string, participantId: string, removedBy: string): Promise<void> {
+  async removeParticipant(
+    discussionId: string,
+    participantId: string,
+    removedBy: string
+  ): Promise<void> {
     try {
-      logger.info('Removing participant from discussion', { discussionId, participantId, removedBy });
+      logger.info('Removing participant from discussion', {
+        discussionId,
+        participantId,
+        removedBy,
+      });
 
-      const participant = await this.databaseService.findById<DiscussionParticipant>('discussion_participants', participantId);
+      const participant = await this.databaseService.findById<DiscussionParticipant>(
+        'discussion_participants',
+        participantId
+      );
       if (!participant || participant.discussionId !== discussionId) {
         throw new Error(`Participant not found in discussion: ${participantId}`);
       }
@@ -463,7 +498,7 @@ export class DiscussionService {
       // Mark participant as inactive instead of deleting
       await this.databaseService.update('discussion_participants', participantId, {
         isActive: false,
-        updatedAt: new Date()
+        updatedAt: new Date(),
       });
 
       // Update discussion state
@@ -472,34 +507,42 @@ export class DiscussionService {
         await this.updateDiscussion(discussionId, {
           state: {
             ...discussion.state,
-            activeParticipants: Math.max(0, (discussion.state.activeParticipants) - 1)
-          }
+            activeParticipants: Math.max(0, discussion.state.activeParticipants - 1),
+          },
         });
       }
 
       // Emit participant left event
       await this.emitDiscussionEvent(discussionId, DiscussionEventType.PARTICIPANT_LEFT, {
         participantId,
-        removedBy
+        removedBy,
       });
 
       logger.info('Participant removed successfully', { discussionId, participantId });
-
     } catch (error) {
-      logger.error('Failed to remove participant', { error: (error as Error).message, discussionId, participantId });
+      logger.error('Failed to remove participant', {
+        error: (error as Error).message,
+        discussionId,
+        participantId,
+      });
       throw error;
     }
   }
 
   // ===== MESSAGE MANAGEMENT =====
 
-  async sendMessage(discussionId: string, participantId: string, content: string, messageType = MessageType.MESSAGE): Promise<DiscussionMessage> {
+  async sendMessage(
+    discussionId: string,
+    participantId: string,
+    content: string,
+    messageType = MessageType.MESSAGE
+  ): Promise<DiscussionMessage> {
     try {
       logger.debug('Sending message to discussion', {
         discussionId,
         participantId,
         messageType,
-        contentLength: content.length
+        contentLength: content.length,
       });
 
       const discussion = await this.getDiscussion(discussionId);
@@ -512,7 +555,10 @@ export class DiscussionService {
       }
 
       // Validate participant
-      const participant = await this.databaseService.findById<DiscussionParticipant>('discussion_participants', participantId);
+      const participant = await this.databaseService.findById<DiscussionParticipant>(
+        'discussion_participants',
+        participantId
+      );
       if (!participant || participant.discussionId !== discussionId || !participant.isActive) {
         throw new Error(`Invalid or inactive participant: ${participantId}`);
       }
@@ -544,22 +590,22 @@ export class DiscussionService {
         isEdited: false,
         isDeleted: false,
         createdAt: new Date(),
-        updatedAt: new Date()
+        updatedAt: new Date(),
       });
 
       // Update participant message count
       await this.databaseService.update('discussion_participants', participantId, {
-        messageCount: (participant.messageCount) + 1,
-        lastMessageAt: new Date()
+        messageCount: participant.messageCount + 1,
+        lastMessageAt: new Date(),
       });
 
       // Update discussion state
       await this.updateDiscussion(discussionId, {
         state: {
           ...discussion.state,
-          messageCount: (discussion.state?.messageCount) + 1,
-          lastActivity: new Date()
-        }
+          messageCount: discussion.state?.messageCount + 1,
+          lastActivity: new Date(),
+        },
       });
 
       // Update analytics
@@ -572,7 +618,7 @@ export class DiscussionService {
         messageId: message.id,
         participantId,
         messageType,
-        contentLength: content.length
+        contentLength: content.length,
       });
 
       // Check if turn should advance
@@ -580,39 +626,49 @@ export class DiscussionService {
 
       logger.debug('Message sent successfully', {
         discussionId,
-        messageId: message.id
+        messageId: message.id,
       });
       return message;
-
     } catch (error) {
-      logger.error('Failed to send message', { error: (error as Error).message, discussionId, participantId });
+      logger.error('Failed to send message', {
+        error: (error as Error).message,
+        discussionId,
+        participantId,
+      });
       throw error;
     }
   }
 
-  async getMessages(discussionId: string, limit = 50, offset = 0): Promise<{
+  async getMessages(
+    discussionId: string,
+    limit = 50,
+    offset = 0
+  ): Promise<{
     messages: DiscussionMessage[];
     total: number;
     hasMore: boolean;
   }> {
     try {
-      const messages = await this.databaseService.findMany<DiscussionMessage>('discussion_messages',
+      const messages = await this.databaseService.findMany<DiscussionMessage>(
+        'discussion_messages',
         { discussionId, isDeleted: false },
         {
           limit,
           offset,
-          orderBy: { createdAt: 'ASC' }
+          orderBy: { createdAt: 'ASC' },
         }
       );
 
-      const total = await this.databaseService.count('discussion_messages', { discussionId, isDeleted: false });
+      const total = await this.databaseService.count('discussion_messages', {
+        discussionId,
+        isDeleted: false,
+      });
 
       return {
         messages,
         total,
-        hasMore: offset + messages.length < total
+        hasMore: offset + messages.length < total,
       };
-
     } catch (error) {
       logger.error('Failed to get messages', { error: (error as Error).message, discussionId });
       throw error;
@@ -620,7 +676,10 @@ export class DiscussionService {
   }
 
   // Alias method for backward compatibility
-  async getDiscussionMessages(discussionId: string, options: { limit?: number; offset?: number } = {}): Promise<DiscussionMessage[]> {
+  async getDiscussionMessages(
+    discussionId: string,
+    options: { limit?: number; offset?: number } = {}
+  ): Promise<DiscussionMessage[]> {
     const { limit = 50, offset = 0 } = options;
     const result = await this.getMessages(discussionId, limit, offset);
     return result.messages;
@@ -652,21 +711,20 @@ export class DiscussionService {
             participantId: nextParticipantId,
             startedAt: new Date(),
             expectedEndAt: new Date(Date.now() + this.defaultTurnTimeout * 1000),
-            turnNumber: (discussion.state?.currentTurn?.turnNumber) + 1
-          }
-        }
+            turnNumber: discussion.state?.currentTurn?.turnNumber + 1,
+          },
+        },
       });
 
       // Emit turn changed event
       await this.emitDiscussionEvent(discussionId, DiscussionEventType.TURN_CHANGED, {
         previousParticipantId: discussion.state?.currentTurn?.participantId,
         nextParticipantId,
-        turnNumber: (discussion.state?.currentTurn?.turnNumber) + 1,
-        forcedBy
+        turnNumber: discussion.state?.currentTurn?.turnNumber + 1,
+        forcedBy,
       });
 
       logger.debug('Turn advanced successfully', { discussionId, nextParticipantId });
-
     } catch (error) {
       logger.error('Failed to advance turn', { error: (error as Error).message, discussionId });
       throw error;
@@ -675,7 +733,11 @@ export class DiscussionService {
 
   // ===== SEARCH AND ANALYTICS =====
 
-  async searchDiscussions(filters: DiscussionSearchFilters, limit = 20, offset = 0): Promise<{
+  async searchDiscussions(
+    filters: DiscussionSearchFilters,
+    limit = 20,
+    offset = 0
+  ): Promise<{
     discussions: Discussion[];
     total: number;
     hasMore: boolean;
@@ -692,7 +754,7 @@ export class DiscussionService {
         createdAfter: filters.createdAfter,
         createdBefore: filters.createdBefore,
         limit,
-        offset
+        offset,
       };
 
       logger.info('Searching discussions with filters', { searchFilters });
@@ -700,24 +762,29 @@ export class DiscussionService {
       // Use DiscussionRepository directly for domain-based architecture
       const result = await this.discussionRepository.searchDiscussions(searchFilters);
 
-      logger.info('Discussion search result', { total: result.total, count: result.discussions.length });
+      logger.info('Discussion search result', {
+        total: result.total,
+        count: result.discussions.length,
+      });
 
       return {
         discussions: result.discussions,
         total: result.total,
-        hasMore: offset + result.discussions.length < result.total
+        hasMore: offset + result.discussions.length < result.total,
       };
-
     } catch (error) {
       logger.error('Failed to search discussions', { error: (error as Error).message, filters });
       throw error;
     }
   }
 
-  async getDiscussionAnalytics(discussionId: string, timeframe?: {
-    start: Date;
-    end: Date;
-  }): Promise<DiscussionAnalytics | null> {
+  async getDiscussionAnalytics(
+    discussionId: string,
+    timeframe?: {
+      start: Date;
+      end: Date;
+    }
+  ): Promise<DiscussionAnalytics | null> {
     if (!this.enableAnalytics) {
       return null;
     }
@@ -734,7 +801,7 @@ export class DiscussionService {
         discussionId,
         timeframe: timeframe || {
           start: discussion.createdAt,
-          end: discussion.endedAt || new Date()
+          end: discussion.endedAt || new Date(),
         },
         overview: {
           totalMessages: discussion.analytics?.totalMessages,
@@ -744,37 +811,39 @@ export class DiscussionService {
           engagementScore: discussion.state?.engagementScore,
           consensusLevel: discussion.state?.consensusLevel,
           objectivesAchieved: discussion.outcomes?.length,
-          actionItemsCreated: discussion.state?.actionItems?.length
+          actionItemsCreated: discussion.state?.actionItems?.length,
         },
         participation: {
           distribution: discussion.analytics?.participationDistribution || {},
           balance: discussion.state?.metrics?.participationBalance,
           dominanceIndex: 0,
-          silenceRatio: 0
+          silenceRatio: 0,
         },
         communication: {
           averageResponseTime: discussion.state?.metrics?.averageResponseTime,
           messageFrequency: [],
           sentimentProgression: [],
-          topicEvolution: []
+          topicEvolution: [],
         },
         outcomes: {
           decisionsReached: discussion.state?.decisions?.length,
-          consensusAchieved: (discussion.state?.consensusLevel) >= 0.8,
+          consensusAchieved: discussion.state?.consensusLevel >= 0.8,
           actionItemsGenerated: discussion.state?.actionItems?.length,
           keyInsights: discussion.state?.keyPoints?.map((kp: any) => kp.point) || [],
-          unresolvedIssues: []
+          unresolvedIssues: [],
         },
         quality: {
           coherenceScore: discussion.state?.metrics?.qualityScore,
           relevanceScore: 0,
           productivityScore: 0,
-          satisfactionScore: undefined
-        }
+          satisfactionScore: undefined,
+        },
       };
-
     } catch (error) {
-      logger.error('Failed to get discussion analytics', { error: (error as Error).message, discussionId });
+      logger.error('Failed to get discussion analytics', {
+        error: (error as Error).message,
+        discussionId,
+      });
       return null;
     }
   }
@@ -820,20 +889,25 @@ export class DiscussionService {
           participantId: firstParticipantId,
           startedAt: new Date(),
           expectedEndAt: new Date(Date.now() + this.defaultTurnTimeout * 1000),
-          turnNumber: 1
-        }
-      }
+          turnNumber: 1,
+        },
+      },
     });
   }
 
   private async determineNextParticipant(discussion: DiscussionType): Promise<string | undefined> {
-    const activeParticipants = (discussion.participants || []).filter((p: DiscussionParticipantType) => p.isActive);
+    const activeParticipants = (discussion.participants || []).filter(
+      (p: DiscussionParticipantType) => p.isActive
+    );
     if (activeParticipants.length === 0) return undefined;
 
     // Simple round-robin for now
     // In a full implementation, this would use the turn strategy configuration
-    const currentIndex = discussion.state?.currentTurn?.participantId ?
-      activeParticipants.findIndex((p: DiscussionParticipantType) => p.id === discussion.state?.currentTurn?.participantId) : -1;
+    const currentIndex = discussion.state?.currentTurn?.participantId
+      ? activeParticipants.findIndex(
+          (p: DiscussionParticipantType) => p.id === discussion.state?.currentTurn?.participantId
+        )
+      : -1;
 
     const nextIndex = (currentIndex + 1) % activeParticipants.length;
     return activeParticipants[nextIndex]?.id;
@@ -853,7 +927,7 @@ export class DiscussionService {
     // In a real implementation, this would use NLP services
     return {
       sentiment: MessageSentiment.NEUTRAL,
-      confidence: 0.5
+      confidence: 0.5,
     };
   }
 
@@ -872,7 +946,8 @@ export class DiscussionService {
       const mentionedName = match[1];
       // Find participant by agent ID
       const participant = participants.find(
-        (p: DiscussionParticipantType) => p.agentId && p.agentId.includes(mentionedName.toLowerCase())
+        (p: DiscussionParticipantType) =>
+          p.agentId && p.agentId.includes(mentionedName.toLowerCase())
       );
       if (participant && participant.id) {
         mentions.push(participant.id);
@@ -895,7 +970,10 @@ export class DiscussionService {
     return tags;
   }
 
-  private async updateDiscussionAnalytics(discussionId: string, message: DiscussionMessage): Promise<void> {
+  private async updateDiscussionAnalytics(
+    discussionId: string,
+    message: DiscussionMessage
+  ): Promise<void> {
     // Update real-time analytics based on new message
     // This would update various metrics and statistics
   }
@@ -919,22 +997,24 @@ export class DiscussionService {
         metadata: {
           ...discussion.metadata,
           pausedAt: new Date(),
-          pauseReason: reason
-        }
+          pauseReason: reason,
+        },
       });
 
       // Emit pause event
       await this.emitDiscussionEvent(id, DiscussionEventType.STATUS_CHANGED, {
         oldStatus: DiscussionStatus.ACTIVE,
         newStatus: DiscussionStatus.PAUSED,
-        reason
+        reason,
       });
 
       logger.info('Discussion paused successfully', { discussionId: id });
       return updatedDiscussion;
-
     } catch (error) {
-      logger.error('Failed to pause discussion', { error: (error as Error).message, discussionId: id });
+      logger.error('Failed to pause discussion', {
+        error: (error as Error).message,
+        discussionId: id,
+      });
       throw error;
     }
   }
@@ -957,21 +1037,23 @@ export class DiscussionService {
         status: DiscussionStatus.ACTIVE,
         state: {
           ...discussion.state,
-          lastActivity: new Date()
-        }
+          lastActivity: new Date(),
+        },
       });
 
       // Emit resume event
       await this.emitDiscussionEvent(id, DiscussionEventType.STATUS_CHANGED, {
         oldStatus: DiscussionStatus.PAUSED,
-        newStatus: DiscussionStatus.ACTIVE
+        newStatus: DiscussionStatus.ACTIVE,
       });
 
       logger.info('Discussion resumed successfully', { discussionId: id });
       return updatedDiscussion;
-
     } catch (error) {
-      logger.error('Failed to resume discussion', { error: (error as Error).message, discussionId: id });
+      logger.error('Failed to resume discussion', {
+        error: (error as Error).message,
+        discussionId: id,
+      });
       throw error;
     }
   }
@@ -1009,24 +1091,23 @@ export class DiscussionService {
         type,
         participantId,
         data,
-        timestamp: new Date()
+        timestamp: new Date(),
       };
 
       await this.eventBusService.publish('discussion.events', event);
-      
+
       logger.info('Discussion event published successfully', {
         discussionId,
         type,
         eventData: data,
-        hasEventBusService: !!this.eventBusService
+        hasEventBusService: !!this.eventBusService,
       });
-
     } catch (error) {
       logger.error('Failed to emit discussion event', {
         error: (error as Error).message,
         discussionId,
-        type
+        type,
       });
     }
   }
-} 
+}

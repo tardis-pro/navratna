@@ -1,11 +1,11 @@
 import React, { ReactNode, useEffect, useRef, useCallback, Component, ErrorInfo } from 'react';
-import { 
-  BaseWidget, 
-  WidgetInstance, 
-  WidgetConfig, 
-  WidgetError, 
+import {
+  BaseWidget,
+  WidgetInstance,
+  WidgetConfig,
+  WidgetError,
   WidgetUsage,
-  WidgetPermission 
+  WidgetPermission,
 } from '@uaip/types';
 
 // Widget context for sharing data between parent and widget
@@ -65,48 +65,60 @@ export const useWidget = (
   const previousPermissions = useRef<WidgetPermission[]>(context.permissions);
 
   // Utility function for logging usage
-  const logUsage = useCallback((action: WidgetUsage['action'], metadata?: any) => {
-    context.onUsage({
-      widgetId: context.widgetId,
-      instanceId: context.instanceId,
-      userId: context.userId,
-      action,
-      timestamp: new Date(),
-      metadata: {
-        ...metadata,
-        sessionDuration: Math.floor((Date.now() - startTimeRef.current) / 1000),
-        interactionCount: interactionCountRef.current
-      }
-    });
-  }, [context]);
+  const logUsage = useCallback(
+    (action: WidgetUsage['action'], metadata?: any) => {
+      context.onUsage({
+        widgetId: context.widgetId,
+        instanceId: context.instanceId,
+        userId: context.userId,
+        action,
+        timestamp: new Date(),
+        metadata: {
+          ...metadata,
+          sessionDuration: Math.floor((Date.now() - startTimeRef.current) / 1000),
+          interactionCount: interactionCountRef.current,
+        },
+      });
+    },
+    [context]
+  );
 
   // Utility function for logging interactions
-  const logInteraction = useCallback((action: string = 'interact', metadata?: any) => {
-    interactionCountRef.current++;
-    logUsage(action as WidgetUsage['action'], metadata);
-  }, [logUsage]);
+  const logInteraction = useCallback(
+    (action: string = 'interact', metadata?: any) => {
+      interactionCountRef.current++;
+      logUsage(action as WidgetUsage['action'], metadata);
+    },
+    [logUsage]
+  );
 
   // Utility function for checking permissions
-  const hasPermission = useCallback((permission: WidgetPermission): boolean => {
-    return context.permissions.includes(permission);
-  }, [context.permissions]);
+  const hasPermission = useCallback(
+    (permission: WidgetPermission): boolean => {
+      return context.permissions.includes(permission);
+    },
+    [context.permissions]
+  );
 
   // Utility function for reporting errors
-  const reportError = useCallback((error: Error, errorInfo?: any) => {
-    const widgetError: WidgetError = {
-      widgetId: context.widgetId,
-      instanceId: context.instanceId,
-      error: {
-        name: error.name,
-        message: error.message,
-        stack: error.stack
-      },
-      timestamp: new Date(),
-      userId: context.userId,
-      metadata: errorInfo
-    };
-    context.onError(widgetError);
-  }, [context]);
+  const reportError = useCallback(
+    (error: Error, errorInfo?: any) => {
+      const widgetError: WidgetError = {
+        widgetId: context.widgetId,
+        instanceId: context.instanceId,
+        error: {
+          name: error.name,
+          message: error.message,
+          stack: error.stack,
+        },
+        timestamp: new Date(),
+        userId: context.userId,
+        metadata: errorInfo,
+      };
+      context.onError(widgetError);
+    },
+    [context]
+  );
 
   // Handle mount
   useEffect(() => {
@@ -142,7 +154,7 @@ export const useWidget = (
     logInteraction,
     hasPermission,
     reportError,
-    metadata: metadata || {}
+    metadata: metadata || {},
   };
 };
 
@@ -153,34 +165,47 @@ interface WidgetErrorFallbackProps {
   widgetId?: string;
 }
 
-const WidgetErrorFallback: React.FC<WidgetErrorFallbackProps> = ({ 
-  error, 
-  resetErrorBoundary, 
-  widgetId 
+const WidgetErrorFallback: React.FC<WidgetErrorFallbackProps> = ({
+  error,
+  resetErrorBoundary,
+  widgetId,
 }) => {
   return (
     <div className="flex flex-col items-center justify-center p-6 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg min-h-[200px]">
       <div className="w-12 h-12 bg-red-100 dark:bg-red-900/50 rounded-lg flex items-center justify-center mb-4">
-        <svg className="w-6 h-6 text-red-600 dark:text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" />
+        <svg
+          className="w-6 h-6 text-red-600 dark:text-red-400"
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={2}
+            d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z"
+          />
         </svg>
       </div>
-      
-      <h3 className="text-lg font-semibold text-red-900 dark:text-red-100 mb-2">
-        Widget Error
-      </h3>
-      
+
+      <h3 className="text-lg font-semibold text-red-900 dark:text-red-100 mb-2">Widget Error</h3>
+
       <p className="text-sm text-red-700 dark:text-red-300 text-center mb-4 max-w-md">
         {widgetId && <span className="font-mono text-xs block mb-2">Widget: {widgetId}</span>}
         {error?.message || 'An unexpected error occurred in this widget.'}
       </p>
-      
+
       <button
         onClick={resetErrorBoundary}
         className="flex items-center gap-2 px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg font-medium transition-colors"
       >
         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={2}
+            d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+          />
         </svg>
         Retry Widget
       </button>
@@ -213,20 +238,20 @@ class WidgetErrorBoundary extends Component<WidgetErrorBoundaryProps, WidgetErro
 
   componentDidCatch(error: Error, errorInfo: ErrorInfo) {
     console.error(`Widget error in ${this.props.widgetId}:`, error, errorInfo);
-    
+
     const widgetError: WidgetError = {
       widgetId: this.props.context.widgetId,
       instanceId: this.props.context.instanceId,
       error: {
         name: error.name,
         message: error.message,
-        stack: error.stack
+        stack: error.stack,
       },
       timestamp: new Date(),
       userId: this.props.context.userId,
-      metadata: errorInfo
+      metadata: errorInfo,
     };
-    
+
     this.props.context.onError(widgetError);
   }
 
@@ -238,8 +263,8 @@ class WidgetErrorBoundary extends Component<WidgetErrorBoundaryProps, WidgetErro
     if (this.state.hasError) {
       const FallbackComponent = this.props.fallback || WidgetErrorFallback;
       return (
-        <FallbackComponent 
-          error={this.state.error!} 
+        <FallbackComponent
+          error={this.state.error!}
           resetErrorBoundary={this.handleRetry}
           widgetId={this.props.widgetId}
         />
@@ -256,27 +281,23 @@ export interface WithWidgetWrapperProps extends BaseWidgetProps {
   fallback?: React.ComponentType<WidgetErrorFallbackProps>;
 }
 
-export const WithWidgetWrapper: React.FC<WithWidgetWrapperProps> = ({ 
-  children, 
-  context, 
+export const WithWidgetWrapper: React.FC<WithWidgetWrapperProps> = ({
+  children,
+  context,
   fallback,
   className = '',
   style = {},
-  ...otherProps 
+  ...otherProps
 }) => {
   return (
-    <div 
-      className={`widget-container ${className}`} 
+    <div
+      className={`widget-container ${className}`}
       style={style}
       data-widget-id={context.widgetId}
       data-instance-id={context.instanceId}
       {...otherProps}
     >
-      <WidgetErrorBoundary 
-        context={context} 
-        fallback={fallback} 
-        widgetId={context.widgetId}
-      >
+      <WidgetErrorBoundary context={context} fallback={fallback} widgetId={context.widgetId}>
         {children}
       </WidgetErrorBoundary>
     </div>
@@ -298,7 +319,7 @@ export function createWidget<P extends BaseWidgetProps>(
   };
 
   WrappedWidget.displayName = `Widget(${WidgetComponent.displayName || WidgetComponent.name})`;
-  
+
   return WrappedWidget;
 }
 
@@ -306,12 +327,15 @@ export function createWidget<P extends BaseWidgetProps>(
 export { useWidget as useWidgetLifecycle };
 
 // Legacy compatibility - keep for gradual migration
-export abstract class BaseWidgetComponent<P extends BaseWidgetProps = BaseWidgetProps, S = {}> 
-  extends React.Component<P, S> {
-  
+export abstract class BaseWidgetComponent<
+  P extends BaseWidgetProps = BaseWidgetProps,
+  S = {},
+> extends React.Component<P, S> {
   // @deprecated Use functional components with useWidget hook instead
   protected getInitialState(): S {
-    console.warn('BaseWidgetComponent is deprecated. Use functional components with useWidget hook instead.');
+    console.warn(
+      'BaseWidgetComponent is deprecated. Use functional components with useWidget hook instead.'
+    );
     return {} as S;
   }
 
@@ -320,10 +344,6 @@ export abstract class BaseWidgetComponent<P extends BaseWidgetProps = BaseWidget
   }
 
   render() {
-    return (
-      <WithWidgetWrapper {...this.props}>
-        {this.renderContent()}
-      </WithWidgetWrapper>
-    );
+    return <WithWidgetWrapper {...this.props}>{this.renderContent()}</WithWidgetWrapper>;
   }
 }

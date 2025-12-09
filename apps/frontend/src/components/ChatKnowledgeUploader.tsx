@@ -1,10 +1,30 @@
 import React, { useState, useCallback, useRef, useEffect } from 'react';
-import { Upload, FileText, X, Plus, Loader2, MessageSquare, Brain, Workflow, Users, TrendingUp, CheckCircle, AlertCircle, Clock } from 'lucide-react';
+import {
+  Upload,
+  FileText,
+  X,
+  Plus,
+  Loader2,
+  MessageSquare,
+  Brain,
+  Workflow,
+  Users,
+  TrendingUp,
+  CheckCircle,
+  AlertCircle,
+  Clock,
+} from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -43,32 +63,30 @@ interface ChatIngestionOptions {
   detectLearning: boolean;
 }
 
-const CHAT_FILE_TYPES = [
-  '.txt', '.json', '.csv', '.html', '.md'
-];
+const CHAT_FILE_TYPES = ['.txt', '.json', '.csv', '.html', '.md'];
 
 const PLATFORM_PATTERNS = {
   claude: /claude|anthropic/i,
   gpt: /gpt|openai|chatgpt/i,
   whatsapp: /whatsapp|whatsapp.*export/i,
-  generic: /.*/
+  generic: /.*/,
 };
 
 const PLATFORM_DESCRIPTIONS = {
   claude: 'Claude/Anthropic conversation exports',
   gpt: 'ChatGPT/OpenAI conversation exports',
   whatsapp: 'WhatsApp chat exports',
-  generic: 'Generic conversation format'
+  generic: 'Generic conversation format',
 };
 
-export const ChatKnowledgeUploader: React.FC<ChatKnowledgeUploaderProps> = ({ 
+export const ChatKnowledgeUploader: React.FC<ChatKnowledgeUploaderProps> = ({
   onUploadComplete,
-  className 
+  className,
 }) => {
   const { uploadKnowledge, isUploading, uploadProgress } = useKnowledge();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const pollIntervalRef = useRef<NodeJS.Timeout>();
-  
+
   // Local state
   const [dragActive, setDragActive] = useState(false);
   const [chatFiles, setChatFiles] = useState<ChatFile[]>([]);
@@ -80,19 +98,22 @@ export const ChatKnowledgeUploader: React.FC<ChatKnowledgeUploaderProps> = ({
     extractWorkflows: true,
     generateQA: true,
     analyzeExpertise: true,
-    detectLearning: true
+    detectLearning: true,
   });
 
   // Detect platform from filename
-  const detectPlatform = useCallback((filename: string): 'claude' | 'gpt' | 'whatsapp' | 'generic' => {
-    const lower = filename.toLowerCase();
-    
-    if (PLATFORM_PATTERNS.claude.test(lower)) return 'claude';
-    if (PLATFORM_PATTERNS.gpt.test(lower)) return 'gpt';
-    if (PLATFORM_PATTERNS.whatsapp.test(lower)) return 'whatsapp';
-    
-    return 'generic';
-  }, []);
+  const detectPlatform = useCallback(
+    (filename: string): 'claude' | 'gpt' | 'whatsapp' | 'generic' => {
+      const lower = filename.toLowerCase();
+
+      if (PLATFORM_PATTERNS.claude.test(lower)) return 'claude';
+      if (PLATFORM_PATTERNS.gpt.test(lower)) return 'gpt';
+      if (PLATFORM_PATTERNS.whatsapp.test(lower)) return 'whatsapp';
+
+      return 'generic';
+    },
+    []
+  );
 
   // Handle drag events
   const handleDrag = useCallback((e: React.DragEvent) => {
@@ -110,7 +131,7 @@ export const ChatKnowledgeUploader: React.FC<ChatKnowledgeUploaderProps> = ({
     e.preventDefault();
     e.stopPropagation();
     setDragActive(false);
-    
+
     const droppedFiles = Array.from(e.dataTransfer.files);
     handleFiles(droppedFiles);
   }, []);
@@ -122,45 +143,50 @@ export const ChatKnowledgeUploader: React.FC<ChatKnowledgeUploaderProps> = ({
   }, []);
 
   // Process files
-  const handleFiles = useCallback((newFiles: File[]) => {
-    setError(null);
-    
-    const validFiles = newFiles.filter(file => {
-      const extension = '.' + file.name.split('.').pop()?.toLowerCase();
-      return CHAT_FILE_TYPES.includes(extension);
-    });
+  const handleFiles = useCallback(
+    (newFiles: File[]) => {
+      setError(null);
 
-    if (validFiles.length !== newFiles.length) {
-      setError(`Some files were skipped. Supported formats: ${CHAT_FILE_TYPES.join(', ')}`);
-    }
+      const validFiles = newFiles.filter((file) => {
+        const extension = '.' + file.name.split('.').pop()?.toLowerCase();
+        return CHAT_FILE_TYPES.includes(extension);
+      });
 
-    const chatFileUploads: ChatFile[] = validFiles.map(file => ({
-      id: `${file.name}-${Date.now()}`,
-      file,
-      platform: detectPlatform(file.name),
-      status: 'pending',
-      progress: 0
-    }));
+      if (validFiles.length !== newFiles.length) {
+        setError(`Some files were skipped. Supported formats: ${CHAT_FILE_TYPES.join(', ')}`);
+      }
 
-    setChatFiles(prev => [...prev, ...chatFileUploads]);
-  }, [detectPlatform]);
+      const chatFileUploads: ChatFile[] = validFiles.map((file) => ({
+        id: `${file.name}-${Date.now()}`,
+        file,
+        platform: detectPlatform(file.name),
+        status: 'pending',
+        progress: 0,
+      }));
+
+      setChatFiles((prev) => [...prev, ...chatFileUploads]);
+    },
+    [detectPlatform]
+  );
 
   // Poll job status
   const pollJobStatus = useCallback(async (jobId: string, fileId: string) => {
     try {
       const status = await knowledgeAPI.getChatJobStatus(jobId);
-      
-      setChatFiles(prev => prev.map(file => 
-        file.id === fileId 
-          ? { 
-              ...file, 
-              status: status.status, 
-              progress: status.progress,
-              results: status.results,
-              error: status.error
-            }
-          : file
-      ));
+
+      setChatFiles((prev) =>
+        prev.map((file) =>
+          file.id === fileId
+            ? {
+                ...file,
+                status: status.status,
+                progress: status.progress,
+                results: status.results,
+                error: status.error,
+              }
+            : file
+        )
+      );
 
       if (status.status === 'completed' || status.status === 'failed') {
         if (pollIntervalRef.current) {
@@ -168,71 +194,80 @@ export const ChatKnowledgeUploader: React.FC<ChatKnowledgeUploaderProps> = ({
         }
         return false; // Stop polling
       }
-      
+
       return true; // Continue polling
     } catch (error) {
       console.error('Error polling job status:', error);
-      setChatFiles(prev => prev.map(file => 
-        file.id === fileId 
-          ? { 
-              ...file, 
-              status: 'failed',
-              error: error instanceof Error ? error.message : 'Status check failed'
-            }
-          : file
-      ));
+      setChatFiles((prev) =>
+        prev.map((file) =>
+          file.id === fileId
+            ? {
+                ...file,
+                status: 'failed',
+                error: error instanceof Error ? error.message : 'Status check failed',
+              }
+            : file
+        )
+      );
       return false; // Stop polling
     }
   }, []);
 
   // Start polling for a job
-  const startPolling = useCallback((jobId: string, fileId: string) => {
-    const poll = async () => {
-      const shouldContinue = await pollJobStatus(jobId, fileId);
-      if (!shouldContinue) {
-        if (pollIntervalRef.current) {
-          clearInterval(pollIntervalRef.current);
+  const startPolling = useCallback(
+    (jobId: string, fileId: string) => {
+      const poll = async () => {
+        const shouldContinue = await pollJobStatus(jobId, fileId);
+        if (!shouldContinue) {
+          if (pollIntervalRef.current) {
+            clearInterval(pollIntervalRef.current);
+          }
         }
-      }
-    };
-    
-    pollIntervalRef.current = setInterval(poll, 2000); // Poll every 2 seconds
-    poll(); // Initial poll
-  }, [pollJobStatus]);
+      };
+
+      pollIntervalRef.current = setInterval(poll, 2000); // Poll every 2 seconds
+      poll(); // Initial poll
+    },
+    [pollJobStatus]
+  );
 
   // Upload chat file
-  const uploadChatFile = useCallback(async (chatFile: ChatFile) => {
-    try {
-      setChatFiles(prev => prev.map(f => 
-        f.id === chatFile.id ? { ...f, status: 'processing' } : f
-      ));
+  const uploadChatFile = useCallback(
+    async (chatFile: ChatFile) => {
+      try {
+        setChatFiles((prev) =>
+          prev.map((f) => (f.id === chatFile.id ? { ...f, status: 'processing' } : f))
+        );
 
-      const result = await knowledgeAPI.importChatFile(chatFile.file, ingestionOptions);
-      
-      setChatFiles(prev => prev.map(f => 
-        f.id === chatFile.id ? { ...f, jobId: result.jobId } : f
-      ));
+        const result = await knowledgeAPI.importChatFile(chatFile.file, ingestionOptions);
 
-      // Start polling for job status
-      startPolling(result.jobId, chatFile.id);
-      
-    } catch (error) {
-      setChatFiles(prev => prev.map(f => 
-        f.id === chatFile.id 
-          ? { 
-              ...f, 
-              status: 'failed',
-              error: error instanceof Error ? error.message : 'Upload failed'
-            }
-          : f
-      ));
-    }
-  }, [ingestionOptions, startPolling]);
+        setChatFiles((prev) =>
+          prev.map((f) => (f.id === chatFile.id ? { ...f, jobId: result.jobId } : f))
+        );
+
+        // Start polling for job status
+        startPolling(result.jobId, chatFile.id);
+      } catch (error) {
+        setChatFiles((prev) =>
+          prev.map((f) =>
+            f.id === chatFile.id
+              ? {
+                  ...f,
+                  status: 'failed',
+                  error: error instanceof Error ? error.message : 'Upload failed',
+                }
+              : f
+          )
+        );
+      }
+    },
+    [ingestionOptions, startPolling]
+  );
 
   // Upload all chat files
   const handleChatFileUpload = useCallback(async () => {
-    const pendingFiles = chatFiles.filter(f => f.status === 'pending');
-    
+    const pendingFiles = chatFiles.filter((f) => f.status === 'pending');
+
     for (const file of pendingFiles) {
       await uploadChatFile(file);
     }
@@ -240,15 +275,18 @@ export const ChatKnowledgeUploader: React.FC<ChatKnowledgeUploaderProps> = ({
 
   // Remove file
   const removeFile = useCallback((id: string) => {
-    setChatFiles(prev => prev.filter(file => file.id !== id));
+    setChatFiles((prev) => prev.filter((file) => file.id !== id));
   }, []);
 
   // Upload text knowledge (existing functionality)
   const handleTextUpload = useCallback(async () => {
     if (!textInput.trim()) return;
 
-    const tags = textTags.split(',').map(tag => tag.trim()).filter(Boolean);
-    
+    const tags = textTags
+      .split(',')
+      .map((tag) => tag.trim())
+      .filter(Boolean);
+
     const knowledgeItem: KnowledgeIngestRequest = {
       content: textInput,
       type: textType,
@@ -285,19 +323,27 @@ export const ChatKnowledgeUploader: React.FC<ChatKnowledgeUploaderProps> = ({
 
   const getPlatformIcon = (platform: string) => {
     switch (platform) {
-      case 'claude': return <Brain className="w-4 h-4" />;
-      case 'gpt': return <MessageSquare className="w-4 h-4" />;
-      case 'whatsapp': return <MessageSquare className="w-4 h-4" />;
-      default: return <FileText className="w-4 h-4" />;
+      case 'claude':
+        return <Brain className="w-4 h-4" />;
+      case 'gpt':
+        return <MessageSquare className="w-4 h-4" />;
+      case 'whatsapp':
+        return <MessageSquare className="w-4 h-4" />;
+      default:
+        return <FileText className="w-4 h-4" />;
     }
   };
 
   const getStatusIcon = (status: string) => {
     switch (status) {
-      case 'completed': return <CheckCircle className="w-4 h-4 text-green-500" />;
-      case 'failed': return <AlertCircle className="w-4 h-4 text-red-500" />;
-      case 'processing': return <Loader2 className="w-4 h-4 animate-spin text-blue-500" />;
-      default: return <Clock className="w-4 h-4 text-gray-500" />;
+      case 'completed':
+        return <CheckCircle className="w-4 h-4 text-green-500" />;
+      case 'failed':
+        return <AlertCircle className="w-4 h-4 text-red-500" />;
+      case 'processing':
+        return <Loader2 className="w-4 h-4 animate-spin text-blue-500" />;
+      default:
+        return <Clock className="w-4 h-4 text-gray-500" />;
     }
   };
 
@@ -308,7 +354,12 @@ export const ChatKnowledgeUploader: React.FC<ChatKnowledgeUploaderProps> = ({
         <Alert className="border-red-500/50 bg-red-500/10">
           <AlertDescription className="text-red-300">
             {error}
-            <Button variant="ghost" size="sm" onClick={() => setError(null)} className="ml-2 h-auto p-1">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setError(null)}
+              className="ml-2 h-auto p-1"
+            >
               ✕
             </Button>
           </AlertDescription>
@@ -330,7 +381,8 @@ export const ChatKnowledgeUploader: React.FC<ChatKnowledgeUploaderProps> = ({
                 Import Chat Conversations
               </CardTitle>
               <p className="text-gray-300 text-sm">
-                Upload Claude, ChatGPT, or WhatsApp conversation files to extract knowledge, workflows, and insights.
+                Upload Claude, ChatGPT, or WhatsApp conversation files to extract knowledge,
+                workflows, and insights.
               </p>
             </CardHeader>
             <CardContent className="space-y-6">
@@ -339,24 +391,27 @@ export const ChatKnowledgeUploader: React.FC<ChatKnowledgeUploaderProps> = ({
                 <h4 className="text-white font-medium">Processing Options</h4>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="flex items-center space-x-2">
-                    <Checkbox 
-                      id="extractWorkflows" 
+                    <Checkbox
+                      id="extractWorkflows"
                       checked={ingestionOptions.extractWorkflows}
-                      onCheckedChange={(checked) => 
-                        setIngestionOptions(prev => ({...prev, extractWorkflows: !!checked}))
+                      onCheckedChange={(checked) =>
+                        setIngestionOptions((prev) => ({ ...prev, extractWorkflows: !!checked }))
                       }
                     />
-                    <label htmlFor="extractWorkflows" className="text-sm text-gray-300 flex items-center">
+                    <label
+                      htmlFor="extractWorkflows"
+                      className="text-sm text-gray-300 flex items-center"
+                    >
                       <Workflow className="w-4 h-4 mr-1" />
                       Extract Workflows
                     </label>
                   </div>
                   <div className="flex items-center space-x-2">
-                    <Checkbox 
-                      id="generateQA" 
+                    <Checkbox
+                      id="generateQA"
                       checked={ingestionOptions.generateQA}
-                      onCheckedChange={(checked) => 
-                        setIngestionOptions(prev => ({...prev, generateQA: !!checked}))
+                      onCheckedChange={(checked) =>
+                        setIngestionOptions((prev) => ({ ...prev, generateQA: !!checked }))
                       }
                     />
                     <label htmlFor="generateQA" className="text-sm text-gray-300 flex items-center">
@@ -365,27 +420,33 @@ export const ChatKnowledgeUploader: React.FC<ChatKnowledgeUploaderProps> = ({
                     </label>
                   </div>
                   <div className="flex items-center space-x-2">
-                    <Checkbox 
-                      id="analyzeExpertise" 
+                    <Checkbox
+                      id="analyzeExpertise"
                       checked={ingestionOptions.analyzeExpertise}
-                      onCheckedChange={(checked) => 
-                        setIngestionOptions(prev => ({...prev, analyzeExpertise: !!checked}))
+                      onCheckedChange={(checked) =>
+                        setIngestionOptions((prev) => ({ ...prev, analyzeExpertise: !!checked }))
                       }
                     />
-                    <label htmlFor="analyzeExpertise" className="text-sm text-gray-300 flex items-center">
+                    <label
+                      htmlFor="analyzeExpertise"
+                      className="text-sm text-gray-300 flex items-center"
+                    >
                       <Users className="w-4 h-4 mr-1" />
                       Analyze Expertise
                     </label>
                   </div>
                   <div className="flex items-center space-x-2">
-                    <Checkbox 
-                      id="detectLearning" 
+                    <Checkbox
+                      id="detectLearning"
                       checked={ingestionOptions.detectLearning}
-                      onCheckedChange={(checked) => 
-                        setIngestionOptions(prev => ({...prev, detectLearning: !!checked}))
+                      onCheckedChange={(checked) =>
+                        setIngestionOptions((prev) => ({ ...prev, detectLearning: !!checked }))
                       }
                     />
-                    <label htmlFor="detectLearning" className="text-sm text-gray-300 flex items-center">
+                    <label
+                      htmlFor="detectLearning"
+                      className="text-sm text-gray-300 flex items-center"
+                    >
                       <TrendingUp className="w-4 h-4 mr-1" />
                       Detect Learning
                     </label>
@@ -396,8 +457,8 @@ export const ChatKnowledgeUploader: React.FC<ChatKnowledgeUploaderProps> = ({
               {/* Drop Zone */}
               <div
                 className={`border-2 border-dashed rounded-lg p-8 text-center transition-colors ${
-                  dragActive 
-                    ? 'border-blue-400 bg-blue-500/10' 
+                  dragActive
+                    ? 'border-blue-400 bg-blue-500/10'
                     : 'border-blue-500/30 hover:border-blue-400 hover:bg-blue-500/5'
                 }`}
                 onDragEnter={handleDrag}
@@ -418,8 +479,8 @@ export const ChatKnowledgeUploader: React.FC<ChatKnowledgeUploaderProps> = ({
                     </div>
                   ))}
                 </div>
-                <Button 
-                  variant="outline" 
+                <Button
+                  variant="outline"
                   onClick={() => fileInputRef.current?.click()}
                   className="border-blue-500/30 hover:bg-blue-500/10"
                 >
@@ -440,19 +501,22 @@ export const ChatKnowledgeUploader: React.FC<ChatKnowledgeUploaderProps> = ({
                 <div className="space-y-3">
                   <div className="flex items-center justify-between">
                     <h4 className="text-white font-medium">Chat Files to Process</h4>
-                    <Button 
+                    <Button
                       onClick={handleChatFileUpload}
-                      disabled={chatFiles.filter(f => f.status === 'pending').length === 0}
+                      disabled={chatFiles.filter((f) => f.status === 'pending').length === 0}
                       className="bg-green-600 hover:bg-green-700"
                     >
                       <Upload className="w-4 h-4 mr-2" />
-                      Process All ({chatFiles.filter(f => f.status === 'pending').length})
+                      Process All ({chatFiles.filter((f) => f.status === 'pending').length})
                     </Button>
                   </div>
 
                   <div className="space-y-2 max-h-64 overflow-y-auto">
                     {chatFiles.map((file) => (
-                      <div key={file.id} className="p-4 rounded border border-blue-500/20 bg-black/10">
+                      <div
+                        key={file.id}
+                        className="p-4 rounded border border-blue-500/20 bg-black/10"
+                      >
                         <div className="flex items-center justify-between mb-2">
                           <div className="flex items-center space-x-2">
                             {getPlatformIcon(file.platform)}
@@ -466,11 +530,17 @@ export const ChatKnowledgeUploader: React.FC<ChatKnowledgeUploaderProps> = ({
                           </div>
                           <div className="flex items-center space-x-2">
                             {getStatusIcon(file.status)}
-                            <Badge variant={
-                              file.status === 'completed' ? 'default' : 
-                              file.status === 'failed' ? 'destructive' : 
-                              file.status === 'processing' ? 'secondary' : 'outline'
-                            }>
+                            <Badge
+                              variant={
+                                file.status === 'completed'
+                                  ? 'default'
+                                  : file.status === 'failed'
+                                    ? 'destructive'
+                                    : file.status === 'processing'
+                                      ? 'secondary'
+                                      : 'outline'
+                              }
+                            >
                               {file.status}
                             </Badge>
                             <Button
@@ -483,7 +553,7 @@ export const ChatKnowledgeUploader: React.FC<ChatKnowledgeUploaderProps> = ({
                             </Button>
                           </div>
                         </div>
-                        
+
                         {file.status === 'processing' && (
                           <div className="space-y-2 mb-2">
                             <div className="flex justify-between text-sm text-gray-300">
@@ -534,8 +604,13 @@ export const ChatKnowledgeUploader: React.FC<ChatKnowledgeUploaderProps> = ({
               />
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="text-sm font-medium text-gray-300 mb-2 block">Knowledge Type</label>
-                  <Select value={textType} onValueChange={(value: KnowledgeType) => setTextType(value)}>
+                  <label className="text-sm font-medium text-gray-300 mb-2 block">
+                    Knowledge Type
+                  </label>
+                  <Select
+                    value={textType}
+                    onValueChange={(value: KnowledgeType) => setTextType(value)}
+                  >
                     <SelectTrigger className="bg-black/20 border-blue-500/30">
                       <SelectValue />
                     </SelectTrigger>
@@ -550,7 +625,9 @@ export const ChatKnowledgeUploader: React.FC<ChatKnowledgeUploaderProps> = ({
                   </Select>
                 </div>
                 <div>
-                  <label className="text-sm font-medium text-gray-300 mb-2 block">Tags (comma-separated)</label>
+                  <label className="text-sm font-medium text-gray-300 mb-2 block">
+                    Tags (comma-separated)
+                  </label>
                   <Input
                     value={textTags}
                     onChange={(e) => setTextTags(e.target.value)}
@@ -559,8 +636,8 @@ export const ChatKnowledgeUploader: React.FC<ChatKnowledgeUploaderProps> = ({
                   />
                 </div>
               </div>
-              <Button 
-                onClick={handleTextUpload} 
+              <Button
+                onClick={handleTextUpload}
                 disabled={!textInput.trim() || isUploading}
                 className="bg-blue-600 hover:bg-blue-700"
               >

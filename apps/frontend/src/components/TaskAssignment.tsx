@@ -1,27 +1,39 @@
 import React, { useState, useEffect } from 'react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Textarea } from '@/components/ui/textarea';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Input } from '@/components/ui/input';
-import { 
-  User, 
-  Bot, 
-  UserPlus, 
-  Zap, 
-  Clock, 
-  TrendingUp, 
-  AlertCircle, 
-  CheckCircle, 
+import {
+  User,
+  Bot,
+  UserPlus,
+  Zap,
+  Clock,
+  TrendingUp,
+  AlertCircle,
+  CheckCircle,
   Circle,
   Search,
   Filter,
   Star,
-  Activity
+  Activity,
 } from 'lucide-react';
 
 // Types
@@ -73,7 +85,7 @@ export const TaskAssignment: React.FC<TaskAssignmentProps> = ({
   onGetAvailableAgents,
   projectId,
   isOpen,
-  onOpenChange
+  onOpenChange,
 }) => {
   const [suggestions, setSuggestions] = useState<TaskAssignmentSuggestion[]>([]);
   const [projectMembers, setProjectMembers] = useState<any[]>([]);
@@ -90,7 +102,7 @@ export const TaskAssignment: React.FC<TaskAssignmentProps> = ({
     availability: '',
     expertise: '',
     workload: '',
-    search: ''
+    search: '',
   });
 
   useEffect(() => {
@@ -105,9 +117,9 @@ export const TaskAssignment: React.FC<TaskAssignmentProps> = ({
       const [suggestionsData, membersData, agentsData] = await Promise.all([
         onGetSuggestions(taskId),
         onGetProjectMembers(projectId),
-        onGetAvailableAgents()
+        onGetAvailableAgents(),
       ]);
-      
+
       setSuggestions(suggestionsData);
       setProjectMembers(membersData);
       setAvailableAgents(agentsData);
@@ -123,7 +135,7 @@ export const TaskAssignment: React.FC<TaskAssignmentProps> = ({
 
     const assignment: AssignmentRequest = {
       assigneeType: selectedAssignee.type,
-      reason: reason || undefined
+      reason: reason || undefined,
     };
 
     if (selectedAssignee.type === 'human') {
@@ -162,30 +174,34 @@ export const TaskAssignment: React.FC<TaskAssignmentProps> = ({
     return 'text-red-600 bg-red-100';
   };
 
-  const filteredSuggestions = suggestions.filter(suggestion => {
+  const filteredSuggestions = suggestions.filter((suggestion) => {
     if (filters.availability && suggestion.availability !== filters.availability) return false;
-    if (filters.search && !suggestion.name.toLowerCase().includes(filters.search.toLowerCase())) return false;
+    if (filters.search && !suggestion.name.toLowerCase().includes(filters.search.toLowerCase()))
+      return false;
     if (filters.workload) {
       const workloadThreshold = parseInt(filters.workload);
       if (filters.workload === 'low' && suggestion.workload > 3) return false;
-      if (filters.workload === 'medium' && (suggestion.workload <= 3 || suggestion.workload > 7)) return false;
+      if (filters.workload === 'medium' && (suggestion.workload <= 3 || suggestion.workload > 7))
+        return false;
       if (filters.workload === 'high' && suggestion.workload <= 7) return false;
     }
     return true;
   });
 
   const SuggestionCard: React.FC<{ suggestion: TaskAssignmentSuggestion }> = ({ suggestion }) => (
-    <Card 
+    <Card
       className={`cursor-pointer transition-all hover:shadow-md ${
-        selectedAssignee?.id === (suggestion.userId || suggestion.agentId) 
-          ? 'ring-2 ring-blue-500 bg-blue-50' 
+        selectedAssignee?.id === (suggestion.userId || suggestion.agentId)
+          ? 'ring-2 ring-blue-500 bg-blue-50'
           : ''
       }`}
-      onClick={() => setSelectedAssignee({
-        type: suggestion.type,
-        id: (suggestion.userId || suggestion.agentId)!,
-        name: suggestion.name
-      })}
+      onClick={() =>
+        setSelectedAssignee({
+          type: suggestion.type,
+          id: (suggestion.userId || suggestion.agentId)!,
+          name: suggestion.name,
+        })
+      }
     >
       <CardHeader className="pb-3">
         <div className="flex items-center justify-between">
@@ -220,12 +236,12 @@ export const TaskAssignment: React.FC<TaskAssignmentProps> = ({
       </CardHeader>
       <CardContent className="pt-0">
         <p className="text-sm text-gray-600 mb-3">{suggestion.reason}</p>
-        
+
         {suggestion.expertise.length > 0 && (
           <div>
             <p className="text-xs font-medium text-gray-700 mb-2">Expertise:</p>
             <div className="flex gap-1 flex-wrap">
-              {suggestion.expertise.slice(0, 3).map(skill => (
+              {suggestion.expertise.slice(0, 3).map((skill) => (
                 <Badge key={skill} variant="secondary" className="text-xs">
                   {skill}
                 </Badge>
@@ -246,11 +262,11 @@ export const TaskAssignment: React.FC<TaskAssignmentProps> = ({
     const [searchTerm, setSearchTerm] = useState('');
     const [assigneeType, setAssigneeType] = useState<'human' | 'agent'>('human');
 
-    const filteredMembers = (assigneeType === 'human' ? projectMembers : availableAgents)
-      .filter(member => 
+    const filteredMembers = (assigneeType === 'human' ? projectMembers : availableAgents).filter(
+      (member) =>
         member.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         member.email?.toLowerCase().includes(searchTerm.toLowerCase())
-      );
+    );
 
     return (
       <div className="space-y-4">
@@ -264,7 +280,10 @@ export const TaskAssignment: React.FC<TaskAssignmentProps> = ({
               className="pl-10"
             />
           </div>
-          <Select value={assigneeType} onValueChange={(value: 'human' | 'agent') => setAssigneeType(value)}>
+          <Select
+            value={assigneeType}
+            onValueChange={(value: 'human' | 'agent') => setAssigneeType(value)}
+          >
             <SelectTrigger className="w-32">
               <SelectValue />
             </SelectTrigger>
@@ -276,17 +295,19 @@ export const TaskAssignment: React.FC<TaskAssignmentProps> = ({
         </div>
 
         <div className="max-h-80 overflow-y-auto space-y-2">
-          {filteredMembers.map(member => (
+          {filteredMembers.map((member) => (
             <Card
               key={member.id}
               className={`cursor-pointer transition-all hover:shadow-sm ${
                 selectedAssignee?.id === member.id ? 'ring-2 ring-blue-500 bg-blue-50' : ''
               }`}
-              onClick={() => setSelectedAssignee({
-                type: assigneeType,
-                id: member.id,
-                name: member.name || member.email
-              })}
+              onClick={() =>
+                setSelectedAssignee({
+                  type: assigneeType,
+                  id: member.id,
+                  name: member.name || member.email,
+                })
+              }
             >
               <CardContent className="p-3">
                 <div className="flex items-center gap-3">
@@ -301,9 +322,7 @@ export const TaskAssignment: React.FC<TaskAssignmentProps> = ({
                   </Avatar>
                   <div className="flex-1">
                     <p className="font-medium text-sm">{member.name || member.email}</p>
-                    {member.role && (
-                      <p className="text-xs text-gray-500">{member.role}</p>
-                    )}
+                    {member.role && <p className="text-xs text-gray-500">{member.role}</p>}
                     {assigneeType === 'agent' && member.capabilities && (
                       <div className="flex gap-1 mt-1">
                         {member.capabilities.slice(0, 2).map((cap: string) => (
@@ -348,7 +367,7 @@ export const TaskAssignment: React.FC<TaskAssignmentProps> = ({
             <Badge variant="outline">{taskType}</Badge>
             {currentAssignee && (
               <span>
-                Currently assigned to: 
+                Currently assigned to:
                 <strong className="ml-1">{currentAssignee.name}</strong>
               </span>
             )}
@@ -376,11 +395,16 @@ export const TaskAssignment: React.FC<TaskAssignmentProps> = ({
                   <Input
                     placeholder="Search suggestions..."
                     value={filters.search}
-                    onChange={(e) => setFilters(prev => ({ ...prev, search: e.target.value }))}
+                    onChange={(e) => setFilters((prev) => ({ ...prev, search: e.target.value }))}
                     className="pl-10 w-48"
                   />
                 </div>
-                <Select value={filters.availability} onValueChange={(value) => setFilters(prev => ({ ...prev, availability: value }))}>
+                <Select
+                  value={filters.availability}
+                  onValueChange={(value) =>
+                    setFilters((prev) => ({ ...prev, availability: value }))
+                  }
+                >
                   <SelectTrigger className="w-32">
                     <SelectValue placeholder="Availability" />
                   </SelectTrigger>
@@ -391,7 +415,10 @@ export const TaskAssignment: React.FC<TaskAssignmentProps> = ({
                     <SelectItem value="offline">Offline</SelectItem>
                   </SelectContent>
                 </Select>
-                <Select value={filters.workload} onValueChange={(value) => setFilters(prev => ({ ...prev, workload: value }))}>
+                <Select
+                  value={filters.workload}
+                  onValueChange={(value) => setFilters((prev) => ({ ...prev, workload: value }))}
+                >
                   <SelectTrigger className="w-32">
                     <SelectValue placeholder="Workload" />
                   </SelectTrigger>
@@ -407,13 +434,9 @@ export const TaskAssignment: React.FC<TaskAssignmentProps> = ({
               {/* Suggestions */}
               <div className="max-h-96 overflow-y-auto space-y-3">
                 {isLoading ? (
-                  <div className="text-center py-8 text-gray-500">
-                    Loading suggestions...
-                  </div>
+                  <div className="text-center py-8 text-gray-500">Loading suggestions...</div>
                 ) : filteredSuggestions.length === 0 ? (
-                  <div className="text-center py-8 text-gray-500">
-                    No suggestions available
-                  </div>
+                  <div className="text-center py-8 text-gray-500">No suggestions available</div>
                 ) : (
                   filteredSuggestions.map((suggestion, index) => (
                     <SuggestionCard key={index} suggestion={suggestion} />
@@ -430,9 +453,7 @@ export const TaskAssignment: React.FC<TaskAssignmentProps> = ({
           {/* Assignment reason and action buttons */}
           <div className="border-t pt-4 mt-4 space-y-4">
             <div>
-              <label className="block text-sm font-medium mb-2">
-                Assignment Reason (Optional)
-              </label>
+              <label className="block text-sm font-medium mb-2">Assignment Reason (Optional)</label>
               <Textarea
                 placeholder="Why is this person/agent the best choice for this task?"
                 value={reason}
@@ -456,18 +477,12 @@ export const TaskAssignment: React.FC<TaskAssignmentProps> = ({
                   </div>
                 )}
               </div>
-              
+
               <div className="flex gap-2">
-                <Button
-                  variant="outline"
-                  onClick={() => onOpenChange(false)}
-                >
+                <Button variant="outline" onClick={() => onOpenChange(false)}>
                   Cancel
                 </Button>
-                <Button
-                  onClick={handleAssign}
-                  disabled={!selectedAssignee}
-                >
+                <Button onClick={handleAssign} disabled={!selectedAssignee}>
                   Assign Task
                 </Button>
               </div>

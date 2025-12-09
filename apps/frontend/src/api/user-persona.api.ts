@@ -108,7 +108,9 @@ class UserPersonaAPI {
   }
 
   // Update behavioral patterns (called automatically by system)
-  async updateBehavioralPatterns(patterns: Partial<BehavioralPatterns>): Promise<UserPersonaResponse> {
+  async updateBehavioralPatterns(
+    patterns: Partial<BehavioralPatterns>
+  ): Promise<UserPersonaResponse> {
     const response = await APIClient.put('/api/v1/users/persona/behavioral-patterns', patterns);
     return response.data;
   }
@@ -142,14 +144,14 @@ class UserPersonaAPI {
         statusCode: error?.statusCode,
         message: error?.message,
         response: error?.response,
-        config: error?.config
+        config: error?.config,
       });
-      
+
       // For now, default to requiring onboarding since we can't check status
       return {
         isRequired: true,
         isCompleted: false,
-        currentStep: 1
+        currentStep: 1,
       };
     }
   }
@@ -161,13 +163,15 @@ class UserPersonaAPI {
   }
 
   // Get persona-compatible agents
-  async getCompatibleAgents(): Promise<Array<{
-    id: string;
-    name: string;
-    compatibility: number;
-    reason: string;
-    persona: any;
-  }>> {
+  async getCompatibleAgents(): Promise<
+    Array<{
+      id: string;
+      name: string;
+      compatibility: number;
+      reason: string;
+      persona: any;
+    }>
+  > {
     const response = await APIClient.get('/api/v1/users/persona/compatible-agents');
     return response.data;
   }

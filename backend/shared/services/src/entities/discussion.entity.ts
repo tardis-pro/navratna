@@ -2,13 +2,13 @@ import { Entity, Column, ManyToOne, OneToMany, JoinColumn } from 'typeorm';
 import { BaseEntity } from './base.entity.js';
 import { UserEntity } from './user.entity.js';
 import { DiscussionParticipant } from './discussionParticipant.entity.js';
-import { 
-  DiscussionStatus, 
-  DiscussionVisibility, 
+import {
+  DiscussionStatus,
+  DiscussionVisibility,
   TurnStrategy,
   DiscussionState,
   DiscussionSettings,
-  TurnStrategyConfig
+  TurnStrategyConfig,
 } from '@uaip/types';
 
 /**
@@ -32,7 +32,9 @@ export class Discussion extends BaseEntity {
   @Column({ type: 'uuid', nullable: true })
   operationId?: string;
 
-  @OneToMany(() => DiscussionParticipant, participant => participant.discussion, { cascade: true })
+  @OneToMany(() => DiscussionParticipant, (participant) => participant.discussion, {
+    cascade: true,
+  })
   participants: DiscussionParticipant[];
 
   @Column({ type: 'jsonb', nullable: true })
@@ -44,17 +46,17 @@ export class Discussion extends BaseEntity {
   @Column({ type: 'jsonb' })
   turnStrategy: TurnStrategyConfig;
 
-  @Column({ 
-    type: 'enum', 
-    enum: DiscussionStatus, 
-    default: DiscussionStatus.DRAFT 
+  @Column({
+    type: 'enum',
+    enum: DiscussionStatus,
+    default: DiscussionStatus.DRAFT,
   })
   status: DiscussionStatus;
 
-  @Column({ 
-    type: 'enum', 
-    enum: DiscussionVisibility, 
-    default: DiscussionVisibility.PRIVATE 
+  @Column({
+    type: 'enum',
+    enum: DiscussionVisibility,
+    default: DiscussionVisibility.PRIVATE,
   })
   visibility: DiscussionVisibility;
 
@@ -124,4 +126,4 @@ export class Discussion extends BaseEntity {
 
   @Column({ type: 'jsonb', nullable: true })
   metadata?: Record<string, any>;
-} 
+}

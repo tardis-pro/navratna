@@ -4,10 +4,10 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { Textarea } from '@/components/ui/textarea';
-import { 
-  Heart, 
-  Share2, 
-  MessageCircle, 
+import {
+  Heart,
+  Share2,
+  MessageCircle,
   Bookmark,
   MoreHorizontal,
   TrendingUp,
@@ -19,14 +19,14 @@ import {
   Clone,
   Eye,
   ThumbsUp,
-  Repeat2
+  Repeat2,
 } from 'lucide-react';
-import { 
-  SocialPost, 
-  SocialActivity, 
-  SocialActivityType, 
+import {
+  SocialPost,
+  SocialActivity,
+  SocialActivityType,
   AgentShowcase,
-  ContentVisibility 
+  ContentVisibility,
 } from '@uaip/types';
 
 interface SocialFeedProps {
@@ -38,7 +38,9 @@ export const SocialFeed: React.FC<SocialFeedProps> = ({ onAgentClick, onUserClic
   const [posts, setPosts] = useState<SocialPost[]>([]);
   const [activities, setActivities] = useState<SocialActivity[]>([]);
   const [newPostContent, setNewPostContent] = useState('');
-  const [selectedTab, setSelectedTab] = useState<'following' | 'trending' | 'discover'>('following');
+  const [selectedTab, setSelectedTab] = useState<'following' | 'trending' | 'discover'>(
+    'following'
+  );
 
   // Mock social data
   useEffect(() => {
@@ -48,7 +50,8 @@ export const SocialFeed: React.FC<SocialFeedProps> = ({ onAgentClick, onUserClic
         authorId: 'user-1',
         authorName: 'CodeMaster Pro',
         authorAvatar: '/avatar1.png',
-        content: '🚀 Just shared my latest AI agent "DataWizard" - it can analyze any dataset and generate insights in seconds! The battle arena results have been incredible. #AIAgent #DataScience #Viral',
+        content:
+          '🚀 Just shared my latest AI agent "DataWizard" - it can analyze any dataset and generate insights in seconds! The battle arena results have been incredible. #AIAgent #DataScience #Viral',
         type: 'agent_share',
         agentId: 'agent-datawizard',
         visibility: ContentVisibility.PUBLIC,
@@ -61,14 +64,15 @@ export const SocialFeed: React.FC<SocialFeedProps> = ({ onAgentClick, onUserClic
         mentions: [],
         images: ['/agent-showcase-1.jpg'],
         createdAt: new Date(Date.now() - 2 * 60 * 60 * 1000), // 2 hours ago
-        updatedAt: new Date()
+        updatedAt: new Date(),
       },
       {
         id: '2',
         authorId: 'user-2',
         authorName: 'CreativeAI',
         authorAvatar: '/avatar2.png',
-        content: '🎨 My StorytellerBot just won the Creative Writing Championship! 🏆 Amazing what happens when you combine emotional intelligence with narrative structure. Thanks to everyone who voted!',
+        content:
+          '🎨 My StorytellerBot just won the Creative Writing Championship! 🏆 Amazing what happens when you combine emotional intelligence with narrative structure. Thanks to everyone who voted!',
         type: 'achievement',
         battleId: 'battle-storytelling-1',
         visibility: ContentVisibility.PUBLIC,
@@ -81,14 +85,15 @@ export const SocialFeed: React.FC<SocialFeedProps> = ({ onAgentClick, onUserClic
         mentions: [],
         videos: ['/victory-celebration.mp4'],
         createdAt: new Date(Date.now() - 4 * 60 * 60 * 1000), // 4 hours ago
-        updatedAt: new Date()
+        updatedAt: new Date(),
       },
       {
         id: '3',
         authorId: 'user-3',
         authorName: 'DevGenius',
         authorAvatar: '/avatar3.png',
-        content: 'Mind = blown 🤯 Just cloned @CodeMaster Pro\'s agent and customized it for my specific use case. The remix culture in this platform is incredible! Here\'s what I changed...',
+        content:
+          "Mind = blown 🤯 Just cloned @CodeMaster Pro's agent and customized it for my specific use case. The remix culture in this platform is incredible! Here's what I changed...",
         type: 'agent_share',
         agentId: 'agent-datawizard-remix',
         visibility: ContentVisibility.PUBLIC,
@@ -100,8 +105,8 @@ export const SocialFeed: React.FC<SocialFeedProps> = ({ onAgentClick, onUserClic
         hashtags: ['Remix', 'Clone', 'Customization'],
         mentions: ['user-1'],
         createdAt: new Date(Date.now() - 6 * 60 * 60 * 1000), // 6 hours ago
-        updatedAt: new Date()
-      }
+        updatedAt: new Date(),
+      },
     ];
 
     const mockActivities: SocialActivity[] = [
@@ -120,7 +125,7 @@ export const SocialFeed: React.FC<SocialFeedProps> = ({ onAgentClick, onUserClic
         visibility: ContentVisibility.PUBLIC,
         isRead: false,
         createdAt: new Date(Date.now() - 30 * 60 * 1000), // 30 minutes ago
-        updatedAt: new Date()
+        updatedAt: new Date(),
       },
       {
         id: 'a2',
@@ -137,8 +142,8 @@ export const SocialFeed: React.FC<SocialFeedProps> = ({ onAgentClick, onUserClic
         visibility: ContentVisibility.PUBLIC,
         isRead: false,
         createdAt: new Date(Date.now() - 45 * 60 * 1000), // 45 minutes ago
-        updatedAt: new Date()
-      }
+        updatedAt: new Date(),
+      },
     ];
 
     setPosts(mockPosts);
@@ -165,19 +170,19 @@ export const SocialFeed: React.FC<SocialFeedProps> = ({ onAgentClick, onUserClic
   };
 
   const handleLike = (postId: string) => {
-    setPosts(posts.map(post => 
-      post.id === postId 
-        ? { ...post, likesCount: post.likesCount + 1 }
-        : post
-    ));
+    setPosts(
+      posts.map((post) =>
+        post.id === postId ? { ...post, likesCount: post.likesCount + 1 } : post
+      )
+    );
   };
 
   const handleShare = (postId: string) => {
-    setPosts(posts.map(post => 
-      post.id === postId 
-        ? { ...post, sharesCount: post.sharesCount + 1 }
-        : post
-    ));
+    setPosts(
+      posts.map((post) =>
+        post.id === postId ? { ...post, sharesCount: post.sharesCount + 1 } : post
+      )
+    );
   };
 
   const PostCard: React.FC<{ post: SocialPost }> = ({ post }) => (
@@ -185,16 +190,18 @@ export const SocialFeed: React.FC<SocialFeedProps> = ({ onAgentClick, onUserClic
       <CardHeader className="pb-3">
         <div className="flex items-start justify-between">
           <div className="flex items-center gap-3">
-            <Avatar 
-              className="w-10 h-10 cursor-pointer" 
+            <Avatar
+              className="w-10 h-10 cursor-pointer"
               onClick={() => onUserClick?.(post.authorId)}
             >
               <AvatarImage src={post.authorAvatar} />
               <AvatarFallback>{post.authorName.slice(0, 2)}</AvatarFallback>
             </Avatar>
             <div>
-              <div className="font-semibold text-sm cursor-pointer hover:underline"
-                   onClick={() => onUserClick?.(post.authorId)}>
+              <div
+                className="font-semibold text-sm cursor-pointer hover:underline"
+                onClick={() => onUserClick?.(post.authorId)}
+              >
                 {post.authorName}
               </div>
               <div className="text-xs text-gray-500">
@@ -214,7 +221,7 @@ export const SocialFeed: React.FC<SocialFeedProps> = ({ onAgentClick, onUserClic
           </div>
         </div>
       </CardHeader>
-      
+
       <CardContent className="space-y-4">
         {/* Post Content */}
         <div className="text-sm leading-relaxed">
@@ -241,10 +248,10 @@ export const SocialFeed: React.FC<SocialFeedProps> = ({ onAgentClick, onUserClic
         {post.images.length > 0 && (
           <div className="grid grid-cols-1 gap-2">
             {post.images.map((image, index) => (
-              <img 
+              <img
                 key={index}
-                src={image} 
-                alt="Post media" 
+                src={image}
+                alt="Post media"
                 className="rounded-lg w-full max-h-64 object-cover cursor-pointer"
               />
             ))}
@@ -255,11 +262,7 @@ export const SocialFeed: React.FC<SocialFeedProps> = ({ onAgentClick, onUserClic
           <div className="grid grid-cols-1 gap-2">
             {post.videos.map((video, index) => (
               <div key={index} className="relative rounded-lg overflow-hidden">
-                <video 
-                  src={video} 
-                  className="w-full max-h-64 object-cover"
-                  controls
-                />
+                <video src={video} className="w-full max-h-64 object-cover" controls />
               </div>
             ))}
           </div>
@@ -267,8 +270,10 @@ export const SocialFeed: React.FC<SocialFeedProps> = ({ onAgentClick, onUserClic
 
         {/* Agent/Battle Reference */}
         {post.agentId && (
-          <Card className="border-2 border-blue-200 cursor-pointer hover:shadow-sm transition-shadow"
-                onClick={() => onAgentClick?.(post.agentId!)}>
+          <Card
+            className="border-2 border-blue-200 cursor-pointer hover:shadow-sm transition-shadow"
+            onClick={() => onAgentClick?.(post.agentId!)}
+          >
             <CardContent className="p-4">
               <div className="flex items-center gap-3">
                 <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg flex items-center justify-center text-white font-bold">
@@ -296,26 +301,22 @@ export const SocialFeed: React.FC<SocialFeedProps> = ({ onAgentClick, onUserClic
         {/* Engagement Metrics */}
         <div className="flex items-center justify-between pt-2 border-t">
           <div className="flex items-center gap-6">
-            <Button 
-              variant="ghost" 
-              size="sm" 
+            <Button
+              variant="ghost"
+              size="sm"
               className="text-gray-600 hover:text-red-500"
               onClick={() => handleLike(post.id)}
             >
               <Heart className="w-4 h-4 mr-1" />
               {formatNumber(post.likesCount)}
             </Button>
-            <Button 
-              variant="ghost" 
-              size="sm" 
-              className="text-gray-600 hover:text-blue-500"
-            >
+            <Button variant="ghost" size="sm" className="text-gray-600 hover:text-blue-500">
               <MessageCircle className="w-4 h-4 mr-1" />
               {formatNumber(post.commentsCount)}
             </Button>
-            <Button 
-              variant="ghost" 
-              size="sm" 
+            <Button
+              variant="ghost"
+              size="sm"
               className="text-gray-600 hover:text-green-500"
               onClick={() => handleShare(post.id)}
             >
@@ -360,14 +361,20 @@ export const SocialFeed: React.FC<SocialFeedProps> = ({ onAgentClick, onUserClic
           </Avatar>
           <div className="flex-1">
             <div className="text-sm">
-              <span className="font-semibold cursor-pointer hover:underline"
-                    onClick={() => onUserClick?.(activity.actorId)}>
+              <span
+                className="font-semibold cursor-pointer hover:underline"
+                onClick={() => onUserClick?.(activity.actorId)}
+              >
                 {activity.actorName}
               </span>
               <span> {activity.title} </span>
               {activity.targetName && (
-                <span className="font-semibold cursor-pointer hover:underline text-blue-600"
-                      onClick={() => activity.targetType === 'agent' && onAgentClick?.(activity.targetId!)}>
+                <span
+                  className="font-semibold cursor-pointer hover:underline text-blue-600"
+                  onClick={() =>
+                    activity.targetType === 'agent' && onAgentClick?.(activity.targetId!)
+                  }
+                >
                   {activity.targetName}
                 </span>
               )}
@@ -436,7 +443,7 @@ export const SocialFeed: React.FC<SocialFeedProps> = ({ onAgentClick, onUserClic
                   ⚔️ Battle
                 </Button>
               </div>
-              <Button 
+              <Button
                 disabled={!newPostContent.trim()}
                 onClick={() => {
                   // Handle post creation
@@ -480,12 +487,18 @@ export const SocialFeed: React.FC<SocialFeedProps> = ({ onAgentClick, onUserClic
           <h3 className="font-semibold">Trending Hashtags</h3>
         </CardHeader>
         <CardContent className="space-y-2">
-          {['#AIAgent', '#BattleArena', '#CodeChallenge', '#ViralAI', '#MachineLearning'].map((hashtag) => (
-            <div key={hashtag} className="flex justify-between items-center">
-              <span className="text-blue-600 hover:underline cursor-pointer text-sm">{hashtag}</span>
-              <span className="text-xs text-gray-500">{Math.floor(Math.random() * 1000)}K posts</span>
-            </div>
-          ))}
+          {['#AIAgent', '#BattleArena', '#CodeChallenge', '#ViralAI', '#MachineLearning'].map(
+            (hashtag) => (
+              <div key={hashtag} className="flex justify-between items-center">
+                <span className="text-blue-600 hover:underline cursor-pointer text-sm">
+                  {hashtag}
+                </span>
+                <span className="text-xs text-gray-500">
+                  {Math.floor(Math.random() * 1000)}K posts
+                </span>
+              </div>
+            )
+          )}
         </CardContent>
       </Card>
     </div>

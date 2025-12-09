@@ -7,7 +7,7 @@ import {
   ConversationIntelligenceEventType,
   Intent,
   PromptSuggestion,
-  AutocompleteSuggestion
+  AutocompleteSuggestion,
 } from '@uaip/types';
 
 interface UseConversationIntelligenceOptions {
@@ -41,7 +41,7 @@ export const useConversationIntelligence = (options: UseConversationIntelligence
     onIntentDetected,
     onTopicGenerated,
     onSuggestionsUpdated,
-    onAutocompleteResults
+    onAutocompleteResults,
   } = options;
 
   const [state, setState] = useState<ConversationIntelligenceState>({
@@ -55,8 +55,8 @@ export const useConversationIntelligence = (options: UseConversationIntelligence
       intent: false,
       topic: false,
       suggestions: false,
-      autocomplete: false
-    }
+      autocomplete: false,
+    },
   });
 
   const socketRef = useRef<Socket | null>(null);
@@ -72,13 +72,13 @@ export const useConversationIntelligence = (options: UseConversationIntelligence
 
     const socket = io(`${getWebSocketURL()}/conversation-intelligence`, {
       auth: { token },
-      query: { 
+      query: {
         agentId: agentId || 'global-user-llm',
-        conversationId: conversationId || 'global'
+        conversationId: conversationId || 'global',
       },
       transports: ['polling', 'websocket'],
       upgrade: true,
-      timeout: 15000
+      timeout: 15000,
     });
 
     socketRef.current = socket;
@@ -86,21 +86,21 @@ export const useConversationIntelligence = (options: UseConversationIntelligence
     // Connection events
     socket.on('connected', (data) => {
       console.log('Connected to conversation intelligence:', data);
-      setState(prev => ({ ...prev, connected: true }));
+      setState((prev) => ({ ...prev, connected: true }));
     });
 
     socket.on('disconnect', () => {
-      setState(prev => ({ ...prev, connected: false }));
+      setState((prev) => ({ ...prev, connected: false }));
     });
 
     // Intent detection events
     socket.on(ConversationWebSocketEventType.INTENT_DETECTED, (data) => {
-      setState(prev => ({
+      setState((prev) => ({
         ...prev,
         currentIntent: data.intent,
-        loading: { ...prev.loading, intent: false }
+        loading: { ...prev.loading, intent: false },
       }));
-      
+
       if (onIntentDetected) {
         onIntentDetected(data.intent, data.toolPreview);
       }
@@ -108,13 +108,13 @@ export const useConversationIntelligence = (options: UseConversationIntelligence
 
     // Topic generation events
     socket.on(ConversationWebSocketEventType.TOPIC_GENERATED, (data) => {
-      setState(prev => ({
+      setState((prev) => ({
         ...prev,
         currentTopic: data.topicName,
         topicConfidence: data.confidence,
-        loading: { ...prev.loading, topic: false }
+        loading: { ...prev.loading, topic: false },
       }));
-      
+
       if (onTopicGenerated) {
         onTopicGenerated(data.topicName, data.confidence);
       }
@@ -122,12 +122,12 @@ export const useConversationIntelligence = (options: UseConversationIntelligence
 
     // Suggestions events
     socket.on(ConversationWebSocketEventType.SUGGESTIONS_UPDATED, (data) => {
-      setState(prev => ({
+      setState((prev) => ({
         ...prev,
         promptSuggestions: data.prompts,
-        loading: { ...prev.loading, suggestions: false }
+        loading: { ...prev.loading, suggestions: false },
       }));
-      
+
       if (onSuggestionsUpdated) {
         onSuggestionsUpdated(data.prompts);
       }
@@ -135,12 +135,12 @@ export const useConversationIntelligence = (options: UseConversationIntelligence
 
     // Autocomplete events
     socket.on(ConversationWebSocketEventType.AUTOCOMPLETE_RESULTS, (data) => {
-      setState(prev => ({
+      setState((prev) => ({
         ...prev,
         autocompleteSuggestions: data.suggestions,
-        loading: { ...prev.loading, autocomplete: false }
+        loading: { ...prev.loading, autocomplete: false },
       }));
-      
+
       if (onAutocompleteResults) {
         onAutocompleteResults(data.suggestions);
       }
@@ -149,14 +149,14 @@ export const useConversationIntelligence = (options: UseConversationIntelligence
     // Error handling
     socket.on('error', (error) => {
       console.error('Conversation intelligence error:', error);
-      setState(prev => ({
+      setState((prev) => ({
         ...prev,
         loading: {
           intent: false,
           topic: false,
           suggestions: false,
-          autocomplete: false
-        }
+          autocomplete: false,
+        },
       }));
     });
 
@@ -172,96 +172,105 @@ export const useConversationIntelligence = (options: UseConversationIntelligence
 
     socketRef.current.emit('update_conversation', {
       conversationId: newConversationId,
-      agentId: newAgentId
+      agentId: newAgentId,
     });
   }, []);
 
   // Request intent detection
-  const detectIntent = useCallback((text: string, context?: any) => {
-    if (!socketRef.current) return;
+  const detectIntent = useCallback(
+    (text: string, context?: any) => {
+      if (!socketRef.current) return;
 
-    setState(prev => ({
-      ...prev,
-      loading: { ...prev.loading, intent: true }
-    }));
+      setState((prev) => ({
+        ...prev,
+        loading: { ...prev.loading, intent: true },
+      }));
 
-    socketRef.current.emit('request_intent_detection', {
-      text,
-      conversationId,
-      context
-    });
-  }, [conversationId]);
+      socketRef.current.emit('request_intent_detection', {
+        text,
+        conversationId,
+        context,
+      });
+    },
+    [conversationId]
+  );
 
   // Request topic generation
-  const generateTopic = useCallback((messages: Array<{ content: string; role: 'user' | 'assistant'; timestamp: Date }>, currentTopic?: string) => {
-    if (!socketRef.current) return;
+  const generateTopic = useCallback(
+    (
+      messages: Array<{ content: string; role: 'user' | 'assistant'; timestamp: Date }>,
+      currentTopic?: string
+    ) => {
+      if (!socketRef.current) return;
 
-    setState(prev => ({
-      ...prev,
-      loading: { ...prev.loading, topic: true }
-    }));
+      setState((prev) => ({
+        ...prev,
+        loading: { ...prev.loading, topic: true },
+      }));
 
-    socketRef.current.emit('request_topic_generation', {
-      messages,
-      currentTopic
-    });
-  }, []);
+      socketRef.current.emit('request_topic_generation', {
+        messages,
+        currentTopic,
+      });
+    },
+    []
+  );
 
   // Request prompt suggestions
   const requestPromptSuggestions = useCallback((conversationContext: any, count: number = 3) => {
     if (!socketRef.current) return;
 
-    setState(prev => ({
+    setState((prev) => ({
       ...prev,
-      loading: { ...prev.loading, suggestions: true }
+      loading: { ...prev.loading, suggestions: true },
     }));
 
     socketRef.current.emit('request_prompt_suggestions', {
       conversationContext,
-      count
+      count,
     });
   }, []);
 
   // Request autocomplete
   const requestAutocomplete = useCallback((partial: string, context?: any, limit: number = 5) => {
     if (!socketRef.current || partial.length < 2) {
-      setState(prev => ({
+      setState((prev) => ({
         ...prev,
-        autocompleteSuggestions: []
+        autocompleteSuggestions: [],
       }));
       return;
     }
 
-    setState(prev => ({
+    setState((prev) => ({
       ...prev,
-      loading: { ...prev.loading, autocomplete: true }
+      loading: { ...prev.loading, autocomplete: true },
     }));
 
     socketRef.current.emit('autocomplete_query', {
       partial,
       context,
-      limit
+      limit,
     });
   }, []);
 
   // Clear autocomplete suggestions
   const clearAutocomplete = useCallback(() => {
-    setState(prev => ({
+    setState((prev) => ({
       ...prev,
-      autocompleteSuggestions: []
+      autocompleteSuggestions: [],
     }));
   }, []);
 
   return {
     // State
     ...state,
-    
+
     // Actions
     updateConversation,
     detectIntent,
     generateTopic,
     requestPromptSuggestions,
     requestAutocomplete,
-    clearAutocomplete
+    clearAutocomplete,
   };
 };

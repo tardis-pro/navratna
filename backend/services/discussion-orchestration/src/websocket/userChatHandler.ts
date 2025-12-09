@@ -38,7 +38,7 @@ export class UserChatHandler {
   private logger = createLogger({
     serviceName: 'UserChatHandler',
     environment: process.env.NODE_ENV || 'development',
-    logLevel: process.env.LOG_LEVEL || 'info'
+    logLevel: process.env.LOG_LEVEL || 'info',
   });
 
   constructor(io: Server, eventBusService: EventBusService) {
@@ -54,10 +54,18 @@ export class UserChatHandler {
       socket.on('user_message', (data) => this.handleUserMessage(socket, data));
       socket.on('agent_chat', (data) => this.handleAgentChat(socket, data));
       socket.on('chat_window_closed', (data) => this.handleChatWindowClosed(socket, data));
-      socket.on('call_offer', (data) => this.handleCallSignaling(socket, { ...data, type: 'call_offer' }));
-      socket.on('call_answer', (data) => this.handleCallSignaling(socket, { ...data, type: 'call_answer' }));
-      socket.on('ice_candidate', (data) => this.handleCallSignaling(socket, { ...data, type: 'ice_candidate' }));
-      socket.on('call_end', (data) => this.handleCallSignaling(socket, { ...data, type: 'call_end' }));
+      socket.on('call_offer', (data) =>
+        this.handleCallSignaling(socket, { ...data, type: 'call_offer' })
+      );
+      socket.on('call_answer', (data) =>
+        this.handleCallSignaling(socket, { ...data, type: 'call_answer' })
+      );
+      socket.on('ice_candidate', (data) =>
+        this.handleCallSignaling(socket, { ...data, type: 'ice_candidate' })
+      );
+      socket.on('call_end', (data) =>
+        this.handleCallSignaling(socket, { ...data, type: 'call_end' })
+      );
       socket.on('user_typing', (data) => this.handleUserTyping(socket, data));
       socket.on('user_status_change', (data) => this.handleStatusChange(socket, data));
       socket.on('disconnect', () => this.handleUserDisconnect(socket));
@@ -78,7 +86,7 @@ export class UserChatHandler {
         socketId: socket.id,
         username: data.username || decoded.username || 'Unknown',
         status: 'online',
-        lastActivity: new Date()
+        lastActivity: new Date(),
       };
 
       // Store user connection
@@ -92,17 +100,16 @@ export class UserChatHandler {
       socket.broadcast.emit('user_connected', {
         userId: user.userId,
         username: user.username,
-        status: user.status
+        status: user.status,
       });
 
       // Send current online users list
-      const onlineUsers = Array.from(this.connectedUsers.values())
-        .map(u => ({
-          userId: u.userId,
-          username: u.username,
-          status: u.status,
-          lastActivity: u.lastActivity
-        }));
+      const onlineUsers = Array.from(this.connectedUsers.values()).map((u) => ({
+        userId: u.userId,
+        username: u.username,
+        status: u.status,
+        lastActivity: u.lastActivity,
+      }));
 
       socket.emit('users_list', { users: onlineUsers });
 
@@ -113,7 +120,10 @@ export class UserChatHandler {
     }
   }
 
-  private async handleUserMessage(socket: Socket, data: { targetUser: string; message: UserMessage }) {
+  private async handleUserMessage(
+    socket: Socket,
+    data: { targetUser: string; message: UserMessage }
+  ) {
     try {
       const sender = this.connectedUsers.get(socket.id);
       if (!sender) {
@@ -137,16 +147,16 @@ export class UserChatHandler {
         senderId: sender.userId,
         receiverId: targetUser,
         timestamp: new Date(),
-        status: 'sent'
+        status: 'sent',
       };
 
       // Send to target user if online
       if (targetSocketId) {
         this.io.to(`user_${targetUser}`).emit('user_message', {
           type: 'user_message',
-          data: completeMessage
+          data: completeMessage,
         });
-        
+
         // Update message status to delivered
         completeMessage.status = 'delivered';
       }
@@ -155,7 +165,7 @@ export class UserChatHandler {
       socket.emit('message_sent', {
         messageId: completeMessage.id,
         status: completeMessage.status,
-        timestamp: completeMessage.timestamp
+        timestamp: completeMessage.timestamp,
       });
 
       // TODO: Store message in database for offline delivery
@@ -186,16 +196,16 @@ export class UserChatHandler {
           data: {
             ...signalData,
             callerId: sender.userId,
-            callerName: sender.username
-          }
+            callerName: sender.username,
+          },
         });
 
         this.logger.info(`Call signaling (${type}) from ${sender.username} to ${targetUserId}`);
       } else {
         // Target user offline
-        socket.emit('call_error', { 
+        socket.emit('call_error', {
           error: 'Target user is not available',
-          targetUserId 
+          targetUserId,
         });
       }
     } catch (error) {
@@ -216,7 +226,7 @@ export class UserChatHandler {
         this.io.to(`user_${targetUser}`).emit('user_typing', {
           userId: sender.userId,
           username: sender.username,
-          isTyping
+          isTyping,
         });
       }
     } catch (error) {
@@ -237,7 +247,7 @@ export class UserChatHandler {
         userId: user.userId,
         username: user.username,
         status: user.status,
-        lastActivity: user.lastActivity
+        lastActivity: user.lastActivity,
       });
 
       this.logger.info(`User ${user.username} changed status to ${data.status}`);
@@ -258,7 +268,7 @@ export class UserChatHandler {
       // Notify other users of disconnection
       socket.broadcast.emit('user_disconnected', {
         userId: user.userId,
-        username: user.username
+        username: user.username,
       });
 
       this.logger.info(`User disconnected: ${user.username} (${user.userId})`);
@@ -277,9 +287,9 @@ export class UserChatHandler {
         receiverId: message.receiverId,
         content: message.content.substring(0, 100) + (message.content.length > 100 ? '...' : ''),
         timestamp: message.timestamp,
-        status: message.status
+        status: message.status,
       });
-      
+
       // TODO: Implement actual database storage
       // await this.databaseService.messages.create({
       //   id: message.id,
@@ -302,18 +312,20 @@ export class UserChatHandler {
       const socketUser = socket.data?.user;
       if (!socketUser || !socketUser.userId) {
         socket.emit('error', { error: 'User not authenticated' });
-        this.logger.warn('Chat window closed attempted without authentication', { socketId: socket.id });
+        this.logger.warn('Chat window closed attempted without authentication', {
+          socketId: socket.id,
+        });
         return;
       }
 
       const { agentId, sessionId, conversationId, timestamp } = data;
 
-      this.logger.info('Processing chat window closure', { 
-        userId: socketUser.userId, 
-        agentId, 
+      this.logger.info('Processing chat window closure', {
+        userId: socketUser.userId,
+        agentId,
         sessionId,
         conversationId,
-        socketId: socket.id
+        socketId: socket.id,
       });
 
       // Publish chat window closed event to event bus for cleanup
@@ -323,22 +335,21 @@ export class UserChatHandler {
         sessionId,
         conversationId,
         timestamp: timestamp || new Date().toISOString(),
-        socketId: socket.id
+        socketId: socket.id,
       });
 
       // Send acknowledgment to client
       socket.emit('chat_window_closed_ack', {
         agentId,
         sessionId,
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
       });
 
-      this.logger.info('Chat window closure processed successfully', { 
-        agentId, 
+      this.logger.info('Chat window closure processed successfully', {
+        agentId,
         sessionId,
-        userId: socketUser.userId
+        userId: socketUser.userId,
       });
-
     } catch (error) {
       this.logger.error('Chat window closure handling error:', error);
       socket.emit('error', { error: 'Chat window closure processing failed' });
@@ -363,11 +374,11 @@ export class UserChatHandler {
         return;
       }
 
-      this.logger.info('Processing agent chat request via Socket.IO', { 
-        userId: socketUser.userId, 
-        agentId, 
+      this.logger.info('Processing agent chat request via Socket.IO', {
+        userId: socketUser.userId,
+        agentId,
         messageLength: message.length,
-        socketId: socket.id
+        socketId: socket.id,
       });
 
       // Forward agent chat request to agent intelligence service via event bus
@@ -379,7 +390,7 @@ export class UserChatHandler {
         context: context || {},
         messageId: messageId || `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
         timestamp: new Date().toISOString(),
-        socketId: socket.id // Include socket ID for direct response
+        socketId: socket.id, // Include socket ID for direct response
       };
 
       // Use event bus to forward to agent intelligence service
@@ -390,15 +401,14 @@ export class UserChatHandler {
       socket.emit('agent_chat_received', {
         messageId: chatRequest.messageId,
         agentId,
-        timestamp: chatRequest.timestamp
+        timestamp: chatRequest.timestamp,
       });
 
-      this.logger.info('Agent chat request forwarded successfully', { 
-        agentId, 
+      this.logger.info('Agent chat request forwarded successfully', {
+        agentId,
         messageId: chatRequest.messageId,
-        userId: socketUser.userId
+        userId: socketUser.userId,
       });
-
     } catch (error) {
       this.logger.error('Agent chat handling error:', error);
       socket.emit('error', { error: 'Agent chat processing failed' });
@@ -419,7 +429,7 @@ export class UserChatHandler {
     // Subscribe to agent chat responses to forward them back to Socket.IO clients
     this.eventBusService.subscribe('agent.chat.response', async (event) => {
       const { socketId, agentId, response, agentName, messageId, ...metadata } = event.data;
-      
+
       // Find the socket by ID and send the response
       const socket = this.io.sockets.sockets.get(socketId);
       if (socket) {
@@ -429,20 +439,20 @@ export class UserChatHandler {
           agentName,
           messageId,
           timestamp: new Date().toISOString(),
-          ...metadata
+          ...metadata,
         });
-        
-        this.logger.info('Agent response forwarded to Socket.IO client', { 
-          socketId, 
-          agentId, 
+
+        this.logger.info('Agent response forwarded to Socket.IO client', {
+          socketId,
+          agentId,
           agentName,
-          messageId
+          messageId,
         });
       } else {
-        this.logger.warn('Socket not found for agent response', { 
-          socketId, 
+        this.logger.warn('Socket not found for agent response', {
+          socketId,
           agentId,
-          messageId
+          messageId,
         });
       }
     });
@@ -469,7 +479,7 @@ export class UserChatHandler {
     if (socketId) {
       this.io.to(`user_${userId}`).emit('system_message', {
         content: message,
-        timestamp: new Date()
+        timestamp: new Date(),
       });
     }
   }

@@ -1,10 +1,6 @@
 import { DatabaseService } from './databaseService.js';
 import { logger, ApiError } from '@uaip/utils';
-import {
-  Capability,
-  CapabilitySearchQuery,
-  CapabilitySearchResult
-} from '@uaip/types';
+import { Capability, CapabilitySearchQuery, CapabilitySearchResult } from '@uaip/types';
 
 export class CapabilityDiscoveryService {
   private databaseService: DatabaseService;
@@ -36,12 +32,12 @@ export class CapabilityDiscoveryService {
         query: query.query,
         type: query.type,
         securityLevel: query.securityContext?.securityLevel,
-        limit: query.limit
+        limit: query.limit,
       };
 
       const repo = this.databaseService.agents.getCapabilityRepository();
       const result = await repo.searchCapabilities(searchFilters);
-      const capabilities = result.map(row => this.mapCapabilityFromDB(row));
+      const capabilities = result.map((row) => this.mapCapabilityFromDB(row));
 
       // If we have agent context, rank capabilities by relevance
       if (query.agentContext) {
@@ -52,7 +48,7 @@ export class CapabilityDiscoveryService {
       logger.info('Capability search completed', {
         resultCount: capabilities.length,
         searchTime,
-        query: query.query
+        query: query.query,
       });
 
       return capabilities;
@@ -75,13 +71,16 @@ export class CapabilityDiscoveryService {
         throw new ApiError(404, 'Agent not found', 'AGENT_NOT_FOUND');
       }
 
-      const configuredCapabilities = (agentConfig.metadata?.intelligenceConfig as any)?.capabilities || (agentConfig.intelligenceConfig as any)?.capabilities || {};
+      const configuredCapabilities =
+        (agentConfig.metadata?.intelligenceConfig as any)?.capabilities ||
+        (agentConfig.intelligenceConfig as any)?.capabilities ||
+        {};
 
       // Get capabilities from database
       const capabilityIds = [
         ...(configuredCapabilities.tools || []),
         ...(configuredCapabilities.artifacts || []),
-        ...(configuredCapabilities.hybrid || [])
+        ...(configuredCapabilities.hybrid || []),
       ];
 
       if (capabilityIds.length === 0) {
@@ -92,7 +91,7 @@ export class CapabilityDiscoveryService {
       const repo = this.databaseService.agents.getCapabilityRepository();
       const capabilityResult = await repo.getCapabilitiesByIds(capabilityIds);
 
-      return capabilityResult.map(row => this.mapCapabilityFromDB(row));
+      return capabilityResult.map((row) => this.mapCapabilityFromDB(row));
     } catch (error: any) {
       logger.error('Error getting agent capabilities', { agentId, error: error.message });
       throw error;
@@ -139,13 +138,13 @@ export class CapabilityDiscoveryService {
         // Get dependencies through domain service
         const repo = this.databaseService.agents.getCapabilityRepository();
         const depResult = await repo.getCapabilityDependencies(capability.dependencies);
-        dependencies.push(...depResult.map(row => this.mapCapabilityFromDB(row)));
+        dependencies.push(...depResult.map((row) => this.mapCapabilityFromDB(row)));
       }
 
       // Get dependents (capabilities that depend on this one)
       const repo2 = this.databaseService.agents.getCapabilityRepository();
       const dependentsResult = await repo2.getCapabilityDependents(capabilityId);
-      const dependents = dependentsResult.map(row => this.mapCapabilityFromDB(row));
+      const dependents = dependentsResult.map((row) => this.mapCapabilityFromDB(row));
 
       return { dependencies, dependents };
     } catch (error: any) {
@@ -166,13 +165,13 @@ export class CapabilityDiscoveryService {
 
       // Map intents to capability types
       const intentMapping: Record<string, string[]> = {
-        'create': ['artifact', 'hybrid'],
-        'analyze': ['tool', 'hybrid'],
-        'modify': ['hybrid', 'tool'],
-        'deploy': ['tool'],
-        'monitor': ['tool'],
-        'generate': ['artifact'],
-        'query': ['tool']
+        create: ['artifact', 'hybrid'],
+        analyze: ['tool', 'hybrid'],
+        modify: ['hybrid', 'tool'],
+        deploy: ['tool'],
+        monitor: ['tool'],
+        generate: ['artifact'],
+        query: ['tool'],
       };
 
       const relevantTypes = intentMapping[intent] || ['tool', 'artifact', 'hybrid'];
@@ -183,15 +182,17 @@ export class CapabilityDiscoveryService {
         type: undefined, // Search all types first
         agentContext: context,
         securityContext,
-        limit: 50
+        limit: 50,
       });
 
       // Filter by relevant types and rank by intent relevance
       return searchResults
-        .filter(cap => cap.type && relevantTypes.includes(cap.type))
-        .sort((a, b) => this.calculateIntentRelevance(b, intent) - this.calculateIntentRelevance(a, intent))
+        .filter((cap) => cap.type && relevantTypes.includes(cap.type))
+        .sort(
+          (a, b) =>
+            this.calculateIntentRelevance(b, intent) - this.calculateIntentRelevance(a, intent)
+        )
         .slice(0, 10);
-
     } catch (error: any) {
       logger.error('Error discovering capabilities by intent', { intent, error: error.message });
       throw new ApiError(500, 'Failed to discover capabilities', 'DISCOVERY_ERROR');
@@ -214,7 +215,7 @@ export class CapabilityDiscoveryService {
       securityRequirements: this.parseSecurityRequirements(row.security_requirements),
       resourceRequirements: row.resource_requirements || undefined,
       createdAt: row.created_at,
-      updatedAt: row.updated_at
+      updatedAt: row.updated_at,
     };
   }
 
@@ -229,7 +230,7 @@ export class CapabilityDiscoveryService {
         minimumSecurityLevel: 'medium',
         requiredPermissions: [],
         sensitiveData: false,
-        auditRequired: false
+        auditRequired: false,
       };
     }
 
@@ -238,16 +239,18 @@ export class CapabilityDiscoveryService {
         const parsed = JSON.parse(requirements);
         return {
           minimumSecurityLevel: parsed.minimumSecurityLevel || 'medium',
-          requiredPermissions: Array.isArray(parsed.requiredPermissions) ? parsed.requiredPermissions : [],
+          requiredPermissions: Array.isArray(parsed.requiredPermissions)
+            ? parsed.requiredPermissions
+            : [],
           sensitiveData: Boolean(parsed.sensitiveData),
-          auditRequired: Boolean(parsed.auditRequired)
+          auditRequired: Boolean(parsed.auditRequired),
         };
       } catch {
         return {
           minimumSecurityLevel: 'medium',
           requiredPermissions: [],
           sensitiveData: false,
-          auditRequired: false
+          auditRequired: false,
         };
       }
     }
@@ -255,9 +258,11 @@ export class CapabilityDiscoveryService {
     if (typeof requirements === 'object') {
       return {
         minimumSecurityLevel: requirements.minimumSecurityLevel || 'medium',
-        requiredPermissions: Array.isArray(requirements.requiredPermissions) ? requirements.requiredPermissions : [],
+        requiredPermissions: Array.isArray(requirements.requiredPermissions)
+          ? requirements.requiredPermissions
+          : [],
         sensitiveData: Boolean(requirements.sensitiveData),
-        auditRequired: Boolean(requirements.auditRequired)
+        auditRequired: Boolean(requirements.auditRequired),
       };
     }
 
@@ -265,7 +270,7 @@ export class CapabilityDiscoveryService {
       minimumSecurityLevel: 'medium',
       requiredPermissions: [],
       sensitiveData: false,
-      auditRequired: false
+      auditRequired: false,
     };
   }
 
@@ -274,24 +279,32 @@ export class CapabilityDiscoveryService {
     query: CapabilitySearchQuery
   ): Capability[] {
     return capabilities
-      .map(cap => ({
+      .map((cap) => ({
         capability: cap,
-        score: this.calculateRelevanceScore(cap, query)
+        score: this.calculateRelevanceScore(cap, query),
       }))
       .sort((a, b) => b.score - a.score)
-      .map(item => item.capability);
+      .map((item) => item.capability);
   }
 
   private calculateRelevanceScore(capability: Capability, query: CapabilitySearchQuery): number {
     let score = 0;
 
     // Exact name match
-    if (capability.name && query.query && capability.name.toLowerCase().includes(query.query.toLowerCase())) {
+    if (
+      capability.name &&
+      query.query &&
+      capability.name.toLowerCase().includes(query.query.toLowerCase())
+    ) {
       score += 10;
     }
 
     // Description match
-    if (capability.description && query.query && capability.description.toLowerCase().includes(query.query.toLowerCase())) {
+    if (
+      capability.description &&
+      query.query &&
+      capability.description.toLowerCase().includes(query.query.toLowerCase())
+    ) {
       score += 5;
     }
 
@@ -339,10 +352,10 @@ export class CapabilityDiscoveryService {
 
     // Type-based scoring
     const typeScores: Record<string, Record<string, number>> = {
-      'create': { 'artifact': 8, 'hybrid': 6, 'tool': 2 },
-      'analyze': { 'tool': 8, 'hybrid': 6, 'artifact': 2 },
-      'modify': { 'hybrid': 8, 'tool': 5, 'artifact': 3 },
-      'generate': { 'artifact': 10, 'hybrid': 4, 'tool': 1 }
+      create: { artifact: 8, hybrid: 6, tool: 2 },
+      analyze: { tool: 8, hybrid: 6, artifact: 2 },
+      modify: { hybrid: 8, tool: 5, artifact: 3 },
+      generate: { artifact: 10, hybrid: 4, tool: 1 },
     };
 
     if (capability.type && typeScores[intent] && typeScores[intent][capability.type]) {
@@ -371,7 +384,11 @@ export class CapabilityDiscoveryService {
 
       logger.info('Capability assigned to agent successfully', { agentId, capabilityId });
     } catch (error: any) {
-      logger.error('Failed to assign capability to agent', { agentId, capabilityId, error: error.message });
+      logger.error('Failed to assign capability to agent', {
+        agentId,
+        capabilityId,
+        error: error.message,
+      });
       throw new ApiError(500, 'Failed to assign capability', 'ASSIGNMENT_ERROR');
     }
   }
@@ -403,7 +420,7 @@ export class CapabilityDiscoveryService {
         input: parameters,
         context,
         agentId: context?.agentId,
-        userId: context?.userId
+        userId: context?.userId,
       });
 
       logger.info('Tool executed successfully', { toolId, result });
@@ -430,7 +447,7 @@ export class CapabilityDiscoveryService {
       // Use capability repository for advanced search
       const repo = this.databaseService.agents.getCapabilityRepository();
       const result = await repo.searchCapabilitiesAdvanced(searchParams);
-      const capabilities = result.capabilities.map(row => this.mapCapabilityFromDB(row));
+      const capabilities = result.capabilities.map((row) => this.mapCapabilityFromDB(row));
 
       const searchTime = Date.now() - startTime;
 
@@ -438,7 +455,7 @@ export class CapabilityDiscoveryService {
         capabilities,
         totalCount: result.totalCount,
         recommendations: this.generateRecommendations(capabilities, searchParams),
-        searchTime
+        searchTime,
       };
     } catch (error: any) {
       logger.error('Error in advanced capability search', { searchParams, error: error.message });
@@ -462,7 +479,7 @@ export class CapabilityDiscoveryService {
     }
 
     // Check for related capabilities
-    const types = Array.from(new Set(capabilities.map(c => c.type)));
+    const types = Array.from(new Set(capabilities.map((c) => c.type)));
     if (types.length === 1 && types[0] === 'tool') {
       recommendations.push('Consider hybrid capabilities for more comprehensive solutions.');
     }

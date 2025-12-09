@@ -1,22 +1,19 @@
 import { jest } from '@jest/globals';
 import { OAuthProviderService } from '../../services/oauthProviderService.js';
-import {
-  createMockDatabaseService,
-  createMockAuditService
-} from '../utils/mockServices.js';
+import { createMockDatabaseService, createMockAuditService } from '../utils/mockServices.js';
 import {
   OAuthProviderConfig,
   OAuthProviderType,
   UserType,
   AgentCapability,
   SecurityLevel,
-  AuditEventType
+  AuditEventType,
 } from '@uaip/types';
 import { ApiError } from '@uaip/utils';
 
 // Mock external dependencies
 jest.mock('@uaip/shared-services', () => ({
-  DatabaseService: jest.fn().mockImplementation(() => createMockDatabaseService())
+  DatabaseService: jest.fn().mockImplementation(() => createMockDatabaseService()),
 }));
 
 jest.mock('@uaip/utils', () => ({
@@ -24,21 +21,21 @@ jest.mock('@uaip/utils', () => ({
     info: jest.fn(),
     warn: jest.fn(),
     error: jest.fn(),
-    debug: jest.fn()
+    debug: jest.fn(),
   },
   ApiError: jest.fn().mockImplementation((status, message: string, code) => {
     const error = new Error(message);
     (error as any).status = status;
     (error as any).code = code;
     return error;
-  })
+  }),
 }));
 
 jest.mock('axios', () => ({
   default: {
     post: jest.fn(),
-    get: jest.fn()
-  }
+    get: jest.fn(),
+  },
 }));
 
 describe('OAuthProviderService', () => {
@@ -52,10 +49,7 @@ describe('OAuthProviderService', () => {
     mockAuditService = createMockAuditService();
 
     // Create service instance
-    oauthProviderService = new OAuthProviderService(
-      mockDatabaseService,
-      mockAuditService
-    );
+    oauthProviderService = new OAuthProviderService(mockDatabaseService, mockAuditService);
   });
 
   afterEach(() => {
@@ -80,7 +74,7 @@ describe('OAuthProviderService', () => {
         requirePKCE: true,
         requireState: true,
         allowedUserTypes: [UserType.HUMAN, UserType.AGENT],
-        minimumSecurityLevel: SecurityLevel.MEDIUM
+        minimumSecurityLevel: SecurityLevel.MEDIUM,
       },
       agentConfig: {
         allowAgentAccess: true,
@@ -88,14 +82,14 @@ describe('OAuthProviderService', () => {
         permissions: ['clone', 'pull', 'push'],
         rateLimit: {
           requests: 5000,
-          windowMs: 3600000 // 1 hour
+          windowMs: 3600000, // 1 hour
         },
         monitoring: {
           logAllRequests: true,
           alertOnSuspiciousActivity: true,
-          maxDailyRequests: 1000
-        }
-      }
+          maxDailyRequests: 1000,
+        },
+      },
     });
 
     it('should create OAuth provider configuration successfully', async () => {
@@ -111,8 +105,8 @@ describe('OAuthProviderService', () => {
           type: OAuthProviderType.GITHUB,
           agentConfig: expect.objectContaining({
             allowAgentAccess: true,
-            requiredCapabilities: [AgentCapability.CODE_REPOSITORY]
-          })
+            requiredCapabilities: [AgentCapability.CODE_REPOSITORY],
+          }),
         })
       );
       expect(mockAuditService.logEvent).toHaveBeenCalledWith(
@@ -121,8 +115,8 @@ describe('OAuthProviderService', () => {
           details: expect.objectContaining({
             action: 'create_oauth_provider',
             providerId: config.id,
-            providerType: OAuthProviderType.GITHUB
-          })
+            providerType: OAuthProviderType.GITHUB,
+          }),
         })
       );
     });
@@ -131,12 +125,10 @@ describe('OAuthProviderService', () => {
       const invalidConfig = {
         ...createGitHubProviderConfig(),
         clientId: '', // Invalid empty client ID
-        authorizationUrl: 'invalid-url' // Invalid URL
+        authorizationUrl: 'invalid-url', // Invalid URL
       };
 
-      await expect(
-        oauthProviderService.createProvider(invalidConfig)
-      ).rejects.toThrow();
+      await expect(oauthProviderService.createProvider(invalidConfig)).rejects.toThrow();
     });
 
     it('should generate authorization URL with PKCE', async () => {
@@ -178,8 +170,8 @@ describe('OAuthProviderService', () => {
         ...createGitHubProviderConfig(),
         securityConfig: {
           ...createGitHubProviderConfig().securityConfig!,
-          allowedUserTypes: [UserType.HUMAN] // Only humans allowed
-        }
+          allowedUserTypes: [UserType.HUMAN], // Only humans allowed
+        },
       };
       await oauthProviderService.createProvider(config);
 
@@ -210,8 +202,8 @@ describe('OAuthProviderService', () => {
           dailyRequests: 10,
           lastResetDate: new Date(),
           errors: 0,
-          rateLimitHits: 0
-        }
+          rateLimitHits: 0,
+        },
       });
 
       const result = await oauthProviderService.validateAgentOperation(
@@ -235,7 +227,7 @@ describe('OAuthProviderService', () => {
         capabilities: [AgentCapability.NOTE_TAKING], // Wrong capability
         permissions: ['clone', 'pull'],
         isActive: true,
-        tokenExpiresAt: new Date(Date.now() + 60 * 60 * 1000)
+        tokenExpiresAt: new Date(Date.now() + 60 * 60 * 1000),
       });
 
       const result = await oauthProviderService.validateAgentOperation(
@@ -259,7 +251,7 @@ describe('OAuthProviderService', () => {
         capabilities: [AgentCapability.CODE_REPOSITORY],
         permissions: ['clone', 'pull'],
         isActive: false, // Inactive connection
-        tokenExpiresAt: new Date(Date.now() + 60 * 60 * 1000)
+        tokenExpiresAt: new Date(Date.now() + 60 * 60 * 1000),
       });
 
       const result = await oauthProviderService.validateAgentOperation(
@@ -283,7 +275,7 @@ describe('OAuthProviderService', () => {
         capabilities: [AgentCapability.CODE_REPOSITORY],
         permissions: ['clone', 'pull'],
         isActive: true,
-        tokenExpiresAt: new Date(Date.now() - 60 * 60 * 1000) // 1 hour ago (expired)
+        tokenExpiresAt: new Date(Date.now() - 60 * 60 * 1000), // 1 hour ago (expired)
       });
 
       const result = await oauthProviderService.validateAgentOperation(
@@ -313,15 +305,15 @@ describe('OAuthProviderService', () => {
           dailyRequests: 1000, // At daily limit
           lastResetDate: new Date(),
           errors: 0,
-          rateLimitHits: 5
+          rateLimitHits: 5,
         },
         restrictions: {
           allowedOperations: ['clone', 'pull'],
           timeRestrictions: {
             allowedHours: [9, 10, 11, 12, 13, 14, 15, 16, 17], // Business hours only
-            timezone: 'UTC'
-          }
-        }
+            timezone: 'UTC',
+          },
+        },
       });
 
       const result = await oauthProviderService.validateAgentOperation(
@@ -347,7 +339,7 @@ describe('OAuthProviderService', () => {
         codeVerifier: 'verifier-123',
         userType: UserType.HUMAN,
         createdAt: new Date(),
-        expiresAt: new Date(Date.now() + 10 * 60 * 1000) // 10 minutes from now
+        expiresAt: new Date(Date.now() + 10 * 60 * 1000), // 10 minutes from now
       });
 
       // Mock axios for token exchange
@@ -356,8 +348,8 @@ describe('OAuthProviderService', () => {
         data: {
           access_token: 'github-access-token',
           token_type: 'bearer',
-          scope: 'repo,user:email'
-        }
+          scope: 'repo,user:email',
+        },
       });
 
       // Mock axios for user info
@@ -366,8 +358,8 @@ describe('OAuthProviderService', () => {
           id: 'github-user-123',
           login: 'testuser',
           email: 'test@example.com',
-          name: 'Test User'
-        }
+          name: 'Test User',
+        },
       });
 
       const result = await oauthProviderService.handleCallback(
@@ -390,7 +382,7 @@ describe('OAuthProviderService', () => {
         redirectUri: 'https://app.example.com/auth/github/callback',
         userType: UserType.HUMAN,
         createdAt: new Date(),
-        expiresAt: new Date(Date.now() - 5 * 60 * 1000) // 5 minutes ago (expired)
+        expiresAt: new Date(Date.now() - 5 * 60 * 1000), // 5 minutes ago (expired)
       });
 
       await expect(
@@ -425,7 +417,7 @@ describe('OAuthProviderService', () => {
         capabilities: [AgentCapability.CODE_REPOSITORY],
         accessToken: 'encrypted-access-token',
         scope: ['repo', 'user:email'],
-        permissions: ['clone', 'pull', 'push']
+        permissions: ['clone', 'pull', 'push'],
       };
 
       const result = await oauthProviderService.createAgentConnection(
@@ -442,7 +434,7 @@ describe('OAuthProviderService', () => {
       expect(mockAuditService.logEvent).toHaveBeenCalledWith(
         expect.objectContaining({
           eventType: AuditEventType.OAUTH_CONNECTION_CREATED,
-          agentId: 'agent-123'
+          agentId: 'agent-123',
         })
       );
     });
@@ -462,8 +454,8 @@ describe('OAuthProviderService', () => {
           details: expect.objectContaining({
             operation: 'git_clone',
             success: true,
-            providerId: 'github-provider-1'
-          })
+            providerId: 'github-provider-1',
+          }),
         })
       );
     });

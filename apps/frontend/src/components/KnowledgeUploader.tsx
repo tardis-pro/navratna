@@ -4,7 +4,13 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -35,17 +41,15 @@ const KNOWLEDGE_TYPES: { value: KnowledgeType; label: string }[] = [
   { value: 'SEMANTIC', label: 'Semantic Knowledge' },
 ];
 
-const SUPPORTED_FILE_TYPES = [
-  '.txt', '.md', '.json', '.csv', '.pdf', '.docx', '.html'
-];
+const SUPPORTED_FILE_TYPES = ['.txt', '.md', '.json', '.csv', '.pdf', '.docx', '.html'];
 
-export const KnowledgeUploader: React.FC<KnowledgeUploaderProps> = ({ 
+export const KnowledgeUploader: React.FC<KnowledgeUploaderProps> = ({
   onUploadComplete,
-  className 
+  className,
 }) => {
   const { uploadKnowledge, isUploading, uploadProgress } = useKnowledge();
   const fileInputRef = useRef<HTMLInputElement>(null);
-  
+
   // Local state
   const [dragActive, setDragActive] = useState(false);
   const [files, setFiles] = useState<FileUpload[]>([]);
@@ -70,7 +74,7 @@ export const KnowledgeUploader: React.FC<KnowledgeUploaderProps> = ({
     e.preventDefault();
     e.stopPropagation();
     setDragActive(false);
-    
+
     const droppedFiles = Array.from(e.dataTransfer.files);
     handleFiles(droppedFiles);
   }, []);
@@ -84,8 +88,8 @@ export const KnowledgeUploader: React.FC<KnowledgeUploaderProps> = ({
   // Process files
   const handleFiles = useCallback(async (newFiles: File[]) => {
     setError(null);
-    
-    const validFiles = newFiles.filter(file => {
+
+    const validFiles = newFiles.filter((file) => {
       const extension = '.' + file.name.split('.').pop()?.toLowerCase();
       return SUPPORTED_FILE_TYPES.includes(extension);
     });
@@ -108,7 +112,7 @@ export const KnowledgeUploader: React.FC<KnowledgeUploaderProps> = ({
       })
     );
 
-    setFiles(prev => [...prev, ...fileUploads]);
+    setFiles((prev) => [...prev, ...fileUploads]);
   }, []);
 
   // Read file content
@@ -123,22 +127,23 @@ export const KnowledgeUploader: React.FC<KnowledgeUploaderProps> = ({
 
   // Update file settings
   const updateFile = useCallback((id: string, updates: Partial<FileUpload>) => {
-    setFiles(prev => prev.map(file => 
-      file.id === id ? { ...file, ...updates } : file
-    ));
+    setFiles((prev) => prev.map((file) => (file.id === id ? { ...file, ...updates } : file)));
   }, []);
 
   // Remove file
   const removeFile = useCallback((id: string) => {
-    setFiles(prev => prev.filter(file => file.id !== id));
+    setFiles((prev) => prev.filter((file) => file.id !== id));
   }, []);
 
   // Upload text knowledge
   const handleTextUpload = useCallback(async () => {
     if (!textInput.trim()) return;
 
-    const tags = textTags.split(',').map(tag => tag.trim()).filter(Boolean);
-    
+    const tags = textTags
+      .split(',')
+      .map((tag) => tag.trim())
+      .filter(Boolean);
+
     const knowledgeItem: KnowledgeIngestRequest = {
       content: textInput,
       type: textType,
@@ -168,7 +173,7 @@ export const KnowledgeUploader: React.FC<KnowledgeUploaderProps> = ({
   const handleFileUpload = useCallback(async () => {
     if (files.length === 0) return;
 
-    const knowledgeItems: KnowledgeIngestRequest[] = files.map(file => ({
+    const knowledgeItems: KnowledgeIngestRequest[] = files.map((file) => ({
       content: file.content,
       type: file.type,
       tags: file.tags,
@@ -187,14 +192,14 @@ export const KnowledgeUploader: React.FC<KnowledgeUploaderProps> = ({
 
     try {
       // Update file statuses
-      files.forEach(file => {
+      files.forEach((file) => {
         updateFile(file.id, { status: 'processing' });
       });
 
       await uploadKnowledge(knowledgeItems);
-      
+
       // Mark as complete
-      files.forEach(file => {
+      files.forEach((file) => {
         updateFile(file.id, { status: 'complete' });
       });
 
@@ -205,10 +210,10 @@ export const KnowledgeUploader: React.FC<KnowledgeUploaderProps> = ({
       }, 2000);
     } catch (error) {
       // Mark as error
-      files.forEach(file => {
-        updateFile(file.id, { 
-          status: 'error', 
-          error: error instanceof Error ? error.message : 'Upload failed' 
+      files.forEach((file) => {
+        updateFile(file.id, {
+          status: 'error',
+          error: error instanceof Error ? error.message : 'Upload failed',
         });
       });
       setError(error instanceof Error ? error.message : 'Failed to upload files');
@@ -222,7 +227,12 @@ export const KnowledgeUploader: React.FC<KnowledgeUploaderProps> = ({
         <Alert className="border-red-500/50 bg-red-500/10">
           <AlertDescription className="text-red-300">
             {error}
-            <Button variant="ghost" size="sm" onClick={() => setError(null)} className="ml-2 h-auto p-1">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setError(null)}
+              className="ml-2 h-auto p-1"
+            >
               ✕
             </Button>
           </AlertDescription>
@@ -253,7 +263,7 @@ export const KnowledgeUploader: React.FC<KnowledgeUploaderProps> = ({
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {KNOWLEDGE_TYPES.map(type => (
+                  {KNOWLEDGE_TYPES.map((type) => (
                     <SelectItem key={type.value} value={type.value}>
                       {type.label}
                     </SelectItem>
@@ -262,7 +272,9 @@ export const KnowledgeUploader: React.FC<KnowledgeUploaderProps> = ({
               </Select>
             </div>
             <div>
-              <label className="text-sm font-medium text-gray-300 mb-2 block">Tags (comma-separated)</label>
+              <label className="text-sm font-medium text-gray-300 mb-2 block">
+                Tags (comma-separated)
+              </label>
               <Input
                 value={textTags}
                 onChange={(e) => setTextTags(e.target.value)}
@@ -271,8 +283,8 @@ export const KnowledgeUploader: React.FC<KnowledgeUploaderProps> = ({
               />
             </div>
           </div>
-          <Button 
-            onClick={handleTextUpload} 
+          <Button
+            onClick={handleTextUpload}
             disabled={!textInput.trim() || isUploading}
             className="bg-blue-600 hover:bg-blue-700"
           >
@@ -303,8 +315,8 @@ export const KnowledgeUploader: React.FC<KnowledgeUploaderProps> = ({
           {/* Drop Zone */}
           <div
             className={`border-2 border-dashed rounded-lg p-8 text-center transition-colors ${
-              dragActive 
-                ? 'border-blue-400 bg-blue-500/10' 
+              dragActive
+                ? 'border-blue-400 bg-blue-500/10'
                 : 'border-blue-500/30 hover:border-blue-400 hover:bg-blue-500/5'
             }`}
             onDragEnter={handleDrag}
@@ -317,8 +329,8 @@ export const KnowledgeUploader: React.FC<KnowledgeUploaderProps> = ({
             <p className="text-sm text-gray-400 mb-4">
               Supported formats: {SUPPORTED_FILE_TYPES.join(', ')}
             </p>
-            <Button 
-              variant="outline" 
+            <Button
+              variant="outline"
               onClick={() => fileInputRef.current?.click()}
               className="border-blue-500/30 hover:bg-blue-500/10"
             >
@@ -339,9 +351,9 @@ export const KnowledgeUploader: React.FC<KnowledgeUploaderProps> = ({
             <div className="space-y-3">
               <div className="flex items-center justify-between">
                 <h4 className="text-white font-medium">Files to Upload</h4>
-                <Button 
+                <Button
                   onClick={handleFileUpload}
-                  disabled={isUploading || files.every(f => f.status === 'complete')}
+                  disabled={isUploading || files.every((f) => f.status === 'complete')}
                   className="bg-green-600 hover:bg-green-700"
                 >
                   {isUploading ? (
@@ -380,18 +392,14 @@ export const KnowledgeUploader: React.FC<KnowledgeUploaderProps> = ({
                         </Badge>
                       </div>
                       <div className="flex items-center space-x-2">
-                        {file.status === 'pending' && (
-                          <Badge variant="secondary">Pending</Badge>
-                        )}
+                        {file.status === 'pending' && <Badge variant="secondary">Pending</Badge>}
                         {file.status === 'processing' && (
                           <Badge className="bg-yellow-600">Processing</Badge>
                         )}
                         {file.status === 'complete' && (
                           <Badge className="bg-green-600">Complete</Badge>
                         )}
-                        {file.status === 'error' && (
-                          <Badge variant="destructive">Error</Badge>
-                        )}
+                        {file.status === 'error' && <Badge variant="destructive">Error</Badge>}
                         <Button
                           size="sm"
                           variant="ghost"
@@ -402,21 +410,23 @@ export const KnowledgeUploader: React.FC<KnowledgeUploaderProps> = ({
                         </Button>
                       </div>
                     </div>
-                    
+
                     {file.status === 'error' && file.error && (
                       <p className="text-red-400 text-xs mb-2">{file.error}</p>
                     )}
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                      <Select 
-                        value={file.type} 
-                        onValueChange={(value: KnowledgeType) => updateFile(file.id, { type: value })}
+                      <Select
+                        value={file.type}
+                        onValueChange={(value: KnowledgeType) =>
+                          updateFile(file.id, { type: value })
+                        }
                       >
                         <SelectTrigger className="h-8 bg-black/20 border-blue-500/30">
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
-                          {KNOWLEDGE_TYPES.map(type => (
+                          {KNOWLEDGE_TYPES.map((type) => (
                             <SelectItem key={type.value} value={type.value}>
                               {type.label}
                             </SelectItem>
@@ -426,7 +436,10 @@ export const KnowledgeUploader: React.FC<KnowledgeUploaderProps> = ({
                       <Input
                         value={file.tags.join(', ')}
                         onChange={(e) => {
-                          const tags = e.target.value.split(',').map(tag => tag.trim()).filter(Boolean);
+                          const tags = e.target.value
+                            .split(',')
+                            .map((tag) => tag.trim())
+                            .filter(Boolean);
                           updateFile(file.id, { tags });
                         }}
                         placeholder="Tags (comma-separated)"
@@ -442,4 +455,4 @@ export const KnowledgeUploader: React.FC<KnowledgeUploaderProps> = ({
       </Card>
     </div>
   );
-}; 
+};

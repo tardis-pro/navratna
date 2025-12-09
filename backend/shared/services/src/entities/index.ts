@@ -84,13 +84,13 @@ export { ProjectFileEntity } from './project-file.entity.js';
 export { TaskEntity } from './task.entity.js';
 
 // Project Management entities (from Project.ts)
-export { 
-  Project, 
-  ProjectTask, 
-  ProjectToolUsage, 
-  ProjectAgent, 
-  ProjectWorkflow, 
-  TaskExecution 
+export {
+  Project,
+  ProjectTask,
+  ProjectToolUsage,
+  ProjectAgent,
+  ProjectWorkflow,
+  TaskExecution,
 } from './Project.js';
 
 // Short Link System entities
@@ -106,5 +106,7 @@ export { IntegrationEventEntity } from './integrationEvent.entity.js';
 export const getAllEntities = () => {
   // This function is deprecated - entities are now imported directly in typeorm.config.ts
   // Keeping for backward compatibility but not recommended for use
-  throw new Error('getAllEntities is deprecated. Entities are now imported directly in TypeORM config.');
-}; 
+  throw new Error(
+    'getAllEntities is deprecated. Entities are now imported directly in TypeORM config.'
+  );
+};

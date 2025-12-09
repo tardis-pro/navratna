@@ -2,14 +2,14 @@ import { MigrationInterface, QueryRunner, Table, Index } from 'typeorm';
 
 /**
  * Tool System Migration
- * 
+ *
  * Creates the tool management tables:
  * - tool_definitions: Tool definitions and configurations
  * - tool_executions: Tool execution records and results
  * - tool_usage_records: Tool usage tracking and analytics
  * - mcp_servers: MCP server configurations
  * - mcp_tool_calls: MCP tool call records
- * 
+ *
  * These tables manage tool definitions, executions, and MCP integration.
  * Dependencies: users, agents tables
  */
@@ -42,7 +42,16 @@ export class CreateToolSystem1703006000000 implements MigrationInterface {
           {
             name: 'category',
             type: 'enum',
-            enum: ['system', 'utility', 'communication', 'data', 'analysis', 'automation', 'integration', 'custom'],
+            enum: [
+              'system',
+              'utility',
+              'communication',
+              'data',
+              'analysis',
+              'automation',
+              'integration',
+              'custom',
+            ],
           },
           {
             name: 'parameters',
@@ -491,18 +500,48 @@ export class CreateToolSystem1703006000000 implements MigrationInterface {
     );
 
     // Create indexes
-    await queryRunner.createIndex('tool_definitions', new Index('IDX_tool_definitions_category_is_enabled', ['category', 'is_enabled']));
-    await queryRunner.createIndex('tool_definitions', new Index('IDX_tool_definitions_security_level', ['security_level']));
-    await queryRunner.createIndex('tool_definitions', new Index('IDX_tool_definitions_author', ['author']));
-    
-    await queryRunner.createIndex('tool_executions', new Index('IDX_tool_executions_tool_id', ['tool_id']));
-    await queryRunner.createIndex('tool_executions', new Index('IDX_tool_executions_agent_id', ['agent_id']));
-    await queryRunner.createIndex('tool_executions', new Index('IDX_tool_executions_execution_status', ['execution_status']));
-    await queryRunner.createIndex('tool_executions', new Index('IDX_tool_executions_started_at', ['started_at']));
-    
-    await queryRunner.createIndex('tool_usage_records', new Index('IDX_tool_usage_records_tool_id', ['tool_id']));
-    await queryRunner.createIndex('tool_usage_records', new Index('IDX_tool_usage_records_agent_id', ['agent_id']));
-    await queryRunner.createIndex('tool_usage_records', new Index('IDX_tool_usage_records_recorded_at', ['recorded_at']));
+    await queryRunner.createIndex(
+      'tool_definitions',
+      new Index('IDX_tool_definitions_category_is_enabled', ['category', 'is_enabled'])
+    );
+    await queryRunner.createIndex(
+      'tool_definitions',
+      new Index('IDX_tool_definitions_security_level', ['security_level'])
+    );
+    await queryRunner.createIndex(
+      'tool_definitions',
+      new Index('IDX_tool_definitions_author', ['author'])
+    );
+
+    await queryRunner.createIndex(
+      'tool_executions',
+      new Index('IDX_tool_executions_tool_id', ['tool_id'])
+    );
+    await queryRunner.createIndex(
+      'tool_executions',
+      new Index('IDX_tool_executions_agent_id', ['agent_id'])
+    );
+    await queryRunner.createIndex(
+      'tool_executions',
+      new Index('IDX_tool_executions_execution_status', ['execution_status'])
+    );
+    await queryRunner.createIndex(
+      'tool_executions',
+      new Index('IDX_tool_executions_started_at', ['started_at'])
+    );
+
+    await queryRunner.createIndex(
+      'tool_usage_records',
+      new Index('IDX_tool_usage_records_tool_id', ['tool_id'])
+    );
+    await queryRunner.createIndex(
+      'tool_usage_records',
+      new Index('IDX_tool_usage_records_agent_id', ['agent_id'])
+    );
+    await queryRunner.createIndex(
+      'tool_usage_records',
+      new Index('IDX_tool_usage_records_recorded_at', ['recorded_at'])
+    );
   }
 
   public async down(queryRunner: QueryRunner): Promise<void> {
@@ -510,4 +549,4 @@ export class CreateToolSystem1703006000000 implements MigrationInterface {
     await queryRunner.dropTable('tool_executions');
     await queryRunner.dropTable('tool_definitions');
   }
-} 
+}

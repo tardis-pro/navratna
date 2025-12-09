@@ -18,7 +18,7 @@ import type {
   ExecutionPlan,
   SecurityLevel,
   AgentStatus,
-  AgentContextData
+  AgentContextData,
 } from '@uaip/types';
 
 export interface AgentHealthCheck {
@@ -105,7 +105,10 @@ export const agentsAPI = {
   },
 
   async analyze(id: string, request: AgentAnalysisRequest): Promise<AgentAnalysisResult> {
-    return APIClient.post<AgentAnalysisResult>(`${API_ROUTES.AGENTS.ANALYZE}/${id}/analyze`, request);
+    return APIClient.post<AgentAnalysisResult>(
+      `${API_ROUTES.AGENTS.ANALYZE}/${id}/analyze`,
+      request
+    );
   },
 
   async plan(id: string, request: AgentPlanRequest): Promise<ExecutionPlan> {
@@ -116,11 +119,17 @@ export const agentsAPI = {
     return APIClient.get<string[]>(`${API_ROUTES.AGENTS.CAPABILITIES}/${id}/capabilities`);
   },
 
-  async learn(id: string, data: AgentLearningData): Promise<{ success: boolean; message?: string }> {
+  async learn(
+    id: string,
+    data: AgentLearningData
+  ): Promise<{ success: boolean; message?: string }> {
     return APIClient.post(`${API_ROUTES.AGENTS.LEARN}/${id}/learn`, data);
   },
 
-  async participate(id: string, request: AgentParticipationRequest): Promise<{ success: boolean; turnId?: string }> {
+  async participate(
+    id: string,
+    request: AgentParticipationRequest
+  ): Promise<{ success: boolean; turnId?: string }> {
     return APIClient.post(`${API_ROUTES.AGENTS.PARTICIPATE}/${id}/participate`, request);
   },
 
@@ -151,6 +160,6 @@ export const agentsAPI = {
   health: {
     async check(): Promise<AgentHealthCheck> {
       return APIClient.get<AgentHealthCheck>(`${API_ROUTES.AGENTS.HEALTH}/health`);
-    }
-  }
+    },
+  },
 };

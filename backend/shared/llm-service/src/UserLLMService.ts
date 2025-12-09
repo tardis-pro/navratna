@@ -1,19 +1,27 @@
-import { 
-  LLMRequest, 
-  LLMResponse, 
-  AgentResponseRequest, 
+import {
+  LLMRequest,
+  LLMResponse,
+  AgentResponseRequest,
   AgentResponseResponse,
   ArtifactRequest,
   ArtifactResponse,
   ContextRequest,
-  ContextAnalysis
+  ContextAnalysis,
 } from './interfaces.js';
 import { getContextManager, ContextManager } from './context-manager/ContextManager.js';
 import { BaseProvider } from './providers/BaseProvider.js';
 import { OllamaProvider } from './providers/OllamaProvider.js';
 import { LLMStudioProvider } from './providers/LLMStudioProvider.js';
 import { OpenAIProvider } from './providers/OpenAIProvider.js';
-import { UserLLMProviderRepository, UserLLMProvider, UserLLMProviderType, DatabaseService, UnifiedModelSelectionFacade, UnifiedModelSelection, AgentTaskTypeResolver } from '@uaip/shared-services';
+import {
+  UserLLMProviderRepository,
+  UserLLMProvider,
+  UserLLMProviderType,
+  DatabaseService,
+  UnifiedModelSelectionFacade,
+  UnifiedModelSelection,
+  AgentTaskTypeResolver,
+} from '@uaip/shared-services';
 import { LLMTaskType } from '@uaip/types';
 import { logger } from '@uaip/utils';
 
@@ -31,7 +39,7 @@ export class UserLLMService {
       facadeProvided: !!modelSelectionFacade,
       facadeType: typeof modelSelectionFacade,
       facadeConstructor: modelSelectionFacade?.constructor?.name,
-      facadeStored: !!this.modelSelectionFacade
+      facadeStored: !!this.modelSelectionFacade,
     });
   }
 
@@ -60,21 +68,24 @@ export class UserLLMService {
   /**
    * Create a new LLM provider for a user
    */
-  async createUserProvider(userId: string, data: {
-    name: string;
-    description?: string;
-    type: UserLLMProviderType;
-    baseUrl?: string;
-    apiKey?: string;
-    defaultModel?: string;
-    configuration?: any;
-    priority?: number;
-  }): Promise<UserLLMProvider> {
+  async createUserProvider(
+    userId: string,
+    data: {
+      name: string;
+      description?: string;
+      type: UserLLMProviderType;
+      baseUrl?: string;
+      apiKey?: string;
+      defaultModel?: string;
+      configuration?: any;
+      priority?: number;
+    }
+  ): Promise<UserLLMProvider> {
     try {
       const repository = await this.getUserLLMProviderRepository();
       const provider = await repository.createUserProvider({
         userId,
-        ...data
+        ...data,
       });
 
       // Clear cache for this user
@@ -84,7 +95,7 @@ export class UserLLMService {
         userId,
         providerId: provider.id,
         type: provider.type,
-        name: provider.name
+        name: provider.name,
       });
 
       return provider;
@@ -123,7 +134,10 @@ export class UserLLMService {
   /**
    * Get providers by type for a user
    */
-  async getUserProvidersByType(userId: string, type: UserLLMProviderType): Promise<UserLLMProvider[]> {
+  async getUserProvidersByType(
+    userId: string,
+    type: UserLLMProviderType
+  ): Promise<UserLLMProvider[]> {
     try {
       const repository = await this.getUserLLMProviderRepository();
       return await repository.findProvidersByUserAndType(userId, type);
@@ -149,24 +163,33 @@ export class UserLLMService {
   /**
    * Update a user's provider configuration
    */
-  async updateUserProviderConfig(userId: string, providerId: string, config: {
-    name?: string;
-    description?: string;
-    baseUrl?: string;
-    defaultModel?: string;
-    priority?: number;
-    configuration?: any;
-  }): Promise<void> {
+  async updateUserProviderConfig(
+    userId: string,
+    providerId: string,
+    config: {
+      name?: string;
+      description?: string;
+      baseUrl?: string;
+      defaultModel?: string;
+      priority?: number;
+      configuration?: any;
+    }
+  ): Promise<void> {
     try {
       const repository = await this.getUserLLMProviderRepository();
       await repository.updateProviderConfig(providerId, userId, config);
-      
+
       // Clear cache for this user
       this.clearUserCache(userId);
 
       logger.info('Updated user LLM provider configuration', { userId, providerId, config });
     } catch (error) {
-      logger.error('Error updating user LLM provider configuration', { userId, providerId, config, error });
+      logger.error('Error updating user LLM provider configuration', {
+        userId,
+        providerId,
+        config,
+        error,
+      });
       throw error;
     }
   }
@@ -174,11 +197,15 @@ export class UserLLMService {
   /**
    * Update a user's provider API key
    */
-  async updateUserProviderApiKey(userId: string, providerId: string, apiKey: string): Promise<void> {
+  async updateUserProviderApiKey(
+    userId: string,
+    providerId: string,
+    apiKey: string
+  ): Promise<void> {
     try {
       const repository = await this.getUserLLMProviderRepository();
       await repository.updateApiKey(providerId, apiKey, userId);
-      
+
       // Clear cache for this user
       this.clearUserCache(userId);
 
@@ -196,7 +223,7 @@ export class UserLLMService {
     try {
       const repository = await this.getUserLLMProviderRepository();
       await repository.deleteUserProvider(providerId, userId);
-      
+
       // Clear cache for this user
       this.clearUserCache(userId);
 
@@ -225,21 +252,21 @@ export class UserLLMService {
 
       const startTime = Date.now();
       const provider = await this.createProviderInstance(userProviders[0]);
-      
+
       try {
         const models = await provider.getAvailableModels();
         const responseTime = Date.now() - startTime;
         userProviders.forEach(async (provider) => {
           // Update health check result
           await repository.updateHealthCheck(provider.id, {
-          status: 'healthy',
-            latency: responseTime
+            status: 'healthy',
+            latency: responseTime,
           });
         });
         return {
           isHealthy: true,
           modelCount: models.length,
-          responseTime
+          responseTime,
         };
       } catch (error) {
         const responseTime = Date.now() - startTime;
@@ -249,14 +276,14 @@ export class UserLLMService {
         await repository.updateHealthCheck(userProviders[0].id, {
           status: 'unhealthy',
           error: errorMessage,
-          latency: responseTime
+          latency: responseTime,
         });
 
         return {
           isHealthy: false,
           error: errorMessage,
           modelCount: 0,
-          responseTime
+          responseTime,
         };
       }
     } catch (error) {
@@ -270,7 +297,11 @@ export class UserLLMService {
   /**
    * Generate LLM response using user's providers
    */
-  async generateResponse(userId: string, request: LLMRequest, provider?: UserLLMProvider): Promise<LLMResponse> {
+  async generateResponse(
+    userId: string,
+    request: LLMRequest,
+    provider?: UserLLMProvider
+  ): Promise<LLMResponse> {
     const startTime = Date.now();
 
     try {
@@ -296,22 +327,18 @@ export class UserLLMService {
         userId,
         provider: provider.type,
         promptLength: request.prompt.length,
-        model: request.model
+        model: request.model,
       });
 
       const providerInstance = await this.getOrCreateProviderInstance(provider);
       const response = await providerInstance.generateResponse(request);
 
       const duration = Date.now() - startTime;
-      
+
       // Update usage statistics
       if (response.tokensUsed) {
         const repository = await this.getUserLLMProviderRepository();
-        await repository.updateUsageStats(
-          provider.id, 
-          response.tokensUsed, 
-          !!response.error
-        );
+        await repository.updateUsageStats(provider.id, response.tokensUsed, !!response.error);
       }
 
       logger.info('LLM response generated successfully for user', {
@@ -319,23 +346,24 @@ export class UserLLMService {
         providerId: provider.id,
         tokensUsed: response.tokensUsed,
         duration,
-        isError: !!response.error
+        isError: !!response.error,
       });
 
       return response;
     } catch (error) {
       const duration = Date.now() - startTime;
-      logger.error('Error generating LLM response for user', { 
-        userId, 
+      logger.error('Error generating LLM response for user', {
+        userId,
         error: error instanceof Error ? error.message : error,
-        duration 
+        duration,
       });
 
       return {
-        content: 'I apologize, but I encountered an error while generating your response. Please try again or check your provider configuration.',
+        content:
+          'I apologize, but I encountered an error while generating your response. Please try again or check your provider configuration.',
         model: 'error',
         error: error instanceof Error ? error.message : 'Unknown error',
-        finishReason: 'error'
+        finishReason: 'error',
       };
     }
   }
@@ -343,7 +371,10 @@ export class UserLLMService {
   /**
    * Generate agent response using user's providers
    */
-  async generateAgentResponse(userId: string, request: AgentResponseRequest): Promise<AgentResponseResponse> {
+  async generateAgentResponse(
+    userId: string,
+    request: AgentResponseRequest
+  ): Promise<AgentResponseResponse> {
     try {
       // Log the incoming request structure
       logger.info('UserLLMService.generateAgentResponse - Incoming request', {
@@ -353,7 +384,7 @@ export class UserLLMService {
         messagesCount: request.messages?.length || 0,
         hasContext: !!request.context,
         hasTools: !!request.tools,
-        toolsCount: request.tools?.length || 0
+        toolsCount: request.tools?.length || 0,
       });
 
       // Build the LLM request from the agent context
@@ -367,7 +398,7 @@ export class UserLLMService {
         temperature: request.agent.temperature,
         model: request.agent.modelId,
         userId,
-        agentId: request.agent.id
+        agentId: request.agent.id,
       };
 
       logger.info('Built LLM request for agent', {
@@ -378,18 +409,18 @@ export class UserLLMService {
         hasSystemPrompt: !!systemPrompt,
         maxTokens: llmRequest.maxTokens,
         temperature: llmRequest.temperature,
-        model: llmRequest.model
+        model: llmRequest.model,
       });
 
       let response: LLMResponse;
-      
+
       // Check if we have model selection facade and agent ID for intelligent selection
       if (this.modelSelectionFacade && request.agent.id) {
         logger.info('Using model selection facade for agent', {
           agentId: request.agent.id,
-          agentName: request.agent.name
+          agentName: request.agent.name,
         });
-        
+
         // Convert the types Agent to a partial database Agent for task type determination
         // Only include the properties that are actually available and needed
         const agentForTaskType = {
@@ -418,14 +449,14 @@ export class UserLLMService {
           userLLMProviderId: request.agent.userLLMProviderId,
           temperature: request.agent.temperature,
           maxTokens: request.agent.maxTokens,
-          systemPrompt: request.agent.systemPrompt
+          systemPrompt: request.agent.systemPrompt,
         };
 
         // Determine appropriate task type for the agent
         const taskTypeResolver = await this.getTaskTypeResolver();
         const taskType = await taskTypeResolver.determineTaskType(agentForTaskType as any, {
           userIntent: request.messages?.[0]?.content,
-          conversationHistory: request.messages
+          conversationHistory: request.messages,
         });
 
         // Use facade to select model and provider
@@ -434,7 +465,7 @@ export class UserLLMService {
           taskType,
           {
             model: llmRequest.model,
-            urgency: 'medium'
+            urgency: 'medium',
           }
         );
 
@@ -442,23 +473,31 @@ export class UserLLMService {
           selectedModel: modelSelection.model.model,
           selectedProvider: modelSelection.model.provider,
           confidence: modelSelection.model.confidence,
-          taskType: taskType
+          taskType: taskType,
         });
 
         // Use the selected model and provider type to find a matching user provider
         const repository = await this.getUserLLMProviderRepository();
-        const selectedProvider = await repository.findByUserAndType(userId, modelSelection.model.provider);
-        
+        const selectedProvider = await repository.findByUserAndType(
+          userId,
+          modelSelection.model.provider
+        );
+
         if (selectedProvider) {
-          logger.info('Using selected provider from facade', { providerId: selectedProvider.id, providerName: selectedProvider.name });
+          logger.info('Using selected provider from facade', {
+            providerId: selectedProvider.id,
+            providerName: selectedProvider.name,
+          });
           response = await this.generateResponse(userId, llmRequest, selectedProvider);
         } else {
-          logger.error('Selected provider not found', { providerType: modelSelection.model.provider });
+          logger.error('Selected provider not found', {
+            providerType: modelSelection.model.provider,
+          });
           throw new Error(`Selected provider not found: ${modelSelection.model.provider}`);
         }
       } else {
         logger.info('Using traditional user provider lookup', {
-          reason: !this.modelSelectionFacade ? 'no facade' : 'no agent id'
+          reason: !this.modelSelectionFacade ? 'no facade' : 'no agent id',
         });
         response = await this.generateResponse(userId, llmRequest);
       }
@@ -469,7 +508,7 @@ export class UserLLMService {
         tokensUsed: response.tokensUsed,
         confidence: response.confidence,
         finishReason: response.finishReason,
-        error: response.error
+        error: response.error,
       };
     } catch (error) {
       logger.error('Error generating agent response for user', { userId, error });
@@ -480,16 +519,18 @@ export class UserLLMService {
   /**
    * Get available models for a user
    */
-  async getAvailableModels(userId: string): Promise<Array<{
-    id: string;
-    name: string;
-    description?: string;
-    source: string;
-    apiEndpoint: string;
-    apiType: UserLLMProviderType;
-    provider: string;
-    isAvailable: boolean;
-  }>> {
+  async getAvailableModels(userId: string): Promise<
+    Array<{
+      id: string;
+      name: string;
+      description?: string;
+      source: string;
+      apiEndpoint: string;
+      apiType: UserLLMProviderType;
+      provider: string;
+      isAvailable: boolean;
+    }>
+  > {
     try {
       const userProviders = await this.getActiveUserProviders(userId);
       const allModels = [];
@@ -497,20 +538,31 @@ export class UserLLMService {
       for (const userProvider of userProviders) {
         try {
           const providerInstance = await this.getOrCreateProviderInstance(userProvider);
-          logger.info('Getting models from provider', { userId, providerId: userProvider.id, providerName: userProvider.name });
-          const models = await providerInstance.getAvailableModels();
-          logger.info('Models from provider', { userId, providerId: userProvider.id, providerName: userProvider.name, models });
-          allModels.push(...models.map(model => ({
-            ...model,
-            provider: userProvider.name,
-            apiType: userProvider.type,
-            isAvailable: true
-          })));
-        } catch (error) {
-          logger.error(`Failed to get models from user provider ${userProvider.id}`, { 
+          logger.info('Getting models from provider', {
             userId,
             providerId: userProvider.id,
-            error 
+            providerName: userProvider.name,
+          });
+          const models = await providerInstance.getAvailableModels();
+          logger.info('Models from provider', {
+            userId,
+            providerId: userProvider.id,
+            providerName: userProvider.name,
+            models,
+          });
+          allModels.push(
+            ...models.map((model) => ({
+              ...model,
+              provider: userProvider.name,
+              apiType: userProvider.type,
+              isAvailable: true,
+            }))
+          );
+        } catch (error) {
+          logger.error(`Failed to get models from user provider ${userProvider.id}`, {
+            userId,
+            providerId: userProvider.id,
+            error,
           });
         }
       }
@@ -524,7 +576,10 @@ export class UserLLMService {
 
   // Private Helper Methods
 
-  private async getBestUserProvider(userId: string, preferredType?: UserLLMProviderType): Promise<UserLLMProvider | null> {
+  private async getBestUserProvider(
+    userId: string,
+    preferredType?: UserLLMProviderType
+  ): Promise<UserLLMProvider | null> {
     try {
       const repository = await this.getUserLLMProviderRepository();
       return await repository.findBestProviderForUser(userId, preferredType);
@@ -536,7 +591,7 @@ export class UserLLMService {
 
   private async getOrCreateProviderInstance(userProvider: UserLLMProvider): Promise<BaseProvider> {
     const cacheKey = `${userProvider.userId}-${userProvider.id}`;
-    
+
     if (this.providerCache.has(cacheKey)) {
       return this.providerCache.get(cacheKey)!;
     }
@@ -561,7 +616,7 @@ export class UserLLMService {
     if (typeof userProvider.getProviderConfig === 'function') {
       return userProvider.getProviderConfig();
     }
-    
+
     // Handle plain object case - reconstruct the config manually
     const getDefaultBaseUrl = (type: UserLLMProviderType): string => {
       switch (type) {
@@ -602,7 +657,7 @@ export class UserLLMService {
   private async createProviderInstance(userProvider: UserLLMProvider): Promise<BaseProvider> {
     // Get config safely - handle both entity instances and plain objects
     const config = this.getProviderConfig(userProvider);
-    
+
     switch (userProvider.type) {
       case 'ollama':
         return new OllamaProvider(config as any, userProvider.name);
@@ -630,27 +685,27 @@ export class UserLLMService {
 
   private buildAgentPrompt(request: AgentResponseRequest): string {
     const { agent, messages = [], context, tools = [] } = request;
-    
+
     // Create optimized rolling window context
     const contextDocs = context ? [context] : [];
     const systemPrompt = this.buildAgentSystemPrompt(request);
     const systemPromptTokens = this.contextManager.estimateTokens(systemPrompt);
-    
+
     const window = this.contextManager.createRollingWindow(
-      messages, 
-      systemPromptTokens, 
-      tools.length, 
+      messages,
+      systemPromptTokens,
+      tools.length,
       contextDocs
     );
 
     // Log context health
     const health = this.contextManager.analyzeContextHealth(window);
     if (health.status !== 'healthy') {
-      logger.warn('UserLLM Context health issue', { 
-        status: health.status, 
+      logger.warn('UserLLM Context health issue', {
+        status: health.status,
         warnings: health.warnings,
         recommendations: health.recommendations,
-        agentId: agent.id 
+        agentId: agent.id,
       });
     }
 
@@ -658,7 +713,7 @@ export class UserLLMService {
 
     // Add deduplicated context documents
     if (window.contextDocuments.length > 0) {
-      window.contextDocuments.forEach(doc => {
+      window.contextDocuments.forEach((doc) => {
         prompt += `Context Document:\nTitle: ${doc.title}\nContent: ${doc.content}\n\n`;
       });
     }
@@ -671,23 +726,23 @@ export class UserLLMService {
     // Add recent conversation history
     if (window.recentMessages.length > 0) {
       prompt += 'Recent Conversation:\n';
-      window.recentMessages.forEach(msg => {
+      window.recentMessages.forEach((msg) => {
         prompt += `${msg.sender}: ${msg.content}\n`;
       });
       prompt += '\n';
     }
 
     prompt += `${agent.name}:`;
-    
+
     logger.info('UserLLM Context window created', {
       agentId: agent.id,
       totalMessages: messages.length,
       recentMessages: window.recentMessages.length,
       hasSummary: !!window.summarizedContext,
       estimatedTokens: window.estimatedTokens,
-      contextHealth: health.status
+      contextHealth: health.status,
     });
-    
+
     return prompt;
   }
 
@@ -699,13 +754,13 @@ export class UserLLMService {
     if (cachedPrompt) {
       return cachedPrompt;
     }
-    
+
     let systemPrompt = `You are ${agent.name}`;
-    
+
     if (agent.persona?.description) {
       systemPrompt += `, ${agent.persona.description}`;
     }
-    
+
     systemPrompt += '.\n\n';
 
     // Dynamic response limits based on available context
@@ -717,23 +772,24 @@ export class UserLLMService {
     systemPrompt += `RESPONSE GUIDELINES:\n`;
     systemPrompt += `- Keep responses under ${responseWordLimit} words unless the query explicitly requires more detail\n`;
     systemPrompt += '- Be direct and concise while maintaining helpfulness\n';
-    systemPrompt += '- Use structured format (bullet points, numbered lists) for complex information\n';
+    systemPrompt +=
+      '- Use structured format (bullet points, numbered lists) for complex information\n';
     systemPrompt += '- Offer to elaborate on specific aspects if the topic is complex\n\n';
-    
+
     if (agent.persona?.capabilities && agent.persona.capabilities.length > 0) {
       systemPrompt += `Your capabilities include: ${agent.persona.capabilities.join(', ')}\n`;
     }
-    
+
     if (tools.length > 0) {
       systemPrompt += '\nAvailable tools:\n';
-      tools.forEach(tool => {
+      tools.forEach((tool) => {
         systemPrompt += `- ${tool.name}: ${tool.description}\n`;
       });
     }
 
     // Cache the persona prompt to avoid rebuilding
     this.contextManager.cachePersonaPrompt(agent.id, systemPrompt);
-    
+
     return systemPrompt;
   }
-} 
+}

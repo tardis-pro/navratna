@@ -11,14 +11,14 @@ export function registerUserLLMRoutes(app: any, userLLMService: UserLLMService):
         if (!userId) {
           return {
             success: false,
-            error: 'User authentication required'
+            error: 'User authentication required',
           };
         }
 
         const providers = await userLLMService.getUserProviders(userId);
 
         // Remove sensitive data (API keys) from response
-        const sanitizedProviders = providers.map(provider => ({
+        const sanitizedProviders = providers.map((provider) => ({
           id: provider.id,
           name: provider.name,
           description: provider.description,
@@ -35,12 +35,12 @@ export function registerUserLLMRoutes(app: any, userLLMService: UserLLMService):
           healthCheckResult: provider.healthCheckResult,
           hasApiKey: provider.hasApiKey(),
           createdAt: provider.createdAt,
-          updatedAt: provider.updatedAt
+          updatedAt: provider.updatedAt,
         }));
 
         return {
           success: true,
-          data: sanitizedProviders
+          data: sanitizedProviders,
         };
       })
 
@@ -50,16 +50,17 @@ export function registerUserLLMRoutes(app: any, userLLMService: UserLLMService):
         if (!userId) {
           return {
             success: false,
-            error: 'User authentication required'
+            error: 'User authentication required',
           };
         }
 
-        const { name, description, type, baseUrl, apiKey, defaultModel, configuration, priority } = body;
+        const { name, description, type, baseUrl, apiKey, defaultModel, configuration, priority } =
+          body;
 
         if (!name || !type) {
           return {
             success: false,
-            error: 'Name and type are required'
+            error: 'Name and type are required',
           };
         }
 
@@ -71,7 +72,7 @@ export function registerUserLLMRoutes(app: any, userLLMService: UserLLMService):
           apiKey,
           defaultModel,
           configuration,
-          priority
+          priority,
         });
 
         // Return sanitized provider data
@@ -88,8 +89,8 @@ export function registerUserLLMRoutes(app: any, userLLMService: UserLLMService):
             isActive: provider.isActive,
             priority: provider.priority,
             hasApiKey: provider.hasApiKey(),
-            createdAt: provider.createdAt
-          }
+            createdAt: provider.createdAt,
+          },
         };
       })
 
@@ -99,7 +100,7 @@ export function registerUserLLMRoutes(app: any, userLLMService: UserLLMService):
         if (!userId) {
           return {
             success: false,
-            error: 'User authentication required'
+            error: 'User authentication required',
           };
         }
 
@@ -112,12 +113,12 @@ export function registerUserLLMRoutes(app: any, userLLMService: UserLLMService):
           baseUrl,
           defaultModel,
           priority,
-          configuration
+          configuration,
         });
 
         return {
           success: true,
-          message: 'Provider configuration updated successfully'
+          message: 'Provider configuration updated successfully',
         };
       })
 
@@ -127,7 +128,7 @@ export function registerUserLLMRoutes(app: any, userLLMService: UserLLMService):
         if (!userId) {
           return {
             success: false,
-            error: 'User authentication required'
+            error: 'User authentication required',
           };
         }
 
@@ -137,7 +138,7 @@ export function registerUserLLMRoutes(app: any, userLLMService: UserLLMService):
         if (!apiKey) {
           return {
             success: false,
-            error: 'API key is required'
+            error: 'API key is required',
           };
         }
 
@@ -145,7 +146,7 @@ export function registerUserLLMRoutes(app: any, userLLMService: UserLLMService):
 
         return {
           success: true,
-          message: 'API key updated successfully'
+          message: 'API key updated successfully',
         };
       })
 
@@ -155,7 +156,7 @@ export function registerUserLLMRoutes(app: any, userLLMService: UserLLMService):
         if (!userId) {
           return {
             success: false,
-            error: 'User authentication required'
+            error: 'User authentication required',
           };
         }
 
@@ -163,7 +164,7 @@ export function registerUserLLMRoutes(app: any, userLLMService: UserLLMService):
 
         return {
           success: true,
-          data: result
+          data: result,
         };
       })
 
@@ -173,7 +174,7 @@ export function registerUserLLMRoutes(app: any, userLLMService: UserLLMService):
         if (!userId) {
           return {
             success: false,
-            error: 'User authentication required'
+            error: 'User authentication required',
           };
         }
 
@@ -182,7 +183,7 @@ export function registerUserLLMRoutes(app: any, userLLMService: UserLLMService):
 
         return {
           success: true,
-          message: 'Provider deleted successfully'
+          message: 'Provider deleted successfully',
         };
       })
 
@@ -192,7 +193,7 @@ export function registerUserLLMRoutes(app: any, userLLMService: UserLLMService):
         if (!userId) {
           return {
             success: false,
-            error: 'User authentication required'
+            error: 'User authentication required',
           };
         }
 
@@ -200,7 +201,7 @@ export function registerUserLLMRoutes(app: any, userLLMService: UserLLMService):
         const providers = await userLLMService.getUserProvidersByType(userId, type);
 
         // Remove sensitive data (API keys) from response
-        const sanitizedProviders = providers.map(provider => ({
+        const sanitizedProviders = providers.map((provider) => ({
           id: provider.id,
           name: provider.name,
           description: provider.description,
@@ -217,12 +218,12 @@ export function registerUserLLMRoutes(app: any, userLLMService: UserLLMService):
           healthCheckResult: provider.healthCheckResult,
           hasApiKey: provider.hasApiKey(),
           createdAt: provider.createdAt,
-          updatedAt: provider.updatedAt
+          updatedAt: provider.updatedAt,
         }));
 
         return {
           success: true,
-          data: sanitizedProviders
+          data: sanitizedProviders,
         };
       })
 
@@ -232,7 +233,7 @@ export function registerUserLLMRoutes(app: any, userLLMService: UserLLMService):
         if (!userId) {
           return {
             success: false,
-            error: 'User authentication required'
+            error: 'User authentication required',
           };
         }
         logger.info('Getting available models for user', { userId });
@@ -241,7 +242,7 @@ export function registerUserLLMRoutes(app: any, userLLMService: UserLLMService):
         logger.debug('Health check results', { userId, healthResults });
         return {
           success: true,
-          data: models
+          data: models,
         };
       })
 
@@ -251,7 +252,7 @@ export function registerUserLLMRoutes(app: any, userLLMService: UserLLMService):
         if (!userId) {
           return {
             success: false,
-            error: 'User authentication required'
+            error: 'User authentication required',
           };
         }
 
@@ -260,7 +261,7 @@ export function registerUserLLMRoutes(app: any, userLLMService: UserLLMService):
         if (!prompt) {
           return {
             success: false,
-            error: 'Prompt is required'
+            error: 'Prompt is required',
           };
         }
 
@@ -269,12 +270,12 @@ export function registerUserLLMRoutes(app: any, userLLMService: UserLLMService):
           systemPrompt,
           maxTokens,
           temperature,
-          model
+          model,
         });
 
         return {
           success: true,
-          data: response
+          data: response,
         };
       })
 
@@ -284,7 +285,7 @@ export function registerUserLLMRoutes(app: any, userLLMService: UserLLMService):
         if (!userId) {
           return {
             success: false,
-            error: 'User authentication required'
+            error: 'User authentication required',
           };
         }
 
@@ -293,7 +294,7 @@ export function registerUserLLMRoutes(app: any, userLLMService: UserLLMService):
         if (!agent || !messages) {
           return {
             success: false,
-            error: 'Agent and messages are required'
+            error: 'Agent and messages are required',
           };
         }
 
@@ -301,12 +302,12 @@ export function registerUserLLMRoutes(app: any, userLLMService: UserLLMService):
           agent,
           messages,
           context,
-          tools
+          tools,
         });
 
         return {
           success: true,
-          data: response
+          data: response,
         };
       })
 
@@ -316,7 +317,7 @@ export function registerUserLLMRoutes(app: any, userLLMService: UserLLMService):
         if (!userId) {
           return {
             success: false,
-            error: 'User authentication required'
+            error: 'User authentication required',
           };
         }
 
@@ -334,7 +335,7 @@ export function registerUserLLMRoutes(app: any, userLLMService: UserLLMService):
             detectedCapabilities: (provider.configuration as any)?.detectedCapabilities || [],
             lastCapabilityCheck: (provider.configuration as any)?.lastCapabilityCheck,
             isActive: provider.isActive,
-            status: provider.status
+            status: provider.status,
           };
 
           capabilities.push(providerCapabilities);
@@ -346,8 +347,8 @@ export function registerUserLLMRoutes(app: any, userLLMService: UserLLMService):
             userId,
             providers: capabilities,
             totalProviders: userProviders.length,
-            activeProviders: userProviders.filter(p => p.isActive).length
-          }
+            activeProviders: userProviders.filter((p) => p.isActive).length,
+          },
         };
       })
 
@@ -359,7 +360,7 @@ export function registerUserLLMRoutes(app: any, userLLMService: UserLLMService):
         if (!userId) {
           return {
             success: false,
-            error: 'User authentication required'
+            error: 'User authentication required',
           };
         }
 
@@ -368,7 +369,7 @@ export function registerUserLLMRoutes(app: any, userLLMService: UserLLMService):
         if (!provider) {
           return {
             success: false,
-            error: 'Provider not found'
+            error: 'Provider not found',
           };
         }
 
@@ -386,10 +387,12 @@ export function registerUserLLMRoutes(app: any, userLLMService: UserLLMService):
           ...provider.configuration,
           detectedCapabilities: detection.detectedCapabilities,
           lastCapabilityCheck: new Date(),
-          capabilityTestResults: detection.testResults
+          capabilityTestResults: detection.testResults,
         } as any;
 
-        await userLLMService.updateUserProviderConfig(userId, provider.id, { configuration: provider.configuration });
+        await userLLMService.updateUserProviderConfig(userId, provider.id, {
+          configuration: provider.configuration,
+        });
 
         return {
           success: true,
@@ -397,8 +400,8 @@ export function registerUserLLMRoutes(app: any, userLLMService: UserLLMService):
             providerId: provider.id,
             providerName: provider.name,
             modelId: provider.defaultModel,
-            detection
-          }
+            detection,
+          },
         };
       })
 
@@ -408,7 +411,7 @@ export function registerUserLLMRoutes(app: any, userLLMService: UserLLMService):
         if (!userId) {
           return {
             success: false,
-            error: 'User authentication required'
+            error: 'User authentication required',
           };
         }
 
@@ -433,17 +436,19 @@ export function registerUserLLMRoutes(app: any, userLLMService: UserLLMService):
                 ...provider.configuration,
                 detectedCapabilities: detection.detectedCapabilities,
                 lastCapabilityCheck: new Date(),
-                capabilityTestResults: detection.testResults
+                capabilityTestResults: detection.testResults,
               } as any;
 
-              await userLLMService.updateUserProviderConfig(userId, provider.id, { configuration: provider.configuration });
+              await userLLMService.updateUserProviderConfig(userId, provider.id, {
+                configuration: provider.configuration,
+              });
 
               results.push({
                 providerId: provider.id,
                 providerName: provider.name,
                 modelId: provider.defaultModel,
                 success: true,
-                detection
+                detection,
               });
             }
           } catch (error) {
@@ -452,7 +457,7 @@ export function registerUserLLMRoutes(app: any, userLLMService: UserLLMService):
               providerName: provider.name,
               modelId: provider.defaultModel,
               success: false,
-              error: (error as any).message
+              error: (error as any).message,
             });
           }
         }
@@ -463,10 +468,10 @@ export function registerUserLLMRoutes(app: any, userLLMService: UserLLMService):
             userId,
             totalProviders: userProviders.length,
             processedProviders: results.length,
-            successfulDetections: results.filter(r => r.success).length,
-            failedDetections: results.filter(r => !r.success).length,
-            results
-          }
+            successfulDetections: results.filter((r) => r.success).length,
+            failedDetections: results.filter((r) => !r.success).length,
+            results,
+          },
         };
       })
   );

@@ -27,11 +27,11 @@ await initializeCaching(knowledgeGraphService);
 ### 2. Use Cached Services
 
 ```typescript
-import { 
+import {
   getCachedUserService,
   getCachedUserKnowledgeService,
   getCachedUserLLMProviderRepository,
-  getCachedLLMProviderRepository
+  getCachedLLMProviderRepository,
 } from '@uaip/shared-services/CacheIntegration';
 
 // Get cached services
@@ -69,7 +69,7 @@ const stats = await knowledgeService.getUserKnowledgeStats(userId);
 const results = await knowledgeService.search(userId, {
   query: 'machine learning',
   filters: { tags: ['AI', 'ML'] },
-  options: { limit: 20 }
+  options: { limit: 20 },
 });
 
 // Get knowledge by tags (cached for 10 minutes)
@@ -78,7 +78,7 @@ const items = await knowledgeService.getKnowledgeByTags(userId, ['AI', 'ML'], 20
 // Get conversation history (cached for 15 minutes)
 const history = await knowledgeService.getConversationHistory(userId, {
   limit: 50,
-  dateRange: { start: lastWeek, end: now }
+  dateRange: { start: lastWeek, end: now },
 });
 ```
 
@@ -107,7 +107,7 @@ await userProviderRepo.createUserProvider({
   userId,
   name: 'My OpenAI Provider',
   type: 'OPENAI',
-  apiKey: 'sk-...'
+  apiKey: 'sk-...',
 });
 
 // This will automatically invalidate user knowledge caches
@@ -128,7 +128,7 @@ await invalidateUserCache(userId);
 // Invalidate specific cache types
 await invalidateUserCache(userId, {
   includeProviders: true,
-  includeKnowledge: false
+  includeKnowledge: false,
 });
 
 // Invalidate provider cache
@@ -151,7 +151,7 @@ console.log('Cache Health:', {
   redis: health.redis,
   totalKeys: health.statistics.totalKeys,
   memoryUsage: health.statistics.memoryUsage,
-  services: health.services
+  services: health.services,
 });
 ```
 
@@ -166,7 +166,7 @@ console.log('Cache Performance:', {
   missRate: metrics.missRate,
   averageResponseTime: metrics.averageResponseTime,
   keyCount: metrics.keyCount,
-  memoryUsage: metrics.memoryUsage
+  memoryUsage: metrics.memoryUsage,
 });
 ```
 
@@ -284,6 +284,7 @@ if (metrics.hitRate < 0.8) {
 ### From Non-Cached to Cached Services
 
 1. **Replace service imports**:
+
 ```typescript
 // Before
 import { UserService } from '@uaip/shared-services/services/UserService';
@@ -293,6 +294,7 @@ import { getCachedUserService } from '@uaip/shared-services/CacheIntegration';
 ```
 
 2. **Update initialization**:
+
 ```typescript
 // Before
 const userService = new UserService();
@@ -303,10 +305,13 @@ const userService = getCachedUserService();
 ```
 
 3. **Update method calls** (mostly unchanged):
+
 ```typescript
 // These calls remain the same, but now use caching
 const user = await userService.findUserById(userId);
-const providers = await userService.getUserLLMProviderRepository().findActiveProvidersByUser(userId);
+const providers = await userService
+  .getUserLLMProviderRepository()
+  .findActiveProvidersByUser(userId);
 ```
 
 ## Performance Expectations

@@ -1,7 +1,7 @@
 import {
   UserRepository,
   RefreshTokenRepository,
-  PasswordResetTokenRepository
+  PasswordResetTokenRepository,
 } from '../database/repositories/UserRepository';
 import { LLMProviderRepository } from '../database/repositories/LLMProviderRepository';
 import { UserLLMProviderRepository } from '../database/repositories/UserLLMProviderRepository';
@@ -113,7 +113,7 @@ export class UserService {
       department: data.department,
       role: data.role || 'user',
       passwordHash: data.password ? await bcrypt.hash(data.password, 10) : '',
-      isActive: true
+      isActive: true,
     };
 
     return await userRepo.createUser(userData);
@@ -141,12 +141,16 @@ export class UserService {
   }
 
   // Refresh token operations
-  public async createRefreshToken(userId: string, token: string, expiresAt: Date): Promise<RefreshTokenEntity> {
+  public async createRefreshToken(
+    userId: string,
+    token: string,
+    expiresAt: Date
+  ): Promise<RefreshTokenEntity> {
     const refreshTokenRepo = this.getRefreshTokenRepository();
     return await refreshTokenRepo.createRefreshToken({
       userId,
       token,
-      expiresAt
+      expiresAt,
     });
   }
 
@@ -176,7 +180,7 @@ export class UserService {
     await resetTokenRepo.createPasswordResetToken({
       userId,
       token,
-      expiresAt
+      expiresAt,
     });
 
     return token;
@@ -196,11 +200,14 @@ export class UserService {
   }
 
   // User management methods
-  public async updateLoginTracking(userId: string, data: {
-    failedLoginAttempts?: number;
-    lockedUntil?: Date;
-    lastLoginAt?: Date;
-  }): Promise<void> {
+  public async updateLoginTracking(
+    userId: string,
+    data: {
+      failedLoginAttempts?: number;
+      lockedUntil?: Date;
+      lastLoginAt?: Date;
+    }
+  ): Promise<void> {
     const userRepo = this.getUserRepository();
     await userRepo.updateUserLoginTracking(userId, data);
   }

@@ -53,4 +53,4 @@ export class AgentCapabilityMetric extends BaseEntity {
   @ManyToOne('Agent', 'capabilityMetrics')
   @JoinColumn({ name: 'agent_id' })
   agent: any;
-} 
+}
