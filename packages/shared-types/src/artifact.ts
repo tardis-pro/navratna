@@ -84,7 +84,7 @@ export interface ArtifactReview {
   comments?: string;
   suggestions?: string[];
   reviewedAt?: Date;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 // Artifact Deployment System
@@ -96,9 +96,9 @@ export interface ArtifactDeployment {
   deployedBy: string;
   deployedAt?: Date;
   rollbackAt?: Date;
-  deploymentConfig?: Record<string, any>;
+  deploymentConfig?: Record<string, unknown>;
   logs?: string[];
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 // Generation triggers and context
@@ -135,7 +135,7 @@ export interface Decision {
   reasoning?: string;
   timestamp?: Date;
   confidence?: number;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 export interface ActionItem {
@@ -147,7 +147,7 @@ export interface ActionItem {
   priority: 'low' | 'medium' | 'high';
   status?: 'pending' | 'in-progress' | 'completed' | 'cancelled';
   createdAt?: string;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 export interface Requirement {
@@ -174,8 +174,8 @@ export interface ArtifactGenerationRequest {
   context: ArtifactConversationContext;
   requirements?: string[];
   constraints?: string[];
-  preferences?: Record<string, any>;
-  metadata?: Record<string, any>;
+  preferences?: Record<string, unknown>;
+  metadata?: Record<string, unknown>;
   options?: {
     // Added options property
     template?: string;
@@ -190,9 +190,9 @@ export interface ArtifactGenerationResponse {
   error?: {
     code: string;
     message: string;
-    details?: any;
+    details?: unknown;
   };
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 // Template system - using different name to avoid conflict with capability.ts
@@ -202,13 +202,13 @@ export interface ArtifactGenerationTemplate {
   description: string;
   type: ArtifactType;
   template: string;
-  variables: Record<string, any>;
-  examples: any[];
+  variables: Record<string, unknown>;
+  examples: unknown[];
   tags: string[];
   version: string;
   author: string;
   isEnabled: boolean;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
   language?: string; // Added language property
   framework?: string; // Added framework property
 }
@@ -222,7 +222,7 @@ export interface ArtifactConversationContext {
   topics: string[];
   decisions: Decision[];
   actionItems: ActionItem[];
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
   // Added properties for artifact generation
   agent?: {
     id: string;
@@ -251,7 +251,7 @@ export interface ConversationMessage {
   content: string;
   role: 'user' | 'assistant' | 'system';
   timestamp: Date;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 // Legacy artifact message interface for backward compatibility
@@ -268,7 +268,7 @@ export interface Participant {
   name: string;
   role: string;
   type: 'human' | 'agent';
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 // Additional types for conversation-driven artifact generation

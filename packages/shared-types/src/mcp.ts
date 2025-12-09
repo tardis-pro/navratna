@@ -76,8 +76,8 @@ export interface MCPServerStats {
 export interface MCPTool {
   name: string;
   description: string;
-  inputSchema: any;
-  outputSchema?: any;
+  inputSchema: unknown;
+  outputSchema?: unknown;
 }
 
 export interface MCPResource {
@@ -90,7 +90,7 @@ export interface MCPResource {
 export interface MCPPrompt {
   name: string;
   description: string;
-  arguments?: any;
+  arguments?: unknown;
 }
 
 export interface MCPServerCapabilities {
@@ -107,27 +107,27 @@ export interface MCPToolCall {
   id: string;
   serverId: string;
   toolName: string;
-  parameters: Record<string, any>;
+  parameters: Record<string, unknown>;
   timestamp: Date;
   status: 'pending' | 'running' | 'completed' | 'failed';
-  result?: any;
+  result?: unknown;
   error?: string;
   duration?: number;
   executionTime?: number;
   calledAt?: Date;
   completedAt?: Date;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 export interface MCPToolResult {
   success: boolean;
-  result?: any;
+  result?: unknown;
   error?: {
     code: string;
     message: string;
-    details?: any;
+    details?: unknown;
   };
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 // Events
@@ -145,7 +145,7 @@ export type MCPServerEventHandler = (event: MCPServerEvent) => void;
 
 export interface MCPServerEventPayload {
   serverId: string;
-  [key: string]: any;
+  [key: string]: unknown;
 }
 
 // Manager interfaces
@@ -199,23 +199,23 @@ export interface MCPServer {
   createdAt: Date;
   updatedAt: Date;
   lastHealthCheck?: Date;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 export interface MCPRequest {
   id: string;
   method: string;
-  params?: Record<string, any>;
+  params?: Record<string, unknown>;
   timestamp: Date;
 }
 
 export interface MCPResponse {
   id: string;
-  result?: any;
+  result?: unknown;
   error?: {
     code: number;
     message: string;
-    data?: any;
+    data?: unknown;
   };
   timestamp: Date;
 }
@@ -227,5 +227,5 @@ export interface MCPConnection {
   connectedAt?: Date;
   lastActivity?: Date;
   errorCount: number;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }

@@ -18,6 +18,7 @@ import { registerOAuthRoutes } from './http/oauth.elysia.js';
 import { registerPersonaRoutes } from './http/persona.elysia.js';
 import { registerToolPreferenceRoutes } from './http/tool-preferences.elysia.js';
 import { registerContactRoutes } from './http/contacts.elysia.js';
+import { registerProjectRoutes } from './http/projects.elysia.js';
 
 // Import services
 import { SecurityGatewayService } from './services/securityGatewayService.js';
@@ -122,6 +123,7 @@ class SecurityGatewayServer extends BaseService {
     registerPersonaRoutes(this.app);
     registerToolPreferenceRoutes(this.app);
     registerContactRoutes(this.app);
+    registerProjectRoutes(this.app);
   }
 
   protected async setupEventSubscriptions(): Promise<void> {

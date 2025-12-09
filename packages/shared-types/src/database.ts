@@ -36,12 +36,12 @@ export type Neo4jConfig = z.infer<typeof Neo4jConfigSchema>;
 // Query interfaces
 export interface DatabaseQuery {
   text: string;
-  values?: any[];
+  values?: unknown[];
 }
 
 export interface Neo4jQuery {
   cypher: string;
-  parameters?: Record<string, any>;
+  parameters?: Record<string, unknown>;
 }
 
 // Transaction types
@@ -303,7 +303,7 @@ export type DbApprovalDecision = z.infer<typeof DbApprovalDecisionSchema>;
 
 // ===== DATABASE OPERATION TYPES =====
 
-export interface DatabaseOperationResult<T = any> {
+export interface DatabaseOperationResult<T = unknown> {
   success: boolean;
   data?: T;
   error?: string;

@@ -140,7 +140,7 @@ export interface EventMessage {
   checkpointId?: string;
   compensate?: boolean;
   force?: boolean;
-  [key: string]: any;
+  [key: string]: unknown;
 }
 
 // Event bus interface

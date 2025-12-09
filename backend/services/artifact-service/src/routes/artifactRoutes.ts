@@ -1,10 +1,74 @@
 import { ArtifactService } from '../ArtifactService.js';
 import { ArtifactGenerationRequest, ArtifactType } from '@uaip/types';
 import { logger } from '@uaip/utils';
+import { DatabaseService } from '@uaip/shared-services';
 
 export function registerArtifactRoutes(app: any, artifactService: ArtifactService) {
   return app.group('/api/v1/artifacts', (g: any) =>
     g
+      // List all artifacts
+      .get('/', async ({ query, set }: any) => {
+        try {
+          const databaseService = DatabaseService.getInstance();
+          const artifactRepo = databaseService.getArtifactRepository();
+
+          const type = query.type as string | undefined;
+          const projectId = query.projectId as string | undefined;
+          const limit = query.limit ? parseInt(query.limit) : 50;
+          const offset = query.offset ? parseInt(query.offset) : 0;
+
+          let artifacts;
+          if (type) {
+            artifacts = await artifactRepo.findByType(type);
+          } else if (projectId) {
+            artifacts = await artifactRepo.findByProject(projectId);
+          } else {
+            artifacts = await artifactRepo.findAll();
+          }
+
+          // Apply pagination
+          const paginatedArtifacts = artifacts.slice(offset, offset + limit);
+
+          return {
+            success: true,
+            data: paginatedArtifacts,
+            total: artifacts.length,
+            limit,
+            offset,
+          };
+        } catch (error) {
+          logger.error('Failed to list artifacts', { error });
+          set.status = 500;
+          return {
+            success: false,
+            error: { code: 'INTERNAL_ERROR', message: 'Failed to list artifacts' },
+          };
+        }
+      })
+
+      // Get artifact by ID
+      .get('/:id', async ({ params, set }: any) => {
+        try {
+          const { id } = params;
+          const databaseService = DatabaseService.getInstance();
+          const artifactRepo = databaseService.getArtifactRepository();
+
+          const artifact = await artifactRepo.findById(id);
+          if (!artifact) {
+            set.status = 404;
+            return { success: false, error: { code: 'NOT_FOUND', message: 'Artifact not found' } };
+          }
+          return { success: true, data: artifact };
+        } catch (error) {
+          logger.error('Failed to get artifact', { error, id: params.id });
+          set.status = 500;
+          return {
+            success: false,
+            error: { code: 'INTERNAL_ERROR', message: 'Failed to get artifact' },
+          };
+        }
+      })
+
       .post('/generate', async ({ body, set }: any) => {
         try {
           const request: ArtifactGenerationRequest = body;

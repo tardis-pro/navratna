@@ -22,8 +22,10 @@
     "dev:all": "pnpm run dev",
     "dev:minimal": "concurrently \"pnpm dev:agent\" \"pnpm dev:cap\"",
     "dev:core": "concurrently \"pnpm dev:agent\" \"pnpm dev:cap\" \"pnpm dev:sec\"",
-    "lint": "eslint src --ext .ts",
-    "lint:fix": "eslint src --ext .ts --fix"
+    "lint": "pnpm -r lint",
+    "lint:fix": "pnpm -r lint:fix",
+    "format": "pnpm -r format",
+    "format:check": "pnpm -r format:check"
   },
   "dependencies": {
     "typeorm": "^0.3.25",

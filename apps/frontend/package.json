@@ -10,6 +10,8 @@
     "build:dev": "vite build --mode development",
     "lint": "eslint src --ext .ts",
     "lint:fix": "eslint src --ext .ts --fix",
+    "format": "prettier --write \"src/**/*.{ts,tsx}\"",
+    "format:check": "prettier --check \"src/**/*.{ts,tsx}\"",
     "preview": "vite preview",
     "clean": "rimraf dist"
   },

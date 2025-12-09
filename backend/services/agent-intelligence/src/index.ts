@@ -119,6 +119,221 @@ class AgentIntelligenceService extends BaseService {
 
     logger.info('Agent CRUD routes configured');
 
+    // ===== PERSONA ROUTES =====
+
+    // List personas for display
+    this.app.get('/api/v1/personas', async ({ query, set }) => {
+      try {
+        const filters = {
+          limit: query.limit ? parseInt(query.limit as string) : undefined,
+          offset: query.offset ? parseInt(query.offset as string) : undefined,
+          status: query.status as string | undefined,
+          visibility: query.visibility as string | undefined,
+        };
+        const result = await this.personaService.getPersonasForDisplay(filters);
+        return { success: true, data: result.personas, total: result.total };
+      } catch (error) {
+        logger.error('Failed to list personas', { error });
+        set.status = 500;
+        return { success: false, error: 'Failed to list personas' };
+      }
+    });
+
+    // Get persona by ID
+    this.app.get('/api/v1/personas/:personaId', async ({ params, set }) => {
+      try {
+        const persona = await this.personaService.getPersona(params.personaId);
+        if (!persona) {
+          set.status = 404;
+          return { success: false, error: 'Persona not found' };
+        }
+        return { success: true, data: persona };
+      } catch (error) {
+        logger.error('Failed to get persona', { error, personaId: params.personaId });
+        set.status = 500;
+        return { success: false, error: 'Failed to get persona' };
+      }
+    });
+
+    // Create persona
+    this.app.post('/api/v1/personas', async ({ body, set, request }) => {
+      try {
+        const userId = request.headers.get('x-user-id') || 'system';
+        const persona = await this.personaService.createPersona({ ...(body as any), createdBy: userId });
+        set.status = 201;
+        return { success: true, data: persona };
+      } catch (error) {
+        logger.error('Failed to create persona', { error });
+        set.status = 500;
+        return { success: false, error: 'Failed to create persona' };
+      }
+    });
+
+    // Update persona
+    this.app.put('/api/v1/personas/:personaId', async ({ params, body, set }) => {
+      try {
+        const persona = await this.personaService.updatePersona(params.personaId, body as any);
+        return { success: true, data: persona };
+      } catch (error) {
+        logger.error('Failed to update persona', { error, personaId: params.personaId });
+        set.status = 500;
+        return { success: false, error: 'Failed to update persona' };
+      }
+    });
+
+    // Delete persona
+    this.app.delete('/api/v1/personas/:personaId', async ({ params, set, request }) => {
+      try {
+        const userId = request.headers.get('x-user-id') || 'system';
+        await this.personaService.deletePersona(params.personaId, userId);
+        set.status = 204;
+        return null;
+      } catch (error) {
+        logger.error('Failed to delete persona', { error, personaId: params.personaId });
+        set.status = 500;
+        return { success: false, error: 'Failed to delete persona' };
+      }
+    });
+
+    // Search personas
+    this.app.get('/api/v1/personas/search', async ({ query, set }) => {
+      try {
+        const filters = {
+          query: query.q as string | undefined,
+          limit: query.limit ? parseInt(query.limit as string) : undefined,
+          offset: query.offset ? parseInt(query.offset as string) : undefined,
+        };
+        const personas = await this.personaService.searchPersonas(filters);
+        return { success: true, data: personas };
+      } catch (error) {
+        logger.error('Failed to search personas', { error });
+        set.status = 500;
+        return { success: false, error: 'Failed to search personas' };
+      }
+    });
+
+    // Get persona templates
+    this.app.get('/api/v1/personas/templates', async ({ query, set }) => {
+      try {
+        const templates = await this.personaService.getPersonaTemplates(query.category as string | undefined);
+        return { success: true, data: templates };
+      } catch (error) {
+        logger.error('Failed to get persona templates', { error });
+        set.status = 500;
+        return { success: false, error: 'Failed to get persona templates' };
+      }
+    });
+
+    logger.info('Persona CRUD routes configured');
+
+    // ===== DISCUSSION ROUTES =====
+
+    // List discussions
+    this.app.get('/api/v1/discussions', async ({ query, set }) => {
+      try {
+        const filters = {
+          status: query.status as string | undefined,
+          limit: query.limit ? parseInt(query.limit as string) : 20,
+          offset: query.offset ? parseInt(query.offset as string) : 0,
+        };
+        const discussions = await this.discussionService.searchDiscussions(filters);
+        return { success: true, data: discussions };
+      } catch (error) {
+        logger.error('Failed to list discussions', { error });
+        set.status = 500;
+        return { success: false, error: 'Failed to list discussions' };
+      }
+    });
+
+    // Get discussion by ID
+    this.app.get('/api/v1/discussions/:discussionId', async ({ params, set }) => {
+      try {
+        const discussion = await this.discussionService.getDiscussion(params.discussionId);
+        if (!discussion) {
+          set.status = 404;
+          return { success: false, error: 'Discussion not found' };
+        }
+        return { success: true, data: discussion };
+      } catch (error) {
+        logger.error('Failed to get discussion', { error, discussionId: params.discussionId });
+        set.status = 500;
+        return { success: false, error: 'Failed to get discussion' };
+      }
+    });
+
+    // Create discussion
+    this.app.post('/api/v1/discussions', async ({ body, set, request }) => {
+      try {
+        const userId = request.headers.get('x-user-id') || 'system';
+        const discussion = await this.discussionService.createDiscussion({ ...(body as any), createdBy: userId });
+        set.status = 201;
+        return { success: true, data: discussion };
+      } catch (error) {
+        logger.error('Failed to create discussion', { error });
+        set.status = 500;
+        return { success: false, error: 'Failed to create discussion' };
+      }
+    });
+
+    // Update discussion
+    this.app.put('/api/v1/discussions/:discussionId', async ({ params, body, set }) => {
+      try {
+        const discussion = await this.discussionService.updateDiscussion(params.discussionId, body as any);
+        return { success: true, data: discussion };
+      } catch (error) {
+        logger.error('Failed to update discussion', { error, discussionId: params.discussionId });
+        set.status = 500;
+        return { success: false, error: 'Failed to update discussion' };
+      }
+    });
+
+    // Start discussion
+    this.app.post('/api/v1/discussions/:discussionId/start', async ({ params, set, request }) => {
+      try {
+        const userId = request.headers.get('x-user-id') || 'system';
+        const discussion = await this.discussionService.startDiscussion(params.discussionId, userId);
+        return { success: true, data: discussion };
+      } catch (error) {
+        logger.error('Failed to start discussion', { error, discussionId: params.discussionId });
+        set.status = 500;
+        return { success: false, error: 'Failed to start discussion' };
+      }
+    });
+
+    // End discussion
+    this.app.post('/api/v1/discussions/:discussionId/end', async ({ params, body, set, request }) => {
+      try {
+        const userId = request.headers.get('x-user-id') || 'system';
+        const discussion = await this.discussionService.endDiscussion(
+          params.discussionId,
+          userId,
+          (body as any)?.reason
+        );
+        return { success: true, data: discussion };
+      } catch (error) {
+        logger.error('Failed to end discussion', { error, discussionId: params.discussionId });
+        set.status = 500;
+        return { success: false, error: 'Failed to end discussion' };
+      }
+    });
+
+    // Get discussion messages
+    this.app.get('/api/v1/discussions/:discussionId/messages', async ({ params, query, set }) => {
+      try {
+        const messages = await this.discussionService.getMessages(params.discussionId, {
+          limit: query.limit ? parseInt(query.limit as string) : 50,
+          offset: query.offset ? parseInt(query.offset as string) : 0,
+        });
+        return { success: true, data: messages };
+      } catch (error) {
+        logger.error('Failed to get discussion messages', { error, discussionId: params.discussionId });
+        set.status = 500;
+        return { success: false, error: 'Failed to get discussion messages' };
+      }
+    });
+
+    logger.info('Discussion routes configured');
+
     // ===== DEBUG ROUTES =====
 
     // Debug route: conversation enhancement stats

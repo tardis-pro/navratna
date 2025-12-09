@@ -71,6 +71,37 @@ class OrchestrationPipelineService extends BaseService {
     registerProjectRoutes(this.app);
 
     // Basic orchestration endpoints
+
+    // List operations
+    this.app.get('/api/v1/operations', async ({ query, set }) => {
+      try {
+        const status = query.status as string | undefined;
+        let operations;
+
+        if (status) {
+          operations = await this.operationManagementService.getOperationsByStatus(status);
+        } else {
+          operations = await this.operationManagementService.getActiveOperations();
+        }
+
+        return {
+          success: true,
+          data: operations,
+        };
+      } catch (error) {
+        logger.error('Failed to list operations', { error });
+        set.status = 500;
+        return {
+          success: false,
+          error: {
+            code: 'LIST_OPERATIONS_FAILED',
+            message: error instanceof Error ? error.message : 'Unknown error',
+          },
+        };
+      }
+    });
+
+    // Create operation
     this.app.post('/api/v1/operations', async ({ body, set }) => {
       try {
         const operation = body;

@@ -47,7 +47,7 @@ export interface KnowledgeItem {
   sourceUrl?: string;
   tags: string[];
   confidence: number;
-  metadata: Record<string, any>;
+  metadata: Record<string, unknown>;
   createdAt: Date;
   updatedAt: Date;
   createdBy?: string;
@@ -103,7 +103,7 @@ export interface KnowledgeIngestRequest {
     type: SourceType;
     identifier: string;
     url?: string;
-    metadata?: Record<string, any>;
+    metadata?: Record<string, unknown>;
   };
   confidence?: number;
   createdBy?: string;
@@ -120,10 +120,10 @@ export interface KnowledgeIngestResponse {
 // Context and Classification
 export interface ContextRequest {
   userRequest?: string;
-  currentContext?: any;
-  discussionHistory?: any[];
-  userPreferences?: Record<string, any>;
-  conversationHistory?: any[];
+  currentContext?: unknown;
+  discussionHistory?: unknown[];
+  userPreferences?: Record<string, unknown>;
+  conversationHistory?: unknown[];
   agentCapabilities?: string[];
   relevantTags?: string[];
   timeRange?: DateRange;
@@ -160,7 +160,7 @@ export interface KnowledgeSource {
   sourceUrl?: string;
   lastSync?: Date;
   syncStatus: SyncStatusType;
-  metadata: Record<string, any>;
+  metadata: Record<string, unknown>;
 }
 
 // Vector Embeddings
@@ -197,7 +197,7 @@ export interface WorkingMemory {
       topic: string;
       participants: string[];
       myRole: string;
-      conversationHistory: any[];
+      conversationHistory: unknown[];
       currentGoals: string[];
     };
     activeOperation?: {
@@ -274,7 +274,7 @@ export interface SemanticMemory {
   concept: string;
   knowledge: {
     definition: string;
-    properties: Record<string, any>;
+    properties: Record<string, unknown>;
     relationships: ConceptRelationship[];
     examples: string[];
     counterExamples: string[];
@@ -300,7 +300,7 @@ export interface Interaction {
   description: string;
   timestamp: Date;
   participants: string[];
-  context: Record<string, any>;
+  context: Record<string, unknown>;
   success: boolean;
   impact: number;
   novelty: number;
@@ -347,7 +347,7 @@ export interface Action {
   type: string;
   timestamp: Date;
   success: boolean;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 export interface Outcome {
@@ -357,7 +357,7 @@ export interface Outcome {
   success: boolean;
   impact: number;
   timestamp: Date;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 export interface EmotionalResponse {
@@ -468,11 +468,11 @@ export interface WorkingMemoryUpdate {
     timestamp: Date;
     confidence: number;
   };
-  lastOutcome?: any;
+  lastOutcome?: unknown;
   currentContext?: Partial<WorkingMemory['currentContext']>;
   shortTermMemory?: Partial<WorkingMemory['shortTermMemory']>;
   // Additional properties for agent services
-  environment?: Record<string, any>;
-  agentState?: Record<string, any>;
-  knowledgeUpdated?: Record<string, any>;
+  environment?: Record<string, unknown>;
+  agentState?: Record<string, unknown>;
+  knowledgeUpdated?: Record<string, unknown>;
 }
