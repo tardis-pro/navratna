@@ -48,7 +48,7 @@
     "zod": "catalog:"
   },
   "devDependencies": {
-    "@jest/globals": "^29.7.0",
+    "@jest/globals": "^30.2.0",
     "@types/amqplib": "catalog:backend",
     "@types/bcrypt": "catalog:backend",
     "@types/compression": "catalog:backend",
@@ -57,7 +57,7 @@
     "@types/jsonwebtoken": "catalog:backend",
     "@types/node": "catalog:backend",
     "@types/node-cron": "^3.0.11",
-    "@types/nodemailer": "^6.4.17",
+    "@types/nodemailer": "^7.0.4",
     "@types/pg": "catalog:backend",
     "@types/qrcode": "^1.5.5",
     "@types/speakeasy": "^2.0.10",

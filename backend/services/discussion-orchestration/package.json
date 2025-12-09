@@ -35,7 +35,7 @@
     "zod": "catalog:"
   },
   "devDependencies": {
-    "@jest/globals": "^29.7.0",
+    "@jest/globals": "^30.2.0",
     "@types/compression": "catalog:backend",
     "@types/cors": "catalog:backend",
     "@types/jest": "catalog:backend",
