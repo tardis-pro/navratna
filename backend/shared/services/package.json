@@ -64,7 +64,7 @@
     "@typescript-eslint/parser": "catalog:",
     "eslint": "catalog:",
     "jest": "^29.7.0",
-    "jest-environment-node": "^29.7.0",
+    "jest-environment-node": "^30.2.0",
     "rimraf": "catalog:",
     "supertest": "^7.0.0",
     "testcontainers": "^10.13.2",
