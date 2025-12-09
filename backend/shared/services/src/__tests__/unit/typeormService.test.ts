@@ -1,4 +1,4 @@
-import { TypeOrmService } from '../../typeormService';
+import { TypeOrmService } from '../../typeormService.js';
 
 describe('TypeOrmService', () => {
   let service: TypeOrmService;

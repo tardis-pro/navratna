@@ -1,6 +1,6 @@
 import { LLMRequest, LLMResponse, LLMProviderConfig } from '../interfaces';
 import { logger } from '@uaip/utils';
-import { ApiKeyDecryptionService } from '../services/ApiKeyDecryptionService';
+import { ApiKeyDecryptionService } from '../services/ApiKeyDecryptionService.js';
 
 export abstract class BaseProvider {
   protected config: LLMProviderConfig;

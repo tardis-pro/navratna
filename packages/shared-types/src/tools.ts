@@ -35,23 +35,23 @@ export enum ToolExecutionStatus {
 // Tool type definitions
 export interface JSONSchema {
   type: string;
-  properties?: Record<string, any>;
+  properties?: Record<string, unknown>;
   required?: string[];
   additionalProperties?: boolean;
-  [key: string]: any;
+  [key: string]: unknown;
 }
 
 export interface ToolExample {
   name: string;
   description: string;
-  parameters: Record<string, any>;
-  expectedResult?: any;
+  parameters: Record<string, unknown>;
+  expectedResult?: unknown;
 }
 
 export interface ToolExecutionError {
   type: string;
   message: string;
-  details?: Record<string, any>;
+  details?: Record<string, unknown>;
   recoverable: boolean;
   suggestedAction?: string;
 }
@@ -62,8 +62,8 @@ export interface ToolDefinition {
   description: string;
   version: string;
   category: string;
-  parameters: Record<string, any>;
-  returnType?: Record<string, any>;
+  parameters: Record<string, unknown>;
+  returnType?: Record<string, unknown>;
   securityLevel: 'safe' | 'moderate' | 'restricted' | 'dangerous';
   requiresApproval: boolean;
   isEnabled: boolean;
@@ -72,14 +72,14 @@ export interface ToolDefinition {
   author: string;
   tags: string[];
   dependencies: string[];
-  rateLimits?: Record<string, any>;
-  examples: Array<Record<string, any>>;
+  rateLimits?: Record<string, unknown>;
+  examples: Array<Record<string, unknown>>;
 }
 
 export interface ToolError {
   type: string;
   message: string;
-  details?: Record<string, any>;
+  details?: Record<string, unknown>;
   recoverable: boolean;
   suggestedAction?: string;
 }
@@ -88,11 +88,11 @@ export interface ToolExecution {
   id: string;
   toolId: string;
   agentId: string;
-  parameters: Record<string, any>;
+  parameters: Record<string, unknown>;
   status: ToolExecutionStatus;
   startTime: Date;
   endTime?: Date;
-  result?: any;
+  result?: unknown;
   error?: ToolError;
   approvalRequired: boolean;
   approvedBy?: string;
@@ -101,7 +101,7 @@ export interface ToolExecution {
   executionTimeMs?: number;
   retryCount: number;
   maxRetries: number;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 export interface ToolUsageRecord {
@@ -112,8 +112,8 @@ export interface ToolUsageRecord {
   executionTime?: number;
   cost?: number;
   errorType?: string;
-  parameters?: Record<string, any>;
-  metadata?: Record<string, any>;
+  parameters?: Record<string, unknown>;
+  metadata?: Record<string, unknown>;
 }
 
 export interface ToolPermission {

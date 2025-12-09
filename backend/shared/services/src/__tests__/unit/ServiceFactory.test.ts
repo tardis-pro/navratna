@@ -1,4 +1,4 @@
-import { ServiceFactory } from '../../ServiceFactory';
+import { ServiceFactory } from '../../ServiceFactory.js';
 
 describe('ServiceFactory', () => {
   let factory: ServiceFactory;

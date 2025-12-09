@@ -1,4 +1,4 @@
-import { ResourceManagerService } from '../../resourceManagerService';
+import { ResourceManagerService } from '../../resourceManagerService.js';
 
 describe('ResourceManagerService', () => {
   let service: ResourceManagerService;

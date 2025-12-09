@@ -248,7 +248,7 @@ export class {{CLASS_NAME}} {
  * 
  * @generated {{TIMESTAMP}}
  */
-import { {{FUNCTION_NAME}} } from './{{FUNCTION_NAME}}';
+import { {{FUNCTION_NAME}} } from './{{FUNCTION_NAME}}.js';
 
 describe('{{FUNCTION_NAME}}', () => {
   it('should execute without errors', () => {

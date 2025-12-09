@@ -1,6 +1,6 @@
 import { Elysia } from 'elysia';
 import { logger } from '@uaip/utils';
-import { ChatParserService } from './chat-parser.service';
+import { ChatParserService } from './chat-parser.service.js';
 import { z } from 'zod';
 import { v4 as uuidv4 } from 'uuid';
 

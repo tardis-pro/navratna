@@ -24,9 +24,9 @@ import {
   OperationManagementService,
 } from '@uaip/shared-services';
 
-import { OperationValidator } from './engine/OperationValidator';
-import { StepExecutionManager } from './engine/StepExecutionManager';
-import { WorkflowOrchestrator } from './engine/WorkflowOrchestrator';
+import { OperationValidator } from './engine/OperationValidator.js';
+import { StepExecutionManager } from './engine/StepExecutionManager.js';
+import { WorkflowOrchestrator } from './engine/WorkflowOrchestrator.js';
 
 export class OrchestrationEngine extends EventEmitter {
   private validator: OperationValidator;

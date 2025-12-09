@@ -1,6 +1,6 @@
 import { Repository } from 'typeorm';
-import { TypeOrmService } from '../typeormService';
-import { MFAChallengeEntity } from '../entities/mfaChallenge.entity';
+import { TypeOrmService } from '../typeormService.js';
+import { MFAChallengeEntity } from '../entities/mfaChallenge.entity.js';
 import { MFAMethod } from '@uaip/types';
 
 export class MFAService {

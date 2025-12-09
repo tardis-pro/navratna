@@ -20,7 +20,7 @@ import {
 } from '@uaip/types';
 import { logger } from '@uaip/utils';
 import { StateManagerService, EventBusService } from '@uaip/shared-services';
-import { StepExecutionManager, StepExecutionContext } from './StepExecutionManager';
+import { StepExecutionManager, StepExecutionContext } from './StepExecutionManager.js';
 
 export class WorkflowOrchestrator extends EventEmitter {
   private activeWorkflows = new Map<string, WorkflowInstance>();

@@ -1,4 +1,4 @@
-import { BaseProvider } from './BaseProvider';
+import { BaseProvider } from './BaseProvider.js';
 import { LLMRequest, LLMResponse } from '../interfaces';
 
 export class OllamaProvider extends BaseProvider {

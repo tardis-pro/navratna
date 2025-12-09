@@ -194,7 +194,7 @@ export class TestGenerator implements ArtifactGenerator {
       requirements.length > 0 ? `// Test requirements:\n// ${requirements.join('\n// ')}\n\n` : '';
 
     if (framework === 'jest') {
-      return `${requirementsComment}import { ${functionName} } from './${functionName}';
+      return `${requirementsComment}import { ${functionName} } from './${functionName}.js';
 
 describe('${functionName}', () => {
   beforeEach(() => {

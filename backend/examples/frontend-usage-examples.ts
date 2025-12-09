@@ -5,7 +5,7 @@
  * to interact with all UAIP backend services.
  */
 
-import { UAIPAPIClient, createAPIClient, isSuccessResponse, hasError } from '../src/services/api';
+import { UAIPAPIClient, createAPIClient, isSuccessResponse, hasError } from '../src/services/api.js';
 
 // Utility function to generate UUIDs for backend examples
 function generateUUID(): string {

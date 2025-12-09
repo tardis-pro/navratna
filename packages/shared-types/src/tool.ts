@@ -44,23 +44,23 @@ export interface JSONSchema {
   maximum?: number;
   minLength?: number;
   maxLength?: number;
-  enum?: any[];
-  default?: any;
+  enum?: unknown[];
+  default?: unknown;
   description?: string;
 }
 
 export interface ToolExample {
   name: string;
   description: string;
-  input: Record<string, any>;
-  expectedOutput: any;
+  input: Record<string, unknown>;
+  expectedOutput: unknown;
   notes?: string;
 }
 
 export interface ToolExecutionError {
   type: 'validation' | 'execution' | 'timeout' | 'permission' | 'quota' | 'dependency' | 'unknown';
   message: string;
-  details?: Record<string, any>;
+  details?: Record<string, unknown>;
   recoverable: boolean;
   suggestedAction?: string;
 }
@@ -102,7 +102,7 @@ export interface ToolUsageRecord {
   duration?: number;
   success: boolean;
   errorCode?: string;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 export interface ToolDefinition {
@@ -134,11 +134,11 @@ export interface ToolExecution {
   id: string;
   toolId: string;
   agentId: string;
-  parameters: Record<string, any>;
+  parameters: Record<string, unknown>;
   status: ToolExecutionStatus;
   startTime: Date;
   endTime?: Date;
-  result?: any;
+  result?: unknown;
   error?: ToolExecutionError;
   approvalRequired: boolean;
   approvedBy?: string;
@@ -147,16 +147,16 @@ export interface ToolExecution {
   executionTimeMs?: number;
   retryCount: number;
   maxRetries: number;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
   // Properties expected by agent implementations
   success: boolean;
-  data?: any;
+  data?: unknown;
 }
 
 export interface ToolCall {
   id: string;
   toolId: string;
-  parameters: Record<string, any>;
+  parameters: Record<string, unknown>;
   reasoning: string; // Why the agent chose this tool
   confidence: number; // 0-1 confidence in tool selection
   alternatives?: Array<{
@@ -169,11 +169,11 @@ export interface ToolResult {
   callId: string;
   executionId: string;
   success: boolean;
-  result?: any;
+  result?: unknown;
   error?: ToolExecutionError;
   executionTime: number;
   cost?: number;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 // Enhanced interfaces for integration with existing agent system

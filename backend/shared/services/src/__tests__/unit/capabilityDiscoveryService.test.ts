@@ -1,4 +1,4 @@
-import { CapabilityDiscoveryService } from '../../capabilityDiscoveryService';
+import { CapabilityDiscoveryService } from '../../capabilityDiscoveryService.js';
 
 jest.mock('../../databaseService');
 

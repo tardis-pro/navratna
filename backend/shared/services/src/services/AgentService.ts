@@ -1,13 +1,13 @@
 import { logger } from '@uaip/utils';
-import { TypeOrmService } from '../typeormService';
-import { AgentRepository } from '../database/repositories/AgentRepository';
-import { CapabilityRepository } from '../database/repositories/CapabilityRepository';
-import { AgentLLMPreferenceRepository } from '../database/repositories/AgentLLMPreferenceRepository';
-import { Agent } from '../entities/agent.entity';
-import { Capability } from '../entities/capability.entity';
-import { AgentLLMPreference } from '../entities/agentLLMPreference.entity';
+import { TypeOrmService } from '../typeormService.js';
+import { AgentRepository } from '../database/repositories/AgentRepository.js';
+import { CapabilityRepository } from '../database/repositories/CapabilityRepository.js';
+import { AgentLLMPreferenceRepository } from '../database/repositories/AgentLLMPreferenceRepository.js';
+import { Agent } from '../entities/agent.entity.js';
+import { Capability } from '../entities/capability.entity.js';
+import { AgentLLMPreference } from '../entities/agentLLMPreference.entity.js';
 import { AgentStatus, AgentRole, SecurityLevel } from '@uaip/types';
-import { EventBusService } from '../eventBusService';
+import { EventBusService } from '../eventBusService.js';
 
 export class AgentService {
   private static instance: AgentService;

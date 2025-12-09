@@ -1,17 +1,35 @@
 import * as winston from 'winston';
 
+// Express-compatible types for middleware (avoiding direct express dependency)
+// These are compatible with Express but don't require it as a dependency
+export interface ExpressRequest {
+  id?: string;
+  [key: string]: unknown;
+}
+
+export interface ExpressResponse {
+  status(code: number): ExpressResponse;
+  json(body: unknown): ExpressResponse;
+  [key: string]: unknown;
+}
+
+export type ExpressNextFunction = (err?: unknown) => void;
+
+// Error details type - used for providing additional error context
+export type ErrorDetails = Record<string, unknown>;
+
 // Base API Error class
 export class ApiError extends Error {
   public readonly statusCode: number;
   public readonly code: string;
-  public readonly details?: any;
+  public readonly details?: ErrorDetails;
   public readonly isOperational: boolean;
 
   constructor(
     statusCode: number,
     message: string,
     code: string = 'API_ERROR',
-    details?: any,
+    details?: ErrorDetails,
     stack?: string
   ) {
     super(message);
@@ -43,67 +61,67 @@ export class ApiError extends Error {
 
 // Specific error classes for different scenarios
 export class ValidationError extends ApiError {
-  constructor(message: string, details?: any) {
+  constructor(message: string, details?: ErrorDetails) {
     super(400, message, 'VALIDATION_ERROR', details);
   }
 }
 
 export class AuthenticationError extends ApiError {
-  constructor(message: string = 'Authentication failed', details?: any) {
+  constructor(message: string = 'Authentication failed', details?: ErrorDetails) {
     super(401, message, 'AUTHENTICATION_ERROR', details);
   }
 }
 
 export class AuthorizationError extends ApiError {
-  constructor(message: string = 'Insufficient permissions', details?: any) {
+  constructor(message: string = 'Insufficient permissions', details?: ErrorDetails) {
     super(403, message, 'AUTHORIZATION_ERROR', details);
   }
 }
 
 export class NotFoundError extends ApiError {
-  constructor(message: string = 'Resource not found', details?: any) {
+  constructor(message: string = 'Resource not found', details?: ErrorDetails) {
     super(404, message, 'NOT_FOUND_ERROR', details);
   }
 }
 
 export class ConflictError extends ApiError {
-  constructor(message: string = 'Resource conflict', details?: any) {
+  constructor(message: string = 'Resource conflict', details?: ErrorDetails) {
     super(409, message, 'CONFLICT_ERROR', details);
   }
 }
 
 export class RateLimitError extends ApiError {
-  constructor(message: string = 'Rate limit exceeded', details?: any) {
+  constructor(message: string = 'Rate limit exceeded', details?: ErrorDetails) {
     super(429, message, 'RATE_LIMIT_ERROR', details);
   }
 }
 
 export class InternalServerError extends ApiError {
-  constructor(message: string = 'Internal server error', details?: any) {
+  constructor(message: string = 'Internal server error', details?: ErrorDetails) {
     super(500, message, 'INTERNAL_SERVER_ERROR', details);
   }
 }
 
 export class DatabaseError extends ApiError {
-  constructor(message: string = 'Database operation failed', details?: any) {
+  constructor(message: string = 'Database operation failed', details?: ErrorDetails) {
     super(500, message, 'DATABASE_ERROR', details);
   }
 }
 
 export class ExternalServiceError extends ApiError {
-  constructor(message: string = 'External service error', details?: any) {
+  constructor(message: string = 'External service error', details?: ErrorDetails) {
     super(502, message, 'EXTERNAL_SERVICE_ERROR', details);
   }
 }
 
 export class SecurityError extends ApiError {
-  constructor(message: string = 'Security violation detected', details?: any) {
+  constructor(message: string = 'Security violation detected', details?: ErrorDetails) {
     super(403, message, 'SECURITY_ERROR', details);
   }
 }
 
 // Error factory functions
-export const createValidationError = (field: string, value: any, constraint: string) => {
+export const createValidationError = (field: string, value: unknown, constraint: string) => {
   return new ValidationError(`Validation failed for field '${field}'`, {
     field,
     value,
@@ -118,7 +136,7 @@ export const createNotFoundError = (resource: string, identifier: string) => {
   });
 };
 
-export const createConflictError = (resource: string, field: string, value: any) => {
+export const createConflictError = (resource: string, field: string, value: unknown) => {
   return new ConflictError(`${resource} already exists`, {
     resource,
     field,
@@ -185,8 +203,18 @@ export const getStatusCodeFromError = (error: Error): number => {
   return 500;
 };
 
+// Sanitized error response type
+interface SanitizedError {
+  code: string;
+  message: string;
+  details?: ErrorDetails;
+  name?: string;
+  statusCode?: number;
+  stack?: string;
+}
+
 // Helper function to sanitize error details for client response
-export const sanitizeErrorDetails = (error: ApiError): any => {
+export const sanitizeErrorDetails = (error: ApiError): SanitizedError => {
   // In production, we might want to hide sensitive details
   if (process.env.NODE_ENV === 'production') {
     // Only return safe details
@@ -202,10 +230,17 @@ export const sanitizeErrorDetails = (error: ApiError): any => {
   return error.toJSON();
 };
 
+// Error response structure
+interface ErrorResponse {
+  success: false;
+  error: SanitizedError;
+  requestId?: string;
+}
+
 // Create standardized error response
 export const createErrorResponse = (error: Error, requestId?: string) => {
   let statusCode = 500;
-  const response: any = {
+  const response: ErrorResponse = {
     success: false,
     error: {
       message: 'Internal server error',
@@ -229,8 +264,10 @@ export const createErrorResponse = (error: Error, requestId?: string) => {
 };
 
 // Async handler wrapper to catch async errors
-export const asyncHandler = (fn: Function) => {
-  return (req: any, res: any, next: any) => {
+export const asyncHandler = (
+  fn: (req: ExpressRequest, res: ExpressResponse, next: ExpressNextFunction) => Promise<unknown>
+) => {
+  return (req: ExpressRequest, res: ExpressResponse, next: ExpressNextFunction) => {
     Promise.resolve(fn(req, res, next)).catch(next);
   };
 };
@@ -241,8 +278,8 @@ export const logAndCreateError = (
   statusCode: number,
   message: string,
   code: string,
-  context: Record<string, any> = {},
-  details?: any
+  context: Record<string, unknown> = {},
+  details?: ErrorDetails
 ): ApiError => {
   const error = new ApiError(statusCode, message, code, details);
   logger.error(message, { ...context, error: error.toJSON() });
@@ -253,7 +290,7 @@ export const logAndCreateError = (
 export const createAndLogValidationError = (
   logger: winston.Logger,
   message: string,
-  context: Record<string, any> = {}
+  context: Record<string, unknown> = {}
 ) => {
   return logAndCreateError(logger, 400, message, 'VALIDATION_ERROR', context);
 };
@@ -272,7 +309,7 @@ export const createAndLogNotFoundError = (
 export const createAndLogAuthError = (
   logger: winston.Logger,
   message: string,
-  context: Record<string, any> = {}
+  context: Record<string, unknown> = {}
 ) => {
   return logAndCreateError(logger, 401, message, 'AUTHENTICATION_ERROR', context);
 };
@@ -280,7 +317,7 @@ export const createAndLogAuthError = (
 export const createAndLogAuthzError = (
   logger: winston.Logger,
   message: string,
-  context: Record<string, any> = {}
+  context: Record<string, unknown> = {}
 ) => {
   return logAndCreateError(logger, 403, message, 'AUTHORIZATION_ERROR', context);
 };
@@ -288,13 +325,22 @@ export const createAndLogAuthzError = (
 export const createAndLogDatabaseError = (
   logger: winston.Logger,
   message: string,
-  context: Record<string, any> = {}
+  context: Record<string, unknown> = {}
 ) => {
   return logAndCreateError(logger, 500, message, 'DATABASE_ERROR', context);
 };
 
+// Database error type for transformation
+interface DatabaseErrorLike {
+  code?: string;
+  constraint?: string;
+  detail?: string;
+  column?: string;
+  message?: string;
+}
+
 // Transform common database errors to API errors
-export const transformDatabaseError = (error: any): ApiError => {
+export const transformDatabaseError = (error: DatabaseErrorLike): ApiError => {
   // PostgreSQL error codes
   if (error.code) {
     switch (error.code) {
@@ -327,7 +373,12 @@ export const transformDatabaseError = (error: any): ApiError => {
 };
 
 // Express error handler middleware
-export const errorHandler = (error: Error, req: any, res: any, next: any) => {
+export const errorHandler = (
+  error: Error,
+  req: ExpressRequest,
+  res: ExpressResponse,
+  _next: ExpressNextFunction
+) => {
   // Log the error
   console.error('Error:', error);
 
@@ -337,22 +388,22 @@ export const errorHandler = (error: Error, req: any, res: any, next: any) => {
 };
 
 // Type guards
-export const isApiError = (error: any): error is ApiError => {
+export const isApiError = (error: unknown): error is ApiError => {
   return error instanceof ApiError;
 };
 
-export const isValidationError = (error: any): error is ValidationError => {
+export const isValidationError = (error: unknown): error is ValidationError => {
   return error instanceof ValidationError;
 };
 
-export const isAuthenticationError = (error: any): error is AuthenticationError => {
+export const isAuthenticationError = (error: unknown): error is AuthenticationError => {
   return error instanceof AuthenticationError;
 };
 
-export const isAuthorizationError = (error: any): error is AuthorizationError => {
+export const isAuthorizationError = (error: unknown): error is AuthorizationError => {
   return error instanceof AuthorizationError;
 };
 
-export const isNotFoundError = (error: any): error is NotFoundError => {
+export const isNotFoundError = (error: unknown): error is NotFoundError => {
   return error instanceof NotFoundError;
 };

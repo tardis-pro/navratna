@@ -6,7 +6,7 @@
 
 import axios, { AxiosInstance } from 'axios';
 import { logger } from '@uaip/utils';
-import { ToolDefinition } from '../services/enterprise-tool-registry';
+import { ToolDefinition } from '../services/enterprise-tool-registry.js';
 
 export class JiraAdapter {
   private toolDefinition: ToolDefinition;

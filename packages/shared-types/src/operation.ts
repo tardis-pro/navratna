@@ -359,10 +359,14 @@ export type OperationErrorType = z.infer<typeof OperationErrorSchema>;
 // OperationError class implementation
 export class OperationError extends Error {
   public readonly code: string;
-  public readonly details?: Record<string, any>;
+  public readonly details?: Record<string, unknown>;
   public readonly timestamp: Date;
 
-  constructor(message: string, code: string = 'OPERATION_ERROR', details?: Record<string, any>) {
+  constructor(
+    message: string,
+    code: string = 'OPERATION_ERROR',
+    details?: Record<string, unknown>
+  ) {
     super(message);
     this.name = 'OperationError';
     this.code = code;
@@ -370,8 +374,11 @@ export class OperationError extends Error {
     this.timestamp = new Date();
 
     // Maintains proper stack trace for where our error was thrown (only available on V8)
-    if ((Error as any).captureStackTrace) {
-      (Error as any).captureStackTrace(this, OperationError);
+    const ErrorWithStackTrace = Error as unknown as {
+      captureStackTrace?: (target: object, constructor?: new (...args: never[]) => Error) => void;
+    };
+    if (typeof ErrorWithStackTrace.captureStackTrace === 'function') {
+      ErrorWithStackTrace.captureStackTrace(this, OperationError);
     }
   }
 }
@@ -882,10 +889,10 @@ export type DiscussionOperation =
 // Discussion operation factory
 export const createDiscussionOperation = (
   type: OperationType,
-  context: any,
+  context: unknown,
   agentId: string,
   userId: string
-): any => {
+): unknown => {
   const baseOperation = {
     status: OperationStatus.PENDING,
     priority: OperationPriority.MEDIUM,

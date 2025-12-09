@@ -1,8 +1,8 @@
 import { Repository } from 'typeorm';
-import { TypeOrmService } from '../typeormService';
-import { OAuthProviderEntity } from '../entities/oauthProvider.entity';
-import { OAuthStateEntity } from '../entities/oauthState.entity';
-import { AgentOAuthConnectionEntity } from '../entities/agentOAuthConnection.entity';
+import { TypeOrmService } from '../typeormService.js';
+import { OAuthProviderEntity } from '../entities/oauthProvider.entity.js';
+import { OAuthStateEntity } from '../entities/oauthState.entity.js';
+import { AgentOAuthConnectionEntity } from '../entities/agentOAuthConnection.entity.js';
 import { OAuthProviderType, UserType, AgentCapability } from '@uaip/types';
 import * as crypto from 'crypto';
 

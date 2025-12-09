@@ -2,16 +2,16 @@ import {
   UserRepository,
   RefreshTokenRepository,
   PasswordResetTokenRepository,
-} from '../database/repositories/UserRepository';
-import { LLMProviderRepository } from '../database/repositories/LLMProviderRepository';
-import { UserLLMProviderRepository } from '../database/repositories/UserLLMProviderRepository';
-import { UserLLMPreferenceRepository } from '../database/repositories/UserLLMPreferenceRepository';
-import { UserContactRepository } from '../database/repositories/UserContactRepository';
-import { TypeOrmService } from '../typeormService';
-import { UserEntity } from '../entities/user.entity';
-import { RefreshTokenEntity } from '../entities/refreshToken.entity';
-import { PasswordResetTokenEntity } from '../entities/passwordResetToken.entity';
-import { UserLLMPreference } from '../entities/userLLMPreference.entity';
+} from '../database/repositories/UserRepository.js';
+import { LLMProviderRepository } from '../database/repositories/LLMProviderRepository.js';
+import { UserLLMProviderRepository } from '../database/repositories/UserLLMProviderRepository.js';
+import { UserLLMPreferenceRepository } from '../database/repositories/UserLLMPreferenceRepository.js';
+import { UserContactRepository } from '../database/repositories/UserContactRepository.js';
+import { TypeOrmService } from '../typeormService.js';
+import { UserEntity } from '../entities/user.entity.js';
+import { RefreshTokenEntity } from '../entities/refreshToken.entity.js';
+import { PasswordResetTokenEntity } from '../entities/passwordResetToken.entity.js';
+import { UserLLMPreference } from '../entities/userLLMPreference.entity.js';
 import * as bcrypt from 'bcrypt';
 import * as crypto from 'crypto';
 

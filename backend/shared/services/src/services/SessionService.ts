@@ -1,6 +1,6 @@
 import { Repository } from 'typeorm';
-import { TypeOrmService } from '../typeormService';
-import { SessionEntity } from '../entities/session.entity';
+import { TypeOrmService } from '../typeormService.js';
+import { SessionEntity } from '../entities/session.entity.js';
 import { AuthenticationMethod } from '@uaip/types';
 
 export class SessionService {

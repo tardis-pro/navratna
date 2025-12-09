@@ -7,7 +7,7 @@
 import { Agent, AgentRole, AgentCapability, ConversationContext } from '@uaip/types';
 import { logger } from '@uaip/utils';
 import { EventBusService, KnowledgeGraphService, QdrantService } from '@uaip/shared-services';
-import { BaseAgent } from '../base-agent';
+import { BaseAgent } from '../base-agent.js';
 
 export interface QABotConfig {
   eventBusService: EventBusService;

@@ -1,4 +1,4 @@
-import { StepExecutorService } from '../../stepExecutorService';
+import { StepExecutorService } from '../../stepExecutorService.js';
 
 describe('StepExecutorService', () => {
   let service: StepExecutorService;

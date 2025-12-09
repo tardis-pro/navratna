@@ -1,6 +1,5 @@
 import {
   BaseWidget,
-  WidgetInstance,
   WidgetAccessResponse,
   WidgetPermission,
   WidgetCategory,
@@ -135,12 +134,13 @@ export class WidgetRegistry {
     }
 
     if (query.tags && query.tags.length > 0) {
-      widgets = widgets.filter((w) => query.tags!.some((tag) => w.metadata.tags?.includes(tag)));
+      const queryTags = query.tags;
+      widgets = widgets.filter((w) => queryTags.some((tag) => w.metadata.tags?.includes(tag)));
     }
 
     // Sort widgets
     widgets.sort((a, b) => {
-      let aValue: any, bValue: any;
+      let aValue: string | Date, bValue: string | Date;
 
       switch (query.sortBy) {
         case 'name':
@@ -197,7 +197,10 @@ export class WidgetRegistry {
     // Check cache first
     const userAccessMap = this.userAccess.get(userContext.id);
     if (userAccessMap?.has(widgetId)) {
-      return userAccessMap.get(widgetId)!;
+      const cachedAccess = userAccessMap.get(widgetId);
+      if (cachedAccess) {
+        return cachedAccess;
+      }
     }
 
     const widget = this.widgets.get(widgetId);
@@ -219,7 +222,10 @@ export class WidgetRegistry {
     if (!this.userAccess.has(userContext.id)) {
       this.userAccess.set(userContext.id, new Map());
     }
-    this.userAccess.get(userContext.id)!.set(widgetId, accessResponse);
+    const accessMap = this.userAccess.get(userContext.id);
+    if (accessMap) {
+      accessMap.set(widgetId, accessResponse);
+    }
 
     return accessResponse;
   }
@@ -450,16 +456,18 @@ export class WidgetRegistry {
 
       // IP restrictions
       if (rbac.conditionalAccess.ipRestrictions && userContext.ipAddress) {
+        const ipAddress = userContext.ipAddress;
         const isAllowedIP = rbac.conditionalAccess.ipRestrictions.some((allowedIP) =>
-          this.matchesIPPattern(userContext.ipAddress!, allowedIP)
+          this.matchesIPPattern(ipAddress, allowedIP)
         );
         restrictions.ipRestricted = !isAllowedIP;
       }
 
       // Device restrictions
       if (rbac.conditionalAccess.deviceRestrictions && userContext.userAgent) {
+        const userAgent = userContext.userAgent;
         const isAllowedDevice = rbac.conditionalAccess.deviceRestrictions.some((allowedDevice) =>
-          userContext.userAgent!.includes(allowedDevice)
+          userAgent.includes(allowedDevice)
         );
         restrictions.deviceRestricted = !isAllowedDevice;
       }

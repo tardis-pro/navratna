@@ -1,6 +1,6 @@
-import { CompensationService } from '../../compensationService';
-import { DatabaseService } from '../../databaseService';
-import { EventBusService } from '../../eventBusService';
+import { CompensationService } from '../../compensationService.js';
+import { DatabaseService } from '../../databaseService.js';
+import { EventBusService } from '../../eventBusService.js';
 
 jest.mock('../../databaseService');
 jest.mock('../../eventBusService');

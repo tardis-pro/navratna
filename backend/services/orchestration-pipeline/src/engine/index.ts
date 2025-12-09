@@ -3,6 +3,6 @@
  * Export all modular components for the orchestration engine
  */
 
-export { OperationValidator } from './OperationValidator';
-export { StepExecutionManager, StepExecutionContext } from './StepExecutionManager';
-export { WorkflowOrchestrator } from './WorkflowOrchestrator';
+export { OperationValidator } from './OperationValidator.js';
+export { StepExecutionManager, StepExecutionContext } from './StepExecutionManager.js';
+export { WorkflowOrchestrator } from './WorkflowOrchestrator.js';

@@ -1,6 +1,6 @@
 import { EventBusService, DatabaseService, ProjectManagementService } from '@uaip/shared-services';
 import { ProjectStatus } from '@uaip/types';
-import { UnifiedToolRegistry } from './unified-tool-registry';
+import { UnifiedToolRegistry } from './unified-tool-registry.js';
 import { logger } from '@uaip/utils';
 
 export interface ProjectToolContext {

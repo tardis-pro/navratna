@@ -1,8 +1,7 @@
 import { z } from 'zod';
 import { logger } from '@uaip/utils';
 import { ProjectManagementService, DatabaseService, EventBusService } from '@uaip/shared-services';
-import { withRequiredAuth } from './middleware/auth.plugin.js';
-import type { Elysia } from 'elysia';
+import { withOptionalAuth } from './middleware/auth.plugin.js';
 
 let projectService: ProjectManagementService | null = null;
 
@@ -55,157 +54,162 @@ const projectQuerySchema = z.object({
   search: z.string().max(100).optional(),
 });
 
-export function registerProjectRoutes(app: Elysia<any, any, any, any, any, any, any, any>) {
-  // List projects
-  app.get(
-    '/api/v1/projects',
-    async ({ query, set }) => {
-      try {
-        const service = await getProjectService();
-        const parsed = projectQuerySchema.parse(query);
+export function registerProjectRoutes(app: any): any {
+  return app.group('/api/v1/projects', (app: any) =>
+    withOptionalAuth(app)
+      // List projects
+      .get('/', async ({ query, set, user }: any) => {
+        try {
+          if (!user) {
+            set.status = 401;
+            return { error: 'Authentication required' };
+          }
+          const service = await getProjectService();
+          const parsed = projectQuerySchema.safeParse(query);
+          if (!parsed.success) {
+            set.status = 400;
+            return { error: 'Validation Error', details: parsed.error.flatten() };
+          }
 
-        const projects = await service.listProjects({
-          page: parsed.page,
-          limit: parsed.limit,
-          status: parsed.status,
-          search: parsed.search,
-        });
+          const projects = await service.listProjects({
+            page: parsed.data.page,
+            limit: parsed.data.limit,
+            status: parsed.data.status,
+            search: parsed.data.search,
+          });
 
-        return { success: true, data: projects };
-      } catch (error) {
-        logger.error('Failed to list projects', { error });
-        set.status = 500;
-        return { success: false, error: 'Failed to list projects' };
-      }
-    },
-    withRequiredAuth()
-  );
-
-  // Get project by ID
-  app.get(
-    '/api/v1/projects/:projectId',
-    async ({ params, set, user }) => {
-      try {
-        const service = await getProjectService();
-        const project = await service.getProject(params.projectId, user?.id);
-
-        if (!project) {
-          set.status = 404;
-          return { success: false, error: 'Project not found' };
+          return { success: true, data: projects };
+        } catch (error) {
+          logger.error('Failed to list projects', { error });
+          set.status = 500;
+          return { success: false, error: 'Failed to list projects' };
         }
+      })
 
-        return { success: true, data: project };
-      } catch (error) {
-        logger.error('Failed to get project', { error, projectId: params.projectId });
-        set.status = 500;
-        return { success: false, error: 'Failed to get project' };
-      }
-    },
-    withRequiredAuth()
-  );
+      // Get project by ID
+      .get('/:projectId', async ({ params, set, user }: any) => {
+        try {
+          if (!user) {
+            set.status = 401;
+            return { error: 'Authentication required' };
+          }
+          const service = await getProjectService();
+          const project = await service.getProject(params.projectId, user?.id);
 
-  // Create project
-  app.post(
-    '/api/v1/projects',
-    async ({ body, set, user }) => {
-      try {
-        const service = await getProjectService();
-        const parsed = createProjectSchema.parse(body);
+          if (!project) {
+            set.status = 404;
+            return { success: false, error: 'Project not found' };
+          }
 
-        const project = await service.createProject({
-          ...parsed,
-          ownerId: user?.id || 'system',
-        });
-
-        set.status = 201;
-        return { success: true, data: project };
-      } catch (error) {
-        logger.error('Failed to create project', { error });
-        if (error instanceof z.ZodError) {
-          set.status = 400;
-          return { success: false, error: 'Validation failed', details: error.errors };
+          return { success: true, data: project };
+        } catch (error) {
+          logger.error('Failed to get project', { error, projectId: params.projectId });
+          set.status = 500;
+          return { success: false, error: 'Failed to get project' };
         }
-        set.status = 500;
-        return { success: false, error: 'Failed to create project' };
-      }
-    },
-    withRequiredAuth()
-  );
+      })
 
-  // Update project
-  app.put(
-    '/api/v1/projects/:projectId',
-    async ({ params, body, set }) => {
-      try {
-        const service = await getProjectService();
-        const parsed = updateProjectSchema.parse(body);
+      // Create project
+      .post('/', async ({ body, set, user }: any) => {
+        try {
+          if (!user) {
+            set.status = 401;
+            return { error: 'Authentication required' };
+          }
+          const service = await getProjectService();
+          const parsed = createProjectSchema.safeParse(body);
+          if (!parsed.success) {
+            set.status = 400;
+            return { error: 'Validation Error', details: parsed.error.flatten() };
+          }
 
-        const project = await service.updateProject(params.projectId, parsed);
-        return { success: true, data: project };
-      } catch (error) {
-        logger.error('Failed to update project', { error, projectId: params.projectId });
-        if (error instanceof z.ZodError) {
-          set.status = 400;
-          return { success: false, error: 'Validation failed', details: error.errors };
+          const project = await service.createProject({
+            ...parsed.data,
+            ownerId: user?.id || 'system',
+          });
+
+          set.status = 201;
+          return { success: true, data: project };
+        } catch (error) {
+          logger.error('Failed to create project', { error });
+          set.status = 500;
+          return { success: false, error: 'Failed to create project' };
         }
-        set.status = 500;
-        return { success: false, error: 'Failed to update project' };
-      }
-    },
-    withRequiredAuth()
-  );
+      })
 
-  // Delete project
-  app.delete(
-    '/api/v1/projects/:projectId',
-    async ({ params, set }) => {
-      try {
-        const service = await getProjectService();
-        await service.deleteProject(params.projectId);
-        set.status = 204;
-        return null;
-      } catch (error) {
-        logger.error('Failed to delete project', { error, projectId: params.projectId });
-        set.status = 500;
-        return { success: false, error: 'Failed to delete project' };
-      }
-    },
-    withRequiredAuth()
-  );
+      // Update project
+      .put('/:projectId', async ({ params, body, set, user }: any) => {
+        try {
+          if (!user) {
+            set.status = 401;
+            return { error: 'Authentication required' };
+          }
+          const service = await getProjectService();
+          const parsed = updateProjectSchema.safeParse(body);
+          if (!parsed.success) {
+            set.status = 400;
+            return { error: 'Validation Error', details: parsed.error.flatten() };
+          }
 
-  // Get project metrics
-  app.get(
-    '/api/v1/projects/:projectId/metrics',
-    async ({ params, set }) => {
-      try {
-        const service = await getProjectService();
-        const metrics = await service.getProjectMetrics(params.projectId);
-        return { success: true, data: metrics };
-      } catch (error) {
-        logger.error('Failed to get project metrics', { error, projectId: params.projectId });
-        set.status = 500;
-        return { success: false, error: 'Failed to get project metrics' };
-      }
-    },
-    withRequiredAuth()
-  );
+          const project = await service.updateProject(params.projectId, parsed.data);
+          return { success: true, data: project };
+        } catch (error) {
+          logger.error('Failed to update project', { error, projectId: params.projectId });
+          set.status = 500;
+          return { success: false, error: 'Failed to update project' };
+        }
+      })
 
-  // Get project analytics
-  app.get(
-    '/api/v1/projects/:projectId/analytics',
-    async ({ params, set }) => {
-      try {
-        const service = await getProjectService();
-        const analytics = await service.getProjectAnalytics(params.projectId);
-        return { success: true, data: analytics };
-      } catch (error) {
-        logger.error('Failed to get project analytics', { error, projectId: params.projectId });
-        set.status = 500;
-        return { success: false, error: 'Failed to get project analytics' };
-      }
-    },
-    withRequiredAuth()
-  );
+      // Delete project
+      .delete('/:projectId', async ({ params, set, user }: any) => {
+        try {
+          if (!user) {
+            set.status = 401;
+            return { error: 'Authentication required' };
+          }
+          const service = await getProjectService();
+          await service.deleteProject(params.projectId);
+          set.status = 204;
+          return null;
+        } catch (error) {
+          logger.error('Failed to delete project', { error, projectId: params.projectId });
+          set.status = 500;
+          return { success: false, error: 'Failed to delete project' };
+        }
+      })
 
-  logger.info('Project routes registered');
+      // Get project metrics
+      .get('/:projectId/metrics', async ({ params, set, user }: any) => {
+        try {
+          if (!user) {
+            set.status = 401;
+            return { error: 'Authentication required' };
+          }
+          const service = await getProjectService();
+          const metrics = await service.getProjectMetrics(params.projectId);
+          return { success: true, data: metrics };
+        } catch (error) {
+          logger.error('Failed to get project metrics', { error, projectId: params.projectId });
+          set.status = 500;
+          return { success: false, error: 'Failed to get project metrics' };
+        }
+      })
+
+      // Get project analytics
+      .get('/:projectId/analytics', async ({ params, set, user }: any) => {
+        try {
+          if (!user) {
+            set.status = 401;
+            return { error: 'Authentication required' };
+          }
+          const service = await getProjectService();
+          const analytics = await service.getProjectAnalytics(params.projectId);
+          return { success: true, data: analytics };
+        } catch (error) {
+          logger.error('Failed to get project analytics', { error, projectId: params.projectId });
+          set.status = 500;
+          return { success: false, error: 'Failed to get project analytics' };
+        }
+      })
+  );
 }

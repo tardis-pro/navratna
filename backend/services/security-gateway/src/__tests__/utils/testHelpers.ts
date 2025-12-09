@@ -1,6 +1,6 @@
 import { DataSource } from 'typeorm';
 import { Express } from 'express';
-import { createApp } from '../../app';
+import { createApp } from '../../app.js';
 import {
   UserEntity,
   Agent as AgentEntity,

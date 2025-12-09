@@ -1,7 +1,7 @@
 import { ActionRecommendation, AgentAnalysis, ToolDefinition, SecurityLevel } from '@uaip/types';
-import { CapabilityResolver } from './capability-resolver';
-import { AgentStateMachine } from '../../agent-state/agent-state-machine';
-import { AgentEventBus } from '../../observability/agent-event-bus';
+import { CapabilityResolver } from './capability-resolver.js';
+import { AgentStateMachine } from '../../agent-state/agent-state-machine.js';
+import { AgentEventBus } from '../../observability/agent-event-bus.js';
 import { logger } from '@uaip/utils';
 
 export interface DecisionResult {

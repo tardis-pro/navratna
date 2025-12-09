@@ -16,7 +16,7 @@ import {
   AgentMetricsService,
   AgentIntentService,
   AgentInitializationService,
-} from './index';
+} from './index.js';
 
 export interface AgentEventOrchestratorConfig {
   databaseService: DatabaseService;

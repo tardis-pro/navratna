@@ -1,5 +1,5 @@
-import { WidgetService } from '../../widgetService';
-import { DatabaseService } from '../../databaseService';
+import { WidgetService } from '../../widgetService.js';
+import { DatabaseService } from '../../databaseService.js';
 
 describe('WidgetService', () => {
   let service: WidgetService;

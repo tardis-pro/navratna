@@ -149,7 +149,7 @@ export const logWithContext = (
   serviceName: string,
   level: keyof typeof logLevels,
   message: string,
-  context: Record<string, any> = {}
+  context: Record<string, unknown> = {}
 ) => {
   logger.log(level, message, {
     ...context,
@@ -162,7 +162,7 @@ export const logPerformance = (
   logger: winston.Logger,
   operation: string,
   startTime: number,
-  context: Record<string, any> = {}
+  context: Record<string, unknown> = {}
 ) => {
   const duration = Date.now() - startTime;
   logger.info(`Performance: ${operation}`, {
@@ -176,7 +176,7 @@ export const logPerformance = (
 export const logError = (
   logger: winston.Logger,
   error: Error,
-  context: Record<string, any> = {}
+  context: Record<string, unknown> = {}
 ) => {
   logger.error('Error occurred', {
     error: {
@@ -192,7 +192,7 @@ export const logError = (
 export const logSecurityEvent = (
   logger: winston.Logger,
   event: string,
-  details: Record<string, any> = {}
+  details: Record<string, unknown> = {}
 ) => {
   logger.warn(`Security Event: ${event}`, {
     event,
@@ -207,7 +207,7 @@ export const logAudit = (
   action: string,
   userId: string,
   resource: string,
-  details: Record<string, any> = {}
+  details: Record<string, unknown> = {}
 ) => {
   logger.info(`Audit: ${action}`, {
     action,

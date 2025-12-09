@@ -1,5 +1,5 @@
-import { AgentIntelligenceService } from '../../agentIntelligenceService';
-import { DatabaseService } from '../../databaseService';
+import { AgentIntelligenceService } from '../../agentIntelligenceService.js';
+import { DatabaseService } from '../../databaseService.js';
 
 jest.mock('../../databaseService');
 jest.mock('../../eventBusService');

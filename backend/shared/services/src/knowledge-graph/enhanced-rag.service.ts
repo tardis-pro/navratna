@@ -1,5 +1,5 @@
-import { TEIEmbeddingService, RerankResult } from './tei-embedding.service';
-import { QdrantService } from '../qdrant.service';
+import { TEIEmbeddingService, RerankResult } from './tei-embedding.service.js';
+import { QdrantService } from '../qdrant.service.js';
 
 interface VectorSearchResult {
   id: string;

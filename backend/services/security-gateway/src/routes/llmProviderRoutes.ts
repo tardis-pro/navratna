@@ -3,7 +3,7 @@ import {
   llmProviderManagementService,
   CreateLLMProviderRequest,
   UpdateLLMProviderRequest,
-} from '../services/llmProviderManagementService';
+} from '../services/llmProviderManagementService.js';
 import { logger } from '@uaip/utils';
 
 // Request/Response schemas

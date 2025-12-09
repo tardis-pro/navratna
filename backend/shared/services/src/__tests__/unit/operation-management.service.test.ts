@@ -1,4 +1,4 @@
-import { OperationManagementService } from '../../operation-management.service';
+import { OperationManagementService } from '../../operation-management.service.js';
 
 describe('OperationManagementService', () => {
   let service: OperationManagementService;

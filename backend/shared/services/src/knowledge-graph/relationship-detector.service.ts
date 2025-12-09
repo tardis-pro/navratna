@@ -1,7 +1,7 @@
 import { KnowledgeItem, KnowledgeRelationship } from '@uaip/types';
-import { EmbeddingService } from './embedding.service';
-import { SmartEmbeddingService } from './smart-embedding.service';
-import { KnowledgeRepository } from '../database/repositories/knowledge.repository';
+import { EmbeddingService } from './embedding.service.js';
+import { SmartEmbeddingService } from './smart-embedding.service.js';
+import { KnowledgeRepository } from '../database/repositories/knowledge.repository.js';
 
 // Type for any service that can generate embeddings and calculate similarity
 type EmbeddingProvider = EmbeddingService | SmartEmbeddingService;

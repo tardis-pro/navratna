@@ -1,4 +1,4 @@
-import { EventBusService } from '../../eventBusService';
+import { EventBusService } from '../../eventBusService.js';
 
 describe('EventBusService', () => {
   let service: EventBusService;

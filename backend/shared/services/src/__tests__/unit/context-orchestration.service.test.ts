@@ -1,4 +1,4 @@
-import { ContextOrchestrationService } from '../../context-orchestration.service';
+import { ContextOrchestrationService } from '../../context-orchestration.service.js';
 
 describe('ContextOrchestrationService', () => {
   let service: ContextOrchestrationService;

@@ -1,13 +1,13 @@
 // Example of how to integrate error logging into your services
 // This file shows usage patterns - copy these into your actual service files
 
-import { createErrorLogger, withErrorTracking, withSyncErrorTracking } from './errorLogger';
+import { createErrorLogger, withErrorTracking, withSyncErrorTracking } from './errorLogger.js';
 import {
   DatabaseConnectionError,
   ValidationError,
   AuthenticationError,
   BusinessLogicError,
-} from './errorLogger';
+} from './errorLogger.js';
 
 // 1. Create service-specific error logger
 const errorLogger = createErrorLogger('your-service-name');
