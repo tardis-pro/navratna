@@ -48,7 +48,7 @@
     "concurrently": "catalog:dev",
     "eslint": "catalog:",
     "jest": "catalog:backend",
-    "supertest": "^7.0.0",
+    "supertest": "^7.1.4",
     "ts-jest": "catalog:backend",
     "tsc-alias": "catalog:backend",
     "tsx": "catalog:backend",
