@@ -656,6 +656,7 @@ services:
       - "8081:80"
     volumes:
       - ./api-gateway/nginx.conf:/etc/nginx/nginx.conf
+      - ./apps/frontend/dist:/var/www/html:ro
     depends_on:
       - agent-intelligence
       - orchestration-pipeline
