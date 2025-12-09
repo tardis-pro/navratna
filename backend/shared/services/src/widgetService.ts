@@ -374,7 +374,10 @@ export class WidgetService {
     }
 
     // TODO: Implement getUserPermissions in UserService
-    const permissions = { rolePermissions: [], directPermissions: [] };
+    const permissions: {
+      rolePermissions: Array<{ operations?: string[] }>;
+      directPermissions: Array<{ operations?: string[] }>;
+    } = { rolePermissions: [], directPermissions: [] };
     const allPermissions = [
       ...permissions.rolePermissions.flatMap((rp) => rp.operations),
       ...permissions.directPermissions.flatMap((dp) => dp.operations),

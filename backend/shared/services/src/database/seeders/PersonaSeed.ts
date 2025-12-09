@@ -2,7 +2,7 @@ import { DataSource, DeepPartial } from 'typeorm';
 import { BaseSeed } from './BaseSeed.js';
 import { Persona as PersonaEntity } from '../../entities/persona.entity.js';
 import { UserEntity } from '../../entities/user.entity.js';
-import { Persona, getAllPersonasFlatWrapper } from '@uaip/types';
+import { Persona, getAllPersonasFlatWrapper, PersonaTone, PersonaStyle, PersonaEnergyLevel } from '@uaip/types';
 
 /**
  * Persona seeder with diverse characteristics
@@ -60,24 +60,24 @@ export class PersonaSeed extends BaseSeed<PersonaEntity> {
       // Add missing required properties from PersonaEntity
       totalInteractions: 0,
       successfulInteractions: 0,
-      discussionParticipants: [],
-      analytics: [],
+      discussionParticipants: [] as any[],
+      analytics: [] as any[],
       // Optional properties with defaults
-      qualityScore: undefined,
-      consistencyScore: undefined,
-      userSatisfaction: undefined,
-      lastUsedAt: undefined,
-      lastUpdatedBy: undefined,
+      qualityScore: undefined as number | undefined,
+      consistencyScore: undefined as number | undefined,
+      userSatisfaction: undefined as number | undefined,
+      lastUsedAt: undefined as Date | undefined,
+      lastUpdatedBy: undefined as string | undefined,
       // Hybrid persona properties (optional)
-      tone: undefined,
-      style: undefined,
-      energyLevel: undefined,
-      chattiness: undefined,
-      empathyLevel: undefined,
-      parentPersonas: undefined,
-      hybridTraits: undefined,
+      tone: undefined as PersonaTone | undefined,
+      style: undefined as PersonaStyle | undefined,
+      energyLevel: undefined as PersonaEnergyLevel | undefined,
+      chattiness: undefined as number | undefined,
+      empathyLevel: undefined as number | undefined,
+      parentPersonas: undefined as string[] | undefined,
+      hybridTraits: undefined as string[] | undefined,
       dominantExpertise: persona.expertise?.[0]?.name,
-      personalityBlend: undefined,
+      personalityBlend: undefined as Record<string, number> | undefined,
 
       createdAt: persona.createdAt || new Date(),
       updatedAt: persona.updatedAt || new Date(),

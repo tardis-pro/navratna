@@ -14,6 +14,7 @@ import {
   ParticipantRole,
   DiscussionEventType,
   MessageSentiment,
+  DiscussionState,
 } from '@uaip/types';
 import { Persona } from '@uaip/types';
 import { DiscussionRepository } from './database/repositories/DiscussionRepository.js';
@@ -82,9 +83,9 @@ export class DiscussionService {
         consensusLevel: 0,
         engagementScore: 0,
         topicDrift: 0,
-        keyPoints: [],
-        decisions: [],
-        actionItems: [],
+        keyPoints: [] as DiscussionState['keyPoints'],
+        decisions: [] as DiscussionState['decisions'],
+        actionItems: [] as DiscussionState['actionItems'],
       };
 
       // Create discussion in database
@@ -105,7 +106,7 @@ export class DiscussionService {
         estimatedDuration: request.estimatedDuration,
         tags: request.tags || [],
         objectives: request.objectives || [],
-        outcomes: [],
+        outcomes: [] as { outcome: string; achievedAt: Date; confidence: number; }[],
         relatedDiscussions: request.relatedDiscussions || [],
         parentDiscussionId: request.parentDiscussionId,
         childDiscussions: request.childDiscussions || [],
@@ -116,7 +117,7 @@ export class DiscussionService {
           averageMessageLength: 0,
           participationDistribution: {},
           sentimentDistribution: {},
-          topicProgression: [],
+          topicProgression: [] as { topic: string; timestamp: Date; confidence: number; }[],
         },
         metadata: request.metadata,
         createdAt: new Date(),

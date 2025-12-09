@@ -28,7 +28,7 @@ export class KnowledgeRepository {
       sourceUrl: request.source.url,
       tags: request.tags || [],
       confidence: request.confidence || 0.8,
-      metadata: request.source.metadata || {},
+      metadata: (request.source.metadata || {}) as any,
       createdBy: request.createdBy,
       organizationId: request.organizationId,
       accessLevel: request.accessLevel || 'public',
@@ -47,7 +47,7 @@ export class KnowledgeRepository {
     await this.knowledgeRepo.update(numericId, {
       ...updates,
       updatedAt: new Date(),
-    });
+    } as any);
 
     const updated = await this.knowledgeRepo.findOne({ where: { id: numericId } });
     if (!updated) {

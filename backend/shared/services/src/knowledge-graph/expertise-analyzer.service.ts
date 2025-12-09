@@ -246,7 +246,7 @@ export class ExpertiseAnalyzerService {
     ],
   };
 
-  private readonly domainKeywords = {
+  private readonly domainKeywords: Record<string, string[]> = {
     software_development: [
       'code',
       'programming',
@@ -692,7 +692,7 @@ export class ExpertiseAnalyzerService {
     const knowledgeAreas: KnowledgeArea[] = [];
 
     // Simple implementation - would be enhanced with ML in production
-    const keywords = this.domainKeywords[domain] || [];
+    const keywords = (this.domainKeywords as Record<string, string[]>)[domain] || [];
 
     for (const keyword of keywords) {
       const mentions = evidence.filter((text) =>

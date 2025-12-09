@@ -15,6 +15,20 @@ const jwtPayloadSchema = z.object({
 
 export type JWTPayload = z.infer<typeof jwtPayloadSchema>;
 
+// User type for middleware context
+export interface JWTUser {
+  id: string;
+  email?: string;
+  role?: string;
+  permissions: string[];
+}
+
+// Auth error type
+export interface AuthError {
+  error: string;
+  details?: string;
+}
+
 // Configuration interface
 export interface JWTConfig {
   secret: string;
@@ -158,10 +172,10 @@ export function createJWTMiddleware(options?: {
 
         if (!token) {
           if (options?.optional) {
-            return { user: null };
+            return { user: null as JWTUser | null };
           }
           set.status = 401;
-          return { user: null, authError: { error: 'No token provided' } };
+          return { user: null as JWTUser | null, authError: { error: 'No token provided' } as AuthError };
         }
 
         const payload = validator.verify(token);
@@ -172,7 +186,7 @@ export function createJWTMiddleware(options?: {
             email: payload.email,
             role: payload.role,
             permissions: payload.permissions || [],
-          },
+          } as JWTUser,
         };
       } catch (error) {
         logger.warn('JWT middleware authentication failed', {
@@ -180,16 +194,16 @@ export function createJWTMiddleware(options?: {
         });
 
         if (options?.optional) {
-          return { user: null };
+          return { user: null as JWTUser | null };
         }
 
         set.status = 401;
         return {
-          user: null,
+          user: null as JWTUser | null,
           authError: {
             error: 'Invalid token',
             details: error instanceof Error ? error.message : 'Token verification failed',
-          },
+          } as AuthError,
         };
       }
     });

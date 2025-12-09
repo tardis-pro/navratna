@@ -20,8 +20,8 @@ import { OntologyBuilderService } from './ontology-builder.service.js';
 import { TaxonomyGeneratorService } from './taxonomy-generator.service.js';
 import { ReconciliationService } from './reconciliation.service.js';
 import { KnowledgeSyncService } from './knowledge-sync.service.js';
-import { ChatParserService } from './chat-parser.service.js';
-import { ChatKnowledgeExtractorService } from './chat-knowledge-extractor.service.js';
+import { ChatParserService, ParsedConversation, ParsedMessage } from './chat-parser.service.js';
+import { ChatKnowledgeExtractorService, ExtractedKnowledge, QAPair, DecisionPoint } from './chat-knowledge-extractor.service.js';
 import {
   BatchProcessorService,
   FileData,
@@ -811,8 +811,8 @@ export class KnowledgeGraphService {
   async trackLearningProgression(participant: string, timeWindow?: { start?: Date; end?: Date }) {
     try {
       // Get conversations for the time window
-      const conversations = []; // Would get from repository with time filter
-      const allMessages = conversations.flatMap((conv) => conv.messages || []);
+      const conversations: ParsedConversation[] = []; // Would get from repository with time filter
+      const allMessages: ParsedMessage[] = conversations.flatMap((conv) => conv.messages || []);
 
       const moments = await this.learningDetector.detectLearningMoments(allMessages, {
         participants: [participant],
@@ -854,7 +854,7 @@ export class KnowledgeGraphService {
     // Save extracted knowledge (replaces facts and procedures)
     if (knowledge.extractedKnowledge?.length > 0) {
       savePromises.push(
-        ...knowledge.extractedKnowledge.map((item) =>
+        ...knowledge.extractedKnowledge.map((item: ExtractedKnowledge) =>
           this.ingest([
             {
               content: item.content,
@@ -883,7 +883,7 @@ export class KnowledgeGraphService {
     // Save Q&A pairs
     if (knowledge.qaPairs?.length > 0) {
       savePromises.push(
-        ...knowledge.qaPairs.map((qa) =>
+        ...knowledge.qaPairs.map((qa: QAPair) =>
           this.ingest([
             {
               content: `Q: ${qa.question}\nA: ${qa.answer}`,
@@ -911,7 +911,7 @@ export class KnowledgeGraphService {
     // Save decision points
     if (knowledge.decisionPoints?.length > 0) {
       savePromises.push(
-        ...knowledge.decisionPoints.map((decision) =>
+        ...knowledge.decisionPoints.map((decision: DecisionPoint) =>
           this.ingest([
             {
               content: decision.decision,

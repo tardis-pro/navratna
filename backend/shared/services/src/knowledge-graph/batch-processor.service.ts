@@ -1,6 +1,6 @@
 import { logger } from '@uaip/utils';
 import { ChatParserService } from './chat-parser.service.js';
-import { ChatKnowledgeExtractorService } from './chat-knowledge-extractor.service.js';
+import { ChatKnowledgeExtractorService, ExtractedKnowledge, QAPair, DecisionPoint } from './chat-knowledge-extractor.service.js';
 import { KnowledgeGraphService } from './knowledge-graph.service.js';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -305,7 +305,7 @@ export class BatchProcessorService {
     // Save extracted knowledge items
     if (knowledge.extractedKnowledge?.length > 0) {
       ingestItems.push(
-        ...knowledge.extractedKnowledge.map((item) => ({
+        ...knowledge.extractedKnowledge.map((item: ExtractedKnowledge) => ({
           content: item.content,
           metadata: {
             confidence: item.confidence,
@@ -314,7 +314,10 @@ export class BatchProcessorService {
             type: item.type,
             extractedFrom: 'chat',
           },
-          source: item.source || 'chat',
+          source: {
+            type: 'AGENT_INTERACTION',
+            identifier: 'chat',
+          },
           userId,
         }))
       );
@@ -323,7 +326,7 @@ export class BatchProcessorService {
     // Save Q&A pairs
     if (knowledge.qaPairs?.length > 0) {
       ingestItems.push(
-        ...knowledge.qaPairs.map((qa) => ({
+        ...knowledge.qaPairs.map((qa: QAPair) => ({
           content: `Q: ${qa.question}\nA: ${qa.answer}`,
           metadata: {
             question: qa.question,
@@ -333,7 +336,10 @@ export class BatchProcessorService {
             tags: qa.tags,
             extractedFrom: 'chat',
           },
-          source: qa.source || 'chat',
+          source: {
+            type: 'AGENT_INTERACTION',
+            identifier: 'chat',
+          },
           userId,
         }))
       );
@@ -342,18 +348,21 @@ export class BatchProcessorService {
     // Save decision points
     if (knowledge.decisionPoints?.length > 0) {
       ingestItems.push(
-        ...knowledge.decisionPoints.map((decision) => ({
+        ...knowledge.decisionPoints.map((decision: DecisionPoint) => ({
           content: decision.decision,
           metadata: {
-            options: decision.options,
+            options: decision.alternatives,
             reasoning: decision.reasoning,
             outcome: decision.outcome,
             confidence: decision.confidence,
             context: decision.context,
-            tags: decision.tags,
+            tags: [] as string[],
             extractedFrom: 'chat',
           },
-          source: decision.source || 'chat',
+          source: {
+            type: 'AGENT_INTERACTION',
+            identifier: 'chat',
+          },
           userId,
         }))
       );

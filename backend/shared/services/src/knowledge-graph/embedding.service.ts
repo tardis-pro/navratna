@@ -164,7 +164,8 @@ export class EmbeddingService {
     if (context.conversationHistory && context.conversationHistory.length > 0) {
       parts.push('Conversation History:');
       context.conversationHistory.forEach((msg) => {
-        parts.push(`${msg.role}: ${msg.content}`);
+        const message = msg as { role?: string; content?: string };
+        parts.push(`${message.role}: ${message.content}`);
       });
     }
 

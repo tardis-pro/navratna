@@ -243,7 +243,7 @@ Significance: Importance=${episode.significance.importance}, Novelty=${episode.s
         context.who = line
           .replace('Participants:', '')
           .split(',')
-          .map((p) => p.trim());
+          .map((p: string) => p.trim());
       }
     }
 

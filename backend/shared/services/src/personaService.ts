@@ -246,7 +246,7 @@ export class PersonaService {
 
       queryBuilder.orderBy('persona.createdAt', 'DESC').skip(offset).take(limit);
 
-      const entities = await queryBuilder.getMany();
+      const entities: PersonaEntity[] = await queryBuilder.getMany();
       const personas = entities.map((entity) => this.entityToPersona(entity));
 
       return {
@@ -467,9 +467,9 @@ export class PersonaService {
       }
 
       queryBuilder.orderBy('persona.totalInteractions', 'DESC');
-      const entities = await queryBuilder.getMany();
+      const entities: PersonaEntity[] = await queryBuilder.getMany();
 
-      return entities.map((entity) => ({
+      return entities.map((entity: PersonaEntity) => ({
         id: entity.id,
         name: entity.name,
         description: entity.description,
@@ -751,15 +751,17 @@ export class PersonaService {
       role: entity.role,
       description: entity.description,
       traits: entity.traits || [],
-      expertise: (entity.expertise || []).map((expName, index) => ({
-        id: `${Date.now()}-${index}`,
-        name: expName,
-        description: '',
-        category: 'general',
-        level: 'intermediate' as const,
-        keywords: [],
-        relatedDomains: [],
-      })),
+      expertise: (entity.expertise || []).map(
+        (expName: string, index: number): ExpertiseDomain => ({
+          id: `${Date.now()}-${index}`,
+          name: expName,
+          description: '',
+          category: 'general',
+          level: 'intermediate',
+          keywords: [] as string[],
+          relatedDomains: [] as string[],
+        })
+      ),
       background: entity.background,
       systemPrompt: entity.systemPrompt,
       conversationalStyle: entity.conversationalStyle!,

@@ -3,7 +3,7 @@
 // Part of @uaip/shared-services
 
 import neo4j, { Driver, Session, Result } from 'neo4j-driver';
-import { ToolDefinition } from '@uaip/types';
+import { ToolDefinition, ToolExample } from '@uaip/types';
 import { logger } from '@uaip/utils';
 import { config, DatabaseConfig } from '@uaip/config';
 
@@ -339,9 +339,9 @@ export class ToolGraphDatabase {
         version: '1.0.0',
         parameters: {},
         returnType: {},
-        examples: [],
+        examples: [] as ToolExample[],
         requiresApproval: false,
-        dependencies: [],
+        dependencies: [] as string[],
         isEnabled: true,
         executionTimeEstimate: 1000,
         costEstimate: 0,

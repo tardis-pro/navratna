@@ -303,7 +303,7 @@ Usage: Accessed ${concept.usage.timesAccessed} times, Success rate: ${concept.us
         examples = line
           .replace('Examples:', '')
           .split(',')
-          .map((e) => e.trim());
+          .map((e: string) => e.trim());
       } else if (line.startsWith('Properties:')) {
         try {
           properties = JSON.parse(line.replace('Properties:', '').trim());

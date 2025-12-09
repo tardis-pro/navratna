@@ -630,13 +630,14 @@ export class ProjectManagementService {
 
   // Utility methods
   private getDefaultPermissions(role: string): string[] {
-    const permissionSets = {
+    const permissionSets: Record<string, string[]> = {
       owner: ['read', 'write', 'delete', 'admin', 'invite', 'manage_agents', 'manage_budget'],
       admin: ['read', 'write', 'invite', 'manage_agents'],
       member: ['read', 'write'],
       viewer: ['read'],
     };
 
-    return permissionSets[role] || permissionSets.viewer;
+    const permissions = permissionSets[role];
+    return permissions ?? permissionSets.viewer;
   }
 }

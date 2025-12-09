@@ -621,7 +621,10 @@ export class KnowledgeBootstrapService {
       for (const item of items) {
         // From metadata domain
         if (item.metadata.domain) {
-          domainCounts.set(item.metadata.domain, (domainCounts.get(item.metadata.domain) || 0) + 1);
+          domainCounts.set(
+            item.metadata.domain as string,
+            (domainCounts.get(item.metadata.domain as string) || 0) + 1
+          );
         }
 
         // From tags (exclude common system tags)

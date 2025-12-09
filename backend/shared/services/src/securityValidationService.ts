@@ -288,14 +288,14 @@ export class SecurityValidationService {
       const userPermissions = new Set<string>();
 
       // Process role-based permissions
-      permissions.rolePermissions.forEach((rolePermission) => {
+      permissions.rolePermissions.forEach((rolePermission: { operations?: string[] }) => {
         if (rolePermission.operations) {
           rolePermission.operations.forEach((op: string) => userPermissions.add(op));
         }
       });
 
       // Process direct permissions
-      permissions.directPermissions.forEach((directPermission) => {
+      permissions.directPermissions.forEach((directPermission: { operations?: string[] }) => {
         if (directPermission.operations) {
           directPermission.operations.forEach((op: string) => userPermissions.add(op));
         }

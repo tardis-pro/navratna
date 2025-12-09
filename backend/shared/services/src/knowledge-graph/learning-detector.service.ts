@@ -1044,8 +1044,8 @@ export class LearningDetectorService {
     // Count follow-up questions from the learner
     if (!params.allMessages || !params.learner) return 0;
 
-    const learnerMessages = params.allMessages.filter((m) => m.sender === params.learner);
-    return learnerMessages.filter((m) => this.isQuestion(m.content)).length;
+    const learnerMessages = params.allMessages.filter((m: ParsedMessage) => m.sender === params.learner);
+    return learnerMessages.filter((m: ParsedMessage) => this.isQuestion(m.content)).length;
   }
 
   private extractAcknowledgments(params: any): string[] {
@@ -1121,9 +1121,9 @@ export class LearningDetectorService {
     const teachingContent = params.answer?.content || params.teachingMessage?.content || '';
     if (!teachingContent) return 0.5;
 
-    const sentences = teachingContent.split(/[.!?]+/).filter((s) => s.trim().length > 0);
+    const sentences = teachingContent.split(/[.!?]+/).filter((s: string) => s.trim().length > 0);
     const avgSentenceLength =
-      sentences.reduce((sum, s) => sum + s.split(/\s+/).length, 0) / sentences.length;
+      sentences.reduce((sum: number, s: string) => sum + s.split(/\s+/).length, 0) / sentences.length;
 
     return Math.max(0, Math.min(1, 1 - (avgSentenceLength - 15) / 30));
   }

@@ -133,7 +133,7 @@ export class KnowledgeClusteringService {
 
       return searchResults.map((result) => ({
         id: result.id.toString(),
-        vector: [], // Search results don't include vectors by default
+        vector: [] as number[], // Search results don't include vectors by default
         payload: result.payload as any,
       }));
     } catch (error) {
@@ -202,11 +202,15 @@ export class KnowledgeClusteringService {
       }
 
       const data = await response.json();
-      return data.result.points.map((point: any) => ({
-        id: point.id.toString(),
-        vector: point.vector || [],
-        payload: point.payload as any,
-      }));
+      return data.result.points.map((point: any) => {
+        const vector: number[] = Array.isArray(point.vector) ? (point.vector as number[]) : [];
+
+        return {
+          id: point.id.toString(),
+          vector,
+          payload: point.payload as any,
+        };
+      });
     } catch (error) {
       console.error('Error getting Qdrant points:', error);
       return [];

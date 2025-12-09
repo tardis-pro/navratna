@@ -1,11 +1,12 @@
 import { v4 as uuidv4 } from 'uuid';
 import { logger } from '@uaip/utils';
-import { KnowledgeItem, KnowledgeType, SourceType } from '@uaip/types';
+import { KnowledgeIngestRequest, KnowledgeItem, KnowledgeType, SourceType } from '@uaip/types';
 import {
   ConceptExtractorService,
   ConceptNode,
   ConceptRelationship,
   ConceptExtractionResult,
+  ConceptProperty,
 } from './concept-extractor.service.js';
 import { KnowledgeRepository } from '../database/repositories/knowledge.repository.js';
 import { KnowledgeSyncService } from './knowledge-sync.service.js';
@@ -376,13 +377,13 @@ export class OntologyBuilderService {
   private async saveOntologyToKnowledgeGraph(ontology: DomainOntology): Promise<void> {
     try {
       // Create knowledge ingest requests for each concept
-      const conceptItems = ontology.concepts.map((concept) => ({
+      const conceptItems: KnowledgeIngestRequest[] = ontology.concepts.map((concept) => ({
         content: `${concept.name}: ${concept.definition}`,
         type: KnowledgeType.CONCEPTUAL,
         source: {
           type: SourceType.AGENT_CONCEPT,
           identifier: `ontology_${ontology.domain}`,
-          url: undefined,
+          url: undefined as string | undefined,
           metadata: {
             domain: ontology.domain,
             ontologyId: ontology.id,
@@ -405,13 +406,13 @@ export class OntologyBuilderService {
       }
 
       // Create relationship items
-      const relationshipItems = ontology.relationships.map((rel) => ({
+      const relationshipItems: KnowledgeIngestRequest[] = ontology.relationships.map((rel) => ({
         content: `${rel.sourceConceptId} ${rel.relationshipType} ${rel.targetConceptId}`,
         type: KnowledgeType.SEMANTIC,
         source: {
           type: SourceType.AGENT_CONCEPT,
           identifier: `ontology_${ontology.domain}_relationships`,
-          url: undefined,
+          url: undefined as string | undefined,
           metadata: {
             domain: ontology.domain,
             ontologyId: ontology.id,
@@ -433,13 +434,13 @@ export class OntologyBuilderService {
       }
 
       // Create ontology metadata item
-      const ontologyMetadataItem = {
+      const ontologyMetadataItem: KnowledgeIngestRequest = {
         content: `Domain ontology for ${ontology.domain} with ${ontology.metadata.totalConcepts} concepts`,
         type: KnowledgeType.SEMANTIC,
         source: {
           type: SourceType.AGENT_CONCEPT,
           identifier: `ontology_${ontology.domain}_metadata`,
-          url: undefined,
+          url: undefined as string | undefined,
           metadata: {
             domain: ontology.domain,
             ontologyId: ontology.id,
@@ -480,7 +481,14 @@ export class OntologyBuilderService {
       }
 
       const metadataItem = ontologyItems[0];
-      const ontologyId = metadataItem.metadata.ontologyId;
+      const ontologyId =
+        typeof metadataItem.metadata.ontologyId === 'string'
+          ? metadataItem.metadata.ontologyId
+          : metadataItem.id;
+      const ontologyVersion =
+        typeof metadataItem.metadata.ontologyVersion === 'string'
+          ? metadataItem.metadata.ontologyVersion
+          : '1.0.0';
 
       // Reconstruct ontology from knowledge graph
       const conceptItems = await this.knowledgeRepository.findByTags([
@@ -495,27 +503,67 @@ export class OntologyBuilderService {
         'relationship',
       ]);
 
-      const concepts: ConceptNode[] = conceptItems.map((item) => ({
-        id: item.id,
-        name: item.content.split(':')[0].trim(),
-        definition: item.content.split(':').slice(1).join(':').trim(),
-        domain: item.metadata.domain,
-        confidence: item.confidence,
-        properties: item.metadata.properties || [],
-        instances: item.metadata.instances || [],
-        synonyms: item.tags.filter(
-          (tag) => tag !== domain && tag !== 'ontology' && tag !== 'concept'
-        ),
-        relatedConcepts: [],
-      }));
+      const concepts: ConceptNode[] = conceptItems.map((item) => {
+        const conceptDomain =
+          typeof item.metadata.domain === 'string' && item.metadata.domain
+            ? item.metadata.domain
+            : domain;
+        const properties = Array.isArray(item.metadata.properties)
+          ? (item.metadata.properties as ConceptProperty[])
+          : [];
+        const instances = Array.isArray(item.metadata.instances)
+          ? (item.metadata.instances as string[])
+          : [];
 
-      const relationships: ConceptRelationship[] = relationshipItems.map((item) => ({
-        sourceConceptId: item.metadata.sourceConceptId,
-        targetConceptId: item.metadata.targetConceptId,
-        relationshipType: item.metadata.relationshipType,
-        confidence: item.confidence,
-        evidence: item.metadata.evidence || [],
-      }));
+        return {
+          id: item.id,
+          name: item.content.split(':')[0].trim(),
+          definition: item.content.split(':').slice(1).join(':').trim(),
+          domain: conceptDomain,
+          confidence: item.confidence,
+          properties,
+          instances,
+          synonyms: item.tags.filter(
+            (tag) => tag !== domain && tag !== 'ontology' && tag !== 'concept'
+          ),
+          relatedConcepts: [] as string[],
+        };
+      });
+
+      const relationships: ConceptRelationship[] = relationshipItems
+        .map((item) => {
+          const sourceConceptId =
+            typeof item.metadata.sourceConceptId === 'string'
+              ? item.metadata.sourceConceptId
+              : null;
+          const targetConceptId =
+            typeof item.metadata.targetConceptId === 'string'
+              ? item.metadata.targetConceptId
+              : null;
+          const relationshipType =
+            typeof item.metadata.relationshipType === 'string'
+              ? (item.metadata.relationshipType as ConceptRelationship['relationshipType'])
+              : null;
+
+          if (!sourceConceptId || !targetConceptId || !relationshipType) {
+            return null;
+          }
+
+          const evidence =
+            Array.isArray(item.metadata.evidence) &&
+            item.metadata.evidence.every((entry: unknown) => typeof entry === 'string')
+              ? (item.metadata.evidence as string[])
+              : [];
+
+        return {
+            sourceConceptId,
+            targetConceptId,
+            relationshipType,
+            confidence: item.confidence,
+            evidence,
+          };
+        })
+        .filter((rel): rel is ConceptRelationship => rel !== null);
 
       const hierarchy = this.buildConceptHierarchy(concepts, relationships);
       const rules = this.generateOntologyRules(
@@ -532,21 +580,32 @@ export class OntologyBuilderService {
         domain
       );
 
+      const totalConcepts = concepts.length;
+      const totalRelationships = relationships.length;
+      const avgConfidence =
+        totalConcepts > 0 ? concepts.reduce((sum, c) => sum + c.confidence, 0) / totalConcepts : 0;
+      const buildTime =
+        typeof metadataItem.metadata.buildTime === 'number' ? metadataItem.metadata.buildTime : 0;
+      const sourceKnowledgeItems =
+        typeof metadataItem.metadata.sourceKnowledgeItems === 'number'
+          ? metadataItem.metadata.sourceKnowledgeItems
+          : 0;
+
       const ontology: DomainOntology = {
         id: ontologyId,
         domain,
-        version: metadataItem.metadata.ontologyVersion || '1.0.0',
+        version: ontologyVersion,
         concepts,
         relationships,
         hierarchy,
         rules,
         metadata: {
-          totalConcepts: concepts.length,
-          totalRelationships: relationships.length,
-          avgConfidence: concepts.reduce((sum, c) => sum + c.confidence, 0) / concepts.length,
-          buildTime: metadataItem.metadata.buildTime || 0,
+          totalConcepts,
+          totalRelationships,
+          avgConfidence,
+          buildTime,
           lastUpdated: metadataItem.updatedAt,
-          sourceKnowledgeItems: metadataItem.metadata.sourceKnowledgeItems || 0,
+          sourceKnowledgeItems,
         },
       };
 

@@ -201,7 +201,7 @@ export class ConceptExtractorService {
                 id: conceptId,
                 name: cleanName,
                 definition: cleanDefinition,
-                domain: sourceItem.metadata.domain || this.inferDomain(sourceItem.tags),
+                domain: (sourceItem.metadata.domain as string) || this.inferDomain(sourceItem.tags),
                 confidence: 0.8,
                 properties: [],
                 instances: [],

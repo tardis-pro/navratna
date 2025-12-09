@@ -955,7 +955,7 @@ export class QAGeneratorService {
     let confidence = 0.7; // Base confidence
 
     // Adjust based on method
-    const methodBonuses = {
+    const methodBonuses: Record<string, number> = {
       factual: 0.1,
       procedural: 0.05,
       definition: 0.15,
@@ -964,7 +964,7 @@ export class QAGeneratorService {
       meta: -0.1,
     };
 
-    confidence += methodBonuses[method] || 0;
+    confidence += methodBonuses[method] ?? 0;
 
     // Adjust based on content quality
     if (this.isValidQuestion(question)) confidence += 0.1;

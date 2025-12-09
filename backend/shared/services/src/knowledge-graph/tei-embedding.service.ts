@@ -300,7 +300,11 @@ export class TEIEmbeddingService {
     if (context.conversationHistory && context.conversationHistory.length > 0) {
       parts.push('Conversation History:');
       context.conversationHistory.forEach((msg) => {
-        parts.push(`${msg.role}: ${msg.content}`);
+        if (msg && typeof msg === 'object' && 'role' in msg && 'content' in msg) {
+          const role = (msg as { role?: unknown }).role;
+          const content = (msg as { content?: unknown }).content;
+          parts.push(`${String(role ?? 'unknown')}: ${String(content ?? '')}`);
+        }
       });
     }
 

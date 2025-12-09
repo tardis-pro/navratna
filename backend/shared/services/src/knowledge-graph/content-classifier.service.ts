@@ -97,7 +97,7 @@ export class ContentClassifier {
   }
 
   private determineKnowledgeType(content: string): KnowledgeType {
-    const scores = {
+    const scores: Record<KnowledgeType, number> = {
       [KnowledgeType.PROCEDURAL]: this.calculateKeywordScore(content, this.procedureKeywords),
       [KnowledgeType.CONCEPTUAL]: this.calculateKeywordScore(content, this.conceptualKeywords),
       [KnowledgeType.EXPERIENTIAL]: this.calculateKeywordScore(content, this.experientialKeywords),
@@ -126,9 +126,11 @@ export class ContentClassifier {
     }
 
     // Return the type with the highest score
-    return Object.entries(scores).reduce((a, b) =>
-      scores[a[0]] > scores[b[0]] ? a : b
-    )[0] as KnowledgeType;
+    const [topType] = (Object.entries(scores) as [KnowledgeType, number][]).reduce((a, b) =>
+      a[1] > b[1] ? a : b
+    );
+
+    return topType;
   }
 
   private calculateKeywordScore(content: string, keywords: string[]): number {

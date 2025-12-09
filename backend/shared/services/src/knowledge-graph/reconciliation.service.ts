@@ -349,7 +349,7 @@ export class ReconciliationService {
 
     // Group items by domain
     for (const item of items) {
-      const domain = item.metadata.domain || this.inferDomain(item);
+      const domain = this.inferDomain(item);
       if (!domainClusters.has(domain)) {
         domainClusters.set(domain, []);
       }
@@ -708,7 +708,12 @@ export class ReconciliationService {
   }
 
   private inferDomain(item: KnowledgeItem): string {
-    return item.metadata.domain || item.tags[0] || 'general';
+    const metadataDomain = item.metadata.domain;
+    if (typeof metadataDomain === 'string' && metadataDomain.trim().length > 0) {
+      return metadataDomain;
+    }
+
+    return item.tags[0] || 'general';
   }
 
   private async generateDomainSummary(

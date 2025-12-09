@@ -121,7 +121,7 @@ export class UnifiedModelSelectionFacade {
       strategiesAttempted.push(modelSelection.selectionStrategy);
 
       // Generate fallback chain (simplified - no provider fallbacks)
-      const fallbackChain = { primary: modelSelection, fallbacks: [] };
+      const fallbackChain: FallbackChain = { primary: modelSelection, fallbacks: [] };
 
       // Build unified result
       const selectionTime = Date.now() - startTime;
