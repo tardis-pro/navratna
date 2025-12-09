@@ -38,7 +38,7 @@
     "concurrently": "catalog:dev",
     "esbuild": "catalog:dev",
     "eslint": "catalog:backend",
-    "glob": "^10.3.10",
+    "glob": "^13.0.0",
     "rimraf": "catalog:",
     "tsc-alias": "catalog:backend",
     "typescript": "catalog:backend",
