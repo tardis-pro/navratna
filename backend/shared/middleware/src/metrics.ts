@@ -1,4 +1,4 @@
-import { Request, Response, NextFunction } from 'express';
+import { Elysia } from 'elysia';
 import { register, Counter, Histogram, Gauge } from 'prom-client';
 import { config } from '@uaip/config';
 import * as crypto from 'crypto';
@@ -60,52 +60,52 @@ const unhandledErrorsTotal = new Counter({
   labelNames: ['service', 'error_type', 'source']
 });
 
-// Metrics middleware
-export function metricsMiddleware(req: Request, res: Response, next: NextFunction): void {
+// Elysia metrics middleware plugin
+export function metricsMiddleware(app: Elysia): Elysia {
   if (!config.monitoring.metricsEnabled) {
-    return next();
+    return app;
   }
 
-  const startTime = Date.now();
-  
-  // Increment active connections
-  activeConnections.inc();
+  return app
+    .onRequest(() => {
+      activeConnections.inc();
+    })
+    .onAfterResponse(({ request, set }) => {
+      const url = new URL(request.url);
+      const route = url.pathname;
+      const statusCode = (set.status as number) || 200;
 
-  // Override res.end to capture metrics
-  const originalEnd = res.end.bind(res);
-  res.end = function(this: Response, chunk?: any, encoding?: BufferEncoding, cb?: (() => void) | undefined): Response {
-    const duration = (Date.now() - startTime) / 1000;
-    const route = req.route?.path || req.path;
-    
-    // Record metrics
-    httpRequestsTotal.inc({
-      method: req.method,
-      route,
-      status_code: res.statusCode
-    });
-    
-    httpRequestDuration.observe(
-      {
-        method: req.method,
+      httpRequestsTotal.inc({
+        method: request.method,
         route,
-        status_code: res.statusCode
-      },
-      duration
-    );
-    
-    // Decrement active connections
-    activeConnections.dec();
-    
-    // Call original end and return this for chaining
-    if (typeof encoding === 'function') {
-      cb = encoding;
-      encoding = undefined;
-    }
-    
-    return originalEnd.call(this, chunk, encoding as BufferEncoding, cb);
-  } as any; // Type assertion to handle Express's complex overloads
+        status_code: statusCode
+      });
 
-  next();
+      activeConnections.dec();
+    })
+    .derive(({ request }) => {
+      const startTime = Date.now();
+      return {
+        metricsStartTime: startTime
+      };
+    })
+    .onAfterResponse(({ request, set, metricsStartTime }) => {
+      if (metricsStartTime) {
+        const duration = (Date.now() - metricsStartTime) / 1000;
+        const url = new URL(request.url);
+        const route = url.pathname;
+        const statusCode = (set.status as number) || 200;
+
+        httpRequestDuration.observe(
+          {
+            method: request.method,
+            route,
+            status_code: statusCode
+          },
+          duration
+        );
+      }
+    });
 }
 
 // Business metrics helpers
@@ -120,7 +120,7 @@ export function recordAgentAnalysis(
     analysis_type: analysisType,
     status
   });
-  
+
   if (status === 'success') {
     agentAnalysisDuration.observe(
       {
@@ -150,43 +150,38 @@ function generateErrorId(error: Error, context: ErrorContext): string {
 
 function generateStackTraceHash(stackTrace: string): string {
   if (!stackTrace) return 'no-stack';
-  
-  // Extract meaningful parts of stack trace (remove line numbers for grouping)
+
   const cleanStack = stackTrace
     .split('\n')
-    .slice(0, 5) // Take first 5 lines
-    .map(line => line.replace(/:\d+:\d+/g, '')) // Remove line:col numbers
+    .slice(0, 5)
+    .map(line => line.replace(/:\d+:\d+/g, ''))
     .join('\n');
-    
+
   return crypto.createHash('md5').update(cleanStack).digest('hex').substring(0, 12);
 }
 
 function generateMessageHash(message: string | undefined): string {
-  // Handle undefined or non-string messages
   const safeMessage = message || 'unknown error';
-  
-  // Extract error message pattern (remove dynamic values)
+
   const pattern = safeMessage
-    .replace(/\d+/g, 'N') // Replace numbers with N
-    .replace(/[0-9a-f]{8,}/g, 'ID') // Replace IDs/hashes with ID
-    .replace(/\s+/g, ' ') // Normalize whitespace
+    .replace(/\d+/g, 'N')
+    .replace(/[0-9a-f]{8,}/g, 'ID')
+    .replace(/\s+/g, ' ')
     .substring(0, 100);
-    
+
   return crypto.createHash('md5').update(pattern).digest('hex').substring(0, 8);
 }
 
 // Enhanced error logging function
 export function recordError(error: Error | any, context: ErrorContext): void {
-  // Defensive error handling - ensure error is defined and has properties
   const safeError = error || { message: 'Unknown error', constructor: { name: 'UnknownError' }, stack: '' };
-  
+
   const errorType = safeError.constructor?.name || 'UnknownError';
   const stackTraceHash = generateStackTraceHash(safeError.stack || '');
   const messageHash = generateMessageHash(safeError.message);
   const errorId = generateErrorId(safeError, context);
   const severity = context.severity || 'error';
 
-  // Track error occurrence
   errorLogsTotal.inc({
     service: context.service,
     error_type: errorType,
@@ -195,14 +190,12 @@ export function recordError(error: Error | any, context: ErrorContext): void {
     user_id: context.userId || 'anonymous'
   });
 
-  // Track error patterns for grouping
   errorPatternFrequency.inc({
     service: context.service,
     stack_trace_hash: stackTraceHash,
     error_type: errorType
   });
 
-  // Store error context for debugging (will be cleaned up automatically by Prometheus)
   errorContextInfo.set({
     service: context.service,
     error_id: errorId,
@@ -211,7 +204,6 @@ export function recordError(error: Error | any, context: ErrorContext): void {
     endpoint: context.endpoint || 'unknown'
   }, 1);
 
-  // Log to console for development (in addition to metrics)
   if (process.env.NODE_ENV === 'development') {
     console.error(`[${context.service}] ${errorType}: ${error.message}`, {
       errorId,
@@ -238,25 +230,26 @@ export function recordUnhandledError(error: Error, source: 'uncaughtException' |
   });
 }
 
-// Error middleware for Express
+// Elysia error tracking middleware
 export function errorTrackingMiddleware(serviceName: string) {
-  return (error: Error, req: Request, res: Response, next: NextFunction): void => {
-    const context: ErrorContext = {
-      service: serviceName,
-      endpoint: req.route?.path || req.path,
-      userId: req.user?.id || (req.headers && req.headers['x-user-id']) as string,
-      requestId: req.id || (req.headers && req.headers['x-request-id']) as string,
-      severity: res.statusCode >= 500 ? 'critical' : 'error',
-      metadata: {
-        method: req.method,
-        url: req.url,
-        userAgent: req.headers?.['user-agent'] || 'unknown',
-        ip: req.ip
-      }
-    };
+  return (app: Elysia) => {
+    return app.onError(({ error, request, set }) => {
+      const url = new URL(request.url);
+      const context: ErrorContext = {
+        service: serviceName,
+        endpoint: url.pathname,
+        userId: request.headers.get('x-user-id') || undefined,
+        requestId: request.headers.get('x-request-id') || undefined,
+        severity: ((set.status as number) >= 500) ? 'critical' : 'error',
+        metadata: {
+          method: request.method,
+          url: request.url,
+          userAgent: request.headers.get('user-agent') || 'unknown'
+        }
+      };
 
-    recordError(error, context);
-    next(error);
+      recordError(error as Error, context);
+    });
   };
 }
 
@@ -265,7 +258,6 @@ export function setupGlobalErrorHandlers(serviceName: string): void {
   process.on('uncaughtException', (error) => {
     recordUnhandledError(error, 'uncaughtException', serviceName);
     console.error('Uncaught Exception:', error);
-    // Don't exit in development, but log it
     if (process.env.NODE_ENV === 'production') {
       process.exit(1);
     }
@@ -278,13 +270,14 @@ export function setupGlobalErrorHandlers(serviceName: string): void {
   });
 }
 
-// Metrics endpoint
-export const metricsEndpoint = async (req: Request, res: Response): Promise<void> => {
+// Metrics endpoint handler for Elysia
+export async function metricsEndpoint(): Promise<Response> {
   try {
-    res.set('Content-Type', register.contentType);
     const metrics = await register.metrics();
-    res.end(metrics);
+    return new Response(metrics, {
+      headers: { 'Content-Type': register.contentType }
+    });
   } catch (error) {
-    res.status(500).end('Error generating metrics');
+    return new Response('Error generating metrics', { status: 500 });
   }
-}; 
+}

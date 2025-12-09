@@ -1,172 +1,106 @@
-import { Request, Response, NextFunction } from 'express';
-import jwt from 'jsonwebtoken';
-import { logger, ApiError } from '@uaip/utils';
+import { Elysia } from 'elysia';
+import { logger } from '@uaip/utils';
 import { config } from '@uaip/config';
+import type { UserContext, ElysiaSet } from '@uaip/types';
 import { JWTValidator } from './JWTValidator.js';
-import './types.js';
 
-// JWT Payload interface
-interface JWTPayload {
-  userId: string;
-  email: string;
-  role: string;
-  sessionId?: string;
-  iat: number;
-  exp: number;
-  iss?: string;
-  aud?: string;
+export type { UserContext };
+
+// Elysia plugin to attach user context from JWT token
+export function attachAuth(app: Elysia): Elysia {
+  return app.derive(async ({ headers }) => {
+    const auth = headers.authorization;
+    if (!auth || !auth.startsWith('Bearer ')) {
+      return { user: null as UserContext | null };
+    }
+
+    const token = auth.substring(7);
+    const result = await validateJWTToken(token);
+
+    if (!result.valid) {
+      return { user: null as UserContext | null };
+    }
+
+    return {
+      user: {
+        id: result.userId!,
+        email: result.email!,
+        role: result.role!,
+        sessionId: result.sessionId
+      } as UserContext
+    };
+  });
 }
 
-export const authMiddleware = async (
-  req: Request,
-  res: Response,
-  next: NextFunction
-): Promise<void> => {
-  try {
-    req.startTime = Date.now();
-    req.id = `req_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-
-    const authHeader = req.headers.authorization;
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      throw new ApiError(401, 'Authorization token required', 'MISSING_TOKEN');
-    }
-
-    const token = authHeader.substring(7);
-    const decoded = JWTValidator.verify(token);
-
-    req.user = {
-      id: decoded.userId,
-      email: decoded.email,
-      role: decoded.role,
-      sessionId: decoded.sessionId
-    };
-
-    next();
-  } catch (error) {
-    next(error);
-  }
-};
-
-
-// Optional middleware for admin-only routes
-export const requireAdmin = (
-  req: Request,
-  res: Response,
-  next: NextFunction
-): void => {
-  if (!req.user) {
-    logger.warn('Admin access attempted without authentication', {
-      path: req.path,
-      method: req.method,
-      ip: req.ip
-    });
-    return next(new ApiError(401, 'Authentication required', 'AUTH_REQUIRED'));
-  }
-
-  if (req.user.role !== 'admin') {
-    logger.warn('Non-admin user attempted admin access', {
-      userId: req.user.id,
-      role: req.user.role,
-      path: req.path,
-      method: req.method
-    });
-    return next(new ApiError(403, 'Admin access required', 'ADMIN_REQUIRED'));
-  }
-
-  logger.debug('Admin access granted', {
-    userId: req.user.id,
-    path: req.path,
-    method: req.method
-  });
-
-  next();
-};
-
-// Optional middleware for operator+ level access
-export const requireOperator = (
-  req: Request,
-  res: Response,
-  next: NextFunction
-): void => {
-  if (!req.user) {
-    logger.warn('Operator access attempted without authentication', {
-      path: req.path,
-      method: req.method,
-      ip: req.ip
-    });
-    return next(new ApiError(401, 'Authentication required', 'AUTH_REQUIRED'));
-  }
-
-  const allowedRoles = ['admin', 'operator'];
-  if (!allowedRoles.includes(req.user.role)) {
-    logger.warn('Insufficient privileges for operator access', {
-      userId: req.user.id,
-      role: req.user.role,
-      requiredRoles: allowedRoles,
-      path: req.path,
-      method: req.method
-    });
-    return next(new ApiError(403, 'Operator access required', 'OPERATOR_REQUIRED'));
-  }
-
-  logger.debug('Operator access granted', {
-    userId: req.user.id,
-    role: req.user.role,
-    path: req.path,
-    method: req.method
-  });
-
-  next();
-};
-
-// Middleware to extract user info without requiring authentication (for public endpoints)
-export const optionalAuth = (
-  req: Request,
-  res: Response,
-  next: NextFunction
-): void => {
-  try {
-    const authHeader = req.headers.authorization;
-
-    if (authHeader && authHeader.startsWith('Bearer ')) {
-      const token = authHeader.substring(7);
-
-      try {
-        const decoded = JWTValidator.verify(token);
-
-        req.user = {
-          id: decoded.userId,
-          email: decoded.email,
-          role: decoded.role,
-          sessionId: decoded.sessionId || `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
-        };
-
-        logger.debug('Optional auth successful', {
-          userId: decoded.userId,
-          role: decoded.role,
-          path: req.path
-        });
-      } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : 'Optional auth failed';
-        // Ignore JWT errors for optional auth but log for debugging
-        logger.debug('Optional auth failed, continuing without authentication', {
-          error: errorMessage,
-          path: req.path,
-          method: req.method
-        });
+// Elysia guard to require authentication
+export function requireAuth(app: Elysia): Elysia {
+  return app.guard({
+    beforeHandle(context) {
+      const { user, set } = context as unknown as { user: UserContext | null; set: { status: number } };
+      if (!user) {
+        set.status = 401;
+        return { error: 'Authentication required', code: 'AUTH_REQUIRED' };
       }
     }
+  });
+}
 
-    next();
-  } catch (error) {
-    // Continue without authentication for optional auth
-    logger.debug('Optional auth middleware error, continuing', {
-      error: error instanceof Error ? error.message : 'Unknown error',
-      path: req.path
-    });
-    next();
-  }
-};
+// Elysia guard to require admin role
+export function requireAdmin(app: Elysia): Elysia {
+  return app.guard({
+    beforeHandle(context) {
+      const { user, set } = context as unknown as { user: UserContext | null; set: { status: number } };
+      if (!user) {
+        set.status = 401;
+        return { error: 'Authentication required', code: 'AUTH_REQUIRED' };
+      }
+      if (user.role !== 'admin') {
+        logger.warn('Non-admin user attempted admin access', {
+          userId: user.id,
+          role: user.role
+        });
+        set.status = 403;
+        return { error: 'Admin access required', code: 'ADMIN_REQUIRED' };
+      }
+    }
+  });
+}
+
+// Elysia guard to require operator+ level access
+export function requireOperator(app: Elysia): Elysia {
+  return app.guard({
+    beforeHandle(context) {
+      const { user, set } = context as unknown as { user: UserContext | null; set: { status: number } };
+      if (!user) {
+        set.status = 401;
+        return { error: 'Authentication required', code: 'AUTH_REQUIRED' };
+      }
+
+      const role = (user.role || '').toLowerCase();
+      const allowedRoles = ['admin', 'operator', 'security_admin', 'security-admin'];
+
+      if (!allowedRoles.includes(role)) {
+        logger.warn('Insufficient privileges for operator access', {
+          userId: user.id,
+          role: user.role,
+          requiredRoles: allowedRoles
+        });
+        set.status = 403;
+        return { error: 'Operator access required', code: 'OPERATOR_REQUIRED' };
+      }
+    }
+  });
+}
+
+// Helper combinators for Elysia
+export const withOptionalAuth = attachAuth;
+export const withRequiredAuth = (app: Elysia) => requireAuth(attachAuth(app));
+export const withAdminGuard = (app: Elysia) => requireAdmin(attachAuth(app));
+export const withOperatorGuard = (app: Elysia) => requireOperator(attachAuth(app));
+
+// Legacy middleware adapter - wraps Elysia handlers to work with existing route structure
+export const authMiddleware = attachAuth;
+export const optionalAuth = attachAuth;
 
 // Utility function to validate JWT secret at runtime
 export const validateJWTConfiguration = (): { isValid: boolean; warnings: string[] } => {
@@ -186,7 +120,6 @@ export const validateJWTConfiguration = (): { isValid: boolean; warnings: string
     }
   }
 
-  // Additional JWT configuration validation
   if (!config.jwt.issuer) {
     warnings.push('JWT issuer is not configured');
   }
@@ -200,6 +133,35 @@ export const validateJWTConfiguration = (): { isValid: boolean; warnings: string
   }
 
   return { isValid, warnings };
+};
+
+// Function to validate JWT configuration at service startup
+export const validateJWTSetup = (): void => {
+  const validation = validateJWTConfiguration();
+
+  if (!validation.isValid) {
+    logger.error('JWT configuration is invalid', {
+      warnings: validation.warnings,
+      environment: config.environment
+    });
+    throw new Error('JWT configuration is invalid - service cannot start');
+  }
+
+  if (validation.warnings.length > 0) {
+    logger.warn('JWT configuration warnings', {
+      warnings: validation.warnings,
+      environment: config.environment
+    });
+  }
+
+  logger.info('JWT configuration validated successfully', {
+    secretLength: config.jwt.secret.length,
+    secretPrefix: config.jwt.secret.substring(0, 8) + '...',
+    issuer: config.jwt.issuer,
+    audience: config.jwt.audience,
+    expiresIn: config.jwt.expiresIn,
+    environment: config.environment
+  });
 };
 
 // Utility function to help diagnose JWT signature issues
@@ -230,7 +192,8 @@ export const diagnoseJWTSignatureError = (token: string): {
   let tokenInfo: any = {};
 
   try {
-    // Decode without verification to inspect token structure
+    // Dynamically import jwt to decode without verification
+    const jwt = require('jsonwebtoken');
     const decoded = jwt.decode(token, { complete: true });
     tokenInfo = {
       header: decoded?.header,
@@ -255,35 +218,6 @@ export const diagnoseJWTSignatureError = (token: string): {
   };
 
   return { tokenInfo, possibleCauses, recommendations, configInfo };
-};
-
-// Function to validate JWT configuration at service startup
-export const validateJWTSetup = (): void => {
-  const validation = validateJWTConfiguration();
-
-  if (!validation.isValid) {
-    logger.error('JWT configuration is invalid', {
-      warnings: validation.warnings,
-      environment: config.environment
-    });
-    throw new Error('JWT configuration is invalid - service cannot start');
-  }
-
-  if (validation.warnings.length > 0) {
-    logger.warn('JWT configuration warnings', {
-      warnings: validation.warnings,
-      environment: config.environment
-    });
-  }
-
-  logger.info('JWT configuration validated successfully', {
-    secretLength: config.jwt.secret.length,
-    secretPrefix: config.jwt.secret.substring(0, 8) + '...',
-    issuer: config.jwt.issuer,
-    audience: config.jwt.audience,
-    expiresIn: config.jwt.expiresIn,
-    environment: config.environment
-  });
 };
 
 // Utility function to test JWT token validation (for debugging)
@@ -330,7 +264,6 @@ export const validateJWTToken = async (token: string): Promise<{
   complianceFlags?: string[];
   reason?: string;
 }> => {
-  // Add timeout wrapper to prevent hanging
   return new Promise((resolve) => {
     const timeout = setTimeout(() => {
       logger.warn('JWT token validation timed out', { tokenLength: token?.length || 0 });
@@ -338,15 +271,13 @@ export const validateJWTToken = async (token: string): Promise<{
         valid: false,
         reason: 'Authentication service timeout'
       });
-    }, 5000); // 5 second timeout
+    }, 5000);
 
     try {
-      // Verify JWT token using JWTValidator (synchronous operation)
       const decoded = JWTValidator.verify(token);
 
       clearTimeout(timeout);
 
-      // Validate token payload structure
       if (!decoded.userId || !decoded.email || !decoded.role) {
         resolve({
           valid: false,
@@ -355,7 +286,6 @@ export const validateJWTToken = async (token: string): Promise<{
         return;
       }
 
-      // Check if token is expired (additional check beyond JWT verification)
       if (decoded.exp && Date.now() >= decoded.exp * 1000) {
         resolve({
           valid: false,
@@ -369,15 +299,15 @@ export const validateJWTToken = async (token: string): Promise<{
         userId: decoded.userId,
         email: decoded.email,
         role: decoded.role,
-        username: decoded.email.split('@')[0], // Extract username from email
+        username: decoded.email.split('@')[0],
         sessionId: decoded.sessionId || `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-        securityLevel: 3, // Default security level
-        complianceFlags: [] // Default empty compliance flags
+        securityLevel: 3,
+        complianceFlags: []
       });
 
     } catch (error) {
       clearTimeout(timeout);
-      
+
       logger.warn('JWT token validation failed', {
         error: error instanceof Error ? error.message : 'Unknown error',
         tokenLength: token?.length || 0
@@ -389,4 +319,4 @@ export const validateJWTToken = async (token: string): Promise<{
       });
     }
   });
-}; 
+};

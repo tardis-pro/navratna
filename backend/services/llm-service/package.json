@@ -20,13 +20,12 @@
     "@uaip/utils": "workspace:*",
     "compression": "catalog:backend",
     "cors": "catalog:backend",
-    "express": "catalog:backend",
+    "elysia": "^1.4.5",
     "helmet": "catalog:backend"
   },
   "devDependencies": {
     "@types/compression": "catalog:backend",
     "@types/cors": "catalog:backend",
-    "@types/express": "catalog:backend",
     "@types/node": "catalog:backend",
     "nodemon": "catalog:backend",
     "tsx": "catalog:backend",

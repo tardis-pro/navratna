@@ -206,4 +206,5 @@ service.start().catch((error) => {
   process.exit(1);
 });
 
-export default service;
+// Named export to avoid Bun auto-serve on default export
+export { service, OrchestrationPipelineService };

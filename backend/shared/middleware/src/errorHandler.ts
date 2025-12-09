@@ -1,4 +1,4 @@
-import { Request, Response, NextFunction } from 'express';
+import { Elysia } from 'elysia';
 import { ZodError } from 'zod';
 import { logger, logError, ApiError } from '@uaip/utils';
 import { config } from '@uaip/config';
@@ -26,66 +26,95 @@ export class AppError extends Error {
   }
 }
 
-// Error handler middleware
-export const errorHandler = (
-  error: Error,
-  req: Request,
-  res: Response,
-  next: NextFunction
-): void => {
-  let statusCode = 500;
-  let errorCode = 'INTERNAL_SERVER_ERROR';
-  let message = 'An unexpected error occurred';
-  let details: Record<string, any> | undefined;
+// Elysia error handler plugin
+export function errorHandler(app: Elysia): Elysia {
+  return app.onError(({ code, error, set, request }) => {
+    let statusCode = 500;
+    let errorCode = 'INTERNAL_SERVER_ERROR';
+    let message = 'An unexpected error occurred';
+    let details: Record<string, any> | undefined;
 
-  // Handle different error types
-  if (error instanceof AppError) {
-    statusCode = error.statusCode;
-    errorCode = error.code || 'APPLICATION_ERROR';
-    message = error.message;
-    details = error.details;
-  } else if (error instanceof ApiError || (error as any).name === 'ApiError') {
-    statusCode = (error as any).statusCode;
-    errorCode = (error as any).code;
-    message = error.message;
-    details = (error as any).details;
-  } else if (error instanceof ZodError) {
-    statusCode = 400;
-    errorCode = 'VALIDATION_ERROR';
-    message = 'Request validation failed';
-    details = {
-      validationErrors: error.errors.map(err => ({
-        path: err.path.join('.'),
-        message: err.message,
-        code: err.code
-      }))
+    const err = error as Error;
+
+    // Handle different error types
+    if (err instanceof AppError) {
+      statusCode = err.statusCode;
+      errorCode = err.code || 'APPLICATION_ERROR';
+      message = err.message;
+      details = err.details;
+    } else if (err instanceof ApiError || (err as any).name === 'ApiError') {
+      statusCode = (err as any).statusCode;
+      errorCode = (err as any).code;
+      message = err.message;
+      details = (err as any).details;
+    } else if (err instanceof ZodError) {
+      statusCode = 400;
+      errorCode = 'VALIDATION_ERROR';
+      message = 'Request validation failed';
+      details = {
+        validationErrors: err.errors.map(e => ({
+          path: e.path.join('.'),
+          message: e.message,
+          code: e.code
+        }))
+      };
+    } else if (code === 'NOT_FOUND') {
+      statusCode = 404;
+      errorCode = 'NOT_FOUND';
+      message = 'Resource not found';
+    } else if (code === 'VALIDATION') {
+      statusCode = 400;
+      errorCode = 'VALIDATION_ERROR';
+      message = err.message || 'Validation failed';
+    } else if (code === 'PARSE') {
+      statusCode = 400;
+      errorCode = 'PARSE_ERROR';
+      message = 'Failed to parse request body';
+    }
+
+    // Log the error
+    const url = new URL(request.url);
+    logError(logger, err, {
+      path: url.pathname,
+      method: request.method,
+      userAgent: request.headers.get('user-agent') || 'unknown',
+      requestId: request.headers.get('x-request-id')
+    });
+
+    set.status = statusCode;
+
+    return {
+      success: false,
+      error: {
+        code: errorCode,
+        message,
+        ...(details && { details })
+      },
+      meta: {
+        timestamp: new Date(),
+        requestId: request.headers.get('x-request-id'),
+        version: config.environment
+      }
     };
-  }
-
-  // Log the error
-  logError(logger, error, {
-    path: req.path,
-    method: req.method,
-    userAgent: req.headers?.['user-agent'] || 'unknown',
-    ip: req.ip,
-    userId: req.user?.id,
-    requestId: req.id
   });
+}
 
-  // Prepare response
-  const response = {
+// Error response builder helper
+export function buildErrorResponse(
+  statusCode: number,
+  code: string,
+  message: string,
+  details?: Record<string, any>
+) {
+  return {
     success: false,
     error: {
-      code: errorCode,
+      code,
       message,
       ...(details && { details })
     },
     meta: {
-      timestamp: new Date(),
-      requestId: req.headers?.['x-request-id'] as string,
-      version: config.environment
+      timestamp: new Date()
     }
   };
-
-  res.status(statusCode).json(response);
-} 
+}

@@ -1,12 +1,19 @@
-FROM node:22 AS base
+FROM oven/bun:1 AS base
 
-# Install build dependencies for native modules
-RUN npm install -g pnpm typescript
+# Install Node.js to get npm (needed for pnpm installation)
+RUN apt-get update && apt-get install -y \
+    curl \
+    && curl -fsSL https://deb.nodesource.com/setup_22.x | bash - \
+    && apt-get install -y nodejs \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install pnpm for package management (catalog protocol support)
+RUN npm install -g pnpm
 
 # Set working directory and create user first
 WORKDIR /app
-RUN addgroup -gid 1001 nodejs && \
-    adduser -u 1001 -ingroup nodejs -disabled-login uaip
+RUN addgroup --gid 1001 nodejs && \
+    adduser --uid 1001 --ingroup nodejs --disabled-login uaip
 
 # Copy root workspace configuration files as root first
 COPY pnpm-workspace.yaml ./
@@ -42,7 +49,7 @@ RUN echo "Checking workspace packages..." && \
     echo "Root workspace file:" && cat pnpm-workspace.yaml && \
     echo "Backend workspace file:" && cat backend/pnpm-workspace.yaml
 
-# Install dependencies (this installs workspace dependencies properly)
+# Install dependencies using pnpm (catalog protocol support)
 RUN pnpm install
 
 # Build shared packages first (monorepo-wide)
@@ -63,7 +70,7 @@ SERVICE_PORT=${SERVICE_PORT:-3002}
 # Validate service name
 case "$SERVICE_NAME" in
   "artifact-service"|"orchestration-pipeline"|"security-gateway"|"capability-registry"|"agent-intelligence"|"discussion-orchestration"|"llm-service")
-    echo "Starting service: $SERVICE_NAME on port: $SERVICE_PORT"
+    echo "Starting service: $SERVICE_NAME on port: $SERVICE_PORT (Bun runtime)"
     ;;
   *)
     echo "Error: Invalid SERVICE_NAME. Must be one of: orchestration-pipeline, security-gateway, capability-registry, agent-intelligence, discussion-orchestration, artifact-service, llm-service"
@@ -92,8 +99,8 @@ if [ ! -f "dist/index.js" ]; then
   exit 1
 fi
 
-# Start the service
-exec node dist/index.js
+# Start the service with Bun runtime
+exec bun run dist/index.js
 EOF
 
 RUN chmod +x /app/entrypoint.sh
@@ -108,4 +115,4 @@ EXPOSE 3001 3002 3003 3004 3005 3006 3007
 HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
   CMD curl -f http://localhost:${SERVICE_PORT:-3002}/health || exit 1
 
-ENTRYPOINT ["/app/entrypoint.sh"] 
+ENTRYPOINT ["/app/entrypoint.sh"]

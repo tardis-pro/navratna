@@ -1,4 +1,14 @@
-FROM node:22 AS base
+FROM oven/bun:1 AS base
+
+# Install Node.js to get npm (needed for pnpm installation)
+RUN apt-get update && apt-get install -y \
+    curl \
+    && curl -fsSL https://deb.nodesource.com/setup_22.x | bash - \
+    && apt-get install -y nodejs \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install pnpm for package management (catalog protocol support)
+RUN npm install -g pnpm
 
 # Install system dependencies and Python
 RUN apt-get update && apt-get install -y \
@@ -7,7 +17,6 @@ RUN apt-get update && apt-get install -y \
     python3-venv \
     python3-full \
     pipx \
-    curl \
     && rm -rf /var/lib/apt/lists/*
 
 # Install uvx using pipx for root user
@@ -23,17 +32,13 @@ RUN echo '#!/bin/bash\nexec /usr/local/bin/uvx "$@"' > /usr/local/bin/uvx-uaip &
 # Also install for the uaip user when we switch
 RUN mkdir -p /home/uaip/.local/bin
 
-# Install global dependencies
-RUN npm install -g pnpm nodemon tsx typescript
-
 # Install common MCP servers globally
-RUN npm install -g @modelcontextprotocol/server-filesystem
 RUN /usr/local/bin/uvx --python python3 -c "import sys; print('Python available')" || echo "Python check failed"
 
 # Set working directory and create user
 WORKDIR /app
-RUN addgroup -gid 1001 nodejs && \
-    adduser -u 1001 -ingroup nodejs -disabled-login uaip
+RUN addgroup --gid 1001 nodejs && \
+    adduser --uid 1001 --ingroup nodejs --disabled-login uaip
 
 # Copy workspace configuration
 COPY pnpm-workspace.yaml ./
@@ -54,7 +59,7 @@ USER uaip
 # Set up PATH for uaip user to include uvx
 ENV PATH="/usr/local/bin:/root/.local/bin:${PATH}"
 
-# Install all dependencies once
+# Install all dependencies using pnpm (catalog protocol support)
 RUN pnpm install
 
 # Build shared packages once
@@ -73,7 +78,8 @@ SERVICE_PORT=${SERVICE_PORT:-3002}
 # Check MCP tools availability
 echo "Checking MCP tools availability..."
 echo "uvx version: $(uvx --version 2>/dev/null || echo 'not available')"
-echo "npx version: $(npx --version 2>/dev/null || echo 'not available')"
+echo "bun version: $(bun --version 2>/dev/null || echo 'not available')"
+echo "pnpm version: $(pnpm --version 2>/dev/null || echo 'not available')"
 echo "python3 version: $(python3 --version 2>/dev/null || echo 'not available')"
 
 # Validate service name
@@ -108,25 +114,14 @@ if [ ! -f "src/index.ts" ]; then
   exit 1
 fi
 
-echo "Starting $SERVICE_NAME with nodemon for hot reloading..."
-echo "Watching: src/**/*.ts"
+echo "Starting $SERVICE_NAME with Bun..."
 echo "Entry point: src/index.ts"
 
 # Shared packages are already built in base image
 echo "Using pre-built shared packages"
 
-# Start the service with nodemon for hot reloading
-exec nodemon \
-  --watch src \
-  --watch ../../shared \
-  --watch ../../../packages \
-  --ext ts,js,json \
-  --ignore "**/*.test.ts" \
-  --ignore "**/*.spec.ts" \
-  --ignore "**/dist/**" \
-  --ignore "**/node_modules/**" \
-  --delay 2 \
-  --exec "tsx src/index.ts"
+# Start the service with bun (direct execution, no auto-serve)
+exec bun src/index.ts
 EOF
 
 RUN chmod +x /app/entrypoint-dev.sh

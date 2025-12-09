@@ -2,7 +2,23 @@
 // Provides comprehensive REST endpoints for tool management and execution
 // Part of capability-registry microservice
 
-import { Request, Response } from 'express';
+// Generic request/response interfaces for framework-agnostic controllers
+interface Request {
+  query: Record<string, any>;
+  params: Record<string, any>;
+  body: any;
+  headers: Record<string, any>;
+  url?: string;
+  method?: string;
+  path?: string;
+}
+
+interface Response {
+  status: (code: number) => Response;
+  json: (data: any) => void;
+  send: (data?: any) => void;
+}
+
 import { ToolRegistry } from '../services/toolRegistry.js';
 import { ToolExecutor } from '../services/toolExecutor.js';
 import { ToolDefinition, ToolCategory, SecurityLevel } from '@uaip/types';

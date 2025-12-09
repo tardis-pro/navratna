@@ -1,19 +1,34 @@
-// Type extensions for Express Request interface
-declare global {
-  namespace Express {
-    interface Request {
-      id?: string;
-      user?: {
-        id: string;
-        email: string;
-        role: string;
-        sessionId?: string;
-        permissions?: string[];
-        isAdmin?: boolean;
-      };
-      startTime?: number;
-    }
-  }
-}
-
-export {};
+// Re-export HTTP context types from shared types
+export {
+  type HTTPHeaders,
+  type ElysiaSet,
+  type ElysiaBaseContext,
+  type UserContext,
+  type AuthContext,
+  type RequiredAuthContext,
+  type AgentContext,
+  type AgentExecution,
+  type AgentRequestContext,
+  type HttpAgentExecutionContext,
+  type APIKeyContext,
+  type APIKeyRequestContext,
+  type ValidationMeta,
+  type ValidationContext,
+  type RequestLoggingContext,
+  type CSRFContext,
+  type ProcessedChatFile,
+  type ChatIngestionJob,
+  type ChatIngestionOptions,
+  type ChatUploadContext,
+  type ChatValidationContext,
+  type ChatFileContext,
+  type ChatParseContext,
+  type ChatIngestionContext,
+  type ErrorContext,
+  type FullAuthenticatedContext,
+  type FullAgentContext,
+  type HandlerResult,
+  type GuardHandler,
+  type DeriveHandler,
+  type RouteHandler
+} from '@uaip/types';
