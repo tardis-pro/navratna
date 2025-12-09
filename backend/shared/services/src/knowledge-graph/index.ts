@@ -28,7 +28,7 @@ export { QdrantHealthService } from './qdrant-health.service.js';
 export { ChatParserService } from './chat-parser.service.js';
 export { ChatKnowledgeExtractorService } from './chat-knowledge-extractor.service.js';
 export { BatchProcessorService } from './batch-processor.service.js';
-export { ChatIngestionMiddleware, createChatIngestionMiddleware, createChatIngestionHandler } from './chat-ingestion.middleware.js';
+export { ChatIngestionMiddleware, createChatIngestionMiddleware } from './chat-ingestion.middleware.js';
 
 // Phase 2: Knowledge Enhancement services
 export { QAGeneratorService } from './qa-generator.service.js';

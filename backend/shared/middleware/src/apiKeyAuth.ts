@@ -1,7 +1,8 @@
-import { Request, Response, NextFunction } from 'express';
+import { Elysia } from 'elysia';
 import crypto from 'crypto';
 import { logger } from '@uaip/utils';
 import { config } from '@uaip/config';
+import type { APIKeyContext, ElysiaSet } from '@uaip/types';
 
 interface APIKeyConfig {
   headerName?: string;
@@ -11,16 +12,7 @@ interface APIKeyConfig {
   keyPrefix?: string;
 }
 
-interface APIKeyRequest extends Request {
-  apiKey?: {
-    id: string;
-    serviceName: string;
-    permissions: string[];
-    scopes: string[];
-  };
-}
-
-interface APIKey {
+export interface APIKey {
   id: string;
   name: string;
   serviceName: string;
@@ -35,30 +27,29 @@ interface APIKey {
   rateLimitOverride?: number;
 }
 
+export type { APIKeyContext };
+
 export class APIKeyAuthService {
   private readonly config: Required<APIKeyConfig>;
   private apiKeys = new Map<string, APIKey>();
   private keyCache = new Map<string, APIKey>();
 
-  constructor(config: APIKeyConfig = {}) {
+  constructor(apiKeyConfig: APIKeyConfig = {}) {
     this.config = {
-      headerName: config.headerName || 'x-api-key',
-      queryParam: config.queryParam || 'api_key',
-      skipPaths: config.skipPaths || ['/health', '/metrics', '/api/v1/auth'],
-      allowedServices: config.allowedServices || ['agent-intelligence', 'orchestration-pipeline', 'capability-registry', 'security-gateway', 'discussion-orchestration'],
-      keyPrefix: config.keyPrefix || 'uaip'
+      headerName: apiKeyConfig.headerName || 'x-api-key',
+      queryParam: apiKeyConfig.queryParam || 'api_key',
+      skipPaths: apiKeyConfig.skipPaths || ['/health', '/metrics', '/api/v1/auth'],
+      allowedServices: apiKeyConfig.allowedServices || ['agent-intelligence', 'orchestration-pipeline', 'capability-registry', 'security-gateway', 'discussion-orchestration'],
+      keyPrefix: apiKeyConfig.keyPrefix || 'uaip'
     };
 
     this.initializeDefaultKeys();
   }
 
-  /**
-   * Initialize default API keys for each service
-   */
   private initializeDefaultKeys(): void {
     const services = [
       'agent-intelligence',
-      'orchestration-pipeline', 
+      'orchestration-pipeline',
       'capability-registry',
       'security-gateway',
       'discussion-orchestration',
@@ -70,10 +61,9 @@ export class APIKeyAuthService {
       const key = this.generateAPIKey(service, `Default ${service} service key`, [
         'read', 'write', 'execute'
       ], [`service:${service}`]);
-      
+
       this.apiKeys.set(key.id, key);
-      
-      // Log the API key for service configuration (in development only)
+
       if (process.env.NODE_ENV === 'development') {
         const apiKeyValue = this.generateKeyValue(key.id, service);
         logger.info(`[API Key] Generated for ${service}: ${apiKeyValue}`);
@@ -81,19 +71,16 @@ export class APIKeyAuthService {
     }
   }
 
-  /**
-   * Generate a new API key
-   */
   public generateAPIKey(
-    serviceName: string, 
-    name: string, 
+    serviceName: string,
+    name: string,
     permissions: string[] = [],
     scopes: string[] = [],
     expiresInDays?: number
   ): APIKey {
     const id = crypto.randomBytes(16).toString('hex');
     const keyHash = this.hashKey(id, serviceName);
-    
+
     const apiKey: APIKey = {
       id,
       name,
@@ -109,9 +96,6 @@ export class APIKeyAuthService {
     return apiKey;
   }
 
-  /**
-   * Generate the actual API key value that clients use
-   */
   public generateKeyValue(keyId: string, serviceName: string): string {
     const timestamp = Math.floor(Date.now() / 1000);
     const payload = `${keyId}.${serviceName}.${timestamp}`;
@@ -120,13 +104,10 @@ export class APIKeyAuthService {
       .update(payload)
       .digest('hex')
       .substring(0, 16);
-    
+
     return `${this.config.keyPrefix}_${Buffer.from(payload).toString('base64')}.${signature}`;
   }
 
-  /**
-   * Parse and validate API key
-   */
   public parseAPIKey(apiKeyValue: string): { keyId: string; serviceName: string; timestamp: number } | null {
     try {
       if (!apiKeyValue.startsWith(`${this.config.keyPrefix}_`)) {
@@ -135,19 +116,18 @@ export class APIKeyAuthService {
 
       const withoutPrefix = apiKeyValue.substring(`${this.config.keyPrefix}_`.length);
       const [encodedPayload, signature] = withoutPrefix.split('.');
-      
+
       if (!encodedPayload || !signature) {
         return null;
       }
 
       const payload = Buffer.from(encodedPayload, 'base64').toString();
       const [keyId, serviceName, timestampStr] = payload.split('.');
-      
+
       if (!keyId || !serviceName || !timestampStr) {
         return null;
       }
 
-      // Verify signature
       const expectedSignature = crypto
         .createHmac('sha256', config.jwt.secret)
         .update(payload)
@@ -170,11 +150,7 @@ export class APIKeyAuthService {
     }
   }
 
-  /**
-   * Validate API key and get associated data
-   */
   public async validateAPIKey(apiKeyValue: string): Promise<APIKey | null> {
-    // Check cache first
     const cached = this.keyCache.get(apiKeyValue);
     if (cached) {
       return cached;
@@ -187,27 +163,23 @@ export class APIKeyAuthService {
 
     const { keyId, serviceName } = parsed;
     const apiKey = this.apiKeys.get(keyId);
-    
+
     if (!apiKey) {
       return null;
     }
 
-    // Validate service name matches
     if (apiKey.serviceName !== serviceName) {
       return null;
     }
 
-    // Check if key is active
     if (!apiKey.isActive) {
       return null;
     }
 
-    // Check expiration
     if (apiKey.expiresAt && apiKey.expiresAt < new Date()) {
       return null;
     }
 
-    // Update last used
     apiKey.lastUsedAt = new Date();
 
     // Cache for 5 minutes
@@ -219,9 +191,6 @@ export class APIKeyAuthService {
     return apiKey;
   }
 
-  /**
-   * Hash API key for storage
-   */
   private hashKey(keyId: string, serviceName: string): string {
     return crypto
       .createHash('sha256')
@@ -229,163 +198,180 @@ export class APIKeyAuthService {
       .digest('hex');
   }
 
-  /**
-   * Express middleware for API key authentication
-   */
+  // Elysia middleware plugin
   public middleware() {
-    return async (req: APIKeyRequest, res: Response, next: NextFunction) => {
-      // Skip authentication for certain paths
-      if (this.config.skipPaths.some(path => req.path.startsWith(path))) {
-        return next();
-      }
+    return (app: Elysia) => {
+      return app.derive(async ({ request, set }) => {
+        const url = new URL(request.url);
 
-      // Extract API key from header or query parameter
-      const apiKeyValue = req.get(this.config.headerName) || req.query[this.config.queryParam] as string;
-
-      if (!apiKeyValue) {
-        return res.status(401).json({
-          success: false,
-          error: {
-            code: 'API_KEY_MISSING',
-            message: 'API key is required for service-to-service communication'
-          }
-        });
-      }
-
-      try {
-        const apiKey = await this.validateAPIKey(apiKeyValue);
-        
-        if (!apiKey) {
-          logger.warn('Invalid API key attempt', {
-            path: req.path,
-            method: req.method,
-            ip: req.ip,
-            userAgent: req.get('User-Agent'),
-            keyPrefix: apiKeyValue.substring(0, 20) + '...'
-          });
-
-          return res.status(401).json({
-            success: false,
-            error: {
-              code: 'API_KEY_INVALID',
-              message: 'Invalid or expired API key'
-            }
-          });
+        // Skip authentication for certain paths
+        if (this.config.skipPaths.some(path => url.pathname.startsWith(path))) {
+          return { apiKey: null as APIKeyContext | null };
         }
 
-        // Check service permissions
-        if (!this.config.allowedServices.includes(apiKey.serviceName)) {
-          return res.status(403).json({
-            success: false,
-            error: {
-              code: 'SERVICE_NOT_ALLOWED',
-              message: `Service '${apiKey.serviceName}' is not allowed to access this endpoint`
+        // Extract API key from header or query parameter
+        const apiKeyValue = request.headers.get(this.config.headerName) ||
+          url.searchParams.get(this.config.queryParam);
+
+        if (!apiKeyValue) {
+          set.status = 401;
+          return {
+            apiKey: null as APIKeyContext | null,
+            apiKeyError: {
+              success: false,
+              error: {
+                code: 'API_KEY_MISSING',
+                message: 'API key is required for service-to-service communication'
+              }
             }
-          });
+          };
         }
 
-        // Attach API key info to request
-        req.apiKey = {
-          id: apiKey.id,
-          serviceName: apiKey.serviceName,
-          permissions: apiKey.permissions,
-          scopes: apiKey.scopes
-        };
+        try {
+          const apiKey = await this.validateAPIKey(apiKeyValue);
 
-        // Add service identification headers
-        res.setHeader('X-Service-Auth', apiKey.serviceName);
-        res.setHeader('X-API-Key-ID', apiKey.id);
+          if (!apiKey) {
+            logger.warn('Invalid API key attempt', {
+              path: url.pathname,
+              method: request.method,
+              keyPrefix: apiKeyValue.substring(0, 20) + '...'
+            });
 
-        logger.info('API key authentication successful', {
-          serviceName: apiKey.serviceName,
-          keyId: apiKey.id,
-          path: req.path,
-          method: req.method
-        });
-
-        next();
-      } catch (error) {
-        logger.error('API key authentication error:', error);
-        return res.status(500).json({
-          success: false,
-          error: {
-            code: 'API_KEY_AUTH_ERROR',
-            message: 'Internal error during API key authentication'
+            set.status = 401;
+            return {
+              apiKey: null as APIKeyContext | null,
+              apiKeyError: {
+                success: false,
+                error: {
+                  code: 'API_KEY_INVALID',
+                  message: 'Invalid or expired API key'
+                }
+              }
+            };
           }
-        });
-      }
+
+          if (!this.config.allowedServices.includes(apiKey.serviceName)) {
+            set.status = 403;
+            return {
+              apiKey: null as APIKeyContext | null,
+              apiKeyError: {
+                success: false,
+                error: {
+                  code: 'SERVICE_NOT_ALLOWED',
+                  message: `Service '${apiKey.serviceName}' is not allowed to access this endpoint`
+                }
+              }
+            };
+          }
+
+          set.headers['X-Service-Auth'] = apiKey.serviceName;
+          set.headers['X-API-Key-ID'] = apiKey.id;
+
+          logger.info('API key authentication successful', {
+            serviceName: apiKey.serviceName,
+            keyId: apiKey.id,
+            path: url.pathname,
+            method: request.method
+          });
+
+          return {
+            apiKey: {
+              id: apiKey.id,
+              serviceName: apiKey.serviceName,
+              permissions: apiKey.permissions,
+              scopes: apiKey.scopes
+            } as APIKeyContext
+          };
+        } catch (error) {
+          logger.error('API key authentication error:', error);
+          set.status = 500;
+          return {
+            apiKey: null as APIKeyContext | null,
+            apiKeyError: {
+              success: false,
+              error: {
+                code: 'API_KEY_AUTH_ERROR',
+                message: 'Internal error during API key authentication'
+              }
+            }
+          };
+        }
+      });
     };
   }
 
-  /**
-   * Middleware to require specific permissions
-   */
+  // Elysia guard to require specific permissions
   public requirePermissions(requiredPermissions: string[]) {
-    return (req: APIKeyRequest, res: Response, next: NextFunction) => {
-      if (!req.apiKey) {
-        return res.status(401).json({
-          success: false,
-          error: {
-            code: 'API_KEY_REQUIRED',
-            message: 'API key authentication required'
+    return (app: Elysia) => {
+      return app.guard({
+        beforeHandle(ctx) {
+          const { apiKey, set } = ctx as unknown as { apiKey: APIKeyContext | null; set: { status: number } };
+          if (!apiKey) {
+            set.status = 401;
+            return {
+              success: false,
+              error: {
+                code: 'API_KEY_REQUIRED',
+                message: 'API key authentication required'
+              }
+            };
           }
-        });
-      }
 
-      const hasPermissions = requiredPermissions.every(permission => 
-        req.apiKey!.permissions.includes(permission) || req.apiKey!.permissions.includes('*')
-      );
+          const hasPermissions = requiredPermissions.every(permission =>
+            apiKey.permissions.includes(permission) || apiKey.permissions.includes('*')
+          );
 
-      if (!hasPermissions) {
-        return res.status(403).json({
-          success: false,
-          error: {
-            code: 'INSUFFICIENT_PERMISSIONS',
-            message: `Missing required permissions: ${requiredPermissions.join(', ')}`
+          if (!hasPermissions) {
+            set.status = 403;
+            return {
+              success: false,
+              error: {
+                code: 'INSUFFICIENT_PERMISSIONS',
+                message: `Missing required permissions: ${requiredPermissions.join(', ')}`
+              }
+            };
           }
-        });
-      }
-
-      next();
+        }
+      });
     };
   }
 
-  /**
-   * Middleware to require specific scopes
-   */
+  // Elysia guard to require specific scopes
   public requireScopes(requiredScopes: string[]) {
-    return (req: APIKeyRequest, res: Response, next: NextFunction) => {
-      if (!req.apiKey) {
-        return res.status(401).json({
-          success: false,
-          error: {
-            code: 'API_KEY_REQUIRED',
-            message: 'API key authentication required'
+    return (app: Elysia) => {
+      return app.guard({
+        beforeHandle(ctx) {
+          const { apiKey, set } = ctx as unknown as { apiKey: APIKeyContext | null; set: { status: number } };
+          if (!apiKey) {
+            set.status = 401;
+            return {
+              success: false,
+              error: {
+                code: 'API_KEY_REQUIRED',
+                message: 'API key authentication required'
+              }
+            };
           }
-        });
-      }
 
-      const hasScopes = requiredScopes.every(scope => 
-        req.apiKey!.scopes.includes(scope) || req.apiKey!.scopes.includes('*')
-      );
+          const hasScopes = requiredScopes.every(scope =>
+            apiKey.scopes.includes(scope) || apiKey.scopes.includes('*')
+          );
 
-      if (!hasScopes) {
-        return res.status(403).json({
-          success: false,
-          error: {
-            code: 'INSUFFICIENT_SCOPES',
-            message: `Missing required scopes: ${requiredScopes.join(', ')}`
+          if (!hasScopes) {
+            set.status = 403;
+            return {
+              success: false,
+              error: {
+                code: 'INSUFFICIENT_SCOPES',
+                message: `Missing required scopes: ${requiredScopes.join(', ')}`
+              }
+            };
           }
-        });
-      }
-
-      next();
+        }
+      });
     };
   }
 
-  /**
-   * Get API key for a service (for internal use)
-   */
   public getServiceAPIKey(serviceName: string): string | null {
     for (const [keyId, apiKey] of this.apiKeys.entries()) {
       if (apiKey.serviceName === serviceName && apiKey.isActive) {
@@ -404,6 +390,3 @@ export const apiKeyMiddleware = apiKeyAuth.middleware();
 export const requireReadPermission = apiKeyAuth.requirePermissions(['read']);
 export const requireWritePermission = apiKeyAuth.requirePermissions(['write']);
 export const requireExecutePermission = apiKeyAuth.requirePermissions(['execute']);
-
-// Type exports
-export type { APIKeyRequest, APIKey };

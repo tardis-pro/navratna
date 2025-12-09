@@ -1,4 +1,4 @@
-import { Request, Response, NextFunction } from 'express';
+import { Elysia } from 'elysia';
 import * as jwt from 'jsonwebtoken';
 import { logger } from '@uaip/utils';
 import { z } from 'zod';
@@ -41,7 +41,7 @@ export class JWTValidator {
     };
 
     // Clean cache periodically
-    setInterval(() => this.cleanCache(), 60000); // Every minute
+    setInterval(() => this.cleanCache(), 60000);
   }
 
   public static getInstance(config?: JWTConfig): JWTValidator {
@@ -116,14 +116,15 @@ export class JWTValidator {
     return jwt.sign(payload, this.config.secret, signOptions);
   }
 
-  public extractToken(req: Request): string | null {
-    const authHeader = req.headers.authorization;
+  public extractToken(request: Request): string | null {
+    const authHeader = request.headers.get('authorization');
     if (authHeader && authHeader.startsWith('Bearer ')) {
       return authHeader.substring(7);
     }
 
     // Check query parameter as fallback
-    const queryToken = req.query.token as string;
+    const url = new URL(request.url);
+    const queryToken = url.searchParams.get('token');
     if (queryToken) {
       return queryToken;
     }
@@ -136,102 +137,122 @@ export class JWTValidator {
   }
 }
 
-// Middleware factory
-export const createJWTMiddleware = (options?: {
+// Elysia JWT middleware plugin
+export function createJWTMiddleware(options?: {
   optional?: boolean;
-  extractToken?: (req: Request) => string | null;
-}) => {
-  return async (req: Request, res: Response, next: NextFunction) => {
-    try {
-      const validator = JWTValidator.getInstance();
-      const token = options?.extractToken ? options.extractToken(req) : validator.extractToken(req);
+  extractToken?: (request: Request) => string | null;
+}) {
+  return (app: Elysia) => {
+    return app.derive(async ({ request, set }) => {
+      try {
+        const validator = JWTValidator.getInstance();
+        const token = options?.extractToken
+          ? options.extractToken(request)
+          : validator.extractToken(request);
 
-      if (!token) {
-        if (options?.optional) {
-          return next();
+        if (!token) {
+          if (options?.optional) {
+            return { user: null };
+          }
+          set.status = 401;
+          return { user: null, authError: { error: 'No token provided' } };
         }
-        return res.status(401).json({ error: 'No token provided' });
+
+        const payload = validator.verify(token);
+
+        return {
+          user: {
+            id: payload.userId,
+            email: payload.email,
+            role: payload.role,
+            permissions: payload.permissions || []
+          }
+        };
+      } catch (error) {
+        logger.warn('JWT middleware authentication failed', {
+          error: error instanceof Error ? error.message : 'Unknown error'
+        });
+
+        if (options?.optional) {
+          return { user: null };
+        }
+
+        set.status = 401;
+        return {
+          user: null,
+          authError: {
+            error: 'Invalid token',
+            details: error instanceof Error ? error.message : 'Token verification failed'
+          }
+        };
       }
+    });
+  };
+}
 
-      const payload = validator.verify(token);
+// Role-based guard
+export function requireRole(...roles: string[]) {
+  return (app: Elysia) => {
+    return app.guard({
+      beforeHandle(ctx) {
+        const { user, set } = ctx as unknown as { user: { role: string } | null; set: { status: number } };
+        if (!user) {
+          set.status = 401;
+          return { error: 'Authentication required' };
+        }
 
-      // Extend the Request interface to include user
-      (req as any).user = {
-        id: payload.userId,
-        email: payload.email,
-        role: payload.role,
-        permissions: payload.permissions || []
-      };
-
-      next();
-    } catch (error) {
-      logger.warn('JWT middleware authentication failed', {
-        error: error instanceof Error ? error.message : 'Unknown error'
-      });
-
-      if (options?.optional) {
-        return next();
+        if (!roles.includes(user.role)) {
+          set.status = 403;
+          return {
+            error: 'Insufficient role',
+            required: roles,
+            current: user.role
+          };
+        }
       }
-
-      return res.status(401).json({
-        error: 'Invalid token',
-        details: error instanceof Error ? error.message : 'Token verification failed'
-      });
-    }
+    });
   };
-};
+}
 
-// Role-based middleware
-export const requireRole = (...roles: string[]) => {
-  return (req: Request, res: Response, next: NextFunction) => {
-    const user = (req as any).user;
-    if (!user) {
-      return res.status(401).json({ error: 'Authentication required' });
-    }
+// Permission-based guard
+export function requirePermissions(...permissions: string[]) {
+  return (app: Elysia) => {
+    return app.guard({
+      beforeHandle(ctx) {
+        const { user, set } = ctx as unknown as { user: { role: string; permissions?: string[] } | null; set: { status: number } };
+        if (!user) {
+          set.status = 401;
+          return { error: 'Authentication required' };
+        }
 
-    if (!roles.includes(user.role)) {
-      return res.status(403).json({
-        error: 'Insufficient role',
-        required: roles,
-        current: user.role
-      });
-    }
+        const userPermissions = user.permissions || [];
+        const hasPermissions = permissions.every(p => userPermissions.includes(p));
 
-    next();
+        if (!hasPermissions && user.role !== 'admin') {
+          set.status = 403;
+          return {
+            error: 'Insufficient permissions',
+            required: permissions,
+            current: userPermissions
+          };
+        }
+      }
+    });
   };
-};
+}
 
-// Permission-based middleware
-export const requirePermissions = (...permissions: string[]) => {
-  return (req: Request, res: Response, next: NextFunction) => {
-    const user = (req as any).user;
-    if (!user) {
-      return res.status(401).json({ error: 'Authentication required' });
-    }
-
-    const userPermissions = user.permissions || [];
-    const hasPermissions = permissions.every(p => userPermissions.includes(p));
-
-    if (!hasPermissions && user.role !== 'admin') {
-      return res.status(403).json({
-        error: 'Insufficient permissions',
-        required: permissions,
-        current: userPermissions
-      });
-    }
-
-    next();
-  };
-};
-
-// Refresh token middleware
-export const refreshTokenMiddleware = async (req: Request, res: Response, next: NextFunction) => {
+// Refresh token handler
+export async function refreshTokenMiddleware(request: Request): Promise<Response> {
   try {
     const validator = JWTValidator.getInstance();
-    const refreshToken = req.body.refreshToken || req.headers?.['x-refresh-token'];
+    const body = await request.json();
+    const refreshToken = body.refreshToken || request.headers.get('x-refresh-token');
 
     if (!refreshToken) {
-      return res.status(400).json({ error: 'Refresh token required' });
+      return new Response(JSON.stringify({ error: 'Refresh token required' }), {
+        status: 400,
+        headers: { 'Content-Type': 'application/json' }
+      });
     }
 
     const payload = validator.verify(refreshToken);
@@ -244,19 +265,24 @@ export const refreshTokenMiddleware = async (req: Request, res: Response, next: 
       permissions: payload.permissions
     });
 
-    res.json({
+    return new Response(JSON.stringify({
       accessToken: newAccessToken,
-      tokenType: 'Bearer',
-      expiresIn: validator['config'].expiresIn
+      tokenType: 'Bearer'
+    }), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json' }
     });
   } catch (error) {
     logger.warn('Refresh token failed', {
       error: error instanceof Error ? error.message : 'Unknown error'
     });
 
-    return res.status(401).json({
+    return new Response(JSON.stringify({
       error: 'Invalid refresh token',
       details: error instanceof Error ? error.message : 'Token verification failed'
+    }), {
+      status: 401,
+      headers: { 'Content-Type': 'application/json' }
     });
   }
-};
+}

@@ -4,16 +4,24 @@ export {
   requireAdmin,
   requireOperator,
   optionalAuth,
+  attachAuth,
+  requireAuth,
+  withOptionalAuth,
+  withRequiredAuth,
+  withAdminGuard,
+  withOperatorGuard,
   validateJWTConfiguration,
   validateJWTSetup,
   diagnoseJWTSignatureError,
   testJWTToken,
   validateJWTToken
 } from './authMiddleware.js';
+export type { UserContext } from './authMiddleware.js';
 
-// Request validation middleware exports  
+// Request validation middleware exports
 export {
   validateRequest,
+  withValidation,
   validateID,
   validateUUID,
   validatePagination,
@@ -24,7 +32,7 @@ export {
 } from './validateRequest.js';
 
 // Error handling middleware exports
-export { errorHandler, AppError } from './errorHandler.js';
+export { errorHandler, AppError, buildErrorResponse } from './errorHandler.js';
 
 // Rate limiting middleware exports
 export { rateLimiter, createRateLimiter } from './rateLimiter.js';
@@ -34,11 +42,16 @@ export {
   metricsMiddleware,
   recordAgentAnalysis,
   errorTrackingMiddleware,
-  metricsEndpoint
+  metricsEndpoint,
+  recordError,
+  recordUnhandledError,
+  setupGlobalErrorHandlers
 } from './metrics.js';
+export type { ErrorContext } from './metrics.js';
 
 // Request logging middleware exports
 export { requestLogger, defaultRequestLogger } from './requestLogger.js';
+export type { RequestLoggerOptions } from './requestLogger.js';
 
 // CSRF protection middleware exports
 export {
@@ -57,10 +70,10 @@ export {
   requireWritePermission,
   requireExecutePermission
 } from './apiKeyAuth.js';
-export type { APIKeyRequest, APIKey } from './apiKeyAuth.js';
+export type { APIKey, APIKeyContext } from './apiKeyAuth.js';
 
-// Type extensions
-export { } from './types';
+// Re-export HTTP context types from shared types
+export * from './types.js';
 
 // Enhanced Validation Middleware for TypeORM Migration
 export { AgentValidationMiddleware } from './agentValidationMiddleware.js';
@@ -69,6 +82,7 @@ export { AgentTransformationService } from './agentTransformationService.js';
 // Agent middleware exports
 export {
   loadAgentContext,
+  requireAgentContext,
   requireAgentPermission,
   requireSecurityLevel,
   trackAgentOperation,
@@ -79,7 +93,7 @@ export {
   executeAgentTool,
   agentOperationChain
 } from './agentMiddleware.js';
-export type { AgentContext } from './agentMiddleware.js';
+export type { AgentContext, AgentExecution } from './agentMiddleware.js';
 
 // JWT middleware exports
 export {
@@ -91,6 +105,17 @@ export {
 } from './jwtMiddleware.js';
 export type { JWTPayload, JWTConfig } from './jwtMiddleware.js';
 
+// Error logger exports
 export {
   createErrorLogger,
-} from './errorLogger.js'
+  ServiceErrorLogger,
+  DatabaseConnectionError,
+  ValidationError,
+  AuthenticationError,
+  AuthorizationError,
+  BusinessLogicError,
+  ExternalServiceError,
+  withErrorTracking,
+  withSyncErrorTracking
+} from './errorLogger.js';
+export type { StructuredErrorLogger } from './errorLogger.js';

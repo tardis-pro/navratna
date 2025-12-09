@@ -1,25 +1,8 @@
-import { Request, Response, NextFunction } from 'express';
+import { Elysia } from 'elysia';
 import { logger } from '@uaip/utils';
 import { ChatParserService } from './chat-parser.service';
 import { z } from 'zod';
 import { v4 as uuidv4 } from 'uuid';
-
-export interface ChatFileRequest extends Request {
-  files?: Array<{
-    fieldname: string;
-    originalname: string;
-    encoding: string;
-    mimetype: string;
-    size: number;
-    buffer: Buffer;
-  }>;
-  chatFiles?: ProcessedChatFile[];
-  chatIngestionJob?: {
-    jobId: string;
-    fileCount: number;
-    totalSize: number;
-  };
-}
 
 export interface ProcessedChatFile {
   id: string;
@@ -42,6 +25,54 @@ export interface FileValidationResult {
     estimatedConversations?: number;
     fileType?: string;
   };
+}
+
+export interface ChatIngestionJob {
+  jobId: string;
+  fileCount: number;
+  totalSize: number;
+}
+
+export interface ChatIngestionOptions {
+  extractKnowledge: boolean;
+  saveToGraph: boolean;
+  generateEmbeddings: boolean;
+  batchSize: number;
+  concurrency: number;
+  userId: string;
+}
+
+// Context type definitions for chained middleware
+interface UploadContext {
+  uploadedFiles?: unknown[];
+  uploadError?: { error: string; message: string };
+}
+
+interface ValidationContext extends UploadContext {
+  validatedOptions?: ChatIngestionOptions;
+  validationError?: { error: string; message: string; details?: unknown[] };
+}
+
+interface FileContext extends ValidationContext {
+  chatFiles?: ProcessedChatFile[];
+  validationWarnings?: string[];
+  formatError?: { error: string; message: string; details?: string[] };
+}
+
+interface ParseContext extends FileContext {
+  parseResults?: Array<{
+    fileId: string;
+    fileName: string;
+    conversationsFound: number;
+    success: boolean;
+    error?: string;
+  }>;
+  parseError?: { error: string; message: string; details?: unknown[] };
+}
+
+interface JobContext extends ParseContext {
+  chatIngestionJob?: ChatIngestionJob;
+  jobError?: { error: string; message: string };
 }
 
 // Validation schemas
@@ -71,384 +102,436 @@ export class ChatIngestionMiddleware {
     this.chatParser = chatParser;
   }
 
-  // Middleware for handling file uploads (requires external multer setup)
+  // Elysia plugin for file upload validation
   handleFileUpload() {
-    return (req: ChatFileRequest, res: Response, next: NextFunction) => {
-      // Assumes files are already parsed by external multer middleware
-      // This middleware just validates file constraints
-      if (!req.files || !Array.isArray(req.files)) {
-        return res.status(400).json({
-          error: 'No files uploaded',
-          message: 'Please upload files using multipart/form-data'
-        });
-      }
+    return (app: Elysia) => {
+      return app.derive(({ body, set }) => {
+        const requestBody = body as { files?: unknown[] };
+        const files = requestBody?.files;
 
-      // Validate file limits
-      for (const file of req.files) {
-        if (file.size > MAX_FILE_SIZE) {
-          return res.status(413).json({
-            error: 'File too large',
-            message: `File ${file.originalname} exceeds maximum size of ${MAX_FILE_SIZE / 1024 / 1024}MB`
-          });
-        }
-
-        if (!this.isFileTypeSupported(file.mimetype, file.originalname)) {
-          return res.status(415).json({
-            error: 'Unsupported file type',
-            message: `File type ${file.mimetype} is not supported`
-          });
-        }
-      }
-
-      next();
-    };
-  }
-
-  // Validate request and options
-  validateRequest() {
-    return (req: ChatFileRequest, res: Response, next: NextFunction) => {
-      try {
-        // Validate request body
-        const options = ChatIngestionOptionsSchema.parse(req.body);
-        req.body.validatedOptions = options;
-
-        // Check if files were uploaded
-        if (!req.files || !Array.isArray(req.files) || req.files.length === 0) {
-          return res.status(400).json({
-            error: 'No files uploaded',
-            message: 'Please upload at least one chat file'
-          });
-        }
-
-        // Validate file count
-        if (req.files.length > MAX_FILES_PER_BATCH) {
-          return res.status(400).json({
-            error: 'Too many files',
-            message: `Maximum ${MAX_FILES_PER_BATCH} files allowed per batch`
-          });
-        }
-
-        logger.info('Chat ingestion request validated', {
-          fileCount: req.files.length,
-          userId: options.userId
-        });
-
-        next();
-      } catch (error) {
-        logger.error('Chat ingestion validation failed', { error: error.message });
-        return res.status(400).json({
-          error: 'Invalid request',
-          message: error.message,
-          details: error.errors || []
-        });
-      }
-    };
-  }
-
-  // Validate and process file formats
-  validateFileFormat() {
-    return async (req: ChatFileRequest, res: Response, next: NextFunction) => {
-      try {
-        const files = req.files as Array<{
-          fieldname: string;
-          originalname: string;
-          encoding: string;
-          mimetype: string;
-          size: number;
-          buffer: Buffer;
-        }>;
-        const processedFiles: ProcessedChatFile[] = [];
-        const validationErrors: string[] = [];
-
-        for (const file of files) {
-          try {
-            const processedFile = await this.processFile(file, req.body.validatedOptions.userId);
-            processedFiles.push(processedFile);
-            
-            if (!processedFile.validationResult.isValid) {
-              validationErrors.push(
-                `File ${file.originalname}: ${processedFile.validationResult.errors.join(', ')}`
-              );
+        if (!files || !Array.isArray(files) || files.length === 0) {
+          set.status = 400;
+          return {
+            uploadError: {
+              error: 'No files uploaded',
+              message: 'Please upload files using multipart/form-data'
             }
-          } catch (error) {
-            validationErrors.push(`File ${file.originalname}: ${error.message}`);
+          };
+        }
+
+        // Validate file limits
+        for (const file of files as Array<{ size: number; mimetype?: string; type?: string; originalname?: string; name?: string }>) {
+          if (file.size > MAX_FILE_SIZE) {
+            set.status = 413;
+            return {
+              uploadError: {
+                error: 'File too large',
+                message: `File ${file.originalname || file.name} exceeds maximum size of ${MAX_FILE_SIZE / 1024 / 1024}MB`
+              }
+            };
+          }
+
+          if (!this.isFileTypeSupported(file.mimetype || file.type, file.originalname || file.name)) {
+            set.status = 415;
+            return {
+              uploadError: {
+                error: 'Unsupported file type',
+                message: `File type ${file.mimetype || file.type} is not supported`
+              }
+            };
           }
         }
 
-        // Check if we have any valid files
-        const validFiles = processedFiles.filter(f => f.validationResult.isValid);
-        if (validFiles.length === 0) {
-          return res.status(400).json({
-            error: 'No valid files',
-            message: 'All uploaded files failed validation',
-            details: validationErrors
+        return { uploadedFiles: files };
+      });
+    };
+  }
+
+  // Elysia plugin for request validation
+  validateRequest() {
+    return (app: Elysia) => {
+      return app.derive((ctx) => {
+        const { body, set } = ctx;
+        const { uploadedFiles } = ctx as UploadContext;
+
+        try {
+          const requestBody = body as Record<string, unknown>;
+
+          // Validate request body options
+          const options = ChatIngestionOptionsSchema.parse(requestBody);
+
+          // Check if files were uploaded
+          if (!uploadedFiles || uploadedFiles.length === 0) {
+            set.status = 400;
+            return {
+              validationError: {
+                error: 'No files uploaded',
+                message: 'Please upload at least one chat file'
+              }
+            };
+          }
+
+          // Validate file count
+          if (uploadedFiles.length > MAX_FILES_PER_BATCH) {
+            set.status = 400;
+            return {
+              validationError: {
+                error: 'Too many files',
+                message: `Maximum ${MAX_FILES_PER_BATCH} files allowed per batch`
+              }
+            };
+          }
+
+          logger.info('Chat ingestion request validated', {
+            fileCount: uploadedFiles.length,
+            userId: options.userId
           });
+
+          return { validatedOptions: options as ChatIngestionOptions };
+
+        } catch (error: unknown) {
+          const err = error as Error & { errors?: unknown[] };
+          logger.error('Chat ingestion validation failed', { error: err.message });
+          set.status = 400;
+          return {
+            validationError: {
+              error: 'Invalid request',
+              message: err.message,
+              details: err.errors || []
+            }
+          };
         }
+      });
+    };
+  }
 
-        // Attach processed files to request
-        req.chatFiles = processedFiles;
+  // Elysia plugin for file format validation
+  validateFileFormat() {
+    return (app: Elysia) => {
+      return app.derive(async (ctx) => {
+        const { set } = ctx;
+        const { uploadedFiles, validatedOptions } = ctx as ValidationContext;
 
-        // Log warnings for invalid files
-        if (validationErrors.length > 0) {
-          logger.warn('Some files failed validation', {
+        try {
+          if (!uploadedFiles || !validatedOptions) {
+            set.status = 500;
+            return {
+              formatError: {
+                error: 'Internal error',
+                message: 'Files or options not available'
+              }
+            };
+          }
+
+          const processedFiles: ProcessedChatFile[] = [];
+          const validationErrors: string[] = [];
+
+          for (const file of uploadedFiles as Array<{ originalname?: string; name?: string; size: number }>) {
+            try {
+              const processedFile = await this.processFile(file, validatedOptions.userId);
+              processedFiles.push(processedFile);
+
+              if (!processedFile.validationResult.isValid) {
+                validationErrors.push(
+                  `File ${file.originalname || file.name}: ${processedFile.validationResult.errors.join(', ')}`
+                );
+              }
+            } catch (error: unknown) {
+              const err = error as Error;
+              validationErrors.push(`File ${file.originalname || file.name}: ${err.message}`);
+            }
+          }
+
+          // Check if we have any valid files
+          const validFiles = processedFiles.filter(f => f.validationResult.isValid);
+          if (validFiles.length === 0) {
+            set.status = 400;
+            return {
+              formatError: {
+                error: 'No valid files',
+                message: 'All uploaded files failed validation',
+                details: validationErrors
+              }
+            };
+          }
+
+          // Log warnings for invalid files
+          if (validationErrors.length > 0) {
+            logger.warn('Some files failed validation', {
+              validFiles: validFiles.length,
+              invalidFiles: validationErrors.length,
+              errors: validationErrors
+            });
+          }
+
+          logger.info('File format validation completed', {
+            totalFiles: uploadedFiles.length,
             validFiles: validFiles.length,
-            invalidFiles: validationErrors.length,
-            errors: validationErrors
+            invalidFiles: validationErrors.length
           });
+
+          return { chatFiles: processedFiles, validationWarnings: validationErrors };
+
+        } catch (error: unknown) {
+          const err = error as Error;
+          logger.error('File format validation failed', { error: err.message });
+          set.status = 500;
+          return {
+            formatError: {
+              error: 'Validation failed',
+              message: err.message
+            }
+          };
         }
-
-        logger.info('File format validation completed', {
-          totalFiles: files.length,
-          validFiles: validFiles.length,
-          invalidFiles: validationErrors.length
-        });
-
-        next();
-      } catch (error) {
-        logger.error('File format validation failed', { error: error.message });
-        return res.status(500).json({
-          error: 'Validation failed',
-          message: error.message
-        });
-      }
+      });
     };
   }
 
-  // Parse file content
+  // Elysia plugin for file content parsing
   parseFileContent() {
-    return async (req: ChatFileRequest, res: Response, next: NextFunction) => {
-      try {
-        if (!req.chatFiles) {
-          return res.status(500).json({
-            error: 'Internal error',
-            message: 'Files not processed'
-          });
-        }
+    return (app: Elysia) => {
+      return app.derive(async (ctx) => {
+        const { set } = ctx;
+        const { chatFiles } = ctx as FileContext;
 
-        const validFiles = req.chatFiles.filter(f => f.validationResult.isValid);
-        const parseResults: any[] = [];
-
-        for (const file of validFiles) {
-          try {
-            const parseResult = await this.chatParser.parseFile(file.content, file.originalName);
-            const conversations = parseResult.conversations;
-
-            parseResults.push({
-              fileId: file.id,
-              fileName: file.originalName,
-              conversationsFound: conversations.length,
-              success: true
-            });
-
-            // Update file validation metadata
-            file.validationResult.metadata.estimatedConversations = conversations.length;
-            
-          } catch (error) {
-            parseResults.push({
-              fileId: file.id,
-              fileName: file.originalName,
-              conversationsFound: 0,
-              success: false,
-              error: error.message
-            });
-            
-            // Mark file as invalid
-            file.validationResult.isValid = false;
-            file.validationResult.errors.push(`Parse error: ${error.message}`);
+        try {
+          if (!chatFiles) {
+            set.status = 500;
+            return {
+              parseError: {
+                error: 'Internal error',
+                message: 'Files not processed'
+              }
+            };
           }
-        }
 
-        // Check if any files were successfully parsed
-        const successfulParses = parseResults.filter(r => r.success);
-        if (successfulParses.length === 0) {
-          return res.status(400).json({
-            error: 'No files could be parsed',
-            message: 'All files failed content parsing',
-            details: parseResults
+          const validFiles = chatFiles.filter((f: ProcessedChatFile) => f.validationResult.isValid);
+          const parseResults: Array<{
+            fileId: string;
+            fileName: string;
+            conversationsFound: number;
+            success: boolean;
+            error?: string;
+          }> = [];
+
+          for (const file of validFiles) {
+            try {
+              const parseResult = await this.chatParser.parseFile(file.content, file.originalName);
+              const conversations = parseResult.conversations;
+
+              parseResults.push({
+                fileId: file.id,
+                fileName: file.originalName,
+                conversationsFound: conversations.length,
+                success: true
+              });
+
+              // Update file validation metadata
+              file.validationResult.metadata.estimatedConversations = conversations.length;
+
+            } catch (error: unknown) {
+              const err = error as Error;
+              parseResults.push({
+                fileId: file.id,
+                fileName: file.originalName,
+                conversationsFound: 0,
+                success: false,
+                error: err.message
+              });
+
+              // Mark file as invalid
+              file.validationResult.isValid = false;
+              file.validationResult.errors.push(`Parse error: ${err.message}`);
+            }
+          }
+
+          // Check if any files were successfully parsed
+          const successfulParses = parseResults.filter(r => r.success);
+          if (successfulParses.length === 0) {
+            set.status = 400;
+            return {
+              parseError: {
+                error: 'No files could be parsed',
+                message: 'All files failed content parsing',
+                details: parseResults
+              }
+            };
+          }
+
+          logger.info('File content parsing completed', {
+            totalFiles: validFiles.length,
+            successfulParses: successfulParses.length,
+            totalConversations: successfulParses.reduce((sum: number, r) => sum + r.conversationsFound, 0)
           });
+
+          return { parseResults };
+
+        } catch (error: unknown) {
+          const err = error as Error;
+          logger.error('File content parsing failed', { error: err.message });
+          set.status = 500;
+          return {
+            parseError: {
+              error: 'Parsing failed',
+              message: err.message
+            }
+          };
         }
-
-        // Store parse results for later use
-        req.body.parseResults = parseResults;
-
-        logger.info('File content parsing completed', {
-          totalFiles: validFiles.length,
-          successfulParses: successfulParses.length,
-          totalConversations: successfulParses.reduce((sum, r) => sum + r.conversationsFound, 0)
-        });
-
-        next();
-      } catch (error) {
-        logger.error('File content parsing failed', { error: error.message });
-        return res.status(500).json({
-          error: 'Parsing failed',
-          message: error.message
-        });
-      }
+      });
     };
   }
 
-  // Create ingestion job
+  // Elysia plugin for creating ingestion job
   createIngestionJob() {
-    return (req: ChatFileRequest, res: Response, next: NextFunction) => {
-      try {
-        if (!req.chatFiles) {
-          return res.status(500).json({
-            error: 'Internal error',
-            message: 'Files not processed'
+    return (app: Elysia) => {
+      return app.derive((ctx) => {
+        const { set } = ctx;
+        const { chatFiles, validatedOptions } = ctx as FileContext;
+
+        try {
+          if (!chatFiles) {
+            set.status = 500;
+            return {
+              jobError: {
+                error: 'Internal error',
+                message: 'Files not processed'
+              }
+            };
+          }
+
+          const validFiles = chatFiles.filter((f: ProcessedChatFile) => f.validationResult.isValid);
+          const totalSize = validFiles.reduce((sum: number, f: ProcessedChatFile) => sum + f.size, 0);
+
+          const job: ChatIngestionJob = {
+            jobId: uuidv4(),
+            fileCount: validFiles.length,
+            totalSize
+          };
+
+          logger.info('Chat ingestion job created', {
+            jobId: job.jobId,
+            fileCount: job.fileCount,
+            totalSize: job.totalSize,
+            userId: validatedOptions?.userId
           });
+
+          return { chatIngestionJob: job };
+
+        } catch (error: unknown) {
+          const err = error as Error;
+          logger.error('Job creation failed', { error: err.message });
+          set.status = 500;
+          return {
+            jobError: {
+              error: 'Job creation failed',
+              message: err.message
+            }
+          };
         }
-
-        const validFiles = req.chatFiles.filter(f => f.validationResult.isValid);
-        const totalSize = validFiles.reduce((sum, f) => sum + f.size, 0);
-        
-        const job = {
-          jobId: uuidv4(),
-          fileCount: validFiles.length,
-          totalSize
-        };
-
-        req.chatIngestionJob = job;
-
-        logger.info('Chat ingestion job created', {
-          jobId: job.jobId,
-          fileCount: job.fileCount,
-          totalSize: job.totalSize,
-          userId: req.body.validatedOptions.userId
-        });
-
-        next();
-      } catch (error) {
-        logger.error('Failed to create ingestion job', { error: error.message });
-        return res.status(500).json({
-          error: 'Job creation failed',
-          message: error.message
-        });
-      }
+      });
     };
   }
 
-  // Rate limiting for chat ingestion
-  rateLimitCheck() {
-    return (req: Request, res: Response, next: NextFunction) => {
-      const userId = req.body.validatedOptions?.userId;
-      
-      if (!userId) {
-        return res.status(401).json({
-          error: 'Unauthorized',
-          message: 'User ID required'
-        });
-      }
+  // Helper methods
+  private isFileTypeSupported(mimeType?: string, fileName?: string): boolean {
+    if (mimeType && SupportedFileTypes.includes(mimeType)) {
+      return true;
+    }
 
-      // Basic rate limiting logic (can be enhanced with Redis)
-      const now = Date.now();
-      const windowMs = 60 * 1000; // 1 minute
-      const maxRequests = 5;
-      
-      // This is a simplified implementation
-      // In production, use Redis or a proper rate limiting library
-      logger.debug('Rate limit check passed', { userId });
-      
-      next();
-    };
+    // Check by file extension
+    if (fileName) {
+      const ext = fileName.toLowerCase().split('.').pop();
+      return ['txt', 'json', 'csv', 'log'].includes(ext || '');
+    }
+
+    return false;
   }
 
-  private async processFile(file: {
-    fieldname: string;
-    originalname: string;
-    encoding: string;
-    mimetype: string;
-    size: number;
-    buffer: Buffer;
-  }, userId: string): Promise<ProcessedChatFile> {
-    // Decode file content
-    const content = file.buffer.toString('utf-8');
-    
-    // Detect platform
-    const detectedType = this.chatParser.detectPlatform(content, file.originalname);
-    
-    // Validate file content
-    const validationResult = await this.validateFileContent(content, file.originalname);
-    
+  private async processFile(file: { originalname?: string; name?: string; buffer?: Buffer; content?: string; size: number }, userId: string): Promise<ProcessedChatFile> {
+    const fileName = file.originalname || file.name || 'unknown';
+    const content = file.buffer?.toString('utf-8') || (file.content as string) || '';
+
+    // Detect platform from file name or content
+    const platform = this.detectPlatform(fileName, content);
+
+    // Validate content
+    const validationResult = this.validateFileContent(content, platform);
+
     return {
       id: uuidv4(),
-      originalName: file.originalname,
+      originalName: fileName,
       content,
       size: file.size,
-      type: detectedType as any,
+      type: platform,
       userId,
-      detectedPlatform: detectedType,
+      detectedPlatform: platform,
       validationResult
     };
   }
 
-  private async validateFileContent(content: string, filename: string): Promise<FileValidationResult> {
-    const result: FileValidationResult = {
-      isValid: true,
-      errors: [],
-      warnings: [],
-      metadata: {}
-    };
+  private detectPlatform(fileName: string, content: string): 'claude' | 'gpt' | 'whatsapp' | 'generic' {
+    const lowerName = fileName.toLowerCase();
+    const lowerContent = content.toLowerCase().slice(0, 1000);
 
-    // Basic content validation
+    if (lowerName.includes('claude') || lowerContent.includes('claude') || lowerContent.includes('anthropic')) {
+      return 'claude';
+    }
+
+    if (lowerName.includes('gpt') || lowerName.includes('chatgpt') || lowerContent.includes('openai') || lowerContent.includes('gpt-')) {
+      return 'gpt';
+    }
+
+    if (lowerName.includes('whatsapp') || lowerContent.match(/\[\d{1,2}\/\d{1,2}\/\d{2,4},\s*\d{1,2}:\d{2}(?::\d{2})?\s*(?:am|pm)?\]/i)) {
+      return 'whatsapp';
+    }
+
+    return 'generic';
+  }
+
+  private validateFileContent(content: string, platform: string): FileValidationResult {
+    const errors: string[] = [];
+    const warnings: string[] = [];
+    const metadata: FileValidationResult['metadata'] = {};
+
+    // Basic validation
     if (!content || content.trim().length === 0) {
-      result.isValid = false;
-      result.errors.push('File is empty');
-      return result;
+      errors.push('File is empty');
     }
 
-    // Check encoding
-    try {
-      const cleanContent = content.replace(/\0/g, '');
-      result.metadata.encoding = 'utf-8';
-      result.metadata.lineCount = cleanContent.split('\n').length;
-    } catch (error) {
-      result.warnings.push('File encoding issues detected');
+    // Line count
+    const lines = content.split('\n');
+    metadata.lineCount = lines.length;
+
+    if (lines.length < 2) {
+      warnings.push('File has very few lines');
     }
 
-    // Check file size
-    if (content.length > MAX_FILE_SIZE) {
-      result.isValid = false;
-      result.errors.push(`File too large (${content.length} bytes)`);
+    // Check for valid content based on platform
+    if (platform === 'claude' || platform === 'gpt') {
+      // Check for conversation patterns
+      const hasConversationPattern = content.match(/(?:Human|User|Assistant|AI):/gi);
+      if (!hasConversationPattern) {
+        warnings.push('No clear conversation pattern detected');
+      }
     }
 
-    // Detect file type
-    result.metadata.fileType = this.getFileExtension(filename);
+    // Estimate conversations
+    const conversationMarkers = content.match(/(?:^|\n)(?:Human|User|Assistant|AI|You|ChatGPT|Claude):/gi) || [];
+    metadata.estimatedConversations = Math.ceil(conversationMarkers.length / 2);
 
-    return result;
-  }
-
-  private isFileTypeSupported(mimeType: string, filename: string): boolean {
-    if (SupportedFileTypes.includes(mimeType)) {
-      return true;
-    }
-    
-    // Check by file extension
-    const ext = this.getFileExtension(filename);
-    return ['.txt', '.json', '.csv', '.log', '.md'].includes(ext);
-  }
-
-  private getFileExtension(filename: string): string {
-    const lastDot = filename.lastIndexOf('.');
-    return lastDot > -1 ? filename.slice(lastDot) : '';
+    return {
+      isValid: errors.length === 0,
+      errors,
+      warnings,
+      metadata
+    };
   }
 }
 
-// Factory function for creating middleware
-export function createChatIngestionMiddleware(chatParser: ChatParserService) {
+// Factory function to create middleware
+export function createChatIngestionMiddleware(chatParser: ChatParserService): ChatIngestionMiddleware {
   return new ChatIngestionMiddleware(chatParser);
 }
 
-// Export individual middleware functions for easier use
-export function createChatIngestionHandler(chatParser: ChatParserService) {
-  const middleware = new ChatIngestionMiddleware(chatParser);
-  
-  return {
-    upload: middleware.handleFileUpload(),
-    validateRequest: middleware.validateRequest(),
-    validateFileFormat: middleware.validateFileFormat(),
-    parseFileContent: middleware.parseFileContent(),
-    createIngestionJob: middleware.createIngestionJob(),
-    rateLimitCheck: middleware.rateLimitCheck()
-  };
-}
+// Export context types for consumers
+export type { UploadContext, ValidationContext, FileContext, ParseContext, JobContext };

@@ -1,24 +1,13 @@
-import express from '@uaip/shared-services';
 import { BaseService, DiscussionService, PersonaService } from '@uaip/shared-services';
 import { LLMService, UserLLMService } from '@uaip/llm-service';
 import { DiscussionEventType, LLMTaskType } from '@uaip/types';
-import { createAgentRoutes } from './routes/agentRoutes.js';
-import knowledgeRoutes from './routes/knowledgeRoutes.js';
-import { createDiscussionRoutes } from './routes/discussionRoutes.js';
-import { createConversationEnhancementRoutes } from './routes/conversationEnhancementRoutes.js';
-import { createPersonaRoutes } from './routes/personaRoutes.js';
-import { DiscussionController } from './controllers/discussionController.js';
-import { PersonaController } from './controllers/personaController.js';
 import { ConversationEnhancementService } from './services/conversation-enhancement.service.js';
 import { AgentDiscussionService } from './services/agent-discussion.service.js';
-import { initializeChatIngestionServices } from './controllers/chatIngestionController.js';
 import { logger } from '@uaip/utils';
 
 class AgentIntelligenceService extends BaseService {
   private agentDiscussionService: AgentDiscussionService;
   private discussionService: DiscussionService;
-  private discussionController: DiscussionController;
-  private personaController: PersonaController;
   private personaService: PersonaService;
   private conversationEnhancementService: ConversationEnhancementService;
   private llmService: LLMService;
@@ -38,47 +27,33 @@ class AgentIntelligenceService extends BaseService {
     // Get the KnowledgeGraphService instance from the ServiceFactory
     const { getKnowledgeGraphService } = await import('@uaip/shared-services');
     const knowledgeGraphService = await getKnowledgeGraphService();
-    
-    // Inject services into app.locals for controller access
-    this.app.locals.services = {
-      knowledgeGraphService: knowledgeGraphService,
-      batchProcessorService: null, // Will be set when available
-      databaseService: this.databaseService
-    };
 
-    // API routes
-    this.app.use('/api/v1/agents', createAgentRoutes());
-    this.app.use('/api/v1/knowledge', knowledgeRoutes);
-    this.app.use('/api/v1/discussions', createDiscussionRoutes(this.discussionController));
-    this.app.use('/api/v1/conversation', createConversationEnhancementRoutes(this.conversationEnhancementService));
-    this.app.use('/api/v1/personas', createPersonaRoutes(this.personaController));
-    
-    // Monitoring and debug routes for race condition detection
-    this.app.get('/api/v1/debug/conversation-enhancement', async (req, res) => {
+    // Debug route: conversation enhancement stats
+    this.app.get('/api/v1/debug/conversation-enhancement', async ({ set }) => {
       try {
         const stats = await this.conversationEnhancementService.getServiceStatistics();
         const memoryUsage = process.memoryUsage();
-        
+
         const alerts: string[] = [];
-        
+
         // Check for high pending LLM requests (memory leak indicator)
         if (stats.pendingLLMRequests > 1000) {
           alerts.push(`CRITICAL: High pending LLM requests: ${stats.pendingLLMRequests}`);
         } else if (stats.pendingLLMRequests > 500) {
           alerts.push(`WARNING: Elevated pending LLM requests: ${stats.pendingLLMRequests}`);
         }
-        
+
         // Check for high conversation states (memory usage)
         if (stats.conversationStates > 500) {
           alerts.push(`INFO: High conversation states: ${stats.conversationStates}`);
         }
-        
+
         // Check for high agent persona mappings
         if (stats.agentPersonaMappings > 200) {
           alerts.push(`INFO: High agent persona mappings: ${stats.agentPersonaMappings}`);
         }
-        
-        res.json({
+
+        return {
           success: true,
           timestamp: new Date().toISOString(),
           conversationEnhancement: stats,
@@ -87,78 +62,82 @@ class AgentIntelligenceService extends BaseService {
             heapTotalMB: Math.round(memoryUsage.heapTotal / 1024 / 1024)
           },
           alerts
-        });
+        };
       } catch (error) {
-        res.status(500).json({
+        set.status = 500;
+        return {
           success: false,
           error: 'Failed to fetch conversation enhancement debug info'
-        });
+        };
       }
     });
 
-    this.app.post('/api/v1/debug/force-llm-cleanup', (req, res) => {
+    // Debug route: force LLM cleanup
+    this.app.post('/api/v1/debug/force-llm-cleanup', ({ set }) => {
       try {
         // Trigger immediate cleanup on conversation enhancement service
         this.conversationEnhancementService['cleanupStaleLLMRequests']();
-        
-        res.json({
+
+        return {
           success: true,
           message: 'LLM cleanup triggered',
           timestamp: new Date().toISOString()
-        });
+        };
       } catch (error) {
-        res.status(500).json({
+        set.status = 500;
+        return {
           success: false,
           error: 'Failed to trigger LLM cleanup'
-        });
+        };
       }
     });
-    
+
     // Test endpoint for manual sync trigger
-    this.app.post('/test/sync', async (req, res) => {
+    this.app.post('/test/sync', async ({ set }) => {
       try {
         const databaseService = this.databaseService;
-        
+
         // Force Neo4j connection verification
         const graphDb = await databaseService.getToolGraphDatabase();
         logger.info('Testing Neo4j connection...');
         await graphDb.verifyConnectivity(5);
-        
+
         const status = graphDb.getConnectionStatus();
         logger.info('Neo4j connection status:', status);
-        
+
         if (!status.isConnected) {
           throw new Error('Neo4j connection verification failed');
         }
-        
+
         const { KnowledgeBootstrapService } = await import('@uaip/shared-services');
-        
+
         const knowledgeRepo = await databaseService.getKnowledgeRepository();
         const qdrantService = await databaseService.getQdrantService();
         const embeddingService = await databaseService.getSmartEmbeddingService();
-        
+
         logger.info('Service instances created:', {
           knowledgeRepo: !!knowledgeRepo,
           qdrantService: !!qdrantService,
           graphDb: !!graphDb,
           embeddingService: !!embeddingService
         });
-        
+
         const bootstrap = new KnowledgeBootstrapService(
           knowledgeRepo,
           qdrantService,
           graphDb,
           embeddingService
         );
-        
+
         const result = await bootstrap.runPostSeedSync();
-        res.json({ success: true, result, neo4jStatus: status });
+        return { success: true, result, neo4jStatus: status };
       } catch (error) {
-        res.status(500).json({ 
-          success: false, 
+        set.status = 500;
+        return {
+          success: false,
           error: error instanceof Error ? error.message : 'Unknown error',
           stack: error instanceof Error ? error.stack : undefined
-        });
+        };
       }
     });
   }
@@ -415,23 +394,7 @@ class AgentIntelligenceService extends BaseService {
       enableAnalytics: false,
       auditMode: 'comprehensive'
     });
-    logger.info('DiscussionService initialized for REST API');
-
-    // Initialize DiscussionController
-    this.discussionController = new DiscussionController(this.discussionService);
-    logger.info('DiscussionController initialized');
-
-    // Initialize PersonaController
-    this.personaController = new PersonaController(this.personaService);
-    logger.info('PersonaController initialized');
-
-    // Initialize chat ingestion services
-    const chatServicesInitialized = await initializeChatIngestionServices();
-    if (chatServicesInitialized) {
-      logger.info('Chat ingestion services initialized successfully');
-    } else {
-      logger.warn('Chat ingestion services failed to initialize - will use fallback mode');
-    }
+    logger.info('DiscussionService initialized');
 
     await this.setupRoutes();
     await this.setupEventSubscriptions();
@@ -455,4 +418,5 @@ service.start().catch(error => {
   process.exit(1);
 });
 
-export default AgentIntelligenceService;
+// Named export to avoid Bun auto-serve on default export
+export { AgentIntelligenceService };

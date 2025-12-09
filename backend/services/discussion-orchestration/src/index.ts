@@ -825,5 +825,5 @@ server.start().catch((error) => {
   process.exit(1);
 });
 
-export { server as discussionOrchestrationServer };
-export default server;
+// Named export to avoid Bun auto-serve on default export
+export { server, server as discussionOrchestrationServer };

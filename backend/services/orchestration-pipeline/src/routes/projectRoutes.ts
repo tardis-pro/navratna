@@ -138,11 +138,11 @@ export function registerProjectRoutes(app: Elysia): void {
   });
 
   // Get project by ID
-  app.get('/api/v1/projects/:id', async ({ params, headers, set }) => {
+  app.get('/api/v1/projects/:projectId', async ({ params, headers, set }) => {
     try {
       await initServices();
       const userId = headers['x-user-id'];
-      const projectId = params.id;
+      const projectId = params.projectId;
 
       const project = await projectService.getProject(projectId, userId);
       if (!project) {
@@ -159,11 +159,11 @@ export function registerProjectRoutes(app: Elysia): void {
   });
 
   // Update project
-  app.put('/api/v1/projects/:id', async ({ params, body, headers, set }) => {
+  app.put('/api/v1/projects/:projectId', async ({ params, body, headers, set }) => {
     try {
       await initServices();
       const userId = headers['x-user-id'];
-      const projectId = params.id;
+      const projectId = params.projectId;
 
       const validatedBody = updateProjectSchema.parse(body);
       // Convert date strings to Date objects
@@ -184,11 +184,11 @@ export function registerProjectRoutes(app: Elysia): void {
   });
 
   // Delete project
-  app.delete('/api/v1/projects/:id', async ({ params, headers, set }) => {
+  app.delete('/api/v1/projects/:projectId', async ({ params, headers, set }) => {
     try {
       await initServices();
       const userId = headers['x-user-id'];
-      const projectId = params.id;
+      const projectId = params.projectId;
 
       await projectService.deleteProject(projectId);
       set.status = 204;
@@ -201,11 +201,11 @@ export function registerProjectRoutes(app: Elysia): void {
   });
 
   // Create task
-  app.post('/api/v1/projects/:id/tasks', async ({ params, body, headers, set }) => {
+  app.post('/api/v1/projects/:projectId/tasks', async ({ params, body, headers, set }) => {
     try {
       await initServices();
       const userId = headers['x-user-id'];
-      const projectId = params.id;
+      const projectId = params.projectId;
 
       const validatedBody = createTaskSchema.parse(body);
       const task = await projectService.createTask({
@@ -235,11 +235,11 @@ export function registerProjectRoutes(app: Elysia): void {
   });
 
   // Update task
-  app.put('/api/v1/projects/:id/tasks/:taskId', async ({ params, body, headers, set }) => {
+  app.put('/api/v1/projects/:projectId/tasks/:taskId', async ({ params, body, headers, set }) => {
     try {
       await initServices();
       const userId = headers['x-user-id'];
-      const projectId = params.id;
+      const projectId = params.projectId;
       const taskId = params.taskId;
 
       const task = await projectService.updateTask(taskId, body);
@@ -252,11 +252,11 @@ export function registerProjectRoutes(app: Elysia): void {
   });
 
   // Add agent to project
-  app.post('/api/v1/projects/:id/agents', async ({ params, body, headers, set }) => {
+  app.post('/api/v1/projects/:projectId/agents', async ({ params, body, headers, set }) => {
     try {
       await initServices();
       const userId = headers['x-user-id'];
-      const projectId = params.id;
+      const projectId = params.projectId;
 
       const validatedBody = addAgentSchema.parse(body);
       // Agent assignment functionality needs to be implemented in ProjectManagementService
@@ -274,11 +274,11 @@ export function registerProjectRoutes(app: Elysia): void {
   });
 
   // Record tool usage
-  app.post('/api/v1/projects/:id/tool-usage', async ({ params, body, headers, set }) => {
+  app.post('/api/v1/projects/:projectId/tool-usage', async ({ params, body, headers, set }) => {
     try {
       await initServices();
       const userId = headers['x-user-id'];
-      const projectId = params.id;
+      const projectId = params.projectId;
 
       const validatedBody = recordToolUsageSchema.parse(body);
       // Map to expected format
@@ -306,11 +306,11 @@ export function registerProjectRoutes(app: Elysia): void {
   });
 
   // Get project metrics
-  app.get('/api/v1/projects/:id/metrics', async ({ params, headers, set }) => {
+  app.get('/api/v1/projects/:projectId/metrics', async ({ params, headers, set }) => {
     try {
       await initServices();
       const userId = headers['x-user-id'];
-      const projectId = params.id;
+      const projectId = params.projectId;
 
       const metrics = await projectService.getProjectMetrics(projectId);
       return metrics;

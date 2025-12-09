@@ -466,4 +466,5 @@ server.start().catch((error) => {
   process.exit(1);
 });
 
-export default server;
+// Named export to avoid Bun auto-serve on default export
+export { server };

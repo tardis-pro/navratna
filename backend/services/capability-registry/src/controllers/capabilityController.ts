@@ -1,5 +1,21 @@
-import { Request, Response, NextFunction } from 'express';
 import { logger, ApiError } from '@uaip/utils';
+
+// Generic request/response interfaces for framework-agnostic controllers
+interface Request {
+  query: Record<string, any>;
+  params: Record<string, any>;
+  body: any;
+  headers: Record<string, any>;
+  ip?: string;
+}
+
+interface Response {
+  status: (code: number) => Response;
+  json: (data: any) => void;
+  send: (data?: any) => void;
+}
+
+type NextFunction = (error?: any) => void;
 import { CapabilityDiscoveryService, SecurityValidationService, DatabaseService } from '@uaip/shared-services';
 import {
   Capability,

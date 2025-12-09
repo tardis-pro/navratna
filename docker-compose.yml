@@ -265,11 +265,18 @@ services:
       - ./packages:/app/packages
       - ./backend/shared:/app/backend/shared
       - ./backend/services/agent-intelligence:/app/backend/services/agent-intelligence
+      # Preserve node_modules from container
       - /app/node_modules
       - /app/backend/node_modules
+      - /app/backend/shared/services/node_modules
+      - /app/backend/shared/middleware/node_modules
+      - /app/backend/shared/config/node_modules
+      - /app/backend/shared/llm-service/node_modules
+      - /app/backend/services/agent-intelligence/node_modules
+      - /app/packages/shared-types/node_modules
+      - /app/packages/shared-utils/node_modules
     depends_on:
-      backend-base:
-        condition: service_completed_successfully
+      
       postgres:
         condition: service_healthy
       neo4j:
@@ -309,11 +316,18 @@ services:
       - ./packages:/app/packages
       - ./backend/shared:/app/backend/shared
       - ./backend/services/orchestration-pipeline:/app/backend/services/orchestration-pipeline
+      # Preserve node_modules from container
       - /app/node_modules
       - /app/backend/node_modules
+      - /app/backend/shared/services/node_modules
+      - /app/backend/shared/middleware/node_modules
+      - /app/backend/shared/config/node_modules
+      - /app/backend/shared/llm-service/node_modules
+      - /app/backend/services/orchestration-pipeline/node_modules
+      - /app/packages/shared-types/node_modules
+      - /app/packages/shared-utils/node_modules
     depends_on:
-      backend-base:
-        condition: service_completed_successfully
+      
       postgres:
         condition: service_healthy
       neo4j:
@@ -360,11 +374,18 @@ services:
       - ./packages:/app/packages
       - ./backend/shared:/app/backend/shared
       - ./backend/services/capability-registry:/app/backend/services/capability-registry
+      # Preserve node_modules from container
       - /app/node_modules
       - /app/backend/node_modules
+      - /app/backend/shared/services/node_modules
+      - /app/backend/shared/middleware/node_modules
+      - /app/backend/shared/config/node_modules
+      - /app/backend/shared/llm-service/node_modules
+      - /app/backend/services/capability-registry/node_modules
+      - /app/packages/shared-types/node_modules
+      - /app/packages/shared-utils/node_modules
     depends_on:
-      backend-base:
-        condition: service_completed_successfully
+      
       postgres:
         condition: service_healthy
       neo4j:
@@ -408,11 +429,18 @@ services:
       - ./packages:/app/packages
       - ./backend/shared:/app/backend/shared
       - ./backend/services/discussion-orchestration:/app/backend/services/discussion-orchestration
+      # Preserve node_modules from container
       - /app/node_modules
       - /app/backend/node_modules
+      - /app/backend/shared/services/node_modules
+      - /app/backend/shared/middleware/node_modules
+      - /app/backend/shared/config/node_modules
+      - /app/backend/shared/llm-service/node_modules
+      - /app/backend/services/discussion-orchestration/node_modules
+      - /app/packages/shared-types/node_modules
+      - /app/packages/shared-utils/node_modules
     depends_on:
-      backend-base:
-        condition: service_completed_successfully
+      
       postgres:
         condition: service_healthy
       neo4j:
@@ -461,11 +489,18 @@ services:
       - ./packages:/app/packages
       - ./backend/shared:/app/backend/shared
       - ./backend/services/security-gateway:/app/backend/services/security-gateway
+      # Preserve node_modules from container
       - /app/node_modules
       - /app/backend/node_modules
+      - /app/backend/shared/services/node_modules
+      - /app/backend/shared/middleware/node_modules
+      - /app/backend/shared/config/node_modules
+      - /app/backend/shared/llm-service/node_modules
+      - /app/backend/services/security-gateway/node_modules
+      - /app/packages/shared-types/node_modules
+      - /app/packages/shared-utils/node_modules
     depends_on:
-      backend-base:
-        condition: service_completed_successfully
+      
       postgres:
         condition: service_healthy
       qdrant:
@@ -507,11 +542,18 @@ services:
       - ./packages:/app/packages
       - ./backend/shared:/app/backend/shared
       - ./backend/services/artifact-service:/app/backend/services/artifact-service
+      # Preserve node_modules from container
       - /app/node_modules
       - /app/backend/node_modules
+      - /app/backend/shared/services/node_modules
+      - /app/backend/shared/middleware/node_modules
+      - /app/backend/shared/config/node_modules
+      - /app/backend/shared/llm-service/node_modules
+      - /app/backend/services/artifact-service/node_modules
+      - /app/packages/shared-types/node_modules
+      - /app/packages/shared-utils/node_modules
     depends_on:
-      backend-base:
-        condition: service_completed_successfully
+      
       postgres:
         condition: service_healthy
       redis:
@@ -551,11 +593,18 @@ services:
       - ./packages:/app/packages
       - ./backend/shared:/app/backend/shared
       - ./backend/services/llm-service:/app/backend/services/llm-service
+      # Preserve node_modules from container
       - /app/node_modules
       - /app/backend/node_modules
+      - /app/backend/shared/services/node_modules
+      - /app/backend/shared/middleware/node_modules
+      - /app/backend/shared/config/node_modules
+      - /app/backend/shared/llm-service/node_modules
+      - /app/backend/services/llm-service/node_modules
+      - /app/packages/shared-types/node_modules
+      - /app/packages/shared-utils/node_modules
     depends_on:
-      backend-base:
-        condition: service_completed_successfully
+      
       postgres:
         condition: service_healthy
       redis:
@@ -607,7 +656,7 @@ services:
       - "8081:80"
     volumes:
       - ./api-gateway/nginx.conf:/etc/nginx/nginx.conf
-      - /home/pronit/workspace/council-of-nycea/apps/frontend/dist:/var/www/html
+      - ./apps/frontend/dist:/var/www/html:ro
     depends_on:
       - agent-intelligence
       - orchestration-pipeline
@@ -644,81 +693,81 @@ services:
       - '--web.enable-lifecycle'
 
   # Infrastructure Exporters
-  postgres-exporter:
-    image: prometheuscommunity/postgres-exporter:latest
-    container_name: uaip-postgres-exporter
-    environment:
-      DATA_SOURCE_NAME: "postgresql://${POSTGRES_USER:-uaip_user}:${POSTGRES_PASSWORD:-uaip_password}@postgres:5432/${POSTGRES_DB:-uaip}?sslmode=disable"
-    ports:
-      - "9187:9187"
-    networks:
-      - uaip-network
-    depends_on:
-      postgres:
-        condition: service_healthy
+  # postgres-exporter:
+  #   image: prometheuscommunity/postgres-exporter:latest
+  #   container_name: uaip-postgres-exporter
+  #   environment:
+  #     DATA_SOURCE_NAME: "postgresql://${POSTGRES_USER:-uaip_user}:${POSTGRES_PASSWORD:-uaip_password}@postgres:5432/${POSTGRES_DB:-uaip}?sslmode=disable"
+  #   ports:
+  #     - "9187:9187"
+  #   networks:
+  #     - uaip-network
+  #   depends_on:
+  #     postgres:
+  #       condition: service_healthy
 
-  redis-exporter:
-    image: oliver006/redis_exporter:latest
-    container_name: uaip-redis-exporter
-    environment:
-      REDIS_ADDR: "redis://redis:6379"
-      REDIS_PASSWORD: "${REDIS_PASSWORD:-uaip_redis_password}"
-    ports:
-      - "9121:9121"
-    networks:
-      - uaip-network
-    depends_on:
-      redis:
-        condition: service_healthy
+  # redis-exporter:
+  #   image: oliver006/redis_exporter:latest
+  #   container_name: uaip-redis-exporter
+  #   environment:
+  #     REDIS_ADDR: "redis://redis:6379"
+  #     REDIS_PASSWORD: "${REDIS_PASSWORD:-uaip_redis_password}"
+  #   ports:
+  #     - "9121:9121"
+  #   networks:
+  #     - uaip-network
+  #   depends_on:
+  #     redis:
+  #       condition: service_healthy
 
-  node-exporter:
-    image: prom/node-exporter:latest
-    container_name: uaip-node-exporter
-    ports:
-      - "9100:9100"
-    expose:
-      - "9100"
-    volumes:
-      - /proc:/host/proc:ro
-      - /sys:/host/sys:ro
-      - /:/rootfs:ro
-    networks:
-      - uaip-network
-    command:
-      - '--path.procfs=/host/proc'
-      - '--path.rootfs=/rootfs'
-      - '--path.sysfs=/host/sys'
-      - '--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc|run|mnt|tmp)($$|/)'
-      - '--collector.filesystem.fs-types-exclude=^(autofs|binfmt_misc|bpf|cgroup2?|configfs|debugfs|devpts|devtmpfs|fusectl|hugetlbfs|iso9660|mqueue|nsfs|overlay|proc|procfs|pstore|rpc_pipefs|securityfs|selinuxfs|squashfs|sysfs|tracefs)$'
-      - '--no-collector.netstat'
-      - '--no-collector.softnet'
-      - '--no-collector.netdev'
-      - '--no-collector.arp'
-      - '--no-collector.bcache'
-      - '--no-collector.bonding'
-      - '--no-collector.ipvs'
-      - '--no-collector.infiniband'
-      - '--no-collector.powersupplyclass'
-      - '--no-collector.rapl'
-      - '--no-collector.thermal_zone'
-      - '--no-collector.xfs'
-      - '--no-collector.zfs'
-      - '--no-collector.hwmon'
-      - '--no-collector.ntp'
-    restart: unless-stopped
-    pid: host
+  # node-exporter:
+  #   image: prom/node-exporter:latest
+  #   container_name: uaip-node-exporter
+  #   ports:
+  #     - "9100:9100"
+  #   expose:
+  #     - "9100"
+  #   volumes:
+  #     - /proc:/host/proc:ro
+  #     - /sys:/host/sys:ro
+  #     - /:/rootfs:ro
+  #   networks:
+  #     - uaip-network
+  #   command:
+  #     - '--path.procfs=/host/proc'
+  #     - '--path.rootfs=/rootfs'
+  #     - '--path.sysfs=/host/sys'
+  #     - '--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc|run|mnt|tmp)($$|/)'
+  #     - '--collector.filesystem.fs-types-exclude=^(autofs|binfmt_misc|bpf|cgroup2?|configfs|debugfs|devpts|devtmpfs|fusectl|hugetlbfs|iso9660|mqueue|nsfs|overlay|proc|procfs|pstore|rpc_pipefs|securityfs|selinuxfs|squashfs|sysfs|tracefs)$'
+  #     - '--no-collector.netstat'
+  #     - '--no-collector.softnet'
+  #     - '--no-collector.netdev'
+  #     - '--no-collector.arp'
+  #     - '--no-collector.bcache'
+  #     - '--no-collector.bonding'
+  #     - '--no-collector.ipvs'
+  #     - '--no-collector.infiniband'
+  #     - '--no-collector.powersupplyclass'
+  #     - '--no-collector.rapl'
+  #     - '--no-collector.thermal_zone'
+  #     - '--no-collector.xfs'
+  #     - '--no-collector.zfs'
+  #     - '--no-collector.hwmon'
+  #     - '--no-collector.ntp'
+  #   restart: unless-stopped
+  #   pid: host
 
-  nginx-exporter:
-    image: nginx/nginx-prometheus-exporter:latest
-    container_name: uaip-nginx-exporter
-    ports:
-      - "9113:9113"
-    networks:
-      - uaip-network
-    depends_on:
-      - api-gateway
-    command:
-      - '-nginx.scrape-uri=http://api-gateway:80/nginx_status'
+  # nginx-exporter:
+  #   image: nginx/nginx-prometheus-exporter:latest
+  #   container_name: uaip-nginx-exporter
+  #   ports:
+  #     - "9113:9113"
+  #   networks:
+  #     - uaip-network
+  #   depends_on:
+  #     - api-gateway
+  #   command:
+  #     - '-nginx.scrape-uri=http://api-gateway:80/nginx_status'
 
   grafana:
     image: grafana/grafana:latest

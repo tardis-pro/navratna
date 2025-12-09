@@ -1,7 +1,17 @@
-import { Request, Response } from 'express';
+import { Context } from 'elysia';
 import { TaskService, CreateTaskRequest, UpdateTaskRequest, TaskAssignmentRequest, TaskFilters } from '@uaip/shared-services';
 import { logger } from '@uaip/utils';
 import { z } from 'zod';
+
+// Extended context type with user from auth middleware
+interface AuthenticatedContext extends Context {
+  user?: {
+    id: string;
+    email?: string;
+    role?: string;
+    isAdmin?: boolean;
+  };
+}
 
 // Validation schemas
 const createTaskSchema = z.object({
@@ -69,100 +79,102 @@ export class TaskController {
   }
 
   // GET /api/v1/projects/:projectId/tasks
-  async getProjectTasks(req: Request, res: Response): Promise<void> {
+  async getProjectTasks({ params, query, set }: AuthenticatedContext): Promise<any> {
     try {
-      const { projectId } = req.params;
+      const { projectId } = params as { projectId: string };
       const filters: TaskFilters = {
-        ...req.query,
+        ...query,
         projectId
       };
 
       // Parse array parameters
-      if (req.query.status && typeof req.query.status === 'string') {
-        filters.status = req.query.status.split(',') as any;
+      if (query.status && typeof query.status === 'string') {
+        filters.status = query.status.split(',') as any;
       }
-      if (req.query.priority && typeof req.query.priority === 'string') {
-        filters.priority = req.query.priority.split(',') as any;
+      if (query.priority && typeof query.priority === 'string') {
+        filters.priority = query.priority.split(',') as any;
       }
-      if (req.query.tags && typeof req.query.tags === 'string') {
-        filters.tags = req.query.tags.split(',');
+      if (query.tags && typeof query.tags === 'string') {
+        filters.tags = query.tags.split(',');
       }
 
       // Parse boolean parameters
-      if (req.query.isOverdue === 'true') filters.isOverdue = true;
-      if (req.query.isBlocked === 'true') filters.isBlocked = true;
+      if (query.isOverdue === 'true') filters.isOverdue = true;
+      if (query.isBlocked === 'true') filters.isBlocked = true;
 
       // Parse date parameters
-      if (req.query.dueDateBefore) {
-        filters.dueDateBefore = new Date(req.query.dueDateBefore as string);
+      if (query.dueDateBefore) {
+        filters.dueDateBefore = new Date(query.dueDateBefore as string);
       }
-      if (req.query.dueDateAfter) {
-        filters.dueDateAfter = new Date(req.query.dueDateAfter as string);
+      if (query.dueDateAfter) {
+        filters.dueDateAfter = new Date(query.dueDateAfter as string);
       }
 
       const tasks = await this.taskService.getTasksByProject(projectId, filters);
 
-      res.json({
+      return {
         success: true,
         data: tasks,
         total: tasks.length
-      });
+      };
 
     } catch (error) {
       logger.error('Error getting project tasks:', error);
-      res.status(500).json({
+      set.status = 500;
+      return {
         success: false,
         error: 'Failed to retrieve tasks',
         details: error instanceof Error ? error.message : 'Unknown error'
-      });
+      };
     }
   }
 
   // GET /api/v1/tasks/:taskId
-  async getTask(req: Request, res: Response): Promise<void> {
+  async getTask({ params, set }: AuthenticatedContext): Promise<any> {
     try {
-      const { taskId } = req.params;
+      const { taskId } = params as { taskId: string };
       const task = await this.taskService.getTaskById(taskId);
 
       if (!task) {
-        res.status(404).json({
+        set.status = 404;
+        return {
           success: false,
           error: 'Task not found'
-        });
-        return;
+        };
       }
 
-      res.json({
+      return {
         success: true,
         data: task
-      });
+      };
 
     } catch (error) {
       logger.error('Error getting task:', error);
-      res.status(500).json({
+      set.status = 500;
+      return {
         success: false,
         error: 'Failed to retrieve task',
         details: error instanceof Error ? error.message : 'Unknown error'
-      });
+      };
     }
   }
 
   // POST /api/v1/projects/:projectId/tasks
-  async createTask(req: Request, res: Response): Promise<void> {
+  async createTask({ params, body, user, set }: AuthenticatedContext): Promise<any> {
     try {
-      const { projectId } = req.params;
-      const userId = req.user?.id;
+      const { projectId } = params as { projectId: string };
+      const userId = user?.id;
 
       if (!userId) {
-        res.status(401).json({
+        set.status = 401;
+        return {
           success: false,
           error: 'User not authenticated'
-        });
-        return;
+        };
       }
 
       // Validate request body
-      const validatedData = createTaskSchema.parse(req.body);
+      const validatedData = createTaskSchema.parse(body);
 
       // Ensure projectId matches route parameter
       const createRequest: CreateTaskRequest = {
@@ -184,48 +196,50 @@ export class TaskController {
 
       const task = await this.taskService.createTask(createRequest);
 
-      res.status(201).json({
+      set.status = 201;
+      return {
         success: true,
         data: task,
         message: `Task created: ${task.taskNumber}`
-      });
+      };
 
     } catch (error) {
       logger.error('Error creating task:', error);
       
       if (error instanceof z.ZodError) {
-        res.status(400).json({
+        set.status = 400;
+        return {
           success: false,
           error: 'Validation failed',
           details: error.errors
-        });
-        return;
+        };
       }
 
-      res.status(500).json({
+      set.status = 500;
+      return {
         success: false,
         error: 'Failed to create task',
         details: error instanceof Error ? error.message : 'Unknown error'
-      });
+      };
     }
   }
 
   // PUT /api/v1/tasks/:taskId
-  async updateTask(req: Request, res: Response): Promise<void> {
+  async updateTask({ params, body, user, set }: AuthenticatedContext): Promise<any> {
     try {
-      const { taskId } = req.params;
-      const userId = req.user?.id;
+      const { taskId } = params as { taskId: string };
+      const userId = user?.id;
 
       if (!userId) {
-        res.status(401).json({
+        set.status = 401;
+        return {
           success: false,
           error: 'User not authenticated'
-        });
-        return;
+        };
       }
 
       // Validate request body
-      const validatedData = updateTaskSchema.parse(req.body);
+      const validatedData = updateTaskSchema.parse(body);
 
       const updateRequest: UpdateTaskRequest = {
         title: validatedData.title,
@@ -247,48 +261,49 @@ export class TaskController {
 
       const task = await this.taskService.updateTask(taskId, updateRequest);
 
-      res.json({
+      return {
         success: true,
         data: task,
         message: `Task updated: ${task.taskNumber}`
-      });
+      };
 
     } catch (error) {
       logger.error('Error updating task:', error);
       
       if (error instanceof z.ZodError) {
-        res.status(400).json({
+        set.status = 400;
+        return {
           success: false,
           error: 'Validation failed',
           details: error.errors
-        });
-        return;
+        };
       }
 
-      res.status(500).json({
+      set.status = 500;
+      return {
         success: false,
         error: 'Failed to update task',
         details: error instanceof Error ? error.message : 'Unknown error'
-      });
+      };
     }
   }
 
   // POST /api/v1/tasks/:taskId/assign
-  async assignTask(req: Request, res: Response): Promise<void> {
+  async assignTask({ params, body, user, set }: AuthenticatedContext): Promise<any> {
     try {
-      const { taskId } = req.params;
-      const userId = req.user?.id;
+      const { taskId } = params as { taskId: string };
+      const userId = user?.id;
 
       if (!userId) {
-        res.status(401).json({
+        set.status = 401;
+        return {
           success: false,
           error: 'User not authenticated'
-        });
-        return;
+        };
       }
 
       // Validate request body
-      const validatedData = assignTaskSchema.parse(req.body);
+      const validatedData = assignTaskSchema.parse(body);
 
       const assignRequest: TaskAssignmentRequest = {
         taskId,
@@ -301,60 +316,62 @@ export class TaskController {
 
       const task = await this.taskService.assignTask(assignRequest);
 
-      res.json({
+      return {
         success: true,
         data: task,
         message: `Task assigned to ${task.assigneeDisplayName}`
-      });
+      };
 
     } catch (error) {
       logger.error('Error assigning task:', error);
       
       if (error instanceof z.ZodError) {
-        res.status(400).json({
+        set.status = 400;
+        return {
           success: false,
           error: 'Validation failed',
           details: error.errors
-        });
-        return;
+        };
       }
 
-      res.status(500).json({
+      set.status = 500;
+      return {
         success: false,
         error: 'Failed to assign task',
         details: error instanceof Error ? error.message : 'Unknown error'
-      });
+      };
     }
   }
 
   // GET /api/v1/tasks/:taskId/assignment-suggestions
-  async getAssignmentSuggestions(req: Request, res: Response): Promise<void> {
+  async getAssignmentSuggestions({ params, set }: AuthenticatedContext): Promise<any> {
     try {
-      const { taskId } = req.params;
+      const { taskId } = params as { taskId: string };
       const suggestions = await this.taskService.getTaskAssignmentSuggestions(taskId);
 
-      res.json({
+      return {
         success: true,
         data: suggestions
-      });
+      };
 
     } catch (error) {
       logger.error('Error getting assignment suggestions:', error);
-      res.status(500).json({
+      set.status = 500;
+      return {
         success: false,
         error: 'Failed to get assignment suggestions',
         details: error instanceof Error ? error.message : 'Unknown error'
-      });
+      };
     }
   }
 
   // PUT /api/v1/tasks/:taskId/progress
-  async updateTaskProgress(req: Request, res: Response): Promise<void> {
+  async updateTaskProgress({ params, body, set }: AuthenticatedContext): Promise<any> {
     try {
-      const { taskId } = req.params;
+      const { taskId } = params as { taskId: string };
 
       // Validate request body
-      const validatedData = progressUpdateSchema.parse(req.body);
+      const validatedData = progressUpdateSchema.parse(body);
 
       const task = await this.taskService.updateTaskProgress(
         taskId,
@@ -362,150 +379,155 @@ export class TaskController {
         validatedData.timeSpent
       );
 
-      res.json({
+      return {
         success: true,
         data: task,
         message: `Task progress updated: ${validatedData.completionPercentage}%`
-      });
+      };
 
     } catch (error) {
       logger.error('Error updating task progress:', error);
       
       if (error instanceof z.ZodError) {
-        res.status(400).json({
+        set.status = 400;
+        return {
           success: false,
           error: 'Validation failed',
           details: error.errors
-        });
-        return;
+        };
       }
 
-      res.status(500).json({
+      set.status = 500;
+      return {
         success: false,
         error: 'Failed to update task progress',
         details: error instanceof Error ? error.message : 'Unknown error'
-      });
+      };
     }
   }
 
   // DELETE /api/v1/tasks/:taskId
-  async deleteTask(req: Request, res: Response): Promise<void> {
+  async deleteTask({ params, user, set }: AuthenticatedContext): Promise<any> {
     try {
-      const { taskId } = req.params;
-      const userId = req.user?.id;
+      const { taskId } = params as { taskId: string };
+      const userId = user?.id;
 
       if (!userId) {
-        res.status(401).json({
+        set.status = 401;
+        return {
           success: false,
           error: 'User not authenticated'
-        });
-        return;
+        };
       }
 
       await this.taskService.deleteTask(taskId, userId);
 
-      res.json({
+      return {
         success: true,
         message: 'Task deleted successfully'
-      });
+      };
 
     } catch (error) {
       logger.error('Error deleting task:', error);
-      res.status(500).json({
+      set.status = 500;
+      return {
         success: false,
         error: 'Failed to delete task',
         details: error instanceof Error ? error.message : 'Unknown error'
-      });
+      };
     }
   }
 
   // GET /api/v1/projects/:projectId/tasks/statistics
-  async getTaskStatistics(req: Request, res: Response): Promise<void> {
+  async getTaskStatistics({ params, set }: AuthenticatedContext): Promise<any> {
     try {
-      const { projectId } = req.params;
+      const { projectId } = params as { projectId: string };
       const statistics = await this.taskService.getTaskStatistics(projectId);
 
-      res.json({
+      return {
         success: true,
         data: statistics
-      });
+      };
 
     } catch (error) {
       logger.error('Error getting task statistics:', error);
-      res.status(500).json({
+      set.status = 500;
+      return {
         success: false,
         error: 'Failed to get task statistics',
         details: error instanceof Error ? error.message : 'Unknown error'
-      });
+      };
     }
   }
 
   // GET /api/v1/users/:userId/tasks
-  async getUserTasks(req: Request, res: Response): Promise<void> {
+  async getUserTasks({ params, query, user, set }: AuthenticatedContext): Promise<any> {
     try {
-      const { userId } = req.params;
-      const currentUserId = req.user?.id;
+      const { userId } = params as { userId: string };
+      const currentUserId = user?.id;
 
       // Users can only see their own tasks unless they're admin
-      if (userId !== currentUserId && !req.user?.isAdmin) {
-        res.status(403).json({
+      if (userId !== currentUserId && !(user as any)?.isAdmin) {
+        set.status = 403;
+        return {
           success: false,
           error: 'Forbidden: Can only view your own tasks'
-        });
-        return;
+        };
       }
 
       const filters: TaskFilters = {
         assignedToUserId: userId,
-        ...req.query
+        ...query
       };
 
       // Get tasks from all projects the user is assigned to
       // This would need a more complex query to get tasks across projects
       // For now, we'll need the projectId to be specified or implement a cross-project query
 
-      res.json({
+      return {
         success: true,
         data: [],
         message: 'User task query needs project context or cross-project implementation'
-      });
+      };
 
     } catch (error) {
       logger.error('Error getting user tasks:', error);
-      res.status(500).json({
+      set.status = 500;
+      return {
         success: false,
         error: 'Failed to get user tasks',
         details: error instanceof Error ? error.message : 'Unknown error'
-      });
+      };
     }
   }
 
   // GET /api/v1/agents/:agentId/tasks
-  async getAgentTasks(req: Request, res: Response): Promise<void> {
+  async getAgentTasks({ params, query, set }: AuthenticatedContext): Promise<any> {
     try {
-      const { agentId } = req.params;
+      const { agentId } = params as { agentId: string };
 
       const filters: TaskFilters = {
         assignedToAgentId: agentId,
-        ...req.query
+        ...query
       };
 
       // Similar to user tasks, this would need cross-project implementation
       // or require project context
 
-      res.json({
+      return {
         success: true,
         data: [],
         message: 'Agent task query needs project context or cross-project implementation'
-      });
+      };
 
     } catch (error) {
       logger.error('Error getting agent tasks:', error);
-      res.status(500).json({
+      set.status = 500;
+      return {
         success: false,
         error: 'Failed to get agent tasks',
         details: error instanceof Error ? error.message : 'Unknown error'
-      });
+      };
     }
   }
 }

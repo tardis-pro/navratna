@@ -16,7 +16,6 @@
     "@uaip/types": "workspace:*",
     "@uaip/utils": "workspace:*",
     "cors": "catalog:backend",
-    "express": "catalog:backend",
     "helmet": "catalog:backend",
     "qrcode": "catalog:backend",
     "typeorm": "catalog:backend",
@@ -24,7 +23,6 @@
   },
   "devDependencies": {
     "@types/cors": "catalog:backend",
-    "@types/express": "catalog:backend",
     "@types/jest": "catalog:backend",
     "@types/node": "catalog:backend",
     "@types/qrcode": "catalog:backend",

@@ -59,5 +59,7 @@ export * from './widget';
 export * from './conversation-intelligence';
 // Project types - NEW
 export * from './project';
+// HTTP context types for Elysia - NEW
+export * from './http';
 // Context triggers export
 export { contextualTriggers } from './contextTriggers';

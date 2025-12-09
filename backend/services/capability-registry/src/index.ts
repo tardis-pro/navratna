@@ -339,4 +339,5 @@ service.start().catch((error) => {
   process.exit(1);
 });
 
-export default CapabilityRegistryService;
+// Named export to avoid Bun auto-serve on default export
+export { CapabilityRegistryService };

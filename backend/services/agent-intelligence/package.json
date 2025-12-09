@@ -25,7 +25,6 @@
     "compression": "catalog:backend",
     "cors": "catalog:backend",
     "dotenv": "catalog:backend",
-    "hyper-express": "catalog:backend",
     "helmet": "catalog:backend",
     "morgan": "^1.10.0",
     "multer": "catalog:backend",
@@ -38,7 +37,6 @@
   "devDependencies": {
     "@types/compression": "catalog:backend",
     "@types/cors": "catalog:backend",
-    "@types/express": "catalog:backend",
     "@types/morgan": "^1.9.10",
     "@types/multer": "catalog:backend",
     "@types/node": "catalog:backend",

@@ -330,4 +330,5 @@ server.start().catch((error) => {
   process.exit(1);
 });
 
-export default SecurityGatewayServer;
+// Named export to avoid Bun auto-serve on default export
+export { SecurityGatewayServer };

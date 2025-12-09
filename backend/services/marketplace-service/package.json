@@ -21,7 +21,6 @@
     "compression": "catalog:backend",
     "cors": "catalog:backend",
     "dotenv": "catalog:backend",
-    "express": "catalog:backend",
     "helmet": "catalog:backend",
     "morgan": "^1.10.0",
     "node-cron": "^4.1.0",
@@ -31,7 +30,6 @@
   "devDependencies": {
     "@types/compression": "catalog:backend",
     "@types/cors": "catalog:backend",
-    "@types/express": "catalog:backend",
     "@types/morgan": "^1.9.10",
     "@types/node": "catalog:backend",
     "@types/node-cron": "^3.0.11",
