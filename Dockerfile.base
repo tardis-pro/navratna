@@ -1,139 +1,130 @@
-FROM oven/bun:1 AS base
+# =============================================================================
+# Navratna - Optimized Base Docker Image (Bun + pnpm)
+# =============================================================================
+# Optimizations:
+# - Multi-stage build for smaller final image
+# - Layer caching for dependencies (changes less often than code)
+# - BuildKit cache mounts for pnpm store
+# - Parallel package installation
+# - Minimal apt-get layers
+# =============================================================================
 
-# Install Node.js to get npm (needed for pnpm installation)
-RUN apt-get update && apt-get install -y \
+# -----------------------------------------------------------------------------
+# Stage 1: Base with system dependencies (cached, rarely changes)
+# -----------------------------------------------------------------------------
+FROM oven/bun:1 AS system-base
+
+# Install all system deps in single layer
+RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
-    && curl -fsSL https://deb.nodesource.com/setup_22.x | bash - \
-    && apt-get install -y nodejs \
-    && rm -rf /var/lib/apt/lists/*
-
-# Install pnpm for package management (catalog protocol support)
-RUN npm install -g pnpm
-
-# Install system dependencies and Python
-RUN apt-get update && apt-get install -y \
+    ca-certificates \
     python3 \
     python3-pip \
     python3-venv \
-    python3-full \
     pipx \
-    && rm -rf /var/lib/apt/lists/*
+    && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
-# Install uvx using pipx for root user
-RUN pipx install uv
+# Install pnpm standalone + uv/uvx
+ENV PNPM_HOME="/usr/local/share/pnpm"
+ENV PATH="${PNPM_HOME}:${PATH}"
+RUN curl -fsSL https://get.pnpm.io/install.sh | ENV="${PNPM_HOME}" SHELL="$(which bash)" bash - \
+    && pipx install uv \
+    && cp /root/.local/bin/uv /usr/local/bin/uv \
+    && cp /root/.local/bin/uvx /usr/local/bin/uvx \
+    && chmod 755 /usr/local/bin/uv /usr/local/bin/uvx
 
-# Make uvx available system-wide with proper permissions
-RUN cp /root/.local/bin/uv /usr/local/bin/uv && chmod 755 /usr/local/bin/uv
-RUN cp /root/.local/bin/uvx /usr/local/bin/uvx && chmod 755 /usr/local/bin/uvx
+# -----------------------------------------------------------------------------
+# Stage 2: Dependencies (cached separately from source code)
+# -----------------------------------------------------------------------------
+FROM system-base AS deps
 
-# Also create uvx wrapper for uaip user
-RUN echo '#!/bin/bash\nexec /usr/local/bin/uvx "$@"' > /usr/local/bin/uvx-uaip && chmod 755 /usr/local/bin/uvx-uaip
-
-# Also install for the uaip user when we switch
-RUN mkdir -p /home/uaip/.local/bin
-
-# Install common MCP servers globally
-RUN /usr/local/bin/uvx --python python3 -c "import sys; print('Python available')" || echo "Python check failed"
-
-# Set working directory and create user
 WORKDIR /app
-RUN addgroup --gid 1001 nodejs && \
-    adduser --uid 1001 --ingroup nodejs --disabled-login uaip
 
-# Copy workspace configuration
-COPY pnpm-workspace.yaml ./
-COPY package.json ./
-COPY pnpm-lock.yaml ./
+# Copy ONLY dependency files first (better cache hit rate)
+COPY pnpm-workspace.yaml package.json pnpm-lock.yaml ./
+COPY packages/shared-types/package.json ./packages/shared-types/
+COPY packages/shared-utils/package.json ./packages/shared-utils/
+COPY backend/package.json ./backend/
+COPY backend/shared/services/package.json ./backend/shared/services/
+COPY backend/shared/middleware/package.json ./backend/shared/middleware/
+COPY backend/shared/config/package.json ./backend/shared/config/
+COPY backend/shared/llm-service/package.json ./backend/shared/llm-service/
+COPY backend/services/agent-intelligence/package.json ./backend/services/agent-intelligence/
+COPY backend/services/orchestration-pipeline/package.json ./backend/services/orchestration-pipeline/
+COPY backend/services/capability-registry/package.json ./backend/services/capability-registry/
+COPY backend/services/security-gateway/package.json ./backend/services/security-gateway/
+COPY backend/services/discussion-orchestration/package.json ./backend/services/discussion-orchestration/
+COPY backend/services/artifact-service/package.json ./backend/services/artifact-service/
+COPY backend/services/llm-service/package.json ./backend/services/llm-service/
+
+# Install deps with cache mount (HUGE speed boost on rebuilds)
+RUN --mount=type=cache,id=pnpm,target=/usr/local/share/pnpm/store \
+    pnpm install --frozen-lockfile
+
+# -----------------------------------------------------------------------------
+# Stage 3: Build shared packages
+# -----------------------------------------------------------------------------
+FROM deps AS builder
+
+# Copy tsconfig for builds
 COPY tsconfig.json ./
 
-# Copy all packages and backend code
+# Copy source code
 COPY packages/ ./packages/
 COPY backend/ ./backend/
 
-# Fix home directory ownership and change ownership
-RUN chown -R uaip:nodejs /home/uaip /app
+# Build shared packages
+RUN pnpm build:shared && cd backend && pnpm build-shared
 
-# Switch to uaip user and set up environment
-USER uaip
+# -----------------------------------------------------------------------------
+# Stage 4: Development image (hot reload ready)
+# -----------------------------------------------------------------------------
+FROM system-base AS development
 
-# Set up PATH for uaip user to include uvx
-ENV PATH="/usr/local/bin:/root/.local/bin:${PATH}"
+WORKDIR /app
 
-# Install all dependencies using pnpm (catalog protocol support)
-RUN pnpm install
+# Create non-root user (Debian uses groupadd/useradd)
+RUN groupadd --gid 1001 bunjs \
+    && useradd --uid 1001 --gid bunjs --create-home --home-dir /home/uaip uaip \
+    && mkdir -p /home/uaip/.local/bin \
+    && chown -R uaip:bunjs /home/uaip
 
-# Build shared packages once
-RUN pnpm build:shared
-RUN cd backend && pnpm build-shared
+# Copy installed deps and built packages from builder
+COPY --from=builder --chown=uaip:bunjs /app/node_modules ./node_modules
+COPY --from=builder --chown=uaip:bunjs /app/packages ./packages
+COPY --from=builder --chown=uaip:bunjs /app/backend ./backend
+COPY --from=builder --chown=uaip:bunjs /app/pnpm-workspace.yaml /app/package.json /app/pnpm-lock.yaml /app/tsconfig.json ./
 
-# Create entrypoint script
-USER root
-COPY <<'EOF' /app/entrypoint-dev.sh
+ENV PNPM_HOME="/usr/local/share/pnpm"
+ENV PATH="${PNPM_HOME}:/usr/local/bin:${PATH}"
+
+# Entrypoint script (inline to avoid extra COPY)
+RUN cat > /app/entrypoint-dev.sh << 'ENTRYPOINT'
 #!/bin/sh
+set -e
 
-# Default values
 SERVICE_NAME=${SERVICE_NAME:-orchestration-pipeline}
 SERVICE_PORT=${SERVICE_PORT:-3002}
 
-# Check MCP tools availability
-echo "Checking MCP tools availability..."
-echo "uvx version: $(uvx --version 2>/dev/null || echo 'not available')"
-echo "bun version: $(bun --version 2>/dev/null || echo 'not available')"
-echo "pnpm version: $(pnpm --version 2>/dev/null || echo 'not available')"
-echo "python3 version: $(python3 --version 2>/dev/null || echo 'not available')"
-
-# Validate service name
 case "$SERVICE_NAME" in
-  "artifact-service"|"orchestration-pipeline"|"security-gateway"|"capability-registry"|"agent-intelligence"|"discussion-orchestration"|"llm-service")
-    echo "Starting development service: $SERVICE_NAME on port: $SERVICE_PORT with hot reloading"
+  artifact-service|orchestration-pipeline|security-gateway|capability-registry|agent-intelligence|discussion-orchestration|llm-service)
+    echo "Starting $SERVICE_NAME on port $SERVICE_PORT"
     ;;
   *)
-    echo "Error: Invalid SERVICE_NAME. Must be one of: orchestration-pipeline, security-gateway, capability-registry, agent-intelligence, discussion-orchestration, artifact-service, llm-service"
+    echo "Error: Invalid SERVICE_NAME: $SERVICE_NAME"
     exit 1
     ;;
 esac
 
-# Change to service directory
 cd "/app/backend/services/$SERVICE_NAME"
-
-# Check if src directory exists
-if [ ! -d "src" ]; then
-  echo "Error: src directory not found for service $SERVICE_NAME"
-  echo "Available files in service directory:"
-  ls -la .
-  echo "Available services:"
-  ls -la /app/backend/services/
-  exit 1
-fi
-
-# Check if main entry file exists
-if [ ! -f "src/index.ts" ]; then
-  echo "Error: src/index.ts not found for service $SERVICE_NAME"
-  echo "Available files in src directory:"
-  ls -la src/
-  exit 1
-fi
-
-echo "Starting $SERVICE_NAME with Bun..."
-echo "Entry point: src/index.ts"
-
-# Shared packages are already built in base image
-echo "Using pre-built shared packages"
-
-# Start the service with bun (direct execution, no auto-serve)
-exec bun src/index.ts
-EOF
-
+exec bun --hot src/index.ts
+ENTRYPOINT
 RUN chmod +x /app/entrypoint-dev.sh
 
-# Switch back to uaip user for runtime
 USER uaip
-
-# Expose ports
 EXPOSE 3001 3002 3003 3004 3005 3006 3007
 
-# Health check script
-HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
-  CMD curl -f http://localhost:${SERVICE_PORT:-3002}/health || exit 1
+HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
+  CMD bun -e "fetch('http://localhost:${SERVICE_PORT:-3002}/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
 
 ENTRYPOINT ["/app/entrypoint-dev.sh"]

@@ -1,0 +1,42 @@
+# =============================================================================
+# Agent Intelligence Service - Fly.io Configuration
+# =============================================================================
+
+app = "navratna-agent-intelligence"
+primary_region = "iad"
+
+[build]
+  dockerfile = "../../Dockerfile.fly.service"
+  [build.args]
+    SERVICE_NAME = "agent-intelligence"
+    SERVICE_PORT = "3001"
+
+[env]
+  NODE_ENV = "production"
+  SERVICE_NAME = "agent-intelligence"
+  SERVICE_PORT = "3001"
+  PORT = "3001"
+
+[http_service]
+  internal_port = 3001
+  force_https = true
+  auto_stop_machines = false
+  auto_start_machines = true
+  min_machines_running = 1
+
+  [http_service.concurrency]
+    type = "requests"
+    hard_limit = 100
+    soft_limit = 80
+
+[[http_service.checks]]
+  grace_period = "30s"
+  interval = "15s"
+  method = "GET"
+  path = "/health"
+  timeout = "5s"
+
+[[vm]]
+  memory = "512mb"
+  cpu_kind = "shared"
+  cpus = 1

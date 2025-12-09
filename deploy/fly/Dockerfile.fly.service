@@ -1,0 +1,98 @@
+# =============================================================================
+# Navratna - Fly.io Service Dockerfile (Bun Runtime)
+# =============================================================================
+
+FROM oven/bun:1-alpine AS base
+
+# Install pnpm directly (no Node.js)
+RUN apk add --no-cache curl bash \
+    && curl -fsSL https://get.pnpm.io/install.sh | ENV="$HOME/.bashrc" SHELL="$(which bash)" bash - \
+    && ln -s /root/.local/share/pnpm/pnpm /usr/local/bin/pnpm
+
+WORKDIR /app
+
+# =============================================================================
+# Dependencies Stage
+# =============================================================================
+FROM base AS deps
+
+# Copy workspace files
+COPY pnpm-workspace.yaml package.json pnpm-lock.yaml tsconfig.json ./
+COPY packages/ ./packages/
+COPY backend/ ./backend/
+
+# Install all dependencies with pnpm
+RUN pnpm install --frozen-lockfile
+
+# =============================================================================
+# Builder Stage
+# =============================================================================
+FROM deps AS builder
+
+# Build shared packages
+RUN pnpm build:shared
+RUN cd backend && pnpm build-shared
+
+# Build args for service selection
+ARG SERVICE_NAME=security-gateway
+ARG SERVICE_PORT=3004
+
+# Build the specific service (TypeScript compilation)
+RUN cd backend/services/${SERVICE_NAME} && pnpm build
+
+# =============================================================================
+# Production Stage
+# =============================================================================
+FROM oven/bun:1-alpine AS production
+
+# Install pnpm for production deps
+RUN apk add --no-cache curl bash \
+    && curl -fsSL https://get.pnpm.io/install.sh | ENV="$HOME/.bashrc" SHELL="$(which bash)" bash - \
+    && ln -s /root/.local/share/pnpm/pnpm /usr/local/bin/pnpm
+
+WORKDIR /app
+
+ARG SERVICE_NAME=security-gateway
+ARG SERVICE_PORT=3004
+
+ENV NODE_ENV=production
+ENV SERVICE_NAME=${SERVICE_NAME}
+ENV SERVICE_PORT=${SERVICE_PORT}
+ENV PORT=${SERVICE_PORT}
+
+# Copy package files
+COPY --from=builder /app/package.json ./
+COPY --from=builder /app/pnpm-workspace.yaml ./
+COPY --from=builder /app/pnpm-lock.yaml ./
+
+# Copy built packages
+COPY --from=builder /app/packages/shared-types/dist ./packages/shared-types/dist
+COPY --from=builder /app/packages/shared-types/package.json ./packages/shared-types/
+COPY --from=builder /app/packages/shared-utils/dist ./packages/shared-utils/dist
+COPY --from=builder /app/packages/shared-utils/package.json ./packages/shared-utils/
+
+# Copy built backend shared
+COPY --from=builder /app/backend/shared/services/dist ./backend/shared/services/dist
+COPY --from=builder /app/backend/shared/services/package.json ./backend/shared/services/
+COPY --from=builder /app/backend/shared/middleware/dist ./backend/shared/middleware/dist
+COPY --from=builder /app/backend/shared/middleware/package.json ./backend/shared/middleware/
+COPY --from=builder /app/backend/shared/config/dist ./backend/shared/config/dist
+COPY --from=builder /app/backend/shared/config/package.json ./backend/shared/config/
+COPY --from=builder /app/backend/shared/llm-service/dist ./backend/shared/llm-service/dist
+COPY --from=builder /app/backend/shared/llm-service/package.json ./backend/shared/llm-service/
+
+# Copy built service
+COPY --from=builder /app/backend/services/${SERVICE_NAME}/dist ./backend/services/${SERVICE_NAME}/dist
+COPY --from=builder /app/backend/services/${SERVICE_NAME}/package.json ./backend/services/${SERVICE_NAME}/
+
+# Install production dependencies only
+RUN pnpm install --prod --frozen-lockfile
+
+# Health check using wget (alpine doesn't have curl by default in slim images)
+HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
+  CMD wget --no-verbose --tries=1 --spider http://localhost:${SERVICE_PORT}/health || exit 1
+
+EXPOSE ${SERVICE_PORT}
+
+# Run with Bun
+CMD ["sh", "-c", "bun run backend/services/${SERVICE_NAME}/dist/index.js"]

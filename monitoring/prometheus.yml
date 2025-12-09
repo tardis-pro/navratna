@@ -111,13 +111,10 @@ scrape_configs:
       - source_labels: [mountpoint, fstype]
         regex: '/run/user.*; tmpfs'
         action: drop
-      # Keep only essential filesystem metrics
+      # Drop unwanted filesystem types (instead of keep to not affect other metrics)
       - source_labels: [__name__, fstype]
-        regex: 'node_filesystem_.*; (ext4|xfs|tmpfs|overlay)'
-        action: keep
-      # Standardize job labels to avoid conflicts
-      - target_label: instance
-        replacement: 'node-exporter'
+        regex: 'node_filesystem_.*; (autofs|binfmt_misc|bpf|cgroup2?|configfs|debugfs|devpts|devtmpfs|fusectl|hugetlbfs|iso9660|mqueue|nsfs|proc|procfs|pstore|rpc_pipefs|securityfs|selinuxfs|squashfs|sysfs|tracefs|9p|drvfs)'
+        action: drop
 
   # Nginx Prometheus Exporter for API Gateway (Preferred method)
   - job_name: 'nginx-exporter'

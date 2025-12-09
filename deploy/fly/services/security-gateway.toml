@@ -1,0 +1,42 @@
+# =============================================================================
+# Security Gateway Service - Fly.io Configuration
+# =============================================================================
+
+app = "navratna-security-gateway"
+primary_region = "iad"
+
+[build]
+  dockerfile = "../../Dockerfile.fly.service"
+  [build.args]
+    SERVICE_NAME = "security-gateway"
+    SERVICE_PORT = "3004"
+
+[env]
+  NODE_ENV = "production"
+  SERVICE_NAME = "security-gateway"
+  SERVICE_PORT = "3004"
+  PORT = "3004"
+
+[http_service]
+  internal_port = 3004
+  force_https = true
+  auto_stop_machines = false
+  auto_start_machines = true
+  min_machines_running = 1
+
+  [http_service.concurrency]
+    type = "requests"
+    hard_limit = 150
+    soft_limit = 100
+
+[[http_service.checks]]
+  grace_period = "30s"
+  interval = "15s"
+  method = "GET"
+  path = "/health"
+  timeout = "5s"
+
+[[vm]]
+  memory = "512mb"
+  cpu_kind = "shared"
+  cpus = 1

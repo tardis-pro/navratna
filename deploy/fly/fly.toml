@@ -1,0 +1,66 @@
+# =============================================================================
+# Navratna - Fly.io Main App Configuration
+# =============================================================================
+# This deploys all backend services as a single multi-process app
+# For production, consider splitting into separate apps
+# =============================================================================
+
+app = "navratna-backend"
+primary_region = "iad"  # US East (Virginia) - change to your region
+
+[build]
+  dockerfile = "Dockerfile.fly"
+
+# Environment variables (non-secret)
+[env]
+  NODE_ENV = "production"
+  PORT = "8080"
+
+# HTTP service configuration
+[http_service]
+  internal_port = 8080
+  force_https = true
+  auto_stop_machines = false
+  auto_start_machines = true
+  min_machines_running = 1
+  processes = ["app"]
+
+  [http_service.concurrency]
+    type = "requests"
+    hard_limit = 250
+    soft_limit = 200
+
+# Health check
+[[http_service.checks]]
+  grace_period = "30s"
+  interval = "15s"
+  method = "GET"
+  path = "/health"
+  timeout = "5s"
+
+# Machine configuration
+[[vm]]
+  memory = "1gb"
+  cpu_kind = "shared"
+  cpus = 1
+
+# =============================================================================
+# Multi-Process Configuration (all services in one machine)
+# =============================================================================
+[processes]
+  app = "bun run dist/index.js"
+
+# =============================================================================
+# Secrets (set via: fly secrets set KEY=value)
+# =============================================================================
+# Required secrets:
+# - POSTGRES_URL
+# - NEO4J_URL
+# - NEO4J_PASSWORD
+# - REDIS_URL
+# - RABBITMQ_URL
+# - QDRANT_URL
+# - QDRANT_API_KEY
+# - JWT_SECRET
+# - OPENAI_API_KEY (optional)
+# - ANTHROPIC_API_KEY (optional)

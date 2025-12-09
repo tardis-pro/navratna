@@ -15,7 +15,7 @@
 services:
   # Database Services
   postgres:
-    image: postgres:17.5-bullseye
+    image: postgres
     container_name: uaip-postgres
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-uaip}
@@ -25,7 +25,7 @@ services:
     ports:
       - "5432:5432"
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - postgres_data:/var/lib/postgresql
       # PostgreSQL initialization files (executed in alphabetical order)
     networks:
       - uaip-network
@@ -693,81 +693,91 @@ services:
       - '--web.enable-lifecycle'
 
   # Infrastructure Exporters
-  # postgres-exporter:
-  #   image: prometheuscommunity/postgres-exporter:latest
-  #   container_name: uaip-postgres-exporter
-  #   environment:
-  #     DATA_SOURCE_NAME: "postgresql://${POSTGRES_USER:-uaip_user}:${POSTGRES_PASSWORD:-uaip_password}@postgres:5432/${POSTGRES_DB:-uaip}?sslmode=disable"
-  #   ports:
-  #     - "9187:9187"
-  #   networks:
-  #     - uaip-network
-  #   depends_on:
-  #     postgres:
-  #       condition: service_healthy
+  postgres-exporter:
+    image: prometheuscommunity/postgres-exporter:latest
+    container_name: uaip-postgres-exporter
+    environment:
+      DATA_SOURCE_NAME: "postgresql://${POSTGRES_USER:-uaip_user}:${POSTGRES_PASSWORD:-uaip_password}@postgres:5432/${POSTGRES_DB:-uaip}?sslmode=disable"
+    ports:
+      - "9187:9187"
+    networks:
+      - uaip-network
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
 
-  # redis-exporter:
-  #   image: oliver006/redis_exporter:latest
-  #   container_name: uaip-redis-exporter
-  #   environment:
-  #     REDIS_ADDR: "redis://redis:6379"
-  #     REDIS_PASSWORD: "${REDIS_PASSWORD:-uaip_redis_password}"
-  #   ports:
-  #     - "9121:9121"
-  #   networks:
-  #     - uaip-network
-  #   depends_on:
-  #     redis:
-  #       condition: service_healthy
+  redis-exporter:
+    image: oliver006/redis_exporter:latest
+    container_name: uaip-redis-exporter
+    environment:
+      REDIS_ADDR: "redis:6379"
+      REDIS_PASSWORD: "${REDIS_PASSWORD:-uaip_redis_password}"
+    ports:
+      - "9121:9121"
+    networks:
+      - uaip-network
+    depends_on:
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
 
-  # node-exporter:
-  #   image: prom/node-exporter:latest
-  #   container_name: uaip-node-exporter
-  #   ports:
-  #     - "9100:9100"
-  #   expose:
-  #     - "9100"
-  #   volumes:
-  #     - /proc:/host/proc:ro
-  #     - /sys:/host/sys:ro
-  #     - /:/rootfs:ro
-  #   networks:
-  #     - uaip-network
-  #   command:
-  #     - '--path.procfs=/host/proc'
-  #     - '--path.rootfs=/rootfs'
-  #     - '--path.sysfs=/host/sys'
-  #     - '--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc|run|mnt|tmp)($$|/)'
-  #     - '--collector.filesystem.fs-types-exclude=^(autofs|binfmt_misc|bpf|cgroup2?|configfs|debugfs|devpts|devtmpfs|fusectl|hugetlbfs|iso9660|mqueue|nsfs|overlay|proc|procfs|pstore|rpc_pipefs|securityfs|selinuxfs|squashfs|sysfs|tracefs)$'
-  #     - '--no-collector.netstat'
-  #     - '--no-collector.softnet'
-  #     - '--no-collector.netdev'
-  #     - '--no-collector.arp'
-  #     - '--no-collector.bcache'
-  #     - '--no-collector.bonding'
-  #     - '--no-collector.ipvs'
-  #     - '--no-collector.infiniband'
-  #     - '--no-collector.powersupplyclass'
-  #     - '--no-collector.rapl'
-  #     - '--no-collector.thermal_zone'
-  #     - '--no-collector.xfs'
-  #     - '--no-collector.zfs'
-  #     - '--no-collector.hwmon'
-  #     - '--no-collector.ntp'
-  #   restart: unless-stopped
-  #   pid: host
+  node-exporter:
+    image: prom/node-exporter:latest
+    container_name: uaip-node-exporter
+    ports:
+      - "9100:9100"
+    volumes:
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+    networks:
+      - uaip-network
+    command:
+      - '--path.procfs=/host/proc'
+      - '--path.sysfs=/host/sys'
+      - '--web.listen-address=:9100'
+      # Exclude problematic mount points for WSL2
+      - '--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc|run|mnt|tmp|wsl|snap)($$|/)'
+      - '--collector.filesystem.fs-types-exclude=^(autofs|binfmt_misc|bpf|cgroup2?|configfs|debugfs|devpts|devtmpfs|fusectl|hugetlbfs|iso9660|mqueue|nsfs|overlay|proc|procfs|pstore|rpc_pipefs|securityfs|selinuxfs|squashfs|sysfs|tracefs|tmpfs|9p|drvfs)$$'
+      # Disable collectors that don't work well in WSL2/containers
+      - '--no-collector.netstat'
+      - '--no-collector.softnet'
+      - '--no-collector.arp'
+      - '--no-collector.bcache'
+      - '--no-collector.bonding'
+      - '--no-collector.ipvs'
+      - '--no-collector.infiniband'
+      - '--no-collector.powersupplyclass'
+      - '--no-collector.rapl'
+      - '--no-collector.thermal_zone'
+      - '--no-collector.xfs'
+      - '--no-collector.zfs'
+      - '--no-collector.hwmon'
+      - '--no-collector.ntp'
+      - '--no-collector.wifi'
+      - '--no-collector.fibrechannel'
+      - '--no-collector.nvme'
+      - '--no-collector.tapestats'
+    restart: unless-stopped
 
-  # nginx-exporter:
-  #   image: nginx/nginx-prometheus-exporter:latest
-  #   container_name: uaip-nginx-exporter
-  #   ports:
-  #     - "9113:9113"
-  #   networks:
-  #     - uaip-network
-  #   depends_on:
-  #     - api-gateway
-  #   command:
-  #     - '-nginx.scrape-uri=http://api-gateway:80/nginx_status'
+  nginx-exporter:
+    image: nginx/nginx-prometheus-exporter:latest
+    container_name: uaip-nginx-exporter
+    ports:
+      - "9113:9113"
+    networks:
+      - uaip-network
+    depends_on:
+      api-gateway:
+        condition: service_healthy
+    command:
+      - '-nginx.scrape-uri=http://api-gateway:80/nginx_status'
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:9113/metrics"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
 
   grafana:
     image: grafana/grafana:latest

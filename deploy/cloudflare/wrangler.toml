@@ -1,0 +1,119 @@
+# =============================================================================
+# Navratna - Cloudflare Workers Configuration
+# =============================================================================
+# This configuration manages:
+# - API Gateway Worker (edge routing, rate limiting, CORS)
+# - R2 Storage bindings
+# - KV for caching
+# - Durable Objects for WebSocket (future)
+# =============================================================================
+
+name = "navratna-api-gateway"
+main = "src/worker.ts"
+compatibility_date = "2024-01-01"
+compatibility_flags = ["nodejs_compat"]
+
+# Account settings (set via environment or wrangler login)
+# account_id = ""
+
+# =============================================================================
+# Production Environment
+# =============================================================================
+[env.production]
+name = "navratna-api-gateway"
+routes = [
+  { pattern = "api.navratna.app/*", zone_name = "navratna.app" }
+]
+
+# Backend service URLs (set in Cloudflare dashboard or via secrets)
+[env.production.vars]
+ENVIRONMENT = "production"
+BACKEND_URL = "https://backend.navratna.app"
+FRONTEND_URL = "https://navratna.app"
+CORS_ORIGINS = "https://navratna.app,https://www.navratna.app"
+
+# R2 Bucket binding
+[[env.production.r2_buckets]]
+binding = "STORAGE"
+bucket_name = "navratna-storage-prod"
+
+# KV Namespace for caching
+[[env.production.kv_namespaces]]
+binding = "CACHE"
+id = "" # Set after creating namespace: wrangler kv:namespace create CACHE
+
+# Rate limiting
+[[env.production.unsafe.bindings]]
+name = "RATE_LIMITER"
+type = "ratelimit"
+namespace_id = "1"
+simple = { limit = 100, period = 60 }
+
+# =============================================================================
+# Staging Environment
+# =============================================================================
+[env.staging]
+name = "navratna-api-gateway-staging"
+routes = [
+  { pattern = "api-staging.navratna.app/*", zone_name = "navratna.app" }
+]
+
+[env.staging.vars]
+ENVIRONMENT = "staging"
+BACKEND_URL = "https://backend-staging.navratna.app"
+FRONTEND_URL = "https://staging.navratna.app"
+CORS_ORIGINS = "https://staging.navratna.app"
+
+[[env.staging.r2_buckets]]
+binding = "STORAGE"
+bucket_name = "navratna-storage-staging"
+
+[[env.staging.kv_namespaces]]
+binding = "CACHE"
+id = "" # Set after creating namespace
+
+# =============================================================================
+# Development Environment (local)
+# =============================================================================
+[env.development]
+name = "navratna-api-gateway-dev"
+
+[env.development.vars]
+ENVIRONMENT = "development"
+BACKEND_URL = "http://localhost:8081"
+FRONTEND_URL = "http://localhost:5173"
+CORS_ORIGINS = "http://localhost:5173,http://localhost:3000"
+
+# Local R2 bucket for development
+[[env.development.r2_buckets]]
+binding = "STORAGE"
+bucket_name = "navratna-storage-dev"
+
+# =============================================================================
+# Build Configuration
+# =============================================================================
+[build]
+command = "pnpm build:worker"
+cwd = "deploy/cloudflare"
+watch_dir = "src"
+
+# =============================================================================
+# Durable Objects (for WebSocket - future)
+# =============================================================================
+# [[durable_objects.bindings]]
+# name = "DISCUSSION_ROOM"
+# class_name = "DiscussionRoom"
+
+# [[migrations]]
+# tag = "v1"
+# new_classes = ["DiscussionRoom"]
+
+# =============================================================================
+# Observability
+# =============================================================================
+[observability]
+enabled = true
+
+# Tail workers for logging
+# [tail_consumers]
+# service = "navratna-logger"
