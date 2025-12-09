@@ -28,7 +28,7 @@
     "cors": "catalog:backend",
     "dotenv": "catalog:backend",
     "helmet": "catalog:backend",
-    "morgan": "^1.10.0",
+    "morgan": "^1.10.1",
     "multer": "catalog:backend",
     "node-cron": "^4.1.0",
     "prom-client": "catalog:backend",
