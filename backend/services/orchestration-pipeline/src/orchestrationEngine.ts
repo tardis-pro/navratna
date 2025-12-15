@@ -130,14 +130,14 @@ export class OrchestrationEngine extends EventEmitter {
     } catch (error) {
       logger.error('Operation execution failed', {
         operationId: operation.id,
-        error: error.message,
-        stack: error.stack,
+        error: error instanceof Error ? error.message : 'Unknown error',
+        stack: error instanceof Error ? error.stack : undefined,
       });
 
       // Emit operation failed event
       await this.eventBusService.publish('operation.failed', {
         operationId: operation.id,
-        error: error.message,
+        error: error instanceof Error ? error.message : 'Unknown error',
         timestamp: new Date(),
       });
 
@@ -172,7 +172,7 @@ export class OrchestrationEngine extends EventEmitter {
     } catch (error) {
       logger.error('Failed to get operation status', {
         operationId,
-        error: error.message,
+        error: error instanceof Error ? error.message : 'Unknown error',
       });
       throw error;
     }
@@ -218,7 +218,7 @@ export class OrchestrationEngine extends EventEmitter {
     } catch (error) {
       logger.error('Failed to pause operation', {
         operationId,
-        error: error.message,
+        error: error instanceof Error ? error.message : 'Unknown error',
       });
       throw error;
     }
@@ -263,7 +263,7 @@ export class OrchestrationEngine extends EventEmitter {
     } catch (error) {
       logger.error('Failed to resume operation', {
         operationId,
-        error: error.message,
+        error: error instanceof Error ? error.message : 'Unknown error',
       });
       throw error;
     }
@@ -327,7 +327,7 @@ export class OrchestrationEngine extends EventEmitter {
     } catch (error) {
       logger.error('Failed to cancel operation', {
         operationId,
-        error: error.message,
+        error: error instanceof Error ? error.message : 'Unknown error',
       });
       throw error;
     }

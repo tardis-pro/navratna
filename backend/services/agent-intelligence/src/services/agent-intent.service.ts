@@ -677,7 +677,7 @@ Keep it conversational and helpful, as if speaking directly to the user.`,
     let confidence = 0.5;
 
     // Boost for clear intent keywords
-    const intentKeywords = {
+    const intentKeywords: Record<string, string[]> = {
       create: ['create', 'make', 'build', 'generate'],
       analyze: ['analyze', 'examine', 'check', 'review'],
       modify: ['change', 'update', 'modify', 'edit'],

@@ -5,6 +5,72 @@ import {
   getUserKnowledgeService,
   type UserKnowledgeService,
 } from '@uaip/shared-services';
+import type { OptionalAuthContext, RequiredAuthContext } from './types/elysia-context.js';
+import type { KnowledgeSearchRequest, KnowledgeIngestRequest } from '@uaip/types';
+
+// Query parameter interfaces
+interface ItemIdParams {
+  itemId: string;
+}
+
+interface TagParams {
+  tag: string;
+}
+
+interface TagQuery {
+  limit?: string;
+}
+
+interface ListQuery {
+  limit?: string;
+  offset?: string;
+  tags?: string;
+  types?: string;
+}
+
+interface SearchQuery {
+  q?: string;
+  tags?: string;
+  types?: string;
+  limit?: string;
+  confidence?: string;
+  includeRelationships?: string;
+}
+
+interface GraphQuery {
+  limit?: string;
+  types?: string;
+  tags?: string;
+  includeRelationships?: string;
+}
+
+interface RelationshipsQuery {
+  limit?: string;
+  relationshipTypes?: string;
+}
+
+// Health status interface
+interface ServicesHealthStatus {
+  healthy: boolean;
+  services: Record<string, boolean>;
+  error?: string;
+}
+
+// Knowledge item body interface
+interface KnowledgeItemBody {
+  content: string;
+  type?: string;
+  tags?: string[];
+  title?: string;
+  category?: string;
+  metadata?: Record<string, any>;
+  source?: {
+    type: string;
+    identifier: string;
+    metadata?: Record<string, any>;
+  };
+  confidence?: number;
+}
 
 async function getServices(): Promise<{
   userKnowledgeService: UserKnowledgeService | null;
@@ -25,7 +91,7 @@ export function registerKnowledgeRoutes(app: any): any {
       // POST /
       .group('', (g: any) =>
         withRequiredAuth(g)
-          .post('/', async ({ set, body, user }) => {
+          .post('/', async ({ set, body, user }: RequiredAuthContext<KnowledgeItemBody | KnowledgeItemBody[]>) => {
             const userId = user!.id;
             const { userKnowledgeService, initializationError } = await getServices();
             if (initializationError) {
@@ -34,7 +100,7 @@ export function registerKnowledgeRoutes(app: any): any {
             }
 
             const requestData = Array.isArray(body) ? body : [body];
-            const knowledgeItems = requestData.map((item: any) =>
+            const knowledgeItems = requestData.map((item) =>
               item?.source
                 ? item
                 : {
@@ -60,7 +126,7 @@ export function registerKnowledgeRoutes(app: any): any {
                 return { error: 'Each knowledge item must have content' };
               }
             }
-            const result = await userKnowledgeService!.addKnowledge(userId, knowledgeItems);
+            const result = await userKnowledgeService!.addKnowledge(userId, knowledgeItems as KnowledgeIngestRequest[]);
             set.status = 201;
             return {
               success: true,
@@ -70,7 +136,7 @@ export function registerKnowledgeRoutes(app: any): any {
           })
 
           // PATCH /:itemId
-          .patch('/:itemId', async ({ set, params, body, user }) => {
+          .patch('/:itemId', async ({ set, params, body, user }: RequiredAuthContext) => {
             const userId = user!.id;
             const { userKnowledgeService, initializationError } = await getServices();
             if (initializationError) {
@@ -110,7 +176,7 @@ export function registerKnowledgeRoutes(app: any): any {
           })
 
           // DELETE /:itemId
-          .delete('/:itemId', async ({ set, params, user }) => {
+          .delete('/:itemId', async ({ set, params, user }: RequiredAuthContext) => {
             const userId = user!.id;
             const { userKnowledgeService, initializationError } = await getServices();
             if (initializationError) {
@@ -142,7 +208,7 @@ export function registerKnowledgeRoutes(app: any): any {
           })
 
           // GET /tags/:tag
-          .get('/tags/:tag', async ({ set, params, query, user }) => {
+          .get('/tags/:tag', async ({ set, params, query, user }: RequiredAuthContext) => {
             const userId = user!.id;
             const { userKnowledgeService, initializationError } = await getServices();
             if (initializationError) {
@@ -160,7 +226,7 @@ export function registerKnowledgeRoutes(app: any): any {
           })
 
           // GET /stats
-          .get('/stats', async ({ set, user }) => {
+          .get('/stats', async ({ set, user }: RequiredAuthContext) => {
             const userId = user!.id;
             const { userKnowledgeService, initializationError } = await getServices();
             if (initializationError) {
@@ -176,7 +242,7 @@ export function registerKnowledgeRoutes(app: any): any {
           })
 
           // GET /:itemId/related
-          .get('/:itemId/related', async ({ set, params, user }) => {
+          .get('/:itemId/related', async ({ set, params, user }: RequiredAuthContext) => {
             const userId = user!.id;
             const itemId = (params as any).itemId as string;
             const { userKnowledgeService, initializationError } = await getServices();
@@ -197,7 +263,7 @@ export function registerKnowledgeRoutes(app: any): any {
           })
 
           // GET /graph
-          .get('/graph', async ({ set, query, user }) => {
+          .get('/graph', async ({ set, query, user }: RequiredAuthContext) => {
             const userId = user!.id;
             const { userKnowledgeService, initializationError } = await getServices();
             if (initializationError) {
@@ -266,7 +332,7 @@ export function registerKnowledgeRoutes(app: any): any {
           })
 
           // GET /graph/relationships/:itemId
-          .get('/graph/relationships/:itemId', async ({ set, params, query, user }) => {
+          .get('/graph/relationships/:itemId', async ({ set, params, query, user }: RequiredAuthContext) => {
             const userId = user!.id;
             const { userKnowledgeService, initializationError } = await getServices();
             if (initializationError) {
@@ -318,7 +384,7 @@ export function registerKnowledgeRoutes(app: any): any {
           })
 
           // POST /sync
-          .post('/sync', async ({ set, user }) => {
+          .post('/sync', async ({ set, user }: RequiredAuthContext) => {
             const userId = user!.id;
             const { userKnowledgeService, initializationError } = await getServices();
             if (initializationError) {
@@ -356,7 +422,7 @@ export function registerKnowledgeRoutes(app: any): any {
       )
 
       // GET /
-      .get('/', async ({ set, query, user }) => {
+      .get('/', async ({ set, query, user }: OptionalAuthContext) => {
         if (!user) {
           set.status = 401;
           return { error: 'User not authenticated' };
@@ -387,7 +453,7 @@ export function registerKnowledgeRoutes(app: any): any {
       })
 
       // GET /search
-      .get('/search', async ({ set, query, user }) => {
+      .get('/search', async ({ set, query, user }: OptionalAuthContext) => {
         if (!user) {
           set.status = 401;
           return { error: 'User not authenticated' };

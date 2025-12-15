@@ -361,8 +361,8 @@ export class ConversationAnalyzerImpl implements ConversationAnalyzer {
 
   private getUniqueParticipants(messages: ConversationMessage[]): string[] {
     // Extract participants from message metadata or use role as fallback
-    const participants = new Set(
-      messages.map((m) => m.metadata?.author || m.metadata?.userId || m.role || 'unknown')
+    const participants = new Set<string>(
+      messages.map((m) => (m.metadata?.author || m.metadata?.userId || m.role || 'unknown') as string)
     );
     return Array.from(participants);
   }

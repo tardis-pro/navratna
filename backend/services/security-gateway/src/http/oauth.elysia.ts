@@ -5,6 +5,7 @@ import { OAuthProviderService } from '../services/oauthProviderService.js';
 import { EnhancedAuthService } from '../services/enhancedAuthService.js';
 import { AuditService } from '../services/auditService.js';
 import { UserType, AgentCapability, OAuthProviderType, AuditEventType } from '@uaip/types';
+import type { OptionalAuthContext, RequiredAuthContext } from './types/elysia-context.js';
 
 let oauthProviderService: OAuthProviderService | null = null;
 let enhancedAuthService: EnhancedAuthService | null = null;
@@ -49,7 +50,7 @@ export function registerOAuthRoutes(app: any): any {
   return app.group('/api/v1/oauth', (app: any) =>
     withOptionalAuth(app)
       // GET /providers
-      .get('/providers', async ({ set, query }) => {
+      .get('/providers', async ({ set, query }: OptionalAuthContext) => {
         try {
           const { oauthProviderService } = getServices();
           const userType = ((query as any).userType as UserType) || UserType.HUMAN;
@@ -74,7 +75,7 @@ export function registerOAuthRoutes(app: any): any {
       })
 
       // POST /authorize
-      .post('/authorize', async ({ set, body, request, headers }) => {
+      .post('/authorize', async ({ set, body, request, headers }: OptionalAuthContext) => {
         try {
           const validated = AuthorizeRequestSchema.parse(body);
           const { oauthProviderService, auditService } = getServices();
@@ -102,7 +103,7 @@ export function registerOAuthRoutes(app: any): any {
       })
 
       // POST /callback
-      .post('/callback', async ({ set, body, request, headers }) => {
+      .post('/callback', async ({ set, body, request, headers }: OptionalAuthContext) => {
         try {
           const validated = CallbackRequestSchema.parse(body);
           const { enhancedAuthService, auditService } = getServices();
@@ -157,7 +158,7 @@ export function registerOAuthRoutes(app: any): any {
       })
 
       // POST /agent/authenticate
-      .post('/agent/authenticate', async ({ set, body, request, headers }) => {
+      .post('/agent/authenticate', async ({ set, body, request, headers }: OptionalAuthContext) => {
         try {
           const validated = AgentAuthRequestSchema.parse(body);
           const { enhancedAuthService, auditService } = getServices();
@@ -213,7 +214,7 @@ export function registerOAuthRoutes(app: any): any {
 
       // POST /connect (requires auth)
       .group('', (g: any) =>
-        withRequiredAuth(g).post('/connect', async ({ set, body, user }) => {
+        withRequiredAuth(g).post('/connect', async ({ set, body, user }: RequiredAuthContext) => {
           try {
             const { code, state, redirectUri } = body as any;
             if (!code || !state) {
@@ -247,7 +248,7 @@ export function registerOAuthRoutes(app: any): any {
       .group('/agent', (g: any) =>
         withRequiredAuth(g)
           // GitHub operations
-          .post('/github/:providerId', async ({ set, params, body, user }) => {
+          .post('/github/:providerId', async ({ set, params, body, user }: RequiredAuthContext) => {
             try {
               const validated = z
                 .object({
@@ -304,7 +305,7 @@ export function registerOAuthRoutes(app: any): any {
           })
 
           // Gmail operations
-          .post('/gmail/:providerId', async ({ set, params, body, user }) => {
+          .post('/gmail/:providerId', async ({ set, params, body, user }: RequiredAuthContext) => {
             try {
               const validated = z
                 .object({

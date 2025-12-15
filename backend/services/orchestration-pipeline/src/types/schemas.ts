@@ -275,20 +275,20 @@ export const validateParameter = (parameterDefinition: z.ZodTypeAny, value: any)
     return {
       isValid: true,
       value: parameterDefinition.parse(value),
-      errors: [],
+      errors: [] as string[],
     };
   } catch (error: unknown) {
     if (error instanceof z.ZodError) {
       return {
         isValid: false,
         value: null,
-        errors: error.issues.map((issue: z.ZodIssue) => issue.message),
+        errors: error.issues.map((issue) => issue.message) as string[],
       };
     }
     return {
       isValid: false,
       value: null,
-      errors: ['Unknown validation error'],
+      errors: ['Unknown validation error'] as string[],
     };
   }
 };

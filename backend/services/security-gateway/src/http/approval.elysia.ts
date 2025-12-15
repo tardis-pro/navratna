@@ -6,6 +6,46 @@ import { ApprovalWorkflowService } from '../services/approvalWorkflowService.js'
 import { DatabaseService, EventBusService } from '@uaip/shared-services';
 import { NotificationService } from '../services/notificationService.js';
 import { ApprovalStatus, SecurityLevel, AuditEventType } from '@uaip/types';
+import type { RequiredAuthContext } from './types/elysia-context.js';
+
+// Type definitions for request bodies, params, and queries
+interface CreateWorkflowBody {
+  operationId: string;
+  operationType: string;
+  requiredApprovers: string[];
+  securityLevel: SecurityLevel;
+  context: Record<string, any>;
+  expirationHours?: number;
+  metadata?: Record<string, any>;
+}
+
+interface ApprovalDecisionBody {
+  decision: 'approve' | 'reject';
+  conditions?: string[];
+  feedback?: string;
+}
+
+interface WorkflowIdParams {
+  workflowId: string;
+}
+
+interface CancelWorkflowBody {
+  reason: string;
+}
+
+interface QueryWorkflowsQuery {
+  status?: ApprovalStatus;
+  operationType?: string;
+  securityLevel?: SecurityLevel;
+  startDate?: Date;
+  endDate?: Date;
+  limit: number;
+  offset: number;
+}
+
+interface StatsQuery {
+  days?: string;
+}
 
 // Lazy service setup (keeps routing file self-contained)
 let databaseService: DatabaseService | null = null;
@@ -98,7 +138,7 @@ export function registerApprovalRoutes(app: any): any {
       // Create workflow (operator)
       .group('', (g: any) =>
         withOperatorGuard(g)
-          .post('/workflows', async ({ body, set, user, request, headers }) => {
+          .post('/workflows', async ({ body, set, user, request, headers }: RequiredAuthContext<CreateWorkflowBody, unknown, unknown>) => {
             const parsed = createWorkflowSchema.safeParse(body);
             if (!parsed.success) {
               set.status = 400;
@@ -132,7 +172,7 @@ export function registerApprovalRoutes(app: any): any {
                 },
                 ipAddress: request.headers.get('x-forwarded-for') || '',
                 userAgent: headers['user-agent'],
-                riskLevel: parsed.data.securityLevel as any,
+                riskLevel: parsed.data.securityLevel,
               });
               set.status = 201;
               return {
@@ -153,9 +193,9 @@ export function registerApprovalRoutes(app: any): any {
             }
           })
           // Stats (operator)
-          .get('/stats', async ({ set, query, user }) => {
+          .get('/stats', async ({ set, query, user }: RequiredAuthContext<unknown, unknown, StatsQuery>) => {
             try {
-              const days = Number((query as any).days ?? 30);
+              const days = Number(query.days ?? 30);
               const startDate = new Date();
               startDate.setDate(startDate.getDate() - days);
               const { approvalWorkflowService } = await getServices();
@@ -201,7 +241,7 @@ export function registerApprovalRoutes(app: any): any {
       )
 
       // Query workflows (auth)
-      .get('/workflows', async ({ set, user, query }) => {
+      .get('/workflows', async ({ set, user, query }: RequiredAuthContext<unknown, unknown, QueryWorkflowsQuery>) => {
         const parsed = queryWorkflowsSchema.safeParse(query);
         if (!parsed.success) {
           set.status = 400;
@@ -214,17 +254,17 @@ export function registerApprovalRoutes(app: any): any {
           if (role === 'admin' || role === 'security_admin' || role === 'security-admin') {
             workflows = await approvalWorkflowService.getUserWorkflows(
               '',
-              parsed.data.status as any
+              parsed.data.status
             );
           } else {
             workflows = await approvalWorkflowService.getUserWorkflows(
               user!.id,
-              parsed.data.status as any
+              parsed.data.status
             );
           }
           let filtered = workflows;
           const { operationType, securityLevel, startDate, endDate, limit, offset } =
-            parsed.data as any;
+            parsed.data;
           if (operationType)
             filtered = filtered.filter((w: any) => w.metadata?.operationType === operationType);
           if (securityLevel)
@@ -253,7 +293,7 @@ export function registerApprovalRoutes(app: any): any {
       })
 
       // Pending approvals for current user
-      .get('/pending', async ({ set, user }) => {
+      .get('/pending', async ({ set, user }: RequiredAuthContext) => {
         try {
           const { approvalWorkflowService } = await getServices();
           const pending = await approvalWorkflowService.getUserWorkflows(
@@ -306,10 +346,10 @@ export function registerApprovalRoutes(app: any): any {
       .group('', (g: any) =>
         withOperatorGuard(g).post(
           '/:workflowId/cancel',
-          async ({ set, params, body, user, request, headers }) => {
+          async ({ set, params, body, user, request, headers }: RequiredAuthContext<CancelWorkflowBody, WorkflowIdParams, unknown>) => {
             try {
-              const workflowId = (params as any).workflowId as string;
-              const reason = (body as any)?.reason as string | undefined;
+              const workflowId = params.workflowId;
+              const reason = body?.reason;
               if (!reason || !reason.trim()) {
                 set.status = 400;
                 return { error: 'Cancellation reason is required' };
@@ -324,7 +364,7 @@ export function registerApprovalRoutes(app: any): any {
                 details: { action: 'cancelled', reason, cancelledBy: user!.id },
                 ipAddress: request.headers.get('x-forwarded-for') || '',
                 userAgent: headers['user-agent'],
-                riskLevel: SecurityLevel.MEDIUM as any,
+                riskLevel: SecurityLevel.MEDIUM,
               });
               return { success: true, message: 'Approval workflow cancelled successfully' };
             } catch (error) {
@@ -339,9 +379,9 @@ export function registerApprovalRoutes(app: any): any {
       )
 
       // Workflow details
-      .get('/:workflowId', async ({ set, params, user }) => {
+      .get('/:workflowId', async ({ set, params, user }: RequiredAuthContext<unknown, WorkflowIdParams, unknown>) => {
         try {
-          const workflowId = (params as any).workflowId as string;
+          const workflowId = params.workflowId;
           if (!workflowId || workflowId.length < 10) {
             set.status = 400;
             return { error: 'Invalid workflow ID format' };
@@ -371,10 +411,10 @@ export function registerApprovalRoutes(app: any): any {
       })
 
       // Approval decision
-      .post('/:workflowId/decisions', async ({ set, params, body, user, request, headers }) => {
+      .post('/:workflowId/decisions', async ({ set, params, body, user, request, headers }: RequiredAuthContext<ApprovalDecisionBody, WorkflowIdParams, unknown>) => {
         const parsed = approvalDecisionSchema.safeParse({
-          ...(body as any),
-          workflowId: (params as any).workflowId,
+          ...body,
+          workflowId: params.workflowId,
         });
         if (!parsed.success) {
           set.status = 400;
@@ -410,8 +450,8 @@ export function registerApprovalRoutes(app: any): any {
             userAgent: headers['user-agent'],
             riskLevel:
               parsed.data.decision === 'reject'
-                ? (SecurityLevel.MEDIUM as any)
-                : (SecurityLevel.LOW as any),
+                ? SecurityLevel.MEDIUM
+                : SecurityLevel.LOW,
           });
           return {
             success: true,

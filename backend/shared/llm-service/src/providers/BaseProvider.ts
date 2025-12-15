@@ -96,7 +96,7 @@ export abstract class BaseProvider {
     body: any,
     headers: Record<string, string> = {}
   ): Promise<any> {
-    const defaultHeaders = {
+    const defaultHeaders: Record<string, string> = {
       'Content-Type': 'application/json',
       ...headers,
     };
@@ -161,7 +161,7 @@ export abstract class BaseProvider {
   }
 
   protected async makeGetRequest(url: string, headers: Record<string, string> = {}): Promise<any> {
-    const defaultHeaders = {
+    const defaultHeaders: Record<string, string> = {
       ...headers,
     };
 

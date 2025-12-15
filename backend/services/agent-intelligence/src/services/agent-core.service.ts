@@ -187,7 +187,7 @@ export class AgentCoreService {
           | 'high'
           | 'critical',
         allowedCapabilities: agentData.capabilities || [],
-        restrictedDomains: [],
+        restrictedDomains: [] as string[],
         approvalRequired: false,
         auditLevel: 'standard' as 'minimal' | 'standard' | 'comprehensive',
       };

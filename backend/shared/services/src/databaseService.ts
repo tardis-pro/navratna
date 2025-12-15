@@ -1,6 +1,6 @@
 import { logger } from '@uaip/utils';
 import { TypeOrmService } from './typeormService.js';
-import { EntityTarget, ObjectLiteral } from 'typeorm';
+import { EntityTarget, ObjectLiteral, Repository, DeepPartial, FindOptionsWhere } from 'typeorm';
 import { UserService } from './services/UserService.js';
 import { ToolService } from './services/ToolService.js';
 import { AgentService } from './services/AgentService.js';
@@ -20,13 +20,18 @@ import { KnowledgeRepository } from './database/repositories/knowledge.repositor
 import { QdrantService } from './qdrant.service.js';
 import { ToolGraphDatabase } from './database/toolGraphDatabase.js';
 import { SmartEmbeddingService } from './knowledge-graph/smart-embedding.service.js';
+import { Persona } from './entities/persona.entity.js';
+import { AgentCapabilityMetric } from './entities/agentCapabilityMetric.entity.js';
+import { PersonaAnalytics } from './entities/personaAnalytics.entity.js';
+import { ConversationContext } from './entities/conversationContext.entity.js';
+import { Discussion } from './entities/discussion.entity.js';
 
 // Database error handling
 export class DatabaseError extends Error {
   public readonly code?: string;
-  public readonly details?: any;
+  public readonly details?: Record<string, unknown>;
 
-  constructor(message: string, options?: { code?: string; details?: any; originalError?: string }) {
+  constructor(message: string, options?: { code?: string; details?: Record<string, unknown>; originalError?: string }) {
     super(message);
     this.name = 'DatabaseError';
     this.code = options?.code;
@@ -306,18 +311,16 @@ export class DatabaseService {
     return this.agentService.getAgentRepository();
   }
 
-  public getPersonaRepository() {
-    // TODO: Implement persona repository
-    return this.typeormService.getRepository('personas' as any);
+  public getPersonaRepository(): Repository<Persona> {
+    return this.typeormService.getRepository(Persona);
   }
 
   public getCapabilityRepository() {
     return this.agentService.getCapabilityRepository();
   }
 
-  public getAgentCapabilityMetricRepository() {
-    // TODO: Implement capability metrics repository
-    return this.typeormService.getRepository('agent_capability_metrics' as any);
+  public getAgentCapabilityMetricRepository(): Repository<AgentCapabilityMetric> {
+    return this.typeormService.getRepository(AgentCapabilityMetric);
   }
 
   public getPersonaAnalyticsRepository() {

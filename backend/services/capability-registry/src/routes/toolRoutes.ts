@@ -15,7 +15,7 @@ export function registerToolRoutes(
       const { ToolRegistry } = require('../services/toolRegistry.js');
       const { ToolExecutor } = require('../services/toolExecutor.js');
       const registry = new ToolRegistry(eventBusService);
-      const base = { execute: async () => ({ success: true, result: null }) } as any;
+      const base = { execute: async () => ({ success: true, result: null as any }) } as any;
       const exec = new ToolExecutor(db, registry, base);
       return new ToolController(registry, exec);
     })();
@@ -168,7 +168,11 @@ export function registerToolRoutes(
       .post('/:id/execute', async ({ params, body, headers }: any) => {
         const userId = headers['x-user-id'];
         const req: any = { params, body, user: userId ? { id: userId } : undefined };
-        const res: any = { json: (v: any) => v, status: () => res };
+        const res: any = {
+          json: (v: any) => v,
+          status: () => res,
+          result: undefined as any
+        };
         return controller.executeTool(req, res);
       })
   );

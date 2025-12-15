@@ -315,9 +315,9 @@ export class UnifiedToolRegistry {
       // Convert to UnifiedToolDefinition and enhance with graph data if available
       const unifiedTools: UnifiedToolDefinition[] = tools.map((tool) => ({
         ...tool,
-        recommendations: [],
-        relationships: [],
-        projectContext: [],
+        recommendations: [] as ToolRecommendation[],
+        relationships: [] as ToolRelationship[],
+        projectContext: [] as ProjectContext[],
       }));
 
       if (this.databaseService.tools.neo4jService) {
@@ -354,9 +354,9 @@ export class UnifiedToolRegistry {
       // Convert to UnifiedToolDefinition
       return {
         ...tool,
-        recommendations: [],
-        relationships: [],
-        projectContext: [],
+        recommendations: [] as ToolRecommendation[],
+        relationships: [] as ToolRelationship[],
+        projectContext: [] as ProjectContext[],
       };
     } catch (error) {
       logger.error('Failed to get tool', { error, toolId });
@@ -393,9 +393,9 @@ export class UnifiedToolRegistry {
       // Convert to UnifiedToolDefinition for additional features
       const tool: UnifiedToolDefinition = {
         ...baseTool,
-        recommendations: [],
-        relationships: [],
-        projectContext: [],
+        recommendations: [] as ToolRecommendation[],
+        relationships: [] as ToolRelationship[],
+        projectContext: [] as ProjectContext[],
       };
 
       // Security checks
@@ -542,7 +542,7 @@ export class UnifiedToolRegistry {
   private async getProjectContext(toolId: string, projectId: string): Promise<ProjectContext[]> {
     try {
       // Simplified project usage lookup for now
-      const projectUsage = null;
+      const projectUsage: { usageCount: number; lastUsed: Date; successRate: number } | null = null;
       if (projectUsage) {
         return [
           {
@@ -595,7 +595,7 @@ export class UnifiedToolRegistry {
       const usageKey = `rate_limit:${key}`;
       const usageData = await this.databaseService.tools.getRedisService().get(usageKey);
 
-      let usage = usageData ? JSON.parse(usageData) : { requests: [], lastReset: now };
+      let usage: { requests: number[]; lastReset: number } = usageData ? JSON.parse(usageData) : { requests: [], lastReset: now };
 
       // Clean old requests outside window
       usage.requests = usage.requests.filter((time: number) => now - time < rateLimit.window);
@@ -842,13 +842,13 @@ export class UnifiedToolRegistry {
 
   // Additional helper methods
   private getRequiredSecurityLevel(toolSecurityLevel: string): number {
-    const levelMap = {
+    const levelMap: Record<string, number> = {
       low: 1,
       medium: 2,
       high: 3,
       critical: 4,
     };
-    return levelMap[toolSecurityLevel] || 2;
+    return levelMap[toolSecurityLevel] ?? 2;
   }
 
   private async getToolExecutor(tool: any): Promise<any> {
@@ -877,9 +877,9 @@ export class UnifiedToolRegistry {
     try {
       // Get tools frequently used in this project
       // Simplified project tools lookup for now
-      const projectTools = [];
+      const projectTools: any[] = [];
 
-      return projectTools.map((tool) => ({
+      return projectTools.map((tool: any) => ({
         toolId: tool.id,
         score: 0.8,
         reason: `Frequently used in this project (${tool.usageCount} times)`,

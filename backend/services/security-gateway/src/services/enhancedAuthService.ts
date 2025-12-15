@@ -67,7 +67,7 @@ export class EnhancedAuthService {
 
       // Find or create user
       // Try to find user by email first, then by OAuth connection
-      let user = await this.databaseService.users.findUserByEmail(userInfo.email);
+      let user = await this.databaseService.users.findUserByEmail(userInfo.email) as any;
 
       if (!user) {
         // Check if there's an OAuth connection for this provider
@@ -81,9 +81,9 @@ export class EnhancedAuthService {
       }
 
       if (!user) {
-        user = (await this.createUserFromOAuth(userInfo, provider, oauthState)) as any;
+        user = await this.createUserFromOAuth(userInfo, provider, oauthState) as unknown as EnhancedUser;
       } else {
-        await this.updateUserOAuthConnection(user, tokens, provider, userInfo);
+        await this.updateUserOAuthConnection(user as any, tokens, provider, userInfo);
       }
 
       // Create session
@@ -108,7 +108,7 @@ export class EnhancedAuthService {
         details: {
           authMethod: AuthenticationMethod.OAUTH,
           provider: provider.type,
-          userType: (user as any).userType || UserType.HUMAN,
+          userType: user.userType,
           mfaRequired: requiresMFA,
         },
         ipAddress,
@@ -117,7 +117,7 @@ export class EnhancedAuthService {
 
       logger.info('OAuth authentication successful', {
         userId: user.id,
-        userType: (user as any).userType || UserType.HUMAN,
+        userType: user.userType,
         provider: provider.type,
         mfaRequired: requiresMFA,
       });
@@ -233,7 +233,7 @@ export class EnhancedAuthService {
         await this.oauthProviderService.handleCallback(code, state, redirectUri);
 
       if (
-        ((user as any).userType || UserType.HUMAN) === UserType.AGENT &&
+        user.userType === UserType.AGENT &&
         oauthState.agentCapabilities
       ) {
         // Create agent OAuth connection
@@ -259,7 +259,7 @@ export class EnhancedAuthService {
         return { success: true, connection };
       } else {
         // Update user OAuth connection
-        await this.updateUserOAuthConnection(user, tokens, provider, userInfo);
+        await this.updateUserOAuthConnection(user as any, tokens, provider, userInfo);
 
         await this.auditService.logEvent({
           eventType: AuditEventType.SECURITY_CONFIG_CHANGE,
@@ -328,7 +328,7 @@ export class EnhancedAuthService {
     await this.databaseService.mfa.createMFAChallenge(userId, method, sessionId);
 
     // Send challenge to user (implementation depends on method)
-    await this.sendMFAChallenge(user, mfaChallenge, challenge);
+    await this.sendMFAChallenge(user as any, mfaChallenge, challenge);
 
     return mfaChallenge;
   }
@@ -444,7 +444,7 @@ export class EnhancedAuthService {
       const securityContext: EnhancedSecurityContext = {
         userId: user.id,
         sessionId: session.id,
-        userType: (user as any).userType || UserType.HUMAN,
+        userType: user.userType,
         ipAddress: session.ipAddress,
         userAgent: session.userAgent,
         department: user.department,
@@ -458,21 +458,21 @@ export class EnhancedAuthService {
         oauthProvider: session.oauthProvider,
         agentCapabilities: session.agentCapabilities,
         deviceTrusted: (session.deviceInfo as any)?.isTrusted || false,
-        locationTrusted: this.isLocationTrusted(user, session),
+        locationTrusted: this.isLocationTrusted(user as unknown as EnhancedUser, session),
         agentContext:
-          ((user as any).userType || UserType.HUMAN) === UserType.AGENT
+          user.userType === UserType.AGENT
             ? {
                 agentId: user.id,
                 agentName:
-                  (user as any).name ||
+                  user.name ||
                   `${user.firstName || ''} ${user.lastName || ''}`.trim() ||
                   user.email,
-                capabilities: (user as any).agentConfig?.capabilities || [],
+                capabilities: user.agentConfig?.capabilities || [],
                 connectedProviders: await this.getAgentConnectedProviders(user.id),
                 operationLimits: {
-                  maxDailyOperations: (user as any).agentConfig?.monitoring?.maxDailyOperations,
+                  maxDailyOperations: user.agentConfig?.monitoring?.maxDailyOperations,
                   currentDailyOperations: 0,
-                  maxConcurrentOperations: (user as any).agentConfig?.maxConcurrentSessions || 5,
+                  maxConcurrentOperations: user.agentConfig?.maxConcurrentSessions || 5,
                   currentConcurrentOperations: 0,
                 },
               }
@@ -523,7 +523,7 @@ export class EnhancedAuthService {
           ? {
               capabilities: oauthState.agentCapabilities || [],
               maxConcurrentSessions: 5,
-              allowedProviders: [provider.type],
+              allowedProviders: [provider.type] as any[],
               securityLevel: SecurityLevel.MEDIUM,
               monitoring: {
                 logLevel: 'standard',
@@ -536,7 +536,7 @@ export class EnhancedAuthService {
       updatedAt: new Date(),
     };
 
-    return await this.databaseService.users.createUser(user as any);
+    return await this.databaseService.users.createUser(user as any) as unknown as EnhancedUser;
   }
 
   private async updateUserOAuthConnection(
@@ -566,7 +566,7 @@ export class EnhancedAuthService {
       });
     }
 
-    await this.databaseService.users.updateUser(user.id!, user as any);
+    await this.databaseService.users.updateUser(user.id!, user);
   }
 
   private async createSession(
@@ -631,7 +631,7 @@ export class EnhancedAuthService {
     user: EnhancedUser,
     session: Session
   ): Promise<{ requiresMFA: boolean; mfaChallenge?: MFAChallenge }> {
-    if (!(user as any).mfaEnabled) {
+    if (!user.mfaEnabled) {
       return { requiresMFA: false };
     }
 
@@ -648,14 +648,18 @@ export class EnhancedAuthService {
 
   private async verifyAgentToken(token: string): Promise<EnhancedUser | null> {
     try {
-      const decoded = jwt.verify(token, config.jwt.secret) as any;
-      const agent = await this.databaseService.users.findUserById(decoded.userId);
-
-      if (!agent || ((agent as any).userType || UserType.HUMAN) !== UserType.AGENT) {
+      const decoded = jwt.verify(token, config.jwt.secret) as jwt.JwtPayload;
+      if (!decoded || typeof decoded === 'string' || !decoded.userId) {
         return null;
       }
 
-      return agent;
+      const agent = await this.databaseService.users.findUserById(decoded.userId);
+
+      if (!agent || agent.userType !== UserType.AGENT) {
+        return null;
+      }
+
+      return agent as unknown as EnhancedUser;
     } catch (error) {
       return null;
     }
@@ -673,11 +677,18 @@ export class EnhancedAuthService {
     agentId: string,
     providerType: OAuthProviderType
   ): Promise<boolean> {
-    const connection = await (this.oauthProviderService as any).getAgentConnection(
-      agentId,
-      providerType
-    );
-    return connection !== null;
+    // Check if the OAuth provider service has the method
+    if ('getAgentConnection' in this.oauthProviderService &&
+        typeof (this.oauthProviderService as any).getAgentConnection === 'function') {
+      const connection = await (this.oauthProviderService as any).getAgentConnection(
+        agentId,
+        providerType
+      );
+      return connection !== null;
+    }
+    // Fallback: check through database
+    const providers = await this.databaseService.oauth.findAgentOAuthConnections(agentId);
+    return providers.some(p => p.providerType === providerType && p.isActive);
   }
 
   private isLocationTrusted(user: EnhancedUser, session: Session): boolean {
@@ -698,9 +709,9 @@ export class EnhancedAuthService {
   }
 
   private async encryptChallenge(challenge: string): Promise<string> {
-    const algorithm = 'aes-256-gcm';
+    const algorithm = config.security.encryptionAlgorithm as crypto.CipherGCMTypes;
     const key = crypto.scryptSync(
-      (config as any).security?.encryptionKey || 'default-key',
+      config.security.encryptionKey,
       'salt',
       32
     );
@@ -714,9 +725,9 @@ export class EnhancedAuthService {
   }
 
   private async decryptChallenge(encryptedChallenge: string): Promise<string> {
-    const algorithm = 'aes-256-gcm';
+    const algorithm = config.security.encryptionAlgorithm as crypto.CipherGCMTypes;
     const key = crypto.scryptSync(
-      (config as any).security?.encryptionKey || 'default-key',
+      config.security.encryptionKey,
       'salt',
       32
     );

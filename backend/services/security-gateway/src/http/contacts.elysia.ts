@@ -8,6 +8,7 @@ import {
 } from '@uaip/shared-services';
 import { AuditEventType } from '@uaip/types';
 import { ContactStatus } from '@uaip/shared-services';
+import type { RequiredAuthContext } from './types/elysia-context.js';
 
 let auditService: AuditService | null = null;
 let databaseService: DatabaseService | null = null;
@@ -45,7 +46,7 @@ export function registerContactRoutes(app: any): any {
   return app.group('/api/v1/contacts', (app: any) =>
     withRequiredAuth(app)
       // POST /request
-      .post('/request', async ({ set, body, user, request, headers }) => {
+      .post('/request', async ({ set, body, user, request, headers }: RequiredAuthContext) => {
         const parsed = contactRequestSchema.safeParse(body);
         if (!parsed.success) {
           set.status = 400;
@@ -111,7 +112,7 @@ export function registerContactRoutes(app: any): any {
       })
 
       // GET /
-      .get('/', async ({ set, query, user }) => {
+      .get('/', async ({ set, query, user }: RequiredAuthContext) => {
         const parsed = contactQuerySchema.safeParse(query);
         if (!parsed.success) {
           set.status = 400;
@@ -149,7 +150,7 @@ export function registerContactRoutes(app: any): any {
       })
 
       // POST /:contactId/action
-      .post('/:contactId/action', async ({ set, params, body, user, request, headers }) => {
+      .post('/:contactId/action', async ({ set, params, body, user, request, headers }: RequiredAuthContext) => {
         const parsed = contactActionSchema.safeParse(body);
         if (!parsed.success) {
           set.status = 400;
@@ -249,7 +250,7 @@ export function registerContactRoutes(app: any): any {
       })
 
       // GET /pending
-      .get('/pending', async ({ user }) => {
+      .get('/pending', async ({ user }: RequiredAuthContext) => {
         const userId = user!.id;
         const { databaseService } = await getServices();
         const contactRepo = databaseService.users.getUserContactRepository();

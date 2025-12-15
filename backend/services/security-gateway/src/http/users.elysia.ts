@@ -5,6 +5,7 @@ import { validateJWTToken } from '@uaip/middleware';
 import { withOptionalAuth, withAdminGuard, withRequiredAuth } from './middleware/auth.plugin.js';
 import { AuditService } from '../services/auditService.js';
 import { AuditEventType, LLMTaskType, LLMProviderType } from '@uaip/types';
+import type { OptionalAuthContext, RequiredAuthContext } from './types/elysia-context.js';
 
 let userService: UserService | null = null;
 let auditService: AuditService | null = null;
@@ -84,7 +85,7 @@ export function registerUserRoutes(app: any): any {
     withOptionalAuth(app)
       // GET /api/v1/users (admin)
       .group('', (g: any) =>
-        withAdminGuard(g).get('/', async ({ set, query }) => {
+        withAdminGuard(g).get('/', async ({ set, query }: RequiredAuthContext) => {
           const parsed = userQuerySchema.safeParse(query);
           if (!parsed.success) {
             set.status = 400;
@@ -122,7 +123,7 @@ export function registerUserRoutes(app: any): any {
       )
 
       // GET /api/v1/users/public
-      .get('/public', async ({ set, query }) => {
+      .get('/public', async ({ set, query }: OptionalAuthContext) => {
         const parsed = publicUserQuerySchema.safeParse(query);
         if (!parsed.success) {
           set.status = 400;
@@ -176,7 +177,7 @@ export function registerUserRoutes(app: any): any {
       // GET /api/v1/users/llm-preferences
       .group('', (g: any) =>
         withRequiredAuth(g)
-          .get('/llm-preferences', async ({ set, user }) => {
+          .get('/llm-preferences', async ({ set, user }: RequiredAuthContext) => {
             try {
               const { userService } = await getServices();
               const repo = userService.getUserLLMPreferenceRepository();
@@ -189,7 +190,7 @@ export function registerUserRoutes(app: any): any {
           })
 
           // PUT /api/v1/users/llm-preferences
-          .put('/llm-preferences', async ({ set, user, body }) => {
+          .put('/llm-preferences', async ({ set, user, body }: RequiredAuthContext) => {
             const parsed = updateUserLLMPreferencesSchema.safeParse(body);
             if (!parsed.success) {
               set.status = 400;
@@ -212,7 +213,7 @@ export function registerUserRoutes(app: any): any {
       // GET /api/v1/users/:userId (admin)
       .group('', (g: any) =>
         withAdminGuard(g)
-          .get('/:userId', async ({ set, params }) => {
+          .get('/:userId', async ({ set, params }: RequiredAuthContext) => {
             try {
               const { userService } = await getServices();
               const user = await userService.findUserById(params.userId);
@@ -229,7 +230,7 @@ export function registerUserRoutes(app: any): any {
           })
 
           // POST /api/v1/users (admin)
-          .post('/', async ({ set, body, user }) => {
+          .post('/', async ({ set, body, user }: RequiredAuthContext) => {
             const parsed = createUserSchema.safeParse(body);
             if (!parsed.success) {
               set.status = 400;
@@ -281,7 +282,7 @@ export function registerUserRoutes(app: any): any {
           })
 
           // PUT /api/v1/users/:userId (admin)
-          .put('/:userId', async ({ set, body, params }) => {
+          .put('/:userId', async ({ set, body, params }: RequiredAuthContext) => {
             const parsed = updateUserSchema.safeParse(body);
             if (!parsed.success) {
               set.status = 400;
@@ -342,7 +343,7 @@ export function registerUserRoutes(app: any): any {
           })
 
           // DELETE /api/v1/users/:userId (admin)
-          .delete('/:userId', async ({ set, params }) => {
+          .delete('/:userId', async ({ set, params }: RequiredAuthContext) => {
             try {
               const { userService, auditService } = await getServices();
               const ok = await userService.deleteUser(params.userId);
@@ -365,7 +366,7 @@ export function registerUserRoutes(app: any): any {
           })
 
           // GET /api/v1/users/stats (admin)
-          .get('/stats', async ({ set }) => {
+          .get('/stats', async ({ set }: RequiredAuthContext) => {
             try {
               const { userService } = await getServices();
               const statistics = await userService.getUserRepository().getUserStats();

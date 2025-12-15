@@ -1,6 +1,6 @@
 import { Entity, Column, CreateDateColumn, UpdateDateColumn, Index } from 'typeorm';
 import { BaseEntity } from './base.entity.js';
-import { SecurityLevel } from '@uaip/types';
+import { SecurityLevel, UserType, AgentCapability } from '@uaip/types';
 
 @Entity('users')
 @Index(['email'], { unique: true })
@@ -21,6 +21,9 @@ export class UserEntity extends BaseEntity {
 
   @Column({ type: 'varchar', length: 50 })
   role!: string;
+
+  @Column({ type: 'enum', enum: UserType, name: 'user_type', default: UserType.HUMAN })
+  userType!: UserType;
 
   @Column({ type: 'varchar', length: 255, name: 'password_hash' })
   passwordHash!: string;
@@ -50,6 +53,20 @@ export class UserEntity extends BaseEntity {
 
   @Column({ type: 'json', nullable: true })
   permissions?: string[];
+
+  @Column({ type: 'json', nullable: true, name: 'agent_config' })
+  agentConfig?: {
+    capabilities?: AgentCapability[];
+    securityLevel?: SecurityLevel;
+    restrictions?: Record<string, any>;
+    monitoring?: {
+      maxDailyOperations?: number;
+      [key: string]: any;
+    };
+    maxConcurrentSessions?: number;
+    allowedProviders?: string[];
+    [key: string]: any;
+  };
 
   @Column({ type: 'json', nullable: true, name: 'user_persona' })
   userPersona?: {

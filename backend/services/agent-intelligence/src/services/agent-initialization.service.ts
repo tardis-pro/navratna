@@ -130,7 +130,7 @@ export class AgentInitializationService {
         try {
           await this.knowledgeGraphService.initializeAgentContext(agentId, {
             expertise: persona.expertise || [],
-            interests: persona.interests || [],
+            interests: (persona as any).interests || [],
             background: persona.background || '',
           });
           logger.info('Knowledge context initialized', { agentId });

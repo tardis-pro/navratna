@@ -186,7 +186,7 @@ export class QABotAgent extends BaseAgent {
     confluenceResults?: any[];
     conversationResults?: any[];
   }> {
-    const searchPromises = [];
+    const searchPromises: Promise<any>[] = [];
 
     // Search knowledge graph
     searchPromises.push(
@@ -218,8 +218,8 @@ export class QABotAgent extends BaseAgent {
     const results = await Promise.allSettled(searchPromises);
 
     return {
-      knowledgeGraphResults: results[0]?.status === 'fulfilled' ? results[0].value.items : [],
-      vectorSearchResults: results[1]?.status === 'fulfilled' ? results[1].value.results : [],
+      knowledgeGraphResults: results[0]?.status === 'fulfilled' ? (results[0].value as any).items : [],
+      vectorSearchResults: results[1]?.status === 'fulfilled' ? (results[1].value as any).results : [],
       confluenceResults: results[2]?.status === 'fulfilled' ? results[2].value : [],
       conversationResults: results[3]?.status === 'fulfilled' ? results[3].value : [],
     };
@@ -354,7 +354,7 @@ Generate questions that:
       // Request Confluence search through tool execution
       const response = await this.executeTool('confluence_search', searchRequest);
 
-      return response.results || [];
+      return (response as any).results || [];
     } catch (error) {
       logger.warn('Confluence search failed', { error });
       return [];

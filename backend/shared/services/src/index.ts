@@ -163,6 +163,11 @@ export * from './agent-memory/index.js';
 // Integration Services - MCP + Neo4j Sync
 export * from './integration/index.js';
 
+// Cognitive Services
+export { ThoughtParserService } from './cognitive/thought-parser.service.js';
+export { CritiqueService } from './cognitive/critique.service.js';
+export { DebateOrchestratorService } from './cognitive/debate-orchestrator.service.js';
+
 // =============================================================================
 // ENTITIES
 // =============================================================================

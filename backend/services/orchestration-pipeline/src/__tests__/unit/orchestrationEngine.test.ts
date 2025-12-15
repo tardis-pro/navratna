@@ -1,5 +1,14 @@
 describe('OrchestrationEngine', () => {
-  const mockOrchestrationEngine = {
+  const mockOrchestrationEngine: {
+    executeOperation: jest.Mock;
+    pauseOperation: jest.Mock;
+    resumeOperation: jest.Mock;
+    cancelOperation: jest.Mock;
+    getOperationStatus: jest.Mock;
+    createCheckpoint: jest.Mock;
+    on: jest.Mock;
+    emit: jest.Mock;
+  } = {
     executeOperation: jest.fn(),
     pauseOperation: jest.fn(),
     resumeOperation: jest.fn(),
@@ -10,17 +19,17 @@ describe('OrchestrationEngine', () => {
     emit: jest.fn(),
   };
 
-  let orchestrationEngine: any;
+  let orchestrationEngine: typeof mockOrchestrationEngine;
 
   beforeEach(() => {
     jest.clearAllMocks();
 
-    // Setup mock implementations with any type
-    (mockOrchestrationEngine.executeOperation as any).mockResolvedValue('workflow-123');
-    (mockOrchestrationEngine.pauseOperation as any).mockResolvedValue(undefined);
-    (mockOrchestrationEngine.resumeOperation as any).mockResolvedValue(undefined);
-    (mockOrchestrationEngine.cancelOperation as any).mockResolvedValue(undefined);
-    (mockOrchestrationEngine.getOperationStatus as any).mockResolvedValue({
+    // Setup mock implementations
+    mockOrchestrationEngine.executeOperation.mockResolvedValue('workflow-123');
+    mockOrchestrationEngine.pauseOperation.mockResolvedValue(undefined);
+    mockOrchestrationEngine.resumeOperation.mockResolvedValue(undefined);
+    mockOrchestrationEngine.cancelOperation.mockResolvedValue(undefined);
+    mockOrchestrationEngine.getOperationStatus.mockResolvedValue({
       operation: { id: 'operation-123' },
       status: 'running',
       progress: {
@@ -32,7 +41,7 @@ describe('OrchestrationEngine', () => {
       metrics: {},
       errors: [],
     });
-    (mockOrchestrationEngine.createCheckpoint as any).mockResolvedValue('checkpoint-123');
+    mockOrchestrationEngine.createCheckpoint.mockResolvedValue('checkpoint-123');
 
     orchestrationEngine = mockOrchestrationEngine;
   });
@@ -54,7 +63,7 @@ describe('OrchestrationEngine', () => {
 
   describe('executeOperation', () => {
     it('should execute a simple operation successfully', async () => {
-      const operation = {
+      const operation: any = {
         id: 'test-operation-1',
         type: 'tool_execution',
         agentId: 'agent-123',
@@ -72,12 +81,12 @@ describe('OrchestrationEngine', () => {
     });
 
     it('should handle operation execution failures', async () => {
-      const operation = {
+      const operation: any = {
         id: 'operation-123',
         type: 'tool_execution',
       };
 
-      (orchestrationEngine.executeOperation as any).mockRejectedValue(new Error('Database error'));
+      orchestrationEngine.executeOperation.mockRejectedValue(new Error('Database error'));
 
       await expect(orchestrationEngine.executeOperation(operation)).rejects.toThrow(
         'Database error'
@@ -96,7 +105,7 @@ describe('OrchestrationEngine', () => {
     });
 
     it('should handle pausing non-existent operation', async () => {
-      (orchestrationEngine.pauseOperation as any).mockRejectedValue(
+      orchestrationEngine.pauseOperation.mockRejectedValue(
         new Error('Operation non-existent not found or not active')
       );
 
@@ -123,7 +132,7 @@ describe('OrchestrationEngine', () => {
     });
 
     it('should handle resuming non-paused operation', async () => {
-      (orchestrationEngine.resumeOperation as any).mockRejectedValue(
+      orchestrationEngine.resumeOperation.mockRejectedValue(
         new Error('Operation operation-123 is not paused')
       );
 
@@ -172,7 +181,7 @@ describe('OrchestrationEngine', () => {
     });
 
     it('should handle non-existent operation', async () => {
-      (orchestrationEngine.getOperationStatus as any).mockRejectedValue(
+      orchestrationEngine.getOperationStatus.mockRejectedValue(
         new Error('Operation non-existent not found')
       );
 
@@ -199,7 +208,7 @@ describe('OrchestrationEngine', () => {
     });
 
     it('should handle checkpoint creation for non-existent operation', async () => {
-      (orchestrationEngine.createCheckpoint as any).mockRejectedValue(
+      orchestrationEngine.createCheckpoint.mockRejectedValue(
         new Error('Operation not found: non-existent')
       );
 
@@ -211,7 +220,7 @@ describe('OrchestrationEngine', () => {
 
   describe('Engine Basic Functions', () => {
     it('should execute basic orchestration operations', async () => {
-      const operation = {
+      const operation: any = {
         id: 'operation-123',
         type: 'tool_execution',
       };
@@ -220,7 +229,7 @@ describe('OrchestrationEngine', () => {
     });
 
     it('should handle operation lifecycle events', async () => {
-      const operation = {
+      const operation: any = {
         id: 'operation-123',
         type: 'tool_execution',
       };
@@ -230,7 +239,7 @@ describe('OrchestrationEngine', () => {
     });
 
     it('should handle resource management', async () => {
-      const operation = {
+      const operation: any = {
         id: 'operation-123',
         type: 'tool_execution',
         context: {
@@ -250,7 +259,7 @@ describe('OrchestrationEngine', () => {
     });
 
     it('should handle error scenarios', async () => {
-      (orchestrationEngine.executeOperation as any).mockRejectedValue(
+      orchestrationEngine.executeOperation.mockRejectedValue(
         new Error('Critical operation failure')
       );
 
@@ -260,7 +269,7 @@ describe('OrchestrationEngine', () => {
     });
 
     it('should validate operations', async () => {
-      const invalidOperation = {
+      const invalidOperation: any = {
         id: 'invalid-op',
         executionPlan: {
           steps: [],
@@ -268,7 +277,7 @@ describe('OrchestrationEngine', () => {
         },
       };
 
-      (orchestrationEngine.executeOperation as any).mockRejectedValue(
+      orchestrationEngine.executeOperation.mockRejectedValue(
         new Error('Operation execution plan must contain at least one step')
       );
 
@@ -278,7 +287,7 @@ describe('OrchestrationEngine', () => {
     });
 
     it('should handle parallel execution', async () => {
-      const operation = {
+      const operation: any = {
         id: 'parallel-operation',
         type: 'tool_execution',
         executionPlan: {
@@ -305,9 +314,9 @@ describe('OrchestrationEngine', () => {
 
     it('should handle workflow state management', async () => {
       const workflowId = 'workflow-456';
-      (orchestrationEngine.executeOperation as any).mockResolvedValue(workflowId);
+      orchestrationEngine.executeOperation.mockResolvedValue(workflowId);
 
-      const operation = {
+      const operation: any = {
         id: 'state-operation',
         type: 'tool_execution',
       };
@@ -327,7 +336,7 @@ describe('OrchestrationEngine', () => {
     });
 
     it('should handle step execution with retries', async () => {
-      const operation = {
+      const operation: any = {
         id: 'retry-operation',
         type: 'tool_execution',
         executionPlan: {
@@ -351,7 +360,7 @@ describe('OrchestrationEngine', () => {
     });
 
     it('should handle timeout scenarios', async () => {
-      const operation = {
+      const operation: any = {
         id: 'timeout-operation',
         type: 'tool_execution',
         context: {

@@ -1,6 +1,6 @@
 import { BaseService, ServiceConfig } from '@uaip/shared-services';
 import { createServer } from 'http';
-import WebSocket from 'ws';
+import { WebSocketServer } from 'ws';
 import { Server as SocketIOServer } from 'socket.io';
 import { Server as BunEngine } from '@socket.io/bun-engine';
 import { logger } from '@uaip/utils';
@@ -20,9 +20,10 @@ import { UserChatHandler } from './websocket/userChatHandler.js';
 import { ConversationIntelligenceHandler } from './websocket/conversationIntelligenceHandler.js';
 import { TaskNotificationHandler } from './websocket/taskNotificationHandler.js';
 import { setupWebSocketHandlers } from './websocket/discussionSocket.js';
+import { DebateHandler } from './handlers/debateHandler.js';
 
 class DiscussionOrchestrationServer extends BaseService {
-  private wss!: WebSocket.Server;
+  private wss!: WebSocketServer;
   private io: SocketIOServer;
   private bunEngine: BunEngine;
   private orchestrationService: DiscussionOrchestrationService;
@@ -32,6 +33,7 @@ class DiscussionOrchestrationServer extends BaseService {
   private userChatHandler?: UserChatHandler;
   private conversationIntelligenceHandler?: ConversationIntelligenceHandler;
   private taskNotificationHandler?: TaskNotificationHandler;
+  private debateHandler?: DebateHandler;
   private serviceName = 'discussion-orchestration';
   private authResponseHandlers = new Map<string, (response: any) => void>();
   private authSubscriptionInitialized = false;
@@ -105,6 +107,11 @@ class DiscussionOrchestrationServer extends BaseService {
   protected async initialize(): Promise<void> {
     // Initialize shared auth subscription
     await this.initializeAuthSubscription();
+
+    // Initialize debate handler for formal consensus discussions
+    this.debateHandler = new DebateHandler(this.io, this.eventBusService);
+    logger.info('Debate handler initialized');
+
     logger.info('Discussion Orchestration Service initialized');
   }
 
@@ -489,10 +496,11 @@ class DiscussionOrchestrationServer extends BaseService {
       this['setupErrorHandler']();
 
       // Start server with WebSocket configuration for Bun engine
+      const bunHandler = this.bunEngine.handler();
       this.server = this.app.listen({
         port: this.config.port,
         idleTimeout: 30,
-        websocket: (this.bunEngine.handler() as any).websocket,
+        websocket: 'websocket' in bunHandler ? bunHandler.websocket : undefined,
       });
 
       logger.info(
@@ -567,7 +575,7 @@ class DiscussionOrchestrationServer extends BaseService {
       // Initialize handlers after server is created
       logger.info('Initializing WebSocket handlers', {
         serverExists: !!this.server,
-        serverListening: this.server ? (this.server as any)?.server?.listening : false,
+        serverListening: this.server && 'server' in this.server && typeof this.server.server === 'object' && this.server.server && 'listening' in this.server.server ? this.server.server.listening : false,
       });
 
       if (!this.server) {

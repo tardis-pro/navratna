@@ -2,6 +2,8 @@ import { z } from 'zod';
 import { logger } from '@uaip/utils';
 import { ProjectManagementService, DatabaseService, EventBusService } from '@uaip/shared-services';
 import { withOptionalAuth } from './middleware/auth.plugin.js';
+import type { OptionalAuthContext } from './types/elysia-context.js';
+import { ProjectStatus } from '@uaip/types';
 
 let projectService: ProjectManagementService | null = null;
 
@@ -9,10 +11,7 @@ async function getProjectService(): Promise<ProjectManagementService> {
   if (!projectService) {
     const databaseService = DatabaseService.getInstance();
     const eventBusService = EventBusService.getInstance();
-    projectService = new ProjectManagementService({
-      databaseService,
-      eventBusService,
-    });
+    projectService = new ProjectManagementService(databaseService, eventBusService);
     await projectService.initialize();
   }
   return projectService;
@@ -30,6 +29,7 @@ const createProjectSchema = z.object({
   budget: z.number().min(0).optional(),
   settings: z.record(z.any()).optional(),
   metadata: z.record(z.any()).optional(),
+  organizationId: z.string().optional(),
 });
 
 const updateProjectSchema = z.object({
@@ -58,7 +58,7 @@ export function registerProjectRoutes(app: any): any {
   return app.group('/api/v1/projects', (app: any) =>
     withOptionalAuth(app)
       // List projects
-      .get('/', async ({ query, set, user }: any) => {
+      .get('/', async ({ query, set, user }: OptionalAuthContext) => {
         try {
           if (!user) {
             set.status = 401;
@@ -71,11 +71,11 @@ export function registerProjectRoutes(app: any): any {
             return { error: 'Validation Error', details: parsed.error.flatten() };
           }
 
+          const offset = (parsed.data.page - 1) * parsed.data.limit;
           const projects = await service.listProjects({
-            page: parsed.data.page,
+            offset,
             limit: parsed.data.limit,
-            status: parsed.data.status,
-            search: parsed.data.search,
+            status: parsed.data.status as ProjectStatus | undefined,
           });
 
           return { success: true, data: projects };
@@ -87,7 +87,7 @@ export function registerProjectRoutes(app: any): any {
       })
 
       // Get project by ID
-      .get('/:projectId', async ({ params, set, user }: any) => {
+      .get('/:projectId', async ({ params, set, user }: OptionalAuthContext) => {
         try {
           if (!user) {
             set.status = 401;
@@ -110,7 +110,7 @@ export function registerProjectRoutes(app: any): any {
       })
 
       // Create project
-      .post('/', async ({ body, set, user }: any) => {
+      .post('/', async ({ body, set, user }: OptionalAuthContext) => {
         try {
           if (!user) {
             set.status = 401;
@@ -124,8 +124,15 @@ export function registerProjectRoutes(app: any): any {
           }
 
           const project = await service.createProject({
-            ...parsed.data,
+            name: parsed.data.name,
+            description: parsed.data.description,
             ownerId: user?.id || 'system',
+            settings: parsed.data.settings,
+            metadata: parsed.data.metadata,
+            organizationId: parsed.data.organizationId,
+            category: parsed.data.category,
+            tags: parsed.data.tags,
+            budget: parsed.data.budget,
           });
 
           set.status = 201;
@@ -138,7 +145,7 @@ export function registerProjectRoutes(app: any): any {
       })
 
       // Update project
-      .put('/:projectId', async ({ params, body, set, user }: any) => {
+      .put('/:projectId', async ({ params, body, set, user }: OptionalAuthContext) => {
         try {
           if (!user) {
             set.status = 401;
@@ -151,7 +158,13 @@ export function registerProjectRoutes(app: any): any {
             return { error: 'Validation Error', details: parsed.error.flatten() };
           }
 
-          const project = await service.updateProject(params.projectId, parsed.data);
+          const project = await service.updateProject(params.projectId, {
+            name: parsed.data.name,
+            description: parsed.data.description,
+            status: parsed.data.status as ProjectStatus | undefined,
+            settings: parsed.data.settings,
+            metadata: parsed.data.metadata,
+          });
           return { success: true, data: project };
         } catch (error) {
           logger.error('Failed to update project', { error, projectId: params.projectId });
@@ -161,7 +174,7 @@ export function registerProjectRoutes(app: any): any {
       })
 
       // Delete project
-      .delete('/:projectId', async ({ params, set, user }: any) => {
+      .delete('/:projectId', async ({ params, set, user }: OptionalAuthContext) => {
         try {
           if (!user) {
             set.status = 401;
@@ -179,7 +192,7 @@ export function registerProjectRoutes(app: any): any {
       })
 
       // Get project metrics
-      .get('/:projectId/metrics', async ({ params, set, user }: any) => {
+      .get('/:projectId/metrics', async ({ params, set, user }: OptionalAuthContext) => {
         try {
           if (!user) {
             set.status = 401;
@@ -196,7 +209,7 @@ export function registerProjectRoutes(app: any): any {
       })
 
       // Get project analytics
-      .get('/:projectId/analytics', async ({ params, set, user }: any) => {
+      .get('/:projectId/analytics', async ({ params, set, user }: OptionalAuthContext) => {
         try {
           if (!user) {
             set.status = 401;

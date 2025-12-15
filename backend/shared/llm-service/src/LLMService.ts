@@ -633,7 +633,7 @@ export class LLMService {
             isActive: dbProvider.isActive && isInitialized,
             defaultModel: dbProvider.defaultModel,
             modelCount,
-            status: dbProvider.isActive && isInitialized ? 'active' : 'inactive',
+            status: (dbProvider.isActive && isInitialized ? 'active' : 'inactive') as 'active' | 'inactive' | 'error',
           });
         }
       } catch (error) {

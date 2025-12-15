@@ -74,7 +74,7 @@ export class CapabilityController {
         data: {
           capabilities,
           totalCount: capabilities.length,
-          recommendations: [],
+          recommendations: [] as any[],
         },
         meta: {
           query: searchQuery,
@@ -266,7 +266,7 @@ export class CapabilityController {
       );
 
       // Return hardcoded categories for now
-      const categories = [
+      const categories: string[] = [
         'data-processing',
         'communication',
         'analysis',
@@ -359,8 +359,8 @@ export class CapabilityController {
       // For now, return a basic validation result
       const validationResult = {
         valid: true,
-        issues: [],
-        recommendations: [],
+        issues: [] as string[],
+        recommendations: [] as string[],
       };
 
       res.status(200).json({

@@ -399,7 +399,7 @@ export class ArtifactService implements IArtifactService {
       actionItems: context.actionItems,
       keyMessages: context.messages?.slice(-10) || [], // Last 10 messages for context
       participantRoles:
-        context.participants?.map((p) => ({
+        context.participants?.map((p: { id: string; role: string; messageCount?: number }) => ({
           id: p.id,
           role: p.role,
           messageCount: p.messageCount,
@@ -483,7 +483,7 @@ export class ArtifactService implements IArtifactService {
     const templates = this.templateManager.listTemplates();
     const templatesByType = templates.reduce(
       (acc, template) => {
-        acc[template.type] = acc[template.type] + 1;
+        acc[template.type] = (acc[template.type] || 0) + 1;
         return acc;
       },
       {} as { [key: string]: number }

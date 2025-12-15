@@ -111,7 +111,7 @@ export class ConversationIntelligenceService {
       }
 
       // Search for similar intents in Qdrant (skip if service not available)
-      let similarIntents = [];
+      let similarIntents: any[] = [];
       if (this.qdrantService && inputEmbedding) {
         similarIntents = await this.qdrantService.search(inputEmbedding, {
           limit: 5,
@@ -152,7 +152,7 @@ export class ConversationIntelligenceService {
       const toolPreview = await this.generateToolPreview(intent);
 
       // Generate suggestions based on intent
-      const suggestions = []; // TODO: Implement generateIntentBasedSuggestions
+      const suggestions: { prompt: string; confidence: number; category: string }[] = []; // TODO: Implement generateIntentBasedSuggestions
 
       // Publish the completed event
       const completedEvent: IntentDetectionCompletedEvent = {
@@ -184,7 +184,7 @@ export class ConversationIntelligenceService {
 
     try {
       // Combine messages for analysis
-      const conversationText = messages.map((m) => `${m.role}: ${m.content}`).join('\n');
+      const conversationText = messages.map((m: any) => `${m.role}: ${m.content}`).join('\n');
 
       // Generate topic using event bus
       let topicName = await this.generateTopicWithEventBus(
@@ -266,10 +266,10 @@ export class ConversationIntelligenceService {
       }
 
       // Generate context embedding and search for similar conversations (skip if services not available)
-      let similarConversations = [];
+      let similarConversations: any[] = [];
       if (this.embeddingService && this.qdrantService) {
         try {
-          const contextText = conversationContext.recentMessages.map((m) => m.content).join(' ');
+          const contextText = conversationContext.recentMessages.map((m: any) => m.content).join(' ');
           const contextEmbedding = await this.embeddingService.generateEmbedding(contextText);
 
           similarConversations = await this.qdrantService.search(contextEmbedding, {
@@ -547,7 +547,7 @@ Respond in JSON format:
         20
       );
 
-      return patterns.map((p) => JSON.parse(p.content) as ConversationPattern);
+      return patterns.map((p: any) => JSON.parse(p.content) as ConversationPattern);
     } catch (error) {
       logger.error('Failed to get user conversation patterns', { error, userId });
       return [];
@@ -572,7 +572,7 @@ Return as a JSON array of strings containing the most important concepts, themes
       const words = text
         .toLowerCase()
         .split(/\s+/)
-        .filter((word) => word.length > 3);
+        .filter((word: string) => word.length > 3);
       return words.slice(0, 5);
     }
   }
@@ -592,7 +592,7 @@ Prompt: Generate ${count} personalized prompt suggestions based on:
 
 Current context: ${JSON.stringify(context)}
 User patterns: ${JSON.stringify(patterns.slice(0, 3))}
-Similar past conversations: ${JSON.stringify(similarConversations.slice(0, 3).map((c) => c.payload))}
+Similar past conversations: ${JSON.stringify(similarConversations.slice(0, 3).map((c: any) => c.payload))}
 
 Generate diverse, relevant prompts that the user is likely to ask next, considering their conversation patterns and current context.
 
@@ -641,8 +641,8 @@ Return as JSON array with format:
       });
 
       return results
-        .filter((r) => r.payload?.text?.toLowerCase().startsWith(partial.toLowerCase()))
-        .map((r) => ({
+        .filter((r: any) => r.payload?.text?.toLowerCase().startsWith(partial.toLowerCase()))
+        .map((r: any) => ({
           text: r.payload.text,
           type: 'previous' as const,
           score: r.score,
@@ -673,8 +673,8 @@ Return as JSON array with format:
     ];
 
     return tools
-      .filter((t) => t.name.startsWith(partial.toLowerCase()))
-      .map((t) => ({
+      .filter((t: any) => t.name.startsWith(partial.toLowerCase()))
+      .map((t: any) => ({
         text: `/${t.name}`,
         type: 'tool' as const,
         score: 0.8,
@@ -704,8 +704,8 @@ Return as JSON array with format:
     ];
 
     return commonPatterns
-      .filter((p) => p.toLowerCase().startsWith(partial.toLowerCase()))
-      .map((p) => ({
+      .filter((p: string) => p.toLowerCase().startsWith(partial.toLowerCase()))
+      .map((p: string) => ({
         text: p,
         type: 'common' as const,
         score: 0.6,
@@ -840,7 +840,7 @@ Generate a topic that captures the main theme and focus of the discussion. Keep 
         reject(new Error('LLM request timeout'));
       }, 30000);
 
-      const responseHandler = async (event: any) => {
+      const responseHandler = async (event: any): Promise<void> => {
         if (event.correlationId === correlationId) {
           clearTimeout(timeout);
           if (event.success) {
@@ -873,7 +873,7 @@ Generate a topic that captures the main theme and focus of the discussion. Keep 
         reject(new Error('User LLM request timeout'));
       }, 30000);
 
-      const responseHandler = async (event: any) => {
+      const responseHandler = async (event: any): Promise<void> => {
         if (event.correlationId === correlationId) {
           clearTimeout(timeout);
           if (event.success) {

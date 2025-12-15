@@ -610,7 +610,7 @@ export class EnterpriseToolRegistry {
 
   private hasPermissionToRegister(tool: ToolDefinition): boolean {
     // Check if service has permission to register tools
-    const serviceAccess = SERVICE_ACCESS_MATRIX[this.serviceName];
+    const serviceAccess = (SERVICE_ACCESS_MATRIX as Record<string, any>)[this.serviceName];
     if (!serviceAccess) return false;
 
     // Check security level requirement
@@ -732,7 +732,7 @@ export class EnterpriseToolRegistry {
     success: boolean,
     error?: string
   ): void {
-    const auditEntry = {
+    const auditEntry: Record<string, any> = {
       executionId,
       toolId: request.toolId,
       operation: request.operation,

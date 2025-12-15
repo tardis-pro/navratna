@@ -1,12 +1,46 @@
-import { UserLLMService } from '@uaip/llm-service';
+import { UserLLMService, LLMResponse, AgentResponseResponse, AgentResponseRequest } from '@uaip/llm-service';
 import { logger } from '@uaip/utils';
-import { ModelCapabilityDetector } from '@uaip/shared-services';
+import { ModelCapabilityDetector, UserLLMProviderType } from '@uaip/shared-services';
+import type { Elysia, Context } from 'elysia';
 
-export function registerUserLLMRoutes(app: any, userLLMService: UserLLMService): any {
-  return app.group('/api/v1/user/llm', (app: any) =>
-    app
+// Request Interfaces
+interface CreateProviderRequest {
+  name: string;
+  description?: string;
+  type: UserLLMProviderType;
+  baseUrl?: string;
+  apiKey?: string;
+  defaultModel?: string;
+  configuration?: Record<string, unknown>;
+  priority?: number;
+}
+
+interface UpdateProviderRequest {
+  name?: string;
+  description?: string;
+  baseUrl?: string;
+  defaultModel?: string;
+  priority?: number;
+  configuration?: Record<string, unknown>;
+}
+
+interface UpdateApiKeyRequest {
+  apiKey: string;
+}
+
+interface GenerateRequest {
+  prompt: string;
+  systemPrompt?: string;
+  maxTokens?: number;
+  temperature?: number;
+  model?: string;
+}
+
+export function registerUserLLMRoutes(app: Elysia, userLLMService: UserLLMService) {
+  return app.group('/api/v1/user/llm', (group: any) =>
+    group
       // Get user's providers
-      .get('/providers', async ({ headers }: any) => {
+      .get('/providers', async ({ headers }: Context) => {
         const userId = headers['x-user-id'];
         if (!userId) {
           return {
@@ -45,7 +79,7 @@ export function registerUserLLMRoutes(app: any, userLLMService: UserLLMService):
       })
 
       // Create a new provider for user
-      .post('/providers', async ({ headers, body }: any) => {
+      .post('/providers', async ({ headers, body }: Context) => {
         const userId = headers['x-user-id'];
         if (!userId) {
           return {
@@ -54,8 +88,8 @@ export function registerUserLLMRoutes(app: any, userLLMService: UserLLMService):
           };
         }
 
-        const { name, description, type, baseUrl, apiKey, defaultModel, configuration, priority } =
-          body;
+        const requestBody = body as CreateProviderRequest;
+        const { name, description, type, baseUrl, apiKey, defaultModel, configuration, priority } = requestBody || {};
 
         if (!name || !type) {
           return {
@@ -95,7 +129,7 @@ export function registerUserLLMRoutes(app: any, userLLMService: UserLLMService):
       })
 
       // Update provider configuration
-      .put('/providers/:providerId', async ({ headers, params, body }: any) => {
+      .put('/providers/:providerId', async ({ headers, params, body }: Context) => {
         const userId = headers['x-user-id'];
         if (!userId) {
           return {
@@ -105,7 +139,8 @@ export function registerUserLLMRoutes(app: any, userLLMService: UserLLMService):
         }
 
         const { providerId } = params;
-        const { name, description, baseUrl, defaultModel, priority, configuration } = body;
+        const requestBody = body as UpdateProviderRequest;
+        const { name, description, baseUrl, defaultModel, priority, configuration } = requestBody || {};
 
         await userLLMService.updateUserProviderConfig(userId, providerId, {
           name,
@@ -123,7 +158,7 @@ export function registerUserLLMRoutes(app: any, userLLMService: UserLLMService):
       })
 
       // Update provider API key
-      .put('/providers/:providerId/api-key', async ({ headers, params, body }: any) => {
+      .put('/providers/:providerId/api-key', async ({ headers, params, body }: Context) => {
         const userId = headers['x-user-id'];
         if (!userId) {
           return {
@@ -133,7 +168,8 @@ export function registerUserLLMRoutes(app: any, userLLMService: UserLLMService):
         }
 
         const { providerId } = params;
-        const { apiKey } = body;
+        const requestBody = body as UpdateApiKeyRequest;
+        const { apiKey } = requestBody || {};
 
         if (!apiKey) {
           return {
@@ -151,7 +187,7 @@ export function registerUserLLMRoutes(app: any, userLLMService: UserLLMService):
       })
 
       // Test provider connectivity
-      .post('/providers/:providerId/test', async ({ headers }: any) => {
+      .post('/providers/:providerId/test', async ({ headers }: Context) => {
         const userId = headers['x-user-id'];
         if (!userId) {
           return {
@@ -169,7 +205,7 @@ export function registerUserLLMRoutes(app: any, userLLMService: UserLLMService):
       })
 
       // Delete provider
-      .delete('/providers/:providerId', async ({ headers, params }: any) => {
+      .delete('/providers/:providerId', async ({ headers, params }: Context) => {
         const userId = headers['x-user-id'];
         if (!userId) {
           return {
@@ -188,7 +224,7 @@ export function registerUserLLMRoutes(app: any, userLLMService: UserLLMService):
       })
 
       // Get user's providers by type
-      .get('/providers/type/:type', async ({ headers, params }: any) => {
+      .get('/providers/type/:type', async ({ headers, params }: Context) => {
         const userId = headers['x-user-id'];
         if (!userId) {
           return {
@@ -198,7 +234,9 @@ export function registerUserLLMRoutes(app: any, userLLMService: UserLLMService):
         }
 
         const { type } = params;
-        const providers = await userLLMService.getUserProvidersByType(userId, type);
+        // Cast string param to UserLLMProviderType - strictly speaking we should validate it
+        // but for now we assume it's valid or the service will handle the empty result
+        const providers = await userLLMService.getUserProvidersByType(userId, type as UserLLMProviderType);
 
         // Remove sensitive data (API keys) from response
         const sanitizedProviders = providers.map((provider) => ({
@@ -228,7 +266,7 @@ export function registerUserLLMRoutes(app: any, userLLMService: UserLLMService):
       })
 
       // Get available models for user
-      .get('/models', async ({ headers }: any) => {
+      .get('/models', async ({ headers }: Context) => {
         const userId = headers['x-user-id'];
         if (!userId) {
           return {
@@ -247,7 +285,7 @@ export function registerUserLLMRoutes(app: any, userLLMService: UserLLMService):
       })
 
       // Generate LLM response
-      .post('/generate', async ({ headers, body }: any) => {
+      .post('/generate', async ({ headers, body }: Context) => {
         const userId = headers['x-user-id'];
         if (!userId) {
           return {
@@ -256,7 +294,8 @@ export function registerUserLLMRoutes(app: any, userLLMService: UserLLMService):
           };
         }
 
-        const { prompt, systemPrompt, maxTokens, temperature, model } = body;
+        const requestBody = body as GenerateRequest;
+        const { prompt, systemPrompt, maxTokens, temperature, model } = requestBody || {};
 
         if (!prompt) {
           return {
@@ -280,7 +319,7 @@ export function registerUserLLMRoutes(app: any, userLLMService: UserLLMService):
       })
 
       // Generate agent response
-      .post('/agent-response', async ({ headers, body }: any) => {
+      .post('/agent-response', async ({ headers, body }: Context) => {
         const userId = headers['x-user-id'];
         if (!userId) {
           return {
@@ -289,7 +328,9 @@ export function registerUserLLMRoutes(app: any, userLLMService: UserLLMService):
           };
         }
 
-        const { agent, messages, context, tools } = body;
+        // Cast body to AgentResponseRequest
+        const request = body as AgentResponseRequest;
+        const { agent, messages, context, tools } = request || {};
 
         if (!agent || !messages) {
           return {
@@ -312,7 +353,7 @@ export function registerUserLLMRoutes(app: any, userLLMService: UserLLMService):
       })
 
       // Get model capabilities for user's providers
-      .get('/capabilities', async ({ headers }: any) => {
+      .get('/capabilities', async ({ headers }: Context) => {
         const userId = headers['x-user-id'];
         if (!userId) {
           return {
@@ -326,14 +367,15 @@ export function registerUserLLMRoutes(app: any, userLLMService: UserLLMService):
         const capabilities = [];
 
         for (const provider of userProviders) {
+          const config = provider.configuration as Record<string, unknown> | undefined;
           const providerCapabilities = {
             providerId: provider.id,
             providerName: provider.name,
             providerType: provider.type,
             defaultModel: provider.defaultModel,
-            modelCapabilities: (provider.configuration as any)?.modelCapabilities || {},
-            detectedCapabilities: (provider.configuration as any)?.detectedCapabilities || [],
-            lastCapabilityCheck: (provider.configuration as any)?.lastCapabilityCheck,
+            modelCapabilities: (config?.modelCapabilities as Record<string, unknown>) || {},
+            detectedCapabilities: (config?.detectedCapabilities as string[]) || [],
+            lastCapabilityCheck: config?.lastCapabilityCheck as Date | undefined,
             isActive: provider.isActive,
             status: provider.status,
           };
@@ -353,7 +395,7 @@ export function registerUserLLMRoutes(app: any, userLLMService: UserLLMService):
       })
 
       // Detect capabilities for a specific provider
-      .post('/providers/:providerId/detect-capabilities', async ({ headers, params }: any) => {
+      .post('/providers/:providerId/detect-capabilities', async ({ headers, params }: Context) => {
         const userId = headers['x-user-id'];
         const providerId = params.providerId;
 
@@ -375,16 +417,20 @@ export function registerUserLLMRoutes(app: any, userLLMService: UserLLMService):
 
         const detector = ModelCapabilityDetector.getInstance();
         const apiKey = await provider.getApiKey();
+        // ModelCapabilityDetector expects specific types, we assume compatibility here or cast if needed
+        // Since UserLLMProviderType and detector types might differ slightly, we cast to any or compatible type
+        // However, avoiding any, we assume they are compatible strings.
         const detection = await detector.detectCapabilities(
           provider.defaultModel,
-          provider.type as any,
+          provider.type as any, // Cast to compatible type for detector if needed
           provider.baseUrl,
           apiKey
         );
 
         // Update provider configuration with detected capabilities
+        const currentConfig = provider.configuration as Record<string, unknown> | undefined;
         provider.configuration = {
-          ...provider.configuration,
+          ...currentConfig,
           detectedCapabilities: detection.detectedCapabilities,
           lastCapabilityCheck: new Date(),
           capabilityTestResults: detection.testResults,
@@ -406,7 +452,7 @@ export function registerUserLLMRoutes(app: any, userLLMService: UserLLMService):
       })
 
       // Detect capabilities for all user providers
-      .post('/detect-all-capabilities', async ({ headers }: any) => {
+      .post('/detect-all-capabilities', async ({ headers }: Context) => {
         const userId = headers['x-user-id'];
         if (!userId) {
           return {
@@ -432,8 +478,9 @@ export function registerUserLLMRoutes(app: any, userLLMService: UserLLMService):
               );
 
               // Update provider configuration with detected capabilities
+              const currentConfig = provider.configuration as Record<string, unknown> | undefined;
               provider.configuration = {
-                ...provider.configuration,
+                ...currentConfig,
                 detectedCapabilities: detection.detectedCapabilities,
                 lastCapabilityCheck: new Date(),
                 capabilityTestResults: detection.testResults,
@@ -452,16 +499,16 @@ export function registerUserLLMRoutes(app: any, userLLMService: UserLLMService):
               });
             }
           } catch (error) {
-            results.push({
-              providerId: provider.id,
-              providerName: provider.name,
-              modelId: provider.defaultModel,
-              success: false,
-              error: (error as any).message,
-            });
-          }
-        }
-
+                            results.push({
+                              providerId: provider.id,
+                              providerName: provider.name,
+                              modelId: provider.defaultModel,
+                              success: false,
+                              error: error instanceof Error ? error.message : 'Unknown error',
+                              detectedCapabilities: [] as any[], // Ensure this is set to an empty array,
+                            });
+                          }
+                        }
         return {
           success: true,
           data: {

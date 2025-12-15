@@ -4,7 +4,7 @@
  * SOC 2, HIPAA, PCI DSS Compliant
  */
 
-import WebSocket from 'ws';
+import { WebSocket, WebSocketServer } from 'ws';
 import { EventEmitter } from 'events';
 import { logger } from '@uaip/utils';
 import { validateServiceAccess, SERVICE_ACCESS_MATRIX, AccessLevel } from '@uaip/shared-services';
@@ -60,7 +60,7 @@ export class EnterpriseWebSocketHandler extends EventEmitter {
     }
 
     // Create WebSocket server with Zero Trust configuration
-    const wss = new WebSocket.Server({
+    const wss = new WebSocketServer({
       server: server,
       verifyClient: this.verifyClient.bind(this),
       maxPayload: 64 * 1024, // 64KB max payload
@@ -70,7 +70,7 @@ export class EnterpriseWebSocketHandler extends EventEmitter {
     wss.on('connection', this.handleConnection.bind(this));
 
     // Add proper error handling for WebSocket server
-    wss.on('error', (error) => {
+    wss.on('error', (error: Error) => {
       logger.error('WebSocket server error', { error: error.message, stack: error.stack });
     });
 

@@ -4,6 +4,7 @@ import { withAdminGuard, withRequiredAuth } from './middleware/auth.plugin.js';
 import { AuditService as DomainAuditService } from '@uaip/shared-services';
 import { AuditService } from '../services/auditService.js';
 import { AuditEventType } from '@uaip/types';
+import type { RequiredAuthContext } from './types/elysia-context.js';
 
 let domainAuditService: DomainAuditService | null = null;
 let auditService: AuditService | null = null;
@@ -46,7 +47,7 @@ const complianceReportSchema = z.object({
   includeCharts: z.boolean().default(false),
 });
 
-function validateWithZod<T>(schema: z.ZodSchema<T>, data: any) {
+function validateWithZod<T>(schema: z.ZodSchema<T>, data: any): { error: { details: { message: string; path: string }[] } | null; value: T | null } {
   const result = schema.safeParse(data);
   if (result.success) return { error: null, value: result.data };
   return {
@@ -62,7 +63,7 @@ export function registerAuditRoutes(app: any): any {
     withRequiredAuth(app).group('', (g: any) =>
       withAdminGuard(g)
         // GET /logs
-        .get('/logs', async ({ set, query }) => {
+        .get('/logs', async ({ set, query }: RequiredAuthContext) => {
           const { error, value } = validateWithZod(auditQuerySchema, query);
           if (error) {
             set.status = 400;
@@ -72,7 +73,11 @@ export function registerAuditRoutes(app: any): any {
             const { domainAuditService } = await getServices();
             const offset = (value.page - 1) * value.limit;
             const repo = domainAuditService.getAuditRepository();
-            const result = await repo.searchAuditLogs({ ...value, offset });
+            const result = await repo.searchAuditLogs({
+              ...value,
+              offset,
+              eventType: value.eventType as AuditEventType | undefined,
+            });
             return {
               message: 'Audit logs retrieved successfully',
               logs: result.logs,
@@ -98,7 +103,7 @@ export function registerAuditRoutes(app: any): any {
         })
 
         // GET /logs/:logId
-        .get('/logs/:logId', async ({ set, params }) => {
+        .get('/logs/:logId', async ({ set, params }: RequiredAuthContext) => {
           try {
             const { domainAuditService } = await getServices();
             const logId = (params as any).logId as string;
@@ -116,7 +121,7 @@ export function registerAuditRoutes(app: any): any {
         })
 
         // GET /events/types
-        .get('/events/types', async ({ set }) => {
+        .get('/events/types', async ({ set }: RequiredAuthContext) => {
           try {
             const { domainAuditService } = await getServices();
             const repo = domainAuditService.getAuditRepository();
@@ -129,7 +134,7 @@ export function registerAuditRoutes(app: any): any {
         })
 
         // GET /stats
-        .get('/stats', async ({ set, query }) => {
+        .get('/stats', async ({ set, query }: RequiredAuthContext) => {
           try {
             const timeframe = ((query as any).timeframe || '24h') as string;
             const valid = ['1h', '24h', '7d', '30d'];
@@ -152,7 +157,7 @@ export function registerAuditRoutes(app: any): any {
         })
 
         // POST /export
-        .post('/export', async ({ set, body, user, request, headers }) => {
+        .post('/export', async ({ set, body, user, request, headers }: RequiredAuthContext) => {
           const { error, value } = validateWithZod(exportSchema, body);
           if (error) {
             set.status = 400;
@@ -198,7 +203,7 @@ export function registerAuditRoutes(app: any): any {
         })
 
         // POST /compliance-report
-        .post('/compliance-report', async ({ set, body, user, request, headers }) => {
+        .post('/compliance-report', async ({ set, body, user, request, headers }: RequiredAuthContext) => {
           const { error, value } = validateWithZod(complianceReportSchema, body);
           if (error) {
             set.status = 400;
@@ -235,7 +240,7 @@ export function registerAuditRoutes(app: any): any {
         })
 
         // GET /user-activity/:userId
-        .get('/user-activity/:userId', async ({ set, params, query }) => {
+        .get('/user-activity/:userId', async ({ set, params, query }: RequiredAuthContext) => {
           try {
             const { domainAuditService } = await getServices();
             const userId = (params as any).userId as string;
@@ -276,7 +281,7 @@ export function registerAuditRoutes(app: any): any {
         })
 
         // DELETE /cleanup
-        .delete('/cleanup', async ({ set, user, request, headers }) => {
+        .delete('/cleanup', async ({ set, user, request, headers }: RequiredAuthContext) => {
           try {
             const { auditService } = await getServices();
             const result = await auditService.cleanupOldLogs();

@@ -17,4 +17,5 @@ export type {
   EmailConfig,
   FrontendConfig,
   NotificationsConfig,
+  SecurityConfig,
 } from './config.js';

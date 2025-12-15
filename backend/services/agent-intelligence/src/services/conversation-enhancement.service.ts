@@ -156,15 +156,15 @@ export class ConversationEnhancementService extends EventEmitter {
    */
   private setupLLMEventSubscriptions(): void {
     // Handle user LLM responses (for discussion creator's provider)
-    this.eventBusService.subscribe('llm.user.response', async (event) => {
+    this.eventBusService.subscribe('llm.user.response', async (event): Promise<void> => {
       const { requestId, content, error, confidence } = event.data || event;
-      this.handleLLMResponse(requestId, content, error, confidence, 'user');
+      await this.handleLLMResponse(requestId, content, error, confidence, 'user');
     });
 
     // Handle agent LLM responses (fallback)
-    this.eventBusService.subscribe('llm.agent.generate.response', async (event) => {
+    this.eventBusService.subscribe('llm.agent.generate.response', async (event): Promise<void> => {
       const { requestId, content, error, confidence } = event.data || event;
-      this.handleLLMResponse(requestId, content, error, confidence, 'agent');
+      await this.handleLLMResponse(requestId, content, error, confidence, 'agent');
     });
 
     logger.info('Conversation Enhancement LLM event subscriptions established');
@@ -285,7 +285,7 @@ export class ConversationEnhancementService extends EventEmitter {
           };
 
           // Create minimal message history (empty for now)
-          const formattedMessages = [];
+          const formattedMessages: any[] = [];
 
           // Use user-specific LLM request with proper AgentResponseRequest structure
           await this.eventBusService.publish('llm.user.request', {
@@ -1100,7 +1100,7 @@ Please contribute to this discussion about "${topic}" in a way that's natural an
       category: 'general',
       keywords: [cap],
       level: 'intermediate',
-      relatedDomains: [],
+      relatedDomains: [] as string[],
     }));
   }
 
