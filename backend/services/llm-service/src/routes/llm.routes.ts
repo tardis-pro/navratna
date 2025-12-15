@@ -1,4 +1,5 @@
-import { LLMService, ModelBootstrapService } from '@uaip/llm-service';
+import { LLMService, ModelBootstrapService, StreamingService } from '@uaip/llm-service';
+import { StreamingLLMRequest } from '@uaip/types';
 import { logger, ValidationError } from '@uaip/utils';
 
 export function registerLLMRoutes(
@@ -250,6 +251,67 @@ export function registerLLMRoutes(
         return {
           success: true,
           message: `Models refreshed for user ${userId}`,
+        };
+      })
+
+      // Streaming endpoints
+      .post('/stream', async ({ body, store }: any) => {
+        const { prompt, systemPrompt, model, maxTokens, agentId, conversationId } = body;
+        const userId = store.user?.id;
+
+        if (!userId) {
+          throw new ValidationError('User not authenticated');
+        }
+
+        if (!prompt) {
+          throw new ValidationError('Prompt is required');
+        }
+
+        const streamingService = StreamingService.getInstance();
+        const request: StreamingLLMRequest = {
+          prompt,
+          systemPrompt,
+          model,
+          maxTokens,
+          userId,
+          agentId,
+          conversationId,
+          streaming: {
+            enabled: true,
+          },
+        };
+
+        const sessionId = await streamingService.startStream(request);
+
+        return {
+          success: true,
+          data: { sessionId, status: 'streaming' },
+        };
+      })
+
+      .post('/stream/:sessionId/cancel', async ({ params, store }: any) => {
+        const { sessionId } = params;
+        const streamingService = StreamingService.getInstance();
+        await streamingService.cancelStream(sessionId);
+
+        return {
+          success: true,
+          data: { status: 'cancelled' },
+        };
+      })
+
+      .get('/stream/:sessionId', async ({ params }: any) => {
+        const { sessionId } = params;
+        const streamingService = StreamingService.getInstance();
+        const info = streamingService.getStreamInfo(sessionId);
+
+        if (!info) {
+          throw new ValidationError('Stream not found');
+        }
+
+        return {
+          success: true,
+          data: info,
         };
       })
   );

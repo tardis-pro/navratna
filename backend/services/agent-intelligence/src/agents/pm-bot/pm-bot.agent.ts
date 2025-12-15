@@ -97,8 +97,14 @@ export class PMBotAgent extends BaseAgent {
 
     logger.info('PM Bot Agent initialized', {
       agent: this.agent.name,
-      integrations: Object.keys(this.integrations).filter((k) => this.integrations[k]?.enabled),
-      capabilities: Object.keys(this.pmCapabilities).filter((k) => this.pmCapabilities[k]),
+      integrations: Object.keys(this.integrations).filter((k) => {
+        const integration = (this.integrations as Record<string, unknown>)[k];
+        return integration && typeof integration === 'object' && (integration as Record<string, unknown>).enabled === true;
+      }),
+      capabilities: Object.keys(this.pmCapabilities).filter((k) => {
+        const capability = (this.pmCapabilities as Record<string, unknown>)[k];
+        return capability === true;
+      }),
     });
   }
 
@@ -114,7 +120,7 @@ export class PMBotAgent extends BaseAgent {
     actions: Array<{
       type: string;
       status: 'completed' | 'pending' | 'failed';
-      details: any;
+      details: Record<string, unknown>;
     }>;
     suggestions?: string[];
   }> {
@@ -129,35 +135,35 @@ export class PMBotAgent extends BaseAgent {
       const intent = await this.analyzePMIntent(request, context);
 
       // Execute appropriate action
-      let result;
+      let result: { message: string; actions: any[] };
       switch (intent.action) {
         case 'create_task':
-          result = await this.createTask(intent.parameters, userId);
+          result = await this.createTask(intent.parameters as Record<string, unknown>, userId);
           break;
         case 'update_task':
-          result = await this.updateTask(intent.parameters, userId);
+          result = await this.updateTask(intent.parameters as Record<string, unknown>, userId);
           break;
         case 'check_status':
-          result = await this.checkProjectStatus(intent.parameters);
+          result = await this.checkProjectStatus(intent.parameters as Record<string, unknown>);
           break;
         case 'assign_task':
-          result = await this.assignTask(intent.parameters, userId);
+          result = await this.assignTask(intent.parameters as Record<string, unknown>, userId);
           break;
         case 'generate_report':
-          result = await this.generateReport(intent.parameters);
+          result = await this.generateReport(intent.parameters as Record<string, unknown>);
           break;
         case 'plan_sprint':
-          result = await this.planSprint(intent.parameters, userId);
+          result = await this.planSprint(intent.parameters as Record<string, unknown>, userId);
           break;
         case 'document_meeting':
-          result = await this.documentMeeting(intent.parameters, userId);
+          result = await this.documentMeeting(intent.parameters as Record<string, unknown>, userId);
           break;
         default:
-          result = await this.handleGeneralPMQuery(request, context);
+          result = (await this.handleGeneralPMQuery(request, context)) as { message: string; actions: any[] };
       }
 
       // Generate suggestions for next actions
-      const suggestions = await this.generateNextActionSuggestions(intent, result);
+      const suggestions = await this.generateNextActionSuggestions(intent, result as unknown as Record<string, unknown>);
 
       return {
         response: result.message,
@@ -166,7 +172,7 @@ export class PMBotAgent extends BaseAgent {
       };
     } catch (error) {
       logger.error('Failed to process PM request', { error, request });
-      return this.handlePMError(request, error);
+      return this.handlePMError(request, error as Error);
     }
   }
 
@@ -174,9 +180,9 @@ export class PMBotAgent extends BaseAgent {
    * Create a task in Jira
    */
   private async createTask(
-    parameters: any,
+    parameters: Record<string, unknown>,
     userId: string
-  ): Promise<{ message: string; actions: any[] }> {
+  ): Promise<any> {
     if (!this.pmCapabilities.createTasks) {
       return {
         message: "I don't have permission to create tasks. Please contact your administrator.",
@@ -214,7 +220,8 @@ export class PMBotAgent extends BaseAgent {
       });
 
       if (response.success) {
-        const issue = response.data;
+        const issue = response.data as Record<string, unknown>;
+        const issueId = issue.id;
 
         // Document in Confluence if enabled
         if (this.integrations.confluence.enabled && parameters.documentInConfluence) {
@@ -252,16 +259,17 @@ export class PMBotAgent extends BaseAgent {
           userId,
         });
 
+        const issueKey = issue.key as string;
         return {
-          message: `✅ Created task ${issue.key}: ${parameters.title}\n\nView in Jira: ${this.integrations.jira.baseUrl}/browse/${issue.key}`,
+          message: `✅ Created task ${issueKey}: ${parameters.title}\n\nView in Jira: ${this.integrations.jira.baseUrl}/browse/${issueKey}`,
           actions: [
             {
               type: 'task_created',
               status: 'completed',
               details: {
-                issueKey: issue.key,
+                issueKey,
                 issueId: issue.id,
-                url: `${this.integrations.jira.baseUrl}/browse/${issue.key}`,
+                url: `${this.integrations.jira.baseUrl}/browse/${issueKey}`,
               },
             },
           ],
@@ -288,13 +296,14 @@ export class PMBotAgent extends BaseAgent {
     }
   }
 
+
   /**
    * Update an existing task
    */
   private async updateTask(
-    parameters: any,
+    parameters: Record<string, unknown>,
     userId: string
-  ): Promise<{ message: string; actions: any[] }> {
+  ): Promise<any> {
     if (!this.pmCapabilities.updateTasks) {
       return {
         message: "I don't have permission to update tasks.",
@@ -303,7 +312,7 @@ export class PMBotAgent extends BaseAgent {
     }
 
     try {
-      const updates: any = {};
+      const updates: Record<string, unknown> = {};
 
       if (parameters.status) updates.status = { name: parameters.status };
       if (parameters.assignee) updates.assignee = { name: parameters.assignee };
@@ -327,7 +336,7 @@ export class PMBotAgent extends BaseAgent {
       if (response.success) {
         // Add comment if provided
         if (parameters.comment) {
-          await this.addJiraComment(parameters.issueKey, parameters.comment, userId);
+          await this.addJiraComment(parameters.issueKey as string, parameters.comment as string, userId);
         }
 
         return {
@@ -368,7 +377,7 @@ export class PMBotAgent extends BaseAgent {
   /**
    * Check project status and generate summary
    */
-  private async checkProjectStatus(parameters: any): Promise<{ message: string; actions: any[] }> {
+  private async checkProjectStatus(parameters: Record<string, unknown>): Promise<any> {
     try {
       const projectKey = parameters.projectKey || this.integrations.jira.projectKeys[0];
 
@@ -393,10 +402,11 @@ export class PMBotAgent extends BaseAgent {
       });
 
       if (sprintResponse.success && statsResponse.success) {
-        const sprint = sprintResponse.data;
-        const issues = statsResponse.data.issues;
+        const sprint = sprintResponse.data as Record<string, unknown>;
+        const statsData = statsResponse.data as Record<string, unknown>;
+        const issues = Array.isArray(statsData.issues) ? statsData.issues : [];
 
-        const summary = this.generateProjectStatusSummary(sprint, issues, projectKey);
+        const summary = this.generateProjectStatusSummary(sprint, issues, projectKey as string);
 
         return {
           message: summary,
@@ -406,7 +416,7 @@ export class PMBotAgent extends BaseAgent {
               status: 'completed',
               details: {
                 projectKey,
-                sprintName: sprint?.name,
+                sprintName: sprint.name,
                 issueCount: issues.length,
               },
             },
@@ -433,7 +443,7 @@ export class PMBotAgent extends BaseAgent {
   /**
    * Generate project report
    */
-  private async generateReport(parameters: any): Promise<{ message: string; actions: any[] }> {
+  private async generateReport(parameters: Record<string, unknown>): Promise<any> {
     if (!this.pmCapabilities.generateReports) {
       return {
         message: "I don't have permission to generate reports.",
@@ -448,19 +458,19 @@ export class PMBotAgent extends BaseAgent {
       let reportData;
       switch (reportType) {
         case 'sprint':
-          reportData = await this.generateSprintReport(projectKey, parameters);
+          reportData = await this.generateSprintReport(projectKey as string, parameters);
           break;
         case 'velocity':
-          reportData = await this.generateVelocityReport(projectKey, parameters);
+          reportData = await this.generateVelocityReport(projectKey as string, parameters);
           break;
         case 'burndown':
-          reportData = await this.generateBurndownReport(projectKey, parameters);
+          reportData = await this.generateBurndownReport(projectKey as string, parameters);
           break;
         case 'team_performance':
-          reportData = await this.generateTeamPerformanceReport(projectKey, parameters);
+          reportData = await this.generateTeamPerformanceReport(projectKey as string, parameters);
           break;
         default:
-          reportData = await this.generateCustomReport(projectKey, parameters);
+          reportData = await this.generateCustomReport(projectKey as string, parameters);
       }
 
       // Create Confluence page with report
@@ -471,7 +481,7 @@ export class PMBotAgent extends BaseAgent {
             content: reportData.content,
             spaceKey: parameters.spaceKey || this.integrations.confluence.spaceKeys[0],
           },
-          parameters.userId
+          parameters.userId as string
         );
 
         return {
@@ -522,9 +532,9 @@ export class PMBotAgent extends BaseAgent {
    * Document meeting notes in Confluence
    */
   private async documentMeeting(
-    parameters: any,
+    parameters: Record<string, unknown>,
     userId: string
-  ): Promise<{ message: string; actions: any[] }> {
+  ): Promise<any> {
     if (!this.pmCapabilities.documentDecisions) {
       return {
         message: "I don't have permission to document meetings.",
@@ -554,15 +564,17 @@ export class PMBotAgent extends BaseAgent {
       );
 
       // Create Jira tasks for action items if requested
-      const createdTasks = [];
-      if (parameters.createTasksForActionItems && parameters.actionItems?.length > 0) {
-        for (const actionItem of parameters.actionItems) {
+      const createdTasks: Record<string, unknown>[] = [];
+      const actionItems = Array.isArray(parameters.actionItems) ? parameters.actionItems : [];
+      if (parameters.createTasksForActionItems && actionItems.length > 0) {
+        for (const actionItem of actionItems) {
+          const item = actionItem as Record<string, unknown>;
           const taskResult = await this.createTask(
             {
-              title: actionItem.task,
-              description: `Action item from meeting: ${parameters.title}\nAssigned to: ${actionItem.assignee}\nDue: ${actionItem.dueDate}`,
-              assignee: actionItem.assignee,
-              dueDate: actionItem.dueDate,
+              title: item.task,
+              description: `Action item from meeting: ${parameters.title}\nAssigned to: ${item.assignee}\nDue: ${item.dueDate}`,
+              assignee: item.assignee,
+              dueDate: item.dueDate,
               projectKey: parameters.projectKey,
               labels: ['action-item', 'meeting'],
             },
@@ -661,7 +673,7 @@ export class PMBotAgent extends BaseAgent {
   /**
    * Helper methods
    */
-  private async analyzePMIntent(request: string, context: ConversationContext): Promise<any> {
+  private async analyzePMIntent(request: string, context: ConversationContext): Promise<Record<string, unknown>> {
     const lowerRequest = request.toLowerCase();
 
     // Pattern matching for PM actions
@@ -711,10 +723,10 @@ export class PMBotAgent extends BaseAgent {
     };
   }
 
-  private extractTaskParameters(request: string): any {
+  private extractTaskParameters(request: string): Record<string, unknown> {
     // Extract task details from natural language
     // This is a simplified version - in production, use NLP
-    const parameters: any = {};
+    const parameters: Record<string, unknown> = {};
 
     // Extract title (text in quotes or after "called"/"titled")
     const titleMatch = request.match(/"([^"]+)"|called\s+(\S+)|titled\s+(\S+)/i);
@@ -744,7 +756,7 @@ export class PMBotAgent extends BaseAgent {
     return parameters;
   }
 
-  private generateProjectStatusSummary(sprint: any, issues: any[], projectKey: string): string {
+  private generateProjectStatusSummary(sprint: Record<string, unknown>, issues: unknown[], projectKey: string): string {
     const statusCounts = this.countIssuesByStatus(issues);
     const priorityCounts = this.countIssuesByPriority(issues);
     const assigneeCounts = this.countIssuesByAssignee(issues);
@@ -754,11 +766,12 @@ export class PMBotAgent extends BaseAgent {
     if (sprint) {
       summary += `**Current Sprint:** ${sprint.name}\n`;
       summary += `**Sprint Goal:** ${sprint.goal || 'Not set'}\n`;
-      summary += `**End Date:** ${new Date(sprint.endDate).toLocaleDateString()}\n\n`;
+      const endDate = sprint.endDate ? new Date(sprint.endDate as string).toLocaleDateString() : 'Not set';
+      summary += `**End Date:** ${endDate}\n\n`;
     }
 
     summary += `**Issue Status:**\n`;
-    Object.entries(statusCounts).forEach(([status, count]) => {
+    Object.entries(statusCounts).forEach(([status, count]: [string, any]) => {
       summary += `• ${status}: ${count}\n`;
     });
 
@@ -769,7 +782,7 @@ export class PMBotAgent extends BaseAgent {
 
     summary += `\n**Team Workload:**\n`;
     const topAssignees = Object.entries(assigneeCounts)
-      .sort((a, b) => b[1] - a[1])
+      .sort((a, b) => (b[1] as number) - (a[1] as number))
       .slice(0, 5);
     topAssignees.forEach(([assignee, count]) => {
       summary += `• ${assignee}: ${count} issues\n`;
@@ -781,40 +794,58 @@ export class PMBotAgent extends BaseAgent {
     return summary;
   }
 
-  private countIssuesByStatus(issues: any[]): Record<string, number> {
-    return issues.reduce((acc, issue) => {
-      const status = issue.fields.status.name;
-      acc[status] = (acc[status] || 0) + 1;
+  private countIssuesByStatus(issues: unknown[]): Record<string, number> {
+    return (issues as any[]).reduce((acc: Record<string, number>, issue: unknown) => {
+      const issueData = issue as Record<string, unknown>;
+      const fields = issueData.fields as Record<string, unknown>;
+      const status = fields.status as Record<string, unknown>;
+      const statusName = status.name as string;
+      acc[statusName] = (acc[statusName] || 0) + 1;
       return acc;
-    }, {});
+    }, {} as Record<string, number>);
   }
 
-  private countIssuesByPriority(issues: any[]): Record<string, number> {
-    return issues.reduce((acc, issue) => {
-      const priority = issue.fields.priority?.name || 'None';
-      acc[priority] = (acc[priority] || 0) + 1;
+  private countIssuesByPriority(issues: unknown[]): Record<string, number> {
+    return (issues as any[]).reduce((acc: Record<string, number>, issue: unknown) => {
+      const issueData = issue as Record<string, unknown>;
+      const fields = issueData.fields as Record<string, unknown>;
+      const priority = fields.priority as Record<string, unknown> | undefined;
+      const priorityName = (priority?.name as string) || 'None';
+      acc[priorityName] = (acc[priorityName] || 0) + 1;
       return acc;
-    }, {});
+    }, {} as Record<string, number>);
   }
 
-  private countIssuesByAssignee(issues: any[]): Record<string, number> {
-    return issues.reduce((acc, issue) => {
-      const assignee = issue.fields.assignee?.displayName || 'Unassigned';
-      acc[assignee] = (acc[assignee] || 0) + 1;
+  private countIssuesByAssignee(issues: unknown[]): Record<string, number> {
+    return (issues as any[]).reduce((acc: Record<string, number>, issue: unknown) => {
+      const issueData = issue as Record<string, unknown>;
+      const fields = issueData.fields as Record<string, unknown>;
+      const assignee = fields.assignee as Record<string, unknown> | undefined;
+      const assigneeName = (assignee?.displayName as string) || 'Unassigned';
+      acc[assigneeName] = (acc[assigneeName] || 0) + 1;
       return acc;
-    }, {});
+    }, {} as Record<string, number>);
   }
 
-  private formatUpdateSummary(updates: any): string {
-    const summary = [];
-    if (updates.status) summary.push(`Status → ${updates.status.name}`);
-    if (updates.assignee) summary.push(`Assignee → ${updates.assignee.name}`);
-    if (updates.priority) summary.push(`Priority → ${updates.priority.name}`);
+  private formatUpdateSummary(updates: Record<string, unknown>): string {
+    const summary: string[] = [];
+    if (updates.status) {
+      const status = updates.status as Record<string, unknown>;
+      summary.push(`Status → ${status.name}`);
+    }
+    if (updates.assignee) {
+      const assignee = updates.assignee as Record<string, unknown>;
+      summary.push(`Assignee → ${assignee.name}`);
+    }
+    if (updates.priority) {
+      const priority = updates.priority as Record<string, unknown>;
+      summary.push(`Priority → ${priority.name}`);
+    }
     if (updates.duedate) summary.push(`Due Date → ${updates.duedate}`);
     return summary.join('\n');
   }
 
-  private generateTaskDocumentation(issue: any, parameters: any): string {
+  private generateTaskDocumentation(issue: Record<string, unknown>, parameters: Record<string, unknown>): string {
     return `
 h1. ${issue.key}: ${parameters.title}
 
@@ -836,36 +867,39 @@ h2. Related Links
 `;
   }
 
-  private generateMeetingTemplate(meeting: any): string {
+  private generateMeetingTemplate(meeting: Record<string, unknown>): string {
     return `
 h1. Meeting Notes: ${meeting.title}
 
 h2. Meeting Details
-* *Date:* ${new Date(meeting.date).toLocaleString()}
-* *Attendees:* ${meeting.attendees.join(', ')}
+* *Date:* ${new Date(meeting.date as string).toLocaleString()}
+* *Attendees:* ${Array.isArray(meeting.attendees) ? meeting.attendees.join(', ') : ''}
 
 h2. Agenda
-${meeting.agenda.map((item: string, i: number) => `${i + 1}. ${item}`).join('\n')}
+${Array.isArray(meeting.agenda) ? meeting.agenda.map((item, i: number) => `${i + 1}. ${item}`).join('\n') : ''}
 
 h2. Discussion Notes
 ${meeting.notes}
 
 h2. Decisions Made
-${meeting.decisions.map((decision: string, i: number) => `${i + 1}. ${decision}`).join('\n')}
+${Array.isArray(meeting.decisions) ? meeting.decisions.map((decision, i: number) => `${i + 1}. ${decision}`).join('\n') : ''}
 
 h2. Action Items
-${meeting.actionItems
-  .map(
-    (item: any) => `* ${item.task} - *Assignee:* ${item.assignee} - *Due:* ${item.dueDate || 'TBD'}`
-  )
-  .join('\n')}
+${Array.isArray(meeting.actionItems)
+  ? meeting.actionItems
+      .map((item) => {
+        const actionItem = item as Record<string, unknown>;
+        return `* ${actionItem.task} - *Assignee:* ${actionItem.assignee} - *Due:* ${actionItem.dueDate || 'TBD'}`;
+      })
+      .join('\n')
+  : ''}
 
 h2. Next Steps
 To be determined based on action items completion.
 `;
   }
 
-  private async createConfluencePage(pageData: any, userId: string): Promise<any> {
+  private async createConfluencePage(pageData: Record<string, unknown>, userId: string): Promise<Record<string, unknown>> {
     const response = await this.toolExecutionService.executeTool({
       toolId: 'confluence_api',
       operation: 'createPage',
@@ -888,9 +922,10 @@ To be determined based on action items completion.
     });
 
     if (response.success) {
+      const pageId = (response.data as { id: string }).id;
       return {
-        id: response.data.id,
-        url: `${this.integrations.confluence.baseUrl}/pages/viewpage.action?pageId=${response.data.id}`,
+        id: pageId,
+        url: `${this.integrations.confluence.baseUrl}/pages/viewpage.action?pageId=${pageId}`,
       };
     } else {
       const errorMessage =
@@ -914,7 +949,7 @@ To be determined based on action items completion.
     });
   }
 
-  private async notifySlack(notification: any): Promise<void> {
+  private async notifySlack(notification: Record<string, unknown>): Promise<void> {
     if (!this.integrations.slack?.enabled) return;
 
     await this.toolExecutionService.executeTool({
@@ -929,7 +964,7 @@ To be determined based on action items completion.
     });
   }
 
-  private async generateSprintReport(projectKey: string, parameters: any): Promise<any> {
+  private async generateSprintReport(projectKey: string, parameters: Record<string, unknown>): Promise<Record<string, unknown>> {
     // Implementation for sprint report generation
     return {
       title: `Sprint Report - ${projectKey}`,
@@ -943,7 +978,7 @@ To be determined based on action items completion.
     };
   }
 
-  private async generateVelocityReport(projectKey: string, parameters: any): Promise<any> {
+  private async generateVelocityReport(projectKey: string, parameters: Record<string, unknown>): Promise<Record<string, unknown>> {
     // Implementation for velocity report
     return {
       title: `Velocity Report - ${projectKey}`,
@@ -956,7 +991,7 @@ To be determined based on action items completion.
     };
   }
 
-  private async generateBurndownReport(projectKey: string, parameters: any): Promise<any> {
+  private async generateBurndownReport(projectKey: string, parameters: Record<string, unknown>): Promise<Record<string, unknown>> {
     // Implementation for burndown report
     return {
       title: `Burndown Report - ${projectKey}`,
@@ -970,7 +1005,7 @@ To be determined based on action items completion.
     };
   }
 
-  private async generateTeamPerformanceReport(projectKey: string, parameters: any): Promise<any> {
+  private async generateTeamPerformanceReport(projectKey: string, parameters: Record<string, unknown>): Promise<Record<string, unknown>> {
     // Implementation for team performance report
     return {
       title: `Team Performance Report - ${projectKey}`,
@@ -984,7 +1019,7 @@ To be determined based on action items completion.
     };
   }
 
-  private async generateCustomReport(projectKey: string, parameters: any): Promise<any> {
+  private async generateCustomReport(projectKey: string, parameters: Record<string, unknown>): Promise<Record<string, unknown>> {
     // Implementation for custom reports
     return {
       title: `Custom Report - ${projectKey}`,
@@ -994,10 +1029,11 @@ To be determined based on action items completion.
     };
   }
 
-  private async generateNextActionSuggestions(intent: any, result: any): Promise<string[]> {
+  private async generateNextActionSuggestions(intent: Record<string, unknown>, result: Record<string, unknown>): Promise<string[]> {
     const suggestions = [];
 
-    if (intent.action === 'create_task' && result.actions[0]?.status === 'completed') {
+    const actions = result.actions as any[];
+    if (intent.action === 'create_task' && actions?.[0]?.status === 'completed') {
       suggestions.push('Would you like me to create subtasks for this issue?');
       suggestions.push('Should I add this task to the current sprint?');
       suggestions.push('Do you want to link this to any existing issues?');
@@ -1010,7 +1046,7 @@ To be determined based on action items completion.
     return suggestions;
   }
 
-  private async handleGeneralPMQuery(request: string, context: ConversationContext): Promise<any> {
+  private async handleGeneralPMQuery(request: string, context: ConversationContext): Promise<Record<string, unknown>> {
     // Handle general project management queries
     const response = await this.callLLM(request, {
       systemPrompt: 'You are a project management expert. Provide helpful advice and guidance.',
@@ -1024,7 +1060,7 @@ To be determined based on action items completion.
     };
   }
 
-  private handlePMError(request: string, error: any): any {
+  private handlePMError(request: string, error: Error): any {
     logger.error('PM Bot error', { request, error });
 
     return {
@@ -1045,57 +1081,62 @@ To be determined based on action items completion.
   }
 
   // Event handlers
-  private async handleCreateTask(event: any): Promise<void> {
-    const { requestId, parameters, userId } = event;
+  private async handleCreateTask(event: Record<string, unknown>): Promise<void> {
+    const { requestId, parameters, userId } = event as { requestId: string; parameters: Record<string, unknown>; userId: string };
     try {
       const result = await this.createTask(parameters, userId);
       await this.respondToRequest(requestId, { success: true, data: result });
     } catch (error) {
-      await this.respondToRequest(requestId, { success: false, error: error.message });
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      await this.respondToRequest(requestId, { success: false, error: errorMessage });
     }
   }
 
-  private async handleUpdateTask(event: any): Promise<void> {
-    const { requestId, parameters, userId } = event;
+  private async handleUpdateTask(event: Record<string, unknown>): Promise<void> {
+    const { requestId, parameters, userId } = event as { requestId: string; parameters: Record<string, unknown>; userId: string };
     try {
       const result = await this.updateTask(parameters, userId);
       await this.respondToRequest(requestId, { success: true, data: result });
     } catch (error) {
-      await this.respondToRequest(requestId, { success: false, error: error.message });
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      await this.respondToRequest(requestId, { success: false, error: errorMessage });
     }
   }
 
-  private async handleSprintPlanning(event: any): Promise<void> {
-    const { requestId, parameters, userId } = event;
+  private async handleSprintPlanning(event: Record<string, unknown>): Promise<void> {
+    const { requestId, parameters, userId } = event as { requestId: string; parameters: Record<string, unknown>; userId: string };
     try {
       const result = await this.planSprint(parameters, userId);
       await this.respondToRequest(requestId, { success: true, data: result });
     } catch (error) {
-      await this.respondToRequest(requestId, { success: false, error: error.message });
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      await this.respondToRequest(requestId, { success: false, error: errorMessage });
     }
   }
 
-  private async handleReportGeneration(event: any): Promise<void> {
-    const { requestId, parameters } = event;
+  private async handleReportGeneration(event: Record<string, unknown>): Promise<void> {
+    const { requestId, parameters } = event as { requestId: string; parameters: Record<string, unknown> };
     try {
       const result = await this.generateReport(parameters);
       await this.respondToRequest(requestId, { success: true, data: result });
     } catch (error) {
-      await this.respondToRequest(requestId, { success: false, error: error.message });
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      await this.respondToRequest(requestId, { success: false, error: errorMessage });
     }
   }
 
-  private async handleMeetingDocumentation(event: any): Promise<void> {
-    const { requestId, parameters, userId } = event;
+  private async handleMeetingDocumentation(event: Record<string, unknown>): Promise<void> {
+    const { requestId, parameters, userId } = event as { requestId: string; parameters: Record<string, unknown>; userId: string };
     try {
       const result = await this.documentMeeting(parameters, userId);
       await this.respondToRequest(requestId, { success: true, data: result });
     } catch (error) {
-      await this.respondToRequest(requestId, { success: false, error: error.message });
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      await this.respondToRequest(requestId, { success: false, error: errorMessage });
     }
   }
 
-  private async planSprint(parameters: any, userId: string): Promise<any> {
+  private async planSprint(parameters: Record<string, unknown>, userId: string): Promise<any> {
     // Sprint planning implementation
     return {
       message: 'Sprint planning functionality',
@@ -1103,7 +1144,7 @@ To be determined based on action items completion.
     };
   }
 
-  private async assignTask(parameters: any, userId: string): Promise<any> {
+  private async assignTask(parameters: Record<string, unknown>, userId: string): Promise<any> {
     return this.updateTask(
       {
         ...parameters,
@@ -1113,32 +1154,32 @@ To be determined based on action items completion.
     );
   }
 
-  private extractUpdateParameters(request: string): any {
+  private extractUpdateParameters(request: string): Record<string, unknown> {
     // Extract update parameters from request
     return {};
   }
 
-  private extractAssignmentParameters(request: string): any {
+  private extractAssignmentParameters(request: string): Record<string, unknown> {
     // Extract assignment parameters
     return {};
   }
 
-  private extractStatusParameters(request: string): any {
+  private extractStatusParameters(request: string): Record<string, unknown> {
     // Extract status check parameters
     return {};
   }
 
-  private extractReportParameters(request: string): any {
+  private extractReportParameters(request: string): Record<string, unknown> {
     // Extract report parameters
     return {};
   }
 
-  private extractSprintParameters(request: string): any {
+  private extractSprintParameters(request: string): Record<string, unknown> {
     // Extract sprint planning parameters
     return {};
   }
 
-  private extractMeetingParameters(request: string): any {
+  private extractMeetingParameters(request: string): Record<string, unknown> {
     // Extract meeting documentation parameters
     return {};
   }
@@ -1150,7 +1191,7 @@ To be determined based on action items completion.
     logger.info('PMBotAgent cleanup completed');
   }
 
-  protected async getHealthMetadata(): Promise<any> {
+  protected async getHealthMetadata(): Promise<Record<string, unknown>> {
     return {
       activeProjects: this.projectContexts.size,
       integrations: {
@@ -1163,7 +1204,7 @@ To be determined based on action items completion.
     };
   }
 
-  protected validateConfiguration(config: any): void {
+  protected validateConfiguration(config: Record<string, unknown>): void {
     if (!config) {
       throw new Error('Configuration is required');
     }
@@ -1173,13 +1214,11 @@ To be determined based on action items completion.
     }
   }
 
-  protected async applyConfiguration(config: any): Promise<void> {
+  protected async applyConfiguration(config: Record<string, unknown>): Promise<void> {
     if (config.integrations) {
-      this.integrations = { ...this.integrations, ...config.integrations };
-    }
+             this.integrations = { ...this.integrations, ...(config.integrations as any) };    }
     if (config.capabilities) {
-      this.pmCapabilities = { ...this.pmCapabilities, ...config.capabilities };
-    }
+             this.pmCapabilities = { ...this.pmCapabilities, ...(config.capabilities as any) };    }
     logger.info('PMBotAgent configuration applied', { config });
   }
 }

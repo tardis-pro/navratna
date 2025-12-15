@@ -231,7 +231,7 @@ export class AgentContextService {
     // Basic intent analysis
     const intent = {
       primary: 'unknown',
-      secondary: [],
+      secondary: [] as string[],
       confidence: 0.5,
       keywords: this.extractKeywords(userRequest),
       sentiment: this.analyzeSentiment(userRequest),
@@ -377,8 +377,8 @@ Please analyze:
   private extractTaskContext(context: ConversationContext): any {
     return {
       currentTask: null,
-      completedTasks: [],
-      pendingTasks: [],
+      completedTasks: [] as any[],
+      pendingTasks: [] as any[],
     };
   }
 

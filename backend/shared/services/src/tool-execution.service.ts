@@ -30,18 +30,18 @@ export class ToolExecutionService {
       | {
           toolId: string;
           operation?: string;
-          parameters: Record<string, any>;
+          parameters: Record<string, unknown>;
           userId?: string;
-          securityContext?: any;
+          securityContext?: Record<string, unknown>;
         },
     agentId?: string,
-    parameters?: Record<string, any>,
+    parameters?: Record<string, unknown>,
     options: ToolExecutionOptions = {}
   ): Promise<ToolExecutionType> {
     // Handle object-style call (agent compatibility)
     let toolId: string;
     let actualAgentId: string;
-    let actualParameters: Record<string, any>;
+    let actualParameters: Record<string, unknown>;
 
     if (typeof toolIdOrRequest === 'object') {
       toolId = toolIdOrRequest.toolId;
@@ -78,7 +78,7 @@ export class ToolExecutionService {
 
     try {
       // Store initial execution record
-      await this.databaseService.tools.createToolExecution(execution as any);
+      await this.databaseService.tools.createToolExecution(execution);
 
       logger.info(`Tool execution initiated: ${execution.id}`, {
         toolId,

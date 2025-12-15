@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { logger } from '@uaip/utils';
 import { withRequiredAuth } from './middleware/auth.plugin.js';
 import { DatabaseService, DefaultUserLLMProviderSeed } from '@uaip/shared-services';
+import type { RequiredAuthContext } from './types/elysia-context.js';
 
 const UserPersonaSchema = z.object({
   workStyle: z.enum(['collaborative', 'independent', 'hybrid']),
@@ -67,7 +68,7 @@ export function registerPersonaRoutes(app: any): any {
   return app.group('/api/v1/user/persona', (app: any) =>
     withRequiredAuth(app)
       // GET /
-      .get('/', async ({ set, user }) => {
+      .get('/', async ({ set, user }: RequiredAuthContext) => {
         try {
           const databaseService = DatabaseService.getInstance();
           const repo = databaseService.getUserRepository();
@@ -93,7 +94,7 @@ export function registerPersonaRoutes(app: any): any {
       })
 
       // PUT /
-      .put('/', async ({ set, body, user }) => {
+      .put('/', async ({ set, body, user }: RequiredAuthContext) => {
         const validation = UpdatePersonaSchema.safeParse(body);
         if (!validation.success) {
           set.status = 400;
@@ -141,7 +142,7 @@ export function registerPersonaRoutes(app: any): any {
       })
 
       // POST /complete-onboarding
-      .post('/complete-onboarding', async ({ set, body, user }) => {
+      .post('/complete-onboarding', async ({ set, body, user }: RequiredAuthContext) => {
         const validation = CompleteOnboardingSchema.safeParse(body);
         if (!validation.success) {
           set.status = 400;
@@ -206,7 +207,7 @@ export function registerPersonaRoutes(app: any): any {
       })
 
       // PUT /behavioral-patterns
-      .put('/behavioral-patterns', async ({ set, body, user }) => {
+      .put('/behavioral-patterns', async ({ set, body, user }: RequiredAuthContext) => {
         const validation = BehavioralPatternsSchema.safeParse(body);
         if (!validation.success) {
           set.status = 400;
@@ -238,7 +239,7 @@ export function registerPersonaRoutes(app: any): any {
       })
 
       // GET /recommendations
-      .get('/recommendations', async ({ set, user }) => {
+      .get('/recommendations', async ({ set, user }: RequiredAuthContext) => {
         try {
           const repo = DatabaseService.getInstance().getUserRepository();
           const entity = await repo.findById(user!.id);
@@ -257,7 +258,7 @@ export function registerPersonaRoutes(app: any): any {
       })
 
       // POST /track-interaction
-      .post('/track-interaction', async ({ set, body, user }) => {
+      .post('/track-interaction', async ({ set, body, user }: RequiredAuthContext) => {
         const validation = InteractionTrackingSchema.safeParse(body);
         if (!validation.success) {
           set.status = 400;
@@ -274,7 +275,7 @@ export function registerPersonaRoutes(app: any): any {
       })
 
       // GET /compatible-agents
-      .get('/compatible-agents', async ({ set, user }) => {
+      .get('/compatible-agents', async ({ set, user }: RequiredAuthContext) => {
         try {
           const repo = DatabaseService.getInstance().getUserRepository();
           const entity = await repo.findById(user!.id);
@@ -291,7 +292,7 @@ export function registerPersonaRoutes(app: any): any {
       })
 
       // GET /optimized-workspace
-      .get('/optimized-workspace', async ({ set, user }) => {
+      .get('/optimized-workspace', async ({ set, user }: RequiredAuthContext) => {
         try {
           const repo = DatabaseService.getInstance().getUserRepository();
           const entity = await repo.findById(user!.id);

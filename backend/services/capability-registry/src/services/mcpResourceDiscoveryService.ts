@@ -165,7 +165,7 @@ export class MCPResourceDiscoveryService extends EventEmitter {
   // Enhanced resource discovery with categorization
   private async discoverResourcesWithMetadata(
     serverName?: string
-  ): Promise<ResourceDiscoveryResult['resources']> {
+  ): Promise<Array<ResourceDiscoveryResult['resources'][number]>> {
     try {
       const rawResources = await this.mcpService.discoverResources(serverName);
 
@@ -193,7 +193,7 @@ export class MCPResourceDiscoveryService extends EventEmitter {
   // Enhanced prompt discovery with categorization
   private async discoverPromptsWithMetadata(
     serverName?: string
-  ): Promise<ResourceDiscoveryResult['prompts']> {
+  ): Promise<Array<ResourceDiscoveryResult['prompts'][number]>> {
     try {
       const rawPrompts = await this.mcpService.discoverPrompts(serverName);
 
@@ -220,7 +220,7 @@ export class MCPResourceDiscoveryService extends EventEmitter {
   // Enhanced tool discovery for selective attachment
   private async discoverSelectableTools(
     serverName?: string
-  ): Promise<ResourceDiscoveryResult['tools']> {
+  ): Promise<Array<ResourceDiscoveryResult['tools'][number]>> {
     try {
       const servers = serverName ? [serverName] : await this.getActiveServerNames();
       const tools: ResourceDiscoveryResult['tools'] = [];
@@ -244,16 +244,16 @@ export class MCPResourceDiscoveryService extends EventEmitter {
   }
 
   // Server summary information
-  private async getServerSummary(serverName?: string): Promise<ResourceDiscoveryResult['servers']> {
+  private async getServerSummary(serverName?: string): Promise<Array<ResourceDiscoveryResult['servers'][number]>> {
     try {
       const servers = serverName ? [serverName] : await this.getActiveServerNames();
       const summary: ResourceDiscoveryResult['servers'] = [];
 
       for (const server of servers) {
         const [tools, resources, prompts] = await Promise.all([
-          this.mcpService.getSelectableToolsFromServer(server).catch(() => []),
-          this.mcpService.discoverResources(server).catch(() => []),
-          this.mcpService.discoverPrompts(server).catch(() => []),
+          this.mcpService.getSelectableToolsFromServer(server).catch((): any[] => []),
+          this.mcpService.discoverResources(server).catch((): any[] => []),
+          this.mcpService.discoverPrompts(server).catch((): any[] => []),
         ]);
 
         // Get server status (assuming we can access server state)
@@ -276,9 +276,9 @@ export class MCPResourceDiscoveryService extends EventEmitter {
   }
 
   // Resource categorization logic
-  private categorizeResource(
+  private categorizeResource = (
     resource: any
-  ): 'file' | 'database' | 'api' | 'document' | 'media' | 'unknown' {
+  ): 'file' | 'database' | 'api' | 'document' | 'media' | 'unknown' => {
     const { uri, mimeType, name } = resource;
 
     if (mimeType) {
@@ -311,12 +311,12 @@ export class MCPResourceDiscoveryService extends EventEmitter {
     }
 
     return 'unknown';
-  }
+  };
 
   // Prompt categorization logic
-  private categorizePrompt(
+  private categorizePrompt = (
     prompt: any
-  ): 'template' | 'generator' | 'analyzer' | 'transformer' | 'unknown' {
+  ): 'template' | 'generator' | 'analyzer' | 'transformer' | 'unknown' => {
     const { name, description } = prompt;
     const text = `${name} ${description || ''}`.toLowerCase();
 
@@ -334,10 +334,10 @@ export class MCPResourceDiscoveryService extends EventEmitter {
     }
 
     return 'unknown';
-  }
+  };
 
   // Tool categorization by name patterns
-  private categorizeToolByName(name: string): string {
+  private categorizeToolByName = (name: string): string => {
     const lowerName = name.toLowerCase();
 
     if (lowerName.includes('file') || lowerName.includes('read') || lowerName.includes('write')) {
@@ -361,10 +361,10 @@ export class MCPResourceDiscoveryService extends EventEmitter {
     }
 
     return 'mcp';
-  }
+  };
 
   // Extract tool capabilities from schema
-  private extractToolCapabilities(tool: any): string[] {
+  private extractToolCapabilities = (tool: any): string[] => {
     const capabilities: string[] = [];
     const { inputSchema, name, description } = tool;
 
@@ -386,10 +386,10 @@ export class MCPResourceDiscoveryService extends EventEmitter {
     }
 
     return [...new Set(capabilities)]; // Remove duplicates
-  }
+  };
 
   // Generate resource tags
-  private generateResourceTags(resource: any): string[] {
+  private generateResourceTags = (resource: any): string[] => {
     const tags: string[] = [];
     const { uri, mimeType, name, serverName } = resource;
 
@@ -412,10 +412,10 @@ export class MCPResourceDiscoveryService extends EventEmitter {
     }
 
     return tags;
-  }
+  };
 
   // Generate prompt tags
-  private generatePromptTags(prompt: any): string[] {
+  private generatePromptTags = (prompt: any): string[] => {
     const tags: string[] = [];
     const { name, description, serverName, arguments: args } = prompt;
 
@@ -437,7 +437,7 @@ export class MCPResourceDiscoveryService extends EventEmitter {
     if (text.includes('format')) tags.push('formatting');
 
     return tags;
-  }
+  };
 
   // Get active server names
   private async getActiveServerNames(): Promise<string[]> {
@@ -487,7 +487,7 @@ export class MCPResourceDiscoveryService extends EventEmitter {
       category?: string;
       mimeType?: string;
     }
-  ): Promise<ResourceDiscoveryResult['resources']> {
+  ): Promise<Array<ResourceDiscoveryResult['resources'][number]>> {
     const discovery = await this.discoverAllResources(filters?.serverName);
     const lowerQuery = query.toLowerCase();
 

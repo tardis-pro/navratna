@@ -1,6 +1,14 @@
-import { config as sharedConfig } from '@uaip/config';
+import { config as sharedConfig, type Config as SharedConfigType } from '@uaip/config';
 
-export const config = {
+export interface CapabilityRegistryConfig extends SharedConfigType {
+  service: {
+    name: string;
+    port: number;
+    env: string;
+  };
+}
+
+export const config: CapabilityRegistryConfig = {
   ...sharedConfig,
   service: {
     name: 'capability-registry',

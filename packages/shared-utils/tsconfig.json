@@ -15,10 +15,7 @@
     "skipLibCheck": true,
     "strict": false,
     "baseUrl": ".",
-    "paths": {
-      "@uaip/types": ["../shared-types/src"],
-      "@uaip/types/*": ["../shared-types/src/*"]
-    }
+    "paths": {}
   },
   "include": ["src/**/*"],
   "exclude": ["dist", "node_modules"],

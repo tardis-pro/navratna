@@ -155,7 +155,7 @@ export class EnhancedSecurityGatewayService extends SecurityGatewayService {
         eventType: AuditEventType.SECURITY_VIOLATION,
         userId: request.securityContext.userId,
         details: {
-          error: error.message,
+          error: error instanceof Error ? error.message : 'Unknown error',
           operation: request.operation,
           securityContext: request.securityContext,
         },
@@ -613,7 +613,7 @@ export class EnhancedSecurityGatewayService extends SecurityGatewayService {
   }
 
   private assessAgentCapabilityRisk(capabilities: AgentCapability[]): RiskFactor {
-    const capabilityRiskScores = {
+    const capabilityRiskScores: Record<AgentCapability, number> = {
       [AgentCapability.CODE_REPOSITORY]: 4,
       [AgentCapability.EMAIL_ACCESS]: 3,
       [AgentCapability.NOTE_TAKING]: 1,
@@ -624,9 +624,17 @@ export class EnhancedSecurityGatewayService extends SecurityGatewayService {
       [AgentCapability.CONTENT_CREATION]: 1,
       [AgentCapability.INTEGRATION]: 3,
       [AgentCapability.MONITORING]: 2,
+      [AgentCapability.TOOL_EXECUTION]: 2,
+      [AgentCapability.REPORTING]: 2,
+      [AgentCapability.COLLABORATION]: 2,
+      [AgentCapability.WORKFLOW_MANAGEMENT]: 3,
+      [AgentCapability.NATURAL_LANGUAGE_PROCESSING]: 1,
+      [AgentCapability.KNOWLEDGE_RETRIEVAL]: 2,
+      [AgentCapability.CONTEXT_AWARENESS]: 1,
+      [AgentCapability.LEARNING]: 2,
     };
 
-    const totalScore = capabilities.reduce((sum, cap) => sum + capabilityRiskScores[cap], 0);
+    const totalScore = capabilities.reduce((sum, cap) => sum + (capabilityRiskScores[cap] || 1), 0);
     const averageScore = totalScore / capabilities.length;
     const level = this.scoreToRiskLevel(averageScore);
 

@@ -11,6 +11,7 @@ interface EventMessage {
   version: string;
   correlationId?: string;
   metadata?: Record<string, any>;
+  [key: string]: unknown; // Index signature for compatibility with @uaip/types EventMessage
 }
 
 interface EventHandler {

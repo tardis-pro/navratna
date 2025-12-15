@@ -237,6 +237,11 @@ export interface OrchestrationConfig {
   workflowTimeoutMs: number;
 }
 
+export interface SecurityConfig {
+  encryptionKey: string;
+  encryptionAlgorithm: string;
+}
+
 export interface Config {
   database: DatabaseConfig;
   redis: RedisConfig;
@@ -254,6 +259,7 @@ export interface Config {
   frontend: FrontendConfig;
   notifications: NotificationsConfig;
   orchestration: OrchestrationConfig;
+  security: SecurityConfig;
   port: number;
   environment: string;
   enterprise: {
@@ -563,6 +569,10 @@ const defaultConfig: Config = {
     staleOperationThresholdMs: parseInt(process.env.ORCHESTRATION_STALE_THRESHOLD_MS || '86400000'), // 24 hours
     maxWorkflowInstances: parseInt(process.env.ORCHESTRATION_MAX_WORKFLOWS || '100'),
     workflowTimeoutMs: parseInt(process.env.ORCHESTRATION_WORKFLOW_TIMEOUT_MS || '3600000'), // 1 hour
+  },
+  security: {
+    encryptionKey: process.env.ENCRYPTION_KEY || 'uaip_dev_encryption_key_change_in_production',
+    encryptionAlgorithm: process.env.ENCRYPTION_ALGORITHM || 'aes-256-gcm',
   },
   port: parseInt(process.env.PORT || '3000'),
   environment: process.env.NODE_ENV || 'development',

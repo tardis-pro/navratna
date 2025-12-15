@@ -1,6 +1,7 @@
 import { BaseService, ServiceConfig } from '@uaip/shared-services';
 import { logger } from '@uaip/utils';
 import { config } from '@uaip/config';
+import type { Decision, ActionItem, ArtifactConversationContext } from '@uaip/types';
 // All middleware handled by BaseService; auth via headers['x-user-id'] where needed
 
 import { ArtifactFactory } from './ArtifactFactory.js';
@@ -38,7 +39,9 @@ class ArtifactServiceApp extends BaseService {
     await this.artifactService.initialize();
 
     // Set up event listeners for discussion completion
-    await this.setupDiscussionEventListeners();
+    await this.setupDiscussionEventListeners().catch((error) => {
+      logger.error('Failed to set up discussion event listeners during initialization', { error });
+    });
 
     logger.info('Artifact Service initialized successfully');
   }
@@ -74,11 +77,11 @@ class ArtifactServiceApp extends BaseService {
       });
 
       // Create conversation context for analysis
-      const conversationContext = {
+      const conversationContext: ArtifactConversationContext = {
         conversationId: discussionId,
         messages: messages.map((msg: any) => ({
           id: msg.id,
-          role: msg.participantId,
+          role: (msg.role || 'assistant') as 'user' | 'assistant' | 'system',
           content: msg.content,
           timestamp: new Date(msg.timestamp),
           metadata: {
@@ -88,15 +91,19 @@ class ArtifactServiceApp extends BaseService {
         })),
         participants: participants.map((p: any) => ({
           id: p.id,
-          agentId: p.agentId,
-          userId: p.userId,
+          name: p.name || p.agentId || p.userId || 'Unknown',
           role: p.role,
-          messageCount: p.messageCount,
+          type: (p.agentId ? 'agent' : 'human') as 'human' | 'agent',
+          metadata: {
+            agentId: p.agentId,
+            userId: p.userId,
+            messageCount: p.messageCount,
+          },
         })),
         summary: `Discussion: ${discussion.title} - ${discussion.description}`,
         topics: [discussion.topic || discussion.title],
-        decisions: [], // Will be populated by analyzer
-        actionItems: [], // Will be populated by analyzer
+        decisions: [] as Decision[],
+        actionItems: [] as ActionItem[],
         metadata: {
           discussionId,
           discussionTitle: discussion.title,

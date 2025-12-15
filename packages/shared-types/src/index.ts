@@ -63,3 +63,11 @@ export * from './project';
 export * from './http';
 // Context triggers export
 export { contextualTriggers } from './contextTriggers';
+// Streaming types - NEW
+export * from './streaming';
+// Thought types - NEW
+export * from './thought';
+// Critique types - NEW
+export * from './critique';
+// Debate types - NEW
+export * from './debate';

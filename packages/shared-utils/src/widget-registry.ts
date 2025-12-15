@@ -129,13 +129,13 @@ export class WidgetRegistry {
           w.name.toLowerCase().includes(searchLower) ||
           w.title.toLowerCase().includes(searchLower) ||
           w.metadata.description?.toLowerCase().includes(searchLower) ||
-          w.metadata.tags?.some((tag) => tag.toLowerCase().includes(searchLower))
+          w.metadata.tags?.some((tag: string) => tag.toLowerCase().includes(searchLower))
       );
     }
 
     if (query.tags && query.tags.length > 0) {
       const queryTags = query.tags;
-      widgets = widgets.filter((w) => queryTags.some((tag) => w.metadata.tags?.includes(tag)));
+      widgets = widgets.filter((w) => queryTags.some((tag: string) => w.metadata.tags?.includes(tag)));
     }
 
     // Sort widgets
@@ -387,7 +387,7 @@ export class WidgetRegistry {
     }
 
     // Check if user has minimum required permissions
-    const hasRequiredPermissions = rbac.requiredPermissions.every((reqPerm) =>
+    const hasRequiredPermissions = rbac.requiredPermissions.every((reqPerm: WidgetPermission) =>
       grantedPermissions.includes(reqPerm)
     );
 
@@ -457,7 +457,7 @@ export class WidgetRegistry {
       // IP restrictions
       if (rbac.conditionalAccess.ipRestrictions && userContext.ipAddress) {
         const ipAddress = userContext.ipAddress;
-        const isAllowedIP = rbac.conditionalAccess.ipRestrictions.some((allowedIP) =>
+        const isAllowedIP = rbac.conditionalAccess.ipRestrictions.some((allowedIP: string) =>
           this.matchesIPPattern(ipAddress, allowedIP)
         );
         restrictions.ipRestricted = !isAllowedIP;
@@ -466,7 +466,7 @@ export class WidgetRegistry {
       // Device restrictions
       if (rbac.conditionalAccess.deviceRestrictions && userContext.userAgent) {
         const userAgent = userContext.userAgent;
-        const isAllowedDevice = rbac.conditionalAccess.deviceRestrictions.some((allowedDevice) =>
+        const isAllowedDevice = rbac.conditionalAccess.deviceRestrictions.some((allowedDevice: string) =>
           userAgent.includes(allowedDevice)
         );
         restrictions.deviceRestricted = !isAllowedDevice;

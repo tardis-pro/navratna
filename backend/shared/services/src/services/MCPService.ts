@@ -101,7 +101,7 @@ export class MCPService {
       logger.error('Failed to create MCP tool call:', error);
       throw new DatabaseError('Failed to create MCP tool call', {
         originalError: error.message,
-        details: request,
+        details: request as unknown as Record<string, unknown>,
       });
     }
   }

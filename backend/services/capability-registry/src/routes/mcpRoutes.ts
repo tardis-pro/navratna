@@ -1,6 +1,13 @@
 import { logger } from '@uaip/utils';
 import { MCPClientService } from '../services/mcpClientService.js';
 import { MCPResourceDiscoveryService } from '../services/mcpResourceDiscoveryService.js';
+import type { ElysiaBaseContext } from '@uaip/types';
+
+// Elysia context with params and query
+interface MCPContext extends ElysiaBaseContext {
+  params: Record<string, string>;
+  query: Record<string, string | undefined>;
+}
 
 // Minimal Elysia route group for MCP endpoints
 export function registerMCPRoutes(app: any) {
@@ -21,7 +28,7 @@ export function registerMCPRoutes(app: any) {
 
       // Optional tools snapshot if available
       .get('/test-tools', async () => {
-        const tools = await (mcpService as any).getAvailableTools?.();
+        const tools = mcpService.getAvailableToolsForAgent?.();
         return {
           success: true,
           data: { tools: tools ?? [], count: tools?.length ?? 0 },
@@ -29,9 +36,9 @@ export function registerMCPRoutes(app: any) {
       })
 
       // Tool recommendations for an agent
-      .get('/recommendations/:agentId', async ({ params, query }: any) => {
-        const { agentId } = params as any;
-        const { context, limit } = query as any;
+      .get('/recommendations/:agentId', async ({ params, query }: MCPContext) => {
+        const { agentId } = params;
+        const { context, limit } = query;
         const recs = await mcpService.getToolRecommendations(
           agentId,
           context,
@@ -44,8 +51,8 @@ export function registerMCPRoutes(app: any) {
       })
 
       // Related tools based on graph relationships
-      .get('/tools/:toolId/related', async ({ params, query }: any) => {
-        const { toolId } = params as any;
+      .get('/tools/:toolId/related', async ({ params, query }: MCPContext) => {
+        const { toolId } = params;
         const types = query.relationshipTypes
           ? String(query.relationshipTypes).split(',')
           : undefined;
@@ -59,8 +66,8 @@ export function registerMCPRoutes(app: any) {
       })
 
       // Usage analytics
-      .get('/analytics/usage', async ({ query }: any) => {
-        const { toolId, agentId, serverName } = query as any;
+      .get('/analytics/usage', async ({ query }: MCPContext) => {
+        const { toolId, agentId, serverName } = query;
         const analytics = await mcpService.getUsageAnalytics(toolId, agentId, serverName);
         return { success: true, data: { filters: { toolId, agentId, serverName }, analytics } };
       })
@@ -72,8 +79,8 @@ export function registerMCPRoutes(app: any) {
       })
 
       // Comprehensive discovery and search
-      .get('/discover', async ({ query }: any) => {
-        const { serverName } = query as any;
+      .get('/discover', async ({ query }: MCPContext) => {
+        const { serverName } = query;
         const discoveryService = MCPResourceDiscoveryService.getInstance();
         const discovery = await discoveryService.discoverAllResources(serverName);
         return {
@@ -90,8 +97,8 @@ export function registerMCPRoutes(app: any) {
         };
       })
 
-      .get('/search/resources', async ({ query, set }: any) => {
-        const { query: q, serverName, category, mimeType } = query as any;
+      .get('/search/resources', async ({ query, set }: MCPContext) => {
+        const { query: q, serverName, category, mimeType } = query;
         if (!q) {
           set.status = 400;
           return {
@@ -113,7 +120,7 @@ export function registerMCPRoutes(app: any) {
         const servers = mcpService.getAllServers();
         return {
           success: true,
-          data: servers.map((s: any) => ({
+          data: servers.map((s) => ({
             name: s.name,
             status: s.status,
             pid: s.pid,
@@ -124,7 +131,7 @@ export function registerMCPRoutes(app: any) {
       })
 
       // Server status
-      .get('/servers/:serverName/status', async ({ params, set }: any) => {
+      .get('/servers/:serverName/status', async ({ params, set }: MCPContext) => {
         const st = mcpService.getServerStatus(params.serverName);
         if (!st) {
           set.status = 404;
@@ -134,25 +141,25 @@ export function registerMCPRoutes(app: any) {
       })
 
       // Server lifecycle
-      .post('/servers/:serverName/start', async ({ params }: any) => {
+      .post('/servers/:serverName/start', async ({ params }: MCPContext) => {
         await mcpService.startServer(params.serverName);
         return { success: true };
       })
-      .post('/servers/:serverName/stop', async ({ params }: any) => {
+      .post('/servers/:serverName/stop', async ({ params }: MCPContext) => {
         await mcpService.stopServer(params.serverName);
         return { success: true };
       })
-      .post('/servers/:serverName/restart', async ({ params }: any) => {
+      .post('/servers/:serverName/restart', async ({ params }: MCPContext) => {
         await mcpService.restartServer(params.serverName);
         return { success: true };
       })
-      .post('/servers/:serverName/recover', async ({ params }: any) => {
+      .post('/servers/:serverName/recover', async ({ params }: MCPContext) => {
         await mcpService.recoverServer(params.serverName);
         return { success: true };
       })
 
       // Tools by server
-      .get('/servers/:serverName/tools', async ({ params }: any) => {
+      .get('/servers/:serverName/tools', async ({ params }: MCPContext) => {
         const tools = mcpService.getToolsByServer(params.serverName);
         return {
           success: true,
@@ -161,8 +168,9 @@ export function registerMCPRoutes(app: any) {
       })
 
       // Attach a single tool to agent
-      .post('/agents/:agentId/tools/attach', async ({ params, body, set }: any) => {
-        const { serverName, toolName } = body || {};
+      .post('/agents/:agentId/tools/attach', async ({ params, body, set }: MCPContext) => {
+        const bodyData = body as Record<string, unknown> | undefined;
+        const { serverName, toolName } = bodyData || {};
         if (!serverName || !toolName) {
           set.status = 400;
           return {
@@ -172,15 +180,15 @@ export function registerMCPRoutes(app: any) {
         }
         const result = await mcpService.attachSingleToolToAgent(
           params.agentId,
-          serverName,
-          toolName
+          String(serverName || ''),
+          String(toolName || '')
         );
         return {
           success: result.success,
           data: {
             agentId: params.agentId,
-            serverName,
-            toolName,
+            serverName: String(serverName || ''),
+            toolName: String(toolName || ''),
             toolId: result.toolId,
             assignment: result.assignment,
           },
@@ -188,13 +196,13 @@ export function registerMCPRoutes(app: any) {
       })
 
       // Raw resources and prompts
-      .get('/resources', async ({ query }: any) => {
-        const { serverName } = query as any;
+      .get('/resources', async ({ query }: MCPContext) => {
+        const { serverName } = query;
         const data = await mcpService.discoverResources(serverName);
         return { success: true, data: { resources: data, count: data.length } };
       })
-      .get('/prompts', async ({ query }: any) => {
-        const { serverName } = query as any;
+      .get('/prompts', async ({ query }: MCPContext) => {
+        const { serverName } = query;
         const data = await mcpService.discoverPrompts(serverName);
         return { success: true, data: { prompts: data, count: data.length } };
       })
@@ -203,4 +211,4 @@ export function registerMCPRoutes(app: any) {
   return app;
 }
 
-export const noop = undefined;
+export const noop: undefined = undefined;

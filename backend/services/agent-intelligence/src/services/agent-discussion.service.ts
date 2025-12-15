@@ -21,7 +21,9 @@ import {
   AgentMemoryService,
   DiscussionService,
   LLMRequestTracker,
+  ThoughtParserService,
 } from '@uaip/shared-services';
+import { ThoughtChain, THOUGHT_SYSTEM_PROMPT } from '@uaip/types';
 import { LLMService, UserLLMService, LLMRequest } from '@uaip/llm-service';
 
 export interface AgentDiscussionConfig {
@@ -61,6 +63,9 @@ export class AgentDiscussionService {
   // Redis-based LLM request tracker for persistence
   private llmRequestTracker: LLMRequestTracker;
 
+  // Thought parser for structured thinking
+  private thoughtParser: ThoughtParserService;
+
   constructor(config: AgentDiscussionConfig) {
     this.databaseService = config.databaseService;
     this.eventBusService = config.eventBusService;
@@ -77,6 +82,9 @@ export class AgentDiscussionService {
       'agent-discussion',
       30000 // 30 second timeout
     );
+
+    // Initialize thought parser
+    this.thoughtParser = ThoughtParserService.getInstance();
   }
 
   async initialize(): Promise<void> {
@@ -441,7 +449,7 @@ export class AgentDiscussionService {
             activeDiscussion: {
               discussionId,
               topic: discussion.topic,
-              participants: discussion.participants.map((p) => p.id),
+              participants: discussion.participants.map((p: any) => p.id),
               myRole: 'participant',
               conversationHistory: discussionMessages?.messages?.slice(-5) || [],
               currentGoals: ['contribute meaningfully', 'share relevant knowledge'],
@@ -471,7 +479,7 @@ export class AgentDiscussionService {
           context: {
             when: new Date(),
             where: 'discussion-platform',
-            who: discussion.participants.map((p) => p.id),
+            who: discussion.participants.map((p: any) => p.id),
             what: `Participated in discussion about ${discussion.topic}`,
             why: 'Knowledge sharing and collaboration',
             how: 'Text-based discussion',
@@ -690,6 +698,70 @@ export class AgentDiscussionService {
         toolsExecuted: [],
       };
     }
+  }
+
+  /**
+   * Generate chat response with structured thinking (thought protocol)
+   * This method enables chain-of-thought reasoning with structured output
+   */
+  async generateChatResponseWithThoughts(
+    agentId: string,
+    userId: string,
+    message: string,
+    conversationId?: string,
+    options?: { enableStructuredThinking?: boolean }
+  ): Promise<{ response: string; thoughtChain?: ThoughtChain }> {
+    const agent = await this.getAgentData(agentId);
+    if (!agent) {
+      throw new Error(`Agent not found: ${agentId}`);
+    }
+
+    // Build system prompt with thought protocol if enabled
+    let systemPrompt = agent.systemPrompt || `You are ${agent.name}. ${agent.description || ''}`;
+    if (options?.enableStructuredThinking) {
+      systemPrompt = `${systemPrompt}\n\n${THOUGHT_SYSTEM_PROMPT}`;
+    }
+
+    // Request LLM response via event bus
+    const llmResponse = await this.requestLLMGeneration(
+      message,
+      systemPrompt,
+      agent.temperature || 0.7,
+      agent.maxTokens || 1000,
+      agentId
+    );
+
+    let responseContent = llmResponse?.content || '';
+    let thoughtChain: ThoughtChain | undefined;
+
+    // Parse thoughts if structured thinking was enabled
+    if (options?.enableStructuredThinking && responseContent) {
+      const thoughts = this.thoughtParser.parseThoughts(responseContent);
+
+      if (thoughts.length > 0) {
+        thoughtChain = this.thoughtParser.createChain(agentId, thoughts, conversationId);
+
+        // Extract final answer (removes thought markup)
+        responseContent = this.thoughtParser.extractFinalAnswer(thoughtChain);
+
+        // Emit thought chain event for real-time display
+        await this.eventBusService.publish('agent.thought.chain', {
+          agentId,
+          userId,
+          conversationId,
+          thoughtChain,
+        });
+
+        logger.info('Structured thought chain generated', {
+          agentId,
+          thoughtCount: thoughts.length,
+          hasConclusion: !!thoughtChain.finalConclusion,
+          overallConfidence: thoughtChain.overallConfidence,
+        });
+      }
+    }
+
+    return { response: responseContent, thoughtChain };
   }
 
   /**
@@ -912,7 +984,7 @@ export class AgentDiscussionService {
         // Early discussion - build on what's been said
         const recentContent = discussionMessages
           .slice(-2)
-          .map((m) => m.content)
+          .map((m: any) => m.content)
           .join(' ');
         discussionPrompt = comment
           ? `Discussion context: ${comment}. Recent messages: "${recentContent}". Build on what's been discussed or add your perspective.`
@@ -921,7 +993,7 @@ export class AgentDiscussionService {
         // Ongoing discussion - continue the conversation naturally
         const recentContent = discussionMessages
           .slice(-3)
-          .map((m) => m.content)
+          .map((m: any) => m.content)
           .join(' ');
         discussionPrompt = comment
           ? `Context: ${comment}. Current discussion: "${recentContent}". Continue the conversation naturally.`
@@ -993,11 +1065,11 @@ export class AgentDiscussionService {
     try {
       // Build context-aware participation message based on recent messages
       let participationPrompt = '';
-      let conversationHistory = [];
+      let conversationHistory: any[] = [];
 
       if (discussionContext?.recentMessages && discussionContext.recentMessages.length > 0) {
         // Filter out error messages and extract conversation history from recent messages
-        const validMessages = discussionContext.recentMessages.filter((msg) => {
+        const validMessages = discussionContext.recentMessages.filter((msg: any) => {
           // Filter out common error messages
           const content = msg.content?.toLowerCase() || '';
           return (
@@ -1010,7 +1082,7 @@ export class AgentDiscussionService {
           );
         });
 
-        conversationHistory = validMessages.map((msg) => {
+        conversationHistory = validMessages.map((msg: any): any => {
           // Resolve participant name from available data
           let participantName = 'Unknown';
           if (msg.participantName) {
@@ -1018,13 +1090,13 @@ export class AgentDiscussionService {
           } else if (msg.agentId && discussionContext.activeParticipants) {
             // Find agent participant
             const agentParticipant = discussionContext.activeParticipants.find(
-              (p) => p.agentId === msg.agentId
+              (p: any) => p.agentId === msg.agentId
             );
             participantName = agentParticipant?.displayName || agentParticipant?.agentId || 'Agent';
           } else if (msg.participantId && discussionContext.activeParticipants) {
             // Find participant by ID
             const participant = discussionContext.activeParticipants.find(
-              (p) => p.id === msg.participantId
+              (p: any) => p.id === msg.participantId
             );
             participantName = participant?.displayName || participant?.agentId || 'User';
           }
@@ -1040,7 +1112,7 @@ export class AgentDiscussionService {
 
         // Check if this agent has already introduced itself (use filtered messages)
         const hasIntroduced = validMessages.some(
-          (msg) =>
+          (msg: any) =>
             msg.agentId === agentId &&
             (msg.content.toLowerCase().includes('hello') ||
               msg.content.toLowerCase().includes("i'm") ||
@@ -1059,12 +1131,12 @@ export class AgentDiscussionService {
             lastSpeaker = lastMessage.participantName;
           } else if (lastMessage.agentId && discussionContext.activeParticipants) {
             const agentParticipant = discussionContext.activeParticipants.find(
-              (p) => p.agentId === lastMessage.agentId
+              (p: any) => p.agentId === lastMessage.agentId
             );
             lastSpeaker = agentParticipant?.displayName || agentParticipant?.agentId || 'Agent';
           } else if (lastMessage.participantId && discussionContext.activeParticipants) {
             const participant = discussionContext.activeParticipants.find(
-              (p) => p.id === lastMessage.participantId
+              (p: any) => p.id === lastMessage.participantId
             );
             lastSpeaker = participant?.displayName || participant?.agentId || 'User';
           }
@@ -1146,7 +1218,7 @@ export class AgentDiscussionService {
       }
 
       await this.respondToRequest(requestId, { success: true, data: result });
-    } catch (error) {
+    } catch (error: any) {
       await this.respondToRequest(requestId, { success: false, error: error.message });
     }
   }
@@ -1156,7 +1228,7 @@ export class AgentDiscussionService {
     try {
       const result = await this.generateAgentResponse(agentId, messages, context, userId);
       await this.respondToRequest(requestId, { success: true, data: result });
-    } catch (error) {
+    } catch (error: any) {
       await this.respondToRequest(requestId, { success: false, error: error.message });
     }
   }
@@ -1166,7 +1238,7 @@ export class AgentDiscussionService {
     try {
       const result = await this.processAgentInput(agentId, input);
       await this.respondToRequest(requestId, { success: true, data: result });
-    } catch (error) {
+    } catch (error: any) {
       await this.respondToRequest(requestId, { success: false, error: error.message });
     }
   }
@@ -1176,7 +1248,7 @@ export class AgentDiscussionService {
     try {
       const result = await this.triggerAgentParticipation(params);
       await this.respondToRequest(requestId, { success: true, data: result });
-    } catch (error) {
+    } catch (error: any) {
       await this.respondToRequest(requestId, { success: false, error: error.message });
     }
   }
@@ -1235,7 +1307,7 @@ export class AgentDiscussionService {
                 responseChannel,
                 reason,
               });
-            } catch (cleanupError) {
+            } catch (cleanupError: any) {
               logger.warn('Failed to cleanup subscription', {
                 requestId,
                 responseChannel,
@@ -1257,7 +1329,7 @@ export class AgentDiscussionService {
         }, 30000); // 30 second timeout
 
         // Define response handler with cleanup
-        responseHandler = async (responseData: any) => {
+        responseHandler = async (responseData: any): Promise<void> => {
           logger.info('LLM response received', { requestId, hasResponseData: !!responseData });
 
           try {
@@ -1276,7 +1348,7 @@ export class AgentDiscussionService {
 
             await cleanup('response_received');
             resolve(actualResponse);
-          } catch (error) {
+          } catch (error: any) {
             logger.error('Error processing LLM response', { requestId, error: error.message });
             await cleanup('response_error');
             reject(error);
@@ -1298,7 +1370,7 @@ export class AgentDiscussionService {
         });
         this.eventBusService.subscribe(responseChannel, responseHandler);
       });
-    } catch (error) {
+    } catch (error: any) {
       logger.error('Failed to request LLM response via event bus', { error });
       // Return fallback response
       return {
@@ -1330,7 +1402,7 @@ User Message: ${input.message}
 Relevant Knowledge:
 ${relevantKnowledge
   .slice(0, 3)
-  .map((k) => `- ${k.content}`)
+  .map((k: any) => `- ${k.content}`)
   .join('\n')}
 
 Reasoning:
@@ -1378,7 +1450,7 @@ ${
   knowledge.length > 0
     ? `Relevant knowledge:\n${knowledge
         .slice(0, 3)
-        .map((k) => `- ${k.content}`)
+        .map((k: any) => `- ${k.content}`)
         .join('\n')}\n`
     : ''
 }Provide a direct, thoughtful response. Avoid generic greetings or introductions.`,
@@ -1420,7 +1492,7 @@ ${context.lastMessage ? `Recent message: ${context.lastMessage}` : 'Start the co
 Available Knowledge:
 ${knowledge
   .slice(0, 3)
-  .map((k) => `- ${k.content}`)
+  .map((k: any) => `- ${k.content}`)
   .join('\n')}
 
 Reasoning:
@@ -1501,7 +1573,7 @@ Participate constructively in discussions while staying true to your character.`
     if (context.discussionTopic && agent.persona?.capabilities) {
       const topicKeywords = context.discussionTopic.toLowerCase().split(' ');
       const hasRelevantExpertise = agent.persona.capabilities.some((capability: string) =>
-        topicKeywords.some((keyword) => capability.toLowerCase().includes(keyword))
+        topicKeywords.some((keyword: string) => capability.toLowerCase().includes(keyword))
       );
 
       if (hasRelevantExpertise) {
@@ -1635,7 +1707,7 @@ Reasoning: ${reasoning.join('; ')}`,
 
       // Format messages for conversation history
       return (
-        messages?.map((msg) => ({
+        messages?.map((msg: any) => ({
           content: msg.content,
           sender: msg.participantId === 'system' ? 'system' : 'participant',
           timestamp: msg.createdAt,
@@ -1680,13 +1752,13 @@ Reasoning: ${reasoning.join('; ')}`,
     try {
       // Build conversation context from history using actual participant names
       const historyContext = conversationHistory
-        .map((entry) => `${entry.sender}: ${entry.content}`)
+        .map((entry: any) => `${entry.sender}: ${entry.content}`)
         .join('\n');
 
       // Build knowledge context
       const knowledgeContext =
         contextualKnowledge.length > 0
-          ? `\n\nRelevant knowledge:\n${contextualKnowledge.map((k) => `- ${k.content}`).join('\n')}`
+          ? `\n\nRelevant knowledge:\n${contextualKnowledge.map((k: any) => `- ${k.content}`).join('\n')}`
           : '';
 
       // Create agent request for event bus
@@ -1703,7 +1775,7 @@ Reasoning: ${reasoning.join('; ')}`,
           persona: (agent as any).persona, // Include persona data for enhanced prompts
         },
         messages: [
-          ...conversationHistory.map((entry) => ({
+          ...conversationHistory.map((entry: any) => ({
             content: entry.content,
             sender: entry.sender,
             timestamp: entry.timestamp,

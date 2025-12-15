@@ -23,7 +23,7 @@ export function registerArtifactRoutes(app: any, artifactService: ArtifactServic
           } else if (projectId) {
             artifacts = await artifactRepo.findByProject(projectId);
           } else {
-            artifacts = await artifactRepo.findAll();
+            artifacts = await artifactRepo.findMany({});
           }
 
           // Apply pagination
@@ -133,7 +133,7 @@ export function registerArtifactRoutes(app: any, artifactService: ArtifactServic
       .get('/templates', async ({ query, set }: any) => {
         try {
           const { type, language, framework } = query as any;
-          const templates = await artifactService.listTemplates(type as ArtifactType);
+          const templates = await artifactService.listTemplates(type as ArtifactType | undefined);
 
           let filtered = templates;
           if (language)

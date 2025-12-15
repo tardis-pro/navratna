@@ -2,14 +2,14 @@
   "compilerOptions": {
     "target": "ES2022",
     "module": "ESNext",
-    "moduleResolution": "node",
+    "moduleResolution": "bundler",
     "baseUrl": ".",      
     // "moduleSuffixes": [".js"],            // << added
     "paths": {
-      "@uaip/types": ["../packages/shared-types/src"],
-      "@uaip/types/*": ["../packages/shared-types/src/*"],
-      "@uaip/utils": ["../packages/shared-utils/src"],
-      "@uaip/utils/*": ["../packages/shared-utils/src/*"],
+      "@uaip/types": ["../packages/shared-types/dist"],
+      "@uaip/types/*": ["../packages/shared-types/dist/*"],
+      "@uaip/utils": ["../packages/shared-utils/dist"],
+      "@uaip/utils/*": ["../packages/shared-utils/dist/*"],
       "@uaip/config": ["shared/config"],
       "@uaip/shared-services": ["shared/services"],
       "@uaip/middleware": ["shared/middleware"],

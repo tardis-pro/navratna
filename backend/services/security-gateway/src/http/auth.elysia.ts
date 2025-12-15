@@ -8,6 +8,7 @@ import { validateJWTToken } from '@uaip/middleware';
 import { withOptionalAuth, withRequiredAuth } from './middleware/auth.plugin.js';
 import { AuditService } from '../services/auditService.js';
 import { AuditEventType } from '@uaip/types';
+import type { OptionalAuthContext, RequiredAuthContext } from './types/elysia-context.js';
 
 // Lazy singletons for dependent services
 let userService: UserService | null = null;
@@ -83,7 +84,7 @@ export function registerAuthRoutes(app: any): any {
   return app.group('/api/v1/auth', (app: any) =>
     withOptionalAuth(app)
       // POST /login
-      .post('/login', async ({ body, set, request, headers }) => {
+      .post('/login', async ({ body, set, request, headers }: OptionalAuthContext) => {
         const parsed = loginSchema.safeParse(body);
         if (!parsed.success) {
           set.status = 400;
@@ -210,7 +211,7 @@ export function registerAuthRoutes(app: any): any {
       })
 
       // POST /refresh
-      .post('/refresh', async ({ body, set }) => {
+      .post('/refresh', async ({ body, set }: OptionalAuthContext) => {
         const parsed = refreshTokenSchema.safeParse(body);
         if (!parsed.success) {
           set.status = 400;
@@ -251,7 +252,7 @@ export function registerAuthRoutes(app: any): any {
       })
 
       // POST /logout
-      .post('/logout', async ({ body, set, headers }) => {
+      .post('/logout', async ({ body, set, headers }: OptionalAuthContext) => {
         try {
           const authUser = await getAuthUser(headers.authorization);
           const { userService, auditService } = await getServices();
@@ -285,7 +286,7 @@ export function registerAuthRoutes(app: any): any {
 
       // POST /change-password (requires auth)
       .group('', (g: any) =>
-        withRequiredAuth(g).post('/change-password', async ({ body, set, user }) => {
+        withRequiredAuth(g).post('/change-password', async ({ body, set, user }: RequiredAuthContext) => {
           const parsed = changePasswordSchema.safeParse(body);
           if (!parsed.success) {
             set.status = 400;
@@ -338,7 +339,7 @@ export function registerAuthRoutes(app: any): any {
 
       // GET /me
       .group('', (g: any) =>
-        withRequiredAuth(g).get('/me', async ({ set, user }) => {
+        withRequiredAuth(g).get('/me', async ({ set, user }: RequiredAuthContext) => {
           try {
             const { userService } = await getServices();
             const account = await userService.findUserById(user!.id);

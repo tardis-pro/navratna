@@ -31,3 +31,7 @@ export { BaseProvider } from './providers/BaseProvider.js';
 export { OllamaProvider } from './providers/OllamaProvider.js';
 export { LLMStudioProvider } from './providers/LLMStudioProvider.js';
 export { OpenAIProvider } from './providers/OpenAIProvider.js';
+export { TanStackProvider } from './providers/TanStackProvider.js';
+
+// Streaming exports
+export { StreamingService } from './StreamingService.js';

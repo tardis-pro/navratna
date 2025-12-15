@@ -299,9 +299,15 @@ importers:
 
   .:
     dependencies:
+      '@tanstack/ai':
+        specifier: ^0.0.3
+        version: 0.0.3(@alcyone-labs/zod-to-json-schema@4.0.10(zod@3.25.67))(zod@3.25.67)
       jest-mock:
         specifier: ^30.2.0
         version: 30.2.0
+      zod:
+        specifier: 'catalog:'
+        version: 3.25.67
     devDependencies:
       '@eslint/js':
         specifier: ^9.39.1
@@ -441,6 +447,9 @@ importers:
       '@tailwindcss/postcss':
         specifier: ^4.1.10
         version: 4.1.17
+      '@tanstack/ai-react':
+        specifier: ^0.0.3
+        version: 0.0.3(@tanstack/ai-client@0.0.3(@alcyone-labs/zod-to-json-schema@4.0.10(zod@3.25.67))(zod@3.25.67))(@tanstack/ai@0.0.3(@alcyone-labs/zod-to-json-schema@4.0.10(zod@3.25.67))(zod@3.25.67))(@types/react@19.2.7)(react@19.2.1)
       '@tanstack/react-query':
         specifier: catalog:frontend
         version: 5.90.12(react@19.2.1)
@@ -840,7 +849,7 @@ importers:
         version: 3.1.11
       ts-jest:
         specifier: catalog:backend
-        version: 29.4.6(@babel/core@7.28.5)(@jest/transform@30.2.0)(@jest/types@30.2.0)(babel-jest@30.2.0(@babel/core@7.28.5))(jest-util@30.2.0)(jest@30.2.0(@types/node@22.19.2)(ts-node@10.9.2(@swc/core@1.15.3)(@types/node@22.19.2)(typescript@5.9.3)))(typescript@5.9.3)
+        version: 29.4.6(@babel/core@7.28.5)(@jest/transform@30.2.0)(@jest/types@30.2.0)(babel-jest@30.2.0(@babel/core@7.28.5))(jest-util@30.2.0)(jest@30.2.0(@types/node@22.19.2))(typescript@5.9.3)
       ts-node-dev:
         specifier: ^2.0.0
         version: 2.0.0(@swc/core@1.15.3)(@types/node@22.19.2)(typescript@5.9.3)
@@ -949,7 +958,7 @@ importers:
         version: 7.1.4
       ts-jest:
         specifier: catalog:backend
-        version: 29.4.6(@babel/core@7.28.5)(@jest/transform@30.2.0)(@jest/types@30.2.0)(babel-jest@30.2.0(@babel/core@7.28.5))(jest-util@30.2.0)(jest@30.2.0(@types/node@22.19.2)(ts-node@10.9.2(@swc/core@1.15.3)(@types/node@22.19.2)(typescript@5.9.3)))(typescript@5.9.3)
+        version: 29.4.6(@babel/core@7.28.5)(@jest/transform@30.2.0)(@jest/types@30.2.0)(babel-jest@30.2.0(@babel/core@7.28.5))(jest-util@30.2.0)(jest@30.2.0(@types/node@22.19.2))(typescript@5.9.3)
       tsc-alias:
         specifier: catalog:backend
         version: 1.8.16
@@ -1189,7 +1198,7 @@ importers:
         version: 7.1.4
       ts-jest:
         specifier: catalog:backend
-        version: 29.4.6(@babel/core@7.28.5)(@jest/transform@30.2.0)(@jest/types@30.2.0)(babel-jest@30.2.0(@babel/core@7.28.5))(jest-util@30.2.0)(jest@30.2.0(@types/node@22.19.2)(ts-node@10.9.2(@swc/core@1.15.3)(@types/node@22.19.2)(typescript@5.9.3)))(typescript@5.9.3)
+        version: 29.4.6(@babel/core@7.28.5)(@jest/transform@30.2.0)(@jest/types@30.2.0)(babel-jest@30.2.0(@babel/core@7.28.5))(jest-util@30.2.0)(jest@30.2.0(@types/node@22.19.2))(typescript@5.9.3)
       ts-node:
         specifier: catalog:backend
         version: 10.9.2(@swc/core@1.15.3)(@types/node@22.19.2)(typescript@5.9.3)
@@ -1349,7 +1358,7 @@ importers:
         version: 7.1.4
       ts-jest:
         specifier: ^29.1.2
-        version: 29.4.6(@babel/core@7.28.5)(@jest/transform@30.2.0)(@jest/types@30.2.0)(babel-jest@30.2.0(@babel/core@7.28.5))(jest-util@30.2.0)(jest@30.2.0(@types/node@22.19.2)(ts-node@10.9.2(@swc/core@1.15.3)(@types/node@22.19.2)(typescript@5.9.3)))(typescript@5.9.3)
+        version: 29.4.6(@babel/core@7.28.5)(@jest/transform@30.2.0)(@jest/types@30.2.0)(babel-jest@30.2.0(@babel/core@7.28.5))(jest-util@30.2.0)(jest@30.2.0(@types/node@22.19.2))(typescript@5.9.3)
       ts-node-dev:
         specifier: ^2.0.0
         version: 2.0.0(@swc/core@1.15.3)(@types/node@22.19.2)(typescript@5.9.3)
@@ -1399,6 +1408,18 @@ importers:
 
   backend/shared/llm-service:
     dependencies:
+      '@tanstack/ai':
+        specifier: ^0.0.3
+        version: 0.0.3(@alcyone-labs/zod-to-json-schema@4.0.10(zod@4.2.0))(zod@4.2.0)
+      '@tanstack/ai-anthropic':
+        specifier: ^0.0.3
+        version: 0.0.3(@tanstack/ai@0.0.3(@alcyone-labs/zod-to-json-schema@4.0.10(zod@4.2.0))(zod@4.2.0))(zod@4.2.0)
+      '@tanstack/ai-ollama':
+        specifier: ^0.0.3
+        version: 0.0.3(@tanstack/ai@0.0.3(@alcyone-labs/zod-to-json-schema@4.0.10(zod@4.2.0))(zod@4.2.0))
+      '@tanstack/ai-openai':
+        specifier: ^0.0.3
+        version: 0.0.3(@tanstack/ai@0.0.3(@alcyone-labs/zod-to-json-schema@4.0.10(zod@4.2.0))(zod@4.2.0))(ws@8.18.3)(zod@4.2.0)
       '@uaip/config':
         specifier: workspace:*
         version: link:../config
@@ -1665,9 +1686,23 @@ importers:
 
 packages:
 
+  '@alcyone-labs/zod-to-json-schema@4.0.10':
+    resolution: {integrity: sha512-TFsSpAPToqmqmT85SGHXuxoCwEeK9zUDvn512O9aBVvWRhSuy+VvAXZkifzsdllD3ncF0ZjUrf4MpBwIEixdWQ==}
+    peerDependencies:
+      zod: ^4.0.5
+
   '@alloc/quick-lru@5.2.0':
     resolution: {integrity: sha512-UrcABB+4bUrFABwbluTIBErXwvbsU/V7TZWfmbgJfbkwiBuziS9gxdODUyuiecfdGQ85jglMW6juS3+z5TsKLw==}
     engines: {node: '>=10'}
+
+  '@anthropic-ai/sdk@0.71.2':
+    resolution: {integrity: sha512-TGNDEUuEstk/DKu0/TflXAEt+p+p/WhTlFzEnoosvbaDU2LTjm42igSdlL0VijrKpWejtOKxX0b8A7uc+XiSAQ==}
+    hasBin: true
+    peerDependencies:
+      zod: ^3.25.0 || ^4.0.0
+    peerDependenciesMeta:
+      zod:
+        optional: true
 
   '@aws-crypto/sha256-browser@5.2.0':
     resolution: {integrity: sha512-AXfN/lGotSQwu6HNcEsIASo7kWXZ5HYWvfOmSNKDsEqC4OashTp8alTmaz+F7TC2L083SFv5RdB+qU3Vs1kZqw==}
@@ -3866,6 +3901,43 @@ packages:
     peerDependencies:
       tailwindcss: '>=3.0.0 || insiders || >=4.0.0-alpha.20 || >=4.0.0-beta.1'
 
+  '@tanstack/ai-anthropic@0.0.3':
+    resolution: {integrity: sha512-KMFiWdk7ijZ4/PAOPiYkhCJG5iijgsnIuoKAdPeSOcPvqMWzjSpef+WnmzC7RcHNWHOQ8SE/qroTGSpp6vIAfw==}
+    peerDependencies:
+      '@tanstack/ai': 0.0.3
+
+  '@tanstack/ai-client@0.0.3':
+    resolution: {integrity: sha512-5XIHhRJ2pWeJKfMpeInI46Ytavq78/E/5gllcYMaLJ24aiPXHbxNeO3akiX7kmnwuL6OIkX99Le/MxZBZvdFhg==}
+
+  '@tanstack/ai-ollama@0.0.3':
+    resolution: {integrity: sha512-s9Lcuru6plf3X9X/pCkWW0grs5g1PjbFwTlMlCyFMXbbmqBFSYAaex85V4XkcCCi2pWjIbgVyklfxI9NsHFy1g==}
+    peerDependencies:
+      '@tanstack/ai': 0.0.3
+
+  '@tanstack/ai-openai@0.0.3':
+    resolution: {integrity: sha512-JyV5KMvaUIkS/9mt8zdu+8Sl0+/btbwrsreuFXftbrL8H+ysvbmFW3KwD2eUdTBwNPv2szUn5su17X1yt1CphQ==}
+    peerDependencies:
+      '@tanstack/ai': 0.0.3
+
+  '@tanstack/ai-react@0.0.3':
+    resolution: {integrity: sha512-C65+F4k0S9Z8Ot8+zhIn5XMxZABejEjbU+Ap99TtJA3C31PlnJry18ny/f82FOZl80G2P5xriehMNKsfcxQM9w==}
+    peerDependencies:
+      '@tanstack/ai': 0.0.3
+      '@tanstack/ai-client': 0.0.3
+      '@types/react': '>=18.0.0'
+      react: '>=18.0.0'
+
+  '@tanstack/ai@0.0.3':
+    resolution: {integrity: sha512-zwSl0obT/fkUZocI22xClGNg66yWiRw3d3BKz7F5/V8E+JWFZk2Gh4P7V9wrr0uUEjsZlt8u7qNDgBzwU9uu9g==}
+    engines: {node: '>=18'}
+    peerDependencies:
+      '@alcyone-labs/zod-to-json-schema': ^4.0.0
+      zod: ^3.0.0 || ^4.0.0
+
+  '@tanstack/devtools-event-client@0.4.0':
+    resolution: {integrity: sha512-RPfGuk2bDZgcu9bAJodvO2lnZeHuz4/71HjZ0bGb/SPg8+lyTA+RLSKQvo7fSmPSi8/vcH3aKQ8EM9ywf1olaw==}
+    engines: {node: '>=18'}
+
   '@tanstack/query-core@5.90.12':
     resolution: {integrity: sha512-T1/8t5DhV/SisWjDnaiU2drl6ySvsHj1bHBCWNXd+/T+Hh1cf6JodyEYMd5sgwm+b/mETT4EV3H+zCVczCU5hg==}
 
@@ -5998,6 +6070,10 @@ packages:
   json-parse-even-better-errors@2.3.1:
     resolution: {integrity: sha512-xyFwyhro/JEof6Ghe2iz2NcXoj2sloNsWr/XsERDK/oiPCfaNhl5ONfp+jQdAZRQQ0IJWNzH9zIZF7li91kh2w==}
 
+  json-schema-to-ts@3.1.1:
+    resolution: {integrity: sha512-+DWg8jCJG2TEnpy7kOm/7/AxaYoaRbjVB4LFZLySZlWn8exGs3A4OLJR966cVvU26N7X9TWxl+Jsw7dzAqKT6g==}
+    engines: {node: '>=16'}
+
   json-schema-traverse@0.4.1:
     resolution: {integrity: sha512-xbbCH5dCYU5T8LcEhhuh7HJ88HXuW3qsI3Y0zOZFKfZEHcpWiHU/Jxzk629Brsab/mMiHQti9wMP+845RPe3Vg==}
 
@@ -6426,6 +6502,9 @@ packages:
     resolution: {integrity: sha512-W67iLl4J2EXEGTbfeHCffrjDfitvLANg0UlX3wFUUSTx92KXRFegMHUVgSqE+wvhAbi4WqjGg9czysTV2Epbew==}
     engines: {node: '>= 0.4'}
 
+  ollama@0.6.3:
+    resolution: {integrity: sha512-KEWEhIqE5wtfzEIZbDCLH51VFZ6Z3ZSa6sIOg/E/tBV8S51flyqBOXi+bRxlOYKDf8i327zG9eSTb8IJxvm3Zg==}
+
   on-finished@2.3.0:
     resolution: {integrity: sha512-ikqdkGAAyf/X/gPhXGvfgAytDZtDbr+bkNUJ0N9h5MI/dmdgCs3l6hoHrcUv41sRKew3jIwrp4qQDXiK99Utww==}
     engines: {node: '>= 0.8'}
@@ -6447,6 +6526,18 @@ packages:
   onetime@5.1.2:
     resolution: {integrity: sha512-kbpaSSGJTWdAY5KPVeMOKXSrPtr8C8C7wodJbcsd51jRnmD+GZu8Y0VoU6Dm5Z4vWr0Ig/1NKuWRKf7j5aaYSg==}
     engines: {node: '>=6'}
+
+  openai@6.10.0:
+    resolution: {integrity: sha512-ITxOGo7rO3XRMiKA5l7tQ43iNNu+iXGFAcf2t+aWVzzqRaS0i7m1K2BhxNdaveB+5eENhO0VY1FkiZzhBk4v3A==}
+    hasBin: true
+    peerDependencies:
+      ws: ^8.18.0
+      zod: ^3.25 || ^4.0
+    peerDependenciesMeta:
+      ws:
+        optional: true
+      zod:
+        optional: true
 
   openapi-types@12.1.3:
     resolution: {integrity: sha512-N4YtSYJqghVu4iek2ZUvcN/0aqH1kRDuNqzcycDxhOUpg7GdvLa2F3DgS6yBNhInhv2r/6I0Flkn7CqL8+nIcw==}
@@ -6485,6 +6576,9 @@ packages:
   parse-json@5.2.0:
     resolution: {integrity: sha512-ayCKvm/phCGxOkYRSCM82iDwct8/EonSEgCSxWxD7ve6jHggsFl4fZVQBPRNgQoKiuV/odhFrGzQXZwbifC8Rg==}
     engines: {node: '>=8'}
+
+  partial-json@0.1.7:
+    resolution: {integrity: sha512-Njv/59hHaokb/hRUjce3Hdv12wd60MtM9Z5Olmn+nehe0QDAsRtRbJPvJ0Z91TusF0SuZRIvnM+S4l6EIP8leA==}
 
   path-exists@4.0.0:
     resolution: {integrity: sha512-ak9Qy5Q7jYb2Wwcey5Fpvg2KoAc/ZIhLSLOSBmRmygPsGwkVVt0fZa0qrtMz+m6tJTAHfZQ8FnmB4MG4LWy7/w==}
@@ -7262,6 +7356,9 @@ packages:
     resolution: {integrity: sha512-aZbgViZrg1QNcG+LULa7nhZpJTZSLm/mXnHXnbAbjmN5aSa0y7V+wvv6+4WaBtpISJzThKy+PIPxc1Nq1EJ9mg==}
     engines: {node: '>= 14.0.0'}
 
+  ts-algebra@2.0.0:
+    resolution: {integrity: sha512-FPAhNPFMrkwz76P7cdjdmiShwMynZYN6SgOujD1urY4oNm80Ou9oMdmbR45LotcKOXoy7wSmHkRFE6Mxbrhefw==}
+
   ts-api-utils@2.1.0:
     resolution: {integrity: sha512-CUgTZL1irw8u29bzrOD/nH85jqyc74D6SshFgujOIA7osm2Rz7dYH77agkx7H4FBNxDq7Cjf+IjaX/8zwFW+ZQ==}
     engines: {node: '>=18.12'}
@@ -7656,6 +7753,9 @@ packages:
     resolution: {integrity: sha512-d2JWLCivmZYTSIoge9MsgFCZrt571BikcWGYkjC1khllbTeDlGqZ2D8vD8E/lJa8WGWbb7Plm8/XJYV7IJHZZw==}
     engines: {node: '>= 8'}
 
+  whatwg-fetch@3.6.20:
+    resolution: {integrity: sha512-EqhiFU6daOA8kpjOWTL0olhVOF3i7OrFzSYiGsEMB8GcXS+RrzauAERX65xMeNWVqxA6HXH2m69Z9LaKKdisfg==}
+
   which-module@2.0.1:
     resolution: {integrity: sha512-iBdZ57RDvnOR9AGBhML2vFZf7h8vmBjhoaZqODJBFWHVtKkDmKuHai3cx5PgVMrX5YDNp27AofYbAwctSS+vhQ==}
 
@@ -7789,6 +7889,9 @@ packages:
   zod@3.25.67:
     resolution: {integrity: sha512-idA2YXwpCdqUSKRCACDE6ItZD9TZzy3OZMtpfLoh6oPR47lipysRrJfjzMqFxQ3uJuUPyUeWe1r9vLH33xO/Qw==}
 
+  zod@4.2.0:
+    resolution: {integrity: sha512-Bd5fw9wlIhtqCCxotZgdTOMwGm1a0u75wARVEY9HMs1X17trvA/lMi4+MGK5EUfYkXVTbX8UDiDKW4OgzHVUZw==}
+
   zustand@4.5.7:
     resolution: {integrity: sha512-CHOUy7mu3lbD6o6LJLfllpjkzhHXSBlX8B9+qPddUsIfeF5S/UZ5q0kmCsnRqT1UHFQZchNFDDzMbQsuesHWlw==}
     engines: {node: '>=12.7.0'}
@@ -7806,7 +7909,21 @@ packages:
 
 snapshots:
 
+  '@alcyone-labs/zod-to-json-schema@4.0.10(zod@3.25.67)':
+    dependencies:
+      zod: 3.25.67
+
+  '@alcyone-labs/zod-to-json-schema@4.0.10(zod@4.2.0)':
+    dependencies:
+      zod: 4.2.0
+
   '@alloc/quick-lru@5.2.0': {}
+
+  '@anthropic-ai/sdk@0.71.2(zod@4.2.0)':
+    dependencies:
+      json-schema-to-ts: 3.1.1
+    optionalDependencies:
+      zod: 4.2.0
 
   '@aws-crypto/sha256-browser@5.2.0':
     dependencies:
@@ -10357,6 +10474,57 @@ snapshots:
     dependencies:
       postcss-selector-parser: 6.0.10
       tailwindcss: 4.1.17
+
+  '@tanstack/ai-anthropic@0.0.3(@tanstack/ai@0.0.3(@alcyone-labs/zod-to-json-schema@4.0.10(zod@4.2.0))(zod@4.2.0))(zod@4.2.0)':
+    dependencies:
+      '@anthropic-ai/sdk': 0.71.2(zod@4.2.0)
+      '@tanstack/ai': 0.0.3(@alcyone-labs/zod-to-json-schema@4.0.10(zod@4.2.0))(zod@4.2.0)
+    transitivePeerDependencies:
+      - zod
+
+  '@tanstack/ai-client@0.0.3(@alcyone-labs/zod-to-json-schema@4.0.10(zod@3.25.67))(zod@3.25.67)':
+    dependencies:
+      '@tanstack/ai': 0.0.3(@alcyone-labs/zod-to-json-schema@4.0.10(zod@3.25.67))(zod@3.25.67)
+    transitivePeerDependencies:
+      - '@alcyone-labs/zod-to-json-schema'
+      - zod
+
+  '@tanstack/ai-ollama@0.0.3(@tanstack/ai@0.0.3(@alcyone-labs/zod-to-json-schema@4.0.10(zod@4.2.0))(zod@4.2.0))':
+    dependencies:
+      '@tanstack/ai': 0.0.3(@alcyone-labs/zod-to-json-schema@4.0.10(zod@4.2.0))(zod@4.2.0)
+      ollama: 0.6.3
+      zod: 4.2.0
+
+  '@tanstack/ai-openai@0.0.3(@tanstack/ai@0.0.3(@alcyone-labs/zod-to-json-schema@4.0.10(zod@4.2.0))(zod@4.2.0))(ws@8.18.3)(zod@4.2.0)':
+    dependencies:
+      '@tanstack/ai': 0.0.3(@alcyone-labs/zod-to-json-schema@4.0.10(zod@4.2.0))(zod@4.2.0)
+      openai: 6.10.0(ws@8.18.3)(zod@4.2.0)
+    transitivePeerDependencies:
+      - ws
+      - zod
+
+  '@tanstack/ai-react@0.0.3(@tanstack/ai-client@0.0.3(@alcyone-labs/zod-to-json-schema@4.0.10(zod@3.25.67))(zod@3.25.67))(@tanstack/ai@0.0.3(@alcyone-labs/zod-to-json-schema@4.0.10(zod@3.25.67))(zod@3.25.67))(@types/react@19.2.7)(react@19.2.1)':
+    dependencies:
+      '@tanstack/ai': 0.0.3(@alcyone-labs/zod-to-json-schema@4.0.10(zod@3.25.67))(zod@3.25.67)
+      '@tanstack/ai-client': 0.0.3(@alcyone-labs/zod-to-json-schema@4.0.10(zod@3.25.67))(zod@3.25.67)
+      '@types/react': 19.2.7
+      react: 19.2.1
+
+  '@tanstack/ai@0.0.3(@alcyone-labs/zod-to-json-schema@4.0.10(zod@3.25.67))(zod@3.25.67)':
+    dependencies:
+      '@alcyone-labs/zod-to-json-schema': 4.0.10(zod@3.25.67)
+      '@tanstack/devtools-event-client': 0.4.0
+      partial-json: 0.1.7
+      zod: 3.25.67
+
+  '@tanstack/ai@0.0.3(@alcyone-labs/zod-to-json-schema@4.0.10(zod@4.2.0))(zod@4.2.0)':
+    dependencies:
+      '@alcyone-labs/zod-to-json-schema': 4.0.10(zod@4.2.0)
+      '@tanstack/devtools-event-client': 0.4.0
+      partial-json: 0.1.7
+      zod: 4.2.0
+
+  '@tanstack/devtools-event-client@0.4.0': {}
 
   '@tanstack/query-core@5.90.12': {}
 
@@ -13024,6 +13192,11 @@ snapshots:
 
   json-parse-even-better-errors@2.3.1: {}
 
+  json-schema-to-ts@3.1.1:
+    dependencies:
+      '@babel/runtime': 7.28.4
+      ts-algebra: 2.0.0
+
   json-schema-traverse@0.4.1: {}
 
   json-stable-stringify-without-jsonify@1.0.1: {}
@@ -13402,6 +13575,10 @@ snapshots:
 
   object-inspect@1.13.4: {}
 
+  ollama@0.6.3:
+    dependencies:
+      whatwg-fetch: 3.6.20
+
   on-finished@2.3.0:
     dependencies:
       ee-first: 1.1.1
@@ -13429,6 +13606,11 @@ snapshots:
   onetime@5.1.2:
     dependencies:
       mimic-fn: 2.1.0
+
+  openai@6.10.0(ws@8.18.3)(zod@4.2.0):
+    optionalDependencies:
+      ws: 8.18.3
+      zod: 4.2.0
 
   openapi-types@12.1.3: {}
 
@@ -13471,6 +13653,8 @@ snapshots:
       error-ex: 1.3.4
       json-parse-even-better-errors: 2.3.1
       lines-and-columns: 1.2.4
+
+  partial-json@0.1.7: {}
 
   path-exists@4.0.0: {}
 
@@ -14315,6 +14499,8 @@ snapshots:
 
   triple-beam@1.4.1: {}
 
+  ts-algebra@2.0.0: {}
+
   ts-api-utils@2.1.0(typescript@5.9.3):
     dependencies:
       typescript: 5.9.3
@@ -14339,7 +14525,7 @@ snapshots:
       babel-jest: 30.2.0(@babel/core@7.28.5)
       jest-util: 30.2.0
 
-  ts-jest@29.4.6(@babel/core@7.28.5)(@jest/transform@30.2.0)(@jest/types@30.2.0)(babel-jest@30.2.0(@babel/core@7.28.5))(jest-util@30.2.0)(jest@30.2.0(@types/node@22.19.2)(ts-node@10.9.2(@swc/core@1.15.3)(@types/node@22.19.2)(typescript@5.9.3)))(typescript@5.9.3):
+  ts-jest@29.4.6(@babel/core@7.28.5)(@jest/transform@30.2.0)(@jest/types@30.2.0)(babel-jest@30.2.0(@babel/core@7.28.5))(jest-util@30.2.0)(jest@30.2.0(@types/node@22.19.2))(typescript@5.9.3):
     dependencies:
       bs-logger: 0.2.6
       fast-json-stable-stringify: 2.1.0
@@ -14710,6 +14896,8 @@ snapshots:
 
   web-streams-polyfill@3.3.3: {}
 
+  whatwg-fetch@3.6.20: {}
+
   which-module@2.0.1: {}
 
   which-typed-array@1.1.19:
@@ -14843,6 +15031,8 @@ snapshots:
       readable-stream: 4.7.0
 
   zod@3.25.67: {}
+
+  zod@4.2.0: {}
 
   zustand@4.5.7(@types/react@19.2.7)(react@19.2.1):
     dependencies:

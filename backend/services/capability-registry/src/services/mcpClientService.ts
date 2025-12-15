@@ -793,7 +793,7 @@ export class MCPClientService extends EventEmitter {
       const lines = data
         .toString()
         .split('\n')
-        .filter((line) => line.trim());
+        .filter((line: string) => line.trim());
 
       for (const line of lines) {
         try {

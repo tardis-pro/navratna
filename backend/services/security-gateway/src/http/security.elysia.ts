@@ -9,9 +9,10 @@ import {
 } from '@uaip/shared-services';
 import { AuditService } from '../services/auditService.js';
 import { NotificationService } from '../services/notificationService.js';
-import { AuditEventType } from '@uaip/types';
+import { AuditEventType, SecurityLevel } from '@uaip/types';
 import { SecurityGatewayService } from '../services/securityGatewayService.js';
 import { ApprovalWorkflowService } from '../services/approvalWorkflowService.js';
+import type { RequiredAuthContext } from './types/elysia-context.js';
 
 // Lazy service setup mirroring the original route behavior
 let securityService: SecurityService | null = null;
@@ -122,7 +123,7 @@ const securityPolicySchema = z.object({
 });
 const updatePolicySchema = securityPolicySchema.partial({ name: true });
 
-function validateWithZod<T>(schema: z.ZodSchema<T>, data: any) {
+function validateWithZod<T>(schema: z.ZodSchema<T>, data: any): { error: { details: { message: string; path: string }[] } | null; value: T | null } {
   const result = schema.safeParse(data);
   if (result.success) return { error: null, value: result.data };
   return {
@@ -137,7 +138,7 @@ export function registerSecurityRoutes(app: any): any {
   return app.group('/api/v1/security', (app: any) =>
     withRequiredAuth(app)
       // POST /assess-risk
-      .post('/assess-risk', async ({ set, body, user, request, headers }) => {
+      .post('/assess-risk', async ({ set, body, user, request, headers }: RequiredAuthContext) => {
         const { error, value } = validateWithZod(riskAssessmentSchema, body);
         if (error) {
           set.status = 400;
@@ -146,12 +147,23 @@ export function registerSecurityRoutes(app: any): any {
         try {
           const { securityGatewayService, auditService } = await getSecurityServices();
           const assessment = await securityGatewayService.assessRisk({
-            ...value,
-            userId: user!.id,
-            userRole: user!.role,
-            timestamp: new Date(),
-            ipAddress: request.headers.get('x-forwarded-for') || '',
-            userAgent: headers['user-agent'],
+            securityContext: {
+              userId: user!.id,
+              role: user!.role,
+              permissions: user!.permissions || [],
+              securityLevel: (user!.securityClearance as SecurityLevel) || SecurityLevel.MEDIUM,
+              sessionId: user!.sessionId || 'unknown',
+              ipAddress: request.headers.get('x-forwarded-for') || '',
+              userAgent: headers['user-agent'] || '',
+              lastAuthentication: new Date(),
+              mfaVerified: false,
+              riskScore: 0,
+            },
+            operation: {
+              type: value.operationType,
+              resource: value.resourceType,
+              action: 'access',
+            },
           });
           await auditService.logSecurityEvent({
             eventType: AuditEventType.RISK_ASSESSMENT,
@@ -177,7 +189,7 @@ export function registerSecurityRoutes(app: any): any {
       })
 
       // POST /check-approval-required
-      .post('/check-approval-required', async ({ set, body, user, request, headers }) => {
+      .post('/check-approval-required', async ({ set, body, user, request, headers }: RequiredAuthContext) => {
         const { error, value } = validateWithZod(riskAssessmentSchema, body);
         if (error) {
           set.status = 400;
@@ -186,12 +198,23 @@ export function registerSecurityRoutes(app: any): any {
         try {
           const { securityGatewayService } = await getSecurityServices();
           const approvalRequired = await securityGatewayService.requiresApproval({
-            ...value,
-            userId: user!.id,
-            userRole: user!.role,
-            timestamp: new Date(),
-            ipAddress: request.headers.get('x-forwarded-for') || '',
-            userAgent: headers['user-agent'],
+            securityContext: {
+              userId: user!.id,
+              role: user!.role,
+              permissions: user!.permissions || [],
+              securityLevel: (user!.securityClearance as SecurityLevel) || SecurityLevel.MEDIUM,
+              sessionId: user!.sessionId || 'unknown',
+              ipAddress: request.headers.get('x-forwarded-for') || '',
+              userAgent: headers['user-agent'] || '',
+              lastAuthentication: new Date(),
+              mfaVerified: false,
+              riskScore: 0,
+            },
+            operation: {
+              type: value.operationType,
+              resource: value.resourceType,
+              action: 'access',
+            },
           });
           return {
             message: 'Approval requirement check completed',
@@ -211,7 +234,7 @@ export function registerSecurityRoutes(app: any): any {
       // Admin-only: policies
       .group('', (g: any) =>
         withAdminGuard(g)
-          .get('/policies', async ({ set, query }) => {
+          .get('/policies', async ({ set, query }: RequiredAuthContext) => {
             try {
               const { securityService } = await getServices();
               const { page = 1, limit = 20, active, search } = query as any;
@@ -242,7 +265,7 @@ export function registerSecurityRoutes(app: any): any {
             }
           })
 
-          .get('/policies/:policyId', async ({ set, params }) => {
+          .get('/policies/:policyId', async ({ set, params }: RequiredAuthContext) => {
             try {
               const { securityService } = await getServices();
               const policyId = (params as any).policyId as string;
@@ -262,7 +285,7 @@ export function registerSecurityRoutes(app: any): any {
             }
           })
 
-          .post('/policies', async ({ set, body, user, request, headers }) => {
+          .post('/policies', async ({ set, body, user, request, headers }: RequiredAuthContext) => {
             const { error, value } = validateWithZod(securityPolicySchema, body);
             if (error) {
               set.status = 400;
@@ -274,7 +297,15 @@ export function registerSecurityRoutes(app: any): any {
             try {
               const { securityService, auditService } = await getSecurityServices();
               const repo = securityService!.getSecurityPolicyRepository();
-              const newPolicy = await repo.createSecurityPolicy({ ...value, createdBy: user!.id });
+              const newPolicy = await repo.createSecurityPolicy({
+                name: value.name,
+                description: value.description,
+                priority: value.priority,
+                isActive: value.isActive,
+                conditions: value.conditions,
+                actions: value.actions,
+                createdBy: user!.id,
+              });
               await auditService.logSecurityEvent({
                 eventType: AuditEventType.POLICY_CREATED,
                 userId: user!.id,
@@ -298,7 +329,7 @@ export function registerSecurityRoutes(app: any): any {
             }
           })
 
-          .put('/policies/:policyId', async ({ set, params, body }) => {
+          .put('/policies/:policyId', async ({ set, params, body }: RequiredAuthContext) => {
             const { error, value } = validateWithZod(updatePolicySchema, body);
             if (error) {
               set.status = 400;
@@ -326,7 +357,7 @@ export function registerSecurityRoutes(app: any): any {
             }
           })
 
-          .delete('/policies/:policyId', async ({ set, params }) => {
+          .delete('/policies/:policyId', async ({ set, params }: RequiredAuthContext) => {
             try {
               const { securityService } = await getServices();
               const policyId = (params as any).policyId as string;
@@ -346,7 +377,7 @@ export function registerSecurityRoutes(app: any): any {
             }
           })
 
-          .get('/stats', async ({ set, query }) => {
+          .get('/stats', async ({ set, query }: RequiredAuthContext) => {
             try {
               const timeframe = ((query as any).timeframe || '24h') as string;
               let startDate: Date;

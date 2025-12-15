@@ -127,10 +127,13 @@ export class ToolExecutor {
       });
 
       // Execute the tool logic
+      const timeout = typeof execution.metadata?.timeout === 'number'
+        ? execution.metadata.timeout
+        : 30000;
       const result = await this.executeToolLogic(
         execution.toolId,
         execution.parameters,
-        execution.metadata?.timeout || 30000
+        timeout
       );
 
       const executionTime = Date.now() - startTime;
@@ -373,18 +376,19 @@ export class ToolExecutor {
   }
 
   private categorizeError(
-    error: Error
+    error: unknown
   ): 'validation' | 'execution' | 'timeout' | 'permission' | 'quota' | 'dependency' | 'unknown' {
-    if (error.message.includes('timeout')) return 'timeout';
-    if (error.message.includes('permission')) return 'permission';
-    if (error.message.includes('validation')) return 'validation';
-    if (error.message.includes('quota')) return 'quota';
-    if (error.message.includes('dependency')) return 'dependency';
-    if (error.message.includes('execution')) return 'execution';
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    if (errorMessage.includes('timeout')) return 'timeout';
+    if (errorMessage.includes('permission')) return 'permission';
+    if (errorMessage.includes('validation')) return 'validation';
+    if (errorMessage.includes('quota')) return 'quota';
+    if (errorMessage.includes('dependency')) return 'dependency';
+    if (errorMessage.includes('execution')) return 'execution';
     return 'unknown';
   }
 
-  private isRecoverableError(error: Error): boolean {
+  private isRecoverableError(error: unknown): boolean {
     const recoverableTypes = ['timeout', 'quota', 'dependency'];
     const errorType = this.categorizeError(error);
     return recoverableTypes.includes(errorType);
@@ -401,16 +405,16 @@ export class ToolExecutor {
     );
 
     return {
-      totalExecutions: stats.reduce((sum, stat) => sum + parseInt(stat.total_uses), 0),
-      successfulExecutions: stats.reduce((sum, stat) => sum + parseInt(stat.successful_uses), 0),
+      totalExecutions: stats.reduce((sum: number, stat: any) => sum + parseInt(stat.total_uses), 0),
+      successfulExecutions: stats.reduce((sum: number, stat: any) => sum + parseInt(stat.successful_uses), 0),
       averageExecutionTime:
-        stats.reduce((sum, stat) => sum + parseFloat(stat.avg_execution_time || '0'), 0) /
+        stats.reduce((sum: number, stat: any) => sum + parseFloat(stat.avg_execution_time || '0'), 0) /
         stats.length,
-      totalCost: stats.reduce((sum, stat) => sum + parseFloat(stat.total_cost || '0'), 0),
+      totalCost: stats.reduce((sum: number, stat: any) => sum + parseFloat(stat.total_cost || '0'), 0),
       successRate:
         stats.length > 0
-          ? stats.reduce((sum, stat) => sum + parseInt(stat.successful_uses), 0) /
-            stats.reduce((sum, stat) => sum + parseInt(stat.total_uses), 0)
+          ? stats.reduce((sum: number, stat: any) => sum + parseInt(stat.successful_uses), 0) /
+            stats.reduce((sum: number, stat: any) => sum + parseInt(stat.total_uses), 0)
           : 0,
     };
   }

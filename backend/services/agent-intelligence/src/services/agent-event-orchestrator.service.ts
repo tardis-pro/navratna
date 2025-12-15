@@ -270,8 +270,8 @@ export class AgentEventOrchestrator {
   }
 
   private async createExecutionPlan(request: AgentOperationRequest): Promise<ExecutionPlan> {
-    const steps = [];
-    const dependencies = [];
+    const steps: any[] = [];
+    const dependencies: any[] = [];
 
     switch (request.operationType) {
       case 'analyze':
@@ -388,7 +388,7 @@ export class AgentEventOrchestrator {
       metrics: 10000, // 10 seconds
     };
 
-    return baseDurations[operationType] || 30000;
+    return (baseDurations as Record<string, number>)[operationType] || 30000;
   }
 
   private async registerCapabilities(): Promise<void> {
@@ -796,14 +796,14 @@ export class AgentEventOrchestrator {
   /**
    * Utility methods
    */
-  private async subscribeToEvent(channel: string, handler: Function): Promise<void> {
+  private async subscribeToEvent(channel: string, handler: (message: any) => Promise<void>): Promise<void> {
     try {
       // Convert function to async EventHandler
-      const asyncHandler = async (message: any) => {
+      const asyncHandler = async (message: any): Promise<void> => {
         return Promise.resolve(handler(message));
       };
       await this.eventBusService.subscribe(channel, asyncHandler);
-      this.eventSubscriptions.set(channel, handler);
+      this.eventSubscriptions.set(channel, handler as any);
     } catch (error) {
       logger.error('Failed to subscribe to event', { channel, error });
     }
@@ -840,7 +840,7 @@ export class AgentEventOrchestrator {
           reject(new Error(`Request timeout: ${channel}`));
         }, 30000); // 30 second timeout
 
-        const responseHandler = (response: any) => {
+        const responseHandler = (response: any): void => {
           if (response.requestId === requestId) {
             clearTimeout(timeout);
             resolve(response);
@@ -849,7 +849,7 @@ export class AgentEventOrchestrator {
 
         // Subscribe to response channel
         const responseChannel = channel.replace(/\.[^.]+$/, '.response');
-        const asyncResponseHandler = async (message: any) => {
+        const asyncResponseHandler = async (message: any): Promise<void> => {
           return Promise.resolve(responseHandler(message));
         };
         this.eventBusService.subscribe(responseChannel, asyncResponseHandler);
@@ -962,7 +962,7 @@ export class AgentEventOrchestrator {
       for (const [channel, handler] of this.eventSubscriptions) {
         try {
           // Convert handler for unsubscribe
-          const asyncHandler = async (message: any) => Promise.resolve(handler(message));
+          const asyncHandler = async (message: any): Promise<void> => Promise.resolve(handler(message) as any);
           await this.eventBusService.unsubscribe(channel, asyncHandler);
         } catch (error) {
           logger.warn('Failed to unsubscribe from event during shutdown', { channel, error });
