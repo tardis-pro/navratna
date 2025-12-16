@@ -21,7 +21,7 @@
     "@uaip/config": "workspace:*",
     "@uaip/types": "workspace:*",
     "@uaip/utils": "workspace:*",
-    "elysia": "^1.4.5",
+    "elysia": "^1.4.19",
     "jsonwebtoken": "catalog:backend",
     "prom-client": "catalog:backend",
     "zod": "catalog:"
