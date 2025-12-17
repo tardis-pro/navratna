@@ -134,12 +134,9 @@ export const allEntities = [
   UserMessageEntity,
   UserPresenceEntity,
   ShortLinkEntity,
-  Project,
-  ProjectTask,
-  ProjectToolUsage,
-  ProjectAgent,
-  ProjectWorkflow,
-  TaskExecution,
+  // Note: Using new ProjectEntity system instead of legacy Project.ts entities
+  // Legacy entities commented out to avoid duplicate table mapping
+  // Project, ProjectTask, ProjectToolUsage, ProjectAgent, ProjectWorkflow, TaskExecution
   // New Project System entities
   ProjectEntity,
   ProjectMemberEntity,
@@ -189,12 +186,13 @@ function createBaseConfig(): PostgresConnectionOptions {
   return {
     type: 'postgres',
     ...dbConfig,
-    synchronize: true, // Re-enabled to create database schema
-    logging: false, //process.env.NODE_ENV === 'development' || process.env.TYPEORM_LOGGING === 'true',
+    synchronize: true, // Enable for development - creates schema automatically
+    dropSchema: false, // Don't drop schema on startup
+    logging: process.env.NODE_ENV === 'development' ? ['error', 'warn', 'schema'] : ['error', 'warn'],
     entities: allEntities,
     subscribers: allSubscribers,
     migrations: [join(__dirname, '..', 'migrations', '*{.ts,.js}')],
-    migrationsRun: true, // Enable automatic migrations to fix schema issues
+    migrationsRun: false, // Disabled - using synchronize instead; migrations have type errors
     ssl:
       process.env.DB_SSL === 'true' || process.env.NODE_ENV === 'production'
         ? { rejectUnauthorized: false }
