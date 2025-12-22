@@ -46,7 +46,7 @@
     "@radix-ui/react-toggle": "catalog:frontend",
     "@radix-ui/react-toggle-group": "catalog:frontend",
     "@radix-ui/react-tooltip": "catalog:frontend",
-    "@tailwindcss/postcss": "^4.1.10",
+    "@tailwindcss/postcss": "^4.1.18",
     "@tanstack/ai-react": "^0.0.3",
     "@tanstack/react-query": "catalog:frontend",
     "@tanstack/react-virtual": "catalog:frontend",
