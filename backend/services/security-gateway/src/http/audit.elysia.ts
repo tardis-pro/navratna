@@ -1,7 +1,3 @@
-// @ts-nocheck
-// Elysia type inference limitation: cannot track user property through nested .group() + middleware wrappers.
-// Runtime behavior is correct - this is purely a TypeScript static analysis limitation.
-
 import { z } from 'zod';
 import { logger } from '@uaip/utils';
 import { withAdminGuard, withRequiredAuth } from '@uaip/middleware';
@@ -161,6 +157,7 @@ export function registerAuditRoutes(app: any): any {
         })
 
         // POST /export
+            // @ts-expect-error - Elysia middleware injects user, but TypeScript cannot infer through nested groups
         .post('/export', async ({ set, body, user, request, headers }) => {
           const { error, value } = validateWithZod(exportSchema, body);
           if (error) {
@@ -207,6 +204,7 @@ export function registerAuditRoutes(app: any): any {
         })
 
         // POST /compliance-report
+            // @ts-expect-error - Elysia middleware injects user, but TypeScript cannot infer through nested groups
         .post('/compliance-report', async ({ set, body, user, request, headers }) => {
           const { error, value } = validateWithZod(complianceReportSchema, body);
           if (error) {
@@ -285,6 +283,7 @@ export function registerAuditRoutes(app: any): any {
         })
 
         // DELETE /cleanup
+            // @ts-expect-error - Elysia middleware injects user, but TypeScript cannot infer through nested groups
         .delete('/cleanup', async ({ set, user, request, headers }) => {
           try {
             const { auditService } = await getServices();

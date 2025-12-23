@@ -1,8 +1,4 @@
-// @ts-nocheck
 // Elysia's type system cannot infer the 'user' property through nested .group() calls combined with middleware wrappers.
-// The middleware DOES add 'user' to the context at runtime, but TypeScript's static analysis cannot track
-// the type transformations through: app.group() -> withRequiredAuth() -> nested .group() -> handler
-// This is a known limitation with Elysia's complex generic type system when using functional composition patterns.
 import { z } from 'zod';
 import { logger } from '@uaip/utils';
 import { UserService } from '@uaip/shared-services';
@@ -182,6 +178,7 @@ export function registerUserRoutes(app: any): any {
       // GET /api/v1/users/llm-preferences
       .group('', (g: any) =>
         withRequiredAuth(g)
+            // @ts-expect-error - Elysia middleware injects user, but TypeScript cannot infer through nested groups
           .get('/llm-preferences', async ({ set, user }) => {
             try {
               const { userService } = await getServices();
@@ -195,6 +192,7 @@ export function registerUserRoutes(app: any): any {
           })
 
           // PUT /api/v1/users/llm-preferences
+            // @ts-expect-error - Elysia middleware injects user, but TypeScript cannot infer through nested groups
           .put('/llm-preferences', async ({ set, user, body }) => {
             const parsed = updateUserLLMPreferencesSchema.safeParse(body);
             if (!parsed.success) {
@@ -235,6 +233,7 @@ export function registerUserRoutes(app: any): any {
           })
 
           // POST /api/v1/users (admin)
+            // @ts-expect-error - Elysia middleware injects user, but TypeScript cannot infer through nested groups
           .post('/', async ({ set, body, user }) => {
             const parsed = createUserSchema.safeParse(body);
             if (!parsed.success) {

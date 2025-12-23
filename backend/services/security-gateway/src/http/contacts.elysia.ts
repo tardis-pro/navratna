@@ -1,7 +1,3 @@
-// @ts-nocheck
-// Elysia type inference limitation: cannot track user property through nested .group() + middleware wrappers.
-// Runtime behavior is correct - this is purely a TypeScript static analysis limitation.
-
 import { z } from 'zod';
 import { withRequiredAuth } from '@uaip/middleware';
 import { AuditService } from '../services/auditService.js';
@@ -50,6 +46,7 @@ export function registerContactRoutes(app: any): any {
   return app.group('/api/v1/contacts', (app: any) =>
     withRequiredAuth(app)
       // POST /request
+            // @ts-expect-error - Elysia middleware injects user, but TypeScript cannot infer through nested groups
       .post('/request', async ({ set, body, user, request, headers }) => {
         const parsed = contactRequestSchema.safeParse(body);
         if (!parsed.success) {
@@ -116,6 +113,7 @@ export function registerContactRoutes(app: any): any {
       })
 
       // GET /
+            // @ts-expect-error - Elysia middleware injects user, but TypeScript cannot infer through nested groups
       .get('/', async ({ set, query, user }) => {
         const parsed = contactQuerySchema.safeParse(query);
         if (!parsed.success) {
@@ -154,6 +152,7 @@ export function registerContactRoutes(app: any): any {
       })
 
       // POST /:contactId/action
+            // @ts-expect-error - Elysia middleware injects user, but TypeScript cannot infer through nested groups
       .post('/:contactId/action', async ({ set, params, body, user, request, headers }) => {
         const parsed = contactActionSchema.safeParse(body);
         if (!parsed.success) {
@@ -254,6 +253,7 @@ export function registerContactRoutes(app: any): any {
       })
 
       // GET /pending
+            // @ts-expect-error - Elysia middleware injects user, but TypeScript cannot infer through nested groups
       .get('/pending', async ({ user }) => {
         const userId = user!.id;
         const { databaseService } = await getServices();

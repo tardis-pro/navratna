@@ -1,7 +1,3 @@
-// @ts-nocheck
-// Elysia type inference limitation: cannot track user property through nested .group() + middleware wrappers.
-// Runtime behavior is correct - this is purely a TypeScript static analysis limitation.
-
 import { z } from 'zod';
 import { logger } from '@uaip/utils';
 import { withRequiredAuth, withOperatorGuard } from '@uaip/middleware';
@@ -142,6 +138,7 @@ export function registerApprovalRoutes(app: any): any {
       // Create workflow (operator)
       .group('', (g: any) =>
         withOperatorGuard(g)
+            // @ts-expect-error - Elysia middleware injects user, but TypeScript cannot infer through nested groups
           .post('/workflows', async ({ body, set, user, request, headers }) => {
             const parsed = createWorkflowSchema.safeParse(body);
             if (!parsed.success) {
@@ -197,6 +194,7 @@ export function registerApprovalRoutes(app: any): any {
             }
           })
           // Stats (operator)
+            // @ts-expect-error - Elysia middleware injects user, but TypeScript cannot infer through nested groups
           .get('/stats', async ({ set, query, user }) => {
             try {
               const days = Number(query.days ?? 30);
@@ -245,6 +243,7 @@ export function registerApprovalRoutes(app: any): any {
       )
 
       // Query workflows (auth)
+            // @ts-expect-error - Elysia middleware injects user, but TypeScript cannot infer through nested groups
       .get('/workflows', async ({ set, user, query }) => {
         const parsed = queryWorkflowsSchema.safeParse(query);
         if (!parsed.success) {
@@ -297,6 +296,7 @@ export function registerApprovalRoutes(app: any): any {
       })
 
       // Pending approvals for current user
+            // @ts-expect-error - Elysia middleware injects user, but TypeScript cannot infer through nested groups
       .get('/pending', async ({ set, user }) => {
         try {
           const { approvalWorkflowService } = await getServices();
@@ -350,10 +350,11 @@ export function registerApprovalRoutes(app: any): any {
       .group('', (g: any) =>
         withOperatorGuard(g).post(
           '/:workflowId/cancel',
+            // @ts-expect-error - Elysia middleware injects user, but TypeScript cannot infer through nested groups
           async ({ set, params, body, user, request, headers }) => {
             try {
               const workflowId = params.workflowId;
-              const reason = body?.reason;
+              const reason = (body as any)?.reason;
               if (!reason || !reason.trim()) {
                 set.status = 400;
                 return { error: 'Cancellation reason is required' };
@@ -383,6 +384,7 @@ export function registerApprovalRoutes(app: any): any {
       )
 
       // Workflow details
+            // @ts-expect-error - Elysia middleware injects user, but TypeScript cannot infer through nested groups
       .get('/:workflowId', async ({ set, params, user }) => {
         try {
           const workflowId = params.workflowId;
@@ -415,9 +417,10 @@ export function registerApprovalRoutes(app: any): any {
       })
 
       // Approval decision
+            // @ts-expect-error - Elysia middleware injects user, but TypeScript cannot infer through nested groups
       .post('/:workflowId/decisions', async ({ set, params, body, user, request, headers }) => {
         const parsed = approvalDecisionSchema.safeParse({
-          ...body,
+          ...(body as any),
           workflowId: params.workflowId,
         });
         if (!parsed.success) {

@@ -1,7 +1,3 @@
-// @ts-nocheck
-// Elysia type inference limitation: cannot track user property through nested .group() + middleware wrappers.
-// Runtime behavior is correct - this is purely a TypeScript static analysis limitation.
-
 import { withAdminGuard, withRequiredAuth } from '@uaip/middleware';
 import { logger } from '@uaip/utils';
 import { UserService } from '@uaip/shared-services';
@@ -111,6 +107,7 @@ export function registerProviderRoutes(app: any): any {
               return { success: false, error: 'Failed to get LLM provider' };
             }
           })
+            // @ts-expect-error - Elysia middleware injects user, but TypeScript cannot infer through nested groups
           .post('/providers', async ({ set, body, user }) => {
             try {
               const created = await llmProviderManagementService.createProvider(
@@ -129,6 +126,7 @@ export function registerProviderRoutes(app: any): any {
               return { success: false, error: 'Failed to create LLM provider' };
             }
           })
+            // @ts-expect-error - Elysia middleware injects user, but TypeScript cannot infer through nested groups
           .put('/providers/:id', async ({ set, params, body, user }) => {
             try {
               const updated = await llmProviderManagementService.updateProvider(
@@ -143,6 +141,7 @@ export function registerProviderRoutes(app: any): any {
               return { success: false, error: 'Failed to update LLM provider' };
             }
           })
+            // @ts-expect-error - Elysia middleware injects user, but TypeScript cannot infer through nested groups
           .delete('/providers/:id', async ({ set, params, user }) => {
             try {
               await llmProviderManagementService.deleteProvider((params as any).id, user!.id);
@@ -180,6 +179,7 @@ export function registerProviderRoutes(app: any): any {
       // User-scoped provider management
       .group('/api/v1', (app: any) =>
         withRequiredAuth(app)
+            // @ts-expect-error - Elysia middleware injects user, but TypeScript cannot infer through nested groups
           .get('/my-providers/limits', async ({ user }) => {
             const role = (user!.role || 'user').toLowerCase();
             const limit = ROLE_LIMITS[role] ?? 0;
@@ -199,6 +199,7 @@ export function registerProviderRoutes(app: any): any {
             };
           })
 
+            // @ts-expect-error - Elysia middleware injects user, but TypeScript cannot infer through nested groups
           .get('/my-providers', async ({ user, set }) => {
             try {
               const providers = await UserService.getInstance()
@@ -212,6 +213,7 @@ export function registerProviderRoutes(app: any): any {
             }
           })
 
+            // @ts-expect-error - Elysia middleware injects user, but TypeScript cannot infer through nested groups
           .get('/my-providers/active', async ({ user, set }) => {
             try {
               const providers = await UserService.getInstance()
@@ -235,6 +237,7 @@ export function registerProviderRoutes(app: any): any {
             }
           })
 
+            // @ts-expect-error - Elysia middleware injects user, but TypeScript cannot infer through nested groups
           .get('/my-providers/models', async ({ user, set }) => {
             try {
               const { ModelService } = await import('../services/modelService.js');
@@ -251,6 +254,7 @@ export function registerProviderRoutes(app: any): any {
             }
           })
 
+            // @ts-expect-error - Elysia middleware injects user, but TypeScript cannot infer through nested groups
           .get('/my-providers/:id', async ({ set, params, user }) => {
             try {
               const provider = await UserService.getInstance()
@@ -268,6 +272,7 @@ export function registerProviderRoutes(app: any): any {
             }
           })
 
+            // @ts-expect-error - Elysia middleware injects user, but TypeScript cannot infer through nested groups
           .post('/my-providers', async ({ set, body, user }) => {
             const validation = createUserProviderSchema.safeParse(body);
             if (!validation.success) {
@@ -324,6 +329,7 @@ export function registerProviderRoutes(app: any): any {
             }
           })
 
+            // @ts-expect-error - Elysia middleware injects user, but TypeScript cannot infer through nested groups
           .put('/my-providers/:id', async ({ set, params, body, user }) => {
             const validation = updateUserProviderSchema.safeParse(body);
             if (!validation.success) {
@@ -368,6 +374,7 @@ export function registerProviderRoutes(app: any): any {
             }
           })
 
+            // @ts-expect-error - Elysia middleware injects user, but TypeScript cannot infer through nested groups
           .delete('/my-providers/:id', async ({ set, params, user }) => {
             try {
               const repo = UserService.getInstance().getUserLLMProviderRepository();
@@ -384,6 +391,7 @@ export function registerProviderRoutes(app: any): any {
             }
           })
 
+            // @ts-expect-error - Elysia middleware injects user, but TypeScript cannot infer through nested groups
           .post('/my-providers/:id/test', async ({ set, params, user }) => {
             try {
               const { ModelService } = await import('../services/modelService.js');
@@ -417,6 +425,7 @@ export function registerProviderRoutes(app: any): any {
             }
           })
 
+            // @ts-expect-error - Elysia middleware injects user, but TypeScript cannot infer through nested groups
           .get('/my-providers/:id/stats', async ({ set, params, user }) => {
             try {
               const repo = UserService.getInstance().getUserLLMProviderRepository();

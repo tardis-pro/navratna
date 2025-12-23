@@ -1,7 +1,3 @@
-// @ts-nocheck
-// Elysia type inference limitation: cannot track user property through nested .group() + middleware wrappers.
-// Runtime behavior is correct - this is purely a TypeScript static analysis limitation.
-
 import { z } from 'zod';
 import jwt, { SignOptions } from 'jsonwebtoken';
 import bcrypt from 'bcrypt';
@@ -271,6 +267,7 @@ export function registerAuthRoutes(app: any): any {
 
       // POST /change-password (requires auth)
       .group('', (g: any) =>
+            // @ts-expect-error - Elysia middleware injects user, but TypeScript cannot infer through nested groups
         withRequiredAuth(g).post('/change-password', async ({ body, set, user }) => {
           const parsed = changePasswordSchema.safeParse(body);
           if (!parsed.success) {
@@ -324,6 +321,7 @@ export function registerAuthRoutes(app: any): any {
 
       // GET /me
       .group('', (g: any) =>
+            // @ts-expect-error - Elysia middleware injects user, but TypeScript cannot infer through nested groups
         withRequiredAuth(g).get('/me', async ({ set, user }) => {
           try {
             const { userService } = await getServices();

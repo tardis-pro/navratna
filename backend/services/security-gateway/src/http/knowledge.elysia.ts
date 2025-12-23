@@ -1,7 +1,3 @@
-// @ts-nocheck
-// Elysia type inference limitation: cannot track user property through nested .group() + middleware wrappers.
-// Runtime behavior is correct - this is purely a TypeScript static analysis limitation.
-
 import { withOptionalAuth, withRequiredAuth } from '@uaip/middleware';
 import { z } from 'zod';
 import {
@@ -95,6 +91,7 @@ export function registerKnowledgeRoutes(app: any): any {
       // POST /
       .group('', (g: any) =>
         withRequiredAuth(g)
+            // @ts-expect-error - Elysia middleware injects user, but TypeScript cannot infer through nested groups
           .post('/', async ({ set, body, user }) => {
             const userId = user!.id;
             const { userKnowledgeService, initializationError } = await getServices();
@@ -140,6 +137,7 @@ export function registerKnowledgeRoutes(app: any): any {
           })
 
           // PATCH /:itemId
+            // @ts-expect-error - Elysia middleware injects user, but TypeScript cannot infer through nested groups
           .patch('/:itemId', async ({ set, params, body, user }) => {
             const userId = user!.id;
             const { userKnowledgeService, initializationError } = await getServices();
@@ -180,6 +178,7 @@ export function registerKnowledgeRoutes(app: any): any {
           })
 
           // DELETE /:itemId
+            // @ts-expect-error - Elysia middleware injects user, but TypeScript cannot infer through nested groups
           .delete('/:itemId', async ({ set, params, user }) => {
             const userId = user!.id;
             const { userKnowledgeService, initializationError } = await getServices();
@@ -212,6 +211,7 @@ export function registerKnowledgeRoutes(app: any): any {
           })
 
           // GET /tags/:tag
+            // @ts-expect-error - Elysia middleware injects user, but TypeScript cannot infer through nested groups
           .get('/tags/:tag', async ({ set, params, query, user }) => {
             const userId = user!.id;
             const { userKnowledgeService, initializationError } = await getServices();
@@ -230,6 +230,7 @@ export function registerKnowledgeRoutes(app: any): any {
           })
 
           // GET /stats
+            // @ts-expect-error - Elysia middleware injects user, but TypeScript cannot infer through nested groups
           .get('/stats', async ({ set, user }) => {
             const userId = user!.id;
             const { userKnowledgeService, initializationError } = await getServices();
@@ -246,6 +247,7 @@ export function registerKnowledgeRoutes(app: any): any {
           })
 
           // GET /:itemId/related
+            // @ts-expect-error - Elysia middleware injects user, but TypeScript cannot infer through nested groups
           .get('/:itemId/related', async ({ set, params, user }) => {
             const userId = user!.id;
             const itemId = (params as any).itemId as string;
@@ -267,6 +269,7 @@ export function registerKnowledgeRoutes(app: any): any {
           })
 
           // GET /graph
+            // @ts-expect-error - Elysia middleware injects user, but TypeScript cannot infer through nested groups
           .get('/graph', async ({ set, query, user }) => {
             const userId = user!.id;
             const { userKnowledgeService, initializationError } = await getServices();
@@ -336,6 +339,7 @@ export function registerKnowledgeRoutes(app: any): any {
           })
 
           // GET /graph/relationships/:itemId
+            // @ts-expect-error - Elysia middleware injects user, but TypeScript cannot infer through nested groups
           .get('/graph/relationships/:itemId', async ({ set, params, query, user }) => {
             const userId = user!.id;
             const { userKnowledgeService, initializationError } = await getServices();
@@ -388,6 +392,7 @@ export function registerKnowledgeRoutes(app: any): any {
           })
 
           // POST /sync
+            // @ts-expect-error - Elysia middleware injects user, but TypeScript cannot infer through nested groups
           .post('/sync', async ({ set, user }) => {
             const userId = user!.id;
             const { userKnowledgeService, initializationError } = await getServices();
@@ -426,6 +431,7 @@ export function registerKnowledgeRoutes(app: any): any {
       )
 
       // GET /
+            // @ts-expect-error - Elysia middleware injects user, but TypeScript cannot infer through nested groups
       .get('/', async ({ set, query, user }) => {
         if (!user) {
           set.status = 401;
@@ -457,6 +463,7 @@ export function registerKnowledgeRoutes(app: any): any {
       })
 
       // GET /search
+            // @ts-expect-error - Elysia middleware injects user, but TypeScript cannot infer through nested groups
       .get('/search', async ({ set, query, user }) => {
         if (!user) {
           set.status = 401;
