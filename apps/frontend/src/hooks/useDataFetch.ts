@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 
 export interface UseDataFetchOptions {
   /**
@@ -42,35 +42,45 @@ export function useDataFetch<T>(
   const [loading, setLoading] = useState(immediate);
   const [error, setError] = useState<string | null>(null);
 
+  // Use a ref to track the latest request ID to handle race conditions
+  const latestRequestIdRef = useRef(0);
+  const mountedRef = useRef(true);
+
   const fetchData = useCallback(async () => {
-    let mounted = true;
+    // Increment request ID and capture it for this specific call
+    const requestId = ++latestRequestIdRef.current;
 
     try {
       setLoading(true);
       setError(null);
       const result = await fetchFn();
-      if (mounted) {
+
+      // Only update state if this is still the latest request and component is mounted
+      if (mountedRef.current && requestId === latestRequestIdRef.current) {
         setData(result);
       }
     } catch (err) {
-      if (mounted) {
+      // Only update error state if this is still the latest request and component is mounted
+      if (mountedRef.current && requestId === latestRequestIdRef.current) {
         setError(err instanceof Error ? err.message : 'An error occurred');
       }
     } finally {
-      if (mounted) {
+      // Only update loading state if this is still the latest request and component is mounted
+      if (mountedRef.current && requestId === latestRequestIdRef.current) {
         setLoading(false);
       }
     }
-
-    return () => {
-      mounted = false;
-    };
   }, dependencies);
 
   useEffect(() => {
     if (immediate) {
       fetchData();
     }
+
+    return () => {
+      // Mark component as unmounted
+      mountedRef.current = false;
+    };
   }, [fetchData, immediate]);
 
   return { data, loading, error, refetch: fetchData };
