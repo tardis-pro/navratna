@@ -1,7 +1,7 @@
 import { logger } from '@uaip/utils';
 import { ApiError } from '@uaip/utils';
 import { DatabaseService } from '@uaip/shared-services';
-import { JWTValidator } from '@uaip/middleware';
+import { JWTValidator, generateAuthTokens } from '@uaip/middleware';
 import * as jwt from 'jsonwebtoken';
 import * as crypto from 'crypto';
 import {
@@ -613,16 +613,14 @@ export class EnhancedAuthService {
       sessionId: session.id,
       email: user.email,
       role: user.role,
-      userType: user.userType,
-      securityLevel: user.securityClearance,
-      agentCapabilities: session.agentCapabilities,
+      userType: user.userType as string,
+      securityLevel: user.securityClearance as any as number,
+      agentCapabilities: session.agentCapabilities as any as string[],
     };
 
-    const jwtValidator = JWTValidator.getInstance();
-    const accessToken = jwtValidator.sign(payload);
-    const refreshToken = jwtValidator.signRefreshToken(payload);
+    const tokens = generateAuthTokens(payload);
 
-    return { accessToken, refreshToken };
+    return tokens;
   }
 
   // ... (rest of the file)

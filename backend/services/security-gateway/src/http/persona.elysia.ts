@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { logger } from '@uaip/utils';
-import { withRequiredAuth } from './middleware/auth.plugin.js';
+import { withRequiredAuth } from '@uaip/middleware';
 import { DatabaseService, DefaultUserLLMProviderSeed } from '@uaip/shared-services';
 import type { RequiredAuthContext } from './types/elysia-context.js';
 
@@ -68,7 +68,8 @@ export function registerPersonaRoutes(app: any): any {
   return app.group('/api/v1/user/persona', (app: any) =>
     withRequiredAuth(app)
       // GET /
-      .get('/', async ({ set, user }: RequiredAuthContext) => {
+            // @ts-expect-error - Elysia middleware injects user, but TypeScript cannot infer through nested groups
+      .get('/', async ({ set, user }) => {
         try {
           const databaseService = DatabaseService.getInstance();
           const repo = databaseService.getUserRepository();
@@ -94,7 +95,8 @@ export function registerPersonaRoutes(app: any): any {
       })
 
       // PUT /
-      .put('/', async ({ set, body, user }: RequiredAuthContext) => {
+            // @ts-expect-error - Elysia middleware injects user, but TypeScript cannot infer through nested groups
+      .put('/', async ({ set, body, user }) => {
         const validation = UpdatePersonaSchema.safeParse(body);
         if (!validation.success) {
           set.status = 400;
@@ -142,7 +144,8 @@ export function registerPersonaRoutes(app: any): any {
       })
 
       // POST /complete-onboarding
-      .post('/complete-onboarding', async ({ set, body, user }: RequiredAuthContext) => {
+            // @ts-expect-error - Elysia middleware injects user, but TypeScript cannot infer through nested groups
+      .post('/complete-onboarding', async ({ set, body, user }) => {
         const validation = CompleteOnboardingSchema.safeParse(body);
         if (!validation.success) {
           set.status = 400;
@@ -207,7 +210,8 @@ export function registerPersonaRoutes(app: any): any {
       })
 
       // PUT /behavioral-patterns
-      .put('/behavioral-patterns', async ({ set, body, user }: RequiredAuthContext) => {
+            // @ts-expect-error - Elysia middleware injects user, but TypeScript cannot infer through nested groups
+      .put('/behavioral-patterns', async ({ set, body, user }) => {
         const validation = BehavioralPatternsSchema.safeParse(body);
         if (!validation.success) {
           set.status = 400;
@@ -239,7 +243,8 @@ export function registerPersonaRoutes(app: any): any {
       })
 
       // GET /recommendations
-      .get('/recommendations', async ({ set, user }: RequiredAuthContext) => {
+            // @ts-expect-error - Elysia middleware injects user, but TypeScript cannot infer through nested groups
+      .get('/recommendations', async ({ set, user }) => {
         try {
           const repo = DatabaseService.getInstance().getUserRepository();
           const entity = await repo.findById(user!.id);
@@ -258,7 +263,8 @@ export function registerPersonaRoutes(app: any): any {
       })
 
       // POST /track-interaction
-      .post('/track-interaction', async ({ set, body, user }: RequiredAuthContext) => {
+            // @ts-expect-error - Elysia middleware injects user, but TypeScript cannot infer through nested groups
+      .post('/track-interaction', async ({ set, body, user }) => {
         const validation = InteractionTrackingSchema.safeParse(body);
         if (!validation.success) {
           set.status = 400;
@@ -275,7 +281,8 @@ export function registerPersonaRoutes(app: any): any {
       })
 
       // GET /compatible-agents
-      .get('/compatible-agents', async ({ set, user }: RequiredAuthContext) => {
+            // @ts-expect-error - Elysia middleware injects user, but TypeScript cannot infer through nested groups
+      .get('/compatible-agents', async ({ set, user }) => {
         try {
           const repo = DatabaseService.getInstance().getUserRepository();
           const entity = await repo.findById(user!.id);
@@ -292,7 +299,8 @@ export function registerPersonaRoutes(app: any): any {
       })
 
       // GET /optimized-workspace
-      .get('/optimized-workspace', async ({ set, user }: RequiredAuthContext) => {
+            // @ts-expect-error - Elysia middleware injects user, but TypeScript cannot infer through nested groups
+      .get('/optimized-workspace', async ({ set, user }) => {
         try {
           const repo = DatabaseService.getInstance().getUserRepository();
           const entity = await repo.findById(user!.id);

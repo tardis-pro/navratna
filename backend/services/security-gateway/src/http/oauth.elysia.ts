@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { logger } from '@uaip/utils';
-import { withOptionalAuth, withRequiredAuth } from './middleware/auth.plugin.js';
+import { withOptionalAuth, withRequiredAuth } from '@uaip/middleware';
 import { OAuthProviderService } from '../services/oauthProviderService.js';
 import { EnhancedAuthService } from '../services/enhancedAuthService.js';
 import { AuditService } from '../services/auditService.js';
@@ -50,7 +50,7 @@ export function registerOAuthRoutes(app: any): any {
   return app.group('/api/v1/oauth', (app: any) =>
     withOptionalAuth(app)
       // GET /providers
-      .get('/providers', async ({ set, query }: OptionalAuthContext) => {
+      .get('/providers', async ({ set, query }) => {
         try {
           const { oauthProviderService } = getServices();
           const userType = ((query as any).userType as UserType) || UserType.HUMAN;
@@ -75,7 +75,7 @@ export function registerOAuthRoutes(app: any): any {
       })
 
       // POST /authorize
-      .post('/authorize', async ({ set, body, request, headers }: OptionalAuthContext) => {
+      .post('/authorize', async ({ set, body, request, headers }) => {
         try {
           const validated = AuthorizeRequestSchema.parse(body);
           const { oauthProviderService, auditService } = getServices();
@@ -103,7 +103,7 @@ export function registerOAuthRoutes(app: any): any {
       })
 
       // POST /callback
-      .post('/callback', async ({ set, body, request, headers }: OptionalAuthContext) => {
+      .post('/callback', async ({ set, body, request, headers }) => {
         try {
           const validated = CallbackRequestSchema.parse(body);
           const { enhancedAuthService, auditService } = getServices();
@@ -158,7 +158,7 @@ export function registerOAuthRoutes(app: any): any {
       })
 
       // POST /agent/authenticate
-      .post('/agent/authenticate', async ({ set, body, request, headers }: OptionalAuthContext) => {
+      .post('/agent/authenticate', async ({ set, body, request, headers }) => {
         try {
           const validated = AgentAuthRequestSchema.parse(body);
           const { enhancedAuthService, auditService } = getServices();
@@ -214,7 +214,8 @@ export function registerOAuthRoutes(app: any): any {
 
       // POST /connect (requires auth)
       .group('', (g: any) =>
-        withRequiredAuth(g).post('/connect', async ({ set, body, user }: RequiredAuthContext) => {
+            // @ts-expect-error - Elysia middleware injects user, but TypeScript cannot infer through nested groups
+        withRequiredAuth(g).post('/connect', async ({ set, body, user }) => {
           try {
             const { code, state, redirectUri } = body as any;
             if (!code || !state) {
@@ -248,7 +249,8 @@ export function registerOAuthRoutes(app: any): any {
       .group('/agent', (g: any) =>
         withRequiredAuth(g)
           // GitHub operations
-          .post('/github/:providerId', async ({ set, params, body, user }: RequiredAuthContext) => {
+            // @ts-expect-error - Elysia middleware injects user, but TypeScript cannot infer through nested groups
+          .post('/github/:providerId', async ({ set, params, body, user }) => {
             try {
               const validated = z
                 .object({
@@ -305,7 +307,8 @@ export function registerOAuthRoutes(app: any): any {
           })
 
           // Gmail operations
-          .post('/gmail/:providerId', async ({ set, params, body, user }: RequiredAuthContext) => {
+            // @ts-expect-error - Elysia middleware injects user, but TypeScript cannot infer through nested groups
+          .post('/gmail/:providerId', async ({ set, params, body, user }) => {
             try {
               const validated = z
                 .object({

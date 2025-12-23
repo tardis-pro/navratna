@@ -6,7 +6,7 @@ import { z } from 'zod';
 import { config } from '@uaip/config';
 import { logger } from '@uaip/utils';
 import { UserService } from '@uaip/shared-services';
-import { authMiddleware, requireAdmin, csrfProtection, csrfMiddleware } from '@uaip/middleware';
+import { authMiddleware, requireAdmin, csrfProtection, csrfMiddleware, generateAuthTokens } from '@uaip/middleware';
 import { validateRequest } from '@uaip/middleware';
 import { AuditEventType } from '@uaip/types';
 import { AuditService } from '../services/auditService.js';
@@ -85,25 +85,7 @@ async function verifyPassword(password: string, hash: string): Promise<boolean> 
   return await bcrypt.compare(password, hash);
 }
 
-function generateTokens(userId: string, email: string, role: string) {
-  const jwtSecret = config.jwt.secret as string;
-  const refreshSecret = config.jwt.refreshSecret as string;
-
-  if (!jwtSecret || !refreshSecret) {
-    throw new Error('JWT secrets not configured');
-  }
-
-  const accessTokenPayload = { userId, email, role };
-  const refreshTokenPayload = { userId, email, role, type: 'refresh' };
-
-  const accessTokenOptions: SignOptions = { expiresIn: config.jwt.accessTokenExpiry || '15m' };
-  const refreshTokenOptions: SignOptions = { expiresIn: config.jwt.refreshTokenExpiry || '7d' };
-
-  const accessToken = jwt.sign(accessTokenPayload, jwtSecret, accessTokenOptions);
-  const refreshToken = jwt.sign(refreshTokenPayload, refreshSecret, refreshTokenOptions);
-
-  return { accessToken, refreshToken };
-}
+// Token generation now handled by shared generateAuthTokens from @uaip/middleware
 
 // Routes
 
@@ -215,8 +197,8 @@ router.post('/login', csrfMiddleware, validateRequest({ body: loginSchema }), as
     // Successful login - reset failed attempts and update last login
     await userService.resetLoginAttempts(user.id);
 
-    // Generate tokens
-    const tokens = generateTokens(user.id, user.email, user.role);
+    // Generate tokens using shared utility
+    const tokens = generateAuthTokens({ userId: user.id, email: user.email, role: user.role });
 
     // Store refresh token in database using TypeORM
     await userService.createRefreshToken(

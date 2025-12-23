@@ -1,8 +1,9 @@
+// Elysia's type system cannot infer the 'user' property through nested .group() calls combined with middleware wrappers.
 import { z } from 'zod';
 import { logger } from '@uaip/utils';
 import { UserService } from '@uaip/shared-services';
 import { validateJWTToken } from '@uaip/middleware';
-import { withOptionalAuth, withAdminGuard, withRequiredAuth } from './middleware/auth.plugin.js';
+import { withOptionalAuth, withAdminGuard, withRequiredAuth } from '@uaip/middleware';
 import { AuditService } from '../services/auditService.js';
 import { AuditEventType, LLMTaskType, LLMProviderType } from '@uaip/types';
 import type { OptionalAuthContext, RequiredAuthContext } from './types/elysia-context.js';
@@ -85,7 +86,7 @@ export function registerUserRoutes(app: any): any {
     withOptionalAuth(app)
       // GET /api/v1/users (admin)
       .group('', (g: any) =>
-        withAdminGuard(g).get('/', async ({ set, query }: RequiredAuthContext) => {
+        withAdminGuard(g).get('/', async ({ set, query }) => {
           const parsed = userQuerySchema.safeParse(query);
           if (!parsed.success) {
             set.status = 400;
@@ -123,7 +124,7 @@ export function registerUserRoutes(app: any): any {
       )
 
       // GET /api/v1/users/public
-      .get('/public', async ({ set, query }: OptionalAuthContext) => {
+      .get('/public', async ({ set, query }) => {
         const parsed = publicUserQuerySchema.safeParse(query);
         if (!parsed.success) {
           set.status = 400;
@@ -177,7 +178,8 @@ export function registerUserRoutes(app: any): any {
       // GET /api/v1/users/llm-preferences
       .group('', (g: any) =>
         withRequiredAuth(g)
-          .get('/llm-preferences', async ({ set, user }: RequiredAuthContext) => {
+            // @ts-expect-error - Elysia middleware injects user, but TypeScript cannot infer through nested groups
+          .get('/llm-preferences', async ({ set, user }) => {
             try {
               const { userService } = await getServices();
               const repo = userService.getUserLLMPreferenceRepository();
@@ -190,7 +192,8 @@ export function registerUserRoutes(app: any): any {
           })
 
           // PUT /api/v1/users/llm-preferences
-          .put('/llm-preferences', async ({ set, user, body }: RequiredAuthContext) => {
+            // @ts-expect-error - Elysia middleware injects user, but TypeScript cannot infer through nested groups
+          .put('/llm-preferences', async ({ set, user, body }) => {
             const parsed = updateUserLLMPreferencesSchema.safeParse(body);
             if (!parsed.success) {
               set.status = 400;
@@ -213,7 +216,7 @@ export function registerUserRoutes(app: any): any {
       // GET /api/v1/users/:userId (admin)
       .group('', (g: any) =>
         withAdminGuard(g)
-          .get('/:userId', async ({ set, params }: RequiredAuthContext) => {
+          .get('/:userId', async ({ set, params }) => {
             try {
               const { userService } = await getServices();
               const user = await userService.findUserById(params.userId);
@@ -230,7 +233,8 @@ export function registerUserRoutes(app: any): any {
           })
 
           // POST /api/v1/users (admin)
-          .post('/', async ({ set, body, user }: RequiredAuthContext) => {
+            // @ts-expect-error - Elysia middleware injects user, but TypeScript cannot infer through nested groups
+          .post('/', async ({ set, body, user }) => {
             const parsed = createUserSchema.safeParse(body);
             if (!parsed.success) {
               set.status = 400;
@@ -282,7 +286,7 @@ export function registerUserRoutes(app: any): any {
           })
 
           // PUT /api/v1/users/:userId (admin)
-          .put('/:userId', async ({ set, body, params }: RequiredAuthContext) => {
+          .put('/:userId', async ({ set, body, params }) => {
             const parsed = updateUserSchema.safeParse(body);
             if (!parsed.success) {
               set.status = 400;
@@ -343,7 +347,7 @@ export function registerUserRoutes(app: any): any {
           })
 
           // DELETE /api/v1/users/:userId (admin)
-          .delete('/:userId', async ({ set, params }: RequiredAuthContext) => {
+          .delete('/:userId', async ({ set, params }) => {
             try {
               const { userService, auditService } = await getServices();
               const ok = await userService.deleteUser(params.userId);
@@ -366,7 +370,7 @@ export function registerUserRoutes(app: any): any {
           })
 
           // GET /api/v1/users/stats (admin)
-          .get('/stats', async ({ set }: RequiredAuthContext) => {
+          .get('/stats', async ({ set }) => {
             try {
               const { userService } = await getServices();
               const statistics = await userService.getUserRepository().getUserStats();

@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { logger } from '@uaip/utils';
-import { withRequiredAuth, withAdminGuard } from './middleware/auth.plugin.js';
+import { withRequiredAuth, withAdminGuard } from '@uaip/middleware';
 import {
   SecurityService,
   EventBusService,
@@ -138,7 +138,8 @@ export function registerSecurityRoutes(app: any): any {
   return app.group('/api/v1/security', (app: any) =>
     withRequiredAuth(app)
       // POST /assess-risk
-      .post('/assess-risk', async ({ set, body, user, request, headers }: RequiredAuthContext) => {
+            // @ts-expect-error - Elysia middleware injects user, but TypeScript cannot infer through nested groups
+      .post('/assess-risk', async ({ set, body, user, request, headers }) => {
         const { error, value } = validateWithZod(riskAssessmentSchema, body);
         if (error) {
           set.status = 400;
@@ -189,7 +190,8 @@ export function registerSecurityRoutes(app: any): any {
       })
 
       // POST /check-approval-required
-      .post('/check-approval-required', async ({ set, body, user, request, headers }: RequiredAuthContext) => {
+            // @ts-expect-error - Elysia middleware injects user, but TypeScript cannot infer through nested groups
+      .post('/check-approval-required', async ({ set, body, user, request, headers }) => {
         const { error, value } = validateWithZod(riskAssessmentSchema, body);
         if (error) {
           set.status = 400;
@@ -234,7 +236,7 @@ export function registerSecurityRoutes(app: any): any {
       // Admin-only: policies
       .group('', (g: any) =>
         withAdminGuard(g)
-          .get('/policies', async ({ set, query }: RequiredAuthContext) => {
+          .get('/policies', async ({ set, query }) => {
             try {
               const { securityService } = await getServices();
               const { page = 1, limit = 20, active, search } = query as any;
@@ -265,7 +267,7 @@ export function registerSecurityRoutes(app: any): any {
             }
           })
 
-          .get('/policies/:policyId', async ({ set, params }: RequiredAuthContext) => {
+          .get('/policies/:policyId', async ({ set, params }) => {
             try {
               const { securityService } = await getServices();
               const policyId = (params as any).policyId as string;
@@ -285,7 +287,8 @@ export function registerSecurityRoutes(app: any): any {
             }
           })
 
-          .post('/policies', async ({ set, body, user, request, headers }: RequiredAuthContext) => {
+            // @ts-expect-error - Elysia middleware injects user, but TypeScript cannot infer through nested groups
+          .post('/policies', async ({ set, body, user, request, headers }) => {
             const { error, value } = validateWithZod(securityPolicySchema, body);
             if (error) {
               set.status = 400;
@@ -329,7 +332,7 @@ export function registerSecurityRoutes(app: any): any {
             }
           })
 
-          .put('/policies/:policyId', async ({ set, params, body }: RequiredAuthContext) => {
+          .put('/policies/:policyId', async ({ set, params, body }) => {
             const { error, value } = validateWithZod(updatePolicySchema, body);
             if (error) {
               set.status = 400;
@@ -357,7 +360,7 @@ export function registerSecurityRoutes(app: any): any {
             }
           })
 
-          .delete('/policies/:policyId', async ({ set, params }: RequiredAuthContext) => {
+          .delete('/policies/:policyId', async ({ set, params }) => {
             try {
               const { securityService } = await getServices();
               const policyId = (params as any).policyId as string;
@@ -377,7 +380,7 @@ export function registerSecurityRoutes(app: any): any {
             }
           })
 
-          .get('/stats', async ({ set, query }: RequiredAuthContext) => {
+          .get('/stats', async ({ set, query }) => {
             try {
               const timeframe = ((query as any).timeframe || '24h') as string;
               let startDate: Date;

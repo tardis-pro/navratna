@@ -4,8 +4,8 @@ import bcrypt from 'bcrypt';
 import { logger } from '@uaip/utils';
 import { config } from '@uaip/config';
 import { UserService } from '@uaip/shared-services';
-import { validateJWTToken } from '@uaip/middleware';
-import { withOptionalAuth, withRequiredAuth } from './middleware/auth.plugin.js';
+import { validateJWTToken, generateAuthTokens, attachAuth, requireAuth, withOptionalAuth, withRequiredAuth } from '@uaip/middleware';
+// Note: All auth utilities now from shared middleware
 import { AuditService } from '../services/auditService.js';
 import { AuditEventType } from '@uaip/types';
 import type { OptionalAuthContext, RequiredAuthContext } from './types/elysia-context.js';
@@ -46,26 +46,7 @@ const changePasswordSchema = z.object({
     ),
 });
 
-// Helpers
-function generateTokens(userId: string, email: string, role: string) {
-  const jwtSecret = config.jwt.secret as string;
-  const refreshSecret = config.jwt.refreshSecret as string;
-
-  if (!jwtSecret || !refreshSecret) {
-    throw new Error('JWT secrets not configured');
-  }
-
-  const accessTokenPayload = { userId, email, role };
-  const refreshTokenPayload = { userId, email, role, type: 'refresh' };
-
-  const accessTokenOptions: SignOptions = { expiresIn: config.jwt.accessTokenExpiry || '15m' };
-  const refreshTokenOptions: SignOptions = { expiresIn: config.jwt.refreshTokenExpiry || '7d' };
-
-  const accessToken = jwt.sign(accessTokenPayload, jwtSecret, accessTokenOptions);
-  const refreshToken = jwt.sign(refreshTokenPayload, refreshSecret, refreshTokenOptions);
-
-  return { accessToken, refreshToken };
-}
+// Token generation now handled by shared generateAuthTokens from @uaip/middleware
 
 async function getAuthUser(authorization?: string | null) {
   if (!authorization || !authorization.startsWith('Bearer ')) return null;
@@ -84,7 +65,7 @@ export function registerAuthRoutes(app: any): any {
   return app.group('/api/v1/auth', (app: any) =>
     withOptionalAuth(app)
       // POST /login
-      .post('/login', async ({ body, set, request, headers }: OptionalAuthContext) => {
+      .post('/login', async ({ body, set, request, headers }) => {
         const parsed = loginSchema.safeParse(body);
         if (!parsed.success) {
           set.status = 400;
@@ -167,7 +148,7 @@ export function registerAuthRoutes(app: any): any {
 
           // Success
           await userService.resetLoginAttempts(user.id);
-          const tokens = generateTokens(user.id, user.email, user.role);
+          const tokens = generateAuthTokens({ userId: user.id, email: user.email, role: user.role });
           await userService.createRefreshToken(
             user.id,
             tokens.refreshToken,
@@ -211,7 +192,7 @@ export function registerAuthRoutes(app: any): any {
       })
 
       // POST /refresh
-      .post('/refresh', async ({ body, set }: OptionalAuthContext) => {
+      .post('/refresh', async ({ body, set }) => {
         const parsed = refreshTokenSchema.safeParse(body);
         if (!parsed.success) {
           set.status = 400;
@@ -231,11 +212,11 @@ export function registerAuthRoutes(app: any): any {
             return { error: 'Account Inactive', message: 'User account is no longer active' };
           }
 
-          const tokens = generateTokens(
-            tokenData.user.id,
-            tokenData.user.email,
-            tokenData.user.role
-          );
+          const tokens = generateAuthTokens({
+            userId: tokenData.user.id,
+            email: tokenData.user.email,
+            role: tokenData.user.role
+          });
           return {
             success: true,
             data: {
@@ -252,7 +233,7 @@ export function registerAuthRoutes(app: any): any {
       })
 
       // POST /logout
-      .post('/logout', async ({ body, set, headers }: OptionalAuthContext) => {
+      .post('/logout', async ({ body, set, headers }) => {
         try {
           const authUser = await getAuthUser(headers.authorization);
           const { userService, auditService } = await getServices();
@@ -286,7 +267,8 @@ export function registerAuthRoutes(app: any): any {
 
       // POST /change-password (requires auth)
       .group('', (g: any) =>
-        withRequiredAuth(g).post('/change-password', async ({ body, set, user }: RequiredAuthContext) => {
+            // @ts-expect-error - Elysia middleware injects user, but TypeScript cannot infer through nested groups
+        withRequiredAuth(g).post('/change-password', async ({ body, set, user }) => {
           const parsed = changePasswordSchema.safeParse(body);
           if (!parsed.success) {
             set.status = 400;
@@ -339,7 +321,8 @@ export function registerAuthRoutes(app: any): any {
 
       // GET /me
       .group('', (g: any) =>
-        withRequiredAuth(g).get('/me', async ({ set, user }: RequiredAuthContext) => {
+            // @ts-expect-error - Elysia middleware injects user, but TypeScript cannot infer through nested groups
+        withRequiredAuth(g).get('/me', async ({ set, user }) => {
           try {
             const { userService } = await getServices();
             const account = await userService.findUserById(user!.id);

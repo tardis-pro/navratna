@@ -95,15 +95,12 @@ export {
 } from './agentMiddleware.js';
 export type { AgentContext, AgentExecution } from './agentMiddleware.js';
 
-// JWT middleware exports
-export {
-  JWTValidator,
-  createJWTMiddleware,
-  requireRole,
-  requirePermissions,
-  refreshTokenMiddleware,
-} from './jwtMiddleware.js';
-export type { JWTPayload, JWTConfig } from './jwtMiddleware.js';
+// JWT validator exports
+export { JWTValidator } from './JWTValidator.js';
+
+// Token generation exports
+export { generateAuthTokens } from './tokenGenerator.js';
+export type { TokenPayload } from './tokenGenerator.js';
 
 // Error logger exports
 export {

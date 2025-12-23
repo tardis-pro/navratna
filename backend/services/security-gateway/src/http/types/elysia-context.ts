@@ -61,3 +61,14 @@ export type HandlerContext<
   : TAuth extends 'optional'
     ? OptionalAuthContext<TBody, TParams, TQuery>
     : ElysiaContext<TBody, TParams, TQuery>;
+
+/**
+ * Helper to extract authenticated user from Elysia context
+ * Use this when TypeScript can't infer the user from middleware
+ *
+ * @example
+ * const userId = getAuthUser(context).id
+ */
+export function getAuthUser(context: any): AuthUser {
+  return context.user as AuthUser;
+}

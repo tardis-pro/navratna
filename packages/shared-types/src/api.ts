@@ -34,6 +34,38 @@ export type APIResponse<T = unknown> = {
   };
 };
 
+// Standardized response type variations for common patterns
+export interface SuccessResponse<T> {
+  success: true;
+  data: T;
+  message?: string;
+}
+
+export interface ErrorResponse {
+  success: false;
+  error: string;
+  code?: string;
+  details?: any;
+}
+
+export interface PaginatedResponse<T> {
+  success: true;
+  data: T[];
+  pagination: {
+    page: number;
+    pageSize: number;
+    total: number;
+    totalPages: number;
+  };
+}
+
+export interface ValidationErrorResponse extends ErrorResponse {
+  validationErrors: Array<{
+    field: string;
+    message: string;
+  }>;
+}
+
 // API endpoints
 export interface APIEndpoint {
   method: 'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH';
