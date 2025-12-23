@@ -223,9 +223,8 @@ export function registerProjectRoutes(app: any): any {
             return { error: 'Authentication required' };
           }
           const service = await getProjectService();
-          // TODO: getProjectAnalytics expects filters object, not projectId - consider using getProjectMetrics instead
-          const analytics = await service.getProjectAnalytics({});
-          return { success: true, data: analytics };
+          const metrics = await service.getProjectMetrics(params.projectId);
+          return { success: true, data: metrics };
         } catch (error) {
           logger.error('Failed to get project analytics', { error, projectId: params.projectId });
           set.status = 500;
