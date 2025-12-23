@@ -82,11 +82,14 @@ pnpm run test:artifacts:code
 ### Linting
 
 ```bash
-# Lint all packages
-npm run lint
+# Lint all packages (runs across all workspaces)
+pnpm lint
 
 # Auto-fix linting issues
-npm run lint:fix
+pnpm lint:fix
+
+# Watch mode for linting
+pnpm lint:watch
 ```
 
 ## Architecture Overview
@@ -201,18 +204,42 @@ import { logger } from '../../../shared/utils/src/logger';
 
 ## Development Workflow
 
-3. You are in a ec2 work instance, you make a change, its hot reloaded.
-4. always use pupeeter to test some ui things,
-5. **Access system**: Frontend at http://localhost:3000, API docs at http://localhost:8081/docs
+1. You are in an EC2 work instance, changes are hot-reloaded automatically
+2. Always use Puppeteer on port 5173 for UI testing (Vite dev server)
+3. **Access points**:
+   - Frontend (dev): http://localhost:5173
+   - API Gateway: http://localhost:8081
+   - API Documentation: http://localhost:8081/docs
+   - Health checks: http://localhost:8081/health
 
-For focused development, use minimal services: `cd backend && npm run dev:minimal`
+For focused development, use minimal services: `cd backend && pnpm run dev:minimal`
+
+### Additional Useful Commands
+
+```bash
+# SDK Generation
+pnpm generate:sdk              # Generate TypeScript SDK from OpenAPI
+pnpm generate:sdk:watch        # Watch mode for SDK generation
+
+# Code Formatting
+pnpm format                    # Format all files
+pnpm format:check              # Check formatting without changes
+pnpm format:watch              # Watch mode for formatting
+
+# Integration Testing
+pnpm test:integration          # Run all integration tests
+pnpm test:integration:oauth    # Test OAuth flows
+pnpm test:integration:security # Test security features
+pnpm test:integration:coverage # Generate coverage report
+```
 
 ## Testing Access
 
 - Default admin credentials: `admin/admin`
+- Frontend (development): http://localhost:5173
 - API Gateway: http://localhost:8081
+- API Documentation: http://localhost:8081/docs
 - Health checks: http://localhost:8081/health
-- Frontend: http://localhost:3000
 
 ## Key Patterns
 
@@ -234,6 +261,31 @@ For focused development, use minimal services: `cd backend && npm run dev:minima
 - **Event-Driven Chat Communication**: Custom events for clear intent separation between new and resume chat actions
 - **Window Uniqueness**: Only one chat window per agent with proper focus management and duplicate prevention
 - **Universal Knowledge Graph Sync**: Bidirectional synchronization across PostgreSQL, Neo4j, and Qdrant with UUID consistency
+
+## Frontend Architecture
+
+### Technology Stack
+
+- **Framework**: React 18+ with TypeScript
+- **Build Tool**: Vite (development server on port 5173)
+- **UI Components**: shadcn/ui component library
+- **Styling**: Tailwind CSS
+- **API Client**: Centralized in `/apps/frontend/src/utils/api.ts` (2,295 lines - see technical debt plan for refactoring)
+
+### Key Frontend Patterns
+
+- **API Integration**: All API calls go through centralized client with proper error handling
+- **Component Structure**: Modular components with clear separation of concerns
+- **State Management**: Context-based state for user sessions and authentication
+- **Real-time Updates**: WebSocket integration for live discussions and notifications
+- **Modal System**: Z-index layering system (modal: 9999, content: 10000, dropdowns: 10003)
+
+### Important Frontend Files
+
+- `/apps/frontend/src/utils/api.ts` - Central API client (needs refactoring into domain-specific modules)
+- `/apps/frontend/src/components/DesktopUnified.tsx` - Main desktop interface
+- `/apps/frontend/src/components/ChatKnowledgeUploader.tsx` - Multi-platform chat upload
+- `/apps/frontend/src/api/knowledge.api.ts` - Knowledge management endpoints
 
 ## Recent Session Achievements
 
