@@ -185,6 +185,26 @@ export abstract class BaseService {
     }
   }
 
+  /**
+   * Initialize Neo4j graph database with automatic fallback
+   * Services can use this for graph-based features while degrading gracefully if unavailable
+   *
+   * Note: Services should implement their own Neo4j initialization if needed.
+   * This is a helper method that services can override.
+   */
+  protected async initializeNeo4j(neo4jConfig: any): Promise<any> {
+    if (!this.config.enableNeo4j) {
+      logger.debug(`${this.config.name}: Neo4j not enabled in config`);
+      return null;
+    }
+
+    logger.warn(
+      `${this.config.name}: Neo4j initialization should be implemented in service-specific code`
+    );
+    logger.warn('Graph-based features (recommendations, relationships) will be unavailable');
+    return null;
+  }
+
   protected async initializeEventBus(): Promise<void> {
     try {
       await this.eventBusService.connect();
@@ -457,6 +477,46 @@ export abstract class BaseService {
   protected abstract initialize(): Promise<void>;
   protected abstract setupRoutes(): Promise<void>;
   protected abstract checkServiceHealth(): Promise<boolean>;
+
+  /**
+   * Helper method to subscribe to events with automatic error handling and response publishing
+   * Reduces boilerplate in service-specific event handlers
+   */
+  protected async subscribeWithErrorHandling(
+    eventName: string,
+    handler: (data: any) => Promise<any>,
+    options?: {
+      responseEvent?: string;
+      errorEvent?: string;
+      logPrefix?: string;
+    }
+  ): Promise<void> {
+    await this.eventBusService.subscribe(eventName, async (event) => {
+      const prefix = options?.logPrefix || eventName;
+
+      try {
+        const { data } = event.data || event;
+        logger.info(`${prefix}: Processing event`, { data });
+
+        const result = await handler(data);
+
+        if (options?.responseEvent) {
+          await this.eventBusService.publish(options.responseEvent, result);
+        }
+
+        logger.info(`${prefix}: Event processed successfully`, { result });
+      } catch (error) {
+        logger.error(`${prefix}: Failed to process event`, { error });
+
+        if (options?.errorEvent) {
+          await this.eventBusService.publish(options.errorEvent, {
+            error: error instanceof Error ? error.message : String(error),
+            success: false,
+          });
+        }
+      }
+    });
+  }
 
   /**
    * Override this method to setup event subscriptions

@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { logger } from '@uaip/utils';
-import { withAdminGuard, withRequiredAuth } from './middleware/auth.plugin.js';
+import { withAdminGuard, withRequiredAuth } from '@uaip/middleware';
 import { AuditService as DomainAuditService } from '@uaip/shared-services';
 import { AuditService } from '../services/auditService.js';
 import { AuditEventType } from '@uaip/types';

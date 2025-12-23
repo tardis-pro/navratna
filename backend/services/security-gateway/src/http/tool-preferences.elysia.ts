@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { withRequiredAuth } from './middleware/auth.plugin.js';
+import { withRequiredAuth } from '@uaip/middleware';
 import { UserToolPreferencesService, DatabaseService } from '@uaip/shared-services';
 import type { RequiredAuthContext } from './types/elysia-context.js';
 

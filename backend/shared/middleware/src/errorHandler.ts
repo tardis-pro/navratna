@@ -118,3 +118,65 @@ export function buildErrorResponse(
     },
   };
 }
+
+// Async error handler options
+export interface AsyncHandlerOptions {
+  operation: string;
+  logError?: boolean;
+  rethrow?: boolean;
+}
+
+/**
+ * Generic async error handler wrapper
+ * Reduces boilerplate try-catch blocks in route handlers
+ *
+ * @example
+ * const result = await handleAsyncError(
+ *   () => userService.getUser(id),
+ *   { operation: 'Get User' }
+ * );
+ */
+export async function handleAsyncError<T>(
+  handler: () => Promise<T>,
+  options: AsyncHandlerOptions
+): Promise<{ success: boolean; data?: T; error?: string }> {
+  try {
+    const result = await handler();
+    return { success: true, data: result };
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+
+    if (options.logError !== false) {
+      logger.error(`${options.operation} failed`, { error: errorMessage });
+    }
+
+    if (options.rethrow) {
+      throw error;
+    }
+
+    return { success: false, error: errorMessage };
+  }
+}
+
+/**
+ * Create a route-specific error handler
+ * Returns a curried function that handles errors and sets HTTP status
+ *
+ * @example
+ * const handleError = createRouteErrorHandler('Get User');
+ * return handleError(() => userService.getUser(id), set);
+ */
+export function createRouteErrorHandler(operation: string) {
+  return async <T>(
+    handler: () => Promise<T>,
+    set: { status: number }
+  ): Promise<{ success: boolean; data?: T; error?: string }> => {
+    const result = await handleAsyncError(handler, { operation });
+
+    if (!result.success) {
+      set.status = 500;
+    }
+
+    return result;
+  };
+}

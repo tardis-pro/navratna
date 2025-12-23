@@ -4,8 +4,8 @@ import bcrypt from 'bcrypt';
 import { logger } from '@uaip/utils';
 import { config } from '@uaip/config';
 import { UserService } from '@uaip/shared-services';
-import { validateJWTToken } from '@uaip/middleware';
-import { withOptionalAuth, withRequiredAuth } from './middleware/auth.plugin.js';
+import { validateJWTToken, generateAuthTokens, attachAuth, requireAuth } from '@uaip/middleware';
+// Note: withOptionalAuth and withRequiredAuth moved to shared middleware
 import { AuditService } from '../services/auditService.js';
 import { AuditEventType } from '@uaip/types';
 import type { OptionalAuthContext, RequiredAuthContext } from './types/elysia-context.js';
@@ -46,26 +46,7 @@ const changePasswordSchema = z.object({
     ),
 });
 
-// Helpers
-function generateTokens(userId: string, email: string, role: string) {
-  const jwtSecret = config.jwt.secret as string;
-  const refreshSecret = config.jwt.refreshSecret as string;
-
-  if (!jwtSecret || !refreshSecret) {
-    throw new Error('JWT secrets not configured');
-  }
-
-  const accessTokenPayload = { userId, email, role };
-  const refreshTokenPayload = { userId, email, role, type: 'refresh' };
-
-  const accessTokenOptions: SignOptions = { expiresIn: config.jwt.accessTokenExpiry || '15m' };
-  const refreshTokenOptions: SignOptions = { expiresIn: config.jwt.refreshTokenExpiry || '7d' };
-
-  const accessToken = jwt.sign(accessTokenPayload, jwtSecret, accessTokenOptions);
-  const refreshToken = jwt.sign(refreshTokenPayload, refreshSecret, refreshTokenOptions);
-
-  return { accessToken, refreshToken };
-}
+// Token generation now handled by shared generateAuthTokens from @uaip/middleware
 
 async function getAuthUser(authorization?: string | null) {
   if (!authorization || !authorization.startsWith('Bearer ')) return null;
@@ -167,7 +148,7 @@ export function registerAuthRoutes(app: any): any {
 
           // Success
           await userService.resetLoginAttempts(user.id);
-          const tokens = generateTokens(user.id, user.email, user.role);
+          const tokens = generateAuthTokens({ userId: user.id, email: user.email, role: user.role });
           await userService.createRefreshToken(
             user.id,
             tokens.refreshToken,
@@ -231,11 +212,11 @@ export function registerAuthRoutes(app: any): any {
             return { error: 'Account Inactive', message: 'User account is no longer active' };
           }
 
-          const tokens = generateTokens(
-            tokenData.user.id,
-            tokenData.user.email,
-            tokenData.user.role
-          );
+          const tokens = generateAuthTokens({
+            userId: tokenData.user.id,
+            email: tokenData.user.email,
+            role: tokenData.user.role
+          });
           return {
             success: true,
             data: {

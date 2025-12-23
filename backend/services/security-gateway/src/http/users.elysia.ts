@@ -2,7 +2,7 @@ import { z } from 'zod';
 import { logger } from '@uaip/utils';
 import { UserService } from '@uaip/shared-services';
 import { validateJWTToken } from '@uaip/middleware';
-import { withOptionalAuth, withAdminGuard, withRequiredAuth } from './middleware/auth.plugin.js';
+import { withOptionalAuth, withAdminGuard, withRequiredAuth } from '@uaip/middleware';
 import { AuditService } from '../services/auditService.js';
 import { AuditEventType, LLMTaskType, LLMProviderType } from '@uaip/types';
 import type { OptionalAuthContext, RequiredAuthContext } from './types/elysia-context.js';

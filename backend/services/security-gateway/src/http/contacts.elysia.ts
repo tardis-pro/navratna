@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { withRequiredAuth } from './middleware/auth.plugin.js';
+import { withRequiredAuth } from '@uaip/middleware';
 import { AuditService } from '../services/auditService.js';
 import {
   DatabaseService,

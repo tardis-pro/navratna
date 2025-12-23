@@ -210,3 +210,86 @@ export function validateRequestSize(maxSizeBytes: number) {
 export const createCustomValidator = (schema: ZodSchema) => {
   return withValidation({ body: schema });
 };
+
+/**
+ * Generic validator factory - creates a type-safe validator from a Zod schema
+ * Useful for creating reusable validators across the codebase
+ *
+ * @example
+ * const validateUser = createValidator(userSchema);
+ * const user = validateUser(data);
+ */
+export const createValidator = <T extends z.ZodType>(schema: T) => {
+  return (data: unknown): z.infer<T> => {
+    return schema.parse(data);
+  };
+};
+
+/**
+ * Async validator factory - creates a type-safe async validator from a Zod schema
+ * Useful for validators that need to perform async operations (e.g., database checks)
+ *
+ * @example
+ * const validateUserAsync = createAsyncValidator(userSchemaWithDb);
+ * const user = await validateUserAsync(data);
+ */
+export const createAsyncValidator = <T extends z.ZodType>(schema: T) => {
+  return async (data: unknown): Promise<z.infer<T>> => {
+    return schema.parseAsync(data);
+  };
+};
+
+/**
+ * Common validation schemas for reuse across the application
+ * Reduces duplicate schema definitions and ensures consistency
+ */
+export const commonSchemas = {
+  // UUID validation
+  uuid: z.string().uuid('Invalid UUID format'),
+
+  // Email validation
+  email: z.string().email('Invalid email format'),
+
+  // URL validation
+  url: z.string().url('Invalid URL format'),
+
+  // Pagination schema
+  pagination: z.object({
+    page: z.number().int().min(1).default(1),
+    pageSize: z.number().int().min(1).max(100).default(20),
+  }),
+
+  // Date range validation
+  dateRange: z.object({
+    startDate: z.string().datetime('Invalid start date format'),
+    endDate: z.string().datetime('Invalid end date format'),
+  }).refine(
+    (data) => new Date(data.startDate) <= new Date(data.endDate),
+    { message: 'Start date must be before or equal to end date' }
+  ),
+
+  // ID validation (numeric or UUID)
+  id: z.union([
+    z.string().uuid(),
+    z.number().int().positive(),
+  ]),
+
+  // Optional ID
+  optionalId: z.union([
+    z.string().uuid(),
+    z.number().int().positive(),
+  ]).optional(),
+
+  // Search query
+  searchQuery: z.object({
+    q: z.string().min(1, 'Search query cannot be empty'),
+    limit: z.number().int().min(1).max(100).default(20),
+    offset: z.number().int().min(0).default(0),
+  }),
+
+  // Sort parameters
+  sort: z.object({
+    sortBy: z.string().optional(),
+    sortOrder: z.enum(['asc', 'desc', 'ASC', 'DESC']).default('desc'),
+  }),
+};

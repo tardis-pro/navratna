@@ -1,4 +1,4 @@
-import { withOptionalAuth, withRequiredAuth } from './middleware/auth.plugin.js';
+import { withOptionalAuth, withRequiredAuth } from '@uaip/middleware';
 import { z } from 'zod';
 import {
   servicesHealthCheck,

@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { logger } from '@uaip/utils';
 import { ProjectManagementService, DatabaseService, EventBusService } from '@uaip/shared-services';
-import { withOptionalAuth } from './middleware/auth.plugin.js';
+import { withOptionalAuth } from '@uaip/middleware';
 import type { OptionalAuthContext } from './types/elysia-context.js';
 import { ProjectStatus } from '@uaip/types';
 

@@ -1,4 +1,4 @@
-import { withAdminGuard, withRequiredAuth } from './middleware/auth.plugin.js';
+import { withAdminGuard, withRequiredAuth } from '@uaip/middleware';
 import { logger } from '@uaip/utils';
 import { UserService } from '@uaip/shared-services';
 import { z } from 'zod';

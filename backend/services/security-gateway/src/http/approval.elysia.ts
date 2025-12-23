@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { logger } from '@uaip/utils';
-import { withRequiredAuth, withOperatorGuard } from './middleware/auth.plugin.js';
+import { withRequiredAuth, withOperatorGuard } from '@uaip/middleware';
 import { AuditService } from '../services/auditService.js';
 import { ApprovalWorkflowService } from '../services/approvalWorkflowService.js';
 import { DatabaseService, EventBusService } from '@uaip/shared-services';

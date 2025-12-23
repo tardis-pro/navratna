@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { logger } from '@uaip/utils';
-import { withRequiredAuth } from './middleware/auth.plugin.js';
+import { withRequiredAuth } from '@uaip/middleware';
 import { DatabaseService, DefaultUserLLMProviderSeed } from '@uaip/shared-services';
 import type { RequiredAuthContext } from './types/elysia-context.js';
 
