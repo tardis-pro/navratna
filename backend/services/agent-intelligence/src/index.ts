@@ -481,6 +481,8 @@ class AgentIntelligenceService extends BaseService {
               const isValidationError =
                 message.includes('Discussion title is required') ||
                 message.includes('Discussion topic is required') ||
+                message.includes('Discussion title must be') ||
+                message.includes('Discussion topic must be') ||
                 message.includes('Discussion requires at least 1 initial participant') ||
                 message.includes('Participant agentId is required') ||
                 message.includes('Agent not found');
@@ -770,6 +772,11 @@ class AgentIntelligenceService extends BaseService {
     // Subscribe to conversation enhancement requests from discussion orchestration
     await this.eventBusService.subscribe('conversation.enhancement.request', async (event) => {
       try {
+        if (!event?.data) {
+          logger.warn('Conversation enhancement request missing payload');
+          return;
+        }
+
         const {
           discussionId,
           availableAgentIds,
@@ -778,6 +785,15 @@ class AgentIntelligenceService extends BaseService {
           enhancementType,
           context,
         } = event.data;
+
+        if (!this.conversationEnhancementService) {
+          this.conversationEnhancementService = new ConversationEnhancementService(
+            this.databaseService,
+            this.eventBusService
+          );
+          await this.conversationEnhancementService.initialize();
+          logger.info('ConversationEnhancementService initialized on demand');
+        }
 
         logger.info('Processing conversation enhancement request', {
           discussionId,
@@ -825,15 +841,21 @@ class AgentIntelligenceService extends BaseService {
 
             if (participant) {
               // Send enhanced response back to discussion orchestration
-              await this.eventBusService.publish('discussion.message.send', {
+              const isInitialParticipation =
+                (discussion?.state?.messageCount ?? context?.messageCount ?? messageHistory?.length ?? 0) ===
+                0;
+
+              await this.eventBusService.publish('discussion.agent.message', {
                 discussionId,
                 participantId: participant.id,
                 content: result.enhancedResponse,
                 messageType: 'agent_contribution',
+                isInitialParticipation,
                 metadata: {
                   agentId: result.selectedAgent?.id,
                   personaId: result.selectedPersona?.id,
                   enhancementType: 'contextual',
+                  isInitialParticipation,
                   contributionScore: result.contributionScores?.[0]?.score,
                   suggestions: result.suggestions || [],
                   nextActions: result.nextActions || [],

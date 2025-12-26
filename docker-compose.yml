@@ -31,7 +31,7 @@ services:
       - uaip-network
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U uaip_user -d uaip"]
-      interval: 30s
+      interval: 300s
       timeout: 10s
       retries: 5
 
@@ -61,7 +61,7 @@ services:
       - uaip-network
     healthcheck:
       test: ["CMD", "cypher-shell", "-u", "neo4j", "-p", "uaip_dev_password", "RETURN 1"]
-      interval: 30s
+      interval: 300s
       timeout: 10s
       retries: 5
 
@@ -99,7 +99,7 @@ services:
       - uaip-network
     healthcheck:
       test: ["CMD-SHELL", "timeout 5s bash -c '</dev/tcp/localhost/6333'"]
-      interval: 30s
+      interval: 300s
       timeout: 10s
       retries: 3
 
@@ -123,7 +123,7 @@ services:
       - uaip-network
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:80/health"]
-      interval: 30s
+      interval: 300s
       timeout: 10s
       retries: 3
       start_period: 60s
@@ -151,7 +151,7 @@ services:
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8083/health"]
-      interval: 30s
+      interval: 300s
       timeout: 10s
       retries: 3
       start_period: 60s
@@ -176,7 +176,7 @@ services:
       - uaip-network
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:80/health"]
-      interval: 30s
+      interval: 300s
       timeout: 10s
       retries: 3
       start_period: 30s
@@ -197,7 +197,7 @@ services:
       - uaip-network
     healthcheck:
       test: rabbitmq-diagnostics -q ping
-      interval: 30s
+      interval: 300s
       timeout: 30s
       retries: 3
 
@@ -221,7 +221,7 @@ services:
       - uaip-network
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
-      interval: 30s
+      interval: 300s
       timeout: 20s
       retries: 3
 
@@ -279,20 +279,20 @@ services:
     depends_on:
       
       postgres:
-        condition: service_healthy
+        condition: service_started
       neo4j:
-        condition: service_healthy
+        condition: service_started
       redis:
-        condition: service_healthy
+        condition: service_started
       qdrant:
-        condition: service_healthy
+        condition: service_started
       rabbitmq:
-        condition: service_healthy
+        condition: service_started
     networks:
       - uaip-network
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:3001/health"]
-      interval: 30s
+      interval: 300s
       timeout: 10s
       retries: 3
 
@@ -330,18 +330,18 @@ services:
     depends_on:
       
       postgres:
-        condition: service_healthy
+        condition: service_started
       neo4j:
-        condition: service_healthy
+        condition: service_started
       redis:
-        condition: service_healthy
+        condition: service_started
       rabbitmq:
-        condition: service_healthy
+        condition: service_started
     networks:
       - uaip-network
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:3002/health"]
-      interval: 30s
+      interval: 300s
       timeout: 10s
       retries: 3
 
@@ -388,20 +388,20 @@ services:
     depends_on:
       
       postgres:
-        condition: service_healthy
+        condition: service_started
       neo4j:
-        condition: service_healthy
+        condition: service_started
       redis:
-        condition: service_healthy
+        condition: service_started
       qdrant:
-        condition: service_healthy
+        condition: service_started
       rabbitmq:
-        condition: service_healthy
+        condition: service_started
     networks:
       - uaip-network
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:3003/health"]
-      interval: 30s
+      interval: 300s
       timeout: 10s
       retries: 3
 
@@ -443,18 +443,18 @@ services:
     depends_on:
       
       postgres:
-        condition: service_healthy
+        condition: service_started
       neo4j:
-        condition: service_healthy
+        condition: service_started
       redis:
-        condition: service_healthy
+        condition: service_started
       rabbitmq:
-        condition: service_healthy
+        condition: service_started
     networks:
       - uaip-network
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:3005/health"]
-      interval: 30s
+      interval: 300s
       timeout: 10s
       retries: 3
 
@@ -503,22 +503,22 @@ services:
     depends_on:
       
       postgres:
-        condition: service_healthy
+        condition: service_started
       qdrant:
-        condition: service_healthy
+        condition: service_started
       redis:
-        condition: service_healthy
+        condition: service_started
       rabbitmq:
-        condition: service_healthy
+        condition: service_started
       minio:
-        condition: service_healthy
+        condition: service_started
       tei-embeddings-cpu:
-        condition: service_healthy
+        condition: service_started
     networks:
       - uaip-network
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:3004/health"]
-      interval: 30s
+      interval: 300s
       timeout: 10s
       retries: 3
 
@@ -556,16 +556,16 @@ services:
     depends_on:
       
       postgres:
-        condition: service_healthy
+        condition: service_started
       redis:
-        condition: service_healthy
+        condition: service_started
       rabbitmq:
-        condition: service_healthy
+        condition: service_started
     networks:
       - uaip-network
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:3006/health"]
-      interval: 30s
+      interval: 300s
       timeout: 10s
       retries: 3
 
@@ -607,16 +607,16 @@ services:
     depends_on:
       
       postgres:
-        condition: service_healthy
+        condition: service_started
       redis:
-        condition: service_healthy
+        condition: service_started
       rabbitmq:
-        condition: service_healthy
+        condition: service_started
     networks:
       - uaip-network
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:3007/health"]
-      interval: 30s
+      interval: 300s
       timeout: 10s
       retries: 3
 
@@ -671,7 +671,7 @@ services:
       - uaip-network
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost/health"]
-      interval: 30s
+      interval: 300s
       timeout: 10s
       retries: 3
 
@@ -693,6 +693,35 @@ services:
       - '--web.console.templates=/etc/prometheus/consoles'
       - '--web.enable-lifecycle'
 
+  loki:
+    image: grafana/loki:2.9.8
+    container_name: uaip-loki
+    ports:
+      - "3100:3100"
+    volumes:
+      - ./monitoring/loki/loki-config.yml:/etc/loki/loki-config.yml
+      - loki_data:/loki
+    command:
+      - '--config.file=/etc/loki/loki-config.yml'
+    networks:
+      - uaip-network
+
+  promtail:
+    image: grafana/promtail:3.0.0
+    container_name: uaip-promtail
+    environment:
+      - DOCKER_API_VERSION=1.44
+    volumes:
+      - ./monitoring/promtail/promtail-config.yml:/etc/promtail/promtail-config.yml
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+      - /var/run/docker.sock:/var/run/docker.sock
+    command:
+      - '--config.file=/etc/promtail/promtail-config.yml'
+    networks:
+      - uaip-network
+    depends_on:
+      - loki
+
   # Infrastructure Exporters
   postgres-exporter:
     image: prometheuscommunity/postgres-exporter:latest
@@ -705,7 +734,7 @@ services:
       - uaip-network
     depends_on:
       postgres:
-        condition: service_healthy
+        condition: service_started
     restart: unless-stopped
 
   redis-exporter:
@@ -720,7 +749,7 @@ services:
       - uaip-network
     depends_on:
       redis:
-        condition: service_healthy
+        condition: service_started
     restart: unless-stopped
 
   node-exporter:
@@ -770,13 +799,13 @@ services:
       - uaip-network
     depends_on:
       api-gateway:
-        condition: service_healthy
+        condition: service_started
     command:
       - '-nginx.scrape-uri=http://api-gateway:80/nginx_status'
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "wget", "-q", "--spider", "http://localhost:9113/metrics"]
-      interval: 30s
+      interval: 300s
       timeout: 10s
       retries: 3
 
@@ -794,6 +823,7 @@ services:
       - uaip-network
     depends_on:
       - prometheus
+      - loki
 
 volumes:
   postgres_data:
@@ -808,6 +838,7 @@ volumes:
   minio_config:
   prometheus_data:
   grafana_data:
+  loki_data:
   # TEI Data Volumes
   tei_embeddings_data:
   tei_reranker_data:

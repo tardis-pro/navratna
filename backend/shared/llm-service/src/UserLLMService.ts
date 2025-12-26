@@ -24,6 +24,7 @@ import {
 } from '@uaip/shared-services';
 import { LLMTaskType } from '@uaip/types';
 import { logger } from '@uaip/utils';
+import { recordLLMRequest } from '@uaip/middleware';
 
 export class UserLLMService {
   private userLLMProviderRepository: UserLLMProviderRepository | null = null;
@@ -349,6 +350,16 @@ export class UserLLMService {
         isError: !!response.error,
       });
 
+      recordLLMRequest({
+        agentId: request.agentId,
+        provider: provider.type,
+        model: response.model || request.model,
+        requestType: 'user',
+        status: response.error ? 'failure' : 'success',
+        durationMs: duration,
+        tokensUsed: response.tokensUsed,
+      });
+
       return response;
     } catch (error) {
       const duration = Date.now() - startTime;
@@ -356,6 +367,15 @@ export class UserLLMService {
         userId,
         error: error instanceof Error ? error.message : error,
         duration,
+      });
+
+      recordLLMRequest({
+        agentId: request.agentId,
+        provider: provider?.type,
+        model: request.model,
+        requestType: 'user',
+        status: 'failure',
+        durationMs: duration,
       });
 
       return {

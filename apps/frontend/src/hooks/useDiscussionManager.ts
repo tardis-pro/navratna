@@ -47,6 +47,15 @@ export interface DiscussionManagerHook {
 }
 
 // WebSocket event types are now imported from uaip-api service
+const TITLE_PREFIX = 'Discussion: ';
+const MAX_TITLE_LENGTH = 255;
+const MAX_TOPIC_LENGTH = 1000;
+
+const truncateText = (value: string, maxLength: number): string => {
+  if (value.length <= maxLength) return value;
+  if (maxLength <= 3) return value.slice(0, maxLength);
+  return `${value.slice(0, maxLength - 3)}...`;
+};
 
 export function useDiscussionManager(config: DiscussionManagerConfig): DiscussionManagerHook {
   const { user: currentUser, isLoading, isAuthenticated } = useAuth();
@@ -280,12 +289,17 @@ export function useDiscussionManager(config: DiscussionManagerConfig): Discussio
         role: moderatorId === agentId ? 'moderator' : 'participant',
       }));
 
+      const rawTopic = config.topic || 'General Discussion';
+      const discussionTopic = truncateText(rawTopic, MAX_TOPIC_LENGTH);
+      const titleTopic = truncateText(rawTopic, MAX_TITLE_LENGTH - TITLE_PREFIX.length);
+      const discussionTitle = `${TITLE_PREFIX}${titleTopic}`;
+
       // If no agents available, create discussion without initial participants
       // (they can be added later via addAgent)
       const discussion = await uaipAPI.discussions.create({
-        title: `Discussion: ${config.topic}`,
-        description: `A collaborative discussion about ${config.topic}`,
-        topic: config.topic,
+        title: discussionTitle,
+        description: `A collaborative discussion about ${discussionTopic}`,
+        topic: discussionTopic,
         createdBy: user.id, // Use actual authenticated user ID
         turnStrategy: turnStrategyConfig,
         initialParticipants: initialParticipants, // Use actual agents or empty array

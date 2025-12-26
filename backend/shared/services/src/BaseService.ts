@@ -1,5 +1,7 @@
 import { createAppServer, type AppServer } from './http-app.js';
 import { logger } from '@uaip/utils';
+import { config } from '@uaip/config';
+import { metricsEndpoint, metricsMiddleware } from '@uaip/middleware';
 // Express middlewares are not compatible with Elysia; implement minimal handlers inline
 import { DatabaseService } from './databaseService.js';
 import { EventBusService } from './eventBusService.js';
@@ -72,6 +74,8 @@ export abstract class BaseService {
   }
 
   protected setupBaseMiddleware(): void {
+    this.app = metricsMiddleware(this.app);
+
     // Basic request logging and request id
     this.app.onRequest(({ request, set }) => {
       const id = request.headers.get('x-request-id') || `${Date.now()}-${Math.random()}`;
@@ -139,8 +143,13 @@ export abstract class BaseService {
       node: process.version,
     }));
 
-    // Metrics endpoint (basic placeholder)
-    this.app.get('/metrics', () => 'uaip_up 1\n');
+    // Metrics endpoint
+    this.app.get('/metrics', async () => {
+      if (!config.monitoring.metricsEnabled) {
+        return 'uaip_up 1\n';
+      }
+      return metricsEndpoint();
+    });
   }
 
   protected setup404Handler(): void {

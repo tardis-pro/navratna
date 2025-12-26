@@ -107,6 +107,19 @@ export function getAPIClient() {
   return api;
 }
 
+const setAccessTokenCookie = (token?: string | null) => {
+  if (typeof document === 'undefined') return;
+
+  const secureFlag = window.location?.protocol === 'https:' ? '; secure' : '';
+
+  if (!token) {
+    document.cookie = `access_token=; path=/; max-age=0; samesite=strict${secureFlag}`;
+    return;
+  }
+
+  document.cookie = `access_token=${token}; path=/; samesite=strict${secureFlag}`;
+};
+
 // ============================================================================
 // WEBSOCKET CLIENT (REMOVED - Using useWebSocket hook instead)
 // ============================================================================
@@ -122,6 +135,7 @@ export const uaipAPI = {
       getAuthToken: () => APIClient.getAuthToken(),
       setAuthToken: (token: string | null, refreshToken?: string, rememberMe?: boolean) => {
         APIClient.setAuthToken(token);
+        setAccessTokenCookie(token || undefined);
         if (refreshToken) localStorage.setItem('refreshToken', refreshToken);
         if (rememberMe) {
           localStorage.setItem('accessToken', token || '');
@@ -133,6 +147,7 @@ export const uaipAPI = {
       },
       clearAuth: () => {
         APIClient.clearAuthToken();
+        setAccessTokenCookie(null);
         localStorage.removeItem('accessToken');
         localStorage.removeItem('refreshToken');
         sessionStorage.removeItem('accessToken');
@@ -159,6 +174,7 @@ export const uaipAPI = {
         rememberMe?: boolean;
       }) => {
         APIClient.setAuthToken(context.token);
+        setAccessTokenCookie(context.token);
         const storage = context.rememberMe ? localStorage : sessionStorage;
         storage.setItem('accessToken', context.token);
         storage.setItem('userId', context.userId);

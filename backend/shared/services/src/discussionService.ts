@@ -63,14 +63,21 @@ export class DiscussionService {
 
   async createDiscussion(request: CreateDiscussionRequest): Promise<DiscussionType> {
     try {
+      const normalizedTitle = request.title?.trim() ?? '';
+      const normalizedTopic = request.topic?.trim() ?? '';
+
       logger.info('Creating discussion', {
-        title: request.title,
+        title: normalizedTitle,
         createdBy: request.createdBy,
         participantCount: request.initialParticipants?.length,
       });
 
       // Validate discussion request
-      await this.validateDiscussionRequest(request);
+      await this.validateDiscussionRequest({
+        ...request,
+        title: normalizedTitle,
+        topic: normalizedTopic,
+      });
 
       // Initialize discussion state
       const initialState = {
@@ -90,8 +97,8 @@ export class DiscussionService {
 
       // Create discussion in database
       const discussionData = {
-        title: request.title,
-        topic: request.topic,
+        title: normalizedTitle,
+        topic: normalizedTopic,
         description: request.description,
         documentId: request.documentId,
         operationId: request.operationId,
@@ -976,6 +983,19 @@ export class DiscussionService {
 
     if (!request.topic || request.topic.trim().length === 0) {
       throw new Error('Discussion topic is required');
+    }
+
+    const titleLength = request.title.trim().length;
+    const topicLength = request.topic.trim().length;
+    const maxTitleLength = 255;
+    const maxTopicLength = 1000;
+
+    if (titleLength > maxTitleLength) {
+      throw new Error(`Discussion title must be ${maxTitleLength} characters or fewer`);
+    }
+
+    if (topicLength > maxTopicLength) {
+      throw new Error(`Discussion topic must be ${maxTopicLength} characters or fewer`);
     }
 
     if (!request.initialParticipants || request.initialParticipants.length < 1) {

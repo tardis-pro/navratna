@@ -340,8 +340,12 @@ class DiscussionOrchestrationServer extends BaseService {
     // Subscribe to agent messages for discussions
     await this.eventBusService.subscribe('discussion.agent.message', async (event) => {
       try {
-        const { discussionId, participantId, agentId, content, messageType, metadata } =
+        const { discussionId, participantId, agentId, content, messageType, metadata, isInitialParticipation } =
           event.data || event;
+        const mergedMetadata = {
+          ...(metadata || {}),
+          ...(isInitialParticipation === true ? { isInitialParticipation: true } : {}),
+        };
 
         logger.info('Processing agent message for discussion', {
           discussionId,
@@ -358,7 +362,7 @@ class DiscussionOrchestrationServer extends BaseService {
           participantId,
           content,
           messageType || 'message',
-          metadata
+          mergedMetadata
         );
 
         if (result.success) {

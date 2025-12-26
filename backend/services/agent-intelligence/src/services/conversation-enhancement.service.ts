@@ -7,6 +7,7 @@
  */
 
 import { EventEmitter } from 'events';
+import { randomUUID } from 'crypto';
 import { logger } from '@uaip/utils';
 import { Persona, Agent, Discussion, DiscussionParticipant } from '@uaip/types';
 import { DatabaseService, EventBusService, LLMRequestTracker } from '@uaip/shared-services';
@@ -275,9 +276,18 @@ export class ConversationEnhancementService extends EventEmitter {
 
         // Use user's LLM provider if available, otherwise fallback to system
         if (userId) {
+          const isUuid = (value: string | null | undefined) =>
+            !!value &&
+            /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value);
+          const safeAgentId = isUuid(agentId)
+            ? agentId
+            : isUuid(userId)
+              ? userId
+              : randomUUID();
+
           // Create a basic agent structure for the request
           const agentData = {
-            id: 'ai-agent',
+            id: safeAgentId,
             name: 'AI Assistant',
             persona: {
               description: 'An intelligent conversation participant',
