@@ -57,7 +57,7 @@ export class ConversationIntelligenceHandler {
       try {
         this.logger.info('New conversation intelligence connection attempt', {
           socketId: socket.id,
-          remoteAddress: socket.request.connection.remoteAddress,
+          remoteAddress: socket.handshake?.address || 'unknown',
         });
 
         // Authenticate the connection with proper error handling

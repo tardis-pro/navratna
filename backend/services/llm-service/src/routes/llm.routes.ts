@@ -227,7 +227,7 @@ export function registerLLMRoutes(
         logger.info('Manual model bootstrap refresh requested');
 
         // Run bootstrap in background
-        modelBootstrapService.bootstrapAllModels().catch((error) => {
+        modelBootstrapService.bootstrapAllModels({ force: true }).catch((error) => {
           logger.error('Manual model bootstrap failed', { error });
         });
 

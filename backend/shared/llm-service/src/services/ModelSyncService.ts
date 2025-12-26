@@ -2,6 +2,9 @@ import { LLMModel, LLMModelRepository, UserLLMProviderRepository } from '@uaip/s
 import { DataSource } from 'typeorm';
 import { logger } from '@uaip/utils';
 import { BaseProvider } from '../providers/BaseProvider.js';
+import { OllamaProvider } from '../providers/OllamaProvider.js';
+import { LLMStudioProvider } from '../providers/LLMStudioProvider.js';
+import { OpenAIProvider } from '../providers/OpenAIProvider.js';
 
 export interface ModelSyncResult {
   providerId: string;
@@ -137,7 +140,7 @@ export class ModelSyncService {
   /**
    * Sync models for all active providers
    */
-  async syncAllProvidersModels(providers: Map<string, BaseProvider>): Promise<ModelSyncResult[]> {
+  async syncAllProvidersModels(): Promise<ModelSyncResult[]> {
     const results: ModelSyncResult[] = [];
 
     // Get all active user providers from database
@@ -148,12 +151,17 @@ export class ModelSyncService {
     });
 
     for (const dbProvider of dbProviders) {
-      const provider = providers.get(dbProvider.type);
-      if (!provider) {
+      let provider: BaseProvider | null = null;
+      try {
+        provider = this.createProviderInstance(dbProvider);
+      } catch (error) {
         logger.warn('Provider implementation not found', {
           providerId: dbProvider.id,
           providerType: dbProvider.type,
+          error,
         });
+      }
+      if (!provider) {
         continue;
       }
 
@@ -176,6 +184,24 @@ export class ModelSyncService {
     });
 
     return results;
+  }
+
+  private createProviderInstance(dbProvider: any): BaseProvider {
+    const config = dbProvider.getProviderConfig();
+
+    switch (dbProvider.type) {
+      case 'ollama':
+        return new OllamaProvider(config, dbProvider.name);
+      case 'llmstudio':
+        return new LLMStudioProvider(config, dbProvider.name);
+      case 'openai':
+      case 'anthropic':
+      case 'custom':
+      case 'google':
+        return new OpenAIProvider(config, dbProvider.name);
+      default:
+        throw new Error(`Unsupported provider type: ${dbProvider.type}`);
+    }
   }
 
   /**

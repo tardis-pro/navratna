@@ -461,6 +461,9 @@ class LLMServiceServer extends BaseService {
       const { llmService } = await import('@uaip/llm-service');
       await llmService.refreshProviders();
 
+      // Force a model bootstrap to sync provider models to the database
+      await this.modelBootstrapService.bootstrapAllModels({ force: true });
+
       // If this is an agent config change, clear any cached agent configurations
       if (eventType === 'agent-config-changed' && agentId) {
         logger.info('Clearing agent configuration cache', { agentId });

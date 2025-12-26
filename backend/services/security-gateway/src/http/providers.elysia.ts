@@ -1,6 +1,6 @@
 import { withAdminGuard, withRequiredAuth } from '@uaip/middleware';
 import { logger } from '@uaip/utils';
-import { UserService } from '@uaip/shared-services';
+import { EventBusService, UserService } from '@uaip/shared-services';
 import { z } from 'zod';
 import { llmProviderManagementService } from '../services/llmProviderManagementService.js';
 import type { RequiredAuthContext } from './types/elysia-context.js';
@@ -63,6 +63,15 @@ const ROLE_LIMITS: Record<string, number> = {
   moderator: 5,
   admin: 10,
   system: 50,
+};
+
+let eventBusService: EventBusService | null = null;
+
+const getEventBusService = (): EventBusService => {
+  if (!eventBusService) {
+    eventBusService = EventBusService.getInstance();
+  }
+  return eventBusService;
 };
 
 export function registerProviderRoutes(app: any): any {
@@ -316,6 +325,19 @@ export function registerProviderRoutes(app: any): any {
                 providerId: saved.id,
                 providerType: saved.type,
               });
+              try {
+                await getEventBusService().publish('llm.provider.changed', {
+                  eventType: 'provider.created',
+                  providerId: saved.id,
+                  providerType: saved.type,
+                  userId: user!.id,
+                });
+              } catch (eventError) {
+                logger.warn('Failed to publish provider created event', {
+                  providerId: saved.id,
+                  error: eventError,
+                });
+              }
               set.status = 201;
               return { success: true, data: toSafeProvider(saved) };
             } catch (error: any) {
@@ -366,6 +388,21 @@ export function registerProviderRoutes(app: any): any {
                 await repo.updateStatus((params as any).id, v.status as any, user!.id);
               }
               const updatedProvider = await repo.findById((params as any).id);
+              if (updatedProvider) {
+                try {
+                  await getEventBusService().publish('llm.provider.changed', {
+                    eventType: 'provider.updated',
+                    providerId: updatedProvider.id,
+                    providerType: updatedProvider.type,
+                    userId: user!.id,
+                  });
+                } catch (eventError) {
+                  logger.warn('Failed to publish provider updated event', {
+                    providerId: updatedProvider.id,
+                    error: eventError,
+                  });
+                }
+              }
               return { success: true, data: toSafeProvider(updatedProvider!) };
             } catch (error) {
               logger.error('Error updating user LLM provider', { error });
@@ -378,7 +415,25 @@ export function registerProviderRoutes(app: any): any {
           .delete('/my-providers/:id', async ({ set, params, user }) => {
             try {
               const repo = UserService.getInstance().getUserLLMProviderRepository();
+              const provider = await repo.findById((params as any).id);
+              if (!provider || provider.userId !== user!.id) {
+                set.status = 404;
+                return { success: false, error: 'LLM provider not found' };
+              }
               await repo.deleteUserProvider((params as any).id, user!.id);
+              try {
+                await getEventBusService().publish('llm.provider.changed', {
+                  eventType: 'provider.deleted',
+                  providerId: provider.id,
+                  providerType: provider.type,
+                  userId: user!.id,
+                });
+              } catch (eventError) {
+                logger.warn('Failed to publish provider deleted event', {
+                  providerId: provider.id,
+                  error: eventError,
+                });
+              }
               return { success: true, message: 'LLM provider deleted successfully' };
             } catch (error: any) {
               logger.error('Error deleting user LLM provider', { error });

@@ -1,7 +1,7 @@
 import { BaseService, DiscussionService, PersonaService } from '@uaip/shared-services';
 import { LLMService, UserLLMService } from '@uaip/llm-service';
-import { DiscussionEventType, LLMTaskType, UserContext } from '@uaip/types';
-import { attachNginxAuth, requireNginxAuth } from '@uaip/middleware';
+import { DiscussionEventType, LLMTaskType } from '@uaip/types';
+import { attachNginxAuth, requireNginxAuth, UserContext } from '@uaip/middleware';
 import { ConversationEnhancementService } from './services/conversation-enhancement.service.js';
 import { AgentDiscussionService } from './services/agent-discussion.service.js';
 import { AgentCoreService } from './services/agent-core.service.js';
@@ -263,17 +263,18 @@ class AgentIntelligenceService extends BaseService {
     });
 
     // Discussion routes that require authentication (nginx forwards X-User-ID)
-    this.app
-      .use(attachNginxAuth)
-      .use(requireNginxAuth)
-      .group('/api/v1/discussions', (app) =>
-        app
+    this.app.group('/api/v1/discussions', (app) =>
+      app
+        .use(attachNginxAuth)
+        .use(requireNginxAuth)
           // Create discussion
-          .post('', async ({ body, set, user }) => {
+          .post('', async (context) => {
+            const { body, set } = context;
+            const user = (context as unknown as { user: UserContext }).user;
             try {
               const discussion = await this.discussionService.createDiscussion({
                 ...(body as any),
-                createdBy: (user as UserContext).id,
+                createdBy: user.id,
               });
               set.status = 201;
               return { success: true, data: discussion };
@@ -295,12 +296,11 @@ class AgentIntelligenceService extends BaseService {
             }
           })
           // Start discussion
-          .post('/:discussionId/start', async ({ params, set, user }) => {
+          .post('/:discussionId/start', async (context) => {
+            const { params, set } = context;
+            const user = (context as unknown as { user: UserContext }).user;
             try {
-              const discussion = await this.discussionService.startDiscussion(
-                params.discussionId,
-                (user as UserContext).id
-              );
+              const discussion = await this.discussionService.startDiscussion(params.discussionId, user.id);
               return { success: true, data: discussion };
             } catch (error) {
               logger.error('Failed to start discussion', { error, discussionId: params.discussionId });
@@ -309,11 +309,13 @@ class AgentIntelligenceService extends BaseService {
             }
           })
           // End discussion
-          .post('/:discussionId/end', async ({ params, body, set, user }) => {
+          .post('/:discussionId/end', async (context) => {
+            const { params, body, set } = context;
+            const user = (context as unknown as { user: UserContext }).user;
             try {
               const discussion = await this.discussionService.endDiscussion(
                 params.discussionId,
-                (user as UserContext).id,
+                user.id,
                 (body as any)?.reason
               );
               return { success: true, data: discussion };
@@ -323,7 +325,7 @@ class AgentIntelligenceService extends BaseService {
               return { success: false, error: 'Failed to end discussion' };
             }
           })
-      );
+    );
 
     // Get discussion messages
     this.app.get('/api/v1/discussions/:discussionId/messages', async ({ params, query, set }) => {

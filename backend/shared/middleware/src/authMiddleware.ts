@@ -124,6 +124,12 @@ export function attachNginxAuth(app: Elysia): Elysia {
     const email = headers['x-user-email'];
     const role = headers['x-user-role'];
 
+    logger.debug('attachNginxAuth: checking headers', {
+      hasUserId: !!userId,
+      userId: userId?.substring(0, 8),
+      headerKeys: Object.keys(headers).filter(k => k.toLowerCase().includes('user') || k.toLowerCase().includes('auth')),
+    });
+
     // Validate userId is a proper UUID
     if (!userId || !UUID_REGEX.test(userId)) {
       return { user: null as UserContext | null };
