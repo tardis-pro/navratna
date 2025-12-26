@@ -65,17 +65,24 @@ export const useConversationIntelligence = (options: UseConversationIntelligence
   // Initialize WebSocket connection
   useEffect(() => {
     if (!user) return;
+    if (!agentId) return;
 
     // Get token from storage since user object doesn't contain token
     const token = localStorage.getItem('accessToken') || sessionStorage.getItem('accessToken');
-    if (!token) return;
+
+    const effectiveAgentId =
+      agentId === 'global-user-llm' ? `user-${user.id}` : agentId;
+    if (!effectiveAgentId) return;
+
+    const query: Record<string, string> = { agentId: effectiveAgentId };
+    if (conversationId) {
+      query.conversationId = conversationId;
+    }
 
     const socket = io(`${getWebSocketURL()}/conversation-intelligence`, {
-      auth: { token },
-      query: {
-        agentId: agentId || 'global-user-llm',
-        conversationId: conversationId || 'global',
-      },
+      ...(token ? { auth: { token } } : {}),
+      withCredentials: true,
+      query,
       transports: ['polling', 'websocket'],
       upgrade: true,
       timeout: 15000,

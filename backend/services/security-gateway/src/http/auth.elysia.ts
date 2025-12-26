@@ -14,6 +14,28 @@ import type { OptionalAuthContext, RequiredAuthContext } from './types/elysia-co
 let userService: UserService | null = null;
 let auditService: AuditService | null = null;
 
+const parseExpiryToSeconds = (value?: string | number): number | undefined => {
+  if (value === undefined || value === null) return undefined;
+  if (typeof value === 'number' && Number.isFinite(value)) return value;
+
+  const trimmed = String(value).trim();
+  const match = trimmed.match(/^(\d+)([smhd])$/i);
+  if (!match) return undefined;
+
+  const amount = Number(match[1]);
+  const unit = match[2].toLowerCase();
+  const multipliers: Record<string, number> = { s: 1, m: 60, h: 3600, d: 86400 };
+
+  return amount * (multipliers[unit] || 0);
+};
+
+const getAuthCookieOptions = () => ({
+  httpOnly: true,
+  secure: process.env.NODE_ENV === 'production',
+  sameSite: 'strict' as const,
+  path: '/',
+});
+
 async function getServices() {
   if (!userService) {
     userService = UserService.getInstance();
@@ -65,7 +87,7 @@ export function registerAuthRoutes(app: any): any {
   return app.group('/api/v1/auth', (app: any) =>
     withOptionalAuth(app)
       // POST /login
-      .post('/login', async ({ body, set, request, headers }) => {
+      .post('/login', async ({ body, set, request, headers, cookie }) => {
         const parsed = loginSchema.safeParse(body);
         if (!parsed.success) {
           set.status = 400;
@@ -155,6 +177,21 @@ export function registerAuthRoutes(app: any): any {
             new Date(Date.now() + (rememberMe ? 30 * 24 * 60 * 60 * 1000 : 7 * 24 * 60 * 60 * 1000))
           );
 
+          const cookieOptions = getAuthCookieOptions();
+          const accessTokenMaxAge = parseExpiryToSeconds(config.jwt.accessTokenExpiry);
+          const refreshTokenMaxAge = parseExpiryToSeconds(config.jwt.refreshTokenExpiry);
+
+          cookie['access_token'].set({
+            value: tokens.accessToken,
+            ...cookieOptions,
+            ...(accessTokenMaxAge ? { maxAge: accessTokenMaxAge } : {}),
+          });
+          cookie['refresh_token'].set({
+            value: tokens.refreshToken,
+            ...cookieOptions,
+            ...(refreshTokenMaxAge ? { maxAge: refreshTokenMaxAge } : {}),
+          });
+
           await auditService.logSecurityEvent({
             eventType: AuditEventType.LOGIN_SUCCESS,
             userId: user.id,
@@ -192,7 +229,7 @@ export function registerAuthRoutes(app: any): any {
       })
 
       // POST /refresh
-      .post('/refresh', async ({ body, set }) => {
+      .post('/refresh', async ({ body, set, cookie }) => {
         const parsed = refreshTokenSchema.safeParse(body);
         if (!parsed.success) {
           set.status = 400;
@@ -217,6 +254,20 @@ export function registerAuthRoutes(app: any): any {
             email: tokenData.user.email,
             role: tokenData.user.role
           });
+          const cookieOptions = getAuthCookieOptions();
+          const accessTokenMaxAge = parseExpiryToSeconds(config.jwt.accessTokenExpiry);
+          const refreshTokenMaxAge = parseExpiryToSeconds(config.jwt.refreshTokenExpiry);
+
+          cookie['access_token'].set({
+            value: tokens.accessToken,
+            ...cookieOptions,
+            ...(accessTokenMaxAge ? { maxAge: accessTokenMaxAge } : {}),
+          });
+          cookie['refresh_token'].set({
+            value: tokens.refreshToken,
+            ...cookieOptions,
+            ...(refreshTokenMaxAge ? { maxAge: refreshTokenMaxAge } : {}),
+          });
           return {
             success: true,
             data: {
@@ -233,7 +284,7 @@ export function registerAuthRoutes(app: any): any {
       })
 
       // POST /logout
-      .post('/logout', async ({ body, set, headers }) => {
+      .post('/logout', async ({ body, set, headers, cookie }) => {
         try {
           const authUser = await getAuthUser(headers.authorization);
           const { userService, auditService } = await getServices();
@@ -244,6 +295,10 @@ export function registerAuthRoutes(app: any): any {
           } else if (authUser?.id) {
             await userService.revokeAllRefreshTokens(authUser.id);
           }
+
+          const cookieOptions = getAuthCookieOptions();
+          cookie['access_token'].set({ value: '', ...cookieOptions, maxAge: 0 });
+          cookie['refresh_token'].set({ value: '', ...cookieOptions, maxAge: 0 });
 
           await auditService.logSecurityEvent({
             eventType: AuditEventType.LOGOUT,

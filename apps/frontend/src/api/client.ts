@@ -36,6 +36,7 @@ class APIClientClass {
     this.client = axios.create({
       baseURL: buildAPIURL(''),
       timeout: 30000,
+      withCredentials: true,
       headers: {
         'Content-Type': 'application/json',
       },

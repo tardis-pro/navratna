@@ -246,6 +246,112 @@ class AgentIntelligenceService extends BaseService {
       }
     });
 
+    // Search discussions
+    this.app.get('/api/v1/discussions/search', async ({ query, set }) => {
+      try {
+        const parseStringArray = (value: unknown): string[] | undefined => {
+          if (value === undefined || value === null) {
+            return undefined;
+          }
+          if (Array.isArray(value)) {
+            return value.map((entry) => String(entry)).filter(Boolean);
+          }
+          return String(value)
+            .split(',')
+            .map((entry) => entry.trim())
+            .filter(Boolean);
+        };
+
+        const parseBoolean = (value: unknown): boolean | undefined => {
+          if (value === undefined || value === null) {
+            return undefined;
+          }
+          if (typeof value === 'boolean') {
+            return value;
+          }
+          const normalized = String(value).toLowerCase();
+          if (['true', '1', 'yes'].includes(normalized)) {
+            return true;
+          }
+          if (['false', '0', 'no'].includes(normalized)) {
+            return false;
+          }
+          return undefined;
+        };
+
+        const parseNumber = (value: unknown): number | undefined => {
+          if (value === undefined || value === null) {
+            return undefined;
+          }
+          const parsed = Number(value);
+          return Number.isNaN(parsed) ? undefined : parsed;
+        };
+
+        const parseDate = (value: unknown): Date | undefined => {
+          if (!value) {
+            return undefined;
+          }
+          const parsed = new Date(String(value));
+          return Number.isNaN(parsed.getTime()) ? undefined : parsed;
+        };
+
+        const extractSearchQuery = (queryParams: Record<string, unknown>): string | undefined => {
+          const direct = queryParams.q ?? queryParams.query ?? queryParams.search;
+          if (typeof direct === 'string') {
+            return direct;
+          }
+          if (Array.isArray(direct)) {
+            return direct.map((entry) => String(entry)).join('');
+          }
+
+          const numericKeys = Object.keys(queryParams).filter((key) => /^\d+$/.test(key));
+          if (numericKeys.length === 0) {
+            return undefined;
+          }
+
+          return numericKeys
+            .sort((a, b) => Number(a) - Number(b))
+            .map((key) => (typeof queryParams[key] === 'string' ? queryParams[key] : ''))
+            .join('');
+        };
+
+        const searchText = extractSearchQuery(query as Record<string, unknown>);
+        const limit = query.limit ? parseInt(query.limit as string) : 20;
+        const offset = query.offset ? parseInt(query.offset as string) : 0;
+
+        const filters = {
+          query: searchText,
+          status: parseStringArray(query.status),
+          visibility: parseStringArray(query.visibility),
+          createdBy: parseStringArray(query.createdBy),
+          organizationId: query.organizationId as string | undefined,
+          teamId: query.teamId as string | undefined,
+          tags: parseStringArray(query.tags),
+          participants: parseStringArray(query.participants),
+          turnStrategy: parseStringArray(query.turnStrategy),
+          hasObjectives: parseBoolean(query.hasObjectives),
+          hasOutcomes: parseBoolean(query.hasOutcomes),
+          minParticipants: parseNumber(query.minParticipants),
+          maxParticipants: parseNumber(query.maxParticipants),
+          minDuration: parseNumber(query.minDuration),
+          maxDuration: parseNumber(query.maxDuration),
+          createdAfter: parseDate(query.createdAfter),
+          createdBefore: parseDate(query.createdBefore),
+          startedAfter: parseDate(query.startedAfter),
+          startedBefore: parseDate(query.startedBefore),
+          endedAfter: parseDate(query.endedAfter),
+          endedBefore: parseDate(query.endedBefore),
+        };
+
+        const discussions = await this.discussionService.searchDiscussions(filters as any, limit, offset);
+        return { success: true, data: discussions };
+      } catch (error) {
+        logger.error('Failed to search discussions', { error });
+        set.status = 500;
+        return { success: false, error: 'Failed to search discussions' };
+      }
+    });
+
     // Get discussion by ID
     this.app.get('/api/v1/discussions/:discussionId', async ({ params, set }) => {
       try {
