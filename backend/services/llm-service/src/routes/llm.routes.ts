@@ -182,7 +182,7 @@ export function registerLLMRoutes(
 
       // Cache management endpoints
       .post('/cache/invalidate', async ({ body }: any) => {
-        const { type } = body;
+        const { type, syncModels } = body;
 
         switch (type) {
           case 'models':
@@ -198,9 +198,18 @@ export function registerLLMRoutes(
             await llmService.invalidateAllCache();
         }
 
+        // If syncModels is requested (or by default for 'all'), also sync models from provider APIs
+        if (syncModels !== false && (type === 'all' || type === 'models' || !type)) {
+          logger.info('Triggering model sync after cache invalidation');
+          // Run bootstrap in background to sync models from provider APIs
+          modelBootstrapService.bootstrapAllModels({ force: true }).catch((error) => {
+            logger.error('Model sync after cache invalidation failed', { error });
+          });
+        }
+
         return {
           success: true,
-          message: `Cache invalidated: ${type || 'all'}`,
+          message: `Cache invalidated: ${type || 'all'}${syncModels !== false ? ' (model sync triggered)' : ''}`,
         };
       })
 

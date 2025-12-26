@@ -119,7 +119,7 @@ export class UserLLMProviderSeed extends BaseSeed<UserLLMProvider> {
         name: 'LM Studio Local',
         description: 'Local LM Studio instance for running open-source models privately',
         type: 'llmstudio' as UserLLMProviderType,
-        baseUrl: 'http://192.168.29.70:1234',
+        baseUrl: 'http://host.docker.internal:1234',
         defaultModel: 'local-model',
         configuration: {
           timeout: 60000,
@@ -147,7 +147,7 @@ export class UserLLMProviderSeed extends BaseSeed<UserLLMProvider> {
         name: 'LM Studio Local',
         description: 'Local LM Studio instance for running open-source models privately',
         type: 'llmstudio' as UserLLMProviderType,
-        baseUrl: 'http://192.168.29.70:1234',
+        baseUrl: 'http://host.docker.internal:1234',
         defaultModel: 'arch-agent-7b',
         configuration: {
           timeout: 60000,

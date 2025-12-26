@@ -1,8 +1,8 @@
 // Deprecated: This service is being replaced by direct backend API calls
-// TODO: Update remaining components to use discussionsAPI directly
 
 import { discussionsAPI } from '../api/discussions.api';
 import { Discussion, CreateDiscussionRequest, TurnStrategy, MessageType } from '@uaip/types';
+import { getStoredUserId } from '@/utils/authStorage';
 
 export interface ChatSession {
   id: string;
@@ -61,11 +61,13 @@ export class ChatPersistenceService {
       'ChatPersistenceService.createChatSession is deprecated. Use discussionsAPI.create() instead.'
     );
 
+    const storedUserId = getStoredUserId();
     const discussionRequest: CreateDiscussionRequest = {
       title: `Chat with ${agentName}`,
       description: `Direct chat conversation with agent ${agentName}`,
       topic: `Direct chat conversation with agent ${agentName}`,
       objectives: ['agent-chat'],
+      ...(storedUserId ? { createdBy: storedUserId } : {}),
       initialParticipants: [
         {
           agentId: agentId,
@@ -97,7 +99,7 @@ export class ChatPersistenceService {
         chatType: 'agent-chat',
         agentId: agentId,
         agentName: agentName,
-        createdBy: 'current-user',
+        ...(storedUserId ? { createdBy: storedUserId } : {}),
       },
     };
 

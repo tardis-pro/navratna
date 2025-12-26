@@ -5,6 +5,7 @@
 
 import { APIClient } from './client';
 import { API_ROUTES } from '@/config/apiConfig';
+import { getStoredUserId } from '@/utils/authStorage';
 import type {
   Discussion,
   DiscussionParticipant,
@@ -66,8 +67,9 @@ export const discussionsAPI = {
   },
 
   async start(id: string, startedBy?: string): Promise<Discussion> {
+    const resolvedStartedBy = startedBy ?? getStoredUserId();
     return APIClient.post<Discussion>(`${API_ROUTES.DISCUSSIONS.START}/${id}/start`, {
-      startedBy: startedBy || 'current-user', // TODO: Get from auth context
+      ...(resolvedStartedBy ? { startedBy: resolvedStartedBy } : {}),
     });
   },
 

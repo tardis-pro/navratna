@@ -19,6 +19,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { GlobalAutocomplete } from '@/components/ui/GlobalAutocomplete';
 import { useDiscussion } from '@/contexts/DiscussionContext';
 import { useAgents } from '@/contexts/AgentContext';
+import { useAuth } from '@/contexts/AuthContext';
 import { TurnStrategy, ParticipantRole, DiscussionVisibility } from '@uaip/types';
 import {
   MessageSquare,
@@ -282,6 +283,7 @@ export const DiscussionConfigModal: React.FC<DiscussionConfigModalProps> = ({
 
   const { start, isLoading: discussionLoading } = useDiscussion();
   const { agents } = useAgents();
+  const { user } = useAuth();
 
   const agentList = Object.values(agents);
   const selectedPurposeData = DISCUSSION_PURPOSES.find((p) => p.value === selectedPurpose);
@@ -331,11 +333,12 @@ export const DiscussionConfigModal: React.FC<DiscussionConfigModalProps> = ({
   const handleStartDiscussion = async () => {
     const topic = generateTopic();
     console.log(topic.slice(0, 20));
+    const createdBy = user?.id;
     const discussionData = {
       title: topic.slice(0, 20),
       topic,
       description: additionalContext.trim() || `${selectedPurposeData?.description} session`,
-      createdBy: 'current-user-id',
+      ...(createdBy ? { createdBy } : {}),
       initialParticipants: selectedAgents.map((agentId) => ({
         agentId,
         role: ParticipantRole.PARTICIPANT,

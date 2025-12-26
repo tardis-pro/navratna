@@ -72,19 +72,33 @@ export class UserChatHandler {
     });
   }
 
-  private async handleUserConnect(socket: Socket, data: { token: string; username: string }) {
+  private async handleUserConnect(socket: Socket, data: { token?: string; username?: string }) {
     try {
-      // Validate JWT token
-      const decoded = await validateJWTToken(data.token);
-      if (!decoded || !decoded.userId) {
-        socket.emit('auth_error', { error: 'Invalid authentication token' });
+      let userId: string;
+      let username: string;
+
+      // Check if already authenticated via nginx headers (from main middleware)
+      if (socket.data?.user?.userId) {
+        userId = socket.data.user.userId;
+        username = data.username || socket.data.user.email?.split('@')[0] || 'Unknown';
+      } else if (data.token) {
+        // Fallback: Validate JWT token
+        const decoded = await validateJWTToken(data.token);
+        if (!decoded || !decoded.userId) {
+          socket.emit('auth_error', { error: 'Invalid authentication token' });
+          return;
+        }
+        userId = decoded.userId;
+        username = data.username || decoded.username || 'Unknown';
+      } else {
+        socket.emit('auth_error', { error: 'Authentication required' });
         return;
       }
 
       const user: ConnectedUser = {
-        userId: decoded.userId,
+        userId,
         socketId: socket.id,
-        username: data.username || decoded.username || 'Unknown',
+        username,
         status: 'online',
         lastActivity: new Date(),
       };

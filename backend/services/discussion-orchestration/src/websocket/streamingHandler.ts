@@ -28,23 +28,39 @@ export class StreamingHandler {
 
     streamNamespace.on('connection', async (socket: Socket) => {
       try {
-        // Authenticate
-        const token = socket.handshake.auth.token;
-        if (!token) {
-          socket.emit('error', { message: 'Authentication required' });
-          socket.disconnect();
-          return;
-        }
+        // Check for nginx-forwarded user headers first (preferred path)
+        const nginxUserId = socket.handshake.headers['x-user-id'] as string | undefined;
+        let userId: string;
 
-        const decoded = await validateJWTToken(token);
-        if (!decoded?.valid || !decoded?.userId) {
-          socket.emit('error', { message: 'Invalid token' });
-          socket.disconnect();
-          return;
+        if (nginxUserId) {
+          // Validate userId is a proper UUID
+          const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+          if (!UUID_REGEX.test(nginxUserId)) {
+            socket.emit('error', { message: 'Invalid user ID format' });
+            socket.disconnect();
+            return;
+          }
+          userId = nginxUserId;
+        } else {
+          // Fallback: Authenticate via token
+          const token = socket.handshake.auth.token;
+          if (!token) {
+            socket.emit('error', { message: 'Authentication required' });
+            socket.disconnect();
+            return;
+          }
+
+          const decoded = await validateJWTToken(token);
+          if (!decoded?.valid || !decoded?.userId) {
+            socket.emit('error', { message: 'Invalid token' });
+            socket.disconnect();
+            return;
+          }
+          userId = decoded.userId;
         }
 
         const connection: StreamingConnection = {
-          userId: decoded.userId,
+          userId,
           socketId: socket.id,
           subscribedSessions: new Set(),
         };
@@ -53,7 +69,7 @@ export class StreamingHandler {
 
         logger.info('Streaming connection established', {
           socketId: socket.id,
-          userId: decoded.userId,
+          userId,
         });
 
         // Handle subscription to a stream session

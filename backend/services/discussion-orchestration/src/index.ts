@@ -511,31 +511,68 @@ class DiscussionOrchestrationServer extends BaseService {
       this['setupGracefulShutdown']();
 
       // Socket.IO Authentication Middleware
+      // Uses nginx-forwarded headers (X-User-ID, X-User-Email, X-User-Role) for authentication
+      // nginx validates JWT via auth_request and passes user info in headers
       this.io.use(async (socket, next) => {
         try {
-          // Extract token from multiple sources (Socket.IO standard patterns)
+          // Check for nginx-forwarded user headers first (preferred path)
+          const userId = socket.handshake.headers['x-user-id'] as string | undefined;
+          const userEmail = socket.handshake.headers['x-user-email'] as string | undefined;
+          const userRole = socket.handshake.headers['x-user-role'] as string | undefined;
+
+          logger.info('Socket.IO authentication attempt', {
+            socketId: socket.id,
+            hasNginxAuth: !!userId,
+            userId: userId?.substring(0, 8),
+            origin: socket.handshake.headers.origin,
+          });
+
+          // If nginx has validated and forwarded user info, use it directly
+          if (userId) {
+            // Validate userId is a proper UUID
+            const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+            if (!UUID_REGEX.test(userId)) {
+              logger.warn('Socket.IO connection rejected - invalid user ID format', {
+                socketId: socket.id,
+                userId: userId?.substring(0, 8),
+              });
+              return next(new Error('Authentication failed: Invalid user ID format'));
+            }
+
+            // Store user info in socket data from nginx headers
+            socket.data.user = {
+              userId,
+              email: userEmail || '',
+              role: userRole || 'user',
+              sessionId: `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+              securityLevel: 3,
+              complianceFlags: [],
+            };
+
+            logger.info('✅ Socket.IO authentication successful (nginx auth)', {
+              socketId: socket.id,
+              userId,
+              role: userRole,
+            });
+
+            return next();
+          }
+
+          // Fallback: Extract token and validate directly (for non-nginx paths or development)
           const token =
             socket.handshake.auth?.token ||
             socket.handshake.headers?.authorization?.replace('Bearer ', '') ||
             socket.handshake.query?.token;
 
-          logger.info('Socket.IO authentication attempt', {
-            socketId: socket.id,
-            hasToken: !!token,
-            origin: socket.handshake.headers.origin,
-            userAgent: socket.handshake.headers['user-agent'],
-          });
-
           if (!token) {
-            logger.warn('Socket.IO connection rejected - no token', {
+            logger.warn('Socket.IO connection rejected - no auth headers or token', {
               socketId: socket.id,
               headers: Object.keys(socket.handshake.headers),
-              query: Object.keys(socket.handshake.query),
             });
-            return next(new Error('Authentication token required'));
+            return next(new Error('Authentication required'));
           }
 
-          // Validate token through Security Gateway
+          // Validate token through Security Gateway via RabbitMQ (fallback)
           const authResponse = await this.validateSocketIOToken(token);
 
           if (!authResponse.valid) {
@@ -554,10 +591,9 @@ class DiscussionOrchestrationServer extends BaseService {
             complianceFlags: authResponse.complianceFlags || [],
           };
 
-          logger.info('✅ Socket.IO authentication successful', {
+          logger.info('✅ Socket.IO authentication successful (token validation)', {
             socketId: socket.id,
             userId: authResponse.userId,
-            securityLevel: authResponse.securityLevel,
           });
 
           next();

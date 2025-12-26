@@ -170,9 +170,9 @@ export class DatabaseService {
     await this.ensureInitialized();
 
     // Run database seeding and knowledge sync if enabled
-    // if (process.env.TYPEORM_SYNC === 'true') {
-    await this.runDatabaseSeedingAndSync();
-    // }
+    if (process.env.TYPEORM_SYNC === 'true') {
+      await this.runDatabaseSeedingAndSync();
+    }
   }
 
   private async runDatabaseSeedingAndSync(): Promise<void> {
