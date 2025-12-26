@@ -38,7 +38,7 @@ export type DiscussionAnalytics = SharedDiscussionAnalytics;
 export interface DiscussionListOptions {
   page?: number;
   limit?: number;
-  status?: DiscussionStatus;
+  status?: DiscussionStatus | DiscussionStatus[];
   participantId?: string;
   search?: string;
   sortBy?: 'createdAt' | 'updatedAt' | 'title';
@@ -122,10 +122,17 @@ export const discussionsAPI = {
       since?: string;
     }
   ): Promise<DiscussionMessage[]> {
-    return APIClient.get<DiscussionMessage[]>(
+    const response = await APIClient.get<DiscussionMessage[] | { messages: DiscussionMessage[] }>(
       `${API_ROUTES.DISCUSSIONS.MESSAGES}/${discussionId}/messages`,
       { params: options }
     );
+    if (Array.isArray(response)) {
+      return response;
+    }
+    if (response && Array.isArray(response.messages)) {
+      return response.messages;
+    }
+    return [];
   },
 
   async manageTurn(discussionId: string, turn: TurnRequest): Promise<Discussion> {

@@ -96,7 +96,7 @@ export class StreamingHandler {
         socket.on('cancel-stream', async (sessionId: string) => {
           await this.eventBus.publish('llm.stream.cancel.request', {
             sessionId,
-            userId: decoded.userId,
+            userId,
           });
         });
 
@@ -112,7 +112,7 @@ export class StreamingHandler {
           logger.info('Streaming connection closed', { socketId: socket.id });
         });
 
-        socket.emit('connected', { userId: decoded.userId });
+        socket.emit('connected', { userId });
       } catch (error) {
         logger.error('Streaming connection error:', error);
         socket.emit('error', { message: 'Connection failed' });

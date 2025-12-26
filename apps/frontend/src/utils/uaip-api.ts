@@ -281,14 +281,41 @@ export const uaipAPI = {
   // ============================================================================
 
   discussions: {
-    async list(filters?: DiscussionSearchFilters): Promise<DiscussionSearchResponse> {
+    async list(
+      filters?: DiscussionSearchFilters & { limit?: number; offset?: number }
+    ): Promise<DiscussionSearchResponse> {
       const client = getAPIClient();
-      const response = await client.discussions.search(filters?.query, filters?.status?.[0]);
+      const response = await client.discussions.list({
+        limit: filters?.limit,
+        status: filters?.status,
+        page:
+          filters?.offset && filters?.limit
+            ? Math.floor(filters.offset / filters.limit) + 1
+            : undefined,
+      });
 
       // Transform the response to match our interface
+      const responseData = response as
+        | Discussion[]
+        | { discussions?: Discussion[]; total?: number; totalCount?: number };
+
+      const discussions = Array.isArray(responseData)
+        ? responseData
+        : Array.isArray(responseData?.discussions)
+          ? responseData.discussions
+          : [];
+
+      const totalCount = Array.isArray(responseData)
+        ? responseData.length
+        : typeof responseData?.total === 'number'
+          ? responseData.total
+          : typeof responseData?.totalCount === 'number'
+            ? responseData.totalCount
+            : discussions.length;
+
       return {
-        discussions: response.data || [],
-        totalCount: response.data?.length || 0,
+        discussions,
+        totalCount,
         searchTime: 0,
       };
     },

@@ -186,7 +186,7 @@ function createBaseConfig(): PostgresConnectionOptions {
   return {
     type: 'postgres',
     ...dbConfig,
-    synchronize: true, // Enable for development - creates schema automatically
+    synchronize: false, // Enable for development - creates schema automatically
     dropSchema: false, // Don't drop schema on startup
     logging: process.env.NODE_ENV === 'development' ? ['error', 'warn', 'schema'] : ['error', 'warn'],
     entities: allEntities,
@@ -217,7 +217,7 @@ class RedisCacheManager {
   private redis: IORedis | null = null;
   private isConnected = false;
 
-  private constructor() {}
+  private constructor() { }
 
   static getInstance(): RedisCacheManager {
     if (!RedisCacheManager.instance) {
@@ -491,7 +491,7 @@ export class TypeOrmDataSourceManager {
   private dataSource: DataSource | null = null;
   private initializationPromise: Promise<DataSource> | null = null;
 
-  private constructor() {}
+  private constructor() { }
 
   static getInstance(): TypeOrmDataSourceManager {
     if (!TypeOrmDataSourceManager.instance) {
