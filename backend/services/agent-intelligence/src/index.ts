@@ -1,6 +1,7 @@
 import { BaseService, DiscussionService, PersonaService } from '@uaip/shared-services';
 import { LLMService, UserLLMService } from '@uaip/llm-service';
-import { DiscussionEventType, LLMTaskType } from '@uaip/types';
+import { DiscussionEventType, LLMTaskType, UserContext } from '@uaip/types';
+import { attachNginxAuth, requireNginxAuth } from '@uaip/middleware';
 import { ConversationEnhancementService } from './services/conversation-enhancement.service.js';
 import { AgentDiscussionService } from './services/agent-discussion.service.js';
 import { AgentCoreService } from './services/agent-core.service.js';
@@ -261,61 +262,68 @@ class AgentIntelligenceService extends BaseService {
       }
     });
 
-    // Create discussion
-    this.app.post('/api/v1/discussions', async ({ body, set, request }) => {
-      try {
-        const userId = request.headers.get('x-user-id') || 'system';
-        const discussion = await this.discussionService.createDiscussion({ ...(body as any), createdBy: userId });
-        set.status = 201;
-        return { success: true, data: discussion };
-      } catch (error) {
-        logger.error('Failed to create discussion', { error });
-        set.status = 500;
-        return { success: false, error: 'Failed to create discussion' };
-      }
-    });
-
-    // Update discussion
-    this.app.put('/api/v1/discussions/:discussionId', async ({ params, body, set }) => {
-      try {
-        const discussion = await this.discussionService.updateDiscussion(params.discussionId, body as any);
-        return { success: true, data: discussion };
-      } catch (error) {
-        logger.error('Failed to update discussion', { error, discussionId: params.discussionId });
-        set.status = 500;
-        return { success: false, error: 'Failed to update discussion' };
-      }
-    });
-
-    // Start discussion
-    this.app.post('/api/v1/discussions/:discussionId/start', async ({ params, set, request }) => {
-      try {
-        const userId = request.headers.get('x-user-id') || 'system';
-        const discussion = await this.discussionService.startDiscussion(params.discussionId, userId);
-        return { success: true, data: discussion };
-      } catch (error) {
-        logger.error('Failed to start discussion', { error, discussionId: params.discussionId });
-        set.status = 500;
-        return { success: false, error: 'Failed to start discussion' };
-      }
-    });
-
-    // End discussion
-    this.app.post('/api/v1/discussions/:discussionId/end', async ({ params, body, set, request }) => {
-      try {
-        const userId = request.headers.get('x-user-id') || 'system';
-        const discussion = await this.discussionService.endDiscussion(
-          params.discussionId,
-          userId,
-          (body as any)?.reason
-        );
-        return { success: true, data: discussion };
-      } catch (error) {
-        logger.error('Failed to end discussion', { error, discussionId: params.discussionId });
-        set.status = 500;
-        return { success: false, error: 'Failed to end discussion' };
-      }
-    });
+    // Discussion routes that require authentication (nginx forwards X-User-ID)
+    this.app
+      .use(attachNginxAuth)
+      .use(requireNginxAuth)
+      .group('/api/v1/discussions', (app) =>
+        app
+          // Create discussion
+          .post('', async ({ body, set, user }) => {
+            try {
+              const discussion = await this.discussionService.createDiscussion({
+                ...(body as any),
+                createdBy: (user as UserContext).id,
+              });
+              set.status = 201;
+              return { success: true, data: discussion };
+            } catch (error) {
+              logger.error('Failed to create discussion', { error });
+              set.status = 500;
+              return { success: false, error: 'Failed to create discussion' };
+            }
+          })
+          // Update discussion
+          .put('/:discussionId', async ({ params, body, set }) => {
+            try {
+              const discussion = await this.discussionService.updateDiscussion(params.discussionId, body as any);
+              return { success: true, data: discussion };
+            } catch (error) {
+              logger.error('Failed to update discussion', { error, discussionId: params.discussionId });
+              set.status = 500;
+              return { success: false, error: 'Failed to update discussion' };
+            }
+          })
+          // Start discussion
+          .post('/:discussionId/start', async ({ params, set, user }) => {
+            try {
+              const discussion = await this.discussionService.startDiscussion(
+                params.discussionId,
+                (user as UserContext).id
+              );
+              return { success: true, data: discussion };
+            } catch (error) {
+              logger.error('Failed to start discussion', { error, discussionId: params.discussionId });
+              set.status = 500;
+              return { success: false, error: 'Failed to start discussion' };
+            }
+          })
+          // End discussion
+          .post('/:discussionId/end', async ({ params, body, set, user }) => {
+            try {
+              const discussion = await this.discussionService.endDiscussion(
+                params.discussionId,
+                (user as UserContext).id,
+                (body as any)?.reason
+              );
+              return { success: true, data: discussion };
+            } catch (error) {
+              logger.error('Failed to end discussion', { error, discussionId: params.discussionId });
+              set.status = 500;
+              return { success: false, error: 'Failed to end discussion' };
+            }
+          })
+      );
 
     // Get discussion messages
     this.app.get('/api/v1/discussions/:discussionId/messages', async ({ params, query, set }) => {

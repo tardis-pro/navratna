@@ -10,6 +10,10 @@ export {
   withRequiredAuth,
   withAdminGuard,
   withOperatorGuard,
+  // Nginx auth flow (when nginx validates JWT and forwards X-User-ID header)
+  attachNginxAuth,
+  requireNginxAuth,
+  withNginxAuth,
   validateJWTConfiguration,
   validateJWTSetup,
   diagnoseJWTSignatureError,
