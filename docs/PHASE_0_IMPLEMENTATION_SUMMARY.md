@@ -294,7 +294,7 @@ npm run compliance:report
 
 **Phase 0 is complete and ready for production deployment.**
 
-For Phase 1 (compilation issues) and beyond, refer to `docs/NEXT_STEPS.md`.
+For Phase 1 and beyond, refer to `project/NEXT_PHASES.md`.
 
 The enterprise database compartmentalization provides a solid foundation for secure, compliant, and scalable operations meeting SOC 2, HIPAA, PCI DSS, ISO 27001, and FedRAMP requirements.
 

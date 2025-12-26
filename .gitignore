@@ -26,3 +26,4 @@ sprint/
 *.sw?
 *.js*
 *.d.ts*
+**/**/*.tsbuildinfo

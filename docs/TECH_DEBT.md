@@ -27,7 +27,7 @@ This document tracks technical debt, known issues, and system limitations across
 - [ ] **SecurityGatewayService Inheritance** - Method visibility conflicts
 
 **Estimated Effort**: 2-3 days
-**Next Action**: Follow implementation plan in docs/NEXT_STEPS.md
+**Next Action**: Follow the near-term plan in `project/NEXT_PHASES.md`
 
 ## ✅ RESOLVED CRITICAL ISSUES
 

@@ -1,203 +1,57 @@
-# Environment Configuration Guide
+# Environment Configuration
 
-**Complete configuration reference for the UAIP platform**
+The source of truth is `sample.env`. Copy it to `.env` and override only what you need for your environment.
 
-## 🎯 Overview
+## Files and Precedence
 
-The UAIP platform uses environment variables for configuration across all services. This guide covers all configuration options, from development to production deployment.
+- `sample.env` is the template and canonical list of variables.
+- `.env` is your local override (never commit).
+- `docker-compose*.yml` can override env values for containerized runs.
 
-## 📋 Configuration Files
+## Common Variables
 
-### Primary Configuration Files
-
-- **`.env`** - Main environment configuration
-- **`sample.env`** - Template with all available options
-- **`docker-compose.yml`** - Docker service configuration
-- **`package.json`** - Node.js dependencies and scripts
-
-### Service-Specific Configuration
-
-- Each service has its own environment variables
-- Shared configuration through monorepo workspace
-- Override capabilities for different environments
-
-## 🔧 Core Configuration
-
-### Application Settings
+### App and Logging
 
 ```bash
-# Environment
 NODE_ENV=development|production|test
-DEBUG=true|false
 LOG_LEVEL=debug|info|warn|error
-
-# Application
-APP_NAME=council-of-nycea
-APP_VERSION=2.0.0
+DEBUG=true|false
+APP_NAME=navratna
 API_VERSION=v1
+```
 
-# Server Configuration
+### Ports
+
+```bash
 HOST=localhost
 PORT=3000
 API_GATEWAY_PORT=8081
 ```
 
-### Service Ports
+### Datastores and Messaging
 
 ```bash
-# Backend Services
-AGENT_INTELLIGENCE_PORT=3001
-ORCHESTRATION_PIPELINE_PORT=3002
-CAPABILITY_REGISTRY_PORT=3003
-SECURITY_GATEWAY_PORT=3004
-DISCUSSION_ORCHESTRATION_PORT=3005
-
-# Infrastructure Services
-POSTGRESQL_PORT=5432
-NEO4J_HTTP_PORT=7474
-NEO4J_BOLT_PORT=7687
-REDIS_PORT=6379
-RABBITMQ_PORT=5672
-RABBITMQ_MANAGEMENT_PORT=15672
-```
-
-## 🗄️ Database Configuration
-
-### PostgreSQL Settings
-
-```bash
-# Connection
-POSTGRESQL_HOST=localhost
-POSTGRESQL_PORT=5432
-POSTGRESQL_DATABASE=uaip_dev
-POSTGRESQL_USERNAME=postgres
-POSTGRESQL_PASSWORD=postgres
-POSTGRESQL_URL=postgresql://postgres:postgres@localhost:5432/uaip_dev
-
-# Connection Pool
-POSTGRESQL_MAX_CONNECTIONS=100
-POSTGRESQL_MIN_CONNECTIONS=5
-POSTGRESQL_IDLE_TIMEOUT=30000
-POSTGRESQL_CONNECTION_TIMEOUT=10000
-
-# SSL Configuration (Production)
-POSTGRESQL_SSL=true
-POSTGRESQL_SSL_CERT_PATH=/path/to/cert.pem
-POSTGRESQL_SSL_KEY_PATH=/path/to/key.pem
-POSTGRESQL_SSL_CA_PATH=/path/to/ca.pem
-```
-
-### Neo4j Settings
-
-```bash
-# Connection
-NEO4J_HOST=localhost
-NEO4J_HTTP_PORT=7474
-NEO4J_BOLT_PORT=7687
-NEO4J_USERNAME=neo4j
-NEO4J_PASSWORD=password
-NEO4J_URL=bolt://neo4j:password@localhost:7687
-
-# Configuration
-NEO4J_DATABASE=neo4j
-NEO4J_MAX_CONNECTIONS=50
-NEO4J_CONNECTION_TIMEOUT=30000
-NEO4J_MAX_TRANSACTION_RETRY_TIME=15000
-
-# Memory Settings
-NEO4J_HEAP_INITIAL_SIZE=512m
-NEO4J_HEAP_MAX_SIZE=2G
-NEO4J_PAGECACHE_SIZE=1G
-```
-
-### Redis Settings
-
-```bash
-# Connection
-REDIS_HOST=localhost
-REDIS_PORT=6379
-REDIS_PASSWORD=
-REDIS_DATABASE=0
+POSTGRESQL_URL=postgresql://user:pass@localhost:5432/dbname
+NEO4J_URL=bolt://user:pass@localhost:7687
 REDIS_URL=redis://localhost:6379
-
-# Configuration
-REDIS_MAX_RETRIES=3
-REDIS_RETRY_DELAY=100
-REDIS_CONNECTION_TIMEOUT=10000
-REDIS_COMMAND_TIMEOUT=5000
-
-# Cluster Configuration (Production)
-REDIS_CLUSTER_ENABLED=false
-REDIS_CLUSTER_NODES=redis1:6379,redis2:6379,redis3:6379
+RABBITMQ_URL=amqp://user:pass@localhost:5672/
 ```
 
-### RabbitMQ Settings
+### Security
 
 ```bash
-# Connection
-RABBITMQ_HOST=localhost
-RABBITMQ_PORT=5672
-RABBITMQ_USERNAME=guest
-RABBITMQ_PASSWORD=guest
-RABBITMQ_VHOST=/
-RABBITMQ_URL=amqp://guest:guest@localhost:5672/
-
-# Management
-RABBITMQ_MANAGEMENT_PORT=15672
-RABBITMQ_MANAGEMENT_USERNAME=admin
-RABBITMQ_MANAGEMENT_PASSWORD=admin
-
-# Configuration
-RABBITMQ_HEARTBEAT=60
-RABBITMQ_CONNECTION_TIMEOUT=10000
-RABBITMQ_PREFETCH_COUNT=10
-```
-
-## 🔐 Security Configuration
-
-### JWT Settings
-
-```bash
-# JWT Configuration
-JWT_SECRET=your-super-secret-jwt-key-here
+JWT_SECRET=change-me
 JWT_EXPIRES_IN=24h
-JWT_REFRESH_EXPIRES_IN=7d
-JWT_ALGORITHM=HS256
-JWT_ISSUER=uaip-platform
-JWT_AUDIENCE=uaip-users
-
-# Session Configuration
-SESSION_SECRET=your-session-secret-here
-SESSION_MAX_AGE=86400000
-SESSION_SECURE=false
-SESSION_HTTP_ONLY=true
-SESSION_SAME_SITE=lax
-```
-
-### Security Settings
-
-```bash
-# CORS Configuration
+SESSION_SECRET=change-me
 CORS_ORIGIN=http://localhost:3000,http://localhost:8081
-CORS_METHODS=GET,POST,PUT,DELETE,OPTIONS
-CORS_CREDENTIALS=true
-CORS_MAX_AGE=86400
-
-# Rate Limiting
 RATE_LIMIT_WINDOW_MS=900000
 RATE_LIMIT_MAX_REQUESTS=100
-RATE_LIMIT_SKIP_SUCCESSFUL_REQUESTS=false
-
-# Security Headers
-HELMET_ENABLED=true
-CSP_ENABLED=true
-HSTS_ENABLED=true
 ```
 
-### Authentication Providers
+## Notes
 
-```bash
-# OAuth Configuration
+- Use `sample.env` for the full list, including service-specific settings.
+- Keep secrets out of version control and rotate them when sharing environments.
 OAUTH_GITHUB_CLIENT_ID=your-github-client-id
 OAUTH_GITHUB_CLIENT_SECRET=your-github-client-secret
 OAUTH_GITHUB_CALLBACK_URL=http://localhost:8081/auth/github/callback

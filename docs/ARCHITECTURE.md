@@ -346,7 +346,7 @@ The UAIP platform leverages a Neo4j-powered knowledge graph to model relationshi
 (Service)-[:INTEGRATES_WITH]->(Service)
 ```
 
-For more, see the [Service Integration Guide](SERVICE_INTEGRATION.md) and [API Reference](API_REFERENCE.md).
+For more, see the [Integration Guide](technical/INTEGRATION.md) and [API Reference](API_REFERENCE.md).
 
 ### Detailed Entities in the Knowledge Graph
 
