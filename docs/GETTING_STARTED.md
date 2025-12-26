@@ -4,8 +4,8 @@ Local setup and the standard dev workflow.
 
 ## Prerequisites
 
-- Node.js 18+
-- pnpm 8+
+- Bun (runtime)
+- pnpm 8+ (workspace)
 - Docker + Docker Compose
 - Git
 

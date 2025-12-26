@@ -4,7 +4,7 @@ import bcrypt from 'bcrypt';
 import { logger } from '@uaip/utils';
 import { config } from '@uaip/config';
 import { UserService } from '@uaip/shared-services';
-import { validateJWTToken, generateAuthTokens, attachAuth, requireAuth, withOptionalAuth, withRequiredAuth } from '@uaip/middleware';
+import { validateJWTToken, generateAuthTokens, attachAuth, requireAuth, withOptionalAuth, withRequiredAuth, csrfProtection } from '@uaip/middleware';
 // Note: All auth utilities now from shared middleware
 import { AuditService } from '../services/auditService.js';
 import { AuditEventType } from '@uaip/types';
@@ -354,6 +354,89 @@ export function registerAuthRoutes(app: any): any {
           }
         })
       )
+
+      // GET /csrf-token - Public endpoint
+      .get('/csrf-token', ({ set, cookie }) => {
+        try {
+          const token = csrfProtection.generateToken();
+
+          // Set cookie for browser access
+          cookie['csrf-token'].set({
+            value: token,
+            httpOnly: false,
+            sameSite: 'strict',
+            maxAge: 3600,
+            path: '/',
+          });
+
+          return {
+            success: true,
+            data: {
+              token,
+              headerName: 'x-csrf-token',
+            },
+          };
+        } catch (error) {
+          logger.error('Error generating CSRF token:', error);
+          set.status = 500;
+          return {
+            success: false,
+            error: {
+              code: 'CSRF_TOKEN_ERROR',
+              message: 'Internal server error while generating CSRF token',
+            },
+          };
+        }
+      })
+
+      // GET /validate - Token validation for nginx auth_request
+      .get('/validate', ({ headers, set }) => {
+        try {
+          const authHeader = headers.authorization;
+
+          if (!authHeader || !authHeader.startsWith('Bearer ')) {
+            set.status = 401;
+            return { error: 'No token provided' };
+          }
+
+          const token = authHeader.substring(7);
+
+          // Verify the JWT token
+          let decoded: any;
+          try {
+            decoded = jwt.verify(token, config.jwt.secret);
+          } catch (jwtError) {
+            logger.debug('Token validation failed', {
+              error: jwtError instanceof Error ? jwtError.message : 'Unknown error',
+            });
+            set.status = 401;
+            return { error: 'Invalid or expired token' };
+          }
+
+          // Check for required fields
+          if (!decoded.userId || !decoded.email || !decoded.role) {
+            set.status = 401;
+            return { error: 'Invalid token payload' };
+          }
+
+          // Check if token is expired
+          if (decoded.exp && Date.now() >= decoded.exp * 1000) {
+            set.status = 401;
+            return { error: 'Token expired' };
+          }
+
+          // Set user info headers for nginx to forward to upstream services
+          set.headers['X-User-ID'] = decoded.userId;
+          set.headers['X-User-Email'] = decoded.email;
+          set.headers['X-User-Role'] = decoded.role;
+
+          return { valid: true };
+        } catch (error) {
+          logger.error('Token validation error', { error });
+          set.status = 401;
+          return { error: 'Token validation failed' };
+        }
+      })
   );
 }
 

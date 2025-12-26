@@ -245,7 +245,7 @@ export class DefaultUserLLMProviderSeed {
       description:
         'Local LM Studio instance for running open-source models privately - DEFAULT PROVIDER',
       type: 'llmstudio' as const,
-      baseUrl: 'http://192.168.1.9:1234',
+      baseUrl: 'http://192.168.29.70:1234',
       defaultModel: 'cogito-v1-preview-qwen-14b',
       configuration: {
         timeout: 60000,

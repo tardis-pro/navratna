@@ -176,8 +176,8 @@ export function registerProviderRoutes(app: any): any {
           })
       )
 
-      // User-scoped provider management
-      .group('/api/v1', (app: any) =>
+      // User-scoped provider management (nginx routes /api/v1/llm/my-providers here)
+      .group('/api/v1/llm', (app: any) =>
         withRequiredAuth(app)
             // @ts-expect-error - Elysia middleware injects user, but TypeScript cannot infer through nested groups
           .get('/my-providers/limits', async ({ user }) => {

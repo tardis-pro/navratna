@@ -627,9 +627,9 @@ export class UserLLMService {
         case 'google':
           return 'https://generativelanguage.googleapis.com';
         case 'ollama':
-          return 'http://localhost:11434';
+          return 'http://192.168.29.70:11434';
         case 'llmstudio':
-          return 'http://192.168.1.9:1234';
+          return 'http://192.168.29.70:1234';
         default:
           return userProvider.baseUrl || '';
       }

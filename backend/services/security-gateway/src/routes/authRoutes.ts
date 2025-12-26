@@ -695,4 +695,59 @@ router.post(
  */
 router.get('/csrf-token', csrfProtection.tokenEndpoint());
 
+/**
+ * @route GET /api/v1/auth/validate
+ * @desc Validate JWT token and return user info in headers (for nginx auth_request)
+ * @access Internal - Called by nginx for auth_request
+ * @returns 200 with X-User-ID, X-User-Email, X-User-Role headers if valid
+ * @returns 401 if token is missing, invalid, or expired
+ */
+router.get('/validate', async (req, res) => {
+  try {
+    const authHeader = req.headers.authorization;
+
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      res.status(401).json({ error: 'No token provided' });
+      return;
+    }
+
+    const token = authHeader.substring(7);
+
+    // Verify the JWT token
+    let decoded: any;
+    try {
+      decoded = jwt.verify(token, config.jwt.secret);
+    } catch (jwtError) {
+      logger.debug('Token validation failed', {
+        error: jwtError instanceof Error ? jwtError.message : 'Unknown error',
+      });
+      res.status(401).json({ error: 'Invalid or expired token' });
+      return;
+    }
+
+    // Check for required fields
+    if (!decoded.userId || !decoded.email || !decoded.role) {
+      res.status(401).json({ error: 'Invalid token payload' });
+      return;
+    }
+
+    // Check if token is expired
+    if (decoded.exp && Date.now() >= decoded.exp * 1000) {
+      res.status(401).json({ error: 'Token expired' });
+      return;
+    }
+
+    // Set user info headers for nginx to forward to upstream services
+    res.setHeader('X-User-ID', decoded.userId);
+    res.setHeader('X-User-Email', decoded.email);
+    res.setHeader('X-User-Role', decoded.role);
+
+    // Return 200 to indicate successful validation
+    res.status(200).json({ valid: true });
+  } catch (error) {
+    logger.error('Token validation error', { error });
+    res.status(401).json({ error: 'Token validation failed' });
+  }
+});
+
 export default router;
