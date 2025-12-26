@@ -56,7 +56,12 @@ export const useEnhancedWebSocket = (config: ConnectionConfig = {}) => {
 
   // Get auth token from localStorage
   const getAuthToken = useCallback(() => {
-    return localStorage.getItem('authToken') || localStorage.getItem('auth_token');
+    return (
+      localStorage.getItem('authToken') ||
+      localStorage.getItem('auth_token') ||
+      localStorage.getItem('accessToken') ||
+      sessionStorage.getItem('accessToken')
+    );
   }, []);
 
   // Socket.IO connection function

@@ -45,6 +45,7 @@ export { rateLimiter, createRateLimiter } from './rateLimiter.js';
 export {
   metricsMiddleware,
   recordAgentAnalysis,
+  recordLLMRequest,
   errorTrackingMiddleware,
   metricsEndpoint,
   recordError,

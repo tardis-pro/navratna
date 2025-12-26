@@ -19,6 +19,7 @@ import { DiscussionOrchestrationService } from './services/discussionOrchestrati
 import { UserChatHandler } from './websocket/userChatHandler.js';
 import { ConversationIntelligenceHandler } from './websocket/conversationIntelligenceHandler.js';
 import { TaskNotificationHandler } from './websocket/taskNotificationHandler.js';
+import { StreamingHandler } from './websocket/streamingHandler.js';
 import { setupWebSocketHandlers } from './websocket/discussionSocket.js';
 import { DebateHandler } from './handlers/debateHandler.js';
 
@@ -33,6 +34,7 @@ class DiscussionOrchestrationServer extends BaseService {
   private userChatHandler?: UserChatHandler;
   private conversationIntelligenceHandler?: ConversationIntelligenceHandler;
   private taskNotificationHandler?: TaskNotificationHandler;
+  private streamingHandler?: StreamingHandler;
   private debateHandler?: DebateHandler;
   private serviceName = 'discussion-orchestration';
   private authResponseHandlers = new Map<string, (response: any) => void>();
@@ -134,9 +136,11 @@ class DiscussionOrchestrationServer extends BaseService {
         'Real-time WebSocket communication',
         'Event-driven architecture',
         'Comprehensive turn management',
+        'LLM token streaming via /streaming namespace',
       ],
       endpoints: {
         websocket: '/socket.io',
+        streaming: '/socket.io/streaming',
         conversationIntelligence: '/socket.io/conversation-intelligence',
         health: '/health',
         info: '/api/v1/info',
@@ -642,6 +646,16 @@ class DiscussionOrchestrationServer extends BaseService {
         // Continue without task notification handler rather than crashing the service
       }
 
+      try {
+        this.streamingHandler = new StreamingHandler(this.io, this.eventBusService);
+        logger.info('StreamingHandler initialized successfully', {
+          stats: this.streamingHandler.getStats(),
+        });
+      } catch (error) {
+        logger.error('Failed to initialize StreamingHandler:', error);
+        // Continue without streaming handler rather than crashing the service
+      }
+
       // Setup discussion-specific WebSocket handlers (start_discussion, join_discussion, etc.)
       try {
         setupWebSocketHandlers(this.io, this.orchestrationService);
@@ -791,6 +805,7 @@ class DiscussionOrchestrationServer extends BaseService {
       connections: {
         socketIO: this.io ? this.io.engine?.clientsCount || 0 : 0,
         authHandlers: this.authResponseHandlers.size,
+        streaming: this.streamingHandler?.getStats() || { connections: 0, activeSessions: 0 },
       },
     };
   }

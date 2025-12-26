@@ -249,12 +249,32 @@ export function registerProviderRoutes(app: any): any {
             // @ts-expect-error - Elysia middleware injects user, but TypeScript cannot infer through nested groups
           .get('/my-providers/models', async ({ user, set }) => {
             try {
-              const { ModelService } = await import('../services/modelService.js');
-              const dataSource = await (
-                await import('@uaip/shared-services')
-              ).DatabaseService.getInstance().getDataSource();
-              const modelService = new ModelService(dataSource);
-              const models = await modelService.getModelsForUser(user!.id);
+              const { UserLLMService, ModelBootstrapService } = await import('@uaip/llm-service');
+              const userLLMService = new UserLLMService();
+              const modelBootstrapService = ModelBootstrapService.getInstance();
+              const userId = user!.id;
+
+              logger.info('Fetching models for user', { userId });
+
+              // Strategy: Try cache first, then live API calls
+              let models = await modelBootstrapService.getCachedUserModels(userId);
+              let source = 'cache';
+
+              // If cache miss, fetch live from provider APIs
+              if (!models || models.length === 0) {
+                logger.info('Cache miss for user models, fetching from provider APIs', { userId });
+                models = await userLLMService.getAvailableModels(userId);
+                source = 'live';
+
+                // Cache the results for future requests
+                if (models.length > 0) {
+                  modelBootstrapService.refreshUserModels(userId).catch((error: Error) => {
+                    logger.warn('Failed to refresh user models cache', { userId, error: error.message });
+                  });
+                }
+              }
+
+              logger.info('Models fetched successfully', { userId, totalModels: models.length, source });
               return { success: true, data: models };
             } catch (error) {
               logger.error('Error getting user LLM models', { error });

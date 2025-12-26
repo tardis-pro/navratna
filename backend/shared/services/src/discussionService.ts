@@ -126,6 +126,10 @@ export class DiscussionService {
 
       const discussion = await this.databaseService.create<Discussion>(Discussion, discussionData);
 
+      if (request.createdBy) {
+        await this.addUserParticipant(discussion.id!, request.createdBy);
+      }
+
       // Add initial participants
       if (request.initialParticipants) {
         logger.debug('Adding initial participants', {
@@ -471,6 +475,120 @@ export class DiscussionService {
         error: (error as Error).message,
         discussionId,
         agentId: participantRequest.agentId,
+      });
+      throw error;
+    }
+  }
+
+  async addUserParticipant(
+    discussionId: string,
+    userId: string,
+    options?: {
+      role?: 'participant' | 'moderator' | 'observer' | 'facilitator';
+      displayName?: string;
+      permissions?: string[];
+      turnOrder?: number;
+      turnWeight?: number;
+      participationConfig?: Record<string, any>;
+      behavioralConstraints?: Record<string, any>;
+      contextAwareness?: Record<string, any>;
+    }
+  ): Promise<DiscussionParticipantType> {
+    try {
+      logger.info('Adding user participant to discussion', {
+        discussionId,
+        userId,
+        role: options?.role,
+        displayName: options?.displayName,
+      });
+
+      const discussion = await this.getDiscussion(discussionId, true);
+      if (!discussion) {
+        throw new Error(`Discussion not found: ${discussionId}`);
+      }
+
+      const existingParticipant = discussion.participants?.find(
+        (participant) => participant.userId === userId && participant.isActive
+      );
+      if (existingParticipant) {
+        logger.info('User participant already active in discussion', {
+          discussionId,
+          userId,
+          participantId: existingParticipant.id,
+        });
+        return existingParticipant as DiscussionParticipantType;
+      }
+
+      const maxParticipants = discussion.settings?.maxParticipants || this.maxParticipants;
+      const activeParticipants = discussion.participants?.filter((p) => p.isActive) || [];
+      const currentParticipantCount = activeParticipants.length;
+
+      logger.debug('Checking participant limit for user', {
+        discussionId,
+        totalParticipants: discussion.participants?.length || 0,
+        activeParticipants: currentParticipantCount,
+        maxParticipants,
+      });
+
+      if (currentParticipantCount >= maxParticipants) {
+        throw new Error(`Discussion has reached maximum participants limit: ${maxParticipants}`);
+      }
+
+      const user = await this.databaseService.findById('users', userId);
+      if (!user) {
+        throw new Error(`User not found: ${userId}`);
+      }
+
+      const participantManagementService = new (
+        await import('./participant-management.service.js')
+      ).ParticipantManagementService(this.databaseService);
+
+      const displayName =
+        options?.displayName ||
+        (user as { name?: string; email?: string }).name ||
+        (user as { email?: string }).email;
+
+      const participant = await participantManagementService.createUserParticipant({
+        discussionId,
+        userId,
+        displayName,
+        roleInDiscussion: options?.role || 'participant',
+        permissions: options?.permissions,
+        turnOrder: options?.turnOrder,
+        turnWeight: options?.turnWeight,
+        participationConfig: options?.participationConfig,
+        behavioralConstraints: options?.behavioralConstraints,
+        contextAwareness: options?.contextAwareness,
+      });
+
+      await this.updateDiscussion(discussionId, {
+        state: {
+          ...discussion.state,
+          activeParticipants: (discussion.state?.activeParticipants || 0) + 1,
+        },
+      });
+
+      await this.emitDiscussionEvent(discussionId, DiscussionEventType.PARTICIPANT_JOINED, {
+        participantId: participant.participantId,
+        userId: participant.userId,
+        role: participant.roleInDiscussion,
+        displayName: participant.displayName,
+      });
+
+      logger.info('User participant added successfully', {
+        discussionId,
+        participantId: participant.participantId,
+        userId: participant.userId,
+        displayName: participant.displayName,
+        role: participant.roleInDiscussion,
+      });
+
+      return participant;
+    } catch (error) {
+      logger.error('Failed to add user participant', {
+        error: (error as Error).message,
+        discussionId,
+        userId,
       });
       throw error;
     }

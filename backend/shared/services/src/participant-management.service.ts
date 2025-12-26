@@ -154,6 +154,113 @@ export class ParticipantManagementService {
   }
 
   /**
+   * Create or retrieve a participant for a user in a discussion
+   */
+  async createUserParticipant(options: {
+    discussionId: string;
+    userId: string;
+    displayName?: string;
+    roleInDiscussion?:
+      | 'moderator'
+      | 'participant'
+      | 'observer'
+      | 'facilitator'
+      | 'expert'
+      | 'critic';
+    permissions?: string[];
+    turnOrder?: number;
+    turnWeight?: number;
+    participationConfig?: Record<string, any>;
+    behavioralConstraints?: Record<string, any>;
+    contextAwareness?: Record<string, any>;
+  }): Promise<DiscussionParticipant> {
+    const {
+      discussionId,
+      userId,
+      displayName,
+      roleInDiscussion = 'participant',
+      permissions = ['speak', 'listen', 'react'],
+      turnOrder,
+      turnWeight = 1.0,
+      participationConfig,
+      behavioralConstraints,
+      contextAwareness,
+    } = options;
+
+    try {
+      const existingParticipants = await this.databaseService.findMany<DiscussionParticipant>(
+        DiscussionParticipant,
+        {
+          discussionId,
+          participantType: 'user',
+          userId,
+        }
+      );
+      const existingParticipant = existingParticipants[0] || null;
+
+      if (existingParticipant) {
+        logger.info('User participant already exists, returning existing', {
+          discussionId,
+          userId,
+          participantId: existingParticipant.participantId,
+        });
+        return existingParticipant;
+      }
+
+      const participantId = uuidv4();
+
+      const participant = await this.databaseService.create<DiscussionParticipant>(
+        DiscussionParticipant,
+        {
+          discussionId,
+          participantType: 'user',
+          participantId,
+          userId,
+          displayName,
+          roleInDiscussion,
+          permissions,
+          turnOrder,
+          turnWeight,
+          canInitiateTurns: true,
+          canModerate: roleInDiscussion === 'moderator',
+          maxConsecutiveTurns: roleInDiscussion === 'moderator' ? 5 : 3,
+          participationConfig,
+          behavioralConstraints,
+          contextAwareness,
+          joinedAt: new Date(),
+          isActive: true,
+          isMuted: false,
+          messageCount: 0,
+          expertiseTags: [],
+          topics: [],
+          interruptionCount: 0,
+          questionsAsked: 0,
+          questionsAnswered: 0,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        }
+      );
+
+      logger.info('Created new user participant', {
+        discussionId,
+        userId,
+        participantId: participant.participantId,
+        roleInDiscussion,
+        permissions: permissions.length,
+      });
+
+      return participant;
+    } catch (error) {
+      logger.error('Error creating user participant', {
+        error: error instanceof Error ? error.message : 'Unknown error',
+        discussionId,
+        userId,
+      });
+      throw error;
+    }
+  }
+
+  /**
    * Get participant by their unique participant ID
    */
   async getParticipantById(participantId: string): Promise<DiscussionParticipant | null> {

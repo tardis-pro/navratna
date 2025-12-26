@@ -148,7 +148,7 @@ export class UserLLMProviderSeed extends BaseSeed<UserLLMProvider> {
         description: 'Local LM Studio instance for running open-source models privately',
         type: 'llmstudio' as UserLLMProviderType,
         baseUrl: 'http://host.docker.internal:1234',
-        defaultModel: 'arch-agent-7b',
+        defaultModel: 'arch-agent-7b-i1',
         configuration: {
           timeout: 60000,
           retries: 2,

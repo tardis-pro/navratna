@@ -628,9 +628,10 @@ export const DiscussionPortal: React.FC<DiscussionPortalProps> = ({
           <div className="space-y-6">
             {/* Discussion History Dropdown */}
             <DiscussionHistory
-              onSelectDiscussion={(discussionId) =>
-                console.log('Selected discussion:', discussionId)
-              }
+              onSelectDiscussion={(discussionId) => {
+                console.log('Selected discussion:', discussionId);
+                setSelectedDiscussionId(discussionId);
+              }}
               className="mb-6"
             />
 

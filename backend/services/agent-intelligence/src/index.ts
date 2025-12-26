@@ -1,11 +1,12 @@
 import { BaseService, DiscussionService, PersonaService } from '@uaip/shared-services';
 import { LLMService, UserLLMService } from '@uaip/llm-service';
 import { DiscussionEventType, LLMTaskType } from '@uaip/types';
-import { attachNginxAuth, requireNginxAuth, UserContext } from '@uaip/middleware';
+import { attachAuth, attachNginxAuth, requireNginxAuth, UserContext } from '@uaip/middleware';
 import { ConversationEnhancementService } from './services/conversation-enhancement.service.js';
 import { AgentDiscussionService } from './services/agent-discussion.service.js';
 import { AgentCoreService } from './services/agent-core.service.js';
 import { logger } from '@uaip/utils';
+import { z } from 'zod';
 
 class AgentIntelligenceService extends BaseService {
   private agentDiscussionService: AgentDiscussionService;
@@ -119,6 +120,85 @@ class AgentIntelligenceService extends BaseService {
     });
 
     logger.info('Agent CRUD routes configured');
+
+    // ===== AGENT CHAT ROUTE =====
+    const agentChatSchema = z.object({
+      message: z.string().min(1),
+      conversationHistory: z
+        .array(
+          z.object({
+            content: z.string(),
+            sender: z.string(),
+            timestamp: z.string(),
+          })
+        )
+        .optional(),
+      context: z.record(z.any()).optional(),
+    });
+
+    this.app
+      .group('/api/v1/agents', (app) =>
+        app
+          .use(attachAuth)
+          .post('/:agentId/chat', async (context) => {
+            const { params, body, set, headers } = context;
+            const user = (context as unknown as { user: UserContext | null }).user;
+
+            let userId = user?.id;
+            if (!userId) {
+              const nginxUserId = headers['x-user-id'];
+              const UUID_REGEX =
+                /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+              if (typeof nginxUserId === 'string' && UUID_REGEX.test(nginxUserId)) {
+                userId = nginxUserId;
+              }
+            }
+
+            if (!userId) {
+              set.status = 401;
+              return { success: false, error: 'Authentication required' };
+            }
+
+            const parsed = agentChatSchema.safeParse(body);
+            if (!parsed.success) {
+              set.status = 400;
+              return { success: false, error: 'Invalid chat payload' };
+            }
+
+            try {
+              const result = await this.agentDiscussionService.participateInDiscussion({
+                agentId: params.agentId,
+                message: parsed.data.message,
+                userId,
+                conversationHistory: parsed.data.conversationHistory || [],
+                context: parsed.data.context || {},
+              });
+
+              return {
+                success: true,
+                data: {
+                  response: result.response,
+                  agentName: result.agentName || 'Agent',
+                  confidence: result.confidence || 0.8,
+                  model: 'unknown',
+                  tokensUsed: 0,
+                  memoryEnhanced: false,
+                  knowledgeUsed: result.metadata?.knowledgeUsed || 0,
+                  persona: null,
+                  conversationContext: result.metadata || {},
+                  timestamp: new Date().toISOString(),
+                  toolsExecuted: [],
+                },
+              };
+            } catch (error) {
+              const message =
+                error instanceof Error ? error.message : 'Failed to chat with agent';
+              logger.error('Failed to handle agent chat', { error: message, agentId: params.agentId });
+              set.status = message.includes('Agent not found') ? 404 : 500;
+              return { success: false, error: message };
+            }
+          })
+      );
 
     // ===== PERSONA ROUTES =====
 
@@ -249,52 +329,6 @@ class AgentIntelligenceService extends BaseService {
     // Search discussions
     this.app.get('/api/v1/discussions/search', async ({ query, set }) => {
       try {
-        const parseStringArray = (value: unknown): string[] | undefined => {
-          if (value === undefined || value === null) {
-            return undefined;
-          }
-          if (Array.isArray(value)) {
-            return value.map((entry) => String(entry)).filter(Boolean);
-          }
-          return String(value)
-            .split(',')
-            .map((entry) => entry.trim())
-            .filter(Boolean);
-        };
-
-        const parseBoolean = (value: unknown): boolean | undefined => {
-          if (value === undefined || value === null) {
-            return undefined;
-          }
-          if (typeof value === 'boolean') {
-            return value;
-          }
-          const normalized = String(value).toLowerCase();
-          if (['true', '1', 'yes'].includes(normalized)) {
-            return true;
-          }
-          if (['false', '0', 'no'].includes(normalized)) {
-            return false;
-          }
-          return undefined;
-        };
-
-        const parseNumber = (value: unknown): number | undefined => {
-          if (value === undefined || value === null) {
-            return undefined;
-          }
-          const parsed = Number(value);
-          return Number.isNaN(parsed) ? undefined : parsed;
-        };
-
-        const parseDate = (value: unknown): Date | undefined => {
-          if (!value) {
-            return undefined;
-          }
-          const parsed = new Date(String(value));
-          return Number.isNaN(parsed.getTime()) ? undefined : parsed;
-        };
-
         const extractSearchQuery = (queryParams: Record<string, unknown>): string | undefined => {
           const direct = queryParams.q ?? queryParams.query ?? queryParams.search;
           if (typeof direct === 'string') {
@@ -315,34 +349,92 @@ class AgentIntelligenceService extends BaseService {
             .join('');
         };
 
-        const searchText = extractSearchQuery(query as Record<string, unknown>);
-        const limit = query.limit ? parseInt(query.limit as string) : 20;
-        const offset = query.offset ? parseInt(query.offset as string) : 0;
+        const stringArraySchema = z.preprocess((value) => {
+          if (value === undefined || value === null) {
+            return undefined;
+          }
+          const entries = Array.isArray(value) ? value : String(value).split(',');
+          const cleaned = entries.map((entry) => String(entry).trim()).filter(Boolean);
+          return cleaned.length > 0 ? cleaned : undefined;
+        }, z.array(z.string()).optional());
 
-        const filters = {
-          query: searchText,
-          status: parseStringArray(query.status),
-          visibility: parseStringArray(query.visibility),
-          createdBy: parseStringArray(query.createdBy),
-          organizationId: query.organizationId as string | undefined,
-          teamId: query.teamId as string | undefined,
-          tags: parseStringArray(query.tags),
-          participants: parseStringArray(query.participants),
-          turnStrategy: parseStringArray(query.turnStrategy),
-          hasObjectives: parseBoolean(query.hasObjectives),
-          hasOutcomes: parseBoolean(query.hasOutcomes),
-          minParticipants: parseNumber(query.minParticipants),
-          maxParticipants: parseNumber(query.maxParticipants),
-          minDuration: parseNumber(query.minDuration),
-          maxDuration: parseNumber(query.maxDuration),
-          createdAfter: parseDate(query.createdAfter),
-          createdBefore: parseDate(query.createdBefore),
-          startedAfter: parseDate(query.startedAfter),
-          startedBefore: parseDate(query.startedBefore),
-          endedAfter: parseDate(query.endedAfter),
-          endedBefore: parseDate(query.endedBefore),
-        };
+        const booleanSchema = z.preprocess((value) => {
+          if (value === undefined || value === null) {
+            return undefined;
+          }
+          if (typeof value === 'boolean') {
+            return value;
+          }
+          const normalized = String(value).toLowerCase();
+          if (['true', '1', 'yes'].includes(normalized)) {
+            return true;
+          }
+          if (['false', '0', 'no'].includes(normalized)) {
+            return false;
+          }
+          return undefined;
+        }, z.boolean().optional());
 
+        const numberSchema = z.preprocess((value) => {
+          if (value === undefined || value === null || value === '') {
+            return undefined;
+          }
+          const parsed = Number(value);
+          return Number.isNaN(parsed) ? undefined : parsed;
+        }, z.number().optional());
+
+        const dateSchema = z.preprocess((value) => {
+          if (!value) {
+            return undefined;
+          }
+          const parsed = new Date(String(value));
+          return Number.isNaN(parsed.getTime()) ? undefined : parsed;
+        }, z.date().optional());
+
+        const paginationSchema = z.preprocess((value) => {
+          if (value === undefined || value === null || value === '') {
+            return undefined;
+          }
+          const parsed = Number(value);
+          return Number.isNaN(parsed) ? undefined : parsed;
+        }, z.number().int().nonnegative());
+
+        const searchSchema = z.object({
+          query: z.string().optional(),
+          status: stringArraySchema,
+          visibility: stringArraySchema,
+          createdBy: stringArraySchema,
+          organizationId: z.string().optional(),
+          teamId: z.string().optional(),
+          tags: stringArraySchema,
+          participants: stringArraySchema,
+          turnStrategy: stringArraySchema,
+          hasObjectives: booleanSchema,
+          hasOutcomes: booleanSchema,
+          minParticipants: numberSchema,
+          maxParticipants: numberSchema,
+          minDuration: numberSchema,
+          maxDuration: numberSchema,
+          createdAfter: dateSchema,
+          createdBefore: dateSchema,
+          startedAfter: dateSchema,
+          startedBefore: dateSchema,
+          endedAfter: dateSchema,
+          endedBefore: dateSchema,
+          limit: paginationSchema.default(20),
+          offset: paginationSchema.default(0),
+        });
+
+        const rawQuery = query as Record<string, unknown>;
+        const searchText = extractSearchQuery(rawQuery);
+        const parsed = searchSchema.safeParse({ ...rawQuery, query: searchText });
+
+        if (!parsed.success) {
+          set.status = 400;
+          return { success: false, error: 'Invalid search parameters', details: parsed.error.flatten() };
+        }
+
+        const { limit, offset, ...filters } = parsed.data;
         const discussions = await this.discussionService.searchDiscussions(filters as any, limit, offset);
         return { success: true, data: discussions };
       } catch (error) {
@@ -385,9 +477,17 @@ class AgentIntelligenceService extends BaseService {
               set.status = 201;
               return { success: true, data: discussion };
             } catch (error) {
-              logger.error('Failed to create discussion', { error });
-              set.status = 500;
-              return { success: false, error: 'Failed to create discussion' };
+              const message = error instanceof Error ? error.message : 'Failed to create discussion';
+              const isValidationError =
+                message.includes('Discussion title is required') ||
+                message.includes('Discussion topic is required') ||
+                message.includes('Discussion requires at least 1 initial participant') ||
+                message.includes('Participant agentId is required') ||
+                message.includes('Agent not found');
+
+              logger.error('Failed to create discussion', { error: message });
+              set.status = isValidationError ? 400 : 500;
+              return { success: false, error: message };
             }
           })
           // Update discussion

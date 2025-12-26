@@ -78,7 +78,12 @@ class LLMServiceServer extends BaseService {
 
   protected async setupRoutes(): Promise<void> {
     // Register route groups
-    registerLLMRoutes(this.app, this.llmService, this.modelBootstrapService);
+    registerLLMRoutes(
+      this.app,
+      this.llmService,
+      this.modelBootstrapService,
+      this.userLLMService
+    );
     registerUserLLMRoutes(this.app, this.userLLMService);
   }
 

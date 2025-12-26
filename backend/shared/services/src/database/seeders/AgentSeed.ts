@@ -732,7 +732,7 @@ export class AgentSeed extends BaseSeed<Agent> {
         totalOperations: 1567,
         successfulOperations: 1363,
         averageResponseTime: 3.2,
-        modelId: 'arch-agent-7b',
+        modelId: 'arch-agent-7b-i1',
         ...this.getUserLLMProvider(
           AgentRole.ADVISOR,
           this.users.find((u) => u.role === 'creative_director')?.id || this.users[0].id
@@ -1040,7 +1040,7 @@ export class AgentSeed extends BaseSeed<Agent> {
         totalOperations: 4567,
         successfulOperations: 4156,
         averageResponseTime: 1.5,
-        modelId: 'larch-agent-7b',
+        modelId: 'arch-agent-7b-i1',
         ...this.getUserLLMProvider(
           AgentRole.COMMUNICATOR,
           this.users.find((u) => u.role === 'marketing_manager')?.id || this.users[0].id

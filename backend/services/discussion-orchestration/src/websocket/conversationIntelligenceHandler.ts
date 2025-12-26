@@ -291,12 +291,32 @@ export class ConversationIntelligenceHandler {
     if (!connection) return;
 
     try {
+      if (!connection.agentId) {
+        this.logger.warn('Autocomplete query missing agent context', {
+          socketId: socket.id,
+          userId: connection.userId,
+        });
+        socket.emit('error', { error: 'Autocomplete requires an agent context' });
+        return;
+      }
+
+      if (!data || typeof data.partial !== 'string') {
+        this.logger.warn('Autocomplete query missing partial input', {
+          socketId: socket.id,
+          userId: connection.userId,
+          agentId: connection.agentId,
+        });
+        socket.emit('error', { error: 'Autocomplete requires a partial input string' });
+        return;
+      }
+
       // Enhanced context for global user LLM requests
+      const isGlobalUserLLM = connection.agentId.startsWith('user-');
       const enhancedContext = {
         ...data.context,
-        isGlobalUserLLM: connection.agentId.startsWith('user-'),
+        isGlobalUserLLM,
         userId: connection.userId,
-        useDefaultLLMProvider: connection.agentId.startsWith('user-'),
+        useDefaultLLMProvider: isGlobalUserLLM,
         requestType: data.context?.type || 'autocomplete',
       };
 

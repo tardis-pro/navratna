@@ -477,24 +477,26 @@ export class UserLLMService {
         });
 
         // Use the selected model and provider type to find a matching user provider
-        const repository = await this.getUserLLMProviderRepository();
-        const selectedProvider = await repository.findByUserAndType(
+        const selectedProvider = await this.resolveProviderForSelection(
           userId,
           modelSelection.model.provider
         );
 
-        if (selectedProvider) {
-          logger.info('Using selected provider from facade', {
-            providerId: selectedProvider.id,
-            providerName: selectedProvider.name,
-          });
-          response = await this.generateResponse(userId, llmRequest, selectedProvider);
-        } else {
-          logger.error('Selected provider not found', {
-            providerType: modelSelection.model.provider,
-          });
-          throw new Error(`Selected provider not found: ${modelSelection.model.provider}`);
+        llmRequest.model = modelSelection.model.model || llmRequest.model;
+        if (modelSelection.model.settings?.temperature !== undefined) {
+          llmRequest.temperature = modelSelection.model.settings.temperature;
         }
+        if (modelSelection.model.settings?.maxTokens !== undefined) {
+          llmRequest.maxTokens = modelSelection.model.settings.maxTokens;
+        }
+
+        logger.info('Using selected provider from facade', {
+          providerId: selectedProvider.id,
+          providerName: selectedProvider.name,
+          selectedModel: modelSelection.model.model,
+        });
+
+        response = await this.generateResponse(userId, llmRequest, selectedProvider);
       } else {
         logger.info('Using traditional user provider lookup', {
           reason: !this.modelSelectionFacade ? 'no facade' : 'no agent id',
@@ -514,6 +516,37 @@ export class UserLLMService {
       logger.error('Error generating agent response for user', { userId, error });
       throw error;
     }
+  }
+
+  /**
+   * Select a provider for streaming based on agent preferences when available
+   */
+  async selectProviderForAgent(
+    userId: string,
+    agentId: string,
+    options?: {
+      model?: string;
+      provider?: UserLLMProviderType;
+      taskType?: LLMTaskType;
+    }
+  ): Promise<{ provider: UserLLMProvider; selection: UnifiedModelSelection } | null> {
+    if (!this.modelSelectionFacade) {
+      return null;
+    }
+
+    const taskType = options?.taskType ?? LLMTaskType.REASONING;
+    const selection = await this.modelSelectionFacade.selectForAgent(agentId, taskType, {
+      model: options?.model,
+      provider: options?.provider,
+      urgency: 'medium',
+    });
+
+    const provider = await this.resolveProviderForSelection(
+      userId,
+      selection.model.provider
+    );
+
+    return { provider, selection };
   }
 
   /**
@@ -574,6 +607,16 @@ export class UserLLMService {
     }
   }
 
+  /**
+   * Get the best available provider for a user (optionally filtered by type)
+   */
+  async getBestProviderForUser(
+    userId: string,
+    preferredType?: UserLLMProviderType
+  ): Promise<UserLLMProvider | null> {
+    return this.getBestUserProvider(userId, preferredType);
+  }
+
   // Private Helper Methods
 
   private async getBestUserProvider(
@@ -587,6 +630,21 @@ export class UserLLMService {
       logger.error('Error getting best user provider', { userId, preferredType, error });
       return null;
     }
+  }
+
+  private async resolveProviderForSelection(
+    userId: string,
+    providerType: UserLLMProviderType
+  ): Promise<UserLLMProvider> {
+    const repository = await this.getUserLLMProviderRepository();
+    const selectedProvider = await repository.findByUserAndType(userId, providerType);
+
+    if (!selectedProvider) {
+      logger.error('Selected provider not found', { providerType });
+      throw new Error(`Selected provider not found: ${providerType}`);
+    }
+
+    return selectedProvider;
   }
 
   private async getOrCreateProviderInstance(userProvider: UserLLMProvider): Promise<BaseProvider> {

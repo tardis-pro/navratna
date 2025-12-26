@@ -20,6 +20,7 @@
     "@tanstack/ai-ollama": "^0.0.3",
     "@tanstack/ai-openai": "^0.0.3",
     "@uaip/config": "workspace:*",
+    "@uaip/middleware": "workspace:*",
     "@uaip/shared-services": "workspace:*",
     "@uaip/types": "workspace:*",
     "@uaip/utils": "workspace:*",

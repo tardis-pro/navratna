@@ -90,12 +90,17 @@ export const DiscussionProvider: React.FC<DiscussionProviderProps> = ({
     sendMessage: sendWebSocketMessage,
     lastEvent,
     authStatus,
+    error: wsError,
   } = useEnhancedWebSocket();
 
   // Sync WebSocket connection status
   useEffect(() => {
     setIsWebSocketConnected(wsConnected);
   }, [wsConnected]);
+
+  useEffect(() => {
+    setWebsocketError(wsError || null);
+  }, [wsError]);
 
   // Listen for discussion events
   useEffect(() => {

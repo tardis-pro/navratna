@@ -47,7 +47,19 @@ export interface DiscussionListOptions {
 
 export const discussionsAPI = {
   async list(options?: DiscussionListOptions): Promise<Discussion[]> {
-    return APIClient.get<Discussion[]>(API_ROUTES.DISCUSSIONS.LIST, { params: options });
+    const response = await APIClient.get<
+      Discussion[] | { discussions?: Discussion[]; totalCount?: number; searchTime?: number }
+    >(API_ROUTES.DISCUSSIONS.LIST, { params: options });
+
+    if (Array.isArray(response)) {
+      return response;
+    }
+
+    if (Array.isArray(response?.discussions)) {
+      return response.discussions;
+    }
+
+    return [];
   },
 
   async get(id: string): Promise<Discussion> {

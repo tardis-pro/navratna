@@ -104,6 +104,10 @@ export class LLMService {
               provider = new LLMStudioProvider(llmProviderConfig, dbProvider.name);
               break;
             case 'openai':
+            case 'anthropic':
+            case 'google':
+            case 'custom':
+              // All OpenAI-compatible and cloud providers use OpenAIProvider
               provider = new OpenAIProvider(llmProviderConfig, dbProvider.name);
               break;
             default:
