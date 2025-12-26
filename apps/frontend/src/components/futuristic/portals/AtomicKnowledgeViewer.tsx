@@ -125,7 +125,7 @@ export const AtomicKnowledgeViewer: React.FC<AtomicKnowledgeViewerProps> = ({
 }) => {
   const [isEditing, setIsEditing] = useState(false);
   const [editedContent, setEditedContent] = useState(item.content);
-  const [editedTags, setEditedTags] = useState(item.tags.join(', '));
+  const [editedTags, setEditedTags] = useState((item.tags || []).join(', '));
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [analysis, setAnalysis] = useState<KnowledgeAnalysis | null>(null);
   const [connections, setConnections] = useState<KnowledgeConnection[]>([]);
@@ -156,7 +156,7 @@ export const AtomicKnowledgeViewer: React.FC<AtomicKnowledgeViewerProps> = ({
         complexity: words.length > 100 ? 'complex' : words.length > 50 ? 'moderate' : 'simple',
         keyTerms: extractKeyTerms(item.content),
         sentiment: analyzeSentiment(item.content),
-        topics: item.tags.slice(0, 3),
+        topics: (item.tags || []).slice(0, 3),
         conceptDensity: Math.min(100, (sentences.length / words.length) * 1000),
       };
 
@@ -175,7 +175,7 @@ export const AtomicKnowledgeViewer: React.FC<AtomicKnowledgeViewerProps> = ({
         targetId: relatedItem.id,
         type: 'semantic',
         strength: Math.random() * 0.8 + 0.2,
-        description: `Related through shared concepts: ${relatedItem.tags.slice(0, 2).join(', ')}`,
+        description: `Related through shared concepts: ${(relatedItem.tags || []).slice(0, 2).join(', ')}`,
       }));
 
       setConnections(mockConnections);
@@ -399,7 +399,7 @@ export const AtomicKnowledgeViewer: React.FC<AtomicKnowledgeViewerProps> = ({
                   id: item.id,
                   content: item.content,
                   type: item.type,
-                  tags: item.tags,
+                  tags: item.tags || [],
                 },
               }}
             />
@@ -486,7 +486,7 @@ export const AtomicKnowledgeViewer: React.FC<AtomicKnowledgeViewerProps> = ({
                   </div>
                 ) : (
                   <div className="flex flex-wrap gap-2">
-                    {item.tags.map((tag) => (
+                    {(item.tags || []).map((tag) => (
                       <Badge key={tag} variant="outline" className="text-slate-300">
                         {tag}
                       </Badge>
@@ -522,14 +522,14 @@ export const AtomicKnowledgeViewer: React.FC<AtomicKnowledgeViewerProps> = ({
                             : relatedItem.content}
                         </p>
                         <div className="flex flex-wrap gap-1">
-                          {relatedItem.tags.slice(0, 4).map((tag) => (
+                          {(relatedItem.tags || []).slice(0, 4).map((tag) => (
                             <Badge key={tag} variant="outline" className="text-xs">
                               {tag}
                             </Badge>
                           ))}
-                          {relatedItem.tags.length > 4 && (
+                          {(relatedItem.tags || []).length > 4 && (
                             <Badge variant="outline" className="text-xs">
-                              +{relatedItem.tags.length - 4}
+                              +{(relatedItem.tags || []).length - 4}
                             </Badge>
                           )}
                         </div>

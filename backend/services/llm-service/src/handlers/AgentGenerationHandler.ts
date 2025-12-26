@@ -68,22 +68,36 @@ export class AgentGenerationHandler {
       return null;
     }
 
+    // Use AgentRepository.getActiveAgentById() which loads the persona relation
     const { AgentService } = await import('@uaip/shared-services');
     const agentService = AgentService.getInstance();
-    const agent = await agentService.findAgentById(agentId);
+    const agentRepository = agentService.getAgentRepository();
+    const agent = await agentRepository.getActiveAgentById(agentId);
 
     if (!agent) {
       throw new Error(`Agent ${agentId} not found`);
     }
+
+    logger.info('Loaded agent with persona for generation', {
+      agentId: agent.id,
+      agentName: agent.name,
+      hasPersona: !!agent.persona,
+      hasLegacyPersona: !!agent.legacyPersona,
+      hasSystemPrompt: !!agent.systemPrompt,
+    });
 
     return agent;
   }
 
   private async generateResponse(request: AgentGenerationRequest, agent: any): Promise<any> {
     const prompt = this.buildPromptFromMessages(request.messages);
+
+    // Build system prompt from agent persona if available, otherwise use request.systemPrompt
+    const systemPrompt = this.buildAgentSystemPrompt(agent, request.systemPrompt);
+
     const generationRequest = {
       prompt,
-      systemPrompt: request.systemPrompt,
+      systemPrompt,
       maxTokens: request.maxTokens || agent?.maxTokens || 1000,
       temperature: request.temperature || agent?.temperature || 0.7,
       model: request.model || agent?.configuration?.model,
@@ -114,6 +128,59 @@ export class AgentGenerationHandler {
         .map((msg) => `${msg.sender === 'user' ? 'User' : 'Assistant'}: ${msg.content}`)
         .join('\n') + '\nAssistant:'
     );
+  }
+
+  /**
+   * Build system prompt from agent data with persona context
+   * Falls back to provided fallbackPrompt if no agent persona is available
+   */
+  private buildAgentSystemPrompt(agent: any, fallbackPrompt?: string): string {
+    if (!agent) {
+      return fallbackPrompt || 'You are a helpful AI assistant.';
+    }
+
+    // Get persona from either the loaded relation or legacy field
+    const persona = agent.persona || agent.legacyPersona;
+
+    let systemPrompt = `You are ${agent.name}`;
+
+    // Add persona description
+    if (persona?.description) {
+      systemPrompt += `, ${persona.description}`;
+    } else if (agent.description) {
+      systemPrompt += `. ${agent.description}`;
+    }
+
+    systemPrompt += '.\n\n';
+
+    // Add capabilities
+    const capabilities = persona?.capabilities || agent.capabilities;
+    if (capabilities && Array.isArray(capabilities) && capabilities.length > 0) {
+      systemPrompt += `Your capabilities include: ${capabilities.join(', ')}.\n`;
+    }
+
+    // Add role context
+    if (agent.role) {
+      systemPrompt += `Your role is: ${agent.role}.\n`;
+    }
+
+    // Add agent's custom system prompt if configured
+    if (agent.systemPrompt) {
+      systemPrompt += `\n${agent.systemPrompt}\n`;
+    }
+
+    // Add response guidelines
+    systemPrompt += '\nProvide a natural, helpful response to the user\'s message.';
+
+    logger.info('Built agent system prompt', {
+      agentId: agent.id,
+      agentName: agent.name,
+      hasPersona: !!persona,
+      hasCapabilities: !!(capabilities?.length),
+      systemPromptLength: systemPrompt.length,
+    });
+
+    return systemPrompt;
   }
 
   private async publishResponse(
