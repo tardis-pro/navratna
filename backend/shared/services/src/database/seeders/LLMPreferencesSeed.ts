@@ -261,7 +261,7 @@ export class LLMPreferencesSeed extends BaseSeed<UserLLMPreference> {
       },
       [LLMTaskType.TOOL_CALLING]: {
         primaryProvider: LLMProviderType.LLMSTUDIO,
-        primaryModel: 'arch-agent-7b',
+        primaryModel: 'arch-agent-7b-i1',
         fallbackModel: 'gpt-4o',
         priority: 85,
         description: 'Fast and reliable tool execution with Menlo Jan Nano',
@@ -274,7 +274,7 @@ export class LLMPreferencesSeed extends BaseSeed<UserLLMPreference> {
       },
       [LLMTaskType.SUMMARIZATION]: {
         primaryProvider: LLMProviderType.LLMSTUDIO,
-        primaryModel: 'arch-agent-7b',
+        primaryModel: 'arch-agent-7b-i1',
         fallbackModel: 'gpt-4o-mini',
         priority: 80,
         description: 'Efficient summarization with InternLM3',
@@ -287,7 +287,7 @@ export class LLMPreferencesSeed extends BaseSeed<UserLLMPreference> {
       },
       [LLMTaskType.CREATIVE_WRITING]: {
         primaryProvider: LLMProviderType.LLMSTUDIO,
-        primaryModel: 'arch-agent-7b',
+        primaryModel: 'arch-agent-7b-i1',
         fallbackModel: 'gpt-4o',
         priority: 75,
         description: 'Creative content generation with Llama 3.2 Overthinker',

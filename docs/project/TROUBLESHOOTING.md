@@ -302,10 +302,10 @@ enum AppError {
 
 ### Documentation
 
-- [Architecture Guide](../core/ARCHITECTURE.md)
+- [Architecture Guide](../ARCHITECTURE.md)
 - [Deployment Guide](../core/DEPLOYMENT.md)
-- [API Reference](../core/API_REFERENCE.md)
-- [Development Guide](../core/DEVELOPMENT.md)
+- [API Reference](../API_REFERENCE.md)
+- [Development Guide](../GETTING_STARTED.md)
 
 ### Support Channels
 

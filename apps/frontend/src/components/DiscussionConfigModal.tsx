@@ -19,6 +19,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { GlobalAutocomplete } from '@/components/ui/GlobalAutocomplete';
 import { useDiscussion } from '@/contexts/DiscussionContext';
 import { useAgents } from '@/contexts/AgentContext';
+import { useAuth } from '@/contexts/AuthContext';
 import { TurnStrategy, ParticipantRole, DiscussionVisibility } from '@uaip/types';
 import {
   MessageSquare,
@@ -67,63 +68,63 @@ const DISCUSSION_PURPOSES: Array<{
   icon: React.ReactNode;
   artifacts: ArtifactType[];
 }> = [
-  {
-    value: 'brainstorm',
-    label: 'Brainstorming',
-    description: 'Generate creative ideas and solutions',
-    icon: <Brain className="w-5 h-5" />,
-    artifacts: ['document', 'action-plan', 'presentation'],
-  },
-  {
-    value: 'analysis',
-    label: 'Analysis & Review',
-    description: 'Deep dive analysis of content or concepts',
-    icon: <Target className="w-5 h-5" />,
-    artifacts: ['analysis-report', 'document', 'presentation'],
-  },
-  {
-    value: 'code-generation',
-    label: 'Code Generation',
-    description: 'Collaborative coding and development',
-    icon: <Code className="w-5 h-5" />,
-    artifacts: ['code', 'document', 'analysis-report'],
-  },
-  {
-    value: 'documentation',
-    label: 'Documentation',
-    description: 'Create comprehensive documentation',
-    icon: <FileText className="w-5 h-5" />,
-    artifacts: ['document', 'presentation', 'research-summary'],
-  },
-  {
-    value: 'prd-creation',
-    label: 'PRD Creation',
-    description: 'Product Requirements Document development',
-    icon: <Presentation className="w-5 h-5" />,
-    artifacts: ['prd', 'document', 'presentation'],
-  },
-  {
-    value: 'problem-solving',
-    label: 'Problem Solving',
-    description: 'Systematic problem resolution',
-    icon: <Zap className="w-5 h-5" />,
-    artifacts: ['action-plan', 'analysis-report', 'decision-matrix'],
-  },
-  {
-    value: 'research',
-    label: 'Research & Investigation',
-    description: 'Comprehensive research and fact-finding',
-    icon: <Sparkles className="w-5 h-5" />,
-    artifacts: ['research-summary', 'document', 'analysis-report'],
-  },
-  {
-    value: 'decision-making',
-    label: 'Decision Making',
-    description: 'Structured decision analysis and planning',
-    icon: <Users className="w-5 h-5" />,
-    artifacts: ['decision-matrix', 'analysis-report', 'action-plan'],
-  },
-];
+    {
+      value: 'brainstorm',
+      label: 'Brainstorming',
+      description: 'Generate creative ideas and solutions',
+      icon: <Brain className="w-5 h-5" />,
+      artifacts: ['document', 'action-plan', 'presentation'],
+    },
+    {
+      value: 'analysis',
+      label: 'Analysis & Review',
+      description: 'Deep dive analysis of content or concepts',
+      icon: <Target className="w-5 h-5" />,
+      artifacts: ['analysis-report', 'document', 'presentation'],
+    },
+    {
+      value: 'code-generation',
+      label: 'Code Generation',
+      description: 'Collaborative coding and development',
+      icon: <Code className="w-5 h-5" />,
+      artifacts: ['code', 'document', 'analysis-report'],
+    },
+    {
+      value: 'documentation',
+      label: 'Documentation',
+      description: 'Create comprehensive documentation',
+      icon: <FileText className="w-5 h-5" />,
+      artifacts: ['document', 'presentation', 'research-summary'],
+    },
+    {
+      value: 'prd-creation',
+      label: 'PRD Creation',
+      description: 'Product Requirements Document development',
+      icon: <Presentation className="w-5 h-5" />,
+      artifacts: ['prd', 'document', 'presentation'],
+    },
+    {
+      value: 'problem-solving',
+      label: 'Problem Solving',
+      description: 'Systematic problem resolution',
+      icon: <Zap className="w-5 h-5" />,
+      artifacts: ['action-plan', 'analysis-report', 'decision-matrix'],
+    },
+    {
+      value: 'research',
+      label: 'Research & Investigation',
+      description: 'Comprehensive research and fact-finding',
+      icon: <Sparkles className="w-5 h-5" />,
+      artifacts: ['research-summary', 'document', 'analysis-report'],
+    },
+    {
+      value: 'decision-making',
+      label: 'Decision Making',
+      description: 'Structured decision analysis and planning',
+      icon: <Users className="w-5 h-5" />,
+      artifacts: ['decision-matrix', 'analysis-report', 'action-plan'],
+    },
+  ];
 
 const ARTIFACT_TYPES: Record<
   ArtifactType,
@@ -282,6 +283,7 @@ export const DiscussionConfigModal: React.FC<DiscussionConfigModalProps> = ({
 
   const { start, isLoading: discussionLoading } = useDiscussion();
   const { agents } = useAgents();
+  const { user } = useAuth();
 
   const agentList = Object.values(agents);
   const selectedPurposeData = DISCUSSION_PURPOSES.find((p) => p.value === selectedPurpose);
@@ -331,11 +333,12 @@ export const DiscussionConfigModal: React.FC<DiscussionConfigModalProps> = ({
   const handleStartDiscussion = async () => {
     const topic = generateTopic();
     console.log(topic.slice(0, 20));
+    const createdBy = user?.id;
     const discussionData = {
       title: topic.slice(0, 20),
       topic,
       description: additionalContext.trim() || `${selectedPurposeData?.description} session`,
-      createdBy: 'current-user-id',
+      ...(createdBy ? { createdBy } : {}),
       initialParticipants: selectedAgents.map((agentId) => ({
         agentId,
         role: ParticipantRole.PARTICIPANT,
@@ -384,7 +387,7 @@ export const DiscussionConfigModal: React.FC<DiscussionConfigModalProps> = ({
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-white">
             <MessageSquare className="w-5 h-5 text-cyan-400" />
-            Configure Discussion Session1
+            Configure Discussion Session
           </DialogTitle>
           <DialogDescription className="text-slate-300">
             Set up the purpose and expected outcomes for your agent discussion
@@ -400,11 +403,10 @@ export const DiscussionConfigModal: React.FC<DiscussionConfigModalProps> = ({
                 {DISCUSSION_PURPOSES.map((purpose) => (
                   <Card
                     key={purpose.value}
-                    className={`cursor-pointer transition-all hover:shadow-md ${
-                      selectedPurpose === purpose.value
+                    className={`cursor-pointer transition-all hover:shadow-md ${selectedPurpose === purpose.value
                         ? 'ring-2 ring-blue-400 bg-gradient-to-br from-blue-900/30 to-blue-900/30 border-blue-400/50'
                         : 'bg-slate-800/60 hover:bg-slate-700/70 border border-slate-600/30 hover:border-slate-500/50'
-                    } border backdrop-blur-sm`}
+                      } border backdrop-blur-sm`}
                     onClick={() => {
                       setSelectedPurpose(purpose.value);
                       if (purpose.artifacts[0]) {
@@ -415,11 +417,10 @@ export const DiscussionConfigModal: React.FC<DiscussionConfigModalProps> = ({
                     <CardContent className="p-3">
                       <div className="flex items-start gap-3">
                         <div
-                          className={`p-2 rounded-lg ${
-                            selectedPurpose === purpose.value
+                          className={`p-2 rounded-lg ${selectedPurpose === purpose.value
                               ? 'bg-blue-500/20 text-blue-300 border border-blue-500/30'
                               : 'bg-slate-700/50 text-slate-400 border border-slate-600/30'
-                          }`}
+                            }`}
                         >
                           {purpose.icon}
                         </div>
@@ -553,11 +554,10 @@ export const DiscussionConfigModal: React.FC<DiscussionConfigModalProps> = ({
                 {agentList.map((agent) => (
                   <Card
                     key={agent.id}
-                    className={`cursor-pointer transition-all border backdrop-blur-sm ${
-                      selectedAgents.includes(agent.id)
+                    className={`cursor-pointer transition-all border backdrop-blur-sm ${selectedAgents.includes(agent.id)
                         ? 'ring-2 ring-blue-400 bg-gradient-to-br from-blue-900/30 to-blue-900/30 border-blue-400/50'
                         : 'bg-slate-800/60 hover:bg-slate-700/70 border border-slate-600/30 hover:border-slate-500/50'
-                    }`}
+                      }`}
                     onClick={() => toggleAgent(agent.id)}
                   >
                     <CardContent className="p-3">
@@ -569,11 +569,10 @@ export const DiscussionConfigModal: React.FC<DiscussionConfigModalProps> = ({
                           </p>
                         </div>
                         <div
-                          className={`w-4 h-4 rounded border-2 ${
-                            selectedAgents.includes(agent.id)
+                          className={`w-4 h-4 rounded border-2 ${selectedAgents.includes(agent.id)
                               ? 'bg-blue-500 border-blue-500'
                               : 'border-slate-500'
-                          }`}
+                            }`}
                         >
                           {selectedAgents.includes(agent.id) && (
                             <div className="w-full h-full flex items-center justify-center">

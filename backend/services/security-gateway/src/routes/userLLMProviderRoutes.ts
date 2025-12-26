@@ -264,21 +264,34 @@ router.get('/my-providers/active', async (req: AuthenticatedRequest, res: Respon
 // Get all available models from user's providers
 router.get('/my-providers/models', async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const { dataSource } = await getServices();
-    const { ModelService } = await import('../services/modelService.js');
-    const modelService = new ModelService(dataSource);
-
+    const { userLLMService, modelBootstrapService } = await getServices();
     const userId = req.user!.id;
 
-    logger.info('Fetching models for user from database', { userId });
+    logger.info('Fetching models for user', { userId });
 
-    // Get models from database only (no external API calls)
-    const models = await modelService.getModelsForUser(userId);
+    // Strategy: Try cache first, then live API calls
+    // 1. Check Redis cache (fastest)
+    let models = await modelBootstrapService.getCachedUserModels(userId);
+    let source = 'cache';
 
-    logger.info('Models fetched successfully from database', {
+    // 2. If cache miss, fetch live from provider APIs
+    if (!models || models.length === 0) {
+      logger.info('Cache miss for user models, fetching from provider APIs', { userId });
+      models = await userLLMService.getAvailableModels(userId);
+      source = 'live';
+
+      // Optionally cache the results for future requests
+      if (models.length > 0) {
+        modelBootstrapService.refreshUserModels(userId).catch((error: Error) => {
+          logger.warn('Failed to refresh user models cache', { userId, error: error.message });
+        });
+      }
+    }
+
+    logger.info('Models fetched successfully', {
       userId,
       totalModels: models.length,
-      source: 'database',
+      source,
     });
 
     res.json({

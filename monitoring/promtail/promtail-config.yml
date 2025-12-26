@@ -1,0 +1,57 @@
+server:
+  http_listen_port: 9080
+  grpc_listen_port: 0
+
+positions:
+  filename: /tmp/positions.yaml
+
+clients:
+  - url: http://loki:3100/loki/api/v1/push
+
+scrape_configs:
+  - job_name: docker
+    docker_sd_configs:
+      - host: unix:///var/run/docker.sock
+        refresh_interval: 5s
+    relabel_configs:
+      - source_labels: ['__meta_docker_container_name']
+        target_label: container
+        regex: '/(.*)'
+      - source_labels: ['__meta_docker_container_name']
+        target_label: service_name
+        regex: '/(.*)'
+      - source_labels: ['__meta_docker_container_label_com_docker_compose_service']
+        target_label: service
+      - source_labels: ['__meta_docker_container_label_com_docker_compose_project']
+        target_label: compose_project
+      - source_labels: ['__meta_docker_container_image']
+        target_label: image
+      - source_labels: ['__meta_docker_container_log_path']
+        target_label: __path__
+    pipeline_stages:
+      - docker: {}
+      - regex:
+          expression: '\"discussionId\": \"(?P<discussion_id>[^\"]+)\"'
+      - regex:
+          expression: '\"userId\": \"(?P<user_id>[^\"]+)\"'
+      - regex:
+          expression: '\"correlationId\": \"(?P<correlation_id>[^\"]+)\"'
+      - regex:
+          expression: '\"service\": \"(?P<target_service>[^\"]+)\"'
+      - regex:
+          expression: '\"operation\": \"(?P<operation>[^\"]+)\"'
+      - regex:
+          expression: '\"updatedBy\": \"(?P<updated_by>[^\"]+)\"'
+      - regex:
+          expression: '\"nextParticipantId\": \"(?P<next_participant_id>[^\"]+)\"'
+      - regex:
+          expression: '\"previousParticipantId\": \"(?P<previous_participant_id>[^\"]+)\"'
+      - labels:
+          discussion_id:
+          user_id:
+          correlation_id:
+          target_service:
+          operation:
+          updated_by:
+          next_participant_id:
+          previous_participant_id:

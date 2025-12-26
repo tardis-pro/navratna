@@ -95,7 +95,8 @@ if ! container_running "node-exporter"; then
         --path.procfs=/host/proc \
         --path.rootfs=/rootfs \
         --path.sysfs=/host/sys \
-        --collector.filesystem.mount-points-exclude="^/(sys|proc|dev|host|etc)($$|/)"
+        --collector.filesystem.mount-points-exclude="^/(sys|proc|dev|host|etc|run|mnt|tmp|wsl|snap)($$|/)" \
+        --collector.filesystem.fs-types-exclude="^(autofs|binfmt_misc|bpf|cgroup2?|configfs|debugfs|devpts|devtmpfs|fusectl|hugetlbfs|iso9660|mqueue|nsfs|overlay|proc|procfs|pstore|rpc_pipefs|securityfs|selinuxfs|squashfs|sysfs|tracefs|tmpfs|9p|drvfs)$$"
     echo -e "${GREEN}✅ Node Exporter deployed${NC}"
 else
     echo -e "${GREEN}✅ Node Exporter already running${NC}"

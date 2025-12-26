@@ -1,10 +1,12 @@
 import { BaseService, DiscussionService, PersonaService } from '@uaip/shared-services';
 import { LLMService, UserLLMService } from '@uaip/llm-service';
 import { DiscussionEventType, LLMTaskType } from '@uaip/types';
+import { attachAuth, attachNginxAuth, requireNginxAuth, UserContext } from '@uaip/middleware';
 import { ConversationEnhancementService } from './services/conversation-enhancement.service.js';
 import { AgentDiscussionService } from './services/agent-discussion.service.js';
 import { AgentCoreService } from './services/agent-core.service.js';
 import { logger } from '@uaip/utils';
+import { z } from 'zod';
 
 class AgentIntelligenceService extends BaseService {
   private agentDiscussionService: AgentDiscussionService;
@@ -118,6 +120,85 @@ class AgentIntelligenceService extends BaseService {
     });
 
     logger.info('Agent CRUD routes configured');
+
+    // ===== AGENT CHAT ROUTE =====
+    const agentChatSchema = z.object({
+      message: z.string().min(1),
+      conversationHistory: z
+        .array(
+          z.object({
+            content: z.string(),
+            sender: z.string(),
+            timestamp: z.string(),
+          })
+        )
+        .optional(),
+      context: z.record(z.any()).optional(),
+    });
+
+    this.app
+      .group('/api/v1/agents', (app) =>
+        app
+          .use(attachAuth)
+          .post('/:agentId/chat', async (context) => {
+            const { params, body, set, headers } = context;
+            const user = (context as unknown as { user: UserContext | null }).user;
+
+            let userId = user?.id;
+            if (!userId) {
+              const nginxUserId = headers['x-user-id'];
+              const UUID_REGEX =
+                /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+              if (typeof nginxUserId === 'string' && UUID_REGEX.test(nginxUserId)) {
+                userId = nginxUserId;
+              }
+            }
+
+            if (!userId) {
+              set.status = 401;
+              return { success: false, error: 'Authentication required' };
+            }
+
+            const parsed = agentChatSchema.safeParse(body);
+            if (!parsed.success) {
+              set.status = 400;
+              return { success: false, error: 'Invalid chat payload' };
+            }
+
+            try {
+              const result = await this.agentDiscussionService.participateInDiscussion({
+                agentId: params.agentId,
+                message: parsed.data.message,
+                userId,
+                conversationHistory: parsed.data.conversationHistory || [],
+                context: parsed.data.context || {},
+              });
+
+              return {
+                success: true,
+                data: {
+                  response: result.response,
+                  agentName: result.agentName || 'Agent',
+                  confidence: result.confidence || 0.8,
+                  model: 'unknown',
+                  tokensUsed: 0,
+                  memoryEnhanced: false,
+                  knowledgeUsed: result.metadata?.knowledgeUsed || 0,
+                  persona: null,
+                  conversationContext: result.metadata || {},
+                  timestamp: new Date().toISOString(),
+                  toolsExecuted: [],
+                },
+              };
+            } catch (error) {
+              const message =
+                error instanceof Error ? error.message : 'Failed to chat with agent';
+              logger.error('Failed to handle agent chat', { error: message, agentId: params.agentId });
+              set.status = message.includes('Agent not found') ? 404 : 500;
+              return { success: false, error: message };
+            }
+          })
+      );
 
     // ===== PERSONA ROUTES =====
 
@@ -245,6 +326,124 @@ class AgentIntelligenceService extends BaseService {
       }
     });
 
+    // Search discussions
+    this.app.get('/api/v1/discussions/search', async ({ query, set }) => {
+      try {
+        const extractSearchQuery = (queryParams: Record<string, unknown>): string | undefined => {
+          const direct = queryParams.q ?? queryParams.query ?? queryParams.search;
+          if (typeof direct === 'string') {
+            return direct;
+          }
+          if (Array.isArray(direct)) {
+            return direct.map((entry) => String(entry)).join('');
+          }
+
+          const numericKeys = Object.keys(queryParams).filter((key) => /^\d+$/.test(key));
+          if (numericKeys.length === 0) {
+            return undefined;
+          }
+
+          return numericKeys
+            .sort((a, b) => Number(a) - Number(b))
+            .map((key) => (typeof queryParams[key] === 'string' ? queryParams[key] : ''))
+            .join('');
+        };
+
+        const stringArraySchema = z.preprocess((value) => {
+          if (value === undefined || value === null) {
+            return undefined;
+          }
+          const entries = Array.isArray(value) ? value : String(value).split(',');
+          const cleaned = entries.map((entry) => String(entry).trim()).filter(Boolean);
+          return cleaned.length > 0 ? cleaned : undefined;
+        }, z.array(z.string()).optional());
+
+        const booleanSchema = z.preprocess((value) => {
+          if (value === undefined || value === null) {
+            return undefined;
+          }
+          if (typeof value === 'boolean') {
+            return value;
+          }
+          const normalized = String(value).toLowerCase();
+          if (['true', '1', 'yes'].includes(normalized)) {
+            return true;
+          }
+          if (['false', '0', 'no'].includes(normalized)) {
+            return false;
+          }
+          return undefined;
+        }, z.boolean().optional());
+
+        const numberSchema = z.preprocess((value) => {
+          if (value === undefined || value === null || value === '') {
+            return undefined;
+          }
+          const parsed = Number(value);
+          return Number.isNaN(parsed) ? undefined : parsed;
+        }, z.number().optional());
+
+        const dateSchema = z.preprocess((value) => {
+          if (!value) {
+            return undefined;
+          }
+          const parsed = new Date(String(value));
+          return Number.isNaN(parsed.getTime()) ? undefined : parsed;
+        }, z.date().optional());
+
+        const paginationSchema = z.preprocess((value) => {
+          if (value === undefined || value === null || value === '') {
+            return undefined;
+          }
+          const parsed = Number(value);
+          return Number.isNaN(parsed) ? undefined : parsed;
+        }, z.number().int().nonnegative());
+
+        const searchSchema = z.object({
+          query: z.string().optional(),
+          status: stringArraySchema,
+          visibility: stringArraySchema,
+          createdBy: stringArraySchema,
+          organizationId: z.string().optional(),
+          teamId: z.string().optional(),
+          tags: stringArraySchema,
+          participants: stringArraySchema,
+          turnStrategy: stringArraySchema,
+          hasObjectives: booleanSchema,
+          hasOutcomes: booleanSchema,
+          minParticipants: numberSchema,
+          maxParticipants: numberSchema,
+          minDuration: numberSchema,
+          maxDuration: numberSchema,
+          createdAfter: dateSchema,
+          createdBefore: dateSchema,
+          startedAfter: dateSchema,
+          startedBefore: dateSchema,
+          endedAfter: dateSchema,
+          endedBefore: dateSchema,
+          limit: paginationSchema.default(20),
+          offset: paginationSchema.default(0),
+        });
+
+        const rawQuery = query as Record<string, unknown>;
+        const searchText = extractSearchQuery(rawQuery);
+        const parsed = searchSchema.safeParse({ ...rawQuery, query: searchText });
+
+        if (!parsed.success) {
+          set.status = 400;
+          return { success: false, error: 'Invalid search parameters', details: parsed.error.flatten() };
+        }
+
+        const { limit, offset, ...filters } = parsed.data;
+        const discussions = await this.discussionService.searchDiscussions(filters as any, limit, offset);
+        return { success: true, data: discussions };
+      } catch (error) {
+        logger.error('Failed to search discussions', { error });
+        set.status = 500;
+        return { success: false, error: 'Failed to search discussions' };
+      }
+    });
+
     // Get discussion by ID
     this.app.get('/api/v1/discussions/:discussionId', async ({ params, set }) => {
       try {
@@ -261,61 +460,80 @@ class AgentIntelligenceService extends BaseService {
       }
     });
 
-    // Create discussion
-    this.app.post('/api/v1/discussions', async ({ body, set, request }) => {
-      try {
-        const userId = request.headers.get('x-user-id') || 'system';
-        const discussion = await this.discussionService.createDiscussion({ ...(body as any), createdBy: userId });
-        set.status = 201;
-        return { success: true, data: discussion };
-      } catch (error) {
-        logger.error('Failed to create discussion', { error });
-        set.status = 500;
-        return { success: false, error: 'Failed to create discussion' };
-      }
-    });
+    // Discussion routes that require authentication (nginx forwards X-User-ID)
+    this.app.group('/api/v1/discussions', (app) =>
+      app
+        .use(attachNginxAuth)
+        .use(requireNginxAuth)
+          // Create discussion
+          .post('', async (context) => {
+            const { body, set } = context;
+            const user = (context as unknown as { user: UserContext }).user;
+            try {
+              const discussion = await this.discussionService.createDiscussion({
+                ...(body as any),
+                createdBy: user.id,
+              });
+              set.status = 201;
+              return { success: true, data: discussion };
+            } catch (error) {
+              const message = error instanceof Error ? error.message : 'Failed to create discussion';
+              const isValidationError =
+                message.includes('Discussion title is required') ||
+                message.includes('Discussion topic is required') ||
+                message.includes('Discussion title must be') ||
+                message.includes('Discussion topic must be') ||
+                message.includes('Discussion requires at least 1 initial participant') ||
+                message.includes('Participant agentId is required') ||
+                message.includes('Agent not found');
 
-    // Update discussion
-    this.app.put('/api/v1/discussions/:discussionId', async ({ params, body, set }) => {
-      try {
-        const discussion = await this.discussionService.updateDiscussion(params.discussionId, body as any);
-        return { success: true, data: discussion };
-      } catch (error) {
-        logger.error('Failed to update discussion', { error, discussionId: params.discussionId });
-        set.status = 500;
-        return { success: false, error: 'Failed to update discussion' };
-      }
-    });
-
-    // Start discussion
-    this.app.post('/api/v1/discussions/:discussionId/start', async ({ params, set, request }) => {
-      try {
-        const userId = request.headers.get('x-user-id') || 'system';
-        const discussion = await this.discussionService.startDiscussion(params.discussionId, userId);
-        return { success: true, data: discussion };
-      } catch (error) {
-        logger.error('Failed to start discussion', { error, discussionId: params.discussionId });
-        set.status = 500;
-        return { success: false, error: 'Failed to start discussion' };
-      }
-    });
-
-    // End discussion
-    this.app.post('/api/v1/discussions/:discussionId/end', async ({ params, body, set, request }) => {
-      try {
-        const userId = request.headers.get('x-user-id') || 'system';
-        const discussion = await this.discussionService.endDiscussion(
-          params.discussionId,
-          userId,
-          (body as any)?.reason
-        );
-        return { success: true, data: discussion };
-      } catch (error) {
-        logger.error('Failed to end discussion', { error, discussionId: params.discussionId });
-        set.status = 500;
-        return { success: false, error: 'Failed to end discussion' };
-      }
-    });
+              logger.error('Failed to create discussion', { error: message });
+              set.status = isValidationError ? 400 : 500;
+              return { success: false, error: message };
+            }
+          })
+          // Update discussion
+          .put('/:discussionId', async ({ params, body, set }) => {
+            try {
+              const discussion = await this.discussionService.updateDiscussion(params.discussionId, body as any);
+              return { success: true, data: discussion };
+            } catch (error) {
+              logger.error('Failed to update discussion', { error, discussionId: params.discussionId });
+              set.status = 500;
+              return { success: false, error: 'Failed to update discussion' };
+            }
+          })
+          // Start discussion
+          .post('/:discussionId/start', async (context) => {
+            const { params, set } = context;
+            const user = (context as unknown as { user: UserContext }).user;
+            try {
+              const discussion = await this.discussionService.startDiscussion(params.discussionId, user.id);
+              return { success: true, data: discussion };
+            } catch (error) {
+              logger.error('Failed to start discussion', { error, discussionId: params.discussionId });
+              set.status = 500;
+              return { success: false, error: 'Failed to start discussion' };
+            }
+          })
+          // End discussion
+          .post('/:discussionId/end', async (context) => {
+            const { params, body, set } = context;
+            const user = (context as unknown as { user: UserContext }).user;
+            try {
+              const discussion = await this.discussionService.endDiscussion(
+                params.discussionId,
+                user.id,
+                (body as any)?.reason
+              );
+              return { success: true, data: discussion };
+            } catch (error) {
+              logger.error('Failed to end discussion', { error, discussionId: params.discussionId });
+              set.status = 500;
+              return { success: false, error: 'Failed to end discussion' };
+            }
+          })
+    );
 
     // Get discussion messages
     this.app.get('/api/v1/discussions/:discussionId/messages', async ({ params, query, set }) => {
@@ -554,6 +772,11 @@ class AgentIntelligenceService extends BaseService {
     // Subscribe to conversation enhancement requests from discussion orchestration
     await this.eventBusService.subscribe('conversation.enhancement.request', async (event) => {
       try {
+        if (!event?.data) {
+          logger.warn('Conversation enhancement request missing payload');
+          return;
+        }
+
         const {
           discussionId,
           availableAgentIds,
@@ -562,6 +785,15 @@ class AgentIntelligenceService extends BaseService {
           enhancementType,
           context,
         } = event.data;
+
+        if (!this.conversationEnhancementService) {
+          this.conversationEnhancementService = new ConversationEnhancementService(
+            this.databaseService,
+            this.eventBusService
+          );
+          await this.conversationEnhancementService.initialize();
+          logger.info('ConversationEnhancementService initialized on demand');
+        }
 
         logger.info('Processing conversation enhancement request', {
           discussionId,
@@ -609,15 +841,21 @@ class AgentIntelligenceService extends BaseService {
 
             if (participant) {
               // Send enhanced response back to discussion orchestration
-              await this.eventBusService.publish('discussion.message.send', {
+              const isInitialParticipation =
+                (discussion?.state?.messageCount ?? context?.messageCount ?? messageHistory?.length ?? 0) ===
+                0;
+
+              await this.eventBusService.publish('discussion.agent.message', {
                 discussionId,
                 participantId: participant.id,
                 content: result.enhancedResponse,
                 messageType: 'agent_contribution',
+                isInitialParticipation,
                 metadata: {
                   agentId: result.selectedAgent?.id,
                   personaId: result.selectedPersona?.id,
                   enhancementType: 'contextual',
+                  isInitialParticipation,
                   contributionScore: result.contributionScores?.[0]?.score,
                   suggestions: result.suggestions || [],
                   nextActions: result.nextActions || [],

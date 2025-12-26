@@ -1,15 +1,5 @@
-import {
-  Entity,
-  PrimaryGeneratedColumn,
-  Column,
-  CreateDateColumn,
-  UpdateDateColumn,
-  Index,
-  ManyToOne,
-  JoinColumn,
-} from 'typeorm';
+import { Entity, Column, Index } from 'typeorm';
 import { BaseEntity } from './base.entity.js';
-import { LLMProvider } from './llmProvider.entity.js';
 
 @Entity('llm_models')
 @Index(['name', 'providerId'], { unique: true })
@@ -22,12 +12,10 @@ export class LLMModel extends BaseEntity {
   @Column({ type: 'varchar', length: 500, nullable: true })
   description?: string;
 
+  // Note: providerId can reference either llm_providers or user_llm_providers
+  // We don't use ManyToOne here to support both provider types
   @Column({ type: 'uuid' })
   providerId!: string;
-
-  @ManyToOne(() => LLMProvider, { onDelete: 'CASCADE' })
-  @JoinColumn({ name: 'providerId' })
-  provider!: LLMProvider;
 
   @Column({ type: 'varchar', length: 100, nullable: true })
   apiType?: string;

@@ -301,7 +301,7 @@ src/
 
 ## Additional Resources
 
-- [Development Guide](../core/DEVELOPMENT.md)
-- [Architecture Guide](../core/ARCHITECTURE.md)
-- [API Reference](../core/API_REFERENCE.md)
+- [Development Guide](../GETTING_STARTED.md)
+- [Architecture Guide](../ARCHITECTURE.md)
+- [API Reference](../API_REFERENCE.md)
 - [Testing Guide](../technical/TESTING.md)

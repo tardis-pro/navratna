@@ -4,6 +4,17 @@
 
 The UAIP implements a comprehensive testing strategy across multiple levels to ensure reliability and quality.
 
+## Running Tests
+
+```bash
+pnpm test
+pnpm test:integration
+pnpm test:integration:oauth
+pnpm test:integration:security
+```
+
+Integration suites live under `backend/services/*/src/__tests__/integration`. Prefer using real services via docker-compose where possible.
+
 ## Test Categories
 
 ### Unit Tests

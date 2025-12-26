@@ -1694,60 +1694,29 @@ export class DiscussionOrchestrationService extends EventEmitter {
         })
       );
 
-      // Send direct participation request to agent intelligence service
-      await this.eventBusService.publish('agent.discussion.participate', {
-        discussionId,
-        agentId: participant.agentId,
-        participantId: participant.id,
-        discussionContext: {
-          title: discussion.title,
-          description: discussion.description,
-          topic: discussion.topic,
-          phase: discussion.state.phase,
-          messageCount: discussion.state.messageCount,
-          participantCount: discussion.participants.length,
-          // Add message history for context
-          recentMessages: messageHistory,
-          // Add information about who has already participated with proper name resolution
-          activeParticipants: await Promise.all(
-            discussion.participants
-              .filter((p) => p.messageCount > 0)
-              .map(async (p) => {
-                // Resolve participant display name
-                let displayName = 'Unknown';
-                if (p.agentId) {
-                  try {
-                    const agentData = await (
-                      this.discussionService as any
-                    ).databaseService?.getAgentById?.(p.agentId);
-                    displayName = agentData?.name || p.agentId || 'Agent';
-                  } catch (error) {
-                    displayName = p.agentId || 'Agent';
-                  }
-                } else if (p.userId) {
-                  try {
-                    const userData = await (
-                      this.discussionService as any
-                    ).databaseService?.getUserById?.(p.userId);
-                    displayName = userData?.email?.split('@')[0] || userData?.id || 'User';
-                  } catch (error) {
-                    displayName = 'User';
-                  }
-                } else {
-                  displayName = p.metadata?.displayName || 'Participant';
-                }
+      // Send participation trigger to agent intelligence service using the correct event name
+      // Format: { requestId, params: { discussionId, agentId, comment } }
+      const requestId = `trigger-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 
-                return {
-                  id: p.id,
-                  agentId: p.agentId,
-                  displayName,
-                  messageCount: p.messageCount,
-                  lastMessageAt: p.lastMessageAt,
-                };
-              })
-          ),
+      // Build context-aware comment based on discussion state
+      let contextComment: string;
+      if (messageHistory.length === 0) {
+        contextComment = `Start the discussion about: ${discussion.topic}. ${discussion.description || ''}`;
+      } else {
+        const recentContext = messageHistory
+          .slice(-3)
+          .map((m) => `${m.participantName}: ${m.content.substring(0, 100)}`)
+          .join('\n');
+        contextComment = `Continue the discussion about: ${discussion.topic}.\n\nRecent messages:\n${recentContext}`;
+      }
+
+      await this.eventBusService.publish('agent.discussion.trigger', {
+        requestId,
+        params: {
+          discussionId,
+          agentId: participant.agentId,
+          comment: contextComment,
         },
-        timestamp: new Date(),
       });
 
       logger.debug('Agent participation request sent', {

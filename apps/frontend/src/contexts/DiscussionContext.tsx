@@ -55,6 +55,15 @@ interface DiscussionContextType {
 }
 
 const DiscussionContext = createContext<DiscussionContextType | null>(null);
+const TITLE_PREFIX = 'Discussion: ';
+const MAX_TITLE_LENGTH = 255;
+const MAX_TOPIC_LENGTH = 1000;
+
+const truncateText = (value: string, maxLength: number): string => {
+  if (value.length <= maxLength) return value;
+  if (maxLength <= 3) return value.slice(0, maxLength);
+  return `${value.slice(0, maxLength - 3)}...`;
+};
 
 export const useDiscussion = (): DiscussionContextType => {
   const context = useContext(DiscussionContext);
@@ -90,12 +99,17 @@ export const DiscussionProvider: React.FC<DiscussionProviderProps> = ({
     sendMessage: sendWebSocketMessage,
     lastEvent,
     authStatus,
+    error: wsError,
   } = useEnhancedWebSocket();
 
   // Sync WebSocket connection status
   useEffect(() => {
     setIsWebSocketConnected(wsConnected);
   }, [wsConnected]);
+
+  useEffect(() => {
+    setWebsocketError(wsError || null);
+  }, [wsError]);
 
   // Listen for discussion events
   useEffect(() => {
@@ -145,12 +159,14 @@ export const DiscussionProvider: React.FC<DiscussionProviderProps> = ({
 
         case 'turn_changed':
           console.log('🔄 Turn changed:', lastEvent.payload);
-          if (lastEvent.payload?.currentTurn) {
+          // Handle both legacy format (currentTurn) and new format (data with nextParticipantId)
+          const turnData = lastEvent.payload?.currentTurn || lastEvent.payload?.data;
+          if (turnData) {
             setCurrentTurn({
-              participantId: lastEvent.payload.currentTurn.participantId,
-              startedAt: new Date(lastEvent.payload.currentTurn.startedAt),
-              expectedEndAt: new Date(lastEvent.payload.currentTurn.expectedEndAt),
-              turnNumber: lastEvent.payload.currentTurn.turnNumber,
+              participantId: turnData.participantId || turnData.nextParticipantId,
+              startedAt: turnData.startedAt ? new Date(turnData.startedAt) : new Date(),
+              expectedEndAt: turnData.expectedEndAt ? new Date(turnData.expectedEndAt) : new Date(Date.now() + 60000),
+              turnNumber: turnData.turnNumber || 0,
             });
           }
           break;
@@ -204,7 +220,10 @@ export const DiscussionProvider: React.FC<DiscussionProviderProps> = ({
       setLastError(null);
 
       // Use provided topic or default
-      const discussionTopic = topic || 'General Discussion';
+      const rawTopic = topic || 'General Discussion';
+      const discussionTopic = truncateText(rawTopic, MAX_TOPIC_LENGTH);
+      const titleTopic = truncateText(rawTopic, MAX_TITLE_LENGTH - TITLE_PREFIX.length);
+      const discussionTitle = `${TITLE_PREFIX}${titleTopic}`;
 
       // Get available agents
       const availableAgents = Object.values(agents).filter((agent) => agent.isActive);
@@ -236,7 +255,7 @@ export const DiscussionProvider: React.FC<DiscussionProviderProps> = ({
 
       if (!currentDiscussionId) {
         const createRequest: CreateDiscussionRequest = {
-          title: `Discussion: ${discussionTopic}`,
+          title: discussionTitle,
           description: enhancedContext?.purpose
             ? `${enhancedContext.purpose} discussion to generate ${enhancedContext.targetArtifact}: ${discussionTopic}`
             : `Automated discussion on ${discussionTopic}`,
@@ -429,23 +448,22 @@ export const DiscussionProvider: React.FC<DiscussionProviderProps> = ({
       return;
     }
 
+    if (!isWebSocketConnected) {
+      console.warn('Cannot add message: WebSocket not connected');
+      setLastError('WebSocket not connected. Please check your connection.');
+      return;
+    }
+
     try {
-      const message = await uaipAPI.discussions.sendMessage(discussionId, {
+      if (agentId) {
+        console.warn('Agent ID provided for WebSocket message; metadata is not supported.');
+      }
+
+      sendWebSocketMessage('send_message', {
+        discussionId,
         content,
         messageType: MessageType.MESSAGE,
-        metadata: agentId ? { agentId } : {},
       });
-
-      // Add to local messages
-      const newMessage: Message = {
-        id: message.id,
-        content: message.content,
-        sender: agentId || 'user',
-        timestamp: new Date(message.createdAt),
-        type: 'response', // Map to frontend message type
-      };
-
-      setMessages((prev) => [...prev, newMessage]);
     } catch (error) {
       console.error('Failed to send message:', error);
       setLastError(error instanceof Error ? error.message : 'Failed to send message');

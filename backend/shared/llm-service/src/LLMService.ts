@@ -26,6 +26,7 @@ import {
 } from '@uaip/shared-services';
 import { DatabaseService } from '@uaip/shared-services';
 import { logger } from '@uaip/utils';
+import { recordLLMRequest } from '@uaip/middleware';
 import { v4 as uuidv4 } from 'uuid';
 
 export class LLMService {
@@ -104,6 +105,10 @@ export class LLMService {
               provider = new LLMStudioProvider(llmProviderConfig, dbProvider.name);
               break;
             case 'openai':
+            case 'anthropic':
+            case 'google':
+            case 'custom':
+              // All OpenAI-compatible and cloud providers use OpenAIProvider
               provider = new OpenAIProvider(llmProviderConfig, dbProvider.name);
               break;
             default:
@@ -203,14 +208,16 @@ export class LLMService {
     });
   }
 
-  private async getBestProvider(preferredType?: string): Promise<BaseProvider | null> {
+  private async getBestProvider(
+    preferredType?: string
+  ): Promise<{ provider: BaseProvider; providerType: string } | null> {
     if (!this.initialized) {
       await this.initializeFromDatabase();
     }
 
     // If preferred type is specified, try to use it
     if (preferredType && this.providers.has(preferredType)) {
-      return this.providers.get(preferredType)!;
+      return { provider: this.providers.get(preferredType)!, providerType: preferredType };
     }
 
     // Fallback order: OpenAI -> LLM Studio -> Ollama
@@ -218,7 +225,7 @@ export class LLMService {
 
     for (const providerType of fallbackOrder) {
       if (this.providers.has(providerType)) {
-        return this.providers.get(providerType)!;
+        return { provider: this.providers.get(providerType)!, providerType };
       }
     }
 
@@ -226,12 +233,16 @@ export class LLMService {
   }
 
   // Core LLM generation method
-  async generateResponse(request: LLMRequest, preferredType?: string): Promise<LLMResponse> {
+  async generateResponse(
+    request: LLMRequest,
+    preferredType?: string,
+    requestType: 'user' | 'global' | 'agent' | 'artifact' | 'unknown' = 'global'
+  ): Promise<LLMResponse> {
     const startTime = Date.now();
 
     try {
-      const provider = await this.getBestProvider(preferredType);
-      if (!provider) {
+      const providerSelection = await this.getBestProvider(preferredType);
+      if (!providerSelection) {
         return {
           content:
             'I apologize, but no LLM providers are currently available. Please check the system configuration.',
@@ -240,6 +251,8 @@ export class LLMService {
           finishReason: 'error',
         };
       }
+
+      const { provider, providerType } = providerSelection;
 
       logger.info('Generating LLM response', {
         provider: preferredType || 'auto',
@@ -256,12 +269,31 @@ export class LLMService {
         isError: !!response.error,
       });
 
+      recordLLMRequest({
+        agentId: request.agentId,
+        provider: providerType,
+        model: response.model || request.model,
+        requestType,
+        status: response.error ? 'failure' : 'success',
+        durationMs: duration,
+        tokensUsed: response.tokensUsed,
+      });
+
       return response;
     } catch (error) {
       const duration = Date.now() - startTime;
       logger.error('Error generating LLM response', {
         error,
         duration,
+      });
+
+      recordLLMRequest({
+        agentId: request.agentId,
+        provider: preferredType || 'unknown',
+        model: request.model,
+        requestType,
+        status: 'failure',
+        durationMs: duration,
       });
 
       return {
@@ -291,8 +323,10 @@ export class LLMService {
           maxTokens: request.agent.maxTokens || 500,
           temperature: request.agent.temperature || 0.7,
           model: request.agent.configuration?.model,
+          agentId: request.agent.id,
         },
-        preferredType
+        preferredType,
+        'agent'
       );
 
       // Parse tool calls if agent has tools
@@ -325,12 +359,16 @@ export class LLMService {
       const prompt = this.buildArtifactPrompt(request);
       const systemPrompt = this.buildArtifactSystemPrompt(request);
 
-      const response = await this.generateResponse({
-        prompt,
-        systemPrompt,
-        maxTokens: 2000, // Artifacts typically need more tokens
-        temperature: 0.3, // Lower temperature for more consistent code generation
-      });
+      const response = await this.generateResponse(
+        {
+          prompt,
+          systemPrompt,
+          maxTokens: 2000, // Artifacts typically need more tokens
+          temperature: 0.3, // Lower temperature for more consistent code generation
+        },
+        undefined,
+        'artifact'
+      );
 
       return {
         ...response,

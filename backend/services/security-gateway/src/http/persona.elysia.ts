@@ -65,10 +65,10 @@ const InteractionTrackingSchema = z.object({
 });
 
 export function registerPersonaRoutes(app: any): any {
-  return app.group('/api/v1/user/persona', (app: any) =>
+  return app.group('/api/v1/users/persona', (app: any) =>
     withRequiredAuth(app)
       // GET /
-            // @ts-expect-error - Elysia middleware injects user, but TypeScript cannot infer through nested groups
+      // @ts-expect-error - Elysia middleware injects user, but TypeScript cannot infer through nested groups
       .get('/', async ({ set, user }) => {
         try {
           const databaseService = DatabaseService.getInstance();
@@ -95,7 +95,7 @@ export function registerPersonaRoutes(app: any): any {
       })
 
       // PUT /
-            // @ts-expect-error - Elysia middleware injects user, but TypeScript cannot infer through nested groups
+      // @ts-expect-error - Elysia middleware injects user, but TypeScript cannot infer through nested groups
       .put('/', async ({ set, body, user }) => {
         const validation = UpdatePersonaSchema.safeParse(body);
         if (!validation.success) {
@@ -144,7 +144,7 @@ export function registerPersonaRoutes(app: any): any {
       })
 
       // POST /complete-onboarding
-            // @ts-expect-error - Elysia middleware injects user, but TypeScript cannot infer through nested groups
+      // @ts-expect-error - Elysia middleware injects user, but TypeScript cannot infer through nested groups
       .post('/complete-onboarding', async ({ set, body, user }) => {
         const validation = CompleteOnboardingSchema.safeParse(body);
         if (!validation.success) {
@@ -210,7 +210,7 @@ export function registerPersonaRoutes(app: any): any {
       })
 
       // PUT /behavioral-patterns
-            // @ts-expect-error - Elysia middleware injects user, but TypeScript cannot infer through nested groups
+      // @ts-expect-error - Elysia middleware injects user, but TypeScript cannot infer through nested groups
       .put('/behavioral-patterns', async ({ set, body, user }) => {
         const validation = BehavioralPatternsSchema.safeParse(body);
         if (!validation.success) {
@@ -243,7 +243,7 @@ export function registerPersonaRoutes(app: any): any {
       })
 
       // GET /recommendations
-            // @ts-expect-error - Elysia middleware injects user, but TypeScript cannot infer through nested groups
+      // @ts-expect-error - Elysia middleware injects user, but TypeScript cannot infer through nested groups
       .get('/recommendations', async ({ set, user }) => {
         try {
           const repo = DatabaseService.getInstance().getUserRepository();
@@ -263,7 +263,7 @@ export function registerPersonaRoutes(app: any): any {
       })
 
       // POST /track-interaction
-            // @ts-expect-error - Elysia middleware injects user, but TypeScript cannot infer through nested groups
+      // @ts-expect-error - Elysia middleware injects user, but TypeScript cannot infer through nested groups
       .post('/track-interaction', async ({ set, body, user }) => {
         const validation = InteractionTrackingSchema.safeParse(body);
         if (!validation.success) {
@@ -281,7 +281,7 @@ export function registerPersonaRoutes(app: any): any {
       })
 
       // GET /compatible-agents
-            // @ts-expect-error - Elysia middleware injects user, but TypeScript cannot infer through nested groups
+      // @ts-expect-error - Elysia middleware injects user, but TypeScript cannot infer through nested groups
       .get('/compatible-agents', async ({ set, user }) => {
         try {
           const repo = DatabaseService.getInstance().getUserRepository();
@@ -299,7 +299,7 @@ export function registerPersonaRoutes(app: any): any {
       })
 
       // GET /optimized-workspace
-            // @ts-expect-error - Elysia middleware injects user, but TypeScript cannot infer through nested groups
+      // @ts-expect-error - Elysia middleware injects user, but TypeScript cannot infer through nested groups
       .get('/optimized-workspace', async ({ set, user }) => {
         try {
           const repo = DatabaseService.getInstance().getUserRepository();

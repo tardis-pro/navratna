@@ -4,6 +4,10 @@
 
 The UAIP uses a multi-layered integration approach combining REST APIs, WebSockets, and message queues to enable seamless communication between services.
 
+## Scope
+
+This document covers shared patterns and primitives. Service-specific flows and feature details live under `features/` and `ARCHITECTURE.md`.
+
 ## Communication Patterns
 
 ### Synchronous Communication (REST)

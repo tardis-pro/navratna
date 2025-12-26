@@ -111,6 +111,63 @@ export const withOperatorGuard = (app: Elysia) => requireOperator(attachAuth(app
 export const authMiddleware = attachAuth;
 export const optionalAuth = attachAuth;
 
+// UUID validation regex
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+/**
+ * Elysia plugin to attach user context from nginx-forwarded headers (X-User-ID, X-User-Email, X-User-Role).
+ * Use this when nginx handles JWT validation via auth_request and forwards user info in headers.
+ */
+export function attachNginxAuth(app: Elysia): Elysia {
+  return app.derive(({ headers }) => {
+    const userId = headers['x-user-id'];
+    const email = headers['x-user-email'];
+    const role = headers['x-user-role'];
+
+    logger.debug('attachNginxAuth: checking headers', {
+      hasUserId: !!userId,
+      userId: userId?.substring(0, 8),
+      headerKeys: Object.keys(headers).filter(k => k.toLowerCase().includes('user') || k.toLowerCase().includes('auth')),
+    });
+
+    // Validate userId is a proper UUID
+    if (!userId || !UUID_REGEX.test(userId)) {
+      return { user: null as UserContext | null };
+    }
+
+    return {
+      user: {
+        id: userId,
+        email: email || '',
+        role: role || 'user',
+      } as UserContext,
+    };
+  });
+}
+
+/**
+ * Elysia guard to require nginx-forwarded authentication.
+ * Returns 401 if X-User-ID header is missing or not a valid UUID.
+ */
+export function requireNginxAuth(app: Elysia): Elysia {
+  return app.guard({
+    beforeHandle(context) {
+      const { user, set } = context as unknown as {
+        user: UserContext | null;
+        set: { status: number };
+      };
+      if (!user || !user.id) {
+        logger.warn('Nginx auth required but user not found in headers');
+        set.status = 401;
+        return { error: 'Authentication required: valid user ID not found', code: 'AUTH_REQUIRED' };
+      }
+    },
+  });
+}
+
+// Combinator for nginx auth flow
+export const withNginxAuth = (app: Elysia) => requireNginxAuth(attachNginxAuth(app));
+
 // Utility function to validate JWT secret at runtime
 export const validateJWTConfiguration = (): { isValid: boolean; warnings: string[] } => {
   const warnings: string[] = [];

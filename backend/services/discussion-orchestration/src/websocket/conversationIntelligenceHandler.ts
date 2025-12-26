@@ -57,52 +57,77 @@ export class ConversationIntelligenceHandler {
       try {
         this.logger.info('New conversation intelligence connection attempt', {
           socketId: socket.id,
-          remoteAddress: socket.request.connection.remoteAddress,
+          remoteAddress: socket.handshake?.address || 'unknown',
         });
 
-        // Authenticate the connection with proper error handling
-        const token = socket.handshake.auth.token;
-        if (!token) {
-          this.logger.warn('No authentication token provided', { socketId: socket.id });
-          socket.emit('error', { message: 'Authentication failed: No token provided' });
-          socket.disconnect();
-          return;
-        }
+        // Check for nginx-forwarded user headers first (preferred path)
+        const nginxUserId = socket.handshake.headers['x-user-id'] as string | undefined;
+        const nginxUserEmail = socket.handshake.headers['x-user-email'] as string | undefined;
+        const nginxUserRole = socket.handshake.headers['x-user-role'] as string | undefined;
 
-        this.logger.debug('Token received for validation', {
-          socketId: socket.id,
-          tokenLength: token.length,
-        });
+        let userId: string;
 
-        let decoded;
-        try {
-          decoded = await validateJWTToken(token);
-          this.logger.debug('Token validation result:', {
-            valid: decoded.valid,
-            userId: decoded.userId,
-            reason: decoded.reason,
+        if (nginxUserId) {
+          // Validate userId is a proper UUID
+          const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+          if (!UUID_REGEX.test(nginxUserId)) {
+            this.logger.warn('Invalid nginx user ID format', { socketId: socket.id });
+            socket.emit('error', { message: 'Authentication failed: Invalid user ID format' });
+            socket.disconnect();
+            return;
+          }
+
+          userId = nginxUserId;
+          this.logger.info('Authenticated via nginx headers', {
+            socketId: socket.id,
+            userId: userId.substring(0, 8),
+            role: nginxUserRole,
           });
-        } catch (error) {
-          this.logger.error('Token validation exception:', error);
-          socket.emit('error', { message: 'Authentication failed: Token validation exception' });
-          socket.disconnect();
-          return;
-        }
+        } else {
+          // Fallback: Authenticate via token
+          const token = socket.handshake.auth.token;
+          if (!token) {
+            this.logger.warn('No authentication token provided', { socketId: socket.id });
+            socket.emit('error', { message: 'Authentication failed: No token provided' });
+            socket.disconnect();
+            return;
+          }
 
-        if (!decoded || !decoded.valid || !decoded.userId) {
-          this.logger.warn('Invalid token or missing userId', {
-            valid: decoded?.valid,
-            userId: decoded?.userId,
-            reason: decoded?.reason,
+          this.logger.debug('Token received for validation', {
+            socketId: socket.id,
+            tokenLength: token.length,
           });
-          socket.emit('error', {
-            message: `Authentication failed: ${decoded?.reason || 'Invalid token'}`,
-          });
-          socket.disconnect();
-          return;
-        }
 
-        const userId = decoded.userId;
+          let decoded;
+          try {
+            decoded = await validateJWTToken(token);
+            this.logger.debug('Token validation result:', {
+              valid: decoded.valid,
+              userId: decoded.userId,
+              reason: decoded.reason,
+            });
+          } catch (error) {
+            this.logger.error('Token validation exception:', error);
+            socket.emit('error', { message: 'Authentication failed: Token validation exception' });
+            socket.disconnect();
+            return;
+          }
+
+          if (!decoded || !decoded.valid || !decoded.userId) {
+            this.logger.warn('Invalid token or missing userId', {
+              valid: decoded?.valid,
+              userId: decoded?.userId,
+              reason: decoded?.reason,
+            });
+            socket.emit('error', {
+              message: `Authentication failed: ${decoded?.reason || 'Invalid token'}`,
+            });
+            socket.disconnect();
+            return;
+          }
+
+          userId = decoded.userId;
+        }
         const agentId = socket.handshake.query.agentId as string;
         const conversationId = socket.handshake.query.conversationId as string;
 
@@ -266,12 +291,32 @@ export class ConversationIntelligenceHandler {
     if (!connection) return;
 
     try {
+      if (!connection.agentId) {
+        this.logger.warn('Autocomplete query missing agent context', {
+          socketId: socket.id,
+          userId: connection.userId,
+        });
+        socket.emit('error', { error: 'Autocomplete requires an agent context' });
+        return;
+      }
+
+      if (!data || typeof data.partial !== 'string') {
+        this.logger.warn('Autocomplete query missing partial input', {
+          socketId: socket.id,
+          userId: connection.userId,
+          agentId: connection.agentId,
+        });
+        socket.emit('error', { error: 'Autocomplete requires a partial input string' });
+        return;
+      }
+
       // Enhanced context for global user LLM requests
+      const isGlobalUserLLM = connection.agentId.startsWith('user-');
       const enhancedContext = {
         ...data.context,
-        isGlobalUserLLM: connection.agentId.startsWith('user-'),
+        isGlobalUserLLM,
         userId: connection.userId,
-        useDefaultLLMProvider: connection.agentId.startsWith('user-'),
+        useDefaultLLMProvider: isGlobalUserLLM,
         requestType: data.context?.type || 'autocomplete',
       };
 

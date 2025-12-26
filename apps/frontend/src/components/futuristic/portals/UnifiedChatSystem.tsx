@@ -109,13 +109,15 @@ interface UnifiedChatSystemProps {
 // Helper function to create a new discussion for agent chat
 const createAgentChatDiscussion = async (
   agentId: string,
-  agentName: string
+  agentName: string,
+  createdBy?: string
 ): Promise<Discussion> => {
   const discussionRequest: CreateDiscussionRequest = {
     title: `Chat with ${agentName}`,
     description: `Direct chat conversation with agent ${agentName}`,
     topic: `Direct chat conversation with agent ${agentName}`,
     objectives: ['agent-chat'],
+    ...(createdBy ? { createdBy } : {}),
     initialParticipants: [
       {
         agentId: agentId,
@@ -147,7 +149,7 @@ const createAgentChatDiscussion = async (
       chatType: 'agent-chat',
       agentId: agentId,
       agentName: agentName,
-      createdBy: 'current-user', // TODO: Get from auth context
+      ...(createdBy ? { createdBy } : {}),
     },
   };
 
@@ -558,7 +560,7 @@ export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
 
     try {
       // Create new discussion for this agent
-      const discussion = await createAgentChatDiscussion(agentId, agentName);
+      const discussion = await createAgentChatDiscussion(agentId, agentName, user?.id);
 
       // Set up conversation ID for this window
       const windowId = `chat-${Date.now()}-${agentId}`;
@@ -646,7 +648,7 @@ export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
 
     try {
       // Force create a new discussion without checking for existing ones
-      const discussion = await createAgentChatDiscussion(agentId, agentName);
+      const discussion = await createAgentChatDiscussion(agentId, agentName, user?.id);
 
       // Set up conversation ID for this window
       const windowId = `chat-${Date.now()}-${agentId}-new`;

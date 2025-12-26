@@ -43,24 +43,28 @@ export class ModelBootstrapService {
    * Bootstrap all models on system startup
    * This is called during service initialization
    */
-  async bootstrapAllModels(): Promise<void> {
+  async bootstrapAllModels(options: { force?: boolean } = {}): Promise<void> {
     const startTime = Date.now();
     logger.info('Starting model bootstrap process...');
 
     try {
       // Check if bootstrap was recently completed
-      const lastBootstrap = await this.cacheService.get(ModelBootstrapService.BOOTSTRAP_STATUS_KEY);
-      if (lastBootstrap) {
-        const lastBootstrapTime = new Date(lastBootstrap.timestamp);
-        const timeSinceLastBootstrap = Date.now() - lastBootstrapTime.getTime();
-        const oneHour = 60 * 60 * 1000; // 1 hour in milliseconds
+      if (!options.force) {
+        const lastBootstrap = await this.cacheService.get(
+          ModelBootstrapService.BOOTSTRAP_STATUS_KEY
+        );
+        if (lastBootstrap) {
+          const lastBootstrapTime = new Date(lastBootstrap.timestamp);
+          const timeSinceLastBootstrap = Date.now() - lastBootstrapTime.getTime();
+          const oneHour = 60 * 60 * 1000; // 1 hour in milliseconds
 
-        if (timeSinceLastBootstrap < oneHour) {
-          logger.info('Model bootstrap was completed recently, skipping...', {
-            lastBootstrap: lastBootstrapTime,
-            timeSinceLastBootstrap: `${Math.round(timeSinceLastBootstrap / 1000 / 60)} minutes`,
-          });
-          return;
+          if (timeSinceLastBootstrap < oneHour) {
+            logger.info('Model bootstrap was completed recently, skipping...', {
+              lastBootstrap: lastBootstrapTime,
+              timeSinceLastBootstrap: `${Math.round(timeSinceLastBootstrap / 1000 / 60)} minutes`,
+            });
+            return;
+          }
         }
       }
 
@@ -101,11 +105,8 @@ export class ModelBootstrapService {
         this.modelSyncService = new ModelSyncService(dataSource);
       }
 
-      // Get all configured providers from LLMService
-      const providers = this.llmService.getProvidersMap();
-
       // Sync models to database
-      const syncResults = await this.modelSyncService.syncAllProvidersModels(providers);
+      const syncResults = await this.modelSyncService.syncAllProvidersModels();
 
       // Log summary
       const totalModels = syncResults.reduce((sum, r) => sum + r.modelsFound, 0);

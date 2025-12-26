@@ -60,6 +60,25 @@ const unhandledErrorsTotal = new Counter({
   labelNames: ['service', 'error_type', 'source'],
 });
 
+const llmRequestsTotal = new Counter({
+  name: 'llm_requests_total',
+  help: 'Total number of LLM requests',
+  labelNames: ['agent_id', 'provider', 'model', 'request_type', 'status'],
+});
+
+const llmTokensUsedTotal = new Counter({
+  name: 'llm_tokens_used_total',
+  help: 'Total tokens used by LLM requests',
+  labelNames: ['agent_id', 'provider', 'model', 'request_type'],
+});
+
+const llmRequestLatency = new Histogram({
+  name: 'llm_request_latency_seconds',
+  help: 'LLM request latency in seconds',
+  labelNames: ['agent_id', 'provider', 'model', 'request_type', 'status'],
+  buckets: [0.1, 0.3, 0.5, 1, 2, 5, 10, 20, 60],
+});
+
 // Elysia metrics middleware plugin
 export function metricsMiddleware(app: Elysia): Elysia {
   if (!config.monitoring.metricsEnabled) {
@@ -129,6 +148,48 @@ export function recordAgentAnalysis(
       },
       duration / 1000
     );
+  }
+}
+
+export function recordLLMRequest(options: {
+  agentId?: string;
+  provider?: string;
+  model?: string;
+  requestType: 'user' | 'global' | 'agent' | 'artifact' | 'unknown';
+  status: 'success' | 'failure';
+  durationMs: number;
+  tokensUsed?: number;
+}): void {
+  const agentId = options.agentId || 'unknown';
+  const provider = options.provider || 'unknown';
+  const model = options.model || 'unknown';
+
+  llmRequestsTotal.inc({
+    agent_id: agentId,
+    provider,
+    model,
+    request_type: options.requestType,
+    status: options.status,
+  });
+
+  llmRequestLatency.observe(
+    {
+      agent_id: agentId,
+      provider,
+      model,
+      request_type: options.requestType,
+      status: options.status,
+    },
+    options.durationMs / 1000
+  );
+
+  if (options.tokensUsed !== undefined) {
+    llmTokensUsedTotal.inc({
+      agent_id: agentId,
+      provider,
+      model,
+      request_type: options.requestType,
+    }, options.tokensUsed);
   }
 }
 

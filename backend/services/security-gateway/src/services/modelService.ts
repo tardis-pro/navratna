@@ -116,14 +116,16 @@ export class ModelService {
    * Transform LLMModel entity to legacy format for compatibility
    */
   private transformToLegacyFormat(model: LLMModel): ModelForUser {
+    // Extract provider identifier from apiType or use providerId
+    const providerName = model.apiType || 'unknown';
     return {
-      id: `${model.provider?.name || 'unknown'}-${model.name}`,
+      id: `${providerName}-${model.name}`,
       name: model.name,
-      description: model.description || `${model.name} from ${model.provider?.name || 'unknown'}`,
-      source: model.provider?.name || 'unknown',
+      description: model.description || `${model.name} from ${providerName}`,
+      source: providerName,
       apiEndpoint: model.apiEndpoint,
       apiType: model.apiType,
-      provider: model.provider?.name || 'unknown',
+      provider: providerName,
       providerId: model.providerId,
       isAvailable: model.isAvailable,
       isDefault: false, // We don't have this info in the new format

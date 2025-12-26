@@ -60,22 +60,30 @@ export const useConversationIntelligence = (options: UseConversationIntelligence
   });
 
   const socketRef = useRef<Socket | null>(null);
+  const autocompleteTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const { user } = useAuth();
 
   // Initialize WebSocket connection
   useEffect(() => {
     if (!user) return;
+    if (!agentId) return;
 
     // Get token from storage since user object doesn't contain token
     const token = localStorage.getItem('accessToken') || sessionStorage.getItem('accessToken');
-    if (!token) return;
+
+    const effectiveAgentId =
+      agentId === 'global-user-llm' ? `user-${user.id}` : agentId;
+    if (!effectiveAgentId) return;
+
+    const query: Record<string, string> = { agentId: effectiveAgentId };
+    if (conversationId) {
+      query.conversationId = conversationId;
+    }
 
     const socket = io(`${getWebSocketURL()}/conversation-intelligence`, {
-      auth: { token },
-      query: {
-        agentId: agentId || 'global-user-llm',
-        conversationId: conversationId || 'global',
-      },
+      ...(token ? { auth: { token } } : {}),
+      withCredentials: true,
+      query,
       transports: ['polling', 'websocket'],
       upgrade: true,
       timeout: 15000,
@@ -163,6 +171,10 @@ export const useConversationIntelligence = (options: UseConversationIntelligence
     return () => {
       socket.close();
       socketRef.current = null;
+      if (autocompleteTimeoutRef.current) {
+        clearTimeout(autocompleteTimeoutRef.current);
+        autocompleteTimeoutRef.current = null;
+      }
     };
   }, [user, agentId, conversationId]);
 
@@ -231,12 +243,19 @@ export const useConversationIntelligence = (options: UseConversationIntelligence
     });
   }, []);
 
-  // Request autocomplete
+  // Request autocomplete (debounced)
   const requestAutocomplete = useCallback((partial: string, context?: any, limit: number = 5) => {
+    // Clear any pending autocomplete request
+    if (autocompleteTimeoutRef.current) {
+      clearTimeout(autocompleteTimeoutRef.current);
+      autocompleteTimeoutRef.current = null;
+    }
+
     if (!socketRef.current || partial.length < 2) {
       setState((prev) => ({
         ...prev,
         autocompleteSuggestions: [],
+        loading: { ...prev.loading, autocomplete: false },
       }));
       return;
     }
@@ -246,11 +265,16 @@ export const useConversationIntelligence = (options: UseConversationIntelligence
       loading: { ...prev.loading, autocomplete: true },
     }));
 
-    socketRef.current.emit('autocomplete_query', {
-      partial,
-      context,
-      limit,
-    });
+    // Debounce the actual socket emit by 300ms
+    autocompleteTimeoutRef.current = setTimeout(() => {
+      if (socketRef.current) {
+        socketRef.current.emit('autocomplete_query', {
+          partial,
+          context,
+          limit,
+        });
+      }
+    }, 300);
   }, []);
 
   // Clear autocomplete suggestions

@@ -22,6 +22,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { GlobalAutocomplete } from '@/components/ui/GlobalAutocomplete';
 import { useDiscussion } from '@/contexts/DiscussionContext';
 import { useAgents } from '@/contexts/AgentContext';
+import { useAuth } from '@/contexts/AuthContext';
 import { TurnStrategy, ParticipantRole, DiscussionVisibility } from '@uaip/types';
 import type { Message } from '@/types/agent';
 import { cn } from '@/lib/utils';
@@ -272,6 +273,7 @@ export const DiscussionPortal: React.FC<DiscussionPortalProps> = ({
     isLoading: discussionLoading,
   } = useDiscussion();
   const { agents } = useAgents();
+  const { user } = useAuth();
 
   const agentList = Object.values(agents);
   const selectedPurposeData = DISCUSSION_PURPOSES.find((p) => p.value === selectedPurpose);
@@ -335,12 +337,13 @@ export const DiscussionPortal: React.FC<DiscussionPortalProps> = ({
 
   const handleStartDiscussion = async () => {
     const topic = generateTopic();
+    const createdBy = user?.id;
 
     const discussionData = {
       title: topic,
       topic,
       description: additionalContext.trim() || `${selectedPurposeData?.description} session`,
-      createdBy: 'current-user-id',
+      ...(createdBy ? { createdBy } : {}),
       initialParticipants: selectedAgents.map((agentId) => ({
         agentId,
         role: ParticipantRole.PARTICIPANT,
@@ -625,9 +628,10 @@ export const DiscussionPortal: React.FC<DiscussionPortalProps> = ({
           <div className="space-y-6">
             {/* Discussion History Dropdown */}
             <DiscussionHistory
-              onSelectDiscussion={(discussionId) =>
-                console.log('Selected discussion:', discussionId)
-              }
+              onSelectDiscussion={(discussionId) => {
+                console.log('Selected discussion:', discussionId);
+                setSelectedDiscussionId(discussionId);
+              }}
               className="mb-6"
             />
 

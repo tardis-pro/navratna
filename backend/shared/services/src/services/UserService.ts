@@ -12,7 +12,7 @@ import { UserEntity } from '../entities/user.entity.js';
 import { RefreshTokenEntity } from '../entities/refreshToken.entity.js';
 import { PasswordResetTokenEntity } from '../entities/passwordResetToken.entity.js';
 import { UserLLMPreference } from '../entities/userLLMPreference.entity.js';
-import * as bcrypt from 'bcrypt';
+import * as bcrypt from 'bcryptjs';
 import * as crypto from 'crypto';
 
 export class UserService {

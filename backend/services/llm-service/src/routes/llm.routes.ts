@@ -1,11 +1,17 @@
-import { LLMService, ModelBootstrapService, StreamingService } from '@uaip/llm-service';
+import {
+  LLMService,
+  ModelBootstrapService,
+  StreamingService,
+  UserLLMService,
+} from '@uaip/llm-service';
 import { StreamingLLMRequest } from '@uaip/types';
 import { logger, ValidationError } from '@uaip/utils';
 
 export function registerLLMRoutes(
   app: any,
   llmService: LLMService,
-  modelBootstrapService: ModelBootstrapService
+  modelBootstrapService: ModelBootstrapService,
+  userLLMService: UserLLMService
 ): any {
   return app.group('/api/v1/llm', (app: any) =>
     app
@@ -182,7 +188,7 @@ export function registerLLMRoutes(
 
       // Cache management endpoints
       .post('/cache/invalidate', async ({ body }: any) => {
-        const { type } = body;
+        const { type, syncModels } = body;
 
         switch (type) {
           case 'models':
@@ -198,9 +204,18 @@ export function registerLLMRoutes(
             await llmService.invalidateAllCache();
         }
 
+        // If syncModels is requested (or by default for 'all'), also sync models from provider APIs
+        if (syncModels !== false && (type === 'all' || type === 'models' || !type)) {
+          logger.info('Triggering model sync after cache invalidation');
+          // Run bootstrap in background to sync models from provider APIs
+          modelBootstrapService.bootstrapAllModels({ force: true }).catch((error) => {
+            logger.error('Model sync after cache invalidation failed', { error });
+          });
+        }
+
         return {
           success: true,
-          message: `Cache invalidated: ${type || 'all'}`,
+          message: `Cache invalidated: ${type || 'all'}${syncModels !== false ? ' (model sync triggered)' : ''}`,
         };
       })
 
@@ -227,7 +242,7 @@ export function registerLLMRoutes(
         logger.info('Manual model bootstrap refresh requested');
 
         // Run bootstrap in background
-        modelBootstrapService.bootstrapAllModels().catch((error) => {
+        modelBootstrapService.bootstrapAllModels({ force: true }).catch((error) => {
           logger.error('Manual model bootstrap failed', { error });
         });
 
@@ -256,7 +271,15 @@ export function registerLLMRoutes(
 
       // Streaming endpoints
       .post('/stream', async ({ body, store }: any) => {
-        const { prompt, systemPrompt, model, maxTokens, agentId, conversationId } = body;
+        const {
+          prompt,
+          systemPrompt,
+          model,
+          maxTokens,
+          agentId,
+          conversationId,
+          providerType,
+        } = body;
         const userId = store.user?.id;
 
         if (!userId) {
@@ -268,10 +291,47 @@ export function registerLLMRoutes(
         }
 
         const streamingService = StreamingService.getInstance();
+        let userProvider = null;
+        let selectedModel = model as string | undefined;
+
+        if (agentId) {
+          const selection = await userLLMService.selectProviderForAgent(userId, agentId, {
+            model,
+            provider: providerType,
+          });
+
+          if (selection) {
+            userProvider = selection.provider;
+            selectedModel = selection.selection.model.model || selectedModel;
+          }
+        }
+
+        if (!userProvider) {
+          userProvider = await userLLMService.getBestProviderForUser(userId, providerType);
+        }
+
+        if (!userProvider) {
+          throw new ValidationError('No active LLM providers configured for user');
+        }
+
+        const providerConfig = userProvider.getProviderConfig();
+        if (providerConfig.type === 'google') {
+          throw new ValidationError('Google providers are not supported for streaming');
+        }
+
+        const streamingProviderId = userProvider.id;
+        // After google check above, type is narrowed but TS doesn't infer it
+        const streamingConfig = {
+          ...providerConfig,
+          type: providerConfig.type as Exclude<typeof providerConfig.type, 'google'>,
+          baseUrl: providerConfig.baseUrl || '',
+        };
+        streamingService.registerProvider(streamingProviderId, streamingConfig);
+
         const request: StreamingLLMRequest = {
           prompt,
           systemPrompt,
-          model,
+          model: selectedModel,
           maxTokens,
           userId,
           agentId,
@@ -281,7 +341,7 @@ export function registerLLMRoutes(
           },
         };
 
-        const sessionId = await streamingService.startStream(request);
+        const sessionId = await streamingService.startStream(request, streamingProviderId);
 
         return {
           success: true,

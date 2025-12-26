@@ -10,7 +10,6 @@ export class LLMModelRepository extends Repository<LLMModel> {
   async findAvailableModels(): Promise<LLMModel[]> {
     return this.find({
       where: { isAvailable: true, isActive: true },
-      relations: ['provider'],
       order: { priority: 'ASC', name: 'ASC' },
     });
   }
@@ -19,23 +18,22 @@ export class LLMModelRepository extends Repository<LLMModel> {
   async findByProviderId(providerId: string): Promise<LLMModel[]> {
     return this.find({
       where: { providerId, isActive: true },
-      relations: ['provider'],
       order: { priority: 'ASC', name: 'ASC' },
     });
   }
 
   // Find models for a specific user (based on their providers)
+  // Note: LLMModel.providerId can reference either llm_providers or user_llm_providers
+  // so we don't join on a provider relation (it doesn't exist on the entity)
   async findByUserProviders(providerIds: string[]): Promise<LLMModel[]> {
     if (providerIds.length === 0) {
       return [];
     }
 
     return this.createQueryBuilder('model')
-      .innerJoin('model.provider', 'provider')
       .where('model.providerId IN (:...providerIds)', { providerIds })
       .andWhere('model.isActive = :isActive', { isActive: true })
       .andWhere('model.isAvailable = :isAvailable', { isAvailable: true })
-      .andWhere('provider.isActive = :providerIsActive', { providerIsActive: true })
       .orderBy('model.priority', 'ASC')
       .addOrderBy('model.name', 'ASC')
       .getMany();

@@ -78,7 +78,12 @@ class LLMServiceServer extends BaseService {
 
   protected async setupRoutes(): Promise<void> {
     // Register route groups
-    registerLLMRoutes(this.app, this.llmService, this.modelBootstrapService);
+    registerLLMRoutes(
+      this.app,
+      this.llmService,
+      this.modelBootstrapService,
+      this.userLLMService
+    );
     registerUserLLMRoutes(this.app, this.userLLMService);
   }
 
@@ -460,6 +465,9 @@ class LLMServiceServer extends BaseService {
       // Import and refresh LLM service providers
       const { llmService } = await import('@uaip/llm-service');
       await llmService.refreshProviders();
+
+      // Force a model bootstrap to sync provider models to the database
+      await this.modelBootstrapService.bootstrapAllModels({ force: true });
 
       // If this is an agent config change, clear any cached agent configurations
       if (eventType === 'agent-config-changed' && agentId) {
