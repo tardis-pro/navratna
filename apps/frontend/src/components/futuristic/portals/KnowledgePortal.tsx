@@ -97,6 +97,7 @@ export const KnowledgePortal: React.FC<KnowledgePortalProps> = ({ className }) =
     clearSearchResults,
     clearError,
     refreshStats,
+    fetchAllItems,
   } = useKnowledge();
 
   // Local state
@@ -105,9 +106,10 @@ export const KnowledgePortal: React.FC<KnowledgePortalProps> = ({ className }) =
   const [activeTab, setActiveTab] = useState<string>('browse');
   const [relatedItems, setRelatedItems] = useState<KnowledgeItem[]>([]);
 
-  // Load stats on mount
+  // Load stats and items on mount
   useEffect(() => {
     refreshStats();
+    fetchAllItems();
   }, []); // Empty dependency array - only run on mount
 
   // Handle search

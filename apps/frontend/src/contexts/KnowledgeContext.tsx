@@ -63,6 +63,7 @@ interface KnowledgeContextValue extends KnowledgeContextState {
 
   // Stats operations
   refreshStats: () => Promise<void>;
+  fetchAllItems: () => Promise<void>;
 }
 
 const initialState: KnowledgeContextState = {
@@ -316,6 +317,21 @@ export const KnowledgeProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     }
   }, []);
 
+  const fetchAllItems = useCallback(async (): Promise<void> => {
+    dispatch({ type: 'SET_LOADING', payload: true });
+    dispatch({ type: 'SET_ERROR', payload: null });
+
+    try {
+      const items = await uaipAPI.knowledge.getAllKnowledge({ limit: 100 });
+      dispatch({ type: 'ADD_KNOWLEDGE_ITEMS', payload: items });
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Failed to fetch knowledge items';
+      dispatch({ type: 'SET_ERROR', payload: errorMessage });
+    } finally {
+      dispatch({ type: 'SET_LOADING', payload: false });
+    }
+  }, []);
+
   const setActiveItem = useCallback((itemId: string | null) => {
     dispatch({ type: 'SET_ACTIVE_ITEM', payload: itemId });
   }, []);
@@ -340,6 +356,7 @@ export const KnowledgeProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     clearSearchResults,
     clearError,
     refreshStats,
+    fetchAllItems,
   };
 
   return <KnowledgeContext.Provider value={value}>{children}</KnowledgeContext.Provider>;

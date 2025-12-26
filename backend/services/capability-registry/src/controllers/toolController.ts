@@ -121,33 +121,27 @@ export class ToolController {
         `getTool method called - URL: ${req.url}, Method: ${req.method}, Path: ${req.path}, Params: ${JSON.stringify(req.params)}`
       );
       const { id } = req.params;
-
-      // Temporarily log the ID to debug routing issue
-      logger.error(
-        `getTool called with ID: "${id}" - this should not happen for GET /api/v1/tools`
-      );
-
-      // Validate ID format
-      const idSchema = z.string();
-      const validationResult = idSchema.safeParse(id);
-
-      if (!validationResult.success) {
-        logger.error(`Invalid ID format for tool ID: ${id}`);
+      if (!id) {
         res.status(400).json({
           success: false,
-          error: 'Invalid tool ID format',
-          message: `Tool ID must be a positive integer. Received: "${id}"`,
+          error: 'Invalid tool identifier',
+          message: 'Tool identifier is required',
         });
         return;
       }
 
-      const tool = await this.toolRegistry.getTool(validationResult.data);
+      const uuidResult = z.string().uuid().safeParse(id);
+      const tool = uuidResult.success
+        ? await this.toolRegistry.getTool(uuidResult.data)
+        : await this.toolRegistry.lookup(id);
 
       if (!tool) {
         res.status(404).json({
           success: false,
           error: 'Tool not found',
-          message: `Tool with ID ${validationResult.data} does not exist`,
+          message: uuidResult.success
+            ? `Tool with ID ${uuidResult.data} does not exist`
+            : `Tool matching "${id}" does not exist`,
         });
         return;
       }

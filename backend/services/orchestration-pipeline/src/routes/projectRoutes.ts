@@ -75,6 +75,7 @@ const initServices = async () => {
     databaseService = DatabaseService.getInstance();
     eventBusService = EventBusService.getInstance();
     projectService = new ProjectManagementService(databaseService, eventBusService);
+    await projectService.initialize();
   }
 };
 

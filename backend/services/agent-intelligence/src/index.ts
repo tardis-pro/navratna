@@ -1,6 +1,6 @@
 import { BaseService, DiscussionService, PersonaService } from '@uaip/shared-services';
 import { LLMService, UserLLMService } from '@uaip/llm-service';
-import { DiscussionEventType, LLMTaskType } from '@uaip/types';
+import { DiscussionEventType, LLMTaskType, MessageType } from '@uaip/types';
 import { attachAuth, attachNginxAuth, requireNginxAuth, UserContext } from '@uaip/middleware';
 import { ConversationEnhancementService } from './services/conversation-enhancement.service.js';
 import { AgentDiscussionService } from './services/agent-discussion.service.js';
@@ -514,6 +514,75 @@ class AgentIntelligenceService extends BaseService {
               logger.error('Failed to start discussion', { error, discussionId: params.discussionId });
               set.status = 500;
               return { success: false, error: 'Failed to start discussion' };
+            }
+          })
+          // Send message
+          .post('/:discussionId/messages', async (context) => {
+            const { params, body, set } = context;
+            const user = (context as unknown as { user: UserContext }).user;
+            const { content, messageType, participantId } = (body as {
+              content?: string;
+              messageType?: string;
+              participantId?: string;
+            }) || {};
+
+            if (!content || typeof content !== 'string' || content.trim().length === 0) {
+              set.status = 400;
+              return { success: false, error: 'Message content is required' };
+            }
+
+            try {
+              const discussion = await this.discussionService.getDiscussion(params.discussionId, true);
+              if (!discussion) {
+                set.status = 404;
+                return { success: false, error: 'Discussion not found' };
+              }
+
+              const matchingParticipant = participantId
+                ? discussion.participants?.find(
+                    (participant) =>
+                      participant.id === participantId || participant.participantId === participantId
+                  )
+                : discussion.participants?.find(
+                    (participant) => participant.participantType === 'user' && participant.userId === user.id
+                  );
+
+              if (!matchingParticipant) {
+                set.status = 404;
+                return { success: false, error: 'Participant not found for user' };
+              }
+
+              if (matchingParticipant.participantType !== 'user' || matchingParticipant.userId !== user.id) {
+                set.status = 403;
+                return { success: false, error: 'Participant does not belong to user' };
+              }
+
+              const allowedMessageTypes = new Set<string>(Object.values(MessageType));
+              const resolvedMessageType = allowedMessageTypes.has(messageType || '')
+                ? (messageType as MessageType)
+                : MessageType.MESSAGE;
+
+              const message = await this.discussionService.sendMessage(
+                params.discussionId,
+                matchingParticipant.id,
+                content.trim(),
+                resolvedMessageType
+              );
+
+              return { success: true, data: message };
+            } catch (error) {
+              const message = error instanceof Error ? error.message : 'Failed to send message';
+              const isValidationError =
+                message.includes('Discussion not found') ||
+                message.includes('Cannot send message to discussion with status') ||
+                message.includes('Invalid or inactive participant');
+
+              logger.error('Failed to send discussion message', {
+                error: message,
+                discussionId: params.discussionId,
+              });
+              set.status = isValidationError ? 400 : 500;
+              return { success: false, error: message };
             }
           })
           // End discussion
