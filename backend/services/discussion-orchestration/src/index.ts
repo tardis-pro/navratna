@@ -704,15 +704,30 @@ class DiscussionOrchestrationServer extends BaseService {
     const correlationId = `socketio_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 
     return new Promise(async (resolve) => {
+      let resolved = false;
+      const resolveOnce = (result: {
+        valid: boolean;
+        userId?: string;
+        sessionId?: string;
+        securityLevel?: number;
+        complianceFlags?: string[];
+        reason?: string;
+      }) => {
+        if (resolved) return;
+        resolved = true;
+        resolve(result);
+      };
+
       // Set up timeout for auth validation
-      const timeoutId = setTimeout(() => {
+      const timeoutId = setTimeout(async () => {
         logger.warn('Socket.IO authentication timeout', {
           correlationId,
           token: token.substr(0, 10) + '...',
         });
         // Clean up handler on timeout
         this.authResponseHandlers.delete(correlationId);
-        resolve({ valid: false, reason: 'Authentication service timeout' });
+        const fallbackResult = await this.validateSocketIOTokenViaHttp(token);
+        resolveOnce(fallbackResult);
       }, config.discussionOrchestration.security.websocketAuthTimeout); // Configurable authentication timeout
 
       try {
@@ -726,7 +741,7 @@ class DiscussionOrchestrationServer extends BaseService {
             userId: response?.userId?.substr(0, 8) + '...', // Partial log for security
           });
 
-          resolve(response);
+          resolveOnce(response);
         });
 
         // Publish auth validation request to Security Gateway
@@ -746,9 +761,58 @@ class DiscussionOrchestrationServer extends BaseService {
           error: error.message,
           correlationId,
         });
-        resolve({ valid: false, reason: 'Authentication service error' });
+        const fallbackResult = await this.validateSocketIOTokenViaHttp(token);
+        resolveOnce(fallbackResult);
       }
     });
+  }
+
+  private async validateSocketIOTokenViaHttp(token: string): Promise<{
+    valid: boolean;
+    userId?: string;
+    sessionId?: string;
+    securityLevel?: number;
+    complianceFlags?: string[];
+    reason?: string;
+  }> {
+    const defaultUrls = ['http://security-gateway:3004', 'http://localhost:3004'];
+    const urls = process.env.SECURITY_GATEWAY_URL
+      ? [process.env.SECURITY_GATEWAY_URL, ...defaultUrls]
+      : defaultUrls;
+
+    for (const baseUrl of urls) {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 2500);
+      try {
+        const response = await fetch(`${baseUrl}/api/v1/auth/validate`, {
+          method: 'GET',
+          headers: { Authorization: `Bearer ${token}` },
+          signal: controller.signal,
+        });
+        clearTimeout(timeoutId);
+
+        if (!response.ok) {
+          const errorBody = await response.json().catch(() => null);
+          return {
+            valid: false,
+            reason: errorBody?.error || 'Authentication failed',
+          };
+        }
+
+        return {
+          valid: true,
+          userId: response.headers.get('x-user-id') || undefined,
+        };
+      } catch (error) {
+        clearTimeout(timeoutId);
+        logger.warn('Socket.IO HTTP auth fallback failed', {
+          error: error instanceof Error ? error.message : 'Unknown error',
+          baseUrl,
+        });
+      }
+    }
+
+    return { valid: false, reason: 'Authentication service timeout' };
   }
 
   protected async cleanup(): Promise<void> {
