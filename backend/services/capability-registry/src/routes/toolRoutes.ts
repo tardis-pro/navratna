@@ -13,6 +13,17 @@ function createResponseObject() {
   return res;
 }
 
+function createResponseObject() {
+  const res: any = {
+    json: (v: any) => v,
+    status: (code: number) => {
+      res.statusCode = code;
+      return res;
+    },
+  };
+  return res;
+}
+
 // Minimal, clean Elysia route group for tools
 export function registerToolRoutes(
   app: any,
