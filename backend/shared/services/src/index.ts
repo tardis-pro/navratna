@@ -27,8 +27,11 @@ export { TypeOrmService, typeormService } from './typeormService.js';
 // MCP Services
 export { MCPService } from './services/MCPService.js';
 
-// Communication Services
-export { EventBusService } from './eventBusService.js';
+// Communication Services - re-exported from @uaip/infra
+export { EventBusService } from '@uaip/infra';
+
+// Cache Services - re-exported from @uaip/infra
+export { RedisCacheService, redisCacheService } from '@uaip/infra';
 
 // Agent Intelligence Services
 // LLMPreferenceResolutionService deprecated - use UnifiedModelSelectionFacade from BaseService
@@ -65,9 +68,6 @@ export { ConversationUtils } from './conversation/index.js';
 
 // Vector Search Services
 export { QdrantService } from './qdrant.service.js';
-
-// Cache Services
-export { redisCacheService, RedisCacheService } from './redis-cache.service.js';
 
 // LLM Request Tracking Service
 export { LLMRequestTracker } from './llm-request-tracker.service.js';
