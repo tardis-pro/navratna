@@ -104,7 +104,12 @@ export { AgentTaskTypeResolver } from './services/AgentTaskTypeResolver.js';
 
 // Business Logic Services
 export { ToolManagementService } from './tool-management.service.js';
-export { ToolExecutionService } from './tool-execution.service.js';
+export {
+  ToolExecutionService,
+  ToolExecutionRequestEvent,
+  ToolExecutionResponseEvent,
+  ToolExecutionOptions,
+} from './tool-execution.service.js';
 export { OperationManagementService } from './operation-management.service.js';
 export { ProjectManagementService } from './project-management.service.js';
 export { ProjectLifecycleService } from './project-lifecycle.service.js';

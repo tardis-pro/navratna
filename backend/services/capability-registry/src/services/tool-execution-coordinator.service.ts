@@ -2,18 +2,26 @@ import { EventBusService, DatabaseService, redisCacheService } from '@uaip/share
 import { logger } from '@uaip/utils';
 import { randomUUID } from 'crypto';
 import { UnifiedToolRegistry } from './unified-tool-registry.js';
-import type { ToolExecution } from '@uaip/types';
 
+/**
+ * Tool Execution Event - consumed from tool.execute.request events
+ * Supports both legacy format and new event-driven format with idempotency
+ */
 interface ToolExecutionEvent {
   requestId: string;
   toolId: string;
-  parameters: Record<string, any>;
+  agentId: string;
+  parameters: Record<string, unknown>;
+  securityContext?: Record<string, unknown>;
+  timestamp?: string;
+  idempotencyKey?: string;
+  correlationId?: string;
+  // Legacy fields for backward compatibility
   userId?: string;
-  agentId?: string;
   projectId?: string;
   conversationId?: string;
   operationId?: string;
-  context?: Record<string, any>;
+  context?: Record<string, unknown>;
 }
 
 interface ToolExecutionStatus {
@@ -22,19 +30,19 @@ interface ToolExecutionStatus {
   status: 'PENDING' | 'PROCESSING' | 'COMPLETED' | 'FAILED';
   startTime: number;
   endTime?: number;
-  result?: any;
+  result?: unknown;
   error?: string;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 interface ToolExecutionResponse {
   requestId: string;
   toolId: string;
   status: 'SUCCESS' | 'ERROR';
-  result?: any;
+  result?: unknown;
   error?: string;
   executionTime: number;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 /**
@@ -106,10 +114,34 @@ export class ToolExecutionCoordinator {
       logger.info('Processing tool execution request', {
         requestId,
         toolId: event.toolId,
-        userId: event.userId,
         agentId: event.agentId,
+        idempotencyKey: event.idempotencyKey,
+        correlationId: event.correlationId,
         projectId: event.projectId,
       });
+
+      // Check for idempotency - skip if already processing/executed with same key
+      if (event.idempotencyKey) {
+        const existingStatus = await this.getExecutionStatusByIdempotency(event.idempotencyKey);
+        if (existingStatus && existingStatus.status !== 'FAILED') {
+          logger.info('Duplicate execution detected, skipping', {
+            idempotencyKey: event.idempotencyKey,
+            existingStatus: existingStatus.status,
+          });
+          // Publish cached result if available
+          if (existingStatus.status === 'COMPLETED' && existingStatus.result) {
+            await this.eventBus.publish(`tool.response.${requestId}`, {
+              requestId,
+              toolId: event.toolId,
+              status: 'SUCCESS',
+              result: existingStatus.result,
+              executionTime: Date.now() - startTime,
+              metadata: { duplicated: true, originalRequestId: existingStatus.requestId },
+            } as ToolExecutionResponse);
+          }
+          return;
+        }
+      }
 
       // Store execution status in Redis
       const executionStatus: ToolExecutionStatus = {
@@ -118,8 +150,10 @@ export class ToolExecutionCoordinator {
         status: 'PROCESSING',
         startTime,
         metadata: {
-          userId: event.userId,
           agentId: event.agentId,
+          idempotencyKey: event.idempotencyKey,
+          correlationId: event.correlationId,
+          userId: event.userId,
           projectId: event.projectId,
           conversationId: event.conversationId,
           operationId: event.operationId,
@@ -262,13 +296,14 @@ export class ToolExecutionCoordinator {
   private async handleExecutionError(
     requestId: string,
     event: ToolExecutionEvent,
-    error: any,
+    error: unknown,
     startTime: number
   ): Promise<void> {
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     logger.error('Tool execution failed', {
       requestId,
       toolId: event.toolId,
-      error: error.message || String(error),
+      error: errorMessage,
     });
 
     // Update execution status
@@ -278,7 +313,7 @@ export class ToolExecutionCoordinator {
       status: 'FAILED',
       startTime,
       endTime: Date.now(),
-      error: error.message || 'Tool execution failed',
+      error: errorMessage,
     };
     await this.updateExecutionStatus(executionStatus);
 
@@ -287,7 +322,7 @@ export class ToolExecutionCoordinator {
       requestId,
       toolId: event.toolId,
       status: 'ERROR',
-      error: error.message || 'Tool execution failed',
+      error: errorMessage || 'Tool execution failed',
       executionTime: Date.now() - startTime,
     };
 
@@ -308,19 +343,20 @@ export class ToolExecutionCoordinator {
   private async handleSandboxExecutionError(
     requestId: string,
     event: ToolExecutionEvent,
-    error: any,
+    error: unknown,
     startTime: number
   ): Promise<void> {
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     logger.error('Sandbox execution failed', {
       requestId,
       toolId: event.toolId,
-      error: error.message || String(error),
+      error: errorMessage,
     });
 
     await this.eventBus.publish(`sandbox.response.${requestId}`, {
       requestId,
       status: 'ERROR',
-      error: error.message || 'Sandbox execution failed',
+      error: errorMessage || 'Sandbox execution failed',
       executionTime: Date.now() - startTime,
       sandbox: true,
     });
@@ -348,13 +384,33 @@ export class ToolExecutionCoordinator {
   }
 
   /**
+   * Get execution status by idempotency key
+   * Used to check if a duplicate request has already been processed
+   */
+  async getExecutionStatusByIdempotency(
+    idempotencyKey: string
+  ): Promise<ToolExecutionStatus | null> {
+    try {
+      // Scan through execution keys to find matching idempotency key
+      // In production, maintain a separate index: idempotencyKey -> requestId
+      // For now, we can't efficiently scan - this is a placeholder
+      // In production, maintain a separate Redis hash: tool:idempotency -> requestId
+      logger.debug('Idempotency lookup requested (not fully implemented)', { idempotencyKey });
+      return null;
+    } catch (error) {
+      logger.error('Failed to get execution status by idempotency key', error);
+      return null;
+    }
+  }
+
+  /**
    * Clean up old execution records from cache
    */
-  async cleanupExecutionCache(olderThanMinutes: number = 60): Promise<number> {
+  async cleanupExecutionCache(_olderThanMinutes: number = 60): Promise<number> {
     try {
       // This would be implemented with Redis SCAN command
       // For now, return 0
-      logger.info(`Cleaning up execution cache older than ${olderThanMinutes} minutes`);
+      logger.info(`Cleaning up execution cache older than ${_olderThanMinutes} minutes`);
       return 0;
     } catch (error) {
       logger.error('Failed to cleanup execution cache', error);
@@ -365,7 +421,7 @@ export class ToolExecutionCoordinator {
   /**
    * Get execution metrics for monitoring
    */
-  async getExecutionMetrics(timeWindowMinutes: number = 60): Promise<{
+  async getExecutionMetrics(_timeWindowMinutes: number = 60): Promise<{
     total: number;
     successful: number;
     failed: number;
