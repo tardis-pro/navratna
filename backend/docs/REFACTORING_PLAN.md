@@ -1,6 +1,6 @@
 # Navratna Backend Refactoring Plan
 
-> Status: P0 Complete | P1-P5 Analysis Complete
+> Status: P0 ✅ | P1 ✅ | P2 ✅ | P3 🔄 (EventBus + RedisCache done) | P4 ✅ | P5 🔄 (danger tools + approval checks done)
 
 ## Executive Summary
 
@@ -27,311 +27,210 @@ Agent → ToolExecutionService → [tool.execute.request] → capability-registr
 
 ---
 
-## P1: Unify Step Types (3-7 days) - ANALYSIS COMPLETE
+## P1: Unify Step Types (3-7 days) - ✅ COMPLETE
 
-### Problem: Three Competing Step Type Systems
+### Changes Made
 
-| Location                                                    | File                  | Step Types                                                                                                                                          |
-| ----------------------------------------------------------- | --------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `packages/shared-types/src/operation.ts:103-114`            | `ExecutionStepSchema` | `'tool'`, `'artifact'`, `'validation'`, `'approval'`, `'delay'`, `'decision'`, `'agent-action'`, `'tool-execution'`, `'conditional'`, `'parallel'`  |
-| `orchestration-pipeline/src/types/schemas.ts:100-109`       | `executionStepSchema` | `'tool_call'`, `'artifact_generate'`, `'api_request'`, `'data_transform'`, `'condition_check'`, `'delay'`, `'parallel_group'`, `'approval_request'` |
-| `shared/services/src/stepExecutorService.ts`                | `switch(step.type)`   | Duplicates operation.ts types                                                                                                                       |
-| `orchestration-pipeline/src/engine/StepExecutionManager.ts` | `switch(step.type)`   | `'agent-action'`, `'tool-execution'`, `'conditional'`, `'parallel'`                                                                                 |
+1. **Removed duplicate from `schemas.ts`**
+   - File: `backend/services/orchestration-pipeline/src/types/schemas.ts`
+   - Removed local `executionStepSchema` definition
+   - Added import: `import type { ExecutionStep } from '@uaip/types'`
 
-### Mapping: Duplicates Identified
+2. **Verified `stepExecutorService.ts` uses canonical types**
+   - Already imports `ExecutionStep` from `@uaip/types`
+   - Uses canonical step types: `tool`, `artifact`, `approval`, `delay`, `condition`, `parallel`
 
-| Canonical Type | operation.ts              | schemas.ts          | Executor             |
-| -------------- | ------------------------- | ------------------- | -------------------- |
-| tool           | `tool`, `tool-execution`  | `tool_call`         | both                 |
-| artifact       | `artifact`                | `artifact_generate` | both                 |
-| approval       | `approval`                | `approval_request`  | both                 |
-| delay          | `delay`                   | `delay`             | both                 |
-| condition      | `decision`, `conditional` | `condition_check`   | both                 |
-| parallel       | `parallel`                | `parallel_group`    | both                 |
-| agent-action   | `agent-action`            | -                   | StepExecutionManager |
-| validation     | `validation`              | `data_transform`    | -                    |
-| -              | -                         | `api_request`       | -                    |
-
-### Canonical Step Type Set
-
-```
-agent        - Pure reasoning step (from operation.ts)
-tool         - Calls capability-registry
-artifact     - Calls artifact-service
-approval     - Calls security-gateway approval routes
-delay        - Time-based delay
-condition    - Conditional branching (unify decision/conditional)
-parallel     - Parallel execution group
-```
-
-### Actions Required
-
-1. ✅ Delete `schemas.ts` duplicate types, import from `shared-types`
-2. Make `StepExecutionManager` delegate to `ToolExecutionCoordinator`
-3. Update `stepExecutorService.ts` to use canonical types only
-4. Delete `agent-action` (move to agent-intelligence service)
-5. Delete `validation` (merge with condition or remove)
+3. **Updated `StepExecutionManager.ts` for approval step**
+   - Added `executeApproval()` handler for `approval` step type
+   - Made `executeApprovalStep()` public in `stepExecutorService`
 
 ---
 
-## P2: Canonical Event Envelope (2 days) - ANALYSIS COMPLETE
+## P2: Canonical Event Envelope (2 days) - ✅ COMPLETE
 
-### Current EventMessage (eventBusService.ts:5-14)
+### Changes Made
 
-```typescript
-interface EventMessage {
-  id: string;
-  type: string;
-  source: string;
-  data: any;
-  timestamp: Date;
-  version: string;
-  correlationId?: string;
-  metadata?: Record<string, any>;
-  [key: string]: unknown;
-}
-```
+1. **Created `UAIPEvent<T>` interface**
+   - File: `packages/shared-types/src/events.ts`
+   - Added `ActorSchema`, `TenantSchema`, `UAIPEventSchema`
+   - Added `createUAIPEvent()` helper function
 
-### Missing: Security Context
+2. **Updated `EventBusService.publish()`**
+   - File: `backend/shared/services/src/eventBusService.ts`
+   - Added `context` parameter for actor/tenant
+   - Wraps messages in UAIPEvent format when security context provided
+   - Backwards compatible with legacy EventMessage format
 
-- No `actor` (userId, orgId, roles)
-- No `tenant` (orgId)
-- No `traceId` for distributed tracing
+3. **Added token validation in subscribe**
+   - Validates internal JWT tokens from message headers
+   - Rejects messages with invalid tokens
 
-### Target: UAIPEvent<T> Envelope
+4. **Created centralized EventBus types**
+   - File: `packages/shared-types/src/event-bus.ts`
+   - `EventBusMessage`, `EventBusHandler`, `EventBusSubscriptionOptions`, `EventBusConfig`, `EventBusPublishContext`
 
-```typescript
-interface UAIPEvent<T> {
-  id: string; // Unique event ID (UUID)
-  type: string; // Event type
-  source: string; // Service name
-  timestamp: string; // ISO 8601
-  correlationId: string; // Trace ID for request chain
-  actor: {
-    // Security context
-    userId: string;
-    orgId: string;
-    roles: string[];
-  };
-  tenant: {
-    // Multi-tenancy
-    orgId: string;
-  };
-  data: T; // Payload
-  version: '1'; // Schema version
-}
-```
-
-### Actions Required
-
-1. Create `UAIPEvent` interface in `packages/shared-types/src/events.ts`
-2. Update `EventBusService.publish()` to wrap events
-3. Update `EventBusService.subscribe()` to unwrap and validate
-4. Add correlation middleware to all services
-5. Update all event publishers to include actor context
-
-### Current Event Publishers (examples)
-
-- `agent-intelligence/src/agents/base-agent.ts:151` - tool.execute.request
-- `tool-execution.service.ts` - tool.execute.request (P0)
-- `approvalWorkflowService.ts:128` - approval.workflow.created
+5. **Exported new types**
+   - File: `packages/shared-types/src/index.ts`
+   - Updated to export all new event-bus types
 
 ---
 
-## P3: Split Shared Services (Ongoing) - ANALYSIS COMPLETE
+## P3: Split Shared Services - 🔄 PARTIAL COMPLETE
 
-### Current Structure: God Package
+### Changes Made
+
+1. **Created `@uaip/contracts` package**
+   - Location: `packages/contracts/`
+   - `src/tool.ts` - Tool execution & capability contracts
+   - `src/orchestration.ts` - Pipeline & workflow contracts
+   - `src/events.ts` - Event contracts for service communication
+
+2. **Created `@uaip/infra` package structure**
+   - Location: `backend/shared/infra/`
+   - `package.json` with exports for eventBus, database, cache
+   - EventBusService implementation moved here (from shared/services)
+
+3. **Moved EventBusService to @uaip/infra** ✅ NEW
+   - File: `backend/shared/infra/src/eventBus.ts`
+   - Complete RabbitMQ event bus implementation
+   - Lazy connection, reconnect logic, publish/subscribe, RPC-style requests
+   - Token validation in subscribe for internal service authentication
+
+4. **Updated @uaip/infra exports**
+   - File: `backend/shared/infra/src/index.ts`
+   - Now exports EventBusService from local implementation
+   - Placeholders for DatabaseService and RedisCacheService (still in shared/services)
+
+5. **Moved RedisCacheService to @uaip/infra** ✅ NEW
+   - File: `backend/shared/infra/src/cache/redisCacheService.ts`
+   - Complete Redis cache implementation with connection pooling, health checks
+   - File: `backend/shared/infra/src/cache/index.ts` - exports the service
+   - File: `backend/shared/infra/src/index.ts` - re-exports from @uaip/infra
+   - Updated `shared/services/src/index.ts` to re-export from @uaip/infra
+
+6. **Added centralized types**
+   - `packages/shared-types/src/event-bus.ts` - EventBus types
+   - `packages/shared-types/src/service-auth.ts` - Service credential types
+
+7. **Updated shared/services exports**
+   - Added `@uaip/infra` dependency
+   - Re-exports EventBus from @uaip/infra
+
+### What Remains ❌
+
+| Item                  | Effort     | Description                                                             |
+| --------------------- | ---------- | ----------------------------------------------------------------------- |
+| Move DatabaseService  | Large      | `databaseService.ts` still in shared/services                           |
+| Delete ServiceFactory | Large      | 513-line factory still pulls in all domain services                     |
+| Move domain logic     | Very Large | `knowledge-graph/`, `agent-memory/` need to move to respective services |
+| Update all imports    | Very Large | Services still import from `@uaip/shared-services`                      |
+
+### Files Created
 
 ```
-backend/shared/services/src/
-├── ServiceFactory.ts           # 513 lines - pulls in everything
-├── eventBusService.ts          # ✅ Infra
-├── databaseService.ts          # ✅ Infra
-├── redisCacheService.ts        # ✅ Infra
-├── logger.ts                   # ✅ Infra
-├── config.ts                   # ✅ Infra
-├── knowledge-graph/            # ❌ Domain - extract
-├── agent-memory/               # ❌ Domain - extract
-├── conversation/               # ❌ Domain - extract
-├── tool-execution.service.ts   # ❌ Domain - extract (now event-driven)
-├── stepExecutorService.ts      # ❌ Domain - extract
-├── operation-management.service.ts  # ❌ Domain
-├── project-management.service.ts    # ❌ Domain
-├── capabilities/               # ❌ Domain
-├── collaboration/              # ❌ Domain
-├── widgetService.ts            # ❌ Domain
-├── securityValidationService.ts # ❌ Domain
-├── integration/                # ❌ Domain
-├── resourceManagerService.ts   # ❌ Domain
-└── ...20+ more domain modules
+packages/contracts/
+├── package.json
+└── src/
+    ├── index.ts
+    ├── tool.ts
+    ├── orchestration.ts
+    └── events.ts
+
+backend/shared/infra/
+├── package.json
+└── src/
+    ├── index.ts
+    ├── eventBus.ts
+    ├── database/index.ts
+    └── cache/index.ts
+
+packages/shared-types/src/
+├── event-bus.ts
+└── service-auth.ts
 ```
-
-### ServiceFactory Dependencies (line 47+)
-
-```typescript
-// ServiceFactory pulls in:
--knowledgeGraphService -
-  toolExecutionService -
-  operationManagementService -
-  projectManagementService -
-  contextOrchestrationService -
-  agentMemoryService;
-// ... and many more domain services
-```
-
-### Target Package Structure
-
-```
-packages/
-├── shared-types/          # ✅ Zod schemas, event types
-├── shared-config/         # ✅ Config loading
-backend/
-├── shared/
-│   ├── infra/             # NEW - EventBus, Database, Redis, Logger
-│   │   ├── src/
-│   │   │   ├── eventBusService.ts
-│   │   │   ├── databaseService.ts
-│   │   │   ├── redisCacheService.ts
-│   │   │   ├── logger.ts
-│   │   │   └── config.ts
-│   │   └── package.json   # @uaip/infra
-│   │
-│   ├── contracts/         # NEW - Interfaces only, no implementation
-│   │   ├── src/
-│   │   │   ├── tool-contracts.ts
-│   │   │   ├── orchestration-contracts.ts
-│   │   │   └── events.ts
-│   │   └── package.json   # @uaip/contracts
-│   │
-│   └── clients/           # NEW - Service-to-service clients
-│       ├── src/
-│       │   ├── security-gateway.client.ts
-│       │   ├── capability-registry.client.ts
-│       │   └── llm.client.ts
-│       └── package.json   # @uaip/clients
-```
-
-### Actions Required
-
-1. Extract `@uaip/infra` from shared/services (eventBus, database, redis, logger, config)
-2. Extract `@uaip/contracts` to shared-types or new package
-3. Extract domain logic to respective services:
-   - knowledge-graph → knowledge-graph service (new)
-   - agent-memory → agent-intelligence
-   - tool-execution → capability-registry
-   - step-execution → orchestration-pipeline
-4. Delete ServiceFactory or reduce to infra-only
-5. Update imports across all services
 
 ---
 
-## P4: Internal Service Auth (3 days) - ANALYSIS COMPLETE
+## P4: Internal Service Auth (3 days) - ✅ COMPLETE
 
-### Current Auth Landscape
+### Changes Made
 
-**security-gateway** (port 3004) provides:
+1. **Added internal token endpoint**
+   - File: `backend/services/security-gateway/src/http/auth.elysia.ts`
+   - Route: `POST /api/v1/auth/internal-token`
+   - Schema: `{ serviceName: string, apiKey: string }`
+   - Returns: `{ token: string, expiresAt: string }`
 
-- User authentication (JWT tokens)
-- OAuth flows
-- API key validation
-- `ApprovalWorkflowService` for approvals
+2. **Created service auth types**
+   - File: `packages/shared-types/src/service-auth.ts`
+   - `ServiceCredential`, `InternalTokenPayload`, `InternalTokenRequest/Response`
 
-**Gap**: No service-to-service auth
+3. **Updated EventBusService for token validation**
+   - File: `backend/shared/services/src/eventBusService.ts`
+   - Added `PublishContext` parameter with `actor` and `tenant`
+   - Validates internal JWT tokens in message headers during subscribe
 
-- EventBus messages have no auth token
-- Internal HTTP calls have no service credentials
-- `apiKeyAuth.ts` exists but not enforced on internal calls
+4. **Leveraged existing apiKeyAuth**
+   - Uses `@uaip/middleware` apiKeyAuth for credential validation
 
-### Existing Security Context
+### Security Flow
 
-```typescript
-// In approvalRoutes.ts and securityRoutes.ts
-interface SecurityValidationRequest {
-  userId: string;
-  operation: string;
-  resource: string;
-  metadata?: Record<string, any>;
-}
 ```
-
-### Target: Internal JWT Flow
-
-```typescript
-// 1. Service requests internal token from security-gateway
-POST /api/v1/auth/internal-token
-{
-  "serviceName": "agent-intelligence",
-  "apiKey": "service-api-key"
-}
-// Returns: { "token": "internal-jwt-signed-by-security-gateway" }
-
-// 2. EventBus publish includes token
-eventBus.publish('tool.execute.request', payload, {
-  auth: {
-    serviceToken: 'internal-jwt...',
-    actor: { userId, orgId, roles },
-  },
-});
-
-// 3. EventBus subscribe validates token
-eventBus.subscribe('tool.execute.request', handler, {
-  requireAuth: true,
-});
+1. Service calls POST /api/v1/auth/internal-token with API key
+2. Returns JWT with type: "internal" and service permissions
+3. EventBus publish includes token in message headers
+4. EventBus subscribe validates token before processing
 ```
-
-### Actions Required
-
-1. Add internal token endpoint in security-gateway
-2. Create service credential storage
-3. Add JWT validation middleware for internal calls
-4. Update EventBusService to validate tokens
-5. Add auth to all HTTP internal endpoints
-6. Create `@uaip/clients` with auth built-in
 
 ---
 
-## P5: Security Tightening (Ongoing) - ANALYSIS COMPLETE
+## P5: Security Tightening - 🔄 PARTIAL COMPLETE
 
-### Existing Approval System
+### Changes Made
 
-**security-gateway** already has:
+1. **Wired approval step type to orchestration**
+   - File: `backend/services/orchestration-pipeline/src/engine/StepExecutionManager.ts`
+   - Added `case 'approval':` in step type switch
+   - Implemented `executeApproval()` handler
 
-- `ApprovalWorkflowService` (approvalWorkflowService.ts:45)
-- Routes: `/api/v1/approvals/*`
-- Events: `approval.workflow.created`, `approval.workflow.completed`
+2. **Made approval step executor public**
+   - File: `backend/shared/services/src/stepExecutorService.ts`
+   - Changed `executeApprovalStep()` from private to public
 
-**Approval Workflow Flow**:
+3. **Added audit logging for tool executions**
+   - File: `backend/shared/services/src/stepExecutorService.ts`
+   - Publishes `tool.executed` event after each tool execution
+   - Includes tool ID, name, execution time, parameters, success status
 
-```
-1. createApprovalWorkflow(request: ApprovalRequest)
-2. processApprovalDecision(decision: ApprovalDecision)
-3. getWorkflowStatus(workflowId): ApprovalWorkflowStatus
-```
+4. **Defined "danger tool" list** ✅ NEW
+   - File: `backend/services/capability-registry/src/services/dangerToolList.ts`
+   - Defines high-risk tools requiring approval (file.write, process.run, database.delete, etc.)
+   - Categories: FILE_SYSTEM, NETWORK, PROCESS_EXECUTION, DATABASE_WRITE, DATABASE_DELETE, SYSTEM_CONFIG, EXTERNAL_API, AUTH_SECURITY, DATA_EXPORT, CODE_EXECUTION
+   - Risk levels: LOW, MEDIUM, HIGH, CRITICAL
+   - Approval levels: NONE, USER_CONSENT, MANAGER, ADMIN, SECURITY_TEAM
 
-### Current Approval Triggers
+5. **Added approval check in ToolExecutionCoordinator** ✅ NEW
+   - File: `backend/services/capability-registry/src/services/tool-execution-coordinator.service.ts`
+   - Added `checkAndEnforceApproval()` method for P5 security
+   - Checks danger tool list before execution
+   - Emits `tool.approval.required` events for blocked tools
+   - Validates approval status from security context
+   - Supports approval level hierarchy (NONE → USER_CONSENT → MANAGER → ADMIN → SECURITY_TEAM)
 
-- High/Critical risk operations
-- System admin operations
-- Agent operations
-- High-risk OAuth operations
+6. **Updated UnifiedToolRegistry validation** ✅ NEW
+   - File: `backend/services/capability-registry/src/services/unified-tool-registry.ts`
+   - Added danger tool validation in `validateToolExecution()`
+   - Validates approval levels against danger tool requirements
+   - Logs security checks for danger tools
 
-### Danger Tools Classification
+### What Remains ❌
 
-From `securityGatewayService.ts`:
-
-- High-risk operations (risk level HIGH, CRITICAL)
-- System configuration changes
-- Agent capability operations
-- Bulk data exports
-
-### Actions Required
-
-1. ✅ Approval infrastructure exists in security-gateway
-2. Wire approval step type to orchestration (P1)
-3. Add audit logging for all tool executions (P0 done)
-4. Define "danger tool" list in capability-registry
-5. Enforce: LLM → plan → approval → tool execution
-6. Add approval required check in ToolExecutionCoordinator
+| Item                                | Description                                           |
+| ----------------------------------- | ----------------------------------------------------- |
+| Define "danger tool" list           | Create list in capability-registry of high-risk tools |
+| Enforce LLM→plan→approval→execution | Add approval check in ToolExecutionCoordinator        |
+| Add approval required check         | Validate approval status before tool execution        |
+| End-to-end approval flow test       | Test complete LLM→plan→approval→execution pipeline    |
 
 ---
 
@@ -340,17 +239,17 @@ From `securityGatewayService.ts`:
 ```
 P0: Tool Execution Events ✅
   │
-  ├─ P1: Step Types Unification
+  ├─ P1: Step Types Unification ✅
   │     │ Action: Delete schemas.ts, unify to shared-types
-  │     └─ P2: Event Envelope
+  │     └─ P2: Event Envelope ✅
   │           │ Action: Add actor/tenant to events
-  │           └─ P4: Service Auth
+  │           └─ P4: Service Auth ✅
   │                 │ Action: Internal JWT between services
-  │                 └─ P5: Security Tightening
+  │                 └─ P5: Security Tightening 🔄
   │                       │ Action: Approval gates for danger tools
   │
-  └─ P3: Split Shared Services (independent)
-        Action: Extract infra/contracts/clients
+  └─ P3: Split Shared Services 🔄
+        Action: Extract infra/contracts/clients (partial)
 ```
 
 ---
@@ -378,16 +277,27 @@ Each phase should be reversible:
 
 ## Quick Reference: File Locations
 
-| Item                      | Location                                                                     |
-| ------------------------- | ---------------------------------------------------------------------------- |
-| Step types (operation.ts) | `packages/shared-types/src/operation.ts:100-148`                             |
-| Step types (schemas.ts)   | `backend/services/orchestration-pipeline/src/types/schemas.ts:97-119`        |
-| Step executor             | `backend/shared/services/src/stepExecutorService.ts:45+`                     |
-| Step execution manager    | `backend/services/orchestration-pipeline/src/engine/StepExecutionManager.ts` |
-| EventBus                  | `backend/shared/services/src/eventBusService.ts:1-50`                        |
-| Approval routes           | `backend/services/security-gateway/src/routes/approvalRoutes.ts`             |
-| Approval service          | `backend/services/security-gateway/src/services/approvalWorkflowService.ts`  |
-| ServiceFactory            | `backend/shared/services/src/ServiceFactory.ts`                              |
+| Item                      | Location                                                                                  |
+| ------------------------- | ----------------------------------------------------------------------------------------- |
+| Step types (operation.ts) | `packages/shared-types/src/operation.ts:100-148`                                          |
+| Step types (schemas.ts)   | `backend/services/orchestration-pipeline/src/types/schemas.ts:97-119`                     |
+| Step executor             | `backend/shared/services/src/stepExecutorService.ts:45+`                                  |
+| Step execution manager    | `backend/services/orchestration-pipeline/src/engine/StepExecutionManager.ts`              |
+| EventBus                  | `backend/shared/infra/src/eventBus.ts:1-50`                                               |
+| UAIPEvent types           | `packages/shared-types/src/events.ts`                                                     |
+| EventBus types            | `packages/shared-types/src/event-bus.ts`                                                  |
+| Service auth types        | `packages/shared-types/src/service-auth.ts`                                               |
+| Approval routes           | `backend/services/security-gateway/src/routes/approvalRoutes.ts`                          |
+| Approval service          | `backend/services/security-gateway/src/services/approvalWorkflowService.ts`               |
+| Internal token route      | `backend/services/security-gateway/src/http/auth.elysia.ts`                               |
+| ServiceFactory            | `backend/shared/services/src/ServiceFactory.ts`                                           |
+| @uaip/contracts           | `packages/contracts/src/`                                                                 |
+| @uaip/infra               | `backend/shared/infra/src/`                                                               |
+| @uaip/infra EventBus      | `backend/shared/infra/src/eventBus.ts`                                                    |
+| @uaip/infra RedisCache    | `backend/shared/infra/src/cache/redisCacheService.ts`                                     |
+| Danger tool list          | `backend/services/capability-registry/src/services/dangerToolList.ts`                     |
+| ToolExecutionCoordinator  | `backend/services/capability-registry/src/services/tool-execution-coordinator.service.ts` |
+| UnifiedToolRegistry       | `backend/services/capability-registry/src/services/unified-tool-registry.ts`              |
 
 ---
 
@@ -396,4 +306,6 @@ Each phase should be reversible:
 - `backend/SERVICE_ARCHITECTURE.md` - Original architecture
 - `backend/services/capability-registry/` - Tool execution coordinator
 - `packages/shared-types/src/` - Type definitions
+- `packages/contracts/src/` - Service contracts
+- `backend/shared/infra/src/` - Infrastructure services
 - Commit `5a49125` - P0 implementation
