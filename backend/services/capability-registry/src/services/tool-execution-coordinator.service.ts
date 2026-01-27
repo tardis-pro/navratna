@@ -2,6 +2,31 @@ import { EventBusService, DatabaseService, redisCacheService } from '@uaip/share
 import { logger } from '@uaip/utils';
 import { randomUUID } from 'crypto';
 import { UnifiedToolRegistry } from './unified-tool-registry.js';
+import {
+  getDangerToolConfig,
+  toolRequiresApproval,
+  getRequiredApprovalLevel,
+  toolRequiresSecurityTeamApproval,
+  toolRequiresAudit,
+} from './dangerToolList.js';
+import { config } from '../config/config.js';
+
+/**
+ * Security context for tool execution
+ */
+interface SecurityContext {
+  userId: string;
+  agentId: string;
+  projectId?: string;
+  approvalStatus?: ApprovalStatus;
+}
+
+interface ApprovalStatus {
+  isApproved: boolean;
+  approvedBy?: string;
+  approvedAt?: string;
+  approvalLevel?: string;
+}
 
 /**
  * Tool Execution Event - consumed from tool.execute.request events
@@ -12,7 +37,7 @@ interface ToolExecutionEvent {
   toolId: string;
   agentId: string;
   parameters: Record<string, unknown>;
-  securityContext?: Record<string, unknown>;
+  securityContext?: SecurityContext;
   timestamp?: string;
   idempotencyKey?: string;
   correlationId?: string;
@@ -139,6 +164,32 @@ export class ToolExecutionCoordinator {
               metadata: { duplicated: true, originalRequestId: existingStatus.requestId },
             } as ToolExecutionResponse);
           }
+          return;
+        }
+      }
+
+      // P5 Security: Check if tool requires approval before execution
+      if (config.tools.enableApprovalWorkflow) {
+        const approvalResult = await this.checkAndEnforceApproval(event, requestId);
+        if (approvalResult.blocked) {
+          // Tool execution blocked due to missing approval
+          logger.warn('Tool execution blocked - approval required', {
+            requestId,
+            toolId: event.toolId,
+            requiredApproval: approvalResult.requiredApproval,
+          });
+          await this.eventBus.publish(`tool.response.${requestId}`, {
+            requestId,
+            toolId: event.toolId,
+            status: 'ERROR',
+            error: `APPROVAL_REQUIRED: This tool requires ${approvalResult.requiredApproval} approval before execution`,
+            executionTime: Date.now() - startTime,
+            metadata: {
+              requiresApproval: true,
+              requiredApproval: approvalResult.requiredApproval,
+              approvalRequestId: approvalResult.approvalRequestId,
+            },
+          } as ToolExecutionResponse);
           return;
         }
       }
@@ -437,5 +488,98 @@ export class ToolExecutionCoordinator {
       averageExecutionTime: 0,
       byTool: {},
     };
+  }
+
+  /**
+   * P5 Security: Check if tool requires approval and enforce approval requirements
+   * Returns { blocked: true } if approval is required but not granted
+   */
+  private async checkAndEnforceApproval(
+    event: ToolExecutionEvent,
+    requestId: string
+  ): Promise<{ blocked: boolean; requiredApproval: string; approvalRequestId?: string }> {
+    const toolId = event.toolId;
+
+    // Check if tool requires approval
+    if (!toolRequiresApproval(toolId)) {
+      return { blocked: false, requiredApproval: 'NONE' };
+    }
+
+    // Get danger tool configuration
+    const dangerConfig = getDangerToolConfig(toolId);
+    if (!dangerConfig) {
+      return { blocked: false, requiredApproval: 'NONE' };
+    }
+
+    // Get required approval level
+    const requiredApproval = getRequiredApprovalLevel(toolId);
+
+    // Check if execution is already approved
+    const isApproved = event.securityContext?.approvalStatus?.isApproved === true;
+    const approvedLevel = event.securityContext?.approvalStatus?.approvalLevel;
+
+    // Check if the approval level meets the requirement
+    const hasSufficientApproval = this.hasApprovalLevel(approvedLevel, requiredApproval);
+
+    if (isApproved && hasSufficientApproval) {
+      logger.info('Tool execution approved', {
+        requestId,
+        toolId,
+        approvedBy: event.securityContext?.approvalStatus?.approvedBy,
+        approvalLevel: approvedLevel,
+      });
+      return { blocked: false, requiredApproval };
+    }
+
+    // Tool requires approval but not granted - block execution
+    const approvalRequestId = `approval_${requestId}_${Date.now()}`;
+
+    // Emit approval required event
+    await this.eventBus.publish('tool.approval.required', {
+      approvalRequestId,
+      toolId,
+      requestId,
+      requiredApproval,
+      riskLevel: dangerConfig.riskLevel,
+      categories: dangerConfig.categories,
+      reason: dangerConfig.reason,
+      userId: event.userId || event.securityContext?.userId,
+      agentId: event.agentId,
+      projectId: event.projectId,
+      timestamp: new Date().toISOString(),
+    });
+
+    // Log audit event if required
+    if (toolRequiresAudit(toolId)) {
+      await this.eventBus.publish('tool.audit.log', {
+        eventType: 'APPROVAL_REQUIRED',
+        toolId,
+        requestId,
+        approvalRequestId,
+        requiredApproval,
+        riskLevel: dangerConfig.riskLevel,
+        categories: dangerConfig.categories,
+        userId: event.userId || event.securityContext?.userId,
+        agentId: event.agentId,
+        projectId: event.projectId,
+        timestamp: new Date().toISOString(),
+      });
+    }
+
+    return { blocked: true, requiredApproval, approvalRequestId };
+  }
+
+  /**
+   * Check if a given approval level meets the required level
+   */
+  private hasApprovalLevel(userLevel: string | undefined, requiredLevel: string): boolean {
+    const approvalHierarchy = ['NONE', 'USER_CONSENT', 'MANAGER', 'ADMIN', 'SECURITY_TEAM'];
+    const userIndex = userLevel ? approvalHierarchy.indexOf(userLevel) : -1;
+    const requiredIndex = approvalHierarchy.indexOf(requiredLevel);
+
+    if (requiredIndex === -1) return false;
+    if (userIndex === -1) return false;
+
+    return userIndex >= requiredIndex;
   }
 }
