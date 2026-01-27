@@ -418,6 +418,12 @@ export class ToolExecutionCoordinator {
       const key = `tool:execution:${status.requestId}`;
       const ttl = this.executionTimeout / 1000; // Convert to seconds
       await this.redis.set(key, JSON.stringify(status), ttl);
+
+      // Store idempotency key mapping for duplicate detection
+      if (status.metadata?.idempotencyKey) {
+        const idempotencyKey = `tool:idempotency:${status.metadata.idempotencyKey}`;
+        await this.redis.set(idempotencyKey, status.requestId, ttl);
+      }
     } catch (error) {
       logger.error('Failed to update execution status in Redis', error);
     }
@@ -442,12 +448,15 @@ export class ToolExecutionCoordinator {
     idempotencyKey: string
   ): Promise<ToolExecutionStatus | null> {
     try {
-      // Scan through execution keys to find matching idempotency key
-      // In production, maintain a separate index: idempotencyKey -> requestId
-      // For now, we can't efficiently scan - this is a placeholder
-      // In production, maintain a separate Redis hash: tool:idempotency -> requestId
-      logger.debug('Idempotency lookup requested (not fully implemented)', { idempotencyKey });
-      return null;
+      const idempotencyKeyRedis = `tool:idempotency:${idempotencyKey}`;
+      const requestId = await this.redis.get(idempotencyKeyRedis);
+
+      if (!requestId) {
+        logger.debug('Idempotency key not found', { idempotencyKey });
+        return null;
+      }
+
+      return await this.getExecutionStatus(requestId);
     } catch (error) {
       logger.error('Failed to get execution status by idempotency key', error);
       return null;
