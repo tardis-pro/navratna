@@ -1,6 +1,6 @@
 # Navratna Backend Refactoring Plan
 
-> Status: P0 ✅ | P1 ✅ | P2 ✅ | P3 🔄 (EventBus + RedisCache done) | P4 ✅ | P5 🔄 (danger tools + approval checks done)
+> Status: P0 ✅ | P1 ✅ | P2 ✅ | P3 🔄 (EventBus + RedisCache done) | P4 ✅ | P5 ✅ (E2E test added)
 
 ## Executive Summary
 
@@ -232,6 +232,9 @@ packages/shared-types/src/
 | Add approval required check         | Validate approval status before tool execution        |
 | End-to-end approval flow test       | Test complete LLM→plan→approval→execution pipeline    |
 
+**✅ COMPLETED**: All P5 items are now complete. E2E test file created at:
+`backend/services/capability-registry/src/__tests__/e2e/approval-flow.e2e.test.ts`
+
 ---
 
 ## Dependency Graph
@@ -245,7 +248,7 @@ P0: Tool Execution Events ✅
   │           │ Action: Add actor/tenant to events
   │           └─ P4: Service Auth ✅
   │                 │ Action: Internal JWT between services
-  │                 └─ P5: Security Tightening 🔄
+  │                 └─ P5: Security Tightening ✅
   │                       │ Action: Approval gates for danger tools
   │
   └─ P3: Split Shared Services 🔄
@@ -298,6 +301,7 @@ Each phase should be reversible:
 | Danger tool list          | `backend/services/capability-registry/src/services/dangerToolList.ts`                     |
 | ToolExecutionCoordinator  | `backend/services/capability-registry/src/services/tool-execution-coordinator.service.ts` |
 | UnifiedToolRegistry       | `backend/services/capability-registry/src/services/unified-tool-registry.ts`              |
+| E2E Approval Flow Test    | `backend/services/capability-registry/src/__tests__/e2e/approval-flow.e2e.test.ts`        |
 
 ---
 
@@ -309,3 +313,26 @@ Each phase should be reversible:
 - `packages/contracts/src/` - Service contracts
 - `backend/shared/infra/src/` - Infrastructure services
 - Commit `5a49125` - P0 implementation
+
+---
+
+## Code Review: PR #295 Issues Found ✅ ALL FIXED
+
+> Reviewed: Refactor Execution PR (12 commits, +2,951 −99 changes)
+> **Status**: All 9 issues from PR #295 have been fixed ✅
+
+### Summary Table (UPDATED)
+
+| Severity     | Issue                                            | File                                    | Lines      | Status                    |
+| ------------ | ------------------------------------------------ | --------------------------------------- | ---------- | ------------------------- |
+| ~~CRITICAL~~ | ~~EventBus auth missing signature verification~~ | `eventBus.ts`                           | 537-570    | ✅ FIXED commit `38da559` |
+| ~~CRITICAL~~ | ~~Response handler structure mismatch~~          | `tool-execution.service.ts`             | 354-356    | ✅ FIXED commit `eada421` |
+| ~~HIGH~~     | ~~Wildcard pattern matching bug~~                | `dangerToolList.ts`                     | 59-62      | ✅ FIXED commit `2bfbf6f` |
+| ~~HIGH~~     | ~~Weak idempotency key (base64, not crypto)~~    | `tool-execution.service.ts`             | 75-80      | ✅ FIXED commit `cf87fb8` |
+| ~~HIGH~~     | ~~Poison message risk (indefinite requeue)~~     | `eventBus.ts`                           | 614-617    | ✅ FIXED commit `35c7da0` |
+| ~~HIGH~~     | ~~x-max-retries not standard RabbitMQ~~          | `eventBus.ts`                           | 505-507    | ✅ FIXED commit `35c7da0` |
+| ~~HIGH~~     | ~~Idempotency lookup returns null~~              | `tool-execution-coordinator.service.ts` | 445-450    | ✅ FIXED commit `28fa99e` |
+| ~~MEDIUM~~   | ~~Token in query param (security)~~              | `nginx.conf`                            | 105-113    | ✅ FIXED commit `40451f6` |
+| ~~MEDIUM~~   | ~~Duplicate response object code~~               | `toolRoutes.ts`                         | throughout | ✅ FIXED commit `2f57e1d` |
+
+**All PR #295 issues have been resolved. CRITICAL issues should be deployed after review.**
