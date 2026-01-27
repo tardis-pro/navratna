@@ -1,4 +1,4 @@
-import { randomUUID } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import { ToolExecution as ToolExecutionType, ToolExecutionStatus } from '@uaip/types';
 import { logger } from '@uaip/utils';
 import { DatabaseService } from './databaseService.js';
@@ -72,12 +72,8 @@ export class ToolExecutionService {
     // Normalize parameters by sorting keys for consistent hashing
     const normalizedParams = JSON.stringify(parameters, Object.keys(parameters).sort());
 
-    // Create a simple hash (in production, use crypto.createHash)
     const keyMaterial = `${toolId}:${normalizedParams}:${agentId}:${dayBucket}`;
-    const hash = Buffer.from(keyMaterial)
-      .toString('base64')
-      .replace(/[^a-zA-Z0-9]/g, '')
-      .slice(0, 32);
+    const hash = createHash('sha256').update(keyMaterial).digest('hex').slice(0, 32);
 
     return `tool_${toolId}_${hash}`;
   }
@@ -351,16 +347,40 @@ export class ToolExecutionService {
           reject(new Error(`Tool execution timeout: ${toolId}`));
         }, timeoutMs);
 
-        const responseHandler = async (response: {
-          data?: { success?: boolean; result?: unknown; error?: string; recoverable?: boolean };
-        }) => {
+        const responseHandler = async (message: { data: unknown }) => {
           clearTimeout(timeout);
           await this.eventBus.unsubscribe(`tool.response.${requestId}`, responseHandler);
 
-          if (response.data?.success) {
+          const isToolExecutionResponse = (data: unknown): data is ToolExecutionResponseEvent => {
+            return (
+              typeof data === 'object' &&
+              data !== null &&
+              'requestId' in data &&
+              'toolId' in data &&
+              'status' in data &&
+              'executionTime' in data
+            );
+          };
+
+          if (!isToolExecutionResponse(message.data)) {
+            execution.status = ToolExecutionStatus.FAILED;
+            execution.success = false;
+            execution.error = {
+              type: 'execution',
+              message: 'Tool execution failed - invalid response format',
+              recoverable: false,
+            };
+            execution.endTime = new Date();
+            reject(new Error('Tool execution failed - invalid response format'));
+            return;
+          }
+
+          const response = message.data;
+
+          if (response.status === 'SUCCESS') {
             execution.status = ToolExecutionStatus.COMPLETED;
             execution.success = true;
-            execution.data = response.data.result;
+            execution.data = response.result;
             execution.endTime = new Date();
             resolve(execution);
           } else {
@@ -368,11 +388,11 @@ export class ToolExecutionService {
             execution.success = false;
             execution.error = {
               type: 'execution',
-              message: response.data?.error || 'Tool execution failed',
-              recoverable: response.data?.recoverable || false,
+              message: response.error || 'Tool execution failed',
+              recoverable: false,
             };
             execution.endTime = new Date();
-            reject(new Error(response.data?.error || 'Tool execution failed'));
+            reject(new Error(response.error || 'Tool execution failed'));
           }
         };
 
