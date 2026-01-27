@@ -58,7 +58,7 @@ export function matchesDangerToolPattern(toolId: string, pattern: string): boole
   // Handle prefix wildcards
   if (pattern.startsWith('*.')) {
     const suffix = pattern.slice(2);
-    return toolId.endsWith(suffix) || toolId === suffix;
+    return toolId.endsWith(`.${suffix}`) || toolId === suffix;
   }
 
   return false;
