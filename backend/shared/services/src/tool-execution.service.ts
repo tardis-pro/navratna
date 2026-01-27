@@ -94,12 +94,12 @@ export class ToolExecutionService {
     toolIdOrRequest:
       | string
       | {
-          toolId: string;
-          operation?: string;
-          parameters: Record<string, unknown>;
-          userId?: string;
-          securityContext?: Record<string, unknown>;
-        },
+        toolId: string;
+        operation?: string;
+        parameters: Record<string, unknown>;
+        userId?: string;
+        securityContext?: Record<string, unknown>;
+      },
     agentId?: string,
     parameters?: Record<string, unknown>,
     options: ToolExecutionOptions = {}
@@ -267,12 +267,12 @@ export class ToolExecutionService {
     toolIdOrRequest:
       | string
       | {
-          toolId: string;
-          operation?: string;
-          parameters: Record<string, unknown>;
-          userId?: string;
-          securityContext?: Record<string, unknown>;
-        },
+        toolId: string;
+        operation?: string;
+        parameters: Record<string, unknown>;
+        userId?: string;
+        securityContext?: Record<string, unknown>;
+      },
     agentId?: string,
     parameters?: Record<string, unknown>,
     options: ToolExecutionOptions = {},
