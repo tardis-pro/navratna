@@ -1,5 +1,7 @@
 import amqp from 'amqplib';
+import jwt from 'jsonwebtoken';
 import * as winston from 'winston';
+import { config } from '@uaip/config';
 import { ApiError } from '@uaip/utils';
 import type {
   UAIPEvent,
@@ -502,9 +504,6 @@ export class EventBusService {
           ...(options?.deadLetterExchange && {
             'x-dead-letter-exchange': options.deadLetterExchange,
           }),
-          ...(options?.retryAttempts && {
-            'x-max-retries': options.retryAttempts,
-          }),
         },
       };
 
@@ -538,19 +537,22 @@ export class EventBusService {
             if (authHeader && authHeader.startsWith('Bearer ')) {
               const token = authHeader.substring(7);
               try {
-                const parts = token.split('.');
-                if (parts.length !== 3) {
-                  throw new Error('Invalid token format');
+                const decoded = jwt.verify(token, config.jwt.secret);
+                if (typeof decoded !== 'object' || decoded === null || !('type' in decoded)) {
+                  this.logger.warn('Invalid token payload in event message', {
+                    eventType,
+                  });
+                  if (this.channel && msg) {
+                    this.channel.nack(msg, false, false);
+                  }
+                  return;
                 }
-                const payload = JSON.parse(Buffer.from(parts[1], 'base64').toString()) as {
-                  type?: string;
-                  serviceId?: string;
-                };
-                if (payload.type !== 'internal') {
+                const payloadType = decoded.type;
+                if (payloadType !== 'internal') {
                   this.logger.warn('Invalid token type in event message', {
                     eventType,
                     expectedType: 'internal',
-                    receivedType: payload.type,
+                    receivedType: payloadType,
                   });
                   if (this.channel && msg) {
                     this.channel.nack(msg, false, false);
@@ -561,6 +563,7 @@ export class EventBusService {
                 this.logger.warn('Failed to validate internal token in event', {
                   eventType,
                   error: tokenError instanceof Error ? tokenError.message : 'Unknown error',
+                  errorName: tokenError instanceof Error ? tokenError.name : 'UnknownError',
                 });
                 if (this.channel && msg) {
                   this.channel.nack(msg, false, false);
@@ -614,7 +617,7 @@ export class EventBusService {
                 if (options?.deadLetterExchange) {
                   this.channel.nack(msg, false, false);
                 } else {
-                  this.channel.nack(msg, false, true); // Requeue
+                  this.channel.nack(msg, false, false);
                 }
               } catch (nackError) {
                 this.logger.warn('Failed to nack message', {
