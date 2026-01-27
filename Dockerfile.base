@@ -49,6 +49,7 @@ COPY backend/shared/services/package.json ./backend/shared/services/
 COPY backend/shared/middleware/package.json ./backend/shared/middleware/
 COPY backend/shared/config/package.json ./backend/shared/config/
 COPY backend/shared/llm-service/package.json ./backend/shared/llm-service/
+COPY backend/shared/infra/package.json ./backend/shared/infra/
 COPY backend/services/agent-intelligence/package.json ./backend/services/agent-intelligence/
 COPY backend/services/orchestration-pipeline/package.json ./backend/services/orchestration-pipeline/
 COPY backend/services/capability-registry/package.json ./backend/services/capability-registry/
@@ -72,6 +73,9 @@ COPY tsconfig.json ./
 # Copy source code
 COPY packages/ ./packages/
 COPY backend/ ./backend/
+
+# Install workspace dependencies (creates @uaip/* symlinks)
+RUN pnpm install --no-frozen-lockfile
 
 # Build shared packages
 RUN pnpm build:shared && cd backend && pnpm build-shared
@@ -102,6 +106,13 @@ ENV PATH="${PNPM_HOME}:/usr/local/bin:${PATH}"
 RUN cat > /app/entrypoint-dev.sh << 'ENTRYPOINT'
 #!/bin/sh
 set -e
+
+# Create @uaip/infra symlink if it doesn't exist (pnpm workspace linking workaround)
+if [ ! -e "/app/node_modules/@uaip/infra" ]; then
+  mkdir -p /app/node_modules/@uaip
+  ln -sf /app/backend/shared/infra/dist /app/node_modules/@uaip/infra
+  echo "Created @uaip/infra symlink"
+fi
 
 SERVICE_NAME=${SERVICE_NAME:-orchestration-pipeline}
 SERVICE_PORT=${SERVICE_PORT:-3002}
