@@ -6,7 +6,8 @@
 
 import { Agent, Operation, OperationStatus, ExecutionPlan } from '@uaip/types';
 import { logger } from '@uaip/utils';
-import { EventBusService, DatabaseService } from '@uaip/shared-services';
+import { DatabaseService } from '@uaip/infra/database';
+import { EventBusService } from '@uaip/infra/eventBus';
 import {
   AgentCoreService,
   AgentContextService,
@@ -796,7 +797,10 @@ export class AgentEventOrchestrator {
   /**
    * Utility methods
    */
-  private async subscribeToEvent(channel: string, handler: (message: any) => Promise<void>): Promise<void> {
+  private async subscribeToEvent(
+    channel: string,
+    handler: (message: any) => Promise<void>
+  ): Promise<void> {
     try {
       // Convert function to async EventHandler
       const asyncHandler = async (message: any): Promise<void> => {
@@ -962,7 +966,8 @@ export class AgentEventOrchestrator {
       for (const [channel, handler] of this.eventSubscriptions) {
         try {
           // Convert handler for unsubscribe
-          const asyncHandler = async (message: any): Promise<void> => Promise.resolve(handler(message) as any);
+          const asyncHandler = async (message: any): Promise<void> =>
+            Promise.resolve(handler(message) as any);
           await this.eventBusService.unsubscribe(channel, asyncHandler);
         } catch (error) {
           logger.warn('Failed to unsubscribe from event during shutdown', { channel, error });

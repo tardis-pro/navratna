@@ -1,12 +1,9 @@
 import { z } from 'zod';
 import { logger } from '@uaip/utils';
 import { withRequiredAuth, withAdminGuard } from '@uaip/middleware';
-import {
-  SecurityService,
-  EventBusService,
-  AuditService as DomainAuditService,
-  DatabaseService,
-} from '@uaip/shared-services';
+import { SecurityService, AuditService as DomainAuditService } from '@uaip/shared-services';
+import { DatabaseService } from '@uaip/infra/database';
+import { EventBusService } from '@uaip/infra/eventBus';
 import { AuditService } from '../services/auditService.js';
 import { NotificationService } from '../services/notificationService.js';
 import { AuditEventType, SecurityLevel } from '@uaip/types';
@@ -123,7 +120,10 @@ const securityPolicySchema = z.object({
 });
 const updatePolicySchema = securityPolicySchema.partial({ name: true });
 
-function validateWithZod<T>(schema: z.ZodSchema<T>, data: any): { error: { details: { message: string; path: string }[] } | null; value: T | null } {
+function validateWithZod<T>(
+  schema: z.ZodSchema<T>,
+  data: any
+): { error: { details: { message: string; path: string }[] } | null; value: T | null } {
   const result = schema.safeParse(data);
   if (result.success) return { error: null, value: result.data };
   return {
@@ -138,7 +138,7 @@ export function registerSecurityRoutes(app: any): any {
   return app.group('/api/v1/security', (app: any) =>
     withRequiredAuth(app)
       // POST /assess-risk
-            // @ts-expect-error - Elysia middleware injects user, but TypeScript cannot infer through nested groups
+      // @ts-expect-error - Elysia middleware injects user, but TypeScript cannot infer through nested groups
       .post('/assess-risk', async ({ set, body, user, request, headers }) => {
         const { error, value } = validateWithZod(riskAssessmentSchema, body);
         if (error) {
@@ -190,7 +190,7 @@ export function registerSecurityRoutes(app: any): any {
       })
 
       // POST /check-approval-required
-            // @ts-expect-error - Elysia middleware injects user, but TypeScript cannot infer through nested groups
+      // @ts-expect-error - Elysia middleware injects user, but TypeScript cannot infer through nested groups
       .post('/check-approval-required', async ({ set, body, user, request, headers }) => {
         const { error, value } = validateWithZod(riskAssessmentSchema, body);
         if (error) {
@@ -287,7 +287,7 @@ export function registerSecurityRoutes(app: any): any {
             }
           })
 
-            // @ts-expect-error - Elysia middleware injects user, but TypeScript cannot infer through nested groups
+          // @ts-expect-error - Elysia middleware injects user, but TypeScript cannot infer through nested groups
           .post('/policies', async ({ set, body, user, request, headers }) => {
             const { error, value } = validateWithZod(securityPolicySchema, body);
             if (error) {

@@ -15,9 +15,11 @@
     "@uaip/config": "workspace:*",
     "@uaip/types": "workspace:*",
     "@uaip/utils": "workspace:*",
+    "@qdrant/js-client-rest": "^1.13.0",
     "amqplib": "catalog:backend",
     "ioredis": "catalog:backend",
     "jsonwebtoken": "catalog:backend",
+    "neo4j-driver": "^5.28.0",
     "pg": "catalog:backend",
     "typeorm": "^0.3.25",
     "winston": "catalog:backend",
@@ -55,6 +57,11 @@
       "import": "./dist/logger.js",
       "require": "./dist/logger.js",
       "types": "./dist/logger.d.ts"
+    },
+    "./factory": {
+      "import": "./dist/factory/index.js",
+      "require": "./dist/factory/index.js",
+      "types": "./dist/factory/index.d.ts"
     }
   }
 }

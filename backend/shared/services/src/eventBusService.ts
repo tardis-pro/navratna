@@ -1,40 +1,15 @@
 import amqp from 'amqplib';
 import * as winston from 'winston';
 import { ApiError } from '@uaip/utils';
-
-interface EventMessage {
-  id: string;
-  type: string;
-  source: string;
-  data: any;
-  timestamp: Date;
-  version: string;
-  correlationId?: string;
-  metadata?: Record<string, any>;
-  [key: string]: unknown; // Index signature for compatibility with @uaip/types EventMessage
-}
-
-interface EventHandler {
-  (message: EventMessage): Promise<void>;
-}
-
-interface SubscriptionOptions {
-  queue?: string;
-  durable?: boolean;
-  autoAck?: boolean;
-  prefetch?: number;
-  deadLetterExchange?: string;
-  retryAttempts?: number;
-}
-
-interface EventBusConfig {
-  url: string;
-  serviceName: string;
-  maxReconnectAttempts?: number;
-  reconnectDelay?: number;
-  exchangePrefix?: string;
-  complianceMode?: boolean;
-}
+import type {
+  UAIPEvent,
+  EventBusMessage,
+  EventBusHandler,
+  EventBusSubscriptionOptions,
+  EventBusConfig,
+  EventBusPublishContext,
+  EventBusWrappedEvent,
+} from '@uaip/types';
 
 export class EventBusService {
   private static instance: EventBusService | null = null;
@@ -43,7 +18,7 @@ export class EventBusService {
 
   private connection: amqp.ChannelModel | null = null;
   private channel: amqp.Channel | null = null;
-  private subscribers: Map<string, EventHandler[]> = new Map();
+  private subscribers: Map<string, EventBusHandler[]> = new Map();
   private activeConsumers: Set<string> = new Set();
   public isConnected: boolean = false;
   private reconnectAttempts: number = 0;
@@ -59,7 +34,7 @@ export class EventBusService {
     this.logger = logger;
     this.maxReconnectAttempts = config.maxReconnectAttempts || 10;
     this.reconnectDelay = config.reconnectDelay || 5000;
-    this.setupEventHandlers();
+    this.setupEventBusHandlers();
 
     // Don't connect immediately - use lazy connection
     this.logger.info('EventBusService initialized (lazy connection mode)');
@@ -83,7 +58,7 @@ export class EventBusService {
     return EventBusService.instance;
   }
 
-  private setupEventHandlers(): void {
+  private setupEventBusHandlers(): void {
     process.on('SIGINT', () => this.gracefulShutdown('SIGINT'));
     process.on('SIGTERM', () => this.gracefulShutdown('SIGTERM'));
   }
@@ -357,6 +332,7 @@ export class EventBusService {
       exchange?: string;
       routingKey?: string;
       persistent?: boolean;
+      context?: EventBusPublishContext;
     }
   ): Promise<void> {
     try {
@@ -374,16 +350,38 @@ export class EventBusService {
       return; // Gracefully fail - don't throw error
     }
 
-    const message: EventMessage = {
-      id: Date.now().toString(),
-      type: eventType,
-      source: this.config.serviceName,
-      data,
-      timestamp: new Date(),
-      version: '1.0.0',
-      correlationId: options?.correlationId,
-      metadata: options?.metadata,
-    };
+    const messageId = Date.now().toString();
+    const timestamp = new Date();
+    const correlationId =
+      options?.correlationId || `corr_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+
+    let message: EventBusWrappedEvent;
+
+    if (options?.context?.actor || options?.context?.tenant) {
+      const uaipEvent: UAIPEvent = {
+        id: messageId,
+        type: eventType,
+        source: this.config.serviceName,
+        timestamp: timestamp.toISOString(),
+        correlationId,
+        actor: options.context.actor || { userId: 'system', orgId: 'system', roles: [] },
+        tenant: options.context.tenant || { orgId: 'system' },
+        data: data,
+        version: '1',
+      };
+      message = uaipEvent;
+    } else {
+      message = {
+        id: messageId,
+        type: eventType,
+        source: this.config.serviceName,
+        data,
+        timestamp,
+        version: '1.0.0',
+        correlationId: options?.correlationId,
+        metadata: options?.metadata,
+      };
+    }
 
     try {
       const exchange =
@@ -394,12 +392,12 @@ export class EventBusService {
 
       const publishOptions = {
         persistent: options?.persistent !== false,
-        messageId: message.id.toString(),
-        timestamp: message.timestamp.getTime(),
+        messageId: messageId,
+        timestamp: timestamp.getTime(),
         type: eventType,
         headers: {
-          source: message.source,
-          version: message.version,
+          source: this.config.serviceName,
+          version: '1.0.0',
           ...(message.correlationId && { correlationId: message.correlationId }),
         },
       };
@@ -411,21 +409,21 @@ export class EventBusService {
       }
 
       this.logger.debug('Event published successfully', {
-        eventId: message.id,
+        eventId: messageId,
         eventType,
         exchange,
         routingKey,
         dataSize: messageBuffer.length,
+        hasSecurityContext: !!(options?.context?.actor || options?.context?.tenant),
       });
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       this.logger.error('Failed to publish event', {
         eventType,
         error: errorMessage,
-        messageId: message.id,
+        messageId,
       });
 
-      // Check if this is a channel error that requires reconnection
       if (errorMessage.includes('Channel closed') || errorMessage.includes('Connection closed')) {
         this.isConnected = false;
         this.activeConsumers.clear();
@@ -433,20 +431,17 @@ export class EventBusService {
         this.logger.warn('Connection lost during publish, will reconnect on next operation');
       }
 
-      // Only throw errors for critical events like auth validation
-      // For other events, log and gracefully fail to prevent service shutdown
       if (eventType.includes('auth') || eventType.includes('security')) {
         throw new ApiError(500, 'Failed to publish event', 'EVENT_PUBLISH_ERROR', {
           eventType,
-          messageId: message.id,
+          messageId,
         });
       } else {
         this.logger.warn('Event publish failed, continuing operation', {
           eventType,
-          messageId: message.id,
+          messageId,
           error: errorMessage,
         });
-        // Gracefully fail for non-critical events
         return;
       }
     }
@@ -454,8 +449,8 @@ export class EventBusService {
 
   public async subscribe(
     eventType: string,
-    handler: EventHandler,
-    options?: SubscriptionOptions
+    handler: EventBusHandler,
+    options?: EventBusSubscriptionOptions
   ): Promise<void> {
     // Always store subscription first
     if (!this.subscribers.has(eventType)) {
@@ -478,7 +473,10 @@ export class EventBusService {
     await this.setupSubscription(eventType, options);
   }
 
-  private async setupSubscription(eventType: string, options?: SubscriptionOptions): Promise<void> {
+  private async setupSubscription(
+    eventType: string,
+    options?: EventBusSubscriptionOptions
+  ): Promise<void> {
     if (!this.channel) {
       throw new Error('Channel not available for subscription setup');
     }
@@ -527,13 +525,49 @@ export class EventBusService {
 
           try {
             const content = msg.content.toString();
-            const eventMessage: EventMessage = JSON.parse(content);
+            const eventMessage: EventBusMessage = JSON.parse(content);
 
             this.logger.debug('Processing event', {
               eventId: eventMessage.id,
               eventType: eventMessage.type,
               source: eventMessage.source,
             });
+
+            // Validate internal service token if present in headers
+            const authHeader = msg.properties.headers?.authorization;
+            if (authHeader && authHeader.startsWith('Bearer ')) {
+              const token = authHeader.substring(7);
+              try {
+                const parts = token.split('.');
+                if (parts.length !== 3) {
+                  throw new Error('Invalid token format');
+                }
+                const payload = JSON.parse(Buffer.from(parts[1], 'base64').toString()) as {
+                  type?: string;
+                  serviceId?: string;
+                };
+                if (payload.type !== 'internal') {
+                  this.logger.warn('Invalid token type in event message', {
+                    eventType,
+                    expectedType: 'internal',
+                    receivedType: payload.type,
+                  });
+                  if (this.channel && msg) {
+                    this.channel.nack(msg, false, false);
+                  }
+                  return;
+                }
+              } catch (tokenError) {
+                this.logger.warn('Failed to validate internal token in event', {
+                  eventType,
+                  error: tokenError instanceof Error ? tokenError.message : 'Unknown error',
+                });
+                if (this.channel && msg) {
+                  this.channel.nack(msg, false, false);
+                }
+                return;
+              }
+            }
 
             // Execute all handlers for this event type
             for (const handler of handlers) {
@@ -627,7 +661,7 @@ export class EventBusService {
     }
   }
 
-  public async unsubscribe(eventType: string, handler: EventHandler): Promise<void> {
+  public async unsubscribe(eventType: string, handler: EventBusHandler): Promise<void> {
     const handlers = this.subscribers.get(eventType);
     if (!handlers) return;
 
@@ -841,14 +875,19 @@ export class EventBusService {
       }, timeoutMs);
 
       // Set up response handler
-      const responseHandler = async (message: EventMessage) => {
+      const responseHandler = async (message: EventBusMessage) => {
         clearTimeout(timeout);
         await this.unsubscribe(responseEventType, responseHandler);
 
-        if (message.data.error) {
-          reject(new Error(message.data.error));
+        const data = message.data as {
+          error?: { message?: string };
+          success?: boolean;
+          data?: unknown;
+        };
+        if (data.error) {
+          reject(new Error(data.error.message || 'Unknown error'));
         } else {
-          resolve(message.data);
+          resolve(data.data);
         }
       };
 
@@ -889,4 +928,10 @@ export class EventBusService {
 }
 
 // Export types
-export type { EventMessage, EventHandler, SubscriptionOptions, EventBusConfig };
+export type {
+  EventBusMessage,
+  EventBusHandler,
+  EventBusSubscriptionOptions,
+  EventBusConfig,
+  EventBusPublishContext,
+};

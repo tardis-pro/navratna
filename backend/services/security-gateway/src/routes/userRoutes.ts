@@ -6,7 +6,7 @@ import { authMiddleware, requireAdmin, optionalAuth } from '@uaip/middleware';
 import { validateRequest } from '@uaip/middleware';
 import { AuditService } from '../services/auditService.js';
 import { NotificationService } from '../services/notificationService.js';
-import { DatabaseService } from '@uaip/shared-services';
+import { DatabaseService } from '@uaip/infra/database';
 import { Request, Response } from '@uaip/shared-services';
 import { config } from '@uaip/config';
 import { AuditEventType, LLMTaskType, LLMProviderType } from '@uaip/types';

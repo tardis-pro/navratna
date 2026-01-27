@@ -33,6 +33,59 @@ export const BaseEventSchema = z.object({
 
 export type BaseEvent = z.infer<typeof BaseEventSchema>;
 
+// Actor security context
+export const ActorSchema = z.object({
+  userId: IDSchema,
+  orgId: IDSchema,
+  roles: z.array(z.string()),
+});
+
+export type Actor = z.infer<typeof ActorSchema>;
+
+// Tenant context for multi-tenancy
+export const TenantSchema = z.object({
+  orgId: IDSchema,
+});
+
+export type Tenant = z.infer<typeof TenantSchema>;
+
+// UAIP Event Envelope with security and tenant context
+export const UAIPEventSchema = z.object({
+  id: IDSchema,
+  type: z.string(),
+  source: z.string(),
+  timestamp: z.string().datetime(),
+  correlationId: IDSchema,
+  actor: ActorSchema,
+  tenant: TenantSchema,
+  data: z.record(z.any()),
+  version: z.literal('1'),
+});
+
+export type UAIPEvent<T = Record<string, unknown>> = z.infer<typeof UAIPEventSchema>;
+
+// Helper function to create UAIPEvent
+export function createUAIPEvent<T>(
+  type: string,
+  source: string,
+  data: T,
+  actor: Actor,
+  tenant: Tenant,
+  correlationId?: string
+): UAIPEvent<T> {
+  return {
+    id: crypto.randomUUID(),
+    type,
+    source,
+    timestamp: new Date().toISOString(),
+    correlationId: correlationId || crypto.randomUUID(),
+    actor,
+    tenant,
+    data: data as Record<string, unknown>,
+    version: '1',
+  };
+}
+
 // Agent events
 export const AgentCreatedEventSchema = BaseEventSchema.extend({
   type: z.literal('agent.created'),

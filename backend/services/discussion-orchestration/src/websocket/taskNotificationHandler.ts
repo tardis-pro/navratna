@@ -1,5 +1,5 @@
 import { Server, Socket } from 'socket.io';
-import { EventBusService } from '@uaip/shared-services';
+import { EventBusService } from '@uaip/infra/eventBus';
 import { logger } from '@uaip/utils';
 import { authenticateConnection } from './websocket-security-utils.js';
 

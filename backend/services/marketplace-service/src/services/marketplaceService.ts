@@ -1,5 +1,5 @@
 import { Repository } from 'typeorm';
-import { DatabaseService } from '@uaip/shared-services';
+import { DatabaseService } from '@uaip/infra/database';
 import { logger } from '@uaip/utils';
 import { MarketplaceItem, MarketplaceRating, MarketplaceInstallation } from '../entities/index.js';
 import {

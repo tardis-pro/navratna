@@ -1,6 +1,7 @@
 import { Router } from '@uaip/shared-services';
 import { authMiddleware, validateRequest } from '@uaip/middleware';
-import { UserToolPreferencesService, DatabaseService } from '@uaip/shared-services';
+import { UserToolPreferencesService } from '@uaip/shared-services';
+import { DatabaseService } from '@uaip/infra/database';
 import { z } from 'zod';
 import { Request, Response } from '@uaip/shared-services';
 

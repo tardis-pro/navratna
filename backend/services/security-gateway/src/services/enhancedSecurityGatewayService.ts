@@ -1,6 +1,6 @@
 import { logger } from '@uaip/utils';
 import { ApiError } from '@uaip/utils';
-import { DatabaseService } from '@uaip/shared-services';
+import { DatabaseService } from '@uaip/infra/database';
 import {
   SecurityValidationRequest,
   SecurityValidationResult,

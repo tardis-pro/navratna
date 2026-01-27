@@ -1,4 +1,5 @@
-import { EventBusService, DatabaseService } from '@uaip/shared-services';
+import { DatabaseService } from '@uaip/infra/database';
+import { EventBusService } from '@uaip/infra/eventBus';
 import { logger } from '@uaip/utils';
 import { ApiKeyDecryptionRequest, ApiKeyDecryptionResponse } from '@uaip/llm-service';
 import { UserLLMProvider } from '@uaip/shared-services';

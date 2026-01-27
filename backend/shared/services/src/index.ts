@@ -33,6 +33,9 @@ export { EventBusService } from '@uaip/infra';
 // Cache Services - re-exported from @uaip/infra
 export { RedisCacheService, redisCacheService } from '@uaip/infra';
 
+// Database Services - re-exported from @uaip/infra
+export { DatabaseService, DatabaseError } from '@uaip/infra/database';
+
 // Agent Intelligence Services
 // LLMPreferenceResolutionService deprecated - use UnifiedModelSelectionFacade from BaseService
 

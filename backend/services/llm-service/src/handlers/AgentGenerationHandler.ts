@@ -1,5 +1,5 @@
 import { LLMService, UserLLMService } from '@uaip/llm-service';
-import { EventBusService } from '@uaip/shared-services';
+import { EventBusService } from '@uaip/infra/eventBus';
 import { logger } from '@uaip/utils';
 import { LLMTaskType } from '@uaip/types';
 
@@ -170,13 +170,13 @@ export class AgentGenerationHandler {
     }
 
     // Add response guidelines
-    systemPrompt += '\nProvide a natural, helpful response to the user\'s message.';
+    systemPrompt += "\nProvide a natural, helpful response to the user's message.";
 
     logger.info('Built agent system prompt', {
       agentId: agent.id,
       agentName: agent.name,
       hasPersona: !!persona,
-      hasCapabilities: !!(capabilities?.length),
+      hasCapabilities: !!capabilities?.length,
       systemPromptLength: systemPrompt.length,
     });
 

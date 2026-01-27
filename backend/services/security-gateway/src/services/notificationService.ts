@@ -2,8 +2,8 @@ import nodemailer from 'nodemailer';
 import crypto from 'crypto';
 import { logger } from '@uaip/utils';
 import { config } from '@uaip/config';
-import { DatabaseService } from '@uaip/shared-services';
-import { EventBusService } from '@uaip/shared-services';
+import { DatabaseService } from '@uaip/infra/database';
+import { EventBusService } from '@uaip/infra/eventBus';
 
 export interface ApprovalNotification {
   type: string;

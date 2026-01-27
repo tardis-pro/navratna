@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import type { ExecutionStep } from '@uaip/types';
 
 // Base schema components
 const uuidSchema = z.string();
@@ -302,7 +303,6 @@ export type OperationContext = z.infer<typeof operationContextSchema>;
 export type StepConfiguration = z.infer<typeof stepConfigurationSchema>;
 export type StepCondition = z.infer<typeof stepConditionSchema>;
 export type CompensationStep = z.infer<typeof compensationStepSchema>;
-export type ExecutionStep = z.infer<typeof executionStepSchema>;
 export type StepDependency = z.infer<typeof stepDependencySchema>;
 export type ParallelGroup = z.infer<typeof parallelGroupSchema>;
 export type Checkpoint = z.infer<typeof checkpointSchema>;

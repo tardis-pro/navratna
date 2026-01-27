@@ -19,7 +19,8 @@ import {
   OperationMetrics,
 } from '@uaip/types';
 import { logger } from '@uaip/utils';
-import { StateManagerService, EventBusService } from '@uaip/shared-services';
+import { StateManagerService } from '@uaip/shared-services';
+import { EventBusService } from '@uaip/infra/eventBus';
 import { StepExecutionManager, StepExecutionContext } from './StepExecutionManager.js';
 
 export class WorkflowOrchestrator extends EventEmitter {

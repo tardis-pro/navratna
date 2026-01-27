@@ -19,7 +19,9 @@
       "@uaip/capability-registry": ["services/capability-registry"],
       "@uaip/orchestration-pipeline": ["services/orchestration-pipeline"],
       "@uaip/security-gateway": ["services/security-gateway"],
-      "@uaip/discussion-orchestration": ["services/discussion-orchestration"]
+      "@uaip/discussion-orchestration": ["services/discussion-orchestration"],
+      "@uaip/infra": ["shared/infra/src"],
+      "@uaip/infra/*": ["shared/infra/src/*"]
     },
 
     /* safety + DX */

@@ -6,7 +6,7 @@
 
 import { EventEmitter } from 'events';
 import { logger } from '@uaip/utils';
-import { EventBusService } from '@uaip/shared-services';
+import { EventBusService } from '@uaip/infra/eventBus';
 import { Discussion, Message, TurnStrategy, DiscussionStatus } from '@uaip/types';
 
 interface EventDrivenConfig {

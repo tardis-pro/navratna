@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { MarketplaceController } from '../controllers/marketplaceController.js';
 import { MarketplaceService } from '../services/marketplaceService.js';
-import { DatabaseService } from '@uaip/shared-services';
+import { DatabaseService } from '@uaip/infra/database';
 
 const router = Router();
 

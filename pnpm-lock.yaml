@@ -1409,6 +1409,61 @@ importers:
         specifier: 'catalog:'
         version: 8.49.0(eslint@9.39.1(jiti@2.6.1))(typescript@5.9.3)
 
+  backend/shared/infra:
+    dependencies:
+      '@qdrant/js-client-rest':
+        specifier: ^1.13.0
+        version: 1.16.2(typescript@5.9.3)
+      '@uaip/config':
+        specifier: workspace:*
+        version: link:../config
+      '@uaip/types':
+        specifier: workspace:*
+        version: link:../../../packages/shared-types
+      '@uaip/utils':
+        specifier: workspace:*
+        version: link:../../../packages/shared-utils
+      amqplib:
+        specifier: catalog:backend
+        version: 0.10.9
+      ioredis:
+        specifier: catalog:backend
+        version: 5.8.2
+      jsonwebtoken:
+        specifier: catalog:backend
+        version: 9.0.3
+      neo4j-driver:
+        specifier: ^5.28.0
+        version: 5.28.2
+      pg:
+        specifier: catalog:backend
+        version: 8.16.3
+      typeorm:
+        specifier: ^0.3.25
+        version: 0.3.28(ioredis@5.8.2)(pg@8.16.3)(redis@5.10.0)(ts-node@10.9.2(@swc/core@1.15.3)(@types/node@22.19.2)(typescript@5.9.3))
+      winston:
+        specifier: catalog:backend
+        version: 3.19.0
+      zod:
+        specifier: 'catalog:'
+        version: 3.25.67
+    devDependencies:
+      '@types/amqplib':
+        specifier: catalog:backend
+        version: 0.10.8
+      '@types/jsonwebtoken':
+        specifier: catalog:backend
+        version: 9.0.10
+      '@types/node':
+        specifier: catalog:backend
+        version: 22.19.2
+      '@types/pg':
+        specifier: catalog:backend
+        version: 8.15.6
+      typescript:
+        specifier: 'catalog:'
+        version: 5.9.3
+
   backend/shared/llm-service:
     dependencies:
       '@tanstack/ai':
@@ -1530,6 +1585,9 @@ importers:
       '@uaip/config':
         specifier: workspace:*
         version: link:../config
+      '@uaip/infra':
+        specifier: workspace:*
+        version: link:../infra
       '@uaip/middleware':
         specifier: workspace:*
         version: link:../middleware
@@ -1648,6 +1706,12 @@ importers:
       typescript-eslint:
         specifier: 'catalog:'
         version: 8.49.0(eslint@9.39.1(jiti@2.6.1))(typescript@5.9.3)
+
+  packages/contracts:
+    dependencies:
+      '@uaip/types':
+        specifier: workspace:*
+        version: link:../shared-types
 
   packages/shared-types:
     dependencies:
@@ -2741,6 +2805,16 @@ packages:
 
   '@protobufjs/utf8@1.1.0':
     resolution: {integrity: sha512-Vvn3zZrhQZkkBE8LSuW3em98c0FwgO4nxzv6OdSxPKJIEKY2bGbHn+mhGIPerzI4twdxaP8/0+06HBpwf345Lw==}
+
+  '@qdrant/js-client-rest@1.16.2':
+    resolution: {integrity: sha512-Zm4wEZURrZ24a+Hmm4l1QQYjiz975Ep3vF0yzWR7ICGcxittNz47YK2iBOk8kb8qseCu8pg7WmO1HOIsO8alvw==}
+    engines: {node: '>=18.17.0', pnpm: '>=8'}
+    peerDependencies:
+      typescript: '>=4.7'
+
+  '@qdrant/openapi-typescript-fetch@1.2.6':
+    resolution: {integrity: sha512-oQG/FejNpItrxRHoyctYvT3rwGZOnK4jr3JdppO/c78ktDvkWiPXPHNsrDf33K9sZdRb6PR7gi4noIapu5q4HA==}
+    engines: {node: '>=18.0.0', pnpm: '>=8'}
 
   '@radix-ui/number@1.1.1':
     resolution: {integrity: sha512-MkKCwxlXTgz6CFoJx3pCwn07GKp36+aZyu/u2Ln2VrA5DcdyCZkASEDBTd8x5whTQQL5CiYf4prXKLcgQdv29g==}
@@ -7564,6 +7638,10 @@ packages:
   undici-types@7.16.0:
     resolution: {integrity: sha512-Zz+aZWSj8LE6zoxD+xrjh4VfkIG8Ya6LvYkZqtUQGJPZjYl53ypCaUwWqo7eI0x66KBGeRo+mlBEkMSeSZ38Nw==}
 
+  undici@6.23.0:
+    resolution: {integrity: sha512-VfQPToRA5FZs/qJxLIinmU59u0r7LXqoJkCzinq3ckNJp3vKEh7jTWN589YQ5+aoAC/TGRLyJLCPKcLQbM8r9g==}
+    engines: {node: '>=18.17'}
+
   undici@7.16.0:
     resolution: {integrity: sha512-QEg3HPMll0o3t2ourKwOeUAZ159Kn9mx5pnzHRQO8+Wixmh88YdZRiIwat0iNzNNXn0yoEtXJqFpyW7eM8BV7g==}
     engines: {node: '>=20.18.1'}
@@ -9296,6 +9374,14 @@ snapshots:
 
   '@protobufjs/utf8@1.1.0': {}
 
+  '@qdrant/js-client-rest@1.16.2(typescript@5.9.3)':
+    dependencies:
+      '@qdrant/openapi-typescript-fetch': 1.2.6
+      typescript: 5.9.3
+      undici: 6.23.0
+
+  '@qdrant/openapi-typescript-fetch@1.2.6': {}
+
   '@radix-ui/number@1.1.1': {}
 
   '@radix-ui/primitive@1.1.3': {}
@@ -10600,7 +10686,7 @@ snapshots:
 
   '@types/amqplib@0.10.8':
     dependencies:
-      '@types/node': 22.19.2
+      '@types/node': 24.10.2
 
   '@types/babel__core@7.20.5':
     dependencies:
@@ -10791,7 +10877,7 @@ snapshots:
 
   '@types/pg@8.15.6':
     dependencies:
-      '@types/node': 22.19.2
+      '@types/node': 24.10.2
       pg-protocol: 1.10.3
       pg-types: 2.2.0
 
@@ -14787,6 +14873,8 @@ snapshots:
   undici-types@6.21.0: {}
 
   undici-types@7.16.0: {}
+
+  undici@6.23.0: {}
 
   undici@7.16.0: {}
 

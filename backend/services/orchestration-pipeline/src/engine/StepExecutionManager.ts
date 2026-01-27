@@ -62,6 +62,9 @@ export class StepExecutionManager extends EventEmitter {
         case 'tool-execution':
           result = await this.executeToolExecution(step, context);
           break;
+        case 'approval':
+          result = await this.executeApproval(step, context);
+          break;
         case 'conditional':
           result = await this.executeConditional(step, context);
           break;
@@ -144,6 +147,26 @@ export class StepExecutionManager extends EventEmitter {
     const input = this.resolveParameters(step.input, context);
 
     const result = await this.stepExecutorService.executeTool(
+      step,
+      input,
+      new AbortController().signal
+    );
+
+    return {
+      stepId: step.id,
+      status: StepStatus.COMPLETED,
+      output: result,
+      startedAt: new Date(),
+    };
+  }
+
+  private async executeApproval(
+    step: ExecutionStep,
+    context: StepExecutionContext
+  ): Promise<StepResult> {
+    const input = this.resolveParameters(step.input, context);
+
+    const result = await this.stepExecutorService.executeApprovalStep(
       step,
       input,
       new AbortController().signal

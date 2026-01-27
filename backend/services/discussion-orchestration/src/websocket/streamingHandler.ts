@@ -1,5 +1,5 @@
 import { Server, Socket } from 'socket.io';
-import { EventBusService } from '@uaip/shared-services';
+import { EventBusService } from '@uaip/infra/eventBus';
 import { validateJWTToken } from '@uaip/middleware';
 import { logger } from '@uaip/utils';
 import { StreamingEventType, TokenStreamEvent } from '@uaip/types';
@@ -34,7 +34,8 @@ export class StreamingHandler {
 
         if (nginxUserId) {
           // Validate userId is a proper UUID
-          const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+          const UUID_REGEX =
+            /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
           if (!UUID_REGEX.test(nginxUserId)) {
             socket.emit('error', { message: 'Invalid user ID format' });
             socket.disconnect();

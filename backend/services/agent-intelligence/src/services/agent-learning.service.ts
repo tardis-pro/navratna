@@ -16,12 +16,10 @@ import {
   KnowledgeItem,
 } from '@uaip/types';
 import { logger, ApiError } from '@uaip/utils';
-import {
-  DatabaseService,
-  EventBusService,
-  KnowledgeGraphService,
-  AgentMemoryService,
-} from '@uaip/shared-services';
+import { DatabaseService } from '@uaip/infra/database';
+import { EventBusService } from '@uaip/infra/eventBus';
+import { KnowledgeGraphService } from '@/knowledge-graph/knowledge-graph.service';
+import { AgentMemoryService } from '@/agent-memory/agent-memory.service';
 
 export interface AgentLearningConfig {
   databaseService: DatabaseService;

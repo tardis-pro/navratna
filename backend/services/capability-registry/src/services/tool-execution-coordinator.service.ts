@@ -1,4 +1,6 @@
-import { EventBusService, DatabaseService, redisCacheService } from '@uaip/shared-services';
+import { DatabaseService } from '@uaip/infra/database';
+import { EventBusService } from '@uaip/infra/eventBus';
+import { redisCacheService } from '@uaip/infra/cache';
 import { logger } from '@uaip/utils';
 import { randomUUID } from 'crypto';
 import { UnifiedToolRegistry } from './unified-tool-registry.js';

@@ -10,7 +10,9 @@
       "@uaip/utils/*": ["../../../packages/shared-utils/src/*"],
       "@uaip/shared-services/*": ["../../shared/services/src/*"],
       "@uaip/middleware/*": ["../../shared/middleware/src/*"],
-      "@uaip/config/*": ["../../shared/config/src/*"]
+      "@uaip/config/*": ["../../shared/config/src/*"],
+      "@uaip/infra": ["../../shared/infra/src"],
+      "@uaip/infra/*": ["../../shared/infra/src/*"]
     }
   },
   "include": [
@@ -27,6 +29,7 @@
     { "path": "../../../packages/shared-utils" },
     { "path": "../../shared/services" },
     { "path": "../../shared/middleware" },
-    { "path": "../../shared/config" }
+    { "path": "../../shared/config" },
+    { "path": "../../shared/infra" }
   ]
 } 

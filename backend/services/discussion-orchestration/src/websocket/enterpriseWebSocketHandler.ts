@@ -9,7 +9,7 @@ import { EventEmitter } from 'events';
 import { logger } from '@uaip/utils';
 import { validateServiceAccess, SERVICE_ACCESS_MATRIX, AccessLevel } from '@uaip/shared-services';
 import { config } from '../config/index.js';
-import { EventBusService } from '@uaip/shared-services';
+import { EventBusService } from '@uaip/infra/eventBus';
 
 interface EnterpriseConnection {
   ws: WebSocket;

@@ -1,4 +1,4 @@
-import { EventBusService } from '@uaip/shared-services';
+import { EventBusService } from '@uaip/infra/eventBus';
 import { logger } from '@uaip/utils';
 import { randomUUID } from 'crypto';
 

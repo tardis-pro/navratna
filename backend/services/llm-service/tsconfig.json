@@ -2,6 +2,10 @@
   "extends": "../../tsconfig.json",
   "compilerOptions": {
     "baseUrl": "./src",
+    "paths": {
+      "@uaip/infra": ["../../shared/infra/src"],
+      "@uaip/infra/*": ["../../shared/infra/src/*"]
+    },
     "outDir": "./dist",
   },
   "references": [
@@ -10,7 +14,8 @@
     { "path": "../../shared/services" },
     { "path": "../../shared/llm-service" },
     { "path": "../../shared/config" },
-    { "path": "../../shared/middleware" }
+    { "path": "../../shared/middleware" },
+    { "path": "../../shared/infra" }
   ],
   "include": [
     "src/**/*"

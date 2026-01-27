@@ -15,7 +15,7 @@ import { PRDGenerator } from './generators/PRDGenerator.js';
 import { TemplateManager } from './templates/TemplateManager.js';
 import { ArtifactValidator } from './validation/ArtifactValidator.js';
 import { logger } from '@uaip/utils';
-import { EventBusService } from '@uaip/shared-services';
+import { EventBusService } from '@uaip/infra/eventBus';
 
 export interface LLMGenerationRequest {
   type: 'generate_artifact_content';

@@ -4,7 +4,16 @@ import bcrypt from 'bcrypt';
 import { logger } from '@uaip/utils';
 import { config } from '@uaip/config';
 import { UserService } from '@uaip/shared-services';
-import { validateJWTToken, generateAuthTokens, attachAuth, requireAuth, withOptionalAuth, withRequiredAuth, csrfProtection } from '@uaip/middleware';
+import {
+  validateJWTToken,
+  generateAuthTokens,
+  attachAuth,
+  requireAuth,
+  withOptionalAuth,
+  withRequiredAuth,
+  csrfProtection,
+  apiKeyAuth,
+} from '@uaip/middleware';
 // Note: All auth utilities now from shared middleware
 import { AuditService } from '../services/auditService.js';
 import { AuditEventType } from '@uaip/types';
@@ -66,6 +75,11 @@ const changePasswordSchema = z.object({
       /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]/,
       'Password must contain at least one lowercase letter, one uppercase letter, one number, and one special character'
     ),
+});
+
+const internalTokenSchema = z.object({
+  serviceName: z.string().min(1, 'Service name is required'),
+  apiKey: z.string().min(1, 'API key is required'),
 });
 
 // Token generation now handled by shared generateAuthTokens from @uaip/middleware
@@ -170,7 +184,11 @@ export function registerAuthRoutes(app: any): any {
 
           // Success
           await userService.resetLoginAttempts(user.id);
-          const tokens = generateAuthTokens({ userId: user.id, email: user.email, role: user.role });
+          const tokens = generateAuthTokens({
+            userId: user.id,
+            email: user.email,
+            role: user.role,
+          });
           await userService.createRefreshToken(
             user.id,
             tokens.refreshToken,
@@ -252,7 +270,7 @@ export function registerAuthRoutes(app: any): any {
           const tokens = generateAuthTokens({
             userId: tokenData.user.id,
             email: tokenData.user.email,
-            role: tokenData.user.role
+            role: tokenData.user.role,
           });
           const cookieOptions = getAuthCookieOptions();
           const accessTokenMaxAge = parseExpiryToSeconds(config.jwt.accessTokenExpiry);
@@ -322,7 +340,7 @@ export function registerAuthRoutes(app: any): any {
 
       // POST /change-password (requires auth)
       .group('', (g: any) =>
-            // @ts-expect-error - Elysia middleware injects user, but TypeScript cannot infer through nested groups
+        // @ts-expect-error - Elysia middleware injects user, but TypeScript cannot infer through nested groups
         withRequiredAuth(g).post('/change-password', async ({ body, set, user }) => {
           const parsed = changePasswordSchema.safeParse(body);
           if (!parsed.success) {
@@ -376,7 +394,7 @@ export function registerAuthRoutes(app: any): any {
 
       // GET /me
       .group('', (g: any) =>
-            // @ts-expect-error - Elysia middleware injects user, but TypeScript cannot infer through nested groups
+        // @ts-expect-error - Elysia middleware injects user, but TypeScript cannot infer through nested groups
         withRequiredAuth(g).get('/me', async ({ set, user }) => {
           try {
             const { userService } = await getServices();
@@ -490,6 +508,65 @@ export function registerAuthRoutes(app: any): any {
           logger.error('Token validation error', { error });
           set.status = 401;
           return { error: 'Token validation failed' };
+        }
+      })
+      // POST /internal-token - Issue internal service token
+      .post('/internal-token', async ({ body, set }) => {
+        const parsed = internalTokenSchema.safeParse(body);
+        if (!parsed.success) {
+          set.status = 400;
+          return { error: 'Validation Error', details: parsed.error.flatten() };
+        }
+        const { serviceName, apiKey } = parsed.data;
+
+        try {
+          const { auditService } = await getServices();
+
+          const validKey = await apiKeyAuth.validateAPIKey(apiKey);
+          if (!validKey || validKey.serviceName !== serviceName) {
+            set.status = 401;
+            return { error: 'Invalid service credentials' };
+          }
+
+          // Generate internal token
+          const expiresAt = Date.now() + 3600000; // 1 hour
+          const internalToken = jwt.sign(
+            {
+              serviceId: serviceName.toLowerCase().replace(/\s+/g, '-'),
+              serviceName,
+              type: 'internal',
+              permissions: ['read', 'write', 'execute'],
+              scopes: [`service:${serviceName.toLowerCase().replace(/\s+/g, '-')}`],
+            },
+            config.jwt.secret,
+            { expiresIn: '1h' }
+          );
+
+          await auditService.logEvent({
+            eventType: 'internal_token_issued' as AuditEventType,
+            userId: serviceName,
+            resourceType: 'internal_token',
+            resourceId: validKey.id,
+            details: { serviceName },
+          });
+
+          return {
+            success: true,
+            data: {
+              token: internalToken,
+              expiresAt: new Date(expiresAt).toISOString(),
+            },
+          };
+        } catch (error) {
+          logger.error('Error generating internal token:', error);
+          set.status = 500;
+          return {
+            success: false,
+            error: {
+              code: 'INTERNAL_TOKEN_ERROR',
+              message: 'Internal server error while generating internal token',
+            },
+          };
         }
       })
   );

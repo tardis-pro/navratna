@@ -13,6 +13,6 @@ export type {
 // Cache services
 export { RedisCacheService, redisCacheService } from './cache/index.js';
 
-// Placeholder re-exports for services still in shared/services
-// TODO: Move these to @uaip/infra as part of P3 refactoring
-// export { default as DatabaseService } from '../services/databaseService.js';
+// Database services
+export { DatabaseService, DatabaseError } from './database/databaseService.js';
+export { TypeOrmService, typeormService } from './database/typeormService.js';

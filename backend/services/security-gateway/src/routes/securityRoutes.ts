@@ -5,12 +5,9 @@ import { logger } from '@uaip/utils';
 import { ApiError } from '@uaip/utils';
 import { authMiddleware, requireAdmin, requireOperator } from '@uaip/middleware';
 import { validateRequest } from '@uaip/middleware';
-import {
-  SecurityService,
-  EventBusService,
-  AuditService as DomainAuditService,
-  DatabaseService,
-} from '@uaip/shared-services';
+import { SecurityService, AuditService as DomainAuditService } from '@uaip/shared-services';
+import { DatabaseService } from '@uaip/infra/database';
+import { EventBusService } from '@uaip/infra/eventBus';
 import { AuditService } from '../services/auditService.js';
 import { NotificationService } from '../services/notificationService.js';
 import { AuditEventType, SecurityLevel } from '@uaip/types';

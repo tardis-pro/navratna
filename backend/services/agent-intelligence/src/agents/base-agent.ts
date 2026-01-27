@@ -6,7 +6,7 @@
 
 import { Agent, AgentRole, AgentCapability, AgentStatus } from '@uaip/types';
 import { logger } from '@uaip/utils';
-import { EventBusService } from '@uaip/shared-services';
+import { EventBusService } from '@uaip/infra/eventBus';
 import { v4 as uuidv4 } from 'uuid';
 
 export interface BaseAgentConfig {

@@ -14,13 +14,13 @@ import {
 } from '@uaip/types';
 import { logger } from '@uaip/utils';
 import {
-  DatabaseService,
-  EventBusService,
   Repository,
   validateServiceAccess,
   AccessLevel,
   PersonaService,
 } from '@uaip/shared-services';
+import { DatabaseService } from '@uaip/infra/database';
+import { EventBusService } from '@uaip/infra/eventBus';
 import { config } from '@uaip/config';
 import { v4 as uuidv4 } from 'uuid';
 

@@ -9,9 +9,19 @@
         "@/services/*": ["src/services/*"],
         "@/websocket/*": ["src/websocket/*"],
         "@/strategies/*": ["src/strategies/*"],
+        "@uaip/infra": ["../../shared/infra/src"],
+        "@uaip/infra/*": ["../../shared/infra/src/*"]
       }
     },
     "include": ["src/**/*"],
     "exclude": ["src/**/*.test.ts", "src/__tests__/**/*", "src/**/*.old*.ts"],
-
+    "references": [
+      { "path": "../../../packages/shared-types" },
+      { "path": "../../../packages/shared-utils" },
+      { "path": "../../shared/config" },
+      { "path": "../../shared/services" },
+      { "path": "../../shared/middleware" },
+      { "path": "../../shared/llm-service" },
+      { "path": "../../shared/infra" }
+    ]
   } 

@@ -1,5 +1,6 @@
 import { ToolController } from '../controllers/toolController.js';
-import { DatabaseService, EventBusService } from '@uaip/shared-services';
+import { DatabaseService } from '@uaip/infra/database';
+import { EventBusService } from '@uaip/infra/eventBus';
 
 function createResponseObject() {
   const res: any = {

@@ -1,4 +1,6 @@
-import { EventBusService, DatabaseService, ProjectManagementService } from '@uaip/shared-services';
+import { ProjectManagementService } from '@uaip/shared-services';
+import { DatabaseService } from '@uaip/infra/database';
+import { EventBusService } from '@uaip/infra/eventBus';
 import { ProjectStatus } from '@uaip/types';
 import { UnifiedToolRegistry } from './unified-tool-registry.js';
 import { logger } from '@uaip/utils';
