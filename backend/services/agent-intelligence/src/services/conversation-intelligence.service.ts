@@ -1,9 +1,6 @@
-import {
-  EventBusService,
-  UserKnowledgeService,
-  QdrantService,
-  EmbeddingService,
-} from '@uaip/shared-services';
+import { UserKnowledgeService, EmbeddingService } from '@uaip/shared-services';
+import { EventBusService } from '@uaip/infra/eventBus';
+import { QdrantService } from '@/knowledge-graph/qdrant.service';
 import { logger } from '@uaip/utils';
 import {
   ConversationIntelligenceEventType,
@@ -269,7 +266,9 @@ export class ConversationIntelligenceService {
       let similarConversations: any[] = [];
       if (this.embeddingService && this.qdrantService) {
         try {
-          const contextText = conversationContext.recentMessages.map((m: any) => m.content).join(' ');
+          const contextText = conversationContext.recentMessages
+            .map((m: any) => m.content)
+            .join(' ');
           const contextEmbedding = await this.embeddingService.generateEmbedding(contextText);
 
           similarConversations = await this.qdrantService.search(contextEmbedding, {

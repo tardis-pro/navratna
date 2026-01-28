@@ -10,7 +10,9 @@ import { EventEmitter } from 'events';
 import { randomUUID } from 'crypto';
 import { logger } from '@uaip/utils';
 import { Persona, Agent, Discussion, DiscussionParticipant } from '@uaip/types';
-import { DatabaseService, EventBusService, LLMRequestTracker } from '@uaip/shared-services';
+import { LLMRequestTracker } from '@uaip/shared-services';
+import { DatabaseService } from '@uaip/infra/database';
+import { EventBusService } from '@uaip/infra/eventBus';
 
 // Local type definitions until they're properly exported from @uaip/types
 interface ConversationContext {
@@ -279,11 +281,7 @@ export class ConversationEnhancementService extends EventEmitter {
           const isUuid = (value: string | null | undefined) =>
             !!value &&
             /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value);
-          const safeAgentId = isUuid(agentId)
-            ? agentId
-            : isUuid(userId)
-              ? userId
-              : randomUUID();
+          const safeAgentId = isUuid(agentId) ? agentId : isUuid(userId) ? userId : randomUUID();
 
           // Create a basic agent structure for the request
           const agentData = {

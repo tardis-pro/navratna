@@ -3,7 +3,8 @@ import { logger } from '@uaip/utils';
 import { withRequiredAuth, withOperatorGuard } from '@uaip/middleware';
 import { AuditService } from '../services/auditService.js';
 import { ApprovalWorkflowService } from '../services/approvalWorkflowService.js';
-import { DatabaseService, EventBusService } from '@uaip/shared-services';
+import { DatabaseService } from '@uaip/infra/database';
+import { EventBusService } from '@uaip/infra/eventBus';
 import { NotificationService } from '../services/notificationService.js';
 import { ApprovalStatus, SecurityLevel, AuditEventType } from '@uaip/types';
 import type { RequiredAuthContext } from './types/elysia-context.js';
@@ -138,7 +139,7 @@ export function registerApprovalRoutes(app: any): any {
       // Create workflow (operator)
       .group('', (g: any) =>
         withOperatorGuard(g)
-            // @ts-expect-error - Elysia middleware injects user, but TypeScript cannot infer through nested groups
+          // @ts-expect-error - Elysia middleware injects user, but TypeScript cannot infer through nested groups
           .post('/workflows', async ({ body, set, user, request, headers }) => {
             const parsed = createWorkflowSchema.safeParse(body);
             if (!parsed.success) {
@@ -194,7 +195,7 @@ export function registerApprovalRoutes(app: any): any {
             }
           })
           // Stats (operator)
-            // @ts-expect-error - Elysia middleware injects user, but TypeScript cannot infer through nested groups
+          // @ts-expect-error - Elysia middleware injects user, but TypeScript cannot infer through nested groups
           .get('/stats', async ({ set, query, user }) => {
             try {
               const days = Number(query.days ?? 30);
@@ -243,7 +244,7 @@ export function registerApprovalRoutes(app: any): any {
       )
 
       // Query workflows (auth)
-            // @ts-expect-error - Elysia middleware injects user, but TypeScript cannot infer through nested groups
+      // @ts-expect-error - Elysia middleware injects user, but TypeScript cannot infer through nested groups
       .get('/workflows', async ({ set, user, query }) => {
         const parsed = queryWorkflowsSchema.safeParse(query);
         if (!parsed.success) {
@@ -255,10 +256,7 @@ export function registerApprovalRoutes(app: any): any {
           let workflows: any[];
           const role = (user!.role || '').toLowerCase();
           if (role === 'admin' || role === 'security_admin' || role === 'security-admin') {
-            workflows = await approvalWorkflowService.getUserWorkflows(
-              '',
-              parsed.data.status
-            );
+            workflows = await approvalWorkflowService.getUserWorkflows('', parsed.data.status);
           } else {
             workflows = await approvalWorkflowService.getUserWorkflows(
               user!.id,
@@ -266,8 +264,7 @@ export function registerApprovalRoutes(app: any): any {
             );
           }
           let filtered = workflows;
-          const { operationType, securityLevel, startDate, endDate, limit, offset } =
-            parsed.data;
+          const { operationType, securityLevel, startDate, endDate, limit, offset } = parsed.data;
           if (operationType)
             filtered = filtered.filter((w: any) => w.metadata?.operationType === operationType);
           if (securityLevel)
@@ -296,7 +293,7 @@ export function registerApprovalRoutes(app: any): any {
       })
 
       // Pending approvals for current user
-            // @ts-expect-error - Elysia middleware injects user, but TypeScript cannot infer through nested groups
+      // @ts-expect-error - Elysia middleware injects user, but TypeScript cannot infer through nested groups
       .get('/pending', async ({ set, user }) => {
         try {
           const { approvalWorkflowService } = await getServices();
@@ -350,7 +347,7 @@ export function registerApprovalRoutes(app: any): any {
       .group('', (g: any) =>
         withOperatorGuard(g).post(
           '/:workflowId/cancel',
-            // @ts-expect-error - Elysia middleware injects user, but TypeScript cannot infer through nested groups
+          // @ts-expect-error - Elysia middleware injects user, but TypeScript cannot infer through nested groups
           async ({ set, params, body, user, request, headers }) => {
             try {
               const workflowId = params.workflowId;
@@ -384,7 +381,7 @@ export function registerApprovalRoutes(app: any): any {
       )
 
       // Workflow details
-            // @ts-expect-error - Elysia middleware injects user, but TypeScript cannot infer through nested groups
+      // @ts-expect-error - Elysia middleware injects user, but TypeScript cannot infer through nested groups
       .get('/:workflowId', async ({ set, params, user }) => {
         try {
           const workflowId = params.workflowId;
@@ -417,7 +414,7 @@ export function registerApprovalRoutes(app: any): any {
       })
 
       // Approval decision
-            // @ts-expect-error - Elysia middleware injects user, but TypeScript cannot infer through nested groups
+      // @ts-expect-error - Elysia middleware injects user, but TypeScript cannot infer through nested groups
       .post('/:workflowId/decisions', async ({ set, params, body, user, request, headers }) => {
         const parsed = approvalDecisionSchema.safeParse({
           ...(body as any),
@@ -455,10 +452,7 @@ export function registerApprovalRoutes(app: any): any {
             },
             ipAddress: request.headers.get('x-forwarded-for') || '',
             userAgent: headers['user-agent'],
-            riskLevel:
-              parsed.data.decision === 'reject'
-                ? SecurityLevel.MEDIUM
-                : SecurityLevel.LOW,
+            riskLevel: parsed.data.decision === 'reject' ? SecurityLevel.MEDIUM : SecurityLevel.LOW,
           });
           return {
             success: true,

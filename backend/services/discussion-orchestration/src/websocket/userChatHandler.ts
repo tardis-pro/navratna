@@ -1,7 +1,7 @@
 import { Server, Socket } from 'socket.io';
 import { createLogger } from '@uaip/utils';
 import { validateJWTToken } from '@uaip/middleware';
-import { EventBusService } from '@uaip/shared-services';
+import { EventBusService } from '@uaip/infra/eventBus';
 
 interface UserMessage {
   id: string;

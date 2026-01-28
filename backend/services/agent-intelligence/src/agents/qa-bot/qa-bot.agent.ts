@@ -6,7 +6,9 @@
 
 import { Agent, AgentRole, AgentCapability, ConversationContext } from '@uaip/types';
 import { logger } from '@uaip/utils';
-import { EventBusService, KnowledgeGraphService, QdrantService } from '@uaip/shared-services';
+import { EventBusService } from '@uaip/infra/eventBus';
+import { KnowledgeGraphService } from '@/knowledge-graph/knowledge-graph.service';
+import { QdrantService } from '@/knowledge-graph/qdrant.service';
 import { BaseAgent } from '../base-agent.js';
 
 export interface QABotConfig {
@@ -218,8 +220,10 @@ export class QABotAgent extends BaseAgent {
     const results = await Promise.allSettled(searchPromises);
 
     return {
-      knowledgeGraphResults: results[0]?.status === 'fulfilled' ? (results[0].value as any).items : [],
-      vectorSearchResults: results[1]?.status === 'fulfilled' ? (results[1].value as any).results : [],
+      knowledgeGraphResults:
+        results[0]?.status === 'fulfilled' ? (results[0].value as any).items : [],
+      vectorSearchResults:
+        results[1]?.status === 'fulfilled' ? (results[1].value as any).results : [],
       confluenceResults: results[2]?.status === 'fulfilled' ? results[2].value : [],
       conversationResults: results[3]?.status === 'fulfilled' ? results[3].value : [],
     };

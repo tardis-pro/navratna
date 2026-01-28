@@ -5,8 +5,9 @@
  */
 
 import { logger } from '@uaip/utils';
-import { EventBusService, DatabaseService } from '@uaip/shared-services';
 import { SERVICE_ACCESS_MATRIX, validateServiceAccess, AccessLevel } from '@uaip/shared-services';
+import { DatabaseService } from '@uaip/infra/database';
+import { EventBusService } from '@uaip/infra/eventBus';
 
 export interface ToolDefinition {
   id: string;

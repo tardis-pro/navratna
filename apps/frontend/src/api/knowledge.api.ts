@@ -147,6 +147,28 @@ export const knowledgeAPI = {
     return APIClient.get<KnowledgeItem>(`${API_ROUTES.KNOWLEDGE.GET}/${id}`);
   },
 
+  async list(options?: { limit?: number; offset?: number }): Promise<KnowledgeItem[]> {
+    const params = new URLSearchParams();
+    if (options?.limit) params.append('limit', options.limit.toString());
+    if (options?.offset) params.append('offset', options.offset.toString());
+
+    const url = `${API_ROUTES.KNOWLEDGE.BASE}?${params.toString()}`;
+    const response = await APIClient.get<any>(url);
+
+    // Handle wrapped response format: { success: true, data: [...], meta: {...} }
+    let items = response;
+    if (response.success && response.data) {
+      items = response.data;
+    }
+
+    if (!Array.isArray(items)) {
+      console.warn('Knowledge list response is not an array:', response);
+      return [];
+    }
+
+    return items;
+  },
+
   async update(id: string, updates: Partial<KnowledgeUploadRequest>): Promise<KnowledgeItem> {
     return APIClient.put<KnowledgeItem>(`${API_ROUTES.KNOWLEDGE.UPDATE}/${id}`, updates);
   },

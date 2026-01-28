@@ -1,5 +1,5 @@
 import { Server, Socket } from 'socket.io';
-import { EventBusService } from '@uaip/shared-services';
+import { EventBusService } from '@uaip/infra/eventBus';
 import { createLogger } from '@uaip/utils';
 import { validateJWTToken } from '@uaip/middleware';
 import {
@@ -69,7 +69,8 @@ export class ConversationIntelligenceHandler {
 
         if (nginxUserId) {
           // Validate userId is a proper UUID
-          const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+          const UUID_REGEX =
+            /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
           if (!UUID_REGEX.test(nginxUserId)) {
             this.logger.warn('Invalid nginx user ID format', { socketId: socket.id });
             socket.emit('error', { message: 'Authentication failed: Invalid user ID format' });

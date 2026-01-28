@@ -5,7 +5,16 @@
     "composite": true,
     // relative to package root
     "rootDir": "src",
-    "baseUrl": ".",    
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["src/*"],
+      "@uaip/knowledge-graph": ["src/knowledge-graph/index.ts"],
+      "@uaip/knowledge-graph/*": ["src/knowledge-graph/*"],
+      "@uaip/agent-memory": ["src/agent-memory/index.ts"],
+      "@uaip/agent-memory/*": ["src/agent-memory/*"],
+      "@uaip/infra": ["../../shared/infra/src"],
+      "@uaip/infra/*": ["../../shared/infra/src/*"]
+    },
     "tsBuildInfoFile": "dist/tsconfig.tsbuildinfo"        // enables clean import paths within the package
   },
   "include": ["src/**/*"],
@@ -16,6 +25,7 @@
     { "path": "../../shared/config" },
     { "path": "../../shared/services" },
     { "path": "../../shared/llm-service" },
-    { "path": "../../shared/middleware" }
+    { "path": "../../shared/middleware" },
+    { "path": "../../shared/infra" }
   ]
 } 

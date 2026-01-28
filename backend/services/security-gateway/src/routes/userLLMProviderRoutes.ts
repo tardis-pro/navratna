@@ -1,5 +1,6 @@
 import { Router, Request, Response, NextFunction } from '@uaip/shared-services';
-import { UserService, DatabaseService } from '@uaip/shared-services';
+import { UserService } from '@uaip/shared-services';
+import { DatabaseService } from '@uaip/infra/database';
 import { logger } from '@uaip/utils';
 import { authMiddleware } from '@uaip/middleware';
 import { z } from 'zod';

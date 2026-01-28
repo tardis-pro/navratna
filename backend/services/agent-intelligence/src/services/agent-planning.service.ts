@@ -6,7 +6,9 @@
 
 import { Agent, ExecutionPlan, KnowledgeItem, KnowledgeType, SourceType } from '@uaip/types';
 import { logger } from '@uaip/utils';
-import { DatabaseService, EventBusService, KnowledgeGraphService } from '@uaip/shared-services';
+import { DatabaseService } from '@uaip/infra/database';
+import { EventBusService } from '@uaip/infra/eventBus';
+import { KnowledgeGraphService } from '@/knowledge-graph/knowledge-graph.service';
 import { v4 as uuidv4 } from 'uuid';
 
 export interface AgentPlanningConfig {

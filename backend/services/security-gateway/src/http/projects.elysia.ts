@@ -1,6 +1,8 @@
 import { z } from 'zod';
 import { logger } from '@uaip/utils';
-import { ProjectManagementService, DatabaseService, EventBusService } from '@uaip/shared-services';
+import { ProjectManagementService } from '@uaip/shared-services';
+import { DatabaseService } from '@uaip/infra/database';
+import { EventBusService } from '@uaip/infra/eventBus';
 import { withOptionalAuth } from '@uaip/middleware';
 import type { OptionalAuthContext } from './types/elysia-context.js';
 import { ProjectStatus } from '@uaip/types';
@@ -58,7 +60,7 @@ export function registerProjectRoutes(app: any): any {
   return app.group('/api/v1/projects', (app: any) =>
     withOptionalAuth(app)
       // List projects
-            // @ts-expect-error - Elysia middleware injects user, but TypeScript cannot infer through nested groups
+      // @ts-expect-error - Elysia middleware injects user, but TypeScript cannot infer through nested groups
       .get('/', async ({ query, set, user }) => {
         try {
           if (!user) {
@@ -88,7 +90,7 @@ export function registerProjectRoutes(app: any): any {
       })
 
       // Get project by ID
-            // @ts-expect-error - Elysia middleware injects user, but TypeScript cannot infer through nested groups
+      // @ts-expect-error - Elysia middleware injects user, but TypeScript cannot infer through nested groups
       .get('/:projectId', async ({ params, set, user }) => {
         try {
           if (!user) {
@@ -112,7 +114,7 @@ export function registerProjectRoutes(app: any): any {
       })
 
       // Create project
-            // @ts-expect-error - Elysia middleware injects user, but TypeScript cannot infer through nested groups
+      // @ts-expect-error - Elysia middleware injects user, but TypeScript cannot infer through nested groups
       .post('/', async ({ body, set, user }) => {
         try {
           if (!user) {
@@ -148,7 +150,7 @@ export function registerProjectRoutes(app: any): any {
       })
 
       // Update project
-            // @ts-expect-error - Elysia middleware injects user, but TypeScript cannot infer through nested groups
+      // @ts-expect-error - Elysia middleware injects user, but TypeScript cannot infer through nested groups
       .put('/:projectId', async ({ params, body, set, user }) => {
         try {
           if (!user) {
@@ -178,7 +180,7 @@ export function registerProjectRoutes(app: any): any {
       })
 
       // Delete project
-            // @ts-expect-error - Elysia middleware injects user, but TypeScript cannot infer through nested groups
+      // @ts-expect-error - Elysia middleware injects user, but TypeScript cannot infer through nested groups
       .delete('/:projectId', async ({ params, set, user }) => {
         try {
           if (!user) {
@@ -197,7 +199,7 @@ export function registerProjectRoutes(app: any): any {
       })
 
       // Get project metrics
-            // @ts-expect-error - Elysia middleware injects user, but TypeScript cannot infer through nested groups
+      // @ts-expect-error - Elysia middleware injects user, but TypeScript cannot infer through nested groups
       .get('/:projectId/metrics', async ({ params, set, user }) => {
         try {
           if (!user) {
@@ -215,7 +217,7 @@ export function registerProjectRoutes(app: any): any {
       })
 
       // Get project analytics
-            // @ts-expect-error - Elysia middleware injects user, but TypeScript cannot infer through nested groups
+      // @ts-expect-error - Elysia middleware injects user, but TypeScript cannot infer through nested groups
       .get('/:projectId/analytics', async ({ params, set, user }) => {
         try {
           if (!user) {

@@ -10,7 +10,7 @@ import type { OptionalAuthContext, RequiredAuthContext } from './types/elysia-co
 let oauthProviderService: OAuthProviderService | null = null;
 let enhancedAuthService: EnhancedAuthService | null = null;
 let auditService: AuditService | null = null;
-import { DatabaseService } from '@uaip/shared-services';
+import { DatabaseService } from '@uaip/infra/database';
 
 function getServices() {
   if (!auditService) auditService = new AuditService();
@@ -214,7 +214,7 @@ export function registerOAuthRoutes(app: any): any {
 
       // POST /connect (requires auth)
       .group('', (g: any) =>
-            // @ts-expect-error - Elysia middleware injects user, but TypeScript cannot infer through nested groups
+        // @ts-expect-error - Elysia middleware injects user, but TypeScript cannot infer through nested groups
         withRequiredAuth(g).post('/connect', async ({ set, body, user }) => {
           try {
             const { code, state, redirectUri } = body as any;
@@ -249,7 +249,7 @@ export function registerOAuthRoutes(app: any): any {
       .group('/agent', (g: any) =>
         withRequiredAuth(g)
           // GitHub operations
-            // @ts-expect-error - Elysia middleware injects user, but TypeScript cannot infer through nested groups
+          // @ts-expect-error - Elysia middleware injects user, but TypeScript cannot infer through nested groups
           .post('/github/:providerId', async ({ set, params, body, user }) => {
             try {
               const validated = z
@@ -307,7 +307,7 @@ export function registerOAuthRoutes(app: any): any {
           })
 
           // Gmail operations
-            // @ts-expect-error - Elysia middleware injects user, but TypeScript cannot infer through nested groups
+          // @ts-expect-error - Elysia middleware injects user, but TypeScript cannot infer through nested groups
           .post('/gmail/:providerId', async ({ set, params, body, user }) => {
             try {
               const validated = z

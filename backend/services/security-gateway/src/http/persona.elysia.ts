@@ -1,7 +1,8 @@
 import { z } from 'zod';
 import { logger } from '@uaip/utils';
 import { withRequiredAuth } from '@uaip/middleware';
-import { DatabaseService, DefaultUserLLMProviderSeed } from '@uaip/shared-services';
+import { DefaultUserLLMProviderSeed } from '@uaip/shared-services';
+import { DatabaseService } from '@uaip/infra/database';
 import type { RequiredAuthContext } from './types/elysia-context.js';
 
 const UserPersonaSchema = z.object({

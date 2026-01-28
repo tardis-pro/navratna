@@ -23,6 +23,12 @@
       "@/routes/*": [
         "src/routes/*"
       ],
+      "@uaip/infra": [
+        "../../shared/infra/src"
+      ],
+      "@uaip/infra/*": [
+        "../../shared/infra/src/*"
+      ]
     }
   },
   "references": [
@@ -40,6 +46,9 @@
     },
     {
       "path": "../../shared/middleware"
+    },
+    {
+      "path": "../../shared/infra"
     }
   ],
   "include": [

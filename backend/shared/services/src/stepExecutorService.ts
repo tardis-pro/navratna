@@ -11,6 +11,7 @@ import {
   OperationError,
 } from '@uaip/types';
 import { logger } from '@uaip/utils';
+import { EventBusService } from './eventBusService.js';
 
 export interface StepExecutionContext {
   operationId: string;
@@ -220,14 +221,42 @@ export class StepExecutorService extends EventEmitter {
     input: Record<string, any>,
     signal: AbortSignal
   ): Promise<Record<string, any>> {
+    const startTime = Date.now();
+
     // Simulate tool execution
     await this.delay(Math.random() * 2000 + 1000, signal); // 1-3 seconds
 
-    return {
+    const result = {
       toolResult: `Tool ${step.name} executed successfully`,
       toolOutput: input,
       executedAt: new Date().toISOString(),
     };
+
+    // Audit logging for tool execution
+    try {
+      const eventBus = EventBusService.getInstance();
+      await eventBus.publish(
+        'tool.executed',
+        {
+          toolId: step.toolId || step.id,
+          toolName: step.name,
+          executionTime: Date.now() - startTime,
+          success: true,
+          parameters: input,
+          stepId: step.id,
+        },
+        {
+          correlationId: step.metadata?.correlationId,
+        }
+      );
+    } catch (auditError) {
+      logger.warn('Failed to publish tool execution audit event', {
+        toolName: step.name,
+        error: auditError instanceof Error ? auditError.message : 'Unknown error',
+      });
+    }
+
+    return result;
   }
 
   private async executeArtifactStep(
@@ -264,7 +293,7 @@ export class StepExecutorService extends EventEmitter {
     };
   }
 
-  private async executeApprovalStep(
+  public async executeApprovalStep(
     step: ExecutionStep,
     input: Record<string, any>,
     signal: AbortSignal

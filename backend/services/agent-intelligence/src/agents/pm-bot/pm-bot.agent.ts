@@ -6,7 +6,8 @@
 
 import { Agent, AgentRole, AgentCapability, ConversationContext } from '@uaip/types';
 import { logger } from '@uaip/utils';
-import { EventBusService, ToolExecutionService } from '@uaip/shared-services';
+import { ToolExecutionService } from '@uaip/shared-services';
+import { EventBusService } from '@uaip/infra/eventBus';
 import { BaseAgent } from '../base-agent.js';
 
 export interface PMBotConfig {
@@ -99,7 +100,11 @@ export class PMBotAgent extends BaseAgent {
       agent: this.agent.name,
       integrations: Object.keys(this.integrations).filter((k) => {
         const integration = (this.integrations as Record<string, unknown>)[k];
-        return integration && typeof integration === 'object' && (integration as Record<string, unknown>).enabled === true;
+        return (
+          integration &&
+          typeof integration === 'object' &&
+          (integration as Record<string, unknown>).enabled === true
+        );
       }),
       capabilities: Object.keys(this.pmCapabilities).filter((k) => {
         const capability = (this.pmCapabilities as Record<string, unknown>)[k];
@@ -159,11 +164,17 @@ export class PMBotAgent extends BaseAgent {
           result = await this.documentMeeting(intent.parameters as Record<string, unknown>, userId);
           break;
         default:
-          result = (await this.handleGeneralPMQuery(request, context)) as { message: string; actions: any[] };
+          result = (await this.handleGeneralPMQuery(request, context)) as {
+            message: string;
+            actions: any[];
+          };
       }
 
       // Generate suggestions for next actions
-      const suggestions = await this.generateNextActionSuggestions(intent, result as unknown as Record<string, unknown>);
+      const suggestions = await this.generateNextActionSuggestions(
+        intent,
+        result as unknown as Record<string, unknown>
+      );
 
       return {
         response: result.message,
@@ -179,10 +190,7 @@ export class PMBotAgent extends BaseAgent {
   /**
    * Create a task in Jira
    */
-  private async createTask(
-    parameters: Record<string, unknown>,
-    userId: string
-  ): Promise<any> {
+  private async createTask(parameters: Record<string, unknown>, userId: string): Promise<any> {
     if (!this.pmCapabilities.createTasks) {
       return {
         message: "I don't have permission to create tasks. Please contact your administrator.",
@@ -296,14 +304,10 @@ export class PMBotAgent extends BaseAgent {
     }
   }
 
-
   /**
    * Update an existing task
    */
-  private async updateTask(
-    parameters: Record<string, unknown>,
-    userId: string
-  ): Promise<any> {
+  private async updateTask(parameters: Record<string, unknown>, userId: string): Promise<any> {
     if (!this.pmCapabilities.updateTasks) {
       return {
         message: "I don't have permission to update tasks.",
@@ -336,7 +340,11 @@ export class PMBotAgent extends BaseAgent {
       if (response.success) {
         // Add comment if provided
         if (parameters.comment) {
-          await this.addJiraComment(parameters.issueKey as string, parameters.comment as string, userId);
+          await this.addJiraComment(
+            parameters.issueKey as string,
+            parameters.comment as string,
+            userId
+          );
         }
 
         return {
@@ -531,10 +539,7 @@ export class PMBotAgent extends BaseAgent {
   /**
    * Document meeting notes in Confluence
    */
-  private async documentMeeting(
-    parameters: Record<string, unknown>,
-    userId: string
-  ): Promise<any> {
+  private async documentMeeting(parameters: Record<string, unknown>, userId: string): Promise<any> {
     if (!this.pmCapabilities.documentDecisions) {
       return {
         message: "I don't have permission to document meetings.",
@@ -673,7 +678,10 @@ export class PMBotAgent extends BaseAgent {
   /**
    * Helper methods
    */
-  private async analyzePMIntent(request: string, context: ConversationContext): Promise<Record<string, unknown>> {
+  private async analyzePMIntent(
+    request: string,
+    context: ConversationContext
+  ): Promise<Record<string, unknown>> {
     const lowerRequest = request.toLowerCase();
 
     // Pattern matching for PM actions
@@ -756,7 +764,11 @@ export class PMBotAgent extends BaseAgent {
     return parameters;
   }
 
-  private generateProjectStatusSummary(sprint: Record<string, unknown>, issues: unknown[], projectKey: string): string {
+  private generateProjectStatusSummary(
+    sprint: Record<string, unknown>,
+    issues: unknown[],
+    projectKey: string
+  ): string {
     const statusCounts = this.countIssuesByStatus(issues);
     const priorityCounts = this.countIssuesByPriority(issues);
     const assigneeCounts = this.countIssuesByAssignee(issues);
@@ -766,7 +778,9 @@ export class PMBotAgent extends BaseAgent {
     if (sprint) {
       summary += `**Current Sprint:** ${sprint.name}\n`;
       summary += `**Sprint Goal:** ${sprint.goal || 'Not set'}\n`;
-      const endDate = sprint.endDate ? new Date(sprint.endDate as string).toLocaleDateString() : 'Not set';
+      const endDate = sprint.endDate
+        ? new Date(sprint.endDate as string).toLocaleDateString()
+        : 'Not set';
       summary += `**End Date:** ${endDate}\n\n`;
     }
 
@@ -795,36 +809,45 @@ export class PMBotAgent extends BaseAgent {
   }
 
   private countIssuesByStatus(issues: unknown[]): Record<string, number> {
-    return (issues as any[]).reduce((acc: Record<string, number>, issue: unknown) => {
-      const issueData = issue as Record<string, unknown>;
-      const fields = issueData.fields as Record<string, unknown>;
-      const status = fields.status as Record<string, unknown>;
-      const statusName = status.name as string;
-      acc[statusName] = (acc[statusName] || 0) + 1;
-      return acc;
-    }, {} as Record<string, number>);
+    return (issues as any[]).reduce(
+      (acc: Record<string, number>, issue: unknown) => {
+        const issueData = issue as Record<string, unknown>;
+        const fields = issueData.fields as Record<string, unknown>;
+        const status = fields.status as Record<string, unknown>;
+        const statusName = status.name as string;
+        acc[statusName] = (acc[statusName] || 0) + 1;
+        return acc;
+      },
+      {} as Record<string, number>
+    );
   }
 
   private countIssuesByPriority(issues: unknown[]): Record<string, number> {
-    return (issues as any[]).reduce((acc: Record<string, number>, issue: unknown) => {
-      const issueData = issue as Record<string, unknown>;
-      const fields = issueData.fields as Record<string, unknown>;
-      const priority = fields.priority as Record<string, unknown> | undefined;
-      const priorityName = (priority?.name as string) || 'None';
-      acc[priorityName] = (acc[priorityName] || 0) + 1;
-      return acc;
-    }, {} as Record<string, number>);
+    return (issues as any[]).reduce(
+      (acc: Record<string, number>, issue: unknown) => {
+        const issueData = issue as Record<string, unknown>;
+        const fields = issueData.fields as Record<string, unknown>;
+        const priority = fields.priority as Record<string, unknown> | undefined;
+        const priorityName = (priority?.name as string) || 'None';
+        acc[priorityName] = (acc[priorityName] || 0) + 1;
+        return acc;
+      },
+      {} as Record<string, number>
+    );
   }
 
   private countIssuesByAssignee(issues: unknown[]): Record<string, number> {
-    return (issues as any[]).reduce((acc: Record<string, number>, issue: unknown) => {
-      const issueData = issue as Record<string, unknown>;
-      const fields = issueData.fields as Record<string, unknown>;
-      const assignee = fields.assignee as Record<string, unknown> | undefined;
-      const assigneeName = (assignee?.displayName as string) || 'Unassigned';
-      acc[assigneeName] = (acc[assigneeName] || 0) + 1;
-      return acc;
-    }, {} as Record<string, number>);
+    return (issues as any[]).reduce(
+      (acc: Record<string, number>, issue: unknown) => {
+        const issueData = issue as Record<string, unknown>;
+        const fields = issueData.fields as Record<string, unknown>;
+        const assignee = fields.assignee as Record<string, unknown> | undefined;
+        const assigneeName = (assignee?.displayName as string) || 'Unassigned';
+        acc[assigneeName] = (acc[assigneeName] || 0) + 1;
+        return acc;
+      },
+      {} as Record<string, number>
+    );
   }
 
   private formatUpdateSummary(updates: Record<string, unknown>): string {
@@ -845,7 +868,10 @@ export class PMBotAgent extends BaseAgent {
     return summary.join('\n');
   }
 
-  private generateTaskDocumentation(issue: Record<string, unknown>, parameters: Record<string, unknown>): string {
+  private generateTaskDocumentation(
+    issue: Record<string, unknown>,
+    parameters: Record<string, unknown>
+  ): string {
     return `
 h1. ${issue.key}: ${parameters.title}
 
@@ -885,21 +911,26 @@ h2. Decisions Made
 ${Array.isArray(meeting.decisions) ? meeting.decisions.map((decision, i: number) => `${i + 1}. ${decision}`).join('\n') : ''}
 
 h2. Action Items
-${Array.isArray(meeting.actionItems)
-  ? meeting.actionItems
-      .map((item) => {
-        const actionItem = item as Record<string, unknown>;
-        return `* ${actionItem.task} - *Assignee:* ${actionItem.assignee} - *Due:* ${actionItem.dueDate || 'TBD'}`;
-      })
-      .join('\n')
-  : ''}
+${
+  Array.isArray(meeting.actionItems)
+    ? meeting.actionItems
+        .map((item) => {
+          const actionItem = item as Record<string, unknown>;
+          return `* ${actionItem.task} - *Assignee:* ${actionItem.assignee} - *Due:* ${actionItem.dueDate || 'TBD'}`;
+        })
+        .join('\n')
+    : ''
+}
 
 h2. Next Steps
 To be determined based on action items completion.
 `;
   }
 
-  private async createConfluencePage(pageData: Record<string, unknown>, userId: string): Promise<Record<string, unknown>> {
+  private async createConfluencePage(
+    pageData: Record<string, unknown>,
+    userId: string
+  ): Promise<Record<string, unknown>> {
     const response = await this.toolExecutionService.executeTool({
       toolId: 'confluence_api',
       operation: 'createPage',
@@ -964,7 +995,10 @@ To be determined based on action items completion.
     });
   }
 
-  private async generateSprintReport(projectKey: string, parameters: Record<string, unknown>): Promise<Record<string, unknown>> {
+  private async generateSprintReport(
+    projectKey: string,
+    parameters: Record<string, unknown>
+  ): Promise<Record<string, unknown>> {
     // Implementation for sprint report generation
     return {
       title: `Sprint Report - ${projectKey}`,
@@ -978,7 +1012,10 @@ To be determined based on action items completion.
     };
   }
 
-  private async generateVelocityReport(projectKey: string, parameters: Record<string, unknown>): Promise<Record<string, unknown>> {
+  private async generateVelocityReport(
+    projectKey: string,
+    parameters: Record<string, unknown>
+  ): Promise<Record<string, unknown>> {
     // Implementation for velocity report
     return {
       title: `Velocity Report - ${projectKey}`,
@@ -991,7 +1028,10 @@ To be determined based on action items completion.
     };
   }
 
-  private async generateBurndownReport(projectKey: string, parameters: Record<string, unknown>): Promise<Record<string, unknown>> {
+  private async generateBurndownReport(
+    projectKey: string,
+    parameters: Record<string, unknown>
+  ): Promise<Record<string, unknown>> {
     // Implementation for burndown report
     return {
       title: `Burndown Report - ${projectKey}`,
@@ -1005,7 +1045,10 @@ To be determined based on action items completion.
     };
   }
 
-  private async generateTeamPerformanceReport(projectKey: string, parameters: Record<string, unknown>): Promise<Record<string, unknown>> {
+  private async generateTeamPerformanceReport(
+    projectKey: string,
+    parameters: Record<string, unknown>
+  ): Promise<Record<string, unknown>> {
     // Implementation for team performance report
     return {
       title: `Team Performance Report - ${projectKey}`,
@@ -1019,7 +1062,10 @@ To be determined based on action items completion.
     };
   }
 
-  private async generateCustomReport(projectKey: string, parameters: Record<string, unknown>): Promise<Record<string, unknown>> {
+  private async generateCustomReport(
+    projectKey: string,
+    parameters: Record<string, unknown>
+  ): Promise<Record<string, unknown>> {
     // Implementation for custom reports
     return {
       title: `Custom Report - ${projectKey}`,
@@ -1029,7 +1075,10 @@ To be determined based on action items completion.
     };
   }
 
-  private async generateNextActionSuggestions(intent: Record<string, unknown>, result: Record<string, unknown>): Promise<string[]> {
+  private async generateNextActionSuggestions(
+    intent: Record<string, unknown>,
+    result: Record<string, unknown>
+  ): Promise<string[]> {
     const suggestions = [];
 
     const actions = result.actions as any[];
@@ -1046,7 +1095,10 @@ To be determined based on action items completion.
     return suggestions;
   }
 
-  private async handleGeneralPMQuery(request: string, context: ConversationContext): Promise<Record<string, unknown>> {
+  private async handleGeneralPMQuery(
+    request: string,
+    context: ConversationContext
+  ): Promise<Record<string, unknown>> {
     // Handle general project management queries
     const response = await this.callLLM(request, {
       systemPrompt: 'You are a project management expert. Provide helpful advice and guidance.',
@@ -1082,7 +1134,11 @@ To be determined based on action items completion.
 
   // Event handlers
   private async handleCreateTask(event: Record<string, unknown>): Promise<void> {
-    const { requestId, parameters, userId } = event as { requestId: string; parameters: Record<string, unknown>; userId: string };
+    const { requestId, parameters, userId } = event as {
+      requestId: string;
+      parameters: Record<string, unknown>;
+      userId: string;
+    };
     try {
       const result = await this.createTask(parameters, userId);
       await this.respondToRequest(requestId, { success: true, data: result });
@@ -1093,7 +1149,11 @@ To be determined based on action items completion.
   }
 
   private async handleUpdateTask(event: Record<string, unknown>): Promise<void> {
-    const { requestId, parameters, userId } = event as { requestId: string; parameters: Record<string, unknown>; userId: string };
+    const { requestId, parameters, userId } = event as {
+      requestId: string;
+      parameters: Record<string, unknown>;
+      userId: string;
+    };
     try {
       const result = await this.updateTask(parameters, userId);
       await this.respondToRequest(requestId, { success: true, data: result });
@@ -1104,7 +1164,11 @@ To be determined based on action items completion.
   }
 
   private async handleSprintPlanning(event: Record<string, unknown>): Promise<void> {
-    const { requestId, parameters, userId } = event as { requestId: string; parameters: Record<string, unknown>; userId: string };
+    const { requestId, parameters, userId } = event as {
+      requestId: string;
+      parameters: Record<string, unknown>;
+      userId: string;
+    };
     try {
       const result = await this.planSprint(parameters, userId);
       await this.respondToRequest(requestId, { success: true, data: result });
@@ -1115,7 +1179,10 @@ To be determined based on action items completion.
   }
 
   private async handleReportGeneration(event: Record<string, unknown>): Promise<void> {
-    const { requestId, parameters } = event as { requestId: string; parameters: Record<string, unknown> };
+    const { requestId, parameters } = event as {
+      requestId: string;
+      parameters: Record<string, unknown>;
+    };
     try {
       const result = await this.generateReport(parameters);
       await this.respondToRequest(requestId, { success: true, data: result });
@@ -1126,7 +1193,11 @@ To be determined based on action items completion.
   }
 
   private async handleMeetingDocumentation(event: Record<string, unknown>): Promise<void> {
-    const { requestId, parameters, userId } = event as { requestId: string; parameters: Record<string, unknown>; userId: string };
+    const { requestId, parameters, userId } = event as {
+      requestId: string;
+      parameters: Record<string, unknown>;
+      userId: string;
+    };
     try {
       const result = await this.documentMeeting(parameters, userId);
       await this.respondToRequest(requestId, { success: true, data: result });
@@ -1216,9 +1287,11 @@ To be determined based on action items completion.
 
   protected async applyConfiguration(config: Record<string, unknown>): Promise<void> {
     if (config.integrations) {
-             this.integrations = { ...this.integrations, ...(config.integrations as any) };    }
+      this.integrations = { ...this.integrations, ...(config.integrations as any) };
+    }
     if (config.capabilities) {
-             this.pmCapabilities = { ...this.pmCapabilities, ...(config.capabilities as any) };    }
+      this.pmCapabilities = { ...this.pmCapabilities, ...(config.capabilities as any) };
+    }
     logger.info('PMBotAgent configuration applied', { config });
   }
 }

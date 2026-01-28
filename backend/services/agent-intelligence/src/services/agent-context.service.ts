@@ -6,11 +6,9 @@
 
 import { Agent, ContextAnalysis, ConversationContext, EnvironmentFactors } from '@uaip/types';
 import { logger } from '@uaip/utils';
-import {
-  EventBusService,
-  KnowledgeGraphService,
-  SERVICE_ACCESS_MATRIX,
-} from '@uaip/shared-services';
+import { SERVICE_ACCESS_MATRIX } from '@uaip/shared-services';
+import { EventBusService } from '@uaip/infra/eventBus';
+import { KnowledgeGraphService } from '@/knowledge-graph/knowledge-graph.service';
 import { LLMService } from '@uaip/llm-service';
 
 export interface AgentContextConfig {

@@ -27,6 +27,7 @@
     { "path": "../../../packages/shared-utils" },
     { "path": "../../shared/services" },
     { "path": "../../shared/middleware" },
-    { "path": "../../shared/config" }
+    { "path": "../../shared/config" },
+    { "path": "../../shared/infra" }
   ]
 } 

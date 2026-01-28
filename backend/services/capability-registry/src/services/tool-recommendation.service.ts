@@ -1,4 +1,5 @@
-import { DatabaseService, EventBusService } from '@uaip/shared-services';
+import { DatabaseService } from '@uaip/infra/database';
+import { EventBusService } from '@uaip/infra/eventBus';
 import { logger } from '@uaip/utils';
 import type { ToolDefinition } from '@uaip/types';
 

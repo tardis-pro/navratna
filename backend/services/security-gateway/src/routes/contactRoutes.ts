@@ -4,7 +4,7 @@ import { logger } from '@uaip/utils';
 import { authMiddleware, optionalAuth } from '@uaip/middleware';
 import { validateRequest } from '@uaip/middleware';
 import { AuditService } from '../services/auditService.js';
-import { DatabaseService } from '@uaip/shared-services';
+import { DatabaseService } from '@uaip/infra/database';
 import { Request, Response } from '@uaip/shared-services';
 import { AuditEventType } from '@uaip/types';
 import { ContactStatus } from '@uaip/shared-services';

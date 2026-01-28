@@ -3,7 +3,8 @@
 // Part of capability-registry microservice
 
 import { ToolExecution, ToolUsageRecord, ToolExecutionStatus } from '@uaip/types';
-import { DatabaseService, ToolService } from '@uaip/shared-services';
+import { ToolService } from '@uaip/shared-services';
+import { DatabaseService } from '@uaip/infra/database';
 import { logger } from '@uaip/utils';
 import { ToolRegistry } from './toolRegistry.js';
 import { BaseToolExecutor } from './baseToolExecutor.js';
@@ -127,14 +128,9 @@ export class ToolExecutor {
       });
 
       // Execute the tool logic
-      const timeout = typeof execution.metadata?.timeout === 'number'
-        ? execution.metadata.timeout
-        : 30000;
-      const result = await this.executeToolLogic(
-        execution.toolId,
-        execution.parameters,
-        timeout
-      );
+      const timeout =
+        typeof execution.metadata?.timeout === 'number' ? execution.metadata.timeout : 30000;
+      const result = await this.executeToolLogic(execution.toolId, execution.parameters, timeout);
 
       const executionTime = Date.now() - startTime;
 
@@ -406,11 +402,19 @@ export class ToolExecutor {
 
     return {
       totalExecutions: stats.reduce((sum: number, stat: any) => sum + parseInt(stat.total_uses), 0),
-      successfulExecutions: stats.reduce((sum: number, stat: any) => sum + parseInt(stat.successful_uses), 0),
+      successfulExecutions: stats.reduce(
+        (sum: number, stat: any) => sum + parseInt(stat.successful_uses),
+        0
+      ),
       averageExecutionTime:
-        stats.reduce((sum: number, stat: any) => sum + parseFloat(stat.avg_execution_time || '0'), 0) /
-        stats.length,
-      totalCost: stats.reduce((sum: number, stat: any) => sum + parseFloat(stat.total_cost || '0'), 0),
+        stats.reduce(
+          (sum: number, stat: any) => sum + parseFloat(stat.avg_execution_time || '0'),
+          0
+        ) / stats.length,
+      totalCost: stats.reduce(
+        (sum: number, stat: any) => sum + parseFloat(stat.total_cost || '0'),
+        0
+      ),
       successRate:
         stats.length > 0
           ? stats.reduce((sum: number, stat: any) => sum + parseInt(stat.successful_uses), 0) /

@@ -1,0 +1,67 @@
+{
+  "name": "@uaip/infra",
+  "version": "1.0.0",
+  "description": "Infrastructure services for UAIP backend",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "type": "module",
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "clean": "rimraf dist",
+    "lint": "eslint src --ext .ts"
+  },
+  "dependencies": {
+    "@uaip/config": "workspace:*",
+    "@uaip/types": "workspace:*",
+    "@uaip/utils": "workspace:*",
+    "@qdrant/js-client-rest": "^1.13.0",
+    "amqplib": "catalog:backend",
+    "ioredis": "catalog:backend",
+    "jsonwebtoken": "catalog:backend",
+    "neo4j-driver": "^5.28.0",
+    "pg": "catalog:backend",
+    "typeorm": "^0.3.25",
+    "winston": "catalog:backend",
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "@types/amqplib": "catalog:backend",
+    "@types/jsonwebtoken": "catalog:backend",
+    "@types/node": "catalog:backend",
+    "@types/pg": "catalog:backend",
+    "typescript": "catalog:"
+  },
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "require": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    },
+    "./eventBus": {
+      "import": "./dist/eventBus.js",
+      "require": "./dist/eventBus.js",
+      "types": "./dist/eventBus.d.ts"
+    },
+    "./database": {
+      "import": "./dist/database/index.js",
+      "require": "./dist/database/index.js",
+      "types": "./dist/database/index.d.ts"
+    },
+    "./cache": {
+      "import": "./dist/cache/index.js",
+      "require": "./dist/cache/index.js",
+      "types": "./dist/cache/index.d.ts"
+    },
+    "./logger": {
+      "import": "./dist/logger.js",
+      "require": "./dist/logger.js",
+      "types": "./dist/logger.d.ts"
+    },
+    "./factory": {
+      "import": "./dist/factory/index.js",
+      "require": "./dist/factory/index.js",
+      "types": "./dist/factory/index.d.ts"
+    }
+  }
+}

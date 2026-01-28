@@ -14,9 +14,9 @@ import {
 } from '@uaip/types';
 import { logger } from '@uaip/utils';
 import { config } from '@uaip/config';
+import { DatabaseService } from '@uaip/infra/database';
+import { EventBusService } from '@uaip/infra/eventBus';
 import {
-  DatabaseService,
-  EventBusService,
   StateManagerService,
   ResourceManagerService,
   StepExecutorService,

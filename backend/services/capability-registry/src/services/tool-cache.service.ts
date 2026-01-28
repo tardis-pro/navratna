@@ -1,4 +1,5 @@
-import { redisCacheService, DatabaseService } from '@uaip/shared-services';
+import { DatabaseService } from '@uaip/infra/database';
+import { redisCacheService } from '@uaip/infra/cache';
 import { logger } from '@uaip/utils';
 import { createHash } from 'crypto';
 import type { ToolDefinition } from '@uaip/types';

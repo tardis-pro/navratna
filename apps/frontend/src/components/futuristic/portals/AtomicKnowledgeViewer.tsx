@@ -136,19 +136,27 @@ export const AtomicKnowledgeViewer: React.FC<AtomicKnowledgeViewerProps> = ({
 
   // Analyze content on mount
   useEffect(() => {
-    analyzeContent();
-    if (onLoadRelated) {
+    if (item.content) {
+      analyzeContent();
+    }
+    if (onLoadRelated && item.id) {
       loadConnections();
     }
-  }, [item.id]);
+  }, [item.id, item.content]);
 
   const analyzeContent = useCallback(async () => {
+    // Guard against undefined content
+    if (!item.content) {
+      return;
+    }
+
     setIsAnalyzing(true);
 
     // Simulate content analysis (in real implementation, this would call an AI service)
     setTimeout(() => {
-      const words = item.content.split(/\s+/).filter(Boolean);
-      const sentences = item.content.split(/[.!?]+/).filter(Boolean);
+      const content = item.content || '';
+      const words = content.split(/\s+/).filter(Boolean);
+      const sentences = content.split(/[.!?]+/).filter(Boolean);
 
       const mockAnalysis: KnowledgeAnalysis = {
         readingTime: Math.ceil(words.length / 200), // 200 words per minute
@@ -166,7 +174,8 @@ export const AtomicKnowledgeViewer: React.FC<AtomicKnowledgeViewerProps> = ({
   }, [item.content]);
 
   const loadConnections = useCallback(async () => {
-    if (!onLoadRelated) return;
+    // Guard against undefined item.id or missing callback
+    if (!onLoadRelated || !item.id) return;
 
     try {
       const related = await onLoadRelated(item.id);
@@ -186,6 +195,7 @@ export const AtomicKnowledgeViewer: React.FC<AtomicKnowledgeViewerProps> = ({
 
   const extractKeyTerms = (content: string): string[] => {
     // Simple key term extraction (in real implementation, use NLP)
+    if (!content) return [];
     const words = content.toLowerCase().split(/\s+/);
     const commonWords = new Set([
       'the',
@@ -237,6 +247,7 @@ export const AtomicKnowledgeViewer: React.FC<AtomicKnowledgeViewerProps> = ({
 
   const analyzeSentiment = (content: string): 'positive' | 'neutral' | 'negative' => {
     // Simple sentiment analysis (in real implementation, use ML)
+    if (!content) return 'neutral';
     const positiveWords = [
       'good',
       'great',
@@ -517,9 +528,9 @@ export const AtomicKnowledgeViewer: React.FC<AtomicKnowledgeViewerProps> = ({
                           </span>
                         </div>
                         <p className="text-slate-300 text-sm leading-relaxed mb-3">
-                          {relatedItem.content.length > 200
-                            ? `${relatedItem.content.substring(0, 200)}...`
-                            : relatedItem.content}
+                          {(relatedItem.content || '').length > 200
+                            ? `${(relatedItem.content || '').substring(0, 200)}...`
+                            : relatedItem.content || 'No content'}
                         </p>
                         <div className="flex flex-wrap gap-1">
                           {(relatedItem.tags || []).slice(0, 4).map((tag) => (

@@ -9,8 +9,8 @@ import {
   ToolRecommendation,
   ToolService,
   serviceFactory,
-  EventBusService,
 } from '@uaip/shared-services';
+import { EventBusService } from '@uaip/infra/eventBus';
 import { logger } from '@uaip/utils';
 import { config } from '@uaip/config';
 import { z } from 'zod';

@@ -1,10 +1,16 @@
 {
   "extends": "../../tsconfig.json",
     "compilerOptions": {
-      "outDir": "dist",          // relative to package root
+      "outDir": "dist",
       "rootDir": "src",
-      "baseUrl": ".",            // enables clean import paths within the package
-     
+      "baseUrl": ".",
+      "paths": {
+        "@uaip/infra": ["../../../backend/shared/infra/src"],
+        "@uaip/infra/*": ["../../../backend/shared/infra/src/*"],
+        "@uaip/knowledge-graph/*": ["../../../backend/services/agent-intelligence/src/knowledge-graph/*"],
+        "@uaip/agent-memory/*": ["../../../backend/services/agent-intelligence/src/agent-memory/*"]
+      },
+      "tsBuildInfoFile": "dist/tsconfig.tsbuildinfo"
     },
     "include": ["src/**/*"],
-  } 
+  }

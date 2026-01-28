@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { withRequiredAuth } from '@uaip/middleware';
-import { UserToolPreferencesService, DatabaseService } from '@uaip/shared-services';
+import { UserToolPreferencesService } from '@uaip/shared-services';
+import { DatabaseService } from '@uaip/infra/database';
 import type { RequiredAuthContext } from './types/elysia-context.js';
 
 let service: UserToolPreferencesService | null = null;
@@ -29,7 +30,7 @@ export function registerToolPreferenceRoutes(app: any): any {
   return app.group('/api/v1/users', (app: any) =>
     withRequiredAuth(app)
       // GET /:userId/tool-preferences
-            // @ts-expect-error - Elysia middleware injects user, but TypeScript cannot infer through nested groups
+      // @ts-expect-error - Elysia middleware injects user, but TypeScript cannot infer through nested groups
       .get('/:userId/tool-preferences', async ({ set, params, user }) => {
         const { userId } = params as any;
         if (user!.id !== userId && user!.role !== 'system_admin' && user!.role !== 'admin') {
@@ -45,7 +46,7 @@ export function registerToolPreferenceRoutes(app: any): any {
       })
 
       // GET /:userId/available-tools
-            // @ts-expect-error - Elysia middleware injects user, but TypeScript cannot infer through nested groups
+      // @ts-expect-error - Elysia middleware injects user, but TypeScript cannot infer through nested groups
       .get('/:userId/available-tools', async ({ set, params, user }) => {
         const { userId } = params as any;
         if (user!.id !== userId && user!.role !== 'system_admin' && user!.role !== 'admin') {
@@ -61,7 +62,7 @@ export function registerToolPreferenceRoutes(app: any): any {
       })
 
       // POST /:userId/tools/set-preferences
-            // @ts-expect-error - Elysia middleware injects user, but TypeScript cannot infer through nested groups
+      // @ts-expect-error - Elysia middleware injects user, but TypeScript cannot infer through nested groups
       .post('/:userId/tools/set-preferences', async ({ set, params, body, user }) => {
         const { userId } = params as any;
         if (user!.id !== userId && user!.role !== 'system_admin' && user!.role !== 'admin') {
@@ -94,7 +95,7 @@ export function registerToolPreferenceRoutes(app: any): any {
       })
 
       // GET /:userId/tool-preferences/:toolId
-            // @ts-expect-error - Elysia middleware injects user, but TypeScript cannot infer through nested groups
+      // @ts-expect-error - Elysia middleware injects user, but TypeScript cannot infer through nested groups
       .get('/:userId/tool-preferences/:toolId', async ({ set, params, user }) => {
         const { userId, toolId } = params as any;
         if (user!.id !== userId && user!.role !== 'system_admin' && user!.role !== 'admin') {
@@ -114,7 +115,7 @@ export function registerToolPreferenceRoutes(app: any): any {
       })
 
       // GET /:userId/favorite-tools
-            // @ts-expect-error - Elysia middleware injects user, but TypeScript cannot infer through nested groups
+      // @ts-expect-error - Elysia middleware injects user, but TypeScript cannot infer through nested groups
       .get('/:userId/favorite-tools', async ({ set, params, user }) => {
         const { userId } = params as any;
         if (user!.id !== userId && user!.role !== 'system_admin' && user!.role !== 'admin') {
@@ -130,7 +131,7 @@ export function registerToolPreferenceRoutes(app: any): any {
       })
 
       // GET /:userId/tool-usage-stats
-            // @ts-expect-error - Elysia middleware injects user, but TypeScript cannot infer through nested groups
+      // @ts-expect-error - Elysia middleware injects user, but TypeScript cannot infer through nested groups
       .get('/:userId/tool-usage-stats', async ({ set, params, user }) => {
         const { userId } = params as any;
         if (user!.id !== userId && user!.role !== 'system_admin' && user!.role !== 'admin') {
@@ -146,7 +147,7 @@ export function registerToolPreferenceRoutes(app: any): any {
       })
 
       // POST /:userId/tools/:toolId/check-access
-            // @ts-expect-error - Elysia middleware injects user, but TypeScript cannot infer through nested groups
+      // @ts-expect-error - Elysia middleware injects user, but TypeScript cannot infer through nested groups
       .post('/:userId/tools/:toolId/check-access', async ({ set, params, user }) => {
         const { userId, toolId } = params as any;
         if (user!.id !== userId && user!.role !== 'system_admin' && user!.role !== 'admin') {

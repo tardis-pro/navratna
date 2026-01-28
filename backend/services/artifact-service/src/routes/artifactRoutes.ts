@@ -1,7 +1,7 @@
 import { ArtifactService } from '../ArtifactService.js';
 import { ArtifactGenerationRequest, ArtifactType } from '@uaip/types';
 import { logger } from '@uaip/utils';
-import { DatabaseService } from '@uaip/shared-services';
+import { DatabaseService } from '@uaip/infra/database';
 
 export function registerArtifactRoutes(app: any, artifactService: ArtifactService) {
   return app.group('/api/v1/artifacts', (g: any) =>

@@ -1,19 +1,54 @@
-import { EventBusService, DatabaseService, redisCacheService } from '@uaip/shared-services';
+import { DatabaseService } from '@uaip/infra/database';
+import { EventBusService } from '@uaip/infra/eventBus';
+import { redisCacheService } from '@uaip/infra/cache';
 import { logger } from '@uaip/utils';
 import { randomUUID } from 'crypto';
 import { UnifiedToolRegistry } from './unified-tool-registry.js';
-import type { ToolExecution } from '@uaip/types';
+import {
+  getDangerToolConfig,
+  toolRequiresApproval,
+  getRequiredApprovalLevel,
+  toolRequiresSecurityTeamApproval,
+  toolRequiresAudit,
+} from './dangerToolList.js';
+import { config } from '../config/config.js';
 
+/**
+ * Security context for tool execution
+ */
+interface SecurityContext {
+  userId: string;
+  agentId: string;
+  projectId?: string;
+  approvalStatus?: ApprovalStatus;
+}
+
+interface ApprovalStatus {
+  isApproved: boolean;
+  approvedBy?: string;
+  approvedAt?: string;
+  approvalLevel?: string;
+}
+
+/**
+ * Tool Execution Event - consumed from tool.execute.request events
+ * Supports both legacy format and new event-driven format with idempotency
+ */
 interface ToolExecutionEvent {
   requestId: string;
   toolId: string;
-  parameters: Record<string, any>;
+  agentId: string;
+  parameters: Record<string, unknown>;
+  securityContext?: SecurityContext;
+  timestamp?: string;
+  idempotencyKey?: string;
+  correlationId?: string;
+  // Legacy fields for backward compatibility
   userId?: string;
-  agentId?: string;
   projectId?: string;
   conversationId?: string;
   operationId?: string;
-  context?: Record<string, any>;
+  context?: Record<string, unknown>;
 }
 
 interface ToolExecutionStatus {
@@ -22,19 +57,19 @@ interface ToolExecutionStatus {
   status: 'PENDING' | 'PROCESSING' | 'COMPLETED' | 'FAILED';
   startTime: number;
   endTime?: number;
-  result?: any;
+  result?: unknown;
   error?: string;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 interface ToolExecutionResponse {
   requestId: string;
   toolId: string;
   status: 'SUCCESS' | 'ERROR';
-  result?: any;
+  result?: unknown;
   error?: string;
   executionTime: number;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 /**
@@ -106,10 +141,60 @@ export class ToolExecutionCoordinator {
       logger.info('Processing tool execution request', {
         requestId,
         toolId: event.toolId,
-        userId: event.userId,
         agentId: event.agentId,
+        idempotencyKey: event.idempotencyKey,
+        correlationId: event.correlationId,
         projectId: event.projectId,
       });
+
+      // Check for idempotency - skip if already processing/executed with same key
+      if (event.idempotencyKey) {
+        const existingStatus = await this.getExecutionStatusByIdempotency(event.idempotencyKey);
+        if (existingStatus && existingStatus.status !== 'FAILED') {
+          logger.info('Duplicate execution detected, skipping', {
+            idempotencyKey: event.idempotencyKey,
+            existingStatus: existingStatus.status,
+          });
+          // Publish cached result if available
+          if (existingStatus.status === 'COMPLETED' && existingStatus.result) {
+            await this.eventBus.publish(`tool.response.${requestId}`, {
+              requestId,
+              toolId: event.toolId,
+              status: 'SUCCESS',
+              result: existingStatus.result,
+              executionTime: Date.now() - startTime,
+              metadata: { duplicated: true, originalRequestId: existingStatus.requestId },
+            } as ToolExecutionResponse);
+          }
+          return;
+        }
+      }
+
+      // P5 Security: Check if tool requires approval before execution
+      if (config.tools.enableApprovalWorkflow) {
+        const approvalResult = await this.checkAndEnforceApproval(event, requestId);
+        if (approvalResult.blocked) {
+          // Tool execution blocked due to missing approval
+          logger.warn('Tool execution blocked - approval required', {
+            requestId,
+            toolId: event.toolId,
+            requiredApproval: approvalResult.requiredApproval,
+          });
+          await this.eventBus.publish(`tool.response.${requestId}`, {
+            requestId,
+            toolId: event.toolId,
+            status: 'ERROR',
+            error: `APPROVAL_REQUIRED: This tool requires ${approvalResult.requiredApproval} approval before execution`,
+            executionTime: Date.now() - startTime,
+            metadata: {
+              requiresApproval: true,
+              requiredApproval: approvalResult.requiredApproval,
+              approvalRequestId: approvalResult.approvalRequestId,
+            },
+          } as ToolExecutionResponse);
+          return;
+        }
+      }
 
       // Store execution status in Redis
       const executionStatus: ToolExecutionStatus = {
@@ -118,8 +203,10 @@ export class ToolExecutionCoordinator {
         status: 'PROCESSING',
         startTime,
         metadata: {
-          userId: event.userId,
           agentId: event.agentId,
+          idempotencyKey: event.idempotencyKey,
+          correlationId: event.correlationId,
+          userId: event.userId,
           projectId: event.projectId,
           conversationId: event.conversationId,
           operationId: event.operationId,
@@ -262,13 +349,14 @@ export class ToolExecutionCoordinator {
   private async handleExecutionError(
     requestId: string,
     event: ToolExecutionEvent,
-    error: any,
+    error: unknown,
     startTime: number
   ): Promise<void> {
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     logger.error('Tool execution failed', {
       requestId,
       toolId: event.toolId,
-      error: error.message || String(error),
+      error: errorMessage,
     });
 
     // Update execution status
@@ -278,7 +366,7 @@ export class ToolExecutionCoordinator {
       status: 'FAILED',
       startTime,
       endTime: Date.now(),
-      error: error.message || 'Tool execution failed',
+      error: errorMessage,
     };
     await this.updateExecutionStatus(executionStatus);
 
@@ -287,7 +375,7 @@ export class ToolExecutionCoordinator {
       requestId,
       toolId: event.toolId,
       status: 'ERROR',
-      error: error.message || 'Tool execution failed',
+      error: errorMessage || 'Tool execution failed',
       executionTime: Date.now() - startTime,
     };
 
@@ -308,19 +396,20 @@ export class ToolExecutionCoordinator {
   private async handleSandboxExecutionError(
     requestId: string,
     event: ToolExecutionEvent,
-    error: any,
+    error: unknown,
     startTime: number
   ): Promise<void> {
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     logger.error('Sandbox execution failed', {
       requestId,
       toolId: event.toolId,
-      error: error.message || String(error),
+      error: errorMessage,
     });
 
     await this.eventBus.publish(`sandbox.response.${requestId}`, {
       requestId,
       status: 'ERROR',
-      error: error.message || 'Sandbox execution failed',
+      error: errorMessage || 'Sandbox execution failed',
       executionTime: Date.now() - startTime,
       sandbox: true,
     });
@@ -331,6 +420,12 @@ export class ToolExecutionCoordinator {
       const key = `tool:execution:${status.requestId}`;
       const ttl = this.executionTimeout / 1000; // Convert to seconds
       await this.redis.set(key, JSON.stringify(status), ttl);
+
+      // Store idempotency key mapping for duplicate detection
+      if (status.metadata?.idempotencyKey) {
+        const idempotencyKey = `tool:idempotency:${status.metadata.idempotencyKey}`;
+        await this.redis.set(idempotencyKey, status.requestId, ttl);
+      }
     } catch (error) {
       logger.error('Failed to update execution status in Redis', error);
     }
@@ -348,13 +443,36 @@ export class ToolExecutionCoordinator {
   }
 
   /**
+   * Get execution status by idempotency key
+   * Used to check if a duplicate request has already been processed
+   */
+  async getExecutionStatusByIdempotency(
+    idempotencyKey: string
+  ): Promise<ToolExecutionStatus | null> {
+    try {
+      const idempotencyKeyRedis = `tool:idempotency:${idempotencyKey}`;
+      const requestId = await this.redis.get(idempotencyKeyRedis);
+
+      if (!requestId) {
+        logger.debug('Idempotency key not found', { idempotencyKey });
+        return null;
+      }
+
+      return await this.getExecutionStatus(requestId);
+    } catch (error) {
+      logger.error('Failed to get execution status by idempotency key', error);
+      return null;
+    }
+  }
+
+  /**
    * Clean up old execution records from cache
    */
-  async cleanupExecutionCache(olderThanMinutes: number = 60): Promise<number> {
+  async cleanupExecutionCache(_olderThanMinutes: number = 60): Promise<number> {
     try {
       // This would be implemented with Redis SCAN command
       // For now, return 0
-      logger.info(`Cleaning up execution cache older than ${olderThanMinutes} minutes`);
+      logger.info(`Cleaning up execution cache older than ${_olderThanMinutes} minutes`);
       return 0;
     } catch (error) {
       logger.error('Failed to cleanup execution cache', error);
@@ -365,7 +483,7 @@ export class ToolExecutionCoordinator {
   /**
    * Get execution metrics for monitoring
    */
-  async getExecutionMetrics(timeWindowMinutes: number = 60): Promise<{
+  async getExecutionMetrics(_timeWindowMinutes: number = 60): Promise<{
     total: number;
     successful: number;
     failed: number;
@@ -381,5 +499,98 @@ export class ToolExecutionCoordinator {
       averageExecutionTime: 0,
       byTool: {},
     };
+  }
+
+  /**
+   * P5 Security: Check if tool requires approval and enforce approval requirements
+   * Returns { blocked: true } if approval is required but not granted
+   */
+  private async checkAndEnforceApproval(
+    event: ToolExecutionEvent,
+    requestId: string
+  ): Promise<{ blocked: boolean; requiredApproval: string; approvalRequestId?: string }> {
+    const toolId = event.toolId;
+
+    // Check if tool requires approval
+    if (!toolRequiresApproval(toolId)) {
+      return { blocked: false, requiredApproval: 'NONE' };
+    }
+
+    // Get danger tool configuration
+    const dangerConfig = getDangerToolConfig(toolId);
+    if (!dangerConfig) {
+      return { blocked: false, requiredApproval: 'NONE' };
+    }
+
+    // Get required approval level
+    const requiredApproval = getRequiredApprovalLevel(toolId);
+
+    // Check if execution is already approved
+    const isApproved = event.securityContext?.approvalStatus?.isApproved === true;
+    const approvedLevel = event.securityContext?.approvalStatus?.approvalLevel;
+
+    // Check if the approval level meets the requirement
+    const hasSufficientApproval = this.hasApprovalLevel(approvedLevel, requiredApproval);
+
+    if (isApproved && hasSufficientApproval) {
+      logger.info('Tool execution approved', {
+        requestId,
+        toolId,
+        approvedBy: event.securityContext?.approvalStatus?.approvedBy,
+        approvalLevel: approvedLevel,
+      });
+      return { blocked: false, requiredApproval };
+    }
+
+    // Tool requires approval but not granted - block execution
+    const approvalRequestId = `approval_${requestId}_${Date.now()}`;
+
+    // Emit approval required event
+    await this.eventBus.publish('tool.approval.required', {
+      approvalRequestId,
+      toolId,
+      requestId,
+      requiredApproval,
+      riskLevel: dangerConfig.riskLevel,
+      categories: dangerConfig.categories,
+      reason: dangerConfig.reason,
+      userId: event.userId || event.securityContext?.userId,
+      agentId: event.agentId,
+      projectId: event.projectId,
+      timestamp: new Date().toISOString(),
+    });
+
+    // Log audit event if required
+    if (toolRequiresAudit(toolId)) {
+      await this.eventBus.publish('tool.audit.log', {
+        eventType: 'APPROVAL_REQUIRED',
+        toolId,
+        requestId,
+        approvalRequestId,
+        requiredApproval,
+        riskLevel: dangerConfig.riskLevel,
+        categories: dangerConfig.categories,
+        userId: event.userId || event.securityContext?.userId,
+        agentId: event.agentId,
+        projectId: event.projectId,
+        timestamp: new Date().toISOString(),
+      });
+    }
+
+    return { blocked: true, requiredApproval, approvalRequestId };
+  }
+
+  /**
+   * Check if a given approval level meets the required level
+   */
+  private hasApprovalLevel(userLevel: string | undefined, requiredLevel: string): boolean {
+    const approvalHierarchy = ['NONE', 'USER_CONSENT', 'MANAGER', 'ADMIN', 'SECURITY_TEAM'];
+    const userIndex = userLevel ? approvalHierarchy.indexOf(userLevel) : -1;
+    const requiredIndex = approvalHierarchy.indexOf(requiredLevel);
+
+    if (requiredIndex === -1) return false;
+    if (userIndex === -1) return false;
+
+    return userIndex >= requiredIndex;
   }
 }

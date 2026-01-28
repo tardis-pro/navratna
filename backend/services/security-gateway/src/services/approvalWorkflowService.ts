@@ -1,8 +1,8 @@
 import * as cron from 'node-cron';
 import { logger } from '@uaip/utils';
 import { ApiError } from '@uaip/utils';
-import { DatabaseService } from '@uaip/shared-services';
-import { EventBusService } from '@uaip/shared-services';
+import { DatabaseService } from '@uaip/infra/database';
+import { EventBusService } from '@uaip/infra/eventBus';
 import {
   ApprovalWorkflow as ApprovalWorkflowType,
   ApprovalDecision,

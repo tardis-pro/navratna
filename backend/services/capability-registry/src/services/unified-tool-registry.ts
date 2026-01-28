@@ -11,7 +11,8 @@ import {
   SecurityLevel,
   ToolExample,
 } from '@uaip/types';
-import { DatabaseService, EventBusService } from '@uaip/shared-services';
+import { DatabaseService } from '@uaip/infra/database';
+import { EventBusService } from '@uaip/infra/eventBus';
 import { logger } from '@uaip/utils';
 import { z } from 'zod';
 
@@ -576,7 +577,42 @@ export class UnifiedToolRegistry {
       );
     }
 
-    // Approval requirement check
+    // P5 Security: Danger tool validation
+    // Import danger tool functions dynamically to avoid circular dependencies
+    const { getDangerToolConfig, toolRequiresApproval, getRequiredApprovalLevel } =
+      await import('./dangerToolList.js');
+
+    const dangerConfig = getDangerToolConfig(tool.id);
+    if (dangerConfig) {
+      // Check if tool requires approval
+      if (toolRequiresApproval(tool.id)) {
+        const requiredApproval = getRequiredApprovalLevel(tool.id);
+        const hasApproval = context.securityContext?.hasApproval === true;
+        const approvedLevel = context.securityContext?.approvalStatus?.approvalLevel;
+
+        // Check if approval level is sufficient
+        const approvalHierarchy = ['NONE', 'USER_CONSENT', 'MANAGER', 'ADMIN', 'SECURITY_TEAM'];
+        const userIndex = approvedLevel ? approvalHierarchy.indexOf(approvedLevel) : -1;
+        const requiredIndex = approvalHierarchy.indexOf(requiredApproval);
+        const hasSufficientApproval = userIndex >= requiredIndex;
+
+        if (!hasApproval || !hasSufficientApproval) {
+          throw new Error(
+            `Tool '${tool.id}' is classified as ${dangerConfig.riskLevel} risk and requires ${requiredApproval} approval. ` +
+              `Current approval status: ${hasApproval ? `approved (${approvedLevel})` : 'not approved'}`
+          );
+        }
+      }
+
+      // Log security check for danger tools
+      logger.debug('Danger tool validation passed', {
+        toolId: tool.id,
+        riskLevel: dangerConfig.riskLevel,
+        categories: dangerConfig.categories,
+      });
+    }
+
+    // Approval requirement check (existing logic)
     if (tool.requiresApproval && !context.securityContext?.hasApproval) {
       throw new Error(`Tool '${tool.id}' requires approval for execution`);
     }
@@ -595,7 +631,9 @@ export class UnifiedToolRegistry {
       const usageKey = `rate_limit:${key}`;
       const usageData = await this.databaseService.tools.getRedisService().get(usageKey);
 
-      let usage: { requests: number[]; lastReset: number } = usageData ? JSON.parse(usageData) : { requests: [], lastReset: now };
+      let usage: { requests: number[]; lastReset: number } = usageData
+        ? JSON.parse(usageData)
+        : { requests: [], lastReset: now };
 
       // Clean old requests outside window
       usage.requests = usage.requests.filter((time: number) => now - time < rateLimit.window);

@@ -5,12 +5,9 @@
 import { spawn, ChildProcess } from 'child_process';
 import { EventEmitter } from 'events';
 import { logger } from '@uaip/utils';
-import {
-  EventBusService,
-  DatabaseService,
-  ToolGraphDatabase,
-  SecurityLevel,
-} from '@uaip/shared-services';
+import { ToolGraphDatabase, SecurityLevel } from '@uaip/shared-services';
+import { DatabaseService } from '@uaip/infra/database';
+import { EventBusService } from '@uaip/infra/eventBus';
 import * as fs from 'fs/promises';
 import * as path from 'path';
 import { promisify } from 'util';

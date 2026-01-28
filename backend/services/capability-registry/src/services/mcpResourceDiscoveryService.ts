@@ -5,7 +5,7 @@
 import { EventEmitter } from 'events';
 import { logger } from '@uaip/utils';
 import { MCPClientService } from './mcpClientService.js';
-import { RedisCacheService } from '@uaip/shared-services';
+import { RedisCacheService } from '@uaip/infra/cache';
 
 export interface MCPDiscoveryConfig {
   enableCaching: boolean;
@@ -244,7 +244,9 @@ export class MCPResourceDiscoveryService extends EventEmitter {
   }
 
   // Server summary information
-  private async getServerSummary(serverName?: string): Promise<Array<ResourceDiscoveryResult['servers'][number]>> {
+  private async getServerSummary(
+    serverName?: string
+  ): Promise<Array<ResourceDiscoveryResult['servers'][number]>> {
     try {
       const servers = serverName ? [serverName] : await this.getActiveServerNames();
       const summary: ResourceDiscoveryResult['servers'] = [];

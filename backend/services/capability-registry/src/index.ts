@@ -1,6 +1,7 @@
 import { BaseService, ServiceConfig } from '@uaip/shared-services';
 import { config } from '@uaip/config';
-import { ToolGraphDatabase, DatabaseService, IntegrationService } from '@uaip/shared-services';
+import { ToolGraphDatabase, IntegrationService } from '@uaip/shared-services';
+import { DatabaseService } from '@uaip/infra/database';
 import { ToolRegistry } from './services/toolRegistry.js';
 import { ToolExecutor } from './services/toolExecutor.js';
 import { BaseToolExecutor } from './services/baseToolExecutor.js';

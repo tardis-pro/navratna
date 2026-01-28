@@ -16,11 +16,8 @@ interface Response {
 }
 
 type NextFunction = (error?: any) => void;
-import {
-  CapabilityDiscoveryService,
-  SecurityValidationService,
-  DatabaseService,
-} from '@uaip/shared-services';
+import { CapabilityDiscoveryService, SecurityValidationService } from '@uaip/shared-services';
+import { DatabaseService } from '@uaip/infra/database';
 import {
   Capability,
   CapabilityType,

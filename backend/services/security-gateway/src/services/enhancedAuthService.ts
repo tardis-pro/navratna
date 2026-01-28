@@ -1,6 +1,6 @@
 import { logger } from '@uaip/utils';
 import { ApiError } from '@uaip/utils';
-import { DatabaseService } from '@uaip/shared-services';
+import { DatabaseService } from '@uaip/infra/database';
 import { JWTValidator, generateAuthTokens } from '@uaip/middleware';
 import * as jwt from 'jsonwebtoken';
 import * as crypto from 'crypto';
@@ -67,7 +67,7 @@ export class EnhancedAuthService {
 
       // Find or create user
       // Try to find user by email first, then by OAuth connection
-      let user = await this.databaseService.users.findUserByEmail(userInfo.email) as any;
+      let user = (await this.databaseService.users.findUserByEmail(userInfo.email)) as any;
 
       if (!user) {
         // Check if there's an OAuth connection for this provider
@@ -81,7 +81,11 @@ export class EnhancedAuthService {
       }
 
       if (!user) {
-        user = await this.createUserFromOAuth(userInfo, provider, oauthState) as unknown as EnhancedUser;
+        user = (await this.createUserFromOAuth(
+          userInfo,
+          provider,
+          oauthState
+        )) as unknown as EnhancedUser;
       } else {
         await this.updateUserOAuthConnection(user as any, tokens, provider, userInfo);
       }
@@ -232,10 +236,7 @@ export class EnhancedAuthService {
       const { tokens, userInfo, provider, oauthState } =
         await this.oauthProviderService.handleCallback(code, state, redirectUri);
 
-      if (
-        user.userType === UserType.AGENT &&
-        oauthState.agentCapabilities
-      ) {
+      if (user.userType === UserType.AGENT && oauthState.agentCapabilities) {
         // Create agent OAuth connection
         const connection = await this.oauthProviderService.createAgentConnection(
           user.id,
@@ -536,7 +537,7 @@ export class EnhancedAuthService {
       updatedAt: new Date(),
     };
 
-    return await this.databaseService.users.createUser(user as any) as unknown as EnhancedUser;
+    return (await this.databaseService.users.createUser(user as any)) as unknown as EnhancedUser;
   }
 
   private async updateUserOAuthConnection(
@@ -676,8 +677,10 @@ export class EnhancedAuthService {
     providerType: OAuthProviderType
   ): Promise<boolean> {
     // Check if the OAuth provider service has the method
-    if ('getAgentConnection' in this.oauthProviderService &&
-        typeof (this.oauthProviderService as any).getAgentConnection === 'function') {
+    if (
+      'getAgentConnection' in this.oauthProviderService &&
+      typeof (this.oauthProviderService as any).getAgentConnection === 'function'
+    ) {
       const connection = await (this.oauthProviderService as any).getAgentConnection(
         agentId,
         providerType
@@ -686,7 +689,7 @@ export class EnhancedAuthService {
     }
     // Fallback: check through database
     const providers = await this.databaseService.oauth.findAgentOAuthConnections(agentId);
-    return providers.some(p => p.providerType === providerType && p.isActive);
+    return providers.some((p) => p.providerType === providerType && p.isActive);
   }
 
   private isLocationTrusted(user: EnhancedUser, session: Session): boolean {
@@ -708,11 +711,7 @@ export class EnhancedAuthService {
 
   private async encryptChallenge(challenge: string): Promise<string> {
     const algorithm = config.security.encryptionAlgorithm as crypto.CipherGCMTypes;
-    const key = crypto.scryptSync(
-      config.security.encryptionKey,
-      'salt',
-      32
-    );
+    const key = crypto.scryptSync(config.security.encryptionKey, 'salt', 32);
     const iv = crypto.randomBytes(16);
     const cipher = crypto.createCipheriv(algorithm, key, iv);
 
@@ -724,11 +723,7 @@ export class EnhancedAuthService {
 
   private async decryptChallenge(encryptedChallenge: string): Promise<string> {
     const algorithm = config.security.encryptionAlgorithm as crypto.CipherGCMTypes;
-    const key = crypto.scryptSync(
-      config.security.encryptionKey,
-      'salt',
-      32
-    );
+    const key = crypto.scryptSync(config.security.encryptionKey, 'salt', 32);
 
     const [ivHex, encrypted] = encryptedChallenge.split(':');
     const iv = Buffer.from(ivHex, 'hex');

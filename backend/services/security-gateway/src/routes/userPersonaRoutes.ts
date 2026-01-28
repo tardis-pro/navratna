@@ -1,6 +1,6 @@
 import express, { Request, Response, Router } from '@uaip/shared-services';
 import { authMiddleware } from '@uaip/middleware';
-import { DatabaseService } from '@uaip/shared-services';
+import { DatabaseService } from '@uaip/infra/database';
 import { logger } from '@uaip/utils';
 import { z } from 'zod';
 import { ForceOnboardRequestSchema } from '@uaip/types';

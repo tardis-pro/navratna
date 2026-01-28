@@ -1,5 +1,7 @@
 import { Elysia } from 'elysia';
-import { ProjectManagementService, EventBusService, DatabaseService } from '@uaip/shared-services';
+import { ProjectManagementService } from '@uaip/shared-services';
+import { DatabaseService } from '@uaip/infra/database';
+import { EventBusService } from '@uaip/infra/eventBus';
 import { logger } from '@uaip/utils';
 import { z } from 'zod';
 import { ProjectStatus, ProjectPriority, ProjectVisibility } from '@uaip/types';
@@ -75,6 +77,7 @@ const initServices = async () => {
     databaseService = DatabaseService.getInstance();
     eventBusService = EventBusService.getInstance();
     projectService = new ProjectManagementService(databaseService, eventBusService);
+    await projectService.initialize();
   }
 };
 

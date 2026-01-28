@@ -33,6 +33,7 @@
   "dependencies": {
     "@types/uuid": "^10.0.0",
     "@uaip/config": "workspace:*",
+    "@uaip/infra": "workspace:*",
     "@uaip/middleware": "workspace:*",
     "@uaip/types": "workspace:*",
     "@uaip/utils": "workspace:*",
@@ -81,11 +82,6 @@
       "require": "./dist/index.js",
       "types": "./dist/index.d.ts"
     },
-    "./databaseService": {
-      "import": "./dist/databaseService.js",
-      "require": "./dist/databaseService.js",
-      "types": "./dist/databaseService.d.ts"
-    },
     "./typeormService": {
       "import": "./dist/typeormService.js",
       "require": "./dist/typeormService.js",
@@ -127,9 +123,19 @@
       "types": "./dist/securityValidationService.d.ts"
     },
     "./eventBusService": {
-      "import": "./dist/eventBusService.js",
-      "require": "./dist/eventBusService.js",
-      "types": "./dist/eventBusService.d.ts"
+      "import": "@uaip/infra/eventBus.js",
+      "require": "@uaip/infra/eventBus.js",
+      "types": "@uaip/infra/eventBus.d.ts"
+    },
+    "./databaseService": {
+      "import": "@uaip/infra/database/index.js",
+      "require": "@uaip/infra/database/index.js",
+      "types": "@uaip/infra/database/index.d.ts"
+    },
+    "./cacheService": {
+      "import": "@uaip/infra/cache/index.js",
+      "require": "@uaip/infra/cache/index.js",
+      "types": "@uaip/infra/cache/index.d.ts"
     },
     "./stateManagerService": {
       "import": "./dist/stateManagerService.js",

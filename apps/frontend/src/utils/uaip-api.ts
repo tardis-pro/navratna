@@ -1222,6 +1222,16 @@ export const uaipAPI = {
       }
     },
 
+    async getAllKnowledge(options?: { limit?: number; offset?: number }): Promise<KnowledgeItem[]> {
+      try {
+        const client = getAPIClient();
+        return await client.knowledge.list(options);
+      } catch (error) {
+        console.warn('Failed to get all knowledge items:', error);
+        return [];
+      }
+    },
+
     async getKnowledgeGraph(options?: {
       rootId?: string;
       depth?: number;

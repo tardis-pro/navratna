@@ -6,13 +6,11 @@
 
 import { Agent, AgentState } from '@uaip/types';
 import { logger } from '@uaip/utils';
-import {
-  DatabaseService,
-  EventBusService,
-  KnowledgeGraphService,
-  AgentMemoryService,
-  PersonaService,
-} from '@uaip/shared-services';
+import { PersonaService } from '@uaip/shared-services';
+import { DatabaseService } from '@uaip/infra/database';
+import { EventBusService } from '@uaip/infra/eventBus';
+import { KnowledgeGraphService } from '@/knowledge-graph/knowledge-graph.service';
+import { AgentMemoryService } from '@/agent-memory/agent-memory.service';
 
 export interface AgentInitializationConfig {
   databaseService: DatabaseService;

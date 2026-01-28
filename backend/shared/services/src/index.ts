@@ -27,8 +27,14 @@ export { TypeOrmService, typeormService } from './typeormService.js';
 // MCP Services
 export { MCPService } from './services/MCPService.js';
 
-// Communication Services
-export { EventBusService } from './eventBusService.js';
+// Communication Services - re-exported from @uaip/infra
+export { EventBusService } from '@uaip/infra';
+
+// Cache Services - re-exported from @uaip/infra
+export { RedisCacheService, redisCacheService } from '@uaip/infra';
+
+// Database Services - re-exported from @uaip/infra
+export { DatabaseService, DatabaseError } from '@uaip/infra/database';
 
 // Agent Intelligence Services
 // LLMPreferenceResolutionService deprecated - use UnifiedModelSelectionFacade from BaseService
@@ -66,9 +72,6 @@ export { ConversationUtils } from './conversation/index.js';
 // Vector Search Services
 export { QdrantService } from './qdrant.service.js';
 
-// Cache Services
-export { redisCacheService, RedisCacheService } from './redis-cache.service.js';
-
 // LLM Request Tracking Service
 export { LLMRequestTracker } from './llm-request-tracker.service.js';
 
@@ -104,7 +107,12 @@ export { AgentTaskTypeResolver } from './services/AgentTaskTypeResolver.js';
 
 // Business Logic Services
 export { ToolManagementService } from './tool-management.service.js';
-export { ToolExecutionService } from './tool-execution.service.js';
+export {
+  ToolExecutionService,
+  ToolExecutionRequestEvent,
+  ToolExecutionResponseEvent,
+  ToolExecutionOptions,
+} from './tool-execution.service.js';
 export { OperationManagementService } from './operation-management.service.js';
 export { ProjectManagementService } from './project-management.service.js';
 export { ProjectLifecycleService } from './project-lifecycle.service.js';

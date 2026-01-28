@@ -38,6 +38,7 @@ FORCE_RECREATE=false
 FOLLOW_LOGS=""
 GPU_AVAILABLE=""
 CPU_ONLY=false
+CLEAN_BUILD=false
 
 # Utility functions
 log_info() {
@@ -113,7 +114,7 @@ check_prerequisites() {
     log_success "Prerequisites check passed"
 }
 
-# Validate environment variables
+# Validate environment variables with security checks
 validate_environment() {
     log_info "Validating environment configuration..."
     
@@ -124,13 +125,15 @@ validate_environment() {
         set +a  # Stop exporting
     fi
     
-    # Check for placeholder API keys
+    # Check for placeholder API keys - SECURITY CONCERN
     if [ "${OPENAI_API_KEY:-}" = "your-openai-key-here" ]; then
         log_warning "OPENAI_API_KEY is still set to placeholder value"
+        log_info "  → AI services will not function without valid API key"
     fi
     
     if [ "${ANTHROPIC_API_KEY:-}" = "your-anthropic-key-here" ]; then
         log_warning "ANTHROPIC_API_KEY is still set to placeholder value"
+        log_info "  → Claude integration will not function"
     fi
     
     # Validate critical environment variables
@@ -141,7 +144,6 @@ validate_environment() {
         "REDIS_PASSWORD"
         "RABBITMQ_DEFAULT_USER"
         "RABBITMQ_DEFAULT_PASS"
-        "JWT_SECRET"
     )
     
     local missing_vars=()
@@ -155,6 +157,42 @@ validate_environment() {
         log_error "Missing required environment variables: ${missing_vars[*]}"
         log_info "Please check your .env file or set these variables manually"
         exit 1
+    fi
+    
+    # SECURITY: Validate JWT_SECRET strength
+    local jwt_secret="${JWT_SECRET:-}"
+    if [ -z "$jwt_secret" ]; then
+        log_error "JWT_SECRET is not set"
+        log_info "Generate a secure secret: openssl rand -base64 32"
+        exit 1
+    fi
+    
+    if [ ${#jwt_secret} -lt 32 ]; then
+        log_error "JWT_SECRET is too short (minimum 32 characters)"
+        log_info "Current length: ${#jwt_secret} characters"
+        log_info "Generate a secure secret: openssl rand -base64 32"
+        exit 1
+    fi
+    
+    # SECURITY: Warn if using default dev secrets in non-dev environment
+    if [ "${NODE_ENV:-development}" != "development" ]; then
+        if [[ "$jwt_secret" == *"dev"* ]] || [[ "$jwt_secret" == *"secret"* ]] || [[ "$jwt_secret" == *"password"* ]]; then
+            log_error "JWT_SECRET appears to be a default/weak value in production"
+            log_info "Please generate a proper secret: openssl rand -base64 32"
+            exit 1
+        fi
+    fi
+    
+    # SECURITY: Check for default/insecure database passwords
+    local db_password="${POSTGRES_PASSWORD:-}"
+    if [[ "$db_password" == "uaip_password" ]] || [ ${#db_password} -lt 12 ]; then
+        log_warning "POSTGRES_PASSWORD appears weak (minimum 12 characters recommended)"
+        log_info "Consider using a stronger password for production"
+    fi
+    
+    # SECURITY: Warn about API key exposure
+    if [ -n "${OPENAI_API_KEY:-}" ] && [ "${OPENAI_API_KEY:-}" != "your-openai-key-here" ]; then
+        log_info "  ✓ OPENAI_API_KEY is configured (will be masked in logs)"
     fi
     
     log_success "Environment validation passed"
@@ -298,7 +336,7 @@ wait_for_services() {
     # Wait for infrastructure services first
     if [[ "$services_to_wait" == *"postgres"* ]]; then
         log_info "  📊 Waiting for PostgreSQL..."
-        timeout 120 bash -c 'until docker-compose ps postgres | grep -q "healthy\|Up"; do sleep 2; done' || {
+        timeout 120 bash -c 'until docker-compose ps postgres | grep -q "healthy"; do sleep 2; done' || {
             log_error "PostgreSQL failed to start"
             return 1
         }
@@ -306,7 +344,7 @@ wait_for_services() {
     
     if [[ "$services_to_wait" == *"neo4j"* ]]; then
         log_info "  🕸️ Waiting for Neo4j..."
-        timeout 120 bash -c 'until docker-compose ps neo4j | grep -q "healthy\|Up"; do sleep 2; done' || {
+        timeout 120 bash -c 'until docker-compose ps neo4j | grep -q "healthy"; do sleep 2; done' || {
             log_error "Neo4j failed to start"
             return 1
         }
@@ -314,7 +352,7 @@ wait_for_services() {
     
     if [[ "$services_to_wait" == *"redis"* ]]; then
         log_info "  🔴 Waiting for Redis..."
-        timeout 60 bash -c 'until docker-compose ps redis | grep -q "healthy\|Up"; do sleep 2; done' || {
+        timeout 60 bash -c 'until docker-compose ps redis | grep -q "healthy"; do sleep 2; done' || {
             log_error "Redis failed to start"
             return 1
         }
@@ -331,10 +369,36 @@ wait_for_services() {
     log_success "Services are ready!"
 }
 
+# Validate service name to prevent command injection
+validate_service_name() {
+    local service_name="$1"
+    
+    # Reject if contains dangerous characters
+    if echo "$service_name" | grep -q '[;&|>$`\\]'; then
+        log_error "Invalid service name: contains forbidden characters"
+        exit 1
+    fi
+    
+    # Reject if starts with dash (would be interpreted as option)
+    if [[ "$service_name" == -* ]]; then
+        log_error "Invalid service name: cannot start with dash"
+        exit 1
+    fi
+    
+    # Reject empty or too long names
+    if [ -z "$service_name" ] || [ ${#service_name} -gt 100 ]; then
+        log_error "Invalid service name: empty or too long"
+        exit 1
+    fi
+}
+
 # Get services based on filter
 get_services() {
     local filter="$1"
     local tei_services=""
+    
+    # Validate input to prevent injection
+    validate_service_name "$filter"
     
     # Determine which TEI services to use based on GPU availability
     if [ "$GPU_AVAILABLE" = true ]; then
@@ -489,13 +553,20 @@ restart_services() {
 
 # Rebuild backend services only
 rebuild_backend() {
+    local clean=${1:-false}
     log_header "Rebuilding Backend Services"
     
-    log_info "Stopping backend services..."
-    docker-compose stop $BACKEND_SERVICES
-    
-    log_info "Rebuilding backend Docker images..."
-    docker-compose build $BACKEND_SERVICES
+    if [ "$clean" = true ]; then
+        log_info "Stopping and removing backend containers..."
+        docker-compose down $BACKEND_SERVICES 2>/dev/null || true
+        log_info "Building WITHOUT cache (--no-cache --pull)..."
+        docker-compose build --no-cache --pull $BACKEND_SERVICES
+    else
+        log_info "Stopping backend services..."
+        docker-compose stop $BACKEND_SERVICES
+        log_info "Rebuilding backend Docker images (using cache)..."
+        docker-compose build $BACKEND_SERVICES
+    fi
     
     log_info "Starting backend services..."
     docker-compose up -d $BACKEND_SERVICES
@@ -571,6 +642,7 @@ show_help() {
     echo "  $0 --services backend --daemon       # Start only backend services"
     echo "  $0 restart --services frontend       # Restart only frontend"
     echo "  $0 rebuild-backend                   # Rebuild only backend services"
+    echo "  $0 rebuild-backend --clean           # Clean rebuild (no cache, remove containers first)"
     echo "  $0 logs tei-embeddings --follow      # Follow logs for TEI embeddings service"
     echo "  $0 stop --services monitoring        # Stop only monitoring services"
     echo ""
@@ -605,6 +677,10 @@ while [[ $# -gt 0 ]]; do
             ;;
         --cpu-only|-c)
             CPU_ONLY=true
+            shift
+            ;;
+        --clean)
+            CLEAN_BUILD=true
             shift
             ;;
         --help|-h)
@@ -649,7 +725,7 @@ main() {
             restart_services "$target_services" "$REBUILD_BACKEND"
             ;;
         "rebuild-backend")
-            rebuild_backend
+            rebuild_backend "$CLEAN_BUILD"
             ;;
         "logs")
             show_logs "$FOLLOW_LOGS" "$FOLLOW_LOGS"

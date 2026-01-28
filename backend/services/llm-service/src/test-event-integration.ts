@@ -9,7 +9,7 @@
  * 3. Validates the response structure
  */
 
-import { EventBusService } from '@uaip/shared-services';
+import { EventBusService } from '@uaip/infra/eventBus';
 import { logger } from '@uaip/utils';
 
 async function testLLMEventIntegration() {

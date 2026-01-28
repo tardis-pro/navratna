@@ -1,5 +1,6 @@
 import { Server } from 'socket.io';
-import { EventBusService, DebateOrchestratorService } from '@uaip/shared-services';
+import { DebateOrchestratorService } from '@uaip/shared-services';
+import { EventBusService } from '@uaip/infra/eventBus';
 import { logger } from '@uaip/utils';
 
 export class DebateHandler {
