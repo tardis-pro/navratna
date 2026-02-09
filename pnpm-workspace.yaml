@@ -12,7 +12,7 @@ catalog:
   '@eslint/js': ^9.29.0
   rimraf: ^6.0.1
   '@typescript-eslint/eslint-plugin': ^8.34.1
-  '@typescript-eslint/parser': ^8.34.1
+  '@typescript-eslint/parser': ^8.54.0
   typescript-eslint: ^8.34.1
 
 catalogs:
