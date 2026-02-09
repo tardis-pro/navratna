@@ -19,7 +19,7 @@ catalogs:
   frontend:
     react: ^19.2.4
     react-dom: ^19.2.4
-    '@types/react': ^19.2.10
+    '@types/react': ^19.2.13
     '@types/react-dom': ^19.1.6
     '@vitejs/plugin-react-swc': ^3.10.2
     eslint-plugin-react-hooks: ^5.2.0
@@ -27,8 +27,8 @@ catalogs:
     '@types/node': ^22.13.14
     react-hook-form: ^7.71.1
     react-router-dom: ^7.13.0
-    react-day-picker: ^9.13.0
-    react-resizable-panels: ^4.5.8
+    react-day-picker: ^9.13.1
+    react-resizable-panels: ^4.6.2
     '@radix-ui/react-accordion': ^1.2.11
     '@radix-ui/react-alert-dialog': ^1.1.14
     '@radix-ui/react-aspect-ratio': ^1.1.7
