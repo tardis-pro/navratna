@@ -1679,6 +1679,9 @@ importers:
       jest-environment-node:
         specifier: ^30.2.0
         version: 30.2.0
+      reflect-metadata:
+        specifier: ^0.2.2
+        version: 0.2.2
       rimraf:
         specifier: 'catalog:'
         version: 6.1.2

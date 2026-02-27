@@ -26,7 +26,7 @@ export class DatabaseError extends Error {
     this.details = options?.details;
 
     if (options?.originalError) {
-      this.stack = `${this.stack}\nCaused by: ${options.originalError}`;
+      this.stack = `${this.stack}\nCaused by: ${options?.originalError}`;
     }
   }
 }

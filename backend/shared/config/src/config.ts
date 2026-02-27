@@ -1,19 +1,19 @@
 import dotenv from 'dotenv';
 import path from 'path';
-// import { fileURLToPath } from 'url';
+import { fileURLToPath } from 'url';
 
 // Get the directory of this module
-// const __filename = fileURLToPath(import.meta.url);
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
-const __dirname = '/app/';
-
-// Load environment variables from root .env file
-dotenv.config({ path: path.resolve(__dirname, '.env') });
+// Load environment variables from root .env file (look in project root)
+const projectRoot = path.resolve(__dirname, '../../../../..');
+dotenv.config({ path: path.resolve(projectRoot, '.env') });
 
 // Debug environment variable loading
 console.log('🔧 Config Debug Info:');
 console.log('- __dirname:', __dirname);
-console.log('- .env path:', path.resolve(__dirname, '.env'));
+console.log('- .env path:', path.resolve(projectRoot, '.env'));
 console.log('- NODE_ENV:', process.env.NODE_ENV);
 console.log('- SERVICE_NAME:', process.env.SERVICE_NAME);
 console.log('- POSTGRES_URL:', process.env.POSTGRES_URL ? 'SET' : 'NOT SET');

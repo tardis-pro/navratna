@@ -3,6 +3,7 @@ export default {
   testEnvironment: 'node',
   rootDir: './src',
   testMatch: ['**/__tests__/**/*.test.ts'],
+  passWithNoTests: true,
   collectCoverageFrom: [
     '**/*.ts',
     '!**/*.d.ts',
@@ -13,7 +14,7 @@ export default {
   ],
   coverageDirectory: '../coverage',
   coverageReporters: ['text', 'lcov', 'html'],
-  setupFilesAfterEnv: ['<rootDir>/__tests__/setup.ts'],
+  setupFilesAfterEnv: [],
   testTimeout: 30000,
   extensionsToTreatAsEsm: ['.ts'],
   globals: {

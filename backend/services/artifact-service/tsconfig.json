@@ -3,7 +3,7 @@
   "compilerOptions": {
     "outDir": "./dist",
     "rootDir": "./src",
-    "baseUrl": "./src",
+    "baseUrl": ".",
     "paths": {
       "@uaip/infra": ["../../shared/infra/src"],
       "@uaip/infra/*": ["../../shared/infra/src/*"]
