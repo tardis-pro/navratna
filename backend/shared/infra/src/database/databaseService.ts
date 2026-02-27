@@ -41,6 +41,7 @@ export class DatabaseService {
   private typeormService: TypeOrmService;
   private isClosing: boolean = false;
   private isInitialized: boolean = false;
+  private pendingEntities: any[] = [];
   private readonly logger = logger;
 
   private constructor() {
@@ -56,18 +57,33 @@ export class DatabaseService {
 
   private async ensureInitialized(): Promise<void> {
     if (!this.isInitialized) {
-      await this.initializeConnection();
+      await this.initializeConnection(this.pendingEntities);
     }
   }
 
-  private async initializeConnection(): Promise<void> {
+  private async initializeConnection(entities: any[] = []): Promise<void> {
     try {
-      await this.typeormService.initialize();
+      await this.typeormService.initialize(entities);
       this.isInitialized = true;
       logger.info('Database connection initialized successfully');
     } catch (error) {
       logger.error('Failed to initialize database connection:', error);
       throw error;
+    }
+  }
+
+  /**
+   * Register domain entities for this service's database plane.
+   * Call this BEFORE any database operations (e.g. before start()).
+   * Domain services use this to inject their plane-specific entities.
+   */
+  public registerEntities(entities: any[]): void {
+    this.pendingEntities = entities;
+    // If already initialized with wrong entities, tear down so next access re-initializes
+    if (this.isInitialized) {
+      logger.warn('DatabaseService.registerEntities() called after initialization — resetting connection');
+      this.isInitialized = false;
+      this.typeormService.close().catch(() => {});
     }
   }
 

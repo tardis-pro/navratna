@@ -1,4 +1,4 @@
-import { BaseService, ServiceConfig } from '@uaip/shared-services';
+import { BaseService, ServiceConfig, allEntities } from '@uaip/shared-services';
 import { createServer } from 'http';
 import { WebSocketServer } from 'ws';
 import { Server as SocketIOServer } from 'socket.io';
@@ -65,6 +65,9 @@ class DiscussionOrchestrationServer extends BaseService {
       pingTimeout: 60000,
     });
     this.io.bind(this.bunEngine);
+
+    // Register all entities (TypeORM requires related entities to be in the same DataSource).
+    this.registerEntities(allEntities);
 
     // Validate enterprise database access
     if (

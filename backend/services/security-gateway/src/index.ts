@@ -1,4 +1,4 @@
-import { BaseService } from '@uaip/shared-services';
+import { BaseService, allEntities } from '@uaip/shared-services';
 import { config } from '@uaip/config';
 import { logger } from '@uaip/utils';
 import { initializeServices } from '@uaip/shared-services';
@@ -42,6 +42,9 @@ class SecurityGatewayServer extends BaseService {
       port: config.services.securityGateway.port || 3004,
       enableEnterpriseEventBus: true,
     });
+
+    // Register all entities (TypeORM requires related entities to be in the same DataSource).
+    this.registerEntities(allEntities);
   }
 
   protected async initialize(): Promise<void> {

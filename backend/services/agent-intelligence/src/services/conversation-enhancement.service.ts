@@ -13,6 +13,7 @@ import { Persona, Agent, Discussion, DiscussionParticipant } from '@uaip/types';
 import { LLMRequestTracker } from '@uaip/shared-services';
 import { DatabaseService } from '@uaip/infra/database';
 import { EventBusService } from '@uaip/infra/eventBus';
+import { Agent as AgentEntity, Discussion as DiscussionEntity, UserEntity } from '@uaip/shared-services';
 
 // Local type definitions until they're properly exported from @uaip/types
 interface ConversationContext {
@@ -590,7 +591,7 @@ export class ConversationEnhancementService extends EventEmitter {
   private async loadAgentPersonaMappings(): Promise<void> {
     try {
       // Load all active agents
-      const agents = await this.databaseService.findMany('agents' as any, { where: { status: 'active' } }) as any[];
+      const agents = await this.databaseService.findMany(AgentEntity, { status: 'active' } as any) as any[];
 
       for (const agent of agents) {
         // Map agent properties to personas
@@ -797,7 +798,7 @@ export class ConversationEnhancementService extends EventEmitter {
     const agents: Agent[] = [];
     for (const agentId of agentIds) {
       try {
-        const agent = await this.databaseService.findById('agents' as any, agentId);
+        const agent = await this.databaseService.findById(AgentEntity, agentId);
         if (agent) {
           agents.push(agent as any);
         }
@@ -810,7 +811,7 @@ export class ConversationEnhancementService extends EventEmitter {
 
   public async getAgentById(agentId: string): Promise<Agent | null> {
     try {
-      const agent = await this.databaseService.findById('agents' as any, agentId);
+      const agent = await this.databaseService.findById(AgentEntity, agentId);
       return agent as any;
     } catch (error) {
       logger.error('Failed to get agent by ID', { agentId, error });
@@ -824,7 +825,7 @@ export class ConversationEnhancementService extends EventEmitter {
 
   private async getDiscussionData(discussionId: string): Promise<Discussion | null> {
     try {
-      const discussion = await this.databaseService.findById('discussions' as any, discussionId);
+      const discussion = await this.databaseService.findById(DiscussionEntity, discussionId);
       return discussion as any;
     } catch (error) {
       logger.error('Failed to get discussion data', { error, discussionId });
@@ -837,7 +838,7 @@ export class ConversationEnhancementService extends EventEmitter {
   ): Promise<MessageHistoryItem[]> {
     try {
       // Get discussion with participants
-      const fullDiscussion = await this.databaseService.findById('discussions' as any, discussion.id) as any;
+      const fullDiscussion = await this.databaseService.findById(DiscussionEntity, discussion.id) as any;
       const participantMap = new Map();
 
       if (fullDiscussion && fullDiscussion.participants) {
@@ -845,7 +846,7 @@ export class ConversationEnhancementService extends EventEmitter {
           try {
             // Try to get agent name first
             if (participant.agentId) {
-              const agent = await this.databaseService.findById('agents' as any, participant.agentId) as any;
+              const agent = await this.databaseService.findById(AgentEntity, participant.agentId) as any;
               if (agent) {
                 participantMap.set(participant.id, agent.name);
                 continue;
@@ -854,7 +855,7 @@ export class ConversationEnhancementService extends EventEmitter {
 
             // Fallback to user name if available
             if (participant.userId) {
-              const user = (await this.databaseService.findById('User', participant.userId)) as any;
+              const user = (await this.databaseService.findById(UserEntity, participant.userId)) as any;
               if (user && (user.username || user.email)) {
                 participantMap.set(participant.id, user.username || user.email);
                 continue;
@@ -901,7 +902,7 @@ export class ConversationEnhancementService extends EventEmitter {
       const { agentId } = event;
 
       // Reload personas for updated agent
-      const agent = await this.databaseService.findById('agents' as any, agentId) as any;
+      const agent = await this.databaseService.findById(AgentEntity, agentId) as any;
       if (agent) {
         const personas = await this.createPersonasFromAgent(agent as any);
         this.agentPersonaMappings.set(agentId, {

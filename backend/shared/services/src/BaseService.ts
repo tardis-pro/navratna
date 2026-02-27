@@ -73,6 +73,16 @@ export abstract class BaseService {
     }
   }
 
+  /**
+   * Register plane-specific TypeORM entities with the database layer.
+   * Call this in your service constructor or before start(), e.g.:
+   *   this.registerEntities([Agent, Persona, Discussion, ...])
+   * Each service plane registers only its own entities.
+   */
+  protected registerEntities(entities: any[]): void {
+    this.databaseService.registerEntities(entities);
+  }
+
   protected setupBaseMiddleware(): void {
     this.app = metricsMiddleware(this.app);
 

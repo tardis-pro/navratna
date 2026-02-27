@@ -1,4 +1,10 @@
-import { BaseService, DiscussionService, PersonaService, DatabaseService as SharedDatabaseService } from '@uaip/shared-services';
+import {
+  BaseService,
+  DiscussionService,
+  PersonaService,
+  DatabaseService as SharedDatabaseService,
+  allEntities,
+} from '@uaip/shared-services';
 import { LLMService, UserLLMService } from '@uaip/llm-service';
 import { DiscussionEventType, LLMTaskType, MessageType } from '@uaip/types';
 import { attachAuth, attachNginxAuth, requireNginxAuth, UserContext } from '@uaip/middleware';
@@ -25,6 +31,11 @@ class AgentIntelligenceService extends BaseService {
       enableNeo4j: true,
       enableEnterpriseEventBus: true,
     });
+
+    // Register all entities. TypeORM requires all related entities to be in the same DataSource.
+    // TODO: When per-plane databases are implemented, use plane-specific entity lists
+    //       (requires removing cross-plane TypeORM relations from entity classes first).
+    this.registerEntities(allEntities);
   }
 
   protected async setupRoutes(): Promise<void> {

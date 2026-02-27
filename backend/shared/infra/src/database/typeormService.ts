@@ -28,7 +28,7 @@ export class TypeOrmService {
     return TypeOrmService.instance;
   }
 
-  public async initialize(): Promise<void> {
+  public async initialize(entities: any[] = []): Promise<void> {
     try {
       const pg = config.database.postgres;
       this._dataSource = new DataSource({
@@ -40,7 +40,7 @@ export class TypeOrmService {
         database: pg.database,
         synchronize: false,
         logging: false,
-        entities: [],
+        entities: entities,
         migrations: [],
         subscribers: [],
         ssl: pg.ssl ? { rejectUnauthorized: false } : false,

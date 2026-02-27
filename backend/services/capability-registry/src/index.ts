@@ -1,4 +1,4 @@
-import { BaseService, ServiceConfig } from '@uaip/shared-services';
+import { BaseService, ServiceConfig, allEntities } from '@uaip/shared-services';
 import { config } from '@uaip/config';
 import { ToolGraphDatabase, IntegrationService } from '@uaip/shared-services';
 import {
@@ -44,6 +44,9 @@ class CapabilityRegistryService extends BaseService {
       port: config.port || 3003,
       enableNeo4j: true,
     });
+
+    // Register all entities (TypeORM requires related entities to be in the same DataSource).
+    this.registerEntities(allEntities);
   }
 
   protected async initialize(): Promise<void> {

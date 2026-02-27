@@ -1,4 +1,4 @@
-import { BaseService, ServiceConfig } from '@uaip/shared-services';
+import { BaseService, ServiceConfig, allEntities } from '@uaip/shared-services';
 import { logger } from '@uaip/utils';
 import {
   StateManagerService,
@@ -28,6 +28,9 @@ class OrchestrationPipelineService extends BaseService {
       name: 'orchestration-pipeline',
       port: parseInt(process.env.PORT || '3002', 10),
     });
+
+    // Register all entities (TypeORM requires related entities to be in the same DataSource).
+    this.registerEntities(allEntities);
   }
 
   protected async initialize(): Promise<void> {
