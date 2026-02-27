@@ -20,8 +20,8 @@ import { Persona } from '@uaip/types';
 import { DiscussionRepository } from './database/repositories/DiscussionRepository';
 import { Discussion } from './entities/discussion.entity';
 import { DiscussionParticipant } from './entities/discussionParticipant.entity';
-import { DatabaseService } from './databaseService';
-import { EventBusService } from './eventBusService';
+import { DatabaseService } from '@uaip/infra/database';
+import { EventBusService } from '@uaip/infra/eventBus';
 import { PersonaService } from './personaService';
 import { logger } from '@uaip/utils';
 

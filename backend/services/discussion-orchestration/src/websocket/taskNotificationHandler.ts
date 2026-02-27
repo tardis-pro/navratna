@@ -332,7 +332,7 @@ export class TaskNotificationHandler {
     });
 
     this.eventBusService.subscribe('project.stats_updated', async (data) => {
-      this.handleProjectStatsUpdate(data.data);
+      this.handleProjectStatsUpdate(data.data as unknown as ProjectTaskStats);
     });
   }
 

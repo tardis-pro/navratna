@@ -14,8 +14,8 @@ import {
   PersonaTrait,
   ConversationalStyle,
 } from '@uaip/types';
-import { DatabaseService } from './databaseService';
-import { EventBusService } from './eventBusService';
+import { DatabaseService } from '@uaip/infra/database';
+import { EventBusService } from '@uaip/infra/eventBus';
 import { logger } from '@uaip/utils';
 import { Persona as PersonaEntity } from './entities/persona.entity';
 import { SelectQueryBuilder } from 'typeorm';
