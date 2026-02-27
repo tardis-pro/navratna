@@ -18,6 +18,8 @@
   },
   "dependencies": {
     "@socket.io/bun-engine": "^0.0.2",
+    "baileys": "catalog:backend",
+    "@hapi/boom": "catalog:backend",
     "@types/ws": "catalog:backend",
     "@uaip/config": "workspace:*",
     "@uaip/middleware": "workspace:*",

@@ -22,6 +22,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     python3-pip \
     python3-venv \
     pipx \
+    build-essential \
+    python3-dev \
     && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
 # Install pnpm standalone + uv/uvx
@@ -31,7 +33,8 @@ RUN curl -fsSL https://get.pnpm.io/install.sh | ENV="${PNPM_HOME}" SHELL="$(whic
     && pipx install uv \
     && cp /root/.local/bin/uv /usr/local/bin/uv \
     && cp /root/.local/bin/uvx /usr/local/bin/uvx \
-    && chmod 755 /usr/local/bin/uv /usr/local/bin/uvx
+    && chmod 755 /usr/local/bin/uv /usr/local/bin/uvx \
+    && pnpm add -g node-gyp
 
 # -----------------------------------------------------------------------------
 # Stage 2: Dependencies (cached separately from source code)
