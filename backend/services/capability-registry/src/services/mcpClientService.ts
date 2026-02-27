@@ -381,7 +381,6 @@ export class MCPClientService extends EventEmitter {
         }
         const contentType = resp.headers.get('content-type') || '';
         let result: any;
-        logger.info(`[SSE-DEBUG] content-type: ${contentType}, isSSE: ${contentType.includes('text/event-stream')}`);
         if (contentType.includes('text/event-stream')) {
           result = await this.readSSEResponse(resp);
         } else {
@@ -1071,7 +1070,7 @@ export class MCPClientService extends EventEmitter {
         version: '1.0.0',
         securityLevel: SecurityLevel.LOW,
         enabled: true,
-        autoStart: false,
+        autoStart: true,
         retryAttempts: 3,
         healthCheckInterval: 30000,
         timeout: 30000,
@@ -1229,15 +1228,16 @@ export class MCPClientService extends EventEmitter {
   }
 
   private async readSSEResponse(response: Response): Promise<any> {
-    // Use response.text() for compatibility with Bun's fetch implementation.
-    // z.ai returns a single SSE event per request, so reading the full body is safe.
+    // Use response.text() for Bun compatibility (streaming ReadableStream is unreliable in Bun).
+    // z.ai returns a single SSE event per request so buffering the full body is fine.
     const text = await response.text();
-    logger.info(`[SSE] raw body (${text.length} bytes): ${JSON.stringify(text.slice(0, 500))}`);
     for (const line of text.split('\n')) {
       const trimmed = line.trim();
-      if (trimmed.startsWith('data: ')) {
+      // SSE data lines: 'data: {...}' or 'data:{...}' (no space is valid per spec)
+      if (trimmed.startsWith('data:')) {
+        const payload = trimmed.slice(5).replace(/^ /, ''); // strip optional leading space
         try {
-          const data = JSON.parse(trimmed.slice(6)) as JSONRPCResponse;
+          const data = JSON.parse(payload) as JSONRPCResponse;
           if (data && (data.result !== undefined || data.error !== undefined)) {
             if (data.error) {
               throw new Error(`${data.error.message} (${data.error.code})`);
@@ -1246,7 +1246,7 @@ export class MCPClientService extends EventEmitter {
           }
         } catch (e: any) {
           if (e.message?.includes('(')) throw e; // re-throw real MCP errors
-          // else: bad JSON line, continue
+          // else: non-JSON line (id:, event:, comment), continue
         }
       }
     }

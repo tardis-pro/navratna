@@ -75,6 +75,15 @@ export const useEnhancedWebSocket = (config: ConnectionConfig = {}) => {
       return false;
     }
 
+    // Disconnect and clean up any existing socket before creating a new one.
+    // Without this, effect re-runs (due to callback identity changes) leave
+    // orphaned sockets whose onAny handlers still fire — causing duplicate lastEvent updates.
+    if (socketRef.current) {
+      socketRef.current.removeAllListeners();
+      socketRef.current.disconnect();
+      socketRef.current = null;
+    }
+
     try {
       logger.info('[Socket.IO] Attempting connection', { url });
 

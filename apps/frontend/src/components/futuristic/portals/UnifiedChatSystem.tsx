@@ -465,15 +465,16 @@ export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
   // Define openChatWindowWithSession function for resuming specific discussions
   const openChatWindowWithSession = useCallback(
     async (agentId: string, agentName: string, discussionId: string) => {
-      // Check if chat window already exists for this specific discussion
-      const existingWindow = chatWindows.find((w) => w.discussionId === discussionId);
+      // Check if a chat window already exists for this agent (by agentId, not discussionId).
+      // Keying on agentId ensures only one window per agent regardless of which session is open.
+      const existingWindow = chatWindows.find((w) => w.agentId === agentId);
       if (existingWindow) {
         console.log(
-          `Chat window for discussion ${discussionId} already exists - focusing existing window`
+          `Chat window for agent ${agentName} (${agentId}) already exists - focusing existing window`
         );
         // Focus/restore existing window
         setChatWindows((prev) =>
-          prev.map((w) => (w.discussionId === discussionId ? { ...w, isMinimized: false } : w))
+          prev.map((w) => (w.agentId === agentId ? { ...w, isMinimized: false } : w))
         );
         return;
       }
@@ -515,8 +516,8 @@ export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
           mode: 'floating',
         };
 
-        // Note: Not adding to agent tracking set since this is a specific discussion
-
+        // Track this agent so openChatWindow's ref-based guard also knows about this window.
+        openAgentWindows.current.add(agentId);
         setChatWindows((prev) => [...prev, newWindow]);
         setCurrentMessage((prev) => ({ ...prev, [newWindow.id]: '' }));
 

@@ -1,4 +1,4 @@
-import { BaseService, ServiceConfig, allEntities } from '@uaip/shared-services';
+import { BaseService, ServiceConfig, allEntities, MCPServer as SharedMCPServer, MCPToolCall as SharedMCPToolCall } from '@uaip/shared-services';
 import { config } from '@uaip/config';
 import { ToolGraphDatabase, IntegrationService } from '@uaip/shared-services';
 import {
@@ -46,8 +46,14 @@ class CapabilityRegistryService extends BaseService {
       enableNeo4j: true,
     });
 
-    // Register all entities (TypeORM requires related entities to be in the same DataSource).
-    this.registerEntities(allEntities);
+    // Register shared entities with the platform DataSource.
+    // MCPServer / MCPToolCall are intentionally excluded here — the Execution Plane
+    // (capability-registry) owns those entities exclusively via ExecutionDataSource.
+    // Including them in the shared DataSource would create a dual-ownership conflict.
+    const platformEntities = allEntities.filter(
+      (e) => e !== SharedMCPServer && e !== SharedMCPToolCall
+    );
+    this.registerEntities(platformEntities);
   }
 
   protected async initialize(): Promise<void> {
