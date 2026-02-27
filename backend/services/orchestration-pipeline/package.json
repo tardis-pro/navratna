@@ -29,7 +29,7 @@
     "bull": "^4.16.5",
     "compression": "catalog:backend",
     "cors": "catalog:backend",
-    "elysia": "^1.4.5",
+    "elysia": "catalog:backend",
     "events": "^3.3.0",
     "helmet": "catalog:backend",
     "node-cron": "^4.1.0",

@@ -28,6 +28,7 @@ export enum SourceType {
   AGENT_EPISODE = 'AGENT_EPISODE',
   AGENT_CONCEPT = 'AGENT_CONCEPT',
   CLUSTERED = 'CLUSTERED',
+  CHAT_IMPORT = 'CHAT_IMPORT',
 }
 
 export enum SyncStatusType {

@@ -33,6 +33,7 @@ export interface UsagePattern {
 export class ToolGraphDatabase {
   private driver: Driver;
   private database: string;
+  private configUri: string;
   private isConnected: boolean = false;
   private connectionRetries: number = 0;
   private maxRetries: number = 3;
@@ -52,6 +53,7 @@ export class ToolGraphDatabase {
         },
       });
       this.database = dbConfig.database || 'neo4j';
+      this.configUri = dbConfig.uri;
 
       logger.info(`Neo4j driver initialized for ${dbConfig.uri}`);
     } catch (error) {
@@ -79,7 +81,7 @@ export class ToolGraphDatabase {
       try {
         logger.info(`🔄 Verifying Neo4j connectivity (attempt ${attempt}/${maxRetries})`);
         logger.info(
-          `Neo4j config: uri=${this.driver['_config']?.serverAgent || 'unknown'}, database=${this.database}`
+          `Neo4j config: uri=${this.configUri}, database=${this.database}`
         );
 
         const result = await session.run('RETURN 1 as test');

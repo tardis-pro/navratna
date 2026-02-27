@@ -54,6 +54,12 @@ class APIClientClass {
           config.headers['Authorization'] = `Bearer ${this.authToken}`;
         }
 
+        // Let axios set the correct Content-Type for FormData (multipart/form-data + boundary)
+        // The instance default 'application/json' would otherwise override it and serialize FormData as JSON
+        if (config.data instanceof FormData) {
+          delete config.headers['Content-Type'];
+        }
+
         // Add CSRF token for state-changing requests
         if (['post', 'put', 'delete', 'patch'].includes(config.method?.toLowerCase() || '')) {
           try {

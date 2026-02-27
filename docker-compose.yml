@@ -480,6 +480,10 @@ services:
       - TEI_EMBEDDING_URL=http://tei-embeddings:80
       - TEI_RERANKER_URL=http://tei-reranker:8083
       - TEI_EMBEDDING_CPU_URL=http://tei-embeddings-cpu:80
+      # Neo4j Configuration
+      - NEO4J_URL=bolt://neo4j:7687
+      - NEO4J_USER=${NEO4J_USER:-neo4j}
+      - NEO4J_PASSWORD=${NEO4J_PASSWORD:-uaip_dev_password}
     ports:
       - '3004:3004'
     volumes:

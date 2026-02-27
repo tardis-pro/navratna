@@ -28,6 +28,7 @@
     "@uaip/llm-service": "workspace:*",
     "@uaip/types": "workspace:*",
     "@uaip/utils": "workspace:*",
+    "elysia": "catalog:backend",
     "amqplib": "catalog:backend",
     "axios": "^1.7.7",
     "base64url": "^3.0.1",

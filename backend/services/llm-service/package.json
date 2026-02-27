@@ -22,7 +22,7 @@
     "@uaip/utils": "workspace:*",
     "compression": "catalog:backend",
     "cors": "catalog:backend",
-    "elysia": "^1.4.5",
+    "elysia": "catalog:backend",
     "helmet": "catalog:backend"
   },
   "devDependencies": {

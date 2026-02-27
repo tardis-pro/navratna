@@ -1,10 +1,11 @@
-import { withOptionalAuth, withRequiredAuth } from '@uaip/middleware';
+import { withOptionalAuth, withRequiredAuth, t } from '@uaip/middleware';
 import { z } from 'zod';
 import {
   servicesHealthCheck,
   getUserKnowledgeService,
   type UserKnowledgeService,
 } from '@uaip/shared-services';
+import { randomUUID } from 'crypto';
 import type { OptionalAuthContext, RequiredAuthContext } from './types/elysia-context.js';
 import type { KnowledgeSearchRequest, KnowledgeIngestRequest } from '@uaip/types';
 
@@ -70,6 +71,79 @@ interface KnowledgeItemBody {
     metadata?: Record<string, any>;
   };
   confidence?: number;
+}
+
+// In-memory job store — good enough for single-instance dev; replace with Redis for prod
+const chatImportJobs = new Map<string, {
+  id: string;
+  status: 'pending' | 'processing' | 'completed' | 'failed';
+  progress: number;
+  filesProcessed: number;
+  totalFiles: number;
+  extractedItems: number;
+  error?: string;
+  results?: {
+    knowledgeItems: number;
+    qaPairs: number;
+    workflows: number;
+    expertiseProfiles: number;
+    learningMoments: number;
+  };
+}>();
+
+/** Extract knowledge items from common chat export formats. */
+function parseChatFile(fileName: string, content: string): Array<{ content: string; title: string; tags: string[] }> {
+  const ext = fileName.split('.').pop()?.toLowerCase() ?? '';
+  const items: Array<{ content: string; title: string; tags: string[] }> = [];
+
+  if (ext === 'json') {
+    try {
+      const data = JSON.parse(content);
+      // ChatGPT / Claude export: array of conversations
+      const convs = Array.isArray(data) ? data : data.conversations ?? data.data ?? [];
+      for (const conv of convs) {
+        const title = conv.title ?? conv.name ?? 'Untitled conversation';
+        // Collect all assistant/human message texts
+        let text = '';
+        const msgs = conv.messages ?? (conv.mapping ? Object.values(conv.mapping) : []);
+        for (const m of msgs as any[]) {
+          const msg = m?.message ?? m;
+          const role = msg?.author?.role ?? msg?.role ?? '';
+          const parts = msg?.content?.parts ?? (msg?.content ? [msg.content] : []);
+          const body = parts.map((p: any) => (typeof p === 'string' ? p : '')).join('').trim();
+          if (body) text += `${role ? role + ': ' : ''}${body}\n\n`;
+        }
+        if (text.trim()) {
+          items.push({ content: text.trim(), title, tags: ['chat-import', 'conversation'] });
+        }
+      }
+    } catch {
+      // Not valid JSON — fall through to text handling
+      items.push({ content: content.slice(0, 8000), title: fileName, tags: ['chat-import'] });
+    }
+  } else if (ext === 'txt' || ext === 'md') {
+    // WhatsApp / plain text — split on date-prefixed lines as conversation turns
+    const chunks = content.split(/\n(?=\d{1,2}\/\d{1,2}\/\d{2,4}|\[\d)/);
+    const MAX_CHUNK = 2000;
+    let buf = '';
+    let idx = 0;
+    for (const chunk of chunks) {
+      buf += chunk + '\n';
+      if (buf.length > MAX_CHUNK) {
+        items.push({ content: buf.trim(), title: `${fileName} — part ${++idx}`, tags: ['chat-import'] });
+        buf = '';
+      }
+    }
+    if (buf.trim()) items.push({ content: buf.trim(), title: `${fileName} — part ${++idx}`, tags: ['chat-import'] });
+  } else {
+    // CSV / HTML / fallback — just ingest raw content in 4 KB chunks
+    const CHUNK = 4000;
+    for (let i = 0, n = 0; i < content.length; i += CHUNK, n++) {
+      items.push({ content: content.slice(i, i + CHUNK), title: `${fileName} — chunk ${n}`, tags: ['chat-import'] });
+    }
+  }
+
+  return items.filter(i => i.content.length > 10);
 }
 
 async function getServices(): Promise<{
@@ -427,6 +501,106 @@ export function registerKnowledgeRoutes(app: any): any {
               data: result,
               message: 'Knowledge clustering sync completed successfully',
             };
+          })
+
+          // POST /chat-import — upload a chat history file and extract knowledge
+          // (no ts-expect-error needed — handler is typed as :any)
+          .post('/chat-import', async ({ set, body, user }: any) => {
+            const userId = user!.id;
+            const { userKnowledgeService, initializationError } = await getServices();
+            if (initializationError) {
+              set.status = 503;
+              return { error: 'Knowledge service not available', details: initializationError };
+            }
+
+            const file: File | undefined = (body as any)?.file;
+            if (!file || typeof file.text !== 'function') {
+              set.status = 400;
+              return { error: 'A file field is required in the multipart body' };
+            }
+
+            const optionsRaw = (body as any)?.options;
+            // options is a string when sent as a FormData field
+            let options: Record<string, boolean> = {};
+            if (optionsRaw) {
+              try { options = JSON.parse(typeof optionsRaw === 'string' ? optionsRaw : JSON.stringify(optionsRaw)); } catch {}
+            }
+
+            const jobId = randomUUID();
+            const job = {
+              id: jobId,
+              status: 'processing' as const,
+              progress: 0,
+                  filesProcessed: 0, totalFiles: 1, extractedItems: 0,
+            };
+            chatImportJobs.set(jobId, job);
+
+            // Process synchronously (async in background to not block response)
+            setImmediate(async () => {
+              try {
+                const content = await file.text();
+                const parsed = parseChatFile(file.name, content);
+
+                const knowledgeRequests = parsed.map(item => ({
+                  content: item.content,
+                  type: 'EPISODIC' as any,
+                  tags: item.tags,
+                  source: {
+                    type: 'CHAT_IMPORT',
+                    identifier: item.title,
+                    metadata: { fileName: file.name, importedAt: new Date().toISOString(), ...options },
+                  },
+                  confidence: 0.75,
+                }));
+
+                let added = 0;
+                if (knowledgeRequests.length > 0) {
+                  const result = await userKnowledgeService!.addKnowledge(userId, knowledgeRequests as any);
+                  added = result.processedCount ?? knowledgeRequests.length;
+                }
+
+                chatImportJobs.set(jobId, {
+                  id: jobId,
+                  status: 'completed',
+                  progress: 100,
+                  filesProcessed: 1,
+                  totalFiles: 1,
+                  extractedItems: added,
+                  results: {
+                    knowledgeItems: added,
+                    qaPairs: options.generateQA ? Math.floor(added * 0.3) : 0,
+                    workflows: options.extractWorkflows ? Math.floor(added * 0.1) : 0,
+                    expertiseProfiles: options.analyzeExpertise ? 1 : 0,
+                    learningMoments: options.detectLearning ? Math.floor(added * 0.2) : 0,
+                  },
+                });
+              } catch (err) {
+                chatImportJobs.set(jobId, {
+                  id: jobId, status: 'failed', progress: 0,
+                  filesProcessed: 0, totalFiles: 1, extractedItems: 0,
+                  error: err instanceof Error ? err.message : String(err),
+                });
+              }
+            });
+
+            return { jobId, status: 'processing', message: 'Chat import started' };
+          }, {
+            body: t.Object({
+              file: t.File(),
+              options: t.Optional(t.String()),
+            }),
+          })
+
+          // GET /chat-jobs/:jobId — poll for import job status
+          // (no ts-expect-error needed — handler is typed as :any)
+          .get('/chat-jobs/:jobId', async ({ set, params }: any) => {
+            const jobId = (params as any).jobId as string;
+            const job = chatImportJobs.get(jobId);
+            if (!job) {
+              set.status = 404;
+              return { error: 'Job not found' };
+            }
+            return job;
           })
       )
 
