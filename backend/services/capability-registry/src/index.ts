@@ -1,7 +1,10 @@
 import { BaseService, ServiceConfig } from '@uaip/shared-services';
 import { config } from '@uaip/config';
 import { ToolGraphDatabase, IntegrationService } from '@uaip/shared-services';
-import { DatabaseService } from '@uaip/infra';
+import {
+  DatabaseService as InfraDatabaseService,
+  EventBusService as InfraEventBusService,
+} from '@uaip/infra';
 import { ToolRegistry } from './services/toolRegistry.js';
 import { ToolExecutor } from './services/toolExecutor.js';
 import { BaseToolExecutor } from './services/baseToolExecutor.js';
@@ -15,7 +18,7 @@ import { EnterpriseToolRegistry } from './services/enterprise-tool-registry.js';
 import { logger } from '@uaip/utils';
 
 class CapabilityRegistryService extends BaseService {
-  private postgresql: DatabaseService;
+  private postgresql: InfraDatabaseService;
   private neo4j: ToolGraphDatabase;
   private integrationService: IntegrationService;
   private toolRegistry: ToolRegistry;
@@ -61,25 +64,28 @@ class CapabilityRegistryService extends BaseService {
     logger.info('Initializing services...');
 
     // Set up database service reference
-    this.postgresql = this.databaseService;
+    this.postgresql = this.asInfraDatabaseService();
 
     // Initialize base tool executor
     this.baseExecutor = new BaseToolExecutor();
 
     // Initialize tool registry with EventBusService
-    this.toolRegistry = new ToolRegistry(this.eventBusService);
+    this.toolRegistry = new ToolRegistry(this.asInfraEventBusService());
 
     // Initialize tool executor
     this.toolExecutor = new ToolExecutor(this.postgresql, this.toolRegistry, this.baseExecutor);
 
     // Initialize MCP Client Service
     this.mcpClientService = MCPClientService.getInstance();
-    await this.mcpClientService.initialize(this.eventBusService, this.databaseService);
+    await this.mcpClientService.initialize(
+      this.asInfraEventBusService(),
+      this.asInfraDatabaseService()
+    );
     logger.info('MCP Client Service initialized and auto-started servers');
 
     // Initialize OAuth Capability Discovery
     this.oauthCapabilityDiscovery = OAuthCapabilityDiscovery.getInstance();
-    await this.oauthCapabilityDiscovery.initialize(this.eventBusService);
+    await this.oauthCapabilityDiscovery.initialize(this.asInfraEventBusService());
     logger.info('OAuth Capability Discovery Service initialized');
 
     // Initialize Integration Service for database synchronization
@@ -91,13 +97,13 @@ class CapabilityRegistryService extends BaseService {
     );
 
     // Initialize unified services
-    this.unifiedToolRegistry = new UnifiedToolRegistry(this.eventBusService);
+    this.unifiedToolRegistry = new UnifiedToolRegistry(this.asInfraEventBusService());
     await this.unifiedToolRegistry.initialize();
     logger.info('Unified Tool Registry initialized');
 
     this.enterpriseToolRegistry = new EnterpriseToolRegistry({
-      eventBusService: this.eventBusService,
-      databaseService: this.databaseService,
+      eventBusService: this.asInfraEventBusService(),
+      databaseService: this.asInfraDatabaseService(),
       serviceName: 'capability-registry',
     });
     await this.enterpriseToolRegistry.initialize();
@@ -135,7 +141,7 @@ class CapabilityRegistryService extends BaseService {
 
     // Initialize controllers
     this.toolController = new ToolController(this.toolRegistry, this.toolExecutor);
-    this.capabilityController = new CapabilityController(this.databaseService);
+    this.capabilityController = new CapabilityController(this.asInfraDatabaseService());
 
     logger.info('Services initialized successfully');
   }
@@ -160,7 +166,7 @@ class CapabilityRegistryService extends BaseService {
 
     // Register Elysia route groups (tools + MCP + health + capabilities)
     const { registerToolRoutes } = await import('./routes/toolRoutes.js');
-    registerToolRoutes(this.app as any, this.toolController, this.eventBusService);
+    registerToolRoutes(this.app as any, this.toolController, this.asInfraEventBusService());
 
     const { registerHealthRoutes } = await import('./routes/healthRoutes.js');
     registerHealthRoutes(this.app as any);
@@ -204,13 +210,28 @@ class CapabilityRegistryService extends BaseService {
     );
 
     // Get cache statistics - services disabled
-    const cacheStats = null;
+    const cacheStats: {
+      memoryCacheSize?: number;
+      redisCacheSize?: number;
+      hitRate?: number;
+      missRate?: number;
+    } | null = null;
 
     // Get sandbox metrics
-    const sandboxMetrics = null;
+    const sandboxMetrics: {
+      activeExecutions?: number;
+      totalExecutions?: number;
+      averageExecutionTime?: number;
+      failureRate?: number;
+    } | null = null;
 
     // Get execution metrics
-    const executionMetrics = null;
+    const executionMetrics: {
+      total?: number;
+      successful?: number;
+      failed?: number;
+      averageExecutionTime?: number;
+    } | null = null;
 
     return {
       databases: {
@@ -273,6 +294,14 @@ class CapabilityRegistryService extends BaseService {
   protected async checkServiceHealth(): Promise<boolean> {
     // Add service-specific health checks here
     return true;
+  }
+
+  private asInfraDatabaseService(): InfraDatabaseService {
+    return this.databaseService as unknown as InfraDatabaseService;
+  }
+
+  private asInfraEventBusService(): InfraEventBusService {
+    return this.eventBusService as unknown as InfraEventBusService;
   }
 
   protected onServerStarted(): void {

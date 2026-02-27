@@ -4,12 +4,8 @@
  * Combines features from toolRegistry.ts and enterprise-tool-registry.ts
  */
 
-import {
-  ToolDefinition,
-  ToolCategory,
-  SecurityLevel,
-} from '@uaip/types';
-import { ToolService } from '@uaip/shared-services';
+import { ToolDefinition, ToolCategory, SecurityLevel } from '@uaip/types';
+import { DatabaseService, ToolService } from '@uaip/shared-services';
 import { EventBusService } from '@uaip/infra';
 import { logger } from '@uaip/utils';
 import { z } from 'zod';
@@ -212,11 +208,13 @@ const UnifiedToolDefinitionSchema = z.object({
 });
 
 export class UnifiedToolRegistry {
+  private databaseService: DatabaseService;
   private toolService: ToolService;
   private eventBusService: EventBusService;
   private isInitialized = false;
 
   constructor(eventBusService: EventBusService) {
+    this.databaseService = DatabaseService.getInstance();
     this.toolService = ToolService.getInstance();
     this.eventBusService = eventBusService;
   }
@@ -523,7 +521,7 @@ export class UnifiedToolRegistry {
       if (this.toolService.neo4jService) {
         const relationships = await this.toolService.getToolRelationships(toolId);
         return relationships.map((rel) => ({
-          type: rel.type as any,
+          type: rel.type as ToolRelationship['type'],
           targetToolId: rel.targetId,
           strength: rel.strength || 0.5,
           reason: rel.reason,
@@ -780,11 +778,7 @@ export class UnifiedToolRegistry {
       // Get recommendations based on current tools
       if (context.currentTools?.length > 0) {
         for (const toolId of context.currentTools) {
-          const toolRecs = await this.toolService.getRecommendations(
-            toolId,
-            context.objective,
-            3
-          );
+          const toolRecs = await this.toolService.getRecommendations(toolId, context.objective, 3);
           recommendations.push(...toolRecs);
         }
       }
@@ -894,7 +888,7 @@ export class UnifiedToolRegistry {
         const enterpriseRegistry = await import('./enterprise-tool-registry');
         return new enterpriseRegistry.EnterpriseToolRegistry({
           eventBusService: this.eventBusService,
-          databaseService: this.toolService,
+          databaseService: this.databaseService,
           serviceName: 'capability-registry',
         });
       } else {
