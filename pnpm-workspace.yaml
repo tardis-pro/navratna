@@ -116,6 +116,10 @@ catalogs:
     concurrently: ^9.1.1
     cross-env: ^7.0.3
 
+ignoredBuiltDependencies:
+  - baileys
+  - sharp
+
 onlyBuiltDependencies:
   - '@swc/core'
   - '@tailwindcss/oxide'

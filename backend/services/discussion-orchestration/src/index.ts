@@ -23,6 +23,7 @@ import { TaskNotificationHandler } from './websocket/taskNotificationHandler.js'
 import { StreamingHandler } from './websocket/streamingHandler.js';
 import { setupWebSocketHandlers } from './websocket/discussionSocket.js';
 import { DebateHandler } from './handlers/debateHandler.js';
+import { WhatsAppHandler } from './whatsapp/whatsappHandler.js';
 
 class DiscussionOrchestrationServer extends BaseService {
   private wss!: WebSocketServer;
@@ -37,6 +38,7 @@ class DiscussionOrchestrationServer extends BaseService {
   private taskNotificationHandler?: TaskNotificationHandler;
   private streamingHandler?: StreamingHandler;
   private debateHandler?: DebateHandler;
+  private whatsappHandler?: WhatsAppHandler;
   private serviceName = 'discussion-orchestration';
   private authResponseHandlers = new Map<string, (response: any) => void>();
   private authSubscriptionInitialized = false;
@@ -293,6 +295,24 @@ class DiscussionOrchestrationServer extends BaseService {
           success: false,
           error: 'Failed to fetch user status',
         };
+      }
+    });
+
+    // WhatsApp status endpoint
+    this.app.get('/api/v1/whatsapp/status', ({ set }) => {
+      try {
+        if (!this.whatsappHandler) {
+          set.status = 503;
+          return { success: false, error: 'WhatsApp integration not initialised' };
+        }
+        return {
+          success: true,
+          state: this.whatsappHandler.getConnectionState(),
+          connectedInfo: this.whatsappHandler.getConnectedInfo(),
+        };
+      } catch (error) {
+        set.status = 500;
+        return { success: false, error: 'Failed to fetch WhatsApp status' };
       }
     });
 
@@ -671,6 +691,15 @@ class DiscussionOrchestrationServer extends BaseService {
       } catch (error) {
         logger.error('Failed to initialize StreamingHandler:', error);
         // Continue without streaming handler rather than crashing the service
+      }
+
+      // WhatsApp handler — Baileys integration for AI agent chat via WhatsApp
+      try {
+        this.whatsappHandler = new WhatsAppHandler(this.io, this.eventBusService);
+        logger.info('WhatsAppHandler initialized successfully');
+      } catch (error) {
+        logger.error('Failed to initialize WhatsAppHandler:', error);
+        // Non-fatal — service continues without WhatsApp integration
       }
 
       // Setup discussion-specific WebSocket handlers (start_discussion, join_discussion, etc.)
