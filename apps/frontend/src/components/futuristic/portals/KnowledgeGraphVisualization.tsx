@@ -225,10 +225,39 @@ const KnowledgeGraphVisualizationInner: React.FC<KnowledgeGraphVisualizationInne
           limit: 100,
         });
 
-        // Transform to expected format if needed
+        // knowledgeAPI.getGraph() transforms raw nodes from {id, type, data:{...}}
+        // into {id, label, type, properties} — we must reconstruct proper React Flow nodes here
+        const rawNodes = apiGraphData.nodes || [];
+        const rawEdges = apiGraphData.edges || [];
+
         graphData = {
-          nodes: apiGraphData.nodes || [],
-          edges: apiGraphData.edges || [],
+          nodes: rawNodes.map((n: any) => ({
+            id: n.id,
+            position: { x: 0, y: 0 },
+            type: 'default',
+            data: {
+              label: n.label || n.id,
+              knowledgeType: n.properties?.knowledgeType || n.type || 'FACTUAL',
+              tags: n.properties?.tags || [],
+              confidence: parseFloat(String(n.properties?.confidence ?? 0)),
+              sourceType: n.properties?.sourceType || '',
+              createdAt: n.properties?.createdAt || '',
+              fullContent: n.properties?.fullContent || n.label || '',
+            },
+          })) as KnowledgeNode[],
+          edges: rawEdges.map((e: any, i: number) => ({
+            id: e.id || `edge-${i}-${e.source}-${e.target}`,
+            source: e.source,
+            target: e.target,
+            data: {
+              relationshipType: e.type || e.properties?.relationshipType || 'related',
+              confidence: parseFloat(String(e.properties?.confidence ?? 0.8)),
+            },
+          })) as KnowledgeEdge[],
+          metadata: {
+            totalNodes: rawNodes.length,
+            totalEdges: rawEdges.length,
+          },
         };
       } catch (error) {
         console.warn('Knowledge graph API failed, using mock data:', error);

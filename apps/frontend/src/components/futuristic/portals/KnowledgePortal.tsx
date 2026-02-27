@@ -76,6 +76,24 @@ const SOURCE_TYPES: { value: SourceType; label: string }[] = [
   { value: SourceType.EXTERNAL_API, label: 'External API' },
 ];
 
+// Knowledge type color classes for list badges
+const KNOWLEDGE_TYPE_COLORS: Record<string, string> = {
+  FACTUAL: 'bg-blue-500/20 text-blue-300 border-blue-500/40',
+  PROCEDURAL: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40',
+  CONCEPTUAL: 'bg-purple-500/20 text-purple-300 border-purple-500/40',
+  EXPERIENTIAL: 'bg-amber-500/20 text-amber-300 border-amber-500/40',
+  EPISODIC: 'bg-red-500/20 text-red-300 border-red-500/40',
+  SEMANTIC: 'bg-cyan-500/20 text-cyan-300 border-cyan-500/40',
+  document: 'bg-slate-500/20 text-slate-300 border-slate-500/40',
+};
+
+/** Extract a readable one-line title from raw knowledge content */
+const getContentTitle = (content: string): string => {
+  if (!content) return 'No content';
+  const first = content.split('\n').find((l) => l.trim().length > 0) || content;
+  return first.length > 72 ? first.slice(0, 72) + '…' : first;
+};
+
 export const KnowledgePortal: React.FC<KnowledgePortalProps> = ({ className }) => {
   const {
     items,
@@ -197,17 +215,20 @@ export const KnowledgePortal: React.FC<KnowledgePortalProps> = ({ className }) =
                       className="flex items-center justify-between p-3 bg-black/20 border border-blue-500/20 rounded hover:bg-blue-500/10 transition-colors"
                     >
                       <div className="flex-1 min-w-0">
-                        <p className="text-white text-sm truncate mb-1">
-                          {item.content || 'No content'}
+                        <p className="text-white text-sm font-medium truncate mb-1">
+                          {getContentTitle(item.content || '')}
                         </p>
-                        <div className="flex items-center gap-2 text-xs text-gray-400">
-                          <span>
-                            {item.createdAt
-                              ? new Date(item.createdAt).toLocaleDateString()
-                              : 'No date'}
+                        <div className="flex items-center gap-2 flex-wrap">
+                          {(item as any).type && (item as any).type !== 'document' ? (
+                            <span className={`text-xs px-1.5 py-0.5 rounded border font-medium ${ KNOWLEDGE_TYPE_COLORS[(item as any).type] || KNOWLEDGE_TYPE_COLORS.document }`}>
+                              {(item as any).type}
+                            </span>
+                          ) : null}
+                          <span className="text-xs text-gray-500">
+                            {item.createdAt ? new Date(item.createdAt).toLocaleDateString() : 'No date'}
                           </span>
-                          {(item.tags || []).slice(0, 2).map((tag) => (
-                            <Badge key={tag} variant="outline" className="text-xs">
+                          {(item.tags || []).slice(0, 3).map((tag) => (
+                            <Badge key={tag} variant="outline" className="text-xs py-0 h-4">
                               {tag}
                             </Badge>
                           ))}
@@ -308,17 +329,20 @@ export const KnowledgePortal: React.FC<KnowledgePortalProps> = ({ className }) =
                       className="flex items-center justify-between p-3 bg-black/20 border border-blue-500/20 rounded hover:bg-blue-500/10 transition-colors"
                     >
                       <div className="flex-1 min-w-0">
-                        <p className="text-white text-sm truncate mb-1">
-                          {item.content || 'No content'}
+                        <p className="text-white text-sm font-medium truncate mb-1">
+                          {getContentTitle(item.content || '')}
                         </p>
-                        <div className="flex items-center gap-2 text-xs text-gray-400">
-                          <span>
-                            {item.createdAt
-                              ? new Date(item.createdAt).toLocaleDateString()
-                              : 'No date'}
+                        <div className="flex items-center gap-2 flex-wrap">
+                          {(item as any).type && (item as any).type !== 'document' ? (
+                            <span className={`text-xs px-1.5 py-0.5 rounded border font-medium ${ KNOWLEDGE_TYPE_COLORS[(item as any).type] || KNOWLEDGE_TYPE_COLORS.document }`}>
+                              {(item as any).type}
+                            </span>
+                          ) : null}
+                          <span className="text-xs text-gray-500">
+                            {item.createdAt ? new Date(item.createdAt).toLocaleDateString() : 'No date'}
                           </span>
-                          {(item.tags || []).slice(0, 2).map((tag) => (
-                            <Badge key={tag} variant="outline" className="text-xs">
+                          {(item.tags || []).slice(0, 3).map((tag) => (
+                            <Badge key={tag} variant="outline" className="text-xs py-0 h-4">
                               {tag}
                             </Badge>
                           ))}
