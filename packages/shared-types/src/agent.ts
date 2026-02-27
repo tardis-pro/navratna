@@ -37,6 +37,27 @@ export const AgentPersonaSchema = z.object({
   preferences: z.record(z.any()).optional(),
 });
 
+// Agent Skill Schema - OpenCode-compatible skill definition stored in DB
+export const AgentSkillSchema = z.object({
+  id: z.string().uuid().optional(), // client-generated or server-assigned
+  name: z.string().min(1).max(100),
+  description: z.string().min(1),
+  content: z.string().min(1), // Full SKILL.md body (markdown instructions)
+  source: z.enum(['inline', 'filesystem', 'registry']).default('inline'),
+  // For filesystem/registry sources - stored for re-sync; not required at runtime
+  sourcePath: z.string().optional(), // e.g. '.agents/skills/my-skill/SKILL.md'
+  sourceUrl: z.string().url().optional(), // e.g. registry URL
+  enabled: z.boolean().default(true),
+  // OpenCode-compatible frontmatter fields (optional)
+  model: z.string().optional(), // override model for this skill
+  allowedTools: z.array(z.string()).optional(), // restrict tools when skill is active
+  metadata: z.record(z.any()).optional(),
+  createdAt: z.string().datetime().optional(),
+  updatedAt: z.string().datetime().optional(),
+});
+
+export type AgentSkill = z.infer<typeof AgentSkillSchema>;
+
 export type AgentPersona = z.infer<typeof AgentPersonaSchema>;
 
 export const AgentIntelligenceConfigSchema = z.object({
@@ -73,6 +94,7 @@ export const AgentSchema = BaseEntitySchema.extend({
   isActive: z.boolean().default(true),
   status: z.nativeEnum(AgentStatus).default(AgentStatus.IDLE),
   capabilities: z.array(z.string()).default([]),
+  skills: z.array(AgentSkillSchema).default([]),
   version: z.number().default(1),
   metadata: z.record(z.any()).optional(),
   createdBy: IDSchema,
@@ -143,6 +165,7 @@ export const AgentCreateRequestSchema = z
     name: z.string().min(1).max(255),
     description: z.string().min(1),
     capabilities: z.array(z.string()).min(1),
+    skills: z.array(AgentSkillSchema).optional().default([]),
     role: z.nativeEnum(AgentRole).optional().default(AgentRole.ASSISTANT),
     personaId: IDSchema.optional(),
     persona: AgentPersonaSchema.optional(),
@@ -240,6 +263,7 @@ export const AgentUpdateSchema = z.object({
   status: z.enum(['idle', 'active', 'busy', 'error', 'offline']).optional(),
   lastActiveAt: z.date().optional(),
   metadata: z.record(z.any()).optional(),
+  skills: z.array(AgentSkillSchema).optional(),
   // Model configuration fields (direct agent fields, not in configuration)
   modelId: z.string().optional(),
   apiType: z.enum(['ollama', 'llmstudio', 'openai', 'anthropic', 'custom']).optional(),
@@ -279,6 +303,7 @@ export const AgentUpdateRequestSchema = z.object({
   name: z.string().min(1).max(255).optional(),
   description: z.string().min(1).optional(),
   capabilities: z.array(z.string()).optional(),
+  skills: z.array(AgentSkillSchema).optional(),
   role: z.nativeEnum(AgentRole).optional(),
   personaId: IDSchema.optional(),
   persona: AgentPersonaSchema.optional(),
@@ -330,6 +355,7 @@ export const CreateAgentRequestSchema = z.object({
   name: z.string().min(1).max(255),
   description: z.string().min(1).optional(),
   capabilities: z.array(z.string()).default([]),
+  skills: z.array(AgentSkillSchema).default([]),
   role: z.nativeEnum(AgentRole),
   personaId: IDSchema.optional(),
   persona: AgentPersonaSchema.optional(),

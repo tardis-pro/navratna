@@ -55,6 +55,7 @@ import {
   Moon,
   Palette,
   RefreshCw,
+  Smartphone,
 } from 'lucide-react';
 
 // Import portal components
@@ -93,6 +94,7 @@ import { useWallpaper } from '../hooks/useWallpaper';
 import { WallpaperCustomizationPanel } from './WallpaperCustomizationPanel';
 import { DiscussionConfigModal } from './DiscussionConfigModal';
 import { OnboardingManager } from './OnboardingManager';
+import WhatsAppPanel from './WhatsAppPanel';
 
 // Design System Tokens
 const DESIGN_TOKENS = {
@@ -286,6 +288,15 @@ const ALL_APPLICATIONS: Application[] = [
     component: ToolsIntegrationsPortal,
     category: 'tools',
     minimumRole: 'moderator',
+  },
+  {
+    id: 'whatsapp',
+    title: 'WhatsApp',
+    icon: Smartphone,
+    color: 'text-green-400',
+    component: () => <WhatsAppPanel className="h-full" />,
+    category: 'tools',
+    minimumRole: 'admin',
   },
 
   // Discussion & Communication

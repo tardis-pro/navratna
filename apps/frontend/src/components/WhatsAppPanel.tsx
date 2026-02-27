@@ -1,5 +1,4 @@
-import React, { useEffect, useState } from 'react';
-import QRCode from 'qrcode';
+import React, { useState } from 'react';
 import {
   Smartphone,
   Wifi,
@@ -11,13 +10,22 @@ import {
   AlertCircle,
   CheckCircle2,
   Clock,
+  Users,
+  Unlink,
 } from 'lucide-react';
-import { useWhatsApp, type WAConnectionState, type WAIncomingMessage } from '@/hooks/useWhatsApp';
+import { useWhatsApp, type WAConnectionState, type WAIncomingMessage, type WAContactBinding } from '@/hooks/useWhatsApp';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -62,39 +70,44 @@ function formatTime(unixSeconds: number): string {
   });
 }
 
-// ─── QR Code display ─────────────────────────────────────────────────────────
+// ─── QR Code display ────────────────────────────────────────────────
 
+/**
+ * Renders a QR code image via the free goqr.me API — no npm package needed.
+ * Shows a spinner while loading and a plain-text fallback if the request fails.
+ */
 function QRDisplay({ qrString }: { qrString: string }) {
-  const [dataUrl, setDataUrl] = useState<string | null>(null);
+  const [loaded, setLoaded] = useState(false);
+  const [errored, setErrored] = useState(false);
+  const src = `https://api.qrserver.com/v1/create-qr-code/?size=240x240&margin=10&data=${encodeURIComponent(qrString)}`;
 
-  useEffect(() => {
-    let cancelled = false;
-    QRCode.toDataURL(qrString, { width: 240, margin: 2, color: { dark: '#000', light: '#fff' } })
-      .then((url) => {
-        if (!cancelled) setDataUrl(url);
-      })
-      .catch(() => {});
-    return () => {
-      cancelled = true;
-    };
-  }, [qrString]);
-
-  if (!dataUrl) {
+  if (errored) {
     return (
-      <div className="flex items-center justify-center w-60 h-60 bg-muted rounded-lg">
-        <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
+      <div className="flex flex-col items-center gap-3">
+        <div className="flex items-center justify-center w-60 h-60 bg-muted rounded-lg">
+          <p className="text-xs text-muted-foreground text-center p-4 break-all">
+            QR image unavailable — check network.<br />Open WhatsApp → Linked Devices → Link a Device
+          </p>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="flex flex-col items-center gap-3">
+    <div className="flex flex-col items-center gap-3 relative">
+      {!loaded && (
+        <div className="flex items-center justify-center w-60 h-60 bg-muted rounded-lg">
+          <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
+        </div>
+      )}
       <img
-        src={dataUrl}
+        src={src}
         alt="WhatsApp QR Code"
-        className="rounded-lg border shadow-sm"
+        className={`rounded-lg border shadow-sm${loaded ? '' : ' hidden'}`}
         width={240}
         height={240}
+        onLoad={() => setLoaded(true)}
+        onError={() => setErrored(true)}
       />
       <p className="text-sm text-muted-foreground text-center max-w-[240px]">
         Open <strong>WhatsApp</strong> on your phone → Settings → Linked Devices → Link a Device
@@ -127,6 +140,58 @@ function MessageRow({ msg }: { msg: WAIncomingMessage }) {
   );
 }
 
+// ─── Contact binding row ────────────────────────────────────────────────
+
+interface AgentOption {
+  id: string;
+  name: string;
+}
+
+function ContactBindingRow({
+  binding,
+  agents,
+  onBind,
+  onUnbind,
+}: {
+  binding: WAContactBinding;
+  agents: AgentOption[];
+  onBind: (jid: string, agentId: string) => void;
+  onUnbind: (jid: string) => void;
+}) {
+  const displayJid = binding.jid.split('@')[0] ?? binding.jid;
+  return (
+    <div className="flex items-center gap-2 py-2 border-b last:border-0">
+      <div className="flex-1 min-w-0">
+        <p className="text-xs font-medium truncate">{displayJid}</p>
+        <p className="text-[10px] text-muted-foreground truncate">{binding.agentName}</p>
+      </div>
+      {agents.length > 0 && (
+        <Select value={binding.agentId} onValueChange={(val) => onBind(binding.jid, val)}>
+          <SelectTrigger className="h-7 w-36 text-xs">
+            <SelectValue placeholder="Agent" />
+          </SelectTrigger>
+          <SelectContent>
+            {agents.map((a) => (
+              <SelectItem key={a.id} value={a.id} className="text-xs">
+                {a.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      )}
+      <Button
+        size="icon"
+        variant="ghost"
+        className="h-7 w-7 text-muted-foreground hover:text-destructive shrink-0"
+        onClick={() => onUnbind(binding.jid)}
+        title="Remove binding"
+      >
+        <Unlink className="w-3.5 h-3.5" />
+      </Button>
+    </div>
+  );
+}
+
 // ─── Main panel ──────────────────────────────────────────────────────────────
 
 interface WhatsAppPanelProps {
@@ -139,12 +204,26 @@ export const WhatsAppPanel: React.FC<WhatsAppPanelProps> = ({ className }) => {
     qrString,
     connectedInfo,
     messages,
+    bindings,
     isSocketConnected,
     connect,
     disconnect,
     logout,
+    bindContact,
+    unbindContact,
     error,
   } = useWhatsApp();
+
+  // Build a deduplicated agent option list from known bindings for the dropdowns.
+  const knownAgents: AgentOption[] = React.useMemo(() => {
+    const seen = new Map<string, string>();
+    for (const b of Object.values(bindings)) {
+      if (b.agentId && !seen.has(b.agentId)) seen.set(b.agentId, b.agentName ?? b.agentId);
+    }
+    return Array.from(seen.entries()).map(([id, name]) => ({ id, name }));
+  }, [bindings]);
+
+  const boundContacts = Object.values(bindings);
 
   return (
     <div className={`flex flex-col gap-4 ${className ?? ''}`}>
@@ -232,16 +311,43 @@ export const WhatsAppPanel: React.FC<WhatsAppPanelProps> = ({ className }) => {
             )}
           </div>
 
-          {/* Default agent info */}
+          {/* Agent selection info */}
           <p className="text-[11px] text-muted-foreground">
-            Incoming messages are routed to agent{' '}
-            <code className="rounded bg-muted px-1 py-0.5">
-              {'WHATSAPP_DEFAULT_AGENT_ID'}
-            </code>
-            . Set <code>WHATSAPP_DEFAULT_AGENT_ID</code> in the backend env.
+            New contacts receive an in-chat menu to select their preferred agent.
+            Use the <strong>Contacts</strong> section below to override bindings manually.
           </p>
         </CardContent>
       </Card>
+
+      {/* Contacts & bindings */}
+      {boundContacts.length > 0 && (
+        <Card>
+          <CardHeader className="py-3">
+            <CardTitle className="text-sm flex items-center gap-2">
+              <Users className="w-4 h-4" />
+              Contacts
+              <Badge variant="secondary" className="ml-auto">
+                {boundContacts.length}
+              </Badge>
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="p-0">
+            <ScrollArea className="h-64">
+              <div className="px-4">
+                {boundContacts.map((b) => (
+                  <ContactBindingRow
+                    key={b.jid}
+                    binding={b}
+                    agents={knownAgents}
+                    onBind={bindContact}
+                    onUnbind={unbindContact}
+                  />
+                ))}
+              </div>
+            </ScrollArea>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Recent messages */}
       {messages.length > 0 && (

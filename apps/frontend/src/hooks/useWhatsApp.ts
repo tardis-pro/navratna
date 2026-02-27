@@ -23,6 +23,12 @@ export interface WAIncomingMessage {
   type: 'text' | 'image' | 'video' | 'audio' | 'document' | 'sticker' | 'unsupported';
 }
 
+export interface WAContactBinding {
+  jid: string;
+  agentId: string;
+  agentName: string;
+}
+
 interface UseWhatsAppReturn {
   /** Current Baileys connection state */
   state: WAConnectionState;
@@ -32,6 +38,8 @@ interface UseWhatsAppReturn {
   connectedInfo: WAConnectedInfo | null;
   /** Recent incoming messages (newest first, capped at 100) */
   messages: WAIncomingMessage[];
+  /** Per-contact agent bindings: jid → ContactBinding */
+  bindings: Record<string, WAContactBinding>;
   /** True while the Socket.IO connection to the /whatsapp namespace is live */
   isSocketConnected: boolean;
   /** Trigger a new WhatsApp connection / QR generation */
@@ -42,6 +50,10 @@ interface UseWhatsAppReturn {
   logout: () => void;
   /** Manually send a WhatsApp message (admin use) */
   sendMessage: (jid: string, text: string) => void;
+  /** Admin: bind a contact JID to a specific agent */
+  bindContact: (jid: string, agentId: string) => void;
+  /** Admin: remove the agent binding for a contact JID */
+  unbindContact: (jid: string) => void;
   /** Last error from the socket or WhatsApp layer */
   error: string | null;
 }
@@ -64,9 +76,9 @@ export function useWhatsApp(): UseWhatsAppReturn {
   const [qrString, setQrString] = useState<string | null>(null);
   const [connectedInfo, setConnectedInfo] = useState<WAConnectedInfo | null>(null);
   const [messages, setMessages] = useState<WAIncomingMessage[]>([]);
+  const [bindings, setBindings] = useState<Record<string, WAContactBinding>>({});
   const [isSocketConnected, setIsSocketConnected] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
   const socketRef = useRef<Socket | null>(null);
 
   useEffect(() => {
@@ -135,6 +147,11 @@ export function useWhatsApp(): UseWhatsAppReturn {
       setMessages((prev) => [msg, ...prev].slice(0, MAX_MESSAGES));
     });
 
+    socket.on('wa:bindings', ({ bindings: b }: { bindings: Record<string, WAContactBinding> }) => {
+      setBindings(b ?? {});
+      logger.debug('[WhatsApp] Bindings updated', { count: Object.keys(b ?? {}).length });
+    });
+
     socket.on('wa:error', ({ message }: { message: string }) => {
       setError(message);
       logger.error('[WhatsApp] Server-side error', { message });
@@ -166,16 +183,27 @@ export function useWhatsApp(): UseWhatsAppReturn {
     socketRef.current?.emit('wa:send', { jid, text });
   }, []);
 
+  const bindContact = useCallback((jid: string, agentId: string) => {
+    socketRef.current?.emit('wa:bind', { jid, agentId });
+  }, []);
+
+  const unbindContact = useCallback((jid: string) => {
+    socketRef.current?.emit('wa:unbind', { jid });
+  }, []);
+
   return {
     state,
     qrString,
     connectedInfo,
     messages,
+    bindings,
     isSocketConnected,
     connect,
     disconnect,
     logout,
     sendMessage,
+    bindContact,
+    unbindContact,
     error,
   };
 }

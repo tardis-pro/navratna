@@ -574,6 +574,7 @@ export class TaskService {
       const score = this.calculateAssignmentScore(task, 'agent', {
         workload,
         capabilities: agent.capabilities,
+        skills: (agent as any).skills || [],
       });
 
       suggestions.push({
@@ -584,6 +585,7 @@ export class TaskService {
         reason: this.getAssignmentReason(task, 'agent', {
           workload,
           capabilities: agent.capabilities,
+          skills: (agent as any).skills || [],
         }),
         availability: workload > 5 ? 'busy' : 'available',
         expertise: agent.capabilities || [],
@@ -628,6 +630,18 @@ export class TaskService {
       score += relevantCapabilities.length * 5;
     }
 
+    // Adjust based on skills (for agents) - skills match on name + description keywords
+    if (assigneeType === 'agent' && context.skills) {
+      const enabledSkills = (context.skills as any[]).filter((s) => s.enabled !== false);
+      const relevantSkills = enabledSkills.filter((skill) => {
+        const taskText = (task.title + ' ' + (task.description || '')).toLowerCase();
+        return taskText.includes(skill.name.toLowerCase()) ||
+          (skill.description && skill.description.toLowerCase().split(' ')
+            .some((word: string) => word.length > 4 && taskText.includes(word)));
+      });
+      score += relevantSkills.length * 8;
+    }
+
     return Math.max(0, Math.min(100, score));
   }
 
@@ -650,6 +664,8 @@ export class TaskService {
       if (task.type === TaskType.RESEARCH) reasons.push('Good for research tasks');
       if (task.type === TaskType.DOCUMENTATION) reasons.push('Excellent for documentation');
       if (context.capabilities?.length > 0) reasons.push('Has relevant capabilities');
+      if ((context.skills as any[])?.filter((s) => s.enabled !== false).length > 0)
+        reasons.push('Has specialized skills');
     } else {
       if (task.type === TaskType.FEATURE) reasons.push('Great for feature development');
       if (task.type === TaskType.BUG) reasons.push('Good for bug fixes');
