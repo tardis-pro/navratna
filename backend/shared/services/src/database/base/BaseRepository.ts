@@ -1,7 +1,7 @@
 import { Repository, EntityTarget, ObjectLiteral, EntityManager, QueryRunner } from 'typeorm';
 import { logger } from '@uaip/utils';
-import { TypeOrmService } from '../../typeormService.js';
-import { DatabaseError } from '../../databaseService.js';
+import { TypeOrmService } from '../../typeormService';
+import { DatabaseError } from '../../databaseService';
 
 // Repository interface for standardization
 export interface IRepository<T extends ObjectLiteral> {

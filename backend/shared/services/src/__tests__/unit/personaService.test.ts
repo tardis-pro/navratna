@@ -1,4 +1,4 @@
-import { PersonaService } from '../../personaService.js';
+import { PersonaService } from '../../personaService';
 
 describe('PersonaService', () => {
   let service: PersonaService;

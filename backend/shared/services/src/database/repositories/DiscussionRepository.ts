@@ -1,6 +1,6 @@
 import { logger } from '@uaip/utils';
-import { TypeOrmService } from '../../typeormService.js';
-import { Discussion } from '../../entities/discussion.entity.js';
+import { TypeOrmService } from '../../typeormService';
+import { Discussion } from '../../entities/discussion.entity';
 import { Repository, SelectQueryBuilder } from 'typeorm';
 
 export class DiscussionRepository {

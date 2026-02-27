@@ -1,5 +1,5 @@
-import { EmbeddingService } from './embedding.service.js';
-import { TEIEmbeddingService, TEIHealthStatus } from './tei-embedding.service.js';
+import { EmbeddingService } from './embedding.service';
+import { TEIEmbeddingService, TEIHealthStatus } from './tei-embedding.service';
 import { ContextRequest } from '@uaip/types';
 
 export interface EmbeddingServiceConfig {

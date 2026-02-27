@@ -1,9 +1,9 @@
-import { ProjectManagementService } from './project-management.service.js';
-import { EventBusService } from './eventBusService.js';
-import { DatabaseService } from './databaseService.js';
+import { ProjectManagementService } from './project-management.service';
+import { EventBusService } from './eventBusService';
+import { DatabaseService } from './databaseService';
 import { logger } from '@uaip/utils';
 import { ProjectStatus, ProjectPriority } from '@uaip/types';
-import { Project, ProjectTask } from './entities/Project.js';
+import { Project, ProjectTask } from './entities/Project';
 
 export interface ProjectHealthCheck {
   projectId: string;

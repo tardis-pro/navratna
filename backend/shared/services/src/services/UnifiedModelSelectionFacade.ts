@@ -1,14 +1,14 @@
 import { Repository } from 'typeorm';
-import { UserLLMPreference } from '../entities/userLLMPreference.entity.js';
-import { AgentLLMPreference } from '../entities/agentLLMPreference.entity.js';
-import { Agent } from '../entities/agent.entity.js';
-import { LLMProvider } from '../entities/llmProvider.entity.js';
+import { UserLLMPreference } from '../entities/userLLMPreference.entity';
+import { AgentLLMPreference } from '../entities/agentLLMPreference.entity';
+import { Agent } from '../entities/agent.entity';
+import { LLMProvider } from '../entities/llmProvider.entity';
 import {
   ModelSelectionOrchestrator,
   ModelSelectionRequest,
   ModelSelectionResult,
   FallbackChain,
-} from './ModelSelectionOrchestrator.js';
+} from './ModelSelectionOrchestrator';
 // Fallback service removed - no fallback logic allowed
 import { LLMTaskType, LLMProviderType, RoutingRequest } from '@uaip/types';
 import { logger } from '@uaip/utils';

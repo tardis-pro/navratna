@@ -1,6 +1,6 @@
 import { logger } from '@uaip/utils';
-import { BaseRepository } from '../base/BaseRepository.js';
-import { ArtifactDeployment } from '../../entities/artifactDeployment.entity.js';
+import { BaseRepository } from '../base/BaseRepository';
+import { ArtifactDeployment } from '../../entities/artifactDeployment.entity';
 
 export class ArtifactDeploymentRepository extends BaseRepository<ArtifactDeployment> {
   constructor() {

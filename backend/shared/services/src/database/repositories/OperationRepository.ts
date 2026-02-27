@@ -1,9 +1,9 @@
 import { logger } from '@uaip/utils';
-import { BaseRepository } from '../base/BaseRepository.js';
-import { Operation } from '../../entities/operation.entity.js';
-import { OperationState } from '../../entities/operationState.entity.js';
-import { OperationCheckpoint } from '../../entities/operationCheckpoint.entity.js';
-import { StepResult } from '../../entities/stepResult.entity.js';
+import { BaseRepository } from '../base/BaseRepository';
+import { Operation } from '../../entities/operation.entity';
+import { OperationState } from '../../entities/operationState.entity';
+import { OperationCheckpoint } from '../../entities/operationCheckpoint.entity';
+import { StepResult } from '../../entities/stepResult.entity';
 
 export class OperationRepository extends BaseRepository<Operation> {
   constructor() {

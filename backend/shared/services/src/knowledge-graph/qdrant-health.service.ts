@@ -1,10 +1,10 @@
 import { logger } from '@uaip/utils';
-import { QdrantService } from '../qdrant.service.js';
-import { KnowledgeRepository } from '../database/repositories/knowledge.repository.js';
-import { KnowledgeSyncService } from './knowledge-sync.service.js';
-import { EmbeddingService } from './embedding.service.js';
-import { ToolGraphDatabase } from '../database/toolGraphDatabase.js';
-import { DatabaseService } from '../databaseService.js';
+import { QdrantService } from '../qdrant.service';
+import { KnowledgeRepository } from '../database/repositories/knowledge.repository';
+import { KnowledgeSyncService } from './knowledge-sync.service';
+import { EmbeddingService } from './embedding.service';
+import { ToolGraphDatabase } from '../database/toolGraphDatabase';
+import { DatabaseService } from '../databaseService';
 
 export interface QdrantHealthStatus {
   isConnected: boolean;

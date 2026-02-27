@@ -1,20 +1,20 @@
-import { KnowledgeSyncService } from './knowledge-sync.service.js';
-import { SimplifiedSyncService, SimplifiedSyncResult } from './simplified-sync.service.js';
-import { KnowledgeRepository } from '../database/repositories/knowledge.repository.js';
-import { QdrantService } from '../qdrant.service.js';
-import { ToolGraphDatabase } from '../database/toolGraphDatabase.js';
-import { EmbeddingService } from './embedding.service.js';
-import { SmartEmbeddingService } from './smart-embedding.service.js';
-import { ContentClassifier } from './content-classifier.service.js';
-import { ConceptExtractorService } from './concept-extractor.service.js';
-import { OntologyBuilderService } from './ontology-builder.service.js';
-import { TaxonomyGeneratorService } from './taxonomy-generator.service.js';
-import { ReconciliationService } from './reconciliation.service.js';
-import { QdrantHealthService } from './qdrant-health.service.js';
-import { ChatParserService } from './chat-parser.service.js';
-import { ChatKnowledgeExtractorService } from './chat-knowledge-extractor.service.js';
-import { BatchProcessorService } from './batch-processor.service.js';
-import { DatabaseService } from '../databaseService.js';
+import { KnowledgeSyncService } from './knowledge-sync.service';
+import { SimplifiedSyncService, SimplifiedSyncResult } from './simplified-sync.service';
+import { KnowledgeRepository } from '../database/repositories/knowledge.repository';
+import { QdrantService } from '../qdrant.service';
+import { ToolGraphDatabase } from '../database/toolGraphDatabase';
+import { EmbeddingService } from './embedding.service';
+import { SmartEmbeddingService } from './smart-embedding.service';
+import { ContentClassifier } from './content-classifier.service';
+import { ConceptExtractorService } from './concept-extractor.service';
+import { OntologyBuilderService } from './ontology-builder.service';
+import { TaxonomyGeneratorService } from './taxonomy-generator.service';
+import { ReconciliationService } from './reconciliation.service';
+import { QdrantHealthService } from './qdrant-health.service';
+import { ChatParserService } from './chat-parser.service';
+import { ChatKnowledgeExtractorService } from './chat-knowledge-extractor.service';
+import { BatchProcessorService } from './batch-processor.service';
+import { DatabaseService } from '../databaseService';
 import { logger } from '@uaip/utils';
 
 export interface BootstrapConfig {

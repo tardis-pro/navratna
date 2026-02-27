@@ -1,6 +1,6 @@
 import { Entity, Column, ManyToOne, JoinColumn, Index } from 'typeorm';
-import { BaseEntity } from './base.entity.js';
-import { UserEntity } from './user.entity.js';
+import { BaseEntity } from './base.entity';
+import { UserEntity } from './user.entity';
 
 export interface UserPreferencesData {
   theme?: 'light' | 'dark' | 'auto';

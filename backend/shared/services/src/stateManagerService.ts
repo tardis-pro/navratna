@@ -3,7 +3,7 @@ import Redis from 'ioredis';
 import { OperationState, Checkpoint, CheckpointType, WorkflowInstance } from '@uaip/types';
 import { logger, ApiError } from '@uaip/utils';
 import { config } from '@uaip/config';
-import { DatabaseService } from './databaseService.js';
+import { DatabaseService } from './databaseService';
 
 export interface StateUpdateOptions {
   status?: string;

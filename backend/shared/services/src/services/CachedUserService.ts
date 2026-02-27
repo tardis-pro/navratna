@@ -1,10 +1,10 @@
-import { UserService } from './UserService.js';
-import { CachedUserLLMProviderRepository } from '../database/repositories/CachedUserLLMProviderRepository.js';
-import { CachedLLMProviderRepository } from '../database/repositories/CachedLLMProviderRepository.js';
-import { UserEntity } from '../entities/user.entity.js';
-import { UserLLMProviderType } from '../entities/userLLMProvider.entity.js';
+import { UserService } from './UserService';
+import { CachedUserLLMProviderRepository } from '../database/repositories/CachedUserLLMProviderRepository';
+import { CachedLLMProviderRepository } from '../database/repositories/CachedLLMProviderRepository';
+import { UserEntity } from '../entities/user.entity';
+import { UserLLMProviderType } from '../entities/userLLMProvider.entity';
 import { LLMProviderType } from '@uaip/types';
-import { redisCacheService } from '../redis-cache.service.js';
+import { redisCacheService } from '../redis-cache.service';
 import { logger } from '@uaip/utils';
 
 /**

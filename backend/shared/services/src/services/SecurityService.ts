@@ -1,12 +1,12 @@
-import { TypeOrmService } from '../typeormService.js';
+import { TypeOrmService } from '../typeormService';
 import {
   SecurityPolicyRepository,
   ApprovalWorkflowRepository,
   ApprovalDecisionRepository,
-} from '../database/repositories/SecurityRepository.js';
-import { SecurityPolicy } from '../entities/securityPolicy.entity.js';
-import { ApprovalWorkflow } from '../entities/approvalWorkflow.entity.js';
-import { ApprovalDecision } from '../entities/approvalDecision.entity.js';
+} from '../database/repositories/SecurityRepository';
+import { SecurityPolicy } from '../entities/securityPolicy.entity';
+import { ApprovalWorkflow } from '../entities/approvalWorkflow.entity';
+import { ApprovalDecision } from '../entities/approvalDecision.entity';
 
 export class SecurityService {
   private static instance: SecurityService;

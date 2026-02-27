@@ -1,7 +1,7 @@
 import { Entity, Column, ManyToOne, JoinColumn } from 'typeorm';
-import { BaseEntity } from './base.entity.js';
-import { Discussion } from './discussion.entity.js';
-import { DiscussionParticipant } from './discussionParticipant.entity.js';
+import { BaseEntity } from './base.entity';
+import { Discussion } from './discussion.entity';
+import { DiscussionParticipant } from './discussionParticipant.entity';
 import { MessageType } from '@uaip/types';
 
 /**

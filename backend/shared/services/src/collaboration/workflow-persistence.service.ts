@@ -1,5 +1,5 @@
 import { WorkflowStep, CollaborationPattern } from '@uaip/types';
-import { DatabaseService } from '../databaseService.js';
+import { DatabaseService } from '../databaseService';
 import { logger } from '@uaip/utils';
 
 export interface WorkflowExecution {

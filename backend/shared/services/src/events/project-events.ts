@@ -1,4 +1,4 @@
-import { EventBusService } from '../eventBusService.js';
+import { EventBusService } from '../eventBusService';
 import { logger } from '@uaip/utils';
 
 export interface ProjectCreatedEvent {

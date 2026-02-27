@@ -1,6 +1,6 @@
 import { Entity, Column, ManyToMany, JoinTable } from 'typeorm';
-import { BaseEntity } from './base.entity.js';
-import { Agent } from './agent.entity.js';
+import { BaseEntity } from './base.entity';
+import { Agent } from './agent.entity';
 
 @Entity('capabilities')
 export class Capability extends BaseEntity {

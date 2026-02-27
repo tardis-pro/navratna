@@ -11,8 +11,8 @@ import {
   getCacheConnection,
   isCacheHealthy,
   closeDatabase,
-} from './typeorm.config.js';
-import { Agent } from '../entities/agent.entity.js';
+} from './typeorm.config';
+import { Agent } from '../entities/agent.entity';
 import { createLogger } from '@uaip/utils';
 
 const logger = createLogger({

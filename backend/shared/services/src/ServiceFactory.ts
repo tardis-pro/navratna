@@ -1,29 +1,29 @@
-import { typeormService } from './typeormService.js';
-import { QdrantService } from './qdrant.service.js';
+import { typeormService } from './typeormService';
+import { QdrantService } from './qdrant.service';
 import { config } from '@uaip/config';
 import { createLogger } from '@uaip/utils';
-import { KnowledgeRepository } from './database/repositories/knowledge.repository.js';
-import { EmbeddingService } from './knowledge-graph/embedding.service.js';
-import { TEIEmbeddingService } from './knowledge-graph/tei-embedding.service.js';
-import { SmartEmbeddingService } from './knowledge-graph/smart-embedding.service.js';
-import { EnhancedRAGService } from './knowledge-graph/enhanced-rag.service.js';
-import { ContentClassifier } from './knowledge-graph/content-classifier.service.js';
-import { RelationshipDetector } from './knowledge-graph/relationship-detector.service.js';
-import { KnowledgeGraphService } from './knowledge-graph/knowledge-graph.service.js';
-import { UserKnowledgeService } from './user-knowledge.service.js';
-import { ContextOrchestrationService } from './context-orchestration.service.js';
-import { AgentMemoryService } from './agent-memory/agent-memory.service.js';
-import { WorkingMemoryManager } from './agent-memory/working-memory.manager.js';
-import { EpisodicMemoryManager } from './agent-memory/episodic-memory.manager.js';
-import { SemanticMemoryManager } from './agent-memory/semantic-memory.manager.js';
-import { MemoryConsolidator } from './agent-memory/memory-consolidator.service.js';
-import { ToolManagementService } from './tool-management.service.js';
-import { OperationManagementService } from './operation-management.service.js';
-import { KnowledgeItemEntity, KnowledgeRelationshipEntity } from './entities/index.js';
-import { seedDatabase } from './database/seeders/index.js';
-import { KnowledgeBootstrapService } from './knowledge-graph/bootstrap.service.js';
-import { KnowledgeSyncService } from './knowledge-graph/knowledge-sync.service.js';
-import { ToolGraphDatabase } from './database/toolGraphDatabase.js';
+import { KnowledgeRepository } from './database/repositories/knowledge.repository';
+import { EmbeddingService } from './knowledge-graph/embedding.service';
+import { TEIEmbeddingService } from './knowledge-graph/tei-embedding.service';
+import { SmartEmbeddingService } from './knowledge-graph/smart-embedding.service';
+import { EnhancedRAGService } from './knowledge-graph/enhanced-rag.service';
+import { ContentClassifier } from './knowledge-graph/content-classifier.service';
+import { RelationshipDetector } from './knowledge-graph/relationship-detector.service';
+import { KnowledgeGraphService } from './knowledge-graph/knowledge-graph.service';
+import { UserKnowledgeService } from './user-knowledge.service';
+import { ContextOrchestrationService } from './context-orchestration.service';
+import { AgentMemoryService } from './agent-memory/agent-memory.service';
+import { WorkingMemoryManager } from './agent-memory/working-memory.manager';
+import { EpisodicMemoryManager } from './agent-memory/episodic-memory.manager';
+import { SemanticMemoryManager } from './agent-memory/semantic-memory.manager';
+import { MemoryConsolidator } from './agent-memory/memory-consolidator.service';
+import { ToolManagementService } from './tool-management.service';
+import { OperationManagementService } from './operation-management.service';
+import { KnowledgeItemEntity, KnowledgeRelationshipEntity } from './entities/index';
+import { seedDatabase } from './database/seeders/index';
+import { KnowledgeBootstrapService } from './knowledge-graph/bootstrap.service';
+import { KnowledgeSyncService } from './knowledge-graph/knowledge-sync.service';
+import { ToolGraphDatabase } from './database/toolGraphDatabase';
 
 /**
  * Service Factory - Clean Dependency Injection Container
@@ -66,7 +66,7 @@ export class ServiceFactory {
 
       // Initialize standalone Redis cache service
       try {
-        const { initializeRedisCache } = await import('./redis-cache.service.js');
+        const { initializeRedisCache } = await import('./redis-cache.service');
         const cacheInitialized = await initializeRedisCache();
         if (cacheInitialized) {
           this.logger.info('Standalone Redis cache service initialized successfully');

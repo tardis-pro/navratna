@@ -1,10 +1,10 @@
 import { LessThan } from 'typeorm';
 import { logger } from '@uaip/utils';
 import { SecurityLevel } from '@uaip/types';
-import { BaseRepository } from '../base/BaseRepository.js';
-import { UserEntity } from '../../entities/user.entity.js';
-import { RefreshTokenEntity } from '../../entities/refreshToken.entity.js';
-import { PasswordResetTokenEntity } from '../../entities/passwordResetToken.entity.js';
+import { BaseRepository } from '../base/BaseRepository';
+import { UserEntity } from '../../entities/user.entity';
+import { RefreshTokenEntity } from '../../entities/refreshToken.entity';
+import { PasswordResetTokenEntity } from '../../entities/passwordResetToken.entity';
 
 export class UserRepository extends BaseRepository<UserEntity> {
   constructor() {

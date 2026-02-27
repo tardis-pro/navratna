@@ -1,7 +1,7 @@
 import { logger } from '@uaip/utils';
-import { ChatParserService } from './chat-parser.service.js';
-import { ChatKnowledgeExtractorService, ExtractedKnowledge, QAPair, DecisionPoint } from './chat-knowledge-extractor.service.js';
-import { KnowledgeGraphService } from './knowledge-graph.service.js';
+import { ChatParserService } from './chat-parser.service';
+import { ChatKnowledgeExtractorService, ExtractedKnowledge, QAPair, DecisionPoint } from './chat-knowledge-extractor.service';
+import { KnowledgeGraphService } from './knowledge-graph.service';
 import { v4 as uuidv4 } from 'uuid';
 
 export interface FileData {

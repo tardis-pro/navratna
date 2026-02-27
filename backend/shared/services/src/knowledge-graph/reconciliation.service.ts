@@ -1,9 +1,9 @@
 import { v4 as uuidv4 } from 'uuid';
 import { logger } from '@uaip/utils';
 import { KnowledgeItem, KnowledgeType, SourceType } from '@uaip/types';
-import { EmbeddingService } from './embedding.service.js';
-import { KnowledgeRepository } from '../database/repositories/knowledge.repository.js';
-import { KnowledgeSyncService } from './knowledge-sync.service.js';
+import { EmbeddingService } from './embedding.service';
+import { KnowledgeRepository } from '../database/repositories/knowledge.repository';
+import { KnowledgeSyncService } from './knowledge-sync.service';
 
 export interface KnowledgeConflict {
   id: string;

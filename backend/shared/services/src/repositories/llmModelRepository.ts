@@ -1,5 +1,5 @@
 import { Repository, DataSource } from 'typeorm';
-import { LLMModel } from '../entities/llmModel.entity.js';
+import { LLMModel } from '../entities/llmModel.entity';
 
 export class LLMModelRepository extends Repository<LLMModel> {
   constructor(dataSource: DataSource) {

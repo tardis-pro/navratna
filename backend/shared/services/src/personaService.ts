@@ -14,10 +14,10 @@ import {
   PersonaTrait,
   ConversationalStyle,
 } from '@uaip/types';
-import { DatabaseService } from './databaseService.js';
-import { EventBusService } from './eventBusService.js';
+import { DatabaseService } from './databaseService';
+import { EventBusService } from './eventBusService';
 import { logger } from '@uaip/utils';
-import { Persona as PersonaEntity } from './entities/persona.entity.js';
+import { Persona as PersonaEntity } from './entities/persona.entity';
 import { SelectQueryBuilder } from 'typeorm';
 
 export interface PersonaServiceConfig {

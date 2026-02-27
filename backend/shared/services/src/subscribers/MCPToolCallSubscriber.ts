@@ -5,9 +5,9 @@ import {
   UpdateEvent,
   RemoveEvent,
 } from 'typeorm';
-import { MCPToolCall } from '../entities/mcpToolCall.entity.js';
-import { OutboxPublisher } from '../integration/OutboxPublisher.js';
-import { TypeOrmService } from '../typeormService.js';
+import { MCPToolCall } from '../entities/mcpToolCall.entity';
+import { OutboxPublisher } from '../integration/OutboxPublisher';
+import { TypeOrmService } from '../typeormService';
 import { logger } from '@uaip/utils';
 
 @EventSubscriber()

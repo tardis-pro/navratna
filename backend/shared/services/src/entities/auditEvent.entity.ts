@@ -1,6 +1,6 @@
 import { Entity, Column, Index, ManyToOne, JoinColumn } from 'typeorm';
-import { BaseEntity } from './base.entity.js';
-import { UserEntity } from './user.entity.js';
+import { BaseEntity } from './base.entity';
+import { UserEntity } from './user.entity';
 import { AuditEventType, SecurityLevel } from '@uaip/types';
 
 /**

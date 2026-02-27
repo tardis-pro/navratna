@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeAll } from 'vitest';
-import { ThoughtParserService } from '../thought-parser.service.js';
-import { CritiqueService } from '../critique.service.js';
-import { DebateOrchestratorService } from '../debate-orchestrator.service.js';
+import { ThoughtParserService } from '../thought-parser.service';
+import { CritiqueService } from '../critique.service';
+import { DebateOrchestratorService } from '../debate-orchestrator.service';
 
 describe('Cognitive Services Integration', () => {
   let thoughtParser: ThoughtParserService;

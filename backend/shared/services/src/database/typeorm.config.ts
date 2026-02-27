@@ -1,6 +1,6 @@
 import { DataSource, DataSourceOptions } from 'typeorm';
 import { config } from '@uaip/config';
-import { PostgresConnectionOptions } from 'typeorm/driver/postgres/PostgresConnectionOptions.js';
+import { PostgresConnectionOptions } from 'typeorm/driver/postgres/PostgresConnectionOptions';
 import { createLogger } from '@uaip/utils';
 import IORedis from 'ioredis';
 import { fileURLToPath } from 'url';
@@ -11,53 +11,53 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
 // Import all entities directly
-import { Agent } from '../entities/agent.entity.js';
-import { Operation } from '../entities/operation.entity.js';
-import { Persona } from '../entities/persona.entity.js';
-import { UserEntity } from '../entities/user.entity.js';
-import { RefreshTokenEntity } from '../entities/refreshToken.entity.js';
-import { PasswordResetTokenEntity } from '../entities/passwordResetToken.entity.js';
-import { AgentCapabilityMetric } from '../entities/agentCapabilityMetric.entity.js';
-import { ToolUsageRecord } from '../entities/toolUsageRecord.entity.js';
-import { ConversationContext } from '../entities/conversationContext.entity.js';
-import { OperationState } from '../entities/operationState.entity.js';
-import { OperationCheckpoint } from '../entities/operationCheckpoint.entity.js';
-import { StepResult } from '../entities/stepResult.entity.js';
-import { ApprovalWorkflow } from '../entities/approvalWorkflow.entity.js';
-import { ApprovalDecision } from '../entities/approvalDecision.entity.js';
-import { AuditEvent } from '../entities/auditEvent.entity.js';
-import { SecurityPolicy } from '../entities/securityPolicy.entity.js';
-import { ToolDefinition } from '../entities/toolDefinition.entity.js';
-import { ToolExecution } from '../entities/toolExecution.entity.js';
-import { ToolAssignment } from '../entities/toolAssignment.entity.js';
-import { Artifact } from '../entities/artifact.entity.js';
-import { ArtifactReview } from '../entities/artifactReview.entity.js';
-import { ArtifactDeployment } from '../entities/artifactDeployment.entity.js';
-import { Discussion } from '../entities/discussion.entity.js';
-import { DiscussionParticipant } from '../entities/discussionParticipant.entity.js';
-import { DiscussionMessage } from '../entities/discussionMessage.entity.js';
-import { PersonaAnalytics } from '../entities/personaAnalytics.entity.js';
-import { MCPServer } from '../entities/mcpServer.entity.js';
-import { MCPToolCall } from '../entities/mcpToolCall.entity.js';
-import { KnowledgeItemEntity } from '../entities/knowledge-item.entity.js';
-import { KnowledgeRelationshipEntity } from '../entities/knowledge-relationship.entity.js';
-import { LLMProvider } from '../entities/llmProvider.entity.js';
-import { LLMModel } from '../entities/llmModel.entity.js';
-import { UserLLMProvider } from '../entities/userLLMProvider.entity.js';
-import { UserLLMPreference } from '../entities/userLLMPreference.entity.js';
-import { AgentLLMPreference } from '../entities/agentLLMPreference.entity.js';
-import { IntegrationEventEntity } from '../entities/integrationEvent.entity.js';
-import { OAuthProviderEntity } from '../entities/oauthProvider.entity.js';
-import { OAuthStateEntity } from '../entities/oauthState.entity.js';
-import { AgentOAuthConnectionEntity } from '../entities/agentOAuthConnection.entity.js';
-import { MFAChallengeEntity } from '../entities/mfaChallenge.entity.js';
-import { SessionEntity } from '../entities/session.entity.js';
-import { UserToolPreferences } from '../entities/userToolPreferences.entity.js';
-import { UserPreferencesEntity } from '../entities/user-preferences.entity.js';
-import { UserContactEntity } from '../entities/user-contact.entity.js';
-import { UserMessageEntity } from '../entities/user-message.entity.js';
-import { UserPresenceEntity } from '../entities/user-presence.entity.js';
-import { ShortLinkEntity } from '../entities/short-link.entity.js';
+import { Agent } from '../entities/agent.entity';
+import { Operation } from '../entities/operation.entity';
+import { Persona } from '../entities/persona.entity';
+import { UserEntity } from '../entities/user.entity';
+import { RefreshTokenEntity } from '../entities/refreshToken.entity';
+import { PasswordResetTokenEntity } from '../entities/passwordResetToken.entity';
+import { AgentCapabilityMetric } from '../entities/agentCapabilityMetric.entity';
+import { ToolUsageRecord } from '../entities/toolUsageRecord.entity';
+import { ConversationContext } from '../entities/conversationContext.entity';
+import { OperationState } from '../entities/operationState.entity';
+import { OperationCheckpoint } from '../entities/operationCheckpoint.entity';
+import { StepResult } from '../entities/stepResult.entity';
+import { ApprovalWorkflow } from '../entities/approvalWorkflow.entity';
+import { ApprovalDecision } from '../entities/approvalDecision.entity';
+import { AuditEvent } from '../entities/auditEvent.entity';
+import { SecurityPolicy } from '../entities/securityPolicy.entity';
+import { ToolDefinition } from '../entities/toolDefinition.entity';
+import { ToolExecution } from '../entities/toolExecution.entity';
+import { ToolAssignment } from '../entities/toolAssignment.entity';
+import { Artifact } from '../entities/artifact.entity';
+import { ArtifactReview } from '../entities/artifactReview.entity';
+import { ArtifactDeployment } from '../entities/artifactDeployment.entity';
+import { Discussion } from '../entities/discussion.entity';
+import { DiscussionParticipant } from '../entities/discussionParticipant.entity';
+import { DiscussionMessage } from '../entities/discussionMessage.entity';
+import { PersonaAnalytics } from '../entities/personaAnalytics.entity';
+import { MCPServer } from '../entities/mcpServer.entity';
+import { MCPToolCall } from '../entities/mcpToolCall.entity';
+import { KnowledgeItemEntity } from '../entities/knowledge-item.entity';
+import { KnowledgeRelationshipEntity } from '../entities/knowledge-relationship.entity';
+import { LLMProvider } from '../entities/llmProvider.entity';
+import { LLMModel } from '../entities/llmModel.entity';
+import { UserLLMProvider } from '../entities/userLLMProvider.entity';
+import { UserLLMPreference } from '../entities/userLLMPreference.entity';
+import { AgentLLMPreference } from '../entities/agentLLMPreference.entity';
+import { IntegrationEventEntity } from '../entities/integrationEvent.entity';
+import { OAuthProviderEntity } from '../entities/oauthProvider.entity';
+import { OAuthStateEntity } from '../entities/oauthState.entity';
+import { AgentOAuthConnectionEntity } from '../entities/agentOAuthConnection.entity';
+import { MFAChallengeEntity } from '../entities/mfaChallenge.entity';
+import { SessionEntity } from '../entities/session.entity';
+import { UserToolPreferences } from '../entities/userToolPreferences.entity';
+import { UserPreferencesEntity } from '../entities/user-preferences.entity';
+import { UserContactEntity } from '../entities/user-contact.entity';
+import { UserMessageEntity } from '../entities/user-message.entity';
+import { UserPresenceEntity } from '../entities/user-presence.entity';
+import { ShortLinkEntity } from '../entities/short-link.entity';
 import {
   Project,
   ProjectTask,
@@ -65,13 +65,13 @@ import {
   ProjectAgent,
   ProjectWorkflow,
   TaskExecution,
-} from '../entities/Project.js';
-import { ProjectEntity } from '../entities/project.entity.js';
-import { ProjectMemberEntity } from '../entities/project-member.entity.js';
-import { ProjectFileEntity } from '../entities/project-file.entity.js';
-import { TaskEntity } from '../entities/task.entity.js';
-import { MCPServerSubscriber } from '../subscribers/MCPServerSubscriber.js';
-import { MCPToolCallSubscriber } from '../subscribers/MCPToolCallSubscriber.js';
+} from '../entities/Project';
+import { ProjectEntity } from '../entities/project.entity';
+import { ProjectMemberEntity } from '../entities/project-member.entity';
+import { ProjectFileEntity } from '../entities/project-file.entity';
+import { TaskEntity } from '../entities/task.entity';
+import { MCPServerSubscriber } from '../subscribers/MCPServerSubscriber';
+import { MCPToolCallSubscriber } from '../subscribers/MCPToolCallSubscriber';
 
 /**
  * TypeORM Configuration for UAIP Backend

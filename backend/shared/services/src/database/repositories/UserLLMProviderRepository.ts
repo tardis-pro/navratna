@@ -1,11 +1,11 @@
 import { Repository } from 'typeorm';
-import { BaseRepository } from '../base/BaseRepository.js';
+import { BaseRepository } from '../base/BaseRepository';
 import {
   UserLLMProvider,
   UserLLMProviderType,
   UserLLMProviderStatus,
-} from '../../entities/userLLMProvider.entity.js';
-import { Agent } from '../../entities/agent.entity.js';
+} from '../../entities/userLLMProvider.entity';
+import { Agent } from '../../entities/agent.entity';
 import { logger } from '@uaip/utils';
 
 export class UserLLMProviderRepository extends BaseRepository<UserLLMProvider> {

@@ -7,9 +7,9 @@ import {
   ConceptRelationship,
   ConceptExtractionResult,
   ConceptProperty,
-} from './concept-extractor.service.js';
-import { KnowledgeRepository } from '../database/repositories/knowledge.repository.js';
-import { KnowledgeSyncService } from './knowledge-sync.service.js';
+} from './concept-extractor.service';
+import { KnowledgeRepository } from '../database/repositories/knowledge.repository';
+import { KnowledgeSyncService } from './knowledge-sync.service';
 
 export interface ConceptHierarchy {
   rootConcepts: ConceptNode[];

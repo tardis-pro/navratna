@@ -1,9 +1,9 @@
 import { DataSource, DeepPartial } from 'typeorm';
-import { BaseSeed } from './BaseSeed.js';
-import { Agent } from '../../entities/agent.entity.js';
-import { UserEntity } from '../../entities/user.entity.js';
-import { Persona as PersonaEntity } from '../../entities/persona.entity.js';
-import { UserLLMProvider } from '../../entities/userLLMProvider.entity.js';
+import { BaseSeed } from './BaseSeed';
+import { Agent } from '../../entities/agent.entity';
+import { UserEntity } from '../../entities/user.entity';
+import { Persona as PersonaEntity } from '../../entities/persona.entity';
+import { UserLLMProvider } from '../../entities/userLLMProvider.entity';
 import {
   AgentRole,
   AgentPersona,
@@ -382,7 +382,7 @@ export class AgentSeed extends BaseSeed<Agent> {
             'testing',
           ],
           constraints: {
-            preferred_stack: ['React', 'Node.js', 'TypeScript', 'PostgreSQL'],
+            preferred_stack: ['React', 'Node.ts', 'TypeScript', 'PostgreSQL'],
             max_complexity: 'enterprise',
           },
           preferences: {

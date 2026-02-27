@@ -7,8 +7,8 @@ import {
   OperationState,
 } from '@uaip/types';
 import { logger } from '@uaip/utils';
-import { DatabaseService } from './databaseService.js';
-import { EventBusService } from './eventBusService.js';
+import { DatabaseService } from './databaseService';
+import { EventBusService } from './eventBusService';
 
 export interface CompensationStep {
   id: string;

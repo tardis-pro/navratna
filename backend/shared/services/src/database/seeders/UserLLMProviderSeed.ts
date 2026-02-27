@@ -1,11 +1,11 @@
 import { DataSource, DeepPartial } from 'typeorm';
-import { BaseSeed } from './BaseSeed.js';
+import { BaseSeed } from './BaseSeed';
 import {
   UserLLMProvider,
   UserLLMProviderType,
   UserLLMProviderStatus,
-} from '../../entities/userLLMProvider.entity.js';
-import { UserEntity } from '../../entities/user.entity.js';
+} from '../../entities/userLLMProvider.entity';
+import { UserEntity } from '../../entities/user.entity';
 import { SecurityLevel } from '@uaip/types';
 import { logger } from '@uaip/utils';
 

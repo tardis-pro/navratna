@@ -1,10 +1,10 @@
 import { v4 as uuidv4 } from 'uuid';
 import { logger } from '@uaip/utils';
 import { KnowledgeItem, KnowledgeType, SourceType } from '@uaip/types';
-import { ConceptNode, ConceptRelationship } from './concept-extractor.service.js';
-import { DomainOntology } from './ontology-builder.service.js';
-import { KnowledgeRepository } from '../database/repositories/knowledge.repository.js';
-import { ContentClassifier } from './content-classifier.service.js';
+import { ConceptNode, ConceptRelationship } from './concept-extractor.service';
+import { DomainOntology } from './ontology-builder.service';
+import { KnowledgeRepository } from '../database/repositories/knowledge.repository';
+import { ContentClassifier } from './content-classifier.service';
 
 export interface TaxonomyCategory {
   id: string;

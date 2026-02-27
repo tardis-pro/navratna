@@ -1,7 +1,7 @@
 // Jest is globally available
 import { Repository, DataSource } from 'typeorm';
-import { DatabaseService } from '../../database/DatabaseService.js';
-import { EventBusService } from '../../eventBusService.js';
+import { DatabaseService } from '../../database/DatabaseService';
+import { EventBusService } from '../../eventBusService';
 
 export class TestUtils {
   static createMockRepository<T>(): jest.Mocked<Repository<T>> {

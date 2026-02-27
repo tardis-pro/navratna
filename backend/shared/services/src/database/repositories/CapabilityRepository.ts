@@ -1,6 +1,6 @@
 import { logger } from '@uaip/utils';
-import { BaseRepository } from '../base/BaseRepository.js';
-import { Capability } from '../../entities/capability.entity.js';
+import { BaseRepository } from '../base/BaseRepository';
+import { Capability } from '../../entities/capability.entity';
 
 export class CapabilityRepository extends BaseRepository<Capability> {
   constructor() {

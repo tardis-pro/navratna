@@ -10,11 +10,11 @@ import {
   SourceType,
   KnowledgeType,
 } from '@uaip/types';
-import { WorkingMemoryManager } from './working-memory.manager.js';
-import { EpisodicMemoryManager } from './episodic-memory.manager.js';
-import { SemanticMemoryManager } from './semantic-memory.manager.js';
-import { MemoryConsolidator } from './memory-consolidator.service.js';
-import { KnowledgeGraphService } from '../knowledge-graph/knowledge-graph.service.js';
+import { WorkingMemoryManager } from './working-memory.manager';
+import { EpisodicMemoryManager } from './episodic-memory.manager';
+import { SemanticMemoryManager } from './semantic-memory.manager';
+import { MemoryConsolidator } from './memory-consolidator.service';
+import { KnowledgeGraphService } from '../knowledge-graph/knowledge-graph.service';
 
 export class AgentMemoryService {
   constructor(

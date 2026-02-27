@@ -1,9 +1,9 @@
 import { Repository, In } from 'typeorm';
 import { createLogger } from '@uaip/utils';
-import { TypeOrmService } from '../typeormService.js';
-import { ProjectEntity, ProjectStatus, ProjectVisibility } from '../entities/project.entity.js';
-import { ProjectMemberEntity, ProjectRole } from '../entities/project-member.entity.js';
-import { ProjectFileEntity, FileType, FileStatus } from '../entities/project-file.entity.js';
+import { TypeOrmService } from '../typeormService';
+import { ProjectEntity, ProjectStatus, ProjectVisibility } from '../entities/project.entity';
+import { ProjectMemberEntity, ProjectRole } from '../entities/project-member.entity';
+import { ProjectFileEntity, FileType, FileStatus } from '../entities/project-file.entity';
 
 const logger = createLogger({
   serviceName: 'project-service',

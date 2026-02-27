@@ -1,5 +1,5 @@
-import { StateManagerService, StateUpdateOptions } from '../../stateManagerService.js';
-import { DatabaseService } from '../../databaseService.js';
+import { StateManagerService, StateUpdateOptions } from '../../stateManagerService';
+import { DatabaseService } from '../../databaseService';
 import { OperationState, Checkpoint } from '@uaip/types';
 import { CheckpointType } from '@uaip/types';
 

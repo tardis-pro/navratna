@@ -11,7 +11,7 @@ import {
   OperationError,
 } from '@uaip/types';
 import { logger } from '@uaip/utils';
-import { EventBusService } from './eventBusService.js';
+import { EventBusService } from './eventBusService';
 
 export interface StepExecutionContext {
   operationId: string;

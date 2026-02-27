@@ -1,18 +1,18 @@
 import { Repository } from 'typeorm';
 import { logger } from '@uaip/utils';
-import { TypeOrmService } from '../typeormService.js';
+import { TypeOrmService } from '../typeormService';
 import {
   ToolRepository,
   ToolExecutionRepository,
   ToolUsageRepository,
-} from '../database/repositories/ToolRepository.js';
-import { ToolDefinition } from '../entities/toolDefinition.entity.js';
-import { ToolExecution } from '../entities/toolExecution.entity.js';
-import { ToolUsageRecord } from '../entities/toolUsageRecord.entity.js';
-import { ToolAssignment } from '../entities/toolAssignment.entity.js';
+} from '../database/repositories/ToolRepository';
+import { ToolDefinition } from '../entities/toolDefinition.entity';
+import { ToolExecution } from '../entities/toolExecution.entity';
+import { ToolUsageRecord } from '../entities/toolUsageRecord.entity';
+import { ToolAssignment } from '../entities/toolAssignment.entity';
 import { SecurityLevel, ToolExecutionStatus, ToolCategory } from '@uaip/types';
-import { RedisCacheService } from '../redis-cache.service.js';
-import { KnowledgeGraphService } from '../knowledge-graph/knowledge-graph.service.js';
+import { RedisCacheService } from '../redis-cache.service';
+import { KnowledgeGraphService } from '../knowledge-graph/knowledge-graph.service';
 
 export class ToolService {
   private static instance: ToolService;

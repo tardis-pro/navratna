@@ -1,4 +1,4 @@
-import { RedisCacheService } from '../../redis-cache.service.js';
+import { RedisCacheService } from '../../redis-cache.service';
 
 describe('RedisCacheService', () => {
   let service: RedisCacheService;

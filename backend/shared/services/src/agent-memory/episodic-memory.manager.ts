@@ -1,5 +1,5 @@
 import { Episode, EpisodicQuery, DateRange, KnowledgeType, SourceType } from '@uaip/types';
-import { KnowledgeGraphService } from '../knowledge-graph/knowledge-graph.service.js';
+import { KnowledgeGraphService } from '../knowledge-graph/knowledge-graph.service';
 
 export class EpisodicMemoryManager {
   constructor(private readonly knowledgeGraph: KnowledgeGraphService) {}

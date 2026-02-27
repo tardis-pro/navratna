@@ -1,7 +1,7 @@
 import { DataSource, DeepPartial } from 'typeorm';
-import { BaseSeed } from './BaseSeed.js';
-import { Persona as PersonaEntity } from '../../entities/persona.entity.js';
-import { UserEntity } from '../../entities/user.entity.js';
+import { BaseSeed } from './BaseSeed';
+import { Persona as PersonaEntity } from '../../entities/persona.entity';
+import { UserEntity } from '../../entities/user.entity';
 import { Persona, getAllPersonasFlatWrapper, PersonaTone, PersonaStyle, PersonaEnergyLevel } from '@uaip/types';
 
 /**

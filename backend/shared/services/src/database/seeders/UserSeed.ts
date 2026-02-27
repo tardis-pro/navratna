@@ -1,7 +1,7 @@
 import { DataSource, DeepPartial } from 'typeorm';
 import * as bcrypt from 'bcryptjs';
-import { BaseSeed } from './BaseSeed.js';
-import { UserEntity } from '../../entities/user.entity.js';
+import { BaseSeed } from './BaseSeed';
+import { UserEntity } from '../../entities/user.entity';
 import { SecurityLevel } from '@uaip/types';
 
 /**

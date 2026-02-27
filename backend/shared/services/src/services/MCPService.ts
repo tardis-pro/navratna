@@ -1,8 +1,8 @@
 import { DataSource, Repository } from 'typeorm';
-import { MCPToolCall } from '../entities/mcpToolCall.entity.js';
-import { MCPServer } from '../entities/mcpServer.entity.js';
+import { MCPToolCall } from '../entities/mcpToolCall.entity';
+import { MCPServer } from '../entities/mcpServer.entity';
 import { logger } from '@uaip/utils';
-import { DatabaseError } from '../databaseService.js';
+import { DatabaseError } from '../databaseService';
 
 export interface MCPJobRequest {
   serverId: string;

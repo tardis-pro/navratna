@@ -13,19 +13,19 @@ export { SecurityLevel } from '@uaip/types';
 // =============================================================================
 
 // Base Service Classes for all microservices
-export { BaseService, ServiceConfig, createService } from './BaseService.js';
+export { BaseService, ServiceConfig, createService } from './BaseService';
 
 // HTTP Server (Elysia)
-export { createAppServer } from './http-app.js';
+export { createAppServer } from './http-app';
 
 // Database Services (consolidated - no duplicates)
-export * from './database/index.js';
+export * from './database/index';
 
 // TypeORM Service
-export { TypeOrmService, typeormService } from './typeormService.js';
+export { TypeOrmService, typeormService } from './typeormService';
 
 // MCP Services
-export { MCPService } from './services/MCPService.js';
+export { MCPService } from './services/MCPService';
 
 // Communication Services - re-exported from @uaip/infra
 export { EventBusService } from '@uaip/infra';
@@ -57,85 +57,85 @@ export {
   ContextAwareStrategy,
   SystemDefaultStrategy,
   UNIFIED_SYSTEM_DEFAULTS,
-} from './services/ModelSelectionOrchestrator.js';
+} from './services/ModelSelectionOrchestrator';
 
 export {
   UnifiedModelSelectionFacade,
   UnifiedModelSelection,
   UnifiedSelectionRequest,
   SelectionMetrics,
-} from './services/UnifiedModelSelectionFacade.js';
+} from './services/UnifiedModelSelectionFacade';
 
 // Conversation Utilities
-export { ConversationUtils } from './conversation/index.js';
+export { ConversationUtils } from './conversation/index';
 
 // Vector Search Services
-export { QdrantService } from './qdrant.service.js';
+export { QdrantService } from './qdrant.service';
 
 // LLM Request Tracking Service
-export { LLMRequestTracker } from './llm-request-tracker.service.js';
+export { LLMRequestTracker } from './llm-request-tracker.service';
 
 // =============================================================================
 // DOMAIN SERVICES
 // =============================================================================
 
 // Core Domain Services
-export { UserService } from './services/UserService.js';
-export { ToolService } from './services/ToolService.js';
-export { AgentService } from './services/AgentService.js';
-export { ProjectService } from './services/ProjectService.js';
-export { SessionService } from './services/SessionService.js';
-export { MFAService } from './services/MFAService.js';
-export { OAuthService } from './services/OAuthService.js';
-export { AuditService } from './services/AuditService.js';
-export { SecurityService } from './services/SecurityService.js';
-export { UserToolPreferencesService } from './services/UserToolPreferencesService.js';
-export { TaskService } from './services/task.service.js';
+export { UserService } from './services/UserService';
+export { ToolService } from './services/ToolService';
+export { AgentService } from './services/AgentService';
+export { ProjectService } from './services/ProjectService';
+export { SessionService } from './services/SessionService';
+export { MFAService } from './services/MFAService';
+export { OAuthService } from './services/OAuthService';
+export { AuditService } from './services/AuditService';
+export { SecurityService } from './services/SecurityService';
+export { UserToolPreferencesService } from './services/UserToolPreferencesService';
+export { TaskService } from './services/task.service';
 export type {
   CreateTaskRequest,
   UpdateTaskRequest,
   TaskAssignmentRequest,
   TaskFilters,
-} from './services/task.service.js';
+} from './services/task.service';
 
 // Agent Intelligence Services
-export { AgentIntelligenceService } from './agentIntelligenceService.js';
-export { CapabilityDiscoveryService } from './capabilityDiscoveryService.js';
-export { SecurityValidationService } from './securityValidationService.js';
-export { ModelCapabilityDetector } from './capabilities/ModelCapabilityDetector.js';
-export { AgentTaskTypeResolver } from './services/AgentTaskTypeResolver.js';
+export { AgentIntelligenceService } from './agentIntelligenceService';
+export { CapabilityDiscoveryService } from './capabilityDiscoveryService';
+export { SecurityValidationService } from './securityValidationService';
+export { ModelCapabilityDetector } from './capabilities/ModelCapabilityDetector';
+export { AgentTaskTypeResolver } from './services/AgentTaskTypeResolver';
 
 // Business Logic Services
-export { ToolManagementService } from './tool-management.service.js';
+export { ToolManagementService } from './tool-management.service';
 export {
   ToolExecutionService,
   ToolExecutionRequestEvent,
   ToolExecutionResponseEvent,
   ToolExecutionOptions,
-} from './tool-execution.service.js';
-export { OperationManagementService } from './operation-management.service.js';
-export { ProjectManagementService } from './project-management.service.js';
-export { ProjectLifecycleService } from './project-lifecycle.service.js';
+} from './tool-execution.service';
+export { OperationManagementService } from './operation-management.service';
+export { ProjectManagementService } from './project-management.service';
+export { ProjectLifecycleService } from './project-lifecycle.service';
 
 // Persona and Discussion Services
-export { PersonaService } from './personaService.js';
-export { DiscussionService } from './discussionService.js';
-export { ParticipantManagementService } from './participant-management.service.js';
+export { PersonaService } from './personaService';
+export { DiscussionService } from './discussionService';
+export { ParticipantManagementService } from './participant-management.service';
 
 // Widget Services
-export { WidgetService, WidgetServiceOptions } from './widgetService.js';
+export { WidgetService, WidgetServiceOptions } from './widgetService';
 
 // =============================================================================
 // WORKFLOW AND STATE MANAGEMENT
 // =============================================================================
 
 // State Management Services
-export { StateManagerService } from './stateManagerService.js';
+export { StateManagerService } from './stateManagerService';
 
 // Workflow Services
-export { StepExecutorService } from './stepExecutorService.js';
-export { CompensationService } from './compensationService.js';
-export { ResourceManagerService } from './resourceManagerService.js';
+export { StepExecutorService } from './stepExecutorService';
+export { CompensationService } from './compensationService';
+export { ResourceManagerService } from './resourceManagerService';
 
 // =============================================================================
 // ENTERPRISE AND SECURITY
@@ -147,7 +147,7 @@ export {
   validateServiceAccess,
   AccessLevel,
   getDatabaseConnectionString,
-} from './enterprise/ServiceAccessMatrix.js';
+} from './enterprise/ServiceAccessMatrix';
 
 // =============================================================================
 // SPECIALIZED SERVICES
@@ -158,30 +158,30 @@ export type {
   ToolRelationship,
   ToolRecommendation,
   UsagePattern,
-} from './database/toolGraphDatabase.js';
+} from './database/toolGraphDatabase';
 
 // Knowledge Graph Services
-export * from './knowledge-graph/index.js';
-export { UserKnowledgeService } from './user-knowledge.service.js';
-export { ContextOrchestrationService } from './context-orchestration.service.js';
+export * from './knowledge-graph/index';
+export { UserKnowledgeService } from './user-knowledge.service';
+export { ContextOrchestrationService } from './context-orchestration.service';
 
 // Agent Memory Services
-export * from './agent-memory/index.js';
+export * from './agent-memory/index';
 
 // Integration Services - MCP + Neo4j Sync
-export * from './integration/index.js';
+export * from './integration/index';
 
 // Cognitive Services
-export { ThoughtParserService } from './cognitive/thought-parser.service.js';
-export { CritiqueService } from './cognitive/critique.service.js';
-export { DebateOrchestratorService } from './cognitive/debate-orchestrator.service.js';
+export { ThoughtParserService } from './cognitive/thought-parser.service';
+export { CritiqueService } from './cognitive/critique.service';
+export { DebateOrchestratorService } from './cognitive/debate-orchestrator.service';
 
 // =============================================================================
 // ENTITIES
 // =============================================================================
 
 // Short Link Entities
-export { ShortLinkEntity, LinkType, LinkStatus } from './entities/short-link.entity.js';
+export { ShortLinkEntity, LinkType, LinkStatus } from './entities/short-link.entity';
 
 // Project Management Entities
 export {
@@ -191,16 +191,16 @@ export {
   ProjectAgent,
   ProjectWorkflow,
   TaskExecution,
-} from './entities/Project.js';
+} from './entities/Project';
 
 // Contact Management Entities
-export { ContactStatus, ContactType } from './database/repositories/UserContactRepository.js';
+export { ContactStatus, ContactType } from './database/repositories/UserContactRepository';
 
 // Database Seeders
-export { DefaultUserLLMProviderSeed } from './database/seeders/DefaultUserLLMProviderSeed.js';
+export { DefaultUserLLMProviderSeed } from './database/seeders/DefaultUserLLMProviderSeed';
 
 // All Entities Export
-export * from './entities/index.js';
+export * from './entities/index';
 
 // =============================================================================
 // SERVICE FACTORY AND DEPENDENCY INJECTION
@@ -217,4 +217,4 @@ export {
   initializeServices,
   servicesHealthCheck,
   resetServices,
-} from './ServiceFactory.js';
+} from './ServiceFactory';

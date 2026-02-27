@@ -5,9 +5,9 @@
  * Usage: npm run seed:user-llm-providers
  */
 
-import { initializeDatabase, getDataSource } from '../typeorm.config.js';
-import { UserLLMProviderSeed } from './UserLLMProviderSeed.js';
-import { UserEntity } from '../../entities/user.entity.js';
+import { initializeDatabase, getDataSource } from '../typeorm.config';
+import { UserLLMProviderSeed } from './UserLLMProviderSeed';
+import { UserEntity } from '../../entities/user.entity';
 
 async function seedUserLLMProviders() {
   let dataSource;

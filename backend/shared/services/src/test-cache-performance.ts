@@ -11,8 +11,8 @@ import {
   getCacheManager,
   getCachedUserService,
   getCachedUserLLMProviderRepository,
-} from './CacheIntegration.js';
-import { redisCacheService } from './redis-cache.service.js';
+} from './CacheIntegration';
+import { redisCacheService } from './redis-cache.service';
 import { logger } from '@uaip/utils';
 
 class CachePerformanceTest {

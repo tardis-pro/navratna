@@ -1,7 +1,7 @@
 import { Entity, Column, ManyToOne, OneToMany, JoinColumn } from 'typeorm';
-import { BaseEntity } from './base.entity.js';
-import { UserEntity } from './user.entity.js';
-import { DiscussionParticipant } from './discussionParticipant.entity.js';
+import { BaseEntity } from './base.entity';
+import { UserEntity } from './user.entity';
+import { DiscussionParticipant } from './discussionParticipant.entity';
 import {
   DiscussionStatus,
   DiscussionVisibility,

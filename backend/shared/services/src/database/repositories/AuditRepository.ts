@@ -1,6 +1,6 @@
 import { logger } from '@uaip/utils';
-import { BaseRepository } from '../base/BaseRepository.js';
-import { AuditEvent } from '../../entities/auditEvent.entity.js';
+import { BaseRepository } from '../base/BaseRepository';
+import { AuditEvent } from '../../entities/auditEvent.entity';
 import { AuditEventType, SecurityLevel } from '@uaip/types';
 
 export class AuditRepository extends BaseRepository<AuditEvent> {

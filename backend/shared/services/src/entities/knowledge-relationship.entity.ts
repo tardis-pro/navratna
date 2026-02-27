@@ -7,8 +7,8 @@ import {
   ManyToOne,
   JoinColumn,
 } from 'typeorm';
-import { KnowledgeItemEntity } from './knowledge-item.entity.js';
-import { BaseEntity } from './base.entity.js';
+import { KnowledgeItemEntity } from './knowledge-item.entity';
+import { BaseEntity } from './base.entity';
 
 @Entity('knowledge_relationships')
 @Index(['sourceItemId'])

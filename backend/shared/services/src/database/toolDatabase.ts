@@ -11,9 +11,9 @@ import {
   ToolExecutionStatus,
   ToolExample,
 } from '@uaip/types';
-import { DatabaseService } from '../databaseService.js';
-import { ToolDefinition as ToolDefinitionEntity } from '../entities/toolDefinition.entity.js';
-import { ToolExecution as ToolExecutionEntity } from '../entities/toolExecution.entity.js';
+import { DatabaseService } from '../databaseService';
+import { ToolDefinition as ToolDefinitionEntity } from '../entities/toolDefinition.entity';
+import { ToolExecution as ToolExecutionEntity } from '../entities/toolExecution.entity';
 
 export class ToolDatabase {
   private databaseService: DatabaseService;

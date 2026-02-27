@@ -1,7 +1,7 @@
 import { DataSource, DeepPartial } from 'typeorm';
-import { BaseSeed } from './BaseSeed.js';
-import { SecurityPolicy } from '../../entities/securityPolicy.entity.js';
-import { UserEntity } from '../../entities/user.entity.js';
+import { BaseSeed } from './BaseSeed';
+import { SecurityPolicy } from '../../entities/securityPolicy.entity';
+import { UserEntity } from '../../entities/user.entity';
 
 /**
  * Security Policy seeder

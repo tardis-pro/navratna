@@ -8,8 +8,8 @@ import {
   SourceType,
   KnowledgeScope,
 } from '@uaip/types';
-import { KnowledgeItemEntity } from '../../entities/knowledge-item.entity.js';
-import { KnowledgeRelationshipEntity } from '../../entities/knowledge-relationship.entity.js';
+import { KnowledgeItemEntity } from '../../entities/knowledge-item.entity';
+import { KnowledgeRelationshipEntity } from '../../entities/knowledge-relationship.entity';
 
 export class KnowledgeRepository {
   constructor(

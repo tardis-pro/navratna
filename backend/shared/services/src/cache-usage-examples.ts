@@ -3,8 +3,8 @@
  * Shows how to use the standalone Redis cache service in your applications
  */
 
-import { redisCacheService } from './redis-cache.service.js';
-import { getDataSource } from './database/typeorm.config.js';
+import { redisCacheService } from './redis-cache.service';
+import { getDataSource } from './database/typeorm.config';
 import { createLogger } from '@uaip/utils';
 
 const logger = createLogger({

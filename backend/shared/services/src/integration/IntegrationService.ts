@@ -1,7 +1,7 @@
-import { ToolGraphDatabase } from '../database/toolGraphDatabase.js';
-import { TypeOrmService } from '../typeormService.js';
-import { OutboxPublisher } from './OutboxPublisher.js';
-import { GraphSyncWorker } from './GraphSyncWorker.js';
+import { ToolGraphDatabase } from '../database/toolGraphDatabase';
+import { TypeOrmService } from '../typeormService';
+import { OutboxPublisher } from './OutboxPublisher';
+import { GraphSyncWorker } from './GraphSyncWorker';
 import { logger } from '@uaip/utils';
 import { config } from '@uaip/config';
 

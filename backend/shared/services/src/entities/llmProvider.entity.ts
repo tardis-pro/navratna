@@ -8,7 +8,7 @@ import {
   BeforeInsert,
   BeforeUpdate,
 } from 'typeorm';
-import { BaseEntity } from './base.entity.js';
+import { BaseEntity } from './base.entity';
 import * as crypto from 'crypto';
 import { LLMProviderStatus, LLMProviderType } from '@uaip/types';
 

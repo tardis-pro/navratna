@@ -1,5 +1,5 @@
 import { Entity, Column, Index, OneToMany } from 'typeorm';
-import { BaseEntity } from './base.entity.js';
+import { BaseEntity } from './base.entity';
 import { ToolCategory, JSONSchema, ToolExample, SecurityLevel } from '@uaip/types';
 
 // Related entities will be referenced by string to avoid circular dependencies

@@ -1,6 +1,6 @@
 import { DataSource } from 'typeorm';
-import { initializeDatabase, getDataSource } from '../typeorm.config.js';
-import { DatabaseSeeder } from './DatabaseSeeder.js';
+import { initializeDatabase, getDataSource } from '../typeorm.config';
+import { DatabaseSeeder } from './DatabaseSeeder';
 
 /**
  * Main seeding function
@@ -59,16 +59,16 @@ export async function seedDatabase(dataSource?: DataSource): Promise<void> {
 }
 
 // Export individual seeders for selective seeding
-export { DatabaseSeeder } from './DatabaseSeeder.js';
-export { BaseSeed } from './BaseSeed.js';
-export { UserSeed } from './UserSeed.js';
-export { UserLLMProviderSeed } from './UserLLMProviderSeed.js';
-export { LLMPreferencesSeed } from './LLMPreferencesSeed.js';
-export { SecurityPolicySeed } from './SecurityPolicySeed.js';
-export { PersonaSeed } from './PersonaSeed.js';
-export { AgentSeed } from './AgentSeed.js';
-export { ToolDefinitionSeed } from './ToolDefinitionSeed.js';
-export { DefaultUserLLMProviderSeed } from './DefaultUserLLMProviderSeed.js';
+export { DatabaseSeeder } from './DatabaseSeeder';
+export { BaseSeed } from './BaseSeed';
+export { UserSeed } from './UserSeed';
+export { UserLLMProviderSeed } from './UserLLMProviderSeed';
+export { LLMPreferencesSeed } from './LLMPreferencesSeed';
+export { SecurityPolicySeed } from './SecurityPolicySeed';
+export { PersonaSeed } from './PersonaSeed';
+export { AgentSeed } from './AgentSeed';
+export { ToolDefinitionSeed } from './ToolDefinitionSeed';
+export { DefaultUserLLMProviderSeed } from './DefaultUserLLMProviderSeed';
 
 // Export data functions
-export { getViralAgentsData } from './data/viralAgents.js';
+export { getViralAgentsData } from './data/viralAgents';

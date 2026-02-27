@@ -1,7 +1,7 @@
 import { v4 as uuidv4 } from 'uuid';
 import { logger } from '@uaip/utils';
-import { DatabaseService } from './database/index.js';
-import { DiscussionParticipant } from './entities/discussionParticipant.entity.js';
+import { DatabaseService } from './database/index';
+import { DiscussionParticipant } from './entities/discussionParticipant.entity';
 
 /**
  * Enterprise Participant Management Service

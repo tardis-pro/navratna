@@ -1,8 +1,8 @@
 import { Repository } from 'typeorm';
-import { UserLLMPreference } from '../entities/userLLMPreference.entity.js';
-import { AgentLLMPreference } from '../entities/agentLLMPreference.entity.js';
-import { Agent } from '../entities/agent.entity.js';
-import { LLMProvider } from '../entities/llmProvider.entity.js';
+import { UserLLMPreference } from '../entities/userLLMPreference.entity';
+import { AgentLLMPreference } from '../entities/agentLLMPreference.entity';
+import { Agent } from '../entities/agent.entity';
+import { LLMProvider } from '../entities/llmProvider.entity';
 import {
   LLMTaskType,
   LLMProviderType,

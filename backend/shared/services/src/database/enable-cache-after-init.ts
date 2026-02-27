@@ -3,7 +3,7 @@
  * Enables Redis cache after TypeORM is fully initialized to avoid hanging
  */
 
-import { getDataSource, getCacheManager } from './typeorm.config.js';
+import { getDataSource, getCacheManager } from './typeorm.config';
 import { createLogger } from '@uaip/utils';
 
 const logger = createLogger({

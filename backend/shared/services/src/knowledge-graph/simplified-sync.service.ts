@@ -1,10 +1,10 @@
 import { KnowledgeType, SourceType } from '@uaip/types';
-import { KnowledgeItemEntity } from '../entities/knowledge-item.entity.js';
-import { KnowledgeRepository } from '../database/repositories/knowledge.repository.js';
-import { QdrantService } from '../qdrant.service.js';
-import { ToolGraphDatabase } from '../database/toolGraphDatabase.js';
-import { SmartEmbeddingService } from './smart-embedding.service.js';
-import { KnowledgeClusteringService, KnowledgeCluster } from './knowledge-clustering.service.js';
+import { KnowledgeItemEntity } from '../entities/knowledge-item.entity';
+import { KnowledgeRepository } from '../database/repositories/knowledge.repository';
+import { QdrantService } from '../qdrant.service';
+import { ToolGraphDatabase } from '../database/toolGraphDatabase';
+import { SmartEmbeddingService } from './smart-embedding.service';
+import { KnowledgeClusteringService, KnowledgeCluster } from './knowledge-clustering.service';
 
 export interface SimplifiedSyncResult {
   totalFromNeo4j: number;
