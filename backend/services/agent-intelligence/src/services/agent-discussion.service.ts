@@ -1915,15 +1915,20 @@ Reasoning: ${reasoning.join('; ')}`,
     modelSelection?: any; // Optional model selection from parent service
   }): Promise<{ response: string; metadata: Record<string, unknown> }> {
     try {
-      // Use the user-aware generateChatResponse which routes through requestLLMResponse
-      // (llm.user.request → UserLLMService → user's LM Studio provider)
-      // instead of requestLLMGeneration which uses the global LLMService with no user providers.
-      const response = await this.generateChatResponse(
-        params.agentId,
-        params.userId,
-        params.message,
-        params.conversationId
-      );
+      // Use participateInDiscussion — the correct public path that:
+      //  1. Loads the agent persona from DB
+      //  2. Fetches contextual knowledge
+      //  3. Calls generateChatResponse(message, agent, history, knowledge, userId)
+      //  4. Which calls requestLLMResponse(agentRequest, userId)
+      //  5. Which publishes llm.user.request → UserLLMService → user's LM Studio provider
+      const result = await this.participateInDiscussion({
+        agentId: params.agentId,
+        message: params.message,
+        userId: params.userId,
+        conversationHistory: [],
+      });
+
+      const response = result.response || '';
 
       // Publish discussion event
       await this.eventBusService.publish('agent.discussion.message', {
@@ -1941,6 +1946,7 @@ Reasoning: ${reasoning.join('; ')}`,
           conversationId: params.conversationId,
           processingTime: Date.now(),
           agentId: params.agentId,
+          confidence: result.confidence,
           responseType: 'user-llm',
         },
       };

@@ -527,15 +527,31 @@ export const ProjectManagementPortal: React.FC<ProjectManagementPortalProps> = (
         // Refresh projects from API to ensure consistency
         await refreshProjects();
       } else {
-        // Handle legacy local project creation (from quick create modal)
-        const newProject: Project = {
-          ...projectData,
-          id: Date.now().toString(),
-          createdAt: new Date(),
-          updatedAt: new Date(),
+        // Handle quick create modal (no API id/ownerId yet) - persist to API
+        const projectCreateData = {
+          name: projectData.name,
+          description: projectData.description,
+          type: 'custom' as const,
+          visibility: 'private' as const,
+          settings: {
+            allowedTools: [],
+            enabledFeatures: [],
+            priority: projectData.priority,
+            dueDate: projectData.dueDate ? new Date(projectData.dueDate).toISOString() : null,
+          },
+          metadata: {
+            priority: projectData.priority,
+            progress: 0,
+            tags: projectData.tags || [],
+            dueDate: projectData.dueDate ? new Date(projectData.dueDate).toISOString() : null,
+            team: [],
+            resources: [],
+            tasks: [],
+          },
         };
-        setProjects((prev) => [newProject, ...prev]);
-        console.log('✅ Legacy project added to local state:', newProject.name);
+        const createdProject = await projectsAPI.create(projectCreateData);
+        console.log('✅ Quick create project saved to API:', createdProject.name);
+        await refreshProjects();
       }
 
       // Close the onboarding flow

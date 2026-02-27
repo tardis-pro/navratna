@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import ReactDOM from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Folder,
@@ -904,8 +905,8 @@ export const ProjectOnboardingFlow: React.FC<ProjectOnboardingFlowProps> = ({
 
   if (!isOpen) return null;
 
-  return (
-    <div className="fixed inset-0 bg-black/60 backdrop-blur-xl z-[200] flex items-center justify-center p-4">
+  const modalContent = (
+    <div className="fixed inset-0 bg-black/60 backdrop-blur-xl z-[9999] flex items-center justify-center p-4">
       <motion.div
         initial={{ opacity: 0, scale: 0.95, y: 20 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
@@ -1000,4 +1001,6 @@ export const ProjectOnboardingFlow: React.FC<ProjectOnboardingFlowProps> = ({
       </motion.div>
     </div>
   );
+
+  return ReactDOM.createPortal(modalContent, document.body);
 };
