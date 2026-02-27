@@ -1,5 +1,5 @@
 import { Repository } from 'typeorm';
-import { DatabaseService } from './databaseService';
+import { DatabaseService } from '@uaip/infra/database';
 import { EventBusService } from './eventBusService';
 import { logger } from '@uaip/utils';
 import {

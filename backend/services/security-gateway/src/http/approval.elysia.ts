@@ -3,61 +3,18 @@ import { logger } from '@uaip/utils';
 import { withRequiredAuth, withOperatorGuard } from '@uaip/middleware';
 import { AuditService } from '../services/auditService.js';
 import { ApprovalWorkflowService } from '../services/approvalWorkflowService.js';
-import { DatabaseService } from '@uaip/infra/database';
 import { EventBusService } from '@uaip/infra/eventBus';
 import { NotificationService } from '../services/notificationService.js';
 import { ApprovalStatus, SecurityLevel, AuditEventType } from '@uaip/types';
 import type { RequiredAuthContext } from './types/elysia-context.js';
 
-// Type definitions for request bodies, params, and queries
-interface CreateWorkflowBody {
-  operationId: string;
-  operationType: string;
-  requiredApprovers: string[];
-  securityLevel: SecurityLevel;
-  context: Record<string, any>;
-  expirationHours?: number;
-  metadata?: Record<string, any>;
-}
-
-interface ApprovalDecisionBody {
-  decision: 'approve' | 'reject';
-  conditions?: string[];
-  feedback?: string;
-}
-
-interface WorkflowIdParams {
-  workflowId: string;
-}
-
-interface CancelWorkflowBody {
-  reason: string;
-}
-
-interface QueryWorkflowsQuery {
-  status?: ApprovalStatus;
-  operationType?: string;
-  securityLevel?: SecurityLevel;
-  startDate?: Date;
-  endDate?: Date;
-  limit: number;
-  offset: number;
-}
-
-interface StatsQuery {
-  days?: string;
-}
-
 // Lazy service setup (keeps routing file self-contained)
-let databaseService: DatabaseService | null = null;
 let auditService: AuditService | null = null;
 let notificationService: NotificationService | null = null;
 let approvalWorkflowService: ApprovalWorkflowService | null = null;
 
 async function getServices() {
-  if (!databaseService) {
-    databaseService = new DatabaseService();
-    await databaseService.initialize();
+  if (!approvalWorkflowService) {
     auditService = new AuditService();
     notificationService = new NotificationService();
     const eventBusService = new EventBusService(
@@ -65,14 +22,12 @@ async function getServices() {
       logger
     );
     approvalWorkflowService = new ApprovalWorkflowService(
-      databaseService,
       eventBusService,
       notificationService,
       auditService
     );
   }
   return {
-    databaseService,
     auditService: auditService!,
     notificationService: notificationService!,
     approvalWorkflowService: approvalWorkflowService!,

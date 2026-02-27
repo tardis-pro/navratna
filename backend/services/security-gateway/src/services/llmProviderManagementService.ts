@@ -1,5 +1,4 @@
 import { LLMProviderRepository, LLMProvider } from '@uaip/shared-services';
-import { DatabaseService } from '@uaip/infra/database';
 import { EventBusService } from '@uaip/infra/eventBus';
 import { LLMProviderType, LLMProviderStatus } from '@uaip/types';
 import { logger } from '@uaip/utils';
@@ -86,9 +85,6 @@ export class LLMProviderManagementService {
 
   private async initializeRepository(): Promise<void> {
     try {
-      const databaseService = DatabaseService.getInstance();
-      await databaseService.initialize();
-
       this.llmProviderRepository = new LLMProviderRepository();
 
       this.initialized = true;

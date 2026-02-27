@@ -1,6 +1,5 @@
 import { logger } from '@uaip/utils';
 import { ApiError } from '@uaip/utils';
-import { DatabaseService } from '@uaip/infra/database';
 import {
   SecurityValidationRequest,
   SecurityValidationResult,
@@ -53,7 +52,6 @@ export class SecurityGatewayService {
   private riskConfig: RiskAssessmentConfig;
 
   constructor(
-    protected databaseService: DatabaseService,
     protected approvalWorkflowService: ApprovalWorkflowService,
     protected auditService: AuditService
   ) {

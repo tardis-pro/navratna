@@ -3,7 +3,7 @@ import { logger } from '@uaip/utils';
 import { config } from '@uaip/config';
 import { metricsEndpoint, metricsMiddleware } from '@uaip/middleware';
 // Express middlewares are not compatible with Elysia; implement minimal handlers inline
-import { DatabaseService } from './databaseService';
+import { DatabaseService } from '@uaip/infra/database';
 import { EventBusService } from './eventBusService';
 import {
   UnifiedModelSelectionFacade,
@@ -48,7 +48,7 @@ export abstract class BaseService {
   constructor(config: ServiceConfig) {
     this.config = config;
     this.app = createAppServer();
-    this.databaseService = new DatabaseService();
+    this.databaseService = DatabaseService.getInstance();
 
     // Initialize EventBusService singleton for first time
     this.eventBusService = EventBusService.getInstance(
@@ -162,7 +162,8 @@ export abstract class BaseService {
 
   protected async initializeDatabase(): Promise<void> {
     try {
-      await this.databaseService.initialize();
+      // Ensure database connection is ready by fetching DataSource
+      await this.databaseService.getDataSource();
       logger.info(`${this.config.name}: Database initialized`);
 
       // Initialize unified model selection facade
@@ -284,7 +285,7 @@ export abstract class BaseService {
 
       // Disconnect from databases
       try {
-        await this.databaseService.close();
+        await this.databaseService.disconnect();
         logger.info(`${this.config.name}: Database disconnected`);
       } catch (error) {
         logger.error(`${this.config.name}: Database disconnect error:`, error);

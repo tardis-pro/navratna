@@ -1,9 +1,11 @@
 import { z } from 'zod';
 import { logger } from '@uaip/utils';
 import { withRequiredAuth } from '@uaip/middleware';
-import { DefaultUserLLMProviderSeed } from '@uaip/shared-services';
+import { DefaultUserLLMProviderSeed, UserService } from '@uaip/shared-services';
 import { DatabaseService } from '@uaip/infra/database';
 import type { RequiredAuthContext } from './types/elysia-context.js';
+
+const userService = UserService.getInstance();
 
 const UserPersonaSchema = z.object({
   workStyle: z.enum(['collaborative', 'independent', 'hybrid']),
@@ -72,8 +74,7 @@ export function registerPersonaRoutes(app: any): any {
       // @ts-expect-error - Elysia middleware injects user, but TypeScript cannot infer through nested groups
       .get('/', async ({ set, user }) => {
         try {
-          const databaseService = DatabaseService.getInstance();
-          const repo = databaseService.getUserRepository();
+          const repo = userService.getUserRepository();
           const entity = await repo.findById(user!.id);
           if (!entity) {
             set.status = 404;
@@ -104,8 +105,7 @@ export function registerPersonaRoutes(app: any): any {
           return { error: 'Invalid request data', details: validation.error.errors };
         }
         try {
-          const databaseService = DatabaseService.getInstance();
-          const repo = databaseService.getUserRepository();
+          const repo = userService.getUserRepository();
           const entity = await repo.findById(user!.id);
           if (!entity) {
             set.status = 404;
@@ -154,7 +154,7 @@ export function registerPersonaRoutes(app: any): any {
         }
         try {
           const databaseService = DatabaseService.getInstance();
-          const repo = databaseService.getUserRepository();
+          const repo = userService.getUserRepository();
           const entity = await repo.findById(user!.id);
           if (!entity) {
             set.status = 404;
@@ -219,7 +219,7 @@ export function registerPersonaRoutes(app: any): any {
           return { error: 'Invalid behavioral patterns data', details: validation.error.errors };
         }
         try {
-          const repo = DatabaseService.getInstance().getUserRepository();
+          const repo = userService.getUserRepository();
           const entity = await repo.findById(user!.id);
           if (!entity) {
             set.status = 404;
@@ -247,7 +247,7 @@ export function registerPersonaRoutes(app: any): any {
       // @ts-expect-error - Elysia middleware injects user, but TypeScript cannot infer through nested groups
       .get('/recommendations', async ({ set, user }) => {
         try {
-          const repo = DatabaseService.getInstance().getUserRepository();
+          const repo = userService.getUserRepository();
           const entity = await repo.findById(user!.id);
           if (!entity || !entity.userPersona) {
             set.status = 400;
@@ -285,7 +285,7 @@ export function registerPersonaRoutes(app: any): any {
       // @ts-expect-error - Elysia middleware injects user, but TypeScript cannot infer through nested groups
       .get('/compatible-agents', async ({ set, user }) => {
         try {
-          const repo = DatabaseService.getInstance().getUserRepository();
+          const repo = userService.getUserRepository();
           const entity = await repo.findById(user!.id);
           if (!entity || !entity.userPersona) {
             set.status = 400;
@@ -303,7 +303,7 @@ export function registerPersonaRoutes(app: any): any {
       // @ts-expect-error - Elysia middleware injects user, but TypeScript cannot infer through nested groups
       .get('/optimized-workspace', async ({ set, user }) => {
         try {
-          const repo = DatabaseService.getInstance().getUserRepository();
+          const repo = userService.getUserRepository();
           const entity = await repo.findById(user!.id);
           if (!entity || !entity.userPersona) {
             set.status = 400;

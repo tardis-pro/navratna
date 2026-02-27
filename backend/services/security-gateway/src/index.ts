@@ -1,4 +1,4 @@
-import { BaseService, ServiceConfig } from '@uaip/shared-services';
+import { BaseService } from '@uaip/shared-services';
 import { config } from '@uaip/config';
 import { logger } from '@uaip/utils';
 import { initializeServices } from '@uaip/shared-services';
@@ -51,13 +51,11 @@ class SecurityGatewayServer extends BaseService {
     this.auditService = new AuditService();
     this.notificationService = new NotificationService();
     this.approvalWorkflowService = new ApprovalWorkflowService(
-      this.databaseService,
       this.eventBusService,
       this.notificationService,
       this.auditService
     );
     this.securityGatewayService = new SecurityGatewayService(
-      this.databaseService,
       this.approvalWorkflowService,
       this.auditService
     );
@@ -138,7 +136,8 @@ class SecurityGatewayServer extends BaseService {
     // Subscribe to WebSocket authentication requests
     await this.eventBusService.subscribe('security.auth.validate', async (event) => {
       try {
-        const { token, correlationId, service, operation } = event.data;
+        const data = event.data as any;
+        const { token, correlationId, service, operation } = data;
 
         logger.info('Processing WebSocket auth validation', {
           service,
@@ -170,9 +169,10 @@ class SecurityGatewayServer extends BaseService {
         logger.error('WebSocket auth validation failed', { error });
 
         // Send error response
-        if (event.data.correlationId) {
+        const errorData = event.data as any;
+        if (errorData.correlationId) {
           await this.eventBusService.publish('security.auth.response', {
-            correlationId: event.data.correlationId,
+            correlationId: errorData.correlationId,
             valid: false,
             reason: 'Internal authentication error',
           });
@@ -189,7 +189,8 @@ class SecurityGatewayServer extends BaseService {
       'security.auth.validate',
       async (event) => {
         try {
-          const { token, correlationId, service, operation, complianceLevel } = event.data;
+          const data = event.data as any;
+          const { token, correlationId, service, operation, complianceLevel } = data;
 
           logger.info('Processing enterprise auth validation', {
             service,
@@ -210,7 +211,7 @@ class SecurityGatewayServer extends BaseService {
           };
 
           // Publish response back to requesting service via enterprise bus
-          await this.enterpriseEventBusService.publish('security.auth.response', {
+          await this.enterpriseEventBusService!.publish('security.auth.response', {
             correlationId,
             valid: enterpriseAuthResult.valid,
             userId: enterpriseAuthResult.userId,
@@ -234,9 +235,10 @@ class SecurityGatewayServer extends BaseService {
           logger.error('Enterprise auth validation failed', { error });
 
           // Send error response via enterprise bus
-          if (event.data.correlationId) {
-            await this.enterpriseEventBusService.publish('security.auth.response', {
-              correlationId: event.data.correlationId,
+          const errorData = event.data as any;
+          if (errorData.correlationId) {
+            await this.enterpriseEventBusService!.publish('security.auth.response', {
+              correlationId: errorData.correlationId,
               valid: false,
               reason: 'Internal enterprise authentication error',
               auditTrail: true,
@@ -252,7 +254,8 @@ class SecurityGatewayServer extends BaseService {
       'security.enterprise.audit.log',
       async (event) => {
         try {
-          const { auditData, correlationId } = event.data;
+          const data = event.data as any;
+          const { auditData, correlationId } = data;
 
           logger.info('Processing enterprise audit log', {
             correlationId: correlationId?.substring(0, 10) + '...',

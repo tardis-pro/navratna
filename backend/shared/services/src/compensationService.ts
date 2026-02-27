@@ -7,7 +7,8 @@ import {
   OperationState,
 } from '@uaip/types';
 import { logger } from '@uaip/utils';
-import { DatabaseService } from './databaseService';
+import { DatabaseService } from '@uaip/infra/database';
+import { OperationRepository } from './database/repositories/OperationRepository';
 import { EventBusService } from './eventBusService';
 
 export interface CompensationStep {
@@ -40,11 +41,13 @@ export class CompensationService extends EventEmitter {
     string,
     { steps: CompensationStep[]; controller: AbortController }
   >();
+  private operationRepo: OperationRepository;
 
   constructor(databaseService: DatabaseService, eventBusService: EventBusService) {
     super();
     this.databaseService = databaseService;
     this.eventBusService = eventBusService;
+    this.operationRepo = new OperationRepository();
   }
 
   /**
@@ -77,7 +80,7 @@ export class CompensationService extends EventEmitter {
       });
 
       // Get operation details
-      const repo = this.databaseService.operations.getOperationRepository();
+      const repo = this.operationRepo;
       const operation = await repo.getOperationById(operationId);
       if (!operation) {
         throw new Error(`Operation ${operationId} not found`);

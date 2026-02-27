@@ -1,6 +1,5 @@
 import { logger } from '@uaip/utils';
 import { ApiError } from '@uaip/utils';
-import { DatabaseService } from '@uaip/infra/database';
 import {
   SecurityValidationRequest,
   SecurityValidationResult,
@@ -50,13 +49,12 @@ export class EnhancedSecurityGatewayService extends SecurityGatewayService {
   private agentPolicies: Map<string, AgentSecurityPolicy> = new Map();
 
   constructor(
-    databaseService: DatabaseService,
     approvalWorkflowService: ApprovalWorkflowService,
     auditService: AuditService,
     private oauthProviderService: OAuthProviderService,
     private enhancedAuthService: EnhancedAuthService
   ) {
-    super(databaseService, approvalWorkflowService, auditService);
+    super(approvalWorkflowService, auditService);
     this.loadAgentSecurityPolicies();
   }
 

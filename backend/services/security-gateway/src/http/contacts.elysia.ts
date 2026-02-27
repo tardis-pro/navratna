@@ -1,23 +1,21 @@
 import { z } from 'zod';
 import { withRequiredAuth } from '@uaip/middleware';
 import { AuditService } from '../services/auditService.js';
-import { ContactStatus as RepoContactStatus, ContactType } from '@uaip/shared-services';
-import { DatabaseService } from '@uaip/infra/database';
+import { ContactStatus as RepoContactStatus, ContactType, UserService } from '@uaip/shared-services';
 import { AuditEventType } from '@uaip/types';
 import { ContactStatus } from '@uaip/shared-services';
 import type { RequiredAuthContext } from './types/elysia-context.js';
 
 let auditService: AuditService | null = null;
-let databaseService: DatabaseService | null = null;
+let userService: UserService | null = null;
 async function getServices() {
-  if (!databaseService) {
-    databaseService = new DatabaseService();
-    await databaseService.initialize();
+  if (!userService) {
+    userService = UserService.getInstance();
   }
   if (!auditService) {
     auditService = new AuditService();
   }
-  return { databaseService, auditService };
+  return { userService, auditService };
 }
 
 const contactRequestSchema = z.object({
@@ -64,13 +62,13 @@ export function registerContactRoutes(app: any): any {
             message: 'Cannot send contact request to yourself',
           };
         }
-        const { databaseService, auditService } = await getServices();
-        const targetUser = await databaseService.users.findUserById(targetUserId);
+        const { userService, auditService } = await getServices();
+        const targetUser = await userService.findUserById(targetUserId);
         if (!targetUser) {
           set.status = 404;
           return { success: false, error: 'User Not Found', message: 'Target user not found' };
         }
-        const contactRepo = databaseService.users.getUserContactRepository();
+        const contactRepo = userService.getUserContactRepository();
         const existing = await contactRepo.findContactByUsers(userId, targetUserId);
         if (existing) {
           set.status = 409;
@@ -124,8 +122,8 @@ export function registerContactRoutes(app: any): any {
         const { page, limit, status } = parsed.data as any;
         const userId = user!.id;
         const offset = (page - 1) * limit;
-        const { databaseService } = await getServices();
-        const contactRepo = databaseService.users.getUserContactRepository();
+        const { userService } = await getServices();
+        const contactRepo = userService.getUserContactRepository();
         const statusEnum = status ? (String(status).toLowerCase() as RepoContactStatus) : undefined;
         const contacts = await contactRepo.findUserContacts(userId, statusEnum as any);
         const total = contacts.length;
@@ -163,8 +161,8 @@ export function registerContactRoutes(app: any): any {
         const { contactId } = params as any;
         const { action, message } = parsed.data as any;
         const userId = user!.id;
-        const { databaseService, auditService } = await getServices();
-        const contactRepo = databaseService.users.getUserContactRepository();
+        const { userService, auditService } = await getServices();
+        const contactRepo = userService.getUserContactRepository();
         const contact = await contactRepo.findById(contactId);
         if (!contact) {
           set.status = 404;
@@ -253,8 +251,8 @@ export function registerContactRoutes(app: any): any {
       // @ts-expect-error - Elysia middleware injects user, but TypeScript cannot infer through nested groups
       .get('/pending', async ({ user }) => {
         const userId = user!.id;
-        const { databaseService } = await getServices();
-        const contactRepo = databaseService.users.getUserContactRepository();
+        const { userService } = await getServices();
+        const contactRepo = userService.getUserContactRepository();
         const pending = await contactRepo.findPendingRequests(userId);
         return {
           success: true,

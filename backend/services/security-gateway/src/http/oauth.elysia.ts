@@ -10,14 +10,12 @@ import type { OptionalAuthContext, RequiredAuthContext } from './types/elysia-co
 let oauthProviderService: OAuthProviderService | null = null;
 let enhancedAuthService: EnhancedAuthService | null = null;
 let auditService: AuditService | null = null;
-import { DatabaseService } from '@uaip/infra/database';
 
 function getServices() {
   if (!auditService) auditService = new AuditService();
   if (!oauthProviderService) oauthProviderService = new OAuthProviderService(auditService);
   if (!enhancedAuthService)
     enhancedAuthService = new EnhancedAuthService(
-      DatabaseService.getInstance(),
       oauthProviderService,
       auditService
     );

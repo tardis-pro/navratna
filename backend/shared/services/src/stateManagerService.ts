@@ -3,7 +3,11 @@ import Redis from 'ioredis';
 import { OperationState, Checkpoint, CheckpointType, WorkflowInstance } from '@uaip/types';
 import { logger, ApiError } from '@uaip/utils';
 import { config } from '@uaip/config';
-import { DatabaseService } from './databaseService';
+import { DatabaseService } from '@uaip/infra/database';
+import {
+  OperationStateRepository,
+  OperationCheckpointRepository,
+} from './database/repositories/OperationRepository';
 
 export interface StateUpdateOptions {
   status?: string;
@@ -32,6 +36,8 @@ function getErrorMessage(error: unknown): string {
 export class StateManagerService {
   private redis: Redis;
   private databaseService: DatabaseService;
+  private operationStateRepo!: OperationStateRepository;
+  private checkpointRepo!: OperationCheckpointRepository;
   private compressionEnabled: boolean;
   private maxCheckpointSize: number;
   private isConnected = false;
@@ -57,6 +63,8 @@ export class StateManagerService {
     this.maxCheckpointSize = config.getStateConfig().maxCheckpointSize;
 
     this.setupRedisListeners();
+    this.operationStateRepo = new OperationStateRepository();
+    this.checkpointRepo = new OperationCheckpointRepository();
   }
 
   /**
@@ -76,7 +84,7 @@ export class StateManagerService {
       await this.setOperationStateInCache(operationId, initialState);
 
       // Store in database for persistence
-      await this.databaseService.saveOperationState(operationId, initialState);
+      await this.operationStateRepo.saveOperationState(operationId, initialState);
 
       logger.info('Operation state initialized', {
         operationId,
@@ -113,7 +121,7 @@ export class StateManagerService {
       }
 
       // Fallback to database
-      state = await this.databaseService.getOperationState(operationId);
+      state = await this.operationStateRepo.getOperationState(operationId);
 
       if (state) {
         // Cache for future requests
@@ -167,7 +175,7 @@ export class StateManagerService {
       await this.setOperationStateInCache(operationId, updatedState);
 
       // Update in database
-      await this.databaseService.updateOperationState(operationId, updatedState, updates);
+      await this.operationStateRepo.updateOperationState(operationId, updatedState, updates);
 
       // Create automatic checkpoint if significant changes
       if (this.shouldCreateAutomaticCheckpoint(updates)) {
@@ -225,7 +233,7 @@ export class StateManagerService {
       );
 
       // Save to database for long-term storage
-      await this.databaseService.saveCheckpoint(operationId, processedCheckpoint);
+      await this.checkpointRepo.saveCheckpoint(operationId, processedCheckpoint);
 
       // Update state to include checkpoint reference
       const currentState = await this.getOperationState(operationId);
@@ -283,7 +291,7 @@ export class StateManagerService {
       }
 
       // Fallback to database
-      const checkpoint = await this.databaseService.getCheckpoint(operationId, checkpointId);
+      const checkpoint = await this.checkpointRepo.getCheckpoint(operationId, checkpointId);
 
       if (checkpoint) {
         const decompressedCheckpoint = this.compressionEnabled
@@ -319,7 +327,7 @@ export class StateManagerService {
     try {
       logger.debug('Listing checkpoints', { operationId });
 
-      const checkpoints = await this.databaseService.listCheckpoints(operationId);
+      const checkpoints = await this.checkpointRepo.listCheckpoints(operationId);
 
       // Sort by timestamp (newest first)
       checkpoints.sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
@@ -376,7 +384,7 @@ export class StateManagerService {
 
       // Update cache and database
       await this.setOperationStateInCache(operationId, restoredState);
-      await this.databaseService.updateOperationState(operationId, restoredState, {
+      await this.operationStateRepo.updateOperationState(operationId, restoredState, {
         metadata: { restoredFromCheckpoint: checkpointId, restoredAt: new Date() },
       });
 
@@ -412,7 +420,7 @@ export class StateManagerService {
       const cutoffDate = new Date(Date.now() - maxAge);
 
       // Clean up database
-      const deletedCount = await this.databaseService.deleteOldOperationStates(cutoffDate);
+      const deletedCount = await this.operationStateRepo.deleteOldOperationStates(cutoffDate);
 
       // Clean up cache (Redis handles TTL automatically)
       // But we can clean up keys that match patterns
@@ -451,7 +459,7 @@ export class StateManagerService {
     averageStateSize: number;
   }> {
     try {
-      const stats = await this.databaseService.getStateStatistics();
+      const stats = await this.operationStateRepo.getStateStatistics();
 
       // Get cache statistics
       const cacheInfo = await this.redis.info('stats');
