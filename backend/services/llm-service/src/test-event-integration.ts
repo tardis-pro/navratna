@@ -11,6 +11,16 @@
 
 import { EventBusService } from '@uaip/infra/eventBus';
 import { logger } from '@uaip/utils';
+import type { EventBusMessage } from '@uaip/types';
+
+interface LLMResponseData {
+  requestId: string;
+  agentId?: string;
+  content?: string;
+  error?: string;
+  confidence?: number;
+  model?: string;
+}
 
 async function testLLMEventIntegration() {
   logger.info('Starting LLM event integration test...');
@@ -27,8 +37,8 @@ async function testLLMEventIntegration() {
   let testResult: any = null;
 
   // Subscribe to response events first
-  await eventBusService.subscribe('llm.agent.generate.response', async (event) => {
-    const { requestId, agentId, content, error, confidence, model } = event.data;
+  await eventBusService.subscribe('llm.agent.generate.response', async (event: EventBusMessage) => {
+    const { requestId, agentId, content, error, confidence, model } = event.data as LLMResponseData;
 
     logger.info('Received LLM response event', {
       requestId,
