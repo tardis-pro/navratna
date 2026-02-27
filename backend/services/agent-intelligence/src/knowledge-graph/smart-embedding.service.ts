@@ -41,6 +41,7 @@ export class SmartEmbeddingService extends EmbeddingService {
   private config: EmbeddingServiceConfig;
   private healthStatus: SmartEmbeddingStatus;
   private lastHealthCheck: Date = new Date(0);
+  private _detectedDim: number | null = null; // Cached actual dimension from TEI probe
   private performanceMetrics = {
     avgLatency: 0,
     successRate: 1.0,
@@ -270,14 +271,23 @@ export class SmartEmbeddingService extends EmbeddingService {
       // Determine active service and dimensions
       if (this.healthStatus.teiStatus.embedding.status === 'ready' && this.config.preferTEI) {
         this.healthStatus.activeService = 'tei';
-        // Detect TEI model dimensions - sentence-transformers/all-mpnet-base-v2 = 768
-        this.healthStatus.embeddingDimensions = 768; // TEI CPU model dimension
+        // Detect actual dimension from a quick probe (GPU TEI = 1024, CPU = 768)
+        // We probe only once and cache the result.
+        if (!this._detectedDim) {
+          try {
+            const probe = await this.teiService.generateEmbedding('ping');
+            this._detectedDim = probe.length;
+          } catch {
+            this._detectedDim = 1024; // GPU TEI model default
+          }
+        }
+        this.healthStatus.embeddingDimensions = this._detectedDim;
       } else if (this.healthStatus.openaiAvailable) {
         this.healthStatus.activeService = 'openai';
         this.healthStatus.embeddingDimensions = 1536; // OpenAI dimension
       } else {
         this.healthStatus.activeService = 'tei'; // Default, even if unhealthy
-        this.healthStatus.embeddingDimensions = 768; // Default TEI dimension
+        this.healthStatus.embeddingDimensions = 1024; // GPU TEI default
       }
 
       this.healthStatus.lastHealthCheck = new Date();

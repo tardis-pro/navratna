@@ -19,6 +19,8 @@ import { DatabaseService } from '@uaip/infra/database';
 import { EventBusService } from '@uaip/infra/eventBus';
 import { KnowledgeGraphService } from '@/knowledge-graph/knowledge-graph.service';
 import { AgentMemoryService } from '@/agent-memory/agent-memory.service';
+import { QmdSearchService } from '@/knowledge-graph/qmd-search.service.js';
+import { MacrodataMemoryService } from '@/agent-memory/macrodata-memory.service.js';
 import { ThoughtChain, THOUGHT_SYSTEM_PROMPT } from '@uaip/types';
 import { LLMService, UserLLMService, LLMRequest } from '@uaip/llm-service';
 
@@ -62,6 +64,12 @@ export class AgentDiscussionService {
   // Thought parser for structured thinking
   private thoughtParser: ThoughtParserService;
 
+  // QMD hybrid search (BM25 + vector) for enhanced knowledge retrieval
+  private qmdSearchService?: QmdSearchService;
+
+  // Macrodata layered memory (identity / journal / topics / distillation)
+  private macrodataMemoryService?: MacrodataMemoryService;
+
   constructor(config: AgentDiscussionConfig) {
     this.databaseService = config.databaseService;
     this.eventBusService = config.eventBusService;
@@ -82,7 +90,6 @@ export class AgentDiscussionService {
     // Initialize thought parser
     this.thoughtParser = ThoughtParserService.getInstance();
   }
-
   async initialize(): Promise<void> {
     // Set up event subscriptions
     await this.setupEventSubscriptions();
@@ -90,7 +97,23 @@ export class AgentDiscussionService {
     // Set up LLM event subscriptions
     await this.setupLLMEventSubscriptions();
 
-    // Note: Request monitoring is now handled by Redis TTL and LLMRequestTracker
+    // Initialize QMD and Macrodata services using the shared typeorm DataSource
+    try {
+      const { typeormService } = await import('@uaip/infra/database');
+      const ds = typeormService.getDataSource();
+      if (ds) {
+        const { getKnowledgeGraphService } = await import('@uaip/shared-services');
+        const kgs = await getKnowledgeGraphService() as any;
+        if (kgs?.vectorDb && kgs?.embeddings) {
+          this.qmdSearchService = new QmdSearchService(ds, kgs.vectorDb, kgs.embeddings);
+          logger.info('QmdSearchService initialized for hybrid BM25+vector memory search');
+        }
+        this.macrodataMemoryService = new MacrodataMemoryService(ds);
+        logger.info('MacrodataMemoryService initialized for layered agent memory');
+      }
+    } catch (err) {
+      logger.warn('QMD/Macrodata init skipped (non-fatal)', { error: err instanceof Error ? err.message : String(err) });
+    }
 
     logger.info('Agent Discussion Service initialized', {
       service: this.serviceName,
@@ -303,13 +326,70 @@ export class AgentDiscussionService {
       }
 
       // Get contextual knowledge for the chat
+      // Filter out empty-content messages so TEI embedder never sees blank strings
+      const safeHistory = conversationHistory.filter(
+        (m: any) => m?.content && String(m.content).trim().length > 0
+      );
       const contextualKnowledge = this.knowledgeGraphService
         ? await this.knowledgeGraphService.getContextualKnowledge({
-            discussionHistory: conversationHistory,
+            conversationHistory: safeHistory,
             relevantTags: ['chat', 'conversation'],
             scope: { agentId, userId },
           })
         : [];
+
+      // QMD hybrid search (BM25 + vector) — runs in parallel with base retrieval
+      // Merges into contextualKnowledge, deduplicating by id
+      if (this.qmdSearchService) {
+        try {
+          const qmdResults = await this.qmdSearchService.search({
+            query: message,
+            userId,
+            agentId,
+            limit: 6,
+          });
+          // Merge: add QMD results not already in contextualKnowledge
+          const existingIds = new Set(contextualKnowledge.map((k: any) => k.id));
+          for (const qr of qmdResults) {
+            if (!existingIds.has(qr.id)) {
+              contextualKnowledge.push({ id: qr.id, content: qr.content, tags: qr.tags, confidence: qr.confidence });
+            }
+          }
+          logger.info('QMD hybrid search enriched knowledge', { added: qmdResults.length, total: contextualKnowledge.length, agentId });
+        } catch (qmdErr) {
+          logger.warn('QMD search failed (non-fatal)', { error: qmdErr instanceof Error ? qmdErr.message : String(qmdErr) });
+        }
+      }
+
+      // Macrodata: get topics layer for this agent and merge into knowledge
+      if (this.macrodataMemoryService) {
+        try {
+          const macroCtx = await this.macrodataMemoryService.buildMemoryContext({
+            agentId,
+            userId,
+            query: message,
+            sessionEpisodes: conversationHistory.map((e: any) => ({
+              role: e.sender === agent.name ? 'assistant' : 'user',
+              content: e.content || '',
+              timestamp: e.timestamp || new Date().toISOString(),
+            })),
+          });
+          // Add macrodata topics as knowledge items
+          const existingIds = new Set(contextualKnowledge.map((k: any) => k.id));
+          for (const t of macroCtx.topics) {
+            if (t.content && !existingIds.has(t.content.slice(0, 30))) {
+              contextualKnowledge.push({ id: t.content.slice(0, 30), content: t.content, tags: t.tags, confidence: t.relevanceScore });
+            }
+          }
+          // Trigger background distillation when session has enough history
+          if (conversationHistory.length >= 6) {
+            this.macrodataMemoryService.distillEpisodes(agentId, userId, macroCtx.journal)
+              .catch(() => {}); // fire and forget
+          }
+        } catch (macroErr) {
+          logger.warn('Macrodata memory failed (non-fatal)', { error: macroErr instanceof Error ? macroErr.message : String(macroErr) });
+        }
+      }
 
       // Handle "system" userId by using agent's creator
       const effectiveUserId = userId === 'system' ? agent.createdBy : userId;
@@ -1912,33 +1992,23 @@ Reasoning: ${reasoning.join('; ')}`,
     userId: string;
     message: string;
     conversationId: string;
-    modelSelection?: any; // Optional model selection from parent service
+    conversationHistory?: any[]; // Chat history forwarded from the frontend
+    modelSelection?: any;
   }): Promise<{ response: string; metadata: Record<string, unknown> }> {
     try {
-      // Use participateInDiscussion — the correct public path that:
-      //  1. Loads the agent persona from DB
-      //  2. Fetches contextual knowledge
-      //  3. Calls generateChatResponse(message, agent, history, knowledge, userId)
-      //  4. Which calls requestLLMResponse(agentRequest, userId)
-      //  5. Which publishes llm.user.request → UserLLMService → user's LM Studio provider
       const result = await this.participateInDiscussion({
         agentId: params.agentId,
         message: params.message,
         userId: params.userId,
-        conversationHistory: [],
+        conversationHistory: params.conversationHistory || [],
       });
 
       const response = result.response || '';
 
-      // Publish discussion event
-      await this.eventBusService.publish('agent.discussion.message', {
-        agentId: params.agentId,
-        userId: params.userId,
-        conversationId: params.conversationId,
-        message: params.message,
-        response,
-        timestamp: new Date().toISOString(),
-      });
+      // NOTE: Do NOT publish agent.discussion.message here — that event triggers
+      // all agents in every discussion to respond, causing a 10-13x LLM fan-out
+      // that overwhelms LM Studio. Floating chat responses flow via
+      // agent.chat.response (published in index.ts after this method returns).
 
       return {
         response: response || 'I encountered an issue generating a response.',

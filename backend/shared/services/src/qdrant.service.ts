@@ -19,7 +19,7 @@ export class QdrantService {
   constructor(
     qdrantUrl?: string,
     collectionName: string = 'knowledge_embeddings',
-    embeddingDimensions: number = 768 // Default to TEI dimensions (all-mpnet-base-v2)
+    embeddingDimensions: number = 1024
   ) {
     // Use environment variable or detect containerized environment
     this.qdrantUrl =

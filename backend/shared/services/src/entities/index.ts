@@ -86,15 +86,6 @@ export { ProjectMemberEntity } from './project-member.entity';
 export { ProjectFileEntity } from './project-file.entity';
 export { TaskEntity } from './task.entity';
 
-// Project Management entities (from Project.ts)
-export {
-  Project,
-  ProjectTask,
-  ProjectToolUsage,
-  ProjectAgent,
-  ProjectWorkflow,
-  TaskExecution,
-} from './Project';
 
 // Short Link System entities
 export { ShortLinkEntity } from './short-link.entity';
@@ -162,7 +153,6 @@ import { ProjectEntity } from './project.entity';
 import { ProjectMemberEntity } from './project-member.entity';
 import { ProjectFileEntity } from './project-file.entity';
 import { TaskEntity } from './task.entity';
-import { Project, ProjectTask, ProjectToolUsage, ProjectAgent, ProjectWorkflow, TaskExecution } from './Project';
 
 export const allEntities = [
   Agent, Operation, Persona,
@@ -183,5 +173,4 @@ export const allEntities = [
   OAuthProviderEntity, OAuthStateEntity, AgentOAuthConnectionEntity,
   MFAChallengeEntity, SessionEntity, ShortLinkEntity,
   ProjectEntity, ProjectMemberEntity, ProjectFileEntity, TaskEntity,
-  Project, ProjectTask, ProjectToolUsage, ProjectAgent, ProjectWorkflow, TaskExecution,
 ];

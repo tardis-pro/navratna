@@ -78,7 +78,7 @@ export function registerProjectRoutes(app: any): any {
           const projects = await service.listProjects({
             offset,
             limit: parsed.data.limit,
-            status: parsed.data.status as ProjectStatus | undefined,
+            status: parsed.data.status as any,
           });
 
           return { success: true, data: projects };
@@ -167,7 +167,7 @@ export function registerProjectRoutes(app: any): any {
           const project = await service.updateProject(params.projectId, {
             name: parsed.data.name,
             description: parsed.data.description,
-            status: parsed.data.status as ProjectStatus | undefined,
+            status: parsed.data.status as any,
             settings: parsed.data.settings,
             metadata: parsed.data.metadata,
           });

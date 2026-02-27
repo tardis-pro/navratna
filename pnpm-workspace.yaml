@@ -118,9 +118,11 @@ onlyBuiltDependencies:
   - '@swc/core'
   - '@tailwindcss/oxide'
   - bcrypt
+  - better-sqlite3
   - cpu-features
   - esbuild
   - msgpackr-extract
+  - node-llama-cpp
   - protobufjs
   - ssh2
   - unrs-resolver

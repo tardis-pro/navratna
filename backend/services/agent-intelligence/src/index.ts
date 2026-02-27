@@ -833,8 +833,9 @@ class AgentIntelligenceService extends BaseService {
           agentId,
           userId,
           message,
-          conversationId: `websocket-chat-${Date.now()}`,
-          modelSelection, // Pass the selected model
+          conversationId: 'websocket-chat-' + Date.now(),
+          conversationHistory: conversationHistory || [],
+          modelSelection,
         });
 
         // Prepare enhanced response with WebSocket metadata
@@ -1065,19 +1066,24 @@ class AgentIntelligenceService extends BaseService {
     logger.info('ConversationEnhancementService initialized');
 
     // Initialize AgentDiscussionService
+    // Instantiate knowledgeGraphService here so it can be passed to AgentDiscussionService.
+    // (setupRoutes() also instantiates it but runs after initializeServices().)
+    const { getKnowledgeGraphService } = await import('@uaip/shared-services');
+    const knowledgeGraphService = await getKnowledgeGraphService();
+
     this.agentDiscussionService = new AgentDiscussionService({
       databaseService: this.databaseService,
       eventBusService: this.eventBusService,
-      knowledgeGraphService: undefined, // Optional
-      agentMemoryService: undefined, // Optional
-      discussionService: undefined, // Optional
+      knowledgeGraphService,
+      agentMemoryService: undefined,
+      discussionService: undefined,
       llmService: this.llmService,
       userLLMService: new UserLLMService(),
       serviceName: 'agent-intelligence',
       securityLevel: 1,
     });
     await this.agentDiscussionService.initialize();
-    logger.info('AgentDiscussionService initialized for WebSocket chat processing');
+    logger.info('AgentDiscussionService initialized with knowledgeGraphService');
 
     // Initialize DiscussionService for API routes
     this.discussionService = new DiscussionService({

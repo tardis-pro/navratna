@@ -256,11 +256,14 @@ export class KnowledgeGraphService {
   /**
    * Context-aware retrieval - used by Agent Intelligence
    */
+  /**
+   * Context-aware retrieval - used by Agent Intelligence
+   */
   async getContextualKnowledge(
     context: ContextRequest & { scope?: KnowledgeScope }
   ): Promise<KnowledgeItem[]> {
     try {
-      // Generate context embedding from discussion history and preferences
+      // Generate context embedding from discussion/conversation history and preferences
       const contextEmbedding = await this.embeddings.generateContextEmbedding(context);
 
       const results = await this.vectorDb.search(contextEmbedding, {
@@ -273,9 +276,26 @@ export class KnowledgeGraphService {
         },
       });
 
-      return this.repository.applyFilters(results, undefined, context.scope);
+      // Vector search succeeded — hydrate from Postgres
+      if (results.length > 0) {
+        return this.repository.applyFilters(results, undefined, context.scope);
+      }
+
+      // Qdrant empty or returned nothing — fall back to Postgres scope/text search
+      logger.warn('Vector search returned no results, falling back to Postgres knowledge search', {
+        scope: context.scope,
+        tags: context.relevantTags,
+      });
+      if (context.scope) {
+        return this.repository.findByScope(context.scope, undefined, 10);
+      }
+      // No scope at all — return recent general items
+      return this.repository.findRecentItems(10);
     } catch (error) {
-      console.error('Contextual knowledge retrieval error:', error);
+      logger.warn('Contextual knowledge retrieval error, returning empty', {
+        error: error instanceof Error ? error.message : String(error),
+        scope: context.scope,
+      });
       return [];
     }
   }

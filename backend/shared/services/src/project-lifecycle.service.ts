@@ -2,8 +2,8 @@ import { ProjectManagementService } from './project-management.service';
 import { EventBusService } from './eventBusService';
 import { DatabaseService } from './databaseService';
 import { logger } from '@uaip/utils';
-import { ProjectStatus, ProjectPriority } from '@uaip/types';
-import { Project, ProjectTask } from './entities/Project';
+import { ProjectStatus } from './entities/project.entity';
+import { ProjectEntity } from './entities/project.entity';
 
 export interface ProjectHealthCheck {
   projectId: string;
@@ -121,7 +121,7 @@ export class ProjectLifecycleService {
         agentHealth,
         recommendations,
         metrics: {
-          budgetUtilization: project.budgetUtilization,
+          budgetUtilization: (project as any).budgetUtilization ?? 0,
           completionRate: metrics.completionRate,
           averageTaskDuration: metrics.averageTaskDuration,
           activeAgents: metrics.agentPerformance.length,
@@ -325,22 +325,23 @@ export class ProjectLifecycleService {
     }
   }
 
-  private assessBudgetHealth(project: Project): 'on-track' | 'over-budget' | 'critical' {
-    if (project.budgetUtilization > 100) return 'critical';
-    if (project.budgetUtilization > 85) return 'over-budget';
+  private assessBudgetHealth(project: ProjectEntity): 'on-track' | 'over-budget' | 'critical' {
+    const utilization = (project as any).budgetUtilization ?? 0;
+    if (utilization > 100) return 'critical';
+    if (utilization > 85) return 'over-budget';
     return 'on-track';
   }
 
-  private assessScheduleHealth(project: Project): 'on-time' | 'delayed' | 'overdue' {
-    if (project.isOverdue) return 'overdue';
+  private assessScheduleHealth(project: ProjectEntity): 'on-time' | 'delayed' | 'overdue' {
+    if ((project as any).isOverdue) return 'overdue';
 
     // Calculate if we're behind schedule based on completion rate vs time elapsed
-    if (project.endDate) {
-      const totalDuration = project.endDate.getTime() - project.startDate!.getTime();
-      const elapsed = Date.now() - project.startDate!.getTime();
+    if ((project as any).endDate) {
+      const totalDuration = (project as any).endDate.getTime() - ((project as any).startDate?.getTime() ?? 0);
+      const elapsed = Date.now() - ((project as any).startDate?.getTime() ?? 0);
       const expectedCompletion = (elapsed / totalDuration) * 100;
 
-      if (project.completionPercentage < expectedCompletion - 20) return 'delayed';
+      if (((project as any).completionPercentage ?? 0) < expectedCompletion - 20) return 'delayed';
     }
 
     return 'on-time';
@@ -384,7 +385,7 @@ export class ProjectLifecycleService {
   }
 
   private generateRecommendations(
-    project: Project,
+    project: ProjectEntity,
     metrics: any,
     budgetHealth: string,
     scheduleHealth: string,
@@ -455,7 +456,7 @@ export class ProjectLifecycleService {
     };
   }
 
-  private async checkForAlerts(project: Project, healthCheck: ProjectHealthCheck): Promise<void> {
+  private async checkForAlerts(project: ProjectEntity, healthCheck: ProjectHealthCheck): Promise<void> {
     const alerts: ProjectAlert[] = [];
 
     // Budget alerts
@@ -644,7 +645,7 @@ export class ProjectLifecycleService {
     // Check if this tool usage pushes project over budget
     if (cost > 0 && projectId) {
       const project = await this.projectService.getProject(projectId);
-      if (project && project.isOverBudget) {
+      if (project && (project as any).isOverBudget) {
         await this.executeAutomations(projectId);
       }
     }

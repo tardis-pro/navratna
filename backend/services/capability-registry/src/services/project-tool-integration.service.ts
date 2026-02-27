@@ -239,7 +239,7 @@ export class ProjectToolIntegrationService {
 
           // Reduce score if tool is expensive relative to project budget
           const project = await this.projectService.getProject(projectId);
-          if (project && projectUsage.averageCost > project.budget * 0.1) {
+          if (project && projectUsage.averageCost > ((project as any).budget ?? 0) * 0.1) {
             adjustedScore -= 0.1;
           }
         }
@@ -406,7 +406,7 @@ export class ProjectToolIntegrationService {
 
     // Check project settings
     const project = await this.projectService.getProject(request.context.projectId);
-    if (project?.settings?.requireApproval) return true;
+    if ((project?.settings as any)?.requireApproval) return true;
 
     // Check cost threshold
     if (request.estimatedCost && request.estimatedCost > 10) return true;
