@@ -60,7 +60,7 @@ import {
 
 // Import portal components
 import { DashboardPortal } from './futuristic/portals/DashboardPortal';
-import { AgentManager } from './AgentManager';
+import { AgentManagerPortal } from './futuristic/portals/AgentManagerPortal';
 import { KnowledgePortal } from './futuristic/portals/KnowledgePortal';
 import { SettingsPortal } from './futuristic/portals/SettingsPortal';
 import { ArtifactsPortal } from './futuristic/portals/ArtifactsPortal';
@@ -189,7 +189,7 @@ const ALL_APPLICATIONS: Application[] = [
     title: 'Agent Manager',
     icon: Bot,
     color: 'text-cyan-400',
-    component: AgentManager,
+  component: AgentManagerPortal,
     category: 'core',
     minimumRole: 'user',
   },

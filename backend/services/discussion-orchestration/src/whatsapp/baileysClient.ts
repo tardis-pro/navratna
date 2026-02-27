@@ -109,6 +109,10 @@ export class BaileysClient extends EventEmitter {
     return this.state;
   }
 
+  isDestroyed(): boolean {
+    return this.destroyed;
+  }
+
   getConnectedInfo(): WAConnectedInfo | null {
     if (this.state !== 'connected' || !this.socket?.user) return null;
     const user = this.socket.user;

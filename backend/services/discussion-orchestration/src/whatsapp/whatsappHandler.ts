@@ -94,7 +94,7 @@ export class WhatsAppHandler {
   private readonly io: Server;
   private readonly eventBus: EventBusService;
   private readonly redis: Redis;
-  private readonly client: BaileysClient;
+  private client: BaileysClient;
   private readonly bindingSvc: ContactBindingService;
 
   /** Fallback agent when no binding and no agents available via API. */
@@ -192,6 +192,10 @@ export class WhatsAppHandler {
 
       socket.on('wa:connect', async () => {
         logger.info('Admin requested WhatsApp connect', { userId });
+        if (this.client.isDestroyed()) {
+          logger.info('Recreating destroyed BaileysClient on admin connect request');
+          this.resetClient();
+        }
         await this.client.connect();
       });
 
@@ -506,6 +510,13 @@ export class WhatsAppHandler {
       // invalid token — fall through to null
     }
     return null;
+  }
+
+  /** Tear down the destroyed client and create a fresh one, re-bridging all events. */
+  private resetClient(): void {
+    this.client.removeAllListeners();
+    this.client = new BaileysClient(this.redis);
+    this.bridgeClientEvents();
   }
 
   // ─── Public accessors used by the service's health endpoint ─────────────────
