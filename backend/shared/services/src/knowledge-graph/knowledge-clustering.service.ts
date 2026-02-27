@@ -1,7 +1,7 @@
-import { QdrantService } from '../qdrant.service.js';
-import { KnowledgeItemEntity } from '../entities/knowledge-item.entity.js';
+import { QdrantService } from '../qdrant.service';
+import { KnowledgeItemEntity } from '../entities/knowledge-item.entity';
 import { KnowledgeType, SourceType } from '@uaip/types';
-import { SmartEmbeddingService } from './smart-embedding.service.js';
+import { SmartEmbeddingService } from './smart-embedding.service';
 
 export interface KnowledgeCluster {
   clusterId: string;

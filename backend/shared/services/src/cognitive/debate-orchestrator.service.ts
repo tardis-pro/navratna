@@ -10,7 +10,7 @@ import {
   DEBATE_ARGUMENT_PROMPT,
   DEBATE_VOTE_PROMPT,
 } from '@uaip/types';
-import { EventBusService } from '../eventBusService.js';
+import { EventBusService } from '../eventBusService';
 import { logger } from '@uaip/utils';
 import { v4 as uuidv4 } from 'uuid';
 

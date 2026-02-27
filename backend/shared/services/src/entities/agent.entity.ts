@@ -1,5 +1,5 @@
 import { Entity, Column, Index, OneToMany, ManyToOne, JoinColumn } from 'typeorm';
-import { BaseEntity } from './base.entity.js';
+import { BaseEntity } from './base.entity';
 import {
   AgentRole,
   AgentPersona,

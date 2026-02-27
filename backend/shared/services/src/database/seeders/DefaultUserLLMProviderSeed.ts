@@ -1,5 +1,5 @@
 import { DataSource } from 'typeorm';
-import { UserLLMProvider } from '../../entities/userLLMProvider.entity.js';
+import { UserLLMProvider } from '../../entities/userLLMProvider.entity';
 import { logger } from '@uaip/utils';
 import { ModelCapability, DefaultModelConfig, LLMProviderType } from '@uaip/types';
 

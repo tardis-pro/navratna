@@ -8,6 +8,7 @@ import { Agent, AgentMetrics, KnowledgeItem } from '@uaip/types';
 import { logger } from '@uaip/utils';
 import { DatabaseService } from '@uaip/infra/database';
 import { EventBusService } from '@uaip/infra/eventBus';
+import { AgentIntelligenceStore } from './agent-intelligence-store.js';
 import { KnowledgeGraphService } from '@/knowledge-graph/knowledge-graph.service';
 import { AgentMemoryService } from '@/agent-memory/agent-memory.service';
 
@@ -46,6 +47,7 @@ export class AgentMetricsService {
   private agentMemoryService?: AgentMemoryService;
   private serviceName: string;
   private securityLevel: number;
+  private store: AgentIntelligenceStore;
 
   constructor(config: AgentMetricsConfig) {
     this.databaseService = config.databaseService;
@@ -54,6 +56,7 @@ export class AgentMetricsService {
     this.agentMemoryService = config.agentMemoryService;
     this.serviceName = config.serviceName;
     this.securityLevel = config.securityLevel;
+    this.store = new AgentIntelligenceStore(this.databaseService);
   }
 
   async initialize(): Promise<void> {
@@ -269,7 +272,7 @@ export class AgentMetricsService {
       logger.info('Tracking agent activity', { agentId, activityType: activity.type });
 
       // Store activity in database
-      await this.databaseService.storeAgentActivity(agentId, {
+      await this.store.storeAgentActivity(agentId, {
         type: activity.type,
         duration: activity.duration,
         success: activity.success,
@@ -348,7 +351,7 @@ export class AgentMetricsService {
     timeRange: { start: Date; end: Date }
   ): Promise<AgentMetrics> {
     // Get activities from database
-    const activities = await this.databaseService.getAgentActivities(agentId, timeRange);
+    const activities = await this.store.getAgentActivities(agentId, timeRange);
 
     const totalActivities = activities.length;
     const successfulActivities = activities.filter((a) => a.success).length;
@@ -425,7 +428,7 @@ export class AgentMetricsService {
     learningEfficiency: number;
     knowledgeUtilization: number;
   }> {
-    const activities = await this.databaseService.getAgentActivities(agentId, timeRange);
+    const activities = await this.store.getAgentActivities(agentId, timeRange);
 
     // Response time distribution
     const responseTimeDistribution = this.calculateResponseTimeDistribution(activities);
@@ -485,7 +488,7 @@ export class AgentMetricsService {
     agentId: string,
     timeRange: { start: Date; end: Date }
   ): Promise<Record<string, number>> {
-    const activities = await this.databaseService.getAgentActivities(agentId, timeRange);
+    const activities = await this.store.getAgentActivities(agentId, timeRange);
     const breakdown: Record<string, number> = {};
 
     activities.forEach((activity) => {
@@ -503,7 +506,7 @@ export class AgentMetricsService {
     responseConsistency: number;
     proactiveActions: number;
   }> {
-    const activities = await this.databaseService.getAgentActivities(agentId, timeRange);
+    const activities = await this.store.getAgentActivities(agentId, timeRange);
     const days = Math.ceil(
       (timeRange.end.getTime() - timeRange.start.getTime()) / (24 * 60 * 60 * 1000)
     );
@@ -634,7 +637,7 @@ export class AgentMetricsService {
   ): Promise<number> {
     // Simplified learning progress calculation
     // In a real implementation, this would analyze learning records
-    const activities = await this.databaseService.getAgentActivities(agentId, timeRange);
+    const activities = await this.store.getAgentActivities(agentId, timeRange);
     const learningActivities = activities.filter(
       (a) => a.type === 'learning' || a.type === 'training'
     );
@@ -689,7 +692,7 @@ export class AgentMetricsService {
     timeRange: { start: Date; end: Date }
   ): Promise<number> {
     // Simplified learning efficiency calculation
-    const learningRecords = await this.databaseService.getLearningRecords(agentId, timeRange);
+    const learningRecords = await this.store.getLearningRecords(agentId, timeRange);
     if (learningRecords.length === 0) return 0.5;
 
     const totalLearnings = learningRecords.length;
@@ -703,7 +706,7 @@ export class AgentMetricsService {
     timeRange: { start: Date; end: Date }
   ): Promise<number> {
     // Simplified knowledge utilization calculation
-    const activities = await this.databaseService.getAgentActivities(agentId, timeRange);
+    const activities = await this.store.getAgentActivities(agentId, timeRange);
     const knowledgeEnhancedActivities = activities.filter(
       (a) => a.metadata?.knowledgeUsed && a.metadata.knowledgeUsed > 0
     );

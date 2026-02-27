@@ -1,5 +1,5 @@
 import { Entity, Column, Index, ManyToOne, JoinColumn, Unique } from 'typeorm';
-import { BaseEntity } from './base.entity.js';
+import { BaseEntity } from './base.entity';
 
 /**
  * Discussion Participant Entity - Enterprise Multi-Agent Collaboration System

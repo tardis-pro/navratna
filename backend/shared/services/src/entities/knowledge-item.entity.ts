@@ -7,7 +7,7 @@ import {
   Index,
 } from 'typeorm';
 import { KnowledgeType, SourceType } from '@uaip/types';
-import { BaseEntity } from './base.entity.js';
+import { BaseEntity } from './base.entity';
 
 @Entity('knowledge_items')
 @Index(['sourceType', 'sourceIdentifier'])

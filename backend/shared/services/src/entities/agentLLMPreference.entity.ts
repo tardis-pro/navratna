@@ -8,8 +8,8 @@ import {
   ManyToOne,
   JoinColumn,
 } from 'typeorm';
-import { BaseEntity } from './base.entity.js';
-import { Agent } from './agent.entity.js';
+import { BaseEntity } from './base.entity';
+import { Agent } from './agent.entity';
 import { LLMTaskType, LLMProviderType } from '@uaip/types';
 
 @Entity('agent_llm_preferences')

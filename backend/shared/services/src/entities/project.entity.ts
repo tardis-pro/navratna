@@ -1,6 +1,6 @@
 import { Entity, Column, ManyToOne, OneToMany, JoinColumn, Index } from 'typeorm';
-import { BaseEntity } from './base.entity.js';
-import { UserEntity } from './user.entity.js';
+import { BaseEntity } from './base.entity';
+import { UserEntity } from './user.entity';
 import { ProjectType } from '@uaip/types';
 
 export enum ProjectStatus {

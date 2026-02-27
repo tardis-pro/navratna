@@ -1,6 +1,6 @@
-import { Agent, AgentLLMPreference } from '../entities/index.js';
+import { Agent, AgentLLMPreference } from '../entities/index';
 import { AgentRole, LLMTaskType, DiscussionDomain } from '@uaip/types';
-import { DatabaseService } from '../databaseService.js';
+import { DatabaseService } from '../databaseService';
 import { logger } from '@uaip/utils';
 
 export interface TaskTypeContext {

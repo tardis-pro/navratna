@@ -7,10 +7,10 @@ import {
   AssigneeType,
   TaskSettings,
   TaskMetrics,
-} from '../entities/task.entity.js';
-import { ProjectEntity } from '../entities/project.entity.js';
-import { UserEntity } from '../entities/user.entity.js';
-import { Agent } from '../entities/agent.entity.js';
+} from '../entities/task.entity';
+import { ProjectEntity } from '../entities/project.entity';
+import { UserEntity } from '../entities/user.entity';
+import { Agent } from '../entities/agent.entity';
 import { v4 as uuidv4 } from 'uuid';
 
 // Simple logger fallback

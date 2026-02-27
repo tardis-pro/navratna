@@ -1,6 +1,6 @@
 import { Entity, Column, Index, ManyToOne, JoinColumn } from 'typeorm';
-import { BaseEntity } from '../../entities/base.entity.js';
-import { UserEntity } from '../../entities/user.entity.js';
+import { BaseEntity } from '../../entities/base.entity';
+import { UserEntity } from '../../entities/user.entity';
 
 export enum ConceptType {
   ENTITY = 'entity',

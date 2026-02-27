@@ -1,4 +1,4 @@
-import { typeormService } from './typeormService.js';
+import { typeormService } from './typeormService';
 import { createLogger } from '@uaip/utils';
 
 /**
@@ -51,7 +51,7 @@ export class ToolManagementService {
 
   async getTools(filters?: any): Promise<any[]> {
     try {
-      const { ToolDefinition } = await import('./entities/index.js');
+      const { ToolDefinition } = await import('./entities/index');
       const repository = typeormService.getRepository(ToolDefinition);
       return await repository.find(filters || {});
     } catch (error) {
@@ -93,7 +93,7 @@ export class ToolManagementService {
       const since = new Date();
       since.setDate(since.getDate() - days);
 
-      const { ToolUsageRecord } = await import('./entities/index.js');
+      const { ToolUsageRecord } = await import('./entities/index');
       const { MoreThanOrEqual } = await import('typeorm');
       const repository = typeormService.getRepository(ToolUsageRecord);
       const usageRecords = await repository.find({
@@ -136,7 +136,7 @@ export class ToolManagementService {
     executionTime: number;
   }): Promise<void> {
     try {
-      const { AgentCapabilityMetric } = await import('./entities/index.js');
+      const { AgentCapabilityMetric } = await import('./entities/index');
       const repository = typeormService.getRepository(AgentCapabilityMetric);
 
       const metric = await repository.findOne({
@@ -183,7 +183,7 @@ export class ToolManagementService {
 
   async getAgentCapabilityMetrics(agentId: string): Promise<any[]> {
     try {
-      const { AgentCapabilityMetric } = await import('./entities/index.js');
+      const { AgentCapabilityMetric } = await import('./entities/index');
       const repository = typeormService.getRepository(AgentCapabilityMetric);
       return await repository.find({
         where: { agentId },

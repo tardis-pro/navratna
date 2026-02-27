@@ -1,12 +1,12 @@
 import { BaseService, ServiceConfig } from '@uaip/shared-services';
 import { logger } from '@uaip/utils';
-import marketplaceRoutes from './routes/marketplaceRoutes.js';
+import { marketplaceRoutes } from './routes/marketplaceRoutes.js';
 
-class MarketplaceService extends BaseService {
+class MarketplaceServiceApp extends BaseService {
   constructor() {
     const config: ServiceConfig = {
       name: 'marketplace-service',
-      port: parseInt(process.env.MARKETPLACE_SERVICE_PORT || '3006', 10),
+      port: parseInt(process.env.MARKETPLACE_SERVICE_PORT || '3008', 10),
       version: '1.0.0',
     };
     super(config);
@@ -17,7 +17,7 @@ class MarketplaceService extends BaseService {
   }
 
   protected async setupRoutes(): Promise<void> {
-    this.app.use('/api/v1/marketplace', marketplaceRoutes);
+    this.app.mount('/api/v1/marketplace', marketplaceRoutes);
   }
 
   protected async checkServiceHealth(): Promise<boolean> {
@@ -25,7 +25,7 @@ class MarketplaceService extends BaseService {
   }
 }
 
-const service = new MarketplaceService();
+const service = new MarketplaceServiceApp();
 
 service.start().catch((error) => {
   logger.error('Failed to start Marketplace Service:', error);

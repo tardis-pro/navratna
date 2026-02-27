@@ -13,7 +13,7 @@ import {
   WidgetStatus,
   SecurityLevel,
 } from '@uaip/types';
-import { DatabaseService } from './databaseService.js';
+import { DatabaseService } from './databaseService';
 import { logger } from '@uaip/utils';
 
 export interface WidgetServiceOptions {

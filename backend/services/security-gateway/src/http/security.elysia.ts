@@ -2,7 +2,6 @@ import { z } from 'zod';
 import { logger } from '@uaip/utils';
 import { withRequiredAuth, withAdminGuard } from '@uaip/middleware';
 import { SecurityService, AuditService as DomainAuditService } from '@uaip/shared-services';
-import { DatabaseService } from '@uaip/infra/database';
 import { EventBusService } from '@uaip/infra/eventBus';
 import { AuditService } from '../services/auditService.js';
 import { NotificationService } from '../services/notificationService.js';
@@ -31,8 +30,6 @@ async function getServices() {
 
 async function getSecurityServices() {
   const { securityService, auditService, domainAuditService } = await getServices();
-  const databaseService = DatabaseService.getInstance();
-  await databaseService.initialize();
   if (!notificationService) notificationService = new NotificationService();
   if (!eventBusService)
     eventBusService = new EventBusService(
@@ -41,19 +38,16 @@ async function getSecurityServices() {
     );
   if (!approvalWorkflowService)
     approvalWorkflowService = new ApprovalWorkflowService(
-      databaseService,
       eventBusService,
       notificationService,
       auditService
     );
   if (!securityGatewayService)
     securityGatewayService = new SecurityGatewayService(
-      databaseService,
       approvalWorkflowService,
       auditService
     );
   return {
-    databaseService,
     auditService,
     domainAuditService,
     securityService,

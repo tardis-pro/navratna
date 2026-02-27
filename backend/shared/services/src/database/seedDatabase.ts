@@ -6,7 +6,7 @@
  */
 
 // Re-export the new seedDatabase function for backward compatibility
-export { seedDatabase } from './seeders/index.js';
+export { seedDatabase } from './seeders/index';
 
 // Re-export the DatabaseSeeder class for backward compatibility
-export { DatabaseSeeder } from './seeders/index.js';
+export { DatabaseSeeder } from './seeders/index';

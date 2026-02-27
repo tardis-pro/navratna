@@ -1,11 +1,11 @@
 import { v4 as uuidv4 } from 'uuid';
 import { KnowledgeItem, KnowledgeRelationship, KnowledgeType, SourceType } from '@uaip/types';
-import { KnowledgeItemEntity } from '@uaip/shared-services/entities/knowledge-item.entity';
-import { KnowledgeRelationshipEntity } from '@uaip/shared-services/entities/knowledge-relationship.entity';
-import { UserEntity } from '@uaip/shared-services/entities/user.entity';
-import { KnowledgeRepository } from '@uaip/shared-services/database/repositories/knowledge.repository';
+import { KnowledgeItemEntity } from '@uaip/shared-services';
+import { KnowledgeRelationshipEntity } from '@uaip/shared-services';
+import { UserEntity } from '@uaip/shared-services';
+import { KnowledgeRepository } from '@uaip/shared-services';
 import { QdrantService } from '@/knowledge-graph/qdrant.service';
-import { ToolGraphDatabase } from '@uaip/shared-services/database/toolGraphDatabase';
+import { ToolGraphDatabase } from '@uaip/shared-services';
 import { EmbeddingService } from './embedding.service.js';
 import { logger } from '@uaip/utils';
 

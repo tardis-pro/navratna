@@ -1,6 +1,6 @@
-import { BaseRepository } from '../base/BaseRepository.js';
-import { OAuthProviderEntity } from '../../entities/oauthProvider.entity.js';
-import { OAuthStateEntity } from '../../entities/oauthState.entity.js';
+import { BaseRepository } from '../base/BaseRepository';
+import { OAuthProviderEntity } from '../../entities/oauthProvider.entity';
+import { OAuthStateEntity } from '../../entities/oauthState.entity';
 import { logger } from '@uaip/utils';
 
 export class OAuthProviderRepository extends BaseRepository<OAuthProviderEntity> {

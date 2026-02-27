@@ -1,6 +1,6 @@
 import { logger } from '@uaip/utils';
 import { ApiError } from '@uaip/utils';
-import { DatabaseService } from '@uaip/infra/database';
+import { UserService, OAuthService, MFAService, SessionService } from '@uaip/shared-services';
 import { JWTValidator, generateAuthTokens } from '@uaip/middleware';
 import * as jwt from 'jsonwebtoken';
 import * as crypto from 'crypto';
@@ -44,11 +44,20 @@ interface AgentAuthenticationRequest {
 }
 
 export class EnhancedAuthService {
+  private userService: UserService;
+  private oauthDomainService: OAuthService;
+  private mfaService: MFAService;
+  private sessionService: SessionService;
+
   constructor(
-    private databaseService: DatabaseService,
     private oauthProviderService: OAuthProviderService,
     private auditService: AuditService
-  ) {}
+  ) {
+    this.userService = UserService.getInstance();
+    this.oauthDomainService = OAuthService.getInstance();
+    this.mfaService = MFAService.getInstance();
+    this.sessionService = SessionService.getInstance();
+  }
 
   /**
    * Authenticate user with OAuth provider
@@ -67,16 +76,16 @@ export class EnhancedAuthService {
 
       // Find or create user
       // Try to find user by email first, then by OAuth connection
-      let user = (await this.databaseService.users.findUserByEmail(userInfo.email)) as any;
+      let user = (await this.userService.findUserByEmail(userInfo.email)) as any;
 
       if (!user) {
         // Check if there's an OAuth connection for this provider
-        const oauthConnection = await this.databaseService.oauth.findAgentOAuthConnection(
+        const oauthConnection = await this.oauthDomainService.findAgentOAuthConnection(
           userInfo.id,
           provider.id
         );
         if (oauthConnection) {
-          user = await this.databaseService.users.findUserById(oauthConnection.agentId);
+          user = await this.userService.findUserById(oauthConnection.agentId);
         }
       }
 
@@ -228,7 +237,7 @@ export class EnhancedAuthService {
     redirectUri: string
   ): Promise<{ success: boolean; connection?: any }> {
     try {
-      const user = await this.databaseService.users.findUserById(userId);
+      const user = await this.userService.findUserById(userId);
       if (!user) {
         throw new ApiError(404, 'User not found', 'USER_NOT_FOUND');
       }
@@ -290,7 +299,7 @@ export class EnhancedAuthService {
     sessionId: string,
     method: MFAMethod
   ): Promise<MFAChallenge> {
-    const user = await this.databaseService.users.findUserById(userId);
+    const user = await this.userService.findUserById(userId);
     if (!user) {
       throw new Error('User not found');
     }
@@ -326,7 +335,7 @@ export class EnhancedAuthService {
       expiresAt: new Date(Date.now() + 5 * 60 * 1000), // 5 minutes
     };
 
-    await this.databaseService.mfa.createMFAChallenge(userId, method, sessionId);
+    await this.mfaService.createMFAChallenge(userId, method, sessionId);
 
     // Send challenge to user (implementation depends on method)
     await this.sendMFAChallenge(user as any, mfaChallenge, challenge);
@@ -342,7 +351,7 @@ export class EnhancedAuthService {
     response: string
   ): Promise<{ verified: boolean; session?: Session }> {
     try {
-      const challenge = await this.databaseService.mfa.findMFAChallenge(challengeId);
+      const challenge = await this.mfaService.findMFAChallenge(challengeId);
       if (!challenge || challenge.expiresAt < new Date()) {
         throw new ApiError(400, 'Invalid or expired MFA challenge', 'INVALID_MFA_CHALLENGE');
       }
@@ -356,7 +365,7 @@ export class EnhancedAuthService {
       }
 
       // Increment attempts
-      await this.databaseService.mfa.incrementAttempts(challengeId);
+      await this.mfaService.incrementAttempts(challengeId);
 
       // Verify response based on method
       const decryptedChallenge = await this.decryptChallenge(challenge.challenge);
@@ -376,13 +385,13 @@ export class EnhancedAuthService {
 
       if (verified) {
         // Mark challenge as verified using the MFA service verify method
-        await this.databaseService.mfa.verifyMFAChallenge(challenge.userId, response);
+        await this.mfaService.verifyMFAChallenge(challenge.userId, response);
 
         // Update session to mark MFA as verified
-        const session = await this.databaseService.sessions.findSession(challenge.sessionId);
+        const session = await this.sessionService.findSession(challenge.sessionId);
         if (session) {
           session.mfaVerified = true;
-          await this.databaseService.sessions.updateSession(session.id, session);
+          await this.sessionService.updateSession(session.id, session);
         }
 
         await this.auditService.logEvent({
@@ -428,12 +437,12 @@ export class EnhancedAuthService {
    */
   public async createSecurityContext(sessionId: string): Promise<EnhancedSecurityContext> {
     try {
-      const session = await this.databaseService.sessions.findSession(sessionId);
+      const session = await this.sessionService.findSession(sessionId);
       if (!session || session.status !== SessionStatus.ACTIVE) {
         throw new ApiError(401, 'Invalid or inactive session', 'INVALID_SESSION');
       }
 
-      const user = await this.databaseService.users.findUserById(session.userId);
+      const user = await this.userService.findUserById(session.userId);
       if (!user) {
         throw new ApiError(404, 'User not found', 'USER_NOT_FOUND');
       }
@@ -537,7 +546,7 @@ export class EnhancedAuthService {
       updatedAt: new Date(),
     };
 
-    return (await this.databaseService.users.createUser(user as any)) as unknown as EnhancedUser;
+    return (await this.userService.createUser(user as any)) as unknown as EnhancedUser;
   }
 
   private async updateUserOAuthConnection(
@@ -567,7 +576,7 @@ export class EnhancedAuthService {
       });
     }
 
-    await this.databaseService.users.updateUser(user.id!, user);
+    await this.userService.updateUser(user.id!, user);
   }
 
   private async createSession(
@@ -598,7 +607,7 @@ export class EnhancedAuthService {
       updatedAt: new Date(),
     };
 
-    return await this.databaseService.sessions.createSession(user.id, session.sessionToken, {
+    return await this.sessionService.createSession(user.id, session.sessionToken, {
       deviceInfo: session.deviceInfo,
       agentCapabilities: session.agentCapabilities,
       metadata: session.metadata,
@@ -652,7 +661,7 @@ export class EnhancedAuthService {
         return null;
       }
 
-      const agent = await this.databaseService.users.findUserById(decoded.userId);
+      const agent = await this.userService.findUserById(decoded.userId);
 
       if (!agent || agent.userType !== UserType.AGENT) {
         return null;
@@ -688,7 +697,7 @@ export class EnhancedAuthService {
       return connection !== null;
     }
     // Fallback: check through database
-    const providers = await this.databaseService.oauth.findAgentOAuthConnections(agentId);
+    const providers = await this.oauthDomainService.findAgentOAuthConnections(agentId);
     return providers.some((p) => p.providerType === providerType && p.isActive);
   }
 

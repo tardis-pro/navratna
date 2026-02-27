@@ -1,10 +1,10 @@
-import { UserLLMProviderRepository } from './UserLLMProviderRepository.js';
+import { UserLLMProviderRepository } from './UserLLMProviderRepository';
 import {
   UserLLMProvider,
   UserLLMProviderType,
   UserLLMProviderStatus,
-} from '../../entities/userLLMProvider.entity.js';
-import { redisCacheService } from '../../redis-cache.service.js';
+} from '../../entities/userLLMProvider.entity';
+import { redisCacheService } from '../../redis-cache.service';
 import { logger } from '@uaip/utils';
 
 /**

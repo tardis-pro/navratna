@@ -6,12 +6,13 @@ import {
   DEFAULT_CRITIQUE_CONFIG,
   CRITIQUE_SYSTEM_PROMPT,
 } from '@uaip/types';
-import { EventBusService } from '../eventBusService.js';
+import { EventBusService } from '../eventBusService';
 import { logger } from '@uaip/utils';
 import { v4 as uuidv4 } from 'uuid';
 
 // Regex patterns for parsing critique output
-const CRITIQUE_REGEX = /\[CRITIQUE\s+criteria="(\w+)"\s+score="([\d.]+)"\]([\s\S]*?)\[\/CRITIQUE\]/g;
+const CRITIQUE_REGEX =
+  /\[CRITIQUE\s+criteria="(\w+)"\s+score="([\d.]+)"\]([\s\S]*?)\[\/CRITIQUE\]/g;
 const VERDICT_REGEX = /\[VERDICT\]([\s\S]*?)\[\/VERDICT\]/;
 
 export class CritiqueService {
@@ -65,7 +66,7 @@ Evaluate this response using the criteria specified.`;
         reject(new Error('Critique request timeout'));
       }, 30000);
 
-      this.eventBus.subscribe(`llm.response.${requestId}`, async (event) => {
+      this.eventBus.subscribe(`llm.response.${requestId}`, async (event: any) => {
         clearTimeout(timeout);
         resolve(event.data?.content || '');
       });
@@ -152,7 +153,11 @@ Evaluate this response using the criteria specified.`;
   /**
    * Parse LLM critique output
    */
-  private parseCritiqueResponse(content: string, originalResponse: string, responseId: string): CritiqueResult {
+  private parseCritiqueResponse(
+    content: string,
+    originalResponse: string,
+    responseId: string
+  ): CritiqueResult {
     const items: CritiqueItem[] = [];
     let match;
 
@@ -176,9 +181,8 @@ Evaluate this response using the criteria specified.`;
 
     // Parse verdict
     const verdictMatch = VERDICT_REGEX.exec(content);
-    let overallScore = items.length > 0
-      ? items.reduce((sum, i) => sum + i.score, 0) / items.length
-      : 0.5;
+    let overallScore =
+      items.length > 0 ? items.reduce((sum, i) => sum + i.score, 0) / items.length : 0.5;
     let shouldRevise = overallScore < this.config.minScoreThreshold;
     let majorIssues: string[] = [];
 
@@ -190,7 +194,11 @@ Evaluate this response using the criteria specified.`;
 
       if (scoreMatch) overallScore = parseFloat(scoreMatch[1]);
       if (reviseMatch) shouldRevise = reviseMatch[1].toLowerCase() === 'true';
-      if (issuesMatch) majorIssues = issuesMatch[1].split(',').map((s) => s.trim()).filter(Boolean);
+      if (issuesMatch)
+        majorIssues = issuesMatch[1]
+          .split(',')
+          .map((s) => s.trim())
+          .filter(Boolean);
     }
 
     return {
@@ -218,9 +226,7 @@ Evaluate this response using the criteria specified.`;
       .map((i) => `- ${i.criteria}: ${i.issue}`)
       .join('\n');
 
-    const suggestions = critique.suggestedImprovements
-      .map((s) => `- ${s}`)
-      .join('\n');
+    const suggestions = critique.suggestedImprovements.map((s) => `- ${s}`).join('\n');
 
     return `Original question: ${originalQuery}
 
@@ -247,7 +253,7 @@ Please provide an improved response that addresses these issues while maintainin
         reject(new Error('Improvement request timeout'));
       }, 60000);
 
-      this.eventBus.subscribe(`llm.response.${requestId}`, async (event) => {
+      this.eventBus.subscribe(`llm.response.${requestId}`, async (event: any) => {
         clearTimeout(timeout);
         resolve(event.data?.content || '');
       });

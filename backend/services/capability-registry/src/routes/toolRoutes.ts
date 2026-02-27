@@ -13,6 +13,7 @@ function createResponseObject() {
   return res;
 }
 
+
 // Minimal, clean Elysia route group for tools
 export function registerToolRoutes(
   app: any,

@@ -1,9 +1,9 @@
 import { logger } from '@uaip/utils';
 import { QdrantService } from '@/knowledge-graph/qdrant.service';
-import { KnowledgeRepository } from '@uaip/shared-services/database/repositories/knowledge.repository';
+import { KnowledgeRepository } from '@uaip/shared-services';
 import { KnowledgeSyncService } from './knowledge-sync.service.js';
 import { EmbeddingService } from './embedding.service.js';
-import { ToolGraphDatabase } from '@uaip/shared-services/database/toolGraphDatabase';
+import { ToolGraphDatabase } from '@uaip/shared-services';
 import { DatabaseService } from '@uaip/infra/database';
 
 export interface QdrantHealthStatus {
@@ -73,7 +73,7 @@ export class QdrantHealthService {
       );
 
       const databaseService = DatabaseService.getInstance();
-      const userRepository = databaseService.getUserRepository();
+      const userRepository = await databaseService.getRepository('User' as any);
       const syncService = new KnowledgeSyncService(
         this.knowledgeRepository,
         this.qdrantService,

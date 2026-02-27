@@ -1,5 +1,5 @@
 import { Entity, Column, Index, ManyToOne, OneToMany, JoinColumn } from 'typeorm';
-import { BaseEntity } from './base.entity.js';
+import { BaseEntity } from './base.entity';
 import { OperationStatus, ExecutionPlan } from '@uaip/types';
 
 // Related entities will be referenced by string to avoid circular dependencies

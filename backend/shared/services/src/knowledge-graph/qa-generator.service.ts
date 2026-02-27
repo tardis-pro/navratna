@@ -1,8 +1,8 @@
 import { logger } from '@uaip/utils';
-import { KnowledgeRepository } from '../database/repositories/knowledge.repository.js';
-import { ContentClassifier } from './content-classifier.service.js';
-import { EmbeddingService } from './embedding.service.js';
-import { ParsedConversation } from './chat-parser.service.js';
+import { KnowledgeRepository } from '../database/repositories/knowledge.repository';
+import { ContentClassifier } from './content-classifier.service';
+import { EmbeddingService } from './embedding.service';
+import { ParsedConversation } from './chat-parser.service';
 import { v4 as uuidv4 } from 'uuid';
 
 export interface GeneratedQA {

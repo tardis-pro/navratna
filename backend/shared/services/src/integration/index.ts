@@ -4,8 +4,8 @@ export {
   GraphSyncResult,
   GraphSyncBatch,
   GraphSyncStatus,
-} from './IntegrationEvent.js';
-export { OutboxPublisher } from './OutboxPublisher.js';
-export { GraphSyncWorker } from './GraphSyncWorker.js';
-export { IntegrationService } from './IntegrationService.js';
-export { IntegrationEventEntity } from '../entities/integrationEvent.entity.js';
+} from './IntegrationEvent';
+export { OutboxPublisher } from './OutboxPublisher';
+export { GraphSyncWorker } from './GraphSyncWorker';
+export { IntegrationService } from './IntegrationService';
+export { IntegrationEventEntity } from '../entities/integrationEvent.entity';

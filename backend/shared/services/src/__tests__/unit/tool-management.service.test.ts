@@ -1,4 +1,4 @@
-import { ToolManagementService } from '../../tool-management.service.js';
+import { ToolManagementService } from '../../tool-management.service';
 
 describe('ToolManagementService', () => {
   let service: ToolManagementService;

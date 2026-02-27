@@ -1,19 +1,19 @@
 import { DataSource } from 'typeorm';
-import { UserSeed } from './UserSeed.js';
-import { UserLLMProviderSeed } from './UserLLMProviderSeed.js';
-import { LLMPreferencesSeed } from './LLMPreferencesSeed.js';
-import { SecurityPolicySeed } from './SecurityPolicySeed.js';
-import { PersonaSeed } from './PersonaSeed.js';
-import { AgentSeed } from './AgentSeed.js';
-import { ToolDefinitionSeed } from './ToolDefinitionSeed.js';
-import { ProjectSeed } from './ProjectSeed.js';
-import { getViralAgentsData } from './data/viralAgents.js';
+import { UserSeed } from './UserSeed';
+import { UserLLMProviderSeed } from './UserLLMProviderSeed';
+import { LLMPreferencesSeed } from './LLMPreferencesSeed';
+import { SecurityPolicySeed } from './SecurityPolicySeed';
+import { PersonaSeed } from './PersonaSeed';
+import { AgentSeed } from './AgentSeed';
+import { ToolDefinitionSeed } from './ToolDefinitionSeed';
+import { ProjectSeed } from './ProjectSeed';
+import { getViralAgentsData } from './data/viralAgents';
 
 // Import all entities
-import { UserEntity } from '../../entities/user.entity.js';
-import { UserLLMProvider } from '../../entities/userLLMProvider.entity.js';
-import { Agent } from '../../entities/agent.entity.js';
-import { Persona as PersonaEntity } from '../../entities/persona.entity.js';
+import { UserEntity } from '../../entities/user.entity';
+import { UserLLMProvider } from '../../entities/userLLMProvider.entity';
+import { Agent } from '../../entities/agent.entity';
+import { Persona as PersonaEntity } from '../../entities/persona.entity';
 
 /**
  * Main Database Seeder that orchestrates all individual seeders

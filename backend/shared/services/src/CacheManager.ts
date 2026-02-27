@@ -1,8 +1,8 @@
-import { redisCacheService } from './redis-cache.service.js';
-import { CachedUserService } from './services/CachedUserService.js';
-import { CachedUserKnowledgeService } from './CachedUserKnowledgeService.js';
-import { CachedUserLLMProviderRepository } from './database/repositories/CachedUserLLMProviderRepository.js';
-import { CachedLLMProviderRepository } from './database/repositories/CachedLLMProviderRepository.js';
+import { redisCacheService } from './redis-cache.service';
+import { CachedUserService } from './services/CachedUserService';
+import { CachedUserKnowledgeService } from './CachedUserKnowledgeService';
+import { CachedUserLLMProviderRepository } from './database/repositories/CachedUserLLMProviderRepository';
+import { CachedLLMProviderRepository } from './database/repositories/CachedLLMProviderRepository';
 import { logger } from '@uaip/utils';
 
 /**

@@ -1,6 +1,6 @@
 import { logger } from '@uaip/utils';
-import { BaseRepository } from '../base/BaseRepository.js';
-import { Agent } from '../../entities/agent.entity.js';
+import { BaseRepository } from '../base/BaseRepository';
+import { Agent } from '../../entities/agent.entity';
 
 export class AgentRepository extends BaseRepository<Agent> {
   constructor() {

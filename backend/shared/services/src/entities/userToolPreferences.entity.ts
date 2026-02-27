@@ -1,7 +1,7 @@
 import { Entity, Column, ManyToOne, Index, JoinColumn } from 'typeorm';
-import { BaseEntity } from './base.entity.js';
-import { UserEntity } from './user.entity.js';
-import { ToolDefinition } from './toolDefinition.entity.js';
+import { BaseEntity } from './base.entity';
+import { UserEntity } from './user.entity';
+import { ToolDefinition } from './toolDefinition.entity';
 
 /**
  * User Tool Preferences Entity

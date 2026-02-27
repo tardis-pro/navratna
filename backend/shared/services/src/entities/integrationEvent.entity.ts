@@ -1,5 +1,5 @@
 import { Entity, Column, Index, CreateDateColumn } from 'typeorm';
-import { BaseEntity } from './base.entity.js';
+import { BaseEntity } from './base.entity';
 
 /**
  * Integration Event Entity for the Outbox Pattern

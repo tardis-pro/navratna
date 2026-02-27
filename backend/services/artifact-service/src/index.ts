@@ -28,7 +28,7 @@ class ArtifactServiceApp extends BaseService {
     };
     super(serviceConfig);
     this.artifactFactory = new ArtifactFactory();
-    this.artifactService = new ArtifactService();
+    this.artifactService = new ArtifactService(this.eventBusService);
     this.conversationAnalyzer = new ConversationAnalyzerImpl();
   }
 

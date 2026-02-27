@@ -1,4 +1,4 @@
-import { DiscussionService } from '../../discussionService.js';
+import { DiscussionService } from '../../discussionService';
 
 describe('DiscussionService', () => {
   let service: DiscussionService;

@@ -4,7 +4,8 @@ import { WebSocketServer } from 'ws';
 import { Server as SocketIOServer } from 'socket.io';
 import { Server as BunEngine } from '@socket.io/bun-engine';
 import { logger } from '@uaip/utils';
-import { DiscussionService, PersonaService } from '@uaip/shared-services';
+import { DiscussionService } from './services/discussionService.js';
+import { PersonaService } from './services/personaService.js';
 import { authMiddleware } from '@uaip/middleware';
 import {
   SERVICE_ACCESS_MATRIX,
@@ -340,8 +341,17 @@ class DiscussionOrchestrationServer extends BaseService {
     // Subscribe to agent messages for discussions
     await this.eventBusService.subscribe('discussion.agent.message', async (event) => {
       try {
+        const eventPayload = (event.data || event) as {
+          discussionId: string;
+          participantId: string;
+          agentId?: string;
+          content: string;
+          messageType?: string;
+          metadata?: Record<string, unknown>;
+          isInitialParticipation?: boolean;
+        };
         const { discussionId, participantId, agentId, content, messageType, metadata, isInitialParticipation } =
-          event.data || event;
+          eventPayload;
         const mergedMetadata = {
           ...(metadata || {}),
           ...(isInitialParticipation === true ? { isInitialParticipation: true } : {}),
@@ -792,7 +802,7 @@ class DiscussionOrchestrationServer extends BaseService {
         clearTimeout(timeoutId);
 
         if (!response.ok) {
-          const errorBody = await response.json().catch(() => null);
+          const errorBody = await response.json().catch((): null => null);
           return {
             valid: false,
             reason: errorBody?.error || 'Authentication failed',

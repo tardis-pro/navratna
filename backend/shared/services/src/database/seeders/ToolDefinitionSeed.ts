@@ -1,7 +1,7 @@
 import { DataSource, DeepPartial } from 'typeorm';
-import { BaseSeed } from './BaseSeed.js';
-import { ToolDefinition } from '../../entities/toolDefinition.entity.js';
-import { UserEntity } from '../../entities/user.entity.js';
+import { BaseSeed } from './BaseSeed';
+import { ToolDefinition } from '../../entities/toolDefinition.entity';
+import { UserEntity } from '../../entities/user.entity';
 import { ToolCategory, SecurityLevel } from '@uaip/types';
 
 /**

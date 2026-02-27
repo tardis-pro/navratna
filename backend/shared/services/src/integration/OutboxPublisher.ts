@@ -1,6 +1,6 @@
 import { Repository } from 'typeorm';
-import { IntegrationEventEntity } from '../entities/integrationEvent.entity.js';
-import { IntegrationEvent } from './IntegrationEvent.js';
+import { IntegrationEventEntity } from '../entities/integrationEvent.entity';
+import { IntegrationEvent } from './IntegrationEvent';
 import { logger } from '@uaip/utils';
 
 export class OutboxPublisher {

@@ -1,8 +1,8 @@
 import { logger } from '@uaip/utils';
-import { BaseRepository } from '../base/BaseRepository.js';
-import { ToolDefinition } from '../../entities/toolDefinition.entity.js';
-import { ToolExecution } from '../../entities/toolExecution.entity.js';
-import { ToolUsageRecord } from '../../entities/toolUsageRecord.entity.js';
+import { BaseRepository } from '../base/BaseRepository';
+import { ToolDefinition } from '../../entities/toolDefinition.entity';
+import { ToolExecution } from '../../entities/toolExecution.entity';
+import { ToolUsageRecord } from '../../entities/toolUsageRecord.entity';
 
 export class ToolRepository extends BaseRepository<ToolDefinition> {
   constructor() {
@@ -302,7 +302,7 @@ export class ToolUsageRepository extends BaseRepository<ToolUsageRecord> {
 
     // Update tool usage count using repository factory
     if (usageData.toolId) {
-      const { repositoryFactory } = await import('../base/RepositoryFactory.js');
+      const { repositoryFactory } = await import('../base/RepositoryFactory');
       const toolRepo = repositoryFactory.getToolRepository();
       await toolRepo.incrementToolUsageCount(usageData.toolId);
     }

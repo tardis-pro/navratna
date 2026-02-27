@@ -7,8 +7,8 @@ import {
   UpdateDateColumn,
   Index,
 } from 'typeorm';
-import { Agent } from './agent.entity.js';
-import { ToolDefinition } from './toolDefinition.entity.js';
+import { Agent } from './agent.entity';
+import { ToolDefinition } from './toolDefinition.entity';
 
 @Entity('tool_assignments')
 @Index(['agent', 'tool'], { unique: true }) // Prevent duplicate assignments

@@ -8,8 +8,8 @@ import {
   JoinColumn,
   Index,
 } from 'typeorm';
-import { BaseEntity } from './base.entity.js';
-import { UserEntity } from './user.entity.js';
+import { BaseEntity } from './base.entity';
+import { UserEntity } from './user.entity';
 
 @Entity('password_reset_tokens')
 @Index(['token'], { unique: true })

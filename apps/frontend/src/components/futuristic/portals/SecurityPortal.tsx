@@ -21,6 +21,7 @@ import {
   ArrowDown,
   Minus,
   Pause,
+  Lock,
 } from 'lucide-react';
 import { Portal, PortalProps } from '../Portal';
 import { cn } from '@/lib/utils';

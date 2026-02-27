@@ -1,10 +1,10 @@
 import { DataSource, DeepPartial } from 'typeorm';
-import { BaseSeed } from './BaseSeed.js';
-import { UserLLMPreference } from '../../entities/userLLMPreference.entity.js';
-import { AgentLLMPreference } from '../../entities/agentLLMPreference.entity.js';
-import { UserEntity } from '../../entities/user.entity.js';
-import { Agent } from '../../entities/agent.entity.js';
-import { UserLLMProvider } from '../../entities/userLLMProvider.entity.js';
+import { BaseSeed } from './BaseSeed';
+import { UserLLMPreference } from '../../entities/userLLMPreference.entity';
+import { AgentLLMPreference } from '../../entities/agentLLMPreference.entity';
+import { UserEntity } from '../../entities/user.entity';
+import { Agent } from '../../entities/agent.entity';
+import { UserLLMProvider } from '../../entities/userLLMProvider.entity';
 import { LLMProviderType, LLMTaskType } from '@uaip/types';
 
 interface TaskConfiguration {

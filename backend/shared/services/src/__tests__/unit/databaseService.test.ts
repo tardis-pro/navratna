@@ -1,4 +1,4 @@
-import { DatabaseService } from '../../databaseService.js';
+import { DatabaseService } from '../../databaseService';
 
 // Create a comprehensive mock repository that includes all TypeORM methods
 const createMockRepository = () => ({
@@ -27,7 +27,7 @@ const createMockRepository = () => ({
 });
 
 // Mock the TypeOrmService dependency
-jest.mock('../../typeormService.js', () => ({
+jest.mock('../../typeormService.ts', () => ({
   TypeOrmService: {
     getInstance: jest.fn(() => ({
       initialize: jest.fn().mockResolvedValue(undefined),

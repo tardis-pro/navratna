@@ -47,10 +47,10 @@ export class ArtifactService implements IArtifactService {
   private eventBusService: EventBusService;
   private pendingLLMRequests: Map<string, any> = new Map();
 
-  constructor() {
+  constructor(eventBusService?: EventBusService) {
     this.templateManager = new TemplateManager();
     this.validator = new ArtifactValidator();
-    this.eventBusService = EventBusService.getInstance();
+    this.eventBusService = eventBusService || EventBusService.getInstance();
     this.initializeGenerators();
   }
 

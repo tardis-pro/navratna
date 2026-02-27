@@ -1,5 +1,5 @@
-import { UserKnowledgeService } from './user-knowledge.service.js';
-import { KnowledgeGraphService } from './knowledge-graph/knowledge-graph.service.js';
+import { UserKnowledgeService } from './user-knowledge.service';
+import { KnowledgeGraphService } from './knowledge-graph/knowledge-graph.service';
 import {
   KnowledgeItem,
   KnowledgeSearchRequest,
@@ -9,7 +9,7 @@ import {
   KnowledgeType,
   SourceType,
 } from '@uaip/types';
-import { redisCacheService } from './redis-cache.service.js';
+import { redisCacheService } from './redis-cache.service';
 import { logger } from '@uaip/utils';
 
 /**

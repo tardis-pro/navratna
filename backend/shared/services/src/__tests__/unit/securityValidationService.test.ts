@@ -1,5 +1,5 @@
-import { SecurityValidationService } from '../../securityValidationService.js';
-import { DatabaseService } from '../../databaseService.js';
+import { SecurityValidationService } from '../../securityValidationService';
+import { DatabaseService } from '../../databaseService';
 import {
   SecurityValidationResult,
   RiskAssessment,
@@ -38,7 +38,7 @@ const createMockDatabaseService = () => ({
 });
 
 // Mock the DatabaseService
-jest.mock('../../databaseService.js', () => ({
+jest.mock('../../databaseService.ts', () => ({
   DatabaseService: jest.fn().mockImplementation(() => createMockDatabaseService()),
 }));
 

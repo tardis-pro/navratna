@@ -1,37 +1,40 @@
 import { logger } from '@uaip/utils';
-import { TypeOrmService } from './typeormService.js';
+import { TypeOrmService } from './typeormService';
 import { EntityTarget, ObjectLiteral, Repository, DeepPartial, FindOptionsWhere } from 'typeorm';
-import { UserService } from './services/UserService.js';
-import { ToolService } from './services/ToolService.js';
-import { AgentService } from './services/AgentService.js';
-import { ProjectService } from './services/ProjectService.js';
-import { OperationService } from './services/OperationService.js';
-import { SecurityService } from './services/SecurityService.js';
-import { AuditService } from './services/AuditService.js';
-import { DiscussionService } from './discussionService.js';
-import { ArtifactService } from './services/ArtifactService.js';
-import { SessionService } from './services/SessionService.js';
-import { MFAService } from './services/MFAService.js';
-import { OAuthService } from './services/OAuthService.js';
-import { MCPService } from './services/MCPService.js';
-import { KnowledgeBootstrapService } from './knowledge-graph/bootstrap.service.js';
-import { seedDatabase } from './database/seedDatabase.js';
-import { KnowledgeRepository } from './database/repositories/knowledge.repository.js';
-import { QdrantService } from './qdrant.service.js';
-import { ToolGraphDatabase } from './database/toolGraphDatabase.js';
-import { SmartEmbeddingService } from './knowledge-graph/smart-embedding.service.js';
-import { Persona } from './entities/persona.entity.js';
-import { AgentCapabilityMetric } from './entities/agentCapabilityMetric.entity.js';
-import { PersonaAnalytics } from './entities/personaAnalytics.entity.js';
-import { ConversationContext } from './entities/conversationContext.entity.js';
-import { Discussion } from './entities/discussion.entity.js';
+import { UserService } from './services/UserService';
+import { ToolService } from './services/ToolService';
+import { AgentService } from './services/AgentService';
+import { ProjectService } from './services/ProjectService';
+import { OperationService } from './services/OperationService';
+import { SecurityService } from './services/SecurityService';
+import { AuditService } from './services/AuditService';
+import { DiscussionService } from './discussionService';
+import { ArtifactService } from './services/ArtifactService';
+import { SessionService } from './services/SessionService';
+import { MFAService } from './services/MFAService';
+import { OAuthService } from './services/OAuthService';
+import { MCPService } from './services/MCPService';
+import { KnowledgeBootstrapService } from './knowledge-graph/bootstrap.service';
+import { seedDatabase } from './database/seedDatabase';
+import { KnowledgeRepository } from './database/repositories/knowledge.repository';
+import { QdrantService } from './qdrant.service';
+import { ToolGraphDatabase } from './database/toolGraphDatabase';
+import { SmartEmbeddingService } from './knowledge-graph/smart-embedding.service';
+import { Persona } from './entities/persona.entity';
+import { AgentCapabilityMetric } from './entities/agentCapabilityMetric.entity';
+import { PersonaAnalytics } from './entities/personaAnalytics.entity';
+import { ConversationContext } from './entities/conversationContext.entity';
+import { Discussion } from './entities/discussion.entity';
 
 // Database error handling
 export class DatabaseError extends Error {
   public readonly code?: string;
   public readonly details?: Record<string, unknown>;
 
-  constructor(message: string, options?: { code?: string; details?: Record<string, unknown>; originalError?: string }) {
+  constructor(
+    message: string,
+    options?: { code?: string; details?: Record<string, unknown>; originalError?: string }
+  ) {
     super(message);
     this.name = 'DatabaseError';
     this.code = options?.code;
@@ -123,9 +126,9 @@ export class DatabaseService {
     if (!this._knowledgeRepository) {
       await this.ensureInitialized();
       const dataSource = this.typeormService.getDataSource();
-      const { KnowledgeItemEntity } = await import('./entities/knowledge-item.entity.js');
+      const { KnowledgeItemEntity } = await import('./entities/knowledge-item.entity');
       const { KnowledgeRelationshipEntity } =
-        await import('./entities/knowledge-relationship.entity.js');
+        await import('./entities/knowledge-relationship.entity');
 
       this._knowledgeRepository = new KnowledgeRepository(
         dataSource.getRepository(KnowledgeItemEntity),
@@ -483,12 +486,12 @@ export class DatabaseService {
   public async getDiscussionService(): Promise<DiscussionService> {
     if (!this.discussionService) {
       // Lazy initialize DiscussionService with required dependencies
-      const { DiscussionService } = await import('./discussionService.js');
-      const { EventBusService } = await import('./eventBusService.js');
-      const { PersonaService } = await import('./personaService.js');
+      const { DiscussionService } = await import('./discussionService');
+      const { EventBusService } = await import('./eventBusService');
+      const { PersonaService } = await import('./personaService');
 
       const personaService = new PersonaService({
-        databaseService: this,
+        databaseService: this as any,
         eventBusService: EventBusService.getInstance(),
         enableAnalytics: false,
         enableRecommendations: false,
@@ -496,7 +499,7 @@ export class DatabaseService {
       });
 
       this.discussionService = new DiscussionService({
-        databaseService: this,
+        databaseService: this as any,
         eventBusService: EventBusService.getInstance(),
         personaService: personaService,
         enableRealTimeEvents: true,
@@ -611,7 +614,7 @@ export class DatabaseService {
       }
 
       // Use the existing DatabaseSeeder infrastructure
-      const { DatabaseSeeder } = await import('./database/seeders/DatabaseSeeder.js');
+      const { DatabaseSeeder } = await import('./database/seeders/DatabaseSeeder');
       const seeder = new DatabaseSeeder(dataSource);
       await seeder.seedAll();
 
@@ -780,6 +783,16 @@ export class DatabaseService {
     return (await repository.findOne({ where: { id } as any })) as T | null;
   }
 
+  public async delete<T extends ObjectLiteral>(
+    entityClass: EntityTarget<T>,
+    id: string
+  ): Promise<boolean> {
+    await this.ensureInitialized();
+    const repository = this.typeormService.getRepository(entityClass);
+    const result = await repository.delete(id);
+    return (result.affected ?? 0) > 0;
+  }
+
   public async findMany<T>(entityClass: any, conditions: any, options?: any): Promise<T[]> {
     await this.ensureInitialized();
     const repository = this.typeormService.getRepository(entityClass);
@@ -795,7 +808,6 @@ export class DatabaseService {
     return await repository.count({ where: conditions });
   }
 
-  // Discussion-specific search method
   public async searchDiscussions(filters: any): Promise<{ discussions: any[]; total: number }> {
     await this.ensureInitialized();
     // Delegate to discussion repository if it exists

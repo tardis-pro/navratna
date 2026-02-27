@@ -5,8 +5,8 @@
       "rootDir": "src",
       "baseUrl": ".",
       "paths": {
-        "@uaip/infra": ["../../../backend/shared/infra/src"],
-        "@uaip/infra/*": ["../../../backend/shared/infra/src/*"],
+        "@uaip/infra": ["../../../backend/shared/infra/dist"],
+        "@uaip/infra/*": ["../../../backend/shared/infra/dist/*"],
         "@uaip/knowledge-graph/*": ["../../../backend/services/agent-intelligence/src/knowledge-graph/*"],
         "@uaip/agent-memory/*": ["../../../backend/services/agent-intelligence/src/agent-memory/*"]
       },

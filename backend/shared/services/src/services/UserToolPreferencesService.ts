@@ -1,7 +1,7 @@
 import { Repository, DataSource } from 'typeorm';
-import { UserToolPreferences } from '../entities/userToolPreferences.entity.js';
-import { ToolDefinition } from '../entities/toolDefinition.entity.js';
-import { UserEntity } from '../entities/user.entity.js';
+import { UserToolPreferences } from '../entities/userToolPreferences.entity';
+import { ToolDefinition } from '../entities/toolDefinition.entity';
+import { UserEntity } from '../entities/user.entity';
 import { logger } from '@uaip/utils';
 
 export interface UserToolPreferencesData {

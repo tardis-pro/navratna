@@ -2,86 +2,86 @@
 // This file exports all TypeORM entities for use across the monorepo
 
 // Base entity
-export { BaseEntity } from './base.entity.js';
+export { BaseEntity } from './base.entity';
 
 // Core entities
-export { Agent } from './agent.entity.js';
-export { Operation } from './operation.entity.js';
-export { Persona } from './persona.entity.js';
+export { Agent } from './agent.entity';
+export { Operation } from './operation.entity';
+export { Persona } from './persona.entity';
 
 // User System entities
-export { UserEntity } from './user.entity.js';
-export { UserPreferencesEntity } from './user-preferences.entity.js';
-export { UserContactEntity } from './user-contact.entity.js';
-export { UserMessageEntity } from './user-message.entity.js';
-export { UserPresenceEntity } from './user-presence.entity.js';
-export { RefreshTokenEntity } from './refreshToken.entity.js';
-export { PasswordResetTokenEntity } from './passwordResetToken.entity.js';
+export { UserEntity } from './user.entity';
+export { UserPreferencesEntity } from './user-preferences.entity';
+export { UserContactEntity } from './user-contact.entity';
+export { UserMessageEntity } from './user-message.entity';
+export { UserPresenceEntity } from './user-presence.entity';
+export { RefreshTokenEntity } from './refreshToken.entity';
+export { PasswordResetTokenEntity } from './passwordResetToken.entity';
 
 // Agent System entities
-export { AgentCapabilityMetric } from './agentCapabilityMetric.entity.js';
-export { ToolUsageRecord } from './toolUsageRecord.entity.js';
-export { ConversationContext } from './conversationContext.entity.js';
+export { AgentCapabilityMetric } from './agentCapabilityMetric.entity';
+export { ToolUsageRecord } from './toolUsageRecord.entity';
+export { ConversationContext } from './conversationContext.entity';
 
 // Operation System entities
-export { OperationState } from './operationState.entity.js';
-export { OperationCheckpoint } from './operationCheckpoint.entity.js';
-export { StepResult } from './stepResult.entity.js';
-export { ApprovalWorkflow } from './approvalWorkflow.entity.js';
-export { ApprovalDecision } from './approvalDecision.entity.js';
+export { OperationState } from './operationState.entity';
+export { OperationCheckpoint } from './operationCheckpoint.entity';
+export { StepResult } from './stepResult.entity';
+export { ApprovalWorkflow } from './approvalWorkflow.entity';
+export { ApprovalDecision } from './approvalDecision.entity';
 
 // Audit System entities
-export { AuditEvent } from './auditEvent.entity.js';
+export { AuditEvent } from './auditEvent.entity';
 
 // Security System entities
-export { SecurityPolicy } from './securityPolicy.entity.js';
+export { SecurityPolicy } from './securityPolicy.entity';
 
 // OAuth System entities
-export { OAuthProviderEntity } from './oauthProvider.entity.js';
-export { OAuthStateEntity } from './oauthState.entity.js';
-export { AgentOAuthConnectionEntity } from './agentOAuthConnection.entity.js';
+export { OAuthProviderEntity } from './oauthProvider.entity';
+export { OAuthStateEntity } from './oauthState.entity';
+export { AgentOAuthConnectionEntity } from './agentOAuthConnection.entity';
 
 // MFA System entities
-export { MFAChallengeEntity } from './mfaChallenge.entity.js';
+export { MFAChallengeEntity } from './mfaChallenge.entity';
 
 // Session System entities
-export { SessionEntity } from './session.entity.js';
+export { SessionEntity } from './session.entity';
 
 // Tool System entities
-export { ToolDefinition } from './toolDefinition.entity.js';
-export { ToolExecution } from './toolExecution.entity.js';
-export { ToolAssignment } from './toolAssignment.entity.js';
-export { UserToolPreferences } from './userToolPreferences.entity.js';
+export { ToolDefinition } from './toolDefinition.entity';
+export { ToolExecution } from './toolExecution.entity';
+export { ToolAssignment } from './toolAssignment.entity';
+export { UserToolPreferences } from './userToolPreferences.entity';
 
 // Artifact System entities
-export { Artifact } from './artifact.entity.js';
-export { ArtifactReview } from './artifactReview.entity.js';
-export { ArtifactDeployment } from './artifactDeployment.entity.js';
+export { Artifact } from './artifact.entity';
+export { ArtifactReview } from './artifactReview.entity';
+export { ArtifactDeployment } from './artifactDeployment.entity';
 
 // Persona System entities
-export { Discussion } from './discussion.entity.js';
-export { DiscussionParticipant } from './discussionParticipant.entity.js';
-export { DiscussionMessage } from './discussionMessage.entity.js';
-export { PersonaAnalytics } from './personaAnalytics.entity.js';
+export { Discussion } from './discussion.entity';
+export { DiscussionParticipant } from './discussionParticipant.entity';
+export { DiscussionMessage } from './discussionMessage.entity';
+export { PersonaAnalytics } from './personaAnalytics.entity';
 
 // MCP Integration entities
-export { MCPServer } from './mcpServer.entity.js';
-export { MCPToolCall } from './mcpToolCall.entity.js';
+export { MCPServer } from './mcpServer.entity';
+export { MCPToolCall } from './mcpToolCall.entity';
 
 // LLM Integration entities
-export { LLMProvider } from './llmProvider.entity.js';
-export { UserLLMPreference } from './userLLMPreference.entity.js';
-export { AgentLLMPreference } from './agentLLMPreference.entity.js';
+export { LLMProvider } from './llmProvider.entity';
+export { UserLLMPreference } from './userLLMPreference.entity';
+export { AgentLLMPreference } from './agentLLMPreference.entity';
 
 // Knowledge Graph entities
-export { KnowledgeItemEntity } from './knowledge-item.entity.js';
-export { KnowledgeRelationshipEntity } from './knowledge-relationship.entity.js';
+export { KnowledgeItemEntity } from './knowledge-item.entity';
+export { KnowledgeRelationshipEntity } from './knowledge-relationship.entity';
 
 // Project System entities
-export { ProjectEntity } from './project.entity.js';
-export { ProjectMemberEntity } from './project-member.entity.js';
-export { ProjectFileEntity } from './project-file.entity.js';
-export { TaskEntity } from './task.entity.js';
+export { ProjectEntity } from './project.entity';
+export { ProjectMemberEntity } from './project-member.entity';
+export { ProjectFileEntity } from './project-file.entity';
+export { TaskEntity } from './task.entity';
 
 // Project Management entities (from Project.ts)
 export {
@@ -91,16 +91,16 @@ export {
   ProjectAgent,
   ProjectWorkflow,
   TaskExecution,
-} from './Project.js';
+} from './Project';
 
 // Short Link System entities
-export { ShortLinkEntity } from './short-link.entity.js';
+export { ShortLinkEntity } from './short-link.entity';
 
 // User LLM Integration entities
-export { UserLLMProvider } from './userLLMProvider.entity.js';
+export { UserLLMProvider } from './userLLMProvider.entity';
 
 // Integration Event entities
-export { IntegrationEventEntity } from './integrationEvent.entity.js';
+export { IntegrationEventEntity } from './integrationEvent.entity';
 
 // Entity arrays for TypeORM configuration - kept for backward compatibility
 export const getAllEntities = () => {

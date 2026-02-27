@@ -1,2 +1,2 @@
 // Shared Conversation Utilities
-export { ConversationUtils } from './conversationUtils.js';
+export { ConversationUtils } from './conversationUtils';

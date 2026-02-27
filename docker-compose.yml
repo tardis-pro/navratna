@@ -4,12 +4,12 @@
 # Navratna - Unified Monorepo Docker Compose Configuration
 # Development Setup with Hot Reloading
 # =============================================================================
-# 
+#
 # Database Initialization Order:
 # 1. PostgreSQL: 01-init-database.sql → 02-persona-discussion-schema.sql → 03-seed-data.sql
 # 2. Neo4j: 01-init-graph.cypher → 04-neo4j-tools-schema.cypher
 # 3. All migration files are available in /docker-entrypoint-initdb.d/migrations/
-# 
+#
 # =============================================================================
 
 services:
@@ -23,14 +23,14 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-uaip_password}
       POSTGRES_MULTIPLE_DATABASES: ${POSTGRES_MULTIPLE_DATABASES:-uaip,uaip_test}
     ports:
-      - "5432:5432"
+      - '5432:5432'
     volumes:
       - postgres_data:/var/lib/postgresql
       # PostgreSQL initialization files (executed in alphabetical order)
     networks:
       - uaip-network
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U uaip_user -d uaip"]
+      test: ['CMD-SHELL', 'pg_isready -U uaip_user -d uaip']
       interval: 300s
       timeout: 10s
       retries: 5
@@ -48,8 +48,8 @@ services:
       NEO4J_dbms_memory_heap_initial__size: 512m
       NEO4J_dbms_memory_heap_max__size: 1G
     ports:
-      - "7474:7474"  # HTTP
-      - "7687:7687"  # Bolt
+      - '7474:7474' # HTTP
+      - '7687:7687' # Bolt
     volumes:
       - neo4j_data:/data
       - neo4j_logs:/logs
@@ -60,7 +60,7 @@ services:
     networks:
       - uaip-network
     healthcheck:
-      test: ["CMD", "cypher-shell", "-u", "neo4j", "-p", "uaip_dev_password", "RETURN 1"]
+      test: ['CMD', 'cypher-shell', '-u', 'neo4j', '-p', 'uaip_dev_password', 'RETURN 1']
       interval: 300s
       timeout: 10s
       retries: 5
@@ -69,7 +69,7 @@ services:
     image: redis:8-alpine
     container_name: uaip-redis
     ports:
-      - "6379:6379"
+      - '6379:6379'
     volumes:
       - redis_data:/data
     networks:
@@ -78,7 +78,7 @@ services:
     environment:
       - REDIS_PASSWORD=${REDIS_PASSWORD:-uaip_redis_password}
     healthcheck:
-      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD:-uaip_redis_password}", "ping"]
+      test: ['CMD', 'redis-cli', '-a', '${REDIS_PASSWORD:-uaip_redis_password}', 'ping']
       interval: 10s
       timeout: 5s
       retries: 3
@@ -88,8 +88,8 @@ services:
     image: qdrant/qdrant:v1.14.1
     container_name: uaip-qdrant
     ports:
-      - "6333:6333"  # HTTP API
-      - "6334:6334"  # gRPC API
+      - '6333:6333' # HTTP API
+      - '6334:6334' # gRPC API
     volumes:
       - qdrant_data:/qdrant/storage
     environment:
@@ -98,7 +98,7 @@ services:
     networks:
       - uaip-network
     healthcheck:
-      test: ["CMD-SHELL", "timeout 5s bash -c '</dev/tcp/localhost/6333'"]
+      test: ['CMD-SHELL', "timeout 5s bash -c '</dev/tcp/localhost/6333'"]
       interval: 300s
       timeout: 10s
       retries: 3
@@ -110,8 +110,8 @@ services:
     runtime: nvidia
     command: --model-id mixedbread-ai/mxbai-embed-large-v1 --port 80 --max-batch-tokens 16384 --max-concurrent-requests 512 --auto-truncate
     ports:
-      - "8080:80"
-      - "9080:9000"  # Prometheus metrics
+      - '8080:80'
+      - '9080:9000' # Prometheus metrics
     volumes:
       - tei_embeddings_data:/data
     environment:
@@ -122,7 +122,7 @@ services:
     networks:
       - uaip-network
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:80/health"]
+      test: ['CMD', 'curl', '-f', 'http://localhost:80/health']
       interval: 300s
       timeout: 10s
       retries: 3
@@ -139,7 +139,7 @@ services:
       - --model-id
       - mixedbread-ai/mxbai-rerank-large-v2
       - --port
-      - "8083"
+      - '8083'
     environment:
       - HF_HOME=/app/.cache
     networks:
@@ -147,10 +147,10 @@ services:
     volumes:
       - tei_reranker_data:/app/.cache
     ports:
-      - "8083:8083"
+      - '8083:8083'
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8083/health"]
+      test: ['CMD', 'curl', '-f', 'http://localhost:8083/health']
       interval: 300s
       timeout: 10s
       retries: 3
@@ -164,8 +164,8 @@ services:
     container_name: uaip-tei-embeddings-cpu
     command: --model-id sentence-transformers/all-mpnet-base-v2 --port 80 --max-batch-tokens 8192 --max-concurrent-requests 256 --auto-truncate
     ports:
-      - "8082:80"
-      - "9082:9000"  # Prometheus metrics
+      - '8082:80'
+      - '9082:9000' # Prometheus metrics
     volumes:
       - tei_embeddings_cpu_data:/data
     environment:
@@ -175,7 +175,7 @@ services:
     networks:
       - uaip-network
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:80/health"]
+      test: ['CMD', 'curl', '-f', 'http://localhost:80/health']
       interval: 300s
       timeout: 10s
       retries: 3
@@ -189,8 +189,8 @@ services:
       RABBITMQ_DEFAULT_USER: ${RABBITMQ_DEFAULT_USER:-uaip_user}
       RABBITMQ_DEFAULT_PASS: ${RABBITMQ_DEFAULT_PASS:-uaip_password}
     ports:
-      - "5672:5672"   # AMQP
-      - "15672:15672" # Management UI
+      - '5672:5672' # AMQP
+      - '15672:15672' # Management UI
     volumes:
       - rabbitmq_data:/var/lib/rabbitmq
     networks:
@@ -212,15 +212,15 @@ services:
       MINIO_DOMAIN: minio
       MINIO_REGION_NAME: us-east-1
     ports:
-      - "9000:9000"   # API
-      - "9001:9001"   # Console
+      - '9000:9000' # API
+      - '9001:9001' # Console
     volumes:
       - minio_data:/data
       - minio_config:/root/.minio
     networks:
       - uaip-network
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      test: ['CMD', 'curl', '-f', 'http://localhost:9000/minio/health/live']
       interval: 300s
       timeout: 20s
       retries: 3
@@ -231,7 +231,7 @@ services:
       context: .
       dockerfile: Dockerfile.base
     image: uaip-backend-base:latest
-    command: ["echo", "Base image built successfully"]
+    command: ['echo', 'Base image built successfully']
 
   # Core Backend Services - Development with Hot Reloading
   agent-intelligence:
@@ -260,7 +260,7 @@ services:
       - ZERO_TRUST_MODE=disabled
       - SERVICE_ACCESS_MATRIX=standard
     ports:
-      - "3001:3001"
+      - '3001:3001'
     volumes:
       # Hot reloading - mount source code
       - ./packages:/app/packages
@@ -277,7 +277,6 @@ services:
       - /app/packages/shared-types/node_modules
       - /app/packages/shared-utils/node_modules
     depends_on:
-      
       postgres:
         condition: service_started
       neo4j:
@@ -291,7 +290,7 @@ services:
     networks:
       - uaip-network
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:3001/health"]
+      test: ['CMD', 'curl', '-f', 'http://localhost:3001/health']
       interval: 300s
       timeout: 10s
       retries: 3
@@ -311,7 +310,7 @@ services:
       - REDIS_URL=redis://:${REDIS_PASSWORD:-uaip_redis_password}@redis:6379
       - RABBITMQ_URL=amqp://${RABBITMQ_DEFAULT_USER:-uaip_user}:${RABBITMQ_DEFAULT_PASS:-uaip_password}@rabbitmq:5672
     ports:
-      - "3002:3002"
+      - '3002:3002'
     volumes:
       # Hot reloading - mount source code
       - ./packages:/app/packages
@@ -328,7 +327,6 @@ services:
       - /app/packages/shared-types/node_modules
       - /app/packages/shared-utils/node_modules
     depends_on:
-      
       postgres:
         condition: service_started
       neo4j:
@@ -340,7 +338,7 @@ services:
     networks:
       - uaip-network
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:3002/health"]
+      test: ['CMD', 'curl', '-f', 'http://localhost:3002/health']
       interval: 300s
       timeout: 10s
       retries: 3
@@ -369,7 +367,7 @@ services:
       - ZERO_TRUST_MODE=disabled
       - SERVICE_ACCESS_MATRIX=standard
     ports:
-      - "3003:3003"
+      - '3003:3003'
     volumes:
       # Hot reloading - mount source code
       - ./packages:/app/packages
@@ -386,7 +384,6 @@ services:
       - /app/packages/shared-types/node_modules
       - /app/packages/shared-utils/node_modules
     depends_on:
-      
       postgres:
         condition: service_started
       neo4j:
@@ -400,7 +397,7 @@ services:
     networks:
       - uaip-network
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:3003/health"]
+      test: ['CMD', 'curl', '-f', 'http://localhost:3003/health']
       interval: 300s
       timeout: 10s
       retries: 3
@@ -424,7 +421,7 @@ services:
       - REDIS_PASSWORD=${REDIS_PASSWORD:-uaip_redis_password}
       - RABBITMQ_URL=amqp://${RABBITMQ_DEFAULT_USER:-uaip_user}:${RABBITMQ_DEFAULT_PASS:-uaip_password}@rabbitmq:5672
     ports:
-      - "3005:3005"
+      - '3005:3005'
     volumes:
       # Hot reloading - mount source code
       - ./packages:/app/packages
@@ -441,7 +438,6 @@ services:
       - /app/packages/shared-types/node_modules
       - /app/packages/shared-utils/node_modules
     depends_on:
-      
       postgres:
         condition: service_started
       neo4j:
@@ -453,7 +449,7 @@ services:
     networks:
       - uaip-network
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:3005/health"]
+      test: ['CMD', 'curl', '-f', 'http://localhost:3005/health']
       interval: 300s
       timeout: 10s
       retries: 3
@@ -466,6 +462,7 @@ services:
       - SERVICE_PORT=3004
       - NODE_ENV=development
       - PORT=3004
+      - TYPEORM_SYNC=true
       - POSTGRES_URL=postgresql://${POSTGRES_USER:-uaip_user}:${POSTGRES_PASSWORD:-uaip_password}@postgres:5432/${POSTGRES_DB:-uaip}
       - REDIS_URL=redis://:${REDIS_PASSWORD:-uaip_redis_password}@redis:6379
       - QDRANT_URL=http://qdrant:6333
@@ -484,7 +481,7 @@ services:
       - TEI_RERANKER_URL=http://tei-reranker:8083
       - TEI_EMBEDDING_CPU_URL=http://tei-embeddings-cpu:80
     ports:
-      - "3004:3004"
+      - '3004:3004'
     volumes:
       # Hot reloading - mount source code
       - ./packages:/app/packages
@@ -501,7 +498,6 @@ services:
       - /app/packages/shared-types/node_modules
       - /app/packages/shared-utils/node_modules
     depends_on:
-      
       postgres:
         condition: service_started
       qdrant:
@@ -517,7 +513,7 @@ services:
     networks:
       - uaip-network
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:3004/health"]
+      test: ['CMD', 'curl', '-f', 'http://localhost:3004/health']
       interval: 300s
       timeout: 10s
       retries: 3
@@ -537,7 +533,7 @@ services:
       - OPENAI_API_URL=${OPENAI_API_URL}
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
     ports:
-      - "3006:3006"
+      - '3006:3006'
     volumes:
       # Hot reloading - mount source code
       - ./packages:/app/packages
@@ -554,7 +550,6 @@ services:
       - /app/packages/shared-types/node_modules
       - /app/packages/shared-utils/node_modules
     depends_on:
-      
       postgres:
         condition: service_started
       redis:
@@ -564,7 +559,7 @@ services:
     networks:
       - uaip-network
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:3006/health"]
+      test: ['CMD', 'curl', '-f', 'http://localhost:3006/health']
       interval: 300s
       timeout: 10s
       retries: 3
@@ -588,7 +583,7 @@ services:
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
       - LLM_PROVIDER_ENCRYPTION_KEY=${LLM_PROVIDER_ENCRYPTION_KEY:-default-key-change-in-production}
     ports:
-      - "3007:3007"
+      - '3007:3007'
     volumes:
       # Hot reloading - mount source code
       - ./packages:/app/packages
@@ -605,7 +600,6 @@ services:
       - /app/packages/shared-types/node_modules
       - /app/packages/shared-utils/node_modules
     depends_on:
-      
       postgres:
         condition: service_started
       redis:
@@ -615,7 +609,7 @@ services:
     networks:
       - uaip-network
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:3007/health"]
+      test: ['CMD', 'curl', '-f', 'http://localhost:3007/health']
       interval: 300s
       timeout: 10s
       retries: 3
@@ -629,12 +623,13 @@ services:
     container_name: council-frontend
     environment:
       - NODE_ENV=development
-      - VITE_API_URL=https://b3b3ed273803.ngrok-free.app
+      - VITE_API_URL=http://192.168.29.70:8081
       - VITE_API_TARGET=http://api-gateway:80
       - CHOKIDAR_USEPOLLING=true
       - WATCHPACK_POLLING=true
+      - TYPEORM_SYNC=true
     ports:
-      - "5173:5173"
+      - '5173:5173'
     volumes:
       # Hot reloading - mount source code
       - ./apps/frontend/src:/app/apps/frontend/src
@@ -654,7 +649,7 @@ services:
     image: nginx:alpine
     container_name: uaip-api-gateway
     ports:
-      - "8081:80"
+      - '8081:80'
     volumes:
       - ./api-gateway/nginx.conf:/etc/nginx/nginx.conf
       - ./apps/frontend/dist:/var/www/html:ro
@@ -670,7 +665,7 @@ services:
     networks:
       - uaip-network
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost/health"]
+      test: ['CMD', 'curl', '-f', 'http://localhost/health']
       interval: 300s
       timeout: 10s
       retries: 3
@@ -680,7 +675,7 @@ services:
     image: prom/prometheus:latest
     container_name: uaip-prometheus
     ports:
-      - "9090:9090"
+      - '9090:9090'
     volumes:
       - ./monitoring:/etc/prometheus/config
       - prometheus_data:/prometheus
@@ -697,7 +692,7 @@ services:
     image: grafana/loki:2.9.8
     container_name: uaip-loki
     ports:
-      - "3100:3100"
+      - '3100:3100'
     volumes:
       - ./monitoring/loki/loki-config.yml:/etc/loki/loki-config.yml
       - loki_data:/loki
@@ -727,9 +722,9 @@ services:
     image: prometheuscommunity/postgres-exporter:latest
     container_name: uaip-postgres-exporter
     environment:
-      DATA_SOURCE_NAME: "postgresql://${POSTGRES_USER:-uaip_user}:${POSTGRES_PASSWORD:-uaip_password}@postgres:5432/${POSTGRES_DB:-uaip}?sslmode=disable"
+      DATA_SOURCE_NAME: 'postgresql://${POSTGRES_USER:-uaip_user}:${POSTGRES_PASSWORD:-uaip_password}@postgres:5432/${POSTGRES_DB:-uaip}?sslmode=disable'
     ports:
-      - "9187:9187"
+      - '9187:9187'
     networks:
       - uaip-network
     depends_on:
@@ -741,10 +736,10 @@ services:
     image: oliver006/redis_exporter:latest
     container_name: uaip-redis-exporter
     environment:
-      REDIS_ADDR: "redis:6379"
-      REDIS_PASSWORD: "${REDIS_PASSWORD:-uaip_redis_password}"
+      REDIS_ADDR: 'redis:6379'
+      REDIS_PASSWORD: '${REDIS_PASSWORD:-uaip_redis_password}'
     ports:
-      - "9121:9121"
+      - '9121:9121'
     networks:
       - uaip-network
     depends_on:
@@ -756,7 +751,7 @@ services:
     image: prom/node-exporter:latest
     container_name: uaip-node-exporter
     ports:
-      - "9100:9100"
+      - '9100:9100'
     volumes:
       - /proc:/host/proc:ro
       - /sys:/host/sys:ro
@@ -794,7 +789,7 @@ services:
     image: nginx/nginx-prometheus-exporter:latest
     container_name: uaip-nginx-exporter
     ports:
-      - "9113:9113"
+      - '9113:9113'
     networks:
       - uaip-network
     depends_on:
@@ -804,7 +799,7 @@ services:
       - '-nginx.scrape-uri=http://api-gateway:80/nginx_status'
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "wget", "-q", "--spider", "http://localhost:9113/metrics"]
+      test: ['CMD', 'wget', '-q', '--spider', 'http://localhost:9113/metrics']
       interval: 300s
       timeout: 10s
       retries: 3
@@ -813,7 +808,7 @@ services:
     image: grafana/grafana:latest
     container_name: uaip-grafana
     ports:
-      - "3000:3000"
+      - '3000:3000'
     volumes:
       - grafana_data:/var/lib/grafana
       - ./monitoring/grafana/provisioning:/etc/grafana/provisioning
@@ -846,4 +841,4 @@ volumes:
 
 networks:
   uaip-network:
-    driver: bridge 
+    driver: bridge

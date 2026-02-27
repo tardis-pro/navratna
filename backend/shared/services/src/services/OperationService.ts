@@ -1,14 +1,14 @@
-import { TypeOrmService } from '../typeormService.js';
+import { TypeOrmService } from '../typeormService';
 import {
   OperationRepository,
   OperationStateRepository,
   OperationCheckpointRepository,
   StepResultRepository,
-} from '../database/repositories/OperationRepository.js';
-import { Operation } from '../entities/operation.entity.js';
-import { OperationState } from '../entities/operationState.entity.js';
-import { OperationCheckpoint } from '../entities/operationCheckpoint.entity.js';
-import { StepResult } from '../entities/stepResult.entity.js';
+} from '../database/repositories/OperationRepository';
+import { Operation } from '../entities/operation.entity';
+import { OperationState } from '../entities/operationState.entity';
+import { OperationCheckpoint } from '../entities/operationCheckpoint.entity';
+import { StepResult } from '../entities/stepResult.entity';
 
 export class OperationService {
   private static instance: OperationService;

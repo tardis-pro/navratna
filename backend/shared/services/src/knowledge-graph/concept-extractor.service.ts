@@ -1,7 +1,7 @@
 import { logger } from '@uaip/utils';
 import { KnowledgeItem, KnowledgeType, SourceType } from '@uaip/types';
-import { ContentClassifier } from './content-classifier.service.js';
-import { EmbeddingService } from './embedding.service.js';
+import { ContentClassifier } from './content-classifier.service';
+import { EmbeddingService } from './embedding.service';
 
 export interface ConceptNode {
   id: string;

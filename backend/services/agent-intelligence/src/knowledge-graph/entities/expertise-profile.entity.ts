@@ -1,6 +1,6 @@
 import { Entity, Column, Index, ManyToOne, JoinColumn } from 'typeorm';
-import { BaseEntity } from '@uaip/shared-services/entities/base.entity';
-import { UserEntity } from '@uaip/shared-services/entities/user.entity';
+import { BaseEntity } from '@uaip/shared-services';
+import { UserEntity } from '@uaip/shared-services';
 
 export enum ExpertiseLevel {
   BEGINNER = 'beginner',

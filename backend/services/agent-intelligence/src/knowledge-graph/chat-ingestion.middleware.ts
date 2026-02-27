@@ -1,4 +1,3 @@
-import { Elysia } from 'elysia';
 import { logger } from '@uaip/utils';
 import { ChatParserService } from './chat-parser.service.js';
 import { z } from 'zod';
@@ -104,8 +103,8 @@ export class ChatIngestionMiddleware {
 
   // Elysia plugin for file upload validation
   handleFileUpload() {
-    return (app: Elysia) => {
-      return app.derive(({ body, set }) => {
+    return (app: any) => {
+      return app.derive(({ body, set }: any) => {
         const requestBody = body as { files?: unknown[] };
         const files = requestBody?.files;
 
@@ -157,8 +156,8 @@ export class ChatIngestionMiddleware {
 
   // Elysia plugin for request validation
   validateRequest() {
-    return (app: Elysia) => {
-      return app.derive((ctx) => {
+    return (app: any) => {
+      return app.derive((ctx: any) => {
         const { body, set } = ctx;
         const { uploadedFiles } = ctx as UploadContext;
 
@@ -214,8 +213,8 @@ export class ChatIngestionMiddleware {
 
   // Elysia plugin for file format validation
   validateFileFormat() {
-    return (app: Elysia) => {
-      return app.derive(async (ctx) => {
+    return (app: any) => {
+      return app.derive(async (ctx: any) => {
         const { set } = ctx;
         const { uploadedFiles, validatedOptions } = ctx as ValidationContext;
 
@@ -299,8 +298,8 @@ export class ChatIngestionMiddleware {
 
   // Elysia plugin for file content parsing
   parseFileContent() {
-    return (app: Elysia) => {
-      return app.derive(async (ctx) => {
+    return (app: any) => {
+      return app.derive(async (ctx: any) => {
         const { set } = ctx;
         const { chatFiles } = ctx as FileContext;
 
@@ -394,8 +393,8 @@ export class ChatIngestionMiddleware {
 
   // Elysia plugin for creating ingestion job
   createIngestionJob() {
-    return (app: Elysia) => {
-      return app.derive((ctx) => {
+    return (app: any) => {
+      return app.derive((ctx: any) => {
         const { set } = ctx;
         const { chatFiles, validatedOptions } = ctx as FileContext;
 

@@ -6,8 +6,8 @@
  * Integrates with Service Access Matrix for security validation
  */
 
-import { DatabaseService } from '../databaseService.js';
-import { TypeOrmService } from '../typeormService.js';
+import { DatabaseService } from '../databaseService';
+import { TypeOrmService } from '../typeormService';
 import { logger } from '@uaip/utils';
 import {
   SERVICE_ACCESS_MATRIX,
@@ -15,7 +15,7 @@ import {
   AccessLevel,
   validateServiceAccess,
   getDatabaseConnectionString,
-} from './ServiceAccessMatrix.js';
+} from './ServiceAccessMatrix';
 
 export interface EnterpriseConnectionConfig {
   serviceName: string;

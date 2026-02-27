@@ -99,6 +99,13 @@ COPY --from=builder --chown=uaip:bunjs /app/packages ./packages
 COPY --from=builder --chown=uaip:bunjs /app/backend ./backend
 COPY --from=builder --chown=uaip:bunjs /app/pnpm-workspace.yaml /app/package.json /app/pnpm-lock.yaml /app/tsconfig.json ./
 
+# Create @uaip/infra symlink (pnpm workspace linking workaround for dist directory)
+# This must happen after COPY from builder since dist is only available there
+RUN mkdir -p /app/node_modules/@uaip && \
+    if [ ! -L "/app/node_modules/@uaip/infra" ] || [ "$(readlink /app/node_modules/@uaip/infra)" != "/app/backend/shared/infra/dist" ]; then \
+        ln -sf /app/backend/shared/infra/dist /app/node_modules/@uaip/infra; \
+    fi
+
 ENV PNPM_HOME="/usr/local/share/pnpm"
 ENV PATH="${PNPM_HOME}:/usr/local/bin:${PATH}"
 
@@ -106,13 +113,6 @@ ENV PATH="${PNPM_HOME}:/usr/local/bin:${PATH}"
 RUN cat > /app/entrypoint-dev.sh << 'ENTRYPOINT'
 #!/bin/sh
 set -e
-
-# Create @uaip/infra symlink if it doesn't exist (pnpm workspace linking workaround)
-if [ ! -e "/app/node_modules/@uaip/infra" ]; then
-  mkdir -p /app/node_modules/@uaip
-  ln -sf /app/backend/shared/infra/dist /app/node_modules/@uaip/infra
-  echo "Created @uaip/infra symlink"
-fi
 
 SERVICE_NAME=${SERVICE_NAME:-orchestration-pipeline}
 SERVICE_PORT=${SERVICE_PORT:-3002}

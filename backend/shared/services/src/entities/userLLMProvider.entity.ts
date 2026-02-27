@@ -10,8 +10,8 @@ import {
   ManyToOne,
   JoinColumn,
 } from 'typeorm';
-import { BaseEntity } from './base.entity.js';
-import { UserEntity } from './user.entity.js';
+import { BaseEntity } from './base.entity';
+import { UserEntity } from './user.entity';
 import * as crypto from 'crypto';
 
 export type UserLLMProviderType =

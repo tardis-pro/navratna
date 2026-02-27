@@ -1,6 +1,6 @@
-import { TypeOrmService } from '../typeormService.js';
-import { AuditRepository } from '../database/repositories/AuditRepository.js';
-import { AuditEvent } from '../entities/auditEvent.entity.js';
+import { TypeOrmService } from '../typeormService';
+import { AuditRepository } from '../database/repositories/AuditRepository';
+import { AuditEvent } from '../entities/auditEvent.entity';
 
 export class AuditService {
   private static instance: AuditService;

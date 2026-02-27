@@ -1,15 +1,14 @@
 import * as cron from 'node-cron';
 import { logger } from '@uaip/utils';
 import { ApiError } from '@uaip/utils';
-import { DatabaseService } from '@uaip/infra/database';
 import { EventBusService } from '@uaip/infra/eventBus';
+import { SecurityService } from '@uaip/shared-services';
 import {
   ApprovalWorkflow as ApprovalWorkflowType,
   ApprovalDecision,
   ApprovalStatus,
   SecurityLevel,
   AuditEventType,
-  Operation,
 } from '@uaip/types';
 // Remove TypeORM imports - use DatabaseService instead
 import { NotificationService } from './notificationService.js';
@@ -46,13 +45,14 @@ export class ApprovalWorkflowService {
   private config: ApprovalWorkflowConfig;
   private reminderJob: ReturnType<typeof cron.schedule> | null = null;
   private expirationJob: ReturnType<typeof cron.schedule> | null = null;
+  private securityService: SecurityService;
 
   constructor(
-    private databaseService: DatabaseService,
     private eventBusService: EventBusService,
     private notificationService: NotificationService,
     private auditService: AuditService
   ) {
+    this.securityService = SecurityService.getInstance();
     this.config = {
       defaultExpirationHours: 24,
       reminderIntervalHours: 4,
@@ -91,7 +91,7 @@ export class ApprovalWorkflowService {
       expiresAt.setHours(expiresAt.getHours() + expirationHours);
 
       // Create workflow using DatabaseService
-      const savedWorkflow = await this.databaseService.security
+      const savedWorkflow = await this.securityService
         .getApprovalWorkflowRepository()
         .createApprovalWorkflow({
           id: request.operationId,
@@ -183,7 +183,7 @@ export class ApprovalWorkflowService {
       this.validateApprovalDecision(workflow, decision);
 
       // Save decision using DatabaseService
-      const approvalDecisionRepo = this.databaseService.security.getApprovalDecisionRepository();
+      const approvalDecisionRepo = this.securityService.getApprovalDecisionRepository();
       await approvalDecisionRepo.createApprovalDecision({
         id: `decision-${decision.workflowId}-${decision.approverId}`,
         workflowId: decision.workflowId,
@@ -299,7 +299,7 @@ export class ApprovalWorkflowService {
     status?: ApprovalStatus
   ): Promise<ApprovalWorkflowType[]> {
     try {
-      const workflows = await this.databaseService.security
+      const workflows = await this.securityService
         .getApprovalWorkflowRepository()
         .getUserApprovalWorkflows(userId, status);
 
@@ -329,7 +329,7 @@ export class ApprovalWorkflowService {
       }
 
       // Update status using DatabaseService
-      await this.databaseService.security
+      await this.securityService
         .getApprovalWorkflowRepository()
         .updateApprovalWorkflow(workflowId, {
           status: 'cancelled' as any,
@@ -386,7 +386,7 @@ export class ApprovalWorkflowService {
       const reminderThreshold = new Date();
       reminderThreshold.setHours(reminderThreshold.getHours() - this.config.reminderIntervalHours);
 
-      const workflows = await this.databaseService.security
+      const workflows = await this.securityService
         .getApprovalWorkflowRepository()
         .getPendingWorkflowsForReminders(reminderThreshold);
 
@@ -407,7 +407,7 @@ export class ApprovalWorkflowService {
       const now = new Date();
       logger.debug('Starting workflow expiration check', { timestamp: now.toISOString() });
 
-      const workflows = await this.databaseService.security
+      const workflows = await this.securityService
         .getApprovalWorkflowRepository()
         .getExpiredWorkflows();
       logger.debug('Found expired workflows', { count: workflows.length });
@@ -459,7 +459,7 @@ export class ApprovalWorkflowService {
   private async expireWorkflow(workflowId: string): Promise<void> {
     try {
       // Update workflow status to expired
-      const updatedWorkflow = await this.databaseService.security
+      const updatedWorkflow = await this.securityService
         .getApprovalWorkflowRepository()
         .updateApprovalWorkflow(workflowId, {
           status: 'expired' as any,
@@ -546,7 +546,7 @@ export class ApprovalWorkflowService {
       });
 
       // Update last reminder time
-      await this.databaseService.security
+      await this.securityService
         .getApprovalWorkflowRepository()
         .updateApprovalWorkflow(workflow.id, {
           lastReminderAt: new Date(),
@@ -561,7 +561,7 @@ export class ApprovalWorkflowService {
     const newStatus = approved ? ApprovalStatus.APPROVED : ApprovalStatus.REJECTED;
 
     // Update workflow status
-    await this.databaseService.security
+    await this.securityService
       .getApprovalWorkflowRepository()
       .updateApprovalWorkflow(workflow.id, {
         status: newStatus as any,
@@ -602,7 +602,7 @@ export class ApprovalWorkflowService {
     }
 
     // Update in database
-    await this.databaseService.security
+    await this.securityService
       .getApprovalWorkflowRepository()
       .updateApprovalWorkflow(workflow.id, {
         currentApprovers: workflow.currentApprovers,
@@ -739,7 +739,7 @@ export class ApprovalWorkflowService {
    * Database operations using TypeORM
    */
   private async getWorkflow(workflowId: string): Promise<ApprovalWorkflowType | null> {
-    const workflowEntity = await this.databaseService.security
+    const workflowEntity = await this.securityService
       .getApprovalWorkflowRepository()
       .findById(workflowId);
 
@@ -747,7 +747,7 @@ export class ApprovalWorkflowService {
   }
 
   private async getApprovalDecisions(workflowId: string): Promise<ApprovalDecision[]> {
-    const decisions = await this.databaseService.security
+    const decisions = await this.securityService
       .getApprovalDecisionRepository()
       .getApprovalDecisions(workflowId);
 

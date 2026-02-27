@@ -6,7 +6,7 @@ import {
   ObjectLiteral,
   SelectQueryBuilder,
 } from 'typeorm';
-import { dataSourceManager } from './database/typeorm.config.js';
+import { dataSourceManager } from './database/typeorm.config';
 import { createLogger } from '@uaip/utils';
 
 /**

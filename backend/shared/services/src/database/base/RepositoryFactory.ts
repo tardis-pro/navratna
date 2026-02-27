@@ -1,34 +1,34 @@
 import { EntityTarget, ObjectLiteral } from 'typeorm';
-import { TypeOrmService } from '../../typeormService.js';
+import { TypeOrmService } from '../../typeormService';
 
 // Repository imports
 import {
   UserRepository,
   RefreshTokenRepository,
   PasswordResetTokenRepository,
-} from '../repositories/UserRepository.js';
-import { AgentRepository } from '../repositories/AgentRepository.js';
-import { AuditRepository } from '../repositories/AuditRepository.js';
+} from '../repositories/UserRepository';
+import { AgentRepository } from '../repositories/AgentRepository';
+import { AuditRepository } from '../repositories/AuditRepository';
 import {
   ToolRepository,
   ToolExecutionRepository,
   ToolUsageRepository,
-} from '../repositories/ToolRepository.js';
+} from '../repositories/ToolRepository';
 import {
   OperationRepository,
   OperationStateRepository,
   OperationCheckpointRepository,
   StepResultRepository,
-} from '../repositories/OperationRepository.js';
+} from '../repositories/OperationRepository';
 import {
   SecurityPolicyRepository,
   ApprovalWorkflowRepository,
   ApprovalDecisionRepository,
-} from '../repositories/SecurityRepository.js';
-import { DiscussionRepository } from '../repositories/DiscussionRepository.js';
-import { LLMProviderRepository } from '../repositories/LLMProviderRepository.js';
-import { UserLLMProviderRepository } from '../repositories/UserLLMProviderRepository.js';
-import { KnowledgeRepository } from '../repositories/knowledge.repository.js';
+} from '../repositories/SecurityRepository';
+import { DiscussionRepository } from '../repositories/DiscussionRepository';
+import { LLMProviderRepository } from '../repositories/LLMProviderRepository';
+import { UserLLMProviderRepository } from '../repositories/UserLLMProviderRepository';
+import { KnowledgeRepository } from '../repositories/knowledge.repository';
 
 /**
  * Repository Factory - Centralized repository creation and management
@@ -141,10 +141,10 @@ export class RepositoryFactory {
 
   public getKnowledgeRepository(): KnowledgeRepository {
     return this.getOrCreateRepository('knowledge', () => {
-      const { KnowledgeItemEntity } = require('../../entities/knowledge-item.entity.js');
+      const { KnowledgeItemEntity } = require('../../entities/knowledge-item.entity.ts');
       const {
         KnowledgeRelationshipEntity,
-      } = require('../../entities/knowledge-relationship.entity.js');
+      } = require('../../entities/knowledge-relationship.entity.ts');
       const knowledgeRepo = this.typeormService.getRepository(KnowledgeItemEntity) as any;
       const relationshipRepo = this.typeormService.getRepository(
         KnowledgeRelationshipEntity

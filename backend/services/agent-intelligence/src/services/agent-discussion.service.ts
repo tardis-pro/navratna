@@ -104,7 +104,7 @@ export class AgentDiscussionService {
   private async setupLLMEventSubscriptions(): Promise<void> {
     // Subscribe to LLM generation responses
     await this.eventBusService.subscribe('llm.agent.generate.response', async (event) => {
-      const { requestId, content, error, confidence, model } = event.data;
+      const { requestId, content, error, confidence, model } = (event as any).data;
 
       const isPending = await this.llmRequestTracker.isPending(requestId);
       if (!isPending) {
@@ -1175,9 +1175,8 @@ export class AgentDiscussionService {
       });
 
       // Look up the correct participant ID for this agent in the discussion
-      const discussionService = await this.databaseService.getDiscussionService();
-      const discussion = await discussionService.getDiscussion(discussionId);
-      const participant = discussion?.participants?.find((p) => p.agentId === agentId);
+      const discussion = this.discussionService ? await this.discussionService.getDiscussion(discussionId) : null;
+      const participant = discussion?.participants?.find((p: any) => p.agentId === agentId);
 
       if (participant && result.response) {
         // Send the generated response back to the discussion orchestration
@@ -1692,9 +1691,12 @@ Reasoning: ${reasoning.join('; ')}`,
 
   private async getDiscussionMessages(discussionId: string): Promise<any> {
     try {
-      // Get messages directly from database
-      const discussionService = await this.databaseService.getDiscussionService();
-      const messages = await discussionService.getDiscussionMessages(discussionId);
+      // Get messages directly from discussion service
+      if (!this.discussionService) {
+        logger.warn('Discussion service not available for getting messages', { discussionId });
+        return [];
+      }
+      const messages = await this.discussionService.getDiscussionMessages(discussionId);
 
       logger.debug('Retrieved discussion messages for context', {
         discussionId,

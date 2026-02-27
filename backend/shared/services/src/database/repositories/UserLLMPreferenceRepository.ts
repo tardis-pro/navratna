@@ -1,5 +1,5 @@
 import { Repository, FindOptionsWhere } from 'typeorm';
-import { UserLLMPreference } from '../../entities/userLLMPreference.entity.js';
+import { UserLLMPreference } from '../../entities/userLLMPreference.entity';
 import { LLMTaskType, LLMProviderType } from '@uaip/types';
 
 export interface CreateUserLLMPreferenceData {

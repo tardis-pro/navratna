@@ -18,6 +18,7 @@ import {
 import { logger, ApiError } from '@uaip/utils';
 import { DatabaseService } from '@uaip/infra/database';
 import { EventBusService } from '@uaip/infra/eventBus';
+import { AgentIntelligenceStore } from './agent-intelligence-store.js';
 import { KnowledgeGraphService } from '@/knowledge-graph/knowledge-graph.service';
 import { AgentMemoryService } from '@/agent-memory/agent-memory.service';
 
@@ -37,6 +38,7 @@ export class AgentLearningService {
   private agentMemoryService?: AgentMemoryService;
   private serviceName: string;
   private securityLevel: number;
+  private store: AgentIntelligenceStore;
 
   constructor(config: AgentLearningConfig) {
     this.databaseService = config.databaseService;
@@ -45,6 +47,7 @@ export class AgentLearningService {
     this.agentMemoryService = config.agentMemoryService;
     this.serviceName = config.serviceName;
     this.securityLevel = config.securityLevel;
+    this.store = new AgentIntelligenceStore(this.databaseService);
   }
 
   async initialize(): Promise<void> {
@@ -535,7 +538,7 @@ Performance: Efficiency=${interaction.performanceMetrics.efficiency}, Accuracy=$
     confidenceAdjustments: any
   ): Promise<void> {
     try {
-      await this.databaseService.storeLearningRecord(agentId, {
+      await this.store.storeLearningRecord(agentId, {
         operationId,
         learningData,
         confidenceAdjustments,
@@ -548,7 +551,7 @@ Performance: Efficiency=${interaction.performanceMetrics.efficiency}, Accuracy=$
   }
 
   private async getOperation(operationId: string): Promise<any> {
-    return await this.databaseService.getOperationById(operationId);
+    return await this.store.getOperationById(operationId);
   }
 
   private extractLearnings(interaction: AgentInteraction): any[] {

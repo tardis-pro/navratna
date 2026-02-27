@@ -55,8 +55,8 @@ export class ProjectToolIntegrationService {
     private databaseService: DatabaseService,
     private eventBusService: EventBusService
   ) {
-    this.toolRegistry = new UnifiedToolRegistry();
-    this.projectService = new ProjectManagementService(databaseService, eventBusService);
+    this.toolRegistry = new UnifiedToolRegistry(eventBusService);
+    this.projectService = new ProjectManagementService(databaseService);
     this.setupEventSubscriptions();
   }
 

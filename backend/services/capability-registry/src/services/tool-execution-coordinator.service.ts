@@ -89,7 +89,7 @@ export class ToolExecutionCoordinator {
     this.eventBus = EventBusService.getInstance();
     this.database = DatabaseService.getInstance();
     this.redis = redisCacheService;
-    this.toolRegistry = new UnifiedToolRegistry();
+    this.toolRegistry = new UnifiedToolRegistry(this.eventBus);
   }
 
   static getInstance(): ToolExecutionCoordinator {

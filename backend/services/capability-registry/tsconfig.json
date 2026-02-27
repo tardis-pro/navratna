@@ -6,11 +6,13 @@
     "rootDir": "./src",
     "paths": {
       "@/*": ["*"],
-      "@uaip/types/*": ["../../../packages/shared-types/src/*"],
-      "@uaip/utils/*": ["../../../packages/shared-utils/src/*"],
-      "@uaip/shared-services/*": ["../../shared/services/src/*"],
-      "@uaip/middleware/*": ["../../shared/middleware/src/*"],
-      "@uaip/config/*": ["../../shared/config/src/*"]
+      "@uaip/types/*": ["../../../../packages/shared-types/src/*"],
+      "@uaip/utils/*": ["../../../../packages/shared-utils/src/*"],
+      "@uaip/shared-services/*": ["../../../shared/services/src/*"],
+      "@uaip/middleware/*": ["../../../shared/middleware/src/*"],
+      "@uaip/config/*": ["../../../shared/config/src/*"],
+      "@uaip/infra": ["../../../shared/infra/dist"],
+      "@uaip/infra/*": ["../../../shared/infra/dist/*"]
     }
   },
   "include": [

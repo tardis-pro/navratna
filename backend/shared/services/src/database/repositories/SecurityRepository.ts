@@ -1,8 +1,8 @@
 import { logger } from '@uaip/utils';
-import { BaseRepository } from '../base/BaseRepository.js';
-import { SecurityPolicy } from '../../entities/securityPolicy.entity.js';
-import { ApprovalWorkflow } from '../../entities/approvalWorkflow.entity.js';
-import { ApprovalDecision } from '../../entities/approvalDecision.entity.js';
+import { BaseRepository } from '../base/BaseRepository';
+import { SecurityPolicy } from '../../entities/securityPolicy.entity';
+import { ApprovalWorkflow } from '../../entities/approvalWorkflow.entity';
+import { ApprovalDecision } from '../../entities/approvalDecision.entity';
 
 export class SecurityPolicyRepository extends BaseRepository<SecurityPolicy> {
   constructor() {

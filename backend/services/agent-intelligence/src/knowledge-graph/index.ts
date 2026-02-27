@@ -7,7 +7,7 @@ export { KnowledgeBootstrapService } from './bootstrap.service.js';
 
 // Supporting services
 export { QdrantService } from '@/knowledge-graph/qdrant.service';
-export { KnowledgeRepository } from '@uaip/shared-services/database/repositories/knowledge.repository';
+export { KnowledgeRepository } from '@uaip/shared-services';
 export { EmbeddingService } from './embedding.service.js';
 export { TEIEmbeddingService } from './tei-embedding.service.js';
 export { SmartEmbeddingService } from './smart-embedding.service.js';

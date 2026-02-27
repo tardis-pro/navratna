@@ -1,5 +1,5 @@
 import { Entity, Column, Index, OneToMany } from 'typeorm';
-import { BaseEntity } from './base.entity.js';
+import { BaseEntity } from './base.entity';
 import {
   MCPServerType,
   MCPServerStatus,

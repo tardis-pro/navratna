@@ -1,10 +1,10 @@
 import { FindManyOptions, Between, MoreThan } from 'typeorm';
-import { BaseRepository } from '../base/BaseRepository.js';
+import { BaseRepository } from '../base/BaseRepository';
 import {
   UserMessageEntity,
   MessageType,
   MessageStatus,
-} from '../../entities/user-message.entity.js';
+} from '../../entities/user-message.entity';
 
 export class UserMessageRepository extends BaseRepository<UserMessageEntity> {
   constructor() {

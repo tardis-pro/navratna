@@ -1,6 +1,6 @@
 import { Repository } from 'typeorm';
-import { DatabaseService } from './databaseService.js';
-import { EventBusService } from './eventBusService.js';
+import { DatabaseService } from '@uaip/infra/database';
+import { EventBusService } from './eventBusService';
 import { logger } from '@uaip/utils';
 import {
   Project,
@@ -9,7 +9,7 @@ import {
   ProjectAgent,
   ProjectWorkflow,
   TaskExecution,
-} from './entities/Project.js';
+} from './entities/Project';
 import { ProjectStatus, ProjectPriority, ProjectVisibility } from '@uaip/types';
 
 export interface CreateProjectData {

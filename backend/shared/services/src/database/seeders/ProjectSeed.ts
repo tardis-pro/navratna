@@ -1,8 +1,8 @@
 import { DataSource, DeepPartial } from 'typeorm';
-import { BaseSeed } from './BaseSeed.js';
-import { ProjectEntity, ProjectStatus, ProjectVisibility } from '../../entities/project.entity.js';
-import { UserEntity } from '../../entities/user.entity.js';
-import { Agent } from '../../entities/agent.entity.js';
+import { BaseSeed } from './BaseSeed';
+import { ProjectEntity, ProjectStatus, ProjectVisibility } from '../../entities/project.entity';
+import { UserEntity } from '../../entities/user.entity';
+import { Agent } from '../../entities/agent.entity';
 import { ProjectType } from '@uaip/types';
 
 /**
@@ -67,7 +67,7 @@ export class ProjectSeed extends BaseSeed<ProjectEntity> {
           allowFileUploads: true,
           allowArtifactGeneration: true,
           maxFileSize: 50 * 1024 * 1024, // 50MB
-          allowedFileTypes: ['.js', '.ts', '.json', '.md', '.yml'],
+          allowedFileTypes: ['.ts', '.ts', '.json', '.md', '.yml'],
           requireApprovalForArtifacts: false,
           allowedTools: ['git', 'docker', 'jest', 'eslint'],
         },
@@ -95,7 +95,7 @@ export class ProjectSeed extends BaseSeed<ProjectEntity> {
           allowFileUploads: true,
           allowArtifactGeneration: true,
           maxFileSize: 30 * 1024 * 1024,
-          allowedFileTypes: ['.js', '.tsx', '.json', '.md'],
+          allowedFileTypes: ['.ts', '.tsx', '.json', '.md'],
           requireApprovalForArtifacts: true,
           allowedTools: ['react-native', 'expo', 'firebase', 'jest'],
         },

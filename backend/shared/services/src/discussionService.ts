@@ -17,12 +17,12 @@ import {
   DiscussionState,
 } from '@uaip/types';
 import { Persona } from '@uaip/types';
-import { DiscussionRepository } from './database/repositories/DiscussionRepository.js';
-import { Discussion } from './entities/discussion.entity.js';
-import { DiscussionParticipant } from './entities/discussionParticipant.entity.js';
-import { DatabaseService } from './databaseService.js';
-import { EventBusService } from './eventBusService.js';
-import { PersonaService } from './personaService.js';
+import { DiscussionRepository } from './database/repositories/DiscussionRepository';
+import { Discussion } from './entities/discussion.entity';
+import { DiscussionParticipant } from './entities/discussionParticipant.entity';
+import { DatabaseService } from '@uaip/infra/database';
+import { EventBusService } from '@uaip/infra/eventBus';
+import { PersonaService } from './personaService';
 import { logger } from '@uaip/utils';
 
 export interface DiscussionServiceConfig {
@@ -113,7 +113,7 @@ export class DiscussionService {
         estimatedDuration: request.estimatedDuration,
         tags: request.tags || [],
         objectives: request.objectives || [],
-        outcomes: [] as { outcome: string; achievedAt: Date; confidence: number; }[],
+        outcomes: [] as { outcome: string; achievedAt: Date; confidence: number }[],
         relatedDiscussions: request.relatedDiscussions || [],
         parentDiscussionId: request.parentDiscussionId,
         childDiscussions: request.childDiscussions || [],
@@ -124,7 +124,7 @@ export class DiscussionService {
           averageMessageLength: 0,
           participationDistribution: {},
           sentimentDistribution: {},
-          topicProgression: [] as { topic: string; timestamp: Date; confidence: number; }[],
+          topicProgression: [] as { topic: string; timestamp: Date; confidence: number }[],
         },
         metadata: request.metadata,
         createdAt: new Date(),
@@ -435,7 +435,7 @@ export class DiscussionService {
 
       // Use enterprise participant management service
       const participantManagementService = new (
-        await import('./participant-management.service.js')
+        await import('./participant-management.service')
       ).ParticipantManagementService(this.databaseService);
 
       // Create participant using enterprise service
@@ -547,7 +547,7 @@ export class DiscussionService {
       }
 
       const participantManagementService = new (
-        await import('./participant-management.service.js')
+        await import('./participant-management.service')
       ).ParticipantManagementService(this.databaseService);
 
       const displayName =
@@ -779,9 +779,9 @@ export class DiscussionService {
         'discussion_messages',
         { discussionId, isDeleted: false },
         {
-          limit,
-          offset,
-          orderBy: { createdAt: 'ASC' },
+          take: limit,
+          skip: offset,
+          order: { createdAt: 'ASC' } as any,
         }
       );
 

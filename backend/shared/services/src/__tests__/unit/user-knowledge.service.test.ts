@@ -1,4 +1,4 @@
-import { UserKnowledgeService } from '../../user-knowledge.service.js';
+import { UserKnowledgeService } from '../../user-knowledge.service';
 
 describe('UserKnowledgeService', () => {
   let service: UserKnowledgeService;

@@ -638,14 +638,14 @@ export class EnterpriseWebSocketHandler extends EventEmitter {
   private setupEventBusSubscriptions(): void {
     // Subscribe to discussion events
     this.eventBusService.subscribe('discussion.message.broadcast', async (event) => {
-      await this.broadcastToDiscussion(event.data.discussionId, {
+      await this.broadcastToDiscussion((event.data as Record<string, unknown>).discussionId as string, {
         type: 'new_message',
         payload: event.data,
       });
     });
 
     this.eventBusService.subscribe('discussion.agent.response', async (event) => {
-      await this.broadcastToDiscussion(event.data.discussionId, {
+      await this.broadcastToDiscussion((event.data as Record<string, unknown>).discussionId as string, {
         type: 'agent_response',
         payload: event.data,
       });
@@ -653,7 +653,7 @@ export class EnterpriseWebSocketHandler extends EventEmitter {
 
     // Subscribe to direct agent chat responses
     this.eventBusService.subscribe('agent.chat.response', async (event) => {
-      const { connectionId, agentId, response, agentName, ...metadata } = event.data;
+      const { connectionId, agentId, response, agentName, ...metadata } = event.data as { connectionId: string; agentId: string; response: unknown; agentName: string; [key: string]: unknown };
 
       // Send response back to the specific connection
       if (connectionId && this.connections.has(connectionId)) {
@@ -677,14 +677,14 @@ export class EnterpriseWebSocketHandler extends EventEmitter {
 
     // Subscribe to auth responses for WebSocket authentication
     this.eventBusService.subscribe('security.auth.response', async (event) => {
-      const { correlationId } = event.data;
+      const { correlationId } = event.data as { correlationId: string };
 
       logger.info('Received security auth response', {
         correlationId,
         hasHandler: this.authResponseHandlers.has(correlationId),
         pendingHandlers: Array.from(this.authResponseHandlers.keys()),
-        valid: event.data?.valid,
-        userId: event.data?.userId,
+        valid: (event.data as Record<string, unknown>)?.valid,
+        userId: (event.data as Record<string, unknown>)?.userId,
       });
 
       // Find and call the appropriate handler
@@ -715,8 +715,9 @@ export class EnterpriseWebSocketHandler extends EventEmitter {
     // Security events
     this.eventBusService.subscribe('security.alert', async (event) => {
       // Handle security alerts that may affect WebSocket connections
-      if (event.data.severity === 'HIGH' || event.data.severity === 'CRITICAL') {
-        await this.handleSecurityAlert(event.data);
+      const alertData = event.data as Record<string, unknown>;
+      if (alertData.severity === 'HIGH' || alertData.severity === 'CRITICAL') {
+        await this.handleSecurityAlert(alertData);
       }
     });
 

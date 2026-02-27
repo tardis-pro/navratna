@@ -1,4 +1,4 @@
-import { typeormService } from './typeormService.js';
+import { typeormService } from './typeormService';
 import { createLogger } from '@uaip/utils';
 
 /**
@@ -79,7 +79,7 @@ export class OperationManagementService {
 
   async getCheckpoints(operationId: string): Promise<any[]> {
     try {
-      const { OperationCheckpoint } = await import('./entities/index.js');
+      const { OperationCheckpoint } = await import('./entities/index');
       const repository = typeormService.getRepository(OperationCheckpoint);
       return await repository.find({
         where: { operationId },
@@ -103,7 +103,7 @@ export class OperationManagementService {
 
   async getStepResults(operationId: string): Promise<any[]> {
     try {
-      const { StepResult } = await import('./entities/index.js');
+      const { StepResult } = await import('./entities/index');
       const repository = typeormService.getRepository(StepResult);
       return await repository.find({
         where: { operationId },
@@ -153,7 +153,7 @@ export class OperationManagementService {
   // Query Operations
   async getOperationsByStatus(status: string): Promise<any[]> {
     try {
-      const { Operation } = await import('./entities/index.js');
+      const { Operation } = await import('./entities/index');
       const repository = typeormService.getRepository(Operation);
       return await repository.find({
         where: { status: status as any },
@@ -167,7 +167,7 @@ export class OperationManagementService {
 
   async getActiveOperations(): Promise<any[]> {
     try {
-      const { Operation } = await import('./entities/index.js');
+      const { Operation } = await import('./entities/index');
       const { In } = await import('typeorm');
       const repository = typeormService.getRepository(Operation);
       return await repository.find({
@@ -184,7 +184,7 @@ export class OperationManagementService {
 
   async findStaleOperations(cutoffDate: Date): Promise<any[]> {
     try {
-      const { Operation } = await import('./entities/index.js');
+      const { Operation } = await import('./entities/index');
       const { In, LessThan } = await import('typeorm');
       const repository = typeormService.getRepository(Operation);
       return await repository.find({

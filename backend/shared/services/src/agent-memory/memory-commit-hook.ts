@@ -1,5 +1,5 @@
-import { WorkingMemoryManager } from './working-memory.manager.js';
-import { EpisodicMemoryManager } from './episodic-memory.manager.js';
+import { WorkingMemoryManager } from './working-memory.manager';
+import { EpisodicMemoryManager } from './episodic-memory.manager';
 import {
   ActionRecommendation,
   ToolDefinition,

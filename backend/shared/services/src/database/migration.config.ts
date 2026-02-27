@@ -1,5 +1,5 @@
 import { DataSource } from 'typeorm';
-import { createTypeOrmConfig } from './typeorm.config.js';
+import { createTypeOrmConfig } from './typeorm.config';
 
 // Create DataSource specifically for migrations
 const createMigrationDataSource = async () => {

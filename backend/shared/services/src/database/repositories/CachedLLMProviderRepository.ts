@@ -1,7 +1,7 @@
-import { LLMProviderRepository } from './LLMProviderRepository.js';
-import { LLMProvider } from '../../entities/llmProvider.entity.js';
+import { LLMProviderRepository } from './LLMProviderRepository';
+import { LLMProvider } from '../../entities/llmProvider.entity';
 import { LLMProviderType } from '@uaip/types';
-import { redisCacheService } from '../../redis-cache.service.js';
+import { redisCacheService } from '../../redis-cache.service';
 import { logger } from '@uaip/utils';
 
 /**

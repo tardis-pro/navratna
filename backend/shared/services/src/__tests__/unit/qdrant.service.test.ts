@@ -1,4 +1,4 @@
-import { QdrantService } from '../../qdrant.service.js';
+import { QdrantService } from '../../qdrant.service';
 
 describe('QdrantService', () => {
   let service: QdrantService;

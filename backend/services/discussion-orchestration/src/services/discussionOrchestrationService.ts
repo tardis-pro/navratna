@@ -11,11 +11,8 @@ import {
   TurnStrategyConfig,
 } from '@uaip/types';
 import { logger } from '@uaip/utils';
-import {
-  DiscussionService,
-  EventBusService,
-  ParticipantManagementService,
-} from '@uaip/shared-services';
+import { EventBusService, ParticipantManagementService } from '@uaip/shared-services';
+import { DiscussionService } from './discussionService.js';
 import { TurnStrategyService } from './turnStrategyService.js';
 import { DiscussionWebSocketHandler } from '../websocket/discussionWebSocketHandler.js';
 

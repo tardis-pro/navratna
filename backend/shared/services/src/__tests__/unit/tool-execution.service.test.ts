@@ -4,9 +4,9 @@
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { ToolExecutionService } from '../tool-execution.service.js';
-import { DatabaseService } from '../databaseService.js';
-import { EventBusService } from '../eventBusService.js';
+import { ToolExecutionService } from '../tool-execution.service';
+import { DatabaseService } from '../databaseService';
+import { EventBusService } from '../eventBusService';
 import { ToolExecutionStatus } from '@uaip/types';
 
 // Mock dependencies

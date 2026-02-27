@@ -442,7 +442,7 @@ export class UserChatHandler {
   private setupEventBusSubscriptions(): void {
     // Subscribe to agent chat responses to forward them back to Socket.IO clients
     this.eventBusService.subscribe('agent.chat.response', async (event) => {
-      const { socketId, agentId, response, agentName, messageId, ...metadata } = event.data;
+      const { socketId, agentId, response, agentName, messageId, ...metadata } = event.data as { socketId: string; agentId: string; response: unknown; agentName: string; messageId: string; [key: string]: unknown };
 
       // Find the socket by ID and send the response
       const socket = this.io.sockets.sockets.get(socketId);

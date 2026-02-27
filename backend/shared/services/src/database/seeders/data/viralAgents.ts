@@ -1,7 +1,7 @@
 import { DeepPartial } from 'typeorm';
-import { Agent } from '../../../entities/agent.entity.js';
-import { UserEntity } from '../../../entities/user.entity.js';
-import { Persona as PersonaEntity } from '../../../entities/persona.entity.js';
+import { Agent } from '../../../entities/agent.entity';
+import { UserEntity } from '../../../entities/user.entity';
+import { Persona as PersonaEntity } from '../../../entities/persona.entity';
 import {
   AgentRole,
   AgentPersona,

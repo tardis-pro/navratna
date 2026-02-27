@@ -7,7 +7,7 @@
 
 import { Redis } from 'ioredis';
 import { logger } from '@uaip/utils';
-import { redisCacheService } from './redis-cache.service.js';
+import { redisCacheService } from './redis-cache.service';
 
 export interface PendingLLMRequest {
   requestId: string;

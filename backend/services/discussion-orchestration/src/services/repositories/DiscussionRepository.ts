@@ -1,7 +1,7 @@
 import { logger } from '@uaip/utils';
-import { TypeOrmService } from '../../typeormService.js';
-import { Discussion } from '../../entities/discussion.entity.js';
-import { Repository, SelectQueryBuilder } from 'typeorm';
+import { TypeOrmService } from '@uaip/infra';
+import { Discussion } from '@uaip/shared-services';
+import { Repository } from 'typeorm';
 
 export class DiscussionRepository {
   private getRepository(): Repository<Discussion> {
@@ -12,7 +12,7 @@ export class DiscussionRepository {
     try {
       return typeormService.getDataSource().getRepository(Discussion);
     } catch (error) {
-      if (error.message.includes('TypeORM service not initialized')) {
+      if ((error as Error).message.includes('TypeORM service not initialized')) {
         throw new Error(
           'DiscussionRepository: TypeORM service not initialized. ' +
             'Ensure the service that uses this repository calls typeormService.initialize() before using repository methods.'

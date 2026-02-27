@@ -35,7 +35,7 @@ export class ToolExecutor {
     private toolRegistry: ToolRegistry,
     private baseExecutor: BaseToolExecutor
   ) {
-    this.toolService = postgresql.tools;
+    this.toolService = ToolService.getInstance();
   }
 
   async executeTool(

@@ -1,12 +1,12 @@
 import { v4 as uuidv4 } from 'uuid';
 import { KnowledgeItem, KnowledgeRelationship, KnowledgeType, SourceType } from '@uaip/types';
-import { KnowledgeItemEntity } from '../entities/knowledge-item.entity.js';
-import { KnowledgeRelationshipEntity } from '../entities/knowledge-relationship.entity.js';
-import { UserEntity } from '../entities/user.entity.js';
-import { KnowledgeRepository } from '../database/repositories/knowledge.repository.js';
-import { QdrantService } from '../qdrant.service.js';
-import { ToolGraphDatabase } from '../database/toolGraphDatabase.js';
-import { EmbeddingService } from './embedding.service.js';
+import { KnowledgeItemEntity } from '../entities/knowledge-item.entity';
+import { KnowledgeRelationshipEntity } from '../entities/knowledge-relationship.entity';
+import { UserEntity } from '../entities/user.entity';
+import { KnowledgeRepository } from '../database/repositories/knowledge.repository';
+import { QdrantService } from '../qdrant.service';
+import { ToolGraphDatabase } from '../database/toolGraphDatabase';
+import { EmbeddingService } from './embedding.service';
 import { logger } from '@uaip/utils';
 
 export interface KnowledgeSyncResult {

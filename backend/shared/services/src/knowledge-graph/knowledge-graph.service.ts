@@ -10,40 +10,40 @@ import {
   KnowledgeScope,
 } from '@uaip/types';
 import { logger } from '@uaip/utils';
-import { QdrantService } from '../qdrant.service.js';
-import { KnowledgeRepository } from '../database/repositories/knowledge.repository.js';
-import { EmbeddingService } from './embedding.service.js';
-import { ContentClassifier } from './content-classifier.service.js';
-import { RelationshipDetector } from './relationship-detector.service.js';
-import { ConceptExtractorService } from './concept-extractor.service.js';
-import { OntologyBuilderService } from './ontology-builder.service.js';
-import { TaxonomyGeneratorService } from './taxonomy-generator.service.js';
-import { ReconciliationService } from './reconciliation.service.js';
-import { KnowledgeSyncService } from './knowledge-sync.service.js';
-import { ChatParserService, ParsedConversation, ParsedMessage } from './chat-parser.service.js';
-import { ChatKnowledgeExtractorService, ExtractedKnowledge, QAPair, DecisionPoint } from './chat-knowledge-extractor.service.js';
+import { QdrantService } from '../qdrant.service';
+import { KnowledgeRepository } from '../database/repositories/knowledge.repository';
+import { EmbeddingService } from './embedding.service';
+import { ContentClassifier } from './content-classifier.service';
+import { RelationshipDetector } from './relationship-detector.service';
+import { ConceptExtractorService } from './concept-extractor.service';
+import { OntologyBuilderService } from './ontology-builder.service';
+import { TaxonomyGeneratorService } from './taxonomy-generator.service';
+import { ReconciliationService } from './reconciliation.service';
+import { KnowledgeSyncService } from './knowledge-sync.service';
+import { ChatParserService, ParsedConversation, ParsedMessage } from './chat-parser.service';
+import { ChatKnowledgeExtractorService, ExtractedKnowledge, QAPair, DecisionPoint } from './chat-knowledge-extractor.service';
 import {
   BatchProcessorService,
   FileData,
   ProcessingOptions,
   BatchResult,
-} from './batch-processor.service.js';
-import { QAGeneratorService, GeneratedQA, QAGenerationOptions } from './qa-generator.service.js';
+} from './batch-processor.service';
+import { QAGeneratorService, GeneratedQA, QAGenerationOptions } from './qa-generator.service';
 import {
   WorkflowExtractorService,
   ExtractedWorkflow,
   WorkflowExtractionOptions,
-} from './workflow-extractor.service.js';
+} from './workflow-extractor.service';
 import {
   ExpertiseAnalyzerService,
   ExpertiseProfile,
   ExpertiseAnalysisOptions,
-} from './expertise-analyzer.service.js';
+} from './expertise-analyzer.service';
 import {
   LearningDetectorService,
   LearningMoment,
   LearningDetectionOptions,
-} from './learning-detector.service.js';
+} from './learning-detector.service';
 
 export interface IngestionOptions {
   extractKnowledge?: boolean;

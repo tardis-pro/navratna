@@ -1,6 +1,6 @@
 import { MoreThan, LessThan } from 'typeorm';
-import { BaseRepository } from '../base/BaseRepository.js';
-import { UserPresenceEntity, PresenceStatus } from '../../entities/user-presence.entity.js';
+import { BaseRepository } from '../base/BaseRepository';
+import { UserPresenceEntity, PresenceStatus } from '../../entities/user-presence.entity';
 
 export class UserPresenceRepository extends BaseRepository<UserPresenceEntity> {
   constructor() {

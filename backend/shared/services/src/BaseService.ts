@@ -1,20 +1,20 @@
-import { createAppServer, type AppServer } from './http-app.js';
+import { createAppServer, type AppServer } from './http-app';
 import { logger } from '@uaip/utils';
 import { config } from '@uaip/config';
 import { metricsEndpoint, metricsMiddleware } from '@uaip/middleware';
 // Express middlewares are not compatible with Elysia; implement minimal handlers inline
-import { DatabaseService } from './databaseService.js';
-import { EventBusService } from './eventBusService.js';
+import { DatabaseService } from '@uaip/infra/database';
+import { EventBusService } from './eventBusService';
 import {
   UnifiedModelSelectionFacade,
   UnifiedModelSelection,
   UnifiedSelectionRequest,
-} from './services/UnifiedModelSelectionFacade.js';
+} from './services/UnifiedModelSelectionFacade';
 import { LLMTaskType } from '@uaip/types';
-import { Agent } from './entities/agent.entity.js';
-import { UserLLMPreference } from './entities/userLLMPreference.entity.js';
-import { AgentLLMPreference } from './entities/agentLLMPreference.entity.js';
-import { LLMProvider } from './entities/llmProvider.entity.js';
+import { Agent } from './entities/agent.entity';
+import { UserLLMPreference } from './entities/userLLMPreference.entity';
+import { AgentLLMPreference } from './entities/agentLLMPreference.entity';
+import { LLMProvider } from './entities/llmProvider.entity';
 
 // HyperExpress types are already available
 
@@ -48,7 +48,7 @@ export abstract class BaseService {
   constructor(config: ServiceConfig) {
     this.config = config;
     this.app = createAppServer();
-    this.databaseService = new DatabaseService();
+    this.databaseService = DatabaseService.getInstance();
 
     // Initialize EventBusService singleton for first time
     this.eventBusService = EventBusService.getInstance(
@@ -162,7 +162,8 @@ export abstract class BaseService {
 
   protected async initializeDatabase(): Promise<void> {
     try {
-      await this.databaseService.initialize();
+      // Ensure database connection is ready by fetching DataSource
+      await this.databaseService.getDataSource();
       logger.info(`${this.config.name}: Database initialized`);
 
       // Initialize unified model selection facade
@@ -284,7 +285,7 @@ export abstract class BaseService {
 
       // Disconnect from databases
       try {
-        await this.databaseService.close();
+        await this.databaseService.disconnect();
         logger.info(`${this.config.name}: Database disconnected`);
       } catch (error) {
         logger.error(`${this.config.name}: Database disconnect error:`, error);
@@ -504,7 +505,8 @@ export abstract class BaseService {
       const prefix = options?.logPrefix || eventName;
 
       try {
-        const { data } = event.data || event;
+        const eventData = event.data as any;
+        const { data } = eventData || event;
         logger.info(`${prefix}: Processing event`, { data });
 
         const result = await handler(data);

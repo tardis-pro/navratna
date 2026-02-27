@@ -8,7 +8,7 @@ import {
   KnowledgeType,
   SourceType,
 } from '@uaip/types';
-import { KnowledgeGraphService } from './knowledge-graph/knowledge-graph.service.js';
+import { KnowledgeGraphService } from './knowledge-graph/knowledge-graph.service';
 
 export class UserKnowledgeService {
   constructor(private readonly knowledgeGraphService: KnowledgeGraphService) {}

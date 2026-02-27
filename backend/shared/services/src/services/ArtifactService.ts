@@ -1,8 +1,8 @@
-import { TypeOrmService } from '../typeormService.js';
-import { ArtifactRepository } from '../database/repositories/ArtifactRepository.js';
-import { ArtifactDeploymentRepository } from '../database/repositories/ArtifactDeploymentRepository.js';
-import { Artifact } from '../entities/artifact.entity.js';
-import { ArtifactDeployment } from '../entities/artifactDeployment.entity.js';
+import { TypeOrmService } from '../typeormService';
+import { ArtifactRepository } from '../database/repositories/ArtifactRepository';
+import { ArtifactDeploymentRepository } from '../database/repositories/ArtifactDeploymentRepository';
+import { Artifact } from '../entities/artifact.entity';
+import { ArtifactDeployment } from '../entities/artifactDeployment.entity';
 
 export class ArtifactService {
   private static instance: ArtifactService;

@@ -1,9 +1,9 @@
-import { CacheManager } from './CacheManager.js';
-import { CachedUserService } from './services/CachedUserService.js';
-import { CachedUserKnowledgeService } from './CachedUserKnowledgeService.js';
-import { CachedUserLLMProviderRepository } from './database/repositories/CachedUserLLMProviderRepository.js';
-import { CachedLLMProviderRepository } from './database/repositories/CachedLLMProviderRepository.js';
-import { KnowledgeGraphService } from './knowledge-graph/knowledge-graph.service.js';
+import { CacheManager } from './CacheManager';
+import { CachedUserService } from './services/CachedUserService';
+import { CachedUserKnowledgeService } from './CachedUserKnowledgeService';
+import { CachedUserLLMProviderRepository } from './database/repositories/CachedUserLLMProviderRepository';
+import { CachedLLMProviderRepository } from './database/repositories/CachedLLMProviderRepository';
+import { KnowledgeGraphService } from './knowledge-graph/knowledge-graph.service';
 import { logger } from '@uaip/utils';
 
 /**

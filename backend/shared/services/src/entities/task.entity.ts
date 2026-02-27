@@ -1,8 +1,8 @@
 import { Entity, Column, ManyToOne, JoinColumn, Index } from 'typeorm';
-import { BaseEntity } from './base.entity.js';
-import { ProjectEntity } from './project.entity.js';
-import { UserEntity } from './user.entity.js';
-import { Agent } from './agent.entity.js';
+import { BaseEntity } from './base.entity';
+import { ProjectEntity } from './project.entity';
+import { UserEntity } from './user.entity';
+import { Agent } from './agent.entity';
 
 export enum TaskStatus {
   TODO = 'todo',

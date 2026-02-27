@@ -12,6 +12,7 @@ import {
   OperationError,
   EventMessage,
 } from '@uaip/types';
+import type { EventBusMessage } from '@uaip/types';
 import { logger } from '@uaip/utils';
 import { config } from '@uaip/config';
 import { DatabaseService } from '@uaip/infra/database';
@@ -358,21 +359,24 @@ export class OrchestrationEngine extends EventEmitter {
    */
   private async subscribeToExternalEvents(): Promise<void> {
     // Subscribe to operation commands
-    await this.eventBusService.subscribe('operation.command.pause', async (event: EventMessage) => {
-      await this.pauseOperation(event.operationId!, event.reason);
+    await this.eventBusService.subscribe('operation.command.pause', async (event: EventBusMessage) => {
+      const data = event.data as EventMessage;
+      await this.pauseOperation(data.operationId!, data.reason);
     });
 
     await this.eventBusService.subscribe(
       'operation.command.resume',
-      async (event: EventMessage) => {
-        await this.resumeOperation(event.operationId!, event.checkpointId);
+      async (event: EventBusMessage) => {
+        const data = event.data as EventMessage;
+        await this.resumeOperation(data.operationId!, data.checkpointId);
       }
     );
 
     await this.eventBusService.subscribe(
       'operation.command.cancel',
-      async (event: EventMessage) => {
-        await this.cancelOperation(event.operationId!, event.reason, event.compensate, event.force);
+      async (event: EventBusMessage) => {
+        const data = event.data as EventMessage;
+        await this.cancelOperation(data.operationId!, data.reason, data.compensate as boolean, data.force as boolean);
       }
     );
   }

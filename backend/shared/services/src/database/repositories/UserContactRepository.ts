@@ -1,10 +1,10 @@
 import { FindManyOptions, FindOneOptions } from 'typeorm';
-import { BaseRepository } from '../base/BaseRepository.js';
+import { BaseRepository } from '../base/BaseRepository';
 import {
   UserContactEntity,
   ContactStatus,
   ContactType,
-} from '../../entities/user-contact.entity.js';
+} from '../../entities/user-contact.entity';
 
 // Re-export types for convenience
 export { ContactStatus, ContactType };

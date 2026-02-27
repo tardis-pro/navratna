@@ -2,6 +2,9 @@ export default {
   preset: 'ts-jest/presets/default-esm',
   testEnvironment: 'node',
   extensionsToTreatAsEsm: ['.ts'],
+  transformIgnorePatterns: [
+    'node_modules/(?!(@uaip|@aspect-prompts)/.*)'
+  ],
   moduleNameMapper: {
     '^@uaip/types$': '<rootDir>/../../../packages/shared-types/src/index.ts',
     '^@uaip/utils$': '<rootDir>/../../../packages/shared-utils/src/index.ts',
@@ -21,6 +24,10 @@ export default {
   testMatch: [
     '<rootDir>/src/**/__tests__/**/*.test.ts',
     '<rootDir>/src/**/*.test.ts'
+  ],
+  testPathIgnorePatterns: [
+    '/node_modules/',
+    '\\.js$'
   ],
   setupFilesAfterEnv: ['<rootDir>/src/__tests__/setup.ts'],
   collectCoverageFrom: [

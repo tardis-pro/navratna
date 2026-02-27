@@ -1,6 +1,6 @@
 import { Pool } from 'pg';
-import { DatabaseService } from './databaseService.js';
-import { EventBusService } from './eventBusService.js';
+import { DatabaseService } from './databaseService';
+import { EventBusService } from './eventBusService';
 import { logger, ApiError } from '@uaip/utils';
 import {
   Agent,

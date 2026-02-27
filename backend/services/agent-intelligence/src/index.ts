@@ -1,4 +1,4 @@
-import { BaseService, DiscussionService, PersonaService } from '@uaip/shared-services';
+import { BaseService, DiscussionService, PersonaService, DatabaseService as SharedDatabaseService } from '@uaip/shared-services';
 import { LLMService, UserLLMService } from '@uaip/llm-service';
 import { DiscussionEventType, LLMTaskType, MessageType } from '@uaip/types';
 import { attachAuth, attachNginxAuth, requireNginxAuth, UserContext } from '@uaip/middleware';
@@ -540,11 +540,11 @@ class AgentIntelligenceService extends BaseService {
 
               const matchingParticipant = participantId
                 ? discussion.participants?.find(
-                    (participant) =>
+                    (participant: any) =>
                       participant.id === participantId || participant.participantId === participantId
                   )
                 : discussion.participants?.find(
-                    (participant) => participant.participantType === 'user' && participant.userId === user.id
+                    (participant: any) => participant.participantType === 'user' && participant.userId === user.id
                   );
 
               if (!matchingParticipant) {
@@ -552,7 +552,7 @@ class AgentIntelligenceService extends BaseService {
                 return { success: false, error: 'Participant not found for user' };
               }
 
-              if (matchingParticipant.participantType !== 'user' || matchingParticipant.userId !== user.id) {
+              if ((matchingParticipant as any).participantType !== 'user' || (matchingParticipant as any).userId !== user.id) {
                 set.status = 403;
                 return { success: false, error: 'Participant does not belong to user' };
               }
@@ -692,10 +692,12 @@ class AgentIntelligenceService extends BaseService {
     // Test endpoint for manual sync trigger
     this.app.post('/test/sync', async ({ set }) => {
       try {
-        const databaseService = this.databaseService;
+        // Use the shared DatabaseService (fat) which has knowledge-graph service getters
+        const sharedDbService = new SharedDatabaseService();
+        await sharedDbService.initialize();
 
         // Force Neo4j connection verification
-        const graphDb = await databaseService.getToolGraphDatabase();
+        const graphDb = await sharedDbService.getToolGraphDatabase();
         logger.info('Testing Neo4j connection...');
         await graphDb.verifyConnectivity(5);
 
@@ -708,9 +710,9 @@ class AgentIntelligenceService extends BaseService {
 
         const { KnowledgeBootstrapService } = await import('@uaip/shared-services');
 
-        const knowledgeRepo = await databaseService.getKnowledgeRepository();
-        const qdrantService = await databaseService.getQdrantService();
-        const embeddingService = await databaseService.getSmartEmbeddingService();
+        const knowledgeRepo = await sharedDbService.getKnowledgeRepository();
+        const qdrantService = await sharedDbService.getQdrantService();
+        const embeddingService = await sharedDbService.getSmartEmbeddingService();
 
         logger.info('Service instances created:', {
           knowledgeRepo: !!knowledgeRepo,
@@ -754,7 +756,7 @@ class AgentIntelligenceService extends BaseService {
           socketId,
           messageId,
           timestamp,
-        } = event.data;
+        } = event.data as any;
 
         logger.info('Processing WebSocket agent chat request', {
           agentId,
@@ -818,18 +820,18 @@ class AgentIntelligenceService extends BaseService {
       } catch (error) {
         logger.error('Failed to process WebSocket agent chat request', {
           error: error instanceof Error ? error.message : 'Unknown error',
-          agentId: event.data?.agentId,
-          messageId: event.data?.messageId,
+          agentId: (event.data as any)?.agentId,
+          messageId: (event.data as any)?.messageId,
         });
 
         // Send error response back to client
-        if (event.data?.socketId && event.data?.messageId) {
+        if ((event.data as any)?.socketId && (event.data as any)?.messageId) {
           await this.eventBusService.publish('agent.chat.response', {
-            socketId: event.data.socketId,
-            agentId: event.data.agentId,
-            messageId: event.data.messageId,
+            socketId: (event.data as any).socketId,
+            agentId: (event.data as any).agentId,
+            messageId: (event.data as any).messageId,
             response: 'Sorry, I encountered an error processing your request. Please try again.',
-            agentName: `Agent ${event.data.agentId}`,
+            agentName: `Agent ${(event.data as any).agentId}`,
             confidence: 0.0,
             error: true,
             timestamp: new Date().toISOString(),
@@ -853,7 +855,7 @@ class AgentIntelligenceService extends BaseService {
           currentTopic,
           enhancementType,
           context,
-        } = event.data;
+        } = event.data as any;
 
         if (!this.conversationEnhancementService) {
           this.conversationEnhancementService = new ConversationEnhancementService(
@@ -875,7 +877,7 @@ class AgentIntelligenceService extends BaseService {
         const availableAgents: any[] = [];
         for (const agentId of availableAgentIds || []) {
           try {
-            const agent = await this.databaseService.getAgentService().findAgentById(agentId);
+            const agent = await this.databaseService.findById('agents', agentId);
             if (agent) {
               availableAgents.push(agent);
             }
@@ -902,10 +904,9 @@ class AgentIntelligenceService extends BaseService {
         if (result.success && result.enhancedResponse) {
           try {
             // Find the participant ID for the selected agent
-            const discussionService = await this.databaseService.getDiscussionService();
-            const discussion = await discussionService.getDiscussion(discussionId);
+            const discussion = await this.discussionService.getDiscussion(discussionId);
             const participant = discussion?.participants?.find(
-              (p) => p.agentId === result.selectedAgent?.id
+              (p: any) => p.agentId === result.selectedAgent?.id
             );
 
             if (participant) {
@@ -962,7 +963,7 @@ class AgentIntelligenceService extends BaseService {
       } catch (error) {
         logger.error('Failed to process conversation enhancement request', {
           error: error instanceof Error ? error.message : 'Unknown error',
-          discussionId: event?.data?.discussionId,
+          discussionId: (event?.data as any)?.discussionId,
         });
       }
     });

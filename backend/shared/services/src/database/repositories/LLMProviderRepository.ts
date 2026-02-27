@@ -1,6 +1,6 @@
 import { Repository } from 'typeorm';
-import { BaseRepository } from '../base/BaseRepository.js';
-import { LLMProvider } from '../../entities/llmProvider.entity.js';
+import { BaseRepository } from '../base/BaseRepository';
+import { LLMProvider } from '../../entities/llmProvider.entity';
 import { logger } from '@uaip/utils';
 import { LLMProviderType, LLMProviderStatus } from '@uaip/types';
 

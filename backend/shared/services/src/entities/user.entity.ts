@@ -1,5 +1,5 @@
 import { Entity, Column, CreateDateColumn, UpdateDateColumn, Index } from 'typeorm';
-import { BaseEntity } from './base.entity.js';
+import { BaseEntity } from './base.entity';
 import { SecurityLevel, UserType, AgentCapability } from '@uaip/types';
 
 @Entity('users')

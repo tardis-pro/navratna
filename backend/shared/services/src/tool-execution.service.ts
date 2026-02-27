@@ -1,9 +1,9 @@
 import { createHash, randomUUID } from 'node:crypto';
 import { ToolExecution as ToolExecutionType, ToolExecutionStatus } from '@uaip/types';
 import { logger } from '@uaip/utils';
-import { DatabaseService } from './databaseService.js';
-import { EventBusService } from './eventBusService.js';
-import { ToolExecution } from './entities/toolExecution.entity.js';
+import { DatabaseService } from './databaseService';
+import { EventBusService } from './eventBusService';
+import { ToolExecution } from './entities/toolExecution.entity';
 
 export interface ToolExecutionOptions {
   timeout?: number;
@@ -94,12 +94,12 @@ export class ToolExecutionService {
     toolIdOrRequest:
       | string
       | {
-          toolId: string;
-          operation?: string;
-          parameters: Record<string, unknown>;
-          userId?: string;
-          securityContext?: Record<string, unknown>;
-        },
+        toolId: string;
+        operation?: string;
+        parameters: Record<string, unknown>;
+        userId?: string;
+        securityContext?: Record<string, unknown>;
+      },
     agentId?: string,
     parameters?: Record<string, unknown>,
     options: ToolExecutionOptions = {}
@@ -267,12 +267,12 @@ export class ToolExecutionService {
     toolIdOrRequest:
       | string
       | {
-          toolId: string;
-          operation?: string;
-          parameters: Record<string, unknown>;
-          userId?: string;
-          securityContext?: Record<string, unknown>;
-        },
+        toolId: string;
+        operation?: string;
+        parameters: Record<string, unknown>;
+        userId?: string;
+        securityContext?: Record<string, unknown>;
+      },
     agentId?: string,
     parameters?: Record<string, unknown>,
     options: ToolExecutionOptions = {},

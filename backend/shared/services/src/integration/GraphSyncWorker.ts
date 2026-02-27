@@ -1,8 +1,8 @@
 import { Repository } from 'typeorm';
-import { IntegrationEventEntity } from '../entities/integrationEvent.entity.js';
-import { ToolGraphDatabase } from '../database/toolGraphDatabase.js';
-import { OutboxPublisher } from './OutboxPublisher.js';
-import { IntegrationEvent, GraphSyncResult, GraphSyncBatch } from './IntegrationEvent.js';
+import { IntegrationEventEntity } from '../entities/integrationEvent.entity';
+import { ToolGraphDatabase } from '../database/toolGraphDatabase';
+import { OutboxPublisher } from './OutboxPublisher';
+import { IntegrationEvent, GraphSyncResult, GraphSyncBatch } from './IntegrationEvent';
 import { logger } from '@uaip/utils';
 
 export class GraphSyncWorker {

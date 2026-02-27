@@ -1,5 +1,5 @@
 import { Repository } from 'typeorm';
-import { AgentLLMPreference } from '../../entities/agentLLMPreference.entity.js';
+import { AgentLLMPreference } from '../../entities/agentLLMPreference.entity';
 import { LLMTaskType, LLMProviderType } from '@uaip/types';
 
 export interface CreateAgentLLMPreferenceData {

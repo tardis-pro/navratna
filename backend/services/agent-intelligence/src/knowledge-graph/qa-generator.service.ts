@@ -1,5 +1,5 @@
 import { logger } from '@uaip/utils';
-import { KnowledgeRepository } from '@uaip/shared-services/database/repositories/knowledge.repository';
+import { KnowledgeRepository } from '@uaip/shared-services';
 import { ContentClassifier } from './content-classifier.service.js';
 import { EmbeddingService } from './embedding.service.js';
 import { ParsedConversation } from './chat-parser.service.js';

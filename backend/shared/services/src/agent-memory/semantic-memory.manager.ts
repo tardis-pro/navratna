@@ -1,5 +1,5 @@
 import { SemanticMemory, KnowledgeType, SourceType } from '@uaip/types';
-import { KnowledgeGraphService } from '../knowledge-graph/knowledge-graph.service.js';
+import { KnowledgeGraphService } from '../knowledge-graph/knowledge-graph.service';
 
 export class SemanticMemoryManager {
   constructor(private readonly knowledgeGraph: KnowledgeGraphService) {}
