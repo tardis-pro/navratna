@@ -122,8 +122,8 @@ export class AgentDiscussionService {
         logger.warn('LLM generation failed for agent discussion', { requestId, error });
         // Complete with fallback instead of rejecting
         await this.llmRequestTracker.completePendingRequest(requestId, {
-          content: 'I appreciate the opportunity to respond.',
-          confidence: 0.3,
+          content: '',
+          confidence: 0.1,
           model: model || 'fallback',
         });
       } else {
@@ -636,17 +636,12 @@ export class AgentDiscussionService {
         }
       }
 
-      // Extract content from response - handle different possible structures
-      let responseContent = llmResponse.content;
-      if (!responseContent && llmResponse?.response) {
-        responseContent = llmResponse.response;
+      // If LLM returned an error, skip error-injected content entirely
+      let responseContent: string | undefined;
+      if (!llmResponse.error) {
+        responseContent = llmResponse.content || llmResponse?.response || llmResponse?.message || llmResponse?.text;
       }
-      if (!responseContent && llmResponse?.message) {
-        responseContent = llmResponse.message;
-      }
-      if (!responseContent && llmResponse?.text) {
-        responseContent = llmResponse.text;
-      }
+      responseContent = this.sanitizeGeneratedContent(responseContent);
 
       logger.info('generateAgentResponse - Final response content extracted', {
         agentId,
@@ -1014,7 +1009,12 @@ export class AgentDiscussionService {
         message: `Agent ${agent.name} successfully joined discussion ${discussionId}`,
       };
     } catch (error) {
-      logger.error('Failed to trigger agent participation', { error });
+      logger.error('Failed to trigger agent participation', {
+        error: error instanceof Error ? error.message : String(error),
+        errorType: error?.constructor?.name,
+        stack:
+          error instanceof Error ? error.stack?.split('\n').slice(0, 3).join(' | ') : undefined,
+      });
       return {
         success: false,
         error: error instanceof Error ? error.message : 'Unknown error occurred',
@@ -1175,7 +1175,9 @@ export class AgentDiscussionService {
       });
 
       // Look up the correct participant ID for this agent in the discussion
-      const discussion = this.discussionService ? await this.discussionService.getDiscussion(discussionId) : null;
+      const discussion = this.discussionService
+        ? await this.discussionService.getDiscussion(discussionId)
+        : null;
       const participant = discussion?.participants?.find((p: any) => p.agentId === agentId);
 
       if (participant && result.response) {
@@ -1219,7 +1221,7 @@ export class AgentDiscussionService {
   }
 
   private async handleGenerateResponse(event: any): Promise<void> {
-    const { requestId, agentId, messages, context, userId } = event;
+    const { requestId, agentId, messages, context, userId } = event.data || event;
     try {
       const result = await this.generateAgentResponse(agentId, messages, context, userId);
       await this.respondToRequest(requestId, { success: true, data: result });
@@ -1229,7 +1231,7 @@ export class AgentDiscussionService {
   }
 
   private async handleProcessInput(event: any): Promise<void> {
-    const { requestId, agentId, input } = event;
+    const { requestId, agentId, input } = event.data || event;
     try {
       const result = await this.processAgentInput(agentId, input);
       await this.respondToRequest(requestId, { success: true, data: result });
@@ -1239,7 +1241,7 @@ export class AgentDiscussionService {
   }
 
   private async handleTriggerParticipation(event: any): Promise<void> {
-    const { requestId, params } = event;
+    const { requestId, params } = event.data || event;
     try {
       const result = await this.triggerAgentParticipation(params);
       await this.respondToRequest(requestId, { success: true, data: result });
@@ -1321,7 +1323,7 @@ export class AgentDiscussionService {
           });
           await cleanup('timeout');
           reject(new Error('LLM request timeout'));
-        }, 30000); // 30 second timeout
+        }, 90000); // 90 second timeout (LM Studio can be slow under load)
 
         // Define response handler with cleanup
         responseHandler = async (responseData: any): Promise<void> => {
@@ -1823,19 +1825,12 @@ Reasoning: ${reasoning.join('; ')}`,
         rawResponse: JSON.stringify(llmResponse).substring(0, 200),
       });
 
-      // Extract content from response - handle different possible structures
-      let responseContent = llmResponse?.content;
-
-      // Fallback to other possible content fields
-      if (!responseContent && llmResponse?.response) {
-        responseContent = llmResponse.response;
+      // If LLM returned an error, skip error-injected content entirely
+      let responseContent: string | undefined;
+      if (!llmResponse?.error) {
+        responseContent = llmResponse?.content || llmResponse?.response || llmResponse?.message || llmResponse?.text;
       }
-      if (!responseContent && llmResponse?.message) {
-        responseContent = llmResponse.message;
-      }
-      if (!responseContent && llmResponse?.text) {
-        responseContent = llmResponse.text;
-      }
+      responseContent = this.sanitizeGeneratedContent(responseContent);
 
       logger.info('Final response content extracted', {
         agentId: agent.id,
@@ -1862,6 +1857,52 @@ Reasoning: ${reasoning.join('; ')}`,
     });
   }
 
+  private static readonly ERROR_PATTERNS = [
+    /i apologize, but i (am |encountered |cannot |was |have |'m )/i,
+    /i appreciate the opportunity to respond/i,
+    /i have some thoughts on this/i,
+    /please try again( later)?/i,
+    /check your provider configuration/i,
+    /no llm providers are currently available/i,
+    /currently unable to generate a response/i,
+    /encountered an (error|issue) (while |generating |processing )/i,
+    /having trouble generating a response/i,
+  ];
+
+  private sanitizeGeneratedContent(content?: string | null): string {
+    const raw = (content || '').trim();
+    if (!raw) return '';
+
+    // Reject known error/fallback patterns injected by lower layers
+    for (const pattern of AgentDiscussionService.ERROR_PATTERNS) {
+      if (pattern.test(raw)) {
+        logger.warn('sanitizeGeneratedContent: rejected error-pattern content', {
+          snippet: raw.substring(0, 80),
+        });
+        return '';
+      }
+    }
+
+    let cleaned = raw
+      .replace(/<think>[\s\S]*?<\/think>/gi, ' ')
+      .replace(/<think>/gi, ' ')
+      .replace(/<\/think>/gi, ' ')
+      .replace(/<\|im_start\|>/g, ' ')
+      .replace(/<\|im_end\|>/g, ' ')
+      .replace(/<\|endoftext\|>/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+
+    cleaned = cleaned.replace(/^[:\-\s]+/, '').trim();
+    if (!cleaned) return '';
+
+    if (/^'t\b/i.test(cleaned)) cleaned = `I don${cleaned}`;
+    if (!/[.!?]$/.test(cleaned) && cleaned.length > 20) cleaned = `${cleaned}.`;
+    if (/^[a-z]/.test(cleaned)) cleaned = cleaned.charAt(0).toUpperCase() + cleaned.slice(1);
+
+    return cleaned;
+  }
+
   /**
    * Process discussion message from agent chat
    * This is the public method called by routes
@@ -1874,24 +1915,14 @@ Reasoning: ${reasoning.join('; ')}`,
     modelSelection?: any; // Optional model selection from parent service
   }): Promise<{ response: string; metadata: Record<string, unknown> }> {
     try {
-      // Create system prompt for agent
-      const systemPrompt = `You are a helpful AI assistant. Provide a natural, conversational response to the user's message.`;
-
-      // Extract model selection info if available
-      const selectedModel = params.modelSelection?.model?.model;
-      const selectedProvider = params.modelSelection?.provider?.effectiveProvider;
-      const selectedProviderId = params.modelSelection?.provider?.providerId;
-
-      // Get agent response via event-driven LLM service
-      const llmResponse = await this.requestLLMGeneration(
-        params.message,
-        systemPrompt,
-        0.7,
-        300,
+      // Use the user-aware generateChatResponse which routes through requestLLMResponse
+      // (llm.user.request → UserLLMService → user's LM Studio provider)
+      // instead of requestLLMGeneration which uses the global LLMService with no user providers.
+      const response = await this.generateChatResponse(
         params.agentId,
-        selectedModel,
-        selectedProvider,
-        selectedProviderId
+        params.userId,
+        params.message,
+        params.conversationId
       );
 
       // Publish discussion event
@@ -1900,26 +1931,23 @@ Reasoning: ${reasoning.join('; ')}`,
         userId: params.userId,
         conversationId: params.conversationId,
         message: params.message,
-        response: llmResponse.content,
+        response,
         timestamp: new Date().toISOString(),
       });
 
       return {
-        response: llmResponse.content,
+        response: response || 'I encountered an issue generating a response.',
         metadata: {
           conversationId: params.conversationId,
           processingTime: Date.now(),
           agentId: params.agentId,
-          confidence: llmResponse.confidence,
-          model: llmResponse.model,
-          responseType: 'event-driven',
+          responseType: 'user-llm',
         },
       };
     } catch (error) {
       logger.error('Failed to process discussion message', { error, agentId: params.agentId });
       return {
-        response:
-          'I apologize, but I encountered an error processing your message. Please try again.',
+        response: 'Unable to process your message at this time.',
         metadata: {
           error: true,
           conversationId: params.conversationId,

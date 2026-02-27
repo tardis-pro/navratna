@@ -32,10 +32,13 @@ export interface MCPServerConfig {
   description: string;
   type: MCPServerType;
   executionType?: MCPServerExecutionType; // For npx, uvx, node, python execution
-  command: string;
+  command?: string;
   args: string[];
   env?: Record<string, string>;
   workingDirectory?: string;
+  transportType?: 'stdio' | 'http' | 'streamable-http';
+  httpUrl?: string;
+  httpHeaders?: Record<string, string>;
   enabled: boolean;
   autoStart: boolean;
   retryAttempts: number;

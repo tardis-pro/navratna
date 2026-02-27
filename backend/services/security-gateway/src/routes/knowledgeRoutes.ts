@@ -477,6 +477,52 @@ router.get('/:itemId/related', authMiddleware, async (req: Request, res: Respons
 });
 
 /**
+ * GET /v1/knowledge/:itemId/similar
+ * Get semantically similar knowledge items (alias for related)
+ */
+router.get('/:itemId/similar', authMiddleware, async (req: Request, res: Response) => {
+  try {
+    const userId = req.user?.id;
+    if (!userId) {
+      res.status(401).json({ error: 'User not authenticated' });
+      return;
+    }
+
+    const { userKnowledgeService, initializationError } = await getServices();
+    if (initializationError) {
+      res.status(503).json({
+        error: 'Knowledge service not available',
+        details: initializationError,
+      });
+      return;
+    }
+
+    const { itemId } = req.params;
+    const { limit = '10' } = req.query;
+
+    if (!itemId) {
+      res.status(400).json({ error: 'Item ID is required' });
+      return;
+    }
+
+    const similarItems = await userKnowledgeService!.findRelatedKnowledge(userId, itemId);
+    const limited = similarItems.slice(0, parseInt(limit as string));
+
+    res.json({
+      success: true,
+      data: limited,
+      message: `Found ${limited.length} similar items`,
+    });
+  } catch (error) {
+    console.error('Error getting similar knowledge:', error);
+    res.status(500).json({
+      error: 'Failed to get similar knowledge',
+      details: error instanceof Error ? error.message : 'Unknown error',
+    });
+  }
+});
+
+/**
  * GET /v1/knowledge/graph
  * Get user's knowledge graph data (nodes and relationships)
  */

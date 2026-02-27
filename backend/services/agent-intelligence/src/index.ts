@@ -147,69 +147,65 @@ class AgentIntelligenceService extends BaseService {
       context: z.record(z.any()).optional(),
     });
 
-    this.app
-      .group('/api/v1/agents', (app) =>
-        app
-          .use(attachAuth)
-          .post('/:agentId/chat', async (context) => {
-            const { params, body, set, headers } = context;
-            const user = (context as unknown as { user: UserContext | null }).user;
+    this.app.group('/api/v1/agents', (app) =>
+      app.use(attachAuth).post('/:agentId/chat', async (context) => {
+        const { params, body, set, headers } = context;
+        const user = (context as unknown as { user: UserContext | null }).user;
 
-            let userId = user?.id;
-            if (!userId) {
-              const nginxUserId = headers['x-user-id'];
-              const UUID_REGEX =
-                /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-              if (typeof nginxUserId === 'string' && UUID_REGEX.test(nginxUserId)) {
-                userId = nginxUserId;
-              }
-            }
+        let userId = user?.id;
+        if (!userId) {
+          const nginxUserId = headers['x-user-id'];
+          const UUID_REGEX =
+            /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+          if (typeof nginxUserId === 'string' && UUID_REGEX.test(nginxUserId)) {
+            userId = nginxUserId;
+          }
+        }
 
-            if (!userId) {
-              set.status = 401;
-              return { success: false, error: 'Authentication required' };
-            }
+        if (!userId) {
+          set.status = 401;
+          return { success: false, error: 'Authentication required' };
+        }
 
-            const parsed = agentChatSchema.safeParse(body);
-            if (!parsed.success) {
-              set.status = 400;
-              return { success: false, error: 'Invalid chat payload' };
-            }
+        const parsed = agentChatSchema.safeParse(body);
+        if (!parsed.success) {
+          set.status = 400;
+          return { success: false, error: 'Invalid chat payload' };
+        }
 
-            try {
-              const result = await this.agentDiscussionService.participateInDiscussion({
-                agentId: params.agentId,
-                message: parsed.data.message,
-                userId,
-                conversationHistory: parsed.data.conversationHistory || [],
-                context: parsed.data.context || {},
-              });
+        try {
+          const result = await this.agentDiscussionService.participateInDiscussion({
+            agentId: params.agentId,
+            message: parsed.data.message,
+            userId,
+            conversationHistory: parsed.data.conversationHistory || [],
+            context: parsed.data.context || {},
+          });
 
-              return {
-                success: true,
-                data: {
-                  response: result.response,
-                  agentName: result.agentName || 'Agent',
-                  confidence: result.confidence || 0.8,
-                  model: 'unknown',
-                  tokensUsed: 0,
-                  memoryEnhanced: false,
-                  knowledgeUsed: result.metadata?.knowledgeUsed || 0,
-                  persona: null,
-                  conversationContext: result.metadata || {},
-                  timestamp: new Date().toISOString(),
-                  toolsExecuted: [],
-                },
-              };
-            } catch (error) {
-              const message =
-                error instanceof Error ? error.message : 'Failed to chat with agent';
-              logger.error('Failed to handle agent chat', { error: message, agentId: params.agentId });
-              set.status = message.includes('Agent not found') ? 404 : 500;
-              return { success: false, error: message };
-            }
-          })
-      );
+          return {
+            success: true,
+            data: {
+              response: result.response,
+              agentName: result.agentName || 'Agent',
+              confidence: result.confidence || 0.8,
+              model: 'unknown',
+              tokensUsed: 0,
+              memoryEnhanced: false,
+              knowledgeUsed: result.metadata?.knowledgeUsed || 0,
+              persona: null,
+              conversationContext: result.metadata || {},
+              timestamp: new Date().toISOString(),
+              toolsExecuted: [],
+            },
+          };
+        } catch (error) {
+          const message = error instanceof Error ? error.message : 'Failed to chat with agent';
+          logger.error('Failed to handle agent chat', { error: message, agentId: params.agentId });
+          set.status = message.includes('Agent not found') ? 404 : 500;
+          return { success: false, error: message };
+        }
+      })
+    );
 
     // ===== PERSONA ROUTES =====
 
@@ -251,7 +247,10 @@ class AgentIntelligenceService extends BaseService {
     this.app.post('/api/v1/personas', async ({ body, set, request }) => {
       try {
         const userId = request.headers.get('x-user-id') || 'system';
-        const persona = await this.personaService.createPersona({ ...(body as any), createdBy: userId });
+        const persona = await this.personaService.createPersona({
+          ...(body as any),
+          createdBy: userId,
+        });
         set.status = 201;
         return { success: true, data: persona };
       } catch (error) {
@@ -307,7 +306,9 @@ class AgentIntelligenceService extends BaseService {
     // Get persona templates
     this.app.get('/api/v1/personas/templates', async ({ query, set }) => {
       try {
-        const templates = await this.personaService.getPersonaTemplates(query.category as string | undefined);
+        const templates = await this.personaService.getPersonaTemplates(
+          query.category as string | undefined
+        );
         return { success: true, data: templates };
       } catch (error) {
         logger.error('Failed to get persona templates', { error });
@@ -442,11 +443,19 @@ class AgentIntelligenceService extends BaseService {
 
         if (!parsed.success) {
           set.status = 400;
-          return { success: false, error: 'Invalid search parameters', details: parsed.error.flatten() };
+          return {
+            success: false,
+            error: 'Invalid search parameters',
+            details: parsed.error.flatten(),
+          };
         }
 
         const { limit, offset, ...filters } = parsed.data;
-        const discussions = await this.discussionService.searchDiscussions(filters as any, limit, offset);
+        const discussions = await this.discussionService.searchDiscussions(
+          filters as any,
+          limit,
+          offset
+        );
         return { success: true, data: discussions };
       } catch (error) {
         logger.error('Failed to search discussions', { error });
@@ -476,143 +485,163 @@ class AgentIntelligenceService extends BaseService {
       app
         .use(attachNginxAuth)
         .use(requireNginxAuth)
-          // Create discussion
-          .post('', async (context) => {
-            const { body, set } = context;
-            const user = (context as unknown as { user: UserContext }).user;
-            try {
-              const discussion = await this.discussionService.createDiscussion({
-                ...(body as any),
-                createdBy: user.id,
-              });
-              set.status = 201;
-              return { success: true, data: discussion };
-            } catch (error) {
-              const message = error instanceof Error ? error.message : 'Failed to create discussion';
-              const isValidationError =
-                message.includes('Discussion title is required') ||
-                message.includes('Discussion topic is required') ||
-                message.includes('Discussion title must be') ||
-                message.includes('Discussion topic must be') ||
-                message.includes('Discussion requires at least 1 initial participant') ||
-                message.includes('Participant agentId is required') ||
-                message.includes('Agent not found');
+        // Create discussion
+        .post('', async (context) => {
+          const { body, set } = context;
+          const user = (context as unknown as { user: UserContext }).user;
+          try {
+            const discussion = await this.discussionService.createDiscussion({
+              ...(body as any),
+              createdBy: user.id,
+            });
+            set.status = 201;
+            return { success: true, data: discussion };
+          } catch (error) {
+            const message = error instanceof Error ? error.message : 'Failed to create discussion';
+            const isValidationError =
+              message.includes('Discussion title is required') ||
+              message.includes('Discussion topic is required') ||
+              message.includes('Discussion title must be') ||
+              message.includes('Discussion topic must be') ||
+              message.includes('Discussion requires at least 1 initial participant') ||
+              message.includes('Participant agentId is required') ||
+              message.includes('Agent not found');
 
-              logger.error('Failed to create discussion', { error: message });
-              set.status = isValidationError ? 400 : 500;
-              return { success: false, error: message };
-            }
-          })
-          // Update discussion
-          .put('/:discussionId', async ({ params, body, set }) => {
-            try {
-              const discussion = await this.discussionService.updateDiscussion(params.discussionId, body as any);
-              return { success: true, data: discussion };
-            } catch (error) {
-              logger.error('Failed to update discussion', { error, discussionId: params.discussionId });
-              set.status = 500;
-              return { success: false, error: 'Failed to update discussion' };
-            }
-          })
-          // Start discussion
-          .post('/:discussionId/start', async (context) => {
-            const { params, set } = context;
-            const user = (context as unknown as { user: UserContext }).user;
-            try {
-              const discussion = await this.discussionService.startDiscussion(params.discussionId, user.id);
-              return { success: true, data: discussion };
-            } catch (error) {
-              logger.error('Failed to start discussion', { error, discussionId: params.discussionId });
-              set.status = 500;
-              return { success: false, error: 'Failed to start discussion' };
-            }
-          })
-          // Send message
-          .post('/:discussionId/messages', async (context) => {
-            const { params, body, set } = context;
-            const user = (context as unknown as { user: UserContext }).user;
-            const { content, messageType, participantId } = (body as {
+            logger.error('Failed to create discussion', { error: message });
+            set.status = isValidationError ? 400 : 500;
+            return { success: false, error: message };
+          }
+        })
+        // Update discussion
+        .put('/:discussionId', async ({ params, body, set }) => {
+          try {
+            const discussion = await this.discussionService.updateDiscussion(
+              params.discussionId,
+              body as any
+            );
+            return { success: true, data: discussion };
+          } catch (error) {
+            logger.error('Failed to update discussion', {
+              error,
+              discussionId: params.discussionId,
+            });
+            set.status = 500;
+            return { success: false, error: 'Failed to update discussion' };
+          }
+        })
+        // Start discussion
+        .post('/:discussionId/start', async (context) => {
+          const { params, set } = context;
+          const user = (context as unknown as { user: UserContext }).user;
+          try {
+            const discussion = await this.discussionService.startDiscussion(
+              params.discussionId,
+              user.id
+            );
+            return { success: true, data: discussion };
+          } catch (error) {
+            logger.error('Failed to start discussion', {
+              error,
+              discussionId: params.discussionId,
+            });
+            set.status = 500;
+            return { success: false, error: 'Failed to start discussion' };
+          }
+        })
+        // Send message
+        .post('/:discussionId/messages', async (context) => {
+          const { params, body, set } = context;
+          const user = (context as unknown as { user: UserContext }).user;
+          const { content, messageType, participantId } =
+            (body as {
               content?: string;
               messageType?: string;
               participantId?: string;
             }) || {};
 
-            if (!content || typeof content !== 'string' || content.trim().length === 0) {
-              set.status = 400;
-              return { success: false, error: 'Message content is required' };
+          if (!content || typeof content !== 'string' || content.trim().length === 0) {
+            set.status = 400;
+            return { success: false, error: 'Message content is required' };
+          }
+
+          try {
+            const discussion = await this.discussionService.getDiscussion(
+              params.discussionId,
+              true
+            );
+            if (!discussion) {
+              set.status = 404;
+              return { success: false, error: 'Discussion not found' };
             }
 
-            try {
-              const discussion = await this.discussionService.getDiscussion(params.discussionId, true);
-              if (!discussion) {
-                set.status = 404;
-                return { success: false, error: 'Discussion not found' };
-              }
+            const matchingParticipant = participantId
+              ? discussion.participants?.find(
+                  (participant: any) =>
+                    participant.id === participantId || participant.participantId === participantId
+                )
+              : discussion.participants?.find(
+                  (participant: any) =>
+                    participant.participantType === 'user' && participant.userId === user.id
+                );
 
-              const matchingParticipant = participantId
-                ? discussion.participants?.find(
-                    (participant: any) =>
-                      participant.id === participantId || participant.participantId === participantId
-                  )
-                : discussion.participants?.find(
-                    (participant: any) => participant.participantType === 'user' && participant.userId === user.id
-                  );
-
-              if (!matchingParticipant) {
-                set.status = 404;
-                return { success: false, error: 'Participant not found for user' };
-              }
-
-              if ((matchingParticipant as any).participantType !== 'user' || (matchingParticipant as any).userId !== user.id) {
-                set.status = 403;
-                return { success: false, error: 'Participant does not belong to user' };
-              }
-
-              const allowedMessageTypes = new Set<string>(Object.values(MessageType));
-              const resolvedMessageType = allowedMessageTypes.has(messageType || '')
-                ? (messageType as MessageType)
-                : MessageType.MESSAGE;
-
-              const message = await this.discussionService.sendMessage(
-                params.discussionId,
-                matchingParticipant.id,
-                content.trim(),
-                resolvedMessageType
-              );
-
-              return { success: true, data: message };
-            } catch (error) {
-              const message = error instanceof Error ? error.message : 'Failed to send message';
-              const isValidationError =
-                message.includes('Discussion not found') ||
-                message.includes('Cannot send message to discussion with status') ||
-                message.includes('Invalid or inactive participant');
-
-              logger.error('Failed to send discussion message', {
-                error: message,
-                discussionId: params.discussionId,
-              });
-              set.status = isValidationError ? 400 : 500;
-              return { success: false, error: message };
+            if (!matchingParticipant) {
+              set.status = 404;
+              return { success: false, error: 'Participant not found for user' };
             }
-          })
-          // End discussion
-          .post('/:discussionId/end', async (context) => {
-            const { params, body, set } = context;
-            const user = (context as unknown as { user: UserContext }).user;
-            try {
-              const discussion = await this.discussionService.endDiscussion(
-                params.discussionId,
-                user.id,
-                (body as any)?.reason
-              );
-              return { success: true, data: discussion };
-            } catch (error) {
-              logger.error('Failed to end discussion', { error, discussionId: params.discussionId });
-              set.status = 500;
-              return { success: false, error: 'Failed to end discussion' };
+
+            if (
+              (matchingParticipant as any).participantType !== 'user' ||
+              (matchingParticipant as any).userId !== user.id
+            ) {
+              set.status = 403;
+              return { success: false, error: 'Participant does not belong to user' };
             }
-          })
+
+            const allowedMessageTypes = new Set<string>(Object.values(MessageType));
+            const resolvedMessageType = allowedMessageTypes.has(messageType || '')
+              ? (messageType as MessageType)
+              : MessageType.MESSAGE;
+
+            const message = await this.discussionService.sendMessage(
+              params.discussionId,
+              matchingParticipant.id,
+              content.trim(),
+              resolvedMessageType
+            );
+
+            return { success: true, data: message };
+          } catch (error) {
+            const message = error instanceof Error ? error.message : 'Failed to send message';
+            const isValidationError =
+              message.includes('Discussion not found') ||
+              message.includes('Cannot send message to discussion with status') ||
+              message.includes('Invalid or inactive participant');
+
+            logger.error('Failed to send discussion message', {
+              error: message,
+              discussionId: params.discussionId,
+            });
+            set.status = isValidationError ? 400 : 500;
+            return { success: false, error: message };
+          }
+        })
+        // End discussion
+        .post('/:discussionId/end', async (context) => {
+          const { params, body, set } = context;
+          const user = (context as unknown as { user: UserContext }).user;
+          try {
+            const discussion = await this.discussionService.endDiscussion(
+              params.discussionId,
+              user.id,
+              (body as any)?.reason
+            );
+            return { success: true, data: discussion };
+          } catch (error) {
+            logger.error('Failed to end discussion', { error, discussionId: params.discussionId });
+            set.status = 500;
+            return { success: false, error: 'Failed to end discussion' };
+          }
+        })
     );
 
     // Get discussion messages
@@ -624,7 +653,10 @@ class AgentIntelligenceService extends BaseService {
         );
         return { success: true, data: messages };
       } catch (error) {
-        logger.error('Failed to get discussion messages', { error, discussionId: params.discussionId });
+        logger.error('Failed to get discussion messages', {
+          error,
+          discussionId: params.discussionId,
+        });
         set.status = 500;
         return { success: false, error: 'Failed to get discussion messages' };
       }
@@ -682,7 +714,10 @@ class AgentIntelligenceService extends BaseService {
     this.app.post('/api/v1/debug/force-llm-cleanup', ({ set }) => {
       try {
         // Trigger immediate cleanup on conversation enhancement service
-        if (typeof (this.conversationEnhancementService as any)['cleanupStaleLLMRequests'] === 'function') {
+        if (
+          typeof (this.conversationEnhancementService as any)['cleanupStaleLLMRequests'] ===
+          'function'
+        ) {
           (this.conversationEnhancementService as any)['cleanupStaleLLMRequests']();
         }
 
@@ -805,6 +840,7 @@ class AgentIntelligenceService extends BaseService {
         // Prepare enhanced response with WebSocket metadata
         const responsePayload = {
           socketId,
+          userId,
           agentId,
           messageId,
           response: result.response,
@@ -839,6 +875,7 @@ class AgentIntelligenceService extends BaseService {
         if ((event.data as any)?.socketId && (event.data as any)?.messageId) {
           await this.eventBusService.publish('agent.chat.response', {
             socketId: (event.data as any).socketId,
+            userId: (event.data as any).userId,
             agentId: (event.data as any).agentId,
             messageId: (event.data as any).messageId,
             response: 'Sorry, I encountered an error processing your request. Please try again.',
@@ -923,8 +960,10 @@ class AgentIntelligenceService extends BaseService {
             if (participant) {
               // Send enhanced response back to discussion orchestration
               const isInitialParticipation =
-                (discussion?.state?.messageCount ?? context?.messageCount ?? messageHistory?.length ?? 0) ===
-                0;
+                (discussion?.state?.messageCount ??
+                  context?.messageCount ??
+                  messageHistory?.length ??
+                  0) === 0;
 
               await this.eventBusService.publish('discussion.agent.message', {
                 discussionId,

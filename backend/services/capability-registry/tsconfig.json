@@ -12,7 +12,9 @@
       "@uaip/middleware/*": ["../../../shared/middleware/src/*"],
       "@uaip/config/*": ["../../../shared/config/src/*"],
       "@uaip/infra": ["../../../shared/infra/dist"],
-      "@uaip/infra/*": ["../../../shared/infra/dist/*"]
+      "@uaip/infra/*": ["../../../shared/infra/dist/*"],
+      "typeorm": ["../../../shared/services/node_modules/typeorm"],
+      "typeorm/*": ["../../../shared/services/node_modules/typeorm/*"]
     }
   },
   "include": [

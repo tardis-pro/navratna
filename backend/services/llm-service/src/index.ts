@@ -1,4 +1,4 @@
-import { BaseService } from '@uaip/shared-services';
+import { BaseService, allEntities } from '@uaip/shared-services';
 import { logger } from '@uaip/utils';
 import {
   LLMService,
@@ -23,6 +23,13 @@ class LLMServiceServer extends BaseService {
       port: parseInt(process.env.PORT || '3007', 10),
       enableEnterpriseEventBus: true,
     });
+
+    // Register all TypeORM entities — required for ModelSelectionOrchestrator to
+    // resolve Agent, AgentLLMPreference, UserLLMPreference repos at runtime.
+    // Without this, TypeORM throws "No metadata for X was found" which silently
+    // causes AgentSpecificStrategy and UserSpecificStrategy to fail, falling
+    // through to ContextAwareStrategy which returns hardcoded Anthropic defaults.
+    this.registerEntities(allEntities);
 
     // Initialize LLM service only - UserLLMService will be created after facade is ready
     this.llmService = LLMService.getInstance();

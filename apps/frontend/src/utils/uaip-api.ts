@@ -1199,7 +1199,8 @@ export const uaipAPI = {
         const relatedItems = await client.knowledge.findSimilar(itemId);
         return relatedItems.map((result: any) => result.item || result);
       } catch (error) {
-        throw new Error(error instanceof Error ? error.message : 'Failed to get related knowledge');
+        console.warn('Similar items endpoint unavailable, returning empty:', error);
+        return [];
       }
     },
 

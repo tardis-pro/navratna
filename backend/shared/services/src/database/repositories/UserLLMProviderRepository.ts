@@ -23,7 +23,7 @@ export class UserLLMProviderRepository extends BaseRepository<UserLLMProvider> {
           userId,
         },
         order: {
-          priority: 'ASC',
+          priority: 'DESC',
           createdAt: 'ASC',
         },
       });
@@ -41,7 +41,7 @@ export class UserLLMProviderRepository extends BaseRepository<UserLLMProvider> {
       return await this.repository.find({
         where: { userId },
         order: {
-          priority: 'ASC',
+          priority: 'DESC',
           createdAt: 'ASC',
         },
       });
@@ -62,7 +62,7 @@ export class UserLLMProviderRepository extends BaseRepository<UserLLMProvider> {
           { isActive: true, status: 'testing' },
         ],
         order: {
-          priority: 'ASC',
+          priority: 'DESC',
           createdAt: 'ASC',
         },
       });
@@ -80,8 +80,16 @@ export class UserLLMProviderRepository extends BaseRepository<UserLLMProvider> {
     type: UserLLMProviderType
   ): Promise<UserLLMProvider | null> {
     try {
+      // Prefer active providers, highest priority first
+      const active = await this.repository.findOne({
+        where: { userId, type, isActive: true },
+        order: { priority: 'DESC', createdAt: 'ASC' },
+      });
+      if (active) return active;
+      // Fallback: any provider of this type (e.g. status=testing)
       return await this.repository.findOne({
         where: { userId, type },
+        order: { priority: 'DESC', createdAt: 'ASC' },
       });
     } catch (error) {
       logger.error('Error finding user LLM provider by type', { userId, type, error });
@@ -110,7 +118,7 @@ export class UserLLMProviderRepository extends BaseRepository<UserLLMProvider> {
       return await this.repository.findOne({
         where: whereCondition,
         order: {
-          priority: 'ASC',
+          priority: 'DESC',
           lastUsedAt: 'ASC', // Prefer less recently used providers for load balancing
         },
       });
@@ -472,7 +480,7 @@ export class UserLLMProviderRepository extends BaseRepository<UserLLMProvider> {
       return await this.repository.find({
         where: { userId, type, isActive: true },
         order: {
-          priority: 'ASC',
+          priority: 'DESC',
           lastUsedAt: 'ASC',
         },
       });

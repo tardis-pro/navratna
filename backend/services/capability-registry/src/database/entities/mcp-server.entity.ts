@@ -1,23 +1,30 @@
-import { Entity, Column, Index, OneToMany } from 'typeorm';
-import { BaseEntity } from './base.entity';
-import {
-  MCPServerType,
-  MCPServerStatus,
-  MCPServerCapabilities,
-  MCPServerStats,
-  SecurityLevel,
-} from '@uaip/types';
+import { Entity, Column, Index } from 'typeorm';
+import { ExecutionBaseEntity } from './base.entity.js';
+import { MCPServerType, MCPServerStatus } from '@uaip/types';
+
+// Defined locally — pure TypeScript structural types; no runtime value needed.
+interface MCPServerStats {
+  totalCalls?: number;
+  successRate?: number;
+  averageResponseTime?: number;
+  lastCallTime?: Date;
+}
+interface MCPServerCapabilities {
+  tools?: Array<{ name: string; description?: string; inputSchema?: any }>;
+  resources?: Array<{ uri: string; name?: string }>;
+  prompts?: Array<{ name: string; description?: string }>;
+}
 
 /**
- * MCP Server Entity for the MCP Integration System
- * Implements the comprehensive MCP server management model from the TypeORM migration plan
+ * MCP Server Entity — owned by the Execution Plane (capability-registry).
+ * Schema: mcp_servers table.  All HTTP transport fields and encrypted headers live here.
  */
 @Entity('mcp_servers')
 @Index(['enabled', 'autoStart'])
 @Index(['type'])
 @Index(['status'])
 @Index(['securityLevel'])
-export class MCPServer extends BaseEntity {
+export class MCPServer extends ExecutionBaseEntity {
   @Column({ length: 255, unique: true })
   name: string;
 
@@ -27,6 +34,8 @@ export class MCPServer extends BaseEntity {
   @Column({ type: 'enum', enum: ['filesystem', 'database', 'api', 'tool', 'knowledge', 'custom'] })
   type: MCPServerType;
 
+  // ── Transport ──────────────────────────────────────────────────────────────
+  /** stdio command — null for HTTP transports */
   @Column({ type: 'text', nullable: true })
   command?: string;
 
@@ -39,15 +48,22 @@ export class MCPServer extends BaseEntity {
   @Column({ name: 'working_directory', nullable: true })
   workingDirectory?: string;
 
+  /** 'stdio' | 'http' | 'streamable-http' */
   @Column({ name: 'transport_type', length: 20, default: 'stdio' })
   transportType: string;
 
+  /** HTTP endpoint URL — null for stdio */
   @Column({ type: 'text', nullable: true })
   url?: string;
 
+  /**
+   * AES-256-GCM encrypted JSON blob of HTTP headers (API keys etc.).
+   * Only the capability-registry process can decrypt this at runtime.
+   */
   @Column({ type: 'text', nullable: true })
-  headers?: string; // AES-256-GCM encrypted blob; only capability-registry can decrypt
+  headers?: string;
 
+  // ── Lifecycle config ────────────────────────────────────────────────────────
   @Column({ default: true })
   enabled: boolean;
 
@@ -75,10 +91,15 @@ export class MCPServer extends BaseEntity {
   @Column({ name: 'requires_approval', default: false })
   requiresApproval: boolean;
 
-  @Column({ name: 'security_level', type: 'enum', enum: SecurityLevel })
-  securityLevel: SecurityLevel;
+  @Column({
+    name: 'security_level',
+    type: 'enum',
+    enum: ['low', 'medium', 'high', 'critical'],
+    default: 'medium',
+  })
+  securityLevel: string;
 
-  // Runtime status
+  // ── Runtime status ─────────────────────────────────────────────────────────
   @Column({
     type: 'enum',
     enum: ['stopped', 'starting', 'running', 'error', 'stopping'],
@@ -98,7 +119,7 @@ export class MCPServer extends BaseEntity {
   @Column({ type: 'text', nullable: true })
   error?: string;
 
-  // Capabilities
+  // ── Capabilities ───────────────────────────────────────────────────────────
   @Column({ type: 'jsonb', nullable: true })
   capabilities?: MCPServerCapabilities;
 
@@ -114,7 +135,7 @@ export class MCPServer extends BaseEntity {
   @Column({ name: 'prompt_count', default: 0 })
   promptCount: number;
 
-  // Statistics
+  // ── Statistics ─────────────────────────────────────────────────────────────
   @Column({ type: 'jsonb', nullable: true })
   stats?: MCPServerStats;
 
@@ -139,7 +160,7 @@ export class MCPServer extends BaseEntity {
   @Column({ name: 'last_call_time', type: 'timestamp', nullable: true })
   lastCallTime?: Date;
 
-  // Performance and resource monitoring
+  // ── Observability ──────────────────────────────────────────────────────────
   @Column({ name: 'uptime_seconds', default: 0 })
   uptimeSeconds: number;
 
@@ -161,7 +182,7 @@ export class MCPServer extends BaseEntity {
   @Column({ name: 'last_crash_time', type: 'timestamp', nullable: true })
   lastCrashTime?: Date;
 
-  // Configuration and deployment
+  // ── Deployment config ──────────────────────────────────────────────────────
   @Column({ name: 'deployment_config', type: 'jsonb', nullable: true })
   deploymentConfig?: Record<string, any>;
 
@@ -174,7 +195,7 @@ export class MCPServer extends BaseEntity {
   @Column({ name: 'network_config', type: 'jsonb', nullable: true })
   networkConfig?: Record<string, any>;
 
-  // Logging and debugging
+  // ── Logging / debug ────────────────────────────────────────────────────────
   @Column({
     name: 'log_level',
     type: 'enum',
@@ -192,7 +213,7 @@ export class MCPServer extends BaseEntity {
   @Column({ name: 'trace_enabled', default: false })
   traceEnabled: boolean;
 
-  // Maintenance and lifecycle
+  // ── Maintenance / lifecycle ────────────────────────────────────────────────
   @Column({ name: 'maintenance_mode', default: false })
   maintenanceMode: boolean;
 
@@ -208,7 +229,7 @@ export class MCPServer extends BaseEntity {
   @Column({ name: 'end_of_life_date', type: 'timestamp', nullable: true })
   endOfLifeDate?: Date;
 
-  // Metadata and context
+  // ── Metadata ───────────────────────────────────────────────────────────────
   @Column({ type: 'jsonb', nullable: true })
   metadata?: Record<string, any>;
 
@@ -220,8 +241,4 @@ export class MCPServer extends BaseEntity {
 
   @Column({ name: 'support_contact', nullable: true })
   supportContact?: string;
-
-  // Relationships - Note: These will be implemented when the related entities are created
-  // @OneToMany(() => MCPToolCall, call => call.server)
-  // toolCalls: MCPToolCall[];
 }

@@ -16,6 +16,7 @@ import { UnifiedToolRegistry } from './services/unified-tool-registry.js';
 import { EnterpriseToolRegistry } from './services/enterprise-tool-registry.js';
 // Route registration functions are imported dynamically in setupRoutes
 import { logger } from '@uaip/utils';
+import { ExecutionDataSource, McpRepository } from './database/index.js';
 
 class CapabilityRegistryService extends BaseService {
   private postgresql: InfraDatabaseService;
@@ -78,11 +79,20 @@ class CapabilityRegistryService extends BaseService {
     // Initialize tool executor
     this.toolExecutor = new ToolExecutor(this.postgresql, this.toolRegistry, this.baseExecutor);
 
+    // ── Execution Plane DataSource ──────────────────────────────────────────
+    // Initialize the plane's own TypeORM connection BEFORE MCPClientService so
+    // the repository is ready when autoStartServers() runs on startup.
+    logger.info('Initializing Execution Plane DataSource...');
+    const execDs = await ExecutionDataSource.getInstance().initialize();
+    const mcpRepository = new McpRepository(execDs);
+    logger.info('Execution Plane DataSource ready');
+
     // Initialize MCP Client Service
     this.mcpClientService = MCPClientService.getInstance();
     await this.mcpClientService.initialize(
       this.asInfraEventBusService(),
-      this.asInfraDatabaseService()
+      this.asInfraDatabaseService(),
+      mcpRepository
     );
     logger.info('MCP Client Service initialized and auto-started servers');
 
@@ -336,6 +346,10 @@ class CapabilityRegistryService extends BaseService {
         await this.neo4j.close();
         logger.info('Neo4j connection closed');
       }
+
+      // Close Execution Plane DataSource
+      await ExecutionDataSource.getInstance().close();
+      logger.info('Execution Plane DataSource closed');
 
       logger.info('Capability Registry Service shut down successfully');
     } catch (error) {

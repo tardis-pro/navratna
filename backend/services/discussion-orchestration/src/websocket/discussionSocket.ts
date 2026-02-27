@@ -88,6 +88,21 @@ export function setupWebSocketHandlers(
   // Enhanced authentication middleware with proper JWT validation
   io.use((socket: AuthenticatedSocket, next) => {
     try {
+      const preAuthenticatedUserId = socket.data?.user?.userId as string | undefined;
+      if (preAuthenticatedUserId) {
+        socket.userId = preAuthenticatedUserId;
+        socket.sessionId =
+          (socket.data?.user?.sessionId as string | undefined) ||
+          `ws_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+        socket.securityLevel =
+          (socket.data?.user?.securityLevel as number | undefined) ||
+          getSecurityLevelFromRole((socket.data?.user?.role as string | undefined) || 'user');
+        socket.lastActivity = new Date();
+        socket.messageCount = 0;
+        socket.rateLimitReset = Date.now() + 60000;
+        return next();
+      }
+
       // Extract token from multiple possible sources
       let token = socket.handshake.auth?.token;
 

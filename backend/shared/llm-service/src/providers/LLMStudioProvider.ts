@@ -19,17 +19,44 @@ export class LLMStudioProvider extends BaseProvider {
         stream: request.stream || false,
         max_tokens: request.maxTokens || 200,
         temperature: request.temperature || 0.7,
+        stop: ['<|im_end|>', '<|im_start|>'],
       };
 
       const data = await this.makeRequest(url, body);
 
-      if (!data.choices?.[0]?.message?.content) {
+      if (data?.error?.message) {
+        throw new Error(`LM Studio error: ${data.error.message}`);
+      }
+
+      const choice = data.choices?.[0];
+      const messageContent = choice?.message?.content;
+      const contentFromArray = Array.isArray(messageContent)
+        ? messageContent
+            .map((part: any) => {
+              if (typeof part === 'string') return part;
+              if (typeof part?.text === 'string') return part.text;
+              if (typeof part?.content === 'string') return part.content;
+              return '';
+            })
+            .join(' ')
+            .trim()
+        : null;
+      const content =
+        (typeof messageContent === 'string' ? messageContent : null) ||
+        contentFromArray ||
+        (typeof choice?.message?.reasoning_content === 'string'
+          ? choice.message.reasoning_content
+          : null) ||
+        (typeof choice?.text === 'string' ? choice.text : null) ||
+        (typeof choice?.content === 'string' ? choice.content : null) ||
+        (typeof data?.output_text === 'string' ? data.output_text : null);
+
+      if (!content) {
         throw new Error('Invalid response format from LLM Studio');
       }
 
-      const choice = data.choices[0];
       return {
-        content: choice.message.content,
+        content,
         model: data.model || request.model || this.config.defaultModel || 'unknown',
         tokensUsed: data.usage?.total_tokens || 0,
         confidence: 0.8, // LLM Studio doesn't provide confidence scores

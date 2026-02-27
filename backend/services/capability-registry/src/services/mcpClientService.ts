@@ -5,11 +5,12 @@
 import { spawn, ChildProcess } from 'child_process';
 import { EventEmitter } from 'events';
 import { logger } from '@uaip/utils';
-import { ToolGraphDatabase, SecurityLevel, MCPService, ToolService, AgentService } from '@uaip/shared-services';
+import { ToolGraphDatabase, SecurityLevel, ToolService, AgentService } from '@uaip/shared-services';
 import { DatabaseService } from '@uaip/infra/database';
 import { EventBusService } from '@uaip/infra/eventBus';
-import * as fs from 'fs/promises';
-import * as path from 'path';
+import { encryptHeaders, decryptHeaders, resolveEnvRefs } from '../utils/mcpSecrets.js';
+import { McpRepository } from '../database/index.js';
+
 import { promisify } from 'util';
 import { exec } from 'child_process';
 
@@ -42,10 +43,13 @@ interface JSONRPCNotification {
 
 // MCP Server Configuration
 interface MCPServerConfig {
-  command: string;
+  command?: string;
   args: string[];
   env?: Record<string, string>;
   cwd?: string;
+  transportType?: 'stdio' | 'http' | 'streamable-http';
+  httpUrl?: string;
+  httpHeaders?: Record<string, string>;
 }
 
 // MCP Resource Types
@@ -86,6 +90,9 @@ interface MCPServerState {
   name: string;
   config: MCPServerConfig;
   process?: ChildProcess;
+  transportType: 'stdio' | 'http' | 'streamable-http';
+  httpUrl?: string;
+  httpHeaders?: Record<string, string>;
   status: 'stopped' | 'starting' | 'running' | 'error' | 'stopping';
   pid?: number;
   startTime?: Date;
@@ -117,23 +124,27 @@ export class MCPClientService extends EventEmitter {
       timestamp: number;
     }
   >();
-  private configPath: string;
+
   private healthCheckInterval?: NodeJS.Timeout;
   private eventBusService?: EventBusService;
+  /** Kept for ToolService/AgentService usage (tool assignment to agents) */
   private databaseService?: DatabaseService;
   private toolGraphDatabase?: ToolGraphDatabase;
+  /** Execution Plane repository — owns all MCP DB access. */
+  private mcpRepo?: McpRepository;
 
   private constructor() {
     super();
-    this.configPath = path.resolve(process.cwd(), '../../../.mcp.json');
+    // config is loaded from DB on demand
   }
-
   async initialize(
     eventBusService?: EventBusService,
-    databaseService?: DatabaseService
+    databaseService?: DatabaseService,
+    mcpRepository?: McpRepository
   ): Promise<void> {
     this.eventBusService = eventBusService;
     this.databaseService = databaseService;
+    this.mcpRepo = mcpRepository;
 
     // Initialize ToolGraphDatabase for Neo4j integration
     try {
@@ -181,29 +192,34 @@ export class MCPClientService extends EventEmitter {
       }
     }
 
-    // Validate command exists before attempting to start
-    const commandValidation = await this.validateCommand(config.command);
-    if (!commandValidation.isValid) {
-      logger.warn(
-        `Command '${config.command}' not found for server ${serverName}. ${commandValidation.suggestion}`
-      );
+    // For HTTP-based servers, skip command validation entirely
+    const isHttp = config.transportType === 'http' || config.transportType === 'streamable-http';
 
-      // Try fallback configuration if available
-      if (commandValidation.fallbackConfig) {
-        logger.info(`Attempting fallback configuration for ${serverName}`);
-        config = commandValidation.fallbackConfig;
+    if (!isHttp) {
+      // Validate command exists before attempting to start
+      const commandValidation = await this.validateCommand(config.command!);
+      if (!commandValidation.isValid) {
+        logger.warn(
+          `Command '${config.command}' not found for server ${serverName}. ${commandValidation.suggestion}`
+        );
 
-        // Validate the fallback command
-        const fallbackValidation = await this.validateCommand(config.command);
-        if (!fallbackValidation.isValid) {
-          const error = `Both primary and fallback commands failed for ${serverName}. ${commandValidation.suggestion}`;
-          logger.error(error);
+        // Try fallback configuration if available
+        if (commandValidation.fallbackConfig) {
+          logger.info(`Attempting fallback configuration for ${serverName}`);
+          config = commandValidation.fallbackConfig;
+
+          // Validate the fallback command
+          const fallbackValidation = await this.validateCommand(config.command!);
+          if (!fallbackValidation.isValid) {
+            const error = `Both primary and fallback commands failed for ${serverName}. ${commandValidation.suggestion}`;
+            logger.error(error);
+            throw new Error(error);
+          }
+        } else {
+          const error = `Command '${config.command}' not found. ${commandValidation.suggestion}`;
+          logger.error(`Cannot start MCP server ${serverName}: ${error}`);
           throw new Error(error);
         }
-      } else {
-        const error = `Command '${config.command}' not found. ${commandValidation.suggestion}`;
-        logger.error(`Cannot start MCP server ${serverName}: ${error}`);
-        throw new Error(error);
       }
     }
 
@@ -213,6 +229,9 @@ export class MCPClientService extends EventEmitter {
       name: serverName,
       config,
       status: 'starting',
+      transportType: config.transportType || 'stdio',
+      httpUrl: config.httpUrl,
+      httpHeaders: config.httpHeaders,
       logs: [],
       stats: {
         totalRequests: 0,
@@ -226,26 +245,44 @@ export class MCPClientService extends EventEmitter {
     this.servers.set(serverName, serverState);
 
     try {
-      const childProcess = spawn(config.command, config.args, {
-        stdio: ['pipe', 'pipe', 'pipe'],
-        env: { ...process.env, ...config.env },
-        cwd: config.cwd || process.cwd(),
-      });
+      if (isHttp) {
+        // HTTP transport: the remote server is always 'running'.
+        // Set status to running BEFORE initializeConnection so sendRequest
+        // doesn't reject the call with 'not running'.
+        serverState.startTime = new Date();
+        serverState.status = 'running';
+        try {
+          await this.initializeConnection(serverName);
+          this.emit('serverStarted', { serverName });
+          await this.publishEvent('mcp.server.started', { serverName });
+          logger.info(`MCP HTTP server connected: ${serverName} (${config.httpUrl})`);
+        } catch (initErr) {
+          // Remote endpoint reachable but init failed — log and keep 'running' so
+          // retries are possible; capability discovery can be retried later.
+          logger.warn(`MCP HTTP server ${serverName}: init failed, will retry on next health check`, initErr);
+        }
+      } else {
+        const childProcess = spawn(config.command!, config.args, {
+          stdio: ['pipe', 'pipe', 'pipe'],
+          env: { ...process.env, ...config.env },
+          cwd: config.cwd || process.cwd(),
+        });
 
-      serverState.process = childProcess;
-      serverState.pid = childProcess.pid;
-      serverState.startTime = new Date();
+        serverState.process = childProcess;
+        serverState.pid = childProcess.pid;
+        serverState.startTime = new Date();
 
-      // Setup process event handlers
-      this.setupProcessHandlers(serverName, childProcess);
+        // Setup process event handlers
+        this.setupProcessHandlers(serverName, childProcess);
 
-      // Initialize MCP connection
-      await this.initializeConnection(serverName);
+        // Initialize MCP connection
+        await this.initializeConnection(serverName);
 
-      serverState.status = 'running';
-      this.emit('serverStarted', { serverName, pid: childProcess.pid });
-      await this.publishEvent('mcp.server.started', { serverName, pid: childProcess.pid });
-      logger.info(`MCP server started successfully: ${serverName} (PID: ${childProcess.pid})`);
+        serverState.status = 'running';
+        this.emit('serverStarted', { serverName, pid: childProcess.pid });
+        await this.publishEvent('mcp.server.started', { serverName, pid: childProcess.pid });
+        logger.info(`MCP server started successfully: ${serverName} (PID: ${childProcess.pid})`);
+      }
     } catch (error) {
       serverState.status = 'error';
       serverState.error = error.message;
@@ -256,8 +293,21 @@ export class MCPClientService extends EventEmitter {
 
   async stopServer(serverName: string): Promise<void> {
     const server = this.servers.get(serverName);
-    if (!server || !server.process) {
+    if (!server) {
       logger.warn(`Attempted to stop non-running server: ${serverName}`);
+      return;
+    }
+
+    // HTTP servers have no subprocess — just mark as stopped
+    if (server.transportType !== 'stdio') {
+      server.status = 'stopped';
+      this.emit('serverStopped', { serverName });
+      logger.info(`MCP HTTP server disconnected: ${serverName}`);
+      return;
+    }
+
+    if (!server.process) {
+      logger.warn(`Attempted to stop server with no process: ${serverName}`);
       return;
     }
 
@@ -297,7 +347,7 @@ export class MCPClientService extends EventEmitter {
   // JSON-RPC 2.0 Communication
   private async sendRequest(serverName: string, method: string, params?: any): Promise<any> {
     const server = this.servers.get(serverName);
-    if (!server || server.status !== 'running' || !server.process) {
+    if (!server || server.status !== 'running') {
       throw new Error(`Server ${serverName} is not running`);
     }
 
@@ -309,6 +359,50 @@ export class MCPClientService extends EventEmitter {
       params,
     };
 
+    server.stats.totalRequests++;
+
+    // HTTP / Streamable-HTTP transport
+    if (server.transportType === 'http' || server.transportType === 'streamable-http') {
+      const url = server.httpUrl!;
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json, text/event-stream',
+        ...(server.httpHeaders || {}),
+      };
+      const startTime = Date.now();
+      try {
+        const resp = await fetch(url, {
+          method: 'POST',
+          headers,
+          body: JSON.stringify(request),
+        });
+        if (!resp.ok) {
+          throw new Error(`HTTP ${resp.status} ${resp.statusText}`);
+        }
+        const contentType = resp.headers.get('content-type') || '';
+        let result: any;
+        logger.info(`[SSE-DEBUG] content-type: ${contentType}, isSSE: ${contentType.includes('text/event-stream')}`);
+        if (contentType.includes('text/event-stream')) {
+          result = await this.readSSEResponse(resp);
+        } else {
+          const body = await resp.json() as JSONRPCResponse;
+          if (body.error) {
+            throw new Error(`${body.error.message} (${body.error.code})`);
+          }
+          result = body.result;
+        }
+        server.stats.successfulRequests++;
+        server.stats.averageResponseTime =
+          (server.stats.averageResponseTime + (Date.now() - startTime)) / 2;
+        this.addLog(serverName, `→ ${method}: ${JSON.stringify(params)}`);
+        return result;
+      } catch (error) {
+        server.stats.failedRequests++;
+        throw error;
+      }
+    }
+
+    // stdio transport — original promise-based approach
     return new Promise((resolve, reject) => {
       const timeout = setTimeout(() => {
         this.pendingRequests.delete(id);
@@ -330,8 +424,6 @@ export class MCPClientService extends EventEmitter {
         timestamp: Date.now(),
       });
 
-      server.stats.totalRequests++;
-
       const message = JSON.stringify(request) + '\n';
       server.process!.stdin?.write(message);
 
@@ -341,7 +433,11 @@ export class MCPClientService extends EventEmitter {
 
   private sendNotification(serverName: string, method: string, params?: any): void {
     const server = this.servers.get(serverName);
-    if (!server || server.status !== 'running' || !server.process) {
+    if (!server || server.status !== 'running') {
+      return;
+    }
+    // HTTP transport is request/response only — no notification channel
+    if (server.transportType !== 'stdio' || !server.process) {
       return;
     }
 
@@ -455,7 +551,7 @@ export class MCPClientService extends EventEmitter {
             mcpTool: tool.name,
             inputSchema: tool.inputSchema || {},
             protocol: 'mcp',
-            serverConfig: this.servers.get(serverName)?.config,
+            // serverConfig intentionally omitted — never publish secrets to event bus
           },
         };
 
@@ -631,8 +727,8 @@ export class MCPClientService extends EventEmitter {
 
     try {
       // Create job record in database if DatabaseService is available
-      if (this.databaseService) {
-        const mcpService = MCPService.getInstance();
+      if (this.mcpRepo) {
+        const mcpService = this.mcpRepo;
         const toolCall = await mcpService.createToolCall({
           serverId: serverName,
           toolName,
@@ -663,8 +759,8 @@ export class MCPClientService extends EventEmitter {
       this.addLog(serverName, `← ${toolName}: ${JSON.stringify(response).substring(0, 100)}...`);
 
       // Complete the job in database
-      if (this.databaseService && jobId) {
-        const mcpService = MCPService.getInstance();
+      if (this.mcpRepo && jobId) {
+        const mcpService = this.mcpRepo;
         await mcpService.completeToolCall(jobId, response, executionTime);
       }
 
@@ -695,8 +791,8 @@ export class MCPClientService extends EventEmitter {
       this.addLog(serverName, `✗ ${toolName}: ${error.message}`);
 
       // Fail the job in database
-      if (this.databaseService && jobId) {
-        const mcpService = MCPService.getInstance();
+      if (this.mcpRepo && jobId) {
+        const mcpService = this.mcpRepo;
         await mcpService.failToolCall(jobId, error.message, 'EXECUTION_ERROR', 'execution');
       }
 
@@ -946,29 +1042,48 @@ export class MCPClientService extends EventEmitter {
   // Configuration Management
   private async loadServerConfig(serverName: string): Promise<MCPServerConfig | null> {
     try {
-      const configContent = await fs.readFile(this.configPath, 'utf-8');
-      const config = JSON.parse(configContent);
-      return config.mcpServers?.[serverName] || null;
+      const mcpService = this.mcpRepo;
+      const entity = await mcpService.getServerByName(serverName);
+      if (!entity) return null;
+      return this.entityToConfig(entity);
     } catch (error) {
-      logger.error(`Failed to load MCP config:`, error);
+      logger.error(`Failed to load MCP config for ${serverName}:`, error);
       return null;
     }
   }
 
   async updateServerConfig(serverName: string, config: MCPServerConfig): Promise<void> {
     try {
-      const configContent = await fs.readFile(this.configPath, 'utf-8');
-      const fullConfig = JSON.parse(configContent);
-
-      if (!fullConfig.mcpServers) {
-        fullConfig.mcpServers = {};
+      const mcpService = this.mcpRepo;
+      const existing = await mcpService.getServerByName(serverName);
+      const payload: Record<string, any> = {
+        name: serverName,
+        description: `MCP server ${serverName}`,
+        type: 'custom' as any,
+        command: config.command,
+        args: config.args || [],
+        env: config.env,
+        workingDirectory: config.cwd,
+        transportType: config.transportType || 'stdio',
+        url: config.httpUrl,
+        headers: config.httpHeaders ? encryptHeaders(config.httpHeaders) : undefined,
+        author: 'system',
+        version: '1.0.0',
+        securityLevel: SecurityLevel.LOW,
+        enabled: true,
+        autoStart: false,
+        retryAttempts: 3,
+        healthCheckInterval: 30000,
+        timeout: 30000,
+        tags: [],
+        requiresApproval: false,
+      };
+      if (existing) {
+        await mcpService.updateServer(existing.id, payload);
+      } else {
+        await mcpService.createServer(payload as any);
       }
-
-      fullConfig.mcpServers[serverName] = config;
-
-      await fs.writeFile(this.configPath, JSON.stringify(fullConfig, null, 2));
       logger.info(`Updated MCP server config for ${serverName}`);
-
       this.emit('configUpdated', { serverName, config });
     } catch (error) {
       logger.error(`Failed to update MCP config for ${serverName}:`, error);
@@ -984,19 +1099,14 @@ export class MCPClientService extends EventEmitter {
 
   async uninstallServer(serverName: string): Promise<void> {
     await this.stopServer(serverName);
-
     try {
-      const configContent = await fs.readFile(this.configPath, 'utf-8');
-      const fullConfig = JSON.parse(configContent);
-
-      if (fullConfig.mcpServers) {
-        delete fullConfig.mcpServers[serverName];
-        await fs.writeFile(this.configPath, JSON.stringify(fullConfig, null, 2));
+      const mcpService = this.mcpRepo;
+      const existing = await mcpService.getServerByName(serverName);
+      if (existing) {
+        await mcpService.deleteServer(existing.id);
       }
-
       this.servers.delete(serverName);
       logger.info(`Uninstalled MCP server: ${serverName}`);
-
       this.emit('serverUninstalled', { serverName });
     } catch (error) {
       logger.error(`Failed to uninstall MCP server ${serverName}:`, error);
@@ -1084,14 +1194,63 @@ export class MCPClientService extends EventEmitter {
     await Promise.allSettled(stopPromises);
   }
 
-  private async loadAllConfigs(): Promise<any> {
+  private async loadAllConfigs(): Promise<{ mcpServers: Record<string, MCPServerConfig> }> {
     try {
-      const configContent = await fs.readFile(this.configPath, 'utf-8');
-      return JSON.parse(configContent);
+      const mcpService = this.mcpRepo;
+      const entities = await mcpService.getAllServers();
+      const mcpServers: Record<string, MCPServerConfig> = {};
+      for (const entity of entities) {
+        if (entity.enabled) {
+          mcpServers[entity.name] = this.entityToConfig(entity);
+        }
+      }
+      return { mcpServers };
     } catch (error) {
-      logger.warn('No MCP config found, using empty config');
+      logger.warn('Failed to load MCP configs from DB, using empty config:', error);
       return { mcpServers: {} };
     }
+  }
+
+  private entityToConfig(entity: any): MCPServerConfig {
+    let httpHeaders: Record<string, string> | undefined;
+    if (entity.headers) {
+      const decrypted = decryptHeaders(entity.headers as string);
+      httpHeaders = resolveEnvRefs(decrypted);
+    }
+    return {
+      command: entity.command || undefined,
+      args: entity.args || [],
+      env: entity.env || undefined,
+      cwd: entity.workingDirectory || undefined,
+      transportType: entity.transportType || 'stdio',
+      httpUrl: entity.url || undefined,
+      httpHeaders,
+    };
+  }
+
+  private async readSSEResponse(response: Response): Promise<any> {
+    // Use response.text() for compatibility with Bun's fetch implementation.
+    // z.ai returns a single SSE event per request, so reading the full body is safe.
+    const text = await response.text();
+    logger.info(`[SSE] raw body (${text.length} bytes): ${JSON.stringify(text.slice(0, 500))}`);
+    for (const line of text.split('\n')) {
+      const trimmed = line.trim();
+      if (trimmed.startsWith('data: ')) {
+        try {
+          const data = JSON.parse(trimmed.slice(6)) as JSONRPCResponse;
+          if (data && (data.result !== undefined || data.error !== undefined)) {
+            if (data.error) {
+              throw new Error(`${data.error.message} (${data.error.code})`);
+            }
+            return data.result;
+          }
+        } catch (e: any) {
+          if (e.message?.includes('(')) throw e; // re-throw real MCP errors
+          // else: bad JSON line, continue
+        }
+      }
+    }
+    throw new Error('SSE stream ended without result');
   }
 
   // MCP event data type helper
@@ -1274,16 +1433,17 @@ export class MCPClientService extends EventEmitter {
 
   private async autoStartServers(): Promise<void> {
     try {
-      const config = await this.loadAllConfigs();
-      const serverNames = Object.keys(config.mcpServers || {});
+      const mcpService = this.mcpRepo;
+      const entities = await mcpService.getAllServers();
+      const toStart = entities.filter((e: any) => e.enabled && e.autoStart);
 
-      logger.info(`Auto-starting ${serverNames.length} MCP servers`);
+      logger.info(`Auto-starting ${toStart.length} MCP servers`);
 
-      for (const serverName of serverNames) {
+      for (const entity of toStart) {
         try {
-          await this.startServer(serverName);
+          await this.startServer(entity.name);
         } catch (error) {
-          logger.warn(`Failed to auto-start server ${serverName}:`, error.message);
+          logger.warn(`Failed to auto-start server ${entity.name}:`, error.message);
         }
       }
     } catch (error) {
@@ -1381,7 +1541,9 @@ export class MCPClientService extends EventEmitter {
     return {
       name: server.name,
       status: server.status,
-      config: server.config,
+      transportType: server.transportType,
+      httpUrl: server.httpUrl,
+      // httpHeaders: never returned — contains live API keys
       pid: server.pid,
       startTime: server.startTime,
       lastHealthCheck: server.lastHealthCheck,
@@ -1391,7 +1553,7 @@ export class MCPClientService extends EventEmitter {
       resources: server.resources,
       prompts: server.prompts,
       stats: server.stats,
-      recentLogs: server.logs.slice(-10), // Last 10 log entries
+      recentLogs: server.logs.slice(-10),
     };
   }
 

@@ -110,13 +110,6 @@ export class UserChatHandler {
       // Join user to their personal room
       socket.join(`user_${user.userId}`);
 
-      // Notify other users of new connection
-      socket.broadcast.emit('user_connected', {
-        userId: user.userId,
-        username: user.username,
-        status: user.status,
-      });
-
       // Send current online users list
       const onlineUsers = Array.from(this.connectedUsers.values()).map((u) => ({
         userId: u.userId,
@@ -256,14 +249,6 @@ export class UserChatHandler {
       user.status = data.status;
       user.lastActivity = new Date();
 
-      // Broadcast status change to all users
-      socket.broadcast.emit('user_status_changed', {
-        userId: user.userId,
-        username: user.username,
-        status: user.status,
-        lastActivity: user.lastActivity,
-      });
-
       this.logger.info(`User ${user.username} changed status to ${data.status}`);
     } catch (error) {
       this.logger.error('Failed to handle status change:', error);
@@ -278,12 +263,6 @@ export class UserChatHandler {
       // Remove from connected users
       this.connectedUsers.delete(socket.id);
       this.userSockets.delete(user.userId);
-
-      // Notify other users of disconnection
-      socket.broadcast.emit('user_disconnected', {
-        userId: user.userId,
-        username: user.username,
-      });
 
       this.logger.info(`User disconnected: ${user.username} (${user.userId})`);
     } catch (error) {
@@ -442,11 +421,33 @@ export class UserChatHandler {
   private setupEventBusSubscriptions(): void {
     // Subscribe to agent chat responses to forward them back to Socket.IO clients
     this.eventBusService.subscribe('agent.chat.response', async (event) => {
-      const { socketId, agentId, response, agentName, messageId, ...metadata } = event.data as { socketId: string; agentId: string; response: unknown; agentName: string; messageId: string; [key: string]: unknown };
+      const { socketId, agentId, response, agentName, messageId, userId, ...metadata } =
+        event.data as {
+          socketId: string;
+          agentId: string;
+          response: unknown;
+          agentName: string;
+          messageId: string;
+          userId?: string;
+          [key: string]: unknown;
+        };
 
       // Find the socket by ID and send the response
       const socket = this.io.sockets.sockets.get(socketId);
       if (socket) {
+        const socketUserId = socket.data?.user?.userId as string | undefined;
+
+        if (userId && socketUserId && socketUserId !== userId) {
+          this.logger.warn('Blocked cross-lane agent response delivery', {
+            socketId,
+            agentId,
+            messageId,
+            expectedUserId: userId,
+            socketUserId,
+          });
+          return;
+        }
+
         socket.emit('agent_response', {
           agentId,
           response,

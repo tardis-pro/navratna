@@ -125,7 +125,7 @@ export const ChatHistoryManager: React.FC<ChatHistoryManagerProps> = ({ onOpenCh
   });
 
   const uniqueAgents = Array.from(
-    new Set(sessions.map((s) => ({ id: s.agentId, name: s.agentName })))
+    new Map(sessions.map((s) => [s.agentId, { id: s.agentId, name: s.agentName }])).values()
   ).sort((a, b) => a.name.localeCompare(b.name));
 
   const toggleGroup = (groupName: string) => {

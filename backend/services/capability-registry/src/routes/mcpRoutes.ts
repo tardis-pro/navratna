@@ -9,6 +9,49 @@ interface MCPContext extends ElysiaBaseContext {
   query: Record<string, string | undefined>;
 }
 
+// ---------------------------------------------------------------------------
+// Security helpers
+// ---------------------------------------------------------------------------
+
+/**
+ * Strips all secret fields from in-memory server state before sending to
+ * clients. httpHeaders contains live API keys and must NEVER leave the process.
+ */
+function sanitizeServerState(s: any) {
+  const { config, httpHeaders, ...rest } = s;
+  return {
+    ...rest,
+    config: config
+      ? {
+          args: config.args,
+          cwd: config.cwd,
+          transportType: config.transportType,
+          httpUrl: config.httpUrl,
+          // httpHeaders intentionally omitted — contains API keys
+        }
+      : undefined,
+  };
+}
+
+/**
+ * Enforces admin-only access using the x-user-role header.
+ * The API gateway sets this header after verifying the caller's JWT.
+ * Matches the pattern used in capabilityController.ts.
+ */
+function requireAdmin(ctx: MCPContext): void {
+  const role =
+    (ctx as any).headers?.['x-user-role'] || (ctx as any).request?.headers?.get?.('x-user-role');
+  if (role !== 'admin') {
+    (ctx as any).set = (ctx as any).set || {};
+    (ctx as any).set.status = 403;
+    throw new Error('Admin access required for MCP server management');
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Route registration
+// ---------------------------------------------------------------------------
+
 // Minimal Elysia route group for MCP endpoints
 export function registerMCPRoutes(app: any) {
   const mcpService = MCPClientService.getInstance();
@@ -115,7 +158,7 @@ export function registerMCPRoutes(app: any) {
         return { success: true, data: { query: q, resources, count: resources.length } };
       })
 
-      // List servers summary
+      // List servers summary — safe fields only, no secrets
       .get('/servers', async () => {
         const servers = mcpService.getAllServers();
         return {
@@ -123,6 +166,7 @@ export function registerMCPRoutes(app: any) {
           data: servers.map((s) => ({
             name: s.name,
             status: s.status,
+            transportType: s.transportType,
             pid: s.pid,
             toolCount: s.tools?.length || 0,
             lastHealthCheck: s.lastHealthCheck,
@@ -130,31 +174,52 @@ export function registerMCPRoutes(app: any) {
         };
       })
 
-      // Server status
+      // Server status — sanitized, no httpHeaders
       .get('/servers/:serverName/status', async ({ params, set }: MCPContext) => {
         const st = mcpService.getServerStatus(params.serverName);
         if (!st) {
           set.status = 404;
           return { success: false, error: { code: 'NOT_FOUND', message: 'Server not found' } };
         }
-        return { success: true, data: st };
+        return { success: true, data: sanitizeServerState(st) };
       })
 
-      // Server lifecycle
-      .post('/servers/:serverName/start', async ({ params }: MCPContext) => {
-        await mcpService.startServer(params.serverName);
+      // Server lifecycle — admin only
+      .post('/servers/:serverName/start', async (ctx: MCPContext) => {
+        requireAdmin(ctx);
+        await mcpService.startServer(ctx.params.serverName);
         return { success: true };
       })
-      .post('/servers/:serverName/stop', async ({ params }: MCPContext) => {
-        await mcpService.stopServer(params.serverName);
+      .post('/servers/:serverName/stop', async (ctx: MCPContext) => {
+        requireAdmin(ctx);
+        await mcpService.stopServer(ctx.params.serverName);
         return { success: true };
       })
-      .post('/servers/:serverName/restart', async ({ params }: MCPContext) => {
-        await mcpService.restartServer(params.serverName);
+      .post('/servers/:serverName/restart', async (ctx: MCPContext) => {
+        requireAdmin(ctx);
+        await mcpService.restartServer(ctx.params.serverName);
         return { success: true };
       })
-      .post('/servers/:serverName/recover', async ({ params }: MCPContext) => {
-        await mcpService.recoverServer(params.serverName);
+      .post('/servers/:serverName/recover', async (ctx: MCPContext) => {
+        requireAdmin(ctx);
+        await mcpService.recoverServer(ctx.params.serverName);
+        return { success: true };
+      })
+
+      // Install / uninstall — admin only
+      .post('/servers/:serverName/install', async (ctx: MCPContext) => {
+        requireAdmin(ctx);
+        const body = ctx.body as Record<string, unknown> | undefined;
+        if (!body) {
+          (ctx as any).set.status = 400;
+          return { success: false, error: { code: 'VALIDATION_ERROR', message: 'Body required' } };
+        }
+        await mcpService.installServer(ctx.params.serverName, body as any);
+        return { success: true };
+      })
+      .post('/servers/:serverName/uninstall', async (ctx: MCPContext) => {
+        requireAdmin(ctx);
+        await mcpService.uninstallServer(ctx.params.serverName);
         return { success: true };
       })
 
@@ -167,26 +232,27 @@ export function registerMCPRoutes(app: any) {
         };
       })
 
-      // Attach a single tool to agent
-      .post('/agents/:agentId/tools/attach', async ({ params, body, set }: MCPContext) => {
-        const bodyData = body as Record<string, unknown> | undefined;
+      // Attach a single tool to agent — admin only
+      .post('/agents/:agentId/tools/attach', async (ctx: MCPContext) => {
+        requireAdmin(ctx);
+        const bodyData = ctx.body as Record<string, unknown> | undefined;
         const { serverName, toolName } = bodyData || {};
         if (!serverName || !toolName) {
-          set.status = 400;
+          (ctx as any).set.status = 400;
           return {
             success: false,
             error: { code: 'VALIDATION_ERROR', message: 'serverName and toolName are required' },
           };
         }
         const result = await mcpService.attachSingleToolToAgent(
-          params.agentId,
+          ctx.params.agentId,
           String(serverName || ''),
           String(toolName || '')
         );
         return {
           success: result.success,
           data: {
-            agentId: params.agentId,
+            agentId: ctx.params.agentId,
             serverName: String(serverName || ''),
             toolName: String(toolName || ''),
             toolId: result.toolId,

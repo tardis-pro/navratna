@@ -366,6 +366,7 @@ services:
       - ENTERPRISE_MODE=false
       - ZERO_TRUST_MODE=disabled
       - SERVICE_ACCESS_MATRIX=standard
+      - MCP_SECRETS_KEY=${MCP_SECRETS_KEY}
     ports:
       - '3003:3003'
     volumes:

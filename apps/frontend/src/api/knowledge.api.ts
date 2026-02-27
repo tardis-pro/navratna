@@ -253,16 +253,13 @@ export const knowledgeAPI = {
 
       const url = `${API_ROUTES.KNOWLEDGE.GRAPH}?${params.toString()}`;
 
-      // Backend returns {success: true, data: {nodes: [], edges: [], metadata: {}}}
-      const response = await APIClient.get<{
-        success: boolean;
-        data: { nodes: any[]; edges: any[]; metadata?: any };
-      }>(url);
+      // APIClient.get() already unwraps {success:true, data:...} via transformResponse()
+      // so response IS the inner data object: { nodes: [], edges: [], metadata: {} }
+      const response = await APIClient.get<{ nodes: any[]; edges: any[]; metadata?: any }>(url);
 
-      // Safely access nested properties with defaults
-      const graphData = response.data || {};
-      const nodes = graphData.nodes || [];
-      const edges = graphData.edges || [];
+      // Safely access with defaults
+      const nodes = response?.nodes || [];
+      const edges = response?.edges || [];
 
       return {
         nodes: nodes.map((node: any) => ({

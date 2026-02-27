@@ -342,6 +342,30 @@ export function registerKnowledgeRoutes(app: any): any {
             };
           })
 
+          // GET /:itemId/similar
+          // @ts-expect-error - Elysia middleware injects user, but TypeScript cannot infer through nested groups
+          .get('/:itemId/similar', async ({ set, params, query, user }) => {
+            const userId = user!.id;
+            const itemId = (params as any).itemId as string;
+            const limit = Number((query as any).limit ?? 10);
+            const { userKnowledgeService, initializationError } = await getServices();
+            if (initializationError) {
+              set.status = 503;
+              return { error: 'Knowledge service not available', details: initializationError };
+            }
+            if (!itemId) {
+              set.status = 400;
+              return { error: 'Item ID is required' };
+            }
+            const similar = await userKnowledgeService!.findRelatedKnowledge(userId, itemId);
+            const limited = similar.slice(0, limit);
+            return {
+              success: true,
+              data: limited,
+              message: `Found ${limited.length} similar items`,
+            };
+          })
+
           // GET /graph
             // @ts-expect-error - Elysia middleware injects user, but TypeScript cannot infer through nested groups
           .get('/graph', async ({ set, query, user }) => {

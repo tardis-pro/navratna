@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import {
   ReactFlow,
   Controls,
@@ -108,6 +108,8 @@ const KNOWLEDGE_NODE_STYLES = {
   },
 };
 
+const INITIAL_NODE_COUNT = 12;
+
 const getLayoutedElements = (
   nodes: KnowledgeNode[],
   edges: KnowledgeEdge[],
@@ -164,6 +166,11 @@ const KnowledgeGraphVisualizationInner: React.FC<KnowledgeGraphVisualizationInne
   const [filterType, setFilterType] = useState<string>('');
   const [showDetails, setShowDetails] = useState<boolean>(false);
 
+  // Lazy loading: full dataset stored in refs, only a subset rendered at a time
+  const allFetchedNodesRef = useRef<KnowledgeNode[]>([]);
+  const allFetchedEdgesRef = useRef<KnowledgeEdge[]>([]);
+  const [totalFetched, setTotalFetched] = useState(0);
+
   const auth = useAuth();
   const { fitView, getNode, getNodes, getEdges } = useReactFlow();
 
@@ -188,13 +195,38 @@ const KnowledgeGraphVisualizationInner: React.FC<KnowledgeGraphVisualizationInne
     (event: React.MouseEvent, node: KnowledgeNode) => {
       setSelectedNode(node);
       setShowDetails(true);
+      if (onNodeSelect) onNodeSelect({ id: node.id, data: node.data });
 
-      // Call external callback if provided
-      if (onNodeSelect) {
-        onNodeSelect({ id: node.id, data: node.data });
-      }
+      // Click-to-expand: find neighbors in the full dataset and add them to the graph
+      const currentNodes = getNodes() as KnowledgeNode[];
+      const currentNodeIds = new Set(currentNodes.map((n) => n.id));
+
+      const connectedEdges = allFetchedEdgesRef.current.filter(
+        (e) => e.source === node.id || e.target === node.id
+      );
+
+      const newNeighborIds = new Set<string>();
+      connectedEdges.forEach((e) => {
+        if (e.source === node.id && !currentNodeIds.has(e.target)) newNeighborIds.add(e.target);
+        if (e.target === node.id && !currentNodeIds.has(e.source)) newNeighborIds.add(e.source);
+      });
+
+      if (newNeighborIds.size === 0) return; // already fully expanded
+
+      const newNeighborNodes = allFetchedNodesRef.current.filter((n) => newNeighborIds.has(n.id));
+      const allVisible = [...currentNodes, ...newNeighborNodes];
+      const allVisibleIds = new Set(allVisible.map((n) => n.id));
+
+      const allVisibleEdges = allFetchedEdgesRef.current.filter(
+        (e) => allVisibleIds.has(e.source) && allVisibleIds.has(e.target)
+      );
+
+      const layouted = getLayoutedElements(allVisible, allVisibleEdges);
+      setNodes(layouted.nodes);
+      setEdges(layouted.edges);
+      setTimeout(() => fitView({ padding: 0.2 }), 200);
     },
-    [onNodeSelect]
+    [onNodeSelect, getNodes, setNodes, setEdges, fitView]
   );
 
   const fetchKnowledgeGraph = useCallback(async () => {
@@ -290,10 +322,21 @@ const KnowledgeGraphVisualizationInner: React.FC<KnowledgeGraphVisualizationInne
         },
       }));
 
-      const layouted = getLayoutedElements(styledNodes, styledEdges);
+      // Store full dataset in refs for lazy click-to-expand
+      allFetchedNodesRef.current = styledNodes as KnowledgeNode[];
+      allFetchedEdgesRef.current = styledEdges as KnowledgeEdge[];
+      setTotalFetched(styledNodes.length);
+
+      // Show only the first INITIAL_NODE_COUNT nodes as seeds
+      const initialNodes = (styledNodes as KnowledgeNode[]).slice(0, INITIAL_NODE_COUNT);
+      const initialNodeIds = new Set(initialNodes.map((n) => n.id));
+      const initialEdges = (styledEdges as KnowledgeEdge[]).filter(
+        (e) => initialNodeIds.has(e.source) && initialNodeIds.has(e.target)
+      );
+
+      const layouted = getLayoutedElements(initialNodes, initialEdges);
       setNodes(layouted.nodes);
       setEdges(layouted.edges);
-
       setTimeout(() => fitView({ padding: 0.2 }), 100);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to fetch knowledge graph');
@@ -431,6 +474,37 @@ const KnowledgeGraphVisualizationInner: React.FC<KnowledgeGraphVisualizationInne
               )}
               Refresh
             </Button>
+
+            {/* Lazy loading status */}
+            {totalFetched > 0 && (
+              <div className="border-t border-gray-600/50 pt-2 text-center space-y-1">
+                <p className="text-xs text-gray-400">
+                  <span className="text-white font-medium">{nodes.length}</span>
+                  <span className="text-gray-500"> / {totalFetched} nodes</span>
+                </p>
+                {nodes.length < totalFetched ? (
+                  <>
+                    <p className="text-xs text-gray-500">click node to expand</p>
+                    <button
+                      onClick={() => {
+                        const layouted = getLayoutedElements(
+                          allFetchedNodesRef.current,
+                          allFetchedEdgesRef.current
+                        );
+                        setNodes(layouted.nodes);
+                        setEdges(layouted.edges);
+                        setTimeout(() => fitView({ padding: 0.2 }), 200);
+                      }}
+                      className="text-xs text-blue-400 hover:text-blue-300 underline"
+                    >
+                      show all
+                    </button>
+                  </>
+                ) : (
+                  <p className="text-xs text-green-500">all nodes loaded</p>
+                )}
+              </div>
+            )}
           </Panel>
 
           {/* Node Details Panel */}
