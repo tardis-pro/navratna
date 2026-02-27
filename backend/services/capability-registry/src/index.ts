@@ -10,13 +10,7 @@ import { OAuthCapabilityDiscovery } from './services/oauthCapabilityDiscovery.js
 import { ToolController } from './controllers/toolController.js';
 import { CapabilityController } from './controllers/capabilityController.js';
 import { UnifiedToolRegistry } from './services/unified-tool-registry.js';
-import { ProjectToolIntegrationService } from './services/project-tool-integration.service.js';
 import { EnterpriseToolRegistry } from './services/enterprise-tool-registry.js';
-import { ToolExecutionCoordinator } from './services/tool-execution-coordinator.service.js';
-import { ToolCacheService } from './services/tool-cache.service.js';
-import { ToolRecommendationService } from './services/tool-recommendation.service.js';
-import { SandboxExecutionService } from './services/sandbox-execution.service.js';
-import { ToolAdapterService } from './services/tool-adapter.service.js';
 // Route registration functions are imported dynamically in setupRoutes
 import { logger } from '@uaip/utils';
 
@@ -32,13 +26,14 @@ class CapabilityRegistryService extends BaseService {
   private toolController: ToolController;
   private capabilityController: CapabilityController;
   private unifiedToolRegistry: UnifiedToolRegistry;
-  private projectToolIntegration: ProjectToolIntegrationService;
   private enterpriseToolRegistry: EnterpriseToolRegistry;
-  private toolExecutionCoordinator: ToolExecutionCoordinator;
-  private toolCacheService: ToolCacheService;
-  private toolRecommendationService: ToolRecommendationService;
-  private sandboxExecutionService: SandboxExecutionService;
-  private toolAdapterService: ToolAdapterService;
+  // Advanced services disabled pending architectural fix
+  // private projectToolIntegration: ProjectToolIntegrationService;
+  // private toolExecutionCoordinator: ToolExecutionCoordinator;
+  // private toolCacheService: ToolCacheService;
+  // private toolRecommendationService: ToolRecommendationService;
+  // private sandboxExecutionService: SandboxExecutionService;
+  // private toolAdapterService: ToolAdapterService;
 
   constructor() {
     super({
@@ -52,10 +47,7 @@ class CapabilityRegistryService extends BaseService {
     try {
       logger.info('Initializing Capability Registry Service...');
 
-      // Initialize databases
-      await this.initializeDatabases();
-
-      // Initialize services
+      // Initialize services (includes database initialization)
       await this.initializeServices();
 
       logger.info('Capability Registry Service initialized successfully');
@@ -65,29 +57,11 @@ class CapabilityRegistryService extends BaseService {
     }
   }
 
-  private async initializeDatabases(): Promise<void> {
-    logger.info('Initializing databases...');
-
-    // PostgreSQL is already initialized by BaseService
-    this.postgresql = this.databaseService;
-
-    // Initialize Neo4j with fallback
-    this.neo4j = new ToolGraphDatabase(config.database.neo4j);
-    try {
-      await this.neo4j.verifyConnectivity();
-      logger.info('Neo4j database initialized');
-    } catch (error) {
-      logger.warn(
-        'Neo4j initialization failed, continuing with degraded functionality:',
-        error.message
-      );
-      logger.warn('Graph-based features (recommendations, relationships) will be unavailable');
-      // Don't throw - allow service to start without Neo4j
-    }
-  }
-
   private async initializeServices(): Promise<void> {
     logger.info('Initializing services...');
+
+    // Set up database service reference
+    this.postgresql = this.databaseService;
 
     // Initialize base tool executor
     this.baseExecutor = new BaseToolExecutor();
@@ -117,7 +91,7 @@ class CapabilityRegistryService extends BaseService {
     );
 
     // Initialize unified services
-    this.unifiedToolRegistry = new UnifiedToolRegistry();
+    this.unifiedToolRegistry = new UnifiedToolRegistry(this.eventBusService);
     await this.unifiedToolRegistry.initialize();
     logger.info('Unified Tool Registry initialized');
 
@@ -129,6 +103,10 @@ class CapabilityRegistryService extends BaseService {
     await this.enterpriseToolRegistry.initialize();
     logger.info('Enterprise Tool Registry initialized');
 
+    // TODO: Fix these services to work with @uaip/infra.DatabaseService architecture
+    // For now, keeping them disabled to maintain system stability
+    logger.info('Advanced tool services disabled (architectural fix pending)');
+    /*
     this.projectToolIntegration = new ProjectToolIntegrationService(
       this.databaseService,
       this.eventBusService
@@ -136,7 +114,6 @@ class CapabilityRegistryService extends BaseService {
     await this.projectToolIntegration.initialize();
     logger.info('Project Tool Integration Service initialized');
 
-    // Initialize new tool services
     this.toolExecutionCoordinator = ToolExecutionCoordinator.getInstance();
     await this.toolExecutionCoordinator.initialize();
     logger.info('Tool Execution Coordinator initialized');
@@ -154,6 +131,7 @@ class CapabilityRegistryService extends BaseService {
 
     this.toolAdapterService = new ToolAdapterService(config);
     logger.info('Tool Adapter Service initialized (GitHub, Jira, Confluence, Slack)');
+    */
 
     // Initialize controllers
     this.toolController = new ToolController(this.toolRegistry, this.toolExecutor);
@@ -225,14 +203,14 @@ class CapabilityRegistryService extends BaseService {
       0
     );
 
-    // Get cache statistics
-    const cacheStats = await this.toolCacheService?.getCacheStats();
+    // Get cache statistics - services disabled
+    const cacheStats = null;
 
     // Get sandbox metrics
-    const sandboxMetrics = await this.sandboxExecutionService?.getMetrics();
+    const sandboxMetrics = null;
 
     // Get execution metrics
-    const executionMetrics = await this.toolExecutionCoordinator?.getExecutionMetrics(60);
+    const executionMetrics = null;
 
     return {
       databases: {

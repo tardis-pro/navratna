@@ -11,9 +11,10 @@ import {
   SecurityLevel,
   ToolExample,
 } from '@uaip/types';
-import { DatabaseService } from '@uaip/infra/database';
+import { DatabaseService } from '@uaip/shared-services';
 import { EventBusService } from '@uaip/infra/eventBus';
 import { logger } from '@uaip/utils';
+import type { EventBusConfig } from '@uaip/types';
 import { z } from 'zod';
 
 // Enhanced tool definition that combines both standard and enterprise features
@@ -218,9 +219,9 @@ export class UnifiedToolRegistry {
   private eventBusService: EventBusService;
   private isInitialized = false;
 
-  constructor() {
+  constructor(eventBusService: EventBusService) {
     this.databaseService = DatabaseService.getInstance();
-    this.eventBusService = EventBusService.getInstance();
+    this.eventBusService = eventBusService;
   }
 
   async initialize(): Promise<void> {
