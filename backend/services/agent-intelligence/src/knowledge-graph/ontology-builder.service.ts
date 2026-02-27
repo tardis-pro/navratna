@@ -8,7 +8,7 @@ import {
   ConceptExtractionResult,
   ConceptProperty,
 } from './concept-extractor.service.js';
-import { KnowledgeRepository } from '@uaip/shared-services/database/repositories/knowledge.repository';
+import { KnowledgeRepository } from '@uaip/shared-services';
 import { KnowledgeSyncService } from './knowledge-sync.service.js';
 
 export interface ConceptHierarchy {

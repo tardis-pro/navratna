@@ -9,6 +9,7 @@ import { logger } from '@uaip/utils';
 import { PersonaService } from '@uaip/shared-services';
 import { DatabaseService } from '@uaip/infra/database';
 import { EventBusService } from '@uaip/infra/eventBus';
+import { AgentIntelligenceStore } from './agent-intelligence-store.js';
 import { KnowledgeGraphService } from '@/knowledge-graph/knowledge-graph.service';
 import { AgentMemoryService } from '@/agent-memory/agent-memory.service';
 
@@ -48,6 +49,7 @@ export class AgentInitializationService {
   private personaService?: PersonaService;
   private serviceName: string;
   private securityLevel: number;
+  private store: AgentIntelligenceStore;
 
   constructor(config: AgentInitializationConfig) {
     this.databaseService = config.databaseService;
@@ -57,6 +59,7 @@ export class AgentInitializationService {
     this.personaService = config.personaService;
     this.serviceName = config.serviceName;
     this.securityLevel = config.securityLevel;
+    this.store = new AgentIntelligenceStore(this.databaseService);
   }
 
   async initialize(): Promise<void> {
@@ -424,7 +427,7 @@ export class AgentInitializationService {
 
   private async storeAgentState(agentId: string, agentState: AgentState): Promise<void> {
     try {
-      await this.databaseService.storeAgentState(agentId, {
+      await this.store.storeAgentState(agentId, {
         status: agentState.status,
         capabilities: agentState.capabilities,
         performance: agentState.performance,
@@ -441,7 +444,7 @@ export class AgentInitializationService {
     capabilities: AgentCapabilities
   ): Promise<void> {
     try {
-      await this.databaseService.storeAgentCapabilities(agentId, {
+      await this.store.storeAgentCapabilities(agentId, {
         capabilities,
         timestamp: new Date(),
       });

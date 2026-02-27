@@ -8,6 +8,7 @@ import { Agent, ExecutionPlan, KnowledgeItem, KnowledgeType, SourceType } from '
 import { logger } from '@uaip/utils';
 import { DatabaseService } from '@uaip/infra/database';
 import { EventBusService } from '@uaip/infra/eventBus';
+import { AgentIntelligenceStore } from './agent-intelligence-store.js';
 import { KnowledgeGraphService } from '@/knowledge-graph/knowledge-graph.service';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -26,12 +27,15 @@ export class AgentPlanningService {
   private serviceName: string;
   private securityLevel: number;
 
+  private store: AgentIntelligenceStore;
+
   constructor(config: AgentPlanningConfig) {
     this.databaseService = config.databaseService;
     this.eventBusService = config.eventBusService;
     this.knowledgeGraphService = config.knowledgeGraphService;
     this.serviceName = config.serviceName;
     this.securityLevel = config.securityLevel;
+    this.store = new AgentIntelligenceStore(this.databaseService);
   }
 
   async initialize(): Promise<void> {
@@ -430,7 +434,7 @@ export class AgentPlanningService {
   async storePlan(plan: ExecutionPlan): Promise<void> {
     try {
       // Store in database
-      await this.databaseService.storeExecutionPlan({
+      await this.store.storeExecutionPlan({
         id: plan.id,
         type: plan.type,
         agentId: plan.agentId,

@@ -1,6 +1,6 @@
 import { v4 as uuidv4 } from 'uuid';
 import { logger } from '@uaip/utils';
-import { DatabaseService } from './database/index';
+import { DatabaseService } from '@uaip/infra/database';
 import { DiscussionParticipant } from './entities/discussionParticipant.entity';
 
 /**

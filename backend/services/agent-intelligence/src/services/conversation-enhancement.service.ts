@@ -160,13 +160,13 @@ export class ConversationEnhancementService extends EventEmitter {
   private setupLLMEventSubscriptions(): void {
     // Handle user LLM responses (for discussion creator's provider)
     this.eventBusService.subscribe('llm.user.response', async (event): Promise<void> => {
-      const { requestId, content, error, confidence } = event.data || event;
+      const { requestId, content, error, confidence } = (event as any).data || event;
       await this.handleLLMResponse(requestId, content, error, confidence, 'user');
     });
 
     // Handle agent LLM responses (fallback)
     this.eventBusService.subscribe('llm.agent.generate.response', async (event): Promise<void> => {
-      const { requestId, content, error, confidence } = event.data || event;
+      const { requestId, content, error, confidence } = (event as any).data || event;
       await this.handleLLMResponse(requestId, content, error, confidence, 'agent');
     });
 
@@ -251,8 +251,7 @@ export class ConversationEnhancementService extends EventEmitter {
         let userId = null;
         if (discussionId) {
           try {
-            const discussionService = await this.databaseService.getDiscussionService();
-            const discussion = await discussionService.getDiscussion(discussionId);
+            const discussion = await this.getDiscussionData(discussionId);
             if (discussion && discussion.createdBy) {
               userId = discussion.createdBy;
               logger.info('Found discussion creator for LLM provider', {
@@ -591,7 +590,7 @@ export class ConversationEnhancementService extends EventEmitter {
   private async loadAgentPersonaMappings(): Promise<void> {
     try {
       // Load all active agents
-      const agents = await this.databaseService.getAgentService().findActiveAgents();
+      const agents = await this.databaseService.findMany('agents' as any, { where: { status: 'active' } }) as any[];
 
       for (const agent of agents) {
         // Map agent properties to personas
@@ -798,7 +797,7 @@ export class ConversationEnhancementService extends EventEmitter {
     const agents: Agent[] = [];
     for (const agentId of agentIds) {
       try {
-        const agent = await this.databaseService.getAgentService().findAgentById(agentId);
+        const agent = await this.databaseService.findById('agents' as any, agentId);
         if (agent) {
           agents.push(agent as any);
         }
@@ -811,7 +810,7 @@ export class ConversationEnhancementService extends EventEmitter {
 
   public async getAgentById(agentId: string): Promise<Agent | null> {
     try {
-      const agent = await this.databaseService.getAgentService().findAgentById(agentId);
+      const agent = await this.databaseService.findById('agents' as any, agentId);
       return agent as any;
     } catch (error) {
       logger.error('Failed to get agent by ID', { agentId, error });
@@ -825,8 +824,8 @@ export class ConversationEnhancementService extends EventEmitter {
 
   private async getDiscussionData(discussionId: string): Promise<Discussion | null> {
     try {
-      const discussionService = await this.databaseService.getDiscussionService();
-      return await discussionService.getDiscussion(discussionId);
+      const discussion = await this.databaseService.findById('discussions' as any, discussionId);
+      return discussion as any;
     } catch (error) {
       logger.error('Failed to get discussion data', { error, discussionId });
       return null;
@@ -837,11 +836,8 @@ export class ConversationEnhancementService extends EventEmitter {
     discussion: Discussion
   ): Promise<MessageHistoryItem[]> {
     try {
-      const discussionService = await this.databaseService.getDiscussionService();
-      const messages = await discussionService.getDiscussionMessages(discussion.id);
-
-      // Get full discussion with participants to map IDs to names
-      const fullDiscussion = await discussionService.getDiscussion(discussion.id);
+      // Get discussion with participants
+      const fullDiscussion = await this.databaseService.findById('discussions' as any, discussion.id) as any;
       const participantMap = new Map();
 
       if (fullDiscussion && fullDiscussion.participants) {
@@ -849,9 +845,7 @@ export class ConversationEnhancementService extends EventEmitter {
           try {
             // Try to get agent name first
             if (participant.agentId) {
-              const agent = await this.databaseService
-                .getAgentService()
-                .findAgentById(participant.agentId);
+              const agent = await this.databaseService.findById('agents' as any, participant.agentId) as any;
               if (agent) {
                 participantMap.set(participant.id, agent.name);
                 continue;
@@ -876,7 +870,10 @@ export class ConversationEnhancementService extends EventEmitter {
         }
       }
 
-      return messages.map((msg) => ({
+      // Get messages from discussion
+      const messages = fullDiscussion?.messages || [];
+
+      return messages.map((msg: any) => ({
         id: msg.id,
         speaker: participantMap.get(msg.participantId) || msg.participantId || 'user',
         content: msg.content,
@@ -904,7 +901,7 @@ export class ConversationEnhancementService extends EventEmitter {
       const { agentId } = event;
 
       // Reload personas for updated agent
-      const agent = await this.databaseService.getAgentService().findAgentById(agentId);
+      const agent = await this.databaseService.findById('agents' as any, agentId) as any;
       if (agent) {
         const personas = await this.createPersonasFromAgent(agent as any);
         this.agentPersonaMappings.set(agentId, {

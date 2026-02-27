@@ -31,7 +31,7 @@ export class CapabilityController {
   private securityValidationService: SecurityValidationService;
 
   constructor(databaseService?: DatabaseService) {
-    this.capabilityDiscoveryService = new CapabilityDiscoveryService(databaseService);
+    this.capabilityDiscoveryService = new CapabilityDiscoveryService();
     this.securityValidationService = new SecurityValidationService();
   }
 

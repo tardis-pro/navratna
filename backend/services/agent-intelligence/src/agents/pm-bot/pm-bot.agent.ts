@@ -639,7 +639,7 @@ export class PMBotAgent extends BaseAgent {
           requests: 100,
           window: 60000, // 1 minute
         },
-      });
+      } as any);
     }
 
     // Register Confluence integration
@@ -657,7 +657,7 @@ export class PMBotAgent extends BaseAgent {
           requests: 50,
           window: 60000,
         },
-      });
+      } as any);
     }
 
     // Register Slack integration
@@ -671,7 +671,7 @@ export class PMBotAgent extends BaseAgent {
           type: 'oauth2',
           scopes: ['chat:write', 'chat:write.public'],
         },
-      });
+      } as any);
     }
   }
 

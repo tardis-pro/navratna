@@ -3,7 +3,7 @@ import { logger } from '@uaip/utils';
 import { KnowledgeItem, KnowledgeType, SourceType } from '@uaip/types';
 import { ConceptNode, ConceptRelationship } from './concept-extractor.service.js';
 import { DomainOntology } from './ontology-builder.service.js';
-import { KnowledgeRepository } from '@uaip/shared-services/database/repositories/knowledge.repository';
+import { KnowledgeRepository } from '@uaip/shared-services';
 import { ContentClassifier } from './content-classifier.service.js';
 
 export interface TaxonomyCategory {

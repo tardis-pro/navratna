@@ -24,6 +24,8 @@
     "@uaip/shared-services": "workspace:*",
     "@uaip/types": "workspace:*",
     "@uaip/utils": "workspace:*",
+    "elysia": "^1.4.5",
+    "@uaip/infra": "workspace:*",
     "compression": "catalog:backend",
     "cors": "catalog:backend",
     "dotenv": "catalog:backend",

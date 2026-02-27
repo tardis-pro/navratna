@@ -5,7 +5,8 @@
  */
 
 import { ToolDefinition, ToolCategory, SecurityLevel } from '@uaip/types';
-import { DatabaseService, ToolService } from '@uaip/shared-services';
+import { ToolService } from '@uaip/shared-services';
+import { DatabaseService } from '@uaip/infra';
 import { EventBusService } from '@uaip/infra';
 import { logger } from '@uaip/utils';
 import { z } from 'zod';

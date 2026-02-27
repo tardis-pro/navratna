@@ -779,9 +779,9 @@ export class DiscussionService {
         'discussion_messages',
         { discussionId, isDeleted: false },
         {
-          limit,
-          offset,
-          orderBy: { createdAt: 'ASC' },
+          take: limit,
+          skip: offset,
+          order: { createdAt: 'ASC' } as any,
         }
       );
 

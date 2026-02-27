@@ -5,7 +5,7 @@
 import { spawn, ChildProcess } from 'child_process';
 import { EventEmitter } from 'events';
 import { logger } from '@uaip/utils';
-import { ToolGraphDatabase, SecurityLevel } from '@uaip/shared-services';
+import { ToolGraphDatabase, SecurityLevel, MCPService, ToolService, AgentService } from '@uaip/shared-services';
 import { DatabaseService } from '@uaip/infra/database';
 import { EventBusService } from '@uaip/infra/eventBus';
 import * as fs from 'fs/promises';
@@ -632,7 +632,7 @@ export class MCPClientService extends EventEmitter {
     try {
       // Create job record in database if DatabaseService is available
       if (this.databaseService) {
-        const mcpService = this.databaseService.getMCPService();
+        const mcpService = MCPService.getInstance();
         const toolCall = await mcpService.createToolCall({
           serverId: serverName,
           toolName,
@@ -664,7 +664,7 @@ export class MCPClientService extends EventEmitter {
 
       // Complete the job in database
       if (this.databaseService && jobId) {
-        const mcpService = this.databaseService.getMCPService();
+        const mcpService = MCPService.getInstance();
         await mcpService.completeToolCall(jobId, response, executionTime);
       }
 
@@ -696,7 +696,7 @@ export class MCPClientService extends EventEmitter {
 
       // Fail the job in database
       if (this.databaseService && jobId) {
-        const mcpService = this.databaseService.getMCPService();
+        const mcpService = MCPService.getInstance();
         await mcpService.failToolCall(jobId, error.message, 'EXECUTION_ERROR', 'execution');
       }
 
@@ -1094,6 +1094,16 @@ export class MCPClientService extends EventEmitter {
     }
   }
 
+  // MCP event data type helper
+  private mcpData(event: { data: unknown }) {
+    return event.data as {
+      serverName?: string; toolName?: string; parameters?: Record<string, unknown>;
+      config?: MCPServerConfig; agentId?: string; userId?: string;
+      conversationId?: string; operationId?: string; sessionId?: string;
+      requestId?: string; toolId?: string;
+    };
+  }
+
   // Event System Integration
   private async setupEventSubscriptions(): Promise<void> {
     if (!this.eventBusService) return;
@@ -1101,72 +1111,79 @@ export class MCPClientService extends EventEmitter {
     try {
       // Subscribe to MCP management events
       await this.eventBusService.subscribe('mcp.server.start', async (event) => {
-        await this.startServer(event.data.serverName);
+        const d = this.mcpData(event);
+        await this.startServer(d.serverName!);
       });
 
       await this.eventBusService.subscribe('mcp.server.stop', async (event) => {
-        await this.stopServer(event.data.serverName);
+        const d = this.mcpData(event);
+        await this.stopServer(d.serverName!);
       });
 
       await this.eventBusService.subscribe('mcp.server.restart', async (event) => {
-        await this.restartServer(event.data.serverName);
+        const d = this.mcpData(event);
+        await this.restartServer(d.serverName!);
       });
 
       await this.eventBusService.subscribe('mcp.server.install', async (event) => {
-        await this.installServer(event.data.serverName, event.data.config);
+        const d = this.mcpData(event);
+        await this.installServer(d.serverName!, d.config);
       });
 
       await this.eventBusService.subscribe('mcp.server.uninstall', async (event) => {
-        await this.uninstallServer(event.data.serverName);
+        const d = this.mcpData(event);
+        await this.uninstallServer(d.serverName!);
       });
 
       await this.eventBusService.subscribe('mcp.tool.execute', async (event) => {
+        const d = this.mcpData(event);
         try {
           const result = await this.executeTool(
-            event.data.serverName,
-            event.data.toolName,
-            event.data.parameters,
+            d.serverName!,
+            d.toolName!,
+            d.parameters as Record<string, unknown>,
             {
-              agentId: event.data.agentId,
-              userId: event.data.userId,
-              conversationId: event.data.conversationId,
-              operationId: event.data.operationId,
-              sessionId: event.data.sessionId,
+              agentId: d.agentId,
+              userId: d.userId,
+              conversationId: d.conversationId,
+              operationId: d.operationId,
+              sessionId: d.sessionId,
             }
           );
 
           await this.publishEvent('mcp.tool.executed', {
-            requestId: event.data.requestId,
-            serverName: event.data.serverName,
-            toolName: event.data.toolName,
+            requestId: d.requestId,
+            serverName: d.serverName,
+            toolName: d.toolName,
             result,
             success: true,
-            agentId: event.data.agentId,
-            userId: event.data.userId,
-            conversationId: event.data.conversationId,
-            operationId: event.data.operationId,
-            sessionId: event.data.sessionId,
+            agentId: d.agentId,
+            userId: d.userId,
+            conversationId: d.conversationId,
+            operationId: d.operationId,
+            sessionId: d.sessionId,
           });
         } catch (error) {
           await this.publishEvent('mcp.tool.executed', {
-            requestId: event.data.requestId,
-            serverName: event.data.serverName,
-            toolName: event.data.toolName,
+            requestId: d.requestId,
+            serverName: d.serverName,
+            toolName: d.toolName,
             error: error.message,
             success: false,
-            agentId: event.data.agentId,
-            userId: event.data.userId,
-            conversationId: event.data.conversationId,
-            operationId: event.data.operationId,
-            sessionId: event.data.sessionId,
+            agentId: d.agentId,
+            userId: d.userId,
+            conversationId: d.conversationId,
+            operationId: d.operationId,
+            sessionId: d.sessionId,
           });
         }
       });
 
       await this.eventBusService.subscribe('mcp.status.request', async (event) => {
+        const d = this.mcpData(event);
         const servers = this.getAllServers();
         await this.publishEvent('mcp.status.response', {
-          requestId: event.data.requestId,
+          requestId: d.requestId,
           servers: servers.map((server) => ({
             name: server.name,
             status: server.status,
@@ -1180,24 +1197,25 @@ export class MCPClientService extends EventEmitter {
 
       // Agent tool discovery requests
       await this.eventBusService.subscribe('agent.tools.request', async (event) => {
-        const availableTools = this.getAvailableToolsForAgent(event.data.agentId);
+        const d = this.mcpData(event);
+        const availableTools = this.getAvailableToolsForAgent(d.agentId!);
         await this.publishEvent('agent.tools.response', {
-          requestId: event.data.requestId,
-          agentId: event.data.agentId,
+          requestId: d.requestId,
+          agentId: d.agentId,
           tools: availableTools,
         });
       });
 
       // Tool execution requests from agents
       await this.eventBusService.subscribe('agent.tool.execute', async (event) => {
-        const { toolId, parameters, agentId, userId, conversationId, operationId, sessionId } =
-          event.data;
+        const d = this.mcpData(event);
+        const { toolId, parameters, agentId, userId, conversationId, operationId, sessionId } = d;
 
         // Parse MCP tool ID to get server and tool name
-        const mcpToolMatch = toolId.match(/^mcp-([^-]+)-(.+)$/);
+        const mcpToolMatch = toolId!.match(/^mcp-([^-]+)-(.+)$/);
         if (!mcpToolMatch) {
           await this.publishEvent('agent.tool.error', {
-            requestId: event.data.requestId,
+            requestId: d.requestId,
             agentId,
             error: 'Invalid MCP tool ID format',
             toolId,
@@ -1208,7 +1226,7 @@ export class MCPClientService extends EventEmitter {
         const [, serverName, toolName] = mcpToolMatch;
 
         try {
-          const result = await this.executeTool(serverName, toolName, parameters, {
+          const result = await this.executeTool(serverName, toolName, parameters as Record<string, unknown>, {
             agentId,
             userId,
             conversationId,
@@ -1217,7 +1235,7 @@ export class MCPClientService extends EventEmitter {
           });
 
           await this.publishEvent('agent.tool.result', {
-            requestId: event.data.requestId,
+            requestId: d.requestId,
             agentId,
             toolId,
             result,
@@ -1225,7 +1243,7 @@ export class MCPClientService extends EventEmitter {
           });
         } catch (error) {
           await this.publishEvent('agent.tool.error', {
-            requestId: event.data.requestId,
+            requestId: d.requestId,
             agentId,
             toolId,
             error: error.message,
@@ -1645,8 +1663,8 @@ export class MCPClientService extends EventEmitter {
 
       // Create tool assignment in database (using existing patterns)
       if (this.databaseService) {
-        const toolService = this.databaseService.tools;
-        const agentService = this.databaseService.agents;
+        const toolService = ToolService.getInstance();
+        const agentService = AgentService.getInstance();
 
         // Check if agent exists
         const agent = await agentService.findAgentById(agentId);

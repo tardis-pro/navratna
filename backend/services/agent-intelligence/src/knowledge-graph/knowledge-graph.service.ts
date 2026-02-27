@@ -11,7 +11,7 @@ import {
 } from '@uaip/types';
 import { logger } from '@uaip/utils';
 import { QdrantService } from '@/knowledge-graph/qdrant.service';
-import { KnowledgeRepository } from '@uaip/shared-services/database/repositories/knowledge.repository';
+import { KnowledgeRepository } from '@uaip/shared-services';
 import { EmbeddingService } from './embedding.service.js';
 import { ContentClassifier } from './content-classifier.service.js';
 import { RelationshipDetector } from './relationship-detector.service.js';

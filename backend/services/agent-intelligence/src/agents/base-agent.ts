@@ -138,7 +138,7 @@ export abstract class BaseAgent {
       }, 30000); // 30 second timeout
 
       // Subscribe to response
-      this.eventBusService.subscribe(`tool.response.${requestId}`, async (response) => {
+      this.eventBusService.subscribe(`tool.response.${requestId}`, async (response: any) => {
         clearTimeout(timeout);
         if (response.data?.success) {
           resolve(response.data.data);
@@ -188,7 +188,7 @@ export abstract class BaseAgent {
       }, 60000); // 60 second timeout
 
       // Subscribe to response
-      this.eventBusService.subscribe(`llm.response.${requestId}`, async (response) => {
+      this.eventBusService.subscribe(`llm.response.${requestId}`, async (response: any) => {
         clearTimeout(timeout);
         if (response.data?.success) {
           resolve(response.data.data);

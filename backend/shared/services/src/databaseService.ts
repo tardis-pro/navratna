@@ -491,7 +491,7 @@ export class DatabaseService {
       const { PersonaService } = await import('./personaService');
 
       const personaService = new PersonaService({
-        databaseService: this,
+        databaseService: this as any,
         eventBusService: EventBusService.getInstance(),
         enableAnalytics: false,
         enableRecommendations: false,
@@ -499,7 +499,7 @@ export class DatabaseService {
       });
 
       this.discussionService = new DiscussionService({
-        databaseService: this,
+        databaseService: this as any,
         eventBusService: EventBusService.getInstance(),
         personaService: personaService,
         enableRealTimeEvents: true,
