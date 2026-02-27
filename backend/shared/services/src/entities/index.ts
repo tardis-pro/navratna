@@ -20,6 +20,8 @@ export { PasswordResetTokenEntity } from './passwordResetToken.entity';
 
 // Agent System entities
 export { AgentCapabilityMetric } from './agentCapabilityMetric.entity';
+export { AgentActivity } from './agent-activity.entity';
+export { AgentLearningRecord } from './agent-learning-record.entity';
 export { ToolUsageRecord } from './toolUsageRecord.entity';
 export { ConversationContext } from './conversationContext.entity';
 

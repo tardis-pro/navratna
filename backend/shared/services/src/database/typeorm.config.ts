@@ -18,6 +18,8 @@ import { UserEntity } from '../entities/user.entity';
 import { RefreshTokenEntity } from '../entities/refreshToken.entity';
 import { PasswordResetTokenEntity } from '../entities/passwordResetToken.entity';
 import { AgentCapabilityMetric } from '../entities/agentCapabilityMetric.entity';
+import { AgentActivity } from '../entities/agent-activity.entity';
+import { AgentLearningRecord } from '../entities/agent-learning-record.entity';
 import { ToolUsageRecord } from '../entities/toolUsageRecord.entity';
 import { ConversationContext } from '../entities/conversationContext.entity';
 import { OperationState } from '../entities/operationState.entity';
@@ -94,6 +96,8 @@ export const allEntities = [
   RefreshTokenEntity,
   PasswordResetTokenEntity,
   AgentCapabilityMetric,
+  AgentActivity,
+  AgentLearningRecord,
   ToolUsageRecord,
   ConversationContext,
   OperationState,
