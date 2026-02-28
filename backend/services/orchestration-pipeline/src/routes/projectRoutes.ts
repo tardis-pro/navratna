@@ -5,6 +5,7 @@ import { EventBusService } from '@uaip/infra/eventBus';
 import { logger } from '@uaip/utils';
 import { z } from 'zod';
 import { ProjectStatus, ProjectPriority, ProjectVisibility } from '@uaip/types';
+import { SetupProjectWorkspaceWorkflow } from '../workflows/setup-project-workspace.workflow.js';
 
 // Request validation schemas
 const createProjectSchema = z.object({
@@ -65,6 +66,14 @@ const recordToolUsageSchema = z.object({
     success: z.boolean(),
     error: z.string().optional(),
   }),
+});
+
+const setupWorkspaceSchema = z.object({
+  userId: z.string().min(1, 'User ID is required'),
+  projectName: z.string().min(1, 'Project name is required'),
+  githubToken: z.string().min(1, 'GitHub token is required'),
+  repoName: z.string().min(1, 'Repo name is required'),
+  repoVisibility: z.enum(['public', 'private']),
 });
 
 // Initialize services
@@ -160,6 +169,51 @@ export function registerProjectRoutes(app: Elysia): void {
       return { error: 'Failed to fetch project' };
     }
   });
+
+  app.post(
+    '/api/v1/projects/:projectId/setup-workspace',
+    async ({ params, body, headers, set }) => {
+      try {
+        await initServices();
+
+        const validatedBody = setupWorkspaceSchema.parse(body);
+        const headerUserId = headers['x-user-id'];
+        const userId = headerUserId || validatedBody.userId;
+
+        if (!userId) {
+          set.status = 401;
+          return { error: 'User not authenticated' };
+        }
+
+        if (headerUserId && headerUserId !== validatedBody.userId) {
+          set.status = 403;
+          return { error: 'User ID mismatch' };
+        }
+
+        const projectId = params.projectId;
+        const workflow = new SetupProjectWorkspaceWorkflow(eventBusService);
+        const result = await workflow.execute({
+          projectId,
+          userId,
+          projectName: validatedBody.projectName,
+          githubToken: validatedBody.githubToken,
+          repoName: validatedBody.repoName,
+          repoVisibility: validatedBody.repoVisibility,
+        });
+
+        return result;
+      } catch (error) {
+        if (error instanceof z.ZodError) {
+          set.status = 400;
+          return { error: 'Validation error', details: error.errors };
+        }
+
+        logger.error('Error setting up project workspace', { error });
+        set.status = 500;
+        return { error: 'Failed to set up project workspace' };
+      }
+    }
+  );
 
   // Update project
   app.put('/api/v1/projects/:projectId', async ({ params, body, headers, set }) => {

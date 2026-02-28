@@ -83,3 +83,4 @@ export * from './thought';
 export * from './critique';
 // Debate types - NEW
 export * from './debate';
+export * from './workspace.js';

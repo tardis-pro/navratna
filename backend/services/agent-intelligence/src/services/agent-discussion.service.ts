@@ -17,7 +17,7 @@ import { logger, ApiError } from '@uaip/utils';
 import { DiscussionService, LLMRequestTracker, ThoughtParserService } from '@uaip/shared-services';
 import { DatabaseService } from '@uaip/infra/database';
 import { EventBusService } from '@uaip/infra/eventBus';
-import { KnowledgeGraphService } from '@/knowledge-graph/knowledge-graph.service';
+import { KnowledgeGraphService } from '@uaip/shared-services';
 import { AgentMemoryService } from '@/agent-memory/agent-memory.service';
 import { QmdSearchService } from '@/knowledge-graph/qmd-search.service.js';
 import { MacrodataMemoryService } from '@/agent-memory/macrodata-memory.service.js';
@@ -352,7 +352,7 @@ export class AgentDiscussionService {
           const existingIds = new Set(contextualKnowledge.map((k: any) => k.id));
           for (const qr of qmdResults) {
             if (!existingIds.has(qr.id)) {
-              contextualKnowledge.push({ id: qr.id, content: qr.content, tags: qr.tags, confidence: qr.confidence });
+              contextualKnowledge.push({ id: qr.id, content: qr.content, tags: qr.tags, confidence: qr.confidence, type: KnowledgeType.FACTUAL, sourceType: SourceType.AGENT_INTERACTION, sourceIdentifier: 'qmd-search', metadata: {}, createdAt: new Date(), updatedAt: new Date(), accessLevel: 'standard' });
             }
           }
           logger.info('QMD hybrid search enriched knowledge', { added: qmdResults.length, total: contextualKnowledge.length, agentId });
@@ -378,7 +378,7 @@ export class AgentDiscussionService {
           const existingIds = new Set(contextualKnowledge.map((k: any) => k.id));
           for (const t of macroCtx.topics) {
             if (t.content && !existingIds.has(t.content.slice(0, 30))) {
-              contextualKnowledge.push({ id: t.content.slice(0, 30), content: t.content, tags: t.tags, confidence: t.relevanceScore });
+              contextualKnowledge.push({ id: t.content.slice(0, 30), content: t.content, tags: t.tags, confidence: t.relevanceScore, type: KnowledgeType.EPISODIC, sourceType: SourceType.AGENT_EPISODE, sourceIdentifier: 'macrodata', metadata: {}, createdAt: new Date(), updatedAt: new Date(), accessLevel: 'standard' });
             }
           }
           // Trigger background distillation when session has enough history

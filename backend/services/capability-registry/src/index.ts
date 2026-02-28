@@ -1,4 +1,10 @@
-import { BaseService, ServiceConfig, allEntities, MCPServer as SharedMCPServer, MCPToolCall as SharedMCPToolCall } from '@uaip/shared-services';
+import {
+  BaseService,
+  ServiceConfig,
+  allEntities,
+  MCPServer as SharedMCPServer,
+  MCPToolCall as SharedMCPToolCall,
+} from '@uaip/shared-services';
 import { config } from '@uaip/config';
 import { ToolGraphDatabase, IntegrationService } from '@uaip/shared-services';
 import {
@@ -14,6 +20,8 @@ import { ToolController } from './controllers/toolController.js';
 import { CapabilityController } from './controllers/capabilityController.js';
 import { UnifiedToolRegistry } from './services/unified-tool-registry.js';
 import { EnterpriseToolRegistry } from './services/enterprise-tool-registry.js';
+import { WorkspaceManager } from './services/workspace-manager.service.js';
+import { CodingAgentExecutor } from './services/coding-agent-executor.service.js';
 // Route registration functions are imported dynamically in setupRoutes
 import { logger } from '@uaip/utils';
 import { ExecutionDataSource, McpRepository } from './database/index.js';
@@ -31,6 +39,8 @@ class CapabilityRegistryService extends BaseService {
   private capabilityController: CapabilityController;
   private unifiedToolRegistry: UnifiedToolRegistry;
   private enterpriseToolRegistry: EnterpriseToolRegistry;
+  private workspaceManager: WorkspaceManager;
+  private codingAgentExecutor: CodingAgentExecutor;
   // Advanced services disabled pending architectural fix
   // private projectToolIntegration: ProjectToolIntegrationService;
   // private toolExecutionCoordinator: ToolExecutionCoordinator;
@@ -128,6 +138,12 @@ class CapabilityRegistryService extends BaseService {
     await this.enterpriseToolRegistry.initialize();
     logger.info('Enterprise Tool Registry initialized');
 
+    this.workspaceManager = WorkspaceManager.getInstance();
+    this.codingAgentExecutor = CodingAgentExecutor.getInstance(
+      this.workspaceManager,
+      this.asInfraEventBusService() as unknown as { publish: (topic: string, data: unknown) => Promise<void> }
+    );
+
     // TODO: Fix these services to work with @uaip/infra.DatabaseService architecture
     // For now, keeping them disabled to maintain system stability
     logger.info('Advanced tool services disabled (architectural fix pending)');
@@ -197,6 +213,9 @@ class CapabilityRegistryService extends BaseService {
 
     const { registerCapabilityRoutes } = await import('./routes/capabilityRoutes.js');
     registerCapabilityRoutes(this.app as any);
+
+    const { registerWorkspaceRoutes } = await import('./routes/workspaceRoutes.js');
+    registerWorkspaceRoutes(this.app as any, this.workspaceManager, this.codingAgentExecutor);
   }
 
   protected async getHealthInfo(): Promise<any> {

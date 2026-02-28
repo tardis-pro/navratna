@@ -21,8 +21,10 @@ import { UserChatHandler } from './websocket/userChatHandler.js';
 import { ConversationIntelligenceHandler } from './websocket/conversationIntelligenceHandler.js';
 import { TaskNotificationHandler } from './websocket/taskNotificationHandler.js';
 import { StreamingHandler } from './websocket/streamingHandler.js';
+import { CodingAgentSocketHandler } from './websocket/codingAgentSocketHandler.js';
 import { setupWebSocketHandlers } from './websocket/discussionSocket.js';
 import { DebateHandler } from './handlers/debateHandler.js';
+import { WhatsAppHandler } from './whatsapp/whatsappHandler.js';
 
 class DiscussionOrchestrationServer extends BaseService {
   private wss!: WebSocketServer;
@@ -36,7 +38,9 @@ class DiscussionOrchestrationServer extends BaseService {
   private conversationIntelligenceHandler?: ConversationIntelligenceHandler;
   private taskNotificationHandler?: TaskNotificationHandler;
   private streamingHandler?: StreamingHandler;
+  private codingAgentSocketHandler?: CodingAgentSocketHandler;
   private debateHandler?: DebateHandler;
+  private whatsappHandler?: WhatsAppHandler;
   private serviceName = 'discussion-orchestration';
   private authResponseHandlers = new Map<string, (response: any) => void>();
   private authSubscriptionInitialized = false;
@@ -293,6 +297,24 @@ class DiscussionOrchestrationServer extends BaseService {
           success: false,
           error: 'Failed to fetch user status',
         };
+      }
+    });
+
+    // WhatsApp status endpoint
+    this.app.get('/api/v1/whatsapp/status', ({ set }) => {
+      try {
+        if (!this.whatsappHandler) {
+          set.status = 503;
+          return { success: false, error: 'WhatsApp integration not initialised' };
+        }
+        return {
+          success: true,
+          state: this.whatsappHandler.getConnectionState(),
+          connectedInfo: this.whatsappHandler.getConnectedInfo(),
+        };
+      } catch (error) {
+        set.status = 500;
+        return { success: false, error: 'Failed to fetch WhatsApp status' };
       }
     });
 
@@ -673,6 +695,26 @@ class DiscussionOrchestrationServer extends BaseService {
         // Continue without streaming handler rather than crashing the service
       }
 
+      // Coding Agent Socket.IO relay — fans out RabbitMQ coding.agent.event to /coding-agent namespace
+      try {
+        this.codingAgentSocketHandler = new CodingAgentSocketHandler(this.io, this.eventBusService);
+        logger.info('CodingAgentSocketHandler initialized successfully', {
+          stats: this.codingAgentSocketHandler.getStats(),
+        });
+      } catch (error) {
+        logger.error('Failed to initialize CodingAgentSocketHandler:', error);
+        // Non-fatal: SSE fallback still works
+      }
+
+      // WhatsApp handler — Baileys integration for AI agent chat via WhatsApp
+      try {
+        this.whatsappHandler = new WhatsAppHandler(this.io, this.eventBusService);
+        logger.info('WhatsAppHandler initialized successfully');
+      } catch (error) {
+        logger.error('Failed to initialize WhatsAppHandler:', error);
+        // Non-fatal — service continues without WhatsApp integration
+      }
+
       // Setup discussion-specific WebSocket handlers (start_discussion, join_discussion, etc.)
       try {
         setupWebSocketHandlers(this.io, this.orchestrationService);
@@ -887,6 +929,7 @@ class DiscussionOrchestrationServer extends BaseService {
         socketIO: this.io ? this.io.engine?.clientsCount || 0 : 0,
         authHandlers: this.authResponseHandlers.size,
         streaming: this.streamingHandler?.getStats() || { connections: 0, activeSessions: 0 },
+        codingAgent: this.codingAgentSocketHandler?.getStats() || { connections: 0, activeSessions: 0 },
       },
     };
   }

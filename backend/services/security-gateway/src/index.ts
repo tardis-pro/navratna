@@ -19,6 +19,7 @@ import { registerPersonaRoutes } from './http/persona.elysia.js';
 import { registerToolPreferenceRoutes } from './http/tool-preferences.elysia.js';
 import { registerContactRoutes } from './http/contacts.elysia.js';
 import { registerProjectRoutes } from './http/projects.elysia.js';
+import { registerLLMAgentProviderRoutes } from './routes/llmAgentProviderRoutes.js';
 
 // Import services
 import { SecurityGatewayService } from './services/securityGatewayService.js';
@@ -120,6 +121,7 @@ class SecurityGatewayServer extends BaseService {
     registerAuditRoutes(this.app);
     registerKnowledgeRoutes(this.app);
     registerProviderRoutes(this.app);
+    registerLLMAgentProviderRoutes(this.app);
     registerOAuthRoutes(this.app);
     registerPersonaRoutes(this.app);
     registerToolPreferenceRoutes(this.app);

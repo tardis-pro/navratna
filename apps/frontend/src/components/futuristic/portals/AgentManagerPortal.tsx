@@ -854,8 +854,7 @@ export const AgentManagerPortal: React.FC<AgentManagerPortalProps> = ({
           ${isSelected ? 'ring-1 ring-blue-400 bg-blue-500/5 border-blue-400' : ''}
         `}
         onClick={() => {
-          // Show context menu or handle primary action
-          console.log('Agent card clicked:', agent.name);
+          window.dispatchEvent(new CustomEvent('openAgentChat', { detail: { agentId: agent.id, agentName: agent.name } }));
         }}
         whileHover={{ scale: viewMode === 'grid' ? 1.02 : 1.01 }}
       >
@@ -2349,15 +2348,6 @@ export const AgentManagerPortal: React.FC<AgentManagerPortalProps> = ({
                       <h3 className="text-xl font-bold text-white mb-3">
                         {searchQuery || filterRole ? 'No agents found' : 'Welcome to Agent Manager'}
                       </h3>
-                      {/* Debug Info */}
-                      <div className="mb-4 p-2 bg-slate-800/50 rounded-lg border border-slate-700/50 text-xs text-slate-400">
-                        <div>Debug: {Object.keys(agents || {}).length} agents in context</div>
-                        <div>Filtered: {filteredAgents?.length || 0} agents after filtering</div>
-                        <div>
-                          Search: "{searchQuery}", Role filter: "{filterRole}"
-                        </div>
-                        <div>Agent IDs: {Object.keys(agents || {}).join(', ') || 'none'}</div>
-                      </div>
                       <p className="text-slate-400 mb-8 leading-relaxed">
                         {searchQuery || filterRole
                           ? 'No agents match your current search criteria. Try adjusting your filters or search terms.'

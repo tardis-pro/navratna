@@ -55,11 +55,12 @@ import {
   Moon,
   Palette,
   RefreshCw,
+  Smartphone,
 } from 'lucide-react';
 
 // Import portal components
 import { DashboardPortal } from './futuristic/portals/DashboardPortal';
-import { AgentManager } from './AgentManager';
+import { AgentManagerPortal } from './futuristic/portals/AgentManagerPortal';
 import { KnowledgePortal } from './futuristic/portals/KnowledgePortal';
 import { SettingsPortal } from './futuristic/portals/SettingsPortal';
 import { ArtifactsPortal } from './futuristic/portals/ArtifactsPortal';
@@ -93,6 +94,7 @@ import { useWallpaper } from '../hooks/useWallpaper';
 import { WallpaperCustomizationPanel } from './WallpaperCustomizationPanel';
 import { DiscussionConfigModal } from './DiscussionConfigModal';
 import { OnboardingManager } from './OnboardingManager';
+import WhatsAppPanel from './WhatsAppPanel';
 
 // Design System Tokens
 const DESIGN_TOKENS = {
@@ -187,7 +189,7 @@ const ALL_APPLICATIONS: Application[] = [
     title: 'Agent Manager',
     icon: Bot,
     color: 'text-cyan-400',
-    component: AgentManager,
+  component: AgentManagerPortal,
     category: 'core',
     minimumRole: 'user',
   },
@@ -286,6 +288,15 @@ const ALL_APPLICATIONS: Application[] = [
     component: ToolsIntegrationsPortal,
     category: 'tools',
     minimumRole: 'moderator',
+  },
+  {
+    id: 'whatsapp',
+    title: 'WhatsApp',
+    icon: Smartphone,
+    color: 'text-green-400',
+    component: () => <WhatsAppPanel className="h-full" />,
+    category: 'tools',
+    minimumRole: 'admin',
   },
 
   // Discussion & Communication

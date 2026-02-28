@@ -79,6 +79,11 @@ export interface Project {
   ownerId: string;
   organizationId?: string;
   recommendedAgents?: string[]; // Agent IDs that are recommended for this project type
+  // GitHub & workspace integration
+  githubRepo?: string; // owner/repo e.g. "acme/my-project"
+  githubCloneUrl?: string;
+  workspaceId?: string; // linked Workspace.id
+  isCodeProject?: boolean; // whether this project has coding capabilities enabled
   createdAt: Date;
   updatedAt: Date;
 }

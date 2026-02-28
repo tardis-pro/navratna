@@ -5,6 +5,7 @@ import {
   AgentPersona,
   AgentIntelligenceConfig,
   AgentSecurityContext,
+  AgentSkill,
 } from '@uaip/types';
 
 // Related entities will be referenced by string to avoid circular dependencies
@@ -84,6 +85,10 @@ export class Agent extends BaseEntity {
   // Enhanced capabilities tracking
   @Column({ type: 'jsonb', default: '[]' })
   capabilities: string[];
+
+  // Skills System - OpenCode-compatible skill definitions stored as JSONB
+  @Column({ type: 'jsonb', default: '[]' })
+  skills: AgentSkill[];
 
   @Column({ name: 'capability_scores', type: 'jsonb', nullable: true })
   capabilityScores?: Record<string, number>;

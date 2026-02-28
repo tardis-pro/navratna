@@ -8,6 +8,7 @@ export enum OperationType {
   ARTIFACT_GENERATION = 'artifact_generation',
   HYBRID_WORKFLOW = 'hybrid_workflow',
   ANALYSIS = 'analysis',
+  SETUP_PROJECT_WORKSPACE = 'SETUP_PROJECT_WORKSPACE',
   // New discussion-related operations
   DISCUSSION_ORCHESTRATION = 'discussion_orchestration',
   PERSONA_INTELLIGENCE = 'persona_intelligence',

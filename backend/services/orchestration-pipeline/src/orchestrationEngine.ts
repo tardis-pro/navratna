@@ -6,6 +6,7 @@
 import { EventEmitter } from 'events';
 import {
   Operation,
+  OperationType,
   OperationStatus,
   WorkflowInstance,
   OperationState,
@@ -28,11 +29,16 @@ import {
 import { OperationValidator } from './engine/OperationValidator.js';
 import { StepExecutionManager } from './engine/StepExecutionManager.js';
 import { WorkflowOrchestrator } from './engine/WorkflowOrchestrator.js';
+import {
+  SetupProjectWorkspaceInput,
+  SetupProjectWorkspaceWorkflow,
+} from './workflows/setup-project-workspace.workflow.js';
 
 export class OrchestrationEngine extends EventEmitter {
   private validator: OperationValidator;
   private stepExecutionManager: StepExecutionManager;
   private workflowOrchestrator: WorkflowOrchestrator;
+  private setupProjectWorkspaceWorkflow: SetupProjectWorkspaceWorkflow;
   private cleanupInterval: NodeJS.Timeout | null = null;
   private isShuttingDown = false;
 
@@ -59,6 +65,8 @@ export class OrchestrationEngine extends EventEmitter {
       this.stepExecutionManager
     );
 
+    this.setupProjectWorkspaceWorkflow = new SetupProjectWorkspaceWorkflow(eventBusService);
+
     // Set up event listeners
     this.setupEventListeners();
 
@@ -79,6 +87,10 @@ export class OrchestrationEngine extends EventEmitter {
         agentId: operation.agentId,
         priority: operation.metadata?.priority,
       });
+
+      if (operation.type === OperationType.SETUP_PROJECT_WORKSPACE) {
+        return await this.executeSetupProjectWorkspaceOperation(operation, startTime);
+      }
 
       // Validate operation
       await this.validator.validateOperation(operation);
@@ -144,6 +156,82 @@ export class OrchestrationEngine extends EventEmitter {
 
       throw error;
     }
+  }
+
+  private async executeSetupProjectWorkspaceOperation(
+    operation: Operation,
+    startTime: number
+  ): Promise<string> {
+    const input = this.extractSetupProjectWorkspaceInput(operation);
+
+    const savedOperation = await this.operationManagementService.createOperation(operation);
+    logger.info('Operation persisted to database', { operationId: savedOperation.id });
+
+    const workflowInstanceId = `wf-${savedOperation.id}-${Date.now()}`;
+
+    await this.eventBusService.publish('operation.started', {
+      operationId: savedOperation.id,
+      workflowInstanceId,
+      type: operation.type,
+      agentId: operation.agentId,
+      timestamp: new Date(),
+    });
+
+    const result = await this.setupProjectWorkspaceWorkflow.execute(input);
+
+    const terminalStatus =
+      result.status === 'failed' ? OperationStatus.FAILED : OperationStatus.COMPLETED;
+    const update: Record<string, unknown> = {
+      status: terminalStatus,
+      result,
+      completedAt: new Date(),
+    };
+    if (terminalStatus === OperationStatus.FAILED) {
+      update.error = 'Workspace setup failed';
+    }
+
+    await this.operationManagementService.updateOperation(savedOperation.id, update);
+
+    if (terminalStatus === OperationStatus.FAILED) {
+      await this.eventBusService.publish('operation.failed', {
+        operationId: savedOperation.id,
+        error: 'Workspace setup failed',
+        timestamp: new Date(),
+      });
+      throw new OperationError('Workspace setup failed', 'WORKSPACE_SETUP_FAILED');
+    }
+
+    await this.eventBusService.publish('operation.completed', {
+      operationId: savedOperation.id,
+      workflowInstanceId,
+      result,
+      duration: Date.now() - startTime,
+      timestamp: new Date(),
+    });
+
+    logger.info('SETUP_PROJECT_WORKSPACE operation completed', {
+      operationId: savedOperation.id,
+      workflowInstanceId,
+      duration: Date.now() - startTime,
+    });
+
+    return workflowInstanceId;
+  }
+
+  private extractSetupProjectWorkspaceInput(operation: Operation): SetupProjectWorkspaceInput {
+    const fromTopLevel = (
+      operation as unknown as { workspaceSetupInput?: SetupProjectWorkspaceInput }
+    ).workspaceSetupInput;
+    if (fromTopLevel) return fromTopLevel;
+
+    const fromContext = (
+      operation.context as unknown as {
+        workspaceSetupInput?: SetupProjectWorkspaceInput;
+      }
+    )?.workspaceSetupInput;
+    if (fromContext) return fromContext;
+
+    throw new OperationError('Missing workspace setup input', 'VALIDATION_ERROR');
   }
 
   /**
@@ -359,10 +447,13 @@ export class OrchestrationEngine extends EventEmitter {
    */
   private async subscribeToExternalEvents(): Promise<void> {
     // Subscribe to operation commands
-    await this.eventBusService.subscribe('operation.command.pause', async (event: EventBusMessage) => {
-      const data = event.data as EventMessage;
-      await this.pauseOperation(data.operationId!, data.reason);
-    });
+    await this.eventBusService.subscribe(
+      'operation.command.pause',
+      async (event: EventBusMessage) => {
+        const data = event.data as EventMessage;
+        await this.pauseOperation(data.operationId!, data.reason);
+      }
+    );
 
     await this.eventBusService.subscribe(
       'operation.command.resume',
@@ -376,7 +467,12 @@ export class OrchestrationEngine extends EventEmitter {
       'operation.command.cancel',
       async (event: EventBusMessage) => {
         const data = event.data as EventMessage;
-        await this.cancelOperation(data.operationId!, data.reason, data.compensate as boolean, data.force as boolean);
+        await this.cancelOperation(
+          data.operationId!,
+          data.reason,
+          data.compensate as boolean,
+          data.force as boolean
+        );
       }
     );
   }

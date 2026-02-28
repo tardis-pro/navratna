@@ -421,6 +421,7 @@ services:
       - REDIS_PORT=6379
       - REDIS_PASSWORD=${REDIS_PASSWORD:-uaip_redis_password}
       - RABBITMQ_URL=amqp://${RABBITMQ_DEFAULT_USER:-uaip_user}:${RABBITMQ_DEFAULT_PASS:-uaip_password}@rabbitmq:5672
+      - JWT_SECRET=${JWT_SECRET:-uaip_dev_jwt_secret_key_change_in_production}
     ports:
       - '3005:3005'
     volumes:

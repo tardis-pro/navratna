@@ -96,6 +96,8 @@ catalogs:
     uuid: ^11.1.0
     ws: ^8.18.2
     '@types/ws': 8.18.1
+    baileys: ^6.7.18
+    '@hapi/boom': ^10.0.1
     amqplib: ^0.10.8
     '@types/amqplib': ^0.10.7
     neo4j-driver: ^5.28.1
@@ -113,6 +115,10 @@ catalogs:
     '@types/eslint': ^9.7.0
     concurrently: ^9.1.1
     cross-env: ^7.0.3
+
+ignoredBuiltDependencies:
+  - baileys
+  - sharp
 
 onlyBuiltDependencies:
   - '@swc/core'

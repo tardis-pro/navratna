@@ -79,10 +79,12 @@
     "tailwindcss-animate": "^1.0.7",
     "uuid": "catalog:backend",
     "vaul": "^1.1.2",
+    "qrcode": "^1.5.4",
     "zod": "catalog:"
   },
   "devDependencies": {
     "@tailwindcss/typography": "^0.5.16",
+    "@types/qrcode": "^1.5.5",
     "@types/node": "catalog:frontend",
     "@types/react": "catalog:frontend",
     "@types/react-dom": "catalog:frontend",
