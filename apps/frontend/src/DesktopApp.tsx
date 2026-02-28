@@ -12,6 +12,9 @@ import { SecurityProvider } from './contexts/SecurityContext';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { Desktop } from './components/DesktopUnified';
+import { BrowserRouter, Route, Routes } from 'react-router-dom';
+import WorkspacePage from './pages/workspace/WorkspacePage';
+import CodingSessionPage from './pages/workspace/CodingSessionPage';
 import './App.css';
 import './styles/agent-manager.css';
 
@@ -43,7 +46,21 @@ function DesktopApp() {
                       <DocumentProvider>
                         <DiscussionProvider topic="Navratna">
                           <ErrorBoundary>
-                            <Desktop />
+                            <BrowserRouter>
+                              <Routes>
+                                <Route path="/projects/:id/workspace" element={<WorkspacePage />} />
+                                <Route
+                                  path="/projects/:id/workspace/session"
+                                  element={<CodingSessionPage />}
+                                />
+                                <Route
+                                  path="/projects/:id/workspace/session/:sessionId"
+                                  element={<CodingSessionPage />}
+                                />
+                                <Route path="/" element={<Desktop />} />
+                                <Route path="*" element={<Desktop />} />
+                              </Routes>
+                            </BrowserRouter>
                           </ErrorBoundary>
                         </DiscussionProvider>
                       </DocumentProvider>

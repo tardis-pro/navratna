@@ -51,6 +51,9 @@
       "path": "../../shared/infra"
     }
   ],
+  "files": [
+    "src/routes/llmAgentProviderRoutes.ts"
+  ],
   "include": [
     "src/**/*",
     "src/__tests__/types/**/*"

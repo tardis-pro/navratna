@@ -21,6 +21,7 @@ import { UserChatHandler } from './websocket/userChatHandler.js';
 import { ConversationIntelligenceHandler } from './websocket/conversationIntelligenceHandler.js';
 import { TaskNotificationHandler } from './websocket/taskNotificationHandler.js';
 import { StreamingHandler } from './websocket/streamingHandler.js';
+import { CodingAgentSocketHandler } from './websocket/codingAgentSocketHandler.js';
 import { setupWebSocketHandlers } from './websocket/discussionSocket.js';
 import { DebateHandler } from './handlers/debateHandler.js';
 import { WhatsAppHandler } from './whatsapp/whatsappHandler.js';
@@ -37,6 +38,7 @@ class DiscussionOrchestrationServer extends BaseService {
   private conversationIntelligenceHandler?: ConversationIntelligenceHandler;
   private taskNotificationHandler?: TaskNotificationHandler;
   private streamingHandler?: StreamingHandler;
+  private codingAgentSocketHandler?: CodingAgentSocketHandler;
   private debateHandler?: DebateHandler;
   private whatsappHandler?: WhatsAppHandler;
   private serviceName = 'discussion-orchestration';
@@ -693,6 +695,17 @@ class DiscussionOrchestrationServer extends BaseService {
         // Continue without streaming handler rather than crashing the service
       }
 
+      // Coding Agent Socket.IO relay — fans out RabbitMQ coding.agent.event to /coding-agent namespace
+      try {
+        this.codingAgentSocketHandler = new CodingAgentSocketHandler(this.io, this.eventBusService);
+        logger.info('CodingAgentSocketHandler initialized successfully', {
+          stats: this.codingAgentSocketHandler.getStats(),
+        });
+      } catch (error) {
+        logger.error('Failed to initialize CodingAgentSocketHandler:', error);
+        // Non-fatal: SSE fallback still works
+      }
+
       // WhatsApp handler — Baileys integration for AI agent chat via WhatsApp
       try {
         this.whatsappHandler = new WhatsAppHandler(this.io, this.eventBusService);
@@ -916,6 +929,7 @@ class DiscussionOrchestrationServer extends BaseService {
         socketIO: this.io ? this.io.engine?.clientsCount || 0 : 0,
         authHandlers: this.authResponseHandlers.size,
         streaming: this.streamingHandler?.getStats() || { connections: 0, activeSessions: 0 },
+        codingAgent: this.codingAgentSocketHandler?.getStats() || { connections: 0, activeSessions: 0 },
       },
     };
   }
