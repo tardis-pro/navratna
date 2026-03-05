@@ -72,7 +72,7 @@ services:
     environment:
       QDRANT__SERVICE__HTTP_PORT: 6333
       QDRANT__SERVICE__GRPC_PORT: 6334
-      QDRANT__SERVICE__ENABLE_TLS: true
+      QDRANT__SERVICE__ENABLE_TLS: "true"
       QDRANT__SERVICE__TLS_CERT: /qdrant/ssl/server.crt
       QDRANT__SERVICE__TLS_KEY: /qdrant/ssl/server.key
       QDRANT__SERVICE__TLS_CA_CERT: /qdrant/ssl/ca.crt
@@ -95,7 +95,7 @@ services:
       NEO4J_PLUGINS: '["apoc", "graph-data-science"]'
       NEO4J_ACCEPT_LICENSE_AGREEMENT: "yes"
       # Enterprise Security Configuration
-      NEO4J_dbms_ssl_policy_bolt_enabled: true
+      NEO4J_dbms_ssl_policy_bolt_enabled: "true"
       NEO4J_dbms_ssl_policy_bolt_base__directory: /ssl/bolt
       NEO4J_dbms_ssl_policy_bolt_private__key: /ssl/bolt/private.key
       NEO4J_dbms_ssl_policy_bolt_public__certificate: /ssl/bolt/public.crt
@@ -103,8 +103,8 @@ services:
       NEO4J_dbms_ssl_policy_bolt_client__auth: REQUIRE
       NEO4J_dbms_connector_bolt_tls__level: REQUIRED
       # Security and Audit Settings
-      NEO4J_dbms_security_auth__enabled: true
-      NEO4J_dbms_security_log__successful__authentication: true
+      NEO4J_dbms_security_auth__enabled: "true"
+      NEO4J_dbms_security_log__successful__authentication: "true"
       NEO4J_dbms_logs_security_level: INFO
       NEO4J_dbms_memory_heap_initial__size: 512m
       NEO4J_dbms_memory_heap_max__size: 1G
@@ -174,7 +174,7 @@ services:
     environment:
       QDRANT__SERVICE__HTTP_PORT: 6333
       QDRANT__SERVICE__GRPC_PORT: 6334
-      QDRANT__SERVICE__ENABLE_TLS: true
+      QDRANT__SERVICE__ENABLE_TLS: "true"
       QDRANT__STORAGE__PERFORMANCE__MAX_MEMORY_USAGE_PERCENT: 60
     networks:
       - uaip-application-network
@@ -197,7 +197,7 @@ services:
     environment:
       QDRANT__SERVICE__HTTP_PORT: 6333
       QDRANT__SERVICE__GRPC_PORT: 6334
-      QDRANT__SERVICE__ENABLE_TLS: true
+      QDRANT__SERVICE__ENABLE_TLS: "true"
       QDRANT__STORAGE__PERFORMANCE__MAX_MEMORY_USAGE_PERCENT: 60
     networks:
       - uaip-application-network
