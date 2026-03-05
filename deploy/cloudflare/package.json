@@ -1,0 +1,30 @@
+{
+  "name": "@navratna/cloudflare-worker",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev",
+    "dev:local": "wrangler dev --local",
+    "build:worker": "bun build src/worker.ts --outdir=dist --format=esm --target=browser",
+    "deploy": "wrangler deploy",
+    "deploy:staging": "wrangler deploy --env staging",
+    "deploy:production": "wrangler deploy --env production",
+    "tail": "wrangler tail",
+    "tail:staging": "wrangler tail --env staging",
+    "tail:production": "wrangler tail --env production",
+    "kv:create": "wrangler kv:namespace create CACHE",
+    "r2:create:dev": "wrangler r2 bucket create navratna-storage-dev",
+    "r2:create:staging": "wrangler r2 bucket create navratna-storage-staging",
+    "r2:create:prod": "wrangler r2 bucket create navratna-storage-prod",
+    "typecheck": "bunx tsc --noEmit"
+  },
+  "dependencies": {
+    "hono": "^4.0.0"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20240117.0",
+    "typescript": "^5.3.0",
+    "wrangler": "^3.24.0"
+  }
+}

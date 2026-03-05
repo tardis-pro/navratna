@@ -24,6 +24,11 @@ sprint/
 *.njsproj
 *.sln
 *.sw?
-*.js*
-*.d.ts*
+*.js
+*.jsx
+*.mjs
+*.cjs
+*.js.map
+*.d.ts
+*.d.ts.map
 **/**/*.tsbuildinfo

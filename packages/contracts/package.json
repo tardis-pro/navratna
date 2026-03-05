@@ -1,0 +1,42 @@
+{
+  "name": "@uaip/contracts",
+  "version": "1.0.0",
+  "description": "Service contracts and interfaces for Navratna backend",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "type": "module",
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "clean": "rimraf dist",
+    "lint": "eslint src --ext .ts"
+  },
+  "peerDependencies": {
+    "@uaip/types": "^1.0.0"
+  },
+  "dependencies": {
+    "@uaip/types": "workspace:*"
+  },
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "require": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    },
+    "./tool": {
+      "import": "./dist/tool.js",
+      "require": "./dist/tool.js",
+      "types": "./dist/tool.d.ts"
+    },
+    "./orchestration": {
+      "import": "./dist/orchestration.js",
+      "require": "./dist/orchestration.js",
+      "types": "./dist/orchestration.d.ts"
+    },
+    "./events": {
+      "import": "./dist/events.js",
+      "require": "./dist/events.js",
+      "types": "./dist/events.d.ts"
+    }
+  }
+}
