@@ -15,6 +15,9 @@
 FROM oven/bun:1 AS system-base
 
 # Install all system deps in single layer
+# Note: Node.js 20 is required for node-llama-cpp@3.x (uses import attributes syntax
+# `import ... with {type:'json'}` which requires Node.js >=20.10.0).
+# The default Node.js in oven/bun:1 (Debian Bookworm) is v18 which lacks this feature.
 RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
     ca-certificates \
@@ -25,6 +28,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     pipx \
     build-essential \
     python3-dev \
+    && curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
+    && apt-get install -y --no-install-recommends nodejs \
     && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
 # Install pnpm standalone + uv/uvx
