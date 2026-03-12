@@ -13,7 +13,11 @@ import { Persona, Agent, Discussion, DiscussionParticipant } from '@uaip/types';
 import { LLMRequestTracker } from '@uaip/shared-services';
 import { DatabaseService } from '@uaip/infra/database';
 import { EventBusService } from '@uaip/infra/eventBus';
-import { Agent as AgentEntity, Discussion as DiscussionEntity, UserEntity } from '@uaip/shared-services';
+import {
+  Agent as AgentEntity,
+  Discussion as DiscussionEntity,
+  UserEntity,
+} from '@uaip/shared-services';
 
 // Local type definitions until they're properly exported from @uaip/types
 interface ConversationContext {
@@ -113,6 +117,29 @@ export interface AgentPersonaMapping {
   context?: any;
 }
 
+interface EventWithDataPayload {
+  data?: {
+    requestId?: string;
+    content?: string;
+    error?: unknown;
+    confidence?: number;
+  };
+  requestId?: string;
+  content?: string;
+  error?: unknown;
+  confidence?: number;
+}
+
+const toLLMEventPayload = (event: unknown): EventWithDataPayload['data'] => {
+  if (typeof event !== 'object' || event === null) {
+    return {};
+  }
+  if ('data' in event && typeof event.data === 'object' && event.data !== null) {
+    return event.data as EventWithDataPayload['data'];
+  }
+  return event as EventWithDataPayload['data'];
+};
+
 export class ConversationEnhancementService extends EventEmitter {
   private databaseService: DatabaseService;
   private eventBusService: EventBusService;
@@ -161,13 +188,13 @@ export class ConversationEnhancementService extends EventEmitter {
   private setupLLMEventSubscriptions(): void {
     // Handle user LLM responses (for discussion creator's provider)
     this.eventBusService.subscribe('llm.user.response', async (event): Promise<void> => {
-      const { requestId, content, error, confidence } = (event as any).data || event;
+      const { requestId = '', content = '', error, confidence = 0 } = toLLMEventPayload(event);
       await this.handleLLMResponse(requestId, content, error, confidence, 'user');
     });
 
     // Handle agent LLM responses (fallback)
     this.eventBusService.subscribe('llm.agent.generate.response', async (event): Promise<void> => {
-      const { requestId, content, error, confidence } = (event as any).data || event;
+      const { requestId = '', content = '', error, confidence = 0 } = toLLMEventPayload(event);
       await this.handleLLMResponse(requestId, content, error, confidence, 'agent');
     });
 
@@ -591,11 +618,14 @@ export class ConversationEnhancementService extends EventEmitter {
   private async loadAgentPersonaMappings(): Promise<void> {
     try {
       // Load all active agents
-      const agents = await this.databaseService.findMany(AgentEntity, { status: 'active' } as any) as any[];
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO: replace legacy generic DB helpers with typed repositories
+      const agents = (await this.databaseService.findMany(AgentEntity, {
+        status: 'active',
+      } as any)) as Agent[];
 
       for (const agent of agents) {
         // Map agent properties to personas
-        const personas = await this.createPersonasFromAgent(agent as any);
+        const personas = await this.createPersonasFromAgent(agent);
 
         this.agentPersonaMappings.set(agent.id, {
           agentId: agent.id,
@@ -800,7 +830,7 @@ export class ConversationEnhancementService extends EventEmitter {
       try {
         const agent = await this.databaseService.findById(AgentEntity, agentId);
         if (agent) {
-          agents.push(agent as any);
+          agents.push(agent as Agent);
         }
       } catch (error) {
         logger.warn('Failed to get agent for enhancement', { agentId, error });
@@ -812,7 +842,7 @@ export class ConversationEnhancementService extends EventEmitter {
   public async getAgentById(agentId: string): Promise<Agent | null> {
     try {
       const agent = await this.databaseService.findById(AgentEntity, agentId);
-      return agent as any;
+      return agent as Agent | null;
     } catch (error) {
       logger.error('Failed to get agent by ID', { agentId, error });
       return null;
@@ -826,7 +856,7 @@ export class ConversationEnhancementService extends EventEmitter {
   private async getDiscussionData(discussionId: string): Promise<Discussion | null> {
     try {
       const discussion = await this.databaseService.findById(DiscussionEntity, discussionId);
-      return discussion as any;
+      return discussion as Discussion | null;
     } catch (error) {
       logger.error('Failed to get discussion data', { error, discussionId });
       return null;
@@ -838,7 +868,11 @@ export class ConversationEnhancementService extends EventEmitter {
   ): Promise<MessageHistoryItem[]> {
     try {
       // Get discussion with participants
-      const fullDiscussion = await this.databaseService.findById(DiscussionEntity, discussion.id) as any;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO: migrate discussion hydration to typed repository return models
+      const fullDiscussion = (await this.databaseService.findById(
+        DiscussionEntity,
+        discussion.id
+      )) as any;
       const participantMap = new Map();
 
       if (fullDiscussion && fullDiscussion.participants) {
@@ -846,7 +880,10 @@ export class ConversationEnhancementService extends EventEmitter {
           try {
             // Try to get agent name first
             if (participant.agentId) {
-              const agent = await this.databaseService.findById(AgentEntity, participant.agentId) as any;
+              const agent = (await this.databaseService.findById(
+                AgentEntity,
+                participant.agentId
+              )) as Agent | null;
               if (agent) {
                 participantMap.set(participant.id, agent.name);
                 continue;
@@ -855,7 +892,10 @@ export class ConversationEnhancementService extends EventEmitter {
 
             // Fallback to user name if available
             if (participant.userId) {
-              const user = (await this.databaseService.findById(UserEntity, participant.userId)) as any;
+              const user = (await this.databaseService.findById(
+                UserEntity,
+                participant.userId
+              )) as UserEntity | null;
               if (user && (user.username || user.email)) {
                 participantMap.set(participant.id, user.username || user.email);
                 continue;
@@ -902,9 +942,9 @@ export class ConversationEnhancementService extends EventEmitter {
       const { agentId } = event;
 
       // Reload personas for updated agent
-      const agent = await this.databaseService.findById(AgentEntity, agentId) as any;
+      const agent = (await this.databaseService.findById(AgentEntity, agentId)) as Agent | null;
       if (agent) {
-        const personas = await this.createPersonasFromAgent(agent as any);
+        const personas = await this.createPersonasFromAgent(agent);
         this.agentPersonaMappings.set(agentId, {
           agentId,
           personas,
