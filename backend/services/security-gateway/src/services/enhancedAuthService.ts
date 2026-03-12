@@ -702,11 +702,22 @@ export class EnhancedAuthService {
   }
 
   private isLocationTrusted(user: EnhancedUser, session: Session): boolean {
-    return false; // TODO: Implement location trust logic
+    if (!session.ipAddress) return false;
+    const trustedDevices = user.securityPreferences?.trustedDevices ?? [];
+    const now = new Date();
+    return trustedDevices.some(
+      (device) =>
+        device.ipAddress === session.ipAddress && (!device.expiresAt || device.expiresAt > now)
+    );
   }
 
   private async getAgentConnectedProviders(agentId: string): Promise<any[]> {
-    return []; // TODO: Get connected OAuth providers for agent
+    try {
+      return await this.oauthProviderService.getAgentConnections(agentId);
+    } catch (error) {
+      logger.warn('Failed to get agent connected providers', { agentId, error });
+      return [];
+    }
   }
 
   private generateSessionToken(): string {
@@ -714,8 +725,12 @@ export class EnhancedAuthService {
   }
 
   private verifyTOTPResponse(response: string, challenge: string): boolean {
-    // TODO: Implement TOTP verification using speakeasy
-    return response === challenge;
+    return speakeasy.totp.verify({
+      secret: challenge,
+      encoding: 'base32',
+      token: response,
+      window: 1,
+    });
   }
 
   private async encryptChallenge(challenge: string): Promise<string> {
