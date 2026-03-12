@@ -20,7 +20,7 @@ export {
   testJWTToken,
   validateJWTToken,
 } from './authMiddleware.js';
-export type { UserContext } from './authMiddleware.js';
+export type { UserContext, AuthedContext, OptionalAuthContext } from './authMiddleware.js';
 
 // Request validation middleware exports
 export {

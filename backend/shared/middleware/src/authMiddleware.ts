@@ -6,6 +6,28 @@ import { JWTValidator } from './JWTValidator.js';
 
 export type { UserContext };
 
+// Context type for Elysia route handlers where withRequiredAuth has been applied
+export type AuthedContext = {
+  user: UserContext;
+  set: { status: number | string; headers?: Record<string, string> };
+  request: Request;
+  params: Record<string, string>;
+  query: Record<string, string>;
+  body: any;
+  headers: Record<string, string>;
+};
+
+// Context type for Elysia route handlers where withOptionalAuth has been applied
+export type OptionalAuthContext = {
+  user: UserContext | null;
+  set: { status: number | string; headers?: Record<string, string> };
+  request: Request;
+  params: Record<string, string>;
+  query: Record<string, string>;
+  body: any;
+  headers: Record<string, string>;
+};
+
 // Elysia plugin to attach user context from JWT token
 export function attachAuth(app: Elysia): Elysia {
   return app.derive(async ({ headers }) => {
@@ -127,7 +149,9 @@ export function attachNginxAuth(app: Elysia): Elysia {
     logger.debug('attachNginxAuth: checking headers', {
       hasUserId: !!userId,
       userId: userId?.substring(0, 8),
-      headerKeys: Object.keys(headers).filter(k => k.toLowerCase().includes('user') || k.toLowerCase().includes('auth')),
+      headerKeys: Object.keys(headers).filter(
+        (k) => k.toLowerCase().includes('user') || k.toLowerCase().includes('auth')
+      ),
     });
 
     // Validate userId is a proper UUID
