@@ -4,9 +4,9 @@ import { logger } from '@uaip/utils';
 import { UserService } from '@uaip/shared-services';
 import { validateJWTToken } from '@uaip/middleware';
 import { withOptionalAuth, withAdminGuard, withRequiredAuth } from '@uaip/middleware';
+import type { AuthedContext } from '@uaip/middleware';
 import { AuditService } from '../services/auditService.js';
 import { AuditEventType, LLMTaskType, LLMProviderType } from '@uaip/types';
-import type { OptionalAuthContext, RequiredAuthContext } from './types/elysia-context.js';
 
 let userService: UserService | null = null;
 let auditService: AuditService | null = null;
@@ -178,8 +178,7 @@ export function registerUserRoutes(app: any): any {
       // GET /api/v1/users/llm-preferences
       .group('', (g: any) =>
         withRequiredAuth(g)
-            // @ts-expect-error - Elysia middleware injects user, but TypeScript cannot infer through nested groups
-          .get('/llm-preferences', async ({ set, user }) => {
+          .get('/llm-preferences', async ({ set, user }: AuthedContext) => {
             try {
               const { userService } = await getServices();
               const repo = userService.getUserLLMPreferenceRepository();
@@ -192,8 +191,7 @@ export function registerUserRoutes(app: any): any {
           })
 
           // PUT /api/v1/users/llm-preferences
-            // @ts-expect-error - Elysia middleware injects user, but TypeScript cannot infer through nested groups
-          .put('/llm-preferences', async ({ set, user, body }) => {
+          .put('/llm-preferences', async ({ set, user, body }: AuthedContext) => {
             const parsed = updateUserLLMPreferencesSchema.safeParse(body);
             if (!parsed.success) {
               set.status = 400;
@@ -233,8 +231,7 @@ export function registerUserRoutes(app: any): any {
           })
 
           // POST /api/v1/users (admin)
-            // @ts-expect-error - Elysia middleware injects user, but TypeScript cannot infer through nested groups
-          .post('/', async ({ set, body, user }) => {
+          .post('/', async ({ set, body, user }: AuthedContext) => {
             const parsed = createUserSchema.safeParse(body);
             if (!parsed.success) {
               set.status = 400;
