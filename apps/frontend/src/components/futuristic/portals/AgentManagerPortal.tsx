@@ -229,6 +229,8 @@ export const AgentManagerPortal: React.FC<AgentManagerPortalProps> = ({
   const [selectedAgentId, setSelectedAgentId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [filterRole, setFilterRole] = useState('');
+  const [filterStatus, setFilterStatus] = useState('all');
+  const [sortBy, setSortBy] = useState('name');
 
   // Component state
   const [availableModels, setAvailableModels] = useState<ModelOption[]>([]);
@@ -766,13 +768,43 @@ export const AgentManagerPortal: React.FC<AgentManagerPortalProps> = ({
       );
     }
 
-    // Apply role filter
     if (filterRole) {
       filtered = filtered.filter((agent) => agent.role === filterRole);
     }
 
-    return filtered;
-  }, [agents, searchQuery, filterRole]);
+    if (filterStatus !== 'all') {
+      filtered = filtered.filter((agent) => {
+        const status = (agent as unknown as { status?: string }).status ?? 'active';
+        if (filterStatus === 'active') return status === 'active';
+        if (filterStatus === 'inactive') return status !== 'active';
+        if (filterStatus === 'healthy') return status === 'active' || status === 'healthy';
+        if (filterStatus === 'issues') return status === 'error' || status === 'degraded';
+        return true;
+      });
+    }
+
+    const sorted = [...filtered].sort((a, b) => {
+      if (sortBy === 'role') return a.role.localeCompare(b.role);
+      if (sortBy === 'status') {
+        const sa = (a as unknown as { status?: string }).status ?? '';
+        const sb = (b as unknown as { status?: string }).status ?? '';
+        return sa.localeCompare(sb);
+      }
+      if (sortBy === 'created') {
+        const ca = (a as unknown as { createdAt?: string }).createdAt ?? '';
+        const cb = (b as unknown as { createdAt?: string }).createdAt ?? '';
+        return ca.localeCompare(cb);
+      }
+      if (sortBy === 'updated') {
+        const ua = (a as unknown as { updatedAt?: string }).updatedAt ?? '';
+        const ub = (b as unknown as { updatedAt?: string }).updatedAt ?? '';
+        return ub.localeCompare(ua);
+      }
+      return a.name.localeCompare(b.name);
+    });
+
+    return sorted;
+  }, [agents, searchQuery, filterRole, filterStatus, sortBy]);
 
   // Pagination logic
   const totalPages = Math.ceil(filteredAgents.length / itemsPerPage);
@@ -784,7 +816,7 @@ export const AgentManagerPortal: React.FC<AgentManagerPortalProps> = ({
   // Reset page when filters change
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchQuery, filterRole, viewMode]);
+  }, [searchQuery, filterRole, filterStatus, sortBy, viewMode]);
 
   const renderAgentCard = (agent: AgentState, index: number) => {
     const isSelected = selectedAgentId === agent.id;
@@ -854,7 +886,11 @@ export const AgentManagerPortal: React.FC<AgentManagerPortalProps> = ({
           ${isSelected ? 'ring-1 ring-blue-400 bg-blue-500/5 border-blue-400' : ''}
         `}
         onClick={() => {
-          window.dispatchEvent(new CustomEvent('openAgentChat', { detail: { agentId: agent.id, agentName: agent.name } }));
+          window.dispatchEvent(
+            new CustomEvent('openAgentChat', {
+              detail: { agentId: agent.id, agentName: agent.name },
+            })
+          );
         }}
         whileHover={{ scale: viewMode === 'grid' ? 1.02 : 1.01 }}
       >
@@ -1378,10 +1414,8 @@ export const AgentManagerPortal: React.FC<AgentManagerPortalProps> = ({
         {/* Status Filter */}
         <div className="relative">
           <select
-            value={viewMode === 'grid' ? 'active' : 'all'}
-            onChange={(e) => {
-              // TODO: Implement status filtering
-            }}
+            value={filterStatus}
+            onChange={(e) => setFilterStatus(e.target.value)}
             className="pl-3 pr-10 py-3 bg-slate-800/50 border border-slate-700/50 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all duration-200 appearance-none min-w-[120px] shadow-sm"
           >
             <option value="all">All Status</option>
@@ -1411,10 +1445,8 @@ export const AgentManagerPortal: React.FC<AgentManagerPortalProps> = ({
         {/* Sort Options */}
         <div className="relative">
           <select
-            value="name"
-            onChange={(e) => {
-              // TODO: Implement sorting
-            }}
+            value={sortBy}
+            onChange={(e) => setSortBy(e.target.value)}
             className="pl-3 pr-10 py-3 bg-slate-800/50 border border-slate-700/50 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all duration-200 appearance-none min-w-[140px] shadow-sm"
           >
             <option value="name">Sort by Name</option>
