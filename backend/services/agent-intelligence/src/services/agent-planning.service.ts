@@ -10,7 +10,6 @@ import { DatabaseService } from '@uaip/infra/database';
 import { EventBusService } from '@uaip/infra/eventBus';
 import { AgentIntelligenceStore } from './agent-intelligence-store.js';
 import { KnowledgeGraphService } from '@/knowledge-graph/knowledge-graph.service';
-import { v4 as uuidv4 } from 'uuid';
 
 export interface AgentPlanningConfig {
   databaseService: DatabaseService;
@@ -18,6 +17,14 @@ export interface AgentPlanningConfig {
   knowledgeGraphService?: KnowledgeGraphService;
   serviceName: string;
   securityLevel: number;
+}
+
+interface PlanStep {
+  id: string;
+  type: string;
+  description: string;
+  estimatedDuration?: number;
+  required?: boolean;
 }
 
 export class AgentPlanningService {
@@ -77,22 +84,31 @@ export class AgentPlanningService {
     try {
       logger.info('Generating enhanced execution plan', { agentId: agent.id });
 
+      const successfulEpisodeContext = await this.getSuccessfulEpisodeContext(agent.id, analysis);
+      const enhancedAnalysis = {
+        ...analysis,
+        planningContext: [
+          ...((analysis?.planningContext as string[] | undefined) || []),
+          ...successfulEpisodeContext,
+        ],
+      };
+
       // Get relevant knowledge for plan generation
       const planningKnowledge = this.knowledgeGraphService
         ? await this.searchRelevantKnowledge(
             agent.id,
-            `execution planning ${analysis?.intent?.primary}`,
-            analysis
+            `execution planning ${enhancedAnalysis?.intent?.primary}`,
+            enhancedAnalysis
           )
         : [];
 
       // Determine plan type based on enhanced analysis
-      const planType = this.determinePlanType(analysis);
+      const planType = this.determinePlanType(enhancedAnalysis);
 
       // Generate enhanced plan steps with knowledge integration
       const steps = await this.generateEnhancedPlanSteps(
         agent,
-        analysis,
+        enhancedAnalysis,
         planType,
         planningKnowledge
       );
@@ -133,7 +149,7 @@ export class AgentPlanningService {
 
       // Store plan in database and knowledge graph
       await this.storePlan(plan);
-      await this.storePlanKnowledge(agent.id, plan, analysis);
+      await this.storePlanKnowledge(agent.id, plan, enhancedAnalysis);
 
       // Publish plan generated event
       await this.publishPlanningEvent('agent.plan.generated', {
@@ -148,8 +164,10 @@ export class AgentPlanningService {
       this.auditLog('PLAN_GENERATED', {
         agentId: agent.id,
         planId: plan.id,
-        planType,
-        stepsCount: steps.length,
+        planSteps: plan.steps.length,
+        intent: analysis?.intent?.primary || this.extractPlanIntent(plan),
+        planJson: JSON.stringify(plan),
+        timestamp: new Date(),
       });
 
       return plan;
@@ -157,6 +175,60 @@ export class AgentPlanningService {
       logger.error('Failed to generate execution plan', { error, agentId: agent.id });
       throw error;
     }
+  }
+
+  private async getSuccessfulEpisodeContext(agentId: string, analysis: any): Promise<string[]> {
+    if (!this.knowledgeGraphService) {
+      return [];
+    }
+
+    const query = analysis?.intent?.primary || analysis?.intent?.description || 'general planning';
+    const similarEpisodesResult = await this.knowledgeGraphService.search({
+      query: `similar situation: ${query}`,
+      filters: {
+        tags: [`agent-${agentId}`, 'agent-memory'],
+        types: [KnowledgeType.EPISODIC],
+      },
+      options: {
+        limit: 3,
+        similarityThreshold: 0.7,
+      },
+      timestamp: Date.now(),
+    });
+
+    const similarEpisodes = similarEpisodesResult.items;
+
+    return similarEpisodes
+      .filter((episode) => this.isSuccessfulEpisode(episode))
+      .slice(0, 3)
+      .map((episode) => `Similar past success: ${this.summarizeEpisode(episode)}`);
+  }
+
+  private isSuccessfulEpisode(episode: any): boolean {
+    if (episode?.outcome === 'success') {
+      return true;
+    }
+
+    if (typeof episode?.significance?.success === 'number' && episode.significance.success >= 0.6) {
+      return true;
+    }
+
+    const outcomeDescriptions = (episode?.experience?.outcomes || [])
+      .map((outcome: any) => String(outcome?.description || outcome || '').toLowerCase())
+      .filter(Boolean);
+
+    return outcomeDescriptions.some((description: string) =>
+      ['success', 'resolved', 'completed', 'achieved'].some((token) => description.includes(token))
+    );
+  }
+
+  private summarizeEpisode(episode: any): string {
+    return (
+      episode?.summary ||
+      episode?.context?.what ||
+      episode?.experience?.outcomes?.[0]?.description ||
+      'successful prior execution'
+    );
   }
 
   /**
@@ -428,6 +500,120 @@ export class AgentPlanningService {
     }
   }
 
+  validatePlanResult(originalIntent: string, toolOutput: any, planStep: PlanStep): boolean {
+    if (toolOutput === null || toolOutput === undefined) {
+      return false;
+    }
+
+    if (
+      toolOutput?.success === false ||
+      toolOutput?.error ||
+      toolOutput?.status === 'failed' ||
+      toolOutput?.status === 'error'
+    ) {
+      return false;
+    }
+
+    const outputText =
+      typeof toolOutput === 'string'
+        ? toolOutput.toLowerCase()
+        : JSON.stringify(toolOutput).toLowerCase();
+
+    if (/\berror\b|\bfailed\b|\bexception\b|\btimeout\b|\binvalid\b/.test(outputText)) {
+      return false;
+    }
+
+    const normalizedIntent = (originalIntent || '').toLowerCase();
+    const intentKeywords: Record<string, string[]> = {
+      creation: ['create', 'generate', 'artifact', 'build', 'draft'],
+      create: ['create', 'generate', 'artifact', 'build', 'draft'],
+      analysis: ['analyze', 'analysis', 'insight', 'evaluate', 'assess'],
+      analyze: ['analyze', 'analysis', 'insight', 'evaluate', 'assess'],
+      modification: ['modify', 'change', 'update', 'patch', 'edit'],
+      retrieval: ['search', 'find', 'retrieve', 'lookup', 'query'],
+    };
+
+    const expectedKeywords = intentKeywords[normalizedIntent] || [];
+    const matchesIntent = expectedKeywords.some((keyword) => outputText.includes(keyword));
+
+    const stepTerms = [planStep.type, ...planStep.description.split(/\s+/)]
+      .map((term) => term.toLowerCase())
+      .filter((term) => term.length > 3);
+    const matchesStep = stepTerms.some((term) => outputText.includes(term));
+
+    return matchesIntent || matchesStep || toolOutput?.success === true || !!toolOutput?.result;
+  }
+
+  async executePlanWithSelfCorrection(
+    plan: ExecutionPlan,
+    originalIntent: string,
+    context: any
+  ): Promise<Array<{ stepId: string; output: any }>> {
+    const executionResults: Array<{ stepId: string; output: any }> = [];
+
+    for (const rawStep of plan.steps || []) {
+      const step: PlanStep = {
+        id: rawStep.id,
+        type: rawStep.type,
+        description: rawStep.description,
+        estimatedDuration: rawStep.estimatedDuration,
+        required: rawStep.required,
+      };
+
+      let output = await this.executePlanStep(step, context);
+      const isValid = this.validatePlanResult(originalIntent, output, step);
+
+      if (!isValid) {
+        const retryResult = await this.executePlanStep(step, {
+          ...context,
+          retryAttempt: 1,
+          previousOutput: output,
+        });
+
+        logger.info('Self-correction triggered', {
+          step,
+          originalOutput: output,
+          retryResult,
+        });
+
+        output = retryResult;
+      }
+
+      executionResults.push({
+        stepId: step.id,
+        output,
+      });
+    }
+
+    return executionResults;
+  }
+
+  private async executePlanStep(step: PlanStep, context: any): Promise<any> {
+    const parameters = {
+      stepId: step.id,
+      stepType: step.type,
+      description: step.description,
+      context,
+    };
+
+    if (['execution', 'generation', 'analysis', 'retrieval'].includes(step.type)) {
+      return this.eventBusService.request('agent.tool.execute', {
+        planStep: step,
+        parameters,
+      });
+    }
+
+    return {
+      success: true,
+      stepId: step.id,
+      status: 'completed',
+      result: {
+        skippedExecution: true,
+        reason: 'no_tool_execution_required',
+      },
+    };
+  }
+
   /**
    * Store plan in database and knowledge graph
    */
@@ -498,6 +684,26 @@ Based on Analysis: ${analysis.intent?.primary}`,
         userPreferences,
         securityContext
       );
+
+      if (analysis?.executeImmediately) {
+        const executionResults = await this.executePlanWithSelfCorrection(
+          plan,
+          analysis?.intent?.primary || 'general_assistance',
+          {
+            agentId: agent?.id,
+            analysis,
+            userPreferences,
+            securityContext,
+          }
+        );
+
+        await this.publishPlanningEvent('agent.plan.executed', {
+          agentId: agent?.id,
+          planId: plan.id,
+          executedSteps: executionResults.length,
+        });
+      }
+
       await this.respondToRequest(requestId, { success: true, data: plan });
     } catch (error) {
       await this.respondToRequest(requestId, { success: false, error: error.message });
@@ -518,8 +724,25 @@ Based on Analysis: ${analysis.intent?.primary}`,
     const { requestId, plan } = event;
     try {
       await this.storePlan(plan);
+      this.auditLog('EXECUTED_SUCCESSFULLY', {
+        agentId: plan.agentId,
+        planId: plan.id,
+        planSteps: plan.steps?.length || 0,
+        intent: this.extractPlanIntent(plan),
+        planJson: JSON.stringify(plan),
+        timestamp: new Date(),
+      });
       await this.respondToRequest(requestId, { success: true });
     } catch (error) {
+      this.auditLog('EXECUTION_FAILED', {
+        agentId: plan?.agentId,
+        planId: plan?.id,
+        planSteps: plan?.steps?.length || 0,
+        intent: this.extractPlanIntent(plan),
+        planJson: plan ? JSON.stringify(plan) : undefined,
+        error: error instanceof Error ? error.message : 'Unknown error',
+        timestamp: new Date(),
+      });
       await this.respondToRequest(requestId, { success: false, error: error.message });
     }
   }
@@ -601,6 +824,18 @@ Based on Analysis: ${analysis.intent?.primary}`,
       ...response,
       timestamp: new Date().toISOString(),
     });
+  }
+
+  private extractPlanIntent(plan: ExecutionPlan | { type?: string } | undefined): string {
+    if (!plan) {
+      return 'unknown';
+    }
+
+    if ('intent' in plan && typeof (plan as { intent?: unknown }).intent === 'string') {
+      return (plan as { intent: string }).intent;
+    }
+
+    return plan.type || 'unknown';
   }
 
   private auditLog(event: string, data: any): void {

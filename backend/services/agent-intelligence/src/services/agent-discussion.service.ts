@@ -103,7 +103,7 @@ export class AgentDiscussionService {
       const ds = typeormService.getDataSource();
       if (ds) {
         const { getKnowledgeGraphService } = await import('@uaip/shared-services');
-        const kgs = await getKnowledgeGraphService() as any;
+        const kgs = (await getKnowledgeGraphService()) as any;
         if (kgs?.vectorDb && kgs?.embeddings) {
           this.qmdSearchService = new QmdSearchService(ds, kgs.vectorDb, kgs.embeddings);
           logger.info('QmdSearchService initialized for hybrid BM25+vector memory search');
@@ -112,7 +112,9 @@ export class AgentDiscussionService {
         logger.info('MacrodataMemoryService initialized for layered agent memory');
       }
     } catch (err) {
-      logger.warn('QMD/Macrodata init skipped (non-fatal)', { error: err instanceof Error ? err.message : String(err) });
+      logger.warn('QMD/Macrodata init skipped (non-fatal)', {
+        error: err instanceof Error ? err.message : String(err),
+      });
     }
 
     logger.info('Agent Discussion Service initialized', {
@@ -352,12 +354,30 @@ export class AgentDiscussionService {
           const existingIds = new Set(contextualKnowledge.map((k: any) => k.id));
           for (const qr of qmdResults) {
             if (!existingIds.has(qr.id)) {
-              contextualKnowledge.push({ id: qr.id, content: qr.content, tags: qr.tags, confidence: qr.confidence, type: KnowledgeType.FACTUAL, sourceType: SourceType.AGENT_INTERACTION, sourceIdentifier: 'qmd-search', metadata: {}, createdAt: new Date(), updatedAt: new Date(), accessLevel: 'standard' });
+              contextualKnowledge.push({
+                id: qr.id,
+                content: qr.content,
+                tags: qr.tags,
+                confidence: qr.confidence,
+                type: KnowledgeType.FACTUAL,
+                sourceType: SourceType.AGENT_INTERACTION,
+                sourceIdentifier: 'qmd-search',
+                metadata: {},
+                createdAt: new Date(),
+                updatedAt: new Date(),
+                accessLevel: 'standard',
+              });
             }
           }
-          logger.info('QMD hybrid search enriched knowledge', { added: qmdResults.length, total: contextualKnowledge.length, agentId });
+          logger.info('QMD hybrid search enriched knowledge', {
+            added: qmdResults.length,
+            total: contextualKnowledge.length,
+            agentId,
+          });
         } catch (qmdErr) {
-          logger.warn('QMD search failed (non-fatal)', { error: qmdErr instanceof Error ? qmdErr.message : String(qmdErr) });
+          logger.warn('QMD search failed (non-fatal)', {
+            error: qmdErr instanceof Error ? qmdErr.message : String(qmdErr),
+          });
         }
       }
 
@@ -378,16 +398,31 @@ export class AgentDiscussionService {
           const existingIds = new Set(contextualKnowledge.map((k: any) => k.id));
           for (const t of macroCtx.topics) {
             if (t.content && !existingIds.has(t.content.slice(0, 30))) {
-              contextualKnowledge.push({ id: t.content.slice(0, 30), content: t.content, tags: t.tags, confidence: t.relevanceScore, type: KnowledgeType.EPISODIC, sourceType: SourceType.AGENT_EPISODE, sourceIdentifier: 'macrodata', metadata: {}, createdAt: new Date(), updatedAt: new Date(), accessLevel: 'standard' });
+              contextualKnowledge.push({
+                id: t.content.slice(0, 30),
+                content: t.content,
+                tags: t.tags,
+                confidence: t.relevanceScore,
+                type: KnowledgeType.EPISODIC,
+                sourceType: SourceType.AGENT_EPISODE,
+                sourceIdentifier: 'macrodata',
+                metadata: {},
+                createdAt: new Date(),
+                updatedAt: new Date(),
+                accessLevel: 'standard',
+              });
             }
           }
           // Trigger background distillation when session has enough history
           if (conversationHistory.length >= 6) {
-            this.macrodataMemoryService.distillEpisodes(agentId, userId, macroCtx.journal)
+            this.macrodataMemoryService
+              .distillEpisodes(agentId, userId, macroCtx.journal)
               .catch(() => {}); // fire and forget
           }
         } catch (macroErr) {
-          logger.warn('Macrodata memory failed (non-fatal)', { error: macroErr instanceof Error ? macroErr.message : String(macroErr) });
+          logger.warn('Macrodata memory failed (non-fatal)', {
+            error: macroErr instanceof Error ? macroErr.message : String(macroErr),
+          });
         }
       }
 
@@ -719,7 +754,8 @@ export class AgentDiscussionService {
       // If LLM returned an error, skip error-injected content entirely
       let responseContent: string | undefined;
       if (!llmResponse.error) {
-        responseContent = llmResponse.content || llmResponse?.response || llmResponse?.message || llmResponse?.text;
+        responseContent =
+          llmResponse.content || llmResponse?.response || llmResponse?.message || llmResponse?.text;
       }
       responseContent = this.sanitizeGeneratedContent(responseContent);
 
@@ -1261,6 +1297,16 @@ export class AgentDiscussionService {
       const participant = discussion?.participants?.find((p: any) => p.agentId === agentId);
 
       if (participant && result.response) {
+        const relevanceScore = this.calculateTurnRelevanceScore(
+          discussionContext?.topic,
+          participationPrompt,
+          discussionContext?.relevanceScore
+        );
+
+        if (relevanceScore >= 0.8) {
+          await this.requestPriorityTurn(discussionId, participant.id, relevanceScore);
+        }
+
         // Send the generated response back to the discussion orchestration
         await this.eventBusService.publish('discussion.agent.message', {
           discussionId,
@@ -1819,6 +1865,76 @@ Reasoning: ${reasoning.join('; ')}`,
     }
   }
 
+  private calculateTurnRelevanceScore(
+    topic?: string,
+    prompt?: string,
+    existingScore?: number
+  ): number {
+    if (typeof existingScore === 'number') {
+      return Math.max(0, Math.min(1, existingScore));
+    }
+
+    if (!topic || !prompt) {
+      return 0;
+    }
+
+    const topicKeywords = topic
+      .toLowerCase()
+      .split(/\s+/)
+      .map((keyword) => keyword.trim())
+      .filter((keyword) => keyword.length > 2);
+    if (topicKeywords.length === 0) {
+      return 0;
+    }
+
+    const normalizedPrompt = prompt.toLowerCase();
+    const matchedKeywords = topicKeywords.filter((keyword) => normalizedPrompt.includes(keyword));
+    return Math.min(1, matchedKeywords.length / topicKeywords.length);
+  }
+
+  private async requestPriorityTurn(
+    discussionId: string,
+    participantId: string,
+    relevanceScore: number
+  ): Promise<void> {
+    const discussionOrchestrationBaseUrl =
+      process.env.DISCUSSION_ORCHESTRATION_URL ||
+      process.env.DISCUSSION_ORCHESTRATION_BASE_URL ||
+      'http://discussion-orchestration:3005';
+
+    try {
+      const response = await fetch(
+        `${discussionOrchestrationBaseUrl}/api/v1/discussions/${discussionId}/turns/request`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            participantId,
+            relevanceScore,
+          }),
+        }
+      );
+
+      if (!response.ok) {
+        logger.warn('Priority turn request HTTP call returned non-OK response', {
+          discussionId,
+          participantId,
+          relevanceScore,
+          status: response.status,
+        });
+      }
+    } catch (error) {
+      logger.warn('Failed to request priority turn over HTTP', {
+        discussionId,
+        participantId,
+        relevanceScore,
+        error: error instanceof Error ? error.message : 'Unknown error',
+      });
+    }
+  }
+
   /**
    * Generate chat response using LLM
    */
@@ -1908,7 +2024,11 @@ Reasoning: ${reasoning.join('; ')}`,
       // If LLM returned an error, skip error-injected content entirely
       let responseContent: string | undefined;
       if (!llmResponse?.error) {
-        responseContent = llmResponse?.content || llmResponse?.response || llmResponse?.message || llmResponse?.text;
+        responseContent =
+          llmResponse?.content ||
+          llmResponse?.response ||
+          llmResponse?.message ||
+          llmResponse?.text;
       }
       responseContent = this.sanitizeGeneratedContent(responseContent);
 
