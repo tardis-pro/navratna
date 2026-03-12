@@ -24,10 +24,23 @@ interface OAuthProviderConfig {
   webhookSupport?: boolean;
 }
 
+interface OAuthTokenInfo {
+  accessToken: string;
+  refreshToken?: string;
+  expiresAt?: string;
+  scope?: string[];
+  tokenType?: string;
+}
+
+interface OAuthProviderConnection extends OAuthProviderConfig {
+  userId: string;
+  tokenInfo?: OAuthTokenInfo;
+}
+
 export class OAuthCapabilityDiscovery {
   private static instance: OAuthCapabilityDiscovery;
   private eventBusService?: EventBusService;
-  private connectedProviders = new Map<string, OAuthProviderConfig>();
+  private connectedProviders = new Map<string, OAuthProviderConnection>();
 
   // GitHub OAuth capabilities
   private githubCapabilities: OAuthCapability[] = [
@@ -312,6 +325,8 @@ export class OAuthCapabilityDiscovery {
           capabilities,
           authScopes: scopes || [],
           webhookSupport: this.supportsWebhooks(provider),
+          userId,
+          tokenInfo: this.normalizeTokenInfo(tokenInfo),
         });
 
         // Publish capabilities discovered event
@@ -442,11 +457,99 @@ export class OAuthCapabilityDiscovery {
 
   // Get all connected providers and their capabilities
   getConnectedProviders(): Map<string, OAuthProviderConfig> {
-    return new Map(this.connectedProviders);
+    const providers = new Map<string, OAuthProviderConfig>();
+    for (const [connectionId, connection] of this.connectedProviders.entries()) {
+      providers.set(connectionId, {
+        name: connection.name,
+        baseUrl: connection.baseUrl,
+        capabilities: connection.capabilities,
+        authScopes: connection.authScopes,
+        webhookSupport: connection.webhookSupport,
+      });
+    }
+    return providers;
+  }
+
+  getProviderToken(provider: string, userId?: string): OAuthTokenInfo | null {
+    if (userId) {
+      const connection = this.connectedProviders.get(`${provider}-${userId}`);
+      return connection?.tokenInfo || null;
+    }
+
+    for (const connection of this.connectedProviders.values()) {
+      if (connection.name.toLowerCase() === provider.toLowerCase() && connection.tokenInfo) {
+        return connection.tokenInfo;
+      }
+    }
+
+    return null;
+  }
+
+  getProviderConnectionByName(provider: string, userId?: string): OAuthProviderConnection | null {
+    if (userId) {
+      return this.connectedProviders.get(`${provider}-${userId}`) || null;
+    }
+
+    for (const connection of this.connectedProviders.values()) {
+      if (connection.name.toLowerCase() === provider.toLowerCase()) {
+        return connection;
+      }
+    }
+
+    return null;
   }
 
   // Get capabilities for a specific provider connection
   getProviderConnection(provider: string, userId: string): OAuthProviderConfig | null {
     return this.connectedProviders.get(`${provider}-${userId}`) || null;
+  }
+
+  private normalizeTokenInfo(tokenInfo: unknown): OAuthTokenInfo | undefined {
+    if (!tokenInfo || typeof tokenInfo !== 'object') {
+      return undefined;
+    }
+
+    const tokenData = tokenInfo as Record<string, unknown>;
+    const accessToken = tokenData.accessToken || tokenData.access_token;
+    if (typeof accessToken !== 'string' || accessToken.length === 0) {
+      return undefined;
+    }
+
+    const scopeValue = tokenData.scope;
+    const scope =
+      Array.isArray(scopeValue) && scopeValue.every((entry) => typeof entry === 'string')
+        ? (scopeValue as string[])
+        : typeof scopeValue === 'string'
+          ? scopeValue.split(' ').filter((entry) => entry.length > 0)
+          : undefined;
+
+    const refreshToken =
+      typeof tokenData.refreshToken === 'string'
+        ? tokenData.refreshToken
+        : typeof tokenData.refresh_token === 'string'
+          ? tokenData.refresh_token
+          : undefined;
+
+    const expiresAt =
+      typeof tokenData.expiresAt === 'string'
+        ? tokenData.expiresAt
+        : typeof tokenData.expires_at === 'string'
+          ? tokenData.expires_at
+          : undefined;
+
+    const tokenType =
+      typeof tokenData.tokenType === 'string'
+        ? tokenData.tokenType
+        : typeof tokenData.token_type === 'string'
+          ? tokenData.token_type
+          : undefined;
+
+    return {
+      accessToken,
+      refreshToken,
+      expiresAt,
+      scope,
+      tokenType,
+    };
   }
 }

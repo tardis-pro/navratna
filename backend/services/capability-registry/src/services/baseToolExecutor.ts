@@ -3,6 +3,17 @@
 // Part of capability-registry microservice
 
 import { logger } from '@uaip/utils';
+import { OAuthCapabilityDiscovery } from './oauthCapabilityDiscovery.js';
+import { SlackAdapter } from '../adapters/slack-adapter.js';
+import { JiraAdapter } from '../adapters/jira-adapter.js';
+import { ConfluenceAdapter } from '../adapters/confluence-adapter.js';
+import type { ToolDefinition } from './enterprise-tool-registry.js';
+
+interface OAuthTokenInfo {
+  accessToken: string;
+  refreshToken?: string;
+  expiresAt?: string;
+}
 
 export class BaseToolExecutor {
   async execute(toolId: string, parameters: Record<string, any>): Promise<any> {
@@ -592,20 +603,33 @@ export class BaseToolExecutor {
       const provider = parts[1]; // e.g., 'github'
       const action = parts.slice(2).join('-'); // e.g., 'list-repos'
 
-      // TODO: Implement OAuth provider execution
-      // This would typically call the specific OAuth provider's API
-      // For now, return a placeholder response
+      const oauthDiscovery = OAuthCapabilityDiscovery.getInstance();
+      const userId =
+        typeof parameters?.userId === 'string' && parameters.userId.length > 0
+          ? parameters.userId
+          : undefined;
+
+      const tokenInfo = oauthDiscovery.getProviderToken(provider, userId);
+      if (!tokenInfo?.accessToken) {
+        return {
+          toolId,
+          provider,
+          action,
+          protocol: 'oauth',
+          executionTime: Date.now(),
+          success: false,
+          error: `No OAuth token found for provider: ${provider}`,
+        };
+      }
+
+      const result = await this.executeOAuthProviderAction(provider, action, parameters, tokenInfo);
 
       return {
         toolId,
         provider,
         action,
         parameters,
-        result: {
-          message: `OAuth ${provider} ${action} executed successfully`,
-          data: parameters,
-          placeholder: true,
-        },
+        result,
         protocol: 'oauth',
         executionTime: Date.now(),
         success: true,
@@ -614,5 +638,204 @@ export class BaseToolExecutor {
       logger.error(`OAuth tool execution failed for ${toolId}:`, error);
       throw new Error(`OAuth execution failed: ${error.message}`);
     }
+  }
+
+  private async executeOAuthProviderAction(
+    provider: string,
+    action: string,
+    parameters: Record<string, unknown>,
+    tokenInfo: OAuthTokenInfo
+  ): Promise<unknown> {
+    const normalizedProvider = provider.toLowerCase();
+
+    switch (normalizedProvider) {
+      case 'github':
+        return this.executeGitHubOAuthAction(action, parameters, tokenInfo.accessToken);
+      case 'slack': {
+        const adapter = new SlackAdapter(this.createOAuthToolDefinition('slack'));
+        adapter.setTokens(tokenInfo.accessToken, tokenInfo.refreshToken || '', 3600);
+        return this.executeSlackAction(adapter, action, parameters);
+      }
+      case 'jira': {
+        const adapter = new JiraAdapter(this.createOAuthToolDefinition('jira'));
+        adapter.setTokens(tokenInfo.accessToken, tokenInfo.refreshToken, tokenInfo.expiresAt);
+        return adapter.execute(this.toCamelCase(action), parameters);
+      }
+      case 'confluence': {
+        const adapter = new ConfluenceAdapter(this.createOAuthToolDefinition('confluence'));
+        adapter.setTokens(tokenInfo.accessToken, tokenInfo.refreshToken, tokenInfo.expiresAt);
+        return adapter.execute(this.toCamelCase(action), parameters);
+      }
+      default:
+        throw new Error(`Unsupported OAuth provider: ${provider}`);
+    }
+  }
+
+  private async executeGitHubOAuthAction(
+    action: string,
+    parameters: Record<string, unknown>,
+    accessToken: string
+  ): Promise<unknown> {
+    const headers = {
+      Authorization: `Bearer ${accessToken}`,
+      Accept: 'application/vnd.github+json',
+      'Content-Type': 'application/json',
+      'X-GitHub-Api-Version': '2022-11-28',
+    };
+
+    let url = '';
+    let method: 'GET' | 'POST' = 'GET';
+    let body: Record<string, unknown> | undefined;
+
+    switch (action) {
+      case 'list-repos': {
+        const query = new URLSearchParams({
+          type: String(parameters.type ?? 'all'),
+          sort: String(parameters.sort ?? 'updated'),
+          per_page: String(parameters.per_page ?? 30),
+        });
+        url = `https://api.github.com/user/repos?${query.toString()}`;
+        break;
+      }
+      case 'create-repo':
+        url = 'https://api.github.com/user/repos';
+        method = 'POST';
+        body = {
+          name: parameters.name,
+          description: parameters.description,
+          private: parameters.private ?? false,
+          auto_init: parameters.auto_init ?? false,
+        };
+        break;
+      case 'list-issues': {
+        const owner = this.requiredString(parameters.owner, 'owner');
+        const repo = this.requiredString(parameters.repo, 'repo');
+        const query = new URLSearchParams({
+          state: String(parameters.state ?? 'open'),
+          per_page: String(parameters.per_page ?? 30),
+        });
+        if (typeof parameters.labels === 'string' && parameters.labels.length > 0) {
+          query.set('labels', parameters.labels);
+        }
+        url = `https://api.github.com/repos/${owner}/${repo}/issues?${query.toString()}`;
+        break;
+      }
+      case 'create-issue': {
+        const owner = this.requiredString(parameters.owner, 'owner');
+        const repo = this.requiredString(parameters.repo, 'repo');
+        const title = this.requiredString(parameters.title, 'title');
+        url = `https://api.github.com/repos/${owner}/${repo}/issues`;
+        method = 'POST';
+        body = {
+          title,
+          body: parameters.body,
+          labels: Array.isArray(parameters.labels) ? parameters.labels : undefined,
+          assignees: Array.isArray(parameters.assignees) ? parameters.assignees : undefined,
+        };
+        break;
+      }
+      case 'list-pull-requests': {
+        const owner = this.requiredString(parameters.owner, 'owner');
+        const repo = this.requiredString(parameters.repo, 'repo');
+        const query = new URLSearchParams({
+          state: String(parameters.state ?? 'open'),
+        });
+        if (typeof parameters.head === 'string' && parameters.head.length > 0) {
+          query.set('head', parameters.head);
+        }
+        if (typeof parameters.base === 'string' && parameters.base.length > 0) {
+          query.set('base', parameters.base);
+        }
+        url = `https://api.github.com/repos/${owner}/${repo}/pulls?${query.toString()}`;
+        break;
+      }
+      case 'get-user':
+        url = 'https://api.github.com/user';
+        break;
+      default:
+        throw new Error(`Unsupported GitHub OAuth action: ${action}`);
+    }
+
+    const response = await fetch(url, {
+      method,
+      headers,
+      body: body ? JSON.stringify(body) : undefined,
+    });
+
+    const responseBody = await response.json();
+    if (!response.ok) {
+      const errorMessage =
+        typeof responseBody?.message === 'string'
+          ? responseBody.message
+          : 'GitHub API request failed';
+      throw new Error(`GitHub API error (${response.status}): ${errorMessage}`);
+    }
+
+    return responseBody;
+  }
+
+  private async executeSlackAction(
+    adapter: SlackAdapter,
+    action: string,
+    parameters: Record<string, unknown>
+  ): Promise<unknown> {
+    switch (action) {
+      case 'send-message': {
+        const channelId = this.requiredString(parameters.channelId, 'channelId');
+        const text = this.requiredString(parameters.text, 'text');
+        return adapter.sendMessage(channelId, text, parameters.options);
+      }
+      case 'list-channels':
+        return adapter.listChannels(parameters);
+      case 'get-channel-info': {
+        const channelId = this.requiredString(parameters.channelId, 'channelId');
+        return adapter.getChannelInfo(channelId);
+      }
+      default:
+        return adapter.executeMethod(action, parameters);
+    }
+  }
+
+  private requiredString(value: unknown, key: string): string {
+    if (typeof value !== 'string' || value.length === 0) {
+      throw new Error(`Missing required OAuth parameter: ${key}`);
+    }
+    return value;
+  }
+
+  private toCamelCase(value: string): string {
+    return value.replace(/-([a-z])/g, (_, letter: string) => letter.toUpperCase());
+  }
+
+  private createOAuthToolDefinition(provider: string): ToolDefinition {
+    return {
+      id: `${provider}_oauth`,
+      name: `${provider} OAuth`,
+      description: `${provider} OAuth adapter execution`,
+      category: 'development',
+      vendor: provider,
+      version: '1.0.0',
+      operations: [],
+      authentication: {
+        type: 'oauth2',
+        config: {
+          tokenUrl: '',
+        },
+      },
+      sandboxing: {
+        enabled: false,
+        executionTimeout: 30000,
+        memoryLimit: 128,
+        networkAccess: 'restricted',
+      },
+      compliance: {
+        dataClassification: 'internal',
+        piiHandling: false,
+        encryptionRequired: true,
+        auditRetention: 30,
+        gdprCompliant: true,
+        hipaaCompliant: false,
+      },
+    };
   }
 }
