@@ -56,6 +56,12 @@ export class JiraAdapter {
     );
   }
 
+  public setTokens(accessToken: string, refreshToken?: string, expiresAt?: string): void {
+    this.accessToken = accessToken;
+    this.refreshToken = refreshToken || null;
+    this.tokenExpiry = expiresAt ? new Date(expiresAt) : null;
+  }
+
   /**
    * Execute a Jira operation
    */
