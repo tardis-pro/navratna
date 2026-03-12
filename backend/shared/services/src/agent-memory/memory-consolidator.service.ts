@@ -1,9 +1,16 @@
 import { ConsolidationResult, WorkingMemory, Episode, SemanticMemory } from '@uaip/types';
+import { logger } from '@uaip/utils';
 import { WorkingMemoryManager } from './working-memory.manager';
 import { EpisodicMemoryManager } from './episodic-memory.manager';
 import { SemanticMemoryManager } from './semantic-memory.manager';
 
 export class MemoryConsolidator {
+  private readonly consolidationQueue: Array<{
+    agentId: string;
+    resolve: (result: ConsolidationResult) => void;
+  }> = [];
+  private processingQueue = false;
+
   constructor(
     private readonly workingMemoryManager: WorkingMemoryManager,
     private readonly episodicMemoryManager: EpisodicMemoryManager,
@@ -11,6 +18,44 @@ export class MemoryConsolidator {
   ) {}
 
   async consolidateMemories(agentId: string): Promise<ConsolidationResult> {
+    return new Promise((resolve) => {
+      this.consolidationQueue.push({ agentId, resolve });
+      this.scheduleConsolidationProcessing();
+    });
+  }
+
+  private scheduleConsolidationProcessing(): void {
+    if (this.processingQueue) {
+      return;
+    }
+
+    setImmediate(() => {
+      void this.processConsolidationQueue();
+    });
+  }
+
+  private async processConsolidationQueue(): Promise<void> {
+    if (this.processingQueue) {
+      return;
+    }
+
+    this.processingQueue = true;
+
+    while (this.consolidationQueue.length > 0) {
+      const next = this.consolidationQueue.shift();
+      if (!next) {
+        continue;
+      }
+
+      const result = await this.runConsolidation(next.agentId);
+      next.resolve(result);
+      await this.yieldToEventLoop();
+    }
+
+    this.processingQueue = false;
+  }
+
+  private async runConsolidation(agentId: string): Promise<ConsolidationResult> {
     try {
       const workingMemory = await this.workingMemoryManager.getWorkingMemory(agentId);
 
@@ -45,10 +90,13 @@ export class MemoryConsolidator {
         connectionsFormed,
       };
     } catch (error) {
-      console.error('Memory consolidation error:', error);
+      logger.error('Memory consolidation error', {
+        agentId,
+        error: error instanceof Error ? error.message : String(error),
+      });
       return {
         consolidated: false,
-        reason: `Consolidation failed: ${error.message}`,
+        reason: `Consolidation failed: ${error instanceof Error ? error.message : String(error)}`,
       };
     }
   }
@@ -68,7 +116,8 @@ export class MemoryConsolidator {
     // Group related interactions into episodes
     const episodeGroups = this.groupInteractionsIntoEpisodes(interactions);
 
-    for (const group of episodeGroups) {
+    for (let i = 0; i < episodeGroups.length; i++) {
+      const group = episodeGroups[i];
       const episode = this.createEpisodeFromInteractions(agentId, group, workingMemory);
 
       if (episode.significance.importance > 0.3) {
@@ -86,6 +135,10 @@ export class MemoryConsolidator {
           episode.connections.similarTo = similarEpisodes.slice(0, 3).map((e) => e.episodeId);
           connectionsFormed += episode.connections.similarTo.length;
         }
+      }
+
+      if (i % 5 === 0) {
+        await this.yieldToEventLoop();
       }
     }
 
@@ -150,6 +203,40 @@ export class MemoryConsolidator {
       }
     }
 
+    const interactionConcepts = this.extractConceptsFromInteractions(
+      workingMemory.shortTermMemory.recentInteractions
+    );
+
+    if (interactionConcepts.length > 0) {
+      logger.info('Concepts extracted', {
+        agentId,
+        concepts: interactionConcepts,
+      });
+    }
+
+    for (const extractedConcept of interactionConcepts) {
+      const existingConcept = await this.semanticMemoryManager.getConcept(
+        agentId,
+        extractedConcept.concept
+      );
+
+      if (existingConcept) {
+        await this.semanticMemoryManager.reinforceConcept(
+          agentId,
+          extractedConcept.concept,
+          extractedConcept.definition
+        );
+        connectionsFormed++;
+      } else {
+        await this.semanticMemoryManager.storeConcept(
+          agentId,
+          extractedConcept.concept,
+          extractedConcept.definition
+        );
+        conceptsLearned++;
+      }
+    }
+
     // Extract concepts from reasoning patterns
     const reasoningConcepts = this.extractConceptsFromReasoning(
       workingMemory.currentContext.activeThoughts.reasoning
@@ -186,9 +273,67 @@ export class MemoryConsolidator {
         await this.semanticMemoryManager.storeConcept(agentId, newConcept);
         conceptsLearned++;
       }
+
+      await this.yieldToEventLoop();
     }
 
     return { conceptsLearned, connectionsFormed };
+  }
+
+  private extractConceptsFromInteractions(
+    interactions: any[]
+  ): Array<{ concept: string; definition: string }> {
+    const extractedConcepts = new Map<string, { concept: string; definition: string }>();
+
+    for (const interaction of interactions) {
+      const textSources = [
+        interaction?.description,
+        interaction?.context?.response,
+        ...(interaction?.outcomes || []).map((outcome: any) => outcome?.description || outcome),
+        ...(interaction?.learnings || []),
+      ]
+        .filter((source) => typeof source === 'string')
+        .map((source) => String(source));
+
+      for (const source of textSources) {
+        this.extractConceptMatches(source, /(.+?)\s+is\s+(.+?)(?:[.;]|$)/gi).forEach(
+          (conceptMatch) => extractedConcepts.set(conceptMatch.concept.toLowerCase(), conceptMatch)
+        );
+        this.extractConceptMatches(source, /(.+?)\s+means\s+(.+?)(?:[.;]|$)/gi).forEach(
+          (conceptMatch) => extractedConcepts.set(conceptMatch.concept.toLowerCase(), conceptMatch)
+        );
+        this.extractConceptMatches(source, /(.+?)\s+relates\s+to\s+(.+?)(?:[.;]|$)/gi).forEach(
+          (conceptMatch) => extractedConcepts.set(conceptMatch.concept.toLowerCase(), conceptMatch)
+        );
+      }
+    }
+
+    return Array.from(extractedConcepts.values());
+  }
+
+  private extractConceptMatches(
+    source: string,
+    pattern: RegExp
+  ): Array<{ concept: string; definition: string }> {
+    const results: Array<{ concept: string; definition: string }> = [];
+    let match: RegExpExecArray | null;
+
+    while ((match = pattern.exec(source)) !== null) {
+      const concept = match[1]?.trim();
+      const rawDefinition = match[2]?.trim();
+
+      if (!concept || !rawDefinition || concept.length > 80) {
+        continue;
+      }
+
+      const definition = pattern.source.includes('relates\\s+to')
+        ? `Related to ${rawDefinition}`
+        : rawDefinition;
+
+      results.push({ concept, definition });
+    }
+
+    return results;
   }
 
   private groupInteractionsIntoEpisodes(interactions: any[]): any[][] {
@@ -381,5 +526,9 @@ export class MemoryConsolidator {
       shortTermMemory: workingMemory.shortTermMemory,
       currentContext: workingMemory.currentContext,
     });
+  }
+
+  private async yieldToEventLoop(): Promise<void> {
+    await new Promise<void>((resolve) => setImmediate(resolve));
   }
 }

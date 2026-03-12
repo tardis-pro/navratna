@@ -1,11 +1,23 @@
 import { SemanticMemory, KnowledgeType, SourceType } from '@uaip/types';
+import { logger } from '@uaip/utils';
 import { KnowledgeGraphService } from '../knowledge-graph/knowledge-graph.service';
 
 export class SemanticMemoryManager {
   constructor(private readonly knowledgeGraph: KnowledgeGraphService) {}
 
-  async storeConcept(agentId: string, concept: SemanticMemory): Promise<void> {
+  async storeConcept(agentId: string, concept: SemanticMemory): Promise<void>;
+  async storeConcept(agentId: string, concept: string, definition: string): Promise<void>;
+  async storeConcept(
+    agentId: string,
+    conceptOrMemory: SemanticMemory | string,
+    definition?: string
+  ): Promise<void> {
     try {
+      const concept =
+        typeof conceptOrMemory === 'string'
+          ? this.createSemanticMemory(agentId, conceptOrMemory, definition || '')
+          : conceptOrMemory;
+
       await this.knowledgeGraph.ingest([
         {
           content: `Concept: ${concept.concept}
@@ -21,12 +33,12 @@ Usage: Accessed ${concept.usage.timesAccessed} times, Success rate: ${concept.us
             'agent-memory',
             `agent-${agentId}`,
             'concept',
-            concept.concept.toLowerCase().replace(/\s+/g, '-'),
+            this.toConceptTag(concept.concept),
             `confidence-${Math.round(concept.confidence * 10)}`,
           ],
           source: {
             type: SourceType.AGENT_CONCEPT,
-            identifier: `${agentId}-concept-${concept.concept}`,
+            identifier: `${agentId}-concept-${this.toConceptTag(concept.concept)}`,
             metadata: {
               agentId,
               concept: concept.concept,
@@ -34,6 +46,7 @@ Usage: Accessed ${concept.usage.timesAccessed} times, Success rate: ${concept.us
               usage: concept.usage,
               knowledge: concept.knowledge,
               sources: concept.sources,
+              collectionType: 'semantic',
             },
           },
           confidence: concept.confidence,
@@ -42,6 +55,66 @@ Usage: Accessed ${concept.usage.timesAccessed} times, Success rate: ${concept.us
     } catch (error) {
       console.error('Concept storage error:', error);
       throw new Error(`Failed to store concept: ${error.message}`);
+    }
+  }
+
+  async storeConceptDefinition(
+    agentId: string,
+    concept: string,
+    definition: string
+  ): Promise<void> {
+    await this.storeConcept(agentId, concept, definition);
+  }
+
+  async pruneMemory(agentId: string, conceptId: string): Promise<void> {
+    try {
+      const conceptItem = await this.findConceptKnowledgeItem(agentId, conceptId);
+      if (!conceptItem) {
+        logger.warn('Concept not found for pruning', { agentId, conceptId });
+        return;
+      }
+
+      await this.knowledgeGraph.deleteKnowledge(conceptItem.id);
+      logger.info('Semantic concept pruned', { agentId, conceptId, itemId: conceptItem.id });
+    } catch (error) {
+      logger.error('Failed to prune semantic memory', {
+        agentId,
+        conceptId,
+        error: error instanceof Error ? error.message : String(error),
+      });
+      throw error;
+    }
+  }
+
+  async downvoteMemory(agentId: string, conceptId: string): Promise<void> {
+    try {
+      const conceptItem = await this.findConceptKnowledgeItem(agentId, conceptId);
+      if (!conceptItem) {
+        logger.warn('Concept not found for downvote', { agentId, conceptId });
+        return;
+      }
+
+      const currentConfidence = Number(conceptItem.confidence || 0.5);
+      const updatedConfidence = Math.max(currentConfidence - 0.1, 0);
+
+      await this.knowledgeGraph.updateKnowledge(conceptItem.id, {
+        confidence: updatedConfidence,
+      });
+
+      logger.info('Semantic concept downvoted', {
+        agentId,
+        conceptId,
+        itemId: conceptItem.id,
+        previousConfidence: currentConfidence,
+        updatedConfidence,
+      });
+    } catch (error) {
+      logger.error('Failed to downvote semantic memory', {
+        agentId,
+        conceptId,
+        error: error instanceof Error ? error.message : String(error),
+      });
+      throw error;
     }
   }
 
@@ -336,5 +409,80 @@ Usage: Accessed ${concept.usage.timesAccessed} times, Success rate: ${concept.us
         contexts: [],
       },
     };
+  }
+
+  private createSemanticMemory(
+    agentId: string,
+    conceptName: string,
+    definition: string
+  ): SemanticMemory {
+    return {
+      agentId,
+      concept: conceptName,
+      knowledge: {
+        definition,
+        properties: {},
+        relationships: [],
+        examples: [],
+        counterExamples: [],
+      },
+      confidence: 0.7,
+      sources: {
+        episodeIds: [],
+        externalSources: ['consolidation'],
+        reinforcements: 1,
+      },
+      usage: {
+        timesAccessed: 1,
+        lastUsed: new Date(),
+        successRate: 1.0,
+        contexts: ['consolidation'],
+      },
+    };
+  }
+
+  private toConceptTag(concept: string): string {
+    return concept
+      .toLowerCase()
+      .trim()
+      .replace(/[^a-z0-9\s-]/g, '')
+      .replace(/\s+/g, '-');
+  }
+
+  private async findConceptKnowledgeItem(agentId: string, conceptId: string): Promise<any | null> {
+    const results = await this.knowledgeGraph.search({
+      query: `concept ${conceptId}`,
+      filters: {
+        tags: [`agent-${agentId}`, 'concept'],
+        types: [KnowledgeType.SEMANTIC],
+      },
+      options: { limit: 25, similarityThreshold: 0.2 },
+      timestamp: Date.now(),
+    });
+
+    const normalizedConceptId = conceptId.toLowerCase();
+    return (
+      results.items.find((item) =>
+        this.matchesConceptIdentifier(item, conceptId, normalizedConceptId)
+      ) || null
+    );
+  }
+
+  private matchesConceptIdentifier(
+    item: any,
+    conceptId: string,
+    normalizedConceptId: string
+  ): boolean {
+    const metadata = item.source?.metadata || item.metadata || {};
+    const metadataConcept = String(metadata.concept || '').toLowerCase();
+    const sourceIdentifier = String(item.source?.identifier || '').toLowerCase();
+
+    return (
+      item.id === conceptId ||
+      sourceIdentifier === normalizedConceptId ||
+      sourceIdentifier.endsWith(`-concept-${normalizedConceptId}`) ||
+      metadataConcept === normalizedConceptId ||
+      this.toConceptTag(metadataConcept) === normalizedConceptId
+    );
   }
 }
