@@ -22,6 +22,12 @@ import { UnifiedToolRegistry } from './services/unified-tool-registry.js';
 import { EnterpriseToolRegistry } from './services/enterprise-tool-registry.js';
 import { WorkspaceManager } from './services/workspace-manager.service.js';
 import { CodingAgentExecutor } from './services/coding-agent-executor.service.js';
+import { ProjectToolIntegrationService } from './services/project-tool-integration.service.js';
+import { ToolExecutionCoordinator } from './services/tool-execution-coordinator.service.js';
+import { ToolCacheService } from './services/tool-cache.service.js';
+import { ToolRecommendationService } from './services/tool-recommendation.service.js';
+import { SandboxExecutionService } from './services/sandbox-execution.service.js';
+import { ToolAdapterService } from './services/tool-adapter.service.js';
 // Route registration functions are imported dynamically in setupRoutes
 import { logger } from '@uaip/utils';
 import { ExecutionDataSource, McpRepository } from './database/index.js';
@@ -41,13 +47,12 @@ class CapabilityRegistryService extends BaseService {
   private enterpriseToolRegistry: EnterpriseToolRegistry;
   private workspaceManager: WorkspaceManager;
   private codingAgentExecutor: CodingAgentExecutor;
-  // Advanced services disabled pending architectural fix
-  // private projectToolIntegration: ProjectToolIntegrationService;
-  // private toolExecutionCoordinator: ToolExecutionCoordinator;
-  // private toolCacheService: ToolCacheService;
-  // private toolRecommendationService: ToolRecommendationService;
-  // private sandboxExecutionService: SandboxExecutionService;
-  // private toolAdapterService: ToolAdapterService;
+  private projectToolIntegration: ProjectToolIntegrationService;
+  private toolExecutionCoordinator: ToolExecutionCoordinator;
+  private toolCacheService: ToolCacheService;
+  private toolRecommendationService: ToolRecommendationService;
+  private sandboxExecutionService: SandboxExecutionService;
+  private toolAdapterService: ToolAdapterService;
 
   constructor() {
     super({
@@ -141,16 +146,14 @@ class CapabilityRegistryService extends BaseService {
     this.workspaceManager = WorkspaceManager.getInstance();
     this.codingAgentExecutor = CodingAgentExecutor.getInstance(
       this.workspaceManager,
-      this.asInfraEventBusService() as unknown as { publish: (topic: string, data: unknown) => Promise<void> }
+      this.asInfraEventBusService() as unknown as {
+        publish: (topic: string, data: unknown) => Promise<void>;
+      }
     );
 
-    // TODO: Fix these services to work with @uaip/infra.DatabaseService architecture
-    // For now, keeping them disabled to maintain system stability
-    logger.info('Advanced tool services disabled (architectural fix pending)');
-    /*
     this.projectToolIntegration = new ProjectToolIntegrationService(
-      this.databaseService,
-      this.eventBusService
+      this.asInfraDatabaseService(),
+      this.asInfraEventBusService()
     );
     await this.projectToolIntegration.initialize();
     logger.info('Project Tool Integration Service initialized');
@@ -164,6 +167,7 @@ class CapabilityRegistryService extends BaseService {
     logger.info('Tool Cache Service initialized and warmed up');
 
     this.toolRecommendationService = ToolRecommendationService.getInstance();
+    await this.toolRecommendationService.initialize();
     logger.info('Tool Recommendation Service initialized');
 
     this.sandboxExecutionService = SandboxExecutionService.getInstance();
@@ -172,7 +176,6 @@ class CapabilityRegistryService extends BaseService {
 
     this.toolAdapterService = new ToolAdapterService(config);
     logger.info('Tool Adapter Service initialized (GitHub, Jira, Confluence, Slack)');
-    */
 
     // Initialize controllers
     this.toolController = new ToolController(this.toolRegistry, this.toolExecutor);
@@ -212,7 +215,7 @@ class CapabilityRegistryService extends BaseService {
     logger.info('MCP routes mounted successfully');
 
     const { registerCapabilityRoutes } = await import('./routes/capabilityRoutes.js');
-    registerCapabilityRoutes(this.app as any);
+    registerCapabilityRoutes(this.app as any, this.capabilityController);
 
     const { registerWorkspaceRoutes } = await import('./routes/workspaceRoutes.js');
     registerWorkspaceRoutes(this.app as any, this.workspaceManager, this.codingAgentExecutor);
@@ -247,29 +250,26 @@ class CapabilityRegistryService extends BaseService {
       0
     );
 
-    // Get cache statistics - services disabled
     const cacheStats: {
       memoryCacheSize?: number;
       redisCacheSize?: number;
       hitRate?: number;
       missRate?: number;
-    } | null = null;
+    } | null = await this.toolCacheService?.getCacheStats();
 
-    // Get sandbox metrics
     const sandboxMetrics: {
       activeExecutions?: number;
       totalExecutions?: number;
       averageExecutionTime?: number;
       failureRate?: number;
-    } | null = null;
+    } | null = await this.sandboxExecutionService?.getMetrics();
 
-    // Get execution metrics
     const executionMetrics: {
       total?: number;
       successful?: number;
       failed?: number;
       averageExecutionTime?: number;
-    } | null = null;
+    } | null = await this.toolExecutionCoordinator?.getExecutionMetrics();
 
     return {
       databases: {
