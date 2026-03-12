@@ -2,6 +2,8 @@ import { Server, Socket } from 'socket.io';
 import { createLogger } from '@uaip/utils';
 import { validateJWTToken } from '@uaip/middleware';
 import { EventBusService } from '@uaip/infra/eventBus';
+import { DatabaseService } from '@uaip/infra';
+import { createHash } from 'crypto';
 
 interface UserMessage {
   id: string;
@@ -33,6 +35,7 @@ interface ConnectedUser {
 export class UserChatHandler {
   private io: Server;
   private eventBusService: EventBusService;
+  private databaseService: DatabaseService;
   private connectedUsers: Map<string, ConnectedUser> = new Map();
   private userSockets: Map<string, string> = new Map(); // userId -> socketId
   private logger = createLogger({
@@ -44,6 +47,7 @@ export class UserChatHandler {
   constructor(io: Server, eventBusService: EventBusService) {
     this.io = io;
     this.eventBusService = eventBusService;
+    this.databaseService = DatabaseService.getInstance();
     this.setupEventHandlers();
     this.setupEventBusSubscriptions();
   }
@@ -175,7 +179,6 @@ export class UserChatHandler {
         timestamp: completeMessage.timestamp,
       });
 
-      // TODO: Store message in database for offline delivery
       await this.storeMessage(completeMessage);
 
       this.logger.info(`Message sent from ${sender.username} to ${targetUser}`);
@@ -272,31 +275,83 @@ export class UserChatHandler {
 
   private async storeMessage(message: UserMessage): Promise<void> {
     try {
-      // Store in database for offline delivery and history
-      // This will be implemented based on your database schema
-      // For now, we'll just log the message storage
-      this.logger.debug(`Message stored: ${message.id}`, {
+      const senderId = message.senderId?.trim();
+      const receiverId = message.receiverId?.trim();
+
+      if (!this.isUuid(senderId) || !this.isUuid(receiverId)) {
+        this.logger.warn('Skipping message persistence due to invalid user IDs', {
+          messageId: message.id,
+          senderId,
+          receiverId,
+        });
+        return;
+      }
+
+      const conversationId = this.getConversationId(senderId, receiverId);
+      const storedType = this.mapMessageType(message.type);
+      const storedStatus = this.mapMessageStatus(message.status);
+
+      await this.databaseService.create('user_messages', {
+        senderId,
+        receiverId,
+        conversationId,
+        content: message.content,
+        type: storedType,
+        status: storedStatus,
+        metadata: {
+          ...(message.metadata || {}),
+          realtimeMessageId: message.id,
+          socketTimestamp: message.timestamp,
+        },
+        createdAt: message.timestamp,
+        updatedAt: new Date(),
+      });
+
+      this.logger.debug(`Message persisted: ${message.id}`, {
         senderId: message.senderId,
         receiverId: message.receiverId,
         content: message.content.substring(0, 100) + (message.content.length > 100 ? '...' : ''),
         timestamp: message.timestamp,
-        status: message.status,
+        status: storedStatus,
+        conversationId,
       });
-
-      // TODO: Implement actual database storage
-      // await this.databaseService.messages.create({
-      //   id: message.id,
-      //   senderId: message.senderId,
-      //   receiverId: message.receiverId,
-      //   content: message.content,
-      //   timestamp: message.timestamp,
-      //   type: message.type,
-      //   status: message.status,
-      //   metadata: message.metadata
-      // });
     } catch (error) {
       this.logger.error('Failed to store message:', error);
     }
+  }
+
+  private isUuid(value?: string): boolean {
+    if (!value) {
+      return false;
+    }
+
+    return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
+  }
+
+  private getConversationId(senderId: string, receiverId: string): string {
+    const [first, second] = [senderId, receiverId].sort();
+    const hash = createHash('sha256')
+      .update(`${first}:${second}`)
+      .digest('hex')
+      .slice(0, 32)
+      .split('');
+
+    hash[12] = '4';
+    hash[16] = ['8', '9', 'a', 'b'][parseInt(hash[16], 16) % 4];
+
+    return `${hash.slice(0, 8).join('')}-${hash.slice(8, 12).join('')}-${hash.slice(12, 16).join('')}-${hash.slice(16, 20).join('')}-${hash.slice(20, 32).join('')}`;
+  }
+
+  private mapMessageType(type: UserMessage['type']): string {
+    return type === 'system' ? 'system' : type;
+  }
+
+  private mapMessageStatus(status: UserMessage['status']): string {
+    if (status === 'delivered' || status === 'read') {
+      return status;
+    }
+
+    return status === 'sending' ? 'sent' : 'sent';
   }
 
   private async handleChatWindowClosed(socket: Socket, data: any) {
