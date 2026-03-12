@@ -23,6 +23,12 @@ export interface DiscussionOrchestrationResult {
   events?: DiscussionEvent[];
 }
 
+interface TurnRequestEntry {
+  participantId: string;
+  relevanceScore: number;
+  requestedAt: Date;
+}
+
 export class DiscussionOrchestrationService extends EventEmitter {
   private turnStrategyService: TurnStrategyService;
   private discussionService: DiscussionService;
@@ -31,6 +37,7 @@ export class DiscussionOrchestrationService extends EventEmitter {
   private turnTimers: Map<string, NodeJS.Timeout> = new Map();
   private activeDiscussions: Map<string, Discussion> = new Map();
   private recentParticipationRequests: Map<string, number> = new Map(); // Track recent participation requests
+  private turnRequestQueues: Map<string, TurnRequestEntry[]> = new Map();
 
   // Operation locks to prevent race conditions
   private operationLocks: Map<string, boolean> = new Map();
@@ -204,6 +211,8 @@ export class DiscussionOrchestrationService extends EventEmitter {
             ...updatedDiscussion,
             participants: discussion.participants,
           };
+
+      this.broadcastContextChangeIfNeeded(discussionId, discussion.state, fullDiscussion.state);
 
       // Update cache
       this.activeDiscussions.set(discussionId, fullDiscussion);
@@ -506,13 +515,15 @@ export class DiscussionOrchestrationService extends EventEmitter {
       });
 
       // Update discussion state (the service handles participant updates internally)
-      await this.discussionService.updateDiscussion(discussionId, {
+      const updatedDiscussion = await this.discussionService.updateDiscussion(discussionId, {
         state: {
           ...discussion.state,
           messageCount: discussion.state.messageCount + 1,
           lastActivity: new Date(),
         },
       });
+
+      this.broadcastContextChangeIfNeeded(discussionId, discussion.state, updatedDiscussion.state);
 
       // Emit message event
       const messageEvent: DiscussionEvent = {
@@ -591,11 +602,29 @@ export class DiscussionOrchestrationService extends EventEmitter {
       this.clearTurnTimer(discussionId);
 
       // Get next turn
-      const turnResult = await this.turnStrategyService.advanceTurn(
+      let turnResult = await this.turnStrategyService.advanceTurn(
         discussion,
         activeParticipants,
         discussion.turnStrategy
       );
+
+      const priorityParticipant = await this.dequeuePriorityTurnRequest(
+        discussion,
+        activeParticipants
+      );
+      if (priorityParticipant) {
+        const priorityDuration = await this.turnStrategyService.getEstimatedTurnDuration(
+          priorityParticipant,
+          discussion,
+          discussion.turnStrategy
+        );
+
+        turnResult = {
+          nextParticipant: priorityParticipant,
+          turnNumber: discussion.state.currentTurn.turnNumber + 1,
+          estimatedDuration: priorityDuration,
+        };
+      }
 
       // Update discussion state
       const updatedDiscussion = await this.discussionService.updateDiscussion(discussionId, {
@@ -612,6 +641,8 @@ export class DiscussionOrchestrationService extends EventEmitter {
           lastActivity: new Date(),
         },
       });
+
+      this.broadcastContextChangeIfNeeded(discussionId, discussion.state, updatedDiscussion.state);
 
       // Update cache
       this.activeDiscussions.set(discussionId, updatedDiscussion);
@@ -700,6 +731,116 @@ export class DiscussionOrchestrationService extends EventEmitter {
       });
       return null;
     }
+  }
+
+  async createHuddle(
+    parentDiscussionId: string,
+    participantIds: string[],
+    topic: string
+  ): Promise<Discussion> {
+    const parentDiscussion = await this.getDiscussion(parentDiscussionId, true);
+    if (!parentDiscussion) {
+      throw new Error('Parent discussion not found');
+    }
+
+    const uniqueParticipants = Array.from(
+      new Set(participantIds.map((participantId) => participantId.trim()).filter(Boolean))
+    );
+
+    if (uniqueParticipants.length === 0) {
+      throw new Error('At least one participant is required for a huddle');
+    }
+
+    const normalizedTopic = topic.trim();
+    if (!normalizedTopic) {
+      throw new Error('Huddle topic is required');
+    }
+
+    const huddleRequest: CreateDiscussionRequest = {
+      title: `Huddle: ${normalizedTopic}`.slice(0, 255),
+      topic: normalizedTopic,
+      description: `Specialist huddle for discussion ${parentDiscussion.title}`,
+      createdBy: parentDiscussion.createdBy,
+      initialParticipants: uniqueParticipants.map((agentId) => ({
+        agentId,
+        role: 'participant',
+      })),
+      turnStrategy: parentDiscussion.turnStrategy,
+      settings: {
+        ...parentDiscussion.settings,
+        turnTimeout: 300,
+        maxDuration: 5,
+      },
+      visibility: parentDiscussion.visibility,
+      organizationId: parentDiscussion.organizationId,
+      teamId: parentDiscussion.teamId,
+      metadata: {
+        isHuddle: true,
+        parentDiscussionId,
+      },
+      parentDiscussionId,
+      tags: Array.from(new Set([...(parentDiscussion.tags || []), 'huddle'])),
+      objectives: [normalizedTopic],
+    };
+
+    const huddle = await this.discussionService.createDiscussion(huddleRequest);
+    this.activeDiscussions.set(huddle.id, huddle);
+
+    logger.info('Huddle created', {
+      huddleId: huddle.id,
+      parentDiscussionId,
+      participantCount: uniqueParticipants.length,
+    });
+
+    return huddle;
+  }
+
+  async resolveHuddle(huddleId: string, summary: string): Promise<void> {
+    const huddle = await this.getDiscussion(huddleId, true);
+    if (!huddle) {
+      throw new Error('Huddle not found');
+    }
+
+    const parentDiscussionId =
+      (typeof huddle.metadata?.parentDiscussionId === 'string'
+        ? huddle.metadata.parentDiscussionId
+        : undefined) || huddle.parentDiscussionId;
+
+    if (!parentDiscussionId) {
+      throw new Error('Huddle has no parent discussion');
+    }
+
+    await this.discussionService.updateDiscussion(huddleId, {
+      status: DiscussionStatus.COMPLETED,
+      endedAt: new Date(),
+      metadata: {
+        ...(huddle.metadata || {}),
+        huddleSummary: summary,
+        resolvedAt: new Date().toISOString(),
+      },
+    });
+
+    this.activeDiscussions.delete(huddleId);
+
+    const resolutionPayload = {
+      huddleId,
+      parentDiscussionId,
+      summary,
+    };
+
+    await this.eventBusService.publish('huddle:resolved', resolutionPayload);
+
+    if (this.webSocketHandler) {
+      this.webSocketHandler.broadcastToDiscussion(parentDiscussionId, {
+        type: 'huddle:resolved',
+        data: resolutionPayload,
+        timestamp: new Date(),
+      });
+    }
+
+    this.emit('huddle:resolved', resolutionPayload);
+
+    logger.info('Huddle resolved', resolutionPayload);
   }
 
   /**
@@ -805,12 +946,60 @@ export class DiscussionOrchestrationService extends EventEmitter {
     }
   }
 
+  async updateWorkingMemoryContext(
+    discussionId: string,
+    context: Record<string, unknown>,
+    updatedBy?: string
+  ): Promise<DiscussionOrchestrationResult> {
+    try {
+      const discussion = await this.getDiscussion(discussionId, true);
+      if (!discussion) {
+        return { success: false, error: 'Discussion not found' };
+      }
+
+      const previousState = discussion.state || {};
+      const nextState = {
+        ...previousState,
+        workingMemoryContext: context,
+        lastActivity: new Date(),
+      } as typeof previousState;
+
+      const updatedDiscussion = await this.discussionService.updateDiscussion(discussionId, {
+        state: nextState,
+      });
+
+      this.activeDiscussions.set(discussionId, updatedDiscussion);
+      this.broadcastContextChangeIfNeeded(discussionId, previousState, nextState);
+
+      return {
+        success: true,
+        data: {
+          discussionId,
+          context,
+          updatedBy,
+        },
+      };
+    } catch (error) {
+      logger.error('Error updating working memory context', {
+        error: error instanceof Error ? error.message : 'Unknown error',
+        discussionId,
+        updatedBy,
+      });
+
+      return {
+        success: false,
+        error: 'Failed to update working memory context',
+      };
+    }
+  }
+
   /**
    * Request turn for a participant
    */
   async requestTurn(
     discussionId: string,
-    participantId: string
+    participantId: string,
+    relevanceScore = 0
   ): Promise<DiscussionOrchestrationResult> {
     try {
       const discussion = await this.getDiscussion(discussionId);
@@ -836,6 +1025,32 @@ export class DiscussionOrchestrationService extends EventEmitter {
 
       if (!canTakeTurn) {
         return { success: false, error: 'Participant cannot take turn at this time' };
+      }
+
+      if (relevanceScore >= 0.8) {
+        this.enqueuePriorityTurnRequest(discussionId, participantId, relevanceScore);
+      }
+
+      if (this.webSocketHandler) {
+        this.webSocketHandler.broadcastToDiscussion(discussionId, {
+          type: 'turn:requested',
+          data: {
+            participantId,
+            relevanceScore,
+            queued: relevanceScore >= 0.8,
+            requestedAt: new Date().toISOString(),
+          },
+        });
+      }
+
+      if (relevanceScore >= 0.8) {
+        return {
+          success: true,
+          data: {
+            status: 'queued',
+            message: 'High-priority turn request queued for next turn',
+          },
+        };
       }
 
       // For moderated discussions, add to queue
@@ -1003,6 +1218,103 @@ export class DiscussionOrchestrationService extends EventEmitter {
   }
 
   // Private helper methods
+
+  private enqueuePriorityTurnRequest(
+    discussionId: string,
+    participantId: string,
+    relevanceScore: number
+  ): void {
+    const existingQueue = this.turnRequestQueues.get(discussionId) || [];
+    const dedupedQueue = existingQueue.filter((entry) => entry.participantId !== participantId);
+
+    dedupedQueue.push({
+      participantId,
+      relevanceScore,
+      requestedAt: new Date(),
+    });
+
+    dedupedQueue.sort((a, b) => {
+      if (b.relevanceScore !== a.relevanceScore) {
+        return b.relevanceScore - a.relevanceScore;
+      }
+
+      return a.requestedAt.getTime() - b.requestedAt.getTime();
+    });
+
+    this.turnRequestQueues.set(discussionId, dedupedQueue);
+  }
+
+  private async dequeuePriorityTurnRequest(
+    discussion: Discussion,
+    activeParticipants: DiscussionParticipant[]
+  ): Promise<DiscussionParticipant | null> {
+    const queue = this.turnRequestQueues.get(discussion.id);
+    if (!queue || queue.length === 0) {
+      return null;
+    }
+
+    const currentTurnParticipantId = discussion.state.currentTurn.participantId;
+    const currentSet = new Set(activeParticipants.map((participant) => participant.id));
+    const nextCandidate = queue.find(
+      (entry) =>
+        currentSet.has(entry.participantId) && entry.participantId !== currentTurnParticipantId
+    );
+
+    if (!nextCandidate) {
+      return null;
+    }
+
+    const remainingQueue = queue.filter(
+      (entry) => entry.participantId !== nextCandidate.participantId
+    );
+    this.turnRequestQueues.set(discussion.id, remainingQueue);
+
+    return (
+      activeParticipants.find((participant) => participant.id === nextCandidate.participantId) ||
+      null
+    );
+  }
+
+  private extractWorkingMemoryContext(
+    state: Record<string, any> | undefined
+  ): Record<string, unknown> | null {
+    if (!state) {
+      return null;
+    }
+
+    if (state.workingMemoryContext && typeof state.workingMemoryContext === 'object') {
+      return state.workingMemoryContext as Record<string, unknown>;
+    }
+
+    if (state.context && typeof state.context === 'object') {
+      return state.context as Record<string, unknown>;
+    }
+
+    return null;
+  }
+
+  private broadcastContextChangeIfNeeded(
+    discussionId: string,
+    previousState: Record<string, any> | undefined,
+    nextState: Record<string, any> | undefined
+  ): void {
+    if (!this.webSocketHandler) {
+      return;
+    }
+
+    const previousContext = this.extractWorkingMemoryContext(previousState);
+    const nextContext = this.extractWorkingMemoryContext(nextState);
+
+    if (!nextContext) {
+      return;
+    }
+
+    if (JSON.stringify(previousContext) === JSON.stringify(nextContext)) {
+      return;
+    }
+
+    this.webSocketHandler.broadcastContextUpdate(discussionId, nextContext);
+  }
 
   private async setTurnTimer(discussionId: string, durationSeconds: number): Promise<void> {
     const lockKey = `turn_timer_${discussionId}`;
@@ -1660,6 +1972,17 @@ export class DiscussionOrchestrationService extends EventEmitter {
       const requestKey = `${participant.agentId}-${participant.id}`;
       this.recentParticipationRequests.set(requestKey, Date.now());
 
+      if (discussion.turnStrategy.strategy === 'context_aware') {
+        const relevanceScore = await this.turnStrategyService.getContextAwareRelevanceScore(
+          discussion,
+          participant
+        );
+
+        if (relevanceScore >= 0.8) {
+          await this.requestTurn(discussionId, participant.id, relevanceScore);
+        }
+      }
+
       // Fetch recent messages to provide context
       const recentMessages = await this.discussionService.getDiscussionMessages(discussionId, {
         limit: 20,
@@ -1881,6 +2204,7 @@ export class DiscussionOrchestrationService extends EventEmitter {
           this.turnTimers.delete(discussionId);
         }
         this.activeDiscussions.delete(discussionId);
+        this.turnRequestQueues.delete(discussionId);
 
         // Emit discussion completion event for artifact generation
         await this.emitDiscussionCompletionEvent(discussionId, userId, 'manual');
@@ -1984,6 +2308,7 @@ export class DiscussionOrchestrationService extends EventEmitter {
       // Remove discussions inactive for more than 1 hour
       if (timeSinceActivity > 3600000) {
         this.activeDiscussions.delete(discussionId);
+        this.turnRequestQueues.delete(discussionId);
         cleanedDiscussions++;
 
         logger.debug('Cleaned up stale discussion from cache', {
@@ -2045,6 +2370,7 @@ export class DiscussionOrchestrationService extends EventEmitter {
   public getCleanupStatistics(): {
     activeDiscussions: number;
     turnTimers: number;
+    turnRequestQueues: number;
     participationRateLimits: number;
     recentParticipationRequests: number;
     operationLocks: number;
@@ -2052,6 +2378,7 @@ export class DiscussionOrchestrationService extends EventEmitter {
     return {
       activeDiscussions: this.activeDiscussions.size,
       turnTimers: this.turnTimers.size,
+      turnRequestQueues: this.turnRequestQueues.size,
       participationRateLimits: this.participationRateLimits.size,
       recentParticipationRequests: this.recentParticipationRequests.size,
       operationLocks: this.operationLocks.size,
@@ -2326,6 +2653,7 @@ export class DiscussionOrchestrationService extends EventEmitter {
 
     // Clear all maps
     this.activeDiscussions.clear();
+    this.turnRequestQueues.clear();
     this.participationRateLimits.clear();
     this.recentParticipationRequests.clear();
     this.operationLocks.clear();

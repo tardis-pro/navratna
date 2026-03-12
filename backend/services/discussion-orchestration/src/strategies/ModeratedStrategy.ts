@@ -11,6 +11,7 @@ import { TurnStrategyInterface } from './RoundRobinStrategy.js';
 export class ModeratedStrategy implements TurnStrategyInterface {
   public readonly strategy = TurnStrategy.MODERATED;
   private readonly strategyType = TurnStrategy.MODERATED;
+  private debatePhases: Map<string, 'thesis' | 'antithesis' | 'synthesis'> = new Map();
 
   async getNextParticipant(
     discussion: Discussion,
@@ -18,31 +19,13 @@ export class ModeratedStrategy implements TurnStrategyInterface {
     config?: TurnStrategyConfig
   ): Promise<DiscussionParticipant | null> {
     try {
-      // In moderated strategy, the moderator decides who goes next
-      // This method would typically be called after moderator selection
-
-      // Find moderators
-      const moderators = participants.filter(
-        (p) => p.role === ParticipantRole.MODERATOR && p.isActive
-      );
-
-      if (moderators.length === 0) {
-        logger.warn('No active moderators found for moderated discussion', {
-          discussionId: discussion.id,
-          totalParticipants: participants.length,
-        });
-
-        // Fallback: auto-assign first active participant as moderator
-        const activeParticipants = participants.filter((p) => p.isActive);
-        if (activeParticipants.length > 0) {
-          logger.info('Auto-assigning moderator role', {
-            discussionId: discussion.id,
-            newModeratorId: activeParticipants[0].id,
-          });
-          return activeParticipants[0];
-        }
+      const activeParticipants = participants.filter((p) => p.isActive);
+      if (activeParticipants.length === 0) {
         return null;
       }
+
+      const moderators = activeParticipants.filter((p) => p.role === ParticipantRole.MODERATOR);
+      const nonModerators = activeParticipants.filter((p) => p.role !== ParticipantRole.MODERATOR);
 
       // Check if there's a pending moderator selection in discussion state
       const pendingSelection = this.getPendingModeratorSelection(discussion);
@@ -60,15 +43,23 @@ export class ModeratedStrategy implements TurnStrategyInterface {
         }
       }
 
-      // If no pending selection, return the moderator to make the selection
-      const primaryModerator = moderators[0]; // Use first moderator as primary
+      const phase = this.getCurrentDebatePhase(discussion.id);
+      this.advanceDebatePhase(discussion.id);
 
-      logger.debug('Returning moderator for participant selection', {
+      const selectedParticipant = this.selectParticipantForDebatePhase(
+        discussion,
+        phase,
+        nonModerators,
+        moderators
+      );
+
+      logger.debug('Debate phase participant selected', {
         discussionId: discussion.id,
-        moderatorId: primaryModerator.id,
+        phase,
+        selectedParticipantId: selectedParticipant?.id,
       });
 
-      return primaryModerator;
+      return selectedParticipant;
     } catch (error) {
       logger.error('Error in moderated strategy getNextParticipant', {
         error: error instanceof Error ? error.message : 'Unknown error',
@@ -77,6 +68,127 @@ export class ModeratedStrategy implements TurnStrategyInterface {
       });
       return null;
     }
+  }
+
+  private getCurrentDebatePhase(discussionId: string): 'thesis' | 'antithesis' | 'synthesis' {
+    return this.debatePhases.get(discussionId) || 'thesis';
+  }
+
+  private advanceDebatePhase(discussionId: string): void {
+    const current = this.getCurrentDebatePhase(discussionId);
+    if (current === 'thesis') {
+      this.debatePhases.set(discussionId, 'antithesis');
+      return;
+    }
+
+    if (current === 'antithesis') {
+      this.debatePhases.set(discussionId, 'synthesis');
+      return;
+    }
+
+    this.debatePhases.set(discussionId, 'thesis');
+  }
+
+  private selectParticipantForDebatePhase(
+    discussion: Discussion,
+    phase: 'thesis' | 'antithesis' | 'synthesis',
+    nonModerators: DiscussionParticipant[],
+    moderators: DiscussionParticipant[]
+  ): DiscussionParticipant | null {
+    if (phase === 'thesis') {
+      const thesisPool = nonModerators.length > 0 ? nonModerators : moderators;
+      return this.selectMostExpert(thesisPool);
+    }
+
+    if (phase === 'antithesis') {
+      const antithesisPool = nonModerators.length > 0 ? nonModerators : moderators;
+      return this.selectMostOpposed(antithesisPool, discussion.state.currentTurn.participantId);
+    }
+
+    if (moderators.length > 0) {
+      return moderators[0];
+    }
+
+    const synthesisPool = nonModerators.length > 0 ? nonModerators : moderators;
+    return this.selectMostBalancedContributor(synthesisPool);
+  }
+
+  private selectMostExpert(participants: DiscussionParticipant[]): DiscussionParticipant | null {
+    if (participants.length === 0) {
+      return null;
+    }
+
+    return participants
+      .slice()
+      .sort((a, b) => this.getExpertiseScore(b) - this.getExpertiseScore(a))[0];
+  }
+
+  private selectMostOpposed(
+    participants: DiscussionParticipant[],
+    currentParticipantId?: string
+  ): DiscussionParticipant | null {
+    if (participants.length === 0) {
+      return null;
+    }
+
+    const withAgreementScore = participants
+      .filter((participant) => participant.id !== currentParticipantId)
+      .map((participant) => ({
+        participant,
+        agreementScore: this.getAgreementScore(participant),
+      }))
+      .sort((a, b) => a.agreementScore - b.agreementScore);
+
+    if (withAgreementScore.length > 0) {
+      return withAgreementScore[0].participant;
+    }
+
+    return (
+      participants.find((participant) => participant.id !== currentParticipantId) || participants[0]
+    );
+  }
+
+  private selectMostBalancedContributor(
+    participants: DiscussionParticipant[]
+  ): DiscussionParticipant | null {
+    if (participants.length === 0) {
+      return null;
+    }
+
+    const averageMessages =
+      participants.reduce((sum, participant) => sum + (participant.messageCount || 0), 0) /
+      participants.length;
+
+    return participants.slice().sort((a, b) => {
+      const aDistance = Math.abs((a.messageCount || 0) - averageMessages);
+      const bDistance = Math.abs((b.messageCount || 0) - averageMessages);
+      return aDistance - bDistance;
+    })[0];
+  }
+
+  private getExpertiseScore(participant: DiscussionParticipant): number {
+    let score = 0.5;
+
+    if (participant.role === ParticipantRole.FACILITATOR) {
+      score += 0.25;
+    }
+
+    if (participant.role === ParticipantRole.MODERATOR) {
+      score += 0.15;
+    }
+
+    score += Math.min((participant.messageCount || 0) * 0.03, 0.25);
+    return score;
+  }
+
+  private getAgreementScore(participant: DiscussionParticipant): number {
+    const metadata = participant.metadata as Record<string, unknown> | undefined;
+    const raw = metadata?.agreementScore;
+    if (typeof raw === 'number') {
+      return raw;
+    }
+
+    return 0.5;
   }
 
   async canParticipantTakeTurn(

@@ -394,6 +394,14 @@ export class ContextAwareStrategy implements TurnStrategyInterface {
     return relevanceMap;
   }
 
+  async getParticipantRelevanceScore(
+    discussion: Discussion,
+    participant: DiscussionParticipant
+  ): Promise<number> {
+    const relevanceMap = await this.analyzeTopicRelevance(discussion, [participant]);
+    return relevanceMap.get(participant.id) ?? 0;
+  }
+
   private async analyzeExpertiseMatch(
     discussion: Discussion,
     participants: DiscussionParticipant[]

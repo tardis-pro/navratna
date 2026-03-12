@@ -386,6 +386,61 @@ export class DiscussionWebSocketHandler {
         case 'ping':
           this.sendToConnection(connection, { type: 'pong', data: { timestamp: new Date() } });
           break;
+        case 'turn:request': {
+          const participantId =
+            typeof validatedMessage.data?.participantId === 'string'
+              ? validatedMessage.data.participantId
+              : connection.participantId;
+          const rawScore = validatedMessage.data?.relevanceScore;
+          const relevanceScore = typeof rawScore === 'number' ? rawScore : 0;
+
+          if (!participantId) {
+            this.sendError(connection.connectionId, 'participantId is required for turn requests');
+            return;
+          }
+
+          const result = await this.orchestrationService.requestTurn(
+            connection.discussionId,
+            participantId,
+            relevanceScore
+          );
+
+          this.sendToConnection(connection, {
+            type: 'turn:request:ack',
+            data: {
+              success: result.success,
+              discussionId: connection.discussionId,
+              participantId,
+              relevanceScore,
+              ...result.data,
+              error: result.error,
+            },
+          });
+          break;
+        }
+        case 'context:update': {
+          const context = validatedMessage.data?.context;
+          if (!context || typeof context !== 'object' || Array.isArray(context)) {
+            this.sendError(connection.connectionId, 'context:update requires a context object');
+            return;
+          }
+
+          const result = await this.orchestrationService.updateWorkingMemoryContext(
+            connection.discussionId,
+            context as Record<string, unknown>,
+            connection.participantId || connection.userId
+          );
+
+          this.sendToConnection(connection, {
+            type: 'context:update:ack',
+            data: {
+              success: result.success,
+              discussionId: connection.discussionId,
+              error: result.error,
+            },
+          });
+          break;
+        }
         default:
           logger.warn('Unknown message type', {
             connectionId: connection.connectionId,
@@ -526,6 +581,16 @@ export class DiscussionWebSocketHandler {
         this.sendToConnection(connection, message);
       });
     }
+  }
+
+  public broadcastContextUpdate(discussionId: string, context: Record<string, unknown>): void {
+    this.broadcastToDiscussion(discussionId, {
+      type: 'context:updated',
+      data: {
+        context,
+        timestamp: new Date().toISOString(),
+      },
+    });
   }
 
   /**
