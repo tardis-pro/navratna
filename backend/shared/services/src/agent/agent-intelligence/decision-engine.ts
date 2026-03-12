@@ -16,11 +16,16 @@ export interface DecisionResult {
 }
 
 export class DecisionEngine {
+  private readonly confidenceThreshold: number;
+
   constructor(
     private capabilityResolver: CapabilityResolver,
     private stateMachine: AgentStateMachine,
-    private eventBus?: AgentEventBus
-  ) {}
+    private eventBus?: AgentEventBus,
+    confidenceThreshold: number = 0.5
+  ) {
+    this.confidenceThreshold = confidenceThreshold;
+  }
 
   async selectAction(
     analysis: AgentAnalysis,
@@ -44,7 +49,9 @@ export class DecisionEngine {
       this.stateMachine.startThinking('decision_analysis');
 
       // Filter actions by confidence threshold
-      const viableActions = availableActions.filter((action) => action.confidence >= 0.5);
+      const viableActions = availableActions.filter(
+        (action) => action.confidence >= this.confidenceThreshold
+      );
 
       if (viableActions.length === 0) {
         return {

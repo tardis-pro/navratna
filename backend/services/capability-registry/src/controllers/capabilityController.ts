@@ -262,8 +262,16 @@ export class CapabilityController {
         {}
       );
 
-      // Return hardcoded categories for now
-      const categories: string[] = [
+      const allCapabilities = await this.capabilityDiscoveryService.searchCapabilities({
+        limit: 1000,
+      });
+      const categorySet = new Set<string>(
+        allCapabilities
+          .map((c) => (c as { category?: string }).category)
+          .filter((cat): cat is string => Boolean(cat))
+      );
+
+      const fallbackCategories = [
         'data-processing',
         'communication',
         'analysis',
@@ -272,6 +280,8 @@ export class CapabilityController {
         'security',
         'monitoring',
       ];
+      const categories: string[] =
+        categorySet.size > 0 ? Array.from(categorySet).sort() : fallbackCategories;
 
       res.status(200).json({
         success: true,

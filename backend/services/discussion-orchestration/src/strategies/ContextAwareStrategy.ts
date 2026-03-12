@@ -8,6 +8,7 @@ import {
 } from '@uaip/types';
 import { logger } from '@uaip/utils';
 import { TurnStrategyInterface } from './RoundRobinStrategy.js';
+import { config } from '../config/index.js';
 
 interface ContextAnalysis {
   topicRelevance: Map<string, number>; // participant ID -> relevance score
@@ -538,9 +539,19 @@ export class ContextAwareStrategy implements TurnStrategyInterface {
   }
 
   private async getParticipantExpertise(agentId: string): Promise<string[]> {
-    // This would fetch agent expertise from the agent service
-    // For now, return empty array
-    return [];
+    try {
+      const baseUrl = config.discussionOrchestration?.integrations?.agentIntelligence?.baseUrl;
+      if (!baseUrl) return [];
+      const response = await fetch(`${baseUrl}/api/v1/agents/${agentId}`, {
+        signal: AbortSignal.timeout(3000),
+      });
+      if (!response.ok) return [];
+      const data = (await response.json()) as { data?: { expertise?: string[] } };
+      return data?.data?.expertise ?? [];
+    } catch {
+      logger.warn('Failed to fetch agent expertise', { agentId });
+      return [];
+    }
   }
 
   private async hasAddressedPendingItems(

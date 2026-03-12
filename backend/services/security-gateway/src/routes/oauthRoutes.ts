@@ -521,9 +521,11 @@ export function createOAuthRoutes(
               error: 'Repository name required',
             });
           }
-          // Implement get specific repo
-          result = { message: 'Get repo operation not yet implemented' };
-          break;
+          return res.status(501).json({
+            success: false,
+            error: 'Not implemented',
+            message: 'Get repo operation not yet implemented',
+          });
         default:
           return res.status(400).json({
             success: false,
@@ -597,9 +599,11 @@ export function createOAuthRoutes(
               error: 'Message ID required',
             });
           }
-          // Implement get specific message
-          result = { message: 'Get message operation not yet implemented' };
-          break;
+          return res.status(501).json({
+            success: false,
+            error: 'Not implemented',
+            message: 'Get message operation not yet implemented',
+          });
         default:
           return res.status(400).json({
             success: false,
