@@ -181,6 +181,35 @@ export class WorkingMemoryManager {
     current.metadata.consolidationNeeded = current.metadata.memoryPressure > 0.8;
 
     await this.storeWorkingMemory(agentId, current);
+    await this.checkMemoryPressure(agentId);
+  }
+
+  async checkMemoryPressure(agentId: string): Promise<void> {
+    const memory = await this.getWorkingMemory(agentId);
+    if (!memory) {
+      return;
+    }
+
+    const thoughtsCount = Object.values(memory.currentContext.activeThoughts).flat().length;
+    const interactionsCount = memory.shortTermMemory.recentInteractions.length;
+    const knowledgeCount = memory.workingSet.relevantKnowledge.length;
+    const currentItems = thoughtsCount + interactionsCount + knowledgeCount;
+    const maxItems = 100;
+
+    const calculatedPressure = Math.min(currentItems / maxItems, 1.0);
+    const pressure =
+      typeof memory.metadata.memoryPressure === 'number'
+        ? memory.metadata.memoryPressure
+        : calculatedPressure;
+
+    if (pressure > 0.8) {
+      logger.warn('High memory pressure detected', {
+        agentId,
+        pressure,
+        currentItems,
+        maxItems,
+      });
+    }
   }
 
   async addThought(

@@ -21,7 +21,12 @@ import { TaxonomyGeneratorService } from './taxonomy-generator.service';
 import { ReconciliationService } from './reconciliation.service';
 import { KnowledgeSyncService } from './knowledge-sync.service';
 import { ChatParserService, ParsedConversation, ParsedMessage } from './chat-parser.service';
-import { ChatKnowledgeExtractorService, ExtractedKnowledge, QAPair, DecisionPoint } from './chat-knowledge-extractor.service';
+import {
+  ChatKnowledgeExtractorService,
+  ExtractedKnowledge,
+  QAPair,
+  DecisionPoint,
+} from './chat-knowledge-extractor.service';
 import {
   BatchProcessorService,
   FileData,
@@ -132,24 +137,16 @@ export class KnowledgeGraphService {
           const queryEmbedding = await this.embeddings.generateEmbedding(query);
           const vectorFilters = this.buildVectorFilters(filters, scope);
 
-          // Check if collection has points before searching
-          const collectionInfo = await this.vectorDb.getCollectionInfo();
-          if (collectionInfo.result?.points_count === 0) {
-            // No embeddings available, fall back to repository search
-            console.warn('Vector collection is empty, falling back to repository search');
-            filteredResults = await this.repository.findByScope(
-              scope || {},
-              filters,
-              options?.limit || 20
-            );
-          } else {
-            vectorResults = await this.vectorDb.search(queryEmbedding, {
+          vectorResults = await this.searchAcrossCollections(
+            queryEmbedding,
+            {
               limit: options?.limit || 20,
               threshold: options?.similarityThreshold || 0.7,
               filters: vectorFilters,
-            });
-            filteredResults = await this.repository.applyFilters(vectorResults, filters, scope);
-          }
+            },
+            filters
+          );
+          filteredResults = await this.repository.applyFilters(vectorResults, filters, scope);
         } catch (vectorError) {
           // If vector search fails, fall back to repository search
           console.warn(
@@ -226,7 +223,19 @@ export class KnowledgeGraphService {
         });
         console.log('knowledgeItem', knowledgeItem);
         // Store embeddings in vector database with scope metadata
-        await this.vectorDb.store(knowledgeItem.id, embeddings);
+        const requestedCollectionType = (
+          item.source?.metadata as Record<string, unknown> | undefined
+        )?.collectionType;
+        const collectionType =
+          requestedCollectionType === 'episodic' || requestedCollectionType === 'semantic'
+            ? requestedCollectionType
+            : item.type === KnowledgeType.EPISODIC
+              ? 'episodic'
+              : 'semantic';
+
+        await this.vectorDb.store(knowledgeItem.id, embeddings, {
+          collection: collectionType,
+        });
         // Detect and create relationships
         const relationships = await this.relationshipDetector.detectRelationships(knowledgeItem);
         if (relationships.length > 0) {
@@ -404,6 +413,39 @@ export class KnowledgeGraphService {
     averageConfidence: number;
   }> {
     return this.repository.getStatistics();
+  }
+
+  private async searchAcrossCollections(
+    queryEmbedding: number[],
+    options: { limit: number; threshold: number; filters?: any },
+    filters?: KnowledgeFilters
+  ): Promise<any[]> {
+    const requestedTypes = filters?.types || [];
+
+    if (requestedTypes.length === 1 && requestedTypes[0] === KnowledgeType.EPISODIC) {
+      return this.vectorDb.search(queryEmbedding, options, { collection: 'episodic' });
+    }
+
+    if (requestedTypes.length === 1 && requestedTypes[0] === KnowledgeType.SEMANTIC) {
+      return this.vectorDb.search(queryEmbedding, options, { collection: 'semantic' });
+    }
+
+    const [semanticResults, episodicResults] = await Promise.all([
+      this.vectorDb.search(queryEmbedding, options, { collection: 'semantic' }),
+      this.vectorDb.search(queryEmbedding, options, { collection: 'episodic' }),
+    ]);
+
+    const merged = new Map<string, any>();
+    for (const result of [...semanticResults, ...episodicResults]) {
+      const existing = merged.get(result.id);
+      if (!existing || result.score > existing.score) {
+        merged.set(result.id, result);
+      }
+    }
+
+    return Array.from(merged.values())
+      .sort((a, b) => b.score - a.score)
+      .slice(0, options.limit);
   }
 
   // Private helper methods

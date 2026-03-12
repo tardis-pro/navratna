@@ -32,6 +32,7 @@ export class EpisodicMemoryManager {
               context: episode.context,
               experience: episode.experience,
               connections: episode.connections,
+              collectionType: 'episodic',
             },
           },
           confidence: episode.significance.importance,
