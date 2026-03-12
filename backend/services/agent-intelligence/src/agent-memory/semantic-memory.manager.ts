@@ -34,6 +34,7 @@ Usage: Accessed ${concept.usage.timesAccessed} times, Success rate: ${concept.us
               usage: concept.usage,
               knowledge: concept.knowledge,
               sources: concept.sources,
+              collectionType: 'semantic',
             },
           },
           confidence: concept.confidence,

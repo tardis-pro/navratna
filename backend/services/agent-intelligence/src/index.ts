@@ -4,15 +4,46 @@ import {
   PersonaService,
   DatabaseService as SharedDatabaseService,
   allEntities,
+  MemoryConsolidator,
+  SemanticMemoryManager,
+  serviceFactory,
 } from '@uaip/shared-services';
 import { LLMService, UserLLMService } from '@uaip/llm-service';
-import { DiscussionEventType, LLMTaskType, MessageType } from '@uaip/types';
+import {
+  ActionRecommendation,
+  AgentStatus,
+  DiscussionEventType,
+  LLMTaskType,
+  MessageType,
+  SecurityLevel,
+  ToolCategory,
+  ToolDefinition,
+  ToolExample,
+} from '@uaip/types';
 import { attachAuth, attachNginxAuth, requireNginxAuth, UserContext } from '@uaip/middleware';
 import { ConversationEnhancementService } from './services/conversation-enhancement.service.js';
 import { AgentDiscussionService } from './services/agent-discussion.service.js';
 import { AgentCoreService } from './services/agent-core.service.js';
+import { AgentPlanningService } from './services/agent-planning.service.js';
+import type { KnowledgeGraphService as LocalKnowledgeGraphService } from '@/knowledge-graph/knowledge-graph.service';
+import { DecisionEngine } from '../../../shared/services/src/agent/agent-intelligence/decision-engine.js';
+import { ToolRegistryCapabilityResolver } from '../../../shared/services/src/agent/agent-intelligence/capability-resolver.js';
+import { AgentStateMachine } from '../../../shared/services/src/agent-state/agent-state-machine.js';
 import { logger } from '@uaip/utils';
 import { z } from 'zod';
+import { randomUUID } from 'crypto';
+
+interface PendingApproval {
+  agentId: string;
+  resolve: () => void;
+  reject: (reason?: string) => void;
+  timeout: NodeJS.Timeout;
+}
+
+interface ApprovalRequestContext {
+  userId?: string;
+  socketId?: string;
+}
 
 class AgentIntelligenceService extends BaseService {
   private agentDiscussionService: AgentDiscussionService;
@@ -21,6 +52,11 @@ class AgentIntelligenceService extends BaseService {
   private conversationEnhancementService: ConversationEnhancementService;
   private llmService: LLMService;
   private agentCoreService: AgentCoreService;
+  private agentPlanningService: AgentPlanningService;
+  private memoryConsolidator?: MemoryConsolidator;
+  private semanticMemoryManager?: SemanticMemoryManager;
+  private memoryConsolidationInterval?: ReturnType<typeof setInterval>;
+  private pendingApprovals: Map<string, PendingApproval> = new Map();
 
   constructor() {
     super({
@@ -130,6 +166,89 @@ class AgentIntelligenceService extends BaseService {
       return { status: 'ok', service: 'agent-intelligence' };
     });
 
+    this.app.post(
+      '/api/v1/agents/:agentId/approvals/:approvalId',
+      async ({ params, body, set }) => {
+        const payload =
+          body && typeof body === 'object' ? (body as { approved?: boolean; reason?: string }) : {};
+
+        if (typeof payload.approved !== 'boolean') {
+          set.status = 400;
+          return { success: false, error: 'approved must be a boolean' };
+        }
+
+        const pendingApproval = this.pendingApprovals.get(params.approvalId);
+        if (!pendingApproval || pendingApproval.agentId !== params.agentId) {
+          set.status = 404;
+          return { success: false, error: 'Pending approval not found' };
+        }
+
+        this.pendingApprovals.delete(params.approvalId);
+        clearTimeout(pendingApproval.timeout);
+
+        if (payload.approved) {
+          pendingApproval.resolve();
+        } else {
+          pendingApproval.reject(payload.reason);
+        }
+
+        return {
+          success: true,
+          data: {
+            approvalId: params.approvalId,
+            approved: payload.approved,
+            reason: payload.reason,
+          },
+        };
+      }
+    );
+
+    this.app.delete(
+      '/api/v1/agents/:agentId/memory/semantic/:conceptId',
+      async ({ params, set }) => {
+        try {
+          if (!this.semanticMemoryManager) {
+            set.status = 503;
+            return { success: false, error: 'Semantic memory manager unavailable' };
+          }
+
+          await this.semanticMemoryManager.pruneMemory(params.agentId, params.conceptId);
+          return { success: true };
+        } catch (error) {
+          logger.error('Failed to prune semantic memory', {
+            agentId: params.agentId,
+            conceptId: params.conceptId,
+            error: error instanceof Error ? error.message : String(error),
+          });
+          set.status = 500;
+          return { success: false, error: 'Failed to prune semantic memory' };
+        }
+      }
+    );
+
+    this.app.patch(
+      '/api/v1/agents/:agentId/memory/semantic/:conceptId/downvote',
+      async ({ params, set }) => {
+        try {
+          if (!this.semanticMemoryManager) {
+            set.status = 503;
+            return { success: false, error: 'Semantic memory manager unavailable' };
+          }
+
+          await this.semanticMemoryManager.downvoteMemory(params.agentId, params.conceptId);
+          return { success: true };
+        } catch (error) {
+          logger.error('Failed to downvote semantic memory', {
+            agentId: params.agentId,
+            conceptId: params.conceptId,
+            error: error instanceof Error ? error.message : String(error),
+          });
+          set.status = 500;
+          return { success: false, error: 'Failed to downvote semantic memory' };
+        }
+      }
+    );
+
     logger.info('Agent CRUD routes configured');
 
     // ===== AGENT CHAT ROUTE =====
@@ -174,13 +293,70 @@ class AgentIntelligenceService extends BaseService {
         }
 
         try {
+          const detectedIntent = this.detectChatIntent(parsed.data.message);
+          const isComplexRequest = this.isComplexChatRequest(
+            parsed.data.message,
+            parsed.data.conversationHistory || [],
+            parsed.data.context || {}
+          );
+          const agentRecord = await this.agentCoreService.getAgent(params.agentId);
+
+          let executionPlanContext: string | undefined;
+          if (
+            this.agentPlanningService &&
+            isComplexRequest &&
+            (detectedIntent === 'creation' || detectedIntent === 'analysis')
+          ) {
+            if (agentRecord) {
+              try {
+                const plan = await this.agentPlanningService.generateExecutionPlan(
+                  agentRecord,
+                  {
+                    intent: { primary: detectedIntent },
+                    timestamp: new Date(),
+                    complexity: 'high',
+                  },
+                  parsed.data.context || {},
+                  { constraints: [] }
+                );
+
+                executionPlanContext = `Execution plan: ${plan.steps
+                  .map((step: any) => step.description || step.id || step.type)
+                  .join(' -> ')}`;
+              } catch (planError) {
+                logger.warn('Failed to generate execution plan for chat loop', {
+                  agentId: params.agentId,
+                  detectedIntent,
+                  error: planError instanceof Error ? planError.message : String(planError),
+                });
+              }
+            }
+          }
+
+          const contextWithDecision = await this.applyToolExecutionDecisionGate(
+            params.agentId,
+            parsed.data.context || {},
+            agentRecord,
+            { userId }
+          );
+
+          const llmMessage = executionPlanContext
+            ? `${parsed.data.message}\n\n${executionPlanContext}`
+            : parsed.data.message;
+
           const result = await this.agentDiscussionService.participateInDiscussion({
             agentId: params.agentId,
-            message: parsed.data.message,
+            message: llmMessage,
             userId,
             conversationHistory: parsed.data.conversationHistory || [],
-            context: parsed.data.context || {},
+            context: contextWithDecision,
           });
+
+          await this.maybeCreateSpecialistHuddleFromResponse(
+            params.agentId,
+            result.response,
+            contextWithDecision
+          );
 
           return {
             success: true,
@@ -812,6 +988,8 @@ class AgentIntelligenceService extends BaseService {
           socketId: socketId?.substring(0, 10) + '...',
         });
 
+        const agentRecord = await this.agentCoreService.getAgent(agentId);
+
         // Use unified model selection for the agent
         let modelSelection = null;
         if (agentId) {
@@ -828,6 +1006,16 @@ class AgentIntelligenceService extends BaseService {
           }
         }
 
+        const contextWithDecision = await this.applyToolExecutionDecisionGate(
+          agentId,
+          context || {},
+          agentRecord,
+          {
+            userId,
+            socketId,
+          }
+        );
+
         // Process the chat request using AgentDiscussionService
         const result = await this.agentDiscussionService.processDiscussionMessage({
           agentId,
@@ -839,17 +1027,30 @@ class AgentIntelligenceService extends BaseService {
         });
 
         // Prepare enhanced response with WebSocket metadata
+        let resolvedAgentName = `Agent ${agentId}`;
+        try {
+          if (agentRecord?.name) resolvedAgentName = agentRecord.name;
+        } catch {
+          logger.warn('Could not resolve agent name', { agentId });
+        }
+
+        await this.maybeCreateSpecialistHuddleFromResponse(
+          agentId,
+          result.response,
+          contextWithDecision
+        );
+
         const responsePayload = {
           socketId,
           userId,
           agentId,
           messageId,
           response: result.response,
-          agentName: `Agent ${agentId}`, // TODO: Load actual agent name from config
+          agentName: resolvedAgentName,
           confidence: result.metadata.confidence,
-          memoryEnhanced: false, // TODO: Implement memory enhancement
-          knowledgeUsed: 0, // TODO: Implement knowledge tracking
-          toolsExecuted: [] as string[], // TODO: Implement tool execution
+          memoryEnhanced: result.metadata.memoryEnhanced ?? false,
+          knowledgeUsed: result.metadata.knowledgeUsed ?? 0,
+          toolsExecuted: (result.metadata.toolsExecuted as string[]) ?? [],
           timestamp: new Date().toISOString(),
           processingTime: result.metadata.processingTime,
           responseType: result.metadata.responseType,
@@ -1085,6 +1286,16 @@ class AgentIntelligenceService extends BaseService {
     await this.agentDiscussionService.initialize();
     logger.info('AgentDiscussionService initialized with knowledgeGraphService');
 
+    this.agentPlanningService = new AgentPlanningService({
+      databaseService: this.databaseService,
+      eventBusService: this.eventBusService,
+      knowledgeGraphService: knowledgeGraphService as unknown as LocalKnowledgeGraphService,
+      serviceName: 'agent-intelligence',
+      securityLevel: 2,
+    });
+    await this.agentPlanningService.initialize();
+    logger.info('AgentPlanningService initialized');
+
     // Initialize DiscussionService for API routes
     this.discussionService = new DiscussionService({
       databaseService: this.databaseService,
@@ -1098,6 +1309,605 @@ class AgentIntelligenceService extends BaseService {
 
     await this.setupRoutes();
     await this.setupEventSubscriptions();
+    await this.startMemoryConsolidationCron();
+  }
+
+  private detectChatIntent(message: string): 'creation' | 'analysis' | 'conversation' {
+    const normalized = message.toLowerCase();
+    const creationKeywords = [
+      'create',
+      'build',
+      'generate',
+      'design',
+      'implement',
+      'draft',
+      'write',
+    ];
+    const analysisKeywords = [
+      'analyze',
+      'investigate',
+      'review',
+      'evaluate',
+      'assess',
+      'debug',
+      'diagnose',
+    ];
+
+    if (creationKeywords.some((keyword) => normalized.includes(keyword))) {
+      return 'creation';
+    }
+
+    if (analysisKeywords.some((keyword) => normalized.includes(keyword))) {
+      return 'analysis';
+    }
+
+    return 'conversation';
+  }
+
+  private isComplexChatRequest(message: string, conversationHistory: any[], context: any): boolean {
+    const wordCount = message.trim().split(/\s+/).filter(Boolean).length;
+    const hasStructuredContext = Object.keys(context || {}).length > 2;
+    const hasDeepHistory = (conversationHistory || []).length >= 4;
+    return wordCount >= 15 || hasStructuredContext || hasDeepHistory;
+  }
+
+  private async applyToolExecutionDecisionGate(
+    agentId: string,
+    context: any,
+    agentRecord?: unknown,
+    approvalContext?: ApprovalRequestContext
+  ): Promise<any> {
+    const proposedAction = this.extractProposedAction(context);
+    if (!proposedAction) {
+      return context;
+    }
+
+    const availableTools = this.extractAvailableTools(context, proposedAction);
+
+    try {
+      const resolver = new ToolRegistryCapabilityResolver({
+        lookup: async (toolName: string) =>
+          availableTools.find((tool) => tool.name === toolName || tool.id === toolName) || null,
+        getTools: async () => availableTools,
+      });
+
+      const stateMachine = new AgentStateMachine(
+        agentId,
+        proposedAction.requiredCapabilities || []
+      );
+      const decisionEngine = new DecisionEngine(resolver, stateMachine);
+      const decision = await decisionEngine.selectAction(this.buildDecisionContext(), [
+        proposedAction,
+      ]);
+
+      if (decision.confidence < 0.5) {
+        logger.info('Tool execution skipped - confidence below threshold', {
+          agentId,
+          confidence: decision.confidence,
+          actionType: proposedAction.type,
+        });
+
+        return {
+          ...context,
+          toolExecution: {
+            ...(context?.toolExecution || {}),
+            skipped: true,
+            skipReason: 'confidence_below_threshold',
+            decisionConfidence: decision.confidence,
+          },
+        };
+      }
+
+      const operationSecurityLevel = this.resolveOperationSecurityLevel(context?.toolExecution);
+
+      if (decision.selectedAction?.riskLevel === 'high') {
+        const allowsHighRisk =
+          operationSecurityLevel === SecurityLevel.HIGH ||
+          operationSecurityLevel === SecurityLevel.CRITICAL;
+
+        if (!allowsHighRisk) {
+          logger.info('Tool execution skipped - security level too low for high risk action', {
+            agentId,
+            operationSecurityLevel,
+          });
+
+          return {
+            ...context,
+            toolExecution: {
+              ...(context?.toolExecution || {}),
+              skipped: true,
+              skipReason: 'security_level_restriction',
+              decisionConfidence: decision.confidence,
+            },
+          };
+        }
+      }
+
+      const requiresApproval = this.requiresApprovalForAgentChatConfig(agentRecord);
+      const isHighRisk = decision.selectedAction?.riskLevel === 'high';
+      const isCriticalSecurity = operationSecurityLevel === SecurityLevel.CRITICAL;
+
+      if (requiresApproval && (isHighRisk || isCriticalSecurity)) {
+        const toolExecution =
+          context?.toolExecution && typeof context.toolExecution === 'object'
+            ? context.toolExecution
+            : {};
+        const approvalResult = await this.requestToolExecutionApproval(agentId, {
+          toolId: String(toolExecution.toolId || toolExecution.toolName || 'unknown-tool'),
+          toolDescription: String(
+            toolExecution.toolDescription ||
+              toolExecution.reasoning ||
+              'High-risk tool execution requires approval'
+          ),
+          riskLevel: isHighRisk ? 'high' : String(toolExecution.riskLevel || 'medium'),
+          securityLevel: isCriticalSecurity
+            ? 'critical'
+            : String(toolExecution.securityLevel || ''),
+          parameters:
+            toolExecution.parameters && typeof toolExecution.parameters === 'object'
+              ? toolExecution.parameters
+              : {},
+          userId: approvalContext?.userId,
+          socketId: approvalContext?.socketId,
+        });
+
+        if (!approvalResult.approved) {
+          logger.info('Tool execution skipped - approval rejected or timed out', {
+            agentId,
+            approvalId: approvalResult.approvalId,
+            reason: approvalResult.reason,
+          });
+
+          return {
+            ...context,
+            toolExecution: {
+              ...(context?.toolExecution || {}),
+              skipped: true,
+              skipReason: 'approval_required',
+              approvalId: approvalResult.approvalId,
+              approvalReason: approvalResult.reason,
+            },
+          };
+        }
+      }
+
+      return {
+        ...context,
+        toolExecution: {
+          ...(context?.toolExecution || {}),
+          decisionConfidence: decision.confidence,
+          decisionReasoning: decision.reasoning,
+        },
+      };
+    } catch (error) {
+      logger.warn('Decision engine evaluation failed for tool execution path', {
+        agentId,
+        error: error instanceof Error ? error.message : String(error),
+      });
+      return context;
+    }
+  }
+
+  private extractProposedAction(context: any): ActionRecommendation | null {
+    const toolExecution = context?.toolExecution;
+    if (!toolExecution || typeof toolExecution !== 'object') {
+      return null;
+    }
+
+    const requiredCapabilities = Array.isArray(toolExecution.requiredCapabilities)
+      ? toolExecution.requiredCapabilities
+      : typeof toolExecution.capability === 'string'
+        ? [toolExecution.capability]
+        : typeof toolExecution.toolName === 'string'
+          ? [toolExecution.toolName]
+          : [];
+
+    if (requiredCapabilities.length === 0) {
+      return null;
+    }
+
+    return {
+      type: 'tool_execution',
+      confidence:
+        typeof toolExecution.confidence === 'number' && Number.isFinite(toolExecution.confidence)
+          ? toolExecution.confidence
+          : 0.6,
+      reasoning: String(toolExecution.reasoning || 'Tool execution requested from chat context'),
+      estimatedDuration:
+        typeof toolExecution.estimatedDuration === 'number' ? toolExecution.estimatedDuration : 30,
+      requiredCapabilities,
+      riskLevel:
+        toolExecution.riskLevel === 'high' ||
+        toolExecution.riskLevel === 'medium' ||
+        toolExecution.riskLevel === 'low'
+          ? toolExecution.riskLevel
+          : 'medium',
+    };
+  }
+
+  private extractAvailableTools(
+    context: any,
+    proposedAction: ActionRecommendation
+  ): ToolDefinition[] {
+    const providedTools = Array.isArray(context?.availableTools) ? context.availableTools : [];
+    const normalizedProvided = providedTools
+      .filter((tool: any) => tool && typeof tool === 'object' && tool.name)
+      .map((tool: any) => ({
+        id: String(tool.id || tool.name),
+        name: String(tool.name),
+        description: String(tool.description || tool.name),
+        category: ToolCategory.ANALYSIS,
+        parameters: tool.parameters || { type: 'object', properties: {} },
+        returnType: tool.returnType || { type: 'object' },
+        examples: Array.isArray(tool.examples) ? tool.examples : [],
+        securityLevel: this.resolveOperationSecurityLevel(tool),
+        requiresApproval: Boolean(tool.requiresApproval),
+        dependencies: Array.isArray(tool.dependencies) ? tool.dependencies : [],
+        version: String(tool.version || '1.0.0'),
+        author: String(tool.author || 'agent-intelligence'),
+        tags: Array.isArray(tool.tags) ? tool.tags : [],
+        isEnabled: tool.isEnabled !== false,
+        executionTimeEstimate:
+          typeof tool.executionTimeEstimate === 'number' ? tool.executionTimeEstimate : 30,
+      }));
+
+    if (normalizedProvided.length > 0) {
+      return normalizedProvided;
+    }
+
+    const fallbackTools: ToolDefinition[] = proposedAction.requiredCapabilities.map(
+      (capability) => ({
+        id: capability,
+        name: capability,
+        description: `Dynamically resolved capability: ${capability}`,
+        category: ToolCategory.ANALYSIS,
+        parameters: { type: 'object', properties: {} },
+        returnType: { type: 'object' },
+        examples: [] as ToolExample[],
+        securityLevel: SecurityLevel.MEDIUM,
+        requiresApproval: false,
+        dependencies: [] as string[],
+        version: '1.0.0',
+        author: 'agent-intelligence',
+        tags: [] as string[],
+        isEnabled: true,
+        executionTimeEstimate: 30,
+      })
+    );
+
+    return fallbackTools;
+  }
+
+  private resolveOperationSecurityLevel(toolExecution: any): SecurityLevel {
+    const level = toolExecution?.securityLevel;
+    if (level === SecurityLevel.LOW) return SecurityLevel.LOW;
+    if (level === SecurityLevel.HIGH) return SecurityLevel.HIGH;
+    if (level === SecurityLevel.CRITICAL) return SecurityLevel.CRITICAL;
+    return SecurityLevel.MEDIUM;
+  }
+
+  private buildDecisionContext(): any {
+    return {
+      analysis: {
+        context: {
+          messageCount: 1,
+          participants: [],
+          topics: [],
+          sentiment: 'neutral',
+          complexity: 'medium',
+          urgency: 'medium',
+        },
+        intent: {
+          primary: 'tool_execution',
+          secondary: [],
+          confidence: 0.7,
+          entities: [],
+          complexity: 'medium',
+        },
+        agentCapabilities: {
+          tools: [],
+          artifacts: [],
+          specializations: [],
+          limitations: [],
+        },
+        environmentFactors: {
+          timeOfDay: new Date().getHours(),
+          userLoad: 1,
+          systemLoad: 'normal',
+          availableResources: 'standard',
+        },
+      },
+      recommendedActions: [],
+      confidence: 0.7,
+      explanation: 'Decision context generated from chat tool execution request',
+      timestamp: new Date(),
+    };
+  }
+
+  private requiresApprovalForAgentChatConfig(agentRecord?: unknown): boolean {
+    if (!agentRecord || typeof agentRecord !== 'object') {
+      return false;
+    }
+
+    const record = agentRecord as Record<string, unknown>;
+    const chatConfig = record.chatConfig;
+    if (!chatConfig || typeof chatConfig !== 'object') {
+      return false;
+    }
+
+    return (chatConfig as Record<string, unknown>).requireApproval === true;
+  }
+
+  private async requestToolExecutionApproval(
+    agentId: string,
+    request: {
+      toolId: string;
+      toolDescription: string;
+      riskLevel: string;
+      securityLevel: string;
+      parameters: Record<string, unknown>;
+      userId?: string;
+      socketId?: string;
+    }
+  ): Promise<{ approved: boolean; approvalId: string; reason?: string }> {
+    const approvalId = randomUUID();
+
+    const approvalPromise = new Promise<void>((resolve, reject) => {
+      const timeout = setTimeout(
+        () => {
+          this.pendingApprovals.delete(approvalId);
+          reject(new Error('Approval timed out'));
+        },
+        5 * 60 * 1000
+      );
+
+      this.pendingApprovals.set(approvalId, {
+        agentId,
+        resolve,
+        reject: (reason?: string) => reject(new Error(reason || 'Approval rejected')),
+        timeout,
+      });
+    });
+
+    await this.eventBusService.publish('approval:required', {
+      approvalId,
+      agentId,
+      userId: request.userId,
+      socketId: request.socketId,
+      toolId: request.toolId,
+      toolDescription: request.toolDescription,
+      riskLevel: request.riskLevel,
+      parameters: this.sanitizeApprovalParameters(request.parameters),
+      securityLevel: request.securityLevel,
+      timestamp: new Date().toISOString(),
+    });
+
+    try {
+      await approvalPromise;
+      return { approved: true, approvalId };
+    } catch (error) {
+      return {
+        approved: false,
+        approvalId,
+        reason: error instanceof Error ? error.message : 'Approval rejected',
+      };
+    } finally {
+      const pendingApproval = this.pendingApprovals.get(approvalId);
+      if (pendingApproval) {
+        clearTimeout(pendingApproval.timeout);
+        this.pendingApprovals.delete(approvalId);
+      }
+    }
+  }
+
+  private sanitizeApprovalParameters(value: unknown): unknown {
+    const sensitiveFields = new Set([
+      'password',
+      'token',
+      'secret',
+      'authorization',
+      'apiKey',
+      'accessToken',
+      'refreshToken',
+    ]);
+
+    if (Array.isArray(value)) {
+      return value.map((entry) => this.sanitizeApprovalParameters(entry));
+    }
+
+    if (value && typeof value === 'object') {
+      const result: Record<string, unknown> = {};
+      for (const [key, nestedValue] of Object.entries(value as Record<string, unknown>)) {
+        if (sensitiveFields.has(key)) {
+          result[key] = '[REDACTED]';
+        } else {
+          result[key] = this.sanitizeApprovalParameters(nestedValue);
+        }
+      }
+      return result;
+    }
+
+    return value;
+  }
+
+  private async maybeCreateSpecialistHuddleFromResponse(
+    agentId: string,
+    llmResponse: string,
+    context: Record<string, unknown>
+  ): Promise<void> {
+    const needsConsult = /i\s+need\s+to\s+consult/i.test(llmResponse);
+    const hasSpecialistSubTask = this.hasSpecialistSubTaskInContext(context);
+
+    if (!needsConsult && !hasSpecialistSubTask) {
+      return;
+    }
+
+    const parentDiscussionId =
+      this.pickContextString(context.discussionId) ||
+      this.pickContextString(context.parentDiscussionId);
+    const specialistAgentIds = this.pickContextStringArray(context.specialistAgentIds);
+    const contextParticipantIds = this.pickContextStringArray(context.participantIds);
+    const availableAgentIds = this.pickContextStringArray(context.availableAgentIds);
+    const participantIds =
+      specialistAgentIds.length > 0
+        ? specialistAgentIds
+        : contextParticipantIds.length > 0
+          ? contextParticipantIds
+          : availableAgentIds;
+
+    if (!parentDiscussionId || participantIds.length === 0) {
+      return;
+    }
+
+    const topic =
+      this.pickContextString(context.huddleTopic) ||
+      this.pickContextString(context.specialistTopic) ||
+      `Specialist consult requested by agent ${agentId}`;
+
+    const baseUrl = process.env.DISCUSSION_ORCHESTRATION_URL || 'http://localhost:3005';
+    const response = await fetch(`${baseUrl}/api/v1/discussions/huddle`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        parentDiscussionId,
+        participantIds,
+        topic,
+      }),
+    });
+
+    if (!response.ok) {
+      logger.warn('Failed to create specialist huddle', {
+        agentId,
+        parentDiscussionId,
+        status: response.status,
+      });
+      return;
+    }
+
+    logger.info('Specialist huddle requested', {
+      agentId,
+      parentDiscussionId,
+      participantCount: participantIds.length,
+    });
+  }
+
+  private hasSpecialistSubTaskInContext(context: Record<string, unknown>): boolean {
+    const candidateSubTaskLists: unknown[] = [
+      context.subTasks,
+      context.tasks,
+      context.plannedSubTasks,
+      context.plan,
+      context.planning,
+    ];
+
+    for (const candidate of candidateSubTaskLists) {
+      if (Array.isArray(candidate)) {
+        for (const item of candidate) {
+          if (!item || typeof item !== 'object') {
+            continue;
+          }
+
+          const task = item as Record<string, unknown>;
+          if (task.requiresSpecialist === true) {
+            return true;
+          }
+
+          const requiredSkills = this.pickContextStringArray(task.requiredSkills);
+          if (requiredSkills.some((skill) => /specialist|expert/i.test(skill))) {
+            return true;
+          }
+        }
+      }
+
+      if (candidate && typeof candidate === 'object') {
+        const nested = candidate as Record<string, unknown>;
+        if (Array.isArray(nested.subTasks)) {
+          for (const nestedTask of nested.subTasks) {
+            if (nestedTask && typeof nestedTask === 'object') {
+              const task = nestedTask as Record<string, unknown>;
+              if (task.requiresSpecialist === true) {
+                return true;
+              }
+              const requiredSkills = this.pickContextStringArray(task.requiredSkills);
+              if (requiredSkills.some((skill) => /specialist|expert/i.test(skill))) {
+                return true;
+              }
+            }
+          }
+        }
+      }
+    }
+
+    return false;
+  }
+
+  private pickContextString(value: unknown): string | null {
+    if (typeof value !== 'string') {
+      return null;
+    }
+
+    const normalized = value.trim();
+    return normalized.length > 0 ? normalized : null;
+  }
+
+  private pickContextStringArray(value: unknown): string[] {
+    if (!Array.isArray(value)) {
+      return [];
+    }
+
+    return value
+      .filter((entry): entry is string => typeof entry === 'string')
+      .map((entry) => entry.trim())
+      .filter((entry) => entry.length > 0);
+  }
+
+  private async startMemoryConsolidationCron(): Promise<void> {
+    this.memoryConsolidator = await serviceFactory.getMemoryConsolidator();
+    this.semanticMemoryManager = await serviceFactory.getSemanticMemoryManager();
+
+    this.memoryConsolidationInterval = setInterval(
+      async () => {
+        try {
+          const activeAgents = await this.agentCoreService.getAgents({
+            status: AgentStatus.ACTIVE,
+          });
+
+          for (const agent of activeAgents) {
+            if (agent.isActive === false) {
+              continue;
+            }
+
+            try {
+              await this.memoryConsolidator.consolidateMemories(agent.id);
+            } catch (error) {
+              logger.error('Memory consolidation failed for agent', {
+                agentId: agent.id,
+                error: error instanceof Error ? error.message : String(error),
+              });
+            }
+          }
+        } catch (error) {
+          logger.error('Memory consolidation cycle failed', {
+            error: error instanceof Error ? error.message : String(error),
+          });
+        }
+      },
+      30 * 60 * 1000
+    );
+
+    logger.info('Memory consolidation cron initialized', {
+      intervalMs: 30 * 60 * 1000,
+    });
+  }
+
+  protected async cleanup(): Promise<void> {
+    if (this.memoryConsolidationInterval) {
+      clearInterval(this.memoryConsolidationInterval);
+      this.memoryConsolidationInterval = undefined;
+      logger.info('Memory consolidation cron stopped');
+    }
   }
 
   async start(): Promise<void> {

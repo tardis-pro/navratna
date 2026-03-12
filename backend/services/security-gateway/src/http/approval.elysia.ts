@@ -1,12 +1,12 @@
 import { z } from 'zod';
 import { logger } from '@uaip/utils';
 import { withRequiredAuth, withOperatorGuard } from '@uaip/middleware';
+import type { AuthedContext } from '@uaip/middleware';
 import { AuditService } from '../services/auditService.js';
 import { ApprovalWorkflowService } from '../services/approvalWorkflowService.js';
 import { EventBusService } from '@uaip/infra/eventBus';
 import { NotificationService } from '../services/notificationService.js';
 import { ApprovalStatus, SecurityLevel, AuditEventType } from '@uaip/types';
-import type { RequiredAuthContext } from './types/elysia-context.js';
 
 // Lazy service setup (keeps routing file self-contained)
 let auditService: AuditService | null = null;
@@ -94,8 +94,7 @@ export function registerApprovalRoutes(app: any): any {
       // Create workflow (operator)
       .group('', (g: any) =>
         withOperatorGuard(g)
-          // @ts-expect-error - Elysia middleware injects user, but TypeScript cannot infer through nested groups
-          .post('/workflows', async ({ body, set, user, request, headers }) => {
+          .post('/workflows', async ({ body, set, user, request, headers }: AuthedContext) => {
             const parsed = createWorkflowSchema.safeParse(body);
             if (!parsed.success) {
               set.status = 400;
@@ -150,8 +149,7 @@ export function registerApprovalRoutes(app: any): any {
             }
           })
           // Stats (operator)
-          // @ts-expect-error - Elysia middleware injects user, but TypeScript cannot infer through nested groups
-          .get('/stats', async ({ set, query, user }) => {
+          .get('/stats', async ({ set, query, user }: AuthedContext) => {
             try {
               const days = Number(query.days ?? 30);
               const startDate = new Date();
@@ -199,8 +197,7 @@ export function registerApprovalRoutes(app: any): any {
       )
 
       // Query workflows (auth)
-      // @ts-expect-error - Elysia middleware injects user, but TypeScript cannot infer through nested groups
-      .get('/workflows', async ({ set, user, query }) => {
+      .get('/workflows', async ({ set, user, query }: AuthedContext) => {
         const parsed = queryWorkflowsSchema.safeParse(query);
         if (!parsed.success) {
           set.status = 400;
@@ -248,8 +245,7 @@ export function registerApprovalRoutes(app: any): any {
       })
 
       // Pending approvals for current user
-      // @ts-expect-error - Elysia middleware injects user, but TypeScript cannot infer through nested groups
-      .get('/pending', async ({ set, user }) => {
+      .get('/pending', async ({ set, user }: AuthedContext) => {
         try {
           const { approvalWorkflowService } = await getServices();
           const pending = await approvalWorkflowService.getUserWorkflows(
@@ -302,8 +298,7 @@ export function registerApprovalRoutes(app: any): any {
       .group('', (g: any) =>
         withOperatorGuard(g).post(
           '/:workflowId/cancel',
-          // @ts-expect-error - Elysia middleware injects user, but TypeScript cannot infer through nested groups
-          async ({ set, params, body, user, request, headers }) => {
+          async ({ set, params, body, user, request, headers }: AuthedContext) => {
             try {
               const workflowId = params.workflowId;
               const reason = (body as any)?.reason;
@@ -336,8 +331,7 @@ export function registerApprovalRoutes(app: any): any {
       )
 
       // Workflow details
-      // @ts-expect-error - Elysia middleware injects user, but TypeScript cannot infer through nested groups
-      .get('/:workflowId', async ({ set, params, user }) => {
+      .get('/:workflowId', async ({ set, params, user }: AuthedContext) => {
         try {
           const workflowId = params.workflowId;
           if (!workflowId || workflowId.length < 10) {
@@ -369,64 +363,70 @@ export function registerApprovalRoutes(app: any): any {
       })
 
       // Approval decision
-      // @ts-expect-error - Elysia middleware injects user, but TypeScript cannot infer through nested groups
-      .post('/:workflowId/decisions', async ({ set, params, body, user, request, headers }) => {
-        const parsed = approvalDecisionSchema.safeParse({
-          ...(body as any),
-          workflowId: params.workflowId,
-        });
-        if (!parsed.success) {
-          set.status = 400;
-          return { error: 'Validation Error', details: parsed.error.flatten() };
-        }
-        try {
-          const { approvalWorkflowService, auditService } = await getServices();
-          const decisionInput = {
-            workflowId: parsed.data.workflowId,
-            approverId: user!.id,
-            decision: parsed.data.decision,
-            conditions: parsed.data.conditions,
-            feedback: parsed.data.feedback,
-            decidedAt: new Date(),
-          } as any;
-          const status = await approvalWorkflowService.processApprovalDecision(decisionInput);
-          await auditService.logEvent({
-            eventType:
-              parsed.data.decision === 'approve'
-                ? AuditEventType.APPROVAL_GRANTED
-                : AuditEventType.APPROVAL_DENIED,
-            userId: user!.id,
-            resourceType: 'approval_workflow',
-            resourceId: parsed.data.workflowId,
-            details: {
+      .post(
+        '/:workflowId/decisions',
+        async ({ set, params, body, user, request, headers }: AuthedContext) => {
+          const parsed = approvalDecisionSchema.safeParse({
+            ...(body as any),
+            workflowId: params.workflowId,
+          });
+          if (!parsed.success) {
+            set.status = 400;
+            return { error: 'Validation Error', details: parsed.error.flatten() };
+          }
+          try {
+            const { approvalWorkflowService, auditService } = await getServices();
+            const decisionInput = {
+              workflowId: parsed.data.workflowId,
+              approverId: user!.id,
               decision: parsed.data.decision,
               conditions: parsed.data.conditions,
               feedback: parsed.data.feedback,
-              workflowStatus: status.isComplete ? 'completed' : 'pending',
-              canProceed: status.canProceed,
-            },
-            ipAddress: request.headers.get('x-forwarded-for') || '',
-            userAgent: headers['user-agent'],
-            riskLevel: parsed.data.decision === 'reject' ? SecurityLevel.MEDIUM : SecurityLevel.LOW,
-          });
-          return {
-            success: true,
-            data: {
-              decision: decisionInput,
-              status,
-              message: status.isComplete
-                ? status.canProceed
-                  ? 'Operation approved and can proceed'
-                  : 'Operation rejected'
-                : 'Decision recorded, waiting for additional approvals',
-            },
-            message: 'Approval decision processed successfully',
-          };
-        } catch (error) {
-          set.status = 500;
-          return { error: 'Internal Server Error', message: 'Failed to process approval decision' };
+              decidedAt: new Date(),
+            } as any;
+            const status = await approvalWorkflowService.processApprovalDecision(decisionInput);
+            await auditService.logEvent({
+              eventType:
+                parsed.data.decision === 'approve'
+                  ? AuditEventType.APPROVAL_GRANTED
+                  : AuditEventType.APPROVAL_DENIED,
+              userId: user!.id,
+              resourceType: 'approval_workflow',
+              resourceId: parsed.data.workflowId,
+              details: {
+                decision: parsed.data.decision,
+                conditions: parsed.data.conditions,
+                feedback: parsed.data.feedback,
+                workflowStatus: status.isComplete ? 'completed' : 'pending',
+                canProceed: status.canProceed,
+              },
+              ipAddress: request.headers.get('x-forwarded-for') || '',
+              userAgent: headers['user-agent'],
+              riskLevel:
+                parsed.data.decision === 'reject' ? SecurityLevel.MEDIUM : SecurityLevel.LOW,
+            });
+            return {
+              success: true,
+              data: {
+                decision: decisionInput,
+                status,
+                message: status.isComplete
+                  ? status.canProceed
+                    ? 'Operation approved and can proceed'
+                    : 'Operation rejected'
+                  : 'Decision recorded, waiting for additional approvals',
+              },
+              message: 'Approval decision processed successfully',
+            };
+          } catch (error) {
+            set.status = 500;
+            return {
+              error: 'Internal Server Error',
+              message: 'Failed to process approval decision',
+            };
+          }
         }
-      })
+      )
   );
 }
 

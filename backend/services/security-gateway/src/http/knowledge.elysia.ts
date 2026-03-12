@@ -1,4 +1,5 @@
 import { withOptionalAuth, withRequiredAuth, t } from '@uaip/middleware';
+import type { AuthedContext, OptionalAuthContext } from '@uaip/middleware';
 import { z } from 'zod';
 import {
   servicesHealthCheck,
@@ -6,7 +7,6 @@ import {
   type UserKnowledgeService,
 } from '@uaip/shared-services';
 import { randomUUID } from 'crypto';
-import type { OptionalAuthContext, RequiredAuthContext } from './types/elysia-context.js';
 import type { KnowledgeSearchRequest, KnowledgeIngestRequest } from '@uaip/types';
 
 // Query parameter interfaces
@@ -74,25 +74,31 @@ interface KnowledgeItemBody {
 }
 
 // In-memory job store — good enough for single-instance dev; replace with Redis for prod
-const chatImportJobs = new Map<string, {
-  id: string;
-  status: 'pending' | 'processing' | 'completed' | 'failed';
-  progress: number;
-  filesProcessed: number;
-  totalFiles: number;
-  extractedItems: number;
-  error?: string;
-  results?: {
-    knowledgeItems: number;
-    qaPairs: number;
-    workflows: number;
-    expertiseProfiles: number;
-    learningMoments: number;
-  };
-}>();
+const chatImportJobs = new Map<
+  string,
+  {
+    id: string;
+    status: 'pending' | 'processing' | 'completed' | 'failed';
+    progress: number;
+    filesProcessed: number;
+    totalFiles: number;
+    extractedItems: number;
+    error?: string;
+    results?: {
+      knowledgeItems: number;
+      qaPairs: number;
+      workflows: number;
+      expertiseProfiles: number;
+      learningMoments: number;
+    };
+  }
+>();
 
 /** Extract knowledge items from common chat export formats. */
-function parseChatFile(fileName: string, content: string): Array<{ content: string; title: string; tags: string[] }> {
+function parseChatFile(
+  fileName: string,
+  content: string
+): Array<{ content: string; title: string; tags: string[] }> {
   const ext = fileName.split('.').pop()?.toLowerCase() ?? '';
   const items: Array<{ content: string; title: string; tags: string[] }> = [];
 
@@ -100,17 +106,21 @@ function parseChatFile(fileName: string, content: string): Array<{ content: stri
     try {
       const data = JSON.parse(content);
       // ChatGPT / Claude export: array of conversations
-      const convs = Array.isArray(data) ? data : data.conversations ?? data.data ?? [];
+      const convs = Array.isArray(data) ? data : (data.conversations ?? data.data ?? []);
       for (const conv of convs) {
         const title = conv.title ?? conv.name ?? 'Untitled conversation';
         // Collect all assistant/human message texts
         let text = '';
         const msgs = conv.messages ?? (conv.mapping ? Object.values(conv.mapping) : []);
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO: normalize chat-export JSON message shapes before iterating
         for (const m of msgs as any[]) {
           const msg = m?.message ?? m;
           const role = msg?.author?.role ?? msg?.role ?? '';
           const parts = msg?.content?.parts ?? (msg?.content ? [msg.content] : []);
-          const body = parts.map((p: any) => (typeof p === 'string' ? p : '')).join('').trim();
+          const body = parts
+            .map((p: unknown) => (typeof p === 'string' ? p : ''))
+            .join('')
+            .trim();
           if (body) text += `${role ? role + ': ' : ''}${body}\n\n`;
         }
         if (text.trim()) {
@@ -130,20 +140,33 @@ function parseChatFile(fileName: string, content: string): Array<{ content: stri
     for (const chunk of chunks) {
       buf += chunk + '\n';
       if (buf.length > MAX_CHUNK) {
-        items.push({ content: buf.trim(), title: `${fileName} — part ${++idx}`, tags: ['chat-import'] });
+        items.push({
+          content: buf.trim(),
+          title: `${fileName} — part ${++idx}`,
+          tags: ['chat-import'],
+        });
         buf = '';
       }
     }
-    if (buf.trim()) items.push({ content: buf.trim(), title: `${fileName} — part ${++idx}`, tags: ['chat-import'] });
+    if (buf.trim())
+      items.push({
+        content: buf.trim(),
+        title: `${fileName} — part ${++idx}`,
+        tags: ['chat-import'],
+      });
   } else {
     // CSV / HTML / fallback — just ingest raw content in 4 KB chunks
     const CHUNK = 4000;
     for (let i = 0, n = 0; i < content.length; i += CHUNK, n++) {
-      items.push({ content: content.slice(i, i + CHUNK), title: `${fileName} — chunk ${n}`, tags: ['chat-import'] });
+      items.push({
+        content: content.slice(i, i + CHUNK),
+        title: `${fileName} — chunk ${n}`,
+        tags: ['chat-import'],
+      });
     }
   }
 
-  return items.filter(i => i.content.length > 10);
+  return items.filter((i) => i.content.length > 10);
 }
 
 async function getServices(): Promise<{
@@ -165,8 +188,7 @@ export function registerKnowledgeRoutes(app: any): any {
       // POST /
       .group('', (g: any) =>
         withRequiredAuth(g)
-            // @ts-expect-error - Elysia middleware injects user, but TypeScript cannot infer through nested groups
-          .post('/', async ({ set, body, user }) => {
+          .post('/', async ({ set, body, user }: AuthedContext) => {
             const userId = user!.id;
             const { userKnowledgeService, initializationError } = await getServices();
             if (initializationError) {
@@ -201,7 +223,10 @@ export function registerKnowledgeRoutes(app: any): any {
                 return { error: 'Each knowledge item must have content' };
               }
             }
-            const result = await userKnowledgeService!.addKnowledge(userId, knowledgeItems as KnowledgeIngestRequest[]);
+            const result = await userKnowledgeService!.addKnowledge(
+              userId,
+              knowledgeItems as KnowledgeIngestRequest[]
+            );
             set.status = 201;
             return {
               success: true,
@@ -211,20 +236,19 @@ export function registerKnowledgeRoutes(app: any): any {
           })
 
           // PATCH /:itemId
-            // @ts-expect-error - Elysia middleware injects user, but TypeScript cannot infer through nested groups
-          .patch('/:itemId', async ({ set, params, body, user }) => {
+          .patch('/:itemId', async ({ set, params, body, user }: AuthedContext) => {
             const userId = user!.id;
             const { userKnowledgeService, initializationError } = await getServices();
             if (initializationError) {
               set.status = 503;
               return { error: 'Knowledge service not available', details: initializationError };
             }
-            const itemId = (params as any).itemId as string;
+            const itemId = (params as ItemIdParams).itemId;
             if (!itemId) {
               set.status = 400;
               return { error: 'Item ID is required' };
             }
-            if (!body || Object.keys(body as any).length === 0) {
+            if (!body || typeof body !== 'object' || Object.keys(body).length === 0) {
               set.status = 400;
               return { error: 'Update data is required' };
             }
@@ -252,15 +276,14 @@ export function registerKnowledgeRoutes(app: any): any {
           })
 
           // DELETE /:itemId
-            // @ts-expect-error - Elysia middleware injects user, but TypeScript cannot infer through nested groups
-          .delete('/:itemId', async ({ set, params, user }) => {
+          .delete('/:itemId', async ({ set, params, user }: AuthedContext) => {
             const userId = user!.id;
             const { userKnowledgeService, initializationError } = await getServices();
             if (initializationError) {
               set.status = 503;
               return { error: 'Knowledge service not available', details: initializationError };
             }
-            const itemId = (params as any).itemId as string;
+            const itemId = (params as ItemIdParams).itemId;
             if (!itemId) {
               set.status = 400;
               return { error: 'Item ID is required' };
@@ -285,16 +308,15 @@ export function registerKnowledgeRoutes(app: any): any {
           })
 
           // GET /tags/:tag
-            // @ts-expect-error - Elysia middleware injects user, but TypeScript cannot infer through nested groups
-          .get('/tags/:tag', async ({ set, params, query, user }) => {
+          .get('/tags/:tag', async ({ set, params, query, user }: AuthedContext) => {
             const userId = user!.id;
             const { userKnowledgeService, initializationError } = await getServices();
             if (initializationError) {
               set.status = 503;
               return { error: 'Knowledge service not available', details: initializationError };
             }
-            const tag = (params as any).tag as string;
-            const limit = Number((query as any).limit ?? 20);
+            const tag = (params as TagParams).tag;
+            const limit = Number((query as TagQuery).limit ?? 20);
             const items = await userKnowledgeService!.getKnowledgeByTags(userId, [tag], limit);
             return {
               success: true,
@@ -304,8 +326,7 @@ export function registerKnowledgeRoutes(app: any): any {
           })
 
           // GET /stats
-            // @ts-expect-error - Elysia middleware injects user, but TypeScript cannot infer through nested groups
-          .get('/stats', async ({ set, user }) => {
+          .get('/stats', async ({ set, user }: AuthedContext) => {
             const userId = user!.id;
             const { userKnowledgeService, initializationError } = await getServices();
             if (initializationError) {
@@ -321,10 +342,9 @@ export function registerKnowledgeRoutes(app: any): any {
           })
 
           // GET /:itemId/related
-            // @ts-expect-error - Elysia middleware injects user, but TypeScript cannot infer through nested groups
-          .get('/:itemId/related', async ({ set, params, user }) => {
+          .get('/:itemId/related', async ({ set, params, user }: AuthedContext) => {
             const userId = user!.id;
-            const itemId = (params as any).itemId as string;
+            const itemId = (params as ItemIdParams).itemId;
             const { userKnowledgeService, initializationError } = await getServices();
             if (initializationError) {
               set.status = 503;
@@ -343,11 +363,10 @@ export function registerKnowledgeRoutes(app: any): any {
           })
 
           // GET /:itemId/similar
-          // @ts-expect-error - Elysia middleware injects user, but TypeScript cannot infer through nested groups
-          .get('/:itemId/similar', async ({ set, params, query, user }) => {
+          .get('/:itemId/similar', async ({ set, params, query, user }: AuthedContext) => {
             const userId = user!.id;
-            const itemId = (params as any).itemId as string;
-            const limit = Number((query as any).limit ?? 10);
+            const itemId = (params as ItemIdParams).itemId;
+            const limit = Number((query as TagQuery).limit ?? 10);
             const { userKnowledgeService, initializationError } = await getServices();
             if (initializationError) {
               set.status = 503;
@@ -367,28 +386,26 @@ export function registerKnowledgeRoutes(app: any): any {
           })
 
           // GET /graph
-            // @ts-expect-error - Elysia middleware injects user, but TypeScript cannot infer through nested groups
-          .get('/graph', async ({ set, query, user }) => {
+          .get('/graph', async ({ set, query, user }: AuthedContext) => {
             const userId = user!.id;
             const { userKnowledgeService, initializationError } = await getServices();
             if (initializationError) {
               set.status = 503;
               return { error: 'Knowledge service not available', details: initializationError };
             }
-            const limit = Number((query as any).limit ?? 50);
-            const types = (query as any).types
-              ? String((query as any).types).split(',')
-              : undefined;
-            const tags = (query as any).tags ? String((query as any).tags).split(',') : undefined;
+            const parsedQuery = query as GraphQuery;
+            const limit = Number(parsedQuery.limit ?? 50);
+            const types = parsedQuery.types ? String(parsedQuery.types).split(',') : undefined;
+            const tags = parsedQuery.tags ? String(parsedQuery.tags).split(',') : undefined;
             const includeRelationships =
-              String((query as any).includeRelationships ?? 'true') === 'true';
-            const searchRequest = {
+              String(parsedQuery.includeRelationships ?? 'true') === 'true';
+            const searchRequest: KnowledgeSearchRequest = {
               query: '',
               filters: { types, tags },
               options: { limit, includeRelationships },
               timestamp: Date.now(),
             };
-            const result = await userKnowledgeService!.search(userId, searchRequest as any);
+            const result = await userKnowledgeService!.search(userId, searchRequest);
             const nodes = result.items.map((item: any) => ({
               id: item.id,
               type: 'knowledge',
@@ -437,36 +454,36 @@ export function registerKnowledgeRoutes(app: any): any {
           })
 
           // GET /graph/relationships/:itemId
-            // @ts-expect-error - Elysia middleware injects user, but TypeScript cannot infer through nested groups
-          .get('/graph/relationships/:itemId', async ({ set, params, query, user }) => {
-            const userId = user!.id;
-            const { userKnowledgeService, initializationError } = await getServices();
-            if (initializationError) {
-              set.status = 503;
-              return { error: 'Knowledge service not available', details: initializationError };
-            }
-            const itemId = (params as any).itemId as string;
-            const limit = Number((query as any).limit ?? 20);
-            if (!itemId) {
-              set.status = 400;
-              return { error: 'Item ID is required' };
-            }
-            const item = await userKnowledgeService!.getKnowledgeItem(userId, itemId);
-            if (!item) {
-              set.status = 404;
-              return { error: 'Knowledge item not found or not accessible' };
-            }
-            const relationshipTypes = (query as any).relationshipTypes
-              ? String((query as any).relationshipTypes).split(',')
-              : undefined;
-            const related = await userKnowledgeService!.findRelatedKnowledge(
-              userId,
-              itemId,
-              relationshipTypes
-            );
-            const relationships = related
-              .slice(0, limit)
-              .map((rel: any) => ({
+          .get(
+            '/graph/relationships/:itemId',
+            async ({ set, params, query, user }: AuthedContext) => {
+              const userId = user!.id;
+              const { userKnowledgeService, initializationError } = await getServices();
+              if (initializationError) {
+                set.status = 503;
+                return { error: 'Knowledge service not available', details: initializationError };
+              }
+              const itemId = (params as ItemIdParams).itemId;
+              const queryParams = query as RelationshipsQuery;
+              const limit = Number(queryParams.limit ?? 20);
+              if (!itemId) {
+                set.status = 400;
+                return { error: 'Item ID is required' };
+              }
+              const item = await userKnowledgeService!.getKnowledgeItem(userId, itemId);
+              if (!item) {
+                set.status = 404;
+                return { error: 'Knowledge item not found or not accessible' };
+              }
+              const relationshipTypes = queryParams.relationshipTypes
+                ? String(queryParams.relationshipTypes).split(',')
+                : undefined;
+              const related = await userKnowledgeService!.findRelatedKnowledge(
+                userId,
+                itemId,
+                relationshipTypes
+              );
+              const relationships = related.slice(0, limit).map((rel: any) => ({
                 id: `${itemId}-${rel.id}`,
                 source: itemId,
                 target: rel.id,
@@ -482,16 +499,16 @@ export function registerKnowledgeRoutes(app: any): any {
                   },
                 },
               }));
-            return {
-              success: true,
-              data: { itemId, relationships, totalCount: related.length },
-              message: `Found ${relationships.length} relationships for knowledge item`,
-            };
-          })
+              return {
+                success: true,
+                data: { itemId, relationships, totalCount: related.length },
+                message: `Found ${relationships.length} relationships for knowledge item`,
+              };
+            }
+          )
 
           // POST /sync
-            // @ts-expect-error - Elysia middleware injects user, but TypeScript cannot infer through nested groups
-          .post('/sync', async ({ set, user }) => {
+          .post('/sync', async ({ set, user }: AuthedContext) => {
             const userId = user!.id;
             const { userKnowledgeService, initializationError } = await getServices();
             if (initializationError) {
@@ -529,108 +546,135 @@ export function registerKnowledgeRoutes(app: any): any {
 
           // POST /chat-import — upload a chat history file and extract knowledge
           // (no ts-expect-error needed — handler is typed as :any)
-          .post('/chat-import', async ({ set, body, user }: any) => {
-            const userId = user!.id;
-            const { userKnowledgeService, initializationError } = await getServices();
-            if (initializationError) {
-              set.status = 503;
-              return { error: 'Knowledge service not available', details: initializationError };
-            }
-
-            const file: File | undefined = (body as any)?.file;
-            if (!file || typeof file.text !== 'function') {
-              set.status = 400;
-              return { error: 'A file field is required in the multipart body' };
-            }
-
-            const optionsRaw = (body as any)?.options;
-            // options is a string when sent as a FormData field
-            let options: Record<string, boolean> = {};
-            if (optionsRaw) {
-              try { options = JSON.parse(typeof optionsRaw === 'string' ? optionsRaw : JSON.stringify(optionsRaw)); } catch {}
-            }
-
-            const jobId = randomUUID();
-            const job = {
-              id: jobId,
-              status: 'processing' as const,
-              progress: 0,
-                  filesProcessed: 0, totalFiles: 1, extractedItems: 0,
-            };
-            chatImportJobs.set(jobId, job);
-
-            // Process synchronously (async in background to not block response)
-            setImmediate(async () => {
-              try {
-                const content = await file.text();
-                const parsed = parseChatFile(file.name, content);
-
-                const knowledgeRequests = parsed.map(item => ({
-                  content: item.content,
-                  type: 'EPISODIC' as any,
-                  tags: item.tags,
-                  source: {
-                    type: 'CHAT_IMPORT',
-                    identifier: item.title,
-                    metadata: { fileName: file.name, importedAt: new Date().toISOString(), ...options },
-                  },
-                  confidence: 0.75,
-                }));
-
-                let added = 0;
-                if (knowledgeRequests.length > 0) {
-                  const result = await userKnowledgeService!.addKnowledge(userId, knowledgeRequests as any);
-                  added = result.processedCount ?? knowledgeRequests.length;
-                }
-
-                chatImportJobs.set(jobId, {
-                  id: jobId,
-                  status: 'completed',
-                  progress: 100,
-                  filesProcessed: 1,
-                  totalFiles: 1,
-                  extractedItems: added,
-                  results: {
-                    knowledgeItems: added,
-                    qaPairs: options.generateQA ? Math.floor(added * 0.3) : 0,
-                    workflows: options.extractWorkflows ? Math.floor(added * 0.1) : 0,
-                    expertiseProfiles: options.analyzeExpertise ? 1 : 0,
-                    learningMoments: options.detectLearning ? Math.floor(added * 0.2) : 0,
-                  },
-                });
-              } catch (err) {
-                chatImportJobs.set(jobId, {
-                  id: jobId, status: 'failed', progress: 0,
-                  filesProcessed: 0, totalFiles: 1, extractedItems: 0,
-                  error: err instanceof Error ? err.message : String(err),
-                });
+          .post(
+            '/chat-import',
+            async ({
+              set,
+              body,
+              user,
+            }: AuthedContext & { body: { file: File; options?: string } }) => {
+              const userId = user!.id;
+              const { userKnowledgeService, initializationError } = await getServices();
+              if (initializationError) {
+                set.status = 503;
+                return { error: 'Knowledge service not available', details: initializationError };
               }
-            });
 
-            return { jobId, status: 'processing', message: 'Chat import started' };
-          }, {
-            body: t.Object({
-              file: t.File(),
-              options: t.Optional(t.String()),
-            }),
-          })
+              const file: File | undefined = body?.file;
+              if (!file || typeof file.text !== 'function') {
+                set.status = 400;
+                return { error: 'A file field is required in the multipart body' };
+              }
+
+              const optionsRaw = body?.options;
+              // options is a string when sent as a FormData field
+              let options: Record<string, boolean> = {};
+              if (optionsRaw) {
+                try {
+                  options = JSON.parse(
+                    typeof optionsRaw === 'string' ? optionsRaw : JSON.stringify(optionsRaw)
+                  );
+                } catch {}
+              }
+
+              const jobId = randomUUID();
+              const job = {
+                id: jobId,
+                status: 'processing' as const,
+                progress: 0,
+                filesProcessed: 0,
+                totalFiles: 1,
+                extractedItems: 0,
+              };
+              chatImportJobs.set(jobId, job);
+
+              // Process synchronously (async in background to not block response)
+              setImmediate(async () => {
+                try {
+                  const content = await file.text();
+                  const parsed = parseChatFile(file.name, content);
+
+                  const knowledgeRequests = parsed.map((item) => ({
+                    content: item.content,
+                    type: 'EPISODIC',
+                    tags: item.tags,
+                    source: {
+                      type: 'CHAT_IMPORT',
+                      identifier: item.title,
+                      metadata: {
+                        fileName: file.name,
+                        importedAt: new Date().toISOString(),
+                        ...options,
+                      },
+                    },
+                    confidence: 0.75,
+                  }));
+
+                  let added = 0;
+                  if (knowledgeRequests.length > 0) {
+                    const result = await userKnowledgeService!.addKnowledge(
+                      userId,
+                      knowledgeRequests as KnowledgeIngestRequest[]
+                    );
+                    added = result.processedCount ?? knowledgeRequests.length;
+                  }
+
+                  chatImportJobs.set(jobId, {
+                    id: jobId,
+                    status: 'completed',
+                    progress: 100,
+                    filesProcessed: 1,
+                    totalFiles: 1,
+                    extractedItems: added,
+                    results: {
+                      knowledgeItems: added,
+                      qaPairs: options.generateQA ? Math.floor(added * 0.3) : 0,
+                      workflows: options.extractWorkflows ? Math.floor(added * 0.1) : 0,
+                      expertiseProfiles: options.analyzeExpertise ? 1 : 0,
+                      learningMoments: options.detectLearning ? Math.floor(added * 0.2) : 0,
+                    },
+                  });
+                } catch (err) {
+                  chatImportJobs.set(jobId, {
+                    id: jobId,
+                    status: 'failed',
+                    progress: 0,
+                    filesProcessed: 0,
+                    totalFiles: 1,
+                    extractedItems: 0,
+                    error: err instanceof Error ? err.message : String(err),
+                  });
+                }
+              });
+
+              return { jobId, status: 'processing', message: 'Chat import started' };
+            },
+            {
+              body: t.Object({
+                file: t.File(),
+                options: t.Optional(t.String()),
+              }),
+            }
+          )
 
           // GET /chat-jobs/:jobId — poll for import job status
           // (no ts-expect-error needed — handler is typed as :any)
-          .get('/chat-jobs/:jobId', async ({ set, params }: any) => {
-            const jobId = (params as any).jobId as string;
-            const job = chatImportJobs.get(jobId);
-            if (!job) {
-              set.status = 404;
-              return { error: 'Job not found' };
+          .get(
+            '/chat-jobs/:jobId',
+            async ({ set, params }: { set: { status: number }; params: { jobId: string } }) => {
+              const jobId = params.jobId;
+              const job = chatImportJobs.get(jobId);
+              if (!job) {
+                set.status = 404;
+                return { error: 'Job not found' };
+              }
+              return job;
             }
-            return job;
-          })
+          )
       )
 
       // GET /
-            // @ts-expect-error - Elysia middleware injects user, but TypeScript cannot infer through nested groups
-      .get('/', async ({ set, query, user }) => {
+      .get('/', async ({ set, query, user }: OptionalAuthContext) => {
         if (!user) {
           set.status = 401;
           return { error: 'User not authenticated' };
@@ -641,17 +685,18 @@ export function registerKnowledgeRoutes(app: any): any {
           set.status = 503;
           return { error: 'Knowledge service not available', details: initializationError };
         }
-        const limit = Number((query as any).limit ?? 50);
-        const offset = Number((query as any).offset ?? 0);
-        const tags = (query as any).tags ? String((query as any).tags).split(',') : undefined;
-        const types = (query as any).types ? String((query as any).types).split(',') : undefined;
-        const searchRequest = {
+        const parsedQuery = query as ListQuery;
+        const limit = Number(parsedQuery.limit ?? 50);
+        const offset = Number(parsedQuery.offset ?? 0);
+        const tags = parsedQuery.tags ? String(parsedQuery.tags).split(',') : undefined;
+        const types = parsedQuery.types ? String(parsedQuery.types).split(',') : undefined;
+        const searchRequest: KnowledgeSearchRequest = {
           query: '',
           filters: { tags, types },
           options: { limit, offset, includeRelationships: false },
           timestamp: Date.now(),
         };
-        const result = await userKnowledgeService!.search(userId, searchRequest as any);
+        const result = await userKnowledgeService!.search(userId, searchRequest);
         return {
           success: true,
           data: result.items,
@@ -661,8 +706,7 @@ export function registerKnowledgeRoutes(app: any): any {
       })
 
       // GET /search
-            // @ts-expect-error - Elysia middleware injects user, but TypeScript cannot infer through nested groups
-      .get('/search', async ({ set, query, user }) => {
+      .get('/search', async ({ set, query, user }: OptionalAuthContext) => {
         if (!user) {
           set.status = 401;
           return { error: 'User not authenticated' };
@@ -673,26 +717,24 @@ export function registerKnowledgeRoutes(app: any): any {
           set.status = 503;
           return { error: 'Knowledge service not available', details: initializationError };
         }
-        const q = (query as any).q as string | undefined;
+        const parsedQuery = query as SearchQuery;
+        const q = parsedQuery.q;
         if (!q) {
           set.status = 400;
           return { error: 'Query parameter "q" is required' };
         }
-        const tags = (query as any).tags ? String((query as any).tags).split(',') : undefined;
-        const types = (query as any).types ? String((query as any).types).split(',') : undefined;
-        const limit = Number((query as any).limit ?? 20);
-        const confidence = (query as any).confidence
-          ? Number((query as any).confidence)
-          : undefined;
-        const includeRelationships =
-          String((query as any).includeRelationships ?? 'false') === 'true';
-        const searchRequest = {
+        const tags = parsedQuery.tags ? String(parsedQuery.tags).split(',') : undefined;
+        const types = parsedQuery.types ? String(parsedQuery.types).split(',') : undefined;
+        const limit = Number(parsedQuery.limit ?? 20);
+        const confidence = parsedQuery.confidence ? Number(parsedQuery.confidence) : undefined;
+        const includeRelationships = String(parsedQuery.includeRelationships ?? 'false') === 'true';
+        const searchRequest: KnowledgeSearchRequest = {
           query: q,
           filters: { tags, types, confidence },
           options: { limit, includeRelationships },
           timestamp: Date.now(),
         };
-        const result = await userKnowledgeService!.search(userId, searchRequest as any);
+        const result = await userKnowledgeService!.search(userId, searchRequest);
         return {
           success: true,
           data: result,
@@ -703,7 +745,7 @@ export function registerKnowledgeRoutes(app: any): any {
       // GET /health (public)
       .get('/health', async () => {
         const healthStatus = await servicesHealthCheck();
-        const ok = (healthStatus as any).healthy;
+        const ok = (healthStatus as ServicesHealthStatus).healthy;
         if (ok)
           return { success: true, data: healthStatus, message: 'Knowledge services are healthy' };
         return new Response(

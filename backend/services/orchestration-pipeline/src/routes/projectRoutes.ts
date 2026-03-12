@@ -315,10 +315,32 @@ export function registerProjectRoutes(app: Elysia): void {
       const userId = headers['x-user-id'];
       const projectId = params.projectId;
 
+      if (!userId) {
+        set.status = 401;
+        return { error: 'User not authenticated' };
+      }
+
       const validatedBody = addAgentSchema.parse(body);
-      // Agent assignment functionality needs to be implemented in ProjectManagementService
-      set.status = 501;
-      return { error: 'Agent assignment not yet implemented' };
+
+      logger.info('Assigning agent to project', {
+        projectId,
+        requestedBy: userId,
+        agentId: validatedBody.agentId,
+        role: validatedBody.role,
+      });
+
+      const assignment = await projectService.addProjectAgent(
+        projectId,
+        validatedBody.agentId,
+        validatedBody.role
+      );
+
+      set.status = 201;
+      return {
+        success: true,
+        message: 'Agent assigned to project',
+        assignment,
+      };
     } catch (error) {
       if (error instanceof z.ZodError) {
         set.status = 400;

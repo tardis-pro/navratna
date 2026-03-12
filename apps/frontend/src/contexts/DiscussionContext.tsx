@@ -32,6 +32,17 @@ interface TurnInfo {
   turnNumber: number;
 }
 
+interface PendingApprovalRequest {
+  approvalId: string;
+  agentId: string;
+  toolId: string;
+  toolDescription: string;
+  riskLevel: string;
+  parameters?: unknown;
+  securityLevel?: string;
+  timestamp?: string;
+}
+
 interface DiscussionContextType {
   // State
   isActive: boolean;
@@ -44,6 +55,7 @@ interface DiscussionContextType {
   discussionId: string | null;
   isLoading: boolean;
   lastError: string | null;
+  pendingApprovals: PendingApprovalRequest[];
 
   // Actions
   start: (topic?: string, agentIds?: string[], enhancedContext?: any) => Promise<void>;
@@ -52,6 +64,7 @@ interface DiscussionContextType {
   resume: (discussionId: string) => Promise<void>;
   addMessage: (content: string, agentId?: string) => Promise<void>;
   loadHistory: (discussionId: string) => Promise<void>;
+  dismissApproval: (approvalId: string) => void;
 }
 
 const DiscussionContext = createContext<DiscussionContextType | null>(null);
@@ -89,6 +102,7 @@ export const DiscussionProvider: React.FC<DiscussionProviderProps> = ({
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [lastError, setLastError] = useState<string | null>(null);
   const [discussionId, setDiscussionId] = useState<string | null>(null);
+  const [pendingApprovals, setPendingApprovals] = useState<PendingApprovalRequest[]>([]);
 
   const { agents } = useAgents();
   const { user } = useAuth();
@@ -165,7 +179,9 @@ export const DiscussionProvider: React.FC<DiscussionProviderProps> = ({
             setCurrentTurn({
               participantId: turnData.participantId || turnData.nextParticipantId,
               startedAt: turnData.startedAt ? new Date(turnData.startedAt) : new Date(),
-              expectedEndAt: turnData.expectedEndAt ? new Date(turnData.expectedEndAt) : new Date(Date.now() + 60000),
+              expectedEndAt: turnData.expectedEndAt
+                ? new Date(turnData.expectedEndAt)
+                : new Date(Date.now() + 60000),
               turnNumber: turnData.turnNumber || 0,
             });
           }
@@ -176,6 +192,22 @@ export const DiscussionProvider: React.FC<DiscussionProviderProps> = ({
           setLastError(lastEvent.payload.message || 'Discussion error occurred');
           setIsLoading(false);
           break;
+
+        case 'approval_required': {
+          const approval = lastEvent.payload as PendingApprovalRequest;
+          if (!approval?.approvalId || !approval?.agentId) {
+            break;
+          }
+
+          setPendingApprovals((prev) => {
+            const existing = prev.find((entry) => entry.approvalId === approval.approvalId);
+            if (existing) {
+              return prev;
+            }
+            return [...prev, approval];
+          });
+          break;
+        }
 
         default:
           console.log('🔹 Other discussion event:', lastEvent.type, lastEvent.payload);
@@ -531,6 +563,10 @@ export const DiscussionProvider: React.FC<DiscussionProviderProps> = ({
     }
   }, []);
 
+  const dismissApproval = useCallback((approvalId: string) => {
+    setPendingApprovals((prev) => prev.filter((approval) => approval.approvalId !== approvalId));
+  }, []);
+
   const value: DiscussionContextType = {
     isActive,
     isWebSocketConnected,
@@ -543,12 +579,14 @@ export const DiscussionProvider: React.FC<DiscussionProviderProps> = ({
     discussionId,
     isLoading,
     lastError,
+    pendingApprovals,
     start,
     stop,
     pause,
     resume,
     addMessage,
     loadHistory,
+    dismissApproval,
   };
 
   // Cleanup on unmount

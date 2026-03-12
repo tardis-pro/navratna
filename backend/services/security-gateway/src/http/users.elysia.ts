@@ -4,9 +4,9 @@ import { logger } from '@uaip/utils';
 import { UserService } from '@uaip/shared-services';
 import { validateJWTToken } from '@uaip/middleware';
 import { withOptionalAuth, withAdminGuard, withRequiredAuth } from '@uaip/middleware';
+import type { AuthedContext } from '@uaip/middleware';
 import { AuditService } from '../services/auditService.js';
 import { AuditEventType, LLMTaskType, LLMProviderType } from '@uaip/types';
-import type { OptionalAuthContext, RequiredAuthContext } from './types/elysia-context.js';
 
 let userService: UserService | null = null;
 let auditService: AuditService | null = null;
@@ -81,6 +81,17 @@ const updateUserLLMPreferencesSchema = z.object({
   preferences: z.array(userLLMPreferenceSchema),
 });
 
+const searchRoleSchema = z.enum(['user', 'admin', 'security_admin', 'auditor']).optional();
+
+type UserRecordWithPasswordHash = {
+  passwordHash?: string;
+} & Record<string, unknown>;
+
+const omitPasswordHash = <T extends UserRecordWithPasswordHash>(user: T) => {
+  const { passwordHash: _passwordHash, ...safeUser } = user;
+  return safeUser;
+};
+
 export function registerUserRoutes(app: any): any {
   return app.group('/api/v1/users', (app: any) =>
     withOptionalAuth(app)
@@ -98,9 +109,9 @@ export function registerUserRoutes(app: any): any {
             const { userService } = await getServices();
             const repo = userService.getUserRepository();
             const result = await repo.searchUsers({
-              search: search as any,
-              role: role as any,
-              isActive: isActive as any,
+              search,
+              role: searchRoleSchema.parse(role),
+              isActive,
               limit,
               offset,
             });
@@ -136,9 +147,9 @@ export function registerUserRoutes(app: any): any {
           const { userService } = await getServices();
           const repo = userService.getUserRepository();
           const result = await repo.searchUsers({
-            search: search as any,
-            role: 'user' as any,
-            isActive: true as any,
+            search,
+            role: 'user',
+            isActive: true,
             limit,
             offset,
           });
@@ -178,8 +189,7 @@ export function registerUserRoutes(app: any): any {
       // GET /api/v1/users/llm-preferences
       .group('', (g: any) =>
         withRequiredAuth(g)
-            // @ts-expect-error - Elysia middleware injects user, but TypeScript cannot infer through nested groups
-          .get('/llm-preferences', async ({ set, user }) => {
+          .get('/llm-preferences', async ({ set, user }: AuthedContext) => {
             try {
               const { userService } = await getServices();
               const repo = userService.getUserLLMPreferenceRepository();
@@ -192,8 +202,7 @@ export function registerUserRoutes(app: any): any {
           })
 
           // PUT /api/v1/users/llm-preferences
-            // @ts-expect-error - Elysia middleware injects user, but TypeScript cannot infer through nested groups
-          .put('/llm-preferences', async ({ set, user, body }) => {
+          .put('/llm-preferences', async ({ set, user, body }: AuthedContext) => {
             const parsed = updateUserLLMPreferencesSchema.safeParse(body);
             if (!parsed.success) {
               set.status = 400;
@@ -203,7 +212,7 @@ export function registerUserRoutes(app: any): any {
               const { userService } = await getServices();
               const repo = userService.getUserLLMPreferenceRepository();
               await repo.bulkUpsert(
-                parsed.data.preferences.map((p) => ({ ...p, userId: user!.id })) as any
+                parsed.data.preferences.map((p) => ({ ...p, userId: user!.id }))
               );
               return { message: 'Preferences updated' };
             } catch (error) {
@@ -224,7 +233,7 @@ export function registerUserRoutes(app: any): any {
                 set.status = 404;
                 return { error: 'User Not Found', message: 'User not found' };
               }
-              const { passwordHash, ...userResponse } = user as any;
+              const userResponse = omitPasswordHash(user as UserRecordWithPasswordHash);
               return { message: 'User retrieved successfully', user: userResponse };
             } catch (error) {
               set.status = 500;
@@ -233,8 +242,7 @@ export function registerUserRoutes(app: any): any {
           })
 
           // POST /api/v1/users (admin)
-            // @ts-expect-error - Elysia middleware injects user, but TypeScript cannot infer through nested groups
-          .post('/', async ({ set, body, user }) => {
+          .post('/', async ({ set, body, user }: AuthedContext) => {
             const parsed = createUserSchema.safeParse(body);
             if (!parsed.success) {
               set.status = 400;
@@ -275,7 +283,7 @@ export function registerUserRoutes(app: any): any {
                 ipAddress: '',
                 userAgent: '',
               });
-              const { passwordHash, ...userResponse } = created as any;
+              const userResponse = omitPasswordHash(created as UserRecordWithPasswordHash);
               set.status = 201;
               return { message: 'User created successfully', user: userResponse };
             } catch (error) {
@@ -331,10 +339,10 @@ export function registerUserRoutes(app: any): any {
                   updatedUserId: updated.id,
                   updatedUserEmail: updated.email,
                   updatedFields: Object.keys(parsed.data),
-                  previousRole: (current as any).role,
-                  newRole: (updated as any).role,
-                  previousActive: (current as any).isActive,
-                  newActive: (updated as any).isActive,
+                  previousRole: current.role,
+                  newRole: updated.role,
+                  previousActive: current.isActive,
+                  newActive: updated.isActive,
                 },
                 ipAddress: '',
                 userAgent: '',

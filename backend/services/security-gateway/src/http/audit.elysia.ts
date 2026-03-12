@@ -1,10 +1,10 @@
 import { z } from 'zod';
 import { logger } from '@uaip/utils';
 import { withAdminGuard, withRequiredAuth } from '@uaip/middleware';
+import type { AuthedContext } from '@uaip/middleware';
 import { AuditService as DomainAuditService } from '@uaip/shared-services';
 import { AuditService } from '../services/auditService.js';
 import { AuditEventType } from '@uaip/types';
-import type { RequiredAuthContext } from './types/elysia-context.js';
 
 let domainAuditService: DomainAuditService | null = null;
 let auditService: AuditService | null = null;
@@ -47,7 +47,21 @@ const complianceReportSchema = z.object({
   includeCharts: z.boolean().default(false),
 });
 
-function validateWithZod<T>(schema: z.ZodSchema<T>, data: any): { error: { details: { message: string; path: string }[] } | null; value: T | null } {
+const logIdParamsSchema = z.object({ logId: z.string().min(1) });
+const userActivityParamsSchema = z.object({ userId: z.string().min(1) });
+const statsQuerySchema = z.object({ timeframe: z.enum(['1h', '24h', '7d', '30d']).optional() });
+const userActivityQuerySchema = z.object({
+  page: z.coerce.number().int().min(1).default(1),
+  limit: z.coerce.number().int().min(1).max(100).default(20),
+  startDate: z.coerce.date().optional(),
+  endDate: z.coerce.date().optional(),
+  eventType: z.nativeEnum(AuditEventType).optional(),
+});
+
+function validateWithZod<T>(
+  schema: z.ZodSchema<T>,
+  data: any
+): { error: { details: { message: string; path: string }[] } | null; value: T | null } {
   const result = schema.safeParse(data);
   if (result.success) return { error: null, value: result.data };
   return {
@@ -106,7 +120,7 @@ export function registerAuditRoutes(app: any): any {
         .get('/logs/:logId', async ({ set, params }) => {
           try {
             const { domainAuditService } = await getServices();
-            const logId = (params as any).logId as string;
+            const { logId } = logIdParamsSchema.parse(params);
             const repo = domainAuditService.getAuditRepository();
             const log = await repo.getAuditLogById(logId);
             if (!log) {
@@ -136,12 +150,11 @@ export function registerAuditRoutes(app: any): any {
         // GET /stats
         .get('/stats', async ({ set, query }) => {
           try {
-            const timeframe = ((query as any).timeframe || '24h') as string;
-            const valid = ['1h', '24h', '7d', '30d'];
-            const selected = valid.includes(timeframe) ? timeframe : '24h';
+            const parsedQuery = statsQuerySchema.safeParse(query);
+            const selected = parsedQuery.success ? (parsedQuery.data.timeframe ?? '24h') : '24h';
             const { domainAuditService } = await getServices();
             const repo = domainAuditService.getAuditRepository();
-            const statistics = await repo.getAuditStatistics(selected as any);
+            const statistics = await repo.getAuditStatistics(selected);
             return {
               message: 'Audit statistics retrieved successfully',
               timeframe: selected,
@@ -157,8 +170,7 @@ export function registerAuditRoutes(app: any): any {
         })
 
         // POST /export
-            // @ts-expect-error - Elysia middleware injects user, but TypeScript cannot infer through nested groups
-        .post('/export', async ({ set, body, user, request, headers }) => {
+        .post('/export', async ({ set, body, user, request, headers }: AuthedContext) => {
           const { error, value } = validateWithZod(exportSchema, body);
           if (error) {
             set.status = 400;
@@ -204,62 +216,65 @@ export function registerAuditRoutes(app: any): any {
         })
 
         // POST /compliance-report
-            // @ts-expect-error - Elysia middleware injects user, but TypeScript cannot infer through nested groups
-        .post('/compliance-report', async ({ set, body, user, request, headers }) => {
-          const { error, value } = validateWithZod(complianceReportSchema, body);
-          if (error) {
-            set.status = 400;
-            return { error: 'Validation Error', details: error.details.map((d: any) => d.message) };
-          }
-          try {
-            const { auditService } = await getServices();
-            const report = await auditService.generateComplianceReport({
-              startDate: value.startDate,
-              endDate: value.endDate,
-              includeDetails: value.includeCharts,
-              complianceFramework: undefined,
-            });
-            await auditService.logSecurityEvent({
-              eventType: AuditEventType.COMPLIANCE_REPORT_GENERATED,
-              userId: user!.id,
-              details: {
-                reportType: value.reportType,
+        .post(
+          '/compliance-report',
+          async ({ set, body, user, request, headers }: AuthedContext) => {
+            const { error, value } = validateWithZod(complianceReportSchema, body);
+            if (error) {
+              set.status = 400;
+              return {
+                error: 'Validation Error',
+                details: error.details.map((d: any) => d.message),
+              };
+            }
+            try {
+              const { auditService } = await getServices();
+              const report = await auditService.generateComplianceReport({
                 startDate: value.startDate,
                 endDate: value.endDate,
-                format: value.format,
-              },
-              ipAddress: request.headers.get('x-forwarded-for') || '',
-              userAgent: headers['user-agent'],
-            });
-            return value.format === 'json' ? report : { data: report };
-          } catch (error) {
-            set.status = 500;
-            return {
-              error: 'Internal Server Error',
-              message: 'Failed to generate compliance report',
-            };
+                includeDetails: value.includeCharts,
+                complianceFramework: undefined,
+              });
+              await auditService.logSecurityEvent({
+                eventType: AuditEventType.COMPLIANCE_REPORT_GENERATED,
+                userId: user!.id,
+                details: {
+                  reportType: value.reportType,
+                  startDate: value.startDate,
+                  endDate: value.endDate,
+                  format: value.format,
+                },
+                ipAddress: request.headers.get('x-forwarded-for') || '',
+                userAgent: headers['user-agent'],
+              });
+              return value.format === 'json' ? report : { data: report };
+            } catch (error) {
+              set.status = 500;
+              return {
+                error: 'Internal Server Error',
+                message: 'Failed to generate compliance report',
+              };
+            }
           }
-        })
+        )
 
         // GET /user-activity/:userId
         .get('/user-activity/:userId', async ({ set, params, query }) => {
           try {
             const { domainAuditService } = await getServices();
-            const userId = (params as any).userId as string;
-            const page = Number((query as any).page ?? 1);
-            const limit = Number((query as any).limit ?? 20);
-            const startDate = (query as any).startDate
-              ? new Date((query as any).startDate)
-              : undefined;
-            const endDate = (query as any).endDate ? new Date((query as any).endDate) : undefined;
-            const eventType = (query as any).eventType as AuditEventType | undefined;
+            const { userId } = userActivityParamsSchema.parse(params);
+            const parsedQuery = userActivityQuerySchema.safeParse(query);
+            const parsedData = parsedQuery.success
+              ? parsedQuery.data
+              : userActivityQuerySchema.parse({});
+            const { page, limit, startDate, endDate, eventType } = parsedData;
             const offset = (page - 1) * limit;
             const repo = domainAuditService.getAuditRepository();
             const result = await repo.getUserActivityAuditTrail({
               userId,
               startDate,
               endDate,
-              eventType: eventType as any,
+              eventType,
               limit,
               offset,
             });
@@ -283,8 +298,7 @@ export function registerAuditRoutes(app: any): any {
         })
 
         // DELETE /cleanup
-            // @ts-expect-error - Elysia middleware injects user, but TypeScript cannot infer through nested groups
-        .delete('/cleanup', async ({ set, user, request, headers }) => {
+        .delete('/cleanup', async ({ set, user, request, headers }: AuthedContext) => {
           try {
             const { auditService } = await getServices();
             const result = await auditService.cleanupOldLogs();

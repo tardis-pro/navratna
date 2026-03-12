@@ -7,10 +7,20 @@ import { ContextAwareStrategy } from '../strategies/ContextAwareStrategy.js';
 
 export class TurnStrategyService {
   private strategies: Map<TurnStrategy, TurnStrategyInterface>;
+  private strategyMetrics: Map<
+    TurnStrategy,
+    {
+      usage: number;
+      totalTurns: number;
+      completedTurns: number;
+      totalTurnDuration: number;
+    }
+  >;
   private defaultStrategy: TurnStrategy = TurnStrategy.ROUND_ROBIN;
 
   constructor() {
     this.strategies = new Map();
+    this.strategyMetrics = new Map();
     this.initializeStrategies();
   }
 
@@ -20,6 +30,7 @@ export class TurnStrategyService {
       this.strategies.set(TurnStrategy.ROUND_ROBIN, new RoundRobinStrategy());
       this.strategies.set(TurnStrategy.MODERATED, new ModeratedStrategy());
       this.strategies.set(TurnStrategy.CONTEXT_AWARE, new ContextAwareStrategy());
+      this.initializeStrategyMetrics();
 
       logger.info('Turn strategies initialized', {
         availableStrategies: Array.from(this.strategies.keys()),
@@ -42,6 +53,7 @@ export class TurnStrategyService {
     config?: TurnStrategyConfig
   ): Promise<DiscussionParticipant | null> {
     try {
+      this.recordStrategyUsage(discussion.turnStrategy.strategy);
       const strategy = this.getStrategy(discussion.turnStrategy.strategy);
       const nextParticipant = await strategy.getNextParticipant(discussion, participants, config);
 
@@ -192,6 +204,12 @@ export class TurnStrategyService {
         ? await this.getEstimatedTurnDuration(nextParticipant, discussion, config)
         : 0;
 
+      this.recordTurnOutcome(
+        discussion.turnStrategy.strategy,
+        estimatedDuration,
+        nextParticipant !== null
+      );
+
       logger.info('Turn advanced', {
         discussionId: discussion.id,
         previousTurnNumber: discussion.state.currentTurn.turnNumber,
@@ -207,6 +225,7 @@ export class TurnStrategyService {
         estimatedDuration,
       };
     } catch (error) {
+      this.recordTurnOutcome(discussion.turnStrategy.strategy, 0, false);
       logger.error('Error advancing turn', {
         error: error instanceof Error ? error.message : 'Unknown error',
         discussionId: discussion.id,
@@ -432,6 +451,22 @@ export class TurnStrategyService {
     }
   }
 
+  async getContextAwareRelevanceScore(
+    discussion: Discussion,
+    participant: DiscussionParticipant
+  ): Promise<number> {
+    if (discussion.turnStrategy.strategy !== TurnStrategy.CONTEXT_AWARE) {
+      return 0;
+    }
+
+    const strategy = this.getStrategy(TurnStrategy.CONTEXT_AWARE);
+    if (!(strategy instanceof ContextAwareStrategy)) {
+      return 0;
+    }
+
+    return strategy.getParticipantRelevanceScore(discussion, participant);
+  }
+
   // Private helper methods
 
   private getStrategy(strategyType: TurnStrategy): TurnStrategyInterface {
@@ -482,13 +517,64 @@ export class TurnStrategyService {
     averageTurnDuration: number;
     successRate: number;
   } {
-    // This would typically query metrics from a database
-    // For now, return placeholder data
+    const metrics = this.strategyMetrics.get(strategyType);
+    if (!metrics) {
+      return {
+        usage: 0,
+        averageTurnDuration: 0,
+        successRate: 0,
+      };
+    }
+
+    const averageTurnDuration =
+      metrics.completedTurns > 0 ? metrics.totalTurnDuration / metrics.completedTurns : 0;
+    const successRate = metrics.totalTurns > 0 ? metrics.completedTurns / metrics.totalTurns : 0;
+
     return {
-      usage: 0,
-      averageTurnDuration: 0,
-      successRate: 1.0,
+      usage: metrics.usage,
+      averageTurnDuration,
+      successRate,
     };
+  }
+
+  private initializeStrategyMetrics(): void {
+    for (const strategyType of this.strategies.keys()) {
+      if (!this.strategyMetrics.has(strategyType)) {
+        this.strategyMetrics.set(strategyType, {
+          usage: 0,
+          totalTurns: 0,
+          completedTurns: 0,
+          totalTurnDuration: 0,
+        });
+      }
+    }
+  }
+
+  private recordStrategyUsage(strategyType: TurnStrategy): void {
+    const metrics = this.strategyMetrics.get(strategyType);
+    if (!metrics) {
+      return;
+    }
+
+    metrics.usage += 1;
+  }
+
+  private recordTurnOutcome(
+    strategyType: TurnStrategy,
+    estimatedDuration: number,
+    completed: boolean
+  ): void {
+    const metrics = this.strategyMetrics.get(strategyType);
+    if (!metrics) {
+      return;
+    }
+
+    metrics.totalTurns += 1;
+
+    if (completed) {
+      metrics.completedTurns += 1;
+      metrics.totalTurnDuration += estimatedDuration;
+    }
   }
 
   /**

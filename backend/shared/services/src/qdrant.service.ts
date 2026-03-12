@@ -4,6 +4,12 @@ interface VectorSearchOptions {
   filters?: any;
 }
 
+export type MemoryCollectionType = 'episodic' | 'semantic';
+
+interface CollectionOptions {
+  collection?: MemoryCollectionType;
+}
+
 interface VectorSearchResult {
   id: string;
   score: number;
@@ -12,9 +18,9 @@ interface VectorSearchResult {
 
 export class QdrantService {
   private qdrantUrl: string;
-  private collectionName: string;
   private isConnected: boolean = false;
   private embeddingDimensions: number;
+  private collectionNames: Record<MemoryCollectionType, string>;
 
   constructor(
     qdrantUrl?: string,
@@ -36,8 +42,27 @@ export class QdrantService {
 
         return isDocker ? 'http://qdrant:6333' : 'http://localhost:6333';
       })();
-    this.collectionName = collectionName;
     this.embeddingDimensions = embeddingDimensions;
+    this.collectionNames = this.resolveCollectionNames(collectionName);
+  }
+
+  private resolveCollectionNames(baseCollectionName: string): Record<MemoryCollectionType, string> {
+    if (baseCollectionName === 'memories') {
+      return {
+        episodic: 'episodic_memories',
+        semantic: 'semantic_memories',
+      };
+    }
+
+    return {
+      episodic: `${baseCollectionName}_episodic`,
+      semantic: baseCollectionName,
+    };
+  }
+
+  private getCollectionName(options?: CollectionOptions): string {
+    const collectionType = options?.collection || 'semantic';
+    return this.collectionNames[collectionType];
   }
 
   private async ensureConnection(): Promise<string> {
@@ -76,27 +101,26 @@ export class QdrantService {
 
   async search(
     queryEmbedding: number[],
-    options: VectorSearchOptions
+    options: VectorSearchOptions,
+    collectionOptions?: CollectionOptions
   ): Promise<VectorSearchResult[]> {
     try {
       const workingUrl = await this.ensureConnection();
+      const collectionName = this.getCollectionName(collectionOptions);
 
-      const response = await fetch(
-        `${workingUrl}/collections/${this.collectionName}/points/search`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            vector: queryEmbedding,
-            limit: options.limit,
-            score_threshold: options.threshold,
-            filter: options.filters,
-            with_payload: true,
-          }),
-        }
-      );
+      const response = await fetch(`${workingUrl}/collections/${collectionName}/points/search`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          vector: queryEmbedding,
+          limit: options.limit,
+          score_threshold: options.threshold,
+          filter: options.filters,
+          with_payload: true,
+        }),
+      });
 
       if (!response.ok) {
         const errorText = await response.text();
@@ -122,9 +146,14 @@ export class QdrantService {
     }
   }
 
-  async store(knowledgeItemId: string, embeddings: number[][]): Promise<void> {
+  async store(
+    knowledgeItemId: string,
+    embeddings: number[][],
+    collectionOptions?: CollectionOptions
+  ): Promise<void> {
     try {
       const workingUrl = await this.ensureConnection();
+      const collectionName = this.getCollectionName(collectionOptions);
 
       const points = embeddings.map((embedding, index) => ({
         id: index,
@@ -136,7 +165,7 @@ export class QdrantService {
         },
       }));
       console.log('points', points);
-      const response = await fetch(`${workingUrl}/collections/${this.collectionName}/points`, {
+      const response = await fetch(`${workingUrl}/collections/${collectionName}/points`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -155,39 +184,41 @@ export class QdrantService {
     }
   }
 
-  async update(knowledgeItemId: string, embeddings: number[][]): Promise<void> {
+  async update(
+    knowledgeItemId: string,
+    embeddings: number[][],
+    collectionOptions?: CollectionOptions
+  ): Promise<void> {
     // Delete existing embeddings for this knowledge item
-    await this.delete(knowledgeItemId);
+    await this.delete(knowledgeItemId, collectionOptions);
 
     // Store new embeddings
-    await this.store(knowledgeItemId, embeddings);
+    await this.store(knowledgeItemId, embeddings, collectionOptions);
   }
 
-  async delete(knowledgeItemId: string): Promise<void> {
+  async delete(knowledgeItemId: string, collectionOptions?: CollectionOptions): Promise<void> {
     try {
       const workingUrl = await this.ensureConnection();
+      const collectionName = this.getCollectionName(collectionOptions);
 
-      const response = await fetch(
-        `${workingUrl}/collections/${this.collectionName}/points/delete`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            filter: {
-              must: [
-                {
-                  key: 'knowledge_item_id',
-                  match: {
-                    value: knowledgeItemId,
-                  },
+      const response = await fetch(`${workingUrl}/collections/${collectionName}/points/delete`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          filter: {
+            must: [
+              {
+                key: 'knowledge_item_id',
+                match: {
+                  value: knowledgeItemId,
                 },
-              ],
-            },
-          }),
-        }
-      );
+              },
+            ],
+          },
+        }),
+      });
 
       if (!response.ok) {
         throw new Error(`Qdrant deletion failed: ${response.statusText}`);
@@ -198,19 +229,29 @@ export class QdrantService {
     }
   }
 
+  async initialize(): Promise<void> {
+    await this.ensureCollectionForType('episodic');
+    await this.ensureCollectionForType('semantic');
+  }
+
   async ensureCollection(): Promise<void> {
+    await this.initialize();
+  }
+
+  private async ensureCollectionForType(collectionType: MemoryCollectionType): Promise<void> {
     try {
       // Ensure we have a working connection first
       const workingUrl = await this.ensureConnection();
+      const collectionName = this.collectionNames[collectionType];
 
       // Check if collection exists
-      const checkResponse = await fetch(`${workingUrl}/collections/${this.collectionName}`, {
+      const checkResponse = await fetch(`${workingUrl}/collections/${collectionName}`, {
         signal: AbortSignal.timeout(5000),
       });
 
       if (checkResponse.status === 404) {
         // Create collection with dynamic embedding dimensions
-        const createResponse = await fetch(`${workingUrl}/collections/${this.collectionName}`, {
+        const createResponse = await fetch(`${workingUrl}/collections/${collectionName}`, {
           method: 'PUT',
           headers: {
             'Content-Type': 'application/json',
@@ -232,9 +273,9 @@ export class QdrantService {
           throw new Error(`Failed to create Qdrant collection: ${createResponse.statusText}`);
         }
 
-        console.log(`✅ Created Qdrant collection: ${this.collectionName}`);
+        console.log(`✅ Created Qdrant collection: ${collectionName}`);
       } else if (checkResponse.ok) {
-        console.log(`✅ Qdrant collection exists: ${this.collectionName}`);
+        console.log(`✅ Qdrant collection exists: ${collectionName}`);
       } else {
         throw new Error(`Unexpected response status: ${checkResponse.status}`);
       }
@@ -252,11 +293,19 @@ export class QdrantService {
     }
   }
 
-  async getCollectionInfo(): Promise<any> {
+  async storeVector(
+    data: { knowledgeItemId: string; embeddings: number[][] },
+    options: { collection: MemoryCollectionType }
+  ): Promise<void> {
+    await this.store(data.knowledgeItemId, data.embeddings, { collection: options.collection });
+  }
+
+  async getCollectionInfo(collectionOptions?: CollectionOptions): Promise<any> {
     try {
       const workingUrl = await this.ensureConnection();
+      const collectionName = this.getCollectionName(collectionOptions);
 
-      const response = await fetch(`${workingUrl}/collections/${this.collectionName}`);
+      const response = await fetch(`${workingUrl}/collections/${collectionName}`);
 
       if (!response.ok) {
         throw new Error(`Failed to get collection info: ${response.statusText}`);
@@ -293,7 +342,7 @@ export class QdrantService {
       const workingUrl = await this.ensureConnection();
 
       // Check current collection configuration
-      const collectionInfo = await this.getCollectionInfo();
+      const collectionInfo = await this.getCollectionInfo({ collection: 'semantic' });
       const currentDimensions = collectionInfo.result?.config?.params?.vectors?.size;
 
       if (currentDimensions !== newDimensions) {
@@ -302,13 +351,14 @@ export class QdrantService {
         );
 
         // Delete existing collection
-        await this.deleteCollection();
+        await this.deleteCollection({ collection: 'episodic' });
+        await this.deleteCollection({ collection: 'semantic' });
 
         // Update dimensions
         this.embeddingDimensions = newDimensions;
 
         // Recreate collection with new dimensions
-        await this.ensureCollection();
+        await this.initialize();
 
         console.log(`✅ Qdrant collection updated to ${newDimensions} dimensions`);
       } else {
@@ -324,11 +374,12 @@ export class QdrantService {
   /**
    * Delete the collection
    */
-  async deleteCollection(): Promise<void> {
+  async deleteCollection(collectionOptions?: CollectionOptions): Promise<void> {
     try {
       const workingUrl = await this.ensureConnection();
+      const collectionName = this.getCollectionName(collectionOptions);
 
-      const response = await fetch(`${workingUrl}/collections/${this.collectionName}`, {
+      const response = await fetch(`${workingUrl}/collections/${collectionName}`, {
         method: 'DELETE',
         signal: AbortSignal.timeout(5000),
       });
@@ -337,7 +388,7 @@ export class QdrantService {
         throw new Error(`Failed to delete collection: ${response.statusText}`);
       }
 
-      console.log(`🗑️ Deleted Qdrant collection: ${this.collectionName}`);
+      console.log(`🗑️ Deleted Qdrant collection: ${collectionName}`);
     } catch (error) {
       console.error('Qdrant collection deletion error:', error);
       throw new Error(`Failed to delete collection: ${error.message}`);
@@ -360,10 +411,12 @@ export class QdrantService {
       content: string;
       embedding: number[];
       metadata?: Record<string, any>;
-    }>
+    }>,
+    collectionOptions?: CollectionOptions
   ): Promise<void> {
     try {
       const workingUrl = await this.ensureConnection();
+      const collectionName = this.getCollectionName(collectionOptions);
 
       const points = documents.map((doc) => ({
         id: doc.id,
@@ -376,7 +429,7 @@ export class QdrantService {
         },
       }));
 
-      const response = await fetch(`${workingUrl}/collections/${this.collectionName}/points`, {
+      const response = await fetch(`${workingUrl}/collections/${collectionName}/points`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -403,12 +456,14 @@ export class QdrantService {
       id: string;
       vector: number[];
       payload: Record<string, any>;
-    }>
+    }>,
+    collectionOptions?: CollectionOptions
   ): Promise<void> {
     try {
       const workingUrl = await this.ensureConnection();
+      const collectionName = this.getCollectionName(collectionOptions);
 
-      const response = await fetch(`${workingUrl}/collections/${this.collectionName}/points`, {
+      const response = await fetch(`${workingUrl}/collections/${collectionName}/points`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -428,7 +483,10 @@ export class QdrantService {
   /**
    * Get points by IDs
    */
-  async getPoints(ids: string[]): Promise<
+  async getPoints(
+    ids: string[],
+    collectionOptions?: CollectionOptions
+  ): Promise<
     Array<{
       id: string;
       vector: number[];
@@ -437,8 +495,9 @@ export class QdrantService {
   > {
     try {
       const workingUrl = await this.ensureConnection();
+      const collectionName = this.getCollectionName(collectionOptions);
 
-      const response = await fetch(`${workingUrl}/collections/${this.collectionName}/points`, {
+      const response = await fetch(`${workingUrl}/collections/${collectionName}/points`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -469,22 +528,20 @@ export class QdrantService {
   /**
    * Delete points by IDs
    */
-  async deletePoints(ids: string[]): Promise<void> {
+  async deletePoints(ids: string[], collectionOptions?: CollectionOptions): Promise<void> {
     try {
       const workingUrl = await this.ensureConnection();
+      const collectionName = this.getCollectionName(collectionOptions);
 
-      const response = await fetch(
-        `${workingUrl}/collections/${this.collectionName}/points/delete`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            points: ids,
-          }),
-        }
-      );
+      const response = await fetch(`${workingUrl}/collections/${collectionName}/points/delete`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          points: ids,
+        }),
+      });
 
       if (!response.ok) {
         throw new Error(`Qdrant delete points failed: ${response.statusText}`);
@@ -498,12 +555,13 @@ export class QdrantService {
   /**
    * Get document by ID
    */
-  async getById(documentId: string): Promise<any> {
+  async getById(documentId: string, collectionOptions?: CollectionOptions): Promise<any> {
     try {
       const workingUrl = await this.ensureConnection();
+      const collectionName = this.getCollectionName(collectionOptions);
 
       const response = await fetch(
-        `${workingUrl}/collections/${this.collectionName}/points/${documentId}`,
+        `${workingUrl}/collections/${collectionName}/points/${documentId}`,
         {
           method: 'GET',
           headers: {

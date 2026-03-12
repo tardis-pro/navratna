@@ -1,7 +1,11 @@
-import { Episode, EpisodicQuery, DateRange, KnowledgeType, SourceType } from '@uaip/types';
+import { Episode, EpisodicQuery, KnowledgeType, SourceType } from '@uaip/types';
+import { logger } from '@uaip/utils';
 import { KnowledgeGraphService } from '../knowledge-graph/knowledge-graph.service';
+import { DatabaseService } from '../databaseService';
 
 export class EpisodicMemoryManager {
+  private readonly databaseService = DatabaseService.getInstance();
+
   constructor(private readonly knowledgeGraph: KnowledgeGraphService) {}
 
   async storeEpisode(agentId: string, episode: Episode): Promise<void> {
@@ -28,6 +32,7 @@ export class EpisodicMemoryManager {
               context: episode.context,
               experience: episode.experience,
               connections: episode.connections,
+              collectionType: 'episodic',
             },
           },
           confidence: episode.significance.importance,
@@ -35,13 +40,44 @@ export class EpisodicMemoryManager {
       ]);
 
       // Create relationships with related episodes
-      for (const relatedId of episode.connections.relatedEpisodes) {
-        // This would create relationships in the Knowledge Graph
-        // For now, we'll skip the implementation details
-      }
+      await this.createEpisodeRelationships(episode);
     } catch (error) {
       console.error('Episode storage error:', error);
       throw new Error(`Failed to store episode: ${error.message}`);
+    }
+  }
+
+  private async createEpisodeRelationships(episode: Episode): Promise<void> {
+    if (!episode.connections.relatedEpisodes.length) {
+      return;
+    }
+
+    try {
+      const graphDatabase = await this.databaseService.getToolGraphDatabase();
+
+      for (const relatedId of episode.connections.relatedEpisodes) {
+        await graphDatabase.runQuery(
+          `MERGE (a:Episode {id: $prevId})
+           MERGE (b:Episode {id: $newId})
+           ON CREATE SET b.agentId = $agentId,
+                         b.type = $episodeType,
+                         b.createdAt = datetime($createdAt)
+           MERGE (a)-[:FOLLOWED_BY]->(b)`,
+          {
+            prevId: relatedId,
+            newId: episode.episodeId,
+            agentId: episode.agentId,
+            episodeType: episode.type,
+            createdAt: episode.context.when.toISOString(),
+          }
+        );
+      }
+    } catch (error) {
+      logger.warn('Failed to create episodic FOLLOWED_BY relationships', {
+        episodeId: episode.episodeId,
+        relatedCount: episode.connections.relatedEpisodes.length,
+        error: error instanceof Error ? error.message : String(error),
+      });
     }
   }
 

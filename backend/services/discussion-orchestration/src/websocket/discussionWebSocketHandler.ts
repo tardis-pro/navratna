@@ -1,6 +1,7 @@
 import { WebSocket } from 'ws';
 import { IncomingMessage } from 'http';
 import { logger } from '@uaip/utils';
+import { config } from '../config/index.js';
 import { DiscussionOrchestrationService } from '../services/discussionOrchestrationService.js';
 import { DiscussionEvent } from '@uaip/types';
 import { z } from 'zod';
@@ -46,6 +47,7 @@ const WS_RATE_LIMITS = {
 export class DiscussionWebSocketHandler {
   private connections: Map<string, Set<WebSocketConnection>> = new Map();
   private connectionById: Map<string, WebSocketConnection> = new Map();
+  private connectionTimers: Map<string, NodeJS.Timeout> = new Map();
   private orchestrationService: DiscussionOrchestrationService;
   private heartbeatInterval: NodeJS.Timeout;
   private cleanupInterval: NodeJS.Timeout;
@@ -249,6 +251,12 @@ export class DiscussionWebSocketHandler {
    */
   private async removeConnectionAtomic(connection: WebSocketConnection): Promise<void> {
     try {
+      const existingTimer = this.connectionTimers.get(connection.connectionId);
+      if (existingTimer) {
+        clearTimeout(existingTimer);
+        this.connectionTimers.delete(connection.connectionId);
+      }
+
       // Remove from discussion-specific connections
       const discussionConnections = this.connections.get(connection.discussionId);
       if (discussionConnections) {
@@ -328,7 +336,10 @@ export class DiscussionWebSocketHandler {
   private setupWebSocketHandlers(connection: WebSocketConnection): void {
     const { ws } = connection;
 
+    this.resetConnectionTimer(connection);
+
     ws.on('message', (data) => {
+      this.resetConnectionTimer(connection);
       this.handleMessage(connection, data);
     });
 
@@ -346,6 +357,7 @@ export class DiscussionWebSocketHandler {
     ws.on('pong', () => {
       connection.isAlive = true;
       connection.lastPing = new Date();
+      this.resetConnectionTimer(connection);
     });
   }
 
@@ -374,6 +386,61 @@ export class DiscussionWebSocketHandler {
         case 'ping':
           this.sendToConnection(connection, { type: 'pong', data: { timestamp: new Date() } });
           break;
+        case 'turn:request': {
+          const participantId =
+            typeof validatedMessage.data?.participantId === 'string'
+              ? validatedMessage.data.participantId
+              : connection.participantId;
+          const rawScore = validatedMessage.data?.relevanceScore;
+          const relevanceScore = typeof rawScore === 'number' ? rawScore : 0;
+
+          if (!participantId) {
+            this.sendError(connection.connectionId, 'participantId is required for turn requests');
+            return;
+          }
+
+          const result = await this.orchestrationService.requestTurn(
+            connection.discussionId,
+            participantId,
+            relevanceScore
+          );
+
+          this.sendToConnection(connection, {
+            type: 'turn:request:ack',
+            data: {
+              success: result.success,
+              discussionId: connection.discussionId,
+              participantId,
+              relevanceScore,
+              ...result.data,
+              error: result.error,
+            },
+          });
+          break;
+        }
+        case 'context:update': {
+          const context = validatedMessage.data?.context;
+          if (!context || typeof context !== 'object' || Array.isArray(context)) {
+            this.sendError(connection.connectionId, 'context:update requires a context object');
+            return;
+          }
+
+          const result = await this.orchestrationService.updateWorkingMemoryContext(
+            connection.discussionId,
+            context as Record<string, unknown>,
+            connection.participantId || connection.userId
+          );
+
+          this.sendToConnection(connection, {
+            type: 'context:update:ack',
+            data: {
+              success: result.success,
+              discussionId: connection.discussionId,
+              error: result.error,
+            },
+          });
+          break;
+        }
         default:
           logger.warn('Unknown message type', {
             connectionId: connection.connectionId,
@@ -405,7 +472,38 @@ export class DiscussionWebSocketHandler {
       reason,
     });
 
+    const timer = this.connectionTimers.get(connection.connectionId);
+    if (timer) {
+      clearTimeout(timer);
+      this.connectionTimers.delete(connection.connectionId);
+    }
+
+    connection.ws.removeAllListeners();
+
     await this.removeConnectionAtomic(connection);
+  }
+
+  private resetConnectionTimer(connection: WebSocketConnection): void {
+    const existingTimer = this.connectionTimers.get(connection.connectionId);
+    if (existingTimer) {
+      clearTimeout(existingTimer);
+    }
+
+    const timer = setTimeout(() => {
+      if (!this.connectionById.has(connection.connectionId)) {
+        this.connectionTimers.delete(connection.connectionId);
+        return;
+      }
+
+      if (connection.ws.readyState === WebSocket.OPEN) {
+        connection.ws.terminate();
+      }
+
+      this.connectionTimers.delete(connection.connectionId);
+      void this.removeConnectionAtomic(connection);
+    }, 120000);
+
+    this.connectionTimers.set(connection.connectionId, timer);
   }
 
   /**
@@ -485,12 +583,22 @@ export class DiscussionWebSocketHandler {
     }
   }
 
+  public broadcastContextUpdate(discussionId: string, context: Record<string, unknown>): void {
+    this.broadcastToDiscussion(discussionId, {
+      type: 'context:updated',
+      data: {
+        context,
+        timestamp: new Date().toISOString(),
+      },
+    });
+  }
+
   /**
    * Heartbeat to keep connections alive
    */
   private heartbeat(): void {
     const now = new Date();
-    const staleThreshold = 60000; // 1 minute
+    const staleThreshold = config.discussionOrchestration.performance.wsHeartbeatStaleMs;
 
     this.connectionById.forEach((connection) => {
       if (now.getTime() - connection.lastPing.getTime() > staleThreshold) {
@@ -550,6 +658,11 @@ export class DiscussionWebSocketHandler {
     }
 
     // Clear all data structures
+    for (const timer of this.connectionTimers.values()) {
+      clearTimeout(timer);
+    }
+
+    this.connectionTimers.clear();
     this.connections.clear();
     this.connectionById.clear();
 

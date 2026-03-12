@@ -8,6 +8,7 @@ import {
 } from '@uaip/types';
 import { logger } from '@uaip/utils';
 import { TurnStrategyInterface } from './RoundRobinStrategy.js';
+import { config } from '../config/index.js';
 
 interface ContextAnalysis {
   topicRelevance: Map<string, number>; // participant ID -> relevance score
@@ -31,7 +32,7 @@ export class ContextAwareStrategy implements TurnStrategyInterface {
   public readonly strategy = TurnStrategy.CONTEXT_AWARE;
   private readonly strategyType = TurnStrategy.CONTEXT_AWARE;
   private contextCache = new Map<string, { analysis: ContextAnalysis; timestamp: Date }>();
-  private readonly cacheTimeout = 30000; // 30 seconds
+  private readonly cacheTimeout = config.discussionOrchestration.performance.strategyCacheTimeoutMs;
 
   async getNextParticipant(
     discussion: Discussion,
@@ -393,6 +394,14 @@ export class ContextAwareStrategy implements TurnStrategyInterface {
     return relevanceMap;
   }
 
+  async getParticipantRelevanceScore(
+    discussion: Discussion,
+    participant: DiscussionParticipant
+  ): Promise<number> {
+    const relevanceMap = await this.analyzeTopicRelevance(discussion, [participant]);
+    return relevanceMap.get(participant.id) ?? 0;
+  }
+
   private async analyzeExpertiseMatch(
     discussion: Discussion,
     participants: DiscussionParticipant[]
@@ -538,9 +547,19 @@ export class ContextAwareStrategy implements TurnStrategyInterface {
   }
 
   private async getParticipantExpertise(agentId: string): Promise<string[]> {
-    // This would fetch agent expertise from the agent service
-    // For now, return empty array
-    return [];
+    try {
+      const baseUrl = config.discussionOrchestration?.integrations?.agentIntelligence?.baseUrl;
+      if (!baseUrl) return [];
+      const response = await fetch(`${baseUrl}/api/v1/agents/${agentId}`, {
+        signal: AbortSignal.timeout(3000),
+      });
+      if (!response.ok) return [];
+      const data = (await response.json()) as { data?: { expertise?: string[] } };
+      return data?.data?.expertise ?? [];
+    } catch {
+      logger.warn('Failed to fetch agent expertise', { agentId });
+      return [];
+    }
   }
 
   private async hasAddressedPendingItems(

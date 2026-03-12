@@ -169,6 +169,89 @@ export class CapabilityController {
     }
   };
 
+  public listCapabilities = async (
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> => {
+    try {
+      const { query = '*', type, limit = 50 } = req.query;
+
+      const securityContext = this.extractSecurityContext(req);
+
+      await this.securityValidationService.validateOperation(
+        securityContext,
+        'capability_read',
+        ['capabilities'],
+        { query, type, limit }
+      );
+
+      const capabilities = await this.capabilityDiscoveryService.searchCapabilities({
+        query: typeof query === 'string' && query.length > 0 ? query : '*',
+        type: type as CapabilityType,
+        limit: parseInt(limit as string, 10),
+      });
+
+      res.status(200).json({
+        success: true,
+        data: {
+          capabilities,
+          totalCount: capabilities.length,
+        },
+        meta: {
+          timestamp: new Date(),
+          service: 'capability-registry',
+        },
+      });
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  public executeCapability = async (
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> => {
+    try {
+      const { id } = req.params;
+
+      if (!id) {
+        throw new ApiError(400, 'Capability ID is required', 'MISSING_ID');
+      }
+
+      const securityContext = this.extractSecurityContext(req);
+
+      await this.securityValidationService.validateOperation(
+        securityContext,
+        'capability_execute',
+        [`capability:${id}`],
+        req.body
+      );
+
+      const execution = await this.capabilityDiscoveryService.executeTool(id, req.body || {}, {
+        agentId: req.headers['x-agent-id'] as string,
+        userId: securityContext.userId,
+        context: 'capability-execution',
+        timestamp: new Date().toISOString(),
+      });
+
+      res.status(200).json({
+        success: true,
+        data: {
+          execution,
+        },
+        meta: {
+          capabilityId: id,
+          timestamp: new Date(),
+          service: 'capability-registry',
+        },
+      });
+    } catch (error) {
+      next(error);
+    }
+  };
+
   // PUT /api/v1/capabilities/:id
   public updateCapability = async (
     req: Request,
@@ -262,8 +345,16 @@ export class CapabilityController {
         {}
       );
 
-      // Return hardcoded categories for now
-      const categories: string[] = [
+      const allCapabilities = await this.capabilityDiscoveryService.searchCapabilities({
+        limit: 1000,
+      });
+      const categorySet = new Set<string>(
+        allCapabilities
+          .map((c) => (c as { category?: string }).category)
+          .filter((cat): cat is string => Boolean(cat))
+      );
+
+      const fallbackCategories = [
         'data-processing',
         'communication',
         'analysis',
@@ -272,6 +363,8 @@ export class CapabilityController {
         'security',
         'monitoring',
       ];
+      const categories: string[] =
+        categorySet.size > 0 ? Array.from(categorySet).sort() : fallbackCategories;
 
       res.status(200).json({
         success: true,

@@ -68,6 +68,8 @@ const DiscussionOrchestrationConfigSchema = z.object({
     enableCompression: z.boolean().default(true),
     enableMetrics: z.boolean().default(true),
     metricsInterval: z.number().default(60000), // 1 minute
+    strategyCacheTimeoutMs: z.number().default(30000),
+    wsHeartbeatStaleMs: z.number().default(60000),
   }),
 
   // Security settings
@@ -199,6 +201,12 @@ const loadConfig = (): DiscussionOrchestrationConfig => {
       enableMetrics: process.env.ENABLE_METRICS === 'true',
       metricsInterval: process.env.METRICS_INTERVAL
         ? parseInt(process.env.METRICS_INTERVAL)
+        : undefined,
+      strategyCacheTimeoutMs: process.env.STRATEGY_CACHE_TIMEOUT_MS
+        ? parseInt(process.env.STRATEGY_CACHE_TIMEOUT_MS)
+        : undefined,
+      wsHeartbeatStaleMs: process.env.WS_HEARTBEAT_STALE_MS
+        ? parseInt(process.env.WS_HEARTBEAT_STALE_MS)
         : undefined,
     },
 
