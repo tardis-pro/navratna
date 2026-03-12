@@ -244,6 +244,52 @@ class DiscussionOrchestrationServer extends BaseService {
       }
     });
 
+    this.app.post(
+      '/api/v1/discussions/:discussionId/turns/request',
+      async ({ params, body, set }) => {
+        try {
+          const requestBody = (body || {}) as {
+            participantId?: string;
+            relevanceScore?: number;
+          };
+
+          if (!requestBody.participantId) {
+            set.status = 400;
+            return {
+              success: false,
+              error: 'participantId is required',
+            };
+          }
+
+          const relevanceScore =
+            typeof requestBody.relevanceScore === 'number' ? requestBody.relevanceScore : 0;
+
+          const result = await this.orchestrationService.requestTurn(
+            params.discussionId,
+            requestBody.participantId,
+            relevanceScore
+          );
+
+          if (!result.success) {
+            set.status = 400;
+          }
+
+          return result;
+        } catch (error) {
+          logger.error('Failed to request turn via HTTP endpoint', {
+            error: error instanceof Error ? error.message : 'Unknown error',
+            discussionId: params.discussionId,
+          });
+
+          set.status = 500;
+          return {
+            success: false,
+            error: 'Failed to process turn request',
+          };
+        }
+      }
+    );
+
     // User chat API routes
     this.app.get('/api/v1/users/online', ({ set }) => {
       try {
@@ -318,6 +364,103 @@ class DiscussionOrchestrationServer extends BaseService {
       }
     });
 
+    this.app.post('/api/v1/discussions/:id/huddle', async ({ params, body, set }) => {
+      try {
+        const payload = (body || {}) as {
+          participantIds?: string[];
+          topic?: string;
+        };
+
+        const participantIds = Array.isArray(payload.participantIds) ? payload.participantIds : [];
+        const topic = typeof payload.topic === 'string' ? payload.topic : '';
+
+        if (participantIds.length === 0) {
+          set.status = 400;
+          return { success: false, error: 'participantIds is required' };
+        }
+
+        if (!topic.trim()) {
+          set.status = 400;
+          return { success: false, error: 'topic is required' };
+        }
+
+        const huddle = await this.orchestrationService.createHuddle(
+          params.id,
+          participantIds,
+          topic
+        );
+
+        set.status = 201;
+        return { success: true, data: huddle };
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'Failed to create huddle';
+        set.status = message.includes('not found') ? 404 : 500;
+        return { success: false, error: message };
+      }
+    });
+
+    this.app.post('/api/v1/discussions/huddle', async ({ body, set }) => {
+      try {
+        const payload = (body || {}) as {
+          parentDiscussionId?: string;
+          participantIds?: string[];
+          topic?: string;
+        };
+
+        const parentDiscussionId =
+          typeof payload.parentDiscussionId === 'string' ? payload.parentDiscussionId : '';
+        const participantIds = Array.isArray(payload.participantIds) ? payload.participantIds : [];
+        const topic = typeof payload.topic === 'string' ? payload.topic : '';
+
+        if (!parentDiscussionId.trim()) {
+          set.status = 400;
+          return { success: false, error: 'parentDiscussionId is required' };
+        }
+
+        if (participantIds.length === 0) {
+          set.status = 400;
+          return { success: false, error: 'participantIds is required' };
+        }
+
+        if (!topic.trim()) {
+          set.status = 400;
+          return { success: false, error: 'topic is required' };
+        }
+
+        const huddle = await this.orchestrationService.createHuddle(
+          parentDiscussionId,
+          participantIds,
+          topic
+        );
+
+        set.status = 201;
+        return { success: true, data: huddle };
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'Failed to create huddle';
+        set.status = message.includes('not found') ? 404 : 500;
+        return { success: false, error: message };
+      }
+    });
+
+    this.app.post('/api/v1/discussions/huddles/:id/resolve', async ({ params, body, set }) => {
+      try {
+        const payload = (body || {}) as { summary?: string };
+        const summary = typeof payload.summary === 'string' ? payload.summary.trim() : '';
+
+        if (!summary) {
+          set.status = 400;
+          return { success: false, error: 'summary is required' };
+        }
+
+        await this.orchestrationService.resolveHuddle(params.id, summary);
+        return { success: true };
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'Failed to resolve huddle';
+        set.status = message.includes('not found') ? 404 : 500;
+        return { success: false, error: message };
+      }
+    });
+
     // Add Socket.IO route handler for Bun engine
     this.app.all('/socket.io/*', ({ request, server }) => {
       if (!server) {
@@ -375,8 +518,15 @@ class DiscussionOrchestrationServer extends BaseService {
           metadata?: Record<string, unknown>;
           isInitialParticipation?: boolean;
         };
-        const { discussionId, participantId, agentId, content, messageType, metadata, isInitialParticipation } =
-          eventPayload;
+        const {
+          discussionId,
+          participantId,
+          agentId,
+          content,
+          messageType,
+          metadata,
+          isInitialParticipation,
+        } = eventPayload;
         const mergedMetadata = {
           ...(metadata || {}),
           ...(isInitialParticipation === true ? { isInitialParticipation: true } : {}),
@@ -573,7 +723,8 @@ class DiscussionOrchestrationServer extends BaseService {
           // If nginx has validated and forwarded user info, use it directly
           if (userId) {
             // Validate userId is a proper UUID
-            const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+            const UUID_REGEX =
+              /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
             if (!UUID_REGEX.test(userId)) {
               logger.warn('Socket.IO connection rejected - invalid user ID format', {
                 socketId: socket.id,
@@ -654,7 +805,14 @@ class DiscussionOrchestrationServer extends BaseService {
       // Initialize handlers after server is created
       logger.info('Initializing WebSocket handlers', {
         serverExists: !!this.server,
-        serverListening: this.server && 'server' in this.server && typeof this.server.server === 'object' && this.server.server && 'listening' in this.server.server ? this.server.server.listening : false,
+        serverListening:
+          this.server &&
+          'server' in this.server &&
+          typeof this.server.server === 'object' &&
+          this.server.server &&
+          'listening' in this.server.server
+            ? this.server.server.listening
+            : false,
       });
 
       if (!this.server) {
@@ -929,7 +1087,10 @@ class DiscussionOrchestrationServer extends BaseService {
         socketIO: this.io ? this.io.engine?.clientsCount || 0 : 0,
         authHandlers: this.authResponseHandlers.size,
         streaming: this.streamingHandler?.getStats() || { connections: 0, activeSessions: 0 },
-        codingAgent: this.codingAgentSocketHandler?.getStats() || { connections: 0, activeSessions: 0 },
+        codingAgent: this.codingAgentSocketHandler?.getStats() || {
+          connections: 0,
+          activeSessions: 0,
+        },
       },
     };
   }

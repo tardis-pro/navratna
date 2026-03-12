@@ -451,6 +451,22 @@ export class TurnStrategyService {
     }
   }
 
+  async getContextAwareRelevanceScore(
+    discussion: Discussion,
+    participant: DiscussionParticipant
+  ): Promise<number> {
+    if (discussion.turnStrategy.strategy !== TurnStrategy.CONTEXT_AWARE) {
+      return 0;
+    }
+
+    const strategy = this.getStrategy(TurnStrategy.CONTEXT_AWARE);
+    if (!(strategy instanceof ContextAwareStrategy)) {
+      return 0;
+    }
+
+    return strategy.getParticipantRelevanceScore(discussion, participant);
+  }
+
   // Private helper methods
 
   private getStrategy(strategyType: TurnStrategy): TurnStrategyInterface {

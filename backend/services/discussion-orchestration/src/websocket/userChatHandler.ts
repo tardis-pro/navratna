@@ -527,6 +527,71 @@ export class UserChatHandler {
       }
     });
 
+    this.eventBusService.subscribe('approval:required', async (event) => {
+      const {
+        approvalId,
+        agentId,
+        userId,
+        socketId,
+        toolId,
+        toolDescription,
+        riskLevel,
+        parameters,
+        securityLevel,
+        timestamp,
+      } = event.data as {
+        approvalId: string;
+        agentId: string;
+        userId?: string;
+        socketId?: string;
+        toolId: string;
+        toolDescription: string;
+        riskLevel: string;
+        parameters?: unknown;
+        securityLevel?: string;
+        timestamp?: string;
+      };
+
+      const approvalPayload = {
+        approvalId,
+        agentId,
+        toolId,
+        toolDescription,
+        riskLevel,
+        parameters,
+        securityLevel,
+        timestamp: timestamp || new Date().toISOString(),
+      };
+
+      if (socketId) {
+        const socket = this.io.sockets.sockets.get(socketId);
+        if (socket) {
+          socket.emit('approval_required', approvalPayload);
+          this.logger.info('Approval request forwarded to socket', {
+            socketId,
+            agentId,
+            approvalId,
+          });
+          return;
+        }
+      }
+
+      if (userId) {
+        this.io.to(`user_${userId}`).emit('approval_required', approvalPayload);
+        this.logger.info('Approval request forwarded to user room', {
+          userId,
+          agentId,
+          approvalId,
+        });
+        return;
+      }
+
+      this.logger.warn('Approval request could not be routed to client', {
+        agentId,
+        approvalId,
+      });
+    });
+
     this.logger.info('UserChatHandler event bus subscriptions established');
   }
 
