@@ -347,36 +347,177 @@ export class KnowledgeGraphService {
     userId: string;
     timestamp: Date;
   }): Promise<void> {
-    // Store feedback in repository
-    // This is a placeholder implementation
-    console.log('Feedback added:', feedback);
+    const feedbackTimestamp = feedback.timestamp.toISOString();
+    const feedbackContent = `Feedback for ${feedback.entityId}: ${feedback.feedbackType}${feedback.comments ? ` - ${feedback.comments}` : ''}`;
+    const feedbackClassification = await this.classifier.classify(feedbackContent);
+
+    const syncResult = await this.knowledgeSync.createKnowledgeItem(
+      feedbackContent,
+      feedbackClassification.type,
+      {
+        tags: ['feedback', `feedback-${feedback.feedbackType}`, `entity-${feedback.entityId}`],
+        feedbackType: feedback.feedbackType,
+        comments: feedback.comments,
+        entityId: feedback.entityId,
+        timestamp: feedbackTimestamp,
+      },
+      feedback.userId
+    );
+
+    if (syncResult.success) {
+      await this.repository.createRelationships([
+        {
+          sourceItemId: feedback.entityId,
+          targetItemId: syncResult.knowledgeItemId,
+          relationshipType: 'HAS_FEEDBACK',
+          confidence: 0.9,
+          userId: feedback.userId,
+          summary: `Feedback linked: ${feedback.feedbackType}`,
+        },
+      ]);
+    } else {
+      logger.error('Operation failed', {
+        error: syncResult.error,
+        context: 'addFeedback',
+        entityId: feedback.entityId,
+      });
+    }
   }
 
   /**
    * Store interaction data
    */
   async storeInteraction(interaction: any): Promise<void> {
-    // Store interaction in repository
-    // This is a placeholder implementation
-    console.log('Interaction stored:', interaction);
+    const interactionTimestamp =
+      interaction?.timestamp instanceof Date
+        ? interaction.timestamp.toISOString()
+        : new Date().toISOString();
+    const interactionType = interaction?.interactionType || interaction?.type || 'unknown';
+    const interactionContent = `Interaction ${interactionType}: ${
+      interaction?.summary || interaction?.context || 'No context provided'
+    }`;
+    const interactionClassification = await this.classifier.classify(interactionContent);
+
+    const syncResult = await this.knowledgeSync.createKnowledgeItem(
+      interactionContent,
+      interactionClassification.type,
+      {
+        tags: ['interaction', `interaction-${interactionType}`],
+        interaction,
+        interactionType,
+        timestamp: interactionTimestamp,
+      },
+      interaction?.userId,
+      interaction?.agentId
+    );
+
+    if (syncResult.success && interaction?.entityId) {
+      await this.repository.createRelationships([
+        {
+          sourceItemId: interaction.entityId,
+          targetItemId: syncResult.knowledgeItemId,
+          relationshipType: 'HAS_INTERACTION',
+          confidence: 0.85,
+          userId: interaction?.userId,
+          agentId: interaction?.agentId,
+          summary: `Interaction linked: ${interactionType}`,
+        },
+      ]);
+    } else if (!syncResult.success) {
+      logger.error('Operation failed', {
+        error: syncResult.error,
+        context: 'storeInteraction',
+        interactionType,
+      });
+    }
   }
 
   /**
    * Adjust confidence scores
    */
   async adjustConfidence(itemId: string, adjustment: number): Promise<void> {
-    // Adjust confidence in repository
-    // This is a placeholder implementation
-    console.log('Confidence adjusted:', { itemId, adjustment });
+    const item = await this.repository.findById(itemId);
+    if (!item) {
+      logger.error('Operation failed', {
+        error: `Knowledge item not found: ${itemId}`,
+        context: 'adjustConfidence',
+        itemId,
+      });
+      return;
+    }
+
+    const updatedConfidence = Math.max(0, Math.min(1, item.confidence + adjustment));
+    await this.repository.update(itemId, {
+      confidence: updatedConfidence,
+      metadata: {
+        ...(item.metadata || {}),
+        lastConfidenceAdjustment: {
+          previous: item.confidence,
+          adjustment,
+          updated: updatedConfidence,
+          timestamp: new Date().toISOString(),
+        },
+      },
+    });
+
+    await this.knowledgeSync.createKnowledgeItem(
+      `Confidence adjusted for ${itemId} from ${item.confidence} to ${updatedConfidence}`,
+      item.type,
+      {
+        tags: ['confidence-adjustment', `item-${itemId}`],
+        itemId,
+        previousConfidence: item.confidence,
+        newConfidence: updatedConfidence,
+        adjustment,
+      },
+      item.userId,
+      item.agentId
+    );
   }
 
   /**
    * Initialize agent context
    */
   async initializeAgentContext(agentId: string, context: any): Promise<void> {
-    // Initialize agent context
-    // This is a placeholder implementation
-    console.log('Agent context initialized:', { agentId, context });
+    const contextTimestamp = new Date().toISOString();
+    const contextContent = `Agent ${agentId} context initialized`;
+    const contextClassification = await this.classifier.classify(contextContent);
+
+    const syncResult = await this.knowledgeSync.createKnowledgeItem(
+      contextContent,
+      contextClassification.type,
+      {
+        tags: ['agent-context', `agent-${agentId}`],
+        agentId,
+        context,
+        initializedAt: contextTimestamp,
+      },
+      context?.userId,
+      agentId
+    );
+
+    if (!syncResult.success) {
+      logger.error('Operation failed', {
+        error: syncResult.error,
+        context: 'initializeAgentContext',
+        agentId,
+      });
+      return;
+    }
+
+    if (context?.baseKnowledgeItemId) {
+      await this.repository.createRelationships([
+        {
+          sourceItemId: context.baseKnowledgeItemId,
+          targetItemId: syncResult.knowledgeItemId,
+          relationshipType: 'INITIALIZES_CONTEXT',
+          confidence: 0.8,
+          userId: context?.userId,
+          agentId,
+          summary: `Initial context for agent ${agentId}`,
+        },
+      ]);
+    }
   }
 
   /**

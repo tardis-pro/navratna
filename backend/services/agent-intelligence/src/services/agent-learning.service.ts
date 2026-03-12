@@ -355,6 +355,13 @@ Performance: Efficiency=${interaction.performanceMetrics.efficiency}, Accuracy=$
       const result = await this.learnFromOperation(agentId, operationId, outcomes, feedback);
       await this.respondToRequest(requestId, { success: true, data: result });
     } catch (error) {
+      logger.error('Operation failed', {
+        error,
+        context: 'handleLearnFromOperation',
+        requestId,
+        agentId,
+        operationId,
+      });
       await this.respondToRequest(requestId, { success: false, error: error.message });
     }
   }
@@ -365,6 +372,12 @@ Performance: Efficiency=${interaction.performanceMetrics.efficiency}, Accuracy=$
       await this.learnFromInteraction(agentId, interaction);
       await this.respondToRequest(requestId, { success: true });
     } catch (error) {
+      logger.error('Operation failed', {
+        error,
+        context: 'handleLearnFromInteraction',
+        requestId,
+        agentId,
+      });
       await this.respondToRequest(requestId, { success: false, error: error.message });
     }
   }
@@ -375,6 +388,12 @@ Performance: Efficiency=${interaction.performanceMetrics.efficiency}, Accuracy=$
       await this.consolidateMemory(agentId);
       await this.respondToRequest(requestId, { success: true });
     } catch (error) {
+      logger.error('Operation failed', {
+        error,
+        context: 'handleConsolidateMemory',
+        requestId,
+        agentId,
+      });
       await this.respondToRequest(requestId, { success: false, error: error.message });
     }
   }
@@ -385,6 +404,12 @@ Performance: Efficiency=${interaction.performanceMetrics.efficiency}, Accuracy=$
       await this.updateAgentKnowledge(agentId, knowledgeItems);
       await this.respondToRequest(requestId, { success: true });
     } catch (error) {
+      logger.error('Operation failed', {
+        error,
+        context: 'handleUpdateKnowledge',
+        requestId,
+        agentId,
+      });
       await this.respondToRequest(requestId, { success: false, error: error.message });
     }
   }
