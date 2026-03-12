@@ -28,6 +28,7 @@ import type { Message } from '@/types/agent';
 import { cn } from '@/lib/utils';
 import uaipAPI from '@/utils/uaip-api';
 import { DiscussionHistory } from './DiscussionHistory';
+import { ApprovalRequest } from './ApprovalRequest';
 import {
   MessageSquare,
   Brain,
@@ -271,6 +272,8 @@ export const DiscussionPortal: React.FC<DiscussionPortalProps> = ({
     isWebSocketConnected,
     loadHistory,
     isLoading: discussionLoading,
+    pendingApprovals,
+    dismissApproval,
   } = useDiscussion();
   const { agents } = useAgents();
   const { user } = useAuth();
@@ -1048,6 +1051,37 @@ export const DiscussionPortal: React.FC<DiscussionPortalProps> = ({
                       {messages.map((message, index) => renderMessage(message, index))}
                     </AnimatePresence>
                   </div>
+                </div>
+              </div>
+            )}
+
+            {pendingApprovals.length > 0 && (
+              <div className="space-y-3">
+                <div className="flex items-center gap-2 text-sm font-medium text-slate-200">
+                  <AlertCircle className="h-4 w-4 text-red-400" />
+                  Pending Approvals ({pendingApprovals.length})
+                </div>
+                <div className="space-y-3">
+                  {pendingApprovals.map((approval) => {
+                    const parametersSummary =
+                      approval.parameters && typeof approval.parameters === 'object'
+                        ? JSON.stringify(approval.parameters)
+                        : undefined;
+
+                    return (
+                      <ApprovalRequest
+                        key={approval.approvalId}
+                        approvalId={approval.approvalId}
+                        agentId={approval.agentId}
+                        toolId={approval.toolId}
+                        toolDescription={approval.toolDescription}
+                        riskLevel={approval.riskLevel}
+                        parametersSummary={parametersSummary}
+                        onApprove={dismissApproval}
+                        onReject={(approvalId) => dismissApproval(approvalId)}
+                      />
+                    );
+                  })}
                 </div>
               </div>
             )}
