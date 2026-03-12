@@ -41,6 +41,14 @@ const AgentAuthRequestSchema = z.object({
   requested_providers: z.array(z.string()).optional(),
 });
 
+const providerIdParamsSchema = z.object({ providerId: z.string().min(1) });
+const connectBodySchema = z.object({
+  code: z.string().min(1),
+  state: z.string().min(1),
+  redirectUri: z.string().optional(),
+});
+const optionalOperationSchema = z.object({ operation: z.string().optional() });
+
 export function registerOAuthRoutes(app: any): any {
   return app.group('/api/v1/oauth', (app: any) =>
     withOptionalAuth(app)
@@ -48,7 +56,15 @@ export function registerOAuthRoutes(app: any): any {
       .get('/providers', async ({ set, query }) => {
         try {
           const { oauthProviderService } = getServices();
-          const userType = ((query as any).userType as UserType) || UserType.HUMAN;
+          const userTypeRaw =
+            typeof query === 'object' && query !== null && 'userType' in query
+              ? query.userType
+              : undefined;
+          const userType =
+            typeof userTypeRaw === 'string' &&
+            Object.values(UserType).includes(userTypeRaw as UserType)
+              ? (userTypeRaw as UserType)
+              : UserType.HUMAN;
           const providers = await oauthProviderService.getAvailableProviders(userType);
           return {
             success: true,
@@ -193,9 +209,10 @@ export function registerOAuthRoutes(app: any): any {
           };
         } catch (error: any) {
           const { auditService } = getServices();
+          const parsedBody = AgentAuthRequestSchema.safeParse(body);
           await auditService.logEvent({
             eventType: AuditEventType.AGENT_AUTH_FAILED,
-            agentId: (body as any)?.agent_id,
+            agentId: parsedBody.success ? parsedBody.data.agent_id : undefined,
             details: {
               error: error?.message,
               ipAddress: request.headers.get('x-forwarded-for') || '',
@@ -212,7 +229,12 @@ export function registerOAuthRoutes(app: any): any {
         // @ts-expect-error - Elysia middleware injects user, but TypeScript cannot infer through nested groups
         withRequiredAuth(g).post('/connect', async ({ set, body, user }) => {
           try {
-            const { code, state, redirectUri } = body as any;
+            const parsedBody = connectBodySchema.safeParse(body);
+            if (!parsedBody.success) {
+              set.status = 400;
+              return { success: false, error: 'Authorization code and state are required' };
+            }
+            const { code, state, redirectUri } = parsedBody.data;
             if (!code || !state) {
               set.status = 400;
               return { success: false, error: 'Authorization code and state are required' };
@@ -225,12 +247,16 @@ export function registerOAuthRoutes(app: any): any {
               state,
               baseRedirect
             );
+            const resultSuccess =
+              typeof result === 'object' && result !== null && 'success' in result
+                ? Boolean(result.success)
+                : true;
             logger.info('OAuth provider connected', {
               userId: user!.id,
-              success: (result as any)?.success,
+              success: resultSuccess,
             });
             return {
-              success: (result as any)?.success ?? true,
+              success: resultSuccess,
               message: 'OAuth provider connected successfully',
             };
           } catch (error: any) {
@@ -247,6 +273,7 @@ export function registerOAuthRoutes(app: any): any {
           // @ts-expect-error - Elysia middleware injects user, but TypeScript cannot infer through nested groups
           .post('/github/:providerId', async ({ set, params, body, user }) => {
             try {
+              const { providerId } = providerIdParamsSchema.parse(params);
               const validated = z
                 .object({
                   operation: z.enum(['list_repos', 'get_repo', 'create_repo', 'clone_repo']),
@@ -258,10 +285,7 @@ export function registerOAuthRoutes(app: any): any {
               let result: any;
               switch (validated.operation) {
                 case 'list_repos':
-                  result = await oauthProviderService.getGitHubRepos(
-                    user!.id,
-                    (params as any).providerId
-                  );
+                  result = await oauthProviderService.getGitHubRepos(user!.id, providerId);
                   break;
                 case 'get_repo':
                   if (!validated.repository) {
@@ -282,7 +306,7 @@ export function registerOAuthRoutes(app: any): any {
                 eventType: AuditEventType.AGENT_OPERATION_SUCCESS,
                 agentId: user!.id,
                 details: {
-                  providerId: (params as any).providerId,
+                  providerId,
                   operation: validated.operation,
                   repository: validated.repository,
                   resultCount: Array.isArray(result) ? result.length : 1,
@@ -291,13 +315,15 @@ export function registerOAuthRoutes(app: any): any {
               return { success: true, operation: validated.operation, data: result };
             } catch (error: any) {
               const { auditService } = getServices();
+              const parsedParams = providerIdParamsSchema.safeParse(params);
+              const parsedBody = optionalOperationSchema.safeParse(body);
               await auditService.logEvent({
                 eventType: AuditEventType.AGENT_OPERATION_FAILED,
                 agentId: user!.id,
                 details: {
                   error: error?.message,
-                  providerId: (params as any).providerId,
-                  operation: (body as any)?.operation,
+                  providerId: parsedParams.success ? parsedParams.data.providerId : undefined,
+                  operation: parsedBody.success ? parsedBody.data.operation : undefined,
                 },
               });
               set.status = 500;
@@ -309,6 +335,7 @@ export function registerOAuthRoutes(app: any): any {
           // @ts-expect-error - Elysia middleware injects user, but TypeScript cannot infer through nested groups
           .post('/gmail/:providerId', async ({ set, params, body, user }) => {
             try {
+              const { providerId } = providerIdParamsSchema.parse(params);
               const validated = z
                 .object({
                   operation: z.enum([
@@ -329,7 +356,7 @@ export function registerOAuthRoutes(app: any): any {
                 case 'search_messages':
                   result = await oauthProviderService.getGmailMessages(
                     user!.id,
-                    (params as any).providerId,
+                    providerId,
                     validated.query
                   );
                   break;
@@ -352,7 +379,7 @@ export function registerOAuthRoutes(app: any): any {
                 eventType: AuditEventType.AGENT_OPERATION_SUCCESS,
                 agentId: user!.id,
                 details: {
-                  providerId: (params as any).providerId,
+                  providerId,
                   operation: validated.operation,
                   query: validated.query,
                   messageId: validated.message_id,
@@ -362,13 +389,15 @@ export function registerOAuthRoutes(app: any): any {
               return { success: true, operation: validated.operation, data: result };
             } catch (error: any) {
               const { auditService } = getServices();
+              const parsedParams = providerIdParamsSchema.safeParse(params);
+              const parsedBody = optionalOperationSchema.safeParse(body);
               await auditService.logEvent({
                 eventType: AuditEventType.AGENT_OPERATION_FAILED,
                 agentId: user!.id,
                 details: {
                   error: error?.message,
-                  providerId: (params as any).providerId,
-                  operation: (body as any)?.operation,
+                  providerId: parsedParams.success ? parsedParams.data.providerId : undefined,
+                  operation: parsedBody.success ? parsedBody.data.operation : undefined,
                 },
               });
               set.status = 500;
