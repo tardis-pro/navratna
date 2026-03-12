@@ -908,4 +908,52 @@ export class AuditService {
 
     return recommendations;
   }
+
+  /**
+   * Get hourly usage count for a specific agent
+   */
+  public async getAgentHourlyUsage(agentId: string): Promise<number> {
+    try {
+      const auditRepository = this.auditService.getAuditRepository();
+      const oneHourAgo = new Date();
+      oneHourAgo.setHours(oneHourAgo.getHours() - 1);
+
+      const events = await auditRepository.queryAuditEvents({
+        agentId,
+        startDate: oneHourAgo,
+      });
+
+      return events.length;
+    } catch (error) {
+      logger.error('Failed to get agent hourly usage', {
+        agentId,
+        error: error instanceof Error ? error.message : 'Unknown error',
+      });
+      return 0;
+    }
+  }
+
+  /**
+   * Get daily usage count for a specific agent
+   */
+  public async getAgentDailyUsage(agentId: string): Promise<number> {
+    try {
+      const auditRepository = this.auditService.getAuditRepository();
+      const oneDayAgo = new Date();
+      oneDayAgo.setDate(oneDayAgo.getDate() - 1);
+
+      const events = await auditRepository.queryAuditEvents({
+        agentId,
+        startDate: oneDayAgo,
+      });
+
+      return events.length;
+    } catch (error) {
+      logger.error('Failed to get agent daily usage', {
+        agentId,
+        error: error instanceof Error ? error.message : 'Unknown error',
+      });
+      return 0;
+    }
+  }
 }
