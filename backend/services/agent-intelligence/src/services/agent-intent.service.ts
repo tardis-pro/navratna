@@ -42,6 +42,17 @@ export interface ActionRecommendation {
   constraints?: string[];
 }
 
+const INTENT_CONFIDENCE_BASE = 0.5;
+const KEYWORD_MATCH_CONFIDENCE_BOOST = 0.1;
+const CONFIDENCE_BOOST_MEDIUM_LENGTH = 0.1;
+const CONFIDENCE_BOOST_LONG_LENGTH = 0.1;
+const CONFIDENCE_PENALTY_SHORT = 0.2;
+const WORDS_MEDIUM_THRESHOLD = 5;
+const WORDS_LONG_THRESHOLD = 10;
+const WORDS_SHORT_THRESHOLD = 3;
+const MIN_INTENT_CONFIDENCE = 0.1;
+const MAX_INTENT_CONFIDENCE = 1;
+
 export class AgentIntentService {
   private databaseService: DatabaseService;
   private eventBusService: EventBusService;
@@ -438,6 +449,12 @@ Keep it conversational and helpful, as if speaking directly to the user.`,
       );
       await this.respondToRequest(requestId, { success: true, data: analysis });
     } catch (error) {
+      logger.error('Operation failed', {
+        error,
+        context: 'handleAnalyzeIntent',
+        requestId,
+        agentId: agent?.id,
+      });
       await this.respondToRequest(requestId, { success: false, error: error.message });
     }
   }
@@ -465,6 +482,12 @@ Keep it conversational and helpful, as if speaking directly to the user.`,
       );
       await this.respondToRequest(requestId, { success: true, data: recommendations });
     } catch (error) {
+      logger.error('Operation failed', {
+        error,
+        context: 'handleGenerateRecommendations',
+        requestId,
+        agentId: agent?.id,
+      });
       await this.respondToRequest(requestId, { success: false, error: error.message });
     }
   }
@@ -494,6 +517,12 @@ Keep it conversational and helpful, as if speaking directly to the user.`,
       );
       await this.respondToRequest(requestId, { success: true, data: explanation });
     } catch (error) {
+      logger.error('Operation failed', {
+        error,
+        context: 'handleGenerateExplanation',
+        requestId,
+        agentId: agent?.id,
+      });
       await this.respondToRequest(requestId, { success: false, error: error.message });
     }
   }
@@ -519,6 +548,11 @@ Keep it conversational and helpful, as if speaking directly to the user.`,
       );
       await this.respondToRequest(requestId, { success: true, data: confidence });
     } catch (error) {
+      logger.error('Operation failed', {
+        error,
+        context: 'handleCalculateConfidence',
+        requestId,
+      });
       await this.respondToRequest(requestId, { success: false, error: error.message });
     }
   }
@@ -672,7 +706,7 @@ Keep it conversational and helpful, as if speaking directly to the user.`,
     const words = request.split(/\s+/);
 
     // Base confidence
-    let confidence = 0.5;
+    let confidence = INTENT_CONFIDENCE_BASE;
 
     // Boost for clear intent keywords
     const intentKeywords: Record<string, string[]> = {
@@ -686,16 +720,16 @@ Keep it conversational and helpful, as if speaking directly to the user.`,
 
     const keywords = intentKeywords[intent] || [];
     const matchingKeywords = keywords.filter((keyword) => request.includes(keyword));
-    confidence += matchingKeywords.length * 0.1;
+    confidence += matchingKeywords.length * KEYWORD_MATCH_CONFIDENCE_BOOST;
 
     // Boost for request length (more context usually means clearer intent)
-    if (words.length > 5) confidence += 0.1;
-    if (words.length > 10) confidence += 0.1;
+    if (words.length > WORDS_MEDIUM_THRESHOLD) confidence += CONFIDENCE_BOOST_MEDIUM_LENGTH;
+    if (words.length > WORDS_LONG_THRESHOLD) confidence += CONFIDENCE_BOOST_LONG_LENGTH;
 
     // Penalty for very short requests
-    if (words.length < 3) confidence -= 0.2;
+    if (words.length < WORDS_SHORT_THRESHOLD) confidence -= CONFIDENCE_PENALTY_SHORT;
 
-    return Math.max(0.1, Math.min(1.0, confidence));
+    return Math.max(MIN_INTENT_CONFIDENCE, Math.min(MAX_INTENT_CONFIDENCE, confidence));
   }
 
   private extractEntities(userRequest: string): string[] {
