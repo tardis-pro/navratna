@@ -46,6 +46,7 @@ const WS_RATE_LIMITS = {
 export class DiscussionWebSocketHandler {
   private connections: Map<string, Set<WebSocketConnection>> = new Map();
   private connectionById: Map<string, WebSocketConnection> = new Map();
+  private connectionTimers: Map<string, NodeJS.Timeout> = new Map();
   private orchestrationService: DiscussionOrchestrationService;
   private heartbeatInterval: NodeJS.Timeout;
   private cleanupInterval: NodeJS.Timeout;
@@ -249,6 +250,12 @@ export class DiscussionWebSocketHandler {
    */
   private async removeConnectionAtomic(connection: WebSocketConnection): Promise<void> {
     try {
+      const existingTimer = this.connectionTimers.get(connection.connectionId);
+      if (existingTimer) {
+        clearTimeout(existingTimer);
+        this.connectionTimers.delete(connection.connectionId);
+      }
+
       // Remove from discussion-specific connections
       const discussionConnections = this.connections.get(connection.discussionId);
       if (discussionConnections) {
@@ -328,7 +335,10 @@ export class DiscussionWebSocketHandler {
   private setupWebSocketHandlers(connection: WebSocketConnection): void {
     const { ws } = connection;
 
+    this.resetConnectionTimer(connection);
+
     ws.on('message', (data) => {
+      this.resetConnectionTimer(connection);
       this.handleMessage(connection, data);
     });
 
@@ -346,6 +356,7 @@ export class DiscussionWebSocketHandler {
     ws.on('pong', () => {
       connection.isAlive = true;
       connection.lastPing = new Date();
+      this.resetConnectionTimer(connection);
     });
   }
 
@@ -405,7 +416,38 @@ export class DiscussionWebSocketHandler {
       reason,
     });
 
+    const timer = this.connectionTimers.get(connection.connectionId);
+    if (timer) {
+      clearTimeout(timer);
+      this.connectionTimers.delete(connection.connectionId);
+    }
+
+    connection.ws.removeAllListeners();
+
     await this.removeConnectionAtomic(connection);
+  }
+
+  private resetConnectionTimer(connection: WebSocketConnection): void {
+    const existingTimer = this.connectionTimers.get(connection.connectionId);
+    if (existingTimer) {
+      clearTimeout(existingTimer);
+    }
+
+    const timer = setTimeout(() => {
+      if (!this.connectionById.has(connection.connectionId)) {
+        this.connectionTimers.delete(connection.connectionId);
+        return;
+      }
+
+      if (connection.ws.readyState === WebSocket.OPEN) {
+        connection.ws.terminate();
+      }
+
+      this.connectionTimers.delete(connection.connectionId);
+      void this.removeConnectionAtomic(connection);
+    }, 120000);
+
+    this.connectionTimers.set(connection.connectionId, timer);
   }
 
   /**
@@ -550,6 +592,11 @@ export class DiscussionWebSocketHandler {
     }
 
     // Clear all data structures
+    for (const timer of this.connectionTimers.values()) {
+      clearTimeout(timer);
+    }
+
+    this.connectionTimers.clear();
     this.connections.clear();
     this.connectionById.clear();
 

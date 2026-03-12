@@ -34,6 +34,7 @@ export class DiscussionOrchestrationService extends EventEmitter {
 
   // Operation locks to prevent race conditions
   private operationLocks: Map<string, boolean> = new Map();
+  private turnTimerRetryCounts: Map<string, number> = new Map();
   private participationRateLimits: Map<string, number> = new Map(); // Discussion-level rate limiting
   private cleanupInterval: NodeJS.Timeout | null = null;
 
@@ -1008,9 +1009,26 @@ export class DiscussionOrchestrationService extends EventEmitter {
 
     // Prevent race conditions with atomic turn timer operations
     if (this.operationLocks.get(lockKey)) {
-      logger.debug('Turn timer operation already in progress, skipping', { discussionId });
+      const retryCount = this.turnTimerRetryCounts.get(lockKey) || 0;
+
+      if (retryCount < 3) {
+        this.turnTimerRetryCounts.set(lockKey, retryCount + 1);
+        setTimeout(() => {
+          void this.setTurnTimer(discussionId, durationSeconds);
+        }, 100);
+      } else {
+        this.turnTimerRetryCounts.delete(lockKey);
+        logger.warn('Turn timer update dropped after max retries', {
+          lockKey,
+          discussionId,
+          durationSeconds,
+        });
+      }
+
       return;
     }
+
+    this.turnTimerRetryCounts.delete(lockKey);
 
     this.operationLocks.set(lockKey, true);
 
