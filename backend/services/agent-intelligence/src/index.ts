@@ -842,17 +842,25 @@ class AgentIntelligenceService extends BaseService {
         });
 
         // Prepare enhanced response with WebSocket metadata
+        let resolvedAgentName = `Agent ${agentId}`;
+        try {
+          const agentRecord = await this.agentCoreService.getAgent(agentId);
+          if (agentRecord?.name) resolvedAgentName = agentRecord.name;
+        } catch {
+          logger.warn('Could not resolve agent name', { agentId });
+        }
+
         const responsePayload = {
           socketId,
           userId,
           agentId,
           messageId,
           response: result.response,
-          agentName: `Agent ${agentId}`, // TODO: Load actual agent name from config
+          agentName: resolvedAgentName,
           confidence: result.metadata.confidence,
-          memoryEnhanced: false, // TODO: Implement memory enhancement
-          knowledgeUsed: 0, // TODO: Implement knowledge tracking
-          toolsExecuted: [] as string[], // TODO: Implement tool execution
+          memoryEnhanced: result.metadata.memoryEnhanced ?? false,
+          knowledgeUsed: result.metadata.knowledgeUsed ?? 0,
+          toolsExecuted: (result.metadata.toolsExecuted as string[]) ?? [],
           timestamp: new Date().toISOString(),
           processingTime: result.metadata.processingTime,
           responseType: result.metadata.responseType,

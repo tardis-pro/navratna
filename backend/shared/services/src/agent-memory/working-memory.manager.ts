@@ -1,10 +1,48 @@
 import { WorkingMemory, WorkingMemoryUpdate, Interaction, EmotionalState } from '@uaip/types';
+import Redis from 'ioredis';
+import { logger } from '@uaip/utils';
 
 export class WorkingMemoryManager {
   private redisUrl: string;
+  private readonly redisClient: Redis;
+  private readonly workingMemoryTtlSeconds = 24 * 60 * 60;
 
   constructor(redisUrl: string = 'redis://:uaip_redis_password@redis:6379') {
     this.redisUrl = redisUrl;
+    this.redisClient = new Redis(this.redisUrl, {
+      lazyConnect: true,
+      maxRetriesPerRequest: 3,
+      commandTimeout: 5000,
+      connectTimeout: 10000,
+    });
+    this.setupRedisListeners();
+  }
+
+  private setupRedisListeners(): void {
+    this.redisClient.on('error', (error) => {
+      logger.warn('Working memory Redis error', {
+        error: error.message,
+      });
+    });
+
+    this.redisClient.on('close', () => {
+      logger.warn('Working memory Redis connection closed');
+    });
+  }
+
+  private async getRedisClient(): Promise<Redis | null> {
+    try {
+      if (this.redisClient.status === 'wait') {
+        await this.redisClient.connect();
+      }
+
+      return this.redisClient;
+    } catch (error) {
+      logger.warn('Working memory Redis unavailable, skipping cache operation', {
+        error: error instanceof Error ? error.message : String(error),
+      });
+      return null;
+    }
   }
 
   private getWorkingMemoryKey(agentId: string): string {
@@ -54,12 +92,18 @@ export class WorkingMemoryManager {
 
   async getWorkingMemory(agentId: string): Promise<WorkingMemory | null> {
     try {
-      // In a real implementation, this would use Redis
-      // For now, we'll simulate with in-memory storage
-      const stored = this.memoryCache.get(this.getWorkingMemoryKey(agentId));
+      const client = await this.getRedisClient();
+      if (!client) {
+        return null;
+      }
+
+      const stored = await client.get(this.getWorkingMemoryKey(agentId));
       return stored ? JSON.parse(stored) : null;
     } catch (error) {
-      console.error('Working memory retrieval error:', error);
+      logger.warn('Working memory retrieval error', {
+        agentId,
+        error: error instanceof Error ? error.message : String(error),
+      });
       return null;
     }
   }
@@ -202,10 +246,22 @@ export class WorkingMemoryManager {
 
   private async storeWorkingMemory(agentId: string, memory: WorkingMemory): Promise<void> {
     try {
-      // In a real implementation, this would use Redis with TTL
-      this.memoryCache.set(this.getWorkingMemoryKey(agentId), JSON.stringify(memory));
+      const client = await this.getRedisClient();
+      if (!client) {
+        return;
+      }
+
+      await client.set(
+        this.getWorkingMemoryKey(agentId),
+        JSON.stringify(memory),
+        'EX',
+        this.workingMemoryTtlSeconds
+      );
     } catch (error) {
-      console.error('Working memory storage error:', error);
+      logger.warn('Working memory storage error', {
+        agentId,
+        error: error instanceof Error ? error.message : String(error),
+      });
     }
   }
 
@@ -235,8 +291,4 @@ export class WorkingMemoryManager {
       }
     });
   }
-
-  // Simple in-memory cache for demonstration
-  // In production, this would be replaced with actual Redis client
-  private memoryCache = new Map<string, string>();
 }

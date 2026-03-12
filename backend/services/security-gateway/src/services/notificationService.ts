@@ -257,17 +257,87 @@ export class NotificationService {
     }
 
     const message = this.getSMSMessage(notification);
+    const provider = (smsConfig.provider as string)?.toLowerCase();
 
-    // This would integrate with SMS providers like Twilio, AWS SNS, etc.
-    // For now, we'll just log it
-    logger.info('SMS notification would be sent', {
+    logger.info('Sending SMS notification', {
       recipientId: notification.recipientId,
       phone: recipient.phone,
-      message,
-      provider: smsConfig.provider,
+      provider,
     });
 
-    // TODO: Implement actual SMS sending based on provider
+    try {
+      if (provider === 'twilio') {
+        const accountSid = process.env.TWILIO_ACCOUNT_SID;
+        const authToken = process.env.TWILIO_AUTH_TOKEN;
+        const fromNumber = process.env.TWILIO_FROM_NUMBER || smsConfig.from;
+
+        if (!accountSid || !authToken || !fromNumber) {
+          logger.warn(
+            'Twilio credentials not configured (TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, TWILIO_FROM_NUMBER)',
+            {
+              recipientId: notification.recipientId,
+            }
+          );
+          return;
+        }
+
+        const url = `https://api.twilio.com/2010-04-01/Accounts/${accountSid}/Messages.json`;
+        const body = new URLSearchParams({ To: recipient.phone, From: fromNumber, Body: message });
+        const credentials = Buffer.from(`${accountSid}:${authToken}`).toString('base64');
+
+        const response = await fetch(url, {
+          method: 'POST',
+          headers: {
+            Authorization: `Basic ${credentials}`,
+            'Content-Type': 'application/x-www-form-urlencoded',
+          },
+          body: body.toString(),
+        });
+
+        if (!response.ok) {
+          const errorText = await response.text();
+          throw new Error(`Twilio API error ${response.status}: ${errorText}`);
+        }
+
+        logger.info('SMS sent via Twilio', {
+          recipientId: notification.recipientId,
+          phone: recipient.phone,
+        });
+      } else if (provider === 'webhook' || smsConfig.webhookUrl) {
+        const webhookUrl = smsConfig.webhookUrl || process.env.SMS_WEBHOOK_URL;
+        if (!webhookUrl) {
+          logger.warn('SMS webhook URL not configured', { recipientId: notification.recipientId });
+          return;
+        }
+
+        const response = await fetch(webhookUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            to: recipient.phone,
+            message,
+            recipientId: notification.recipientId,
+          }),
+        });
+
+        if (!response.ok) {
+          throw new Error(`SMS webhook error ${response.status}`);
+        }
+
+        logger.info('SMS sent via webhook', { recipientId: notification.recipientId });
+      } else {
+        logger.warn('Unknown SMS provider, message not sent', {
+          provider,
+          recipientId: notification.recipientId,
+          supportedProviders: ['twilio', 'webhook'],
+        });
+      }
+    } catch (error) {
+      logger.error('Failed to send SMS notification', {
+        recipientId: notification.recipientId,
+        error,
+      });
+    }
   }
 
   /**

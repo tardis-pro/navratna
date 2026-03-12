@@ -15,10 +15,7 @@ function getServices() {
   if (!auditService) auditService = new AuditService();
   if (!oauthProviderService) oauthProviderService = new OAuthProviderService(auditService);
   if (!enhancedAuthService)
-    enhancedAuthService = new EnhancedAuthService(
-      oauthProviderService,
-      auditService
-    );
+    enhancedAuthService = new EnhancedAuthService(oauthProviderService, auditService);
   return { oauthProviderService, enhancedAuthService, auditService };
 }
 
@@ -271,8 +268,12 @@ export function registerOAuthRoutes(app: any): any {
                     set.status = 400;
                     return { success: false, error: 'Repository name required' };
                   }
-                  result = { message: 'Get repo operation not yet implemented' };
-                  break;
+                  set.status = 501;
+                  return {
+                    success: false,
+                    error: 'Not implemented',
+                    message: 'Get repo operation not yet implemented',
+                  };
                 default:
                   set.status = 400;
                   return { success: false, error: `Unsupported operation: ${validated.operation}` };
@@ -337,8 +338,12 @@ export function registerOAuthRoutes(app: any): any {
                     set.status = 400;
                     return { success: false, error: 'Message ID required' };
                   }
-                  result = { message: 'Get message operation not yet implemented' };
-                  break;
+                  set.status = 501;
+                  return {
+                    success: false,
+                    error: 'Not implemented',
+                    message: 'Get message operation not yet implemented',
+                  };
                 default:
                   set.status = 400;
                   return { success: false, error: `Unsupported operation: ${validated.operation}` };
