@@ -20,6 +20,15 @@ import { Button } from '@/components/ui/button';
 import { Loader2, Plus, Copy, Trash2, Edit } from 'lucide-react';
 
 import '@xyflow/react/dist/style.css';
+import { useAuth } from '@/contexts/AuthContext';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
 
 // Use ReactFlow's built-in types
 type ReactFlowNode = Node<{ label: string }>;
@@ -109,10 +118,13 @@ const MindMapInner: React.FC<MindMapInnerProps> = ({ markdown }) => {
   const [isEditDialogOpen, setIsEditDialogOpen] = useState<boolean>(false);
   const [editLabel, setEditLabel] = useState<string>('');
 
-  const authState = useAuthState();
-  // TODO: Get OpenAI key from proper source
-  const oAiKey = import.meta.env.VITE_OPENAI_API_KEY || null;
-  const [apiClient, setApiClient] = useState<OpenAIService | null>(null);
+  const { user } = useAuth();
+  const oAiKey =
+    (user as unknown as { openAiKey?: string })?.openAiKey ??
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (import.meta as any).env?.VITE_OPENAI_API_KEY ??
+    null;
+  const [aiReady, setAiReady] = useState<boolean>(false);
   const { fitView, getNode, getNodes, getEdges, deleteElements, addNodes, addEdges } =
     useReactFlow();
 
@@ -222,12 +234,9 @@ const MindMapInner: React.FC<MindMapInnerProps> = ({ markdown }) => {
     setEditLabel('');
   }, [selectedNode, editLabel, setNodes]);
 
-  // Initialize API client
   useEffect(() => {
-    if (!apiClient && oAiKey) {
-      setApiClient(new OpenAIService(oAiKey));
-    }
-  }, [oAiKey, apiClient]);
+    setAiReady(Boolean(oAiKey));
+  }, [oAiKey]);
 
   // Initialize the mind map (once)
   useEffect(() => {
