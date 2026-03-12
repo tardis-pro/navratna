@@ -1,6 +1,7 @@
 import { WebSocket } from 'ws';
 import { IncomingMessage } from 'http';
 import { logger } from '@uaip/utils';
+import { config } from '../config/index.js';
 import { DiscussionOrchestrationService } from '../services/discussionOrchestrationService.js';
 import { DiscussionEvent } from '@uaip/types';
 import { z } from 'zod';
@@ -532,7 +533,7 @@ export class DiscussionWebSocketHandler {
    */
   private heartbeat(): void {
     const now = new Date();
-    const staleThreshold = 60000; // 1 minute
+    const staleThreshold = config.discussionOrchestration.performance.wsHeartbeatStaleMs;
 
     this.connectionById.forEach((connection) => {
       if (now.getTime() - connection.lastPing.getTime() > staleThreshold) {

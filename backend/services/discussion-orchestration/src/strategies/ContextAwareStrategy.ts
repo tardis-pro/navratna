@@ -32,7 +32,7 @@ export class ContextAwareStrategy implements TurnStrategyInterface {
   public readonly strategy = TurnStrategy.CONTEXT_AWARE;
   private readonly strategyType = TurnStrategy.CONTEXT_AWARE;
   private contextCache = new Map<string, { analysis: ContextAnalysis; timestamp: Date }>();
-  private readonly cacheTimeout = 30000; // 30 seconds
+  private readonly cacheTimeout = config.discussionOrchestration.performance.strategyCacheTimeoutMs;
 
   async getNextParticipant(
     discussion: Discussion,
