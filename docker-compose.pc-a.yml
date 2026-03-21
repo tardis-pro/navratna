@@ -11,6 +11,7 @@ services:
       - "5432:5432"
     volumes:
       - pca_postgres_data:/var/lib/postgresql/data
+      - ./database/postgresql/application-init:/docker-entrypoint-initdb.d
     networks:
       - navratna-internal
     healthcheck:
@@ -122,8 +123,6 @@ services:
       LLM_PROVIDER_ENCRYPTION_KEY: ${LLM_PROVIDER_ENCRYPTION_KEY:-default-key-change-in-production}
     ports:
       - "3001:3001"
-    volumes:
-      - ./database/postgresql/application-init:/docker-entrypoint-initdb.d
     depends_on:
       postgres:
         condition: service_healthy
