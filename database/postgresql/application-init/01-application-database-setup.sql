@@ -386,6 +386,44 @@ INSERT INTO agents.agent_definitions (name, type, description, persona, capabili
      '["llm_chat", "data_analysis", "file_operations"]')
 ON CONFLICT (name) DO NOTHING;
 
+-- =============================================================================
+-- NAVRATNA AGENT PERSONAS (Phase 0)
+-- =============================================================================
+
+-- Insert Navratna agent personas from PRD roster
+INSERT INTO agents.agent_definitions (name, type, description, persona, capabilities, is_active) VALUES
+  ('Bhagwan', 'pm', 'Product Manager agent - project orchestration and task dispatch',
+   '{"role": "pm", "personality": "strategic", "style": "direct", "expertise": "product-management"}',
+   '["task_creation", "priority_scoring", "resource_allocation"]', true),
+
+  ('Veda', 'reviewer', 'Code Reviewer agent - architectural and quality feedback',
+   '{"role": "reviewer", "personality": "thorough", "style": "constructive", "expertise": "code-review"}',
+   '["code_analysis", "pattern_detection", "security_scan"]', true),
+
+  ('Rana', 'qa', 'QA Engineer agent - test execution and validation',
+   '{"role": "qa", "personality": "meticulous", "style": "systematic", "expertise": "testing"}',
+   '["test_execution", "acceptance_testing", "bug_reporting"]', true),
+
+  ('Sharma', 'deployer', 'DevOps Engineer agent - deployment and infrastructure management',
+   '{"role": "deployer", "personality": "reliable", "style": "precise", "expertise": "devops"}',
+   '["deployment", "infrastructure_management", "monitoring"]', true)
+ON CONFLICT (name) DO NOTHING;
+
+-- Insert Navratna-specific capabilities
+INSERT INTO capabilities.capability_definitions (name, category, description, specification, is_active) VALUES
+  ('openshell_create_sandbox', 'tool', 'Create isolated coding sandbox via OpenShell',
+   '{"type": "mcp", "tool": "openshell.create_sandbox", "timeout": 60000}', true),
+
+  ('openshell_exec', 'tool', 'Execute commands in OpenShell sandbox',
+   '{"type": "mcp", "tool": "openshell.exec", "timeout": 300000}', true),
+
+  ('ollama_embeddings', 'llm', 'Generate text embeddings via Ollama',
+   '{"type": "ollama", "model": "nomic-embed-text", "dimensions": 768}', true),
+
+  ('ollama_chat', 'llm', 'Chat completion via Ollama local models',
+   '{"type": "ollama", "models": ["llama-3.1-70b", "codestral-22b"]}', true)
+ON CONFLICT (name) DO NOTHING;
+
 -- Insert sample knowledge articles
 INSERT INTO knowledge.knowledge_articles (title, content, article_type, tags, is_published) VALUES
     ('Getting Started with UAIP', 'This article explains how to get started with the Unified Agent Intelligence Platform...', 'howto', '["getting-started", "tutorial"]', true),

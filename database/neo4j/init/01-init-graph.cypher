@@ -10,4 +10,9 @@ CREATE CONSTRAINT conversation_id IF NOT EXISTS FOR (c:Conversation) REQUIRE c.i
 CREATE CONSTRAINT operation_id IF NOT EXISTS FOR (o:Operation) REQUIRE o.id IS UNIQUE;
 CREATE CONSTRAINT user_id IF NOT EXISTS FOR (u:User) REQUIRE u.id IS UNIQUE;
 CREATE CONSTRAINT category_name IF NOT EXISTS FOR (cat:Category) REQUIRE cat.name IS UNIQUE;
+
+// Navratna-specific relationship constraints
+CREATE CONSTRAINT discussion_participants IF NOT EXISTS
+FOR (d:Discussion)-[r:PARTICIPATES_IN]->(a:Agent)
+REQUIRE r.role IS NOT NULL;
  
