@@ -103,128 +103,6 @@ services:
       timeout: 10s
       retries: 3
 
-  # TEI (Text Embeddings Inference) Services
-  tei-embeddings:
-    image: ghcr.io/huggingface/text-embeddings-inference:1.7
-    container_name: uaip-tei-embeddings
-    runtime: nvidia
-    command: --model-id mixedbread-ai/mxbai-embed-large-v1 --port 80 --max-batch-tokens 16384 --max-concurrent-requests 512 --auto-truncate
-    ports:
-      - '8080:80'
-      - '9080:9000' # Prometheus metrics
-    volumes:
-      - tei_embeddings_data:/data
-    environment:
-      - HUGGINGFACE_HUB_CACHE=/data
-      - JSON_OUTPUT=true
-      - NVIDIA_VISIBLE_DEVICES=all
-    restart: unless-stopped
-    networks:
-      - uaip-network
-    healthcheck:
-      test: ['CMD', 'curl', '-f', 'http://localhost:80/health']
-      interval: 300s
-      timeout: 10s
-      retries: 3
-      start_period: 60s
-    profiles:
-      - gpu
-
-  tei-reranker:
-    image: michaelf34/infinity:latest
-    container_name: tei-reranker
-    runtime: nvidia
-    command:
-      - v2
-      - --model-id
-      - mixedbread-ai/mxbai-rerank-large-v2
-      - --port
-      - '8083'
-    environment:
-      - HF_HOME=/app/.cache
-    networks:
-      - uaip-network
-    volumes:
-      - tei_reranker_data:/app/.cache
-    ports:
-      - '8083:8083'
-    restart: unless-stopped
-    healthcheck:
-      test: ['CMD', 'curl', '-f', 'http://localhost:8083/health']
-      interval: 300s
-      timeout: 10s
-      retries: 3
-      start_period: 60s
-    profiles:
-      - gpu
-
-  # CPU-only TEI service for development/testing
-  tei-embeddings-cpu:
-    image: ghcr.io/huggingface/text-embeddings-inference:cpu-1.7
-    container_name: uaip-tei-embeddings-cpu
-    command: --model-id sentence-transformers/all-mpnet-base-v2 --port 80 --max-batch-tokens 8192 --max-concurrent-requests 256 --auto-truncate
-    ports:
-      - '8082:80'
-      - '9082:9000' # Prometheus metrics
-    volumes:
-      - tei_embeddings_cpu_data:/data
-    environment:
-      - HUGGINGFACE_HUB_CACHE=/data
-      - JSON_OUTPUT=true
-    restart: unless-stopped
-    networks:
-      - uaip-network
-    healthcheck:
-      test: ['CMD', 'curl', '-f', 'http://localhost:80/health']
-      interval: 300s
-      timeout: 10s
-      retries: 3
-      start_period: 30s
-
-  # Message Queue
-  rabbitmq:
-    image: rabbitmq:4.1.0-management-alpine
-    container_name: uaip-rabbitmq
-    environment:
-      RABBITMQ_DEFAULT_USER: ${RABBITMQ_DEFAULT_USER:-uaip_user}
-      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_DEFAULT_PASS:-uaip_password}
-    ports:
-      - '5672:5672' # AMQP
-      - '15672:15672' # Management UI
-    volumes:
-      - rabbitmq_data:/var/lib/rabbitmq
-    networks:
-      - uaip-network
-    healthcheck:
-      test: rabbitmq-diagnostics -q ping
-      interval: 300s
-      timeout: 30s
-      retries: 3
-
-  # Object Storage (MinIO)
-  minio:
-    image: minio/minio:latest
-    container_name: uaip-minio
-    command: server /data --console-address ":9001"
-    environment:
-      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-uaip_minio}
-      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-uaip_minio_password}
-      MINIO_DOMAIN: minio
-      MINIO_REGION_NAME: us-east-1
-    ports:
-      - '9000:9000' # API
-      - '9001:9001' # Console
-    volumes:
-      - minio_data:/data
-      - minio_config:/root/.minio
-    networks:
-      - uaip-network
-    healthcheck:
-      test: ['CMD', 'curl', '-f', 'http://localhost:9000/minio/health/live']
-      interval: 300s
-      timeout: 20s
-      retries: 3
-
   # Shared base service - build once, use everywhere
   backend-base:
     build:
@@ -250,11 +128,6 @@ services:
       - TYPEORM_MIGRATIONS_RUN=true
       - REDIS_URL=redis://:${REDIS_PASSWORD:-uaip_redis_password}@redis:6379
       - QDRANT_URL=http://qdrant:6333
-      - RABBITMQ_URL=amqp://${RABBITMQ_DEFAULT_USER:-uaip_user}:${RABBITMQ_DEFAULT_PASS:-uaip_password}@rabbitmq:5672
-      # TEI Configuration
-      - TEI_EMBEDDING_URL=http://tei-embeddings:80
-      - TEI_RERANKER_URL=http://tei-reranker:8083
-      - TEI_EMBEDDING_CPU_URL=http://tei-embeddings-cpu:80
       # Enterprise Configuration
       - ENTERPRISE_MODE=false
       - ZERO_TRUST_MODE=disabled
@@ -285,8 +158,6 @@ services:
         condition: service_started
       qdrant:
         condition: service_started
-      rabbitmq:
-        condition: service_started
     networks:
       - uaip-network
     healthcheck:
@@ -308,7 +179,6 @@ services:
       - NEO4J_USER=${NEO4J_USER:-neo4j}
       - NEO4J_PASSWORD=${NEO4J_PASSWORD:-uaip_dev_password}
       - REDIS_URL=redis://:${REDIS_PASSWORD:-uaip_redis_password}@redis:6379
-      - RABBITMQ_URL=amqp://${RABBITMQ_DEFAULT_USER:-uaip_user}:${RABBITMQ_DEFAULT_PASS:-uaip_password}@rabbitmq:5672
     ports:
       - '3002:3002'
     volumes:
@@ -333,8 +203,6 @@ services:
         condition: service_started
       redis:
         condition: service_started
-      rabbitmq:
-        condition: service_started
     networks:
       - uaip-network
     healthcheck:
@@ -357,11 +225,6 @@ services:
       - NEO4J_PASSWORD=${NEO4J_PASSWORD:-uaip_dev_password}
       - REDIS_URL=redis://:${REDIS_PASSWORD:-uaip_redis_password}@redis:6379
       - QDRANT_URL=http://qdrant:6333
-      - RABBITMQ_URL=amqp://${RABBITMQ_DEFAULT_USER:-uaip_user}:${RABBITMQ_DEFAULT_PASS:-uaip_password}@rabbitmq:5672
-      # TEI Configuration
-      - TEI_EMBEDDING_URL=http://tei-embeddings:80
-      - TEI_RERANKER_URL=http://tei-reranker:8083
-      - TEI_EMBEDDING_CPU_URL=http://tei-embeddings-cpu:80
       # Enterprise Configuration
       - ENTERPRISE_MODE=false
       - ZERO_TRUST_MODE=disabled
@@ -393,8 +256,6 @@ services:
         condition: service_started
       qdrant:
         condition: service_started
-      rabbitmq:
-        condition: service_started
     networks:
       - uaip-network
     healthcheck:
@@ -420,7 +281,6 @@ services:
       - REDIS_HOST=redis
       - REDIS_PORT=6379
       - REDIS_PASSWORD=${REDIS_PASSWORD:-uaip_redis_password}
-      - RABBITMQ_URL=amqp://${RABBITMQ_DEFAULT_USER:-uaip_user}:${RABBITMQ_DEFAULT_PASS:-uaip_password}@rabbitmq:5672
       - JWT_SECRET=${JWT_SECRET:-uaip_dev_jwt_secret_key_change_in_production}
     ports:
       - '3005:3005'
@@ -446,8 +306,6 @@ services:
         condition: service_started
       redis:
         condition: service_started
-      rabbitmq:
-        condition: service_started
     networks:
       - uaip-network
     healthcheck:
@@ -468,20 +326,10 @@ services:
       - POSTGRES_URL=postgresql://${POSTGRES_USER:-uaip_user}:${POSTGRES_PASSWORD:-uaip_password}@postgres:5432/${POSTGRES_DB:-uaip}
       - REDIS_URL=redis://:${REDIS_PASSWORD:-uaip_redis_password}@redis:6379
       - QDRANT_URL=http://qdrant:6333
-      - RABBITMQ_URL=amqp://${RABBITMQ_DEFAULT_USER:-uaip_user}:${RABBITMQ_DEFAULT_PASS:-uaip_password}@rabbitmq:5672
       - JWT_SECRET=${JWT_SECRET:-uaip_dev_jwt_secret_key_change_in_production}
       - OPENAI_API_KEY=${OPENAI_API_KEY}
       - CUSTOM_OPENAI_API_KEY=${CUSTOM_OPENAI_API_KEY}
       - OPENAI_API_URL=${OPENAI_API_URL}
-      # MinIO Configuration
-      - MINIO_ENDPOINT=minio:9000
-      - MINIO_ACCESS_KEY=${MINIO_ROOT_USER:-uaip_minio}
-      - MINIO_SECRET_KEY=${MINIO_ROOT_PASSWORD:-uaip_minio_password}
-      - MINIO_BUCKET_NAME=uaip-storage
-      # TEI Configuration
-      - TEI_EMBEDDING_URL=http://tei-embeddings:80
-      - TEI_RERANKER_URL=http://tei-reranker:8083
-      - TEI_EMBEDDING_CPU_URL=http://tei-embeddings-cpu:80
       # Neo4j Configuration
       - NEO4J_URL=bolt://neo4j:7687
       - NEO4J_USER=${NEO4J_USER:-neo4j}
@@ -510,12 +358,6 @@ services:
         condition: service_started
       redis:
         condition: service_started
-      rabbitmq:
-        condition: service_started
-      minio:
-        condition: service_started
-      tei-embeddings-cpu:
-        condition: service_started
     networks:
       - uaip-network
     healthcheck:
@@ -534,7 +376,6 @@ services:
       - PORT=3006
       - POSTGRES_URL=postgresql://${POSTGRES_USER:-uaip_user}:${POSTGRES_PASSWORD:-uaip_password}@postgres:5432/${POSTGRES_DB:-uaip}
       - REDIS_URL=redis://:${REDIS_PASSWORD:-uaip_redis_password}@redis:6379
-      - RABBITMQ_URL=amqp://${RABBITMQ_DEFAULT_USER:-uaip_user}:${RABBITMQ_DEFAULT_PASS:-uaip_password}@rabbitmq:5672
       - OPENAI_API_KEY=${OPENAI_API_KEY}
       - OPENAI_API_URL=${OPENAI_API_URL}
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
@@ -560,8 +401,6 @@ services:
         condition: service_started
       redis:
         condition: service_started
-      rabbitmq:
-        condition: service_started
     networks:
       - uaip-network
     healthcheck:
@@ -580,7 +419,6 @@ services:
       - PORT=3007
       - POSTGRES_URL=postgresql://${POSTGRES_USER:-uaip_user}:${POSTGRES_PASSWORD:-uaip_password}@postgres:5432/${POSTGRES_DB:-uaip}
       - REDIS_URL=redis://:${REDIS_PASSWORD:-uaip_redis_password}@redis:6379
-      - RABBITMQ_URL=amqp://${RABBITMQ_DEFAULT_USER:-uaip_user}:${RABBITMQ_DEFAULT_PASS:-uaip_password}@rabbitmq:5672
       - OLLAMA_URL=${OLLAMA_URL:-http://localhost:11434}
       - LLM_STUDIO_URL=${LLM_STUDIO_URL:-http://localhost:1234}
       - OPENAI_API_KEY=${OPENAI_API_KEY}
@@ -609,8 +447,6 @@ services:
       postgres:
         condition: service_started
       redis:
-        condition: service_started
-      rabbitmq:
         condition: service_started
     networks:
       - uaip-network
@@ -834,16 +670,9 @@ volumes:
   neo4j_plugins:
   redis_data:
   qdrant_data:
-  rabbitmq_data:
-  minio_data:
-  minio_config:
   prometheus_data:
   grafana_data:
   loki_data:
-  # TEI Data Volumes
-  tei_embeddings_data:
-  tei_reranker_data:
-  tei_embeddings_cpu_data:
 
 networks:
   uaip-network:
