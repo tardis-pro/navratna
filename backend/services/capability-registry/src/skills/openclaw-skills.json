@@ -34,7 +34,7 @@
     {
       "id": "capability-evolver",
       "name": "Capability Evolution",
-      "description": "Self-improvement mechanism that learns from feedback and evolves agent capabilities over time.",
+      "description": "A self-evolution engine for AI agents. Analyzes runtime history to identify improvements and applies protocol-constrained evolution.",
       "category": "meta",
       "version": "1.0",
       "triggerEvents": ["feedback_received", "task_completed"],
@@ -61,26 +61,26 @@
     {
       "id": "project-context-sync",
       "name": "Project Context Sync",
-      "description": "Maintains persistent project context across agent sessions. Stores project understanding in vector DB for retrieval.",
+      "description": "Keep a living project state document updated after each commit, so any agent can instantly understand where things stand.",
       "category": "workflow",
       "version": "1.0",
-      "triggerEvents": ["project_switch", "context_request"],
+      "triggerEvents": ["post_commit", "context_request"],
       "actions": [
         {
           "name": "sync_context",
-          "description": "Save current project context to vector store",
+          "description": "Update PROJECT_STATE.md after a commit",
           "parameters": {
-            "projectId": { "type": "string", "required": true },
-            "context": { "type": "object", "required": true }
+            "projectPath": { "type": "string", "required": true },
+            "commitHash": { "type": "string", "required": false }
           }
         },
         {
           "name": "restore_context",
-          "description": "Retrieve project context from vector store",
+          "description": "Retrieve project context from PROJECT_STATE.md",
           "parameters": {
-            "projectId": { "type": "string", "required": true }
+            "projectPath": { "type": "string", "required": true }
           },
-          "returns": "object"
+          "returns": "{ lastCommit: object, recentChanges: array, currentFocus: string }"
         }
       ],
       "metadata": {
@@ -109,6 +109,313 @@
       "metadata": {
         "origin": "openclaw",
         "importedAt": "2026-03-21T00:00:00Z"
+      }
+    },
+    {
+      "id": "browser-automation",
+      "name": "Browser Automation",
+      "description": "Autonomous browser automation for account creation, form filling, and email verification. Playwright-based with Gmail integration.",
+      "category": "tool",
+      "version": "1.0",
+      "triggerEvents": ["account_creation", "form_automation", "email_verification", "web_scraping"],
+      "actions": [
+        {
+          "name": "create_account",
+          "description": "Navigate to signup URL and fill form with specified fields",
+          "parameters": {
+            "url": { "type": "string", "required": true },
+            "email": { "type": "string", "required": true },
+            "password": { "type": "string", "required": true },
+            "fields": { "type": "object", "required": false },
+            "submitSelector": { "type": "string", "required": false },
+            "verifyEmail": { "type": "boolean", "required": false, "default": false },
+            "timeoutMinutes": { "type": "number", "required": false, "default": 2 }
+          },
+          "returns": "{ success: boolean, screenshotPath: string, verificationCode?: string }"
+        },
+        {
+          "name": "fill_form",
+          "description": "Fill form fields on a webpage and optionally submit",
+          "parameters": {
+            "url": { "type": "string", "required": true },
+            "fields": { "type": "object", "required": true },
+            "submitSelector": { "type": "string", "required": false }
+          },
+          "returns": "{ success: boolean, screenshotPath: string }"
+        },
+        {
+          "name": "verify_email",
+          "description": "Wait for verification email and extract code or link",
+          "parameters": {
+            "email": { "type": "string", "required": true },
+            "serviceName": { "type": "string", "required": true },
+            "waitMinutes": { "type": "number", "required": false, "default": 2 }
+          },
+          "returns": "{ code?: string, link?: string, success: boolean }"
+        },
+        {
+          "name": "extract_text",
+          "description": "Navigate to URL and extract text content",
+          "parameters": {
+            "url": { "type": "string", "required": true },
+            "selectors": { "type": "object", "required": false }
+          },
+          "returns": "{ text: string, screenshotPath: string }"
+        }
+      ],
+      "metadata": {
+        "origin": "openclaw",
+        "importedAt": "2026-03-21T00:00:00Z",
+        "scripts": ["playwright_automation.py", "email_verifier.py"]
+      }
+    },
+    {
+      "id": "browser-test",
+      "name": "Browser Testing",
+      "description": "Playwright-based UI testing, visual regression, and browser automation for quality assurance.",
+      "category": "tool",
+      "version": "1.0",
+      "triggerEvents": ["uat_request", "post_deploy_validation", "regression_check"],
+      "actions": [
+        {
+          "name": "run_tests",
+          "description": "Execute Playwright test suite against a URL",
+          "parameters": {
+            "testDir": { "type": "string", "required": true },
+            "baseUrl": { "type": "string", "required": true },
+            "project": { "type": "string", "required": false, "default": "chromium" }
+          },
+          "returns": "{ passed: number, failed: number, reportPath: string }"
+        },
+        {
+          "name": "screenshot",
+          "description": "Capture a screenshot of a URL",
+          "parameters": {
+            "url": { "type": "string", "required": true },
+            "path": { "type": "string", "required": true },
+            "waitForSelector": { "type": "string", "required": false }
+          },
+          "returns": "{ path: string, success: boolean }"
+        },
+        {
+          "name": "visual_regression",
+          "description": "Compare screenshot against baseline for visual regression",
+          "parameters": {
+            "url": { "type": "string", "required": true },
+            "baselinePath": { "type": "string", "required": true },
+            "maxDiffPixels": { "type": "number", "required": false, "default": 100 }
+          },
+          "returns": "{ passed: boolean, diffPath?: string, diffPixels: number }"
+        }
+      ],
+      "metadata": {
+        "origin": "openclaw",
+        "importedAt": "2026-03-21T00:00:00Z",
+        "tools": ["playwright", "puppeteer"]
+      }
+    },
+    {
+      "id": "cloudflare-deploy",
+      "name": "Cloudflare Deployment",
+      "description": "Deploy sites to Cloudflare Pages or Workers using Wrangler. Includes subdomain binding on pronit.in.",
+      "category": "tool",
+      "version": "1.0",
+      "triggerEvents": ["deploying_status", "release_ready", "infra_request"],
+      "actions": [
+        {
+          "name": "deploy_pages",
+          "description": "Deploy a directory to Cloudflare Pages",
+          "parameters": {
+            "directory": { "type": "string", "required": true },
+            "projectName": { "type": "string", "required": true }
+          },
+          "returns": "{ url: string, success: boolean }"
+        },
+        {
+          "name": "deploy_worker",
+          "description": "Deploy a Worker script to Cloudflare",
+          "parameters": {
+            "scriptPath": { "type": "string", "required": true },
+            "workerName": { "type": "string", "required": true }
+          },
+          "returns": "{ url: string, success: boolean }"
+        },
+        {
+          "name": "list_projects",
+          "description": "List all Cloudflare Pages projects",
+          "returns": "{ projects: array }"
+        },
+        {
+          "name": "bind_subdomain",
+          "description": "Map a subdomain to a Cloudflare Pages project",
+          "parameters": {
+            "subdomain": { "type": "string", "required": true },
+            "projectName": { "type": "string", "required": true },
+            "zone": { "type": "string", "required": false, "default": "pronit.in" }
+          },
+          "returns": "{ success: boolean, domain: string }"
+        }
+      ],
+      "metadata": {
+        "origin": "openclaw",
+        "importedAt": "2026-03-21T00:00:00Z",
+        "accountId": "359b604a0f20bd40c4b697ea80f996e1",
+        "zoneId": "1529da4f6bff1985444e75897f0e79e2"
+      }
+    },
+    {
+      "id": "github",
+      "name": "GitHub CLI",
+      "description": "Interact with GitHub using the gh CLI. Manage issues, PRs, CI runs, and API queries.",
+      "category": "tool",
+      "version": "1.0",
+      "triggerEvents": ["pr_review_request", "ci_status_check", "issue_tracking"],
+      "actions": [
+        {
+          "name": "pr_checks",
+          "description": "Check CI/CD status on a pull request",
+          "parameters": {
+            "prNumber": { "type": "number", "required": true },
+            "repo": { "type": "string", "required": true }
+          },
+          "returns": "{ checks: array, status: string }"
+        },
+        {
+          "name": "run_list",
+          "description": "List recent workflow runs for a repository",
+          "parameters": {
+            "repo": { "type": "string", "required": true },
+            "limit": { "type": "number", "required": false, "default": 10 }
+          },
+          "returns": "{ runs: array }"
+        },
+        {
+          "name": "run_view",
+          "description": "View details of a specific workflow run including failed steps",
+          "parameters": {
+            "runId": { "type": "string", "required": true },
+            "repo": { "type": "string", "required": true },
+            "logFailed": { "type": "boolean", "required": false, "default": false }
+          },
+          "returns": "{ run: object, failedSteps?: array }"
+        },
+        {
+          "name": "api_query",
+          "description": "Execute a GitHub API query using gh api",
+          "parameters": {
+            "endpoint": { "type": "string", "required": true },
+            "jqFilter": { "type": "string", "required": false }
+          },
+          "returns": "{ data: object }"
+        }
+      ],
+      "metadata": {
+        "origin": "openclaw",
+        "importedAt": "2026-03-21T00:00:00Z",
+        "cli": "gh"
+      }
+    },
+    {
+      "id": "image-analyzer",
+      "name": "Image Analyzer",
+      "description": "Analyzes images sent by users. Describes content, extracts text, identifies UI elements.",
+      "category": "tool",
+      "version": "1.0",
+      "triggerEvents": ["image_upload", "screenshot_shared", "visual_inspection"],
+      "actions": [
+        {
+          "name": "analyze",
+          "description": "Analyze an image and provide a detailed description",
+          "parameters": {
+            "image": { "type": "string", "required": true },
+            "prompt": { "type": "string", "required": false }
+          },
+          "returns": "{ description: string, text?: string, elements?: array }"
+        }
+      ],
+      "metadata": {
+        "origin": "openclaw",
+        "importedAt": "2026-03-21T00:00:00Z",
+        "tool": "image"
+      }
+    },
+    {
+      "id": "project-context",
+      "name": "Project Context Injection",
+      "description": "Inject project-specific context when spawning sub-agents. Maintains continuity across agent handoffs.",
+      "category": "workflow",
+      "version": "1.0",
+      "triggerEvents": ["agent_spawn", "context_switch"],
+      "actions": [
+        {
+          "name": "inject_context",
+          "description": "Build project context for sub-agent spawning",
+          "parameters": {
+            "projectId": { "type": "string", "required": true }
+          },
+          "returns": "{ context: object, summary: string }"
+        },
+        {
+          "name": "get_template",
+          "description": "Get the project context template",
+          "returns": "{ template: string }"
+        }
+      ],
+      "metadata": {
+        "origin": "openclaw",
+        "importedAt": "2026-03-21T00:00:00Z"
+      }
+    },
+    {
+      "id": "shashwatgtm",
+      "name": "Marketing & Content Operations",
+      "description": "Multi-faceted marketing operations covering competitive intelligence, content strategy, newsletter creation, personal branding, and social media management.",
+      "category": "marketing",
+      "version": "1.0",
+      "triggerEvents": ["marketing_request", "content_brief", "competitive_analysis"],
+      "actions": [
+        {
+          "name": "competitive_intelligence",
+          "description": "Gather and analyze competitive landscape data",
+          "parameters": {
+            "industry": { "type": "string", "required": false },
+            "competitors": { "type": "array", "required": false }
+          },
+          "returns": "{ analysis: object, threats: array, opportunities: array }"
+        },
+        {
+          "name": "content_strategy",
+          "description": "Develop content strategy and topic recommendations",
+          "parameters": {
+            "goal": { "type": "string", "required": true },
+            "audience": { "type": "string", "required": false }
+          },
+          "returns": "{ topics: array, channels: array, calendar: object }"
+        },
+        {
+          "name": "newsletter_create",
+          "description": "Create and curate newsletter content",
+          "parameters": {
+            "topic": { "type": "string", "required": true },
+            "tone": { "type": "string", "required": false }
+          },
+          "returns": "{ content: string, sources: array }"
+        },
+        {
+          "name": "social_post",
+          "description": "Generate social media content for platform",
+          "parameters": {
+            "platform": { "type": "string", "required": true },
+            "message": { "type": "string", "required": false },
+            "contentBrief": { "type": "string", "required": false }
+          },
+          "returns": "{ posts: array, hashtags: array }"
+        }
+      ],
+      "metadata": {
+        "origin": "openclaw",
+        "importedAt": "2026-03-21T00:00:00Z",
+        "subModules": ["competitive-intelligence-market-research", "content-writing-thought-leadership", "newsletter-creation-curation", "personal-branding-authority", "social-media-management"]
       }
     }
   ]

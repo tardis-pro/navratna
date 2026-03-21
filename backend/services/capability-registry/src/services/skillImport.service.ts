@@ -1,7 +1,7 @@
 import * as fs from 'fs/promises';
 import * as path from 'path';
 
-type SkillCategory = 'behavior' | 'meta' | 'tool' | 'workflow';
+type SkillCategory = 'behavior' | 'meta' | 'tool' | 'workflow' | 'marketing';
 
 interface SkillActionParameter {
   type: string;
@@ -46,6 +46,13 @@ const OPENCLAW_SKILL_IDS = [
   'capability-evolver',
   'project-context-sync',
   'persona-adapter',
+  'browser-automation',
+  'browser-test',
+  'cloudflare-deploy',
+  'github',
+  'image-analyzer',
+  'project-context',
+  'shashwatgtm',
 ] as const;
 
 const CATEGORY_BY_SKILL: Record<string, SkillCategory> = {
@@ -53,6 +60,13 @@ const CATEGORY_BY_SKILL: Record<string, SkillCategory> = {
   'capability-evolver': 'meta',
   'project-context-sync': 'workflow',
   'persona-adapter': 'behavior',
+  'browser-automation': 'tool',
+  'browser-test': 'tool',
+  'cloudflare-deploy': 'tool',
+  'github': 'tool',
+  'image-analyzer': 'tool',
+  'project-context': 'workflow',
+  'shashwatgtm': 'marketing',
 };
 
 const OPENCLAW_SKILLS_PATH = '/Users/pronitdas/workspaces/bmad-navratna/openclaw-infra/skills';
