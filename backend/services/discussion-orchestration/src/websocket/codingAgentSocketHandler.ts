@@ -55,7 +55,27 @@ export class CodingAgentSocketHandler {
         if (nginxUserId && /^[0-9a-f-]{36}$/i.test(nginxUserId)) {
           userId = nginxUserId;
         } else {
-          const token = socket.handshake.auth?.token as string | undefined;
+          let token =
+            (socket.handshake.auth?.token as string | undefined) ||
+            (socket.handshake.query?.token as string | undefined);
+          if (!token) {
+            const cookieHeader = socket.handshake.headers.cookie;
+            if (cookieHeader) {
+              const accessTokenCookie = cookieHeader
+                .split(';')
+                .map((part: string) => part.trim())
+                .find((part: string) => part.startsWith('access_token='));
+
+              if (accessTokenCookie) {
+                const encodedValue = accessTokenCookie.substring('access_token='.length);
+                try {
+                  token = decodeURIComponent(encodedValue);
+                } catch {
+                  token = encodedValue;
+                }
+              }
+            }
+          }
           if (!token) {
             socket.emit('error', { message: 'Authentication required' });
             socket.disconnect();
