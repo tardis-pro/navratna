@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, lazy, Suspense } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Home,
@@ -58,31 +58,88 @@ import {
   Smartphone,
 } from 'lucide-react';
 
-// Import portal components
-import { DashboardPortal } from './futuristic/portals/DashboardPortal';
-import { AgentManagerPortal } from './futuristic/portals/AgentManagerPortal';
-import { KnowledgePortal } from './futuristic/portals/KnowledgePortal';
-import { SettingsPortal } from './futuristic/portals/SettingsPortal';
-import { ArtifactsPortal } from './futuristic/portals/ArtifactsPortal';
-import { IntelligencePanelPortal } from './futuristic/portals/IntelligencePanelPortal';
-import { SecurityPortal } from './futuristic/portals/SecurityPortal';
-import { SystemConfigPortal } from './futuristic/portals/SystemConfigPortal';
-import { ToolManagementPortal } from './futuristic/portals/ToolManagementPortal';
-import { DiscussionPortal } from './DiscussionPortal';
-import { ProviderSettingsPortal } from './futuristic/portals/ProviderSettingsPortal';
-import { MiniBrowserPortal } from './futuristic/portals/MiniBrowserPortal';
-import { UserChatPortal } from './futuristic/portals/UserChatPortal';
-import { MultiChatManager } from './futuristic/portals/MultiChatManager';
-import ToolsIntegrationsPortal from './futuristic/portals/ToolsIntegrationsPortal';
+// Lazy-loaded portal components for code splitting
+const DashboardPortal = lazy(() =>
+  import('./futuristic/portals/DashboardPortal').then((m) => ({ default: m.DashboardPortal }))
+);
+const AgentManagerPortal = lazy(() =>
+  import('./futuristic/portals/AgentManagerPortal').then((m) => ({
+    default: m.AgentManagerPortal,
+  }))
+);
+const KnowledgePortal = lazy(() =>
+  import('./futuristic/portals/KnowledgePortal').then((m) => ({ default: m.KnowledgePortal }))
+);
+const SettingsPortal = lazy(() =>
+  import('./futuristic/portals/SettingsPortal').then((m) => ({ default: m.SettingsPortal }))
+);
+const ArtifactsPortal = lazy(() =>
+  import('./futuristic/portals/ArtifactsPortal').then((m) => ({ default: m.ArtifactsPortal }))
+);
+const IntelligencePanelPortal = lazy(() =>
+  import('./futuristic/portals/IntelligencePanelPortal').then((m) => ({
+    default: m.IntelligencePanelPortal,
+  }))
+);
+const SecurityPortal = lazy(() =>
+  import('./futuristic/portals/SecurityPortal').then((m) => ({ default: m.SecurityPortal }))
+);
+const SystemConfigPortal = lazy(() =>
+  import('./futuristic/portals/SystemConfigPortal').then((m) => ({
+    default: m.SystemConfigPortal,
+  }))
+);
+const ToolManagementPortal = lazy(() =>
+  import('./futuristic/portals/ToolManagementPortal').then((m) => ({
+    default: m.ToolManagementPortal,
+  }))
+);
+const DiscussionPortal = lazy(() =>
+  import('./DiscussionPortal').then((m) => ({ default: m.DiscussionPortal }))
+);
+const ProviderSettingsPortal = lazy(() =>
+  import('./futuristic/portals/ProviderSettingsPortal').then((m) => ({
+    default: m.ProviderSettingsPortal,
+  }))
+);
+const MiniBrowserPortal = lazy(() =>
+  import('./futuristic/portals/MiniBrowserPortal').then((m) => ({
+    default: m.MiniBrowserPortal,
+  }))
+);
+const UserChatPortal = lazy(() =>
+  import('./futuristic/portals/UserChatPortal').then((m) => ({ default: m.UserChatPortal }))
+);
+const MultiChatManager = lazy(() =>
+  import('./futuristic/portals/MultiChatManager').then((m) => ({ default: m.MultiChatManager }))
+);
+const ToolsIntegrationsPortal = lazy(() =>
+  import('./futuristic/portals/ToolsIntegrationsPortal')
+);
+const ProjectManagementPortal = lazy(() =>
+  import('./futuristic/portals/ProjectManagementPortal').then((m) => ({
+    default: m.ProjectManagementPortal,
+  }))
+);
+const ProjectOnboardingFlow = lazy(() =>
+  import('./futuristic/portals/ProjectOnboardingFlow').then((m) => ({
+    default: m.ProjectOnboardingFlow,
+  }))
+);
+const AtomicKnowledgeViewer = lazy(() =>
+  import('./futuristic/portals/AtomicKnowledgeViewer').then((m) => ({
+    default: m.AtomicKnowledgeViewer,
+  }))
+);
+const WhatsAppPanel = lazy(() => import('./WhatsAppPanel'));
+
+// Non-lazy imports (utilities and smaller components)
 import { GlobalUpload } from './GlobalUpload';
 import { KnowledgeShortcut } from './KnowledgeShortcut';
-import { AtomicKnowledgeViewer } from './futuristic/portals/AtomicKnowledgeViewer';
 import { ChatKnowledgeUploader } from './ChatKnowledgeUploader';
 import ChatHistoryManager from './ChatHistoryManager';
 import { RoleBasedDesktopConfig } from './futuristic/desktop/RoleBasedDesktopConfig';
 import { useAuth } from '../contexts/AuthContext';
-import { ProjectManagementPortal } from './futuristic/portals/ProjectManagementPortal';
-import { ProjectOnboardingFlow } from './futuristic/portals/ProjectOnboardingFlow';
 import { ProjectTaskManager } from './ProjectTaskManager';
 import { MapWallpaper } from './futuristic/desktop/MapWallpaper';
 import { LocationService, LocationData } from '../services/LocationService';
@@ -94,7 +151,6 @@ import { useWallpaper } from '../hooks/useWallpaper';
 import { WallpaperCustomizationPanel } from './WallpaperCustomizationPanel';
 import { DiscussionConfigModal } from './DiscussionConfigModal';
 import { OnboardingManager } from './OnboardingManager';
-import WhatsAppPanel from './WhatsAppPanel';
 
 // Design System Tokens
 const DESIGN_TOKENS = {
@@ -126,6 +182,45 @@ const DESIGN_TOKENS = {
   backdrop: 'backdrop-blur-xl',
   transition: 'transition-all duration-200',
   shadow: 'shadow-xl',
+};
+
+const PortalSkeleton: React.FC<{ portalType: string }> = ({ portalType }) => {
+  const skeletonVariants: Record<string, React.ReactNode> = {
+    chat: (
+      <div className="flex gap-2 mt-4">
+        <div className="w-16 h-6 bg-slate-700 rounded-full" />
+        <div className="w-16 h-6 bg-slate-700 rounded-full" />
+      </div>
+    ),
+    knowledge: (
+      <div className="grid grid-cols-2 gap-2 mt-4">
+        <div className="h-20 bg-slate-700 rounded-lg" />
+        <div className="h-20 bg-slate-700 rounded-lg" />
+      </div>
+    ),
+    settings: (
+      <div className="space-y-3 mt-4">
+        <div className="h-10 bg-slate-700 rounded-lg" />
+        <div className="h-10 bg-slate-700 rounded-lg" />
+      </div>
+    ),
+    default: null,
+  };
+
+  return (
+    <div className="animate-pulse bg-slate-800/50 rounded-lg p-4 h-full">
+      <div className="flex items-center gap-2 mb-4">
+        <div className="w-8 h-8 bg-slate-700 rounded" />
+        <div className="w-32 h-4 bg-slate-700 rounded" />
+      </div>
+      <div className="space-y-2">
+        <div className="h-3 bg-slate-700 rounded w-full" />
+        <div className="h-3 bg-slate-700 rounded w-3/4" />
+        <div className="h-3 bg-slate-700 rounded w-1/2" />
+      </div>
+      {skeletonVariants[portalType] || skeletonVariants.default}
+    </div>
+  );
 };
 
 interface Application {
@@ -294,7 +389,11 @@ const ALL_APPLICATIONS: Application[] = [
     title: 'WhatsApp',
     icon: Smartphone,
     color: 'text-green-400',
-    component: () => <WhatsAppPanel className="h-full" />,
+    component: () => (
+      <Suspense fallback={<PortalSkeleton portalType="whatsapp" />}>
+        <WhatsAppPanel className="h-full" />
+      </Suspense>
+    ),
     category: 'tools',
     minimumRole: 'admin',
   },
@@ -585,15 +684,17 @@ const Window: React.FC<{
 
       {/* Window Content */}
       <div className="flex-1 overflow-auto bg-white/5">
-        <Component
-          viewport={{
-            width: window.size.width,
-            height: window.size.height,
-            isMobile: false,
-            isTablet: false,
-            isDesktop: true,
-          }}
-        />
+        <Suspense fallback={<PortalSkeleton portalType={window.app.id} />}>
+          <Component
+            viewport={{
+              width: window.size.width,
+              height: window.size.height,
+              isMobile: false,
+              isTablet: false,
+              isDesktop: true,
+            }}
+          />
+        </Suspense>
       </div>
 
       {/* Resize Handles */}
@@ -1748,7 +1849,9 @@ export const Desktop: React.FC = () => {
       </AnimatePresence>
 
       {/* Multi-Chat Manager */}
-      <MultiChatManager />
+      <Suspense fallback={null}>
+        <MultiChatManager />
+      </Suspense>
 
       {/* Global Upload Dialog */}
       <GlobalUpload
@@ -1806,11 +1909,13 @@ export const Desktop: React.FC = () => {
       )}
 
       {/* Project Onboarding Flow */}
-      <ProjectOnboardingFlow
-        isOpen={showProjectOnboarding}
-        onClose={() => setShowProjectOnboarding(false)}
-        onProjectCreate={handleProjectCreated}
-      />
+      <Suspense fallback={null}>
+        <ProjectOnboardingFlow
+          isOpen={showProjectOnboarding}
+          onClose={() => setShowProjectOnboarding(false)}
+          onProjectCreate={handleProjectCreated}
+        />
+      </Suspense>
 
       {/* User Persona Onboarding is now handled by OnboardingManager */}
 
@@ -1850,7 +1955,9 @@ export const Desktop: React.FC = () => {
               </Button>
             </div>
             <div className="h-full">
-              <AtomicKnowledgeViewer item={selectedKnowledgeItem} className="h-full" />
+              <Suspense fallback={<PortalSkeleton portalType="knowledge" />}>
+                <AtomicKnowledgeViewer item={selectedKnowledgeItem} className="h-full" />
+              </Suspense>
             </div>
           </div>
         </div>
