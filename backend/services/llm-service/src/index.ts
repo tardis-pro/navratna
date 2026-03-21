@@ -1,5 +1,7 @@
 import { BaseService, allEntities } from '@uaip/shared-services';
 import { logger } from '@uaip/utils';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import {
   LLMService,
   UserLLMService,
@@ -9,6 +11,7 @@ import {
 import { registerLLMRoutes } from './routes/llm.routes.js';
 import { registerUserLLMRoutes } from './routes/user-llm.routes.js';
 import { AgentGenerationHandler } from './handlers/AgentGenerationHandler.js';
+import { ModelRoutingService } from './services/modelRouting.service.js';
 
 class LLMServiceServer extends BaseService {
   private llmService: LLMService;
@@ -16,6 +19,7 @@ class LLMServiceServer extends BaseService {
   private modelBootstrapService: ModelBootstrapService;
   private agentGenerationHandler: AgentGenerationHandler;
   private apiKeyDecryptionService: ApiKeyDecryptionService;
+  private modelRoutingService: ModelRoutingService;
 
   constructor() {
     super({
@@ -35,6 +39,10 @@ class LLMServiceServer extends BaseService {
     this.llmService = LLMService.getInstance();
     this.modelBootstrapService = ModelBootstrapService.getInstance();
     this.apiKeyDecryptionService = ApiKeyDecryptionService.getInstance();
+
+    const currentFileDir = dirname(fileURLToPath(import.meta.url));
+    const modelRoutingPath = join(currentFileDir, 'config', 'agentModels.json');
+    this.modelRoutingService = new ModelRoutingService(modelRoutingPath);
   }
 
   protected async initialize(): Promise<void> {
@@ -91,6 +99,82 @@ class LLMServiceServer extends BaseService {
       this.modelBootstrapService,
       this.userLLMService
     );
+
+    this.app.group('/api/v1/llm', (app: any) =>
+      app
+        .get('/routes/:agentId', ({ params }: any) => {
+          const { agentId } = params;
+          const agent = this.modelRoutingService.getAgentConfig(agentId);
+
+          if (!agent) {
+            return {
+              success: false,
+              error: `No route configured for agent: ${agentId}`,
+            };
+          }
+
+          return {
+            success: true,
+            data: {
+              agent,
+              provider: this.modelRoutingService.getProviderForAgent(agentId),
+              fallbackProviders: this.modelRoutingService.getFallbackProviders(agentId),
+            },
+          };
+        })
+        .get('/routes', () => ({
+          success: true,
+          data: this.modelRoutingService.getAllAgents(),
+        }))
+        .post('/chat', async ({ body }: any) => {
+          const { agentId, prompt, capability = 'chat', systemPrompt } = body ?? {};
+
+          if (!agentId || !prompt) {
+            return {
+              success: false,
+              error: 'agentId and prompt are required',
+            };
+          }
+
+          const routedModel =
+            this.modelRoutingService.getModelForAgent(agentId, capability) ??
+            this.modelRoutingService.getDefaultModel(
+              capability in { chat: 1, embedding: 1, reasoning: 1, coding: 1 }
+                ? capability
+                : 'chat'
+            );
+
+          if (!routedModel) {
+            return {
+              success: false,
+              error: `No model route found for agent ${agentId}`,
+            };
+          }
+
+          const agentConfig = this.modelRoutingService.getAgentConfig(agentId);
+          const response = await this.llmService.generateResponse(
+            {
+              prompt,
+              systemPrompt: systemPrompt ?? this.modelRoutingService.getSystemPrompt(agentId) ?? undefined,
+              maxTokens: agentConfig?.maxTokens ?? routedModel.maxTokens,
+              temperature: agentConfig?.temperature ?? routedModel.temperature,
+              model: routedModel.name,
+            },
+            routedModel.provider
+          );
+
+          return {
+            success: true,
+            data: {
+              agentId,
+              capability,
+              model: routedModel,
+              response,
+            },
+          };
+        })
+    );
+
     registerUserLLMRoutes(this.app, this.userLLMService);
   }
 

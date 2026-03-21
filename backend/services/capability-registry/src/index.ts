@@ -2,6 +2,7 @@ import {
   BaseService,
   ServiceConfig,
   allEntities,
+  Capability,
   MCPServer as SharedMCPServer,
   MCPToolCall as SharedMCPToolCall,
 } from '@uaip/shared-services';
@@ -25,6 +26,7 @@ import { CodingAgentExecutor } from './services/coding-agent-executor.service.js
 // Route registration functions are imported dynamically in setupRoutes
 import { logger } from '@uaip/utils';
 import { ExecutionDataSource, McpRepository } from './database/index.js';
+import { SkillImportService } from './services/skillImport.service.js';
 
 class CapabilityRegistryService extends BaseService {
   private postgresql: InfraDatabaseService;
@@ -41,6 +43,7 @@ class CapabilityRegistryService extends BaseService {
   private enterpriseToolRegistry: EnterpriseToolRegistry;
   private workspaceManager: WorkspaceManager;
   private codingAgentExecutor: CodingAgentExecutor;
+  private skillImportService: SkillImportService;
   // Advanced services disabled pending architectural fix
   // private projectToolIntegration: ProjectToolIntegrationService;
   // private toolExecutionCoordinator: ToolExecutionCoordinator;
@@ -143,6 +146,9 @@ class CapabilityRegistryService extends BaseService {
       this.workspaceManager,
       this.asInfraEventBusService() as unknown as { publish: (topic: string, data: unknown) => Promise<void> }
     );
+    this.skillImportService = new SkillImportService();
+
+    await this.registerOpenClawSkills();
 
     // TODO: Fix these services to work with @uaip/infra.DatabaseService architecture
     // For now, keeping them disabled to maintain system stability
@@ -179,6 +185,40 @@ class CapabilityRegistryService extends BaseService {
     this.capabilityController = new CapabilityController(this.asInfraDatabaseService());
 
     logger.info('Services initialized successfully');
+  }
+
+  private async registerOpenClawSkills(): Promise<void> {
+    try {
+      const skills = await this.skillImportService.importOpenClawSkills();
+      if (skills.length === 0) {
+        logger.warn('No OpenClaw skills available for capability registration');
+        return;
+      }
+
+      const capabilityRepository = await this.postgresql.getRepository(Capability);
+      const records = skills.map((skill) => ({
+        name: skill.name,
+        description: skill.description,
+        category: 'skill',
+        isActive: true,
+        config: {
+          type: 'skill',
+          skillId: skill.id,
+          triggerEvents: skill.triggerEvents || [],
+          specification: skill,
+          metadata: skill.metadata,
+        },
+      }));
+
+      await capabilityRepository.upsert(records, ['name']);
+      logger.info('Registered OpenClaw skills as capabilities', {
+        count: records.length,
+        skills: skills.map((skill) => skill.id),
+      });
+    } catch (error) {
+      logger.error('Failed to register OpenClaw skills', error);
+      throw error;
+    }
   }
 
   protected async setupRoutes(): Promise<void> {

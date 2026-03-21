@@ -371,7 +371,7 @@ INSERT INTO capabilities.capability_definitions (name, category, description, sp
     ('web_search', 'tool', 'Web Search Tool', '{"type": "tool", "api": "search", "rate_limit": "100/hour"}'),
     ('file_operations', 'tool', 'File System Operations', '{"type": "tool", "permissions": ["read", "write"], "sandbox": true}'),
     ('data_analysis', 'workflow', 'Data Analysis Workflow', '{"type": "workflow", "steps": ["load", "process", "analyze", "report"]}')
-ON CONFLICT (name) DO NOTHING;
+ON CONFLICT DO NOTHING;
 
 -- Insert sample agent definitions
 INSERT INTO agents.agent_definitions (name, type, description, persona, capabilities) VALUES
@@ -384,7 +384,7 @@ INSERT INTO agents.agent_definitions (name, type, description, persona, capabili
     ('Data Analyst', 'task', 'Data analysis and reporting agent',
      '{"personality": "methodical", "style": "analytical", "expertise": "data_science"}',
      '["llm_chat", "data_analysis", "file_operations"]')
-ON CONFLICT (name) DO NOTHING;
+ON CONFLICT DO NOTHING;
 
 -- =============================================================================
 -- NAVRATNA AGENT PERSONAS (Phase 0)
@@ -407,7 +407,7 @@ INSERT INTO agents.agent_definitions (name, type, description, persona, capabili
   ('Sharma', 'deployer', 'DevOps Engineer agent - deployment and infrastructure management',
    '{"role": "deployer", "personality": "reliable", "style": "precise", "expertise": "devops"}',
    '["deployment", "infrastructure_management", "monitoring"]', true)
-ON CONFLICT (name) DO NOTHING;
+ON CONFLICT DO NOTHING;
 
 -- Insert Navratna-specific capabilities
 INSERT INTO capabilities.capability_definitions (name, category, description, specification, is_active) VALUES
@@ -422,14 +422,16 @@ INSERT INTO capabilities.capability_definitions (name, category, description, sp
 
   ('ollama_chat', 'llm', 'Chat completion via Ollama local models',
    '{"type": "ollama", "models": ["llama-3.1-70b", "codestral-22b"]}', true)
-ON CONFLICT (name) DO NOTHING;
+ON CONFLICT DO NOTHING;
+
+\ir ../../seed/agents/00-seed-agents.sql
 
 -- Insert sample knowledge articles
 INSERT INTO knowledge.knowledge_articles (title, content, article_type, tags, is_published) VALUES
     ('Getting Started with UAIP', 'This article explains how to get started with the Unified Agent Intelligence Platform...', 'howto', '["getting-started", "tutorial"]', true),
     ('Agent Configuration Guide', 'Learn how to configure and customize agents for your specific needs...', 'reference', '["agents", "configuration"]', true),
     ('Security Best Practices', 'Important security considerations when working with UAIP...', 'policy', '["security", "best-practices"]', true)
-ON CONFLICT (title) DO NOTHING;
+ON CONFLICT DO NOTHING;
 
 -- =============================================================================
 -- PERFORMANCE OPTIMIZATION

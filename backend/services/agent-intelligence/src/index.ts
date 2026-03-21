@@ -13,6 +13,7 @@ import { AgentDiscussionService } from './services/agent-discussion.service.js';
 import { AgentCoreService } from './services/agent-core.service.js';
 import { logger } from '@uaip/utils';
 import { z } from 'zod';
+import { registerAgentRoutes } from './routes/agent.routes.js';
 
 class AgentIntelligenceService extends BaseService {
   private agentDiscussionService: AgentDiscussionService;
@@ -129,6 +130,8 @@ class AgentIntelligenceService extends BaseService {
     this.app.get('/api/v1/agents/health', async () => {
       return { status: 'ok', service: 'agent-intelligence' };
     });
+
+    registerAgentRoutes(this.app);
 
     logger.info('Agent CRUD routes configured');
 

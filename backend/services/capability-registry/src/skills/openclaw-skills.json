@@ -1,0 +1,115 @@
+{
+  "skills": [
+    {
+      "id": "anti-ai-writing",
+      "name": "Anti-AI Writing Detection",
+      "description": "Detects AI-generated patterns in text and rewrites to appear more human-written. Essential for LinkedIn posts and public content.",
+      "category": "behavior",
+      "version": "1.0",
+      "triggerEvents": ["content_generation", "post_review"],
+      "actions": [
+        {
+          "name": "detect_ai_patterns",
+          "description": "Analyze text for common AI writing patterns",
+          "parameters": {
+            "text": { "type": "string", "required": true }
+          },
+          "returns": "{ patterns: string[], confidence: number }"
+        },
+        {
+          "name": "rewrite_humanize",
+          "description": "Rewrite text to remove AI patterns while preserving meaning",
+          "parameters": {
+            "text": { "type": "string", "required": true },
+            "tone": { "type": "string", "required": false, "default": "professional" }
+          },
+          "returns": "string"
+        }
+      ],
+      "metadata": {
+        "origin": "openclaw",
+        "importedAt": "2026-03-21T00:00:00Z"
+      }
+    },
+    {
+      "id": "capability-evolver",
+      "name": "Capability Evolution",
+      "description": "Self-improvement mechanism that learns from feedback and evolves agent capabilities over time.",
+      "category": "meta",
+      "version": "1.0",
+      "triggerEvents": ["feedback_received", "task_completed"],
+      "actions": [
+        {
+          "name": "learn_from_feedback",
+          "description": "Process feedback and update capability parameters",
+          "parameters": {
+            "feedback": { "type": "object", "required": true },
+            "context": { "type": "object", "required": true }
+          }
+        },
+        {
+          "name": "suggest_improvement",
+          "description": "Analyze performance and suggest capability improvements",
+          "returns": "{ suggestions: string[], priority: number }"
+        }
+      ],
+      "metadata": {
+        "origin": "openclaw",
+        "importedAt": "2026-03-21T00:00:00Z"
+      }
+    },
+    {
+      "id": "project-context-sync",
+      "name": "Project Context Sync",
+      "description": "Maintains persistent project context across agent sessions. Stores project understanding in vector DB for retrieval.",
+      "category": "workflow",
+      "version": "1.0",
+      "triggerEvents": ["project_switch", "context_request"],
+      "actions": [
+        {
+          "name": "sync_context",
+          "description": "Save current project context to vector store",
+          "parameters": {
+            "projectId": { "type": "string", "required": true },
+            "context": { "type": "object", "required": true }
+          }
+        },
+        {
+          "name": "restore_context",
+          "description": "Retrieve project context from vector store",
+          "parameters": {
+            "projectId": { "type": "string", "required": true }
+          },
+          "returns": "object"
+        }
+      ],
+      "metadata": {
+        "origin": "openclaw",
+        "importedAt": "2026-03-21T00:00:00Z"
+      }
+    },
+    {
+      "id": "persona-adapter",
+      "name": "Persona Adapter",
+      "description": "Adapts agent communication style to match user preferences and context.",
+      "category": "behavior",
+      "version": "1.0",
+      "triggerEvents": ["user_preference_change", "new_interaction"],
+      "actions": [
+        {
+          "name": "adapt_tone",
+          "description": "Adjust communication style based on user profile",
+          "parameters": {
+            "userId": { "type": "string", "required": true },
+            "context": { "type": "string", "required": false }
+          },
+          "returns": "{ tone: string, vocabulary: string[], examples: string[] }"
+        }
+      ],
+      "metadata": {
+        "origin": "openclaw",
+        "importedAt": "2026-03-21T00:00:00Z"
+      }
+    }
+  ]
+}
