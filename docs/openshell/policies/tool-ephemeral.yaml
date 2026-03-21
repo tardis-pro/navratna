@@ -1,0 +1,48 @@
+# OpenShell Tool Ephemeral Policy
+# For one-off tool executions (browser automation, GOG, scrapers)
+
+version: "1.0"
+name: tool-ephemeral
+terms: []
+
+sandbox:
+  type: ephemeral
+  timeout: 300  # 5 minutes max
+  max_instances: 20
+
+resources:
+  cpu: 2
+  memory: 2Gi
+  gpu: 0
+
+filesystem:
+  read_only: true
+  allowed_paths:
+    - /tmp/*
+    - /data/scratch/*
+  denied_paths:
+    - /home/*
+    - /root/*
+
+network:
+  egress:
+    allowed:
+      - google.com
+      - github.com
+    denied:
+      - "*"
+
+process:
+  allowed:
+    - node
+    - python
+    - curl
+    - wget
+  denied:
+    - passwd
+    - su
+
+inference:
+  providers:
+    - anthropic
+  default: anthropic

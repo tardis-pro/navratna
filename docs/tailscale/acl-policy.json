@@ -1,0 +1,57 @@
+{
+  "acls": [
+    {
+      "action": "accept",
+      "src": ["group:navratna"],
+      "dst": ["group:navratna:*"]
+    },
+    {
+      "action": "accept",
+      "src": ["tag:navratna-pca"],
+      "dst": [
+        "*:5432",
+        "*:7687",
+        "*:6333",
+        "*:6379",
+        "*:11434",
+        "*:3001"
+      ]
+    },
+    {
+      "action": "accept",
+      "src": ["tag:navratna-pcb"],
+      "dst": [
+        "*:3002",
+        "*:8081",
+        "*:6379",
+        "*:11434"
+      ]
+    },
+    {
+      "action": "accept",
+      "src": ["tag:navratna-mac"],
+      "dst": [
+        "*:3002",
+        "*:5173",
+        "*:8081",
+        "*:11434"
+      ]
+    }
+  ],
+  "groups": {
+    "group:navratna": ["tag:navratna-pca", "tag:navratna-pcb", "tag:navratna-mac"]
+  },
+  "tagOwners": {
+    "tag:navratna-pca": ["group:navratna"],
+    "tag:navratna-pcb": ["group:navratna"],
+    "tag:navratna-mac": ["group:navratna"]
+  },
+  "ssh": [
+    {
+      "action": "accept",
+      "src": ["group:navratna"],
+      "dst": ["group:navratna"],
+      "users": ["root", "ubuntu"]
+    }
+  ]
+}
