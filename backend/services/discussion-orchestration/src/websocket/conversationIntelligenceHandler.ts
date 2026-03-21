@@ -10,6 +10,7 @@ import {
   PromptSuggestionsCompletedEvent,
   AutocompleteSuggestionsReadyEvent,
 } from '@uaip/types';
+import { extractAccessTokenFromCookieHeader } from './websocket-security-utils.js';
 
 interface ConversationIntelligenceConnection {
   userId: string;
@@ -86,7 +87,17 @@ export class ConversationIntelligenceHandler {
           });
         } else {
           // Fallback: Authenticate via token
-          const token = socket.handshake.auth.token;
+          let token =
+            typeof socket.handshake.auth?.token === 'string' ? socket.handshake.auth.token : '';
+
+          if (!token && typeof socket.handshake.query?.token === 'string') {
+            token = socket.handshake.query.token;
+          }
+
+          if (!token) {
+            token = extractAccessTokenFromCookieHeader(socket.handshake.headers.cookie) || '';
+          }
+
           if (!token) {
             this.logger.warn('No authentication token provided', { socketId: socket.id });
             socket.emit('error', { message: 'Authentication failed: No token provided' });

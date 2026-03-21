@@ -9,6 +9,31 @@ export interface AuthenticationResult {
   reason?: string;
 }
 
+export function extractAccessTokenFromCookieHeader(
+  cookieHeader?: string | string[]
+): string | undefined {
+  if (!cookieHeader) {
+    return undefined;
+  }
+
+  const rawCookieHeader = Array.isArray(cookieHeader) ? cookieHeader.join(';') : cookieHeader;
+  const accessTokenCookie = rawCookieHeader
+    .split(';')
+    .map((part) => part.trim())
+    .find((part) => part.startsWith('access_token='));
+
+  if (!accessTokenCookie) {
+    return undefined;
+  }
+
+  const encodedValue = accessTokenCookie.substring('access_token='.length);
+  try {
+    return decodeURIComponent(encodedValue);
+  } catch {
+    return encodedValue;
+  }
+}
+
 /**
  * Authenticate WebSocket connection using JWT token
  */
@@ -35,6 +60,10 @@ export function authenticateConnection(
       if (tokenMatch) {
         token = tokenMatch[1];
       }
+    }
+
+    if (!token) {
+      token = extractAccessTokenFromCookieHeader(request.headers.cookie);
     }
 
     if (!token) {

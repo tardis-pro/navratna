@@ -6,29 +6,48 @@ import { JWTValidator } from './JWTValidator.js';
 
 export type { UserContext };
 
+type AuthDeriveContext = {
+  headers: { authorization?: string };
+  cookie?: { access_token?: { value?: string } };
+};
+
 // Elysia plugin to attach user context from JWT token
 export function attachAuth(app: Elysia): Elysia {
-  return app.derive(async ({ headers }) => {
+  return app.derive(async ({ headers, cookie }: AuthDeriveContext) => {
     const auth = headers.authorization;
-    if (!auth || !auth.startsWith('Bearer ')) {
-      return { user: null as UserContext | null };
+    if (auth && auth.startsWith('Bearer ')) {
+      const token = auth.substring(7);
+      const result = await validateJWTToken(token);
+
+      if (result.valid) {
+        return {
+          user: {
+            id: result.userId!,
+            email: result.email!,
+            role: result.role!,
+            sessionId: result.sessionId,
+          } as UserContext,
+        };
+      }
     }
 
-    const token = auth.substring(7);
-    const result = await validateJWTToken(token);
+    const accessToken = cookie?.access_token?.value;
+    if (accessToken) {
+      const result = await validateJWTToken(accessToken);
 
-    if (!result.valid) {
-      return { user: null as UserContext | null };
+      if (result.valid) {
+        return {
+          user: {
+            id: result.userId!,
+            email: result.email!,
+            role: result.role!,
+            sessionId: result.sessionId,
+          } as UserContext,
+        };
+      }
     }
 
-    return {
-      user: {
-        id: result.userId!,
-        email: result.email!,
-        role: result.role!,
-        sessionId: result.sessionId,
-      } as UserContext,
-    };
+    return { user: null as UserContext | null };
   });
 }
 

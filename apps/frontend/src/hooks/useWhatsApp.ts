@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { io, Socket } from 'socket.io-client';
 import { getWebSocketURL } from '@/config/apiConfig';
 import { logger } from '@/utils/browser-logger';
+import { APIClient } from '@/api/client';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -63,12 +64,7 @@ interface UseWhatsAppReturn {
 const MAX_MESSAGES = 100;
 
 function getAuthToken(): string | null {
-  return (
-    localStorage.getItem('authToken') ||
-    localStorage.getItem('auth_token') ||
-    localStorage.getItem('accessToken') ||
-    sessionStorage.getItem('accessToken')
-  );
+  return APIClient.getAuthToken();
 }
 
 export function useWhatsApp(): UseWhatsAppReturn {
@@ -86,11 +82,12 @@ export function useWhatsApp(): UseWhatsAppReturn {
     const wsUrl = getWebSocketURL();
 
     const socket = io(`${wsUrl}/whatsapp`, {
-      auth: { token },
+      ...(token ? { auth: { token } } : {}),
       transports: ['polling', 'websocket'],
       reconnection: true,
       reconnectionAttempts: 10,
       reconnectionDelay: 2000,
+      withCredentials: true,
     });
 
     socketRef.current = socket;

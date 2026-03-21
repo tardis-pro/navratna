@@ -2,6 +2,7 @@ import { Server, Socket } from 'socket.io';
 import { createLogger } from '@uaip/utils';
 import { validateJWTToken } from '@uaip/middleware';
 import { EventBusService } from '@uaip/infra/eventBus';
+import { extractAccessTokenFromCookieHeader } from './websocket-security-utils.js';
 
 interface UserMessage {
   id: string;
@@ -81,18 +82,26 @@ export class UserChatHandler {
       if (socket.data?.user?.userId) {
         userId = socket.data.user.userId;
         username = data.username || socket.data.user.email?.split('@')[0] || 'Unknown';
-      } else if (data.token) {
+      } else {
+        const token =
+          data.token ||
+          (typeof socket.handshake.auth?.token === 'string' ? socket.handshake.auth.token : '') ||
+          (typeof socket.handshake.query?.token === 'string' ? socket.handshake.query.token : '') ||
+          extractAccessTokenFromCookieHeader(socket.handshake.headers.cookie);
+
+        if (!token) {
+          socket.emit('auth_error', { error: 'Authentication required' });
+          return;
+        }
+
         // Fallback: Validate JWT token
-        const decoded = await validateJWTToken(data.token);
+        const decoded = await validateJWTToken(token);
         if (!decoded || !decoded.userId) {
           socket.emit('auth_error', { error: 'Invalid authentication token' });
           return;
         }
         userId = decoded.userId;
         username = data.username || decoded.username || 'Unknown';
-      } else {
-        socket.emit('auth_error', { error: 'Authentication required' });
-        return;
       }
 
       const user: ConnectedUser = {

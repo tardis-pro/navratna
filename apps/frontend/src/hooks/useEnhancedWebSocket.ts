@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { io, Socket } from 'socket.io-client';
 import { logger } from '@/utils/browser-logger';
 import { getWebSocketURL } from '@/config/apiConfig';
+import { APIClient } from '@/api/client';
 
 interface WebSocketEvent {
   type: string;
@@ -54,27 +55,13 @@ export const useEnhancedWebSocket = (config: ConnectionConfig = {}) => {
     setState((prev) => ({ ...prev, ...updates }));
   }, []);
 
-  // Get auth token from localStorage
   const getAuthToken = useCallback(() => {
-    return (
-      localStorage.getItem('authToken') ||
-      localStorage.getItem('auth_token') ||
-      localStorage.getItem('accessToken') ||
-      sessionStorage.getItem('accessToken')
-    );
+    return APIClient.getAuthToken();
   }, []);
 
   // Socket.IO connection function
   const connectSocketIO = useCallback(async (): Promise<boolean> => {
     const token = getAuthToken();
-    if (!token) {
-      updateState({
-        error: 'Authentication required - please log in',
-        authStatus: 'unauthenticated',
-      });
-      return false;
-    }
-
     // Disconnect and clean up any existing socket before creating a new one.
     // Without this, effect re-runs (due to callback identity changes) leave
     // orphaned sockets whose onAny handlers still fire — causing duplicate lastEvent updates.
@@ -88,15 +75,20 @@ export const useEnhancedWebSocket = (config: ConnectionConfig = {}) => {
       logger.info('[Socket.IO] Attempting connection', { url });
 
       const socket = io(url, {
-        auth: {
-          token: token,
-        },
+        ...(token
+          ? {
+              auth: { token },
+              query: {
+                token,
+              },
+              extraHeaders: {
+                Authorization: `Bearer ${token}`,
+              },
+            }
+          : {}),
         query: {
-          token: token,
-          EIO: 4, // Ensure Engine.IO v4 protocol
-        },
-        extraHeaders: {
-          Authorization: `Bearer ${token}`,
+          ...(token ? { token } : {}),
+          EIO: 4,
         },
         transports: ['polling', 'websocket'], // Start with polling, upgrade to websocket
         upgrade: true,
@@ -105,7 +97,7 @@ export const useEnhancedWebSocket = (config: ConnectionConfig = {}) => {
         reconnection: false, // We'll handle reconnection manually
         forceNew: true, // Force new connection each time
         autoConnect: true,
-        withCredentials: false, // Don't send cookies
+        withCredentials: true,
       });
 
       // Connection successful

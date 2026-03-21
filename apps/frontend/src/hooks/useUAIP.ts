@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useAuth } from '../contexts/AuthContext';
+import { APIClient } from '../api/client';
 import {
   EnhancedAgentState,
   Operation,
@@ -462,23 +463,10 @@ export function useWebSocket(url?: string) {
   const maxReconnectAttempts = 5;
 
   const connect = useCallback(async () => {
-    // Get authentication token for WebSocket connection
-    const token =
-      typeof window !== 'undefined'
-        ? localStorage.getItem('accessToken') || sessionStorage.getItem('accessToken')
-        : null;
+    const token = APIClient.getAuthToken();
 
-    if (!token) {
-      setError('Authentication required for WebSocket connection');
-      console.warn(
-        '[UAIP WebSocket] No authentication token found - WebSocket connection requires authentication'
-      );
-      return;
-    }
-
-    // Include token in WebSocket URL as query parameter
     const baseUrl = url || getWebSocketURL().replace('/socket.io', '/ws');
-    const wsUrl = `${baseUrl}?token=${encodeURIComponent(token)}`;
+    const wsUrl = token ? `${baseUrl}?token=${encodeURIComponent(token)}` : baseUrl;
 
     try {
       wsRef.current = new WebSocket(wsUrl);

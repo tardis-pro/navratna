@@ -7,6 +7,7 @@ import jwt from 'jsonwebtoken';
 import { config } from '@uaip/config';
 import { authMiddleware, testJWTToken } from '@uaip/middleware';
 import { RedisSessionManager } from './redis-session-manager.js';
+import { extractAccessTokenFromCookieHeader } from './websocket-security-utils.js';
 
 interface AuthenticatedSocket extends Socket {
   userId?: string;
@@ -111,6 +112,14 @@ export function setupWebSocketHandlers(
         if (authHeader.startsWith('Bearer ')) {
           token = authHeader.substring(7);
         }
+      }
+
+      if (!token && typeof socket.handshake.query?.token === 'string') {
+        token = socket.handshake.query.token;
+      }
+
+      if (!token) {
+        token = extractAccessTokenFromCookieHeader(socket.handshake.headers.cookie);
       }
 
       if (!token) {

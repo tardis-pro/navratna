@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { io, Socket } from 'socket.io-client';
 import { useAuth } from '@/contexts/AuthContext';
 import { getWebSocketURL } from '@/config/apiConfig';
+import { APIClient } from '@/api/client';
 import {
   ConversationWebSocketEventType,
   ConversationIntelligenceEventType,
@@ -68,8 +69,7 @@ export const useConversationIntelligence = (options: UseConversationIntelligence
     if (!user) return;
     if (!agentId) return;
 
-    // Get token from storage since user object doesn't contain token
-    const token = localStorage.getItem('accessToken') || sessionStorage.getItem('accessToken');
+    const token = APIClient.getAuthToken();
 
     const effectiveAgentId =
       agentId === 'global-user-llm' ? `user-${user.id}` : agentId;
