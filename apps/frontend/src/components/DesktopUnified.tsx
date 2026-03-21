@@ -133,6 +133,14 @@ const AtomicKnowledgeViewer = lazy(() =>
 );
 const WhatsAppPanel = lazy(() => import('./WhatsAppPanel'));
 
+const MaterializableDashboardPortal = withMaterializableBlock(DashboardPortal, {
+  type: 'portal',
+  isDraggable: true,
+  isResizable: true,
+  dimensions: { width: 1200, height: 800 },
+  metadata: { portalId: 'dashboard', version: '1.0' },
+});
+
 // Non-lazy imports (utilities and smaller components)
 import { GlobalUpload } from './GlobalUpload';
 import { KnowledgeShortcut } from './KnowledgeShortcut';
@@ -151,6 +159,10 @@ import { useWallpaper } from '../hooks/useWallpaper';
 import { WallpaperCustomizationPanel } from './WallpaperCustomizationPanel';
 import { DiscussionConfigModal } from './DiscussionConfigModal';
 import { OnboardingManager } from './OnboardingManager';
+import { IntentField } from './IntentField/IntentField';
+import { withMaterializableBlock } from './MaterializableBlock/MaterializableBlock';
+import { MicroexpressionIndicator } from './Microexpression/Microexpression';
+import { useMicroexpression } from '../hooks/useMicroexpression';
 
 // Design System Tokens
 const DESIGN_TOKENS = {
@@ -275,7 +287,7 @@ const ALL_APPLICATIONS: Application[] = [
     title: 'Dashboard',
     icon: Home,
     color: 'text-blue-400',
-    component: DashboardPortal,
+    component: MaterializableDashboardPortal,
     category: 'core',
     minimumRole: 'guest',
   },
@@ -1447,6 +1459,9 @@ export const Desktop: React.FC = () => {
   const [showChatHistory, setShowChatHistory] = useState(false);
   const [showKnowledgeShortcut, setShowKnowledgeShortcut] = useState(false);
   const [showChatIngestion, setShowChatIngestion] = useState(false);
+  const [showIntentField, setShowIntentField] = useState(false);
+
+  const { expression: microexpression } = useMicroexpression('calm');
   const [selectedKnowledgeItem, setSelectedKnowledgeItem] = useState<any>(null);
   const [showProjectOnboarding, setShowProjectOnboarding] = useState(false);
   const [showDiscussionConfig, setShowDiscussionConfig] = useState(false);
@@ -1513,7 +1528,7 @@ export const Desktop: React.FC = () => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
         e.preventDefault();
-        setShowKnowledgeShortcut(true);
+        setShowIntentField(true);
       }
       if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === 'N') {
         e.preventDefault();
@@ -1546,6 +1561,7 @@ export const Desktop: React.FC = () => {
         setShowChatIngestion(false);
         setShowKnowledgeShortcut(false);
         setShowProjectOnboarding(false);
+        setShowIntentField(false);
         if (selectedKnowledgeItem) {
           setSelectedKnowledgeItem(null);
         }
@@ -1939,6 +1955,27 @@ export const Desktop: React.FC = () => {
         onExamine={handleKnowledgeExamine}
       />
 
+      <IntentField
+        open={showIntentField}
+        onOpenChange={setShowIntentField}
+        showTrigger={false}
+        onSelect={(option) => {
+          if (option.type === 'portal') {
+            const portalMap: Record<string, string> = {
+              'portal-dashboard': 'dashboard',
+              'portal-settings': 'settings',
+              'portal-knowledge': 'knowledge',
+              'portal-tools': 'tools',
+            };
+            const appId = portalMap[option.id];
+            if (appId) {
+              const app = ALL_APPLICATIONS.find((a) => a.id === appId);
+              if (app) openApplication(app);
+            }
+          }
+        }}
+      />
+
       {/* Knowledge Examination Modal */}
       {selectedKnowledgeItem && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[200] flex items-center justify-center p-4">
@@ -2023,6 +2060,13 @@ export const Desktop: React.FC = () => {
         onCustomizationToggle={() => setShowCustomization(!showCustomization)}
         time={time}
         userRole={userRole}
+      />
+
+      <MicroexpressionIndicator
+        expression={microexpression}
+        size="md"
+        showLabel
+        className="fixed top-14 right-4 z-50"
       />
 
       {/* Integrated Onboarding Manager - handles welcome screen + persona onboarding */}

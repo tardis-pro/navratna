@@ -105,7 +105,7 @@ services:
     image: uaip-backend-base:latest
     container_name: navratna-pca-core
     environment:
-      SERVICE_NAME: navratna-core
+      SERVICE_NAME: agent-intelligence
       NODE_ENV: ${NODE_ENV:-development}
       PORT: 3001
       POSTGRES_URL: postgresql://${POSTGRES_USER:-uaip_user}:${POSTGRES_PASSWORD:-uaip_password}@postgres:5432/${POSTGRES_DB:-uaip}
@@ -122,6 +122,8 @@ services:
       LLM_PROVIDER_ENCRYPTION_KEY: ${LLM_PROVIDER_ENCRYPTION_KEY:-default-key-change-in-production}
     ports:
       - "3001:3001"
+    volumes:
+      - ./database/postgresql/application-init:/docker-entrypoint-initdb.d
     depends_on:
       postgres:
         condition: service_healthy

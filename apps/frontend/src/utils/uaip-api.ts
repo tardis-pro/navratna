@@ -128,44 +128,19 @@ const setAccessTokenCookie = (token?: string | null) => {
 export const uaipAPI = {
   get client() {
     return {
-      // Expose all API modules
       ...api,
 
-      // Add auth management methods from APIClient
       getAuthToken: () => APIClient.getAuthToken(),
-      setAuthToken: (token: string | null, refreshToken?: string, rememberMe?: boolean) => {
+      setAuthToken: (token: string | null) => {
         APIClient.setAuthToken(token);
-        setAccessTokenCookie(token || undefined);
-        if (refreshToken) localStorage.setItem('refreshToken', refreshToken);
-        if (rememberMe) {
-          localStorage.setItem('accessToken', token || '');
-          if (refreshToken) localStorage.setItem('refreshToken', refreshToken);
-        } else {
-          sessionStorage.setItem('accessToken', token || '');
-          if (refreshToken) sessionStorage.setItem('refreshToken', refreshToken);
-        }
       },
       clearAuth: () => {
         APIClient.clearAuthToken();
         setAccessTokenCookie(null);
-        localStorage.removeItem('accessToken');
-        localStorage.removeItem('refreshToken');
-        sessionStorage.removeItem('accessToken');
-        sessionStorage.removeItem('refreshToken');
       },
       isAuthenticated: () => {
         const token = APIClient.getAuthToken();
         return !!token;
-      },
-      setUserContext: (userId: string, userRole?: string, rememberMe?: boolean) => {
-        // Store user context for API requests
-        if (rememberMe) {
-          localStorage.setItem('userId', userId);
-          if (userRole) localStorage.setItem('userRole', userRole);
-        } else {
-          sessionStorage.setItem('userId', userId);
-          if (userRole) sessionStorage.setItem('userRole', userRole);
-        }
       },
       setAuthContext: (context: {
         token: string;
@@ -174,13 +149,6 @@ export const uaipAPI = {
         rememberMe?: boolean;
       }) => {
         APIClient.setAuthToken(context.token);
-        setAccessTokenCookie(context.token);
-        const storage = context.rememberMe ? localStorage : sessionStorage;
-        storage.setItem('accessToken', context.token);
-        storage.setItem('userId', context.userId);
-        if (context.refreshToken) {
-          storage.setItem('refreshToken', context.refreshToken);
-        }
       },
       // Add health check endpoint
       health: async () => {

@@ -46,21 +46,16 @@ class APIClientClass {
   }
 
   private setupInterceptors(): void {
-    // Request interceptor
     this.client.interceptors.request.use(
       async (config) => {
-        // Add auth token
         if (this.authToken) {
           config.headers['Authorization'] = `Bearer ${this.authToken}`;
         }
 
-        // Let axios set the correct Content-Type for FormData (multipart/form-data + boundary)
-        // The instance default 'application/json' would otherwise override it and serialize FormData as JSON
         if (config.data instanceof FormData) {
           delete config.headers['Content-Type'];
         }
 
-        // Add CSRF token for state-changing requests
         if (['post', 'put', 'delete', 'patch'].includes(config.method?.toLowerCase() || '')) {
           try {
             const csrfToken = await csrfService.getToken();
@@ -79,25 +74,19 @@ class APIClientClass {
       }
     );
 
-    // Response interceptor
     this.client.interceptors.response.use(
       (response) => response,
       async (error: AxiosError) => {
-        // Handle 401 Unauthorized
         if (error.response?.status === 401) {
           this.clearAuthToken();
-          // Emit auth error event
           window.dispatchEvent(new CustomEvent('auth:unauthorized'));
         }
 
-        // Handle 403 CSRF token errors
         if (error.response?.status === 403 && error.response?.data?.['error']?.includes('CSRF')) {
-          // Refresh CSRF token and retry
           await csrfService.refreshToken();
           return this.client.request(error.config!);
         }
 
-        // Extract error details
         const apiError = this.extractErrorDetails(error);
         throw new APIClientError(
           apiError.message,
@@ -133,31 +122,15 @@ class APIClientClass {
     };
   }
 
-  // SECURITY TODO: Migrate token storage to httpOnly cookies managed by the backend.
-  // Storing tokens in localStorage makes them accessible to any JS on the page (XSS risk).
-  // The backend already supports cookie-based auth (see auth.elysia.ts cookie handling).
-  // Once migrated, remove all localStorage/sessionStorage token operations.
   public setAuthToken(token: string | null): void {
     this.authToken = token;
-    if (token) {
-      localStorage.setItem('authToken', token);
-    } else {
-      localStorage.removeItem('authToken');
-    }
   }
 
   public clearAuthToken(): void {
-    this.setAuthToken(null);
+    this.authToken = null;
   }
 
   public getAuthToken(): string | null {
-    if (!this.authToken) {
-      // Check both authToken and accessToken for backwards compatibility
-      this.authToken =
-        localStorage.getItem('authToken') ||
-        localStorage.getItem('accessToken') ||
-        sessionStorage.getItem('accessToken');
-    }
     return this.authToken;
   }
 

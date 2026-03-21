@@ -4,7 +4,7 @@ services:
     container_name: navratna-pcb-gateway
     environment:
       NODE_ENV: ${NODE_ENV:-development}
-      SERVICE_NAME: navratna-gateway
+      SERVICE_NAME: security-gateway
       SERVICE_VERSION: ${SERVICE_VERSION:-1.0.0}
       PORT: 3002
       REDIS_URL: redis://:${REDIS_PASSWORD:-uaip_redis_password}@redis:6379

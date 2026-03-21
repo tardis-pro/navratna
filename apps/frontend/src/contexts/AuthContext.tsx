@@ -154,11 +154,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       case 'logout':
         return await uaipAPI.client.auth.logout();
       case 'refreshToken':
-        // Get stored refresh token
-        const refreshToken =
-          localStorage.getItem('refreshToken') || sessionStorage.getItem('refreshToken');
-        if (!refreshToken) throw new Error('No refresh token available');
-        return await uaipAPI.client.auth.refreshToken(refreshToken);
+        return await uaipAPI.client.auth.refreshToken();
       case 'validatePermissions':
         // This would be a specialized security endpoint
         throw new Error(`Security flow '${flow}' is not yet implemented`);
@@ -236,32 +232,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     try {
       setState((prev) => ({ ...prev, isLoading: true, error: null }));
 
-      // Check if we have a valid stored token
-      const accessToken =
-        typeof window !== 'undefined'
-          ? localStorage.getItem('accessToken') || sessionStorage.getItem('accessToken')
-          : null;
-      const refreshToken =
-        typeof window !== 'undefined'
-          ? localStorage.getItem('refreshToken') || sessionStorage.getItem('refreshToken')
-          : null;
-
-      if (!accessToken || !uaipAPI.client.isAuthenticated()) {
-        setState((prev) => ({ ...prev, isLoading: false }));
-        return;
-      }
-
-      // Set the auth token on the client before making the auth.me() call
-      const isRemembered = !!localStorage.getItem('accessToken');
-      uaipAPI.client.setAuthToken(accessToken, refreshToken || undefined, isRemembered);
-
-      // Try to get current user from backend
       const userData = await uaipAPI.client.auth.getCurrentUser();
 
       if (userData) {
-        // Set user context for security headers
-        uaipAPI.client.setUserContext(userData.id, userData.role, isRemembered);
-
         setState({
           user: {
             id: userData.id,
@@ -269,16 +242,13 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
             firstName: userData.name?.split(' ')[0] || '',
             lastName: userData.name?.split(' ').slice(1).join(' ') || '',
             role: userData.role,
-            permissions: [], // Will be populated from role
+            permissions: [],
           },
           isAuthenticated: true,
           isLoading: false,
           error: null,
         });
       } else {
-        // Token is invalid, clear it
-        console.warn('Auth check failed: No user data returned');
-        uaipAPI.client.clearAuth();
         setState({
           user: null,
           isAuthenticated: false,
@@ -288,11 +258,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       }
     } catch (error) {
       console.error('Auth status check failed:', error);
-
-      // Clear invalid tokens
       uaipAPI.client.clearAuth();
-
-      // Don't set error state for failed auth checks - just silently log out
       setState({
         user: null,
         isAuthenticated: false,
@@ -308,20 +274,13 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
       const loginData = await uaipAPI.client.auth.login({ email, password });
 
-      if (loginData && loginData.token && loginData.user) {
-        const { user, token, refreshToken } = loginData;
+      if (loginData && loginData.user) {
+        const { user, token } = loginData;
 
-        // Set complete authentication context (this will store tokens AND set them on the client)
-        uaipAPI.client.setAuthContext({
-          token,
-          refreshToken,
-          userId: user.id,
-          rememberMe,
-        });
+        if (token) {
+          uaipAPI.client.setAuthToken(token);
+        }
 
-        // WebSocket client reset removed - using useWebSocket hook instead
-
-        // Set authenticated user
         setState({
           user: {
             id: user.id,
@@ -329,7 +288,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
             firstName: user.name?.split(' ')[0] || '',
             lastName: user.name?.split(' ').slice(1).join(' ') || '',
             role: user.role,
-            permissions: [], // Will be populated from role
+            permissions: [],
           },
           isAuthenticated: true,
           isLoading: false,
