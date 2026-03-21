@@ -79,6 +79,9 @@ export { LLMRequestTracker } from './llm-request-tracker.service';
 // DOMAIN SERVICES
 // =============================================================================
 
+// Domain Service Base Class
+export { BaseDomainService } from './services/BaseDomainService';
+
 // Core Domain Services
 export { UserService } from './services/UserService';
 export { ToolService } from './services/ToolService';

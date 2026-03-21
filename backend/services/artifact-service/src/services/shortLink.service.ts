@@ -1,9 +1,44 @@
 import { TypeOrmService } from '@uaip/shared-services';
 import { ShortLinkEntity, LinkType, LinkStatus } from '@uaip/shared-services';
 import { logger } from '@uaip/utils';
-import * as crypto from 'crypto';
+import bcrypt from 'bcryptjs';
 import QRCode from 'qrcode';
 import { Repository } from 'typeorm';
+
+const BCRYPT_ROUNDS = 12;
+
+interface GetUserLinksOptions {
+  page?: number;
+  limit?: number;
+  type?: string;
+  search?: string;
+}
+
+interface LinkUpdateData {
+  title?: string;
+  description?: string;
+  originalUrl?: string;
+  tags?: string[];
+  expiresAt?: Date;
+  status?: string;
+}
+
+interface LinkAnalyticsResponse {
+  id: string;
+  shortCode: string;
+  totalClicks: number;
+  analytics: Record<string, unknown>;
+  createdAt: Date;
+  lastClickAt: Date | null;
+  status: string;
+}
+
+interface ClickData {
+  userId?: string;
+  userAgent?: string;
+  ip?: string;
+  referer?: string;
+}
 
 export class ShortLinkService {
   private typeormService: TypeOrmService;
@@ -46,33 +81,10 @@ export class ShortLinkService {
       // Hash password if provided
       let hashedPassword: string | undefined;
       if (options.password) {
-        hashedPassword = crypto.createHash('sha256').update(options.password).digest('hex');
+        hashedPassword = await bcrypt.hash(options.password, BCRYPT_ROUNDS);
       }
 
       // Create short link
-      const shortLinkData = {
-        shortCode,
-        originalUrl,
-        title: options.title,
-        description: options.description,
-        type: options.type || 'external',
-        status: 'active',
-        createdById,
-        clickCount: 0,
-        expiresAt: options.expiresAt,
-        password: hashedPassword,
-        tags: options.tags || [],
-        artifactId: options.artifactId,
-        projectFileId: options.projectFileId,
-        accessRestrictions: {
-          maxClicks: options.maxClicks,
-        },
-        analytics: {
-          totalClicks: 0,
-          uniqueClicks: 0,
-        },
-      };
-
       const shortLink = this.shortLinkRepository.create({
         shortCode,
         originalUrl,
@@ -153,8 +165,8 @@ export class ShortLinkService {
         if (!options.password) {
           return { url: '', requiresPassword: true };
         }
-        const hashedPassword = crypto.createHash('sha256').update(options.password).digest('hex');
-        if (hashedPassword !== shortLink.password) {
+        const passwordMatch = await bcrypt.compare(options.password, shortLink.password);
+        if (!passwordMatch) {
           throw new Error('Invalid password');
         }
       }
@@ -169,7 +181,7 @@ export class ShortLinkService {
     }
   }
 
-  async getUserLinks(userId: string, options: any = {}): Promise<ShortLinkEntity[]> {
+  async getUserLinks(userId: string, options: GetUserLinksOptions = {}): Promise<ShortLinkEntity[]> {
     try {
       const { page = 1, limit = 20, type, search } = options;
       const skip = (page - 1) * limit;
@@ -210,7 +222,7 @@ export class ShortLinkService {
     }
   }
 
-  async updateLink(linkId: string, userId: string, updates: any): Promise<ShortLinkEntity> {
+  async updateLink(linkId: string, userId: string, updates: LinkUpdateData): Promise<ShortLinkEntity> {
     try {
       const link = await this.getLinkById(linkId, userId);
       if (!link) {
@@ -290,7 +302,7 @@ export class ShortLinkService {
     }
   }
 
-  async getLinkAnalytics(linkId: string, userId: string): Promise<any> {
+  async getLinkAnalytics(linkId: string, userId: string): Promise<LinkAnalyticsResponse> {
     try {
       const link = await this.getLinkById(linkId, userId);
       if (!link) {
@@ -338,7 +350,7 @@ export class ShortLinkService {
     throw new Error('Failed to generate unique short code');
   }
 
-  private async recordClick(linkId: string, clickData: any): Promise<void> {
+  private async recordClick(linkId: string, clickData: ClickData): Promise<void> {
     try {
       const link = await this.shortLinkRepository.findOne({ where: { id: linkId } });
       if (!link) {

@@ -1,6 +1,6 @@
 import { Repository } from 'typeorm';
 import { logger } from '@uaip/utils';
-import { TypeOrmService } from '../typeormService';
+import { BaseDomainService } from './BaseDomainService';
 import {
   ToolRepository,
   ToolExecutionRepository,
@@ -14,58 +14,33 @@ import { SecurityLevel, ToolExecutionStatus, ToolCategory } from '@uaip/types';
 import { RedisCacheService } from '../redis-cache.service';
 import { KnowledgeGraphService } from '../knowledge-graph/knowledge-graph.service';
 
-export class ToolService {
-  private static instance: ToolService;
-  private typeormService: TypeOrmService;
+export class ToolService extends BaseDomainService {
   private redisService: RedisCacheService;
   private knowledgeGraphService: KnowledgeGraphService | null = null;
 
-  // Repositories
-  private toolRepository: ToolRepository | null = null;
-  private toolExecutionRepository: ToolExecutionRepository | null = null;
-  private toolUsageRepository: ToolUsageRepository | null = null;
-  private toolAssignmentRepository: Repository<ToolAssignment> | null = null;
-
-  private constructor() {
-    this.typeormService = TypeOrmService.getInstance();
+  protected constructor() {
+    super();
     this.redisService = RedisCacheService.getInstance();
-    // knowledgeGraphService is optional and initialized lazily
   }
 
   public static getInstance(): ToolService {
-    if (!ToolService.instance) {
-      ToolService.instance = new ToolService();
-    }
-    return ToolService.instance;
+    return BaseDomainService.resolve<ToolService>(ToolService);
   }
 
-  // Repository getters with lazy initialization
   public getToolRepository(): ToolRepository {
-    if (!this.toolRepository) {
-      this.toolRepository = new ToolRepository();
-    }
-    return this.toolRepository;
+    return this.getRepository('toolRepo', () => new ToolRepository());
   }
 
   public getToolExecutionRepository(): ToolExecutionRepository {
-    if (!this.toolExecutionRepository) {
-      this.toolExecutionRepository = new ToolExecutionRepository();
-    }
-    return this.toolExecutionRepository;
+    return this.getRepository('toolExecRepo', () => new ToolExecutionRepository());
   }
 
   public getToolUsageRepository(): ToolUsageRepository {
-    if (!this.toolUsageRepository) {
-      this.toolUsageRepository = new ToolUsageRepository();
-    }
-    return this.toolUsageRepository;
+    return this.getRepository('toolUsageRepo', () => new ToolUsageRepository());
   }
 
   public getToolAssignmentRepository(): Repository<ToolAssignment> {
-    if (!this.toolAssignmentRepository) {
-      this.toolAssignmentRepository = this.typeormService.getRepository(ToolAssignment);
-    }
-    return this.toolAssignmentRepository;
+    return this.getRepository('toolAssignRepo', () => this.typeormService.getRepository(ToolAssignment));
   }
 
   // Tool definition operations

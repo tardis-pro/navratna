@@ -74,8 +74,7 @@ export class APIKeyAuthService {
       this.apiKeys.set(key.id, key);
 
       if (process.env.NODE_ENV === 'development') {
-        const apiKeyValue = this.generateKeyValue(key.id, service);
-        logger.info(`[API Key] Generated for ${service}: ${apiKeyValue}`);
+        logger.info(`[API Key] Generated for ${service} (key ID: ${key.id})`);
       }
     }
   }

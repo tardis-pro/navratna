@@ -1,6 +1,6 @@
 import { Repository, In } from 'typeorm';
 import { createLogger } from '@uaip/utils';
-import { TypeOrmService } from '../typeormService';
+import { BaseDomainService } from './BaseDomainService';
 import { ProjectEntity, ProjectStatus, ProjectVisibility } from '../entities/project.entity';
 import { ProjectMemberEntity, ProjectRole } from '../entities/project-member.entity';
 import { ProjectFileEntity, FileType, FileStatus } from '../entities/project-file.entity';
@@ -11,50 +11,31 @@ const logger = createLogger({
   logLevel: process.env.LOG_LEVEL || 'info',
 });
 
-export class ProjectService {
-  private static instance: ProjectService;
-  private typeormService: TypeOrmService;
-
-  // Repositories
-  private projectRepository: Repository<ProjectEntity> | null = null;
-  private projectMemberRepository: Repository<ProjectMemberEntity> | null = null;
-  private projectFileRepository: Repository<ProjectFileEntity> | null = null;
-
-  private constructor() {
-    this.typeormService = TypeOrmService.getInstance();
+export class ProjectService extends BaseDomainService {
+  protected constructor() {
+    super();
   }
 
   public static getInstance(): ProjectService {
-    if (!ProjectService.instance) {
-      ProjectService.instance = new ProjectService();
-    }
-    return ProjectService.instance;
+    return BaseDomainService.resolve<ProjectService>(ProjectService);
   }
 
-  // Repository getters with lazy initialization
   public getProjectRepository(): Repository<ProjectEntity> {
-    if (!this.projectRepository) {
-      this.projectRepository = this.typeormService.getDataSource().getRepository(ProjectEntity);
-    }
-    return this.projectRepository;
+    return this.getRepository('projectRepo', () =>
+      this.typeormService.getDataSource().getRepository(ProjectEntity)
+    );
   }
 
   public getProjectMemberRepository(): Repository<ProjectMemberEntity> {
-    if (!this.projectMemberRepository) {
-      this.projectMemberRepository = this.typeormService
-        .getDataSource()
-        .getRepository(ProjectMemberEntity);
-    }
-    return this.projectMemberRepository;
+    return this.getRepository('projectMemberRepo', () =>
+      this.typeormService.getDataSource().getRepository(ProjectMemberEntity)
+    );
   }
 
   public getProjectFileRepository(): Repository<ProjectFileEntity> {
-    if (!this.projectFileRepository) {
-      this.projectFileRepository = this.typeormService
-        .getDataSource()
-        .getRepository(ProjectFileEntity);
-    }
-    return this.projectFileRepository;
+    return this.getRepository('projectFileRepo', () =>
+      this.typeormService.getDataSource().getRepository(ProjectFileEntity)
+    );
   }
 
   // Project operations

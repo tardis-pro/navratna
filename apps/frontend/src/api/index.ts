@@ -22,6 +22,9 @@ export * from './orchestration.api';
 export * from './knowledge.api';
 export * from './llm.api';
 export * from './mcp.api';
+export * from './tasks.api';
+export * from './conversationEnhancement.api';
+export * from './user-persona.api';
 
 // Convenience namespace exports
 import { authAPI } from './auth.api';

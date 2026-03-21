@@ -1,31 +1,21 @@
 import { Repository } from 'typeorm';
-import { TypeOrmService } from '../typeormService';
+import { BaseDomainService } from './BaseDomainService';
 import { MFAChallengeEntity } from '../entities/mfaChallenge.entity';
 import { MFAMethod } from '@uaip/types';
 
-export class MFAService {
-  private static instance: MFAService;
-  private typeormService: TypeOrmService;
-  private mfaChallengeRepository: Repository<MFAChallengeEntity> | null = null;
-
-  private constructor() {
-    this.typeormService = TypeOrmService.getInstance();
+export class MFAService extends BaseDomainService {
+  protected constructor() {
+    super();
   }
 
   public static getInstance(): MFAService {
-    if (!MFAService.instance) {
-      MFAService.instance = new MFAService();
-    }
-    return MFAService.instance;
+    return BaseDomainService.resolve<MFAService>(MFAService);
   }
 
   public getMFAChallengeRepository(): Repository<MFAChallengeEntity> {
-    if (!this.mfaChallengeRepository) {
-      this.mfaChallengeRepository = this.typeormService
-        .getDataSource()
-        .getRepository(MFAChallengeEntity);
-    }
-    return this.mfaChallengeRepository;
+    return this.getRepository('mfaChallengeRepo', () =>
+      this.typeormService.getDataSource().getRepository(MFAChallengeEntity)
+    );
   }
 
   // MFA operations

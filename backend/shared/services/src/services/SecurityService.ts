@@ -1,4 +1,4 @@
-import { TypeOrmService } from '../typeormService';
+import { BaseDomainService } from './BaseDomainService';
 import {
   SecurityPolicyRepository,
   ApprovalWorkflowRepository,
@@ -8,43 +8,24 @@ import { SecurityPolicy } from '../entities/securityPolicy.entity';
 import { ApprovalWorkflow } from '../entities/approvalWorkflow.entity';
 import { ApprovalDecision } from '../entities/approvalDecision.entity';
 
-export class SecurityService {
-  private static instance: SecurityService;
-  private typeormService: TypeOrmService;
-
-  private _securityPolicyRepository: SecurityPolicyRepository | null = null;
-  private _approvalWorkflowRepository: ApprovalWorkflowRepository | null = null;
-  private _approvalDecisionRepository: ApprovalDecisionRepository | null = null;
-
-  private constructor() {
-    this.typeormService = TypeOrmService.getInstance();
+export class SecurityService extends BaseDomainService {
+  protected constructor() {
+    super();
   }
 
   public static getInstance(): SecurityService {
-    if (!SecurityService.instance) {
-      SecurityService.instance = new SecurityService();
-    }
-    return SecurityService.instance;
+    return BaseDomainService.resolve<SecurityService>(SecurityService);
   }
 
   public getSecurityPolicyRepository(): SecurityPolicyRepository {
-    if (!this._securityPolicyRepository) {
-      this._securityPolicyRepository = new SecurityPolicyRepository();
-    }
-    return this._securityPolicyRepository;
+    return this.getRepository('secPolicyRepo', () => new SecurityPolicyRepository());
   }
 
   public getApprovalWorkflowRepository(): ApprovalWorkflowRepository {
-    if (!this._approvalWorkflowRepository) {
-      this._approvalWorkflowRepository = new ApprovalWorkflowRepository();
-    }
-    return this._approvalWorkflowRepository;
+    return this.getRepository('approvalWorkflowRepo', () => new ApprovalWorkflowRepository());
   }
 
   public getApprovalDecisionRepository(): ApprovalDecisionRepository {
-    if (!this._approvalDecisionRepository) {
-      this._approvalDecisionRepository = new ApprovalDecisionRepository();
-    }
-    return this._approvalDecisionRepository;
+    return this.getRepository('approvalDecisionRepo', () => new ApprovalDecisionRepository());
   }
 }

@@ -122,5 +122,14 @@ export {
 } from './errorLogger.js';
 export type { StructuredErrorLogger } from './errorLogger.js';
 
+// Response formatting utilities
+export {
+  successResponse,
+  errorResponse,
+  paginatedResponse,
+  CommonErrors,
+} from './responseFormatter.js';
+export type { ApiResponse } from './responseFormatter.js';
+
 // Elysia TypeBox schema helpers — re-exported so services don't need a direct elysia dep
 export { t } from 'elysia';

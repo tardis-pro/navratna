@@ -1,5 +1,5 @@
 import { logger } from '@uaip/utils';
-import { TypeOrmService } from '../typeormService';
+import { BaseDomainService } from './BaseDomainService';
 import { AgentRepository } from '../database/repositories/AgentRepository';
 import { CapabilityRepository } from '../database/repositories/CapabilityRepository';
 import { AgentLLMPreferenceRepository } from '../database/repositories/AgentLLMPreferenceRepository';
@@ -9,55 +9,32 @@ import { AgentLLMPreference } from '../entities/agentLLMPreference.entity';
 import { AgentStatus, AgentRole, SecurityLevel } from '@uaip/types';
 import { EventBusService } from '../eventBusService';
 
-export class AgentService {
-  private static instance: AgentService;
-  private typeormService: TypeOrmService;
-
-  // Core repositories
-  private agentRepository: AgentRepository | null = null;
-  private capabilityRepository: CapabilityRepository | null = null;
-  private agentLLMPreferenceRepository: AgentLLMPreferenceRepository | null = null;
-  private eventBusService: EventBusService | null = null;
-
-  private constructor() {
-    this.typeormService = TypeOrmService.getInstance();
+export class AgentService extends BaseDomainService {
+  protected constructor() {
+    super();
   }
 
   private getEventBusService(): EventBusService {
-    if (!this.eventBusService) {
-      this.eventBusService = EventBusService.getInstance();
-    }
-    return this.eventBusService;
+    return this.getRepository('eventBus', () => EventBusService.getInstance());
   }
 
   public static getInstance(): AgentService {
-    if (!AgentService.instance) {
-      AgentService.instance = new AgentService();
-    }
-    return AgentService.instance;
+    return BaseDomainService.resolve<AgentService>(AgentService);
   }
 
-  // Repository getters
   public getAgentRepository(): AgentRepository {
-    if (!this.agentRepository) {
-      this.agentRepository = new AgentRepository();
-    }
-    return this.agentRepository;
+    return this.getRepository('agentRepo', () => new AgentRepository());
   }
 
   public getCapabilityRepository(): CapabilityRepository {
-    if (!this.capabilityRepository) {
-      this.capabilityRepository = new CapabilityRepository();
-    }
-    return this.capabilityRepository;
+    return this.getRepository('capabilityRepo', () => new CapabilityRepository());
   }
 
   public getAgentLLMPreferenceRepository(): AgentLLMPreferenceRepository {
-    if (!this.agentLLMPreferenceRepository) {
+    return this.getRepository('agentLLMPrefRepo', () => {
       const repository = this.typeormService.getRepository(AgentLLMPreference);
-      this.agentLLMPreferenceRepository = new AgentLLMPreferenceRepository(repository);
-    }
-    return this.agentLLMPreferenceRepository;
+      return new AgentLLMPreferenceRepository(repository);
+    });
   }
 
   // Core agent operations

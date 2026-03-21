@@ -1,55 +1,36 @@
 import { Repository } from 'typeorm';
-import { TypeOrmService } from '../typeormService';
+import { BaseDomainService } from './BaseDomainService';
 import { OAuthProviderEntity } from '../entities/oauthProvider.entity';
 import { OAuthStateEntity } from '../entities/oauthState.entity';
 import { AgentOAuthConnectionEntity } from '../entities/agentOAuthConnection.entity';
 import { OAuthProviderType, UserType, AgentCapability } from '@uaip/types';
 import * as crypto from 'crypto';
 
-export class OAuthService {
-  private static instance: OAuthService;
-  private typeormService: TypeOrmService;
-
-  private oauthProviderRepository: Repository<OAuthProviderEntity> | null = null;
-  private oauthStateRepository: Repository<OAuthStateEntity> | null = null;
-  private agentOAuthConnectionRepository: Repository<AgentOAuthConnectionEntity> | null = null;
-
-  private constructor() {
-    this.typeormService = TypeOrmService.getInstance();
+export class OAuthService extends BaseDomainService {
+  protected constructor() {
+    super();
   }
 
   public static getInstance(): OAuthService {
-    if (!OAuthService.instance) {
-      OAuthService.instance = new OAuthService();
-    }
-    return OAuthService.instance;
+    return BaseDomainService.resolve<OAuthService>(OAuthService);
   }
 
   public getOAuthProviderRepository(): Repository<OAuthProviderEntity> {
-    if (!this.oauthProviderRepository) {
-      this.oauthProviderRepository = this.typeormService
-        .getDataSource()
-        .getRepository(OAuthProviderEntity);
-    }
-    return this.oauthProviderRepository;
+    return this.getRepository('oauthProviderRepo', () =>
+      this.typeormService.getDataSource().getRepository(OAuthProviderEntity)
+    );
   }
 
   public getOAuthStateRepository(): Repository<OAuthStateEntity> {
-    if (!this.oauthStateRepository) {
-      this.oauthStateRepository = this.typeormService
-        .getDataSource()
-        .getRepository(OAuthStateEntity);
-    }
-    return this.oauthStateRepository;
+    return this.getRepository('oauthStateRepo', () =>
+      this.typeormService.getDataSource().getRepository(OAuthStateEntity)
+    );
   }
 
   public getAgentOAuthConnectionRepository(): Repository<AgentOAuthConnectionEntity> {
-    if (!this.agentOAuthConnectionRepository) {
-      this.agentOAuthConnectionRepository = this.typeormService
-        .getDataSource()
-        .getRepository(AgentOAuthConnectionEntity);
-    }
-    return this.agentOAuthConnectionRepository;
+    return this.getRepository('agentOAuthConnRepo', () =>
+      this.typeormService.getDataSource().getRepository(AgentOAuthConnectionEntity)
+    );
   }
 
   // OAuth Provider operations

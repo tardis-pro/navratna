@@ -14,6 +14,7 @@ interface CSRFConfig {
 
 export class CSRFProtection {
   private readonly config: Required<CSRFConfig>;
+  private readonly isProduction = process.env.NODE_ENV === 'production';
 
   constructor(csrfConfig: CSRFConfig = {}) {
     this.config = {
@@ -174,7 +175,7 @@ export class CSRFProtection {
             status: 200,
             headers: {
               'Content-Type': 'application/json',
-              'Set-Cookie': `${this.config.cookieName}=${token}; HttpOnly=false; SameSite=Strict; Max-Age=3600`,
+              'Set-Cookie': `${this.config.cookieName}=${token}; HttpOnly; SameSite=Strict; Max-Age=3600${this.isProduction ? '; Secure' : ''}`,
             },
           }
         );

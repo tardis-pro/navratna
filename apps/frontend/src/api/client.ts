@@ -133,6 +133,10 @@ class APIClientClass {
     };
   }
 
+  // SECURITY TODO: Migrate token storage to httpOnly cookies managed by the backend.
+  // Storing tokens in localStorage makes them accessible to any JS on the page (XSS risk).
+  // The backend already supports cookie-based auth (see auth.elysia.ts cookie handling).
+  // Once migrated, remove all localStorage/sessionStorage token operations.
   public setAuthToken(token: string | null): void {
     this.authToken = token;
     if (token) {

@@ -1,29 +1,21 @@
 import { Repository } from 'typeorm';
-import { TypeOrmService } from '../typeormService';
+import { BaseDomainService } from './BaseDomainService';
 import { SessionEntity } from '../entities/session.entity';
 import { AuthenticationMethod } from '@uaip/types';
 
-export class SessionService {
-  private static instance: SessionService;
-  private typeormService: TypeOrmService;
-  private sessionRepository: Repository<SessionEntity> | null = null;
-
-  private constructor() {
-    this.typeormService = TypeOrmService.getInstance();
+export class SessionService extends BaseDomainService {
+  protected constructor() {
+    super();
   }
 
   public static getInstance(): SessionService {
-    if (!SessionService.instance) {
-      SessionService.instance = new SessionService();
-    }
-    return SessionService.instance;
+    return BaseDomainService.resolve<SessionService>(SessionService);
   }
 
   public getSessionRepository(): Repository<SessionEntity> {
-    if (!this.sessionRepository) {
-      this.sessionRepository = this.typeormService.getDataSource().getRepository(SessionEntity);
-    }
-    return this.sessionRepository;
+    return this.getRepository('sessionRepo', () =>
+      this.typeormService.getDataSource().getRepository(SessionEntity)
+    );
   }
 
   // Session management operations

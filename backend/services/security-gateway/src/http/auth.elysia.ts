@@ -13,6 +13,8 @@ import {
   withRequiredAuth,
   csrfProtection,
   apiKeyAuth,
+  createRateLimiter,
+  JWTValidator,
 } from '@uaip/middleware';
 // Note: All auth utilities now from shared middleware
 import { AuditService } from '../services/auditService.js';
@@ -97,9 +99,29 @@ async function getAuthUser(authorization?: string | null) {
   };
 }
 
+// Strict rate limiter for sensitive auth endpoints: 10 attempts per 15 minutes.
+// Read-only endpoints (/me, /validate, /csrf-token) are skipped.
+const RATE_LIMITED_AUTH_PATHS = new Set(['/login', '/refresh', '/change-password', '/logout']);
+const authRateLimiter = createRateLimiter({
+  windowMs: 15 * 60 * 1000,
+  max: 10,
+  skip: (request: Request) => {
+    const url = new URL(request.url);
+    const leaf = url.pathname.replace(/.*\/auth/, '');
+    return !RATE_LIMITED_AUTH_PATHS.has(leaf);
+  },
+  message: {
+    success: false,
+    error: {
+      code: 'AUTH_RATE_LIMIT_EXCEEDED',
+      message: 'Too many authentication attempts. Please try again later.',
+    },
+  },
+});
+
 export function registerAuthRoutes(app: any): any {
   return app.group('/api/v1/auth', (app: any) =>
-    withOptionalAuth(app)
+    withOptionalAuth(app).use(authRateLimiter)
       // POST /login
       .post('/login', async ({ body, set, request, headers, cookie }) => {
         const parsed = loginSchema.safeParse(body);
@@ -255,7 +277,8 @@ export function registerAuthRoutes(app: any): any {
         }
         const { refreshToken } = parsed.data;
         try {
-          const decoded = jwt.verify(refreshToken, config.jwt.refreshSecret) as any;
+          // Verify refresh token signature (throws on invalid/expired)
+          jwt.verify(refreshToken, config.jwt.refreshSecret);
           const { userService } = await getServices();
           const tokenData = await userService.getRefreshTokenWithUser(refreshToken);
           if (!tokenData || tokenData.revokedAt || tokenData.expiresAt <= new Date()) {
@@ -473,30 +496,7 @@ export function registerAuthRoutes(app: any): any {
           }
 
           const token = authHeader.substring(7);
-
-          // Verify the JWT token
-          let decoded: any;
-          try {
-            decoded = jwt.verify(token, config.jwt.secret);
-          } catch (jwtError) {
-            logger.debug('Token validation failed', {
-              error: jwtError instanceof Error ? jwtError.message : 'Unknown error',
-            });
-            set.status = 401;
-            return { error: 'Invalid or expired token' };
-          }
-
-          // Check for required fields
-          if (!decoded.userId || !decoded.email || !decoded.role) {
-            set.status = 401;
-            return { error: 'Invalid token payload' };
-          }
-
-          // Check if token is expired
-          if (decoded.exp && Date.now() >= decoded.exp * 1000) {
-            set.status = 401;
-            return { error: 'Token expired' };
-          }
+          const decoded = JWTValidator.verify(token);
 
           // Set user info headers for nginx to forward to upstream services
           set.headers['X-User-ID'] = decoded.userId;
@@ -505,7 +505,9 @@ export function registerAuthRoutes(app: any): any {
 
           return { valid: true };
         } catch (error) {
-          logger.error('Token validation error', { error });
+          logger.debug('Token validation failed', {
+            error: error instanceof Error ? error.message : 'Unknown error',
+          });
           set.status = 401;
           return { error: 'Token validation failed' };
         }
