@@ -1,0 +1,144 @@
+services:
+  telescope-frontend:
+    image: node:20-alpine
+    container_name: navratna-mac-telescope
+    working_dir: /workspace
+    environment:
+      - NODE_ENV=development
+      - CHOKIDAR_USEPOLLING=true
+      - WATCHPACK_POLLING=true
+      - VITE_API_URL=${VITE_API_URL:-http://localhost:8081}
+    command: >
+      sh -c "corepack enable && pnpm install --frozen-lockfile=false && pnpm --filter frontend dev --host 0.0.0.0 --port 5173"
+    ports:
+      - '5173:5173'
+    volumes:
+      - ./:/workspace
+      - navratna-mac-pnpm-store:/root/.local/share/pnpm/store
+      - navratna-mac-node-modules:/workspace/node_modules
+    networks:
+      - navratna-internal
+    healthcheck:
+      test: ['CMD-SHELL', 'wget -q --spider http://localhost:5173 || exit 1']
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 40s
+
+  nginx-proxy:
+    image: nginx:1.27-alpine
+    container_name: navratna-mac-nginx
+    environment:
+      - PC_A_BASE_URL=${PC_A_BASE_URL:-http://100.64.0.10:8081}
+      - PC_B_BASE_URL=${PC_B_BASE_URL:-http://100.64.0.11:8081}
+    command: >
+      sh -c "cat > /etc/nginx/conf.d/default.conf <<'EOF'
+      server {
+        listen 80;
+        server_name _;
+
+        location / {
+          proxy_pass http://telescope-frontend:5173;
+          proxy_http_version 1.1;
+          proxy_set_header Upgrade $$http_upgrade;
+          proxy_set_header Connection 'upgrade';
+          proxy_set_header Host $$host;
+          proxy_set_header X-Real-IP $$remote_addr;
+          proxy_set_header X-Forwarded-For $$proxy_add_x_forwarded_for;
+          proxy_set_header X-Forwarded-Proto $$scheme;
+        }
+
+        location /pc-a/ {
+          proxy_pass ${PC_A_BASE_URL}/;
+          proxy_set_header Host $$host;
+          proxy_set_header X-Forwarded-For $$proxy_add_x_forwarded_for;
+          proxy_set_header X-Forwarded-Proto $$scheme;
+        }
+
+        location /pc-b/ {
+          proxy_pass ${PC_B_BASE_URL}/;
+          proxy_set_header Host $$host;
+          proxy_set_header X-Forwarded-For $$proxy_add_x_forwarded_for;
+          proxy_set_header X-Forwarded-Proto $$scheme;
+        }
+
+        location /artifacts/ {
+          proxy_pass http://artifact-service-local:3006/;
+          proxy_set_header Host $$host;
+          proxy_set_header X-Forwarded-For $$proxy_add_x_forwarded_for;
+          proxy_set_header X-Forwarded-Proto $$scheme;
+        }
+
+        location = /health {
+          return 200 'ok';
+          add_header Content-Type text/plain;
+        }
+      }
+      EOF
+      && nginx -g 'daemon off;'"
+    ports:
+      - '8081:80'
+    depends_on:
+      - telescope-frontend
+      - artifact-service-local
+    networks:
+      - navratna-internal
+    healthcheck:
+      test: ['CMD-SHELL', 'wget -q --spider http://localhost/health || exit 1']
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 15s
+
+  openshell-placeholder:
+    image: alpine:3.20
+    container_name: navratna-mac-openshell
+    command: >
+      sh -c "echo 'OpenShell (K3s) runs on the macOS host; install target: /opt/openshell. This container is a compose placeholder only.' && tail -f /dev/null"
+    volumes:
+      - /opt/openshell:/host/opt/openshell:ro
+    networks:
+      - navratna-internal
+    healthcheck:
+      test: ['CMD-SHELL', 'test -d /host/opt/openshell || echo "OpenShell host path missing; placeholder remains active"']
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  artifact-service-local:
+    image: node:20-alpine
+    container_name: navratna-mac-artifact-service
+    working_dir: /workspace
+    environment:
+      - NODE_ENV=development
+      - PORT=3006
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      - OPENAI_API_URL=${OPENAI_API_URL:-}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
+    command: >
+      sh -c "corepack enable && pnpm install --frozen-lockfile=false && pnpm --filter artifact-service dev"
+    ports:
+      - '3006:3006'
+    volumes:
+      - ./:/workspace
+      - navratna-mac-pnpm-store:/root/.local/share/pnpm/store
+      - navratna-mac-artifact-node-modules:/workspace/backend/services/artifact-service/node_modules
+      - navratna-mac-node-modules:/workspace/node_modules
+    networks:
+      - navratna-internal
+    healthcheck:
+      test: ['CMD-SHELL', 'wget -q --spider http://localhost:3006/health || exit 1']
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 40s
+
+volumes:
+  navratna-mac-pnpm-store:
+  navratna-mac-node-modules:
+  navratna-mac-artifact-node-modules:
+
+networks:
+  navratna-internal:
+    name: navratna-internal
+    driver: bridge
