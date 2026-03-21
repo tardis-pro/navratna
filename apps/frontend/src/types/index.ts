@@ -92,5 +92,18 @@ export type {
 export type { Persona } from './persona';
 // AnalysisDepth, CollaborationMode, AuditLevel types were not actually defined - removed
 
+// Microexpression types for visual feedback
+export type {
+  Microexpression,
+  MicroexpressionConfig,
+  ExpressionStyle,
+} from './microexpression';
+export {
+  MICROEXPRESSION_COLORS,
+  MICROEXPRESSION_STYLES,
+  MICROEXPRESSION_LABELS,
+  DEFAULT_MICROEXPRESSION_CONFIG,
+} from './microexpression';
+
 // Re-export helper functions
 export { createAgentStateFromShared as createAgentStateFromBackend } from './frontend-extensions';

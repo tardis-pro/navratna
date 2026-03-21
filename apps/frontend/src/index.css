@@ -751,3 +751,65 @@
 [data-radix-dialog-content] {
   z-index: 51 !important;
 }
+
+/* Microexpression Animations */
+@keyframes microexpression-pulse {
+  0%, 100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.08);
+    opacity: 0.85;
+  }
+}
+
+@keyframes microexpression-alarm {
+  0%, 100% {
+    transform: scale(1);
+    box-shadow: 0 0 8px oklch(55% 0.22 25 / 0.5);
+  }
+  50% {
+    transform: scale(1.15);
+    box-shadow: 0 0 16px oklch(55% 0.22 25 / 0.8);
+  }
+}
+
+@keyframes microexpression-confused {
+  0%, 100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  25% {
+    opacity: 0.6;
+    transform: translateY(-1px);
+  }
+  75% {
+    opacity: 0.6;
+    transform: translateY(1px);
+  }
+}
+
+.microexpression {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.microexpression--working {
+  animation: microexpression-pulse 2s ease-in-out infinite;
+}
+
+.microexpression--alarmed {
+  animation: microexpression-alarm 0.5s ease-in-out infinite;
+}
+
+.microexpression--confused {
+  animation: microexpression-confused 1s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .microexpression--working,
+  .microexpression--alarmed,
+  .microexpression--confused {
+    animation: none;
+  }
+}
