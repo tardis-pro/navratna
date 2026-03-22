@@ -458,6 +458,97 @@ export interface ConsolidationResult {
   connectionsFormed?: number;
 }
 
+// QuestionForge Entity Types
+export interface Assumption {
+  id: string;
+  stakeholderId: string;
+  stakeholderName: string;
+  content: string;
+  projectBriefId: string;
+  confidence: number;
+  evidence?: string;
+  tags: string[];
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface Contradiction {
+  id: string;
+  projectBriefId: string;
+  assumptionAId: string;
+  assumptionBId: string;
+  assumptionAContent: string;
+  assumptionBContent: string;
+  stakeholderAId: string;
+  stakeholderAName: string;
+  stakeholderBId: string;
+  stakeholderBName: string;
+  severity: 'low' | 'medium' | 'high' | 'critical';
+  description: string;
+  resolution?: string;
+  status: 'identified' | 'investigating' | 'resolved' | 'dismissed';
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface Question {
+  id: string;
+  projectBriefId: string;
+  stakeholderId?: string;
+  stakeholderName?: string;
+  category: QuestionCategory;
+  text: string;
+  intent: string;
+  priority: number;
+  phase: QuestionPhase;
+  tags: string[];
+  status: QuestionStatus;
+  usageCount: number;
+  lastUsedAt?: Date;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export enum QuestionCategory {
+  STAKEHOLDER_ROLE = 'stakeholder_role',
+  GOAL_MOTIVATION = 'goal_motivation',
+  CONSTRAINT_LIMIT = 'constraint_limit',
+  DECISION_PROCESS = 'decision_process',
+  RISK_PERCEPTION = 'risk_perception',
+  PRIORITY_TRADEoff = 'priority_tradeoff',
+  ASSUMPTION_REVEAL = 'assumption_reveal',
+  CONTRADICTION_EXPLORE = 'contradiction_explore',
+  STAKEHOLDER_ALIGNMENT = 'stakeholder_alignment',
+  UNEXPECTED_INSIGHT = 'unexpected_insight',
+}
+
+export enum QuestionPhase {
+  DISCOVERY = 'discovery',
+  INVESTIGATION = 'investigation',
+  CLARIFICATION = 'clarification',
+  VALIDATION = 'validation',
+  SYNTHESIS = 'synthesis',
+}
+
+export enum QuestionStatus {
+  DRAFT = 'draft',
+  ACTIVE = 'active',
+  VALIDATED = 'validated',
+  ARCHIVED = 'archived',
+}
+
+export interface QuestionPack {
+  id: string;
+  projectBriefId: string;
+  stakeholderId?: string;
+  stakeholderName?: string;
+  questions: Question[];
+  totalQuestions: number;
+  priorityQuestions: Question[];
+  createdAt: Date;
+  updatedAt: Date;
+}
+
 // Memory Update Types
 export interface WorkingMemoryUpdate {
   currentInput?: string;

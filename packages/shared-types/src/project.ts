@@ -66,6 +66,9 @@ export enum ProjectType {
   // General
   GENERAL = 'general',
   OTHER = 'other',
+
+  // QuestionForge
+  QUESTIONFORGE = 'questionforge',
 }
 
 export interface Project {

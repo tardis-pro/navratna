@@ -117,6 +117,7 @@ export type PersonaCategory =
   | 'Media'
   | 'Manufacturing'
   | 'Governance'
+  | 'QuestionForge'
   | 'Specialized';
 
 // Weighted contribution scoring interface
