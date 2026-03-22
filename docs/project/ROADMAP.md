@@ -2,8 +2,9 @@
 
 ## Document Control
 - **Last Updated**: 2026-03-21
-- **Version**: 3.0 (Sovereign Shell Evolution)
+- **Version**: 3.1 (Sovereign Shell Evolution + Platform Expansion Vision)
 - **Previous**: v2.0 (UAIP Platform) — archived
+- **Status**: Phase 1 Telescope components BUILT, OpenClaw port IN PROGRESS, 362-idea expansion brainstormed, BaseBench-Meta + QuestionForge specs drafted
 
 ## Current State: v2.0 → v3.0 Transition
 
@@ -38,16 +39,17 @@ The platform evolves from a multi-user enterprise tool to a **personal sovereign
 - [ ] Service consolidation: 7 services → 2 (Core + Gateway)
 
 ### Phase 1: Telescope Foundation + Agent Port (Week 1-2)
-- [ ] IntentField component (merge cmdk + GlobalAutocomplete + KnowledgeSearch)
-- [ ] relevance() scoring function against triple-store
-- [ ] MaterializableBlock HOC for existing portals
-- [ ] Microexpression system (7 states as Framer Motion variants)
-- [ ] Port 14 OpenClaw agent personas to Agent Intelligence
-- [ ] Port SOPs and task lifecycle to Orchestration Pipeline
-- [ ] Port model routing configs to LLM Service
-- [ ] Port 13 skills to Capability Registry
-- [ ] React code splitting (React.lazy for all 27 portals)
-- [ ] httpOnly cookie migration (security fix)
+<!-- Line counts verified by user 2026-03-21. Integration gaps CLOSED per 00-PRD §Integration Status. -->
+- [x] IntentField component (606 lines — cmdk + fuzzy + WebSocket AI suggestions + 5 intent types) — fully integrated, Cmd+K, portal navigation
+- [x] relevance() scoring function (383 lines — 4-factor: vector 40%, graph 30%, recency 20%, keyword 10%) — wired to IntentField (300ms debounce, graceful fallback)
+- [x] MaterializableBlock HOC (702 lines — HOC + hook + styles + visibility states) — fully integrated, 5 portals wrapped
+- [x] Microexpression system (168 lines — 7 states, oklch colors, 4 animations, size variants) — fully integrated, useAgentMicroexpression dispatches events
+- [x] Code splitting (React.lazy for 19 portals) — done
+- 🔄 Port 14 OpenClaw agent personas — DB seeded with origin:openclaw, import services built
+- 🔄 Port SOPs and task lifecycle — sopImport.service.ts built, reads from openclaw-infra/agents/
+- 🔄 Port model routing configs — 4/13+ skills in manifest, 6 LLM providers not migrated
+- 🔄 Port 13 skills to Capability Registry — skillImport.service.ts built, 4 skills imported
+- 🔄 httpOnly cookie migration — backend sets cookies, frontend partially migrated (credentials: 'include'), remaining localStorage reads to clean up
 
 ### Phase 2: Telescope Surface + OpenShell (Week 2-3)
 - [ ] TelescopeSurface.tsx replaces DesktopUnified (feature-flagged)
@@ -118,6 +120,51 @@ The platform evolves from a multi-user enterprise tool to a **personal sovereign
 - [ ] Succession policies and decay rules (Continuity Engine)
 - [ ] Multi-window Tauri (pop-out blocks)
 
+## Beyond v3.0: Platform Expansion (362-Idea Brainstorm)
+
+Full brainstorm output: `_bmad-output/brainstorming/brainstorming-session-2026-03-21-111555.md`
+
+### Strategic Vision: Three Products, One Platform
+
+| Product | What | Spec |
+|---|---|---|
+| **UAIP Core** | Metacognitive agent platform + Telescope UX | `docs/specs/07-STRATEGIC-VISION-2026.md` |
+| **BaseBench-Meta** | Metacognitive reliability benchmark (8 task families, scoring rubric) | `docs/specs/08-BASEBENCH-META.md` |
+| **QuestionForge** | Stakeholder discovery council (8 specialist agents, debate mechanics) | `docs/specs/09-QUESTIONFORGE.md` |
+
+**Convergence thesis:** BaseBench-Meta **measures** metacognitive intelligence, UAIP Core **implements** it in production, QuestionForge **demonstrates** it as a product.
+
+### Key Architectural Bets
+- Verticals as ontologies (not modules) loaded by AI — business domains plug into existing Persona/Discussion/Artifact/Operation systems
+- MCP as universal extension system (bazaar model) with SDK, hot-reload, sandbox, revenue-share
+- Trust gradients replacing binary approvals — continuous, earned, cross-domain
+- Schema-on-intent (data model emerges from use)
+- Metacognitive agent layer — agents that know what they know, ask instead of guess, catch their own errors
+- Model evaluation & token optimization — smallest viable model per task, cost-quality Pareto frontier
+
+### Metacognitive Agent Infrastructure (Ideas #303-362)
+- Merkle-hashed operation receipts for verifiability
+- Workflow-level idempotency envelopes
+- Explanation DAGs from real-time reasoning capture
+- Deterministic session replay for reproducible debugging
+- Confidence-gated execution with dynamic thresholds
+- Multi-agent verification quorum for critical operations
+- Shadow jury parallel model evaluation on production traffic
+- Complexity-based model routing (trivial→haiku, complex→opus)
+- Universal Dispatch Cortex — one input, universal resolution via meta-reasoning → gap detection → foraging → delegation → PEOR loop
+
+### Security Hardening (Ideas #333-347)
+- KMS envelope encryption replacing hardcoded keys
+- mTLS service mesh, network microsegmentation
+- DLP scanning, automated secret rotation
+- Canary tokens, Merkle-chained audit logs
+- Live security posture scoring with auto-tightening
+
+### Trust Sequence
+L0 (accurate info) → L1 (faster surfacing) → L2 (unknown unknowns) → L3 (low-stakes autonomy) → L4 (high-stakes autonomy). Current users at L0→L1.
+
+See `docs/specs/07-STRATEGIC-VISION-2026.md` for full 4-phase roadmap with codebase alignment per item.
+
 ## Success Metrics
 | Metric | Target | Measured By |
 |---|---|---|
@@ -127,3 +174,7 @@ The platform evolves from a multi-user enterprise tool to a **personal sovereign
 | Sandbox warm start | < 60 seconds | OpenShell metrics |
 | Agent task completion | > 80% autonomous | Task audit trail |
 | Monthly cost | < $220 | Billing aggregation |
+| Relevance precision@4 | > 80% | Telescope feedback loop |
+| Trust level progression | L0→L1 by month 2 | User behavior analytics |
+| Chat imports per user | > 1 source | Onboarding funnel |
+| Day-7 return rate | > 60% | Audit events |

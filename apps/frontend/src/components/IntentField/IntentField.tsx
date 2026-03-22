@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, forwardRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef, forwardRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Search, Loader2, Command, Sparkles } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -17,8 +17,12 @@ import {
   CommandSeparator,
 } from '@/components/ui/command';
 import { useIntentDetection } from './useIntentDetection';
+import {
+  AGENT_ACTIVITY_EVENT,
+  type AgentActivityEventDetail,
+} from '@/types/microexpression';
 import type { IntentFieldProps, IntentOption } from './IntentField.types';
-import { INTENT_ICONS, INTENT_TYPE_LABELS } from './IntentField.types';
+import { INTENT_ICONS } from './IntentField.types';
 
 const CATEGORY_COLORS: Record<IntentOption['type'], string> = {
   agent: 'text-blue-400 bg-blue-500/10 border-blue-500/20',
@@ -46,6 +50,7 @@ export const IntentField = forwardRef<HTMLButtonElement, IntentFieldProps>(
   ) => {
     const [internalOpen, setInternalOpen] = useState(false);
     const [search, setSearch] = useState(defaultSearch);
+    const wasLoadingRef = useRef(false);
     
     const isOpen = controlledOpen !== undefined ? controlledOpen : internalOpen;
     const setIsOpen = onOpenChange || setInternalOpen;
@@ -54,6 +59,19 @@ export const IntentField = forwardRef<HTMLButtonElement, IntentFieldProps>(
       agentId,
       conversationId,
     });
+    const wasConnectedRef = useRef(connected);
+
+    const dispatchActivity = useCallback((detail: AgentActivityEventDetail) => {
+      window.dispatchEvent(
+        new CustomEvent(AGENT_ACTIVITY_EVENT, {
+          detail: {
+            ...detail,
+            source: detail.source || 'intent-field',
+            timestamp: detail.timestamp || Date.now(),
+          },
+        })
+      );
+    }, []);
 
     useEffect(() => {
       const handleKeyDown = (e: KeyboardEvent) => {
@@ -69,16 +87,54 @@ export const IntentField = forwardRef<HTMLButtonElement, IntentFieldProps>(
 
     useEffect(() => {
       if (isOpen) {
+        dispatchActivity({ type: 'intent-open' });
         setSearch('');
         clear();
+      } else {
+        dispatchActivity({ type: 'intent-close' });
       }
-    }, [isOpen, clear]);
+    }, [clear, dispatchActivity, isOpen]);
 
     useEffect(() => {
       if (isOpen) {
+        if (search.trim().length > 0) {
+          dispatchActivity({
+            type: 'user-typing',
+            metadata: { queryLength: search.trim().length },
+          });
+        }
         performSearch(search);
       }
-    }, [search, isOpen, performSearch]);
+    }, [dispatchActivity, isOpen, performSearch, search]);
+
+    useEffect(() => {
+      if (!isOpen) {
+        wasLoadingRef.current = false;
+        return;
+      }
+
+      if (isLoading && !wasLoadingRef.current) {
+        dispatchActivity({ type: 'task-start', metadata: { query: search } });
+      }
+
+      if (!isLoading && wasLoadingRef.current) {
+        if (search.trim().length >= 2 && results.totalCount === 0) {
+          dispatchActivity({
+            type: 'ambiguous-intent',
+            metadata: { query: search, totalCount: results.totalCount },
+          });
+        } else {
+          dispatchActivity({ type: 'task-complete', metadata: { totalCount: results.totalCount } });
+        }
+      }
+
+      if (!connected && wasConnectedRef.current && search.trim().length >= 2) {
+        dispatchActivity({ type: 'resource-pressure', metadata: { connected } });
+      }
+
+      wasLoadingRef.current = isLoading;
+      wasConnectedRef.current = connected;
+    }, [connected, dispatchActivity, isLoading, isOpen, results.totalCount, search]);
 
     const handleSelect = useCallback(
       (option: IntentOption) => {

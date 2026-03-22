@@ -1,143 +1,143 @@
-# Council of Nycea - Unified Agent Intelligence Platform (UAIP)
+# Navratna — Sovereign Cognitive Shell
 
-**Version**: 2.1 - Enhanced Security Implementation
-**Status**: Backend 100% Complete ✅ | Enhanced Security ✅ | Frontend Integration 60% Complete 🔄
-**Last Updated**: July 2025
+**Version**: 3.1 — Sovereign Shell Evolution + Platform Expansion Vision
+**Status**: Backend 90% Complete | Telescope Phase 1 BUILT | v3.0 Transition Active
+**Last Updated**: 2026-03-21
 
-## 🎯 Overview
+## Overview
 
-The **Unified Agent Intelligence Platform (UAIP)** is a production-ready backend infrastructure for multi-agent collaboration, intelligent discussion orchestration, and capability-driven automation. The system provides a comprehensive foundation for building AI-powered collaborative platforms.
+Navratna is a **metacognitive agent operating system** — a personal sovereign AI platform with ambient intelligence, multi-agent orchestration, and a triple-store knowledge foundation. The system evolves from a multi-user enterprise tool (v2.0) to a single-owner, multi-agent, multi-machine cognitive shell (v3.0).
+
+Three convergent products:
+- **UAIP Core** — Agent platform + Telescope ambient UX
+- **BaseBench-Meta** — Metacognitive reliability benchmark
+- **QuestionForge** — Stakeholder discovery council
 
 ### Key Capabilities
 
-- **Multi-Agent Collaboration**: Sophisticated agent personas with contextual awareness
-- **Real-time Discussion Management**: WebSocket-based collaborative discussions
-- **Intelligent Tool Execution**: Sandboxed capability registry with security controls
-- **Knowledge Graph Integration**: Neo4j-powered relationship mapping and recommendations
-- **Enhanced Security System**: ✅ **NEW** - OAuth integration, agent-specific policies, MFA, risk assessment
-- **Enterprise Security**: Complete RBAC, audit trails, and approval workflows
+- **Telescope/Cognitive Shell**: Ambient-first UX with intent-driven navigation, 7-state microexpression system, attention budget (4 items)
+- **Multi-Agent Orchestration**: 14 specialized agents with 3-tier memory, confidence-gated execution, learning service
+- **Triple-Store Knowledge**: PostgreSQL (57 entities) + Neo4j (graph relationships) + Qdrant (vector embeddings) with UUID-consistent sync
+- **MCP Protocol**: Full client/server (2,075 LoC), 10 transport types, tool discovery, streaming
+- **Enterprise Security**: JWT + MFA + 5 OAuth providers + RBAC (USER/ADMIN/AGENT/SERVICE)
+- **Real-time Intelligence**: WebSocket discussions with turn strategies, consensus building, conversation enhancement
 
-## 🏗️ System Architecture
+## System Architecture
 
-### Backend Services (All Operational ✅)
+### Backend Services (7 → consolidating to 2)
 
-- **Agent Intelligence Service** (Port 3001) - Context analysis, persona management
-- **Orchestration Pipeline Service** (Port 3002) - Workflow coordination, operation management
-- **Capability Registry Service** (Port 3003) - Tool management, sandboxed execution
-- **Security Gateway Service** (Port 3004) - ✅ **Enhanced** - OAuth, agent security, MFA, risk assessment
-- **Discussion Orchestration Service** (Port 3005) - Real-time collaborative discussions
-- **API Gateway** (Port 8081) - Centralized routing, rate limiting, documentation
+| Service | Port | Status |
+|---------|------|--------|
+| Agent Intelligence | 3001 | Production |
+| Orchestration Pipeline | 3002 | Production |
+| Capability Registry | 3003 | Production |
+| Security Gateway | 3004 | Production |
+| Discussion Orchestration | 3005 | Production |
+| LLM Service | (via 3001) | Production |
+| Artifact Service | (via 3002) | Production |
+| API Gateway (nginx) | 8081 | Production |
 
-### Infrastructure (All Operational ✅)
+**v3.0 consolidation target**: 2 services (navratna-core + navratna-gateway)
 
-- **PostgreSQL** (Port 5432) - Primary database with complete schema
-- **Neo4j** (Port 7474/7687) - Graph database for relationships
-- **Redis** (Port 6379) - Caching and session management
-- **RabbitMQ** (Port 5672) - Event-driven communication
+### Infrastructure
 
-## 📚 Documentation
+| Component | Port | Purpose |
+|-----------|------|---------|
+| PostgreSQL | 5432 | Primary database (57 entities, 17 migrations) |
+| Neo4j | 7474/7687 | Graph relationships, knowledge graph, recommendations |
+| Qdrant | 6333 | Vector embeddings, semantic search (1024-dim) |
+| Redis | 6379 | Cache, sessions, pub/sub, recency scoring |
+| RabbitMQ | 5672 | Event-driven messaging (DLX, correlation IDs, RPC) |
 
-- **[Quick Start](docs/QUICK_START.md)** – Setup in minutes
-- **[Development Setup](docs/DEVELOPMENT_SETUP.md)** – Local environment & tools
-- **[Environment Config](docs/ENVIRONMENT_CONFIG.md)** – Env vars & deployment
-- **[System Architecture](docs/ARCHITECTURE.md)** – Design & service overview
-- **[Service Integration](docs/SERVICE_INTEGRATION.md)** – Inter-service patterns
-- **[API Reference](docs/API_REFERENCE.md)** – Endpoints & usage
-- **[Testing Guide](docs/TESTING_GUIDE.md)** – Strategies & examples
-- **[Project Status](docs/PROJECT_STATUS.md)** – Roadmap & priorities
-- **[Technical Debt](docs/TECH_DEBT.md)** – Known issues
-- **[Persona System](docs/PERSONA_SYSTEM.md)** – Agent personas
-- **[Capability Registry](docs/CAPABILITY_REGISTRY.md)** – Tool execution
-- **[Knowledge Graph](docs/KNOWLEDGE_GRAPH.md)** – Neo4j integration
-- **[Enhanced Security](docs/technical/SECURITY.md)** – ✅ **NEW** - OAuth, agent security, MFA
+### Frontend
 
----
+React 19 + Vite + Tailwind 4 + shadcn/ui (50 components) + Framer Motion
 
-**Start with the [Quick Start](docs/QUICK_START.md)**, then see [System Architecture](docs/ARCHITECTURE.md) for design details.
+**Telescope Phase 1 — BUILT:**
+- IntentField (606 lines — cmdk + fuzzy + WebSocket AI suggestions + 5 intent types)
+- MaterializableBlock HOC (702 lines — visibility states, microexpressions, drag/resize)
+- Microexpression system (168 lines — 7 states, OKLCH colors, animations)
+- Relevance engine (383 lines — 4-factor scoring: vector 40%, graph 30%, recency 20%, keyword 10%)
 
-### 🧠 Knowledge Graph & Service Relationships
+## Documentation
 
-- **[Knowledge Graph: Agents & Orchestration](docs/ARCHITECTURE.md#🧠-knowledge-graph-agents--orchestration)** – How agents, orchestration, and services are modeled and related
+### Start Here
+- `docs/GETTING_STARTED.md` — Setup and local development
+- `docs/ENVIRONMENT_CONFIG.md` — Environment variables and configuration
 
-## 🎯 Current Status
+### Strategy & Vision
+- `docs/specs/07-STRATEGIC-VISION-2026.md` — Platform vision, 4-phase roadmap, three-product convergence
+- `docs/specs/08-BASEBENCH-META.md` — Metacognitive benchmark specification
+- `docs/specs/09-QUESTIONFORGE.md` — Stakeholder discovery council specification
 
-### ✅ Completed (Production Ready)
+### Specifications
+- `docs/specs/00-SOVEREIGN-SHELL-PRD.md` — Sovereign Shell master PRD
+- `docs/specs/06-TELESCOPE-KNOWLEDGE-SURFACE-PRD.md` — Telescope knowledge surface PRD
 
-- **Backend Infrastructure**: All 5 microservices operational
-- **Security Implementation**: Complete RBAC, JWT, audit trails
-- **Database Integration**: Hybrid PostgreSQL/Neo4j with optimized queries
-- **API Development**: 50+ endpoints with comprehensive documentation
-- **Performance Optimization**: Sub-500ms response times, 2000+ ops/min
+### Project
+- `docs/project/ROADMAP.md` — Long-term roadmap (v3.0 → beyond)
+- `docs/project/NEXT_PHASES.md` — Sprint plan (current: Sprint 1, 2026-03-24)
 
-### 🔄 In Progress
+### Architecture
+- `docs/ARCHITECTURE.md` — System design overview
+- `docs/API_REFERENCE.md` — API endpoints
+- `docs/technical/DATABASE.md` — Triple-store architecture
+- `docs/technical/SECURITY.md` — Security architecture
 
-- **Frontend Integration**: React components and API integration (60% complete)
-- **Advanced Features**: Magic layer UI enhancements and productivity features
-- **Production Deployment**: Infrastructure automation and monitoring
+### Features
+- `docs/features/AGENTS.md` — Agent system and personas
+- `docs/features/DISCUSSIONS.md` — Discussion orchestration
+- `docs/features/CAPABILITIES.md` — Tool/MCP execution
+- `docs/features/ARTIFACTS.md` — Artifact generation
 
-### ⏳ Planned
+## Quick Start
 
-- **Mobile Applications**: iOS and Android native apps
-- **Advanced Analytics**: ML-powered insights and recommendations
-- **Enterprise Features**: Advanced security, compliance, and integration
+```bash
+# Clone and install (pnpm workspaces)
+git clone <repository-url>
+cd navratna
+pnpm install
 
-## 🚀 Quick Start
+# Start full stack (hot-reloading)
+pnpm run dev
 
-1. **Clone and Setup**
+# Or start infrastructure only
+./dev-start.sh --services infrastructure --daemon
 
-   ```bash
-   git clone <repository-url>
-   cd council-of-nycea
-   npm install
-   ```
+# Access
+# Frontend: http://localhost:5173
+# API Gateway: http://localhost:8081
+# API Docs: http://localhost:8081/docs
+```
 
-2. **Start Infrastructure**
+## Current State (2026-03-21)
 
-   ```bash
-   docker-compose up -d
-   ```
+### Completed
+- 7 production microservices (consolidating to 2)
+- 57 database entities, 17 migrations
+- Triple-store knowledge graph with UUID-consistent sync
+- 14 agent personas seeded from OpenClaw
+- Telescope Phase 1 components (1,859 lines)
+- 132 passing middleware tests
+- Full MCP protocol support
+- 685-line agent learning service with 3-tier memory
+- 4 OAuth adapters (Jira/Confluence/GitHub/Slack)
+- 20 active users
 
-3. **Start Backend Services**
+### In Progress (Sprint 1: 2026-03-24 → 2026-04-04)
+- Multi-machine topology (Tailscale mesh)
+- Service consolidation (7 → 2)
+- OpenShell sandboxed execution
+- Database init scripts
 
-   ```bash
-   npm run dev:backend
-   ```
+### Next
+- TelescopeSurface (replaces DesktopUnified, feature-flagged)
+- Ambient intelligence layer (morning open, attention budget, whisper line)
+- Intent chaining (NL goal → multi-step workflow DAG)
+- Chat ingestion onboarding (first value in 5 minutes)
 
-4. **Start Frontend**
+See `docs/project/ROADMAP.md` for full v3.0 roadmap and `docs/specs/07-STRATEGIC-VISION-2026.md` for platform expansion vision (362-idea brainstorm distilled into 4-phase roadmap).
 
-   ```bash
-   npm run dev:frontend
-   ```
+## License
 
-5. **Access the System**
-   - Frontend: http://localhost:3000
-   - API Gateway: http://localhost:8081
-   - Documentation: http://localhost:8081/docs
-
-## 🤝 Contributing
-
-We welcome contributions! Please see our [Development Guide](DEVELOPMENT_GUIDE.md) for coding standards and contribution guidelines.
-
-## 📄 License
-
-This project is licensed under the MIT License - see the LICENSE file for details.
-
-## 🆘 Support
-
-- **Documentation**: Check the relevant guide in the navigation above
-- **Issues**: Open a GitHub issue for bugs or feature requests
-- **Discussions**: Use GitHub Discussions for questions and community support
-
----
-
-**Next Steps**: Start with the [Quick Start Guide](QUICK_START.md) to get the system running, then explore the [System Architecture](ARCHITECTURE.md) to understand the design.
-
-## 🧠 Knowledge Graph: Agents & Orchestration
-
-The UAIP platform uses a Neo4j-powered knowledge graph to model relationships between agents, orchestration services, tools, operations, and discussions. This enables advanced reasoning, recommendations, and workflow automation.
-
-- **Key Entities**: Agent Intelligence, Orchestration Pipeline, Discussion Orchestration, UAIP Platform, LLM Intelligence
-- **Relationships**: Service integration, workflow coordination, persona management, tool usage, and more
-- **Example Patterns**: (Agent)-[:USES]->(Tool), (Agent)-[:PARTICIPATES_IN]->(Discussion), (Service)-[:INTEGRATES_WITH]->(Service)
-
-See [Architecture](docs/ARCHITECTURE.md#🧠-knowledge-graph-agents--orchestration), [Service Integration](docs/SERVICE_INTEGRATION.md), and [API Reference](docs/API_REFERENCE.md) for details.
+This project is proprietary.

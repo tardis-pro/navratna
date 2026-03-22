@@ -29,6 +29,31 @@ export interface MicroexpressionConfig {
   autoTransitionDelay?: number;
 }
 
+export const AGENT_ACTIVITY_EVENT = 'agent-activity' as const;
+
+export type AgentActivityType =
+  | 'intent-open'
+  | 'intent-close'
+  | 'query-received'
+  | 'user-typing'
+  | 'task-start'
+  | 'task-complete'
+  | 'task-error'
+  | 'task-idle'
+  | 'approval-needed'
+  | 'high-priority'
+  | 'ambiguous-intent'
+  | 'needs-clarification'
+  | 'resource-pressure'
+  | 'complex-reasoning';
+
+export interface AgentActivityEventDetail {
+  type: AgentActivityType;
+  source?: string;
+  timestamp?: number;
+  metadata?: Record<string, unknown>;
+}
+
 /**
  * Visual styling for a microexpression state
  */

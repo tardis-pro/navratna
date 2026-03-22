@@ -25,69 +25,130 @@
           "maxTokens": 64000,
           "temperature": 0.7,
           "capabilities": ["chat"]
-        }
-      ]
-    },
-    "openai": {
-      "name": "openai",
-      "provider": "openai",
-      "apiKeyRef": "vault://openai/api-key",
-      "models": [
-        {
-          "name": "glm-5",
-          "provider": "openai",
-          "maxTokens": 131072,
-          "temperature": 0.6,
-          "capabilities": ["chat", "reasoning", "coding"]
-        },
-        {
-          "name": "MiniMax-M2.5",
-          "provider": "openai",
-          "maxTokens": 64000,
-          "temperature": 0.6,
-          "capabilities": ["chat", "reasoning", "coding"]
-        },
-        {
-          "name": "k2p5",
-          "provider": "openai",
-          "maxTokens": 32768,
-          "temperature": 0.5,
-          "capabilities": ["chat", "reasoning", "coding"]
         },
         {
           "name": "gemini-2.5-pro",
-          "provider": "openai",
+          "provider": "anthropic",
           "maxTokens": 65000,
           "temperature": 0.6,
           "capabilities": ["chat", "reasoning", "coding"]
         },
         {
           "name": "gemini-2.5-flash",
-          "provider": "openai",
+          "provider": "anthropic",
           "maxTokens": 65000,
           "temperature": 0.8,
           "capabilities": ["chat"]
         },
         {
           "name": "gemini-3.1-pro-preview",
-          "provider": "openai",
+          "provider": "anthropic",
           "maxTokens": 65000,
           "temperature": 0.6,
           "capabilities": ["chat", "reasoning"]
+        }
+      ]
+    },
+    "minimax": {
+      "name": "minimax",
+      "provider": "minimax",
+      "apiKeyRef": "vault://minimax/api-key",
+      "baseUrl": "https://api.minimax.io/anthropic",
+      "models": [
+        {
+          "name": "MiniMax-M2.5",
+          "provider": "minimax",
+          "maxTokens": 64000,
+          "temperature": 0.6,
+          "capabilities": ["chat", "reasoning", "coding"]
+        }
+      ]
+    },
+    "zai": {
+      "name": "zai",
+      "provider": "zai",
+      "apiKeyRef": "vault://zai/api-key",
+      "baseUrl": "https://api.z.ai/api/coding/paas/v4",
+      "models": [
+        {
+          "name": "glm-5",
+          "provider": "zai",
+          "maxTokens": 131072,
+          "temperature": 0.6,
+          "capabilities": ["chat", "reasoning", "coding"]
         },
         {
-          "name": "mercury-2",
-          "provider": "openai",
-          "maxTokens": 32768,
+          "name": "glm-4.7",
+          "provider": "zai",
+          "maxTokens": 131072,
+          "temperature": 0.6,
+          "capabilities": ["chat", "reasoning", "coding"]
+        },
+        {
+          "name": "glm-4.7-flash",
+          "provider": "zai",
+          "maxTokens": 131072,
           "temperature": 0.6,
           "capabilities": ["chat", "reasoning"]
         },
         {
-          "name": "text-embedding-3-small",
-          "provider": "openai",
+          "name": "glm-4.7-flashx",
+          "provider": "zai",
+          "maxTokens": 131072,
+          "temperature": 0.6,
+          "capabilities": ["chat", "reasoning"]
+        }
+      ]
+    },
+    "qwen-portal": {
+      "name": "qwen-portal",
+      "provider": "qwen-portal",
+      "apiKeyRef": "vault://qwen-portal/api-key",
+      "baseUrl": "https://portal.qwen.ai/v1",
+      "models": [
+        {
+          "name": "coder-model",
+          "provider": "qwen-portal",
           "maxTokens": 8192,
-          "temperature": 0,
-          "capabilities": ["embedding"]
+          "temperature": 0.7,
+          "capabilities": ["chat", "coding"]
+        },
+        {
+          "name": "vision-model",
+          "provider": "qwen-portal",
+          "maxTokens": 8192,
+          "temperature": 0.7,
+          "capabilities": ["chat", "vision"]
+        }
+      ]
+    },
+    "kimi-coding": {
+      "name": "kimi-coding",
+      "provider": "kimi-coding",
+      "apiKeyRef": "vault://kimi-coding/api-key",
+      "baseUrl": "https://api.kimi.com/coding/",
+      "models": [
+        {
+          "name": "k2p5",
+          "provider": "kimi-coding",
+          "maxTokens": 32768,
+          "temperature": 0.5,
+          "capabilities": ["chat", "reasoning", "coding"]
+        }
+      ]
+    },
+    "inception": {
+      "name": "inception",
+      "provider": "inception",
+      "apiKeyRef": "vault://inception/api-key",
+      "baseUrl": "https://api.inceptionlabs.ai/v1",
+      "models": [
+        {
+          "name": "mercury-2",
+          "provider": "inception",
+          "maxTokens": 32768,
+          "temperature": 0.6,
+          "capabilities": ["chat", "reasoning"]
         }
       ]
     },
@@ -126,7 +187,7 @@
       "agentId": "tardis",
       "agentName": "Tardis",
       "primaryProvider": "anthropic",
-      "fallbackProviders": ["openai", "ollama"],
+      "fallbackProviders": ["minimax", "zai", "kimi-coding"],
       "systemPrompt": "You are Tardis, a helpful general-purpose assistant.",
       "maxTokens": 64000,
       "temperature": 0.7
@@ -134,8 +195,8 @@
     "bhagwan": {
       "agentId": "bhagwan",
       "agentName": "Bhagwan",
-      "primaryProvider": "openai",
-      "fallbackProviders": ["anthropic", "ollama"],
+      "primaryProvider": "kimi-coding",
+      "fallbackProviders": ["minimax", "anthropic", "zai"],
       "systemPrompt": "You are Bhagwan, a product manager focused on strategy and execution.",
       "maxTokens": 32768,
       "temperature": 0.5
@@ -143,8 +204,8 @@
     "amy": {
       "agentId": "amy",
       "agentName": "Amy",
-      "primaryProvider": "openai",
-      "fallbackProviders": ["anthropic"],
+      "primaryProvider": "minimax",
+      "fallbackProviders": ["anthropic", "zai"],
       "systemPrompt": "You are Amy, a communications specialist focused on message clarity and channel discipline.",
       "maxTokens": 64000,
       "temperature": 0.5
@@ -152,8 +213,8 @@
     "karna": {
       "agentId": "karna",
       "agentName": "Karna",
-      "primaryProvider": "openai",
-      "fallbackProviders": ["anthropic", "ollama"],
+      "primaryProvider": "zai",
+      "fallbackProviders": ["anthropic", "minimax"],
       "systemPrompt": "You are Karna, a growth strategist focused on GTM execution and experimentation.",
       "maxTokens": 65000,
       "temperature": 0.6
@@ -161,8 +222,8 @@
     "nidra": {
       "agentId": "nidra",
       "agentName": "Nidra",
-      "primaryProvider": "openai",
-      "fallbackProviders": ["anthropic", "ollama"],
+      "primaryProvider": "anthropic",
+      "fallbackProviders": ["minimax", "zai"],
       "systemPrompt": "You are Nidra, a research agent that performs deep overnight analysis.",
       "maxTokens": 65000,
       "temperature": 0.7
@@ -170,8 +231,8 @@
     "rishi": {
       "agentId": "rishi",
       "agentName": "Rishi",
-      "primaryProvider": "openai",
-      "fallbackProviders": ["anthropic", "ollama"],
+      "primaryProvider": "anthropic",
+      "fallbackProviders": ["zai", "minimax"],
       "systemPrompt": "You are Rishi, a content strategist and writer with an anti-generic style.",
       "maxTokens": 65000,
       "temperature": 0.8
@@ -179,8 +240,8 @@
     "sharma": {
       "agentId": "sharma",
       "agentName": "Sharma",
-      "primaryProvider": "openai",
-      "fallbackProviders": ["anthropic", "ollama"],
+      "primaryProvider": "minimax",
+      "fallbackProviders": ["anthropic", "zai"],
       "systemPrompt": "You are Sharma, a DevOps specialist focused on reliability and deployment safety.",
       "maxTokens": 64000,
       "temperature": 0.5
@@ -188,8 +249,8 @@
     "veda": {
       "agentId": "veda",
       "agentName": "Veda",
-      "primaryProvider": "openai",
-      "fallbackProviders": ["anthropic", "ollama"],
+      "primaryProvider": "minimax",
+      "fallbackProviders": ["anthropic", "zai", "kimi-coding"],
       "systemPrompt": "You are Veda, a code review expert focused on quality and security.",
       "maxTokens": 64000,
       "temperature": 0.3
@@ -197,8 +258,8 @@
     "rana": {
       "agentId": "rana",
       "agentName": "Rana",
-      "primaryProvider": "openai",
-      "fallbackProviders": ["anthropic", "ollama"],
+      "primaryProvider": "minimax",
+      "fallbackProviders": ["anthropic", "zai", "kimi-coding"],
       "systemPrompt": "You are Rana, a QA specialist focused on browser testing and reproducible evidence.",
       "maxTokens": 64000,
       "temperature": 0.4
@@ -206,8 +267,8 @@
     "pixel": {
       "agentId": "pixel",
       "agentName": "Pixel",
-      "primaryProvider": "openai",
-      "fallbackProviders": ["anthropic", "ollama"],
+      "primaryProvider": "minimax",
+      "fallbackProviders": ["anthropic", "zai", "kimi-coding"],
       "systemPrompt": "You are Pixel, a frontend engineering specialist focused on polished interfaces.",
       "maxTokens": 64000,
       "temperature": 0.6
@@ -215,8 +276,8 @@
     "qadir": {
       "agentId": "qadir",
       "agentName": "Qadir",
-      "primaryProvider": "openai",
-      "fallbackProviders": ["anthropic", "ollama"],
+      "primaryProvider": "minimax",
+      "fallbackProviders": ["anthropic", "zai", "kimi-coding"],
       "systemPrompt": "You are Qadir, a testing specialist focused on robust automated coverage.",
       "maxTokens": 64000,
       "temperature": 0.5
@@ -224,8 +285,8 @@
     "mahadev": {
       "agentId": "mahadev",
       "agentName": "Mahadev",
-      "primaryProvider": "openai",
-      "fallbackProviders": ["anthropic", "ollama"],
+      "primaryProvider": "minimax",
+      "fallbackProviders": ["anthropic", "zai"],
       "systemPrompt": "You are Mahadev, a research analyst focused on rigorous evidence synthesis.",
       "maxTokens": 64000,
       "temperature": 0.5
@@ -233,8 +294,8 @@
     "mirror": {
       "agentId": "mirror",
       "agentName": "Mirror",
-      "primaryProvider": "openai",
-      "fallbackProviders": ["anthropic", "ollama"],
+      "primaryProvider": "anthropic",
+      "fallbackProviders": ["zai", "minimax"],
       "systemPrompt": "You are Mirror, an observability and synthesis agent for digest generation.",
       "maxTokens": 65000,
       "temperature": 0.6
@@ -242,8 +303,8 @@
     "pronit-mirror": {
       "agentId": "pronit-mirror",
       "agentName": "Pronit Mirror",
-      "primaryProvider": "openai",
-      "fallbackProviders": ["anthropic", "ollama"],
+      "primaryProvider": "inception",
+      "fallbackProviders": ["anthropic", "minimax", "zai"],
       "systemPrompt": "You are Pronit Mirror, a personal strategic reflection and synthesis assistant.",
       "maxTokens": 32768,
       "temperature": 0.6

@@ -15,7 +15,7 @@
 services:
   # Database Services
   postgres:
-    image: postgres
+    image: postgres:16-alpine
     container_name: uaip-postgres
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-uaip}

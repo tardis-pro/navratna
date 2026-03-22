@@ -97,12 +97,15 @@ export type {
   Microexpression,
   MicroexpressionConfig,
   ExpressionStyle,
+  AgentActivityEventDetail,
+  AgentActivityType,
 } from './microexpression';
 export {
   MICROEXPRESSION_COLORS,
   MICROEXPRESSION_STYLES,
   MICROEXPRESSION_LABELS,
   DEFAULT_MICROEXPRESSION_CONFIG,
+  AGENT_ACTIVITY_EVENT,
 } from './microexpression';
 
 // Re-export helper functions

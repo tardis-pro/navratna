@@ -1,5 +1,6 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { useConversationIntelligence } from '@/hooks/useConversationIntelligence';
+import { APIClient } from '@/api/client';
 import type {
   IntentOption,
   IntentCategory,
@@ -25,6 +26,55 @@ const STATIC_OPTIONS: IntentOption[] = [
 
 const MIN_SEARCH_LENGTH = 2;
 const DEBOUNCE_MS = 300;
+
+type RelevanceCandidateType = 'agent' | 'sop' | 'task' | 'knowledge' | 'capability';
+
+interface RelevanceApiResult {
+  id: string;
+  score: number;
+}
+
+interface RelevanceApiResponse {
+  results?: RelevanceApiResult[];
+}
+
+const RELEVANCE_TYPE_MAP: Record<IntentOption['type'], RelevanceCandidateType> = {
+  agent: 'agent',
+  portal: 'capability',
+  sop: 'sop',
+  knowledge: 'knowledge',
+  action: 'task',
+};
+
+function toNumberVector(value: unknown): number[] | undefined {
+  if (!Array.isArray(value)) {
+    return undefined;
+  }
+
+  const isNumberVector = value.every((entry) => typeof entry === 'number' && Number.isFinite(entry));
+  if (!isNumberVector) {
+    return undefined;
+  }
+
+  return value;
+}
+
+function toRelevanceCandidate(option: IntentOption) {
+  const metadata = {
+    ...(option.metadata || {}),
+    title: option.title,
+    description: option.description,
+    keywords: option.keywords,
+    sourceType: option.type,
+  };
+
+  return {
+    id: option.id,
+    type: RELEVANCE_TYPE_MAP[option.type],
+    vector: toNumberVector(option.metadata?.vector),
+    metadata,
+  };
+}
 
 function categorizeOptions(options: IntentOption[]): IntentCategory[] {
   const categoryMap = new Map<IntentOption['type'], IntentOption[]>();
@@ -79,6 +129,9 @@ export function useIntentDetection(options: UseIntentDetectionOptions = {}) {
   const [error, setError] = useState<string | null>(null);
   
   const searchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const relevanceTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const relevanceRequestIdRef = useRef(0);
+  const latestQueryRef = useRef('');
   
   const {
     connected,
@@ -136,10 +189,37 @@ export function useIntentDetection(options: UseIntentDetectionOptions = {}) {
     return { detected: false };
   }, []);
 
+  const fetchRelevanceScores = useCallback(async (query: string, options: IntentOption[]): Promise<Map<string, number>> => {
+    if (options.length === 0) {
+      return new Map<string, number>();
+    }
+
+    const response = await APIClient.post<RelevanceApiResponse>('/api/v1/agents/relevance', {
+      query,
+      candidates: options.map(toRelevanceCandidate),
+      limit: options.length,
+    });
+
+    const scoreMap = new Map<string, number>();
+    for (const result of response?.results || []) {
+      if (typeof result.id === 'string' && typeof result.score === 'number') {
+        scoreMap.set(result.id, result.score);
+      }
+    }
+
+    return scoreMap;
+  }, []);
+
   const search = useCallback((query: string) => {
     if (searchTimeoutRef.current) {
       clearTimeout(searchTimeoutRef.current);
     }
+    if (relevanceTimeoutRef.current) {
+      clearTimeout(relevanceTimeoutRef.current);
+      relevanceTimeoutRef.current = null;
+    }
+    relevanceRequestIdRef.current += 1;
+    latestQueryRef.current = query;
     
     if (query.length < MIN_SEARCH_LENGTH) {
       setResults({ categories: [], totalCount: 0, query: '' });
@@ -168,6 +248,45 @@ export function useIntentDetection(options: UseIntentDetectionOptions = {}) {
     const categories = categorizeOptions(scoredOptions);
     
     setResults({ categories, totalCount: scoredOptions.length, query });
+
+    if (scoredOptions.length > 0) {
+      const requestId = relevanceRequestIdRef.current;
+      relevanceTimeoutRef.current = setTimeout(() => {
+        void fetchRelevanceScores(query, scoredOptions)
+          .then((backendScores: Map<string, number>) => {
+            if (relevanceRequestIdRef.current !== requestId || latestQueryRef.current !== query) {
+              return;
+            }
+
+            if (backendScores.size === 0) {
+              return;
+            }
+
+            const mergedOptions = scoredOptions
+              .map((option) => ({
+                ...option,
+                relevanceScore: backendScores.get(option.id) ?? option.relevanceScore,
+              }))
+              .sort((a, b) => (b.relevanceScore || 0) - (a.relevanceScore || 0));
+
+            setResults((prev: IntentSearchResult) => {
+              if (prev.query !== query) {
+                return prev;
+              }
+
+              const mergedCategories = categorizeOptions(mergedOptions);
+              return { categories: mergedCategories, totalCount: mergedOptions.length, query };
+            });
+          })
+          .catch((apiError: unknown) => {
+            if (relevanceRequestIdRef.current !== requestId || latestQueryRef.current !== query) {
+              return;
+            }
+
+            console.warn('Intent relevance API unavailable, using local fuzzy ranking', apiError);
+          });
+      }, DEBOUNCE_MS);
+    }
     
     if (connected) {
       searchTimeoutRef.current = setTimeout(() => {
@@ -176,9 +295,15 @@ export function useIntentDetection(options: UseIntentDetectionOptions = {}) {
     } else {
       setIsLoading(false);
     }
-  }, [connected, detectIntent, onIntentDetected, requestAutocomplete, clearAutocomplete]);
+  }, [connected, detectIntent, onIntentDetected, requestAutocomplete, clearAutocomplete, fetchRelevanceScores]);
 
   const clear = useCallback(() => {
+    if (relevanceTimeoutRef.current) {
+      clearTimeout(relevanceTimeoutRef.current);
+      relevanceTimeoutRef.current = null;
+    }
+    relevanceRequestIdRef.current += 1;
+    latestQueryRef.current = '';
     setResults({ categories: [], totalCount: 0, query: '' });
     setIsLoading(false);
     setError(null);
@@ -189,6 +314,9 @@ export function useIntentDetection(options: UseIntentDetectionOptions = {}) {
     return () => {
       if (searchTimeoutRef.current) {
         clearTimeout(searchTimeoutRef.current);
+      }
+      if (relevanceTimeoutRef.current) {
+        clearTimeout(relevanceTimeoutRef.current);
       }
     };
   }, []);

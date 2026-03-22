@@ -367,6 +367,104 @@
       }
     },
     {
+      "id": "gog-gmail",
+      "name": "Gmail Integration",
+      "description": "Gmail API integration for reading, sending, searching, and managing email. Essential for communications workflows and email automation.",
+      "category": "tool",
+      "version": "1.0",
+      "triggerEvents": ["email_read", "email_send", "email_search", "email_draft"],
+      "actions": [
+        {
+          "name": "send_email",
+          "description": "Send an email via Gmail API",
+          "parameters": {
+            "to": { "type": "string", "required": true },
+            "subject": { "type": "string", "required": true },
+            "body": { "type": "string", "required": true },
+            "cc": { "type": "string", "required": false },
+            "bcc": { "type": "string", "required": false }
+          },
+          "returns": "{ success: boolean, messageId: string }"
+        },
+        {
+          "name": "read_emails",
+          "description": "Read emails from inbox with optional filters",
+          "parameters": {
+            "query": { "type": "string", "required": false },
+            "maxResults": { "type": "number", "required": false, "default": 10 }
+          },
+          "returns": "{ emails: array, total: number }"
+        },
+        {
+          "name": "search_emails",
+          "description": "Search emails using Gmail search syntax",
+          "parameters": {
+            "query": { "type": "string", "required": true },
+            "maxResults": { "type": "number", "required": false, "default": 10 }
+          },
+          "returns": "{ emails: array, total: number }"
+        },
+        {
+          "name": "create_draft",
+          "description": "Create a draft email without sending",
+          "parameters": {
+            "to": { "type": "string", "required": true },
+            "subject": { "type": "string", "required": true },
+            "body": { "type": "string", "required": true }
+          },
+          "returns": "{ success: boolean, draftId: string }"
+        }
+      ],
+      "metadata": {
+        "origin": "openclaw",
+        "importedAt": "2026-03-21T00:00:00Z",
+        "api": "gmail"
+      }
+    },
+    {
+      "id": "goplaces",
+      "name": "Google Places Integration",
+      "description": "Google Places API for location search, place details, reviews, and business information. Used for local business intelligence and lead research.",
+      "category": "tool",
+      "version": "1.0",
+      "triggerEvents": ["place_search", "place_details", "lead_research"],
+      "actions": [
+        {
+          "name": "search_places",
+          "description": "Search for places by query and location",
+          "parameters": {
+            "query": { "type": "string", "required": true },
+            "location": { "type": "string", "required": false },
+            "radius": { "type": "number", "required": false, "default": 5000 },
+            "maxResults": { "type": "number", "required": false, "default": 5 }
+          },
+          "returns": "{ places: array, total: number }"
+        },
+        {
+          "name": "get_place_details",
+          "description": "Get detailed information about a specific place",
+          "parameters": {
+            "placeId": { "type": "string", "required": true },
+            "fields": { "type": "array", "required": false }
+          },
+          "returns": "{ place: object }"
+        },
+        {
+          "name": "get_place_reviews",
+          "description": "Get reviews for a place",
+          "parameters": {
+            "placeId": { "type": "string", "required": true }
+          },
+          "returns": "{ reviews: array, rating: number }"
+        }
+      ],
+      "metadata": {
+        "origin": "openclaw",
+        "importedAt": "2026-03-21T00:00:00Z",
+        "api": "google-places"
+      }
+    },
+    {
       "id": "shashwatgtm",
       "name": "Marketing & Content Operations",
       "description": "Multi-faceted marketing operations covering competitive intelligence, content strategy, newsletter creation, personal branding, and social media management.",

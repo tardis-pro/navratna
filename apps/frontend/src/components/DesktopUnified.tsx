@@ -141,6 +141,38 @@ const MaterializableDashboardPortal = withMaterializableBlock(DashboardPortal, {
   metadata: { portalId: 'dashboard', version: '1.0' },
 });
 
+const MaterializableAgentManagerPortal = withMaterializableBlock(AgentManagerPortal, {
+  type: 'portal',
+  isDraggable: true,
+  isResizable: true,
+  dimensions: { width: 1280, height: 840 },
+  metadata: { portalId: 'agents', version: '1.0' },
+});
+
+const MaterializableKnowledgePortal = withMaterializableBlock(KnowledgePortal, {
+  type: 'portal',
+  isDraggable: true,
+  isResizable: true,
+  dimensions: { width: 1320, height: 860 },
+  metadata: { portalId: 'knowledge', version: '1.0' },
+});
+
+const MaterializableArtifactsPortal = withMaterializableBlock(ArtifactsPortal, {
+  type: 'portal',
+  isDraggable: true,
+  isResizable: true,
+  dimensions: { width: 1220, height: 820 },
+  metadata: { portalId: 'artifacts', version: '1.0' },
+});
+
+const MaterializableSettingsPortal = withMaterializableBlock(SettingsPortal, {
+  type: 'portal',
+  isDraggable: true,
+  isResizable: true,
+  dimensions: { width: 980, height: 720 },
+  metadata: { portalId: 'settings', version: '1.0' },
+});
+
 // Non-lazy imports (utilities and smaller components)
 import { GlobalUpload } from './GlobalUpload';
 import { KnowledgeShortcut } from './KnowledgeShortcut';
@@ -162,7 +194,7 @@ import { OnboardingManager } from './OnboardingManager';
 import { IntentField } from './IntentField/IntentField';
 import { withMaterializableBlock } from './MaterializableBlock/MaterializableBlock';
 import { MicroexpressionIndicator } from './Microexpression/Microexpression';
-import { useMicroexpression } from '../hooks/useMicroexpression';
+import { useAgentMicroexpression } from '../hooks/useAgentMicroexpression';
 
 // Design System Tokens
 const DESIGN_TOKENS = {
@@ -296,7 +328,7 @@ const ALL_APPLICATIONS: Application[] = [
     title: 'Agent Manager',
     icon: Bot,
     color: 'text-cyan-400',
-  component: AgentManagerPortal,
+    component: MaterializableAgentManagerPortal,
     category: 'core',
     minimumRole: 'user',
   },
@@ -316,7 +348,7 @@ const ALL_APPLICATIONS: Application[] = [
     title: 'Knowledge',
     icon: Brain,
     color: 'text-orange-400',
-    component: KnowledgePortal,
+    component: MaterializableKnowledgePortal,
     category: 'data',
     minimumRole: 'user',
   },
@@ -325,7 +357,7 @@ const ALL_APPLICATIONS: Application[] = [
     title: 'Artifacts',
     icon: Package,
     color: 'text-purple-400',
-    component: ArtifactsPortal,
+    component: MaterializableArtifactsPortal,
     category: 'data',
     minimumRole: 'user',
   },
@@ -427,7 +459,7 @@ const ALL_APPLICATIONS: Application[] = [
     title: 'Settings',
     icon: Settings,
     color: 'text-gray-400',
-    component: SettingsPortal,
+    component: MaterializableSettingsPortal,
     category: 'security',
     minimumRole: 'admin',
   },
@@ -1461,7 +1493,9 @@ export const Desktop: React.FC = () => {
   const [showChatIngestion, setShowChatIngestion] = useState(false);
   const [showIntentField, setShowIntentField] = useState(false);
 
-  const { expression: microexpression } = useMicroexpression('calm');
+  const { expression: microexpression } = useAgentMicroexpression({
+    intentFieldOpen: showIntentField,
+  });
   const [selectedKnowledgeItem, setSelectedKnowledgeItem] = useState<any>(null);
   const [showProjectOnboarding, setShowProjectOnboarding] = useState(false);
   const [showDiscussionConfig, setShowDiscussionConfig] = useState(false);

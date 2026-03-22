@@ -18,3 +18,4 @@ export { useDebatePrompts } from './useDebatePrompts';
 
 // Microexpression state hook
 export { useMicroexpression } from './useMicroexpression';
+export { useAgentMicroexpression } from './useAgentMicroexpression';

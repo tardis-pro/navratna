@@ -1,12 +1,20 @@
 # Navratna: The Sovereign Cognitive Shell — Product Requirements Document
 
 ## Document Control
-- **Version**: 3.0
+- **Version**: 3.1
 - **Date**: 2026-03-21
-- **Status**: APPROVED FOR IMPLEMENTATION
-- **Author**: Pronit Das + BMAD Council (Victor, Dr. Quinn, Saga, Sophia, Murat, Freya)
+- **Status**: APPROVED FOR IMPLEMENTATION — Phase 1 Telescope FULLY INTEGRATED, OpenClaw port in progress, expanding to business OS vision
+- **Author**: Pronit Das + BMAD Council (Victor, Dr. Quinn, Saga, Sophia, Murat, Freya, Carson, Maya, Caravaggio)
+- **Brainstorm Inputs**: 88-idea Telescope session + 362-idea Platform Expansion session (2026-03-21)
+- **Related Specs**: 06 (Telescope Knowledge Surface), 07 (Strategic Vision), 08 (BaseBench-Meta), 09 (QuestionForge)
 
 ## Vision Statement
+
+<!-- This vision describes v3.0 — the personal sovereign OS.
+     The platform is ALSO expanding beyond personal use into a three-product strategy:
+     UAIP Core (this), BaseBench-Meta (benchmark), QuestionForge (discovery council).
+     See docs/specs/07-STRATEGIC-VISION-2026.md for the full multi-product vision.
+     See docs/specs/06-TELESCOPE-KNOWLEDGE-SURFACE-PRD.md for the Telescope knowledge surface spec. -->
 
 Navratna is a personal sovereign agent operating system that runs perpetually on local hardware, acts on behalf of its owner with explicit approval gates, connects to everything in read-only mode by default, and encodes its owner's judgment as policy — creating a digital continuity vessel that persists beyond any single session.
 
@@ -103,13 +111,36 @@ The Telescope is not a dashboard. It's an Intent Surface — a living, breathing
 4. **The Silence is the Feature**: Empty telescope = everything is working
 5. **Intent is a Vector, Not a String**: Multi-dimensional encoding compared via Qdrant
 
-### Key Components
-- **IntentField**: Merged cmdk + GlobalAutocomplete + KnowledgeSearch — polymorphic input
-- **TelescopeSurface**: Physics-based layout with Framer Motion, replaces DesktopUnified
-- **MaterializableBlock**: HOC wrapping existing portals — portal code unchanged
-- **Microexpression System**: 7 states (Calm, Attentive, Working, Alarmed, Confused, Satisfied, Strained)
-- **Explanation Whisper**: Persistent reasoning transparency line
-- **Relevance Engine**: `relevance(entity, intent, context) → score` using existing triple-store
+### Key Components — Implementation Status
+
+| Component | Status | Lines | Location |
+|-----------|--------|-------|----------|
+| **IntentField** | ✅ BUILT + INTEGRATED | 606 | `apps/frontend/src/components/IntentField/` |
+| **MaterializableBlock** | ✅ BUILT + INTEGRATED | 702 | `apps/frontend/src/components/MaterializableBlock/` |
+| **Microexpression System** | ✅ BUILT + INTEGRATED | 168 | `apps/frontend/src/components/Microexpression/` |
+| **Relevance Engine** | ✅ BUILT + INTEGRATED | 383 | `backend/services/agent-intelligence/src/services/relevance.ts` |
+| **TelescopeSurface** | ⏳ NOT STARTED | — | Replaces DesktopUnified — Phase 2 |
+| **Explanation Whisper** | ⏳ NOT STARTED | — | Data exists in agent-event-bus reasoning fields |
+| **Ambient Stream Aggregator** | ⏳ NOT STARTED | — | Phase 2 |
+| **Crystallization Renderer** | ⏳ NOT STARTED | — | Phase 2 |
+| **Attention Budget Enforcer** | ⚠️ PARTIAL — primitives exist, explicit enforcement not built | ~50 | `useMaterializableBlocks` visibility model |
+
+**IntentField Details**: 5 intent types (agent/portal/sop/knowledge/action), Cmd+K activation, fuzzy matching + WebSocket AI suggestions, relevance scoring with sparkle indicators.
+
+**Relevance Engine Details**: 4-factor scoring — vector similarity (40%, Qdrant), graph relationships (30%, Neo4j), recency (20%, Redis sorted sets), keyword matching (10%, metadata). Endpoint at `POST /api/v1/agents/relevance` — **wired to IntentField** via `fetchRelevanceScores()` with 300ms debounce and graceful fallback to local fuzzy matching.
+
+**Microexpression Details**: 7 states with oklch color space, 4 keyframe animations (pulse, alarm, blink, enter/exit), size variants (sm/md/lg), auto-transition to calm. Brainstorm suggested simplifying to 3 for v1 — rejected, all 7 are implemented and differentiate the product.
+
+**MaterializableBlock Details**: Framer Motion animations, `withMaterializableBlock` HOC, `useMaterializableBlocks` hook, visibility states (visible/faded/hidden), z-index management, auto-arrange grid, relevance score badge, expression indicator integration.
+
+### Integration Status
+**UPDATE 2026-03-21**: All Phase 1 Telescope integration gaps are now CLOSED:
+- IntentField: ✅ Wired — opens via Cmd+K, maps to portal navigation
+- MaterializableBlock: ✅ Wired — 5 portals wrapped (Dashboard, AgentManager, Knowledge, Artifacts, Settings)
+- MicroexpressionIndicator: ✅ Wired — `useAgentMicroexpression` dispatches `agent-activity` events from IntentField
+- Relevance Engine: ✅ Wired — `fetchRelevanceScores()` calls `POST /api/v1/agents/relevance` with 300ms debounce, graceful fallback
+
+Phase 1 Telescope components are fully built AND integrated. TelescopeSurface is the Phase 2 target that composes all components into the ambient paradigm.
 
 ### Tauri Shell
 - Global hotkey from anywhere on OS
@@ -211,7 +242,7 @@ Total: ~$93-220/month
 |---|---|---|
 | TypeORM | Drizzle ORM | 10x faster, 0 runtime overhead, SQL at build time |
 | RabbitMQ | BullMQ on Redis Streams | Eliminates 512MB container, Redis already running |
-| 7 microservices | 2-3 consolidated services | 3.5GB → 1GB RAM, zero inter-service latency |
+| 7 microservices | 2 consolidated services (Core + Gateway) | 3.5GB → 1GB RAM, zero inter-service latency |
 | DesktopUnified (portal grid) | TelescopeSurface | Telescope vision replaces window manager entirely |
 | 28 Docker containers | 9 containers | 10GB+ → 5GB RAM |
 | Express remnants | Full Elysia | Already mostly there, complete the migration |
@@ -236,25 +267,39 @@ Service B: "GATEWAY" (single process ~512MB)
 
 ## Build Phases
 
+<!-- STATUS AS OF 2026-03-21:
+     Phase 0: NOT STARTED (Sprint 1 begins 2026-03-24)
+     Phase 1: Telescope components BUILT + FULLY INTEGRATED. OpenClaw port in progress. httpOnly cookies partially done.
+     Phase 2-5: NOT STARTED
+
+     NOTE: IntentField, MaterializableBlock, Microexpressions, and relevance() were built
+     during v3.0 planning, BEFORE Sprint 1 formally started. They are marked [x] below.
+     See docs/project/NEXT_PHASES.md for the "Already Complete" section and revised sprint tasks.
+
+     INTENT TYPES: The IntentField uses 5 categories (agent/portal/sop/knowledge/action) for
+     input classification. The Universal Intent Router (Phase 3) adds routing types
+     (QUERY/COMMAND/MONITOR/ORCHESTRATE/COMMUNICATE) that determine HOW the intent is processed.
+     These are complementary, not conflicting — category is WHAT, router type is HOW. -->
+
 ### Phase 0: Infrastructure Foundation (Week 0)
-- Tailscale mesh: PC-A ↔ PC-B ↔ Mac
-- PC-A: PostgreSQL + Neo4j + Qdrant + Redis + Ollama
-- PC-B: Security Gateway + Orchestration Pipeline (consolidated)
-- Create .env template, fix Docker version mismatches
-- Database init scripts + seed data
-- OpenShell installed on PC-B + Mac
+- [ ] Tailscale mesh: PC-A ↔ PC-B ↔ Mac
+- [ ] PC-A: PostgreSQL + Neo4j + Qdrant + Redis + Ollama
+- [ ] PC-B: Security Gateway + Orchestration Pipeline (consolidated)
+- [ ] Create .env template, fix Docker version mismatches
+- [ ] Database init scripts + seed data
+- [ ] OpenShell installed on PC-B + Mac
 
 ### Phase 1: Telescope Foundation + Agent Port (Week 1-2)
-- IntentField (merged cmdk + autocomplete + search)
-- relevance() scoring function → existing triple-store
-- MaterializableBlock HOC (wraps existing portals)
-- Microexpression system (7 states)
-- PORT: 14 OpenClaw agent personas → Agent Intelligence
-- PORT: SOPs + task lifecycle → Orchestration Pipeline
-- PORT: Model routing configs → LLM Service
-- PORT: Skills → Capability Registry
-- CODE SPLITTING: React.lazy() for all portals
-- httpOnly cookie migration (security fix)
+- [x] IntentField (merged cmdk + autocomplete + search) — ✅ 606 lines, fully integrated (Cmd+K, portal navigation)
+- [x] relevance() scoring function → existing triple-store — ✅ 383 lines, 4-factor, wired to IntentField (300ms debounce, graceful fallback)
+- [x] MaterializableBlock HOC (wraps existing portals) — ✅ 702 lines, fully integrated (5 portals wrapped)
+- [x] Microexpression system (7 states) — ✅ 168 lines, fully integrated (useAgentMicroexpression dispatches agent-activity events)
+- 🔄 PORT: 14 OpenClaw agent personas → Agent Intelligence — DB seeded, import services built
+- 🔄 PORT: SOPs + task lifecycle → Orchestration Pipeline — SOP import service built
+- 🔄 PORT: Model routing configs → LLM Service — 4/13+ skills imported, 6 providers not migrated
+- 🔄 PORT: Skills → Capability Registry — 4 skills in manifest, 9+ remaining
+- [x] CODE SPLITTING: React.lazy() for 19 portals — ✅ done
+- 🔄 httpOnly cookie migration — backend sets cookies, frontend partially migrated, remaining localStorage auth reads to clean up
 
 ### Phase 2: Telescope Surface + OpenShell (Week 2-3)
 - TelescopeSurface replaces DesktopUnified (feature-flagged)
@@ -317,7 +362,109 @@ Service B: "GATEWAY" (single process ~512MB)
 - BullMQ — job queue on Redis Streams
 - Tauri 2.x — native shell
 
+## Platform Expansion Vision (Beyond v3.0)
+
+<!-- Source: 362-idea brainstorming session (2026-03-21).
+     Full output: _bmad-output/brainstorming/brainstorming-session-2026-03-21-111555.md
+     Full strategic vision with codebase alignment: docs/specs/07-STRATEGIC-VISION-2026.md
+     Related product specs: docs/specs/08-BASEBENCH-META.md, docs/specs/09-QUESTIONFORGE.md -->
+
+### Strategic Direction: Three Products, One Platform
+
+Navratna evolves from personal sovereign agent OS → **metacognitive business intelligence platform.**
+
+| Product | What | Spec |
+|---------|------|------|
+| **UAIP Core** | Metacognitive agent platform + Telescope UX | `docs/specs/07-STRATEGIC-VISION-2026.md` |
+| **BaseBench-Meta** | Metacognitive reliability benchmark (tests epistemic behavior, not answer quality) | `docs/specs/08-BASEBENCH-META.md` |
+| **QuestionForge** | Stakeholder discovery council (8 specialist agents, debate mechanics) | `docs/specs/09-QUESTIONFORGE.md` |
+
+**Convergence thesis:** BaseBench-Meta **measures** metacognitive intelligence, UAIP Core **implements** it in production, QuestionForge **demonstrates** it as a product.
+
+The core architectural insight: verticals (finance, HR, legal, marketing) are just ontologies the AI loads — not separate modules to build. Business domains plug into existing Persona/Discussion/Artifact/Operation systems.
+
+### Trust Sequence (Cannot Skip Levels)
+| Level | State | Timeline | Capability |
+|-------|-------|----------|------------|
+| L0 | "Shows accurate info" | Weeks 1-4 | Data ingestion, knowledge graph, search |
+| L1 | "Surfaces what I'd have found, faster" | Months 1-2 | Relevance engine, ambient intelligence |
+| L2 | "Shows what I didn't know I needed" | Months 2-4 | Cross-referencing, intent prediction, anomaly detection |
+| L3 | "Acts for me on low-stakes tasks" | Months 4-8 | Autonomous workflows with approval gates |
+| L4 | "Acts for me on high-stakes tasks" | Year 1+ | Full autonomy within earned trust envelope |
+
+*Current users (20) are at L0→L1 transition. Telescope pushes to L1. Chat knowledge ingestion pushes to L2.*
+
+### P0 Priorities (Feasibility × Value Overlap)
+| Priority | Idea | Why Feasible | Why Valuable |
+|----------|------|-------------|-------------|
+| **P0** | Relevance Engine | ✅ relevance.ts exists | Foundation for entire Telescope UX |
+| **P0** | MCP Extension Marketplace | marketplace-service + MCP client/server exist | Growth engine, ecosystem moat |
+| **P0** | Federated Company Graph | Triple-store deployed, knowledge graph viz exists | Data gravity, foundation for high-value features |
+| **P1** | Intent Chaining | Orchestration pipeline handles multi-step | "Wow" moment, demo virality |
+| **P1** | Handoff Elimination | Orchestration + MCP provide execution layer | Directly measurable ROI |
+| **P1** | Data Exhaust Recycling | Bake into relevance engine from day one | Invisible moat that compounds |
+
+### What NOT to Build First
+1. Agent-Generated Modules — No immune system to reject garbage yet. Year 2.
+2. AI Supply Chain / Market Microstructure — Requires trust infrastructure that doesn't exist in business law.
+3. Synthetic CFO / Platform Lending — Crosses into banking regulation.
+4. OpCredits internal currency — Simplify to usage metering in real money for v1.
+
+### Nuclear Combinations (from brainstorm convergence)
+1. **"Negative-Latency Business"** — Predictive intent + speculative rendering + onboarding wormhole
+2. **"Self-Smelting Knowledge Economy"** — Block primitives + usage smelting + ontology marketplace
+3. **"Friction Vampire Finance Stack"** — Unified ledger + payment rail + embedded finance
+4. **"Immortal Nervous System"** — Reflexes + circuit breakers + adaptive immunity + dream cycle
+5. **"Disappearing Company-in-a-Box"** — Bootstrap → 50-person output with simplifying interface
+
+### Philosophical Framework
+**"Understand → Decide → Act → Learn"** — Every capability maps to a phase. Cognitive Shell uses it to decide what surfaces vs. stays ambient.
+
+### Soul of the Platform
+"When you open Navratna, it's already alive — showing what matters. Typing is an interruption of already-running intelligence."
+
+### 5 "Can't Go Back" Hooks
+1. Ambient Morning Open (system already knows what matters today)
+2. Inline Intent Completion (thought → action gap imperceptible)
+3. Handoff Elimination (50 invisible micro-frictions removed)
+4. Explanation Whisper Line (system earns trust through transparency)
+5. Institutional Memory (queryable company history)
+
+### Key Design Decisions
+- **Keep biological metaphors** — memory consolidation, microexpressions, metabolic rate ARE the product language, not dev jargon
+- **Keep all 7 microexpressions** — brainstorm suggested simplifying to 3, but all 7 are built and differentiate
+- **Schema-on-Intent over Schema-on-Write** — simplified to schema-on-write with AI suggestions for v1
+- **Ontology marketplace over app marketplace** — knowledge, not code packages
+
+## Existing Learning Infrastructure (Validated)
+
+*Often assumed missing but actually built. Documented here to prevent re-building.*
+
+### Agent Learning System
+- `agent-learning.service.ts` (685 lines) — learns from operations + interactions, confidence adjustments ±0.2
+- 3-tier memory: working (pressure-based), episodic (significance scoring), semantic (concept confidence + usage tracking)
+- Memory consolidation: working → episodic → semantic (triggered by pressure or manual)
+- 4 event subscriptions: `agent.learning.operation`, `.interaction`, `.consolidate`, `.update`
+
+### Observability
+- `agent-event-bus.ts` (483 lines) — decisions logged with selectedAction, alternatives, confidence, reasoning, duration
+- Decision engine: 0.5 confidence minimum, execution plans with estimated durations
+- Persona analytics: interaction/quality/usage/performance metrics with trend analysis
+- Audit service: 365-day retention, risk levels (LOW/MEDIUM/HIGH/CRITICAL), batch compression
+
+### Conversation Intelligence
+- Intent detection with 5-min TTL cache, 0.7 confidence threshold
+- Prompt suggestions (3 per query, 0.7 personalization weight)
+- Autocomplete (5 suggestions, 300ms debounce, history + tools)
+- Topic generation (minimum 3 messages per topic)
+
+### Knowledge Graph Pipeline
+Chat parsers (Claude/ChatGPT/WhatsApp/generic) → content classifier → concept extractor → relationship detector → workflow extractor → expertise analyzer → learning detector (7 types) → ontology builder → taxonomy generator → clustering → Q&A generator → embeddings → triple-store sync → reconciliation
+
 ## Risk Register
+
+<!-- Updated 2026-03-21 with risks identified during party mode strategic session -->
+
 | Risk | Impact | Mitigation |
 |---|---|---|
 | OpenShell not mature enough | High | Fallback to raw Docker containers with custom policy scripts |
@@ -325,3 +472,9 @@ Service B: "GATEWAY" (single process ~512MB)
 | Drizzle migration breaks things | Medium | Feature-flag: TypeORM stays as fallback during migration |
 | Tauri WebKit performance on Linux | Medium | Benchmark first, degrade animations on low-perf |
 | RunPod cold start too slow | Low | Pre-warmed volumes, context snapshots, golden images |
+| Relevance engine surfaces wrong items with high confidence | High | Measurement harness (50 labeled queries) before shipping to all users |
+| Knowledge graph force-directed layout too slow for 500+ nodes | High | Cluster first (constellations), render as single blocks, expand on interaction |
+| Value leaks through Jira/Notion export (learning loop broken) | High | Bidirectional sync via existing adapters + outcome feedback to knowledge graph |
+| Zero frontend tests for Telescope components | High | Build tests alongside components (see test traceability report) |
+| Users don't upload chat history during onboarding | Medium | Make optional, show value with just tool connections first |
+| v2.0 stale documentation misleads contributors | Medium | Mark v2.0 docs as archived, update ARCHITECTURE.md for v3.0 |

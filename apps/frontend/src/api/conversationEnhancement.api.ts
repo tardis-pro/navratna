@@ -107,10 +107,19 @@ class ConversationEnhancementAPI {
     data?: any
   ): Promise<T> {
     const url = `${this.baseUrl}${endpoint}`;
-    const token = localStorage.getItem('authToken');
+    // Auth tokens are stored in httpOnly cookies by the backend.
+    // The browser automatically sends cookies with requests when credentials: 'include' is set.
+    // We read from cookie as primary source for security (not localStorage).
+    const getAuthTokenFromCookie = (): string | null => {
+      if (typeof document === 'undefined') return null;
+      const match = document.cookie.match(/(?:^|;\s*)access_token=([^;]*)/);
+      return match ? decodeURIComponent(match[1]) : null;
+    };
+    const token = getAuthTokenFromCookie();
 
     const config: RequestInit = {
       method,
+      credentials: 'include', // Send httpOnly cookies automatically
       headers: {
         'Content-Type': 'application/json',
         ...(token && { Authorization: `Bearer ${token}` }),
