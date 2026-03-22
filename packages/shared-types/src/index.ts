@@ -85,3 +85,5 @@ export * from './critique';
 export * from './debate';
 export * from './workspace.js';
 export * from './basebench';
+// Telescope Knowledge Surface types - NEW
+export * from './telescope';

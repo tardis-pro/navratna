@@ -10,53 +10,60 @@ import {
   BarChart3,
   Search,
   Target,
-  TrendingUp,
+  _TrendingUp,
   Wrench,
   Plus,
-  User,
+  _User,
   Activity,
   Clock,
   X,
   Minimize2,
   Shield,
-  Menu,
+  _Menu,
   Power,
-  Monitor,
+  _Monitor,
   Folder,
   Terminal,
   Globe,
-  Calculator,
+  _Calculator,
   Command,
-  Image,
-  StickyNote,
+  _Image,
+  _StickyNote,
   Cloud,
   Edit3,
-  Save,
+  _Save,
   Trash2,
   Sun,
   CloudSun,
   CloudRain,
   CloudSnow,
   MapPin,
-  Thermometer,
+  _Thermometer,
   Wind,
   Droplets,
   History,
-  Users,
+  _Users,
   Upload,
   Map,
-  Layers,
-  ZoomIn,
-  ZoomOut,
-  Navigation,
-  RotateCcw,
+  _Layers,
+  _ZoomIn,
+  _ZoomOut,
+  _Navigation,
+  _RotateCcw,
   Eye,
   EyeOff,
   Moon,
   Palette,
-  RefreshCw,
+  _RefreshCw,
   Smartphone,
 } from 'lucide-react';
+
+// Telescope Knowledge Surface (feature-flagged)
+const TelescopeKnowledgeSurface = lazy(() =>
+  import('./TelescopeSurface/TelescopeKnowledgeSurface').then((m) => ({
+    default: m.TelescopeKnowledgeSurface,
+  }))
+);
 
 // Lazy-loaded portal components for code splitting
 const DashboardPortal = lazy(() =>
@@ -178,7 +185,7 @@ import { GlobalUpload } from './GlobalUpload';
 import { KnowledgeShortcut } from './KnowledgeShortcut';
 import { ChatKnowledgeUploader } from './ChatKnowledgeUploader';
 import ChatHistoryManager from './ChatHistoryManager';
-import { RoleBasedDesktopConfig } from './futuristic/desktop/RoleBasedDesktopConfig';
+import { _RoleBasedDesktopConfig } from './futuristic/desktop/RoleBasedDesktopConfig';
 import { useAuth } from '../contexts/AuthContext';
 import { ProjectTaskManager } from './ProjectTaskManager';
 import { MapWallpaper } from './futuristic/desktop/MapWallpaper';
@@ -186,12 +193,13 @@ import { LocationService, LocationData } from '../services/LocationService';
 import { WeatherService } from '../services/WeatherService';
 import { userPersonaAPI } from '../api/user-persona.api';
 import { useUserPreferences } from '../contexts/UserPreferencesContext';
-import { useOnboarding } from '../contexts/OnboardingContext';
+import { _useOnboarding } from '../contexts/OnboardingContext';
 import { useWallpaper } from '../hooks/useWallpaper';
 import { WallpaperCustomizationPanel } from './WallpaperCustomizationPanel';
 import { DiscussionConfigModal } from './DiscussionConfigModal';
 import { OnboardingManager } from './OnboardingManager';
 import { IntentField } from './IntentField/IntentField';
+import { isTelescopeEnabled } from './TelescopeSurface';
 import { withMaterializableBlock } from './MaterializableBlock/MaterializableBlock';
 import { MicroexpressionIndicator } from './Microexpression/Microexpression';
 import { useAgentMicroexpression } from '../hooks/useAgentMicroexpression';
@@ -270,9 +278,9 @@ const PortalSkeleton: React.FC<{ portalType: string }> = ({ portalType }) => {
 interface Application {
   id: string;
   title: string;
-  icon: React.ComponentType<any>;
+  icon: React.ComponentType<unknown>;
   color: string;
-  component: React.ComponentType<any>;
+  component: React.ComponentType<unknown>;
   category: 'core' | 'tools' | 'data' | 'security';
   minimumRole?: 'guest' | 'user' | 'moderator' | 'admin' | 'system';
 }
@@ -978,7 +986,7 @@ const MapControlPanel: React.FC<{
 const WeatherWidget: React.FC<{
   weather: WeatherData;
 }> = ({ weather }) => {
-  const [isHovered, setIsHovered] = useState(false);
+  const [_isHovered, setIsHovered] = useState(false);
   const [showDetails, setShowDetails] = useState(false);
 
   const getWeatherIcon = (condition: string) => {
@@ -1249,6 +1257,10 @@ const ActionsMenu: React.FC<{
                 <span>Toggle Shortcuts</span>
                 <kbd className="bg-slate-700 px-1 rounded">Ctrl+Shift+S</kbd>
               </div>
+              <div className="flex justify-between">
+                <span>Telescope Mode</span>
+                <kbd className="bg-slate-700 px-1 rounded">Ctrl+Shift+T</kbd>
+              </div>
             </div>
           </div>
           <div className="flex items-center justify-between">
@@ -1462,15 +1474,15 @@ export const Desktop: React.FC = () => {
   );
   const [showActionsMenu, setShowActionsMenu] = useState(false);
   const [showShortcutBar, setShowShortcutBar] = useState(true);
-  const [isDragging, setIsDragging] = useState(false);
+  const [_isDragging, setIsDragging] = useState(false);
   const [notes, setNotes] = useState<DesktopNote[]>([]);
 
   // Use the new wallpaper system
   const {
-    currentImage,
-    currentTheme,
-    availableThemes,
-    preferences: wallpaperPreferences,
+    _currentImage,
+    _currentTheme,
+    _availableThemes,
+    preferences: _wallpaperPreferences,
     getCurrentImageUrl,
   } = useWallpaper();
   const [weather, setWeather] = useState<WeatherData>({
@@ -1492,11 +1504,12 @@ export const Desktop: React.FC = () => {
   const [showKnowledgeShortcut, setShowKnowledgeShortcut] = useState(false);
   const [showChatIngestion, setShowChatIngestion] = useState(false);
   const [showIntentField, setShowIntentField] = useState(false);
+  const [telescopeMode, setTelescopeMode] = useState(() => isTelescopeEnabled());
 
   const { expression: microexpression } = useAgentMicroexpression({
     intentFieldOpen: showIntentField,
   });
-  const [selectedKnowledgeItem, setSelectedKnowledgeItem] = useState<any>(null);
+  const [selectedKnowledgeItem, setSelectedKnowledgeItem] = useState<unknown>(null);
   const [showProjectOnboarding, setShowProjectOnboarding] = useState(false);
   const [showDiscussionConfig, setShowDiscussionConfig] = useState(false);
 
@@ -1589,6 +1602,14 @@ export const Desktop: React.FC = () => {
         e.preventDefault();
         setShowShortcutBar(!showShortcutBar);
       }
+      if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === 'T') {
+        e.preventDefault();
+        setTelescopeMode((prev) => {
+          const next = !prev;
+          localStorage.setItem('telescope_enabled', String(next));
+          return next;
+        });
+      }
       if (e.key === 'Escape') {
         setShowActionsMenu(false);
         setShowGlobalUpload(false);
@@ -1669,14 +1690,14 @@ export const Desktop: React.FC = () => {
   };
 
   // Handle knowledge creation from global upload
-  const handleKnowledgeCreated = (knowledgeId: string) => {
+  const handleKnowledgeCreated = (_knowledgeId: string) => {
     // Optionally open the knowledge portal and select the item
-    console.log('Knowledge created:', knowledgeId);
+    
   };
 
   // Handle project creation from onboarding
-  const handleProjectCreated = (projectData: any) => {
-    console.log('Project created:', projectData);
+  const handleProjectCreated = (_projectData: unknown) => {
+    
     // Optionally open the project management portal
     const projectApp = APPLICATIONS.find((app) => app.id === 'projects');
     if (projectApp) {
@@ -1685,12 +1706,12 @@ export const Desktop: React.FC = () => {
   };
 
   // Handle persona onboarding completion
-  const handlePersonaCompleted = async (data: any) => {
+  const _handlePersonaCompleted = async (data: unknown) => {
     try {
       await userPersonaAPI.completeOnboarding(data);
 
       // Optionally show success notification or adapt UI immediately
-      console.log('User persona onboarding completed:', data);
+      
 
       // Track the completion for behavioral learning
       await userPersonaAPI.trackInteraction({
@@ -1704,14 +1725,14 @@ export const Desktop: React.FC = () => {
   };
 
   // Handle knowledge examination
-  const handleKnowledgeExamine = (knowledgeItem: any) => {
+  const handleKnowledgeExamine = (knowledgeItem: unknown) => {
     setSelectedKnowledgeItem(knowledgeItem);
   };
 
   // Handle opening knowledge portal with specific item
   useEffect(() => {
     const handleOpenKnowledgePortal = (event: CustomEvent) => {
-      const { itemId } = event.detail;
+      const { _itemId } = event.detail;
       // Open knowledge portal and select specific item
       const knowledgeApp = APPLICATIONS.find((app) => app.id === 'knowledge');
       if (knowledgeApp) {
@@ -1815,6 +1836,21 @@ export const Desktop: React.FC = () => {
           className="desktop-wallpaper"
           style={{ backgroundImage: `url(${currentWallpaperUrl})` }}
         />
+      )}
+
+      {/* Telescope Knowledge Surface (feature-flagged) */}
+      {telescopeMode && (
+        <Suspense fallback={<div className="absolute inset-0 bg-black z-10" />}>
+          <TelescopeKnowledgeSurface
+            className="absolute inset-0 z-10"
+            onConstellationSelect={() => {
+              const knowledgeApp = APPLICATIONS.find((app) => app.id === 'knowledge');
+              if (knowledgeApp) {
+                openApplication(knowledgeApp);
+              }
+            }}
+          />
+        </Suspense>
       )}
 
       {/* Shortcut Bar */}
@@ -1946,7 +1982,7 @@ export const Desktop: React.FC = () => {
                 >
                   <ChatKnowledgeUploader
                     onUploadComplete={() => {
-                      console.log('Chat ingestion completed');
+                      
                       // Optionally refresh knowledge data or show notification
                     }}
                     className="max-w-none"
@@ -1973,7 +2009,7 @@ export const Desktop: React.FC = () => {
       <DiscussionConfigModal
         isOpen={showDiscussionConfig}
         onClose={() => setShowDiscussionConfig(false)}
-        onDiscussionStarted={(discussionId) => {
+        onDiscussionStarted={(_discussionId) => {
           // Open the discussion portal after discussion starts
           const discussionApp = ALL_APPLICATIONS.find((app) => app.id === 'discussion');
           if (discussionApp) {

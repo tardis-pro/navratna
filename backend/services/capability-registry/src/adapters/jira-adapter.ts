@@ -6,7 +6,11 @@
 
 import axios, { AxiosInstance } from 'axios';
 import { logger } from '@uaip/utils';
+import { EventBusService } from '@uaip/infra';
+import type { JiraOperationOutcome, JiraOperationStatus } from '@uaip/types';
 import { ToolDefinition } from '../services/enterprise-tool-registry.js';
+
+const JIRA_OPERATION_COMPLETED_EVENT = 'jira.operation.completed';
 
 export class JiraAdapter {
   private toolDefinition: ToolDefinition;
@@ -65,7 +69,7 @@ export class JiraAdapter {
   /**
    * Execute a Jira operation
    */
-  async execute(operationId: string, parameters: any): Promise<any> {
+  async execute(operationId: string, parameters: unknown): Promise<unknown> {
     try {
       logger.info('Executing Jira operation', { operationId, baseUrl: this.baseUrl });
 
@@ -92,13 +96,22 @@ export class JiraAdapter {
   /**
    * Create a new issue
    */
-  private async createIssue(parameters: any): Promise<any> {
+  private async createIssue(parameters: unknown): Promise<unknown> {
     const response = await this.axiosInstance.post('/issue', parameters);
 
     logger.info('Jira issue created', {
       issueKey: response.data.key,
       issueId: response.data.id,
     });
+
+    this.emitOperationOutcome(
+      'createIssue',
+      'success',
+      response.data.key,
+      response.data.id,
+      response.data.key?.split('-')[0] || '',
+      { id: response.data.id, key: response.data.key }
+    );
 
     return {
       id: response.data.id,
@@ -110,10 +123,10 @@ export class JiraAdapter {
   /**
    * Update an existing issue
    */
-  private async updateIssue(parameters: any): Promise<any> {
+  private async updateIssue(parameters: unknown): Promise<unknown> {
     const { issueIdOrKey, fields, notifyUsers = true } = parameters;
 
-    const response = await this.axiosInstance.put(
+    const _response = await this.axiosInstance.put(
       `/issue/${issueIdOrKey}`,
       { fields },
       {
@@ -123,13 +136,22 @@ export class JiraAdapter {
 
     logger.info('Jira issue updated', { issueIdOrKey });
 
+    this.emitOperationOutcome(
+      'updateIssue',
+      'success',
+      String(issueIdOrKey),
+      String(issueIdOrKey),
+      String(issueIdOrKey).split('-')[0] || '',
+      { updated: true }
+    );
+
     return { success: true };
   }
 
   /**
    * Search for issues using JQL
    */
-  private async searchIssues(parameters: any): Promise<any> {
+  private async searchIssues(parameters: unknown): Promise<unknown> {
     const { jql, fields = [], maxResults = 50, startAt = 0 } = parameters;
 
     const response = await this.axiosInstance.post('/search', {
@@ -144,6 +166,15 @@ export class JiraAdapter {
       returned: response.data.issues.length,
     });
 
+    this.emitOperationOutcome(
+      'searchIssues',
+      'success',
+      '',
+      '',
+      '',
+      { total: response.data.total, returned: response.data.issues.length }
+    );
+
     return {
       issues: response.data.issues,
       total: response.data.total,
@@ -155,7 +186,7 @@ export class JiraAdapter {
   /**
    * Get active sprint for a project
    */
-  private async getActiveSprint(parameters: any): Promise<any> {
+  private async getActiveSprint(parameters: unknown): Promise<unknown> {
     const { projectKey } = parameters;
 
     // First, get the board ID for the project
@@ -200,17 +231,70 @@ export class JiraAdapter {
   /**
    * Add a comment to an issue
    */
-  private async addComment(parameters: any): Promise<any> {
+  private async addComment(parameters: unknown): Promise<unknown> {
     const { issueIdOrKey, body } = parameters;
 
     const response = await this.axiosInstance.post(`/issue/${issueIdOrKey}/comment`, { body });
 
     logger.info('Comment added to issue', { issueIdOrKey });
 
+    this.emitOperationOutcome(
+      'addComment',
+      'success',
+      String(issueIdOrKey),
+      String(issueIdOrKey),
+      String(issueIdOrKey).split('-')[0] || '',
+      { commentId: response.data.id }
+    );
+
     return {
       id: response.data.id,
       created: response.data.created,
     };
+  }
+
+  /**
+   * Emit a Jira operation outcome event via EventBusService (best-effort).
+   * If EventBusService is not initialized or publishing fails, the error
+   * is logged but does not affect the operation result.
+   */
+  private emitOperationOutcome(
+    operationType: string,
+    status: JiraOperationStatus,
+    issueKey: string,
+    issueId: string,
+    projectKey: string,
+    result: Record<string, string | number | boolean>
+  ): void {
+    try {
+      const eventBus = EventBusService.getInstance();
+      const outcome: JiraOperationOutcome = {
+        operationType,
+        issueKey,
+        issueId,
+        projectKey,
+        status,
+        agentId: 'system',
+        operationId: `jira-${operationType}-${Date.now()}`,
+        result,
+        timestamp: new Date().toISOString(),
+      };
+
+      // Fire-and-forget: publish without awaiting
+      eventBus.publish(JIRA_OPERATION_COMPLETED_EVENT, outcome).catch((err: Error) => {
+        logger.warn('Failed to publish Jira operation outcome event', {
+          error: err.message,
+          operationType,
+          issueKey,
+        });
+      });
+    } catch (error) {
+      // EventBusService may not be initialized yet — this is expected in some contexts
+      logger.debug('EventBusService not available for Jira outcome emission', {
+        error: error instanceof Error ? error.message : String(error),
+        operationType,
+      });
+    }
   }
 
   /**
@@ -275,7 +359,7 @@ export class JiraAdapter {
       });
     } catch (error) {
       logger.error('Jira authentication failed', { error });
-      throw new Error('Failed to authenticate with Jira');
+      throw new Error('Failed to authenticate with Jira', { cause: error });
     }
   }
 
@@ -319,14 +403,14 @@ export class JiraAdapter {
       this.accessToken = null;
       this.refreshToken = null;
       this.tokenExpiry = null;
-      throw new Error('Failed to refresh Jira token');
+      throw new Error('Failed to refresh Jira token', { cause: error });
     }
   }
 
   /**
    * Format error for consistent error handling
    */
-  private formatError(error: any): Error {
+  private formatError(error: unknown): Error {
     if (error.response) {
       // Jira API error
       const status = error.response.status;
@@ -348,7 +432,7 @@ export class JiraAdapter {
   /**
    * Get available transitions for an issue
    */
-  async getTransitions(issueIdOrKey: string): Promise<any> {
+  async getTransitions(issueIdOrKey: string): Promise<unknown> {
     const response = await this.axiosInstance.get(`/issue/${issueIdOrKey}/transitions`);
 
     return response.data.transitions;
@@ -357,8 +441,8 @@ export class JiraAdapter {
   /**
    * Transition an issue to a new status
    */
-  async transitionIssue(issueIdOrKey: string, transitionId: string): Promise<any> {
-    const response = await this.axiosInstance.post(`/issue/${issueIdOrKey}/transitions`, {
+  async transitionIssue(issueIdOrKey: string, transitionId: string): Promise<unknown> {
+    const _response = await this.axiosInstance.post(`/issue/${issueIdOrKey}/transitions`, {
       transition: { id: transitionId },
     });
 
@@ -370,7 +454,7 @@ export class JiraAdapter {
   /**
    * Get issue details
    */
-  async getIssue(issueIdOrKey: string, fields?: string[]): Promise<any> {
+  async getIssue(issueIdOrKey: string, fields?: string[]): Promise<unknown> {
     const response = await this.axiosInstance.get(`/issue/${issueIdOrKey}`, {
       params: fields ? { fields: fields.join(',') } : undefined,
     });
@@ -381,7 +465,7 @@ export class JiraAdapter {
   /**
    * Get project details
    */
-  async getProject(projectKeyOrId: string): Promise<any> {
+  async getProject(projectKeyOrId: string): Promise<unknown> {
     const response = await this.axiosInstance.get(`/project/${projectKeyOrId}`);
 
     return response.data;
@@ -396,7 +480,7 @@ export class JiraAdapter {
     startDate?: string;
     endDate?: string;
     goal?: string;
-  }): Promise<any> {
+  }): Promise<unknown> {
     const response = await this.axiosInstance.post(`/rest/agile/1.0/sprint`, parameters);
 
     logger.info('Sprint created', {
@@ -410,7 +494,7 @@ export class JiraAdapter {
   /**
    * Get user permissions
    */
-  async getMyPermissions(projectKey?: string): Promise<any> {
+  async getMyPermissions(projectKey?: string): Promise<unknown> {
     const response = await this.axiosInstance.get('/mypermissions', {
       params: projectKey ? { projectKey } : undefined,
     });

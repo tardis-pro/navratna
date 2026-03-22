@@ -6,20 +6,17 @@ import {
   allEntities,
   MemoryConsolidator,
   SemanticMemoryManager,
-  serviceFactory,
-} from '@uaip/shared-services';
+  serviceFactory } from '@uaip/shared-services';
 import { LLMService, UserLLMService } from '@uaip/llm-service';
 import {
   ActionRecommendation,
   AgentStatus,
-  DiscussionEventType,
   LLMTaskType,
   MessageType,
   SecurityLevel,
   ToolCategory,
   ToolDefinition,
-  ToolExample,
-} from '@uaip/types';
+  ToolExample } from '@uaip/types';
 import { attachAuth, attachNginxAuth, requireNginxAuth, UserContext } from '@uaip/middleware';
 import { ConversationEnhancementService } from './services/conversation-enhancement.service.js';
 import { AgentDiscussionService } from './services/agent-discussion.service.js';
@@ -32,6 +29,7 @@ import { AgentStateMachine } from '../../../shared/services/src/agent-state/agen
 import { logger } from '@uaip/utils';
 import { z } from 'zod';
 import { registerAgentRoutes } from './routes/agent.routes.js';
+import { registerConstellationRoutes } from './routes/constellation.routes.js';
 import { randomUUID } from 'crypto';
 
 interface PendingApproval {
@@ -66,8 +64,7 @@ class AgentIntelligenceService extends BaseService {
       version: '1.0.0',
       enableWebSocket: false,
       enableNeo4j: true,
-      enableEnterpriseEventBus: true,
-    });
+      enableEnterpriseEventBus: true });
 
     // Register all entities. TypeORM requires all related entities to be in the same DataSource.
     // TODO: When per-plane databases are implemented, use plane-specific entity lists
@@ -78,7 +75,7 @@ class AgentIntelligenceService extends BaseService {
   protected async setupRoutes(): Promise<void> {
     // Get the KnowledgeGraphService instance from the ServiceFactory
     const { getKnowledgeGraphService } = await import('@uaip/shared-services');
-    const knowledgeGraphService = await getKnowledgeGraphService();
+    const _knowledgeGraphService = await getKnowledgeGraphService();
 
     // ===== AGENT CRUD ROUTES =====
 
@@ -88,10 +85,9 @@ class AgentIntelligenceService extends BaseService {
         const filters = {
           limit: query.limit ? parseInt(query.limit as string) : undefined,
           offset: query.offset ? parseInt(query.offset as string) : undefined,
-          role: query.role as any,
-          status: query.status as any,
-          createdBy: query.createdBy as string | undefined,
-        };
+          role: query.role as Record<string, unknown>,
+          status: query.status as Record<string, unknown>,
+          createdBy: query.createdBy as string | undefined };
         const agents = await this.agentCoreService.getAgents(filters);
         return { success: true, data: agents };
       } catch (error) {
@@ -121,7 +117,7 @@ class AgentIntelligenceService extends BaseService {
     this.app.post('/api/v1/agents', async ({ body, set, request }) => {
       try {
         const userId = request.headers.get('x-user-id') || 'system';
-        const agent = await this.agentCoreService.createAgent(body as any, userId);
+        const agent = await this.agentCoreService.createAgent(body as Record<string, unknown>, userId);
         set.status = 201;
         return { success: true, data: agent };
       } catch (error) {
@@ -135,7 +131,7 @@ class AgentIntelligenceService extends BaseService {
     this.app.put('/api/v1/agents/:agentId', async ({ params, body, set, request }) => {
       try {
         const userId = request.headers.get('x-user-id') || 'system';
-        const agent = await this.agentCoreService.updateAgent(params.agentId, body as any, userId);
+        const agent = await this.agentCoreService.updateAgent(params.agentId, body as Record<string, unknown>, userId);
         if (!agent) {
           set.status = 404;
           return { success: false, error: 'Agent not found' };
@@ -168,6 +164,7 @@ class AgentIntelligenceService extends BaseService {
     });
 
     registerAgentRoutes(this.app);
+    registerConstellationRoutes(this.app);
     this.app.post(
       '/api/v1/agents/:agentId/approvals/:approvalId',
       async ({ params, body, set }) => {
@@ -199,9 +196,7 @@ class AgentIntelligenceService extends BaseService {
           data: {
             approvalId: params.approvalId,
             approved: payload.approved,
-            reason: payload.reason,
-          },
-        };
+            reason: payload.reason } };
       }
     );
 
@@ -220,8 +215,7 @@ class AgentIntelligenceService extends BaseService {
           logger.error('Failed to prune semantic memory', {
             agentId: params.agentId,
             conceptId: params.conceptId,
-            error: error instanceof Error ? error.message : String(error),
-          });
+            error: error instanceof Error ? error.message : String(error) });
           set.status = 500;
           return { success: false, error: 'Failed to prune semantic memory' };
         }
@@ -243,8 +237,7 @@ class AgentIntelligenceService extends BaseService {
           logger.error('Failed to downvote semantic memory', {
             agentId: params.agentId,
             conceptId: params.conceptId,
-            error: error instanceof Error ? error.message : String(error),
-          });
+            error: error instanceof Error ? error.message : String(error) });
           set.status = 500;
           return { success: false, error: 'Failed to downvote semantic memory' };
         }
@@ -261,17 +254,15 @@ class AgentIntelligenceService extends BaseService {
           z.object({
             content: z.string(),
             sender: z.string(),
-            timestamp: z.string(),
-          })
+            timestamp: z.string() })
         )
         .optional(),
-      context: z.record(z.any()).optional(),
-    });
+      context: z.record(z.unknown()).optional() });
 
     this.app.group('/api/v1/agents', (app) =>
       app.use(attachAuth).post('/:agentId/chat', async (context) => {
         const { params, body, set, headers } = context;
-        const user = (context as unknown as { user: UserContext | null }).user;
+        const user = (context as Record<string, unknown> as { user: UserContext | null }).user;
 
         let userId = user?.id;
         if (!userId) {
@@ -316,21 +307,19 @@ class AgentIntelligenceService extends BaseService {
                   {
                     intent: { primary: detectedIntent },
                     timestamp: new Date(),
-                    complexity: 'high',
-                  },
+                    complexity: 'high' },
                   parsed.data.context || {},
                   { constraints: [] }
                 );
 
                 executionPlanContext = `Execution plan: ${plan.steps
-                  .map((step: any) => step.description || step.id || step.type)
+                  .map((step: Record<string, unknown>) => step.description || step.id || step.type)
                   .join(' -> ')}`;
               } catch (planError) {
                 logger.warn('Failed to generate execution plan for chat loop', {
                   agentId: params.agentId,
                   detectedIntent,
-                  error: planError instanceof Error ? planError.message : String(planError),
-                });
+                  error: planError instanceof Error ? planError.message : String(planError) });
               }
             }
           }
@@ -351,8 +340,7 @@ class AgentIntelligenceService extends BaseService {
             message: llmMessage,
             userId,
             conversationHistory: parsed.data.conversationHistory || [],
-            context: contextWithDecision,
-          });
+            context: contextWithDecision });
 
           await this.maybeCreateSpecialistHuddleFromResponse(
             params.agentId,
@@ -373,9 +361,7 @@ class AgentIntelligenceService extends BaseService {
               persona: null,
               conversationContext: result.metadata || {},
               timestamp: new Date().toISOString(),
-              toolsExecuted: [],
-            },
-          };
+              toolsExecuted: [] } };
         } catch (error) {
           const message = error instanceof Error ? error.message : 'Failed to chat with agent';
           logger.error('Failed to handle agent chat', { error: message, agentId: params.agentId });
@@ -393,9 +379,8 @@ class AgentIntelligenceService extends BaseService {
         const filters = {
           limit: query.limit ? parseInt(query.limit as string) : undefined,
           offset: query.offset ? parseInt(query.offset as string) : undefined,
-          status: query.status as any,
-          visibility: query.visibility as any,
-        };
+          status: query.status as Record<string, unknown>,
+          visibility: query.visibility as Record<string, unknown> };
         const result = await this.personaService.getPersonasForDisplay(filters);
         return { success: true, data: result.personas, total: result.total };
       } catch (error) {
@@ -426,9 +411,8 @@ class AgentIntelligenceService extends BaseService {
       try {
         const userId = request.headers.get('x-user-id') || 'system';
         const persona = await this.personaService.createPersona({
-          ...(body as any),
-          createdBy: userId,
-        });
+          ...(body as Record<string, unknown>),
+          createdBy: userId });
         set.status = 201;
         return { success: true, data: persona };
       } catch (error) {
@@ -441,7 +425,7 @@ class AgentIntelligenceService extends BaseService {
     // Update persona
     this.app.put('/api/v1/personas/:personaId', async ({ params, body, set }) => {
       try {
-        const persona = await this.personaService.updatePersona(params.personaId, body as any);
+        const persona = await this.personaService.updatePersona(params.personaId, body as Record<string, unknown>);
         return { success: true, data: persona };
       } catch (error) {
         logger.error('Failed to update persona', { error, personaId: params.personaId });
@@ -470,8 +454,7 @@ class AgentIntelligenceService extends BaseService {
         const filters = {
           query: query.q as string | undefined,
           limit: query.limit ? parseInt(query.limit as string) : undefined,
-          offset: query.offset ? parseInt(query.offset as string) : undefined,
-        };
+          offset: query.offset ? parseInt(query.offset as string) : undefined };
         const personas = await this.personaService.searchPersonas(filters);
         return { success: true, data: personas };
       } catch (error) {
@@ -503,10 +486,9 @@ class AgentIntelligenceService extends BaseService {
     this.app.get('/api/v1/discussions', async ({ query, set }) => {
       try {
         const filters = {
-          status: query.status as any,
+          status: query.status as Record<string, unknown>,
           limit: query.limit ? parseInt(query.limit as string) : 20,
-          offset: query.offset ? parseInt(query.offset as string) : 0,
-        };
+          offset: query.offset ? parseInt(query.offset as string) : 0 };
         const discussions = await this.discussionService.searchDiscussions(filters);
         return { success: true, data: discussions };
       } catch (error) {
@@ -612,8 +594,7 @@ class AgentIntelligenceService extends BaseService {
           endedAfter: dateSchema,
           endedBefore: dateSchema,
           limit: paginationSchema.default(20),
-          offset: paginationSchema.default(0),
-        });
+          offset: paginationSchema.default(0) });
 
         const rawQuery = query as Record<string, unknown>;
         const searchText = extractSearchQuery(rawQuery);
@@ -624,13 +605,12 @@ class AgentIntelligenceService extends BaseService {
           return {
             success: false,
             error: 'Invalid search parameters',
-            details: parsed.error.flatten(),
-          };
+            details: parsed.error.flatten() };
         }
 
         const { limit, offset, ...filters } = parsed.data;
         const discussions = await this.discussionService.searchDiscussions(
-          filters as any,
+          filters as Record<string, unknown>,
           limit,
           offset
         );
@@ -666,12 +646,11 @@ class AgentIntelligenceService extends BaseService {
         // Create discussion
         .post('', async (context) => {
           const { body, set } = context;
-          const user = (context as unknown as { user: UserContext }).user;
+          const user = (context as Record<string, unknown> as { user: UserContext }).user;
           try {
             const discussion = await this.discussionService.createDiscussion({
-              ...(body as any),
-              createdBy: user.id,
-            });
+              ...(body as Record<string, unknown>),
+              createdBy: user.id });
             set.status = 201;
             return { success: true, data: discussion };
           } catch (error) {
@@ -695,14 +674,13 @@ class AgentIntelligenceService extends BaseService {
           try {
             const discussion = await this.discussionService.updateDiscussion(
               params.discussionId,
-              body as any
+              body as Record<string, unknown>
             );
             return { success: true, data: discussion };
           } catch (error) {
             logger.error('Failed to update discussion', {
               error,
-              discussionId: params.discussionId,
-            });
+              discussionId: params.discussionId });
             set.status = 500;
             return { success: false, error: 'Failed to update discussion' };
           }
@@ -710,7 +688,7 @@ class AgentIntelligenceService extends BaseService {
         // Start discussion
         .post('/:discussionId/start', async (context) => {
           const { params, set } = context;
-          const user = (context as unknown as { user: UserContext }).user;
+          const user = (context as Record<string, unknown> as { user: UserContext }).user;
           try {
             const discussion = await this.discussionService.startDiscussion(
               params.discussionId,
@@ -720,8 +698,7 @@ class AgentIntelligenceService extends BaseService {
           } catch (error) {
             logger.error('Failed to start discussion', {
               error,
-              discussionId: params.discussionId,
-            });
+              discussionId: params.discussionId });
             set.status = 500;
             return { success: false, error: 'Failed to start discussion' };
           }
@@ -729,7 +706,7 @@ class AgentIntelligenceService extends BaseService {
         // Send message
         .post('/:discussionId/messages', async (context) => {
           const { params, body, set } = context;
-          const user = (context as unknown as { user: UserContext }).user;
+          const user = (context as Record<string, unknown> as { user: UserContext }).user;
           const { content, messageType, participantId } =
             (body as {
               content?: string;
@@ -754,11 +731,11 @@ class AgentIntelligenceService extends BaseService {
 
             const matchingParticipant = participantId
               ? discussion.participants?.find(
-                (participant: any) =>
+                (participant: Record<string, unknown>) =>
                   participant.id === participantId || participant.participantId === participantId
               )
               : discussion.participants?.find(
-                (participant: any) =>
+                (participant: Record<string, unknown>) =>
                   participant.participantType === 'user' && participant.userId === user.id
               );
 
@@ -768,8 +745,8 @@ class AgentIntelligenceService extends BaseService {
             }
 
             if (
-              (matchingParticipant as any).participantType !== 'user' ||
-              (matchingParticipant as any).userId !== user.id
+              (matchingParticipant as Record<string, unknown>).participantType !== 'user' ||
+              (matchingParticipant as Record<string, unknown>).userId !== user.id
             ) {
               set.status = 403;
               return { success: false, error: 'Participant does not belong to user' };
@@ -797,8 +774,7 @@ class AgentIntelligenceService extends BaseService {
 
             logger.error('Failed to send discussion message', {
               error: message,
-              discussionId: params.discussionId,
-            });
+              discussionId: params.discussionId });
             set.status = isValidationError ? 400 : 500;
             return { success: false, error: message };
           }
@@ -806,12 +782,12 @@ class AgentIntelligenceService extends BaseService {
         // End discussion
         .post('/:discussionId/end', async (context) => {
           const { params, body, set } = context;
-          const user = (context as unknown as { user: UserContext }).user;
+          const user = (context as Record<string, unknown> as { user: UserContext }).user;
           try {
             const discussion = await this.discussionService.endDiscussion(
               params.discussionId,
               user.id,
-              (body as any)?.reason
+              (body as Record<string, unknown>)?.reason
             );
             return { success: true, data: discussion };
           } catch (error) {
@@ -833,8 +809,7 @@ class AgentIntelligenceService extends BaseService {
       } catch (error) {
         logger.error('Failed to get discussion messages', {
           error,
-          discussionId: params.discussionId,
-        });
+          discussionId: params.discussionId });
         set.status = 500;
         return { success: false, error: 'Failed to get discussion messages' };
       }
@@ -875,16 +850,13 @@ class AgentIntelligenceService extends BaseService {
           conversationEnhancement: stats,
           memory: {
             heapUsedMB: Math.round(memoryUsage.heapUsed / 1024 / 1024),
-            heapTotalMB: Math.round(memoryUsage.heapTotal / 1024 / 1024),
-          },
-          alerts,
-        };
-      } catch (error) {
+            heapTotalMB: Math.round(memoryUsage.heapTotal / 1024 / 1024) },
+          alerts };
+      } catch  {
         set.status = 500;
         return {
           success: false,
-          error: 'Failed to fetch conversation enhancement debug info',
-        };
+          error: 'Failed to fetch conversation enhancement debug info' };
       }
     });
 
@@ -893,23 +865,21 @@ class AgentIntelligenceService extends BaseService {
       try {
         // Trigger immediate cleanup on conversation enhancement service
         if (
-          typeof (this.conversationEnhancementService as any)['cleanupStaleLLMRequests'] ===
+          typeof (this.conversationEnhancementService as Record<string, unknown>)['cleanupStaleLLMRequests'] ===
           'function'
         ) {
-          (this.conversationEnhancementService as any)['cleanupStaleLLMRequests']();
+          (this.conversationEnhancementService as Record<string, unknown>)['cleanupStaleLLMRequests']();
         }
 
         return {
           success: true,
           message: 'LLM cleanup triggered',
-          timestamp: new Date().toISOString(),
-        };
-      } catch (error) {
+          timestamp: new Date().toISOString() };
+      } catch  {
         set.status = 500;
         return {
           success: false,
-          error: 'Failed to trigger LLM cleanup',
-        };
+          error: 'Failed to trigger LLM cleanup' };
       }
     });
 
@@ -942,8 +912,7 @@ class AgentIntelligenceService extends BaseService {
           knowledgeRepo: !!knowledgeRepo,
           qdrantService: !!qdrantService,
           graphDb: !!graphDb,
-          embeddingService: !!embeddingService,
-        });
+          embeddingService: !!embeddingService });
 
         const bootstrap = new KnowledgeBootstrapService(
           knowledgeRepo,
@@ -959,8 +928,7 @@ class AgentIntelligenceService extends BaseService {
         return {
           success: false,
           error: error instanceof Error ? error.message : 'Unknown error',
-          stack: error instanceof Error ? error.stack : undefined,
-        };
+          stack: error instanceof Error ? error.stack : undefined };
       }
     });
   }
@@ -979,16 +947,14 @@ class AgentIntelligenceService extends BaseService {
           context,
           socketId,
           messageId,
-          timestamp,
-        } = event.data as any;
+          _timestamp } = event.data as Record<string, unknown>;
 
         logger.info('Processing WebSocket agent chat request', {
           agentId,
           userId,
           messageLength: message?.length,
           messageId,
-          socketId: socketId?.substring(0, 10) + '...',
-        });
+          socketId: socketId?.substring(0, 10) + '...' });
 
         const agentRecord = await this.agentCoreService.getAgent(agentId);
 
@@ -1000,9 +966,8 @@ class AgentIntelligenceService extends BaseService {
             logger.info('Selected model for agent', {
               agentId,
               model: modelSelection.model.model,
-              provider: (modelSelection as any).provider?.effectiveProvider || 'unknown',
-              strategy: modelSelection.model.selectionStrategy,
-            });
+              provider: (modelSelection as Record<string, unknown>).provider?.effectiveProvider || 'unknown',
+              strategy: modelSelection.model.selectionStrategy });
           } catch (error) {
             logger.warn('Failed to select model for agent, using defaults', { agentId, error });
           }
@@ -1014,8 +979,7 @@ class AgentIntelligenceService extends BaseService {
           agentRecord,
           {
             userId,
-            socketId,
-          }
+            socketId }
         );
 
         // Process the chat request using AgentDiscussionService
@@ -1025,8 +989,7 @@ class AgentIntelligenceService extends BaseService {
           message,
           conversationId: 'websocket-chat-' + Date.now(),
           conversationHistory: conversationHistory || [],
-          modelSelection,
-        });
+          modelSelection });
 
         // Prepare enhanced response with WebSocket metadata
         let resolvedAgentName = `Agent ${agentId}`;
@@ -1056,8 +1019,7 @@ class AgentIntelligenceService extends BaseService {
           timestamp: new Date().toISOString(),
           processingTime: result.metadata.processingTime,
           responseType: result.metadata.responseType,
-          conversationId: result.metadata.conversationId,
-        };
+          conversationId: result.metadata.conversationId };
 
         // Publish response back to discussion-orchestration for WebSocket delivery
         await this.eventBusService.publish('agent.chat.response', responsePayload);
@@ -1066,28 +1028,25 @@ class AgentIntelligenceService extends BaseService {
           agentId,
           messageId,
           responseLength: result.response.length,
-          confidence: result.metadata.confidence,
-        });
+          confidence: result.metadata.confidence });
       } catch (error) {
         logger.error('Failed to process WebSocket agent chat request', {
           error: error instanceof Error ? error.message : 'Unknown error',
-          agentId: (event.data as any)?.agentId,
-          messageId: (event.data as any)?.messageId,
-        });
+          agentId: (event.data as Record<string, unknown>)?.agentId,
+          messageId: (event.data as Record<string, unknown>)?.messageId });
 
         // Send error response back to client
-        if ((event.data as any)?.socketId && (event.data as any)?.messageId) {
+        if ((event.data as Record<string, unknown>)?.socketId && (event.data as Record<string, unknown>)?.messageId) {
           await this.eventBusService.publish('agent.chat.response', {
-            socketId: (event.data as any).socketId,
-            userId: (event.data as any).userId,
-            agentId: (event.data as any).agentId,
-            messageId: (event.data as any).messageId,
+            socketId: (event.data as Record<string, unknown>).socketId,
+            userId: (event.data as Record<string, unknown>).userId,
+            agentId: (event.data as Record<string, unknown>).agentId,
+            messageId: (event.data as Record<string, unknown>).messageId,
             response: 'Sorry, I encountered an error processing your request. Please try again.',
-            agentName: `Agent ${(event.data as any).agentId}`,
+            agentName: `Agent ${(event.data as Record<string, unknown>).agentId}`,
             confidence: 0.0,
             error: true,
-            timestamp: new Date().toISOString(),
-          });
+            timestamp: new Date().toISOString() });
         }
       }
     });
@@ -1106,8 +1065,7 @@ class AgentIntelligenceService extends BaseService {
           messageHistory,
           currentTopic,
           enhancementType,
-          context,
-        } = event.data as any;
+          context } = event.data as Record<string, unknown>;
 
         if (!this.conversationEnhancementService) {
           this.conversationEnhancementService = new ConversationEnhancementService(
@@ -1122,13 +1080,13 @@ class AgentIntelligenceService extends BaseService {
           discussionId,
           agentCount: availableAgentIds?.length,
           messageCount: messageHistory?.length,
-          enhancementType,
-        });
+          enhancementType });
 
         // Get agent objects from IDs
-        const availableAgents: any[] = [];
+        const availableAgents: Record<string, unknown>[] = [];
         for (const agentId of availableAgentIds || []) {
           try {
+            // oxlint-disable-next-line no-await-in-loop -- sequential processing required
             const agent = await this.databaseService.findById('agents', agentId);
             if (agent) {
               availableAgents.push(agent);
@@ -1150,15 +1108,14 @@ class AgentIntelligenceService extends BaseService {
           messageHistory: messageHistory || [],
           currentTopic: currentTopic || '',
           enhancementType: enhancementType || 'auto',
-          context,
-        });
+          context });
 
         if (result.success && result.enhancedResponse) {
           try {
             // Find the participant ID for the selected agent
             const discussion = await this.discussionService.getDiscussion(discussionId);
             const participant = discussion?.participants?.find(
-              (p: any) => p.agentId === result.selectedAgent?.id
+              (p: Record<string, unknown>) => p.agentId === result.selectedAgent?.id
             );
 
             if (participant) {
@@ -1182,43 +1139,36 @@ class AgentIntelligenceService extends BaseService {
                   isInitialParticipation,
                   contributionScore: result.contributionScores?.[0]?.score,
                   suggestions: result.suggestions || [],
-                  nextActions: result.nextActions || [],
-                },
-              });
+                  nextActions: result.nextActions || [] } });
 
               logger.info('Enhanced conversation response sent', {
                 discussionId,
                 agentId: result.selectedAgent?.id,
                 personaId: result.selectedPersona?.id,
-                responseLength: result.enhancedResponse.length,
-              });
+                responseLength: result.enhancedResponse.length });
             } else {
               logger.warn('Could not find participant for enhanced response', {
                 discussionId,
                 agentId: result.selectedAgent?.id,
                 discussionExists: !!discussion,
-                participantCount: discussion?.participants?.length || 0,
-              });
+                participantCount: discussion?.participants?.length || 0 });
             }
           } catch (publishError) {
             logger.error('Failed to publish enhanced response', {
               discussionId,
               error: publishError instanceof Error ? publishError.message : 'Unknown error',
-              stack: publishError instanceof Error ? publishError.stack : undefined,
-            });
+              stack: publishError instanceof Error ? publishError.stack : undefined });
           }
         } else {
           logger.info('No enhanced response generated', {
             discussionId,
             success: result.success,
-            error: result.error,
-          });
+            error: result.error });
         }
       } catch (error) {
         logger.error('Failed to process conversation enhancement request', {
           error: error instanceof Error ? error.message : 'Unknown error',
-          discussionId: (event?.data as any)?.discussionId,
-        });
+          discussionId: (event?.data as Record<string, unknown>)?.discussionId });
       }
     });
 
@@ -1243,16 +1193,14 @@ class AgentIntelligenceService extends BaseService {
       databaseService: this.databaseService,
       eventBusService: this.eventBusService,
       serviceName: 'agent-intelligence',
-      securityLevel: 3,
-    });
+      securityLevel: 3 });
     await this.agentCoreService.initialize();
     logger.info('AgentCoreService initialized');
 
     // Initialize PersonaService
     this.personaService = new PersonaService({
       databaseService: this.databaseService,
-      eventBusService: this.eventBusService,
-    });
+      eventBusService: this.eventBusService });
     logger.info('PersonaService initialized');
 
     // Initialize LLMService (legacy - conversation enhancement now uses events)
@@ -1283,18 +1231,16 @@ class AgentIntelligenceService extends BaseService {
       llmService: this.llmService,
       userLLMService: new UserLLMService(),
       serviceName: 'agent-intelligence',
-      securityLevel: 1,
-    });
+      securityLevel: 1 });
     await this.agentDiscussionService.initialize();
     logger.info('AgentDiscussionService initialized with knowledgeGraphService');
 
     this.agentPlanningService = new AgentPlanningService({
       databaseService: this.databaseService,
       eventBusService: this.eventBusService,
-      knowledgeGraphService: knowledgeGraphService as unknown as LocalKnowledgeGraphService,
+      knowledgeGraphService: knowledgeGraphService as Record<string, unknown> as LocalKnowledgeGraphService,
       serviceName: 'agent-intelligence',
-      securityLevel: 2,
-    });
+      securityLevel: 2 });
     await this.agentPlanningService.initialize();
     logger.info('AgentPlanningService initialized');
 
@@ -1305,8 +1251,7 @@ class AgentIntelligenceService extends BaseService {
       personaService: this.personaService,
       enableRealTimeEvents: true,
       enableAnalytics: false,
-      auditMode: 'comprehensive',
-    });
+      auditMode: 'comprehensive' });
     logger.info('DiscussionService initialized');
 
     await this.setupRoutes();
@@ -1346,7 +1291,7 @@ class AgentIntelligenceService extends BaseService {
     return 'conversation';
   }
 
-  private isComplexChatRequest(message: string, conversationHistory: any[], context: any): boolean {
+  private isComplexChatRequest(message: string, conversationHistory: Record<string, unknown>[], context: Record<string, unknown>): boolean {
     const wordCount = message.trim().split(/\s+/).filter(Boolean).length;
     const hasStructuredContext = Object.keys(context || {}).length > 2;
     const hasDeepHistory = (conversationHistory || []).length >= 4;
@@ -1355,10 +1300,10 @@ class AgentIntelligenceService extends BaseService {
 
   private async applyToolExecutionDecisionGate(
     agentId: string,
-    context: any,
-    agentRecord?: unknown,
+    context: Record<string, unknown>,
+    agentRecord?: Record<string, unknown>,
     approvalContext?: ApprovalRequestContext
-  ): Promise<any> {
+  ): Promise<unknown> {
     const proposedAction = this.extractProposedAction(context);
     if (!proposedAction) {
       return context;
@@ -1370,8 +1315,7 @@ class AgentIntelligenceService extends BaseService {
       const resolver = new ToolRegistryCapabilityResolver({
         lookup: async (toolName: string) =>
           availableTools.find((tool) => tool.name === toolName || tool.id === toolName) || null,
-        getTools: async () => availableTools,
-      });
+        getTools: async () => availableTools });
 
       const stateMachine = new AgentStateMachine(
         agentId,
@@ -1386,8 +1330,7 @@ class AgentIntelligenceService extends BaseService {
         logger.info('Tool execution skipped - confidence below threshold', {
           agentId,
           confidence: decision.confidence,
-          actionType: proposedAction.type,
-        });
+          actionType: proposedAction.type });
 
         return {
           ...context,
@@ -1395,9 +1338,7 @@ class AgentIntelligenceService extends BaseService {
             ...(context?.toolExecution || {}),
             skipped: true,
             skipReason: 'confidence_below_threshold',
-            decisionConfidence: decision.confidence,
-          },
-        };
+            decisionConfidence: decision.confidence } };
       }
 
       const operationSecurityLevel = this.resolveOperationSecurityLevel(context?.toolExecution);
@@ -1410,8 +1351,7 @@ class AgentIntelligenceService extends BaseService {
         if (!allowsHighRisk) {
           logger.info('Tool execution skipped - security level too low for high risk action', {
             agentId,
-            operationSecurityLevel,
-          });
+            operationSecurityLevel });
 
           return {
             ...context,
@@ -1419,9 +1359,7 @@ class AgentIntelligenceService extends BaseService {
               ...(context?.toolExecution || {}),
               skipped: true,
               skipReason: 'security_level_restriction',
-              decisionConfidence: decision.confidence,
-            },
-          };
+              decisionConfidence: decision.confidence } };
         }
       }
 
@@ -1450,15 +1388,13 @@ class AgentIntelligenceService extends BaseService {
               ? toolExecution.parameters
               : {},
           userId: approvalContext?.userId,
-          socketId: approvalContext?.socketId,
-        });
+          socketId: approvalContext?.socketId });
 
         if (!approvalResult.approved) {
           logger.info('Tool execution skipped - approval rejected or timed out', {
             agentId,
             approvalId: approvalResult.approvalId,
-            reason: approvalResult.reason,
-          });
+            reason: approvalResult.reason });
 
           return {
             ...context,
@@ -1467,9 +1403,7 @@ class AgentIntelligenceService extends BaseService {
               skipped: true,
               skipReason: 'approval_required',
               approvalId: approvalResult.approvalId,
-              approvalReason: approvalResult.reason,
-            },
-          };
+              approvalReason: approvalResult.reason } };
         }
       }
 
@@ -1478,19 +1412,16 @@ class AgentIntelligenceService extends BaseService {
         toolExecution: {
           ...(context?.toolExecution || {}),
           decisionConfidence: decision.confidence,
-          decisionReasoning: decision.reasoning,
-        },
-      };
+          decisionReasoning: decision.reasoning } };
     } catch (error) {
       logger.warn('Decision engine evaluation failed for tool execution path', {
         agentId,
-        error: error instanceof Error ? error.message : String(error),
-      });
+        error: error instanceof Error ? error.message : String(error) });
       return context;
     }
   }
 
-  private extractProposedAction(context: any): ActionRecommendation | null {
+  private extractProposedAction(context: Record<string, unknown>): ActionRecommendation | null {
     const toolExecution = context?.toolExecution;
     if (!toolExecution || typeof toolExecution !== 'object') {
       return null;
@@ -1523,18 +1454,17 @@ class AgentIntelligenceService extends BaseService {
           toolExecution.riskLevel === 'medium' ||
           toolExecution.riskLevel === 'low'
           ? toolExecution.riskLevel
-          : 'medium',
-    };
+          : 'medium' };
   }
 
   private extractAvailableTools(
-    context: any,
+    context: Record<string, unknown>,
     proposedAction: ActionRecommendation
   ): ToolDefinition[] {
     const providedTools = Array.isArray(context?.availableTools) ? context.availableTools : [];
     const normalizedProvided = providedTools
-      .filter((tool: any) => tool && typeof tool === 'object' && tool.name)
-      .map((tool: any) => ({
+      .filter((tool: Record<string, unknown>) => tool && typeof tool === 'object' && tool.name)
+      .map((tool: Record<string, unknown>) => ({
         id: String(tool.id || tool.name),
         name: String(tool.name),
         description: String(tool.description || tool.name),
@@ -1550,8 +1480,7 @@ class AgentIntelligenceService extends BaseService {
         tags: Array.isArray(tool.tags) ? tool.tags : [],
         isEnabled: tool.isEnabled !== false,
         executionTimeEstimate:
-          typeof tool.executionTimeEstimate === 'number' ? tool.executionTimeEstimate : 30,
-      }));
+          typeof tool.executionTimeEstimate === 'number' ? tool.executionTimeEstimate : 30 }));
 
     if (normalizedProvided.length > 0) {
       return normalizedProvided;
@@ -1573,14 +1502,13 @@ class AgentIntelligenceService extends BaseService {
         author: 'agent-intelligence',
         tags: [] as string[],
         isEnabled: true,
-        executionTimeEstimate: 30,
-      })
+        executionTimeEstimate: 30 })
     );
 
     return fallbackTools;
   }
 
-  private resolveOperationSecurityLevel(toolExecution: any): SecurityLevel {
+  private resolveOperationSecurityLevel(toolExecution: Record<string, unknown>): SecurityLevel {
     const level = toolExecution?.securityLevel;
     if (level === SecurityLevel.LOW) return SecurityLevel.LOW;
     if (level === SecurityLevel.HIGH) return SecurityLevel.HIGH;
@@ -1588,7 +1516,7 @@ class AgentIntelligenceService extends BaseService {
     return SecurityLevel.MEDIUM;
   }
 
-  private buildDecisionContext(): any {
+  private buildDecisionContext(): Record<string, unknown> {
     return {
       analysis: {
         context: {
@@ -1597,36 +1525,30 @@ class AgentIntelligenceService extends BaseService {
           topics: [],
           sentiment: 'neutral',
           complexity: 'medium',
-          urgency: 'medium',
-        },
+          urgency: 'medium' },
         intent: {
           primary: 'tool_execution',
           secondary: [],
           confidence: 0.7,
           entities: [],
-          complexity: 'medium',
-        },
+          complexity: 'medium' },
         agentCapabilities: {
           tools: [],
           artifacts: [],
           specializations: [],
-          limitations: [],
-        },
+          limitations: [] },
         environmentFactors: {
           timeOfDay: new Date().getHours(),
           userLoad: 1,
           systemLoad: 'normal',
-          availableResources: 'standard',
-        },
-      },
+          availableResources: 'standard' } },
       recommendedActions: [],
       confidence: 0.7,
       explanation: 'Decision context generated from chat tool execution request',
-      timestamp: new Date(),
-    };
+      timestamp: new Date() };
   }
 
-  private requiresApprovalForAgentChatConfig(agentRecord?: unknown): boolean {
+  private requiresApprovalForAgentChatConfig(agentRecord?: Record<string, unknown>): boolean {
     if (!agentRecord || typeof agentRecord !== 'object') {
       return false;
     }
@@ -1667,8 +1589,7 @@ class AgentIntelligenceService extends BaseService {
         agentId,
         resolve,
         reject: (reason?: string) => reject(new Error(reason || 'Approval rejected')),
-        timeout,
-      });
+        timeout });
     });
 
     await this.eventBusService.publish('approval:required', {
@@ -1681,8 +1602,7 @@ class AgentIntelligenceService extends BaseService {
       riskLevel: request.riskLevel,
       parameters: this.sanitizeApprovalParameters(request.parameters),
       securityLevel: request.securityLevel,
-      timestamp: new Date().toISOString(),
-    });
+      timestamp: new Date().toISOString() });
 
     try {
       await approvalPromise;
@@ -1691,8 +1611,7 @@ class AgentIntelligenceService extends BaseService {
       return {
         approved: false,
         approvalId,
-        reason: error instanceof Error ? error.message : 'Approval rejected',
-      };
+        reason: error instanceof Error ? error.message : 'Approval rejected' };
     } finally {
       const pendingApproval = this.pendingApprovals.get(approvalId);
       if (pendingApproval) {
@@ -1702,7 +1621,7 @@ class AgentIntelligenceService extends BaseService {
     }
   }
 
-  private sanitizeApprovalParameters(value: unknown): unknown {
+  private sanitizeApprovalParameters(value: Record<string, unknown>): Record<string, unknown> {
     const sensitiveFields = new Set([
       'password',
       'token',
@@ -1770,33 +1689,28 @@ class AgentIntelligenceService extends BaseService {
     const response = await fetch(`${baseUrl}/api/v1/discussions/huddle`, {
       method: 'POST',
       headers: {
-        'Content-Type': 'application/json',
-      },
+        'Content-Type': 'application/json' },
       body: JSON.stringify({
         parentDiscussionId,
         participantIds,
-        topic,
-      }),
-    });
+        topic }) });
 
     if (!response.ok) {
       logger.warn('Failed to create specialist huddle', {
         agentId,
         parentDiscussionId,
-        status: response.status,
-      });
+        status: response.status });
       return;
     }
 
     logger.info('Specialist huddle requested', {
       agentId,
       parentDiscussionId,
-      participantCount: participantIds.length,
-    });
+      participantCount: participantIds.length });
   }
 
   private hasSpecialistSubTaskInContext(context: Record<string, unknown>): boolean {
-    const candidateSubTaskLists: unknown[] = [
+    const candidateSubTaskLists: Record<string, unknown>[] = [
       context.subTasks,
       context.tasks,
       context.plannedSubTasks,
@@ -1845,7 +1759,7 @@ class AgentIntelligenceService extends BaseService {
     return false;
   }
 
-  private pickContextString(value: unknown): string | null {
+  private pickContextString(value: Record<string, unknown>): string | null {
     if (typeof value !== 'string') {
       return null;
     }
@@ -1854,7 +1768,7 @@ class AgentIntelligenceService extends BaseService {
     return normalized.length > 0 ? normalized : null;
   }
 
-  private pickContextStringArray(value: unknown): string[] {
+  private pickContextStringArray(value: Record<string, unknown>): string[] {
     if (!Array.isArray(value)) {
       return [];
     }
@@ -1873,8 +1787,7 @@ class AgentIntelligenceService extends BaseService {
       async () => {
         try {
           const activeAgents = await this.agentCoreService.getAgents({
-            status: AgentStatus.ACTIVE,
-          });
+            status: AgentStatus.ACTIVE });
 
           for (const agent of activeAgents) {
             if (agent.isActive === false) {
@@ -1882,26 +1795,24 @@ class AgentIntelligenceService extends BaseService {
             }
 
             try {
+              // oxlint-disable-next-line no-await-in-loop -- sequential processing required
               await this.memoryConsolidator.consolidateMemories(agent.id);
             } catch (error) {
               logger.error('Memory consolidation failed for agent', {
                 agentId: agent.id,
-                error: error instanceof Error ? error.message : String(error),
-              });
+                error: error instanceof Error ? error.message : String(error) });
             }
           }
         } catch (error) {
           logger.error('Memory consolidation cycle failed', {
-            error: error instanceof Error ? error.message : String(error),
-          });
+            error: error instanceof Error ? error.message : String(error) });
         }
       },
       30 * 60 * 1000
     );
 
     logger.info('Memory consolidation cron initialized', {
-      intervalMs: 30 * 60 * 1000,
-    });
+      intervalMs: 30 * 60 * 1000 });
   }
 
   protected async cleanup(): Promise<void> {

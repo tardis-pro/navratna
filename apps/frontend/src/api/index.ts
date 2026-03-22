@@ -20,6 +20,7 @@ export * from './personas.api';
 export * from './capabilities.api';
 export * from './orchestration.api';
 export * from './knowledge.api';
+export * from './constellation.api';
 export * from './llm.api';
 export * from './mcp.api';
 export * from './tasks.api';
@@ -40,6 +41,7 @@ import { personasAPI } from './personas.api';
 import { capabilitiesAPI } from './capabilities.api';
 import { orchestrationAPI } from './orchestration.api';
 import { knowledgeAPI } from './knowledge.api';
+import { constellationAPI } from './constellation.api';
 import { llmAPI } from './llm.api';
 import { mcpAPI } from './mcp.api';
 
@@ -57,6 +59,7 @@ export const api = {
   capabilities: capabilitiesAPI,
   orchestration: orchestrationAPI,
   knowledge: knowledgeAPI,
+  constellation: constellationAPI,
   llm: llmAPI,
   mcp: mcpAPI,
 };
