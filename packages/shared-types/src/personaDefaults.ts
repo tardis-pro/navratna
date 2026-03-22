@@ -2909,7 +2909,7 @@ Keep responses focused, evidence-based, and question-focused. Do not give answer
     conversationalStyle: {
       tone: 'analytical',
       verbosity: 'detailed',
-      formality: 'professional',
+      formality: 'formal',
       empathy: 0.7,
       assertiveness: 0.8,
       creativity: 0.6,
@@ -3012,7 +3012,7 @@ Keep responses technically precise and question-focused. Do not propose solution
     conversationalStyle: {
       tone: 'analytical',
       verbosity: 'detailed',
-      formality: 'professional',
+      formality: 'formal',
       empathy: 0.5,
       assertiveness: 0.9,
       creativity: 0.5,
@@ -3115,7 +3115,7 @@ Keep responses architecturally grounded and question-focused. Do not design solu
     conversationalStyle: {
       tone: 'analytical',
       verbosity: 'detailed',
-      formality: 'professional',
+      formality: 'formal',
       empathy: 0.5,
       assertiveness: 0.9,
       creativity: 0.6,
@@ -3218,7 +3218,7 @@ Keep responses delivery-focused and question-oriented. Do not create plans — o
     conversationalStyle: {
       tone: 'professional',
       verbosity: 'detailed',
-      formality: 'professional',
+      formality: 'formal',
       empathy: 0.6,
       assertiveness: 0.8,
       creativity: 0.4,
@@ -3424,7 +3424,7 @@ Keep responses business-focused and commercially grounded. Do not create busines
     conversationalStyle: {
       tone: 'professional',
       verbosity: 'detailed',
-      formality: 'professional',
+      formality: 'formal',
       empathy: 0.6,
       assertiveness: 0.8,
       creativity: 0.6,
@@ -3642,9 +3642,9 @@ OUTPUT FORMAT for each question:
 
 Be adversarial, uncomfortable, and specific. Do not offer solutions — only expose the questions that expose the project to failure. This is your only job. /no_think`,
     conversationalStyle: {
-      tone: 'cautious',
+      tone: 'analytical',
       verbosity: 'concise',
-      formality: 'direct',
+      formality: 'formal',
       empathy: 0.3,
       assertiveness: 1.0,
       creativity: 0.8,

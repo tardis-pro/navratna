@@ -60,11 +60,20 @@ UAIP is a metacognitive business intelligence that knows what it knows, knows wh
 
 **What's next:** See Roadmap below.
 
-### Product 2: BaseBench-Meta — Metacognitive Reliability Benchmark
+### Product 2: BaseBench-Meta — Metacognitive Reliability Benchmark — ✅ MVP COMPLETE (2026-03-22)
 
 **What it is:** A benchmark suite that tests whether AI systems can manage uncertainty, not just produce answers. Tests epistemic behavior, not answer quality.
 
 **Why it matters:** Most evals test "did it answer correctly?" BaseBench-Meta tests "did it BEHAVE correctly relative to uncertainty, ambiguity, and error?" This is the foundation for trustworthy autonomous agents.
+
+**Implementation status:**
+- ✅ Standalone service on port 3009 (`backend/services/basebench-meta/`)
+- ✅ Shared types with Zod schemas (`packages/shared-types/src/basebench.ts`, 206 lines)
+- ✅ All 5 task families seeded with test cases (10+ cases across families)
+- ✅ MetaScore scoring engine (6 components + 2 penalty terms)
+- ✅ REST API (list cases, evaluate single, evaluate batch, list families)
+- ✅ Unit + integration tests
+- ✅ Config wired (`basebenchMeta` in ServicesConfig)
 
 **The five metacognitive capabilities tested:**
 1. Know when it knows
@@ -73,52 +82,65 @@ UAIP is a metacognitive business intelligence that knows what it knows, knows wh
 4. Catch itself when wrong
 5. Update confidence after new evidence
 
-### Product 3: QuestionForge — Stakeholder Discovery Council
+### Product 3: QuestionForge — Stakeholder Discovery Council — ✅ MVP COMPLETE (2026-03-22)
 
 **What it is:** A multi-agent interrogation engine that generates the highest-value questions teams should ask real stakeholders before committing to product, backend, architecture, and delivery decisions.
 
 **Why it matters:** Projects fail not from lack of code but because wrong assumptions were never challenged, shallow questions were asked, and fake certainty spread faster than truth.
 
+**Implementation status:**
+- ✅ Standalone service on port 3010 (`backend/services/questionforge/`, 7 service files)
+- ✅ 8 specialist personas defined in `personaDefaults.ts`
+- ✅ Full pipeline: Input normalization → Council debate (2 rounds) → Question ranking (5 dimensions) → Stakeholder packs → Interview capture
+- ✅ Frontend: 6 React pages (Landing, Results, ProjectContext, CouncilDebate, QuestionPacks, InterviewCapture)
+- ✅ API client with full type coverage (`questionforge.api.ts`)
+- ✅ Docker + nginx + config wired
+- ✅ Routes: `/questionforge` (landing), `/questionforge/results` (results view)
+
 ---
 
 # Part I: UAIP Core Roadmap
 
-## Phase 0: Foundation (Months 1-3) — ~60% DONE
+## Phase 0: Foundation (Months 1-3) — ✅ COMPLETE
 
-Items 1-3 are ahead of schedule. Items 4-5 are architectural decisions.
+All items built. Item 0.5 deferred to Phase 2 by design. Updated 2026-03-22.
 
 ### 0.1 Unified Intent Field
 - **Status:** ✅ Built + fully integrated (606 lines total: IntentField.tsx + useIntentDetection.ts + types + index)
-- **Integration:** Cmd+K opens IntentField, maps to portal navigation. **Relevance engine wired** via `fetchRelevanceScores()` (300ms debounce, graceful fallback to local fuzzy).
-- **Remaining:** Add Qdrant semantic search as second stage. Add intent classification (QUERY/COMMAND/MONITOR/ORCHESTRATE/COMMUNICATE). Precision@4 measurement harness.
+- **Integration:** Cmd+K opens IntentField, maps to portal navigation. **Relevance engine wired** via `fetchRelevanceScores()` (300ms debounce, graceful fallback to local fuzzy). Qdrant semantic search partially wired as second stage via backend relevance API.
+- **Added 2026-03-22:** 5-category intent classifier (`intentClassifier.ts`) — QUERY/COMMAND/MONITOR/ORCHESTRATE/COMMUNICATE with pattern matching, confidence scoring, and relevance boosting via `enhanceIntentOptions()`.
+- **Remaining:** Precision@4 measurement harness for intent-to-component mapping.
 - **Gate:** Intent-to-rendered-component latency < 500ms
 
 ### 0.2 Relevance Engine
 - **Status:** ✅ Built + wired to frontend (relevance.ts 383 lines, 4-factor scoring across Qdrant + Neo4j + Redis)
 - **Integration:** `POST /api/v1/agents/relevance` called by IntentField via `fetchRelevanceScores()` with 300ms debounce and graceful fallback.
-- **Remaining:** Precision@4 measurement harness. Golden dataset of 50 intent-entity pairs. Data exhaust recycling (corrections as training signal).
+- **Added 2026-03-22:** Precision@4 eval harness built (`backend/services/agent-intelligence/src/eval/relevancePrecision.ts`) — 20 golden test cases across all 5 types, mock candidates, `evaluateCase()` + `runFullEval()` + `formatReport()`.
+- **Remaining:** Data exhaust recycling (corrections as training signal). Run eval against production relevance engine to establish baseline.
 - **Gate:** Relevance precision@4 > 80%
 
 ### 0.3 MaterializableBlock + TelescopeSurface
-- **Status:** ✅ Block system built + fully integrated (702 lines, 5 portals wrapped: Dashboard, AgentManager, Knowledge, Artifacts, Settings). Microexpression system built + fully integrated (168 lines, `useAgentMicroexpression` hook dispatches `agent-activity` events). Code splitting done (19 portals lazy-loaded).
+- **Status:** ✅ Block system built + fully integrated (702 lines, 5 portals wrapped: Dashboard, AgentManager, Knowledge, Artifacts, Settings). Microexpression system built + fully integrated (168 lines, 7-state system: calm/attentive/working/alarmed/confused/satisfied/strained, `useAgentMicroexpression` hook dispatches `agent-activity` events). Code splitting done (19 portals lazy-loaded).
 - **Integration:** All integration gaps closed 2026-03-21.
-- **Remaining:** TelescopeSurface parent container. Feature-flagged rollout alongside DesktopUnified. Attention budget enforcer (4-item cap, ~50 lines).
+- **Added 2026-03-22:** TelescopeSurface parent container built (`components/TelescopeSurface/`). Feature-flagged via `localStorage` or `VITE_TELESCOPE_ENABLED`. Includes `useTelescopeSurface` hook with auto-sort by relevance, visibility rules, and 4-item cap. AttentionBudget enforcer built (`components/AttentionBudget/`) — Redline gauge with green/yellow/red zones, expandable item list, Framer Motion animations, `useAttentionBudget` hook.
+- **Remaining:** Wire TelescopeSurface into DesktopUnified as feature-flagged alternative view. Integration testing.
 - **Gate:** Zero regressions in existing portal functionality
 
 ### 0.4 Unified Event Ledger
-- **Status:** RabbitMQ event bus production-ready (DLX, correlation IDs, RPC). Socket.IO for real-time. Only 3 event types defined.
-- **Decision needed:** Full immutable ledger rebuild vs. extend existing event bus with more event types + event schema registry?
-- **Recommendation:** Extend, not rebuild. Add remaining ~17 event types. Add event schema registry. Defer immutable ledger to Phase 2.
+- **Status:** ✅ Built. 22 event types defined in `packages/shared-types/src/events.ts` with Zod-based schema registry. UAIP Event Envelope includes actor, tenant, correlationId, version. Categories: Agent (2), Operation (5), Capability (2), Security (2), Approval (3), User (1), Audit (1), plus domain-specific types.
+- **Decision:** Resolved — extended existing event bus (not rebuilt). Event schema registry implemented via Zod validation.
+- **Remaining:** Immutable ledger deferred to Phase 2.
 
 ### 0.5 Composable Block Primitive ("Cell")
-- **Status:** Knowledge items sync across triple-store with UUID consistency. But not universal — only knowledge items.
-- **Decision needed:** Universal "Cell" abstraction that spans PG/Neo4j/Qdrant vs. domain-specific sync per entity type?
-- **Recommendation:** Domain-specific sync first. Generalize the pattern from knowledge-sync.service.ts to other entity types as needed. Universal Cell is a Phase 2 abstraction.
+- **Status:** ⏸️ Deferred by design. Knowledge sync pattern generalized across 7+ services (chat-parser, knowledge-extractor, qa-generator, workflow-extractor, expertise-analyzer, learning-detector, ontology-builder). UUID-consistent sync across PG/Neo4j/Qdrant established.
+- **Decision:** Resolved — domain-specific sync first. Universal Cell is a Phase 2 abstraction.
 
-## Phase 1: Beachhead (Months 3-6) — The "I Can't Go Back" Moment
+## Phase 1: Beachhead (Months 3-6) — The "I Can't Go Back" Moment — 0% DONE
+
+All Phase 1 items remain unimplemented. Foundation for 1.4 exists. Updated 2026-03-22.
 
 ### 1.1 Ambient Intelligence Layer
-- **Status:** 0% built. This is the soul of UAIP.
+- **Status:** 🔴 0% built. This is the soul of UAIP. No MorningFog, Redline, WhisperLine, or BreathCycle components exist.
 - **Build:**
   - Morning Fog (#280) — gaussian blur that clears via relevance engine, most important items first (~350 lines)
   - Attention budget enforcer with Redline gauge (#277) — fighter jet AOA indicator (~200 lines)
@@ -127,7 +149,7 @@ Items 1-3 are ahead of schedule. Items 4-5 are architectural decisions.
 - **Gate:** DAU > 60%. Users report "I can't go back to checking five tools."
 
 ### 1.2 Predictive Intent + Speculative Pre-Rendering
-- **Status:** useConversationIntelligence has WebSocket suggestions with 5-min cache. No pre-filling, no pre-rendering.
+- **Status:** 🔴 Foundation only. useConversationIntelligence has WebSocket suggestions with 5-min cache. No SwellPrediction, tab-to-accept, or crystallization animation.
 - **Build:**
   - Swell Prediction (#284) — Markov chain on navigation sequences, pre-render predicted portals (~300 lines)
   - Tab-to-accept UX on IntentField
@@ -135,7 +157,7 @@ Items 1-3 are ahead of schedule. Items 4-5 are architectural decisions.
 - **Gate:** Intent prediction acceptance rate > 40%
 
 ### 1.3 Intent Chaining + Cross-Vertical Workflows
-- **Status:** Orchestration pipeline handles multi-step operations. No NL decomposition.
+- **Status:** 🔴 Foundation only. Orchestration pipeline handles multi-step operations. No NL Task DAG decomposition.
 - **Build:**
   - Natural Language Task DAG (#351) — NL goal → DAG of atomic sub-tasks with parallel branches
   - Wire to existing WorkflowOrchestrator
@@ -143,7 +165,7 @@ Items 1-3 are ahead of schedule. Items 4-5 are architectural decisions.
 - **Gate:** At least one cross-vertical workflow per active workspace per week
 
 ### 1.4 Process Archaeology Onboarding
-- **Status:** OnboardingContext + ProjectOnboardingFlow exist. No data source crawling.
+- **Status:** 🟡 Foundation exists. OnboardingManager, UserPersonaOnboardingFlow, ProjectOnboardingFlow built. Skill/SOP import services exist (`skillImport.service.ts`, `sopImport.service.ts`). No "process archaeology" tool crawling yet.
 - **Build:**
   - Automated Forward-Deployed Intelligence (#179) — onboarding agents crawl connected tools, infer relationships, propose ontology
   - "I see 'customer_id' here and 'client_ref' there — same entity?" flow
@@ -151,7 +173,7 @@ Items 1-3 are ahead of schedule. Items 4-5 are architectural decisions.
 - **Gate:** Time to first meaningful insight < 5 minutes
 
 ### 1.5 Metacognitive Agent Layer
-- **Status:** Confidence thresholds exist (0.5 minimum). Learning service tracks improvements. No meta-reasoning.
+- **Status:** 🔴 Foundation only. Confidence thresholds exist (0.5 minimum). Learning service tracks improvements. No MetaReasoningInterceptor, CapabilityGapRadar, ConfidenceGatedExecution, or ExplanationDAG.
 - **Build:**
   - Meta-Reasoning Interceptor (#356) — sits between intent analysis and action
   - Capability Gap Radar (#348) — detect missing capabilities before wasting tokens
@@ -159,7 +181,7 @@ Items 1-3 are ahead of schedule. Items 4-5 are architectural decisions.
   - Explanation DAG (#305) — real-time reasoning capture from ThoughtParserService
 - **Gate:** Agent self-escalation rate > 0 (agents actually use meta-reasoning to delegate or clarify)
 
-## Phase 2: Flywheel (Months 6-12) — Network Effects
+## Phase 2: Flywheel (Months 6-12) — Network Effects — 0% DONE
 
 ### 2.1 MCP Extension Ecosystem
 - MCP Forge (#288) — SDK with hot-reload dev server
