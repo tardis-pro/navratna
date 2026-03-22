@@ -15,6 +15,8 @@ import { Desktop } from './components/DesktopUnified';
 import { BrowserRouter, Route, Routes } from 'react-router-dom';
 import WorkspacePage from './pages/workspace/WorkspacePage';
 import CodingSessionPage from './pages/workspace/CodingSessionPage';
+import QuestionForgeLanding from './pages/questionforge/QuestionForgeLanding';
+import QuestionForgeResults from './pages/questionforge/QuestionForgeResults';
 import './App.css';
 import './styles/agent-manager.css';
 
@@ -48,6 +50,8 @@ function DesktopApp() {
                           <ErrorBoundary>
                             <BrowserRouter>
                               <Routes>
+                                <Route path="/questionforge" element={<QuestionForgeLanding />} />
+                                <Route path="/questionforge/results" element={<QuestionForgeResults />} />
                                 <Route path="/projects/:id/workspace" element={<WorkspacePage />} />
                                 <Route
                                   path="/projects/:id/workspace/session"

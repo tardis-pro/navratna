@@ -1,0 +1,47 @@
+{
+  "name": "@uaip/basebench-meta",
+  "version": "1.0.0",
+  "description": "BaseBench-Meta metacognitive benchmark service",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "dev": "bun --hot src/index.ts",
+    "clean": "rimraf dist",
+    "lint": "eslint src --ext .ts",
+    "lint:fix": "eslint src --ext .ts --fix",
+    "format": "prettier --write \"src/**/*.ts\"",
+    "format:check": "prettier --check \"src/**/*.ts\"",
+    "test": "tsx --test src/__tests__/*.test.ts",
+    "test:watch": "tsx --test --watch src/__tests__/*.test.ts"
+  },
+  "dependencies": {
+    "@uaip/config": "workspace:*",
+    "@uaip/middleware": "workspace:*",
+    "@uaip/shared-services": "workspace:*",
+    "@uaip/types": "workspace:*",
+    "@uaip/utils": "workspace:*",
+    "typeorm": "catalog:backend",
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "@types/jest": "catalog:backend",
+    "@types/node": "catalog:backend",
+    "@typescript-eslint/eslint-plugin": "catalog:",
+    "@typescript-eslint/parser": "catalog:",
+    "eslint": "catalog:",
+    "nodemon": "catalog:backend",
+    "rimraf": "catalog:",
+    "tsx": "catalog:backend",
+    "typescript": "catalog:"
+  },
+  "keywords": [
+    "uaip",
+    "basebench",
+    "benchmark",
+    "metacognition",
+    "evaluation"
+  ],
+  "author": "UAIP Team",
+  "license": "MIT"
+}

@@ -15,7 +15,8 @@
 | questionforge-mvp | 01 | Scope & Plan | complete | 2026-03-22 |
 | questionforge-mvp | 02 | Phase 1 — Foundation | complete | 2026-03-22 |
 | questionforge-mvp | 03 | Phase 2 — Backend Core | complete | 2026-03-22 |
-| questionforge-mvp | 04 | Phase 3 — Frontend | not_started | — |
+| questionforge-mvp | 04 | Phase 3 — Frontend | complete | 2026-03-22 |
+| questionforge-mvp | 05 | Phase 4 — Integration | complete | 2026-03-22 |
 
 ---
 

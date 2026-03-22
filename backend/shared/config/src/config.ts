@@ -126,6 +126,10 @@ export interface ServicesConfig {
     port: number;
     url: string;
   };
+  basebenchMeta?: {
+    port: number;
+    url: string;
+  };
   questionforge?: {
     port: number;
     url: string;
@@ -509,6 +513,14 @@ const defaultConfig: Config = {
     artifactService: {
       port: parseInt(process.env.ARTIFACT_SERVICE_PORT || '3006'),
       url: process.env.ARTIFACT_SERVICE_URL || 'http://localhost:3006',
+    },
+    basebenchMeta: {
+      port: parseInt(process.env.BASEBENCH_META_PORT || '3009'),
+      url: process.env.BASEBENCH_META_URL || 'http://localhost:3009',
+    },
+    questionforge: {
+      port: parseInt(process.env.QUESTIONFORGE_PORT || '3010'),
+      url: process.env.QUESTIONFORGE_URL || 'http://localhost:3010',
     },
   },
   cors: {

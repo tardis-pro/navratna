@@ -456,6 +456,53 @@ services:
       timeout: 10s
       retries: 3
 
+  # QuestionForge - Stakeholder Discovery Council
+  questionforge:
+    image: uaip-backend-base:latest
+    container_name: uaip-questionforge
+    environment:
+      - SERVICE_NAME=questionforge
+      - SERVICE_PORT=3010
+      - NODE_ENV=development
+      - PORT=3010
+      - POSTGRES_URL=postgresql://${POSTGRES_USER:-uaip_user}:${POSTGRES_PASSWORD:-uaip_password}@postgres:5432/${POSTGRES_DB:-uaip}
+      - REDIS_URL=redis://:${REDIS_PASSWORD:-uaip_redis_password}@redis:6379
+      - RABBITMQ_URL=amqp://${RABBITMQ_USER:-uaip_user}:${RABBITMQ_PASSWORD:-uaip_password}@rabbitmq:5672
+      - NEO4J_URL=bolt://neo4j:7687
+      - NEO4J_USER=${NEO4J_USER:-neo4j}
+      - NEO4J_PASSWORD=${NEO4J_PASSWORD:-uaip_neo4j_password}
+      - QDRANT_URL=http://qdrant:6333
+      - JWT_SECRET=${JWT_SECRET:-uaip-development-jwt-secret-key-2024}
+    ports:
+      - '3010:3010'
+    volumes:
+      - ./packages:/app/packages
+      - ./backend/shared:/app/backend/shared
+      - ./backend/services/questionforge:/app/backend/services/questionforge
+      - /app/node_modules
+      - /app/backend/node_modules
+      - /app/backend/shared/services/node_modules
+      - /app/backend/shared/middleware/node_modules
+      - /app/backend/shared/config/node_modules
+      - /app/backend/shared/llm-service/node_modules
+      - /app/backend/services/questionforge/node_modules
+      - /app/packages/shared-types/node_modules
+      - /app/packages/shared-utils/node_modules
+    depends_on:
+      postgres:
+        condition: service_started
+      redis:
+        condition: service_started
+      rabbitmq:
+        condition: service_started
+    networks:
+      - uaip-network
+    healthcheck:
+      test: ['CMD', 'curl', '-f', 'http://localhost:3010/health']
+      interval: 300s
+      timeout: 10s
+      retries: 3
+
   # Frontend Service with Hot Reloading
   frontend:
     build:

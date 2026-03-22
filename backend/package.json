@@ -19,6 +19,7 @@
     "dev:orch-pipe": "export SERVICE_NAME=orchestration-pipeline && cd services/orchestration-pipeline && pnpm run dev",
     "dev:disc-orch": "export SERVICE_NAME=discussion-orchestration && cd services/discussion-orchestration && pnpm run dev",
     "dev:marketplace": "export SERVICE_NAME=marketplace-service && cd services/marketplace-service && pnpm run dev",
+    "dev:basebench": "export SERVICE_NAME=basebench-meta && cd services/basebench-meta && pnpm run dev",
     "dev:all": "pnpm run dev",
     "dev:minimal": "concurrently \"pnpm dev:agent\" \"pnpm dev:cap\"",
     "dev:core": "concurrently \"pnpm dev:agent\" \"pnpm dev:cap\" \"pnpm dev:sec\"",

@@ -84,3 +84,4 @@ export * from './critique';
 // Debate types - NEW
 export * from './debate';
 export * from './workspace.js';
+export * from './basebench';

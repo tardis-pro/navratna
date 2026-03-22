@@ -69,6 +69,7 @@ export enum ProjectType {
 
   // QuestionForge
   QUESTIONFORGE = 'questionforge',
+  BASEBENCH_META = 'basebench_meta',
 }
 
 export interface Project {

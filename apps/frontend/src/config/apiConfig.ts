@@ -222,6 +222,13 @@ export const API_ROUTES = {
     CHANGE_PASSWORD: '/api/v1/auth/change-password',
     VALIDATE_TOKEN: '/api/v1/auth/validate-token',
   },
+
+  // QuestionForge - Stakeholder Discovery Council
+  QUESTIONFORGE: {
+    BASE: '/api/v1/questionforge',
+    FORGE: '/api/v1/questionforge/forge',
+    INTERVIEWS: '/api/v1/questionforge/interviews',
+  },
 } as const;
 
 /**

@@ -13,7 +13,7 @@ class QuestionForgeApp extends BaseService {
   constructor() {
     const serviceConfig: ServiceConfig = {
       name: 'questionforge',
-      port: config.services?.questionforge?.port || 3008,
+      port: config.services?.questionforge?.port || 3010,
       version: '1.0.0',
       rateLimitConfig: {
         windowMs: 15 * 60 * 1000,
