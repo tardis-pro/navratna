@@ -12,7 +12,10 @@
 
 | Scenario | Phase | Page | Status | Date |
 |----------|-------|------|--------|------|
-| questionforge-mvp | 01 | Scope & Plan | in_progress | 2026-03-22 |
+| questionforge-mvp | 01 | Scope & Plan | complete | 2026-03-22 |
+| questionforge-mvp | 02 | Phase 1 — Foundation | complete | 2026-03-22 |
+| questionforge-mvp | 03 | Phase 2 — Backend Core | complete | 2026-03-22 |
+| questionforge-mvp | 04 | Phase 3 — Frontend | not_started | — |
 
 ---
 
@@ -97,7 +100,10 @@ QuestionForge uses a debating council of 8 AI specialist agents to generate the 
 
 ---
 
-## Open Questions
-- Should QuestionForge be a standalone service (port 3xxx) or integrated into existing services?
-- Does the input normalizer use the existing LLM Service or its own?
-- Should interview capture reuse DiscussionService or be a separate conversation type?
+## Resolved Questions
+
+| Question | Decision | Rationale |
+|----------|----------|-----------|
+| Standalone service or integrated? | **Standalone service on port 3008** | Follows BaseService pattern. Low infra cost — shared DBs (PG/Neo4j/Qdrant), shared RabbitMQ. Clean single-responsibility boundary. |
+| LLM access pattern? | **Central LLM Service via RabbitMQ events** | All cognitive services use this pattern — publish `debate.argument.request`, receive response via event bus. No direct LLM calls. Leverages `UnifiedModelSelectionFacade` for provider routing. |
+| Interview capture approach? | **Extend Discussion as `discussionMode: 'interview'`** | Discussion already has `QUESTION`/`ANSWER` message types, turn strategies, WebSocket infra. Add `interviewConfig` to schema — 90% code reuse. No separate conversation system needed. |

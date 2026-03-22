@@ -126,6 +126,10 @@ export interface ServicesConfig {
     port: number;
     url: string;
   };
+  questionforge?: {
+    port: number;
+    url: string;
+  };
 }
 
 type Unit =
