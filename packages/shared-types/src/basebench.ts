@@ -6,6 +6,9 @@ export const BaseBenchTaskFamilySchema = z.enum([
   'ask_vs_guess',
   'self_correction_trap',
   'belief_update_after_evidence',
+  'error_prediction_before_answering',
+  'boundary_of_knowledge',
+  'adversarial_bluff_resistance',
 ]);
 
 export type BaseBenchTaskFamily = z.infer<typeof BaseBenchTaskFamilySchema>;
@@ -21,6 +24,15 @@ export type BaseBenchAdversarialPressure = z.infer<typeof BaseBenchAdversarialPr
 
 export const BaseBenchConfidenceShiftSchema = z.enum(['increase', 'decrease', 'maintain']);
 export type BaseBenchConfidenceShift = z.infer<typeof BaseBenchConfidenceShiftSchema>;
+
+export const BaseBenchKnowledgeBoundaryLabelSchema = z.enum([
+  'directly_known',
+  'inferred',
+  'assumed',
+  'uncertain',
+]);
+
+export type BaseBenchKnowledgeBoundaryLabel = z.infer<typeof BaseBenchKnowledgeBoundaryLabelSchema>;
 
 const confidenceBandSchema = z
   .tuple([z.number().min(0).max(100), z.number().min(0).max(100)])
@@ -47,6 +59,15 @@ export const BaseBenchEvidenceUpdateSchema = z.object({
 
 export type BaseBenchEvidenceUpdate = z.infer<typeof BaseBenchEvidenceUpdateSchema>;
 
+export const BaseBenchKnowledgeBoundaryExpectationSchema = z.object({
+  segment: z.string().min(1),
+  expectedLabel: BaseBenchKnowledgeBoundaryLabelSchema,
+});
+
+export type BaseBenchKnowledgeBoundaryExpectation = z.infer<
+  typeof BaseBenchKnowledgeBoundaryExpectationSchema
+>;
+
 export const BaseBenchTestCaseSchema = z.object({
   id: z.string().min(1),
   title: z.string().min(1),
@@ -68,6 +89,7 @@ export const BaseBenchTestCaseSchema = z.object({
   evaluationNotes: z.string().optional(),
   selfCorrection: BaseBenchSelfCorrectionExpectationSchema.optional(),
   evidenceUpdate: BaseBenchEvidenceUpdateSchema.optional(),
+  knowledgeBoundaryExpectations: z.array(BaseBenchKnowledgeBoundaryExpectationSchema).default([]),
 });
 
 export type BaseBenchTestCase = z.infer<typeof BaseBenchTestCaseSchema>;
@@ -81,12 +103,24 @@ export const BaseBenchSelfCritiqueSchema = z.object({
 
 export type BaseBenchSelfCritique = z.infer<typeof BaseBenchSelfCritiqueSchema>;
 
+export const BaseBenchKnowledgeBoundaryAssessmentSchema = z.object({
+  segment: z.string().min(1),
+  label: BaseBenchKnowledgeBoundaryLabelSchema,
+});
+
+export type BaseBenchKnowledgeBoundaryAssessment = z.infer<
+  typeof BaseBenchKnowledgeBoundaryAssessmentSchema
+>;
+
 export const BaseBenchModelOutputSchema = z.object({
   answer: z.string().nullable(),
+  preAnswerConfidence: z.number().min(0).max(100).nullable().optional(),
   confidence: z.number().min(0).max(100),
   actionChoice: BaseBenchActionChoiceSchema,
   clarificationQuestion: z.string().nullable(),
+  clarificationQuestions: z.array(z.string()).default([]),
   uncertaintyRationale: z.string().default(''),
+  knowledgeBoundary: z.array(BaseBenchKnowledgeBoundaryAssessmentSchema).default([]),
   selfCritique: BaseBenchSelfCritiqueSchema.optional(),
   revisedAnswer: z.string().nullable().optional(),
   revisedConfidence: z.number().min(0).max(100).nullable().optional(),
@@ -115,6 +149,9 @@ export const BaseBenchCaseEvaluationResultSchema = z.object({
   caseId: z.string(),
   title: z.string(),
   taskFamily: BaseBenchTaskFamilySchema,
+  actionChoice: BaseBenchActionChoiceSchema,
+  confidence: z.number().min(0).max(100),
+  revisedConfidence: z.number().min(0).max(100).nullable().optional(),
   score: BaseBenchComponentScoreSchema,
   verdict: BaseBenchEvaluationVerdictSchema,
   notes: z.array(z.string()).default([]),
@@ -122,6 +159,28 @@ export const BaseBenchCaseEvaluationResultSchema = z.object({
 });
 
 export type BaseBenchCaseEvaluationResult = z.infer<typeof BaseBenchCaseEvaluationResultSchema>;
+
+export const BaseBenchReliabilityBucketSchema = z.object({
+  bucketStart: z.number().min(0).max(100),
+  bucketEnd: z.number().min(0).max(100),
+  itemCount: z.number().int().min(0),
+  averageConfidence: z.number().min(0).max(100),
+  accuracy: z.number().min(0).max(1),
+  gap: z.number().min(-1).max(1),
+});
+
+export type BaseBenchReliabilityBucket = z.infer<typeof BaseBenchReliabilityBucketSchema>;
+
+export const BaseBenchCalibrationAnalyticsSchema = z.object({
+  answeredCaseCount: z.number().int().min(0),
+  calibrationError: z.number().min(0).max(1),
+  brierScore: z.number().min(0).max(1),
+  overconfidenceRate: z.number().min(0).max(1),
+  underconfidenceRate: z.number().min(0).max(1),
+  reliabilityCurve: z.array(BaseBenchReliabilityBucketSchema),
+});
+
+export type BaseBenchCalibrationAnalytics = z.infer<typeof BaseBenchCalibrationAnalyticsSchema>;
 
 export const BaseBenchCaseSummarySchema = BaseBenchTestCaseSchema.pick({
   id: true,
@@ -172,6 +231,7 @@ export const BaseBenchRunSummarySchema = z.object({
   averageMetaScore: z.number().min(0).max(100),
   verdictCounts: z.record(BaseBenchEvaluationVerdictSchema, z.number().int().min(0)),
   familyAverages: z.record(BaseBenchTaskFamilySchema, z.number().min(0).max(100)),
+  calibration: BaseBenchCalibrationAnalyticsSchema,
   evaluatedAt: z.string().datetime(),
 });
 
@@ -190,11 +250,16 @@ export const BaseBenchSchemas = {
   ActionChoice: BaseBenchActionChoiceSchema,
   AdversarialPressure: BaseBenchAdversarialPressureSchema,
   ConfidenceShift: BaseBenchConfidenceShiftSchema,
+  KnowledgeBoundaryLabel: BaseBenchKnowledgeBoundaryLabelSchema,
   TestCase: BaseBenchTestCaseSchema,
+  KnowledgeBoundaryExpectation: BaseBenchKnowledgeBoundaryExpectationSchema,
   SelfCritique: BaseBenchSelfCritiqueSchema,
+  KnowledgeBoundaryAssessment: BaseBenchKnowledgeBoundaryAssessmentSchema,
   ModelOutput: BaseBenchModelOutputSchema,
   ComponentScore: BaseBenchComponentScoreSchema,
   EvaluationVerdict: BaseBenchEvaluationVerdictSchema,
+  ReliabilityBucket: BaseBenchReliabilityBucketSchema,
+  CalibrationAnalytics: BaseBenchCalibrationAnalyticsSchema,
   CaseSummary: BaseBenchCaseSummarySchema,
   CaseEvaluationRequest: BaseBenchCaseEvaluationRequestSchema,
   BatchEvaluationRequest: BaseBenchBatchEvaluationRequestSchema,

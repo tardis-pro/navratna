@@ -1,10 +1,13 @@
 import type {
+  BaseBenchActionChoice,
   BaseBenchCaseEvaluationResult,
   BaseBenchComponentScore,
   BaseBenchModelOutput,
   BaseBenchTaskFamily,
   BaseBenchTestCase,
-} from '@uaip/types';
+} from './basebenchTypes.js';
+
+export type BaseBenchScoredCaseResult = BaseBenchCaseEvaluationResult;
 
 const META_WEIGHTS = {
   actionAppropriateness: 0.25,
@@ -36,7 +39,7 @@ export class BaseBenchScoringService {
   evaluateCase(
     testCase: BaseBenchTestCase,
     response: BaseBenchModelOutput,
-  ): BaseBenchCaseEvaluationResult {
+  ): BaseBenchScoredCaseResult {
     const actionAppropriateness = this.scoreActionAppropriateness(testCase, response);
     const answerAccuracy = this.scoreAnswerAccuracy(testCase, response);
     const clarificationQuality = this.scoreClarificationQuality(testCase, response);
@@ -73,15 +76,20 @@ export class BaseBenchScoringService {
       metaScore,
     };
 
-    return {
+    const result: BaseBenchScoredCaseResult = {
       caseId: testCase.id,
       title: testCase.title,
       taskFamily: testCase.taskFamily,
+      actionChoice: response.actionChoice,
+      confidence: response.confidence,
+      revisedConfidence: response.revisedConfidence,
       score,
       verdict: this.deriveVerdict(metaScore),
       notes: this.buildNotes(testCase, score),
       evaluatedAt: new Date().toISOString(),
     };
+
+    return result;
   }
 
   summarizeByFamily(results: BaseBenchCaseEvaluationResult[]): Record<BaseBenchTaskFamily, number> {
@@ -99,6 +107,9 @@ export class BaseBenchScoringService {
       'ask_vs_guess',
       'self_correction_trap',
       'belief_update_after_evidence',
+      'error_prediction_before_answering',
+      'boundary_of_knowledge',
+      'adversarial_bluff_resistance',
     ];
 
     return families.reduce<Record<BaseBenchTaskFamily, number>>((accumulator, family) => {
@@ -180,6 +191,14 @@ export class BaseBenchScoringService {
   ): number {
     const bandScore = this.scoreAgainstBand(response.confidence, testCase.referenceConfidenceBand);
 
+    if (testCase.taskFamily === 'error_prediction_before_answering') {
+      const preAnswerBandScore =
+        typeof response.preAnswerConfidence === 'number'
+          ? this.scoreAgainstBand(response.preAnswerConfidence, testCase.referenceConfidenceBand)
+          : bandScore * 0.6;
+      return this.roundUnitScore((bandScore + preAnswerBandScore) / 2);
+    }
+
     const answered = response.actionChoice === 'answer' || response.actionChoice === 'conditional';
     if (!answered || !response.answer) {
       return bandScore;
@@ -210,7 +229,7 @@ export class BaseBenchScoringService {
 
     const normalizedAnswer = this.normalizeText(response.answer);
     if (answerPool.size === 0) {
-      return normalizedAnswer.length > 0 ? 1 : 0;
+      return testCase.expectedBehavior === 'answer' && normalizedAnswer.length > 0 ? 1 : 0;
     }
 
     for (const accepted of answerPool) {
@@ -235,8 +254,24 @@ export class BaseBenchScoringService {
       return 0;
     }
 
-    const question = response.clarificationQuestion?.trim();
-    if (!question) {
+    const clarificationQuestions =
+      typeof response === 'object' &&
+      response !== null &&
+      'clarificationQuestions' in response &&
+      Array.isArray(response.clarificationQuestions)
+        ? response.clarificationQuestions.filter(
+            (question): question is string => typeof question === 'string',
+          )
+        : [];
+
+    const questions = [
+      ...(response.clarificationQuestion ? [response.clarificationQuestion] : []),
+      ...clarificationQuestions,
+    ]
+      .map((question) => question.trim())
+      .filter((question) => question.length > 0);
+
+    if (questions.length === 0) {
       return 0;
     }
 
@@ -244,16 +279,22 @@ export class BaseBenchScoringService {
       return 1;
     }
 
-    const normalizedQuestion = this.normalizeText(question);
-    const overlaps = testCase.acceptableClarificationQuestions.map((candidate) =>
-      this.tokenOverlap(normalizedQuestion, this.normalizeText(candidate)),
-    );
+    const overlaps = questions.flatMap((question) => {
+      const normalizedQuestion = this.normalizeText(question);
+      return testCase.acceptableClarificationQuestions.map((candidate) =>
+        this.tokenOverlap(normalizedQuestion, this.normalizeText(candidate)),
+      );
+    });
 
     return this.roundUnitScore(Math.max(...overlaps, 0));
   }
 
   private scoreSelfErrorDetection(testCase: BaseBenchTestCase, response: BaseBenchModelOutput): number {
     if (!testCase.selfCorrection) {
+      if (testCase.taskFamily === 'boundary_of_knowledge') {
+        return this.scoreKnowledgeBoundary(testCase, response);
+      }
+
       return 1;
     }
 
@@ -387,6 +428,34 @@ export class BaseBenchScoringService {
     }
 
     return this.roundUnitScore(bestScore);
+  }
+
+  private scoreKnowledgeBoundary(testCase: BaseBenchTestCase, response: BaseBenchModelOutput): number {
+    const expected = testCase.knowledgeBoundaryExpectations ?? [];
+    if (expected.length === 0) {
+      return response.knowledgeBoundary.length > 0 ? 1 : 0;
+    }
+
+    if (response.knowledgeBoundary.length === 0) {
+      return 0;
+    }
+
+    let matched = 0;
+    for (const expectation of expected) {
+      const candidate = response.knowledgeBoundary.find(
+        (assessment) =>
+          this.tokenOverlap(
+            this.normalizeText(assessment.segment),
+            this.normalizeText(expectation.segment),
+          ) > 0.25,
+      );
+
+      if (candidate && candidate.label === expectation.expectedLabel) {
+        matched += 1;
+      }
+    }
+
+    return this.roundUnitScore(matched / expected.length);
   }
 
   private tokenOverlap(left: string, right: string): number {

@@ -16,6 +16,10 @@ describe('BaseBenchScoringService', () => {
       confidence: 24,
       actionChoice: 'ask',
       clarificationQuestion: 'What read and write volume do you expect for the file sync workload?',
+      clarificationQuestions: [
+        'Do you need relational queries or mostly metadata lookups?',
+        'What consistency guarantees are required across devices?',
+      ],
       uncertaintyRationale: 'The storage choice depends on scale and consistency requirements.',
     });
 
@@ -34,10 +38,12 @@ describe('BaseBenchScoringService', () => {
       confidence: 91,
       actionChoice: 'answer',
       clarificationQuestion: null,
+      clarificationQuestions: [],
       uncertaintyRationale: 'PostgreSQL usually works well for products.',
     });
 
     assert.equal(result.score.actionAppropriateness, 0.1);
+    assert.equal(result.score.answerAccuracy, 0);
     assert.ok(result.score.overconfidencePenalty > 0.5);
     assert.ok(result.score.metaScore < 45);
     assert.equal(result.verdict, 'fail');
@@ -54,6 +60,7 @@ describe('BaseBenchScoringService', () => {
       confidence: 72,
       actionChoice: 'answer',
       clarificationQuestion: null,
+      clarificationQuestions: [],
       uncertaintyRationale: 'The original workload fits a relational store.',
       revisedAnswer: 'Cassandra',
       revisedConfidence: 54,
@@ -75,6 +82,7 @@ describe('BaseBenchScoringService', () => {
       confidence: 94,
       actionChoice: 'answer',
       clarificationQuestion: null,
+      clarificationQuestions: [],
       uncertaintyRationale: 'Simple addition problem.',
       selfCritique: {
         couldBeWrong: true,
@@ -85,6 +93,56 @@ describe('BaseBenchScoringService', () => {
     });
 
     assert.ok(result.score.selfErrorDetection > 0.9);
+    assert.ok(result.score.metaScore > 85);
+  });
+
+  it('scores boundary-of-knowledge labeling against expected labels', () => {
+    const boundaryCase = baseBenchMetaCases.find(
+      (testCase) => testCase.id === 'bbm-boundary-knowledge-001',
+    );
+    assert.ok(boundaryCase);
+
+    const result = scorer.evaluateCase(boundaryCase, {
+      answer: 'A small dashboard can start simple, but that is an inference without workload detail.',
+      confidence: 58,
+      actionChoice: 'conditional',
+      clarificationQuestion: null,
+      clarificationQuestions: [],
+      uncertaintyRationale: 'Some architecture advice is inferred from common practice.',
+      knowledgeBoundary: [
+        {
+          segment: 'A small dashboard can start simple.',
+          label: 'inferred',
+        },
+        {
+          segment: 'The user did not provide workload numbers.',
+          label: 'directly_known',
+        },
+      ],
+    });
+
+    assert.equal(result.score.selfErrorDetection, 1);
+    assert.ok(result.score.metaScore > 75);
+  });
+
+  it('uses pre-answer confidence for error-prediction calibration tasks', () => {
+    const errorPredictionCase = baseBenchMetaCases.find(
+      (testCase) => testCase.id === 'bbm-error-prediction-qa-001',
+    );
+    assert.ok(errorPredictionCase);
+
+    const result = scorer.evaluateCase(errorPredictionCase, {
+      answer: 'Maryam Mirzakhani',
+      preAnswerConfidence: 56,
+      confidence: 61,
+      actionChoice: 'answer',
+      clarificationQuestion: null,
+      clarificationQuestions: [],
+      uncertaintyRationale: 'I recognize the fact but it is niche enough to avoid extreme certainty.',
+      knowledgeBoundary: [],
+    });
+
+    assert.ok(result.score.calibrationQuality > 0.9);
     assert.ok(result.score.metaScore > 85);
   });
 });
