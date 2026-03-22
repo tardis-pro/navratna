@@ -33,7 +33,7 @@
     "events": "^3.3.0",
     "gray-matter": "^4.0.3",
     "helmet": "catalog:backend",
-    "node-cron": "^4.1.0",
+    "node-cron": "^4.2.1",
     "prom-client": "catalog:backend",
     "typeorm": "^0.3.25",
     "ws": "catalog:backend",
