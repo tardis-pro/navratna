@@ -24,7 +24,8 @@ export const WORKFLOW_TEMPLATES: WorkflowTemplate[] = [
   {
     id: 'onboard-new-project',
     name: 'Onboard New Project',
-    description: 'Create a project workspace, import documentation, analyze the codebase, and generate a summary.',
+    description:
+      'Create a project workspace, import documentation, analyze the codebase, and generate a summary.',
     triggerPatterns: [
       /\bonboard\b.*\bproject\b/i,
       /\bnew\s+project\b.*\bsetup\b/i,
@@ -74,7 +75,8 @@ export const WORKFLOW_TEMPLATES: WorkflowTemplate[] = [
   {
     id: 'deploy-service',
     name: 'Deploy Service',
-    description: 'Run the test suite, build artifacts, deploy to target environment, verify health, and notify stakeholders.',
+    description:
+      'Run the test suite, build artifacts, deploy to target environment, verify health, and notify stakeholders.',
     triggerPatterns: [
       /\bdeploy\b.*\bservice\b/i,
       /\bdeploy\b.*\bapplication\b/i,
@@ -182,7 +184,8 @@ export const WORKFLOW_TEMPLATES: WorkflowTemplate[] = [
   {
     id: 'create-feature',
     name: 'Create Feature',
-    description: 'Write specification, create branch, implement code, run tests, and open a pull request.',
+    description:
+      'Write specification, create branch, implement code, run tests, and open a pull request.',
     triggerPatterns: [
       /\bcreate\b.*\bfeature\b/i,
       /\bimplement\b.*\bfeature\b/i,
@@ -240,7 +243,8 @@ export const WORKFLOW_TEMPLATES: WorkflowTemplate[] = [
   {
     id: 'security-audit',
     name: 'Security Audit',
-    description: 'Scan dependencies, check authentication, review permissions, and generate a security report.',
+    description:
+      'Scan dependencies, check authentication, review permissions, and generate a security report.',
     triggerPatterns: [
       /\bsecurity\b.*\baudit\b/i,
       /\baudit\b.*\bsecurity\b/i,
@@ -289,7 +293,8 @@ export const WORKFLOW_TEMPLATES: WorkflowTemplate[] = [
   {
     id: 'data-migration',
     name: 'Data Migration',
-    description: 'Backup existing data, transform schema, migrate records, validate integrity, and perform cutover.',
+    description:
+      'Backup existing data, transform schema, migrate records, validate integrity, and perform cutover.',
     triggerPatterns: [
       /\bdata\b.*\bmigrat\w*\b/i,
       /\bmigrat\w*\b.*\bdata\b/i,
@@ -346,7 +351,8 @@ export const WORKFLOW_TEMPLATES: WorkflowTemplate[] = [
   {
     id: 'code-review',
     name: 'Code Review',
-    description: 'Analyze diff, check code style, verify tests, inspect for security issues, and summarize findings.',
+    description:
+      'Analyze diff, check code style, verify tests, inspect for security issues, and summarize findings.',
     triggerPatterns: [
       /\bcode\b.*\breview\b/i,
       /\breview\b.*\b(pr|pull\s*request|code|diff)\b/i,
@@ -402,7 +408,8 @@ export const WORKFLOW_TEMPLATES: WorkflowTemplate[] = [
   {
     id: 'stakeholder-update',
     name: 'Stakeholder Update',
-    description: 'Gather metrics, compile progress data, draft an update, and send to stakeholders.',
+    description:
+      'Gather metrics, compile progress data, draft an update, and send to stakeholders.',
     triggerPatterns: [
       /\bstakeholder\b.*\bupdate\b/i,
       /\bprogress\b.*\b(report|update)\b/i,

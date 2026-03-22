@@ -21,9 +21,7 @@ compatibility_flags = ["nodejs_compat"]
 # =============================================================================
 [env.production]
 name = "navratna-api-gateway"
-routes = [
-  { pattern = "api.navratna.app/*", zone_name = "navratna.app" }
-]
+routes = [{ pattern = "api.navratna.app/*", zone_name = "navratna.app" }]
 
 # Backend service URLs (set in Cloudflare dashboard or via secrets)
 [env.production.vars]
@@ -54,9 +52,7 @@ simple = { limit = 100, period = 60 }
 # =============================================================================
 [env.staging]
 name = "navratna-api-gateway-staging"
-routes = [
-  { pattern = "api-staging.navratna.app/*", zone_name = "navratna.app" }
-]
+routes = [{ pattern = "api-staging.navratna.app/*", zone_name = "navratna.app" }]
 
 [env.staging.vars]
 ENVIRONMENT = "staging"

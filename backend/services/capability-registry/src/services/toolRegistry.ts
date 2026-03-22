@@ -4,15 +4,15 @@
 
 import { ToolDefinition, ToolUsageRecord, ToolCategory, SecurityLevel } from '@uaip/types';
 import {
-  ToolDatabase,
+  _ToolDatabase,
   ToolRelationship,
   ToolRecommendation,
   ToolService,
-  serviceFactory,
+  _serviceFactory,
 } from '@uaip/shared-services';
 import { EventBusService } from '@uaip/infra/eventBus';
 import { logger } from '@uaip/utils';
-import { config } from '@uaip/config';
+import { _config } from '@uaip/config';
 import { z } from 'zod';
 
 // Define AgentCapabilityMetric interface locally since it's not exported from types
@@ -89,9 +89,9 @@ export class ToolRegistry {
   }
 
   // Handle dynamic tool registration from MCP servers
-  private async handleToolRegistration(event: any): Promise<void> {
+  private async handleToolRegistration(event: unknown): Promise<void> {
     try {
-      const { tool, source, serverName } = event;
+      const { tool, source, _serverName } = event;
       logger.info(`Registering tool from ${source}: ${tool.id}`);
 
       // Register the tool with enhanced metadata
@@ -110,13 +110,14 @@ export class ToolRegistry {
   }
 
   // Handle OAuth provider capabilities
-  private async handleOAuthCapabilities(event: any): Promise<void> {
+  private async handleOAuthCapabilities(event: unknown): Promise<void> {
     try {
       const { provider, capabilities } = event;
 
       for (const capability of capabilities) {
         const toolId = `oauth-${provider}-${capability.action}`;
 
+        // eslint-disable-next-line no-await-in-loop -- sequential processing required
         await this.registerTool({
           id: toolId,
           name: capability.name,
@@ -167,7 +168,7 @@ export class ToolRegistry {
         name: validatedTool.name,
         displayName: validatedTool.name, // Use name as displayName
         description: validatedTool.description,
-        category: validatedTool.category as any,
+        category: validatedTool.category as unknown,
         isEnabled: validatedTool.isEnabled,
         version: validatedTool.version,
         inputSchema: validatedTool.parameters,
@@ -204,7 +205,7 @@ export class ToolRegistry {
 
       // Update node in Neo4j
       // Transform and update node in Neo4j
-      const transformedUpdates = this.transformValidatedToToolDefinition(validatedUpdates);
+      const _transformedUpdates = this.transformValidatedToToolDefinition(validatedUpdates);
       // Neo4j operations now handled by knowledge graph service
       logger.debug('Tool node update requested', { toolId: validatedId });
 
@@ -213,7 +214,7 @@ export class ToolRegistry {
       const toolRepo = this.toolService.getToolRepository();
 
       // Transform the updates to match entity types
-      const entityUpdates: any = {
+      const entityUpdates: unknown = {
         updatedAt: new Date(),
       };
 
@@ -300,7 +301,7 @@ export class ToolRegistry {
       return null;
     } catch (error) {
       logger.error(`Error looking up tool ${toolName}:`, error);
-      throw new Error(`Failed to lookup tool: ${toolName}`);
+      throw new Error(`Failed to lookup tool: ${toolName}`, { cause: error });
     }
   }
 
@@ -347,9 +348,9 @@ export class ToolRegistry {
 
   // Graph-Enhanced Features
   async getRelatedTools(
-    toolId: string,
-    relationshipTypes?: string[],
-    minStrength = 0.5
+    _toolId: string,
+    _relationshipTypes?: string[],
+    _minStrength = 0.5
   ): Promise<ToolDefinition[]> {
     // Get related tool IDs from Neo4j
     const relatedTools: ToolDefinition[] = []; // TODO: Implement with knowledge graph service
@@ -382,7 +383,7 @@ export class ToolRegistry {
     }
 
     // Create the relationship object with validated data
-    const relationshipData: ToolRelationship = {
+    const _relationshipData: ToolRelationship = {
       type: validatedRelationship.type,
       strength: validatedRelationship.strength,
       reason: validatedRelationship.reason,
@@ -429,21 +430,21 @@ export class ToolRegistry {
   }
 
   async findSimilarTools(
-    toolId: string,
-    minSimilarity = 0.6,
-    limit = 5
+    _toolId: string,
+    _minSimilarity = 0.6,
+    _limit = 5
   ): Promise<ToolRecommendation[]> {
     return []; // TODO: Implement with knowledge graph service
   }
 
-  async getToolDependencies(toolId: string): Promise<string[]> {
+  async getToolDependencies(_toolId: string): Promise<string[]> {
     return []; // TODO: Implement with knowledge graph service
   }
 
   // Analytics and Insights
-  async getUsageStats(toolId?: string, agentId?: string, days = 30): Promise<any[]> {
+  async getUsageStats(toolId?: string, agentId?: string, days = 30): Promise<unknown[]> {
     await this.ensureInitialized();
-    const filters: any = { days };
+    const filters: unknown = { days };
     if (toolId) filters.toolId = toolId;
     if (agentId) filters.agentId = agentId;
     // Use ToolService for usage stats
@@ -451,15 +452,15 @@ export class ToolRegistry {
     return await usageRepo.getToolUsageStats(filters);
   }
 
-  async getToolUsageAnalytics(toolId?: string, agentId?: string): Promise<any[]> {
+  async getToolUsageAnalytics(_toolId?: string, _agentId?: string): Promise<unknown[]> {
     return []; // TODO: Implement with knowledge graph service
   }
 
-  async getPopularTools(category?: string, limit = 10): Promise<any[]> {
+  async getPopularTools(_category?: string, _limit = 10): Promise<unknown[]> {
     return []; // TODO: Implement with knowledge graph service
   }
 
-  async getAgentToolPreferences(agentId: string): Promise<any[]> {
+  async getAgentToolPreferences(_agentId: string): Promise<unknown[]> {
     return []; // TODO: Implement with knowledge graph service
   }
 
@@ -544,10 +545,10 @@ export class ToolRegistry {
     executionTime: number,
     success: boolean,
     cost?: number,
-    metadata?: any
+    metadata?: unknown
   ): Promise<void> {
     try {
-      const usageRecord: Partial<ToolUsageRecord> = {
+      const _usageRecord: Partial<ToolUsageRecord> = {
         toolId,
         agentId,
         duration: executionTime,
@@ -605,7 +606,7 @@ export class ToolRegistry {
       const usageRepo = this.toolService.getToolUsageRepository();
       const stats = await usageRepo.getToolUsageStats({ agentId });
       // Transform to expected format
-      return stats.map((stat: any) => ({
+      return stats.map((stat: unknown) => ({
         id: `${stat.agentId}_${stat.toolId}`,
         agentId: stat.agentId,
         toolId: stat.toolId,
@@ -624,7 +625,7 @@ export class ToolRegistry {
     }
   }
 
-  async getToolUsageStats(toolId: string, days = 30): Promise<any> {
+  async getToolUsageStats(toolId: string, days = 30): Promise<unknown> {
     try {
       // Get tool usage stats through ToolService
       const usageRepo = this.toolService.getToolUsageRepository();
@@ -635,7 +636,7 @@ export class ToolRegistry {
     }
   }
 
-  private transformEntityToInterface(entity: any): ToolDefinition {
+  private transformEntityToInterface(entity: unknown): ToolDefinition {
     return {
       ...entity,
       // Transform ToolSecurityLevel to SecurityLevel if needed
@@ -645,7 +646,7 @@ export class ToolRegistry {
     };
   }
 
-  private mapToolSecurityLevelToSecurityLevel(toolSecurityLevel: any): SecurityLevel {
+  private mapToolSecurityLevelToSecurityLevel(toolSecurityLevel: unknown): SecurityLevel {
     // If it's already a SecurityLevel, return as is
     if (Object.values(SecurityLevel).includes(toolSecurityLevel)) {
       return toolSecurityLevel;
@@ -662,7 +663,7 @@ export class ToolRegistry {
     return mapping[toolSecurityLevel] || SecurityLevel.MEDIUM;
   }
 
-  private mapStringToToolCategory(category: any): ToolCategory {
+  private mapStringToToolCategory(category: unknown): ToolCategory {
     // If it's already a ToolCategory, return as is
     if (Object.values(ToolCategory).includes(category)) {
       return category;
@@ -687,8 +688,8 @@ export class ToolRegistry {
     return mapping[category] || ToolCategory.API;
   }
 
-  private transformValidatedToToolDefinition(validatedTool: any): Partial<ToolDefinition> {
-    const transformed: any = { ...validatedTool };
+  private transformValidatedToToolDefinition(validatedTool: unknown): Partial<ToolDefinition> {
+    const transformed: unknown = { ...validatedTool };
 
     // Transform category string to ToolCategory enum
     if (transformed.category) {
@@ -722,7 +723,7 @@ export class ToolRegistry {
 
     // Transform examples to proper ToolExample format
     if (transformed.examples && Array.isArray(transformed.examples)) {
-      transformed.examples = transformed.examples.map((example: any, index: number) => ({
+      transformed.examples = transformed.examples.map((example: unknown, index: number) => ({
         name: example.name || `Example ${index + 1}`,
         description: example.description || `Example usage ${index + 1}`,
         input: example.input || example.parameters || {},

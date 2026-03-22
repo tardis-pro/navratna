@@ -7,17 +7,17 @@ import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import {
   Sword,
   Trophy,
-  Users,
+  _Users,
   Eye,
-  Clock,
-  Zap,
+  _Clock,
+  _Zap,
   Crown,
   Target,
-  MessageSquare,
+  _MessageSquare,
   Share2,
   Heart,
-  Play,
-  Pause,
+  _Play,
+  _Pause,
 } from 'lucide-react';
 import { Battle, BattleType, BattleStatus, BattleParticipantRole } from '@uaip/types';
 
@@ -30,7 +30,7 @@ export const BattleArena: React.FC<BattleArenaProps> = ({ onCreateBattle, onJoin
   const [liveBattles, setLiveBattles] = useState<Battle[]>([]);
   const [upcomingBattles, setUpcomingBattles] = useState<Battle[]>([]);
   const [selectedBattle, setSelectedBattle] = useState<Battle | null>(null);
-  const [spectatorMode, setSpectatorMode] = useState(false);
+  const [_spectatorMode, _setSpectatorMode] = useState(false);
 
   // Mock battle data
   useEffect(() => {
@@ -101,7 +101,7 @@ export const BattleArena: React.FC<BattleArenaProps> = ({ onCreateBattle, onJoin
           spectatorBetting: true,
           prizePool: 500,
           entryFee: 50,
-          skillLevel: 'expert' as any,
+          skillLevel: 'expert' as unknown,
           tags: ['coding', 'frontend', 'frameworks'],
         },
         prizePool: 500,
@@ -155,7 +155,7 @@ export const BattleArena: React.FC<BattleArenaProps> = ({ onCreateBattle, onJoin
           spectatorBetting: false,
           prizePool: 250,
           entryFee: 25,
-          skillLevel: 'intermediate' as any,
+          skillLevel: 'intermediate' as unknown,
           tags: ['creative', 'storytelling', 'writing'],
         },
         judgingCriteria: [],
@@ -235,7 +235,7 @@ export const BattleArena: React.FC<BattleArenaProps> = ({ onCreateBattle, onJoin
             <h4 className="font-semibold text-sm">Competitors:</h4>
             {battle.participants
               .filter((p) => p.role === BattleParticipantRole.COMPETITOR)
-              .map((participant, index) => (
+              .map((participant, _index) => (
                 <div
                   key={participant.id}
                   className="flex items-center justify-between p-3 bg-white rounded-lg border"

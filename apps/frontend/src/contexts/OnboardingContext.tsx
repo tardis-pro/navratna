@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
 import { useAuth } from './AuthContext';
 import { userPersonaAPI } from '../api/user-persona.api';
 
@@ -13,7 +13,7 @@ interface OnboardingState {
 interface OnboardingContextType extends OnboardingState {
   startOnboarding: () => void;
   completeWelcome: () => void;
-  completeOnboarding: (personaData: any) => Promise<void>;
+  completeOnboarding: (personaData: unknown) => Promise<void>;
   skipOnboarding: () => void;
   restartOnboarding: () => void;
   checkOnboardingStatus: () => Promise<void>;
@@ -41,7 +41,7 @@ export const OnboardingProvider: React.FC<OnboardingProviderProps> = ({ children
     if (!user) return false;
 
     // For testing - always show onboarding for now
-    console.log('🧪 TESTING: Forcing onboarding to show');
+
     return true;
 
     // try {
@@ -133,7 +133,7 @@ export const OnboardingProvider: React.FC<OnboardingProviderProps> = ({ children
     }));
   }, []);
 
-  const completeOnboarding = useCallback(async (personaData: any) => {
+  const completeOnboarding = useCallback(async (personaData: unknown) => {
     try {
       // Save persona data to backend
       await userPersonaAPI.completeOnboarding(personaData);
@@ -199,15 +199,26 @@ export const OnboardingProvider: React.FC<OnboardingProviderProps> = ({ children
     });
   }, []);
 
-  const contextValue: OnboardingContextType = {
-    ...state,
-    startOnboarding,
-    completeWelcome,
-    completeOnboarding,
-    skipOnboarding,
-    restartOnboarding,
-    checkOnboardingStatus,
-  };
+  const contextValue: OnboardingContextType = useMemo(
+    () => ({
+      ...state,
+      startOnboarding,
+      completeWelcome,
+      completeOnboarding,
+      skipOnboarding,
+      restartOnboarding,
+      checkOnboardingStatus,
+    }),
+    [
+      state,
+      startOnboarding,
+      completeWelcome,
+      completeOnboarding,
+      skipOnboarding,
+      restartOnboarding,
+      checkOnboardingStatus,
+    ]
+  );
 
   return <OnboardingContext.Provider value={contextValue}>{children}</OnboardingContext.Provider>;
 };

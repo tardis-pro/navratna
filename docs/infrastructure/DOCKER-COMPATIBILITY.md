@@ -2,15 +2,16 @@
 
 ## Version Requirements
 
-| Component | Minimum | Recommended | Notes |
-|-----------|---------|-------------|-------|
-| Docker Engine | 24.0 | 27.0+ | Required for containerd 1.7+ |
-| Docker Compose | 2.24 | 2.30+ | V2 plugin recommended |
-| Compose Specification | 2024.04 | Latest | Use `docker compose` (V2) |
+| Component             | Minimum | Recommended | Notes                        |
+| --------------------- | ------- | ----------- | ---------------------------- |
+| Docker Engine         | 24.0    | 27.0+       | Required for containerd 1.7+ |
+| Docker Compose        | 2.24    | 2.30+       | V2 plugin recommended        |
+| Compose Specification | 2024.04 | Latest      | Use `docker compose` (V2)    |
 
 ## Common Issues and Fixes
 
 ### Issue 1: "network mode not supported"
+
 **Solution:** Use `bridge` network driver explicitly in compose files.
 
 ```yaml
@@ -20,6 +21,7 @@ networks:
 ```
 
 ### Issue 2: "version is obsolete"
+
 **Solution:** Remove `version:` field from compose files. Compose V2 auto-detects specification version.
 
 ```yaml
@@ -32,6 +34,7 @@ services:
 ```
 
 ### Issue 3: GPU access denied
+
 **Solution:** Ensure NVIDIA Container Toolkit is installed.
 
 ```bash
@@ -52,6 +55,7 @@ sudo systemctl restart docker
 ```
 
 ### Issue 4: `docker compose` vs `docker-compose`
+
 Both V1 and V2 commands work with Navratna compose files:
 
 ```bash
@@ -85,28 +89,29 @@ docker run --rm --gpus all nvidia/cuda:12.4-runtime-ubuntu22.04 nvidia-smi
 
 For macOS development, either works:
 
-| | Docker Desktop | OrbStack |
-|---|---|---|
-| RAM usage | 6GB+ idle | ~1GB idle |
-| GPU pass-through | Limited | None |
-| Performance | Good | Excellent |
-| Cost | Free (personal) | Free (personal) |
+|                  | Docker Desktop  | OrbStack        |
+| ---------------- | --------------- | --------------- |
+| RAM usage        | 6GB+ idle       | ~1GB idle       |
+| GPU pass-through | Limited         | None            |
+| Performance      | Good            | Excellent       |
+| Cost             | Free (personal) | Free (personal) |
 
 ### OrbStack Note
+
 OrbStack does not support GPU pass-through. For Ollama with GPU inference, use Docker Desktop or run Ollama natively on the host.
 
 ## Service Port Reference
 
-| Service | Port | Protocol |
-|---------|------|----------|
-| PostgreSQL | 5432 | TCP |
-| Neo4j HTTP | 7474 | HTTP |
-| Neo4j Bolt | 7687 | Bolt |
-| Redis | 6379 | TCP |
-| Qdrant HTTP | 6333 | HTTP |
-| Qdrant gRPC | 6334 | gRPC |
-| Ollama | 11434 | HTTP |
-| Navratna Core | 3001 | HTTP |
-| Navratna Gateway | 3002 | HTTP |
-| Nginx | 8081 | HTTP |
-| Telescope | 5173 | HTTP |
+| Service          | Port  | Protocol |
+| ---------------- | ----- | -------- |
+| PostgreSQL       | 5432  | TCP      |
+| Neo4j HTTP       | 7474  | HTTP     |
+| Neo4j Bolt       | 7687  | Bolt     |
+| Redis            | 6379  | TCP      |
+| Qdrant HTTP      | 6333  | HTTP     |
+| Qdrant gRPC      | 6334  | gRPC     |
+| Ollama           | 11434 | HTTP     |
+| Navratna Core    | 3001  | HTTP     |
+| Navratna Gateway | 3002  | HTTP     |
+| Nginx            | 8081  | HTTP     |
+| Telescope        | 5173  | HTTP     |

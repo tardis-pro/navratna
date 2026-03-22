@@ -344,6 +344,7 @@ export class ExpertiseAnalyzerService {
       // Analyze each participant
       for (const participant of eligibleParticipants) {
         try {
+          // oxlint-disable-next-line no-await-in-loop
           const profile = await this.analyzeParticipant(
             participant,
             participantMessages[participant],
@@ -385,7 +386,9 @@ export class ExpertiseAnalyzerService {
       return profiles;
     } catch (error) {
       logger.error('Expertise analysis failed', { error: error.message });
-      throw new Error(`Expertise analysis failed: ${error.message}`);
+      const wrappedError = new Error(`Expertise analysis failed: ${error.message}`);
+      (wrappedError as Error & { cause?: unknown }).cause = error;
+      throw wrappedError;
     }
   }
 
@@ -426,12 +429,19 @@ export class ExpertiseAnalyzerService {
           domain,
           level,
           confidence,
+          // oxlint-disable-next-line no-await-in-loop
           indicators: await this.analyzeExpertiseIndicators(domainEvidence[domain]),
+          // oxlint-disable-next-line no-await-in-loop
           skills: await this.extractSkills(domainEvidence[domain], domain),
+          // oxlint-disable-next-line no-await-in-loop
           knowledge: await this.assessKnowledgeAreas(domainEvidence[domain], domain),
+          // oxlint-disable-next-line no-await-in-loop
           experience: await this.extractExperienceEvidence(domainEvidence[domain], domain),
+          // oxlint-disable-next-line no-await-in-loop
           teaching: await this.extractTeachingEvidence(domainEvidence[domain]),
+          // oxlint-disable-next-line no-await-in-loop
           problemSolving: await this.extractProblemSolvingEvidence(domainEvidence[domain]),
+          // oxlint-disable-next-line no-await-in-loop
           mentoring: await this.extractMentoringEvidence(domainEvidence[domain]),
         });
       }
@@ -450,6 +460,7 @@ export class ExpertiseAnalyzerService {
     let weightedEvidence = 0;
 
     for (const item of evidence) {
+      // oxlint-disable-next-line no-await-in-loop
       const indicatorScores = await this.analyzeExpertiseIndicators([item]);
       const itemScore =
         indicatorScores.reduce((sum, indicator) => sum + indicator.strength, 0) /
@@ -523,6 +534,7 @@ export class ExpertiseAnalyzerService {
 
     // Learning opportunity recommendations
     for (const profile of profiles) {
+      // oxlint-disable-next-line no-await-in-loop
       const learningOpps = await this.identifyLearningOpportunities(profile, expertiseGraph);
       recommendations.push(...learningOpps);
     }
@@ -621,7 +633,9 @@ export class ExpertiseAnalyzerService {
   private async analyzeExpertiseIndicators(evidence: string[]): Promise<ExpertiseIndicator[]> {
     const indicators: ExpertiseIndicator[] = [];
 
-    for (const [type, patterns] of Object.entries(this.expertiseIndicators)) {
+    for (const [type, patterns] of Object.entries(this.expertiseIndicators) as Array<
+      [ExpertiseIndicator['type'], RegExp[]]
+    >) {
       const matches: string[] = [];
       let totalStrength = 0;
 
@@ -638,7 +652,7 @@ export class ExpertiseAnalyzerService {
       if (matches.length > 0) {
         const strength = Math.min(1, totalStrength / (evidence.length * 2));
         indicators.push({
-          type: type as any,
+          type,
           strength,
           evidence: [...new Set(matches)].slice(0, 5),
           messageIds: [], // Would be populated with actual message IDs
@@ -929,14 +943,14 @@ export class ExpertiseAnalyzerService {
   }
 
   private async analyzeGrowthTrend(
-    participant: string,
-    conversations: ParsedConversation[]
+    _participant: string,
+    _conversations: ParsedConversation[]
   ): Promise<ExpertiseProfile['metadata']['growthTrend']> {
     // Simple implementation - would analyze expertise over time
     return 'stable';
   }
 
-  private categorizeSkill(skillName: string, domain: string): Skill['category'] {
+  private categorizeSkill(skillName: string, _domain: string): Skill['category'] {
     const technicalPatterns =
       /\b(?:programming|coding|development|framework|language|tool|library|api)\b/i;
     const softPatterns =
@@ -1077,30 +1091,30 @@ export class ExpertiseAnalyzerService {
   }
 
   private async analyzeExpertiseRelationships(
-    profiles: ExpertiseProfile[],
-    conversations: ParsedConversation[]
+    _profiles: ExpertiseProfile[],
+    _conversations: ParsedConversation[]
   ): Promise<void> {
     // This would analyze relationships between participants
     // Implementation would look for mentor-mentee patterns, collaboration patterns, etc.
   }
 
   private async identifyLearningOpportunities(
-    profile: ExpertiseProfile,
-    expertiseGraph: ExpertiseGraph
+    _profile: ExpertiseProfile,
+    _expertiseGraph: ExpertiseGraph
   ): Promise<ExpertiseRecommendation[]> {
     // This would identify learning opportunities for the participant
     return [];
   }
 
   private async identifyMentoringMatches(
-    profiles: ExpertiseProfile[]
+    _profiles: ExpertiseProfile[]
   ): Promise<ExpertiseRecommendation[]> {
     // This would identify potential mentor-mentee matches
     return [];
   }
 
   private async identifyCollaborationOpportunities(
-    profiles: ExpertiseProfile[]
+    _profiles: ExpertiseProfile[]
   ): Promise<ExpertiseRecommendation[]> {
     // This would identify collaboration opportunities
     return [];

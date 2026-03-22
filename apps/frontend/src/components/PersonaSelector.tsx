@@ -200,8 +200,8 @@ export const PersonaSelector: React.FC<PersonaSelectorProps> = ({
 
     try {
       await onSelectPersona(persona);
-    } catch (error) {
-      console.error('Failed to select persona:', error);
+    } catch (err) {
+      console.error('Failed to select persona:', err);
       alert('Failed to create agent with this persona. Please try again.');
     }
   };

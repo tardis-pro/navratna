@@ -59,10 +59,10 @@ import {
   Clock,
   CheckCircle,
   AlertTriangle,
-  TrendingUp,
+  _TrendingUp,
   Activity,
-  Calendar,
-  Filter,
+  _Calendar,
+  _Filter,
   Download,
   Settings,
 } from 'lucide-react';
@@ -110,7 +110,7 @@ const Button: React.FC<{
 
 export const ProjectTaskManager: React.FC<ProjectTaskManagerProps> = ({ projectId }) => {
   const queryClient = useQueryClient();
-  const [selectedFilters, setSelectedFilters] = useState<TaskFilters>({});
+  const [selectedFilters, _setSelectedFilters] = useState<TaskFilters>({});
   const [assignmentModalOpen, setAssignmentModalOpen] = useState(false);
   const [selectedTaskForAssignment, setSelectedTaskForAssignment] = useState<string | null>(null);
   const [showQuickCreateTask, setShowQuickCreateTask] = useState(false);
@@ -124,7 +124,7 @@ export const ProjectTaskManager: React.FC<ProjectTaskManagerProps> = ({ projectI
     ...useTasksQuery(projectId, selectedFilters),
   });
 
-  const { data: statisticsData, isLoading: statsLoading } = useQuery({
+  const { data: statisticsData, isLoading: _statsLoading } = useQuery({
     ...useTaskStatisticsQuery(projectId),
   });
 
@@ -141,7 +141,7 @@ export const ProjectTaskManager: React.FC<ProjectTaskManagerProps> = ({ projectI
       queryClient.invalidateQueries({ queryKey: ['taskStatistics', projectId] });
       toast.success('Task created successfully');
     },
-    onError: (error: any) => {
+    onError: (error: unknown) => {
       toast.error('Failed to create task: ' + (error.response?.data?.error || error.message));
     },
   });
@@ -154,7 +154,7 @@ export const ProjectTaskManager: React.FC<ProjectTaskManagerProps> = ({ projectI
       queryClient.invalidateQueries({ queryKey: ['taskStatistics', projectId] });
       toast.success('Task updated successfully');
     },
-    onError: (error: any) => {
+    onError: (error: unknown) => {
       toast.error('Failed to update task: ' + (error.response?.data?.error || error.message));
     },
   });
@@ -166,7 +166,7 @@ export const ProjectTaskManager: React.FC<ProjectTaskManagerProps> = ({ projectI
       queryClient.invalidateQueries({ queryKey: ['taskStatistics', projectId] });
       toast.success('Task deleted successfully');
     },
-    onError: (error: any) => {
+    onError: (error: unknown) => {
       toast.error('Failed to delete task: ' + (error.response?.data?.error || error.message));
     },
   });
@@ -180,17 +180,17 @@ export const ProjectTaskManager: React.FC<ProjectTaskManagerProps> = ({ projectI
       setSelectedTaskForAssignment(null);
       toast.success('Task assigned successfully');
     },
-    onError: (error: any) => {
+    onError: (error: unknown) => {
       toast.error('Failed to assign task: ' + (error.response?.data?.error || error.message));
     },
   });
 
   // Event handlers
-  const handleTaskCreate = async (taskData: any) => {
+  const handleTaskCreate = async (taskData: unknown) => {
     await createTaskMutation.mutateAsync(taskData);
   };
 
-  const handleTaskUpdate = async (taskId: string, updates: any) => {
+  const handleTaskUpdate = async (taskId: string, updates: unknown) => {
     await updateTaskMutation.mutateAsync({ taskId, updates });
   };
 
@@ -217,7 +217,7 @@ export const ProjectTaskManager: React.FC<ProjectTaskManagerProps> = ({ projectI
     return response || [];
   };
 
-  const openAssignmentModal = (taskId: string) => {
+  const _openAssignmentModal = (taskId: string) => {
     setSelectedTaskForAssignment(taskId);
     setAssignmentModalOpen(true);
   };
@@ -636,7 +636,7 @@ export const ProjectTaskManager: React.FC<ProjectTaskManagerProps> = ({ projectI
   }
 
   const selectedTask = selectedTaskForAssignment
-    ? tasksData?.find((task: any) => task.id === selectedTaskForAssignment)
+    ? tasksData?.find((task: unknown) => task.id === selectedTaskForAssignment)
     : null;
 
   return (

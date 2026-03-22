@@ -29,7 +29,7 @@ export class ToolAssignment {
   canRead!: boolean;
 
   @Column('jsonb', { nullable: true })
-  customConfig?: any;
+  customConfig?: Record<string, unknown>;
 
   // MCP-specific fields for selective tool attachment
   @Column({ nullable: true })

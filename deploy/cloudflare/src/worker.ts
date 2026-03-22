@@ -34,8 +34,8 @@ interface Env {
   API_KEY?: string;
 }
 
-// Service routing map
-const SERVICE_ROUTES: Record<string, string> = {
+// Service routing map (for documentation/future use)
+const _SERVICE_ROUTES: Record<string, string> = {
   '/api/v1/auth': '/api/v1/auth',
   '/api/v1/users': '/api/v1/users',
   '/api/v1/security': '/api/v1/security',

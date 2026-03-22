@@ -41,7 +41,7 @@ export class DatabaseService {
   private typeormService: TypeOrmService;
   private isClosing: boolean = false;
   private isInitialized: boolean = false;
-  private pendingEntities: any[] = [];
+  private pendingEntities: unknown[] = [];
   private readonly logger = logger;
 
   private constructor() {
@@ -61,7 +61,7 @@ export class DatabaseService {
     }
   }
 
-  private async initializeConnection(entities: any[] = []): Promise<void> {
+  private async initializeConnection(entities: unknown[] = []): Promise<void> {
     try {
       await this.typeormService.initialize(entities);
       this.isInitialized = true;
@@ -77,11 +77,13 @@ export class DatabaseService {
    * Call this BEFORE any database operations (e.g. before start()).
    * Domain services use this to inject their plane-specific entities.
    */
-  public registerEntities(entities: any[]): void {
+  public registerEntities(entities: unknown[]): void {
     this.pendingEntities = entities;
     // If already initialized with wrong entities, tear down so next access re-initializes
     if (this.isInitialized) {
-      logger.warn('DatabaseService.registerEntities() called after initialization — resetting connection');
+      logger.warn(
+        'DatabaseService.registerEntities() called after initialization — resetting connection'
+      );
       this.isInitialized = false;
       this.typeormService.close().catch(() => {});
     }
@@ -327,7 +329,7 @@ export class DatabaseService {
   /**
    * Execute raw SQL query (use with caution)
    */
-  public async executeQuery<T = any>(query: string, parameters?: any[]): Promise<T[]> {
+  public async executeQuery<T = unknown>(query: string, parameters?: unknown[]): Promise<T[]> {
     await this.ensureInitialized();
     try {
       const result = await this.typeormService.getEntityManager().query(query, parameters);

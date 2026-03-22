@@ -6,7 +6,7 @@ export class OpenAIProvider extends BaseProvider {
     try {
       const url = `${this.config.baseUrl || 'https://api.openai.com'}/v1/chat/completions`;
       const messages = [];
-      console.log(url);
+
       if (request.systemPrompt) {
         messages.push({ role: 'system', content: request.systemPrompt });
       }
@@ -81,18 +81,19 @@ export class OpenAIProvider extends BaseProvider {
       const isCustomProvider =
         this.config.baseUrl && !this.config.baseUrl.includes('api.openai.com');
 
-      let chatModels: any[];
+      let chatModels: Array<Record<string, unknown>>;
       if (isOpenRouterModels || isCustomProvider) {
         // For OpenRouter and custom providers, include all models (they usually only return chat models anyway)
         chatModels = data.data;
       } else {
         // For OpenAI, filter to only chat models
         chatModels = data.data.filter(
-          (model: any) => model.id.includes('gpt') || model.id.includes('chat')
+          (model: Record<string, unknown>) =>
+            (model.id as string).includes('gpt') || (model.id as string).includes('chat')
         );
       }
 
-      return chatModels.map((model: any) => ({
+      return chatModels.map((model: Record<string, unknown>) => ({
         id: model.id,
         name: model.id,
         description: isOpenRouterModels
@@ -107,7 +108,6 @@ export class OpenAIProvider extends BaseProvider {
 
       // If we have an API key, return fallback models, otherwise throw error
       if (this.config.apiKey) {
-        console.log('Returning fallback OpenAI models since API key is available');
         return [
           {
             id: 'gpt-3.5-turbo',
@@ -125,7 +125,7 @@ export class OpenAIProvider extends BaseProvider {
           },
         ];
       } else {
-        throw new Error(`OpenAI connection failed: ${errorMessage}`);
+        throw new Error(`OpenAI connection failed: ${errorMessage}`, { cause: error });
       }
     }
   }

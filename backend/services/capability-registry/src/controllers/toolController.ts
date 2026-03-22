@@ -4,10 +4,10 @@
 
 // Generic request/response interfaces for framework-agnostic controllers
 interface Request {
-  query: Record<string, any>;
-  params: Record<string, any>;
-  body: any;
-  headers: Record<string, any>;
+  query: Record<string, unknown>;
+  params: Record<string, unknown>;
+  body: unknown;
+  headers: Record<string, unknown>;
   url?: string;
   method?: string;
   path?: string;
@@ -15,8 +15,8 @@ interface Request {
 
 interface Response {
   status: (code: number) => Response;
-  json: (data: any) => void;
-  send: (data?: any) => void;
+  json: (data: unknown) => void;
+  send: (data?: unknown) => void;
 }
 
 import { ToolRegistry } from '../services/toolRegistry.js';
@@ -779,8 +779,8 @@ export class ToolController {
     }
   }
 
-  private transformToToolDefinition(validatedTool: any): ToolDefinition {
-    const transformed: any = { ...validatedTool };
+  private transformToToolDefinition(validatedTool: unknown): ToolDefinition {
+    const transformed: unknown = { ...validatedTool };
 
     // Transform category string to ToolCategory enum
     if (transformed.category) {
@@ -814,7 +814,7 @@ export class ToolController {
 
     // Transform examples to proper ToolExample format
     if (transformed.examples && Array.isArray(transformed.examples)) {
-      transformed.examples = transformed.examples.map((example: any, index: number) => ({
+      transformed.examples = transformed.examples.map((example: unknown, index: number) => ({
         name: example.name || `Example ${index + 1}`,
         description: example.description || `Example usage ${index + 1}`,
         input: example.input || example.parameters || {},
@@ -825,8 +825,8 @@ export class ToolController {
     return transformed;
   }
 
-  private transformToPartialToolDefinition(validatedTool: any): Partial<ToolDefinition> {
-    const transformed: any = { ...validatedTool };
+  private transformToPartialToolDefinition(validatedTool: unknown): Partial<ToolDefinition> {
+    const transformed: unknown = { ...validatedTool };
 
     // Transform category string to ToolCategory enum
     if (transformed.category) {
@@ -860,7 +860,7 @@ export class ToolController {
 
     // Transform examples to proper ToolExample format
     if (transformed.examples && Array.isArray(transformed.examples)) {
-      transformed.examples = transformed.examples.map((example: any, index: number) => ({
+      transformed.examples = transformed.examples.map((example: unknown, index: number) => ({
         name: example.name || `Example ${index + 1}`,
         description: example.description || `Example usage ${index + 1}`,
         input: example.input || example.parameters || {},

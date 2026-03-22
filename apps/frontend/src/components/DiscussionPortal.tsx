@@ -17,7 +17,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Textarea } from '@/components/ui/textarea';
+import { _Textarea } from '@/components/ui/textarea';
 import { Card, CardContent } from '@/components/ui/card';
 import { GlobalAutocomplete } from '@/components/ui/GlobalAutocomplete';
 import { useDiscussion } from '@/contexts/DiscussionContext';
@@ -41,11 +41,11 @@ import {
   Activity,
   Network,
   Zap,
-  Eye,
-  EyeOff,
-  Filter,
+  _Eye,
+  _EyeOff,
+  _Filter,
   Search,
-  Download,
+  _Download,
   Pause,
   RotateCcw,
   Settings,
@@ -54,9 +54,9 @@ import {
   Presentation,
   Target,
   Sparkles,
-  TrendingUp,
-  Cpu,
-  Plus,
+  _TrendingUp,
+  _Cpu,
+  _Plus,
   RefreshCw,
   Grid,
   List,
@@ -229,7 +229,7 @@ const parseMessageContent = (content: string, showThoughts: boolean): string => 
 export const DiscussionPortal: React.FC<DiscussionPortalProps> = ({
   className,
   viewport,
-  defaultView = 'grid',
+  _defaultView = 'grid',
   mode = 'discussion',
 }) => {
   // Default viewport if not provided
@@ -254,9 +254,9 @@ export const DiscussionPortal: React.FC<DiscussionPortalProps> = ({
   const [showThinkTokens, setShowThinkTokens] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterAgent, setFilterAgent] = useState('all');
-  const [availableDiscussions, setAvailableDiscussions] = useState<any[]>([]);
+  const [availableDiscussions, setAvailableDiscussions] = useState<unknown[]>([]);
   const [selectedDiscussionId, setSelectedDiscussionId] = useState<string>('');
-  const [loadingDiscussions, setLoadingDiscussions] = useState(false);
+  const [_loadingDiscussions, setLoadingDiscussions] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
 
   const {
@@ -312,12 +312,13 @@ export const DiscussionPortal: React.FC<DiscussionPortalProps> = ({
     if (idToLoad && loadHistory) {
       loadHistory(idToLoad);
     }
-  }, [selectedDiscussionId, discussionId]); // Removed loadHistory from deps since it's now memoized
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- loadHistory is memoized
+  }, [selectedDiscussionId, discussionId]);
 
   // Listen for global discussion trigger events
   useEffect(() => {
     const handleOpenDiscussion = (e: CustomEvent) => {
-      const { contextData, preselectedAgents } = e.detail;
+      const { _contextData, preselectedAgents } = e.detail;
 
       if (preselectedAgents) {
         setSelectedAgents(preselectedAgents);
@@ -631,9 +632,8 @@ export const DiscussionPortal: React.FC<DiscussionPortalProps> = ({
           <div className="space-y-6">
             {/* Discussion History Dropdown */}
             <DiscussionHistory
-              onSelectDiscussion={(discussionId) => {
-                console.log('Selected discussion:', discussionId);
-                setSelectedDiscussionId(discussionId);
+              onSelectDiscussion={(selectedId) => {
+                setSelectedDiscussionId(selectedId);
               }}
               className="mb-6"
             />

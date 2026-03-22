@@ -73,7 +73,7 @@ export class QdrantHealthService {
       );
 
       const databaseService = DatabaseService.getInstance();
-      const userRepository = await databaseService.getRepository('User' as any);
+      const userRepository = await databaseService.getRepository('User' as Record<string, unknown>);
       const syncService = new KnowledgeSyncService(
         this.knowledgeRepository,
         this.qdrantService,
@@ -90,6 +90,7 @@ export class QdrantHealthService {
 
       for (const item of items) {
         try {
+          // oxlint-disable-next-line no-await-in-loop -- sequential processing required
           await syncService.syncKnowledgeItem(item);
           synced++;
 
@@ -129,18 +130,18 @@ export class QdrantHealthService {
 
   async getQdrantDiagnostics(): Promise<{
     health: QdrantHealthStatus;
-    collectionInfo: any;
-    sampleItems: any[];
+    collectionInfo: Record<string, unknown>;
+    sampleItems: Record<string, unknown>[];
   }> {
     const health = await this.checkHealth();
 
     let collectionInfo = null;
-    let sampleItems: any[] = [];
+    let sampleItems: Record<string, unknown>[] = [];
 
     try {
       collectionInfo = await this.qdrantService.getCollectionInfo();
 
-      // Get sample items from Qdrant if any exist
+      // Get sample items from Qdrant if unknown exist
       if (health.pointsCount > 0) {
         const sampleResponse = await fetch(
           `http://localhost:6333/collections/knowledge_embeddings/points/scroll`,

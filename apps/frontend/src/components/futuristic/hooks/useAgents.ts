@@ -21,7 +21,7 @@ interface AgentActivity {
   agentId: string;
   action: string;
   timestamp: Date;
-  details?: any;
+  details?: unknown;
 }
 
 export const useAgents = () => {
@@ -39,7 +39,7 @@ export const useAgents = () => {
       // Try to fetch from the actual API
       const response = await uaipAPI.get('/agents');
       if (response.data && Array.isArray(response.data)) {
-        const agentsData = response.data.map((agent: any) => ({
+        const agentsData = response.data.map((agent: unknown) => ({
           id:
             agent.id ||
             agent.name?.toLowerCase().replace(/\s+/g, '-') ||
@@ -153,7 +153,7 @@ export const useAgents = () => {
       const response = await uaipAPI.get('/agents/activities');
       if (response.data && Array.isArray(response.data)) {
         setActivities(
-          response.data.map((activity: any) => ({
+          response.data.map((activity: unknown) => ({
             ...activity,
             timestamp: new Date(activity.timestamp),
           }))

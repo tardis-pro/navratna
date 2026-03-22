@@ -1,7 +1,7 @@
 import { logger } from '@uaip/utils';
 import { ApiError } from '@uaip/utils';
 import { AuditService as DomainAuditService } from '@uaip/shared-services';
-import { AuditEvent, AuditEventType, SecurityLevel, User } from '@uaip/types';
+import { AuditEvent, AuditEventType, SecurityLevel, User as _User } from '@uaip/types';
 
 export interface AuditLogRequest {
   eventType: AuditEventType;
@@ -9,7 +9,7 @@ export interface AuditLogRequest {
   agentId?: string;
   resourceType?: string;
   resourceId?: string;
-  details: Record<string, any>;
+  details: Record<string, unknown>;
   ipAddress?: string;
   userAgent?: string;
   riskLevel?: SecurityLevel;
@@ -377,7 +377,7 @@ export class AuditService {
     eventType: AuditEventType,
     userId?: string,
     minutesBack: number = 5,
-    detailsFilter?: Record<string, any>
+    detailsFilter?: Record<string, unknown>
   ): Promise<number> {
     const auditRepository = this.auditService.getAuditRepository();
     return await auditRepository.countRecentAuditEvents(
@@ -693,7 +693,7 @@ export class AuditService {
   /**
    * Map entity to audit event
    */
-  private mapEntityToAuditEvent(entity: any): AuditEvent {
+  private mapEntityToAuditEvent(entity: unknown): AuditEvent {
     return {
       id: entity.id,
       eventType: entity.eventType,
@@ -804,7 +804,7 @@ export class AuditService {
   /**
    * Clean up old logs (alias for archiveOldLogs)
    */
-  public async cleanupOldLogs(options?: {
+  public async cleanupOldLogs(_options?: {
     retentionDays?: number;
     dryRun?: boolean;
   }): Promise<{ archived: number; deleted: number }> {
@@ -866,7 +866,7 @@ export class AuditService {
     }));
   }
 
-  private generateComplianceTrends(events: AuditEvent[], startDate: Date, endDate: Date) {
+  private generateComplianceTrends(events: AuditEvent[], _startDate: Date, _endDate: Date) {
     const dailyEvents = this.groupEventsByTime(events, 'day');
 
     return {

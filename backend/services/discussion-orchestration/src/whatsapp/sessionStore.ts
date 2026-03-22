@@ -128,9 +128,11 @@ export async function clearRedisAuthState(redis: Redis): Promise<void> {
 
   let cursor = '0';
   do {
+    // oxlint-ignore-next-line no-await-in-loop -- sequential processing required
     const [nextCursor, keys] = await redis.scan(cursor, 'MATCH', keyPattern, 'COUNT', 100);
     cursor = nextCursor;
     if (keys.length > 0) {
+      // oxlint-ignore-next-line no-await-in-loop -- sequential processing required
       await redis.del(...keys);
     }
   } while (cursor !== '0');

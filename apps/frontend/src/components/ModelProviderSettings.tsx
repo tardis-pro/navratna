@@ -4,13 +4,13 @@ import {
   Server,
   Globe,
   Cpu,
-  Save,
+  _Save,
   RefreshCw,
   AlertCircle,
   CheckCircle2,
-  Trash2,
+  _Trash2,
   Plus,
-  Edit3,
+  _Edit3,
   X,
   Eye,
   EyeOff,
@@ -34,7 +34,7 @@ interface ModelProvider {
   totalRequests: number;
   totalErrors: number;
   lastUsedAt?: string;
-  healthCheckResult?: any;
+  healthCheckResult?: unknown;
   hasApiKey: boolean;
   createdAt: string;
   updatedAt: string;
@@ -73,7 +73,7 @@ interface ModelProviderSettingsProps {
     baseUrl: string;
     apiKey?: string;
     defaultModel?: string;
-    configuration?: any;
+    configuration?: unknown;
     priority?: number;
   }) => Promise<boolean>;
   onUpdateProvider?: (
@@ -84,10 +84,10 @@ interface ModelProviderSettingsProps {
       baseUrl?: string;
       defaultModel?: string;
       priority?: number;
-      configuration?: any;
+      configuration?: unknown;
     }
   ) => Promise<boolean>;
-  onTestProvider?: (providerId: string) => Promise<any>;
+  onTestProvider?: (providerId: string) => Promise<unknown>;
   onDeleteProvider?: (providerId: string) => Promise<boolean>;
   onRefresh?: () => Promise<void>;
 }
@@ -108,7 +108,7 @@ export const ModelProviderSettings: React.FC<ModelProviderSettingsProps> = ({
   const [loading, setLoading] = useState(propLoading);
   const [error, setError] = useState<string | null>(propError);
   const [expandedProvider, setExpandedProvider] = useState<string | null>(null);
-  const [providerModels, setProviderModels] = useState<Record<string, any[]>>({});
+  const [providerModels, setProviderModels] = useState<Record<string, unknown[]>>({});
   const [loadingModels, setLoadingModels] = useState<Set<string>>(new Set());
 
   // Add Provider Modal State
@@ -209,16 +209,12 @@ export const ModelProviderSettings: React.FC<ModelProviderSettingsProps> = ({
     setError(null);
 
     try {
-      console.log('[ModelProviderSettings] Loading providers...');
-      console.log('[ModelProviderSettings] API client info:', uaipAPI.getEnvironmentInfo());
+      const fetchedProviders = await uaipAPI.llm.getProviders();
 
-      const providers = await uaipAPI.llm.getProviders();
-      console.log('[ModelProviderSettings] Providers loaded:', providers);
-
-      setProviders(providers || []);
-    } catch (error) {
-      console.error('Failed to load providers:', error);
-      setError(error instanceof Error ? error.message : 'Failed to load providers');
+      setProviders(fetchedProviders || []);
+    } catch (err) {
+      console.error('Failed to load providers:', err);
+      setError(err instanceof Error ? err.message : 'Failed to load providers');
       setProviders([]);
     } finally {
       setLoading(false);
@@ -250,8 +246,8 @@ export const ModelProviderSettings: React.FC<ModelProviderSettingsProps> = ({
           ...prev,
           [providerType]: filteredModels,
         }));
-      } catch (error) {
-        console.error(`Failed to load models for ${providerType}:`, error);
+      } catch (err) {
+        console.error(`Failed to load models for ${providerType}:`, err);
         setProviderModels((prev) => ({
           ...prev,
           [providerType]: [],
@@ -264,6 +260,7 @@ export const ModelProviderSettings: React.FC<ModelProviderSettingsProps> = ({
         });
       }
     },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     [propModels]
   );
 
@@ -272,7 +269,8 @@ export const ModelProviderSettings: React.FC<ModelProviderSettingsProps> = ({
     if (propProviders.length === 0 && providers.length === 0 && !loading) {
       loadProviders();
     }
-  }, []); // Empty dependency array to run only once
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Form handling
   const handleFormChange = (field: keyof CreateProviderForm, value: string | number) => {
@@ -307,7 +305,7 @@ export const ModelProviderSettings: React.FC<ModelProviderSettingsProps> = ({
       errors.baseUrl = 'Base URL is required';
     } else {
       try {
-        new URL(formData.baseUrl);
+        URL.canParse(formData.baseUrl);
       } catch {
         errors.baseUrl = 'Invalid URL format';
       }
@@ -356,11 +354,11 @@ export const ModelProviderSettings: React.FC<ModelProviderSettingsProps> = ({
       // Reset form and close modal
       resetForm();
       setShowAddModal(false);
-    } catch (error) {
-      console.error('Failed to create provider:', error);
+    } catch (err) {
+      console.error('Failed to create provider:', err);
       setFormErrors((prev) => ({
         ...prev,
-        general: error instanceof Error ? error.message : 'Failed to create provider',
+        general: err instanceof Error ? err.message : 'Failed to create provider',
       }));
     } finally {
       setAddingProvider(false);
@@ -429,7 +427,7 @@ export const ModelProviderSettings: React.FC<ModelProviderSettingsProps> = ({
       errors.baseUrl = 'Base URL is required';
     } else {
       try {
-        new URL(editFormData.baseUrl);
+        URL.canParse(editFormData.baseUrl);
       } catch {
         errors.baseUrl = 'Invalid URL format';
       }
@@ -447,7 +445,7 @@ export const ModelProviderSettings: React.FC<ModelProviderSettingsProps> = ({
     if (!editingProvider || !validateEditForm()) return;
     setUpdatingProvider(true);
     try {
-      const config: any = {
+      const config: Record<string, string | number | undefined> = {
         name: editFormData.name.trim(),
         description: editFormData.description.trim() || undefined,
         type: editFormData.type,
@@ -469,10 +467,10 @@ export const ModelProviderSettings: React.FC<ModelProviderSettingsProps> = ({
       await loadProviders();
 
       closeEditModal();
-    } catch (error) {
+    } catch (err) {
       setEditFormErrors((prev) => ({
         ...prev,
-        general: error instanceof Error ? error.message : 'Failed to update provider',
+        general: err instanceof Error ? err.message : 'Failed to update provider',
       }));
     } finally {
       setUpdatingProvider(false);
@@ -484,20 +482,20 @@ export const ModelProviderSettings: React.FC<ModelProviderSettingsProps> = ({
     setTestingProvider(providerId);
     setTestResult((prev) => ({ ...prev, [providerId]: null }));
     try {
-      let result;
+      let _result;
       if (onTestProvider) {
-        result = await onTestProvider(providerId);
+        _result = await onTestProvider(providerId);
       } else {
-        result = await uaipAPI.llm.testProvider(providerId);
+        _result = await uaipAPI.llm.testProvider(providerId);
       }
       setTestResult((prev) => ({ ...prev, [providerId]: 'success' }));
 
       // Refresh providers list after testing (status might have changed)
       await loadProviders();
-    } catch (error) {
+    } catch (err) {
       setTestResult((prev) => ({
         ...prev,
-        [providerId]: error instanceof Error ? error.message : 'Test failed',
+        [providerId]: err instanceof Error ? err.message : 'Test failed',
       }));
     } finally {
       setTestingProvider(null);
@@ -516,7 +514,7 @@ export const ModelProviderSettings: React.FC<ModelProviderSettingsProps> = ({
 
       // Always refresh the local provider list
       await loadProviders();
-    } catch (error) {
+    } catch {
       // Optionally show error feedback
     } finally {
       setUpdatingProvider(false);
@@ -539,15 +537,24 @@ export const ModelProviderSettings: React.FC<ModelProviderSettingsProps> = ({
 
       // Always refresh the local provider list
       await loadProviders();
-    } catch (error: any) {
-      console.error('Failed to delete provider:', error);
+    } catch (err) {
+      console.error('Failed to delete provider:', err);
 
       // Check if this is a provider-in-use error
       // APIClientError has code directly on the error object
-      if (error?.code === 'PROVIDER_IN_USE') {
-        alert(`Cannot delete provider: ${error.message}`);
-      } else if (error?.message) {
-        alert(`Failed to delete provider: ${error.message}`);
+      if (
+        typeof err === 'object' &&
+        err &&
+        'code' in err &&
+        (err as { code?: string }).code === 'PROVIDER_IN_USE'
+      ) {
+        alert(
+          `Cannot delete provider: ${(err as { message?: string }).message ?? 'Provider in use'}`
+        );
+      } else if (typeof err === 'object' && err && 'message' in err) {
+        alert(
+          `Failed to delete provider: ${(err as { message?: string }).message ?? 'Unknown error'}`
+        );
       } else {
         alert('Failed to delete provider. Please try again.');
       }
@@ -560,7 +567,7 @@ export const ModelProviderSettings: React.FC<ModelProviderSettingsProps> = ({
     return providerType?.icon || Cpu;
   };
 
-  const getStatusColor = (status: string) => {
+  const _getStatusColor = (status: string) => {
     switch (status) {
       case 'active':
         return 'text-green-600 bg-green-100 dark:text-green-400 dark:bg-green-900/30';
@@ -1230,16 +1237,16 @@ export const ModelProviderSettings: React.FC<ModelProviderSettingsProps> = ({
         {/* Providers List */}
         {!loading && providers.length > 0 && (
           <div className="space-y-4">
-            {providers.map((provider, providerIndex) => {
+            {providers.map((provider, _providerIndex) => {
               const Icon = getProviderIcon(provider.type);
-              const StatusIcon = getStatusIcon(provider.status);
+              const _StatusIcon = getStatusIcon(provider.status);
               const isExpanded = expandedProvider === provider.name;
               const models = providerModels[provider.type] || [];
               const isLoadingModels = loadingModels.has(provider.type);
 
               return (
                 <div
-                  key={provider.id || `provider-${providerIndex}`}
+                  key={provider.id || provider.name}
                   className="bg-white dark:bg-slate-900 border-2 border-slate-200 dark:border-slate-700 rounded-2xl shadow-sm hover:shadow-lg transition-all duration-300 overflow-hidden group"
                 >
                   {/* Provider Header */}
@@ -1394,9 +1401,9 @@ export const ModelProviderSettings: React.FC<ModelProviderSettingsProps> = ({
                                   value: provider.hasApiKey ? 'Yes' : 'No',
                                   format: 'security',
                                 },
-                              ].map((item, index) => (
+                              ].map((item) => (
                                 <div
-                                  key={index}
+                                  key={item.label}
                                   className="flex items-center justify-between py-2 border-b border-slate-100 dark:border-slate-800 last:border-b-0"
                                 >
                                   <span className="text-sm font-medium text-slate-600 dark:text-slate-400">
@@ -1450,12 +1457,12 @@ export const ModelProviderSettings: React.FC<ModelProviderSettingsProps> = ({
                               </div>
                             ) : models.length > 0 ? (
                               <div className="space-y-3 max-h-48 overflow-y-auto pr-2">
-                                {models.map((model, index) => (
+                                {models.map((model) => (
                                   <div
                                     key={
                                       model.id ||
                                       model.name ||
-                                      `model-${provider.id || providerIndex}-${index}`
+                                      `model-${provider.id || provider.name}`
                                     }
                                     className="flex items-center space-x-3 p-3 bg-slate-50 dark:bg-slate-800 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors duration-200"
                                   >
@@ -1529,11 +1536,11 @@ export const ModelProviderSettings: React.FC<ModelProviderSettingsProps> = ({
                   { icon: Zap, name: 'OpenAI', color: 'from-blue-500 to-cyan-600' },
                   { icon: Server, name: 'LLM Studio', color: 'from-purple-500 to-pink-600' },
                   { icon: Cpu, name: 'Custom', color: 'from-orange-500 to-red-600' },
-                ].map((provider, index) => {
+                ].map((provider) => {
                   const Icon = provider.icon;
                   return (
                     <div
-                      key={index}
+                      key={provider.name}
                       className="text-center group cursor-pointer"
                       onClick={() => setShowAddModal(true)}
                     >

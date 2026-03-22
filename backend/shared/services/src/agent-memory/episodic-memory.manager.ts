@@ -43,7 +43,7 @@ export class EpisodicMemoryManager {
       await this.createEpisodeRelationships(episode);
     } catch (error) {
       console.error('Episode storage error:', error);
-      throw new Error(`Failed to store episode: ${error.message}`);
+      throw new Error(`Failed to store episode: ${error.message}`, { cause: error });
     }
   }
 
@@ -56,6 +56,7 @@ export class EpisodicMemoryManager {
       const graphDatabase = await this.databaseService.getToolGraphDatabase();
 
       for (const relatedId of episode.connections.relatedEpisodes) {
+        // oxlint-disable-next-line no-await-in-loop -- sequential processing required
         await graphDatabase.runQuery(
           `MERGE (a:Episode {id: $prevId})
            MERGE (b:Episode {id: $newId})
@@ -211,9 +212,11 @@ Learnings: ${episode.experience.learnings.join('; ')}
 Significance: Importance=${episode.significance.importance}, Novelty=${episode.significance.novelty}, Success=${episode.significance.success}, Impact=${episode.significance.impact}`;
   }
 
-  private contentToEpisode(item: any): Episode {
+  private contentToEpisode(item: unknown): Episode {
     // Parse content back to episode structure
-    const metadata = item.source?.metadata || item.metadata;
+    const record = item as Record<string, unknown>;
+    const source = record.source as Record<string, unknown> | undefined;
+    const metadata = (source?.metadata || record.metadata) as Record<string, unknown> | undefined;
 
     if (!metadata) {
       // Fallback parsing from content if metadata is not available
@@ -221,31 +224,31 @@ Significance: Importance=${episode.significance.importance}, Novelty=${episode.s
     }
 
     return {
-      agentId: metadata.agentId,
-      episodeId: item.source?.identifier || item.id,
-      type: metadata.episodeType || 'learning',
-      context: metadata.context || {
-        when: new Date(item.createdAt),
+      agentId: metadata.agentId as string,
+      episodeId: (source?.identifier as string) || (record.id as string),
+      type: (metadata.episodeType as Episode['type']) || 'learning',
+      context: (metadata.context as Episode['context']) || {
+        when: new Date(record.createdAt as string),
         where: 'unknown',
         who: [],
-        what: item.content.substring(0, 100),
+        what: (record.content as string).substring(0, 100),
         why: 'unknown',
         how: 'unknown',
       },
-      experience: metadata.experience || {
+      experience: (metadata.experience as Episode['experience']) || {
         actions: [],
         decisions: [],
         outcomes: [],
         emotions: [],
         learnings: [],
       },
-      significance: metadata.significance || {
-        importance: item.confidence || 0.5,
+      significance: (metadata.significance as Episode['significance']) || {
+        importance: (record.confidence as number) || 0.5,
         novelty: 0.5,
         success: 0.5,
         impact: 0.5,
       },
-      connections: metadata.connections || {
+      connections: (metadata.connections as Episode['connections']) || {
         relatedEpisodes: [],
         triggeredBy: [],
         ledTo: [],
@@ -254,14 +257,15 @@ Significance: Importance=${episode.significance.importance}, Novelty=${episode.s
     };
   }
 
-  private parseEpisodeFromContent(item: any): Episode {
+  private parseEpisodeFromContent(item: unknown): Episode {
     // Basic parsing from content when metadata is not available
-    const content = item.content || '';
+    const record = item as Record<string, unknown>;
+    const content = (record.content as string) || '';
     const lines = content.split('\n');
 
     let episodeType = 'learning';
     const context = {
-      when: new Date(item.createdAt),
+      when: new Date(record.createdAt as string),
       where: 'unknown',
       who: [] as string[],
       what: content.substring(0, 100),
@@ -284,9 +288,9 @@ Significance: Importance=${episode.significance.importance}, Novelty=${episode.s
     }
 
     return {
-      agentId: item.createdBy || 'unknown',
-      episodeId: item.id,
-      type: episodeType as any,
+      agentId: (record.createdBy as string) || 'unknown',
+      episodeId: record.id as string,
+      type: episodeType as Episode['type'],
       context,
       experience: {
         actions: [],
@@ -296,7 +300,7 @@ Significance: Importance=${episode.significance.importance}, Novelty=${episode.s
         learnings: [],
       },
       significance: {
-        importance: item.confidence || 0.5,
+        importance: (record.confidence as number) || 0.5,
         novelty: 0.5,
         success: 0.5,
         impact: 0.5,

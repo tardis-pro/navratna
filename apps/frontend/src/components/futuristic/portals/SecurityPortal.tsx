@@ -33,7 +33,7 @@ interface SecurityMetric {
   unit: string;
   trend: 'up' | 'down' | 'stable';
   status: 'good' | 'warning' | 'critical';
-  icon: React.ComponentType<any>;
+  icon: React.ComponentType<unknown>;
 }
 
 interface SecurityEvent {
@@ -159,14 +159,14 @@ const SECURITY_EVENTS: SecurityEvent[] = [
 const SecurityPortalContent: React.FC<{
   mode: 'dashboard' | 'monitor' | 'settings';
   showAdvanced: boolean;
-  viewport?: any;
-}> = ({ mode, showAdvanced, viewport }) => {
+  viewport?: unknown;
+}> = ({ mode: _mode, showAdvanced: _showAdvanced, viewport }) => {
   const [loading, setLoading] = useState(false);
   const [activeTab, setActiveTab] = useState<'overview' | 'threats' | 'monitoring' | 'users'>(
     'overview'
   );
   const [realTimeData, setRealTimeData] = useState(true);
-  const [selectedTimeRange, setSelectedTimeRange] = useState<'1h' | '24h' | '7d' | '30d'>('24h');
+  const [_selectedTimeRange, _setSelectedTimeRange] = useState<'1h' | '24h' | '7d' | '30d'>('24h');
   const [systemStatus, setSystemStatus] = useState<'healthy' | 'warning' | 'critical'>('healthy');
 
   // Use Portal's viewport management
@@ -416,7 +416,7 @@ const SecurityPortalContent: React.FC<{
                   return (
                     <motion.button
                       key={tab.id}
-                      onClick={() => setActiveTab(tab.id as any)}
+                      onClick={() => setActiveTab(tab.id as unknown)}
                       className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-all duration-200 ${
                         activeTab === tab.id
                           ? 'bg-slate-700/50 text-white border border-slate-600/50'
@@ -448,7 +448,7 @@ const SecurityPortalContent: React.FC<{
                   return (
                     <motion.button
                       key={tab.id}
-                      onClick={() => setActiveTab(tab.id as any)}
+                      onClick={() => setActiveTab(tab.id as unknown)}
                       className={`flex items-center justify-center p-2 rounded-lg transition-all duration-200 ${
                         activeTab === tab.id
                           ? 'bg-slate-700/50 text-white border border-slate-600/50'

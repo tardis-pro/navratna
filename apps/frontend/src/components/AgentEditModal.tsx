@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Agent, CreateAgentRequest, AgentSkill } from '@uaip/types';
 import { uaipAPI } from '../utils/uaip-api';
-import { llmAPI } from '../api/llm.api';
+import { _llmAPI } from '../api/llm.api';
 import { useAgents } from '../contexts/AgentContext';
 import {
   X,
@@ -14,8 +14,8 @@ import {
   Zap,
   MessageSquare,
   Bot,
-  Palette,
-  Brain,
+  _Palette,
+  _Brain,
   CheckCircle2,
   AlertCircle,
   Loader2,
@@ -36,7 +36,7 @@ interface AgentEditModalProps {
 interface TabConfig {
   id: string;
   label: string;
-  icon: React.ComponentType<any>;
+  icon: React.ComponentType<unknown>;
   gradient: string;
 }
 
@@ -138,7 +138,7 @@ export const AgentEditModal: React.FC<AgentEditModalProps> = ({
         temperature: agent.temperature,
         maxTokens: agent.maxTokens,
         systemPrompt: agent.systemPrompt,
-        skills: (agent as any).skills || [],
+        skills: (agent as unknown).skills || [],
       });
     }
   }, [agent, isOpen]);
@@ -182,7 +182,6 @@ export const AgentEditModal: React.FC<AgentEditModalProps> = ({
           try {
             // Note: This would need a backend API endpoint for agent LLM preferences
             // For now, we'll just log them
-            console.log('LLM Preferences to save:', llmPreferences);
             // TODO: Implement API call to save agent LLM preferences
             // await uaipAPI.agents.updateLLMPreferences(agentId, llmPreferences);
           } catch (prefError) {
@@ -197,14 +196,14 @@ export const AgentEditModal: React.FC<AgentEditModalProps> = ({
       } else {
         setErrors({ general: response.error || 'Failed to update agent' });
       }
-    } catch (error) {
+    } catch {
       setErrors({ general: 'Failed to update agent. Please try again.' });
     } finally {
       setSaving(false);
     }
   };
 
-  const updateFormData = (field: string, value: any) => {
+  const updateFormData = (field: string, value: unknown) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
     if (errors[field]) {
       setErrors((prev) => ({ ...prev, [field]: '' }));
@@ -397,10 +396,10 @@ export const AgentEditModal: React.FC<AgentEditModalProps> = ({
   );
 
   const renderToolsTab = () => {
-    const [mcpTools, setMcpTools] = useState<any[]>([]);
+    const [mcpTools, setMcpTools] = useState<unknown[]>([]);
     const [loadingTools, setLoadingTools] = useState(true);
-    const [assignedTools, setAssignedTools] = useState<any[]>([]);
-    const [toolSettings, setToolSettings] = useState<any>({});
+    const [assignedTools, setAssignedTools] = useState<unknown[]>([]);
+    const [toolSettings, setToolSettings] = useState<unknown>({});
     const [showAddTool, setShowAddTool] = useState(false);
 
     // Load MCP tools and agent's assigned tools
@@ -445,9 +444,9 @@ export const AgentEditModal: React.FC<AgentEditModalProps> = ({
       if (isOpen && agentId) {
         loadMCPTools();
       }
-    }, [isOpen, agentId]);
+    }, []);
 
-    const handleAssignTool = async (tool: any) => {
+    const handleAssignTool = async (tool: unknown) => {
       try {
         const response = await fetch(`/api/v1/agents/${agentId}/mcp-tools`, {
           method: 'POST',
@@ -518,7 +517,7 @@ export const AgentEditModal: React.FC<AgentEditModalProps> = ({
       }
     };
 
-    const handleUpdateSettings = async (newSettings: any) => {
+    const handleUpdateSettings = async (newSettings: unknown) => {
       try {
         const response = await fetch(`/api/v1/agents/${agentId}/mcp-settings`, {
           method: 'PUT',
@@ -789,7 +788,7 @@ export const AgentEditModal: React.FC<AgentEditModalProps> = ({
         ) : (
           llmPreferences.map((preference, index) => (
             <div
-              key={index}
+              key={`${preference.taskType}-${preference.preferredProvider}-${preference.priority}`}
               className="border border-gray-200 dark:border-gray-700 rounded-lg p-4 bg-gray-50 dark:bg-gray-800/50"
             >
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -1010,7 +1009,7 @@ export const AgentEditModal: React.FC<AgentEditModalProps> = ({
   );
 
   const renderSkillsTab = () => {
-    const skills: AgentSkill[] = (formData as any).skills || [];
+    const skills: AgentSkill[] = (formData as unknown).skills || [];
     const [showAddForm, setShowAddForm] = useState(false);
     const [editIndex, setEditIndex] = useState<number | null>(null);
     const [newSkill, setNewSkill] = useState<Partial<AgentSkill>>({
@@ -1024,7 +1023,8 @@ export const AgentEditModal: React.FC<AgentEditModalProps> = ({
     const updateSkills = (updated: AgentSkill[]) => updateFormData('skills', updated);
 
     const handleAddSkill = () => {
-      if (!newSkill.name?.trim() || !newSkill.description?.trim() || !newSkill.content?.trim()) return;
+      if (!newSkill.name?.trim() || !newSkill.description?.trim() || !newSkill.content?.trim())
+        return;
       const skill: AgentSkill = {
         id: crypto.randomUUID(),
         name: newSkill.name!,
@@ -1044,7 +1044,9 @@ export const AgentEditModal: React.FC<AgentEditModalProps> = ({
     };
 
     const handleUpdateSkill = (index: number, updates: Partial<AgentSkill>) => {
-      const updated = skills.map((s, i) => i === index ? { ...s, ...updates, updatedAt: new Date().toISOString() } : s);
+      const updated = skills.map((s, i) =>
+        i === index ? { ...s, ...updates, updatedAt: new Date().toISOString() } : s
+      );
       updateSkills(updated);
     };
 
@@ -1054,8 +1056,10 @@ export const AgentEditModal: React.FC<AgentEditModalProps> = ({
     };
 
     const sourceBadgeClass = (source: AgentSkill['source']) => {
-      if (source === 'filesystem') return 'px-2 py-0.5 bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 text-xs rounded-full';
-      if (source === 'registry') return 'px-2 py-0.5 bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200 text-xs rounded-full';
+      if (source === 'filesystem')
+        return 'px-2 py-0.5 bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 text-xs rounded-full';
+      if (source === 'registry')
+        return 'px-2 py-0.5 bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200 text-xs rounded-full';
       return 'px-2 py-0.5 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 text-xs rounded-full';
     };
 
@@ -1069,7 +1073,10 @@ export const AgentEditModal: React.FC<AgentEditModalProps> = ({
             </p>
           </div>
           <button
-            onClick={() => { setShowAddForm(true); setEditIndex(null); }}
+            onClick={() => {
+              setShowAddForm(true);
+              setEditIndex(null);
+            }}
             className="flex items-center gap-2 px-3 py-2 bg-violet-500 hover:bg-violet-600 text-white rounded-lg transition-colors"
           >
             <Plus className="w-4 h-4" />
@@ -1084,17 +1091,33 @@ export const AgentEditModal: React.FC<AgentEditModalProps> = ({
             <div className="space-y-3">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Name *</label>
-                  <input type="text" value={newSkill.name || ''}
-                    onChange={e => setNewSkill((p: Partial<AgentSkill>) => ({ ...p, name: e.target.value }))}
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    Name *
+                  </label>
+                  <input
+                    type="text"
+                    value={newSkill.name || ''}
+                    onChange={(e) =>
+                      setNewSkill((p: Partial<AgentSkill>) => ({ ...p, name: e.target.value }))
+                    }
                     className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-violet-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm"
-                    placeholder="e.g. git-master" />
+                    placeholder="e.g. git-master"
+                  />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Source</label>
-                  <select value={newSkill.source || 'inline'}
-                    onChange={e => setNewSkill((p: Partial<AgentSkill>) => ({ ...p, source: e.target.value as AgentSkill['source'] }))}
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-violet-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    Source
+                  </label>
+                  <select
+                    value={newSkill.source || 'inline'}
+                    onChange={(e) =>
+                      setNewSkill((p: Partial<AgentSkill>) => ({
+                        ...p,
+                        source: e.target.value as AgentSkill['source'],
+                      }))
+                    }
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-violet-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm"
+                  >
                     <option value="inline">Inline</option>
                     <option value="filesystem">Filesystem</option>
                     <option value="registry">Registry</option>
@@ -1102,53 +1125,101 @@ export const AgentEditModal: React.FC<AgentEditModalProps> = ({
                 </div>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Description *</label>
-                <input type="text" value={newSkill.description || ''}
-                  onChange={e => setNewSkill((p: Partial<AgentSkill>) => ({ ...p, description: e.target.value }))}
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Description *
+                </label>
+                <input
+                  type="text"
+                  value={newSkill.description || ''}
+                  onChange={(e) =>
+                    setNewSkill((p: Partial<AgentSkill>) => ({ ...p, description: e.target.value }))
+                  }
                   className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-violet-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm"
-                  placeholder="When to use this skill and what it does..." />
+                  placeholder="When to use this skill and what it does..."
+                />
               </div>
               {newSkill.source === 'filesystem' && (
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Filesystem Path</label>
-                  <input type="text" value={newSkill.sourcePath || ''}
-                    onChange={e => setNewSkill((p: Partial<AgentSkill>) => ({ ...p, sourcePath: e.target.value }))}
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    Filesystem Path
+                  </label>
+                  <input
+                    type="text"
+                    value={newSkill.sourcePath || ''}
+                    onChange={(e) =>
+                      setNewSkill((p: Partial<AgentSkill>) => ({
+                        ...p,
+                        sourcePath: e.target.value,
+                      }))
+                    }
                     className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-violet-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm"
-                    placeholder=".agents/skills/my-skill/SKILL.md" />
+                    placeholder=".agents/skills/my-skill/SKILL.md"
+                  />
                 </div>
               )}
               {newSkill.source === 'registry' && (
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Registry URL</label>
-                  <input type="url" value={newSkill.sourceUrl || ''}
-                    onChange={e => setNewSkill((p: Partial<AgentSkill>) => ({ ...p, sourceUrl: e.target.value }))}
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    Registry URL
+                  </label>
+                  <input
+                    type="url"
+                    value={newSkill.sourceUrl || ''}
+                    onChange={(e) =>
+                      setNewSkill((p: Partial<AgentSkill>) => ({ ...p, sourceUrl: e.target.value }))
+                    }
                     className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-violet-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm"
-                    placeholder="https://registry.example.com/skills/my-skill" />
+                    placeholder="https://registry.example.com/skills/my-skill"
+                  />
                 </div>
               )}
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Content * (Markdown instructions)</label>
-                <textarea value={newSkill.content || ''}
-                  onChange={e => setNewSkill((p: Partial<AgentSkill>) => ({ ...p, content: e.target.value }))}
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Content * (Markdown instructions)
+                </label>
+                <textarea
+                  value={newSkill.content || ''}
+                  onChange={(e) =>
+                    setNewSkill((p: Partial<AgentSkill>) => ({ ...p, content: e.target.value }))
+                  }
                   rows={5}
                   className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-violet-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm font-mono"
-                  placeholder="# Skill Instructions&#10;&#10;Describe what this skill does and how to use it..." />
+                  placeholder="# Skill Instructions&#10;&#10;Describe what this skill does and how to use it..."
+                />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Model Override (optional)</label>
-                <input type="text" value={newSkill.model || ''}
-                  onChange={e => setNewSkill((p: Partial<AgentSkill>) => ({ ...p, model: e.target.value || undefined }))}
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Model Override (optional)
+                </label>
+                <input
+                  type="text"
+                  value={newSkill.model || ''}
+                  onChange={(e) =>
+                    setNewSkill((p: Partial<AgentSkill>) => ({
+                      ...p,
+                      model: e.target.value || undefined,
+                    }))
+                  }
                   className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-violet-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm"
-                  placeholder="e.g. anthropic/claude-opus-4-5" />
+                  placeholder="e.g. anthropic/claude-opus-4-5"
+                />
               </div>
               <div className="flex justify-end gap-2 pt-2">
-                <button onClick={() => setShowAddForm(false)}
-                  className="px-3 py-2 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors text-sm">
+                <button
+                  onClick={() => setShowAddForm(false)}
+                  className="px-3 py-2 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors text-sm"
+                >
                   Cancel
                 </button>
-                <button onClick={handleAddSkill}
-                  disabled={!newSkill.name?.trim() || !newSkill.description?.trim() || !newSkill.content?.trim()}
-                  className="px-4 py-2 bg-violet-500 hover:bg-violet-600 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-lg transition-colors text-sm">
+                <button
+                  onClick={handleAddSkill}
+                  disabled={
+                    !newSkill.name?.trim() ||
+                    !newSkill.description?.trim() ||
+                    !newSkill.content?.trim()
+                  }
+                  className="px-4 py-2 bg-violet-500 hover:bg-violet-600 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-lg transition-colors text-sm"
+                >
                   Add Skill
                 </button>
               </div>
@@ -1168,32 +1239,54 @@ export const AgentEditModal: React.FC<AgentEditModalProps> = ({
         ) : (
           <div className="space-y-3">
             {skills.map((skill, index) => (
-              <div key={skill.id || index} className="border border-gray-200 dark:border-gray-700 rounded-lg bg-gray-50 dark:bg-gray-800/50">
+              <div
+                key={skill.id || skill.name}
+                className="border border-gray-200 dark:border-gray-700 rounded-lg bg-gray-50 dark:bg-gray-800/50"
+              >
                 {/* Skill Header */}
                 <div className="flex items-start justify-between p-4">
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-1">
                       <Sparkles className="h-4 w-4 text-violet-500 flex-shrink-0" />
-                      <span className="font-medium text-gray-900 dark:text-white truncate">{skill.name}</span>
+                      <span className="font-medium text-gray-900 dark:text-white truncate">
+                        {skill.name}
+                      </span>
                       <span className={sourceBadgeClass(skill.source)}>{skill.source}</span>
-                      {!skill.enabled && <span className="px-2 py-0.5 bg-yellow-100 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-200 text-xs rounded-full">disabled</span>}
+                      {!skill.enabled && (
+                        <span className="px-2 py-0.5 bg-yellow-100 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-200 text-xs rounded-full">
+                          disabled
+                        </span>
+                      )}
                     </div>
-                    <p className="text-sm text-gray-600 dark:text-gray-400 truncate">{skill.description}</p>
-                    {skill.model && <p className="text-xs text-gray-400 mt-0.5">Model: {skill.model}</p>}
+                    <p className="text-sm text-gray-600 dark:text-gray-400 truncate">
+                      {skill.description}
+                    </p>
+                    {skill.model && (
+                      <p className="text-xs text-gray-400 mt-0.5">Model: {skill.model}</p>
+                    )}
                   </div>
                   <div className="flex items-center gap-1 ml-3">
                     <label className="flex items-center cursor-pointer">
-                      <input type="checkbox" checked={skill.enabled}
-                        onChange={e => handleUpdateSkill(index, { enabled: e.target.checked })}
-                        className="mr-1 h-3.5 w-3.5 text-violet-600 focus:ring-violet-500 border-gray-300 rounded" />
+                      <input
+                        type="checkbox"
+                        checked={skill.enabled}
+                        onChange={(e) => handleUpdateSkill(index, { enabled: e.target.checked })}
+                        className="mr-1 h-3.5 w-3.5 text-violet-600 focus:ring-violet-500 border-gray-300 rounded"
+                      />
                       <span className="text-xs text-gray-500">On</span>
                     </label>
-                    <button onClick={() => setEditIndex(editIndex === index ? null : index)}
-                      className="p-1.5 text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-colors" title="Edit">
+                    <button
+                      onClick={() => setEditIndex(editIndex === index ? null : index)}
+                      className="p-1.5 text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-colors"
+                      title="Edit"
+                    >
                       <Settings className="w-3.5 h-3.5" />
                     </button>
-                    <button onClick={() => handleDeleteSkill(index)}
-                      className="p-1.5 text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-colors" title="Delete">
+                    <button
+                      onClick={() => handleDeleteSkill(index)}
+                      className="p-1.5 text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-colors"
+                      title="Delete"
+                    >
                       <Trash2 className="w-3.5 h-3.5" />
                     </button>
                   </div>
@@ -1203,16 +1296,29 @@ export const AgentEditModal: React.FC<AgentEditModalProps> = ({
                   <div className="px-4 pb-4 border-t border-gray-200 dark:border-gray-700 pt-3 space-y-3">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                       <div>
-                        <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Name</label>
-                        <input type="text" value={skill.name}
-                          onChange={e => handleUpdateSkill(index, { name: e.target.value })}
-                          className="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md focus:ring-2 focus:ring-violet-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm" />
+                        <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
+                          Name
+                        </label>
+                        <input
+                          type="text"
+                          value={skill.name}
+                          onChange={(e) => handleUpdateSkill(index, { name: e.target.value })}
+                          className="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md focus:ring-2 focus:ring-violet-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm"
+                        />
                       </div>
                       <div>
-                        <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Source</label>
-                        <select value={skill.source}
-                          onChange={e => handleUpdateSkill(index, { source: e.target.value as AgentSkill['source'] })}
-                          className="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md focus:ring-2 focus:ring-violet-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm">
+                        <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
+                          Source
+                        </label>
+                        <select
+                          value={skill.source}
+                          onChange={(e) =>
+                            handleUpdateSkill(index, {
+                              source: e.target.value as AgentSkill['source'],
+                            })
+                          }
+                          className="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md focus:ring-2 focus:ring-violet-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm"
+                        >
                           <option value="inline">Inline</option>
                           <option value="filesystem">Filesystem</option>
                           <option value="registry">Registry</option>
@@ -1220,44 +1326,72 @@ export const AgentEditModal: React.FC<AgentEditModalProps> = ({
                       </div>
                     </div>
                     <div>
-                      <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Description</label>
-                      <input type="text" value={skill.description}
-                        onChange={e => handleUpdateSkill(index, { description: e.target.value })}
-                        className="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md focus:ring-2 focus:ring-violet-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm" />
+                      <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
+                        Description
+                      </label>
+                      <input
+                        type="text"
+                        value={skill.description}
+                        onChange={(e) => handleUpdateSkill(index, { description: e.target.value })}
+                        className="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md focus:ring-2 focus:ring-violet-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm"
+                      />
                     </div>
                     {skill.source === 'filesystem' && (
                       <div>
-                        <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Filesystem Path</label>
-                        <input type="text" value={skill.sourcePath || ''}
-                          onChange={e => handleUpdateSkill(index, { sourcePath: e.target.value })}
-                          className="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md focus:ring-2 focus:ring-violet-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm" />
+                        <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
+                          Filesystem Path
+                        </label>
+                        <input
+                          type="text"
+                          value={skill.sourcePath || ''}
+                          onChange={(e) => handleUpdateSkill(index, { sourcePath: e.target.value })}
+                          className="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md focus:ring-2 focus:ring-violet-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm"
+                        />
                       </div>
                     )}
                     {skill.source === 'registry' && (
                       <div>
-                        <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Registry URL</label>
-                        <input type="url" value={skill.sourceUrl || ''}
-                          onChange={e => handleUpdateSkill(index, { sourceUrl: e.target.value })}
-                          className="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md focus:ring-2 focus:ring-violet-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm" />
+                        <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
+                          Registry URL
+                        </label>
+                        <input
+                          type="url"
+                          value={skill.sourceUrl || ''}
+                          onChange={(e) => handleUpdateSkill(index, { sourceUrl: e.target.value })}
+                          className="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md focus:ring-2 focus:ring-violet-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm"
+                        />
                       </div>
                     )}
                     <div>
-                      <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Content (Markdown)</label>
-                      <textarea value={skill.content}
-                        onChange={e => handleUpdateSkill(index, { content: e.target.value })}
+                      <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
+                        Content (Markdown)
+                      </label>
+                      <textarea
+                        value={skill.content}
+                        onChange={(e) => handleUpdateSkill(index, { content: e.target.value })}
                         rows={4}
-                        className="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md focus:ring-2 focus:ring-violet-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm font-mono" />
+                        className="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md focus:ring-2 focus:ring-violet-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm font-mono"
+                      />
                     </div>
                     <div>
-                      <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Model Override</label>
-                      <input type="text" value={skill.model || ''}
-                        onChange={e => handleUpdateSkill(index, { model: e.target.value || undefined })}
+                      <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
+                        Model Override
+                      </label>
+                      <input
+                        type="text"
+                        value={skill.model || ''}
+                        onChange={(e) =>
+                          handleUpdateSkill(index, { model: e.target.value || undefined })
+                        }
                         className="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md focus:ring-2 focus:ring-violet-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm"
-                        placeholder="e.g. anthropic/claude-opus-4-5" />
+                        placeholder="e.g. anthropic/claude-opus-4-5"
+                      />
                     </div>
                     <div className="flex justify-end">
-                      <button onClick={() => setEditIndex(null)}
-                        className="px-3 py-1.5 text-sm text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors">
+                      <button
+                        onClick={() => setEditIndex(null)}
+                        className="px-3 py-1.5 text-sm text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+                      >
                         Done
                       </button>
                     </div>
@@ -1320,9 +1454,9 @@ export const AgentEditModal: React.FC<AgentEditModalProps> = ({
               Capabilities:
             </h4>
             <div className="flex flex-wrap gap-2">
-              {formData.capabilities.map((capability, index) => (
+              {formData.capabilities.map((capability) => (
                 <span
-                  key={index}
+                  key={capability}
                   className="px-2 py-1 bg-blue-100 dark:bg-blue-800 text-blue-800 dark:text-blue-200 text-xs rounded-full"
                 >
                   {capability}

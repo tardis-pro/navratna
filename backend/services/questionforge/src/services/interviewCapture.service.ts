@@ -69,7 +69,7 @@ export class InterviewCaptureService {
   createSession(
     projectBriefId: string,
     stakeholderRole: string,
-    questions: Question[],
+    questions: Question[]
   ): InterviewSession {
     const session: InterviewSession = {
       id: randomUUID(),
@@ -103,7 +103,7 @@ export class InterviewCaptureService {
         questionCount: questions.length,
       })
       .catch((err: unknown) =>
-        logger.warn('Failed to publish interview.started event', { error: String(err) }),
+        logger.warn('Failed to publish interview.started event', { error: String(err) })
       );
 
     return session;
@@ -173,7 +173,7 @@ export class InterviewCaptureService {
   async recordAnswer(
     sessionId: string,
     questionId: string,
-    answer: string,
+    answer: string
   ): Promise<InterviewAnswer> {
     const session = this.requireSession(sessionId);
     this.assertActive(session);
@@ -229,7 +229,7 @@ export class InterviewCaptureService {
       .catch((err: unknown) =>
         logger.warn('Failed to publish interview.answer.recorded event', {
           error: String(err),
-        }),
+        })
       );
 
     return interviewAnswer;
@@ -258,7 +258,7 @@ export class InterviewCaptureService {
 
     if (session.status !== 'paused') {
       throw new Error(
-        `Cannot resume session ${sessionId}: current status is '${session.status}', expected 'paused'`,
+        `Cannot resume session ${sessionId}: current status is '${session.status}', expected 'paused'`
       );
     }
 
@@ -330,8 +330,10 @@ export class InterviewCaptureService {
     const suggestedFollowUps = session.answers
       .filter((a) => a.followUpNeeded)
       .map((a) => {
-        const q = session.questions.find((q) => q.id === a.questionId);
-        return q ? `Follow-up needed for: ${q.text}` : `Follow-up needed for question ${a.questionId}`;
+        const matched = session.questions.find((item) => item.id === a.questionId);
+        return matched
+          ? `Follow-up needed for: ${matched.text}`
+          : `Follow-up needed for question ${a.questionId}`;
       });
 
     const result: InterviewResult = {
@@ -368,7 +370,7 @@ export class InterviewCaptureService {
         suggestedFollowUps,
       })
       .catch((err: unknown) =>
-        logger.warn('Failed to publish interview.completed event', { error: String(err) }),
+        logger.warn('Failed to publish interview.completed event', { error: String(err) })
       );
 
     return result;
@@ -383,7 +385,7 @@ export class InterviewCaptureService {
    */
   async analyzeAnswer(
     question: Question,
-    answer: string,
+    answer: string
   ): Promise<{
     resolvedAssumptions: string[];
     newContradictions: string[];
@@ -470,7 +472,7 @@ export class InterviewCaptureService {
    */
   private heuristicAnalysis(
     question: Question,
-    answer: string,
+    answer: string
   ): {
     resolvedAssumptions: string[];
     newContradictions: string[];
@@ -494,19 +496,15 @@ export class InterviewCaptureService {
       lowerAnswer.includes('on the other hand') ||
       lowerAnswer.includes('disagree');
 
-    const newContradictions: string[] = contradictionSignals
-      ? [randomUUID()]
-      : [];
+    const newContradictions: string[] = contradictionSignals ? [randomUUID()] : [];
 
     const suggestedFollowUps: string[] = [];
     if (followUpNeeded) {
-      suggestedFollowUps.push(
-        `Can you elaborate on your answer regarding: "${question.text}"?`,
-      );
+      suggestedFollowUps.push(`Can you elaborate on your answer regarding: "${question.text}"?`);
     }
     if (contradictionSignals) {
       suggestedFollowUps.push(
-        `You mentioned a contrasting viewpoint — could you clarify the trade-offs you see?`,
+        `You mentioned a contrasting viewpoint — could you clarify the trade-offs you see?`
       );
     }
 
@@ -534,9 +532,7 @@ export class InterviewCaptureService {
    */
   private assertActive(session: InterviewSession): void {
     if (session.status !== 'active') {
-      throw new Error(
-        `Session ${session.id} is not active (current status: '${session.status}')`,
-      );
+      throw new Error(`Session ${session.id} is not active (current status: '${session.status}')`);
     }
   }
 }

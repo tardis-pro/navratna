@@ -1,14 +1,7 @@
 // Code Generator - Generates code diffs and suggestions
 // Epic 4 Implementation
 
-import {
-  Artifact,
-  ArtifactConversationContext,
-  ValidationResult,
-  ValidationStatus,
-  ArtifactMetadata,
-  TraceabilityInfo,
-} from '@uaip/types';
+import { ArtifactConversationContext } from '@uaip/types';
 
 import { TemplateManager } from '../templates/TemplateManager.js';
 import { logger } from '@uaip/utils';
@@ -104,7 +97,8 @@ export class CodeGenerator implements ArtifactGenerator {
     } catch (error) {
       logger.error('Code generation failed:', error);
       throw new Error(
-        `Code generation failed: ${error instanceof Error ? error.message : 'Unknown error'}`
+        `Code generation failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        { cause: error }
       );
     }
   }
@@ -125,7 +119,7 @@ export class CodeGenerator implements ArtifactGenerator {
 
   // Private helper methods
 
-  private extractRequirements(messages: any[]): string[] {
+  private extractRequirements(messages: Array<{ content: string }>): string[] {
     const requirements: string[] = [];
 
     for (const message of messages) {
@@ -146,7 +140,7 @@ export class CodeGenerator implements ArtifactGenerator {
     return requirements.slice(0, 5); // Limit to top 5 requirements
   }
 
-  private extractFunctionName(messages: any[]): string | null {
+  private extractFunctionName(messages: Array<{ content: string }>): string | null {
     for (const message of messages) {
       // Look for function name patterns
       const functionMatch = message.content.match(
@@ -159,7 +153,7 @@ export class CodeGenerator implements ArtifactGenerator {
     return null;
   }
 
-  private detectLanguage(messages: any[]): string | undefined {
+  private detectLanguage(messages: Array<{ content: string }>): string | undefined {
     const languageKeywords = {
       typescript: ['typescript', 'ts', 'interface', 'type'],
       javascript: ['javascript', 'js', 'node', 'npm'],

@@ -86,9 +86,7 @@ export function TelescopeKnowledgeSurface({
 
   // Sort by relevance and assign visibility
   const processedConstellations = useMemo(() => {
-    const sorted = [...constellations].sort(
-      (a, b) => b.relevanceScore - a.relevanceScore,
-    );
+    const sorted = [...constellations].sort((a, b) => b.relevanceScore - a.relevanceScore);
     return sorted.map((block, index) => ({
       ...block,
       visibility: deriveVisibility(block.relevanceScore, index),
@@ -97,18 +95,21 @@ export function TelescopeKnowledgeSurface({
 
   const visibleConstellations = useMemo(
     () => processedConstellations.filter((c) => c.visibility !== 'hidden'),
-    [processedConstellations],
+    [processedConstellations]
   );
 
   // Force layout
-  const forceConfig = useMemo(() => ({
-    gravity: 0.3,
-    springStrength: 0.5,
-    repulsion: 0.8,
-    friction: 0.85,
-    centerX: dimensions.width / 2,
-    centerY: (dimensions.height - 120) / 2,
-  }), [dimensions]);
+  const forceConfig = useMemo(
+    () => ({
+      gravity: 0.3,
+      springStrength: 0.5,
+      repulsion: 0.8,
+      friction: 0.85,
+      centerX: dimensions.width / 2,
+      centerY: (dimensions.height - 120) / 2,
+    }),
+    [dimensions]
+  );
 
   const {
     positions,
@@ -137,38 +138,45 @@ export function TelescopeKnowledgeSurface({
   }, [visibleConstellations, dimensions, setForceNodes]);
 
   // Intent handling
-  const handleIntentSearch = useCallback((query: string) => {
-    search(query);
+  const handleIntentSearch = useCallback(
+    (query: string) => {
+      search(query);
 
-    // Update intent gravity center
-    setIntentCenter({ x: dimensions.width / 2, y: (dimensions.height - 120) / 3 });
+      // Update intent gravity center
+      setIntentCenter({ x: dimensions.width / 2, y: (dimensions.height - 120) / 3 });
 
-    // Update whisper
-    if (query.length > 0) {
-      setWhisper({
-        message: `Reorganizing around "${query}"`,
-        context: `${constellationCount} constellations`,
-        relevanceScore: visibleConstellations.length > 0
-          ? visibleConstellations[0].relevanceScore
-          : 0,
-      });
-    } else {
-      setWhisper(null);
-    }
-  }, [search, setIntentCenter, dimensions, constellationCount, visibleConstellations]);
+      // Update whisper
+      if (query.length > 0) {
+        setWhisper({
+          message: `Reorganizing around "${query}"`,
+          context: `${constellationCount} constellations`,
+          relevanceScore:
+            visibleConstellations.length > 0 ? visibleConstellations[0].relevanceScore : 0,
+        });
+      } else {
+        setWhisper(null);
+      }
+    },
+    [search, setIntentCenter, dimensions, constellationCount, visibleConstellations]
+  );
 
-  const handleConstellationClick = useCallback((id: string) => {
-    onConstellationSelect?.(id);
-  }, [onConstellationSelect]);
+  const handleConstellationClick = useCallback(
+    (id: string) => {
+      onConstellationSelect?.(id);
+    },
+    [onConstellationSelect]
+  );
 
   // Attention items for the gauge
-  const attentionItems: AttentionItem[] = useMemo(() =>
-    visibleConstellations.map((c) => ({
-      id: c.id,
-      label: c.metadata.constellationName,
-      type: 'knowledge',
-    })),
-  [visibleConstellations]);
+  const attentionItems: AttentionItem[] = useMemo(
+    () =>
+      visibleConstellations.map((c) => ({
+        id: c.id,
+        label: c.metadata.constellationName,
+        type: 'knowledge',
+      })),
+    [visibleConstellations]
+  );
 
   return (
     <div
@@ -176,7 +184,7 @@ export function TelescopeKnowledgeSurface({
       className={cn(
         'relative w-full h-full min-h-[400px] flex flex-col overflow-hidden',
         'bg-gradient-to-b from-black/95 to-black/98',
-        className,
+        className
       )}
       role="region"
       aria-label="Telescope Knowledge Surface"
@@ -208,10 +216,7 @@ export function TelescopeKnowledgeSurface({
       {/* Main constellation surface */}
       <div className="relative flex-1 min-h-0">
         <CrystallizationEffect isLoading={isLoading} showShimmer>
-          <div
-            className="relative w-full h-full"
-            style={{ padding: SURFACE_PADDING }}
-          >
+          <div className="relative w-full h-full" style={{ padding: SURFACE_PADDING }}>
             <AnimatePresence mode="popLayout">
               {visibleConstellations.map((constellation) => {
                 const pos = positions.get(constellation.id);
@@ -246,7 +251,9 @@ export function TelescopeKnowledgeSurface({
                 <div className="text-center space-y-2" style={{ color: 'oklch(60% 0.02 264)' }}>
                   <p className="text-sm">No constellations materialized</p>
                   {error ? (
-                    <p className="text-xs" style={{ color: 'oklch(60% 0.15 25)' }}>{error}</p>
+                    <p className="text-xs" style={{ color: 'oklch(60% 0.15 25)' }}>
+                      {error}
+                    </p>
                   ) : (
                     <p className="text-xs">Add knowledge or type an intent to begin</p>
                   )}

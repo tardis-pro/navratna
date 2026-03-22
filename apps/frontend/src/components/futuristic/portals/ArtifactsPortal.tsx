@@ -5,7 +5,7 @@ import {
   Plus,
   Search,
   Download,
-  Upload,
+  Upload as _Upload,
   FileText,
   Code,
   Image,
@@ -13,13 +13,13 @@ import {
   Music,
   Archive,
   Star,
-  Clock,
-  User,
-  Eye,
+  Clock as _Clock,
+  User as _User,
+  Eye as _Eye,
   MoreHorizontal,
 } from 'lucide-react';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
+import { Badge as _Badge } from '@/components/ui/badge';
+import { Button as _Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 

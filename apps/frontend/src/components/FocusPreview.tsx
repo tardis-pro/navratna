@@ -5,7 +5,7 @@ import { X, Info, Clock, User, MessageSquare, Settings } from 'lucide-react';
 interface PreviewData {
   title: string;
   content: string;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 interface FocusPreviewProps {

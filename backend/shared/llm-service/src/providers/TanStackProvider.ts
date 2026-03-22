@@ -12,7 +12,7 @@ export class TanStackProvider extends BaseProvider {
     super(config, `TanStack-${config.type}`);
   }
 
-  private async createAdapter(): Promise<any> {
+  private async createAdapter(): Promise<unknown> {
     const { type, baseUrl } = this.config;
 
     switch (type) {
@@ -57,7 +57,7 @@ export class TanStackProvider extends BaseProvider {
         messages,
         maxTokens: request.maxTokens || 2000,
         temperature: request.temperature || 0.7,
-      } as any);
+      } as unknown as Parameters<typeof chat>[0]);
 
       // Collect full response from stream
       let content = '';
@@ -65,9 +65,14 @@ export class TanStackProvider extends BaseProvider {
 
       for await (const chunk of response) {
         if (chunk.type === 'done') {
-          tokensUsed = (chunk as any).usage?.totalTokens || 0;
-        } else if ('content' in chunk && typeof (chunk as any).content === 'string') {
-          content += (chunk as any).content;
+          tokensUsed = (chunk as unknown as Record<string, unknown>).usage
+            ? (chunk as unknown as Record<string, { totalTokens?: number }>).usage?.totalTokens || 0
+            : 0;
+        } else if (
+          'content' in chunk &&
+          typeof (chunk as unknown as Record<string, unknown>).content === 'string'
+        ) {
+          content += (chunk as unknown as Record<string, string>).content;
         }
       }
 
@@ -87,9 +92,7 @@ export class TanStackProvider extends BaseProvider {
   /**
    * Stream response - yields chunks as they arrive
    */
-  async *streamResponse(
-    request: StreamingLLMRequest
-  ): AsyncGenerator<StreamChunk, void, unknown> {
+  async *streamResponse(request: StreamingLLMRequest): AsyncGenerator<StreamChunk, void, unknown> {
     const adapter = await this.createAdapter();
 
     // Build messages
@@ -106,12 +109,12 @@ export class TanStackProvider extends BaseProvider {
       messages,
       maxTokens: request.maxTokens || 2000,
       temperature: request.temperature || 0.7,
-    } as any);
+    } as unknown as Parameters<typeof chat>[0]);
 
     let tokenIndex = 0;
 
     for await (const chunk of stream) {
-      const chunkAny = chunk as any;
+      const chunkAny = chunk as unknown as Record<string, unknown>;
 
       if ('content' in chunkAny && typeof chunkAny.content === 'string') {
         yield {

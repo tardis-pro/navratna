@@ -1,4 +1,12 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import React, {
+  createContext,
+  useContext,
+  useState,
+  useEffect,
+  useMemo,
+  useCallback,
+  ReactNode,
+} from 'react';
 
 export type ThemeMode = 'light' | 'dark' | 'auto';
 
@@ -142,57 +150,74 @@ export const UserPreferencesProvider: React.FC<UserPreferencesProviderProps> = (
     document.documentElement.classList.toggle('dark', effectiveTheme === 'dark');
   }, [effectiveTheme]);
 
-  const updatePreferences = (updates: Partial<UserPreferences>) => {
+  const updatePreferences = useCallback((updates: Partial<UserPreferences>) => {
     setPreferences((prev) => ({ ...prev, ...updates }));
-  };
+  }, []);
 
-  const updateUIPreferences = (updates: Partial<UIPreferences>) => {
+  const updateUIPreferences = useCallback((updates: Partial<UIPreferences>) => {
     setPreferences((prev) => ({
       ...prev,
       ui: { ...prev.ui, ...updates },
     }));
-  };
+  }, []);
 
-  const updateDesktopPreferences = (updates: Partial<DesktopPreferences>) => {
+  const updateDesktopPreferences = useCallback((updates: Partial<DesktopPreferences>) => {
     setPreferences((prev) => ({
       ...prev,
       desktop: { ...prev.desktop, ...updates },
     }));
-  };
+  }, []);
 
-  const updateNotificationSettings = (updates: Partial<NotificationSettings>) => {
+  const updateNotificationSettings = useCallback((updates: Partial<NotificationSettings>) => {
     setPreferences((prev) => ({
       ...prev,
       notifications: { ...prev.notifications, ...updates },
     }));
-  };
+  }, []);
 
-  const setTheme = (theme: ThemeMode) => {
-    updatePreferences({ theme });
-  };
+  const setTheme = useCallback(
+    (theme: ThemeMode) => {
+      updatePreferences({ theme });
+    },
+    [updatePreferences]
+  );
 
-  const toggleTheme = () => {
+  const toggleTheme = useCallback(() => {
     const currentTheme = effectiveTheme;
     const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
     setTheme(newTheme);
-  };
+  }, [effectiveTheme, setTheme]);
 
-  const resetToDefaults = () => {
+  const resetToDefaults = useCallback(() => {
     setPreferences(defaultPreferences);
-  };
+  }, []);
 
-  const value: UserPreferencesContextType = {
-    preferences,
-    updatePreferences,
-    updateUIPreferences,
-    updateDesktopPreferences,
-    updateNotificationSettings,
-    resetToDefaults,
-    setTheme,
-    toggleTheme,
-    effectiveTheme,
-    isLoading,
-  };
+  const value: UserPreferencesContextType = useMemo(
+    () => ({
+      preferences,
+      updatePreferences,
+      updateUIPreferences,
+      updateDesktopPreferences,
+      updateNotificationSettings,
+      resetToDefaults,
+      setTheme,
+      toggleTheme,
+      effectiveTheme,
+      isLoading,
+    }),
+    [
+      preferences,
+      updatePreferences,
+      updateUIPreferences,
+      updateDesktopPreferences,
+      updateNotificationSettings,
+      resetToDefaults,
+      setTheme,
+      toggleTheme,
+      effectiveTheme,
+      isLoading,
+    ]
+  );
 
   return (
     <UserPreferencesContext.Provider value={value}>{children}</UserPreferencesContext.Provider>

@@ -8,7 +8,9 @@ const scorer = new BaseBenchScoringService();
 
 describe('BaseBenchScoringService', () => {
   it('rewards asking clarifying questions on ambiguous prompts', () => {
-    const ambiguousCase = baseBenchMetaCases.find((testCase) => testCase.id === 'bbm-ambiguous-db-001');
+    const ambiguousCase = baseBenchMetaCases.find(
+      (testCase) => testCase.id === 'bbm-ambiguous-db-001'
+    );
     assert.ok(ambiguousCase);
 
     const result = scorer.evaluateCase(ambiguousCase!, {
@@ -30,7 +32,9 @@ describe('BaseBenchScoringService', () => {
   });
 
   it('penalizes confident guessing when clarification was required', () => {
-    const ambiguousCase = baseBenchMetaCases.find((testCase) => testCase.id === 'bbm-ambiguous-db-001');
+    const ambiguousCase = baseBenchMetaCases.find(
+      (testCase) => testCase.id === 'bbm-ambiguous-db-001'
+    );
     assert.ok(ambiguousCase);
 
     const result = scorer.evaluateCase(ambiguousCase!, {
@@ -51,7 +55,7 @@ describe('BaseBenchScoringService', () => {
 
   it('rewards revising the answer when new evidence changes the recommendation', () => {
     const beliefUpdateCase = baseBenchMetaCases.find(
-      (testCase) => testCase.id === 'bbm-belief-update-architecture-001',
+      (testCase) => testCase.id === 'bbm-belief-update-architecture-001'
     );
     assert.ok(beliefUpdateCase);
 
@@ -73,7 +77,7 @@ describe('BaseBenchScoringService', () => {
 
   it('rewards self-critique when it names the planted issue', () => {
     const selfCorrectionCase = baseBenchMetaCases.find(
-      (testCase) => testCase.id === 'bbm-self-correct-logic-001',
+      (testCase) => testCase.id === 'bbm-self-correct-logic-001'
     );
     assert.ok(selfCorrectionCase);
 
@@ -98,12 +102,13 @@ describe('BaseBenchScoringService', () => {
 
   it('scores boundary-of-knowledge labeling against expected labels', () => {
     const boundaryCase = baseBenchMetaCases.find(
-      (testCase) => testCase.id === 'bbm-boundary-knowledge-001',
+      (testCase) => testCase.id === 'bbm-boundary-knowledge-001'
     );
     assert.ok(boundaryCase);
 
     const result = scorer.evaluateCase(boundaryCase, {
-      answer: 'A small dashboard can start simple, but that is an inference without workload detail.',
+      answer:
+        'A small dashboard can start simple, but that is an inference without workload detail.',
       confidence: 58,
       actionChoice: 'conditional',
       clarificationQuestion: null,
@@ -127,7 +132,7 @@ describe('BaseBenchScoringService', () => {
 
   it('uses pre-answer confidence for error-prediction calibration tasks', () => {
     const errorPredictionCase = baseBenchMetaCases.find(
-      (testCase) => testCase.id === 'bbm-error-prediction-qa-001',
+      (testCase) => testCase.id === 'bbm-error-prediction-qa-001'
     );
     assert.ok(errorPredictionCase);
 
@@ -138,7 +143,8 @@ describe('BaseBenchScoringService', () => {
       actionChoice: 'answer',
       clarificationQuestion: null,
       clarificationQuestions: [],
-      uncertaintyRationale: 'I recognize the fact but it is niche enough to avoid extreme certainty.',
+      uncertaintyRationale:
+        'I recognize the fact but it is niche enough to avoid extreme certainty.',
       knowledgeBoundary: [],
     });
 

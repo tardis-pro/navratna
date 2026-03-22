@@ -1,5 +1,7 @@
 import { Entity, Column, Index, ManyToOne, JoinColumn } from 'typeorm';
 import { BaseEntity } from './base.entity';
+import type { Agent } from './agent.entity';
+import type { ToolDefinition } from './toolDefinition.entity';
 
 /**
  * Tool Usage Record Entity
@@ -29,10 +31,10 @@ export class ToolUsageRecord extends BaseEntity {
   error?: string;
 
   @Column({ type: 'jsonb', nullable: true })
-  parameters?: Record<string, any>;
+  parameters?: Record<string, unknown>;
 
   @Column({ type: 'jsonb', nullable: true })
-  result?: any;
+  result?: Record<string, unknown>;
 
   @Column({ type: 'decimal', precision: 10, scale: 2, nullable: true })
   cost?: number;
@@ -47,14 +49,14 @@ export class ToolUsageRecord extends BaseEntity {
   tags: string[];
 
   @Column({ type: 'jsonb', nullable: true })
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 
   // Relationships
   @ManyToOne('Agent', 'toolUsageRecords')
   @JoinColumn({ name: 'agent_id' })
-  agent: any;
+  agent: Agent;
 
   @ManyToOne('ToolDefinition', 'usageRecords')
   @JoinColumn({ name: 'tool_id' })
-  tool: any;
+  tool: ToolDefinition;
 }

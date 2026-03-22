@@ -67,7 +67,8 @@ export class PRDGenerator implements ArtifactGenerator {
     } catch (error) {
       logger.error('PRD generation failed:', error);
       throw new Error(
-        `PRD generation failed: ${error instanceof Error ? error.message : 'Unknown error'}`
+        `PRD generation failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        { cause: error }
       );
     }
   }
@@ -88,7 +89,7 @@ export class PRDGenerator implements ArtifactGenerator {
 
   // Private helper methods
 
-  private extractRequirements(messages: any[]): string[] {
+  private extractRequirements(messages: Array<{ content: string }>): string[] {
     const requirements: string[] = [];
 
     for (const message of messages) {
@@ -108,7 +109,7 @@ export class PRDGenerator implements ArtifactGenerator {
     return requirements.slice(0, 10);
   }
 
-  private extractDecisions(messages: any[]): string[] {
+  private extractDecisions(messages: Array<{ content: string }>): string[] {
     const decisions: string[] = [];
 
     for (const message of messages) {
@@ -128,7 +129,7 @@ export class PRDGenerator implements ArtifactGenerator {
     return decisions.slice(0, 5);
   }
 
-  private extractObjectives(messages: any[]): string[] {
+  private extractObjectives(messages: Array<{ content: string }>): string[] {
     const objectives: string[] = [];
 
     for (const message of messages) {
@@ -152,7 +153,7 @@ export class PRDGenerator implements ArtifactGenerator {
     return objectives.slice(0, 5);
   }
 
-  private extractProjectName(messages: any[]): string | null {
+  private extractProjectName(messages: Array<{ content: string }>): string | null {
     for (const message of messages) {
       // Look for project name patterns
       const projectMatch = message.content.match(

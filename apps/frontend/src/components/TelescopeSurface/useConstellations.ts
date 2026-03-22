@@ -8,7 +8,10 @@ import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { constellationAPI } from '@/api/constellation.api';
 import type { Constellation, ConstellationHealth } from '@uaip/types';
 import { CONSTELLATION_HEALTH_EXPRESSION_MAP } from '@uaip/types';
-import type { MaterializableBlockType, BlockVisibility } from '@/components/MaterializableBlock/MaterializableBlock.types';
+import type {
+  MaterializableBlockType,
+  BlockVisibility,
+} from '@/components/MaterializableBlock/MaterializableBlock.types';
 import type { Microexpression } from '@/types/microexpression';
 import type { ConstellationBlockData } from './TelescopeSurface.types';
 
@@ -32,7 +35,7 @@ function healthToExpression(health: ConstellationHealth): Microexpression {
 function mapConstellationToBlock(
   constellation: Constellation,
   index: number,
-  expandedIds: Set<string>,
+  expandedIds: Set<string>
 ): ConstellationBlockData {
   const blockType: MaterializableBlockType = 'artifact';
   const visibility: BlockVisibility = constellation.relevanceScore > 0.3 ? 'visible' : 'faded';
@@ -69,11 +72,7 @@ function mapConstellationToBlock(
 // ─── Hook ────────────────────────────────────────────────────────────
 
 export function useConstellations(options: UseConstellationsOptions = {}) {
-  const {
-    initialQuery = '',
-    limit = 20,
-    autoRefreshMs = DEFAULT_AUTO_REFRESH_MS,
-  } = options;
+  const { initialQuery = '', limit = 20, autoRefreshMs = DEFAULT_AUTO_REFRESH_MS } = options;
 
   const [blocks, setBlocks] = useState<ConstellationBlockData[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -86,41 +85,47 @@ export function useConstellations(options: UseConstellationsOptions = {}) {
   const expandedIdsRef = useRef(expandedIds);
   expandedIdsRef.current = expandedIds;
 
-  const fetchConstellations = useCallback(async (query: string) => {
-    setIsLoading(true);
-    setError(null);
+  const fetchConstellations = useCallback(
+    async (query: string) => {
+      setIsLoading(true);
+      setError(null);
 
-    try {
-      const response = await constellationAPI.getConstellations({
-        query: query || undefined,
-        limit,
-        includeItems: true,
-      });
+      try {
+        const response = await constellationAPI.getConstellations({
+          query: query || undefined,
+          limit,
+          includeItems: true,
+        });
 
-      const mapped = response.constellations.map((c, i) =>
-        mapConstellationToBlock(c, i, expandedIdsRef.current)
-      );
-      setBlocks(mapped);
-    } catch (err) {
-      const message = err instanceof Error ? err.message : 'Failed to fetch constellations';
-      setError(message);
-    } finally {
-      setIsLoading(false);
-    }
-  }, [limit]);
+        const mapped = response.constellations.map((c, i) =>
+          mapConstellationToBlock(c, i, expandedIdsRef.current)
+        );
+        setBlocks(mapped);
+      } catch (err) {
+        const message = err instanceof Error ? err.message : 'Failed to fetch constellations';
+        setError(message);
+      } finally {
+        setIsLoading(false);
+      }
+    },
+    [limit]
+  );
 
   // Debounced search
-  const search = useCallback((query: string) => {
-    setSearchQuery(query);
+  const search = useCallback(
+    (query: string) => {
+      setSearchQuery(query);
 
-    if (debounceTimerRef.current) {
-      clearTimeout(debounceTimerRef.current);
-    }
+      if (debounceTimerRef.current) {
+        clearTimeout(debounceTimerRef.current);
+      }
 
-    debounceTimerRef.current = setTimeout(() => {
-      fetchConstellations(query);
-    }, DEBOUNCE_MS);
-  }, [fetchConstellations]);
+      debounceTimerRef.current = setTimeout(() => {
+        fetchConstellations(query);
+      }, DEBOUNCE_MS);
+    },
+    [fetchConstellations]
+  );
 
   // Toggle expand/collapse for a constellation
   const toggleExpand = useCallback((id: string) => {

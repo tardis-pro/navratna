@@ -1,7 +1,5 @@
 import { StateManagerService, StateUpdateOptions } from '../../stateManagerService';
-import { DatabaseService } from '../../databaseService';
 import { OperationState, Checkpoint } from '@uaip/types';
-import { CheckpointType } from '@uaip/types';
 
 // Mock Redis client
 const mockRedis = {

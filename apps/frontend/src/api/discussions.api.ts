@@ -11,8 +11,8 @@ import type {
   DiscussionParticipant,
   DiscussionMessage,
   DiscussionStatus,
-  TurnStrategy,
-  TurnStrategyConfig,
+  _TurnStrategy,
+  _TurnStrategyConfig,
   CreateDiscussionRequest,
   UpdateDiscussionRequest,
   DiscussionAnalytics as SharedDiscussionAnalytics,
@@ -24,7 +24,7 @@ export type DiscussionUpdate = UpdateDiscussionRequest;
 
 export interface MessageRequest {
   content: string;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 export interface TurnRequest {
@@ -172,7 +172,7 @@ export const discussionsAPI = {
     return APIClient.get<string>(`${API_ROUTES.DISCUSSIONS.GET}/${discussionId}/transcript`);
   },
 
-  async search(query: string, filters?: any): Promise<Discussion[]> {
+  async search(query: string, filters?: unknown): Promise<Discussion[]> {
     return APIClient.get<Discussion[]>(API_ROUTES.DISCUSSIONS.SEARCH, {
       params: { q: query, ...filters },
     });

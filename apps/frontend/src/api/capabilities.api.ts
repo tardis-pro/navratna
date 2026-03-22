@@ -18,7 +18,7 @@ export interface CapabilityCreate {
   type: CapabilityType;
   description?: string;
   provider: string;
-  configuration?: Record<string, any>;
+  configuration?: Record<string, unknown>;
   requiredPermissions?: string[];
   dependencies?: string[];
   tags?: string[];
@@ -27,7 +27,7 @@ export interface CapabilityCreate {
 export interface CapabilityUpdate {
   name?: string;
   description?: string;
-  configuration?: Record<string, any>;
+  configuration?: Record<string, unknown>;
   requiredPermissions?: string[];
   dependencies?: string[];
   tags?: string[];
@@ -100,7 +100,7 @@ export const capabilitiesAPI = {
     return APIClient.get<CapabilityCategory[]>(API_ROUTES.CAPABILITIES.CATEGORIES);
   },
 
-  async getRecommendations(context?: any): Promise<CapabilityRecommendation[]> {
+  async getRecommendations(context?: unknown): Promise<CapabilityRecommendation[]> {
     return APIClient.post<CapabilityRecommendation[]>(API_ROUTES.CAPABILITIES.RECOMMENDATIONS, {
       context,
     });
@@ -136,10 +136,10 @@ export const capabilitiesAPI = {
 
   async test(
     id: string,
-    testData?: any
+    testData?: unknown
   ): Promise<{
     success: boolean;
-    result?: any;
+    result?: unknown;
     error?: string;
     duration: number;
   }> {

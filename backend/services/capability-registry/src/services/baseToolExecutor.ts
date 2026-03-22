@@ -16,7 +16,7 @@ interface OAuthTokenInfo {
 }
 
 export class BaseToolExecutor {
-  async execute(toolId: string, parameters: Record<string, any>): Promise<any> {
+  async execute(toolId: string, parameters: Record<string, unknown>): Promise<unknown> {
     logger.info(`Executing tool: ${toolId}`, { parameters });
 
     switch (toolId) {
@@ -45,7 +45,7 @@ export class BaseToolExecutor {
   }
 
   // Math Calculator Tool
-  private async executeMathCalculator(parameters: any): Promise<any> {
+  private async executeMathCalculator(parameters: unknown): Promise<unknown> {
     const { operation, operands } = parameters;
 
     if (!operation || !operands || !Array.isArray(operands)) {
@@ -112,14 +112,14 @@ export class BaseToolExecutor {
   }
 
   // Text Analysis Tool
-  private async executeTextAnalysis(parameters: any): Promise<any> {
+  private async executeTextAnalysis(parameters: unknown): Promise<unknown> {
     const { text, analysisType = 'all' } = parameters;
 
     if (!text || typeof text !== 'string') {
       throw new Error('Text analysis requires a text string');
     }
 
-    const results: any = {
+    const results: unknown = {
       originalText: text,
       timestamp: new Date().toISOString(),
     };
@@ -259,11 +259,11 @@ export class BaseToolExecutor {
   }
 
   // Time Utility Tool
-  private async executeTimeUtility(parameters: any): Promise<any> {
+  private async executeTimeUtility(parameters: unknown): Promise<unknown> {
     const { operation, timezone = 'UTC', format = 'ISO' } = parameters;
 
     const now = new Date();
-    const results: any = {
+    const results: unknown = {
       operation,
       timestamp: now.toISOString(),
     };
@@ -338,7 +338,7 @@ export class BaseToolExecutor {
   }
 
   // ID Generator Tool (replaces UUID generator)
-  private async executeIdGenerator(parameters: any): Promise<any> {
+  private async executeIdGenerator(parameters: unknown): Promise<unknown> {
     const { count = 1, type = 'sequential', min = 1, max = 1000000 } = parameters;
 
     if (count < 1 || count > 100) {
@@ -388,8 +388,8 @@ export class BaseToolExecutor {
   }
 
   // File Reader Tool (Simulated)
-  private async executeFileReader(parameters: any): Promise<any> {
-    const { filePath, encoding = 'utf8', maxSize = 1024 * 1024 } = parameters;
+  private async executeFileReader(parameters: unknown): Promise<unknown> {
+    const { filePath, encoding = 'utf8', _maxSize = 1024 * 1024 } = parameters;
 
     if (!filePath) {
       throw new Error('File reader requires filePath parameter');
@@ -432,7 +432,7 @@ export class BaseToolExecutor {
   }
 
   // Web Search Tool (Simulated)
-  private async executeWebSearch(parameters: any): Promise<any> {
+  private async executeWebSearch(parameters: unknown): Promise<unknown> {
     const { query, maxResults = 10, language = 'en' } = parameters;
 
     if (!query) {
@@ -553,7 +553,7 @@ export class BaseToolExecutor {
   }
 
   // MCP Tool Execution - Delegate to MCP Client Service
-  private async executeMCPTool(toolId: string, parameters: any): Promise<any> {
+  private async executeMCPTool(toolId: string, parameters: unknown): Promise<unknown> {
     logger.info(`Delegating MCP tool execution: ${toolId}`, { parameters });
 
     try {
@@ -585,12 +585,12 @@ export class BaseToolExecutor {
       };
     } catch (error) {
       logger.error(`MCP tool execution failed for ${toolId}:`, error);
-      throw new Error(`MCP execution failed: ${error.message}`);
+      throw new Error(`MCP execution failed: ${error.message}`, { cause: error });
     }
   }
 
   // OAuth Tool Execution - Delegate to OAuth Provider
-  private async executeOAuthTool(toolId: string, parameters: any): Promise<any> {
+  private async executeOAuthTool(toolId: string, parameters: unknown): Promise<unknown> {
     logger.info(`Executing OAuth tool: ${toolId}`, { parameters });
 
     try {
@@ -636,7 +636,7 @@ export class BaseToolExecutor {
       };
     } catch (error) {
       logger.error(`OAuth tool execution failed for ${toolId}:`, error);
-      throw new Error(`OAuth execution failed: ${error.message}`);
+      throw new Error(`OAuth execution failed: ${error.message}`, { cause: error });
     }
   }
 

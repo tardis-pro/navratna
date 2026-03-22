@@ -4,12 +4,12 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
+  _DialogTrigger,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Avatar, AvatarFallback, _AvatarImage } from '@/components/ui/avatar';
 import { Textarea } from '@/components/ui/textarea';
 import {
   Select,
@@ -26,13 +26,13 @@ import {
   UserPlus,
   Zap,
   Clock,
-  TrendingUp,
+  _TrendingUp,
   AlertCircle,
   CheckCircle,
   Circle,
   Search,
-  Filter,
-  Star,
+  _Filter,
+  _Star,
   Activity,
 } from 'lucide-react';
 
@@ -67,8 +67,8 @@ interface TaskAssignmentProps {
   };
   onAssign: (taskId: string, assignment: AssignmentRequest) => Promise<void>;
   onGetSuggestions: (taskId: string) => Promise<TaskAssignmentSuggestion[]>;
-  onGetProjectMembers: (projectId: string) => Promise<any[]>;
-  onGetAvailableAgents: () => Promise<any[]>;
+  onGetProjectMembers: (projectId: string) => Promise<unknown[]>;
+  onGetAvailableAgents: () => Promise<unknown[]>;
   projectId: string;
   isOpen: boolean;
   onOpenChange: (open: boolean) => void;
@@ -88,8 +88,8 @@ export const TaskAssignment: React.FC<TaskAssignmentProps> = ({
   onOpenChange,
 }) => {
   const [suggestions, setSuggestions] = useState<TaskAssignmentSuggestion[]>([]);
-  const [projectMembers, setProjectMembers] = useState<any[]>([]);
-  const [availableAgents, setAvailableAgents] = useState<any[]>([]);
+  const [projectMembers, setProjectMembers] = useState<unknown[]>([]);
+  const [availableAgents, setAvailableAgents] = useState<unknown[]>([]);
   const [selectedAssignee, setSelectedAssignee] = useState<{
     type: 'human' | 'agent';
     id: string;
@@ -109,6 +109,7 @@ export const TaskAssignment: React.FC<TaskAssignmentProps> = ({
     if (isOpen) {
       loadData();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen, taskId]);
 
   const loadData = async () => {
@@ -179,7 +180,7 @@ export const TaskAssignment: React.FC<TaskAssignmentProps> = ({
     if (filters.search && !suggestion.name.toLowerCase().includes(filters.search.toLowerCase()))
       return false;
     if (filters.workload) {
-      const workloadThreshold = parseInt(filters.workload);
+      const _workloadThreshold = parseInt(filters.workload);
       if (filters.workload === 'low' && suggestion.workload > 3) return false;
       if (filters.workload === 'medium' && (suggestion.workload <= 3 || suggestion.workload > 7))
         return false;
@@ -438,8 +439,11 @@ export const TaskAssignment: React.FC<TaskAssignmentProps> = ({
                 ) : filteredSuggestions.length === 0 ? (
                   <div className="text-center py-8 text-gray-500">No suggestions available</div>
                 ) : (
-                  filteredSuggestions.map((suggestion, index) => (
-                    <SuggestionCard key={index} suggestion={suggestion} />
+                  filteredSuggestions.map((suggestion) => (
+                    <SuggestionCard
+                      key={suggestion.assignee?.id || suggestion.reason}
+                      suggestion={suggestion}
+                    />
                   ))
                 )}
               </div>

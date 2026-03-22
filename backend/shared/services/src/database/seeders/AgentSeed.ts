@@ -10,7 +10,6 @@ import {
   AgentIntelligenceConfig,
   AgentSecurityContext,
 } from '@uaip/types';
-import { logger } from '@uaip/utils';
 
 /**
  * Agent seeder with different roles and configurations
@@ -40,8 +39,6 @@ export class AgentSeed extends BaseSeed<Agent> {
    * Override seed method to handle agents without unique name constraint
    */
   async seed(): Promise<Agent[]> {
-    console.log(`🌱 Seeding ${this.entityName}...`);
-
     try {
       const seedData = await this.getSeedData();
       const seededEntities: Agent[] = [];
@@ -55,6 +52,7 @@ export class AgentSeed extends BaseSeed<Agent> {
         }
 
         try {
+          /* oxlint-disable no-await-in-loop, @typescript-eslint/no-explicit-any -- sequential processing required, TypeORM flexible typing */
           // Check if agent already exists by name
           const existingAgent = await this.repository.findOne({
             where: { name: agentName } as any,
@@ -70,7 +68,6 @@ export class AgentSeed extends BaseSeed<Agent> {
             agent = (await this.repository.findOne({
               where: { name: agentName } as any,
             })) as Agent;
-            console.log(`   ↻ Updated Agent: ${agentName}`);
           } else {
             // Create new agent
             agent = await this.repository.save({
@@ -78,29 +75,30 @@ export class AgentSeed extends BaseSeed<Agent> {
               createdAt: new Date(),
               updatedAt: new Date(),
             } as any);
-            console.log(`   ✅ Created Agent: ${agentName}`);
           }
+          /* oxlint-enable no-await-in-loop, @typescript-eslint/no-explicit-any */
 
           seededEntities.push(agent);
-        } catch (entityError: any) {
+        } catch (entityError: unknown) {
+          const err = entityError as Record<string, unknown>;
           // Handle duplicate key errors gracefully
-          if (entityError.code === '23505' || entityError.message?.includes('duplicate key')) {
-            console.log(`   ↻ Agent already exists: ${agentName} (skipping)`);
+          if (err.code === '23505' || (err.message as string)?.includes('duplicate key')) {
             // Try to find the existing entity
+            /* oxlint-disable no-await-in-loop, @typescript-eslint/no-explicit-any -- sequential processing, TypeORM */
             const existingAgent = await this.repository.findOne({
               where: { name: agentName } as any,
             });
+            /* oxlint-enable no-await-in-loop, @typescript-eslint/no-explicit-any */
             if (existingAgent) {
               seededEntities.push(existingAgent);
             }
           } else {
-            console.error(`   ❌ Error seeding Agent ${agentName}:`, entityError.message);
+            console.error(`   ❌ Error seeding Agent ${agentName}:`, err.message as string);
             throw entityError;
           }
         }
       }
 
-      console.log(`   ✅ Seeded ${seededEntities.length} ${this.entityName} records`);
       return seededEntities;
     } catch (error) {
       console.error(`❌ Failed to seed ${this.entityName}:`, error);
@@ -169,7 +167,6 @@ export class AgentSeed extends BaseSeed<Agent> {
         });
 
       if (fallbackProviders.length > 0) {
-        console.log(`   ⚠️ Using fallback LLM provider for agent (role: ${agentRole})`);
         return {
           userLLMProviderId: fallbackProviders[0].id,
           apiType: fallbackProviders[0].type as
@@ -182,9 +179,7 @@ export class AgentSeed extends BaseSeed<Agent> {
       }
 
       // Final fallback: use llmstudio without provider ID
-      console.log(
-        `   ⚠️ No LLM providers found, using default llmstudio for agent (role: ${agentRole})`
-      );
+
       return { apiType: 'llmstudio' as const };
     }
 
@@ -239,18 +234,18 @@ export class AgentSeed extends BaseSeed<Agent> {
           preferences: { visualization_library: 'plotly', statistical_package: 'scipy' },
         } as AgentPersona,
         intelligenceConfig: {
-          analysisDepth: 'advanced' as any,
+          analysisDepth: 'advanced',
           contextWindowSize: 8000,
           decisionThreshold: 0.8,
           learningEnabled: true,
-          collaborationMode: 'collaborative' as any,
+          collaborationMode: 'collaborative',
         } as AgentIntelligenceConfig,
         securityContext: {
-          securityLevel: 'high' as any,
+          securityLevel: 'high',
           allowedCapabilities: ['data-analysis', 'visualization', 'reporting'],
           restrictedDomains: ['financial-data', 'personal-data'],
           approvalRequired: true,
-          auditLevel: 'comprehensive' as any,
+          auditLevel: 'comprehensive',
         } as AgentSecurityContext,
         isActive: true,
         createdBy: this.users[0].id,
@@ -267,7 +262,7 @@ export class AgentSeed extends BaseSeed<Agent> {
           successRate: 0.94,
           userSatisfaction: 0.89,
         },
-        securityLevel: 'high' as any,
+        securityLevel: 'high',
         complianceTags: ['GDPR', 'SOX'],
         configuration: {
           maxConcurrentOperations: 5,
@@ -311,17 +306,17 @@ export class AgentSeed extends BaseSeed<Agent> {
           },
         } as AgentPersona,
         intelligenceConfig: {
-          analysisDepth: 'intermediate' as any,
+          analysisDepth: 'intermediate',
           contextWindowSize: 6000,
           decisionThreshold: 0.85,
           learningEnabled: true,
-          collaborationMode: 'orchestrative' as any,
+          collaborationMode: 'collaborative',
         } as AgentIntelligenceConfig,
         securityContext: {
-          securityLevel: 'high' as any,
+          securityLevel: 'high',
           allowedCapabilities: ['workflow-management', 'task-orchestration', 'scheduling'],
           approvalRequired: true,
-          auditLevel: 'comprehensive' as any,
+          auditLevel: 'comprehensive',
         } as AgentSecurityContext,
         isActive: true,
         createdBy: this.users.find((u) => u.role === 'operations_manager')?.id || this.users[0].id,
@@ -343,7 +338,7 @@ export class AgentSeed extends BaseSeed<Agent> {
           successRate: 0.96,
           userSatisfaction: 0.92,
         },
-        securityLevel: 'high' as any,
+        securityLevel: 'high',
         complianceTags: ['WORKFLOW', 'AUTOMATION'],
         configuration: {
           maxConcurrentOperations: 10,
@@ -392,17 +387,17 @@ export class AgentSeed extends BaseSeed<Agent> {
           },
         } as AgentPersona,
         intelligenceConfig: {
-          analysisDepth: 'intermediate' as any,
+          analysisDepth: 'intermediate',
           contextWindowSize: 6000,
           decisionThreshold: 0.75,
           learningEnabled: true,
-          collaborationMode: 'collaborative' as any,
+          collaborationMode: 'collaborative',
         } as AgentIntelligenceConfig,
         securityContext: {
-          securityLevel: 'medium' as any,
+          securityLevel: 'medium',
           allowedCapabilities: ['full-stack-development', 'api-design', 'testing'],
           approvalRequired: false,
-          auditLevel: 'standard' as any,
+          auditLevel: 'standard',
         } as AgentSecurityContext,
         isActive: true,
         createdBy: this.users.find((u) => u.role === 'developer')?.id || this.users[0].id,
@@ -419,7 +414,7 @@ export class AgentSeed extends BaseSeed<Agent> {
           successRate: 0.91,
           userSatisfaction: 0.87,
         },
-        securityLevel: 'medium' as any,
+        securityLevel: 'medium',
         complianceTags: ['CODE_QUALITY', 'TESTING'],
         configuration: {
           maxConcurrentOperations: 6,
@@ -467,17 +462,17 @@ export class AgentSeed extends BaseSeed<Agent> {
           },
         } as AgentPersona,
         intelligenceConfig: {
-          analysisDepth: 'advanced' as any,
+          analysisDepth: 'advanced',
           contextWindowSize: 7000,
           decisionThreshold: 0.8,
           learningEnabled: true,
-          collaborationMode: 'collaborative' as any,
+          collaborationMode: 'collaborative',
         } as AgentIntelligenceConfig,
         securityContext: {
-          securityLevel: 'high' as any,
+          securityLevel: 'high',
           allowedCapabilities: ['backend-development', 'system-architecture', 'security'],
           approvalRequired: true,
-          auditLevel: 'comprehensive' as any,
+          auditLevel: 'comprehensive',
         } as AgentSecurityContext,
         isActive: true,
         createdBy: this.users.find((u) => u.role === 'developer')?.id || this.users[0].id,
@@ -499,7 +494,7 @@ export class AgentSeed extends BaseSeed<Agent> {
           successRate: 0.93,
           userSatisfaction: 0.9,
         },
-        securityLevel: 'high' as any,
+        securityLevel: 'high',
         complianceTags: ['SECURITY', 'PERFORMANCE', 'SCALABILITY'],
         configuration: {
           maxConcurrentOperations: 4,
@@ -547,17 +542,17 @@ export class AgentSeed extends BaseSeed<Agent> {
           },
         } as AgentPersona,
         intelligenceConfig: {
-          analysisDepth: 'intermediate' as any,
+          analysisDepth: 'intermediate',
           contextWindowSize: 5500,
           decisionThreshold: 0.72,
           learningEnabled: true,
-          collaborationMode: 'collaborative' as any,
+          collaborationMode: 'collaborative',
         } as AgentIntelligenceConfig,
         securityContext: {
-          securityLevel: 'medium' as any,
+          securityLevel: 'medium',
           allowedCapabilities: ['frontend-development', 'ui-ux-design', 'accessibility'],
           approvalRequired: false,
-          auditLevel: 'standard' as any,
+          auditLevel: 'standard',
         } as AgentSecurityContext,
         isActive: true,
         createdBy: this.users.find((u) => u.role === 'developer')?.id || this.users[0].id,
@@ -579,7 +574,7 @@ export class AgentSeed extends BaseSeed<Agent> {
           successRate: 0.89,
           userSatisfaction: 0.91,
         },
-        securityLevel: 'medium' as any,
+        securityLevel: 'medium',
         complianceTags: ['ACCESSIBILITY', 'UX', 'RESPONSIVE'],
         configuration: {
           maxConcurrentOperations: 7,
@@ -622,17 +617,17 @@ export class AgentSeed extends BaseSeed<Agent> {
           },
         } as AgentPersona,
         intelligenceConfig: {
-          analysisDepth: 'advanced' as any,
+          analysisDepth: 'advanced',
           contextWindowSize: 6500,
           decisionThreshold: 0.85,
           learningEnabled: true,
-          collaborationMode: 'supportive' as any,
+          collaborationMode: 'collaborative',
         } as AgentIntelligenceConfig,
         securityContext: {
-          securityLevel: 'high' as any,
+          securityLevel: 'high',
           allowedCapabilities: ['devops', 'infrastructure-automation', 'monitoring'],
           approvalRequired: true,
-          auditLevel: 'comprehensive' as any,
+          auditLevel: 'comprehensive',
         } as AgentSecurityContext,
         isActive: true,
         createdBy: this.users.find((u) => u.role === 'operations_manager')?.id || this.users[0].id,
@@ -649,7 +644,7 @@ export class AgentSeed extends BaseSeed<Agent> {
           successRate: 0.96,
           userSatisfaction: 0.93,
         },
-        securityLevel: 'high' as any,
+        securityLevel: 'high',
         complianceTags: ['INFRASTRUCTURE', 'AUTOMATION', 'MONITORING'],
         configuration: {
           maxConcurrentOperations: 8,
@@ -693,17 +688,17 @@ export class AgentSeed extends BaseSeed<Agent> {
           },
         } as AgentPersona,
         intelligenceConfig: {
-          analysisDepth: 'creative' as any,
+          analysisDepth: 'advanced',
           contextWindowSize: 7500,
           decisionThreshold: 0.7,
           learningEnabled: true,
-          collaborationMode: 'inspirational' as any,
+          collaborationMode: 'collaborative',
         } as AgentIntelligenceConfig,
         securityContext: {
-          securityLevel: 'medium' as any,
+          securityLevel: 'medium',
           allowedCapabilities: ['creative-direction', 'brand-strategy', 'design-systems'],
           approvalRequired: false,
-          auditLevel: 'standard' as any,
+          auditLevel: 'standard',
         } as AgentSecurityContext,
         isActive: true,
         createdBy: this.users.find((u) => u.role === 'creative_director')?.id || this.users[0].id,
@@ -720,7 +715,7 @@ export class AgentSeed extends BaseSeed<Agent> {
           successRate: 0.87,
           userSatisfaction: 0.94,
         },
-        securityLevel: 'medium' as any,
+        securityLevel: 'medium',
         complianceTags: ['CREATIVE', 'BRAND', 'UX'],
         configuration: {
           maxConcurrentOperations: 4,
@@ -765,18 +760,18 @@ export class AgentSeed extends BaseSeed<Agent> {
           },
         } as AgentPersona,
         intelligenceConfig: {
-          analysisDepth: 'deep' as any,
+          analysisDepth: 'advanced',
           contextWindowSize: 8500,
           decisionThreshold: 0.75,
           learningEnabled: true,
-          collaborationMode: 'empathetic' as any,
+          collaborationMode: 'collaborative',
         } as AgentIntelligenceConfig,
         securityContext: {
-          securityLevel: 'high' as any,
+          securityLevel: 'high',
           allowedCapabilities: ['behavioral-analysis', 'user-psychology', 'team-dynamics'],
           restrictedDomains: ['personal-data', 'medical-data'],
           approvalRequired: true,
-          auditLevel: 'comprehensive' as any,
+          auditLevel: 'comprehensive',
         } as AgentSecurityContext,
         isActive: true,
         createdBy: this.users.find((u) => u.role === 'researcher')?.id || this.users[0].id,
@@ -798,7 +793,7 @@ export class AgentSeed extends BaseSeed<Agent> {
           successRate: 0.92,
           userSatisfaction: 0.96,
         },
-        securityLevel: 'high' as any,
+        securityLevel: 'high',
         complianceTags: ['PSYCHOLOGY', 'ETHICS', 'PRIVACY'],
         configuration: {
           maxConcurrentOperations: 3,
@@ -843,17 +838,17 @@ export class AgentSeed extends BaseSeed<Agent> {
           },
         } as AgentPersona,
         intelligenceConfig: {
-          analysisDepth: 'profound' as any,
+          analysisDepth: 'advanced',
           contextWindowSize: 9000,
           decisionThreshold: 0.8,
           learningEnabled: true,
-          collaborationMode: 'contemplative' as any,
+          collaborationMode: 'collaborative',
         } as AgentIntelligenceConfig,
         securityContext: {
-          securityLevel: 'medium' as any,
+          securityLevel: 'medium',
           allowedCapabilities: ['ethical-reasoning', 'philosophical-analysis', 'critical-thinking'],
           approvalRequired: false,
-          auditLevel: 'standard' as any,
+          auditLevel: 'standard',
         } as AgentSecurityContext,
         isActive: true,
         createdBy: this.users.find((u) => u.role === 'advisor')?.id || this.users[0].id,
@@ -875,7 +870,7 @@ export class AgentSeed extends BaseSeed<Agent> {
           successRate: 0.88,
           userSatisfaction: 0.91,
         },
-        securityLevel: 'medium' as any,
+        securityLevel: 'medium',
         complianceTags: ['ETHICS', 'PHILOSOPHY', 'GOVERNANCE'],
         configuration: {
           maxConcurrentOperations: 2,
@@ -916,17 +911,17 @@ export class AgentSeed extends BaseSeed<Agent> {
           preferences: { strategy: 'data-driven', growth: 'sustainable', innovation: 'disruptive' },
         } as AgentPersona,
         intelligenceConfig: {
-          analysisDepth: 'strategic' as any,
+          analysisDepth: 'advanced',
           contextWindowSize: 7000,
           decisionThreshold: 0.78,
           learningEnabled: true,
-          collaborationMode: 'visionary' as any,
+          collaborationMode: 'collaborative',
         } as AgentIntelligenceConfig,
         securityContext: {
-          securityLevel: 'medium' as any,
+          securityLevel: 'medium',
           allowedCapabilities: ['business-strategy', 'market-analysis', 'innovation-management'],
           approvalRequired: false,
-          auditLevel: 'standard' as any,
+          auditLevel: 'standard',
         } as AgentSecurityContext,
         isActive: true,
         createdBy: this.users.find((u) => u.role === 'business_analyst')?.id || this.users[0].id,
@@ -948,7 +943,7 @@ export class AgentSeed extends BaseSeed<Agent> {
           successRate: 0.86,
           userSatisfaction: 0.88,
         },
-        securityLevel: 'medium' as any,
+        securityLevel: 'medium',
         complianceTags: ['BUSINESS', 'STRATEGY', 'INNOVATION'],
         configuration: {
           maxConcurrentOperations: 5,
@@ -992,21 +987,21 @@ export class AgentSeed extends BaseSeed<Agent> {
           preferences: { engagement: 'genuine', growth: 'organic', content: 'value-driven' },
         } as AgentPersona,
         intelligenceConfig: {
-          analysisDepth: 'trend-focused' as any,
+          analysisDepth: 'advanced',
           contextWindowSize: 6000,
           decisionThreshold: 0.7,
           learningEnabled: true,
-          collaborationMode: 'engaging' as any,
+          collaborationMode: 'collaborative',
         } as AgentIntelligenceConfig,
         securityContext: {
-          securityLevel: 'medium' as any,
+          securityLevel: 'medium',
           allowedCapabilities: [
             'social-media-strategy',
             'content-creation',
             'community-management',
           ],
           approvalRequired: false,
-          auditLevel: 'standard' as any,
+          auditLevel: 'standard',
         } as AgentSecurityContext,
         isActive: true,
         createdBy: this.users.find((u) => u.role === 'marketing_manager')?.id || this.users[0].id,
@@ -1028,7 +1023,7 @@ export class AgentSeed extends BaseSeed<Agent> {
           successRate: 0.91,
           userSatisfaction: 0.93,
         },
-        securityLevel: 'medium' as any,
+        securityLevel: 'medium',
         complianceTags: ['SOCIAL_MEDIA', 'MARKETING', 'COMMUNITY'],
         configuration: {
           maxConcurrentOperations: 8,
@@ -1073,17 +1068,17 @@ export class AgentSeed extends BaseSeed<Agent> {
           },
         } as AgentPersona,
         intelligenceConfig: {
-          analysisDepth: 'meticulous' as any,
+          analysisDepth: 'advanced',
           contextWindowSize: 6500,
           decisionThreshold: 0.9,
           learningEnabled: true,
-          collaborationMode: 'thorough' as any,
+          collaborationMode: 'collaborative',
         } as AgentIntelligenceConfig,
         securityContext: {
-          securityLevel: 'high' as any,
+          securityLevel: 'high',
           allowedCapabilities: ['quality-assurance', 'test-automation', 'bug-detection'],
           approvalRequired: false,
-          auditLevel: 'comprehensive' as any,
+          auditLevel: 'comprehensive',
         } as AgentSecurityContext,
         isActive: true,
         createdBy: this.users.find((u) => u.role === 'qa_engineer')?.id || this.users[0].id,
@@ -1105,7 +1100,7 @@ export class AgentSeed extends BaseSeed<Agent> {
           successRate: 0.97,
           userSatisfaction: 0.92,
         },
-        securityLevel: 'high' as any,
+        securityLevel: 'high',
         complianceTags: ['QUALITY', 'TESTING', 'AUTOMATION'],
         configuration: {
           maxConcurrentOperations: 6,
@@ -1149,21 +1144,21 @@ export class AgentSeed extends BaseSeed<Agent> {
           preferences: { design: 'domain-driven', patterns: 'proven', scalability: 'horizontal' },
         } as AgentPersona,
         intelligenceConfig: {
-          analysisDepth: 'architectural' as any,
+          analysisDepth: 'advanced',
           contextWindowSize: 8000,
           decisionThreshold: 0.85,
           learningEnabled: true,
-          collaborationMode: 'systematic' as any,
+          collaborationMode: 'collaborative',
         } as AgentIntelligenceConfig,
         securityContext: {
-          securityLevel: 'high' as any,
+          securityLevel: 'high',
           allowedCapabilities: [
             'system-architecture',
             'technology-selection',
             'scalability-design',
           ],
           approvalRequired: true,
-          auditLevel: 'comprehensive' as any,
+          auditLevel: 'comprehensive',
         } as AgentSecurityContext,
         isActive: true,
         createdBy: this.users.find((u) => u.role === 'architect')?.id || this.users[0].id,
@@ -1185,7 +1180,7 @@ export class AgentSeed extends BaseSeed<Agent> {
           successRate: 0.91,
           userSatisfaction: 0.89,
         },
-        securityLevel: 'high' as any,
+        securityLevel: 'high',
         complianceTags: ['ARCHITECTURE', 'SCALABILITY', 'INTEGRATION'],
         configuration: {
           maxConcurrentOperations: 3,
@@ -1230,17 +1225,17 @@ export class AgentSeed extends BaseSeed<Agent> {
           },
         } as AgentPersona,
         intelligenceConfig: {
-          analysisDepth: 'expert' as any,
+          analysisDepth: 'advanced',
           contextWindowSize: 7500,
           decisionThreshold: 0.88,
           learningEnabled: true,
-          collaborationMode: 'mentoring' as any,
+          collaborationMode: 'collaborative',
         } as AgentIntelligenceConfig,
         securityContext: {
-          securityLevel: 'high' as any,
+          securityLevel: 'high',
           allowedCapabilities: ['code-review', 'security-analysis', 'performance-optimization'],
           approvalRequired: false,
-          auditLevel: 'comprehensive' as any,
+          auditLevel: 'comprehensive',
         } as AgentSecurityContext,
         isActive: true,
         createdBy: this.users.find((u) => u.role === 'senior_developer')?.id || this.users[0].id,
@@ -1257,7 +1252,7 @@ export class AgentSeed extends BaseSeed<Agent> {
           successRate: 0.95,
           userSatisfaction: 0.96,
         },
-        securityLevel: 'high' as any,
+        securityLevel: 'high',
         complianceTags: ['CODE_QUALITY', 'SECURITY', 'MENTORING'],
         configuration: {
           maxConcurrentOperations: 4,
@@ -1302,17 +1297,17 @@ export class AgentSeed extends BaseSeed<Agent> {
           },
         } as AgentPersona,
         intelligenceConfig: {
-          analysisDepth: 'operational' as any,
+          analysisDepth: 'intermediate',
           contextWindowSize: 6000,
           decisionThreshold: 0.82,
           learningEnabled: true,
-          collaborationMode: 'reliable' as any,
+          collaborationMode: 'collaborative',
         } as AgentIntelligenceConfig,
         securityContext: {
-          securityLevel: 'high' as any,
+          securityLevel: 'high',
           allowedCapabilities: ['devops-automation', 'ci-cd-pipelines', 'infrastructure-as-code'],
           approvalRequired: true,
-          auditLevel: 'comprehensive' as any,
+          auditLevel: 'comprehensive',
         } as AgentSecurityContext,
         isActive: true,
         createdBy: this.users.find((u) => u.role === 'devops_engineer')?.id || this.users[0].id,
@@ -1334,7 +1329,7 @@ export class AgentSeed extends BaseSeed<Agent> {
           successRate: 0.97,
           userSatisfaction: 0.94,
         },
-        securityLevel: 'high' as any,
+        securityLevel: 'high',
         complianceTags: ['DEVOPS', 'AUTOMATION', 'INFRASTRUCTURE'],
         configuration: {
           maxConcurrentOperations: 8,
@@ -1374,17 +1369,17 @@ export class AgentSeed extends BaseSeed<Agent> {
           },
         } as AgentPersona,
         intelligenceConfig: {
-          analysisDepth: 'user-focused' as any,
+          analysisDepth: 'intermediate',
           contextWindowSize: 6800,
           decisionThreshold: 0.75,
           learningEnabled: true,
-          collaborationMode: 'empathetic' as any,
+          collaborationMode: 'collaborative',
         } as AgentIntelligenceConfig,
         securityContext: {
-          securityLevel: 'medium' as any,
+          securityLevel: 'medium',
           allowedCapabilities: ['ux-design', 'user-research', 'prototyping'],
           approvalRequired: false,
-          auditLevel: 'standard' as any,
+          auditLevel: 'standard',
         } as AgentSecurityContext,
         isActive: true,
         createdBy: this.users.find((u) => u.role === 'designer')?.id || this.users[0].id,
@@ -1401,7 +1396,7 @@ export class AgentSeed extends BaseSeed<Agent> {
           successRate: 0.9,
           userSatisfaction: 0.95,
         },
-        securityLevel: 'medium' as any,
+        securityLevel: 'medium',
         complianceTags: ['UX', 'ACCESSIBILITY', 'RESEARCH'],
         configuration: {
           maxConcurrentOperations: 5,

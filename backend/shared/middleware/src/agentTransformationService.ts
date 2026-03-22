@@ -6,6 +6,7 @@ import { logger } from '@uaip/utils';
  * Service to transform frontend persona format to backend agent format
  * Addresses critical schema mismatch identified in TypeORM migration plan
  */
+// eslint-disable-next-line @typescript-eslint/no-extraneous-class -- static utility class pattern
 export class AgentTransformationService {
   private static roleMap: Record<string, AgentRole> = {
     // Software Engineering Roles
@@ -102,7 +103,7 @@ export class AgentTransformationService {
    * Transforms a frontend persona object to backend AgentCreateRequest format
    * Handles both legacy persona format and partial agent format
    */
-  static transformPersonaToAgentRequest(input: any): AgentCreateRequest {
+  static transformPersonaToAgentRequest(input: Record<string, unknown>): AgentCreateRequest {
     try {
       // Check if it's already in agent format
       if (this.isAgentFormat(input)) {
@@ -113,14 +114,15 @@ export class AgentTransformationService {
       return this.transformPersonaFormat(input);
     } catch (error) {
       logger.error('Failed to transform persona to agent request', { error, input });
-      throw new Error(`Transformation failed: ${error.message}`);
+      const msg = error instanceof Error ? error.message : String(error);
+      throw new Error(`Transformation failed: ${msg}`, { cause: error });
     }
   }
 
   /**
    * Checks if the input is already in agent format
    */
-  private static isAgentFormat(input: any): boolean {
+  private static isAgentFormat(input: Record<string, unknown>): boolean {
     return (
       input.role &&
       ['assistant', 'analyzer', 'orchestrator', 'specialist'].includes(input.role) &&
@@ -132,35 +134,38 @@ export class AgentTransformationService {
   /**
    * Validates and normalizes an agent request
    */
-  private static validateAndNormalizeAgentRequest(input: any): AgentCreateRequest {
+  private static validateAndNormalizeAgentRequest(
+    input: Record<string, unknown>
+  ): AgentCreateRequest {
+    const cfg = input.configuration as Record<string, unknown> | undefined;
     return {
-      name: input.name || 'Unnamed Agent',
-      description: input.description || 'No description provided',
-      capabilities: input.capabilities || ['general'],
-      role: input.role || AgentRole.ASSISTANT,
+      name: (input.name as string) || 'Unnamed Agent',
+      description: (input.description as string) || 'No description provided',
+      capabilities: (input.capabilities as string[]) || ['general'],
+      role: (input.role as AgentRole) || AgentRole.ASSISTANT,
       configuration: {
-        model: input.configuration?.model || input.modelId,
-        temperature: input.configuration?.temperature || input.temperature || 0.7,
-        analysisDepth: input.configuration?.analysisDepth || 'intermediate',
-        contextWindowSize: input.configuration?.contextWindowSize || 4000,
-        decisionThreshold: input.configuration?.decisionThreshold || 0.7,
-        learningEnabled: input.configuration?.learningEnabled ?? true,
-        collaborationMode: input.configuration?.collaborationMode || 'collaborative',
+        model: (cfg?.model as string) || (input.modelId as string),
+        temperature: (cfg?.temperature as number) || (input.temperature as number) || 0.7,
+        analysisDepth: (cfg?.analysisDepth as string) || 'intermediate',
+        contextWindowSize: (cfg?.contextWindowSize as number) || 4000,
+        decisionThreshold: (cfg?.decisionThreshold as number) || 0.7,
+        learningEnabled: (cfg?.learningEnabled as boolean) ?? true,
+        collaborationMode: (cfg?.collaborationMode as string) || 'collaborative',
       },
       // Model configuration fields
-      modelId: input.modelId,
-      apiType: input.apiType,
-      securityLevel: input.securityLevel || 'medium',
-      isActive: input.isActive ?? true,
+      modelId: input.modelId as string,
+      apiType: input.apiType as string,
+      securityLevel: (input.securityLevel as string) || 'medium',
+      isActive: (input.isActive as boolean) ?? true,
     };
   }
 
   /**
    * Transforms persona format to agent request format
    */
-  private static transformPersonaFormat(persona: any): AgentCreateRequest {
+  private static transformPersonaFormat(persona: Record<string, unknown>): AgentCreateRequest {
     // Extract persona data (handle nested persona object)
-    const personaData = persona.persona || persona;
+    const personaData = (persona.persona || persona) as Record<string, unknown>;
 
     // Generate description from available fields
     const description = this.generateDescription(personaData);
@@ -169,36 +174,36 @@ export class AgentTransformationService {
     const capabilities = this.extractCapabilities(personaData);
 
     // Map role
-    const role = this.mapPersonaRoleToAgentRole(personaData.role || 'Assistant');
+    const role = this.mapPersonaRoleToAgentRole((personaData.role as string) || 'Assistant');
 
     return {
-      name: personaData.name || 'Unnamed Agent',
+      name: (personaData.name as string) || 'Unnamed Agent',
       description,
       capabilities,
       role,
       configuration: {
-        model: personaData.modelId || personaData.model,
-        temperature: personaData.temperature || 0.7,
+        model: (personaData.modelId as string) || (personaData.model as string),
+        temperature: (personaData.temperature as number) || 0.7,
         analysisDepth: this.mapAnalysisDepth(personaData),
-        contextWindowSize: personaData.contextWindowSize || 4000,
+        contextWindowSize: (personaData.contextWindowSize as number) || 4000,
         decisionThreshold: 0.7,
         learningEnabled: true,
         collaborationMode: this.mapCollaborationMode(personaData),
       },
       securityLevel: this.mapSecurityLevel(personaData),
-      isActive: personaData.isActive ?? true,
+      isActive: (personaData.isActive as boolean) ?? true,
     };
   }
 
   /**
    * Generates a description from persona data
    */
-  private static generateDescription(personaData: any): string {
+  private static generateDescription(personaData: Record<string, unknown>): string {
     if (personaData.description) {
-      return personaData.description;
+      return personaData.description as string;
     }
 
-    const role = personaData.role || 'Assistant';
+    const role = (personaData.role as string) || 'Assistant';
     const expertise = this.extractCapabilities(personaData);
     const background = personaData.background
       ? ` with background in ${personaData.background}`
@@ -210,7 +215,7 @@ export class AgentTransformationService {
   /**
    * Extracts capabilities from persona data
    */
-  private static extractCapabilities(personaData: any): string[] {
+  private static extractCapabilities(personaData: Record<string, unknown>): string[] {
     // Direct capabilities array
     if (personaData.capabilities && Array.isArray(personaData.capabilities)) {
       return personaData.capabilities;
@@ -242,7 +247,7 @@ export class AgentTransformationService {
     }
 
     // Fallback to role-based capabilities
-    return this.getDefaultCapabilitiesForRole(personaData.role || 'Assistant');
+    return this.getDefaultCapabilitiesForRole((personaData.role as string) || 'Assistant');
   }
 
   /**
@@ -266,13 +271,15 @@ export class AgentTransformationService {
   /**
    * Maps analysis depth from persona data
    */
-  private static mapAnalysisDepth(personaData: any): 'basic' | 'intermediate' | 'advanced' {
+  private static mapAnalysisDepth(
+    personaData: Record<string, unknown>
+  ): 'basic' | 'intermediate' | 'advanced' {
     if (personaData.analysisDepth) {
-      return personaData.analysisDepth;
+      return personaData.analysisDepth as 'basic' | 'intermediate' | 'advanced';
     }
 
     // Infer from role
-    const role = personaData.role || '';
+    const role = (personaData.role as string) || '';
     if (role.includes('Senior') || role.includes('Lead') || role.includes('Manager')) {
       return 'advanced';
     }
@@ -286,14 +293,14 @@ export class AgentTransformationService {
    * Maps collaboration mode from persona data
    */
   private static mapCollaborationMode(
-    personaData: any
+    personaData: Record<string, unknown>
   ): 'independent' | 'collaborative' | 'supervised' {
     if (personaData.collaborationMode) {
-      return personaData.collaborationMode;
+      return personaData.collaborationMode as 'independent' | 'collaborative' | 'supervised';
     }
 
     // Infer from role
-    const role = personaData.role || '';
+    const role = (personaData.role as string) || '';
     if (role.includes('Lead') || role.includes('Manager') || role.includes('Senior')) {
       return 'independent';
     }
@@ -306,13 +313,15 @@ export class AgentTransformationService {
   /**
    * Maps security level from persona data
    */
-  private static mapSecurityLevel(personaData: any): 'low' | 'medium' | 'high' | 'critical' {
+  private static mapSecurityLevel(
+    personaData: Record<string, unknown>
+  ): 'low' | 'medium' | 'high' | 'critical' {
     if (personaData.securityLevel) {
-      return personaData.securityLevel;
+      return personaData.securityLevel as 'low' | 'medium' | 'high' | 'critical';
     }
 
     // Infer from role
-    const role = personaData.role || '';
+    const role = (personaData.role as string) || '';
     if (role.includes('Security') || role.includes('Admin')) {
       return 'high';
     }

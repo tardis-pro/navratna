@@ -118,11 +118,7 @@ export class ExplanationDAGService {
   /**
    * Add an observation node — raw data or external fact.
    */
-  addObservation(
-    dagId: string,
-    content: string,
-    source?: string,
-  ): ReasoningNode {
+  addObservation(dagId: string, content: string, source?: string): ReasoningNode {
     const node: ReasoningNode = {
       id: uuidv4(),
       type: 'observation',
@@ -144,7 +140,7 @@ export class ExplanationDAGService {
     dagId: string,
     content: string,
     supportingNodeIds: string[],
-    confidence: number,
+    confidence: number
   ): ReasoningNode {
     const node: ReasoningNode = {
       id: uuidv4(),
@@ -172,11 +168,7 @@ export class ExplanationDAGService {
   /**
    * Add an assumption node — something taken as true without direct evidence.
    */
-  addAssumption(
-    dagId: string,
-    content: string,
-    confidence: number,
-  ): ReasoningNode {
+  addAssumption(dagId: string, content: string, confidence: number): ReasoningNode {
     const node: ReasoningNode = {
       id: uuidv4(),
       type: 'assumption',
@@ -192,12 +184,7 @@ export class ExplanationDAGService {
   /**
    * Add an evidence node — supporting data from a specific source.
    */
-  addEvidence(
-    dagId: string,
-    content: string,
-    source: string,
-    confidence: number,
-  ): ReasoningNode {
+  addEvidence(dagId: string, content: string, source: string, confidence: number): ReasoningNode {
     const node: ReasoningNode = {
       id: uuidv4(),
       type: 'evidence',
@@ -214,11 +201,7 @@ export class ExplanationDAGService {
   /**
    * Add an uncertainty node — an explicit acknowledgment of unknowns.
    */
-  addUncertainty(
-    dagId: string,
-    content: string,
-    confidence: number,
-  ): ReasoningNode {
+  addUncertainty(dagId: string, content: string, confidence: number): ReasoningNode {
     const node: ReasoningNode = {
       id: uuidv4(),
       type: 'uncertainty',
@@ -239,11 +222,7 @@ export class ExplanationDAGService {
    * Set the conclusion node for the DAG. Creates 'supports' edges from
    * supporting nodes to the conclusion.
    */
-  setConclusion(
-    dagId: string,
-    content: string,
-    supportingNodeIds: string[],
-  ): ReasoningNode {
+  setConclusion(dagId: string, content: string, supportingNodeIds: string[]): ReasoningNode {
     const dag = this.requireDAG(dagId);
 
     const node: ReasoningNode = {
@@ -293,7 +272,7 @@ export class ExplanationDAGService {
     dagId: string,
     nodeAId: string,
     nodeBId: string,
-    explanation: string,
+    explanation: string
   ): ReasoningEdge {
     this.requireDAG(dagId);
 
@@ -355,15 +334,11 @@ export class ExplanationDAGService {
     }
 
     // Get all incoming 'supports' edges
-    const supportEdges = dag.edges.filter(
-      (e) => e.to === nodeId && e.relationship === 'supports',
-    );
+    const supportEdges = dag.edges.filter((e) => e.to === nodeId && e.relationship === 'supports');
 
     // Get all incoming 'contradicts' or 'weakens' edges
     const negativeEdges = dag.edges.filter(
-      (e) =>
-        e.to === nodeId &&
-        (e.relationship === 'contradicts' || e.relationship === 'weakens'),
+      (e) => e.to === nodeId && (e.relationship === 'contradicts' || e.relationship === 'weakens')
     );
 
     if (supportEdges.length === 0) {
@@ -415,9 +390,7 @@ export class ExplanationDAGService {
     const dag = this.requireDAG(dagId);
 
     return dag.nodes.filter(
-      (node) =>
-        node.type === 'uncertainty' ||
-        node.confidence < UNCERTAINTY_CONFIDENCE_THRESHOLD,
+      (node) => node.type === 'uncertainty' || node.confidence < UNCERTAINTY_CONFIDENCE_THRESHOLD
     );
   }
 
@@ -449,7 +422,7 @@ export class ExplanationDAGService {
     if (dag.conclusion) {
       sections.push(`### Conclusion`);
       sections.push(
-        `${dag.conclusion.content} *(confidence: ${(dag.conclusion.confidence * 100).toFixed(1)}%)*`,
+        `${dag.conclusion.content} *(confidence: ${(dag.conclusion.confidence * 100).toFixed(1)}%)*`
       );
       sections.push('');
     }
@@ -472,7 +445,7 @@ export class ExplanationDAGService {
       for (const ev of evidence) {
         const sourceInfo = ev.source ? ` *(source: ${ev.source})*` : '';
         sections.push(
-          `- ${ev.content}${sourceInfo} *(confidence: ${(ev.confidence * 100).toFixed(1)}%)*`,
+          `- ${ev.content}${sourceInfo} *(confidence: ${(ev.confidence * 100).toFixed(1)}%)*`
         );
       }
       sections.push('');
@@ -489,7 +462,7 @@ export class ExplanationDAGService {
             ? ` (based on: ${supporters.map((s) => this.truncate(s.content, 50)).join('; ')})`
             : '';
         sections.push(
-          `- ${inf.content}${supportText} *(confidence: ${(inf.confidence * 100).toFixed(1)}%)*`,
+          `- ${inf.content}${supportText} *(confidence: ${(inf.confidence * 100).toFixed(1)}%)*`
         );
       }
       sections.push('');
@@ -501,7 +474,7 @@ export class ExplanationDAGService {
       sections.push(`### Assumptions`);
       for (const assumption of assumptions) {
         sections.push(
-          `- ${assumption.content} *(confidence: ${(assumption.confidence * 100).toFixed(1)}%)*`,
+          `- ${assumption.content} *(confidence: ${(assumption.confidence * 100).toFixed(1)}%)*`
         );
       }
       sections.push('');
@@ -512,17 +485,13 @@ export class ExplanationDAGService {
     if (uncertainties.length > 0) {
       sections.push(`### Uncertainties`);
       for (const unc of uncertainties) {
-        sections.push(
-          `- ${unc.content} *(confidence: ${(unc.confidence * 100).toFixed(1)}%)*`,
-        );
+        sections.push(`- ${unc.content} *(confidence: ${(unc.confidence * 100).toFixed(1)}%)*`);
       }
       sections.push('');
     }
 
     // Contradictions
-    const contradictions = dag.edges.filter(
-      (e) => e.relationship === 'contradicts',
-    );
+    const contradictions = dag.edges.filter((e) => e.relationship === 'contradicts');
     if (contradictions.length > 0) {
       sections.push(`### Contradictions`);
       for (const edge of contradictions) {
@@ -530,7 +499,7 @@ export class ExplanationDAGService {
         const nodeB = dag.nodes.find((n) => n.id === edge.to);
         if (nodeA && nodeB) {
           sections.push(
-            `- "${this.truncate(nodeA.content, 60)}" contradicts "${this.truncate(nodeB.content, 60)}"`,
+            `- "${this.truncate(nodeA.content, 60)}" contradicts "${this.truncate(nodeB.content, 60)}"`
           );
         }
       }
@@ -611,9 +580,7 @@ export class ExplanationDAGService {
    * Get all supporting nodes for a given node.
    */
   private getSupporters(dag: ExplanationDAG, nodeId: string): ReasoningNode[] {
-    const supportEdges = dag.edges.filter(
-      (e) => e.to === nodeId && e.relationship === 'supports',
-    );
+    const supportEdges = dag.edges.filter((e) => e.to === nodeId && e.relationship === 'supports');
 
     return supportEdges
       .map((e) => dag.nodes.find((n) => n.id === e.from))

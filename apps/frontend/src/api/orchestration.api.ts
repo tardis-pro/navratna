@@ -20,7 +20,7 @@ export interface WorkflowDefinition {
   description?: string;
   steps: WorkflowStep[];
   triggers?: WorkflowTrigger[];
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
   isActive: boolean;
   createdAt: string;
   updatedAt: string;
@@ -31,8 +31,8 @@ export interface WorkflowStep {
   name: string;
   type: string;
   action: string;
-  parameters?: Record<string, any>;
-  conditions?: Record<string, any>;
+  parameters?: Record<string, unknown>;
+  conditions?: Record<string, unknown>;
   retryPolicy?: {
     maxRetries: number;
     backoffStrategy: 'fixed' | 'exponential';
@@ -44,7 +44,7 @@ export interface WorkflowStep {
 
 export interface WorkflowTrigger {
   type: 'event' | 'schedule' | 'webhook';
-  config: Record<string, any>;
+  config: Record<string, unknown>;
 }
 
 export interface WorkflowExecution {
@@ -55,8 +55,8 @@ export interface WorkflowExecution {
   completedAt?: string;
   currentStep?: string;
   steps: WorkflowStepExecution[];
-  input?: Record<string, any>;
-  output?: Record<string, any>;
+  input?: Record<string, unknown>;
+  output?: Record<string, unknown>;
   error?: string;
 }
 
@@ -65,7 +65,7 @@ export interface WorkflowStepExecution {
   status: OperationStatus;
   startedAt?: string;
   completedAt?: string;
-  output?: Record<string, any>;
+  output?: Record<string, unknown>;
   error?: string;
   retryCount: number;
 }
@@ -120,11 +120,11 @@ export const orchestrationAPI = {
     return APIClient.get<Operation>(`${API_ROUTES.ORCHESTRATION.GET}/${operationId}`);
   },
 
-  async getOperationHistory(operationId: string): Promise<any[]> {
+  async getOperationHistory(operationId: string): Promise<unknown[]> {
     return APIClient.get(`${API_ROUTES.ORCHESTRATION.GET}/${operationId}/history`);
   },
 
-  async getOperationLogs(operationId: string): Promise<any[]> {
+  async getOperationLogs(operationId: string): Promise<unknown[]> {
     return APIClient.get(`${API_ROUTES.ORCHESTRATION.GET}/${operationId}/logs`);
   },
 
@@ -170,7 +170,7 @@ export const orchestrationAPI = {
 
   async executeWorkflow(
     workflowId: string,
-    input?: Record<string, any>
+    input?: Record<string, unknown>
   ): Promise<WorkflowExecution> {
     return APIClient.post<WorkflowExecution>(
       `${API_ROUTES.ORCHESTRATION.WORKFLOWS}/workflows/${workflowId}/execute`,

@@ -1,10 +1,10 @@
 {
   "extends": "../../tsconfig.json",
   "compilerOptions": {
-    "outDir": "dist",     
+    "outDir": "dist",
     "composite": true,
     "rootDir": "src",
-    "baseUrl": ".",    
+    "baseUrl": ".",
     "paths": {
       "@uaip/infra": ["../../shared/infra/src"],
       "@uaip/infra/*": ["../../shared/infra/src/*"]

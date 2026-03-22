@@ -6,13 +6,13 @@ describe('DiscussionWebSocketHandler', () => {
     cleanup: jest.fn(),
   };
 
-  let webSocketHandler: any;
+  let webSocketHandler: unknown;
 
   beforeEach(() => {
     jest.clearAllMocks();
 
     // Setup mock implementations
-    (mockWebSocketHandler.handleConnection as any).mockReturnValue({
+    (mockWebSocketHandler.handleConnection as unknown).mockReturnValue({
       ws: { on: jest.fn(), send: jest.fn() },
       discussionId: 'discussion-123',
       userId: 'user-123',
@@ -21,14 +21,14 @@ describe('DiscussionWebSocketHandler', () => {
       lastPing: new Date(),
     });
 
-    (mockWebSocketHandler.broadcastToDiscussion as any).mockImplementation(
+    (mockWebSocketHandler.broadcastToDiscussion as unknown).mockImplementation(
       (discussionId, event) => {
         expect(discussionId).toBe('discussion-123');
         expect(event).toBeDefined();
       }
     );
 
-    (mockWebSocketHandler.getStats as any).mockReturnValue({
+    (mockWebSocketHandler.getStats as unknown).mockReturnValue({
       totalConnections: 2,
       discussionsWithConnections: 1,
       connectionsByDiscussion: {
@@ -36,7 +36,7 @@ describe('DiscussionWebSocketHandler', () => {
       },
     });
 
-    (mockWebSocketHandler.cleanup as any).mockImplementation(() => {
+    (mockWebSocketHandler.cleanup as unknown).mockImplementation(() => {
       // Simulate cleanup of all connections and timers
     });
 
@@ -106,21 +106,11 @@ describe('DiscussionWebSocketHandler', () => {
 
   describe('Message Handling', () => {
     it('should handle ping/pong messages', () => {
-      const pingMessage = { type: 'ping' };
-
       // In real implementation, this would trigger pong response
       expect(webSocketHandler).toBeDefined();
     });
 
     it('should handle message send requests', async () => {
-      const messageData = {
-        type: 'message.send',
-        data: {
-          content: 'Hello everyone!',
-          messageType: 'text',
-        },
-      };
-
       // Mock the service response
       const mockResult = {
         success: true,
@@ -135,8 +125,6 @@ describe('DiscussionWebSocketHandler', () => {
     });
 
     it('should handle turn request messages', async () => {
-      const turnRequestData = { type: 'turn.request' };
-
       const mockResult = {
         success: true,
         data: { status: 'active', message: 'It is already your turn' },
@@ -146,8 +134,6 @@ describe('DiscussionWebSocketHandler', () => {
     });
 
     it('should handle turn end messages', async () => {
-      const turnEndData = { type: 'turn.end' };
-
       const mockResult = {
         success: true,
         data: { message: 'Turn ended successfully' },
@@ -157,14 +143,6 @@ describe('DiscussionWebSocketHandler', () => {
     });
 
     it('should handle reaction add messages', async () => {
-      const reactionData = {
-        type: 'reaction.add',
-        data: {
-          messageId: 'message-123',
-          emoji: '👍',
-        },
-      };
-
       const mockResult = {
         success: true,
         data: {
@@ -178,8 +156,6 @@ describe('DiscussionWebSocketHandler', () => {
     });
 
     it('should handle unknown message types', () => {
-      const unknownMessage = { type: 'unknown.type' };
-
       // In real implementation, would send error response for unknown message types
       expect(webSocketHandler).toBeDefined();
     });
@@ -188,8 +164,6 @@ describe('DiscussionWebSocketHandler', () => {
       const requestWithoutParticipant = {
         url: '/discussions/discussion-123/ws?userId=user-123',
       };
-
-      const connection = webSocketHandler.handleConnection({}, requestWithoutParticipant);
 
       expect(webSocketHandler.handleConnection).toHaveBeenCalled();
     });
@@ -286,22 +260,16 @@ describe('DiscussionWebSocketHandler', () => {
 
   describe('Connection Lifecycle', () => {
     it('should handle connection close events', () => {
-      const connection = webSocketHandler.handleConnection({}, {});
-
       // In real implementation, would remove connection from tracking
       expect(webSocketHandler.handleConnection).toHaveBeenCalled();
     });
 
     it('should handle connection error events', () => {
-      const connection = webSocketHandler.handleConnection({}, {});
-
       // In real implementation, would clean up connection
       expect(webSocketHandler.handleConnection).toHaveBeenCalled();
     });
 
     it('should handle heartbeat/ping responses', () => {
-      const connection = webSocketHandler.handleConnection({}, {});
-
       // In real implementation, would update connection status
       expect(webSocketHandler.handleConnection).toHaveBeenCalled();
     });

@@ -2,8 +2,11 @@ import { BaseService, allEntities } from '@uaip/shared-services';
 import { config } from '@uaip/config';
 import { logger } from '@uaip/utils';
 import { initializeServices } from '@uaip/shared-services';
-import jwt from 'jsonwebtoken';
-import { validateJWTToken, errorTrackingMiddleware } from '@uaip/middleware';
+import _jwt from 'jsonwebtoken';
+import {
+  validateJWTToken,
+  errorTrackingMiddleware as _errorTrackingMiddleware,
+} from '@uaip/middleware';
 import { createErrorLogger } from '@uaip/middleware';
 
 // Import new Elysia route groups
@@ -141,7 +144,7 @@ class SecurityGatewayServer extends BaseService {
     // Subscribe to WebSocket authentication requests
     await this.eventBusService.subscribe('security.auth.validate', async (event) => {
       try {
-        const data = event.data as any;
+        const data = event.data as unknown;
         const { token, correlationId, service, operation } = data;
 
         logger.info('Processing WebSocket auth validation', {
@@ -174,7 +177,7 @@ class SecurityGatewayServer extends BaseService {
         logger.error('WebSocket auth validation failed', { error });
 
         // Send error response
-        const errorData = event.data as any;
+        const errorData = event.data as unknown;
         if (errorData.correlationId) {
           await this.eventBusService.publish('security.auth.response', {
             correlationId: errorData.correlationId,
@@ -194,7 +197,7 @@ class SecurityGatewayServer extends BaseService {
       'security.auth.validate',
       async (event) => {
         try {
-          const data = event.data as any;
+          const data = event.data as unknown;
           const { token, correlationId, service, operation, complianceLevel } = data;
 
           logger.info('Processing enterprise auth validation', {
@@ -240,7 +243,7 @@ class SecurityGatewayServer extends BaseService {
           logger.error('Enterprise auth validation failed', { error });
 
           // Send error response via enterprise bus
-          const errorData = event.data as any;
+          const errorData = event.data as unknown;
           if (errorData.correlationId) {
             await this.enterpriseEventBusService!.publish('security.auth.response', {
               correlationId: errorData.correlationId,
@@ -259,7 +262,7 @@ class SecurityGatewayServer extends BaseService {
       'security.enterprise.audit.log',
       async (event) => {
         try {
-          const data = event.data as any;
+          const data = event.data as unknown;
           const { auditData, correlationId } = data;
 
           logger.info('Processing enterprise audit log', {
@@ -284,7 +287,7 @@ class SecurityGatewayServer extends BaseService {
 
   // ... (rest of the file)
 
-  private async validateJWTToken(token: string): Promise<any> {
+  private async validateJWTToken(token: string): Promise<unknown> {
     try {
       // Use the validateJWTToken function from middleware
       const result = await validateJWTToken(token);

@@ -97,7 +97,10 @@ export function ProjectContextPanel({ normalizedBrief, className }: ProjectConte
           <Badge variant="outline" className="text-[10px]">
             {metadata.wordCount} words
           </Badge>
-          <Badge variant="outline" className={`text-[10px] ${confidenceBadgeColor(metadata.confidence)}`}>
+          <Badge
+            variant="outline"
+            className={`text-[10px] ${confidenceBadgeColor(metadata.confidence)}`}
+          >
             <Gauge className="mr-1 h-3 w-3" />
             {Math.round(metadata.confidence * 100)}% confidence
           </Badge>
@@ -117,8 +120,11 @@ export function ProjectContextPanel({ normalizedBrief, className }: ProjectConte
               </AccordionTrigger>
               <AccordionContent className="px-4 pb-3">
                 <ul className="space-y-1.5">
-                  {normalizedBrief.goals.map((goal, i) => (
-                    <li key={i} className="flex items-start gap-1.5 text-xs">
+                  {normalizedBrief.goals.map((goal) => (
+                    <li
+                      key={`${goal.priority}-${goal.description}`}
+                      className="flex items-start gap-1.5 text-xs"
+                    >
                       <Badge
                         variant="outline"
                         className={`mt-0.5 shrink-0 text-[9px] ${priorityBadgeColor(goal.priority)}`}
@@ -144,8 +150,8 @@ export function ProjectContextPanel({ normalizedBrief, className }: ProjectConte
               </AccordionTrigger>
               <AccordionContent className="px-4 pb-3">
                 <div className="space-y-2.5">
-                  {normalizedBrief.actors.map((actor, i) => (
-                    <div key={i}>
+                  {normalizedBrief.actors.map((actor) => (
+                    <div key={`${actor.name}-${actor.role}`}>
                       <div className="flex items-center gap-1.5">
                         <span className="text-xs font-medium">{actor.name}</span>
                         <Badge variant="secondary" className="text-[9px]">
@@ -154,9 +160,9 @@ export function ProjectContextPanel({ normalizedBrief, className }: ProjectConte
                       </div>
                       {actor.responsibilities.length > 0 && (
                         <ul className="mt-1 space-y-0.5 pl-3">
-                          {actor.responsibilities.map((resp, j) => (
+                          {actor.responsibilities.map((resp) => (
                             <li
-                              key={j}
+                              key={`${actor.name}-${resp}`}
                               className="list-disc text-[11px] text-muted-foreground"
                             >
                               {resp}
@@ -182,8 +188,8 @@ export function ProjectContextPanel({ normalizedBrief, className }: ProjectConte
               </AccordionTrigger>
               <AccordionContent className="px-4 pb-3">
                 <div className="space-y-2">
-                  {normalizedBrief.assumptions.map((assumption, i) => (
-                    <div key={i} className="space-y-1">
+                  {normalizedBrief.assumptions.map((assumption) => (
+                    <div key={`${assumption.source}-${assumption.content}`} className="space-y-1">
                       <p className="text-[11px] text-muted-foreground">{assumption.content}</p>
                       <ConfidenceBar value={assumption.confidence} />
                       <span className="text-[10px] italic text-muted-foreground/70">
@@ -207,8 +213,11 @@ export function ProjectContextPanel({ normalizedBrief, className }: ProjectConte
               </AccordionTrigger>
               <AccordionContent className="px-4 pb-3">
                 <div className="space-y-1.5">
-                  {normalizedBrief.constraints.map((constraint, i) => (
-                    <div key={i} className="flex items-start gap-1.5 text-xs">
+                  {normalizedBrief.constraints.map((constraint) => (
+                    <div
+                      key={`${constraint.type}-${constraint.severity}-${constraint.description}`}
+                      className="flex items-start gap-1.5 text-xs"
+                    >
                       <div className="mt-0.5 flex shrink-0 gap-1">
                         <Badge
                           variant="outline"
@@ -242,8 +251,8 @@ export function ProjectContextPanel({ normalizedBrief, className }: ProjectConte
               </AccordionTrigger>
               <AccordionContent className="px-4 pb-3">
                 <div className="space-y-1.5">
-                  {normalizedBrief.successMetrics.map((sm, i) => (
-                    <div key={i} className="text-[11px]">
+                  {normalizedBrief.successMetrics.map((sm) => (
+                    <div key={`${sm.metric}-${sm.target ?? 'none'}`} className="text-[11px]">
                       <span className="font-medium">{sm.metric}</span>
                       {sm.target && (
                         <span className="text-muted-foreground"> &mdash; Target: {sm.target}</span>
@@ -273,11 +282,8 @@ export function ProjectContextPanel({ normalizedBrief, className }: ProjectConte
               </AccordionTrigger>
               <AccordionContent className="px-4 pb-3">
                 <ul className="space-y-1 rounded-md bg-amber-500/10 p-2">
-                  {normalizedBrief.missingInformation.map((item, i) => (
-                    <li
-                      key={i}
-                      className="list-inside list-disc text-[11px] text-amber-800"
-                    >
+                  {normalizedBrief.missingInformation.map((item) => (
+                    <li key={item} className="list-inside list-disc text-[11px] text-amber-800">
                       {item}
                     </li>
                   ))}
@@ -297,10 +303,16 @@ export function ProjectContextPanel({ normalizedBrief, className }: ProjectConte
               </AccordionTrigger>
               <AccordionContent className="px-4 pb-3">
                 <div className="space-y-2">
-                  {normalizedBrief.contradictions.map((c, i) => (
-                    <div key={i} className="rounded-md border p-2 text-[11px]">
+                  {normalizedBrief.contradictions.map((c) => (
+                    <div
+                      key={`${c.itemA}-${c.itemB}`}
+                      className="rounded-md border p-2 text-[11px]"
+                    >
                       <div className="flex items-start gap-1">
-                        <Badge variant="outline" className="shrink-0 text-[9px] bg-red-500/10 text-red-700 border-red-500/30">
+                        <Badge
+                          variant="outline"
+                          className="shrink-0 text-[9px] bg-red-500/10 text-red-700 border-red-500/30"
+                        >
                           A
                         </Badge>
                         <span className="text-muted-foreground">{c.itemA}</span>
@@ -309,7 +321,10 @@ export function ProjectContextPanel({ normalizedBrief, className }: ProjectConte
                         vs
                       </div>
                       <div className="flex items-start gap-1">
-                        <Badge variant="outline" className="shrink-0 text-[9px] bg-blue-500/10 text-blue-700 border-blue-500/30">
+                        <Badge
+                          variant="outline"
+                          className="shrink-0 text-[9px] bg-blue-500/10 text-blue-700 border-blue-500/30"
+                        >
                           B
                         </Badge>
                         <span className="text-muted-foreground">{c.itemB}</span>
@@ -335,8 +350,8 @@ export function ProjectContextPanel({ normalizedBrief, className }: ProjectConte
               </AccordionTrigger>
               <AccordionContent className="px-4 pb-3">
                 <div className="space-y-1.5">
-                  {normalizedBrief.domainTerms.map((dt, i) => (
-                    <div key={i} className="text-[11px]">
+                  {normalizedBrief.domainTerms.map((dt) => (
+                    <div key={dt.term} className="text-[11px]">
                       <span className="font-semibold">{dt.term}</span>
                       {dt.definition && (
                         <span className="text-muted-foreground"> &mdash; {dt.definition}</span>

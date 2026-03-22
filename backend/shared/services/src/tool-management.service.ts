@@ -13,7 +13,7 @@ export class ToolManagementService {
   });
 
   // Tool Definition Operations
-  async createTool(toolData: any): Promise<any> {
+  async createTool(toolData: unknown): Promise<unknown> {
     try {
       return await typeormService.create('ToolDefinition', toolData);
     } catch (error) {
@@ -22,7 +22,7 @@ export class ToolManagementService {
     }
   }
 
-  async updateTool(toolId: string, updates: any): Promise<any> {
+  async updateTool(toolId: string, updates: unknown): Promise<unknown> {
     try {
       return await typeormService.update('ToolDefinition', toolId, updates);
     } catch (error) {
@@ -40,7 +40,7 @@ export class ToolManagementService {
     }
   }
 
-  async getTool(toolId: string): Promise<any> {
+  async getTool(toolId: string): Promise<unknown> {
     try {
       return await typeormService.findById('ToolDefinition', toolId);
     } catch (error) {
@@ -49,7 +49,7 @@ export class ToolManagementService {
     }
   }
 
-  async getTools(filters?: any): Promise<any[]> {
+  async getTools(filters?: unknown): Promise<unknown[]> {
     try {
       const { ToolDefinition } = await import('./entities/index');
       const repository = typeormService.getRepository(ToolDefinition);
@@ -67,7 +67,7 @@ export class ToolManagementService {
     executionTime: number;
     success: boolean;
     cost?: number;
-    metadata?: any;
+    metadata?: unknown;
   }): Promise<void> {
     try {
       const usageRecord = {
@@ -88,7 +88,7 @@ export class ToolManagementService {
     }
   }
 
-  async getToolUsageStats(toolId: string, days = 30): Promise<any> {
+  async getToolUsageStats(toolId: string, days = 30): Promise<unknown> {
     try {
       const since = new Date();
       since.setDate(since.getDate() - days);
@@ -100,15 +100,15 @@ export class ToolManagementService {
         where: {
           toolId,
           usedAt: MoreThanOrEqual(since),
-        } as any,
+        } as unknown,
       });
 
       const totalUsage = usageRecords.length;
-      const successfulUsage = usageRecords.filter((r: any) => r.success).length;
-      const totalCost = usageRecords.reduce((sum: number, r: any) => sum + (r.cost || 0), 0);
+      const successfulUsage = usageRecords.filter((r: unknown) => r.success).length;
+      const totalCost = usageRecords.reduce((sum: number, r: unknown) => sum + (r.cost || 0), 0);
       const avgExecutionTime =
         usageRecords.length > 0
-          ? usageRecords.reduce((sum: number, r: any) => sum + r.executionTime, 0) /
+          ? usageRecords.reduce((sum: number, r: unknown) => sum + r.executionTime, 0) /
             usageRecords.length
           : 0;
 
@@ -120,7 +120,7 @@ export class ToolManagementService {
         successRate: totalUsage > 0 ? successfulUsage / totalUsage : 0,
         totalCost,
         averageExecutionTime: avgExecutionTime,
-        uniqueAgents: new Set(usageRecords.map((r: any) => r.agentId)).size,
+        uniqueAgents: new Set(usageRecords.map((r: unknown) => r.agentId)).size,
       };
     } catch (error) {
       this.logger.error('Failed to get tool usage stats', { error: error.message, toolId });
@@ -140,14 +140,15 @@ export class ToolManagementService {
       const repository = typeormService.getRepository(AgentCapabilityMetric);
 
       const metric = await repository.findOne({
-        where: { agentId: data.agentId, toolId: data.toolId } as any,
+        where: { agentId: data.agentId, toolId: data.toolId } as unknown,
       });
 
       if (metric) {
         // Update existing metric
-        const totalExecutions = (metric as any).totalExecutions + 1;
-        const successfulExecutions = (metric as any).successfulExecutions + (data.success ? 1 : 0);
-        const totalExecutionTime = (metric as any).totalExecutionTime + data.executionTime;
+        const totalExecutions = (metric as unknown).totalExecutions + 1;
+        const successfulExecutions =
+          (metric as unknown).successfulExecutions + (data.success ? 1 : 0);
+        const totalExecutionTime = (metric as unknown).totalExecutionTime + data.executionTime;
 
         await typeormService.update('AgentCapabilityMetric', metric.id, {
           totalExecutions,
@@ -181,7 +182,7 @@ export class ToolManagementService {
     }
   }
 
-  async getAgentCapabilityMetrics(agentId: string): Promise<any[]> {
+  async getAgentCapabilityMetrics(agentId: string): Promise<unknown[]> {
     try {
       const { AgentCapabilityMetric } = await import('./entities/index');
       const repository = typeormService.getRepository(AgentCapabilityMetric);
@@ -202,7 +203,7 @@ export class ToolManagementService {
     try {
       const health = await typeormService.healthCheck();
       return health.status === 'healthy';
-    } catch (error) {
+    } catch {
       return false;
     }
   }

@@ -10,8 +10,8 @@ const router = Router();
 export interface UserToolPreferencesData {
   userId: string;
   toolId: string;
-  parameterDefaults?: Record<string, any>;
-  customConfig?: Record<string, any>;
+  parameterDefaults?: Record<string, unknown>;
+  customConfig?: Record<string, unknown>;
   isFavorite?: boolean;
   isEnabled?: boolean;
   autoApprove?: boolean;

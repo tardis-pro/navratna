@@ -24,6 +24,24 @@ interface EnterpriseConnection {
   complianceFlags: string[];
 }
 
+interface JoinLeavePayload {
+  discussionId: string;
+}
+
+interface SendMessagePayload {
+  discussionId: string;
+  content: string;
+}
+
+interface AgentChatPayload {
+  agentId: string;
+  message: string;
+  conversationHistory?: Record<string, unknown>[];
+  context?: Record<string, unknown>;
+  messageId?: string;
+  timestamp?: string;
+}
+
 interface WebSocketMessage {
   type:
     | 'join_discussion'
@@ -33,10 +51,39 @@ interface WebSocketMessage {
     | 'agent_response'
     | 'typing'
     | 'heartbeat';
-  payload: any;
+  payload: JoinLeavePayload | SendMessagePayload | AgentChatPayload | Record<string, unknown>;
   messageId: string;
   timestamp: Date;
   securityLevel: number;
+}
+
+/** Incoming HTTP request from WebSocket upgrade */
+interface UpgradeRequest {
+  url: string;
+  headers: Record<string, string | string[] | undefined>;
+  socket: { remoteAddress: string };
+}
+
+interface SecurityAlert {
+  type: string;
+  userId?: string;
+  severity: string;
+  [key: string]: unknown;
+}
+
+interface AuthResponse {
+  valid: boolean;
+  userId?: string;
+  sessionId?: string;
+  securityLevel?: number;
+  complianceFlags?: string[];
+  reason?: string;
+  correlationId?: string;
+}
+
+interface OutboundWebSocketMessage {
+  type: string;
+  payload: Record<string, unknown>;
 }
 
 export class EnterpriseWebSocketHandler extends EventEmitter {
@@ -46,9 +93,13 @@ export class EnterpriseWebSocketHandler extends EventEmitter {
   private heartbeatInterval: NodeJS.Timeout;
   private cleanupInterval: NodeJS.Timeout;
   private serviceName: string;
-  private authResponseHandlers = new Map<string, (event: any) => void>();
+  private authResponseHandlers = new Map<string, (event: AuthResponse) => void>();
 
-  constructor(server: any, eventBusService: EventBusService, serviceName: string) {
+  constructor(
+    server: import('http').Server,
+    eventBusService: EventBusService,
+    serviceName: string
+  ) {
     super();
 
     this.eventBusService = eventBusService;
@@ -76,34 +127,44 @@ export class EnterpriseWebSocketHandler extends EventEmitter {
 
     // Override the WebSocket server's handling to intercept and validate close frames
     const originalHandleUpgrade = server.on;
-    server.on = function (event: string, listener: any) {
+    server.on = function (event: string, listener: (...args: unknown[]) => void) {
       if (event === 'upgrade') {
-        return originalHandleUpgrade.call(this, event, (request: any, socket: any, head: any) => {
-          // Add close frame validation to the socket
-          const originalWrite = socket.write;
-          socket.write = function (data: any, ...args: any[]) {
-            try {
-              // Check if this is a WebSocket close frame and validate the close code
-              if (data && data.length >= 2) {
-                const firstByte = data[0];
-                if (firstByte & 0x80 && (firstByte & 0x0f) === 0x08) {
-                  // Close frame
-                  const closeCode = data.readUInt16BE(2);
-                  if (!this.isValidCloseCode(closeCode)) {
-                    logger.warn('Blocking invalid WebSocket close code', { closeCode });
-                    // Replace with valid close code
-                    data.writeUInt16BE(1000, 2); // Normal closure
+        return originalHandleUpgrade.call(
+          this,
+          event,
+          (request: import('http').IncomingMessage, socket: import('net').Socket, head: Buffer) => {
+            // Add close frame validation to the socket
+            const originalWrite = socket.write;
+            socket.write = function (data: Buffer, ...args: unknown[]) {
+              try {
+                // Check if this is a WebSocket close frame and validate the close code
+                if (data && data.length >= 2) {
+                  const firstByte = data[0];
+                  if (firstByte & 0x80 && (firstByte & 0x0f) === 0x08) {
+                    // Close frame
+                    const closeCode = data.readUInt16BE(2);
+                    if (!this.isValidCloseCode(closeCode)) {
+                      logger.warn('Blocking invalid WebSocket close code', { closeCode });
+                      // Replace with valid close code
+                      data.writeUInt16BE(1000, 2); // Normal closure
+                    }
                   }
                 }
+              } catch {
+                // If parsing fails, just pass through
               }
-            } catch (err) {
-              // If parsing fails, just pass through
-            }
-            return originalWrite.call(this, data, ...args);
-          };
+              return originalWrite.call(this, data, ...args);
+            };
 
-          return listener(request, socket, head);
-        });
+            return (
+              listener as (
+                req: import('http').IncomingMessage,
+                sock: import('net').Socket,
+                h: Buffer
+              ) => void
+            )(request, socket, head);
+          }
+        );
       }
       return originalHandleUpgrade.call(this, event, listener);
     };
@@ -124,7 +185,7 @@ export class EnterpriseWebSocketHandler extends EventEmitter {
   /**
    * Zero Trust client verification
    */
-  private verifyClient(info: any): boolean {
+  private verifyClient(info: { req: import('http').IncomingMessage }): boolean {
     const { req } = info;
 
     // Validate service access permissions
@@ -135,7 +196,6 @@ export class EnterpriseWebSocketHandler extends EventEmitter {
 
     // Basic security checks
     const userAgent = req.headers['user-agent'];
-    const origin = req.headers.origin;
 
     // Block suspicious user agents
     if (!userAgent || userAgent.length < 10) {
@@ -174,10 +234,10 @@ export class EnterpriseWebSocketHandler extends EventEmitter {
   /**
    * Handle new WebSocket connection with enterprise authentication
    */
-  private async handleConnection(ws: WebSocket, req: any): Promise<void> {
+  private async handleConnection(ws: WebSocket, req: UpgradeRequest): Promise<void> {
     const connectionId = this.generateConnectionId();
     const ipAddress = req.socket.remoteAddress;
-    const userAgent = req.headers['user-agent'];
+    const userAgent = req.headers['user-agent'] as string;
 
     logger.info('New WebSocket connection attempt', {
       connectionId,
@@ -263,7 +323,7 @@ export class EnterpriseWebSocketHandler extends EventEmitter {
   /**
    * Enterprise authentication through Security Gateway
    */
-  private async authenticateConnection(req: any): Promise<{
+  private async authenticateConnection(req: UpgradeRequest): Promise<{
     valid: boolean;
     userId?: string;
     sessionId?: string;
@@ -376,7 +436,10 @@ export class EnterpriseWebSocketHandler extends EventEmitter {
   /**
    * Event-driven discussion joining with Zero Trust validation
    */
-  private async handleJoinDiscussion(connectionId: string, payload: any): Promise<void> {
+  private async handleJoinDiscussion(
+    connectionId: string,
+    payload: JoinLeavePayload
+  ): Promise<void> {
     const connection = this.connections.get(connectionId);
     if (!connection) return;
 
@@ -429,7 +492,10 @@ export class EnterpriseWebSocketHandler extends EventEmitter {
   /**
    * Event-driven discussion leaving with Zero Trust validation
    */
-  private async handleLeaveDiscussion(connectionId: string, payload: any): Promise<void> {
+  private async handleLeaveDiscussion(
+    connectionId: string,
+    payload: JoinLeavePayload
+  ): Promise<void> {
     const connection = this.connections.get(connectionId);
     if (!connection) return;
 
@@ -483,7 +549,10 @@ export class EnterpriseWebSocketHandler extends EventEmitter {
   /**
    * Event-driven message sending with Zero Trust validation
    */
-  private async handleSendMessage(connectionId: string, payload: any): Promise<void> {
+  private async handleSendMessage(
+    connectionId: string,
+    payload: SendMessagePayload
+  ): Promise<void> {
     const connection = this.connections.get(connectionId);
     if (!connection) return;
 
@@ -532,7 +601,7 @@ export class EnterpriseWebSocketHandler extends EventEmitter {
   /**
    * Handle direct agent chat messages
    */
-  private async handleAgentChat(connectionId: string, payload: any): Promise<void> {
+  private async handleAgentChat(connectionId: string, payload: AgentChatPayload): Promise<void> {
     const connection = this.connections.get(connectionId);
     if (!connection) return;
 
@@ -570,6 +639,7 @@ export class EnterpriseWebSocketHandler extends EventEmitter {
 
       while (!publishSuccess && retryCount < maxRetries) {
         try {
+          // oxlint-ignore-next-line no-await-in-loop -- sequential processing required
           await this.eventBusService.publish('agent.chat.request', chatRequest);
           publishSuccess = true;
 
@@ -590,6 +660,7 @@ export class EnterpriseWebSocketHandler extends EventEmitter {
 
           if (retryCount < maxRetries) {
             // Wait a bit before retry to allow reconnection
+            // oxlint-ignore-next-line no-await-in-loop -- sequential processing required
             await new Promise((resolve) => setTimeout(resolve, 1000 * retryCount));
           }
         }
@@ -609,7 +680,7 @@ export class EnterpriseWebSocketHandler extends EventEmitter {
    */
   private async broadcastToDiscussion(
     discussionId: string,
-    message: any,
+    message: OutboundWebSocketMessage,
     excludeConnectionId?: string
   ): Promise<void> {
     const connections = this.discussionConnections.get(discussionId);
@@ -638,22 +709,34 @@ export class EnterpriseWebSocketHandler extends EventEmitter {
   private setupEventBusSubscriptions(): void {
     // Subscribe to discussion events
     this.eventBusService.subscribe('discussion.message.broadcast', async (event) => {
-      await this.broadcastToDiscussion((event.data as Record<string, unknown>).discussionId as string, {
-        type: 'new_message',
-        payload: event.data,
-      });
+      await this.broadcastToDiscussion(
+        (event.data as Record<string, unknown>).discussionId as string,
+        {
+          type: 'new_message',
+          payload: event.data,
+        }
+      );
     });
 
     this.eventBusService.subscribe('discussion.agent.response', async (event) => {
-      await this.broadcastToDiscussion((event.data as Record<string, unknown>).discussionId as string, {
-        type: 'agent_response',
-        payload: event.data,
-      });
+      await this.broadcastToDiscussion(
+        (event.data as Record<string, unknown>).discussionId as string,
+        {
+          type: 'agent_response',
+          payload: event.data,
+        }
+      );
     });
 
     // Subscribe to direct agent chat responses
     this.eventBusService.subscribe('agent.chat.response', async (event) => {
-      const { connectionId, agentId, response, agentName, ...metadata } = event.data as { connectionId: string; agentId: string; response: unknown; agentName: string; [key: string]: unknown };
+      const { connectionId, agentId, response, agentName, ...metadata } = event.data as {
+        connectionId: string;
+        agentId: string;
+        response: string;
+        agentName: string;
+        [key: string]: unknown;
+      };
 
       // Send response back to the specific connection
       if (connectionId && this.connections.has(connectionId)) {
@@ -677,22 +760,23 @@ export class EnterpriseWebSocketHandler extends EventEmitter {
 
     // Subscribe to auth responses for WebSocket authentication
     this.eventBusService.subscribe('security.auth.response', async (event) => {
-      const { correlationId } = event.data as { correlationId: string };
+      const authData = event.data as AuthResponse;
+      const { correlationId } = authData;
 
       logger.info('Received security auth response', {
         correlationId,
-        hasHandler: this.authResponseHandlers.has(correlationId),
+        hasHandler: this.authResponseHandlers.has(correlationId!),
         pendingHandlers: Array.from(this.authResponseHandlers.keys()),
-        valid: (event.data as Record<string, unknown>)?.valid,
-        userId: (event.data as Record<string, unknown>)?.userId,
+        valid: authData.valid,
+        userId: authData.userId,
       });
 
       // Find and call the appropriate handler
-      const handler = this.authResponseHandlers.get(correlationId);
+      const handler = this.authResponseHandlers.get(correlationId!);
       if (handler && typeof handler === 'function') {
         logger.info('Calling auth response handler', { correlationId });
         try {
-          handler(event);
+          handler(authData);
           // Clean up the handler after use
           this.authResponseHandlers.delete(correlationId);
         } catch (error) {
@@ -715,7 +799,7 @@ export class EnterpriseWebSocketHandler extends EventEmitter {
     // Security events
     this.eventBusService.subscribe('security.alert', async (event) => {
       // Handle security alerts that may affect WebSocket connections
-      const alertData = event.data as Record<string, unknown>;
+      const alertData = event.data as SecurityAlert;
       if (alertData.severity === 'HIGH' || alertData.severity === 'CRITICAL') {
         await this.handleSecurityAlert(alertData);
       }
@@ -727,7 +811,7 @@ export class EnterpriseWebSocketHandler extends EventEmitter {
   /**
    * Enterprise security alert handling
    */
-  private async handleSecurityAlert(alert: any): Promise<void> {
+  private async handleSecurityAlert(alert: SecurityAlert): Promise<void> {
     logger.warn('Security alert received', { alert });
 
     // Close connections based on alert type
@@ -771,7 +855,7 @@ export class EnterpriseWebSocketHandler extends EventEmitter {
   /**
    * Compliance audit logging
    */
-  private auditLog(event: string, data: any): void {
+  private auditLog(event: string, data: Record<string, unknown>): void {
     logger.info(`AUDIT: ${event}`, {
       ...data,
       service: this.serviceName,
@@ -785,7 +869,7 @@ export class EnterpriseWebSocketHandler extends EventEmitter {
     return `conn_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
   }
 
-  private extractAuthToken(req: any): string | null {
+  private extractAuthToken(req: UpgradeRequest): string | null {
     // Debug logging to see what we're receiving
     logger.info('WebSocket auth extraction debug:', {
       url: req.url,
@@ -854,7 +938,10 @@ export class EnterpriseWebSocketHandler extends EventEmitter {
     }
   }
 
-  private async sendMessage(connectionId: string, message: any): Promise<void> {
+  private async sendMessage(
+    connectionId: string,
+    message: OutboundWebSocketMessage
+  ): Promise<void> {
     const connection = this.connections.get(connectionId);
     if (!connection || connection.ws.readyState !== WebSocket.OPEN) {
       return;
@@ -946,7 +1033,7 @@ export class EnterpriseWebSocketHandler extends EventEmitter {
     logger.error('WebSocket connection error', {
       connectionId,
       error: error.message,
-      code: (error as any).code || 'unknown',
+      code: (error as unknown as { code?: string }).code || 'unknown',
       stack: error.stack,
     });
 
@@ -966,7 +1053,7 @@ export class EnterpriseWebSocketHandler extends EventEmitter {
     this.handleDisconnection(connectionId);
   }
 
-  private async waitForAuthResponse(token: string, timeout: number): Promise<any> {
+  private async waitForAuthResponse(token: string, timeout: number): Promise<AuthResponse> {
     return new Promise(async (resolve, reject) => {
       const correlationId = `auth_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 
@@ -979,22 +1066,22 @@ export class EnterpriseWebSocketHandler extends EventEmitter {
       }, timeout);
 
       // Set up response handler using the pre-established subscription
-      const responseHandler = (event: any) => {
+      const responseHandler = (eventData: AuthResponse) => {
         logger.debug('Received auth response event', {
           expectedCorrelationId: correlationId,
-          receivedCorrelationId: event.data?.correlationId,
-          matches: event.data?.correlationId === correlationId,
-          valid: event.data?.valid,
+          receivedCorrelationId: eventData?.correlationId,
+          matches: eventData?.correlationId === correlationId,
+          valid: eventData?.valid,
         });
 
-        if (event.data.correlationId === correlationId) {
+        if (eventData?.correlationId === correlationId) {
           clearTimeout(timeoutId);
           logger.info('WebSocket auth response matched', {
             correlationId,
-            valid: event.data?.valid,
-            userId: event.data?.userId,
+            valid: eventData?.valid,
+            userId: eventData?.userId,
           });
-          resolve(event.data);
+          resolve(eventData);
         }
       };
 
@@ -1035,7 +1122,7 @@ export class EnterpriseWebSocketHandler extends EventEmitter {
 
     // Close all connections gracefully
     const closePromises: Promise<void>[] = [];
-    for (const [connectionId, connection] of this.connections) {
+    for (const [_connectionId, connection] of this.connections) {
       closePromises.push(
         new Promise((resolve) => {
           connection.ws.close(4001, 'Server shutting down');

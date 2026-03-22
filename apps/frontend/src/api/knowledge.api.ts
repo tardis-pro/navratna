@@ -14,7 +14,7 @@ export interface KnowledgeItem {
   category?: string;
   tags?: string[];
   embedding?: number[];
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
   createdAt: string;
   updatedAt: string;
   createdBy?: string;
@@ -26,7 +26,7 @@ export interface KnowledgeUploadRequest {
   type?: 'document' | 'concept' | 'entity' | 'relation';
   category?: string;
   tags?: string[];
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 export interface KnowledgeSearchRequest {
@@ -52,7 +52,7 @@ export interface KnowledgeRelation {
   toId: string;
   relationType: string;
   strength?: number;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
   createdAt: string;
 }
 
@@ -74,13 +74,13 @@ export interface KnowledgeGraph {
     id: string;
     label: string;
     type: string;
-    properties?: Record<string, any>;
+    properties?: Record<string, unknown>;
   }>;
   edges: Array<{
     source: string;
     target: string;
     type: string;
-    properties?: Record<string, any>;
+    properties?: Record<string, unknown>;
   }>;
 }
 
@@ -111,7 +111,7 @@ export const knowledgeAPI = {
     const url = `${API_ROUTES.KNOWLEDGE.SEARCH}?${params.toString()}`;
 
     // Backend returns {success: true, data: {items: [], ...}} OR {items: [], totalCount: number, searchMetadata: {}}
-    const response = await APIClient.get<any>(url);
+    const response = await APIClient.get<unknown>(url);
 
     // Handle both wrapped and unwrapped response formats
     let searchData = response;
@@ -126,7 +126,7 @@ export const knowledgeAPI = {
     }
 
     // Transform backend response to expected format
-    return searchData.items.map((item: any) => ({
+    return searchData.items.map((item: unknown) => ({
       item: {
         id: item.id,
         title: item.content?.substring(0, 100) + '...' || 'Untitled',
@@ -153,7 +153,7 @@ export const knowledgeAPI = {
     if (options?.offset) params.append('offset', options.offset.toString());
 
     const url = `${API_ROUTES.KNOWLEDGE.BASE}?${params.toString()}`;
-    const response = await APIClient.get<any>(url);
+    const response = await APIClient.get<unknown>(url);
 
     // Handle wrapped response format: { success: true, data: [...], meta: {...} }
     let items = response;
@@ -180,7 +180,7 @@ export const knowledgeAPI = {
   async getStats(): Promise<KnowledgeStats> {
     try {
       // Backend returns {success: true, data: {totalItems, itemsByType, recentActivity, generalKnowledge}}
-      const response = await APIClient.get<{ success: boolean; data: any }>(
+      const response = await APIClient.get<{ success: boolean; data: unknown }>(
         API_ROUTES.KNOWLEDGE.STATS
       );
 
@@ -255,20 +255,24 @@ export const knowledgeAPI = {
 
       // APIClient.get() already unwraps {success:true, data:...} via transformResponse()
       // so response IS the inner data object: { nodes: [], edges: [], metadata: {} }
-      const response = await APIClient.get<{ nodes: any[]; edges: any[]; metadata?: any }>(url);
+      const response = await APIClient.get<{
+        nodes: unknown[];
+        edges: unknown[];
+        metadata?: unknown;
+      }>(url);
 
       // Safely access with defaults
       const nodes = response?.nodes || [];
       const edges = response?.edges || [];
 
       return {
-        nodes: nodes.map((node: any) => ({
+        nodes: nodes.map((node: unknown) => ({
           id: node.id,
           label: node.data?.label || node.id,
           type: node.data?.knowledgeType || 'knowledge',
           properties: node.data,
         })),
-        edges: edges.map((edge: any) => ({
+        edges: edges.map((edge: unknown) => ({
           source: edge.source,
           target: edge.target,
           type: edge.data?.relationshipType || 'related',
@@ -309,7 +313,7 @@ export const knowledgeAPI = {
     return APIClient.get(API_ROUTES.KNOWLEDGE.TAGS);
   },
 
-  async export(format: 'json' | 'csv' = 'json', filters?: any): Promise<Blob> {
+  async export(format: 'json' | 'csv' = 'json', filters?: unknown): Promise<Blob> {
     const response = await APIClient.get(API_ROUTES.KNOWLEDGE.EXPORT, {
       params: { format, ...filters },
       responseType: 'blob',

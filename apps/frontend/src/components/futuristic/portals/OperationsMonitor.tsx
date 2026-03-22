@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect as _useEffect } from 'react';
 import { useUAIP } from '@/contexts/UAIPContext';
-import { motion } from 'framer-motion';
+import { motion as _motion } from 'framer-motion';
 import { OperationStatus, OperationPriority } from '@uaip/types';
 import {
   CogIcon,
@@ -10,7 +10,7 @@ import {
   ClockIcon,
   CheckCircleIcon,
   XCircleIcon,
-  LightBulbIcon,
+  LightBulbIcon as _LightBulbIcon,
   ChartBarIcon,
   BoltIcon,
   ArrowPathIcon,
@@ -28,8 +28,13 @@ interface OperationMetrics {
 }
 
 export const OperationsMonitor: React.FC = () => {
-  const { operations, systemMetrics, refreshData, isWebSocketConnected, executeOperation } =
-    useUAIP();
+  const {
+    operations,
+    systemMetrics: _systemMetrics,
+    refreshData,
+    isWebSocketConnected,
+    executeOperation: _executeOperation,
+  } = useUAIP();
   const [selectedOperation, setSelectedOperation] = useState<string | null>(null);
 
   // Calculate metrics from real operations data

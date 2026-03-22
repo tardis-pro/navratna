@@ -4,9 +4,6 @@
 import {
   Artifact,
   ArtifactConversationContext,
-  OperationResult,
-  Participant,
-  ValidationStatus,
   ValidationResult as SharedValidationResult,
   ValidationError,
   ValidationWarning,
@@ -41,31 +38,31 @@ export interface ArtifactResult {
   error?: {
     code: string;
     message: string;
-    details?: any;
+    details?: unknown;
   };
 }
 
 export interface AnalysisResult {
   success: boolean;
   data?: {
-    summary: any;
-    triggers: any[];
-    requirements: any[];
+    summary: unknown;
+    triggers: unknown[];
+    requirements: unknown[];
   };
   error?: {
     code: string;
     message: string;
-    details?: any;
+    details?: unknown;
   };
 }
 
 export interface InsightsResult {
   success: boolean;
-  data?: any;
+  data?: unknown;
   error?: {
     code: string;
     message: string;
-    details?: any;
+    details?: unknown;
   };
 }
 

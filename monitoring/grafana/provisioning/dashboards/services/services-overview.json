@@ -20,14 +20,35 @@
       "fieldConfig": {
         "defaults": {
           "color": { "mode": "thresholds" },
-          "mappings": [{ "options": { "0": { "color": "red", "index": 1, "text": "DOWN" }, "1": { "color": "green", "index": 0, "text": "UP" } }, "type": "value" }],
-          "thresholds": { "mode": "absolute", "steps": [{ "color": "red", "value": null }, { "color": "green", "value": 1 }] }
+          "mappings": [
+            {
+              "options": {
+                "0": { "color": "red", "index": 1, "text": "DOWN" },
+                "1": { "color": "green", "index": 0, "text": "UP" }
+              },
+              "type": "value"
+            }
+          ],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "red", "value": null },
+              { "color": "green", "value": 1 }
+            ]
+          }
         },
         "overrides": []
       },
       "gridPos": { "h": 3, "w": 3, "x": 0, "y": 1 },
       "id": 1,
-      "options": { "colorMode": "background", "graphMode": "none", "justifyMode": "auto", "orientation": "auto", "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "textMode": "auto" },
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "textMode": "auto"
+      },
       "targets": [{ "expr": "up{job=\"agent-intelligence\"}", "legendFormat": "", "refId": "A" }],
       "title": "Agent Intelligence",
       "type": "stat"
@@ -37,15 +58,38 @@
       "fieldConfig": {
         "defaults": {
           "color": { "mode": "thresholds" },
-          "mappings": [{ "options": { "0": { "color": "red", "index": 1, "text": "DOWN" }, "1": { "color": "green", "index": 0, "text": "UP" } }, "type": "value" }],
-          "thresholds": { "mode": "absolute", "steps": [{ "color": "red", "value": null }, { "color": "green", "value": 1 }] }
+          "mappings": [
+            {
+              "options": {
+                "0": { "color": "red", "index": 1, "text": "DOWN" },
+                "1": { "color": "green", "index": 0, "text": "UP" }
+              },
+              "type": "value"
+            }
+          ],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "red", "value": null },
+              { "color": "green", "value": 1 }
+            ]
+          }
         },
         "overrides": []
       },
       "gridPos": { "h": 3, "w": 3, "x": 3, "y": 1 },
       "id": 2,
-      "options": { "colorMode": "background", "graphMode": "none", "justifyMode": "auto", "orientation": "auto", "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "textMode": "auto" },
-      "targets": [{ "expr": "up{job=\"orchestration-pipeline\"}", "legendFormat": "", "refId": "A" }],
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "textMode": "auto"
+      },
+      "targets": [
+        { "expr": "up{job=\"orchestration-pipeline\"}", "legendFormat": "", "refId": "A" }
+      ],
       "title": "Orchestration",
       "type": "stat"
     },
@@ -54,14 +98,35 @@
       "fieldConfig": {
         "defaults": {
           "color": { "mode": "thresholds" },
-          "mappings": [{ "options": { "0": { "color": "red", "index": 1, "text": "DOWN" }, "1": { "color": "green", "index": 0, "text": "UP" } }, "type": "value" }],
-          "thresholds": { "mode": "absolute", "steps": [{ "color": "red", "value": null }, { "color": "green", "value": 1 }] }
+          "mappings": [
+            {
+              "options": {
+                "0": { "color": "red", "index": 1, "text": "DOWN" },
+                "1": { "color": "green", "index": 0, "text": "UP" }
+              },
+              "type": "value"
+            }
+          ],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "red", "value": null },
+              { "color": "green", "value": 1 }
+            ]
+          }
         },
         "overrides": []
       },
       "gridPos": { "h": 3, "w": 3, "x": 6, "y": 1 },
       "id": 3,
-      "options": { "colorMode": "background", "graphMode": "none", "justifyMode": "auto", "orientation": "auto", "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "textMode": "auto" },
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "textMode": "auto"
+      },
       "targets": [{ "expr": "up{job=\"capability-registry\"}", "legendFormat": "", "refId": "A" }],
       "title": "Capability Registry",
       "type": "stat"
@@ -71,14 +136,35 @@
       "fieldConfig": {
         "defaults": {
           "color": { "mode": "thresholds" },
-          "mappings": [{ "options": { "0": { "color": "red", "index": 1, "text": "DOWN" }, "1": { "color": "green", "index": 0, "text": "UP" } }, "type": "value" }],
-          "thresholds": { "mode": "absolute", "steps": [{ "color": "red", "value": null }, { "color": "green", "value": 1 }] }
+          "mappings": [
+            {
+              "options": {
+                "0": { "color": "red", "index": 1, "text": "DOWN" },
+                "1": { "color": "green", "index": 0, "text": "UP" }
+              },
+              "type": "value"
+            }
+          ],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "red", "value": null },
+              { "color": "green", "value": 1 }
+            ]
+          }
         },
         "overrides": []
       },
       "gridPos": { "h": 3, "w": 3, "x": 9, "y": 1 },
       "id": 4,
-      "options": { "colorMode": "background", "graphMode": "none", "justifyMode": "auto", "orientation": "auto", "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "textMode": "auto" },
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "textMode": "auto"
+      },
       "targets": [{ "expr": "up{job=\"security-gateway\"}", "legendFormat": "", "refId": "A" }],
       "title": "Security Gateway",
       "type": "stat"
@@ -88,15 +174,38 @@
       "fieldConfig": {
         "defaults": {
           "color": { "mode": "thresholds" },
-          "mappings": [{ "options": { "0": { "color": "red", "index": 1, "text": "DOWN" }, "1": { "color": "green", "index": 0, "text": "UP" } }, "type": "value" }],
-          "thresholds": { "mode": "absolute", "steps": [{ "color": "red", "value": null }, { "color": "green", "value": 1 }] }
+          "mappings": [
+            {
+              "options": {
+                "0": { "color": "red", "index": 1, "text": "DOWN" },
+                "1": { "color": "green", "index": 0, "text": "UP" }
+              },
+              "type": "value"
+            }
+          ],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "red", "value": null },
+              { "color": "green", "value": 1 }
+            ]
+          }
         },
         "overrides": []
       },
       "gridPos": { "h": 3, "w": 3, "x": 12, "y": 1 },
       "id": 5,
-      "options": { "colorMode": "background", "graphMode": "none", "justifyMode": "auto", "orientation": "auto", "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "textMode": "auto" },
-      "targets": [{ "expr": "up{job=\"discussion-orchestration\"}", "legendFormat": "", "refId": "A" }],
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "textMode": "auto"
+      },
+      "targets": [
+        { "expr": "up{job=\"discussion-orchestration\"}", "legendFormat": "", "refId": "A" }
+      ],
       "title": "Discussion Orch.",
       "type": "stat"
     },
@@ -105,14 +214,35 @@
       "fieldConfig": {
         "defaults": {
           "color": { "mode": "thresholds" },
-          "mappings": [{ "options": { "0": { "color": "red", "index": 1, "text": "DOWN" }, "1": { "color": "green", "index": 0, "text": "UP" } }, "type": "value" }],
-          "thresholds": { "mode": "absolute", "steps": [{ "color": "red", "value": null }, { "color": "green", "value": 1 }] }
+          "mappings": [
+            {
+              "options": {
+                "0": { "color": "red", "index": 1, "text": "DOWN" },
+                "1": { "color": "green", "index": 0, "text": "UP" }
+              },
+              "type": "value"
+            }
+          ],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "red", "value": null },
+              { "color": "green", "value": 1 }
+            ]
+          }
         },
         "overrides": []
       },
       "gridPos": { "h": 3, "w": 3, "x": 15, "y": 1 },
       "id": 6,
-      "options": { "colorMode": "background", "graphMode": "none", "justifyMode": "auto", "orientation": "auto", "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "textMode": "auto" },
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "textMode": "auto"
+      },
       "targets": [{ "expr": "up{job=\"artifact-service\"}", "legendFormat": "", "refId": "A" }],
       "title": "Artifact Service",
       "type": "stat"
@@ -122,14 +252,35 @@
       "fieldConfig": {
         "defaults": {
           "color": { "mode": "thresholds" },
-          "mappings": [{ "options": { "0": { "color": "red", "index": 1, "text": "DOWN" }, "1": { "color": "green", "index": 0, "text": "UP" } }, "type": "value" }],
-          "thresholds": { "mode": "absolute", "steps": [{ "color": "red", "value": null }, { "color": "green", "value": 1 }] }
+          "mappings": [
+            {
+              "options": {
+                "0": { "color": "red", "index": 1, "text": "DOWN" },
+                "1": { "color": "green", "index": 0, "text": "UP" }
+              },
+              "type": "value"
+            }
+          ],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "red", "value": null },
+              { "color": "green", "value": 1 }
+            ]
+          }
         },
         "overrides": []
       },
       "gridPos": { "h": 3, "w": 3, "x": 18, "y": 1 },
       "id": 7,
-      "options": { "colorMode": "background", "graphMode": "none", "justifyMode": "auto", "orientation": "auto", "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "textMode": "auto" },
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "textMode": "auto"
+      },
       "targets": [{ "expr": "up{job=\"llm-service\"}", "legendFormat": "", "refId": "A" }],
       "title": "LLM Service",
       "type": "stat"
@@ -139,14 +290,35 @@
       "fieldConfig": {
         "defaults": {
           "color": { "mode": "thresholds" },
-          "mappings": [{ "options": { "0": { "color": "red", "index": 1, "text": "DOWN" }, "1": { "color": "green", "index": 0, "text": "UP" } }, "type": "value" }],
-          "thresholds": { "mode": "absolute", "steps": [{ "color": "red", "value": null }, { "color": "green", "value": 1 }] }
+          "mappings": [
+            {
+              "options": {
+                "0": { "color": "red", "index": 1, "text": "DOWN" },
+                "1": { "color": "green", "index": 0, "text": "UP" }
+              },
+              "type": "value"
+            }
+          ],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "red", "value": null },
+              { "color": "green", "value": 1 }
+            ]
+          }
         },
         "overrides": []
       },
       "gridPos": { "h": 3, "w": 3, "x": 21, "y": 1 },
       "id": 8,
-      "options": { "colorMode": "background", "graphMode": "none", "justifyMode": "auto", "orientation": "auto", "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "textMode": "auto" },
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "textMode": "auto"
+      },
       "targets": [{ "expr": "up{job=\"api-gateway-stub\"}", "legendFormat": "", "refId": "A" }],
       "title": "API Gateway",
       "type": "stat"
@@ -164,7 +336,25 @@
       "fieldConfig": {
         "defaults": {
           "color": { "mode": "palette-classic" },
-          "custom": { "axisCenteredZero": false, "axisColorMode": "text", "axisLabel": "", "axisPlacement": "auto", "barAlignment": 0, "drawStyle": "line", "fillOpacity": 10, "gradientMode": "none", "hideFrom": { "legend": false, "tooltip": false, "viz": false }, "lineInterpolation": "smooth", "lineWidth": 2, "pointSize": 5, "scaleDistribution": { "type": "linear" }, "showPoints": "never", "spanNulls": false, "stacking": { "group": "A", "mode": "none" }, "thresholdsStyle": { "mode": "off" } },
+          "custom": {
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "gradientMode": "none",
+            "hideFrom": { "legend": false, "tooltip": false, "viz": false },
+            "lineInterpolation": "smooth",
+            "lineWidth": 2,
+            "pointSize": 5,
+            "scaleDistribution": { "type": "linear" },
+            "showPoints": "never",
+            "spanNulls": false,
+            "stacking": { "group": "A", "mode": "none" },
+            "thresholdsStyle": { "mode": "off" }
+          },
           "mappings": [],
           "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }] },
           "unit": "reqps"
@@ -173,15 +363,51 @@
       },
       "gridPos": { "h": 8, "w": 12, "x": 0, "y": 5 },
       "id": 9,
-      "options": { "legend": { "calcs": ["mean", "max"], "displayMode": "table", "placement": "right", "showLegend": true }, "tooltip": { "mode": "multi", "sort": "desc" } },
+      "options": {
+        "legend": {
+          "calcs": ["mean", "max"],
+          "displayMode": "table",
+          "placement": "right",
+          "showLegend": true
+        },
+        "tooltip": { "mode": "multi", "sort": "desc" }
+      },
       "targets": [
-        { "expr": "sum(rate(http_requests_total{job=\"agent-intelligence\"}[5m])) or vector(0)", "legendFormat": "Agent Intelligence", "refId": "A" },
-        { "expr": "sum(rate(http_requests_total{job=\"orchestration-pipeline\"}[5m])) or vector(0)", "legendFormat": "Orchestration", "refId": "B" },
-        { "expr": "sum(rate(http_requests_total{job=\"capability-registry\"}[5m])) or vector(0)", "legendFormat": "Capability Registry", "refId": "C" },
-        { "expr": "sum(rate(http_requests_total{job=\"security-gateway\"}[5m])) or vector(0)", "legendFormat": "Security Gateway", "refId": "D" },
-        { "expr": "sum(rate(http_requests_total{job=\"discussion-orchestration\"}[5m])) or vector(0)", "legendFormat": "Discussion Orch.", "refId": "E" },
-        { "expr": "sum(rate(http_requests_total{job=\"artifact-service\"}[5m])) or vector(0)", "legendFormat": "Artifact Service", "refId": "F" },
-        { "expr": "sum(rate(http_requests_total{job=\"llm-service\"}[5m])) or vector(0)", "legendFormat": "LLM Service", "refId": "G" }
+        {
+          "expr": "sum(rate(http_requests_total{job=\"agent-intelligence\"}[5m])) or vector(0)",
+          "legendFormat": "Agent Intelligence",
+          "refId": "A"
+        },
+        {
+          "expr": "sum(rate(http_requests_total{job=\"orchestration-pipeline\"}[5m])) or vector(0)",
+          "legendFormat": "Orchestration",
+          "refId": "B"
+        },
+        {
+          "expr": "sum(rate(http_requests_total{job=\"capability-registry\"}[5m])) or vector(0)",
+          "legendFormat": "Capability Registry",
+          "refId": "C"
+        },
+        {
+          "expr": "sum(rate(http_requests_total{job=\"security-gateway\"}[5m])) or vector(0)",
+          "legendFormat": "Security Gateway",
+          "refId": "D"
+        },
+        {
+          "expr": "sum(rate(http_requests_total{job=\"discussion-orchestration\"}[5m])) or vector(0)",
+          "legendFormat": "Discussion Orch.",
+          "refId": "E"
+        },
+        {
+          "expr": "sum(rate(http_requests_total{job=\"artifact-service\"}[5m])) or vector(0)",
+          "legendFormat": "Artifact Service",
+          "refId": "F"
+        },
+        {
+          "expr": "sum(rate(http_requests_total{job=\"llm-service\"}[5m])) or vector(0)",
+          "legendFormat": "LLM Service",
+          "refId": "G"
+        }
       ],
       "title": "Request Rate by Service",
       "type": "timeseries"
@@ -191,21 +417,69 @@
       "fieldConfig": {
         "defaults": {
           "color": { "mode": "palette-classic" },
-          "custom": { "axisCenteredZero": false, "axisColorMode": "text", "axisLabel": "", "axisPlacement": "auto", "barAlignment": 0, "drawStyle": "line", "fillOpacity": 10, "gradientMode": "none", "hideFrom": { "legend": false, "tooltip": false, "viz": false }, "lineInterpolation": "smooth", "lineWidth": 2, "pointSize": 5, "scaleDistribution": { "type": "linear" }, "showPoints": "never", "spanNulls": false, "stacking": { "group": "A", "mode": "none" }, "thresholdsStyle": { "mode": "off" } },
+          "custom": {
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "gradientMode": "none",
+            "hideFrom": { "legend": false, "tooltip": false, "viz": false },
+            "lineInterpolation": "smooth",
+            "lineWidth": 2,
+            "pointSize": 5,
+            "scaleDistribution": { "type": "linear" },
+            "showPoints": "never",
+            "spanNulls": false,
+            "stacking": { "group": "A", "mode": "none" },
+            "thresholdsStyle": { "mode": "off" }
+          },
           "mappings": [],
-          "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }, { "color": "red", "value": 1 }] },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "red", "value": 1 }
+            ]
+          },
           "unit": "percent"
         },
         "overrides": []
       },
       "gridPos": { "h": 8, "w": 12, "x": 12, "y": 5 },
       "id": 10,
-      "options": { "legend": { "calcs": ["mean", "max"], "displayMode": "table", "placement": "right", "showLegend": true }, "tooltip": { "mode": "multi", "sort": "desc" } },
+      "options": {
+        "legend": {
+          "calcs": ["mean", "max"],
+          "displayMode": "table",
+          "placement": "right",
+          "showLegend": true
+        },
+        "tooltip": { "mode": "multi", "sort": "desc" }
+      },
       "targets": [
-        { "expr": "(sum(rate(http_requests_total{job=\"agent-intelligence\",status=~\"5..\"}[5m])) / sum(rate(http_requests_total{job=\"agent-intelligence\"}[5m]))) * 100 or vector(0)", "legendFormat": "Agent Intelligence", "refId": "A" },
-        { "expr": "(sum(rate(http_requests_total{job=\"security-gateway\",status=~\"5..\"}[5m])) / sum(rate(http_requests_total{job=\"security-gateway\"}[5m]))) * 100 or vector(0)", "legendFormat": "Security Gateway", "refId": "B" },
-        { "expr": "(sum(rate(http_requests_total{job=\"capability-registry\",status=~\"5..\"}[5m])) / sum(rate(http_requests_total{job=\"capability-registry\"}[5m]))) * 100 or vector(0)", "legendFormat": "Capability Registry", "refId": "C" },
-        { "expr": "(sum(rate(http_requests_total{job=\"llm-service\",status=~\"5..\"}[5m])) / sum(rate(http_requests_total{job=\"llm-service\"}[5m]))) * 100 or vector(0)", "legendFormat": "LLM Service", "refId": "D" }
+        {
+          "expr": "(sum(rate(http_requests_total{job=\"agent-intelligence\",status=~\"5..\"}[5m])) / sum(rate(http_requests_total{job=\"agent-intelligence\"}[5m]))) * 100 or vector(0)",
+          "legendFormat": "Agent Intelligence",
+          "refId": "A"
+        },
+        {
+          "expr": "(sum(rate(http_requests_total{job=\"security-gateway\",status=~\"5..\"}[5m])) / sum(rate(http_requests_total{job=\"security-gateway\"}[5m]))) * 100 or vector(0)",
+          "legendFormat": "Security Gateway",
+          "refId": "B"
+        },
+        {
+          "expr": "(sum(rate(http_requests_total{job=\"capability-registry\",status=~\"5..\"}[5m])) / sum(rate(http_requests_total{job=\"capability-registry\"}[5m]))) * 100 or vector(0)",
+          "legendFormat": "Capability Registry",
+          "refId": "C"
+        },
+        {
+          "expr": "(sum(rate(http_requests_total{job=\"llm-service\",status=~\"5..\"}[5m])) / sum(rate(http_requests_total{job=\"llm-service\"}[5m]))) * 100 or vector(0)",
+          "legendFormat": "LLM Service",
+          "refId": "D"
+        }
       ],
       "title": "Error Rate (5xx) by Service",
       "type": "timeseries"
@@ -223,21 +497,70 @@
       "fieldConfig": {
         "defaults": {
           "color": { "mode": "palette-classic" },
-          "custom": { "axisCenteredZero": false, "axisColorMode": "text", "axisLabel": "", "axisPlacement": "auto", "barAlignment": 0, "drawStyle": "line", "fillOpacity": 10, "gradientMode": "none", "hideFrom": { "legend": false, "tooltip": false, "viz": false }, "lineInterpolation": "smooth", "lineWidth": 2, "pointSize": 5, "scaleDistribution": { "type": "linear" }, "showPoints": "never", "spanNulls": false, "stacking": { "group": "A", "mode": "none" }, "thresholdsStyle": { "mode": "off" } },
+          "custom": {
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "gradientMode": "none",
+            "hideFrom": { "legend": false, "tooltip": false, "viz": false },
+            "lineInterpolation": "smooth",
+            "lineWidth": 2,
+            "pointSize": 5,
+            "scaleDistribution": { "type": "linear" },
+            "showPoints": "never",
+            "spanNulls": false,
+            "stacking": { "group": "A", "mode": "none" },
+            "thresholdsStyle": { "mode": "off" }
+          },
           "mappings": [],
-          "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }, { "color": "yellow", "value": 500 }, { "color": "red", "value": 1000 }] },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 500 },
+              { "color": "red", "value": 1000 }
+            ]
+          },
           "unit": "ms"
         },
         "overrides": []
       },
       "gridPos": { "h": 8, "w": 12, "x": 0, "y": 14 },
       "id": 11,
-      "options": { "legend": { "calcs": ["mean", "max", "p95"], "displayMode": "table", "placement": "right", "showLegend": true }, "tooltip": { "mode": "multi", "sort": "desc" } },
+      "options": {
+        "legend": {
+          "calcs": ["mean", "max", "p95"],
+          "displayMode": "table",
+          "placement": "right",
+          "showLegend": true
+        },
+        "tooltip": { "mode": "multi", "sort": "desc" }
+      },
       "targets": [
-        { "expr": "histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket{job=\"agent-intelligence\"}[5m])) by (le)) * 1000 or vector(0)", "legendFormat": "Agent Intelligence P95", "refId": "A" },
-        { "expr": "histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket{job=\"security-gateway\"}[5m])) by (le)) * 1000 or vector(0)", "legendFormat": "Security Gateway P95", "refId": "B" },
-        { "expr": "histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket{job=\"capability-registry\"}[5m])) by (le)) * 1000 or vector(0)", "legendFormat": "Capability Registry P95", "refId": "C" },
-        { "expr": "histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket{job=\"llm-service\"}[5m])) by (le)) * 1000 or vector(0)", "legendFormat": "LLM Service P95", "refId": "D" }
+        {
+          "expr": "histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket{job=\"agent-intelligence\"}[5m])) by (le)) * 1000 or vector(0)",
+          "legendFormat": "Agent Intelligence P95",
+          "refId": "A"
+        },
+        {
+          "expr": "histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket{job=\"security-gateway\"}[5m])) by (le)) * 1000 or vector(0)",
+          "legendFormat": "Security Gateway P95",
+          "refId": "B"
+        },
+        {
+          "expr": "histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket{job=\"capability-registry\"}[5m])) by (le)) * 1000 or vector(0)",
+          "legendFormat": "Capability Registry P95",
+          "refId": "C"
+        },
+        {
+          "expr": "histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket{job=\"llm-service\"}[5m])) by (le)) * 1000 or vector(0)",
+          "legendFormat": "LLM Service P95",
+          "refId": "D"
+        }
       ],
       "title": "P95 Response Time by Service",
       "type": "timeseries"
@@ -247,7 +570,25 @@
       "fieldConfig": {
         "defaults": {
           "color": { "mode": "palette-classic" },
-          "custom": { "axisCenteredZero": false, "axisColorMode": "text", "axisLabel": "", "axisPlacement": "auto", "barAlignment": 0, "drawStyle": "line", "fillOpacity": 10, "gradientMode": "none", "hideFrom": { "legend": false, "tooltip": false, "viz": false }, "lineInterpolation": "smooth", "lineWidth": 2, "pointSize": 5, "scaleDistribution": { "type": "linear" }, "showPoints": "never", "spanNulls": false, "stacking": { "group": "A", "mode": "none" }, "thresholdsStyle": { "mode": "off" } },
+          "custom": {
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "gradientMode": "none",
+            "hideFrom": { "legend": false, "tooltip": false, "viz": false },
+            "lineInterpolation": "smooth",
+            "lineWidth": 2,
+            "pointSize": 5,
+            "scaleDistribution": { "type": "linear" },
+            "showPoints": "never",
+            "spanNulls": false,
+            "stacking": { "group": "A", "mode": "none" },
+            "thresholdsStyle": { "mode": "off" }
+          },
           "mappings": [],
           "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }] },
           "unit": "ms"
@@ -256,12 +597,36 @@
       },
       "gridPos": { "h": 8, "w": 12, "x": 12, "y": 14 },
       "id": 12,
-      "options": { "legend": { "calcs": ["mean", "max"], "displayMode": "table", "placement": "right", "showLegend": true }, "tooltip": { "mode": "multi", "sort": "desc" } },
+      "options": {
+        "legend": {
+          "calcs": ["mean", "max"],
+          "displayMode": "table",
+          "placement": "right",
+          "showLegend": true
+        },
+        "tooltip": { "mode": "multi", "sort": "desc" }
+      },
       "targets": [
-        { "expr": "(sum(rate(http_request_duration_seconds_sum{job=\"agent-intelligence\"}[5m])) / sum(rate(http_request_duration_seconds_count{job=\"agent-intelligence\"}[5m]))) * 1000 or vector(0)", "legendFormat": "Agent Intelligence Avg", "refId": "A" },
-        { "expr": "(sum(rate(http_request_duration_seconds_sum{job=\"security-gateway\"}[5m])) / sum(rate(http_request_duration_seconds_count{job=\"security-gateway\"}[5m]))) * 1000 or vector(0)", "legendFormat": "Security Gateway Avg", "refId": "B" },
-        { "expr": "(sum(rate(http_request_duration_seconds_sum{job=\"capability-registry\"}[5m])) / sum(rate(http_request_duration_seconds_count{job=\"capability-registry\"}[5m]))) * 1000 or vector(0)", "legendFormat": "Capability Registry Avg", "refId": "C" },
-        { "expr": "(sum(rate(http_request_duration_seconds_sum{job=\"llm-service\"}[5m])) / sum(rate(http_request_duration_seconds_count{job=\"llm-service\"}[5m]))) * 1000 or vector(0)", "legendFormat": "LLM Service Avg", "refId": "D" }
+        {
+          "expr": "(sum(rate(http_request_duration_seconds_sum{job=\"agent-intelligence\"}[5m])) / sum(rate(http_request_duration_seconds_count{job=\"agent-intelligence\"}[5m]))) * 1000 or vector(0)",
+          "legendFormat": "Agent Intelligence Avg",
+          "refId": "A"
+        },
+        {
+          "expr": "(sum(rate(http_request_duration_seconds_sum{job=\"security-gateway\"}[5m])) / sum(rate(http_request_duration_seconds_count{job=\"security-gateway\"}[5m]))) * 1000 or vector(0)",
+          "legendFormat": "Security Gateway Avg",
+          "refId": "B"
+        },
+        {
+          "expr": "(sum(rate(http_request_duration_seconds_sum{job=\"capability-registry\"}[5m])) / sum(rate(http_request_duration_seconds_count{job=\"capability-registry\"}[5m]))) * 1000 or vector(0)",
+          "legendFormat": "Capability Registry Avg",
+          "refId": "C"
+        },
+        {
+          "expr": "(sum(rate(http_request_duration_seconds_sum{job=\"llm-service\"}[5m])) / sum(rate(http_request_duration_seconds_count{job=\"llm-service\"}[5m]))) * 1000 or vector(0)",
+          "legendFormat": "LLM Service Avg",
+          "refId": "D"
+        }
       ],
       "title": "Average Response Time by Service",
       "type": "timeseries"
@@ -279,7 +644,25 @@
       "fieldConfig": {
         "defaults": {
           "color": { "mode": "palette-classic" },
-          "custom": { "axisCenteredZero": false, "axisColorMode": "text", "axisLabel": "", "axisPlacement": "auto", "barAlignment": 0, "drawStyle": "line", "fillOpacity": 10, "gradientMode": "none", "hideFrom": { "legend": false, "tooltip": false, "viz": false }, "lineInterpolation": "smooth", "lineWidth": 2, "pointSize": 5, "scaleDistribution": { "type": "linear" }, "showPoints": "never", "spanNulls": false, "stacking": { "group": "A", "mode": "none" }, "thresholdsStyle": { "mode": "off" } },
+          "custom": {
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "gradientMode": "none",
+            "hideFrom": { "legend": false, "tooltip": false, "viz": false },
+            "lineInterpolation": "smooth",
+            "lineWidth": 2,
+            "pointSize": 5,
+            "scaleDistribution": { "type": "linear" },
+            "showPoints": "never",
+            "spanNulls": false,
+            "stacking": { "group": "A", "mode": "none" },
+            "thresholdsStyle": { "mode": "off" }
+          },
           "mappings": [],
           "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }] },
           "unit": "decbytes"
@@ -288,14 +671,46 @@
       },
       "gridPos": { "h": 8, "w": 12, "x": 0, "y": 23 },
       "id": 13,
-      "options": { "legend": { "calcs": ["mean", "max"], "displayMode": "table", "placement": "right", "showLegend": true }, "tooltip": { "mode": "multi", "sort": "desc" } },
+      "options": {
+        "legend": {
+          "calcs": ["mean", "max"],
+          "displayMode": "table",
+          "placement": "right",
+          "showLegend": true
+        },
+        "tooltip": { "mode": "multi", "sort": "desc" }
+      },
       "targets": [
-        { "expr": "process_resident_memory_bytes{job=\"agent-intelligence\"} or vector(0)", "legendFormat": "Agent Intelligence", "refId": "A" },
-        { "expr": "process_resident_memory_bytes{job=\"security-gateway\"} or vector(0)", "legendFormat": "Security Gateway", "refId": "B" },
-        { "expr": "process_resident_memory_bytes{job=\"capability-registry\"} or vector(0)", "legendFormat": "Capability Registry", "refId": "C" },
-        { "expr": "process_resident_memory_bytes{job=\"orchestration-pipeline\"} or vector(0)", "legendFormat": "Orchestration", "refId": "D" },
-        { "expr": "process_resident_memory_bytes{job=\"llm-service\"} or vector(0)", "legendFormat": "LLM Service", "refId": "E" },
-        { "expr": "process_resident_memory_bytes{job=\"artifact-service\"} or vector(0)", "legendFormat": "Artifact Service", "refId": "F" }
+        {
+          "expr": "process_resident_memory_bytes{job=\"agent-intelligence\"} or vector(0)",
+          "legendFormat": "Agent Intelligence",
+          "refId": "A"
+        },
+        {
+          "expr": "process_resident_memory_bytes{job=\"security-gateway\"} or vector(0)",
+          "legendFormat": "Security Gateway",
+          "refId": "B"
+        },
+        {
+          "expr": "process_resident_memory_bytes{job=\"capability-registry\"} or vector(0)",
+          "legendFormat": "Capability Registry",
+          "refId": "C"
+        },
+        {
+          "expr": "process_resident_memory_bytes{job=\"orchestration-pipeline\"} or vector(0)",
+          "legendFormat": "Orchestration",
+          "refId": "D"
+        },
+        {
+          "expr": "process_resident_memory_bytes{job=\"llm-service\"} or vector(0)",
+          "legendFormat": "LLM Service",
+          "refId": "E"
+        },
+        {
+          "expr": "process_resident_memory_bytes{job=\"artifact-service\"} or vector(0)",
+          "legendFormat": "Artifact Service",
+          "refId": "F"
+        }
       ],
       "title": "Memory Usage by Service",
       "type": "timeseries"
@@ -305,7 +720,25 @@
       "fieldConfig": {
         "defaults": {
           "color": { "mode": "palette-classic" },
-          "custom": { "axisCenteredZero": false, "axisColorMode": "text", "axisLabel": "", "axisPlacement": "auto", "barAlignment": 0, "drawStyle": "line", "fillOpacity": 10, "gradientMode": "none", "hideFrom": { "legend": false, "tooltip": false, "viz": false }, "lineInterpolation": "smooth", "lineWidth": 2, "pointSize": 5, "scaleDistribution": { "type": "linear" }, "showPoints": "never", "spanNulls": false, "stacking": { "group": "A", "mode": "none" }, "thresholdsStyle": { "mode": "off" } },
+          "custom": {
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "gradientMode": "none",
+            "hideFrom": { "legend": false, "tooltip": false, "viz": false },
+            "lineInterpolation": "smooth",
+            "lineWidth": 2,
+            "pointSize": 5,
+            "scaleDistribution": { "type": "linear" },
+            "showPoints": "never",
+            "spanNulls": false,
+            "stacking": { "group": "A", "mode": "none" },
+            "thresholdsStyle": { "mode": "off" }
+          },
           "mappings": [],
           "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }] },
           "unit": "percent"
@@ -314,14 +747,46 @@
       },
       "gridPos": { "h": 8, "w": 12, "x": 12, "y": 23 },
       "id": 14,
-      "options": { "legend": { "calcs": ["mean", "max"], "displayMode": "table", "placement": "right", "showLegend": true }, "tooltip": { "mode": "multi", "sort": "desc" } },
+      "options": {
+        "legend": {
+          "calcs": ["mean", "max"],
+          "displayMode": "table",
+          "placement": "right",
+          "showLegend": true
+        },
+        "tooltip": { "mode": "multi", "sort": "desc" }
+      },
       "targets": [
-        { "expr": "rate(process_cpu_seconds_total{job=\"agent-intelligence\"}[5m]) * 100 or vector(0)", "legendFormat": "Agent Intelligence", "refId": "A" },
-        { "expr": "rate(process_cpu_seconds_total{job=\"security-gateway\"}[5m]) * 100 or vector(0)", "legendFormat": "Security Gateway", "refId": "B" },
-        { "expr": "rate(process_cpu_seconds_total{job=\"capability-registry\"}[5m]) * 100 or vector(0)", "legendFormat": "Capability Registry", "refId": "C" },
-        { "expr": "rate(process_cpu_seconds_total{job=\"orchestration-pipeline\"}[5m]) * 100 or vector(0)", "legendFormat": "Orchestration", "refId": "D" },
-        { "expr": "rate(process_cpu_seconds_total{job=\"llm-service\"}[5m]) * 100 or vector(0)", "legendFormat": "LLM Service", "refId": "E" },
-        { "expr": "rate(process_cpu_seconds_total{job=\"artifact-service\"}[5m]) * 100 or vector(0)", "legendFormat": "Artifact Service", "refId": "F" }
+        {
+          "expr": "rate(process_cpu_seconds_total{job=\"agent-intelligence\"}[5m]) * 100 or vector(0)",
+          "legendFormat": "Agent Intelligence",
+          "refId": "A"
+        },
+        {
+          "expr": "rate(process_cpu_seconds_total{job=\"security-gateway\"}[5m]) * 100 or vector(0)",
+          "legendFormat": "Security Gateway",
+          "refId": "B"
+        },
+        {
+          "expr": "rate(process_cpu_seconds_total{job=\"capability-registry\"}[5m]) * 100 or vector(0)",
+          "legendFormat": "Capability Registry",
+          "refId": "C"
+        },
+        {
+          "expr": "rate(process_cpu_seconds_total{job=\"orchestration-pipeline\"}[5m]) * 100 or vector(0)",
+          "legendFormat": "Orchestration",
+          "refId": "D"
+        },
+        {
+          "expr": "rate(process_cpu_seconds_total{job=\"llm-service\"}[5m]) * 100 or vector(0)",
+          "legendFormat": "LLM Service",
+          "refId": "E"
+        },
+        {
+          "expr": "rate(process_cpu_seconds_total{job=\"artifact-service\"}[5m]) * 100 or vector(0)",
+          "legendFormat": "Artifact Service",
+          "refId": "F"
+        }
       ],
       "title": "CPU Usage by Service",
       "type": "timeseries"
@@ -339,21 +804,70 @@
       "fieldConfig": {
         "defaults": {
           "color": { "mode": "palette-classic" },
-          "custom": { "axisCenteredZero": false, "axisColorMode": "text", "axisLabel": "", "axisPlacement": "auto", "barAlignment": 0, "drawStyle": "line", "fillOpacity": 10, "gradientMode": "none", "hideFrom": { "legend": false, "tooltip": false, "viz": false }, "lineInterpolation": "smooth", "lineWidth": 2, "pointSize": 5, "scaleDistribution": { "type": "linear" }, "showPoints": "never", "spanNulls": false, "stacking": { "group": "A", "mode": "none" }, "thresholdsStyle": { "mode": "off" } },
+          "custom": {
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "gradientMode": "none",
+            "hideFrom": { "legend": false, "tooltip": false, "viz": false },
+            "lineInterpolation": "smooth",
+            "lineWidth": 2,
+            "pointSize": 5,
+            "scaleDistribution": { "type": "linear" },
+            "showPoints": "never",
+            "spanNulls": false,
+            "stacking": { "group": "A", "mode": "none" },
+            "thresholdsStyle": { "mode": "off" }
+          },
           "mappings": [],
-          "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }, { "color": "yellow", "value": 50 }, { "color": "red", "value": 100 }] },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 50 },
+              { "color": "red", "value": 100 }
+            ]
+          },
           "unit": "ms"
         },
         "overrides": []
       },
       "gridPos": { "h": 8, "w": 12, "x": 0, "y": 32 },
       "id": 15,
-      "options": { "legend": { "calcs": ["mean", "max"], "displayMode": "table", "placement": "right", "showLegend": true }, "tooltip": { "mode": "multi", "sort": "desc" } },
+      "options": {
+        "legend": {
+          "calcs": ["mean", "max"],
+          "displayMode": "table",
+          "placement": "right",
+          "showLegend": true
+        },
+        "tooltip": { "mode": "multi", "sort": "desc" }
+      },
       "targets": [
-        { "expr": "nodejs_eventloop_lag_seconds{job=\"agent-intelligence\"} * 1000 or vector(0)", "legendFormat": "Agent Intelligence", "refId": "A" },
-        { "expr": "nodejs_eventloop_lag_seconds{job=\"security-gateway\"} * 1000 or vector(0)", "legendFormat": "Security Gateway", "refId": "B" },
-        { "expr": "nodejs_eventloop_lag_seconds{job=\"capability-registry\"} * 1000 or vector(0)", "legendFormat": "Capability Registry", "refId": "C" },
-        { "expr": "nodejs_eventloop_lag_seconds{job=\"llm-service\"} * 1000 or vector(0)", "legendFormat": "LLM Service", "refId": "D" }
+        {
+          "expr": "nodejs_eventloop_lag_seconds{job=\"agent-intelligence\"} * 1000 or vector(0)",
+          "legendFormat": "Agent Intelligence",
+          "refId": "A"
+        },
+        {
+          "expr": "nodejs_eventloop_lag_seconds{job=\"security-gateway\"} * 1000 or vector(0)",
+          "legendFormat": "Security Gateway",
+          "refId": "B"
+        },
+        {
+          "expr": "nodejs_eventloop_lag_seconds{job=\"capability-registry\"} * 1000 or vector(0)",
+          "legendFormat": "Capability Registry",
+          "refId": "C"
+        },
+        {
+          "expr": "nodejs_eventloop_lag_seconds{job=\"llm-service\"} * 1000 or vector(0)",
+          "legendFormat": "LLM Service",
+          "refId": "D"
+        }
       ],
       "title": "Event Loop Lag",
       "type": "timeseries"
@@ -363,7 +877,25 @@
       "fieldConfig": {
         "defaults": {
           "color": { "mode": "palette-classic" },
-          "custom": { "axisCenteredZero": false, "axisColorMode": "text", "axisLabel": "", "axisPlacement": "auto", "barAlignment": 0, "drawStyle": "line", "fillOpacity": 10, "gradientMode": "none", "hideFrom": { "legend": false, "tooltip": false, "viz": false }, "lineInterpolation": "smooth", "lineWidth": 2, "pointSize": 5, "scaleDistribution": { "type": "linear" }, "showPoints": "never", "spanNulls": false, "stacking": { "group": "A", "mode": "none" }, "thresholdsStyle": { "mode": "off" } },
+          "custom": {
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "gradientMode": "none",
+            "hideFrom": { "legend": false, "tooltip": false, "viz": false },
+            "lineInterpolation": "smooth",
+            "lineWidth": 2,
+            "pointSize": 5,
+            "scaleDistribution": { "type": "linear" },
+            "showPoints": "never",
+            "spanNulls": false,
+            "stacking": { "group": "A", "mode": "none" },
+            "thresholdsStyle": { "mode": "off" }
+          },
           "mappings": [],
           "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }] },
           "unit": "s"
@@ -372,12 +904,36 @@
       },
       "gridPos": { "h": 8, "w": 12, "x": 12, "y": 32 },
       "id": 16,
-      "options": { "legend": { "calcs": ["mean", "max"], "displayMode": "table", "placement": "right", "showLegend": true }, "tooltip": { "mode": "multi", "sort": "desc" } },
+      "options": {
+        "legend": {
+          "calcs": ["mean", "max"],
+          "displayMode": "table",
+          "placement": "right",
+          "showLegend": true
+        },
+        "tooltip": { "mode": "multi", "sort": "desc" }
+      },
       "targets": [
-        { "expr": "rate(nodejs_gc_duration_seconds_sum{job=\"agent-intelligence\"}[5m]) or vector(0)", "legendFormat": "Agent Intelligence", "refId": "A" },
-        { "expr": "rate(nodejs_gc_duration_seconds_sum{job=\"security-gateway\"}[5m]) or vector(0)", "legendFormat": "Security Gateway", "refId": "B" },
-        { "expr": "rate(nodejs_gc_duration_seconds_sum{job=\"capability-registry\"}[5m]) or vector(0)", "legendFormat": "Capability Registry", "refId": "C" },
-        { "expr": "rate(nodejs_gc_duration_seconds_sum{job=\"llm-service\"}[5m]) or vector(0)", "legendFormat": "LLM Service", "refId": "D" }
+        {
+          "expr": "rate(nodejs_gc_duration_seconds_sum{job=\"agent-intelligence\"}[5m]) or vector(0)",
+          "legendFormat": "Agent Intelligence",
+          "refId": "A"
+        },
+        {
+          "expr": "rate(nodejs_gc_duration_seconds_sum{job=\"security-gateway\"}[5m]) or vector(0)",
+          "legendFormat": "Security Gateway",
+          "refId": "B"
+        },
+        {
+          "expr": "rate(nodejs_gc_duration_seconds_sum{job=\"capability-registry\"}[5m]) or vector(0)",
+          "legendFormat": "Capability Registry",
+          "refId": "C"
+        },
+        {
+          "expr": "rate(nodejs_gc_duration_seconds_sum{job=\"llm-service\"}[5m]) or vector(0)",
+          "legendFormat": "LLM Service",
+          "refId": "D"
+        }
       ],
       "title": "GC Time per Second",
       "type": "timeseries"

@@ -39,19 +39,19 @@ async function teiEmbed(texts: string[]): Promise<number[][]> {
     const txt = await res.text();
     throw new Error(`TEI embed failed ${res.status}: ${txt}`);
   }
-  const data: any = await res.json();
+  const data: Record<string, unknown> = await res.json();
   return Array.isArray(data) ? data : (data.embeddings ?? data);
 }
 
 // ─── Qdrant helpers ──────────────────────────────────────────────────────────
 
-async function qdrantCollectionInfo(): Promise<any> {
+async function qdrantCollectionInfo(): Promise<unknown> {
   const res = await fetch(`${QDRANT_URL}/collections/${QDRANT_COLLECTION}`);
   return res.json();
 }
 
 async function qdrantUpsert(
-  points: Array<{ id: number; vector: number[]; payload: Record<string, any> }>
+  points: Array<{ id: number; vector: number[]; payload: Record<string, unknown> }>
 ): Promise<void> {
   const res = await fetch(`${QDRANT_URL}/collections/${QDRANT_COLLECTION}/points`, {
     method: 'PUT',
@@ -85,7 +85,6 @@ const ds = new DataSource({
 });
 
 await ds.initialize();
-console.log('✅ Connected to Postgres');
 
 const rows: Array<{ id: string; content: string }> = await ds.query(
   `SELECT id, content FROM knowledge_items
@@ -93,11 +92,8 @@ const rows: Array<{ id: string; content: string }> = await ds.query(
    ORDER BY created_at DESC`
 );
 
-console.log(`📚 Found ${rows.length} knowledge items to sync to Qdrant`);
-
 const info = await qdrantCollectionInfo();
-const existingCount = info.result?.points_count ?? 0;
-console.log(`📊 Qdrant currently has ${existingCount} points in '${QDRANT_COLLECTION}'`);
+const _existingCount = info.result?.points_count ?? 0;
 
 let synced = 0;
 let failed = 0;
@@ -115,8 +111,9 @@ for (let i = 0; i < rows.length; i += BATCH) {
 
   let embeddings: number[][];
   try {
+    // oxlint-disable-next-line no-await-in-loop -- sequential processing required
     embeddings = await teiEmbed(validTexts);
-  } catch (err: any) {
+  } catch (err: Record<string, unknown>) {
     console.error(`\n  ⚠️  Batch ${i}–${i + validBatch.length} embed failed: ${err.message}`);
     failed += validBatch.length;
     continue;
@@ -133,9 +130,10 @@ for (let i = 0; i < rows.length; i += BATCH) {
   }));
 
   try {
+    // oxlint-disable-next-line no-await-in-loop -- sequential processing required
     await qdrantUpsert(points);
     synced += validBatch.length;
-  } catch (err: any) {
+  } catch (err: Record<string, unknown>) {
     console.error(`\n  ⚠️  Batch ${i}–${i + validBatch.length} upsert failed: ${err.message}`);
     failed += validBatch.length;
     continue;
@@ -147,9 +145,6 @@ for (let i = 0; i < rows.length; i += BATCH) {
   );
 }
 
-console.log(`\n\n✅ Sync complete. Synced: ${synced} | Failed: ${failed}`);
-
-const after = await qdrantCollectionInfo();
-console.log(`📊 Qdrant now has ${after.result?.points_count ?? '?'} points.`);
+const _after = await qdrantCollectionInfo();
 
 await ds.destroy();

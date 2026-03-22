@@ -15,11 +15,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from '@/components/ui/collapsible';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Checkbox } from '@/components/ui/checkbox';
 import {
   Hammer,
@@ -130,7 +126,9 @@ export default function QuestionForgeLanding() {
       return;
     }
     if (trimmed.length < 50) {
-      toast.error('Please provide a more detailed brief (at least 50 characters) for better results.');
+      toast.error(
+        'Please provide a more detailed brief (at least 50 characters) for better results.'
+      );
       return;
     }
 
@@ -159,9 +157,7 @@ export default function QuestionForgeLanding() {
             </div>
             <div className="flex items-center justify-center gap-2 mb-6">
               <Users className="h-5 w-5 text-indigo-400" />
-              <p className="text-lg text-indigo-300 font-medium">
-                Stakeholder Discovery Council
-              </p>
+              <p className="text-lg text-indigo-300 font-medium">Stakeholder Discovery Council</p>
             </div>
             <p className="text-gray-400 text-lg leading-relaxed max-w-2xl mx-auto">
               Paste your project brief and let a council of 8 AI specialists — from architects to
@@ -180,8 +176,8 @@ export default function QuestionForgeLanding() {
             <CardHeader>
               <CardTitle className="text-white text-xl">Project Brief</CardTitle>
               <CardDescription className="text-gray-400">
-                Paste your project brief, meeting notes, or requirements document below.
-                The more detail you provide, the sharper the questions.
+                Paste your project brief, meeting notes, or requirements document below. The more
+                detail you provide, the sharper the questions.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -195,7 +191,11 @@ export default function QuestionForgeLanding() {
               />
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                  <Select value={inputType} onValueChange={setInputType} disabled={forgeMutation.isPending}>
+                  <Select
+                    value={inputType}
+                    onValueChange={setInputType}
+                    disabled={forgeMutation.isPending}
+                  >
                     <SelectTrigger className="w-[180px] bg-gray-950 border-gray-700 text-gray-300">
                       <SelectValue placeholder="Input type" />
                     </SelectTrigger>
@@ -217,9 +217,7 @@ export default function QuestionForgeLanding() {
                     <>
                       {briefText.trim().split(/\s+/).filter(Boolean).length} words
                       {briefText.length < 50 && (
-                        <span className="text-amber-500 ml-2">
-                          (need at least 50 characters)
-                        </span>
+                        <span className="text-amber-500 ml-2">(need at least 50 characters)</span>
                       )}
                     </>
                   )}
@@ -242,7 +240,10 @@ export default function QuestionForgeLanding() {
                     </div>
                     <div className="flex items-center gap-2">
                       {selectedRoles.length > 0 && (
-                        <Badge variant="secondary" className="bg-indigo-500/10 text-indigo-300 border-indigo-500/20">
+                        <Badge
+                          variant="secondary"
+                          className="bg-indigo-500/10 text-indigo-300 border-indigo-500/20"
+                        >
                           {selectedRoles.length} selected
                         </Badge>
                       )}
@@ -260,7 +261,8 @@ export default function QuestionForgeLanding() {
                   <div className="space-y-4">
                     <div className="flex items-center justify-between">
                       <p className="text-sm text-gray-400">
-                        Select specific stakeholder roles or leave empty to include all perspectives.
+                        Select specific stakeholder roles or leave empty to include all
+                        perspectives.
                       </p>
                       <Button
                         variant="ghost"
@@ -293,7 +295,9 @@ export default function QuestionForgeLanding() {
                               disabled={forgeMutation.isPending}
                               className="border-gray-600 data-[state=checked]:bg-indigo-500 data-[state=checked]:border-indigo-500"
                             />
-                            <Icon className={`h-4 w-4 ${isSelected ? 'text-indigo-400' : 'text-gray-500'}`} />
+                            <Icon
+                              className={`h-4 w-4 ${isSelected ? 'text-indigo-400' : 'text-gray-500'}`}
+                            />
                             <span className="text-sm font-medium">{role.label}</span>
                           </label>
                         );

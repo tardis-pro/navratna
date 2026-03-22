@@ -32,7 +32,10 @@ export class InMemorySOPRegistry implements AgentSOPRegistry {
     }
   }
 
-  getSOP(agentId: string, type: Extract<SOPType, 'project_sop' | 'agent_soul'>): SOPDocument | null {
+  getSOP(
+    agentId: string,
+    type: Extract<SOPType, 'project_sop' | 'agent_soul'>
+  ): SOPDocument | null {
     return this.sops.get(`${agentId}-${type}`) ?? null;
   }
 
@@ -46,7 +49,18 @@ export class InMemorySOPRegistry implements AgentSOPRegistry {
 }
 
 export const DEFAULT_TASK_LIFECYCLE: TaskLifecycle = {
-  states: ['inception', 'design_ready', 'in_progress', 'review_qa', 'deploying', 'done', 'paused', 'failed', 'cancelled', 'rollback'],
+  states: [
+    'inception',
+    'design_ready',
+    'in_progress',
+    'review_qa',
+    'deploying',
+    'done',
+    'paused',
+    'failed',
+    'cancelled',
+    'rollback',
+  ],
   transitions: {
     inception: ['design_ready', 'cancelled'],
     design_ready: ['in_progress', 'inception'],

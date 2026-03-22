@@ -43,7 +43,7 @@ export interface CreateTaskRequest {
   epic?: string;
   sprint?: string;
   estimatedHours?: number;
-  customFields?: Record<string, any>;
+  customFields?: Record<string, unknown>;
 }
 
 export interface UpdateTaskRequest {
@@ -68,7 +68,7 @@ export interface UpdateTaskRequest {
   labels?: string[];
   epic?: string;
   sprint?: string;
-  customFields?: Record<string, any>;
+  customFields?: Record<string, unknown>;
 }
 
 export interface TaskAssignmentRequest {
@@ -309,12 +309,12 @@ export const getTimeUntilDue = (dueDate?: string) => {
   }
 };
 
-export const calculateTaskProgress = (task: any) => {
+export const calculateTaskProgress = (task: unknown) => {
   if (!task.metrics) return 0;
   return task.metrics.completionPercentage || 0;
 };
 
-export const getEstimatedVsActualTime = (task: any) => {
+export const getEstimatedVsActualTime = (task: unknown) => {
   if (!task.metrics) return { estimated: 0, actual: 0, variance: 0 };
 
   const estimated = task.metrics.estimatedTime || 0;
@@ -324,7 +324,7 @@ export const getEstimatedVsActualTime = (task: any) => {
   return { estimated, actual, variance };
 };
 
-export const getTaskAssigneeDisplay = (task: any) => {
+export const getTaskAssigneeDisplay = (task: unknown) => {
   if (!task.assigneeType) return 'Unassigned';
 
   const prefix = task.assigneeType === 'agent' ? '🤖' : '👤';

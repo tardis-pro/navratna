@@ -1,5 +1,6 @@
 import { Entity, Column, Index, ManyToOne, JoinColumn } from 'typeorm';
 import { BaseEntity } from './base.entity';
+import type { Artifact } from './artifact.entity';
 
 /**
  * Artifact Review Entity for the Artifact System
@@ -116,10 +117,10 @@ export class ArtifactReview extends BaseEntity {
 
   // Review checklist and compliance
   @Column({ name: 'checklist_items', type: 'jsonb', default: '[]' })
-  checklistItems: any[];
+  checklistItems: Record<string, unknown>[];
 
   @Column({ name: 'compliance_checks', type: 'jsonb', default: '[]' })
-  complianceChecks: any[];
+  complianceChecks: Record<string, unknown>[];
 
   @Column({ name: 'security_scan_passed', nullable: true })
   securityScanPassed?: boolean;
@@ -132,10 +133,10 @@ export class ArtifactReview extends BaseEntity {
   tags: string[];
 
   @Column({ type: 'jsonb', nullable: true })
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 
   @Column({ name: 'review_context', type: 'jsonb', nullable: true })
-  reviewContext?: Record<string, any>;
+  reviewContext?: Record<string, unknown>;
 
   @Column({ name: 'external_references', type: 'jsonb', nullable: true })
   externalReferences?: Record<string, string>;
@@ -143,5 +144,5 @@ export class ArtifactReview extends BaseEntity {
   // Relationships
   @ManyToOne('Artifact', { eager: false })
   @JoinColumn({ name: 'artifact_id' })
-  artifact: any;
+  artifact: Artifact;
 }

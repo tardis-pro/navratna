@@ -1,4 +1,4 @@
-import { Router, Request, Response, NextFunction } from '@uaip/shared-services';
+import { Router, Request, Response, NextFunction as _NextFunction } from '@uaip/shared-services';
 import { UserService } from '@uaip/shared-services';
 import { DatabaseService } from '@uaip/infra/database';
 import { logger } from '@uaip/utils';
@@ -70,7 +70,7 @@ interface AuthenticatedRequest extends Request {
 }
 
 // Role hierarchy for permission checking
-const ROLE_HIERARCHY = {
+const _ROLE_HIERARCHY = {
   guest: 0,
   user: 1,
   moderator: 2,
@@ -90,22 +90,27 @@ const PROVIDER_LIMITS = {
 const router = Router();
 
 // Lazy initialization of services
-let userService: UserService | null = null;
-let userLLMService: UserLLMService | null = null;
-let modelBootstrapService: ModelBootstrapService | null = null;
+let userServiceSingleton: UserService | null = null;
+let userLlmServiceSingleton: UserLLMService | null = null;
+let modelBootstrapServiceSingleton: ModelBootstrapService | null = null;
 
 async function getServices() {
-  if (!userService) {
-    userService = UserService.getInstance();
+  if (!userServiceSingleton) {
+    userServiceSingleton = UserService.getInstance();
   }
-  if (!userLLMService) {
-    userLLMService = new UserLLMService();
+  if (!userLlmServiceSingleton) {
+    userLlmServiceSingleton = new UserLLMService();
   }
-  if (!modelBootstrapService) {
-    modelBootstrapService = ModelBootstrapService.getInstance();
+  if (!modelBootstrapServiceSingleton) {
+    modelBootstrapServiceSingleton = ModelBootstrapService.getInstance();
   }
   const dataSource = await DatabaseService.getInstance().getDataSource();
-  return { userService, userLLMService, modelBootstrapService, dataSource };
+  return {
+    userService: userServiceSingleton,
+    userLLMService: userLlmServiceSingleton,
+    modelBootstrapService: modelBootstrapServiceSingleton,
+    dataSource,
+  };
 }
 
 // Apply authentication middleware to all routes
@@ -143,7 +148,7 @@ const canCreateProvider = async (
 };
 
 // Helper function to convert provider entity to safe response format
-const toSafeProvider = (provider: any) => ({
+const toSafeProvider = (provider: unknown) => ({
   id: provider.id,
   name: provider.name,
   description: provider.description,

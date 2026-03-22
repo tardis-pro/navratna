@@ -71,7 +71,7 @@ const MCPConfigUpload: React.FC<MCPConfigUploadProps> = ({
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const validateMCPConfig = useCallback(
-    (config: any): { isValid: boolean; errors: string[]; servers: ParsedServer[] } => {
+    (config: unknown): { isValid: boolean; errors: string[]; servers: ParsedServer[] } => {
       const errors: string[] = [];
       const servers: ParsedServer[] = [];
 
@@ -87,61 +87,63 @@ const MCPConfigUpload: React.FC<MCPConfigUploadProps> = ({
       }
 
       // Validate each server
-      Object.entries(config.mcpServers).forEach(([name, serverConfig]: [string, any]) => {
-        const serverErrors: string[] = [];
-        let isValid = true;
+      Object.entries(config.mcpServers).forEach(
+        ([name, serverConfig]: [string, Record<string, unknown>]) => {
+          const serverErrors: string[] = [];
+          let isValid = true;
 
-        // Validate server name
-        if (!name || typeof name !== 'string' || name.trim().length === 0) {
-          serverErrors.push('Server name cannot be empty');
-          isValid = false;
-        }
+          // Validate server name
+          if (!name || typeof name !== 'string' || name.trim().length === 0) {
+            serverErrors.push('Server name cannot be empty');
+            isValid = false;
+          }
 
-        // Validate command
-        if (!serverConfig.command || typeof serverConfig.command !== 'string') {
-          serverErrors.push('Missing or invalid "command" property');
-          isValid = false;
-        }
+          // Validate command
+          if (!serverConfig.command || typeof serverConfig.command !== 'string') {
+            serverErrors.push('Missing or invalid "command" property');
+            isValid = false;
+          }
 
-        // Validate args
-        if (!Array.isArray(serverConfig.args)) {
-          serverErrors.push('Missing or invalid "args" property (must be array)');
-          isValid = false;
-        } else {
-          serverConfig.args.forEach((arg: any, index: number) => {
-            if (typeof arg !== 'string') {
-              serverErrors.push(`Argument ${index + 1} must be a string`);
-              isValid = false;
-            }
+          // Validate args
+          if (!Array.isArray(serverConfig.args)) {
+            serverErrors.push('Missing or invalid "args" property (must be array)');
+            isValid = false;
+          } else {
+            serverConfig.args.forEach((arg: unknown, index: number) => {
+              if (typeof arg !== 'string') {
+                serverErrors.push(`Argument ${index + 1} must be a string`);
+                isValid = false;
+              }
+            });
+          }
+
+          // Validate optional env
+          if (serverConfig.env && typeof serverConfig.env !== 'object') {
+            serverErrors.push('Environment variables must be an object');
+            isValid = false;
+          }
+
+          // Validate optional disabled
+          if (serverConfig.disabled !== undefined && typeof serverConfig.disabled !== 'boolean') {
+            serverErrors.push('Disabled property must be a boolean');
+            isValid = false;
+          }
+
+          servers.push({
+            name,
+            command: serverConfig.command || '',
+            args: serverConfig.args || [],
+            env: serverConfig.env,
+            disabled: serverConfig.disabled,
+            isValid,
+            validationErrors: serverErrors,
           });
-        }
 
-        // Validate optional env
-        if (serverConfig.env && typeof serverConfig.env !== 'object') {
-          serverErrors.push('Environment variables must be an object');
-          isValid = false;
+          if (!isValid) {
+            errors.push(`Server "${name}": ${serverErrors.join(', ')}`);
+          }
         }
-
-        // Validate optional disabled
-        if (serverConfig.disabled !== undefined && typeof serverConfig.disabled !== 'boolean') {
-          serverErrors.push('Disabled property must be a boolean');
-          isValid = false;
-        }
-
-        servers.push({
-          name,
-          command: serverConfig.command || '',
-          args: serverConfig.args || [],
-          env: serverConfig.env,
-          disabled: serverConfig.disabled,
-          isValid,
-          validationErrors: serverErrors,
-        });
-
-        if (!isValid) {
-          errors.push(`Server "${name}": ${serverErrors.join(', ')}`);
-        }
-      });
+      );
 
       return {
         isValid: errors.length === 0,

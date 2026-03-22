@@ -215,7 +215,7 @@ describe('Enhanced Security Implementation Demo', () => {
   describe('Security Logic Demonstration', () => {
     it('should demonstrate risk assessment logic', () => {
       // Simulate risk assessment calculation
-      const calculateRiskScore = (context: any): number => {
+      const calculateRiskScore = (context: unknown): number => {
         let riskScore = 0;
 
         // User type risk

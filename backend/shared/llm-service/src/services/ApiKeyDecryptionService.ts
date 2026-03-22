@@ -145,7 +145,7 @@ export class ApiKeyDecryptionService {
    * Cleanup method to clear pending requests and timeouts
    */
   public cleanup(): void {
-    for (const [requestId, request] of this.pendingRequests) {
+    for (const [_requestId, request] of this.pendingRequests) {
       clearTimeout(request.timeout);
       request.reject(new Error('Service shutdown'));
     }

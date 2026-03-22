@@ -1,7 +1,6 @@
 export * from './common.js';
 export * from './agent';
 export * from './operation';
-export { CheckpointType } from './operation';
 export * from './capability';
 export * from './security.js';
 export * from './api';
@@ -9,16 +8,6 @@ export * from './database';
 export * from './events';
 export * from './event-bus.js';
 export * from './service-auth.js';
-export {
-  // UAIP Event Envelope exports
-  ActorSchema,
-  TenantSchema,
-  UAIPEventSchema,
-  type Actor,
-  type Tenant,
-  type UAIPEvent,
-  createUAIPEvent,
-} from './events.js';
 // New exports for persona and discussion management
 export * from './persona';
 export * from './discussion';

@@ -1,7 +1,7 @@
 {
-"extends": "../../tsconfig.json",
+  "extends": "../../tsconfig.json",
   "compilerOptions": {
-    "outDir": "dist",     
+    "outDir": "dist",
     "composite": true,
     // relative to package root
     "rootDir": "src",
@@ -15,7 +15,7 @@
       "@uaip/infra": ["../../shared/infra/src"],
       "@uaip/infra/*": ["../../shared/infra/src/*"]
     },
-    "tsBuildInfoFile": "dist/tsconfig.tsbuildinfo"        // enables clean import paths within the package
+    "tsBuildInfoFile": "dist/tsconfig.tsbuildinfo" // enables clean import paths within the package
   },
   "include": ["src/**/*"],
   "exclude": ["src/**/*.test.ts", "src/__tests__/**/*", "src/**/*.old*.ts"],
@@ -28,4 +28,4 @@
     { "path": "../../shared/middleware" },
     { "path": "../../shared/infra" }
   ]
-} 
+}

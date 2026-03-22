@@ -166,7 +166,9 @@ export class ChatKnowledgeExtractorService {
         totalMessagesProcessed += conversation.messages.length;
 
         // Extract facts and procedures
+        // oxlint-disable-next-line no-await-in-loop -- sequential processing required
         const facts = await this.extractFacts(conversation.messages, context);
+        // oxlint-disable-next-line no-await-in-loop -- sequential processing required
         const procedures = await this.extractProcedures(conversation.messages, context);
 
         extractedKnowledge.push(...facts, ...procedures);
@@ -177,6 +179,7 @@ export class ChatKnowledgeExtractorService {
 
         // Extract Q&A pairs if requested
         if (options?.extractQA !== false) {
+          // oxlint-disable-next-line no-await-in-loop -- sequential processing required
           const qaResult = await this.extractQuestionAnswerPairs(conversation.messages, context);
           qaPairs.push(...qaResult);
           extractionMethods['qa_extraction'] =
@@ -185,6 +188,7 @@ export class ChatKnowledgeExtractorService {
 
         // Extract decisions if requested
         if (options?.extractDecisions !== false) {
+          // oxlint-disable-next-line no-await-in-loop -- sequential processing required
           const decisions = await this.extractDecisions(conversation.messages, context);
           decisionPoints.push(...decisions);
           extractionMethods['decision_extraction'] =
@@ -193,6 +197,7 @@ export class ChatKnowledgeExtractorService {
 
         // Extract expertise if requested
         if (options?.extractExpertise !== false) {
+          // oxlint-disable-next-line no-await-in-loop -- sequential processing required
           const expertise = await this.extractExpertise(conversation, context);
           expertiseAreas.push(...expertise);
           extractionMethods['expertise_extraction'] =
@@ -201,6 +206,7 @@ export class ChatKnowledgeExtractorService {
 
         // Extract learning moments if requested
         if (options?.extractLearning !== false) {
+          // oxlint-disable-next-line no-await-in-loop -- sequential processing required
           const learning = await this.extractLearningMoments(conversation.messages, context);
           learningMoments.push(...learning);
           extractionMethods['learning_extraction'] =
@@ -252,7 +258,8 @@ export class ChatKnowledgeExtractorService {
     } catch (error) {
       logger.error('Error extracting knowledge from conversations:', error);
       throw new Error(
-        `Knowledge extraction failed: ${error instanceof Error ? error.message : 'Unknown error'}`
+        `Knowledge extraction failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        { cause: error }
       );
     }
   }
@@ -591,7 +598,7 @@ export class ChatKnowledgeExtractorService {
     return Math.min(confidence, 1.0);
   }
 
-  private calculateProcedureConfidence(match: string, message: ParsedMessage): number {
+  private calculateProcedureConfidence(match: string, _message: ParsedMessage): number {
     let confidence = 0.4;
 
     // Boost confidence for step indicators
@@ -615,7 +622,7 @@ export class ChatKnowledgeExtractorService {
     return Math.min(confidence, 1.0);
   }
 
-  private calculateDecisionConfidence(match: string, message: ParsedMessage): number {
+  private calculateDecisionConfidence(match: string, _message: ParsedMessage): number {
     let confidence = 0.4;
 
     if (match.toLowerCase().includes('decided') || match.toLowerCase().includes('chose'))
@@ -626,7 +633,7 @@ export class ChatKnowledgeExtractorService {
     return Math.min(confidence, 1.0);
   }
 
-  private calculateExpertiseConfidence(match: string, message: ParsedMessage): number {
+  private calculateExpertiseConfidence(match: string, _message: ParsedMessage): number {
     let confidence = 0.3;
 
     if (match.toLowerCase().includes('experience') || match.toLowerCase().includes('recommend'))

@@ -2,11 +2,11 @@ import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Portal, PortalProps } from './Portal';
 import { CommandPalette } from './CommandPalette';
-import { Plus, Layout, Zap, Database, MessageSquare, BarChart3 } from 'lucide-react';
+import { Plus, _Layout, Zap, Database, _MessageSquare, BarChart3 } from 'lucide-react';
 
 export interface PortalConfig extends Omit<PortalProps, 'children'> {
-  component: React.ComponentType<any>;
-  props?: any;
+  component: React.ComponentType<unknown>;
+  props?: unknown;
 }
 
 interface PortalInstance extends PortalConfig {
@@ -15,7 +15,7 @@ interface PortalInstance extends PortalConfig {
   lastActive: Date;
 }
 
-interface WorkspaceLayout {
+interface _WorkspaceLayout {
   name: string;
   portals: PortalInstance[];
   connections: NeuralConnection[];
@@ -150,7 +150,7 @@ export const PortalManager: React.FC = () => {
   const [portals, setPortals] = useState<PortalInstance[]>([]);
   const [connections, setConnections] = useState<NeuralConnection[]>([]);
   const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
-  const [selectedLayout, setSelectedLayout] = useState<string>('default');
+  const [_selectedLayout, _setSelectedLayout] = useState<string>('default');
   const containerRef = useRef<HTMLDivElement>(null);
 
   // Generate unique portal ID
@@ -160,7 +160,7 @@ export const PortalManager: React.FC = () => {
 
   // Create a new portal
   const createPortal = useCallback(
-    (template: PortalConfig, customProps?: any) => {
+    (template: PortalConfig, customProps?: unknown) => {
       const newPortal: PortalInstance = {
         ...template,
         id: generatePortalId(),
@@ -186,7 +186,7 @@ export const PortalManager: React.FC = () => {
   }, []);
 
   // Create  connection between portals
-  const createConnection = useCallback(
+  const _createConnection = useCallback(
     (from: string, to: string, type: NeuralConnection['type'] = 'data') => {
       const connection: NeuralConnection = {
         id: `connection-${from}-${to}`,

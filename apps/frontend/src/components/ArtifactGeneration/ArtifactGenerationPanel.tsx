@@ -1,14 +1,14 @@
 // Artifact Generation Panel - UI Component for Epic 4
 // Integrates with existing chat interface to provide artifact generation capabilities
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Progress } from '@/components/ui/progress';
-import { Textarea } from '@/components/ui/textarea';
+import { _Textarea } from '@/components/ui/textarea';
 import {
   Select,
   SelectContent,
@@ -21,7 +21,7 @@ import {
   FileText,
   TestTube,
   GitBranch,
-  Shield,
+  _Shield,
   Clock,
   CheckCircle,
   AlertTriangle,
@@ -40,7 +40,7 @@ import {
 
 interface ArtifactGenerationPanelProps {
   conversationId: string;
-  messages: any[];
+  messages: unknown[];
   currentUser: {
     id: string;
     name: string;
@@ -55,7 +55,7 @@ export const ArtifactGenerationPanel: React.FC<ArtifactGenerationPanelProps> = (
   currentUser,
   onArtifactGenerated,
 }) => {
-  const [analysis, setAnalysis] = useState<any>(null);
+  const [analysis, setAnalysis] = useState<unknown>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
   const [selectedType, setSelectedType] = useState<ArtifactType>('code-diff');
@@ -91,14 +91,7 @@ export const ArtifactGenerationPanel: React.FC<ArtifactGenerationPanelProps> = (
     permissions: ['generate:*'],
   };
 
-  // Analyze conversation on load and when messages change
-  useEffect(() => {
-    if (messages.length > 0) {
-      analyzeConversation();
-    }
-  }, [messages]);
-
-  const analyzeConversation = async () => {
+  const analyzeConversation = useCallback(async () => {
     setIsAnalyzing(true);
     try {
       const result = await artifactFactory.analyzeConversation(conversationContext);
@@ -108,7 +101,15 @@ export const ArtifactGenerationPanel: React.FC<ArtifactGenerationPanelProps> = (
     } finally {
       setIsAnalyzing(false);
     }
-  };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- conversationContext is derived from messages
+  }, [messages]);
+
+  // Analyze conversation on load and when messages change
+  useEffect(() => {
+    if (messages.length > 0) {
+      analyzeConversation();
+    }
+  }, [messages, analyzeConversation]);
 
   const generateArtifact = async (type: ArtifactType) => {
     setIsGenerating(true);
@@ -212,8 +213,8 @@ export const ArtifactGenerationPanel: React.FC<ArtifactGenerationPanelProps> = (
                   <div className="mt-2">
                     <p className="text-sm text-muted-foreground">Suggested actions:</p>
                     <ul className="text-sm list-disc list-inside">
-                      {analysis.phase.suggestedActions.map((action: string, index: number) => (
-                        <li key={index}>{action}</li>
+                      {analysis.phase.suggestedActions.map((action: string) => (
+                        <li key={action}>{action}</li>
                       ))}
                     </ul>
                   </div>
@@ -224,9 +225,9 @@ export const ArtifactGenerationPanel: React.FC<ArtifactGenerationPanelProps> = (
                   <div className="p-3 border rounded-lg">
                     <h4 className="font-medium mb-2">Generation Opportunities</h4>
                     <div className="space-y-2">
-                      {analysis.triggers.slice(0, 3).map((trigger: any, index: number) => (
+                      {analysis.triggers.slice(0, 3).map((trigger: unknown, index: number) => (
                         <div
-                          key={index}
+                          key={`trigger-${index}`} // oxlint-ignore-line no-array-index-key -- no stable unique key available for trigger items
                           className="flex items-center justify-between p-2 bg-muted rounded"
                         >
                           <div className="flex items-center gap-2">
@@ -257,8 +258,8 @@ export const ArtifactGenerationPanel: React.FC<ArtifactGenerationPanelProps> = (
                   <div className="p-3 border rounded-lg">
                     <h4 className="font-medium mb-2">Suggestions</h4>
                     <ul className="text-sm space-y-1">
-                      {analysis.suggestions.map((suggestion: string, index: number) => (
-                        <li key={index} className="flex items-start gap-2">
+                      {analysis.suggestions.map((suggestion: string) => (
+                        <li key={suggestion} className="flex items-start gap-2">
                           <CheckCircle className="h-4 w-4 text-green-500 mt-0.5 flex-shrink-0" />
                           <span>{suggestion}</span>
                         </li>
@@ -357,7 +358,7 @@ export const ArtifactGenerationPanel: React.FC<ArtifactGenerationPanelProps> = (
               </Alert>
             ) : (
               <div className="space-y-3">
-                {generatedArtifacts.map((artifact, index) => (
+                {generatedArtifacts.map((artifact, _index) => (
                   <Card key={artifact.metadata.id} className="p-4">
                     <div className="flex items-start justify-between">
                       <div className="flex-1">

@@ -42,7 +42,7 @@ Usage: Accessed ${concept.usage.timesAccessed} times, Success rate: ${concept.us
       ]);
     } catch (error) {
       console.error('Concept storage error:', error);
-      throw new Error(`Failed to store concept: ${error.message}`);
+      throw new Error(`Failed to store concept: ${error.message}`, { cause: error });
     }
   }
 
@@ -252,7 +252,7 @@ Usage: Accessed ${concept.usage.timesAccessed} times, Success rate: ${concept.us
     }
   }
 
-  private itemToSemanticMemory(item: any): SemanticMemory {
+  private itemToSemanticMemory(item: Record<string, unknown>): SemanticMemory {
     const metadata = item.source?.metadata || item.metadata;
 
     if (!metadata) {
@@ -285,7 +285,7 @@ Usage: Accessed ${concept.usage.timesAccessed} times, Success rate: ${concept.us
     };
   }
 
-  private parseSemanticMemoryFromContent(item: any): SemanticMemory {
+  private parseSemanticMemoryFromContent(item: Record<string, unknown>): SemanticMemory {
     const content = item.content || '';
     const lines = content.split('\n');
 

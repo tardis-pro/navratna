@@ -17,6 +17,8 @@ export interface WeatherData {
 }
 
 export class WeatherService {
+  private constructor() {}
+
   private static readonly WEATHER_CACHE_KEY = 'weather-data';
   private static readonly WEATHER_TIMESTAMP_KEY = 'weather-timestamp';
   private static readonly CACHE_DURATION = 30 * 60 * 1000; // 30 minutes
@@ -140,7 +142,7 @@ export class WeatherService {
     const days = ['Tomorrow', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
     const conditions = ['Sunny', 'Partly Cloudy', 'Cloudy', 'Rainy'];
 
-    return days.slice(0, 3).map((day, index) => {
+    return days.slice(0, 3).map((day, _index) => {
       const tempVariation = (Math.random() - 0.5) * 8; // ±4°C variation
       const high = Math.round(baseTemp + tempVariation + Math.random() * 3);
       const low = Math.round(high - 5 - Math.random() * 8);
@@ -209,7 +211,7 @@ export class WeatherService {
 
       const age = Date.now() - parseInt(timestamp);
       return age < this.CACHE_DURATION;
-    } catch (error) {
+    } catch {
       return false;
     }
   }

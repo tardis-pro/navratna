@@ -6,37 +6,37 @@ import type { SOPDocument, SOPType, SOPWorkflow } from '../sops/sop-types.js';
 const DEFAULT_BASE_PATH = '/Users/pronitdas/workspaces/bmad-navratna/openclaw-infra/markdowns';
 
 const FOLDER_TO_SEED_NAME: Record<string, string | null> = {
-  'tardis': 'Tardis',
-  'pm': 'Bhagwan',
-  'comms': 'Amy',
-  'growth': 'Karna',
-  'research': 'Mahadev',
-  'nidra': 'Nidra',
-  'content': 'Rishi',
-  'devops': 'Sharma',
+  tardis: 'Tardis',
+  pm: 'Bhagwan',
+  comms: 'Amy',
+  growth: 'Karna',
+  research: 'Mahadev',
+  nidra: 'Nidra',
+  content: 'Rishi',
+  devops: 'Sharma',
   'code-review': 'Veda',
   'browser-test': 'Rana',
-  'mirror': 'Mirror',
+  mirror: 'Mirror',
   'lead-converter': null,
   'test-writer': 'Qadir',
-  'coder': null,
-  'pixel': 'Pixel',
+  coder: null,
+  pixel: 'Pixel',
   'pronit-mirror': 'Pronit-Mirror',
-  'main': null,
+  main: null,
 };
 
 const KNOWN_FILE_TYPES: Record<string, { type: SOPType; idSuffix: string }> = {
-  'SOUL.md':           { type: 'agent_soul',      idSuffix: 'soul' },
-  'IDENTITY.md':       { type: 'identity',         idSuffix: 'identity' },
-  'TOOLS.md':          { type: 'tools',            idSuffix: 'tools' },
-  'AGENTS.md':         { type: 'agents_config',     idSuffix: 'agents-config' },
-  'USER.md':           { type: 'user_context',     idSuffix: 'user-context' },
-  'HEARTBEAT.md':      { type: 'heartbeat',        idSuffix: 'heartbeat' },
-  'BOOTSTRAP.md':      { type: 'bootstrap',        idSuffix: 'bootstrap' },
-  'PROCESS.md':        { type: 'process',          idSuffix: 'process' },
-  'MEMORY.md':         { type: 'memory',           idSuffix: 'memory' },
-  'PROJECT_SOP.md':    { type: 'project_sop',      idSuffix: 'project-sop' },
-  'SOP.md':            { type: 'sop',              idSuffix: 'sop' },
+  'SOUL.md': { type: 'agent_soul', idSuffix: 'soul' },
+  'IDENTITY.md': { type: 'identity', idSuffix: 'identity' },
+  'TOOLS.md': { type: 'tools', idSuffix: 'tools' },
+  'AGENTS.md': { type: 'agents_config', idSuffix: 'agents-config' },
+  'USER.md': { type: 'user_context', idSuffix: 'user-context' },
+  'HEARTBEAT.md': { type: 'heartbeat', idSuffix: 'heartbeat' },
+  'BOOTSTRAP.md': { type: 'bootstrap', idSuffix: 'bootstrap' },
+  'PROCESS.md': { type: 'process', idSuffix: 'process' },
+  'MEMORY.md': { type: 'memory', idSuffix: 'memory' },
+  'PROJECT_SOP.md': { type: 'project_sop', idSuffix: 'project-sop' },
+  'SOP.md': { type: 'sop', idSuffix: 'sop' },
 };
 
 export class SOPImportService {
@@ -51,6 +51,7 @@ export class SOPImportService {
     const agentIds = await this.listAgentDirectories();
 
     for (const agentId of agentIds) {
+      // oxlint-disable-next-line no-await-in-loop -- sequential processing required
       const sops = await this.importSOPsForAgent(agentId);
       allSOPs.push(...sops);
     }
@@ -79,6 +80,7 @@ export class SOPImportService {
         idSuffix = this.slugifyFileName(fileName);
       }
 
+      // oxlint-disable-next-line no-await-in-loop -- sequential processing required
       const content = await fs.readFile(filePath, 'utf-8');
       const parsed = matter(content);
 
@@ -143,14 +145,14 @@ export class SOPImportService {
     }
   }
 
-  private resolveTitle(value: unknown, agentId: string, fallbackTitle: string): string {
+  private resolveTitle(value: string | undefined, agentId: string, fallbackTitle: string): string {
     if (typeof value === 'string' && value.trim().length > 0) {
       return value;
     }
     return `${agentId} ${fallbackTitle}`;
   }
 
-  private resolveVersion(value: unknown): string {
+  private resolveVersion(value: string | number | undefined): string {
     if (typeof value === 'string' && value.trim().length > 0) {
       return value;
     }

@@ -17,7 +17,7 @@ export class Capability extends BaseEntity {
   isActive!: boolean;
 
   @Column({ type: 'jsonb', nullable: true })
-  config?: Record<string, any>;
+  config?: Record<string, unknown>;
 
   @ManyToMany(() => Agent, (agent) => agent.capabilities)
   @JoinTable({

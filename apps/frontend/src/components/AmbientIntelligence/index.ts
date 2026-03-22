@@ -5,18 +5,9 @@ export { WhisperLine } from './WhisperLine';
 export type { WhisperLineProps } from './WhisperLine';
 
 export { BreathCycle, useBreathCycle } from './BreathCycle';
-export type {
-  BreathCycleProps,
-  UseBreathCycleOptions,
-  UseBreathCycleReturn,
-} from './BreathCycle';
+export type { BreathCycleProps, UseBreathCycleOptions, UseBreathCycleReturn } from './BreathCycle';
 
-export {
-  RedlineGauge,
-  useRedlineGauge,
-  emitPortalOpen,
-  emitPortalClose,
-} from './RedlineGauge';
+export { RedlineGauge, useRedlineGauge, emitPortalOpen, emitPortalClose } from './RedlineGauge';
 export type {
   RedlineGaugeProps,
   PortalInfo,

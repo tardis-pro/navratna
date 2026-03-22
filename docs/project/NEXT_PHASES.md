@@ -1,6 +1,7 @@
 # Current Sprint Plan — Navratna v3.1
 
 ## Document Control
+
 - **Last Updated**: 2026-03-21
 - **Sprint Cadence**: 2-week sprints
 - **Current Phase**: Phase 1 COMPLETE (Telescope built + integrated), Phase 0 infra NOT STARTED (Sprint 1 begins 2026-03-24)
@@ -29,6 +30,7 @@
 - [x] **Code splitting** — React.lazy for 19 portals (already done)
 
 ### OpenClaw Port — PARTIALLY DONE
+
 - [x] 14 agent personas seeded in DB with `origin: "openclaw"` metadata
 - [x] `skillImport.service.ts` built — reads from `/openclaw-infra/skills/`, 4 skills imported (anti-ai-writing, capability-evolver, project-context-sync, persona-adapter)
 - [x] `sopImport.service.ts` built — reads SOUL.md and PROJECT_SOP.md from `/openclaw-infra/agents/`
@@ -39,6 +41,7 @@
 - [ ] 6 Lobster workflows not converted (planned Sprint 2+)
 
 ### Integrations — WORKING IN PRODUCTION
+
 - [x] Jira adapter — full bidirectional (create/update/search issues, sprints, transitions, comments), OAuth2
 - [x] Confluence adapter — full bidirectional (pages, attachments, comments, blog posts), OAuth2
 - [x] GitHub adapter — repos, files, issues, PRs, OAuth2
@@ -52,12 +55,14 @@
 ## Sprint 1: Infrastructure Foundation (2026-03-24 → 2026-04-04)
 
 ### Goals
+
 - Multi-machine topology operational
 - Service consolidation complete
 - OpenShell installed and tested
 - Database init scripts created
 
 ### Tasks
+
 - [ ] Create .env.example with all 30+ required variables
 - [ ] Pin all Docker image versions (fix postgres:latest, minio:latest, reranker:latest)
 - [ ] Fix version mismatches (Qdrant 1.14.1 vs 1.7.4, RabbitMQ 4.1.0 vs 3.12)
@@ -72,6 +77,7 @@
 - [ ] Remove: MinIO, TEI, monitoring stack, Marketplace Service
 
 ### Definition of Done
+
 - All 3 machines can reach each other via Tailscale
 - Navratna Core (PC-A) and Gateway (PC-B) are healthy
 - OpenShell can create and destroy a test sandbox
@@ -84,6 +90,7 @@
      not building them from scratch. -->
 
 ### Goals
+
 - All 14 OpenClaw agents fully functional in Navratna
 - Telescope components integrated into live UI (not just built in isolation)
 - First coding sandbox operational
@@ -91,20 +98,25 @@
 ### Tasks
 
 #### OpenClaw Port Completion
+
 - [ ] Import remaining 9+ skills to Capability Registry
 - [ ] Migrate 6 LLM providers + 30+ model configs to LLM Service
 - [ ] Convert Lobster workflows to Navratna operation definitions
 - [ ] Verify all 14 agents respond in-character with correct personas
 
 #### Telescope Integration (components exist — wiring COMPLETED 2026-03-21)
+
 <!-- 2026-03-21: All integration gaps addressed by dedicated implementation. -->
+
 - [x] Wire IntentField into DesktopUnified/AppShell (Cmd+K globally accessible) — **DONE**
 - [x] Wire MaterializableBlock HOC onto 3-5 high-traffic portals — **DONE** (Dashboard + AgentManager + Knowledge + Artifacts + Settings = 5 portals)
 - [x] Wire Microexpression indicators to actual agent/system state — **DONE** (useAgentMicroexpression hook dispatches agent-activity events)
 - [x] Wire relevance() backend (`POST /api/v1/agents/relevance`) to IntentField result ranking — **DONE** (fetchRelevanceScores debounced 300ms, graceful fallback)
 
 #### Remaining Phase 1 Tasks
+
 <!-- Code splitting already done (19 portals) — moved to Already Complete section above -->
+
 - [x] Migrate auth tokens to httpOnly cookies — **PARTIALLY DONE** (backend sets httpOnly cookies, frontend conversationEnhancement.api.ts now reads from cookies instead of localStorage, credentials: 'include' added)
 - [ ] Complete frontend auth to rely solely on httpOnly cookies (remove any remaining localStorage auth reads)
 - [ ] Create first project config: orthopulse-hq.yaml
@@ -112,6 +124,7 @@
 - [ ] Verify Claude Code can create a PR from sandbox
 
 ### Definition of Done
+
 - Typing "Tardis" in IntentField surfaces the Tardis agent with correct persona
 - MaterializableBlock-wrapped portals show relevance scores and microexpressions
 - Claude Code in sandbox can: clone repo, write code, run tests, create PR
@@ -125,6 +138,7 @@
      See docs/specs/06-TELESCOPE-KNOWLEDGE-SURFACE-PRD.md for full spec. -->
 
 ### Goals
+
 - TelescopeSurface is the default interface (feature-flagged alongside DesktopUnified)
 - Knowledge nodes organized into constellations with intent-driven layout
 - Read-only integrations feeding ambient layer
@@ -133,6 +147,7 @@
 ### Tasks
 
 #### TelescopeSurface
+
 - [ ] Build TelescopeSurface.tsx (composes IntentField + MaterializableBlock + Microexpressions)
 - [ ] Replace Dagre layout with force-directed physics (d3-force or custom Framer springs)
 - [ ] Implement intent gravity (typing in IntentField shifts constellation positions)
@@ -142,22 +157,26 @@
 - [ ] Feature flag: toggle between TelescopeSurface and legacy DesktopUnified
 
 #### Knowledge Constellations
+
 - [ ] Constellation clustering via Qdrant vector proximity
 - [ ] Render constellations as nested MaterializableBlocks (collapsible groups)
 - [ ] Map 7 microexpression states to knowledge lifecycle (see spec 06)
 - [ ] Build WhisperLine component ("Showing this because..." from relevance reasoning)
 
 #### Sensorium
+
 - [ ] Integrate GOG Gmail as read-only Sensorium feed
 - [ ] Integrate GitHub watch (repos, issues, PRs) as ambient blocks
 - [ ] Integrate RSS (migrate Mirror agent) as ambient intelligence feed
 - [ ] Build Ambient Stream Aggregator (unified Socket.IO for all feeds)
 
 #### Membrane
+
 - [ ] Build Approval Queue in Security Gateway
 - [ ] Build approval UI as ambient interrupt in Telescope (alarmed microexpression)
 
 ### Definition of Done
+
 - Telescope shows ambient data from Gmail + GitHub + RSS as constellations
 - Knowledge nodes cluster semantically, reorganize when intent changes
 - Only 4 constellations visible at once, rest faded
@@ -167,6 +186,7 @@
 - WhisperLine explains why each visible constellation is shown
 
 ## Future Sprints (Planned)
+
 - Sprint 4: Tauri Shell + Multi-Machine Routing
 - Sprint 5: BullMQ Migration + Drizzle Migration Start
 - Sprint 6: Continuity Engine + Decision Journaling + Jira Outcome Feedback Loop

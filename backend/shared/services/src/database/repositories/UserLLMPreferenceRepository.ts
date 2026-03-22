@@ -1,4 +1,4 @@
-import { Repository, FindOptionsWhere } from 'typeorm';
+import { Repository } from 'typeorm';
 import { UserLLMPreference } from '../../entities/userLLMPreference.entity';
 import { LLMTaskType, LLMProviderType } from '@uaip/types';
 
@@ -13,7 +13,7 @@ export interface CreateUserLLMPreferenceData {
     maxTokens?: number;
     topP?: number;
     systemPrompt?: string;
-    customSettings?: Record<string, any>;
+    customSettings?: Record<string, unknown>;
   };
   description?: string;
   priority?: number;
@@ -28,7 +28,7 @@ export interface UpdateUserLLMPreferenceData {
     maxTokens?: number;
     topP?: number;
     systemPrompt?: string;
-    customSettings?: Record<string, any>;
+    customSettings?: Record<string, unknown>;
   };
   description?: string;
   priority?: number;
@@ -144,9 +144,11 @@ export class UserLLMPreferenceRepository {
     const results: UserLLMPreference[] = [];
 
     for (const prefData of preferences) {
+      // oxlint-disable-next-line no-await-in-loop -- sequential processing required
       const existing = await this.findByUserAndTask(prefData.userId, prefData.taskType);
 
       if (existing) {
+        // oxlint-disable-next-line no-await-in-loop -- sequential processing required
         const updated = await this.update(existing.id, {
           preferredProvider: prefData.preferredProvider,
           preferredModel: prefData.preferredModel,
@@ -157,6 +159,7 @@ export class UserLLMPreferenceRepository {
         });
         if (updated) results.push(updated);
       } else {
+        // oxlint-disable-next-line no-await-in-loop -- sequential processing required
         const created = await this.create(prefData);
         results.push(created);
       }

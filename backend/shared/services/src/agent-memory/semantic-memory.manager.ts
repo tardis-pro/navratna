@@ -54,7 +54,7 @@ Usage: Accessed ${concept.usage.timesAccessed} times, Success rate: ${concept.us
       ]);
     } catch (error) {
       console.error('Concept storage error:', error);
-      throw new Error(`Failed to store concept: ${error.message}`);
+      throw new Error(`Failed to store concept: ${error.message}`, { cause: error });
     }
   }
 
@@ -324,8 +324,10 @@ Usage: Accessed ${concept.usage.timesAccessed} times, Success rate: ${concept.us
     }
   }
 
-  private itemToSemanticMemory(item: any): SemanticMemory {
-    const metadata = item.source?.metadata || item.metadata;
+  private itemToSemanticMemory(item: unknown): SemanticMemory {
+    const record = item as Record<string, unknown>;
+    const source = record.source as Record<string, unknown> | undefined;
+    const metadata = (source?.metadata || record.metadata) as Record<string, unknown> | undefined;
 
     if (!metadata) {
       // Fallback parsing from content
@@ -333,22 +335,22 @@ Usage: Accessed ${concept.usage.timesAccessed} times, Success rate: ${concept.us
     }
 
     return {
-      agentId: metadata.agentId,
-      concept: metadata.concept,
-      knowledge: metadata.knowledge || {
+      agentId: metadata.agentId as string,
+      concept: metadata.concept as string,
+      knowledge: (metadata.knowledge as SemanticMemory['knowledge']) || {
         definition: '',
         properties: {},
         relationships: [],
         examples: [],
         counterExamples: [],
       },
-      confidence: metadata.confidence || item.confidence || 0.5,
-      sources: metadata.sources || {
+      confidence: (metadata.confidence as number) || (record.confidence as number) || 0.5,
+      sources: (metadata.sources as SemanticMemory['sources']) || {
         episodeIds: [],
         externalSources: [],
         reinforcements: 0,
       },
-      usage: metadata.usage || {
+      usage: (metadata.usage as SemanticMemory['usage']) || {
         timesAccessed: 0,
         lastUsed: new Date(),
         successRate: 1.0,
@@ -357,8 +359,9 @@ Usage: Accessed ${concept.usage.timesAccessed} times, Success rate: ${concept.us
     };
   }
 
-  private parseSemanticMemoryFromContent(item: any): SemanticMemory {
-    const content = item.content || '';
+  private parseSemanticMemoryFromContent(item: unknown): SemanticMemory {
+    const record = item as Record<string, unknown>;
+    const content = (record.content as string) || '';
     const lines = content.split('\n');
 
     let concept = 'unknown';
@@ -387,7 +390,7 @@ Usage: Accessed ${concept.usage.timesAccessed} times, Success rate: ${concept.us
     }
 
     return {
-      agentId: item.createdBy || 'unknown',
+      agentId: (record.createdBy as string) || 'unknown',
       concept,
       knowledge: {
         definition,
@@ -396,7 +399,7 @@ Usage: Accessed ${concept.usage.timesAccessed} times, Success rate: ${concept.us
         examples,
         counterExamples: [],
       },
-      confidence: item.confidence || 0.5,
+      confidence: (record.confidence as number) || 0.5,
       sources: {
         episodeIds: [],
         externalSources: [],
@@ -449,7 +452,10 @@ Usage: Accessed ${concept.usage.timesAccessed} times, Success rate: ${concept.us
       .replace(/\s+/g, '-');
   }
 
-  private async findConceptKnowledgeItem(agentId: string, conceptId: string): Promise<any | null> {
+  private async findConceptKnowledgeItem(
+    agentId: string,
+    conceptId: string
+  ): Promise<unknown | null> {
     const results = await this.knowledgeGraph.search({
       query: `concept ${conceptId}`,
       filters: {
@@ -469,16 +475,18 @@ Usage: Accessed ${concept.usage.timesAccessed} times, Success rate: ${concept.us
   }
 
   private matchesConceptIdentifier(
-    item: any,
+    item: unknown,
     conceptId: string,
     normalizedConceptId: string
   ): boolean {
-    const metadata = item.source?.metadata || item.metadata || {};
+    const record = item as Record<string, unknown>;
+    const source = record.source as Record<string, unknown> | undefined;
+    const metadata = ((source?.metadata || record.metadata) as Record<string, unknown>) || {};
     const metadataConcept = String(metadata.concept || '').toLowerCase();
-    const sourceIdentifier = String(item.source?.identifier || '').toLowerCase();
+    const sourceIdentifier = String(source?.identifier || '').toLowerCase();
 
     return (
-      item.id === conceptId ||
+      record.id === conceptId ||
       sourceIdentifier === normalizedConceptId ||
       sourceIdentifier.endsWith(`-concept-${normalizedConceptId}`) ||
       metadataConcept === normalizedConceptId ||

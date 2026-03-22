@@ -262,10 +262,10 @@ export const validateJWTSetup = (): void => {
 export const diagnoseJWTSignatureError = (
   token: string
 ): {
-  tokenInfo: any;
+  tokenInfo: unknown;
   possibleCauses: string[];
   recommendations: string[];
-  configInfo: any;
+  configInfo: unknown;
 } => {
   const possibleCauses = [
     'Token was signed with a different JWT secret',
@@ -285,7 +285,7 @@ export const diagnoseJWTSignatureError = (
     'Validate issuer and audience claims match configuration',
   ];
 
-  let tokenInfo: any = {};
+  let tokenInfo: unknown = {};
 
   try {
     // Dynamically import jwt to decode without verification
@@ -297,7 +297,7 @@ export const diagnoseJWTSignatureError = (
       isValidFormat: !!decoded,
       tokenLength: token.length,
     };
-  } catch (error) {
+  } catch {
     tokenInfo = {
       error: 'Failed to decode token structure',
       tokenLength: token.length,
@@ -322,8 +322,8 @@ export const testJWTToken = (
 ): {
   isValid: boolean;
   error?: string;
-  payload?: any;
-  diagnostics?: any;
+  payload?: unknown;
+  diagnostics?: unknown;
 } => {
   try {
     const decoded = JWTValidator.verify(token);

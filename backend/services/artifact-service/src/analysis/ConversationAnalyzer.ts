@@ -297,7 +297,7 @@ export class ConversationAnalyzerImpl implements ConversationAnalyzer {
     return Math.min(indicators[phase] / total, 1.0);
   }
 
-  private generatePhaseActions(phase: string, confidence: number): string[] {
+  private generatePhaseActions(phase: string, _confidence: number): string[] {
     const actions: Record<string, string[]> = {
       planning: ['Define requirements', 'Create project structure', 'Identify dependencies'],
       discussion: ['Continue exploring options', 'Gather more input', 'Clarify requirements'],
@@ -362,7 +362,9 @@ export class ConversationAnalyzerImpl implements ConversationAnalyzer {
   private getUniqueParticipants(messages: ConversationMessage[]): string[] {
     // Extract participants from message metadata or use role as fallback
     const participants = new Set<string>(
-      messages.map((m) => (m.metadata?.author || m.metadata?.userId || m.role || 'unknown') as string)
+      messages.map(
+        (m) => (m.metadata?.author || m.metadata?.userId || m.role || 'unknown') as string
+      )
     );
     return Array.from(participants);
   }

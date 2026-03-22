@@ -51,8 +51,10 @@ export function isTelescopeEnabled(): boolean {
 
   try {
     // Vite injects import.meta.env at build time
-    return (import.meta as unknown as Record<string, Record<string, string>>).env
-      ?.VITE_TELESCOPE_ENABLED === 'true';
+    return (
+      (import.meta as unknown as Record<string, Record<string, string>>).env
+        ?.VITE_TELESCOPE_ENABLED === 'true'
+    );
   } catch {
     return false;
   }
@@ -65,7 +67,7 @@ export function isTelescopeEnabled(): boolean {
 function deriveVisibility(
   relevanceScore: number,
   index: number,
-  maxVisible: number,
+  maxVisible: number
 ): BlockVisibility {
   if (index >= maxVisible) return 'hidden';
   if (relevanceScore < RELEVANCE_HIDDEN_THRESHOLD) return 'hidden';
@@ -92,10 +94,10 @@ export interface UseTelescopeSurfaceReturn {
 
 export function useTelescopeSurface(
   initialBlocks: MaterializableBlockData[] = [],
-  maxVisibleBlocks: number = DEFAULT_MAX_VISIBLE_BLOCKS,
+  maxVisibleBlocks: number = DEFAULT_MAX_VISIBLE_BLOCKS
 ): UseTelescopeSurfaceReturn {
   const [blocks, setBlocks] = useState<MaterializableBlockData[]>(() =>
-    applyVisibilityRules(sortByRelevance(initialBlocks), maxVisibleBlocks),
+    applyVisibilityRules(sortByRelevance(initialBlocks), maxVisibleBlocks)
   );
 
   const maxVisibleRef = useRef(maxVisibleBlocks);
@@ -104,7 +106,7 @@ export function useTelescopeSurface(
   const applyRules = useCallback(
     (raw: MaterializableBlockData[]): MaterializableBlockData[] =>
       applyVisibilityRules(sortByRelevance(raw), maxVisibleRef.current),
-    [],
+    []
   );
 
   const addBlock = useCallback(
@@ -115,31 +117,29 @@ export function useTelescopeSurface(
         return applyRules([...prev, data]);
       });
     },
-    [applyRules],
+    [applyRules]
   );
 
   const removeBlock = useCallback(
     (id: string) => {
       setBlocks((prev) => applyRules(prev.filter((b) => b.id !== id)));
     },
-    [applyRules],
+    [applyRules]
   );
 
   const updateRelevance = useCallback(
     (id: string, score: number) => {
       const clamped = Math.max(0, Math.min(1, score));
       setBlocks((prev) =>
-        applyRules(
-          prev.map((b) => (b.id === id ? { ...b, relevanceScore: clamped } : b)),
-        ),
+        applyRules(prev.map((b) => (b.id === id ? { ...b, relevanceScore: clamped } : b)))
       );
     },
-    [applyRules],
+    [applyRules]
   );
 
   const visibleCount = useMemo(
     () => blocks.filter((b) => b.visibility !== 'hidden').length,
-    [blocks],
+    [blocks]
   );
 
   const isAtCapacity = visibleCount >= maxVisibleBlocks;
@@ -149,7 +149,7 @@ export function useTelescopeSurface(
 
 function applyVisibilityRules(
   sorted: MaterializableBlockData[],
-  maxVisible: number,
+  maxVisible: number
 ): MaterializableBlockData[] {
   return sorted.map((block, index) => ({
     ...block,
@@ -182,7 +182,7 @@ function TelescopeBlock({ block, onClick }: TelescopeBlockProps) {
         onClick?.(block.id);
       }
     },
-    [onClick, block.id],
+    [onClick, block.id]
   );
 
   return (
@@ -217,10 +217,7 @@ function TelescopeBlock({ block, onClick }: TelescopeBlockProps) {
           >
             {BLOCK_TYPE_ICONS[block.type]}
           </span>
-          <span
-            className="text-sm font-medium truncate"
-            style={{ color: 'oklch(90% 0.02 264)' }}
-          >
+          <span className="text-sm font-medium truncate" style={{ color: 'oklch(90% 0.02 264)' }}>
             {(block.metadata?.title as string) ?? BLOCK_TYPE_LABELS[block.type]}
           </span>
         </div>
@@ -246,10 +243,7 @@ function TelescopeBlock({ block, onClick }: TelescopeBlockProps) {
           }}
           title={`${block.expression} state`}
         />
-        <span
-          className="text-xs opacity-60"
-          style={{ color: 'oklch(80% 0.02 264)' }}
-        >
+        <span className="text-xs opacity-60" style={{ color: 'oklch(80% 0.02 264)' }}>
           {block.expression}
         </span>
         <span className="opacity-40" style={{ color: typeColors.accent }}>
@@ -284,11 +278,12 @@ export function TelescopeSurface({
   const processedBlocks = useMemo(() => {
     const sorted = sortByRelevance(blocks);
     return applyVisibilityRules(sorted, maxVisibleBlocks);
-  }, [blocks, maxVisibleBlocks, arrangeKey]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [blocks, maxVisibleBlocks]);
 
   const visibleBlocks = useMemo(
     () => processedBlocks.filter((b) => b.visibility !== 'hidden'),
-    [processedBlocks],
+    [processedBlocks]
   );
 
   // Auto-refresh arrangement every 30 seconds
@@ -319,11 +314,7 @@ export function TelescopeSurface({
     >
       <AnimatePresence mode="popLayout">
         {visibleBlocks.map((block) => (
-          <TelescopeBlock
-            key={block.id}
-            block={block}
-            onClick={onBlockSelect}
-          />
+          <TelescopeBlock key={block.id} block={block} onClick={onBlockSelect} />
         ))}
       </AnimatePresence>
 

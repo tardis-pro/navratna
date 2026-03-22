@@ -77,6 +77,7 @@ export class ContactBindingService {
     let cursor = '0';
 
     do {
+      // oxlint-ignore-next-line no-await-in-loop -- sequential processing required
       const [nextCursor, keys] = await this.redis.scan(
         cursor,
         'MATCH',
@@ -87,6 +88,7 @@ export class ContactBindingService {
       cursor = nextCursor;
 
       if (keys.length > 0) {
+        // oxlint-ignore-next-line no-await-in-loop -- sequential processing required
         const values = await this.redis.mget(...keys);
         keys.forEach((key, i) => {
           const jid = key.slice(BINDING_PREFIX.length);

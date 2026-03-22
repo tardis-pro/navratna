@@ -1,14 +1,14 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback as _useCallback, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { useSearchParams } from 'react-router-dom';
+import { useSearchParams as _useSearchParams } from 'react-router-dom';
 import { useAgents } from '../../../contexts/AgentContext';
 import { PersonaSelector } from '../../PersonaSelector';
 import { AgentEditModal } from '../../AgentEditModal';
 import { AgentState, createAgentStateFromBackend } from '../../../types/agent';
-import { Persona, PersonaDisplay } from '../../../types/persona';
+import { Persona as _Persona, PersonaDisplay } from '../../../types/persona';
 import { useDiscussion } from '../../../contexts/DiscussionContext';
 import { uaipAPI } from '../../../utils/uaip-api';
-import { AgentRole, LLMModel, LLMProviderType } from '@uaip/types';
+import { AgentRole, LLMModel as _LLMModel, LLMProviderType as _LLMProviderType } from '@uaip/types';
 import {
   Users,
   Plus,
@@ -23,38 +23,38 @@ import {
   Globe,
   X,
   Edit3,
-  Save,
+  Save as _Save,
   RefreshCw,
   Grid,
   List,
   Settings,
-  Eye,
+  Eye as _Eye,
   Search,
   Filter,
   ChevronLeft,
   ChevronRight,
-  EyeOff,
+  EyeOff as _EyeOff,
   Activity,
-  Network,
+  Network as _Network,
   Brain,
   Sparkles,
-  Play,
-  Pause,
+  Play as _Play,
+  Pause as _Pause,
   BarChart3,
-  Clock,
+  Clock as _Clock,
   Shield,
-  Layers,
-  MoreVertical,
-  Copy,
-  Download,
-  Upload,
-  GitBranch,
+  Layers as _Layers,
+  MoreVertical as _MoreVertical,
+  Copy as _Copy,
+  Download as _Download,
+  Upload as _Upload,
+  GitBranch as _GitBranch,
   Target,
   Workflow,
   Gauge,
   Lightbulb,
   MessageSquare,
-  Bookmark,
+  Bookmark as _Bookmark,
 } from 'lucide-react';
 import { ModelOption } from '@/types/models';
 import { useToast } from '@/components/ui/use-toast';
@@ -146,7 +146,7 @@ const getModels = async (): Promise<ModelOption[]> => {
   ];
 };
 
-const getServerIcon = (apiType: string) => {
+const _getServerIcon = (apiType: string) => {
   return apiType === 'ollama' ? Globe : Server;
 };
 
@@ -214,18 +214,18 @@ export const AgentManagerPortal: React.FC<AgentManagerPortalProps> = ({
     agents,
     addAgent,
     removeAgent,
-    updateAgentState,
-    modelState,
-    getRecommendedModels,
-    getModelsForProvider,
-    refreshModelData,
+    updateAgentState: _updateAgentState,
+    modelState: _modelState,
+    getRecommendedModels: _getRecommendedModels,
+    getModelsForProvider: _getModelsForProvider,
+    refreshModelData: _refreshModelData,
   } = useAgents();
-  const discussion = useDiscussion();
+  const _discussion = useDiscussion();
   const { toast } = useToast();
 
   // Portal-specific state management (no URL params)
   const [viewMode, setViewMode] = useState<ViewMode>(defaultView);
-  const [actionMode, setActionMode] = useState<ActionMode>('view');
+  const [_actionMode, setActionMode] = useState<ActionMode>('view');
   const [selectedAgentId, setSelectedAgentId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [filterRole, setFilterRole] = useState('');
@@ -259,7 +259,7 @@ export const AgentManagerPortal: React.FC<AgentManagerPortalProps> = ({
       serverName: string;
       enabled: boolean;
       priority?: number;
-      parameters?: Record<string, any>;
+      parameters?: Record<string, unknown>;
     }>,
     mcpToolSettings: {
       allowedServers: [] as string[],
@@ -280,7 +280,7 @@ export const AgentManagerPortal: React.FC<AgentManagerPortalProps> = ({
   const [selectedPersona, setSelectedPersona] = useState<PersonaDisplay | null>(null);
 
   // Available tools state
-  const [availableTools, setAvailableTools] = useState<
+  const [_availableTools, _setAvailableTools] = useState<
     Array<{ id: string; name: string; category: string; description: string }>
   >([]);
 
@@ -411,28 +411,20 @@ export const AgentManagerPortal: React.FC<AgentManagerPortalProps> = ({
   };
 
   // Load existing agents
-  const loadExistingAgents = async () => {
+  const loadExistingAgents = _useCallback(async () => {
     try {
-      console.log('🔄 Loading agents from API...');
       const response = await uaipAPI.agents.list();
 
       // Handle response properly - the API returns {agents: Array(7), total: 7, filters: {...}}
       let agentsArray = [];
       if (Array.isArray(response.agents)) {
         agentsArray = response.agents;
-        console.log(`📥 Received ${agentsArray.length} agents from API:`, agentsArray);
       } else if (response.success && response.data && Array.isArray(response.data.agents)) {
         agentsArray = response.data.agents;
-        console.log(`📥 Received ${agentsArray.length} agents from API (nested):`, agentsArray);
       } else if (Array.isArray(response)) {
         // Fallback for direct array response
         agentsArray = response;
-        console.log(
-          `📥 Received ${agentsArray.length} agents from API (direct array):`,
-          agentsArray
-        );
       } else {
-        console.log('⚠️ Unexpected API response format:', response);
         return;
       }
 
@@ -446,7 +438,7 @@ export const AgentManagerPortal: React.FC<AgentManagerPortalProps> = ({
         for (const agentData of agentsArray) {
           try {
             const agentState = createAgentStateFromBackend(agentData);
-            console.log(`➕ Adding/updating agent: ${agentData.id} (${agentData.name})`);
+
             addAgent(agentState);
           } catch (error) {
             console.error(`❌ Failed to process agent ${agentData.id}:`, error);
@@ -456,44 +448,22 @@ export const AgentManagerPortal: React.FC<AgentManagerPortalProps> = ({
         // Remove agents that no longer exist in the API
         for (const agentId of currentAgentIds) {
           if (!incomingAgentIds.has(agentId)) {
-            console.log(`🗑️ Removing agent not in API: ${agentId}`);
             removeAgent(agentId);
           }
         }
-
-        console.log(
-          `✅ Agent sync complete: ${agentsArray.length} agents from API, ${Object.keys(agents || {}).length} in context`
-        );
       } else {
-        console.log('⚠️ No agents found in API response');
       }
     } catch (error) {
       console.error('❌ Failed to load existing agents:', error);
     }
-  };
+  }, [agents, addAgent, removeAgent]);
 
   // Initialize data
   useEffect(() => {
     loadModels();
     loadExistingAgents();
     loadMCPTools();
-  }, []);
-
-  // Debug: Monitor agents changes
-  useEffect(() => {
-    const agentCount = Object.keys(agents || {}).length;
-    console.log(`🔍 Agent Manager: ${agentCount} agents in context`, {
-      agentIds: Object.keys(agents || {}),
-      agentNames: Object.values(agents || {}).map((a) => a.name),
-      filteredCount: filteredAgents?.length || 0,
-    });
-  }, [agents]);
-
-  // Navigation helpers (portal-specific, no URL changes)
-  const navigateToAgent = (agentId: string, action: ActionMode = 'view') => {
-    setSelectedAgentId(agentId);
-    setActionMode(action);
-  };
+  }, [loadExistingAgents]);
 
   // Edit modal handlers
   const handleEditAgent = (agentId: string) => {
@@ -506,7 +476,7 @@ export const AgentManagerPortal: React.FC<AgentManagerPortalProps> = ({
     setEditingAgentId(null);
   };
 
-  const handleSaveAgent = (agentId: string, updates: Partial<AgentState>) => {
+  const handleSaveAgent = (_agentId: string, _updates: Partial<AgentState>) => {
     // This is handled by the modal itself, just close it
     handleCloseEditModal();
   };
@@ -606,11 +576,6 @@ export const AgentManagerPortal: React.FC<AgentManagerPortalProps> = ({
       };
 
       // Validate required fields before sending
-      console.log('Creating agent with data:', {
-        ...agentData,
-        capabilities: agentData.capabilities,
-        capabilitiesLength: agentData.capabilities?.length,
-      });
 
       if (!agentData.capabilities || agentData.capabilities.length === 0) {
         toast({
@@ -728,7 +693,6 @@ export const AgentManagerPortal: React.FC<AgentManagerPortalProps> = ({
         navigateToView();
 
         // Optionally refresh personas in PersonaSelector
-        console.log('Persona created successfully:', response);
       }
     } catch (error) {
       console.error('Failed to create persona:', error);
@@ -818,9 +782,9 @@ export const AgentManagerPortal: React.FC<AgentManagerPortalProps> = ({
     setCurrentPage(1);
   }, [searchQuery, filterRole, filterStatus, sortBy, viewMode]);
 
-  const renderAgentCard = (agent: AgentState, index: number) => {
-    const isSelected = selectedAgentId === agent.id;
-    const delay = index * 0.1;
+  const renderAgentCard = (agentState: AgentState, cardIndex: number) => {
+    const isSelected = selectedAgentId === agentState.id;
+    const delay = cardIndex * 0.1;
 
     // Get model name without the long ID
     const getModelDisplayName = (modelId: string) => {
@@ -851,28 +815,29 @@ export const AgentManagerPortal: React.FC<AgentManagerPortalProps> = ({
     };
 
     // Get persona display name
-    const getPersonaDisplayName = (agent: AgentState) => {
-      if (agent.persona?.name) {
-        return agent.persona.name;
+    const getPersonaDisplayName = (currentAgent: AgentState) => {
+      if (currentAgent.persona?.name) {
+        return currentAgent.persona.name;
       }
       return 'No persona';
     };
 
     // Get agent health status
-    const getAgentHealth = (agent: AgentState) => {
-      if (!agent.isActive) return { status: 'offline', color: 'bg-gray-500', text: 'Offline' };
-      if (agent.modelId && agent.personaId)
+    const getAgentHealth = (currentAgent: AgentState) => {
+      if (!currentAgent.isActive)
+        return { status: 'offline', color: 'bg-gray-500', text: 'Offline' };
+      if (currentAgent.modelId && currentAgent.personaId)
         return { status: 'healthy', color: 'bg-green-500', text: 'Healthy' };
-      if (agent.modelId || agent.personaId)
+      if (currentAgent.modelId || currentAgent.personaId)
         return { status: 'warning', color: 'bg-yellow-500', text: 'Partial' };
       return { status: 'error', color: 'bg-red-500', text: 'Error' };
     };
 
-    const health = getAgentHealth(agent);
+    const health = getAgentHealth(agentState);
 
     return (
       <motion.div
-        key={agent.id}
+        key={agentState.id}
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay, duration: 0.3 }}
@@ -905,7 +870,7 @@ export const AgentManagerPortal: React.FC<AgentManagerPortalProps> = ({
             <button
               onClick={(e) => {
                 e.stopPropagation();
-                handleEditAgent(agent.id);
+                handleEditAgent(agentState.id);
               }}
               className="w-6 h-6 bg-slate-700 hover:bg-slate-600 rounded text-slate-300 hover:text-white transition-colors flex items-center justify-center"
               title="Edit Agent"
@@ -915,7 +880,7 @@ export const AgentManagerPortal: React.FC<AgentManagerPortalProps> = ({
             <button
               onClick={(e) => {
                 e.stopPropagation();
-                handleDeleteAgent(agent.id);
+                handleDeleteAgent(agentState.id);
               }}
               className="w-6 h-6 bg-red-500/30 hover:bg-red-500/50 rounded text-red-400 hover:text-red-300 transition-colors flex items-center justify-center"
               title="Delete"
@@ -933,23 +898,29 @@ export const AgentManagerPortal: React.FC<AgentManagerPortalProps> = ({
 
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 mb-1">
-              <h3 className="font-semibold text-white truncate max-w-[140px]" title={agent.name}>
-                {agent.name}
+              <h3
+                className="font-semibold text-white truncate max-w-[140px]"
+                title={agentState.name}
+              >
+                {agentState.name}
               </h3>
               <span className="text-xs px-2 py-0.5 bg-blue-500/20 text-blue-300 rounded capitalize flex-shrink-0">
-                {agent.role}
+                {agentState.role}
               </span>
             </div>
 
-            <div className="text-xs text-slate-400 truncate" title={getPersonaDisplayName(agent)}>
-              👤 {getPersonaDisplayName(agent)}
+            <div
+              className="text-xs text-slate-400 truncate"
+              title={getPersonaDisplayName(agentState)}
+            >
+              👤 {getPersonaDisplayName(agentState)}
             </div>
 
             <div
               className="text-xs text-slate-500 truncate"
-              title={`Model: ${getModelDisplayName(agent.modelId)}`}
+              title={`Model: ${getModelDisplayName(agentState.modelId)}`}
             >
-              Model: {getModelDisplayName(agent.modelId)}
+              Model: {getModelDisplayName(agentState.modelId)}
             </div>
           </div>
 
@@ -960,8 +931,8 @@ export const AgentManagerPortal: React.FC<AgentManagerPortalProps> = ({
                 e.stopPropagation();
                 const chatEvent = new CustomEvent('openNewAgentChat', {
                   detail: {
-                    agentId: agent.id,
-                    agentName: agent.name,
+                    agentId: agentState.id,
+                    agentName: agentState.name,
                     forceNew: true,
                   },
                 });
@@ -979,8 +950,8 @@ export const AgentManagerPortal: React.FC<AgentManagerPortalProps> = ({
                 e.stopPropagation();
                 const chatEvent = new CustomEvent('openNewAgentChat', {
                   detail: {
-                    agentId: agent.id,
-                    agentName: agent.name,
+                    agentId: agentState.id,
+                    agentName: agentState.name,
                   },
                 });
                 window.dispatchEvent(chatEvent);
@@ -997,8 +968,8 @@ export const AgentManagerPortal: React.FC<AgentManagerPortalProps> = ({
                 e.stopPropagation();
                 const chatEvent = new CustomEvent('openAgentChat', {
                   detail: {
-                    agentId: agent.id,
-                    agentName: agent.name,
+                    agentId: agentState.id,
+                    agentName: agentState.name,
                   },
                 });
                 window.dispatchEvent(chatEvent);
@@ -1015,29 +986,29 @@ export const AgentManagerPortal: React.FC<AgentManagerPortalProps> = ({
         <div className="absolute bottom-full left-0 right-0 mb-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none z-20">
           <div className="bg-slate-900/95 backdrop-blur-md border border-slate-600/50 rounded-lg p-3 shadow-xl">
             <div className="text-xs font-semibold text-slate-200 mb-2">Persona Traits</div>
-            {agent.persona?.traits && agent.persona.traits.length > 0 ? (
+            {agentState.persona?.traits && agentState.persona.traits.length > 0 ? (
               <div className="space-y-1">
-                {agent.persona.traits.slice(0, 3).map((trait, index) => (
-                  <div key={index} className="text-xs text-slate-300">
+                {agentState.persona.traits.slice(0, 3).map((trait) => (
+                  <div key={trait} className="text-xs text-slate-300">
                     • {trait}
                   </div>
                 ))}
-                {agent.persona.traits.length > 3 && (
+                {agentState.persona.traits.length > 3 && (
                   <div className="text-xs text-slate-400">
-                    +{agent.persona.traits.length - 3} more
+                    +{agentState.persona.traits.length - 3} more
                   </div>
                 )}
               </div>
-            ) : agent.persona?.expertise && agent.persona.expertise.length > 0 ? (
+            ) : agentState.persona?.expertise && agentState.persona.expertise.length > 0 ? (
               <div className="space-y-1">
-                {agent.persona.expertise.slice(0, 3).map((skill, index) => (
-                  <div key={index} className="text-xs text-slate-300">
+                {agentState.persona.expertise.slice(0, 3).map((skill) => (
+                  <div key={skill} className="text-xs text-slate-300">
                     • {skill}
                   </div>
                 ))}
-                {agent.persona.expertise.length > 3 && (
+                {agentState.persona.expertise.length > 3 && (
                   <div className="text-xs text-slate-400">
-                    +{agent.persona.expertise.length - 3} more
+                    +{agentState.persona.expertise.length - 3} more
                   </div>
                 )}
               </div>
@@ -1139,7 +1110,7 @@ export const AgentManagerPortal: React.FC<AgentManagerPortalProps> = ({
     }));
   };
 
-  const updateChatConfig = (key: string, value: any) => {
+  const updateChatConfig = (key: string, value: unknown) => {
     setAgentForm((prev) => ({
       ...prev,
       chatConfig: {
@@ -1193,7 +1164,7 @@ export const AgentManagerPortal: React.FC<AgentManagerPortalProps> = ({
     }));
   };
 
-  const updateMCPToolSettings = (key: string, value: any) => {
+  const updateMCPToolSettings = (key: string, value: unknown) => {
     setAgentForm((prev) => ({
       ...prev,
       mcpToolSettings: {
@@ -1327,12 +1298,9 @@ export const AgentManagerPortal: React.FC<AgentManagerPortalProps> = ({
         {/* Refresh Button */}
         <button
           onClick={() => {
-            console.log('🔄 Manual refresh triggered');
             setRefreshing(true);
             Promise.all([loadModels(), loadExistingAgents(), loadMCPTools()])
-              .then(() => {
-                console.log('✅ Manual refresh completed');
-              })
+              .then(() => {})
               .catch((error) => {
                 console.error('❌ Manual refresh failed:', error);
               })
@@ -1583,9 +1551,9 @@ export const AgentManagerPortal: React.FC<AgentManagerPortalProps> = ({
             <p className="text-sm text-slate-400">{selectedPersona.description}</p>
             {selectedPersona.tags && selectedPersona.tags.length > 0 && (
               <div className="flex flex-wrap gap-1">
-                {selectedPersona.tags.map((tag, index) => (
+                {selectedPersona.tags.map((tag) => (
                   <span
-                    key={index}
+                    key={tag}
                     className="text-xs px-2 py-1 bg-slate-700/50 text-slate-300 rounded"
                   >
                     {tag}
@@ -1635,9 +1603,9 @@ export const AgentManagerPortal: React.FC<AgentManagerPortalProps> = ({
                   Attached Tools ({agentForm.attachedTools?.length || 0})
                 </label>
                 <div className="flex flex-wrap gap-1">
-                  {(agentForm.attachedTools || []).map((tool, index) => (
+                  {(agentForm.attachedTools || []).map((tool) => (
                     <span
-                      key={index}
+                      key={tool.toolId}
                       className="text-xs px-2 py-1 bg-blue-500/20 text-blue-300 rounded flex items-center gap-1"
                     >
                       {tool.toolName}
@@ -1712,9 +1680,9 @@ export const AgentManagerPortal: React.FC<AgentManagerPortalProps> = ({
                   Assigned MCP Tools ({agentForm.assignedMCPTools?.length || 0})
                 </label>
                 <div className="space-y-2">
-                  {(agentForm.assignedMCPTools || []).map((tool, index) => (
+                  {(agentForm.assignedMCPTools || []).map((tool) => (
                     <div
-                      key={index}
+                      key={tool.toolId}
                       className="flex items-center justify-between p-2 bg-slate-700/50 rounded border border-slate-600/50"
                     >
                       <div className="flex items-center gap-2">

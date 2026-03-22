@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback as _useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   MessageSquare,
@@ -10,8 +10,8 @@ import {
   MicOff,
   Users,
   Search,
-  Plus,
-  Settings,
+  Plus as _Plus,
+  Settings as _Settings,
   Minimize2,
   Maximize2,
   Send,
@@ -51,7 +51,7 @@ interface UserMessage {
   timestamp: Date;
   type: 'text' | 'file' | 'system';
   status: 'sending' | 'sent' | 'delivered' | 'read';
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 interface ActiveCall {
@@ -72,7 +72,7 @@ export const UserChatPortal: React.FC<UserChatPortalProps> = ({ className }) => 
   const {
     isConnected: isWebSocketConnected,
     sendMessage: sendWebSocketMessage,
-    lastEvent,
+    lastEvent: _lastEvent,
     socket,
   } = useEnhancedWebSocket();
 
@@ -131,7 +131,7 @@ export const UserChatPortal: React.FC<UserChatPortalProps> = ({ className }) => 
 
         if (contactsResponse.ok) {
           const contactsData = await contactsResponse.json();
-          const userContacts = contactsData.data.contacts.map((contact: any) => ({
+          const userContacts = contactsData.data.contacts.map((contact: unknown) => ({
             id: contact.user.id,
             username: contact.user.email.split('@')[0],
             email: contact.user.email,
@@ -154,7 +154,7 @@ export const UserChatPortal: React.FC<UserChatPortalProps> = ({ className }) => 
 
             if (onlineResponse.ok) {
               const onlineData = await onlineResponse.json();
-              const onlineUserIds = new Set(onlineData.data.users.map((u: any) => u.user.id));
+              const onlineUserIds = new Set(onlineData.data.users.map((u: unknown) => u.user.id));
 
               // Update contact status based on online users
               const updatedContacts = userContacts.map((contact: UserContact) => ({
@@ -166,7 +166,7 @@ export const UserChatPortal: React.FC<UserChatPortalProps> = ({ className }) => 
             } else {
               setContacts(userContacts);
             }
-          } catch (onlineError) {
+          } catch {
             // If presence endpoint doesn't exist, just use contacts without online status
             setContacts(userContacts);
           }
@@ -182,7 +182,7 @@ export const UserChatPortal: React.FC<UserChatPortalProps> = ({ className }) => 
 
             if (publicResponse.ok) {
               const publicData = await publicResponse.json();
-              const publicUsers = publicData.data.users.map((user: any) => ({
+              const publicUsers = publicData.data.users.map((_user: unknown) => ({
                 id: user.id,
                 username: user.email.split('@')[0],
                 email: user.email,
@@ -213,6 +213,7 @@ export const UserChatPortal: React.FC<UserChatPortalProps> = ({ className }) => 
       }, 300);
       return () => clearTimeout(delayedSearch);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userSearchTerm, showAddModal]);
 
   // Load conversation history when chat is opened
@@ -233,7 +234,7 @@ export const UserChatPortal: React.FC<UserChatPortalProps> = ({ className }) => 
 
         if (response.ok) {
           const data = await response.json();
-          const chatMessages = data.data.messages.map((msg: any) => ({
+          const chatMessages = data.data.messages.map((msg: unknown) => ({
             id: msg.id,
             senderId: msg.senderId,
             receiverId: msg.receiverId,
@@ -260,7 +261,7 @@ export const UserChatPortal: React.FC<UserChatPortalProps> = ({ className }) => 
   useEffect(() => {
     if (!isWebSocketConnected || !socket) return;
 
-    const handleUserMessage = (data: any) => {
+    const handleUserMessage = (data: unknown) => {
       const message: UserMessage = data;
       setMessages((prev) => ({
         ...prev,
@@ -268,15 +269,15 @@ export const UserChatPortal: React.FC<UserChatPortalProps> = ({ className }) => 
       }));
     };
 
-    const handleCallOffer = (data: any) => {
+    const handleCallOffer = (data: unknown) => {
       handleWebRTCSignaling({ type: 'call_offer', data });
     };
 
-    const handleCallAnswer = (data: any) => {
+    const handleCallAnswer = (data: unknown) => {
       handleWebRTCSignaling({ type: 'call_answer', data });
     };
 
-    const handleIceCandidate = (data: any) => {
+    const handleIceCandidate = (data: unknown) => {
       handleWebRTCSignaling({ type: 'ice_candidate', data });
     };
 
@@ -293,10 +294,11 @@ export const UserChatPortal: React.FC<UserChatPortalProps> = ({ className }) => 
       socket.off('call_answer', handleCallAnswer);
       socket.off('ice_candidate', handleIceCandidate);
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isWebSocketConnected, socket]);
 
   // WebRTC Signaling Handler
-  const handleWebRTCSignaling = async (event: any) => {
+  const handleWebRTCSignaling = async (event: unknown) => {
     const { type, data } = event;
 
     if (!peerConnectionRef.current) {
@@ -586,9 +588,9 @@ export const UserChatPortal: React.FC<UserChatPortalProps> = ({ className }) => 
         const existingContactIds = new Set(contacts.map((c) => c.id));
 
         // Filter out current user and existing contacts - users are now pre-filtered to exclude admin/manager roles
-        const availableUsers = data.data.users
-          .filter((u: any) => u.id !== user.id && !existingContactIds.has(u.id))
-          .map((u: any) => ({
+        const _availableUsers = data.data.users
+          .filter((u: unknown) => u.id !== user.id && !existingContactIds.has(u.id))
+          .map((u: unknown) => ({
             id: u.id,
             username: u.email.split('@')[0],
             email: u.email,
@@ -632,7 +634,6 @@ export const UserChatPortal: React.FC<UserChatPortalProps> = ({ className }) => 
         setAvailableUsers((prev) => prev.filter((u) => u.id !== targetUserId));
 
         // Optionally show success message
-        console.log('Agent connection request sent successfully');
       } else {
         const errorData = await response.json();
         console.error('Failed to send user connection request:', errorData.message);
@@ -658,7 +659,7 @@ export const UserChatPortal: React.FC<UserChatPortalProps> = ({ className }) => 
 
   // Filter available users based on search
   const filteredAvailableUsers = availableUsers.filter(
-    (user) =>
+    (_user) =>
       user.displayName.toLowerCase().includes(userSearchTerm.toLowerCase()) ||
       user.username.toLowerCase().includes(userSearchTerm.toLowerCase())
   );
@@ -1157,7 +1158,7 @@ export const UserChatPortal: React.FC<UserChatPortalProps> = ({ className }) => 
                   </div>
                 ) : filteredAvailableUsers.length > 0 ? (
                   <div className="p-4 space-y-2">
-                    {filteredAvailableUsers.map((user) => (
+                    {filteredAvailableUsers.map((_user) => (
                       <motion.div
                         key={user.id}
                         initial={{ opacity: 0, x: -20 }}

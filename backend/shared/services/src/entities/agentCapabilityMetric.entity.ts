@@ -1,5 +1,6 @@
 import { Entity, Column, Index, ManyToOne, JoinColumn } from 'typeorm';
 import { BaseEntity } from './base.entity';
+import type { Agent } from './agent.entity';
 
 /**
  * Agent Capability Metric Entity
@@ -41,16 +42,16 @@ export class AgentCapabilityMetric extends BaseEntity {
   confidence?: number;
 
   @Column({ type: 'jsonb', nullable: true })
-  details?: Record<string, any>;
+  details?: Record<string, unknown>;
 
   @Column({ type: 'jsonb', default: '[]' })
   tags: string[];
 
   @Column({ type: 'jsonb', nullable: true })
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 
   // Relationships
   @ManyToOne('Agent', 'capabilityMetrics')
   @JoinColumn({ name: 'agent_id' })
-  agent: any;
+  agent: Agent;
 }

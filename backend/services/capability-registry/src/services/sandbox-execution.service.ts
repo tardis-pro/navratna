@@ -19,12 +19,12 @@ interface SandboxConfig {
 interface SandboxExecution {
   id: string;
   toolId: string;
-  parameters: Record<string, any>;
+  parameters: Record<string, unknown>;
   config: SandboxConfig;
   status: 'pending' | 'running' | 'completed' | 'failed' | 'timeout';
   startTime: number;
   endTime?: number;
-  result?: any;
+  result?: unknown;
   error?: string;
 }
 
@@ -81,7 +81,7 @@ export class SandboxExecutionService {
     }
   }
 
-  private async handleSandboxExecution(event: any): Promise<void> {
+  private async handleSandboxExecution(event: unknown): Promise<void> {
     const executionId = event.requestId || randomUUID();
     const { toolId, parameters, config: userConfig } = event;
 
@@ -132,7 +132,7 @@ export class SandboxExecutionService {
     }
   }
 
-  private async simulateSandboxExecution(execution: SandboxExecution): Promise<any> {
+  private async simulateSandboxExecution(execution: SandboxExecution): Promise<unknown> {
     execution.status = 'running';
 
     const runtime = this.getRuntimeExecutionConfig(execution);
@@ -196,7 +196,7 @@ export class SandboxExecutionService {
       ),
     ].join(' ');
 
-    const shellCommand = 'sh -lc "printf \"%s\\n\" \"$PARAMS\""';
+    const shellCommand = 'sh -lc "printf "%s\\n" "$PARAMS""';
 
     if (execution.toolId.startsWith('python-') || execution.toolId.includes('python')) {
       return {
@@ -225,7 +225,7 @@ export class SandboxExecutionService {
     execution: SandboxExecution,
     runtime: RuntimeExecutionConfig,
     timeoutMs: number
-  ): Promise<any> {
+  ): Promise<unknown> {
     const containerName = `sandbox-${execution.id}`.replace(/[^a-zA-Z0-9_.-]/g, '-').slice(0, 60);
     const envFlags = Object.entries(runtime.environment)
       .map(([key, value]) => `--env ${key}=${JSON.stringify(value)}`)
@@ -253,7 +253,7 @@ export class SandboxExecutionService {
       const message = error instanceof Error ? error.message : String(error);
       if (message.toLowerCase().includes('timed out')) {
         execution.status = 'timeout';
-        throw new Error('Execution timeout exceeded');
+        throw new Error('Execution timeout exceeded', { cause: error });
       }
       throw error;
     }
@@ -263,7 +263,7 @@ export class SandboxExecutionService {
     execution: SandboxExecution,
     runtime: RuntimeExecutionConfig,
     timeoutMs: number
-  ): Promise<any> {
+  ): Promise<unknown> {
     try {
       const { stdout, stderr } = await execAsync(runtime.command, {
         timeout: timeoutMs,
@@ -279,7 +279,7 @@ export class SandboxExecutionService {
       const message = error instanceof Error ? error.message : String(error);
       if (message.toLowerCase().includes('timed out')) {
         execution.status = 'timeout';
-        throw new Error('Execution timeout exceeded');
+        throw new Error('Execution timeout exceeded', { cause: error });
       }
       throw error;
     }
@@ -323,7 +323,7 @@ export class SandboxExecutionService {
     }
   }
 
-  private async handleExecutionError(execution: SandboxExecution, error: any): Promise<void> {
+  private async handleExecutionError(execution: SandboxExecution, error: unknown): Promise<void> {
     logger.error('Sandbox execution failed', {
       executionId: execution.id,
       toolId: execution.toolId,

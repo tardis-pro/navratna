@@ -63,10 +63,10 @@ const CATEGORY_BY_SKILL: Record<string, SkillCategory> = {
   'browser-automation': 'tool',
   'browser-test': 'tool',
   'cloudflare-deploy': 'tool',
-  'github': 'tool',
+  github: 'tool',
   'image-analyzer': 'tool',
   'project-context': 'workflow',
-  'shashwatgtm': 'marketing',
+  shashwatgtm: 'marketing',
 };
 
 const OPENCLAW_SKILLS_PATH = '/Users/pronitdas/workspaces/bmad-navratna/openclaw-infra/skills';
@@ -79,7 +79,10 @@ export class SkillImportService {
   private readonly manifestPath: string;
   private cachedManifest: SkillManifest | null = null;
 
-  constructor(skillsPath: string = OPENCLAW_SKILLS_PATH, manifestPath: string = OPENCLAW_MANIFEST_PATH) {
+  constructor(
+    skillsPath: string = OPENCLAW_SKILLS_PATH,
+    manifestPath: string = OPENCLAW_MANIFEST_PATH
+  ) {
     this.skillsPath = skillsPath;
     this.manifestPath = manifestPath;
   }
@@ -145,12 +148,16 @@ export class SkillImportService {
       .filter((entry: DirEntryLike) => entry.isDirectory())
       .map((entry: DirEntryLike) => entry.name);
 
-    const imported = await Promise.all(skillIds.map((skillId: string) => this.importSkill(skillId)));
+    const imported = await Promise.all(
+      skillIds.map((skillId: string) => this.importSkill(skillId))
+    );
     return imported.filter((skill: Skill | null): skill is Skill => skill !== null);
   }
 
   public async importOpenClawSkills(): Promise<Skill[]> {
-    const imported = await Promise.all(OPENCLAW_SKILL_IDS.map((skillId) => this.importSkill(skillId)));
+    const imported = await Promise.all(
+      OPENCLAW_SKILL_IDS.map((skillId) => this.importSkill(skillId))
+    );
     return imported.filter((skill: Skill | null): skill is Skill => skill !== null);
   }
 
@@ -182,7 +189,7 @@ export class SkillImportService {
     }
   }
 
-  private async readMeta(skillPath: string): Promise<Record<string, any> | null> {
+  private async readMeta(skillPath: string): Promise<Record<string, unknown> | null> {
     const metaPath = path.join(skillPath, '_meta.json');
     const skillJsonPath = path.join(skillPath, 'skill.json');
 
@@ -197,7 +204,7 @@ export class SkillImportService {
     }
 
     try {
-      return JSON.parse(content) as Record<string, any>;
+      return JSON.parse(content) as Record<string, unknown>;
     } catch {
       return null;
     }

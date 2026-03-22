@@ -1,5 +1,6 @@
 import {
   DataSource,
+  EntityManager,
   Repository,
   QueryRunner,
   EntityTarget,
@@ -28,7 +29,7 @@ export class TypeOrmService {
     return TypeOrmService.instance;
   }
 
-  public async initialize(entities: any[] = []): Promise<void> {
+  public async initialize(entities: unknown[] = []): Promise<void> {
     try {
       const pg = config.database.postgres;
       this._dataSource = new DataSource({
@@ -97,7 +98,7 @@ export class TypeOrmService {
     return this.getDataSource().getRepository(entity).createQueryBuilder(alias);
   }
 
-  public async query(sql: string, parameters?: any[]): Promise<any> {
+  public async query(sql: string, parameters?: unknown[]): Promise<unknown> {
     try {
       return await this.getDataSource().query(sql, parameters);
     } catch (error) {
@@ -109,7 +110,9 @@ export class TypeOrmService {
     }
   }
 
-  public async transaction<T>(runInTransaction: (manager: any) => Promise<T>): Promise<T> {
+  public async transaction<T>(
+    runInTransaction: (manager: EntityManager) => Promise<T>
+  ): Promise<T> {
     return this.getDataSource().transaction(runInTransaction);
   }
 
@@ -145,7 +148,7 @@ export class TypeOrmService {
         database: ds.options.database as string,
         connected: ds.isInitialized,
       };
-    } catch (error) {
+    } catch {
       return {
         status: 'unhealthy',
         database: 'unknown',

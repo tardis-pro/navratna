@@ -8,9 +8,9 @@ import {
   UserEntity,
   SecurityPolicy as SecurityPolicyEntity,
   AuditEvent as AuditLogEntity,
-  SessionEntity,
+  SessionEntity as _SessionEntity,
 } from '@uaip/shared-services';
-import crypto from 'crypto';
+import _crypto from 'crypto';
 
 describe('Security Validation Integration Tests', () => {
   let app: Express;
@@ -207,7 +207,7 @@ describe('Security Validation Integration Tests', () => {
       expect(response.body.factors).toBeInstanceOf(Array);
       expect(response.body.factors.length).toBeGreaterThan(0);
 
-      const factors = response.body.factors.map((f: any) => f.type);
+      const factors = response.body.factors.map((f: unknown) => f.type);
       expect(factors).toContain('file_size');
       expect(factors).toContain('file_type');
     });

@@ -1,19 +1,13 @@
 import { EventEmitter } from 'events';
 import { logger } from '@uaip/utils';
-import {
-  AgentOperationalState,
-  AgentStateTransition,
-  ActionRecommendation,
-  WorkflowStep,
-  CollaborationPattern,
-} from '@uaip/types';
+import { AgentOperationalState, ActionRecommendation, WorkflowStep } from '@uaip/types';
 
 export interface AgentEvent {
   eventType: string;
   agentId?: string;
   timestamp: Date;
-  data: any;
-  metadata?: any;
+  data: Record<string, unknown>;
+  metadata?: Record<string, unknown>;
 }
 
 export interface StateChangedEvent extends AgentEvent {
@@ -23,7 +17,7 @@ export interface StateChangedEvent extends AgentEvent {
     from: AgentOperationalState;
     to: AgentOperationalState;
     trigger: string;
-    context?: any;
+    context?: Record<string, unknown>;
   };
 }
 
@@ -46,7 +40,7 @@ export interface MemorySavedEvent extends AgentEvent {
     memoryType: 'working' | 'episodic' | 'semantic';
     entryId: string;
     significance: number;
-    content: any;
+    content: string | Record<string, unknown>;
   };
 }
 
@@ -59,7 +53,7 @@ export interface WorkflowStepEvent extends AgentEvent {
     stepName: string;
     status: string;
     duration?: number;
-    output?: any;
+    output?: Record<string, unknown>;
     error?: string;
   };
 }
@@ -72,7 +66,7 @@ export interface ToolExecutionEvent extends AgentEvent {
     toolName: string;
     duration?: number;
     success?: boolean;
-    output?: any;
+    output?: Record<string, unknown>;
     error?: string;
   };
 }
@@ -179,7 +173,7 @@ export class AgentEventBus extends EventEmitter {
     from: AgentOperationalState,
     to: AgentOperationalState,
     trigger: string,
-    context?: any
+    context?: Record<string, unknown>
   ): void {
     const event: StateChangedEvent = {
       eventType: 'state.changed',
@@ -214,7 +208,7 @@ export class AgentEventBus extends EventEmitter {
     memoryType: 'working' | 'episodic' | 'semantic',
     entryId: string,
     significance: number,
-    content: any
+    content: string | Record<string, unknown>
   ): void {
     const event: MemorySavedEvent = {
       eventType: 'memory.saved',
@@ -247,7 +241,7 @@ export class AgentEventBus extends EventEmitter {
     workflowId: string,
     step: WorkflowStep,
     duration: number,
-    output?: any
+    output?: Record<string, unknown>
   ): void {
     const event: WorkflowStepEvent = {
       eventType: 'workflow.step.completed',
@@ -304,7 +298,7 @@ export class AgentEventBus extends EventEmitter {
     toolId: string,
     toolName: string,
     duration: number,
-    output?: any
+    output?: Record<string, unknown>
   ): void {
     const event: ToolExecutionEvent = {
       eventType: 'tool.execution.completed',

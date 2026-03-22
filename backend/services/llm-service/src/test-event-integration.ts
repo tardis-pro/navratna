@@ -34,7 +34,7 @@ async function testLLMEventIntegration() {
   );
 
   let responseReceived = false;
-  let testResult: any = null;
+  let testResult: Record<string, unknown> | null = null;
 
   // Subscribe to response events first
   await eventBusService.subscribe('llm.agent.generate.response', async (event: EventBusMessage) => {
@@ -114,7 +114,9 @@ async function testLLMEventIntegration() {
   const timeout = 30000;
   const start = Date.now();
 
+  // oxlint-ignore-next-line eslint/no-unmodified-loop-condition -- responseReceived is modified by event callback
   while (!responseReceived && Date.now() - start < timeout) {
+    // oxlint-ignore-next-line eslint/no-await-in-loop -- sequential processing required
     await new Promise((resolve) => setTimeout(resolve, 100));
   }
 
@@ -146,14 +148,9 @@ async function testLLMEventIntegration() {
 if (import.meta.url === `file://${process.argv[1]}`) {
   testLLMEventIntegration()
     .then((result) => {
-      console.log('\n=== LLM Event Integration Test Results ===');
-      console.log(JSON.stringify(result, null, 2));
-
       if (result.testSuccess) {
-        console.log('\n✅ Test PASSED: Event-driven LLM integration is working!');
         process.exit(0);
       } else {
-        console.log('\n❌ Test FAILED: Event-driven LLM integration has issues.');
         process.exit(1);
       }
     })

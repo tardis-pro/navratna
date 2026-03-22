@@ -1,11 +1,4 @@
-import {
-  Entity,
-  PrimaryGeneratedColumn,
-  Column,
-  CreateDateColumn,
-  UpdateDateColumn,
-  Index,
-} from 'typeorm';
+import { Entity, Column, Index } from 'typeorm';
 import { KnowledgeType, SourceType } from '@uaip/types';
 import { BaseEntity } from './base.entity';
 
@@ -47,7 +40,7 @@ export class KnowledgeItemEntity extends BaseEntity {
   confidence: number;
 
   @Column('jsonb', { default: '{}' })
-  metadata: Record<string, any>;
+  metadata: Record<string, unknown>;
 
   @Column('varchar', { length: 36, nullable: true })
   createdBy?: string;

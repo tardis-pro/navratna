@@ -117,7 +117,12 @@
       "description": "Autonomous browser automation for account creation, form filling, and email verification. Playwright-based with Gmail integration.",
       "category": "tool",
       "version": "1.0",
-      "triggerEvents": ["account_creation", "form_automation", "email_verification", "web_scraping"],
+      "triggerEvents": [
+        "account_creation",
+        "form_automation",
+        "email_verification",
+        "web_scraping"
+      ],
       "actions": [
         {
           "name": "create_account",
@@ -513,7 +518,13 @@
       "metadata": {
         "origin": "openclaw",
         "importedAt": "2026-03-21T00:00:00Z",
-        "subModules": ["competitive-intelligence-market-research", "content-writing-thought-leadership", "newsletter-creation-curation", "personal-branding-authority", "social-media-management"]
+        "subModules": [
+          "competitive-intelligence-market-research",
+          "content-writing-thought-leadership",
+          "newsletter-creation-curation",
+          "personal-branding-authority",
+          "social-media-management"
+        ]
       }
     }
   ]

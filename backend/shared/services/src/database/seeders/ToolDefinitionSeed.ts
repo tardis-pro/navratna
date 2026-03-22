@@ -20,8 +20,8 @@ export class ToolDefinitionSeed extends BaseSeed<ToolDefinition> {
   }
 
   async getSeedData(): Promise<DeepPartial<ToolDefinition>[]> {
-    const adminUser = this.users.find((u) => u.role === 'system_admin') || this.users[0];
-    const developerUser = this.users.find((u) => u.role === 'developer') || this.users[0];
+    const _adminUser = this.users.find((u) => u.role === 'system_admin') || this.users[0];
+    const _developerUser = this.users.find((u) => u.role === 'developer') || this.users[0];
 
     return [
       {

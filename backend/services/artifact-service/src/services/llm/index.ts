@@ -89,7 +89,7 @@ function generatedFunction() {
     }
   }
 
-  private generateTemplateText(request: LLMRequest): string {
+  private generateTemplateText(_request: LLMRequest): string {
     return `Generated content based on conversation analysis.
 
 This is a placeholder implementation that will be replaced with actual LLM integration.

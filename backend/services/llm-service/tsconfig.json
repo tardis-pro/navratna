@@ -6,7 +6,7 @@
       "@uaip/infra": ["../../../shared/infra/src"],
       "@uaip/infra/*": ["../../../shared/infra/src/*"]
     },
-    "outDir": "./dist",
+    "outDir": "./dist"
   },
   "references": [
     { "path": "../../../packages/shared-types" },
@@ -17,11 +17,6 @@
     { "path": "../../shared/middleware" },
     { "path": "../../shared/infra" }
   ],
-  "include": [
-    "src/**/*"
-  ],
-  "exclude": [
-    "node_modules",
-    "dist"
-  ]
-} 
+  "include": ["src/**/*"],
+  "exclude": ["node_modules", "dist"]
+}

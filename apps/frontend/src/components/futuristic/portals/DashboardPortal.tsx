@@ -7,7 +7,6 @@ import {
   MessageSquare,
   Brain,
   Package,
-  TrendingUp,
   Clock,
   Zap,
   Shield,
@@ -19,7 +18,6 @@ import {
   XCircle,
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 
 interface ViewportSize {
@@ -42,7 +40,7 @@ interface SystemMetric {
   unit: string;
   status: 'good' | 'warning' | 'critical';
   trend: 'up' | 'down' | 'stable';
-  icon: React.ComponentType<any>;
+  icon: React.ComponentType<{ size?: number; className?: string }>;
 }
 
 interface QuickStat {
@@ -51,14 +49,17 @@ interface QuickStat {
   value: string | number;
   change: string;
   changeType: 'positive' | 'negative' | 'neutral';
-  icon: React.ComponentType<any>;
+  icon: React.ComponentType<{ size?: number; className?: string }>;
   color: string;
 }
 
-export const DashboardPortal: React.FC<DashboardPortalProps> = ({ viewport, className = '' }) => {
+export const DashboardPortal: React.FC<DashboardPortalProps> = ({
+  viewport: _viewport,
+  className = '',
+}) => {
   const [systemMetrics, setSystemMetrics] = useState<SystemMetric[]>([]);
   const [quickStats, setQuickStats] = useState<QuickStat[]>([]);
-  const [systemStatus, setSystemStatus] = useState<'online' | 'degraded' | 'offline'>('online');
+  const [systemStatus, _setSystemStatus] = useState<'online' | 'degraded' | 'offline'>('online');
 
   // Mock data - in real implementation, this would come from APIs
   useEffect(() => {
@@ -326,9 +327,9 @@ export const DashboardPortal: React.FC<DashboardPortalProps> = ({ viewport, clas
                     time: '15 minutes ago',
                     type: 'system',
                   },
-                ].map((activity, index) => (
+                ].map((activity) => (
                   <div
-                    key={index}
+                    key={`${activity.type}-${activity.action}`}
                     className="flex items-center space-x-3 p-2 bg-slate-700/30 rounded-lg"
                   >
                     <div
@@ -376,7 +377,7 @@ export const DashboardPortal: React.FC<DashboardPortalProps> = ({ viewport, clas
                   icon: BarChart3,
                   color: 'bg-purple-500/20 text-purple-400',
                 },
-              ].map((action, index) => {
+              ].map((action) => {
                 const IconComponent = action.icon;
                 return (
                   <motion.button

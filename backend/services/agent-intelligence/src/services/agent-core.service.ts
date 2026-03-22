@@ -4,14 +4,7 @@
  * Part of the refactored agent-intelligence microservices
  */
 
-import {
-  Agent,
-  AgentStatus,
-  AgentRole,
-  CreateAgentRequest,
-  AgentIntelligenceConfig,
-  AgentSecurityContext,
-} from '@uaip/types';
+import { Agent, AgentStatus, AgentRole, CreateAgentRequest } from '@uaip/types';
 import { logger } from '@uaip/utils';
 import {
   Repository,
@@ -73,11 +66,11 @@ export class AgentCoreService {
   private securityLevel: number;
   private agentRepository: Repository<Agent>;
 
-  constructor(config: AgentCoreConfig) {
-    this.databaseService = config.databaseService;
-    this.eventBusService = config.eventBusService;
-    this.serviceName = config.serviceName;
-    this.securityLevel = config.securityLevel;
+  constructor(coreConfig: AgentCoreConfig) {
+    this.databaseService = coreConfig.databaseService;
+    this.eventBusService = coreConfig.eventBusService;
+    this.serviceName = coreConfig.serviceName;
+    this.securityLevel = coreConfig.securityLevel;
   }
 
   async initialize(): Promise<void> {
@@ -211,9 +204,9 @@ export class AgentCoreService {
         // Model configuration fields from the request
         modelId: agentData.modelId,
         apiType: agentData.apiType,
-        temperature: (agentData as any).temperature,
-        maxTokens: (agentData as any).maxTokens,
-        systemPrompt: (agentData as any).systemPrompt,
+        temperature: (agentData as Record<string, unknown>).temperature,
+        maxTokens: (agentData as Record<string, unknown>).maxTokens,
+        systemPrompt: (agentData as Record<string, unknown>).systemPrompt,
         // Additional optional fields
         metadata: {},
         lastActiveAt: undefined,

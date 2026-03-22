@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect as _useEffect } from 'react';
 import ReactDOM from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -9,24 +9,24 @@ import {
   Github,
   ExternalLink,
   Settings,
-  Key,
-  Link,
-  Search,
-  Upload,
-  Download,
+  Key as _Key,
+  Link as _Link,
+  Search as _Search,
+  Upload as _Upload,
+  Download as _Download,
   GitBranch,
   MessageSquare,
   FileText,
   Database,
-  Zap,
-  Shield,
-  Users,
-  Play,
-  Pause,
+  Zap as _Zap,
+  Shield as _Shield,
+  Users as _Users,
+  Play as _Play,
+  Pause as _Pause,
   AlertCircle,
   CheckCircle,
   X,
-  Plus,
+  Plus as _Plus,
 } from 'lucide-react';
 import { useAuth } from '../../../contexts/AuthContext';
 import { projectsAPI, type ProjectCreate } from '../../../api/projects.api';
@@ -36,7 +36,7 @@ interface ProjectTemplate {
   id: string;
   name: string;
   description: string;
-  icon: React.ComponentType<any>;
+  icon: React.ComponentType<unknown>;
   category: 'software' | 'marketing' | 'research' | 'operations';
   tools: string[];
   estimatedSetupTime: string;
@@ -46,7 +46,7 @@ interface ToolIntegration {
   id: string;
   name: string;
   type: 'github' | 'jira' | 'confluence' | 'slack' | 'figma' | 'notion';
-  icon: React.ComponentType<any>;
+  icon: React.ComponentType<unknown>;
   description: string;
   required: boolean;
   configured: boolean;
@@ -58,7 +58,7 @@ interface OnboardingStep {
   id: string;
   title: string;
   description: string;
-  component: React.ComponentType<any>;
+  component: React.ComponentType<unknown>;
   isOptional: boolean;
 }
 
@@ -200,7 +200,7 @@ const TOOL_INTEGRATIONS: ToolIntegration[] = [
 interface ProjectOnboardingFlowProps {
   isOpen: boolean;
   onClose: () => void;
-  onProjectCreate: (projectData: any) => void;
+  onProjectCreate: (projectData: unknown) => void;
 }
 
 export const ProjectOnboardingFlow: React.FC<ProjectOnboardingFlowProps> = ({
@@ -208,7 +208,7 @@ export const ProjectOnboardingFlow: React.FC<ProjectOnboardingFlowProps> = ({
   onClose,
   onProjectCreate,
 }) => {
-  const { user } = useAuth();
+  const { _user } = useAuth();
   const [currentStep, setCurrentStep] = useState(0);
   const [selectedTemplate, setSelectedTemplate] = useState<ProjectTemplate | null>(null);
   const [projectData, setProjectData] = useState({
@@ -220,7 +220,7 @@ export const ProjectOnboardingFlow: React.FC<ProjectOnboardingFlowProps> = ({
     tags: [] as string[],
   });
   const [selectedTools, setSelectedTools] = useState<string[]>([]);
-  const [toolConfigurations, setToolConfigurations] = useState<Record<string, any>>({});
+  const [toolConfigurations, setToolConfigurations] = useState<Record<string, unknown>>({});
   const [isSetupInProgress, setIsSetupInProgress] = useState(false);
   const [setupProgress, setSetupProgress] = useState<
     Record<string, 'pending' | 'in_progress' | 'completed' | 'error'>
@@ -342,7 +342,7 @@ export const ProjectOnboardingFlow: React.FC<ProjectOnboardingFlowProps> = ({
             <select
               value={projectData.status}
               onChange={(e) =>
-                setProjectData((prev) => ({ ...prev, status: e.target.value as any }))
+                setProjectData((prev) => ({ ...prev, status: e.target.value as unknown }))
               }
               className="w-full px-4 py-3 bg-slate-800/50 border border-slate-700/50 rounded-xl text-white focus:border-blue-500/50 focus:outline-none focus:ring-2 focus:ring-blue-500/20 transition-all duration-200 appearance-none"
             >
@@ -357,7 +357,7 @@ export const ProjectOnboardingFlow: React.FC<ProjectOnboardingFlowProps> = ({
             <select
               value={projectData.priority}
               onChange={(e) =>
-                setProjectData((prev) => ({ ...prev, priority: e.target.value as any }))
+                setProjectData((prev) => ({ ...prev, priority: e.target.value as unknown }))
               }
               className="w-full px-4 py-3 bg-slate-800/50 border border-slate-700/50 rounded-xl text-white focus:border-blue-500/50 focus:outline-none focus:ring-2 focus:ring-blue-500/20 transition-all duration-200 appearance-none"
             >
@@ -430,8 +430,11 @@ export const ProjectOnboardingFlow: React.FC<ProjectOnboardingFlowProps> = ({
                     </div>
                     <p className="text-sm text-slate-400 mb-3">{tool.description}</p>
                     <div className="space-y-1">
-                      {tool.capabilities.slice(0, 3).map((capability, index) => (
-                        <div key={index} className="flex items-center gap-2 text-xs text-slate-500">
+                      {tool.capabilities.slice(0, 3).map((capability) => (
+                        <div
+                          key={`${tool.id}-${capability}`}
+                          className="flex items-center gap-2 text-xs text-slate-500"
+                        >
                           <Check className="w-3 h-3" />
                           <span>{capability}</span>
                         </div>
@@ -730,31 +733,33 @@ export const ProjectOnboardingFlow: React.FC<ProjectOnboardingFlowProps> = ({
     setSetupProgress(progress);
 
     // Real tool setup process
-    for (const toolId of selectedTools) {
-      progress[toolId] = 'in_progress';
-      setSetupProgress({ ...progress });
+    await Promise.all(
+      selectedTools.map(async (toolId) => {
+        progress[toolId] = 'in_progress';
+        setSetupProgress({ ...progress });
 
-      try {
-        // Get tool details and verify it exists
-        const tool = await toolsAPI.get(toolId);
+        try {
+          // Get tool details and verify it exists
+          const tool = await toolsAPI.get(toolId);
 
-        // For OAuth-based tools, initiate OAuth flow
-        if (tool.type === 'oauth') {
-          // Store configuration for OAuth completion
-          setToolConfigurations((prev) => ({
-            ...prev,
-            [toolId]: { status: 'oauth_pending', tool },
-          }));
+          // For OAuth-based tools, initiate OAuth flow
+          if (tool.type === 'oauth') {
+            // Store configuration for OAuth completion
+            setToolConfigurations((prev) => ({
+              ...prev,
+              [toolId]: { status: 'oauth_pending', tool },
+            }));
+          }
+
+          progress[toolId] = 'completed';
+        } catch (error) {
+          console.error(`Failed to setup tool ${toolId}:`, error);
+          progress[toolId] = 'error';
         }
 
-        progress[toolId] = 'completed';
-      } catch (error) {
-        console.error(`Failed to setup tool ${toolId}:`, error);
-        progress[toolId] = 'error';
-      }
-
-      setSetupProgress({ ...progress });
-    }
+        setSetupProgress({ ...progress });
+      })
+    );
 
     setIsSetupInProgress(false);
   };
@@ -828,7 +833,7 @@ export const ProjectOnboardingFlow: React.FC<ProjectOnboardingFlowProps> = ({
       },
     ];
 
-    const templateSpecificTasks: Record<string, any[]> = {
+    const templateSpecificTasks: Record<string, unknown[]> = {
       'software-dev': [
         {
           id: '4',
@@ -979,9 +984,9 @@ export const ProjectOnboardingFlow: React.FC<ProjectOnboardingFlowProps> = ({
           </button>
 
           <div className="flex items-center gap-2">
-            {steps.map((_, index) => (
+            {steps.map((step, index) => (
               <div
-                key={index}
+                key={step.id}
                 className={`w-2 h-2 rounded-full transition-colors ${
                   index <= currentStep ? 'bg-blue-500' : 'bg-slate-700'
                 }`}

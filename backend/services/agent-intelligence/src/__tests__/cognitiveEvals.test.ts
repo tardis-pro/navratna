@@ -151,7 +151,10 @@ describe('Layer 3: Cognitive Evals', () => {
 
     const planningService = new AgentPlanningService({
       databaseService: {} as DatabaseService,
-      eventBusService: { publish, request, subscribe } as unknown as EventBusService,
+      eventBusService: { publish, request, subscribe } as Record<
+        string,
+        unknown
+      > as EventBusService,
       serviceName: 'agent-planning-test',
       securityLevel: 2,
     });
@@ -203,7 +206,7 @@ describe('Layer 3: Cognitive Evals', () => {
         subscribe: vi.fn(async () => undefined),
         publish: vi.fn(async () => undefined),
         request: toolExecutionRequest,
-      } as unknown as EventBusService,
+      } as Record<string, unknown> as EventBusService,
       serviceName: 'agent-planning-test',
       securityLevel: 2,
     });

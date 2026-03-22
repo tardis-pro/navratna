@@ -13,7 +13,12 @@ import {
   Users,
   Unlink,
 } from 'lucide-react';
-import { useWhatsApp, type WAConnectionState, type WAIncomingMessage, type WAContactBinding } from '@/hooks/useWhatsApp';
+import {
+  useWhatsApp,
+  type WAConnectionState,
+  type WAIncomingMessage,
+  type WAContactBinding,
+} from '@/hooks/useWhatsApp';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -86,7 +91,9 @@ function QRDisplay({ qrString }: { qrString: string }) {
       <div className="flex flex-col items-center gap-3">
         <div className="flex items-center justify-center w-60 h-60 bg-muted rounded-lg">
           <p className="text-xs text-muted-foreground text-center p-4 break-all">
-            QR image unavailable — check network.<br />Open WhatsApp → Linked Devices → Link a Device
+            QR image unavailable — check network.
+            <br />
+            Open WhatsApp → Linked Devices → Link a Device
           </p>
         </div>
       </div>
@@ -313,8 +320,8 @@ export const WhatsAppPanel: React.FC<WhatsAppPanelProps> = ({ className }) => {
 
           {/* Agent selection info */}
           <p className="text-[11px] text-muted-foreground">
-            New contacts receive an in-chat menu to select their preferred agent.
-            Use the <strong>Contacts</strong> section below to override bindings manually.
+            New contacts receive an in-chat menu to select their preferred agent. Use the{' '}
+            <strong>Contacts</strong> section below to override bindings manually.
           </p>
         </CardContent>
       </Card>

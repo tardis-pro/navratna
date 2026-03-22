@@ -2,7 +2,6 @@ import { EventEmitter } from 'events';
 import { TanStackProvider } from './providers/TanStackProvider.js';
 import { LLMProviderConfig } from './interfaces.js';
 import {
-  StreamChunk,
   StreamSession,
   StreamingLLMRequest,
   StreamingEventType,
@@ -49,10 +48,7 @@ export class StreamingService extends EventEmitter {
   /**
    * Start a streaming session
    */
-  async startStream(
-    request: StreamingLLMRequest,
-    providerId: string = 'default'
-  ): Promise<string> {
+  async startStream(request: StreamingLLMRequest, providerId: string = 'default'): Promise<string> {
     const sessionId = `stream-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 
     const provider = this.providers.get(providerId);
@@ -102,10 +98,7 @@ export class StreamingService extends EventEmitter {
   /**
    * Process the stream and emit chunks
    */
-  private async processStream(
-    sessionId: string,
-    request: StreamingLLMRequest
-  ): Promise<void> {
+  private async processStream(sessionId: string, request: StreamingLLMRequest): Promise<void> {
     const activeStream = this.activeStreams.get(sessionId);
     if (!activeStream) return;
 

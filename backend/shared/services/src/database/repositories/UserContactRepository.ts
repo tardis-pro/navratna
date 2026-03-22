@@ -1,10 +1,6 @@
-import { FindManyOptions, FindOneOptions } from 'typeorm';
+import type { FindOptionsWhere } from 'typeorm';
 import { BaseRepository } from '../base/BaseRepository';
-import {
-  UserContactEntity,
-  ContactStatus,
-  ContactType,
-} from '../../entities/user-contact.entity';
+import { UserContactEntity, ContactStatus, ContactType } from '../../entities/user-contact.entity';
 
 // Re-export types for convenience
 export { ContactStatus, ContactType };
@@ -27,10 +23,13 @@ export class UserContactRepository extends BaseRepository<UserContactEntity> {
   }
 
   async findUserContacts(userId: string, status?: ContactStatus): Promise<UserContactEntity[]> {
-    const whereCondition: any = [{ requesterId: userId }, { targetId: userId }];
+    const whereCondition: FindOptionsWhere<UserContactEntity>[] = [
+      { requesterId: userId },
+      { targetId: userId },
+    ];
 
     if (status) {
-      whereCondition.forEach((condition: any) => {
+      whereCondition.forEach((condition) => {
         condition.status = status;
       });
     }
@@ -67,13 +66,13 @@ export class UserContactRepository extends BaseRepository<UserContactEntity> {
   }
 
   async findAcceptedContacts(userId: string, type?: ContactType): Promise<UserContactEntity[]> {
-    const whereCondition: any = [
+    const whereCondition: FindOptionsWhere<UserContactEntity>[] = [
       { requesterId: userId, status: ContactStatus.ACCEPTED },
       { targetId: userId, status: ContactStatus.ACCEPTED },
     ];
 
     if (type) {
-      whereCondition.forEach((condition: any) => {
+      whereCondition.forEach((condition) => {
         condition.type = type;
       });
     }

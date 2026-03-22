@@ -1,4 +1,9 @@
-import { KnowledgeItem, KnowledgeScope, KnowledgeSearchRequest, ContextRequest } from '@uaip/types';
+import {
+  KnowledgeItem,
+  KnowledgeScope as _KnowledgeScope,
+  KnowledgeSearchRequest,
+  ContextRequest,
+} from '@uaip/types';
 import { KnowledgeGraphService } from './knowledge-graph/knowledge-graph.service';
 
 export interface ContextOrchestrationConfig {

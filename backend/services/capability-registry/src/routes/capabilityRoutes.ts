@@ -2,7 +2,7 @@ import { CapabilityController } from '../controllers/capabilityController.js';
 import { logger } from '@uaip/utils';
 
 function createResponseObject() {
-  const res: any = {
+  const res: unknown = {
     statusCode: 200,
     body: undefined as unknown,
     json: (v: unknown) => {
@@ -22,8 +22,8 @@ function createResponseObject() {
 }
 
 async function invokeController(
-  handler: (req: any, res: any, next: (error?: unknown) => void) => Promise<void>,
-  req: any
+  handler: (req: unknown, res: unknown, next: (error?: unknown) => void) => Promise<void>,
+  req: unknown
 ) {
   const res = createResponseObject();
   let nextError: unknown;
@@ -41,13 +41,13 @@ async function invokeController(
   return res.body;
 }
 
-export function registerCapabilityRoutes(app: any, controller?: CapabilityController) {
+export function registerCapabilityRoutes(app: unknown, controller?: CapabilityController) {
   const capabilityController = controller ?? new CapabilityController();
 
   logger.info('Registering capability routes');
-  return app.group('/api/v1/capabilities', (g: any) =>
+  return app.group('/api/v1/capabilities', (g: unknown) =>
     g
-      .get('/search', async ({ query, headers }: any) =>
+      .get('/search', async ({ query, headers }: unknown) =>
         invokeController(capabilityController.searchCapabilities.bind(capabilityController), {
           query,
           params: {},
@@ -55,7 +55,7 @@ export function registerCapabilityRoutes(app: any, controller?: CapabilityContro
           headers,
         })
       )
-      .post('/', async ({ body, headers }: any) =>
+      .post('/', async ({ body, headers }: unknown) =>
         invokeController(capabilityController.registerCapability.bind(capabilityController), {
           query: {},
           params: {},
@@ -63,7 +63,7 @@ export function registerCapabilityRoutes(app: any, controller?: CapabilityContro
           headers,
         })
       )
-      .get('/categories', async ({ headers }: any) =>
+      .get('/categories', async ({ headers }: unknown) =>
         invokeController(capabilityController.getCategories.bind(capabilityController), {
           query: {},
           params: {},
@@ -71,7 +71,7 @@ export function registerCapabilityRoutes(app: any, controller?: CapabilityContro
           headers,
         })
       )
-      .post('/:id/execute', async ({ params, body, headers }: any) =>
+      .post('/:id/execute', async ({ params, body, headers }: unknown) =>
         invokeController(capabilityController.executeCapability.bind(capabilityController), {
           query: {},
           params,
@@ -79,7 +79,7 @@ export function registerCapabilityRoutes(app: any, controller?: CapabilityContro
           headers,
         })
       )
-      .get('/:id', async ({ params, headers }: any) =>
+      .get('/:id', async ({ params, headers }: unknown) =>
         invokeController(capabilityController.getCapability.bind(capabilityController), {
           query: {},
           params,
@@ -87,7 +87,7 @@ export function registerCapabilityRoutes(app: any, controller?: CapabilityContro
           headers,
         })
       )
-      .get('/', async ({ query, headers }: any) =>
+      .get('/', async ({ query, headers }: unknown) =>
         invokeController(capabilityController.listCapabilities.bind(capabilityController), {
           query,
           params: {},

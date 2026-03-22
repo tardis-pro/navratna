@@ -27,12 +27,12 @@ export class CachedSecurityGatewayService {
   /**
    * Get cached security policies
    */
-  async getSecurityPolicies(useCache = true): Promise<any[]> {
+  async getSecurityPolicies(useCache = true): Promise<unknown[]> {
     const cacheKey = 'security_policies:active';
 
     if (useCache) {
       // Try to get from cache first
-      const cached = await redisCacheService.get<any[]>(cacheKey);
+      const cached = await redisCacheService.get<unknown[]>(cacheKey);
       if (cached) {
         logger.debug('Security policies retrieved from cache');
         return cached;
@@ -56,7 +56,7 @@ export class CachedSecurityGatewayService {
   /**
    * Get cached user permissions
    */
-  async getUserPermissions(userId: string, useCache = true): Promise<any> {
+  async getUserPermissions(userId: string, useCache = true): Promise<unknown> {
     const cacheKey = `user_permissions:${userId}`;
 
     if (useCache) {
@@ -90,7 +90,11 @@ export class CachedSecurityGatewayService {
   /**
    * Cache risk assessment results
    */
-  async cacheRiskAssessment(userId: string, operationType: string, assessment: any): Promise<void> {
+  async cacheRiskAssessment(
+    userId: string,
+    operationType: string,
+    assessment: unknown
+  ): Promise<void> {
     const cacheKey = `risk_assessment:${userId}:${operationType}`;
     await redisCacheService.set(cacheKey, assessment, this.CACHE_TTL.RISK_ASSESSMENTS);
     logger.debug('Risk assessment cached', { userId, operationType });
@@ -99,7 +103,7 @@ export class CachedSecurityGatewayService {
   /**
    * Get cached risk assessment
    */
-  async getCachedRiskAssessment(userId: string, operationType: string): Promise<any | null> {
+  async getCachedRiskAssessment(userId: string, operationType: string): Promise<unknown | null> {
     const cacheKey = `risk_assessment:${userId}:${operationType}`;
     const cached = await redisCacheService.get(cacheKey);
 
@@ -120,17 +124,17 @@ export class CachedSecurityGatewayService {
       `user_audit_stats:${userId}`,
     ];
 
-    for (const pattern of patterns) {
-      if (pattern.includes('*')) {
-        // Handle wildcard patterns
-        const keys = await redisCacheService.keys(pattern);
-        for (const key of keys) {
-          await redisCacheService.del(key);
+    await Promise.all(
+      patterns.map(async (pattern) => {
+        if (pattern.includes('*')) {
+          const keys = await redisCacheService.keys(pattern);
+          await Promise.all(keys.map((key) => redisCacheService.del(key)));
+          return;
         }
-      } else {
+
         await redisCacheService.del(pattern);
-      }
-    }
+      })
+    );
 
     logger.info('User cache invalidated', { userId, patterns });
   }
@@ -138,7 +142,7 @@ export class CachedSecurityGatewayService {
   /**
    * Get audit statistics with caching
    */
-  async getAuditStats(timeRange: 'day' | 'week' | 'month'): Promise<any> {
+  async getAuditStats(timeRange: 'day' | 'week' | 'month'): Promise<unknown> {
     const cacheKey = `audit_stats:${timeRange}`;
 
     // Try cache first
@@ -158,7 +162,7 @@ export class CachedSecurityGatewayService {
     return stats;
   }
 
-  private async calculateAuditStats(timeRange: string): Promise<any> {
+  private async calculateAuditStats(timeRange: string): Promise<unknown> {
     // Mock implementation - replace with actual database query
     return {
       timeRange,
@@ -183,7 +187,7 @@ export class CachedAgentIntelligenceService {
   /**
    * Get cached agent metrics
    */
-  async getAgentMetrics(agentId: string): Promise<any> {
+  async getAgentMetrics(agentId: string): Promise<unknown> {
     const cacheKey = `agent_metrics:${agentId}`;
 
     // Try cache first
@@ -208,7 +212,7 @@ export class CachedAgentIntelligenceService {
   /**
    * Cache operation results
    */
-  async cacheOperationResult(operationId: string, result: any): Promise<void> {
+  async cacheOperationResult(operationId: string, result: unknown): Promise<void> {
     const cacheKey = `operation_result:${operationId}`;
     await redisCacheService.set(cacheKey, result, this.CACHE_TTL.OPERATION_STATS);
     logger.debug('Operation result cached', { operationId });
@@ -224,16 +228,17 @@ export class CachedAgentIntelligenceService {
       `agent_knowledge:${agentId}:*`,
     ];
 
-    for (const pattern of patterns) {
-      if (pattern.includes('*')) {
-        const keys = await redisCacheService.keys(pattern);
-        for (const key of keys) {
-          await redisCacheService.del(key);
+    await Promise.all(
+      patterns.map(async (pattern) => {
+        if (pattern.includes('*')) {
+          const keys = await redisCacheService.keys(pattern);
+          await Promise.all(keys.map((key) => redisCacheService.del(key)));
+          return;
         }
-      } else {
+
         await redisCacheService.del(pattern);
-      }
-    }
+      })
+    );
 
     logger.info('Agent cache invalidated', { agentId });
   }
@@ -247,9 +252,9 @@ export class CacheHealthMonitor {
    * Get comprehensive cache health status
    */
   async getHealthStatus(): Promise<{
-    service: any;
-    statistics: any;
-    sampleOperations: any;
+    service: unknown;
+    statistics: unknown;
+    sampleOperations: unknown;
   }> {
     const serviceHealth = await redisCacheService.healthCheck();
 

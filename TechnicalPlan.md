@@ -101,7 +101,7 @@ Tasks:
   - projectApi.ts (project management)
   - discussionApi.ts (discussion endpoints)
 
-  2.2 Backend Controller Refactoring
+    2.2 Backend Controller Refactoring
 
 Priority: HIGHImpact: Better code
 organizationEffort: 3 days

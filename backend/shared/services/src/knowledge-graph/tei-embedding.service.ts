@@ -95,7 +95,9 @@ export class TEIEmbeddingService {
       return Array.isArray(data) && Array.isArray(data[0]) ? data[0] : data;
     } catch (error) {
       console.error('TEI embedding generation failed:', error);
-      throw new Error(`Failed to generate embedding: ${error.message}`);
+      const wrappedError = new Error(`Failed to generate embedding: ${error.message}`);
+      (wrappedError as Error & { cause?: unknown }).cause = error;
+      throw wrappedError;
     }
   }
 
@@ -140,7 +142,9 @@ export class TEIEmbeddingService {
       return batchResults.flat();
     } catch (error) {
       console.error('TEI batch embedding generation failed:', error);
-      throw new Error(`Failed to generate batch embeddings: ${error.message}`);
+      const wrappedError = new Error(`Failed to generate batch embeddings: ${error.message}`);
+      (wrappedError as Error & { cause?: unknown }).cause = error;
+      throw wrappedError;
     }
   }
 
@@ -184,7 +188,9 @@ export class TEIEmbeddingService {
       return topK ? results.slice(0, topK) : results;
     } catch (error) {
       console.error('TEI reranking failed:', error);
-      throw new Error(`Failed to rerank documents: ${error.message}`);
+      const wrappedError = new Error(`Failed to rerank documents: ${error.message}`);
+      (wrappedError as Error & { cause?: unknown }).cause = error;
+      throw wrappedError;
     }
   }
 
@@ -333,7 +339,9 @@ export class TEIEmbeddingService {
     } catch (error) {
       clearTimeout(timeoutId);
       if (error.name === 'AbortError') {
-        throw new Error(`Request timeout after ${this.timeout}ms`);
+        const wrappedError = new Error(`Request timeout after ${this.timeout}ms`);
+        (wrappedError as Error & { cause?: unknown }).cause = error;
+        throw wrappedError;
       }
       throw error;
     }
@@ -347,6 +355,7 @@ export class TEIEmbeddingService {
 
     for (let attempt = 1; attempt <= this.retryAttempts; attempt++) {
       try {
+        // oxlint-disable-next-line no-await-in-loop
         const response = await this.fetchWithTimeout(url, options);
 
         // Don't retry on client errors (4xx), only on server errors (5xx) and network issues
@@ -369,6 +378,7 @@ export class TEIEmbeddingService {
           error.message
         );
 
+        // oxlint-disable-next-line no-await-in-loop
         await new Promise((resolve) => setTimeout(resolve, delay));
       }
     }

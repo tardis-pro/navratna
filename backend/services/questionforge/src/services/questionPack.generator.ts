@@ -20,7 +20,7 @@ export interface PackGenerationInput {
   questions: Question[];
   assumptions: Assumption[];
   contradictions: Contradiction[];
-  scores: Array<{ questionId: string; totalScore: number; breakdown: any }>;
+  scores: Array<{ questionId: string; totalScore: number; breakdown: Record<string, unknown> }>;
   stakeholderRoles?: string[];
 }
 
@@ -74,7 +74,7 @@ export const STAKEHOLDER_CATEGORY_MAP: Record<string, QuestionCategory[]> = {
     QuestionCategory.ASSUMPTION_REVEAL,
     QuestionCategory.UNEXPECTED_INSIGHT,
   ],
-  'Architect': [
+  Architect: [
     QuestionCategory.CONSTRAINT_LIMIT,
     QuestionCategory.DECISION_PROCESS,
     QuestionCategory.RISK_PERCEPTION,
@@ -145,7 +145,7 @@ export class QuestionPackGeneratorService {
           input.questions,
           input.assumptions,
           input.contradictions,
-          input.scores,
+          input.scores
         );
 
         // Stamp the project brief id onto the pack
@@ -175,7 +175,7 @@ export class QuestionPackGeneratorService {
     questions: Question[],
     assumptions: Assumption[],
     contradictions: Contradiction[],
-    scores: Array<{ questionId: string; totalScore: number; breakdown: any }>,
+    scores: Array<{ questionId: string; totalScore: number; breakdown: Record<string, unknown> }>
   ): QuestionPack {
     // 1. Filter questions relevant to this stakeholder
     const relevantQuestions = this.filterQuestionsForStakeholder(stakeholderRole, questions);
@@ -242,7 +242,7 @@ export class QuestionPackGeneratorService {
   formatPackAsMarkdown(
     pack: QuestionPack,
     stakeholderRole: string,
-    contradictions: Contradiction[],
+    contradictions: Contradiction[]
   ): string {
     const lines: string[] = [];
 
@@ -255,7 +255,7 @@ export class QuestionPackGeneratorService {
       (q) =>
         q.phase === QuestionPhase.DISCOVERY ||
         q.category === QuestionCategory.CONSTRAINT_LIMIT ||
-        q.category === QuestionCategory.DECISION_PROCESS,
+        q.category === QuestionCategory.DECISION_PROCESS
     );
 
     if (blockers.length > 0) {
@@ -273,7 +273,7 @@ export class QuestionPackGeneratorService {
       (q) =>
         q.category === QuestionCategory.ASSUMPTION_REVEAL ||
         q.category === QuestionCategory.UNEXPECTED_INSIGHT ||
-        q.phase === QuestionPhase.CLARIFICATION,
+        q.phase === QuestionPhase.CLARIFICATION
     );
 
     if (ambiguities.length > 0) {
@@ -288,9 +288,7 @@ export class QuestionPackGeneratorService {
     // --- Contradictions to Resolve -------------------------------------------
     lines.push('### Contradictions to Resolve');
     const relevantContradictions = contradictions.filter(
-      (c) =>
-        c.stakeholderAName === stakeholderRole ||
-        c.stakeholderBName === stakeholderRole,
+      (c) => c.stakeholderAName === stakeholderRole || c.stakeholderBName === stakeholderRole
     );
 
     if (relevantContradictions.length > 0) {
@@ -300,7 +298,7 @@ export class QuestionPackGeneratorService {
     } else {
       // Fall back to contradiction-explore category questions
       const contradictionQuestions = pack.questions.filter(
-        (q) => q.category === QuestionCategory.CONTRADICTION_EXPLORE,
+        (q) => q.category === QuestionCategory.CONTRADICTION_EXPLORE
       );
       if (contradictionQuestions.length > 0) {
         for (const q of contradictionQuestions) {
@@ -314,9 +312,7 @@ export class QuestionPackGeneratorService {
 
     // --- Why These Matter ----------------------------------------------------
     lines.push('### Why These Matter');
-    lines.push(
-      this.buildImpactSummary(stakeholderRole, pack, relevantContradictions),
-    );
+    lines.push(this.buildImpactSummary(stakeholderRole, pack, relevantContradictions));
     lines.push('');
 
     return lines.join('\n');
@@ -336,9 +332,9 @@ export class QuestionPackGeneratorService {
     lines.push('');
     lines.push(
       `Thank you for taking the time to discuss this project. As the ${stakeholderRole}, ` +
-      'your perspective is essential to making sure we build the right thing. ' +
-      'This interview will cover the most important open questions we have identified ' +
-      'so far. There are no wrong answers -- we are looking for your honest assessment.',
+        'your perspective is essential to making sure we build the right thing. ' +
+        'This interview will cover the most important open questions we have identified ' +
+        'so far. There are no wrong answers -- we are looking for your honest assessment.'
     );
     lines.push('');
 
@@ -379,9 +375,7 @@ export class QuestionPackGeneratorService {
     // --- Closing -------------------------------------------------------------
     lines.push('## Closing');
     lines.push('');
-    lines.push(
-      'Thank you for your time. Before we wrap up:',
-    );
+    lines.push('Thank you for your time. Before we wrap up:');
     lines.push('');
     lines.push('1. Is there anything important we did not cover that you think we should know?');
     lines.push('2. Are there other stakeholders you recommend we speak with?');
@@ -389,7 +383,7 @@ export class QuestionPackGeneratorService {
     lines.push('');
     lines.push(
       '_Your answers will be used to refine our understanding and reduce risk ' +
-      'before development begins._',
+        'before development begins._'
     );
     lines.push('');
 
@@ -407,7 +401,7 @@ export class QuestionPackGeneratorService {
   private buildImpactSummary(
     stakeholderRole: string,
     pack: QuestionPack,
-    contradictions: Contradiction[],
+    contradictions: Contradiction[]
   ): string {
     const parts: string[] = [];
 
@@ -415,32 +409,30 @@ export class QuestionPackGeneratorService {
       (q) =>
         q.phase === QuestionPhase.DISCOVERY ||
         q.category === QuestionCategory.CONSTRAINT_LIMIT ||
-        q.category === QuestionCategory.DECISION_PROCESS,
+        q.category === QuestionCategory.DECISION_PROCESS
     ).length;
 
     if (blockerCount > 0) {
-      parts.push(
-        `There are ${blockerCount} blocking question(s) that gate downstream decisions`,
-      );
+      parts.push(`There are ${blockerCount} blocking question(s) that gate downstream decisions`);
     }
 
     const ambiguityCount = pack.questions.filter(
       (q) =>
         q.category === QuestionCategory.ASSUMPTION_REVEAL ||
-        q.category === QuestionCategory.UNEXPECTED_INSIGHT,
+        q.category === QuestionCategory.UNEXPECTED_INSIGHT
     ).length;
 
     if (ambiguityCount > 0) {
-      parts.push(
-        `${ambiguityCount} ambiguity/ambiguities may lead to rework if left unresolved`,
-      );
+      parts.push(`${ambiguityCount} ambiguity/ambiguities may lead to rework if left unresolved`);
     }
 
     if (contradictions.length > 0) {
-      const critical = contradictions.filter((c) => c.severity === 'critical' || c.severity === 'high');
+      const critical = contradictions.filter(
+        (c) => c.severity === 'critical' || c.severity === 'high'
+      );
       if (critical.length > 0) {
         parts.push(
-          `${critical.length} high-severity contradiction(s) involve this stakeholder and require resolution before alignment can be achieved`,
+          `${critical.length} high-severity contradiction(s) involve this stakeholder and require resolution before alignment can be achieved`
         );
       }
     }

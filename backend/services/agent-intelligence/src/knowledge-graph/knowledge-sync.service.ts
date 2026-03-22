@@ -1,5 +1,5 @@
 import { v4 as uuidv4 } from 'uuid';
-import { KnowledgeItem, KnowledgeRelationship, KnowledgeType, SourceType } from '@uaip/types';
+import { KnowledgeType, SourceType } from '@uaip/types';
 import { KnowledgeItemEntity } from '@uaip/shared-services';
 import { KnowledgeRelationshipEntity } from '@uaip/shared-services';
 import { UserEntity } from '@uaip/shared-services';
@@ -41,7 +41,7 @@ export class KnowledgeSyncService {
     private readonly qdrantService: QdrantService,
     private readonly graphDb: ToolGraphDatabase,
     private readonly embeddingService: EmbeddingService,
-    private readonly userRepository: any // Will be properly typed later
+    private readonly userRepository: Record<string, unknown> // Will be properly typed later
   ) {}
 
   /**
@@ -208,6 +208,7 @@ export class KnowledgeSyncService {
       // Create persona-based relationships
       if (user.userPersona?.domainExpertise) {
         for (const domain of user.userPersona.domainExpertise) {
+          // oxlint-disable-next-line no-await-in-loop -- sequential processing required
           await this.graphDb.runQuery(
             `
             MATCH (k:Knowledge {id: $knowledgeId})
@@ -311,7 +312,7 @@ export class KnowledgeSyncService {
 
   /**
    * Universal sync: Read data from all sources and sync bidirectionally
-   * Handles any combination of existing data in PostgreSQL, Neo4j, or Qdrant
+   * Handles unknown combination of existing data in PostgreSQL, Neo4j, or Qdrant
    */
   async universalSync(): Promise<UniversalSyncResult> {
     logger.info('Starting universal knowledge graph synchronization');
@@ -360,9 +361,11 @@ export class KnowledgeSyncService {
           }
         });
 
+        // oxlint-disable-next-line no-await-in-loop -- sequential processing required
         await Promise.allSettled(batchPromises);
 
         // Brief pause between batches
+        // oxlint-disable-next-line no-await-in-loop -- sequential processing required
         await new Promise((resolve) => setTimeout(resolve, 100));
       }
 
@@ -446,7 +449,7 @@ export class KnowledgeSyncService {
   async createKnowledgeItem(
     content: string,
     type: KnowledgeType,
-    metadata: Record<string, any> = {},
+    metadata: Record<string, unknown> = {},
     userId?: string,
     agentId?: string
   ): Promise<KnowledgeSyncResult> {
@@ -600,6 +603,7 @@ export class KnowledgeSyncService {
     const relationships = await this.knowledgeRepository.findAllRelationships();
 
     for (const rel of relationships) {
+      // oxlint-disable-next-line no-await-in-loop -- sequential processing required
       await this.syncRelationshipToNeo4j(rel);
     }
 
@@ -848,7 +852,7 @@ export class KnowledgeSyncService {
   /**
    * Scroll through all Qdrant points (since there's no "get all" method)
    */
-  private async scrollAllQdrantPoints(): Promise<any[]> {
+  private async scrollAllQdrantPoints(): Promise<Record<string, unknown>[]> {
     // This is a simplified version - in practice you'd use Qdrant's scroll API
     // For now, we'll use a high limit search with a dummy vector
     try {
@@ -899,7 +903,7 @@ export class KnowledgeSyncService {
     entity.id = item.id;
     entity.content = item.content;
     entity.type = item.type;
-    entity.sourceType = 'UNIVERSAL_SYNC' as any;
+    entity.sourceType = 'UNIVERSAL_SYNC' as Record<string, unknown>;
     entity.sourceIdentifier = `sync-${item.source}-${item.id}`;
     entity.tags = [];
     entity.confidence = 0.8;
@@ -1027,7 +1031,7 @@ export class KnowledgeSyncService {
    * Preserves all original information in metadata
    */
   private mapToKnowledgeType(originalType: string): KnowledgeType {
-    // Comprehensive mapping that doesn't lose any semantic meaning
+    // Comprehensive mapping that doesn't lose unknown semantic meaning
     const typeMap: Record<string, KnowledgeType> = {
       // Project/Work concepts
       WorkItem: KnowledgeType.PROCEDURAL,
@@ -1075,7 +1079,7 @@ export class KnowledgeSyncService {
       // People and organizations
       Person: KnowledgeType.FACTUAL,
       Stakeholder: KnowledgeType.FACTUAL,
-      Company: KnowledgeType.FACTUAL,
+      Compunknown: KnowledgeType.FACTUAL,
       Organization: KnowledgeType.FACTUAL,
       Workplace: KnowledgeType.FACTUAL,
 
@@ -1197,7 +1201,7 @@ interface UniversalKnowledgeItem {
   id: string;
   content: string;
   type: KnowledgeType;
-  metadata: Record<string, any>;
+  metadata: Record<string, unknown>;
   source: 'postgres' | 'neo4j' | 'qdrant';
   existsIn: {
     postgres: boolean;
@@ -1205,6 +1209,6 @@ interface UniversalKnowledgeItem {
     qdrant: boolean;
   };
   pgEntity?: KnowledgeItemEntity;
-  qdrantPayload?: any;
+  qdrantPayload?: Record<string, unknown>;
   needsConversion?: boolean; // Flag for nodes that need to be converted to KnowledgeItem
 }

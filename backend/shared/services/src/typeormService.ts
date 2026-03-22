@@ -96,7 +96,7 @@ export class TypeOrmService {
   /**
    * Execute raw SQL query
    */
-  public async query(sql: string, parameters?: any[]): Promise<any> {
+  public async query(sql: string, parameters?: unknown[]): Promise<unknown> {
     try {
       return await this.getDataSource().query(sql, parameters);
     } catch (error) {
@@ -108,7 +108,7 @@ export class TypeOrmService {
   /**
    * Run database transaction
    */
-  public async transaction<T>(runInTransaction: (manager: any) => Promise<T>): Promise<T> {
+  public async transaction<T>(runInTransaction: (manager: unknown) => Promise<T>): Promise<T> {
     return this.getDataSource().transaction(runInTransaction);
   }
 
@@ -157,7 +157,7 @@ export class TypeOrmService {
     try {
       const repository = this.getRepository(entityClass);
       return await repository.findOne({
-        where: { id } as any,
+        where: { id } as unknown,
       });
     } catch (error) {
       this.logger.error('Failed to find entity by ID', { entityClass, id, error: error.message });
@@ -174,8 +174,8 @@ export class TypeOrmService {
   ): Promise<Entity> {
     try {
       const repository = this.getRepository(entityClass);
-      const entity = repository.create(data as any);
-      return await repository.save(entity as any);
+      const entity = repository.create(data as unknown);
+      return await repository.save(entity as unknown);
     } catch (error) {
       this.logger.error('Failed to create entity', { entityClass, error: error.message });
       throw error;
@@ -192,7 +192,7 @@ export class TypeOrmService {
   ): Promise<Entity | null> {
     try {
       const repository = this.getRepository(entityClass);
-      await repository.update(id, data as any);
+      await repository.update(id, data as unknown);
       return await this.findById(entityClass, id);
     } catch (error) {
       this.logger.error('Failed to update entity', { entityClass, id, error: error.message });
@@ -222,7 +222,7 @@ export class TypeOrmService {
    */
   public async count<Entity extends ObjectLiteral>(
     entityClass: EntityTarget<Entity>,
-    conditions: any = {}
+    conditions: unknown = {}
   ): Promise<number> {
     try {
       const repository = this.getRepository(entityClass);
@@ -241,8 +241,8 @@ export class TypeOrmService {
     options: {
       page?: number;
       limit?: number;
-      where?: any;
-      order?: any;
+      where?: unknown;
+      order?: unknown;
       relations?: string[];
     } = {}
   ): Promise<{ data: Entity[]; total: number; page: number; pageCount: number }> {
@@ -274,15 +274,15 @@ export class TypeOrmService {
   }
 
   // Backward compatibility - Repository getters for commonly used entities
-  public get agentCapabilityMetricRepository(): Repository<any> {
+  public get agentCapabilityMetricRepository(): Repository<unknown> {
     return this.getRepository('AgentCapabilityMetric');
   }
 
-  public get toolUsageRecordRepository(): Repository<any> {
+  public get toolUsageRecordRepository(): Repository<unknown> {
     return this.getRepository('ToolUsageRecord');
   }
 
-  public get integrationEventRepository(): Repository<any> {
+  public get integrationEventRepository(): Repository<unknown> {
     return this.getRepository('IntegrationEventEntity');
   }
 }

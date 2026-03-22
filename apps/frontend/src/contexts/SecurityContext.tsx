@@ -58,7 +58,7 @@ export interface AuditEvent {
   outcome: 'success' | 'failure' | 'blocked';
   ipAddress: string;
   userAgent: string;
-  details?: Record<string, any>;
+  details?: Record<string, unknown>;
 }
 
 export interface OAuthConnection {
@@ -278,7 +278,7 @@ export const SecurityProvider: React.FC<SecurityProviderProps> = ({ children }) 
     }
   }, []);
 
-  const fetchAuditLog = useCallback(async (filters?: AuditLogFilters) => {
+  const fetchAuditLog = useCallback(async (_filters?: AuditLogFilters) => {
     try {
       setError(null);
       // In real implementation: await api.get('/security/audit', { params: filters });

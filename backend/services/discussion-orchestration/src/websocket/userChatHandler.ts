@@ -14,7 +14,7 @@ interface UserMessage {
   timestamp: Date;
   type: 'text' | 'file' | 'system';
   status: 'sending' | 'sent' | 'delivered' | 'read';
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 interface CallSignaling {
@@ -22,7 +22,28 @@ interface CallSignaling {
   callId: string;
   callerId: string;
   targetUserId: string;
-  data: any;
+  data: RTCSignalingData;
+}
+
+interface RTCSignalingData {
+  sdp?: string;
+  candidate?: string;
+  [key: string]: unknown;
+}
+
+interface ChatWindowClosedData {
+  agentId?: string;
+  sessionId?: string;
+  conversationId?: string;
+  timestamp?: string;
+}
+
+interface AgentChatData {
+  agentId: string;
+  message: string;
+  conversationHistory?: Record<string, unknown>[];
+  context?: Record<string, unknown>;
+  messageId?: string;
 }
 
 interface ConnectedUser {
@@ -210,10 +231,13 @@ export class UserChatHandler {
 
       if (targetSocketId) {
         // Forward signaling data to target user
+        const signalRecord = (
+          typeof signalData === 'object' && signalData !== null ? signalData : {}
+        ) as Record<string, unknown>;
         this.io.to(`user_${targetUserId}`).emit('call_signaling', {
           type,
           data: {
-            ...signalData,
+            ...signalRecord,
             callerId: sender.userId,
             callerName: sender.username,
           },
@@ -363,7 +387,7 @@ export class UserChatHandler {
     return status === 'sending' ? 'sent' : 'sent';
   }
 
-  private async handleChatWindowClosed(socket: Socket, data: any) {
+  private async handleChatWindowClosed(socket: Socket, data: ChatWindowClosedData) {
     try {
       // Get user info from socket.data (set by Socket.IO authentication middleware)
       const socketUser = socket.data?.user;
@@ -413,7 +437,7 @@ export class UserChatHandler {
     }
   }
 
-  private async handleAgentChat(socket: Socket, data: any) {
+  private async handleAgentChat(socket: Socket, data: AgentChatData) {
     try {
       // Get user info from socket.data (set by Socket.IO authentication middleware)
       const socketUser = socket.data?.user;
@@ -472,7 +496,7 @@ export class UserChatHandler {
     }
   }
 
-  private async publishToEventBus(eventType: string, data: any): Promise<void> {
+  private async publishToEventBus(eventType: string, data: Record<string, unknown>): Promise<void> {
     try {
       await this.eventBusService.publish(eventType, data);
       this.logger.debug(`Event published successfully: ${eventType}`, data);
@@ -489,7 +513,7 @@ export class UserChatHandler {
         event.data as {
           socketId: string;
           agentId: string;
-          response: unknown;
+          response: string;
           agentName: string;
           messageId: string;
           userId?: string;
@@ -556,7 +580,7 @@ export class UserChatHandler {
         toolId: string;
         toolDescription: string;
         riskLevel: string;
-        parameters?: unknown;
+        parameters?: Record<string, unknown>;
         securityLevel?: string;
         timestamp?: string;
       };

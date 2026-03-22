@@ -123,7 +123,7 @@ export class ToolRepository extends BaseRepository<ToolDefinition> {
   ): Promise<void> {
     try {
       if (wasSuccessful) {
-        const updateData: any = {
+        const updateData: Record<string, unknown> = {
           successfulExecutions: () => 'successful_executions + 1',
           updatedAt: new Date(),
         };
@@ -320,7 +320,7 @@ export class ToolUsageRepository extends BaseRepository<ToolUsageRecord> {
       agentId?: string;
       days?: number;
     } = {}
-  ): Promise<any[]> {
+  ): Promise<Record<string, unknown>[]> {
     const queryBuilder = this.repository.createQueryBuilder('usage');
 
     // Default to last 30 days

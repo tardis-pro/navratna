@@ -29,8 +29,6 @@ export class DatabaseSeeder {
    * Main seeding method - seeds all entities in proper dependency order
    */
   async seedAll(): Promise<void> {
-    console.log('🌱 Starting database seeding...');
-
     const results = {
       users: false,
       userLLMProviders: false,
@@ -46,7 +44,6 @@ export class DatabaseSeeder {
     try {
       await this.seedUsers();
       results.users = true;
-      console.log('   ✅ Users seeded successfully');
     } catch (error) {
       console.error('   ❌ User seeding failed:', error.message);
       console.warn('   ⚠️ Continuing with other seeders...');
@@ -55,7 +52,6 @@ export class DatabaseSeeder {
     try {
       await this.seedUserLLMProviders();
       results.userLLMProviders = true;
-      console.log('   ✅ User LLM providers seeded successfully');
     } catch (error) {
       console.error('   ❌ User LLM provider seeding failed:', error.message);
       console.warn('   ⚠️ Continuing with other seeders...');
@@ -64,7 +60,6 @@ export class DatabaseSeeder {
     try {
       await this.seedSecurityPolicies();
       results.securityPolicies = true;
-      console.log('   ✅ Security policies seeded successfully');
     } catch (error) {
       console.error('   ❌ Security policy seeding failed:', error.message);
       console.warn('   ⚠️ Continuing with other seeders...');
@@ -73,7 +68,6 @@ export class DatabaseSeeder {
     try {
       await this.seedPersonas();
       results.personas = true;
-      console.log('   ✅ Personas seeded successfully');
     } catch (error) {
       console.error('   ❌ Persona seeding failed:', error.message);
       console.warn('   ⚠️ Continuing with other seeders...');
@@ -82,7 +76,6 @@ export class DatabaseSeeder {
     try {
       await this.seedAgents();
       results.agents = true;
-      console.log('   ✅ Agents seeded successfully');
     } catch (error) {
       console.error('   ❌ Agent seeding failed:', error.message);
       console.warn('   ⚠️ Continuing with other seeders...');
@@ -91,7 +84,6 @@ export class DatabaseSeeder {
     try {
       await this.seedLLMPreferences();
       results.llmPreferences = true;
-      console.log('   ✅ LLM preferences seeded successfully');
     } catch (error) {
       console.error('   ❌ LLM preferences seeding failed:', error.message);
       console.warn('   ⚠️ Continuing with other seeders...');
@@ -100,7 +92,6 @@ export class DatabaseSeeder {
     try {
       await this.seedToolDefinitions();
       results.toolDefinitions = true;
-      console.log('   ✅ Tool definitions seeded successfully');
     } catch (error) {
       console.error('   ❌ Tool definition seeding failed:', error.message);
       console.warn('   ⚠️ Continuing with other seeders...');
@@ -109,7 +100,6 @@ export class DatabaseSeeder {
     try {
       await this.seedProjects();
       results.projects = true;
-      console.log('   ✅ Projects seeded successfully');
     } catch (error) {
       console.error('   ❌ Project seeding failed:', error.message);
       console.warn('   ⚠️ Continuing with other seeders...');
@@ -120,12 +110,7 @@ export class DatabaseSeeder {
     const totalCount = Object.keys(results).length;
 
     if (successCount === totalCount) {
-      console.log('✅ Database seeding completed successfully!');
     } else if (successCount > 0) {
-      console.log(
-        `⚠️ Database seeding partially completed: ${successCount}/${totalCount} seeders succeeded`
-      );
-      console.log('   Results:', results);
     } else {
       console.error('❌ Database seeding failed completely - no seeders succeeded');
       throw new Error('All seeders failed');
@@ -199,11 +184,11 @@ export class DatabaseSeeder {
 
     for (const agentData of viralAgentsData) {
       try {
+        // oxlint-disable-next-line no-await-in-loop -- sequential processing required
         await agentRepository.upsert(agentData, {
           conflictPaths: ['name'],
           skipUpdateIfNoValuesChanged: true,
         });
-        console.log(`   ✅ Processed viral agent: ${agentData.name}`);
       } catch (error) {
         console.error(`   ❌ Error processing viral agent ${agentData.name}:`, error);
       }

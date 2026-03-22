@@ -16,25 +16,25 @@ import type {
 export interface PersonaCreate {
   name: string;
   description?: string;
-  traits?: Record<string, any>;
-  preferences?: Record<string, any>;
-  constraints?: Record<string, any>;
+  traits?: Record<string, unknown>;
+  preferences?: Record<string, unknown>;
+  constraints?: Record<string, unknown>;
   isActive?: boolean;
 }
 
 export interface PersonaUpdate {
   name?: string;
   description?: string;
-  traits?: Record<string, any>;
-  preferences?: Record<string, any>;
-  constraints?: Record<string, any>;
+  traits?: Record<string, unknown>;
+  preferences?: Record<string, unknown>;
+  constraints?: Record<string, unknown>;
   isActive?: boolean;
 }
 
 export interface PersonaSearchRequest {
   query?: string;
   tags?: string[];
-  traits?: Record<string, any>;
+  traits?: Record<string, unknown>;
   isActive?: boolean;
   page?: number;
   limit?: number;
@@ -74,7 +74,7 @@ export const personasAPI = {
     return APIClient.post<Persona[]>(API_ROUTES.PERSONAS.SEARCH, request);
   },
 
-  async getRecommendations(context?: any): Promise<PersonaRecommendation[]> {
+  async getRecommendations(context?: unknown): Promise<PersonaRecommendation[]> {
     return APIClient.post<PersonaRecommendation[]>(API_ROUTES.PERSONAS.RECOMMENDATIONS, {
       context,
     });
@@ -116,7 +116,7 @@ export const personasAPI = {
     return APIClient.post<Persona>(`${API_ROUTES.PERSONAS.UPDATE}/${id}/deactivate`);
   },
 
-  async getAgents(personaId: string): Promise<any[]> {
+  async getAgents(personaId: string): Promise<unknown[]> {
     return APIClient.get(`${API_ROUTES.PERSONAS.GET}/${personaId}/agents`);
   },
 

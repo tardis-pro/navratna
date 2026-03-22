@@ -1,4 +1,12 @@
-import React, { createContext, useContext, useEffect, useState, useCallback, useRef } from 'react';
+import React, {
+  createContext,
+  useContext,
+  useEffect,
+  useState,
+  useCallback,
+  useMemo,
+  useRef,
+} from 'react';
 import { useAgents } from './AgentContext';
 import { useAuth } from './AuthContext';
 import { useEnhancedWebSocket } from '@/hooks/useEnhancedWebSocket';
@@ -7,9 +15,9 @@ import uaipAPI from '@/utils/uaip-api';
 // Import shared types
 import {
   DiscussionParticipant,
-  DiscussionMessage,
-  Discussion,
-  DiscussionStatus,
+  _DiscussionMessage,
+  _Discussion,
+  _DiscussionStatus,
   TurnStrategy,
   CreateDiscussionRequest,
   MessageType,
@@ -58,7 +66,7 @@ interface DiscussionContextType {
   pendingApprovals: PendingApprovalRequest[];
 
   // Actions
-  start: (topic?: string, agentIds?: string[], enhancedContext?: any) => Promise<void>;
+  start: (topic?: string, agentIds?: string[], enhancedContext?: unknown) => Promise<void>;
   stop: () => Promise<void>;
   pause: () => Promise<void>;
   resume: (discussionId: string) => Promise<void>;
@@ -87,9 +95,9 @@ export const useDiscussion = (): DiscussionContextType => {
 };
 
 export const DiscussionProvider: React.FC<DiscussionProviderProps> = ({
-  topic,
+  _topic,
   maxRounds,
-  turnStrategy = TurnStrategy.ROUND_ROBIN,
+  _turnStrategy = TurnStrategy.ROUND_ROBIN,
   children,
 }) => {
   const [isActive, setIsActive] = useState<boolean>(false);
@@ -128,22 +136,17 @@ export const DiscussionProvider: React.FC<DiscussionProviderProps> = ({
   // Listen for discussion events
   useEffect(() => {
     if (lastEvent) {
-      console.log('📡 Discussion WebSocket event received:', lastEvent);
-
       switch (lastEvent.type) {
         case 'joined_discussion':
-          console.log('✅ Joined discussion room:', lastEvent.payload);
           break;
 
         case 'discussion_started':
-          console.log('✅ Discussion started event received:', lastEvent.payload);
           setIsActive(true);
           setLastError(null);
           setIsLoading(false); // Clear loading state on success
           break;
 
         case 'message_received':
-          console.log('💬 Message received event:', lastEvent.payload);
           // Handle both direct message format and orchestration service event format
           const messageData = lastEvent.payload?.message || lastEvent.payload?.data?.message;
           if (messageData) {
@@ -164,15 +167,12 @@ export const DiscussionProvider: React.FC<DiscussionProviderProps> = ({
           break;
 
         case 'participant_joined':
-          console.log('👥 Participant joined:', lastEvent.payload);
           break;
 
         case 'participant_left':
-          console.log('👥 Participant left:', lastEvent.payload);
           break;
 
         case 'turn_changed':
-          console.log('🔄 Turn changed:', lastEvent.payload);
           // Handle both legacy format (currentTurn) and new format (data with nextParticipantId)
           const turnData = lastEvent.payload?.currentTurn || lastEvent.payload?.data;
           if (turnData) {
@@ -210,7 +210,6 @@ export const DiscussionProvider: React.FC<DiscussionProviderProps> = ({
         }
 
         default:
-          console.log('🔹 Other discussion event:', lastEvent.type, lastEvent.payload);
           break;
       }
     }
@@ -229,167 +228,159 @@ export const DiscussionProvider: React.FC<DiscussionProviderProps> = ({
     }
   }, [isLoading, discussionId]);
 
-  const start = async (topic?: string, agentIds?: string[], enhancedContext?: any) => {
-    if (isActive) {
-      console.warn('Discussion is already active');
-      return;
-    }
-
-    if (!isWebSocketConnected) {
-      console.warn('Cannot start discussion: WebSocket not connected');
-      setLastError('WebSocket not connected. Please check your connection.');
-      return;
-    }
-
-    if (!user?.id) {
-      console.error('Cannot start discussion: User not authenticated');
-      setLastError('User not authenticated');
-      return;
-    }
-
-    try {
-      setIsLoading(true);
-      setLastError(null);
-
-      // Use provided topic or default
-      const rawTopic = topic || 'General Discussion';
-      const discussionTopic = truncateText(rawTopic, MAX_TOPIC_LENGTH);
-      const titleTopic = truncateText(rawTopic, MAX_TITLE_LENGTH - TITLE_PREFIX.length);
-      const discussionTitle = `${TITLE_PREFIX}${titleTopic}`;
-
-      // Get available agents
-      const availableAgents = Object.values(agents).filter((agent) => agent.isActive);
-
-      if (availableAgents.length === 0) {
-        throw new Error('No active agents available for discussion');
+  const start = useCallback(
+    async (topic?: string, agentIds?: string[], enhancedContext?: unknown) => {
+      if (isActive) {
+        console.warn('Discussion is already active');
+        return;
       }
 
-      // Use provided agent IDs or select first few available agents
-      const selectedAgentIds =
-        agentIds && agentIds.length > 0
-          ? agentIds.filter((id) => availableAgents.some((agent) => agent.id === id))
-          : availableAgents.slice(0, 3).map((agent) => agent.id);
-
-      if (selectedAgentIds.length === 0) {
-        throw new Error('No valid agents available for discussion');
+      if (!isWebSocketConnected) {
+        console.warn('Cannot start discussion: WebSocket not connected');
+        setLastError('WebSocket not connected. Please check your connection.');
+        return;
       }
 
-      if (selectedAgentIds.length < 2) {
-        console.warn(
-          `Only ${selectedAgentIds.length} agent(s) available, proceeding with minimum participants`
-        );
+      if (!user?.id) {
+        console.error('Cannot start discussion: User not authenticated');
+        setLastError('User not authenticated');
+        return;
       }
 
-      console.log('🎯 Creating discussion with agents:', selectedAgentIds);
+      try {
+        setIsLoading(true);
+        setLastError(null);
 
-      // STEP 1: Create discussion via agent-intelligence API (existing behavior)
-      let currentDiscussionId = discussionId;
+        // Use provided topic or default
+        const rawTopic = topic || 'General Discussion';
+        const discussionTopic = truncateText(rawTopic, MAX_TOPIC_LENGTH);
+        const titleTopic = truncateText(rawTopic, MAX_TITLE_LENGTH - TITLE_PREFIX.length);
+        const discussionTitle = `${TITLE_PREFIX}${titleTopic}`;
 
-      if (!currentDiscussionId) {
-        const createRequest: CreateDiscussionRequest = {
-          title: discussionTitle,
-          description: enhancedContext?.purpose
-            ? `${enhancedContext.purpose} discussion to generate ${enhancedContext.targetArtifact}: ${discussionTopic}`
-            : `Automated discussion on ${discussionTopic}`,
-          topic: discussionTopic,
-          createdBy: user.id,
-          initialParticipants: selectedAgentIds.map((agentId) => ({
-            agentId,
-            role: 'participant' as const,
-          })),
-          settings: {
-            maxTurns: maxRounds,
-            maxDuration: 3600, // 1 hour default
-            strategyConfig: {
-              type: 'round_robin' as const,
-              skipInactive: true,
-              maxSkips: 1,
+        // Get available agents
+        const availableAgents = Object.values(agents).filter((agent) => agent.isActive);
+
+        if (availableAgents.length === 0) {
+          throw new Error('No active agents available for discussion');
+        }
+
+        // Use provided agent IDs or select first few available agents
+        const selectedAgentIds =
+          agentIds && agentIds.length > 0
+            ? agentIds.filter((id) => availableAgents.some((agent) => agent.id === id))
+            : availableAgents.slice(0, 3).map((agent) => agent.id);
+
+        if (selectedAgentIds.length === 0) {
+          throw new Error('No valid agents available for discussion');
+        }
+
+        if (selectedAgentIds.length < 2) {
+          console.warn(
+            `Only ${selectedAgentIds.length} agent(s) available, proceeding with minimum participants`
+          );
+        }
+
+        // STEP 1: Create discussion via agent-intelligence API (existing behavior)
+        let currentDiscussionId = discussionId;
+
+        if (!currentDiscussionId) {
+          const createRequest: CreateDiscussionRequest = {
+            title: discussionTitle,
+            description: enhancedContext?.purpose
+              ? `${enhancedContext.purpose} discussion to generate ${enhancedContext.targetArtifact}: ${discussionTopic}`
+              : `Automated discussion on ${discussionTopic}`,
+            topic: discussionTopic,
+            createdBy: user.id,
+            initialParticipants: selectedAgentIds.map((agentId) => ({
+              agentId,
+              role: 'participant' as const,
+            })),
+            settings: {
+              maxTurns: maxRounds,
+              maxDuration: 3600, // 1 hour default
+              strategyConfig: {
+                type: 'round_robin' as const,
+                skipInactive: true,
+                maxSkips: 1,
+              },
+              metadata: enhancedContext
+                ? {
+                    discussionPurpose: enhancedContext.purpose,
+                    targetArtifact: enhancedContext.targetArtifact,
+                    contextType: enhancedContext.contextType,
+                    originalContext: enhancedContext.originalContext,
+                    additionalContext: enhancedContext.additionalContext,
+                    expectedOutcome: enhancedContext.expectedOutcome,
+                  }
+                : undefined,
             },
-            metadata: enhancedContext
-              ? {
-                  discussionPurpose: enhancedContext.purpose,
-                  targetArtifact: enhancedContext.targetArtifact,
-                  contextType: enhancedContext.contextType,
-                  originalContext: enhancedContext.originalContext,
-                  additionalContext: enhancedContext.additionalContext,
-                  expectedOutcome: enhancedContext.expectedOutcome,
-                }
-              : undefined,
-          },
-          turnStrategy: {
-            strategy: TurnStrategy.ROUND_ROBIN,
-            config: {
-              type: 'round_robin' as const,
-              skipInactive: true,
-              maxSkips: 1,
+            turnStrategy: {
+              strategy: TurnStrategy.ROUND_ROBIN,
+              config: {
+                type: 'round_robin' as const,
+                skipInactive: true,
+                maxSkips: 1,
+              },
             },
-          },
-        };
+          };
 
-        console.log('📝 Creating discussion via agent-intelligence API:', {
-          title: createRequest.title,
-          topic: createRequest.topic,
-          createdBy: createRequest.createdBy,
-          participantCount: createRequest.initialParticipants.length,
+          const newDiscussion = await uaipAPI.discussions.create(createRequest);
+          currentDiscussionId = newDiscussion.id;
+          setDiscussionId(currentDiscussionId);
+        }
+
+        // STEP 2: Join discussion room via WebSocket
+
+        // Join the discussion room to receive events
+        sendWebSocketMessage('join_discussion', {
+          discussionId: currentDiscussionId,
         });
 
-        const newDiscussion = await uaipAPI.discussions.create(createRequest);
-        currentDiscussionId = newDiscussion.id;
-        setDiscussionId(currentDiscussionId);
-        console.log('✅ Discussion created successfully:', currentDiscussionId);
-      }
+        // STEP 3: Start discussion via WebSocket to discussion-orchestration (new behavior)
 
-      // STEP 2: Join discussion room via WebSocket
-      console.log('🏠 Joining discussion room via WebSocket:', {
-        discussionId: currentDiscussionId,
-      });
+        // Send WebSocket message to start discussion
+        sendWebSocketMessage('start_discussion', {
+          discussionId: currentDiscussionId,
+          startedBy: user.id,
+        });
 
-      // Join the discussion room to receive events
-      sendWebSocketMessage('join_discussion', {
-        discussionId: currentDiscussionId,
-      });
+        // Note: The discussion will be marked as active when we receive the 'discussion_started' event
+        // This is handled in the useEffect that listens to WebSocket events
+      } catch (error) {
+        console.error('❌ Failed to start discussion:', error);
 
-      // STEP 3: Start discussion via WebSocket to discussion-orchestration (new behavior)
-      console.log('🚀 Starting discussion via WebSocket:', {
-        discussionId: currentDiscussionId,
-        startedBy: user.id,
-      });
-
-      // Send WebSocket message to start discussion
-      sendWebSocketMessage('start_discussion', {
-        discussionId: currentDiscussionId,
-        startedBy: user.id,
-      });
-
-      console.log('📡 WebSocket start_discussion event sent - waiting for confirmation...');
-
-      // Note: The discussion will be marked as active when we receive the 'discussion_started' event
-      // This is handled in the useEffect that listens to WebSocket events
-    } catch (error) {
-      console.error('❌ Failed to start discussion:', error);
-
-      // Enhanced error logging for validation failures
-      if (error instanceof Error) {
-        if (error.message.includes('Validation failed')) {
-          console.error('Discussion validation failed. Check required fields:', {
-            requiredFields: ['title', 'topic', 'createdBy', 'initialParticipants (min 1)'],
-            providedData: {
-              title: `Discussion: ${topic || 'General Discussion'}`,
-              topic: topic || 'General Discussion',
-              createdBy: user?.id || 'MISSING',
-              participantCount: agentIds?.length || 0,
-            },
-          });
+        // Enhanced error logging for validation failures
+        if (error instanceof Error) {
+          if (error.message.includes('Validation failed')) {
+            console.error('Discussion validation failed. Check required fields:', {
+              requiredFields: ['title', 'topic', 'createdBy', 'initialParticipants (min 1)'],
+              providedData: {
+                title: `Discussion: ${topic || 'General Discussion'}`,
+                topic: topic || 'General Discussion',
+                createdBy: user?.id || 'MISSING',
+                participantCount: agentIds?.length || 0,
+              },
+            });
+          }
+          setLastError(error.message);
+        } else {
+          setLastError('Failed to start discussion');
         }
-        setLastError(error.message);
-      } else {
-        setLastError('Failed to start discussion');
+        setIsLoading(false);
       }
-      setIsLoading(false);
-    }
-  };
+    },
+    [
+      isActive,
+      isWebSocketConnected,
+      user?.id,
+      agents,
+      discussionId,
+      maxRounds,
+      sendWebSocketMessage,
+    ]
+  );
 
-  const stop = async () => {
+  const stop = useCallback(async () => {
     if (!isActive || !discussionId) {
       return;
     }
@@ -417,16 +408,15 @@ export const DiscussionProvider: React.FC<DiscussionProviderProps> = ({
       setParticipants([]);
       setMessages([]);
       setCurrentTurn(null);
-      console.log('Discussion stopped successfully');
     } catch (error) {
       console.error('Failed to stop discussion:', error);
       setLastError(error instanceof Error ? error.message : 'Failed to stop discussion');
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [isActive, discussionId, isWebSocketConnected, sendWebSocketMessage]);
 
-  const pause = async () => {
+  const pause = useCallback(async () => {
     if (!isActive || !discussionId) {
       return;
     }
@@ -448,67 +438,73 @@ export const DiscussionProvider: React.FC<DiscussionProviderProps> = ({
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [isActive, discussionId, isWebSocketConnected, sendWebSocketMessage]);
 
-  const resume = async (discussionId: string) => {
-    if (!discussionId) {
-      return;
-    }
-    setDiscussionId(discussionId);
-    try {
-      setIsLoading(true);
+  const resume = useCallback(
+    async (discussionIdParam: string) => {
+      if (!discussionIdParam) {
+        return;
+      }
+      setDiscussionId(discussionIdParam);
+      try {
+        setIsLoading(true);
 
-      // Resume the discussion via WebSocket
-      if (isWebSocketConnected) {
-        sendWebSocketMessage('resume_discussion', {
-          discussionId: discussionId,
+        // Resume the discussion via WebSocket
+        if (isWebSocketConnected) {
+          sendWebSocketMessage('resume_discussion', {
+            discussionId: discussionIdParam,
+          });
+        }
+
+        setLastError(null);
+      } catch (error) {
+        console.error('Failed to resume discussion:', error);
+        setLastError(error instanceof Error ? error.message : 'Failed to resume discussion');
+      } finally {
+        setIsLoading(false);
+      }
+    },
+    [isWebSocketConnected, sendWebSocketMessage]
+  );
+
+  const addMessage = useCallback(
+    async (content: string, agentId?: string) => {
+      if (!isActive || !discussionId) {
+        console.warn('Cannot add message: discussion not active');
+        return;
+      }
+
+      if (!isWebSocketConnected) {
+        console.warn('Cannot add message: WebSocket not connected');
+        setLastError('WebSocket not connected. Please check your connection.');
+        return;
+      }
+
+      try {
+        if (agentId) {
+          console.warn('Agent ID provided for WebSocket message; metadata is not supported.');
+        }
+
+        sendWebSocketMessage('send_message', {
+          discussionId,
+          content,
+          messageType: MessageType.MESSAGE,
         });
+      } catch (error) {
+        console.error('Failed to send message:', error);
+        setLastError(error instanceof Error ? error.message : 'Failed to send message');
       }
-
-      setLastError(null);
-    } catch (error) {
-      console.error('Failed to resume discussion:', error);
-      setLastError(error instanceof Error ? error.message : 'Failed to resume discussion');
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const addMessage = async (content: string, agentId?: string) => {
-    if (!isActive || !discussionId) {
-      console.warn('Cannot add message: discussion not active');
-      return;
-    }
-
-    if (!isWebSocketConnected) {
-      console.warn('Cannot add message: WebSocket not connected');
-      setLastError('WebSocket not connected. Please check your connection.');
-      return;
-    }
-
-    try {
-      if (agentId) {
-        console.warn('Agent ID provided for WebSocket message; metadata is not supported.');
-      }
-
-      sendWebSocketMessage('send_message', {
-        discussionId,
-        content,
-        messageType: MessageType.MESSAGE,
-      });
-    } catch (error) {
-      console.error('Failed to send message:', error);
-      setLastError(error instanceof Error ? error.message : 'Failed to send message');
-    }
-  };
+    },
+    [isActive, discussionId, isWebSocketConnected, sendWebSocketMessage]
+  );
 
   // Track last load time to prevent too frequent calls
   const lastLoadTimeRef = useRef<number>(0);
   const loadHistoryRef = useRef<string | null>(null);
 
-  const loadHistory = useCallback(async (discussionId: string) => {
+  const loadHistory = useCallback(async (discussionIdParam: string) => {
     // Prevent loading the same discussion multiple times in quick succession
-    if (loadHistoryRef.current === discussionId) {
+    if (loadHistoryRef.current === discussionIdParam) {
       return;
     }
 
@@ -516,21 +512,18 @@ export const DiscussionProvider: React.FC<DiscussionProviderProps> = ({
     const now = Date.now();
     if (now - lastLoadTimeRef.current < 5000) {
       // 5 second throttle
-      console.log('Throttling loadHistory call - waiting 5 seconds between calls');
+
       return;
     }
 
     try {
       setIsLoading(true);
       setLastError(null);
-      loadHistoryRef.current = discussionId;
+      loadHistoryRef.current = discussionIdParam;
       lastLoadTimeRef.current = now;
 
-      console.log('Loading discussion history for:', discussionId);
-
       // Fetch messages from the existing API endpoint
-      const response = await uaipAPI.discussions.getMessages(discussionId, { limit: 1000 });
-      console.log('API response for getMessages:', response);
+      const response = await uaipAPI.discussions.getMessages(discussionIdParam, { limit: 1000 });
 
       // Transform backend DiscussionMessage[] to frontend Message[]
       const transformedHistory: Message[] = response.map((msg) => ({
@@ -545,13 +538,12 @@ export const DiscussionProvider: React.FC<DiscussionProviderProps> = ({
       }));
 
       setHistory(transformedHistory);
-      console.log(`Loaded ${transformedHistory.length} historical messages`);
     } catch (error) {
       console.error('Failed to load discussion history:', error);
       console.error('Error details:', {
         message: error instanceof Error ? error.message : 'Unknown error',
         stack: error instanceof Error ? error.stack : undefined,
-        discussionId,
+        discussionId: discussionIdParam,
       });
       setLastError(
         `Failed to load discussion history: ${error instanceof Error ? error.message : 'Unknown error'}`
@@ -567,27 +559,50 @@ export const DiscussionProvider: React.FC<DiscussionProviderProps> = ({
     setPendingApprovals((prev) => prev.filter((approval) => approval.approvalId !== approvalId));
   }, []);
 
-  const value: DiscussionContextType = {
-    isActive,
-    isWebSocketConnected,
-    websocketError:
-      websocketError || (authStatus === 'failed' ? 'WebSocket authentication failed' : null),
-    participants,
-    messages,
-    history,
-    currentTurn,
-    discussionId,
-    isLoading,
-    lastError,
-    pendingApprovals,
-    start,
-    stop,
-    pause,
-    resume,
-    addMessage,
-    loadHistory,
-    dismissApproval,
-  };
+  const value: DiscussionContextType = useMemo(
+    () => ({
+      isActive,
+      isWebSocketConnected,
+      websocketError:
+        websocketError || (authStatus === 'failed' ? 'WebSocket authentication failed' : null),
+      participants,
+      messages,
+      history,
+      currentTurn,
+      discussionId,
+      isLoading,
+      lastError,
+      pendingApprovals,
+      start,
+      stop,
+      pause,
+      resume,
+      addMessage,
+      loadHistory,
+      dismissApproval,
+    }),
+    [
+      isActive,
+      isWebSocketConnected,
+      websocketError,
+      authStatus,
+      participants,
+      messages,
+      history,
+      currentTurn,
+      discussionId,
+      isLoading,
+      lastError,
+      pendingApprovals,
+      start,
+      stop,
+      pause,
+      resume,
+      addMessage,
+      loadHistory,
+      dismissApproval,
+    ]
+  );
 
   // Cleanup on unmount
   useEffect(() => {

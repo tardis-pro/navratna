@@ -5,7 +5,6 @@
  */
 
 import {
-  Agent,
   LearningResult,
   AgentInteraction,
   Episode,
@@ -90,8 +89,8 @@ export class AgentLearningService {
   async learnFromOperation(
     agentId: string,
     operationId: string,
-    outcomes: any,
-    feedback: any
+    outcomes: Record<string, unknown>,
+    feedback: Record<string, unknown>
   ): Promise<LearningResult> {
     try {
       this.validateID(agentId, 'agentId');
@@ -211,6 +210,7 @@ export class AgentLearningService {
         };
 
         if (this.agentMemoryService) {
+          // oxlint-disable-next-line no-await-in-loop -- sequential processing required
           await this.agentMemoryService.updateSemanticMemory(agentId, concept);
         }
       }
@@ -349,7 +349,7 @@ Performance: Efficiency=${interaction.performanceMetrics.efficiency}, Accuracy=$
   /**
    * Event handlers
    */
-  private async handleLearnFromOperation(event: any): Promise<void> {
+  private async handleLearnFromOperation(event: Record<string, unknown>): Promise<void> {
     const { requestId, agentId, operationId, outcomes, feedback } = event;
     try {
       const result = await this.learnFromOperation(agentId, operationId, outcomes, feedback);
@@ -366,7 +366,7 @@ Performance: Efficiency=${interaction.performanceMetrics.efficiency}, Accuracy=$
     }
   }
 
-  private async handleLearnFromInteraction(event: any): Promise<void> {
+  private async handleLearnFromInteraction(event: Record<string, unknown>): Promise<void> {
     const { requestId, agentId, interaction } = event;
     try {
       await this.learnFromInteraction(agentId, interaction);
@@ -382,7 +382,7 @@ Performance: Efficiency=${interaction.performanceMetrics.efficiency}, Accuracy=$
     }
   }
 
-  private async handleConsolidateMemory(event: any): Promise<void> {
+  private async handleConsolidateMemory(event: Record<string, unknown>): Promise<void> {
     const { requestId, agentId } = event;
     try {
       await this.consolidateMemory(agentId);
@@ -398,7 +398,7 @@ Performance: Efficiency=${interaction.performanceMetrics.efficiency}, Accuracy=$
     }
   }
 
-  private async handleUpdateKnowledge(event: any): Promise<void> {
+  private async handleUpdateKnowledge(event: Record<string, unknown>): Promise<void> {
     const { requestId, agentId, knowledgeItems } = event;
     try {
       await this.updateAgentKnowledge(agentId, knowledgeItems);
@@ -418,10 +418,10 @@ Performance: Efficiency=${interaction.performanceMetrics.efficiency}, Accuracy=$
    * Helper methods
    */
   private async extractEnhancedLearning(
-    operation: any,
-    outcomes: any,
-    feedback: any
-  ): Promise<any> {
+    operation: Record<string, unknown>,
+    outcomes: Record<string, unknown>,
+    feedback: Record<string, unknown>
+  ): Promise<unknown> {
     return {
       newKnowledge: feedback?.insights || [],
       improvedCapabilities: outcomes?.successfulActions || [],
@@ -433,7 +433,10 @@ Performance: Efficiency=${interaction.performanceMetrics.efficiency}, Accuracy=$
     };
   }
 
-  private async updateKnowledgeGraph(agentId: string, learningData: any): Promise<void> {
+  private async updateKnowledgeGraph(
+    agentId: string,
+    learningData: Record<string, unknown>
+  ): Promise<void> {
     if (this.knowledgeGraphService && learningData.enhancedInsights?.length > 0) {
       await this.knowledgeGraphService.ingest(
         learningData.enhancedInsights.map((insight: string) => ({
@@ -454,10 +457,10 @@ Performance: Efficiency=${interaction.performanceMetrics.efficiency}, Accuracy=$
   private async storeOperationEpisode(
     agentId: string,
     operationId: string,
-    operation: any,
-    outcomes: any,
-    feedback: any,
-    learningData: any
+    operation: Record<string, unknown>,
+    outcomes: Record<string, unknown>,
+    feedback: Record<string, unknown>,
+    learningData: Record<string, unknown>
   ): Promise<void> {
     if (this.agentMemoryService) {
       const episode: Episode = {
@@ -500,7 +503,7 @@ Performance: Efficiency=${interaction.performanceMetrics.efficiency}, Accuracy=$
 
   private async updateSemanticMemoryFromOperation(
     agentId: string,
-    learningData: any
+    learningData: Record<string, unknown>
   ): Promise<void> {
     if (this.agentMemoryService && learningData.newKnowledge?.length > 0) {
       for (const knowledge of learningData.newKnowledge) {
@@ -528,17 +531,18 @@ Performance: Efficiency=${interaction.performanceMetrics.efficiency}, Accuracy=$
           },
         };
 
+        // oxlint-disable-next-line no-await-in-loop -- sequential processing required
         await this.agentMemoryService.updateSemanticMemory(agentId, concept);
       }
     }
   }
 
   private calculateEnhancedConfidenceAdjustments(
-    operation: any,
-    outcomes: any,
-    feedback: any,
-    learningData: any
-  ): any {
+    operation: Record<string, unknown>,
+    outcomes: Record<string, unknown>,
+    feedback: Record<string, unknown>,
+    learningData: Record<string, unknown>
+  ): Record<string, unknown> {
     const baseAdjustment = outcomes?.success ? 0.1 : -0.05;
     const feedbackAdjustment = feedback?.satisfaction ? feedback.satisfaction * 0.05 : 0;
     const learningAdjustment = learningData.newKnowledge?.length > 0 ? 0.02 : 0;
@@ -559,8 +563,8 @@ Performance: Efficiency=${interaction.performanceMetrics.efficiency}, Accuracy=$
   private async storeEnhancedLearningRecord(
     agentId: string,
     operationId: string,
-    learningData: any,
-    confidenceAdjustments: any
+    learningData: Record<string, unknown>,
+    confidenceAdjustments: Record<string, unknown>
   ): Promise<void> {
     try {
       await this.store.storeLearningRecord(agentId, {
@@ -575,11 +579,11 @@ Performance: Efficiency=${interaction.performanceMetrics.efficiency}, Accuracy=$
     }
   }
 
-  private async getOperation(operationId: string): Promise<any> {
+  private async getOperation(operationId: string): Promise<unknown> {
     return await this.store.getOperationById(operationId);
   }
 
-  private extractLearnings(interaction: AgentInteraction): any[] {
+  private extractLearnings(interaction: AgentInteraction): Record<string, unknown>[] {
     const learnings = [];
 
     // Extract learnings from interaction context
@@ -619,7 +623,10 @@ Performance: Efficiency=${interaction.performanceMetrics.efficiency}, Accuracy=$
     }
   }
 
-  private async publishLearningEvent(channel: string, data: any): Promise<void> {
+  private async publishLearningEvent(
+    channel: string,
+    data: Record<string, unknown>
+  ): Promise<void> {
     try {
       await this.eventBusService.publish(channel, {
         ...data,
@@ -632,7 +639,10 @@ Performance: Efficiency=${interaction.performanceMetrics.efficiency}, Accuracy=$
     }
   }
 
-  private async respondToRequest(requestId: string, response: any): Promise<void> {
+  private async respondToRequest(
+    requestId: string,
+    response: Record<string, unknown>
+  ): Promise<void> {
     await this.eventBusService.publish('agent.learning.response', {
       requestId,
       ...response,
@@ -698,7 +708,7 @@ Performance: Efficiency=${interaction.performanceMetrics.efficiency}, Accuracy=$
     }
   }
 
-  private auditLog(event: string, data: any): void {
+  private auditLog(event: string, data: Record<string, unknown>): void {
     logger.info(`AUDIT: ${event}`, {
       ...data,
       service: this.serviceName,

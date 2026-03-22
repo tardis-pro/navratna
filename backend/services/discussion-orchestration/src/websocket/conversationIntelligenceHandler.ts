@@ -50,7 +50,8 @@ export class ConversationIntelligenceHandler {
     } catch (error) {
       this.logger.error('Failed to create namespace:', error);
       throw new Error(
-        'Namespace creation failed: ' + (error instanceof Error ? error.message : 'Unknown error')
+        'Namespace creation failed: ' + (error instanceof Error ? error.message : 'Unknown error'),
+        { cause: error }
       );
     }
 
@@ -63,7 +64,7 @@ export class ConversationIntelligenceHandler {
 
         // Check for nginx-forwarded user headers first (preferred path)
         const nginxUserId = socket.handshake.headers['x-user-id'] as string | undefined;
-        const nginxUserEmail = socket.handshake.headers['x-user-email'] as string | undefined;
+
         const nginxUserRole = socket.handshake.headers['x-user-role'] as string | undefined;
 
         let userId: string;
@@ -230,20 +231,24 @@ export class ConversationIntelligenceHandler {
     );
   }
 
-  private async handleIntentDetectionRequest(socket: Socket, data: any) {
+  private async handleIntentDetectionRequest(
+    socket: Socket,
+    data: { text: string; conversationId?: string; context?: Record<string, unknown> }
+  ) {
     const connection = this.connections.get(socket.id);
     if (!connection) return;
 
     try {
+      const requestData = data;
       // Publish event to event bus
       await this.eventBus.publish(ConversationIntelligenceEventType.INTENT_DETECTION_REQUESTED, {
         type: ConversationIntelligenceEventType.INTENT_DETECTION_REQUESTED,
         data: {
           userId: connection.userId,
           agentId: connection.agentId,
-          conversationId: connection.conversationId || data.conversationId,
-          text: data.text,
-          context: data.context,
+          conversationId: connection.conversationId || requestData.conversationId,
+          text: requestData.text,
+          context: requestData.context,
         },
       });
 
@@ -255,17 +260,21 @@ export class ConversationIntelligenceHandler {
     }
   }
 
-  private async handleTopicGenerationRequest(socket: Socket, data: any) {
+  private async handleTopicGenerationRequest(
+    socket: Socket,
+    data: { conversationId?: string; messages?: Record<string, unknown>[]; currentTopic?: string }
+  ) {
     const connection = this.connections.get(socket.id);
     if (!connection) return;
 
     try {
+      const requestData = data;
       await this.eventBus.publish(ConversationIntelligenceEventType.TOPIC_GENERATION_REQUESTED, {
         type: ConversationIntelligenceEventType.TOPIC_GENERATION_REQUESTED,
         data: {
-          conversationId: connection.conversationId || data.conversationId,
-          messages: data.messages,
-          currentTopic: data.currentTopic,
+          conversationId: connection.conversationId || requestData.conversationId,
+          messages: requestData.messages,
+          currentTopic: requestData.currentTopic,
         },
       });
 
@@ -276,18 +285,22 @@ export class ConversationIntelligenceHandler {
     }
   }
 
-  private async handlePromptSuggestionsRequest(socket: Socket, data: any) {
+  private async handlePromptSuggestionsRequest(
+    socket: Socket,
+    data: { conversationContext?: Record<string, unknown>; count?: number }
+  ) {
     const connection = this.connections.get(socket.id);
     if (!connection) return;
 
     try {
+      const requestData = data;
       await this.eventBus.publish(ConversationIntelligenceEventType.PROMPT_SUGGESTIONS_REQUESTED, {
         type: ConversationIntelligenceEventType.PROMPT_SUGGESTIONS_REQUESTED,
         data: {
           userId: connection.userId,
           agentId: connection.agentId,
-          conversationContext: data.conversationContext,
-          count: data.count || 3,
+          conversationContext: requestData.conversationContext,
+          count: requestData.count || 3,
         },
       });
 
@@ -298,7 +311,10 @@ export class ConversationIntelligenceHandler {
     }
   }
 
-  private async handleAutocompleteQuery(socket: Socket, data: any) {
+  private async handleAutocompleteQuery(
+    socket: Socket,
+    data: { partial: string; context?: Record<string, unknown>; limit?: number } | null
+  ) {
     const connection = this.connections.get(socket.id);
     if (!connection) return;
 
@@ -312,7 +328,8 @@ export class ConversationIntelligenceHandler {
         return;
       }
 
-      if (!data || typeof data.partial !== 'string') {
+      const requestData = data;
+      if (!requestData || typeof requestData.partial !== 'string') {
         this.logger.warn('Autocomplete query missing partial input', {
           socketId: socket.id,
           userId: connection.userId,
@@ -324,12 +341,13 @@ export class ConversationIntelligenceHandler {
 
       // Enhanced context for global user LLM requests
       const isGlobalUserLLM = connection.agentId.startsWith('user-');
+      const contextData = requestData.context as Record<string, unknown> | undefined;
       const enhancedContext = {
-        ...data.context,
+        ...contextData,
         isGlobalUserLLM,
         userId: connection.userId,
         useDefaultLLMProvider: isGlobalUserLLM,
-        requestType: data.context?.type || 'autocomplete',
+        requestType: contextData?.type || 'autocomplete',
       };
 
       await this.eventBus.publish(ConversationIntelligenceEventType.AUTOCOMPLETE_QUERY_REQUESTED, {
@@ -337,9 +355,9 @@ export class ConversationIntelligenceHandler {
         data: {
           userId: connection.userId,
           agentId: connection.agentId,
-          partial: data.partial,
+          partial: requestData.partial,
           context: enhancedContext,
-          limit: data.limit || 5,
+          limit: requestData.limit || 5,
         },
       });
     } catch (error) {
@@ -348,27 +366,32 @@ export class ConversationIntelligenceHandler {
     }
   }
 
-  private handleConversationUpdate(socket: Socket, data: any) {
+  private handleConversationUpdate(
+    socket: Socket,
+    data: { conversationId?: string; agentId?: string }
+  ) {
     const connection = this.connections.get(socket.id);
     if (!connection) return;
 
+    const updateData = data;
+
     // Update conversation ID if provided
-    if (data.conversationId && data.conversationId !== connection.conversationId) {
+    if (updateData.conversationId && updateData.conversationId !== connection.conversationId) {
       // Leave old conversation room
       if (connection.conversationId) {
         socket.leave(`conversation:${connection.conversationId}`);
       }
 
       // Join new conversation room
-      socket.join(`conversation:${data.conversationId}`);
-      connection.conversationId = data.conversationId;
+      socket.join(`conversation:${updateData.conversationId}`);
+      connection.conversationId = updateData.conversationId;
     }
 
     // Update agent ID if provided
-    if (data.agentId && data.agentId !== connection.agentId) {
+    if (updateData.agentId && updateData.agentId !== connection.agentId) {
       socket.leave(`agent:${connection.agentId}`);
-      socket.join(`agent:${data.agentId}`);
-      connection.agentId = data.agentId;
+      socket.join(`agent:${updateData.agentId}`);
+      connection.agentId = updateData.agentId;
     }
 
     connection.lastActivity = new Date();
@@ -382,7 +405,7 @@ export class ConversationIntelligenceHandler {
   // Event Bus Handlers
 
   private async handleIntentDetectionCompleted(event: IntentDetectionCompletedEvent) {
-    const { userId, conversationId, agentId, intent, suggestions, toolPreview } = event.data;
+    const { userId, conversationId, intent, suggestions, toolPreview } = event.data;
 
     // Emit to specific user's connections
     const userSockets = this.userConnections.get(userId);
@@ -497,7 +520,7 @@ export class ConversationIntelligenceHandler {
   }
 
   // Utility method to emit tool preview
-  public emitToolPreview(userId: string, agentId: string, toolPreview: any) {
+  public emitToolPreview(userId: string, agentId: string, toolPreview: Record<string, unknown>) {
     const userSockets = this.userConnections.get(userId);
     if (userSockets) {
       userSockets.forEach((socketId) => {

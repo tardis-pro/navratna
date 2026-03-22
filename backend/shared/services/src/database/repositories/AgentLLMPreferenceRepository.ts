@@ -13,7 +13,7 @@ export interface CreateAgentLLMPreferenceData {
     maxTokens?: number;
     topP?: number;
     systemPrompt?: string;
-    customSettings?: Record<string, any>;
+    customSettings?: Record<string, unknown>;
   };
   description?: string;
   reasoning?: string;
@@ -29,7 +29,7 @@ export interface UpdateAgentLLMPreferenceData {
     maxTokens?: number;
     topP?: number;
     systemPrompt?: string;
-    customSettings?: Record<string, any>;
+    customSettings?: Record<string, unknown>;
   };
   description?: string;
   reasoning?: string;
@@ -164,7 +164,7 @@ export class AgentLLMPreferenceRepository {
     averagePerformance: number;
     topModel: string;
     topProvider: LLMProviderType;
-    recommendedSettings: any;
+    recommendedSettings: { temperature?: number; maxTokens?: number };
   }> {
     const preferences = await this.findByTaskType(taskType);
 
@@ -234,9 +234,11 @@ export class AgentLLMPreferenceRepository {
     const results: AgentLLMPreference[] = [];
 
     for (const prefData of preferences) {
+      // oxlint-disable-next-line no-await-in-loop -- sequential processing required
       const existing = await this.findByAgentAndTask(prefData.agentId, prefData.taskType);
 
       if (existing) {
+        // oxlint-disable-next-line no-await-in-loop -- sequential processing required
         const updated = await this.update(existing.id, {
           preferredProvider: prefData.preferredProvider,
           preferredModel: prefData.preferredModel,
@@ -248,6 +250,7 @@ export class AgentLLMPreferenceRepository {
         });
         if (updated) results.push(updated);
       } else {
+        // oxlint-disable-next-line no-await-in-loop -- sequential processing required
         const created = await this.create(prefData);
         results.push(created);
       }

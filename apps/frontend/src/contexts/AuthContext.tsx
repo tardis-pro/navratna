@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
 import { uaipAPI } from '../utils/uaip-api';
 
 export interface User {
@@ -21,25 +21,25 @@ interface AuthState {
 
 // Security Flow - Moved from DiscussionContext
 interface SecurityFlow {
-  login: (credentials: any) => Promise<any>;
+  login: (credentials: unknown) => Promise<unknown>;
   logout: () => Promise<void>;
   refreshToken: () => Promise<string>;
-  validatePermissions: (resource: string) => Promise<any>;
-  assessRisk: (operation: any) => Promise<any>;
-  auditLog: (filters?: any) => Promise<any>;
+  validatePermissions: (resource: string) => Promise<unknown>;
+  assessRisk: (operation: unknown) => Promise<unknown>;
+  auditLog: (filters?: unknown) => Promise<unknown>;
 }
 
 // System Operations Flow - Moved from DiscussionContext
 interface SystemOperationsFlow {
-  healthCheck: () => Promise<any>;
-  getSystemMetrics: () => Promise<any>;
-  getSystemConfig: () => Promise<any>;
-  migrateDatabase: () => Promise<any>;
+  healthCheck: () => Promise<unknown>;
+  getSystemMetrics: () => Promise<unknown>;
+  getSystemConfig: () => Promise<unknown>;
+  migrateDatabase: () => Promise<unknown>;
   clearCache: (layer?: string) => Promise<void>;
-  getSystemLogs: (filters?: any) => Promise<any>;
-  backupSystem: () => Promise<any>;
-  monitorSystem: () => Promise<any>;
-  discoverServices: () => Promise<any>;
+  getSystemLogs: (filters?: unknown) => Promise<unknown>;
+  backupSystem: () => Promise<unknown>;
+  monitorSystem: () => Promise<unknown>;
+  discoverServices: () => Promise<unknown>;
 }
 
 interface AuthContextType extends AuthState {
@@ -53,9 +53,9 @@ interface AuthContextType extends AuthState {
 
   // UI State Management
   activeFlows: string[];
-  flowResults: Map<string, any>;
+  flowResults: Map<string, unknown>;
   flowErrors: Map<string, string>;
-  executeFlow: (service: string, flow: string, params?: any) => Promise<any>;
+  executeFlow: (service: string, flow: string, params?: unknown) => Promise<unknown>;
   getFlowStatus: (flowId: string) => 'idle' | 'running' | 'completed' | 'error';
   clearFlowResult: (flowId: string) => void;
 }
@@ -75,34 +75,11 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   });
 
   const [activeFlows, setActiveFlows] = useState<string[]>([]);
-  const [flowResults, setFlowResults] = useState<Map<string, any>>(new Map());
+  const [flowResults, setFlowResults] = useState<Map<string, unknown>>(new Map());
   const [flowErrors, setFlowErrors] = useState<Map<string, string>>(new Map());
 
-  // Check for existing authentication on mount
-  useEffect(() => {
-    checkAuthStatus();
-
-    // Listen for auth failures from the API client
-    const handleAuthFailure = () => {
-      console.log('Auth failure detected, clearing state');
-      setState({
-        user: null,
-        isAuthenticated: false,
-        isLoading: false,
-        error: null,
-      });
-    };
-
-    // Listen for the auth:unauthorized event from the API client
-    window.addEventListener('auth:unauthorized', handleAuthFailure);
-
-    return () => {
-      window.removeEventListener('auth:unauthorized', handleAuthFailure);
-    };
-  }, []);
-
   // Generic flow execution handler
-  const executeFlow = async (service: string, flow: string, params?: any) => {
+  const executeFlow = useCallback(async (service: string, flow: string, params?: unknown) => {
     const flowId = `${service}.${flow}`;
 
     try {
@@ -113,7 +90,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         return newMap;
       });
 
-      let result: any;
+      let result: unknown;
 
       // Route to actual UAIP API calls based on service
       if (service === 'security') {
@@ -144,10 +121,10 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       setActiveFlows((prev) => prev.filter((f) => f !== flowId));
       throw error;
     }
-  };
+  }, []);
 
   // Execute Security flows using UAIP API
-  const executeSecurityFlow = async (flow: string, params: any) => {
+  const executeSecurityFlow = async (flow: string, params: unknown) => {
     switch (flow) {
       case 'login':
         return await uaipAPI.client.auth.login(params);
@@ -170,7 +147,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   };
 
   // Execute System Operations flows
-  const executeSystemOperationsFlow = async (flow: string, params: any) => {
+  const executeSystemOperationsFlow = async (flow: string, _params: unknown) => {
     switch (flow) {
       case 'healthCheck':
         return await uaipAPI.client.health();
@@ -185,14 +162,17 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     }
   };
 
-  const getFlowStatus = (flowId: string): 'idle' | 'running' | 'completed' | 'error' => {
-    if (activeFlows.includes(flowId)) return 'running';
-    if (flowErrors.has(flowId)) return 'error';
-    if (flowResults.has(flowId)) return 'completed';
-    return 'idle';
-  };
+  const getFlowStatus = useCallback(
+    (flowId: string): 'idle' | 'running' | 'completed' | 'error' => {
+      if (activeFlows.includes(flowId)) return 'running';
+      if (flowErrors.has(flowId)) return 'error';
+      if (flowResults.has(flowId)) return 'completed';
+      return 'idle';
+    },
+    [activeFlows, flowErrors, flowResults]
+  );
 
-  const clearFlowResult = (flowId: string) => {
+  const clearFlowResult = useCallback((flowId: string) => {
     setFlowResults((prev) => {
       const newMap = new Map(prev);
       newMap.delete(flowId);
@@ -203,30 +183,37 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       newMap.delete(flowId);
       return newMap;
     });
-  };
+  }, []);
 
   // Security Gateway Flows
-  const security: SecurityFlow = {
-    login: (credentials) => executeFlow('security', 'login', credentials),
-    logout: () => executeFlow('security', 'logout'),
-    refreshToken: () => executeFlow('security', 'refreshToken'),
-    validatePermissions: (resource) => executeFlow('security', 'validatePermissions', { resource }),
-    assessRisk: (operation) => executeFlow('security', 'assessRisk', operation),
-    auditLog: (filters) => executeFlow('security', 'auditLog', filters),
-  };
+  const security: SecurityFlow = useMemo(
+    () => ({
+      login: (credentials) => executeFlow('security', 'login', credentials),
+      logout: () => executeFlow('security', 'logout'),
+      refreshToken: () => executeFlow('security', 'refreshToken'),
+      validatePermissions: (resource) =>
+        executeFlow('security', 'validatePermissions', { resource }),
+      assessRisk: (operation) => executeFlow('security', 'assessRisk', operation),
+      auditLog: (filters) => executeFlow('security', 'auditLog', filters),
+    }),
+    [executeFlow]
+  );
 
   // System Operations Flows
-  const systemOperations: SystemOperationsFlow = {
-    healthCheck: () => executeFlow('systemOperations', 'healthCheck'),
-    getSystemMetrics: () => executeFlow('systemOperations', 'getSystemMetrics'),
-    getSystemConfig: () => executeFlow('systemOperations', 'getSystemConfig'),
-    migrateDatabase: () => executeFlow('systemOperations', 'migrateDatabase'),
-    clearCache: (layer) => executeFlow('systemOperations', 'clearCache', { layer }),
-    getSystemLogs: (filters) => executeFlow('systemOperations', 'getSystemLogs', filters),
-    backupSystem: () => executeFlow('systemOperations', 'backupSystem'),
-    monitorSystem: () => executeFlow('systemOperations', 'monitorSystem'),
-    discoverServices: () => executeFlow('systemOperations', 'discoverServices'),
-  };
+  const systemOperations: SystemOperationsFlow = useMemo(
+    () => ({
+      healthCheck: () => executeFlow('systemOperations', 'healthCheck'),
+      getSystemMetrics: () => executeFlow('systemOperations', 'getSystemMetrics'),
+      getSystemConfig: () => executeFlow('systemOperations', 'getSystemConfig'),
+      migrateDatabase: () => executeFlow('systemOperations', 'migrateDatabase'),
+      clearCache: (layer) => executeFlow('systemOperations', 'clearCache', { layer }),
+      getSystemLogs: (filters) => executeFlow('systemOperations', 'getSystemLogs', filters),
+      backupSystem: () => executeFlow('systemOperations', 'backupSystem'),
+      monitorSystem: () => executeFlow('systemOperations', 'monitorSystem'),
+      discoverServices: () => executeFlow('systemOperations', 'discoverServices'),
+    }),
+    [executeFlow]
+  );
 
   const checkAuthStatus = useCallback(async () => {
     try {
@@ -268,7 +255,29 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     }
   }, []);
 
-  const login = useCallback(async (email: string, password: string, rememberMe = false) => {
+  // Check for existing authentication on mount
+  useEffect(() => {
+    checkAuthStatus();
+
+    // Listen for auth failures from the API client
+    const handleAuthFailure = () => {
+      setState({
+        user: null,
+        isAuthenticated: false,
+        isLoading: false,
+        error: null,
+      });
+    };
+
+    // Listen for the auth:unauthorized event from the API client
+    window.addEventListener('auth:unauthorized', handleAuthFailure);
+
+    return () => {
+      window.removeEventListener('auth:unauthorized', handleAuthFailure);
+    };
+  }, [checkAuthStatus]);
+
+  const login = useCallback(async (email: string, password: string, _rememberMe = false) => {
     try {
       setState((prev) => ({ ...prev, isLoading: true, error: null }));
 
@@ -392,24 +401,40 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     }
   }, [state.isAuthenticated]);
 
-  const contextValue: AuthContextType = {
-    ...state,
-    login,
-    logout,
-    refreshUser,
+  const contextValue: AuthContextType = useMemo(
+    () => ({
+      ...state,
+      login,
+      logout,
+      refreshUser,
 
-    // UAIP Backend Flow Integration
-    security,
-    systemOperations,
+      // UAIP Backend Flow Integration
+      security,
+      systemOperations,
 
-    // UI State Management
-    activeFlows,
-    flowResults,
-    flowErrors,
-    executeFlow,
-    getFlowStatus,
-    clearFlowResult,
-  };
+      // UI State Management
+      activeFlows,
+      flowResults,
+      flowErrors,
+      executeFlow,
+      getFlowStatus,
+      clearFlowResult,
+    }),
+    [
+      state,
+      login,
+      logout,
+      refreshUser,
+      security,
+      systemOperations,
+      activeFlows,
+      flowResults,
+      flowErrors,
+      executeFlow,
+      getFlowStatus,
+      clearFlowResult,
+    ]
+  );
 
   return <AuthContext.Provider value={contextValue}>{children}</AuthContext.Provider>;
 };

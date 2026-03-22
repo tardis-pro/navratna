@@ -384,14 +384,14 @@ export class UserRepository extends BaseRepository<UserEntity> {
       ]);
 
       return {
-        rolePermissions: roleResults.map((row: any) => ({
+        rolePermissions: roleResults.map((row: Record<string, unknown>) => ({
           roleName: row.role_name,
           permissionType: row.permission_type,
-          operations: row.operations || [],
+          operations: (row.operations as unknown[]) || [],
         })),
-        directPermissions: directResults.map((row: any) => ({
+        directPermissions: directResults.map((row: Record<string, unknown>) => ({
           permissionType: row.permission_type,
-          operations: row.operations || [],
+          operations: (row.operations as unknown[]) || [],
         })),
       };
     } catch (error) {

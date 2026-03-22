@@ -72,20 +72,20 @@ const ROLE_LIMITS: Record<string, number> = {
 
 const providerIdParamsSchema = z.object({ id: z.string().min(1) });
 
-let eventBusService: EventBusService | null = null;
+let eventBusServiceSingleton: EventBusService | null = null;
 
 const getEventBusService = (): EventBusService => {
-  if (!eventBusService) {
-    eventBusService = EventBusService.getInstance();
+  if (!eventBusServiceSingleton) {
+    eventBusServiceSingleton = EventBusService.getInstance();
   }
-  return eventBusService;
+  return eventBusServiceSingleton;
 };
 
-export function registerProviderRoutes(app: any): any {
+export function registerProviderRoutes(elysiaApp: unknown): unknown {
   return (
-    app
+    elysiaApp
       // Admin/system provider management
-      .group('/api/v1', (app: any) =>
+      .group('/api/v1', (app: unknown) =>
         withAdminGuard(app)
           .get('/providers', async ({ set }) => {
             try {
@@ -132,7 +132,7 @@ export function registerProviderRoutes(app: any): any {
               );
               set.status = 201;
               return { success: true, data: created };
-            } catch (error: any) {
+            } catch (error: unknown) {
               logger.error('Error creating LLM provider', { error });
               if (error instanceof Error && error.message.includes('already exists')) {
                 set.status = 409;
@@ -195,7 +195,7 @@ export function registerProviderRoutes(app: any): any {
       )
 
       // User-scoped provider management (nginx routes /api/v1/llm/my-providers here)
-      .group('/api/v1/llm', (app: any) =>
+      .group('/api/v1/llm', (app: unknown) =>
         withRequiredAuth(app)
           // @ts-expect-error - Elysia middleware injects user, but TypeScript cannot infer through nested groups
           .get('/my-providers/limits', async ({ user }) => {
@@ -238,8 +238,10 @@ export function registerProviderRoutes(app: any): any {
                 .getUserLLMProviderRepository()
                 .findActiveProvidersByUser(user!.id);
               const active = providers
-                .filter((p: any) => p.isActive && (p.status === 'active' || p.status === 'testing'))
-                .map((p: any) => ({
+                .filter(
+                  (p: unknown) => p.isActive && (p.status === 'active' || p.status === 'testing')
+                )
+                .map((p: unknown) => ({
                   id: p.id,
                   name: p.name,
                   type: p.type,
@@ -377,7 +379,7 @@ export function registerProviderRoutes(app: any): any {
               }
               set.status = 201;
               return { success: true, data: toSafeProvider(saved) };
-            } catch (error: any) {
+            } catch (error: unknown) {
               logger.error('Error creating user LLM provider', { error });
               if (error instanceof Error && error.message.includes('already in use')) {
                 set.status = 409;
@@ -474,7 +476,7 @@ export function registerProviderRoutes(app: any): any {
                 });
               }
               return { success: true, message: 'LLM provider deleted successfully' };
-            } catch (error: any) {
+            } catch (error: unknown) {
               logger.error('Error deleting user LLM provider', { error });
               if (error instanceof Error && error.message.includes('Cannot delete provider')) {
                 set.status = 400;
@@ -544,7 +546,7 @@ export function registerProviderRoutes(app: any): any {
   );
 }
 
-function toSafeProvider(provider: any) {
+function toSafeProvider(provider: unknown) {
   return {
     id: provider.id,
     userId: provider.userId,

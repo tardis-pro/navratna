@@ -1,5 +1,6 @@
 import { Entity, Column, Index, ManyToOne, JoinColumn } from 'typeorm';
 import { BaseEntity } from './base.entity';
+import type { Agent } from './agent.entity';
 
 /**
  * Agent Activity Entity
@@ -22,10 +23,10 @@ export class AgentActivity extends BaseEntity {
   success: boolean;
 
   @Column({ type: 'jsonb', nullable: true })
-  context?: Record<string, any>;
+  context?: Record<string, unknown>;
 
   @Column({ type: 'jsonb', nullable: true })
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 
   @Column({ type: 'timestamp', default: () => 'NOW()' })
   timestamp: Date;
@@ -33,5 +34,5 @@ export class AgentActivity extends BaseEntity {
   // Relationships
   @ManyToOne('Agent', { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'agent_id' })
-  agent: any;
+  agent: Agent;
 }

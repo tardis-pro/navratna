@@ -8,9 +8,7 @@ import { z } from 'zod';
 import {
   authenticateConnection,
   isValidUUID,
-  sanitizeContent,
   generateSecureConnectionId,
-  checkWebSocketRateLimit,
   validateMessageSize,
 } from './websocket-security-utils.js';
 import { RedisSessionManager } from './redis-session-manager.js';
@@ -33,7 +31,7 @@ export interface WebSocketConnection {
 // Message validation schemas
 const WebSocketMessageSchema = z.object({
   type: z.string(),
-  data: z.record(z.any()).optional(),
+  data: z.record(z.unknown()).optional(),
   messageId: z.string().optional(),
 });
 
@@ -364,7 +362,7 @@ export class DiscussionWebSocketHandler {
   /**
    * Handle incoming WebSocket message
    */
-  private async handleMessage(connection: WebSocketConnection, data: any): Promise<void> {
+  private async handleMessage(connection: WebSocketConnection, data: unknown): Promise<void> {
     try {
       connection.lastActivity = new Date();
       connection.messageCount++;
@@ -373,7 +371,7 @@ export class DiscussionWebSocketHandler {
       let message;
       try {
         message = JSON.parse(data.toString());
-      } catch (error) {
+      } catch {
         this.sendError(connection.connectionId, 'Invalid JSON format');
         return;
       }
@@ -509,7 +507,7 @@ export class DiscussionWebSocketHandler {
   /**
    * Send message to a specific connection
    */
-  private sendToConnection(connection: WebSocketConnection, message: any): void {
+  private sendToConnection(connection: WebSocketConnection, message: unknown): void {
     if (connection.ws.readyState === WebSocket.OPEN) {
       connection.ws.send(JSON.stringify(message));
     }
@@ -574,7 +572,7 @@ export class DiscussionWebSocketHandler {
   /**
    * Broadcast message to all connections in a discussion
    */
-  public broadcastToDiscussion(discussionId: string, message: any): void {
+  public broadcastToDiscussion(discussionId: string, message: unknown): void {
     const connections = this.connections.get(discussionId);
     if (connections) {
       connections.forEach((connection) => {
@@ -648,6 +646,7 @@ export class DiscussionWebSocketHandler {
       connection.ws.close(1001, 'Server shutting down');
       // Remove session from Redis
       try {
+        // oxlint-ignore-next-line no-await-in-loop -- sequential processing required
         await this.redisSessionManager.removeSession(connection.connectionId);
       } catch (error) {
         logger.error('Failed to remove session during shutdown', {

@@ -1,8 +1,9 @@
 import { DataSource } from 'typeorm';
 import { UserLLMProvider } from '../../entities/userLLMProvider.entity';
 import { logger } from '@uaip/utils';
-import { ModelCapability, DefaultModelConfig, LLMProviderType } from '@uaip/types';
+import { ModelCapability } from '@uaip/types';
 
+// oxlint-disable-next-line @typescript-eslint/no-extraneous-class -- static utility class pattern for seeding
 export class DefaultUserLLMProviderSeed {
   /**
    * Create default LLM providers for a user based on their role
@@ -46,6 +47,7 @@ export class DefaultUserLLMProviderSeed {
           provider.setApiKey(providerConfig.apiKey);
         }
 
+        // oxlint-disable-next-line no-await-in-loop -- sequential processing required
         await userLLMProviderRepo.save(provider);
       }
 
@@ -74,7 +76,7 @@ export class DefaultUserLLMProviderSeed {
     baseUrl?: string;
     apiKey?: string;
     defaultModel?: string;
-    configuration?: any;
+    configuration?: Record<string, unknown>;
     priority: number;
     status: 'active' | 'inactive' | 'error' | 'testing';
     isActive: boolean;

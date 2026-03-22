@@ -33,7 +33,9 @@
 .agent-grid-enter-active {
   opacity: 1;
   transform: translateY(0);
-  transition: opacity 300ms ease-out, transform 300ms ease-out;
+  transition:
+    opacity 300ms ease-out,
+    transform 300ms ease-out;
 }
 
 .agent-grid-exit {
@@ -44,7 +46,9 @@
 .agent-grid-exit-active {
   opacity: 0;
   transform: translateY(-20px);
-  transition: opacity 300ms ease-in, transform 300ms ease-in;
+  transition:
+    opacity 300ms ease-in,
+    transform 300ms ease-in;
 }
 
 /* Backdrop Blur Fallback */
@@ -52,7 +56,7 @@
   .backdrop-blur-xl {
     background-color: rgba(30, 41, 59, 0.9);
   }
-  
+
   .backdrop-blur-sm {
     background-color: rgba(30, 41, 59, 0.8);
   }
@@ -71,12 +75,7 @@
   left: -100%;
   width: 100%;
   height: 100%;
-  background: linear-gradient(
-    90deg,
-    transparent,
-    rgba(255, 255, 255, 0.1),
-    transparent
-  );
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.1), transparent);
   transition: left 0.5s;
 }
 
@@ -97,12 +96,7 @@
   left: -100%;
   width: 100%;
   height: 100%;
-  background: linear-gradient(
-    90deg,
-    transparent,
-    rgba(255, 255, 255, 0.05),
-    transparent
-  );
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.05), transparent);
   transition: left 0.8s ease-in-out;
 }
 
@@ -112,7 +106,8 @@
 
 /* Glowing Border Animation */
 @keyframes glow-border {
-  0%, 100% {
+  0%,
+  100% {
     border-color: rgba(59, 130, 246, 0.2);
     box-shadow: 0 0 5px rgba(59, 130, 246, 0.1);
   }
@@ -128,7 +123,8 @@
 
 /* Status Indicator Pulse */
 @keyframes status-pulse {
-  0%, 100% {
+  0%,
+  100% {
     opacity: 1;
     transform: scale(1);
   }
@@ -144,7 +140,8 @@
 
 /* Floating Animation */
 @keyframes float {
-  0%, 100% {
+  0%,
+  100% {
     transform: translateY(0px);
   }
   50% {
@@ -203,11 +200,11 @@
   .bg-slate-800\/50 {
     background-color: rgba(30, 41, 59, 0.8);
   }
-  
+
   .border-slate-700\/50 {
     border-color: rgba(51, 65, 85, 0.8);
   }
-  
+
   .text-slate-400 {
     color: rgba(148, 163, 184, 0.9);
   }
@@ -222,12 +219,12 @@
   .glow-border {
     animation: none;
   }
-  
+
   .card-shimmer::before,
   .enhanced-button::before {
     transition: none;
   }
-  
+
   * {
     transition-duration: 0.01ms !important;
     animation-duration: 0.01ms !important;
@@ -239,7 +236,7 @@
   .no-print {
     display: none !important;
   }
-  
+
   .print-friendly {
     background: white !important;
     color: black !important;

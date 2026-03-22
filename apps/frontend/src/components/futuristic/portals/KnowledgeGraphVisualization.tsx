@@ -21,7 +21,7 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Loader2, Search, Filter, RefreshCw, Info, Eye, EyeOff } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
-import { API_CONFIG } from '@/config/apiConfig';
+import { API_CONFIG as _API_CONFIG } from '@/config/apiConfig';
 import { uaipAPI } from '@/utils/uaip-api';
 
 import '@xyflow/react/dist/style.css';
@@ -52,7 +52,7 @@ interface KnowledgeGraphData {
   metadata: {
     totalNodes: number;
     totalEdges: number;
-    searchMetadata?: any;
+    searchMetadata?: unknown;
   };
 }
 
@@ -150,7 +150,7 @@ const getLayoutedElements = (
 
 interface KnowledgeGraphVisualizationInnerProps {
   className?: string;
-  onNodeSelect?: (nodeData: { id: string; data: any }) => void;
+  onNodeSelect?: (nodeData: { id: string; data: unknown }) => void;
 }
 
 const KnowledgeGraphVisualizationInner: React.FC<KnowledgeGraphVisualizationInnerProps> = ({
@@ -172,7 +172,7 @@ const KnowledgeGraphVisualizationInner: React.FC<KnowledgeGraphVisualizationInne
   const [totalFetched, setTotalFetched] = useState(0);
 
   const auth = useAuth();
-  const { fitView, getNode, getNodes, getEdges } = useReactFlow();
+  const { fitView, getNode: _getNode, getNodes, getEdges: _getEdges } = useReactFlow();
 
   const onConnect = useCallback(
     (connection: Connection) => {
@@ -259,11 +259,35 @@ const KnowledgeGraphVisualizationInner: React.FC<KnowledgeGraphVisualizationInne
 
         // knowledgeAPI.getGraph() transforms raw nodes from {id, type, data:{...}}
         // into {id, label, type, properties} — we must reconstruct proper React Flow nodes here
-        const rawNodes = apiGraphData.nodes || [];
-        const rawEdges = apiGraphData.edges || [];
+        type ApiNode = {
+          id: string;
+          label?: string;
+          type?: string;
+          properties?: {
+            knowledgeType?: string;
+            tags?: string[];
+            confidence?: number | string;
+            sourceType?: string;
+            createdAt?: string;
+            fullContent?: string;
+          };
+        };
+        type ApiEdge = {
+          id?: string;
+          source: string;
+          target: string;
+          type?: string;
+          properties?: {
+            relationshipType?: string;
+            confidence?: number | string;
+          };
+        };
+
+        const rawNodes = (apiGraphData.nodes || []) as ApiNode[];
+        const rawEdges = (apiGraphData.edges || []) as ApiEdge[];
 
         graphData = {
-          nodes: rawNodes.map((n: any) => ({
+          nodes: rawNodes.map((n) => ({
             id: n.id,
             position: { x: 0, y: 0 },
             type: 'default',
@@ -277,7 +301,7 @@ const KnowledgeGraphVisualizationInner: React.FC<KnowledgeGraphVisualizationInne
               fullContent: n.properties?.fullContent || n.label || '',
             },
           })) as KnowledgeNode[],
-          edges: rawEdges.map((e: any, i: number) => ({
+          edges: rawEdges.map((e, i: number) => ({
             id: e.id || `edge-${i}-${e.source}-${e.target}`,
             source: e.source,
             target: e.target,
@@ -291,8 +315,8 @@ const KnowledgeGraphVisualizationInner: React.FC<KnowledgeGraphVisualizationInne
             totalEdges: rawEdges.length,
           },
         };
-      } catch (error) {
-        console.warn('Knowledge graph API failed, using mock data:', error);
+      } catch (apiError) {
+        console.warn('Knowledge graph API failed, using mock data:', apiError);
         // Provide mock data when API is not available
         graphData = {
           nodes: [],
@@ -360,7 +384,7 @@ const KnowledgeGraphVisualizationInner: React.FC<KnowledgeGraphVisualizationInne
     // Filter nodes based on search term
     const allNodes = getNodes();
     if (term) {
-      const filteredNodes = allNodes.filter(
+      const _filteredNodes = allNodes.filter(
         (node) =>
           node.data.label.toLowerCase().includes(term.toLowerCase()) ||
           node.data.tags.some((tag) => tag.toLowerCase().includes(term.toLowerCase()))
@@ -567,8 +591,12 @@ const KnowledgeGraphVisualizationInner: React.FC<KnowledgeGraphVisualizationInne
                 <div>
                   <span className="text-gray-400">Tags:</span>
                   <div className="flex flex-wrap gap-1 mt-1">
-                    {selectedNode.data.tags.map((tag, index) => (
-                      <Badge key={index} variant="secondary" className="text-xs">
+                    {selectedNode.data.tags.map((tag) => (
+                      <Badge
+                        key={`${selectedNode.id}-${tag}`}
+                        variant="secondary"
+                        className="text-xs"
+                      >
                         {tag}
                       </Badge>
                     ))}

@@ -5,10 +5,7 @@ import {
   OperationCheckpointRepository,
   StepResultRepository,
 } from '../database/repositories/OperationRepository';
-import { Operation } from '../entities/operation.entity';
-import { OperationState } from '../entities/operationState.entity';
-import { OperationCheckpoint } from '../entities/operationCheckpoint.entity';
-import { StepResult } from '../entities/stepResult.entity';
+// Entity types used by repositories: Operation, OperationState, OperationCheckpoint, StepResult
 
 export class OperationService {
   private static instance: OperationService;

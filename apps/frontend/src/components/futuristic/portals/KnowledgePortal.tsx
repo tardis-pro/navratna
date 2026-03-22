@@ -1,49 +1,55 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   Search,
-  Upload,
+  Upload as _Upload,
   Database,
   Brain,
   FileText,
   Tag,
   TrendingUp,
   Link,
-  Filter,
+  Filter as _Filter,
   Download,
   Trash2,
   Edit3,
   Eye,
-  Plus,
+  Plus as _Plus,
   MessageSquare,
   Copy,
 } from 'lucide-react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+  Card as _Card,
+  CardContent as _CardContent,
+  CardDescription as _CardDescription,
+  CardHeader as _CardHeader,
+  CardTitle as _CardTitle,
+} from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Progress } from '@/components/ui/progress';
+import { Progress as _Progress } from '@/components/ui/progress';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
+  Dialog as _Dialog,
+  DialogContent as _DialogContent,
+  DialogDescription as _DialogDescription,
+  DialogHeader as _DialogHeader,
+  DialogTitle as _DialogTitle,
+  DialogTrigger as _DialogTrigger,
 } from '@/components/ui/dialog';
-import { Textarea } from '@/components/ui/textarea';
+import { Textarea as _Textarea } from '@/components/ui/textarea';
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
+  Select as _Select,
+  SelectContent as _SelectContent,
+  SelectItem as _SelectItem,
+  SelectTrigger as _SelectTrigger,
+  SelectValue as _SelectValue,
 } from '@/components/ui/select';
-import { Separator } from '@/components/ui/separator';
+import { Separator as _Separator } from '@/components/ui/separator';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useKnowledge } from '@/contexts/KnowledgeContext';
-import type { KnowledgeItem, KnowledgeIngestRequest } from '@uaip/types';
+import type { KnowledgeItem, KnowledgeIngestRequest as _KnowledgeIngestRequest } from '@uaip/types';
 import { KnowledgeType, SourceType } from '@uaip/types';
 import KnowledgeGraphVisualization from './KnowledgeGraphVisualization';
 import { AtomicKnowledgeViewer } from './AtomicKnowledgeViewer';
@@ -53,7 +59,7 @@ interface KnowledgePortalProps {
   className?: string;
 }
 
-const KNOWLEDGE_TYPES: { value: KnowledgeType; label: string; icon: React.ReactNode }[] = [
+const _KNOWLEDGE_TYPES: { value: KnowledgeType; label: string; icon: React.ReactNode }[] = [
   { value: KnowledgeType.FACTUAL, label: 'Factual', icon: <FileText className="w-4 h-4" /> },
   { value: KnowledgeType.PROCEDURAL, label: 'Procedural', icon: <Brain className="w-4 h-4" /> },
   { value: KnowledgeType.CONCEPTUAL, label: 'Conceptual', icon: <Database className="w-4 h-4" /> },
@@ -66,7 +72,7 @@ const KNOWLEDGE_TYPES: { value: KnowledgeType; label: string; icon: React.ReactN
   { value: KnowledgeType.SEMANTIC, label: 'Semantic', icon: <Tag className="w-4 h-4" /> },
 ];
 
-const SOURCE_TYPES: { value: SourceType; label: string }[] = [
+const _SOURCE_TYPES: { value: SourceType; label: string }[] = [
   { value: SourceType.USER_INPUT, label: 'User Input' },
   { value: SourceType.FILE_SYSTEM, label: 'File System' },
   { value: SourceType.GIT_REPOSITORY, label: 'Git Repository' },
@@ -94,24 +100,28 @@ const getContentTitle = (content: string): string => {
   return first.length > 72 ? first.slice(0, 72) + '…' : first;
 };
 
+const getKnowledgeItemType = (item: KnowledgeItem): string | null => {
+  return typeof item.type === 'string' && item.type.length > 0 ? item.type : null;
+};
+
 export const KnowledgePortal: React.FC<KnowledgePortalProps> = ({ className }) => {
   const {
     items,
     searchResults,
-    activeItemId,
-    isLoading,
-    isUploading,
+    activeItemId: _activeItemId,
+    isLoading: _isLoading,
+    isUploading: _isUploading,
     isSearching,
-    error,
-    stats,
-    uploadProgress,
-    uploadKnowledge,
+    error: knowledgeError,
+    stats: _stats,
+    uploadProgress: _uploadProgress,
+    uploadKnowledge: _uploadKnowledge,
     searchKnowledge,
     updateKnowledge,
     deleteKnowledge,
     getRelatedKnowledge,
-    getKnowledgeByTag,
-    setActiveItem,
+    getKnowledgeByTag: _getKnowledgeByTag,
+    setActiveItem: _setActiveItem,
     clearSearchResults,
     clearError,
     refreshStats,
@@ -128,7 +138,7 @@ export const KnowledgePortal: React.FC<KnowledgePortalProps> = ({ className }) =
   useEffect(() => {
     refreshStats();
     fetchAllItems();
-  }, []); // Empty dependency array - only run on mount
+  }, [refreshStats, fetchAllItems]);
 
   // Handle search
   const handleSearch = useCallback(async () => {
@@ -140,8 +150,8 @@ export const KnowledgePortal: React.FC<KnowledgePortalProps> = ({ className }) =
         filters: {},
         timestamp: Date.now(),
       });
-    } catch (error) {
-      console.error('Search failed:', error);
+    } catch (searchError) {
+      console.error('Search failed:', searchError);
     }
   }, [searchQuery, searchKnowledge]);
 
@@ -174,10 +184,10 @@ export const KnowledgePortal: React.FC<KnowledgePortalProps> = ({ className }) =
       </div>
 
       {/* Error Alert */}
-      {error && (
+      {knowledgeError && (
         <Alert className="m-4 border-red-500/50 bg-red-500/10">
           <AlertDescription className="text-red-300">
-            {error}
+            {knowledgeError}
             <Button variant="ghost" size="sm" onClick={clearError} className="ml-2 h-auto p-1">
               ✕
             </Button>
@@ -219,13 +229,18 @@ export const KnowledgePortal: React.FC<KnowledgePortalProps> = ({ className }) =
                           {getContentTitle(item.content || '')}
                         </p>
                         <div className="flex items-center gap-2 flex-wrap">
-                          {(item as any).type && (item as any).type !== 'document' ? (
-                            <span className={`text-xs px-1.5 py-0.5 rounded border font-medium ${ KNOWLEDGE_TYPE_COLORS[(item as any).type] || KNOWLEDGE_TYPE_COLORS.document }`}>
-                              {(item as any).type}
+                          {getKnowledgeItemType(item) &&
+                          getKnowledgeItemType(item) !== 'document' ? (
+                            <span
+                              className={`text-xs px-1.5 py-0.5 rounded border font-medium ${KNOWLEDGE_TYPE_COLORS[getKnowledgeItemType(item) as keyof typeof KNOWLEDGE_TYPE_COLORS] || KNOWLEDGE_TYPE_COLORS.document}`}
+                            >
+                              {getKnowledgeItemType(item)}
                             </span>
                           ) : null}
                           <span className="text-xs text-gray-500">
-                            {item.createdAt ? new Date(item.createdAt).toLocaleDateString() : 'No date'}
+                            {item.createdAt
+                              ? new Date(item.createdAt).toLocaleDateString()
+                              : 'No date'}
                           </span>
                           {(item.tags || []).slice(0, 3).map((tag) => (
                             <Badge key={tag} variant="outline" className="text-xs py-0 h-4">
@@ -333,13 +348,18 @@ export const KnowledgePortal: React.FC<KnowledgePortalProps> = ({ className }) =
                           {getContentTitle(item.content || '')}
                         </p>
                         <div className="flex items-center gap-2 flex-wrap">
-                          {(item as any).type && (item as any).type !== 'document' ? (
-                            <span className={`text-xs px-1.5 py-0.5 rounded border font-medium ${ KNOWLEDGE_TYPE_COLORS[(item as any).type] || KNOWLEDGE_TYPE_COLORS.document }`}>
-                              {(item as any).type}
+                          {getKnowledgeItemType(item) &&
+                          getKnowledgeItemType(item) !== 'document' ? (
+                            <span
+                              className={`text-xs px-1.5 py-0.5 rounded border font-medium ${KNOWLEDGE_TYPE_COLORS[getKnowledgeItemType(item) as keyof typeof KNOWLEDGE_TYPE_COLORS] || KNOWLEDGE_TYPE_COLORS.document}`}
+                            >
+                              {getKnowledgeItemType(item)}
                             </span>
                           ) : null}
                           <span className="text-xs text-gray-500">
-                            {item.createdAt ? new Date(item.createdAt).toLocaleDateString() : 'No date'}
+                            {item.createdAt
+                              ? new Date(item.createdAt).toLocaleDateString()
+                              : 'No date'}
                           </span>
                           {(item.tags || []).slice(0, 3).map((tag) => (
                             <Badge key={tag} variant="outline" className="text-xs py-0 h-4">
@@ -384,9 +404,11 @@ export const KnowledgePortal: React.FC<KnowledgePortalProps> = ({ className }) =
               className="h-full"
               onNodeSelect={(nodeData) => {
                 // Find the knowledge item from the node data
-                const item = Object.values(items).find((item) => item.id === nodeData.id);
-                if (item) {
-                  setSelectedItemForAtomic(item);
+                const matchedItem = Object.values(items).find(
+                  (candidate) => candidate.id === nodeData.id
+                );
+                if (matchedItem) {
+                  setSelectedItemForAtomic(matchedItem);
                   setActiveTab('atomic');
                 }
               }}

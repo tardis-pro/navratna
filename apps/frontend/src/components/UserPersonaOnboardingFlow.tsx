@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, _useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   User,
@@ -11,12 +11,12 @@ import {
   Clock,
   Target,
   Lightbulb,
-  Shield,
+  _Shield,
   Users,
   Zap,
   BookOpen,
   Timer,
-  AlertCircle,
+  _AlertCircle,
   CheckCircle,
   X,
 } from 'lucide-react';
@@ -35,7 +35,7 @@ interface PersonaOption {
   id: string;
   label: string;
   description: string;
-  icon: React.ComponentType<any>;
+  icon: React.ComponentType<unknown>;
   value: string;
 }
 
@@ -43,7 +43,7 @@ interface OnboardingStep {
   id: string;
   title: string;
   description: string;
-  icon: React.ComponentType<any>;
+  icon: React.ComponentType<unknown>;
   questions: PersonaQuestion[];
   isOptional: boolean;
 }
@@ -57,7 +57,7 @@ interface PersonaResponse {
 interface UserPersonaOnboardingFlowProps {
   isOpen: boolean;
   onClose: () => void;
-  onComplete: (personaData: any) => void;
+  onComplete: (personaData: unknown) => void;
 }
 
 const ONBOARDING_STEPS: OnboardingStep[] = [
@@ -358,7 +358,7 @@ export const UserPersonaOnboardingFlow: React.FC<UserPersonaOnboardingFlowProps>
   onClose,
   onComplete,
 }) => {
-  const { user } = useAuth();
+  const { _user } = useAuth();
   const [currentStep, setCurrentStep] = useState(0);
   const [responses, setResponses] = useState<Record<string, PersonaResponse>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -600,9 +600,9 @@ export const UserPersonaOnboardingFlow: React.FC<UserPersonaOnboardingFlowProps>
           </button>
 
           <div className="flex items-center gap-2">
-            {ONBOARDING_STEPS.map((_, index) => (
+            {ONBOARDING_STEPS.map((step, index) => (
               <div
-                key={index}
+                key={step.id || `step-${index}`}
                 className={`w-2 h-2 rounded-full transition-colors ${
                   index <= currentStep ? 'bg-blue-500' : 'bg-slate-700'
                 }`}

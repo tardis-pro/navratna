@@ -10,7 +10,7 @@ interface MCPServerStats {
   lastCallTime?: Date;
 }
 interface MCPServerCapabilities {
-  tools?: Array<{ name: string; description?: string; inputSchema?: any }>;
+  tools?: Array<{ name: string; description?: string; inputSchema?: unknown }>;
   resources?: Array<{ uri: string; name?: string }>;
   prompts?: Array<{ name: string; description?: string }>;
 }
@@ -184,16 +184,16 @@ export class MCPServer extends ExecutionBaseEntity {
 
   // ── Deployment config ──────────────────────────────────────────────────────
   @Column({ name: 'deployment_config', type: 'jsonb', nullable: true })
-  deploymentConfig?: Record<string, any>;
+  deploymentConfig?: Record<string, unknown>;
 
   @Column({ name: 'environment_variables', type: 'jsonb', nullable: true })
   environmentVariables?: Record<string, string>;
 
   @Column({ name: 'resource_limits', type: 'jsonb', nullable: true })
-  resourceLimits?: Record<string, any>;
+  resourceLimits?: Record<string, unknown>;
 
   @Column({ name: 'network_config', type: 'jsonb', nullable: true })
-  networkConfig?: Record<string, any>;
+  networkConfig?: Record<string, unknown>;
 
   // ── Logging / debug ────────────────────────────────────────────────────────
   @Column({
@@ -231,7 +231,7 @@ export class MCPServer extends ExecutionBaseEntity {
 
   // ── Metadata ───────────────────────────────────────────────────────────────
   @Column({ type: 'jsonb', nullable: true })
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 
   @Column({ name: 'external_references', type: 'jsonb', nullable: true })
   externalReferences?: Record<string, string>;

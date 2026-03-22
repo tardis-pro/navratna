@@ -1,5 +1,5 @@
 import { v4 as uuidv4 } from 'uuid';
-import { KnowledgeItem, KnowledgeRelationship, KnowledgeType, SourceType } from '@uaip/types';
+import { KnowledgeType, SourceType } from '@uaip/types';
 import { KnowledgeItemEntity } from '../entities/knowledge-item.entity';
 import { KnowledgeRelationshipEntity } from '../entities/knowledge-relationship.entity';
 import { UserEntity } from '../entities/user.entity';
@@ -35,13 +35,33 @@ export interface KnowledgeBootstrapResult {
   errors: string[];
 }
 
+type UserRepositoryLike = {
+  findById: (id: string) => Promise<UserEntity | null>;
+};
+
+type QdrantCollectionInfo = { result?: { points_count?: number } };
+type QdrantPointPayload = {
+  knowledge_item_id?: string;
+  content?: string;
+  type?: KnowledgeType;
+  [key: string]: unknown;
+};
+type QdrantPoint = { payload?: QdrantPointPayload };
+
+type CreateKnowledgeMetadata = {
+  tags?: string[];
+  confidence?: number;
+  accessLevel?: string;
+  [key: string]: unknown;
+};
+
 export class KnowledgeSyncService {
   constructor(
     private readonly knowledgeRepository: KnowledgeRepository,
     private readonly qdrantService: QdrantService,
     private readonly graphDb: ToolGraphDatabase,
     private readonly embeddingService: EmbeddingService,
-    private readonly userRepository: any // Will be properly typed later
+    private readonly userRepository: UserRepositoryLike
   ) {}
 
   /**
@@ -208,6 +228,7 @@ export class KnowledgeSyncService {
       // Create persona-based relationships
       if (user.userPersona?.domainExpertise) {
         for (const domain of user.userPersona.domainExpertise) {
+          // oxlint-disable-next-line no-await-in-loop
           await this.graphDb.runQuery(
             `
             MATCH (k:Knowledge {id: $knowledgeId})
@@ -360,9 +381,11 @@ export class KnowledgeSyncService {
           }
         });
 
+        // oxlint-disable-next-line no-await-in-loop
         await Promise.allSettled(batchPromises);
 
         // Brief pause between batches
+        // oxlint-disable-next-line no-await-in-loop
         await new Promise((resolve) => setTimeout(resolve, 100));
       }
 
@@ -446,7 +469,7 @@ export class KnowledgeSyncService {
   async createKnowledgeItem(
     content: string,
     type: KnowledgeType,
-    metadata: Record<string, any> = {},
+    metadata: CreateKnowledgeMetadata = {},
     userId?: string,
     agentId?: string
   ): Promise<KnowledgeSyncResult> {
@@ -600,6 +623,7 @@ export class KnowledgeSyncService {
     const relationships = await this.knowledgeRepository.findAllRelationships();
 
     for (const rel of relationships) {
+      // oxlint-disable-next-line no-await-in-loop
       await this.syncRelationshipToNeo4j(rel);
     }
 
@@ -764,7 +788,7 @@ export class KnowledgeSyncService {
     // 3. Discover from Qdrant
     try {
       // Get collection info to see how many points we have
-      const collectionInfo = await this.qdrantService.getCollectionInfo();
+      const collectionInfo = (await this.qdrantService.getCollectionInfo()) as QdrantCollectionInfo;
       const pointsCount = collectionInfo.result?.points_count || 0;
 
       if (pointsCount > 0) {
@@ -781,7 +805,7 @@ export class KnowledgeSyncService {
             itemsMap.set(id, {
               id,
               content: point.payload?.content || '',
-              type: point.payload?.type || 'FACTUAL',
+              type: point.payload?.type || KnowledgeType.FACTUAL,
               metadata: {},
               source: 'qdrant',
               existsIn: { postgres: false, neo4j: false, qdrant: true },
@@ -848,7 +872,7 @@ export class KnowledgeSyncService {
   /**
    * Scroll through all Qdrant points (since there's no "get all" method)
    */
-  private async scrollAllQdrantPoints(): Promise<any[]> {
+  private async scrollAllQdrantPoints(): Promise<QdrantPoint[]> {
     // This is a simplified version - in practice you'd use Qdrant's scroll API
     // For now, we'll use a high limit search with a dummy vector
     try {
@@ -859,7 +883,7 @@ export class KnowledgeSyncService {
         filters: {},
       });
 
-      return searchResult;
+      return searchResult as unknown as QdrantPoint[];
     } catch (error) {
       logger.warn('Failed to scroll Qdrant points:', error);
       return [];
@@ -899,7 +923,7 @@ export class KnowledgeSyncService {
     entity.id = item.id;
     entity.content = item.content;
     entity.type = item.type;
-    entity.sourceType = 'UNIVERSAL_SYNC' as any;
+    entity.sourceType = SourceType.EXTERNAL_API;
     entity.sourceIdentifier = `sync-${item.source}-${item.id}`;
     entity.tags = [];
     entity.confidence = 0.8;
@@ -980,7 +1004,7 @@ export class KnowledgeSyncService {
       `;
 
       const params = {
-        oldId: item.metadata.originalProperties?.id || null,
+        oldId: (item.metadata.originalProperties as { id?: string } | undefined)?.id || null,
         newId: pgEntity.id,
         content: pgEntity.content,
         type: pgEntity.type,
@@ -1197,7 +1221,7 @@ interface UniversalKnowledgeItem {
   id: string;
   content: string;
   type: KnowledgeType;
-  metadata: Record<string, any>;
+  metadata: Record<string, unknown>;
   source: 'postgres' | 'neo4j' | 'qdrant';
   existsIn: {
     postgres: boolean;
@@ -1205,6 +1229,6 @@ interface UniversalKnowledgeItem {
     qdrant: boolean;
   };
   pgEntity?: KnowledgeItemEntity;
-  qdrantPayload?: any;
+  qdrantPayload?: unknown;
   needsConversion?: boolean; // Flag for nodes that need to be converted to KnowledgeItem
 }

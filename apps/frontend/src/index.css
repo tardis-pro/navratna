@@ -1,4 +1,4 @@
-@import "tailwindcss";
+@import 'tailwindcss';
 
 @theme {
   /* Font Size Scale - Adjust these values to change global font sizes */
@@ -47,7 +47,7 @@
   --color-sidebar-foreground: oklch(26.1% 0.011 256.85);
   --color-sidebar-primary: oklch(10% 0.012 256.85);
   --color-sidebar-primary-foreground: oklch(98% 0 0);
-  --color-sidebar-accent: oklch(95.9% 0.010 256.85);
+  --color-sidebar-accent: oklch(95.9% 0.01 256.85);
   --color-sidebar-accent-foreground: oklch(10% 0.012 256.85);
   --color-sidebar-border: oklch(91% 0.026 220);
   --color-sidebar-ring: oklch(59.8% 0.182 217.2);
@@ -89,7 +89,7 @@
     --color-secondary-foreground: oklch(98% 0.016 285.82);
 
     --color-muted: oklch(17.5% 0.065 217.2);
-    --color-muted-foreground: oklch(65.1% 0.040 215);
+    --color-muted-foreground: oklch(65.1% 0.04 215);
 
     --color-accent: oklch(17.5% 0.065 217.2);
     --color-accent-foreground: oklch(98% 0.016 285.82);
@@ -103,11 +103,11 @@
     --color-ring-offset-background: oklch(4.9% 0.024 285.82);
 
     --color-sidebar-background: oklch(10% 0.012 240);
-    --color-sidebar-foreground: oklch(95.9% 0.010 240);
+    --color-sidebar-foreground: oklch(95.9% 0.01 240);
     --color-sidebar-primary: oklch(48% 0.152 224.3);
     --color-sidebar-primary-foreground: oklch(100% 0 0);
     --color-sidebar-accent: oklch(15.9% 0.007 240);
-    --color-sidebar-accent-foreground: oklch(95.9% 0.010 240);
+    --color-sidebar-accent-foreground: oklch(95.9% 0.01 240);
     --color-sidebar-border: oklch(15.9% 0.007 240);
     --color-sidebar-ring: oklch(59.8% 0.182 217.2);
 
@@ -219,19 +219,19 @@
 }
 
 @keyframes pulseGlow {
-
   0%,
   100% {
     box-shadow: 0 0 5px rgba(59, 130, 246, 0.5);
   }
 
   50% {
-    box-shadow: 0 0 20px rgba(59, 130, 246, 0.8), 0 0 30px rgba(59, 130, 246, 0.6);
+    box-shadow:
+      0 0 20px rgba(59, 130, 246, 0.8),
+      0 0 30px rgba(59, 130, 246, 0.6);
   }
 }
 
 @keyframes gradientShift {
-
   0%,
   100% {
     background-position: 0% 50%;
@@ -243,7 +243,6 @@
 }
 
 @keyframes float {
-
   0%,
   100% {
     transform: translateY(0px);
@@ -285,7 +284,6 @@
 }
 
 @keyframes pulse-glow {
-
   0%,
   100% {
     box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.4);
@@ -360,7 +358,9 @@
 }
 
 .btn-hover-lift {
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  transition:
+    transform 0.2s ease,
+    box-shadow 0.2s ease;
 }
 
 .btn-hover-lift:hover {
@@ -378,7 +378,9 @@
 @layer base {
   body {
     @apply bg-background text-foreground;
-    font-feature-settings: "rlig" 1, "calt" 1;
+    font-feature-settings:
+      'rlig' 1,
+      'calt' 1;
   }
 
   h1,
@@ -443,24 +445,31 @@
 
 /* Portal Glow Effects */
 .portal-glow-blue {
-  box-shadow: 0 0 20px rgba(59, 130, 246, 0.3), 0 0 40px rgba(59, 130, 246, 0.1);
+  box-shadow:
+    0 0 20px rgba(59, 130, 246, 0.3),
+    0 0 40px rgba(59, 130, 246, 0.1);
 }
 
 .portal-glow-purple {
-  box-shadow: 0 0 20px rgba(168, 85, 247, 0.3), 0 0 40px rgba(168, 85, 247, 0.1);
+  box-shadow:
+    0 0 20px rgba(168, 85, 247, 0.3),
+    0 0 40px rgba(168, 85, 247, 0.1);
 }
 
 .portal-glow-green {
-  box-shadow: 0 0 20px rgba(34, 197, 94, 0.3), 0 0 40px rgba(34, 197, 94, 0.1);
+  box-shadow:
+    0 0 20px rgba(34, 197, 94, 0.3),
+    0 0 40px rgba(34, 197, 94, 0.1);
 }
 
 .portal-glow-orange {
-  box-shadow: 0 0 20px rgba(249, 115, 22, 0.3), 0 0 40px rgba(249, 115, 22, 0.1);
+  box-shadow:
+    0 0 20px rgba(249, 115, 22, 0.3),
+    0 0 40px rgba(249, 115, 22, 0.1);
 }
 
 /* Portal Animation Keyframes */
 @keyframes portal-pulse {
-
   0%,
   100% {
     transform: scale(1);
@@ -474,14 +483,15 @@
 }
 
 @keyframes portal-glow {
-
   0%,
   100% {
     box-shadow: 0 0 20px rgba(59, 130, 246, 0.2);
   }
 
   50% {
-    box-shadow: 0 0 30px rgba(59, 130, 246, 0.4), 0 0 60px rgba(59, 130, 246, 0.1);
+    box-shadow:
+      0 0 30px rgba(59, 130, 246, 0.4),
+      0 0 60px rgba(59, 130, 246, 0.1);
   }
 }
 
@@ -691,7 +701,6 @@
 
 /* Portal Reduced Motion */
 @media (prefers-reduced-motion: reduce) {
-
   .portal-pulse,
   .portal-glow,
   .portal-shimmer,
@@ -754,7 +763,8 @@
 
 /* Microexpression Animations */
 @keyframes microexpression-pulse {
-  0%, 100% {
+  0%,
+  100% {
     transform: scale(1);
     opacity: 1;
   }
@@ -765,7 +775,8 @@
 }
 
 @keyframes microexpression-alarm {
-  0%, 100% {
+  0%,
+  100% {
     transform: scale(1);
     box-shadow: 0 0 8px oklch(55% 0.22 25 / 0.5);
   }
@@ -776,7 +787,8 @@
 }
 
 @keyframes microexpression-confused {
-  0%, 100% {
+  0%,
+  100% {
     opacity: 1;
     transform: translateY(0);
   }

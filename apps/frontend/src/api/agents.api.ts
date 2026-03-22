@@ -10,13 +10,13 @@ import type {
   AgentRole,
   AgentCreate,
   AgentUpdate,
-  AgentIntelligenceConfig,
+  _AgentIntelligenceConfig,
   AgentSecurityContext,
   ConversationContext,
   ContextAnalysis,
   AgentAnalysisResult,
   ExecutionPlan,
-  SecurityLevel,
+  _SecurityLevel,
   AgentStatus,
   AgentContextData,
 } from '@uaip/types';
@@ -61,13 +61,13 @@ export interface AgentLearningData {
   executionId: string;
   outcome: 'success' | 'failure' | 'partial';
   feedback?: string;
-  metrics?: Record<string, any>;
+  metrics?: Record<string, unknown>;
 }
 
 export interface AgentParticipationRequest {
   discussionId: string;
   message?: string;
-  turnData?: any;
+  turnData?: unknown;
 }
 
 export interface AgentChatRequest {
@@ -80,7 +80,7 @@ export interface AgentChatResponse {
   response: string;
   conversationId: string;
   timestamp: string;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 export const agentsAPI = {
@@ -137,11 +137,11 @@ export const agentsAPI = {
     return APIClient.post<AgentChatResponse>(`${API_ROUTES.AGENTS.CHAT}/${id}/chat`, request);
   },
 
-  async getMetrics(id: string, days: number = 30): Promise<Record<string, any>> {
+  async getMetrics(id: string, days: number = 30): Promise<Record<string, unknown>> {
     return APIClient.get(`${API_ROUTES.AGENTS.GET}/${id}/metrics`, { params: { days } });
   },
 
-  async assignTool(agentId: string, toolId: string, permissions?: any): Promise<void> {
+  async assignTool(agentId: string, toolId: string, permissions?: unknown): Promise<void> {
     return APIClient.post(`${API_ROUTES.AGENTS.GET}/${agentId}/tools/${toolId}`, permissions || {});
   },
 
@@ -149,11 +149,11 @@ export const agentsAPI = {
     return APIClient.delete(`${API_ROUTES.AGENTS.GET}/${agentId}/tools/${toolId}`);
   },
 
-  async getTools(id: string): Promise<any[]> {
+  async getTools(id: string): Promise<unknown[]> {
     return APIClient.get(`${API_ROUTES.AGENTS.GET}/${id}/tools`);
   },
 
-  async executeTool(agentId: string, toolName: string, input: any): Promise<any> {
+  async executeTool(agentId: string, toolName: string, input: unknown): Promise<unknown> {
     return APIClient.post(`${API_ROUTES.AGENTS.GET}/${agentId}/tools/${toolName}/execute`, input);
   },
 

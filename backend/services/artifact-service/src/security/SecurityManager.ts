@@ -181,7 +181,7 @@ export class SecurityManagerImpl implements SecurityManager {
   /**
    * Rate limiting check (basic implementation)
    */
-  private rateLimitCheck(userId: string): boolean {
+  private rateLimitCheck(_userId: string): boolean {
     // In a real implementation, this would check against a rate limiting store
     // For now, just return true
     return true;
@@ -190,7 +190,7 @@ export class SecurityManagerImpl implements SecurityManager {
   /**
    * Log security events
    */
-  private logSecurityEvent(event: string, details: any) {
+  private logSecurityEvent(event: string, details: Record<string, unknown>) {
     logger.warn('Security event', {
       event,
       timestamp: new Date().toISOString(),

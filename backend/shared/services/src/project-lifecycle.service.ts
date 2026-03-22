@@ -46,7 +46,7 @@ export interface ProjectAutomation {
   };
   actions: Array<{
     type: 'notify' | 'reassign' | 'pause' | 'escalate' | 'archive';
-    config: any;
+    config: unknown;
   }>;
   isActive: boolean;
   lastExecuted?: Date;
@@ -121,7 +121,7 @@ export class ProjectLifecycleService {
         agentHealth,
         recommendations,
         metrics: {
-          budgetUtilization: (project as any).budgetUtilization ?? 0,
+          budgetUtilization: (project as unknown).budgetUtilization ?? 0,
           completionRate: metrics.completionRate,
           averageTaskDuration: metrics.averageTaskDuration,
           activeAgents: metrics.agentPerformance.length,
@@ -171,28 +171,32 @@ export class ProjectLifecycleService {
   async executeAutomations(projectId: string): Promise<void> {
     const automations = this.automations.get(projectId) || [];
 
-    for (const automation of automations.filter((a) => a.isActive)) {
-      try {
-        const shouldExecute = await this.shouldExecuteAutomation(automation);
+    await Promise.all(
+      automations
+        .filter((a) => a.isActive)
+        .map(async (automation) => {
+          try {
+            const shouldExecute = await this.shouldExecuteAutomation(automation);
 
-        if (shouldExecute) {
-          await this.executeAutomationActions(automation);
-          automation.lastExecuted = new Date();
+            if (shouldExecute) {
+              await this.executeAutomationActions(automation);
+              automation.lastExecuted = new Date();
 
-          logger.info('Automation executed', {
-            automationId: automation.id,
-            projectId,
-            type: automation.type,
-          });
-        }
-      } catch (error) {
-        logger.error('Failed to execute automation', {
-          error,
-          automationId: automation.id,
-          projectId,
-        });
-      }
-    }
+              logger.info('Automation executed', {
+                automationId: automation.id,
+                projectId,
+                type: automation.type,
+              });
+            }
+          } catch (error) {
+            logger.error('Failed to execute automation', {
+              error,
+              automationId: automation.id,
+              projectId,
+            });
+          }
+        })
+    );
   }
 
   /**
@@ -244,20 +248,27 @@ export class ProjectLifecycleService {
    * Acknowledge an alert
    */
   async acknowledgeAlert(alertId: string): Promise<void> {
-    for (const [projectId, alerts] of this.alerts.entries()) {
+    const matchedEntry = Array.from(this.alerts.entries()).find(([, alerts]) =>
+      alerts.some((a) => a.id === alertId)
+    );
+
+    if (matchedEntry) {
+      const [projectId, alerts] = matchedEntry;
       const alert = alerts.find((a) => a.id === alertId);
-      if (alert) {
-        alert.acknowledged = true;
-
-        await this.eventBusService.publish('project.alert.acknowledged', {
-          alertId,
-          projectId,
-          acknowledgedAt: new Date(),
-        });
-
-        logger.info('Alert acknowledged', { alertId, projectId });
-        return;
+      if (!alert) {
+        throw new Error(`Alert ${alertId} not found`);
       }
+
+      alert.acknowledged = true;
+
+      await this.eventBusService.publish('project.alert.acknowledged', {
+        alertId,
+        projectId,
+        acknowledgedAt: new Date(),
+      });
+
+      logger.info('Alert acknowledged', { alertId, projectId });
+      return;
     }
 
     throw new Error(`Alert ${alertId} not found`);
@@ -305,57 +316,63 @@ export class ProjectLifecycleService {
         limit: 100,
       });
 
-      for (const project of projects) {
-        try {
-          const healthCheck = await this.performHealthCheck(project.id);
+      await Promise.all(
+        projects.map(async (project) => {
+          try {
+            const healthCheck = await this.performHealthCheck(project.id);
 
-          // Execute automations based on health
-          if (healthCheck.overallHealth === 'critical' || healthCheck.overallHealth === 'warning') {
-            await this.executeAutomations(project.id);
+            if (
+              healthCheck.overallHealth === 'critical' ||
+              healthCheck.overallHealth === 'warning'
+            ) {
+              await this.executeAutomations(project.id);
+            }
+          } catch (error) {
+            logger.error('Health check failed for project', {
+              error,
+              projectId: project.id,
+            });
           }
-        } catch (error) {
-          logger.error('Health check failed for project', {
-            error,
-            projectId: project.id,
-          });
-        }
-      }
+        })
+      );
     } catch (error) {
       logger.error('Scheduled health check run failed', { error });
     }
   }
 
   private assessBudgetHealth(project: ProjectEntity): 'on-track' | 'over-budget' | 'critical' {
-    const utilization = (project as any).budgetUtilization ?? 0;
+    const utilization = (project as unknown).budgetUtilization ?? 0;
     if (utilization > 100) return 'critical';
     if (utilization > 85) return 'over-budget';
     return 'on-track';
   }
 
   private assessScheduleHealth(project: ProjectEntity): 'on-time' | 'delayed' | 'overdue' {
-    if ((project as any).isOverdue) return 'overdue';
+    if ((project as unknown).isOverdue) return 'overdue';
 
     // Calculate if we're behind schedule based on completion rate vs time elapsed
-    if ((project as any).endDate) {
-      const totalDuration = (project as any).endDate.getTime() - ((project as any).startDate?.getTime() ?? 0);
-      const elapsed = Date.now() - ((project as any).startDate?.getTime() ?? 0);
+    if ((project as unknown).endDate) {
+      const totalDuration =
+        (project as unknown).endDate.getTime() - ((project as unknown).startDate?.getTime() ?? 0);
+      const elapsed = Date.now() - ((project as unknown).startDate?.getTime() ?? 0);
       const expectedCompletion = (elapsed / totalDuration) * 100;
 
-      if (((project as any).completionPercentage ?? 0) < expectedCompletion - 20) return 'delayed';
+      if (((project as unknown).completionPercentage ?? 0) < expectedCompletion - 20)
+        return 'delayed';
     }
 
     return 'on-time';
   }
 
-  private assessTaskHealth(metrics: any): 'progressing' | 'stalled' | 'blocked' {
+  private assessTaskHealth(metrics: unknown): 'progressing' | 'stalled' | 'blocked' {
     if (metrics.taskCompletionRate === 0) return 'blocked';
     if (metrics.taskCompletionRate < 20) return 'stalled';
     return 'progressing';
   }
 
-  private assessAgentHealth(metrics: any): 'active' | 'inactive' | 'overloaded' {
+  private assessAgentHealth(metrics: unknown): 'active' | 'inactive' | 'overloaded' {
     const activeAgents = metrics.agentPerformance.filter(
-      (agent: any) => agent.tasksCompleted > 0
+      (agent: unknown) => agent.tasksCompleted > 0
     ).length;
     const totalAgents = metrics.agentPerformance.length;
 
@@ -386,7 +403,7 @@ export class ProjectLifecycleService {
 
   private generateRecommendations(
     project: ProjectEntity,
-    metrics: any,
+    metrics: unknown,
     budgetHealth: string,
     scheduleHealth: string,
     taskHealth: string,
@@ -445,7 +462,7 @@ export class ProjectLifecycleService {
     return recommendations;
   }
 
-  private async getTaskHealthMetrics(projectId: string): Promise<{
+  private async getTaskHealthMetrics(_projectId: string): Promise<{
     overdueTasksCount: number;
     blockedTasks: number;
   }> {
@@ -456,7 +473,10 @@ export class ProjectLifecycleService {
     };
   }
 
-  private async checkForAlerts(project: ProjectEntity, healthCheck: ProjectHealthCheck): Promise<void> {
+  private async checkForAlerts(
+    project: ProjectEntity,
+    healthCheck: ProjectHealthCheck
+  ): Promise<void> {
     const alerts: ProjectAlert[] = [];
 
     // Budget alerts
@@ -514,9 +534,9 @@ export class ProjectLifecycleService {
       this.alerts.set(project.id, [...existingAlerts, ...alerts]);
 
       // Emit alert events
-      for (const alert of alerts) {
-        await this.eventBusService.publish('project.alert.created', alert);
-      }
+      await Promise.all(
+        alerts.map((alert) => this.eventBusService.publish('project.alert.created', alert))
+      );
     }
   }
 
@@ -539,14 +559,15 @@ export class ProjectLifecycleService {
     };
   }
 
-  private async shouldExecuteAutomation(automation: ProjectAutomation): Promise<boolean> {
+  private async shouldExecuteAutomation(_automation: ProjectAutomation): Promise<boolean> {
     // Implement automation condition checking
     // This would check the trigger conditions against current project state
     return false; // Simplified for now
   }
 
   private async executeAutomationActions(automation: ProjectAutomation): Promise<void> {
-    for (const action of automation.actions) {
+    await automation.actions.reduce<Promise<void>>(async (previous, action) => {
+      await previous;
       try {
         switch (action.type) {
           case 'notify':
@@ -572,10 +593,10 @@ export class ProjectLifecycleService {
           actionType: action.type,
         });
       }
-    }
+    }, Promise.resolve());
   }
 
-  private async executeNotifyAction(projectId: string, config: any): Promise<void> {
+  private async executeNotifyAction(projectId: string, config: unknown): Promise<void> {
     await this.eventBusService.publish('project.notification', {
       projectId,
       message: config.message,
@@ -583,19 +604,19 @@ export class ProjectLifecycleService {
     });
   }
 
-  private async executeReassignAction(projectId: string, config: any): Promise<void> {
+  private async executeReassignAction(projectId: string, config: unknown): Promise<void> {
     // Implementation for task reassignment
     logger.info('Reassign action executed', { projectId, config });
   }
 
-  private async executePauseAction(projectId: string, config: any): Promise<void> {
+  private async executePauseAction(projectId: string, _config: unknown): Promise<void> {
     await this.projectService.updateProject(projectId, {
       status: ProjectStatus.PAUSED,
       metadata: { pausedBy: 'automation', pausedAt: new Date() },
     });
   }
 
-  private async executeEscalateAction(projectId: string, config: any): Promise<void> {
+  private async executeEscalateAction(projectId: string, config: unknown): Promise<void> {
     await this.eventBusService.publish('project.escalation', {
       projectId,
       escalationLevel: config.level,
@@ -604,7 +625,7 @@ export class ProjectLifecycleService {
   }
 
   // Event handlers
-  private async onProjectCreated(event: any): Promise<void> {
+  private async onProjectCreated(event: unknown): Promise<void> {
     const { projectId } = event;
 
     // Set up default automations for new projects
@@ -630,7 +651,7 @@ export class ProjectLifecycleService {
     logger.info('Default automations created for new project', { projectId });
   }
 
-  private async onTaskUpdated(event: any): Promise<void> {
+  private async onTaskUpdated(event: unknown): Promise<void> {
     const { projectId, statusChanged } = event;
 
     if (statusChanged && projectId) {
@@ -639,13 +660,13 @@ export class ProjectLifecycleService {
     }
   }
 
-  private async onToolUsageRecorded(event: any): Promise<void> {
+  private async onToolUsageRecorded(event: unknown): Promise<void> {
     const { projectId, cost } = event;
 
     // Check if this tool usage pushes project over budget
     if (cost > 0 && projectId) {
       const project = await this.projectService.getProject(projectId);
-      if (project && (project as any).isOverBudget) {
+      if (project && (project as unknown).isOverBudget) {
         await this.executeAutomations(projectId);
       }
     }

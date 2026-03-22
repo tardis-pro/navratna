@@ -1,16 +1,16 @@
-import { TEIEmbeddingService, RerankResult } from './tei-embedding.service.js';
+import { TEIEmbeddingService } from './tei-embedding.service.js';
 import { QdrantService } from '@/knowledge-graph/qdrant.service';
 
-interface VectorSearchResult {
+interface _VectorSearchResult {
   id: string;
   score: number;
-  payload?: any;
+  payload?: Record<string, unknown>;
 }
 
 export interface SearchResult {
   id: string;
   content: string;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
   score: number;
   embedding?: number[];
 }
@@ -27,7 +27,7 @@ export interface SearchOptions {
   useReranking?: boolean;
   rerankTopK?: number;
   includeEmbeddings?: boolean;
-  filters?: Record<string, any>;
+  filters?: Record<string, unknown>;
 }
 
 export class EnhancedRAGService {
@@ -102,7 +102,7 @@ export class EnhancedRAGService {
       return results;
     } catch (error) {
       console.error('Enhanced semantic search failed:', error);
-      throw new Error(`Semantic search failed: ${error.message}`);
+      throw new Error(`Semantic search failed: ${error.message}`, { cause: error });
     }
   }
 
@@ -133,7 +133,7 @@ export class EnhancedRAGService {
     documents: Array<{
       id: string;
       content: string;
-      metadata?: Record<string, any>;
+      metadata?: Record<string, unknown>;
     }>
   ): Promise<void> {
     if (!documents || documents.length === 0) {
@@ -157,7 +157,7 @@ export class EnhancedRAGService {
       await this.vectorStore.upsert(vectorDocuments);
     } catch (error) {
       console.error('Document indexing failed:', error);
-      throw new Error(`Failed to index documents: ${error.message}`);
+      throw new Error(`Failed to index documents: ${error.message}`, { cause: error });
     }
   }
 
@@ -197,7 +197,7 @@ export class EnhancedRAGService {
         }));
     } catch (error) {
       console.error('Similar documents search failed:', error);
-      throw new Error(`Failed to find similar documents: ${error.message}`);
+      throw new Error(`Failed to find similar documents: ${error.message}`, { cause: error });
     }
   }
 
@@ -242,8 +242,8 @@ export class EnhancedRAGService {
    * Check service health
    */
   async checkHealth(): Promise<{
-    embedding: any;
-    reranker: any;
+    embedding: Record<string, unknown>;
+    reranker: Record<string, unknown>;
     vectorStore: boolean;
   }> {
     try {

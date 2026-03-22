@@ -5,7 +5,7 @@
 
 import { APIClient } from './client';
 import { API_ROUTES } from '@/config/apiConfig';
-import type { RiskLevel, SecurityLevel } from '@uaip/types';
+import type { RiskLevel, _SecurityLevel } from '@uaip/types';
 
 export interface SecurityPolicy {
   id: string;
@@ -23,7 +23,7 @@ export interface SecurityRule {
   type: 'allow' | 'deny' | 'require_approval';
   resource: string;
   action: string;
-  conditions?: Record<string, any>;
+  conditions?: Record<string, unknown>;
   riskLevel?: RiskLevel;
 }
 
@@ -59,7 +59,7 @@ export interface SecurityEvent {
   action?: string;
   outcome: 'success' | 'failure' | 'blocked';
   timestamp: string;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 export interface SecurityStats {
@@ -94,7 +94,7 @@ export interface PolicyUpdate {
 }
 
 export const securityAPI = {
-  async assessRisk(resource: string, action: string, context?: any): Promise<RiskAssessment> {
+  async assessRisk(resource: string, action: string, context?: unknown): Promise<RiskAssessment> {
     return APIClient.post<RiskAssessment>(API_ROUTES.SECURITY.ASSESS_RISK, {
       resource,
       action,
@@ -105,7 +105,7 @@ export const securityAPI = {
   async checkApprovalRequired(
     resource: string,
     action: string,
-    context?: any
+    context?: unknown
   ): Promise<{
     required: boolean;
     requirements?: ApprovalRequirement[];

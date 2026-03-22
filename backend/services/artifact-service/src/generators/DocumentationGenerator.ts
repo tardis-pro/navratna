@@ -69,7 +69,8 @@ export class DocumentationGenerator implements ArtifactGenerator {
     } catch (error) {
       logger.error('Documentation generation failed:', error);
       throw new Error(
-        `Documentation generation failed: ${error instanceof Error ? error.message : 'Unknown error'}`
+        `Documentation generation failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        { cause: error }
       );
     }
   }
@@ -90,7 +91,7 @@ export class DocumentationGenerator implements ArtifactGenerator {
 
   // Private helper methods
 
-  private detectDocumentationType(messages: any[]): string {
+  private detectDocumentationType(messages: Array<{ content: string }>): string {
     for (const message of messages) {
       const content = message.content.toLowerCase();
 
@@ -108,7 +109,7 @@ export class DocumentationGenerator implements ArtifactGenerator {
     return 'generic';
   }
 
-  private extractProjectName(messages: any[]): string | null {
+  private extractProjectName(messages: Array<{ content: string }>): string | null {
     for (const message of messages) {
       const projectMatch = message.content.match(
         /project\s+(\w+)|(\w+)\s*project|building\s+(\w+)|creating\s+(\w+)/i
@@ -120,7 +121,7 @@ export class DocumentationGenerator implements ArtifactGenerator {
     return null;
   }
 
-  private extractFeatures(messages: any[]): string[] {
+  private extractFeatures(messages: Array<{ content: string }>): string[] {
     const features: string[] = [];
 
     for (const message of messages) {
@@ -139,7 +140,7 @@ export class DocumentationGenerator implements ArtifactGenerator {
     return features.slice(0, 8);
   }
 
-  private extractAPIEndpoints(messages: any[]): string[] {
+  private extractAPIEndpoints(messages: Array<{ content: string }>): string[] {
     const endpoints: string[] = [];
 
     for (const message of messages) {

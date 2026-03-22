@@ -1,13 +1,13 @@
 # OpenShell Tool Ephemeral Policy
 # For one-off tool executions (browser automation, GOG, scrapers)
 
-version: "1.0"
+version: '1.0'
 name: tool-ephemeral
 terms: []
 
 sandbox:
   type: ephemeral
-  timeout: 300  # 5 minutes max
+  timeout: 300 # 5 minutes max
   max_instances: 20
 
 resources:
@@ -30,7 +30,7 @@ network:
       - google.com
       - github.com
     denied:
-      - "*"
+      - '*'
 
 process:
   allowed:

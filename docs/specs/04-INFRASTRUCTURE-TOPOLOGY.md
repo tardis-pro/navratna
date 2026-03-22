@@ -1,7 +1,9 @@
 ---
+
 # Infrastructure Topology — Navratna v3.0
 
 ## Document Control
+
 - **Version**: 1.0
 - **Date**: 2026-03-21
 - **Purpose**: Define the multi-machine local-first infrastructure with RunPod burst
@@ -25,7 +27,7 @@ role: memory-intelligence
 services:
   databases:
     - postgresql:
-        version: "16-alpine"
+        version: '16-alpine'
         port: 5432
         data: /data/navratna/pg/
         memory: 256MB
@@ -35,7 +37,7 @@ services:
           max_connections: 100
 
     - neo4j:
-        version: "2025.04.0-community"
+        version: '2025.04.0-community'
         ports: [7474, 7687]
         data: /data/navratna/neo4j/
         memory: 512MB (heap capped)
@@ -44,13 +46,13 @@ services:
           dbms.memory.pagecache.size: 256m
 
     - qdrant:
-        version: "1.14.1"
+        version: '1.14.1'
         ports: [6333, 6334]
         data: /data/navratna/qdrant/
         memory: 512MB
 
     - redis:
-        version: "8-alpine"
+        version: '8-alpine'
         port: 6379
         data: /data/navratna/redis/
         memory: 256MB
@@ -70,16 +72,16 @@ services:
         data: /data/navratna/models/
         memory: 2-8GB (depends on loaded model)
         models:
-          always_loaded: [nomic-embed-text]  # embeddings
+          always_loaded: [nomic-embed-text] # embeddings
           on_demand: [llama-3.1-70b, codestral-22b, qwen-2.5-coder-32b]
 
 storage:
-  /data/navratna/pg/:       50GB   # PostgreSQL data
-  /data/navratna/neo4j/:    30GB   # Graph data
-  /data/navratna/qdrant/:   20GB   # Vector indices
-  /data/navratna/redis/:     5GB   # Cache + BullMQ
-  /data/navratna/models/:  100GB   # Ollama model weights
-  /data/navratna/backups/:  50GB   # Nightly snapshots
+  /data/navratna/pg/: 50GB # PostgreSQL data
+  /data/navratna/neo4j/: 30GB # Graph data
+  /data/navratna/qdrant/: 20GB # Vector indices
+  /data/navratna/redis/: 5GB # Cache + BullMQ
+  /data/navratna/models/: 100GB # Ollama model weights
+  /data/navratna/backups/: 50GB # Nightly snapshots
   # TOTAL: ~255GB → 512GB NVMe recommended
 
 estimated_memory: 4-10GB (without GPU models loaded)
@@ -116,12 +118,12 @@ services:
         privacy_router: active
 
 storage:
-  /data/repos/:        120GB   # 10 hot repos (4-12GB each)
-  /data/cache/images/:  30GB   # Container image cache
-  /data/cache/pnpm/:    10GB   # Shared pnpm store
-  /data/cache/pip/:      5GB   # Python package cache
-  /data/cache/contexts/: 5GB   # Claude Code context snapshots
-  /data/scratch/:       30GB   # Temp build artifacts
+  /data/repos/: 120GB # 10 hot repos (4-12GB each)
+  /data/cache/images/: 30GB # Container image cache
+  /data/cache/pnpm/: 10GB # Shared pnpm store
+  /data/cache/pip/: 5GB # Python package cache
+  /data/cache/contexts/: 5GB # Claude Code context snapshots
+  /data/scratch/: 30GB # Temp build artifacts
   # TOTAL: ~200GB → 500GB NVMe recommended
 
 estimated_memory: 4-12GB (depends on sandbox count)
@@ -142,7 +144,7 @@ services:
         features:
           global_hotkey: true
           system_tray: true
-          deep_links: "telescope://"
+          deep_links: 'telescope://'
           local_mcp_sidecars: true
 
     - nginx:
@@ -165,9 +167,9 @@ services:
         memory: 256MB
 
 storage:
-  /data/repos/:        120GB   # 10 hot repos
-  /data/cache/:         50GB   # Same cache structure as PC-B
-  /data/local-work/:    50GB   # Personal coding sessions
+  /data/repos/: 120GB # 10 hot repos
+  /data/cache/: 50GB # Same cache structure as PC-B
+  /data/local-work/: 50GB # Personal coding sessions
   # TOTAL: ~220GB → 500GB SSD recommended
 
 estimated_memory: 4-10GB (depends on sandbox count)
@@ -176,6 +178,7 @@ estimated_memory: 4-10GB (depends on sandbox count)
 ## Networking: Tailscale Mesh
 
 ### Setup
+
 ```bash
 # On each machine:
 curl -fsSL https://tailscale.com/install.sh | sh
@@ -185,6 +188,7 @@ tailscale up --hostname=mac-navratna    # Mac
 ```
 
 ### DNS (MagicDNS)
+
 ```
 pc-a-navratna.tailnet:5432     → PostgreSQL
 pc-a-navratna.tailnet:7687     → Neo4j Bolt
@@ -198,25 +202,26 @@ mac-navratna.tailnet:5173      → Telescope Dev
 ```
 
 ### ACLs (Tailscale Policy)
+
 ```json
 {
   "acls": [
     // All local machines can reach each other
-    {"action": "accept", "src": ["tag:navratna"], "dst": ["tag:navratna:*"]},
+    { "action": "accept", "src": ["tag:navratna"], "dst": ["tag:navratna:*"] },
 
     // RunPod can reach: Gateway (auth), Core (tasks), Redis (events)
-    {"action": "accept", "src": ["tag:runpod"], "dst": [
-      "tag:navratna-gateway:3002",
-      "tag:navratna-core:3001",
-      "tag:navratna-redis:6379"
-    ]},
+    {
+      "action": "accept",
+      "src": ["tag:runpod"],
+      "dst": ["tag:navratna-gateway:3002", "tag:navratna-core:3001", "tag:navratna-redis:6379"]
+    },
 
     // RunPod CANNOT reach databases directly
-    {"action": "deny", "src": ["tag:runpod"], "dst": [
-      "tag:navratna-pca:5432",
-      "tag:navratna-pca:7687",
-      "tag:navratna-pca:6333"
-    ]}
+    {
+      "action": "deny",
+      "src": ["tag:runpod"],
+      "dst": ["tag:navratna-pca:5432", "tag:navratna-pca:7687", "tag:navratna-pca:6333"]
+    }
   ]
 }
 ```
@@ -226,6 +231,7 @@ mac-navratna.tailnet:5173      → Telescope Dev
 RunPod is NOT part of the cluster. It's a mercenary. Ephemeral pods that join the Tailscale mesh, do work, and leave.
 
 ### When RunPod Activates
+
 ```yaml
 burst_triggers:
   - condition: local_cpu_utilization > 85%
@@ -246,6 +252,7 @@ never_on_runpod:
 ```
 
 ### RunPod Pod Lifecycle
+
 ```
 1. Orchestration Pipeline decides to burst
 2. API call: RunPod create pod (16c/64GB CPU or A40 GPU)
@@ -261,6 +268,7 @@ never_on_runpod:
 ```
 
 ### RunPod Pod Specs
+
 ```yaml
 cpu_pod:
   gpu: 0
@@ -282,6 +290,7 @@ gpu_pod:
 ## Task Routing Intelligence
 
 ### Affinity Rules
+
 ```yaml
 routing:
   strategy: volume-affinity-first
@@ -301,17 +310,18 @@ routing:
     # If neither has the volume, clone is fast on local net
     - if: volume_cold
       then: route_to(least_loaded)
-      note: "git clone + pnpm install from cache = ~2-3 min"
+      note: 'git clone + pnpm install from cache = ~2-3 min'
 
     # Overflow to RunPod only when local is saturated
     - if: all_local_saturated
       then: route_to(runpod)
-      constraint: "trust_level != ring-0"
+      constraint: 'trust_level != ring-0'
 ```
 
 ## Repo Volume Lifecycle
 
 ### States
+
 ```
 HOT:    Repo with active tasks
         → Volume mounted, recent git fetch, deps installed
@@ -335,6 +345,7 @@ FROZEN: Repo untouched 30+ days
 ```
 
 ### Nightly Maintenance Job
+
 ```bash
 # Runs on PC-B at 2AM local time
 for repo in $(navratna repos list --format=json); do
@@ -364,6 +375,7 @@ done
 ## Caching Strategy
 
 ### Container Image Cache
+
 ```
 Problem: 5GB coding workspace image = 2-5 min cold start
 Solution: Pre-built golden images on each machine
@@ -379,6 +391,7 @@ Pre-pull on PC-B + Mac → 0s image pull
 ```
 
 ### Dependency Cache (Shared)
+
 ```
 /data/cache/pnpm-store/    10GB (shared pnpm content-addressable store)
 /data/cache/pip-cache/      5GB (shared pip packages)
@@ -390,6 +403,7 @@ pip install: 1min → 3sec (cache hit)
 ```
 
 ### Model Weight Cache (PC-A)
+
 ```
 /data/navratna/models/
   ├── manifests/           (model metadata)
@@ -405,6 +419,7 @@ Embedding model always warm for Qdrant indexing
 ```
 
 ### Context Snapshot Cache
+
 ```
 After each sandbox session:
   1. Export Claude Code's project understanding
@@ -419,6 +434,7 @@ Storage: /data/cache/contexts/ (~5GB)
 ## Security Between Planes
 
 ### Inter-Machine Security
+
 ```
 Tailscale (WireGuard):
   - All traffic encrypted in transit
@@ -444,6 +460,7 @@ Audit:
 ## Cost Model
 
 ### Fixed Costs (Monthly)
+
 ```
 Electricity (3 machines, ~100W avg each):  ~$30-50
 Tailscale (free for personal, 3 devices):   $0
@@ -455,6 +472,7 @@ Grafana Cloud free tier:                     $0
 ```
 
 ### Variable Costs (Monthly)
+
 ```
 RunPod CPU overflow (10-20 hrs × $0.40):   ~$4-8
 RunPod GPU inference (5-10 hrs × $0.80):   ~$4-8
@@ -467,12 +485,14 @@ Free tier models (GLM, Kimi):               $0
 ### Total Monthly: ~$93-220
 
 **Comparison**:
+
 - Previous cloud-only estimate: $470-570/month (60% savings)
 - One senior developer: $10-15K/month (98% savings)
 
 ## Disaster Recovery
 
 ### Backup Strategy
+
 ```
 Daily (2AM local):
   PostgreSQL → pg_dump → /data/navratna/backups/pg/
@@ -490,6 +510,7 @@ Repo volumes:
 ```
 
 ### Failover
+
 ```
 PC-A dies (Memory):
   → System degraded: no knowledge queries, no vector search
@@ -518,6 +539,7 @@ All machines die:
 ### Phase 0: Initial Setup
 
 PC-A:
+
 - [ ] Install Docker + Docker Compose
 - [ ] Install Tailscale, join network as `pc-a-navratna`
 - [ ] Create /data/navratna/ directory structure
@@ -528,6 +550,7 @@ PC-A:
 - [ ] Verify all services healthy
 
 PC-B:
+
 - [ ] Install Docker + Docker Compose
 - [ ] Install Tailscale, join network as `pc-b-navratna`
 - [ ] Create /data/ directory structure
@@ -538,6 +561,7 @@ PC-B:
 - [ ] Verify connectivity to PC-A services
 
 Mac:
+
 - [ ] Install Docker (or OrbStack for better macOS perf)
 - [ ] Install Tailscale, join network as `mac-navratna`
 - [ ] Create /data/ directory structure
@@ -548,6 +572,7 @@ Mac:
 - [ ] Verify connectivity to PC-A and PC-B
 
 Verification:
+
 - [ ] `ping pc-a-navratna.tailnet` from all machines
 - [ ] `curl pc-a-navratna.tailnet:5432` responds (PostgreSQL)
 - [ ] `curl pc-b-navratna.tailnet:3002/health` responds (Gateway)

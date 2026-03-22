@@ -6,8 +6,8 @@ import {
   RiskFactor,
   RiskLevel,
   SecurityContext,
-  ApprovalWorkflow,
-  Agent,
+  ApprovalWorkflow as _ApprovalWorkflow,
+  Agent as _Agent,
   ExecutionPlan,
   SecurityLevel,
 } from '@uaip/types';
@@ -31,7 +31,7 @@ export class SecurityValidationService {
     securityContext: SecurityContext,
     operation: string,
     resources: string[],
-    operationData: any
+    operationData: unknown
   ): Promise<SecurityValidationResult> {
     await this.ensureInitialized();
 
@@ -110,7 +110,10 @@ export class SecurityValidationService {
     }
   }
 
-  public async assessRisk(plan: ExecutionPlan, agentSecurityContext: any): Promise<RiskAssessment> {
+  public async assessRisk(
+    plan: ExecutionPlan,
+    agentSecurityContext: unknown
+  ): Promise<RiskAssessment> {
     await this.ensureInitialized();
 
     try {
@@ -146,7 +149,7 @@ export class SecurityValidationService {
       const overallRisk = this.calculateOverallRisk(riskFactors);
 
       // Determine if approval is required
-      const requiresApproval =
+      const _requiresApproval =
         overallRisk === RiskLevel.HIGH ||
         riskFactors.some((f: RiskFactor) => f.type === 'security_sensitive');
 
@@ -173,10 +176,10 @@ export class SecurityValidationService {
   }
 
   public async filterSensitiveData(
-    data: any,
+    data: unknown,
     userId: string,
     operation: 'read' | 'write' | 'delete'
-  ): Promise<any> {
+  ): Promise<unknown> {
     await this.ensureInitialized();
 
     try {
@@ -226,7 +229,7 @@ export class SecurityValidationService {
   public async createApprovalWorkflow(
     operationId: string,
     approvers: string[],
-    context: any
+    context: unknown
   ): Promise<string> {
     await this.ensureInitialized();
 
@@ -276,7 +279,7 @@ export class SecurityValidationService {
   private async getUserPermissions(
     userId: string,
     operation: string,
-    resources: string[]
+    _resources: string[]
   ): Promise<{
     hasPermission: boolean;
     granted: string[];
@@ -326,7 +329,7 @@ export class SecurityValidationService {
     securityContext: SecurityContext,
     operation: string,
     resources: string[],
-    operationData: any
+    operationData: unknown
   ): Promise<RiskAssessment> {
     const riskFactors: RiskFactor[] = [];
 
@@ -392,7 +395,7 @@ export class SecurityValidationService {
         score: 2,
         description: 'User verification passed',
       };
-    } catch (error) {
+    } catch {
       return {
         type: 'user_verification',
         level: RiskLevel.MEDIUM,
@@ -438,7 +441,7 @@ export class SecurityValidationService {
     };
   }
 
-  private assessDataSensitivityRisk(operationData: any): RiskFactor {
+  private assessDataSensitivityRisk(operationData: unknown): RiskFactor {
     // Look for sensitive data patterns
     const sensitivePatterns = [
       /api[_-]?key/i,
@@ -555,7 +558,7 @@ export class SecurityValidationService {
     };
   }
 
-  private assessAgentRisk(plan: ExecutionPlan, agentSecurityContext: any): RiskFactor {
+  private assessAgentRisk(plan: ExecutionPlan, agentSecurityContext: unknown): RiskFactor {
     const securityLevel = agentSecurityContext?.securityLevel || 'medium';
 
     if (securityLevel === 'high' && plan.type !== 'information_retrieval') {
@@ -600,7 +603,7 @@ export class SecurityValidationService {
     riskAssessment: RiskAssessment,
     securityContext: SecurityContext,
     operation: string,
-    operationData: any
+    _operationData: unknown
   ): Promise<boolean> {
     // High risk operations always require approval
     if (riskAssessment.level === SecurityLevel.HIGH) {
@@ -636,7 +639,7 @@ export class SecurityValidationService {
     riskAssessment: RiskAssessment,
     securityContext: SecurityContext,
     operation: string,
-    operationData: any
+    _operationData: unknown
   ): Promise<string[]> {
     const conditions = [];
 
@@ -657,7 +660,7 @@ export class SecurityValidationService {
     return conditions;
   }
 
-  private generateMitigations(riskFactors: RiskFactor[], plan: ExecutionPlan): string[] {
+  private generateMitigations(riskFactors: RiskFactor[], _plan: ExecutionPlan): string[] {
     const mitigations: string[] = [];
 
     riskFactors.forEach((factor) => {

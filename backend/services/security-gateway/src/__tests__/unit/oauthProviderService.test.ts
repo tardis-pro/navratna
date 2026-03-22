@@ -9,7 +9,7 @@ import {
   SecurityLevel,
   AuditEventType,
 } from '@uaip/types';
-import { ApiError } from '@uaip/utils';
+import { ApiError as _ApiError } from '@uaip/utils';
 
 // Mock external dependencies
 jest.mock('@uaip/shared-services', () => ({
@@ -25,8 +25,8 @@ jest.mock('@uaip/utils', () => ({
   },
   ApiError: jest.fn().mockImplementation((status, message: string, code) => {
     const error = new Error(message);
-    (error as any).status = status;
-    (error as any).code = code;
+    (error as unknown).status = status;
+    (error as unknown).code = code;
     return error;
   }),
 }));
@@ -40,8 +40,8 @@ jest.mock('axios', () => ({
 
 describe('OAuthProviderService', () => {
   let oauthProviderService: OAuthProviderService;
-  let mockDatabaseService: any;
-  let mockAuditService: any;
+  let mockDatabaseService: unknown;
+  let mockAuditService: unknown;
 
   beforeEach(() => {
     // Create mock services

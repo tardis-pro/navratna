@@ -119,6 +119,7 @@ export class DebateOrchestratorService {
     for (const agentId of debate.participants) {
       const prompt = this.buildArgumentPrompt(debate, agentId, phase, previousArguments);
 
+      // oxlint-ignore-next-line no-await-in-loop -- sequential processing required
       await this.eventBus.publish('debate.argument.request', {
         debateId: debate.id,
         agentId,
@@ -268,6 +269,7 @@ export class DebateOrchestratorService {
     const summary = this.buildArgumentSummary(allArguments);
 
     for (const agentId of debate.participants) {
+      // oxlint-ignore-next-line no-await-in-loop -- sequential processing required
       await this.eventBus.publish('debate.vote.request', {
         debateId: debate.id,
         agentId,

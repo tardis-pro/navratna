@@ -3,7 +3,7 @@ import { logger } from '@uaip/utils';
 import { withRequiredAuth } from '@uaip/middleware';
 import { DefaultUserLLMProviderSeed, UserService } from '@uaip/shared-services';
 import { DatabaseService } from '@uaip/infra/database';
-import type { RequiredAuthContext } from './types/elysia-context.js';
+import type { RequiredAuthContext as _RequiredAuthContext } from './types/elysia-context.js';
 
 const userService = UserService.getInstance();
 
@@ -67,8 +67,8 @@ const InteractionTrackingSchema = z.object({
     .transform((str) => new Date(str)),
 });
 
-export function registerPersonaRoutes(app: any): any {
-  return app.group('/api/v1/users/persona', (app: any) =>
+export function registerPersonaRoutes(elysiaApp: unknown): unknown {
+  return elysiaApp.group('/api/v1/users/persona', (app: unknown) =>
     withRequiredAuth(app)
       // GET /
       // @ts-expect-error - Elysia middleware injects user, but TypeScript cannot infer through nested groups
@@ -90,7 +90,7 @@ export function registerPersonaRoutes(app: any): any {
             behavioralPatterns: entity.behavioralPatterns,
             updatedAt: entity.updatedAt,
           };
-        } catch (error) {
+        } catch {
           set.status = 500;
           return { error: 'Internal server error' };
         }
@@ -112,21 +112,22 @@ export function registerPersonaRoutes(app: any): any {
             return { error: 'User not found' };
           }
           const { personaData, onboardingProgress, behavioralPatterns } = validation.data;
-          if (personaData) entity.userPersona = { ...entity.userPersona, ...personaData } as any;
+          if (personaData)
+            entity.userPersona = { ...entity.userPersona, ...personaData } as unknown;
           if (onboardingProgress)
             entity.onboardingProgress = {
               ...entity.onboardingProgress,
               ...onboardingProgress,
-            } as any;
+            } as unknown;
           if (behavioralPatterns)
             entity.behavioralPatterns = {
               ...entity.behavioralPatterns,
               ...behavioralPatterns,
-            } as any;
+            } as unknown;
           await repo.update(user!.id, entity);
           logger.info('User persona updated', {
             userId: user!.id,
-            updatedFields: Object.keys(body as any),
+            updatedFields: Object.keys(body as unknown),
           });
           return {
             id: entity.id,
@@ -138,7 +139,7 @@ export function registerPersonaRoutes(app: any): any {
             behavioralPatterns: entity.behavioralPatterns,
             updatedAt: entity.updatedAt,
           };
-        } catch (error) {
+        } catch {
           set.status = 500;
           return { error: 'Internal server error' };
         }
@@ -161,7 +162,7 @@ export function registerPersonaRoutes(app: any): any {
             return { error: 'User not found' };
           }
           const { personaData, onboardingProgress } = validation.data;
-          entity.userPersona = personaData as any;
+          entity.userPersona = personaData as unknown;
           entity.onboardingProgress = {
             ...onboardingProgress,
             isCompleted: true,
@@ -169,7 +170,7 @@ export function registerPersonaRoutes(app: any): any {
             currentStep: onboardingProgress.currentStep || 0,
             completedSteps: onboardingProgress.completedSteps || [],
             responses: onboardingProgress.responses || {},
-          } as any;
+          } as unknown;
           entity.behavioralPatterns = {
             sessionDuration: 0,
             activeHours: [],
@@ -179,7 +180,7 @@ export function registerPersonaRoutes(app: any): any {
             interactionStyle: 'methodical',
             feedbackPreference:
               personaData.communicationPreference === 'brief' ? 'immediate' : 'summary',
-          } as any;
+          } as unknown;
           await repo.update(user!.id, entity);
           try {
             const dataSource = await databaseService.getDataSource();
@@ -189,7 +190,7 @@ export function registerPersonaRoutes(app: any): any {
               await DefaultUserLLMProviderSeed.createDefaultProvidersForUser(
                 dataSource,
                 user!.id,
-                (entity as any).role || 'user'
+                (entity as unknown).role || 'user'
               );
           } catch (e) {
             logger.error('Default providers creation failed', e);
@@ -204,7 +205,7 @@ export function registerPersonaRoutes(app: any): any {
             behavioralPatterns: entity.behavioralPatterns,
             updatedAt: entity.updatedAt,
           };
-        } catch (error) {
+        } catch {
           set.status = 500;
           return { error: 'Internal server error' };
         }
@@ -225,7 +226,10 @@ export function registerPersonaRoutes(app: any): any {
             set.status = 404;
             return { error: 'User not found' };
           }
-          entity.behavioralPatterns = { ...entity.behavioralPatterns, ...validation.data } as any;
+          entity.behavioralPatterns = {
+            ...entity.behavioralPatterns,
+            ...validation.data,
+          } as unknown;
           await repo.update(user!.id, entity);
           return {
             id: entity.id,
@@ -237,7 +241,7 @@ export function registerPersonaRoutes(app: any): any {
             behavioralPatterns: entity.behavioralPatterns,
             updatedAt: entity.updatedAt,
           };
-        } catch (error) {
+        } catch {
           set.status = 500;
           return { error: 'Internal server error' };
         }
@@ -253,11 +257,11 @@ export function registerPersonaRoutes(app: any): any {
             set.status = 400;
             return { error: 'User persona not found. Please complete onboarding first.' };
           }
-          const persona: any = entity.userPersona;
-          const behavioral: any = entity.behavioralPatterns;
+          const persona: unknown = entity.userPersona;
+          const behavioral: unknown = entity.behavioralPatterns;
           const recommendations = await generatePersonaRecommendations(persona, behavioral);
           return recommendations;
-        } catch (error) {
+        } catch {
           set.status = 500;
           return { error: 'Internal server error' };
         }
@@ -272,10 +276,10 @@ export function registerPersonaRoutes(app: any): any {
           return { error: 'Invalid interaction data', details: validation.error.errors };
         }
         try {
-          const { type, data, timestamp } = validation.data as any;
-          await processUserInteraction(user!.id, type, data, timestamp as any);
+          const { type, data, timestamp } = validation.data as unknown;
+          await processUserInteraction(user!.id, type, data, timestamp as unknown);
           return { success: true };
-        } catch (error) {
+        } catch {
           set.status = 500;
           return { error: 'Internal server error' };
         }
@@ -291,9 +295,9 @@ export function registerPersonaRoutes(app: any): any {
             set.status = 400;
             return { error: 'User persona not found. Please complete onboarding first.' };
           }
-          const compatible = await getCompatibleAgents(entity.userPersona as any);
+          const compatible = await getCompatibleAgents(entity.userPersona as unknown);
           return compatible;
-        } catch (error) {
+        } catch {
           set.status = 500;
           return { error: 'Internal server error' };
         }
@@ -310,11 +314,11 @@ export function registerPersonaRoutes(app: any): any {
             return { error: 'User persona not found. Please complete onboarding first.' };
           }
           const workspace = await generateOptimizedWorkspace(
-            entity.userPersona as any,
-            entity.behavioralPatterns as any
+            entity.userPersona as unknown,
+            entity.behavioralPatterns as unknown
           );
           return workspace;
-        } catch (error) {
+        } catch {
           set.status = 500;
           return { error: 'Internal server error' };
         }
@@ -322,7 +326,7 @@ export function registerPersonaRoutes(app: any): any {
   );
 }
 
-async function generatePersonaRecommendations(persona: any, behavioralPatterns: any) {
+async function generatePersonaRecommendations(persona: unknown, _behavioralPatterns: unknown) {
   const recommendations = {
     recommendedTools: [],
     recommendedAgents: [],
@@ -333,20 +337,25 @@ async function generatePersonaRecommendations(persona: any, behavioralPatterns: 
       theme: persona.problemSolvingApproach === 'creative' ? 'creative' : 'default',
       notifications: persona.communicationPreference === 'brief' ? 'minimal' : 'standard',
     },
-  } as any;
+  } as unknown;
   return recommendations;
 }
 
-async function processUserInteraction(userId: string, type: string, data: any, timestamp: Date) {
+async function processUserInteraction(
+  userId: string,
+  type: string,
+  data: unknown,
+  timestamp: Date
+) {
   logger.info('Processed user interaction', { userId, type, timestamp });
 }
 
-async function getCompatibleAgents(persona: any) {
-  return [] as any[];
+async function getCompatibleAgents(_persona: unknown) {
+  return [] as unknown[];
 }
 
-async function generateOptimizedWorkspace(persona: any, behavioral: any) {
-  return { layout: 'default', widgets: [] } as any;
+async function generateOptimizedWorkspace(_persona: unknown, _behavioral: unknown) {
+  return { layout: 'default', widgets: [] } as unknown;
 }
 
 export default registerPersonaRoutes;

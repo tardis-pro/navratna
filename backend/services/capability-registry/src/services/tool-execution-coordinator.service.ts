@@ -8,7 +8,7 @@ import {
   getDangerToolConfig,
   toolRequiresApproval,
   getRequiredApprovalLevel,
-  toolRequiresSecurityTeamApproval,
+  _toolRequiresSecurityTeamApproval,
   toolRequiresAudit,
 } from './dangerToolList.js';
 import { config } from '../config/config.js';

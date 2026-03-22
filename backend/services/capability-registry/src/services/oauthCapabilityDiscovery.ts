@@ -10,10 +10,10 @@ interface OAuthCapability {
   name: string;
   description: string;
   category: string;
-  parameters?: Record<string, any>;
-  returnType?: Record<string, any>;
+  parameters?: Record<string, unknown>;
+  returnType?: Record<string, unknown>;
   scopes?: string[];
-  examples?: any[];
+  examples?: unknown[];
 }
 
 interface OAuthProviderConfig {
@@ -309,7 +309,7 @@ export class OAuthCapabilityDiscovery {
     }
   }
 
-  private async handleProviderConnection(event: any): Promise<void> {
+  private async handleProviderConnection(event: unknown): Promise<void> {
     try {
       const { provider, userId, scopes, tokenInfo } = event;
       logger.info(`OAuth provider connected: ${provider} for user ${userId}`);
@@ -346,7 +346,7 @@ export class OAuthCapabilityDiscovery {
     }
   }
 
-  private async handleProviderDisconnection(event: any): Promise<void> {
+  private async handleProviderDisconnection(event: unknown): Promise<void> {
     try {
       const { provider, userId } = event;
       const connectionId = `${provider}-${userId}`;
@@ -418,7 +418,7 @@ export class OAuthCapabilityDiscovery {
     }
   }
 
-  private async publishEvent(channel: string, data: any): Promise<void> {
+  private async publishEvent(channel: string, data: unknown): Promise<void> {
     if (!this.eventBusService) return;
 
     try {

@@ -19,7 +19,7 @@ export interface RetryOptions {
 export interface RateLimitOptions {
   windowMs: number;
   maxRequests: number;
-  keyGenerator?: (req: any) => string;
+  keyGenerator?: (req: unknown) => string;
   skipSuccessfulRequests?: boolean;
   skipFailedRequests?: boolean;
 }
@@ -48,6 +48,13 @@ export interface SecurityOptions {
   rateLimiting: RateLimitOptions;
 }
 
+type UploadedFile = {
+  size: number;
+  mimetype: string;
+  buffer?: string | Buffer;
+  content?: string | Buffer;
+};
+
 /**
  * Circuit Breaker Pattern Implementation
  */
@@ -59,13 +66,13 @@ export class CircuitBreaker extends EventEmitter {
   private halfOpenRetries = 0;
 
   constructor(
-    private readonly fn: (...args: any[]) => Promise<any>,
+    private readonly fn: (...args: unknown[]) => Promise<unknown>,
     private readonly options: CircuitBreakerOptions
   ) {
     super();
   }
 
-  async execute(...args: any[]): Promise<any> {
+  async execute(...args: unknown[]): Promise<unknown> {
     if (this.state === 'OPEN') {
       if (Date.now() < this.nextAttempt) {
         throw new Error('Circuit breaker is OPEN');
@@ -139,9 +146,11 @@ export class RetryManager {
         if (attempt > 0) {
           const delay = this.calculateDelay(attempt);
           logger.debug(`Retry attempt ${attempt} after ${delay}ms`, { context });
+          // oxlint-disable-next-line no-await-in-loop
           await this.sleep(delay);
         }
 
+        // oxlint-disable-next-line no-await-in-loop
         const result = await fn();
 
         if (attempt > 0) {
@@ -529,7 +538,7 @@ export class MetricsCollector {
 export class SecurityValidator {
   constructor(private readonly options: SecurityOptions) {}
 
-  async validateFile(file: any): Promise<ValidationResult> {
+  async validateFile(file: UploadedFile): Promise<ValidationResult> {
     const errors: string[] = [];
     const warnings: string[] = [];
 
@@ -663,7 +672,7 @@ interface HealthCheck {
 
 interface HealthCheckResult {
   status: 'healthy' | 'degraded' | 'unhealthy';
-  details?: Record<string, any>;
+  details?: Record<string, unknown>;
   responseTime?: number;
 }
 
@@ -756,7 +765,7 @@ export class ProductionHardeningService {
   // Circuit breaker management
   createCircuitBreaker(
     name: string,
-    fn: (...args: any[]) => Promise<any>,
+    fn: (...args: unknown[]) => Promise<unknown>,
     options?: Partial<CircuitBreakerOptions>
   ): CircuitBreaker {
     const defaultOptions: CircuitBreakerOptions = {
@@ -850,7 +859,7 @@ export class ProductionHardeningService {
   }
 
   // Security
-  async validateFile(file: any): Promise<ValidationResult> {
+  async validateFile(file: UploadedFile): Promise<ValidationResult> {
     const timer = this.metricsCollector.startTimer('security.file_validation');
 
     try {
@@ -931,7 +940,7 @@ export class ProductionHardeningService {
   async getSystemStatus(): Promise<SystemStatus> {
     const health = await this.getHealthStatus();
     const metrics = this.getMetrics();
-    const circuitBreakerStats: Record<string, any> = {};
+    const circuitBreakerStats: Record<string, unknown> = {};
 
     for (const [name, breaker] of this.circuitBreakers.entries()) {
       circuitBreakerStats[name] = breaker.getStats();
@@ -959,7 +968,7 @@ export class ProductionHardeningService {
 interface SystemStatus {
   health: HealthCheckSummary;
   metrics: Record<string, Metric>;
-  circuitBreakers: Record<string, any>;
+  circuitBreakers: Record<string, unknown>;
   timestamp: Date;
   uptime: number;
   memoryUsage: NodeJS.MemoryUsage;

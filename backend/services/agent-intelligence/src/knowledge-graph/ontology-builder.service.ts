@@ -188,7 +188,8 @@ export class OntologyBuilderService {
     } catch (error) {
       logger.error(`Error building domain ontology for ${domain}:`, error);
       throw new Error(
-        `Ontology building failed: ${error instanceof Error ? error.message : 'Unknown error'}`
+        `Ontology building failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        { cause: error }
       );
     }
   }
@@ -309,7 +310,7 @@ export class OntologyBuilderService {
   private validateOntology(
     extractionResult: ConceptExtractionResult,
     hierarchy: ConceptHierarchy,
-    rules: OntologyRule[]
+    _rules: OntologyRule[]
   ): { warnings: string[]; errors: string[] } {
     const warnings: string[] = [];
     const errors: string[] = [];
@@ -399,9 +400,11 @@ export class OntologyBuilderService {
 
       // Save concepts to knowledge graph
       for (const item of conceptItems) {
+        // oxlint-disable-next-line no-await-in-loop -- sequential processing required
         const createdItem = await this.knowledgeRepository.create(item);
 
         // Sync to Neo4j and Qdrant
+        // oxlint-disable-next-line no-await-in-loop -- sequential processing required
         await this.knowledgeSync.syncKnowledgeItem(createdItem);
       }
 
@@ -429,7 +432,9 @@ export class OntologyBuilderService {
 
       // Save relationships to knowledge graph
       for (const item of relationshipItems) {
+        // oxlint-disable-next-line no-await-in-loop -- sequential processing required
         const createdItem = await this.knowledgeRepository.create(item);
+        // oxlint-disable-next-line no-await-in-loop -- sequential processing required
         await this.knowledgeSync.syncKnowledgeItem(createdItem);
       }
 
@@ -462,7 +467,8 @@ export class OntologyBuilderService {
     } catch (error) {
       logger.error('Error saving ontology to knowledge graph:', error);
       throw new Error(
-        `Failed to save ontology: ${error instanceof Error ? error.message : 'Unknown error'}`
+        `Failed to save ontology: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        { cause: error }
       );
     }
   }
@@ -551,11 +557,13 @@ export class OntologyBuilderService {
 
           const evidence =
             Array.isArray(item.metadata.evidence) &&
-            item.metadata.evidence.every((entry: unknown) => typeof entry === 'string')
+            item.metadata.evidence.every(
+              (entry: Record<string, unknown>) => typeof entry === 'string'
+            )
               ? (item.metadata.evidence as string[])
               : [];
 
-        return {
+          return {
             sourceConceptId,
             targetConceptId,
             relationshipType,

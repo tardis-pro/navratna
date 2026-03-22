@@ -3,9 +3,9 @@ global:
   evaluation_interval: 15s
 
 rule_files:
-  - "logging_rules.yml"
-  - "alerting_rules.yml"
-  - "performance_rules.yml"
+  - 'logging_rules.yml'
+  - 'alerting_rules.yml'
+  - 'performance_rules.yml'
 
 scrape_configs:
   # Prometheus self-monitoring
@@ -60,7 +60,7 @@ scrape_configs:
     static_configs:
       - targets: ['api-gateway:80']
     metrics_path: '/metrics'
-    scrape_interval: 300s  # Reduced frequency since nginx stub_status is not Prometheus-compatible
+    scrape_interval: 300s # Reduced frequency since nginx stub_status is not Prometheus-compatible
     scrape_timeout: 10s
     honor_labels: true
     # Note: This job will likely fail because nginx stub_status format is not Prometheus-compatible
@@ -122,4 +122,4 @@ scrape_configs:
       - targets: ['nginx-exporter:9113']
     metrics_path: '/metrics'
     scrape_interval: 30s
-    scrape_timeout: 10s 
+    scrape_timeout: 10s

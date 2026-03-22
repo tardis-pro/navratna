@@ -1,6 +1,8 @@
 import { Entity, Column, Index, ManyToOne, JoinColumn } from 'typeorm';
 import { BaseEntity } from './base.entity';
 import { ToolExecutionStatus, ToolExecutionError } from '@uaip/types';
+import type { ToolDefinition } from './toolDefinition.entity';
+import type { Agent } from './agent.entity';
 
 /**
  * Tool Execution Entity for the Tool System
@@ -19,7 +21,7 @@ export class ToolExecution extends BaseEntity {
   agentId: string;
 
   @Column({ type: 'jsonb' })
-  parameters: Record<string, any>;
+  parameters: Record<string, unknown>;
 
   @Column({ type: 'enum', enum: ToolExecutionStatus })
   status: ToolExecutionStatus;
@@ -31,7 +33,7 @@ export class ToolExecution extends BaseEntity {
   endTime?: Date;
 
   @Column({ type: 'jsonb', nullable: true })
-  result?: any;
+  result?: Record<string, unknown>;
 
   @Column({ type: 'jsonb', nullable: true })
   error?: ToolExecutionError;
@@ -106,7 +108,7 @@ export class ToolExecution extends BaseEntity {
   complianceTags: string[];
 
   @Column({ name: 'audit_trail', type: 'jsonb', default: '[]' })
-  auditTrail: any[];
+  auditTrail: Record<string, unknown>[];
 
   // Cancellation and cleanup
   @Column({ name: 'cancelled_at', type: 'timestamp', nullable: true })
@@ -129,27 +131,27 @@ export class ToolExecution extends BaseEntity {
   tags: string[];
 
   @Column({ type: 'jsonb', nullable: true })
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 
   // Agent compatibility properties
   @Column({ default: false })
   success: boolean;
 
   @Column({ type: 'jsonb', nullable: true })
-  data?: any;
+  data?: Record<string, unknown>;
 
   @Column({ name: 'external_references', type: 'jsonb', nullable: true })
   externalReferences?: Record<string, string>;
 
   @Column({ name: 'execution_context', type: 'jsonb', nullable: true })
-  executionContext?: Record<string, any>;
+  executionContext?: Record<string, unknown>;
 
   // Relationships
   @ManyToOne('ToolDefinition', { eager: false })
   @JoinColumn({ name: 'tool_id' })
-  tool: any;
+  tool: ToolDefinition;
 
   @ManyToOne('Agent', { eager: false })
   @JoinColumn({ name: 'agent_id' })
-  agent: any;
+  agent: Agent;
 }

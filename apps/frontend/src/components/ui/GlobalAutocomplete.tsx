@@ -83,29 +83,32 @@ export const GlobalAutocomplete = forwardRef<
     const debouncedValue = useDebounce(value, 300);
 
     // Use conversation intelligence for autocomplete with user's default LLM provider
-    const { connected, autocompleteSuggestions, loading, requestAutocomplete, clearAutocomplete } =
-      useConversationIntelligence({
-        agentId: 'global-user-llm',
-        conversationId: context.conversationId,
-        onAutocompleteResults: (results) => {
-          // Check if this is an enhancement response
-          if (isEnhancing && results.length > 0) {
-            const enhancementTexts = results.map((r) => r.text);
-            setEnhancedSuggestions(enhancementTexts);
-            setIsEnhancing(false);
-          } else {
-            // Regular autocomplete suggestions
-            setSuggestions(results);
-            setShowSuggestions(results.length > 0);
-          }
-        },
-      });
+    const {
+      connected,
+      _autocompleteSuggestions,
+      _loading,
+      requestAutocomplete,
+      _clearAutocomplete,
+    } = useConversationIntelligence({
+      agentId: 'global-user-llm',
+      conversationId: context.conversationId,
+      onAutocompleteResults: (results) => {
+        // Check if this is an enhancement response
+        if (isEnhancing && results.length > 0) {
+          const enhancementTexts = results.map((r) => r.text);
+          setEnhancedSuggestions(enhancementTexts);
+          setIsEnhancing(false);
+        } else {
+          // Regular autocomplete suggestions
+          setSuggestions(results);
+          setShowSuggestions(results.length > 0);
+        }
+      },
+    });
 
     // Debug log
     useEffect(() => {
-      console.log('GlobalAutocomplete - WebSocket connected:', connected);
       if (connected) {
-        console.log('GlobalAutocomplete - Connection successful! AI features enabled.');
       }
     }, [connected]);
 
@@ -228,7 +231,7 @@ export const GlobalAutocomplete = forwardRef<
       <div className="relative">
         <div className="relative">
           <InputComponent
-            ref={ref as any}
+            ref={ref as unknown}
             value={value}
             onChange={(e) => onChange(e.target.value)}
             onKeyDown={handleKeyDown}

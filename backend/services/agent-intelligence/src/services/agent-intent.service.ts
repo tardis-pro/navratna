@@ -38,7 +38,7 @@ export interface ActionRecommendation {
   description: string;
   confidence: number;
   priority: number;
-  parameters?: any;
+  parameters?: Record<string, unknown>;
   constraints?: string[];
 }
 
@@ -113,7 +113,7 @@ export class AgentIntentService {
    */
   async analyzeLLMUserIntent(
     userRequest: string,
-    conversationContext: any,
+    conversationContext: Record<string, unknown>,
     agent: Agent,
     userId?: string
   ): Promise<IntentAnalysis> {
@@ -201,9 +201,9 @@ Respond in JSON format.`,
    */
   async generateLLMEnhancedActionRecommendations(
     agent: Agent,
-    contextAnalysis: any,
+    contextAnalysis: Record<string, unknown>,
     intentAnalysis: IntentAnalysis,
-    constraints: any,
+    constraints: Record<string, unknown>,
     relevantKnowledge: KnowledgeItem[],
     similarEpisodes: Episode[],
     userId?: string
@@ -229,8 +229,8 @@ Provide 3-5 actionable recommendations with:
 - description: detailed description
 - confidence: 0-1 confidence score
 - priority: 1-5 priority level
-- parameters: any required parameters
-- constraints: any limitations
+- parameters: Record<string, unknown> required parameters
+- constraints: Record<string, unknown> limitations
 
 Respond in JSON array format.`,
         systemPrompt: `You are an expert at recommending actions for AI agents. Provide practical, actionable recommendations in JSON array format.`,
@@ -311,7 +311,7 @@ Respond in JSON array format.`,
    * Generate enhanced explanation using LLM
    */
   async generateLLMEnhancedExplanation(
-    contextAnalysis: any,
+    contextAnalysis: Record<string, unknown>,
     intentAnalysis: IntentAnalysis,
     actionRecommendations: ActionRecommendation[],
     confidence: number,
@@ -397,12 +397,12 @@ Keep it conversational and helpful, as if speaking directly to the user.`,
    * Calculate enhanced confidence score
    */
   calculateEnhancedConfidence(
-    contextAnalysis: any,
+    contextAnalysis: Record<string, unknown>,
     intentAnalysis: IntentAnalysis,
     actionRecommendations: ActionRecommendation[],
-    intelligenceConfig: any,
+    intelligenceConfig: Record<string, unknown>,
     relevantKnowledge: KnowledgeItem[],
-    workingMemory: any
+    workingMemory: Record<string, unknown>
   ): number {
     const baseConfidence = intentAnalysis.confidence;
     const contextQuality = Math.min((contextAnalysis.messageCount || 0) / 10, 1);
@@ -438,7 +438,7 @@ Keep it conversational and helpful, as if speaking directly to the user.`,
   /**
    * Event handlers
    */
-  private async handleAnalyzeIntent(event: any): Promise<void> {
+  private async handleAnalyzeIntent(event: Record<string, unknown>): Promise<void> {
     const { requestId, userRequest, conversationContext, agent, userId } = event;
     try {
       const analysis = await this.analyzeLLMUserIntent(
@@ -459,7 +459,7 @@ Keep it conversational and helpful, as if speaking directly to the user.`,
     }
   }
 
-  private async handleGenerateRecommendations(event: any): Promise<void> {
+  private async handleGenerateRecommendations(event: Record<string, unknown>): Promise<void> {
     const {
       requestId,
       agent,
@@ -492,7 +492,7 @@ Keep it conversational and helpful, as if speaking directly to the user.`,
     }
   }
 
-  private async handleGenerateExplanation(event: any): Promise<void> {
+  private async handleGenerateExplanation(event: Record<string, unknown>): Promise<void> {
     const {
       requestId,
       contextAnalysis,
@@ -527,7 +527,7 @@ Keep it conversational and helpful, as if speaking directly to the user.`,
     }
   }
 
-  private async handleCalculateConfidence(event: any): Promise<void> {
+  private async handleCalculateConfidence(event: Record<string, unknown>): Promise<void> {
     const {
       requestId,
       contextAnalysis,
@@ -576,9 +576,9 @@ Keep it conversational and helpful, as if speaking directly to the user.`,
 
   private generateEnhancedActionRecommendations(
     agent: Agent,
-    contextAnalysis: any,
+    contextAnalysis: Record<string, unknown>,
     intentAnalysis: IntentAnalysis,
-    constraints: any,
+    constraints: Record<string, unknown>,
     relevantKnowledge: KnowledgeItem[],
     similarEpisodes: Episode[]
   ): ActionRecommendation[] {
@@ -649,7 +649,7 @@ Keep it conversational and helpful, as if speaking directly to the user.`,
   }
 
   private generateEnhancedExplanation(
-    contextAnalysis: any,
+    contextAnalysis: Record<string, unknown>,
     intentAnalysis: IntentAnalysis,
     actionRecommendations: ActionRecommendation[],
     confidence: number,
@@ -851,7 +851,7 @@ Keep it conversational and helpful, as if speaking directly to the user.`,
     }
   }
 
-  private async publishIntentEvent(channel: string, data: any): Promise<void> {
+  private async publishIntentEvent(channel: string, data: Record<string, unknown>): Promise<void> {
     try {
       await this.eventBusService.publish(channel, {
         ...data,
@@ -864,7 +864,10 @@ Keep it conversational and helpful, as if speaking directly to the user.`,
     }
   }
 
-  private async respondToRequest(requestId: string, response: any): Promise<void> {
+  private async respondToRequest(
+    requestId: string,
+    response: Record<string, unknown>
+  ): Promise<void> {
     await this.eventBusService.publish('agent.intent.response', {
       requestId,
       ...response,
@@ -872,7 +875,7 @@ Keep it conversational and helpful, as if speaking directly to the user.`,
     });
   }
 
-  private auditLog(event: string, data: any): void {
+  private auditLog(event: string, data: Record<string, unknown>): void {
     logger.info(`AUDIT: ${event}`, {
       ...data,
       service: this.serviceName,

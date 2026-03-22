@@ -2,7 +2,7 @@ import React from 'react';
 import {
   Home,
   Bot,
-  Package,
+  _Package,
   MessageSquare,
   Brain,
   Settings,
@@ -12,8 +12,8 @@ import {
   TrendingUp,
   Wrench,
   Plus,
-  Bell,
-  User,
+  _Bell,
+  _User,
   Shield,
   Users,
   Database,
@@ -27,7 +27,7 @@ import {
 export interface DesktopIconConfig {
   id: string;
   title: string;
-  icon: React.ComponentType<any>;
+  icon: React.ComponentType<unknown>;
   color: {
     primary: string;
     secondary: string;
@@ -373,7 +373,7 @@ export class RoleBasedDesktopConfig {
   static getQuickActions(userRole: string): Array<{
     id: string;
     title: string;
-    icon: React.ComponentType<any>;
+    icon: React.ComponentType<unknown>;
     action: string;
     shortcut?: string;
   }> {
@@ -436,7 +436,7 @@ export class RoleBasedDesktopConfig {
     };
 
     const userWeight = this.getRoleWeight(userRole);
-    let availableActions = [...baseActions];
+    const availableActions = [...baseActions];
 
     // Add actions based on role hierarchy
     Object.entries(roleActions).forEach(([role, actions]) => {
@@ -522,7 +522,7 @@ export class RoleBasedDesktopConfig {
     const systemThemes = ['system-red', 'matrix'];
 
     const userWeight = this.getRoleWeight(userRole);
-    let availableThemes = [...baseThemes];
+    const availableThemes = [...baseThemes];
 
     if (userWeight >= 1) availableThemes.push(...professionalThemes);
     if (userWeight >= 3) availableThemes.push(...adminThemes);

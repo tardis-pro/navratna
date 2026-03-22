@@ -209,7 +209,7 @@ export class UserKnowledgeService {
     assistantResponse: string,
     metadata?: {
       agentId?: string;
-      intent?: any;
+      intent?: unknown;
       topic?: string;
       sentiment?: string;
     }
@@ -294,7 +294,7 @@ export class UserKnowledgeService {
     userId: string,
     preference: {
       type: string;
-      value: any;
+      value: unknown;
       confidence: number;
       source: string;
     }
@@ -324,7 +324,7 @@ export class UserKnowledgeService {
   ): Promise<
     Array<{
       type: string;
-      value: any;
+      value: unknown;
       confidence: number;
       source: string;
       updatedAt: Date;

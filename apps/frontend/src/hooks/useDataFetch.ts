@@ -33,7 +33,7 @@ export interface UseDataFetchReturn<T> {
  */
 export function useDataFetch<T>(
   fetchFn: () => Promise<T>,
-  dependencies: any[] = [],
+  dependencies: unknown[] = [],
   options: UseDataFetchOptions = {}
 ): UseDataFetchReturn<T> {
   const { immediate = true } = options;
@@ -45,6 +45,8 @@ export function useDataFetch<T>(
   // Use a ref to track the latest request ID to handle race conditions
   const latestRequestIdRef = useRef(0);
   const mountedRef = useRef(true);
+  const dependenciesRef = useRef(dependencies);
+  dependenciesRef.current = dependencies;
 
   const fetchData = useCallback(async () => {
     // Increment request ID and capture it for this specific call
@@ -70,7 +72,7 @@ export function useDataFetch<T>(
         setLoading(false);
       }
     }
-  }, dependencies);
+  }, [fetchFn, dependenciesRef]);
 
   useEffect(() => {
     if (immediate) {

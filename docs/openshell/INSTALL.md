@@ -61,12 +61,15 @@ sudo chown -R $(whoami) /data/navratna/policies
 ## Policy Templates
 
 ### coding-workspace.yaml
+
 For persistent development environments with full tool access.
 
 ### tool-ephemeral.yaml
+
 For one-off tool executions (browser automation, GOG, scrapers).
 
 ### gpu-inference.yaml
+
 For local Ollama inference with GPU access.
 
 ## Usage

@@ -16,8 +16,8 @@ import {
   Monitor,
   Shuffle,
   Timer,
-  ChevronLeft,
-  ChevronRight,
+  _ChevronLeft,
+  _ChevronRight,
   Info,
 } from 'lucide-react';
 import { useWallpaper } from '../hooks/useWallpaper';
@@ -111,7 +111,7 @@ export const WallpaperCustomizationPanel: React.FC<WallpaperCustomizationPanelPr
     preferences,
     isLoading,
     setTheme,
-    setImage,
+    _setImage,
     nextImage,
     previousImage,
     toggleSlideshow,

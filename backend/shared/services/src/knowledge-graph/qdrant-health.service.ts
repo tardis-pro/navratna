@@ -15,6 +15,13 @@ export interface QdrantHealthStatus {
   lastError?: string;
 }
 
+type QdrantCollectionInfo = { result?: { points_count?: number } };
+type QdrantSampleItem = {
+  id: string | number;
+  payload?: Record<string, unknown>;
+  vector?: number[];
+};
+
 export class QdrantHealthService {
   constructor(
     private readonly qdrantService: QdrantService,
@@ -34,7 +41,7 @@ export class QdrantHealthService {
 
     try {
       // Check Qdrant connection and collection
-      const collectionInfo = await this.qdrantService.getCollectionInfo();
+      const collectionInfo = (await this.qdrantService.getCollectionInfo()) as QdrantCollectionInfo;
       status.isConnected = true;
       status.collectionExists = true;
       status.pointsCount = collectionInfo.result?.points_count || 0;
@@ -90,6 +97,7 @@ export class QdrantHealthService {
 
       for (const item of items) {
         try {
+          // oxlint-disable-next-line no-await-in-loop
           await syncService.syncKnowledgeItem(item);
           synced++;
 
@@ -129,16 +137,16 @@ export class QdrantHealthService {
 
   async getQdrantDiagnostics(): Promise<{
     health: QdrantHealthStatus;
-    collectionInfo: any;
-    sampleItems: any[];
+    collectionInfo: unknown;
+    sampleItems: unknown[];
   }> {
     const health = await this.checkHealth();
 
     let collectionInfo = null;
-    let sampleItems: any[] = [];
+    let sampleItems: unknown[] = [];
 
     try {
-      collectionInfo = await this.qdrantService.getCollectionInfo();
+      collectionInfo = (await this.qdrantService.getCollectionInfo()) as QdrantCollectionInfo;
 
       // Get sample items from Qdrant if any exist
       if (health.pointsCount > 0) {
@@ -152,7 +160,9 @@ export class QdrantHealthService {
         );
 
         if (sampleResponse.ok) {
-          const sampleData = await sampleResponse.json();
+          const sampleData = (await sampleResponse.json()) as {
+            result?: { points?: QdrantSampleItem[] };
+          };
           sampleItems = sampleData.result?.points || [];
         }
       }
@@ -163,7 +173,7 @@ export class QdrantHealthService {
     return {
       health,
       collectionInfo,
-      sampleItems: sampleItems.map((item) => ({
+      sampleItems: (sampleItems as QdrantSampleItem[]).map((item) => ({
         id: item.id,
         payload: item.payload ? Object.keys(item.payload) : [],
         vectorSize: item.vector?.length || 0,

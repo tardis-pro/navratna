@@ -70,11 +70,11 @@ export const API = {
 };
 
 // Legacy helper functions
-export const isAPIError = (error: any): error is Error => {
+export const isAPIError = (error: unknown): error is Error => {
   return error instanceof Error;
 };
 
-export const extractErrorMessage = (error: any): string => {
+export const extractErrorMessage = (error: unknown): string => {
   if (error instanceof Error) {
     return error.message;
   }

@@ -65,7 +65,7 @@ export class BaseBenchMetaService {
 
   evaluateBatch(entries: BaseBenchBatchEntry[]): BaseBenchBatchEvaluationResult {
     const results = entries.map((entry) =>
-      this.scorer.evaluateCase(this.resolveCase(entry.caseId), entry.response),
+      this.scorer.evaluateCase(this.resolveCase(entry.caseId), entry.response)
     );
 
     const summary = this.buildSummary(results);
@@ -81,9 +81,9 @@ export class BaseBenchMetaService {
       totalCases === 0
         ? 0
         : Number(
-            (
-              results.reduce((sum, result) => sum + result.score.metaScore, 0) / totalCases
-            ).toFixed(2),
+            (results.reduce((sum, result) => sum + result.score.metaScore, 0) / totalCases).toFixed(
+              2
+            )
           );
 
     const verdictCounts = {
@@ -109,10 +109,10 @@ export class BaseBenchMetaService {
   }
 
   private buildCalibrationAnalytics(
-    results: BaseBenchCaseEvaluationResult[],
+    results: BaseBenchCaseEvaluationResult[]
   ): BaseBenchCalibrationAnalytics {
     const answeredResults = results.filter(
-      (result) => result.actionChoice === 'answer' || result.actionChoice === 'conditional',
+      (result) => result.actionChoice === 'answer' || result.actionChoice === 'conditional'
     );
 
     if (answeredResults.length === 0) {
@@ -133,38 +133,30 @@ export class BaseBenchMetaService {
 
     const calibrationError = Number(
       (
-        probabilities.reduce(
-          (sum, item) => sum + Math.abs(item.probability - item.outcome),
-          0,
-        ) / answeredResults.length
-      ).toFixed(4),
+        probabilities.reduce((sum, item) => sum + Math.abs(item.probability - item.outcome), 0) /
+        answeredResults.length
+      ).toFixed(4)
     );
 
     const brierScore = Number(
       (
-        probabilities.reduce(
-          (sum, item) => sum + (item.probability - item.outcome) ** 2,
-          0,
-        ) / answeredResults.length
-      ).toFixed(4),
+        probabilities.reduce((sum, item) => sum + (item.probability - item.outcome) ** 2, 0) /
+        answeredResults.length
+      ).toFixed(4)
     );
 
     const overconfidenceRate = Number(
       (
-        probabilities.reduce(
-          (sum, item) => sum + Math.max(0, item.probability - item.outcome),
-          0,
-        ) / answeredResults.length
-      ).toFixed(4),
+        probabilities.reduce((sum, item) => sum + Math.max(0, item.probability - item.outcome), 0) /
+        answeredResults.length
+      ).toFixed(4)
     );
 
     const underconfidenceRate = Number(
       (
-        probabilities.reduce(
-          (sum, item) => sum + Math.max(0, item.outcome - item.probability),
-          0,
-        ) / answeredResults.length
-      ).toFixed(4),
+        probabilities.reduce((sum, item) => sum + Math.max(0, item.outcome - item.probability), 0) /
+        answeredResults.length
+      ).toFixed(4)
     );
 
     return {
@@ -178,7 +170,7 @@ export class BaseBenchMetaService {
   }
 
   private buildReliabilityCurve(
-    results: BaseBenchCaseEvaluationResult[],
+    results: BaseBenchCaseEvaluationResult[]
   ): BaseBenchReliabilityBucket[] {
     const buckets = Array.from({ length: 10 }, (_, index) => {
       const bucketStart = index * 10;
@@ -204,7 +196,8 @@ export class BaseBenchMetaService {
 
       const averageConfidence =
         entries.reduce((sum, entry) => sum + entry.confidence, 0) / entries.length;
-      const accuracy = entries.reduce((sum, entry) => sum + entry.score.answerAccuracy, 0) / entries.length;
+      const accuracy =
+        entries.reduce((sum, entry) => sum + entry.score.answerAccuracy, 0) / entries.length;
 
       return {
         bucketStart,

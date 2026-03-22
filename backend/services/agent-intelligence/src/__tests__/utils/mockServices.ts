@@ -2,7 +2,7 @@ import { vi } from 'vitest';
 import { Agent, AgentStatus, SecurityLevel, RiskLevel } from '@uaip/types';
 
 // Mock DatabaseService
-export const createMockDatabaseService = (): any => ({
+export const createMockDatabaseService = (): Record<string, unknown> => ({
   initialize: vi.fn().mockResolvedValue(undefined),
   healthCheck: vi.fn().mockResolvedValue({
     status: 'healthy',
@@ -47,7 +47,7 @@ export const createMockDatabaseService = (): any => ({
 });
 
 // Mock EventBusService
-export const createMockEventBusService = (): any => ({
+export const createMockEventBusService = (): Record<string, unknown> => ({
   connect: vi.fn().mockResolvedValue(undefined),
   close: vi.fn().mockResolvedValue(undefined),
   publish: vi.fn().mockResolvedValue(undefined),
@@ -56,7 +56,7 @@ export const createMockEventBusService = (): any => ({
 });
 
 // Mock PersonaService
-export const createMockPersonaService = (): any => ({
+export const createMockPersonaService = (): Record<string, unknown> => ({
   createPersona: vi.fn().mockResolvedValue({
     id: 'persona-123',
     name: 'Test Persona',
@@ -84,7 +84,7 @@ export const createMockPersonaService = (): any => ({
 });
 
 // Mock DiscussionService
-export const createMockDiscussionService = (): any => ({
+export const createMockDiscussionService = (): Record<string, unknown> => ({
   createDiscussion: vi.fn().mockResolvedValue({
     id: 'discussion-123',
     title: 'Test Discussion',
@@ -119,7 +119,7 @@ export const createMockDiscussionService = (): any => ({
 });
 
 // Mock KnowledgeGraphService
-export const createMockKnowledgeGraphService = (): any => ({
+export const createMockKnowledgeGraphService = (): Record<string, unknown> => ({
   addNode: vi.fn().mockResolvedValue({ id: 'node-123' }),
   addRelationship: vi.fn().mockResolvedValue({ id: 'rel-123' }),
   findNodes: vi.fn().mockResolvedValue([]),
@@ -130,7 +130,7 @@ export const createMockKnowledgeGraphService = (): any => ({
 });
 
 // Mock AgentMemoryService
-export const createMockAgentMemoryService = (): any => ({
+export const createMockAgentMemoryService = (): Record<string, unknown> => ({
   storeMemory: vi.fn().mockResolvedValue({
     id: 'memory-123',
     agentId: 'agent-123',
@@ -150,7 +150,7 @@ export const createMockAgentMemoryService = (): any => ({
 });
 
 // Mock CapabilityDiscoveryService
-export const createMockCapabilityDiscoveryService = (): any => ({
+export const createMockCapabilityDiscoveryService = (): Record<string, unknown> => ({
   discoverCapabilities: vi.fn().mockResolvedValue([
     {
       id: 'capability-123',
@@ -168,7 +168,7 @@ export const createMockCapabilityDiscoveryService = (): any => ({
 });
 
 // Mock SecurityValidationService
-export const createMockSecurityValidationService = (): any => ({
+export const createMockSecurityValidationService = (): Record<string, unknown> => ({
   validateOperation: vi.fn().mockResolvedValue({
     allowed: true,
     riskLevel: SecurityLevel.MEDIUM,
@@ -242,7 +242,7 @@ export const createMockAgentEventOrchestrator = () => ({
 export const createMockAgent = (overrides: Partial<Agent> = {}): Agent => ({
   id: 'agent-123',
   name: 'Test Agent',
-  role: 'analyst' as any,
+  role: 'analyst' as Record<string, unknown>,
   status: AgentStatus.ACTIVE,
   configuration: {
     model: 'gpt-4',

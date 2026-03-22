@@ -49,8 +49,7 @@ export const PromptSuggestions: React.FC<PromptSuggestionsProps> = ({
       query: { agentId },
     });
 
-    newSocket.on('connected', (data) => {
-      console.log('Connected to conversation intelligence:', data);
+    newSocket.on('connected', (_data) => {
       // Request initial suggestions
       requestSuggestions(newSocket);
     });
@@ -70,6 +69,7 @@ export const PromptSuggestions: React.FC<PromptSuggestionsProps> = ({
     return () => {
       newSocket.close();
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.token, agentId]);
 
   const requestSuggestions = (socketInstance?: Socket) => {

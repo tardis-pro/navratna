@@ -31,10 +31,10 @@ export function registerWorkspaceRoutes(
 
   logger.info('Registering workspace routes');
 
-  const a = app as any;
-  return a.group('/api/v1/workspaces', (g: any) =>
+  const a = app as unknown;
+  return a.group('/api/v1/workspaces', (g: unknown) =>
     g
-      .post('/', async ({ body, set }: any) => {
+      .post('/', async ({ body, set }: unknown) => {
         const b = asRecord(body);
         const cfg: WorkspaceConfig = {
           workspaceId: asString(b.workspaceId) || `ws_${Date.now()}`,
@@ -61,7 +61,7 @@ export function registerWorkspaceRoutes(
         return { success: true, data: info };
       })
       .get('/', async () => ({ success: true, data: wm.listWorkspaces() }))
-      .get('/:id', async ({ params, set }: any) => {
+      .get('/:id', async ({ params, set }: unknown) => {
         const id = asString(params?.id) || '';
         const info = await wm.getWorkspace(id);
         if (!info) {
@@ -70,12 +70,12 @@ export function registerWorkspaceRoutes(
         }
         return { success: true, data: info };
       })
-      .delete('/:id', async ({ params }: any) => {
+      .delete('/:id', async ({ params }: unknown) => {
         const id = asString(params?.id) || '';
         await wm.destroyWorkspace(id);
         return { success: true };
       })
-      .post('/:id/sessions', async ({ params, body, set }: any) => {
+      .post('/:id/sessions', async ({ params, body, set }: unknown) => {
         const workspaceId = asString(params?.id) || '';
         const b = asRecord(body);
 
@@ -119,7 +119,7 @@ export function registerWorkspaceRoutes(
         const result = await executor.createSession(opts);
         return { success: true, data: result };
       })
-      .post('/:id/sessions/:sessionId/prompt', async (ctx: any) => {
+      .post('/:id/sessions/:sessionId/prompt', async (ctx: unknown) => {
         const workspaceId = asString(ctx.params?.id) || '';
         const sessionId = asString(ctx.params?.sessionId) || '';
         const b = asRecord(ctx.body);
@@ -209,7 +209,7 @@ export function registerWorkspaceRoutes(
           },
         });
 
-        return new Response(stream as any, {
+        return new Response(stream as unknown, {
           headers: {
             'Content-Type': 'text/event-stream',
             'Cache-Control': 'no-cache, no-transform',
@@ -217,23 +217,26 @@ export function registerWorkspaceRoutes(
           },
         });
       })
-      .post('/:id/sessions/:sessionId/abort', async ({ params }: any) => {
+      .post('/:id/sessions/:sessionId/abort', async ({ params }: unknown) => {
         const sessionId = asString(params?.sessionId) || '';
         await executor.abort(sessionId);
         return { success: true };
       })
-      .delete('/:id/sessions/:sessionId', async ({ params }: any) => {
+      .delete('/:id/sessions/:sessionId', async ({ params }: unknown) => {
         const sessionId = asString(params?.sessionId) || '';
         await executor.closeSession(sessionId);
         return { success: true };
       })
       // Persistent SSE stream: GET /:id/sessions/:sessionId/events
       // CodingSessionPage connects here via EventSource and receives all agent events
-      .get('/:id/sessions/:sessionId/events', (ctx: any) => {
+      .get('/:id/sessions/:sessionId/events', (ctx: unknown) => {
         const sessionId = asString(ctx.params?.sessionId) || '';
         if (!sessionId) {
           ctx.set.status = 400;
-          return { success: false, error: { code: 'VALIDATION_ERROR', message: 'sessionId required' } };
+          return {
+            success: false,
+            error: { code: 'VALIDATION_ERROR', message: 'sessionId required' },
+          };
         }
 
         const encoder = new TextEncoder();
@@ -249,7 +252,9 @@ export function registerWorkspaceRoutes(
               write(`data: ${JSON.stringify(event)}\n\n`);
               if (event.type === 'agent_end' || event.type === 'error') {
                 cleanup();
-                try { controller.close(); } catch {}
+                try {
+                  controller.close();
+                } catch {}
               }
             };
 
@@ -262,23 +267,35 @@ export function registerWorkspaceRoutes(
             executor.on(`session:${sessionId}:event`, handler);
             // Send a heartbeat every 25s to keep the connection alive
             const heartbeat = setInterval(() => {
-              if (closed) { clearInterval(heartbeat); return; }
-              try { write(': heartbeat\n\n'); } catch { cleanup(); clearInterval(heartbeat); }
+              if (closed) {
+                clearInterval(heartbeat);
+                return;
+              }
+              try {
+                write(': heartbeat\n\n');
+              } catch {
+                cleanup();
+                clearInterval(heartbeat);
+              }
             }, 25_000);
 
             write('event: connected\n');
-            write(`data: ${JSON.stringify({ sessionId, active: executor.isSessionActive(sessionId) })}\n\n`);
+            write(
+              `data: ${JSON.stringify({ sessionId, active: executor.isSessionActive(sessionId) })}\n\n`
+            );
 
             const signal: AbortSignal | undefined = ctx.request?.signal;
             signal?.addEventListener?.('abort', () => {
               cleanup();
               clearInterval(heartbeat);
-              try { controller.close(); } catch {}
+              try {
+                controller.close();
+              } catch {}
             });
           },
         });
 
-        return new Response(stream as any, {
+        return new Response(stream as unknown, {
           headers: {
             'Content-Type': 'text/event-stream',
             'Cache-Control': 'no-cache, no-transform',
@@ -287,7 +304,7 @@ export function registerWorkspaceRoutes(
           },
         });
       })
-      .get('/:id/exec', async ({ params, query, body, set }: any) => {
+      .get('/:id/exec', async ({ params, query, body, set }: unknown) => {
         const workspaceId = asString(params?.id) || '';
         const cmd = asString(asRecord(body).command) || asString(query?.command) || '';
         if (!workspaceId || !cmd) {

@@ -7,14 +7,24 @@
 
 /* Neural AI Shimmer Animation */
 @keyframes shimmer {
-  0% { background-position: -200% 0; }
-  100% { background-position: 200% 0; }
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
 }
 
 @keyframes gradient-shift {
-  0% { background-position: 0% 50%; }
-  50% { background-position: 100% 50%; }
-  100% { background-position: 0% 50%; }
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
 }
 
 .animate-gradient-shift {
@@ -74,18 +84,42 @@
 }
 
 /* Apply z-index values that can be used with style attribute */
-.z-wallpaper { z-index: -1; }
-.z-desktop-icons { z-index: 1; }
-.z-weather { z-index: 20; }
-.z-notes { z-index: 30; }
-.z-shortcuts { z-index: 40; }
-.z-taskbar { z-index: 50; }
-.z-menu-backdrop { z-index: 55; }
-.z-menu { z-index: 60; }
-.z-modal-backdrop { z-index: 90; }
-.z-modal { z-index: 100; }
-.z-windows { z-index: 1000; }
-.z-active-window { z-index: 1100; }
+.z-wallpaper {
+  z-index: -1;
+}
+.z-desktop-icons {
+  z-index: 1;
+}
+.z-weather {
+  z-index: 20;
+}
+.z-notes {
+  z-index: 30;
+}
+.z-shortcuts {
+  z-index: 40;
+}
+.z-taskbar {
+  z-index: 50;
+}
+.z-menu-backdrop {
+  z-index: 55;
+}
+.z-menu {
+  z-index: 60;
+}
+.z-modal-backdrop {
+  z-index: 90;
+}
+.z-modal {
+  z-index: 100;
+}
+.z-windows {
+  z-index: 1000;
+}
+.z-active-window {
+  z-index: 1100;
+}
 
 /* Desktop Wallpaper Support */
 .desktop-wallpaper {
@@ -200,16 +234,20 @@
 }
 
 @keyframes pulse-glow {
-  0%, 100% {
+  0%,
+  100% {
     box-shadow: 0 0 5px rgba(59, 130, 246, 0.5);
   }
   50% {
-    box-shadow: 0 0 20px rgba(59, 130, 246, 0.8), 0 0 30px rgba(59, 130, 246, 0.6);
+    box-shadow:
+      0 0 20px rgba(59, 130, 246, 0.8),
+      0 0 30px rgba(59, 130, 246, 0.6);
   }
 }
 
 @keyframes gradient-shift {
-  0%, 100% {
+  0%,
+  100% {
     background-position: 0% 50%;
   }
   50% {
@@ -218,7 +256,8 @@
 }
 
 @keyframes float {
-  0%, 100% {
+  0%,
+  100% {
     transform: translateY(0px);
   }
   50% {
@@ -245,10 +284,12 @@
 }
 
 @keyframes blink {
-  0%, 50% {
+  0%,
+  50% {
     opacity: 1;
   }
-  51%, 100% {
+  51%,
+  100% {
     opacity: 0;
   }
 }
@@ -364,7 +405,9 @@
 }
 
 @keyframes loading-dots {
-  0%, 80%, 100% {
+  0%,
+  80%,
+  100% {
     opacity: 0;
     transform: scale(0.8);
   }
@@ -387,7 +430,7 @@
   left: 0;
   right: 0;
   bottom: 0;
-  background-image: 
+  background-image:
     radial-gradient(circle at 20% 80%, rgba(120, 119, 198, 0.3) 0%, transparent 50%),
     radial-gradient(circle at 80% 20%, rgba(255, 119, 198, 0.3) 0%, transparent 50%),
     radial-gradient(circle at 40% 40%, rgba(120, 200, 255, 0.3) 0%, transparent 50%);
@@ -488,7 +531,7 @@ html {
   .animate-fade-in {
     animation-duration: 0.4s;
   }
-  
+
   .hover-lift:hover {
     transform: translateY(-4px) scale(1.01);
   }

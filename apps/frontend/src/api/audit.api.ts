@@ -17,7 +17,7 @@ export interface AuditEvent {
   resourceId: string;
   action: string;
   result: 'success' | 'failure';
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
   ipAddress?: string;
   userAgent?: string;
   timestamp: string;
@@ -56,7 +56,7 @@ export interface ComplianceReport {
     violations: number;
     warnings: number;
   };
-  details?: any;
+  details?: unknown;
   generatedAt: string;
   generatedBy?: string;
 }
@@ -108,7 +108,7 @@ export const auditAPI = {
     return response;
   },
 
-  async search(query: string, filters?: any): Promise<AuditEvent[]> {
+  async search(query: string, filters?: unknown): Promise<AuditEvent[]> {
     return APIClient.get<AuditEvent[]>(API_ROUTES.AUDIT.SEARCH, {
       params: { q: query, ...filters },
     });

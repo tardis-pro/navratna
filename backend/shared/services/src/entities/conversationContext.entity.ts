@@ -1,5 +1,6 @@
 import { Entity, Column, Index, ManyToOne, JoinColumn } from 'typeorm';
 import { BaseEntity } from './base.entity';
+import type { Agent } from './agent.entity';
 
 /**
  * Conversation Context Entity
@@ -27,10 +28,10 @@ export class ConversationContext extends BaseEntity {
   status: 'active' | 'paused' | 'completed' | 'terminated';
 
   @Column({ type: 'jsonb', default: '[]' })
-  messages: any[];
+  messages: Record<string, unknown>[];
 
   @Column({ type: 'jsonb', nullable: true })
-  context?: Record<string, any>;
+  context?: Record<string, unknown>;
 
   @Column({ name: 'conversation_summary', type: 'text', nullable: true })
   conversationSummary?: string;
@@ -63,10 +64,10 @@ export class ConversationContext extends BaseEntity {
   tags: string[];
 
   @Column({ type: 'jsonb', nullable: true })
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 
   // Relationships
   @ManyToOne('Agent', 'conversations')
   @JoinColumn({ name: 'agent_id' })
-  agent: any;
+  agent: Agent;
 }

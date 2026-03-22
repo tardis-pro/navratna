@@ -298,11 +298,13 @@ export class ResourceManagerService extends EventEmitter {
         }
       }
 
-      for (const operationId of expiredOperations) {
-        logger.warn('Releasing expired resource allocation', { operationId });
-        await this.releaseResources(operationId);
-        this.emit('allocationExpired', { operationId });
-      }
+      await Promise.all(
+        expiredOperations.map(async (operationId) => {
+          logger.warn('Releasing expired resource allocation', { operationId });
+          await this.releaseResources(operationId);
+          this.emit('allocationExpired', { operationId });
+        })
+      );
 
       if (expiredOperations.length > 0) {
         logger.info('Cleaned up expired allocations', { count: expiredOperations.length });
@@ -345,9 +347,7 @@ export class ResourceManagerService extends EventEmitter {
 
       // Release all active allocations
       const activeOperations = Array.from(this.allocatedResources.keys());
-      for (const operationId of activeOperations) {
-        await this.releaseResources(operationId);
-      }
+      await Promise.all(activeOperations.map((operationId) => this.releaseResources(operationId)));
 
       this.allocatedResources.clear();
       this.removeAllListeners();

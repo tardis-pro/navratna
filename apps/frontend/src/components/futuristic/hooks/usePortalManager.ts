@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, _useEffect } from 'react';
 
 type PortalType =
   | 'agent-hub'
@@ -135,7 +135,7 @@ export const usePortalManager = () => {
   // Close a portal
   const closePortal = useCallback((portalId: string) => {
     setState((prevState) => {
-      const { [portalId]: removedPortal, ...remainingPortals } = prevState.portals;
+      const { [portalId]: _removedPortal, ...remainingPortals } = prevState.portals;
 
       // If closing the active portal, find the next most recently active portal
       let newActivePortalId = prevState.activePortalId;

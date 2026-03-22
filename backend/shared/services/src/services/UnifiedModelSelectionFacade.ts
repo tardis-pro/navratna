@@ -10,7 +10,8 @@ import {
   FallbackChain,
 } from './ModelSelectionOrchestrator';
 // Fallback service removed - no fallback logic allowed
-import { LLMTaskType, LLMProviderType, RoutingRequest } from '@uaip/types';
+import { LLMTaskType, RoutingRequest } from '@uaip/types';
+import { UserLLMProvider } from '../entities/userLLMProvider.entity';
 import { logger } from '@uaip/utils';
 
 // =============================================================================
@@ -38,7 +39,7 @@ export interface UnifiedSelectionRequest {
 
   // User context
   userId?: string;
-  userProviders?: any[];
+  userProviders?: UserLLMProvider[];
 
   // Task details
   taskType: LLMTaskType;
@@ -198,7 +199,7 @@ export class UnifiedModelSelectionFacade {
     options?: {
       model?: string;
       provider?: string;
-      userProviders?: any[];
+      userProviders?: UserLLMProvider[];
       urgency?: 'low' | 'medium' | 'high' | 'critical';
     }
   ): Promise<UnifiedModelSelection> {

@@ -19,7 +19,7 @@ export interface StepExecutionContext {
   operationId: string;
   workflowInstanceId: string;
   previousResults: Map<string, StepResult>;
-  globalContext: Record<string, any>;
+  globalContext: Record<string, unknown>;
 }
 
 export class StepExecutionManager extends EventEmitter {
@@ -110,7 +110,7 @@ export class StepExecutionManager extends EventEmitter {
       this.emit('step:failed', {
         stepId: step.id,
         operationId: context.operationId,
-        error: error.message,
+        error: error instanceof Error ? error.message : String(error),
         timestamp: new Date(),
       });
 
@@ -201,7 +201,7 @@ export class StepExecutionManager extends EventEmitter {
 
   private async executeParallel(
     step: ExecutionStep,
-    context: StepExecutionContext
+    _context: StepExecutionContext
   ): Promise<StepResult> {
     const policy = step.policy || ParallelExecutionPolicy.ALL_SUCCESS;
     const branches = step.branches || [];
@@ -209,14 +209,18 @@ export class StepExecutionManager extends EventEmitter {
     const branchPromises = branches.map(async (branch, index) => {
       try {
         // Execute branch steps sequentially
-        let lastResult: any = null;
+        let lastResult: { stepId: string; success: boolean } | null = null;
         for (const stepId of branch) {
           // This would need to be implemented to execute sub-steps
           lastResult = { stepId, success: true };
         }
         return { branch: index, success: true, result: lastResult };
       } catch (error) {
-        return { branch: index, success: false, error: error.message };
+        return {
+          branch: index,
+          success: false,
+          error: error instanceof Error ? error.message : String(error),
+        };
       }
     });
 
@@ -260,7 +264,7 @@ export class StepExecutionManager extends EventEmitter {
   private async retryStep(
     step: ExecutionStep,
     context: StepExecutionContext,
-    error: any
+    error: unknown
   ): Promise<StepResult> {
     step.retryCount = (step.retryCount || 0) + 1;
     const backoff = this.calculateBackoff(step);
@@ -269,7 +273,7 @@ export class StepExecutionManager extends EventEmitter {
       attempt: step.retryCount,
       maxRetries: step.retryPolicy!.maxRetries,
       backoffMs: backoff,
-      error: error.message,
+      error: error instanceof Error ? error.message : String(error),
     });
 
     // Wait for backoff period
@@ -281,7 +285,7 @@ export class StepExecutionManager extends EventEmitter {
 
   private calculateBackoff(step: ExecutionStep): number {
     const baseDelay = 1000; // 1 second
-    const multiplier = (step.retryPolicy?.backoffMultiplier as any) || 2;
+    const multiplier = (step.retryPolicy?.backoffMultiplier as number) || 2;
     const attempt = step.retryCount || 1;
     return baseDelay * Math.pow(multiplier, attempt - 1);
   }
@@ -326,11 +330,11 @@ export class StepExecutionManager extends EventEmitter {
     }
   }
 
-  private async getResourceUsage(stepId: string): Promise<import('@uaip/types').ResourceUsage> {
+  private async getResourceUsage(_stepId: string): Promise<import('@uaip/types').ResourceUsage> {
     return this.resourceManagerService.getUsage();
   }
 
-  private resolveParameters(params: any, context: StepExecutionContext): any {
+  private resolveParameters(params: unknown, context: StepExecutionContext): unknown {
     if (!params) return params;
 
     // Handle parameter resolution from previous step results
@@ -346,7 +350,7 @@ export class StepExecutionManager extends EventEmitter {
 
     // Recursively resolve nested parameters
     if (typeof params === 'object') {
-      const resolved: any = Array.isArray(params) ? [] : {};
+      const resolved: Record<string, unknown> = Array.isArray(params) ? [] : {};
       for (const [key, value] of Object.entries(params)) {
         resolved[key] = this.resolveParameters(value, context);
       }
@@ -356,8 +360,11 @@ export class StepExecutionManager extends EventEmitter {
     return params;
   }
 
-  private getNestedProperty(obj: any, path: string[]): any {
-    return path.reduce((current, prop) => current?.[prop], obj);
+  private getNestedProperty(obj: unknown, path: string[]): unknown {
+    return path.reduce<unknown>(
+      (current, prop) => (current as Record<string, unknown>)?.[prop],
+      obj
+    );
   }
 
   private evaluateCondition(condition: string, context: StepExecutionContext): boolean {

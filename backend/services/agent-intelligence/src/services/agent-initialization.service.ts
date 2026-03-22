@@ -131,7 +131,7 @@ export class AgentInitializationService {
         try {
           await this.knowledgeGraphService.initializeAgentContext(agentId, {
             expertise: persona.expertise || [],
-            interests: (persona as any).interests || [],
+            interests: (persona as Record<string, unknown>).interests || [],
             background: persona.background || '',
           });
           logger.info('Knowledge context initialized', { agentId });
@@ -178,7 +178,7 @@ export class AgentInitializationService {
       return agentState;
     } catch (error) {
       logger.error('Failed to initialize agent', { error, agentId, personaId });
-      throw new Error(`Failed to initialize agent: ${error.message}`);
+      throw new Error(`Failed to initialize agent: ${error.message}`, { cause: error });
     }
   }
 
@@ -187,7 +187,7 @@ export class AgentInitializationService {
    */
   async setupAgentState(
     agentId: string,
-    configuration: any,
+    configuration: Record<string, unknown>,
     environmentFactors?: EnvironmentFactors
   ): Promise<AgentState> {
     try {
@@ -266,7 +266,10 @@ export class AgentInitializationService {
   /**
    * Configure agent capabilities based on persona and requirements
    */
-  async configureAgentCapabilities(agent: Agent, requirements?: any): Promise<AgentCapabilities> {
+  async configureAgentCapabilities(
+    agent: Agent,
+    requirements?: Record<string, unknown>
+  ): Promise<AgentCapabilities> {
     try {
       logger.info('Configuring agent capabilities', { agentId: agent.id, requirements });
 
@@ -331,7 +334,7 @@ export class AgentInitializationService {
   /**
    * Analyze environment factors for agent initialization
    */
-  analyzeEnvironmentFactors(conversationContext: any): EnvironmentFactors {
+  analyzeEnvironmentFactors(conversationContext: Record<string, unknown>): EnvironmentFactors {
     return {
       timeOfDay: new Date().getHours(),
       userLoad: conversationContext.participants?.length || 1,
@@ -345,7 +348,7 @@ export class AgentInitializationService {
   /**
    * Event handlers
    */
-  private async handleInitializeAgent(event: any): Promise<void> {
+  private async handleInitializeAgent(event: Record<string, unknown>): Promise<void> {
     const { requestId, agentId, personaId } = event;
     try {
       const agentState = await this.initializeAgent(agentId, personaId);
@@ -355,7 +358,7 @@ export class AgentInitializationService {
     }
   }
 
-  private async handleSetupAgentState(event: any): Promise<void> {
+  private async handleSetupAgentState(event: Record<string, unknown>): Promise<void> {
     const { requestId, agentId, configuration, environmentFactors } = event;
     try {
       const agentState = await this.setupAgentState(agentId, configuration, environmentFactors);
@@ -365,7 +368,7 @@ export class AgentInitializationService {
     }
   }
 
-  private async handleConfigureCapabilities(event: any): Promise<void> {
+  private async handleConfigureCapabilities(event: Record<string, unknown>): Promise<void> {
     const { requestId, agent, requirements } = event;
     try {
       const capabilities = await this.configureAgentCapabilities(agent, requirements);
@@ -375,7 +378,7 @@ export class AgentInitializationService {
     }
   }
 
-  private async handleAnalyzeEnvironment(event: any): Promise<void> {
+  private async handleAnalyzeEnvironment(event: Record<string, unknown>): Promise<void> {
     const { requestId, conversationContext } = event;
     try {
       const environment = this.analyzeEnvironmentFactors(conversationContext);
@@ -469,7 +472,10 @@ export class AgentInitializationService {
     }
   }
 
-  private async publishInitializationEvent(channel: string, data: any): Promise<void> {
+  private async publishInitializationEvent(
+    channel: string,
+    data: Record<string, unknown>
+  ): Promise<void> {
     try {
       await this.eventBusService.publish(channel, {
         ...data,
@@ -482,7 +488,10 @@ export class AgentInitializationService {
     }
   }
 
-  private async respondToRequest(requestId: string, response: any): Promise<void> {
+  private async respondToRequest(
+    requestId: string,
+    response: Record<string, unknown>
+  ): Promise<void> {
     await this.eventBusService.publish('agent.initialization.response', {
       requestId,
       ...response,
@@ -490,7 +499,7 @@ export class AgentInitializationService {
     });
   }
 
-  private auditLog(event: string, data: any): void {
+  private auditLog(event: string, data: Record<string, unknown>): void {
     logger.info(`AUDIT: ${event}`, {
       ...data,
       service: this.serviceName,

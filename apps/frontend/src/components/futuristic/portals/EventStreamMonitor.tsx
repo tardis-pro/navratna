@@ -9,7 +9,7 @@ import {
   ArrowPathIcon,
   ExclamationTriangleIcon,
   XCircleIcon,
-  ClockIcon,
+  ClockIcon as _ClockIcon,
 } from '@heroicons/react/24/outline';
 
 interface ViewportSize {

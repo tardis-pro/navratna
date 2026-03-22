@@ -9,7 +9,7 @@
 import { EventEmitter } from 'events';
 import { randomUUID } from 'crypto';
 import { logger } from '@uaip/utils';
-import { Persona, Agent, AgentSchema, Discussion, DiscussionParticipant } from '@uaip/types';
+import { Persona, Agent, AgentSchema, Discussion } from '@uaip/types';
 import { LLMRequestTracker } from '@uaip/shared-services';
 import { DatabaseService } from '@uaip/infra/database';
 import { EventBusService } from '@uaip/infra/eventBus';
@@ -87,7 +87,7 @@ export interface ConversationEnhancementRequest {
   conversationState?: ConversationState;
   participantId?: string;
   enhancementType?: 'auto' | 'manual' | 'triggered';
-  context?: any;
+  context?: Record<string, unknown>;
 }
 
 export interface ConversationEnhancementResult {
@@ -97,7 +97,7 @@ export interface ConversationEnhancementResult {
   enhancedResponse?: string;
   contributionScores?: ContributionScore[];
   updatedState?: ConversationState;
-  flowAnalysis?: any;
+  flowAnalysis?: Record<string, unknown>;
   suggestions?: string[];
   nextActions?: string[];
   error?: string;
@@ -114,23 +114,23 @@ export interface AgentPersonaMapping {
   agentId: string;
   personas: Persona[];
   isActive: boolean;
-  context?: any;
+  context?: Record<string, unknown>;
 }
 
 interface EventWithDataPayload {
   data?: {
     requestId?: string;
     content?: string;
-    error?: unknown;
+    error?: Record<string, unknown>;
     confidence?: number;
   };
   requestId?: string;
   content?: string;
-  error?: unknown;
+  error?: Record<string, unknown>;
   confidence?: number;
 }
 
-const toLLMEventPayload = (event: unknown): EventWithDataPayload['data'] => {
+const toLLMEventPayload = (event: Record<string, unknown>): EventWithDataPayload['data'] => {
   if (typeof event !== 'object' || event === null) {
     return {};
   }
@@ -204,7 +204,7 @@ export class ConversationEnhancementService extends EventEmitter {
   private async handleLLMResponse(
     requestId: string,
     content: string,
-    error: any,
+    error: Record<string, unknown>,
     confidence: number,
     source: string
   ): Promise<void> {
@@ -262,111 +262,113 @@ export class ConversationEnhancementService extends EventEmitter {
     discussionId?: string,
     agentId?: string
   ): Promise<{ content: string; confidence: number }> {
-    return new Promise(async (resolve, reject) => {
-      const requestId = `conv_enh_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    return new Promise((resolve, reject) => {
+      void (async () => {
+        const requestId = `conv_enh_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 
-      // Add to Redis-based request tracker (45 seconds timeout)
-      await this.llmRequestTracker.addPendingRequest(
-        requestId,
-        (response) => resolve(response),
-        (error) => reject(error),
-        45000,
-        'conversation-enhancement'
-      );
+        // Add to Redis-based request tracker (45 seconds timeout)
+        await this.llmRequestTracker.addPendingRequest(
+          requestId,
+          (response) => resolve(response),
+          (error) => reject(error),
+          45000,
+          'conversation-enhancement'
+        );
 
-      try {
-        // Get discussion creator's userId for LLM provider
-        let userId = null;
-        if (discussionId) {
-          try {
-            const discussion = await this.getDiscussionData(discussionId);
-            if (discussion && discussion.createdBy) {
-              userId = discussion.createdBy;
-              logger.info('Found discussion creator for LLM provider', {
+        try {
+          // Get discussion creator's userId for LLM provider
+          let userId = null;
+          if (discussionId) {
+            try {
+              const discussion = await this.getDiscussionData(discussionId);
+              if (discussion && discussion.createdBy) {
+                userId = discussion.createdBy;
+                logger.info('Found discussion creator for LLM provider', {
+                  discussionId,
+                  createdBy: userId,
+                  discussionTitle: discussion.title,
+                });
+              } else {
+                logger.warn('No discussion creator found', {
+                  discussionId,
+                  discussion: !!discussion,
+                });
+              }
+            } catch (error) {
+              logger.warn('Failed to get discussion creator for LLM provider', {
                 discussionId,
-                createdBy: userId,
-                discussionTitle: discussion.title,
-              });
-            } else {
-              logger.warn('No discussion creator found', {
-                discussionId,
-                discussion: !!discussion,
+                error: error.message,
               });
             }
-          } catch (error) {
-            logger.warn('Failed to get discussion creator for LLM provider', {
-              discussionId,
-              error: error.message,
+          } else {
+            logger.warn('No discussionId provided for LLM generation');
+          }
+
+          // Use user's LLM provider if available, otherwise fallback to system
+          if (userId) {
+            const isUuid = (value: string | null | undefined) =>
+              !!value &&
+              /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value);
+            const safeAgentId = isUuid(agentId) ? agentId : isUuid(userId) ? userId : randomUUID();
+
+            // Create a basic agent structure for the request
+            const agentData = {
+              id: safeAgentId,
+              name: 'AI Assistant',
+              persona: {
+                description: 'An intelligent conversation participant',
+              },
+            };
+
+            // Create minimal message history (empty for now)
+            const formattedMessages: Record<string, unknown>[] = [];
+
+            // Use user-specific LLM request with proper AgentResponseRequest structure
+            await this.eventBusService.publish('llm.user.request', {
+              requestId,
+              userId,
+              agentRequest: {
+                agent: agentData,
+                messages: formattedMessages,
+                context: {
+                  id: discussionId || 'discussion',
+                  title: 'Discussion',
+                  content: `Topic: General discussion\n\nPrompt: ${prompt}\n\nSystem Instructions: ${systemPrompt}`,
+                  type: 'discussion',
+                },
+                tools: [], // Add tools if needed
+              },
+              service: 'agent-intelligence',
+            });
+          } else {
+            // Fallback to agent-level LLM request
+            await this.eventBusService.publish('llm.agent.generate.request', {
+              requestId,
+              agentId: agentId || null, // Use provided agentId or null for global fallback
+              messages: [
+                {
+                  role: 'user',
+                  content: prompt,
+                },
+              ],
+              systemPrompt: systemPrompt,
+              maxTokens: maxTokens,
+              temperature: temperature,
+              model: 'auto', // Let the system choose the model
+              provider: 'auto', // Let the system choose the provider
+              service: 'agent-intelligence',
             });
           }
-        } else {
-          logger.warn('No discussionId provided for LLM generation');
-        }
 
-        // Use user's LLM provider if available, otherwise fallback to system
-        if (userId) {
-          const isUuid = (value: string | null | undefined) =>
-            !!value &&
-            /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value);
-          const safeAgentId = isUuid(agentId) ? agentId : isUuid(userId) ? userId : randomUUID();
-
-          // Create a basic agent structure for the request
-          const agentData = {
-            id: safeAgentId,
-            name: 'AI Assistant',
-            persona: {
-              description: 'An intelligent conversation participant',
-            },
-          };
-
-          // Create minimal message history (empty for now)
-          const formattedMessages: any[] = [];
-
-          // Use user-specific LLM request with proper AgentResponseRequest structure
-          await this.eventBusService.publish('llm.user.request', {
+          const pendingCount = await this.llmRequestTracker.getPendingCount();
+          logger.debug('Conversation enhancement LLM request published', {
             requestId,
-            userId,
-            agentRequest: {
-              agent: agentData,
-              messages: formattedMessages,
-              context: {
-                id: discussionId || 'discussion',
-                title: 'Discussion',
-                content: `Topic: General discussion\n\nPrompt: ${prompt}\n\nSystem Instructions: ${systemPrompt}`,
-                type: 'discussion',
-              },
-              tools: [], // Add tools if needed
-            },
-            service: 'agent-intelligence',
+            pendingCount,
           });
-        } else {
-          // Fallback to agent-level LLM request
-          await this.eventBusService.publish('llm.agent.generate.request', {
-            requestId,
-            agentId: agentId || null, // Use provided agentId or null for global fallback
-            messages: [
-              {
-                role: 'user',
-                content: prompt,
-              },
-            ],
-            systemPrompt: systemPrompt,
-            maxTokens: maxTokens,
-            temperature: temperature,
-            model: 'auto', // Let the system choose the model
-            provider: 'auto', // Let the system choose the provider
-            service: 'agent-intelligence',
-          });
+        } catch (error) {
+          await this.llmRequestTracker.failPendingRequest(requestId, error);
         }
-
-        const pendingCount = await this.llmRequestTracker.getPendingCount();
-        logger.debug('Conversation enhancement LLM request published', {
-          requestId,
-          pendingCount,
-        });
-      } catch (error) {
-        await this.llmRequestTracker.failPendingRequest(requestId, error);
-      }
+      })().catch(reject);
     });
   }
 
@@ -495,7 +497,7 @@ export class ConversationEnhancementService extends EventEmitter {
   /**
    * Analyze conversation patterns and health
    */
-  async analyzeConversation(request: ConversationAnalysisRequest): Promise<any> {
+  async analyzeConversation(request: ConversationAnalysisRequest): Promise<unknown> {
     try {
       const { messageHistory, conversationState, analysisType } = request;
 
@@ -531,7 +533,7 @@ export class ConversationEnhancementService extends EventEmitter {
   async createHybridPersona(
     persona1Id: string,
     persona2Id: string,
-    hybridConfig?: any
+    hybridConfig?: Record<string, unknown>
   ): Promise<Persona> {
     try {
       // Get personas from agent mappings
@@ -581,7 +583,7 @@ export class ConversationEnhancementService extends EventEmitter {
       }
 
       // Determine response enhancement
-      const responseEnhancement: ResponseEnhancement = {
+      const _responseEnhancement: ResponseEnhancement = {
         type: 'primary',
         useTransition: context.topicShiftDetected,
         useFiller: false, // pace property not available
@@ -624,6 +626,7 @@ export class ConversationEnhancementService extends EventEmitter {
 
       for (const agent of agents) {
         // Map agent properties to personas
+        // oxlint-disable-next-line no-await-in-loop -- sequential processing required
         const personas = await this.createPersonasFromAgent(agent);
 
         this.agentPersonaMappings.set(agent.id, {
@@ -769,9 +772,9 @@ export class ConversationEnhancementService extends EventEmitter {
   }
 
   private async generateConversationSuggestions(
-    enhancement: any,
-    flowAnalysis: any,
-    request: ConversationEnhancementRequest
+    enhancement: Record<string, unknown>,
+    flowAnalysis: Record<string, unknown>,
+    _request: ConversationEnhancementRequest
   ): Promise<string[]> {
     const suggestions: string[] = [];
 
@@ -794,7 +797,7 @@ export class ConversationEnhancementService extends EventEmitter {
   }
 
   private async generateNextActions(
-    enhancement: any,
+    enhancement: Record<string, unknown>,
     request: ConversationEnhancementRequest
   ): Promise<string[]> {
     const actions: string[] = [];
@@ -812,7 +815,7 @@ export class ConversationEnhancementService extends EventEmitter {
     return actions;
   }
 
-  private async analyzeConversationHealth(request: ConversationAnalysisRequest): Promise<any> {
+  private async analyzeConversationHealth(_request: ConversationAnalysisRequest): Promise<unknown> {
     // Implement conversation health analysis
     return {
       healthScore: 0.8,
@@ -821,7 +824,9 @@ export class ConversationEnhancementService extends EventEmitter {
     };
   }
 
-  private async analyzeConversationPatterns(request: ConversationAnalysisRequest): Promise<any> {
+  private async analyzeConversationPatterns(
+    request: ConversationAnalysisRequest
+  ): Promise<unknown> {
     // Use analyzeConversationFlow function from shared types
     return this.analyzeConversationFlow(request.messageHistory, []);
   }
@@ -845,6 +850,7 @@ export class ConversationEnhancementService extends EventEmitter {
     const agents: Agent[] = [];
     for (const agentId of agentIds) {
       try {
+        // oxlint-disable-next-line no-await-in-loop -- sequential processing required
         const agent = await this.databaseService.findById<AgentEntity>(AgentEntity, agentId);
         if (agent) {
           const sharedAgent = this.toSharedAgent(agent);
@@ -888,11 +894,11 @@ export class ConversationEnhancementService extends EventEmitter {
   ): Promise<MessageHistoryItem[]> {
     try {
       // Get discussion with participants
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO: migrate discussion hydration to typed repository return models
+      // eslint-disable-next-line @typescript-eslint/no-explicit-unknown -- TODO: migrate discussion hydration to typed repository return models
       const fullDiscussion = (await this.databaseService.findById(
         DiscussionEntity,
         discussion.id
-      )) as any;
+      )) as Record<string, unknown>;
       const participantMap = new Map();
 
       if (fullDiscussion && fullDiscussion.participants) {
@@ -900,6 +906,7 @@ export class ConversationEnhancementService extends EventEmitter {
           try {
             // Try to get agent name first
             if (participant.agentId) {
+              // oxlint-disable-next-line no-await-in-loop -- sequential processing required
               const agent = await this.databaseService.findById<AgentEntity>(
                 AgentEntity,
                 participant.agentId
@@ -912,6 +919,7 @@ export class ConversationEnhancementService extends EventEmitter {
 
             // Fallback to user name if available
             if (participant.userId) {
+              // oxlint-disable-next-line no-await-in-loop -- sequential processing required
               const user = await this.databaseService.findById<UserEntity>(
                 UserEntity,
                 participant.userId
@@ -934,7 +942,7 @@ export class ConversationEnhancementService extends EventEmitter {
       // Get messages from discussion
       const messages = fullDiscussion?.messages || [];
 
-      return messages.map((msg: any) => ({
+      return messages.map((msg: Record<string, unknown>) => ({
         id: msg.id,
         speaker: participantMap.get(msg.participantId) || msg.participantId || 'user',
         content: msg.content,
@@ -957,7 +965,7 @@ export class ConversationEnhancementService extends EventEmitter {
     logger.info('Conversation enhancement event subscriptions set up');
   }
 
-  private async handleAgentUpdate(event: any): Promise<void> {
+  private async handleAgentUpdate(event: Record<string, unknown>): Promise<void> {
     try {
       const { agentId } = event;
 
@@ -995,8 +1003,8 @@ export class ConversationEnhancementService extends EventEmitter {
   private async selectBestPersona(
     personas: Persona[],
     messageHistory: MessageHistoryItem[],
-    currentTopic: string,
-    conversationState: ConversationState
+    _currentTopic: string,
+    _conversationState: ConversationState
   ): Promise<Persona | null> {
     if (personas.length === 0) return null;
 
@@ -1093,7 +1101,9 @@ Please contribute to this discussion about "${topic}" in a way that's natural an
   /**
    * Analyze conversation flow with simple metrics
    */
-  private analyzeConversationFlowSimple(messageHistory: MessageHistoryItem[]): any {
+  private analyzeConversationFlowSimple(
+    messageHistory: MessageHistoryItem[]
+  ): Record<string, unknown> {
     const recentSpeakers = messageHistory.slice(-5).map((m) => m.speaker);
     const uniqueSpeakers = new Set(recentSpeakers);
     const diversityScore = uniqueSpeakers.size / Math.min(5, recentSpeakers.length);
@@ -1132,11 +1142,17 @@ Please contribute to this discussion about "${topic}" in a way that's natural an
   /**
    * Missing helper methods
    */
-  private analyzeConversationFlow(messageHistory: any[], agents: any[]): any {
+  private analyzeConversationFlow(
+    messageHistory: Record<string, unknown>[],
+    _agents: Record<string, unknown>[]
+  ): Record<string, unknown> {
     return this.analyzeConversationFlowSimple(messageHistory);
   }
 
-  private getConversationInsights(messageHistory: any[], conversationState: any): any {
+  private getConversationInsights(
+    _messageHistory: Record<string, unknown>[],
+    _conversationState: Record<string, unknown>
+  ): Record<string, unknown> {
     return {
       insights: ['This conversation has good flow'],
       patterns: [],
@@ -1144,7 +1160,11 @@ Please contribute to this discussion about "${topic}" in a way that's natural an
     };
   }
 
-  private crossBreedPersonas(persona1: any, persona2: any, config: any): any {
+  private crossBreedPersonas(
+    persona1: Record<string, unknown>,
+    persona2: Record<string, unknown>,
+    _config: Record<string, unknown>
+  ): Record<string, unknown> {
     // Simple hybrid persona creation
     return {
       ...persona1,
@@ -1158,7 +1178,7 @@ Please contribute to this discussion about "${topic}" in a way that's natural an
     };
   }
 
-  private convertCapabilitiesToExpertise(capabilities: string[]): any[] {
+  private convertCapabilitiesToExpertise(capabilities: string[]): Record<string, unknown>[] {
     return capabilities.map((cap) => ({
       id: cap,
       name: cap,

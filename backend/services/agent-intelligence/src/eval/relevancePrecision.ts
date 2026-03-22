@@ -34,13 +34,13 @@ export interface MockCandidate {
     description: string;
     keywords: string[];
     tags?: string[];
-    [key: string]: unknown;
+    [key: string]: Record<string, unknown>;
   };
 }
 
 export type ScoreFn = (
   query: string,
-  candidates: MockCandidate[],
+  candidates: MockCandidate[]
 ) => MockCandidate[] | Promise<MockCandidate[]>;
 
 export interface PrecisionResult {
@@ -83,7 +83,8 @@ export const MOCK_CANDIDATES: MockCandidate[] = [
     metadata: {
       name: 'Backend Architect',
       title: 'Backend Architect Agent',
-      description: 'Designs and reviews backend system architecture including APIs, databases, and microservices.',
+      description:
+        'Designs and reviews backend system architecture including APIs, databases, and microservices.',
       keywords: ['backend', 'architect', 'api', 'design', 'microservices', 'system'],
     },
   },
@@ -157,7 +158,8 @@ export const MOCK_CANDIDATES: MockCandidate[] = [
     metadata: {
       name: 'Production Deployment SOP',
       title: 'Deploy to Production',
-      description: 'Standard operating procedure for deploying applications to production environment.',
+      description:
+        'Standard operating procedure for deploying applications to production environment.',
       keywords: ['deploy', 'production', 'release', 'sop', 'procedure', 'app'],
     },
   },
@@ -177,7 +179,8 @@ export const MOCK_CANDIDATES: MockCandidate[] = [
     metadata: {
       name: 'Developer Onboarding SOP',
       title: 'Developer Onboarding',
-      description: 'Procedure for onboarding new developers including environment setup and access provisioning.',
+      description:
+        'Procedure for onboarding new developers including environment setup and access provisioning.',
       keywords: ['onboarding', 'developer', 'setup', 'access', 'new', 'hire'],
     },
   },
@@ -189,7 +192,8 @@ export const MOCK_CANDIDATES: MockCandidate[] = [
     metadata: {
       name: 'Authentication Guide',
       title: 'Authentication & Authorization Guide',
-      description: 'Comprehensive guide on authentication flows, JWT tokens, OAuth, and authorization policies.',
+      description:
+        'Comprehensive guide on authentication flows, JWT tokens, OAuth, and authorization policies.',
       keywords: ['auth', 'authentication', 'authorization', 'jwt', 'oauth', 'tokens', 'security'],
     },
   },
@@ -199,7 +203,8 @@ export const MOCK_CANDIDATES: MockCandidate[] = [
     metadata: {
       name: 'API Design Standards',
       title: 'API Design Standards Document',
-      description: 'Standards and best practices for REST API design including versioning, error handling, and pagination.',
+      description:
+        'Standards and best practices for REST API design including versioning, error handling, and pagination.',
       keywords: ['api', 'design', 'standards', 'rest', 'versioning', 'best', 'practices'],
     },
   },
@@ -209,7 +214,8 @@ export const MOCK_CANDIDATES: MockCandidate[] = [
     metadata: {
       name: 'Database Patterns',
       title: 'Database Design Patterns',
-      description: 'Documentation of database schema patterns, indexing strategies, and query optimization techniques.',
+      description:
+        'Documentation of database schema patterns, indexing strategies, and query optimization techniques.',
       keywords: ['database', 'schema', 'patterns', 'indexing', 'query', 'optimization'],
     },
   },
@@ -219,7 +225,8 @@ export const MOCK_CANDIDATES: MockCandidate[] = [
     metadata: {
       name: 'Security Policies',
       title: 'Security Policies & Compliance',
-      description: 'Organization security policies covering data protection, access control, and regulatory compliance.',
+      description:
+        'Organization security policies covering data protection, access control, and regulatory compliance.',
       keywords: ['security', 'policies', 'compliance', 'data', 'protection', 'access', 'control'],
     },
   },
@@ -251,7 +258,8 @@ export const MOCK_CANDIDATES: MockCandidate[] = [
     metadata: {
       name: 'Deploy to Staging',
       title: 'Deploy to Staging Action',
-      description: 'Deploy the current branch to the staging environment for pre-production validation.',
+      description:
+        'Deploy the current branch to the staging environment for pre-production validation.',
       keywords: ['deploy', 'staging', 'branch', 'validation', 'environment'],
     },
   },
@@ -261,7 +269,8 @@ export const MOCK_CANDIDATES: MockCandidate[] = [
     metadata: {
       name: 'Generate Report',
       title: 'Generate Analytics Report',
-      description: 'Generate a comprehensive analytics report with usage statistics and performance data.',
+      description:
+        'Generate a comprehensive analytics report with usage statistics and performance data.',
       keywords: ['generate', 'report', 'analytics', 'statistics', 'performance'],
     },
   },
@@ -271,7 +280,8 @@ export const MOCK_CANDIDATES: MockCandidate[] = [
     metadata: {
       name: 'Backup Database',
       title: 'Database Backup Action',
-      description: 'Perform a full backup of all production databases including PostgreSQL, Neo4j, and Qdrant.',
+      description:
+        'Perform a full backup of all production databases including PostgreSQL, Neo4j, and Qdrant.',
       keywords: ['backup', 'database', 'production', 'postgresql', 'neo4j', 'qdrant'],
     },
   },
@@ -281,7 +291,8 @@ export const MOCK_CANDIDATES: MockCandidate[] = [
     metadata: {
       name: 'Scale Service',
       title: 'Scale Service Instances',
-      description: 'Horizontally scale a specific microservice by adjusting the number of running instances.',
+      description:
+        'Horizontally scale a specific microservice by adjusting the number of running instances.',
       keywords: ['scale', 'service', 'instances', 'horizontal', 'microservice', 'autoscale'],
     },
   },
@@ -305,7 +316,11 @@ export const GOLDEN_DATASET: GoldenTestCase[] = [
     id: 'tc-02-frontend-developer',
     query: 'who handles frontend development',
     expectedRelevantIds: ['agent-frontend-dev'],
-    expectedIrrelevantIds: ['agent-devops-engineer', 'sop-deploy-production', 'action-backup-database'],
+    expectedIrrelevantIds: [
+      'agent-devops-engineer',
+      'sop-deploy-production',
+      'action-backup-database',
+    ],
     category: 'agent',
     difficulty: 'easy',
   },
@@ -367,7 +382,11 @@ export const GOLDEN_DATASET: GoldenTestCase[] = [
     id: 'tc-09-api-design',
     query: 'API design best practices and standards',
     expectedRelevantIds: ['knowledge-api-standards'],
-    expectedIrrelevantIds: ['sop-incident-response', 'action-backup-database', 'portal-main-dashboard'],
+    expectedIrrelevantIds: [
+      'sop-incident-response',
+      'action-backup-database',
+      'portal-main-dashboard',
+    ],
     category: 'knowledge',
     difficulty: 'easy',
   },
@@ -385,7 +404,11 @@ export const GOLDEN_DATASET: GoldenTestCase[] = [
     id: 'tc-11-run-tests',
     query: 'run all tests',
     expectedRelevantIds: ['action-run-tests'],
-    expectedIrrelevantIds: ['sop-deploy-production', 'portal-main-dashboard', 'agent-backend-architect'],
+    expectedIrrelevantIds: [
+      'sop-deploy-production',
+      'portal-main-dashboard',
+      'agent-backend-architect',
+    ],
     category: 'action',
     difficulty: 'easy',
   },
@@ -411,7 +434,11 @@ export const GOLDEN_DATASET: GoldenTestCase[] = [
     id: 'tc-14-testing-resources',
     query: 'testing guide and run test suite',
     expectedRelevantIds: ['knowledge-testing-guide', 'action-run-tests'],
-    expectedIrrelevantIds: ['sop-deploy-production', 'portal-main-dashboard', 'agent-devops-engineer'],
+    expectedIrrelevantIds: [
+      'sop-deploy-production',
+      'portal-main-dashboard',
+      'agent-devops-engineer',
+    ],
     category: 'knowledge',
     difficulty: 'medium',
   },
@@ -436,7 +463,12 @@ export const GOLDEN_DATASET: GoldenTestCase[] = [
   {
     id: 'tc-17-security-ambiguous',
     query: 'security',
-    expectedRelevantIds: ['agent-security-analyst', 'portal-security-dashboard', 'knowledge-security-policies', 'knowledge-auth-guide'],
+    expectedRelevantIds: [
+      'agent-security-analyst',
+      'portal-security-dashboard',
+      'knowledge-security-policies',
+      'knowledge-auth-guide',
+    ],
     expectedIrrelevantIds: ['sop-onboarding', 'action-run-tests', 'portal-analytics'],
     category: 'knowledge',
     difficulty: 'hard',
@@ -444,7 +476,11 @@ export const GOLDEN_DATASET: GoldenTestCase[] = [
   {
     id: 'tc-18-performance-ambiguous',
     query: 'performance',
-    expectedRelevantIds: ['portal-analytics', 'action-generate-report', 'knowledge-database-patterns'],
+    expectedRelevantIds: [
+      'portal-analytics',
+      'action-generate-report',
+      'knowledge-database-patterns',
+    ],
     expectedIrrelevantIds: ['sop-onboarding', 'agent-frontend-dev', 'knowledge-auth-guide'],
     category: 'knowledge',
     difficulty: 'hard',
@@ -475,7 +511,7 @@ export const GOLDEN_DATASET: GoldenTestCase[] = [
 
 export async function evaluateCase(
   testCase: GoldenTestCase,
-  scoreFn: ScoreFn,
+  scoreFn: ScoreFn
 ): Promise<PrecisionResult> {
   const ranked = await scoreFn(testCase.query, MOCK_CANDIDATES);
   const top4Ids = ranked.slice(0, PRECISION_K).map((c) => c.id);
@@ -501,6 +537,7 @@ export async function runFullEval(scoreFn: ScoreFn): Promise<EvalSummary> {
 
   const results: PrecisionResult[] = [];
   for (const testCase of GOLDEN_DATASET) {
+    // oxlint-disable-next-line no-await-in-loop -- sequential processing required
     const result = await evaluateCase(testCase, scoreFn);
     results.push(result);
     logger.debug('Evaluated case', {
@@ -599,8 +636,8 @@ function tokenize(text: string): string[] {
       text
         .toLowerCase()
         .split(/[^a-z0-9]+/g)
-        .filter((t) => t.length > 1),
-    ),
+        .filter((t) => t.length > 1)
+    )
   );
 }
 
@@ -636,9 +673,7 @@ function keywordScoreFn(query: string, candidates: MockCandidate[]): MockCandida
       }
     }
 
-    const score = queryTerms.length > 0
-      ? (exactMatches + partialMatches) / queryTerms.length
-      : 0;
+    const score = queryTerms.length > 0 ? (exactMatches + partialMatches) / queryTerms.length : 0;
 
     return { candidate, score };
   });
@@ -656,9 +691,7 @@ if (import.meta.url === `file://${process.argv[1]}`) {
     logger.info('Running Precision@4 evaluation with built-in keyword scorer');
 
     const summary = await runFullEval(keywordScoreFn);
-    const report = formatReport(summary);
-
-    console.log('\n' + report + '\n');
+    const _report = formatReport(summary);
 
     if (!summary.meetsTarget) {
       logger.warn('Evaluation did NOT meet the 80% Precision@4 target', {

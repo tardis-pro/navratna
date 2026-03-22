@@ -14,7 +14,7 @@ export class AgentIntelligenceStore {
     this.databaseService = databaseService;
   }
 
-  async storeAgentState(agentId: string, state: any): Promise<void> {
+  async storeAgentState(agentId: string, state: Record<string, unknown>): Promise<void> {
     logger.debug('Storing agent state', { agentId });
     await this.databaseService.update<Agent>(Agent, agentId, {
       status: state.status,
@@ -28,7 +28,10 @@ export class AgentIntelligenceStore {
     });
   }
 
-  async storeAgentCapabilities(agentId: string, capabilities: any): Promise<void> {
+  async storeAgentCapabilities(
+    agentId: string,
+    capabilities: Record<string, unknown>
+  ): Promise<void> {
     logger.debug('Storing agent capabilities', { agentId });
     await this.databaseService.update<Agent>(Agent, agentId, {
       capabilities: capabilities.capabilities?.primary ?? [],
@@ -40,7 +43,7 @@ export class AgentIntelligenceStore {
     });
   }
 
-  async storeAgentActivity(agentId: string, activity: any): Promise<void> {
+  async storeAgentActivity(agentId: string, activity: Record<string, unknown>): Promise<void> {
     logger.debug('Storing agent activity', { agentId });
     await this.databaseService.create<AgentActivity>(AgentActivity, {
       agentId,
@@ -53,10 +56,13 @@ export class AgentIntelligenceStore {
     });
   }
 
-  async getAgentActivities(agentId: string, timeRange?: any): Promise<any[]> {
+  async getAgentActivities(
+    agentId: string,
+    timeRange?: Record<string, unknown>
+  ): Promise<Record<string, unknown>[]> {
     logger.debug('Getting agent activities', { agentId, timeRange });
     try {
-      const where: any = { agentId };
+      const where: Record<string, unknown> = { agentId };
       if (timeRange?.start) {
         where.timestamp = MoreThanOrEqual(new Date(timeRange.start));
       }
@@ -75,7 +81,7 @@ export class AgentIntelligenceStore {
     }
   }
 
-  async storeLearningRecord(agentId: string, record: any): Promise<void> {
+  async storeLearningRecord(agentId: string, record: Record<string, unknown>): Promise<void> {
     logger.debug('Storing learning record', { agentId });
     await this.databaseService.create<AgentLearningRecord>(AgentLearningRecord, {
       agentId,
@@ -87,10 +93,13 @@ export class AgentIntelligenceStore {
     });
   }
 
-  async getLearningRecords(agentId: string, timeRange?: any): Promise<any[]> {
+  async getLearningRecords(
+    agentId: string,
+    timeRange?: Record<string, unknown>
+  ): Promise<Record<string, unknown>[]> {
     logger.debug('Getting learning records', { agentId, timeRange });
     try {
-      const where: any = { agentId };
+      const where: Record<string, unknown> = { agentId };
       if (timeRange?.start) {
         where.timestamp = MoreThanOrEqual(new Date(timeRange.start));
       }
@@ -109,7 +118,7 @@ export class AgentIntelligenceStore {
     }
   }
 
-  async storeExecutionPlan(plan: any): Promise<void> {
+  async storeExecutionPlan(plan: Record<string, unknown>): Promise<void> {
     logger.debug('Storing execution plan', { planId: plan?.id });
     if (plan.id) {
       const existing = await this.databaseService.findById<Operation>(Operation, plan.id);
@@ -131,7 +140,7 @@ export class AgentIntelligenceStore {
       ...(plan.id ? { id: plan.id } : {}),
       type: plan.type ?? 'execution_plan',
       name: plan.type ?? 'Execution Plan',
-      status: 'pending' as any,
+      status: 'pending' as Record<string, unknown>,
       agentId: plan.agentId,
       userId: plan.userId ?? 'system',
       executionPlan: {
@@ -145,7 +154,7 @@ export class AgentIntelligenceStore {
     });
   }
 
-  async getOperationById(operationId: string): Promise<any> {
+  async getOperationById(operationId: string): Promise<unknown> {
     logger.debug('Getting operation', { operationId });
     return this.databaseService.findById<Operation>(Operation, operationId);
   }

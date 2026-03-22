@@ -5,7 +5,7 @@ import { logger } from '@uaip/utils';
 
 export interface TaskTypeContext {
   userIntent?: string;
-  conversationHistory?: any[];
+  conversationHistory?: unknown[];
   requiredCapabilities?: string[];
   domain?: DiscussionDomain;
   action?: string;
@@ -119,7 +119,7 @@ export class AgentTaskTypeResolver {
 
   private selectBestTaskTypeFromPreferences(
     preferences: AgentLLMPreference[],
-    context?: TaskTypeContext
+    _context?: TaskTypeContext
   ): LLMTaskType {
     // Sort by priority (highest first) and return the task type of the best preference
     const sortedPreferences = preferences.sort((a, b) => b.priority - a.priority);

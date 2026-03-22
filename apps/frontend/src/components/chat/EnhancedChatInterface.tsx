@@ -32,14 +32,14 @@ export const EnhancedChatInterface: React.FC<EnhancedChatInterfaceProps> = ({
   messages,
   className,
 }) => {
-  const [showIntentInfo, setShowIntentInfo] = useState(true);
-  const [toolPreview, setToolPreview] = useState<any>(null);
+  const [showIntentInfo, _setShowIntentInfo] = useState(true);
+  const [toolPreview, setToolPreview] = useState<unknown>(null);
 
   const {
     connected,
     currentIntent,
     currentTopic,
-    topicConfidence,
+    _topicConfidence,
     promptSuggestions,
     generateTopic,
     requestPromptSuggestions,

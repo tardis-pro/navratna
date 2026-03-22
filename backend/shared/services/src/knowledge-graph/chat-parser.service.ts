@@ -7,7 +7,7 @@ export interface ParsedMessage {
   sender: string;
   content: string;
   type: 'text' | 'image' | 'file' | 'system';
-  metadata: Record<string, any>;
+  metadata: Record<string, unknown>;
 }
 
 export interface ParsedConversation {
@@ -33,6 +33,20 @@ export interface ChatParsingResult {
   processingTime: number;
   detectedPlatform: string;
 }
+
+type ChatPlatform = ParsedConversation['platform'];
+
+type ImportedMessage = {
+  timestamp?: string | Date;
+  role?: string;
+  content?: string;
+  message?: string;
+};
+
+type ImportedConversation = {
+  messages?: ImportedMessage[];
+  title?: string;
+};
 
 export class ChatParserService {
   private readonly platformDetectors = {
@@ -104,15 +118,18 @@ export class ChatParserService {
         detectedPlatform,
       };
     } catch (error) {
-      logger.error('Error parsing chat file:', error);
-      throw new Error(
+      logger.error(
+        `Error parsing chat file: ${error instanceof Error ? error.message : 'Unknown error'}`
+      );
+      const wrappedError = new Error(
         `Chat parsing failed: ${error instanceof Error ? error.message : 'Unknown error'}`
       );
+      (wrappedError as Error & { cause?: unknown }).cause = error;
+      throw wrappedError;
     }
   }
 
   detectPlatform(content: string, filename: string): string {
-    const lowerContent = content.toLowerCase();
     const lowerFilename = filename.toLowerCase();
 
     // Check filename patterns first
@@ -283,7 +300,7 @@ export class ChatParserService {
     for (const line of lines) {
       const match = line.match(whatsappPattern);
       if (match) {
-        const [, dateStr, timeStr, sender, content] = match;
+        const [, dateStr, timeStr, sender, messageContent] = match;
 
         try {
           const timestamp = this.parseWhatsAppTimestamp(dateStr, timeStr);
@@ -291,12 +308,12 @@ export class ChatParserService {
             id: uuidv4(),
             timestamp,
             sender: sender.trim(),
-            content: content.trim(),
+            content: messageContent.trim(),
             type: 'text',
             metadata: { lineNumber: messageCounter },
           });
           messageCounter++;
-        } catch (error) {
+        } catch {
           logger.warn(`Failed to parse WhatsApp timestamp: ${dateStr} ${timeStr}`);
         }
       }
@@ -325,9 +342,11 @@ export class ChatParserService {
       for (const pattern of patterns) {
         const match = trimmedLine.match(pattern);
         if (match) {
-          const [, sender, content] = match;
-          if (sender && content && content.length > 3) {
-            messages.push(this.createMessage(sender.trim(), content.trim(), messageCounter++));
+          const [, sender, messageContent] = match;
+          if (sender && messageContent && messageContent.length > 3) {
+            messages.push(
+              this.createMessage(sender.trim(), messageContent.trim(), messageCounter++)
+            );
             break;
           }
         }
@@ -338,15 +357,15 @@ export class ChatParserService {
   }
 
   private convertClaudeConversation(
-    data: any,
+    data: ImportedConversation,
     filename: string,
-    index: number
+    _index: number
   ): ParsedConversation {
     const messages: ParsedMessage[] = [];
     const conversationId = uuidv4();
 
     if (data.messages && Array.isArray(data.messages)) {
-      data.messages.forEach((msg: any, msgIndex: number) => {
+      data.messages.forEach((msg: ImportedMessage, msgIndex: number) => {
         messages.push({
           id: uuidv4(),
           timestamp: msg.timestamp ? new Date(msg.timestamp) : new Date(),
@@ -370,12 +389,16 @@ export class ChatParserService {
       : this.createEmptyConversation('claude', filename, conversationId);
   }
 
-  private convertGPTConversation(data: any, filename: string, index: number): ParsedConversation {
+  private convertGPTConversation(
+    data: ImportedConversation,
+    filename: string,
+    _index: number
+  ): ParsedConversation {
     const messages: ParsedMessage[] = [];
     const conversationId = uuidv4();
 
     if (data.messages && Array.isArray(data.messages)) {
-      data.messages.forEach((msg: any, msgIndex: number) => {
+      data.messages.forEach((msg: ImportedMessage, msgIndex: number) => {
         messages.push({
           id: uuidv4(),
           timestamp: msg.timestamp ? new Date(msg.timestamp) : new Date(),
@@ -437,7 +460,7 @@ export class ChatParserService {
     return [
       {
         id: id || uuidv4(),
-        platform: platform as any,
+        platform: platform as ChatPlatform,
         title: title || `${platform} conversation from ${filename}`,
         participants,
         messages,
@@ -459,7 +482,7 @@ export class ChatParserService {
   ): ParsedConversation {
     return {
       id: id || uuidv4(),
-      platform: platform as any,
+      platform: platform as ChatPlatform,
       title: `Empty ${platform} conversation from ${filename}`,
       participants: [],
       messages: [],
@@ -529,6 +552,7 @@ export class ChatParserService {
 
     for (const file of files) {
       try {
+        // oxlint-disable-next-line no-await-in-loop
         const result = await this.parseFile(file.content, file.filename);
         allConversations.push(...result.conversations);
         allErrors.push(...result.parsingErrors);

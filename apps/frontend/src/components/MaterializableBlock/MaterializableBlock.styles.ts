@@ -54,7 +54,10 @@ export const VISIBILITY_STYLES: Record<BlockVisibility, CSSProperties> = {
   },
 };
 
-export const BLOCK_TYPE_COLORS: Record<MaterializableBlockType, { bg: string; border: string; accent: string }> = {
+export const BLOCK_TYPE_COLORS: Record<
+  MaterializableBlockType,
+  { bg: string; border: string; accent: string }
+> = {
   agent: {
     bg: 'oklch(20% 0.02 250 / 0.8)',
     border: 'oklch(55% 0.2 250 / 0.4)',

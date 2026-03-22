@@ -9,6 +9,7 @@ import {
   KnowledgeFilters,
   KnowledgeScope,
   KnowledgeType,
+  SourceType,
 } from '@uaip/types';
 import { logger } from '@uaip/utils';
 import { QdrantService } from '../qdrant.service';
@@ -28,12 +29,7 @@ import {
   QAPair,
   DecisionPoint,
 } from './chat-knowledge-extractor.service';
-import {
-  BatchProcessorService,
-  FileData,
-  ProcessingOptions,
-  BatchResult,
-} from './batch-processor.service';
+import { BatchProcessorService, FileData, ProcessingOptions } from './batch-processor.service';
 import { QAGeneratorService, GeneratedQA, QAGenerationOptions } from './qa-generator.service';
 import {
   WorkflowExtractorService,
@@ -66,6 +62,22 @@ export interface IngestionResult {
   success: boolean;
   errors?: string[];
 }
+
+type VectorSearchResult = {
+  id: string;
+  score: number;
+  payload?: {
+    content?: string;
+    metadata?: Record<string, unknown>;
+    embedding?: number[];
+  };
+};
+
+type ExtractedKnowledgeBundle = {
+  extractedKnowledge: ExtractedKnowledge[];
+  qaPairs: QAPair[];
+  decisionPoints: DecisionPoint[];
+};
 
 export class KnowledgeGraphService {
   private readonly conceptExtractor: ConceptExtractorService;
@@ -130,7 +142,7 @@ export class KnowledgeGraphService {
     const startTime = Date.now();
     const { query, filters, options, scope } = request;
     let filteredResults: KnowledgeItem[] = [];
-    let vectorResults: any[] = [];
+    let vectorResults: VectorSearchResult[] = [];
     try {
       // Generate query embedding or get all items
       if (query && query.trim()) {
@@ -192,7 +204,9 @@ export class KnowledgeGraphService {
       };
     } catch (error) {
       console.error('Knowledge search error:', error);
-      throw new Error(`Knowledge search failed: ${error.message}`);
+      const wrappedError = new Error(`Knowledge search failed: ${error.message}`);
+      (wrappedError as Error & { cause?: unknown }).cause = error;
+      throw wrappedError;
     }
   }
 
@@ -208,12 +222,15 @@ export class KnowledgeGraphService {
     for (const item of items) {
       try {
         // Classify content
+        // oxlint-disable-next-line no-await-in-loop
         const classification = await this.classifier.classify(item.content);
-        console.log('classification', classification);
+
         // Generate embeddings
+        // oxlint-disable-next-line no-await-in-loop
         const embeddings = await this.embeddings.generateEmbeddings(item.content);
-        console.log('embeddings', embeddings);
+
         // Store knowledge item with scope
+        // oxlint-disable-next-line no-await-in-loop
         const knowledgeItem = await this.repository.create({
           ...item,
           tags: [...(item.tags || []), ...classification.tags],
@@ -222,7 +239,7 @@ export class KnowledgeGraphService {
           userId: item.scope?.userId,
           agentId: item.scope?.agentId,
         });
-        console.log('knowledgeItem', knowledgeItem);
+
         // Store embeddings in vector database with scope metadata
         const requestedCollectionType = (
           item.source?.metadata as Record<string, unknown> | undefined
@@ -234,10 +251,12 @@ export class KnowledgeGraphService {
               ? 'episodic'
               : 'semantic';
 
+        // oxlint-disable-next-line no-await-in-loop
         await this.vectorDb.store(knowledgeItem.id, embeddings, {
           collection: collectionType,
         });
         // Detect and create relationships
+        // oxlint-disable-next-line no-await-in-loop
         const relationships = await this.relationshipDetector.detectRelationships(knowledgeItem);
         if (relationships.length > 0) {
           // Add scope to relationships
@@ -246,6 +265,7 @@ export class KnowledgeGraphService {
             userId: item.scope?.userId,
             agentId: item.scope?.agentId,
           }));
+          // oxlint-disable-next-line no-await-in-loop
           await this.repository.createRelationships(scopedRelationships);
         }
 
@@ -365,7 +385,7 @@ export class KnowledgeGraphService {
   /**
    * Add feedback to knowledge items
    */
-  async addFeedback(feedback: {
+  async addFeedback(_feedback: {
     entityId: string;
     feedbackType: string;
     comments?: string;
@@ -374,34 +394,30 @@ export class KnowledgeGraphService {
   }): Promise<void> {
     // Store feedback in repository
     // This is a placeholder implementation
-    console.log('Feedback added:', feedback);
   }
 
   /**
    * Store interaction data
    */
-  async storeInteraction(interaction: any): Promise<void> {
+  async storeInteraction(_interaction: unknown): Promise<void> {
     // Store interaction in repository
     // This is a placeholder implementation
-    console.log('Interaction stored:', interaction);
   }
 
   /**
    * Adjust confidence scores
    */
-  async adjustConfidence(itemId: string, adjustment: number): Promise<void> {
+  async adjustConfidence(_itemId: string, _adjustment: number): Promise<void> {
     // Adjust confidence in repository
     // This is a placeholder implementation
-    console.log('Confidence adjusted:', { itemId, adjustment });
   }
 
   /**
    * Initialize agent context
    */
-  async initializeAgentContext(agentId: string, context: any): Promise<void> {
+  async initializeAgentContext(_agentId: string, _context: unknown): Promise<void> {
     // Initialize agent context
     // This is a placeholder implementation
-    console.log('Agent context initialized:', { agentId, context });
   }
 
   /**
@@ -418,9 +434,9 @@ export class KnowledgeGraphService {
 
   private async searchAcrossCollections(
     queryEmbedding: number[],
-    options: { limit: number; threshold: number; filters?: any },
+    options: { limit: number; threshold: number; filters?: Record<string, unknown> },
     filters?: KnowledgeFilters
-  ): Promise<any[]> {
+  ): Promise<VectorSearchResult[]> {
     const requestedTypes = filters?.types || [];
 
     if (requestedTypes.length === 1 && requestedTypes[0] === KnowledgeType.EPISODIC) {
@@ -436,7 +452,7 @@ export class KnowledgeGraphService {
       this.vectorDb.search(queryEmbedding, options, { collection: 'episodic' }),
     ]);
 
-    const merged = new Map<string, any>();
+    const merged = new Map<string, VectorSearchResult>();
     for (const result of [...semanticResults, ...episodicResults]) {
       const existing = merged.get(result.id);
       if (!existing || result.score > existing.score) {
@@ -450,7 +466,10 @@ export class KnowledgeGraphService {
   }
 
   // Private helper methods
-  private buildVectorFilters(filters?: KnowledgeFilters, scope?: KnowledgeScope): any {
+  private buildVectorFilters(
+    filters?: KnowledgeFilters,
+    scope?: KnowledgeScope
+  ): Record<string, unknown> {
     if (!filters) return {};
 
     return {
@@ -469,6 +488,7 @@ export class KnowledgeGraphService {
     const enhanced = [];
 
     for (const item of items) {
+      // oxlint-disable-next-line no-await-in-loop
       const relationships = await this.repository.getRelationships(item.id, undefined, scope);
       enhanced.push({
         ...item,
@@ -564,7 +584,7 @@ export class KnowledgeGraphService {
       maxConflictsPerBatch?: number;
       autoResolve?: boolean;
     }
-  ) {
+  ): Promise<Awaited<ReturnType<ReconciliationService['detectConflicts']>>> {
     const items = domain
       ? await this.repository.findByDomain(domain)
       : await this.repository.findRecentItems(100);
@@ -579,13 +599,13 @@ export class KnowledgeGraphService {
    * Resolve knowledge conflicts
    */
   async resolveKnowledgeConflicts(
-    conflicts: any[],
+    conflicts: Parameters<ReconciliationService['resolveConflicts']>[0],
     options?: {
       autoResolve?: boolean;
       preserveHistory?: boolean;
       generateSummaries?: boolean;
     }
-  ) {
+  ): Promise<Awaited<ReturnType<ReconciliationService['resolveConflicts']>>> {
     return await this.reconciliationService.resolveConflicts(conflicts, options);
   }
 
@@ -625,11 +645,11 @@ export class KnowledgeGraphService {
     const startTime = Date.now();
     const results = {
       domain: domain || 'all',
-      conceptExtraction: null as any,
-      ontologyBuilding: null as any,
-      taxonomyGeneration: null as any,
-      conflictDetection: null as any,
-      conflictResolution: null as any,
+      conceptExtraction: null as unknown,
+      ontologyBuilding: null as unknown,
+      taxonomyGeneration: null as unknown,
+      conflictDetection: [] as Parameters<ReconciliationService['resolveConflicts']>[0],
+      conflictResolution: null as unknown,
       processingTime: 0,
     };
 
@@ -704,6 +724,7 @@ export class KnowledgeGraphService {
         let totalKnowledgeExtracted = 0;
 
         for (const conversation of conversations) {
+          // oxlint-disable-next-line no-await-in-loop
           const knowledge = await this.chatKnowledgeExtractor.extractKnowledgeFromConversations(
             [conversation],
             {
@@ -725,6 +746,7 @@ export class KnowledgeGraphService {
 
           // Save to knowledge graph if requested
           if (options.saveToGraph !== false) {
+            // oxlint-disable-next-line no-await-in-loop
             await this.saveExtractedKnowledge(knowledge, file.userId);
           }
         }
@@ -786,7 +808,7 @@ export class KnowledgeGraphService {
    * Extract workflows from chat conversations
    */
   async extractWorkflowsFromChats(
-    conversations: any[],
+    conversations: ParsedConversation[],
     options?: WorkflowExtractionOptions
   ): Promise<ExtractedWorkflow[]> {
     try {
@@ -801,7 +823,7 @@ export class KnowledgeGraphService {
    * Analyze participant expertise from conversations
    */
   async analyzeParticipantExpertise(
-    conversations: any[],
+    conversations: ParsedConversation[],
     options?: ExpertiseAnalysisOptions
   ): Promise<ExpertiseProfile[]> {
     try {
@@ -816,7 +838,7 @@ export class KnowledgeGraphService {
    * Detect learning moments in conversations
    */
   async detectLearningMoments(
-    conversations: any[],
+    conversations: ParsedConversation[],
     options?: LearningDetectionOptions
   ): Promise<LearningMoment[]> {
     try {
@@ -833,7 +855,7 @@ export class KnowledgeGraphService {
    * Generate Q&A pairs from conversations
    */
   async generateQAFromConversations(
-    conversations: any[],
+    conversations: ParsedConversation[],
     options?: QAGenerationOptions
   ): Promise<GeneratedQA[]> {
     try {
@@ -892,7 +914,10 @@ export class KnowledgeGraphService {
   /**
    * Generate learning insights
    */
-  async generateLearningInsights(conversations: any[], options?: LearningDetectionOptions) {
+  async generateLearningInsights(
+    conversations: ParsedConversation[],
+    options?: LearningDetectionOptions
+  ) {
     try {
       const allMessages = conversations.flatMap((conv) => conv.messages || []);
       const moments = await this.learningDetector.detectLearningMoments(allMessages, options);
@@ -911,8 +936,11 @@ export class KnowledgeGraphService {
   /**
    * Save extracted knowledge to the knowledge graph
    */
-  private async saveExtractedKnowledge(knowledge: any, userId: string): Promise<void> {
-    const savePromises: Promise<any>[] = [];
+  private async saveExtractedKnowledge(
+    knowledge: ExtractedKnowledgeBundle,
+    userId: string
+  ): Promise<void> {
+    const savePromises: Promise<unknown>[] = [];
 
     // Save extracted knowledge (replaces facts and procedures)
     if (knowledge.extractedKnowledge?.length > 0) {
@@ -925,7 +953,7 @@ export class KnowledgeGraphService {
               confidence: item.confidence,
               tags: item.tags,
               source: {
-                type: 'AGENT_INTERACTION' as any,
+                type: 'AGENT_INTERACTION' as SourceType,
                 identifier: 'chat-ingestion',
                 metadata: {
                   context: item.context,
@@ -950,11 +978,11 @@ export class KnowledgeGraphService {
           this.ingest([
             {
               content: `Q: ${qa.question}\nA: ${qa.answer}`,
-              type: 'PROCEDURAL' as any,
+              type: 'PROCEDURAL' as KnowledgeType,
               confidence: qa.confidence,
               tags: qa.tags,
               source: {
-                type: 'AGENT_INTERACTION' as any,
+                type: 'AGENT_INTERACTION' as SourceType,
                 identifier: 'chat-qa-extraction',
                 metadata: {
                   question: qa.question,
@@ -978,10 +1006,10 @@ export class KnowledgeGraphService {
           this.ingest([
             {
               content: decision.decision,
-              type: 'EXPERIENTIAL' as any,
+              type: 'EXPERIENTIAL' as KnowledgeType,
               confidence: decision.confidence,
               source: {
-                type: 'AGENT_INTERACTION' as any,
+                type: 'AGENT_INTERACTION' as SourceType,
                 identifier: 'chat-decision-extraction',
                 metadata: {
                   reasoning: decision.reasoning,

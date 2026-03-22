@@ -3,10 +3,6 @@ import {
   LLMResponse,
   AgentResponseRequest,
   AgentResponseResponse,
-  ArtifactRequest,
-  ArtifactResponse,
-  ContextRequest,
-  ContextAnalysis,
 } from './interfaces.js';
 import { getContextManager, ContextManager } from './context-manager/ContextManager.js';
 import { BaseProvider } from './providers/BaseProvider.js';
@@ -78,7 +74,7 @@ export class UserLLMService {
       baseUrl?: string;
       apiKey?: string;
       defaultModel?: string;
-      configuration?: any;
+      configuration?: Record<string, unknown>;
       priority?: number;
     }
   ): Promise<UserLLMProvider> {
@@ -173,7 +169,7 @@ export class UserLLMService {
       baseUrl?: string;
       defaultModel?: string;
       priority?: number;
-      configuration?: any;
+      configuration?: Record<string, unknown>;
     }
   ): Promise<void> {
     try {
@@ -257,9 +253,9 @@ export class UserLLMService {
       try {
         const models = await provider.getAvailableModels();
         const responseTime = Date.now() - startTime;
-        userProviders.forEach(async (provider) => {
+        userProviders.forEach(async (userProv) => {
           // Update health check result
-          await repository.updateHealthCheck(provider.id, {
+          await repository.updateHealthCheck(userProv.id, {
             status: 'healthy',
             latency: responseTime,
           });
@@ -450,10 +446,10 @@ export class UserLLMService {
           role: request.agent.role,
           capabilities: request.agent.capabilities || [],
           // Set reasonable defaults for missing properties
-          learningHistory: [] as any[],
+          learningHistory: [] as unknown[],
           securityLevel: 'medium' as const,
           complianceTags: [] as string[],
-          auditTrail: [] as any[],
+          auditTrail: [] as unknown[],
           performanceMetrics: {},
           configuration: request.agent.configuration || {},
           preferences: {},
@@ -474,10 +470,13 @@ export class UserLLMService {
 
         // Determine appropriate task type for the agent
         const taskTypeResolver = await this.getTaskTypeResolver();
-        const taskType = await taskTypeResolver.determineTaskType(agentForTaskType as any, {
-          userIntent: request.messages?.[0]?.content,
-          conversationHistory: request.messages,
-        });
+        const taskType = await taskTypeResolver.determineTaskType(
+          agentForTaskType as unknown as Parameters<typeof taskTypeResolver.determineTaskType>[0],
+          {
+            userIntent: request.messages?.[0]?.content,
+            conversationHistory: request.messages,
+          }
+        );
 
         // Use facade to select model and provider
         const modelSelection = await this.modelSelectionFacade.selectForAgent(
@@ -561,10 +560,7 @@ export class UserLLMService {
       urgency: 'medium',
     });
 
-    const provider = await this.resolveProviderForSelection(
-      userId,
-      selection.model.provider
-    );
+    const provider = await this.resolveProviderForSelection(userId, selection.model.provider);
 
     return { provider, selection };
   }
@@ -590,12 +586,14 @@ export class UserLLMService {
       logger.info('Getting models for user', { userId, userProviders });
       for (const userProvider of userProviders) {
         try {
+          // eslint-disable-next-line no-await-in-loop -- sequential processing required
           const providerInstance = await this.getOrCreateProviderInstance(userProvider);
           logger.info('Getting models from provider', {
             userId,
             providerId: userProvider.id,
             providerName: userProvider.name,
           });
+          // eslint-disable-next-line no-await-in-loop -- sequential processing required
           const models = await providerInstance.getAvailableModels();
           logger.info('Models from provider', {
             userId,
@@ -738,15 +736,24 @@ export class UserLLMService {
 
     switch (userProvider.type) {
       case 'ollama':
-        return new OllamaProvider(config as any, userProvider.name);
+        return new OllamaProvider(
+          config as unknown as import('./interfaces.js').LLMProviderConfig,
+          userProvider.name
+        );
       case 'llmstudio':
-        return new LLMStudioProvider(config as any, userProvider.name);
+        return new LLMStudioProvider(
+          config as unknown as import('./interfaces.js').LLMProviderConfig,
+          userProvider.name
+        );
       case 'openai':
       case 'anthropic':
       case 'custom':
       case 'google':
         // OpenAI, Anthropic, Google, and custom providers all use OpenAI-compatible endpoints
-        return new OpenAIProvider(config as any, userProvider.name);
+        return new OpenAIProvider(
+          config as unknown as import('./interfaces.js').LLMProviderConfig,
+          userProvider.name
+        );
       default:
         throw new Error(`Unsupported provider type: ${userProvider.type}`);
     }

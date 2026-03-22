@@ -58,6 +58,6 @@ export class ChatIngestionJobEntity extends BaseEntity {
     fileNames?: string[];
     totalFileSize?: number;
     platforms?: string[];
-    options?: Record<string, any>;
+    options?: Record<string, unknown>;
   };
 }

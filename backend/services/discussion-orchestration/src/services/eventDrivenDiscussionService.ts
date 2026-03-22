@@ -23,7 +23,11 @@ export class EventDrivenDiscussionService extends EventEmitter {
   private complianceFlags: string[];
   private pendingRequests = new Map<
     string,
-    { resolve: Function; reject: Function; timeout: NodeJS.Timeout }
+    {
+      resolve: (value: unknown) => void;
+      reject: (reason?: unknown) => void;
+      timeout: NodeJS.Timeout;
+    }
   >();
 
   constructor(config: EventDrivenConfig) {
@@ -72,7 +76,7 @@ export class EventDrivenDiscussionService extends EventEmitter {
   /**
    * Create a discussion through event bus
    */
-  async createDiscussion(data: any, userId: string): Promise<Discussion> {
+  async createDiscussion(data: unknown, userId: string): Promise<Discussion> {
     const requestId = this.generateRequestId();
 
     const event = {
@@ -282,7 +286,7 @@ export class EventDrivenDiscussionService extends EventEmitter {
    */
   private async publishAndWait<T>(
     channel: string,
-    event: any,
+    event: unknown,
     requestId: string,
     timeout = 5000
   ): Promise<T> {
@@ -312,16 +316,17 @@ export class EventDrivenDiscussionService extends EventEmitter {
   /**
    * Handle discussion response events
    */
-  private handleDiscussionResponse(event: any): void {
-    const { requestId, data, error } = event;
-    const pending = this.pendingRequests.get(requestId);
+  private handleDiscussionResponse(event: unknown): void {
+    const eventData = event as Record<string, unknown>;
+    const { requestId, data, error } = eventData;
+    const pending = this.pendingRequests.get(requestId as string);
 
     if (pending) {
       clearTimeout(pending.timeout);
-      this.pendingRequests.delete(requestId);
+      this.pendingRequests.delete(requestId as string);
 
       if (error) {
-        pending.reject(new Error(error));
+        pending.reject(new Error(String(error)));
       } else {
         pending.resolve(data);
       }
@@ -331,56 +336,57 @@ export class EventDrivenDiscussionService extends EventEmitter {
   /**
    * Handle discussion error events
    */
-  private handleDiscussionError(event: any): void {
-    const { requestId, error } = event;
-    const pending = this.pendingRequests.get(requestId);
+  private handleDiscussionError(event: unknown): void {
+    const eventData = event as Record<string, unknown>;
+    const { requestId, error } = eventData;
+    const pending = this.pendingRequests.get(requestId as string);
 
     if (pending) {
       clearTimeout(pending.timeout);
-      this.pendingRequests.delete(requestId);
-      pending.reject(new Error(error));
+      this.pendingRequests.delete(requestId as string);
+      pending.reject(new Error(String(error)));
     }
   }
 
   /**
    * Handle real-time discussion updates
    */
-  private handleDiscussionUpdate(event: any): void {
+  private handleDiscussionUpdate(event: unknown): void {
     this.emit('discussion_updated', event);
   }
 
   /**
    * Handle message added events
    */
-  private handleMessageAdded(event: any): void {
+  private handleMessageAdded(event: unknown): void {
     this.emit('message_added', event);
   }
 
   /**
    * Handle turn changed events
    */
-  private handleTurnChanged(event: any): void {
+  private handleTurnChanged(event: unknown): void {
     this.emit('turn_changed', event);
   }
 
   /**
    * Handle agent joined events
    */
-  private handleAgentJoined(event: any): void {
+  private handleAgentJoined(event: unknown): void {
     this.emit('agent_joined', event);
   }
 
   /**
    * Handle agent left events
    */
-  private handleAgentLeft(event: any): void {
+  private handleAgentLeft(event: unknown): void {
     this.emit('agent_left', event);
   }
 
   /**
    * Handle agent response events
    */
-  private handleAgentResponse(event: any): void {
+  private handleAgentResponse(event: unknown): void {
     this.emit('agent_response', event);
   }
 
@@ -394,7 +400,7 @@ export class EventDrivenDiscussionService extends EventEmitter {
   /**
    * Compliance audit logging
    */
-  private auditLog(event: string, data: any): void {
+  private auditLog(event: string, data: Record<string, unknown>): void {
     logger.info(`AUDIT: ${event}`, {
       ...data,
       service: this.serviceName,
@@ -409,7 +415,7 @@ export class EventDrivenDiscussionService extends EventEmitter {
    */
   public cleanup(): void {
     // Clear all pending requests
-    for (const [requestId, pending] of this.pendingRequests) {
+    for (const [_requestId, pending] of this.pendingRequests) {
       clearTimeout(pending.timeout);
       pending.reject(new Error('Service shutting down'));
     }

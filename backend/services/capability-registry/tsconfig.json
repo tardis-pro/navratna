@@ -17,15 +17,8 @@
       "typeorm/*": ["../../../shared/services/node_modules/typeorm/*"]
     }
   },
-  "include": [
-    "src/**/*"
-  ],
-  "exclude": [
-    "node_modules",
-    "dist",
-    "**/*.test.ts",
-    "**/*.spec.ts"
-  ],
+  "include": ["src/**/*"],
+  "exclude": ["node_modules", "dist", "**/*.test.ts", "**/*.spec.ts"],
   "references": [
     { "path": "../../../packages/shared-types" },
     { "path": "../../../packages/shared-utils" },
@@ -34,4 +27,4 @@
     { "path": "../../shared/config" },
     { "path": "../../shared/infra" }
   ]
-} 
+}

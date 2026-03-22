@@ -246,10 +246,14 @@ export class TurnStrategyService {
     const strategies = [];
 
     for (const [type, strategy] of this.strategies) {
+      const strategyWithMethods = strategy as TurnStrategyInterface & {
+        getStrategyDescription?: () => string;
+        getStrategyConfig?: () => Partial<TurnStrategyConfig>;
+      };
       strategies.push({
         type,
-        description: (strategy as any).getStrategyDescription?.() || `${type} strategy`,
-        config: (strategy as any).getStrategyConfig?.() || {},
+        description: strategyWithMethods.getStrategyDescription?.() || `${type} strategy`,
+        config: strategyWithMethods.getStrategyConfig?.() || {},
       });
     }
 
@@ -376,8 +380,6 @@ export class TurnStrategyService {
 
       // Strategy-specific actions
       if (discussion.turnStrategy.strategy === TurnStrategy.MODERATED) {
-        const moderatedStrategy = strategy as ModeratedStrategy;
-
         actions.push({
           action: 'select_next_participant',
           description: 'Select the next participant to speak',
@@ -409,8 +411,8 @@ export class TurnStrategyService {
     action: string,
     discussion: Discussion,
     moderatorId: string,
-    params?: any
-  ): Promise<{ success: boolean; message: string; data?: any }> {
+    params?: Record<string, unknown>
+  ): Promise<{ success: boolean; message: string; data?: unknown }> {
     try {
       const strategy = this.getStrategy(discussion.turnStrategy.strategy);
 
@@ -427,7 +429,7 @@ export class TurnStrategyService {
             const moderatedStrategy = strategy as ModeratedStrategy;
             const success = await moderatedStrategy.selectNextParticipant(
               moderatorId,
-              params.participantId,
+              params.participantId as string,
               discussion
             );
             return {

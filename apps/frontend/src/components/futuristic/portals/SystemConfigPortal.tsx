@@ -4,9 +4,9 @@ import {
   Settings,
   Monitor,
   Shield,
-  Zap,
+  Zap as _Zap,
   Database,
-  Clock,
+  Clock as _Clock,
   Bell,
   Save,
   RefreshCw,
@@ -87,7 +87,7 @@ export const SystemConfigPortal: React.FC<SystemConfigPortalProps> = ({ classNam
   });
 
   const [saving, setSaving] = useState(false);
-  const [lastSaved, setLastSaved] = useState<Date | null>(null);
+  const [_lastSaved, setLastSaved] = useState<Date | null>(null);
 
   // Default viewport if not provided
   const defaultViewport: ViewportSize = {
@@ -126,11 +126,11 @@ export const SystemConfigPortal: React.FC<SystemConfigPortalProps> = ({ classNam
     }
   }, [config]);
 
-  const updateConfig = (path: string, value: any) => {
+  const updateConfig = (path: string, value: unknown) => {
     setConfig((prev) => {
       const newConfig = { ...prev };
       const keys = path.split('.');
-      let current: any = newConfig;
+      let current: unknown = newConfig;
 
       for (let i = 0; i < keys.length - 1; i++) {
         if (!(keys[i] in current)) {

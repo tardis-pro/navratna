@@ -98,8 +98,10 @@ export type {
   CreateTaskRequest,
   UpdateTaskRequest,
   TaskAssignmentRequest,
+  TaskAssignmentSuggestion,
   TaskFilters,
 } from './services/task.service';
+export { TaskEntity } from './entities/task.entity';
 
 // Agent Intelligence Services
 export { AgentIntelligenceService } from './agentIntelligenceService';
@@ -194,10 +196,7 @@ export type {
   ErrorHistoryResult,
 } from './cognitive/metaReasoning.interceptor';
 export { CapabilityGapRadarService } from './cognitive/capabilityGapRadar.service';
-export type {
-  CapabilityAssessment,
-  CapabilityGap,
-} from './cognitive/capabilityGapRadar.service';
+export type { CapabilityAssessment, CapabilityGap } from './cognitive/capabilityGapRadar.service';
 export { ConfidenceGatedExecutionService } from './cognitive/confidenceGatedExecution.service';
 export type {
   ExecutionGate,

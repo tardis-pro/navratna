@@ -15,7 +15,7 @@ export interface ConversationEnhancementRequest {
     speaker: string;
     content: string;
     timestamp: Date;
-    metadata?: any;
+    metadata?: unknown;
   }>;
   currentTopic: string;
   conversationState?: {
@@ -28,22 +28,22 @@ export interface ConversationEnhancementRequest {
   };
   participantId?: string;
   enhancementType?: 'auto' | 'manual' | 'triggered';
-  context?: any;
+  context?: unknown;
 }
 
 export interface ConversationEnhancementResult {
   success: boolean;
   data?: {
-    selectedAgent: any;
-    selectedPersona: any;
+    selectedAgent: unknown;
+    selectedPersona: unknown;
     enhancedResponse: string;
     contributionScores: Array<{
       personaId: string;
       score: number;
       reasons: string[];
     }>;
-    updatedState: any;
-    flowAnalysis: any;
+    updatedState: unknown;
+    flowAnalysis: unknown;
     suggestions: string[];
     nextActions: string[];
   };
@@ -57,7 +57,7 @@ export interface ConversationAnalysisRequest {
     speaker: string;
     content: string;
     timestamp: Date;
-    metadata?: any;
+    metadata?: unknown;
   }>;
   conversationState: {
     activePersonaId: string | null;
@@ -77,7 +77,7 @@ export interface HybridPersonaRequest {
     name?: string;
     dominantTraits?: 'persona1' | 'persona2' | 'balanced';
     blendRatio?: number;
-    customAttributes?: any;
+    customAttributes?: unknown;
   };
 }
 
@@ -104,7 +104,7 @@ class ConversationEnhancementAPI {
   private async makeRequest<T>(
     endpoint: string,
     method: 'GET' | 'POST' = 'GET',
-    data?: any
+    data?: unknown
   ): Promise<T> {
     const url = `${this.baseUrl}${endpoint}`;
     // Auth tokens are stored in httpOnly cookies by the backend.
@@ -157,35 +157,35 @@ class ConversationEnhancementAPI {
   /**
    * Analyze conversation patterns, flow, and health
    */
-  async analyzeConversation(request: ConversationAnalysisRequest): Promise<any> {
+  async analyzeConversation(request: ConversationAnalysisRequest): Promise<unknown> {
     return this.makeRequest('/analyze', 'POST', request);
   }
 
   /**
    * Create a hybrid persona by cross-breeding two existing personas
    */
-  async createHybridPersona(request: HybridPersonaRequest): Promise<any> {
+  async createHybridPersona(request: HybridPersonaRequest): Promise<unknown> {
     return this.makeRequest('/hybrid-persona', 'POST', request);
   }
 
   /**
    * Generate a contextual response for a specific agent/persona
    */
-  async generateContextualResponse(request: ContextualResponseRequest): Promise<any> {
+  async generateContextualResponse(request: ContextualResponseRequest): Promise<unknown> {
     return this.makeRequest('/contextual-response', 'POST', request);
   }
 
   /**
    * Get available personas for a specific agent
    */
-  async getAgentPersonas(agentId: string): Promise<any> {
+  async getAgentPersonas(agentId: string): Promise<unknown> {
     return this.makeRequest(`/personas/${agentId}`);
   }
 
   /**
    * Get conversation health metrics for a discussion
    */
-  async getConversationHealth(discussionId: string): Promise<any> {
+  async getConversationHealth(discussionId: string): Promise<unknown> {
     return this.makeRequest(`/health/${discussionId}`);
   }
 
@@ -194,9 +194,9 @@ class ConversationEnhancementAPI {
    */
   async getFlowAnalysis(
     discussionId: string,
-    messageHistory: any[],
-    conversationState: any
-  ): Promise<any> {
+    messageHistory: unknown[],
+    conversationState: unknown
+  ): Promise<unknown> {
     return this.analyzeConversation({
       discussionId,
       messageHistory,
@@ -210,9 +210,9 @@ class ConversationEnhancementAPI {
    */
   async getConversationInsights(
     discussionId: string,
-    messageHistory: any[],
-    conversationState: any
-  ): Promise<any> {
+    messageHistory: unknown[],
+    conversationState: unknown
+  ): Promise<unknown> {
     return this.analyzeConversation({
       discussionId,
       messageHistory,
@@ -226,9 +226,9 @@ class ConversationEnhancementAPI {
    */
   async getConversationPatterns(
     discussionId: string,
-    messageHistory: any[],
-    conversationState: any
-  ): Promise<any> {
+    messageHistory: unknown[],
+    conversationState: unknown
+  ): Promise<unknown> {
     return this.analyzeConversation({
       discussionId,
       messageHistory,

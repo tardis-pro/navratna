@@ -2,15 +2,15 @@ import {
   BaseWidget,
   WidgetInstance,
   WidgetRegistration,
-  WidgetUpdate,
-  WidgetAccessRequest,
+  WidgetUpdate as _WidgetUpdate,
+  WidgetAccessRequest as _WidgetAccessRequest,
   WidgetAccessResponse,
   WidgetRegistryQuery,
   WidgetUsage,
   WidgetError,
   WidgetPermission,
   WidgetCategory,
-  WidgetStatus,
+  WidgetStatus as _WidgetStatus,
   SecurityLevel,
 } from '@uaip/types';
 import { DatabaseService } from './databaseService';
@@ -155,7 +155,7 @@ export class WidgetService {
     instanceConfig: {
       position: { x: number; y: number };
       size: { width: number; height: number };
-      config?: any;
+      config?: unknown;
     }
   ): Promise<WidgetInstance> {
     logger.info('Creating widget instance', { widgetId, userId });
@@ -562,7 +562,7 @@ export class WidgetService {
   }
 
   // Database operations (to be implemented based on your database structure)
-  private async storeWidget(widget: BaseWidget, registration: WidgetRegistration): Promise<void> {
+  private async storeWidget(widget: BaseWidget, _registration: WidgetRegistration): Promise<void> {
     // Implementation depends on your database schema
     logger.debug('Storing widget in database', { widgetId: widget.id });
     // TODO: Implement database storage
@@ -582,7 +582,7 @@ export class WidgetService {
     return null;
   }
 
-  private buildDatabaseQuery(query: Partial<WidgetRegistryQuery>, userContext: any): any {
+  private buildDatabaseQuery(query: Partial<WidgetRegistryQuery>, _userContext: unknown): unknown {
     // Build database-specific query
     logger.debug('Building database query', { query });
     // TODO: Implement query building
@@ -590,8 +590,8 @@ export class WidgetService {
   }
 
   private async executeWidgetQuery(
-    dbQuery: any,
-    userContext: any
+    _dbQuery: unknown,
+    _userContext: unknown
   ): Promise<{
     widgets: BaseWidget[];
     total: number;
@@ -672,7 +672,7 @@ export class WidgetService {
     };
   }
 
-  private async logAuditEvent(event: string, userId: string, details: any): Promise<void> {
+  private async logAuditEvent(event: string, userId: string, details: unknown): Promise<void> {
     logger.info('Widget audit event', { event, userId, details });
     // TODO: Implement audit logging
   }

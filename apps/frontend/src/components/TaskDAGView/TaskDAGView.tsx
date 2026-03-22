@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import { useState, useEffect, _useCallback, useRef, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '@/lib/utils';
 import { io, Socket } from 'socket.io-client';
@@ -22,19 +22,9 @@ import {
 // Types (mirrors backend TaskDAG / TaskNode interfaces)
 // ============================================================================
 
-export type TaskNodeType =
-  | 'query'
-  | 'command'
-  | 'monitor'
-  | 'orchestrate'
-  | 'communicate';
+export type TaskNodeType = 'query' | 'command' | 'monitor' | 'orchestrate' | 'communicate';
 
-export type TaskNodeStatus =
-  | 'pending'
-  | 'running'
-  | 'completed'
-  | 'failed'
-  | 'skipped';
+export type TaskNodeStatus = 'pending' | 'running' | 'completed' | 'failed' | 'skipped';
 
 export interface TaskNode {
   id: string;
@@ -80,12 +70,40 @@ const CARD_HEIGHT = 110;
 const CARD_GAP_X = 80;
 const CARD_GAP_Y = 24;
 
-const STATUS_COLORS: Record<TaskNodeStatus, { bg: string; border: string; text: string; dot: string }> = {
-  pending:   { bg: 'bg-zinc-800/60',   border: 'border-zinc-600/40',  text: 'text-zinc-400',   dot: 'bg-zinc-500'    },
-  running:   { bg: 'bg-blue-950/50',   border: 'border-blue-500/50',  text: 'text-blue-300',   dot: 'bg-blue-400'    },
-  completed: { bg: 'bg-emerald-950/40', border: 'border-emerald-500/40', text: 'text-emerald-300', dot: 'bg-emerald-400' },
-  failed:    { bg: 'bg-red-950/40',    border: 'border-red-500/50',   text: 'text-red-300',    dot: 'bg-red-400'     },
-  skipped:   { bg: 'bg-zinc-900/40',   border: 'border-zinc-700/30',  text: 'text-zinc-500',   dot: 'bg-zinc-600'    },
+const STATUS_COLORS: Record<
+  TaskNodeStatus,
+  { bg: string; border: string; text: string; dot: string }
+> = {
+  pending: {
+    bg: 'bg-zinc-800/60',
+    border: 'border-zinc-600/40',
+    text: 'text-zinc-400',
+    dot: 'bg-zinc-500',
+  },
+  running: {
+    bg: 'bg-blue-950/50',
+    border: 'border-blue-500/50',
+    text: 'text-blue-300',
+    dot: 'bg-blue-400',
+  },
+  completed: {
+    bg: 'bg-emerald-950/40',
+    border: 'border-emerald-500/40',
+    text: 'text-emerald-300',
+    dot: 'bg-emerald-400',
+  },
+  failed: {
+    bg: 'bg-red-950/40',
+    border: 'border-red-500/50',
+    text: 'text-red-300',
+    dot: 'bg-red-400',
+  },
+  skipped: {
+    bg: 'bg-zinc-900/40',
+    border: 'border-zinc-700/30',
+    text: 'text-zinc-500',
+    dot: 'bg-zinc-600',
+  },
 };
 
 const TYPE_ICONS: Record<TaskNodeType, typeof Search> = {
@@ -119,10 +137,7 @@ export interface UseTaskDAGReturn {
   error: string | null;
 }
 
-export const useTaskDAG = (
-  initialDAG: TaskDAG,
-  options?: UseTaskDAGOptions
-): UseTaskDAGReturn => {
+export const useTaskDAG = (initialDAG: TaskDAG, options?: UseTaskDAGOptions): UseTaskDAGReturn => {
   const [dag, setDAG] = useState<TaskDAG>(initialDAG);
   const [isConnected, setIsConnected] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -163,29 +178,32 @@ export const useTaskDAG = (
     });
 
     // Step-level updates
-    socket.on('taskdag.step.completed', (data: {
-      dagId: string;
-      taskId: string;
-      status: TaskNodeStatus;
-      result?: unknown;
-      error?: string;
-    }) => {
-      if (data.dagId !== dagId) return;
-      setDAG((prev) => ({
-        ...prev,
-        nodes: prev.nodes.map((node) =>
-          node.id === data.taskId
-            ? {
-                ...node,
-                status: data.status,
-                result: data.result,
-                error: data.error,
-                completedAt: new Date().toISOString(),
-              }
-            : node
-        ),
-      }));
-    });
+    socket.on(
+      'taskdag.step.completed',
+      (data: {
+        dagId: string;
+        taskId: string;
+        status: TaskNodeStatus;
+        result?: unknown;
+        error?: string;
+      }) => {
+        if (data.dagId !== dagId) return;
+        setDAG((prev) => ({
+          ...prev,
+          nodes: prev.nodes.map((node) =>
+            node.id === data.taskId
+              ? {
+                  ...node,
+                  status: data.status,
+                  result: data.result,
+                  error: data.error,
+                  completedAt: new Date().toISOString(),
+                }
+              : node
+          ),
+        }));
+      }
+    );
 
     // DAG-level status changes
     socket.on('taskdag.completed', (data: { dagId: string }) => {
@@ -293,10 +311,7 @@ interface EdgeLine {
   status: TaskNodeStatus;
 }
 
-const computeEdges = (
-  dag: TaskDAG,
-  layoutNodes: LayoutNode[]
-): EdgeLine[] => {
+const computeEdges = (dag: TaskDAG, layoutNodes: LayoutNode[]): EdgeLine[] => {
   const posMap = new Map(layoutNodes.map((ln) => [ln.node.id, ln]));
   const nodeMap = new Map(dag.nodes.map((n) => [n.id, n]));
 
@@ -384,8 +399,8 @@ const DurationLabel = ({ node }: { node: TaskNode }) => {
     const seconds = node.estimatedDurationMs / 1000;
     return (
       <span className="text-[10px] text-zinc-600 flex items-center gap-1">
-        <Clock className="w-3 h-3" />
-        ~{seconds < 60 ? `${seconds}s` : `${(seconds / 60).toFixed(1)}m`}
+        <Clock className="w-3 h-3" />~
+        {seconds < 60 ? `${seconds}s` : `${(seconds / 60).toFixed(1)}m`}
       </span>
     );
   }
@@ -428,17 +443,13 @@ const TaskCard = ({
       <div className="flex items-start justify-between gap-2">
         <div className="flex items-center gap-1.5 min-w-0">
           <StatusDot status={node.status} />
-          <span className={cn('text-xs font-semibold capitalize', colors.text)}>
-            {node.status}
-          </span>
+          <span className={cn('text-xs font-semibold capitalize', colors.text)}>{node.status}</span>
         </div>
         <TypeBadge type={node.type} />
       </div>
 
       {/* Description */}
-      <p className="text-xs text-zinc-300 leading-snug mt-2 line-clamp-2">
-        {node.description}
-      </p>
+      <p className="text-xs text-zinc-300 leading-snug mt-2 line-clamp-2">{node.description}</p>
 
       {/* Footer */}
       <div className="flex items-center justify-between mt-2">
@@ -465,18 +476,10 @@ const TaskCard = ({
             )}
           </div>
         )}
-        {node.status === 'completed' && (
-          <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-        )}
-        {isFailed && !onRetry && !onSkip && (
-          <XCircle className="w-4 h-4 text-red-400" />
-        )}
-        {isSkipped && (
-          <EyeOff className="w-4 h-4 text-zinc-500" />
-        )}
-        {node.status === 'running' && (
-          <Loader2 className="w-4 h-4 text-blue-400 animate-spin" />
-        )}
+        {node.status === 'completed' && <CheckCircle2 className="w-4 h-4 text-emerald-400" />}
+        {isFailed && !onRetry && !onSkip && <XCircle className="w-4 h-4 text-red-400" />}
+        {isSkipped && <EyeOff className="w-4 h-4 text-zinc-500" />}
+        {node.status === 'running' && <Loader2 className="w-4 h-4 text-blue-400 animate-spin" />}
       </div>
 
       {/* Error message for failed tasks */}
@@ -503,17 +506,13 @@ const DAGStatusHeader = ({ dag }: { dag: TaskDAG }) => {
     <div className="flex items-center justify-between px-1 mb-3">
       <div className="flex items-center gap-2">
         <GitBranch className="w-4 h-4 text-zinc-400" />
-        <span className="text-sm font-medium text-zinc-200 truncate max-w-xs">
-          {dag.goal}
-        </span>
+        <span className="text-sm font-medium text-zinc-200 truncate max-w-xs">{dag.goal}</span>
       </div>
       <div className="flex items-center gap-3 text-xs text-zinc-400">
         <span>
           {completed}/{total} done
         </span>
-        {failed > 0 && (
-          <span className="text-red-400">{failed} failed</span>
-        )}
+        {failed > 0 && <span className="text-red-400">{failed} failed</span>}
         <div className="w-24 h-1.5 bg-zinc-800 rounded-full overflow-hidden">
           <div
             className={cn(
@@ -532,12 +531,7 @@ const DAGStatusHeader = ({ dag }: { dag: TaskDAG }) => {
 // Main Component — TaskDAGView
 // ============================================================================
 
-export const TaskDAGView = ({
-  dag,
-  onRetryTask,
-  onSkipTask,
-  className,
-}: TaskDAGViewProps) => {
+export const TaskDAGView = ({ dag, onRetryTask, onSkipTask, className }: TaskDAGViewProps) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const layoutNodes = useMemo(() => computeLayout(dag), [dag]);
   const edgeLines = useMemo(() => computeEdges(dag, layoutNodes), [dag, layoutNodes]);
@@ -565,11 +559,7 @@ export const TaskDAGView = ({
   }, [layoutNodes]);
 
   if (dag.nodes.length === 0) {
-    return (
-      <div className={cn('text-sm text-zinc-500 p-4', className)}>
-        No tasks in this DAG.
-      </div>
-    );
+    return <div className={cn('text-sm text-zinc-500 p-4', className)}>No tasks in this DAG.</div>;
   }
 
   return (
@@ -663,16 +653,8 @@ export const TaskDAGView = ({
           {/* Task cards layer */}
           <AnimatePresence mode="popLayout">
             {layoutNodes.map((ln) => (
-              <div
-                key={ln.node.id}
-                className="absolute"
-                style={{ left: ln.x, top: ln.y }}
-              >
-                <TaskCard
-                  node={ln.node}
-                  onRetry={onRetryTask}
-                  onSkip={onSkipTask}
-                />
+              <div key={ln.node.id} className="absolute" style={{ left: ln.x, top: ln.y }}>
+                <TaskCard node={ln.node} onRetry={onRetryTask} onSkip={onSkipTask} />
               </div>
             ))}
           </AnimatePresence>

@@ -168,9 +168,12 @@ export class BaileysClient extends EventEmitter {
         if (connection === 'close') {
           const boom = lastDisconnect?.error as Boom | undefined;
           const statusCode = boom?.output?.statusCode;
-          const reason = typeof statusCode === 'number'
-            ? (DisconnectReason[statusCode as unknown as keyof typeof DisconnectReason] as unknown as string ?? `code ${statusCode}`)
-            : `code ${statusCode}`;
+          const reason =
+            typeof statusCode === 'number'
+              ? ((DisconnectReason[
+                  statusCode as unknown as keyof typeof DisconnectReason
+                ] as unknown as string) ?? `code ${statusCode}`)
+              : `code ${statusCode}`;
 
           this.logger.warn('WhatsApp connection closed', { statusCode, reason });
 

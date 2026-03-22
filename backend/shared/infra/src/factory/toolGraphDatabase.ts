@@ -3,7 +3,7 @@
  *
  * Provides graph database capabilities for knowledge graph and tool relationships
  */
-import { Driver, Record, Session } from 'neo4j-driver';
+import { Driver, Session } from 'neo4j-driver';
 import neo4j from 'neo4j-driver';
 import { createLogger } from '@uaip/utils';
 
@@ -35,7 +35,7 @@ export interface ToolRelationship {
   targetToolId: string;
   relationshipType: 'DEPENDS_ON' | 'SIMILAR_TO' | 'COMPLEMENTS' | 'REPLACES' | 'ALTERNATIVE_TO';
   strength?: number;
-  metadata?: any;
+  metadata?: unknown;
 }
 
 export class ToolGraphDatabase {
@@ -238,7 +238,7 @@ export class ToolGraphDatabase {
         WHERE 1=1
       `;
 
-      const params: any = {
+      const params: Record<string, unknown> = {
         limit: options?.limit ?? 10,
       };
 
@@ -259,7 +259,10 @@ export class ToolGraphDatabase {
       `;
 
       const result = await session.run(query, params);
-      return result.records.map((record: any) => record.get('tool').properties as ToolNode);
+      return result.records.map(
+        (record: { get: (key: string) => { properties: ToolNode } }) =>
+          record.get('tool').properties as ToolNode
+      );
     } catch (error) {
       logger.error('Failed to get recommendations', {
         error: error instanceof Error ? error.message : 'Unknown error',
@@ -281,7 +284,10 @@ export class ToolGraphDatabase {
     const session = await this.getSession();
     try {
       const result = await session.run('MATCH (tool:Tool) RETURN tool');
-      return result.records.map((record: any) => record.get('tool').properties as ToolNode);
+      return result.records.map(
+        (record: { get: (key: string) => { properties: ToolNode } }) =>
+          record.get('tool').properties as ToolNode
+      );
     } catch (error) {
       logger.error('Failed to get all tools', {
         error: error instanceof Error ? error.message : 'Unknown error',

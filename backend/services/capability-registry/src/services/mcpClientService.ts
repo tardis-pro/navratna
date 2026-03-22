@@ -21,24 +21,24 @@ interface JSONRPCRequest {
   jsonrpc: '2.0';
   id: string | number;
   method: string;
-  params?: any;
+  params?: unknown;
 }
 
 interface JSONRPCResponse {
   jsonrpc: '2.0';
   id: string | number;
-  result?: any;
+  result?: unknown;
   error?: {
     code: number;
     message: string;
-    data?: any;
+    data?: unknown;
   };
 }
 
 interface JSONRPCNotification {
   jsonrpc: '2.0';
   method: string;
-  params?: any;
+  params?: unknown;
 }
 
 // MCP Server Configuration
@@ -81,7 +81,7 @@ interface MCPPrompt {
 interface MCPTool {
   name: string;
   description?: string;
-  inputSchema: any;
+  inputSchema: unknown;
   capabilities?: string[];
 }
 
@@ -98,7 +98,7 @@ interface MCPServerState {
   startTime?: Date;
   lastHealthCheck?: Date;
   error?: string;
-  capabilities?: any;
+  capabilities?: unknown;
   tools?: MCPTool[];
   resources?: MCPResource[];
   prompts?: MCPPrompt[];
@@ -119,7 +119,7 @@ export class MCPClientService extends EventEmitter {
   private pendingRequests = new Map<
     string | number,
     {
-      resolve: (value: any) => void;
+      resolve: (value: unknown) => void;
       reject: (error: Error) => void;
       timestamp: number;
     }
@@ -259,7 +259,10 @@ export class MCPClientService extends EventEmitter {
         } catch (initErr) {
           // Remote endpoint reachable but init failed — log and keep 'running' so
           // retries are possible; capability discovery can be retried later.
-          logger.warn(`MCP HTTP server ${serverName}: init failed, will retry on next health check`, initErr);
+          logger.warn(
+            `MCP HTTP server ${serverName}: init failed, will retry on next health check`,
+            initErr
+          );
         }
       } else {
         const childProcess = spawn(config.command!, config.args, {
@@ -345,7 +348,11 @@ export class MCPClientService extends EventEmitter {
   }
 
   // JSON-RPC 2.0 Communication
-  private async sendRequest(serverName: string, method: string, params?: any): Promise<any> {
+  private async sendRequest(
+    serverName: string,
+    method: string,
+    params?: unknown
+  ): Promise<unknown> {
     const server = this.servers.get(serverName);
     if (!server || server.status !== 'running') {
       throw new Error(`Server ${serverName} is not running`);
@@ -366,7 +373,7 @@ export class MCPClientService extends EventEmitter {
       const url = server.httpUrl!;
       const headers: Record<string, string> = {
         'Content-Type': 'application/json',
-        'Accept': 'application/json, text/event-stream',
+        Accept: 'application/json, text/event-stream',
         ...(server.httpHeaders || {}),
       };
       const startTime = Date.now();
@@ -380,11 +387,11 @@ export class MCPClientService extends EventEmitter {
           throw new Error(`HTTP ${resp.status} ${resp.statusText}`);
         }
         const contentType = resp.headers.get('content-type') || '';
-        let result: any;
+        let result: unknown;
         if (contentType.includes('text/event-stream')) {
           result = await this.readSSEResponse(resp);
         } else {
-          const body = await resp.json() as JSONRPCResponse;
+          const body = (await resp.json()) as JSONRPCResponse;
           if (body.error) {
             throw new Error(`${body.error.message} (${body.error.code})`);
           }
@@ -430,7 +437,7 @@ export class MCPClientService extends EventEmitter {
     });
   }
 
-  private sendNotification(serverName: string, method: string, params?: any): void {
+  private sendNotification(serverName: string, method: string, params?: unknown): void {
     const server = this.servers.get(serverName);
     if (!server || server.status !== 'running') {
       return;
@@ -532,14 +539,14 @@ export class MCPClientService extends EventEmitter {
   }
 
   // Auto-register discovered MCP tools in the tool registry
-  private async registerDiscoveredTools(serverName: string, tools: any[]): Promise<void> {
+  private async registerDiscoveredTools(serverName: string, tools: unknown[]): Promise<void> {
     try {
       for (const tool of tools) {
         const toolRegistration = {
           id: `mcp-${serverName}-${tool.name}`,
           name: tool.name,
           description: tool.description || `${tool.name} from ${serverName} MCP server`,
-          category: 'mcp' as any,
+          category: 'mcp' as unknown,
           version: '1.0.0',
           isEnabled: true,
           requiresApproval: false,
@@ -555,6 +562,7 @@ export class MCPClientService extends EventEmitter {
         };
 
         // Publish tool registration event for the tool registry
+        // eslint-disable-next-line no-await-in-loop -- sequential processing required
         await this.publishEvent('tool.register', {
           tool: toolRegistration,
           source: 'mcp-discovery',
@@ -562,6 +570,7 @@ export class MCPClientService extends EventEmitter {
         });
 
         // Also publish to agents for dynamic discovery
+        // eslint-disable-next-line no-await-in-loop -- sequential processing required
         await this.publishEvent('agent.tool.available', {
           toolId: toolRegistration.id,
           toolName: tool.name,
@@ -573,6 +582,7 @@ export class MCPClientService extends EventEmitter {
         });
 
         // Register tool in Neo4j knowledge graph if available
+        // eslint-disable-next-line no-await-in-loop -- sequential processing required
         await this.registerToolInGraph(toolRegistration, serverName, tool);
 
         logger.info(`Auto-registered MCP tool: ${toolRegistration.id} from ${serverName}`);
@@ -584,9 +594,9 @@ export class MCPClientService extends EventEmitter {
 
   // Register tool in Neo4j knowledge graph
   private async registerToolInGraph(
-    toolRegistration: any,
+    toolRegistration: unknown,
     serverName: string,
-    mcpTool: any
+    mcpTool: unknown
   ): Promise<void> {
     if (!this.toolGraphDatabase) {
       return; // Gracefully skip if graph database not available
@@ -641,7 +651,7 @@ export class MCPClientService extends EventEmitter {
   }
 
   // Create relationships between tools based on capabilities and categories
-  private async createToolRelationships(toolId: string, mcpTool: any): Promise<void> {
+  private async createToolRelationships(toolId: string, mcpTool: unknown): Promise<void> {
     if (!this.toolGraphDatabase) {
       return;
     }
@@ -660,6 +670,7 @@ export class MCPClientService extends EventEmitter {
         for (const relatedTool of relatedTools.slice(0, 3)) {
           // Limit to top 3 similar tools
           if (relatedTool.id !== toolId) {
+            // eslint-disable-next-line no-await-in-loop -- sequential processing required
             await this.toolGraphDatabase.addToolRelationship(toolId, relatedTool.id, {
               type: 'SIMILAR_TO',
               strength: 0.7,
@@ -687,6 +698,7 @@ export class MCPClientService extends EventEmitter {
         const potentialTargets = await this.toolGraphDatabase.getRelatedTools(toolId, [], 0.3);
         for (const target of potentialTargets.slice(0, 2)) {
           if (target.id !== toolId && !target.id.startsWith('mcp-')) {
+            // eslint-disable-next-line no-await-in-loop -- sequential processing required
             await this.toolGraphDatabase.addToolRelationship(toolId, target.id, {
               type: 'ENHANCES',
               strength: 0.6,
@@ -708,7 +720,7 @@ export class MCPClientService extends EventEmitter {
   async executeTool(
     serverName: string,
     toolName: string,
-    parameters: any,
+    parameters: unknown,
     context?: {
       agentId?: string;
       userId?: string;
@@ -716,7 +728,7 @@ export class MCPClientService extends EventEmitter {
       operationId?: string;
       sessionId?: string;
     }
-  ): Promise<any> {
+  ): Promise<unknown> {
     const server = this.servers.get(serverName);
     if (!server || server.status !== 'running') {
       throw new Error(`Server ${serverName} is not running`);
@@ -891,7 +903,7 @@ export class MCPClientService extends EventEmitter {
         try {
           const message = JSON.parse(line);
           this.handleMessage(serverName, message);
-        } catch (error) {
+        } catch {
           // Not JSON, treat as log
           this.addLog(serverName, `stdout: ${line}`);
         }
@@ -928,7 +940,7 @@ export class MCPClientService extends EventEmitter {
     });
   }
 
-  private handleMessage(serverName: string, message: any): void {
+  private handleMessage(serverName: string, message: unknown): void {
     if (message.id !== undefined) {
       // Response to our request
       const pendingRequest = this.pendingRequests.get(message.id);
@@ -947,7 +959,7 @@ export class MCPClientService extends EventEmitter {
     }
   }
 
-  private handleNotification(serverName: string, notification: any): void {
+  private handleNotification(serverName: string, notification: unknown): void {
     this.addLog(serverName, `← ${notification.method}: ${JSON.stringify(notification.params)}`);
     this.emit('notification', { serverName, notification });
 
@@ -973,7 +985,7 @@ export class MCPClientService extends EventEmitter {
       const whichCommand = process.platform === 'win32' ? 'where' : 'which';
       await execAsync(`${whichCommand} ${command}`);
       return { isValid: true };
-    } catch (error) {
+    } catch {
       // Command not found, provide helpful suggestions and fallbacks
       let suggestion = '';
       let fallbackConfig: MCPServerConfig | undefined;
@@ -1055,10 +1067,10 @@ export class MCPClientService extends EventEmitter {
     try {
       const mcpService = this.mcpRepo;
       const existing = await mcpService.getServerByName(serverName);
-      const payload: Record<string, any> = {
+      const payload: Record<string, unknown> = {
         name: serverName,
         description: `MCP server ${serverName}`,
-        type: 'custom' as any,
+        type: 'custom' as unknown,
         command: config.command,
         args: config.args || [],
         env: config.env,
@@ -1080,7 +1092,7 @@ export class MCPClientService extends EventEmitter {
       if (existing) {
         await mcpService.updateServer(existing.id, payload);
       } else {
-        await mcpService.createServer(payload as any);
+        await mcpService.createServer(payload as unknown);
       }
       logger.info(`Updated MCP server config for ${serverName}`);
       this.emit('configUpdated', { serverName, config });
@@ -1118,6 +1130,7 @@ export class MCPClientService extends EventEmitter {
     this.healthCheckInterval = setInterval(async () => {
       for (const [serverName, server] of Array.from(this.servers.entries())) {
         if (server.status === 'running') {
+          // eslint-disable-next-line no-await-in-loop -- sequential processing required
           await this.performHealthCheck(serverName);
         }
       }
@@ -1210,7 +1223,7 @@ export class MCPClientService extends EventEmitter {
     }
   }
 
-  private entityToConfig(entity: any): MCPServerConfig {
+  private entityToConfig(entity: unknown): MCPServerConfig {
     let httpHeaders: Record<string, string> | undefined;
     if (entity.headers) {
       const decrypted = decryptHeaders(entity.headers as string);
@@ -1227,7 +1240,7 @@ export class MCPClientService extends EventEmitter {
     };
   }
 
-  private async readSSEResponse(response: Response): Promise<any> {
+  private async readSSEResponse(response: Response): Promise<unknown> {
     // Use response.text() for Bun compatibility (streaming ReadableStream is unreliable in Bun).
     // z.ai returns a single SSE event per request so buffering the full body is fine.
     const text = await response.text();
@@ -1244,7 +1257,7 @@ export class MCPClientService extends EventEmitter {
             }
             return data.result;
           }
-        } catch (e: any) {
+        } catch (e: unknown) {
           if (e.message?.includes('(')) throw e; // re-throw real MCP errors
           // else: non-JSON line (id:, event:, comment), continue
         }
@@ -1256,10 +1269,17 @@ export class MCPClientService extends EventEmitter {
   // MCP event data type helper
   private mcpData(event: { data: unknown }) {
     return event.data as {
-      serverName?: string; toolName?: string; parameters?: Record<string, unknown>;
-      config?: MCPServerConfig; agentId?: string; userId?: string;
-      conversationId?: string; operationId?: string; sessionId?: string;
-      requestId?: string; toolId?: string;
+      serverName?: string;
+      toolName?: string;
+      parameters?: Record<string, unknown>;
+      config?: MCPServerConfig;
+      agentId?: string;
+      userId?: string;
+      conversationId?: string;
+      operationId?: string;
+      sessionId?: string;
+      requestId?: string;
+      toolId?: string;
     };
   }
 
@@ -1385,13 +1405,18 @@ export class MCPClientService extends EventEmitter {
         const [, serverName, toolName] = mcpToolMatch;
 
         try {
-          const result = await this.executeTool(serverName, toolName, parameters as Record<string, unknown>, {
-            agentId,
-            userId,
-            conversationId,
-            operationId,
-            sessionId,
-          });
+          const result = await this.executeTool(
+            serverName,
+            toolName,
+            parameters as Record<string, unknown>,
+            {
+              agentId,
+              userId,
+              conversationId,
+              operationId,
+              sessionId,
+            }
+          );
 
           await this.publishEvent('agent.tool.result', {
             requestId: d.requestId,
@@ -1417,7 +1442,7 @@ export class MCPClientService extends EventEmitter {
     }
   }
 
-  private async publishEvent(channel: string, data: any): Promise<void> {
+  private async publishEvent(channel: string, data: unknown): Promise<void> {
     if (!this.eventBusService) return;
 
     try {
@@ -1435,12 +1460,13 @@ export class MCPClientService extends EventEmitter {
     try {
       const mcpService = this.mcpRepo;
       const entities = await mcpService.getAllServers();
-      const toStart = entities.filter((e: any) => e.enabled && e.autoStart);
+      const toStart = entities.filter((e: unknown) => e.enabled && e.autoStart);
 
       logger.info(`Auto-starting ${toStart.length} MCP servers`);
 
       for (const entity of toStart) {
         try {
+          // eslint-disable-next-line no-await-in-loop -- sequential processing required
           await this.startServer(entity.name);
         } catch (error) {
           logger.warn(`Failed to auto-start server ${entity.name}:`, error.message);
@@ -1501,6 +1527,7 @@ export class MCPClientService extends EventEmitter {
     const requirements = [];
 
     for (const tool of commonTools) {
+      // eslint-disable-next-line no-await-in-loop -- sequential processing required
       const available = await this.isCommandAvailable(tool);
       let suggestion;
 
@@ -1534,7 +1561,7 @@ export class MCPClientService extends EventEmitter {
   }
 
   // Enhanced status methods for frontend integration
-  async getServerDetails(serverName: string): Promise<any> {
+  async getServerDetails(serverName: string): Promise<unknown> {
     const server = this.servers.get(serverName);
     if (!server) return null;
 
@@ -1557,7 +1584,7 @@ export class MCPClientService extends EventEmitter {
     };
   }
 
-  async getSystemStatus(): Promise<any> {
+  async getSystemStatus(): Promise<unknown> {
     const servers = this.getAllServers();
     const totalServers = servers.length;
     const runningServers = servers.filter((s) => s.status === 'running').length;
@@ -1584,8 +1611,8 @@ export class MCPClientService extends EventEmitter {
   }
 
   // Agent tool discovery
-  getAvailableToolsForAgent(agentId?: string): any[] {
-    const availableTools: any[] = [];
+  getAvailableToolsForAgent(_agentId?: string): unknown[] {
+    const availableTools: unknown[] = [];
 
     for (const [serverName, server] of this.servers.entries()) {
       if (server.status === 'running' && server.tools) {
@@ -1616,13 +1643,13 @@ export class MCPClientService extends EventEmitter {
   }
 
   // Get tools by category for agents
-  getToolsByCategory(category: string): any[] {
+  getToolsByCategory(category: string): unknown[] {
     const tools = this.getAvailableToolsForAgent();
     return tools.filter((tool) => tool.category === category);
   }
 
   // Get tools by server for agents
-  getToolsByServer(serverName: string): any[] {
+  getToolsByServer(serverName: string): unknown[] {
     const server = this.servers.get(serverName);
     if (!server || server.status !== 'running' || !server.tools) {
       return [];
@@ -1653,7 +1680,7 @@ export class MCPClientService extends EventEmitter {
     const { Readable } = require('stream');
     const logStream = new Readable({ objectMode: true });
 
-    const logHandler = (data: any) => {
+    const logHandler = (data: unknown) => {
       if (data.serverName === serverName) {
         logStream.push(JSON.stringify(data) + '\n');
       }
@@ -1682,10 +1709,11 @@ export class MCPClientService extends EventEmitter {
       }
 
       try {
+        // eslint-disable-next-line no-await-in-loop -- sequential processing required
         const response = await this.sendRequest(name, 'resources/list', {});
 
         if (response.result?.resources) {
-          const serverResources = response.result.resources.map((resource: any) => ({
+          const serverResources = response.result.resources.map((resource: unknown) => ({
             ...resource,
             serverName: name,
             discoveredAt: new Date().toISOString(),
@@ -1703,7 +1731,7 @@ export class MCPClientService extends EventEmitter {
     return resources;
   }
 
-  async getResource(serverName: string, uri: string): Promise<any> {
+  async getResource(serverName: string, uri: string): Promise<unknown> {
     const server = this.servers.get(serverName);
     if (!server || server.status !== 'running') {
       throw new Error(`Server ${serverName} is not running`);
@@ -1730,10 +1758,11 @@ export class MCPClientService extends EventEmitter {
       }
 
       try {
+        // eslint-disable-next-line no-await-in-loop -- sequential processing required
         const response = await this.sendRequest(name, 'prompts/list', {});
 
         if (response.result?.prompts) {
-          const serverPrompts = response.result.prompts.map((prompt: any) => ({
+          const serverPrompts = response.result.prompts.map((prompt: unknown) => ({
             ...prompt,
             serverName: name,
             discoveredAt: new Date().toISOString(),
@@ -1754,8 +1783,8 @@ export class MCPClientService extends EventEmitter {
   async getPrompt(
     serverName: string,
     name: string,
-    promptArgs?: Record<string, any>
-  ): Promise<any> {
+    promptArgs?: Record<string, unknown>
+  ): Promise<unknown> {
     const server = this.servers.get(serverName);
     if (!server || server.status !== 'running') {
       throw new Error(`Server ${serverName} is not running`);
@@ -1781,7 +1810,7 @@ export class MCPClientService extends EventEmitter {
       name: string;
       description: string;
       serverName: string;
-      inputSchema: any;
+      inputSchema: unknown;
       selectable: boolean;
     }>
   > {
@@ -1808,7 +1837,7 @@ export class MCPClientService extends EventEmitter {
   ): Promise<{
     success: boolean;
     toolId: string;
-    assignment?: any;
+    assignment?: unknown;
   }> {
     try {
       const server = this.servers.get(serverName);
@@ -1839,7 +1868,7 @@ export class MCPClientService extends EventEmitter {
           name: tool.name,
           displayName: tool.name,
           description: tool.description || `${tool.name} from MCP server ${serverName}`,
-          category: 'mcp' as any,
+          category: 'mcp' as unknown,
           inputSchema: tool.inputSchema,
           configuration: {
             mcpServer: serverName,
@@ -1927,7 +1956,7 @@ export class MCPClientService extends EventEmitter {
     agentId: string,
     context?: string,
     limit: number = 5
-  ): Promise<any[]> {
+  ): Promise<unknown[]> {
     if (!this.toolGraphDatabase) {
       logger.warn('Tool recommendations requested but graph database not available');
       return [];
@@ -1949,8 +1978,8 @@ export class MCPClientService extends EventEmitter {
     toolId: string,
     relationshipTypes?: string[],
     minStrength: number = 0.5,
-    limit: number = 10
-  ): Promise<any[]> {
+    _limit: number = 10
+  ): Promise<unknown[]> {
     if (!this.toolGraphDatabase) {
       logger.warn('Related tools requested but graph database not available');
       return [];
@@ -1964,7 +1993,11 @@ export class MCPClientService extends EventEmitter {
     }
   }
 
-  async getUsageAnalytics(toolId?: string, agentId?: string, serverName?: string): Promise<any[]> {
+  async getUsageAnalytics(
+    toolId?: string,
+    agentId?: string,
+    serverName?: string
+  ): Promise<unknown[]> {
     if (!this.toolGraphDatabase) {
       logger.warn('Usage analytics requested but graph database not available');
       return [];
@@ -1979,6 +2012,7 @@ export class MCPClientService extends EventEmitter {
 
         for (const tool of serverTools) {
           const mcpToolId = `mcp-${serverName}-${tool.name}`;
+          // eslint-disable-next-line no-await-in-loop -- sequential processing required
           const toolAnalytics = await this.toolGraphDatabase.getToolUsageAnalytics(
             mcpToolId,
             agentId
@@ -1996,7 +2030,7 @@ export class MCPClientService extends EventEmitter {
     }
   }
 
-  async getGraphStatus(): Promise<any> {
+  async getGraphStatus(): Promise<unknown> {
     if (!this.toolGraphDatabase) {
       return {
         connected: false,

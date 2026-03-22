@@ -1,5 +1,5 @@
 import { logger } from '@uaip/utils';
-import { KnowledgeItem, KnowledgeType, SourceType } from '@uaip/types';
+import { KnowledgeItem, KnowledgeType } from '@uaip/types';
 import { ContentClassifier } from './content-classifier.service';
 import { EmbeddingService } from './embedding.service';
 
@@ -117,6 +117,7 @@ export class ConceptExtractorService {
 
       // Process each knowledge item
       for (const item of relevantItems) {
+        // oxlint-disable-next-line no-await-in-loop
         await this.processKnowledgeItem(item, concepts, relationships);
       }
 
@@ -147,7 +148,8 @@ export class ConceptExtractorService {
     } catch (error) {
       logger.error('Error extracting concepts:', error);
       throw new Error(
-        `Concept extraction failed: ${error instanceof Error ? error.message : 'Unknown error'}`
+        `Concept extraction failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        { cause: error }
       );
     }
   }
@@ -218,7 +220,7 @@ export class ConceptExtractorService {
   private async extractProperties(
     content: string,
     concepts: Map<string, ConceptNode>,
-    sourceItem: KnowledgeItem
+    _sourceItem: KnowledgeItem
   ): Promise<void> {
     for (const pattern of this.conceptPatterns.properties) {
       let match;
@@ -254,7 +256,7 @@ export class ConceptExtractorService {
     content: string,
     concepts: Map<string, ConceptNode>,
     relationships: ConceptRelationship[],
-    sourceItem: KnowledgeItem
+    _sourceItem: KnowledgeItem
   ): Promise<void> {
     for (const [relType, patterns] of Object.entries(this.conceptPatterns.relationships)) {
       for (const pattern of patterns) {
@@ -272,7 +274,7 @@ export class ConceptExtractorService {
               relationships.push({
                 sourceConceptId: sourceId,
                 targetConceptId: targetId,
-                relationshipType: relType as any,
+                relationshipType: relType as ConceptRelationship['relationshipType'],
                 confidence: 0.75,
                 evidence: [fullMatch.trim()],
               });
@@ -286,7 +288,7 @@ export class ConceptExtractorService {
   private async extractInstances(
     content: string,
     concepts: Map<string, ConceptNode>,
-    sourceItem: KnowledgeItem
+    _sourceItem: KnowledgeItem
   ): Promise<void> {
     // Look for example patterns
     const examplePatterns = [
@@ -303,7 +305,7 @@ export class ConceptExtractorService {
         const examples = match[1].split(/[,;]/).map((e) => e.trim());
 
         // Try to match examples to concepts
-        for (const [conceptId, concept] of concepts) {
+        for (const [_conceptId, concept] of concepts) {
           for (const example of examples) {
             if (example && !concept.instances.includes(example)) {
               concept.instances.push(example);
@@ -323,6 +325,7 @@ export class ConceptExtractorService {
 
     for (const concept of concepts) {
       try {
+        // oxlint-disable-next-line no-await-in-loop
         const embedding = await this.embeddingService.generateEmbedding(
           `${concept.name}: ${concept.definition}`
         );
@@ -343,6 +346,7 @@ export class ConceptExtractorService {
 
         if (embedding1 && embedding2) {
           try {
+            // oxlint-disable-next-line no-await-in-loop
             const similarity = await this.embeddingService.calculateSimilarity(
               embedding1,
               embedding2

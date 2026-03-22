@@ -1,4 +1,4 @@
-import type { Actor, Tenant, UAIPEvent } from '@uaip/types';
+import type { UAIPEvent } from '@uaip/types';
 
 // Event Contracts for Service-to-Service Communication
 export interface EventContracts {

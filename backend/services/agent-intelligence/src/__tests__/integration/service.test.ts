@@ -79,17 +79,17 @@ describe('Agent Intelligence Service Integration', () => {
 
   describe('Service Dependencies', () => {
     it('should have enhanced agent intelligence service', () => {
-      const service = (controller as any).agentIntelligenceService;
+      const service = (controller as Record<string, unknown>).agentIntelligenceService;
       expect(service).toBeDefined();
     });
 
     it('should have capability discovery service', () => {
-      const service = (controller as any).capabilityDiscoveryService;
+      const service = (controller as Record<string, unknown>).capabilityDiscoveryService;
       expect(service).toBeDefined();
     });
 
     it('should have security validation service', () => {
-      const service = (controller as any).securityValidationService;
+      const service = (controller as Record<string, unknown>).securityValidationService;
       expect(service).toBeDefined();
     });
   });
@@ -102,9 +102,9 @@ describe('Agent Intelligence Service Integration', () => {
     });
 
     it('should maintain service isolation', () => {
-      const service1 = (controller as any).agentIntelligenceService;
-      const service2 = (controller as any).capabilityDiscoveryService;
-      const service3 = (controller as any).securityValidationService;
+      const service1 = (controller as Record<string, unknown>).agentIntelligenceService;
+      const service2 = (controller as Record<string, unknown>).capabilityDiscoveryService;
+      const service3 = (controller as Record<string, unknown>).securityValidationService;
 
       expect(service1).not.toBe(service2);
       expect(service1).not.toBe(service3);
@@ -115,9 +115,7 @@ describe('Agent Intelligence Service Integration', () => {
   describe('Error Resilience', () => {
     it('should handle service initialization errors gracefully', () => {
       // This tests that the constructor doesn't throw even if services fail to initialize
-      expect(() => {
-        new AgentController();
-      }).not.toThrow();
+      expect(new AgentController()).toBeInstanceOf(AgentController);
     });
   });
 });

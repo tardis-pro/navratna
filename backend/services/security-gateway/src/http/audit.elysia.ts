@@ -1,19 +1,19 @@
 import { z } from 'zod';
-import { logger } from '@uaip/utils';
+import { logger as _logger } from '@uaip/utils';
 import { withAdminGuard, withRequiredAuth } from '@uaip/middleware';
 import { AuditService as DomainAuditService } from '@uaip/shared-services';
 import { AuditService } from '../services/auditService.js';
 import { AuditEventType } from '@uaip/types';
 
-let domainAuditService: DomainAuditService | null = null;
-let auditService: AuditService | null = null;
+let domainAuditServiceSingleton: DomainAuditService | null = null;
+let auditServiceSingleton: AuditService | null = null;
 
 async function getServices() {
-  if (!domainAuditService) {
-    domainAuditService = DomainAuditService.getInstance();
-    auditService = new AuditService();
+  if (!domainAuditServiceSingleton) {
+    domainAuditServiceSingleton = DomainAuditService.getInstance();
+    auditServiceSingleton = new AuditService();
   }
-  return { domainAuditService: domainAuditService!, auditService: auditService! };
+  return { domainAuditService: domainAuditServiceSingleton!, auditService: auditServiceSingleton! };
 }
 
 const auditQuerySchema = z.object({
@@ -59,7 +59,7 @@ const userActivityQuerySchema = z.object({
 
 function validateWithZod<T>(
   schema: z.ZodSchema<T>,
-  data: any
+  data: unknown
 ): { error: { details: { message: string; path: string }[] } | null; value: T | null } {
   const result = schema.safeParse(data);
   if (result.success) return { error: null, value: result.data };
@@ -71,16 +71,19 @@ function validateWithZod<T>(
   };
 }
 
-export function registerAuditRoutes(app: any): any {
-  return app.group('/api/v1/audit', (app: any) =>
-    withRequiredAuth(app).group('', (g: any) =>
+export function registerAuditRoutes(elysiaApp: unknown): unknown {
+  return elysiaApp.group('/api/v1/audit', (app: unknown) =>
+    withRequiredAuth(app).group('', (g: unknown) =>
       withAdminGuard(g)
         // GET /logs
         .get('/logs', async ({ set, query }) => {
           const { error, value } = validateWithZod(auditQuerySchema, query);
           if (error) {
             set.status = 400;
-            return { error: 'Validation Error', details: error.details.map((d: any) => d.message) };
+            return {
+              error: 'Validation Error',
+              details: error.details.map((d: unknown) => d.message),
+            };
           }
           try {
             const { domainAuditService } = await getServices();
@@ -109,7 +112,7 @@ export function registerAuditRoutes(app: any): any {
                 search: value.search,
               },
             };
-          } catch (error) {
+          } catch {
             set.status = 500;
             return { error: 'Internal Server Error', message: 'Failed to retrieve audit logs' };
           }
@@ -127,7 +130,7 @@ export function registerAuditRoutes(app: any): any {
               return { error: 'Log Not Found', message: 'Audit log entry not found' };
             }
             return { message: 'Audit log retrieved successfully', log };
-          } catch (error) {
+          } catch {
             set.status = 500;
             return { error: 'Internal Server Error', message: 'Failed to retrieve audit log' };
           }
@@ -140,7 +143,7 @@ export function registerAuditRoutes(app: any): any {
             const repo = domainAuditService.getAuditRepository();
             const eventTypes = await repo.getAuditEventTypes();
             return { message: 'Event types retrieved successfully', eventTypes };
-          } catch (error) {
+          } catch {
             set.status = 500;
             return { error: 'Internal Server Error', message: 'Failed to retrieve event types' };
           }
@@ -159,7 +162,7 @@ export function registerAuditRoutes(app: any): any {
               timeframe: selected,
               statistics,
             };
-          } catch (error) {
+          } catch {
             set.status = 500;
             return {
               error: 'Internal Server Error',
@@ -173,7 +176,10 @@ export function registerAuditRoutes(app: any): any {
           const { error, value } = validateWithZod(exportSchema, body);
           if (error) {
             set.status = 400;
-            return { error: 'Validation Error', details: error.details.map((d: any) => d.message) };
+            return {
+              error: 'Validation Error',
+              details: error.details.map((d: unknown) => d.message),
+            };
           }
           try {
             const { auditService } = await getServices();
@@ -182,7 +188,7 @@ export function registerAuditRoutes(app: any): any {
               value.endDate,
               value.format
             );
-            let parsedData: any;
+            let parsedData: unknown;
             try {
               parsedData = typeof exportData === 'string' ? JSON.parse(exportData) : exportData;
             } catch {
@@ -208,54 +214,51 @@ export function registerAuditRoutes(app: any): any {
               exportedAt: new Date().toISOString(),
               data: parsedData.data || exportData,
             };
-          } catch (error) {
+          } catch {
             set.status = 500;
             return { error: 'Internal Server Error', message: 'Failed to export audit logs' };
           }
         })
 
         // POST /compliance-report
-        .post(
-          '/compliance-report',
-          async ({ set, body, user, request, headers }) => {
-            const { error, value } = validateWithZod(complianceReportSchema, body);
-            if (error) {
-              set.status = 400;
-              return {
-                error: 'Validation Error',
-                details: error.details.map((d: any) => d.message),
-              };
-            }
-            try {
-              const { auditService } = await getServices();
-              const report = await auditService.generateComplianceReport({
+        .post('/compliance-report', async ({ set, body, user, request, headers }) => {
+          const { error, value } = validateWithZod(complianceReportSchema, body);
+          if (error) {
+            set.status = 400;
+            return {
+              error: 'Validation Error',
+              details: error.details.map((d: unknown) => d.message),
+            };
+          }
+          try {
+            const { auditService } = await getServices();
+            const report = await auditService.generateComplianceReport({
+              startDate: value.startDate,
+              endDate: value.endDate,
+              includeDetails: value.includeCharts,
+              complianceFramework: undefined,
+            });
+            await auditService.logSecurityEvent({
+              eventType: AuditEventType.COMPLIANCE_REPORT_GENERATED,
+              userId: user!.id,
+              details: {
+                reportType: value.reportType,
                 startDate: value.startDate,
                 endDate: value.endDate,
-                includeDetails: value.includeCharts,
-                complianceFramework: undefined,
-              });
-              await auditService.logSecurityEvent({
-                eventType: AuditEventType.COMPLIANCE_REPORT_GENERATED,
-                userId: user!.id,
-                details: {
-                  reportType: value.reportType,
-                  startDate: value.startDate,
-                  endDate: value.endDate,
-                  format: value.format,
-                },
-                ipAddress: request.headers.get('x-forwarded-for') || '',
-                userAgent: headers['user-agent'],
-              });
-              return value.format === 'json' ? report : { data: report };
-            } catch (error) {
-              set.status = 500;
-              return {
-                error: 'Internal Server Error',
-                message: 'Failed to generate compliance report',
-              };
-            }
+                format: value.format,
+              },
+              ipAddress: request.headers.get('x-forwarded-for') || '',
+              userAgent: headers['user-agent'],
+            });
+            return value.format === 'json' ? report : { data: report };
+          } catch {
+            set.status = 500;
+            return {
+              error: 'Internal Server Error',
+              message: 'Failed to generate compliance report',
+            };
           }
-        )
+        })
 
         // GET /user-activity/:userId
         .get('/user-activity/:userId', async ({ set, params, query }) => {
@@ -290,7 +293,7 @@ export function registerAuditRoutes(app: any): any {
                 pages: Math.ceil(result.total / limit),
               },
             };
-          } catch (error) {
+          } catch {
             set.status = 500;
             return { error: 'Internal Server Error', message: 'Failed to retrieve user activity' };
           }
@@ -309,7 +312,7 @@ export function registerAuditRoutes(app: any): any {
               userAgent: headers['user-agent'],
             });
             return { message: 'Audit cleanup completed successfully', result };
-          } catch (error) {
+          } catch {
             set.status = 500;
             return { error: 'Internal Server Error', message: 'Failed to cleanup audit logs' };
           }

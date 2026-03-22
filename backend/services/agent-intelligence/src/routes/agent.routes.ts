@@ -23,9 +23,9 @@ const relevanceSchema = z.object({
   limit: z.number().int().positive().max(100).optional(),
 });
 
-export function registerAgentRoutes(app: any): any {
-  return app.group('/api/v1/agents', (group: any) =>
-    group.post('/relevance', async ({ body, set }: any) => {
+export function registerAgentRoutes(app: Record<string, unknown>): Record<string, unknown> {
+  return app.group('/api/v1/agents', (group: Record<string, unknown>) =>
+    group.post('/relevance', async ({ body, set }: Record<string, unknown>) => {
       const parsed = relevanceSchema.safeParse(body);
 
       if (!parsed.success) {

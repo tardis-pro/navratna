@@ -134,7 +134,7 @@ export class ShortLinkService {
       });
     } catch (error) {
       logger.error('Error getting short link:', error);
-      throw new Error('Failed to get short link');
+      throw new Error('Failed to get short link', { cause: error });
     }
   }
 
@@ -182,7 +182,10 @@ export class ShortLinkService {
     }
   }
 
-  async getUserLinks(userId: string, options: GetUserLinksOptions = {}): Promise<ShortLinkEntity[]> {
+  async getUserLinks(
+    userId: string,
+    options: GetUserLinksOptions = {}
+  ): Promise<ShortLinkEntity[]> {
     try {
       const { page = 1, limit = 20, type, search } = options;
       const skip = (page - 1) * limit;
@@ -208,7 +211,7 @@ export class ShortLinkService {
       return await queryBuilder.getMany();
     } catch (error) {
       logger.error('Error getting user links:', error);
-      throw new Error('Failed to get user links');
+      throw new Error('Failed to get user links', { cause: error });
     }
   }
 
@@ -219,11 +222,15 @@ export class ShortLinkService {
       });
     } catch (error) {
       logger.error('Error getting link by ID:', error);
-      throw new Error('Failed to get link');
+      throw new Error('Failed to get link', { cause: error });
     }
   }
 
-  async updateLink(linkId: string, userId: string, updates: LinkUpdateData): Promise<ShortLinkEntity> {
+  async updateLink(
+    linkId: string,
+    userId: string,
+    updates: LinkUpdateData
+  ): Promise<ShortLinkEntity> {
     try {
       const link = await this.getLinkById(linkId, userId);
       if (!link) {
@@ -299,7 +306,7 @@ export class ShortLinkService {
       return qrCodeDataURL;
     } catch (error) {
       logger.error('Error generating QR code:', error);
-      throw new Error('Failed to generate QR code');
+      throw new Error('Failed to generate QR code', { cause: error });
     }
   }
 
@@ -321,7 +328,7 @@ export class ShortLinkService {
       };
     } catch (error) {
       logger.error('Error getting link analytics:', error);
-      throw new Error('Failed to get analytics');
+      throw new Error('Failed to get analytics', { cause: error });
     }
   }
 
@@ -337,6 +344,7 @@ export class ShortLinkService {
       }
 
       // Check if code already exists
+      // oxlint-ignore-next-line eslint/no-await-in-loop -- sequential processing required
       const existing = await this.shortLinkRepository.findOne({ where: { shortCode: code } });
       if (!existing) {
         return code;

@@ -5,7 +5,7 @@ interface RecentItem {
   title: string;
   type: string;
   timestamp: Date;
-  icon: React.ComponentType<any>;
+  icon: React.ComponentType<unknown>;
   description?: string;
   isPinned?: boolean;
   isFavorite?: boolean;
@@ -33,7 +33,7 @@ interface ActivityEvent {
   itemId: string;
   timestamp: Date;
   duration?: number;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 interface IconPosition {
@@ -57,7 +57,7 @@ interface DesktopPreferences {
   gridSpacing: 'compact' | 'normal' | 'spacious';
 }
 
-interface DesktopState {
+interface _DesktopState {
   iconPositions: Record<string, IconPosition>;
   recentItems: RecentItem[];
   preferences: DesktopPreferences;
@@ -102,7 +102,7 @@ export const useDesktop = () => {
       if (savedRecentItems) {
         const items = JSON.parse(savedRecentItems);
         // Convert timestamp strings back to Date objects
-        const itemsWithDates = items.map((item: any) => ({
+        const itemsWithDates = items.map((item: unknown) => ({
           ...item,
           timestamp: new Date(item.timestamp),
         }));
@@ -120,7 +120,7 @@ export const useDesktop = () => {
       if (savedActivityEvents) {
         const events = JSON.parse(savedActivityEvents);
         // Convert timestamp strings back to Date objects
-        const eventsWithDates = events.map((event: any) => ({
+        const eventsWithDates = events.map((event: unknown) => ({
           ...event,
           timestamp: new Date(event.timestamp),
         }));

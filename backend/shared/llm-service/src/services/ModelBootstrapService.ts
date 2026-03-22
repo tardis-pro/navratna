@@ -29,7 +29,7 @@ export class ModelBootstrapService {
     this.userLLMService = new UserLLMService();
     this.userService = UserService.getInstance();
     // Initialize ModelSyncService lazily to avoid async in constructor
-    this.modelSyncService = null as any;
+    this.modelSyncService = null as unknown as ModelSyncService;
   }
 
   public static getInstance(): ModelBootstrapService {
@@ -181,6 +181,7 @@ export class ModelBootstrapService {
       for (const userId of usersWithProviders) {
         try {
           // Cache user's models
+          // eslint-disable-next-line no-await-in-loop -- sequential processing required
           const userModels = await this.cacheUserModels(userId);
           userModelData.push({
             userId,
@@ -217,7 +218,7 @@ export class ModelBootstrapService {
   /**
    * Cache models for a specific user
    */
-  private async cacheUserModels(userId: string): Promise<any[]> {
+  private async cacheUserModels(userId: string): Promise<unknown[]> {
     const cacheKey = `${ModelBootstrapService.USER_MODELS_CACHE_PREFIX}${userId}`;
 
     try {
@@ -254,6 +255,7 @@ export class ModelBootstrapService {
       // Check each user for LLM providers
       for (const user of allUsers) {
         try {
+          // eslint-disable-next-line no-await-in-loop -- sequential processing required
           const providers = await this.userService
             .getUserLLMProviderRepository()
             .findAllProvidersByUser(user.id);
@@ -299,7 +301,7 @@ export class ModelBootstrapService {
   /**
    * Get cached models for a user (fast path)
    */
-  async getCachedUserModels(userId: string): Promise<any[] | null> {
+  async getCachedUserModels(userId: string): Promise<unknown[] | null> {
     const cacheKey = `${ModelBootstrapService.USER_MODELS_CACHE_PREFIX}${userId}`;
 
     try {
@@ -322,7 +324,7 @@ export class ModelBootstrapService {
   /**
    * Get cached global models (fast path)
    */
-  async getCachedGlobalModels(): Promise<any[] | null> {
+  async getCachedGlobalModels(): Promise<unknown[] | null> {
     try {
       const cachedModels = await this.cacheService.get(
         ModelBootstrapService.GLOBAL_MODELS_CACHE_KEY
@@ -358,7 +360,7 @@ export class ModelBootstrapService {
   /**
    * Get bootstrap status for monitoring
    */
-  async getBootstrapStatus(): Promise<any> {
+  async getBootstrapStatus(): Promise<unknown> {
     try {
       const status = await this.cacheService.get(ModelBootstrapService.BOOTSTRAP_STATUS_KEY);
       const globalModels = await this.cacheService.get(

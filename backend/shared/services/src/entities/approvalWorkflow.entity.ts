@@ -1,5 +1,6 @@
 import { Entity, Column, Index, ManyToOne, JoinColumn } from 'typeorm';
 import { BaseEntity } from './base.entity';
+import type { Operation } from './operation.entity';
 
 /**
  * Approval Workflow Entity
@@ -34,10 +35,10 @@ export class ApprovalWorkflow extends BaseEntity {
   lastReminderAt?: Date;
 
   @Column({ type: 'jsonb', nullable: true })
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 
   // Relationships
   @ManyToOne('Operation', 'approvals', { nullable: true })
   @JoinColumn({ name: 'operation_id' })
-  operation?: any;
+  operation?: Operation;
 }

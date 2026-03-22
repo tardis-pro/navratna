@@ -1,5 +1,6 @@
 import { Entity, Column, Index, ManyToOne, JoinColumn } from 'typeorm';
 import { BaseEntity } from './base.entity';
+import type { Artifact } from './artifact.entity';
 
 /**
  * Artifact Deployment Entity
@@ -33,7 +34,7 @@ export class ArtifactDeployment extends BaseEntity {
   deploymentUrl?: string;
 
   @Column({ name: 'deployment_config', type: 'jsonb', nullable: true })
-  deploymentConfig?: Record<string, any>;
+  deploymentConfig?: Record<string, unknown>;
 
   @Column({ name: 'build_logs', type: 'text', nullable: true })
   buildLogs?: string;
@@ -68,16 +69,16 @@ export class ArtifactDeployment extends BaseEntity {
   lastHealthCheck?: Date;
 
   @Column({ name: 'performance_metrics', type: 'jsonb', nullable: true })
-  performanceMetrics?: Record<string, any>;
+  performanceMetrics?: Record<string, unknown>;
 
   @Column({ type: 'jsonb', default: '[]' })
   tags: string[];
 
   @Column({ type: 'jsonb', nullable: true })
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 
   // Relationships
   @ManyToOne('Artifact', 'deployments')
   @JoinColumn({ name: 'artifact_id' })
-  artifact: any;
+  artifact: Artifact;
 }

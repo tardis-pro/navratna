@@ -5,8 +5,8 @@
 
 import type {
   Operation,
-  OperationStatus,
-  OperationPriority,
+  _OperationStatus,
+  _OperationPriority,
   Capability,
   ApprovalWorkflow as SharedApprovalWorkflow,
 } from '@uaip/types';
@@ -120,7 +120,7 @@ export interface OperationEvent {
   type: 'started' | 'progress' | 'completed' | 'failed' | 'cancelled' | 'paused';
   timestamp: Date;
   message: string;
-  data?: Record<string, any>;
+  data?: Record<string, unknown>;
   severity: 'info' | 'warning' | 'error' | 'critical';
 }
 
@@ -160,7 +160,7 @@ export interface ToolIntegration {
   status: 'connected' | 'disconnected' | 'error' | 'configuring';
   lastUsed?: Date;
   usageCount: number;
-  configuration: Record<string, any>;
+  configuration: Record<string, unknown>;
   healthStatus: {
     isHealthy: boolean;
     lastCheck: Date;
@@ -179,7 +179,7 @@ export interface AIInsight {
   impact: 'low' | 'medium' | 'high' | 'critical';
   category: 'performance' | 'security' | 'user_behavior' | 'system_health' | 'business';
   recommendations: string[];
-  data: Record<string, any>;
+  data: Record<string, unknown>;
   timestamp: Date;
   status: 'new' | 'acknowledged' | 'acted_upon' | 'dismissed';
 }
@@ -219,7 +219,7 @@ export interface WebSocketEvent {
     | 'approval_request'
     | 'system_alert'
     | 'insight_generated';
-  data: any;
+  data: unknown;
   timestamp: Date;
 }
 
@@ -249,7 +249,7 @@ export interface UIError {
   id: string;
   type: 'api_error' | 'websocket_error' | 'validation_error' | 'permission_error';
   message: string;
-  details?: any;
+  details?: unknown;
   timestamp: Date;
   resolved: boolean;
 }

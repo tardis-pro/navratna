@@ -104,12 +104,14 @@ export class MacrodataMemoryService {
       // Store each topic as a knowledge item scoped to this agent
       for (const topic of topics) {
         // Check if a similar item already exists to avoid duplicates
+        // oxlint-disable-next-line no-await-in-loop -- sequential processing required
         const exists = await this.dataSource.query(
           `SELECT id FROM knowledge_items WHERE "agentId" = $1 AND content LIKE $2 LIMIT 1`,
           [agentId, `%${topic.slice(0, 50)}%`]
         );
 
         if (exists.length === 0) {
+          // oxlint-disable-next-line no-await-in-loop -- sequential processing required
           await this.dataSource.query(
             `INSERT INTO knowledge_items
                (id, content, type, "sourceType", "sourceIdentifier", tags, confidence, metadata, "agentId", "userId", "accessLevel", "createdAt", "updatedAt")
@@ -209,7 +211,7 @@ export class MacrodataMemoryService {
         [query.slice(0, 200), agentId, userId]
       );
 
-      return rows.map((r: any) => ({
+      return rows.map((r: Record<string, unknown>) => ({
         content: r.content,
         tags: r.tags ?? [],
         relevanceScore: parseFloat(r.rank) || 0,

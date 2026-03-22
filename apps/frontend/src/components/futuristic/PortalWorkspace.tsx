@@ -2,21 +2,21 @@ import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Portal } from './Portal';
 import { DiscussionControlsPortal } from './portals/DiscussionControlsPortal';
-import { DiscussionLogPortal } from './portals/DiscussionLogPortal';
-import { SettingsPortal } from './portals/SettingsPortal';
+import { _DiscussionLogPortal } from './portals/DiscussionLogPortal';
+import { _SettingsPortal } from './portals/SettingsPortal';
 import { GeneralSettingsPortal } from './portals/GeneralSettingsPortal';
 import { ChatPortal } from './portals/ChatPortal';
 import { ProviderSettingsPortal } from './portals/ProviderSettingsPortal';
 import { SystemConfigPortal } from './portals/SystemConfigPortal';
 import { AgentManagerPortal } from './portals/AgentManagerPortal';
 import { ToolsPanel } from './portals/ToolsPanel';
-import { SecurityGateway } from './portals/SecurityGateway';
+import { _SecurityGateway } from './portals/SecurityGateway';
 import { SecurityPortal } from './portals/SecurityPortal';
-import { CapabilityRegistry } from './portals/CapabilityRegistry';
-import { EventStreamMonitor } from './portals/EventStreamMonitor';
+import { _CapabilityRegistry } from './portals/CapabilityRegistry';
+import { _EventStreamMonitor } from './portals/EventStreamMonitor';
 import { OperationsMonitor } from './portals/OperationsMonitor';
 import { IntelligencePanelPortal } from './portals/IntelligencePanelPortal';
-import { InsightsPanel } from './portals/InsightsPanel';
+import { _InsightsPanel } from './portals/InsightsPanel';
 import { KnowledgePortal } from './portals/KnowledgePortal';
 import { DashboardPortal } from './portals/DashboardPortal';
 import { ArtifactsPortal } from './portals/ArtifactsPortal';
@@ -36,14 +36,14 @@ import {
   Menu,
   X,
   Bot,
-  Server,
+  _Server,
   Database,
   Wrench,
   Shield,
   Radio,
-  BarChart3,
-  Lightbulb,
-  Eye,
+  _BarChart3,
+  _Lightbulb,
+  _Eye,
   BookOpen,
   MapPin,
   Sun,
@@ -51,18 +51,18 @@ import {
   CloudRain,
   CloudSnow,
   CloudSun,
-  Thermometer,
+  _Thermometer,
   Search,
   Store,
-  Grid3X3,
-  Layers,
+  _Grid3X3,
+  _Layers,
   Home,
   Package,
   FileText,
   Globe,
 } from 'lucide-react';
 import { uaipAPI } from '@/utils/uaip-api';
-import { PuzzlePieceIcon } from '@heroicons/react/24/outline';
+import { _PuzzlePieceIcon } from '@heroicons/react/24/outline';
 import MarketplaceHubWidget from '@/widgets/MarketplaceHubWidget';
 import { ToolManagementPortal } from './portals/ToolManagementPortal';
 
@@ -70,7 +70,7 @@ interface PortalInstance {
   id: string;
   type: keyof typeof PORTAL_CONFIGS;
   title: string;
-  component: React.ComponentType<any>;
+  component: React.ComponentType<unknown>;
   position: { x: number; y: number };
   size: { width: number; height: number };
   isVisible: boolean;
@@ -89,7 +89,7 @@ interface ViewportSize {
 const PORTAL_CONFIGS = {
   'agent-hub': {
     title: 'Agent Hub',
-    component: (props: any) => <AgentManagerPortal {...props} mode="hub" defaultView="grid" />,
+    component: (props: unknown) => <AgentManagerPortal {...props} mode="hub" defaultView="grid" />,
     defaultSize: {
       desktop: { width: 900, height: 750 },
       tablet: { width: 750, height: 700 },
@@ -101,7 +101,7 @@ const PORTAL_CONFIGS = {
   },
   'discussion-hub': {
     title: 'Discussion Hub',
-    component: (props: any) => <DiscussionControlsPortal {...props} showLog={true} />,
+    component: (props: unknown) => <DiscussionControlsPortal {...props} showLog={true} />,
     defaultSize: {
       desktop: { width: 800, height: 700 },
       tablet: { width: 700, height: 650 },
@@ -113,7 +113,7 @@ const PORTAL_CONFIGS = {
   },
   'intelligence-hub': {
     title: 'Intelligence Hub',
-    component: (props: any) => <IntelligencePanelPortal {...props} mode="insights" />,
+    component: (props: unknown) => <IntelligencePanelPortal {...props} mode="insights" />,
     defaultSize: {
       desktop: { width: 650, height: 650 },
       tablet: { width: 580, height: 600 },
@@ -125,7 +125,7 @@ const PORTAL_CONFIGS = {
   },
   'system-hub': {
     title: 'System Hub',
-    component: (props: any) => (
+    component: (props: unknown) => (
       <SystemConfigPortal {...props} showProviders={true} showSecurity={true} />
     ),
     defaultSize: {
@@ -151,7 +151,7 @@ const PORTAL_CONFIGS = {
   },
   'monitoring-hub': {
     title: 'Monitoring Hub',
-    component: (props: any) => (
+    component: (props: unknown) => (
       <OperationsMonitor {...props} showEvents={true} showCapabilities={true} />
     ),
     defaultSize: {
@@ -213,7 +213,7 @@ const PORTAL_CONFIGS = {
   },
   'marketplace-hub': {
     title: 'Marketplace Hub',
-    component: (props: any) => <MarketplaceHubWidget {...props} />,
+    component: (props: unknown) => <MarketplaceHubWidget {...props} />,
     defaultSize: {
       desktop: { width: 900, height: 750 },
       tablet: { width: 750, height: 700 },
@@ -225,7 +225,7 @@ const PORTAL_CONFIGS = {
   },
   'security-hub': {
     title: 'Security Hub',
-    component: (props: any) => <SecurityPortal {...props} mode="dashboard" />,
+    component: (props: unknown) => <SecurityPortal {...props} mode="dashboard" />,
     defaultSize: {
       desktop: { width: 900, height: 750 },
       tablet: { width: 750, height: 700 },
@@ -237,7 +237,7 @@ const PORTAL_CONFIGS = {
   },
   'tool-management': {
     title: 'Tool Management',
-    component: (props: any) => <ToolManagementPortal {...props} />,
+    component: (props: unknown) => <ToolManagementPortal {...props} />,
     defaultSize: {
       desktop: { width: 900, height: 750 },
       tablet: { width: 750, height: 700 },
@@ -249,7 +249,7 @@ const PORTAL_CONFIGS = {
   },
   dashboard: {
     title: 'System Dashboard',
-    component: (props: any) => <DashboardPortal {...props} />,
+    component: (props: unknown) => <DashboardPortal {...props} />,
     defaultSize: {
       desktop: { width: 1000, height: 800 },
       tablet: { width: 800, height: 700 },
@@ -261,7 +261,7 @@ const PORTAL_CONFIGS = {
   },
   artifacts: {
     title: 'Artifacts Repository',
-    component: (props: any) => <ArtifactsPortal {...props} />,
+    component: (props: unknown) => <ArtifactsPortal {...props} />,
     defaultSize: {
       desktop: { width: 900, height: 750 },
       tablet: { width: 750, height: 700 },
@@ -274,7 +274,7 @@ const PORTAL_CONFIGS = {
   // Additional portal types for RoleBasedDesktopConfig compatibility
   'user-chat': {
     title: 'User Chat',
-    component: (props: any) => <ChatPortal {...props} />,
+    component: (props: unknown) => <ChatPortal {...props} />,
     defaultSize: {
       desktop: { width: 600, height: 500 },
       tablet: { width: 500, height: 450 },
@@ -286,7 +286,7 @@ const PORTAL_CONFIGS = {
   },
   search: {
     title: 'Global Search',
-    component: (props: any) => (
+    component: (_props: unknown) => (
       <div className="p-4 text-white">
         <p>Global Search Portal - Coming Soon</p>
       </div>
@@ -302,7 +302,7 @@ const PORTAL_CONFIGS = {
   },
   tasks: {
     title: 'Task Management',
-    component: (props: any) => (
+    component: (_props: unknown) => (
       <div className="p-4 text-white">
         <p>Task Management Portal - Coming Soon</p>
       </div>
@@ -318,7 +318,7 @@ const PORTAL_CONFIGS = {
   },
   documents: {
     title: 'Document Management',
-    component: (props: any) => (
+    component: (_props: unknown) => (
       <div className="p-4 text-white">
         <p>Document Management Portal - Coming Soon</p>
       </div>
@@ -334,7 +334,7 @@ const PORTAL_CONFIGS = {
   },
   'user-management': {
     title: 'User Management',
-    component: (props: any) => (
+    component: (_props: unknown) => (
       <div className="p-4 text-white">
         <p>User Management Portal - Coming Soon</p>
       </div>
@@ -350,7 +350,7 @@ const PORTAL_CONFIGS = {
   },
   'system-admin': {
     title: 'System Administration',
-    component: (props: any) => <SystemConfigPortal {...props} mode="admin" />,
+    component: (props: unknown) => <SystemConfigPortal {...props} mode="admin" />,
     defaultSize: {
       desktop: { width: 1000, height: 800 },
       tablet: { width: 800, height: 700 },
@@ -362,7 +362,7 @@ const PORTAL_CONFIGS = {
   },
   'database-admin': {
     title: 'Database Administration',
-    component: (props: any) => (
+    component: (_props: unknown) => (
       <div className="p-4 text-white">
         <p>Database Admin Portal - Coming Soon</p>
       </div>
@@ -378,7 +378,7 @@ const PORTAL_CONFIGS = {
   },
   'system-console': {
     title: 'System Console',
-    component: (props: any) => (
+    component: (_props: unknown) => (
       <div className="p-4 text-white">
         <p>System Console Portal - Coming Soon</p>
       </div>
@@ -394,7 +394,7 @@ const PORTAL_CONFIGS = {
   },
   'system-monitoring': {
     title: 'System Monitoring',
-    component: (props: any) => <OperationsMonitor {...props} />,
+    component: (props: unknown) => <OperationsMonitor {...props} />,
     defaultSize: {
       desktop: { width: 900, height: 700 },
       tablet: { width: 750, height: 650 },
@@ -406,7 +406,7 @@ const PORTAL_CONFIGS = {
   },
   'api-management': {
     title: 'API Management',
-    component: (props: any) => (
+    component: (_props: unknown) => (
       <div className="p-4 text-white">
         <p>API Management Portal - Coming Soon</p>
       </div>
@@ -422,7 +422,7 @@ const PORTAL_CONFIGS = {
   },
   'create-anything': {
     title: 'Create Anything',
-    component: (props: any) => (
+    component: (_props: unknown) => (
       <div className="p-4 text-white">
         <p>Create Anything Portal - Coming Soon</p>
       </div>
@@ -438,7 +438,7 @@ const PORTAL_CONFIGS = {
   },
   'mini-browser': {
     title: 'Mini Browser',
-    component: (props: any) => (
+    component: (_props: unknown) => (
       <div className="p-4 text-white">
         <p>Mini Browser Portal - Coming Soon</p>
       </div>
@@ -713,7 +713,7 @@ const GlobalActionSearchBar: React.FC = () => {
 };
 
 // --- HotkeyManOverlay ---
-const HotkeyManOverlay: React.FC<{ open: boolean; onClose: () => void }> = ({ open, onClose }) => {
+const _HotkeyManOverlay: React.FC<{ open: boolean; onClose: () => void }> = ({ open, onClose }) => {
   if (!open) return null;
   return (
     <div
@@ -792,7 +792,7 @@ const HotCornerMenu: React.FC<{
   togglePortal: (type: keyof typeof PORTAL_CONFIGS) => void;
   closeAll?: () => void;
   systemStatus?: string;
-  systemMetrics?: any;
+  systemMetrics?: unknown;
   show?: boolean;
   setShow: (show: boolean) => void;
 }> = ({
@@ -1049,7 +1049,7 @@ export const PortalWorkspace: React.FC = () => {
   const [weather, setWeather] = useState<{ temp?: number; icon?: string; desc?: string } | null>(
     null
   );
-  const [workspaceMode, setWorkspaceMode] = useState<'desktop' | 'portal'>('desktop');
+  const [_workspaceMode, _setWorkspaceMode] = useState<'desktop' | 'portal'>('desktop');
 
   // Update viewport size on resize
   useEffect(() => {
@@ -1336,7 +1336,7 @@ export const PortalWorkspace: React.FC = () => {
     return () => clearInterval(interval);
   }, []);
 
-  const getStatusColor = (status: typeof systemStatus) => {
+  const _getStatusColor = (status: typeof systemStatus) => {
     switch (status) {
       case 'online':
         return 'text-green-400';
@@ -1430,7 +1430,7 @@ export const PortalWorkspace: React.FC = () => {
         }
         // Weather (OpenWeatherMap, metric, icon)
         try {
-          const apiKey = 'demo'; // Replace with your OpenWeatherMap API key
+          const _apiKey = 'demo'; // Replace with your OpenWeatherMap API key
           const weatherRes = await fetch(
             `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current_weather=true`
           );

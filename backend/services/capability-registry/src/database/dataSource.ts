@@ -59,6 +59,7 @@ export class ExecutionDataSource {
     let attempts = 0;
     while (attempts < 3) {
       try {
+        // eslint-disable-next-line no-await-in-loop -- sequential processing required
         await this._ds.initialize();
         logger.info('ExecutionDataSource initialized', {
           host: pg.host,
@@ -72,6 +73,7 @@ export class ExecutionDataSource {
           error: String(err),
         });
         if (attempts >= 3) throw err;
+        // eslint-disable-next-line no-await-in-loop -- sequential processing required
         await new Promise((r) => setTimeout(r, 2000 * attempts));
       }
     }

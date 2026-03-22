@@ -1,7 +1,7 @@
 import { jest } from '@jest/globals';
 import { SecurityGatewayService } from '../../services/securityGatewayService.js';
-import { ApprovalWorkflowService } from '../../services/approvalWorkflowService.js';
-import { AuditService } from '../../services/auditService.js';
+import { ApprovalWorkflowService as _ApprovalWorkflowService } from '../../services/approvalWorkflowService.js';
+import { AuditService as _AuditService } from '../../services/auditService.js';
 import {
   createMockDatabaseService,
   createMockAuditService,
@@ -34,9 +34,9 @@ describe('Security Gateway Integration', () => {
     mockApprovalWorkflowService = createMockApprovalWorkflowService();
 
     securityGatewayService = new SecurityGatewayService(
-      mockDatabaseService as any,
-      mockApprovalWorkflowService as any,
-      mockAuditService as any
+      mockDatabaseService as unknown,
+      mockApprovalWorkflowService as unknown,
+      mockAuditService as unknown
     );
   });
 
@@ -176,7 +176,7 @@ describe('Security Gateway Integration', () => {
       const weekendDate = new Date();
       weekendDate.setDate(weekendDate.getDate() + (6 - weekendDate.getDay())); // Move to Saturday
       weekendDate.setHours(20, 0, 0, 0); // 8 PM
-      jest.spyOn(global, 'Date').mockImplementation(() => weekendDate as any);
+      jest.spyOn(global, 'Date').mockImplementation(() => weekendDate as unknown);
 
       const request: SecurityValidationRequest = {
         operation: {
@@ -216,7 +216,7 @@ describe('Security Gateway Integration', () => {
           timestamp: new Date(Date.now() - 6 * 60 * 60 * 1000), // 6 hours ago
           details: { reason: 'Insufficient privileges' },
         },
-      ] as any);
+      ] as unknown);
 
       const request: SecurityValidationRequest = {
         operation: {
@@ -342,7 +342,7 @@ describe('Security Gateway Integration', () => {
 
       const results = await Promise.all(validationPromises);
 
-      results.forEach((result, index) => {
+      results.forEach((result, _index) => {
         expect(result.allowed).toBe(true);
         expect(result.riskLevel).toBe(SecurityLevel.LOW);
       });

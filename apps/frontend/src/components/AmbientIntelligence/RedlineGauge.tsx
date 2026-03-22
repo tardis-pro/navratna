@@ -2,10 +2,7 @@
 
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import {
-  AttentionBudget,
-  useAttentionBudget,
-} from '@/components/AttentionBudget';
+import { AttentionBudget, useAttentionBudget } from '@/components/AttentionBudget';
 import type { AttentionItem } from '@/components/AttentionBudget';
 
 // ---------------------------------------------------------------------------
@@ -51,16 +48,12 @@ export interface PortalCloseDetail {
 
 /** Dispatch a custom event to open a portal. */
 export function emitPortalOpen(detail: PortalOpenDetail): void {
-  window.dispatchEvent(
-    new CustomEvent<PortalOpenDetail>(PORTAL_OPEN_EVENT, { detail }),
-  );
+  window.dispatchEvent(new CustomEvent<PortalOpenDetail>(PORTAL_OPEN_EVENT, { detail }));
 }
 
 /** Dispatch a custom event to close a portal. */
 export function emitPortalClose(detail: PortalCloseDetail): void {
-  window.dispatchEvent(
-    new CustomEvent<PortalCloseDetail>(PORTAL_CLOSE_EVENT, { detail }),
-  );
+  window.dispatchEvent(new CustomEvent<PortalCloseDetail>(PORTAL_CLOSE_EVENT, { detail }));
 }
 
 // ---------------------------------------------------------------------------
@@ -139,7 +132,7 @@ export function RedlineGauge({ className, position = 'right' }: RedlineGaugeProp
         label: p.label,
         type: p.type,
       })),
-    [portals],
+    [portals]
   );
 
   // Sync portals with budget tracker
@@ -158,7 +151,7 @@ export function RedlineGauge({ className, position = 'right' }: RedlineGaugeProp
         });
       }
     },
-    [budget],
+    [budget]
   );
 
   const removePortal = useCallback(
@@ -166,7 +159,7 @@ export function RedlineGauge({ className, position = 'right' }: RedlineGaugeProp
       budget.releaseSlot(id);
       setPortals((prev) => prev.filter((p) => p.id !== id));
     },
-    [budget],
+    [budget]
   );
 
   // Listen for custom portal events
@@ -201,7 +194,7 @@ export function RedlineGauge({ className, position = 'right' }: RedlineGaugeProp
     (id: string) => {
       removePortal(id);
     },
-    [removePortal],
+    [removePortal]
   );
 
   return (
@@ -250,7 +243,7 @@ export function useRedlineGauge(maxBudget: number = 4): UseRedlineGaugeReturn {
       emitPortalOpen({ id: portal.id, label: portal.label, type: portal.type });
       return true;
     },
-    [portals.length, maxBudget],
+    [portals.length, maxBudget]
   );
 
   const closePortal = useCallback((id: string) => {

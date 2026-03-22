@@ -33,7 +33,7 @@ export function successResponse<T>(data: T, meta?: Partial<ApiResponse['meta']>)
 export function errorResponse(
   code: string,
   message: string,
-  details?: unknown,
+  details?: unknown
 ): ApiResponse<never> {
   return {
     success: false,
@@ -46,7 +46,7 @@ export function paginatedResponse<T>(
   data: T[],
   total: number,
   page: number,
-  limit: number,
+  limit: number
 ): ApiResponse<T[]> {
   return {
     success: true,
@@ -65,7 +65,9 @@ export const CommonErrors = {
   notFound: (resource: string) => errorResponse('NOT_FOUND', `${resource} not found`),
   unauthorized: (message = 'Authentication required') => errorResponse('UNAUTHORIZED', message),
   forbidden: (message = 'Insufficient permissions') => errorResponse('FORBIDDEN', message),
-  badRequest: (message: string, details?: unknown) => errorResponse('BAD_REQUEST', message, details),
+  badRequest: (message: string, details?: unknown) =>
+    errorResponse('BAD_REQUEST', message, details),
   internal: (message = 'Internal server error') => errorResponse('INTERNAL_ERROR', message),
-  validationError: (details: unknown) => errorResponse('VALIDATION_ERROR', 'Request validation failed', details),
+  validationError: (details: unknown) =>
+    errorResponse('VALIDATION_ERROR', 'Request validation failed', details),
 } as const;

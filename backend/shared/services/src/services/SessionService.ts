@@ -22,7 +22,7 @@ export class SessionService extends BaseDomainService {
   public async createSession(
     userId: string,
     sessionToken: string,
-    metadata?: Record<string, any>
+    metadata?: Record<string, unknown>
   ): Promise<SessionEntity> {
     const sessionRepo = this.getSessionRepository();
     const session = sessionRepo.create({

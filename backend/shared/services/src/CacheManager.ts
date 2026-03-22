@@ -188,7 +188,7 @@ export class CacheManager {
    * Cache health monitoring
    */
   public async getHealthStatus(): Promise<{
-    redis: any;
+    redis: unknown;
     services: {
       userService: boolean;
       userKnowledgeService: boolean;
@@ -228,11 +228,13 @@ export class CacheManager {
           'password_reset_token:*',
         ];
 
-        const keysByPattern: Record<string, number> = {};
-        for (const pattern of patterns) {
-          const keys = await redisCacheService.keys(pattern);
-          keysByPattern[pattern] = keys.length;
-        }
+        const keysByPatternEntries = await Promise.all(
+          patterns.map(async (pattern) => {
+            const keys = await redisCacheService.keys(pattern);
+            return [pattern, keys.length] as const;
+          })
+        );
+        const keysByPattern = Object.fromEntries(keysByPatternEntries);
 
         const memoryInfo = await client.info('memory');
         const memoryMatch = memoryInfo.match(/used_memory_human:([^\r\n]+)/);
@@ -272,16 +274,19 @@ export class CacheManager {
       // specific patterns if needed
       const patterns = ['refresh_token:*', 'password_reset_token:*'];
 
-      for (const pattern of patterns) {
-        const keys = await redisCacheService.keys(pattern);
-        for (const key of keys) {
+      const keysList = await Promise.all(
+        patterns.map((pattern) => redisCacheService.keys(pattern))
+      );
+      const keys = keysList.flat();
+
+      await Promise.all(
+        keys.map(async (key) => {
           const ttl = await client.ttl(key);
           if (ttl === -1) {
-            // Key exists but has no TTL, might be orphaned
             logger.debug('Found key without TTL, investigating', { key });
           }
-        }
-      }
+        })
+      );
 
       logger.info('Cache cleanup completed');
     } catch (error) {
@@ -389,7 +394,7 @@ export class CacheManager {
   /**
    * Helper method to extract values from Redis INFO output
    */
-  private extractInfoValue(info: string, key: string): any {
+  private extractInfoValue(info: string, key: string): unknown {
     const match = info.match(new RegExp(`${key}:([^\\r\\n]+)`));
     if (match) {
       const value = match[1].trim();

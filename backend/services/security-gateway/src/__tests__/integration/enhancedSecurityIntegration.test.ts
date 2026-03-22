@@ -1,7 +1,7 @@
 import { jest } from '@jest/globals';
 import { EnhancedSecurityGatewayService } from '../../services/enhancedSecurityGatewayService.js';
-import { OAuthProviderService } from '../../services/oauthProviderService.js';
-import { EnhancedAuthService } from '../../services/enhancedAuthService.js';
+import { OAuthProviderService as _OAuthProviderService } from '../../services/oauthProviderService.js';
+import { EnhancedAuthService as _EnhancedAuthService } from '../../services/enhancedAuthService.js';
 import {
   createMockDatabaseService,
   createMockAuditService,
@@ -16,7 +16,7 @@ import {
   AgentCapability,
   OAuthProviderType,
   AuthenticationMethod,
-  MFAMethod,
+  MFAMethod as _MFAMethod,
   AuditEventType,
 } from '@uaip/types';
 
@@ -34,19 +34,19 @@ jest.mock('@uaip/utils', () => ({
   },
   ApiError: jest.fn().mockImplementation((status, message: string, code) => {
     const error = new Error(message);
-    (error as any).status = status;
-    (error as any).code = code;
+    (error as unknown).status = status;
+    (error as unknown).code = code;
     return error;
   }),
 }));
 
 describe('Enhanced Security Integration Tests', () => {
   let enhancedSecurityGatewayService: EnhancedSecurityGatewayService;
-  let mockDatabaseService: any;
-  let mockAuditService: any;
-  let mockApprovalWorkflowService: any;
-  let mockOAuthProviderService: any;
-  let mockEnhancedAuthService: any;
+  let mockDatabaseService: unknown;
+  let mockAuditService: unknown;
+  let mockApprovalWorkflowService: unknown;
+  let mockOAuthProviderService: unknown;
+  let mockEnhancedAuthService: unknown;
 
   beforeAll(async () => {
     // Create mock services

@@ -1,6 +1,7 @@
 # Navratna Roadmap — Sovereign Cognitive Shell
 
 ## Document Control
+
 - **Last Updated**: 2026-03-21
 - **Version**: 3.1 (Sovereign Shell Evolution + Platform Expansion Vision)
 - **Previous**: v2.0 (UAIP Platform) — archived
@@ -9,6 +10,7 @@
 ## Current State: v2.0 → v3.0 Transition
 
 ### What v2.0 Achieved (2025)
+
 - ✅ 7 microservices (Agent Intelligence, Security Gateway, Orchestration Pipeline, Capability Registry, Discussion Orchestration, Artifact Service, LLM Service)
 - ✅ Triple-store knowledge (PostgreSQL + Neo4j + Qdrant)
 - ✅ Real-time WebSocket discussions with turn management
@@ -20,7 +22,9 @@
 - ✅ Elysia framework (performance-first)
 
 ### What v3.0 Changes
+
 The platform evolves from a multi-user enterprise tool to a **personal sovereign agent operating system**:
+
 - Single-owner, multi-agent, multi-machine
 - Local-first with cloud burst
 - OpenShell sandboxed execution
@@ -32,6 +36,7 @@ The platform evolves from a multi-user enterprise tool to a **personal sovereign
 ## Q1 2026 (March-April): Foundation
 
 ### Phase 0: Infrastructure Setup
+
 - [ ] Tailscale mesh between 2 PCs + Mac
 - [ ] Per-machine Docker Compose configs
 - [ ] Fix: .env template, Docker version pins, database init scripts
@@ -39,7 +44,9 @@ The platform evolves from a multi-user enterprise tool to a **personal sovereign
 - [ ] Service consolidation: 7 services → 2 (Core + Gateway)
 
 ### Phase 1: Telescope Foundation + Agent Port (Week 1-2)
+
 <!-- Line counts verified by user 2026-03-21. Integration gaps CLOSED per 00-PRD §Integration Status. -->
+
 - [x] IntentField component (606 lines — cmdk + fuzzy + WebSocket AI suggestions + 5 intent types) — fully integrated, Cmd+K, portal navigation
 - [x] relevance() scoring function (383 lines — 4-factor: vector 40%, graph 30%, recency 20%, keyword 10%) — wired to IntentField (300ms debounce, graceful fallback)
 - [x] MaterializableBlock HOC (702 lines — HOC + hook + styles + visibility states) — fully integrated, 5 portals wrapped
@@ -52,6 +59,7 @@ The platform evolves from a multi-user enterprise tool to a **personal sovereign
 - 🔄 httpOnly cookie migration — backend sets cookies, frontend partially migrated (credentials: 'include'), remaining localStorage reads to clean up
 
 ### Phase 2: Telescope Surface + OpenShell (Week 2-3)
+
 - [ ] TelescopeSurface.tsx replaces DesktopUnified (feature-flagged)
 - [ ] Ambient stream aggregator (unified Socket.IO)
 - [ ] Crystallization renderer (blurry→sharp materialization)
@@ -64,6 +72,7 @@ The platform evolves from a multi-user enterprise tool to a **personal sovereign
 ## Q2 2026 (April-May): Intelligence
 
 ### Phase 3: Intelligence + Sensorium (Week 3-4)
+
 - [ ] Predictive Intent Model
 - [ ] Universal Intent Router (QUERY/COMMAND/MONITOR/ORCHESTRATE/COMMUNICATE)
 - [ ] Attention Budget enforcement (4 primary slots)
@@ -74,6 +83,7 @@ The platform evolves from a multi-user enterprise tool to a **personal sovereign
 - [ ] Agent-to-agent communication protocol
 
 ### Phase 4: Tauri + Multi-Machine (Week 4-5)
+
 - [ ] Tauri shell wrapping Telescope
 - [ ] Global hotkey, system tray, deep links (telescope://)
 - [ ] Multi-machine task routing (volume affinity)
@@ -83,6 +93,7 @@ The platform evolves from a multi-user enterprise tool to a **personal sovereign
 - [ ] Local MCP sidecars via Tauri
 
 ### Phase 5: Continuity + Polish (Week 5-6)
+
 - [ ] Decision journaling (every approval → Neo4j)
 - [ ] The Pronit Model (learned cognitive preferences)
 - [ ] Multiplayer cursors (human + agent presence)
@@ -93,18 +104,21 @@ The platform evolves from a multi-user enterprise tool to a **personal sovereign
 ## Q2-Q3 2026 (May-July): Replacements
 
 ### ORM Migration
+
 - [ ] Drizzle schema definitions (parallel to TypeORM)
 - [ ] Service-by-service migration (Artifact → LLM → Capability → Agent → Discussion → Orchestration → Security)
 - [ ] Performance benchmarks (every query must be faster)
 - [ ] TypeORM removal after validation
 
 ### Message Bus Migration
+
 - [ ] BullMQ EventBus implementation (parallel to RabbitMQ)
 - [ ] Service-by-service consumer migration
 - [ ] Scheduled job migration (21 cron jobs)
 - [ ] RabbitMQ removal after validation
 
 ### Infrastructure Trimming
+
 - [ ] Remove MinIO, TEI, monitoring stack containers
 - [ ] Remove stub components (ChatPortal, MultiChatManager, MindMap)
 - [ ] Remove DashboardPortal (mock data)
@@ -126,15 +140,16 @@ Full brainstorm output: `_bmad-output/brainstorming/brainstorming-session-2026-0
 
 ### Strategic Vision: Three Products, One Platform
 
-| Product | What | Spec |
-|---|---|---|
-| **UAIP Core** | Metacognitive agent platform + Telescope UX | `docs/specs/07-STRATEGIC-VISION-2026.md` |
-| **BaseBench-Meta** | Metacognitive reliability benchmark (8 task families, scoring rubric) | `docs/specs/08-BASEBENCH-META.md` |
-| **QuestionForge** | Stakeholder discovery council (8 specialist agents, debate mechanics) | `docs/specs/09-QUESTIONFORGE.md` |
+| Product            | What                                                                  | Spec                                     |
+| ------------------ | --------------------------------------------------------------------- | ---------------------------------------- |
+| **UAIP Core**      | Metacognitive agent platform + Telescope UX                           | `docs/specs/07-STRATEGIC-VISION-2026.md` |
+| **BaseBench-Meta** | Metacognitive reliability benchmark (8 task families, scoring rubric) | `docs/specs/08-BASEBENCH-META.md`        |
+| **QuestionForge**  | Stakeholder discovery council (8 specialist agents, debate mechanics) | `docs/specs/09-QUESTIONFORGE.md`         |
 
 **Convergence thesis:** BaseBench-Meta **measures** metacognitive intelligence, UAIP Core **implements** it in production, QuestionForge **demonstrates** it as a product.
 
 ### Key Architectural Bets
+
 - Verticals as ontologies (not modules) loaded by AI — business domains plug into existing Persona/Discussion/Artifact/Operation systems
 - MCP as universal extension system (bazaar model) with SDK, hot-reload, sandbox, revenue-share
 - Trust gradients replacing binary approvals — continuous, earned, cross-domain
@@ -143,6 +158,7 @@ Full brainstorm output: `_bmad-output/brainstorming/brainstorming-session-2026-0
 - Model evaluation & token optimization — smallest viable model per task, cost-quality Pareto frontier
 
 ### Metacognitive Agent Infrastructure (Ideas #303-362)
+
 - Merkle-hashed operation receipts for verifiability
 - Workflow-level idempotency envelopes
 - Explanation DAGs from real-time reasoning capture
@@ -154,6 +170,7 @@ Full brainstorm output: `_bmad-output/brainstorming/brainstorming-session-2026-0
 - Universal Dispatch Cortex — one input, universal resolution via meta-reasoning → gap detection → foraging → delegation → PEOR loop
 
 ### Security Hardening (Ideas #333-347)
+
 - KMS envelope encryption replacing hardcoded keys
 - mTLS service mesh, network microsegmentation
 - DLP scanning, automated secret rotation
@@ -161,20 +178,22 @@ Full brainstorm output: `_bmad-output/brainstorming/brainstorming-session-2026-0
 - Live security posture scoring with auto-tightening
 
 ### Trust Sequence
+
 L0 (accurate info) → L1 (faster surfacing) → L2 (unknown unknowns) → L3 (low-stakes autonomy) → L4 (high-stakes autonomy). Current users at L0→L1.
 
 See `docs/specs/07-STRATEGIC-VISION-2026.md` for full 4-phase roadmap with codebase alignment per item.
 
 ## Success Metrics
-| Metric | Target | Measured By |
-|---|---|---|
-| Intent response | < 100ms fuzzy + < 500ms semantic | Telescope telemetry |
-| Cold start | < 90 seconds | Machine boot to functional |
-| RAM usage | < 5GB full stack | Docker stats |
-| Sandbox warm start | < 60 seconds | OpenShell metrics |
-| Agent task completion | > 80% autonomous | Task audit trail |
-| Monthly cost | < $220 | Billing aggregation |
-| Relevance precision@4 | > 80% | Telescope feedback loop |
-| Trust level progression | L0→L1 by month 2 | User behavior analytics |
-| Chat imports per user | > 1 source | Onboarding funnel |
-| Day-7 return rate | > 60% | Audit events |
+
+| Metric                  | Target                           | Measured By                |
+| ----------------------- | -------------------------------- | -------------------------- |
+| Intent response         | < 100ms fuzzy + < 500ms semantic | Telescope telemetry        |
+| Cold start              | < 90 seconds                     | Machine boot to functional |
+| RAM usage               | < 5GB full stack                 | Docker stats               |
+| Sandbox warm start      | < 60 seconds                     | OpenShell metrics          |
+| Agent task completion   | > 80% autonomous                 | Task audit trail           |
+| Monthly cost            | < $220                           | Billing aggregation        |
+| Relevance precision@4   | > 80%                            | Telescope feedback loop    |
+| Trust level progression | L0→L1 by month 2                 | User behavior analytics    |
+| Chat imports per user   | > 1 source                       | Onboarding funnel          |
+| Day-7 return rate       | > 60%                            | Audit events               |

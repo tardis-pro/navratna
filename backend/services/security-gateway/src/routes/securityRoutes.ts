@@ -1,54 +1,62 @@
-import express, { Router } from '@uaip/shared-services';
-import { Request, Response } from '@uaip/shared-services';
+import _express, { Router } from '@uaip/shared-services';
+import { Request as _Request, Response as _Response } from '@uaip/shared-services';
 import { z } from 'zod';
 import { logger } from '@uaip/utils';
-import { ApiError } from '@uaip/utils';
-import { authMiddleware, requireAdmin, requireOperator } from '@uaip/middleware';
-import { validateRequest } from '@uaip/middleware';
+import { ApiError as _ApiError } from '@uaip/utils';
+import {
+  authMiddleware,
+  requireAdmin,
+  requireOperator as _requireOperator,
+} from '@uaip/middleware';
+import { validateRequest as _validateRequest } from '@uaip/middleware';
 import { SecurityService, AuditService as DomainAuditService } from '@uaip/shared-services';
 import { DatabaseService } from '@uaip/infra/database';
 import { EventBusService } from '@uaip/infra/eventBus';
 import { AuditService } from '../services/auditService.js';
 import { NotificationService } from '../services/notificationService.js';
-import { AuditEventType, SecurityLevel } from '@uaip/types';
+import { AuditEventType, SecurityLevel as _SecurityLevel } from '@uaip/types';
 import { SecurityGatewayService } from '../services/securityGatewayService.js';
 import { ApprovalWorkflowService } from '../services/approvalWorkflowService.js';
-import { config } from '@uaip/config';
+import { config as _config } from '@uaip/config';
 
 const router = Router();
 
 // Lazy initialization of services
-let securityService: SecurityService | null = null;
-let auditService: AuditService | null = null;
-let domainAuditService: DomainAuditService | null = null;
+let securityServiceSingleton: SecurityService | null = null;
+let auditServiceSingleton: AuditService | null = null;
+let domainAuditServiceSingleton: DomainAuditService | null = null;
 
 async function getServices() {
-  if (!securityService) {
-    securityService = SecurityService.getInstance();
-    auditService = new AuditService();
-    domainAuditService = DomainAuditService.getInstance();
+  if (!securityServiceSingleton) {
+    securityServiceSingleton = SecurityService.getInstance();
+    auditServiceSingleton = new AuditService();
+    domainAuditServiceSingleton = DomainAuditService.getInstance();
   }
-  return { securityService, auditService: auditService!, domainAuditService: domainAuditService! };
+  return {
+    securityService: securityServiceSingleton,
+    auditService: auditServiceSingleton!,
+    domainAuditService: domainAuditServiceSingleton!,
+  };
 }
 
 // Initialize services lazily to ensure proper initialization order
-let notificationService: NotificationService | null = null;
-let eventBusService: EventBusService | null = null;
-let approvalWorkflowService: ApprovalWorkflowService | null = null;
-let securityGatewayService: SecurityGatewayService | null = null;
+let notificationServiceSingleton: NotificationService | null = null;
+let eventBusServiceSingleton: EventBusService | null = null;
+let approvalWorkflowServiceSingleton: ApprovalWorkflowService | null = null;
+let securityGatewayServiceSingleton: SecurityGatewayService | null = null;
 
 async function getSecurityServices() {
-  const { securityService, auditService, domainAuditService } = await getServices();
+  const { _securityService, auditService, _domainAuditService } = await getServices();
   // Use a proper DatabaseService instance
   const databaseService = DatabaseService.getInstance();
   await databaseService.initialize();
 
-  if (!notificationService) {
-    notificationService = new NotificationService();
+  if (!notificationServiceSingleton) {
+    notificationServiceSingleton = new NotificationService();
   }
 
-  if (!eventBusService) {
-    eventBusService = new EventBusService(
+  if (!eventBusServiceSingleton) {
+    eventBusServiceSingleton = new EventBusService(
       {
         url: process.env.RABBITMQ_URL || 'amqp://localhost:5672',
         serviceName: 'security-gateway',
@@ -57,19 +65,19 @@ async function getSecurityServices() {
     );
   }
 
-  if (!approvalWorkflowService) {
-    approvalWorkflowService = new ApprovalWorkflowService(
+  if (!approvalWorkflowServiceSingleton) {
+    approvalWorkflowServiceSingleton = new ApprovalWorkflowService(
       databaseService,
-      eventBusService,
-      notificationService,
+      eventBusServiceSingleton,
+      notificationServiceSingleton,
       auditService
     );
   }
 
-  if (!securityGatewayService) {
-    securityGatewayService = new SecurityGatewayService(
+  if (!securityGatewayServiceSingleton) {
+    securityGatewayServiceSingleton = new SecurityGatewayService(
       databaseService,
-      approvalWorkflowService,
+      approvalWorkflowServiceSingleton,
       auditService
     );
   }
@@ -77,10 +85,10 @@ async function getSecurityServices() {
   return {
     databaseService,
     auditService,
-    notificationService,
-    eventBusService,
-    approvalWorkflowService,
-    securityGatewayService,
+    notificationService: notificationServiceSingleton,
+    eventBusService: eventBusServiceSingleton,
+    approvalWorkflowService: approvalWorkflowServiceSingleton,
+    securityGatewayService: securityGatewayServiceSingleton,
   };
 }
 
@@ -142,7 +150,7 @@ const securityPolicySchema = z.object({
 const updatePolicySchema = securityPolicySchema.partial({ name: true });
 
 // Helper function for Zod validation
-const validateWithZod = (schema: z.ZodSchema, data: any) => {
+const validateWithZod = (schema: z.ZodSchema, data: unknown) => {
   const result = schema.safeParse(data);
   if (result.success) {
     return { error: null, value: result.data };
@@ -176,8 +184,8 @@ router.post('/assess-risk', authMiddleware, async (req, res) => {
       });
     }
 
-    const userId = (req as any).user.userId;
-    const userRole = (req as any).user.role;
+    const userId = (req as unknown).user.userId;
+    const userRole = (req as unknown).user.role;
 
     const { securityGatewayService, auditService } = await getSecurityServices();
 
@@ -209,7 +217,7 @@ router.post('/assess-risk', authMiddleware, async (req, res) => {
       assessment: riskAssessment,
     });
   } catch (error) {
-    logger.error('Risk assessment error', { error, userId: (req as any).user?.userId });
+    logger.error('Risk assessment error', { error, userId: (req as unknown).user?.userId });
     res.status(500).json({
       error: 'Internal Server Error',
       message: 'An error occurred during risk assessment',
@@ -232,8 +240,8 @@ router.post('/check-approval-required', authMiddleware, async (req, res) => {
       });
     }
 
-    const userId = (req as any).user.userId;
-    const userRole = (req as any).user.role;
+    const userId = (req as unknown).user.userId;
+    const userRole = (req as unknown).user.role;
 
     const { securityGatewayService } = await getSecurityServices();
 
@@ -253,7 +261,7 @@ router.post('/check-approval-required', authMiddleware, async (req, res) => {
       matchedPolicies: approvalRequired.matchedPolicies,
     });
   } catch (error) {
-    logger.error('Approval check error', { error, userId: (req as any).user?.userId });
+    logger.error('Approval check error', { error, userId: (req as unknown).user?.userId });
     res.status(500).json({
       error: 'Internal Server Error',
       message: 'An error occurred during approval requirement check',
@@ -271,7 +279,7 @@ router.get('/policies', authMiddleware, requireAdmin, async (req, res) => {
     const { securityService } = await getServices();
     const { page = 1, limit = 20, active, search } = req.query;
 
-    const filters: any = {};
+    const filters: unknown = {};
 
     if (active !== undefined) {
       filters.active = active === 'true';
@@ -298,7 +306,7 @@ router.get('/policies', authMiddleware, requireAdmin, async (req, res) => {
       },
     });
   } catch (error) {
-    logger.error('Get policies error', { error, userId: (req as any).user?.userId });
+    logger.error('Get policies error', { error, userId: (req as unknown).user?.userId });
     res.status(500).json({
       error: 'Internal Server Error',
       message: 'An error occurred while retrieving security policies',
@@ -355,7 +363,7 @@ router.post('/policies', authMiddleware, requireAdmin, async (req, res) => {
       });
     }
 
-    const userId = (req as any).user.userId;
+    const userId = (req as unknown).user.userId;
 
     // Create policy using SecurityService
     const securityPolicyRepo = securityService.getSecurityPolicyRepository();
@@ -388,7 +396,7 @@ router.post('/policies', authMiddleware, requireAdmin, async (req, res) => {
       policy: newPolicy,
     });
   } catch (error) {
-    logger.error('Create policy error', { error, userId: (req as any).user?.userId });
+    logger.error('Create policy error', { error, userId: (req as unknown).user?.userId });
     res.status(500).json({
       error: 'Internal Server Error',
       message: 'An error occurred while creating the security policy',
@@ -413,7 +421,7 @@ router.put('/policies/:policyId', authMiddleware, requireAdmin, async (req, res)
       });
     }
 
-    const userId = (req as any).user.userId;
+    const userId = (req as unknown).user.userId;
 
     // Check if policy exists
     const securityPolicyRepo = securityService.getSecurityPolicyRepository();
@@ -480,7 +488,7 @@ router.delete('/policies/:policyId', authMiddleware, requireAdmin, async (req, r
   try {
     const { securityService } = await getServices();
     const { policyId } = req.params;
-    const userId = (req as any).user.userId;
+    const userId = (req as unknown).user.userId;
 
     // Check if policy exists
     const securityPolicyRepo = securityService.getSecurityPolicyRepository();
@@ -637,7 +645,7 @@ router.get('/stats', authMiddleware, requireAdmin, async (req, res) => {
       },
     });
   } catch (error) {
-    logger.error('Get security stats error', { error, userId: (req as any).user?.userId });
+    logger.error('Get security stats error', { error, userId: (req as unknown).user?.userId });
     res.status(500).json({
       error: 'Internal Server Error',
       message: 'An error occurred while retrieving security statistics',

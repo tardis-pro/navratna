@@ -6,9 +6,9 @@ import {
   X,
   MoreVertical,
   Pin,
-  Trash2,
-  ExternalLink,
-  Filter,
+  _Trash2,
+  _ExternalLink,
+  _Filter,
   Search,
   Activity,
 } from 'lucide-react';
@@ -32,7 +32,7 @@ interface RecentItem {
   title: string;
   type: string;
   timestamp: Date;
-  icon: React.ComponentType<any>;
+  icon: React.ComponentType<unknown>;
   description?: string;
   isPinned?: boolean;
   isFavorite?: boolean;
@@ -50,7 +50,7 @@ interface ActivityEvent {
   itemId: string;
   timestamp: Date;
   duration?: number;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 interface ActivityStats {
@@ -76,7 +76,7 @@ interface RecentItemsPanelProps {
   activityEvents?: ActivityEvent[];
   activityStats?: ActivityStats;
   trendingItems?: TrendingItem[];
-  onItemClick: (item: any) => void;
+  onItemClick: (item: unknown) => void;
   onClose: () => void;
 }
 

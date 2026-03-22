@@ -5,7 +5,7 @@ import { getWebSocketURL } from '@/config/apiConfig';
 import { APIClient } from '@/api/client';
 import {
   ConversationWebSocketEventType,
-  ConversationIntelligenceEventType,
+  _ConversationIntelligenceEventType,
   Intent,
   PromptSuggestion,
   AutocompleteSuggestion,
@@ -14,7 +14,7 @@ import {
 interface UseConversationIntelligenceOptions {
   agentId: string;
   conversationId?: string;
-  onIntentDetected?: (intent: Intent, toolPreview?: any) => void;
+  onIntentDetected?: (intent: Intent, toolPreview?: unknown) => void;
   onTopicGenerated?: (topicName: string, confidence: number) => void;
   onSuggestionsUpdated?: (suggestions: PromptSuggestion[]) => void;
   onAutocompleteResults?: (suggestions: AutocompleteSuggestion[]) => void;
@@ -71,8 +71,7 @@ export const useConversationIntelligence = (options: UseConversationIntelligence
 
     const token = APIClient.getAuthToken();
 
-    const effectiveAgentId =
-      agentId === 'global-user-llm' ? `user-${user.id}` : agentId;
+    const effectiveAgentId = agentId === 'global-user-llm' ? `user-${user.id}` : agentId;
     if (!effectiveAgentId) return;
 
     const query: Record<string, string> = { agentId: effectiveAgentId };
@@ -92,8 +91,7 @@ export const useConversationIntelligence = (options: UseConversationIntelligence
     socketRef.current = socket;
 
     // Connection events
-    socket.on('connected', (data) => {
-      console.log('Connected to conversation intelligence:', data);
+    socket.on('connected', (_data) => {
       setState((prev) => ({ ...prev, connected: true }));
     });
 
@@ -176,7 +174,15 @@ export const useConversationIntelligence = (options: UseConversationIntelligence
         autocompleteTimeoutRef.current = null;
       }
     };
-  }, [user, agentId, conversationId]);
+  }, [
+    user,
+    agentId,
+    conversationId,
+    onIntentDetected,
+    onTopicGenerated,
+    onSuggestionsUpdated,
+    onAutocompleteResults,
+  ]);
 
   // Update conversation context
   const updateConversation = useCallback((newConversationId?: string, newAgentId?: string) => {
@@ -190,7 +196,7 @@ export const useConversationIntelligence = (options: UseConversationIntelligence
 
   // Request intent detection
   const detectIntent = useCallback(
-    (text: string, context?: any) => {
+    (text: string, context?: unknown) => {
       if (!socketRef.current) return;
 
       setState((prev) => ({
@@ -229,53 +235,59 @@ export const useConversationIntelligence = (options: UseConversationIntelligence
   );
 
   // Request prompt suggestions
-  const requestPromptSuggestions = useCallback((conversationContext: any, count: number = 3) => {
-    if (!socketRef.current) return;
+  const requestPromptSuggestions = useCallback(
+    (conversationContext: unknown, count: number = 3) => {
+      if (!socketRef.current) return;
 
-    setState((prev) => ({
-      ...prev,
-      loading: { ...prev.loading, suggestions: true },
-    }));
-
-    socketRef.current.emit('request_prompt_suggestions', {
-      conversationContext,
-      count,
-    });
-  }, []);
-
-  // Request autocomplete (debounced)
-  const requestAutocomplete = useCallback((partial: string, context?: any, limit: number = 5) => {
-    // Clear any pending autocomplete request
-    if (autocompleteTimeoutRef.current) {
-      clearTimeout(autocompleteTimeoutRef.current);
-      autocompleteTimeoutRef.current = null;
-    }
-
-    if (!socketRef.current || partial.length < 2) {
       setState((prev) => ({
         ...prev,
-        autocompleteSuggestions: [],
-        loading: { ...prev.loading, autocomplete: false },
+        loading: { ...prev.loading, suggestions: true },
       }));
-      return;
-    }
 
-    setState((prev) => ({
-      ...prev,
-      loading: { ...prev.loading, autocomplete: true },
-    }));
+      socketRef.current.emit('request_prompt_suggestions', {
+        conversationContext,
+        count,
+      });
+    },
+    []
+  );
 
-    // Debounce the actual socket emit by 300ms
-    autocompleteTimeoutRef.current = setTimeout(() => {
-      if (socketRef.current) {
-        socketRef.current.emit('autocomplete_query', {
-          partial,
-          context,
-          limit,
-        });
+  // Request autocomplete (debounced)
+  const requestAutocomplete = useCallback(
+    (partial: string, context?: unknown, limit: number = 5) => {
+      // Clear any pending autocomplete request
+      if (autocompleteTimeoutRef.current) {
+        clearTimeout(autocompleteTimeoutRef.current);
+        autocompleteTimeoutRef.current = null;
       }
-    }, 300);
-  }, []);
+
+      if (!socketRef.current || partial.length < 2) {
+        setState((prev) => ({
+          ...prev,
+          autocompleteSuggestions: [],
+          loading: { ...prev.loading, autocomplete: false },
+        }));
+        return;
+      }
+
+      setState((prev) => ({
+        ...prev,
+        loading: { ...prev.loading, autocomplete: true },
+      }));
+
+      // Debounce the actual socket emit by 300ms
+      autocompleteTimeoutRef.current = setTimeout(() => {
+        if (socketRef.current) {
+          socketRef.current.emit('autocomplete_query', {
+            partial,
+            context,
+            limit,
+          });
+        }
+      }, 300);
+    },
+    []
+  );
 
   // Clear autocomplete suggestions
   const clearAutocomplete = useCallback(() => {

@@ -76,31 +76,31 @@ export interface ExpressionStyle {
  */
 export const MICROEXPRESSION_COLORS = {
   calm: {
-    border: 'oklch(55% 0.02 264)',       // Neutral gray
+    border: 'oklch(55% 0.02 264)', // Neutral gray
     glow: 'oklch(55% 0.02 264 / 0.2)',
   },
   attentive: {
-    border: 'oklch(55% 0.2 250)',        // Blue
+    border: 'oklch(55% 0.2 250)', // Blue
     glow: 'oklch(55% 0.2 250 / 0.3)',
   },
   working: {
-    border: 'oklch(60% 0.2 290)',        // Purple
+    border: 'oklch(60% 0.2 290)', // Purple
     glow: 'oklch(60% 0.2 290 / 0.4)',
   },
   alarmed: {
-    border: 'oklch(55% 0.22 25)',        // Red
+    border: 'oklch(55% 0.22 25)', // Red
     glow: 'oklch(55% 0.22 25 / 0.5)',
   },
   confused: {
-    border: 'oklch(70% 0.18 75)',        // Amber
+    border: 'oklch(70% 0.18 75)', // Amber
     glow: 'oklch(70% 0.18 75 / 0.3)',
   },
   satisfied: {
-    border: 'oklch(60% 0.18 145)',       // Green
+    border: 'oklch(60% 0.18 145)', // Green
     glow: 'oklch(60% 0.18 145 / 0.3)',
   },
   strained: {
-    border: 'oklch(68% 0.18 50)',        // Orange
+    border: 'oklch(68% 0.18 50)', // Orange
     glow: 'oklch(68% 0.18 50 / 0.2)',
   },
 } as const;

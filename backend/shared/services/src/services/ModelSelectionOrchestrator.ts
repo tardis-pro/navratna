@@ -3,12 +3,7 @@ import { UserLLMPreference } from '../entities/userLLMPreference.entity';
 import { AgentLLMPreference } from '../entities/agentLLMPreference.entity';
 import { Agent } from '../entities/agent.entity';
 import { LLMProvider } from '../entities/llmProvider.entity';
-import {
-  LLMTaskType,
-  LLMProviderType,
-  RoutingRequest,
-  UserLLMPreference as UserLLMPreferenceType,
-} from '@uaip/types';
+import { LLMTaskType, LLMProviderType, RoutingRequest } from '@uaip/types';
 import { logger } from '@uaip/utils';
 
 // =============================================================================
@@ -35,7 +30,7 @@ export interface ModelSelectionResult {
     maxTokens?: number;
     topP?: number;
     systemPrompt?: string;
-    customSettings?: Record<string, any>;
+    customSettings?: Record<string, unknown>;
   };
   source: 'agent' | 'user' | 'system';
   reasoning: string;
@@ -223,7 +218,7 @@ export class AgentSpecificStrategy implements ModelSelectionStrategy {
     };
   }
 
-  private calculateConfidence(performanceScore: number, source: 'agent'): number {
+  private calculateConfidence(performanceScore: number, _source: 'agent'): number {
     return Math.min(0.95, 0.6 + performanceScore * 0.35);
   }
 }
@@ -281,7 +276,7 @@ export class UserSpecificStrategy implements ModelSelectionStrategy {
     };
   }
 
-  private calculateConfidence(performanceScore: number, source: 'user'): number {
+  private calculateConfidence(performanceScore: number, _source: 'user'): number {
     return Math.min(0.85, 0.5 + performanceScore * 0.35);
   }
 }
@@ -294,7 +289,7 @@ export class PerformanceOptimizedStrategy implements ModelSelectionStrategy {
   name = 'PerformanceOptimizedStrategy';
   priority = 600;
 
-  canHandle(request: ModelSelectionRequest): boolean {
+  canHandle(_request: ModelSelectionRequest): boolean {
     return true; // Can always provide a performance-optimized selection
   }
 
@@ -349,7 +344,7 @@ export class PerformanceOptimizedStrategy implements ModelSelectionStrategy {
 
   private optimizeForPerformance(
     baseResult: ModelSelectionResult,
-    performanceData: any
+    performanceData: { provider: LLMProviderType; model: string; score: number }
   ): ModelSelectionResult {
     return {
       ...baseResult,
@@ -445,7 +440,7 @@ export class SystemDefaultStrategy implements ModelSelectionStrategy {
   name = 'SystemDefaultStrategy';
   priority = 100; // Lowest priority - fallback only
 
-  canHandle(request: ModelSelectionRequest): boolean {
+  canHandle(_request: ModelSelectionRequest): boolean {
     return true; // Always can provide defaults
   }
 
@@ -505,6 +500,7 @@ export class ModelSelectionOrchestrator {
       }
 
       try {
+        // eslint-disable-next-line no-await-in-loop
         const result = await strategy.select(request, this.context);
 
         logger.info('Model selected successfully', {
@@ -544,6 +540,7 @@ export class ModelSelectionOrchestrator {
 
     for (const fallbackRequest of fallbackRequests) {
       try {
+        // eslint-disable-next-line no-await-in-loop
         const fallback = await this.selectModel(fallbackRequest);
         // Don't include if it's the same as primary
         if (fallback.model !== primary.model || fallback.provider !== primary.provider) {

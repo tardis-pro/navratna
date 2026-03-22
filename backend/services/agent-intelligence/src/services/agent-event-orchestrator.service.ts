@@ -4,7 +4,7 @@
  * Integrates with the orchestration pipeline for cross-app events
  */
 
-import { Agent, Operation, OperationStatus, ExecutionPlan } from '@uaip/types';
+import { Operation, OperationStatus, ExecutionPlan } from '@uaip/types';
 import { logger } from '@uaip/utils';
 import { DatabaseService } from '@uaip/infra/database';
 import { EventBusService } from '@uaip/infra/eventBus';
@@ -30,8 +30,8 @@ export interface AgentEventOrchestratorConfig {
 export interface AgentOperationRequest {
   agentId: string;
   operationType: 'analyze' | 'plan' | 'learn' | 'discuss' | 'initialize' | 'metrics';
-  payload: any;
-  context?: any;
+  payload: Record<string, unknown>;
+  context?: Record<string, unknown>;
   priority?: 'low' | 'normal' | 'high';
   timeout?: number;
 }
@@ -54,7 +54,7 @@ export class AgentEventOrchestrator {
   private agentInitializationService?: AgentInitializationService;
 
   // Event tracking
-  private activeOperations = new Map<string, any>();
+  private activeOperations = new Map<string, unknown>();
   private eventSubscriptions = new Map<string, Function>();
 
   constructor(config: AgentEventOrchestratorConfig) {
@@ -117,7 +117,7 @@ export class AgentEventOrchestrator {
       // Create operation for orchestration pipeline
       const operation: Operation = {
         id: operationId,
-        type: 'agent_operation' as any,
+        type: 'agent_operation' as Record<string, unknown>,
         agentId: request.agentId,
         status: OperationStatus.PENDING,
         executionPlan: await this.createExecutionPlan(request),
@@ -125,7 +125,7 @@ export class AgentEventOrchestrator {
           executionContext: {
             agentId: request.agentId,
             userId: request.context?.userId || '',
-            environment: (process.env.NODE_ENV as any) || 'development',
+            environment: (process.env.NODE_ENV as Record<string, unknown>) || 'development',
             timeout: request.timeout || 300000,
             resourceLimits: {
               maxMemory: 1024 * 1024 * 1024, // 1GB
@@ -135,7 +135,7 @@ export class AgentEventOrchestrator {
           },
         },
         metadata: {
-          priority: 'medium' as any,
+          priority: 'medium' as Record<string, unknown>,
         },
         createdAt: new Date(),
         updatedAt: new Date(),
@@ -192,7 +192,11 @@ export class AgentEventOrchestrator {
   /**
    * Handle cross-service agent workflows
    */
-  async executeAgentWorkflow(agentId: string, workflowType: string, parameters: any): Promise<any> {
+  async executeAgentWorkflow(
+    agentId: string,
+    workflowType: string,
+    parameters: Record<string, unknown>
+  ): Promise<unknown> {
     const workflowId = `workflow_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 
     try {
@@ -226,7 +230,7 @@ export class AgentEventOrchestrator {
    */
 
   private async initializeServices(): Promise<void> {
-    const services = [
+    const _services = [
       this.agentCoreService,
       this.agentContextService,
       this.agentPlanningService,
@@ -271,8 +275,8 @@ export class AgentEventOrchestrator {
   }
 
   private async createExecutionPlan(request: AgentOperationRequest): Promise<ExecutionPlan> {
-    const steps: any[] = [];
-    const dependencies: any[] = [];
+    const steps: Record<string, unknown>[] = [];
+    const dependencies: Record<string, unknown>[] = [];
 
     switch (request.operationType) {
       case 'analyze':
@@ -420,9 +424,9 @@ export class AgentEventOrchestrator {
    */
   private async executeFullAnalysisWorkflow(
     agentId: string,
-    parameters: any,
+    parameters: Record<string, unknown>,
     workflowId: string
-  ): Promise<any> {
+  ): Promise<unknown> {
     logger.info('Executing full analysis workflow', { workflowId, agentId });
 
     try {
@@ -513,9 +517,9 @@ export class AgentEventOrchestrator {
 
   private async executeLearningCycleWorkflow(
     agentId: string,
-    parameters: any,
+    parameters: Record<string, unknown>,
     workflowId: string
-  ): Promise<any> {
+  ): Promise<unknown> {
     logger.info('Executing learning cycle workflow', { workflowId, agentId });
 
     try {
@@ -588,9 +592,9 @@ export class AgentEventOrchestrator {
 
   private async executeDiscussionWorkflow(
     agentId: string,
-    parameters: any,
+    parameters: Record<string, unknown>,
     workflowId: string
-  ): Promise<any> {
+  ): Promise<unknown> {
     logger.info('Executing discussion workflow', { workflowId, agentId });
 
     try {
@@ -641,9 +645,9 @@ export class AgentEventOrchestrator {
 
   private async executePerformanceOptimizationWorkflow(
     agentId: string,
-    parameters: any,
+    parameters: Record<string, unknown>,
     workflowId: string
-  ): Promise<any> {
+  ): Promise<unknown> {
     logger.info('Executing performance optimization workflow', { workflowId, agentId });
 
     try {
@@ -701,7 +705,7 @@ export class AgentEventOrchestrator {
   /**
    * Event handlers
    */
-  private async handleOrchestrationEvent(event: any): Promise<void> {
+  private async handleOrchestrationEvent(event: Record<string, unknown>): Promise<void> {
     try {
       const { operationId, eventType, data } = event;
 
@@ -764,7 +768,7 @@ export class AgentEventOrchestrator {
     }
   }
 
-  private async handleServiceResponse(event: any): Promise<void> {
+  private async handleServiceResponse(event: Record<string, unknown>): Promise<void> {
     try {
       logger.debug('Handling service response', { event });
       // Handle responses from individual agent services
@@ -774,7 +778,7 @@ export class AgentEventOrchestrator {
     }
   }
 
-  private async handleOperationEvent(event: any): Promise<void> {
+  private async handleOperationEvent(event: Record<string, unknown>): Promise<void> {
     try {
       logger.debug('Handling operation event', { event });
       // Handle operation-level events
@@ -784,7 +788,7 @@ export class AgentEventOrchestrator {
     }
   }
 
-  private async handleWorkflowEvent(event: any): Promise<void> {
+  private async handleWorkflowEvent(event: Record<string, unknown>): Promise<void> {
     try {
       logger.debug('Handling workflow event', { event });
       // Handle workflow-level events
@@ -799,21 +803,21 @@ export class AgentEventOrchestrator {
    */
   private async subscribeToEvent(
     channel: string,
-    handler: (message: any) => Promise<void>
+    handler: (message: Record<string, unknown>) => Promise<void>
   ): Promise<void> {
     try {
       // Convert function to async EventHandler
-      const asyncHandler = async (message: any): Promise<void> => {
+      const asyncHandler = async (message: Record<string, unknown>): Promise<void> => {
         return Promise.resolve(handler(message));
       };
       await this.eventBusService.subscribe(channel, asyncHandler);
-      this.eventSubscriptions.set(channel, handler as any);
+      this.eventSubscriptions.set(channel, handler as Record<string, unknown>);
     } catch (error) {
       logger.error('Failed to subscribe to event', { channel, error });
     }
   }
 
-  public async publishEvent(channel: string, data: any): Promise<void> {
+  public async publishEvent(channel: string, data: Record<string, unknown>): Promise<void> {
     try {
       await this.eventBusService.publish(channel, {
         ...data,
@@ -826,7 +830,10 @@ export class AgentEventOrchestrator {
     }
   }
 
-  private async requestFromService(channel: string, data: any): Promise<any> {
+  private async requestFromService(
+    channel: string,
+    data: Record<string, unknown>
+  ): Promise<unknown> {
     try {
       const requestId = `req_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 
@@ -844,7 +851,7 @@ export class AgentEventOrchestrator {
           reject(new Error(`Request timeout: ${channel}`));
         }, 30000); // 30 second timeout
 
-        const responseHandler = (response: any): void => {
+        const responseHandler = (response: Record<string, unknown>): void => {
           if (response.requestId === requestId) {
             clearTimeout(timeout);
             resolve(response);
@@ -853,7 +860,7 @@ export class AgentEventOrchestrator {
 
         // Subscribe to response channel
         const responseChannel = channel.replace(/\.[^.]+$/, '.response');
-        const asyncResponseHandler = async (message: any): Promise<void> => {
+        const asyncResponseHandler = async (message: Record<string, unknown>): Promise<void> => {
           return Promise.resolve(responseHandler(message));
         };
         this.eventBusService.subscribe(responseChannel, asyncResponseHandler);
@@ -864,7 +871,7 @@ export class AgentEventOrchestrator {
     }
   }
 
-  private auditLog(event: string, data: any): void {
+  private auditLog(event: string, data: Record<string, unknown>): void {
     logger.info(`AUDIT: ${event}`, {
       ...data,
       service: this.serviceName,
@@ -876,7 +883,7 @@ export class AgentEventOrchestrator {
   /**
    * Public utility methods
    */
-  public async getOperationStatus(operationId: string): Promise<any> {
+  public async getOperationStatus(operationId: string): Promise<unknown> {
     const activeOp = this.activeOperations.get(operationId);
     if (!activeOp) {
       throw new Error(`Operation not found: ${operationId}`);
@@ -893,7 +900,7 @@ export class AgentEventOrchestrator {
     };
   }
 
-  public async getActiveOperations(): Promise<any[]> {
+  public async getActiveOperations(): Promise<Record<string, unknown>[]> {
     return Array.from(this.activeOperations.entries()).map(([operationId, operation]) => ({
       operationId,
       status: operation.status,
@@ -954,8 +961,9 @@ export class AgentEventOrchestrator {
 
     try {
       // Cancel all active operations
-      for (const [operationId, operation] of this.activeOperations) {
+      for (const [operationId, _operation] of this.activeOperations) {
         try {
+          // oxlint-disable-next-line no-await-in-loop -- sequential processing required
           await this.cancelOperation(operationId, 'Service shutdown');
         } catch (error) {
           logger.warn('Failed to cancel operation during shutdown', { operationId, error });
@@ -966,8 +974,9 @@ export class AgentEventOrchestrator {
       for (const [channel, handler] of this.eventSubscriptions) {
         try {
           // Convert handler for unsubscribe
-          const asyncHandler = async (message: any): Promise<void> =>
-            Promise.resolve(handler(message) as any);
+          const asyncHandler = async (message: Record<string, unknown>): Promise<void> =>
+            Promise.resolve(handler(message) as Record<string, unknown>);
+          // oxlint-disable-next-line no-await-in-loop -- sequential processing required
           await this.eventBusService.unsubscribe(channel, asyncHandler);
         } catch (error) {
           logger.warn('Failed to unsubscribe from event during shutdown', { channel, error });

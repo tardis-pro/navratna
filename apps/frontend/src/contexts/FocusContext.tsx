@@ -3,13 +3,13 @@ import { useFocusManager } from '../hooks/useFocusManager';
 import { FocusPreview } from '../components/FocusPreview';
 
 interface FocusContextType {
-  focusedElement: any;
-  hoverState: any;
-  registerElement: (element: any) => () => void;
+  focusedElement: unknown;
+  hoverState: unknown;
+  registerElement: (element: unknown) => () => void;
   unregisterElement: (elementId: string) => void;
   focusElement: (elementId: string) => void;
   closePreview: () => void;
-  getPreviewData: () => any;
+  getPreviewData: () => unknown;
   isFocused: (elementId: string) => boolean;
   isHovered: (elementId: string) => boolean;
   isPreviewVisible: boolean;

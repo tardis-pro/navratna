@@ -165,6 +165,7 @@ export class ModelSyncService {
         continue;
       }
 
+      // eslint-disable-next-line no-await-in-loop -- sequential processing required
       const result = await this.syncModelsFromProvider(provider, dbProvider.id);
       results.push(result);
     }
@@ -186,7 +187,11 @@ export class ModelSyncService {
     return results;
   }
 
-  private createProviderInstance(dbProvider: any): BaseProvider {
+  private createProviderInstance(dbProvider: {
+    type: string;
+    name: string;
+    getProviderConfig: () => unknown;
+  }): BaseProvider {
     const config = dbProvider.getProviderConfig();
 
     switch (dbProvider.type) {

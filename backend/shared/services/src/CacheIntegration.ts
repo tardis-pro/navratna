@@ -150,11 +150,11 @@ export class CacheIntegration {
   /**
    * Cache health and monitoring
    */
-  public async getHealthStatus(): Promise<any> {
+  public async getHealthStatus(): Promise<unknown> {
     return this.cacheManager.getHealthStatus();
   }
 
-  public async getPerformanceMetrics(): Promise<any> {
+  public async getPerformanceMetrics(): Promise<unknown> {
     return this.cacheManager.getPerformanceMetrics();
   }
 
@@ -190,7 +190,7 @@ export class CacheIntegration {
     logger.info('Shutting down cache integration...');
 
     try {
-      // Perform any cleanup operations here
+      // Perform unknown cleanup operations here
       this.initialized = false;
       logger.info('Cache integration shutdown completed');
     } catch (error) {
@@ -213,7 +213,7 @@ export const getCachedUserLLMProviderRepository = () =>
 export const getCachedLLMProviderRepository = () => cacheIntegration.getLLMProviderRepository();
 export const getCacheManager = () => cacheIntegration.getCacheManager();
 
-export const invalidateUserCache = (userId: string, options?: any) =>
+export const invalidateUserCache = (userId: string, options?: unknown) =>
   cacheIntegration.invalidateUserCache(userId, options);
 
 export const warmUpUserCache = (userId: string) => cacheIntegration.warmUpUserCache(userId);

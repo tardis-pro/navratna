@@ -100,7 +100,11 @@ services:
     networks:
       - navratna-internal
     healthcheck:
-      test: ['CMD-SHELL', 'test -d /host/opt/openshell || echo "OpenShell host path missing; placeholder remains active"']
+      test:
+        [
+          'CMD-SHELL',
+          'test -d /host/opt/openshell || echo "OpenShell host path missing; placeholder remains active"',
+        ]
       interval: 30s
       timeout: 10s
       retries: 3

@@ -19,13 +19,21 @@ function generateSlug(length = 8): string {
 }
 
 async function generateUniqueSlug(repo: Repository<ProjectEntity>): Promise<string> {
-  for (let attempt = 0; attempt < 10; attempt++) {
+  const tryGenerate = async (attempt: number): Promise<string> => {
+    if (attempt >= 10) {
+      return Date.now().toString(36).toUpperCase().slice(-8);
+    }
+
     const slug = generateSlug();
     const existing = await repo.findOne({ where: { slug } });
-    if (!existing) return slug;
-  }
-  // Fallback: timestamp-based slug (always unique)
-  return Date.now().toString(36).toUpperCase().slice(-8);
+    if (!existing) {
+      return slug;
+    }
+
+    return tryGenerate(attempt + 1);
+  };
+
+  return tryGenerate(0);
 }
 
 // ---------------------------------------------------------------------------
@@ -45,8 +53,8 @@ export interface CreateProjectData {
   startDate?: Date;
   endDate?: Date;
   budget?: number;
-  settings?: Record<string, any>;
-  metadata?: Record<string, any>;
+  settings?: Record<string, unknown>;
+  metadata?: Record<string, unknown>;
 }
 
 export interface CreateTaskData {
@@ -56,7 +64,7 @@ export interface CreateTaskData {
   priority?: string;
   assignedAgentId?: string;
   assignedUserId?: string;
-  requirements?: any;
+  requirements?: unknown;
   tools?: string[];
   estimatedCost?: number;
   estimatedDuration?: number;
@@ -136,7 +144,7 @@ export class ProjectManagementService {
         slug,
         tags: data.tags,
         settings: {
-          allowedTools: (data.settings as any)?.allowedTools ?? [],
+          allowedTools: (data.settings as unknown)?.allowedTools ?? [],
           ...(data.settings ?? {}),
         },
         metadata: {
@@ -330,7 +338,7 @@ export class ProjectManagementService {
     }
   }
 
-  // Keep old name as alias so any other callers don't break
+  // Keep old name as alias so unknown other callers don't break
   async addProjectAgent(
     projectId: string,
     userId: string,
@@ -398,12 +406,12 @@ export class ProjectManagementService {
     return { id: `task-${Date.now()}`, projectId: data.projectId, title: data.title };
   }
 
-  async updateTask(id: string, updates: any): Promise<any> {
+  async updateTask(id: string, updates: unknown): Promise<unknown> {
     logger.warn('updateTask called but TaskEntity integration not yet implemented', { id });
     return { id, ...updates };
   }
 
-  async recordToolUsage(data: any): Promise<void> {
+  async recordToolUsage(data: unknown): Promise<void> {
     logger.warn('recordToolUsage called but tool usage tracking not yet implemented', { data });
   }
 

@@ -6,14 +6,14 @@ import {
   Clock,
   Star,
   BarChart3,
-  Filter,
+  _Filter,
   Calendar,
   Zap,
   Target,
   Award,
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
+import { _Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
@@ -29,7 +29,7 @@ interface ActivityEvent {
   itemId: string;
   timestamp: Date;
   duration?: number;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 interface RecentItem {
@@ -37,7 +37,7 @@ interface RecentItem {
   title: string;
   type: string;
   timestamp: Date;
-  icon: React.ComponentType<any>;
+  icon: React.ComponentType<unknown>;
   description?: string;
   isPinned?: boolean;
   isFavorite?: boolean;
@@ -171,7 +171,7 @@ export const ActivityFeed: React.FC<ActivityFeedProps> = ({
         <div className="flex items-center space-x-2">
           <select
             value={selectedTimeRange}
-            onChange={(e) => setSelectedTimeRange(e.target.value as any)}
+            onChange={(e) => setSelectedTimeRange(e.target.value as unknown)}
             className="bg-slate-800/50 border border-slate-600/50 text-white text-xs rounded px-2 py-1"
           >
             <option value="today">Today</option>
@@ -327,7 +327,7 @@ export const ActivityFeed: React.FC<ActivityFeedProps> = ({
                   <span>Most Used</span>
                 </h4>
                 <div className="space-y-2">
-                  {activityStats.mostUsedItems.slice(0, 3).map((item, index) => {
+                  {activityStats.mostUsedItems.slice(0, 3).map((item, _index) => {
                     const IconComponent = item.icon || Activity;
                     return (
                       <div

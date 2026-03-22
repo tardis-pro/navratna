@@ -1,6 +1,13 @@
 import { logger } from '@uaip/utils';
 import { ModelCapability, ModelCapabilityDetection, LLMProviderType } from '@uaip/types';
 
+interface CapabilityTestResult {
+  supported: boolean;
+  confidence: number;
+  testMethod: string;
+  notes: string;
+}
+
 export class ModelCapabilityDetector {
   private static instance: ModelCapabilityDetector;
 
@@ -23,7 +30,7 @@ export class ModelCapabilityDetector {
     apiKey?: string
   ): Promise<ModelCapabilityDetection> {
     const detectedCapabilities: ModelCapability[] = [];
-    const testResults: Record<string, any> = {};
+    const testResults: Record<string, CapabilityTestResult> = {};
 
     // Start with known capabilities from model mapping
     const knownCapabilities = this.getKnownCapabilities(modelId, provider);
@@ -169,7 +176,7 @@ export class ModelCapabilityDetector {
     return capabilities;
   }
 
-  private getLMStudioCapabilities(modelId: string): ModelCapability[] {
+  private getLMStudioCapabilities(_modelId: string): ModelCapability[] {
     // LM Studio capabilities depend on the loaded model
     // Default to basic capabilities unless we can detect more
     return [ModelCapability.TEXT, ModelCapability.CODE, ModelCapability.REASONING];
@@ -183,8 +190,8 @@ export class ModelCapabilityDetector {
     provider: LLMProviderType,
     baseUrl: string,
     apiKey: string
-  ): Promise<Record<string, any>> {
-    const results: Record<string, any> = {};
+  ): Promise<Record<string, CapabilityTestResult>> {
+    const results: Record<string, CapabilityTestResult> = {};
 
     try {
       // Test basic text generation
@@ -208,11 +215,11 @@ export class ModelCapabilityDetector {
   }
 
   private async testTextGeneration(
-    modelId: string,
-    provider: LLMProviderType,
-    baseUrl: string,
-    apiKey: string
-  ): Promise<any> {
+    _modelId: string,
+    _provider: LLMProviderType,
+    _baseUrl: string,
+    _apiKey: string
+  ): Promise<CapabilityTestResult> {
     try {
       // Implementation would depend on provider-specific API calls
       // For now, return a mock result
@@ -234,10 +241,10 @@ export class ModelCapabilityDetector {
 
   private async testToolCalling(
     modelId: string,
-    provider: LLMProviderType,
-    baseUrl: string,
-    apiKey: string
-  ): Promise<any> {
+    _provider: LLMProviderType,
+    _baseUrl: string,
+    _apiKey: string
+  ): Promise<CapabilityTestResult> {
     try {
       // Implementation would test tool calling capabilities
       // For now, return based on known model capabilities
@@ -272,10 +279,10 @@ export class ModelCapabilityDetector {
 
   private async testVisionCapabilities(
     modelId: string,
-    provider: LLMProviderType,
-    baseUrl: string,
-    apiKey: string
-  ): Promise<any> {
+    _provider: LLMProviderType,
+    _baseUrl: string,
+    _apiKey: string
+  ): Promise<CapabilityTestResult> {
     try {
       // Implementation would test vision capabilities
       // For now, return based on known vision models
@@ -326,6 +333,7 @@ export class ModelCapabilityDetector {
 
     for (const model of models) {
       try {
+        // oxlint-disable-next-line no-await-in-loop -- sequential processing required
         const detection = await this.detectCapabilities(
           model.modelId,
           model.provider,

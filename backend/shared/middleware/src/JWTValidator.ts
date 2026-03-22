@@ -19,6 +19,7 @@ interface JWTPayload {
   aud?: string;
 }
 
+// eslint-disable-next-line @typescript-eslint/no-extraneous-class -- static utility class pattern
 export class JWTValidator {
   private static readonly JWT_SECRET = JWTValidator.validateJWTSecret();
 
@@ -35,7 +36,7 @@ export class JWTValidator {
       if (isProduction) {
         throw new Error(
           'FATAL: Default JWT secret detected in production. ' +
-          'Set a strong, unique JWT_SECRET environment variable before deploying.'
+            'Set a strong, unique JWT_SECRET environment variable before deploying.'
         );
       }
       logger.warn('Using default JWT secret - this MUST be changed before production deployment');

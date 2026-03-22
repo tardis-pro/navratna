@@ -24,9 +24,7 @@
     "useDefineForClassFields": false,
     "tsBuildInfoFile": "./tsconfig.tsbuildinfo"
   },
-  "include": [
-    "src/**/*"
-  ],
+  "include": ["src/**/*"],
   "exclude": [
     "dist",
     "node_modules",

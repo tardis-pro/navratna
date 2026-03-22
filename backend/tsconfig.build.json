@@ -1,5 +1,5 @@
 {
-  "files": [],               // leave empty
+  "files": [], // leave empty
   "references": [
     { "path": "../packages/shared-types" },
     { "path": "../packages/shared-utils" },

@@ -71,13 +71,14 @@ export class CSRFProtection {
     return crypto.randomBytes(this.config.secretLength).toString('hex');
   }
 
-  private extractToken(request: Request, body: any): string | null {
+  private extractToken(request: Request, body: unknown): string | null {
     // Check header first
     let token = request.headers.get(this.config.headerName);
 
     // Check body
-    if (!token && body && body._csrf) {
-      token = body._csrf;
+    const bodyObj = body as Record<string, unknown> | null;
+    if (!token && bodyObj && bodyObj._csrf) {
+      token = bodyObj._csrf as string;
     }
 
     // Check query

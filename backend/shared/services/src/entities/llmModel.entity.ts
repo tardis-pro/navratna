@@ -127,8 +127,8 @@ export class LLMModel extends BaseEntity {
     apiType?: string;
     apiEndpoint?: string;
     contextLength?: number;
-    capabilities?: any;
-    parameters?: any;
+    capabilities?: LLMModel['capabilities'];
+    parameters?: LLMModel['parameters'];
   } {
     return {
       name: this.name,

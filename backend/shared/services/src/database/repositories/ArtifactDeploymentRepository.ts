@@ -61,7 +61,7 @@ export class ArtifactDeploymentRepository extends BaseRepository<ArtifactDeploym
     errorMessage?: string
   ): Promise<ArtifactDeployment | null> {
     try {
-      const updateData: any = { status };
+      const updateData: Record<string, unknown> = { status };
       if (errorMessage) {
         updateData.errorMessage = errorMessage;
       }

@@ -51,10 +51,10 @@ export class OllamaProvider extends BaseProvider {
         return [];
       }
 
-      return data.models.map((model: any) => ({
+      return data.models.map((model: Record<string, unknown>) => ({
         id: model.name,
         name: model.name,
-        description: `Ollama model: ${model.name}${model.size ? ` (${this.formatSize(model.size)})` : ''}`,
+        description: `Ollama model: ${model.name}${model.size ? ` (${this.formatSize(model.size as number)})` : ''}`,
         source: this.config.baseUrl,
         apiEndpoint: `${this.config.baseUrl}/api/generate`,
       }));
@@ -62,7 +62,7 @@ export class OllamaProvider extends BaseProvider {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       console.error(`Failed to fetch models from Ollama at ${this.config.baseUrl}:`, errorMessage);
       // Re-throw the error so it can be properly logged by BaseProvider
-      throw new Error(`Ollama connection failed: ${errorMessage}`);
+      throw new Error(`Ollama connection failed: ${errorMessage}`, { cause: error });
     }
   }
 

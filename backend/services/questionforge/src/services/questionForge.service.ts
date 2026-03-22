@@ -27,12 +27,12 @@ export interface ForgeRequest {
 
 export interface ForgeResult {
   projectBriefId: string;
-  normalizedBrief: any;
-  debateResult: any;
-  questionPacks: Map<string, any>;
-  topAssumptions: any[];
-  contradictions: any[];
-  interviewScripts: Map<string, any>;
+  normalizedBrief: unknown;
+  debateResult: unknown;
+  questionPacks: Map<string, unknown>;
+  topAssumptions: unknown[];
+  contradictions: unknown[];
+  interviewScripts: Map<string, unknown>;
   metadata: {
     totalQuestions: number;
     totalAssumptions: number;
@@ -117,7 +117,7 @@ export class QuestionForgeService {
       logger.info('Step 1: Normalizing input', { projectBriefId });
       const normalizedBrief = await this.inputNormalizer.normalize(
         request.projectBriefText,
-        request.inputType,
+        request.inputType
       );
 
       // Step 2: Run council debate
@@ -145,12 +145,12 @@ export class QuestionForgeService {
 
       // Step 4: Rank questions
       logger.info('Step 4: Ranking questions', { projectBriefId });
-      const assumptions: Assumption[] = (debateResult.assumptions ?? []);
-      const contradictions: Contradiction[] = (debateResult.contradictions ?? []);
+      const assumptions: Assumption[] = debateResult.assumptions ?? [];
+      const contradictions: Contradiction[] = debateResult.contradictions ?? [];
       const scores = this.questionRanker.rankQuestions(
         deduplicatedQuestions,
         assumptions,
-        contradictions,
+        contradictions
       );
 
       // Sort questions by score for downstream use
@@ -173,7 +173,7 @@ export class QuestionForgeService {
 
       // Step 6: Prepare interview scripts per stakeholder
       logger.info('Step 6: Preparing interview scripts', { projectBriefId });
-      const interviewScripts = new Map<string, any>();
+      const interviewScripts = new Map<string, unknown>();
       for (const [role, pack] of questionPacks.entries()) {
         const orderedQuestions = (pack.questions as Question[])
           .slice()
@@ -242,10 +242,7 @@ export class QuestionForgeService {
   /**
    * Creates an interview session from a cached forge result for a specific stakeholder.
    */
-  async startInterview(
-    forgeResultId: string,
-    stakeholderRole: string,
-  ): Promise<InterviewSession> {
+  async startInterview(forgeResultId: string, stakeholderRole: string): Promise<InterviewSession> {
     const forgeResult = this.forgeResults.get(forgeResultId);
     if (!forgeResult) {
       throw new Error(`Forge result not found: ${forgeResultId}`);
@@ -253,9 +250,7 @@ export class QuestionForgeService {
 
     const script = forgeResult.interviewScripts.get(stakeholderRole);
     if (!script) {
-      throw new Error(
-        `No interview script found for stakeholder role: ${stakeholderRole}`,
-      );
+      throw new Error(`No interview script found for stakeholder role: ${stakeholderRole}`);
     }
 
     const session: InterviewSession = {
@@ -292,7 +287,7 @@ export class QuestionForgeService {
     for (const question of questions) {
       const isDuplicate = unique.some(
         (existing) =>
-          this.computeTokenOverlap(existing.text, question.text) >= TOKEN_OVERLAP_THRESHOLD,
+          this.computeTokenOverlap(existing.text, question.text) >= TOKEN_OVERLAP_THRESHOLD
       );
 
       if (!isDuplicate) {
@@ -306,7 +301,7 @@ export class QuestionForgeService {
   /**
    * Convert AgentAnalysis questions from debate results into typed Question objects.
    */
-  extractQuestionsFromDebate(debateResult: any): Question[] {
+  extractQuestionsFromDebate(debateResult: Record<string, unknown>): Question[] {
     const questions: Question[] = [];
     const agentAnalyses = debateResult.agentAnalyses ?? debateResult.analyses ?? [];
 
@@ -375,7 +370,7 @@ export class QuestionForgeService {
         .toLowerCase()
         .replace(/[^a-z0-9\s]/g, ' ')
         .split(/\s+/)
-        .filter((token) => token.length > 2),
+        .filter((token) => token.length > 2)
     );
   }
 }

@@ -13,7 +13,7 @@ export class OperationManagementService {
   });
 
   // Operation Operations
-  async createOperation(operationData: any): Promise<any> {
+  async createOperation(operationData: unknown): Promise<unknown> {
     try {
       return await typeormService.create('Operation', operationData);
     } catch (error) {
@@ -22,7 +22,7 @@ export class OperationManagementService {
     }
   }
 
-  async getOperation(operationId: string): Promise<any> {
+  async getOperation(operationId: string): Promise<unknown> {
     try {
       return await typeormService.findById('Operation', operationId);
     } catch (error) {
@@ -31,7 +31,7 @@ export class OperationManagementService {
     }
   }
 
-  async updateOperation(operationId: string, updates: any): Promise<any> {
+  async updateOperation(operationId: string, updates: unknown): Promise<unknown> {
     try {
       return await typeormService.update('Operation', operationId, updates);
     } catch (error) {
@@ -45,7 +45,7 @@ export class OperationManagementService {
   }
 
   // Operation State Operations
-  async createOperationState(stateData: any): Promise<any> {
+  async createOperationState(stateData: unknown): Promise<unknown> {
     try {
       return await typeormService.create('OperationState', stateData);
     } catch (error) {
@@ -54,7 +54,7 @@ export class OperationManagementService {
     }
   }
 
-  async updateOperationState(operationId: string, stateData: any): Promise<any> {
+  async updateOperationState(operationId: string, stateData: unknown): Promise<unknown> {
     try {
       return await typeormService.update('OperationState', operationId, stateData);
     } catch (error) {
@@ -68,7 +68,7 @@ export class OperationManagementService {
   }
 
   // Operation Checkpoint Operations
-  async createCheckpoint(checkpointData: any): Promise<any> {
+  async createCheckpoint(checkpointData: unknown): Promise<unknown> {
     try {
       return await typeormService.create('OperationCheckpoint', checkpointData);
     } catch (error) {
@@ -77,7 +77,7 @@ export class OperationManagementService {
     }
   }
 
-  async getCheckpoints(operationId: string): Promise<any[]> {
+  async getCheckpoints(operationId: string): Promise<unknown[]> {
     try {
       const { OperationCheckpoint } = await import('./entities/index');
       const repository = typeormService.getRepository(OperationCheckpoint);
@@ -92,7 +92,7 @@ export class OperationManagementService {
   }
 
   // Step Result Operations
-  async createStepResult(stepResultData: any): Promise<any> {
+  async createStepResult(stepResultData: unknown): Promise<unknown> {
     try {
       return await typeormService.create('StepResult', stepResultData);
     } catch (error) {
@@ -101,7 +101,7 @@ export class OperationManagementService {
     }
   }
 
-  async getStepResults(operationId: string): Promise<any[]> {
+  async getStepResults(operationId: string): Promise<unknown[]> {
     try {
       const { StepResult } = await import('./entities/index');
       const repository = typeormService.getRepository(StepResult);
@@ -116,7 +116,7 @@ export class OperationManagementService {
   }
 
   // Workflow Instance Operations
-  async createWorkflowInstance(workflowData: any): Promise<any> {
+  async createWorkflowInstance(workflowData: unknown): Promise<unknown> {
     try {
       return await typeormService.create('WorkflowInstance', workflowData);
     } catch (error) {
@@ -128,7 +128,7 @@ export class OperationManagementService {
     }
   }
 
-  async getWorkflowInstance(workflowId: string): Promise<any> {
+  async getWorkflowInstance(workflowId: string): Promise<unknown> {
     try {
       return await typeormService.findById('WorkflowInstance', workflowId);
     } catch (error) {
@@ -137,7 +137,7 @@ export class OperationManagementService {
     }
   }
 
-  async updateWorkflowInstance(workflowId: string, updates: any): Promise<any> {
+  async updateWorkflowInstance(workflowId: string, updates: unknown): Promise<unknown> {
     try {
       return await typeormService.update('WorkflowInstance', workflowId, updates);
     } catch (error) {
@@ -151,12 +151,12 @@ export class OperationManagementService {
   }
 
   // Query Operations
-  async getOperationsByStatus(status: string): Promise<any[]> {
+  async getOperationsByStatus(status: string): Promise<unknown[]> {
     try {
       const { Operation } = await import('./entities/index');
       const repository = typeormService.getRepository(Operation);
       return await repository.find({
-        where: { status: status as any },
+        where: { status: status as unknown },
         order: { createdAt: 'DESC' },
       });
     } catch (error) {
@@ -165,14 +165,14 @@ export class OperationManagementService {
     }
   }
 
-  async getActiveOperations(): Promise<any[]> {
+  async getActiveOperations(): Promise<unknown[]> {
     try {
       const { Operation } = await import('./entities/index');
       const { In } = await import('typeorm');
       const repository = typeormService.getRepository(Operation);
       return await repository.find({
         where: {
-          status: In(['running', 'pending', 'paused']) as any,
+          status: In(['running', 'pending', 'paused']) as unknown,
         },
         order: { createdAt: 'DESC' },
       });
@@ -182,14 +182,14 @@ export class OperationManagementService {
     }
   }
 
-  async findStaleOperations(cutoffDate: Date): Promise<any[]> {
+  async findStaleOperations(cutoffDate: Date): Promise<unknown[]> {
     try {
       const { Operation } = await import('./entities/index');
       const { In, LessThan } = await import('typeorm');
       const repository = typeormService.getRepository(Operation);
       return await repository.find({
         where: {
-          status: In(['running', 'pending', 'paused']) as any,
+          status: In(['running', 'pending', 'paused']) as unknown,
           updatedAt: LessThan(cutoffDate),
         },
         order: { updatedAt: 'ASC' },
@@ -201,7 +201,7 @@ export class OperationManagementService {
   }
 
   // Transaction support
-  async executeInTransaction<T>(callback: (manager: any) => Promise<T>): Promise<T> {
+  async executeInTransaction<T>(callback: (manager: unknown) => Promise<T>): Promise<T> {
     try {
       return await typeormService.transaction(callback);
     } catch (error) {
@@ -215,7 +215,7 @@ export class OperationManagementService {
     try {
       const health = await typeormService.healthCheck();
       return health.status === 'healthy';
-    } catch (error) {
+    } catch {
       return false;
     }
   }

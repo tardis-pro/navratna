@@ -6,11 +6,11 @@ import { DatabaseError } from '../../databaseService';
 // Repository interface for standardization
 export interface IRepository<T extends ObjectLiteral> {
   findById(id: string): Promise<T | null>;
-  findMany(conditions?: Record<string, any>, options?: any): Promise<T[]>;
+  findMany(conditions?: Record<string, unknown>, options?: unknown): Promise<T[]>;
   create(data: Partial<T>): Promise<T>;
   update(id: string, data: Partial<T>): Promise<T | null>;
   delete(id: string): Promise<boolean>;
-  count(conditions?: Record<string, any>): Promise<number>;
+  count(conditions?: Record<string, unknown>): Promise<number>;
   batchCreate(records: Partial<T>[]): Promise<T[]>;
 }
 
@@ -69,6 +69,7 @@ export abstract class BaseRepository<T extends ObjectLiteral> implements IReposi
   // Generic CRUD operations
   public async findById(id: string): Promise<T | null> {
     try {
+      // oxlint-disable-next-line @typescript-eslint/no-explicit-any -- TypeORM where clause requires flexible typing
       return await this.repository.findOne({ where: { id } as any });
     } catch (error) {
       logger.error('Failed to find by ID', {
@@ -81,7 +82,7 @@ export abstract class BaseRepository<T extends ObjectLiteral> implements IReposi
   }
 
   public async findMany(
-    conditions: Record<string, any> = {},
+    conditions: Record<string, unknown> = {},
     options: {
       orderBy?: Record<string, 'ASC' | 'DESC'>;
       limit?: number;
@@ -136,7 +137,9 @@ export abstract class BaseRepository<T extends ObjectLiteral> implements IReposi
 
   public async create(data: Partial<T>): Promise<T> {
     try {
+      // oxlint-disable-next-line @typescript-eslint/no-explicit-any -- TypeORM create requires flexible typing
       const newEntity = this.repository.create(data as any);
+      // oxlint-disable-next-line @typescript-eslint/no-explicit-any -- TypeORM save requires flexible typing
       return await this.repository.save(newEntity as any);
     } catch (error) {
       logger.error('Failed to create', {
@@ -150,7 +153,9 @@ export abstract class BaseRepository<T extends ObjectLiteral> implements IReposi
 
   public async update(id: string, data: Partial<T>): Promise<T | null> {
     try {
+      // oxlint-disable-next-line @typescript-eslint/no-explicit-any -- TypeORM update requires flexible typing
       await this.repository.update(id, { ...data, updatedAt: new Date() } as any);
+      // oxlint-disable-next-line @typescript-eslint/no-explicit-any -- TypeORM where clause requires flexible typing
       return await this.repository.findOne({ where: { id } as any });
     } catch (error) {
       logger.error('Failed to update', {
@@ -177,7 +182,7 @@ export abstract class BaseRepository<T extends ObjectLiteral> implements IReposi
     }
   }
 
-  public async count(conditions: Record<string, any> = {}): Promise<number> {
+  public async count(conditions: Record<string, unknown> = {}): Promise<number> {
     try {
       return await this.repository.count({ where: conditions });
     } catch (error) {
@@ -196,7 +201,9 @@ export abstract class BaseRepository<T extends ObjectLiteral> implements IReposi
     }
 
     try {
+      // oxlint-disable-next-line @typescript-eslint/no-explicit-any -- TypeORM create requires flexible typing
       const entities = records.map((record) => this.repository.create(record as any));
+      // oxlint-disable-next-line @typescript-eslint/no-explicit-any -- TypeORM save requires flexible typing
       return await this.repository.save(entities as any);
     } catch (error) {
       logger.error('Failed to batch create', {
@@ -218,7 +225,9 @@ export abstract class BaseRepository<T extends ObjectLiteral> implements IReposi
       const results: T[] = [];
 
       for (const update of updates) {
+        // oxlint-disable-next-line no-await-in-loop, @typescript-eslint/no-explicit-any -- sequential processing required; TypeORM update requires flexible typing
         await repository.update(update.id, { ...update.data, updatedAt: new Date() } as any);
+        // oxlint-disable-next-line no-await-in-loop, @typescript-eslint/no-explicit-any -- sequential processing required; TypeORM where clause requires flexible typing
         const result = await repository.findOne({ where: { id: update.id } as any });
         if (result) {
           results.push(result);
@@ -266,6 +275,7 @@ export abstract class BaseRepository<T extends ObjectLiteral> implements IReposi
 
         await queryBuilder.orUpdate(options.updateColumns, options.conflictColumns).execute();
       } else {
+        // oxlint-disable-next-line @typescript-eslint/no-explicit-any -- TypeORM save requires flexible typing
         await this.repository.save(records as any[]);
       }
 
@@ -291,7 +301,7 @@ export abstract class BaseRepository<T extends ObjectLiteral> implements IReposi
 
   // Stream query results
   public async *streamQuery(
-    conditions?: Record<string, any>,
+    conditions?: Record<string, unknown>,
     batchSize: number = 1000
   ): AsyncGenerator<T[], void, unknown> {
     try {
@@ -317,6 +327,7 @@ export abstract class BaseRepository<T extends ObjectLiteral> implements IReposi
           });
         }
 
+        // oxlint-disable-next-line no-await-in-loop -- sequential batch processing required
         const results = await queryBuilder.limit(batchSize).offset(offset).getMany();
 
         if (results.length === 0) {

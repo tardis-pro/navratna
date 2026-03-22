@@ -5,7 +5,8 @@ import { config } from '@uaip/config';
 import { logger } from '@uaip/utils';
 import * as fs from 'fs';
 
-const DEFAULT_CRON_JOBS_PATH = '/Users/pronitdas/workspaces/bmad-navratna/openclaw-infra/config/cron-jobs.json';
+const DEFAULT_CRON_JOBS_PATH =
+  '/Users/pronitdas/workspaces/bmad-navratna/openclaw-infra/config/cron-jobs.json';
 
 export interface OpenClawCronJob {
   id: string;
@@ -80,6 +81,7 @@ export class CronMigrationService {
 
     for (const job of jobs) {
       try {
+        // oxlint-disable-next-line no-await-in-loop -- sequential processing required
         const migrated = await this.migrateJob(job);
         if (migrated) {
           this.migratedJobs.push(migrated);
@@ -162,6 +164,7 @@ export class CronMigrationService {
   async shutdown(): Promise<void> {
     logger.info('Shutting down cron migration service...');
     for (const [agentId, queue] of this.queues) {
+      // oxlint-disable-next-line no-await-in-loop -- sequential processing required
       await queue.close();
       logger.debug(`Closed queue for agent: ${agentId}`);
     }
@@ -250,7 +253,8 @@ export class CronMigrationService {
     logger.info(`Migrated cron job: ${job.name} → ${agentId}`, {
       openClawId: job.id,
       bullJobId: bullJob.id,
-      schedule: job.schedule.kind === 'cron' ? job.schedule.expr : `every ${job.schedule.everyMs}ms`,
+      schedule:
+        job.schedule.kind === 'cron' ? job.schedule.expr : `every ${job.schedule.everyMs}ms`,
     });
 
     return {
@@ -258,7 +262,8 @@ export class CronMigrationService {
       name: job.name,
       agentId,
       bullJobKey,
-      schedule: job.schedule.kind === 'cron' ? (job.schedule.expr ?? '') : `every:${job.schedule.everyMs}`,
+      schedule:
+        job.schedule.kind === 'cron' ? (job.schedule.expr ?? '') : `every:${job.schedule.everyMs}`,
       enabled: job.enabled,
     };
   }

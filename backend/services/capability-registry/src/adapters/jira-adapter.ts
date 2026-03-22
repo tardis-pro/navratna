@@ -166,14 +166,10 @@ export class JiraAdapter {
       returned: response.data.issues.length,
     });
 
-    this.emitOperationOutcome(
-      'searchIssues',
-      'success',
-      '',
-      '',
-      '',
-      { total: response.data.total, returned: response.data.issues.length }
-    );
+    this.emitOperationOutcome('searchIssues', 'success', '', '', '', {
+      total: response.data.total,
+      returned: response.data.issues.length,
+    });
 
     return {
       issues: response.data.issues,

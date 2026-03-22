@@ -219,12 +219,12 @@ export function registerProjectRoutes(app: Elysia): void {
   app.put('/api/v1/projects/:projectId', async ({ params, body, headers, set }) => {
     try {
       await initServices();
-      const userId = headers['x-user-id'];
+      const _userId = headers['x-user-id'];
       const projectId = params.projectId;
 
       const validatedBody = updateProjectSchema.parse(body);
       // Convert date strings to Date objects
-      const updateData: any = { ...validatedBody };
+      const updateData: Record<string, unknown> = { ...validatedBody };
       if (updateData.startDate) updateData.startDate = new Date(updateData.startDate);
       if (updateData.endDate) updateData.endDate = new Date(updateData.endDate);
       const project = await projectService.updateProject(projectId, updateData);
@@ -244,7 +244,7 @@ export function registerProjectRoutes(app: Elysia): void {
   app.delete('/api/v1/projects/:projectId', async ({ params, headers, set }) => {
     try {
       await initServices();
-      const userId = headers['x-user-id'];
+      const _userId = headers['x-user-id'];
       const projectId = params.projectId;
 
       await projectService.deleteProject(projectId);
@@ -261,7 +261,7 @@ export function registerProjectRoutes(app: Elysia): void {
   app.post('/api/v1/projects/:projectId/tasks', async ({ params, body, headers, set }) => {
     try {
       await initServices();
-      const userId = headers['x-user-id'];
+      const _userId = headers['x-user-id'];
       const projectId = params.projectId;
 
       const validatedBody = createTaskSchema.parse(body);
@@ -295,8 +295,8 @@ export function registerProjectRoutes(app: Elysia): void {
   app.put('/api/v1/projects/:projectId/tasks/:taskId', async ({ params, body, headers, set }) => {
     try {
       await initServices();
-      const userId = headers['x-user-id'];
-      const projectId = params.projectId;
+      const _userId = headers['x-user-id'];
+      const _projectId = params.projectId;
       const taskId = params.taskId;
 
       const task = await projectService.updateTask(taskId, body);
@@ -356,7 +356,7 @@ export function registerProjectRoutes(app: Elysia): void {
   app.post('/api/v1/projects/:projectId/tool-usage', async ({ params, body, headers, set }) => {
     try {
       await initServices();
-      const userId = headers['x-user-id'];
+      const _userId = headers['x-user-id'];
       const projectId = params.projectId;
 
       const validatedBody = recordToolUsageSchema.parse(body);
@@ -388,7 +388,7 @@ export function registerProjectRoutes(app: Elysia): void {
   app.get('/api/v1/projects/:projectId/metrics', async ({ params, headers, set }) => {
     try {
       await initServices();
-      const userId = headers['x-user-id'];
+      const _userId = headers['x-user-id'];
       const projectId = params.projectId;
 
       const metrics = await projectService.getProjectMetrics(projectId);
@@ -405,7 +405,7 @@ export function registerProjectRoutes(app: Elysia): void {
     try {
       await initServices();
       const userId = headers['x-user-id'];
-      const timeRange = query?.timeRange || '30d';
+      const _timeRange = query?.timeRange || '30d';
 
       const analytics = await projectService.getProjectAnalytics({ ownerId: userId });
       return analytics;

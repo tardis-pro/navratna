@@ -2,16 +2,16 @@ import nodemailer from 'nodemailer';
 import crypto from 'crypto';
 import { logger } from '@uaip/utils';
 import { config } from '@uaip/config';
-import { DatabaseService } from '@uaip/infra/database';
-import { EventBusService } from '@uaip/infra/eventBus';
+import { DatabaseService as _DatabaseService } from '@uaip/infra/database';
+import { EventBusService as _EventBusService } from '@uaip/infra/eventBus';
 
 export interface ApprovalNotification {
   type: string;
   recipientId: string;
   workflowId: string;
   operationId: string;
-  metadata?: Record<string, any>;
-  [key: string]: any;
+  metadata?: Record<string, unknown>;
+  [key: string]: unknown;
 }
 
 export interface NotificationTemplate {
@@ -23,7 +23,7 @@ export interface NotificationTemplate {
 export interface NotificationChannel {
   type: 'email' | 'in_app' | 'webhook' | 'sms';
   enabled: boolean;
-  config: Record<string, any>;
+  config: Record<string, unknown>;
 }
 
 export class NotificationService {
@@ -88,7 +88,7 @@ export class NotificationService {
   private async sendViaChannel(
     channel: NotificationChannel,
     notification: ApprovalNotification,
-    recipient: any
+    recipient: unknown
   ): Promise<void> {
     try {
       switch (channel.type) {
@@ -121,7 +121,7 @@ export class NotificationService {
    */
   private async sendEmailNotification(
     notification: ApprovalNotification,
-    recipient: any
+    recipient: unknown
   ): Promise<void> {
     if (!this.emailTransporter || !recipient.email) {
       logger.warn('Email transporter not configured or recipient has no email', {
@@ -161,7 +161,7 @@ export class NotificationService {
    */
   private async sendInAppNotification(
     notification: ApprovalNotification,
-    recipient: any
+    _recipient: unknown
   ): Promise<void> {
     // Store in-app notification in database
     const inAppNotification = {
@@ -197,8 +197,8 @@ export class NotificationService {
    */
   private async sendWebhookNotification(
     notification: ApprovalNotification,
-    recipient: any,
-    webhookConfig: Record<string, any>
+    recipient: unknown,
+    webhookConfig: Record<string, unknown>
   ): Promise<void> {
     if (!webhookConfig.url) {
       logger.warn('Webhook URL not configured');
@@ -246,8 +246,8 @@ export class NotificationService {
    */
   private async sendSMSNotification(
     notification: ApprovalNotification,
-    recipient: any,
-    smsConfig: Record<string, any>
+    recipient: unknown,
+    smsConfig: Record<string, unknown>
   ): Promise<void> {
     if (!recipient.phone || !smsConfig.provider) {
       logger.warn('SMS not configured or recipient has no phone', {
@@ -343,7 +343,7 @@ export class NotificationService {
   /**
    * Get recipient details from database
    */
-  private async getRecipientDetails(recipientId: string): Promise<any> {
+  private async getRecipientDetails(recipientId: string): Promise<unknown> {
     try {
       // This would query the users table
       // For now, return a mock recipient
@@ -380,7 +380,7 @@ export class NotificationService {
   private renderTemplate(
     template: NotificationTemplate,
     notification: ApprovalNotification,
-    recipient: any
+    recipient: unknown
   ): NotificationTemplate {
     const data = {
       recipientName: recipient.name,
@@ -402,7 +402,7 @@ export class NotificationService {
   /**
    * Interpolate template with data
    */
-  private interpolateTemplate(template: string, data: Record<string, any>): string {
+  private interpolateTemplate(template: string, data: Record<string, unknown>): string {
     return template.replace(/\{\{(\w+)\}\}/g, (match, key) => {
       return data[key] || match;
     });
@@ -459,7 +459,7 @@ export class NotificationService {
   /**
    * Save in-app notification to database
    */
-  private async saveInAppNotification(notification: any): Promise<void> {
+  private async saveInAppNotification(notification: unknown): Promise<void> {
     // This would save to a notifications table
     logger.info('In-app notification saved', {
       notificationId: notification.id,
@@ -470,7 +470,7 @@ export class NotificationService {
   /**
    * Send real-time notification
    */
-  private async sendRealTimeNotification(userId: string, notification: any): Promise<void> {
+  private async sendRealTimeNotification(userId: string, notification: unknown): Promise<void> {
     // This would send via WebSocket or SSE
     logger.info('Real-time notification sent', {
       userId,
@@ -481,7 +481,7 @@ export class NotificationService {
   /**
    * Generate webhook signature
    */
-  private generateWebhookSignature(payload: any, secret?: string): string {
+  private generateWebhookSignature(payload: unknown, secret?: string): string {
     if (!secret) return '';
 
     const hmac = crypto.createHmac('sha256', secret);
@@ -673,7 +673,7 @@ export class NotificationService {
     recipient: string;
     subject: string;
     message: string;
-    data?: Record<string, any>;
+    data?: Record<string, unknown>;
   }): Promise<void> {
     try {
       logger.info('Sending general notification', {

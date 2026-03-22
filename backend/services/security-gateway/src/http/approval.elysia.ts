@@ -8,28 +8,28 @@ import { NotificationService } from '../services/notificationService.js';
 import { ApprovalStatus, SecurityLevel, AuditEventType } from '@uaip/types';
 
 // Lazy service setup (keeps routing file self-contained)
-let auditService: AuditService | null = null;
-let notificationService: NotificationService | null = null;
-let approvalWorkflowService: ApprovalWorkflowService | null = null;
+let auditServiceSingleton: AuditService | null = null;
+let notificationServiceSingleton: NotificationService | null = null;
+let approvalWorkflowServiceSingleton: ApprovalWorkflowService | null = null;
 
 async function getServices() {
-  if (!approvalWorkflowService) {
-    auditService = new AuditService();
-    notificationService = new NotificationService();
+  if (!approvalWorkflowServiceSingleton) {
+    auditServiceSingleton = new AuditService();
+    notificationServiceSingleton = new NotificationService();
     const eventBusService = new EventBusService(
       { url: process.env.RABBITMQ_URL || 'amqp://localhost:5672', serviceName: 'security-gateway' },
       logger
     );
-    approvalWorkflowService = new ApprovalWorkflowService(
+    approvalWorkflowServiceSingleton = new ApprovalWorkflowService(
       eventBusService,
-      notificationService,
-      auditService
+      notificationServiceSingleton,
+      auditServiceSingleton
     );
   }
   return {
-    auditService: auditService!,
-    notificationService: notificationService!,
-    approvalWorkflowService: approvalWorkflowService!,
+    auditService: auditServiceSingleton!,
+    notificationService: notificationServiceSingleton!,
+    approvalWorkflowService: approvalWorkflowServiceSingleton!,
   };
 }
 
@@ -60,7 +60,7 @@ const queryWorkflowsSchema = z.object({
   offset: z.coerce.number().min(0).default(0),
 });
 
-function calculateUrgency(workflow: any): number {
+function calculateUrgency(workflow: unknown): number {
   let urgency = 0;
   switch (workflow.metadata?.securityLevel) {
     case SecurityLevel.CRITICAL:
@@ -87,11 +87,11 @@ function calculateUrgency(workflow: any): number {
   return urgency;
 }
 
-export function registerApprovalRoutes(app: any): any {
-  return app.group('/api/v1/approvals', (app: any) =>
+export function registerApprovalRoutes(elysiaApp: unknown): unknown {
+  return elysiaApp.group('/api/v1/approvals', (app: unknown) =>
     withRequiredAuth(app)
       // Create workflow (operator)
-      .group('', (g: any) =>
+      .group('', (g: unknown) =>
         withOperatorGuard(g)
           .post('/workflows', async ({ body, set, user, request, headers }) => {
             const parsed = createWorkflowSchema.safeParse(body);
@@ -148,36 +148,39 @@ export function registerApprovalRoutes(app: any): any {
             }
           })
           // Stats (operator)
-          .get('/stats', async ({ set, query, user }) => {
+          .get('/stats', async ({ set, query, _user }) => {
             try {
               const days = Number(query.days ?? 30);
               const startDate = new Date();
               startDate.setDate(startDate.getDate() - days);
               const { approvalWorkflowService } = await getServices();
               const all = await approvalWorkflowService.getUserWorkflows('');
-              const filtered = all.filter((w: any) => w.createdAt >= startDate);
+              const filtered = all.filter((w: unknown) => w.createdAt >= startDate);
               const stats = {
                 total: filtered.length,
                 byStatus: {
-                  pending: filtered.filter((w: any) => w.status === ApprovalStatus.PENDING).length,
-                  approved: filtered.filter((w: any) => w.status === ApprovalStatus.APPROVED)
+                  pending: filtered.filter((w: unknown) => w.status === ApprovalStatus.PENDING)
                     .length,
-                  rejected: filtered.filter((w: any) => w.status === ApprovalStatus.REJECTED)
+                  approved: filtered.filter((w: unknown) => w.status === ApprovalStatus.APPROVED)
                     .length,
-                  expired: filtered.filter((w: any) => w.status === ApprovalStatus.EXPIRED).length,
+                  rejected: filtered.filter((w: unknown) => w.status === ApprovalStatus.REJECTED)
+                    .length,
+                  expired: filtered.filter((w: unknown) => w.status === ApprovalStatus.EXPIRED)
+                    .length,
                 },
                 bySecurityLevel: {
                   critical: filtered.filter(
-                    (w: any) => w.metadata?.securityLevel === SecurityLevel.CRITICAL
+                    (w: unknown) => w.metadata?.securityLevel === SecurityLevel.CRITICAL
                   ).length,
                   high: filtered.filter(
-                    (w: any) => w.metadata?.securityLevel === SecurityLevel.HIGH
+                    (w: unknown) => w.metadata?.securityLevel === SecurityLevel.HIGH
                   ).length,
                   medium: filtered.filter(
-                    (w: any) => w.metadata?.securityLevel === SecurityLevel.MEDIUM
+                    (w: unknown) => w.metadata?.securityLevel === SecurityLevel.MEDIUM
                   ).length,
-                  low: filtered.filter((w: any) => w.metadata?.securityLevel === SecurityLevel.LOW)
-                    .length,
+                  low: filtered.filter(
+                    (w: unknown) => w.metadata?.securityLevel === SecurityLevel.LOW
+                  ).length,
                 },
               };
               return {
@@ -185,7 +188,7 @@ export function registerApprovalRoutes(app: any): any {
                 data: { stats, period: { days, startDate, endDate: new Date() } },
                 message: 'Approval statistics retrieved successfully',
               };
-            } catch (error) {
+            } catch {
               set.status = 500;
               return {
                 error: 'Internal Server Error',
@@ -204,7 +207,7 @@ export function registerApprovalRoutes(app: any): any {
         }
         try {
           const { approvalWorkflowService } = await getServices();
-          let workflows: any[];
+          let workflows: unknown[];
           const role = (user!.role || '').toLowerCase();
           if (role === 'admin' || role === 'security_admin' || role === 'security-admin') {
             workflows = await approvalWorkflowService.getUserWorkflows('', parsed.data.status);
@@ -217,11 +220,12 @@ export function registerApprovalRoutes(app: any): any {
           let filtered = workflows;
           const { operationType, securityLevel, startDate, endDate, limit, offset } = parsed.data;
           if (operationType)
-            filtered = filtered.filter((w: any) => w.metadata?.operationType === operationType);
+            filtered = filtered.filter((w: unknown) => w.metadata?.operationType === operationType);
           if (securityLevel)
-            filtered = filtered.filter((w: any) => w.metadata?.securityLevel === securityLevel);
-          if (startDate) filtered = filtered.filter((w: any) => w.createdAt >= new Date(startDate));
-          if (endDate) filtered = filtered.filter((w: any) => w.createdAt <= new Date(endDate));
+            filtered = filtered.filter((w: unknown) => w.metadata?.securityLevel === securityLevel);
+          if (startDate)
+            filtered = filtered.filter((w: unknown) => w.createdAt >= new Date(startDate));
+          if (endDate) filtered = filtered.filter((w: unknown) => w.createdAt <= new Date(endDate));
           const total = filtered.length;
           const page = filtered.slice(Number(offset), Number(offset) + Number(limit));
           return {
@@ -237,7 +241,7 @@ export function registerApprovalRoutes(app: any): any {
             },
             message: 'Approval workflows retrieved successfully',
           };
-        } catch (error) {
+        } catch {
           set.status = 500;
           return { error: 'Internal Server Error', message: 'Failed to query workflows' };
         }
@@ -252,7 +256,7 @@ export function registerApprovalRoutes(app: any): any {
             ApprovalStatus.PENDING
           );
           const detailed = await Promise.all(
-            pending.map(async (wf: any) => {
+            pending.map(async (wf: unknown) => {
               const status = await approvalWorkflowService!.getWorkflowStatus(wf.id);
               return {
                 workflow: wf,
@@ -263,8 +267,8 @@ export function registerApprovalRoutes(app: any): any {
             })
           );
           const userPending = detailed
-            .filter((w: any) => w.isPendingForUser)
-            .sort((a: any, b: any) => b.urgency - a.urgency);
+            .filter((w: unknown) => w.isPendingForUser)
+            .sort((a: unknown, b: unknown) => b.urgency - a.urgency);
           return {
             success: true,
             data: {
@@ -272,35 +276,35 @@ export function registerApprovalRoutes(app: any): any {
               count: userPending.length,
               summary: {
                 critical: userPending.filter(
-                  (w: any) => w.workflow.metadata?.securityLevel === SecurityLevel.CRITICAL
+                  (w: unknown) => w.workflow.metadata?.securityLevel === SecurityLevel.CRITICAL
                 ).length,
                 high: userPending.filter(
-                  (w: any) => w.workflow.metadata?.securityLevel === SecurityLevel.HIGH
+                  (w: unknown) => w.workflow.metadata?.securityLevel === SecurityLevel.HIGH
                 ).length,
                 medium: userPending.filter(
-                  (w: any) => w.workflow.metadata?.securityLevel === SecurityLevel.MEDIUM
+                  (w: unknown) => w.workflow.metadata?.securityLevel === SecurityLevel.MEDIUM
                 ).length,
                 low: userPending.filter(
-                  (w: any) => w.workflow.metadata?.securityLevel === SecurityLevel.LOW
+                  (w: unknown) => w.workflow.metadata?.securityLevel === SecurityLevel.LOW
                 ).length,
               },
             },
             message: 'Pending approvals retrieved successfully',
           };
-        } catch (error) {
+        } catch {
           set.status = 500;
           return { error: 'Internal Server Error', message: 'Failed to get pending approvals' };
         }
       })
 
       // Cancel workflow (operator)
-      .group('', (g: any) =>
+      .group('', (g: unknown) =>
         withOperatorGuard(g).post(
           '/:workflowId/cancel',
           async ({ set, params, body, user, request, headers }) => {
             try {
               const workflowId = params.workflowId;
-              const reason = (body as any)?.reason;
+              const reason = (body as unknown)?.reason;
               if (!reason || !reason.trim()) {
                 set.status = 400;
                 return { error: 'Cancellation reason is required' };
@@ -318,7 +322,7 @@ export function registerApprovalRoutes(app: any): any {
                 riskLevel: SecurityLevel.MEDIUM,
               });
               return { success: true, message: 'Approval workflow cancelled successfully' };
-            } catch (error) {
+            } catch {
               set.status = 500;
               return {
                 error: 'Internal Server Error',
@@ -355,77 +359,73 @@ export function registerApprovalRoutes(app: any): any {
             data: { status, workflow: status.workflow },
             message: 'Approval workflow status retrieved successfully',
           };
-        } catch (error) {
+        } catch {
           set.status = 500;
           return { error: 'Internal Server Error', message: 'Failed to get workflow' };
         }
       })
 
       // Approval decision
-      .post(
-        '/:workflowId/decisions',
-        async ({ set, params, body, user, request, headers }) => {
-          const parsed = approvalDecisionSchema.safeParse({
-            ...(body as any),
-            workflowId: params.workflowId,
-          });
-          if (!parsed.success) {
-            set.status = 400;
-            return { error: 'Validation Error', details: parsed.error.flatten() };
-          }
-          try {
-            const { approvalWorkflowService, auditService } = await getServices();
-            const decisionInput = {
-              workflowId: parsed.data.workflowId,
-              approverId: user!.id,
+      .post('/:workflowId/decisions', async ({ set, params, body, user, request, headers }) => {
+        const parsed = approvalDecisionSchema.safeParse({
+          ...(body as unknown),
+          workflowId: params.workflowId,
+        });
+        if (!parsed.success) {
+          set.status = 400;
+          return { error: 'Validation Error', details: parsed.error.flatten() };
+        }
+        try {
+          const { approvalWorkflowService, auditService } = await getServices();
+          const decisionInput = {
+            workflowId: parsed.data.workflowId,
+            approverId: user!.id,
+            decision: parsed.data.decision,
+            conditions: parsed.data.conditions,
+            feedback: parsed.data.feedback,
+            decidedAt: new Date(),
+          } as unknown;
+          const status = await approvalWorkflowService.processApprovalDecision(decisionInput);
+          await auditService.logEvent({
+            eventType:
+              parsed.data.decision === 'approve'
+                ? AuditEventType.APPROVAL_GRANTED
+                : AuditEventType.APPROVAL_DENIED,
+            userId: user!.id,
+            resourceType: 'approval_workflow',
+            resourceId: parsed.data.workflowId,
+            details: {
               decision: parsed.data.decision,
               conditions: parsed.data.conditions,
               feedback: parsed.data.feedback,
-              decidedAt: new Date(),
-            } as any;
-            const status = await approvalWorkflowService.processApprovalDecision(decisionInput);
-            await auditService.logEvent({
-              eventType:
-                parsed.data.decision === 'approve'
-                  ? AuditEventType.APPROVAL_GRANTED
-                  : AuditEventType.APPROVAL_DENIED,
-              userId: user!.id,
-              resourceType: 'approval_workflow',
-              resourceId: parsed.data.workflowId,
-              details: {
-                decision: parsed.data.decision,
-                conditions: parsed.data.conditions,
-                feedback: parsed.data.feedback,
-                workflowStatus: status.isComplete ? 'completed' : 'pending',
-                canProceed: status.canProceed,
-              },
-              ipAddress: request.headers.get('x-forwarded-for') || '',
-              userAgent: headers['user-agent'],
-              riskLevel:
-                parsed.data.decision === 'reject' ? SecurityLevel.MEDIUM : SecurityLevel.LOW,
-            });
-            return {
-              success: true,
-              data: {
-                decision: decisionInput,
-                status,
-                message: status.isComplete
-                  ? status.canProceed
-                    ? 'Operation approved and can proceed'
-                    : 'Operation rejected'
-                  : 'Decision recorded, waiting for additional approvals',
-              },
-              message: 'Approval decision processed successfully',
-            };
-          } catch (error) {
-            set.status = 500;
-            return {
-              error: 'Internal Server Error',
-              message: 'Failed to process approval decision',
-            };
-          }
+              workflowStatus: status.isComplete ? 'completed' : 'pending',
+              canProceed: status.canProceed,
+            },
+            ipAddress: request.headers.get('x-forwarded-for') || '',
+            userAgent: headers['user-agent'],
+            riskLevel: parsed.data.decision === 'reject' ? SecurityLevel.MEDIUM : SecurityLevel.LOW,
+          });
+          return {
+            success: true,
+            data: {
+              decision: decisionInput,
+              status,
+              message: status.isComplete
+                ? status.canProceed
+                  ? 'Operation approved and can proceed'
+                  : 'Operation rejected'
+                : 'Decision recorded, waiting for additional approvals',
+            },
+            message: 'Approval decision processed successfully',
+          };
+        } catch {
+          set.status = 500;
+          return {
+            error: 'Internal Server Error',
+            message: 'Failed to process approval decision',
+          };
         }
-      )
+      })
   );
 }
 

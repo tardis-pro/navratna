@@ -167,4 +167,4 @@ jobs:
           channel: '#deployments'
           webhook_url: ${{ secrets.SLACK_WEBHOOK }}
         env:
-          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK }} 
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK }}

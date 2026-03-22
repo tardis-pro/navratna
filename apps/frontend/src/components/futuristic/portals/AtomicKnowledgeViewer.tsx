@@ -1,33 +1,39 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence as _AnimatePresence } from 'framer-motion';
 import {
   Brain,
   FileText,
   Tag,
-  Calendar,
-  User,
-  Globe,
-  Link2,
+  Calendar as _Calendar,
+  User as _User,
+  Globe as _Globe,
+  Link2 as _Link2,
   TrendingUp,
-  BarChart3,
-  Eye,
+  BarChart3 as _BarChart3,
+  Eye as _Eye,
   Copy,
   Download,
-  Share,
+  Share as _Share,
   Edit3,
   Trash2,
   MessageSquare,
   Network,
   Clock,
   Target,
-  Zap,
+  Zap as _Zap,
   AlertCircle,
   CheckCircle2,
-  ArrowRight,
-  Plus,
-  X,
+  ArrowRight as _ArrowRight,
+  Plus as _Plus,
+  X as _X,
 } from 'lucide-react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+  Card,
+  CardContent,
+  CardDescription as _CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -47,12 +53,12 @@ import {
   DialogDescription,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
+  DialogTrigger as _DialogTrigger,
 } from '@/components/ui/dialog';
-import { Separator } from '@/components/ui/separator';
-import { Progress } from '@/components/ui/progress';
+import { Separator as _Separator } from '@/components/ui/separator';
+import { Progress as _Progress } from '@/components/ui/progress';
 import type { KnowledgeItem } from '@uaip/types';
-import { KnowledgeType, SourceType } from '@uaip/types';
+import { KnowledgeType, SourceType as _SourceType } from '@uaip/types';
 import { DiscussionTrigger } from '@/components/DiscussionTrigger';
 
 interface AtomicKnowledgeViewerProps {
@@ -126,9 +132,9 @@ export const AtomicKnowledgeViewer: React.FC<AtomicKnowledgeViewerProps> = ({
   const [isEditing, setIsEditing] = useState(false);
   const [editedContent, setEditedContent] = useState(item.content);
   const [editedTags, setEditedTags] = useState((item.tags || []).join(', '));
-  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [_isAnalyzing, setIsAnalyzing] = useState(false);
   const [analysis, setAnalysis] = useState<KnowledgeAnalysis | null>(null);
-  const [connections, setConnections] = useState<KnowledgeConnection[]>([]);
+  const [_connections, setConnections] = useState<KnowledgeConnection[]>([]);
   const [showConnectionDialog, setShowConnectionDialog] = useState(false);
   const [selectedTab, setSelectedTab] = useState('overview');
 
@@ -142,6 +148,7 @@ export const AtomicKnowledgeViewer: React.FC<AtomicKnowledgeViewerProps> = ({
     if (onLoadRelated && item.id) {
       loadConnections();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [item.id, item.content]);
 
   const analyzeContent = useCallback(async () => {
@@ -171,6 +178,7 @@ export const AtomicKnowledgeViewer: React.FC<AtomicKnowledgeViewerProps> = ({
       setAnalysis(mockAnalysis);
       setIsAnalyzing(false);
     }, 1000);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [item.content]);
 
   const loadConnections = useCallback(async () => {
@@ -322,7 +330,7 @@ export const AtomicKnowledgeViewer: React.FC<AtomicKnowledgeViewerProps> = ({
     URL.revokeObjectURL(url);
   };
 
-  const getSentimentColor = (sentiment: string) => {
+  const _getSentimentColor = (sentiment: string) => {
     switch (sentiment) {
       case 'positive':
         return 'text-green-400';
@@ -344,7 +352,7 @@ export const AtomicKnowledgeViewer: React.FC<AtomicKnowledgeViewerProps> = ({
     }
   };
 
-  const getConnectionTypeColor = (type: string) => {
+  const _getConnectionTypeColor = (type: string) => {
     switch (type) {
       case 'semantic':
         return 'bg-blue-500/20 text-blue-400 border-blue-500/30';

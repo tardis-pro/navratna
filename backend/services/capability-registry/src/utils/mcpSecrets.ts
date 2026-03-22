@@ -61,7 +61,7 @@ export function decryptHeaders(stored: string): Record<string, string> {
     return JSON.parse(plain);
   } catch (err) {
     logger.error('mcpSecrets: decryption failed — wrong key or tampered data', err);
-    throw new Error('Failed to decrypt MCP server headers. Check MCP_SECRETS_KEY.');
+    throw new Error('Failed to decrypt MCP server headers. Check MCP_SECRETS_KEY.', { cause: err });
   }
 }
 

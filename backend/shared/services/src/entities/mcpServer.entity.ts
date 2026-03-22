@@ -1,4 +1,4 @@
-import { Entity, Column, Index, OneToMany } from 'typeorm';
+import { Entity, Column, Index } from 'typeorm';
 import { BaseEntity } from './base.entity';
 import {
   MCPServerType,
@@ -163,16 +163,16 @@ export class MCPServer extends BaseEntity {
 
   // Configuration and deployment
   @Column({ name: 'deployment_config', type: 'jsonb', nullable: true })
-  deploymentConfig?: Record<string, any>;
+  deploymentConfig?: Record<string, unknown>;
 
   @Column({ name: 'environment_variables', type: 'jsonb', nullable: true })
   environmentVariables?: Record<string, string>;
 
   @Column({ name: 'resource_limits', type: 'jsonb', nullable: true })
-  resourceLimits?: Record<string, any>;
+  resourceLimits?: Record<string, unknown>;
 
   @Column({ name: 'network_config', type: 'jsonb', nullable: true })
-  networkConfig?: Record<string, any>;
+  networkConfig?: Record<string, unknown>;
 
   // Logging and debugging
   @Column({
@@ -210,7 +210,7 @@ export class MCPServer extends BaseEntity {
 
   // Metadata and context
   @Column({ type: 'jsonb', nullable: true })
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 
   @Column({ name: 'external_references', type: 'jsonb', nullable: true })
   externalReferences?: Record<string, string>;

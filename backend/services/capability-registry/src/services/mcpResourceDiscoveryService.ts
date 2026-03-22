@@ -45,7 +45,7 @@ export interface ResourceDiscoveryResult {
     serverName: string;
     selectable: boolean;
     category: string;
-    inputSchema: any;
+    inputSchema: unknown;
     capabilities: string[];
   }>;
   servers: Array<{
@@ -226,6 +226,7 @@ export class MCPResourceDiscoveryService extends EventEmitter {
       const tools: ResourceDiscoveryResult['tools'] = [];
 
       for (const server of servers) {
+        // eslint-disable-next-line no-await-in-loop -- sequential processing required
         const serverTools = await this.mcpService.getSelectableToolsFromServer(server);
         tools.push(
           ...serverTools.map((tool) => ({
@@ -252,10 +253,11 @@ export class MCPResourceDiscoveryService extends EventEmitter {
       const summary: ResourceDiscoveryResult['servers'] = [];
 
       for (const server of servers) {
+        // eslint-disable-next-line no-await-in-loop -- sequential processing required
         const [tools, resources, prompts] = await Promise.all([
-          this.mcpService.getSelectableToolsFromServer(server).catch((): any[] => []),
-          this.mcpService.discoverResources(server).catch((): any[] => []),
-          this.mcpService.discoverPrompts(server).catch((): any[] => []),
+          this.mcpService.getSelectableToolsFromServer(server).catch((): unknown[] => []),
+          this.mcpService.discoverResources(server).catch((): unknown[] => []),
+          this.mcpService.discoverPrompts(server).catch((): unknown[] => []),
         ]);
 
         // Get server status (assuming we can access server state)
@@ -279,7 +281,7 @@ export class MCPResourceDiscoveryService extends EventEmitter {
 
   // Resource categorization logic
   private categorizeResource = (
-    resource: any
+    resource: unknown
   ): 'file' | 'database' | 'api' | 'document' | 'media' | 'unknown' => {
     const { uri, mimeType, name } = resource;
 
@@ -317,7 +319,7 @@ export class MCPResourceDiscoveryService extends EventEmitter {
 
   // Prompt categorization logic
   private categorizePrompt = (
-    prompt: any
+    prompt: unknown
   ): 'template' | 'generator' | 'analyzer' | 'transformer' | 'unknown' => {
     const { name, description } = prompt;
     const text = `${name} ${description || ''}`.toLowerCase();
@@ -366,9 +368,9 @@ export class MCPResourceDiscoveryService extends EventEmitter {
   };
 
   // Extract tool capabilities from schema
-  private extractToolCapabilities = (tool: any): string[] => {
+  private extractToolCapabilities = (tool: unknown): string[] => {
     const capabilities: string[] = [];
-    const { inputSchema, name, description } = tool;
+    const { inputSchema, name, _description } = tool;
 
     // Add capabilities based on tool name patterns
     const lowerName = name.toLowerCase();
@@ -391,9 +393,9 @@ export class MCPResourceDiscoveryService extends EventEmitter {
   };
 
   // Generate resource tags
-  private generateResourceTags = (resource: any): string[] => {
+  private generateResourceTags = (resource: unknown): string[] => {
     const tags: string[] = [];
-    const { uri, mimeType, name, serverName } = resource;
+    const { uri, mimeType, _name, serverName } = resource;
 
     // Server-based tags
     tags.push(`server:${serverName}`);
@@ -417,7 +419,7 @@ export class MCPResourceDiscoveryService extends EventEmitter {
   };
 
   // Generate prompt tags
-  private generatePromptTags = (prompt: any): string[] => {
+  private generatePromptTags = (prompt: unknown): string[] => {
     const tags: string[] = [];
     const { name, description, serverName, arguments: args } = prompt;
 

@@ -20,7 +20,7 @@ export class McpDatabaseError extends Error {
 export interface McpJobRequest {
   serverId: string;
   toolName: string;
-  parameters: any;
+  parameters: unknown;
   agentId?: string;
   userId?: string;
   conversationId?: string;
@@ -29,12 +29,12 @@ export interface McpJobRequest {
   securityLevel?: 'low' | 'medium' | 'high' | 'critical';
   approvalRequired?: boolean;
   timeoutSeconds?: number;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 export interface McpJobResult {
   success: boolean;
-  result?: any;
+  result?: unknown;
   error?: string;
   errorCode?: string;
   errorCategory?: string;
@@ -88,7 +88,7 @@ export class McpRepository {
       const saved = await this.toolCalls.save(row);
       logger.info(`McpRepository: created tool call ${saved.id} (${req.serverId}:${req.toolName})`);
       return saved;
-    } catch (err: any) {
+    } catch (err: unknown) {
       throw new McpDatabaseError('Failed to create MCP tool call', {
         cause: err?.message,
         req: req as unknown as Record<string, unknown>,
@@ -102,7 +102,7 @@ export class McpRepository {
       const row = await this.toolCalls.findOne({ where: { id } });
       if (!row) throw new McpDatabaseError(`Tool call not found: ${id}`);
       return row;
-    } catch (err: any) {
+    } catch (err: unknown) {
       if (err instanceof McpDatabaseError) throw err;
       throw new McpDatabaseError('Failed to update MCP tool call', { id, cause: err?.message });
     }
@@ -116,7 +116,11 @@ export class McpRepository {
     return this.updateToolCall(id, { status: 'running', startTime: new Date() });
   }
 
-  async completeToolCall(id: string, result: any, executionTimeMs?: number): Promise<MCPToolCall> {
+  async completeToolCall(
+    id: string,
+    result: unknown,
+    executionTimeMs?: number
+  ): Promise<MCPToolCall> {
     return this.updateToolCall(id, {
       status: 'completed',
       result,
@@ -215,7 +219,7 @@ export class McpRepository {
       const saved = await this.servers.save(row);
       logger.info(`McpRepository: created server ${saved.id} (${saved.name})`);
       return saved;
-    } catch (err: any) {
+    } catch (err: unknown) {
       throw new McpDatabaseError('Failed to create MCP server', { cause: err?.message });
     }
   }
@@ -226,7 +230,7 @@ export class McpRepository {
       const row = await this.servers.findOne({ where: { id } });
       if (!row) throw new McpDatabaseError(`Server not found: ${id}`);
       return row;
-    } catch (err: any) {
+    } catch (err: unknown) {
       if (err instanceof McpDatabaseError) throw err;
       throw new McpDatabaseError('Failed to update MCP server', { id, cause: err?.message });
     }
@@ -239,7 +243,7 @@ export class McpRepository {
   async getServerByName(name: string): Promise<MCPServer | null> {
     try {
       return await this.servers.findOne({ where: { name } });
-    } catch (err: any) {
+    } catch (err: unknown) {
       throw new McpDatabaseError('Failed to get MCP server by name', { name, cause: err?.message });
     }
   }
@@ -247,7 +251,7 @@ export class McpRepository {
   async getAllServers(): Promise<MCPServer[]> {
     try {
       return await this.servers.find({ order: { name: 'ASC' } });
-    } catch (err: any) {
+    } catch (err: unknown) {
       throw new McpDatabaseError('Failed to get all MCP servers', { cause: err?.message });
     }
   }
@@ -256,7 +260,7 @@ export class McpRepository {
     try {
       await this.servers.delete(id);
       logger.info(`McpRepository: deleted server ${id}`);
-    } catch (err: any) {
+    } catch (err: unknown) {
       throw new McpDatabaseError('Failed to delete MCP server', { id, cause: err?.message });
     }
   }

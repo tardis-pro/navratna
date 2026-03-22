@@ -1,7 +1,9 @@
 ---
+
 # OpenShell Integration Specification — Navratna v3.0
 
 ## Document Control
+
 - **Version**: 1.0
 - **Date**: 2026-03-21
 - **Purpose**: Define how NVIDIA OpenShell integrates with Navratna as the sandboxed execution layer
@@ -57,11 +59,11 @@ const openshellTools = [
             id: { type: 'string' },
             description: { type: 'string' },
             context: { type: 'string' },
-          }
-        }
+          },
+        },
       },
-      required: ['image', 'project', 'agent', 'policy']
-    }
+      required: ['image', 'project', 'agent', 'policy'],
+    },
   },
   {
     name: 'openshell.exec',
@@ -73,8 +75,8 @@ const openshellTools = [
         command: { type: 'string' },
         timeout: { type: 'number', default: 300000 },
       },
-      required: ['sandboxId', 'command']
-    }
+      required: ['sandboxId', 'command'],
+    },
   },
   {
     name: 'openshell.hibernate',
@@ -85,8 +87,8 @@ const openshellTools = [
         sandboxId: { type: 'string' },
         exportContext: { type: 'boolean', default: true },
       },
-      required: ['sandboxId']
-    }
+      required: ['sandboxId'],
+    },
   },
   {
     name: 'openshell.stream_logs',
@@ -97,9 +99,9 @@ const openshellTools = [
         sandboxId: { type: 'string' },
         follow: { type: 'boolean', default: true },
       },
-      required: ['sandboxId']
-    }
-  }
+      required: ['sandboxId'],
+    },
+  },
 ];
 ```
 
@@ -118,12 +120,12 @@ metadata:
 spec:
   filesystem:
     readWrite:
-      - /workspace          # Repo checkout
-      - /home/coder         # Agent home directory
-      - /tmp                # Temp files
+      - /workspace # Repo checkout
+      - /home/coder # Agent home directory
+      - /tmp # Temp files
     readOnly:
-      - /data/cache/pnpm    # Shared dependency cache
-      - /data/cache/pip     # Shared pip cache
+      - /data/cache/pnpm # Shared dependency cache
+      - /data/cache/pip # Shared pip cache
     denied:
       - /etc/shadow
       - /root
@@ -131,29 +133,29 @@ spec:
   network:
     egress:
       allow:
-        - "github.com:443"              # Git operations
-        - "registry.npmjs.org:443"       # npm packages
-        - "pypi.org:443"                 # pip packages
-        - "*.cloudflare.com:443"         # CF deployment
+        - 'github.com:443' # Git operations
+        - 'registry.npmjs.org:443' # npm packages
+        - 'pypi.org:443' # pip packages
+        - '*.cloudflare.com:443' # CF deployment
         # Inference routed through Privacy Router (not direct)
       deny:
-        - "*"                            # Block everything else
+        - '*' # Block everything else
 
   process:
     allowPrivilegeEscalation: false
     readOnlyRootFilesystem: false
     capabilities:
       drop: [ALL]
-      add: [NET_BIND_SERVICE]           # For dev servers
+      add: [NET_BIND_SERVICE] # For dev servers
 
   inference:
     # All LLM API calls intercepted and routed through Privacy Router
     router: openshell-privacy-router
     allowedModels:
-      - "claude-sonnet-4-6"
-      - "minimax-m2.5"
-      - "glm-5"
-      - "kimi-k2p5"
+      - 'claude-sonnet-4-6'
+      - 'minimax-m2.5'
+      - 'glm-5'
+      - 'kimi-k2p5'
     # Models determined by project config, injected at sandbox creation
 ```
 
@@ -184,8 +186,8 @@ spec:
       # Tool-specific: injected at creation time
       # e.g., GOG Gmail → allow imap.gmail.com, smtp.gmail.com
       # e.g., Browser → allow specific target URLs only
-      allow: []  # Populated per-tool
-      deny: ["*"]
+      allow: [] # Populated per-tool
+      deny: ['*']
 
   process:
     allowPrivilegeEscalation: false
@@ -195,11 +197,11 @@ spec:
 
   inference:
     router: openshell-privacy-router
-    allowedModels: []  # Tools don't need LLM access (usually)
+    allowedModels: [] # Tools don't need LLM access (usually)
 
   lifecycle:
-    maxDuration: 300s   # 5 min max for tool execution
-    autoDestroy: true   # Clean up after completion
+    maxDuration: 300s # 5 min max for tool execution
+    autoDestroy: true # Clean up after completion
 ```
 
 ### 3. Browser Test Sandbox
@@ -215,30 +217,30 @@ metadata:
 spec:
   filesystem:
     readWrite:
-      - /workspace/screenshots    # Evidence capture
-      - /workspace/reports        # Test reports
+      - /workspace/screenshots # Evidence capture
+      - /workspace/reports # Test reports
       - /tmp
     readOnly:
-      - /workspace/tests          # Test definitions
+      - /workspace/tests # Test definitions
 
   network:
     egress:
       allow:
-        - "*.pronitopenclaw.workers.dev:443"  # Staging URLs
-        - "localhost:*"                         # Local dev servers
-      deny: ["*"]
+        - '*.pronitopenclaw.workers.dev:443' # Staging URLs
+        - 'localhost:*' # Local dev servers
+      deny: ['*']
 
   process:
     allowPrivilegeEscalation: false
     capabilities:
-      add: [SYS_ADMIN]  # Required for Chromium sandbox
+      add: [SYS_ADMIN] # Required for Chromium sandbox
 
   inference:
     router: openshell-privacy-router
-    allowedModels: ["claude-haiku-4-5"]  # Lightweight for test analysis
+    allowedModels: ['claude-haiku-4-5'] # Lightweight for test analysis
 
   lifecycle:
-    maxDuration: 600s   # 10 min for test suite
+    maxDuration: 600s # 10 min for test suite
     autoDestroy: true
 ```
 
@@ -255,15 +257,15 @@ metadata:
 spec:
   filesystem:
     readOnly:
-      - /data/models       # Model weights (shared volume)
-      - /workspace/input   # Input data
+      - /data/models # Model weights (shared volume)
+      - /workspace/input # Input data
     readWrite:
-      - /workspace/output  # Inference results
+      - /workspace/output # Inference results
       - /tmp
 
   network:
     egress:
-      deny: ["*"]         # ZERO network access — fully air-gapped
+      deny: ['*'] # ZERO network access — fully air-gapped
 
   process:
     allowPrivilegeEscalation: false
@@ -272,15 +274,15 @@ spec:
 
   gpu:
     enabled: true
-    devices: ["nvidia.com/gpu=1"]
+    devices: ['nvidia.com/gpu=1']
     driverCapabilities: [compute, utility]
 
   inference:
-    router: none          # Direct model access, no cloud routing
+    router: none # Direct model access, no cloud routing
     localOnly: true
 
   lifecycle:
-    maxDuration: 3600s    # 1 hour max
+    maxDuration: 3600s # 1 hour max
     autoDestroy: true
 ```
 
@@ -335,6 +337,7 @@ WORKDIR /workspace
 ```
 
 ### Pre-pull Strategy
+
 ```bash
 # On PC-B and Mac:
 docker pull navratna/coding-workspace:latest
@@ -430,6 +433,7 @@ docker images navratna/coding-workspace
 ## Privacy Router Configuration
 
 ### How It Works
+
 Every outbound LLM API call from any sandbox is intercepted by OpenShell's Privacy Router:
 
 ```yaml
@@ -445,7 +449,7 @@ spec:
         trustLevel: ring-0
       action:
         backend: ollama
-        endpoint: "http://pc-a-navratna.tailnet:11434"
+        endpoint: 'http://pc-a-navratna.tailnet:11434'
         # Ring 0: local inference ONLY — no data leaves the network
 
     - match:
@@ -466,15 +470,15 @@ spec:
         backend: cloud
         # Ring 2: any provider OK, optimize for cost
         providers:
-          - zai       # Free tier first
-          - kimi      # Free tier
-          - minimax   # Cost-effective
+          - zai # Free tier first
+          - kimi # Free tier
+          - minimax # Cost-effective
           - anthropic # Premium
 
   # PII detection (optional, additional safety)
   piiFilter:
     enabled: true
-    action: warn  # Log warning if PII detected in Ring 1+ calls
+    action: warn # Log warning if PII detected in Ring 1+ calls
     patterns:
       - email
       - phone
@@ -497,21 +501,23 @@ interface SandboxBlock {
   state: 'warming' | 'active' | 'idle' | 'hibernating';
 
   // Real-time data (streamed via Socket.IO)
-  currentFile?: string;           // What file the agent is editing
-  testResults?: TestResult[];     // Latest test run
-  linesChanged?: number;          // Code diff stats
-  inferenceModel?: string;        // Which LLM is active
-  duration?: number;              // Time active
+  currentFile?: string; // What file the agent is editing
+  testResults?: TestResult[]; // Latest test run
+  linesChanged?: number; // Code diff stats
+  inferenceModel?: string; // Which LLM is active
+  duration?: number; // Time active
 
   // Telescope rendering hints
-  relevanceScore: number;         // Drives position/visibility
+  relevanceScore: number; // Drives position/visibility
   expression: TelescopeExpression; // Working, Satisfied, Strained, etc.
   breathingRate: 'slow' | 'medium' | 'fast'; // Activity indicator
 }
 ```
 
 ### Agent Cursor on Telescope
+
 When Claude Code is working in a sandbox, an agent cursor appears on the Telescope surface:
+
 - Hovering near the project's knowledge cluster
 - Moving when switching files
 - Pulsing when running tests
@@ -520,6 +526,7 @@ When Claude Code is working in a sandbox, an agent cursor appears on the Telesco
 ## Error Handling
 
 ### Sandbox Failures
+
 ```
 Sandbox crashes:
   → Context snapshot exported (if possible)
@@ -549,6 +556,7 @@ Network timeout:
 ## Setup Instructions
 
 ### Install OpenShell
+
 ```bash
 # On PC-B and Mac:
 curl -fsSL https://openshell.nvidia.com/install.sh | bash
@@ -566,6 +574,7 @@ openshell term
 ```
 
 ### Register Providers
+
 ```bash
 # Register LLM providers (credentials from .env)
 openshell provider add anthropic --api-key $ANTHROPIC_API_KEY
@@ -576,6 +585,7 @@ openshell provider add github --token $GITHUB_TOKEN
 ```
 
 ### Test First Sandbox
+
 ```bash
 # Create a test coding workspace
 openshell sandbox create \

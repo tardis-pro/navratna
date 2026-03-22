@@ -4,8 +4,8 @@ import { ProjectManagementService } from '@uaip/shared-services';
 import { DatabaseService } from '@uaip/infra/database';
 import { EventBusService } from '@uaip/infra/eventBus';
 import { withOptionalAuth } from '@uaip/middleware';
-import type { OptionalAuthContext } from './types/elysia-context.js';
-import { ProjectStatus } from '@uaip/types';
+import type { OptionalAuthContext as _OptionalAuthContext } from './types/elysia-context.js';
+import { ProjectStatus as _ProjectStatus } from '@uaip/types';
 
 let projectService: ProjectManagementService | null = null;
 
@@ -56,8 +56,8 @@ const projectQuerySchema = z.object({
   search: z.string().max(100).optional(),
 });
 
-export function registerProjectRoutes(app: any): any {
-  return app.group('/api/v1/projects', (app: any) =>
+export function registerProjectRoutes(elysiaApp: unknown): unknown {
+  return elysiaApp.group('/api/v1/projects', (app: unknown) =>
     withOptionalAuth(app)
       // List projects
       // @ts-expect-error - Elysia middleware injects user, but TypeScript cannot infer through nested groups
@@ -78,7 +78,7 @@ export function registerProjectRoutes(app: any): any {
           const projects = await service.listProjects({
             offset,
             limit: parsed.data.limit,
-            status: parsed.data.status as any,
+            status: parsed.data.status as unknown,
           });
 
           return { success: true, data: projects };
@@ -167,7 +167,7 @@ export function registerProjectRoutes(app: any): any {
           const project = await service.updateProject(params.projectId, {
             name: parsed.data.name,
             description: parsed.data.description,
-            status: parsed.data.status as any,
+            status: parsed.data.status as unknown,
             settings: parsed.data.settings,
             metadata: parsed.data.metadata,
           });

@@ -1,8 +1,12 @@
-import { Entity, Column, Index, ManyToOne, OneToMany, JoinColumn } from 'typeorm';
+import { Entity, Column, Index, OneToMany } from 'typeorm';
 import { BaseEntity } from './base.entity';
 import { OperationStatus, ExecutionPlan } from '@uaip/types';
 
 // Related entities will be referenced by string to avoid circular dependencies
+// Type-only imports are safe - they are erased at compile time
+import type { OperationState } from './operationState.entity';
+import type { ApprovalWorkflow } from './approvalWorkflow.entity';
+import type { Artifact } from './artifact.entity';
 
 /**
  * Enhanced Operation Entity with comprehensive operation tracking and state management
@@ -37,10 +41,10 @@ export class Operation extends BaseEntity {
   executionPlan: ExecutionPlan;
 
   @Column({ type: 'jsonb', nullable: true })
-  context?: Record<string, any>;
+  context?: Record<string, unknown>;
 
   @Column({ type: 'jsonb', nullable: true })
-  result?: any;
+  result?: Record<string, unknown>;
 
   @Column({ type: 'text', nullable: true })
   error?: string;
@@ -70,7 +74,7 @@ export class Operation extends BaseEntity {
   totalSteps?: number;
 
   @Column({ name: 'step_details', type: 'jsonb', nullable: true })
-  stepDetails?: Record<string, any>;
+  stepDetails?: Record<string, unknown>;
 
   @Column({ name: 'retry_count', default: 0 })
   retryCount: number;
@@ -85,16 +89,16 @@ export class Operation extends BaseEntity {
   timeoutDuration?: number;
 
   @Column({ name: 'resource_requirements', type: 'jsonb', nullable: true })
-  resourceRequirements?: Record<string, any>;
+  resourceRequirements?: Record<string, unknown>;
 
   @Column({ name: 'resource_allocation', type: 'jsonb', nullable: true })
-  resourceAllocation?: Record<string, any>;
+  resourceAllocation?: Record<string, unknown>;
 
   @Column({ name: 'performance_metrics', type: 'jsonb', nullable: true })
-  performanceMetrics?: Record<string, any>;
+  performanceMetrics?: Record<string, unknown>;
 
   @Column({ name: 'quality_metrics', type: 'jsonb', nullable: true })
-  qualityMetrics?: Record<string, any>;
+  qualityMetrics?: Record<string, unknown>;
 
   @Column({ name: 'dependencies', type: 'jsonb', default: '[]' })
   dependencies: string[];
@@ -106,7 +110,7 @@ export class Operation extends BaseEntity {
   tags: string[];
 
   @Column({ name: 'metadata', type: 'jsonb', nullable: true })
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 
   @Column({ name: 'is_archived', default: false })
   isArchived: boolean;
@@ -122,11 +126,11 @@ export class Operation extends BaseEntity {
 
   // Relationships
   @OneToMany('OperationState', 'operation')
-  states: any[];
+  states: OperationState[];
 
   @OneToMany('ApprovalWorkflow', 'operation')
-  approvalWorkflows: any[];
+  approvalWorkflows: ApprovalWorkflow[];
 
   @OneToMany('Artifact', 'operation')
-  artifacts: any[];
+  artifacts: Artifact[];
 }

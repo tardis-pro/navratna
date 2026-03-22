@@ -102,7 +102,7 @@ export function useForceLayout(config: ForceLayoutConfig = DEFAULT_FORCE_LAYOUT_
 
         if (distSq < minDist * minDist) {
           const dist = Math.sqrt(distSq);
-          const force = repulsion * (minDist - dist) / dist;
+          const force = (repulsion * (minDist - dist)) / dist;
           const fx = dx * force * 0.5;
           const fy = dy * force * 0.5;
 
@@ -162,23 +162,32 @@ export function useForceLayout(config: ForceLayoutConfig = DEFAULT_FORCE_LAYOUT_
     animFrameRef.current = requestAnimationFrame(tick);
   }, [tick]);
 
-  const setNodes = useCallback((nodes: ForceNode[]) => {
-    nodesRef.current = nodes.map((n) => ({ ...n }));
-    startSimulation();
-  }, [startSimulation]);
-
-  const updateRelevance = useCallback((id: string, relevanceScore: number) => {
-    const node = nodesRef.current.find((n) => n.id === id);
-    if (node) {
-      node.relevanceScore = relevanceScore;
+  const setNodes = useCallback(
+    (nodes: ForceNode[]) => {
+      nodesRef.current = nodes.map((n) => ({ ...n }));
       startSimulation();
-    }
-  }, [startSimulation]);
+    },
+    [startSimulation]
+  );
 
-  const setIntentCenter = useCallback((center: NodePosition) => {
-    intentCenterRef.current = center;
-    startSimulation();
-  }, [startSimulation]);
+  const updateRelevance = useCallback(
+    (id: string, relevanceScore: number) => {
+      const node = nodesRef.current.find((n) => n.id === id);
+      if (node) {
+        node.relevanceScore = relevanceScore;
+        startSimulation();
+      }
+    },
+    [startSimulation]
+  );
+
+  const setIntentCenter = useCallback(
+    (center: NodePosition) => {
+      intentCenterRef.current = center;
+      startSimulation();
+    },
+    [startSimulation]
+  );
 
   // Cleanup animation frame on unmount
   useEffect(() => {

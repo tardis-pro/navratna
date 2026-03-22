@@ -52,14 +52,15 @@ RATE_LIMIT_MAX_REQUESTS=100
 
 - Use `sample.env` for the full list, including service-specific settings.
 - Keep secrets out of version control and rotate them when sharing environments.
-OAUTH_GITHUB_CLIENT_ID=your-github-client-id
-OAUTH_GITHUB_CLIENT_SECRET=your-github-client-secret
-OAUTH_GITHUB_CALLBACK_URL=http://localhost:8081/auth/github/callback
+  OAUTH_GITHUB_CLIENT_ID=your-github-client-id
+  OAUTH_GITHUB_CLIENT_SECRET=your-github-client-secret
+  OAUTH_GITHUB_CALLBACK_URL=http://localhost:8081/auth/github/callback
 
 OAUTH_GOOGLE_CLIENT_ID=your-google-client-id
 OAUTH_GOOGLE_CLIENT_SECRET=your-google-client-secret
 OAUTH_GOOGLE_CALLBACK_URL=http://localhost:8081/auth/google/callback
-```
+
+````
 
 ## 🤖 AI/LLM Configuration
 
@@ -73,7 +74,7 @@ OPENAI_DEFAULT_MODEL=gpt-4
 OPENAI_MAX_TOKENS=4000
 OPENAI_TEMPERATURE=0.7
 OPENAI_TIMEOUT=30000
-```
+````
 
 ### Anthropic Settings
 

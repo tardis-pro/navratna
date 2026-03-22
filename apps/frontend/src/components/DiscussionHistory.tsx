@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { ChevronDown, MessageSquare, Clock, Users, Eye, Download, Trash2 } from 'lucide-react';
+import { ChevronDown, MessageSquare, Clock, Users, Eye, _Download, _Trash2 } from 'lucide-react';
 import { format } from 'date-fns';
 import { useDiscussion } from '@/contexts/DiscussionContext';
 import { discussionsAPI } from '@/api/discussions.api';
@@ -26,6 +26,7 @@ export const DiscussionHistory: React.FC<DiscussionHistoryProps> = ({
     if (isOpen && discussions.length === 0) {
       loadDiscussions();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen]);
 
   const loadDiscussions = async () => {
@@ -48,8 +49,6 @@ export const DiscussionHistory: React.FC<DiscussionHistoryProps> = ({
 
   const handleSelectDiscussion = async (discussion: Discussion) => {
     try {
-      console.log('🔍 Loading discussion:', discussion.id);
-
       // Force reload by clearing current discussion first
       if (loadHistory) {
         await loadHistory(discussion.id);

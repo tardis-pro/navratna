@@ -133,7 +133,7 @@ export class SmartEmbeddingService extends EmbeddingService {
       }
     } catch (error) {
       this.recordFailure(startTime);
-      throw new Error(`Smart embedding failed: ${error.message}`);
+      throw new Error(`Smart embedding failed: ${error.message}`, { cause: error });
     }
   }
 
@@ -172,7 +172,7 @@ export class SmartEmbeddingService extends EmbeddingService {
       }
     } catch (error) {
       this.recordFailure(startTime);
-      throw new Error(`Smart batch embedding failed: ${error.message}`);
+      throw new Error(`Smart batch embedding failed: ${error.message}`, { cause: error });
     }
   }
 
@@ -233,7 +233,11 @@ export class SmartEmbeddingService extends EmbeddingService {
   /**
    * Rerank documents (TEI-only feature)
    */
-  async rerank(query: string, documents: string[], topK?: number): Promise<any[]> {
+  async rerank(
+    query: string,
+    documents: string[],
+    topK?: number
+  ): Promise<Record<string, unknown>[]> {
     if (this.shouldUseTEI() && this.healthStatus.teiStatus.reranker.status === 'ready') {
       return await this.teiService.rerank(query, documents, topK);
     } else {
@@ -264,7 +268,7 @@ export class SmartEmbeddingService extends EmbeddingService {
       if (this.config.preferTEI) {
         this.healthStatus.teiStatus = await this.teiService.checkHealth();
       }
-      console.log(this.healthStatus);
+
       // Check OpenAI availability (we assume it's available if API key is provided)
       this.healthStatus.openaiAvailable = !!this.config.openaiApiKey;
 
@@ -376,7 +380,7 @@ export class SmartEmbeddingService extends EmbeddingService {
    * Record failed operation
    */
   private recordFailure(startTime: number): void {
-    const latency = Date.now() - startTime;
+    const _latency = Date.now() - startTime;
 
     // Update success rate
     this.performanceMetrics.successRate =

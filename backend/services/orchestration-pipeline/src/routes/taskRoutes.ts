@@ -4,8 +4,14 @@ import { TaskController } from '../controllers/taskController.js';
 export function registerTaskRoutes(app: Elysia, taskController: TaskController): void {
   // Helper to create Express-compatible req/res objects for controller
   const wrapController = (method: Function) => {
-    return async (context: any) => {
-      const { params, query, body, headers, set } = context;
+    return async (context: Record<string, unknown>) => {
+      const { params, query, body, headers, set } = context as {
+        params: Record<string, string>;
+        query: Record<string, string>;
+        body: Record<string, unknown> | undefined;
+        headers: Record<string, string>;
+        set: { status: number };
+      };
       const req = {
         params,
         query,
@@ -13,11 +19,11 @@ export function registerTaskRoutes(app: Elysia, taskController: TaskController):
         user: { id: headers['x-user-id'] },
       };
 
-      let responseData: any;
+      let responseData: Record<string, unknown> | string | undefined;
       let statusCode = 200;
 
       const res = {
-        json: (data: any) => {
+        json: (data: Record<string, unknown>) => {
           responseData = data;
           return res;
         },
@@ -25,7 +31,7 @@ export function registerTaskRoutes(app: Elysia, taskController: TaskController):
           statusCode = code;
           return res;
         },
-        send: (data: any) => {
+        send: (data: Record<string, unknown> | string) => {
           responseData = data;
           return res;
         },

@@ -6,7 +6,6 @@ import {
   TaskType,
   AssigneeType,
   TaskSettings,
-  TaskMetrics,
 } from '../entities/task.entity';
 import { ProjectEntity } from '../entities/project.entity';
 import { UserEntity } from '../entities/user.entity';
@@ -15,10 +14,10 @@ import { v4 as uuidv4 } from 'uuid';
 
 // Simple logger fallback
 const logger = {
-  info: (msg: string, data?: any) => console.log('[INFO]', msg, data),
-  error: (msg: string, data?: any) => console.error('[ERROR]', msg, data),
-  warn: (msg: string, data?: any) => console.warn('[WARN]', msg, data),
-  debug: (msg: string, data?: any) => console.debug('[DEBUG]', msg, data),
+  info: (_msg: string, _data?: unknown) => {},
+  error: (msg: string, data?: unknown) => console.error('[ERROR]', msg, data),
+  warn: (msg: string, data?: unknown) => console.warn('[WARN]', msg, data),
+  debug: (_msg: string, _data?: unknown) => {},
 };
 
 export interface CreateTaskRequest {
@@ -38,7 +37,7 @@ export interface CreateTaskRequest {
   settings?: TaskSettings;
   estimatedHours?: number;
   createdBy: string;
-  customFields?: Record<string, any>;
+  customFields?: Record<string, unknown>;
 }
 
 export interface UpdateTaskRequest {
@@ -56,7 +55,7 @@ export interface UpdateTaskRequest {
   epic?: string;
   sprint?: string;
   settings?: TaskSettings;
-  customFields?: Record<string, any>;
+  customFields?: Record<string, unknown>;
   updatedBy: string;
 }
 
@@ -107,9 +106,9 @@ export interface TaskActivityEntry {
   action: string;
   userId: string;
   userName: string;
-  details: any;
-  oldValue?: any;
-  newValue?: any;
+  details: Record<string, unknown>;
+  oldValue?: string | number | boolean | null;
+  newValue?: string | number | boolean | null;
 }
 
 export class TaskService {
@@ -120,7 +119,9 @@ export class TaskService {
   private projectRepository: Repository<ProjectEntity> | null = null;
   private userRepository: Repository<UserEntity> | null = null;
   private agentRepository: Repository<Agent> | null = null;
-  private eventBusService: any = null;
+  private eventBusService: {
+    publish: (event: string, data: Record<string, unknown>) => void;
+  } | null = null;
 
   protected constructor() {
     // Domain service - no direct TypeORM dependencies
@@ -139,13 +140,13 @@ export class TaskService {
     projectRepository: Repository<ProjectEntity>;
     userRepository: Repository<UserEntity>;
     agentRepository: Repository<Agent>;
-    eventBusService?: any;
+    eventBusService?: { publish: (event: string, data: Record<string, unknown>) => void };
   }) {
     this.taskRepository = repositories.taskRepository;
     this.projectRepository = repositories.projectRepository;
     this.userRepository = repositories.userRepository;
     this.agentRepository = repositories.agentRepository;
-    this.eventBusService = repositories.eventBusService;
+    this.eventBusService = repositories.eventBusService ?? null;
   }
 
   async createTask(request: CreateTaskRequest): Promise<TaskEntity> {
@@ -264,7 +265,7 @@ export class TaskService {
       }
 
       // Track changes for activity log
-      const changes: Record<string, { old: any; new: any }> = {};
+      const changes: Record<string, { old: unknown; new: unknown }> = {};
 
       // Handle status changes
       if (request.status && request.status !== task.status) {
@@ -308,6 +309,7 @@ export class TaskService {
 
       // Log activity for changes
       for (const [field, change] of Object.entries(changes)) {
+        // eslint-disable-next-line no-await-in-loop
         await this.logActivity(taskId, `${field}_changed`, request.updatedBy, {
           field,
           oldValue: change.old,
@@ -553,6 +555,7 @@ export class TaskService {
 
     // Score humans based on availability and expertise
     for (const member of projectMembers) {
+      // eslint-disable-next-line no-await-in-loop
       const workload = await this.getUserWorkload(member.id);
       const score = this.calculateAssignmentScore(task, 'human', { workload });
 
@@ -570,11 +573,12 @@ export class TaskService {
 
     // Score agents based on capabilities and availability
     for (const agent of agents) {
+      // eslint-disable-next-line no-await-in-loop
       const workload = await this.getAgentWorkload(agent.id);
       const score = this.calculateAssignmentScore(task, 'agent', {
         workload,
         capabilities: agent.capabilities,
-        skills: (agent as any).skills || [],
+        skills: agent.skills || [],
       });
 
       suggestions.push({
@@ -585,7 +589,7 @@ export class TaskService {
         reason: this.getAssignmentReason(task, 'agent', {
           workload,
           capabilities: agent.capabilities,
-          skills: (agent as any).skills || [],
+          skills: agent.skills || [],
         }),
         availability: workload > 5 ? 'busy' : 'available',
         expertise: agent.capabilities || [],
@@ -600,7 +604,11 @@ export class TaskService {
   private calculateAssignmentScore(
     task: TaskEntity,
     assigneeType: 'human' | 'agent',
-    context: any
+    context: {
+      workload: number;
+      capabilities?: string[];
+      skills?: Array<{ name: string; description?: string; enabled?: boolean }>;
+    }
   ): number {
     let score = 50; // Base score
 
@@ -632,12 +640,17 @@ export class TaskService {
 
     // Adjust based on skills (for agents) - skills match on name + description keywords
     if (assigneeType === 'agent' && context.skills) {
-      const enabledSkills = (context.skills as any[]).filter((s) => s.enabled !== false);
+      const enabledSkills = context.skills.filter((s) => s.enabled !== false);
       const relevantSkills = enabledSkills.filter((skill) => {
         const taskText = (task.title + ' ' + (task.description || '')).toLowerCase();
-        return taskText.includes(skill.name.toLowerCase()) ||
-          (skill.description && skill.description.toLowerCase().split(' ')
-            .some((word: string) => word.length > 4 && taskText.includes(word)));
+        return (
+          taskText.includes(skill.name.toLowerCase()) ||
+          (skill.description &&
+            skill.description
+              .toLowerCase()
+              .split(' ')
+              .some((word: string) => word.length > 4 && taskText.includes(word)))
+        );
       });
       score += relevantSkills.length * 8;
     }
@@ -648,7 +661,11 @@ export class TaskService {
   private getAssignmentReason(
     task: TaskEntity,
     assigneeType: 'human' | 'agent',
-    context: any
+    context: {
+      workload: number;
+      capabilities?: string[];
+      skills?: Array<{ name: string; description?: string; enabled?: boolean }>;
+    }
   ): string {
     const reasons: string[] = [];
 
@@ -663,8 +680,9 @@ export class TaskService {
     if (assigneeType === 'agent') {
       if (task.type === TaskType.RESEARCH) reasons.push('Good for research tasks');
       if (task.type === TaskType.DOCUMENTATION) reasons.push('Excellent for documentation');
-      if (context.capabilities?.length > 0) reasons.push('Has relevant capabilities');
-      if ((context.skills as any[])?.filter((s) => s.enabled !== false).length > 0)
+      if (context.capabilities && context.capabilities.length > 0)
+        reasons.push('Has relevant capabilities');
+      if (context.skills?.filter((s) => s.enabled !== false).length)
         reasons.push('Has specialized skills');
     } else {
       if (task.type === TaskType.FEATURE) reasons.push('Great for feature development');
@@ -696,7 +714,7 @@ export class TaskService {
     taskId: string,
     action: string,
     userId: string,
-    details: any
+    details: Record<string, unknown>
   ): Promise<void> {
     const task = await this.taskRepository.findOne({ where: { id: taskId } });
     if (!task) return;
@@ -757,7 +775,14 @@ export class TaskService {
     return await this.taskRepository.save(task);
   }
 
-  async getTaskStatistics(projectId: string): Promise<any> {
+  async getTaskStatistics(
+    projectId: string
+  ): Promise<{
+    total: number;
+    byStatus: Record<string, number>;
+    byPriority: Record<string, number>;
+    byAssigneeType: Record<string, number>;
+  }> {
     const stats = await this.taskRepository
       .createQueryBuilder('task')
       .select([
@@ -779,8 +804,8 @@ export class TaskService {
     };
   }
 
-  private groupBy(items: any[], key: string): Record<string, number> {
-    return items.reduce((acc, item) => {
+  private groupBy(items: Record<string, string>[], key: string): Record<string, number> {
+    return items.reduce((acc: Record<string, number>, item) => {
       const value = item[key] || 'unassigned';
       acc[value] = (acc[value] || 0) + parseInt(item.count);
       return acc;

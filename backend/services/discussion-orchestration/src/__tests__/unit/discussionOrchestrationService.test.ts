@@ -21,13 +21,13 @@ describe('DiscussionOrchestrationService', () => {
     emit: jest.fn(),
   };
 
-  let discussionOrchestrationService: any;
+  let discussionOrchestrationService: unknown;
 
   beforeEach(() => {
     jest.clearAllMocks();
 
     // Setup mock implementations
-    (mockDiscussionOrchestrationService.createDiscussion as any).mockResolvedValue({
+    (mockDiscussionOrchestrationService.createDiscussion as unknown).mockResolvedValue({
       success: true,
       data: {
         id: 'discussion-123',
@@ -45,7 +45,7 @@ describe('DiscussionOrchestrationService', () => {
       ],
     });
 
-    (mockDiscussionOrchestrationService.startDiscussion as any).mockResolvedValue({
+    (mockDiscussionOrchestrationService.startDiscussion as unknown).mockResolvedValue({
       success: true,
       data: {
         id: 'discussion-123',
@@ -62,7 +62,7 @@ describe('DiscussionOrchestrationService', () => {
       ],
     });
 
-    (mockDiscussionOrchestrationService.addParticipant as any).mockResolvedValue({
+    (mockDiscussionOrchestrationService.addParticipant as unknown).mockResolvedValue({
       success: true,
       data: {
         id: 'participant-123',
@@ -78,7 +78,7 @@ describe('DiscussionOrchestrationService', () => {
       ],
     });
 
-    (mockDiscussionOrchestrationService.sendMessage as any).mockResolvedValue({
+    (mockDiscussionOrchestrationService.sendMessage as unknown).mockResolvedValue({
       success: true,
       data: {
         id: 'message-123',
@@ -93,7 +93,7 @@ describe('DiscussionOrchestrationService', () => {
       ],
     });
 
-    (mockDiscussionOrchestrationService.advanceTurn as any).mockResolvedValue({
+    (mockDiscussionOrchestrationService.advanceTurn as unknown).mockResolvedValue({
       success: true,
       data: {
         nextParticipant: { id: 'participant-2' },
@@ -108,25 +108,25 @@ describe('DiscussionOrchestrationService', () => {
       ],
     });
 
-    (mockDiscussionOrchestrationService.pauseDiscussion as any).mockResolvedValue({
+    (mockDiscussionOrchestrationService.pauseDiscussion as unknown).mockResolvedValue({
       success: true,
       data: { id: 'discussion-123', status: 'paused' },
       events: [{ type: 'status_changed', data: { newStatus: 'paused' } }],
     });
 
-    (mockDiscussionOrchestrationService.resumeDiscussion as any).mockResolvedValue({
+    (mockDiscussionOrchestrationService.resumeDiscussion as unknown).mockResolvedValue({
       success: true,
       data: { id: 'discussion-123', status: 'active' },
       events: [{ type: 'status_changed', data: { newStatus: 'active' } }],
     });
 
-    (mockDiscussionOrchestrationService.endDiscussion as any).mockResolvedValue({
+    (mockDiscussionOrchestrationService.endDiscussion as unknown).mockResolvedValue({
       success: true,
       data: { id: 'discussion-123', status: 'completed' },
       events: [{ type: 'status_changed', data: { newStatus: 'completed' } }],
     });
 
-    (mockDiscussionOrchestrationService.getDiscussion as any).mockResolvedValue({
+    (mockDiscussionOrchestrationService.getDiscussion as unknown).mockResolvedValue({
       id: 'discussion-123',
       title: 'Test Discussion',
       status: 'active',
@@ -143,26 +143,26 @@ describe('DiscussionOrchestrationService', () => {
       settings: { maxParticipants: 10 },
     });
 
-    (mockDiscussionOrchestrationService.verifyParticipantAccess as any).mockResolvedValue(true);
+    (mockDiscussionOrchestrationService.verifyParticipantAccess as unknown).mockResolvedValue(true);
 
-    (mockDiscussionOrchestrationService.getParticipantByUserId as any).mockResolvedValue({
+    (mockDiscussionOrchestrationService.getParticipantByUserId as unknown).mockResolvedValue({
       id: 'participant-123',
       userId: 'user-123',
       agentId: 'agent-123',
       isActive: true,
     });
 
-    (mockDiscussionOrchestrationService.requestTurn as any).mockResolvedValue({
+    (mockDiscussionOrchestrationService.requestTurn as unknown).mockResolvedValue({
       success: true,
       data: { status: 'active', message: 'It is already your turn' },
     });
 
-    (mockDiscussionOrchestrationService.endTurn as any).mockResolvedValue({
+    (mockDiscussionOrchestrationService.endTurn as unknown).mockResolvedValue({
       success: true,
       data: { message: 'Turn ended successfully', nextParticipant: { id: 'participant-2' } },
     });
 
-    (mockDiscussionOrchestrationService.addReaction as any).mockResolvedValue({
+    (mockDiscussionOrchestrationService.addReaction as unknown).mockResolvedValue({
       success: true,
       data: {
         id: 'reaction-123',
@@ -173,14 +173,14 @@ describe('DiscussionOrchestrationService', () => {
       events: [{ type: 'reaction_added', data: { emoji: '👍' } }],
     });
 
-    (mockDiscussionOrchestrationService.getStatus as any).mockReturnValue({
+    (mockDiscussionOrchestrationService.getStatus as unknown).mockReturnValue({
       activeDiscussions: 2,
       activeTurnTimers: 1,
       cacheSize: 2,
       uptime: 3600,
     });
 
-    (mockDiscussionOrchestrationService.cleanup as any).mockResolvedValue(undefined);
+    (mockDiscussionOrchestrationService.cleanup as unknown).mockResolvedValue(undefined);
 
     discussionOrchestrationService = mockDiscussionOrchestrationService;
   });
@@ -246,7 +246,7 @@ describe('DiscussionOrchestrationService', () => {
         },
       };
 
-      (discussionOrchestrationService.createDiscussion as any).mockResolvedValue({
+      (discussionOrchestrationService.createDiscussion as unknown).mockResolvedValue({
         success: false,
         error: 'Invalid turn strategy configuration: Unknown strategy type',
       });
@@ -260,7 +260,7 @@ describe('DiscussionOrchestrationService', () => {
     it('should handle creation failures', async () => {
       const request = { title: 'Test Discussion' };
 
-      (discussionOrchestrationService.createDiscussion as any).mockResolvedValue({
+      (discussionOrchestrationService.createDiscussion as unknown).mockResolvedValue({
         success: false,
         error: 'Failed to create discussion',
       });
@@ -290,7 +290,7 @@ describe('DiscussionOrchestrationService', () => {
     });
 
     it('should handle discussion not found', async () => {
-      (discussionOrchestrationService.startDiscussion as any).mockResolvedValue({
+      (discussionOrchestrationService.startDiscussion as unknown).mockResolvedValue({
         success: false,
         error: 'Discussion not found',
       });
@@ -305,7 +305,7 @@ describe('DiscussionOrchestrationService', () => {
     });
 
     it('should handle insufficient participants', async () => {
-      (discussionOrchestrationService.startDiscussion as any).mockResolvedValue({
+      (discussionOrchestrationService.startDiscussion as unknown).mockResolvedValue({
         success: false,
         error: 'At least 2 active participants required to start discussion',
       });
@@ -347,7 +347,7 @@ describe('DiscussionOrchestrationService', () => {
     });
 
     it('should handle maximum participant limit', async () => {
-      (discussionOrchestrationService.addParticipant as any).mockResolvedValue({
+      (discussionOrchestrationService.addParticipant as unknown).mockResolvedValue({
         success: false,
         error: 'Discussion has reached maximum participant limit',
       });
@@ -364,7 +364,7 @@ describe('DiscussionOrchestrationService', () => {
     });
 
     it('should validate required fields', async () => {
-      (discussionOrchestrationService.addParticipant as any).mockResolvedValue({
+      (discussionOrchestrationService.addParticipant as unknown).mockResolvedValue({
         success: false,
         error: 'agentId is required',
       });
@@ -404,7 +404,7 @@ describe('DiscussionOrchestrationService', () => {
     });
 
     it('should handle participant not found', async () => {
-      (discussionOrchestrationService.sendMessage as any).mockResolvedValue({
+      (discussionOrchestrationService.sendMessage as unknown).mockResolvedValue({
         success: false,
         error: 'Participant not found',
       });
@@ -421,7 +421,7 @@ describe('DiscussionOrchestrationService', () => {
     });
 
     it('should handle turn restrictions', async () => {
-      (discussionOrchestrationService.sendMessage as any).mockResolvedValue({
+      (discussionOrchestrationService.sendMessage as unknown).mockResolvedValue({
         success: false,
         error: 'It is not your turn to speak',
       });
@@ -454,7 +454,7 @@ describe('DiscussionOrchestrationService', () => {
     });
 
     it('should handle inactive discussion', async () => {
-      (discussionOrchestrationService.advanceTurn as any).mockResolvedValue({
+      (discussionOrchestrationService.advanceTurn as unknown).mockResolvedValue({
         success: false,
         error: 'Discussion is not active',
       });
@@ -504,7 +504,7 @@ describe('DiscussionOrchestrationService', () => {
     });
 
     it('should handle non-paused discussion', async () => {
-      (discussionOrchestrationService.resumeDiscussion as any).mockResolvedValue({
+      (discussionOrchestrationService.resumeDiscussion as unknown).mockResolvedValue({
         success: false,
         error: 'Discussion is not paused',
       });
@@ -561,7 +561,7 @@ describe('DiscussionOrchestrationService', () => {
     });
 
     it('should handle discussion not found', async () => {
-      (discussionOrchestrationService.getDiscussion as any).mockResolvedValue(null);
+      (discussionOrchestrationService.getDiscussion as unknown).mockResolvedValue(null);
 
       const result = await discussionOrchestrationService.getDiscussion('nonexistent');
 
@@ -584,7 +584,7 @@ describe('DiscussionOrchestrationService', () => {
     });
 
     it('should deny access for invalid participant', async () => {
-      (discussionOrchestrationService.verifyParticipantAccess as any).mockResolvedValue(false);
+      (discussionOrchestrationService.verifyParticipantAccess as unknown).mockResolvedValue(false);
 
       const hasAccess = await discussionOrchestrationService.verifyParticipantAccess(
         'discussion-123',
@@ -612,7 +612,7 @@ describe('DiscussionOrchestrationService', () => {
     });
 
     it('should handle participant not found', async () => {
-      (discussionOrchestrationService.getParticipantByUserId as any).mockResolvedValue(null);
+      (discussionOrchestrationService.getParticipantByUserId as unknown).mockResolvedValue(null);
 
       const participant = await discussionOrchestrationService.getParticipantByUserId(
         'discussion-123',
@@ -640,7 +640,7 @@ describe('DiscussionOrchestrationService', () => {
     });
 
     it('should handle invalid participant', async () => {
-      (discussionOrchestrationService.requestTurn as any).mockResolvedValue({
+      (discussionOrchestrationService.requestTurn as unknown).mockResolvedValue({
         success: false,
         error: 'Participant not found',
       });
@@ -672,7 +672,7 @@ describe('DiscussionOrchestrationService', () => {
     });
 
     it('should handle invalid turn', async () => {
-      (discussionOrchestrationService.endTurn as any).mockResolvedValue({
+      (discussionOrchestrationService.endTurn as unknown).mockResolvedValue({
         success: false,
         error: 'It is not your turn',
       });
@@ -710,7 +710,7 @@ describe('DiscussionOrchestrationService', () => {
     });
 
     it('should handle inactive participant', async () => {
-      (discussionOrchestrationService.addReaction as any).mockResolvedValue({
+      (discussionOrchestrationService.addReaction as unknown).mockResolvedValue({
         success: false,
         error: 'Participant not found or inactive',
       });

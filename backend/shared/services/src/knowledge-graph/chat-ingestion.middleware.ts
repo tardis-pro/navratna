@@ -239,6 +239,7 @@ export class ChatIngestionMiddleware {
             size: number;
           }>) {
             try {
+              // oxlint-disable-next-line no-await-in-loop
               const processedFile = await this.processFile(file, validatedOptions.userId);
               processedFiles.push(processedFile);
 
@@ -326,6 +327,7 @@ export class ChatIngestionMiddleware {
 
           for (const file of validFiles) {
             try {
+              // oxlint-disable-next-line no-await-in-loop
               const parseResult = await this.chatParser.parseFile(file.content, file.originalName);
               const conversations = parseResult.conversations;
 

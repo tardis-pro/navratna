@@ -44,9 +44,7 @@ async function fetchAgentsFromService(): Promise<AgentSummary[]> {
       id: String(a['id'] ?? ''),
       name: String(a['name'] ?? 'Unknown Agent'),
       description: String(
-        (a['persona'] as Record<string, unknown> | undefined)?.['role'] ??
-          a['description'] ??
-          ''
+        (a['persona'] as Record<string, unknown> | undefined)?.['role'] ?? a['description'] ?? ''
       ),
     }))
     .filter((a) => a.id);
@@ -232,7 +230,11 @@ export class WhatsAppHandler {
         try {
           await this.bindingSvc.setBinding(data.jid, data.agentId);
           await this.bindingSvc.clearPendingSelection(data.jid);
-          logger.info('Admin bound contact to agent', { jid: data.jid, agentId: data.agentId, userId });
+          logger.info('Admin bound contact to agent', {
+            jid: data.jid,
+            agentId: data.agentId,
+            userId,
+          });
           await this.broadcastBindings();
         } catch (err) {
           socket.emit('wa:error', { message: (err as Error).message });

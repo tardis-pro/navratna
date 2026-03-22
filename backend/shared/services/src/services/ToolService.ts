@@ -40,7 +40,9 @@ export class ToolService extends BaseDomainService {
   }
 
   public getToolAssignmentRepository(): Repository<ToolAssignment> {
-    return this.getRepository('toolAssignRepo', () => this.typeormService.getRepository(ToolAssignment));
+    return this.getRepository('toolAssignRepo', () =>
+      this.typeormService.getRepository(ToolAssignment)
+    );
   }
 
   // Tool definition operations
@@ -51,9 +53,9 @@ export class ToolService extends BaseDomainService {
     category: ToolCategory;
     isEnabled?: boolean;
     version?: string;
-    inputSchema?: any;
-    outputSchema?: any;
-    configuration?: any;
+    inputSchema?: Record<string, unknown>;
+    outputSchema?: Record<string, unknown>;
+    configuration?: Record<string, unknown>;
     requiredPermissions?: string[];
     securityLevel?: SecurityLevel;
     maxRetries?: number;
@@ -103,8 +105,8 @@ export class ToolService extends BaseDomainService {
     toolId: string;
     agentId?: string;
     userId?: string;
-    input: any;
-    context?: any;
+    input: Record<string, unknown>;
+    context?: Record<string, unknown>;
     traceId?: string;
   }): Promise<ToolExecution> {
     const executionRepo = this.getToolExecutionRepository();
@@ -125,13 +127,13 @@ export class ToolService extends BaseDomainService {
     id: string,
     data: {
       status?: ToolExecutionStatus;
-      output?: any;
-      error?: any;
-      metadata?: any;
+      output?: Record<string, unknown>;
+      error?: string;
+      metadata?: Record<string, unknown>;
       duration?: number;
     }
   ): Promise<ToolExecution | null> {
-    const updates: any = { ...data };
+    const updates: Partial<ToolExecution> & { endTime?: Date } = { ...data };
 
     if (
       data.status === ToolExecutionStatus.COMPLETED ||
@@ -185,7 +187,7 @@ export class ToolService extends BaseDomainService {
     });
   }
 
-  public async getToolUsageStats(toolId: string, days: number = 30): Promise<any> {
+  public async getToolUsageStats(toolId: string, days: number = 30): Promise<unknown> {
     const startDate = new Date();
     startDate.setDate(startDate.getDate() - days);
 
@@ -203,7 +205,7 @@ export class ToolService extends BaseDomainService {
     permissions: {
       canExecute?: boolean;
       canRead?: boolean;
-      customConfig?: any;
+      customConfig?: Record<string, unknown>;
     } = {}
   ): Promise<ToolAssignment> {
     const assignmentRepo = this.getToolAssignmentRepository();
@@ -255,6 +257,7 @@ export class ToolService extends BaseDomainService {
     const toolRepo = this.getToolRepository();
     const results: ToolDefinition[] = [];
     for (const tool of tools) {
+      // eslint-disable-next-line no-await-in-loop
       const created = await toolRepo.createTool(tool);
       results.push(created);
     }
@@ -265,6 +268,7 @@ export class ToolService extends BaseDomainService {
     const tools = await this.getToolRepository().getTools({ category });
     let count = 0;
     for (const tool of tools) {
+      // eslint-disable-next-line no-await-in-loop
       await this.getToolRepository().update(tool.id, { isEnabled: false });
       count++;
     }
@@ -327,7 +331,17 @@ export class ToolService extends BaseDomainService {
     );
   }
 
-  public async recordToolUsage(usage: any): Promise<void> {
+  public async recordToolUsage(usage: {
+    toolId: string;
+    agentId?: string;
+    userId?: string;
+    executionId?: string;
+    inputTokens?: number;
+    outputTokens?: number;
+    executionTime?: number;
+    success: boolean;
+    error?: string;
+  }): Promise<void> {
     await this.trackUsage(usage);
   }
 
@@ -353,7 +367,11 @@ export class ToolService extends BaseDomainService {
     }
   }
 
-  public async getRecommendations(toolId: string, context?: string, limit = 5): Promise<any[]> {
+  public async getRecommendations(
+    toolId: string,
+    context?: string,
+    _limit = 5
+  ): Promise<unknown[]> {
     if (this.knowledgeGraphService) {
       // Use knowledge graph for recommendations
       logger.info('Getting tool recommendations from knowledge graph', { toolId, context });
@@ -361,7 +379,7 @@ export class ToolService extends BaseDomainService {
     return [];
   }
 
-  public async getToolRelationships(toolId: string): Promise<any[]> {
+  public async getToolRelationships(toolId: string): Promise<unknown[]> {
     if (this.knowledgeGraphService) {
       // Use knowledge graph for tool relationships
       logger.info('Getting tool relationships from knowledge graph', { toolId });

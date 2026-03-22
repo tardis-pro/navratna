@@ -2,7 +2,7 @@
 // Handles tool execution with PostgreSQL logging and Neo4j usage pattern tracking
 // Part of capability-registry microservice
 
-import { ToolExecution, ToolUsageRecord, ToolExecutionStatus } from '@uaip/types';
+import { ToolExecution, _ToolUsageRecord, ToolExecutionStatus } from '@uaip/types';
 import { ToolService } from '@uaip/shared-services';
 import { DatabaseService } from '@uaip/infra/database';
 import { logger } from '@uaip/utils';
@@ -41,7 +41,7 @@ export class ToolExecutor {
   async executeTool(
     toolId: string,
     agentId: string,
-    parameters: Record<string, any>,
+    parameters: Record<string, unknown>,
     options: ExecutionOptions = {}
   ): Promise<ToolExecution> {
     // Validate input parameters
@@ -117,7 +117,7 @@ export class ToolExecutor {
     }
   }
 
-  private async performExecution(execution: ToolExecution, tool: any): Promise<ToolExecution> {
+  private async performExecution(execution: ToolExecution, tool: unknown): Promise<ToolExecution> {
     const startTime = Date.now();
 
     try {
@@ -321,7 +321,7 @@ export class ToolExecutor {
     status?: string,
     limit = 100
   ): Promise<ToolExecution[]> {
-    const filters: any = { limit };
+    const filters: unknown = { limit };
     if (toolId) filters.toolId = toolId;
     if (agentId) filters.agentId = agentId;
     if (status) filters.status = status;
@@ -329,13 +329,17 @@ export class ToolExecutor {
   }
 
   async getActiveExecutions(agentId?: string): Promise<ToolExecution[]> {
-    const filters: any = { status: ToolExecutionStatus.RUNNING };
+    const filters: unknown = { status: ToolExecutionStatus.RUNNING };
     if (agentId) filters.agentId = agentId;
     return await this.toolService.findExecutionsByTool(filters.toolId || '', filters.limit);
   }
 
   // Private Helper Methods
-  private async executeToolLogic(toolId: string, parameters: any, timeout: number): Promise<any> {
+  private async executeToolLogic(
+    toolId: string,
+    parameters: unknown,
+    timeout: number
+  ): Promise<unknown> {
     // Create a timeout promise
     const timeoutPromise = new Promise((_, reject) => {
       setTimeout(() => reject(new Error('Tool execution timeout')), timeout);
@@ -364,7 +368,7 @@ export class ToolExecutor {
     }
   }
 
-  private calculateCost(tool: any, executionTime: number): number {
+  private calculateCost(tool: unknown, executionTime: number): number {
     // Simple cost calculation based on tool's cost estimate and execution time
     const baseCost = tool.costEstimate;
     const timeFactor = executionTime / (tool.executionTimeEstimate || 1000);
@@ -391,8 +395,8 @@ export class ToolExecutor {
   }
 
   // Analytics
-  async getExecutionStats(toolId?: string, agentId?: string, days = 30): Promise<any> {
-    const filters: any = { days };
+  async getExecutionStats(toolId?: string, agentId?: string, days = 30): Promise<unknown> {
+    const filters: unknown = { days };
     if (toolId) filters.toolId = toolId;
     if (agentId) filters.agentId = agentId;
     const stats = await this.toolService.getToolUsageStats(
@@ -401,24 +405,27 @@ export class ToolExecutor {
     );
 
     return {
-      totalExecutions: stats.reduce((sum: number, stat: any) => sum + parseInt(stat.total_uses), 0),
+      totalExecutions: stats.reduce(
+        (sum: number, stat: unknown) => sum + parseInt(stat.total_uses),
+        0
+      ),
       successfulExecutions: stats.reduce(
-        (sum: number, stat: any) => sum + parseInt(stat.successful_uses),
+        (sum: number, stat: unknown) => sum + parseInt(stat.successful_uses),
         0
       ),
       averageExecutionTime:
         stats.reduce(
-          (sum: number, stat: any) => sum + parseFloat(stat.avg_execution_time || '0'),
+          (sum: number, stat: unknown) => sum + parseFloat(stat.avg_execution_time || '0'),
           0
         ) / stats.length,
       totalCost: stats.reduce(
-        (sum: number, stat: any) => sum + parseFloat(stat.total_cost || '0'),
+        (sum: number, stat: unknown) => sum + parseFloat(stat.total_cost || '0'),
         0
       ),
       successRate:
         stats.length > 0
-          ? stats.reduce((sum: number, stat: any) => sum + parseInt(stat.successful_uses), 0) /
-            stats.reduce((sum: number, stat: any) => sum + parseInt(stat.total_uses), 0)
+          ? stats.reduce((sum: number, stat: unknown) => sum + parseInt(stat.successful_uses), 0) /
+            stats.reduce((sum: number, stat: unknown) => sum + parseInt(stat.total_uses), 0)
           : 0,
     };
   }

@@ -28,11 +28,13 @@ export class RelationshipDetector {
         if (existingItem.id === newItem.id) continue;
 
         // Generate embedding for existing item
+        // oxlint-disable-next-line no-await-in-loop
         const existingEmbedding = await this.embeddingService.generateEmbedding(
           existingItem.content
         );
 
         // Calculate similarity
+        // oxlint-disable-next-line no-await-in-loop
         const similarity = await this.embeddingService.calculateSimilarity(
           newItemEmbedding,
           existingEmbedding
@@ -137,7 +139,7 @@ export class RelationshipDetector {
     return null;
   }
 
-  private containsReference(content1: string, content2: string): boolean {
+  private containsReference(content1: string, _content2: string): boolean {
     // Look for explicit references
     const referencePatterns = [
       /see also/gi,
@@ -179,7 +181,6 @@ export class RelationshipDetector {
 
   private isFollowUp(newItem: KnowledgeItem, existingItem: KnowledgeItem): boolean {
     const newContent = newItem.content.toLowerCase();
-    const existingContent = existingItem.content.toLowerCase();
 
     // Check temporal indicators
     const followUpPatterns = [
@@ -200,7 +201,6 @@ export class RelationshipDetector {
 
   private isExample(newItem: KnowledgeItem, existingItem: KnowledgeItem): boolean {
     const newContent = newItem.content.toLowerCase();
-    const existingContent = existingItem.content.toLowerCase();
 
     const examplePatterns = [
       /for example/gi,
@@ -219,7 +219,6 @@ export class RelationshipDetector {
 
   private isImplementation(newItem: KnowledgeItem, existingItem: KnowledgeItem): boolean {
     const newContent = newItem.content.toLowerCase();
-    const existingContent = existingItem.content.toLowerCase();
 
     const implementationPatterns = [
       /implementation/gi,

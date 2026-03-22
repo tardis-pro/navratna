@@ -5,7 +5,7 @@
 #
 # BACKUP TIERS:
 # Tier 1 - Security Database (Level 4 Restricted) - 4 hour RTO, 15 min RPO
-# Tier 2 - Application Database (Level 3 Confidential) - 8 hour RTO, 1 hour RPO  
+# Tier 2 - Application Database (Level 3 Confidential) - 8 hour RTO, 1 hour RPO
 # Tier 3 - Analytics/Operations (Level 2 Internal) - 24 hour RTO, 4 hour RPO
 #
 # RETENTION POLICY:
@@ -25,7 +25,7 @@ data:
     # =============================================================================
     # BACKUP STRATEGY CONFIGURATION
     # =============================================================================
-    
+
     strategy:
       name: "UAIP Enterprise Backup Strategy"
       version: "1.0.0"
@@ -49,7 +49,7 @@ data:
     # =============================================================================
     # TIER 1 - SECURITY DATABASE BACKUP (LEVEL 4 RESTRICTED)
     # =============================================================================
-    
+
     security_tier:
       databases:
         - postgres-security
@@ -86,7 +86,7 @@ data:
     # =============================================================================
     # TIER 2 - APPLICATION DATABASE BACKUP (LEVEL 3 CONFIDENTIAL)
     # =============================================================================
-    
+
     application_tier:
       databases:
         - postgres-application
@@ -123,7 +123,7 @@ data:
     # =============================================================================
     # TIER 3 - ANALYTICS/OPERATIONS BACKUP (LEVEL 2 INTERNAL)
     # =============================================================================
-    
+
     analytics_tier:
       databases:
         - postgres-analytics
@@ -162,103 +162,103 @@ metadata:
   name: security-database-backup
   namespace: uaip-infrastructure
 spec:
-  schedule: "0 2 * * *"  # Daily at 02:00
+  schedule: '0 2 * * *' # Daily at 02:00
   jobTemplate:
     spec:
       template:
         spec:
           containers:
-          - name: backup-security
-            image: postgres:17.5-bullseye
-            command:
-            - /bin/bash
-            - -c
-            - |
-              set -e
-              
-              # Security Database Backup Script
-              echo "Starting security database backup - $(date)"
-              
-              # Create backup directory with timestamp
-              BACKUP_DATE=$(date +%Y%m%d_%H%M%S)
-              BACKUP_DIR="/backups/security/${BACKUP_DATE}"
-              mkdir -p "${BACKUP_DIR}"
-              
-              # PostgreSQL Security Database Backup
-              echo "Backing up PostgreSQL security database..."
-              PGPASSWORD="${POSTGRES_SECURITY_PASSWORD}" pg_dump \
-                -h postgres-security \
-                -p 5432 \
-                -U uaip_security_user \
-                -d uaip_security \
-                --verbose \
-                --format=custom \
-                --compress=9 \
-                --blobs \
-                --create \
-                --clean \
-                --if-exists \
-                --quote-all-identifiers > "${BACKUP_DIR}/security_db.pgdump"
-              
-              # Encrypt backup
-              echo "Encrypting security database backup..."
-              openssl enc -aes-256-gcm \
-                -k "${BACKUP_ENCRYPTION_KEY}" \
-                -in "${BACKUP_DIR}/security_db.pgdump" \
-                -out "${BACKUP_DIR}/security_db.pgdump.enc"
-              
-              # Remove unencrypted backup
-              rm "${BACKUP_DIR}/security_db.pgdump"
-              
-              # Generate checksum
-              sha256sum "${BACKUP_DIR}/security_db.pgdump.enc" > "${BACKUP_DIR}/security_db.pgdump.enc.sha256"
-              
-              # Create backup manifest
-              cat > "${BACKUP_DIR}/manifest.json" << EOF
-              {
-                "backup_type": "security_database",
-                "backup_date": "${BACKUP_DATE}",
-                "database": "postgres-security",
-                "encryption": "AES-256-GCM",
-                "compliance_level": "SOC2_HIPAA_PCI_DSS",
-                "retention_period": "7_years",
-                "files": [
+            - name: backup-security
+              image: postgres:17.5-bullseye
+              command:
+                - /bin/bash
+                - -c
+                - |
+                  set -e
+
+                  # Security Database Backup Script
+                  echo "Starting security database backup - $(date)"
+
+                  # Create backup directory with timestamp
+                  BACKUP_DATE=$(date +%Y%m%d_%H%M%S)
+                  BACKUP_DIR="/backups/security/${BACKUP_DATE}"
+                  mkdir -p "${BACKUP_DIR}"
+
+                  # PostgreSQL Security Database Backup
+                  echo "Backing up PostgreSQL security database..."
+                  PGPASSWORD="${POSTGRES_SECURITY_PASSWORD}" pg_dump \
+                    -h postgres-security \
+                    -p 5432 \
+                    -U uaip_security_user \
+                    -d uaip_security \
+                    --verbose \
+                    --format=custom \
+                    --compress=9 \
+                    --blobs \
+                    --create \
+                    --clean \
+                    --if-exists \
+                    --quote-all-identifiers > "${BACKUP_DIR}/security_db.pgdump"
+
+                  # Encrypt backup
+                  echo "Encrypting security database backup..."
+                  openssl enc -aes-256-gcm \
+                    -k "${BACKUP_ENCRYPTION_KEY}" \
+                    -in "${BACKUP_DIR}/security_db.pgdump" \
+                    -out "${BACKUP_DIR}/security_db.pgdump.enc"
+
+                  # Remove unencrypted backup
+                  rm "${BACKUP_DIR}/security_db.pgdump"
+
+                  # Generate checksum
+                  sha256sum "${BACKUP_DIR}/security_db.pgdump.enc" > "${BACKUP_DIR}/security_db.pgdump.enc.sha256"
+
+                  # Create backup manifest
+                  cat > "${BACKUP_DIR}/manifest.json" << EOF
                   {
-                    "name": "security_db.pgdump.enc",
-                    "size": "$(stat -c%s ${BACKUP_DIR}/security_db.pgdump.enc)",
-                    "checksum": "$(cat ${BACKUP_DIR}/security_db.pgdump.enc.sha256 | cut -d' ' -f1)"
+                    "backup_type": "security_database",
+                    "backup_date": "${BACKUP_DATE}",
+                    "database": "postgres-security",
+                    "encryption": "AES-256-GCM",
+                    "compliance_level": "SOC2_HIPAA_PCI_DSS",
+                    "retention_period": "7_years",
+                    "files": [
+                      {
+                        "name": "security_db.pgdump.enc",
+                        "size": "$(stat -c%s ${BACKUP_DIR}/security_db.pgdump.enc)",
+                        "checksum": "$(cat ${BACKUP_DIR}/security_db.pgdump.enc.sha256 | cut -d' ' -f1)"
+                      }
+                    ]
                   }
-                ]
-              }
-              EOF
-              
-              # Upload to offsite storage (mock)
-              echo "Uploading to offsite storage..."
-              # aws s3 sync "${BACKUP_DIR}" s3://uaip-security-backups/
-              
-              # Cleanup old backups (keep 30 days for incremental access)
-              find /backups/security -type d -mtime +30 -exec rm -rf {} \;
-              
-              echo "Security database backup completed successfully - $(date)"
-              
-            env:
-            - name: POSTGRES_SECURITY_PASSWORD
-              valueFrom:
-                secretKeyRef:
-                  name: postgres-security-credentials
-                  key: password
-            - name: BACKUP_ENCRYPTION_KEY
-              valueFrom:
-                secretKeyRef:
-                  name: backup-encryption-keys
-                  key: security-key
-            volumeMounts:
-            - name: backup-storage
-              mountPath: /backups
+                  EOF
+
+                  # Upload to offsite storage (mock)
+                  echo "Uploading to offsite storage..."
+                  # aws s3 sync "${BACKUP_DIR}" s3://uaip-security-backups/
+
+                  # Cleanup old backups (keep 30 days for incremental access)
+                  find /backups/security -type d -mtime +30 -exec rm -rf {} \;
+
+                  echo "Security database backup completed successfully - $(date)"
+
+              env:
+                - name: POSTGRES_SECURITY_PASSWORD
+                  valueFrom:
+                    secretKeyRef:
+                      name: postgres-security-credentials
+                      key: password
+                - name: BACKUP_ENCRYPTION_KEY
+                  valueFrom:
+                    secretKeyRef:
+                      name: backup-encryption-keys
+                      key: security-key
+              volumeMounts:
+                - name: backup-storage
+                  mountPath: /backups
           volumes:
-          - name: backup-storage
-            persistentVolumeClaim:
-              claimName: enterprise-backup-storage
+            - name: backup-storage
+              persistentVolumeClaim:
+                claimName: enterprise-backup-storage
           restartPolicy: OnFailure
 
 ---
@@ -268,94 +268,94 @@ metadata:
   name: application-database-backup
   namespace: uaip-infrastructure
 spec:
-  schedule: "0 3 * * *"  # Daily at 03:00
+  schedule: '0 3 * * *' # Daily at 03:00
   jobTemplate:
     spec:
       template:
         spec:
           containers:
-          - name: backup-application
-            image: postgres:17.5-bullseye
-            command:
-            - /bin/bash
-            - -c
-            - |
-              set -e
-              
-              # Application Database Backup Script
-              echo "Starting application database backup - $(date)"
-              
-              BACKUP_DATE=$(date +%Y%m%d_%H%M%S)
-              BACKUP_DIR="/backups/application/${BACKUP_DATE}"
-              mkdir -p "${BACKUP_DIR}"
-              
-              # PostgreSQL Application Database Backup
-              echo "Backing up PostgreSQL application database..."
-              PGPASSWORD="${POSTGRES_APPLICATION_PASSWORD}" pg_dump \
-                -h postgres-application \
-                -p 5432 \
-                -U uaip_app_user \
-                -d uaip_application \
-                --verbose \
-                --format=custom \
-                --compress=9 \
-                --blobs \
-                --create \
-                --clean \
-                --if-exists > "${BACKUP_DIR}/application_db.pgdump"
-              
-              # Encrypt backup
-              openssl enc -aes-256-cbc \
-                -k "${BACKUP_ENCRYPTION_KEY}" \
-                -in "${BACKUP_DIR}/application_db.pgdump" \
-                -out "${BACKUP_DIR}/application_db.pgdump.enc"
-              
-              rm "${BACKUP_DIR}/application_db.pgdump"
-              
-              # Generate checksum and manifest
-              sha256sum "${BACKUP_DIR}/application_db.pgdump.enc" > "${BACKUP_DIR}/application_db.pgdump.enc.sha256"
-              
-              cat > "${BACKUP_DIR}/manifest.json" << EOF
-              {
-                "backup_type": "application_database",
-                "backup_date": "${BACKUP_DATE}",
-                "database": "postgres-application",
-                "encryption": "AES-256-CBC",
-                "compliance_level": "SOC2",
-                "retention_period": "3_years",
-                "files": [
+            - name: backup-application
+              image: postgres:17.5-bullseye
+              command:
+                - /bin/bash
+                - -c
+                - |
+                  set -e
+
+                  # Application Database Backup Script
+                  echo "Starting application database backup - $(date)"
+
+                  BACKUP_DATE=$(date +%Y%m%d_%H%M%S)
+                  BACKUP_DIR="/backups/application/${BACKUP_DATE}"
+                  mkdir -p "${BACKUP_DIR}"
+
+                  # PostgreSQL Application Database Backup
+                  echo "Backing up PostgreSQL application database..."
+                  PGPASSWORD="${POSTGRES_APPLICATION_PASSWORD}" pg_dump \
+                    -h postgres-application \
+                    -p 5432 \
+                    -U uaip_app_user \
+                    -d uaip_application \
+                    --verbose \
+                    --format=custom \
+                    --compress=9 \
+                    --blobs \
+                    --create \
+                    --clean \
+                    --if-exists > "${BACKUP_DIR}/application_db.pgdump"
+
+                  # Encrypt backup
+                  openssl enc -aes-256-cbc \
+                    -k "${BACKUP_ENCRYPTION_KEY}" \
+                    -in "${BACKUP_DIR}/application_db.pgdump" \
+                    -out "${BACKUP_DIR}/application_db.pgdump.enc"
+
+                  rm "${BACKUP_DIR}/application_db.pgdump"
+
+                  # Generate checksum and manifest
+                  sha256sum "${BACKUP_DIR}/application_db.pgdump.enc" > "${BACKUP_DIR}/application_db.pgdump.enc.sha256"
+
+                  cat > "${BACKUP_DIR}/manifest.json" << EOF
                   {
-                    "name": "application_db.pgdump.enc",
-                    "size": "$(stat -c%s ${BACKUP_DIR}/application_db.pgdump.enc)",
-                    "checksum": "$(cat ${BACKUP_DIR}/application_db.pgdump.enc.sha256 | cut -d' ' -f1)"
+                    "backup_type": "application_database",
+                    "backup_date": "${BACKUP_DATE}",
+                    "database": "postgres-application",
+                    "encryption": "AES-256-CBC",
+                    "compliance_level": "SOC2",
+                    "retention_period": "3_years",
+                    "files": [
+                      {
+                        "name": "application_db.pgdump.enc",
+                        "size": "$(stat -c%s ${BACKUP_DIR}/application_db.pgdump.enc)",
+                        "checksum": "$(cat ${BACKUP_DIR}/application_db.pgdump.enc.sha256 | cut -d' ' -f1)"
+                      }
+                    ]
                   }
-                ]
-              }
-              EOF
-              
-              # Cleanup old backups (keep 7 days for quick access)
-              find /backups/application -type d -mtime +7 -exec rm -rf {} \;
-              
-              echo "Application database backup completed successfully - $(date)"
-              
-            env:
-            - name: POSTGRES_APPLICATION_PASSWORD
-              valueFrom:
-                secretKeyRef:
-                  name: postgres-application-credentials
-                  key: password
-            - name: BACKUP_ENCRYPTION_KEY
-              valueFrom:
-                secretKeyRef:
-                  name: backup-encryption-keys
-                  key: application-key
-            volumeMounts:
-            - name: backup-storage
-              mountPath: /backups
+                  EOF
+
+                  # Cleanup old backups (keep 7 days for quick access)
+                  find /backups/application -type d -mtime +7 -exec rm -rf {} \;
+
+                  echo "Application database backup completed successfully - $(date)"
+
+              env:
+                - name: POSTGRES_APPLICATION_PASSWORD
+                  valueFrom:
+                    secretKeyRef:
+                      name: postgres-application-credentials
+                      key: password
+                - name: BACKUP_ENCRYPTION_KEY
+                  valueFrom:
+                    secretKeyRef:
+                      name: backup-encryption-keys
+                      key: application-key
+              volumeMounts:
+                - name: backup-storage
+                  mountPath: /backups
           volumes:
-          - name: backup-storage
-            persistentVolumeClaim:
-              claimName: enterprise-backup-storage
+            - name: backup-storage
+              persistentVolumeClaim:
+                claimName: enterprise-backup-storage
           restartPolicy: OnFailure
 
 ---
@@ -365,89 +365,89 @@ metadata:
   name: backup-verification
   namespace: uaip-infrastructure
 spec:
-  schedule: "0 6 * * *"  # Daily at 06:00
+  schedule: '0 6 * * *' # Daily at 06:00
   jobTemplate:
     spec:
       template:
         spec:
           containers:
-          - name: backup-verification
-            image: postgres:17.5-bullseye
-            command:
-            - /bin/bash
-            - -c
-            - |
-              set -e
-              
-              # Backup Verification Script
-              echo "Starting backup verification - $(date)"
-              
-              # Function to verify backup integrity
-              verify_backup() {
-                local backup_dir=$1
-                local backup_file=$2
-                local checksum_file=$3
-                
-                if [ -f "${backup_dir}/${backup_file}" ] && [ -f "${backup_dir}/${checksum_file}" ]; then
-                  cd "${backup_dir}"
-                  if sha256sum -c "${checksum_file}"; then
-                    echo "✓ Backup integrity verified: ${backup_file}"
-                    return 0
-                  else
-                    echo "✗ Backup integrity failed: ${backup_file}"
-                    return 1
+            - name: backup-verification
+              image: postgres:17.5-bullseye
+              command:
+                - /bin/bash
+                - -c
+                - |
+                  set -e
+
+                  # Backup Verification Script
+                  echo "Starting backup verification - $(date)"
+
+                  # Function to verify backup integrity
+                  verify_backup() {
+                    local backup_dir=$1
+                    local backup_file=$2
+                    local checksum_file=$3
+                    
+                    if [ -f "${backup_dir}/${backup_file}" ] && [ -f "${backup_dir}/${checksum_file}" ]; then
+                      cd "${backup_dir}"
+                      if sha256sum -c "${checksum_file}"; then
+                        echo "✓ Backup integrity verified: ${backup_file}"
+                        return 0
+                      else
+                        echo "✗ Backup integrity failed: ${backup_file}"
+                        return 1
+                      fi
+                    else
+                      echo "✗ Backup files missing: ${backup_file}"
+                      return 1
+                    fi
+                  }
+
+                  # Verify latest security backup
+                  LATEST_SECURITY=$(ls -1t /backups/security/ | head -1)
+                  if [ -n "${LATEST_SECURITY}" ]; then
+                    verify_backup "/backups/security/${LATEST_SECURITY}" \
+                      "security_db.pgdump.enc" \
+                      "security_db.pgdump.enc.sha256"
                   fi
-                else
-                  echo "✗ Backup files missing: ${backup_file}"
-                  return 1
-                fi
-              }
-              
-              # Verify latest security backup
-              LATEST_SECURITY=$(ls -1t /backups/security/ | head -1)
-              if [ -n "${LATEST_SECURITY}" ]; then
-                verify_backup "/backups/security/${LATEST_SECURITY}" \
-                  "security_db.pgdump.enc" \
-                  "security_db.pgdump.enc.sha256"
-              fi
-              
-              # Verify latest application backup
-              LATEST_APPLICATION=$(ls -1t /backups/application/ | head -1)
-              if [ -n "${LATEST_APPLICATION}" ]; then
-                verify_backup "/backups/application/${LATEST_APPLICATION}" \
-                  "application_db.pgdump.enc" \
-                  "application_db.pgdump.enc.sha256"
-              fi
-              
-              # Generate backup status report
-              cat > /backups/status/backup_verification_$(date +%Y%m%d).json << EOF
-              {
-                "verification_date": "$(date -Iseconds)",
-                "security_backup": {
-                  "latest": "${LATEST_SECURITY}",
-                  "status": "verified"
-                },
-                "application_backup": {
-                  "latest": "${LATEST_APPLICATION}",
-                  "status": "verified"
-                },
-                "compliance": {
-                  "soc2": "compliant",
-                  "hipaa": "compliant",
-                  "pci_dss": "compliant"
-                }
-              }
-              EOF
-              
-              echo "Backup verification completed successfully - $(date)"
-              
-            volumeMounts:
-            - name: backup-storage
-              mountPath: /backups
+
+                  # Verify latest application backup
+                  LATEST_APPLICATION=$(ls -1t /backups/application/ | head -1)
+                  if [ -n "${LATEST_APPLICATION}" ]; then
+                    verify_backup "/backups/application/${LATEST_APPLICATION}" \
+                      "application_db.pgdump.enc" \
+                      "application_db.pgdump.enc.sha256"
+                  fi
+
+                  # Generate backup status report
+                  cat > /backups/status/backup_verification_$(date +%Y%m%d).json << EOF
+                  {
+                    "verification_date": "$(date -Iseconds)",
+                    "security_backup": {
+                      "latest": "${LATEST_SECURITY}",
+                      "status": "verified"
+                    },
+                    "application_backup": {
+                      "latest": "${LATEST_APPLICATION}",
+                      "status": "verified"
+                    },
+                    "compliance": {
+                      "soc2": "compliant",
+                      "hipaa": "compliant",
+                      "pci_dss": "compliant"
+                    }
+                  }
+                  EOF
+
+                  echo "Backup verification completed successfully - $(date)"
+
+              volumeMounts:
+                - name: backup-storage
+                  mountPath: /backups
           volumes:
-          - name: backup-storage
-            persistentVolumeClaim:
-              claimName: enterprise-backup-storage
+            - name: backup-storage
+              persistentVolumeClaim:
+                claimName: enterprise-backup-storage
           restartPolicy: OnFailure
 
 ---
@@ -472,7 +472,7 @@ metadata:
 provisioner: kubernetes.io/aws-ebs
 parameters:
   type: gp3
-  encrypted: "true"
+  encrypted: 'true'
   fsType: ext4
 allowVolumeExpansion: true
 volumeBindingMode: WaitForFirstConsumer
@@ -485,9 +485,9 @@ metadata:
   namespace: uaip-infrastructure
 type: Opaque
 stringData:
-  security-key: "enterprise-security-backup-key-2025-change-in-production"
-  application-key: "enterprise-application-backup-key-2025-change-in-production"
-  analytics-key: "enterprise-analytics-backup-key-2025-change-in-production"
+  security-key: 'enterprise-security-backup-key-2025-change-in-production'
+  application-key: 'enterprise-application-backup-key-2025-change-in-production'
+  analytics-key: 'enterprise-analytics-backup-key-2025-change-in-production'
 
 ---
 apiVersion: v1
@@ -498,17 +498,17 @@ metadata:
 data:
   disaster-recovery.md: |
     # Enterprise Disaster Recovery Plan
-    
+
     ## Recovery Time Objectives (RTO) and Recovery Point Objectives (RPO)
-    
+
     | Tier | Database | RTO | RPO | Priority |
     |------|----------|-----|-----|----------|
     | 1 | Security | 4 hours | 15 minutes | Critical |
     | 2 | Application | 8 hours | 1 hour | High |
     | 3 | Analytics | 24 hours | 4 hours | Medium |
-    
+
     ## Recovery Procedures
-    
+
     ### 1. Security Database Recovery
     ```bash
     # Decrypt backup
@@ -516,7 +516,7 @@ data:
       -k "${BACKUP_ENCRYPTION_KEY}" \
       -in security_db.pgdump.enc \
       -out security_db.pgdump
-    
+
     # Restore database
     pg_restore \
       -h postgres-security-new \
@@ -528,7 +528,7 @@ data:
       --create \
       security_db.pgdump
     ```
-    
+
     ### 2. Application Database Recovery
     ```bash
     # Similar process for application database
@@ -536,7 +536,7 @@ data:
       -k "${BACKUP_ENCRYPTION_KEY}" \
       -in application_db.pgdump.enc \
       -out application_db.pgdump
-    
+
     pg_restore \
       -h postgres-application-new \
       -p 5432 \
@@ -547,16 +547,16 @@ data:
       --create \
       application_db.pgdump
     ```
-    
+
     ## Compliance Requirements
-    
+
     - **SOC 2**: Backup testing every 90 days
     - **HIPAA**: 7-year retention for security data
     - **PCI DSS**: Encrypted backups with quarterly testing
     - **ISO 27001**: Documented recovery procedures
-    
+
     ## Contact Information
-    
+
     - **Primary**: Operations Team (+1-555-0199)
     - **Secondary**: Security Team (+1-555-0299)
     - **Escalation**: CISO (+1-555-0399)
@@ -568,98 +568,98 @@ metadata:
   name: disaster-recovery-test
   namespace: uaip-infrastructure
 spec:
-  schedule: "0 2 1 */3 *"  # Quarterly on 1st at 02:00
+  schedule: '0 2 1 */3 *' # Quarterly on 1st at 02:00
   jobTemplate:
     spec:
       template:
         spec:
           containers:
-          - name: dr-test
-            image: postgres:17.5-bullseye
-            command:
-            - /bin/bash
-            - -c
-            - |
-              set -e
-              
-              echo "Starting quarterly disaster recovery test - $(date)"
-              
-              # Create test environment
-              TEST_DATE=$(date +%Y%m%d_%H%M%S)
-              TEST_DIR="/dr-tests/${TEST_DATE}"
-              mkdir -p "${TEST_DIR}"
-              
-              # Test security database restore
-              echo "Testing security database restore..."
-              
-              # Get latest security backup
-              LATEST_BACKUP=$(ls -1t /backups/security/ | head -1)
-              
-              if [ -n "${LATEST_BACKUP}" ]; then
-                # Copy backup to test directory
-                cp "/backups/security/${LATEST_BACKUP}/security_db.pgdump.enc" "${TEST_DIR}/"
-                
-                # Test decryption
-                openssl enc -aes-256-gcm -d \
-                  -k "${BACKUP_ENCRYPTION_KEY}" \
-                  -in "${TEST_DIR}/security_db.pgdump.enc" \
-                  -out "${TEST_DIR}/security_db.pgdump"
-                
-                # Test backup file integrity
-                if [ -f "${TEST_DIR}/security_db.pgdump" ]; then
-                  pg_restore --list "${TEST_DIR}/security_db.pgdump" > "${TEST_DIR}/restore_list.txt"
-                  echo "✓ Security database backup can be restored"
-                  DR_TEST_STATUS="PASS"
-                else
-                  echo "✗ Security database backup test failed"
-                  DR_TEST_STATUS="FAIL"
-                fi
-              else
-                echo "✗ No security backup found"
-                DR_TEST_STATUS="FAIL"
-              fi
-              
-              # Generate test report
-              cat > "${TEST_DIR}/dr_test_report.json" << EOF
-              {
-                "test_date": "${TEST_DATE}",
-                "test_type": "quarterly_disaster_recovery",
-                "security_database": {
-                  "backup_found": "$([ -n '${LATEST_BACKUP}' ] && echo 'true' || echo 'false')",
-                  "decryption_test": "$([ -f '${TEST_DIR}/security_db.pgdump' ] && echo 'PASS' || echo 'FAIL')",
-                  "restore_test": "${DR_TEST_STATUS}"
-                },
-                "compliance": {
-                  "soc2_requirement": "satisfied",
-                  "hipaa_requirement": "satisfied",
-                  "pci_dss_requirement": "satisfied"
-                },
-                "next_test": "$(date -d '+3 months' +%Y-%m-%d)"
-              }
-              EOF
-              
-              # Cleanup test files
-              rm -f "${TEST_DIR}/security_db.pgdump.enc"
-              rm -f "${TEST_DIR}/security_db.pgdump"
-              
-              echo "Disaster recovery test completed - $(date)"
-              echo "Test status: ${DR_TEST_STATUS}"
-              
-            env:
-            - name: BACKUP_ENCRYPTION_KEY
-              valueFrom:
-                secretKeyRef:
-                  name: backup-encryption-keys
-                  key: security-key
-            volumeMounts:
-            - name: backup-storage
-              mountPath: /backups
-            - name: dr-test-storage
-              mountPath: /dr-tests
+            - name: dr-test
+              image: postgres:17.5-bullseye
+              command:
+                - /bin/bash
+                - -c
+                - |
+                  set -e
+
+                  echo "Starting quarterly disaster recovery test - $(date)"
+
+                  # Create test environment
+                  TEST_DATE=$(date +%Y%m%d_%H%M%S)
+                  TEST_DIR="/dr-tests/${TEST_DATE}"
+                  mkdir -p "${TEST_DIR}"
+
+                  # Test security database restore
+                  echo "Testing security database restore..."
+
+                  # Get latest security backup
+                  LATEST_BACKUP=$(ls -1t /backups/security/ | head -1)
+
+                  if [ -n "${LATEST_BACKUP}" ]; then
+                    # Copy backup to test directory
+                    cp "/backups/security/${LATEST_BACKUP}/security_db.pgdump.enc" "${TEST_DIR}/"
+                    
+                    # Test decryption
+                    openssl enc -aes-256-gcm -d \
+                      -k "${BACKUP_ENCRYPTION_KEY}" \
+                      -in "${TEST_DIR}/security_db.pgdump.enc" \
+                      -out "${TEST_DIR}/security_db.pgdump"
+                    
+                    # Test backup file integrity
+                    if [ -f "${TEST_DIR}/security_db.pgdump" ]; then
+                      pg_restore --list "${TEST_DIR}/security_db.pgdump" > "${TEST_DIR}/restore_list.txt"
+                      echo "✓ Security database backup can be restored"
+                      DR_TEST_STATUS="PASS"
+                    else
+                      echo "✗ Security database backup test failed"
+                      DR_TEST_STATUS="FAIL"
+                    fi
+                  else
+                    echo "✗ No security backup found"
+                    DR_TEST_STATUS="FAIL"
+                  fi
+
+                  # Generate test report
+                  cat > "${TEST_DIR}/dr_test_report.json" << EOF
+                  {
+                    "test_date": "${TEST_DATE}",
+                    "test_type": "quarterly_disaster_recovery",
+                    "security_database": {
+                      "backup_found": "$([ -n '${LATEST_BACKUP}' ] && echo 'true' || echo 'false')",
+                      "decryption_test": "$([ -f '${TEST_DIR}/security_db.pgdump' ] && echo 'PASS' || echo 'FAIL')",
+                      "restore_test": "${DR_TEST_STATUS}"
+                    },
+                    "compliance": {
+                      "soc2_requirement": "satisfied",
+                      "hipaa_requirement": "satisfied",
+                      "pci_dss_requirement": "satisfied"
+                    },
+                    "next_test": "$(date -d '+3 months' +%Y-%m-%d)"
+                  }
+                  EOF
+
+                  # Cleanup test files
+                  rm -f "${TEST_DIR}/security_db.pgdump.enc"
+                  rm -f "${TEST_DIR}/security_db.pgdump"
+
+                  echo "Disaster recovery test completed - $(date)"
+                  echo "Test status: ${DR_TEST_STATUS}"
+
+              env:
+                - name: BACKUP_ENCRYPTION_KEY
+                  valueFrom:
+                    secretKeyRef:
+                      name: backup-encryption-keys
+                      key: security-key
+              volumeMounts:
+                - name: backup-storage
+                  mountPath: /backups
+                - name: dr-test-storage
+                  mountPath: /dr-tests
           volumes:
-          - name: backup-storage
-            persistentVolumeClaim:
-              claimName: enterprise-backup-storage
-          - name: dr-test-storage
-            emptyDir: {}
+            - name: backup-storage
+              persistentVolumeClaim:
+                claimName: enterprise-backup-storage
+            - name: dr-test-storage
+              emptyDir: {}
           restartPolicy: OnFailure

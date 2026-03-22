@@ -6,7 +6,7 @@ import { logger } from '@uaip/utils';
 interface RateLimiterOptions {
   windowMs?: number;
   max?: number;
-  message?: any;
+  message?: unknown;
   keyGenerator?: (request: Request) => string;
   skip?: (request: Request) => boolean;
 }

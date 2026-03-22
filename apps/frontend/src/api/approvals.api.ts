@@ -20,7 +20,7 @@ export interface ApprovalWorkflow {
   requiredApprovals: number;
   currentApprovals: number;
   decisions: ApprovalDecision[];
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
   createdAt: string;
   updatedAt: string;
   expiresAt?: string;
@@ -41,7 +41,7 @@ export interface ApprovalWorkflowCreate {
   resourceId: string;
   action: string;
   reason?: string;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
   expiresIn?: number; // minutes
 }
 

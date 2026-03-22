@@ -72,8 +72,7 @@ export function WhisperLine({
 
   const isTop = position === 'top';
   const slideOrigin = isTop ? -BAR_HEIGHT : BAR_HEIGHT;
-  const relevancePercent =
-    relevanceScore !== undefined ? Math.round(relevanceScore * 100) : null;
+  const relevancePercent = relevanceScore !== undefined ? Math.round(relevanceScore * 100) : null;
 
   return (
     <AnimatePresence>
@@ -112,10 +111,7 @@ export function WhisperLine({
           )}
 
           {/* Message text */}
-          <span
-            className="flex-1 truncate text-xs font-medium"
-            style={{ color: COLORS.text }}
-          >
+          <span className="flex-1 truncate text-xs font-medium" style={{ color: COLORS.text }}>
             {message}
           </span>
 

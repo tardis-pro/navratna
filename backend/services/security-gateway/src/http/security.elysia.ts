@@ -8,53 +8,57 @@ import { NotificationService } from '../services/notificationService.js';
 import { AuditEventType, SecurityLevel } from '@uaip/types';
 import { SecurityGatewayService } from '../services/securityGatewayService.js';
 import { ApprovalWorkflowService } from '../services/approvalWorkflowService.js';
-import type { RequiredAuthContext } from './types/elysia-context.js';
+import type { RequiredAuthContext as _RequiredAuthContext } from './types/elysia-context.js';
 
 // Lazy service setup mirroring the original route behavior
-let securityService: SecurityService | null = null;
-let auditService: AuditService | null = null;
-let domainAuditService: DomainAuditService | null = null;
-let notificationService: NotificationService | null = null;
-let eventBusService: EventBusService | null = null;
-let approvalWorkflowService: ApprovalWorkflowService | null = null;
-let securityGatewayService: SecurityGatewayService | null = null;
+let securityServiceSingleton: SecurityService | null = null;
+let auditServiceSingleton: AuditService | null = null;
+let domainAuditServiceSingleton: DomainAuditService | null = null;
+let notificationServiceSingleton: NotificationService | null = null;
+let eventBusServiceSingleton: EventBusService | null = null;
+let approvalWorkflowServiceSingleton: ApprovalWorkflowService | null = null;
+let securityGatewayServiceSingleton: SecurityGatewayService | null = null;
 
 async function getServices() {
-  if (!securityService) {
-    securityService = SecurityService.getInstance();
-    auditService = new AuditService();
-    domainAuditService = DomainAuditService.getInstance();
+  if (!securityServiceSingleton) {
+    securityServiceSingleton = SecurityService.getInstance();
+    auditServiceSingleton = new AuditService();
+    domainAuditServiceSingleton = DomainAuditService.getInstance();
   }
-  return { securityService, auditService: auditService!, domainAuditService: domainAuditService! };
+  return {
+    securityService: securityServiceSingleton,
+    auditService: auditServiceSingleton!,
+    domainAuditService: domainAuditServiceSingleton!,
+  };
 }
 
 async function getSecurityServices() {
   const { securityService, auditService, domainAuditService } = await getServices();
-  if (!notificationService) notificationService = new NotificationService();
-  if (!eventBusService)
-    eventBusService = new EventBusService(
+  if (!notificationServiceSingleton) notificationServiceSingleton = new NotificationService();
+  if (!eventBusServiceSingleton)
+    eventBusServiceSingleton = new EventBusService(
       { url: process.env.RABBITMQ_URL || 'amqp://localhost:5672', serviceName: 'security-gateway' },
       logger
     );
-  if (!approvalWorkflowService)
-    approvalWorkflowService = new ApprovalWorkflowService(
-      eventBusService,
-      notificationService,
+  if (!approvalWorkflowServiceSingleton)
+    approvalWorkflowServiceSingleton = new ApprovalWorkflowService(
+      eventBusServiceSingleton,
+      notificationServiceSingleton,
       auditService
     );
-  if (!securityGatewayService)
-    securityGatewayService = new SecurityGatewayService(
-      approvalWorkflowService,
+  if (!securityGatewayServiceSingleton)
+    securityGatewayServiceSingleton = new SecurityGatewayService(
+      approvalWorkflowServiceSingleton,
       auditService
     );
   return {
     auditService,
     domainAuditService,
     securityService,
-    notificationService,
-    eventBusService,
-    approvalWorkflowService,
-    securityGatewayService,
+    notificationService: notificationServiceSingleton,
+    eventBusService: eventBusServiceSingleton,
+    approvalWorkflowService: approvalWorkflowServiceSingleton,
+    securityGatewayService: securityGatewayServiceSingleton,
   };
 }
 
@@ -116,7 +120,7 @@ const updatePolicySchema = securityPolicySchema.partial({ name: true });
 
 function validateWithZod<T>(
   schema: z.ZodSchema<T>,
-  data: any
+  data: unknown
 ): { error: { details: { message: string; path: string }[] } | null; value: T | null } {
   const result = schema.safeParse(data);
   if (result.success) return { error: null, value: result.data };
@@ -128,8 +132,8 @@ function validateWithZod<T>(
   };
 }
 
-export function registerSecurityRoutes(app: any): any {
-  return app.group('/api/v1/security', (app: any) =>
+export function registerSecurityRoutes(elysiaApp: unknown): unknown {
+  return elysiaApp.group('/api/v1/security', (app: unknown) =>
     withRequiredAuth(app)
       // POST /assess-risk
       // @ts-expect-error - Elysia middleware injects user, but TypeScript cannot infer through nested groups
@@ -137,7 +141,10 @@ export function registerSecurityRoutes(app: any): any {
         const { error, value } = validateWithZod(riskAssessmentSchema, body);
         if (error) {
           set.status = 400;
-          return { error: 'Validation Error', details: error.details.map((d: any) => d.message) };
+          return {
+            error: 'Validation Error',
+            details: error.details.map((d: unknown) => d.message),
+          };
         }
         try {
           const { securityGatewayService, auditService } = await getSecurityServices();
@@ -174,7 +181,7 @@ export function registerSecurityRoutes(app: any): any {
             userAgent: headers['user-agent'],
           });
           return { message: 'Risk assessment completed', assessment };
-        } catch (error) {
+        } catch {
           set.status = 500;
           return {
             error: 'Internal Server Error',
@@ -189,7 +196,10 @@ export function registerSecurityRoutes(app: any): any {
         const { error, value } = validateWithZod(riskAssessmentSchema, body);
         if (error) {
           set.status = 400;
-          return { error: 'Validation Error', details: error.details.map((d: any) => d.message) };
+          return {
+            error: 'Validation Error',
+            details: error.details.map((d: unknown) => d.message),
+          };
         }
         try {
           const { securityGatewayService } = await getSecurityServices();
@@ -218,7 +228,7 @@ export function registerSecurityRoutes(app: any): any {
             requirements: approvalRequired.requirements,
             matchedPolicies: approvalRequired.matchedPolicies,
           };
-        } catch (error) {
+        } catch {
           set.status = 500;
           return {
             error: 'Internal Server Error',
@@ -228,13 +238,13 @@ export function registerSecurityRoutes(app: any): any {
       })
 
       // Admin-only: policies
-      .group('', (g: any) =>
+      .group('', (g: unknown) =>
         withAdminGuard(g)
           .get('/policies', async ({ set, query }) => {
             try {
               const { securityService } = await getServices();
-              const { page = 1, limit = 20, active, search } = query as any;
-              const filters: any = {
+              const { page = 1, limit = 20, active, search } = query as unknown;
+              const filters: unknown = {
                 limit: Number(limit),
                 offset: (Number(page) - 1) * Number(limit),
               };
@@ -252,7 +262,7 @@ export function registerSecurityRoutes(app: any): any {
                   pages: Math.ceil(total / Number(limit)),
                 },
               };
-            } catch (error) {
+            } catch {
               set.status = 500;
               return {
                 error: 'Internal Server Error',
@@ -264,7 +274,7 @@ export function registerSecurityRoutes(app: any): any {
           .get('/policies/:policyId', async ({ set, params }) => {
             try {
               const { securityService } = await getServices();
-              const policyId = (params as any).policyId as string;
+              const policyId = (params as unknown).policyId as string;
               const repo = securityService!.getSecurityPolicyRepository();
               const policy = await repo.getSecurityPolicy(policyId);
               if (!policy) {
@@ -272,7 +282,7 @@ export function registerSecurityRoutes(app: any): any {
                 return { error: 'Policy Not Found', message: 'Security policy not found' };
               }
               return { message: 'Security policy retrieved successfully', policy };
-            } catch (error) {
+            } catch {
               set.status = 500;
               return {
                 error: 'Internal Server Error',
@@ -288,7 +298,7 @@ export function registerSecurityRoutes(app: any): any {
               set.status = 400;
               return {
                 error: 'Validation Error',
-                details: error.details.map((d: any) => d.message),
+                details: error.details.map((d: unknown) => d.message),
               };
             }
             try {
@@ -317,7 +327,7 @@ export function registerSecurityRoutes(app: any): any {
               });
               set.status = 201;
               return { message: 'Security policy created successfully', policy: newPolicy };
-            } catch (error) {
+            } catch {
               set.status = 500;
               return {
                 error: 'Internal Server Error',
@@ -332,12 +342,12 @@ export function registerSecurityRoutes(app: any): any {
               set.status = 400;
               return {
                 error: 'Validation Error',
-                details: error.details.map((d: any) => d.message),
+                details: error.details.map((d: unknown) => d.message),
               };
             }
             try {
               const { securityService } = await getServices();
-              const policyId = (params as any).policyId as string;
+              const policyId = (params as unknown).policyId as string;
               const repo = securityService!.getSecurityPolicyRepository();
               const updated = await repo.updateSecurityPolicy(policyId, value);
               if (!updated) {
@@ -345,7 +355,7 @@ export function registerSecurityRoutes(app: any): any {
                 return { error: 'Policy Not Found', message: 'Security policy not found' };
               }
               return { message: 'Security policy updated successfully', policy: updated };
-            } catch (error) {
+            } catch {
               set.status = 500;
               return {
                 error: 'Internal Server Error',
@@ -357,7 +367,7 @@ export function registerSecurityRoutes(app: any): any {
           .delete('/policies/:policyId', async ({ set, params }) => {
             try {
               const { securityService } = await getServices();
-              const policyId = (params as any).policyId as string;
+              const policyId = (params as unknown).policyId as string;
               const repo = securityService!.getSecurityPolicyRepository();
               const ok = await repo.deleteSecurityPolicy(policyId);
               if (!ok) {
@@ -365,7 +375,7 @@ export function registerSecurityRoutes(app: any): any {
                 return { error: 'Policy Not Found', message: 'Security policy not found' };
               }
               return { message: 'Security policy deleted successfully' };
-            } catch (error) {
+            } catch {
               set.status = 500;
               return {
                 error: 'Internal Server Error',
@@ -376,7 +386,7 @@ export function registerSecurityRoutes(app: any): any {
 
           .get('/stats', async ({ set, query }) => {
             try {
-              const timeframe = ((query as any).timeframe || '24h') as string;
+              const timeframe = ((query as unknown).timeframe || '24h') as string;
               let startDate: Date;
               const endDate = new Date();
               switch (timeframe) {
@@ -403,7 +413,7 @@ export function registerSecurityRoutes(app: any): any {
                 limit: 1000,
               });
               const eventsByType = eventStats.reduce(
-                (acc: Record<string, number>, event: any) => {
+                (acc: Record<string, number>, event: unknown) => {
                   acc[event.eventType] = acc[event.eventType] + 1;
                   return acc;
                 },
@@ -416,7 +426,7 @@ export function registerSecurityRoutes(app: any): any {
                 limit: 1000,
               });
               const riskStats = riskEvents.reduce(
-                (acc: any, event: any) => {
+                (acc: unknown, event: unknown) => {
                   const score = event.details?.riskScore;
                   if (typeof score === 'number') {
                     acc.totalAssessments++;
@@ -463,7 +473,7 @@ export function registerSecurityRoutes(app: any): any {
                   },
                 },
               };
-            } catch (error) {
+            } catch {
               set.status = 500;
               return {
                 error: 'Internal Server Error',

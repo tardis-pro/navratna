@@ -5,7 +5,7 @@
  * to interact with all UAIP backend services.
  */
 
-import { UAIPAPIClient, createAPIClient, isSuccessResponse, hasError } from '../src/services/api.js';
+import { createAPIClient, isSuccessResponse, hasError } from '../src/services/api.js';
 
 // Utility function to generate UUIDs for backend examples
 function generateUUID(): string {
@@ -49,7 +49,6 @@ async function loginExample() {
         true
       );
 
-      console.log('Login successful:', response.data.user);
       return response.data;
     } else {
       console.error('Login failed:', response.error?.message);
@@ -69,7 +68,6 @@ async function getCurrentUserExample() {
     const response = await apiClient.auth.me();
 
     if (isSuccessResponse(response)) {
-      console.log('Current user:', response.data);
       return response.data;
     } else {
       console.error('Failed to get user info:', response.error?.message);
@@ -88,7 +86,6 @@ async function logoutExample() {
   try {
     await apiClient.auth.logout();
     apiClient.clearAuth();
-    console.log('Logout successful');
   } catch (error) {
     console.error('Logout error:', error);
     // Clear auth anyway
@@ -136,7 +133,6 @@ async function agentManagementExample() {
 
     if (isSuccessResponse(createResponse)) {
       const agent = createResponse.data;
-      console.log('Agent created:', agent);
 
       // Analyze context with the agent
       const analysisResponse = await apiClient.agents.analyze(agent.id, {
@@ -163,8 +159,6 @@ async function agentManagementExample() {
       });
 
       if (isSuccessResponse(analysisResponse)) {
-        console.log('Analysis completed:', analysisResponse.data);
-
         // Generate a plan based on analysis
         const planResponse = await apiClient.agents.plan(agent.id, {
           analysis: analysisResponse.data.analysis,
@@ -175,7 +169,6 @@ async function agentManagementExample() {
         });
 
         if (isSuccessResponse(planResponse)) {
-          console.log('Plan generated:', planResponse.data);
           return planResponse.data;
         }
       }
@@ -196,13 +189,11 @@ async function agentStatusExample() {
     // Get agent capabilities
     const capabilitiesResponse = await apiClient.agents.getCapabilities(agentId);
     if (isSuccessResponse(capabilitiesResponse)) {
-      console.log('Agent capabilities:', capabilitiesResponse.data);
     }
 
     // Check agent service health
     const healthResponse = await apiClient.agents.health.detailed();
     if (isSuccessResponse(healthResponse)) {
-      console.log('Agent service health:', healthResponse.data);
     }
   } catch (error) {
     console.error('Agent status error:', error);
@@ -231,19 +222,16 @@ async function personaManagementExample() {
 
     if (isSuccessResponse(createResponse)) {
       const persona = createResponse.data;
-      console.log('Persona created:', persona);
 
       // Search for similar personas
       const searchResponse = await apiClient.personas.search('marketing', 'digital_marketing');
       if (isSuccessResponse(searchResponse)) {
-        console.log('Similar personas:', searchResponse.data);
       }
 
       // Get persona recommendations for a context
       const recommendationsResponse =
         await apiClient.personas.getRecommendations('marketing_campaign');
       if (isSuccessResponse(recommendationsResponse)) {
-        console.log('Persona recommendations:', recommendationsResponse.data);
       }
 
       // Validate the persona
@@ -253,7 +241,6 @@ async function personaManagementExample() {
       });
 
       if (isSuccessResponse(validationResponse)) {
-        console.log('Persona validation:', validationResponse.data);
       }
 
       return persona;
@@ -285,8 +272,6 @@ async function capabilityManagementExample() {
     });
 
     if (isSuccessResponse(searchResponse)) {
-      console.log('Found capabilities:', searchResponse.data);
-
       // Get capability recommendations
       const recommendationsResponse = await apiClient.capabilities.getRecommendations({
         context: 'business_analysis',
@@ -294,7 +279,6 @@ async function capabilityManagementExample() {
       });
 
       if (isSuccessResponse(recommendationsResponse)) {
-        console.log('Capability recommendations:', recommendationsResponse.data);
       }
 
       // Register a new capability
@@ -333,7 +317,6 @@ async function capabilityManagementExample() {
       });
 
       if (isSuccessResponse(registerResponse)) {
-        console.log('Capability registered:', registerResponse.data);
         return registerResponse.data;
       }
     }
@@ -422,13 +405,10 @@ async function orchestrationExample() {
 
     if (isSuccessResponse(executeResponse)) {
       const workflowId = executeResponse.data.workflowInstanceId;
-      console.log('Operation started:', workflowId);
 
       // Monitor operation status
       const statusResponse = await apiClient.orchestration.getStatus(workflowId);
       if (isSuccessResponse(statusResponse)) {
-        console.log('Operation status:', statusResponse.data);
-
         // If needed, pause the operation
         if (statusResponse.data.status === 'running') {
           const pauseResponse = await apiClient.orchestration.pause(workflowId, {
@@ -436,15 +416,12 @@ async function orchestrationExample() {
           });
 
           if (isSuccessResponse(pauseResponse)) {
-            console.log('Operation paused');
-
             // Resume later
             const resumeResponse = await apiClient.orchestration.resume(workflowId, {
               checkpointId: 'checkpoint-123',
             });
 
             if (isSuccessResponse(resumeResponse)) {
-              console.log('Operation resumed');
             }
           }
         }
@@ -500,13 +477,10 @@ async function discussionManagementExample() {
 
     if (isSuccessResponse(createResponse)) {
       const discussion = createResponse.data;
-      console.log('Discussion created:', discussion);
 
       // Start the discussion
       const startResponse = await apiClient.discussions.start(discussion.id);
       if (isSuccessResponse(startResponse)) {
-        console.log('Discussion started');
-
         // Add a participant
         const addParticipantResponse = await apiClient.discussions.addParticipant(discussion.id, {
           personaId: 'persona-3',
@@ -514,8 +488,6 @@ async function discussionManagementExample() {
         });
 
         if (isSuccessResponse(addParticipantResponse)) {
-          console.log('Participant added');
-
           // Send a message
           const messageResponse = await apiClient.discussions.sendMessage(
             discussion.id,
@@ -531,18 +503,14 @@ async function discussionManagementExample() {
           );
 
           if (isSuccessResponse(messageResponse)) {
-            console.log('Message sent');
-
             // Get discussion messages
             const messagesResponse = await apiClient.discussions.getMessages(discussion.id, 50, 0);
             if (isSuccessResponse(messagesResponse)) {
-              console.log('Discussion messages:', messagesResponse.data);
             }
 
             // Get discussion analytics
             const analyticsResponse = await apiClient.discussions.getAnalytics(discussion.id);
             if (isSuccessResponse(analyticsResponse)) {
-              console.log('Discussion analytics:', analyticsResponse.data);
             }
           }
         }
@@ -580,8 +548,6 @@ async function securityExample() {
     });
 
     if (isSuccessResponse(riskResponse)) {
-      console.log('Risk assessment:', riskResponse.data);
-
       // Check if approval is required
       const approvalCheckResponse = await apiClient.security.checkApprovalRequired({
         operation: {
@@ -596,8 +562,6 @@ async function securityExample() {
       });
 
       if (isSuccessResponse(approvalCheckResponse)) {
-        console.log('Approval required:', approvalCheckResponse.data);
-
         if (approvalCheckResponse.data.required) {
           // Create approval workflow
           const workflowResponse = await apiClient.approvals.createWorkflow({
@@ -617,7 +581,6 @@ async function securityExample() {
           });
 
           if (isSuccessResponse(workflowResponse)) {
-            console.log('Approval workflow created:', workflowResponse.data);
             return workflowResponse.data;
           }
         }
@@ -642,8 +605,6 @@ async function userManagementExample() {
     });
 
     if (isSuccessResponse(usersResponse)) {
-      console.log('Users:', usersResponse.data);
-
       // Create a new user
       const createUserResponse = await apiClient.users.create({
         email: 'newuser@example.com',
@@ -656,7 +617,6 @@ async function userManagementExample() {
       });
 
       if (isSuccessResponse(createUserResponse)) {
-        console.log('User created:', createUserResponse.data);
         return createUserResponse.data;
       }
     }
@@ -684,12 +644,9 @@ async function auditExample() {
     });
 
     if (isSuccessResponse(logsResponse)) {
-      console.log('Audit logs:', logsResponse.data);
-
       // Get audit statistics
       const statsResponse = await apiClient.audit.getStats('last_30_days');
       if (isSuccessResponse(statsResponse)) {
-        console.log('Audit stats:', statsResponse.data);
       }
 
       // Export audit logs
@@ -704,7 +661,6 @@ async function auditExample() {
       });
 
       if (isSuccessResponse(exportResponse)) {
-        console.log('Export initiated:', exportResponse.data);
       }
     }
   } catch (error) {
@@ -734,16 +690,12 @@ async function errorHandlingExample() {
       // Handle specific error types
       switch (response.error.code) {
         case 'NOT_FOUND':
-          console.log('Agent not found, creating new one...');
           break;
         case 'UNAUTHORIZED':
-          console.log('Authentication required, redirecting to login...');
           break;
         case 'FORBIDDEN':
-          console.log('Insufficient permissions');
           break;
         default:
-          console.log('Unknown error occurred');
       }
     }
   } catch (error) {

@@ -24,7 +24,7 @@ export class IntegrationEventEntity extends BaseEntity {
   action: 'CREATE' | 'UPDATE' | 'DELETE';
 
   @Column({ type: 'jsonb' })
-  payload: Record<string, any>;
+  payload: Record<string, unknown>;
 
   @CreateDateColumn({ name: 'timestamp' })
   timestamp: Date;

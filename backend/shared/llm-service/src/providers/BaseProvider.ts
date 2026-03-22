@@ -93,9 +93,9 @@ export abstract class BaseProvider {
 
   protected async makeRequest(
     url: string,
-    body: any,
+    body: Record<string, unknown>,
     headers: Record<string, string> = {}
-  ): Promise<any> {
+  ): Promise<Record<string, unknown>> {
     const defaultHeaders: Record<string, string> = {
       'Content-Type': 'application/json',
       ...headers,
@@ -120,6 +120,7 @@ export abstract class BaseProvider {
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), timeout);
 
+        // eslint-disable-next-line no-await-in-loop -- sequential processing required
         const response = await fetch(url, {
           method: 'POST',
           headers: defaultHeaders,
@@ -133,6 +134,7 @@ export abstract class BaseProvider {
           throw new Error(`HTTP ${response.status}: ${response.statusText}`);
         }
 
+        // eslint-disable-next-line no-await-in-loop -- sequential processing required
         const data = await response.json();
         logger.info(`${this.name} API request successful`, {
           attempt,
@@ -153,6 +155,7 @@ export abstract class BaseProvider {
 
         // Exponential backoff
         const delay = Math.min(1000 * Math.pow(2, attempt - 1), 10000);
+        // eslint-disable-next-line no-await-in-loop -- sequential processing required
         await new Promise((resolve) => setTimeout(resolve, delay));
       }
     }
@@ -160,7 +163,10 @@ export abstract class BaseProvider {
     throw new Error(`Failed after ${maxRetries} attempts`);
   }
 
-  protected async makeGetRequest(url: string, headers: Record<string, string> = {}): Promise<any> {
+  protected async makeGetRequest(
+    url: string,
+    headers: Record<string, string> = {}
+  ): Promise<Record<string, unknown>> {
     const defaultHeaders: Record<string, string> = {
       ...headers,
     };
@@ -184,6 +190,7 @@ export abstract class BaseProvider {
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), timeout);
 
+        // eslint-disable-next-line no-await-in-loop -- sequential processing required
         const response = await fetch(url, {
           method: 'GET',
           headers: defaultHeaders,
@@ -196,6 +203,7 @@ export abstract class BaseProvider {
           throw new Error(`HTTP ${response.status}: ${response.statusText}`);
         }
 
+        // eslint-disable-next-line no-await-in-loop -- sequential processing required
         const data = await response.json();
         logger.info(`${this.name} GET request successful`, {
           attempt,
@@ -216,6 +224,7 @@ export abstract class BaseProvider {
 
         // Exponential backoff
         const delay = Math.min(1000 * Math.pow(2, attempt - 1), 10000);
+        // eslint-disable-next-line no-await-in-loop -- sequential processing required
         await new Promise((resolve) => setTimeout(resolve, delay));
       }
     }
@@ -223,7 +232,7 @@ export abstract class BaseProvider {
     throw new Error(`Failed after ${maxRetries} attempts`);
   }
 
-  protected handleError(error: any, context: string): LLMResponse {
+  protected handleError(error: unknown, context: string): LLMResponse {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     logger.error(`${this.name} ${context} error`, { error: errorMessage });
 

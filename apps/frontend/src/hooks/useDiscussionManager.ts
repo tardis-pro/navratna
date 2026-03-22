@@ -1,5 +1,5 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
-import { uaipAPI, generateUUID, TurnStrategy, DiscussionEvent } from '../utils/uaip-api';
+import { useState, useEffect, useCallback, _useRef } from 'react';
+import { uaipAPI, _generateUUID, TurnStrategy, DiscussionEvent } from '../utils/uaip-api';
 import { AgentState, Message } from '../types/agent';
 import { DocumentContext } from '../types/document';
 import { useAuth } from '../contexts/AuthContext';
@@ -70,7 +70,7 @@ export function useDiscussionManager(config: DiscussionManagerConfig): Discussio
     currentRound: 0,
     lastError: null,
   });
-  const [document, setDocument] = useState<DocumentContext | null>(null);
+  const [_document, setDocument] = useState<DocumentContext | null>(null);
   const [moderatorId, setModeratorId] = useState<string | null>(null);
 
   const refreshDiscussion = useCallback(async () => {
@@ -94,7 +94,7 @@ export function useDiscussionManager(config: DiscussionManagerConfig): Discussio
         content: msg.content,
         sender: msg.participantId,
         timestamp: new Date(msg.createdAt),
-        type: msg.messageType === 'message' ? 'response' : (msg.messageType as any),
+        type: msg.messageType === 'message' ? 'response' : (msg.messageType as unknown),
         replyTo: msg.replyTo,
       }));
 
@@ -158,8 +158,6 @@ export function useDiscussionManager(config: DiscussionManagerConfig): Discussio
   // Initialize WebSocket connection for real-time updates
   useEffect(() => {
     if (discussionId) {
-      console.log('🔌 Setting up WebSocket listeners for discussion:', discussionId);
-
       try {
         // Use the global WebSocket client from uaipAPI
         const wsClient = uaipAPI.websocket;
@@ -168,23 +166,17 @@ export function useDiscussionManager(config: DiscussionManagerConfig): Discussio
         wsClient.joinDiscussion(discussionId);
 
         // Add event listeners for discussion events
-        const handleDiscussionEventWrapper = (event: DiscussionEvent) => {
+        const _handleDiscussionEventWrapper = (event: DiscussionEvent) => {
           // Only handle events for our specific discussion
           if (event.discussionId === discussionId) {
-            console.log('📨 Discussion event received:', event);
             handleDiscussionEvent(event);
           }
         };
 
         // WebSocket functionality removed - using useWebSocket hook instead
-        console.log(
-          '🔌 WebSocket functionality disabled in useDiscussionManager - use useWebSocket hook instead'
-        );
 
         // Cleanup on unmount
-        return () => {
-          console.log('🔌 Cleanup for discussion:', discussionId);
-        };
+        return () => {};
       } catch (error) {
         console.error('🔌 Failed to initialize WebSocket connection:', error);
         setState((prev) => ({
@@ -201,16 +193,6 @@ export function useDiscussionManager(config: DiscussionManagerConfig): Discussio
   const createDiscussion = useCallback(async () => {
     try {
       // Just use the current hook values - the ref approach isn't working
-      console.log('🔍 Creating discussion - Using direct hook values:', {
-        user,
-        hasUser: !!user,
-        userId: user?.id,
-        userType: typeof user,
-        userKeys: user ? Object.keys(user) : 'N/A',
-        isLoading,
-        isAuthenticated,
-        agentCount: Object.keys(agents).length,
-      });
 
       // Check if auth is still loading
       if (isLoading) {
@@ -233,8 +215,6 @@ export function useDiscussionManager(config: DiscussionManagerConfig): Discussio
         });
         throw new Error(`User authenticated but missing ID - user: ${JSON.stringify(user)}`);
       }
-
-      console.log('✅ Using userId:', user.id);
 
       // Create proper TurnStrategyConfig based on the strategy
       const turnStrategyConfig = (() => {

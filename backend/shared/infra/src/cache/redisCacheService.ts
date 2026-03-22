@@ -36,7 +36,7 @@ export class RedisCacheService {
       try {
         await this.connectionPromise;
         return this.isConnected;
-      } catch (error) {
+      } catch {
         return false;
       }
     }
@@ -147,7 +147,7 @@ export class RedisCacheService {
   /**
    * Cache operations
    */
-  async set(key: string, value: any, ttlSeconds?: number): Promise<boolean> {
+  async set(key: string, value: unknown, ttlSeconds?: number): Promise<boolean> {
     try {
       const client = await this.getClient();
       if (!client) return false;
@@ -162,12 +162,15 @@ export class RedisCacheService {
 
       return true;
     } catch (error) {
-      logger.error('Redis SET failed', { key, error: error.message });
+      logger.error('Redis SET failed', {
+        key,
+        error: error instanceof Error ? error.message : 'Unknown error',
+      });
       return false;
     }
   }
 
-  async get<T = any>(key: string): Promise<T | null> {
+  async get<T = unknown>(key: string): Promise<T | null> {
     try {
       const client = await this.getClient();
       if (!client) return null;

@@ -1,6 +1,10 @@
 import { logger } from '@uaip/utils';
 import { BaseRepository } from '../base/BaseRepository';
-import { SecurityPolicy } from '../../entities/securityPolicy.entity';
+import {
+  SecurityPolicy,
+  SecurityPolicyConditions,
+  SecurityPolicyActions,
+} from '../../entities/securityPolicy.entity';
 import { ApprovalWorkflow } from '../../entities/approvalWorkflow.entity';
 import { ApprovalDecision } from '../../entities/approvalDecision.entity';
 
@@ -17,8 +21,8 @@ export class SecurityPolicyRepository extends BaseRepository<SecurityPolicy> {
     description: string;
     priority: number;
     isActive: boolean;
-    conditions: any;
-    actions: any;
+    conditions: SecurityPolicyConditions;
+    actions: SecurityPolicyActions;
     createdBy: string;
   }): Promise<SecurityPolicy> {
     const policy = this.repository.create(policyData);
@@ -126,13 +130,14 @@ export class ApprovalWorkflowRepository extends BaseRepository<ApprovalWorkflow>
     currentApprovers?: string[];
     status: string;
     expiresAt?: Date;
-    metadata?: Record<string, any>;
+    metadata?: Record<string, unknown>;
   }): Promise<ApprovalWorkflow> {
     const workflow = this.repository.create({
       id: workflowData.id,
       operationId: workflowData.operationId,
       requiredApprovers: workflowData.requiredApprovers,
       currentApprovers: workflowData.currentApprovers || [],
+      // oxlint-disable-next-line @typescript-eslint/no-explicit-any -- TypeORM enum cast
       status: workflowData.status as any,
       expiresAt: workflowData.expiresAt,
       metadata: workflowData.metadata,

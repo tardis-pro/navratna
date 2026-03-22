@@ -34,11 +34,9 @@ export function generateAuthTokens(payload: TokenPayload): {
     type: 'refresh',
   };
 
-  const refreshToken = jwt.sign(
-    refreshPayload,
-    config.jwt.refreshSecret as string,
-    { expiresIn: config.jwt.refreshTokenExpiry || '7d' }
-  );
+  const refreshToken = jwt.sign(refreshPayload, config.jwt.refreshSecret as string, {
+    expiresIn: config.jwt.refreshTokenExpiry || '7d',
+  });
 
   return { accessToken, refreshToken };
 }

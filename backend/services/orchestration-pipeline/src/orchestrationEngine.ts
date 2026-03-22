@@ -8,8 +8,6 @@ import {
   Operation,
   OperationType,
   OperationStatus,
-  WorkflowInstance,
-  OperationState,
   OperationError,
   EventMessage,
 } from '@uaip/types';
@@ -237,7 +235,7 @@ export class OrchestrationEngine extends EventEmitter {
   /**
    * Get operation status
    */
-  public async getOperationStatus(operationId: string): Promise<any> {
+  public async getOperationStatus(operationId: string): Promise<Record<string, unknown>> {
     try {
       const operation = await this.operationManagementService.getOperation(operationId);
       if (!operation) {
@@ -480,14 +478,18 @@ export class OrchestrationEngine extends EventEmitter {
   /**
    * Handle workflow timeout
    */
-  private async handleWorkflowTimeout(event: any): Promise<void> {
+  private async handleWorkflowTimeout(event: { operationId: string }): Promise<void> {
     await this.cancelOperation(event.operationId, 'Workflow timeout exceeded', true, true);
   }
 
   /**
    * Handle step failure
    */
-  private async handleStepFailure(event: any): Promise<void> {
+  private async handleStepFailure(event: {
+    operationId: string;
+    stepId: string;
+    error: string;
+  }): Promise<void> {
     // Log failure details
     logger.error('Step failure details', {
       operationId: event.operationId,
@@ -527,6 +529,7 @@ export class OrchestrationEngine extends EventEmitter {
 
     for (const operation of staleOperations) {
       logger.warn('Cleaning up stale operation', { operationId: operation.id });
+      // oxlint-disable-next-line no-await-in-loop -- sequential processing required
       await this.cancelOperation(operation.id, 'Operation stale - automatic cleanup', false, true);
     }
   }

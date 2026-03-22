@@ -31,7 +31,7 @@ export interface ServiceConfig {
     max?: number;
     message?: string;
   };
-  customMiddleware?: any[];
+  customMiddleware?: unknown[];
 }
 
 export abstract class BaseService {
@@ -45,26 +45,26 @@ export abstract class BaseService {
   private shutdownHandlers: (() => Promise<void>)[] = [];
   private isShuttingDown: boolean = false;
 
-  constructor(config: ServiceConfig) {
-    this.config = config;
+  constructor(serviceConfig: ServiceConfig) {
+    this.config = serviceConfig;
     this.app = createAppServer();
     this.databaseService = DatabaseService.getInstance();
 
     // Initialize EventBusService singleton for first time
     this.eventBusService = EventBusService.getInstance(
       {
-        url: config.rabbitMQUrl || process.env.RABBITMQ_URL || 'amqp://localhost',
-        serviceName: config.name,
+        url: serviceConfig.rabbitMQUrl || process.env.RABBITMQ_URL || 'amqp://localhost',
+        serviceName: serviceConfig.name,
       },
       logger
     );
 
     // Initialize enterprise event bus if enabled
-    if (config.enableEnterpriseEventBus) {
+    if (serviceConfig.enableEnterpriseEventBus) {
       this.enterpriseEventBusService = new EventBusService(
         {
-          url: config.rabbitMQUrl || process.env.RABBITMQ_URL || 'amqp://localhost',
-          serviceName: config.name,
+          url: serviceConfig.rabbitMQUrl || process.env.RABBITMQ_URL || 'amqp://localhost',
+          serviceName: serviceConfig.name,
           exchangePrefix: 'uaip.enterprise',
           complianceMode: true,
         },
@@ -79,7 +79,7 @@ export abstract class BaseService {
    *   this.registerEntities([Agent, Persona, Discussion, ...])
    * Each service plane registers only its own entities.
    */
-  protected registerEntities(entities: any[]): void {
+  protected registerEntities(entities: unknown[]): void {
     this.databaseService.registerEntities(entities);
   }
 
@@ -102,7 +102,7 @@ export abstract class BaseService {
 
     // Global error handler
     this.app.onError(({ code, error }) => {
-      logger.error(`${this.config.name}: onError`, { code, error: (error as any)?.message });
+      logger.error(`${this.config.name}: onError`, { code, error: (error as unknown)?.message });
       return new Response(JSON.stringify({ error: 'Internal Server Error' }), {
         status: 500,
         headers: { 'content-type': 'application/json' },
@@ -212,7 +212,7 @@ export abstract class BaseService {
    * Note: Services should implement their own Neo4j initialization if needed.
    * This is a helper method that services can override.
    */
-  protected async initializeNeo4j(neo4jConfig: any): Promise<any> {
+  protected async initializeNeo4j(_neo4jConfig: unknown): Promise<unknown> {
     if (!this.config.enableNeo4j) {
       logger.debug(`${this.config.name}: Neo4j not enabled in config`);
       return null;
@@ -282,13 +282,14 @@ export abstract class BaseService {
       }
 
       // Run custom shutdown handlers
-      for (const handler of this.shutdownHandlers) {
+      await this.shutdownHandlers.reduce<Promise<void>>(async (previous, handler) => {
+        await previous;
         try {
           await handler();
         } catch (error) {
           logger.error(`${this.config.name}: Shutdown handler error:`, error);
         }
-      }
+      }, Promise.resolve());
 
       // Let child classes cleanup their resources
       await this.cleanup();
@@ -504,7 +505,7 @@ export abstract class BaseService {
    */
   protected async subscribeWithErrorHandling(
     eventName: string,
-    handler: (data: any) => Promise<any>,
+    handler: (data: unknown) => Promise<unknown>,
     options?: {
       responseEvent?: string;
       errorEvent?: string;
@@ -515,7 +516,7 @@ export abstract class BaseService {
       const prefix = options?.logPrefix || eventName;
 
       try {
-        const eventData = event.data as any;
+        const eventData = event.data as unknown;
         const { data } = eventData || event;
         logger.info(`${prefix}: Processing event`, { data });
 
@@ -557,7 +558,7 @@ export abstract class BaseService {
 // Utility function for creating service instances
 export function createService<T extends BaseService>(
   ServiceClass: new (config: ServiceConfig) => T,
-  config: ServiceConfig
+  serviceConfig: ServiceConfig
 ): T {
-  return new ServiceClass(config);
+  return new ServiceClass(serviceConfig);
 }

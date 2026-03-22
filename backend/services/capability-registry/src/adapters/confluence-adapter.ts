@@ -65,7 +65,7 @@ export class ConfluenceAdapter {
   /**
    * Execute a Confluence operation
    */
-  async execute(operationId: string, parameters: any): Promise<any> {
+  async execute(operationId: string, parameters: unknown): Promise<unknown> {
     try {
       logger.info('Executing Confluence operation', { operationId, baseUrl: this.baseUrl });
 
@@ -92,10 +92,10 @@ export class ConfluenceAdapter {
   /**
    * Create a new page
    */
-  private async createPage(parameters: any): Promise<any> {
+  private async createPage(parameters: unknown): Promise<unknown> {
     const { type = 'page', title, space, body, ancestors, metadata } = parameters;
 
-    const pageData: any = {
+    const pageData: unknown = {
       type,
       title,
       space: typeof space === 'string' ? { key: space } : space,
@@ -141,7 +141,7 @@ export class ConfluenceAdapter {
   /**
    * Update an existing page
    */
-  private async updatePage(parameters: any): Promise<any> {
+  private async updatePage(parameters: unknown): Promise<unknown> {
     const { pageId, title, body, version, message = 'Updated via API' } = parameters;
 
     // Get current page version if not provided
@@ -184,7 +184,7 @@ export class ConfluenceAdapter {
   /**
    * Search for content
    */
-  private async searchContent(parameters: any): Promise<any> {
+  private async searchContent(parameters: unknown): Promise<unknown> {
     const {
       query,
       cql,
@@ -235,7 +235,7 @@ export class ConfluenceAdapter {
   /**
    * Get a specific page
    */
-  private async getPage(parameters: any): Promise<any> {
+  private async getPage(parameters: unknown): Promise<unknown> {
     const { pageId, expand = ['version', 'space', 'body.storage', 'metadata.labels'] } = parameters;
 
     const response = await this.axiosInstance.get(`/content/${pageId}`, {
@@ -250,7 +250,7 @@ export class ConfluenceAdapter {
   /**
    * Add attachment to a page
    */
-  private async addAttachment(parameters: any): Promise<any> {
+  private async addAttachment(parameters: unknown): Promise<unknown> {
     const { pageId, file, comment = 'File attached via API' } = parameters;
 
     const formData = new FormData();
@@ -338,7 +338,7 @@ export class ConfluenceAdapter {
       });
     } catch (error) {
       logger.error('Confluence authentication failed', { error });
-      throw new Error('Failed to authenticate with Confluence');
+      throw new Error('Failed to authenticate with Confluence', { cause: error });
     }
   }
 
@@ -382,14 +382,14 @@ export class ConfluenceAdapter {
       this.accessToken = null;
       this.refreshToken = null;
       this.tokenExpiry = null;
-      throw new Error('Failed to refresh Confluence token');
+      throw new Error('Failed to refresh Confluence token', { cause: error });
     }
   }
 
   /**
    * Format error for consistent error handling
    */
-  private formatError(error: any): Error {
+  private formatError(error: unknown): Error {
     if (error.response) {
       // Confluence API error
       const status = error.response.status;
@@ -413,7 +413,7 @@ export class ConfluenceAdapter {
   /**
    * Get space information
    */
-  async getSpace(spaceKey: string): Promise<any> {
+  async getSpace(spaceKey: string): Promise<unknown> {
     const response = await this.axiosInstance.get(`/space/${spaceKey}`, {
       params: {
         expand: 'description,homepage',
@@ -431,7 +431,7 @@ export class ConfluenceAdapter {
     spaceKey: string;
     content: string;
     labels?: string[];
-  }): Promise<any> {
+  }): Promise<unknown> {
     const blogData = {
       type: 'blogpost',
       title: parameters.title,
@@ -469,8 +469,8 @@ export class ConfluenceAdapter {
     pageId: string;
     content: string;
     parentCommentId?: string;
-  }): Promise<any> {
-    const commentData: any = {
+  }): Promise<unknown> {
+    const commentData: unknown = {
       type: 'comment',
       container: {
         id: parameters.pageId,
@@ -508,7 +508,7 @@ export class ConfluenceAdapter {
   async getPageChildren(
     pageId: string,
     type: 'page' | 'comment' | 'attachment' = 'page'
-  ): Promise<any> {
+  ): Promise<unknown> {
     const response = await this.axiosInstance.get(`/content/${pageId}/child/${type}`, {
       params: {
         expand: 'version,space',
@@ -526,8 +526,8 @@ export class ConfluenceAdapter {
     targetSpaceKey?: string;
     targetParentId?: string;
     position?: number;
-  }): Promise<any> {
-    const moveData: any = {
+  }): Promise<unknown> {
+    const moveData: unknown = {
       position: parameters.position || 0,
     };
 
@@ -553,8 +553,8 @@ export class ConfluenceAdapter {
   /**
    * Delete a page
    */
-  async deletePage(pageId: string): Promise<any> {
-    const response = await this.axiosInstance.delete(`/content/${pageId}`);
+  async deletePage(pageId: string): Promise<unknown> {
+    const _response = await this.axiosInstance.delete(`/content/${pageId}`);
 
     logger.info('Confluence page deleted', { pageId });
 

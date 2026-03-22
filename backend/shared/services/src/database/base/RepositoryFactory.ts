@@ -36,7 +36,7 @@ import { KnowledgeRepository } from '../repositories/knowledge.repository';
  */
 export class RepositoryFactory {
   private static instance: RepositoryFactory;
-  private repositoryInstances = new Map<string, any>();
+  private repositoryInstances = new Map<string, unknown>();
   private typeormService: TypeOrmService;
 
   private constructor() {
@@ -145,10 +145,8 @@ export class RepositoryFactory {
       const {
         KnowledgeRelationshipEntity,
       } = require('../../entities/knowledge-relationship.entity.ts');
-      const knowledgeRepo = this.typeormService.getRepository(KnowledgeItemEntity) as any;
-      const relationshipRepo = this.typeormService.getRepository(
-        KnowledgeRelationshipEntity
-      ) as any;
+      const knowledgeRepo = this.typeormService.getRepository(KnowledgeItemEntity);
+      const relationshipRepo = this.typeormService.getRepository(KnowledgeRelationshipEntity);
       return new KnowledgeRepository(knowledgeRepo, relationshipRepo);
     });
   }
@@ -170,7 +168,7 @@ export class RepositoryFactory {
   /**
    * Get all repository instances (for debugging)
    */
-  public getRepositoryInstances(): Map<string, any> {
+  public getRepositoryInstances(): Map<string, unknown> {
     return new Map(this.repositoryInstances);
   }
 }

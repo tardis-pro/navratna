@@ -73,9 +73,7 @@ export async function cleanupTestDb(dataSource: DataSource): Promise<void> {
     UserEntity,
   ];
 
-  for (const entity of entities) {
-    await dataSource.getRepository(entity).delete({});
-  }
+  await Promise.all(entities.map(async (entity) => dataSource.getRepository(entity).delete({})));
 }
 
 /**
@@ -160,13 +158,13 @@ export function createMockRedis() {
  * Create mock RabbitMQ client for testing
  */
 export function createMockRabbitMQ() {
-  const messageQueue = new Map<string, any[]>();
+  const messageQueue = new Map<string, unknown[]>();
   const subscribers = new Map<string, Function[]>();
 
   return {
     connect: jest.fn(async () => ({})),
 
-    publish: jest.fn(async (exchange: string, routingKey: string, message: any) => {
+    publish: jest.fn(async (exchange: string, routingKey: string, message: unknown) => {
       const key = `${exchange}.${routingKey}`;
       if (!messageQueue.has(key)) {
         messageQueue.set(key, []);
@@ -193,14 +191,16 @@ export function createMockRabbitMQ() {
       messageQueue.set(key, []); // Clear queue
     }),
 
-    rpc: jest.fn(async (exchange: string, routingKey: string, message: any, timeout = 5000) => {
-      // Simulate RPC response
-      return {
-        success: true,
-        data: { echo: message },
-        timestamp: new Date().toISOString(),
-      };
-    }),
+    rpc: jest.fn(
+      async (exchange: string, routingKey: string, message: unknown, _timeout = 5000) => {
+        // Simulate RPC response
+        return {
+          success: true,
+          data: { echo: message },
+          timestamp: new Date().toISOString(),
+        };
+      }
+    ),
 
     disconnect: jest.fn(async () => {
       messageQueue.clear();
@@ -326,7 +326,7 @@ export function generateTestId(prefix = 'test'): string {
 /**
  * Create test JWT token for authentication
  */
-export function createTestJWT(payload: any = {}): string {
+export function createTestJWT(payload: unknown = {}): string {
   // In a real implementation, this would use a proper JWT library
   // For testing, we'll create a simple base64 encoded payload
   const header = { alg: 'HS256', typ: 'JWT' };

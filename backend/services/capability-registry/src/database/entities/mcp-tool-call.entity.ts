@@ -19,7 +19,7 @@ export class MCPToolCall extends ExecutionBaseEntity {
   toolName: string;
 
   @Column({ type: 'jsonb' })
-  parameters: Record<string, any>;
+  parameters: Record<string, unknown>;
 
   @Column({ type: 'timestamp' })
   timestamp: Date;
@@ -28,7 +28,7 @@ export class MCPToolCall extends ExecutionBaseEntity {
   status: 'pending' | 'running' | 'completed' | 'failed';
 
   @Column({ type: 'jsonb', nullable: true })
-  result?: any;
+  result?: unknown;
 
   @Column({ type: 'text', nullable: true })
   error?: string;
@@ -119,7 +119,7 @@ export class MCPToolCall extends ExecutionBaseEntity {
   complianceTags: string[];
 
   @Column({ name: 'audit_trail', type: 'jsonb', default: '[]' })
-  auditTrail: any[];
+  auditTrail: unknown[];
 
   // ── Error / debug ──────────────────────────────────────────────────────────
   @Column({ name: 'error_code', nullable: true })
@@ -137,7 +137,7 @@ export class MCPToolCall extends ExecutionBaseEntity {
   stackTrace?: string;
 
   @Column({ name: 'debug_info', type: 'jsonb', nullable: true })
-  debugInfo?: Record<string, any>;
+  debugInfo?: Record<string, unknown>;
 
   // ── Cost ───────────────────────────────────────────────────────────────────
   @Column({ name: 'cost_estimate', type: 'decimal', precision: 10, scale: 2, nullable: true })
@@ -170,10 +170,10 @@ export class MCPToolCall extends ExecutionBaseEntity {
   tags: string[];
 
   @Column({ type: 'jsonb', nullable: true })
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 
   @Column({ name: 'call_context', type: 'jsonb', nullable: true })
-  callContext?: Record<string, any>;
+  callContext?: Record<string, unknown>;
 
   @Column({ name: 'external_references', type: 'jsonb', nullable: true })
   externalReferences?: Record<string, string>;

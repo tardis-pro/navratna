@@ -11,7 +11,7 @@ export interface WorkflowExecution {
   startTime: Date;
   endTime?: Date;
   duration?: number;
-  metadata?: any;
+  metadata?: Record<string, unknown>;
 }
 
 export interface WorkflowStepExecution {
@@ -24,10 +24,10 @@ export interface WorkflowStepExecution {
   startTime?: Date;
   endTime?: Date;
   duration?: number;
-  input?: any;
-  output?: any;
+  input?: Record<string, unknown>;
+  output?: Record<string, unknown>;
   errorDetails?: string;
-  metadata?: any;
+  metadata?: Record<string, unknown>;
 }
 
 export class WorkflowPersistenceService {
@@ -39,7 +39,7 @@ export class WorkflowPersistenceService {
   async createWorkflowExecution(
     workflowId: string,
     pattern: CollaborationPattern,
-    metadata?: any
+    metadata?: Record<string, unknown>
   ): Promise<WorkflowExecution> {
     const execution: WorkflowExecution = {
       id: `exec-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,

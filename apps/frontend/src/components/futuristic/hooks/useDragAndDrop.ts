@@ -3,7 +3,7 @@ import { useState, useCallback, useRef } from 'react';
 interface DragItem {
   id: string;
   type: string;
-  data: any;
+  data: unknown;
 }
 
 interface DropZone {
@@ -45,7 +45,7 @@ export const useDragAndDrop = () => {
   // Unregister a drop zone
   const unregisterDropZone = useCallback((dropZoneId: string) => {
     setDragState((prev) => {
-      const { [dropZoneId]: removed, ...remainingDropZones } = prev.dropZones;
+      const { [dropZoneId]: _removed, ...remainingDropZones } = prev.dropZones;
       return {
         ...prev,
         dropZones: remainingDropZones,
@@ -294,7 +294,7 @@ export const useIconDragDrop = (
 
   // Create drag handlers for an icon
   const getIconDragHandlers = useCallback(
-    (iconId: string, iconData: any) => {
+    (iconId: string, iconData: unknown) => {
       return dragAndDrop.getDragHandlers({
         id: iconId,
         type: 'desktop-icon',

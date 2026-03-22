@@ -9,6 +9,13 @@ import {
 } from '@uaip/types';
 
 // Related entities will be referenced by string to avoid circular dependencies
+// Type-only imports are safe - they are erased at compile time
+import type { Operation } from './operation.entity';
+import type { ConversationContext } from './conversationContext.entity';
+import type { AgentCapabilityMetric } from './agentCapabilityMetric.entity';
+import type { ToolUsageRecord } from './toolUsageRecord.entity';
+import type { ToolAssignment } from './toolAssignment.entity';
+import type { Persona } from './persona.entity';
 
 /**
  * Enhanced Agent Entity with comprehensive intelligence and security features
@@ -42,7 +49,7 @@ export class Agent extends BaseEntity {
 
   @ManyToOne('Persona', { nullable: false })
   @JoinColumn({ name: 'persona_id' })
-  persona: any; // Will be populated when queried with relations
+  persona: Persona; // Will be populated when queried with relations
 
   // Legacy persona field - keeping for backwards compatibility during migration
   // TODO: Remove this field after migration is complete
@@ -94,10 +101,10 @@ export class Agent extends BaseEntity {
   capabilityScores?: Record<string, number>;
 
   @Column({ name: 'learning_history', type: 'jsonb', default: '[]' })
-  learningHistory: any[];
+  learningHistory: Record<string, unknown>[];
 
   @Column({ name: 'performance_metrics', type: 'jsonb', nullable: true })
-  performanceMetrics?: Record<string, any>;
+  performanceMetrics?: Record<string, unknown>;
 
   // Security and compliance
   @Column({
@@ -112,20 +119,20 @@ export class Agent extends BaseEntity {
   complianceTags: string[];
 
   @Column({ name: 'audit_trail', type: 'jsonb', default: '[]' })
-  auditTrail: any[];
+  auditTrail: Record<string, unknown>[];
 
   // Configuration and preferences
   @Column({ type: 'jsonb', nullable: true })
-  configuration?: Record<string, any>;
+  configuration?: Record<string, unknown>;
 
   @Column({ type: 'jsonb', nullable: true })
-  preferences?: Record<string, any>;
+  preferences?: Record<string, unknown>;
 
   @Column({ type: 'jsonb', default: '[]' })
   tags: string[];
 
   @Column({ type: 'jsonb', nullable: true })
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 
   // Version and deployment
   @Column({ length: 50, default: '1.0.0' })
@@ -155,13 +162,13 @@ export class Agent extends BaseEntity {
 
   // Tool System Integration - Enhanced from migration plan
   @Column({ name: 'tool_permissions', type: 'jsonb', nullable: true })
-  toolPermissions?: Record<string, any>;
+  toolPermissions?: Record<string, unknown>;
 
   @Column({ name: 'tool_preferences', type: 'jsonb', nullable: true })
-  toolPreferences?: Record<string, any>;
+  toolPreferences?: Record<string, unknown>;
 
   @Column({ name: 'tool_budget', type: 'jsonb', nullable: true })
-  toolBudget?: Record<string, any>;
+  toolBudget?: Record<string, unknown>;
 
   @Column({ name: 'max_concurrent_tools', default: 3 })
   maxConcurrentTools: number;
@@ -174,7 +181,7 @@ export class Agent extends BaseEntity {
     serverName: string;
     enabled: boolean;
     priority?: number;
-    parameters?: Record<string, any>;
+    parameters?: Record<string, unknown>;
   }>;
 
   @Column({ name: 'mcp_tool_settings', type: 'jsonb', nullable: true })
@@ -212,17 +219,17 @@ export class Agent extends BaseEntity {
 
   // Relationships
   @OneToMany('Operation', 'agent')
-  operations: any[];
+  operations: Operation[];
 
   @OneToMany('ConversationContext', 'agent')
-  conversations: any[];
+  conversations: ConversationContext[];
 
   @OneToMany('AgentCapabilityMetric', 'agent')
-  capabilityMetrics: any[];
+  capabilityMetrics: AgentCapabilityMetric[];
 
   @OneToMany('ToolUsageRecord', 'agent')
-  toolUsageRecords: any[];
+  toolUsageRecords: ToolUsageRecord[];
 
   @OneToMany('ToolAssignment', 'agent')
-  toolAssignments: any[];
+  toolAssignments: ToolAssignment[];
 }

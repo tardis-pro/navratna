@@ -8,19 +8,7 @@ import type {
   ContributionScore,
   MessageHistoryItem,
 } from '@uaip/types';
-import {
-  calculateContributionScore,
-  shouldPersonaContribute,
-  getResponseStarter,
-  getFiller,
-  getMemoryReference,
-  getEmotionalReflection,
-  generateEnhancedResponse,
-  updateConversationState,
-  detectTopicShift,
-  createConversationContext,
-  contextualTriggers,
-} from '@uaip/types';
+import { generateEnhancedResponse, contextualTriggers } from '@uaip/types';
 import { ConversationUtils } from '@uaip/shared-services';
 
 /**
@@ -109,8 +97,8 @@ export function getNextPersonaContribution(
   const enhancedResponse = generateEnhancedResponse(
     selectedPersona,
     baseContent,
-    responseEnhancement as any, // Type cast to resolve compatibility
-    context as any, // Type cast to resolve compatibility
+    responseEnhancement as unknown, // Type cast to resolve compatibility
+    context as unknown, // Type cast to resolve compatibility
     contextualTriggers
   );
 

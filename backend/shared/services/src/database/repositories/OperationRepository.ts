@@ -21,9 +21,13 @@ export class OperationRepository extends BaseRepository<Operation> {
   /**
    * Update operation result
    */
-  public async updateOperationResult(operationId: string, result: any): Promise<void> {
+  public async updateOperationResult(
+    operationId: string,
+    result: Record<string, unknown>
+  ): Promise<void> {
     await this.repository.update(operationId, {
       result,
+      // oxlint-disable-next-line @typescript-eslint/no-explicit-any -- TypeORM enum cast
       status: 'completed' as any,
       completedAt: new Date(),
       updatedAt: new Date(),
@@ -33,7 +37,7 @@ export class OperationRepository extends BaseRepository<Operation> {
   /**
    * Get operation by ID (raw query for compatibility)
    */
-  public async getOperationById(operationId: string): Promise<any | null> {
+  public async getOperationById(operationId: string): Promise<Record<string, unknown> | null> {
     try {
       const manager = this.getEntityManager();
       const query = 'SELECT * FROM operations WHERE id = $1';
@@ -57,7 +61,10 @@ export class OperationStateRepository extends BaseRepository<OperationState> {
   /**
    * Save operation state
    */
-  public async saveOperationState(operationId: string, state: any): Promise<void> {
+  public async saveOperationState(
+    operationId: string,
+    state: Record<string, unknown>
+  ): Promise<void> {
     try {
       // Check if state already exists
       const existingState = await this.repository.findOne({
@@ -98,7 +105,7 @@ export class OperationStateRepository extends BaseRepository<OperationState> {
   /**
    * Get operation state
    */
-  public async getOperationState(operationId: string): Promise<any> {
+  public async getOperationState(operationId: string): Promise<Record<string, unknown> | null> {
     try {
       const state = await this.repository.findOne({
         where: { operationId },
@@ -117,7 +124,11 @@ export class OperationStateRepository extends BaseRepository<OperationState> {
   /**
    * Update operation state
    */
-  public async updateOperationState(operationId: string, state: any, updates: any): Promise<void> {
+  public async updateOperationState(
+    operationId: string,
+    state: Record<string, unknown>,
+    updates: Record<string, unknown>
+  ): Promise<void> {
     try {
       await this.repository.update(
         { operationId },
@@ -171,6 +182,7 @@ export class OperationStateRepository extends BaseRepository<OperationState> {
       const [totalOperations, activeOperations, totalCheckpoints] = await Promise.all([
         this.repository.count(),
         this.repository.count({
+          // oxlint-disable-next-line @typescript-eslint/no-explicit-any -- TypeORM where clause requires flexible typing
           where: { toStatus: 'running' as any },
         }),
         checkpointRepo.count(),
@@ -197,7 +209,10 @@ export class OperationCheckpointRepository extends BaseRepository<OperationCheck
   /**
    * Save checkpoint
    */
-  public async saveCheckpoint(operationId: string, checkpoint: any): Promise<void> {
+  public async saveCheckpoint(
+    operationId: string,
+    checkpoint: Record<string, unknown>
+  ): Promise<void> {
     try {
       const newCheckpoint = this.repository.create({
         id: checkpoint.id,
@@ -221,7 +236,10 @@ export class OperationCheckpointRepository extends BaseRepository<OperationCheck
   /**
    * Get checkpoint
    */
-  public async getCheckpoint(operationId: string, checkpointId: string): Promise<any> {
+  public async getCheckpoint(
+    operationId: string,
+    checkpointId: string
+  ): Promise<Record<string, unknown> | null> {
     try {
       const checkpoint = await this.repository.findOne({
         where: { operationId, id: checkpointId },
@@ -240,7 +258,7 @@ export class OperationCheckpointRepository extends BaseRepository<OperationCheck
   /**
    * List checkpoints
    */
-  public async listCheckpoints(operationId: string): Promise<any[]> {
+  public async listCheckpoints(operationId: string): Promise<Record<string, unknown>[]> {
     try {
       const checkpoints = await this.repository.find({
         where: { operationId },
@@ -262,7 +280,7 @@ export class StepResultRepository extends BaseRepository<StepResult> {
   /**
    * Save step result
    */
-  public async saveStepResult(operationId: string, result: any): Promise<void> {
+  public async saveStepResult(operationId: string, result: Record<string, unknown>): Promise<void> {
     try {
       const stepResult = this.repository.create({
         operationId,

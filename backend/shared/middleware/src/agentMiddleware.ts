@@ -2,7 +2,7 @@ import { Elysia } from 'elysia';
 import { z } from 'zod';
 import { logger } from '@uaip/utils';
 import { AgentRole, SecurityLevel, AgentStatus } from '@uaip/types';
-import type { AgentContext, AgentExecution, ElysiaSet } from '@uaip/types';
+import type { AgentContext, AgentExecution } from '@uaip/types';
 
 export type { AgentContext, AgentExecution };
 

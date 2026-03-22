@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { Star, Download, TrendingUp, Search, Filter, Heart, Share2, Eye } from 'lucide-react';
+import { Star, Download, TrendingUp, Search, Filter, Heart, _Share2, Eye } from 'lucide-react';
 import { MarketplaceItem, MarketplaceCategory, MarketplaceItemType } from '@uaip/types';
 
 interface MarketplaceHomeProps {
@@ -16,7 +16,7 @@ export const MarketplaceHome: React.FC<MarketplaceHomeProps> = ({ onItemClick })
   const [selectedType, setSelectedType] = useState<string>('all');
   const [featuredItems, setFeaturedItems] = useState<MarketplaceItem[]>([]);
   const [trendingItems, setTrendingItems] = useState<MarketplaceItem[]>([]);
-  const [searchResults, setSearchResults] = useState<MarketplaceItem[]>([]);
+  const [_searchResults, setSearchResults] = useState<MarketplaceItem[]>([]);
   const [loading, setLoading] = useState(false);
 
   // Mock data for demo
@@ -38,7 +38,7 @@ export const MarketplaceHome: React.FC<MarketplaceHomeProps> = ({ onItemClick })
         isFeatured: true,
         isTrending: true,
         price: 0,
-        pricingModel: 'free' as any,
+        pricingModel: 'free' as unknown,
         stats: {
           totalDownloads: 15420,
           totalInstalls: 15420,
@@ -61,7 +61,7 @@ export const MarketplaceHome: React.FC<MarketplaceHomeProps> = ({ onItemClick })
         tags: ['creative', 'writing', 'content'],
         isFeatured: true,
         price: 9.99,
-        pricingModel: 'premium' as any,
+        pricingModel: 'premium' as unknown,
         stats: {
           totalDownloads: 12340,
           totalInstalls: 12340,
@@ -87,7 +87,7 @@ export const MarketplaceHome: React.FC<MarketplaceHomeProps> = ({ onItemClick })
         isTrending: true,
         trendingScore: 95.4,
         price: 0,
-        pricingModel: 'freemium' as any,
+        pricingModel: 'freemium' as unknown,
         stats: {
           totalDownloads: 28540,
           totalInstalls: 28540,
@@ -110,7 +110,7 @@ export const MarketplaceHome: React.FC<MarketplaceHomeProps> = ({ onItemClick })
         isTrending: true,
         trendingScore: 87.2,
         price: 19.99,
-        pricingModel: 'premium' as any,
+        pricingModel: 'premium' as unknown,
         stats: {
           totalDownloads: 19876,
           totalInstalls: 19876,

@@ -28,5 +28,5 @@ export interface SecurityManager {
 export interface ConversationAnalyzer {
   analyzeConversation(context: ArtifactConversationContext): Promise<ConversationSummary>;
   detectGenerationTriggers(context: ArtifactConversationContext): Promise<GenerationTrigger[]>;
-  extractRequirements(context: ArtifactConversationContext): Promise<any[]>;
+  extractRequirements(context: ArtifactConversationContext): Promise<unknown[]>;
 }

@@ -40,7 +40,7 @@ class BaseBenchMetaApp extends BaseService {
           responseEvent: 'basebench.evaluate.response',
           errorEvent: 'basebench.evaluate.error',
           logPrefix: 'BaseBench-Meta',
-        },
+        }
       );
 
       await this.subscribeWithErrorHandling(
@@ -50,7 +50,7 @@ class BaseBenchMetaApp extends BaseService {
           responseEvent: 'basebench.evaluate.batch.response',
           errorEvent: 'basebench.evaluate.batch.error',
           logPrefix: 'BaseBench-Meta Batch',
-        },
+        }
       );
 
       logger.info('BaseBench-Meta event subscriptions set up successfully');

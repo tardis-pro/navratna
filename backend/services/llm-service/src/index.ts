@@ -93,16 +93,11 @@ class LLMServiceServer extends BaseService {
 
   protected async setupRoutes(): Promise<void> {
     // Register route groups
-    registerLLMRoutes(
-      this.app,
-      this.llmService,
-      this.modelBootstrapService,
-      this.userLLMService
-    );
+    registerLLMRoutes(this.app, this.llmService, this.modelBootstrapService, this.userLLMService);
 
-    this.app.group('/api/v1/llm', (app: any) =>
-      app
-        .get('/routes/:agentId', ({ params }: any) => {
+    this.app.group('/api/v1/llm', (group: { get: Function; post: Function }) =>
+      group
+        .get('/routes/:agentId', ({ params }: { params: Record<string, string> }) => {
           const { agentId } = params;
           const agent = this.modelRoutingService.getAgentConfig(agentId);
 
@@ -126,8 +121,11 @@ class LLMServiceServer extends BaseService {
           success: true,
           data: this.modelRoutingService.getAllAgents(),
         }))
-        .post('/chat', async ({ body }: any) => {
-          const { agentId, prompt, capability = 'chat', systemPrompt } = body ?? {};
+        .post('/chat', async ({ body }: { body: Record<string, unknown> }) => {
+          const agentId = body?.agentId as string | undefined;
+          const prompt = body?.prompt as string | undefined;
+          const capability = (body?.capability as string) || 'chat';
+          const systemPrompt = body?.systemPrompt as string | undefined;
 
           if (!agentId || !prompt) {
             return {
@@ -139,9 +137,7 @@ class LLMServiceServer extends BaseService {
           const routedModel =
             this.modelRoutingService.getModelForAgent(agentId, capability) ??
             this.modelRoutingService.getDefaultModel(
-              capability in { chat: 1, embedding: 1, reasoning: 1, coding: 1 }
-                ? capability
-                : 'chat'
+              capability in { chat: 1, embedding: 1, reasoning: 1, coding: 1 } ? capability : 'chat'
             );
 
           if (!routedModel) {
@@ -155,7 +151,8 @@ class LLMServiceServer extends BaseService {
           const response = await this.llmService.generateResponse(
             {
               prompt,
-              systemPrompt: systemPrompt ?? this.modelRoutingService.getSystemPrompt(agentId) ?? undefined,
+              systemPrompt:
+                systemPrompt ?? this.modelRoutingService.getSystemPrompt(agentId) ?? undefined,
               maxTokens: agentConfig?.maxTokens ?? routedModel.maxTokens,
               temperature: agentConfig?.temperature ?? routedModel.temperature,
               model: routedModel.name,
@@ -180,28 +177,30 @@ class LLMServiceServer extends BaseService {
 
   protected async setupEventSubscriptions(): Promise<void> {
     // Subscribe to LLM request events
-    await this.eventBusService.subscribe('llm.user.request', (event: any) =>
+    await this.eventBusService.subscribe('llm.user.request', (event: Record<string, unknown>) =>
       this.handleUserLLMRequest(event)
     );
-    await this.eventBusService.subscribe('llm.global.request', (event: any) =>
+    await this.eventBusService.subscribe('llm.global.request', (event: Record<string, unknown>) =>
       this.handleGlobalLLMRequest(event)
     );
-    await this.eventBusService.subscribe('llm.agent.generate.request', (event: any) =>
-      this.handleAgentGenerateRequest(event)
+    await this.eventBusService.subscribe(
+      'llm.agent.generate.request',
+      (event: Record<string, unknown>) => this.handleAgentGenerateRequest(event)
     );
-    await this.eventBusService.subscribe('llm.generate.request', (event: any) =>
+    await this.eventBusService.subscribe('llm.generate.request', (event: Record<string, unknown>) =>
       this.handleArtifactGenerationRequest(event)
     );
-    await this.eventBusService.subscribe('llm.provider.changed', (event: any) =>
+    await this.eventBusService.subscribe('llm.provider.changed', (event: Record<string, unknown>) =>
       this.handleProviderChanged(event)
     );
     logger.info('Event bus subscriptions configured');
   }
 
-  private async handleUserLLMRequest(event: any): Promise<void> {
+  private async handleUserLLMRequest(event: Record<string, unknown>): Promise<void> {
     try {
       logger.info('Raw event received', { event });
-      const { requestId, agentRequest, userId } = event.data || event;
+      const eventData = (event.data || event) as Record<string, unknown>;
+      const { requestId, agentRequest, userId } = eventData;
       logger.info('Processing user LLM request', {
         requestId,
         userId,
@@ -210,7 +209,7 @@ class LLMServiceServer extends BaseService {
 
       // Validate userId is a proper UUID (reject "system" and other invalid UUIDs)
       const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-      if (!userId || !uuidRegex.test(userId)) {
+      if (!userId || !uuidRegex.test(userId as string)) {
         logger.warn('Invalid userId for user LLM request, falling back to global LLM', {
           userId,
           requestId,
@@ -225,15 +224,16 @@ class LLMServiceServer extends BaseService {
       const userLLMService = this.userLLMService;
 
       // Add error handling and better logging
+      const agentReq = agentRequest as Record<string, unknown> | undefined;
       logger.info('Calling UserLLMService.generateAgentResponse', {
         userId,
         hasAgentRequest: !!agentRequest,
-        agentRequestKeys: agentRequest ? Object.keys(agentRequest) : [],
-        hasAgent: agentRequest?.agent ? true : false,
-        hasMessages: agentRequest?.messages ? true : false,
-        hasContext: agentRequest?.context ? true : false,
+        agentRequestKeys: agentReq ? Object.keys(agentReq) : [],
+        hasAgent: !!agentReq?.agent,
+        hasMessages: !!agentReq?.messages,
+        hasContext: !!agentReq?.context,
       });
-      const response = await userLLMService.generateAgentResponse(userId, agentRequest);
+      const response = await userLLMService.generateAgentResponse(userId as string, agentRequest);
       logger.info('UserLLMService response received', {
         hasResponse: !!response,
         responseContent: response?.content?.substring(0, 100),
@@ -248,19 +248,22 @@ class LLMServiceServer extends BaseService {
 
       logger.info('User LLM request processed', { requestId, userId });
     } catch (error) {
+      const errMsg = error instanceof Error ? error.message : 'Unknown error';
+      const errStack = error instanceof Error ? error.stack : undefined;
+      const eventData = event?.data as Record<string, unknown> | undefined;
       logger.error('Failed to process user LLM request', {
-        error: error.message,
-        stack: error.stack,
-        requestId: event?.data?.requestId || event?.requestId,
-        userId: event?.data?.userId || event?.userId,
+        error: errMsg,
+        stack: errStack,
+        requestId: eventData?.requestId || event?.requestId,
+        userId: eventData?.userId || event?.userId,
       });
 
       // Publish error response
       try {
         await this.eventBusService.publish(
-          `llm.response.${event?.data?.requestId || event?.requestId}`,
+          `llm.response.${eventData?.requestId || event?.requestId}`,
           {
-            error: error.message,
+            error: errMsg,
             success: false,
           }
         );
@@ -270,9 +273,10 @@ class LLMServiceServer extends BaseService {
     }
   }
 
-  private async handleGlobalLLMRequest(event: any): Promise<void> {
+  private async handleGlobalLLMRequest(event: Record<string, unknown>): Promise<void> {
     try {
-      const { requestId, agentRequest } = event.data || event;
+      const eventData = (event.data || event) as Record<string, unknown>;
+      const { requestId, agentRequest } = eventData;
       logger.info('Processing global LLM request', { requestId });
 
       // Import and use LLMService
@@ -287,18 +291,21 @@ class LLMServiceServer extends BaseService {
 
       logger.info('Global LLM request processed', { requestId });
     } catch (error) {
+      const errMsg = error instanceof Error ? error.message : 'Unknown error';
+      const errStack = error instanceof Error ? error.stack : undefined;
+      const eventData = event?.data as Record<string, unknown> | undefined;
       logger.error('Failed to process global LLM request', {
-        error: error.message,
-        stack: error.stack,
-        requestId: event?.data?.requestId || event?.requestId,
+        error: errMsg,
+        stack: errStack,
+        requestId: eventData?.requestId || event?.requestId,
       });
 
       // Publish error response
       try {
         await this.eventBusService.publish(
-          `llm.response.${event?.data?.requestId || event?.requestId}`,
+          `llm.response.${eventData?.requestId || event?.requestId}`,
           {
-            error: error.message,
+            error: errMsg,
             success: false,
           }
         );
@@ -308,20 +315,23 @@ class LLMServiceServer extends BaseService {
     }
   }
 
-  private async handleAgentGenerateRequest(event: any): Promise<void> {
+  private async handleAgentGenerateRequest(event: Record<string, unknown>): Promise<void> {
     await this.agentGenerationHandler.handle(event);
   }
 
-  private async handleArtifactGenerationRequest(event: any): Promise<void> {
+  private async handleArtifactGenerationRequest(event: Record<string, unknown>): Promise<void> {
     try {
-      const { type, artifactType, context, options, metadata } = event.data || event;
-      const requestId = event.metadata?.requestId;
+      const eventPayload = (event.data || event) as Record<string, unknown>;
+      const { type, artifactType, context, options, metadata } = eventPayload;
+      const eventMeta = event.metadata as Record<string, unknown> | undefined;
+      const requestId = eventMeta?.requestId as string;
 
+      const ctxRecord = context as Record<string, unknown> | undefined;
       logger.info('Processing artifact generation request', {
         requestId,
         artifactType,
         type,
-        conversationId: context?.conversationId,
+        conversationId: ctxRecord?.conversationId,
       });
 
       if (type !== 'generate_artifact_content') {
@@ -337,7 +347,11 @@ class LLMServiceServer extends BaseService {
       }
 
       // Prepare prompt for artifact generation
-      const prompt = this.buildArtifactGenerationPrompt(artifactType, context, options);
+      const prompt = this.buildArtifactGenerationPrompt(
+        artifactType as string,
+        ctxRecord || {},
+        options as Record<string, unknown> | undefined
+      );
 
       // Create agent request for LLM generation
       const agentRequest = {
@@ -365,7 +379,7 @@ class LLMServiceServer extends BaseService {
           },
         ],
         context: {
-          id: context.conversationId || 'artifact-gen',
+          id: ctxRecord?.conversationId || 'artifact-gen',
           title: `Generate ${artifactType} artifact`,
           content: prompt,
           type: 'artifact_generation',
@@ -373,10 +387,10 @@ class LLMServiceServer extends BaseService {
             createdAt: new Date(),
             lastModified: new Date(),
             author: 'artifact-service',
-            conversationId: context.conversationId,
+            conversationId: ctxRecord?.conversationId,
             requiresStructuredOutput: true,
             artifactType,
-            outputFormat: this.getOutputFormat(artifactType),
+            outputFormat: this.getOutputFormat(artifactType as string),
           },
         },
       };
@@ -392,7 +406,9 @@ class LLMServiceServer extends BaseService {
             model: response.model,
             processingTime:
               Date.now() -
-              (metadata?.timestamp ? new Date(metadata.timestamp).getTime() : Date.now()),
+              ((metadata as Record<string, unknown>)?.timestamp
+                ? new Date((metadata as Record<string, unknown>).timestamp as string).getTime()
+                : Date.now()),
             artifactType,
           },
         });
@@ -419,14 +435,15 @@ class LLMServiceServer extends BaseService {
         });
       }
     } catch (error) {
-      const requestId = event.metadata?.requestId;
+      const catchMeta = event.metadata as Record<string, unknown> | undefined;
+      const catchRequestId = catchMeta?.requestId as string;
       logger.error('Failed to process artifact generation request', {
         error: error instanceof Error ? error.message : 'Unknown error',
-        requestId,
+        requestId: catchRequestId,
         eventData: event.data,
       });
 
-      await this.publishArtifactResponse(requestId, {
+      await this.publishArtifactResponse(catchRequestId, {
         success: false,
         error: {
           code: 'PROCESSING_ERROR',
@@ -436,8 +453,16 @@ class LLMServiceServer extends BaseService {
     }
   }
 
-  private buildArtifactGenerationPrompt(artifactType: string, context: any, options?: any): string {
-    const { summary, keyMessages, decisions, actionItems, technical } = context;
+  private buildArtifactGenerationPrompt(
+    artifactType: string,
+    context: Record<string, unknown>,
+    options?: Record<string, unknown>
+  ): string {
+    const { summary } = context;
+    const keyMessages = context.keyMessages as Array<Record<string, unknown>> | undefined;
+    const decisions = context.decisions as Array<Record<string, unknown>> | undefined;
+    const actionItems = context.actionItems as Array<Record<string, unknown>> | undefined;
+    const technical = context.technical as Record<string, unknown> | undefined;
 
     let prompt = `Generate a ${artifactType} artifact based on the following discussion context:\n\n`;
 
@@ -447,7 +472,7 @@ class LLMServiceServer extends BaseService {
 
     if (keyMessages && keyMessages.length > 0) {
       prompt += `## Key Messages\n`;
-      keyMessages.forEach((msg: any, index: number) => {
+      keyMessages.forEach((msg: Record<string, unknown>, index: number) => {
         prompt += `${index + 1}. ${msg.content}\n`;
       });
       prompt += '\n';
@@ -455,7 +480,7 @@ class LLMServiceServer extends BaseService {
 
     if (decisions && decisions.length > 0) {
       prompt += `## Decisions Made\n`;
-      decisions.forEach((decision: any, index: number) => {
+      decisions.forEach((decision: Record<string, unknown>, index: number) => {
         prompt += `${index + 1}. ${decision.description || decision.decision}\n`;
       });
       prompt += '\n';
@@ -463,7 +488,7 @@ class LLMServiceServer extends BaseService {
 
     if (actionItems && actionItems.length > 0) {
       prompt += `## Action Items\n`;
-      actionItems.forEach((item: any, index: number) => {
+      actionItems.forEach((item: Record<string, unknown>, index: number) => {
         prompt += `${index + 1}. ${item.description || item.item}\n`;
       });
       prompt += '\n';
@@ -473,9 +498,10 @@ class LLMServiceServer extends BaseService {
       prompt += `## Technical Context\n`;
       if (technical.language) prompt += `- Language: ${technical.language}\n`;
       if (technical.framework) prompt += `- Framework: ${technical.framework}\n`;
-      if (technical.requirements) {
+      const requirements = technical.requirements as string[] | undefined;
+      if (requirements) {
         prompt += `- Requirements:\n`;
-        technical.requirements.forEach((req: string) => {
+        requirements.forEach((req: string) => {
           prompt += `  - ${req}\n`;
         });
       }
@@ -488,7 +514,10 @@ class LLMServiceServer extends BaseService {
     return prompt;
   }
 
-  private getArtifactSpecificInstructions(artifactType: string, options?: any): string {
+  private getArtifactSpecificInstructions(
+    artifactType: string,
+    options?: Record<string, unknown>
+  ): string {
     switch (artifactType) {
       case 'code':
         return `## Instructions\nGenerate production-ready code that implements the discussed requirements. Include:\n- Proper error handling\n- Clear variable names and structure\n- Brief inline comments for complex logic\n- Follow ${options?.language || 'TypeScript'} best practices\n\nProvide only the code without additional explanations.`;
@@ -529,7 +558,10 @@ class LLMServiceServer extends BaseService {
     }
   }
 
-  private async publishArtifactResponse(requestId: string, response: any): Promise<void> {
+  private async publishArtifactResponse(
+    requestId: string,
+    response: Record<string, unknown>
+  ): Promise<void> {
     try {
       await this.eventBusService.publish('llm.generate.response', response, {
         metadata: { requestId },
@@ -542,9 +574,10 @@ class LLMServiceServer extends BaseService {
     }
   }
 
-  private async handleProviderChanged(event: any): Promise<void> {
+  private async handleProviderChanged(event: Record<string, unknown>): Promise<void> {
     try {
-      const { eventType, providerId, providerType, agentId } = event.data || event;
+      const providerEventData = (event.data || event) as Record<string, unknown>;
+      const { eventType, providerId, providerType, agentId } = providerEventData;
 
       logger.info('Provider change event received', {
         eventType,
@@ -575,7 +608,7 @@ class LLMServiceServer extends BaseService {
       });
     } catch (error) {
       logger.error('Failed to handle provider change event', {
-        error: error.message,
+        error: error instanceof Error ? error.message : 'Unknown error',
         event: event?.data || event,
       });
     }

@@ -2,7 +2,6 @@ import { ITemplateManager, TemplateFilters } from '../interfaces/ArtifactTypes.j
 import {
   ArtifactGenerationTemplate as ArtifactTemplate,
   ArtifactConversationContext as GenerationContext,
-  ArtifactType,
 } from '@uaip/types';
 import { logger } from '@uaip/utils';
 
@@ -19,7 +18,7 @@ export class TemplateManager implements ITemplateManager {
   }
 
   selectTemplate(context: GenerationContext): ArtifactTemplate | null {
-    const { agent, persona, technical } = context;
+    const { technical } = context;
 
     // Try to find a template that matches the context
     for (const template of this.templates.values()) {
@@ -111,7 +110,7 @@ export class TemplateManager implements ITemplateManager {
 
   private createReplacementMap(
     context: GenerationContext,
-    template: ArtifactTemplate
+    _template: ArtifactTemplate
   ): Record<string, string> {
     const requirements = this.extractRequirements(context.discussion?.messages || []);
     const functionName = this.extractFunctionName(context.discussion?.messages || []);
@@ -130,24 +129,26 @@ export class TemplateManager implements ITemplateManager {
     };
   }
 
-  private extractRequirements(messages: any[]): string {
+  private extractRequirements(messages: unknown[]): string {
     const requirements: string[] = [];
 
     for (const message of messages) {
-      const content = message.content?.toLowerCase() || '';
+      const msg = message as Record<string, unknown>;
+      const content = (typeof msg.content === 'string' ? msg.content.toLowerCase() : '') || '';
 
       // Look for requirement indicators
       if (content.includes('need') || content.includes('require') || content.includes('must')) {
-        requirements.push(message.content);
+        requirements.push(msg.content as string);
       }
     }
 
     return requirements.length > 0 ? requirements.join('\n- ') : 'No specific requirements found';
   }
 
-  private extractFunctionName(messages: any[]): string {
+  private extractFunctionName(messages: unknown[]): string {
     for (const message of messages) {
-      const content = message.content || '';
+      const msg = message as Record<string, unknown>;
+      const content = (typeof msg.content === 'string' ? msg.content : '') || '';
       const functionMatch = content.match(/function\s+(\w+)/i) || content.match(/(\w+)\s*\(/);
       if (functionMatch) {
         return functionMatch[1];
@@ -156,9 +157,10 @@ export class TemplateManager implements ITemplateManager {
     return 'processData';
   }
 
-  private extractClassName(messages: any[]): string {
+  private extractClassName(messages: unknown[]): string {
     for (const message of messages) {
-      const content = message.content || '';
+      const msg = message as Record<string, unknown>;
+      const content = (typeof msg.content === 'string' ? msg.content : '') || '';
       const classMatch = content.match(/class\s+(\w+)/i);
       if (classMatch) {
         return classMatch[1];

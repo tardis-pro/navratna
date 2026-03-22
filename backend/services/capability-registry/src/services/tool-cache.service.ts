@@ -11,8 +11,8 @@ interface CacheOptions {
 
 interface ExecutionCacheEntry {
   toolId: string;
-  parameters: Record<string, any>;
-  result: any;
+  parameters: Record<string, unknown>;
+  result: unknown;
   timestamp: number;
   ttl: number;
 }
@@ -34,7 +34,7 @@ export class ToolCacheService {
   private readonly LOCK_TTL = 30; // 30 seconds
 
   // In-memory cache for frequently accessed tools
-  private memoryCache = new Map<string, { data: any; expiry: number }>();
+  private memoryCache = new Map<string, { data: unknown; expiry: number }>();
   private readonly MEMORY_CACHE_SIZE = 100;
 
   private constructor() {
@@ -112,8 +112,8 @@ export class ToolCacheService {
    */
   async cacheExecutionResult(
     toolId: string,
-    parameters: Record<string, any>,
-    result: any,
+    parameters: Record<string, unknown>,
+    result: unknown,
     ttl?: number
   ): Promise<void> {
     try {
@@ -141,7 +141,10 @@ export class ToolCacheService {
   /**
    * Get cached execution result
    */
-  async getExecutionResult(toolId: string, parameters: Record<string, any>): Promise<any | null> {
+  async getExecutionResult(
+    toolId: string,
+    parameters: Record<string, unknown>
+  ): Promise<unknown | null> {
     try {
       const paramHash = this.generateParameterHash(parameters);
       const key = `${this.TOOL_EXEC_PREFIX}${toolId}:${paramHash}`;
@@ -183,7 +186,7 @@ export class ToolCacheService {
    */
   async invalidateToolExecutions(toolId: string): Promise<void> {
     try {
-      const pattern = `${this.TOOL_EXEC_PREFIX}${toolId}:*`;
+      const _pattern = `${this.TOOL_EXEC_PREFIX}${toolId}:*`;
       // For now, we'll need to implement this with proper Redis scanning
       logger.info('Invalidated tool execution cache', { toolId });
     } catch (error) {
@@ -237,24 +240,24 @@ export class ToolCacheService {
    * Private helper methods
    */
 
-  private generateParameterHash(parameters: Record<string, any>): string {
+  private generateParameterHash(parameters: Record<string, unknown>): string {
     const sorted = this.sortObject(parameters);
     return createHash('sha256').update(JSON.stringify(sorted)).digest('hex');
   }
 
-  private sortObject(obj: any): any {
+  private sortObject(obj: unknown): unknown {
     if (obj === null || typeof obj !== 'object') return obj;
     if (Array.isArray(obj)) return obj.map((item) => this.sortObject(item));
 
     return Object.keys(obj)
       .sort()
-      .reduce((sorted: any, key) => {
+      .reduce((sorted: unknown, key) => {
         sorted[key] = this.sortObject(obj[key]);
         return sorted;
       }, {});
   }
 
-  private setMemoryCache(key: string, data: any, ttlSeconds: number): void {
+  private setMemoryCache(key: string, data: unknown, ttlSeconds: number): void {
     // Implement LRU eviction if cache is full
     if (this.memoryCache.size >= this.MEMORY_CACHE_SIZE) {
       const firstKey = this.memoryCache.keys().next().value;
@@ -269,7 +272,7 @@ export class ToolCacheService {
     });
   }
 
-  private getMemoryCache(key: string): any | null {
+  private getMemoryCache(key: string): unknown | null {
     const cached = this.memoryCache.get(key);
     if (cached && cached.expiry > Date.now()) {
       return cached.data;

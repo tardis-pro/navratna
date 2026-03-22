@@ -8,9 +8,8 @@ import {
   ContextRequest,
   ContextAnalysis,
   Message,
-  DocumentContext,
   ToolCall,
-  ToolResult,
+  AvailableTool,
 } from './interfaces.js';
 import { getContextManager, ContextManager } from './context-manager/ContextManager.js';
 import { BaseProvider } from './providers/BaseProvider.js';
@@ -19,7 +18,6 @@ import { LLMStudioProvider } from './providers/LLMStudioProvider.js';
 import { OpenAIProvider } from './providers/OpenAIProvider.js';
 import {
   LLMProviderRepository,
-  LLMProvider,
   UserLLMProviderRepository,
   UserLLMProvider,
   RedisCacheService,
@@ -85,7 +83,7 @@ export class LLMService {
       }
 
       // Initialize providers from user provider configuration
-      for (const [type, dbProvider] of providersByType) {
+      for (const [_type, dbProvider] of providersByType) {
         try {
           const providerConfig = dbProvider.getProviderConfig();
           let provider: BaseProvider;
@@ -458,7 +456,7 @@ export class LLMService {
   > {
     const stats = [];
 
-    for (const [name, provider] of this.providers) {
+    for (const [name, _provider] of this.providers) {
       stats.push({
         name,
         type: name, // Using name as type for now
@@ -525,13 +523,14 @@ export class LLMService {
               baseUrl: dbProvider.baseUrl,
             }
           );
+          // eslint-disable-next-line no-await-in-loop -- sequential processing required
           const models = await provider.getAvailableModels();
           logger.info(`Provider ${dbProvider.name} returned ${models.length} models`);
           allModels.push(
             ...models.map((model) => ({
               ...model,
               provider: dbProvider.type,
-              apiType: dbProvider.type as any,
+              apiType: dbProvider.type as string,
               isAvailable: true,
             }))
           );
@@ -657,6 +656,7 @@ export class LLMService {
 
           if (isInitialized) {
             try {
+              // eslint-disable-next-line no-await-in-loop -- sequential processing required
               const models = await this.getModelsFromProvider(dbProvider.type);
               modelCount = models.length;
             } catch (error) {
@@ -671,7 +671,10 @@ export class LLMService {
             isActive: dbProvider.isActive && isInitialized,
             defaultModel: dbProvider.defaultModel,
             modelCount,
-            status: (dbProvider.isActive && isInitialized ? 'active' : 'inactive') as 'active' | 'inactive' | 'error',
+            status: (dbProvider.isActive && isInitialized ? 'active' : 'inactive') as
+              | 'active'
+              | 'inactive'
+              | 'error',
           });
         }
       } catch (error) {
@@ -712,6 +715,7 @@ export class LLMService {
     for (const [providerType, provider] of this.providers) {
       try {
         const startTime = Date.now();
+        // eslint-disable-next-line no-await-in-loop -- sequential processing required
         const models = await provider.getAvailableModels();
         const responseTime = Date.now() - startTime;
 
@@ -917,9 +921,9 @@ export class LLMService {
     return prompt;
   }
 
-  private getPreferredProviderType(agent: any): string | undefined {
+  private getPreferredProviderType(agent: Record<string, unknown>): string | undefined {
     // Logic to determine preferred provider based on agent configuration
-    const modelId = agent.configuration?.model;
+    const modelId = (agent.configuration as Record<string, unknown>)?.model as string | undefined;
 
     if (!modelId) return undefined;
 
@@ -936,7 +940,7 @@ export class LLMService {
 
   private parseToolCalls(
     content: string,
-    tools?: any[]
+    _tools?: AvailableTool[]
   ): { cleanContent: string; toolCalls: ToolCall[] } {
     // Simple tool call parsing - can be enhanced based on specific format
     const toolCallRegex = /\[TOOL_CALL:(\w+)\((.*?)\)\]/g;
@@ -962,7 +966,10 @@ export class LLMService {
     return { cleanContent, toolCalls };
   }
 
-  private parseContextAnalysis(content: string, request: ContextRequest): any {
+  private parseContextAnalysis(
+    content: string,
+    request: ContextRequest
+  ): ContextAnalysis['analysis'] {
     // Try to parse JSON from the response, fallback to basic analysis
     try {
       const jsonMatch = content.match(/\{[\s\S]*\}/);

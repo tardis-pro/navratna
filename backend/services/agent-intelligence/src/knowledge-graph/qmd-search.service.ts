@@ -88,7 +88,7 @@ export class QmdSearchService {
     try {
       // Build scope WHERE clause
       const scopeParts: string[] = [];
-      const params: any[] = [];
+      const params: Record<string, unknown>[] = [];
       let paramIdx = 1;
 
       // Scope filter: agent-specific + user-specific + general (null)
@@ -132,7 +132,7 @@ export class QmdSearchService {
         LIMIT $${paramIdx}
       `;
 
-      const rows: any[] = await this.dataSource.query(sql, params);
+      const rows: Record<string, unknown>[] = await this.dataSource.query(sql, params);
       return rows.map((r) => ({
         id: r.id,
         content: r.content,

@@ -348,8 +348,12 @@ export class ModeratedStrategy implements TurnStrategyInterface {
   ): { participantId: string; moderatorId: string; timestamp: Date } | null {
     // This would check discussion state for pending moderator selections
     // For now, return null - in real implementation, this would check discussion.state.metadata
-    const metadata = discussion.metadata as any;
-    return metadata?.pendingModeratorSelection || null;
+    const metadata = discussion.metadata as Record<string, unknown> | undefined;
+    return (
+      (metadata?.pendingModeratorSelection as
+        | { participantId: string; moderatorId: string; timestamp: Date }
+        | undefined) || null
+    );
   }
 
   private hasModeratorApproval(
@@ -358,8 +362,8 @@ export class ModeratedStrategy implements TurnStrategyInterface {
   ): boolean {
     // Check if participant has received moderator approval
     // This would typically be stored in discussion state or participant metadata
-    const metadata = discussion.metadata as any;
-    const approvals = metadata?.moderatorApprovals || [];
+    const metadata = discussion.metadata as Record<string, unknown> | undefined;
+    const approvals = (metadata?.moderatorApprovals as string[] | undefined) || [];
     return approvals.includes(participant.id);
   }
 
@@ -367,8 +371,11 @@ export class ModeratedStrategy implements TurnStrategyInterface {
     discussion: Discussion
   ): { moderatorId: string; timestamp: Date } | null {
     // Check if moderator has explicitly advanced the turn
-    const metadata = discussion.metadata as any;
-    return metadata?.moderatorTurnAdvance || null;
+    const metadata = discussion.metadata as Record<string, unknown> | undefined;
+    return (
+      (metadata?.moderatorTurnAdvance as { moderatorId: string; timestamp: Date } | undefined) ||
+      null
+    );
   }
 
   private hasParticipantIndicatedCompletion(
@@ -377,7 +384,7 @@ export class ModeratedStrategy implements TurnStrategyInterface {
   ): boolean {
     // Check if participant has indicated they're done with their turn
     // This could be through specific keywords, commands, or explicit signals
-    const metadata = participant.metadata as any;
+    const metadata = participant.metadata as Record<string, unknown> | undefined;
     return metadata?.turnCompleted === true;
   }
 

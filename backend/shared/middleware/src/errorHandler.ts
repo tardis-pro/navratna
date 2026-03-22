@@ -8,13 +8,13 @@ export class AppError extends Error {
   public statusCode: number;
   public isOperational: boolean;
   public code?: string;
-  public details?: Record<string, any>;
+  public details?: Record<string, unknown>;
 
   constructor(
     message: string,
     statusCode: number = 500,
     code?: string,
-    details?: Record<string, any>
+    details?: Record<string, unknown>
   ) {
     super(message);
     this.statusCode = statusCode;
@@ -32,7 +32,7 @@ export function errorHandler(app: Elysia): Elysia {
     let statusCode = 500;
     let errorCode = 'INTERNAL_SERVER_ERROR';
     let message = 'An unexpected error occurred';
-    let details: Record<string, any> | undefined;
+    let details: Record<string, unknown> | undefined;
 
     const err = error as Error;
 
@@ -42,11 +42,14 @@ export function errorHandler(app: Elysia): Elysia {
       errorCode = err.code || 'APPLICATION_ERROR';
       message = err.message;
       details = err.details;
-    } else if (err instanceof ApiError || (err as any).name === 'ApiError') {
-      statusCode = (err as any).statusCode;
-      errorCode = (err as any).code;
+    } else if (
+      err instanceof ApiError ||
+      (err as unknown as { name: string }).name === 'ApiError'
+    ) {
+      statusCode = (err as unknown as { statusCode: number }).statusCode;
+      errorCode = (err as unknown as { code: string }).code;
       message = err.message;
-      details = (err as any).details;
+      details = (err as unknown as { details?: Record<string, unknown> }).details;
     } else if (err instanceof ZodError) {
       statusCode = 400;
       errorCode = 'VALIDATION_ERROR';
@@ -104,7 +107,7 @@ export function buildErrorResponse(
   statusCode: number,
   code: string,
   message: string,
-  details?: Record<string, any>
+  details?: Record<string, unknown>
 ) {
   return {
     success: false,

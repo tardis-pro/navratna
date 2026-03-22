@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo as _useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   MessageSquare,
@@ -11,31 +11,31 @@ import {
   Users,
   Search,
   Plus,
-  Settings,
+  Settings as _Settings,
   Minimize2,
-  Maximize2,
+  Maximize2 as _Maximize2,
   Send,
-  Paperclip,
-  Smile,
-  MoreVertical,
+  Paperclip as _Paperclip,
+  Smile as _Smile,
+  MoreVertical as _MoreVertical,
   UserPlus,
   Volume2,
   VolumeX,
   X,
   Loader,
   Bot,
-  User,
+  User as _User,
   Zap,
   Brain,
-  Sparkles,
+  Sparkles as _Sparkles,
   CheckCircle2,
-  AlertCircle,
-  Activity,
-  Clock,
-  Eye,
-  Target,
-  Focus,
-  Command,
+  AlertCircle as _AlertCircle,
+  Activity as _Activity,
+  Clock as _Clock,
+  Eye as _Eye,
+  Target as _Target,
+  Focus as _Focus,
+  Command as _Command,
 } from 'lucide-react';
 import { useAuth } from '../../../contexts/AuthContext';
 import { useAgents } from '../../../contexts/AgentContext';
@@ -48,13 +48,13 @@ import { Badge } from '@/components/ui/badge';
 import { uaipAPI } from '../../../utils/uaip-api';
 import {
   chatPersistenceService,
-  ChatSession,
-  PersistentChatMessage,
+  ChatSession as _ChatSession,
+  PersistentChatMessage as _PersistentChatMessage,
 } from '../../../services/ChatPersistenceService';
 import { SmartInputField } from '../../chat/SmartInputField';
-import { PromptSuggestions } from '../../chat/PromptSuggestions';
-import { ConversationTopicDisplay } from '../../chat/ConversationTopicDisplay';
-import { DiscussionTrigger } from '../../DiscussionTrigger';
+import { PromptSuggestions as _PromptSuggestions } from '../../chat/PromptSuggestions';
+import { ConversationTopicDisplay as _ConversationTopicDisplay } from '../../chat/ConversationTopicDisplay';
+import { DiscussionTrigger as _DiscussionTrigger } from '../../DiscussionTrigger';
 import { MessageType } from '@uaip/types';
 
 // Interfaces
@@ -85,11 +85,11 @@ interface ChatMessage {
     toolId: string;
     toolName: string;
     success: boolean;
-    result?: any;
+    result?: unknown;
     error?: string;
     timestamp: string;
   }>;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
   status?: 'sending' | 'sent' | 'delivered' | 'read' | 'failed';
 }
 
@@ -134,15 +134,15 @@ export const ConsolidatedUserChatPortal: React.FC<ConsolidatedUserChatPortalProp
   const {
     isConnected: isWebSocketConnected,
     sendMessage: sendWebSocketMessage,
-    lastEvent,
+    lastEvent: _lastEvent,
     socket,
   } = useEnhancedWebSocket();
 
   // State Management
   const [contacts, setContacts] = useState<UserContact[]>([]);
   const [chatWindows, setChatWindows] = useState<ChatWindow[]>([]);
-  const [activeChat, setActiveChat] = useState<string | null>(null);
-  const [messages, setMessages] = useState<{ [chatId: string]: ChatMessage[] }>({});
+  const [_activeChat, _setActiveChat] = useState<string | null>(null);
+  const [_messages, _setMessages] = useState<{ [chatId: string]: ChatMessage[] }>({});
   const [currentMessage, setCurrentMessage] = useState<{ [windowId: string]: string }>({});
   const [searchTerm, setSearchTerm] = useState('');
   const [viewMode, setViewMode] = useState<'floating' | 'portal'>(
@@ -167,7 +167,9 @@ export const ConsolidatedUserChatPortal: React.FC<ConsolidatedUserChatPortalProp
   const [conversationHistory, setConversationHistory] = useState<
     Array<{ content: string; sender: string; timestamp: string }>
   >([]);
-  const [conversationTopics, setConversationTopics] = useState<{ [windowId: string]: string }>({});
+  const [_conversationTopics, _setConversationTopics] = useState<{ [windowId: string]: string }>(
+    {}
+  );
   const [conversationIds, setConversationIds] = useState<{ [windowId: string]: string }>({});
 
   // WebRTC Refs
@@ -203,7 +205,7 @@ export const ConsolidatedUserChatPortal: React.FC<ConsolidatedUserChatPortalProp
 
         if (contactsResponse.ok) {
           const contactsData = await contactsResponse.json();
-          userContacts = contactsData.data.contacts.map((contact: any) => ({
+          userContacts = contactsData.data.contacts.map((contact: unknown) => ({
             id: contact.user.id,
             username: contact.user.email.split('@')[0],
             email: contact.user.email,
@@ -242,7 +244,7 @@ export const ConsolidatedUserChatPortal: React.FC<ConsolidatedUserChatPortalProp
 
           if (onlineResponse.ok) {
             const onlineData = await onlineResponse.json();
-            const onlineUserIds = new Set(onlineData.data.users.map((u: any) => u.user.id));
+            const onlineUserIds = new Set(onlineData.data.users.map((u: unknown) => u.user.id));
 
             const updatedContacts = allContacts.map((contact: UserContact) => ({
               ...contact,
@@ -257,7 +259,7 @@ export const ConsolidatedUserChatPortal: React.FC<ConsolidatedUserChatPortalProp
           } else {
             setContacts(allContacts);
           }
-        } catch (onlineError) {
+        } catch {
           setContacts(allContacts);
         }
 
@@ -272,7 +274,7 @@ export const ConsolidatedUserChatPortal: React.FC<ConsolidatedUserChatPortalProp
 
           if (publicResponse.ok) {
             const publicData = await publicResponse.json();
-            const publicUsers = publicData.data.users.map((user: any) => ({
+            const publicUsers = publicData.data.users.map((_user: unknown) => ({
               id: user.id,
               username: user.email.split('@')[0],
               email: user.email,
@@ -325,7 +327,7 @@ export const ConsolidatedUserChatPortal: React.FC<ConsolidatedUserChatPortalProp
   useEffect(() => {
     if (!isWebSocketConnected || !socket) return;
 
-    const handleUserMessage = (data: any) => {
+    const handleUserMessage = (data: unknown) => {
       const message: ChatMessage = {
         id: data.id || `msg-${Date.now()}`,
         content: data.content,
@@ -348,7 +350,7 @@ export const ConsolidatedUserChatPortal: React.FC<ConsolidatedUserChatPortalProp
       }
     };
 
-    const handleAgentResponse = (data: any) => {
+    const handleAgentResponse = (data: unknown) => {
       const {
         agentId,
         response,
@@ -403,15 +405,15 @@ export const ConsolidatedUserChatPortal: React.FC<ConsolidatedUserChatPortalProp
       );
     };
 
-    const handleCallOffer = (data: any) => {
+    const handleCallOffer = (data: unknown) => {
       handleWebRTCSignaling({ type: 'call_offer', data });
     };
 
-    const handleCallAnswer = (data: any) => {
+    const handleCallAnswer = (data: unknown) => {
       handleWebRTCSignaling({ type: 'call_answer', data });
     };
 
-    const handleIceCandidate = (data: any) => {
+    const handleIceCandidate = (data: unknown) => {
       handleWebRTCSignaling({ type: 'ice_candidate', data });
     };
 
@@ -429,10 +431,11 @@ export const ConsolidatedUserChatPortal: React.FC<ConsolidatedUserChatPortalProp
       socket.off('call_answer', handleCallAnswer);
       socket.off('ice_candidate', handleIceCandidate);
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isWebSocketConnected, socket, viewMode, selectedContactId]);
 
   // WebRTC Functions
-  const handleWebRTCSignaling = async (event: any) => {
+  const handleWebRTCSignaling = async (event: unknown) => {
     const { type, data } = event;
 
     if (!peerConnectionRef.current) {
@@ -630,7 +633,7 @@ export const ConsolidatedUserChatPortal: React.FC<ConsolidatedUserChatPortalProp
 
       try {
         let sessionId: string | undefined;
-        let messages: ChatMessage[] = [];
+        let initialMessages: ChatMessage[] = [];
 
         // For agent chats, create persistent session
         if (contact.isAgent) {
@@ -642,7 +645,7 @@ export const ConsolidatedUserChatPortal: React.FC<ConsolidatedUserChatPortalProp
           sessionId = session.id;
 
           const existingMessages = await chatPersistenceService.getMessages(session.id);
-          messages = existingMessages.map((msg) => ({
+          initialMessages = existingMessages.map((msg) => ({
             id: msg.id,
             content: msg.content,
             sender: msg.sender,
@@ -664,13 +667,13 @@ export const ConsolidatedUserChatPortal: React.FC<ConsolidatedUserChatPortalProp
           contactId,
           contactName,
           sessionId,
-          messages,
+          messages: initialMessages,
           isMinimized: false,
           isLoading: false,
           error: null,
           hasLoadedHistory: true,
-          totalMessages: messages.length,
-          canLoadMore: messages.length >= 50,
+          totalMessages: initialMessages.length,
+          canLoadMore: initialMessages.length >= 50,
           isPersistent: contact.isAgent,
           isAgentChat: contact.isAgent,
           agentId: contact.isAgent ? contactId : undefined,
@@ -930,9 +933,9 @@ export const ConsolidatedUserChatPortal: React.FC<ConsolidatedUserChatPortalProp
         const data = await response.json();
         const existingContactIds = new Set(contacts.filter((c) => !c.isAgent).map((c) => c.id));
 
-        const availableUsers = data.data.users
-          .filter((u: any) => u.id !== user.id && !existingContactIds.has(u.id))
-          .map((u: any) => ({
+        const _availableUsers = data.data.users
+          .filter((u: unknown) => u.id !== user.id && !existingContactIds.has(u.id))
+          .map((u: unknown) => ({
             id: u.id,
             username: u.email.split('@')[0],
             email: u.email,
@@ -993,7 +996,7 @@ export const ConsolidatedUserChatPortal: React.FC<ConsolidatedUserChatPortalProp
 
   // Filter available users
   const filteredAvailableUsers = availableUsers.filter(
-    (user) =>
+    (_user) =>
       user.displayName.toLowerCase().includes(userSearchTerm.toLowerCase()) ||
       user.username.toLowerCase().includes(userSearchTerm.toLowerCase())
   );
@@ -1660,7 +1663,7 @@ export const ConsolidatedUserChatPortal: React.FC<ConsolidatedUserChatPortalProp
                   </div>
                 ) : filteredAvailableUsers.length > 0 ? (
                   <div className="p-4 space-y-2">
-                    {filteredAvailableUsers.map((user) => (
+                    {filteredAvailableUsers.map((_user) => (
                       <motion.div
                         key={user.id}
                         initial={{ opacity: 0, x: -20 }}

@@ -1,4 +1,3 @@
-import { Repository } from 'typeorm';
 import { BaseRepository } from '../base/BaseRepository';
 import {
   UserLLMProvider,
@@ -6,10 +5,11 @@ import {
   UserLLMProviderStatus,
 } from '../../entities/userLLMProvider.entity';
 import { Agent } from '../../entities/agent.entity';
+import { TypeOrmService } from '../../typeormService';
 import { logger } from '@uaip/utils';
 
 export class UserLLMProviderRepository extends BaseRepository<UserLLMProvider> {
-  constructor(typeormService?: any) {
+  constructor(typeormService?: TypeOrmService) {
     super(UserLLMProvider, typeormService);
   }
 
@@ -105,7 +105,7 @@ export class UserLLMProviderRepository extends BaseRepository<UserLLMProvider> {
     type?: UserLLMProviderType
   ): Promise<UserLLMProvider | null> {
     try {
-      const whereCondition: any = {
+      const whereCondition: Record<string, unknown> = {
         userId,
         isActive: true,
         status: 'active',
@@ -140,7 +140,7 @@ export class UserLLMProviderRepository extends BaseRepository<UserLLMProvider> {
     apiKey?: string;
     defaultModel?: string;
     modelsList?: string[];
-    configuration?: any;
+    configuration?: Record<string, unknown>;
     priority?: number;
   }): Promise<UserLLMProvider> {
     try {
@@ -196,7 +196,7 @@ export class UserLLMProviderRepository extends BaseRepository<UserLLMProvider> {
       baseUrl?: string;
       defaultModel?: string;
       priority?: number;
-      configuration?: any;
+      configuration?: Record<string, unknown>;
     }
   ): Promise<void> {
     try {
@@ -459,6 +459,7 @@ export class UserLLMProviderRepository extends BaseRepository<UserLLMProvider> {
           {
             userId,
             isActive: true,
+            // oxlint-disable-next-line @typescript-eslint/no-explicit-any -- TypeORM comparison operator
             lastHealthCheckAt: { $lt: thresholdDate } as any,
           },
         ],

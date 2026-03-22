@@ -1,7 +1,7 @@
 import { jest } from '@jest/globals';
 
 // Mock logger directly to avoid module resolution issues
-const mockLogger: any = {
+const mockLogger: unknown = {
   info: jest.fn(),
   warn: jest.fn(),
   error: jest.fn(),
@@ -9,7 +9,7 @@ const mockLogger: any = {
 };
 
 expect.extend({
-  toBeOneOf(received: any, expected: any[]) {
+  toBeOneOf(received: unknown, expected: unknown[]) {
     const pass = expected.includes(received);
     if (pass) {
       return {
@@ -37,7 +37,12 @@ afterEach(() => {
 });
 
 // Global test utilities
-export const createMockRequest: (body?: any, params?: any, query?: any, user?: any) => any = (
+export const createMockRequest: (
+  body?: unknown,
+  params?: unknown,
+  query?: unknown,
+  user?: unknown
+) => unknown = (
   body = {},
   params = {},
   query = {},
@@ -52,7 +57,7 @@ export const createMockRequest: (body?: any, params?: any, query?: any, user?: a
   get: jest.fn().mockReturnValue('test-value'),
 });
 
-export const createMockResponse: () => any = () => {
+export const createMockResponse: () => unknown = () => {
   const res = {
     status: jest.fn().mockReturnThis(),
     json: jest.fn().mockReturnThis(),
@@ -65,7 +70,7 @@ export const createMockResponse: () => any = () => {
   return res;
 };
 
-export const createMockNext: () => any = () => jest.fn();
+export const createMockNext: () => unknown = () => jest.fn();
 
 // Mock environment variables for testing
 process.env.NODE_ENV = 'test';
@@ -91,7 +96,7 @@ Object.defineProperty(global, 'crypto', {
 
 // Mock Date.now for consistent timestamps
 const mockDate = new Date('2023-01-01T00:00:00Z');
-jest.spyOn(global, 'Date').mockImplementation(() => mockDate as any);
+jest.spyOn(global, 'Date').mockImplementation(() => mockDate as unknown);
 Date.now = jest.fn(() => mockDate.getTime());
 
 // Export mock logger for use in tests

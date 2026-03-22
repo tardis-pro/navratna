@@ -49,12 +49,12 @@ process.env.REDIS_URL = 'redis://localhost:6379';
 
 // Mock Date.now for consistent timestamps
 const mockDate = new Date('2023-01-01T00:00:00Z');
-jest.spyOn(global, 'Date').mockImplementation(() => mockDate as any);
+jest.spyOn(global, 'Date').mockImplementation(() => mockDate as unknown);
 Date.now = jest.fn(() => mockDate.getTime());
 
 // Mock process events to prevent interference with tests
 const originalOn = process.on;
-(process.on as any) = jest.fn().mockImplementation((event, callback) => {
+(process.on as unknown) = jest.fn().mockImplementation((event, callback) => {
   if (event === 'SIGTERM' || event === 'SIGINT') {
     // Don't actually register these handlers in tests
     return process;

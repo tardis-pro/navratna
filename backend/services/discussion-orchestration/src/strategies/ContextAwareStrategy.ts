@@ -4,7 +4,6 @@ import {
   TurnStrategy,
   TurnStrategyConfig,
   ParticipantRole,
-  DiscussionMessage,
 } from '@uaip/types';
 import { logger } from '@uaip/utils';
 import { TurnStrategyInterface } from './RoundRobinStrategy.js';
@@ -371,7 +370,8 @@ export class ContextAwareStrategy implements TurnStrategyInterface {
         // Simplified keyword matching - in real implementation, use semantic analysis
         const topicKeywords = discussion.topic.toLowerCase().split(' ');
         const participantExpertise = participant.agentId
-          ? await this.getParticipantExpertise(participant.agentId)
+          ? // oxlint-ignore-next-line no-await-in-loop -- sequential processing required
+            await this.getParticipantExpertise(participant.agentId)
           : [];
 
         const expertiseMatch = participantExpertise.some((expertise) =>

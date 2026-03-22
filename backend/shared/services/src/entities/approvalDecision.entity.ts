@@ -1,5 +1,6 @@
 import { Entity, Column, Index, ManyToOne, JoinColumn } from 'typeorm';
 import { BaseEntity } from './base.entity';
+import type { ApprovalWorkflow } from './approvalWorkflow.entity';
 
 /**
  * Approval Decision Entity
@@ -30,5 +31,5 @@ export class ApprovalDecision extends BaseEntity {
   // Relationships
   @ManyToOne('ApprovalWorkflow', 'decisions')
   @JoinColumn({ name: 'workflow_id' })
-  workflow?: any;
+  workflow?: ApprovalWorkflow;
 }

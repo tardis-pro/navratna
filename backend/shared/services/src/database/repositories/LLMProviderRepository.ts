@@ -1,11 +1,11 @@
-import { Repository } from 'typeorm';
 import { BaseRepository } from '../base/BaseRepository';
 import { LLMProvider } from '../../entities/llmProvider.entity';
 import { logger } from '@uaip/utils';
 import { LLMProviderType, LLMProviderStatus } from '@uaip/types';
+import { TypeOrmService } from '../../typeormService';
 
 export class LLMProviderRepository extends BaseRepository<LLMProvider> {
-  constructor(typeormService?: any) {
+  constructor(typeormService?: TypeOrmService) {
     super(LLMProvider, typeormService);
   }
 
@@ -71,7 +71,7 @@ export class LLMProviderRepository extends BaseRepository<LLMProvider> {
    */
   async findBestProvider(type?: LLMProviderType): Promise<LLMProvider | null> {
     try {
-      const whereCondition: any = {
+      const whereCondition: Record<string, unknown> = {
         isActive: true,
         status: 'active',
       };
@@ -104,7 +104,7 @@ export class LLMProviderRepository extends BaseRepository<LLMProvider> {
     apiKey?: string;
     defaultModel?: string;
     modelsList?: string[];
-    configuration?: any;
+    configuration?: Record<string, unknown>;
     priority?: number;
     createdBy?: string;
   }): Promise<LLMProvider> {
@@ -292,7 +292,7 @@ export class LLMProviderRepository extends BaseRepository<LLMProvider> {
       baseUrl: string;
       defaultModel: string;
       modelsList: string[];
-      configuration: any;
+      configuration: Record<string, unknown>;
       priority: number;
       isActive: boolean;
       status: LLMProviderStatus;

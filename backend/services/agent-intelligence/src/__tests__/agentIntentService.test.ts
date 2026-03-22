@@ -13,21 +13,21 @@ describe('AgentIntentService', () => {
     const eventBusService = {
       publish: vi.fn().mockResolvedValue(undefined),
       subscribe: vi.fn().mockResolvedValue(undefined),
-    } as unknown as EventBusService;
+    } as Record<string, unknown> as EventBusService;
 
     const llmService = {
       generateResponse: vi.fn().mockResolvedValue({
         error: 'llm unavailable',
         content: '',
       }),
-    } as unknown as LLMService;
+    } as Record<string, unknown> as LLMService;
 
     const userLLMService = {
       generateResponse: vi.fn().mockResolvedValue({
         error: 'llm unavailable',
         content: '',
       }),
-    } as unknown as UserLLMService;
+    } as Record<string, unknown> as UserLLMService;
 
     service = new AgentIntentService({
       databaseService,

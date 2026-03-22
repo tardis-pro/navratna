@@ -6,18 +6,18 @@
 
 import type {
   Agent,
-  AgentIntelligenceConfig,
-  AgentSecurityContext,
+  _AgentIntelligenceConfig,
+  _AgentSecurityContext,
   AgentCreateRequest,
-  AgentUpdate,
-  Operation,
-  OperationStatus,
-  OperationPriority,
-  OperationType,
+  _AgentUpdate,
+  _Operation,
+  _OperationStatus,
+  _OperationPriority,
+  _OperationType,
   ExecuteOperationRequest,
   OperationStatusResponse,
-  Message as SharedMessage,
-  MessageRole,
+  Message as _SharedMessage,
+  _MessageRole,
   ConversationContext,
   ContextAnalysis,
   ActionRecommendation,
@@ -32,40 +32,40 @@ import type {
   ToolBudget,
   ToolCapableMessage,
   ToolDefinition,
-  ToolCategory,
-  ToolExecutionStatus,
+  _ToolCategory,
+  _ToolExecutionStatus,
   Capability,
-  CapabilityType,
-  CapabilityStatus,
+  _CapabilityType,
+  _CapabilityStatus,
   CapabilitySearchRequest,
   CapabilityRecommendation,
   Persona,
-  PersonaStatus,
-  PersonaVisibility,
-  PersonaValidation,
+  _PersonaStatus,
+  _PersonaVisibility,
+  _PersonaValidation,
   PersonaAnalytics,
-  PersonaTemplate,
+  _PersonaTemplate,
   PersonaRecommendation,
   Discussion,
-  DiscussionStatus,
-  DiscussionParticipant,
-  DiscussionMessage,
-  DiscussionSettings,
-  DiscussionState,
-  TurnStrategy,
-  TurnStrategyConfig,
-  DiscussionAnalytics,
-  DiscussionSummary,
-  CreateDiscussionRequest,
-  UpdateDiscussionRequest,
+  _DiscussionStatus,
+  _DiscussionParticipant,
+  _DiscussionMessage,
+  _DiscussionSettings,
+  _DiscussionState,
+  _TurnStrategy,
+  _TurnStrategyConfig,
+  _DiscussionAnalytics,
+  _DiscussionSummary,
+  _CreateDiscussionRequest,
+  _UpdateDiscussionRequest,
   Artifact,
-  ArtifactType,
+  _ArtifactType,
   ArtifactGenerationRequest,
   ArtifactGenerationResponse,
   ArtifactGenerationTemplate,
-  ArtifactConversationContext,
-  Decision,
-  ActionItem,
+  _ArtifactConversationContext,
+  _Decision,
+  _ActionItem,
   Requirement,
   LLMModel,
 } from '@uaip/types';
@@ -126,7 +126,7 @@ export interface MessageSearchOptions {
 export interface DiscussionEvent {
   type: 'turn_started' | 'turn_ended' | 'message_added' | 'participant_joined' | 'participant_left';
   discussionId: string;
-  data: any;
+  data: unknown;
   timestamp: Date;
 }
 
@@ -165,7 +165,7 @@ export interface DiscussionParticipantCreate {
 export interface DiscussionMessageCreate {
   content: string;
   messageType?: MessageType;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 // Frontend-specific agent state (extends shared Agent with runtime properties)

@@ -260,25 +260,20 @@ export const commonSchemas = {
   }),
 
   // Date range validation
-  dateRange: z.object({
-    startDate: z.string().datetime('Invalid start date format'),
-    endDate: z.string().datetime('Invalid end date format'),
-  }).refine(
-    (data) => new Date(data.startDate) <= new Date(data.endDate),
-    { message: 'Start date must be before or equal to end date' }
-  ),
+  dateRange: z
+    .object({
+      startDate: z.string().datetime('Invalid start date format'),
+      endDate: z.string().datetime('Invalid end date format'),
+    })
+    .refine((data) => new Date(data.startDate) <= new Date(data.endDate), {
+      message: 'Start date must be before or equal to end date',
+    }),
 
   // ID validation (numeric or UUID)
-  id: z.union([
-    z.string().uuid(),
-    z.number().int().positive(),
-  ]),
+  id: z.union([z.string().uuid(), z.number().int().positive()]),
 
   // Optional ID
-  optionalId: z.union([
-    z.string().uuid(),
-    z.number().int().positive(),
-  ]).optional(),
+  optionalId: z.union([z.string().uuid(), z.number().int().positive()]).optional(),
 
   // Search query
   searchQuery: z.object({

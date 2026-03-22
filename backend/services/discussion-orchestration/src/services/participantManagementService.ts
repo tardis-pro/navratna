@@ -40,9 +40,9 @@ export class ParticipantManagementService {
     permissions?: string[];
     turnOrder?: number;
     turnWeight?: number;
-    participationConfig?: Record<string, any>;
-    behavioralConstraints?: Record<string, any>;
-    contextAwareness?: Record<string, any>;
+    participationConfig?: Record<string, unknown>;
+    behavioralConstraints?: Record<string, unknown>;
+    contextAwareness?: Record<string, unknown>;
   }): Promise<DiscussionParticipant> {
     const {
       discussionId,
@@ -163,9 +163,9 @@ export class ParticipantManagementService {
     permissions?: string[];
     turnOrder?: number;
     turnWeight?: number;
-    participationConfig?: Record<string, any>;
-    behavioralConstraints?: Record<string, any>;
-    contextAwareness?: Record<string, any>;
+    participationConfig?: Record<string, unknown>;
+    behavioralConstraints?: Record<string, unknown>;
+    contextAwareness?: Record<string, unknown>;
   }): Promise<DiscussionParticipant> {
     const {
       discussionId,
@@ -399,15 +399,16 @@ export class ParticipantManagementService {
       permissions?: string[];
       turnOrder?: number;
       turnWeight?: number;
-      participationConfig?: Record<string, any>;
-      behavioralConstraints?: Record<string, any>;
-      contextAwareness?: Record<string, any>;
+      participationConfig?: Record<string, unknown>;
+      behavioralConstraints?: Record<string, unknown>;
+      contextAwareness?: Record<string, unknown>;
     }>
   ): Promise<DiscussionParticipant[]> {
     const participants: DiscussionParticipant[] = [];
 
     for (const config of agentConfigs) {
       try {
+        // oxlint-ignore-next-line no-await-in-loop -- sequential processing required
         const participant = await this.createAgentParticipant({
           discussionId,
           ...config,

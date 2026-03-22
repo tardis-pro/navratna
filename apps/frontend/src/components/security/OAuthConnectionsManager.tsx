@@ -3,8 +3,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Switch } from '@/components/ui/switch';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { _Switch } from '@/components/ui/switch';
+import { _Tabs, _TabsContent, _TabsList, _TabsTrigger } from '@/components/ui/tabs';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/components/ui/use-toast';
@@ -91,6 +91,7 @@ export const OAuthConnectionsManager: React.FC<{ agentId?: string }> = ({ agentI
 
   useEffect(() => {
     fetchConnections();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [agentId]);
 
   const fetchConnections = async () => {
@@ -100,7 +101,7 @@ export const OAuthConnectionsManager: React.FC<{ agentId?: string }> = ({ agentI
         `/security/oauth/connections${agentId ? `?agentId=${agentId}` : ''}`
       );
       setConnections(response.data);
-    } catch (error) {
+    } catch {
       toast({
         title: 'Error',
         description: 'Failed to fetch OAuth connections',
@@ -121,7 +122,7 @@ export const OAuthConnectionsManager: React.FC<{ agentId?: string }> = ({ agentI
 
       // Redirect to OAuth authorization URL
       window.location.href = response.data.authorizationUrl;
-    } catch (error) {
+    } catch {
       toast({
         title: 'Connection Failed',
         description: 'Failed to initiate OAuth connection',
@@ -139,7 +140,7 @@ export const OAuthConnectionsManager: React.FC<{ agentId?: string }> = ({ agentI
         title: 'Disconnected',
         description: `Successfully disconnected from ${providerName}`,
       });
-    } catch (error) {
+    } catch {
       toast({
         title: 'Error',
         description: 'Failed to disconnect OAuth provider',
@@ -157,7 +158,7 @@ export const OAuthConnectionsManager: React.FC<{ agentId?: string }> = ({ agentI
         description: `Successfully refreshed ${providerName} access token`,
       });
       fetchConnections();
-    } catch (error) {
+    } catch {
       toast({
         title: 'Refresh Failed',
         description: 'Failed to refresh access token',

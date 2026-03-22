@@ -5,7 +5,6 @@ import { DiscussionParticipant } from './discussionParticipant.entity';
 import {
   DiscussionStatus,
   DiscussionVisibility,
-  TurnStrategy,
   DiscussionState,
   DiscussionSettings,
   TurnStrategyConfig,
@@ -125,5 +124,5 @@ export class Discussion extends BaseEntity {
   };
 
   @Column({ type: 'jsonb', nullable: true })
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }

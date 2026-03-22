@@ -2,7 +2,7 @@ import { Server, Socket } from 'socket.io';
 import { EventBusService } from '@uaip/infra/eventBus';
 import { validateJWTToken } from '@uaip/middleware';
 import { logger } from '@uaip/utils';
-import { StreamingEventType, TokenStreamEvent } from '@uaip/types';
+import { StreamingEventType } from '@uaip/types';
 
 interface StreamingConnection {
   userId: string;

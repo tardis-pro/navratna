@@ -22,8 +22,8 @@ export interface ToolOperation {
   id: string;
   name: string;
   description: string;
-  parameters: any;
-  execute: (params: any, tokens: OAuthTokens) => Promise<any>;
+  parameters: unknown;
+  execute: (params: unknown, tokens: OAuthTokens) => Promise<unknown>;
 }
 
 /**
@@ -136,7 +136,11 @@ export abstract class BaseOAuthAdapter {
   /**
    * Execute a tool operation
    */
-  async executeOperation(operationId: string, parameters: any, tokens: OAuthTokens): Promise<any> {
+  async executeOperation(
+    operationId: string,
+    parameters: unknown,
+    tokens: OAuthTokens
+  ): Promise<unknown> {
     const operation = this.operations.get(operationId);
     if (!operation) {
       throw new Error(`Operation ${operationId} not found`);

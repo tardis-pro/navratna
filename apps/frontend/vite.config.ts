@@ -3,7 +3,7 @@ import react from '@vitejs/plugin-react-swc';
 import path from 'path';
 
 // https://vitejs.dev/config/
-export default defineConfig(({ mode }) => {
+export default defineConfig(({ _mode }) => {
   // Use environment variable for API target, fallback to localhost for local dev
   const apiTarget = process.env.VITE_API_TARGET || 'http://localhost:8081';
 
@@ -31,17 +31,11 @@ export default defineConfig(({ mode }) => {
           target: apiTarget,
           changeOrigin: true,
           secure: false,
-          rewrite: (path) => path.replace(/^\/api/, '/api'),
+          rewrite: (requestPath) => requestPath.replace(/^\/api/, '/api'),
           configure: (proxy, _options) => {
-            proxy.on('error', (err, _req, _res) => {
-              console.log('Proxy error:', err);
-            });
-            proxy.on('proxyReq', (proxyReq, req, _res) => {
-              console.log('Sending Request to the Target:', req.method, req.url);
-            });
-            proxy.on('proxyRes', (proxyRes, req, _res) => {
-              console.log('Received Response from the Target:', proxyRes.statusCode, req.url);
-            });
+            proxy.on('error', (_err, _req, _res) => {});
+            proxy.on('proxyReq', (_proxyReq, _req, _res) => {});
+            proxy.on('proxyRes', (_proxyRes, _req, _res) => {});
           },
         },
         '/health': {

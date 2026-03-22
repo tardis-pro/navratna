@@ -35,7 +35,9 @@ export class EmbeddingService {
       return data.data[0].embedding;
     } catch (error) {
       console.error('Embedding generation error:', error);
-      throw new Error(`Failed to generate embedding: ${error.message}`);
+      const wrappedError = new Error(`Failed to generate embedding: ${error.message}`);
+      (wrappedError as Error & { cause?: unknown }).cause = error;
+      throw wrappedError;
     }
   }
 
@@ -45,6 +47,7 @@ export class EmbeddingService {
     const embeddings: number[][] = [];
 
     for (const chunk of chunks) {
+      // oxlint-disable-next-line no-await-in-loop
       const embedding = await this.generateEmbedding(chunk);
       embeddings.push(embedding);
     }
@@ -78,12 +81,13 @@ export class EmbeddingService {
       }
 
       const data = await response.json();
-      return data.data.map((item: any) => item.embedding);
+      return data.data.map((item: { embedding: number[] }) => item.embedding);
     } catch (error) {
       console.error('Batch embedding generation error:', error);
       // Fallback to individual embeddings
       const embeddings: number[][] = [];
       for (const text of texts) {
+        // oxlint-disable-next-line no-await-in-loop
         const embedding = await this.generateEmbedding(text);
         embeddings.push(embedding);
       }

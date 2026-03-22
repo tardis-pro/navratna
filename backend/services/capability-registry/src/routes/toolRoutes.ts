@@ -3,8 +3,8 @@ import { DatabaseService } from '@uaip/infra/database';
 import { EventBusService } from '@uaip/infra/eventBus';
 
 function createResponseObject() {
-  const res: any = {
-    json: (v: any) => v,
+  const res: unknown = {
+    json: (v: unknown) => v,
     status: (code: number) => {
       res.statusCode = code;
       return res;
@@ -13,10 +13,9 @@ function createResponseObject() {
   return res;
 }
 
-
 // Minimal, clean Elysia route group for tools
 export function registerToolRoutes(
-  app: any,
+  app: unknown,
   toolController?: ToolController,
   eventBusService?: EventBusService
 ) {
@@ -28,155 +27,155 @@ export function registerToolRoutes(
       const { ToolRegistry } = require('../services/toolRegistry.js');
       const { ToolExecutor } = require('../services/toolExecutor.js');
       const registry = new ToolRegistry(eventBusService);
-      const base = { execute: async () => ({ success: true, result: null as any }) } as any;
+      const base = { execute: async () => ({ success: true, result: null as unknown }) } as unknown;
       const exec = new ToolExecutor(db, registry, base);
       return new ToolController(registry, exec);
     })();
 
-  app.group('/api/v1/tools', (g: any) =>
+  app.group('/api/v1/tools', (g: unknown) =>
     g
       // List tools
-      .get('/', async ({ query, headers }: any) => {
-        const req: any = { query, params: {}, body: {}, headers };
-        const res: any = { json: (v: any) => v, status: () => res };
+      .get('/', async ({ query, headers }: unknown) => {
+        const req: unknown = { query, params: {}, body: {}, headers };
+        const res: unknown = { json: (v: unknown) => v, status: () => res };
         return controller.getTools(req, res);
       })
 
       // Health
       .get('/health', async () => {
-        const res: any = createResponseObject();
-        return controller.healthCheck({} as any, res);
+        const res: unknown = createResponseObject();
+        return controller.healthCheck({} as unknown, res);
       })
 
       // Categories
       .get('/categories', async () => {
-        const res: any = createResponseObject();
-        return controller.getToolCategories({} as any, res);
+        const res: unknown = createResponseObject();
+        return controller.getToolCategories({} as unknown, res);
       })
 
       // Recommendations
-      .get('/recommendations', async ({ query }: any) => {
-        const req: any = { query };
-        const res: any = createResponseObject();
+      .get('/recommendations', async ({ query }: unknown) => {
+        const req: unknown = { query };
+        const res: unknown = createResponseObject();
         return controller.getRecommendations(req, res);
       })
 
       // Validate tool definition
-      .post('/validate', async ({ body }: any) => {
-        const req: any = { body };
-        const res: any = createResponseObject();
+      .post('/validate', async ({ body }: unknown) => {
+        const req: unknown = { body };
+        const res: unknown = createResponseObject();
         return controller.validateTool(req, res);
       })
 
       // Executions listing
-      .get('/executions', async ({ query }: any) => {
-        const req: any = { query };
-        const res: any = createResponseObject();
+      .get('/executions', async ({ query }: unknown) => {
+        const req: unknown = { query };
+        const res: unknown = createResponseObject();
         return controller.getExecutions(req, res);
       })
 
       // Execution by id
-      .get('/executions/:id', async ({ params }: any) => {
-        const req: any = { params };
-        const res: any = createResponseObject();
+      .get('/executions/:id', async ({ params }: unknown) => {
+        const req: unknown = { params };
+        const res: unknown = createResponseObject();
         return controller.getExecution(req, res);
       })
 
       // Approve execution
-      .post('/executions/:id/approve', async ({ params, body, headers }: any) => {
-        const req: any = {
+      .post('/executions/:id/approve', async ({ params, body, headers }: unknown) => {
+        const req: unknown = {
           params,
           body,
           user: headers['x-user-id'] ? { id: headers['x-user-id'] } : undefined,
         };
-        const res: any = createResponseObject();
+        const res: unknown = createResponseObject();
         return controller.approveExecution(req, res);
       })
 
       // Cancel execution
-      .post('/executions/:id/cancel', async ({ params }: any) => {
-        const req: any = { params };
-        const res: any = createResponseObject();
+      .post('/executions/:id/cancel', async ({ params }: unknown) => {
+        const req: unknown = { params };
+        const res: unknown = createResponseObject();
         return controller.cancelExecution(req, res);
       })
 
       // Analytics
-      .get('/analytics/usage', async ({ query }: any) => {
-        const req: any = { query };
-        const res: any = createResponseObject();
+      .get('/analytics/usage', async ({ query }: unknown) => {
+        const req: unknown = { query };
+        const res: unknown = createResponseObject();
         return controller.getUsageAnalytics(req, res);
       })
-      .get('/analytics/popular', async ({ query }: any) => {
-        const req: any = { query };
-        const res: any = createResponseObject();
+      .get('/analytics/popular', async ({ query }: unknown) => {
+        const req: unknown = { query };
+        const res: unknown = createResponseObject();
         return controller.getPopularTools(req, res);
       })
-      .get('/analytics/agent/:agentId/preferences', async ({ params }: any) => {
-        const req: any = { params };
-        const res: any = createResponseObject();
+      .get('/analytics/agent/:agentId/preferences', async ({ params }: unknown) => {
+        const req: unknown = { params };
+        const res: unknown = createResponseObject();
         return controller.getAgentPreferences(req, res);
       })
 
       // Register tool
-      .post('/', async ({ body }: any) => {
-        const req: any = { body };
-        const res: any = createResponseObject();
+      .post('/', async ({ body }: unknown) => {
+        const req: unknown = { body };
+        const res: unknown = createResponseObject();
         return controller.registerTool(req, res);
       })
 
       // Tool by id
-      .get('/:id', async ({ params }: any) => {
-        const req: any = { params };
-        const res: any = createResponseObject();
+      .get('/:id', async ({ params }: unknown) => {
+        const req: unknown = { params };
+        const res: unknown = createResponseObject();
         return controller.getTool(req, res);
       })
 
       // Related/similar/dependencies
-      .get('/:id/related', async ({ params, query }: any) => {
-        const req: any = { params, query };
-        const res: any = createResponseObject();
+      .get('/:id/related', async ({ params, query }: unknown) => {
+        const req: unknown = { params, query };
+        const res: unknown = createResponseObject();
         return controller.getRelatedTools(req, res);
       })
-      .get('/:id/similar', async ({ params, query }: any) => {
-        const req: any = { params, query };
-        const res: any = createResponseObject();
+      .get('/:id/similar', async ({ params, query }: unknown) => {
+        const req: unknown = { params, query };
+        const res: unknown = createResponseObject();
         return controller.getSimilarTools(req, res);
       })
-      .get('/:id/dependencies', async ({ params }: any) => {
-        const req: any = { params };
-        const res: any = createResponseObject();
+      .get('/:id/dependencies', async ({ params }: unknown) => {
+        const req: unknown = { params };
+        const res: unknown = createResponseObject();
         return controller.getToolDependencies(req, res);
       })
 
       // Update/unregister
-      .put('/:id', async ({ params, body }: any) => {
-        const req: any = { params, body };
-        const res: any = createResponseObject();
+      .put('/:id', async ({ params, body }: unknown) => {
+        const req: unknown = { params, body };
+        const res: unknown = createResponseObject();
         return controller.updateTool(req, res);
       })
-      .delete('/:id', async ({ params }: any) => {
-        const req: any = { params };
-        const res: any = createResponseObject();
+      .delete('/:id', async ({ params }: unknown) => {
+        const req: unknown = { params };
+        const res: unknown = createResponseObject();
         return controller.unregisterTool(req, res);
       })
 
       // Relationships
-      .post('/:id/relationships', async ({ params, body, headers }: any) => {
-        const req: any = {
+      .post('/:id/relationships', async ({ params, body, headers }: unknown) => {
+        const req: unknown = {
           params,
           body,
           user: headers['x-user-id'] ? { id: headers['x-user-id'] } : undefined,
         };
-        const res: any = createResponseObject();
+        const res: unknown = createResponseObject();
         return controller.addRelationship(req, res);
       })
 
       // Execute tool
-      .post('/:id/execute', async ({ params, body, headers }: any) => {
+      .post('/:id/execute', async ({ params, body, headers }: unknown) => {
         const userId = headers['x-user-id'];
-        const req: any = { params, body, user: userId ? { id: userId } : undefined };
-        const res: any = createResponseObject();
-        res.result = undefined as any;
+        const req: unknown = { params, body, user: userId ? { id: userId } : undefined };
+        const res: unknown = createResponseObject();
+        res.result = undefined as unknown;
         return controller.executeTool(req, res);
       })
   );

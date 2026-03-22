@@ -1,7 +1,7 @@
 import { logger } from '@uaip/utils';
 import { ApiError } from '@uaip/utils';
 import { UserService, OAuthService, MFAService, SessionService } from '@uaip/shared-services';
-import { JWTValidator, generateAuthTokens } from '@uaip/middleware';
+import { JWTValidator as _JWTValidator, generateAuthTokens } from '@uaip/middleware';
 import * as jwt from 'jsonwebtoken';
 import * as crypto from 'crypto';
 import {
@@ -76,7 +76,7 @@ export class EnhancedAuthService {
 
       // Find or create user
       // Try to find user by email first, then by OAuth connection
-      let user = (await this.userService.findUserByEmail(userInfo.email)) as any;
+      let user = (await this.userService.findUserByEmail(userInfo.email)) as unknown;
 
       if (!user) {
         // Check if there's an OAuth connection for this provider
@@ -96,7 +96,7 @@ export class EnhancedAuthService {
           oauthState
         )) as unknown as EnhancedUser;
       } else {
-        await this.updateUserOAuthConnection(user as any, tokens, provider, userInfo);
+        await this.updateUserOAuthConnection(user as unknown, tokens, provider, userInfo);
       }
 
       // Create session
@@ -169,15 +169,19 @@ export class EnhancedAuthService {
       }
 
       // Check provider access
-      for (const providerType of request.requestedProviders) {
-        const hasAccess = await this.validateAgentProviderAccess(agent.id, providerType);
-        if (!hasAccess) {
-          throw new ApiError(
-            403,
-            `Agent cannot access provider: ${providerType}`,
-            'PROVIDER_ACCESS_DENIED'
-          );
-        }
+      const providerAccessResults = await Promise.all(
+        request.requestedProviders.map(async (providerType) => ({
+          providerType,
+          hasAccess: await this.validateAgentProviderAccess(agent.id, providerType),
+        }))
+      );
+      const deniedProvider = providerAccessResults.find((result) => !result.hasAccess);
+      if (deniedProvider) {
+        throw new ApiError(
+          403,
+          `Agent cannot access provider: ${deniedProvider.providerType}`,
+          'PROVIDER_ACCESS_DENIED'
+        );
       }
 
       // Create agent session
@@ -235,7 +239,7 @@ export class EnhancedAuthService {
     code: string,
     state: string,
     redirectUri: string
-  ): Promise<{ success: boolean; connection?: any }> {
+  ): Promise<{ success: boolean; connection?: unknown }> {
     try {
       const user = await this.userService.findUserById(userId);
       if (!user) {
@@ -269,7 +273,7 @@ export class EnhancedAuthService {
         return { success: true, connection };
       } else {
         // Update user OAuth connection
-        await this.updateUserOAuthConnection(user as any, tokens, provider, userInfo);
+        await this.updateUserOAuthConnection(user as unknown, tokens, provider, userInfo);
 
         await this.auditService.logEvent({
           eventType: AuditEventType.SECURITY_CONFIG_CHANGE,
@@ -305,7 +309,7 @@ export class EnhancedAuthService {
     }
 
     // For now, allow any MFA method - this should be configured from user preferences
-    const mfaMethod = { type: method, isEnabled: true };
+    const _mfaMethod = { type: method, isEnabled: true };
 
     let challenge: string;
     switch (method) {
@@ -338,7 +342,7 @@ export class EnhancedAuthService {
     await this.mfaService.createMFAChallenge(userId, method, sessionId);
 
     // Send challenge to user (implementation depends on method)
-    await this.sendMFAChallenge(user as any, mfaChallenge, challenge);
+    await this.sendMFAChallenge(user as unknown, mfaChallenge, challenge);
 
     return mfaChallenge;
   }
@@ -459,7 +463,9 @@ export class EnhancedAuthService {
         userAgent: session.userAgent,
         department: user.department,
         role: user.role,
-        permissions: Array.isArray(permissions) ? permissions.map((p: any) => p.resource || p) : [],
+        permissions: Array.isArray(permissions)
+          ? permissions.map((p: unknown) => p.resource || p)
+          : [],
         securityLevel: user.securityClearance,
         lastAuthentication: session.createdAt,
         mfaVerified: session.mfaVerified,
@@ -467,7 +473,7 @@ export class EnhancedAuthService {
         authenticationMethod: session.authenticationMethod,
         oauthProvider: session.oauthProvider,
         agentCapabilities: session.agentCapabilities,
-        deviceTrusted: (session.deviceInfo as any)?.isTrusted || false,
+        deviceTrusted: (session.deviceInfo as unknown)?.isTrusted || false,
         locationTrusted: this.isLocationTrusted(user as unknown as EnhancedUser, session),
         agentContext:
           user.userType === UserType.AGENT
@@ -502,9 +508,9 @@ export class EnhancedAuthService {
   // Private helper methods
 
   private async createUserFromOAuth(
-    userInfo: any,
-    provider: any,
-    oauthState: any
+    userInfo: unknown,
+    provider: unknown,
+    oauthState: unknown
   ): Promise<EnhancedUser> {
     const user: EnhancedUser = {
       id: crypto.randomUUID(),
@@ -533,7 +539,7 @@ export class EnhancedAuthService {
           ? {
               capabilities: oauthState.agentCapabilities || [],
               maxConcurrentSessions: 5,
-              allowedProviders: [provider.type] as any[],
+              allowedProviders: [provider.type] as unknown[],
               securityLevel: SecurityLevel.MEDIUM,
               monitoring: {
                 logLevel: 'standard',
@@ -546,14 +552,14 @@ export class EnhancedAuthService {
       updatedAt: new Date(),
     };
 
-    return (await this.userService.createUser(user as any)) as unknown as EnhancedUser;
+    return (await this.userService.createUser(user as unknown)) as unknown as EnhancedUser;
   }
 
   private async updateUserOAuthConnection(
     user: EnhancedUser,
-    tokens: any,
-    provider: any,
-    userInfo: any
+    tokens: unknown,
+    provider: unknown,
+    userInfo: unknown
   ): Promise<void> {
     const existingProvider = user.oauthProviders.find((p) => p.providerId === provider.id);
 
@@ -624,8 +630,8 @@ export class EnhancedAuthService {
       email: user.email,
       role: user.role,
       userType: user.userType as string,
-      securityLevel: user.securityClearance as any as number,
-      agentCapabilities: session.agentCapabilities as any as string[],
+      securityLevel: user.securityClearance as unknown as number,
+      agentCapabilities: session.agentCapabilities as unknown as string[],
     };
 
     const tokens = generateAuthTokens(payload);
@@ -668,7 +674,7 @@ export class EnhancedAuthService {
       }
 
       return agent as unknown as EnhancedUser;
-    } catch (error) {
+    } catch {
       return null;
     }
   }
@@ -688,9 +694,9 @@ export class EnhancedAuthService {
     // Check if the OAuth provider service has the method
     if (
       'getAgentConnection' in this.oauthProviderService &&
-      typeof (this.oauthProviderService as any).getAgentConnection === 'function'
+      typeof (this.oauthProviderService as unknown).getAgentConnection === 'function'
     ) {
-      const connection = await (this.oauthProviderService as any).getAgentConnection(
+      const connection = await (this.oauthProviderService as unknown).getAgentConnection(
         agentId,
         providerType
       );
@@ -711,7 +717,7 @@ export class EnhancedAuthService {
     );
   }
 
-  private async getAgentConnectedProviders(agentId: string): Promise<any[]> {
+  private async getAgentConnectedProviders(agentId: string): Promise<unknown[]> {
     try {
       return await this.oauthProviderService.getAgentConnections(agentId);
     } catch (error) {
@@ -777,9 +783,9 @@ export class EnhancedAuthService {
   }
 
   private async sendMFAChallenge(
-    user: EnhancedUser,
-    challenge: MFAChallenge,
-    code: string
+    _user: EnhancedUser,
+    _challenge: MFAChallenge,
+    _code: string
   ): Promise<void> {
     // Implement MFA challenge sending logic (SMS, email, etc.)
     // This is a placeholder

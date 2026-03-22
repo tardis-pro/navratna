@@ -73,7 +73,7 @@ export class UserMessageEntity extends BaseEntity {
   attachments?: MessageAttachment[];
 
   @Column({ type: 'jsonb', nullable: true })
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 
   @Column({ type: 'timestamp', name: 'edited_at', nullable: true })
   editedAt?: Date;

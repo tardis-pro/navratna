@@ -75,7 +75,7 @@ export class DiscussionMessage extends BaseEntity {
   pinnedBy?: string;
 
   @Column({ type: 'jsonb', nullable: true })
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 
   @Column({ type: 'float', nullable: true })
   confidence?: number;

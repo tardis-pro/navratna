@@ -78,11 +78,11 @@ export class DomainOntologyEntity extends BaseEntity {
     name: string;
     description?: string;
     aliases?: string[];
-    properties?: Record<string, any>;
+    properties?: Record<string, unknown>;
     relationships?: Array<{
       type: string;
       target: string;
-      properties?: Record<string, any>;
+      properties?: Record<string, unknown>;
     }>;
   }[];
 
@@ -92,7 +92,7 @@ export class DomainOntologyEntity extends BaseEntity {
     type: string;
     source: string;
     target: string;
-    properties?: Record<string, any>;
+    properties?: Record<string, unknown>;
     bidirectional?: boolean;
     strength?: number;
   }[];
@@ -116,7 +116,7 @@ export class DomainOntologyEntity extends BaseEntity {
       name: string;
       parentId?: string;
       children?: string[];
-      properties?: Record<string, any>;
+      properties?: Record<string, unknown>;
     }>;
     properties: Array<{
       id: string;
@@ -133,7 +133,7 @@ export class DomainOntologyEntity extends BaseEntity {
     type: string;
     statement: string;
     formalRepresentation?: string;
-    constraints?: Record<string, any>;
+    constraints?: Record<string, unknown>;
   }[];
 
   @Column({ type: 'json', nullable: true })
@@ -253,7 +253,7 @@ export class DomainOntologyEntity extends BaseEntity {
     owl?: string;
     jsonLd?: string;
     skos?: string;
-    custom?: Record<string, any>;
+    custom?: Record<string, unknown>;
   };
 
   @Column({ type: 'boolean', name: 'is_active', default: true })

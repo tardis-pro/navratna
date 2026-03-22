@@ -8,6 +8,8 @@ export interface LocationData {
 }
 
 export class LocationService {
+  private constructor() {}
+
   static async requestLocation(): Promise<LocationData | null> {
     if (!navigator.geolocation) {
       console.warn('Geolocation not supported');
@@ -93,7 +95,6 @@ export class LocationService {
         const locationAge = Date.now() - parseInt(timestamp);
         const oneDayMs = 24 * 60 * 60 * 1000;
         if (locationAge > oneDayMs) {
-          console.log('Location data is stale, will request fresh location');
           return null;
         }
       }

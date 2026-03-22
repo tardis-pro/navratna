@@ -1,8 +1,10 @@
 import { IArtifactService } from './interfaces/ArtifactTypes.js';
+import type { ArtifactGenerator } from './interfaces/index.js';
 import {
   ArtifactGenerationRequest,
   ArtifactGenerationResponse,
   ArtifactGenerationTemplate as ArtifactTemplate,
+  ArtifactConversationContext,
   ValidationResult,
   Artifact as GeneratedArtifact,
   ArtifactMetadata,
@@ -20,13 +22,13 @@ import { EventBusService } from '@uaip/infra/eventBus';
 export interface LLMGenerationRequest {
   type: 'generate_artifact_content';
   artifactType: string;
-  context: any;
+  context: unknown;
   options?: {
     language?: string;
     framework?: string;
     template?: string;
   };
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 export interface LLMGenerationResponse {
@@ -35,17 +37,20 @@ export interface LLMGenerationResponse {
   error?: {
     code: string;
     message: string;
-    details?: any;
+    details?: unknown;
   };
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 export class ArtifactService implements IArtifactService {
-  private generators: Map<string, any> = new Map();
+  private generators: Map<string, ArtifactGenerator> = new Map();
   public templateManager: TemplateManager;
   private validator: ArtifactValidator;
   private eventBusService: EventBusService;
-  private pendingLLMRequests: Map<string, any> = new Map();
+  private pendingLLMRequests: Map<
+    string,
+    { resolve: (value: unknown) => void; reject: (reason: unknown) => void }
+  > = new Map();
 
   constructor(eventBusService?: EventBusService) {
     this.templateManager = new TemplateManager();
@@ -88,9 +93,12 @@ export class ArtifactService implements IArtifactService {
     }
   }
 
-  private async handleLLMGenerationResponse(eventMessage: any): Promise<void> {
+  private async handleLLMGenerationResponse(eventMessage: {
+    data?: unknown;
+    metadata?: { requestId?: string };
+  }): Promise<void> {
     try {
-      const response: LLMGenerationResponse = eventMessage.data;
+      const response: LLMGenerationResponse = eventMessage.data as LLMGenerationResponse;
       const requestId = eventMessage.metadata?.requestId;
 
       if (!requestId) {
@@ -164,13 +172,16 @@ export class ArtifactService implements IArtifactService {
     }
   }
 
-  private shouldUseLLMService(artifactType: string, context: any): boolean {
+  private shouldUseLLMService(
+    artifactType: string,
+    context: { messages?: unknown[]; decisions?: unknown[]; actionItems?: unknown[] }
+  ): boolean {
     // Determine if we need advanced LLM generation based on complexity
     const complexArtifactTypes = ['code', 'prd', 'analysis', 'workflow'];
     const hasComplexContext =
-      context.messages?.length > 10 ||
-      context.decisions?.length > 3 ||
-      context.actionItems?.length > 5;
+      (context.messages?.length ?? 0) > 10 ||
+      (context.decisions?.length ?? 0) > 3 ||
+      (context.actionItems?.length ?? 0) > 5;
 
     return complexArtifactTypes.includes(artifactType) || hasComplexContext;
   }
@@ -389,7 +400,7 @@ export class ArtifactService implements IArtifactService {
     });
   }
 
-  private prepareLLMContext(context: any): any {
+  private prepareLLMContext(context: ArtifactConversationContext): Record<string, unknown> {
     // Prepare context for LLM service, removing unnecessary data
     return {
       conversationId: context.conversationId,
@@ -509,7 +520,7 @@ export class ArtifactService implements IArtifactService {
       logger.info(`Initialized ${this.generators.size} artifact generators`);
     } catch (error) {
       logger.error('Failed to initialize generators:', error);
-      throw new Error('Service initialization failed');
+      throw new Error('Service initialization failed', { cause: error });
     }
   }
 }

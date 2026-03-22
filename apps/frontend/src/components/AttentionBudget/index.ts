@@ -1,7 +1,4 @@
-export {
-  AttentionBudget,
-  useAttentionBudget,
-} from './AttentionBudget';
+export { AttentionBudget, useAttentionBudget } from './AttentionBudget';
 
 export type {
   AttentionBudgetProps,

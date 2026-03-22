@@ -20,13 +20,13 @@ export interface RequestConfig {
   retries?: number;
 }
 
-export interface APIResponse<T = any> {
+export interface APIResponse<T = unknown> {
   success: boolean;
   data?: T;
   error?: {
     code: string;
     message: string;
-    details?: any;
+    details?: unknown;
   };
   meta?: {
     timestamp: Date;
@@ -66,7 +66,7 @@ export class UAIPClient {
   private async request<T>(
     method: string,
     path: string,
-    data?: any,
+    data?: unknown,
     config?: RequestConfig
   ): Promise<APIResponse<T>> {
     const url = `${this.baseURL}${path}`;
@@ -110,9 +110,9 @@ export class UAIPClient {
     /**
      * Create a new agent
      */
-    postAgents: async (data: any) => {
+    postAgents: async (data: unknown) => {
       const path = '/api/v1/agents';
-      return this.request<any>('POST', path, data);
+      return this.request<unknown>('POST', path, data);
     },
 
     /**
@@ -126,19 +126,19 @@ export class UAIPClient {
     /**
      * Analyze agent context
      */
-    postAgentsAnalyze: async (params: { agentId: string }, data: any) => {
+    postAgentsAnalyze: async (params: { agentId: string }, data: unknown) => {
       let path = '/api/v1/agents/:agentId/analyze';
       path = path.replace(':agentId', String(params.agentId));
-      return this.request<any>('POST', path, data);
+      return this.request<unknown>('POST', path, data);
     },
 
     /**
      * Generate agent plan
      */
-    postAgentsPlan: async (params: { agentId: string }, data: any) => {
+    postAgentsPlan: async (params: { agentId: string }, data: unknown) => {
       let path = '/api/v1/agents/:agentId/plan';
       path = path.replace(':agentId', String(params.agentId));
-      return this.request<any>('POST', path, data);
+      return this.request<unknown>('POST', path, data);
     },
 
     /**
@@ -153,10 +153,10 @@ export class UAIPClient {
     /**
      * Update agent
      */
-    putAgentsById: async (params: { agentId: string }, data: any) => {
+    putAgentsById: async (params: { agentId: string }, data: unknown) => {
       let path = '/api/v1/agents/:agentId';
       path = path.replace(':agentId', String(params.agentId));
-      return this.request<any>('PUT', path, data);
+      return this.request<unknown>('PUT', path, data);
     },
 
     /**
@@ -174,25 +174,25 @@ export class UAIPClient {
     /**
      * Generate LLM response
      */
-    postGenerate: async (data: any) => {
+    postGenerate: async (data: unknown) => {
       const path = '/api/v1/llm/generate';
-      return this.request<any>('POST', path, data);
+      return this.request<unknown>('POST', path, data);
     },
 
     /**
      * Generate agent response
      */
-    postAgentResponse: async (data: any) => {
+    postAgentResponse: async (data: unknown) => {
       const path = '/api/v1/llm/agent-response';
-      return this.request<any>('POST', path, data);
+      return this.request<unknown>('POST', path, data);
     },
 
     /**
      * Generate artifact
      */
-    postArtifact: async (data: any) => {
+    postArtifact: async (data: unknown) => {
       const path = '/api/v1/llm/artifact';
-      return this.request<any>('POST', path, data);
+      return this.request<unknown>('POST', path, data);
     },
 
     /**
@@ -225,9 +225,9 @@ export class UAIPClient {
     /**
      * Create new LLM provider
      */
-    postProviders: async (data: any) => {
+    postProviders: async (data: unknown) => {
       const path = '/api/v1/admin/providers';
-      return this.request<any>('POST', path, data);
+      return this.request<unknown>('POST', path, data);
     },
 
     /**
@@ -242,10 +242,10 @@ export class UAIPClient {
     /**
      * Update LLM provider
      */
-    putProvidersById: async (params: { id: string }, data: any) => {
+    putProvidersById: async (params: { id: string }, data: unknown) => {
       let path = '/api/v1/admin/providers/:id';
       path = path.replace(':id', String(params.id));
-      return this.request<any>('PUT', path, data);
+      return this.request<unknown>('PUT', path, data);
     },
 
     /**
@@ -254,7 +254,7 @@ export class UAIPClient {
     postProvidersTest: async (params: { id: string }) => {
       let path = '/api/v1/admin/providers/:id/test';
       path = path.replace(':id', String(params.id));
-      return this.request<any>('POST', path);
+      return this.request<unknown>('POST', path);
     },
   };
 
@@ -271,9 +271,9 @@ export class UAIPClient {
     /**
      * Register new tool
      */
-    postTools: async (data: any) => {
+    postTools: async (data: unknown) => {
       const path = '/api/v1/capabilities';
-      return this.request<any>('POST', path, data);
+      return this.request<unknown>('POST', path, data);
     },
 
     /**
@@ -287,10 +287,10 @@ export class UAIPClient {
     /**
      * Execute tool
      */
-    postToolExecute: async (params: { id: string }, data: any) => {
+    postToolExecute: async (params: { id: string }, data: unknown) => {
       let path = '/api/v1/capabilities/:id/execute';
       path = path.replace(':id', String(params.id));
-      return this.request<any>('POST', path, data);
+      return this.request<unknown>('POST', path, data);
     },
   };
 
@@ -299,9 +299,9 @@ export class UAIPClient {
     /**
      * Execute operation
      */
-    postOperations: async (data: any) => {
+    postOperations: async (data: unknown) => {
       const path = '/api/v1/operations';
-      return this.request<any>('POST', path, data);
+      return this.request<unknown>('POST', path, data);
     },
 
     /**
@@ -319,7 +319,7 @@ export class UAIPClient {
     postOperationsPause: async (params: { operationId: string }) => {
       let path = '/api/v1/operations/:operationId/pause';
       path = path.replace(':operationId', String(params.operationId));
-      return this.request<any>('POST', path);
+      return this.request<unknown>('POST', path);
     },
 
     /**
@@ -328,7 +328,7 @@ export class UAIPClient {
     postOperationsResume: async (params: { operationId: string }) => {
       let path = '/api/v1/operations/:operationId/resume';
       path = path.replace(':operationId', String(params.operationId));
-      return this.request<any>('POST', path);
+      return this.request<unknown>('POST', path);
     },
 
     /**
@@ -337,7 +337,7 @@ export class UAIPClient {
     postOperationsCancel: async (params: { operationId: string }) => {
       let path = '/api/v1/operations/:operationId/cancel';
       path = path.replace(':operationId', String(params.operationId));
-      return this.request<any>('POST', path);
+      return this.request<unknown>('POST', path);
     },
   };
 
@@ -346,9 +346,9 @@ export class UAIPClient {
     /**
      * Generate artifact
      */
-    postGenerate: async (data: any) => {
+    postGenerate: async (data: unknown) => {
       const path = '/api/v1/artifacts/generate';
-      return this.request<any>('POST', path, data);
+      return this.request<unknown>('POST', path, data);
     },
 
     /**
@@ -362,9 +362,9 @@ export class UAIPClient {
     /**
      * Validate artifact
      */
-    postValidate: async (data: any) => {
+    postValidate: async (data: unknown) => {
       const path = '/api/v1/artifacts/validate';
-      return this.request<any>('POST', path, data);
+      return this.request<unknown>('POST', path, data);
     },
 
     /**

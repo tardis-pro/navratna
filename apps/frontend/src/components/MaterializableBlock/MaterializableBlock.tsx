@@ -1,8 +1,17 @@
 'use client';
 
 import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { Eye, EyeOff, Activity, AlertTriangle, HelpCircle, CheckCircle, Zap, Minus } from 'lucide-react';
+import { motion, _AnimatePresence } from 'framer-motion';
+import {
+  Eye,
+  _EyeOff,
+  Activity,
+  AlertTriangle,
+  HelpCircle,
+  CheckCircle,
+  Zap,
+  Minus,
+} from 'lucide-react';
 import type { Microexpression } from '@/types/microexpression';
 import type {
   MaterializableBlockData,
@@ -36,9 +45,9 @@ const EXPRESSION_ICONS: Record<Microexpression, React.ReactNode> = {
 export function MaterializableBlock({
   block,
   onPositionChange,
-  onVisibilityChange,
-  onExpressionChange,
-  isDraggable = false,
+  _onVisibilityChange,
+  _onExpressionChange,
+  _isDraggable = false,
   children,
   className,
   style,
@@ -77,10 +86,7 @@ export function MaterializableBlock({
     [block.type, block.expression, effectiveVisibility]
   );
 
-  const expressionColor = useMemo(
-    () => getExpressionColor(block.expression),
-    [block.expression]
-  );
+  const expressionColor = useMemo(() => getExpressionColor(block.expression), [block.expression]);
 
   const containerStyle: React.CSSProperties = useMemo(
     () => ({
@@ -93,7 +99,15 @@ export function MaterializableBlock({
       ...baseStyle,
       ...style,
     }),
-    [block.position.x, block.position.y, block.dimensions.width, block.dimensions.height, localZIndex, baseStyle, style]
+    [
+      block.position.x,
+      block.position.y,
+      block.dimensions.width,
+      block.dimensions.height,
+      localZIndex,
+      baseStyle,
+      style,
+    ]
   );
 
   if (block.visibility === 'hidden') {
@@ -201,30 +215,38 @@ export function withMaterializableBlock<P extends object>(
   blockConfig: WithMaterializableBlockConfig = {}
 ) {
   const WrappedComponent = (props: P & { block?: Partial<MaterializableBlockData> }) => {
-    const { block: propBlock, ...componentProps } = props as P & { block?: Partial<MaterializableBlockData> };
+    const { block: propBlock, ...componentProps } = props as P & {
+      block?: Partial<MaterializableBlockData>;
+    };
 
-    const defaultBlock = useMemo((): MaterializableBlockData => ({
-      id: `block-${Date.now()}`,
-      type: blockConfig.type ?? 'portal',
-      expression: blockConfig.expression ?? 'calm',
-      relevanceScore: blockConfig.relevanceScore ?? 1,
-      visibility: blockConfig.visibility ?? 'visible',
-      position: {
-        x: blockConfig.position?.x ?? 0,
-        y: blockConfig.position?.y ?? 0,
-        z: blockConfig.position?.z ?? 1,
-      },
-      dimensions: {
-        width: blockConfig.dimensions?.width ?? 400,
-        height: blockConfig.dimensions?.height ?? 300,
-      },
-      metadata: blockConfig.metadata,
-    }), []);
+    const defaultBlock = useMemo(
+      (): MaterializableBlockData => ({
+        id: `block-${Date.now()}`,
+        type: blockConfig.type ?? 'portal',
+        expression: blockConfig.expression ?? 'calm',
+        relevanceScore: blockConfig.relevanceScore ?? 1,
+        visibility: blockConfig.visibility ?? 'visible',
+        position: {
+          x: blockConfig.position?.x ?? 0,
+          y: blockConfig.position?.y ?? 0,
+          z: blockConfig.position?.z ?? 1,
+        },
+        dimensions: {
+          width: blockConfig.dimensions?.width ?? 400,
+          height: blockConfig.dimensions?.height ?? 300,
+        },
+        metadata: blockConfig.metadata,
+      }),
+      []
+    );
 
-    const block = useMemo((): MaterializableBlockData => ({
-      ...defaultBlock,
-      ...propBlock,
-    }), [defaultBlock, propBlock]);
+    const block = useMemo(
+      (): MaterializableBlockData => ({
+        ...defaultBlock,
+        ...propBlock,
+      }),
+      [defaultBlock, propBlock]
+    );
 
     return (
       <MaterializableBlock
@@ -255,50 +277,30 @@ export function useMaterializableBlocks(
     setMaxZIndex((prev) => {
       const newZ = prev + 1;
       setBlocks((prevBlocks) =>
-        prevBlocks.map((b) =>
-          b.id === id ? { ...b, position: { ...b.position, z: newZ } } : b
-        )
+        prevBlocks.map((b) => (b.id === id ? { ...b, position: { ...b.position, z: newZ } } : b))
       );
       setFocusedBlockId(id);
       return newZ;
     });
   }, []);
 
-  const updatePosition = useCallback(
-    (id: string, position: { x: number; y: number }) => {
-      setBlocks((prevBlocks) =>
-        prevBlocks.map((b) =>
-          b.id === id ? { ...b, position: { ...b.position, ...position } } : b
-        )
-      );
-    },
-    []
-  );
+  const updatePosition = useCallback((id: string, position: { x: number; y: number }) => {
+    setBlocks((prevBlocks) =>
+      prevBlocks.map((b) => (b.id === id ? { ...b, position: { ...b.position, ...position } } : b))
+    );
+  }, []);
 
-  const updateVisibility = useCallback(
-    (id: string, visibility: BlockVisibility) => {
-      setBlocks((prevBlocks) =>
-        prevBlocks.map((b) => (b.id === id ? { ...b, visibility } : b))
-      );
-    },
-    []
-  );
+  const updateVisibility = useCallback((id: string, visibility: BlockVisibility) => {
+    setBlocks((prevBlocks) => prevBlocks.map((b) => (b.id === id ? { ...b, visibility } : b)));
+  }, []);
 
-  const updateExpression = useCallback(
-    (id: string, expression: Microexpression) => {
-      setBlocks((prevBlocks) =>
-        prevBlocks.map((b) => (b.id === id ? { ...b, expression } : b))
-      );
-    },
-    []
-  );
+  const updateExpression = useCallback((id: string, expression: Microexpression) => {
+    setBlocks((prevBlocks) => prevBlocks.map((b) => (b.id === id ? { ...b, expression } : b)));
+  }, []);
 
-  const autoArrange = useCallback(
-    (config: Partial<AutoArrangeConfig> = {}) => {
-      setBlocks((prevBlocks) => autoArrangeBlocks(prevBlocks, config));
-    },
-    []
-  );
+  const autoArrange = useCallback((config: Partial<AutoArrangeConfig> = {}) => {
+    setBlocks((prevBlocks) => autoArrangeBlocks(prevBlocks, config));
+  }, []);
 
   return {
     blocks,

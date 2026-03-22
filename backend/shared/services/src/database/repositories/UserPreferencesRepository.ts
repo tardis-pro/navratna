@@ -1,8 +1,5 @@
 import { BaseRepository } from '../base/BaseRepository';
-import {
-  UserPreferencesEntity,
-  UserPreferencesData,
-} from '../../entities/user-preferences.entity';
+import { UserPreferencesEntity, UserPreferencesData } from '../../entities/user-preferences.entity';
 
 export class UserPreferencesRepository extends BaseRepository<UserPreferencesEntity> {
   constructor() {

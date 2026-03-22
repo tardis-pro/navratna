@@ -1,13 +1,4 @@
-import {
-  Entity,
-  PrimaryGeneratedColumn,
-  Column,
-  CreateDateColumn,
-  UpdateDateColumn,
-  Index,
-  BeforeInsert,
-  BeforeUpdate,
-} from 'typeorm';
+import { Entity, Column, Index, BeforeInsert, BeforeUpdate } from 'typeorm';
 import { BaseEntity } from './base.entity';
 import * as crypto from 'crypto';
 import { LLMProviderStatus, LLMProviderType } from '@uaip/types';
@@ -228,7 +219,7 @@ export class LLMProvider extends BaseEntity {
 
     // Validate URL format
     try {
-      new URL(this.baseUrl);
+      void new URL(this.baseUrl);
     } catch {
       throw new Error('Invalid base URL format');
     }

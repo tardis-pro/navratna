@@ -21,7 +21,7 @@ const mockEventBus = {
   publish: jest.fn().mockResolvedValue(undefined),
   subscribe: jest
     .fn()
-    .mockImplementation((topic: string, handler: (event: any) => Promise<void>) => {
+    .mockImplementation((topic: string, handler: (event: unknown) => Promise<void>) => {
       const subscriptionId = generateId();
       return { subscriptionId, topic, handler, unsubscribe: jest.fn() };
     }),
@@ -51,7 +51,7 @@ jest.unstable_mockModule('../services/dangerToolList.js', () => ({
     return dangerTools.includes(toolId);
   }),
   getDangerToolConfig: jest.fn((toolId: string) => {
-    const configs: Record<string, any> = {
+    const configs: Record<string, unknown> = {
       'file.write': {
         toolId: 'file.write',
         name: 'Write File',
@@ -91,7 +91,7 @@ jest.unstable_mockModule('../services/dangerToolList.js', () => ({
 }));
 
 describe('E2E Approval Flow: LLM→plan→approval→execution', () => {
-  let ToolExecutionCoordinator: any;
+  let ToolExecutionCoordinator: unknown;
 
   beforeAll(async () => {
     const module = await import('../services/tool-execution-coordinator.service.js');

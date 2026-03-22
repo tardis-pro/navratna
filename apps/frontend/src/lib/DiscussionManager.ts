@@ -1,6 +1,6 @@
 import { Message, AgentState } from '../types/agent';
 import { DocumentContext } from '../types/document';
-import { LLMService } from '../services/llm';
+import { _LLMService } from '../services/llm';
 import { generateAgentResponse } from '../services/llm';
 import { AgentContextValue } from '../types/agent';
 
@@ -75,7 +75,6 @@ export class DiscussionManager implements IDiscussionManager {
     agentContext: AgentContextValue
   ) {
     this.instanceId = crypto.randomUUID().slice(0, 8);
-    console.log(`🏗️ Creating DiscussionManager instance: ${this.instanceId}`);
 
     this.context = {
       topic: '',
@@ -133,9 +132,6 @@ export class DiscussionManager implements IDiscussionManager {
   }
 
   public start(): void {
-    console.log('Starting discussion with agents:', Object.keys(this.agentContext.agents));
-    console.log('Document state:', this.document);
-
     if (Object.keys(this.agentContext.agents).length < 2) {
       const error = 'At least two agents are required to start a discussion.';
       console.error(error);
@@ -162,11 +158,10 @@ export class DiscussionManager implements IDiscussionManager {
       lastError: null,
     };
 
-    console.log('Discussion initialized with state:', this.state);
     this.updateCallback(this.state);
 
     // Start processing turns
-    console.log('Starting turn processing');
+
     this.processNextTurn().catch((error) => {
       console.error('Error processing turn:', error);
       this.state.lastError = error instanceof Error ? error.message : 'Unknown error occurred';
@@ -321,12 +316,12 @@ export class DiscussionManager implements IDiscussionManager {
       patterns.forEach((pattern) => {
         if (contentLower.includes(pattern)) {
           // Get surrounding context
-          const words = contentLower.split(' ');
-          const patternIndex = words.findIndex((w) => w.includes(pattern));
+          const contentWords = contentLower.split(' ');
+          const patternIndex = contentWords.findIndex((w) => w.includes(pattern));
           if (patternIndex !== -1) {
             const start = Math.max(0, patternIndex - 3);
-            const end = Math.min(words.length, patternIndex + 4);
-            const snippet = words.slice(start, end).join(' ');
+            const end = Math.min(contentWords.length, patternIndex + 4);
+            const snippet = contentWords.slice(start, end).join(' ');
             fallacies.push({
               type: fallacyType,
               confidence,
@@ -366,12 +361,6 @@ export class DiscussionManager implements IDiscussionManager {
 
     // Add message to state
     this.state.messageHistory.push(message);
-    console.log(`📤 [${this.instanceId}] Added message:`, {
-      id: message.id,
-      sender: message.sender,
-      type: message.type,
-      totalMessages: this.state.messageHistory.length,
-    });
 
     // Update agent with new conversation history
     this.agentContext.updateAgentState(agentId, {
@@ -732,7 +721,7 @@ export class DiscussionManager implements IDiscussionManager {
    * NOTE: This is ONLY for LLM context - the UI should show ALL messages
    * The UI gets the complete history from state.messageHistory via DiscussionContext
    */
-  private getOptimizedHistory(currentAgent: AgentState): Message[] {
+  private getOptimizedHistory(_currentAgent: AgentState): Message[] {
     const MAX_RECENT_MESSAGES = 3; // Limit to last 2-3 messages for LLM efficiency
 
     // Filter out thought messages to keep only actual conversation

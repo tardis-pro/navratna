@@ -1,4 +1,4 @@
-import { Repository, In, Between } from 'typeorm';
+import { Repository, In } from 'typeorm';
 import {
   KnowledgeItem,
   KnowledgeIngestRequest,
@@ -28,7 +28,7 @@ export class KnowledgeRepository {
       sourceUrl: request.source.url,
       tags: request.tags || [],
       confidence: request.confidence || 0.8,
-      metadata: (request.source.metadata || {}) as any,
+      metadata: (request.source.metadata || {}) as Record<string, unknown>,
       createdBy: request.createdBy,
       organizationId: request.organizationId,
       accessLevel: request.accessLevel || 'public',
@@ -47,6 +47,7 @@ export class KnowledgeRepository {
     await this.knowledgeRepo.update(numericId, {
       ...updates,
       updatedAt: new Date(),
+      // oxlint-disable-next-line @typescript-eslint/no-explicit-any -- TypeORM update requires flexible typing
     } as any);
 
     const updated = await this.knowledgeRepo.findOne({ where: { id: numericId } });
@@ -85,7 +86,7 @@ export class KnowledgeRepository {
   }
 
   async applyFilters(
-    vectorResults: any[],
+    vectorResults: Array<{ payload?: { knowledge_item_id?: string } }>,
     filters?: KnowledgeFilters,
     scope?: KnowledgeScope
   ): Promise<KnowledgeItem[]> {
@@ -140,7 +141,9 @@ export class KnowledgeRepository {
     return orderedEntities.map((entity) => this.entityToModel(entity));
   }
 
-  async hydrate(vectorResults: any[]): Promise<KnowledgeItem[]> {
+  async hydrate(
+    vectorResults: Array<{ payload?: { knowledge_item_id?: string } }>
+  ): Promise<KnowledgeItem[]> {
     return this.applyFilters(vectorResults);
   }
 
@@ -345,6 +348,7 @@ export class KnowledgeRepository {
   }
 
   // Private helper methods for scope filtering
+  // oxlint-disable-next-line @typescript-eslint/no-explicit-any -- TypeORM SelectQueryBuilder generic typing
   private applyScopeFilter(query: any, scope: KnowledgeScope): any {
     if (scope.agentId && scope.userId) {
       // Both agent and user specified - return items for both
@@ -371,6 +375,7 @@ export class KnowledgeRepository {
     return query;
   }
 
+  // oxlint-disable-next-line @typescript-eslint/no-explicit-any -- TypeORM SelectQueryBuilder generic typing
   private applyRelationshipScopeFilter(query: any, scope: KnowledgeScope): any {
     if (scope.agentId && scope.userId) {
       // Both agent and user specified - return relationships for both

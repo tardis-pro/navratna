@@ -1,7 +1,7 @@
 import { jest } from '@jest/globals';
 import { EnhancedSecurityGatewayService } from '../../services/enhancedSecurityGatewayService.js';
-import { OAuthProviderService } from '../../services/oauthProviderService.js';
-import { EnhancedAuthService } from '../../services/enhancedAuthService.js';
+import { OAuthProviderService as _OAuthProviderService } from '../../services/oauthProviderService.js';
+import { EnhancedAuthService as _EnhancedAuthService } from '../../services/enhancedAuthService.js';
 import {
   createMockDatabaseService,
   createMockAuditService,
@@ -11,9 +11,9 @@ import {
 } from '../utils/mockServices.js';
 import {
   EnhancedSecurityValidationRequest,
-  SecurityValidationResult,
+  SecurityValidationResult as _SecurityValidationResult,
   SecurityLevel,
-  RiskLevel,
+  RiskLevel as _RiskLevel,
   UserType,
   AgentCapability,
   OAuthProviderType,
@@ -21,7 +21,7 @@ import {
   MFAMethod,
   AuditEventType,
 } from '@uaip/types';
-import { ApiError } from '@uaip/utils';
+import { ApiError as _ApiError } from '@uaip/utils';
 
 // Mock external dependencies
 jest.mock('@uaip/shared-services', () => ({
@@ -37,19 +37,19 @@ jest.mock('@uaip/utils', () => ({
   },
   ApiError: jest.fn().mockImplementation((status: number, message: string, code?: string) => {
     const error = new Error(message);
-    (error as any).status = status;
-    (error as any).code = code;
+    (error as unknown).status = status;
+    (error as unknown).code = code;
     return error;
   }),
 }));
 
 describe('EnhancedSecurityGatewayService', () => {
   let enhancedSecurityGatewayService: EnhancedSecurityGatewayService;
-  let mockDatabaseService: any;
-  let mockAuditService: any;
-  let mockApprovalWorkflowService: any;
-  let mockOAuthProviderService: any;
-  let mockEnhancedAuthService: any;
+  let mockDatabaseService: unknown;
+  let mockAuditService: unknown;
+  let mockApprovalWorkflowService: unknown;
+  let mockOAuthProviderService: unknown;
+  let mockEnhancedAuthService: unknown;
 
   beforeEach(() => {
     // Create mock services
@@ -75,7 +75,7 @@ describe('EnhancedSecurityGatewayService', () => {
 
   // Helper function to create enhanced security requests
   const createEnhancedSecurityRequest = (
-    overrides: any = {}
+    overrides: unknown = {}
   ): EnhancedSecurityValidationRequest => ({
     operation: {
       type: 'read',

@@ -1,6 +1,7 @@
 import { Entity, Column, Index, ManyToOne, JoinColumn } from 'typeorm';
 import { BaseEntity } from './base.entity';
 import { OperationStatus } from '@uaip/types';
+import type { Operation } from './operation.entity';
 
 /**
  * Operation State Entity
@@ -30,7 +31,7 @@ export class OperationState extends BaseEntity {
   reason?: string;
 
   @Column({ type: 'jsonb', nullable: true })
-  context?: Record<string, any>;
+  context?: Record<string, unknown>;
 
   @Column({ name: 'duration_in_previous_state_ms', nullable: true })
   durationInPreviousStateMs?: number;
@@ -39,10 +40,10 @@ export class OperationState extends BaseEntity {
   isAutomatic: boolean;
 
   @Column({ type: 'jsonb', nullable: true })
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 
   // Relationships
   @ManyToOne('Operation', 'states')
   @JoinColumn({ name: 'operation_id' })
-  operation: any;
+  operation: Operation;
 }

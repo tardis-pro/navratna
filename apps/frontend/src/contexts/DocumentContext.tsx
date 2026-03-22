@@ -1,11 +1,11 @@
-import React, { createContext, useContext, useReducer, useCallback } from 'react';
+import React, { createContext, useContext, useReducer, useCallback, useMemo } from 'react';
 import type {
   DocumentContext,
   DocumentContextValue,
   DocumentContextState,
 } from '../types/document';
 import { useKnowledge } from './KnowledgeContext';
-import type { KnowledgeItem, KnowledgeIngestRequest } from '@uaip/types';
+import type { _KnowledgeItem, KnowledgeIngestRequest } from '@uaip/types';
 
 const initialState: DocumentContextState = {
   documents: {},
@@ -38,7 +38,7 @@ const documentReducer = (
         },
       };
     case 'REMOVE_DOCUMENT': {
-      const { [action.payload]: removed, ...remainingDocs } = state.documents;
+      const { [action.payload]: _removed, ...remainingDocs } = state.documents;
       return {
         ...state,
         documents: remainingDocs,
@@ -147,19 +147,22 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     [uploadKnowledge]
   );
 
-  const value: DocumentContextValue = {
-    ...state,
-    addDocument,
-    removeDocument: (id: string) => {
-      dispatch({ type: 'REMOVE_DOCUMENT', payload: id });
-    },
-    setActiveDocument: (id: string) => {
-      dispatch({ type: 'SET_ACTIVE_DOCUMENT', payload: id });
-    },
-    updateDocument: (id: string, updates: Partial<DocumentContext>) => {
-      dispatch({ type: 'UPDATE_DOCUMENT', payload: { id, updates } });
-    },
-  };
+  const value: DocumentContextValue = useMemo(
+    () => ({
+      ...state,
+      addDocument,
+      removeDocument: (id: string) => {
+        dispatch({ type: 'REMOVE_DOCUMENT', payload: id });
+      },
+      setActiveDocument: (id: string) => {
+        dispatch({ type: 'SET_ACTIVE_DOCUMENT', payload: id });
+      },
+      updateDocument: (id: string, updates: Partial<DocumentContext>) => {
+        dispatch({ type: 'UPDATE_DOCUMENT', payload: { id, updates } });
+      },
+    }),
+    [state, addDocument]
+  );
 
   return <DocumentContext.Provider value={value}>{children}</DocumentContext.Provider>;
 };

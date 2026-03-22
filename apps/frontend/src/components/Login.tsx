@@ -95,8 +95,8 @@ export const Login: React.FC = () => {
       } else {
         setLocationConsent(false);
       }
-    } catch (error) {
-      console.error('Location request failed:', error);
+    } catch (err) {
+      console.error('Location request failed:', err);
       setLocationConsent(false);
     } finally {
       setIsRequestingLocation(false);
@@ -115,9 +115,9 @@ export const Login: React.FC = () => {
 
     try {
       await login(formData.email, formData.password, formData.rememberMe);
-    } catch (error) {
+    } catch (err) {
       // Error is handled by the auth context
-      console.error('Login failed:', error);
+      console.error('Login failed:', err);
     } finally {
       setIsSubmitting(false);
     }
@@ -207,17 +207,15 @@ export const Login: React.FC = () => {
   };
 
   const fillDemoCredentials = (email: string, password: string) => {
-    console.log('Filling demo credentials:', { email, password });
     const newFormData = { ...formData, email, password };
     setFormData(newFormData);
     // Auto-submit after a brief delay to show the filled credentials
     setTimeout(async () => {
-      console.log('Auto-submitting with credentials:', { email, password });
       setIsSubmitting(true);
       try {
         await login(email, password, formData.rememberMe);
-      } catch (error) {
-        console.error('Auto-login failed:', error);
+      } catch (err) {
+        console.error('Auto-login failed:', err);
       } finally {
         setIsSubmitting(false);
       }
@@ -317,9 +315,9 @@ export const Login: React.FC = () => {
                       </h4>
                     </div>
                     <div className="space-y-2">
-                      {accounts.map((cred, index) => (
+                      {accounts.map((cred) => (
                         <button
-                          key={`${category}-${index}`}
+                          key={`${category}-${cred.email}`}
                           type="button"
                           onClick={() => fillDemoCredentials(cred.email, cred.password)}
                           className={`w-full text-left p-2 rounded-lg ${colors.bg} ${colors.hover} transition-all duration-200 border ${colors.border} group`}

@@ -36,7 +36,7 @@ export interface ToolCall {
 
 export interface ToolResult {
   toolCallId: string;
-  result: any;
+  result: unknown;
   error?: string;
 }
 
@@ -58,7 +58,7 @@ export interface AgentResponseResponse extends LLMResponse {
 export interface ToolSuggestion {
   toolId: string;
   toolName: string;
-  parameters: any;
+  parameters: Record<string, unknown>;
   confidence: number;
   reasoning?: string;
 }
@@ -67,10 +67,10 @@ export interface ToolExecutionResult {
   toolId: string;
   toolName: string;
   success: boolean;
-  result?: any;
+  result?: unknown;
   error?: string;
   timestamp: string;
-  parameters?: any;
+  parameters?: Record<string, unknown>;
 }
 
 export interface Message {
@@ -98,7 +98,7 @@ export interface DocumentContext {
 export interface AvailableTool {
   name: string;
   description: string;
-  parameters: any;
+  parameters: Record<string, unknown>;
 }
 
 // Provider configuration

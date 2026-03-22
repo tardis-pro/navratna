@@ -1,12 +1,11 @@
 import { LLMService, UserLLMService } from '@uaip/llm-service';
 import { EventBusService } from '@uaip/infra/eventBus';
 import { logger } from '@uaip/utils';
-import { LLMTaskType } from '@uaip/types';
 
 export interface AgentGenerationRequest {
   requestId: string;
   agentId?: string;
-  messages: any[];
+  messages: Array<{ content: string; sender?: string }>;
   systemPrompt?: string;
   maxTokens?: number;
   temperature?: number;
@@ -21,7 +20,7 @@ export class AgentGenerationHandler {
     private eventBus: EventBusService
   ) {}
 
-  async handle(event: any): Promise<void> {
+  async handle(event: Record<string, unknown>): Promise<void> {
     try {
       const request = this.validateRequest(event);
       const agent = await this.loadAgent(request.agentId);
@@ -38,9 +37,10 @@ export class AgentGenerationHandler {
     }
   }
 
-  private validateRequest(event: any): AgentGenerationRequest {
+  private validateRequest(event: Record<string, unknown>): AgentGenerationRequest {
+    const data = (event.data || event) as Record<string, unknown>;
     const { requestId, agentId, messages, systemPrompt, maxTokens, temperature, model, provider } =
-      event.data || event;
+      data;
 
     if (!requestId) {
       throw new Error('RequestId is required');
@@ -51,18 +51,18 @@ export class AgentGenerationHandler {
     }
 
     return {
-      requestId,
-      agentId,
-      messages,
-      systemPrompt,
-      maxTokens,
-      temperature,
-      model,
-      provider,
+      requestId: requestId as string,
+      agentId: agentId as string | undefined,
+      messages: messages as Array<{ content: string; sender?: string }>,
+      systemPrompt: systemPrompt as string | undefined,
+      maxTokens: maxTokens as number | undefined,
+      temperature: temperature as number | undefined,
+      model: model as string | undefined,
+      provider: provider as string | undefined,
     };
   }
 
-  private async loadAgent(agentId?: string): Promise<any | null> {
+  private async loadAgent(agentId?: string): Promise<Record<string, unknown> | null> {
     if (!agentId) {
       logger.info('No agent ID provided, using generic configuration');
       return null;
@@ -89,24 +89,31 @@ export class AgentGenerationHandler {
     return agent;
   }
 
-  private async generateResponse(request: AgentGenerationRequest, agent: any): Promise<any> {
+  private async generateResponse(
+    request: AgentGenerationRequest,
+    agent: Record<string, unknown> | null
+  ): Promise<Record<string, unknown>> {
     const prompt = this.buildPromptFromMessages(request.messages);
 
     // Build system prompt from agent persona if available, otherwise use request.systemPrompt
     const systemPrompt = this.buildAgentSystemPrompt(agent, request.systemPrompt);
 
+    const agentConfig = agent?.configuration as Record<string, unknown> | undefined;
     const generationRequest = {
       prompt,
       systemPrompt,
-      maxTokens: request.maxTokens || agent?.maxTokens || 1000,
-      temperature: request.temperature || agent?.temperature || 0.7,
-      model: request.model || agent?.configuration?.model,
+      maxTokens: request.maxTokens || (agent?.maxTokens as number) || 1000,
+      temperature: request.temperature || (agent?.temperature as number) || 0.7,
+      model: request.model || (agentConfig?.model as string | undefined),
     };
 
     // Use user-specific service if agent has user context
     if (agent?.createdBy) {
       try {
-        return await this.userLLMService.generateResponse(agent.createdBy, generationRequest);
+        return await this.userLLMService.generateResponse(
+          agent.createdBy as string,
+          generationRequest
+        );
       } catch (error) {
         logger.warn('UserLLMService failed, falling back to global', {
           agentId: agent.id,
@@ -120,7 +127,7 @@ export class AgentGenerationHandler {
     return await this.llmService.generateResponse(generationRequest);
   }
 
-  private buildPromptFromMessages(messages: any[]): string {
+  private buildPromptFromMessages(messages: Array<{ content: string; sender?: string }>): string {
     if (!messages?.length) return '';
 
     return (
@@ -134,13 +141,16 @@ export class AgentGenerationHandler {
    * Build system prompt from agent data with persona context
    * Falls back to provided fallbackPrompt if no agent persona is available
    */
-  private buildAgentSystemPrompt(agent: any, fallbackPrompt?: string): string {
+  private buildAgentSystemPrompt(
+    agent: Record<string, unknown> | null,
+    fallbackPrompt?: string
+  ): string {
     if (!agent) {
       return fallbackPrompt || 'You are a helpful AI assistant.';
     }
 
     // Get persona from either the loaded relation or legacy field
-    const persona = agent.persona || agent.legacyPersona;
+    const persona = (agent.persona || agent.legacyPersona) as Record<string, unknown> | undefined;
 
     let systemPrompt = `You are ${agent.name}`;
 
@@ -154,7 +164,7 @@ export class AgentGenerationHandler {
     systemPrompt += '.\n\n';
 
     // Add capabilities
-    const capabilities = persona?.capabilities || agent.capabilities;
+    const capabilities = (persona?.capabilities || agent.capabilities) as unknown[] | undefined;
     if (capabilities && Array.isArray(capabilities) && capabilities.length > 0) {
       systemPrompt += `Your capabilities include: ${capabilities.join(', ')}.\n`;
     }
@@ -186,7 +196,7 @@ export class AgentGenerationHandler {
   private async publishResponse(
     requestId: string,
     agentId: string | undefined,
-    response: any
+    response: Record<string, unknown>
   ): Promise<void> {
     await this.eventBus.publish('llm.agent.generate.response', {
       requestId,
@@ -201,9 +211,10 @@ export class AgentGenerationHandler {
     });
   }
 
-  private calculateConfidence(response: any): number {
+  private calculateConfidence(response: Record<string, unknown>): number {
     if (response.error) return 0;
-    if (!response.content?.trim()) return 0.1;
+    const content = response.content as string | undefined;
+    if (!content?.trim()) return 0.1;
 
     let confidence = 0.8;
 
@@ -219,17 +230,18 @@ export class AgentGenerationHandler {
         break;
     }
 
-    const contentLength = response.content.trim().length;
+    const contentLength = content.trim().length;
     if (contentLength < 10) confidence *= 0.5;
     else if (contentLength < 50) confidence *= 0.8;
 
     return Math.max(0, Math.min(1, confidence));
   }
 
-  private async handleError(event: any, error: any): Promise<void> {
+  private async handleError(event: Record<string, unknown>, error: unknown): Promise<void> {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    const requestId = event?.data?.requestId || event?.requestId;
-    const agentId = event?.data?.agentId || event?.agentId;
+    const eventData = event?.data as Record<string, unknown> | undefined;
+    const requestId = eventData?.requestId || event?.requestId;
+    const agentId = eventData?.agentId || event?.agentId;
 
     logger.error('Agent generation failed', {
       error: errorMessage,

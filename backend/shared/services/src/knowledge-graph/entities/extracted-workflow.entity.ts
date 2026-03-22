@@ -82,7 +82,7 @@ export class ExtractedWorkflowEntity extends BaseEntity {
     participants?: string[];
     extractedAt?: Date;
     patternMatches?: string[];
-    contextAnalysis?: Record<string, any>;
+    contextAnalysis?: Record<string, unknown>;
   };
 
   @Column({ type: 'json', nullable: true })
@@ -91,7 +91,7 @@ export class ExtractedWorkflowEntity extends BaseEntity {
     prerequisites?: string[];
     expectedOutcomes?: string[];
     requiredCapabilities?: string[];
-    resourceRequirements?: Record<string, any>;
+    resourceRequirements?: Record<string, unknown>;
     riskFactors?: string[];
     successCriteria?: string[];
   };

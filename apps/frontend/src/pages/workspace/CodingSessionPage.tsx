@@ -123,7 +123,7 @@ export default function CodingSessionPage() {
 
     es.onmessage = (ev) => {
       try {
-        const payload = JSON.parse(ev.data) as any;
+        const payload = JSON.parse(ev.data) as unknown;
 
         const type = String(payload?.type || payload?.event || '').toLowerCase();
         if (type === 'message' || type === 'chat_message') {

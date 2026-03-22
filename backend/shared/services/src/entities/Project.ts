@@ -5,8 +5,6 @@ import {
   CreateDateColumn,
   UpdateDateColumn,
   OneToMany,
-  ManyToMany,
-  JoinTable,
   Index,
   ManyToOne,
 } from 'typeorm';
@@ -48,7 +46,7 @@ export class Project {
   tags: string[];
 
   @Column({ type: 'json', nullable: true })
-  metadata: any;
+  metadata: Record<string, unknown>;
 
   @Column({ type: 'json', nullable: true })
   settings: {
@@ -152,10 +150,10 @@ export class ProjectTask {
   assignedUserId: string;
 
   @Column({ type: 'json', nullable: true })
-  requirements: any;
+  requirements: Record<string, unknown>;
 
   @Column({ type: 'json', nullable: true })
-  outputs: any;
+  outputs: Record<string, unknown>;
 
   @Column({ type: 'json', nullable: true })
   tools: string[];
@@ -229,16 +227,16 @@ export class ProjectToolUsage {
   cost: number;
 
   @Column({ type: 'json', nullable: true })
-  input: any;
+  input: Record<string, unknown>;
 
   @Column({ type: 'json', nullable: true })
-  output: any;
+  output: Record<string, unknown>;
 
   @Column({ type: 'text', nullable: true })
   errorMessage: string;
 
   @Column({ type: 'json', nullable: true })
-  metadata: any;
+  metadata: Record<string, unknown>;
 
   @CreateDateColumn()
   executedAt: Date;
@@ -314,12 +312,12 @@ export class ProjectWorkflow {
       id: string;
       name: string;
       type: string;
-      config: any;
+      config: Record<string, unknown>;
       dependencies?: string[];
     }>;
     triggers: Array<{
       type: string;
-      config: any;
+      config: Record<string, unknown>;
     }>;
   };
 
@@ -329,7 +327,7 @@ export class ProjectWorkflow {
     startTime: Date;
     endTime?: Date;
     status: string;
-    results?: any;
+    results?: Record<string, unknown>;
   }>;
 
   @Column({ type: 'boolean', default: false })
@@ -362,10 +360,10 @@ export class TaskExecution {
   status: string; // 'running', 'completed', 'failed', 'cancelled'
 
   @Column({ type: 'json', nullable: true })
-  input: any;
+  input: Record<string, unknown>;
 
   @Column({ type: 'json', nullable: true })
-  output: any;
+  output: Record<string, unknown>;
 
   @Column({ type: 'text', nullable: true })
   errorMessage: string;

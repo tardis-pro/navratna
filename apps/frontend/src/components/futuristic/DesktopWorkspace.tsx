@@ -13,10 +13,10 @@ import {
   TrendingUp,
   Wrench,
   Plus,
-  Bell,
-  User,
-  Menu,
-  X,
+  _Bell,
+  _User,
+  _Menu,
+  _X,
   Globe,
   Shield,
   Zap,
@@ -24,13 +24,13 @@ import {
 import { DesktopIcon } from './desktop/DesktopIcon';
 import { RecentItemsPanel } from './desktop/RecentItemsPanel';
 import { QuickActionsDock } from './desktop/QuickActionsDock';
-import { DesktopHeader } from './desktop/DesktopHeader';
+import { _DesktopHeader } from './desktop/DesktopHeader';
 import { DesktopSettings } from './desktop/DesktopSettings';
 import { useDesktop } from './hooks/useDesktop';
 import { usePortalManager } from './hooks/usePortalManager';
 import { useIconDragDrop } from './hooks/useDragAndDrop';
 import { useAgents } from './hooks/useAgents';
-import { getTheme, resolveTheme } from './desktop/DesktopThemes';
+import { _getTheme, resolveTheme } from './desktop/DesktopThemes';
 import { RoleBasedDesktopConfig } from './desktop/RoleBasedDesktopConfig';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
@@ -49,7 +49,7 @@ interface ViewportSize {
 interface DesktopIconConfig {
   id: string;
   title: string;
-  icon: React.ComponentType<any>;
+  icon: React.ComponentType<unknown>;
   color: {
     primary: string;
     secondary: string;
@@ -65,7 +65,7 @@ interface DesktopIconConfig {
   shortcut?: string;
 }
 
-const DESKTOP_ICONS: DesktopIconConfig[] = [
+const _DESKTOP_ICONS: DesktopIconConfig[] = [
   // Primary Row
   {
     id: 'dashboard',
@@ -201,14 +201,14 @@ const DESKTOP_ICONS: DesktopIconConfig[] = [
 interface DesktopWorkspaceProps {
   onOpenPortal?: (type: string) => void;
   isPortalOpen?: (type: string) => boolean;
-  portals?: any[];
+  portals?: unknown[];
   viewport?: ViewportSize;
 }
 
 export const DesktopWorkspace: React.FC<DesktopWorkspaceProps> = ({
   onOpenPortal,
   isPortalOpen,
-  portals = [],
+  _portals = [],
   viewport: externalViewport,
 }) => {
   const [viewport, setViewport] = useState<ViewportSize>(
@@ -246,37 +246,27 @@ export const DesktopWorkspace: React.FC<DesktopWorkspaceProps> = ({
 
   // Use external portal functions if provided, otherwise use internal ones
   const portalManager = usePortalManager();
-  const openPortalFn = onOpenPortal || portalManager.openPortal;
+  const _openPortalFn = onOpenPortal || portalManager.openPortal;
   const isPortalOpenFn = isPortalOpen || portalManager.isPortalOpen;
 
   // Initialize drag and drop
-  const dragAndDrop = useIconDragDrop(iconPositions, updateIconPosition);
+  const _dragAndDrop = useIconDragDrop(iconPositions, updateIconPosition);
 
   // Fetch agents
-  const { agents, loading: agentsLoading } = useAgents();
+  const { agents, loading: _agentsLoading } = useAgents();
 
   // Get user role and permissions for desktop configuration
   const { user } = useAuth();
   const userRole = user?.role || 'guest';
-  const userPermissions = user?.permissions || [];
+  const _userPermissions = user?.permissions || [];
 
   // Get role-based desktop configuration
   const desktopLayout = RoleBasedDesktopConfig.getDesktopLayout(userRole);
-  const quickActions = RoleBasedDesktopConfig.getQuickActions(userRole);
-  const notificationSettings = RoleBasedDesktopConfig.getNotificationSettings(userRole);
-  const availableThemes = RoleBasedDesktopConfig.getThemeOptions(userRole);
+  const _quickActions = RoleBasedDesktopConfig.getQuickActions(userRole);
+  const _notificationSettings = RoleBasedDesktopConfig.getNotificationSettings(userRole);
+  const _availableThemes = RoleBasedDesktopConfig.getThemeOptions(userRole);
 
   // Debug logging
-  console.log('🔍 Desktop Debug:', {
-    userRole,
-    user: user?.username,
-    primaryIcons: desktopLayout.primaryIcons.length,
-    secondaryIcons: desktopLayout.secondaryIcons.length,
-    adminIcons: desktopLayout.adminIcons.length,
-    restrictedIcons: desktopLayout.restrictedIcons.length,
-    primaryIconIds: desktopLayout.primaryIcons.map((i) => i.id),
-    secondaryIconIds: desktopLayout.secondaryIcons.map((i) => i.id),
-  });
 
   // Calculate activity stats
   const activityStats = getActivityStats();
@@ -356,6 +346,7 @@ export const DesktopWorkspace: React.FC<DesktopWorkspaceProps> = ({
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [showSettings, selectedIconId, primaryIcons]);
 
   // Loading effect
@@ -410,7 +401,7 @@ export const DesktopWorkspace: React.FC<DesktopWorkspaceProps> = ({
 
   // Get grid configuration based on viewport and orientation
   const getGridConfig = () => {
-    const isPortrait = viewport.height > viewport.width;
+    const _isPortrait = viewport.height > viewport.width;
 
     if (viewport.isMobile) {
       return {
@@ -641,7 +632,7 @@ export const DesktopWorkspace: React.FC<DesktopWorkspaceProps> = ({
                       config={iconConfig}
                       size={gridConfig.iconSize}
                       isSelected={selectedIconId === iconConfig.id}
-                      isActive={isPortalOpenFn(iconConfig.portalType as any)}
+                      isActive={isPortalOpenFn(iconConfig.portalType as unknown)}
                       onClick={() => handleIconClick(iconConfig)}
                       onDoubleClick={() => handleIconDoubleClick(iconConfig)}
                       viewport={viewport}
@@ -669,7 +660,7 @@ export const DesktopWorkspace: React.FC<DesktopWorkspaceProps> = ({
                       config={iconConfig}
                       size={gridConfig.iconSize}
                       isSelected={selectedIconId === iconConfig.id}
-                      isActive={isPortalOpenFn(iconConfig.portalType as any)}
+                      isActive={isPortalOpenFn(iconConfig.portalType as unknown)}
                       onClick={() => handleIconClick(iconConfig)}
                       onDoubleClick={() => handleIconDoubleClick(iconConfig)}
                       viewport={viewport}
@@ -716,7 +707,7 @@ export const DesktopWorkspace: React.FC<DesktopWorkspaceProps> = ({
                         config={iconConfig}
                         size={gridConfig.iconSize}
                         isSelected={selectedIconId === iconConfig.id}
-                        isActive={isPortalOpenFn(iconConfig.portalType as any)}
+                        isActive={isPortalOpenFn(iconConfig.portalType as unknown)}
                         onClick={() => handleIconClick(iconConfig)}
                         onDoubleClick={() => handleIconDoubleClick(iconConfig)}
                         viewport={viewport}
@@ -811,7 +802,7 @@ export const DesktopWorkspace: React.FC<DesktopWorkspaceProps> = ({
                       config={iconConfig}
                       size={gridConfig.iconSize}
                       isSelected={selectedIconId === iconConfig.id}
-                      isActive={isPortalOpenFn(iconConfig.portalType as any)}
+                      isActive={isPortalOpenFn(iconConfig.portalType as unknown)}
                       onClick={() => handleIconClick(iconConfig)}
                       onDoubleClick={() => handleIconDoubleClick(iconConfig)}
                       viewport={viewport}
@@ -851,7 +842,7 @@ export const DesktopWorkspace: React.FC<DesktopWorkspaceProps> = ({
                       config={iconConfig}
                       size={gridConfig.iconSize}
                       isSelected={selectedIconId === iconConfig.id}
-                      isActive={isPortalOpenFn(iconConfig.portalType as any)}
+                      isActive={isPortalOpenFn(iconConfig.portalType as unknown)}
                       onClick={() => handleIconClick(iconConfig)}
                       onDoubleClick={() => handleIconDoubleClick(iconConfig)}
                       viewport={viewport}

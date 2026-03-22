@@ -78,8 +78,7 @@ export class ConfidenceGatedExecutionService {
 
   static getInstance(): ConfidenceGatedExecutionService {
     if (!ConfidenceGatedExecutionService.instance) {
-      ConfidenceGatedExecutionService.instance =
-        new ConfidenceGatedExecutionService();
+      ConfidenceGatedExecutionService.instance = new ConfidenceGatedExecutionService();
     }
     return ConfidenceGatedExecutionService.instance;
   }
@@ -92,11 +91,7 @@ export class ConfidenceGatedExecutionService {
    * Check whether the agent's confidence passes the dynamic execution gate
    * for the given task type.
    */
-  async checkGate(
-    agentId: string,
-    taskType: string,
-    confidence: number,
-  ): Promise<ExecutionGate> {
+  async checkGate(agentId: string, taskType: string, confidence: number): Promise<ExecutionGate> {
     const profile = this.getProfile(agentId, taskType);
     const requiredConfidence = this.computeDynamicThreshold(profile);
 
@@ -105,13 +100,7 @@ export class ConfidenceGatedExecutionService {
 
     const passed = confidence >= requiredConfidence;
 
-    const reason = this.buildGateReason(
-      passed,
-      confidence,
-      requiredConfidence,
-      profile,
-      taskType,
-    );
+    const reason = this.buildGateReason(passed, confidence, requiredConfidence, profile, taskType);
 
     const gate: ExecutionGate = {
       agentId,
@@ -173,10 +162,7 @@ export class ConfidenceGatedExecutionService {
     ) {
       // Trusted agent — lower the threshold
       threshold = TRUSTED_THRESHOLD;
-    } else if (
-      profile.historicalAccuracy < UNRELIABLE_ACCURACY_MAX &&
-      profile.sampleSize > 0
-    ) {
+    } else if (profile.historicalAccuracy < UNRELIABLE_ACCURACY_MAX && profile.sampleSize > 0) {
       // Unreliable agent — raise the threshold
       threshold = UNRELIABLE_THRESHOLD;
     }
@@ -200,11 +186,7 @@ export class ConfidenceGatedExecutionService {
    * Update the agent's confidence profile after task completion using
    * exponential moving average for the accuracy metric.
    */
-  async updateProfile(
-    agentId: string,
-    taskType: string,
-    wasCorrect: boolean,
-  ): Promise<void> {
+  async updateProfile(agentId: string, taskType: string, wasCorrect: boolean): Promise<void> {
     const profile = this.getProfile(agentId, taskType);
     const outcome = wasCorrect ? 1 : 0;
 
@@ -340,17 +322,17 @@ export class ConfidenceGatedExecutionService {
     actual: number,
     required: number,
     profile: ConfidenceProfile,
-    taskType: string,
+    taskType: string
   ): string {
     const parts: string[] = [];
 
     if (passed) {
       parts.push(
-        `Confidence ${actual.toFixed(2)} meets the dynamic threshold of ${required.toFixed(2)}.`,
+        `Confidence ${actual.toFixed(2)} meets the dynamic threshold of ${required.toFixed(2)}.`
       );
     } else {
       parts.push(
-        `Confidence ${actual.toFixed(2)} is below the dynamic threshold of ${required.toFixed(2)}.`,
+        `Confidence ${actual.toFixed(2)} is below the dynamic threshold of ${required.toFixed(2)}.`
       );
     }
 
@@ -361,11 +343,11 @@ export class ConfidenceGatedExecutionService {
       profile.sampleSize >= TRUSTED_SAMPLE_MIN
     ) {
       parts.push(
-        `Agent is trusted (accuracy: ${(profile.historicalAccuracy * 100).toFixed(1)}%, samples: ${profile.sampleSize}). Threshold lowered.`,
+        `Agent is trusted (accuracy: ${(profile.historicalAccuracy * 100).toFixed(1)}%, samples: ${profile.sampleSize}). Threshold lowered.`
       );
     } else if (profile.historicalAccuracy < UNRELIABLE_ACCURACY_MAX) {
       parts.push(
-        `Agent has low accuracy (${(profile.historicalAccuracy * 100).toFixed(1)}%). Threshold raised.`,
+        `Agent has low accuracy (${(profile.historicalAccuracy * 100).toFixed(1)}%). Threshold raised.`
       );
     }
 

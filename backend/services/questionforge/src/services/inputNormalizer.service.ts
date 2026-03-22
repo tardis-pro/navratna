@@ -69,9 +69,7 @@ export class InputNormalizerService {
   }
 
   async normalize(input: string, inputType?: string): Promise<NormalizedBrief> {
-    const detectedType = inputType
-      ? this.mapInputType(inputType)
-      : this.detectInputType(input);
+    const detectedType = inputType ? this.mapInputType(inputType) : this.detectInputType(input);
     const wordCount = this.countWords(input);
 
     logger.info('Normalizing project input', {
@@ -124,40 +122,46 @@ export class InputNormalizerService {
     return {
       projectName: asString(parsed.projectName, 'Untitled Project'),
       rawInput: '',
-      goals: asArray(parsed.goals).map((g: any) => ({
+      goals: asArray(parsed.goals).map((g: Record<string, unknown>) => ({
         description: asString(g.description, ''),
-        priority: asEnum(g.priority, ['high', 'medium', 'low'], 'medium') as 'high' | 'medium' | 'low',
+        priority: asEnum(g.priority, ['high', 'medium', 'low'], 'medium') as
+          | 'high'
+          | 'medium'
+          | 'low',
         ...(g.stakeholder ? { stakeholder: String(g.stakeholder) } : {}),
       })),
-      actors: asArray(parsed.actors).map((a: any) => ({
+      actors: asArray(parsed.actors).map((a: Record<string, unknown>) => ({
         name: asString(a.name, ''),
         role: asString(a.role, ''),
         responsibilities: asArray(a.responsibilities).map(String),
       })),
-      assumptions: asArray(parsed.assumptions).map((a: any) => ({
+      assumptions: asArray(parsed.assumptions).map((a: Record<string, unknown>) => ({
         content: asString(a.content, ''),
         confidence: typeof a.confidence === 'number' ? clamp(a.confidence, 0, 1) : 0.5,
         source: asString(a.source, 'inferred'),
         ...(a.stakeholder ? { stakeholder: String(a.stakeholder) } : {}),
       })),
-      constraints: asArray(parsed.constraints).map((c: any) => ({
+      constraints: asArray(parsed.constraints).map((c: Record<string, unknown>) => ({
         description: asString(c.description, ''),
-        type: asEnum(c.type, ['technical', 'business', 'legal', 'timeline', 'resource'], 'business') as
-          'technical' | 'business' | 'legal' | 'timeline' | 'resource',
+        type: asEnum(
+          c.type,
+          ['technical', 'business', 'legal', 'timeline', 'resource'],
+          'business'
+        ) as 'technical' | 'business' | 'legal' | 'timeline' | 'resource',
         severity: asEnum(c.severity, ['hard', 'soft'], 'soft') as 'hard' | 'soft',
       })),
-      successMetrics: asArray(parsed.successMetrics).map((m: any) => ({
+      successMetrics: asArray(parsed.successMetrics).map((m: Record<string, unknown>) => ({
         metric: asString(m.metric, ''),
         ...(m.target ? { target: String(m.target) } : {}),
         ...(m.measurement ? { measurement: String(m.measurement) } : {}),
       })),
       missingInformation: asArray(parsed.missingInformation).map(String),
-      contradictions: asArray(parsed.contradictions).map((c: any) => ({
+      contradictions: asArray(parsed.contradictions).map((c: Record<string, unknown>) => ({
         itemA: asString(c.itemA, ''),
         itemB: asString(c.itemB, ''),
         description: asString(c.description, ''),
       })),
-      domainTerms: asArray(parsed.domainTerms).map((d: any) => ({
+      domainTerms: asArray(parsed.domainTerms).map((d: Record<string, unknown>) => ({
         term: asString(d.term, ''),
         ...(d.definition ? { definition: String(d.definition) } : {}),
         context: asString(d.context, ''),
@@ -232,10 +236,13 @@ export class InputNormalizerService {
         reject(new Error('LLM extraction request timeout'));
       }, 60000);
 
-      this.eventBus.subscribe(`llm.response.${requestId}`, async (event: any) => {
-        clearTimeout(timeout);
-        resolve(event.data?.content || '');
-      });
+      this.eventBus.subscribe(
+        `llm.response.${requestId}`,
+        async (event: { data?: { content?: string } }) => {
+          clearTimeout(timeout);
+          resolve(event.data?.content || '');
+        }
+      );
 
       this.eventBus.publish('llm.global.request', {
         requestId,
@@ -306,12 +313,10 @@ export class InputNormalizerService {
     return 'Untitled Project';
   }
 
-  private extractGoals(
-    input: string
-  ): NormalizedBrief['goals'] {
+  private extractGoals(input: string): NormalizedBrief['goals'] {
     const goals: NormalizedBrief['goals'] = [];
     const goalPatterns = [
-      /(?:goal|objective|aim|target)\s*(?:\d+)?[:\-]\s*(.+)/gi,
+      /(?:goal|objective|aim|target)\s*(?:\d+)?[:-]\s*(.+)/gi,
       /(?:we (?:want|need|aim|plan) to)\s+(.+?)(?:\.|$)/gim,
       /(?:the (?:goal|objective) is(?: to)?)\s+(.+?)(?:\.|$)/gim,
     ];
@@ -332,12 +337,10 @@ export class InputNormalizerService {
     return goals;
   }
 
-  private extractActors(
-    input: string
-  ): NormalizedBrief['actors'] {
+  private extractActors(input: string): NormalizedBrief['actors'] {
     const actors: NormalizedBrief['actors'] = [];
     const actorPatterns = [
-      /(?:user|actor|stakeholder|role)\s*[:\-]\s*(.+)/gi,
+      /(?:user|actor|stakeholder|role)\s*[:-]\s*(.+)/gi,
       /(?:as an?\s+)(\w[\w\s]*?)(?:,?\s+I\s+(?:want|need|can))/gi,
     ];
 
@@ -361,13 +364,11 @@ export class InputNormalizerService {
     return actors;
   }
 
-  private extractConstraints(
-    input: string
-  ): NormalizedBrief['constraints'] {
+  private extractConstraints(input: string): NormalizedBrief['constraints'] {
     const constraints: NormalizedBrief['constraints'] = [];
     const constraintPatterns = [
-      /(?:constraint|limitation|restriction|must not|cannot|should not)\s*[:\-]?\s*(.+)/gi,
-      /(?:budget|deadline|timeline)\s*[:\-]\s*(.+)/gi,
+      /(?:constraint|limitation|restriction|must not|cannot|should not)\s*[:-]?\s*(.+)/gi,
+      /(?:budget|deadline|timeline)\s*[:-]\s*(.+)/gi,
     ];
 
     for (const pattern of constraintPatterns) {
@@ -395,13 +396,12 @@ export class InputNormalizerService {
     if (/deadline|timeline|date|week|month|sprint/.test(lower)) return 'timeline';
     if (/budget|cost|funding|resource|staff|team/.test(lower)) return 'resource';
     if (/legal|compliance|regulation|gdpr|hipaa|license/.test(lower)) return 'legal';
-    if (/api|database|server|performance|scalab|tech|stack|language/.test(lower)) return 'technical';
+    if (/api|database|server|performance|scalab|tech|stack|language/.test(lower))
+      return 'technical';
     return 'business';
   }
 
-  private extractDomainTerms(
-    input: string
-  ): NormalizedBrief['domainTerms'] {
+  private extractDomainTerms(input: string): NormalizedBrief['domainTerms'] {
     const terms: NormalizedBrief['domainTerms'] = [];
 
     // Look for definitions: "X is ...", "X means ...", "X (definition)"
@@ -433,7 +433,10 @@ export class InputNormalizerService {
     while ((match = acronymPattern.exec(input)) !== null) {
       const term = match[1];
       const normalized = term.toLowerCase();
-      if (!seen.has(normalized) && !['THE', 'AND', 'FOR', 'NOT', 'BUT', 'ARE', 'WAS', 'HAS'].includes(term)) {
+      if (
+        !seen.has(normalized) &&
+        !['THE', 'AND', 'FOR', 'NOT', 'BUT', 'ARE', 'WAS', 'HAS'].includes(term)
+      ) {
         seen.add(normalized);
         terms.push({
           term,
@@ -475,9 +478,14 @@ export class InputNormalizerService {
   private mapInputType(raw: string): NormalizedBrief['metadata']['inputType'] {
     const lower = raw.toLowerCase().trim();
     const validTypes: NormalizedBrief['metadata']['inputType'][] = [
-      'brief', 'notes', 'transcript', 'prd', 'requirements', 'mixed',
+      'brief',
+      'notes',
+      'transcript',
+      'prd',
+      'requirements',
+      'mixed',
     ];
-    if (validTypes.includes(lower as any)) {
+    if ((validTypes as string[]).includes(lower)) {
       return lower as NormalizedBrief['metadata']['inputType'];
     }
     return 'brief';
@@ -490,7 +498,7 @@ function asString(value: unknown, fallback: string): string {
   return fallback;
 }
 
-function asArray(value: unknown): any[] {
+function asArray(value: unknown): unknown[] {
   return Array.isArray(value) ? value : [];
 }
 

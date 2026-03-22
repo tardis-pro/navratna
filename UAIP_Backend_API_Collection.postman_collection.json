@@ -1860,7 +1860,14 @@
             "url": {
               "raw": "{{baseUrl}}/api/v1/discussions/:discussionId/participants/:participantId",
               "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "discussions", ":discussionId", "participants", ":participantId"],
+              "path": [
+                "api",
+                "v1",
+                "discussions",
+                ":discussionId",
+                "participants",
+                ":participantId"
+              ],
               "variable": [
                 {
                   "key": "discussionId",
@@ -1891,7 +1898,15 @@
             "url": {
               "raw": "{{baseUrl}}/api/v1/discussions/:discussionId/participants/:participantId/messages",
               "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "discussions", ":discussionId", "participants", ":participantId", "messages"],
+              "path": [
+                "api",
+                "v1",
+                "discussions",
+                ":discussionId",
+                "participants",
+                ":participantId",
+                "messages"
+              ],
               "variable": [
                 {
                   "key": "discussionId",
@@ -1981,4 +1996,4 @@
       ]
     }
   ]
-} 
+}

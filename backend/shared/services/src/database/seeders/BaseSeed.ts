@@ -28,33 +28,30 @@ export abstract class BaseSeed<T> {
    * Seed entities using simple upsert logic
    */
   async seed(): Promise<T[]> {
-    console.log(`🌱 Seeding ${this.entityName}...`);
-
     try {
       const seedData = await this.getSeedData();
       const uniqueField = this.getUniqueField();
 
       if (seedData.length === 0) {
-        console.log(`   ℹ️ No seed data for ${this.entityName}`);
         return [];
       }
 
       // First try TypeORM's upsert functionality
       try {
+        // oxlint-disable-next-line @typescript-eslint/no-explicit-any -- TypeORM upsert requires any[] for DeepPartial
         await this.repository.upsert(seedData as any[], {
           conflictPaths: [uniqueField as string],
           skipUpdateIfNoValuesChanged: true,
         });
-        console.log(
-          `   ✅ ${this.entityName} seeding completed: ${seedData.length} entities processed (upsert)`
-        );
-      } catch (upsertError) {
+      } catch (upsertError: unknown) {
+        const upsertErr = upsertError as { message?: string };
         console.warn(
           `   ⚠️ Upsert failed for ${this.entityName}, falling back to manual upsert:`,
-          upsertError.message
+          upsertErr.message
         );
 
         // Fallback: Manual upsert logic
+        /* oxlint-disable no-await-in-loop, @typescript-eslint/no-explicit-any -- sequential processing required, TypeORM flexible typing */
         for (const item of seedData) {
           try {
             const existingEntity = await this.findByField(uniqueField, (item as any)[uniqueField]);
@@ -69,15 +66,14 @@ export abstract class BaseSeed<T> {
               // Create new entity
               await this.repository.save(this.repository.create(item as any));
             }
-          } catch (itemError) {
+          } catch (itemError: unknown) {
+            const itemErr = itemError as { message?: string };
             // Skip individual items that fail, but log the error
-            console.warn(`   ⚠️ Failed to process ${this.entityName} item:`, itemError.message);
+            console.warn(`   ⚠️ Failed to process ${this.entityName} item:`, itemErr.message);
             continue;
           }
         }
-        console.log(
-          `   ✅ ${this.entityName} seeding completed: ${seedData.length} entities processed (manual fallback)`
-        );
+        /* oxlint-enable no-await-in-loop, @typescript-eslint/no-explicit-any */
       }
 
       // Return all entities of this type (simple approach)
@@ -91,8 +87,11 @@ export abstract class BaseSeed<T> {
       // Return existing entities if any
       try {
         return await this.repository.find();
-      } catch (findError) {
-        console.warn(`   ⚠️ Could not retrieve existing ${this.entityName}:`, findError.message);
+      } catch (findError: unknown) {
+        console.warn(
+          `   ⚠️ Could not retrieve existing ${this.entityName}:`,
+          (findError as { message?: string }).message
+        );
         return [];
       }
     }
@@ -101,7 +100,8 @@ export abstract class BaseSeed<T> {
   /**
    * Helper method to find entities by field value
    */
-  protected async findByField(field: keyof T, value: any): Promise<T | null> {
+  /* oxlint-disable @typescript-eslint/no-explicit-any -- TypeORM FindOptionsWhere requires any for dynamic keys */
+  protected async findByField(field: keyof T, value: unknown): Promise<T | null> {
     return await this.repository.findOne({
       where: { [field]: value } as any,
     });
@@ -110,11 +110,12 @@ export abstract class BaseSeed<T> {
   /**
    * Helper method to find multiple entities by field values
    */
-  protected async findManyByField(field: keyof T, values: any[]): Promise<T[]> {
+  protected async findManyByField(field: keyof T, values: unknown[]): Promise<T[]> {
     return await this.repository.find({
       where: values.map((value) => ({ [field]: value })) as any,
     });
   }
+  /* oxlint-enable @typescript-eslint/no-explicit-any */
 
   /**
    * Helper method to get random item from array

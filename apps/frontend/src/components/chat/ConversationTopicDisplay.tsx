@@ -27,9 +27,9 @@ export const ConversationTopicDisplay: React.FC<ConversationTopicDisplayProps> =
   const [topic, setTopic] = useState(initialTopic);
   const [isEditing, setIsEditing] = useState(false);
   const [editValue, setEditValue] = useState(topic);
-  const [keywords, setKeywords] = useState<string[]>([]);
+  const [keywords, _setKeywords] = useState<string[]>([]);
   const [confidence, setConfidence] = useState<number>(0);
-  const [socket, setSocket] = useState<Socket | null>(null);
+  const [_socket, setSocket] = useState<Socket | null>(null);
   const { user } = useAuth();
 
   // Initialize WebSocket connection
@@ -41,9 +41,7 @@ export const ConversationTopicDisplay: React.FC<ConversationTopicDisplayProps> =
       query: { agentId, conversationId },
     });
 
-    newSocket.on('connected', (data) => {
-      console.log('Connected to conversation intelligence:', data);
-    });
+    newSocket.on('connected', (_data) => {});
 
     newSocket.on(ConversationWebSocketEventType.TOPIC_GENERATED, (data) => {
       setTopic(data.topicName);

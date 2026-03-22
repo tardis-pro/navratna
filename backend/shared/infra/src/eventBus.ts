@@ -31,31 +31,36 @@ export class EventBusService {
   private isClosing: boolean = false;
   private connectionPromise: Promise<void> | null = null;
 
-  constructor(config: EventBusConfig, logger: winston.Logger) {
-    this.config = config;
-    this.logger = logger;
-    this.maxReconnectAttempts = config.maxReconnectAttempts || 10;
-    this.reconnectDelay = config.reconnectDelay || 5000;
+  constructor(eventBusConfig: EventBusConfig, eventBusLogger: winston.Logger) {
+    this.config = eventBusConfig;
+    this.logger = eventBusLogger;
+    this.maxReconnectAttempts = eventBusConfig.maxReconnectAttempts || 10;
+    this.reconnectDelay = eventBusConfig.reconnectDelay || 5000;
     this.setupEventBusHandlers();
 
     // Don't connect immediately - use lazy connection
     this.logger.info('EventBusService initialized (lazy connection mode)');
   }
 
-  public static getInstance(config?: EventBusConfig, logger?: winston.Logger): EventBusService {
+  public static getInstance(
+    instanceConfig?: EventBusConfig,
+    instanceLogger?: winston.Logger
+  ): EventBusService {
     if (!EventBusService.instance) {
-      if (!config || !logger) {
+      let resolvedConfig = instanceConfig;
+      let resolvedLogger = instanceLogger;
+      if (!resolvedConfig || !resolvedLogger) {
         if (!EventBusService.defaultConfig || !EventBusService.defaultLogger) {
           throw new Error('EventBusService requires config and logger for initial creation');
         }
-        config = EventBusService.defaultConfig;
-        logger = EventBusService.defaultLogger;
+        resolvedConfig = EventBusService.defaultConfig;
+        resolvedLogger = EventBusService.defaultLogger;
       } else {
         // Store as defaults for future getInstance calls
-        EventBusService.defaultConfig = config;
-        EventBusService.defaultLogger = logger;
+        EventBusService.defaultConfig = resolvedConfig;
+        EventBusService.defaultLogger = resolvedLogger;
       }
-      EventBusService.instance = new EventBusService(config, logger);
+      EventBusService.instance = new EventBusService(resolvedConfig, resolvedLogger);
     }
     return EventBusService.instance;
   }
@@ -309,6 +314,7 @@ export class EventBusService {
     for (const [eventType, handlers] of subscriberEntries) {
       if (handlers.length > 0) {
         try {
+          // eslint-disable-next-line no-await-in-loop -- sequential processing required
           await this.setupSubscription(eventType);
           this.logger.info('Successfully reestablished subscription', {
             eventType,
@@ -327,10 +333,10 @@ export class EventBusService {
 
   public async publish(
     eventType: string,
-    data: any,
+    data: unknown,
     options?: {
       correlationId?: string;
-      metadata?: Record<string, any>;
+      metadata?: Record<string, unknown>;
       exchange?: string;
       routingKey?: string;
       persistent?: boolean;
@@ -574,6 +580,7 @@ export class EventBusService {
 
             // Execute all handlers for this event type
             for (const handler of handlers) {
+              // eslint-disable-next-line no-await-in-loop -- sequential processing required
               await handler(eventMessage);
             }
 
@@ -685,9 +692,9 @@ export class EventBusService {
     }
   }
 
-  public async publishAndWaitForResponse<T = any>(
+  public async publishAndWaitForResponse<T = unknown>(
     eventType: string,
-    data: any,
+    data: unknown,
     timeout: number = 30000
   ): Promise<T> {
     const correlationId = `rpc_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
@@ -733,7 +740,7 @@ export class EventBusService {
               } else {
                 resolve(response.data);
               }
-            } catch (error) {
+            } catch {
               reject(new ApiError(500, 'Failed to parse RPC response', 'RPC_PARSE_ERROR'));
             }
           },
@@ -855,7 +862,7 @@ export class EventBusService {
   }
 
   // Alias method for compatibility
-  public async publishEvent(eventType: string, data: any): Promise<void> {
+  public async publishEvent(eventType: string, data: unknown): Promise<void> {
     return this.publish(eventType, data);
   }
 
@@ -864,13 +871,13 @@ export class EventBusService {
    */
   public async publishAndWait(
     eventType: string,
-    data: any,
+    data: unknown,
     timeoutMs: number = 30000
-  ): Promise<any> {
+  ): Promise<unknown> {
     const correlationId = `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
     const responseEventType = `${eventType}.response.${correlationId}`;
 
-    return new Promise(async (resolve, reject) => {
+    return new Promise((resolve, reject) => {
       // Set up timeout
       const timeout = setTimeout(() => {
         this.unsubscribe(responseEventType, responseHandler);
@@ -882,33 +889,31 @@ export class EventBusService {
         clearTimeout(timeout);
         await this.unsubscribe(responseEventType, responseHandler);
 
-        const data = message.data as {
+        const responseData = message.data as {
           error?: { message?: string };
           success?: boolean;
           data?: unknown;
         };
-        if (data.error) {
-          reject(new Error(data.error.message || 'Unknown error'));
+        if (responseData.error) {
+          reject(new Error(responseData.error.message || 'Unknown error'));
         } else {
-          resolve(data.data);
+          resolve(responseData.data);
         }
       };
 
-      // Subscribe to response
-      try {
-        await this.subscribe(responseEventType, responseHandler);
-
-        // Publish request with correlation ID
-        const requestMessage = {
-          ...data,
-          correlationId,
-          responseEventType,
-        };
-
-        await this.publish(eventType, requestMessage);
-      } catch (error) {
-        reject(error);
-      }
+      // Subscribe to response and publish
+      this.subscribe(responseEventType, responseHandler)
+        .then(() => {
+          const requestMessage = {
+            ...(data as Record<string, unknown>),
+            correlationId,
+            responseEventType,
+          };
+          return this.publish(eventType, requestMessage);
+        })
+        .catch((error) => {
+          reject(error);
+        });
     });
   }
 
@@ -918,14 +923,15 @@ export class EventBusService {
    * @param data - The data to send
    * @returns Promise with response data
    */
-  async request(channel: string, data: any): Promise<any> {
+  async request(channel: string, data: unknown): Promise<unknown> {
     try {
       // Use the existing publishAndWaitForResponse method for request/response
       return await this.publishAndWaitForResponse(channel, data);
     } catch (error) {
       this.logger.error('Request failed', { error, channel, data });
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       // Return a default response structure for compatibility
-      return { success: false, error: error.message, data: null };
+      return { success: false, error: errorMessage, data: null };
     }
   }
 }

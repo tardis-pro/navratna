@@ -29,10 +29,10 @@ export class UserToolPreferences extends BaseEntity {
 
   // User-specific tool configuration
   @Column({ type: 'jsonb', name: 'parameter_defaults', nullable: true })
-  parameterDefaults?: Record<string, any>;
+  parameterDefaults?: Record<string, unknown>;
 
   @Column({ type: 'jsonb', name: 'custom_config', nullable: true })
-  customConfig?: Record<string, any>;
+  customConfig?: Record<string, unknown>;
 
   // User preferences
   @Column({ type: 'boolean', name: 'is_favorite', default: false })

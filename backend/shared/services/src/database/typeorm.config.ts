@@ -167,7 +167,7 @@ function createBaseConfig(): PostgresConnectionOptions {
         password: url.password,
         database: url.pathname.slice(1), // Remove leading slash
       };
-    } catch (error) {
+    } catch {
       logger.warn('Failed to parse POSTGRES_URL, falling back to individual env vars');
       dbConfig = {
         host: process.env.POSTGRES_HOST || 'localhost',
@@ -192,7 +192,8 @@ function createBaseConfig(): PostgresConnectionOptions {
     ...dbConfig,
     synchronize: false, // Enable for development - creates schema automatically
     dropSchema: false, // Don't drop schema on startup
-    logging: process.env.NODE_ENV === 'development' ? ['error', 'warn', 'schema'] : ['error', 'warn'],
+    logging:
+      process.env.NODE_ENV === 'development' ? ['error', 'warn', 'schema'] : ['error', 'warn'],
     entities: allEntities,
     subscribers: allSubscribers,
     migrations: [join(__dirname, '..', 'migrations', '*{.ts,.js}')],
@@ -221,7 +222,7 @@ class RedisCacheManager {
   private redis: IORedis | null = null;
   private isConnected = false;
 
-  private constructor() { }
+  private constructor() {}
 
   static getInstance(): RedisCacheManager {
     if (!RedisCacheManager.instance) {
@@ -401,7 +402,7 @@ async function createCacheConfig(): Promise<any | undefined> {
   logger.info('Redis cache temporarily disabled to prevent initialization hanging');
   return undefined;
 
-  /* 
+  /*
   try {
     // Create Redis connection through cache manager
     const redis = await redisCacheManager.createConnection();
@@ -495,7 +496,7 @@ export class TypeOrmDataSourceManager {
   private dataSource: DataSource | null = null;
   private initializationPromise: Promise<DataSource> | null = null;
 
-  private constructor() { }
+  private constructor() {}
 
   static getInstance(): TypeOrmDataSourceManager {
     if (!TypeOrmDataSourceManager.instance) {
@@ -524,6 +525,7 @@ export class TypeOrmDataSourceManager {
 
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
       try {
+        // oxlint-ignore-next-line no-await-in-loop -- sequential processing required
         const config = await createTypeOrmConfig(disableCache);
 
         logger.info('Initializing TypeORM DataSource', {
@@ -535,6 +537,7 @@ export class TypeOrmDataSourceManager {
         });
 
         this.dataSource = new DataSource(config);
+        // oxlint-ignore-next-line no-await-in-loop -- sequential processing required
         await this.dataSource.initialize();
 
         logger.info('TypeORM DataSource initialized successfully');
@@ -548,6 +551,7 @@ export class TypeOrmDataSourceManager {
         if (attempt < maxRetries) {
           const delay = Math.min(1000 * Math.pow(2, attempt - 1), 10000);
           logger.info(`Retrying in ${delay}ms...`);
+          // oxlint-ignore-next-line no-await-in-loop -- sequential processing required
           await new Promise((resolve) => setTimeout(resolve, delay));
         }
       }
@@ -618,7 +622,7 @@ export class TypeOrmDataSourceManager {
               },
             };
           }
-        } catch (error) {
+        } catch {
           return {
             status: 'unhealthy',
             details: {
@@ -648,7 +652,7 @@ export class TypeOrmDataSourceManager {
           cacheHealthy,
         },
       };
-    } catch (error) {
+    } catch {
       return {
         status: 'unhealthy',
         details: {

@@ -1,14 +1,5 @@
 import { SecurityValidationService } from '../../securityValidationService';
-import { DatabaseService } from '../../databaseService';
-import {
-  SecurityValidationResult,
-  RiskAssessment,
-  RiskFactor,
-  RiskLevel,
-  SecurityContext,
-  SecurityLevel,
-  ExecutionPlan,
-} from '@uaip/types';
+import { RiskLevel, SecurityContext, SecurityLevel, ExecutionPlan } from '@uaip/types';
 
 // Mock DatabaseService methods
 const createMockDatabaseService = () => ({

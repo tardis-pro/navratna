@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect as _useEffect } from 'react';
 import { useUAIP } from '@/contexts/UAIPContext';
 import { motion } from 'framer-motion';
 import {
@@ -27,8 +27,14 @@ interface InsightsPanelPortalProps {
 }
 
 export const InsightsPanel: React.FC<InsightsPanelPortalProps> = ({ className, viewport }) => {
-  const { insights, agents, operations, systemMetrics, refreshData, isWebSocketConnected } =
-    useUAIP();
+  const {
+    insights,
+    agents: _agents,
+    operations: _operations,
+    systemMetrics: _systemMetrics,
+    refreshData,
+    isWebSocketConnected,
+  } = useUAIP();
   const [selectedInsight, setSelectedInsight] = useState<string | null>(null);
   const [filterType, setFilterType] = useState<string>('all');
   const [filterStatus, setFilterStatus] = useState<string>('all');
@@ -105,7 +111,7 @@ export const InsightsPanel: React.FC<InsightsPanelPortalProps> = ({ className, v
     }
   };
 
-  const getTypeColor = (type: string) => {
+  const _getTypeColor = (type: string) => {
     switch (type) {
       case 'pattern':
         return 'text-blue-500';
@@ -138,11 +144,10 @@ export const InsightsPanel: React.FC<InsightsPanelPortalProps> = ({ className, v
   };
 
   const handleInsightAction = (
-    insightId: string,
-    action: 'acknowledge' | 'act_upon' | 'dismiss'
+    _insightId: string,
+    _action: 'acknowledge' | 'act_upon' | 'dismiss'
   ) => {
     // This would trigger an API call to update the insight status
-    console.log(`${action} insight ${insightId}`);
     // In a real implementation, this would call an API endpoint
     // and then refresh the insights data
   };

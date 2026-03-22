@@ -3,23 +3,23 @@
  * Provides core HTTP client functionality with authentication, CSRF protection, and error handling
  */
 
-import axios, { AxiosInstance, AxiosRequestConfig, AxiosResponse, AxiosError } from 'axios';
+import axios, { AxiosInstance, AxiosRequestConfig, _AxiosResponse, AxiosError } from 'axios';
 import { csrfService } from '@/services/CSRFService';
 import { buildAPIURL } from '@/config/apiConfig';
 
 export interface APIError {
   message: string;
   code?: string;
-  details?: any;
+  details?: unknown;
   statusCode?: number;
 }
 
 export class APIClientError extends Error {
   public code?: string;
-  public details?: any;
+  public details?: unknown;
   public statusCode?: number;
 
-  constructor(message: string, code?: string, details?: any, statusCode?: number) {
+  constructor(message: string, code?: string, details?: unknown, statusCode?: number) {
     super(message);
     this.name = 'APIClientError';
     this.code = code;
@@ -100,7 +100,7 @@ class APIClientClass {
 
   private extractErrorDetails(error: AxiosError): APIError {
     if (error.response?.data) {
-      const data = error.response.data as any;
+      const data = error.response.data as unknown;
       return {
         message: data.message || data.error || 'An error occurred',
         code: data.code || data.errorCode,
@@ -134,7 +134,7 @@ class APIClientClass {
     return this.authToken;
   }
 
-  private transformResponse<T>(responseData: any): T {
+  private transformResponse<T>(responseData: unknown): T {
     // If response has the nested format { success: true, data: ... }, unwrap it
     if (
       responseData &&
@@ -150,32 +150,44 @@ class APIClientClass {
     return responseData as T;
   }
 
-  public async get<T = any>(url: string, config?: AxiosRequestConfig): Promise<T> {
+  public async get<T = unknown>(url: string, config?: AxiosRequestConfig): Promise<T> {
     const response = await this.client.get<T>(url, config);
     return this.transformResponse<T>(response.data);
   }
 
-  public async post<T = any>(url: string, data?: any, config?: AxiosRequestConfig): Promise<T> {
+  public async post<T = unknown>(
+    url: string,
+    data?: unknown,
+    config?: AxiosRequestConfig
+  ): Promise<T> {
     const response = await this.client.post<T>(url, data, config);
     return this.transformResponse<T>(response.data);
   }
 
-  public async put<T = any>(url: string, data?: any, config?: AxiosRequestConfig): Promise<T> {
+  public async put<T = unknown>(
+    url: string,
+    data?: unknown,
+    config?: AxiosRequestConfig
+  ): Promise<T> {
     const response = await this.client.put<T>(url, data, config);
     return this.transformResponse<T>(response.data);
   }
 
-  public async patch<T = any>(url: string, data?: any, config?: AxiosRequestConfig): Promise<T> {
+  public async patch<T = unknown>(
+    url: string,
+    data?: unknown,
+    config?: AxiosRequestConfig
+  ): Promise<T> {
     const response = await this.client.patch<T>(url, data, config);
     return this.transformResponse<T>(response.data);
   }
 
-  public async delete<T = any>(url: string, config?: AxiosRequestConfig): Promise<T> {
+  public async delete<T = unknown>(url: string, config?: AxiosRequestConfig): Promise<T> {
     const response = await this.client.delete<T>(url, config);
     return this.transformResponse<T>(response.data);
   }
 
-  public async request<T = any>(config: AxiosRequestConfig): Promise<T> {
+  public async request<T = unknown>(config: AxiosRequestConfig): Promise<T> {
     const response = await this.client.request<T>(config);
     return this.transformResponse<T>(response.data);
   }

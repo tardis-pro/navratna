@@ -40,7 +40,7 @@ import {
 } from 'recharts';
 import { RiskLevel, AgentCapability, AuditEventType } from '@uaip/types';
 
-interface SecurityMetrics {
+interface _SecurityMetrics {
   overallScore: number;
   riskLevel: RiskLevel;
   totalOperations: number;
@@ -84,7 +84,7 @@ const RISK_COLORS = {
   [RiskLevel.CRITICAL]: 'text-red-600 bg-red-50',
 };
 
-const CHART_COLORS = ['#10b981', '#f59e0b', '#ef4444', '#6366f1', '#8b5cf6', '#ec4899'];
+const _CHART_COLORS = ['#10b981', '#f59e0b', '#ef4444', '#6366f1', '#8b5cf6', '#ec4899'];
 
 interface ViewportSize {
   width: number;
@@ -106,7 +106,7 @@ export const AgentSecurityDashboard: React.FC<AgentSecurityDashboardProps> = ({
   mode = 'dashboard',
 }) => {
   // Use centralized security state
-  const { metrics, auditLog, refreshSecurityData, isLoading, error } = useSecurity();
+  const { metrics, _auditLog, refreshSecurityData, isLoading, _error } = useSecurity();
 
   // Local UI state only
   const [activities, setActivities] = useState<AgentActivity[]>([]);
@@ -117,7 +117,7 @@ export const AgentSecurityDashboard: React.FC<AgentSecurityDashboardProps> = ({
   const { toast } = useToast();
 
   // Default viewport if not provided - memoized to prevent infinite re-renders
-  const currentViewport = useMemo(() => {
+  const _currentViewport = useMemo(() => {
     if (viewport) return viewport;
 
     const defaultViewport: ViewportSize = {
@@ -171,7 +171,7 @@ export const AgentSecurityDashboard: React.FC<AgentSecurityDashboardProps> = ({
 
       setActivities(mockActivities);
       setPolicies(mockPolicies);
-    } catch (error) {
+    } catch {
       toast({
         title: 'Error',
         description: 'Failed to fetch security data',
@@ -199,7 +199,7 @@ export const AgentSecurityDashboard: React.FC<AgentSecurityDashboardProps> = ({
         title: 'Policy Updated',
         description: `Policy ${enabled ? 'enabled' : 'disabled'} successfully`,
       });
-    } catch (error) {
+    } catch {
       toast({
         title: 'Error',
         description: 'Failed to update policy',
@@ -232,7 +232,7 @@ export const AgentSecurityDashboard: React.FC<AgentSecurityDashboardProps> = ({
       link.click();
       link.remove();
       window.URL.revokeObjectURL(url);
-    } catch (error) {
+    } catch {
       toast({
         title: 'Export Failed',
         description: 'Failed to export security report',

@@ -1,6 +1,6 @@
 import { DataSource } from 'typeorm';
 import { createTypeOrmConfig } from './src/database/typeorm.config.js';
-import { config } from '@uaip/config';
+import { config as _config } from '@uaip/config';
 import { logger } from '@uaip/utils';
 
 /**

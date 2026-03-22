@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, _useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -26,10 +26,10 @@ import {
   Calendar,
   AlertTriangle,
   CheckCircle,
-  Circle,
-  Pause,
-  X,
-  GripVertical,
+  _Circle,
+  _Pause,
+  _X,
+  _GripVertical,
 } from 'lucide-react';
 import { format } from 'date-fns';
 
@@ -104,10 +104,10 @@ interface Task {
 interface TaskBoardProps {
   projectId: string;
   tasks: Task[];
-  onTaskUpdate: (taskId: string, updates: any) => Promise<void>;
-  onTaskCreate: (task: any) => Promise<void>;
+  onTaskUpdate: (taskId: string, updates: unknown) => Promise<void>;
+  onTaskCreate: (task: unknown) => Promise<void>;
   onTaskDelete: (taskId: string) => Promise<void>;
-  onTaskAssign: (taskId: string, assignment: any) => Promise<void>;
+  onTaskAssign: (taskId: string, assignment: unknown) => Promise<void>;
   isLoading?: boolean;
 }
 
@@ -178,8 +178,8 @@ export const TaskBoard: React.FC<TaskBoardProps> = ({
   tasks,
   onTaskUpdate,
   onTaskCreate,
-  onTaskDelete,
-  onTaskAssign,
+  _onTaskDelete,
+  _onTaskAssign,
   isLoading = false,
 }) => {
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);

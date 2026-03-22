@@ -1,4 +1,4 @@
-import { Entity, Column, CreateDateColumn, UpdateDateColumn, Index } from 'typeorm';
+import { Entity, Column, Index } from 'typeorm';
 import { BaseEntity } from './base.entity';
 import { SecurityLevel, UserType, AgentCapability } from '@uaip/types';
 
@@ -58,14 +58,14 @@ export class UserEntity extends BaseEntity {
   agentConfig?: {
     capabilities?: AgentCapability[];
     securityLevel?: SecurityLevel;
-    restrictions?: Record<string, any>;
+    restrictions?: Record<string, unknown>;
     monitoring?: {
       maxDailyOperations?: number;
-      [key: string]: any;
+      [key: string]: unknown;
     };
     maxConcurrentSessions?: number;
     allowedProviders?: string[];
-    [key: string]: any;
+    [key: string]: unknown;
   };
 
   @Column({ type: 'json', nullable: true, name: 'user_persona' })
@@ -89,7 +89,7 @@ export class UserEntity extends BaseEntity {
     completedSteps: string[];
     startedAt?: Date;
     completedAt?: Date;
-    responses: Record<string, any>;
+    responses: Record<string, unknown>;
   };
 
   @Column({ type: 'json', nullable: true, name: 'behavioral_patterns' })

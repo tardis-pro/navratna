@@ -9,14 +9,11 @@ import {
   DiscussionSummary,
   DiscussionEvent,
   DiscussionStatus,
-  TurnStrategy,
   MessageType,
-  ParticipantRole,
   DiscussionEventType,
   MessageSentiment,
   DiscussionState,
 } from '@uaip/types';
-import { Persona } from '@uaip/types';
 import { DiscussionRepository } from './repositories/DiscussionRepository.js';
 import { Discussion, DiscussionParticipant } from '@uaip/shared-services';
 import { DatabaseService } from '@uaip/infra';
@@ -146,6 +143,7 @@ export class DiscussionService {
         });
         for (const participantRequest of request.initialParticipants) {
           if (participantRequest && participantRequest.agentId) {
+            // oxlint-ignore-next-line no-await-in-loop -- sequential processing required
             await this.addParticipant(discussion.id!, {
               agentId: participantRequest.agentId,
               role: participantRequest.role,
@@ -212,7 +210,7 @@ export class DiscussionService {
 
       // Update discussion in database
       // Exclude complex fields from updates - they should be managed separately
-      const { participants, outcomes, analytics, ...discussionUpdates } = updates;
+      const { ...discussionUpdates } = updates;
       await this.databaseService.update<Discussion>(Discussion, id, {
         ...discussionUpdates,
         updatedAt: new Date(),
@@ -392,9 +390,9 @@ export class DiscussionService {
       permissions?: string[];
       turnOrder?: number;
       turnWeight?: number;
-      participationConfig?: Record<string, any>;
-      behavioralConstraints?: Record<string, any>;
-      contextAwareness?: Record<string, any>;
+      participationConfig?: Record<string, unknown>;
+      behavioralConstraints?: Record<string, unknown>;
+      contextAwareness?: Record<string, unknown>;
     }
   ): Promise<DiscussionParticipantType> {
     try {
@@ -439,7 +437,7 @@ export class DiscussionService {
       const participant = await participantManagementService.createAgentParticipant({
         discussionId,
         agentId: participantRequest.agentId,
-        displayName: participantRequest.displayName || (agent as any).name,
+        displayName: participantRequest.displayName || (agent as unknown as { name?: string }).name,
         roleInDiscussion: participantRequest.role || 'participant',
         permissions: participantRequest.permissions,
         turnOrder: participantRequest.turnOrder,
@@ -493,9 +491,9 @@ export class DiscussionService {
       permissions?: string[];
       turnOrder?: number;
       turnWeight?: number;
-      participationConfig?: Record<string, any>;
-      behavioralConstraints?: Record<string, any>;
-      contextAwareness?: Record<string, any>;
+      participationConfig?: Record<string, unknown>;
+      behavioralConstraints?: Record<string, unknown>;
+      contextAwareness?: Record<string, unknown>;
     }
   ): Promise<DiscussionParticipantType> {
     try {
@@ -948,7 +946,7 @@ export class DiscussionService {
           decisionsReached: discussion.state?.decisions?.length,
           consensusAchieved: discussion.state?.consensusLevel >= 0.8,
           actionItemsGenerated: discussion.state?.actionItems?.length,
-          keyInsights: discussion.state?.keyPoints?.map((kp: any) => kp.point) || [],
+          keyInsights: discussion.state?.keyPoints?.map((kp: unknown) => kp.point) || [],
           unresolvedIssues: [],
         },
         quality: {
@@ -998,6 +996,7 @@ export class DiscussionService {
     // Validate agents exist
     for (const participant of request.initialParticipants) {
       if (participant.agentId) {
+        // oxlint-ignore-next-line no-await-in-loop -- sequential processing required
         const agent = await this.databaseService.findById('agents', participant.agentId);
         if (!agent) {
           throw new Error(`Agent not found: ${participant.agentId}`);
@@ -1178,7 +1177,7 @@ export class DiscussionService {
     }
   }
 
-  private async calculateFinalAnalytics(discussionId: string): Promise<any> {
+  private async calculateFinalAnalytics(discussionId: string): Promise<unknown> {
     const discussion = await this.getDiscussion(discussionId);
     if (!discussion) return {};
 
@@ -1200,7 +1199,7 @@ export class DiscussionService {
   private async emitDiscussionEvent(
     discussionId: string,
     type: DiscussionEventType,
-    data: any,
+    data: unknown,
     participantId?: string
   ): Promise<void> {
     if (!this.enableRealTimeEvents) return;

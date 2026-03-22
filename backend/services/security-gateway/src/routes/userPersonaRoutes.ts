@@ -1,4 +1,4 @@
-import express, { Request, Response, Router } from '@uaip/shared-services';
+import _express, { Request, Response, Router } from '@uaip/shared-services';
 import { authMiddleware } from '@uaip/middleware';
 import { DatabaseService } from '@uaip/infra/database';
 import { logger } from '@uaip/utils';
@@ -209,7 +209,7 @@ router.post(
       }
 
       // Complete onboarding - cast to expected type
-      user.userPersona = personaData as any;
+      user.userPersona = personaData as unknown;
       user.onboardingProgress = {
         ...onboardingProgress,
         isCompleted: true,
@@ -570,17 +570,19 @@ router.post(
           const userLLMProviderRepo = dataSource.getRepository('UserLLMProvider');
           const userProviders = await userLLMProviderRepo.find({ where: { userId } });
 
-          for (const provider of userProviders) {
-            // Detect capabilities for default model
-            if (provider.defaultModel) {
+          await Promise.all(
+            userProviders.map(async (provider) => {
+              if (!provider.defaultModel) {
+                return;
+              }
+
               const detection = await detector.detectCapabilities(
                 provider.defaultModel,
-                provider.type as any,
+                provider.type as unknown,
                 provider.baseUrl,
                 provider.apiKey
               );
 
-              // Update provider configuration with detected capabilities
               provider.configuration = {
                 ...provider.configuration,
                 detectedCapabilities: detection.detectedCapabilities,
@@ -588,8 +590,8 @@ router.post(
               };
 
               await userLLMProviderRepo.save(provider);
-            }
-          }
+            })
+          );
 
           results.capabilitiesDetected = true;
         } catch (error) {
@@ -732,7 +734,7 @@ router.get(
 );
 
 // Helper functions
-async function generatePersonaRecommendations(persona: any, behavioralPatterns: any) {
+async function generatePersonaRecommendations(persona: unknown, _behavioralPatterns: unknown) {
   const recommendations = {
     recommendedTools: [],
     recommendedAgents: [],
@@ -772,7 +774,7 @@ async function generatePersonaRecommendations(persona: any, behavioralPatterns: 
   return recommendations;
 }
 
-async function generatePersonaInsights(user: any) {
+async function generatePersonaInsights(user: unknown) {
   const persona = user.userPersona;
   const onboardingProgress = user.onboardingProgress;
 
@@ -799,7 +801,12 @@ async function generatePersonaInsights(user: any) {
   return insights;
 }
 
-async function processUserInteraction(userId: string, type: string, data: any, timestamp: Date) {
+async function processUserInteraction(
+  userId: string,
+  type: string,
+  data: unknown,
+  timestamp: Date
+) {
   const databaseService = DatabaseService.getInstance();
   const user = await databaseService.getUserRepository().findById(userId);
 
@@ -838,7 +845,7 @@ async function processUserInteraction(userId: string, type: string, data: any, t
   await userRepository.update(userId, user);
 }
 
-async function getCompatibleAgents(persona: any) {
+async function getCompatibleAgents(persona: unknown) {
   const databaseService = DatabaseService.getInstance();
   const agentRepository = databaseService.getAgentRepository();
 
@@ -883,7 +890,7 @@ async function getCompatibleAgents(persona: any) {
   }));
 }
 
-async function generateOptimizedWorkspace(persona: any, behavioralPatterns: any) {
+async function generateOptimizedWorkspace(persona: unknown, behavioralPatterns: unknown) {
   const workspace = {
     layout: {
       type: persona.workStyle === 'collaborative' ? 'dashboard' : 'focused',
@@ -945,7 +952,7 @@ async function generateOptimizedWorkspace(persona: any, behavioralPatterns: any)
   return workspace;
 }
 
-function calculateCompatibilityScore(persona: any, agent: any): number {
+function calculateCompatibilityScore(persona: unknown, agent: unknown): number {
   let score = 0;
   let totalFactors = 0;
 
@@ -993,7 +1000,7 @@ function calculateCompatibilityScore(persona: any, agent: any): number {
   return totalFactors > 0 ? Math.round((score / totalFactors) * 4) : 50;
 }
 
-function getMatchReason(persona: any, agent: any): string {
+function getMatchReason(persona: unknown, agent: unknown): string {
   const reasons = [];
 
   if (persona.workStyle === agent.configuration?.workStyle) {

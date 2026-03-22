@@ -2,20 +2,20 @@ import { logger, ApiError } from '@uaip/utils';
 
 // Generic request/response interfaces for framework-agnostic controllers
 interface Request {
-  query: Record<string, any>;
-  params: Record<string, any>;
-  body: any;
-  headers: Record<string, any>;
+  query: Record<string, unknown>;
+  params: Record<string, unknown>;
+  body: unknown;
+  headers: Record<string, unknown>;
   ip?: string;
 }
 
 interface Response {
   status: (code: number) => Response;
-  json: (data: any) => void;
-  send: (data?: any) => void;
+  json: (data: unknown) => void;
+  send: (data?: unknown) => void;
 }
 
-type NextFunction = (error?: any) => void;
+type NextFunction = (error?: unknown) => void;
 import { CapabilityDiscoveryService, SecurityValidationService } from '@uaip/shared-services';
 import { DatabaseService } from '@uaip/infra/database';
 import {
@@ -30,7 +30,7 @@ export class CapabilityController {
   private capabilityDiscoveryService: CapabilityDiscoveryService;
   private securityValidationService: SecurityValidationService;
 
-  constructor(databaseService?: DatabaseService) {
+  constructor(_databaseService?: DatabaseService) {
     this.capabilityDiscoveryService = new CapabilityDiscoveryService();
     this.securityValidationService = new SecurityValidationService();
   }
@@ -42,7 +42,7 @@ export class CapabilityController {
     next: NextFunction
   ): Promise<void> => {
     try {
-      const { query, type, category, securityLevel, limit = 50, offset = 0 } = req.query;
+      const { query, type, _category, _securityLevel, limit = 50, _offset = 0 } = req.query;
 
       if (!query || typeof query !== 'string') {
         throw new ApiError(400, 'Query parameter is required', 'INVALID_QUERY');
@@ -71,7 +71,7 @@ export class CapabilityController {
         data: {
           capabilities,
           totalCount: capabilities.length,
-          recommendations: [] as any[],
+          recommendations: [] as unknown[],
         },
         meta: {
           query: searchQuery,
@@ -476,7 +476,7 @@ export class CapabilityController {
     next: NextFunction
   ): Promise<void> => {
     try {
-      const { context, intent, limit = 10 } = req.query;
+      const { context, intent, _limit = 10 } = req.query;
 
       const securityContext = this.extractSecurityContext(req);
 
@@ -489,7 +489,7 @@ export class CapabilityController {
       );
 
       // For now, return empty recommendations
-      const recommendations: any[] = [];
+      const recommendations: unknown[] = [];
 
       res.status(200).json({
         success: true,

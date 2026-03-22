@@ -1,4 +1,4 @@
-import { Pool } from 'pg';
+import { Pool as _Pool } from 'pg';
 import { DatabaseService } from './databaseService';
 import { EventBusService } from './eventBusService';
 import { logger, ApiError } from '@uaip/utils';
@@ -31,7 +31,7 @@ export class AgentIntelligenceService {
           url: process.env.RABBITMQ_URL || 'amqp://localhost',
           serviceName: 'agent-intelligence',
         },
-        console as any
+        console as unknown
       );
   }
 
@@ -43,31 +43,37 @@ export class AgentIntelligenceService {
       logger.info('DatabaseService initialized successfully');
 
       const maxRetries = 3;
-      let retryCount = 0;
+      const connectWithRetry = async (retryCount: number): Promise<void> => {
+        if (this.isInitialized) {
+          return;
+        }
 
-      while (retryCount < maxRetries && !this.isInitialized) {
         try {
           await this.eventBusService.connect();
           this.isInitialized = true;
           logger.info('AgentIntelligenceService initialized successfully');
-          break;
+          return;
         } catch (error) {
-          retryCount++;
+          const nextRetryCount = retryCount + 1;
           const errorMessage = error instanceof Error ? error.message : 'Unknown error';
           logger.warn(
-            `EventBus connection attempt ${retryCount}/${maxRetries} failed: ${errorMessage}`
+            `EventBus connection attempt ${nextRetryCount}/${maxRetries} failed: ${errorMessage}`
           );
 
-          if (retryCount >= maxRetries) {
+          if (nextRetryCount >= maxRetries) {
             logger.error(
               'Failed to initialize EventBus after max retries, continuing without event publishing'
             );
             this.isInitialized = true;
-          } else {
-            await new Promise((resolve) => setTimeout(resolve, 2000));
+            return;
           }
+
+          await new Promise((resolve) => setTimeout(resolve, 2000));
+          await connectWithRetry(nextRetryCount);
         }
-      }
+      };
+
+      await connectWithRetry(0);
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       logger.error('Failed to initialize AgentIntelligenceService', { error: errorMessage });
@@ -75,7 +81,7 @@ export class AgentIntelligenceService {
     }
   }
 
-  private async safePublishEvent(eventType: string, eventData: any): Promise<void> {
+  private async safePublishEvent(eventType: string, eventData: unknown): Promise<void> {
     try {
       const healthCheck = await this.eventBusService.healthCheck();
       if (healthCheck.status === 'healthy') {
@@ -92,7 +98,7 @@ export class AgentIntelligenceService {
     }
   }
 
-  private validateIDParam(id: string, paramName: string = 'id'): string {
+  private validateIDParam(id: string, _paramName: string = 'id'): string {
     return id;
   }
 
@@ -170,9 +176,9 @@ export class AgentIntelligenceService {
 
   public async analyzeContext(
     agent: Agent,
-    conversationContext: any,
+    conversationContext: unknown,
     userRequest: string,
-    constraints?: any
+    constraints?: unknown
   ): Promise<AgentAnalysis> {
     if (!this.isInitialized) {
       await this.initialize();
@@ -234,9 +240,9 @@ export class AgentIntelligenceService {
 
   public async generateExecutionPlan(
     agent: Agent,
-    analysis: any,
-    userPreferences: any,
-    securityContext: any
+    analysis: unknown,
+    userPreferences: unknown,
+    securityContext: unknown
   ): Promise<ExecutionPlan> {
     if (!this.isInitialized) {
       await this.initialize();
@@ -288,7 +294,7 @@ export class AgentIntelligenceService {
     }
   }
 
-  public async updateAgent(agentId: string, updateData: any): Promise<Agent> {
+  public async updateAgent(agentId: string, updateData: unknown): Promise<Agent> {
     if (!this.isInitialized) {
       await this.initialize();
     }
@@ -296,7 +302,7 @@ export class AgentIntelligenceService {
     try {
       const validatedId = this.validateIDParam(agentId, 'agentId');
 
-      const updatePayload: any = {};
+      const updatePayload: unknown = {};
       if (updateData.name) updatePayload.name = updateData.name;
       if (updateData.persona) updatePayload.persona = updateData.persona;
       if (updateData.personaId) updatePayload.personaId = updateData.personaId;
@@ -369,7 +375,7 @@ export class AgentIntelligenceService {
     }
   }
 
-  public async createAgent(agentData: any): Promise<Agent> {
+  public async createAgent(agentData: unknown): Promise<Agent> {
     if (!this.isInitialized) {
       await this.initialize();
     }
@@ -501,8 +507,8 @@ export class AgentIntelligenceService {
   public async learnFromOperation(
     agentId: string,
     operationId: string,
-    outcomes: any,
-    feedback: any
+    outcomes: unknown,
+    feedback: unknown
   ): Promise<LearningResult> {
     if (!this.isInitialized) {
       await this.initialize();
@@ -560,7 +566,7 @@ export class AgentIntelligenceService {
 
   // Private helper methods
 
-  private mapPersonaFromEntity(personaData: any): Persona {
+  private mapPersonaFromEntity(personaData: unknown): Persona {
     if (!personaData) {
       return this.getDefaultPersona();
     }
@@ -572,7 +578,7 @@ export class AgentIntelligenceService {
       description: personaData.description || 'A helpful AI assistant',
       traits: personaData.traits || [],
       expertise:
-        personaData.expertise?.map((exp: any, index: number) => ({
+        personaData.expertise?.map((exp: unknown, index: number) => ({
           id: `${Date.now()}-${index}`,
           name: typeof exp === 'string' ? exp : exp.name || 'General',
           description: '',
@@ -660,7 +666,7 @@ export class AgentIntelligenceService {
     };
   }
 
-  private extractContextualInformation(conversationContext: any): any {
+  private extractContextualInformation(conversationContext: unknown): unknown {
     return {
       messageCount: conversationContext.messages?.length,
       participants: conversationContext.participants || [],
@@ -671,7 +677,7 @@ export class AgentIntelligenceService {
     };
   }
 
-  private analyzeUserIntent(userRequest: string): any {
+  private analyzeUserIntent(userRequest: string): unknown {
     const intentPatterns = {
       create: /create|make|build|generate|develop/i,
       analyze: /analyze|examine|check|review|assess/i,
@@ -681,7 +687,7 @@ export class AgentIntelligenceService {
     };
 
     const detectedIntents = Object.entries(intentPatterns)
-      .filter(([intent, pattern]) => pattern.test(userRequest))
+      .filter(([_intent, pattern]) => pattern.test(userRequest))
       .map(([intent]) => intent);
 
     return {
@@ -695,10 +701,10 @@ export class AgentIntelligenceService {
 
   private async generateActionRecommendations(
     agent: Agent,
-    contextAnalysis: any,
-    intentAnalysis: any,
-    constraints: any
-  ): Promise<any[]> {
+    contextAnalysis: unknown,
+    intentAnalysis: unknown,
+    _constraints: unknown
+  ): Promise<unknown[]> {
     const recommendations = [];
 
     switch (intentAnalysis.primary) {
@@ -739,10 +745,10 @@ export class AgentIntelligenceService {
   }
 
   private calculateConfidence(
-    contextAnalysis: any,
-    intentAnalysis: any,
-    actionRecommendations: any[],
-    intelligenceConfig: any
+    contextAnalysis: unknown,
+    intentAnalysis: unknown,
+    actionRecommendations: unknown[],
+    _intelligenceConfig: unknown
   ): number {
     const baseConfidence = intentAnalysis.confidence;
     const contextQuality = Math.min(contextAnalysis.messageCount / 10, 1);
@@ -754,15 +760,15 @@ export class AgentIntelligenceService {
   }
 
   private generateExplanation(
-    contextAnalysis: any,
-    intentAnalysis: any,
-    actionRecommendations: any[],
+    contextAnalysis: unknown,
+    intentAnalysis: unknown,
+    actionRecommendations: unknown[],
     confidence: number
   ): string {
     return `Based on the conversation context with ${contextAnalysis.messageCount} messages and detected intent '${intentAnalysis.primary}', I recommend ${actionRecommendations.length} action(s). Confidence level: ${Math.round(confidence * 100)}%.`;
   }
 
-  private extractAgentCapabilities(agent: Agent): any {
+  private extractAgentCapabilities(agent: Agent): unknown {
     return {
       tools: agent.intelligenceConfig?.collaborationMode || 'collaborative',
       artifacts: agent.intelligenceConfig?.analysisDepth || 'intermediate',
@@ -771,7 +777,7 @@ export class AgentIntelligenceService {
     };
   }
 
-  private analyzeEnvironmentFactors(conversationContext: any): any {
+  private analyzeEnvironmentFactors(conversationContext: unknown): unknown {
     return {
       timeOfDay: new Date().getHours(),
       userLoad: conversationContext.participants?.length || 1,
@@ -780,7 +786,7 @@ export class AgentIntelligenceService {
     };
   }
 
-  private determinePlanType(analysis: any): string {
+  private determinePlanType(analysis: unknown): string {
     const intent = analysis.intent?.primary;
     switch (intent) {
       case 'create':
@@ -794,7 +800,11 @@ export class AgentIntelligenceService {
     }
   }
 
-  private async generatePlanSteps(agent: Agent, analysis: any, planType: string): Promise<any[]> {
+  private async generatePlanSteps(
+    agent: Agent,
+    analysis: unknown,
+    planType: string
+  ): Promise<unknown[]> {
     const baseSteps = [
       {
         id: 'validate_input',
@@ -862,15 +872,15 @@ export class AgentIntelligenceService {
     return baseSteps;
   }
 
-  private async calculateDependencies(steps: any[]): Promise<string[]> {
+  private async calculateDependencies(steps: unknown[]): Promise<string[]> {
     return steps.slice(0, -1).map((step) => step.id);
   }
 
-  private estimateDuration(steps: any[], dependencies: string[]): number {
+  private estimateDuration(steps: unknown[], _dependencies: string[]): number {
     return steps.reduce((total, step) => total + step.estimatedDuration, 0);
   }
 
-  private applyUserPreferences(steps: any[], userPreferences: any): any[] {
+  private applyUserPreferences(steps: unknown[], userPreferences: unknown): unknown[] {
     if (userPreferences?.speed === 'fast') {
       return steps.map((step) => ({
         ...step,
@@ -880,7 +890,7 @@ export class AgentIntelligenceService {
     return steps;
   }
 
-  private async validatePlanSecurity(plan: ExecutionPlan, securityContext: any): Promise<void> {
+  private async validatePlanSecurity(plan: ExecutionPlan, securityContext: unknown): Promise<void> {
     if (
       securityContext?.maxDuration &&
       plan.estimatedDuration &&
@@ -902,13 +912,13 @@ export class AgentIntelligenceService {
     });
   }
 
-  private async getOperation(operationId: string): Promise<any> {
+  private async getOperation(operationId: string): Promise<unknown> {
     const validatedId = this.validateIDParam(operationId, 'operationId');
     const repo = this.databaseService.operations.getOperationRepository();
     return await repo.getOperationById(validatedId);
   }
 
-  private extractLearning(operation: any, outcomes: any, feedback: any): any {
+  private extractLearning(operation: unknown, outcomes: unknown, feedback: unknown): unknown {
     return {
       newKnowledge: feedback?.insights || [],
       improvedCapabilities: outcomes?.successfulActions || [],
@@ -916,11 +926,15 @@ export class AgentIntelligenceService {
     };
   }
 
-  private async updateAgentKnowledge(agentId: string, learningData: any): Promise<void> {
+  private async updateAgentKnowledge(agentId: string, learningData: unknown): Promise<void> {
     logger.info('Updating agent knowledge', { agentId, learningData });
   }
 
-  private calculateConfidenceAdjustments(operation: any, outcomes: any, feedback: any): any {
+  private calculateConfidenceAdjustments(
+    operation: unknown,
+    outcomes: unknown,
+    feedback: unknown
+  ): unknown {
     return {
       overallAdjustment: outcomes?.success ? 0.05 : -0.1,
       specificAdjustments: feedback?.specificFeedback || {},
@@ -930,13 +944,13 @@ export class AgentIntelligenceService {
   private async storeLearningRecord(
     agentId: string,
     operationId: string,
-    learningData: any,
-    confidenceAdjustments: any
+    _learningData: unknown,
+    _confidenceAdjustments: unknown
   ): Promise<void> {
     logger.info('Storing learning record', { agentId, operationId });
   }
 
-  private extractTopics(messages: any[]): string[] {
+  private extractTopics(messages: unknown[]): string[] {
     const commonWords = messages
       .flatMap((msg) => msg.content?.split(' ') || [])
       .filter((word) => word.length > 3)
@@ -944,18 +958,18 @@ export class AgentIntelligenceService {
     return [...new Set(commonWords)];
   }
 
-  private analyzeSentiment(messages: any[]): string {
+  private analyzeSentiment(_messages: unknown[]): string {
     return 'neutral';
   }
 
-  private assessComplexity(context: any): string {
+  private assessComplexity(context: unknown): string {
     const messageCount = context.messages?.length;
     if (messageCount > 20) return 'high';
     if (messageCount > 5) return 'medium';
     return 'low';
   }
 
-  private detectUrgency(context: any): string {
+  private detectUrgency(context: unknown): string {
     const urgentWords = /urgent|asap|immediately|critical|emergency/i;
     const hasUrgentWords = context.messages?.some((msg: MessageWithContent) =>
       urgentWords.test(msg.content || '')
@@ -963,7 +977,7 @@ export class AgentIntelligenceService {
     return hasUrgentWords ? 'high' : 'normal';
   }
 
-  private extractEntities(text: string): any[] {
+  private extractEntities(_text: string): unknown[] {
     return [];
   }
 

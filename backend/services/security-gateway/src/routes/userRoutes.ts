@@ -1,4 +1,4 @@
-import express, { Router } from '@uaip/shared-services';
+import _express, { Router } from '@uaip/shared-services';
 import { z } from 'zod';
 import bcrypt from 'bcrypt';
 import { logger } from '@uaip/utils';
@@ -7,23 +7,23 @@ import { validateRequest } from '@uaip/middleware';
 import { AuditService } from '../services/auditService.js';
 import { NotificationService } from '../services/notificationService.js';
 import { DatabaseService } from '@uaip/infra/database';
-import { Request, Response } from '@uaip/shared-services';
+import { Request as _Request, Response as _Response } from '@uaip/shared-services';
 import { config } from '@uaip/config';
 import { AuditEventType, LLMTaskType, LLMProviderType } from '@uaip/types';
 
 const router = Router();
 
 // Lazy initialization of services
-let databaseService: DatabaseService | null = null;
-let auditService: AuditService | null = null;
+let databaseServiceSingleton: DatabaseService | null = null;
+let auditServiceSingleton: AuditService | null = null;
 
 async function getServices() {
-  if (!databaseService) {
-    databaseService = new DatabaseService();
-    await databaseService.initialize();
-    auditService = new AuditService();
+  if (!databaseServiceSingleton) {
+    databaseServiceSingleton = new DatabaseService();
+    await databaseServiceSingleton.initialize();
+    auditServiceSingleton = new AuditService();
   }
-  return { databaseService, auditService: auditService! };
+  return { databaseService: databaseServiceSingleton, auditService: auditServiceSingleton! };
 }
 
 const notificationService = new NotificationService();
@@ -114,7 +114,7 @@ const updateUserLLMPreferencesSchema = z.object({
 });
 
 // Helper function for Zod validation
-const validateWithZod = (schema: z.ZodSchema, data: any) => {
+const validateWithZod = (schema: z.ZodSchema, data: unknown) => {
   const result = schema.safeParse(data);
   if (result.success) {
     return { error: null, value: result.data };
@@ -174,7 +174,7 @@ router.get(
   validateRequest({ query: userQuerySchema }),
   async (req, res) => {
     try {
-      const { page, limit, role, isActive, search, sortBy, sortOrder } = req.query;
+      const { page, limit, role, isActive, search, _sortBy, _sortOrder } = req.query;
 
       // Parse and validate query parameters
       const pageQuery = parseInt(page as string) || 1;
@@ -209,7 +209,7 @@ router.get(
         },
       });
     } catch (error) {
-      logger.error('Get users error', { error, userId: (req as any).user?.userId });
+      logger.error('Get users error', { error, userId: (req as unknown).user?.userId });
       res.status(500).json({
         error: 'Internal Server Error',
         message: 'An error occurred while retrieving users',
@@ -231,7 +231,7 @@ router.get(
   validateRequest({ query: publicUserQuerySchema }),
   async (req, res) => {
     try {
-      const { page, limit, search, sortBy, sortOrder } = req.query;
+      const { page, limit, search, _sortBy, _sortOrder } = req.query;
 
       const pageQuery = parseInt(page as string) || 1;
       const limitQuery = parseInt(limit as string) || 20;
@@ -240,7 +240,7 @@ router.get(
       const { databaseService } = await getServices();
 
       // Get current user ID to exclude from results
-      const currentUserId = (req as any).user?.userId;
+      const _currentUserId = (req as unknown).user?.userId;
 
       // Use UserRepository searchUsers method with role filtering
       const userRepo = databaseService.users.getUserRepository();
@@ -279,7 +279,7 @@ router.get(
         },
       });
     } catch (error) {
-      logger.error('Get public users error', { error, userId: (req as any).user?.userId });
+      logger.error('Get public users error', { error, userId: (req as unknown).user?.userId });
       res.status(500).json({
         success: false,
         error: 'Internal Server Error',
@@ -296,7 +296,7 @@ router.get(
  */
 router.get('/llm-preferences', authMiddleware, async (req, res) => {
   try {
-    const userId = (req as any).user?.id;
+    const userId = (req as unknown).user?.id;
 
     if (!userId) {
       res.status(401).json({
@@ -314,7 +314,7 @@ router.get('/llm-preferences', authMiddleware, async (req, res) => {
 
     res.json(preferences);
   } catch (error) {
-    logger.error('Get user LLM preferences error', { error, userId: (req as any).user?.id });
+    logger.error('Get user LLM preferences error', { error, userId: (req as unknown).user?.id });
     res.status(500).json({
       error: 'Internal Server Error',
       message: 'An error occurred while retrieving user LLM preferences',
@@ -333,7 +333,7 @@ router.put(
   validateRequest({ body: updateUserLLMPreferencesSchema }),
   async (req, res) => {
     try {
-      const userId = (req as any).user?.id;
+      const userId = (req as unknown).user?.id;
 
       if (!userId) {
         res.status(401).json({
@@ -360,29 +360,32 @@ router.put(
 
       // Clear existing preferences for this user
       const existingPreferences = await userLLMRepo.findByUser(userId);
-      for (const existing of existingPreferences) {
-        await userLLMRepo.delete(existing.id);
-      }
+      await Promise.all(
+        existingPreferences.map(async (existing) => userLLMRepo.delete(existing.id))
+      );
 
       // Create new preferences
-      const createdPreferences = [];
-      for (const prefData of preferences) {
-        const created = await userLLMRepo.create({
-          userId,
-          taskType: prefData.taskType,
-          preferredProvider: prefData.preferredProvider,
-          preferredModel: prefData.preferredModel,
-          fallbackModel: prefData.fallbackModel,
-          settings: prefData.settings,
-          description: prefData.description,
-          priority: prefData.priority,
-        });
-        createdPreferences.push(created);
-      }
+      const createdPreferences = await Promise.all(
+        preferences.map(async (prefData) =>
+          userLLMRepo.create({
+            userId,
+            taskType: prefData.taskType,
+            preferredProvider: prefData.preferredProvider,
+            preferredModel: prefData.preferredModel,
+            fallbackModel: prefData.fallbackModel,
+            settings: prefData.settings,
+            description: prefData.description,
+            priority: prefData.priority,
+          })
+        )
+      );
 
       res.json(createdPreferences);
     } catch (error) {
-      logger.error('Update user LLM preferences error', { error, userId: (req as any).user?.id });
+      logger.error('Update user LLM preferences error', {
+        error,
+        userId: (req as unknown).user?.id,
+      });
       res.status(500).json({
         error: 'Internal Server Error',
         message: 'An error occurred while updating the user',
@@ -414,7 +417,7 @@ router.get('/:userId', authMiddleware, requireAdmin, async (req, res) => {
     }
 
     // Remove sensitive data from response
-    const { passwordHash, ...userResponse } = user;
+    const { _passwordHash, ...userResponse } = user;
 
     res.json({
       message: 'User retrieved successfully',
@@ -448,7 +451,7 @@ router.post('/', authMiddleware, requireAdmin, async (req, res) => {
       return;
     }
 
-    const adminUserId = (req as any).user.userId;
+    const adminUserId = (req as unknown).user.userId;
     const { databaseService, auditService } = await getServices();
 
     // Check if user already exists using DatabaseService
@@ -526,7 +529,7 @@ router.post('/', authMiddleware, requireAdmin, async (req, res) => {
     return;
     return;
   } catch (error) {
-    logger.error('Create user error', { error, adminUserId: (req as any).user?.userId });
+    logger.error('Create user error', { error, adminUserId: (req as unknown).user?.userId });
     res.status(500).json({
       error: 'Internal Server Error',
       message: 'An error occurred while creating the user',
@@ -554,7 +557,7 @@ router.put('/:userId', authMiddleware, requireAdmin, async (req, res) => {
       return;
     }
 
-    const adminUserId = (req as any).user.userId;
+    const adminUserId = (req as unknown).user.userId;
     const { databaseService, auditService } = await getServices();
 
     // Check if user exists using DatabaseService
@@ -640,7 +643,7 @@ router.put('/:userId', authMiddleware, requireAdmin, async (req, res) => {
     });
 
     // Remove sensitive data from response
-    const { passwordHash, ...userResponse } = updatedUser;
+    const { _passwordHash, ...userResponse } = updatedUser;
 
     res.json({
       message: 'User updated successfully',
@@ -665,7 +668,7 @@ router.put('/:userId', authMiddleware, requireAdmin, async (req, res) => {
 router.delete('/:userId', authMiddleware, requireAdmin, async (req, res) => {
   try {
     const { userId } = req.params;
-    const adminUserId = (req as any).user.userId;
+    const adminUserId = (req as unknown).user.userId;
     const { databaseService, auditService } = await getServices();
 
     // Prevent self-deletion
@@ -749,7 +752,7 @@ router.post('/:userId/reset-password', authMiddleware, requireAdmin, async (req,
       return;
     }
 
-    const adminUserId = (req as any).user.userId;
+    const adminUserId = (req as unknown).user.userId;
     const { databaseService, auditService } = await getServices();
 
     // Check if user exists using DatabaseService
@@ -828,7 +831,7 @@ router.post('/:userId/reset-password', authMiddleware, requireAdmin, async (req,
 router.post('/:userId/unlock', authMiddleware, requireAdmin, async (req, res) => {
   try {
     const { userId } = req.params;
-    const adminUserId = (req as any).user.userId;
+    const adminUserId = (req as unknown).user.userId;
     const { databaseService, auditService } = await getServices();
 
     // Check if user exists using DatabaseService
@@ -890,7 +893,7 @@ router.post('/bulk-action', authMiddleware, requireAdmin, async (req, res) => {
       return;
     }
 
-    const adminUserId = (req as any).user.userId;
+    const adminUserId = (req as unknown).user.userId;
     const { userIds, action, reason } = value;
     const { databaseService, auditService } = await getServices();
 
@@ -912,72 +915,70 @@ router.post('/bulk-action', authMiddleware, requireAdmin, async (req, res) => {
       failed: [],
     };
 
-    for (const userId of userIds) {
-      try {
-        // Check if user exists using DatabaseService
-        const user = await databaseService.users.findUserById(userId);
+    await Promise.all(
+      userIds.map(async (userId) => {
+        try {
+          const user = await databaseService.users.findUserById(userId);
 
-        if (!user) {
-          results.failed.push({ userId, reason: 'User not found' });
-          continue;
+          if (!user) {
+            results.failed.push({ userId, reason: 'User not found' });
+            return;
+          }
+
+          switch (action) {
+            case 'activate':
+              await databaseService.users.getUserRepository().activateUser(userId);
+              break;
+
+            case 'deactivate':
+              await databaseService.users.getUserRepository().deactivateUser(userId);
+              await databaseService.users.revokeAllRefreshTokens(userId);
+              break;
+
+            case 'delete':
+              await databaseService.users.deleteUser(userId);
+              await databaseService.users.revokeAllRefreshTokens(userId);
+              break;
+
+            case 'reset_password': {
+              const newPassword = generateRandomPassword();
+              await databaseService.users.updatePassword(userId, newPassword);
+              await databaseService.users.revokeAllRefreshTokens(userId);
+              break;
+            }
+
+            default:
+              results.failed.push({ userId, reason: 'Invalid action' });
+              return;
+          }
+
+          results.successful.push({ userId, email: user.email });
+
+          await auditService.logSecurityEvent({
+            eventType: AuditEventType.BULK_USER_ACTION,
+            userId: adminUserId,
+            details: {
+              action,
+              targetUserId: userId,
+              targetUserEmail: user.email,
+              reason: reason || null,
+            },
+            ipAddress: req.ip,
+            userAgent: req.headers['user-agent'],
+          });
+        } catch (userError) {
+          logger.error('Bulk action error for user', { error: userError, userId, action });
+          results.failed.push({ userId, reason: 'Processing error' });
         }
-
-        switch (action) {
-          case 'activate':
-            await databaseService.users.getUserRepository().activateUser(userId);
-            break;
-
-          case 'deactivate':
-            await databaseService.users.getUserRepository().deactivateUser(userId);
-            // Revoke refresh tokens using DatabaseService
-            await databaseService.users.revokeAllRefreshTokens(userId);
-            break;
-
-          case 'delete':
-            await databaseService.users.deleteUser(userId);
-            // Revoke refresh tokens using DatabaseService
-            await databaseService.users.revokeAllRefreshTokens(userId);
-            break;
-
-          case 'reset_password':
-            const newPassword = generateRandomPassword();
-            await databaseService.users.updatePassword(userId, newPassword);
-            // Revoke refresh tokens using DatabaseService
-            await databaseService.users.revokeAllRefreshTokens(userId);
-            break;
-
-          default:
-            results.failed.push({ userId, reason: 'Invalid action' });
-            continue;
-        }
-
-        results.successful.push({ userId, email: user.email });
-
-        // Log audit event
-        await auditService.logSecurityEvent({
-          eventType: AuditEventType.BULK_USER_ACTION,
-          userId: adminUserId,
-          details: {
-            action,
-            targetUserId: userId,
-            targetUserEmail: user.email,
-            reason: reason || null,
-          },
-          ipAddress: req.ip,
-          userAgent: req.headers['user-agent'],
-        });
-      } catch (userError) {
-        logger.error('Bulk action error for user', { error: userError, userId, action });
-        results.failed.push({ userId, reason: 'Processing error' });
-      }
-    }
+      })
+    );
 
     res.json({
       message: `Bulk action '${action}' completed`,
       results,
     });
   } catch (error) {
-    logger.error('Bulk action error', { error, adminUserId: (req as any).user?.userId });
+    logger.error('Bulk action error', { error, adminUserId: (req as unknown).user?.userId });
     res.status(500).json({
       error: 'Internal Server Error',
       message: 'An error occurred while performing bulk action',
@@ -1019,7 +1020,7 @@ router.get('/stats', authMiddleware, requireAdmin, async (req, res) => {
       },
     });
   } catch (error) {
-    logger.error('Get user stats error', { error, userId: (req as any).user?.userId });
+    logger.error('Get user stats error', { error, userId: (req as unknown).user?.userId });
     res.status(500).json({
       error: 'Internal Server Error',
       message: 'An error occurred while retrieving user statistics',

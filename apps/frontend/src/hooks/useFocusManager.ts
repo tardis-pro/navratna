@@ -4,11 +4,11 @@ interface FocusableElement {
   id: string;
   type: 'chat-window' | 'portal' | 'button' | 'input' | 'dropdown';
   element: HTMLElement;
-  data?: any;
+  data?: unknown;
   preview?: {
     title: string;
     content: string;
-    metadata?: Record<string, any>;
+    metadata?: Record<string, unknown>;
   };
 }
 
@@ -43,7 +43,7 @@ export const useFocusManager = () => {
     };
 
     // Add hover listeners for preview
-    const handleMouseEnter = (e: MouseEvent) => {
+    const handleMouseEnter = (_e: MouseEvent) => {
       const rect = element.element.getBoundingClientRect();
       setHoverState({
         elementId: element.id,

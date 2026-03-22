@@ -109,9 +109,11 @@ CREATE INDEX idx_knowledge_created ON knowledge_items(created_at);
 ## Replacement 2: RabbitMQ → BullMQ on Redis Streams
 
 ### Rationale
+
 RabbitMQ consumes 512MB RAM for simple pub/sub that Redis can handle. Redis is already running. BullMQ provides: priority queues, retries, delayed jobs, cron scheduling, rate limiting — all features needed for agent orchestration.
 
 ### Current EventBus Architecture
+
 ```typescript
 // Current: backend/shared/infra/src/event-bus.ts
 class EventBus {
@@ -123,6 +125,7 @@ class EventBus {
 ```
 
 ### Target Architecture
+
 ```typescript
 // New: backend/shared/infra/src/event-bus.ts
 import { Queue, Worker, QueueEvents } from 'bullmq';
@@ -132,17 +135,25 @@ class EventBus {
   private queues: Map<string, Queue>;
   private workers: Map<string, Worker>;
 
-  async publish(topic: string, payload: object, opts?: {
-    priority?: number;     // 1-10, higher = more urgent
-    delay?: number;        // ms delay before processing
-    attempts?: number;     // retry count
-    backoff?: { type: 'exponential' | 'fixed'; delay: number };
-  }): Promise<void>;
+  async publish(
+    topic: string,
+    payload: object,
+    opts?: {
+      priority?: number; // 1-10, higher = more urgent
+      delay?: number; // ms delay before processing
+      attempts?: number; // retry count
+      backoff?: { type: 'exponential' | 'fixed'; delay: number };
+    }
+  ): Promise<void>;
 
-  async subscribe(topic: string, handler: (payload: object) => Promise<void>, opts?: {
-    concurrency?: number;  // parallel processing
-    limiter?: { max: number; duration: number };  // rate limiting
-  }): Promise<void>;
+  async subscribe(
+    topic: string,
+    handler: (payload: object) => Promise<void>,
+    opts?: {
+      concurrency?: number; // parallel processing
+      limiter?: { max: number; duration: number }; // rate limiting
+    }
+  ): Promise<void>;
 
   // NEW: Scheduled events (replaces cron jobs)
   async schedule(name: string, cron: string, payload: object): Promise<void>;
@@ -152,17 +163,20 @@ class EventBus {
 ### Migration Steps
 
 **Step 1: Install BullMQ** (1 hour)
+
 ```bash
 cd backend && pnpm add bullmq
 ```
 
 **Step 2: Create BullMQ EventBus** (2-3 days)
+
 - New file: `backend/shared/infra/src/event-bus-bullmq.ts`
 - Same interface as current EventBus
 - Feature flag: `EVENT_BUS_BACKEND=rabbitmq|bullmq`
 
 **Step 3: Migrate Consumers** (3-5 days)
 Each service subscribes to events. Migrate one service at a time:
+
 1. Artifact Service (simplest consumer)
 2. LLM Service
 3. Agent Intelligence
@@ -173,6 +187,7 @@ Each service subscribes to events. Migrate one service at a time:
 
 **Step 4: Migrate Scheduled Jobs** (2-3 days)
 Convert 21 OpenClaw cron jobs to BullMQ repeatable jobs:
+
 ```typescript
 // Karna morning hunt - 10AM IST daily
 await eventBus.schedule('karna-morning-hunt', '0 10 * * * Asia/Kolkata', {
@@ -183,12 +198,14 @@ await eventBus.schedule('karna-morning-hunt', '0 10 * * * Asia/Kolkata', {
 ```
 
 **Step 5: Remove RabbitMQ** (1 hour)
+
 - Remove `rabbitmq` from docker-compose.yml
 - Remove `amqplib` from package.json
 - Delete old EventBus implementation
 - Remove RabbitMQ config from .env
 
 ### Rollback Strategy
+
 - Feature flag: `EVENT_BUS_BACKEND=rabbitmq` restores RabbitMQ
 - RabbitMQ container stays in compose (commented out) for 2 weeks
 - Both backends can process same events during transition
@@ -198,11 +215,13 @@ await eventBus.schedule('karna-morning-hunt', '0 10 * * * Asia/Kolkata', {
 ## Replacement 3: 7 Microservices → 2 Consolidated Services
 
 ### Rationale
+
 7 services × 512MB each = 3.5GB RAM just for backend. On modest consumer hardware (8-16GB total), this is unsustainable. Services that share data constantly (Agent Intelligence ↔ Discussion Orchestration ↔ LLM Service) add network latency for no benefit at single-user scale.
 
 ### Consolidation Map
 
 **Service A: NAVRATNA-CORE** (Port 3001)
+
 ```
 Merges:
   - Agent Intelligence (3001) — agent CRUD, personas, knowledge
@@ -222,6 +241,7 @@ Entry point: backend/services/navratna-core/src/index.ts
 ```
 
 **Service B: NAVRATNA-GATEWAY** (Port 3002)
+
 ```
 Merges:
   - Security Gateway (3004) — auth, RBAC, approval workflows
@@ -242,6 +262,7 @@ Entry point: backend/services/navratna-gateway/src/index.ts
 ### Migration Steps
 
 **Step 1: Create consolidated entry points** (2-3 days)
+
 ```typescript
 // navratna-core/src/index.ts
 const app = new Elysia()
@@ -253,11 +274,13 @@ const app = new Elysia()
 ```
 
 **Step 2: Merge database connections** (1-2 days)
+
 - Single TypeORM/Drizzle connection pool per consolidated service
 - Single Redis connection per service
 - Single EventBus instance per service
 
 **Step 3: Replace inter-service calls with direct imports** (3-5 days)
+
 ```typescript
 // BEFORE: Agent Intelligence calls LLM Service via RabbitMQ
 await eventBus.publish('llm.request', { model: 'claude-sonnet-4-6', prompt });
@@ -268,20 +291,22 @@ const response = await llmService.complete({ model: 'claude-sonnet-4-6', prompt 
 ```
 
 **Step 4: Update Docker Compose** (1 day)
+
 ```yaml
 services:
   navratna-core:
     build: { context: ., dockerfile: Dockerfile.base }
-    command: ["bun", "run", "backend/services/navratna-core/dist/index.js"]
-    ports: ["3001:3001"]
+    command: ['bun', 'run', 'backend/services/navratna-core/dist/index.js']
+    ports: ['3001:3001']
 
   navratna-gateway:
     build: { context: ., dockerfile: Dockerfile.base }
-    command: ["bun", "run", "backend/services/navratna-gateway/dist/index.js"]
-    ports: ["3002:3002"]
+    command: ['bun', 'run', 'backend/services/navratna-gateway/dist/index.js']
+    ports: ['3002:3002']
 ```
 
 **Step 5: Update Nginx routing** (1 hour)
+
 ```nginx
 upstream navratna_core {
     server navratna-core:3001;
@@ -304,6 +329,7 @@ location /api/v1/mcp { proxy_pass http://navratna_gateway; }
 ```
 
 ### Rollback Strategy
+
 - Old service directories preserved (not deleted)
 - Docker compose profiles: `docker compose --profile=microservices up` restores 7-service mode
 - Nginx config has both upstream blocks (comment/uncomment to switch)
@@ -313,18 +339,21 @@ location /api/v1/mcp { proxy_pass http://navratna_gateway; }
 ## Replacement 4: DesktopUnified → TelescopeSurface
 
 ### Rationale
+
 DesktopUnified (1,927 lines) implements a window-manager metaphor: drag, resize, minimize, maximize, Z-index layering, taskbar, app launcher. The Telescope vision eliminates all of this. There are no windows. There is no navigation. There is one surface that responds to intent.
 
 ### What Transfers to Telescope
-| DesktopUnified Feature | Telescope Equivalent |
-|---|---|
-| 27 portal components | Wrapped as MaterializableBlocks (portal code unchanged) |
-| Design tokens (colors, spacing, etc.) | Kept and extended with microexpression tokens |
-| Weather widget data | Becomes ambient atmosphere in Telescope |
-| User preferences hook | Extended for Telescope preferences |
-| Auth/security context | Unchanged |
+
+| DesktopUnified Feature                | Telescope Equivalent                                    |
+| ------------------------------------- | ------------------------------------------------------- |
+| 27 portal components                  | Wrapped as MaterializableBlocks (portal code unchanged) |
+| Design tokens (colors, spacing, etc.) | Kept and extended with microexpression tokens           |
+| Weather widget data                   | Becomes ambient atmosphere in Telescope                 |
+| User preferences hook                 | Extended for Telescope preferences                      |
+| Auth/security context                 | Unchanged                                               |
 
 ### What Dies
+
 - Window management (drag, resize, minimize, maximize)
 - Taskbar component
 - App launcher grid
@@ -334,6 +363,7 @@ DesktopUnified (1,927 lines) implements a window-manager metaphor: drag, resize,
 - Window state tracking
 
 ### Migration: Feature-Flagged Transition
+
 ```typescript
 // In DesktopApp.tsx
 const TelescopeEnabled = () => {
@@ -347,6 +377,7 @@ const TelescopeEnabled = () => {
 ```
 
 ### TelescopeSurface Architecture
+
 See brainstorming session (88 ideas) and 04-TELESCOPE-SPEC.md for full specification.
 
 ---
@@ -354,7 +385,9 @@ See brainstorming session (88 ideas) and 04-TELESCOPE-SPEC.md for full specifica
 ## Replacement 5: Framer Motion (Basic → Advanced)
 
 ### Current State
+
 Framer Motion is used for basic fade/scale transitions only:
+
 ```typescript
 // Current usage pattern (throughout codebase)
 <motion.div
@@ -365,7 +398,9 @@ Framer Motion is used for basic fade/scale transitions only:
 ```
 
 ### Target State
+
 Full Framer Motion capabilities for Telescope:
+
 - Layout animations (layoutId for shared element transitions)
 - Physics-based springs (useSpring for gravitational relevance)
 - Gesture recognition (drag, pan, hover with physics)
@@ -374,6 +409,7 @@ Full Framer Motion capabilities for Telescope:
 - useMotionValue for continuous relevance-driven positioning
 
 ### No Code Migration Needed
+
 This is an enhancement, not a replacement. Existing fade/scale animations continue to work. New Telescope components use advanced patterns.
 
 ---
@@ -381,9 +417,11 @@ This is an enhancement, not a replacement. Existing fade/scale animations contin
 ## Replacement 6: Code Splitting (None → Full)
 
 ### Current State
+
 Zero code splitting. All 27 portals (500KB+) loaded upfront. No React.lazy(), no Suspense boundaries, no route-based splitting.
 
 ### Target State
+
 ```typescript
 // Lazy-loaded portal imports
 const AgentManagerPortal = lazy(() => import('./portals/AgentManagerPortal'));
@@ -403,6 +441,7 @@ const MaterializableBlock = ({ portalId, ...props }) => {
 ```
 
 ### Vite Config Updates
+
 ```typescript
 // vite.config.ts
 export default defineConfig({
@@ -422,6 +461,7 @@ export default defineConfig({
 ```
 
 ### Expected Impact
+
 - Initial bundle: 500KB+ → ~150KB (70% reduction)
 - Time to Interactive: ~3s → ~1s
 - Portal loads on-demand as MaterializableBlocks crystallize
@@ -431,21 +471,25 @@ export default defineConfig({
 ## Replacement 7: Auth Token Storage
 
 ### Current State
+
 Auth tokens stored in localStorage (XSS vulnerable):
+
 ```typescript
 // client.ts comment: "SECURITY TODO: Migrate token storage to httpOnly cookies"
 localStorage.setItem('auth_token', token);
 ```
 
 ### Target State
+
 httpOnly cookies set by Security Gateway:
+
 ```typescript
 // Security Gateway sets cookie on login
 res.cookie('auth_token', token, {
-  httpOnly: true,    // JavaScript cannot read
-  secure: true,      // HTTPS only
+  httpOnly: true, // JavaScript cannot read
+  secure: true, // HTTPS only
   sameSite: 'strict', // CSRF protection
-  maxAge: 3600000,   // 1 hour
+  maxAge: 3600000, // 1 hour
   path: '/api',
 });
 
@@ -455,6 +499,7 @@ res.cookie('auth_token', token, {
 ```
 
 ### Migration
+
 1. Update Security Gateway login/refresh endpoints to set cookies
 2. Update API client to stop sending Authorization header
 3. Remove localStorage token management from AuthContext
@@ -465,15 +510,15 @@ res.cookie('auth_token', token, {
 
 ## Replacement Summary
 
-| # | What | From | To | Effort | Risk |
-|---|---|---|---|---|---|
-| 1 | ORM | TypeORM | Drizzle | 2-3 weeks | High (feature-flagged) |
-| 2 | Message Bus | RabbitMQ | BullMQ/Redis | 1-2 weeks | Medium (feature-flagged) |
-| 3 | Services | 7 microservices | 2 consolidated | 2-3 weeks | Medium (profile-switchable) |
-| 4 | UI Shell | DesktopUnified | TelescopeSurface | 4-6 weeks | Medium (feature-flagged) |
-| 5 | Animations | Basic Framer | Advanced Framer | Incremental | Low (additive) |
-| 6 | Bundle | Monolithic | Code-split | 2-3 days | Low |
-| 7 | Auth tokens | localStorage | httpOnly cookies | 1 day | Low |
+| #   | What        | From            | To               | Effort      | Risk                        |
+| --- | ----------- | --------------- | ---------------- | ----------- | --------------------------- |
+| 1   | ORM         | TypeORM         | Drizzle          | 2-3 weeks   | High (feature-flagged)      |
+| 2   | Message Bus | RabbitMQ        | BullMQ/Redis     | 1-2 weeks   | Medium (feature-flagged)    |
+| 3   | Services    | 7 microservices | 2 consolidated   | 2-3 weeks   | Medium (profile-switchable) |
+| 4   | UI Shell    | DesktopUnified  | TelescopeSurface | 4-6 weeks   | Medium (feature-flagged)    |
+| 5   | Animations  | Basic Framer    | Advanced Framer  | Incremental | Low (additive)              |
+| 6   | Bundle      | Monolithic      | Code-split       | 2-3 days    | Low                         |
+| 7   | Auth tokens | localStorage    | httpOnly cookies | 1 day       | Low                         |
 
 All replacements are feature-flagged or profile-switchable. No big-bang migrations. Every change can be rolled back.
 

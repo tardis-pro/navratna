@@ -1,4 +1,4 @@
-import { ValidationResult, ArtifactType, ValidationError } from '@uaip/types';
+import { ValidationResult, ArtifactType, ValidationError, ValidationWarning } from '@uaip/types';
 import { IArtifactValidator } from '../interfaces/ArtifactTypes.js';
 import { logger } from '@uaip/utils';
 
@@ -59,7 +59,7 @@ export class ArtifactValidator implements IArtifactValidator {
         errors: errors as ValidationError[],
         warnings: warnings.filter(
           (w) => w.severity === 'warning' || w.severity === 'info'
-        ) as any[],
+        ) as ValidationWarning[],
         suggestions,
         score,
         issues: issues as ValidationError[], // For backward compatibility

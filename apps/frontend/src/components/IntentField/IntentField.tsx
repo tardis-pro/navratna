@@ -2,11 +2,7 @@ import React, { useState, useEffect, useCallback, useRef, forwardRef } from 'rea
 import { motion, AnimatePresence } from 'framer-motion';
 import { Search, Loader2, Command, Sparkles } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import {
-  Dialog,
-  DialogContent,
-  DialogTrigger,
-} from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogTrigger } from '@/components/ui/dialog';
 import {
   Command as CommandPrimitive,
   CommandInput,
@@ -17,10 +13,7 @@ import {
   CommandSeparator,
 } from '@/components/ui/command';
 import { useIntentDetection } from './useIntentDetection';
-import {
-  AGENT_ACTIVITY_EVENT,
-  type AgentActivityEventDetail,
-} from '@/types/microexpression';
+import { AGENT_ACTIVITY_EVENT, type AgentActivityEventDetail } from '@/types/microexpression';
 import type { IntentFieldProps, IntentOption } from './IntentField.types';
 import { INTENT_ICONS } from './IntentField.types';
 
@@ -51,11 +44,17 @@ export const IntentField = forwardRef<HTMLButtonElement, IntentFieldProps>(
     const [internalOpen, setInternalOpen] = useState(false);
     const [search, setSearch] = useState(defaultSearch);
     const wasLoadingRef = useRef(false);
-    
+
     const isOpen = controlledOpen !== undefined ? controlledOpen : internalOpen;
     const setIsOpen = onOpenChange || setInternalOpen;
 
-    const { results, isLoading, connected, search: performSearch, clear } = useIntentDetection({
+    const {
+      results,
+      isLoading,
+      connected,
+      search: performSearch,
+      clear,
+    } = useIntentDetection({
       agentId,
       conversationId,
     });
@@ -197,11 +196,8 @@ export const IntentField = forwardRef<HTMLButtonElement, IntentFieldProps>(
         >
           <div className="relative">
             <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-blue-400/60 to-transparent" />
-            
-            <CommandPrimitive
-              className="w-full"
-              filter={() => 1}
-            >
+
+            <CommandPrimitive className="w-full" filter={() => 1}>
               <div className="flex items-center border-b border-slate-700/50 px-4">
                 <div className="relative flex-1">
                   <Search className="absolute left-0 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
@@ -217,9 +213,7 @@ export const IntentField = forwardRef<HTMLButtonElement, IntentFieldProps>(
                     )}
                   />
                   <div className="absolute right-0 top-1/2 -translate-y-1/2 flex items-center gap-2">
-                    {isLoading && (
-                      <Loader2 className="w-4 h-4 animate-spin text-blue-400" />
-                    )}
+                    {isLoading && <Loader2 className="w-4 h-4 animate-spin text-blue-400" />}
                     {connected && (
                       <div className="flex items-center gap-1 text-xs text-slate-500">
                         <div className="w-1.5 h-1.5 bg-emerald-400 rounded-full animate-pulse" />
@@ -257,7 +251,7 @@ export const IntentField = forwardRef<HTMLButtonElement, IntentFieldProps>(
                             key={option.id}
                             initial={{ opacity: 0, x: -10 }}
                             animate={{ opacity: 1, x: 0 }}
-                            transition={{ delay: (categoryIndex * 0.05) + (optionIndex * 0.02) }}
+                            transition={{ delay: categoryIndex * 0.05 + optionIndex * 0.02 }}
                           >
                             <CommandItem
                               value={option.title}
@@ -296,9 +290,10 @@ export const IntentField = forwardRef<HTMLButtonElement, IntentFieldProps>(
                                   >
                                     {option.type}
                                   </span>
-                                  {option.relevanceScore !== undefined && option.relevanceScore > 0.8 && (
-                                    <Sparkles className="w-3 h-3 text-amber-400" />
-                                  )}
+                                  {option.relevanceScore !== undefined &&
+                                    option.relevanceScore > 0.8 && (
+                                      <Sparkles className="w-3 h-3 text-amber-400" />
+                                    )}
                                 </div>
                                 {option.description && (
                                   <p className="text-xs text-slate-500 mt-0.5 truncate">

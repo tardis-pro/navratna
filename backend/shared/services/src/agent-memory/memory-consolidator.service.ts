@@ -1,4 +1,10 @@
-import { ConsolidationResult, WorkingMemory, Episode, SemanticMemory } from '@uaip/types';
+import {
+  ConsolidationResult,
+  WorkingMemory,
+  Episode,
+  SemanticMemory,
+  Interaction,
+} from '@uaip/types';
 import { logger } from '@uaip/utils';
 import { WorkingMemoryManager } from './working-memory.manager';
 import { EpisodicMemoryManager } from './episodic-memory.manager';
@@ -47,8 +53,10 @@ export class MemoryConsolidator {
         continue;
       }
 
+      // oxlint-disable-next-line no-await-in-loop -- sequential processing required
       const result = await this.runConsolidation(next.agentId);
       next.resolve(result);
+      // oxlint-disable-next-line no-await-in-loop -- sequential processing required
       await this.yieldToEventLoop();
     }
 
@@ -122,10 +130,12 @@ export class MemoryConsolidator {
 
       if (episode.significance.importance > 0.3) {
         // Only store significant episodes
+        // oxlint-disable-next-line no-await-in-loop -- sequential processing required
         await this.episodicMemoryManager.storeEpisode(agentId, episode);
         episodesCreated++;
 
         // Create connections with existing episodes
+        // oxlint-disable-next-line no-await-in-loop -- sequential processing required
         const similarEpisodes = await this.episodicMemoryManager.findSimilarEpisodes(
           agentId,
           episode.context.what
@@ -138,6 +148,7 @@ export class MemoryConsolidator {
       }
 
       if (i % 5 === 0) {
+        // oxlint-disable-next-line no-await-in-loop -- sequential processing required
         await this.yieldToEventLoop();
       }
     }
@@ -158,6 +169,7 @@ export class MemoryConsolidator {
     // Extract concepts from temporary learnings
     for (const learning of workingMemory.shortTermMemory.temporaryLearnings) {
       if (learning.confidence > 0.6) {
+        // oxlint-disable-next-line no-await-in-loop -- sequential processing required
         const existingConcept = await this.semanticMemoryManager.getConcept(
           agentId,
           learning.concept
@@ -165,6 +177,7 @@ export class MemoryConsolidator {
 
         if (existingConcept) {
           // Reinforce existing concept
+          // oxlint-disable-next-line no-await-in-loop -- sequential processing required
           await this.semanticMemoryManager.reinforceConcept(
             agentId,
             learning.concept,
@@ -197,6 +210,7 @@ export class MemoryConsolidator {
             },
           };
 
+          // oxlint-disable-next-line no-await-in-loop -- sequential processing required
           await this.semanticMemoryManager.storeConcept(agentId, newConcept);
           conceptsLearned++;
         }
@@ -215,12 +229,14 @@ export class MemoryConsolidator {
     }
 
     for (const extractedConcept of interactionConcepts) {
+      // oxlint-disable-next-line no-await-in-loop -- sequential processing required
       const existingConcept = await this.semanticMemoryManager.getConcept(
         agentId,
         extractedConcept.concept
       );
 
       if (existingConcept) {
+        // oxlint-disable-next-line no-await-in-loop -- sequential processing required
         await this.semanticMemoryManager.reinforceConcept(
           agentId,
           extractedConcept.concept,
@@ -228,6 +244,7 @@ export class MemoryConsolidator {
         );
         connectionsFormed++;
       } else {
+        // oxlint-disable-next-line no-await-in-loop -- sequential processing required
         await this.semanticMemoryManager.storeConcept(
           agentId,
           extractedConcept.concept,
@@ -243,6 +260,7 @@ export class MemoryConsolidator {
     );
 
     for (const concept of reasoningConcepts) {
+      // oxlint-disable-next-line no-await-in-loop -- sequential processing required
       const existingConcept = await this.semanticMemoryManager.getConcept(agentId, concept.name);
 
       if (!existingConcept) {
@@ -270,10 +288,12 @@ export class MemoryConsolidator {
           },
         };
 
+        // oxlint-disable-next-line no-await-in-loop -- sequential processing required
         await this.semanticMemoryManager.storeConcept(agentId, newConcept);
         conceptsLearned++;
       }
 
+      // oxlint-disable-next-line no-await-in-loop -- sequential processing required
       await this.yieldToEventLoop();
     }
 
@@ -281,16 +301,19 @@ export class MemoryConsolidator {
   }
 
   private extractConceptsFromInteractions(
-    interactions: any[]
+    interactions: Interaction[]
   ): Array<{ concept: string; definition: string }> {
     const extractedConcepts = new Map<string, { concept: string; definition: string }>();
 
     for (const interaction of interactions) {
+      const context = interaction.context as Record<string, unknown> | undefined;
       const textSources = [
-        interaction?.description,
-        interaction?.context?.response,
-        ...(interaction?.outcomes || []).map((outcome: any) => outcome?.description || outcome),
-        ...(interaction?.learnings || []),
+        interaction.description,
+        context?.response,
+        ...((interaction.outcomes || []) as Array<{ description?: string }>).map((outcome) => {
+          return outcome?.description || outcome;
+        }),
+        ...((interaction.learnings || []) as string[]),
       ]
         .filter((source) => typeof source === 'string')
         .map((source) => String(source));
@@ -336,9 +359,9 @@ export class MemoryConsolidator {
     return results;
   }
 
-  private groupInteractionsIntoEpisodes(interactions: any[]): any[][] {
-    const groups: any[][] = [];
-    let currentGroup: any[] = [];
+  private groupInteractionsIntoEpisodes(interactions: Interaction[]): Interaction[][] {
+    const groups: Interaction[][] = [];
+    let currentGroup: Interaction[] = [];
 
     for (let i = 0; i < interactions.length; i++) {
       const interaction = interactions[i];
@@ -347,7 +370,10 @@ export class MemoryConsolidator {
         currentGroup.push(interaction);
       } else {
         const lastInteraction = currentGroup[currentGroup.length - 1];
-        const timeDiff = interaction.timestamp.getTime() - lastInteraction.timestamp.getTime();
+        const interactionRecord = interaction;
+        const timeDiff =
+          (interactionRecord.timestamp as Date).getTime() -
+          (lastInteraction.timestamp as Date).getTime();
 
         // Group interactions within 30 minutes of each other
         if (timeDiff < 30 * 60 * 1000) {
@@ -370,11 +396,10 @@ export class MemoryConsolidator {
 
   private createEpisodeFromInteractions(
     agentId: string,
-    interactions: any[],
+    interactions: Interaction[],
     workingMemory: WorkingMemory
   ): Episode {
     const firstInteraction = interactions[0];
-    const lastInteraction = interactions[interactions.length - 1];
 
     // Calculate significance based on interaction outcomes and emotional responses
     const avgImpact = interactions.reduce((sum, i) => sum + i.impact, 0) / interactions.length;
@@ -383,24 +408,28 @@ export class MemoryConsolidator {
       interactions.reduce((sum, i) => sum + i.emotionalIntensity, 0) / interactions.length;
     const successRate = interactions.filter((i) => i.success).length / interactions.length;
 
+    const firstContext = firstInteraction.context;
+
     const episode: Episode = {
       agentId,
       episodeId: `episode-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
       type: this.determineEpisodeType(interactions),
       context: {
-        when: firstInteraction.timestamp,
-        where: firstInteraction.context?.location || 'digital',
-        who: [...new Set(interactions.flatMap((i) => i.participants))],
+        when: firstInteraction.timestamp as Date,
+        where: (firstContext?.location as string) || 'digital',
+        who: [...new Set(records.flatMap((i) => (i.participants as string[]) || []))],
         what: this.summarizeInteractions(interactions),
         why: this.inferPurpose(interactions, workingMemory),
         how: this.inferMethod(interactions),
       },
       experience: {
-        actions: interactions.flatMap((i) => i.actions || []),
-        decisions: interactions.flatMap((i) => i.decisions || []),
-        outcomes: interactions.flatMap((i) => i.outcomes || []),
-        emotions: interactions.map((i) => i.emotionalResponse),
-        learnings: interactions.flatMap((i) => i.learnings || []),
+        actions: records.flatMap((i) => (i.actions as Episode['experience']['actions']) || []),
+        decisions: records.flatMap(
+          (i) => (i.decisions as Episode['experience']['decisions']) || []
+        ),
+        outcomes: records.flatMap((i) => (i.outcomes as Episode['experience']['outcomes']) || []),
+        emotions: records.map((i) => i.emotionalResponse as Episode['experience']['emotions'][0]),
+        learnings: records.flatMap((i) => (i.learnings as string[]) || []),
       },
       significance: {
         importance: Math.min((avgImpact + avgEmotionalIntensity) / 2, 1.0),
@@ -420,7 +449,7 @@ export class MemoryConsolidator {
   }
 
   private determineEpisodeType(
-    interactions: any[]
+    interactions: Interaction[]
   ): 'discussion' | 'operation' | 'learning' | 'problem_solving' | 'collaboration' {
     const types = interactions.map((i) => i.type);
 
@@ -437,12 +466,12 @@ export class MemoryConsolidator {
     }
   }
 
-  private summarizeInteractions(interactions: any[]): string {
+  private summarizeInteractions(interactions: Interaction[]): string {
     const descriptions = interactions.map((i) => i.description).slice(0, 3);
     return descriptions.join('; ');
   }
 
-  private inferPurpose(interactions: any[], workingMemory: WorkingMemory): string {
+  private inferPurpose(_interactions: Interaction[], workingMemory: WorkingMemory): string {
     // Try to infer purpose from context and goals
     const goals =
       workingMemory.currentContext.activeDiscussion?.currentGoals ||
@@ -452,22 +481,22 @@ export class MemoryConsolidator {
     return Array.isArray(goals) ? goals.join(', ') : goals;
   }
 
-  private inferMethod(interactions: any[]): string {
-    const methods = interactions.map((i) => i.method).filter(Boolean);
+  private inferMethod(interactions: Interaction[]): string {
+    const methods = interactions.map((i) => i.method).filter((m): m is string => !!m);
     return methods.length > 0 ? methods[0] : 'interactive';
   }
 
   private extractConceptsFromReasoning(reasoning: string[]): Array<{
     name: string;
     definition: string;
-    properties: Record<string, any>;
+    properties: Record<string, unknown>;
     examples: string[];
     confidence: number;
   }> {
     const concepts: Array<{
       name: string;
       definition: string;
-      properties: Record<string, any>;
+      properties: Record<string, unknown>;
       examples: string[];
       confidence: number;
     }> = [];

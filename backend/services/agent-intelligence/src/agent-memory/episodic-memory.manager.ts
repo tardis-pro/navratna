@@ -1,4 +1,4 @@
-import { Episode, EpisodicQuery, DateRange, KnowledgeType, SourceType } from '@uaip/types';
+import { Episode, EpisodicQuery, KnowledgeType, SourceType } from '@uaip/types';
 import { KnowledgeGraphService } from '../knowledge-graph/knowledge-graph.service';
 
 export class EpisodicMemoryManager {
@@ -36,13 +36,13 @@ export class EpisodicMemoryManager {
       ]);
 
       // Create relationships with related episodes
-      for (const relatedId of episode.connections.relatedEpisodes) {
+      for (const _relatedId of episode.connections.relatedEpisodes) {
         // This would create relationships in the Knowledge Graph
         // For now, we'll skip the implementation details
       }
     } catch (error) {
       console.error('Episode storage error:', error);
-      throw new Error(`Failed to store episode: ${error.message}`);
+      throw new Error(`Failed to store episode: ${error.message}`, { cause: error });
     }
   }
 
@@ -176,7 +176,7 @@ Learnings: ${episode.experience.learnings.join('; ')}
 Significance: Importance=${episode.significance.importance}, Novelty=${episode.significance.novelty}, Success=${episode.significance.success}, Impact=${episode.significance.impact}`;
   }
 
-  private contentToEpisode(item: any): Episode {
+  private contentToEpisode(item: Record<string, unknown>): Episode {
     // Parse content back to episode structure
     const metadata = item.source?.metadata || item.metadata;
 
@@ -219,7 +219,7 @@ Significance: Importance=${episode.significance.importance}, Novelty=${episode.s
     };
   }
 
-  private parseEpisodeFromContent(item: any): Episode {
+  private parseEpisodeFromContent(item: Record<string, unknown>): Episode {
     // Basic parsing from content when metadata is not available
     const content = item.content || '';
     const lines = content.split('\n');
@@ -251,7 +251,7 @@ Significance: Importance=${episode.significance.importance}, Novelty=${episode.s
     return {
       agentId: item.createdBy || 'unknown',
       episodeId: item.id,
-      type: episodeType as any,
+      type: episodeType as Record<string, unknown>,
       context,
       experience: {
         actions: [],

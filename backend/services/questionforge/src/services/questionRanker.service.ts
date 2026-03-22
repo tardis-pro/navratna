@@ -1,11 +1,5 @@
 import { logger } from '@uaip/utils';
-import {
-  Question,
-  QuestionCategory,
-  QuestionPhase,
-  Assumption,
-  Contradiction,
-} from '@uaip/types';
+import { Question, QuestionCategory, QuestionPhase, Assumption, Contradiction } from '@uaip/types';
 
 // ---------------------------------------------------------------------------
 // Scoring interfaces
@@ -38,9 +32,9 @@ export interface RankingConfig {
 const DEFAULT_WEIGHTS: Record<keyof QuestionScore['breakdown'], number> = {
   decisionLeverage: 0.35,
   stakeholderRelevance: 0.25,
-  assumptionCoverage: 0.20,
-  uniqueness: 0.10,
-  urgency: 0.10,
+  assumptionCoverage: 0.2,
+  uniqueness: 0.1,
+  urgency: 0.1,
 };
 
 /** Phase urgency – earlier phases are more urgent. */
@@ -90,7 +84,7 @@ function tokenize(text: string): Set<string> {
     text
       .toLowerCase()
       .split(/[^a-z0-9]+/g)
-      .filter((t) => t.length > 1),
+      .filter((t) => t.length > 1)
   );
 }
 
@@ -111,7 +105,7 @@ function jaccardDistance(a: Set<string>, b: Set<string>): number {
  * any missing keys.
  */
 function normalizeWeights(
-  input?: Partial<Record<keyof QuestionScore['breakdown'], number>>,
+  input?: Partial<Record<keyof QuestionScore['breakdown'], number>>
 ): Record<keyof QuestionScore['breakdown'], number> {
   const merged: Record<keyof QuestionScore['breakdown'], number> = {
     decisionLeverage: input?.decisionLeverage ?? DEFAULT_WEIGHTS.decisionLeverage,
@@ -158,7 +152,7 @@ export class QuestionRankerService {
     questions: Question[],
     assumptions: Assumption[],
     contradictions: Contradiction[],
-    config?: RankingConfig,
+    config?: RankingConfig
   ): QuestionScore[] {
     if (questions.length === 0) {
       return [];
@@ -171,9 +165,7 @@ export class QuestionRankerService {
     const minScore = config?.minScore ?? 0;
 
     // Pre-filter by phase if requested
-    let filtered = phaseFilter
-      ? questions.filter((q) => q.phase === phaseFilter)
-      : questions;
+    const filtered = phaseFilter ? questions.filter((q) => q.phase === phaseFilter) : questions;
 
     if (filtered.length === 0) {
       return [];
@@ -202,10 +194,10 @@ export class QuestionRankerService {
 
       const totalScore = clamp01(
         decisionLeverage * weights.decisionLeverage +
-        stakeholderRelevance * weights.stakeholderRelevance +
-        assumptionCoverage * weights.assumptionCoverage +
-        uniqueness * weights.uniqueness +
-        urgency * weights.urgency,
+          stakeholderRelevance * weights.stakeholderRelevance +
+          assumptionCoverage * weights.assumptionCoverage +
+          uniqueness * weights.uniqueness +
+          urgency * weights.urgency
       );
 
       if (totalScore >= minScore) {
@@ -252,7 +244,7 @@ export class QuestionRankerService {
    */
   clusterQuestions(
     rankedQuestions: QuestionScore[],
-    questions: Question[],
+    questions: Question[]
   ): Map<string, Question[]> {
     const clusters = new Map<string, Question[]>([
       [CLUSTER_MUST_ASK, []],
@@ -336,7 +328,7 @@ export class QuestionRankerService {
   scoreDecisionLeverage(
     question: Question,
     assumptions: Assumption[],
-    contradictions: Contradiction[],
+    contradictions: Contradiction[]
   ): number {
     let score = 0;
 
@@ -354,7 +346,7 @@ export class QuestionRankerService {
     // 2. Contradiction resolution — if the question's tags or text overlap
     //    with assumptions involved in contradictions, it has high leverage.
     const questionTokens = tokenize(question.text);
-    let contradictionHits = 0;
+    let _contradictionHits = 0;
 
     for (const contradiction of contradictions) {
       const contrTokens = tokenize(contradiction.description);
@@ -367,12 +359,15 @@ export class QuestionRankerService {
         this.tokenOverlap(questionTokens, bTokens);
 
       if (overlap > 0) {
-        contradictionHits++;
+        _contradictionHits++;
         // Severity multiplier
         const severityMultiplier =
-          contradiction.severity === 'critical' ? 1.0
-            : contradiction.severity === 'high' ? 0.8
-              : contradiction.severity === 'medium' ? 0.5
+          contradiction.severity === 'critical'
+            ? 1.0
+            : contradiction.severity === 'high'
+              ? 0.8
+              : contradiction.severity === 'medium'
+                ? 0.5
                 : 0.3;
         score += 0.15 * severityMultiplier;
       }
@@ -405,10 +400,7 @@ export class QuestionRankerService {
    * the score is based purely on category breadth (questions that apply to
    * many roles score lower — they are less targeted).
    */
-  scoreStakeholderRelevance(
-    question: Question,
-    stakeholderFilter?: string,
-  ): number {
+  scoreStakeholderRelevance(question: Question, stakeholderFilter?: string): number {
     const affinityRoles = CATEGORY_ROLE_AFFINITY[question.category] ?? [];
 
     if (stakeholderFilter) {
@@ -422,16 +414,13 @@ export class QuestionRankerService {
         return 1.0;
       }
 
-      if (
-        question.stakeholderId &&
-        question.stakeholderId === stakeholderFilter
-      ) {
+      if (question.stakeholderId && question.stakeholderId === stakeholderFilter) {
         return 1.0;
       }
 
       // Category-role affinity match
-      const match = affinityRoles.some((role) =>
-        filterLower.includes(role) || role.includes(filterLower),
+      const match = affinityRoles.some(
+        (role) => filterLower.includes(role) || role.includes(filterLower)
       );
       if (match) {
         return 0.7;
@@ -439,7 +428,7 @@ export class QuestionRankerService {
 
       // Tag-based match
       const hasTagMatch = question.tags.some(
-        (tag) => tag.toLowerCase().includes(filterLower) || filterLower.includes(tag.toLowerCase()),
+        (tag) => tag.toLowerCase().includes(filterLower) || filterLower.includes(tag.toLowerCase())
       );
       if (hasTagMatch) {
         return 0.5;
@@ -459,10 +448,7 @@ export class QuestionRankerService {
    * question challenges or probes, measured by token overlap between the
    * question text and each assumption's content.
    */
-  scoreAssumptionCoverage(
-    question: Question,
-    assumptions: Assumption[],
-  ): number {
+  scoreAssumptionCoverage(question: Question, assumptions: Assumption[]): number {
     if (assumptions.length === 0) return 0;
 
     const questionTokens = tokenize(question.text);
@@ -488,7 +474,7 @@ export class QuestionRankerService {
   scoreUniqueness(
     question: Question,
     allQuestions: Question[],
-    tokenSets?: Map<string, Set<string>>,
+    tokenSets?: Map<string, Set<string>>
   ): number {
     if (allQuestions.length <= 1) return 1.0;
 

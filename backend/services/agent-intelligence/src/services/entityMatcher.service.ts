@@ -15,7 +15,12 @@ import type { DiscoveredEntity } from './processArchaeology.service.js';
 // ---------------------------------------------------------------------------
 
 export interface MatchSignal {
-  type: 'name_similarity' | 'sample_overlap' | 'semantic_match' | 'structural_match' | 'co_occurrence';
+  type:
+    | 'name_similarity'
+    | 'sample_overlap'
+    | 'semantic_match'
+    | 'structural_match'
+    | 'co_occurrence';
   score: number;
   detail: string;
 }
@@ -34,9 +39,9 @@ export interface MatchCandidate {
 const SIGNAL_WEIGHTS = {
   name_similarity: 0.35,
   sample_overlap: 0.25,
-  semantic_match: 0.20,
-  structural_match: 0.10,
-  co_occurrence: 0.10,
+  semantic_match: 0.2,
+  structural_match: 0.1,
+  co_occurrence: 0.1,
 } as const;
 
 // ---------------------------------------------------------------------------
@@ -104,7 +109,7 @@ export class EntityMatcherService {
 
     const score = signals.reduce(
       (sum, signal) => sum + signal.score * SIGNAL_WEIGHTS[signal.type],
-      0,
+      0
     );
 
     return { entityA: a, entityB: b, score, signals };
@@ -114,7 +119,7 @@ export class EntityMatcherService {
    * Cluster matched entities and propose canonical names for each group.
    */
   generateMergeProposal(
-    matches: MatchCandidate[],
+    matches: MatchCandidate[]
   ): Array<{ entities: string[]; proposedName: string; confidence: number; reason: string }> {
     // Build an adjacency list from strong matches
     const adjacency = new Map<string, Set<string>>();
@@ -196,7 +201,9 @@ export class EntityMatcherService {
       }
       const avgConfidence = edgeCount > 0 ? totalConfidence / edgeCount : 0;
 
-      const sourceTypes = new Set(clusterEntities.map((e) => String(e.metadata?.sourceType ?? 'unknown')));
+      const sourceTypes = new Set(
+        clusterEntities.map((e) => String(e.metadata?.sourceType ?? 'unknown'))
+      );
       const names = clusterEntities.map((e) => `"${e.name}"`).join(', ');
       const reason = `Entities ${names} appear across ${sourceTypes.size} source type(s) (${Array.from(sourceTypes).join(', ')}) and share similar naming/values.`;
 
@@ -238,7 +245,7 @@ export class EntityMatcherService {
       lines.push(
         `--- Match (${pct}% confidence) ---`,
         `  A: "${match.entityA.name}" [${match.entityA.type}] from source ${match.entityA.sourceId}`,
-        `  B: "${match.entityB.name}" [${match.entityB.type}] from source ${match.entityB.sourceId}`,
+        `  B: "${match.entityB.name}" [${match.entityB.type}] from source ${match.entityB.sourceId}`
       );
 
       const significantSignals = match.signals.filter((s) => s.score > 0);
@@ -258,7 +265,7 @@ export class EntityMatcherService {
 
     lines.push(
       `${'='.repeat(60)}`,
-      `Summary: ${highConfidence} high, ${mediumConfidence} medium, ${lowConfidence} low confidence match(es).`,
+      `Summary: ${highConfidence} high, ${mediumConfidence} medium, ${lowConfidence} low confidence match(es).`
     );
 
     return lines.join('\n');
@@ -359,7 +366,10 @@ export class EntityMatcherService {
       }
     }
 
-    const score = totalComparisons > 0 ? Math.min(synonymHits / Math.max(tokensA.length, tokensB.length), 1) : 0;
+    const score =
+      totalComparisons > 0
+        ? Math.min(synonymHits / Math.max(tokensA.length, tokensB.length), 1)
+        : 0;
 
     return {
       type: 'semantic_match',
@@ -396,10 +406,7 @@ export class EntityMatcherService {
     // Similar metadata key set
     const keysA = new Set(Object.keys(a.metadata ?? {}));
     const keysB = new Set(Object.keys(b.metadata ?? {}));
-    const metaOverlap = this.jaccardSimilarity(
-      Array.from(keysA),
-      Array.from(keysB),
-    );
+    const metaOverlap = this.jaccardSimilarity(Array.from(keysA), Array.from(keysB));
     score += metaOverlap * 0.3;
     if (metaOverlap > 0.5) {
       details.push(`similar metadata shape (${Math.round(metaOverlap * 100)}% key overlap)`);
@@ -464,15 +471,17 @@ export class EntityMatcherService {
     // Remove file-path segments — take last component
     const basename = name.includes('/') ? name.split('/').pop()! : name;
 
-    return basename
-      // Insert space before uppercase letters (camelCase / PascalCase)
-      .replace(/([a-z0-9])([A-Z])/g, '$1 $2')
-      .replace(/([A-Z]+)([A-Z][a-z])/g, '$1 $2')
-      // Replace separators with spaces
-      .replace(/[_\-./]+/g, ' ')
-      .toLowerCase()
-      .split(/\s+/)
-      .filter((t) => t.length > 0);
+    return (
+      basename
+        // Insert space before uppercase letters (camelCase / PascalCase)
+        .replace(/([a-z0-9])([A-Z])/g, '$1 $2')
+        .replace(/([A-Z]+)([A-Z][a-z])/g, '$1 $2')
+        // Replace separators with spaces
+        .replace(/[_\-./]+/g, ' ')
+        .toLowerCase()
+        .split(/\s+/)
+        .filter((t) => t.length > 0)
+    );
   }
 
   /**
@@ -522,7 +531,7 @@ export class EntityMatcherService {
         matrix[i][j] = Math.min(
           matrix[i - 1][j] + 1,
           matrix[i][j - 1] + 1,
-          matrix[i - 1][j - 1] + cost,
+          matrix[i - 1][j - 1] + cost
         );
       }
     }
@@ -552,7 +561,7 @@ export class EntityMatcherService {
       ['user', 'person', 'member', 'participant'],
       ['order', 'purchase', 'transaction', 'invoice'],
       ['product', 'item', 'sku', 'article', 'good'],
-      ['company', 'org', 'organization', 'organisation', 'business', 'firm'],
+      ['compunknown', 'org', 'organization', 'organisation', 'business', 'firm'],
       ['country', 'nation', 'region'],
       ['city', 'town', 'municipality'],
       ['first', 'given', 'fname'],

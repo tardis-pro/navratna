@@ -14,7 +14,7 @@ import { QdrantHealthService } from './qdrant-health.service';
 import { ChatParserService } from './chat-parser.service';
 import { ChatKnowledgeExtractorService } from './chat-knowledge-extractor.service';
 import { BatchProcessorService } from './batch-processor.service';
-import { DatabaseService } from '../databaseService';
+import { KnowledgeGraphService } from './knowledge-graph.service';
 import { logger } from '@uaip/utils';
 
 export interface BootstrapConfig {
@@ -227,6 +227,7 @@ export class KnowledgeBootstrapService {
 
     while (attempt < this.config.retryAttempts) {
       try {
+        // oxlint-disable-next-line no-await-in-loop
         const result = await this.syncService.universalSync();
 
         logger.info('Universal sync completed:', {
@@ -253,6 +254,7 @@ export class KnowledgeBootstrapService {
             `Universal sync attempt ${attempt} failed, retrying in ${this.config.retryDelay}ms:`,
             error
           );
+          // oxlint-disable-next-line no-await-in-loop
           await new Promise((resolve) => setTimeout(resolve, this.config.retryDelay));
         }
       }
@@ -452,7 +454,9 @@ export class KnowledgeBootstrapService {
     }
 
     // Check Qdrant sync status
-    const qdrantInfo = await this.qdrantService.getCollectionInfo();
+    const qdrantInfo = (await this.qdrantService.getCollectionInfo()) as {
+      result?: { points_count?: number };
+    };
     const syncedToQdrant = qdrantInfo.result?.points_count || 0;
 
     // Estimate fully synced items (conservative approach)
@@ -505,12 +509,14 @@ export class KnowledgeBootstrapService {
       for (const domain of domains) {
         try {
           // Check if ontology already exists
+          // oxlint-disable-next-line no-await-in-loop
           const existingOntology = await this.ontologyBuilder.getOntologyForDomain(domain);
 
           if (!existingOntology) {
             logger.info(`Building ontology for domain: ${domain}`);
 
             // Build and save ontology
+            // oxlint-disable-next-line no-await-in-loop
             const result = await this.ontologyBuilder.buildDomainOntology(domain, undefined, {
               saveToKnowledgeGraph: true,
               minConfidence: 0.6,
@@ -583,10 +589,12 @@ export class KnowledgeBootstrapService {
 
       for (const domain of domains) {
         try {
+          // oxlint-disable-next-line no-await-in-loop
           const items = await this.knowledgeRepository.findByDomain(domain, 100);
 
           if (items.length >= 10) {
             // Minimum items for meaningful taxonomy
+            // oxlint-disable-next-line no-await-in-loop
             const result = await this.taxonomyGenerator.generateTaxonomy(items, domain, {
               maxCategories: 15,
               minCategorySize: 2,
@@ -667,6 +675,7 @@ export class KnowledgeBootstrapService {
       let domainsWithOntologies = 0;
 
       for (const domain of domains) {
+        // oxlint-disable-next-line no-await-in-loop
         const ontology = await this.ontologyBuilder.getOntologyForDomain(domain);
         if (ontology) {
           totalConcepts += ontology.metadata.totalConcepts;
@@ -701,10 +710,10 @@ export class KnowledgeBootstrapService {
    * Check and repair Qdrant health issues
    */
   async checkAndRepairQdrant(): Promise<{
-    healthBefore: any;
+    healthBefore: unknown;
     repairNeeded: boolean;
     repairPerformed: boolean;
-    healthAfter: any;
+    healthAfter: unknown;
     syncResult?: { synced: number; errors: number };
   }> {
     try {
@@ -811,7 +820,7 @@ export class KnowledgeBootstrapService {
   /**
    * Run knowledge reconciliation process
    */
-  async runKnowledgeReconciliation(domain?: string): Promise<any> {
+  async runKnowledgeReconciliation(domain?: string): Promise<unknown> {
     try {
       logger.info('Running knowledge reconciliation...', { domain });
 
@@ -867,7 +876,7 @@ export class KnowledgeBootstrapService {
   /**
    * Initialize batch processor with knowledge graph service
    */
-  initializeBatchProcessor(knowledgeGraphService: any): void {
+  initializeBatchProcessor(knowledgeGraphService: KnowledgeGraphService): void {
     this.batchProcessor = new BatchProcessorService(
       this.chatParser,
       this.chatKnowledgeExtractor,

@@ -8,21 +8,21 @@ import {
   UserType,
   AgentCapability,
   OAuthProviderType,
-  GitHubProviderConfig,
-  EmailProviderConfig,
+  GitHubProviderConfig as _GitHubProviderConfig,
+  EmailProviderConfig as _EmailProviderConfig,
   AuditEventType,
 } from '@uaip/types';
 import { authMiddleware } from '@uaip/middleware';
 import { z } from 'zod';
 
-interface OAuthAuthorizationRequest {
+interface _OAuthAuthorizationRequest {
   providerId: string;
   userType?: UserType;
   agentCapabilities?: AgentCapability[];
   redirectUri?: string;
 }
 
-interface AgentOAuthRequest {
+interface _AgentOAuthRequest {
   agentId: string;
   agentToken: string;
   providerId: string;
@@ -113,7 +113,7 @@ export function createOAuthRoutes(
       const ipAddress = req.ip || req.connection.remoteAddress;
       const userAgent = req.get('User-Agent');
 
-      const { url, state, codeVerifier } = await oauthProviderService.generateAuthorizationUrl(
+      const { url, state, _codeVerifier } = await oauthProviderService.generateAuthorizationUrl(
         validatedData.provider_id,
         validatedData.redirect_uri,
         validatedData.user_type,
@@ -265,7 +265,7 @@ export function createOAuthRoutes(
         error: error.message,
       });
     }
-  }) as any);
+  }) as unknown);
 
   /**
    * Agent OAuth authentication
@@ -566,7 +566,7 @@ export function createOAuthRoutes(
         error: error.message,
       });
     }
-  }) as any);
+  }) as unknown);
 
   // Gmail-specific routes
   router.post('/agent/gmail/:providerId', (async (req: Request, res: Response) => {
@@ -645,7 +645,7 @@ export function createOAuthRoutes(
         error: error.message,
       });
     }
-  }) as any);
+  }) as unknown);
 
   // Health check for OAuth service
   router.get('/health', async (req: Request, res: Response) => {
@@ -675,7 +675,7 @@ export function createOAuthRoutes(
 }
 
 // Helper functions for API calls
-async function makeGitHubAPICall(endpoint: string, accessToken: string): Promise<any> {
+async function _makeGitHubAPICall(endpoint: string, accessToken: string): Promise<unknown> {
   const response = await fetch(`https://api.github.com${endpoint}`, {
     headers: {
       Authorization: `Bearer ${accessToken}`,
@@ -691,7 +691,7 @@ async function makeGitHubAPICall(endpoint: string, accessToken: string): Promise
   return await response.json();
 }
 
-async function makeGmailAPICall(endpoint: string, accessToken: string): Promise<any> {
+async function _makeGmailAPICall(endpoint: string, accessToken: string): Promise<unknown> {
   const response = await fetch(`https://www.googleapis.com${endpoint}`, {
     headers: {
       Authorization: `Bearer ${accessToken}`,

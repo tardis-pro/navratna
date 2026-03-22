@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, _useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
@@ -14,8 +14,8 @@ import {
   Bell,
   Settings,
   RefreshCw,
-  Activity,
-  Zap,
+  _Activity,
+  _Zap,
 } from 'lucide-react';
 import { MarketplaceHome } from './MarketplaceHome';
 import { BattleArena } from './BattleArena';
@@ -42,7 +42,7 @@ export const MarketplaceHub: React.FC<MarketplaceHubProps> = ({
   mode = 'hub',
 }) => {
   const [activeTab, setActiveTab] = useState('marketplace');
-  const [notifications, setNotifications] = useState(3);
+  const [notifications, _setNotifications] = useState(3);
   const [loading, setLoading] = useState(false);
 
   // Default viewport if not provided
@@ -57,23 +57,19 @@ export const MarketplaceHub: React.FC<MarketplaceHubProps> = ({
 
   const currentViewport = viewport || defaultViewport;
 
-  const handleAgentClick = (agentId: string) => {
-    console.log('Navigate to agent:', agentId);
+  const handleAgentClick = (_agentId: string) => {
     // In real implementation, navigate to agent detail page
   };
 
-  const handleUserClick = (userId: string) => {
-    console.log('Navigate to user profile:', userId);
+  const handleUserClick = (_userId: string) => {
     // In real implementation, navigate to user profile
   };
 
   const handleCreateBattle = () => {
-    console.log('Open battle creation modal');
     // In real implementation, open battle creation form
   };
 
-  const handleJoinBattle = (battleId: string) => {
-    console.log('Join battle:', battleId);
+  const handleJoinBattle = (_battleId: string) => {
     // In real implementation, join battle logic
   };
 
@@ -342,7 +338,6 @@ export const MarketplaceHub: React.FC<MarketplaceHubProps> = ({
                 handleCreateBattle();
               } else {
                 // Handle other quick actions based on active tab
-                console.log('Quick action for', activeTab);
               }
             }}
           >

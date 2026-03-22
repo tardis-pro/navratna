@@ -1,4 +1,4 @@
-import type { Actor, Tenant, UAIPEvent } from './index.js';
+import type { Actor, Tenant, UAIPEvent } from './events.js';
 
 export interface EventBusMessage {
   id: string;

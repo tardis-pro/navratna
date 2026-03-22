@@ -20,8 +20,7 @@ const indicatorVariants = cva(
   }
 );
 
-interface MicroexpressionIndicatorProps
-  extends VariantProps<typeof indicatorVariants> {
+interface MicroexpressionIndicatorProps extends VariantProps<typeof indicatorVariants> {
   expression: Microexpression;
   showLabel?: boolean;
   className?: string;
@@ -41,11 +40,7 @@ export function MicroexpressionIndicator({
   return (
     <div className="flex items-center gap-2">
       <div
-        className={cn(
-          indicatorVariants({ size }),
-          `microexpression--${expression}`,
-          className
-        )}
+        className={cn(indicatorVariants({ size }), `microexpression--${expression}`, className)}
         style={{
           borderColor: style.borderColor,
           boxShadow: style.boxShadow,
@@ -58,11 +53,7 @@ export function MicroexpressionIndicator({
       >
         <MicroexpressionIcon type={expression} size={sizeForIcon} />
       </div>
-      {showLabel && (
-        <span className="text-xs text-muted-foreground capitalize">
-          {expression}
-        </span>
-      )}
+      {showLabel && <span className="text-xs text-muted-foreground capitalize">{expression}</span>}
     </div>
   );
 }

@@ -193,8 +193,6 @@ export class ContentClassifier {
   }
 
   private extractTopics(content: string): string[] {
-    const topics: string[] = [];
-
     // Extract capitalized words (potential topics)
     const capitalizedWords = content.match(/\b[A-Z][a-z]+\b/g) || [];
 
@@ -227,7 +225,7 @@ export class ContentClassifier {
     entities.push(...urls.map((url) => `url:${url}`));
 
     // Extract file paths
-    const filePaths = content.match(/[a-zA-Z0-9_-]+\/[a-zA-Z0-9_\/-]+\.[a-zA-Z0-9]+/g) || [];
+    const filePaths = content.match(/[a-zA-Z0-9_-]+\/[a-zA-Z0-9_/-]+\.[a-zA-Z0-9]+/g) || [];
     entities.push(...filePaths.map((path) => `file:${path}`));
 
     // Extract email addresses
@@ -245,7 +243,7 @@ export class ContentClassifier {
     content: string,
     type: KnowledgeType,
     topics: string[],
-    entities: string[]
+    _entities: string[]
   ): string[] {
     const tags: string[] = [];
 

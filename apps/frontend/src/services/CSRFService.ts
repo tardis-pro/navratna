@@ -219,8 +219,10 @@ export const csrfService = CSRFService.getInstance();
 /**
  * Higher-order function to add CSRF protection to API calls
  */
-export function withCSRFProtection<T extends (...args: any[]) => Promise<any>>(apiFunction: T): T {
-  return (async (...args: any[]) => {
+export function withCSRFProtection<T extends (...args: unknown[]) => Promise<unknown>>(
+  apiFunction: T
+): T {
+  return (async (...args: unknown[]) => {
     try {
       const headers = await csrfService.getHeaders();
 

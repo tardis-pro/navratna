@@ -1,11 +1,11 @@
-import { Repository, In } from 'typeorm';
+import { Repository } from 'typeorm';
 import { createLogger } from '@uaip/utils';
 import { BaseDomainService } from './BaseDomainService';
 import { ProjectEntity, ProjectStatus, ProjectVisibility } from '../entities/project.entity';
 import { ProjectMemberEntity, ProjectRole } from '../entities/project-member.entity';
 import { ProjectFileEntity, FileType, FileStatus } from '../entities/project-file.entity';
 
-const logger = createLogger({
+const _logger = createLogger({
   serviceName: 'project-service',
   environment: process.env.NODE_ENV || 'development',
   logLevel: process.env.LOG_LEVEL || 'info',
@@ -45,8 +45,8 @@ export class ProjectService extends BaseDomainService {
     ownerId: string;
     type?: string;
     visibility?: ProjectVisibility;
-    settings?: any;
-    metadata?: any;
+    settings?: Record<string, unknown>;
+    metadata?: Record<string, unknown>;
   }): Promise<ProjectEntity> {
     const projectRepo = this.getProjectRepository();
 
@@ -185,7 +185,7 @@ export class ProjectService extends BaseDomainService {
     type?: string;
     size?: number;
     mimeType?: string;
-    metadata?: any;
+    metadata?: Record<string, unknown>;
   }): Promise<ProjectFileEntity> {
     const fileRepo = this.getProjectFileRepository();
     const file = fileRepo.create({

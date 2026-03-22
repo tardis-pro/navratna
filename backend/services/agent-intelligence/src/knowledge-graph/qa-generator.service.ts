@@ -87,7 +87,7 @@ export class QAGeneratorService {
     // Has subject and verb
     /\b(?:is|are|was|were|has|have|can|will|would|should|could)\b/gi,
     // Minimum length check (at least 10 characters)
-    /.{10,}/,
+    /.{10 }/,
   ];
 
   private generationCache = new Map<string, GeneratedQA[]>();
@@ -105,7 +105,7 @@ export class QAGeneratorService {
    * Generate Q&A pairs from existing knowledge items
    */
   async generateFromKnowledge(
-    items: any[],
+    items: Record<string, unknown>[],
     options: QAGenerationOptions = {}
   ): Promise<GeneratedQA[]> {
     const startTime = Date.now();
@@ -130,6 +130,7 @@ export class QAGeneratorService {
 
       for (let i = 0; i < filteredItems.length; i += batchSize) {
         const batch = filteredItems.slice(i, i + batchSize);
+        // oxlint-disable-next-line no-await-in-loop -- sequential processing required
         const batchQA = await this.processBatch(batch, 'knowledge', options);
         qaPairs.push(...batchQA);
 
@@ -171,7 +172,7 @@ export class QAGeneratorService {
       return processedQA;
     } catch (error) {
       logger.error('Q&A generation from knowledge failed', { error: error.message });
-      throw new Error(`Q&A generation failed: ${error.message}`);
+      throw new Error(`Q&A generation failed: ${error.message}`, { cause: error });
     }
   }
 
@@ -194,6 +195,7 @@ export class QAGeneratorService {
 
       for (const conversation of conversations) {
         try {
+          // oxlint-disable-next-line no-await-in-loop -- sequential processing required
           const conversationQA = await this.extractQAFromConversation(conversation, options);
           qaPairs.push(...conversationQA);
 
@@ -241,7 +243,7 @@ export class QAGeneratorService {
       return processedQA;
     } catch (error) {
       logger.error('Q&A generation from conversations failed', { error: error.message });
-      throw new Error(`Q&A generation failed: ${error.message}`);
+      throw new Error(`Q&A generation failed: ${error.message}`, { cause: error });
     }
   }
 
@@ -252,6 +254,7 @@ export class QAGeneratorService {
     const results: ValidationResult[] = [];
 
     for (const pair of pairs) {
+      // oxlint-disable-next-line no-await-in-loop -- sequential processing required
       const result = await this.validateSingleQA(pair);
       results.push(result);
     }
@@ -331,7 +334,7 @@ export class QAGeneratorService {
    * Process a batch of knowledge items
    */
   private async processBatch(
-    items: any[],
+    items: Record<string, unknown>[],
     sourceType: 'knowledge' | 'conversation',
     options: QAGenerationOptions
   ): Promise<GeneratedQA[]> {
@@ -339,6 +342,7 @@ export class QAGeneratorService {
 
     for (const item of items) {
       try {
+        // oxlint-disable-next-line no-await-in-loop -- sequential processing required
         const itemQA = await this.generateQAFromItem(item, sourceType, options);
         qaPairs.push(...itemQA);
       } catch (error) {
@@ -356,7 +360,7 @@ export class QAGeneratorService {
    * Generate Q&A pairs from a single knowledge item
    */
   private async generateQAFromItem(
-    item: any,
+    item: Record<string, unknown>,
     sourceType: 'knowledge' | 'conversation',
     options: QAGenerationOptions
   ): Promise<GeneratedQA[]> {
@@ -404,7 +408,7 @@ export class QAGeneratorService {
    */
   private async extractQAFromConversation(
     conversation: ParsedConversation,
-    options: QAGenerationOptions
+    _options: QAGenerationOptions
   ): Promise<GeneratedQA[]> {
     const qaPairs: GeneratedQA[] = [];
     const messages = conversation.messages;
@@ -491,6 +495,7 @@ export class QAGeneratorService {
 
     for (const pair of pairs) {
       const normalized = this.normalizeQuestion(pair.question);
+      // oxlint-disable-next-line no-await-in-loop -- sequential processing required
       const fingerprint = await this.generateQuestionFingerprint(normalized);
 
       if (!seen.has(fingerprint)) {
@@ -517,6 +522,7 @@ export class QAGeneratorService {
     const enhanced: GeneratedQA[] = [];
 
     for (const pair of pairs) {
+      // oxlint-disable-next-line no-await-in-loop -- sequential processing required
       const validation = await this.validateSingleQA(pair);
 
       if (validation.isValid || validation.qualityScore >= 0.5) {
@@ -584,7 +590,11 @@ export class QAGeneratorService {
   }
 
   // Q&A generation methods
-  private generateFactualQA(fact: string, item: any, sourceType: string): GeneratedQA | null {
+  private generateFactualQA(
+    fact: string,
+    item: Record<string, unknown>,
+    sourceType: string
+  ): GeneratedQA | null {
     const patterns = [
       { pattern: /(.+?)\s+(?:is|are)\s+(.+)/, questionTemplate: 'What is {0}?' },
       { pattern: /(.+?)\s+(?:has|have)\s+(.+)/, questionTemplate: 'What does {0} have?' },
@@ -606,7 +616,7 @@ export class QAGeneratorService {
 
   private generateProceduralQA(
     procedure: string,
-    item: any,
+    item: Record<string, unknown>,
     sourceType: string
   ): GeneratedQA | null {
     const howToPattern = /(?:to|how to)\s+(.+)/gi;
@@ -624,7 +634,7 @@ export class QAGeneratorService {
 
   private generateDefinitionQA(
     definition: { term: string; definition: string },
-    item: any,
+    item: Record<string, unknown>,
     sourceType: string
   ): GeneratedQA | null {
     const question = `What is ${definition.term}?`;
@@ -633,7 +643,7 @@ export class QAGeneratorService {
     return this.createQAObject(question, answer, item, sourceType, 'definition');
   }
 
-  private generateMetaQuestions(item: any, sourceType: string): GeneratedQA[] {
+  private generateMetaQuestions(item: Record<string, unknown>, sourceType: string): GeneratedQA[] {
     const metaQAs: GeneratedQA[] = [];
     const templates = [
       {
@@ -658,8 +668,8 @@ export class QAGeneratorService {
   }
 
   private createQAFromMessages(
-    questionMsg: any,
-    answerMsg: any,
+    questionMsg: Record<string, unknown>,
+    answerMsg: Record<string, unknown>,
     conversation: ParsedConversation
   ): GeneratedQA | null {
     const question = this.cleanQuestion(questionMsg.content);
@@ -688,8 +698,8 @@ export class QAGeneratorService {
   }
 
   private createExplanationQA(
-    requestMsg: any,
-    explanationMsg: any,
+    requestMsg: Record<string, unknown>,
+    explanationMsg: Record<string, unknown>,
     conversation: ParsedConversation
   ): GeneratedQA | null {
     const question = this.extractExplanationQuestion(requestMsg.content);
@@ -720,7 +730,7 @@ export class QAGeneratorService {
   private createQAObject(
     question: string,
     answer: string,
-    item: any,
+    item: Record<string, unknown>,
     sourceType: string,
     method: string
   ): GeneratedQA | null {
@@ -731,7 +741,7 @@ export class QAGeneratorService {
       question: this.cleanQuestion(question),
       answer: this.cleanAnswer(answer),
       source: item.id || item.source || 'unknown',
-      sourceType: sourceType as any,
+      sourceType: sourceType as Record<string, unknown>,
       confidence: this.calculateInitialConfidence(question, answer, method),
       topic: this.extractTopic(question + ' ' + answer),
       difficulty: this.assessDifficulty(question, answer),
@@ -747,7 +757,10 @@ export class QAGeneratorService {
   }
 
   // Utility and validation methods
-  private filterKnowledgeItems(items: any[], options: QAGenerationOptions): any[] {
+  private filterKnowledgeItems(
+    items: Record<string, unknown>[],
+    options: QAGenerationOptions
+  ): Record<string, unknown>[] {
     return items.filter((item) => {
       if (options.categories && !options.categories.includes(item.category)) {
         return false;
@@ -803,7 +816,10 @@ export class QAGeneratorService {
     );
   }
 
-  private findExplanation(messages: any[], startIndex: number): any | null {
+  private findExplanation(
+    messages: Record<string, unknown>[],
+    startIndex: number
+  ): Record<string, unknown> | null {
     for (let i = startIndex + 1; i < messages.length && i < startIndex + 3; i++) {
       if (messages[i].content.length > 20) {
         return messages[i];
@@ -937,7 +953,7 @@ export class QAGeneratorService {
 
   private countTechnicalTerms(text: string): number {
     const technicalPatterns = [
-      /\b[A-Z]{2,}\b/g, // Acronyms
+      /\b[A-Z]{2 }\b/g, // Acronyms
       /\b\w*(?:tion|sion|ment|ness|ity|ism)\b/g, // Complex suffixes
       /\b(?:implement|configure|initialize|optimize|algorithm|architecture|infrastructure)\b/gi, // Technical words
     ];

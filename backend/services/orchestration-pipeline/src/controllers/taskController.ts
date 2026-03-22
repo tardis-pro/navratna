@@ -1,9 +1,11 @@
 import { Context } from 'elysia';
 import {
   TaskService,
+  TaskEntity,
   CreateTaskRequest,
   UpdateTaskRequest,
   TaskAssignmentRequest,
+  TaskAssignmentSuggestion,
   TaskFilters,
 } from '@uaip/shared-services';
 import { logger } from '@uaip/utils';
@@ -18,6 +20,23 @@ interface AuthenticatedContext extends Context {
     isAdmin?: boolean;
   };
 }
+
+// Controller response types
+interface TaskSuccessResponse<T = TaskEntity> {
+  success: true;
+  data?: T;
+  message?: string;
+  total?: number;
+}
+
+interface TaskErrorResponse {
+  success: false;
+  error: string;
+  details?: string | z.ZodIssue[];
+  message?: string;
+}
+
+type TaskControllerResponse<T = TaskEntity> = TaskSuccessResponse<T> | TaskErrorResponse;
 
 // Validation schemas
 const createTaskSchema = z.object({
@@ -114,7 +133,11 @@ export class TaskController {
   }
 
   // GET /api/v1/projects/:projectId/tasks
-  async getProjectTasks({ params, query, set }: AuthenticatedContext): Promise<any> {
+  async getProjectTasks({
+    params,
+    query,
+    set,
+  }: AuthenticatedContext): Promise<TaskControllerResponse<TaskEntity[]>> {
     try {
       const { projectId } = params as { projectId: string };
       const filters: TaskFilters = {
@@ -124,10 +147,10 @@ export class TaskController {
 
       // Parse array parameters
       if (query.status && typeof query.status === 'string') {
-        filters.status = query.status.split(',') as any;
+        filters.status = query.status.split(',') as TaskFilters['status'];
       }
       if (query.priority && typeof query.priority === 'string') {
-        filters.priority = query.priority.split(',') as any;
+        filters.priority = query.priority.split(',') as TaskFilters['priority'];
       }
       if (query.tags && typeof query.tags === 'string') {
         filters.tags = query.tags.split(',');
@@ -164,7 +187,7 @@ export class TaskController {
   }
 
   // GET /api/v1/tasks/:taskId
-  async getTask({ params, set }: AuthenticatedContext): Promise<any> {
+  async getTask({ params, set }: AuthenticatedContext): Promise<TaskControllerResponse> {
     try {
       const { taskId } = params as { taskId: string };
       const task = await this.taskService.getTaskById(taskId);
@@ -193,7 +216,12 @@ export class TaskController {
   }
 
   // POST /api/v1/projects/:projectId/tasks
-  async createTask({ params, body, user, set }: AuthenticatedContext): Promise<any> {
+  async createTask({
+    params,
+    body,
+    user,
+    set,
+  }: AuthenticatedContext): Promise<TaskControllerResponse> {
     try {
       const { projectId } = params as { projectId: string };
       const userId = user?.id;
@@ -214,9 +242,9 @@ export class TaskController {
         title: validatedData.title,
         description: validatedData.description,
         projectId,
-        priority: validatedData.priority as any,
-        type: validatedData.type as any,
-        assigneeType: validatedData.assigneeType as any,
+        priority: validatedData.priority as CreateTaskRequest['priority'],
+        type: validatedData.type as CreateTaskRequest['type'],
+        assigneeType: validatedData.assigneeType as CreateTaskRequest['assigneeType'],
         assignedToUserId: validatedData.assignedToUserId,
         assignedToAgentId: validatedData.assignedToAgentId,
         dueDate: validatedData.dueDate ? new Date(validatedData.dueDate) : undefined,
@@ -257,7 +285,12 @@ export class TaskController {
   }
 
   // PUT /api/v1/tasks/:taskId
-  async updateTask({ params, body, user, set }: AuthenticatedContext): Promise<any> {
+  async updateTask({
+    params,
+    body,
+    user,
+    set,
+  }: AuthenticatedContext): Promise<TaskControllerResponse> {
     try {
       const { taskId } = params as { taskId: string };
       const userId = user?.id;
@@ -276,10 +309,10 @@ export class TaskController {
       const updateRequest: UpdateTaskRequest = {
         title: validatedData.title,
         description: validatedData.description,
-        status: validatedData.status as any,
-        priority: validatedData.priority as any,
-        type: validatedData.type as any,
-        assigneeType: validatedData.assigneeType as any,
+        status: validatedData.status as UpdateTaskRequest['status'],
+        priority: validatedData.priority as UpdateTaskRequest['priority'],
+        type: validatedData.type as UpdateTaskRequest['type'],
+        assigneeType: validatedData.assigneeType as UpdateTaskRequest['assigneeType'],
         assignedToUserId: validatedData.assignedToUserId,
         assignedToAgentId: validatedData.assignedToAgentId,
         dueDate: validatedData.dueDate ? new Date(validatedData.dueDate) : undefined,
@@ -320,7 +353,12 @@ export class TaskController {
   }
 
   // POST /api/v1/tasks/:taskId/assign
-  async assignTask({ params, body, user, set }: AuthenticatedContext): Promise<any> {
+  async assignTask({
+    params,
+    body,
+    user,
+    set,
+  }: AuthenticatedContext): Promise<TaskControllerResponse> {
     try {
       const { taskId } = params as { taskId: string };
       const userId = user?.id;
@@ -339,7 +377,7 @@ export class TaskController {
       const assignRequest: TaskAssignmentRequest = {
         taskId,
         assignedBy: userId,
-        assigneeType: validatedData.assigneeType as any,
+        assigneeType: validatedData.assigneeType as TaskAssignmentRequest['assigneeType'],
         assignedToUserId: validatedData.assignedToUserId,
         assignedToAgentId: validatedData.assignedToAgentId,
         reason: validatedData.reason,
@@ -374,7 +412,10 @@ export class TaskController {
   }
 
   // GET /api/v1/tasks/:taskId/assignment-suggestions
-  async getAssignmentSuggestions({ params, set }: AuthenticatedContext): Promise<any> {
+  async getAssignmentSuggestions({
+    params,
+    set,
+  }: AuthenticatedContext): Promise<TaskControllerResponse<TaskAssignmentSuggestion[]>> {
     try {
       const { taskId } = params as { taskId: string };
       const suggestions = await this.taskService.getTaskAssignmentSuggestions(taskId);
@@ -395,7 +436,11 @@ export class TaskController {
   }
 
   // PUT /api/v1/tasks/:taskId/progress
-  async updateTaskProgress({ params, body, set }: AuthenticatedContext): Promise<any> {
+  async updateTaskProgress({
+    params,
+    body,
+    set,
+  }: AuthenticatedContext): Promise<TaskControllerResponse> {
     try {
       const { taskId } = params as { taskId: string };
 
@@ -435,7 +480,7 @@ export class TaskController {
   }
 
   // DELETE /api/v1/tasks/:taskId
-  async deleteTask({ params, user, set }: AuthenticatedContext): Promise<any> {
+  async deleteTask({ params, user, set }: AuthenticatedContext): Promise<TaskControllerResponse> {
     try {
       const { taskId } = params as { taskId: string };
       const userId = user?.id;
@@ -466,7 +511,10 @@ export class TaskController {
   }
 
   // GET /api/v1/projects/:projectId/tasks/statistics
-  async getTaskStatistics({ params, set }: AuthenticatedContext): Promise<any> {
+  async getTaskStatistics({
+    params,
+    set,
+  }: AuthenticatedContext): Promise<TaskControllerResponse<Record<string, unknown>>> {
     try {
       const { projectId } = params as { projectId: string };
       const statistics = await this.taskService.getTaskStatistics(projectId);
@@ -487,13 +535,18 @@ export class TaskController {
   }
 
   // GET /api/v1/users/:userId/tasks
-  async getUserTasks({ params, query, user, set }: AuthenticatedContext): Promise<any> {
+  async getUserTasks({
+    params,
+    query,
+    user,
+    set,
+  }: AuthenticatedContext): Promise<TaskControllerResponse<TaskEntity[]>> {
     try {
       const { userId } = params as { userId: string };
       const currentUserId = user?.id;
 
       // Users can only see their own tasks unless they're admin
-      if (userId !== currentUserId && !(user as any)?.isAdmin) {
+      if (userId !== currentUserId && !user?.isAdmin) {
         set.status = 403;
         return {
           success: false,
@@ -501,7 +554,7 @@ export class TaskController {
         };
       }
 
-      const filters: TaskFilters = {
+      const _filters: TaskFilters = {
         assignedToUserId: userId,
         ...query,
       };
@@ -527,11 +580,15 @@ export class TaskController {
   }
 
   // GET /api/v1/agents/:agentId/tasks
-  async getAgentTasks({ params, query, set }: AuthenticatedContext): Promise<any> {
+  async getAgentTasks({
+    params,
+    query,
+    set,
+  }: AuthenticatedContext): Promise<TaskControllerResponse<TaskEntity[]>> {
     try {
       const { agentId } = params as { agentId: string };
 
-      const filters: TaskFilters = {
+      const _filters: TaskFilters = {
         assignedToAgentId: agentId,
         ...query,
       };

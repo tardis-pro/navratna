@@ -30,9 +30,9 @@ export interface ConversationState {
 export const useConversationEnhancement = (options: UseConversationEnhancementOptions = {}) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [conversationHealth, setConversationHealth] = useState<any>(null);
-  const [flowAnalysis, setFlowAnalysis] = useState<any>(null);
-  const [insights, setInsights] = useState<any>(null);
+  const [conversationHealth, setConversationHealth] = useState<unknown>(null);
+  const [flowAnalysis, setFlowAnalysis] = useState<unknown>(null);
+  const [insights, setInsights] = useState<unknown>(null);
 
   // Get enhanced contribution from agents
   const getEnhancedContribution = useCallback(async (request: ConversationEnhancementRequest) => {
@@ -81,7 +81,7 @@ export const useConversationEnhancement = (options: UseConversationEnhancementOp
 
   // Create hybrid persona
   const createHybridPersona = useCallback(
-    async (persona1Id: string, persona2Id: string, hybridConfig?: any) => {
+    async (persona1Id: string, persona2Id: string, hybridConfig?: unknown) => {
       setLoading(true);
       setError(null);
 
@@ -105,7 +105,7 @@ export const useConversationEnhancement = (options: UseConversationEnhancementOp
 
   // Generate contextual response
   const generateContextualResponse = useCallback(
-    async (agentId: string, personaId: string, context: any, baseContent: string) => {
+    async (agentId: string, personaId: string, context: unknown, baseContent: string) => {
       setLoading(true);
       setError(null);
 
@@ -178,7 +178,11 @@ export const useConversationEnhancement = (options: UseConversationEnhancementOp
 
   // Enhanced conversation flow analysis
   const getFlowAnalysis = useCallback(
-    async (discussionId: string, messageHistory: any[], conversationState: ConversationState) => {
+    async (
+      discussionId: string,
+      messageHistory: unknown[],
+      conversationState: ConversationState
+    ) => {
       const result = await analyzeConversation({
         discussionId,
         messageHistory,
@@ -192,7 +196,11 @@ export const useConversationEnhancement = (options: UseConversationEnhancementOp
 
   // Enhanced conversation insights
   const getConversationInsights = useCallback(
-    async (discussionId: string, messageHistory: any[], conversationState: ConversationState) => {
+    async (
+      discussionId: string,
+      messageHistory: unknown[],
+      conversationState: ConversationState
+    ) => {
       const result = await analyzeConversation({
         discussionId,
         messageHistory,

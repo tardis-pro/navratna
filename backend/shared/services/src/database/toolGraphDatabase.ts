@@ -3,7 +3,7 @@
 // Part of @uaip/shared-services
 
 import neo4j, { Driver, Session, Result } from 'neo4j-driver';
-import { ToolDefinition, ToolExample } from '@uaip/types';
+import { ToolDefinition, ToolExample, MCPServerCapabilities } from '@uaip/types';
 import { logger } from '@uaip/utils';
 import { config, DatabaseConfig } from '@uaip/config';
 
@@ -11,7 +11,7 @@ export interface ToolRelationship {
   type: 'DEPENDS_ON' | 'SIMILAR_TO' | 'REPLACES' | 'ENHANCES' | 'REQUIRES';
   strength: number; // 0.0 to 1.0
   reason?: string;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 export interface ToolRecommendation {
@@ -28,6 +28,33 @@ export interface UsagePattern {
   successRate: number;
   avgExecutionTime: number;
   contextPatterns: string[];
+}
+
+export interface ToolUsageAnalyticsRecord {
+  toolId: string;
+  toolName: string;
+  agentId: string;
+  frequency: number;
+  successRate: number;
+  avgExecutionTime: number;
+  lastUsed: string;
+}
+
+export interface AgentToolPreference {
+  toolId: string;
+  toolName: string;
+  category: string;
+  frequency: number;
+  successRate: number;
+}
+
+export interface PopularToolRecord {
+  toolId: string;
+  toolName: string;
+  category: string;
+  totalUsage: number;
+  avgSuccessRate: number;
+  avgExecutionTime: number;
 }
 
 export class ToolGraphDatabase {
@@ -80,10 +107,9 @@ export class ToolGraphDatabase {
       const session = this.driver.session({ database: this.database });
       try {
         logger.info(`🔄 Verifying Neo4j connectivity (attempt ${attempt}/${maxRetries})`);
-        logger.info(
-          `Neo4j config: uri=${this.configUri}, database=${this.database}`
-        );
+        logger.info(`Neo4j config: uri=${this.configUri}, database=${this.database}`);
 
+        // oxlint-disable-next-line no-await-in-loop -- sequential processing required
         const result = await session.run('RETURN 1 as test');
 
         // Enhanced debugging
@@ -104,7 +130,10 @@ export class ToolGraphDatabase {
         try {
           testValue = record.get('test');
         } catch (recordError) {
-          throw new Error(`Failed to get 'test' field from record: ${recordError.message}`);
+          throw new Error(
+            `Failed to get 'test' field from record: ${(recordError as Error).message}`,
+            { cause: recordError }
+          );
         }
 
         logger.info(`Neo4j test value: ${testValue} (type: ${typeof testValue})`);
@@ -140,6 +169,7 @@ export class ToolGraphDatabase {
         if (attempt < maxRetries) {
           const delay = Math.min(1000 * Math.pow(2, attempt - 1), 5000); // Exponential backoff, max 5s
           logger.info(`⏳ Retrying Neo4j connection in ${delay}ms...`);
+          // oxlint-disable-next-line no-await-in-loop -- sequential processing required
           await new Promise((resolve) => setTimeout(resolve, delay));
         } else {
           this.isConnected = false;
@@ -150,6 +180,7 @@ export class ToolGraphDatabase {
           return; // Return gracefully instead of throwing
         }
       } finally {
+        // oxlint-disable-next-line no-await-in-loop -- sequential processing required
         await session.close();
       }
     }
@@ -163,8 +194,8 @@ export class ToolGraphDatabase {
       try {
         await this.verifyConnectivity(2); // Quick retry
       } catch (error) {
-        logger.warn(`${operationName} skipped - Neo4j not available:`, error.message);
-        throw new Error(`Neo4j not available: ${error.message}`);
+        logger.warn(`${operationName} skipped - Neo4j not available:`, (error as Error).message);
+        throw new Error(`Neo4j not available: ${(error as Error).message}`, { cause: error });
       }
     }
 
@@ -187,7 +218,7 @@ export class ToolGraphDatabase {
   }
 
   // General query execution method
-  async runQuery(cypher: string, params?: Record<string, any>): Promise<Result> {
+  async runQuery(cypher: string, params?: Record<string, unknown>): Promise<Result> {
     if (!this.isConnected) {
       throw new Error('Neo4j not connected');
     }
@@ -247,7 +278,7 @@ export class ToolGraphDatabase {
   async updateToolNode(toolId: string, updates: Partial<ToolDefinition>): Promise<void> {
     return this.executeWithRetry(async (session) => {
       const setClause: string[] = ['t.updated_at = datetime()'];
-      const params: Record<string, any> = { id: toolId };
+      const params: Record<string, unknown> = { id: toolId };
 
       if (updates.name) {
         setClause.push('t.name = $name');
@@ -482,14 +513,17 @@ export class ToolGraphDatabase {
   }
 
   // Analytics and Insights
-  async getToolUsageAnalytics(toolId?: string, agentId?: string): Promise<any[]> {
+  async getToolUsageAnalytics(
+    toolId?: string,
+    agentId?: string
+  ): Promise<ToolUsageAnalyticsRecord[]> {
     const session = this.driver.session({ database: this.database });
     try {
       let query = `
         MATCH (a:Agent)-[u:USES]->(t:Tool)
         WHERE 1=1
       `;
-      const params: Record<string, any> = {};
+      const params: Record<string, unknown> = {};
 
       if (toolId) {
         query += ' AND t.id = $toolId';
@@ -575,7 +609,7 @@ export class ToolGraphDatabase {
   }
 
   // Utility Methods
-  async getAgentToolPreferences(agentId: string): Promise<any[]> {
+  async getAgentToolPreferences(agentId: string): Promise<unknown[]> {
     const session = this.driver.session({ database: this.database });
     try {
       const result = await session.run(
@@ -601,13 +635,13 @@ export class ToolGraphDatabase {
     }
   }
 
-  async getPopularTools(category?: string, limit = 10): Promise<any[]> {
+  async getPopularTools(category?: string, limit = 10): Promise<unknown[]> {
     const session = this.driver.session({ database: this.database });
     try {
       let query = `
         MATCH (a:Agent)-[u:USES]->(t:Tool)
       `;
-      const params: Record<string, any> = { limit };
+      const params: Record<string, unknown> = { limit };
 
       if (category) {
         query += ' WHERE t.category = $category';
@@ -649,9 +683,9 @@ export class ToolGraphDatabase {
     name: string;
     type: string;
     status: string;
-    capabilities?: any;
+    capabilities?: unknown;
     tags?: string[];
-    metadata?: Record<string, any>;
+    metadata?: Record<string, unknown>;
   }): Promise<void> {
     if (this.shouldSkipOperation(`Create MCP server node ${serverData.id}`)) {
       return;
@@ -684,7 +718,7 @@ export class ToolGraphDatabase {
   /**
    * Update MCP Server node in Neo4j
    */
-  async updateMcpServerNode(serverId: string, updates: Record<string, any>): Promise<void> {
+  async updateMcpServerNode(serverId: string, updates: Record<string, unknown>): Promise<void> {
     if (this.shouldSkipOperation(`Update MCP server node ${serverId}`)) {
       return;
     }
@@ -731,7 +765,7 @@ export class ToolGraphDatabase {
     duration?: number;
     agentId?: string;
     timestamp: Date;
-    metadata?: Record<string, any>;
+    metadata?: Record<string, unknown>;
   }): Promise<void> {
     if (this.shouldSkipOperation(`Create MCP tool call node ${toolCallData.id}`)) {
       return;
@@ -786,7 +820,7 @@ export class ToolGraphDatabase {
   /**
    * Update MCP Tool Call status and metrics
    */
-  async updateMcpToolCallNode(toolCallId: string, updates: Record<string, any>): Promise<void> {
+  async updateMcpToolCallNode(toolCallId: string, updates: Record<string, unknown>): Promise<void> {
     if (this.shouldSkipOperation(`Update MCP tool call node ${toolCallId}`)) {
       return;
     }
@@ -891,7 +925,7 @@ export class ToolGraphDatabase {
 
     return await this.executeWithRetry(async (session) => {
       let query = `MATCH (tc:MCPToolCall)`;
-      const params: Record<string, any> = {};
+      const params: Record<string, unknown> = {};
 
       if (serverId) {
         query += `-[:EXECUTED_ON]->(s:MCPServer {id: $serverId})`;
@@ -923,7 +957,7 @@ export class ToolGraphDatabase {
         };
       }
 
-      const errors = record.get('errors').filter((e: any) => e !== null);
+      const errors = record.get('errors').filter((e: unknown) => e !== null);
       const errorCounts = errors.reduce((acc: Record<string, number>, error: string) => {
         acc[error] = (acc[error] || 0) + 1;
         return acc;

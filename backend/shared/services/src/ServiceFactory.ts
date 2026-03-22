@@ -20,8 +20,8 @@ import { MemoryConsolidator } from './agent-memory/memory-consolidator.service';
 import { ToolManagementService } from './tool-management.service';
 import { OperationManagementService } from './operation-management.service';
 import { KnowledgeItemEntity, KnowledgeRelationshipEntity } from './entities/index';
-import { seedDatabase } from './database/seeders/index';
-import { KnowledgeBootstrapService } from './knowledge-graph/bootstrap.service';
+import { seedDatabase as _seedDatabase } from './database/seeders/index';
+import { KnowledgeBootstrapService as _KnowledgeBootstrapService } from './knowledge-graph/bootstrap.service';
 import { KnowledgeSyncService } from './knowledge-graph/knowledge-sync.service';
 import { ToolGraphDatabase } from './database/toolGraphDatabase';
 
@@ -31,7 +31,7 @@ import { ToolGraphDatabase } from './database/toolGraphDatabase';
  */
 export class ServiceFactory {
   private static instance: ServiceFactory;
-  private serviceInstances = new Map<string, any>();
+  private serviceInstances = new Map<string, unknown>();
   private initialized = false;
   private logger = createLogger({
     serviceName: 'service-factory',
@@ -62,7 +62,7 @@ export class ServiceFactory {
       // Initialize TypeORM first
       await typeormService.initialize();
       this.serviceInstances.set('typeorm', typeormService);
-      const dataSource = typeormService.getDataSource();
+      const _dataSource = typeormService.getDataSource();
 
       // Initialize standalone Redis cache service
       try {
@@ -364,17 +364,19 @@ export class ServiceFactory {
   }> {
     const services: Record<string, boolean> = {};
 
-    for (const [serviceName, serviceInstance] of this.serviceInstances) {
-      try {
-        if (serviceInstance && typeof serviceInstance.isHealthy === 'function') {
-          services[serviceName] = await serviceInstance.isHealthy();
-        } else {
-          services[serviceName] = !!serviceInstance;
+    await Promise.all(
+      Array.from(this.serviceInstances.entries()).map(async ([serviceName, serviceInstance]) => {
+        try {
+          if (serviceInstance && typeof serviceInstance.isHealthy === 'function') {
+            services[serviceName] = await serviceInstance.isHealthy();
+          } else {
+            services[serviceName] = !!serviceInstance;
+          }
+        } catch {
+          services[serviceName] = false;
         }
-      } catch (error) {
-        services[serviceName] = false;
-      }
-    }
+      })
+    );
 
     // Get database health including cache status
     let databaseHealth;
@@ -408,16 +410,16 @@ export class ServiceFactory {
   /**
    * Get LLM Service instance
    */
-  getLLMService(): any {
+  getLLMService(): unknown {
     if (!this.serviceInstances.has('llmService')) {
       this.logger.info('Creating LLM Service instance');
       // Placeholder LLM service - actual implementation would import from @uaip/llm-service
       const llmService = {
-        async generateResponse(prompt: string, options?: any): Promise<string> {
+        async generateResponse(prompt: string, _options?: unknown): Promise<string> {
           this.logger.info('LLM generateResponse called', { prompt: prompt.substring(0, 100) });
           return 'Mock LLM response';
         },
-        async analyzeContent(content: string): Promise<any> {
+        async analyzeContent(_content: string): Promise<unknown> {
           this.logger.info('LLM analyzeContent called');
           return { sentiment: 'neutral', topics: [], confidence: 0.5 };
         },
@@ -430,12 +432,12 @@ export class ServiceFactory {
   /**
    * Get User LLM Service instance
    */
-  getUserLLMService(): any {
+  getUserLLMService(): unknown {
     if (!this.serviceInstances.has('userLLMService')) {
       this.logger.info('Creating User LLM Service instance');
       // Placeholder User LLM service - actual implementation would import from @uaip/llm-service
       const userLLMService = {
-        async getUserProviders(userId: string): Promise<any[]> {
+        async getUserProviders(userId: string): Promise<unknown[]> {
           this.logger.info('UserLLM getUserProviders called', { userId });
           return [];
         },
@@ -456,15 +458,19 @@ export class ServiceFactory {
   async shutdown(): Promise<void> {
     this.logger.info('Shutting down ServiceFactory...');
 
-    for (const [serviceName, serviceInstance] of this.serviceInstances) {
-      try {
-        if (serviceInstance && typeof serviceInstance.close === 'function') {
-          await serviceInstance.close();
+    await Promise.all(
+      Array.from(this.serviceInstances.entries()).map(async ([serviceName, serviceInstance]) => {
+        try {
+          if (serviceInstance && typeof serviceInstance.close === 'function') {
+            await serviceInstance.close();
+          }
+        } catch (error) {
+          this.logger.error(`Error shutting down service: ${serviceName}`, {
+            error: error.message,
+          });
         }
-      } catch (error) {
-        this.logger.error(`Error shutting down service: ${serviceName}`, { error: error.message });
-      }
-    }
+      })
+    );
 
     // Close TypeORM last
     try {

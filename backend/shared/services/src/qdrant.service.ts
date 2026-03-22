@@ -1,7 +1,7 @@
 interface VectorSearchOptions {
   limit: number;
   threshold: number;
-  filters?: any;
+  filters?: unknown;
 }
 
 export type MemoryCollectionType = 'episodic' | 'semantic';
@@ -13,7 +13,7 @@ interface CollectionOptions {
 interface VectorSearchResult {
   id: string;
   score: number;
-  payload?: any;
+  payload?: unknown;
 }
 
 export class QdrantService {
@@ -79,7 +79,12 @@ export class QdrantService {
       'http://127.0.0.1:6333',
     ];
 
-    for (const url of possibleUrls) {
+    const findHealthyUrl = async (index: number): Promise<string> => {
+      if (index >= possibleUrls.length) {
+        throw new Error('Unable to connect to Qdrant service');
+      }
+
+      const url = possibleUrls[index];
       try {
         const healthResponse = await fetch(`${url}/healthz`, {
           signal: AbortSignal.timeout(3000),
@@ -88,15 +93,14 @@ export class QdrantService {
         if (healthResponse.ok) {
           this.qdrantUrl = url;
           this.isConnected = true;
-          console.log(`✅ Connected to Qdrant at: ${url}`);
           return url;
         }
-      } catch (error) {
-        continue;
-      }
-    }
+      } catch {}
 
-    throw new Error('Unable to connect to Qdrant service');
+      return findHealthyUrl(index + 1);
+    };
+
+    return findHealthyUrl(0);
   }
 
   async search(
@@ -135,14 +139,14 @@ export class QdrantService {
       }
 
       const data = await response.json();
-      return data.result.map((item: any) => ({
+      return data.result.map((item: unknown) => ({
         id: item.id,
         score: item.score,
         payload: item.payload,
       }));
     } catch (error) {
       console.error('Qdrant search error:', error);
-      throw new Error(`Vector search failed: ${error.message}`);
+      throw new Error(`Vector search failed: ${error.message}`, { cause: error });
     }
   }
 
@@ -164,7 +168,7 @@ export class QdrantService {
           created_at: new Date().toISOString(),
         },
       }));
-      console.log('points', points);
+
       const response = await fetch(`${workingUrl}/collections/${collectionName}/points`, {
         method: 'PUT',
         headers: {
@@ -174,13 +178,13 @@ export class QdrantService {
           points: points,
         }),
       });
-      console.log('response', await response.json());
+
       if (!response.ok) {
         throw new Error(`Qdrant storage failed: ${response.statusText}`);
       }
     } catch (error) {
       console.error('Qdrant storage error:', error);
-      throw new Error(`Vector storage failed: ${error.message}`);
+      throw new Error(`Vector storage failed: ${error.message}`, { cause: error });
     }
   }
 
@@ -225,7 +229,7 @@ export class QdrantService {
       }
     } catch (error) {
       console.error('Qdrant deletion error:', error);
-      throw new Error(`Vector deletion failed: ${error.message}`);
+      throw new Error(`Vector deletion failed: ${error.message}`, { cause: error });
     }
   }
 
@@ -272,10 +276,7 @@ export class QdrantService {
         if (!createResponse.ok) {
           throw new Error(`Failed to create Qdrant collection: ${createResponse.statusText}`);
         }
-
-        console.log(`✅ Created Qdrant collection: ${collectionName}`);
       } else if (checkResponse.ok) {
-        console.log(`✅ Qdrant collection exists: ${collectionName}`);
       } else {
         throw new Error(`Unexpected response status: ${checkResponse.status}`);
       }
@@ -289,7 +290,7 @@ export class QdrantService {
         container: process.env.container,
         KUBERNETES_SERVICE_HOST: process.env.KUBERNETES_SERVICE_HOST,
       });
-      throw new Error(`Failed to ensure Qdrant collection: ${error.message}`);
+      throw new Error(`Failed to ensure Qdrant collection: ${error.message}`, { cause: error });
     }
   }
 
@@ -300,7 +301,7 @@ export class QdrantService {
     await this.store(data.knowledgeItemId, data.embeddings, { collection: options.collection });
   }
 
-  async getCollectionInfo(collectionOptions?: CollectionOptions): Promise<any> {
+  async getCollectionInfo(collectionOptions?: CollectionOptions): Promise<unknown> {
     try {
       const workingUrl = await this.ensureConnection();
       const collectionName = this.getCollectionName(collectionOptions);
@@ -314,7 +315,7 @@ export class QdrantService {
       return response.json();
     } catch (error) {
       console.error('Qdrant collection info error:', error);
-      throw new Error(`Failed to get collection info: ${error.message}`);
+      throw new Error(`Failed to get collection info: ${error.message}`, { cause: error });
     }
   }
 
@@ -325,7 +326,7 @@ export class QdrantService {
         signal: AbortSignal.timeout(3000),
       });
       return response.ok;
-    } catch (error) {
+    } catch {
       return false;
     }
   }
@@ -339,17 +340,13 @@ export class QdrantService {
     }
 
     try {
-      const workingUrl = await this.ensureConnection();
+      const _workingUrl = await this.ensureConnection();
 
       // Check current collection configuration
       const collectionInfo = await this.getCollectionInfo({ collection: 'semantic' });
       const currentDimensions = collectionInfo.result?.config?.params?.vectors?.size;
 
       if (currentDimensions !== newDimensions) {
-        console.log(
-          `Updating Qdrant collection dimensions from ${currentDimensions} to ${newDimensions}`
-        );
-
         // Delete existing collection
         await this.deleteCollection({ collection: 'episodic' });
         await this.deleteCollection({ collection: 'semantic' });
@@ -359,15 +356,13 @@ export class QdrantService {
 
         // Recreate collection with new dimensions
         await this.initialize();
-
-        console.log(`✅ Qdrant collection updated to ${newDimensions} dimensions`);
       } else {
         // Just update our local configuration
         this.embeddingDimensions = newDimensions;
       }
     } catch (error) {
       console.error('Failed to update embedding dimensions:', error);
-      throw new Error(`Failed to update embedding dimensions: ${error.message}`);
+      throw new Error(`Failed to update embedding dimensions: ${error.message}`, { cause: error });
     }
   }
 
@@ -387,11 +382,9 @@ export class QdrantService {
       if (!response.ok && response.status !== 404) {
         throw new Error(`Failed to delete collection: ${response.statusText}`);
       }
-
-      console.log(`🗑️ Deleted Qdrant collection: ${collectionName}`);
     } catch (error) {
       console.error('Qdrant collection deletion error:', error);
-      throw new Error(`Failed to delete collection: ${error.message}`);
+      throw new Error(`Failed to delete collection: ${error.message}`, { cause: error });
     }
   }
 
@@ -410,7 +403,7 @@ export class QdrantService {
       id: string;
       content: string;
       embedding: number[];
-      metadata?: Record<string, any>;
+      metadata?: Record<string, unknown>;
     }>,
     collectionOptions?: CollectionOptions
   ): Promise<void> {
@@ -444,7 +437,7 @@ export class QdrantService {
       }
     } catch (error) {
       console.error('Qdrant upsert error:', error);
-      throw new Error(`Vector upsert failed: ${error.message}`);
+      throw new Error(`Vector upsert failed: ${error.message}`, { cause: error });
     }
   }
 
@@ -455,7 +448,7 @@ export class QdrantService {
     points: Array<{
       id: string;
       vector: number[];
-      payload: Record<string, any>;
+      payload: Record<string, unknown>;
     }>,
     collectionOptions?: CollectionOptions
   ): Promise<void> {
@@ -476,7 +469,7 @@ export class QdrantService {
       }
     } catch (error) {
       console.error('Qdrant upsert error:', error);
-      throw new Error(`Vector upsert failed: ${error.message}`);
+      throw new Error(`Vector upsert failed: ${error.message}`, { cause: error });
     }
   }
 
@@ -490,7 +483,7 @@ export class QdrantService {
     Array<{
       id: string;
       vector: number[];
-      payload: Record<string, any>;
+      payload: Record<string, unknown>;
     }>
   > {
     try {
@@ -514,14 +507,14 @@ export class QdrantService {
       }
 
       const data = await response.json();
-      return data.result.map((item: any) => ({
+      return data.result.map((item: unknown) => ({
         id: item.id,
         vector: item.vector,
         payload: item.payload,
       }));
     } catch (error) {
       console.error('Qdrant get points error:', error);
-      throw new Error(`Vector get points failed: ${error.message}`);
+      throw new Error(`Vector get points failed: ${error.message}`, { cause: error });
     }
   }
 
@@ -548,14 +541,14 @@ export class QdrantService {
       }
     } catch (error) {
       console.error('Qdrant delete points error:', error);
-      throw new Error(`Vector delete points failed: ${error.message}`);
+      throw new Error(`Vector delete points failed: ${error.message}`, { cause: error });
     }
   }
 
   /**
    * Get document by ID
    */
-  async getById(documentId: string, collectionOptions?: CollectionOptions): Promise<any> {
+  async getById(documentId: string, collectionOptions?: CollectionOptions): Promise<unknown> {
     try {
       const workingUrl = await this.ensureConnection();
       const collectionName = this.getCollectionName(collectionOptions);
@@ -586,7 +579,7 @@ export class QdrantService {
       };
     } catch (error) {
       console.error('Qdrant get error:', error);
-      throw new Error(`Vector get failed: ${error.message}`);
+      throw new Error(`Vector get failed: ${error.message}`, { cause: error });
     }
   }
 }

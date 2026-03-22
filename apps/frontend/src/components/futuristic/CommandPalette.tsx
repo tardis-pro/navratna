@@ -15,7 +15,7 @@ import { PortalConfig } from './PortalManager';
 interface CommandPaletteProps {
   isOpen: boolean;
   onClose: () => void;
-  onCreatePortal: (template: PortalConfig, customProps?: any) => string;
+  onCreatePortal: (template: PortalConfig, customProps?: unknown) => string;
   templates: PortalConfig[];
 }
 
@@ -117,7 +117,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
       ...cmd,
       action: () => {
         // Handle system commands
-        console.log(`Executing command: ${cmd.id}`);
+
         onClose();
       },
     })),

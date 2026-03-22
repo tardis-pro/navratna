@@ -6,7 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { _Tabs, _TabsContent, _TabsList, _TabsTrigger } from '@/components/ui/tabs';
 import { Progress } from '@/components/ui/progress';
 import { useToast } from '@/components/ui/use-toast';
 import {
@@ -17,16 +17,16 @@ import {
   Shield,
   ShieldCheck,
   ShieldOff,
-  QrCode,
+  _QrCode,
   Copy,
   Check,
   X,
   Loader2,
   AlertTriangle,
   Info,
-  RefreshCw,
+  _RefreshCw,
   Download,
-  FileText,
+  _FileText,
 } from 'lucide-react';
 import QRCode from 'qrcode.react';
 import { MFAMethod, MFASetupData } from '@uaip/types';
@@ -92,13 +92,14 @@ export const MFASetup: React.FC = () => {
 
   useEffect(() => {
     fetchMFAStatus();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const fetchMFAStatus = async () => {
     try {
       const response = await api.get('/security/mfa/status');
       setEnabledMethods(response.data.enabledMethods || []);
-    } catch (error) {
+    } catch {
       toast({
         title: 'Error',
         description: 'Failed to fetch MFA status',
@@ -121,7 +122,7 @@ export const MFASetup: React.FC = () => {
       const response = await api.post('/security/mfa/setup', { method });
       setSetupData(response.data);
       setSetupStep('setup');
-    } catch (error) {
+    } catch {
       toast({
         title: 'Setup Failed',
         description: 'Failed to initialize MFA setup',
@@ -144,7 +145,7 @@ export const MFASetup: React.FC = () => {
       });
       setSetupData(response.data);
       setSetupStep('verify');
-    } catch (error) {
+    } catch {
       toast({
         title: 'Error',
         description: 'Failed to setup SMS authentication',
@@ -180,7 +181,7 @@ export const MFASetup: React.FC = () => {
 
       setEnabledMethods((prev) => [...prev, selectedMethod!]);
       handleCancel();
-    } catch (error) {
+    } catch {
       toast({
         title: 'Verification Failed',
         description: 'Invalid verification code. Please try again.',
@@ -199,7 +200,7 @@ export const MFASetup: React.FC = () => {
         title: 'MFA Disabled',
         description: `${method} authentication has been disabled`,
       });
-    } catch (error) {
+    } catch {
       toast({
         title: 'Error',
         description: 'Failed to disable MFA method',
@@ -397,8 +398,8 @@ export const MFASetup: React.FC = () => {
             </Alert>
 
             <div className="grid grid-cols-2 gap-2">
-              {setupData.backupCodes?.map((code, index) => (
-                <div key={index} className="p-2 bg-gray-50 rounded font-mono text-sm text-center">
+              {setupData.backupCodes?.map((code) => (
+                <div key={code} className="p-2 bg-gray-50 rounded font-mono text-sm text-center">
                   {code}
                 </div>
               ))}

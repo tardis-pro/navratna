@@ -1,10 +1,6 @@
-import { FindManyOptions, Between, MoreThan } from 'typeorm';
+import { MoreThan } from 'typeorm';
 import { BaseRepository } from '../base/BaseRepository';
-import {
-  UserMessageEntity,
-  MessageType,
-  MessageStatus,
-} from '../../entities/user-message.entity';
+import { UserMessageEntity, MessageType, MessageStatus } from '../../entities/user-message.entity';
 
 export class UserMessageRepository extends BaseRepository<UserMessageEntity> {
   constructor() {

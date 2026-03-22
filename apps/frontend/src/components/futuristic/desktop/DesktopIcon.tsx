@@ -13,7 +13,7 @@ interface ViewportSize {
 interface DesktopIconConfig {
   id: string;
   title: string;
-  icon: React.ComponentType<any>;
+  icon: React.ComponentType<unknown>;
   color: {
     primary: string;
     secondary: string;

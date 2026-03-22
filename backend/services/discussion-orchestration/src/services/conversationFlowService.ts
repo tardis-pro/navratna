@@ -1,4 +1,3 @@
-import { ConversationPattern } from '@uaip/types';
 import {
   shouldPersonaActivate,
   getBuildOnPattern,

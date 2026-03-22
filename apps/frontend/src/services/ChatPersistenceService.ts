@@ -1,7 +1,7 @@
 // Deprecated: This service is being replaced by direct backend API calls
 
 import { discussionsAPI } from '../api/discussions.api';
-import { Discussion, CreateDiscussionRequest, TurnStrategy, MessageType } from '@uaip/types';
+import { _Discussion, CreateDiscussionRequest, TurnStrategy, MessageType } from '@uaip/types';
 import { getStoredUserId } from '@/utils/authStorage';
 
 export interface ChatSession {
@@ -30,11 +30,11 @@ export interface PersistentChatMessage {
     toolId: string;
     toolName: string;
     success: boolean;
-    result?: any;
+    result?: unknown;
     error?: string;
     timestamp: string;
   }>;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 export class ChatPersistenceService {
@@ -218,7 +218,7 @@ export class ChatPersistenceService {
   /**
    * @deprecated No longer needed - backend handles all persistence
    */
-  public async clearSession(sessionId: string): Promise<void> {
+  public async clearSession(_sessionId: string): Promise<void> {
     console.warn(
       'ChatPersistenceService.clearSession is deprecated. No action needed - backend handles all persistence.'
     );
@@ -256,7 +256,7 @@ export class ChatPersistenceService {
   /**
    * @deprecated Use discussionsAPI.get() instead
    */
-  public getChatSession(sessionId: string): ChatSession | undefined {
+  public getChatSession(_sessionId: string): ChatSession | undefined {
     console.warn(
       'ChatPersistenceService.getChatSession is deprecated. Use discussionsAPI.get() instead.'
     );
@@ -267,7 +267,7 @@ export class ChatPersistenceService {
   /**
    * @deprecated Use discussionsAPI.list() with agent filter instead
    */
-  public findSessionByAgent(agentId: string): ChatSession | undefined {
+  public findSessionByAgent(_agentId: string): ChatSession | undefined {
     console.warn(
       'ChatPersistenceService.findSessionByAgent is deprecated. Use discussionsAPI.list() with agent filter instead.'
     );

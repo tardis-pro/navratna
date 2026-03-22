@@ -1,6 +1,11 @@
 import Redis from 'ioredis';
 
-import { OperationState, Checkpoint, CheckpointType, WorkflowInstance } from '@uaip/types';
+import {
+  OperationState,
+  Checkpoint,
+  CheckpointType,
+  WorkflowInstance as _WorkflowInstance,
+} from '@uaip/types';
 import { logger, ApiError } from '@uaip/utils';
 import { config } from '@uaip/config';
 import { DatabaseService } from '@uaip/infra/database';
@@ -14,12 +19,12 @@ export interface StateUpdateOptions {
   currentStep?: string;
   completedSteps?: string[];
   failedSteps?: string[];
-  variables?: Record<string, any>;
-  metadata?: Record<string, any>;
+  variables?: Record<string, unknown>;
+  metadata?: Record<string, unknown>;
   startedAt?: Date;
   completedAt?: Date;
   error?: string;
-  result?: any;
+  result?: unknown;
 }
 
 // Helper function to safely extract error messages
@@ -428,14 +433,14 @@ export class StateManagerService {
       const keys = await this.redis.keys(pattern);
 
       let expiredKeys = 0;
-      for (const key of keys) {
+      await keys.reduce<Promise<void>>(async (previous, key) => {
+        await previous;
         const ttl = await this.redis.ttl(key);
         if (ttl === -1) {
-          // No expiration set
-          await this.redis.expire(key, 3600); // Set 1 hour expiration
+          await this.redis.expire(key, 3600);
           expiredKeys++;
         }
-      }
+      }, Promise.resolve());
 
       logger.info('State cleanup completed', {
         deletedFromDatabase: deletedCount,
@@ -604,14 +609,14 @@ export class StateManagerService {
       data: {
         ...checkpoint.data,
         compressed: true,
-      } as any, // Type assertion for the compression flag
+      } as unknown, // Type assertion for the compression flag
     };
     return compressed;
   }
 
   private async decompressCheckpoint(checkpoint: Checkpoint): Promise<Checkpoint> {
     // Simple implementation - in production, use zlib or similar
-    const checkpointData = checkpoint.data as any;
+    const checkpointData = checkpoint.data as unknown;
     if (checkpointData.compressed) {
       const decompressed: Checkpoint = {
         ...checkpoint,
@@ -620,7 +625,7 @@ export class StateManagerService {
         },
       };
       // Remove compression flag
-      const decompressedData = { ...decompressed.data } as any;
+      const decompressedData = { ...decompressed.data } as unknown;
       delete decompressedData.compressed;
       decompressed.data = decompressedData;
       return decompressed;

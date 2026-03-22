@@ -124,9 +124,16 @@ const MindMapInner: React.FC<MindMapInnerProps> = ({ markdown }) => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (import.meta as any).env?.VITE_OPENAI_API_KEY ??
     null;
-  const [aiReady, setAiReady] = useState<boolean>(false);
-  const { fitView, getNode, getNodes, getEdges, deleteElements, addNodes, addEdges } =
-    useReactFlow();
+  const [_aiReady, setAiReady] = useState<boolean>(false);
+  const {
+    fitView,
+    getNode: _getNode,
+    getNodes,
+    getEdges,
+    deleteElements,
+    addNodes,
+    addEdges,
+  } = useReactFlow();
 
   const onConnect = useCallback(
     (connection: Connection) => {
@@ -173,7 +180,7 @@ const MindMapInner: React.FC<MindMapInnerProps> = ({ markdown }) => {
 
     addNodes(newNode);
     addEdges(newEdge);
-  }, [selectedNode, getNodes, addNodes, addEdges, getEdges, setNodes, setEdges, fitView]);
+  }, [selectedNode, getNodes, addNodes, addEdges]);
 
   const handleCopyNode = useCallback(() => {
     if (!selectedNode) return;
@@ -189,7 +196,7 @@ const MindMapInner: React.FC<MindMapInnerProps> = ({ markdown }) => {
     };
 
     addNodes(newNode);
-  }, [selectedNode, getNodes, addNodes, getEdges, setNodes, setEdges, fitView]);
+  }, [selectedNode, getNodes, addNodes]);
 
   const handleDeleteNode = useCallback(() => {
     if (!selectedNode) return;
@@ -204,7 +211,7 @@ const MindMapInner: React.FC<MindMapInnerProps> = ({ markdown }) => {
     });
 
     setSelectedNode(null);
-  }, [selectedNode, getEdges, deleteElements, getNodes, setNodes, setEdges, fitView]);
+  }, [selectedNode, getEdges, deleteElements]);
 
   const handleEditNode = useCallback(() => {
     if (!selectedNode) return;
@@ -273,7 +280,7 @@ const MindMapInner: React.FC<MindMapInnerProps> = ({ markdown }) => {
       console.error(err);
       setIsLoading(false);
     }
-  }, [markdown, initialized, fitView, setNodes, setEdges]);
+  }, [markdown, initialized, fitView, setNodes, setEdges, ogNodes, ogEdges]);
 
   // Fix for the React Flow container size issue
   const rfWrapper: React.CSSProperties = {

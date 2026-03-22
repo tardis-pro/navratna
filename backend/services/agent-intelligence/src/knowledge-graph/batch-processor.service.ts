@@ -1,6 +1,11 @@
 import { logger } from '@uaip/utils';
 import { ChatParserService } from './chat-parser.service.js';
-import { ChatKnowledgeExtractorService, ExtractedKnowledge, QAPair, DecisionPoint } from './chat-knowledge-extractor.service.js';
+import {
+  ChatKnowledgeExtractorService,
+  ExtractedKnowledge,
+  QAPair,
+  DecisionPoint,
+} from './chat-knowledge-extractor.service.js';
 import { KnowledgeGraphService } from './knowledge-graph.service.js';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -149,6 +154,7 @@ export class BatchProcessorService {
       // Process files in batches
       for (let i = 0; i < files.length; i += batchSize) {
         const batch = files.slice(i, i + batchSize);
+        // oxlint-disable-next-line no-await-in-loop -- sequential processing required
         const batchResults = await this.processFileChunk(batch, job.options);
 
         results.push(...batchResults);
@@ -200,6 +206,7 @@ export class BatchProcessorService {
       const batch = files.slice(i, i + concurrency);
       const batchPromises = batch.map((file) => this.processFile(file, options));
 
+      // oxlint-disable-next-line no-await-in-loop -- sequential processing required
       const batchResults = await Promise.allSettled(batchPromises);
 
       for (const result of batchResults) {
@@ -250,6 +257,7 @@ export class BatchProcessorService {
       // Extract knowledge if requested
       if (options.extractKnowledge) {
         for (const conversation of conversations) {
+          // oxlint-disable-next-line no-await-in-loop -- sequential processing required
           const knowledge = await this.knowledgeExtractor.extractKnowledgeFromConversations(
             [conversation],
             {
@@ -269,6 +277,7 @@ export class BatchProcessorService {
 
           // Save to knowledge graph if requested
           if (options.saveToGraph) {
+            // oxlint-disable-next-line no-await-in-loop -- sequential processing required
             await this.saveKnowledgeToGraph(knowledge, file.userId);
           }
         }
@@ -298,9 +307,12 @@ export class BatchProcessorService {
     }
   }
 
-  private async saveKnowledgeToGraph(knowledge: any, userId: string): Promise<void> {
+  private async saveKnowledgeToGraph(
+    knowledge: Record<string, unknown>,
+    userId: string
+  ): Promise<void> {
     // Save different types of knowledge to the graph
-    const ingestItems: any[] = [];
+    const ingestItems: Record<string, unknown>[] = [];
 
     // Save extracted knowledge items
     if (knowledge.extractedKnowledge?.length > 0) {

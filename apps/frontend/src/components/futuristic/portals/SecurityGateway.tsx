@@ -8,7 +8,7 @@ import {
   XCircleIcon,
   ClockIcon,
   DocumentTextIcon,
-  UserIcon,
+  UserIcon as _UserIcon,
   LockClosedIcon,
   EyeIcon,
   ArrowPathIcon,

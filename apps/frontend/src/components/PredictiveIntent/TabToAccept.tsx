@@ -47,7 +47,7 @@ const DEFAULT_DEBOUNCE_MS = 250;
 
 export function useTabToAccept(
   onAccept: (suggestion: string) => void,
-  options: UseTabToAcceptOptions,
+  options: UseTabToAcceptOptions
 ): UseTabToAcceptReturn {
   const { generateSuggestion, debounceMs = DEFAULT_DEBOUNCE_MS } = options;
 
@@ -113,7 +113,7 @@ export function useTabToAccept(
         }
       }
     },
-    [suggestion, accept, dismiss],
+    [suggestion, accept, dismiss]
   );
 
   const onInputChange = useCallback((value: string) => {
@@ -149,7 +149,7 @@ export function TabToAccept({
         e.preventDefault();
       }
     },
-    [suggestion, onAccept],
+    [suggestion, onAccept]
   );
 
   useEffect(() => {
@@ -164,10 +164,7 @@ export function TabToAccept({
       : suggestion;
 
   return (
-    <span
-      className={`pointer-events-none select-none ${className}`}
-      aria-hidden="true"
-    >
+    <span className={`pointer-events-none select-none ${className}`} aria-hidden="true">
       <AnimatePresence mode="wait">
         {ghostSuffix && (
           <motion.span

@@ -77,9 +77,9 @@ export class AgentPlanningService {
    */
   async generateExecutionPlan(
     agent: Agent,
-    analysis: any,
-    userPreferences: any,
-    securityContext: any
+    analysis: Record<string, unknown>,
+    userPreferences: Record<string, unknown>,
+    securityContext: Record<string, unknown>
   ): Promise<ExecutionPlan> {
     try {
       logger.info('Generating enhanced execution plan', { agentId: agent.id });
@@ -177,7 +177,10 @@ export class AgentPlanningService {
     }
   }
 
-  private async getSuccessfulEpisodeContext(agentId: string, analysis: any): Promise<string[]> {
+  private async getSuccessfulEpisodeContext(
+    agentId: string,
+    analysis: Record<string, unknown>
+  ): Promise<string[]> {
     if (!this.knowledgeGraphService) {
       return [];
     }
@@ -204,7 +207,7 @@ export class AgentPlanningService {
       .map((episode) => `Similar past success: ${this.summarizeEpisode(episode)}`);
   }
 
-  private isSuccessfulEpisode(episode: any): boolean {
+  private isSuccessfulEpisode(episode: Record<string, unknown>): boolean {
     if (episode?.outcome === 'success') {
       return true;
     }
@@ -214,7 +217,9 @@ export class AgentPlanningService {
     }
 
     const outcomeDescriptions = (episode?.experience?.outcomes || [])
-      .map((outcome: any) => String(outcome?.description || outcome || '').toLowerCase())
+      .map((outcome: Record<string, unknown>) =>
+        String(outcome?.description || outcome || '').toLowerCase()
+      )
       .filter(Boolean);
 
     return outcomeDescriptions.some((description: string) =>
@@ -222,7 +227,7 @@ export class AgentPlanningService {
     );
   }
 
-  private summarizeEpisode(episode: any): string {
+  private summarizeEpisode(episode: Record<string, unknown>): string {
     return (
       episode?.summary ||
       episode?.context?.what ||
@@ -234,7 +239,7 @@ export class AgentPlanningService {
   /**
    * Determine plan type based on analysis
    */
-  determinePlanType(analysis: any): string {
+  determinePlanType(analysis: Record<string, unknown>): string {
     const intent = analysis?.intent?.primary;
     switch (intent) {
       case 'creation':
@@ -260,10 +265,10 @@ export class AgentPlanningService {
    */
   private async generateEnhancedPlanSteps(
     agent: Agent,
-    analysis: any,
+    analysis: Record<string, unknown>,
     planType: string,
     knowledge: KnowledgeItem[]
-  ): Promise<any[]> {
+  ): Promise<Record<string, unknown>[]> {
     const baseSteps = [
       {
         id: 'validate_input',
@@ -363,9 +368,9 @@ export class AgentPlanningService {
    * Calculate enhanced dependencies with knowledge graph insights
    */
   private async calculateEnhancedDependencies(
-    steps: any[],
+    steps: Record<string, unknown>[],
     knowledge: KnowledgeItem[]
-  ): Promise<any[]> {
+  ): Promise<Record<string, unknown>[]> {
     const dependencies = [];
 
     // Sequential dependencies
@@ -402,9 +407,9 @@ export class AgentPlanningService {
    * Estimate enhanced duration with historical data
    */
   private async estimateEnhancedDuration(
-    steps: any[],
-    dependencies: any[],
-    agentId: string
+    steps: Record<string, unknown>[],
+    dependencies: Record<string, unknown>[],
+    _agentId: string
   ): Promise<number> {
     // Get historical performance data for this agent
     const baseDuration = steps.reduce((sum, step) => sum + step.estimatedDuration, 0);
@@ -422,10 +427,10 @@ export class AgentPlanningService {
    * Apply enhanced user preferences with knowledge-based optimization
    */
   private applyEnhancedUserPreferences(
-    steps: any[],
-    userPreferences: any,
+    steps: Record<string, unknown>[],
+    userPreferences: Record<string, unknown>,
     knowledge: KnowledgeItem[]
-  ): any[] {
+  ): Record<string, unknown>[] {
     let optimizedSteps = [...steps];
 
     // Apply user preferences
@@ -460,7 +465,10 @@ export class AgentPlanningService {
   /**
    * Validate plan against security constraints
    */
-  async validatePlanSecurity(plan: ExecutionPlan, securityContext: any): Promise<void> {
+  async validatePlanSecurity(
+    plan: ExecutionPlan,
+    securityContext: Record<string, unknown>
+  ): Promise<void> {
     // Check duration limits
     if (
       securityContext?.maxDuration &&
@@ -500,7 +508,11 @@ export class AgentPlanningService {
     }
   }
 
-  validatePlanResult(originalIntent: string, toolOutput: any, planStep: PlanStep): boolean {
+  validatePlanResult(
+    originalIntent: string,
+    toolOutput: Record<string, unknown>,
+    planStep: PlanStep
+  ): boolean {
     if (toolOutput === null || toolOutput === undefined) {
       return false;
     }
@@ -547,9 +559,9 @@ export class AgentPlanningService {
   async executePlanWithSelfCorrection(
     plan: ExecutionPlan,
     originalIntent: string,
-    context: any
-  ): Promise<Array<{ stepId: string; output: any }>> {
-    const executionResults: Array<{ stepId: string; output: any }> = [];
+    context: Record<string, unknown>
+  ): Promise<Array<{ stepId: string; output: Record<string, unknown> }>> {
+    const executionResults: Array<{ stepId: string; output: Record<string, unknown> }> = [];
 
     for (const rawStep of plan.steps || []) {
       const step: PlanStep = {
@@ -560,10 +572,12 @@ export class AgentPlanningService {
         required: rawStep.required,
       };
 
+      // oxlint-disable-next-line no-await-in-loop -- sequential processing required
       let output = await this.executePlanStep(step, context);
       const isValid = this.validatePlanResult(originalIntent, output, step);
 
       if (!isValid) {
+        // oxlint-disable-next-line no-await-in-loop -- sequential processing required
         const retryResult = await this.executePlanStep(step, {
           ...context,
           retryAttempt: 1,
@@ -588,7 +602,10 @@ export class AgentPlanningService {
     return executionResults;
   }
 
-  private async executePlanStep(step: PlanStep, context: any): Promise<any> {
+  private async executePlanStep(
+    step: PlanStep,
+    context: Record<string, unknown>
+  ): Promise<unknown> {
     const parameters = {
       stepId: step.id,
       stepType: step.type,
@@ -646,7 +663,7 @@ export class AgentPlanningService {
   private async storePlanKnowledge(
     agentId: string,
     plan: ExecutionPlan,
-    analysis: any
+    analysis: Record<string, unknown>
   ): Promise<void> {
     if (this.knowledgeGraphService) {
       try {
@@ -675,7 +692,7 @@ Based on Analysis: ${analysis.intent?.primary}`,
   /**
    * Event handlers
    */
-  private async handleGeneratePlan(event: any): Promise<void> {
+  private async handleGeneratePlan(event: Record<string, unknown>): Promise<void> {
     const { requestId, agent, analysis, userPreferences, securityContext } = event;
     try {
       const plan = await this.generateExecutionPlan(
@@ -710,7 +727,7 @@ Based on Analysis: ${analysis.intent?.primary}`,
     }
   }
 
-  private async handleValidatePlan(event: any): Promise<void> {
+  private async handleValidatePlan(event: Record<string, unknown>): Promise<void> {
     const { requestId, plan, securityContext } = event;
     try {
       await this.validatePlanSecurity(plan, securityContext);
@@ -720,7 +737,7 @@ Based on Analysis: ${analysis.intent?.primary}`,
     }
   }
 
-  private async handleStorePlan(event: any): Promise<void> {
+  private async handleStorePlan(event: Record<string, unknown>): Promise<void> {
     const { requestId, plan } = event;
     try {
       await this.storePlan(plan);
@@ -753,7 +770,7 @@ Based on Analysis: ${analysis.intent?.primary}`,
   private async searchRelevantKnowledge(
     agentId: string,
     query: string,
-    context?: any
+    _context?: Record<string, unknown>
   ): Promise<KnowledgeItem[]> {
     if (!this.knowledgeGraphService) return [];
 
@@ -805,7 +822,10 @@ Based on Analysis: ${analysis.intent?.primary}`,
     return Array.from(domains);
   }
 
-  private async publishPlanningEvent(channel: string, data: any): Promise<void> {
+  private async publishPlanningEvent(
+    channel: string,
+    data: Record<string, unknown>
+  ): Promise<void> {
     try {
       await this.eventBusService.publish(channel, {
         ...data,
@@ -818,7 +838,10 @@ Based on Analysis: ${analysis.intent?.primary}`,
     }
   }
 
-  private async respondToRequest(requestId: string, response: any): Promise<void> {
+  private async respondToRequest(
+    requestId: string,
+    response: Record<string, unknown>
+  ): Promise<void> {
     await this.eventBusService.publish('agent.planning.response', {
       requestId,
       ...response,
@@ -831,14 +854,17 @@ Based on Analysis: ${analysis.intent?.primary}`,
       return 'unknown';
     }
 
-    if ('intent' in plan && typeof (plan as { intent?: unknown }).intent === 'string') {
+    if (
+      'intent' in plan &&
+      typeof (plan as { intent?: Record<string, unknown> }).intent === 'string'
+    ) {
       return (plan as { intent: string }).intent;
     }
 
     return plan.type || 'unknown';
   }
 
-  private auditLog(event: string, data: any): void {
+  private auditLog(event: string, data: Record<string, unknown>): void {
     logger.info(`AUDIT: ${event}`, {
       ...data,
       service: this.serviceName,

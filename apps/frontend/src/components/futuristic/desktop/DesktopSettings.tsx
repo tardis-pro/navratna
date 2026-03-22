@@ -1,12 +1,12 @@
 import React, { useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, _AnimatePresence } from 'framer-motion';
 import {
   Settings,
   Palette,
   Grid,
   Monitor,
-  Smartphone,
-  Tablet,
+  _Smartphone,
+  _Tablet,
   Sun,
   Moon,
   Zap,
@@ -16,9 +16,9 @@ import {
   Save,
   X,
   Eye,
-  EyeOff,
-  Volume2,
-  VolumeX,
+  _EyeOff,
+  _Volume2,
+  _VolumeX,
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -58,7 +58,7 @@ export const DesktopSettings: React.FC<DesktopSettingsProps> = ({
   preferences,
   onPreferencesChange,
   onClose,
-  viewport,
+  _viewport,
   className = '',
 }) => {
   const [localPreferences, setLocalPreferences] = useState<DesktopPreferences>(preferences);
@@ -197,7 +197,7 @@ export const DesktopSettings: React.FC<DesktopSettingsProps> = ({
                     ].map(({ value, label, icon: Icon }) => (
                       <button
                         key={value}
-                        onClick={() => updatePreference('theme', value as any)}
+                        onClick={() => updatePreference('theme', value as unknown)}
                         className={`p-3 rounded-lg border-2 transition-all ${
                           localPreferences.theme === value
                             ? 'border-blue-500 bg-blue-500/10'

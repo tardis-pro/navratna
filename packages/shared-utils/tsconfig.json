@@ -22,7 +22,5 @@
   },
   "include": ["src/**/*"],
   "exclude": ["dist", "node_modules"],
-  "references": [
-    { "path": "../shared-types" }
-  ]
-} 
+  "references": [{ "path": "../shared-types" }]
+}

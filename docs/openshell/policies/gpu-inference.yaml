@@ -1,38 +1,38 @@
 # OpenShell GPU Inference Policy
 # For local Ollama inference with GPU access
 
-version: "1.0"
+version: '1.0'
 name: gpu-inference
 terms: []
 
 sandbox:
   type: ephemeral
-  timeout: 1800  # 30 minutes
+  timeout: 1800 # 30 minutes
   max_instances: 5
 
 resources:
   cpu: 2
   memory: 4Gi
-  gpu: 1  # Required
+  gpu: 1 # Required
 
 filesystem:
   read_only: true
   allowed_paths:
-    - /data/navratna/models/*  # Ollama model weights
+    - /data/navratna/models/* # Ollama model weights
     - /tmp/*
 
 network:
   egress:
     allowed:
-      - pc-a-navratna.tailnet:11434  # Ollama
+      - pc-a-navratna.tailnet:11434 # Ollama
     denied:
-      - "*"
+      - '*'
 
 process:
   allowed:
     - ollama
   denied:
-    - "*"
+    - '*'
 
 inference:
   providers:

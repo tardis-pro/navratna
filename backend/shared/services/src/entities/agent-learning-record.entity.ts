@@ -1,5 +1,6 @@
 import { Entity, Column, Index, ManyToOne, JoinColumn } from 'typeorm';
 import { BaseEntity } from './base.entity';
+import type { Agent } from './agent.entity';
 
 /**
  * Agent Learning Record Entity
@@ -16,10 +17,10 @@ export class AgentLearningRecord extends BaseEntity {
   operationId?: string;
 
   @Column({ name: 'learning_data', type: 'jsonb' })
-  learningData: Record<string, any>;
+  learningData: Record<string, unknown>;
 
   @Column({ name: 'confidence_adjustments', type: 'jsonb', nullable: true })
-  confidenceAdjustments?: Record<string, any>;
+  confidenceAdjustments?: Record<string, unknown>;
 
   @Column({ length: 50, nullable: true })
   version?: string;
@@ -30,5 +31,5 @@ export class AgentLearningRecord extends BaseEntity {
   // Relationships
   @ManyToOne('Agent', { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'agent_id' })
-  agent: any;
+  agent: Agent;
 }

@@ -1,5 +1,6 @@
 import { Entity, Column, Index, ManyToOne, JoinColumn } from 'typeorm';
 import { BaseEntity } from './base.entity';
+import type { Operation } from './operation.entity';
 
 /**
  * Operation Checkpoint Entity
@@ -31,10 +32,10 @@ export class OperationCheckpoint extends BaseEntity {
   stepNumber?: number;
 
   @Column({ type: 'jsonb' })
-  state: Record<string, any>;
+  state: Record<string, unknown>;
 
   @Column({ type: 'jsonb', nullable: true })
-  context?: Record<string, any>;
+  context?: Record<string, unknown>;
 
   @Column({ name: 'created_by', type: 'varchar', nullable: true })
   createdBy?: number;
@@ -61,10 +62,10 @@ export class OperationCheckpoint extends BaseEntity {
   tags: string[];
 
   @Column({ type: 'jsonb', nullable: true })
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 
   // Relationships
   @ManyToOne('Operation', 'checkpoints')
   @JoinColumn({ name: 'operation_id' })
-  operation: any;
+  operation: Operation;
 }

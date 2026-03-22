@@ -1,25 +1,25 @@
 # OpenShell Coding Workspace Policy
 # For persistent development environments with full tool access
 
-version: "1.0"
+version: '1.0'
 name: coding-workspace
 terms: []
 
 sandbox:
   type: persistent
-  timeout: 3600  # 1 hour max
+  timeout: 3600 # 1 hour max
   max_instances: 10
 
 resources:
   cpu: 4
   memory: 8Gi
-  gpu: 1  # Optional, set to 0 if not needed
+  gpu: 1 # Optional, set to 0 if not needed
 
 filesystem:
   read_only: false
   allowed_paths:
-    - /data/repos/*  # Repository volumes
-    - /data/cache/*  # Shared caches
+    - /data/repos/* # Repository volumes
+    - /data/cache/* # Shared caches
   denied_paths:
     - /etc/shadow
     - /etc/sudoers
@@ -33,7 +33,7 @@ network:
       - api.openai.com
       - pc-a-navratna.tailnet:11434
     denied:
-      - "*"  # Block all other egress
+      - '*' # Block all other egress
 
 process:
   allowed:

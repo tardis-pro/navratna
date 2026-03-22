@@ -10,10 +10,10 @@
 export * from './api';
 import { APIClient, api } from '@/api';
 import {
-  API_CONFIG,
+  _API_CONFIG,
   getEffectiveAPIBaseURL,
   getEnvironmentConfig,
-  buildAPIURL,
+  _buildAPIURL,
   API_ROUTES,
 } from '@/config/apiConfig';
 
@@ -21,38 +21,38 @@ import {
 import type {
   // Persona types
   Persona,
-  PersonaTrait,
-  ExpertiseDomain,
-  ConversationalStyle,
-  CreatePersonaRequest,
-  UpdatePersonaRequest,
-  PersonaSearchFilters,
-  PersonaRecommendation,
+  _PersonaTrait,
+  _ExpertiseDomain,
+  _ConversationalStyle,
+  _CreatePersonaRequest,
+  _UpdatePersonaRequest,
+  _PersonaSearchFilters,
+  _PersonaRecommendation,
 
   // Discussion types
   Discussion,
   DiscussionParticipant,
   DiscussionMessage,
-  DiscussionSettings,
-  DiscussionState,
-  TurnStrategy,
-  TurnStrategyConfig,
+  _DiscussionSettings,
+  _DiscussionState,
+  _TurnStrategy,
+  _TurnStrategyConfig,
   CreateDiscussionRequest,
   UpdateDiscussionRequest,
   DiscussionSearchFilters,
 
   // WebSocket types
-  WebSocketConfig,
-  WebSocketEvent,
+  _WebSocketConfig,
+  _WebSocketEvent,
   TurnInfo,
-  DiscussionWebSocketEvent,
+  _DiscussionWebSocketEvent,
 
   // System types
-  HealthStatus,
-  SystemMetrics,
+  _HealthStatus,
+  _SystemMetrics,
 
   // LLM types
-  LLMGenerationRequest,
+  _LLMGenerationRequest,
   LLMModel,
   PersonaTemplate,
 
@@ -62,7 +62,7 @@ import type {
   KnowledgeSearchResponse,
   KnowledgeIngestRequest,
   KnowledgeIngestResponse,
-  KnowledgeRelationship,
+  _KnowledgeRelationship,
   KnowledgeType,
   SourceType,
 } from '@uaip/types';
@@ -73,7 +73,7 @@ import { DiscussionStatus, MessageType, LLMProviderType } from '@uaip/types';
 // Import frontend-specific types
 import type {
   MessageSearchOptions,
-  PersonaDisplay,
+  _PersonaDisplay,
   PersonaSearchResponse,
   DiscussionSearchResponse,
   DiscussionParticipantCreate,
@@ -183,7 +183,7 @@ export const uaipAPI = {
   // ============================================================================
 
   personas: {
-    async search(query?: string, expertise?: string): Promise<PersonaSearchResponse> {
+    async search(query?: string, _expertise?: string): Promise<PersonaSearchResponse> {
       try {
         const client = getAPIClient();
 
@@ -193,7 +193,6 @@ export const uaipAPI = {
         };
 
         const response = await client.personas.search(searchRequest);
-        console.log('🔍 Persona search response:', response);
 
         // Handle the response data properly - it should be an array of personas
         const personas = Array.isArray(response) ? response : [];
@@ -214,7 +213,6 @@ export const uaipAPI = {
         const client = getAPIClient();
 
         const response = await client.personas.getForDisplay({ isActive: true });
-        console.log('🔍 Persona display response:', response);
 
         // Handle the response data properly - it should be an array of personas
         const personas = Array.isArray(response) ? response : [];
@@ -428,7 +426,7 @@ export const uaipAPI = {
       }
     },
 
-    async getCurrentTurn(id: string): Promise<TurnInfo> {
+    async getCurrentTurn(_id: string): Promise<TurnInfo> {
       // This method doesn't exist in the base client, so we'll create a response
       return {
         currentParticipantId: 'participant-1',
@@ -447,7 +445,7 @@ export const uaipAPI = {
   // ============================================================================
 
   agents: {
-    async list(): Promise<any[]> {
+    async list(): Promise<unknown[]> {
       try {
         const agents = await api.agents.list();
         return agents || [];
@@ -457,7 +455,7 @@ export const uaipAPI = {
       }
     },
 
-    async get(id: string): Promise<any> {
+    async get(id: string): Promise<unknown> {
       try {
         const agent = await api.agents.get(id);
         return agent;
@@ -467,7 +465,7 @@ export const uaipAPI = {
       }
     },
 
-    async create(agentData: any): Promise<any> {
+    async create(agentData: unknown): Promise<unknown> {
       try {
         const agent = await api.agents.create(agentData);
         return agent;
@@ -477,7 +475,7 @@ export const uaipAPI = {
       }
     },
 
-    async update(id: string, updates: any): Promise<any> {
+    async update(id: string, updates: unknown): Promise<unknown> {
       try {
         const agent = await api.agents.update(id, updates);
         return agent;
@@ -504,7 +502,7 @@ export const uaipAPI = {
           sender: string;
           timestamp: string;
         }>;
-        context?: any;
+        context?: unknown;
       }
     ): Promise<{
       response: string;
@@ -514,10 +512,10 @@ export const uaipAPI = {
       tokensUsed: number;
       memoryEnhanced: boolean;
       knowledgeUsed: number;
-      persona?: any;
-      conversationContext: any;
+      persona?: unknown;
+      conversationContext: unknown;
       timestamp: string;
-      toolsExecuted?: Array<any>;
+      toolsExecuted?: Array<unknown>;
     }> {
       try {
         const authToken = APIClient.getAuthToken();
@@ -571,12 +569,14 @@ export const uaipAPI = {
         if (error instanceof Error) {
           if (error.name === 'AbortError') {
             throw new Error(
-              'Agent response timed out after 30 seconds. The LLM service may be busy.'
+              'Agent response timed out after 30 seconds. The LLM service may be busy.',
+              { cause: error }
             );
           }
           if (error.message.includes('fetch')) {
             throw new Error(
-              'Failed to connect to agent service. Please check if the backend is running.'
+              'Failed to connect to agent service. Please check if the backend is running.',
+              { cause: error }
             );
           }
         }
@@ -586,7 +586,7 @@ export const uaipAPI = {
     },
 
     // Agent tool management functions
-    async addTool(agentId: string, toolId: string): Promise<any> {
+    async addTool(agentId: string, toolId: string): Promise<unknown> {
       try {
         return await APIClient.post(`/api/v1/agents/${agentId}/tools`, { toolId });
       } catch (error) {
@@ -595,7 +595,7 @@ export const uaipAPI = {
       }
     },
 
-    async removeTool(agentId: string, toolId: string): Promise<any> {
+    async removeTool(agentId: string, toolId: string): Promise<unknown> {
       try {
         return await APIClient.delete(`/api/v1/agents/${agentId}/tools/${toolId}`);
       } catch (error) {
@@ -610,7 +610,7 @@ export const uaipAPI = {
   // ============================================================================
 
   tools: {
-    async list(criteria?: any): Promise<any[]> {
+    async list(criteria?: unknown): Promise<unknown[]> {
       try {
         // Use the proper tools API method
         const tools = await api.tools.list(criteria);
@@ -621,7 +621,7 @@ export const uaipAPI = {
       }
     },
 
-    async get(id: string): Promise<any> {
+    async get(id: string): Promise<unknown> {
       try {
         const client = getAPIClient();
         const response = await client.tools.get(id);
@@ -637,7 +637,7 @@ export const uaipAPI = {
       }
     },
 
-    async create(toolData: any): Promise<any> {
+    async create(toolData: unknown): Promise<unknown> {
       try {
         const client = getAPIClient();
         const response = await client.tools.register(toolData);
@@ -653,7 +653,7 @@ export const uaipAPI = {
       }
     },
 
-    async execute(toolId: string, params: any): Promise<any> {
+    async execute(toolId: string, params: unknown): Promise<unknown> {
       try {
         const client = getAPIClient();
         const response = await client.tools.execute(toolId, params);
@@ -710,7 +710,7 @@ export const uaipAPI = {
         const userModels = await api.llm.userLLM.listModels();
 
         // Transform the response to match expected interface
-        const transformedUserModels = userModels.map((model: any) => ({
+        const transformedUserModels = userModels.map((model: unknown) => ({
           id: model.id || 'unknown',
           name: model.name || 'Unknown Model',
           description: model.description,
@@ -732,7 +732,7 @@ export const uaipAPI = {
       // Fallback to system models if user has no providers
       try {
         const systemModels = await api.llm.listModels();
-        return systemModels.map((model: any) => ({
+        return systemModels.map((model: unknown) => ({
           id: model.id || 'unknown',
           name: model.name || 'Unknown Model',
           description: model.description,
@@ -763,7 +763,7 @@ export const uaipAPI = {
         totalRequests: number;
         totalErrors: number;
         lastUsedAt?: string;
-        healthCheckResult?: any;
+        healthCheckResult?: unknown;
         hasApiKey: boolean;
         createdAt: string;
         updatedAt: string;
@@ -772,7 +772,7 @@ export const uaipAPI = {
       const providers = await api.llm.userLLM.listProviders();
 
       // Transform the response to match expected interface
-      return providers.map((provider: any) => ({
+      return providers.map((provider: unknown) => ({
         id: provider.id || 'unknown',
         name: provider.name || 'Unknown Provider',
         description: provider.description,
@@ -793,7 +793,7 @@ export const uaipAPI = {
       }));
     },
 
-    async createProvider(providerData: ModelProvider): Promise<any> {
+    async createProvider(providerData: ModelProvider): Promise<unknown> {
       try {
         const provider = await api.llm.userLLM.createProvider(providerData);
         return provider;
@@ -811,7 +811,7 @@ export const uaipAPI = {
         baseUrl?: string;
         defaultModel?: string;
         priority?: number;
-        configuration?: any;
+        configuration?: unknown;
       }
     ): Promise<void> {
       const client = getAPIClient();
@@ -832,7 +832,7 @@ export const uaipAPI = {
         apiKey?: string;
         defaultModel?: string;
         priority?: number;
-        configuration?: any;
+        configuration?: unknown;
         isActive?: boolean;
       }
     ): Promise<void> {
@@ -840,7 +840,7 @@ export const uaipAPI = {
       await client.llm.userLLM.updateProvider(providerId, updates);
     },
 
-    async testProvider(providerId: string): Promise<any> {
+    async testProvider(providerId: string): Promise<unknown> {
       const response = await api.llm.userLLM.testProvider(providerId);
       return response;
     },
@@ -856,7 +856,7 @@ export const uaipAPI = {
       temperature?: number;
       model?: string;
       preferredType?: LLMProviderType;
-    }): Promise<any> {
+    }): Promise<unknown> {
       const client = getAPIClient();
       const response = await client.userLLM.generateResponse(request);
 
@@ -868,11 +868,11 @@ export const uaipAPI = {
     },
 
     async generateAgentResponse(request: {
-      agent: any;
-      messages: any[];
-      context?: any;
-      tools?: any[];
-    }): Promise<any> {
+      agent: unknown;
+      messages: unknown[];
+      context?: unknown;
+      tools?: unknown[];
+    }): Promise<unknown> {
       const client = getAPIClient();
       const response = await client.userLLM.generateAgentResponse(request);
 
@@ -884,7 +884,7 @@ export const uaipAPI = {
     },
 
     // Legacy methods for backward compatibility
-    async getModelsFromProvider(providerType: string): Promise<
+    async getModelsFromProvider(_providerType: string): Promise<
       Array<{
         id: string;
         name: string;
@@ -925,7 +925,7 @@ export const uaipAPI = {
       language?: string;
       framework?: string;
       requirements?: string[];
-    }): Promise<any> {
+    }): Promise<unknown> {
       // Use general generate response for artifacts
       return this.generateResponse({
         prompt: `Generate a ${request.type} ${request.language ? `in ${request.language}` : ''} based on: ${request.prompt}`,
@@ -936,11 +936,11 @@ export const uaipAPI = {
     },
 
     async analyzeContext(request: {
-      conversationHistory: any[];
-      currentContext?: any;
+      conversationHistory: unknown[];
+      currentContext?: unknown;
       userRequest?: string;
       agentCapabilities?: string[];
-    }): Promise<any> {
+    }): Promise<unknown> {
       // Use general generate response for context analysis
       const prompt = `Analyze the following conversation context: ${JSON.stringify(request)}`;
       return this.generateResponse({
@@ -984,7 +984,7 @@ export const uaipAPI = {
       }
     },
 
-    async getPending(): Promise<any[]> {
+    async getPending(): Promise<unknown[]> {
       try {
         const response = await api.approvals.getPending();
         // Handle the response format: {pendingApprovals: Array, count: number, summary: {...}}
@@ -1030,7 +1030,9 @@ export const uaipAPI = {
           errors: [],
         };
       } catch (error) {
-        throw new Error(error instanceof Error ? error.message : 'Failed to upload knowledge');
+        throw new Error(error instanceof Error ? error.message : 'Failed to upload knowledge', {
+          cause: error,
+        });
       }
     },
 
@@ -1055,7 +1057,7 @@ export const uaipAPI = {
         }
 
         // Transform search results to expected format
-        const items = searchResults.map((result: any) => result.item || result);
+        const items = searchResults.map((result: unknown) => result.item || result);
         return {
           items,
           totalCount: items.length,
@@ -1086,7 +1088,9 @@ export const uaipAPI = {
         const client = getAPIClient();
         return await client.knowledge.update(itemId, updates);
       } catch (error) {
-        throw new Error(error instanceof Error ? error.message : 'Failed to update knowledge');
+        throw new Error(error instanceof Error ? error.message : 'Failed to update knowledge', {
+          cause: error,
+        });
       }
     },
 
@@ -1095,7 +1099,9 @@ export const uaipAPI = {
         const client = getAPIClient();
         await client.knowledge.delete(itemId);
       } catch (error) {
-        throw new Error(error instanceof Error ? error.message : 'Failed to delete knowledge');
+        throw new Error(error instanceof Error ? error.message : 'Failed to delete knowledge', {
+          cause: error,
+        });
       }
     },
 
@@ -1165,7 +1171,7 @@ export const uaipAPI = {
       try {
         const client = getAPIClient();
         const relatedItems = await client.knowledge.findSimilar(itemId);
-        return relatedItems.map((result: any) => result.item || result);
+        return relatedItems.map((result: unknown) => result.item || result);
       } catch (error) {
         console.warn('Similar items endpoint unavailable, returning empty:', error);
         return [];
@@ -1176,9 +1182,11 @@ export const uaipAPI = {
       try {
         const client = getAPIClient();
         const searchResults = await client.knowledge.search({ query: '', tags: [tag] });
-        return searchResults.map((result: any) => result.item || result);
+        return searchResults.map((result: unknown) => result.item || result);
       } catch (error) {
-        throw new Error(error instanceof Error ? error.message : 'Failed to get knowledge by tag');
+        throw new Error(error instanceof Error ? error.message : 'Failed to get knowledge by tag', {
+          cause: error,
+        });
       }
     },
 
@@ -1187,7 +1195,9 @@ export const uaipAPI = {
         const client = getAPIClient();
         return await client.knowledge.get(itemId);
       } catch (error) {
-        throw new Error(error instanceof Error ? error.message : 'Failed to get knowledge item');
+        throw new Error(error instanceof Error ? error.message : 'Failed to get knowledge item', {
+          cause: error,
+        });
       }
     },
 
@@ -1211,13 +1221,13 @@ export const uaipAPI = {
         id: string;
         label: string;
         type: string;
-        properties?: Record<string, any>;
+        properties?: Record<string, unknown>;
       }>;
       edges: Array<{
         source: string;
         target: string;
         type: string;
-        properties?: Record<string, any>;
+        properties?: Record<string, unknown>;
       }>;
     }> {
       try {
@@ -1298,7 +1308,7 @@ export const uaipAPI = {
       }>;
     }> {
       try {
-        const client = getAPIClient();
+        const _client = getAPIClient();
         return await api.mcp.getStatus();
       } catch (error) {
         console.error('MCP status error:', error);
@@ -1308,13 +1318,13 @@ export const uaipAPI = {
 
     async getConfig(): Promise<{
       exists: boolean;
-      config: any | null;
+      config: unknown | null;
       serversCount?: number;
       servers?: string[];
       message?: string;
     }> {
       try {
-        const client = getAPIClient();
+        const _client = getAPIClient();
         return await api.mcp.getConfig();
       } catch (error) {
         console.error('MCP config error:', error);
@@ -1328,7 +1338,7 @@ export const uaipAPI = {
       status: string;
     }> {
       try {
-        const client = getAPIClient();
+        const _client = getAPIClient();
         return await APIClient.post(`/api/v1/mcp/restart-server/${encodeURIComponent(serverName)}`);
       } catch (error) {
         console.error('MCP server restart error:', error);
@@ -1343,7 +1353,7 @@ export const uaipAPI = {
         description: string;
         serverName: string;
         command: string;
-        parameters: any;
+        parameters: unknown;
         category: string;
       }>;
       count: number;

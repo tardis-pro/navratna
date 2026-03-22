@@ -1,10 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect as _useEffect } from 'react';
 import { useUAIP } from '@/contexts/UAIPContext';
 import { motion } from 'framer-motion';
 import {
   PuzzlePieceIcon,
   MagnifyingGlassIcon,
-  StarIcon,
+  StarIcon as _StarIcon,
   ClockIcon,
   CheckCircleIcon,
   WrenchScrewdriverIcon,

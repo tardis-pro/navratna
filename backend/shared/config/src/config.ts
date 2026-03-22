@@ -11,15 +11,6 @@ const projectRoot = path.resolve(__dirname, '../../../../..');
 dotenv.config({ path: path.resolve(projectRoot, '.env') });
 
 // Debug environment variable loading
-console.log('🔧 Config Debug Info:');
-console.log('- __dirname:', __dirname);
-console.log('- .env path:', path.resolve(projectRoot, '.env'));
-console.log('- NODE_ENV:', process.env.NODE_ENV);
-console.log('- SERVICE_NAME:', process.env.SERVICE_NAME);
-console.log('- POSTGRES_URL:', process.env.POSTGRES_URL ? 'SET' : 'NOT SET');
-console.log('- NEO4J_URL:', process.env.NEO4J_URL ? 'SET' : 'NOT SET');
-console.log('- REDIS_URL:', process.env.REDIS_URL ? 'SET' : 'NOT SET');
-console.log('- RABBITMQ_URL:', process.env.RABBITMQ_URL ? 'SET' : 'NOT SET');
 
 export interface DatabaseConfig {
   postgres: {
@@ -357,8 +348,6 @@ function parseRedisUrl(url?: string) {
   }
 
   try {
-    console.log('🔧 Parsing Redis URL:', url.replace(/:[^:@]+@/, ':***@'));
-
     // Handle Redis URL format: redis://:password@host:port or redis://user:password@host:port
     const parsed = new URL(url);
 
@@ -380,13 +369,6 @@ function parseRedisUrl(url?: string) {
       password: password,
       db: parsed.pathname && parsed.pathname.length > 1 ? parseInt(parsed.pathname.slice(1)) : 0,
     };
-
-    console.log('🔧 Parsed Redis config:', {
-      host: result.host,
-      port: result.port,
-      hasPassword: !!result.password,
-      db: result.db,
-    });
 
     return result;
   } catch (error) {

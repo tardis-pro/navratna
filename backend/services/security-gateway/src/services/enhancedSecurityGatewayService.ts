@@ -1,7 +1,7 @@
 import { logger } from '@uaip/utils';
 import { ApiError } from '@uaip/utils';
 import {
-  SecurityValidationRequest,
+  SecurityValidationRequest as _SecurityValidationRequest,
   SecurityValidationResult,
   EnhancedSecurityValidationRequest,
   EnhancedSecurityContext,
@@ -29,7 +29,7 @@ export interface AgentSecurityPolicy {
   description: string;
   applicableCapabilities: AgentCapability[];
   allowedProviders: OAuthProviderType[];
-  conditions: Record<string, any>;
+  conditions: Record<string, unknown>;
   actions: {
     allow?: boolean;
     requireApproval?: boolean;
@@ -353,7 +353,7 @@ export class EnhancedSecurityGatewayService extends SecurityGatewayService {
       try {
         await this.validateAgentOperation(request);
         return true;
-      } catch (error) {
+      } catch {
         return false;
       }
     }
@@ -503,12 +503,12 @@ export class EnhancedSecurityGatewayService extends SecurityGatewayService {
   /**
    * Get agent-specific restrictions
    */
-  private async getAgentRestrictions(request: EnhancedSecurityValidationRequest): Promise<any> {
+  private async getAgentRestrictions(request: EnhancedSecurityValidationRequest): Promise<unknown> {
     if (request.securityContext.userType !== UserType.AGENT) {
       return undefined;
     }
 
-    const restrictions: any = {
+    const restrictions: unknown = {
       monitoring: {
         logLevel: 'detailed',
         alertThresholds: {
@@ -903,7 +903,7 @@ export class EnhancedSecurityGatewayService extends SecurityGatewayService {
   private buildEnhancedReasoningText(
     request: EnhancedSecurityValidationRequest,
     riskAssessment: RiskAssessment,
-    policyResult: any,
+    policyResult: unknown,
     approvalRequired: boolean
   ): string {
     const baseReasoning = this.buildReasoningText(
@@ -1003,7 +1003,7 @@ export class EnhancedSecurityGatewayService extends SecurityGatewayService {
   /**
    * Assess operation risk
    */
-  private assessOperationRisk(operation: any): RiskFactor {
+  private assessOperationRisk(operation: unknown): RiskFactor {
     const operationType = operation.type || 'unknown';
     let score = 1; // Base score
     let level = RiskLevel.LOW;

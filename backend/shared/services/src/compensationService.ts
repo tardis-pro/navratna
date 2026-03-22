@@ -1,10 +1,10 @@
 import { EventEmitter } from 'events';
 import {
-  CompensationAction,
+  CompensationAction as _CompensationAction,
   ExecutionStep,
   StepStatus,
-  WorkflowInstance,
-  OperationState,
+  WorkflowInstance as _WorkflowInstance,
+  OperationState as _OperationState,
 } from '@uaip/types';
 import { logger } from '@uaip/utils';
 import { DatabaseService } from '@uaip/infra/database';
@@ -16,7 +16,7 @@ export interface CompensationStep {
   stepId: string; // The original step this compensates for
   action: string;
   description: string;
-  compensationData: Record<string, any>;
+  compensationData: Record<string, unknown>;
   timeout: number;
   retryPolicy?: {
     maxAttempts: number;
@@ -31,7 +31,7 @@ export interface CompensationResult {
   status: StepStatus;
   error?: string;
   executionTime: number;
-  compensationData: Record<string, any>;
+  compensationData: Record<string, unknown>;
 }
 
 export class CompensationService extends EventEmitter {
@@ -101,22 +101,23 @@ export class CompensationService extends EventEmitter {
       const results: CompensationResult[] = [];
       const reversedSteps = [...compensationSteps].reverse();
 
-      for (const compensationStep of reversedSteps) {
+      await reversedSteps.reduce<Promise<void>>(async (previous, compensationStep) => {
+        await previous;
+
         if (controller.signal.aborted) {
           logger.warn('Compensation cancelled', { operationId });
-          break;
+          return;
         }
 
         const result = await this.executeCompensationStep(compensationStep, controller.signal);
         results.push(result);
 
-        // Emit compensation step completed event
         await this.eventBusService.publishEvent('compensation.step.completed', {
           operationId,
           compensationStepId: compensationStep.id,
           result,
         });
-      }
+      }, Promise.resolve());
 
       // Emit compensation completed event
       await this.eventBusService.publishEvent('compensation.completed', {
@@ -196,7 +197,7 @@ export class CompensationService extends EventEmitter {
    */
 
   private async getCompensationSteps(
-    operation: any,
+    operation: unknown,
     completedStepIds: string[]
   ): Promise<CompensationStep[]> {
     const compensationSteps: CompensationStep[] = [];
@@ -206,12 +207,12 @@ export class CompensationService extends EventEmitter {
       (step: ExecutionStep) => step.id && completedStepIds.includes(step.id)
     );
 
-    for (const step of completedSteps) {
-      const compensationStep = await this.createCompensationStep(step);
-      if (compensationStep) {
-        compensationSteps.push(compensationStep);
-      }
-    }
+    const generatedSteps = await Promise.all(
+      completedSteps.map((step) => this.createCompensationStep(step))
+    );
+    compensationSteps.push(
+      ...generatedSteps.filter((step): step is CompensationStep => step !== null)
+    );
 
     return compensationSteps;
   }
@@ -310,7 +311,7 @@ export class CompensationService extends EventEmitter {
       });
 
       // Execute compensation based on action type
-      let compensationData: Record<string, any> = {};
+      let compensationData: Record<string, unknown> = {};
 
       switch (compensationStep.action) {
         case 'undo_tool_execution':
@@ -364,7 +365,7 @@ export class CompensationService extends EventEmitter {
   private async undoToolExecution(
     compensationStep: CompensationStep,
     signal: AbortSignal
-  ): Promise<Record<string, any>> {
+  ): Promise<Record<string, unknown>> {
     // Simulate undoing tool execution
     await this.delay(Math.random() * 2000 + 1000, signal); // 1-3 seconds
 
@@ -379,7 +380,7 @@ export class CompensationService extends EventEmitter {
   private async cleanupArtifact(
     compensationStep: CompensationStep,
     signal: AbortSignal
-  ): Promise<Record<string, any>> {
+  ): Promise<Record<string, unknown>> {
     // Simulate artifact cleanup
     await this.delay(Math.random() * 1000 + 500, signal); // 0.5-1.5 seconds
 
@@ -394,7 +395,7 @@ export class CompensationService extends EventEmitter {
   private async notifyApprovalCancelled(
     compensationStep: CompensationStep,
     signal: AbortSignal
-  ): Promise<Record<string, any>> {
+  ): Promise<Record<string, unknown>> {
     // Simulate notification
     await this.delay(Math.random() * 500 + 200, signal); // 0.2-0.7 seconds
 
@@ -409,7 +410,7 @@ export class CompensationService extends EventEmitter {
   private async executeGenericCompensation(
     compensationStep: CompensationStep,
     signal: AbortSignal
-  ): Promise<Record<string, any>> {
+  ): Promise<Record<string, unknown>> {
     // Generic compensation handler
     await this.delay(Math.random() * 1000 + 500, signal); // 0.5-1.5 seconds
 

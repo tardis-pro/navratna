@@ -13,17 +13,12 @@ import { useConversationIntelligence } from '../../../hooks/useConversationIntel
 import '../../../styles/ai-sidekick.css';
 import {
   MessageSquare,
-  Send,
   Bot,
   User,
-  Loader2,
   X,
   Minimize2,
-  Maximize2,
-  Plus,
   Brain,
   Zap,
-  Database,
   Sparkles,
   Users,
   Activity,
@@ -31,27 +26,6 @@ import {
   AlertCircle,
   LayoutGrid,
   Maximize,
-  Settings,
-  Command,
-  Cpu,
-  Target,
-  Layers,
-  Flame,
-  Wand2,
-  Eye,
-  Clock,
-  TrendingUp,
-  Shield,
-  Lightbulb,
-  Keyboard,
-  Focus,
-  Gauge,
-  Atom,
-  Telescope,
-  Radar,
-  MonitorSpeaker,
-  Headphones,
-  Mic,
 } from 'lucide-react';
 import {
   Discussion,
@@ -59,13 +33,12 @@ import {
   DiscussionMessage,
   MessageType,
   TurnStrategy,
-  DiscussionStatus,
 } from '@uaip/types';
 
 interface ChatMessage {
   id: string;
   content: string;
-  sender: 'user' | 'agent';
+  sender: 'user' | 'agent' | 'system';
   senderName: string;
   timestamp: string;
   agentId?: string;
@@ -77,11 +50,11 @@ interface ChatMessage {
     toolId: string;
     toolName: string;
     success: boolean;
-    result?: any;
+    result?: unknown;
     error?: string;
     timestamp: string;
   }>;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 interface ChatWindow {
@@ -91,13 +64,14 @@ interface ChatWindow {
   discussionId: string;
   messages: ChatMessage[];
   isMinimized: boolean;
-  isMaximized: boolean;
+  isMaximized?: boolean;
   isLoading: boolean;
   error: string | null;
   hasLoadedHistory: boolean;
   totalMessages: number;
   canLoadMore: boolean;
   mode: 'floating' | 'portal';
+  sessionId?: string;
 }
 
 interface UnifiedChatSystemProps {
@@ -208,10 +182,6 @@ export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
     isConnected: isWebSocketConnected,
     sendMessage: sendWebSocketMessage,
     lastEvent,
-    connectionType,
-    authStatus,
-    error: wsError,
-    addEventListener,
     connect,
   } = useEnhancedWebSocket();
 
@@ -236,26 +206,26 @@ export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
   const [windowSizes, setWindowSizes] = useState<{
     [windowId: string]: { width: number; height: number };
   }>({});
-  const [windowSnapMode, setWindowSnapMode] = useState<{
+  const [windowSnapMode, _setWindowSnapMode] = useState<{
     [windowId: string]: 'none' | 'edge' | 'corner';
   }>({});
-  const [thinkingParticles, setThinkingParticles] = useState<{ [windowId: string]: boolean }>({});
-  const [confidenceMetrics, setConfidenceMetrics] = useState<{ [windowId: string]: number }>({});
-  const [knowledgeSources, setKnowledgeSources] = useState<{ [windowId: string]: string[] }>({});
-  const [toolExecutionProgress, setToolExecutionProgress] = useState<{
+  const [_thinkingParticles, setThinkingParticles] = useState<{ [windowId: string]: boolean }>({});
+  const [_confidenceMetrics, setConfidenceMetrics] = useState<{ [windowId: string]: number }>({});
+  const [_knowledgeSources, setKnowledgeSources] = useState<{ [windowId: string]: string[] }>({});
+  const [_toolExecutionProgress, setToolExecutionProgress] = useState<{
     [windowId: string]: Array<{
       toolName: string;
       progress: number;
       status: 'running' | 'completed' | 'failed';
     }>;
   }>({});
-  const [memoryEnhancementBadges, setMemoryEnhancementBadges] = useState<{
+  const [_memoryEnhancementBadges, setMemoryEnhancementBadges] = useState<{
     [windowId: string]: boolean;
   }>({});
-  const [quickActionsPanelOpen, setQuickActionsPanelOpen] = useState<{
+  const [_quickActionsPanelOpen, setQuickActionsPanelOpen] = useState<{
     [windowId: string]: boolean;
   }>({});
-  const [contextualSuggestions, setContextualSuggestions] = useState<{
+  const [_contextualSuggestions, setContextualSuggestions] = useState<{
     [windowId: string]: string[];
   }>({});
   const [isResizing, setIsResizing] = useState<{ [windowId: string]: boolean }>({});
@@ -284,23 +254,23 @@ export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
     startSize: { width: number; height: number };
     startMouse: { x: number; y: number };
   } | null>(null);
-  const keyboardShortcutsRef = useRef<{ [key: string]: () => void }>({});
+  const _keyboardShortcutsRef = useRef<{ [key: string]: () => void }>({});
   const contextualAnalysisRef = useRef<{
     [windowId: string]: { sentiment: number; complexity: number; urgency: number };
   }>({});
   const loadingTimeouts = useRef<{ [windowId: string]: NodeJS.Timeout }>({});
 
   // Conversation Intelligence for portal mode
-  const portalConversationIntelligence = useConversationIntelligence({
+  const _portalConversationIntelligence = useConversationIntelligence({
     agentId: selectedAgentId,
     conversationId: conversationIds['portal'],
-    onTopicGenerated: (topic: string, confidence: number) => {
+    onTopicGenerated: (topic: string, _confidence: number) => {
       setConversationTopics((prev) => ({ ...prev, portal: topic }));
     },
   });
 
   // Conversation Intelligence for floating windows
-  const floatingConversationIntelligence = useMemo(() => {
+  const _floatingConversationIntelligence = useMemo(() => {
     return chatWindows.reduce(
       (acc, window) => {
         acc[window.id] = {
@@ -317,7 +287,6 @@ export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
   // Connect WebSocket only when authenticated
   useEffect(() => {
     if (isAuthenticated && !isWebSocketConnected) {
-      console.log('User authenticated, connecting WebSocket...');
       connect();
     }
   }, [isAuthenticated, isWebSocketConnected, connect]);
@@ -338,11 +307,8 @@ export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
 
       // Prevent duplicate processing of the same message
       if (messageId && processedMessageIds.current.has(messageId)) {
-        console.log('🚫 Duplicate agent response ignored:', messageId);
         return;
       }
-
-      console.log('🔥 WebSocket agent_response received:', lastEvent);
 
       // Mark message as processed
       if (messageId) {
@@ -379,14 +345,6 @@ export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
 
       setChatWindows((prev) => {
         const targetWindow = prev.find((w) => w.agentId === agentId);
-        console.log(
-          '🎯 Looking for target window with agentId:',
-          agentId,
-          'Found:',
-          !!targetWindow,
-          'Chat windows:',
-          prev.map((w) => ({ id: w.id, agentId: w.agentId, agentName: w.agentName }))
-        );
 
         if (!targetWindow) {
           return prev; // No window found, no update needed
@@ -469,19 +427,12 @@ export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
       // Keying on agentId ensures only one window per agent regardless of which session is open.
       const existingWindow = chatWindows.find((w) => w.agentId === agentId);
       if (existingWindow) {
-        console.log(
-          `Chat window for agent ${agentName} (${agentId}) already exists - focusing existing window`
-        );
         // Focus/restore existing window
         setChatWindows((prev) =>
           prev.map((w) => (w.agentId === agentId ? { ...w, isMinimized: false } : w))
         );
         return;
       }
-
-      console.log(
-        `Opening existing chat discussion ${discussionId} with agent ${agentName} (${agentId})`
-      );
 
       try {
         // Get the existing discussion
@@ -526,114 +477,103 @@ export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
           ...prev,
           [newWindow.id]: { width: 320, height: 400 },
         }));
-
-        console.log(
-          `Resumed chat discussion with agent:`,
-          agentName,
-          `(${chatMessages.length} messages loaded)`
-        );
       } catch (error) {
         console.error('Failed to open chat discussion:', error);
 
         // Fallback to creating a new chat window
-        console.log('Falling back to new chat window...');
         openChatWindow(agentId, agentName);
       }
     },
-    [chatWindows]
+    [chatWindows, openChatWindow]
   );
 
   // Define openChatWindow function before it's used
-  const openChatWindow = useCallback(async (agentId: string, agentName: string) => {
-    // Check if chat window already exists for this agent
-    if (openAgentWindows.current.has(agentId)) {
-      console.log(
-        `Chat window for agent ${agentName} (${agentId}) already exists - focusing existing window`
-      );
-      // Focus/restore existing window
-      setChatWindows((prev) =>
-        prev.map((w) => (w.agentId === agentId ? { ...w, isMinimized: false } : w))
-      );
-      return;
-    }
+  const openChatWindow = useCallback(
+    async (agentId: string, agentName: string) => {
+      // Check if chat window already exists for this agent
+      if (openAgentWindows.current.has(agentId)) {
+        // Focus/restore existing window
+        setChatWindows((prev) =>
+          prev.map((w) => (w.agentId === agentId ? { ...w, isMinimized: false } : w))
+        );
+        return;
+      }
 
-    console.log(`Creating new chat window for agent ${agentName} (${agentId})`);
+      try {
+        // Create new discussion for this agent
+        const discussion = await createAgentChatDiscussion(agentId, agentName, user?.id);
 
-    try {
-      // Create new discussion for this agent
-      const discussion = await createAgentChatDiscussion(agentId, agentName, user?.id);
+        // Set up conversation ID for this window
+        const windowId = `chat-${Date.now()}-${agentId}`;
+        setConversationIds((prev) => ({ ...prev, [windowId]: discussion.id }));
 
-      // Set up conversation ID for this window
-      const windowId = `chat-${Date.now()}-${agentId}`;
-      setConversationIds((prev) => ({ ...prev, [windowId]: discussion.id }));
+        // Load existing messages (should be empty for new discussion)
+        const existingMessages = await discussionsAPI.getMessages(discussion.id, { limit: 50 });
 
-      // Load existing messages (should be empty for new discussion)
-      const existingMessages = await discussionsAPI.getMessages(discussion.id, { limit: 50 });
+        // Convert discussion messages to chat messages
+        const chatMessages = convertDiscussionMessagesToChatMessages(existingMessages);
 
-      // Convert discussion messages to chat messages
-      const chatMessages = convertDiscussionMessagesToChatMessages(existingMessages);
+        // Create new floating chat window
+        const newWindow: ChatWindow = {
+          id: windowId,
+          agentId,
+          agentName,
+          discussionId: discussion.id,
+          messages: chatMessages,
+          isMinimized: false,
+          isLoading: false,
+          error: null,
+          hasLoadedHistory: true,
+          totalMessages: chatMessages.length,
+          canLoadMore: existingMessages.length >= 50,
+          mode: 'floating',
+        };
 
-      // Create new floating chat window
-      const newWindow: ChatWindow = {
-        id: windowId,
-        agentId,
-        agentName,
-        discussionId: discussion.id,
-        messages: chatMessages,
-        isMinimized: false,
-        isLoading: false,
-        error: null,
-        hasLoadedHistory: true,
-        totalMessages: chatMessages.length,
-        canLoadMore: existingMessages.length >= 50,
-        mode: 'floating',
-      };
+        // Add agent to tracking set
+        openAgentWindows.current.add(agentId);
 
-      // Add agent to tracking set
-      openAgentWindows.current.add(agentId);
+        setChatWindows((prev) => [...prev, newWindow]);
+        setCurrentMessage((prev) => ({ ...prev, [newWindow.id]: '' }));
 
-      setChatWindows((prev) => [...prev, newWindow]);
-      setCurrentMessage((prev) => ({ ...prev, [newWindow.id]: '' }));
+        // Set initial window size
+        setWindowSizes((prev) => ({
+          ...prev,
+          [newWindow.id]: { width: 320, height: 400 },
+        }));
+      } catch (error) {
+        console.error('Failed to open chat window:', error);
 
-      // Set initial window size
-      setWindowSizes((prev) => ({
-        ...prev,
-        [newWindow.id]: { width: 320, height: 400 },
-      }));
+        // Fallback to non-persistent chat
+        const newWindow: ChatWindow = {
+          id: `chat-${Date.now()}-${agentId}`,
+          agentId,
+          agentName,
+          discussionId: '', // Empty discussion ID for fallback
+          messages: [],
+          isMinimized: false,
+          isLoading: false,
+          error: 'Failed to create chat discussion',
+          hasLoadedHistory: true,
+          totalMessages: 0,
+          canLoadMore: false,
+          mode: 'floating',
+        };
 
-      console.log(`Opened new chat discussion with agent:`, agentName);
-    } catch (error) {
-      console.error('Failed to open chat window:', error);
+        // Add agent to tracking set (fallback case)
+        openAgentWindows.current.add(agentId);
 
-      // Fallback to non-persistent chat
-      const newWindow: ChatWindow = {
-        id: `chat-${Date.now()}-${agentId}`,
-        agentId,
-        agentName,
-        discussionId: '', // Empty discussion ID for fallback
-        messages: [],
-        isMinimized: false,
-        isLoading: false,
-        error: 'Failed to create chat discussion',
-        hasLoadedHistory: true,
-        totalMessages: 0,
-        canLoadMore: false,
-        mode: 'floating',
-      };
+        setChatWindows((prev) => [...prev, newWindow]);
+        setCurrentMessage((prev) => ({ ...prev, [newWindow.id]: '' }));
 
-      // Add agent to tracking set (fallback case)
-      openAgentWindows.current.add(agentId);
-
-      setChatWindows((prev) => [...prev, newWindow]);
-      setCurrentMessage((prev) => ({ ...prev, [newWindow.id]: '' }));
-
-      // Set initial window size
-      setWindowSizes((prev) => ({
-        ...prev,
-        [newWindow.id]: { width: 320, height: 400 },
-      }));
-    }
-  }, []); // Remove chatWindows dependency to prevent stale closures
+        // Set initial window size
+        setWindowSizes((prev) => ({
+          ...prev,
+          [newWindow.id]: { width: 320, height: 400 },
+        }));
+      }
+    },
+    [user?.id]
+  );
 
   // Keep tracking set in sync with actual windows
   useEffect(() => {
@@ -642,78 +582,75 @@ export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
   }, [chatWindows]);
 
   // Define openNewChatWindow function for forced new chats
-  const openNewChatWindow = useCallback(async (agentId: string, agentName: string) => {
-    console.log(
-      `Creating NEW chat window for agent ${agentName} (${agentId}) - ignoring existing discussions`
-    );
+  const openNewChatWindow = useCallback(
+    async (agentId: string, agentName: string) => {
+      try {
+        // Force create a new discussion without checking for existing ones
+        const discussion = await createAgentChatDiscussion(agentId, agentName, user?.id);
 
-    try {
-      // Force create a new discussion without checking for existing ones
-      const discussion = await createAgentChatDiscussion(agentId, agentName, user?.id);
+        // Set up conversation ID for this window
+        const windowId = `chat-${Date.now()}-${agentId}-new`;
+        setConversationIds((prev) => ({ ...prev, [windowId]: discussion.id }));
 
-      // Set up conversation ID for this window
-      const windowId = `chat-${Date.now()}-${agentId}-new`;
-      setConversationIds((prev) => ({ ...prev, [windowId]: discussion.id }));
+        // Create new floating chat window
+        const newWindow: ChatWindow = {
+          id: windowId,
+          agentId,
+          agentName,
+          discussionId: discussion.id,
+          messages: [], // Always start with empty messages for new chats
+          isMinimized: false,
+          isLoading: false,
+          error: null,
+          hasLoadedHistory: true,
+          totalMessages: 0,
+          canLoadMore: false,
+          mode: 'floating',
+        };
 
-      // Create new floating chat window
-      const newWindow: ChatWindow = {
-        id: windowId,
-        agentId,
-        agentName,
-        discussionId: discussion.id,
-        messages: [], // Always start with empty messages for new chats
-        isMinimized: false,
-        isLoading: false,
-        error: null,
-        hasLoadedHistory: true,
-        totalMessages: 0,
-        canLoadMore: false,
-        mode: 'floating',
-      };
+        setChatWindows((prev) => [...prev, newWindow]);
+        setCurrentMessage((prev) => ({ ...prev, [newWindow.id]: '' }));
 
-      setChatWindows((prev) => [...prev, newWindow]);
-      setCurrentMessage((prev) => ({ ...prev, [newWindow.id]: '' }));
+        // Set initial window size
+        setWindowSizes((prev) => ({
+          ...prev,
+          [newWindow.id]: { width: 320, height: 400 },
+        }));
+      } catch (error) {
+        console.error('Failed to create new chat window:', error);
 
-      // Set initial window size
-      setWindowSizes((prev) => ({
-        ...prev,
-        [newWindow.id]: { width: 320, height: 400 },
-      }));
+        // Fallback to non-persistent chat
+        const newWindow: ChatWindow = {
+          id: `chat-${Date.now()}-${agentId}-new`,
+          agentId,
+          agentName,
+          discussionId: '', // Empty discussion ID for fallback
+          messages: [],
+          isMinimized: false,
+          isLoading: false,
+          error: 'Failed to create chat discussion',
+          hasLoadedHistory: true,
+          totalMessages: 0,
+          canLoadMore: false,
+          mode: 'floating',
+        };
 
-      console.log(`Opened NEW chat discussion with agent:`, agentName);
-    } catch (error) {
-      console.error('Failed to create new chat window:', error);
+        setChatWindows((prev) => [...prev, newWindow]);
+        setCurrentMessage((prev) => ({ ...prev, [newWindow.id]: '' }));
 
-      // Fallback to non-persistent chat
-      const newWindow: ChatWindow = {
-        id: `chat-${Date.now()}-${agentId}-new`,
-        agentId,
-        agentName,
-        discussionId: '', // Empty discussion ID for fallback
-        messages: [],
-        isMinimized: false,
-        isLoading: false,
-        error: 'Failed to create chat discussion',
-        hasLoadedHistory: true,
-        totalMessages: 0,
-        canLoadMore: false,
-        mode: 'floating',
-      };
-
-      setChatWindows((prev) => [...prev, newWindow]);
-      setCurrentMessage((prev) => ({ ...prev, [newWindow.id]: '' }));
-
-      // Set initial window size
-      setWindowSizes((prev) => ({
-        ...prev,
-        [newWindow.id]: { width: 320, height: 400 },
-      }));
-    }
-  }, []);
+        // Set initial window size
+        setWindowSizes((prev) => ({
+          ...prev,
+          [newWindow.id]: { width: 320, height: 400 },
+        }));
+      }
+    },
+    [user?.id]
+  );
 
   // Enhanced send functions for conversation intelligence integration
   const sendFloatingMessageWithText = useCallback(
-    async (windowId: string, messageText: string, intent?: any) => {
+    async (windowId: string, messageText: string, intent?: unknown) => {
       const window = chatWindows.find((w) => w.id === windowId);
 
       if (!window || !messageText?.trim() || window.isLoading) return;
@@ -785,14 +722,6 @@ export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
       }
 
       try {
-        console.log('💭 Floating chat send status:', {
-          isWebSocketConnected,
-          connectionType,
-          authStatus,
-          wsError,
-          agentId: window.agentId,
-        });
-
         if (isWebSocketConnected) {
           const chatMessage = {
             agentId: window.agentId,
@@ -809,10 +738,7 @@ export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
 
           // Send directly as 'agent_chat' event instead of wrapped message
           sendWebSocketMessage('agent_chat', chatMessage);
-          console.log('🚀 Floating chat message sent via WebSocket:', chatMessage);
         } else {
-          console.log('WebSocket not connected, using direct API call for floating chat');
-
           const response = await uaipAPI.client.agents.chat(window.agentId, {
             message: trimmedMessage,
             conversationHistory: window.messages.slice(-10).map((m) => ({
@@ -903,7 +829,7 @@ export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
   );
 
   const sendPortalMessageWithText = useCallback(
-    async (messageText: string, intent?: any) => {
+    async (messageText: string, intent?: unknown) => {
       if (!messageText?.trim() || !selectedAgentId) return;
 
       const trimmedMessage = messageText.trim();
@@ -971,10 +897,7 @@ export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
           };
 
           sendWebSocketMessage(chatMessage);
-          console.log('Message sent via WebSocket');
         } else {
-          console.log('WebSocket not connected, using direct API call');
-
           const response = await uaipAPI.client.agents.chat(selectedAgentId, {
             message: trimmedMessage,
             conversationHistory: conversationHistory.slice(-10),
@@ -1102,9 +1025,6 @@ export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
       setChatWindows((prev) => {
         windowToClose = prev.find((w) => w.id === windowId);
         if (windowToClose) {
-          console.log(
-            `Closing chat window for agent ${windowToClose.agentName} (${windowToClose.agentId})`
-          );
           // Remove agent from tracking set when window is closed
           openAgentWindows.current.delete(windowToClose.agentId);
         }
@@ -1127,10 +1047,6 @@ export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
       }
 
       // No local persistence to clear - everything is now handled by backend discussions
-      if (windowToClose?.discussionId) {
-        console.log(`Chat window closed for discussion: ${windowToClose.discussionId}`);
-      }
-
       setCurrentMessage((prev) => {
         const newMessages = { ...prev };
         delete newMessages[windowId];
@@ -1233,8 +1149,6 @@ export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
       if (contextualAnalysisRef.current[windowId]) {
         delete contextualAnalysisRef.current[windowId];
       }
-
-      console.log(`Chat window ${windowId} fully cleaned up`);
     },
     [isWebSocketConnected, sendWebSocketMessage, conversationIds]
   );
@@ -1245,7 +1159,7 @@ export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
     );
   }, []);
 
-  const sendFloatingMessage = useCallback(
+  const _sendFloatingMessage = useCallback(
     async (windowId: string) => {
       const window = chatWindows.find((w) => w.id === windowId);
       const messageText = currentMessage[windowId]?.trim();
@@ -1308,11 +1222,8 @@ export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
           };
 
           sendWebSocketMessage(chatMessage);
-          console.log('Floating chat message sent via WebSocket');
         } else {
           // Fallback to direct API call
-          console.log('WebSocket not connected, using direct API call for floating chat');
-
           const response = await uaipAPI.client.agents.chat(window.agentId, {
             message: messageText,
             conversationHistory: window.messages.slice(-10).map((m) => ({
@@ -1379,7 +1290,7 @@ export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
     [chatWindows, currentMessage, isWebSocketConnected, sendWebSocketMessage]
   );
 
-  const sendPortalMessage = useCallback(async () => {
+  const _sendPortalMessage = useCallback(async () => {
     const messageText = currentMessage['portal']?.trim();
     if (!messageText || !selectedAgentId) return;
 
@@ -1424,11 +1335,8 @@ export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
         };
 
         sendWebSocketMessage('agent_chat', chatMessage);
-        console.log('🚀 Portal message sent via WebSocket:', chatMessage);
       } else {
         // Fallback to direct API call
-        console.log('WebSocket not connected, using direct API call');
-
         const response = await uaipAPI.client.agents.chat(selectedAgentId, {
           message: messageText,
           conversationHistory: conversationHistory.slice(-10),
@@ -1498,20 +1406,6 @@ export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
     sendWebSocketMessage,
   ]);
 
-  const handleKeyPress = useCallback(
-    (e: React.KeyboardEvent, windowId: string) => {
-      if (e.key === 'Enter' && !e.shiftKey) {
-        e.preventDefault();
-        if (windowId === 'portal') {
-          sendPortalMessage();
-        } else {
-          sendFloatingMessage(windowId);
-        }
-      }
-    },
-    [sendPortalMessage, sendFloatingMessage]
-  );
-
   const clearPortalConversation = useCallback(() => {
     setPortalMessages([]);
     setConversationHistory([]);
@@ -1577,7 +1471,7 @@ export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
   }, [chatWindows]);
 
   // Contextual analysis for enhanced AI features
-  const analyzeMessageContext = useCallback((message: string) => {
+  const _analyzeMessageContext = useCallback((message: string) => {
     const sentiment = message.includes('?') ? 0.3 : message.includes('!') ? 0.8 : 0.5;
     const complexity =
       message.split(' ').length > 20 ? 0.8 : message.split(' ').length > 10 ? 0.6 : 0.4;
@@ -1954,7 +1848,7 @@ export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
                       ) : (
                         window.messages.map((msg, idx) => (
                           <motion.div
-                            key={msg.id || `msg-${idx}-${msg.timestamp || Date.now()}`}
+                            key={msg.id}
                             initial={{ opacity: 0, y: 20, scale: 0.95 }}
                             animate={{ opacity: 1, y: 0, scale: 1 }}
                             transition={{
@@ -2227,9 +2121,9 @@ export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
             </div>
 
             <div className="flex flex-wrap gap-2 mb-3">
-              {selectedAgent.capabilities?.slice(0, 6).map((capability, index) => (
+              {selectedAgent.capabilities?.slice(0, 6).map((capability) => (
                 <motion.span
-                  key={`${selectedAgent.id}-capability-${capability}-${index}`}
+                  key={`${selectedAgent.id}-capability-${capability}`}
                   className="text-xs px-3 py-1 bg-gradient-to-r from-blue-500/20 to-cyan-500/20 text-blue-300 rounded-lg border border-blue-500/30"
                   whileHover={{ scale: 1.05 }}
                 >
@@ -2381,9 +2275,9 @@ export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
                             <div className="mt-3 pt-3 border-t border-slate-600/30">
                               <div className="text-xs text-slate-400 mb-2">Tools Executed:</div>
                               <div className="space-y-2">
-                                {message.toolsExecuted.map((tool, toolIndex) => (
+                                {message.toolsExecuted.map((tool) => (
                                   <motion.div
-                                    key={`${tool.name || 'tool'}-${toolIndex}-${tool.timestamp || Date.now()}`}
+                                    key={`${tool.toolId}-${tool.timestamp}`}
                                     className={`flex items-center gap-2 text-xs px-3 py-2 rounded-lg ${
                                       tool.success
                                         ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'

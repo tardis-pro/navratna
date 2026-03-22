@@ -1,9 +1,9 @@
-import express, { Router } from '@uaip/shared-services';
-import { Request, Response } from '@uaip/shared-services';
+import _express, { Router } from '@uaip/shared-services';
+import { Request as _Request, Response as _Response } from '@uaip/shared-services';
 import { z } from 'zod';
 import { logger } from '@uaip/utils';
 import { authMiddleware, requireAdmin } from '@uaip/middleware';
-import { validateRequest } from '@uaip/middleware';
+import { validateRequest as _validateRequest } from '@uaip/middleware';
 import { AuditService as DomainAuditService } from '@uaip/shared-services';
 import { AuditEventType } from '@uaip/types';
 import { AuditService } from '../services/auditService.js';
@@ -11,15 +11,15 @@ import { AuditService } from '../services/auditService.js';
 const router = Router();
 
 // Lazy initialization of services
-let domainAuditService: DomainAuditService | null = null;
-let auditService: AuditService | null = null;
+let domainAuditServiceSingleton: DomainAuditService | null = null;
+let auditServiceSingleton: AuditService | null = null;
 
 async function getServices() {
-  if (!domainAuditService) {
-    domainAuditService = DomainAuditService.getInstance();
-    auditService = new AuditService();
+  if (!domainAuditServiceSingleton) {
+    domainAuditServiceSingleton = DomainAuditService.getInstance();
+    auditServiceSingleton = new AuditService();
   }
-  return { domainAuditService, auditService: auditService! };
+  return { domainAuditService: domainAuditServiceSingleton, auditService: auditServiceSingleton! };
 }
 
 // Validation schemas using Zod
@@ -54,7 +54,7 @@ const complianceReportSchema = z.object({
 });
 
 // Helper function for Zod validation
-const validateWithZod = (schema: z.ZodSchema, data: any) => {
+const validateWithZod = (schema: z.ZodSchema, data: unknown) => {
   const result = schema.safeParse(data);
   if (result.success) {
     return { error: null, value: result.data };
@@ -140,7 +140,7 @@ router.get('/logs', authMiddleware, requireAdmin, async (req, res) => {
       },
     });
   } catch (error) {
-    logger.error('Get audit logs error', { error, userId: (req as any).user?.userId });
+    logger.error('Get audit logs error', { error, userId: (req as unknown).user?.userId });
     res.status(500).json({
       error: 'Internal Server Error',
       message: 'An error occurred while retrieving audit logs',
@@ -206,7 +206,7 @@ router.get('/events/types', authMiddleware, requireAdmin, async (req, res) => {
       eventTypes,
     });
   } catch (error) {
-    logger.error('Get event types error', { error, userId: (req as any).user?.userId });
+    logger.error('Get event types error', { error, userId: (req as unknown).user?.userId });
     res.status(500).json({
       error: 'Internal Server Error',
       message: 'An error occurred while retrieving event types',
@@ -242,7 +242,7 @@ router.get('/stats', authMiddleware, requireAdmin, async (req, res) => {
       statistics,
     });
   } catch (error) {
-    logger.error('Get audit stats error', { error, userId: (req as any).user?.userId });
+    logger.error('Get audit stats error', { error, userId: (req as unknown).user?.userId });
     res.status(500).json({
       error: 'Internal Server Error',
       message: 'An error occurred while retrieving audit statistics',
@@ -273,19 +273,19 @@ router.post('/export', authMiddleware, requireAdmin, async (req, res) => {
     const { startDate, endDate, format } = value;
 
     // Get export data using AuditService (which uses TypeORM methods)
-    const exportData = await auditService.exportLogs(startDate, endDate, format);
+    const exportData = await auditServiceSingleton.exportLogs(startDate, endDate, format);
 
     // Parse the export data if it's a string
     let parsedData;
     try {
       parsedData = typeof exportData === 'string' ? JSON.parse(exportData) : exportData;
-    } catch (error) {
+    } catch {
       parsedData = { data: exportData, recordCount: 0 };
     }
 
-    await auditService.logSecurityEvent({
+    await auditServiceSingleton.logSecurityEvent({
       eventType: AuditEventType.AUDIT_EXPORT,
-      userId: (req as any).user.userId,
+      userId: (req as unknown).user.userId,
       details: {
         format: value.format,
         eventType: value.eventType,
@@ -334,7 +334,7 @@ router.post('/export', authMiddleware, requireAdmin, async (req, res) => {
       res.send(parsedData.data || exportData);
     }
   } catch (error) {
-    logger.error('Export audit logs error', { error, userId: (req as any).user?.userId });
+    logger.error('Export audit logs error', { error, userId: (req as unknown).user?.userId });
     res.status(500).json({
       error: 'Internal Server Error',
       message: 'An error occurred while exporting audit logs',
@@ -365,16 +365,16 @@ router.post('/compliance-report', authMiddleware, requireAdmin, async (req, res)
     const { startDate, endDate, format, includeDetails, complianceFramework } = value;
 
     // Generate compliance report using AuditService (which uses TypeORM methods)
-    const report = await auditService.generateComplianceReport({
+    const report = await auditServiceSingleton.generateComplianceReport({
       startDate,
       endDate,
       includeDetails,
       complianceFramework,
     });
 
-    await auditService.logSecurityEvent({
+    await auditServiceSingleton.logSecurityEvent({
       eventType: AuditEventType.COMPLIANCE_REPORT_GENERATED,
-      userId: (req as any).user.userId,
+      userId: (req as unknown).user.userId,
       details: {
         reportType: value.reportType,
         startDate: value.startDate,
@@ -391,7 +391,10 @@ router.post('/compliance-report', authMiddleware, requireAdmin, async (req, res)
       res.send(JSON.stringify(report));
     }
   } catch (error) {
-    logger.error('Generate compliance report error', { error, userId: (req as any).user?.userId });
+    logger.error('Generate compliance report error', {
+      error,
+      userId: (req as unknown).user?.userId,
+    });
     res.status(500).json({
       error: 'Internal Server Error',
       message: 'An error occurred while generating the compliance report',
@@ -458,11 +461,11 @@ router.get('/user-activity/:userId', authMiddleware, requireAdmin, async (req, r
 router.delete('/cleanup', authMiddleware, requireAdmin, async (req, res) => {
   try {
     // Use AuditService method (which uses TypeORM methods)
-    const result = await auditService.cleanupOldLogs();
+    const result = await auditServiceSingleton.cleanupOldLogs();
 
-    await auditService.logSecurityEvent({
+    await auditServiceSingleton.logSecurityEvent({
       eventType: AuditEventType.AUDIT_CLEANUP,
-      userId: (req as any).user.userId,
+      userId: (req as unknown).user.userId,
       details: {
         deletedCount: result.deleted,
         oldestRetainedDate: result.archived,
@@ -476,7 +479,7 @@ router.delete('/cleanup', authMiddleware, requireAdmin, async (req, res) => {
       result,
     });
   } catch (error) {
-    logger.error('Audit cleanup error', { error, userId: (req as any).user?.userId });
+    logger.error('Audit cleanup error', { error, userId: (req as unknown).user?.userId });
     res.status(500).json({
       error: 'Internal Server Error',
       message: 'An error occurred during audit cleanup',

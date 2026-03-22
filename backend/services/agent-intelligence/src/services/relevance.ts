@@ -86,7 +86,7 @@ async function getGraphDatabase(): Promise<ToolGraphDatabase | null> {
       database: process.env.NEO4J_DATABASE || 'neo4j',
       maxConnectionPoolSize: 20,
       connectionTimeout: 5000,
-    } as any);
+    } as Record<string, unknown>);
   }
 
   if (!graphInitAttempted) {
@@ -102,7 +102,14 @@ async function getGraphDatabase(): Promise<ToolGraphDatabase | null> {
 }
 
 function tokenize(text: string): string[] {
-  return Array.from(new Set(text.toLowerCase().split(/[^a-z0-9]+/g).filter((t) => t.length > 1)));
+  return Array.from(
+    new Set(
+      text
+        .toLowerCase()
+        .split(/[^a-z0-9]+/g)
+        .filter((t) => t.length > 1)
+    )
+  );
 }
 
 function normalizeWeights(input?: RelevanceInput['weights']) {
@@ -182,7 +189,9 @@ async function fetchMissingCandidateVectors(
   candidates: RelevanceInput['candidates']
 ): Promise<Map<string, number[]>> {
   const vectors = new Map<string, number[]>();
-  const idsToFetch = candidates.filter((candidate) => !candidate.vector).map((candidate) => candidate.id);
+  const idsToFetch = candidates
+    .filter((candidate) => !candidate.vector)
+    .map((candidate) => candidate.id);
 
   if (idsToFetch.length === 0) {
     return vectors;
@@ -225,12 +234,12 @@ async function computeGraphScore(candidateId: string, terms: string[]): Promise<
           WHERE toLower(type(r)) IN $relationshipTypes
           WITH collect(DISTINCT n) AS neighbors, collect(DISTINCT toLower(type(r))) AS relTypes
           WITH neighbors, relTypes,
-               [term IN $terms WHERE any(n IN neighbors WHERE
+               [term IN $terms WHERE unknown(n IN neighbors WHERE
                  toLower(coalesce(n.name, '')) CONTAINS term OR
                  toLower(coalesce(n.title, '')) CONTAINS term OR
                  toLower(coalesce(n.description, '')) CONTAINS term OR
                  toLower(coalesce(n.content, '')) CONTAINS term OR
-                 any(keyword IN coalesce(n.keywords, []) WHERE toLower(keyword) CONTAINS term)
+                 unknown(keyword IN coalesce(n.keywords, []) WHERE toLower(keyword) CONTAINS term)
                )] AS matchedTerms
           RETURN size(matchedTerms) AS matchedTermCount,
                  size($terms) AS totalTermCount,
@@ -266,7 +275,9 @@ async function computeGraphScore(candidateId: string, terms: string[]): Promise<
   }
 }
 
-async function getRecencyScores(candidates: RelevanceInput['candidates']): Promise<Map<string, number>> {
+async function getRecencyScores(
+  candidates: RelevanceInput['candidates']
+): Promise<Map<string, number>> {
   const scores = new Map<string, number>();
 
   try {
@@ -351,10 +362,14 @@ export async function relevance(input: RelevanceInput): Promise<RelevanceResult[
   const results = await Promise.all(
     candidates.map(async (candidate): Promise<RelevanceResult> => {
       const candidateVector = candidate.vector || qdrantVectors.get(candidate.id);
-      const vectorScore = queryVector && candidateVector ? cosineSimilarity(queryVector, candidateVector) : 0;
+      const vectorScore =
+        queryVector && candidateVector ? cosineSimilarity(queryVector, candidateVector) : 0;
       const graphScore = await computeGraphScore(candidate.id, queryTerms);
       const recencyScore = recencyScores.get(candidate.id) ?? 0;
-      const explicitScore = explicitKeywordScore(queryTerms, metadataToKeywords(candidate.metadata));
+      const explicitScore = explicitKeywordScore(
+        queryTerms,
+        metadataToKeywords(candidate.metadata)
+      );
 
       const score =
         vectorScore * weights.vector +

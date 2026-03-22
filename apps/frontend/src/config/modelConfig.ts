@@ -48,7 +48,7 @@ export const getModelServiceConfig = (): ServiceConfig => {
 export const validateServiceConfig = (config: ServiceConfig): boolean => {
   const isValidUrl = (url: string): boolean => {
     try {
-      new URL(url);
+      const _parsedUrl = new URL(url);
       return true;
     } catch {
       return false;

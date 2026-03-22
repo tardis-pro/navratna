@@ -26,7 +26,7 @@ export interface LLMProviderCredentialRecord {
   isActive: boolean;
   connectedAt: Date;
   lastUsedAt?: Date;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 export const OAUTH_SUPPORTED_PROVIDERS: AgentLLMProvider[] = [
@@ -85,7 +85,7 @@ export class LLMAgentProviderService {
       accessToken: string;
       refreshToken?: string;
       expiresAt?: Date;
-      metadata?: any;
+      metadata?: unknown;
     }
   ): Promise<LLMProviderCredentialRecord> {
     const key = `${userId}:${provider}`;

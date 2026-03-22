@@ -2,6 +2,23 @@ import { logger } from '@uaip/utils';
 import { BaseRepository } from '../base/BaseRepository';
 import { Capability } from '../../entities/capability.entity';
 
+/** Raw row shape returned by capability SQL queries */
+export interface CapabilityRow {
+  id: string;
+  name: string;
+  description: string;
+  type: string;
+  status: string;
+  metadata: Record<string, unknown> | null;
+  tool_config?: Record<string, unknown> | null;
+  artifact_config?: Record<string, unknown> | null;
+  dependencies?: string[] | null;
+  security_requirements?: Record<string, unknown> | null;
+  resource_requirements?: Record<string, unknown> | null;
+  created_at: Date;
+  updated_at: Date;
+}
+
 export class CapabilityRepository extends BaseRepository<Capability> {
   constructor() {
     super(Capability);
@@ -15,21 +32,21 @@ export class CapabilityRepository extends BaseRepository<Capability> {
     type?: string;
     securityLevel?: string;
     limit?: number;
-  }): Promise<any[]> {
+  }): Promise<CapabilityRow[]> {
     try {
       const manager = this.getEntityManager();
 
       let sqlQuery = `
-        SELECT 
-          id, name, description, type, status, metadata, 
-          tool_config, artifact_config, dependencies, 
+        SELECT
+          id, name, description, type, status, metadata,
+          tool_config, artifact_config, dependencies,
           security_requirements, resource_requirements,
           created_at, updated_at
-        FROM capabilities 
+        FROM capabilities
         WHERE status = 'active'
       `;
 
-      const queryParams: any[] = [];
+      const queryParams: (string | number)[] = [];
       let paramIndex = 1;
 
       // Add text search
@@ -80,7 +97,7 @@ export class CapabilityRepository extends BaseRepository<Capability> {
   /**
    * Get capabilities by IDs
    */
-  public async getCapabilitiesByIds(capabilityIds: string[]): Promise<any[]> {
+  public async getCapabilitiesByIds(capabilityIds: string[]): Promise<CapabilityRow[]> {
     try {
       const manager = this.getEntityManager();
 
@@ -113,7 +130,7 @@ export class CapabilityRepository extends BaseRepository<Capability> {
   /**
    * Get single capability by ID
    */
-  public async getCapabilityById(capabilityId: string): Promise<any | null> {
+  public async getCapabilityById(capabilityId: string): Promise<CapabilityRow | null> {
     try {
       const manager = this.getEntityManager();
 
@@ -141,7 +158,7 @@ export class CapabilityRepository extends BaseRepository<Capability> {
   /**
    * Get capability dependencies
    */
-  public async getCapabilityDependencies(dependencyIds: string[]): Promise<any[]> {
+  public async getCapabilityDependencies(dependencyIds: string[]): Promise<CapabilityRow[]> {
     try {
       const manager = this.getEntityManager();
 
@@ -171,7 +188,7 @@ export class CapabilityRepository extends BaseRepository<Capability> {
   /**
    * Get capabilities that depend on a given capability (dependents)
    */
-  public async getCapabilityDependents(capabilityId: string): Promise<any[]> {
+  public async getCapabilityDependents(capabilityId: string): Promise<CapabilityRow[]> {
     try {
       const manager = this.getEntityManager();
 
@@ -205,7 +222,7 @@ export class CapabilityRepository extends BaseRepository<Capability> {
     includeExperimental?: boolean;
     limit?: number;
     offset?: number;
-  }): Promise<{ capabilities: any[]; totalCount: number }> {
+  }): Promise<{ capabilities: CapabilityRow[]; totalCount: number }> {
     try {
       const manager = this.getEntityManager();
 
@@ -219,7 +236,7 @@ export class CapabilityRepository extends BaseRepository<Capability> {
         WHERE 1=1
       `;
 
-      const queryParams: any[] = [];
+      const queryParams: (string | string[] | number)[] = [];
       let paramIndex = 1;
 
       // Status filter

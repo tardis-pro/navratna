@@ -3,6 +3,10 @@ import { BaseEntity } from './base.entity';
 import { ToolCategory, JSONSchema, ToolExample, SecurityLevel } from '@uaip/types';
 
 // Related entities will be referenced by string to avoid circular dependencies
+// Type-only imports are safe - they are erased at compile time
+import type { ToolExecution } from './toolExecution.entity';
+import type { ToolUsageRecord } from './toolUsageRecord.entity';
+import type { ToolAssignment } from './toolAssignment.entity';
 
 /**
  * Tool Definition Entity for the Tool System
@@ -89,14 +93,14 @@ export class ToolDefinition extends BaseEntity {
   supportContact?: string;
 
   @Column({ name: 'changelog', type: 'jsonb', default: '[]' })
-  changelog: any[];
+  changelog: Record<string, unknown>[];
 
   // Deployment and environment
   @Column({ name: 'deployment_config', type: 'jsonb', nullable: true })
-  deploymentConfig?: Record<string, any>;
+  deploymentConfig?: Record<string, unknown>;
 
   @Column({ name: 'environment_requirements', type: 'jsonb', nullable: true })
-  environmentRequirements?: Record<string, any>;
+  environmentRequirements?: Record<string, unknown>;
 
   // Quality and reliability metrics
   @Column({ name: 'reliability_score', type: 'decimal', precision: 3, scale: 2, nullable: true })
@@ -115,11 +119,11 @@ export class ToolDefinition extends BaseEntity {
 
   // Relationships
   @OneToMany('ToolExecution', 'tool')
-  executions: any[];
+  executions: ToolExecution[];
 
   @OneToMany('ToolUsageRecord', 'tool')
-  usageRecords: any[];
+  usageRecords: ToolUsageRecord[];
 
   @OneToMany('ToolAssignment', 'tool')
-  assignments: any[];
+  assignments: ToolAssignment[];
 }

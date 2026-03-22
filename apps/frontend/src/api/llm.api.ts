@@ -27,7 +27,7 @@ export interface LLMProvider {
   type: ModelProvider;
   apiEndpoint?: string;
   isActive: boolean;
-  configuration?: Record<string, any>;
+  configuration?: Record<string, unknown>;
   models?: string[];
 }
 
@@ -41,7 +41,7 @@ export interface LLMGenerateRequest {
   maxTokens?: number;
   topP?: number;
   stream?: boolean;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 export interface LLMGenerateResponse {
@@ -54,7 +54,7 @@ export interface LLMGenerateResponse {
     totalTokens: number;
   };
   finishReason?: string;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 export interface LLMContextAnalysis {
@@ -76,7 +76,7 @@ export interface UserLLMProvider {
   userId: string;
   provider: ModelProvider;
   apiKey?: string; // Encrypted
-  configuration?: Record<string, any>;
+  configuration?: Record<string, unknown>;
   isActive: boolean;
   isDefault: boolean;
   models?: string[];
@@ -137,7 +137,7 @@ export const llmAPI = {
       apiKey?: string;
       defaultModel?: string;
       modelsList?: string[];
-      configuration?: Record<string, any>;
+      configuration?: Record<string, unknown>;
       priority?: number;
     }): Promise<UserLLMProvider> {
       return APIClient.post<UserLLMProvider>(API_ROUTES.USER_LLM.CREATE_PROVIDER, provider);
@@ -152,7 +152,7 @@ export const llmAPI = {
         apiKey?: string;
         defaultModel?: string;
         modelsList?: string[];
-        configuration?: Record<string, any>;
+        configuration?: Record<string, unknown>;
         priority?: number;
         status?: string;
         isActive?: boolean;

@@ -4,36 +4,36 @@ import {
   Folder,
   Plus,
   Users,
-  Calendar,
+  Calendar as _Calendar,
   Target,
-  BarChart3,
+  BarChart3 as _BarChart3,
   Search,
-  Filter,
-  MoreVertical,
+  Filter as _Filter,
+  MoreVertical as _MoreVertical,
   Edit3,
   Trash2,
   Archive,
-  Star,
-  Clock,
+  Star as _Star,
+  Clock as _Clock,
   CheckCircle2,
-  AlertCircle,
+  AlertCircle as _AlertCircle,
   PlayCircle,
   PauseCircle,
-  Settings,
-  GitBranch,
-  Upload,
-  Download,
-  Share2,
-  MessageSquare,
-  FileText,
-  Code,
-  Image,
-  Database,
+  Settings as _Settings,
+  GitBranch as _GitBranch,
+  Upload as _Upload,
+  Download as _Download,
+  Share2 as _Share2,
+  MessageSquare as _MessageSquare,
+  FileText as _FileText,
+  Code as _Code,
+  Image as _Image,
+  Database as _Database,
   RefreshCw,
 } from 'lucide-react';
 import { useAuth } from '../../../contexts/AuthContext';
 import { ProjectOnboardingFlow } from './ProjectOnboardingFlow';
-import { projectsAPI, type Project as APIProject } from '../../../api/projects.api';
+import { projectsAPI, type Project as _APIProject } from '../../../api/projects.api';
 
 interface ViewportSize {
   width: number;
@@ -408,7 +408,7 @@ export const ProjectManagementPortal: React.FC<ProjectManagementPortalProps> = (
   const [editingProject, setEditingProject] = useState<Project | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<Project['status'] | 'all'>('all');
-  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
+  const [_viewMode, _setViewMode] = useState<'grid' | 'list'>('grid');
 
   // Responsive helpers
   const isMobile = viewport?.isMobile ?? false;
@@ -420,9 +420,7 @@ export const ProjectManagementPortal: React.FC<ProjectManagementPortalProps> = (
   useEffect(() => {
     const loadProjects = async () => {
       try {
-        console.log('🔄 Loading projects from API...');
         const apiProjects = await projectsAPI.list();
-        console.log('📊 Loaded projects:', apiProjects.length, 'projects');
 
         // Convert API projects to local Project interface
         const convertedProjects: Project[] = apiProjects.map((apiProject) => ({
@@ -444,10 +442,6 @@ export const ProjectManagementPortal: React.FC<ProjectManagementPortalProps> = (
         }));
 
         setProjects(convertedProjects);
-        console.log(
-          '✅ Projects loaded successfully:',
-          convertedProjects.map((p) => p.name)
-        );
       } catch (error) {
         console.error('Failed to load projects:', error);
         // Fallback to empty array or could show error state
@@ -461,7 +455,6 @@ export const ProjectManagementPortal: React.FC<ProjectManagementPortalProps> = (
   // Add a function to refresh projects when needed
   const refreshProjects = async () => {
     try {
-      console.log('🔄 Refreshing projects...');
       const apiProjects = await projectsAPI.list();
       const convertedProjects: Project[] = apiProjects.map((apiProject) => ({
         id: apiProject.id,
@@ -481,7 +474,6 @@ export const ProjectManagementPortal: React.FC<ProjectManagementPortalProps> = (
         updatedAt: new Date(apiProject.updatedAt),
       }));
       setProjects(convertedProjects);
-      console.log('✅ Projects refreshed successfully');
     } catch (error) {
       console.error('Failed to refresh projects:', error);
     }
@@ -495,10 +487,8 @@ export const ProjectManagementPortal: React.FC<ProjectManagementPortalProps> = (
     return matchesSearch && matchesStatus;
   });
 
-  const handleCreateProject = async (projectData: any) => {
+  const handleCreateProject = async (projectData: unknown) => {
     try {
-      console.log('🚀 Creating project:', projectData);
-
       // If projectData is already an API project (from onboarding flow), just add it
       if (projectData.id && projectData.ownerId) {
         // Convert API project to local format
@@ -522,7 +512,6 @@ export const ProjectManagementPortal: React.FC<ProjectManagementPortalProps> = (
           updatedAt: new Date(projectData.updatedAt),
         };
         setProjects((prev) => [convertedProject, ...prev]);
-        console.log('✅ Project added to local state:', convertedProject.name);
 
         // Refresh projects from API to ensure consistency
         await refreshProjects();
@@ -549,8 +538,8 @@ export const ProjectManagementPortal: React.FC<ProjectManagementPortalProps> = (
             tasks: [],
           },
         };
-        const createdProject = await projectsAPI.create(projectCreateData);
-        console.log('✅ Quick create project saved to API:', createdProject.name);
+        const _createdProject = await projectsAPI.create(projectCreateData);
+
         await refreshProjects();
       }
 

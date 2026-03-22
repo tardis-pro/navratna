@@ -121,4 +121,4 @@
 #           files: |
 #             frontend-${{ needs.release.outputs.tag_name }}.tar.gz
 #             frontend-${{ needs.release.outputs.tag_name }}.zip
-#           generate_release_notes: true 
+#           generate_release_notes: true

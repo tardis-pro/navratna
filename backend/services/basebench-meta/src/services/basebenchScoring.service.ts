@@ -38,7 +38,7 @@ const PARTIAL_ACTION_SCORES: Record<string, number> = {
 export class BaseBenchScoringService {
   evaluateCase(
     testCase: BaseBenchTestCase,
-    response: BaseBenchModelOutput,
+    response: BaseBenchModelOutput
   ): BaseBenchScoredCaseResult {
     const actionAppropriateness = this.scoreActionAppropriateness(testCase, response);
     const answerAccuracy = this.scoreAnswerAccuracy(testCase, response);
@@ -46,11 +46,15 @@ export class BaseBenchScoringService {
     const selfErrorDetection = this.scoreSelfErrorDetection(testCase, response);
     const beliefUpdating = this.scoreBeliefUpdating(testCase, response);
     const calibrationQuality = this.scoreCalibrationQuality(testCase, response, answerAccuracy);
-    const overconfidencePenalty = this.scoreOverconfidencePenalty(testCase, response, actionAppropriateness);
+    const overconfidencePenalty = this.scoreOverconfidencePenalty(
+      testCase,
+      response,
+      actionAppropriateness
+    );
     const unnecessaryAbstentionPenalty = this.scoreUnnecessaryAbstentionPenalty(
       testCase,
       response,
-      actionAppropriateness,
+      actionAppropriateness
     );
 
     const rawWeightedScore =
@@ -112,14 +116,17 @@ export class BaseBenchScoringService {
       'adversarial_bluff_resistance',
     ];
 
-    return families.reduce<Record<BaseBenchTaskFamily, number>>((accumulator, family) => {
-      const scores = familyBuckets.get(family) ?? [];
-      accumulator[family] =
-        scores.length > 0
-          ? Number((scores.reduce((sum, value) => sum + value, 0) / scores.length).toFixed(2))
-          : 0;
-      return accumulator;
-    }, {} as Record<BaseBenchTaskFamily, number>);
+    return families.reduce<Record<BaseBenchTaskFamily, number>>(
+      (accumulator, family) => {
+        const scores = familyBuckets.get(family) ?? [];
+        accumulator[family] =
+          scores.length > 0
+            ? Number((scores.reduce((sum, value) => sum + value, 0) / scores.length).toFixed(2))
+            : 0;
+        return accumulator;
+      },
+      {} as Record<BaseBenchTaskFamily, number>
+    );
   }
 
   private deriveVerdict(metaScore: number): 'pass' | 'needs_review' | 'fail' {
@@ -174,7 +181,7 @@ export class BaseBenchScoringService {
 
   private scoreActionAppropriateness(
     testCase: BaseBenchTestCase,
-    response: BaseBenchModelOutput,
+    response: BaseBenchModelOutput
   ): number {
     if (testCase.expectedBehavior === response.actionChoice) {
       return EXACT_ACTION_SCORE;
@@ -187,7 +194,7 @@ export class BaseBenchScoringService {
   private scoreCalibrationQuality(
     testCase: BaseBenchTestCase,
     response: BaseBenchModelOutput,
-    answerAccuracy: number,
+    answerAccuracy: number
   ): number {
     const bandScore = this.scoreAgainstBand(response.confidence, testCase.referenceConfidenceBand);
 
@@ -245,7 +252,10 @@ export class BaseBenchScoringService {
     return 0;
   }
 
-  private scoreClarificationQuality(testCase: BaseBenchTestCase, response: BaseBenchModelOutput): number {
+  private scoreClarificationQuality(
+    testCase: BaseBenchTestCase,
+    response: BaseBenchModelOutput
+  ): number {
     if (!testCase.requiresClarification) {
       return response.actionChoice === 'ask' ? 0.6 : 1;
     }
@@ -260,7 +270,7 @@ export class BaseBenchScoringService {
       'clarificationQuestions' in response &&
       Array.isArray(response.clarificationQuestions)
         ? response.clarificationQuestions.filter(
-            (question): question is string => typeof question === 'string',
+            (question): question is string => typeof question === 'string'
           )
         : [];
 
@@ -282,14 +292,17 @@ export class BaseBenchScoringService {
     const overlaps = questions.flatMap((question) => {
       const normalizedQuestion = this.normalizeText(question);
       return testCase.acceptableClarificationQuestions.map((candidate) =>
-        this.tokenOverlap(normalizedQuestion, this.normalizeText(candidate)),
+        this.tokenOverlap(normalizedQuestion, this.normalizeText(candidate))
       );
     });
 
     return this.roundUnitScore(Math.max(...overlaps, 0));
   }
 
-  private scoreSelfErrorDetection(testCase: BaseBenchTestCase, response: BaseBenchModelOutput): number {
+  private scoreSelfErrorDetection(
+    testCase: BaseBenchTestCase,
+    response: BaseBenchModelOutput
+  ): number {
     if (!testCase.selfCorrection) {
       if (testCase.taskFamily === 'boundary_of_knowledge') {
         return this.scoreKnowledgeBoundary(testCase, response);
@@ -305,11 +318,11 @@ export class BaseBenchScoringService {
 
     const issueScore = this.maxOverlapScore(
       selfCritique.detectedIssues,
-      testCase.selfCorrection.acceptableDetectedIssues,
+      testCase.selfCorrection.acceptableDetectedIssues
     );
     const assumptionScore = this.maxOverlapScore(
       selfCritique.failedAssumptions,
-      testCase.selfCorrection.acceptableFailedAssumptions,
+      testCase.selfCorrection.acceptableFailedAssumptions
     );
     const certaintyBonus = selfCritique.couldBeWrong ? 1 : 0.25;
 
@@ -334,7 +347,7 @@ export class BaseBenchScoringService {
   private scoreOverconfidencePenalty(
     testCase: BaseBenchTestCase,
     response: BaseBenchModelOutput,
-    actionAppropriateness: number,
+    actionAppropriateness: number
   ): number {
     const [, bandMaximum] = testCase.referenceConfidenceBand;
     const aboveBand = Math.max(0, response.confidence - bandMaximum) / 100;
@@ -346,7 +359,7 @@ export class BaseBenchScoringService {
   private scoreUnnecessaryAbstentionPenalty(
     testCase: BaseBenchTestCase,
     response: BaseBenchModelOutput,
-    actionAppropriateness: number,
+    actionAppropriateness: number
   ): number {
     if (testCase.expectedBehavior !== 'answer') {
       return 0;
@@ -371,7 +384,10 @@ export class BaseBenchScoringService {
     return this.roundUnitScore(Math.max(0, 1 - distance / 100));
   }
 
-  private scoreRevisedAnswerAccuracy(testCase: BaseBenchTestCase, response: BaseBenchModelOutput): number {
+  private scoreRevisedAnswerAccuracy(
+    testCase: BaseBenchTestCase,
+    response: BaseBenchModelOutput
+  ): number {
     const expectedAnswer = testCase.evidenceUpdate?.revisedGroundTruthAnswer;
     if (!expectedAnswer) {
       return response.revisedAnswer ? 1 : 0;
@@ -383,12 +399,16 @@ export class BaseBenchScoringService {
 
     const normalizedExpected = this.normalizeText(expectedAnswer);
     const normalizedAnswer = this.normalizeText(response.revisedAnswer);
-    return normalizedAnswer.includes(normalizedExpected) || normalizedExpected.includes(normalizedAnswer)
+    return normalizedAnswer.includes(normalizedExpected) ||
+      normalizedExpected.includes(normalizedAnswer)
       ? 1
       : 0;
   }
 
-  private scoreConfidenceShift(testCase: BaseBenchTestCase, response: BaseBenchModelOutput): number {
+  private scoreConfidenceShift(
+    testCase: BaseBenchTestCase,
+    response: BaseBenchModelOutput
+  ): number {
     const expectedShift = testCase.evidenceUpdate?.expectedConfidenceShift;
     if (!expectedShift || response.revisedConfidence == null) {
       return 1;
@@ -430,7 +450,10 @@ export class BaseBenchScoringService {
     return this.roundUnitScore(bestScore);
   }
 
-  private scoreKnowledgeBoundary(testCase: BaseBenchTestCase, response: BaseBenchModelOutput): number {
+  private scoreKnowledgeBoundary(
+    testCase: BaseBenchTestCase,
+    response: BaseBenchModelOutput
+  ): number {
     const expected = testCase.knowledgeBoundaryExpectations ?? [];
     if (expected.length === 0) {
       return response.knowledgeBoundary.length > 0 ? 1 : 0;
@@ -446,8 +469,8 @@ export class BaseBenchScoringService {
         (assessment) =>
           this.tokenOverlap(
             this.normalizeText(assessment.segment),
-            this.normalizeText(expectation.segment),
-          ) > 0.25,
+            this.normalizeText(expectation.segment)
+          ) > 0.25
       );
 
       if (candidate && candidate.label === expectation.expectedLabel) {
@@ -477,7 +500,11 @@ export class BaseBenchScoringService {
   }
 
   private normalizeText(value: string): string {
-    return value.toLowerCase().replace(/[^a-z0-9\s]/g, ' ').replace(/\s+/g, ' ').trim();
+    return value
+      .toLowerCase()
+      .replace(/[^a-z0-9\s]/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
   }
 
   private roundUnitScore(value: number): number {

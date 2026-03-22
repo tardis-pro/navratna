@@ -62,7 +62,7 @@ export const UAIPEventSchema = z.object({
   version: z.literal('1'),
 });
 
-export type UAIPEvent<T = Record<string, unknown>> = z.infer<typeof UAIPEventSchema>;
+export type UAIPEvent = z.infer<typeof UAIPEventSchema>;
 
 // Helper function to create UAIPEvent
 export function createUAIPEvent<T>(
@@ -72,7 +72,7 @@ export function createUAIPEvent<T>(
   actor: Actor,
   tenant: Tenant,
   correlationId?: string
-): UAIPEvent<T> {
+): UAIPEvent {
   return {
     id: crypto.randomUUID(),
     type,

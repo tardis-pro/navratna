@@ -7,7 +7,7 @@ import { DatabaseError } from '../databaseService';
 export interface MCPJobRequest {
   serverId: string;
   toolName: string;
-  parameters: any;
+  parameters: Record<string, unknown>;
   agentId?: string;
   userId?: string;
   conversationId?: string;
@@ -16,12 +16,12 @@ export interface MCPJobRequest {
   securityLevel?: 'low' | 'medium' | 'high' | 'critical';
   approvalRequired?: boolean;
   timeoutSeconds?: number;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 export interface MCPJobResult {
   success: boolean;
-  result?: any;
+  result?: Record<string, unknown>;
   error?: string;
   errorCode?: string;
   errorCategory?: string;
@@ -156,7 +156,11 @@ export class MCPService {
     }
   }
 
-  async completeToolCall(id: string, result: any, executionTimeMs?: number): Promise<MCPToolCall> {
+  async completeToolCall(
+    id: string,
+    result: Record<string, unknown>,
+    executionTimeMs?: number
+  ): Promise<MCPToolCall> {
     try {
       const updates = {
         status: 'completed' as const,
@@ -191,10 +195,10 @@ export class MCPService {
       };
 
       return await this.updateToolCall(id, updates);
-    } catch (err: any) {
+    } catch (err: unknown) {
       logger.error('Failed to fail MCP tool call:', err);
       throw new DatabaseError('Failed to fail MCP tool call', {
-        originalError: err.message,
+        originalError: err instanceof Error ? err.message : String(err),
         details: { id, error, errorCode, errorCategory },
       });
     }

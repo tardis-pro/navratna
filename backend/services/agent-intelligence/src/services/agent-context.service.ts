@@ -6,7 +6,7 @@
 
 import { Agent, ContextAnalysis, ConversationContext, EnvironmentFactors } from '@uaip/types';
 import { logger } from '@uaip/utils';
-import { SERVICE_ACCESS_MATRIX } from '@uaip/shared-services';
+import {} from '@uaip/shared-services';
 import { EventBusService } from '@uaip/infra/eventBus';
 import { KnowledgeGraphService } from '@/knowledge-graph/knowledge-graph.service';
 import { LLMService } from '@uaip/llm-service';
@@ -160,7 +160,7 @@ export class AgentContextService {
   /**
    * Extract contextual information from conversation
    */
-  extractContextualInformation(conversationContext: ConversationContext): any {
+  extractContextualInformation(conversationContext: ConversationContext): Record<string, unknown> {
     const contextInfo = {
       conversationLength: conversationContext.messages?.length || 0,
       currentTopic: this.extractCurrentTopic(conversationContext),
@@ -202,8 +202,8 @@ export class AgentContextService {
     userRequest: string,
     conversationContext: ConversationContext,
     agent: Agent,
-    userId?: string
-  ): Promise<any> {
+    _userId?: string
+  ): Promise<unknown> {
     try {
       const prompt = this.buildContextAnalysisPrompt(userRequest, conversationContext, agent);
 
@@ -225,7 +225,7 @@ export class AgentContextService {
   /**
    * Analyze user intent from request
    */
-  private analyzeUserIntent(userRequest: string): any {
+  private analyzeUserIntent(userRequest: string): Record<string, unknown> {
     // Basic intent analysis
     const intent = {
       primary: 'unknown',
@@ -256,7 +256,7 @@ export class AgentContextService {
   /**
    * Event handlers
    */
-  private async handleAnalyzeContext(event: any): Promise<void> {
+  private async handleAnalyzeContext(event: Record<string, unknown>): Promise<void> {
     const { requestId, agentId, conversationContext, userRequest, userId } = event;
     try {
       const analysis = await this.analyzeContext(agentId, conversationContext, userRequest, userId);
@@ -266,8 +266,8 @@ export class AgentContextService {
     }
   }
 
-  private async handleUpdateContext(event: any): Promise<void> {
-    const { requestId, agentId, contextUpdate } = event;
+  private async handleUpdateContext(event: Record<string, unknown>): Promise<void> {
+    const { requestId, _agentId, contextUpdate } = event;
     try {
       // Update context in knowledge graph - using updateKnowledge for now
       // TODO: Implement proper context update mechanism
@@ -283,7 +283,7 @@ export class AgentContextService {
     }
   }
 
-  private async handleExtractContext(event: any): Promise<void> {
+  private async handleExtractContext(event: Record<string, unknown>): Promise<void> {
     const { requestId, conversationContext } = event;
     try {
       const contextInfo = this.extractContextualInformation(conversationContext);
@@ -343,12 +343,12 @@ Please analyze:
       .join('\n');
   }
 
-  private extractCurrentTopic(context: ConversationContext): string {
+  private extractCurrentTopic(_context: ConversationContext): string {
     // Extract from recent messages
     return 'general';
   }
 
-  private extractPreviousTopics(context: ConversationContext): string[] {
+  private extractPreviousTopics(_context: ConversationContext): string[] {
     // Extract from conversation history
     return [];
   }
@@ -364,7 +364,7 @@ Please analyze:
     return context.messages.length / (duration / 60000); // Messages per minute
   }
 
-  private analyzeEmotionalContext(context: ConversationContext): any {
+  private analyzeEmotionalContext(_context: ConversationContext): Record<string, unknown> {
     return {
       userMood: 'neutral',
       frustrationLevel: 0,
@@ -372,11 +372,11 @@ Please analyze:
     };
   }
 
-  private extractTaskContext(context: ConversationContext): any {
+  private extractTaskContext(_context: ConversationContext): Record<string, unknown> {
     return {
       currentTask: null,
-      completedTasks: [] as any[],
-      pendingTasks: [] as any[],
+      completedTasks: [] as Record<string, unknown>[],
+      pendingTasks: [] as Record<string, unknown>[],
     };
   }
 
@@ -403,7 +403,7 @@ Please analyze:
     return 'neutral';
   }
 
-  private calculateConfidence(analysis: any): number {
+  private calculateConfidence(analysis: Record<string, unknown>): number {
     // Basic confidence calculation
     let confidence = 0.5;
 
@@ -427,7 +427,7 @@ Please analyze:
     return days[new Date().getDay()];
   }
 
-  private async publishContextEvent(channel: string, data: any): Promise<void> {
+  private async publishContextEvent(channel: string, data: Record<string, unknown>): Promise<void> {
     try {
       await this.eventBusService.publish(channel, {
         ...data,
@@ -439,7 +439,10 @@ Please analyze:
     }
   }
 
-  private async respondToRequest(requestId: string, response: any): Promise<void> {
+  private async respondToRequest(
+    requestId: string,
+    response: Record<string, unknown>
+  ): Promise<void> {
     await this.eventBusService.publish('agent.context.response', {
       requestId,
       ...response,
@@ -447,7 +450,7 @@ Please analyze:
     });
   }
 
-  private auditLog(event: string, data: any): void {
+  private auditLog(event: string, data: Record<string, unknown>): void {
     logger.info(`AUDIT: ${event}`, {
       ...data,
       service: this.serviceName,

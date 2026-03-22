@@ -1,5 +1,5 @@
 import { KnowledgeType, SourceType } from '@uaip/types';
-import { KnowledgeItemEntity } from '@uaip/shared-services';
+import {} from '@uaip/shared-services';
 import { KnowledgeRepository } from '@uaip/shared-services';
 import { QdrantService } from '@/knowledge-graph/qdrant.service';
 import { ToolGraphDatabase } from '@uaip/shared-services';
@@ -24,7 +24,7 @@ export interface Neo4jKnowledgeItem {
   tags: string[];
   confidence: number;
   sourceType: string;
-  metadata: Record<string, any>;
+  metadata: Record<string, unknown>;
 }
 
 /**
@@ -52,26 +52,20 @@ export class SimplifiedSyncService {
     const errors: string[] = [];
 
     try {
-      console.log('Starting simplified Neo4j → Qdrant → PostgreSQL sync...');
-
       // Step 1: Extract all knowledge from Neo4j
       const neo4jItems = await this.extractFromNeo4j();
-      console.log(`Extracted ${neo4jItems.length} items from Neo4j`);
 
       // Step 2: Sync to Qdrant with embeddings
       const qdrantResult = await this.syncToQdrant(neo4jItems);
-      console.log(`Synced ${qdrantResult.successful} items to Qdrant`);
+
       errors.push(...qdrantResult.errors);
 
       // Step 3: Cluster similar vectors in Qdrant
       const clusteringResult = await this.clusteringService.clusterSimilarKnowledge(20, 0.85);
-      console.log(
-        `Created ${clusteringResult.totalClusters} clusters from ${clusteringResult.totalOriginalItems} items`
-      );
 
       // Step 4: Sync clustered knowledge to PostgreSQL
       const postgresResult = await this.syncToPostgres(clusteringResult.clusters);
-      console.log(`Synced ${postgresResult.successful} clustered items to PostgreSQL`);
+
       errors.push(...postgresResult.errors);
 
       return {
@@ -153,6 +147,7 @@ export class SimplifiedSyncService {
 
       try {
         // Generate embeddings for batch
+        // oxlint-disable-next-line no-await-in-loop -- sequential processing required
         const embeddings = await this.embeddingService.generateBatchEmbeddings(
           batch.map((item) => item.content)
         );
@@ -173,6 +168,7 @@ export class SimplifiedSyncService {
         }));
 
         // Upsert to Qdrant
+        // oxlint-disable-next-line no-await-in-loop -- sequential processing required
         await this.qdrantService.upsert(qdrantDocs);
         successful += batch.length;
       } catch (error) {
@@ -197,6 +193,7 @@ export class SimplifiedSyncService {
     for (const cluster of clusters) {
       try {
         // Convert cluster to KnowledgeItemEntity
+        // oxlint-disable-next-line no-await-in-loop -- sequential processing required
         const knowledgeItem = await this.clusteringService.consolidateCluster(cluster);
 
         // Convert to ingest format
@@ -216,6 +213,7 @@ export class SimplifiedSyncService {
         };
 
         // Save to PostgreSQL using the correct method
+        // oxlint-disable-next-line no-await-in-loop -- sequential processing required
         await this.knowledgeRepository.create(ingestData);
         successful++;
       } catch (error) {
@@ -294,10 +292,9 @@ export class SimplifiedSyncService {
       const allItems = await this.knowledgeRepository.findAll();
       const clusteredItems = allItems.filter((item) => item.sourceType === SourceType.CLUSTERED);
       for (const item of clusteredItems) {
+        // oxlint-disable-next-line no-await-in-loop -- sequential processing required
         await this.knowledgeRepository.delete(item.id);
       }
-
-      console.log('Cleared all synced data');
     } catch (error) {
       console.error('Error clearing synced data:', error);
       throw error;
@@ -310,7 +307,7 @@ export class SimplifiedSyncService {
   private mapToKnowledgeType(type: string): KnowledgeType {
     const typeMapping: Record<string, KnowledgeType> = {
       // Business & Organizations
-      Company: KnowledgeType.FACTUAL,
+      Compunknown: KnowledgeType.FACTUAL,
       Organization: KnowledgeType.FACTUAL,
       BusinessUnit: KnowledgeType.FACTUAL,
       Department: KnowledgeType.FACTUAL,

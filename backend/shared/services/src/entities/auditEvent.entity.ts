@@ -37,7 +37,7 @@ export class AuditEvent extends BaseEntity {
   resourceId?: string;
 
   @Column({ type: 'jsonb' })
-  details: Record<string, any>;
+  details: Record<string, unknown>;
 
   @Column({ name: 'ip_address', length: 45, nullable: true })
   ipAddress?: string;

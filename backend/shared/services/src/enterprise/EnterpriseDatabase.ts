@@ -7,7 +7,7 @@
  */
 
 import { DatabaseService } from '../databaseService';
-import { TypeOrmService } from '../typeormService';
+// TypeOrmService used transitively via DatabaseService
 import { logger } from '@uaip/utils';
 import {
   SERVICE_ACCESS_MATRIX,
@@ -32,7 +32,7 @@ export interface EnterpriseAuditEvent {
   operation: string;
   timestamp: Date;
   userId?: string;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 /**
@@ -146,7 +146,7 @@ export class EnterpriseDatabase extends DatabaseService {
     databaseType: 'postgresql' | 'neo4j' | 'qdrant' | 'redis',
     databaseInstance: string,
     operation: AccessLevel
-  ): Promise<any> {
+  ): Promise<unknown> {
     // Validate access through service access matrix
     const hasAccess = validateServiceAccess(
       this.serviceName,
@@ -204,7 +204,7 @@ export class EnterpriseDatabase extends DatabaseService {
   /**
    * Get PostgreSQL connection for specific instance
    */
-  private async getPostgreSQLConnection(instance: string): Promise<any> {
+  private async getPostgreSQLConnection(instance: string): Promise<unknown> {
     const connectionString = getDatabaseConnectionString(this.serviceName, 'postgresql', instance);
 
     if (!connectionString) {
@@ -219,7 +219,7 @@ export class EnterpriseDatabase extends DatabaseService {
   /**
    * Get Neo4j connection for specific instance
    */
-  private async getNeo4jConnection(instance: string): Promise<any> {
+  private async getNeo4jConnection(instance: string): Promise<unknown> {
     const connectionString = getDatabaseConnectionString(this.serviceName, 'neo4j', instance);
 
     if (!connectionString) {
@@ -233,7 +233,7 @@ export class EnterpriseDatabase extends DatabaseService {
   /**
    * Get Qdrant connection for specific instance
    */
-  private async getQdrantConnection(instance: string): Promise<any> {
+  private async getQdrantConnection(instance: string): Promise<unknown> {
     const connectionString = getDatabaseConnectionString(this.serviceName, 'qdrant', instance);
 
     if (!connectionString) {
@@ -247,7 +247,7 @@ export class EnterpriseDatabase extends DatabaseService {
   /**
    * Get Redis connection for specific instance
    */
-  private async getRedisConnection(instance: string): Promise<any> {
+  private async getRedisConnection(instance: string): Promise<unknown> {
     const connectionString = getDatabaseConnectionString(this.serviceName, 'redis', instance);
 
     if (!connectionString) {
@@ -261,11 +261,11 @@ export class EnterpriseDatabase extends DatabaseService {
   /**
    * Security-validated query execution
    */
-  public async executeSecureQuery<T = any>(
+  public async executeSecureQuery<T = unknown>(
     databaseType: 'postgresql' | 'neo4j' | 'qdrant' | 'redis',
     databaseInstance: string,
     query: string,
-    params?: any[],
+    params?: unknown[],
     operation: AccessLevel = AccessLevel.READ
   ): Promise<T> {
     const connection = await this.getEnterpriseConnection(
@@ -402,7 +402,7 @@ export class EnterpriseDatabase extends DatabaseService {
     complianceFrameworks: string[];
     auditEventCount: number;
     securityLevel: number;
-    databaseAccess: any[];
+    databaseAccess: unknown[];
     networkSegments: string[];
     accessViolations: number;
     recommendations: string[];
@@ -450,7 +450,7 @@ export class EnterpriseDatabase extends DatabaseService {
     auditEventCount: number;
   }> {
     const serviceConfig = SERVICE_ACCESS_MATRIX[this.serviceName];
-    const databaseStatus: any[] = [];
+    const databaseStatus: unknown[] = [];
     let overallStatus: 'healthy' | 'degraded' | 'unhealthy' = 'healthy';
 
     // Check each database connection

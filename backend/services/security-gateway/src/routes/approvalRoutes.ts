@@ -1,9 +1,9 @@
-import express, {
+import _express, {
   Router,
   Request,
   Response,
   NextFunction,
-  RouterType,
+  _RouterType,
 } from '@uaip/shared-services';
 import { z } from 'zod';
 import { logger } from '@uaip/utils';
@@ -16,22 +16,22 @@ import { DatabaseService } from '@uaip/infra/database';
 import { EventBusService } from '@uaip/infra/eventBus';
 import { NotificationService } from '../services/notificationService.js';
 import { ApprovalDecision, ApprovalStatus, SecurityLevel, AuditEventType } from '@uaip/types';
-import { config } from '@uaip/config';
+import { config as _config } from '@uaip/config';
 
 const router = Router();
 
 // Lazy initialization of services
-let databaseService: DatabaseService | null = null;
-let auditService: AuditService | null = null;
-let notificationService: NotificationService | null = null;
-let approvalWorkflowService: ApprovalWorkflowService | null = null;
+let databaseServiceSingleton: DatabaseService | null = null;
+let auditServiceSingleton: AuditService | null = null;
+let notificationServiceSingleton: NotificationService | null = null;
+let approvalWorkflowServiceSingleton: ApprovalWorkflowService | null = null;
 
 async function getServices() {
-  if (!databaseService) {
-    databaseService = new DatabaseService();
-    await databaseService.initialize();
-    auditService = new AuditService();
-    notificationService = new NotificationService();
+  if (!databaseServiceSingleton) {
+    databaseServiceSingleton = new DatabaseService();
+    await databaseServiceSingleton.initialize();
+    auditServiceSingleton = new AuditService();
+    notificationServiceSingleton = new NotificationService();
 
     // Initialize EventBusService and ApprovalWorkflowService
     const eventBusService = new EventBusService(
@@ -42,18 +42,18 @@ async function getServices() {
       logger
     );
 
-    approvalWorkflowService = new ApprovalWorkflowService(
-      databaseService,
+    approvalWorkflowServiceSingleton = new ApprovalWorkflowService(
+      databaseServiceSingleton,
       eventBusService,
-      notificationService,
-      auditService
+      notificationServiceSingleton,
+      auditServiceSingleton
     );
   }
   return {
-    databaseService,
-    auditService: auditService!,
-    notificationService: notificationService!,
-    approvalWorkflowService: approvalWorkflowService!,
+    databaseService: databaseServiceSingleton,
+    auditService: auditServiceSingleton!,
+    notificationService: notificationServiceSingleton!,
+    approvalWorkflowService: approvalWorkflowServiceSingleton!,
   };
 }
 
@@ -613,7 +613,7 @@ router.post(
 /**
  * Helper functions
  */
-function calculateUrgency(workflow: any): number {
+function calculateUrgency(workflow: unknown): number {
   let urgency = 0;
 
   // Security level urgency
@@ -656,7 +656,7 @@ function calculateUrgency(workflow: any): number {
   return urgency;
 }
 
-function calculateAverageApprovalTime(workflows: any[]): number {
+function calculateAverageApprovalTime(workflows: unknown[]): number {
   const completedWorkflows = workflows.filter(
     (w) => w.status === ApprovalStatus.APPROVED || w.status === ApprovalStatus.REJECTED
   );

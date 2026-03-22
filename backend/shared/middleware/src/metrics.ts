@@ -102,7 +102,7 @@ export function metricsMiddleware(app: Elysia): Elysia {
 
       activeConnections.dec();
     })
-    .derive(({ request }) => {
+    .derive(({ request: _request }) => {
       const startTime = Date.now();
       return {
         metricsStartTime: startTime,
@@ -184,12 +184,15 @@ export function recordLLMRequest(options: {
   );
 
   if (options.tokensUsed !== undefined) {
-    llmTokensUsedTotal.inc({
-      agent_id: agentId,
-      provider,
-      model,
-      request_type: options.requestType,
-    }, options.tokensUsed);
+    llmTokensUsedTotal.inc(
+      {
+        agent_id: agentId,
+        provider,
+        model,
+        request_type: options.requestType,
+      },
+      options.tokensUsed
+    );
   }
 }
 
@@ -200,7 +203,7 @@ export interface ErrorContext {
   userId?: string;
   requestId?: string;
   severity?: 'error' | 'critical' | 'warning';
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 // Utility functions for error tracking
@@ -234,7 +237,7 @@ function generateMessageHash(message: string | undefined): string {
 }
 
 // Enhanced error logging function
-export function recordError(error: Error | any, context: ErrorContext): void {
+export function recordError(error: Error | unknown, context: ErrorContext): void {
   const safeError = error || {
     message: 'Unknown error',
     constructor: { name: 'UnknownError' },
@@ -349,7 +352,7 @@ export async function metricsEndpoint(): Promise<Response> {
     return new Response(metrics, {
       headers: { 'Content-Type': register.contentType },
     });
-  } catch (error) {
+  } catch {
     return new Response('Error generating metrics', { status: 500 });
   }
 }

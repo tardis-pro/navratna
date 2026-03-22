@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import jwt, { SignOptions } from 'jsonwebtoken';
+import jwt from 'jsonwebtoken';
 import bcrypt from 'bcrypt';
 import { logger } from '@uaip/utils';
 import { config } from '@uaip/config';
@@ -7,8 +7,8 @@ import { UserService } from '@uaip/shared-services';
 import {
   validateJWTToken,
   generateAuthTokens,
-  attachAuth,
-  requireAuth,
+  attachAuth as _attachAuth,
+  requireAuth as _requireAuth,
   withOptionalAuth,
   withRequiredAuth,
   csrfProtection,
@@ -19,11 +19,14 @@ import {
 // Note: All auth utilities now from shared middleware
 import { AuditService } from '../services/auditService.js';
 import { AuditEventType } from '@uaip/types';
-import type { OptionalAuthContext, RequiredAuthContext } from './types/elysia-context.js';
+import type {
+  OptionalAuthContext as _OptionalAuthContext,
+  RequiredAuthContext as _RequiredAuthContext,
+} from './types/elysia-context.js';
 
 // Lazy singletons for dependent services
-let userService: UserService | null = null;
-let auditService: AuditService | null = null;
+let userServiceSingleton: UserService | null = null;
+let auditServiceSingleton: AuditService | null = null;
 
 const parseExpiryToSeconds = (value?: string | number): number | undefined => {
   if (value === undefined || value === null) return undefined;
@@ -48,13 +51,13 @@ const getAuthCookieOptions = () => ({
 });
 
 async function getServices() {
-  if (!userService) {
-    userService = UserService.getInstance();
+  if (!userServiceSingleton) {
+    userServiceSingleton = UserService.getInstance();
   }
-  if (!auditService) {
-    auditService = new AuditService();
+  if (!auditServiceSingleton) {
+    auditServiceSingleton = new AuditService();
   }
-  return { userService, auditService };
+  return { userService: userServiceSingleton, auditService: auditServiceSingleton };
 }
 
 // Schemas
@@ -119,9 +122,10 @@ const authRateLimiter = createRateLimiter({
   },
 });
 
-export function registerAuthRoutes(app: any): any {
-  return app.group('/api/v1/auth', (app: any) =>
-    withOptionalAuth(app).use(authRateLimiter)
+export function registerAuthRoutes(elysiaApp: unknown): unknown {
+  return elysiaApp.group('/api/v1/auth', (app: unknown) =>
+    withOptionalAuth(app)
+      .use(authRateLimiter)
       // POST /login
       .post('/login', async ({ body, set, request, headers, cookie }) => {
         const parsed = loginSchema.safeParse(body);
@@ -318,7 +322,7 @@ export function registerAuthRoutes(app: any): any {
             },
             meta: { timestamp: new Date() },
           };
-        } catch (e) {
+        } catch {
           set.status = 401;
           return { error: 'Invalid Token', message: 'Refresh token is invalid or expired' };
         }
@@ -329,7 +333,7 @@ export function registerAuthRoutes(app: any): any {
         try {
           const authUser = await getAuthUser(headers.authorization);
           const { userService, auditService } = await getServices();
-          const refreshToken = (body as any)?.refreshToken as string | undefined;
+          const refreshToken = (body as unknown)?.refreshToken as string | undefined;
 
           if (refreshToken) {
             await userService.revokeRefreshToken(refreshToken);
@@ -362,7 +366,7 @@ export function registerAuthRoutes(app: any): any {
       })
 
       // POST /change-password (requires auth)
-      .group('', (g: any) =>
+      .group('', (g: unknown) =>
         // @ts-expect-error - Elysia middleware injects user, but TypeScript cannot infer through nested groups
         withRequiredAuth(g).post('/change-password', async ({ body, set, user }) => {
           const parsed = changePasswordSchema.safeParse(body);
@@ -416,7 +420,7 @@ export function registerAuthRoutes(app: any): any {
       )
 
       // GET /me
-      .group('', (g: any) =>
+      .group('', (g: unknown) =>
         // @ts-expect-error - Elysia middleware injects user, but TypeScript cannot infer through nested groups
         withRequiredAuth(g).get('/me', async ({ set, user }) => {
           try {
@@ -444,7 +448,7 @@ export function registerAuthRoutes(app: any): any {
               },
               meta: { timestamp: new Date() },
             };
-          } catch (error) {
+          } catch {
             set.status = 500;
             return { error: 'Internal Server Error', message: 'Failed to load user' };
           }

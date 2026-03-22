@@ -1,9 +1,8 @@
-// @ts-nocheck
 import { jest } from '@jest/globals';
 import { SecurityLevel, RiskLevel, User } from '@uaip/types';
 
 // Mock DatabaseService
-export const createMockDatabaseService = (): any => ({
+export const createMockDatabaseService = (): unknown => ({
   initialize: jest.fn().mockResolvedValue(undefined),
   healthCheck: jest.fn().mockResolvedValue({
     status: 'healthy',
@@ -191,7 +190,7 @@ export const createMockDatabaseService = (): any => ({
 });
 
 // Mock EventBusService
-export const createMockEventBusService = (): any => ({
+export const createMockEventBusService = (): unknown => ({
   connect: jest.fn().mockResolvedValue(undefined),
   close: jest.fn().mockResolvedValue(undefined),
   publish: jest.fn().mockResolvedValue(undefined),
@@ -200,7 +199,7 @@ export const createMockEventBusService = (): any => ({
 });
 
 // Mock RedisService
-export const createMockRedisService = (): any => ({
+export const createMockRedisService = (): unknown => ({
   connect: jest.fn().mockResolvedValue(undefined),
   disconnect: jest.fn().mockResolvedValue(undefined),
   get: jest.fn().mockResolvedValue(null),
@@ -212,7 +211,7 @@ export const createMockRedisService = (): any => ({
 });
 
 // Mock SecurityValidationService
-export const createMockSecurityValidationService = (): any => ({
+export const createMockSecurityValidationService = (): unknown => ({
   validateOperation: jest.fn().mockResolvedValue({
     allowed: true,
     riskLevel: SecurityLevel.MEDIUM,
@@ -235,7 +234,7 @@ export const createMockSecurityValidationService = (): any => ({
 });
 
 // Mock NotificationService
-export const createMockNotificationService = (): any => ({
+export const createMockNotificationService = (): unknown => ({
   sendEmail: jest.fn().mockResolvedValue({
     messageId: 'msg-123',
     status: 'sent',
@@ -247,7 +246,7 @@ export const createMockNotificationService = (): any => ({
 });
 
 // Mock AuditService
-export const createMockAuditService = (): any => ({
+export const createMockAuditService = (): unknown => ({
   logEvent: jest.fn().mockResolvedValue({
     id: 'audit-123',
     timestamp: new Date(),
@@ -289,7 +288,7 @@ export const createMockAuditService = (): any => ({
 });
 
 // Mock ApprovalWorkflowService
-export const createMockApprovalWorkflowService = (): any => ({
+export const createMockApprovalWorkflowService = (): unknown => ({
   createApprovalRequest: jest.fn().mockResolvedValue({
     id: 'approval-123',
     requesterId: 'user-123',
@@ -331,7 +330,7 @@ export const createMockApprovalWorkflowService = (): any => ({
 });
 
 // Mock LLMProviderManagementService
-export const createMockLLMProviderManagementService = (): any => ({
+export const createMockLLMProviderManagementService = (): unknown => ({
   createProvider: jest.fn().mockResolvedValue({
     id: 'provider-123',
     name: 'OpenAI',
@@ -381,14 +380,14 @@ export const createMockUser = (overrides: Partial<User> = {}): User => ({
 });
 
 // Mock bcrypt for password hashing
-export const createMockBcrypt = (): any => ({
+export const createMockBcrypt = (): unknown => ({
   hash: jest.fn().mockResolvedValue('$2b$08$test.hash.here'),
   compare: jest.fn().mockResolvedValue(true),
   genSalt: jest.fn().mockResolvedValue('$2b$08$test.salt.here'),
 });
 
 // Mock jsonwebtoken
-export const createMockJWT = (): any => ({
+export const createMockJWT = (): unknown => ({
   sign: jest.fn().mockReturnValue('test.jwt.token'),
   verify: jest.fn().mockReturnValue({
     userId: 'user-123',
@@ -403,7 +402,7 @@ export const createMockJWT = (): any => ({
 });
 
 // Mock OAuthProviderService
-export const createMockOAuthProviderService = (): any => ({
+export const createMockOAuthProviderService = (): unknown => ({
   validateAgentOperation: jest.fn().mockResolvedValue({
     allowed: true,
     reason: 'Valid operation',
@@ -439,7 +438,7 @@ export const createMockOAuthProviderService = (): any => ({
 });
 
 // Mock EnhancedAuthService
-export const createMockEnhancedAuthService = (): any => ({
+export const createMockEnhancedAuthService = (): unknown => ({
   authenticateWithOAuth: jest.fn().mockResolvedValue({
     user: {
       id: 'user-123',

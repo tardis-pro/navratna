@@ -41,7 +41,7 @@ export class UserLLMProviderSeed extends BaseSeed<UserLLMProvider> {
    */
   private getProvidersForUser(user: UserEntity): DeepPartial<UserLLMProvider>[] {
     const providers: DeepPartial<UserLLMProvider>[] = [];
-    const baseConfig = this.getBaseProvidersConfig();
+    const _baseConfig = this.getBaseProvidersConfig();
 
     // All users get basic local providers (Ollama, LM Studio) for privacy
     providers.push(...this.createLocalProviders(user));
@@ -464,6 +464,7 @@ export class UserLLMProviderSeed extends BaseSeed<UserLLMProvider> {
       for (const providerData of seedData) {
         try {
           // Check if provider already exists for this user with this name
+          // oxlint-disable-next-line no-await-in-loop -- sequential processing required
           const existingProvider = await this.repository.findOne({
             where: {
               userId: providerData.userId,
@@ -473,11 +474,13 @@ export class UserLLMProviderSeed extends BaseSeed<UserLLMProvider> {
 
           if (existingProvider) {
             // Update existing provider with new configuration
+            // oxlint-disable-next-line no-await-in-loop -- sequential processing required
             await this.repository.update(existingProvider.id, providerData);
             processedCount++;
           } else {
             // Create new provider
             const newProvider = this.repository.create(providerData);
+            // oxlint-disable-next-line no-await-in-loop -- sequential processing required
             await this.repository.save(newProvider);
             processedCount++;
           }

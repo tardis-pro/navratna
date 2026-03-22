@@ -1,7 +1,5 @@
 import { logger } from '@uaip/utils';
-import {
-  SourceType,
-} from '@uaip/types';
+import { SourceType } from '@uaip/types';
 import type {
   Constellation,
   ConstellationItem,
@@ -47,10 +45,7 @@ function getEmbeddingService(): SmartEmbeddingService {
 
 function getClusteringService(): KnowledgeClusteringService {
   if (!clusteringService) {
-    clusteringService = new KnowledgeClusteringService(
-      getQdrantService(),
-      getEmbeddingService()
-    );
+    clusteringService = new KnowledgeClusteringService(getQdrantService(), getEmbeddingService());
   }
   return clusteringService;
 }
@@ -111,7 +106,8 @@ function determineHealth(cluster: KnowledgeCluster): ConstellationHealth {
 function mapPointToItem(point: QdrantPoint, itemRelevance: number): ConstellationItem {
   const now = new Date().toISOString();
   const sourceTypeRaw = point.payload.sourceType;
-  const sourceEnum = Object.values(SourceType).find((v) => v === sourceTypeRaw) ?? SourceType.CLUSTERED;
+  const sourceEnum =
+    Object.values(SourceType).find((v) => v === sourceTypeRaw) ?? SourceType.CLUSTERED;
 
   return {
     id: point.id,

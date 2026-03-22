@@ -1,4 +1,4 @@
-import type { Actor, Tenant, UAIPEvent } from '@uaip/types';
+import type { Actor, Tenant } from '@uaip/types';
 
 // Tool Execution Contract
 export interface ToolExecutionRequest {

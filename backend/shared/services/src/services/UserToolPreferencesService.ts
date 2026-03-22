@@ -7,8 +7,8 @@ import { logger } from '@uaip/utils';
 export interface UserToolPreferencesData {
   userId: string;
   toolId: string;
-  parameterDefaults?: Record<string, any>;
-  customConfig?: Record<string, any>;
+  parameterDefaults?: Record<string, unknown>;
+  customConfig?: Record<string, unknown>;
   isFavorite?: boolean;
   isEnabled?: boolean;
   autoApprove?: boolean;
@@ -22,8 +22,8 @@ export interface UserToolAccess {
   toolId: string;
   toolName: string;
   toolDescription: string;
-  parameterDefaults: Record<string, any>;
-  customConfig: Record<string, any>;
+  parameterDefaults: Record<string, unknown>;
+  customConfig: Record<string, unknown>;
   isFavorite: boolean;
   isEnabled: boolean;
   autoApprove: boolean;

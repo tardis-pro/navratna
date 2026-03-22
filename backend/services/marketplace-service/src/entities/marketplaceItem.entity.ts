@@ -158,12 +158,12 @@ export class MarketplaceItem extends BaseEntity {
   verifiedAt?: Date;
 
   @Column({ type: 'jsonb', nullable: true })
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 
   // Relationships
   @OneToMany('MarketplaceRating', 'marketplaceItem')
-  ratings: any[];
+  ratings: unknown[];
 
   @OneToMany('MarketplaceInstallation', 'marketplaceItem')
-  installations: any[];
+  installations: unknown[];
 }

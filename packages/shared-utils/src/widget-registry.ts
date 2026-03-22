@@ -135,7 +135,9 @@ export class WidgetRegistry {
 
     if (query.tags && query.tags.length > 0) {
       const queryTags = query.tags;
-      widgets = widgets.filter((w) => queryTags.some((tag: string) => w.metadata.tags?.includes(tag)));
+      widgets = widgets.filter((w) =>
+        queryTags.some((tag: string) => w.metadata.tags?.includes(tag))
+      );
     }
 
     // Sort widgets
@@ -466,8 +468,8 @@ export class WidgetRegistry {
       // Device restrictions
       if (rbac.conditionalAccess.deviceRestrictions && userContext.userAgent) {
         const userAgent = userContext.userAgent;
-        const isAllowedDevice = rbac.conditionalAccess.deviceRestrictions.some((allowedDevice: string) =>
-          userAgent.includes(allowedDevice)
+        const isAllowedDevice = rbac.conditionalAccess.deviceRestrictions.some(
+          (allowedDevice: string) => userAgent.includes(allowedDevice)
         );
         restrictions.deviceRestricted = !isAllowedDevice;
       }

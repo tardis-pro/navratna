@@ -1,190 +1,190 @@
 version: 2
 updates:
   # Frontend dependencies
-  - package-ecosystem: "npm"
-    directory: "/"
+  - package-ecosystem: 'npm'
+    directory: '/'
     schedule:
-      interval: "weekly"
-      day: "monday"
-      time: "09:00"
+      interval: 'weekly'
+      day: 'monday'
+      time: '09:00'
     open-pull-requests-limit: 10
     reviewers:
-      - "your-team"
+      - 'your-team'
     assignees:
-      - "your-team"
+      - 'your-team'
     commit-message:
-      prefix: "chore(deps)"
-      include: "scope"
+      prefix: 'chore(deps)'
+      include: 'scope'
     groups:
       react:
         patterns:
-          - "react*"
-          - "@types/react*"
+          - 'react*'
+          - '@types/react*'
       radix:
         patterns:
-          - "@radix-ui/*"
+          - '@radix-ui/*'
       dev-dependencies:
-        dependency-type: "development"
+        dependency-type: 'development'
         patterns:
-          - "*"
+          - '*'
 
   # Backend root dependencies
-  - package-ecosystem: "npm"
-    directory: "/backend"
+  - package-ecosystem: 'npm'
+    directory: '/backend'
     schedule:
-      interval: "weekly"
-      day: "monday"
-      time: "09:00"
+      interval: 'weekly'
+      day: 'monday'
+      time: '09:00'
     open-pull-requests-limit: 5
     reviewers:
-      - "your-team"
+      - 'your-team'
     assignees:
-      - "your-team"
+      - 'your-team'
     commit-message:
-      prefix: "chore(backend-deps)"
-      include: "scope"
+      prefix: 'chore(backend-deps)'
+      include: 'scope'
 
   # Shared packages
-  - package-ecosystem: "npm"
-    directory: "/packages/shared-types"
+  - package-ecosystem: 'npm'
+    directory: '/packages/shared-types'
     schedule:
-      interval: "weekly"
-      day: "tuesday"
-      time: "09:00"
+      interval: 'weekly'
+      day: 'tuesday'
+      time: '09:00'
     open-pull-requests-limit: 3
     commit-message:
-      prefix: "chore(shared-types)"
+      prefix: 'chore(shared-types)'
 
-  - package-ecosystem: "npm"
-    directory: "/packages/shared-utils"
+  - package-ecosystem: 'npm'
+    directory: '/packages/shared-utils'
     schedule:
-      interval: "weekly"
-      day: "tuesday"
-      time: "09:00"
+      interval: 'weekly'
+      day: 'tuesday'
+      time: '09:00'
     open-pull-requests-limit: 3
     commit-message:
-      prefix: "chore(shared-utils)"
+      prefix: 'chore(shared-utils)'
 
-  - package-ecosystem: "npm"
-    directory: "/backend/shared/services"
+  - package-ecosystem: 'npm'
+    directory: '/backend/shared/services'
     schedule:
-      interval: "weekly"
-      day: "tuesday"
-      time: "09:00"
+      interval: 'weekly'
+      day: 'tuesday'
+      time: '09:00'
     open-pull-requests-limit: 3
     commit-message:
-      prefix: "chore(shared-services)"
+      prefix: 'chore(shared-services)'
 
-  - package-ecosystem: "npm"
-    directory: "/backend/shared/middleware"
+  - package-ecosystem: 'npm'
+    directory: '/backend/shared/middleware'
     schedule:
-      interval: "weekly"
-      day: "tuesday"
-      time: "09:00"
+      interval: 'weekly'
+      day: 'tuesday'
+      time: '09:00'
     open-pull-requests-limit: 3
     commit-message:
-      prefix: "chore(shared-middleware)"
+      prefix: 'chore(shared-middleware)'
 
-  - package-ecosystem: "npm"
-    directory: "/backend/shared/config"
+  - package-ecosystem: 'npm'
+    directory: '/backend/shared/config'
     schedule:
-      interval: "weekly"
-      day: "tuesday"
-      time: "09:00"
+      interval: 'weekly'
+      day: 'tuesday'
+      time: '09:00'
     open-pull-requests-limit: 3
     commit-message:
-      prefix: "chore(shared-config)"
+      prefix: 'chore(shared-config)'
 
   # Backend services
-  - package-ecosystem: "npm"
-    directory: "/backend/services/agent-intelligence"
+  - package-ecosystem: 'npm'
+    directory: '/backend/services/agent-intelligence'
     schedule:
-      interval: "weekly"
-      day: "wednesday"
-      time: "09:00"
+      interval: 'weekly'
+      day: 'wednesday'
+      time: '09:00'
     open-pull-requests-limit: 3
     commit-message:
-      prefix: "chore(agent-intelligence)"
+      prefix: 'chore(agent-intelligence)'
 
-  - package-ecosystem: "npm"
-    directory: "/backend/services/orchestration-pipeline"
+  - package-ecosystem: 'npm'
+    directory: '/backend/services/orchestration-pipeline'
     schedule:
-      interval: "weekly"
-      day: "wednesday"
-      time: "09:00"
+      interval: 'weekly'
+      day: 'wednesday'
+      time: '09:00'
     open-pull-requests-limit: 3
     commit-message:
-      prefix: "chore(orchestration-pipeline)"
+      prefix: 'chore(orchestration-pipeline)'
 
-  - package-ecosystem: "npm"
-    directory: "/backend/services/capability-registry"
+  - package-ecosystem: 'npm'
+    directory: '/backend/services/capability-registry'
     schedule:
-      interval: "weekly"
-      day: "wednesday"
-      time: "09:00"
+      interval: 'weekly'
+      day: 'wednesday'
+      time: '09:00'
     open-pull-requests-limit: 3
     commit-message:
-      prefix: "chore(capability-registry)"
+      prefix: 'chore(capability-registry)'
 
-  - package-ecosystem: "npm"
-    directory: "/backend/services/security-gateway"
+  - package-ecosystem: 'npm'
+    directory: '/backend/services/security-gateway'
     schedule:
-      interval: "weekly"
-      day: "wednesday"
-      time: "09:00"
+      interval: 'weekly'
+      day: 'wednesday'
+      time: '09:00'
     open-pull-requests-limit: 3
     commit-message:
-      prefix: "chore(security-gateway)"
+      prefix: 'chore(security-gateway)'
 
-  - package-ecosystem: "npm"
-    directory: "/backend/services/artifact-service"
+  - package-ecosystem: 'npm'
+    directory: '/backend/services/artifact-service'
     schedule:
-      interval: "weekly"
-      day: "wednesday"
-      time: "09:00"
+      interval: 'weekly'
+      day: 'wednesday'
+      time: '09:00'
     open-pull-requests-limit: 3
     commit-message:
-      prefix: "chore(artifact-service)"
+      prefix: 'chore(artifact-service)'
 
-  - package-ecosystem: "npm"
-    directory: "/backend/services/discussion-orchestration"
+  - package-ecosystem: 'npm'
+    directory: '/backend/services/discussion-orchestration'
     schedule:
-      interval: "weekly"
-      day: "wednesday"
-      time: "09:00"
+      interval: 'weekly'
+      day: 'wednesday'
+      time: '09:00'
     open-pull-requests-limit: 3
     commit-message:
-      prefix: "chore(discussion-orchestration)"
+      prefix: 'chore(discussion-orchestration)'
 
   # API Gateway
-  - package-ecosystem: "npm"
-    directory: "/backend/api-gateway"
+  - package-ecosystem: 'npm'
+    directory: '/backend/api-gateway'
     schedule:
-      interval: "weekly"
-      day: "thursday"
-      time: "09:00"
+      interval: 'weekly'
+      day: 'thursday'
+      time: '09:00'
     open-pull-requests-limit: 3
     commit-message:
-      prefix: "chore(api-gateway)"
+      prefix: 'chore(api-gateway)'
 
   # Docker dependencies
-  - package-ecosystem: "docker"
-    directory: "/backend"
+  - package-ecosystem: 'docker'
+    directory: '/backend'
     schedule:
-      interval: "weekly"
-      day: "friday"
-      time: "09:00"
+      interval: 'weekly'
+      day: 'friday'
+      time: '09:00'
     open-pull-requests-limit: 5
     commit-message:
-      prefix: "chore(docker)"
+      prefix: 'chore(docker)'
 
   # GitHub Actions
-  - package-ecosystem: "github-actions"
-    directory: "/"
+  - package-ecosystem: 'github-actions'
+    directory: '/'
     schedule:
-      interval: "weekly"
-      day: "friday"
-      time: "09:00"
+      interval: 'weekly'
+      day: 'friday'
+      time: '09:00'
     open-pull-requests-limit: 5
     commit-message:
-      prefix: "chore(actions)" 
+      prefix: 'chore(actions)'

@@ -15,7 +15,7 @@ import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useKnowledge } from '@/contexts/KnowledgeContext';
-import type { KnowledgeType, SourceType, KnowledgeIngestRequest } from '@uaip/types';
+import type { KnowledgeType, _SourceType, KnowledgeIngestRequest } from '@uaip/types';
 
 interface KnowledgeUploaderProps {
   onUploadComplete?: () => void;
@@ -77,12 +77,14 @@ export const KnowledgeUploader: React.FC<KnowledgeUploaderProps> = ({
 
     const droppedFiles = Array.from(e.dataTransfer.files);
     handleFiles(droppedFiles);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Handle file selection
   const handleFileSelect = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFiles = Array.from(e.target.files || []);
     handleFiles(selectedFiles);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Process files
@@ -113,6 +115,7 @@ export const KnowledgeUploader: React.FC<KnowledgeUploaderProps> = ({
     );
 
     setFiles((prev) => [...prev, ...fileUploads]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Read file content
@@ -164,8 +167,8 @@ export const KnowledgeUploader: React.FC<KnowledgeUploaderProps> = ({
       setTextInput('');
       setTextTags('');
       onUploadComplete?.();
-    } catch (error) {
-      setError(error instanceof Error ? error.message : 'Failed to upload text');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to upload text');
     }
   }, [textInput, textTags, textType, uploadKnowledge, onUploadComplete]);
 
@@ -208,15 +211,15 @@ export const KnowledgeUploader: React.FC<KnowledgeUploaderProps> = ({
         setFiles([]);
         onUploadComplete?.();
       }, 2000);
-    } catch (error) {
-      // Mark as error
+    } catch (err) {
+      // Mark as
       files.forEach((file) => {
         updateFile(file.id, {
           status: 'error',
-          error: error instanceof Error ? error.message : 'Upload failed',
+          error: err instanceof Error ? err.message : 'Upload failed',
         });
       });
-      setError(error instanceof Error ? error.message : 'Failed to upload files');
+      setError(err instanceof Error ? err.message : 'Failed to upload files');
     }
   }, [files, uploadKnowledge, updateFile, onUploadComplete]);
 

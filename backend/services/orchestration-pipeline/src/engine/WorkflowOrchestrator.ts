@@ -11,9 +11,7 @@ import {
   OperationState,
   StepResult,
   ExecutionStep,
-  StepStatus,
   OperationResult,
-  OperationEventType,
   Checkpoint,
   CheckpointType,
   OperationMetrics,
@@ -91,7 +89,7 @@ export class WorkflowOrchestrator extends EventEmitter {
     } catch (error) {
       workflow.status = OperationStatus.FAILED;
       workflow.endTime = Date.now();
-      workflow.error = error.message;
+      workflow.error = error instanceof Error ? error.message : String(error);
 
       await this.updateWorkflowState(workflow);
       this.clearWorkflowTimeout(workflowId);
@@ -115,6 +113,7 @@ export class WorkflowOrchestrator extends EventEmitter {
         this.executeWorkflowStep(step, operation, workflow, stepResultsMap)
       );
 
+      // oxlint-disable-next-line no-await-in-loop -- sequential processing required
       const results = await Promise.allSettled(groupPromises);
 
       // Check for failures
@@ -136,6 +135,7 @@ export class WorkflowOrchestrator extends EventEmitter {
       }
 
       // Create checkpoint after each group
+      // oxlint-disable-next-line no-await-in-loop -- sequential processing required
       await this.createCheckpoint(workflow, operation);
     }
 
@@ -182,7 +182,7 @@ export class WorkflowOrchestrator extends EventEmitter {
         operationId: operation.id,
         workflowId: workflow.id,
         stepId: step.id,
-        error: error.message,
+        error: error instanceof Error ? error.message : String(error),
       });
 
       throw error;
@@ -292,9 +292,12 @@ export class WorkflowOrchestrator extends EventEmitter {
     }
   }
 
-  private aggregateResults(stepResults: Map<string, StepResult>, operation: Operation): any {
+  private aggregateResults(
+    stepResults: Map<string, StepResult>,
+    operation: Operation
+  ): Record<string, unknown> {
     // Simple aggregation - can be customized based on operation type
-    const outputs: Record<string, any> = {};
+    const outputs: Record<string, unknown> = {};
 
     for (const [stepId, result] of stepResults) {
       const step = operation.steps.find((s) => s.id === stepId);
@@ -312,7 +315,7 @@ export class WorkflowOrchestrator extends EventEmitter {
       : Date.now() - workflow.startTime;
 
     let totalStepTime = 0;
-    let resourceUsage: any = {};
+    const resourceUsage: Record<string, unknown> = {};
 
     for (const result of workflow.stepResults.values()) {
       if (result.metrics) {

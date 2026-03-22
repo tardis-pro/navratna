@@ -52,9 +52,7 @@ interface CategoryPatternSet {
 const CATEGORY_PATTERNS: CategoryPatternSet[] = [
   {
     category: IntentCategory.QUERY,
-    patterns: [
-      /^(what|where|who|when|why|how|show|find|search|list|get|look up|tell me about)\b/i,
-    ],
+    patterns: [/^(what|where|who|when|why|how|show|find|search|list|get|look up|tell me about)\b/i],
     baseConfidence: 0.85,
     suggestedAction: 'Search or retrieve information',
   },
@@ -103,31 +101,31 @@ const CATEGORY_METADATA: Record<IntentCategory, IntentCategoryMetadata> = {
   [IntentCategory.QUERY]: {
     label: 'Query',
     icon: '🔍',
-    color: 'oklch(0.7 0.15 230)',   // cool blue — information-seeking
+    color: 'oklch(0.7 0.15 230)', // cool blue — information-seeking
     description: 'Retrieve information or search for data',
   },
   [IntentCategory.COMMAND]: {
     label: 'Command',
     icon: '⚡',
-    color: 'oklch(0.75 0.18 145)',  // vivid green — action/execute
+    color: 'oklch(0.75 0.18 145)', // vivid green — action/execute
     description: 'Execute an action or modify state',
   },
   [IntentCategory.MONITOR]: {
     label: 'Monitor',
     icon: '📊',
-    color: 'oklch(0.72 0.14 60)',   // warm amber — observational
+    color: 'oklch(0.72 0.14 60)', // warm amber — observational
     description: 'Observe status, health, or progress',
   },
   [IntentCategory.ORCHESTRATE]: {
     label: 'Orchestrate',
     icon: '🔄',
-    color: 'oklch(0.68 0.17 300)',  // purple — complex coordination
+    color: 'oklch(0.68 0.17 300)', // purple — complex coordination
     description: 'Coordinate multi-step workflows or pipelines',
   },
   [IntentCategory.COMMUNICATE]: {
     label: 'Communicate',
     icon: '💬',
-    color: 'oklch(0.73 0.16 25)',   // coral — human interaction
+    color: 'oklch(0.73 0.16 25)', // coral — human interaction
     description: 'Start a discussion, message, or brainstorm',
   },
 };
@@ -183,11 +181,13 @@ export function classifyIntent(input: string): IntentClassification {
     }
   }
 
-  return bestMatch ?? {
-    category: IntentCategory.QUERY,
-    confidence: 0.3,
-    matchedPatterns: [],
-  };
+  return (
+    bestMatch ?? {
+      category: IntentCategory.QUERY,
+      confidence: 0.3,
+      matchedPatterns: [],
+    }
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -210,11 +210,11 @@ export function getIntentMetadata(category: IntentCategory): IntentCategoryMetad
  * receive a relevance boost.
  */
 const CATEGORY_TYPE_BOOST: Record<IntentCategory, IntentOption['type'][]> = {
-  [IntentCategory.QUERY]:        ['knowledge', 'portal'],
-  [IntentCategory.COMMAND]:      ['action'],
-  [IntentCategory.MONITOR]:      ['portal'],
-  [IntentCategory.ORCHESTRATE]:  ['sop'],
-  [IntentCategory.COMMUNICATE]:  ['agent'],
+  [IntentCategory.QUERY]: ['knowledge', 'portal'],
+  [IntentCategory.COMMAND]: ['action'],
+  [IntentCategory.MONITOR]: ['portal'],
+  [IntentCategory.ORCHESTRATE]: ['sop'],
+  [IntentCategory.COMMUNICATE]: ['agent'],
 };
 
 /** Boost factor applied to the relevanceScore of matching option types. */
@@ -228,7 +228,7 @@ const BOOST_FACTOR = 1.25;
  */
 export function enhanceIntentOptions(
   options: IntentOption[],
-  classification: IntentClassification,
+  classification: IntentClassification
 ): IntentOption[] {
   const boostedTypes = new Set(CATEGORY_TYPE_BOOST[classification.category]);
 
@@ -241,7 +241,5 @@ export function enhanceIntentOptions(
     return { ...option, relevanceScore: boosted };
   });
 
-  return enhanced.sort(
-    (a, b) => (b.relevanceScore ?? 0) - (a.relevanceScore ?? 0),
-  );
+  return enhanced.sort((a, b) => (b.relevanceScore ?? 0) - (a.relevanceScore ?? 0));
 }

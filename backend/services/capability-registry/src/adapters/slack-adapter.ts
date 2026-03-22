@@ -115,7 +115,11 @@ export class SlackAdapter {
   /**
    * Send a message to a Slack channel
    */
-  public async sendMessage(channelId: string, text: string, options: any = {}): Promise<any> {
+  public async sendMessage(
+    channelId: string,
+    text: string,
+    options: unknown = {}
+  ): Promise<unknown> {
     try {
       const response = await this.axiosInstance.post('/chat.postMessage', {
         channel: channelId,
@@ -138,7 +142,7 @@ export class SlackAdapter {
   /**
    * Get channel information
    */
-  public async getChannelInfo(channelId: string): Promise<any> {
+  public async getChannelInfo(channelId: string): Promise<unknown> {
     try {
       const response = await this.axiosInstance.get('/conversations.info', {
         params: { channel: channelId },
@@ -158,7 +162,7 @@ export class SlackAdapter {
   /**
    * List channels
    */
-  public async listChannels(options: any = {}): Promise<any> {
+  public async listChannels(options: unknown = {}): Promise<unknown> {
     try {
       const response = await this.axiosInstance.get('/conversations.list', {
         params: {
@@ -182,7 +186,10 @@ export class SlackAdapter {
   /**
    * Execute arbitrary Slack API method
    */
-  public async executeMethod(method: string, parameters: Record<string, any>): Promise<any> {
+  public async executeMethod(
+    method: string,
+    parameters: Record<string, unknown>
+  ): Promise<unknown> {
     try {
       const response = await this.axiosInstance.post(`/${method}`, parameters);
 

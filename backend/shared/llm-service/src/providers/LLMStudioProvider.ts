@@ -32,7 +32,7 @@ export class LLMStudioProvider extends BaseProvider {
       const messageContent = choice?.message?.content;
       const contentFromArray = Array.isArray(messageContent)
         ? messageContent
-            .map((part: any) => {
+            .map((part: string | Record<string, unknown>) => {
               if (typeof part === 'string') return part;
               if (typeof part?.text === 'string') return part.text;
               if (typeof part?.content === 'string') return part.content;
@@ -82,9 +82,9 @@ export class LLMStudioProvider extends BaseProvider {
     for (const endpoint of endpoints) {
       try {
         const url = `${this.config.baseUrl}${endpoint}`;
-        console.log(`LLM Studio: Trying endpoint ${url}`);
+
+        // eslint-disable-next-line no-await-in-loop -- sequential processing required
         const data = await this.makeGetRequest(url);
-        console.log('LLM Studio response:', data);
 
         // Handle different response formats
         let models = [];
@@ -94,21 +94,20 @@ export class LLMStudioProvider extends BaseProvider {
           models = data.data;
         } else if (data.models && Array.isArray(data.models)) {
           // Ollama models format
-          models = data.models.map((model: any) => ({
-            id: model.name || model.model || model.id,
-            owned_by: model.details?.families || 'ollama',
+          models = data.models.map((model: Record<string, unknown>) => ({
+            id: (model.name || model.model || model.id) as string,
+            owned_by: ((model.details as Record<string, unknown>)?.families || 'ollama') as string,
           }));
         } else if (Array.isArray(data)) {
           // Direct array format
-          models = data.map((model: any) => ({
-            id: model.name || model.model || model.id || model,
+          models = data.map((model: Record<string, unknown>) => ({
+            id: (model.name || model.model || model.id) as string,
             owned_by: 'llmstudio',
           }));
         }
 
         if (models.length > 0) {
-          console.log(`LLM Studio: Found ${models.length} models via ${endpoint}`);
-          return models.map((model: any) => ({
+          return models.map((model: Record<string, unknown>) => ({
             id: model.id,
             name: model.id,
             description: `LLM Studio model: ${model.id}${model.owned_by ? ` (${model.owned_by})` : ''}`,
@@ -116,11 +115,7 @@ export class LLMStudioProvider extends BaseProvider {
             apiEndpoint: `${this.config.baseUrl}/v1/chat/completions`,
           }));
         }
-      } catch (error) {
-        console.log(
-          `LLM Studio: Endpoint ${endpoint} failed:`,
-          error instanceof Error ? error.message : error
-        );
+      } catch {
         // Continue to next endpoint
       }
     }

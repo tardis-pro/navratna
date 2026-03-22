@@ -14,15 +14,12 @@ async function seedUserLLMProviders() {
   let shouldCloseConnection = false;
 
   try {
-    console.log('🔄 Starting UserLLMProvider seeding...');
-
     // Try to use existing DataSource first
     try {
       dataSource = getDataSource();
-      console.log('✅ Using existing DataSource');
-    } catch (error) {
+    } catch {
       // If no existing DataSource, create a new one
-      console.log('📝 Creating new DataSource for seeding');
+
       dataSource = await initializeDatabase();
       shouldCloseConnection = true;
     }
@@ -40,15 +37,11 @@ async function seedUserLLMProviders() {
       return;
     }
 
-    console.log(`📋 Found ${users.length} users to create LLM providers for`);
-
     // Create the seeder
     const userLLMProviderSeed = new UserLLMProviderSeed(dataSource, users);
 
     // Run the seeder
     const providers = await userLLMProviderSeed.seed();
-
-    console.log(`✅ Successfully seeded ${providers.length} LLM providers`);
 
     // Show summary by user
     const userProviderCounts = users.map((user) => {
@@ -61,26 +54,14 @@ async function seedUserLLMProviders() {
       };
     });
 
-    console.log('\n📊 Provider Summary by User:');
-    userProviderCounts.forEach((summary) => {
-      console.log(`   👤 ${summary.user}`);
-      console.log(`      Role: ${summary.role}`);
-      console.log(
-        `      Providers: ${summary.providerCount} total, ${summary.activeProviders} active`
-      );
-    });
-
-    console.log('\n🎉 UserLLMProvider seeding completed successfully!');
+    userProviderCounts.forEach((_summary) => {});
   } catch (error) {
     console.error('💥 UserLLMProvider seeding failed:', error);
 
     // Provide helpful error information
     if (error.message?.includes('duplicate') || error.message?.includes('unique')) {
-      console.info('💡 This might be a duplicate key error. Some providers may already exist.');
     } else if (error.message?.includes('relation') || error.message?.includes('table')) {
-      console.info('💡 This might be a database schema issue. Ensure migrations have been run.');
     } else if (error.message?.includes('user')) {
-      console.info('💡 Make sure users have been seeded first: npm run seed:users');
     }
 
     process.exit(1);
@@ -89,7 +70,6 @@ async function seedUserLLMProviders() {
     if (shouldCloseConnection && dataSource && dataSource.isInitialized) {
       try {
         await dataSource.destroy();
-        console.log('🔌 Database connection closed');
       } catch (closeError) {
         console.warn('⚠️ Error closing database connection:', closeError);
       }

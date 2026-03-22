@@ -3,7 +3,6 @@ import {
   CollaborationPatternType,
   WorkflowStep,
   WorkflowStepStatus,
-  AgentMessage,
 } from '@uaip/types';
 import { logger } from '@uaip/utils';
 import { EventEmitter } from 'events';
@@ -13,19 +12,19 @@ export interface WorkflowExecutionContext {
   pattern: CollaborationPattern;
   currentStep: number;
   stepStatuses: Map<string, WorkflowStepStatus>;
-  stepOutputs: Map<string, any>;
+  stepOutputs: Map<string, Record<string, unknown>>;
   startTime: Date;
   endTime?: Date;
   errors: Array<{ stepId: string; error: string; timestamp: Date }>;
-  metadata: any;
+  metadata: Record<string, unknown>;
 }
 
 export interface AgentExecutor {
   executeStep(
     agentId: string,
     step: WorkflowStep,
-    context: any
-  ): Promise<{ success: boolean; output?: any; error?: string }>;
+    context: Record<string, unknown>
+  ): Promise<{ success: boolean; output?: Record<string, unknown>; error?: string }>;
   canExecute(agentId: string): Promise<boolean>;
 }
 
@@ -42,8 +41,12 @@ export class CollaborationPatternRunner extends EventEmitter {
 
   async executePattern(
     pattern: CollaborationPattern,
-    initialData?: any
-  ): Promise<{ success: boolean; outputs: any; errors: any[] }> {
+    initialData?: Record<string, unknown>
+  ): Promise<{
+    success: boolean;
+    outputs: Map<string, Record<string, unknown>>;
+    errors: Array<{ stepId: string; error: string; timestamp: Date }>;
+  }> {
     const workflowId = `workflow-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 
     const context: WorkflowExecutionContext = {
@@ -139,6 +142,7 @@ export class CollaborationPatternRunner extends EventEmitter {
 
       // Execute step
       const stepInput = { ...step.input, ...previousOutput };
+      // oxlint-disable-next-line no-await-in-loop -- sequential processing required
       const result = await this.executeStep(step, stepInput, context);
 
       if (!result.success) {
@@ -167,6 +171,7 @@ export class CollaborationPatternRunner extends EventEmitter {
       for (const step of wave) {
         if (executing.size >= concurrency) {
           // Wait for a slot to open up
+          // oxlint-disable-next-line no-await-in-loop -- sequential processing required
           await Promise.race(
             Array.from(executing).map((stepId) => this.waitForStepCompletion(stepId, context))
           );
@@ -183,6 +188,7 @@ export class CollaborationPatternRunner extends EventEmitter {
       }
 
       // Wait for all steps in this wave to complete
+      // oxlint-disable-next-line no-await-in-loop -- sequential processing required
       await Promise.all(wavePromises);
 
       // Check if any step failed
@@ -222,9 +228,9 @@ export class CollaborationPatternRunner extends EventEmitter {
 
   private async executeStep(
     step: WorkflowStep,
-    input: any,
+    input: Record<string, unknown>,
     context: WorkflowExecutionContext
-  ): Promise<{ success: boolean; output?: any; error?: string }> {
+  ): Promise<{ success: boolean; output?: Record<string, unknown>; error?: string }> {
     try {
       logger.debug(`Executing step: ${step.name} (${step.id}) for agent ${step.assignedAgentId}`);
 
@@ -389,6 +395,7 @@ export class CollaborationPatternRunner extends EventEmitter {
 
     for (const step of steps) {
       const input = this.gatherStepInputs(step, context);
+      // oxlint-disable-next-line no-await-in-loop -- sequential processing required
       const result = await this.executeStep(step, input, context);
 
       if (!result.success) {
@@ -396,6 +403,7 @@ export class CollaborationPatternRunner extends EventEmitter {
       }
 
       // Execute children
+      // oxlint-disable-next-line no-await-in-loop -- sequential processing required
       const childrenSuccess = await this.executeHierarchyLevel(hierarchy, context, step.id);
       if (!childrenSuccess) {
         return false;
@@ -405,7 +413,10 @@ export class CollaborationPatternRunner extends EventEmitter {
     return true;
   }
 
-  private gatherStepInputs(step: WorkflowStep, context: WorkflowExecutionContext): any {
+  private gatherStepInputs(
+    step: WorkflowStep,
+    context: WorkflowExecutionContext
+  ): Record<string, unknown> {
     let input = { ...step.input };
 
     if (step.dependsOn) {
@@ -422,6 +433,7 @@ export class CollaborationPatternRunner extends EventEmitter {
 
   private async waitForDependencies(dependsOn: string[], completed: Set<string>): Promise<void> {
     while (!dependsOn.every((depId) => completed.has(depId))) {
+      // oxlint-disable-next-line no-await-in-loop -- sequential processing required
       await new Promise((resolve) => setTimeout(resolve, 100));
     }
   }
@@ -431,6 +443,7 @@ export class CollaborationPatternRunner extends EventEmitter {
     context: WorkflowExecutionContext
   ): Promise<void> {
     while (context.stepStatuses.get(stepId) === WorkflowStepStatus.IN_PROGRESS) {
+      // oxlint-disable-next-line no-await-in-loop -- sequential processing required
       await new Promise((resolve) => setTimeout(resolve, 100));
     }
   }

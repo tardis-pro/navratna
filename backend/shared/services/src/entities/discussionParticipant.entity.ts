@@ -1,5 +1,9 @@
 import { Entity, Column, Index, ManyToOne, JoinColumn, Unique } from 'typeorm';
 import { BaseEntity } from './base.entity';
+import type { Agent } from './agent.entity';
+import type { Discussion } from './discussion.entity';
+import type { UserEntity } from './user.entity';
+import type { Persona } from './persona.entity';
 
 /**
  * Discussion Participant Entity - Enterprise Multi-Agent Collaboration System
@@ -92,13 +96,13 @@ export class DiscussionParticipant extends BaseEntity {
 
   // === Advanced Configuration ===
   @Column({ name: 'participation_config', type: 'jsonb', nullable: true })
-  participationConfig?: Record<string, any>;
+  participationConfig?: Record<string, unknown>;
 
   @Column({ name: 'behavioral_constraints', type: 'jsonb', nullable: true })
-  behavioralConstraints?: Record<string, any>;
+  behavioralConstraints?: Record<string, unknown>;
 
   @Column({ name: 'context_awareness', type: 'jsonb', nullable: true })
-  contextAwareness?: Record<string, any>;
+  contextAwareness?: Record<string, unknown>;
 
   // === Performance & Analytics ===
   @Column({ name: 'message_count', type: 'integer', default: 0 })
@@ -138,10 +142,10 @@ export class DiscussionParticipant extends BaseEntity {
   topics: string[];
 
   @Column({ name: 'preferences', type: 'jsonb', nullable: true })
-  preferences?: Record<string, any>;
+  preferences?: Record<string, unknown>;
 
   @Column({ name: 'metadata', type: 'jsonb', nullable: true })
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 
   // === Computed Properties ===
 
@@ -188,17 +192,17 @@ export class DiscussionParticipant extends BaseEntity {
   // === Relationships ===
   @ManyToOne('Agent', { nullable: true })
   @JoinColumn({ name: 'agent_id' })
-  agent?: any;
+  agent?: Agent;
 
   @ManyToOne('Discussion', { nullable: true })
   @JoinColumn({ name: 'discussion_id' })
-  discussion?: any;
+  discussion?: Discussion;
 
   @ManyToOne('UserEntity', { nullable: true })
   @JoinColumn({ name: 'user_id' })
-  user?: any;
+  user?: UserEntity;
 
   @ManyToOne('Persona', { nullable: true })
   @JoinColumn({ name: 'persona_id' })
-  persona?: any;
+  persona?: Persona;
 }

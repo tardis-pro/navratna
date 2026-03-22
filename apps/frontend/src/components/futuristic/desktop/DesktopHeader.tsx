@@ -49,7 +49,7 @@ export const DesktopHeader: React.FC<DesktopHeaderProps> = ({
   onToggleRecentPanel,
   showRecentPanel,
   onOpenSettings,
-  theme,
+  _theme,
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [showUserMenu, setShowUserMenu] = useState(false);
@@ -69,7 +69,6 @@ export const DesktopHeader: React.FC<DesktopHeaderProps> = ({
     e.preventDefault();
     if (searchQuery.trim()) {
       // Implement global search
-      console.log('Searching for:', searchQuery);
     }
   };
 

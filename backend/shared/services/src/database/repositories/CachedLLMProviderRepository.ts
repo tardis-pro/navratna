@@ -130,7 +130,9 @@ export class CachedLLMProviderRepository extends LLMProviderRepository {
   /**
    * Create a new LLM provider and invalidate cache
    */
-  async createProvider(data: any): Promise<LLMProvider> {
+  async createProvider(
+    data: Parameters<LLMProviderRepository['createProvider']>[0]
+  ): Promise<LLMProvider> {
     const provider = await super.createProvider(data);
 
     // Invalidate relevant caches
@@ -142,7 +144,10 @@ export class CachedLLMProviderRepository extends LLMProviderRepository {
   /**
    * Update provider configuration and invalidate cache
    */
-  async updateProvider(id: string, data: any): Promise<LLMProvider> {
+  async updateProvider(
+    id: string,
+    data: Parameters<LLMProviderRepository['updateProvider']>[1]
+  ): Promise<LLMProvider> {
     const provider = await super.updateProvider(id, data);
 
     // Invalidate relevant caches
@@ -154,7 +159,10 @@ export class CachedLLMProviderRepository extends LLMProviderRepository {
   /**
    * Update provider status and invalidate cache
    */
-  async updateStatus(id: string, status: any): Promise<void> {
+  async updateStatus(
+    id: string,
+    status: Parameters<LLMProviderRepository['updateStatus']>[1]
+  ): Promise<void> {
     await super.updateStatus(id, status);
 
     // Invalidate relevant caches
@@ -185,11 +193,14 @@ export class CachedLLMProviderRepository extends LLMProviderRepository {
     for (const pattern of patterns) {
       if (pattern.includes('*')) {
         // Handle wildcard patterns
+        // oxlint-disable-next-line no-await-in-loop -- sequential processing required
         const keys = await redisCacheService.keys(pattern);
         for (const key of keys) {
+          // oxlint-disable-next-line no-await-in-loop -- sequential processing required
           await redisCacheService.del(key);
         }
       } else {
+        // oxlint-disable-next-line no-await-in-loop -- sequential processing required
         await redisCacheService.del(pattern);
       }
     }
@@ -216,7 +227,9 @@ export class CachedLLMProviderRepository extends LLMProviderRepository {
       ];
 
       for (const type of commonTypes) {
+        // oxlint-disable-next-line no-await-in-loop -- sequential processing required
         await this.findByType(type, true);
+        // oxlint-disable-next-line no-await-in-loop -- sequential processing required
         await this.findBestProvider(type, true);
       }
 
@@ -225,7 +238,7 @@ export class CachedLLMProviderRepository extends LLMProviderRepository {
 
       logger.info('LLM provider cache warmed up successfully');
     } catch (error) {
-      logger.error('Error warming up LLM provider cache', { error: error.message });
+      logger.error('Error warming up LLM provider cache', { error: (error as Error).message });
     }
   }
 

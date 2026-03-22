@@ -1,6 +1,6 @@
 import {
   BaseService,
-  ServiceConfig,
+  _ServiceConfig,
   allEntities,
   Capability,
   MCPServer as SharedMCPServer,
@@ -243,24 +243,24 @@ class CapabilityRegistryService extends BaseService {
 
     // Register Elysia route groups (tools + MCP + health + capabilities)
     const { registerToolRoutes } = await import('./routes/toolRoutes.js');
-    registerToolRoutes(this.app as any, this.toolController, this.asInfraEventBusService());
+    registerToolRoutes(this.app as unknown, this.toolController, this.asInfraEventBusService());
 
     const { registerHealthRoutes } = await import('./routes/healthRoutes.js');
-    registerHealthRoutes(this.app as any);
+    registerHealthRoutes(this.app as unknown);
 
     logger.info('Mounting MCP routes...');
     const { registerMCPRoutes } = await import('./routes/mcpRoutes.js');
-    registerMCPRoutes(this.app as any);
+    registerMCPRoutes(this.app as unknown);
     logger.info('MCP routes mounted successfully');
 
     const { registerCapabilityRoutes } = await import('./routes/capabilityRoutes.js');
-    registerCapabilityRoutes(this.app as any, this.capabilityController);
+    registerCapabilityRoutes(this.app as unknown, this.capabilityController);
 
     const { registerWorkspaceRoutes } = await import('./routes/workspaceRoutes.js');
-    registerWorkspaceRoutes(this.app as any, this.workspaceManager, this.codingAgentExecutor);
+    registerWorkspaceRoutes(this.app as unknown, this.workspaceManager, this.codingAgentExecutor);
   }
 
-  protected async getHealthInfo(): Promise<any> {
+  protected async getHealthInfo(): Promise<unknown> {
     const neo4jConnectionStatus = this.neo4j?.getConnectionStatus();
     const neo4jStatus = neo4jConnectionStatus?.isConnected ? 'connected' : 'disconnected';
 
@@ -272,11 +272,11 @@ class CapabilityRegistryService extends BaseService {
     const oauthStatus = {
       connectedProviders: connectedProviders?.size || 0,
       availableCapabilities: 0,
-      providers: Array.from(connectedProviders?.entries() || []).map(([id, config]) => ({
+      providers: Array.from(connectedProviders?.entries() || []).map(([id, providerConfig]) => ({
         id,
-        name: config.name,
-        capabilities: config.capabilities.length,
-        webhookSupport: config.webhookSupport,
+        name: providerConfig.name,
+        capabilities: providerConfig.capabilities.length,
+        webhookSupport: providerConfig.webhookSupport,
       })),
     };
 

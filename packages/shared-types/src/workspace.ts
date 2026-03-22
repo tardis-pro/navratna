@@ -39,7 +39,7 @@ export interface Workspace {
   createdAt: Date;
   updatedAt: Date;
   lastActiveAt?: Date;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 export interface CodingSession {
@@ -57,7 +57,7 @@ export interface CodingSession {
   createdAt: Date;
   updatedAt: Date;
   lastMessageAt?: Date;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 export interface LLMProviderCredential {
@@ -75,5 +75,5 @@ export interface LLMProviderCredential {
   isActive: boolean;
   connectedAt: Date;
   lastUsedAt?: Date;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }

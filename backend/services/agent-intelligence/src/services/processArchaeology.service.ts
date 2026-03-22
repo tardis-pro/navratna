@@ -90,7 +90,7 @@ export class ProcessArchaeologyService {
 
     // 1. Crawl all sources in parallel
     const crawlResults = await Promise.allSettled(
-      sources.map((source) => this.crawlDataSource(source)),
+      sources.map((source) => this.crawlDataSource(source))
     );
 
     const allEntities: DiscoveredEntity[] = [];
@@ -172,7 +172,7 @@ export class ProcessArchaeologyService {
           entities = await this.crawlSaaSSource(source);
           break;
         default:
-          logger.warn('Process archaeology: unknown source type', {
+          logger.warn('Process archaeology: Record<string, unknown> source type', {
             sourceId: source.id,
             type: source.type,
           });
@@ -238,7 +238,7 @@ export class ProcessArchaeologyService {
           const existing = relationships.find(
             (r) =>
               (r.entityA === rel.entityA && r.entityB === rel.entityB) ||
-              (r.entityA === rel.entityB && r.entityB === rel.entityA),
+              (r.entityA === rel.entityB && r.entityB === rel.entityA)
           );
           if (existing) {
             existing.confidence = Math.max(existing.confidence, rel.confidence);
@@ -269,7 +269,7 @@ export class ProcessArchaeologyService {
    */
   async proposeOntology(
     entities: DiscoveredEntity[],
-    relationships: EntityRelationship[],
+    relationships: EntityRelationship[]
   ): Promise<OntologyProposal> {
     const matches = this.entityMatcher.findMatches(entities, 0.6);
     const suggestedMerges = this.entityMatcher.generateMergeProposal(matches);
@@ -388,7 +388,11 @@ export class ProcessArchaeologyService {
 
     // Fallback: if no tables provided but there are field-level hints
     if (tables.length === 0 && config.fields && Array.isArray(config.fields)) {
-      for (const field of config.fields as Array<{ name: string; table?: string; samples?: string[] }>) {
+      for (const field of config.fields as Array<{
+        name: string;
+        table?: string;
+        samples?: string[];
+      }>) {
         entities.push({
           id: uuidv4(),
           sourceId: source.id,
@@ -407,12 +411,13 @@ export class ProcessArchaeologyService {
     const entities: DiscoveredEntity[] = [];
     const config = source.connectionConfig;
 
-    const endpoints = (config.endpoints as Array<{
-      path: string;
-      method?: string;
-      responseFields?: string[];
-      sampleResponse?: Record<string, unknown>;
-    }>) ?? [];
+    const endpoints =
+      (config.endpoints as Array<{
+        path: string;
+        method?: string;
+        responseFields?: string[];
+        sampleResponse?: Record<string, unknown>;
+      }>) ?? [];
 
     for (const ep of endpoints) {
       entities.push({
@@ -453,12 +458,13 @@ export class ProcessArchaeologyService {
     const entities: DiscoveredEntity[] = [];
     const config = source.connectionConfig;
 
-    const files = (config.files as Array<{
-      path: string;
-      language?: string;
-      exports?: string[];
-      imports?: string[];
-    }>) ?? [];
+    const files =
+      (config.files as Array<{
+        path: string;
+        language?: string;
+        exports?: string[];
+        imports?: string[];
+      }>) ?? [];
 
     for (const file of files) {
       entities.push({
@@ -549,11 +555,12 @@ export class ProcessArchaeologyService {
     const entities: DiscoveredEntity[] = [];
     const config = source.connectionConfig;
 
-    const objects = (config.objects as Array<{
-      name: string;
-      fields?: string[];
-      sampleRecords?: Array<Record<string, unknown>>;
-    }>) ?? [];
+    const objects =
+      (config.objects as Array<{
+        name: string;
+        fields?: string[];
+        sampleRecords?: Array<Record<string, unknown>>;
+      }>) ?? [];
 
     for (const obj of objects) {
       entities.push({
@@ -564,7 +571,8 @@ export class ProcessArchaeologyService {
         metadata: { sourceType: 'saas', platform: config.platform },
       });
 
-      const fieldNames = obj.fields ?? (obj.sampleRecords?.[0] ? Object.keys(obj.sampleRecords[0]) : []);
+      const fieldNames =
+        obj.fields ?? (obj.sampleRecords?.[0] ? Object.keys(obj.sampleRecords[0]) : []);
       for (const fieldName of fieldNames) {
         const samples = obj.sampleRecords
           ?.map((r) => r[fieldName])
@@ -597,7 +605,7 @@ export class ProcessArchaeologyService {
   private classifyRelationship(
     a: DiscoveredEntity,
     b: DiscoveredEntity,
-    score: number,
+    score: number
   ): EntityRelationship['relationshipType'] {
     // High confidence name + sample match => same entity
     if (score >= 0.8) {
@@ -631,7 +639,7 @@ export class ProcessArchaeologyService {
 
   private identifyMissingConnections(
     entities: DiscoveredEntity[],
-    relationships: EntityRelationship[],
+    relationships: EntityRelationship[]
   ): string[] {
     const missing: string[] = [];
 
@@ -661,21 +669,20 @@ export class ProcessArchaeologyService {
         const entitiesB = bySource.get(sourceIds[j]) ?? [];
 
         const hasConnection = entitiesA.some((ea) =>
-          entitiesB.some(
-            (eb) =>
-              relationships.some(
-                (r) =>
-                  (r.entityA === ea.id && r.entityB === eb.id) ||
-                  (r.entityA === eb.id && r.entityB === ea.id),
-              ),
-          ),
+          entitiesB.some((eb) =>
+            relationships.some(
+              (r) =>
+                (r.entityA === ea.id && r.entityB === eb.id) ||
+                (r.entityA === eb.id && r.entityB === ea.id)
+            )
+          )
         );
 
         if (!hasConnection) {
           const nameA = entitiesA[0]?.metadata?.sourceType ?? sourceIds[i];
           const nameB = entitiesB[0]?.metadata?.sourceType ?? sourceIds[j];
           missing.push(
-            `No relationships found between source "${nameA}" (${sourceIds[i]}) and source "${nameB}" (${sourceIds[j]})`,
+            `No relationships found between source "${nameA}" (${sourceIds[i]}) and source "${nameB}" (${sourceIds[j]})`
           );
         }
       }
@@ -686,7 +693,7 @@ export class ProcessArchaeologyService {
     for (const entity of fieldEntities) {
       if (!connectedEntityIds.has(entity.id)) {
         missing.push(
-          `Entity "${entity.name}" (${entity.id}) from source ${entity.sourceId} has no relationships`,
+          `Entity "${entity.name}" (${entity.id}) from source ${entity.sourceId} has no relationships`
         );
       }
     }
@@ -696,7 +703,7 @@ export class ProcessArchaeologyService {
 
   private async enrichRelationshipsViaLLM(
     entities: DiscoveredEntity[],
-    relationships: EntityRelationship[],
+    relationships: EntityRelationship[]
   ): Promise<EntityRelationship[]> {
     const entityMap = new Map(entities.map((e) => [e.id, e]));
 
@@ -743,7 +750,7 @@ export class ProcessArchaeologyService {
   private extractSampleValues(
     config: Record<string, unknown>,
     tableName: string,
-    fieldName: string,
+    fieldName: string
   ): string[] | undefined {
     const sampleData = config.sampleData as Record<string, Record<string, unknown>[]> | undefined;
     if (!sampleData || !sampleData[tableName]) {

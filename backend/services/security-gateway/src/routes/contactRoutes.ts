@@ -1,27 +1,27 @@
-import express, { Router } from '@uaip/shared-services';
+import _express, { Router } from '@uaip/shared-services';
 import { z } from 'zod';
 import { logger } from '@uaip/utils';
-import { authMiddleware, optionalAuth } from '@uaip/middleware';
+import { authMiddleware, optionalAuth as _optionalAuth } from '@uaip/middleware';
 import { validateRequest } from '@uaip/middleware';
 import { AuditService } from '../services/auditService.js';
 import { DatabaseService } from '@uaip/infra/database';
-import { Request, Response } from '@uaip/shared-services';
+import { Request as _Request, Response as _Response } from '@uaip/shared-services';
 import { AuditEventType } from '@uaip/types';
 import { ContactStatus } from '@uaip/shared-services';
 
 const router = Router();
 
 // Lazy initialization of services
-let databaseService: DatabaseService | null = null;
-let auditService: AuditService | null = null;
+let databaseServiceSingleton: DatabaseService | null = null;
+let auditServiceSingleton: AuditService | null = null;
 
 async function getServices() {
-  if (!databaseService) {
-    databaseService = new DatabaseService();
-    await databaseService.initialize();
-    auditService = new AuditService();
+  if (!databaseServiceSingleton) {
+    databaseServiceSingleton = new DatabaseService();
+    await databaseServiceSingleton.initialize();
+    auditServiceSingleton = new AuditService();
   }
-  return { databaseService, auditService: auditService! };
+  return { databaseService: databaseServiceSingleton, auditService: auditServiceSingleton! };
 }
 
 // Validation schemas
@@ -45,7 +45,7 @@ const contactQuerySchema = z.object({
 });
 
 // Helper function for Zod validation
-const validateWithZod = (schema: z.ZodSchema, data: any) => {
+const validateWithZod = (schema: z.ZodSchema, data: unknown) => {
   const result = schema.safeParse(data);
   if (result.success) {
     return { error: null, value: result.data };
@@ -83,7 +83,7 @@ router.post(
         return;
       }
 
-      const userId = (req as any).user.userId;
+      const userId = (req as unknown).user.userId;
       const { targetUserId, message, type } = value;
 
       // Prevent sending request to self
@@ -157,7 +157,7 @@ router.post(
         },
       });
     } catch (error) {
-      logger.error('Send contact request error', { error, userId: (req as any).user?.userId });
+      logger.error('Send contact request error', { error, userId: (req as unknown).user?.userId });
       res.status(500).json({
         success: false,
         error: 'Internal Server Error',
@@ -180,7 +180,7 @@ router.get(
     try {
       const { page, limit, status, type, search } = req.query;
 
-      const userId = (req as any).user.userId;
+      const userId = (req as unknown).user.userId;
       const pageQuery = parseInt(page as string) || 1;
       const limitQuery = parseInt(limit as string) || 20;
       const offset = (pageQuery - 1) * limitQuery;
@@ -189,7 +189,7 @@ router.get(
       const contactRepo = databaseService.users.getUserContactRepository();
 
       // Build query filters
-      const filters: any = {};
+      const filters: unknown = {};
       if (status) filters.status = status;
       if (type) filters.type = type;
 
@@ -227,7 +227,7 @@ router.get(
         },
       });
     } catch (error) {
-      logger.error('Get contacts error', { error, userId: (req as any).user?.userId });
+      logger.error('Get contacts error', { error, userId: (req as unknown).user?.userId });
       res.status(500).json({
         success: false,
         error: 'Internal Server Error',
@@ -259,7 +259,7 @@ router.post(
         return;
       }
 
-      const userId = (req as any).user.userId;
+      const userId = (req as unknown).user.userId;
       const { action, message } = value;
 
       const { databaseService, auditService } = await getServices();
@@ -367,7 +367,7 @@ router.post(
         },
       });
     } catch (error) {
-      logger.error('Contact action error', { error, userId: (req as any).user?.userId });
+      logger.error('Contact action error', { error, userId: (req as unknown).user?.userId });
       res.status(500).json({
         success: false,
         error: 'Internal Server Error',
@@ -384,7 +384,7 @@ router.post(
  */
 router.get('/pending', authMiddleware, async (req, res) => {
   try {
-    const userId = (req as any).user.userId;
+    const userId = (req as unknown).user.userId;
     const { databaseService } = await getServices();
     const contactRepo = databaseService.users.getUserContactRepository();
 
@@ -404,7 +404,7 @@ router.get('/pending', authMiddleware, async (req, res) => {
       },
     });
   } catch (error) {
-    logger.error('Get pending requests error', { error, userId: (req as any).user?.userId });
+    logger.error('Get pending requests error', { error, userId: (req as unknown).user?.userId });
     res.status(500).json({
       success: false,
       error: 'Internal Server Error',

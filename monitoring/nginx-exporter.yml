@@ -12,14 +12,14 @@ services:
       - '-web.listen-address=:9113'
       - '-web.telemetry-path=/metrics'
     ports:
-      - "9113:9113"
+      - '9113:9113'
     depends_on:
       - api-gateway
     networks:
       - monitoring
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:9113/metrics"]
+      test: ['CMD', 'wget', '--quiet', '--tries=1', '--spider', 'http://localhost:9113/metrics']
       interval: 30s
       timeout: 10s
       retries: 3
@@ -27,4 +27,4 @@ services:
 
 networks:
   monitoring:
-    external: true 
+    external: true

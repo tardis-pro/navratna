@@ -12,22 +12,12 @@ import {
   MoreHorizontal,
   TrendingUp,
   Zap,
-  Trophy,
+  Download,
   Star,
   Users,
-  Play,
-  Clone,
   Eye,
-  ThumbsUp,
-  Repeat2,
 } from 'lucide-react';
-import {
-  SocialPost,
-  SocialActivity,
-  SocialActivityType,
-  AgentShowcase,
-  ContentVisibility,
-} from '@uaip/types';
+import { SocialPost, SocialActivity, SocialActivityType, ContentVisibility } from '@uaip/types';
 
 interface SocialFeedProps {
   onAgentClick?: (agentId: string) => void;
@@ -225,17 +215,23 @@ export const SocialFeed: React.FC<SocialFeedProps> = ({ onAgentClick, onUserClic
       <CardContent className="space-y-4">
         {/* Post Content */}
         <div className="text-sm leading-relaxed">
-          {post.content.split(' ').map((word, index) => {
+          {post.content.split(' ').map((word) => {
             if (word.startsWith('#')) {
               return (
-                <span key={index} className="text-blue-600 hover:underline cursor-pointer">
+                <span
+                  key={`hashtag-${word}`}
+                  className="text-blue-600 hover:underline cursor-pointer"
+                >
                   {word}{' '}
                 </span>
               );
             }
             if (word.startsWith('@')) {
               return (
-                <span key={index} className="text-purple-600 hover:underline cursor-pointer">
+                <span
+                  key={`mention-${word}`}
+                  className="text-purple-600 hover:underline cursor-pointer"
+                >
                   {word}{' '}
                 </span>
               );
@@ -247,9 +243,9 @@ export const SocialFeed: React.FC<SocialFeedProps> = ({ onAgentClick, onUserClic
         {/* Media */}
         {post.images.length > 0 && (
           <div className="grid grid-cols-1 gap-2">
-            {post.images.map((image, index) => (
+            {post.images.map((image) => (
               <img
-                key={index}
+                key={image}
                 src={image}
                 alt="Post media"
                 className="rounded-lg w-full max-h-64 object-cover cursor-pointer"
@@ -260,8 +256,8 @@ export const SocialFeed: React.FC<SocialFeedProps> = ({ onAgentClick, onUserClic
 
         {post.videos.length > 0 && (
           <div className="grid grid-cols-1 gap-2">
-            {post.videos.map((video, index) => (
-              <div key={index} className="relative rounded-lg overflow-hidden">
+            {post.videos.map((video) => (
+              <div key={video} className="relative rounded-lg overflow-hidden">
                 <video src={video} className="w-full max-h-64 object-cover" controls />
               </div>
             ))}
@@ -410,7 +406,7 @@ export const SocialFeed: React.FC<SocialFeedProps> = ({ onAgentClick, onUserClic
           <Button
             key={tab}
             variant={selectedTab === tab ? 'default' : 'outline'}
-            onClick={() => setSelectedTab(tab as any)}
+            onClick={() => setSelectedTab(tab as unknown)}
             className="capitalize"
           >
             {tab === 'following' && <Users className="w-4 h-4 mr-2" />}

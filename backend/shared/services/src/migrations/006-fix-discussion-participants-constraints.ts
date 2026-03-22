@@ -74,7 +74,7 @@ export class FixDiscussionParticipantsConstraints1703006000000 implements Migrat
     `);
   }
 
-  public async down(queryRunner: QueryRunner): Promise<void> {
+  public async down(_queryRunner: QueryRunner): Promise<void> {
     // This migration only fixes data, no schema changes to revert
   }
 }

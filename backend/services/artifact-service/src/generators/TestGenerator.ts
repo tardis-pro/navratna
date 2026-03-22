@@ -71,7 +71,8 @@ export class TestGenerator implements ArtifactGenerator {
     } catch (error) {
       logger.error('Test generation failed:', error);
       throw new Error(
-        `Test generation failed: ${error instanceof Error ? error.message : 'Unknown error'}`
+        `Test generation failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        { cause: error }
       );
     }
   }
@@ -92,7 +93,7 @@ export class TestGenerator implements ArtifactGenerator {
 
   // Private helper methods
 
-  private extractTestRequirements(messages: any[]): string[] {
+  private extractTestRequirements(messages: Array<{ content: string }>): string[] {
     const requirements: string[] = [];
 
     for (const message of messages) {
@@ -112,7 +113,7 @@ export class TestGenerator implements ArtifactGenerator {
     return requirements.slice(0, 5);
   }
 
-  private extractFunctionName(messages: any[]): string | null {
+  private extractFunctionName(messages: Array<{ content: string }>): string | null {
     for (const message of messages) {
       const functionMatch = message.content.match(/test\s+(\w+)|(\w+)\s*test|testing\s+(\w+)/i);
       if (functionMatch) {
@@ -122,7 +123,7 @@ export class TestGenerator implements ArtifactGenerator {
     return null;
   }
 
-  private detectLanguage(messages: any[]): string | undefined {
+  private detectLanguage(messages: Array<{ content: string }>): string | undefined {
     const languageKeywords = {
       typescript: ['typescript', 'ts', 'jest', 'vitest'],
       javascript: ['javascript', 'js', 'mocha', 'chai'],
@@ -145,7 +146,7 @@ export class TestGenerator implements ArtifactGenerator {
     return undefined;
   }
 
-  private detectTestFramework(messages: any[]): string {
+  private detectTestFramework(messages: Array<{ content: string }>): string {
     const frameworks = {
       jest: ['jest', 'describe', 'it(', 'expect('],
       mocha: ['mocha', 'chai', 'assert'],
@@ -211,7 +212,7 @@ describe('${functionName}', () => {
 
   ${requirements
     .map(
-      (req, index) => `
+      (req, _index) => `
   it('${req}', () => {
     // TODO: Implement test case
     // Arrange

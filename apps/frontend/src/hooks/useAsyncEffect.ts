@@ -1,4 +1,4 @@
-import { useEffect, DependencyList } from 'react';
+import { useEffect, useRef, DependencyList } from 'react';
 
 /**
  * Custom hook for running async effects with automatic cleanup
@@ -21,6 +21,9 @@ export function useAsyncEffect(
   effect: () => Promise<void | (() => void)>,
   deps: DependencyList
 ): void {
+  const effectRef = useRef(effect);
+  effectRef.current = effect;
+
   useEffect(() => {
     let mounted = true;
     let cleanup: (() => void) | void;
@@ -28,7 +31,7 @@ export function useAsyncEffect(
     const runEffect = async () => {
       try {
         if (mounted) {
-          cleanup = await effect();
+          cleanup = await effectRef.current();
         }
       } catch (error) {
         if (mounted) {

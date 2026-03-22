@@ -9,8 +9,14 @@ describe('BaseBenchMetaService', () => {
   it('lists seeded benchmark cases', () => {
     const cases = service.listCases();
     assert.ok(cases.length >= 13);
-    assert.equal(cases.some((testCase) => testCase.taskFamily === 'confidence_calibration'), true);
-    assert.equal(cases.some((testCase) => testCase.taskFamily === 'boundary_of_knowledge'), true);
+    assert.equal(
+      cases.some((testCase) => testCase.taskFamily === 'confidence_calibration'),
+      true
+    );
+    assert.equal(
+      cases.some((testCase) => testCase.taskFamily === 'boundary_of_knowledge'),
+      true
+    );
   });
 
   it('evaluates a batch run and returns family averages', () => {
@@ -82,7 +88,7 @@ describe('BaseBenchMetaService', () => {
     assert.equal(batchResult.summary.calibration.overconfidenceRate, 0.4);
     assert.equal(batchResult.summary.calibration.underconfidenceRate, 0);
     const eightyToNinetyBucket = batchResult.summary.calibration.reliabilityCurve.find(
-      (bucket) => bucket.bucketStart === 80,
+      (bucket) => bucket.bucketStart === 80
     );
     assert.ok(eightyToNinetyBucket);
     assert.equal(eightyToNinetyBucket.itemCount, 1);

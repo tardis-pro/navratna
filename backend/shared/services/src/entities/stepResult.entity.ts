@@ -1,5 +1,6 @@
 import { Entity, Column, Index, ManyToOne, JoinColumn } from 'typeorm';
 import { BaseEntity } from './base.entity';
+import type { Operation } from './operation.entity';
 
 /**
  * Step Result Entity
@@ -39,10 +40,10 @@ export class StepResult extends BaseEntity {
   executionTimeMs?: number;
 
   @Column({ type: 'jsonb', nullable: true })
-  input?: Record<string, any>;
+  input?: Record<string, unknown>;
 
   @Column({ type: 'jsonb', nullable: true })
-  output?: Record<string, any>;
+  output?: Record<string, unknown>;
 
   @Column({ type: 'text', nullable: true })
   error?: string;
@@ -63,16 +64,16 @@ export class StepResult extends BaseEntity {
   confidenceScore?: number;
 
   @Column({ type: 'jsonb', nullable: true })
-  metrics?: Record<string, any>;
+  metrics?: Record<string, unknown>;
 
   @Column({ type: 'jsonb', default: '[]' })
   tags: string[];
 
   @Column({ type: 'jsonb', nullable: true })
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 
   // Relationships
   @ManyToOne('Operation', 'stepResults')
   @JoinColumn({ name: 'operation_id' })
-  operation: any;
+  operation: Operation;
 }

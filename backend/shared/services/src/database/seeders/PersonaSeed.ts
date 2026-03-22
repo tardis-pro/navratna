@@ -2,7 +2,13 @@ import { DataSource, DeepPartial } from 'typeorm';
 import { BaseSeed } from './BaseSeed';
 import { Persona as PersonaEntity } from '../../entities/persona.entity';
 import { UserEntity } from '../../entities/user.entity';
-import { Persona, getAllPersonasFlatWrapper, PersonaTone, PersonaStyle, PersonaEnergyLevel } from '@uaip/types';
+import {
+  Persona,
+  getAllPersonasFlatWrapper,
+  PersonaTone,
+  PersonaStyle,
+  PersonaEnergyLevel,
+} from '@uaip/types';
 
 /**
  * Persona seeder with diverse characteristics
@@ -60,8 +66,8 @@ export class PersonaSeed extends BaseSeed<PersonaEntity> {
       // Add missing required properties from PersonaEntity
       totalInteractions: 0,
       successfulInteractions: 0,
-      discussionParticipants: [] as any[],
-      analytics: [] as any[],
+      discussionParticipants: [] as unknown[],
+      analytics: [] as unknown[],
       // Optional properties with defaults
       qualityScore: undefined as number | undefined,
       consistencyScore: undefined as number | undefined,

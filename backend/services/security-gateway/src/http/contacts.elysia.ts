@@ -1,21 +1,25 @@
 import { z } from 'zod';
 import { withRequiredAuth } from '@uaip/middleware';
 import { AuditService } from '../services/auditService.js';
-import { ContactStatus as RepoContactStatus, ContactType, UserService } from '@uaip/shared-services';
+import {
+  ContactStatus as RepoContactStatus,
+  ContactType,
+  UserService,
+} from '@uaip/shared-services';
 import { AuditEventType } from '@uaip/types';
-import { ContactStatus } from '@uaip/shared-services';
-import type { RequiredAuthContext } from './types/elysia-context.js';
+import { ContactStatus as _ContactStatus } from '@uaip/shared-services';
+import type { RequiredAuthContext as _RequiredAuthContext } from './types/elysia-context.js';
 
-let auditService: AuditService | null = null;
-let userService: UserService | null = null;
+let auditServiceSingleton: AuditService | null = null;
+let userServiceSingleton: UserService | null = null;
 async function getServices() {
-  if (!userService) {
-    userService = UserService.getInstance();
+  if (!userServiceSingleton) {
+    userServiceSingleton = UserService.getInstance();
   }
-  if (!auditService) {
-    auditService = new AuditService();
+  if (!auditServiceSingleton) {
+    auditServiceSingleton = new AuditService();
   }
-  return { userService, auditService };
+  return { userService: userServiceSingleton, auditService: auditServiceSingleton };
 }
 
 const contactRequestSchema = z.object({
@@ -37,8 +41,8 @@ const contactQuerySchema = z.object({
   search: z.string().max(100).optional(),
 });
 
-export function registerContactRoutes(app: any): any {
-  return app.group('/api/v1/contacts', (app: any) =>
+export function registerContactRoutes(elysiaApp: unknown): unknown {
+  return elysiaApp.group('/api/v1/contacts', (app: unknown) =>
     withRequiredAuth(app)
       // POST /request
       // @ts-expect-error - Elysia middleware injects user, but TypeScript cannot infer through nested groups
@@ -119,19 +123,19 @@ export function registerContactRoutes(app: any): any {
             details: parsed.error.issues.map((i) => i.message),
           };
         }
-        const { page, limit, status } = parsed.data as any;
+        const { page, limit, status } = parsed.data as unknown;
         const userId = user!.id;
-        const offset = (page - 1) * limit;
+        const _offset = (page - 1) * limit;
         const { userService } = await getServices();
         const contactRepo = userService.getUserContactRepository();
         const statusEnum = status ? (String(status).toLowerCase() as RepoContactStatus) : undefined;
-        const contacts = await contactRepo.findUserContacts(userId, statusEnum as any);
+        const contacts = await contactRepo.findUserContacts(userId, statusEnum as unknown);
         const total = contacts.length;
         return {
           success: true,
           message: 'Contacts retrieved successfully',
           data: {
-            contacts: contacts.map((c: any) => ({
+            contacts: contacts.map((c: unknown) => ({
               id: c.id,
               user: c.requesterId === userId ? c.target : c.requester,
               status: c.status,
@@ -158,8 +162,8 @@ export function registerContactRoutes(app: any): any {
             details: parsed.error.issues.map((i) => i.message),
           };
         }
-        const { contactId } = params as any;
-        const { action, message } = parsed.data as any;
+        const { contactId } = params as unknown;
+        const { action, message } = parsed.data as unknown;
         const userId = user!.id;
         const { userService, auditService } = await getServices();
         const contactRepo = userService.getUserContactRepository();
@@ -198,7 +202,7 @@ export function registerContactRoutes(app: any): any {
             message: 'Can only reject pending requests as the target user',
           };
         }
-        let updated: any = null;
+        let updated: unknown = null;
         switch (action) {
           case 'accept':
             updated = await contactRepo.updateStatus(contactId, RepoContactStatus.ACCEPTED);
@@ -258,7 +262,7 @@ export function registerContactRoutes(app: any): any {
           success: true,
           message: 'Pending contact requests retrieved successfully',
           data: {
-            requests: pending.map((c: any) => ({
+            requests: pending.map((c: unknown) => ({
               id: c.id,
               requester: c.requester,
               type: c.type,

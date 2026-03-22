@@ -3,7 +3,8 @@ import { logger } from '@uaip/utils';
 import { v4 as uuidv4 } from 'uuid';
 
 // Regex to parse thought blocks from LLM output
-const THOUGHT_REGEX = /\[THOUGHT\s+type="(\w+)"\s+confidence="([\d.]+)"\s*\]([\s\S]*?)\[\/THOUGHT\]/g;
+const THOUGHT_REGEX =
+  /\[THOUGHT\s+type="(\w+)"\s+confidence="([\d.]+)"\s*\]([\s\S]*?)\[\/THOUGHT\]/g;
 
 export class ThoughtParserService {
   private static instance: ThoughtParserService;
@@ -56,7 +57,8 @@ export class ThoughtParserService {
    * Parse streaming content incrementally
    */
   parseStreamingThought(buffer: string): { thought: ThoughtStep | null; remaining: string } {
-    const match = /\[THOUGHT\s+type="(\w+)"\s+confidence="([\d.]+)"\s*\]([\s\S]*?)\[\/THOUGHT\]/.exec(buffer);
+    const match =
+      /\[THOUGHT\s+type="(\w+)"\s+confidence="([\d.]+)"\s*\]([\s\S]*?)\[\/THOUGHT\]/.exec(buffer);
 
     if (!match) {
       return { thought: null, remaining: buffer };
@@ -81,11 +83,7 @@ export class ThoughtParserService {
   /**
    * Create a thought chain from parsed steps
    */
-  createChain(
-    agentId: string,
-    steps: ThoughtStep[],
-    conversationId?: string
-  ): ThoughtChain {
+  createChain(agentId: string, steps: ThoughtStep[], conversationId?: string): ThoughtChain {
     const conclusions = steps.filter((s) => s.type === 'conclusion');
     const uncertainties = steps.filter((s) => s.type === 'uncertainty');
     const refinements = steps.filter((s) => s.type === 'refinement');
@@ -94,9 +92,8 @@ export class ThoughtParserService {
     const branchCount = steps.filter((s) => s.alternatives && s.alternatives.length > 0).length;
 
     // Calculate overall confidence
-    const avgConfidence = steps.length > 0
-      ? steps.reduce((sum, s) => sum + s.confidence, 0) / steps.length
-      : 0;
+    const avgConfidence =
+      steps.length > 0 ? steps.reduce((sum, s) => sum + s.confidence, 0) / steps.length : 0;
 
     return {
       id: uuidv4(),

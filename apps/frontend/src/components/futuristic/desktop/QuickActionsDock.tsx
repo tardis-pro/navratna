@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  Plus,
+  _Plus,
   MessageSquare,
   Upload,
   Search,
@@ -12,7 +12,7 @@ import {
   Settings,
   MoreHorizontal,
 } from 'lucide-react';
-import { Button } from '@/components/ui/button';
+import { _Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 interface ViewportSize {
@@ -26,7 +26,7 @@ interface ViewportSize {
 interface QuickAction {
   id: string;
   title: string;
-  icon: React.ComponentType<any>;
+  icon: React.ComponentType<unknown>;
   color: string;
   shortcut?: string;
   action: () => void;
@@ -35,7 +35,7 @@ interface QuickAction {
 
 interface QuickActionsDockProps {
   viewport: ViewportSize;
-  onActionClick: (action: any) => void;
+  onActionClick: (action: unknown) => void;
 }
 
 export const QuickActionsDock: React.FC<QuickActionsDockProps> = ({ viewport, onActionClick }) => {
@@ -107,7 +107,6 @@ export const QuickActionsDock: React.FC<QuickActionsDockProps> = ({ viewport, on
       category: 'primary',
       action: () => {
         // Implement global search modal
-        console.log('Opening global search');
       },
     },
     {
@@ -119,7 +118,6 @@ export const QuickActionsDock: React.FC<QuickActionsDockProps> = ({ viewport, on
       category: 'primary',
       action: () => {
         // Implement command palette
-        console.log('Opening command palette');
       },
     },
     // Secondary actions (shown when expanded)

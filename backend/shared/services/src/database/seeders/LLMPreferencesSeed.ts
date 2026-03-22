@@ -18,7 +18,7 @@ interface TaskConfiguration {
     maxTokens: number;
     topP: number;
     systemPrompt?: string;
-    customSettings?: Record<string, any>;
+    customSettings?: Record<string, unknown>;
   };
   reasoning?: string;
 }
@@ -57,7 +57,6 @@ export class LLMPreferencesSeed extends BaseSeed<UserLLMPreference> {
       where: { isActive: true },
       order: { priority: 'DESC' },
     });
-    console.log(`   📡 Loaded ${this.availableProviders.length} available LLM providers`);
   }
 
   /**
@@ -105,8 +104,6 @@ export class LLMPreferencesSeed extends BaseSeed<UserLLMPreference> {
    * Override seed method to handle composite unique constraint (userId + taskType)
    */
   async seed(): Promise<UserLLMPreference[]> {
-    console.log(`🌱 Seeding ${this.entityName}...`);
-
     try {
       // Load available providers first
       await this.loadAvailableProviders();
@@ -115,15 +112,16 @@ export class LLMPreferencesSeed extends BaseSeed<UserLLMPreference> {
       const agentPreferences = this.generateAgentPreferences();
 
       // Handle user preferences with composite unique constraint
-      let processedUserPrefs = 0;
+      let _processedUserPrefs = 0;
+      /* oxlint-disable no-await-in-loop, @typescript-eslint/no-explicit-any -- sequential processing required, TypeORM flexible typing */
       for (const pref of userPreferences) {
         try {
           await this.repository.upsert(pref as any, {
             conflictPaths: ['userId', 'taskType'],
             skipUpdateIfNoValuesChanged: true,
           });
-          processedUserPrefs++;
-        } catch (error) {
+          _processedUserPrefs++;
+        } catch {
           // Manual fallback for individual preference
           try {
             const existing = await this.repository.findOne({
@@ -137,19 +135,20 @@ export class LLMPreferencesSeed extends BaseSeed<UserLLMPreference> {
             } else {
               await this.repository.save(this.repository.create(pref as any));
             }
-            processedUserPrefs++;
-          } catch (fallbackError) {
-            console.warn(`   ⚠️ Failed to process user preference:`, fallbackError.message);
+            _processedUserPrefs++;
+          } catch (fallbackError: unknown) {
+            console.warn(
+              `   ⚠️ Failed to process user preference:`,
+              (fallbackError as { message?: string }).message
+            );
           }
         }
       }
+      /* oxlint-enable no-await-in-loop, @typescript-eslint/no-explicit-any */
 
       // Seed agent preferences
       await this.seedAgentPreferences(agentPreferences);
 
-      console.log(
-        `   ✅ LLM preferences seeded successfully: ${processedUserPrefs} user preferences processed`
-      );
       return await this.repository.find();
     } catch (error) {
       console.error(`   ❌ LLM preferences seeding failed:`, error);
@@ -491,20 +490,19 @@ export class LLMPreferencesSeed extends BaseSeed<UserLLMPreference> {
     try {
       const agentLLMPrefRepo = this.dataSource.getRepository(AgentLLMPreference);
 
-      console.log(`   🌱 Seeding ${agentPreferences.length} agent LLM preferences...`);
-
-      let processedCount = 0;
-      let skippedCount = 0;
+      let _processedCount = 0;
+      let _skippedCount = 0;
 
       // Process individually with upsert to handle unique constraint (agentId, taskType)
+      /* oxlint-disable no-await-in-loop, @typescript-eslint/no-explicit-any -- sequential processing required, TypeORM flexible typing */
       for (const pref of agentPreferences) {
         try {
           await agentLLMPrefRepo.upsert(pref as any, {
             conflictPaths: ['agentId', 'taskType'],
             skipUpdateIfNoValuesChanged: true,
           });
-          processedCount++;
-        } catch (upsertError) {
+          _processedCount++;
+        } catch {
           // Manual fallback for individual preference
           try {
             const existing = await agentLLMPrefRepo.findOne({
@@ -515,20 +513,17 @@ export class LLMPreferencesSeed extends BaseSeed<UserLLMPreference> {
                 { agentId: pref.agentId, taskType: pref.taskType } as any,
                 pref as any
               );
-              processedCount++;
+              _processedCount++;
             } else {
               await agentLLMPrefRepo.save(agentLLMPrefRepo.create(pref as any));
-              processedCount++;
+              _processedCount++;
             }
-          } catch (fallbackError) {
-            skippedCount++;
+          } catch {
+            _skippedCount++;
           }
         }
       }
-
-      console.log(
-        `   ✅ Agent LLM preferences: ${processedCount} processed, ${skippedCount} skipped`
-      );
+      /* oxlint-enable no-await-in-loop, @typescript-eslint/no-explicit-any */
     } catch (error) {
       console.error('   ❌ Failed to seed agent LLM preferences:', error);
       // Don't throw - allow seeding to continue

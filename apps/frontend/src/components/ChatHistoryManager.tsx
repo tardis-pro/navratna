@@ -5,15 +5,15 @@ import { chatPersistenceService, ChatSession } from '../services/ChatPersistence
 import {
   History,
   MessageSquare,
-  User,
+  _User,
   Clock,
   Search,
-  Filter,
+  _Filter,
   Download,
   Trash2,
   ChevronDown,
   ChevronRight,
-  Calendar,
+  _Calendar,
   Bot,
 } from 'lucide-react';
 

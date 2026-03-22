@@ -8,11 +8,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { _RadioGroup, _RadioGroupItem } from '@/components/ui/radio-group';
 import { Label } from '@/components/ui/label';
-import { Brain, Sparkles, Zap, Cpu, Server, LucideIcon, Scale } from 'lucide-react';
+import { _Brain, _Sparkles, _Zap, Cpu, Server, LucideIcon, Scale } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { getModelServiceConfig } from '@/config/modelConfig';
+import { _getModelServiceConfig } from '@/config/modelConfig';
 
 export interface ModelOption {
   id: string;
@@ -178,7 +178,7 @@ const ModelSelector: React.FC<ModelSelectorProps> = ({
     onSelectModel(modelId);
   };
 
-  const handleApiTypeChange = (value: string) => {
+  const _handleApiTypeChange = (_value: string) => {
     // Implementation of handleApiTypeChange
   };
 

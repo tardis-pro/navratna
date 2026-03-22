@@ -1,7 +1,7 @@
 // Example of how to integrate error logging into your services
 // This file shows usage patterns - copy these into your actual service files
 
-import { createErrorLogger, withErrorTracking, withSyncErrorTracking } from './errorLogger.js';
+import { createErrorLogger, withErrorTracking } from './errorLogger.js';
 import {
   DatabaseConnectionError,
   ValidationError,
@@ -10,7 +10,7 @@ import {
 } from './errorLogger.js';
 
 // 1. Create service-specific error logger
-const errorLogger = createErrorLogger('your-service-name');
+const serviceErrorLogger = createErrorLogger('your-service-name');
 
 // 2. Example: Database operation with error tracking
 export async function getUserById(userId: string) {
@@ -22,7 +22,7 @@ export async function getUserById(userId: string) {
       }
       return user;
     },
-    errorLogger,
+    serviceErrorLogger,
     {
       endpoint: '/api/v1/users/:id',
       userId,
@@ -32,7 +32,7 @@ export async function getUserById(userId: string) {
 }
 
 // 3. Example: Validation with custom error tracking
-export function validateUserInput(userData: any) {
+export function validateUserInput(userData: Record<string, unknown>) {
   try {
     if (!userData.email) {
       throw new ValidationError('email', userData.email, 'string');
@@ -42,7 +42,7 @@ export function validateUserInput(userData: any) {
     }
     return true;
   } catch (error) {
-    errorLogger.error(error as Error, {
+    serviceErrorLogger.error(error as Error, {
       endpoint: '/api/v1/users/validate',
       metadata: {
         inputFields: Object.keys(userData),
@@ -61,7 +61,7 @@ export async function authenticateUser(token: string) {
   } catch (error) {
     if (error instanceof jwt.JsonWebTokenError) {
       const authError = new AuthenticationError('Invalid JWT token');
-      errorLogger.error(authError, {
+      serviceErrorLogger.error(authError, {
         endpoint: '/api/v1/auth/verify',
         metadata: {
           tokenLength: token.length,
@@ -75,7 +75,7 @@ export async function authenticateUser(token: string) {
 }
 
 // 5. Example: External API call with error tracking
-export async function callExternalService(apiUrl: string, data: any) {
+export async function callExternalService(apiUrl: string, data: unknown) {
   try {
     const response = await fetch(apiUrl, {
       method: 'POST',
@@ -89,7 +89,7 @@ export async function callExternalService(apiUrl: string, data: any) {
 
     return await response.json();
   } catch (error) {
-    errorLogger.error(error as Error, {
+    serviceErrorLogger.error(error as Error, {
       endpoint: '/api/v1/external/call',
       metadata: {
         externalUrl: apiUrl,
@@ -108,7 +108,7 @@ export async function connectToDatabase() {
     logger.info('Database connected successfully');
   } catch (error) {
     const dbError = new DatabaseConnectionError('postgresql', error as Error);
-    errorLogger.critical(dbError, {
+    serviceErrorLogger.critical(dbError, {
       endpoint: 'database_connection',
       metadata: {
         connectionAttempt: Date.now(),
@@ -126,11 +126,15 @@ export const handleUserCreation = async (req: Request, res: Response, next: Next
     validateUserInput(req.body);
 
     // Create user with error tracking
-    const user = await withErrorTracking(() => userService.createUser(req.body), errorLogger, {
-      endpoint: req.route?.path,
-      userId: req.user?.id,
-      metadata: { operation: 'user_creation' },
-    });
+    const user = await withErrorTracking(
+      () => userService.createUser(req.body),
+      serviceErrorLogger,
+      {
+        endpoint: req.route?.path,
+        userId: req.user?.id,
+        metadata: { operation: 'user_creation' },
+      }
+    );
 
     res.status(201).json({ user });
   } catch (error) {
@@ -140,14 +144,14 @@ export const handleUserCreation = async (req: Request, res: Response, next: Next
 };
 
 // 8. Example: Business logic with warning-level errors
-export async function processUserPreferences(userId: string, preferences: any) {
+export async function processUserPreferences(userId: string, preferences: Record<string, unknown>) {
   try {
-    const user = await getUserById(userId);
+    const _user = await getUserById(userId);
 
     // Some business logic that might have non-critical issues
     if (preferences.theme && !['light', 'dark'].includes(preferences.theme)) {
       const warning = new ValidationError('theme', preferences.theme, 'light|dark');
-      errorLogger.warning(warning, {
+      serviceErrorLogger.warning(warning, {
         endpoint: '/api/v1/users/preferences',
         userId,
         metadata: {
@@ -160,7 +164,7 @@ export async function processUserPreferences(userId: string, preferences: any) {
 
     return await userService.updatePreferences(userId, preferences);
   } catch (error) {
-    errorLogger.business(error as Error, {
+    serviceErrorLogger.business(error as Error, {
       endpoint: '/api/v1/users/preferences',
       userId,
       metadata: { operation: 'preferences_update' },
@@ -173,10 +177,10 @@ export async function processUserPreferences(userId: string, preferences: any) {
 export function setupErrorLogging() {
   // This should be called in your service initialization
   const serviceName = process.env.SERVICE_NAME || 'unknown-service';
-  const errorLogger = createErrorLogger(serviceName);
+  const localErrorLogger = createErrorLogger(serviceName);
 
   // Make error logger available globally in your service
-  (global as any).errorLogger = errorLogger;
+  (global as unknown as Record<string, unknown>).errorLogger = localErrorLogger;
 
   logger.info(`Error logging initialized for service: ${serviceName}`);
 }
@@ -185,7 +189,7 @@ export function setupErrorLogging() {
 export class YourService extends BaseService {
   private errorLogger = createErrorLogger('your-service');
 
-  protected async handleError(error: Error, context?: any) {
+  protected async handleError(error: Error, context?: Record<string, unknown>) {
     this.errorLogger.error(error, {
       endpoint: context?.endpoint,
       userId: context?.userId,
@@ -193,7 +197,7 @@ export class YourService extends BaseService {
     });
   }
 
-  protected async handleCriticalError(error: Error, context?: any) {
+  protected async handleCriticalError(error: Error, context?: Record<string, unknown>) {
     this.errorLogger.critical(error, {
       endpoint: context?.endpoint,
       metadata: { ...context?.metadata, critical: true },

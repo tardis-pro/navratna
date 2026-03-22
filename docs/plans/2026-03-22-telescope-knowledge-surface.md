@@ -15,6 +15,7 @@
 ## Task 1: Constellation Types & Shared Interfaces
 
 **Files:**
+
 - Create: `packages/shared-types/src/telescope.ts`
 - Modify: `packages/shared-types/src/index.ts` — add re-export
 
@@ -52,13 +53,13 @@ export interface ConstellationItem {
 }
 
 export type ConstellationHealth =
-  | 'stable'       // All items current, no conflicts
-  | 'active'       // Matches current intent
-  | 'processing'   // Agent actively working on items
-  | 'conflicted'   // Conflicting information detected
-  | 'ambiguous'    // Needs clarification
-  | 'validated'    // Recently validated, high confidence
-  | 'stale';       // Heavily connected but possibly outdated
+  | 'stable' // All items current, no conflicts
+  | 'active' // Matches current intent
+  | 'processing' // Agent actively working on items
+  | 'conflicted' // Conflicting information detected
+  | 'ambiguous' // Needs clarification
+  | 'validated' // Recently validated, high confidence
+  | 'stale'; // Heavily connected but possibly outdated
 
 export interface ConstellationMetadata {
   itemCount: number;
@@ -95,10 +96,10 @@ export const CONSTELLATION_HEALTH_EXPRESSION_MAP: Record<ConstellationHealth, st
 
 /** Force layout configuration for the telescope surface */
 export interface ForceLayoutConfig {
-  gravity: number;       // Pull toward center for relevant items (0-1)
+  gravity: number; // Pull toward center for relevant items (0-1)
   springStrength: number; // Relationship edge spring force (0-1)
-  repulsion: number;     // Repulsion to prevent overlap (0-1)
-  friction: number;      // Damping to prevent jitter (0-1)
+  repulsion: number; // Repulsion to prevent overlap (0-1)
+  friction: number; // Damping to prevent jitter (0-1)
   centerX: number;
   centerY: number;
 }
@@ -130,6 +131,7 @@ export interface JiraOutcomeEvent {
 **Step 2: Add re-export to shared-types index**
 
 Find the index.ts in `packages/shared-types/src/` and add:
+
 ```typescript
 export * from './telescope';
 ```
@@ -149,6 +151,7 @@ Expected: No errors.
 ## Task 2: Backend — Constellation Clustering Endpoint
 
 **Files:**
+
 - Create: `backend/services/agent-intelligence/src/services/constellation.service.ts`
 - Create: `backend/services/agent-intelligence/src/routes/constellation.routes.ts`
 - Modify: `backend/services/agent-intelligence/src/routes/agent.routes.ts` — mount constellation routes
@@ -164,7 +167,11 @@ This service wraps `KnowledgeClusteringService` and the existing relevance engin
 
 ```typescript
 // backend/services/agent-intelligence/src/services/constellation.service.ts
-import { KnowledgeClusteringService, KnowledgeCluster, QdrantPoint } from '@uaip/shared-services/knowledge-graph/knowledge-clustering.service';
+import {
+  KnowledgeClusteringService,
+  KnowledgeCluster,
+  QdrantPoint,
+} from '@uaip/shared-services/knowledge-graph/knowledge-clustering.service';
 import { QdrantService } from '@uaip/shared-services/qdrant.service';
 import { SmartEmbeddingService } from '@uaip/shared-services/knowledge-graph/smart-embedding.service';
 import {
@@ -188,7 +195,7 @@ export class ConstellationService {
 
   constructor(
     private readonly qdrantService: QdrantService,
-    private readonly embeddingService: SmartEmbeddingService,
+    private readonly embeddingService: SmartEmbeddingService
   ) {
     this.clusteringService = new KnowledgeClusteringService(qdrantService, embeddingService);
   }
@@ -204,12 +211,12 @@ export class ConstellationService {
     // Get raw clusters from Qdrant
     const clusteringResult = await this.clusteringService.clusterSimilarKnowledge(
       MIN_CLUSTER_SIZE,
-      minSimilarity,
+      minSimilarity
     );
 
     // Map clusters to constellations
     let constellations = clusteringResult.clusters.map((cluster) =>
-      this.mapClusterToConstellation(cluster, includeItems),
+      this.mapClusterToConstellation(cluster, includeItems)
     );
 
     // Score against intent if query provided
@@ -231,7 +238,7 @@ export class ConstellationService {
 
   private mapClusterToConstellation(
     cluster: KnowledgeCluster,
-    includeItems: boolean,
+    includeItems: boolean
   ): Constellation {
     const name = this.generateConstellationName(cluster);
     const items = includeItems
@@ -336,7 +343,7 @@ export class ConstellationService {
 
   private async scoreConstellations(
     constellations: Constellation[],
-    query: string,
+    query: string
   ): Promise<Constellation[]> {
     try {
       const candidates = constellations.map((c) => ({
@@ -362,9 +369,10 @@ export class ConstellationService {
       return constellations.map((c) => ({
         ...c,
         relevanceScore: scoreMap.get(c.id) ?? c.relevanceScore,
-        health: scoreMap.has(c.id) && (scoreMap.get(c.id) ?? 0) > 0.5
-          ? 'active' as ConstellationHealth
-          : c.health,
+        health:
+          scoreMap.has(c.id) && (scoreMap.get(c.id) ?? 0) > 0.5
+            ? ('active' as ConstellationHealth)
+            : c.health,
       }));
     } catch {
       // Relevance scoring is best-effort
@@ -433,6 +441,7 @@ export function createConstellationRoutes(): Router {
 **Step 3: Mount constellation routes in agent routes**
 
 In `backend/services/agent-intelligence/src/routes/agent.routes.ts`, import and mount:
+
 ```typescript
 import { createConstellationRoutes } from './constellation.routes';
 // ... inside route setup:
@@ -451,6 +460,7 @@ Expected: Clean build.
 ## Task 3: Frontend — Constellation API Client
 
 **Files:**
+
 - Create: `apps/frontend/src/api/constellation.api.ts`
 - Modify: `apps/frontend/src/api/index.ts` — add re-export
 
@@ -459,10 +469,7 @@ Expected: Clean build.
 ```typescript
 // apps/frontend/src/api/constellation.api.ts
 import { APIClient } from './client';
-import type {
-  ConstellationRequest,
-  ConstellationResponse,
-} from '@uaip/types';
+import type { ConstellationRequest, ConstellationResponse } from '@uaip/types';
 
 const client = new APIClient();
 
@@ -470,7 +477,7 @@ export const constellationAPI = {
   getConstellations: async (request: ConstellationRequest): Promise<ConstellationResponse> => {
     const response = await client.post<{ success: boolean; data: ConstellationResponse }>(
       '/api/v1/knowledge/constellations',
-      request,
+      request
     );
     return response.data;
   },
@@ -480,6 +487,7 @@ export const constellationAPI = {
 **Step 2: Add to API index**
 
 Add to `apps/frontend/src/api/index.ts`:
+
 ```typescript
 export * from './constellation.api';
 ```
@@ -496,6 +504,7 @@ Expected: No errors.
 ## Task 4: Frontend — useForceLayout Hook (Physics Simulation)
 
 **Files:**
+
 - Create: `apps/frontend/src/components/TelescopeSurface/useForceLayout.ts`
 
 This hook replaces the Dagre hierarchical layout with a force-directed physics simulation using Framer Motion spring values. No d3-force dependency needed — we implement the 4-force model directly with `requestAnimationFrame`.
@@ -559,89 +568,104 @@ export function useForceLayout(options: UseForceLayoutOptions): UseForceLayoutRe
   }, [enabled]);
 
   // Intent gravity: pulls relevant nodes toward center
-  const applyGravity = useCallback((nodes: ForceNode[]) => {
-    const cx = intentCenterRef.current.x;
-    const cy = intentCenterRef.current.y;
+  const applyGravity = useCallback(
+    (nodes: ForceNode[]) => {
+      const cx = intentCenterRef.current.x;
+      const cy = intentCenterRef.current.y;
 
-    for (const node of nodes) {
-      if (node.pinned) continue;
-      const dx = cx - node.x;
-      const dy = cy - node.y;
-      const distance = Math.sqrt(dx * dx + dy * dy) || 1;
-      // Higher relevance = stronger pull toward center
-      const force = config.gravity * node.relevanceScore;
-      node.vx += (dx / distance) * force;
-      node.vy += (dy / distance) * force;
-    }
-  }, [config.gravity]);
-
-  // Spring force: keeps connected nodes close
-  const applySprings = useCallback((nodes: ForceNode[], nodeMap: Map<string, ForceNode>) => {
-    for (const node of nodes) {
-      if (node.pinned) continue;
-      for (const connId of node.connections) {
-        const other = nodeMap.get(connId);
-        if (!other) continue;
-
-        const dx = other.x - node.x;
-        const dy = other.y - node.y;
+      for (const node of nodes) {
+        if (node.pinned) continue;
+        const dx = cx - node.x;
+        const dy = cy - node.y;
         const distance = Math.sqrt(dx * dx + dy * dy) || 1;
-        const targetDist = node.radius + other.radius + 40;
-        const displacement = distance - targetDist;
-        const force = config.springStrength * displacement * 0.01;
-
+        // Higher relevance = stronger pull toward center
+        const force = config.gravity * node.relevanceScore;
         node.vx += (dx / distance) * force;
         node.vy += (dy / distance) * force;
       }
-    }
-  }, [config.springStrength]);
+    },
+    [config.gravity]
+  );
+
+  // Spring force: keeps connected nodes close
+  const applySprings = useCallback(
+    (nodes: ForceNode[], nodeMap: Map<string, ForceNode>) => {
+      for (const node of nodes) {
+        if (node.pinned) continue;
+        for (const connId of node.connections) {
+          const other = nodeMap.get(connId);
+          if (!other) continue;
+
+          const dx = other.x - node.x;
+          const dy = other.y - node.y;
+          const distance = Math.sqrt(dx * dx + dy * dy) || 1;
+          const targetDist = node.radius + other.radius + 40;
+          const displacement = distance - targetDist;
+          const force = config.springStrength * displacement * 0.01;
+
+          node.vx += (dx / distance) * force;
+          node.vy += (dy / distance) * force;
+        }
+      }
+    },
+    [config.springStrength]
+  );
 
   // Repulsion: prevents overlap
-  const applyRepulsion = useCallback((nodes: ForceNode[]) => {
-    for (let i = 0; i < nodes.length; i++) {
-      const nodeA = nodes[i];
-      if (nodeA.pinned) continue;
+  const applyRepulsion = useCallback(
+    (nodes: ForceNode[]) => {
+      for (let i = 0; i < nodes.length; i++) {
+        const nodeA = nodes[i];
+        if (nodeA.pinned) continue;
 
-      for (let j = i + 1; j < nodes.length; j++) {
-        const nodeB = nodes[j];
-        const dx = nodeB.x - nodeA.x;
-        const dy = nodeB.y - nodeA.y;
-        const distSq = dx * dx + dy * dy || 1;
-        const minDist = nodeA.radius + nodeB.radius + 20;
+        for (let j = i + 1; j < nodes.length; j++) {
+          const nodeB = nodes[j];
+          const dx = nodeB.x - nodeA.x;
+          const dy = nodeB.y - nodeA.y;
+          const distSq = dx * dx + dy * dy || 1;
+          const minDist = nodeA.radius + nodeB.radius + 20;
 
-        if (distSq < minDist * minDist) {
-          const distance = Math.sqrt(distSq);
-          const force = config.repulsion * (minDist - distance) / distance;
+          if (distSq < minDist * minDist) {
+            const distance = Math.sqrt(distSq);
+            const force = (config.repulsion * (minDist - distance)) / distance;
 
-          if (!nodeA.pinned) {
-            nodeA.vx -= dx * force * 0.5;
-            nodeA.vy -= dy * force * 0.5;
-          }
-          if (!nodeB.pinned) {
-            nodeB.vx += dx * force * 0.5;
-            nodeB.vy += dy * force * 0.5;
+            if (!nodeA.pinned) {
+              nodeA.vx -= dx * force * 0.5;
+              nodeA.vy -= dy * force * 0.5;
+            }
+            if (!nodeB.pinned) {
+              nodeB.vx += dx * force * 0.5;
+              nodeB.vy += dy * force * 0.5;
+            }
           }
         }
       }
-    }
-  }, [config.repulsion]);
+    },
+    [config.repulsion]
+  );
 
   // Friction: damping
-  const applyFriction = useCallback((nodes: ForceNode[]) => {
-    for (const node of nodes) {
-      node.vx *= config.friction;
-      node.vy *= config.friction;
-    }
-  }, [config.friction]);
+  const applyFriction = useCallback(
+    (nodes: ForceNode[]) => {
+      for (const node of nodes) {
+        node.vx *= config.friction;
+        node.vy *= config.friction;
+      }
+    },
+    [config.friction]
+  );
 
   // Boundary clamping
-  const clampToBounds = useCallback((nodes: ForceNode[]) => {
-    const padding = 40;
-    for (const node of nodes) {
-      node.x = Math.max(padding + node.radius, Math.min(width - padding - node.radius, node.x));
-      node.y = Math.max(padding + node.radius, Math.min(height - padding - node.radius, node.y));
-    }
-  }, [width, height]);
+  const clampToBounds = useCallback(
+    (nodes: ForceNode[]) => {
+      const padding = 40;
+      for (const node of nodes) {
+        node.x = Math.max(padding + node.radius, Math.min(width - padding - node.radius, node.x));
+        node.y = Math.max(padding + node.radius, Math.min(height - padding - node.radius, node.y));
+      }
+    },
+    [width, height]
+  );
 
   const simulate = useCallback(() => {
     if (!enabledRef.current) return;
@@ -693,40 +717,49 @@ export function useForceLayout(options: UseForceLayoutOptions): UseForceLayoutRe
     rafRef.current = requestAnimationFrame(simulate);
   }, [applyGravity, applySprings, applyRepulsion, applyFriction, clampToBounds]);
 
-  const setNodes = useCallback((nodes: ForceNode[]) => {
-    nodesRef.current = nodes;
-    const map = new Map<string, ForceNode>();
-    for (const node of nodes) {
-      map.set(node.id, node);
-    }
-    nodeMapRef.current = map;
+  const setNodes = useCallback(
+    (nodes: ForceNode[]) => {
+      nodesRef.current = nodes;
+      const map = new Map<string, ForceNode>();
+      for (const node of nodes) {
+        map.set(node.id, node);
+      }
+      nodeMapRef.current = map;
 
-    // Kick off simulation
-    cancelAnimationFrame(rafRef.current);
-    setIsSimulating(true);
-    rafRef.current = requestAnimationFrame(simulate);
-  }, [simulate]);
-
-  const updateRelevance = useCallback((id: string, score: number) => {
-    const node = nodeMapRef.current.get(id);
-    if (node) {
-      node.relevanceScore = Math.max(0, Math.min(1, score));
-      // Restart simulation
+      // Kick off simulation
       cancelAnimationFrame(rafRef.current);
       setIsSimulating(true);
       rafRef.current = requestAnimationFrame(simulate);
-    }
-  }, [simulate]);
+    },
+    [simulate]
+  );
 
-  const setIntentCenter = useCallback((x: number, y: number) => {
-    intentCenterRef.current = { x, y };
-    // Restart simulation for new gravity center
-    if (nodesRef.current.length > 0) {
-      cancelAnimationFrame(rafRef.current);
-      setIsSimulating(true);
-      rafRef.current = requestAnimationFrame(simulate);
-    }
-  }, [simulate]);
+  const updateRelevance = useCallback(
+    (id: string, score: number) => {
+      const node = nodeMapRef.current.get(id);
+      if (node) {
+        node.relevanceScore = Math.max(0, Math.min(1, score));
+        // Restart simulation
+        cancelAnimationFrame(rafRef.current);
+        setIsSimulating(true);
+        rafRef.current = requestAnimationFrame(simulate);
+      }
+    },
+    [simulate]
+  );
+
+  const setIntentCenter = useCallback(
+    (x: number, y: number) => {
+      intentCenterRef.current = { x, y };
+      // Restart simulation for new gravity center
+      if (nodesRef.current.length > 0) {
+        cancelAnimationFrame(rafRef.current);
+        setIsSimulating(true);
+        rafRef.current = requestAnimationFrame(simulate);
+      }
+    },
+    [simulate]
+  );
 
   // Cleanup
   useEffect(() => {
@@ -749,6 +782,7 @@ Expected: No errors.
 ## Task 5: Frontend — useConstellations Hook (Data Fetching + State)
 
 **Files:**
+
 - Create: `apps/frontend/src/components/TelescopeSurface/useConstellations.ts`
 
 This hook fetches constellations from the backend, maps them to MaterializableBlockData for rendering, and integrates with the IntentField search signal.
@@ -759,11 +793,7 @@ This hook fetches constellations from the backend, maps them to MaterializableBl
 // apps/frontend/src/components/TelescopeSurface/useConstellations.ts
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { constellationAPI } from '@/api/constellation.api';
-import type {
-  Constellation,
-  ConstellationHealth,
-  ConstellationRequest,
-} from '@uaip/types';
+import type { Constellation, ConstellationHealth, ConstellationRequest } from '@uaip/types';
 import { CONSTELLATION_HEALTH_EXPRESSION_MAP } from '@uaip/types';
 import type {
   MaterializableBlockData,
@@ -807,10 +837,7 @@ function healthToExpression(health: ConstellationHealth): Microexpression {
   return CONSTELLATION_HEALTH_EXPRESSION_MAP[health] as Microexpression;
 }
 
-function constellationToBlock(
-  constellation: Constellation,
-  index: number,
-): ConstellationBlockData {
+function constellationToBlock(constellation: Constellation, index: number): ConstellationBlockData {
   const expression = healthToExpression(constellation.health);
 
   return {
@@ -835,13 +862,8 @@ function constellationToBlock(
   };
 }
 
-export function useConstellations(
-  options: UseConstellationsOptions = {},
-): UseConstellationsReturn {
-  const {
-    maxConstellations = DEFAULT_MAX_CONSTELLATIONS,
-    autoRefreshMs = 30_000,
-  } = options;
+export function useConstellations(options: UseConstellationsOptions = {}): UseConstellationsReturn {
+  const { maxConstellations = DEFAULT_MAX_CONSTELLATIONS, autoRefreshMs = 30_000 } = options;
 
   const [constellations, setConstellations] = useState<ConstellationBlockData[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -852,42 +874,46 @@ export function useConstellations(
   const lastQueryRef = useRef('');
   const autoRefreshRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  const fetchConstellations = useCallback(async (query: string) => {
-    setIsLoading(true);
-    setError(null);
+  const fetchConstellations = useCallback(
+    async (query: string) => {
+      setIsLoading(true);
+      setError(null);
 
-    try {
-      const request: ConstellationRequest = {
-        query,
-        limit: maxConstellations,
-        includeItems: true,
-      };
+      try {
+        const request: ConstellationRequest = {
+          query,
+          limit: maxConstellations,
+          includeItems: true,
+        };
 
-      const response = await constellationAPI.getConstellations(request);
-      const blocks = response.constellations.map((c, i) =>
-        constellationToBlock(c, i),
-      );
-      setConstellations(blocks);
-      setTotalItems(response.totalItems);
-    } catch (err) {
-      const message = err instanceof Error ? err.message : 'Failed to load constellations';
-      setError(message);
-    } finally {
-      setIsLoading(false);
-    }
-  }, [maxConstellations]);
+        const response = await constellationAPI.getConstellations(request);
+        const blocks = response.constellations.map((c, i) => constellationToBlock(c, i));
+        setConstellations(blocks);
+        setTotalItems(response.totalItems);
+      } catch (err) {
+        const message = err instanceof Error ? err.message : 'Failed to load constellations';
+        setError(message);
+      } finally {
+        setIsLoading(false);
+      }
+    },
+    [maxConstellations]
+  );
 
-  const search = useCallback((query: string) => {
-    lastQueryRef.current = query;
+  const search = useCallback(
+    (query: string) => {
+      lastQueryRef.current = query;
 
-    if (debounceRef.current) {
-      clearTimeout(debounceRef.current);
-    }
+      if (debounceRef.current) {
+        clearTimeout(debounceRef.current);
+      }
 
-    debounceRef.current = setTimeout(() => {
-      void fetchConstellations(query);
-    }, DEBOUNCE_MS);
-  }, [fetchConstellations]);
+      debounceRef.current = setTimeout(() => {
+        void fetchConstellations(query);
+      }, DEBOUNCE_MS);
+    },
+    [fetchConstellations]
+  );
 
   const refresh = useCallback(() => {
     void fetchConstellations(lastQueryRef.current);
@@ -904,7 +930,7 @@ export function useConstellations(
             isExpanded: !block.metadata.isExpanded,
           },
         };
-      }),
+      })
     );
   }, []);
 
@@ -957,6 +983,7 @@ Expected: No errors.
 ## Task 6: Frontend — useKnowledgeMicroexpression Hook
 
 **Files:**
+
 - Create: `apps/frontend/src/hooks/useKnowledgeMicroexpression.ts`
 
 Maps constellation health states to microexpression visual states, complementing the existing `useAgentMicroexpression` which maps agent activity.
@@ -994,7 +1021,7 @@ const HEALTH_LABELS: Record<ConstellationHealth, string> = {
 };
 
 export function useKnowledgeMicroexpression(
-  input: KnowledgeMicroexpressionInput,
+  input: KnowledgeMicroexpressionInput
 ): KnowledgeMicroexpressionResult {
   const { health, relevanceScore, isProcessing, hasConflicts } = input;
 
@@ -1029,6 +1056,7 @@ Expected: No errors.
 ## Task 7: Frontend — ConstellationNode Component
 
 **Files:**
+
 - Create: `apps/frontend/src/components/TelescopeSurface/ConstellationNode.tsx`
 
 This is a single constellation rendered as a MaterializableBlock with microexpression, relevance-driven sizing, blur crystallization, and expand/collapse.
@@ -1246,6 +1274,7 @@ Expected: No errors.
 ## Task 8: Frontend — TelescopeKnowledgeSurface (Main Composition)
 
 **Files:**
+
 - Create: `apps/frontend/src/components/TelescopeSurface/TelescopeKnowledgeSurface.tsx`
 - Modify: `apps/frontend/src/components/TelescopeSurface/index.ts` — add exports
 
@@ -1542,6 +1571,7 @@ export function TelescopeKnowledgeSurface({
 **Step 2: Update index.ts**
 
 Add to `apps/frontend/src/components/TelescopeSurface/index.ts`:
+
 ```typescript
 export { TelescopeKnowledgeSurface } from './TelescopeKnowledgeSurface';
 export type { TelescopeKnowledgeSurfaceProps } from './TelescopeKnowledgeSurface';
@@ -1563,20 +1593,23 @@ Expected: No errors.
 ## Task 9: Frontend — Mount TelescopeKnowledgeSurface in DesktopUnified
 
 **Files:**
+
 - Modify: `apps/frontend/src/components/DesktopUnified.tsx`
 
 **Step 1: Add feature-flagged Telescope surface**
 
 At the top of DesktopUnified.tsx, add the lazy import:
+
 ```typescript
 const TelescopeKnowledgeSurface = React.lazy(() =>
   import('./TelescopeSurface/TelescopeKnowledgeSurface').then((m) => ({
     default: m.TelescopeKnowledgeSurface,
-  })),
+  }))
 );
 ```
 
 Import `isTelescopeEnabled` from `./TelescopeSurface`:
+
 ```typescript
 import { isTelescopeEnabled } from './TelescopeSurface';
 ```
@@ -1584,6 +1617,7 @@ import { isTelescopeEnabled } from './TelescopeSurface';
 **Step 2: Add telescope mode state**
 
 In the `Desktop` component, add:
+
 ```typescript
 const [telescopeMode, setTelescopeMode] = useState(() => isTelescopeEnabled());
 ```
@@ -1591,6 +1625,7 @@ const [telescopeMode, setTelescopeMode] = useState(() => isTelescopeEnabled());
 **Step 3: Conditional render**
 
 Before the existing desktop grid/window rendering, add:
+
 ```typescript
 {telescopeMode && (
   <Suspense fallback={<div className="w-full h-full bg-black" />}>
@@ -1611,6 +1646,7 @@ Before the existing desktop grid/window rendering, add:
 **Step 4: Add keyboard shortcut to toggle**
 
 In the keyboard handler, add `Ctrl+Shift+T` to toggle telescope mode:
+
 ```typescript
 if (e.ctrlKey && e.shiftKey && e.key === 'T') {
   e.preventDefault();
@@ -1632,6 +1668,7 @@ Expected: No new errors introduced.
 ## Task 10: Backend — Jira Outcome Feedback Loop
 
 **Files:**
+
 - Create: `backend/services/capability-registry/src/services/jira-outcome-bridge.service.ts`
 - Modify: `backend/services/capability-registry/src/adapters/jira-adapter.ts` — emit events after operations
 
@@ -1668,7 +1705,7 @@ export class JiraOutcomeBridgeService {
         const outcome = message.data as JiraOperationOutcome;
         await this.forwardToLearningService(outcome);
       },
-      { queue: 'capability-registry.jira-outcome-bridge' },
+      { queue: 'capability-registry.jira-outcome-bridge' }
     );
   }
 
@@ -1774,16 +1811,16 @@ Expected: Clean build across all packages.
 
 ## Summary of Deliverables
 
-| Task | What | PRD Section |
-|------|------|-------------|
-| 1 | Shared types for Constellation, ForceLayout, JiraOutcome | Foundation |
-| 2 | Backend constellation clustering endpoint | §4.1 Constellation Clustering |
-| 3 | Frontend API client for constellations | §4.1 |
-| 4 | Force-directed layout hook with 4 forces | §4.2 Force-Directed Layout |
-| 5 | Constellation data fetching hook with debounce | §4.1 + §4.4 |
-| 6 | Knowledge microexpression mapping hook | §4.7 Microexpression Mapping |
-| 7 | ConstellationNode with relevance-driven size/blur/opacity | §4.4 Relevance-Driven Rendering |
-| 8 | Main composition: IntentField + Constellations + WhisperLine + AttentionBudget + Crystallization | §4.3 + §4.5 + §4.6 + all |
-| 9 | Feature-flagged mount in DesktopUnified | §TelescopeSurface container |
-| 10 | Jira outcome feedback loop bridge | §Value Leak Closure |
-| 11 | Full oxlint verification pass | Quality gate |
+| Task | What                                                                                             | PRD Section                     |
+| ---- | ------------------------------------------------------------------------------------------------ | ------------------------------- |
+| 1    | Shared types for Constellation, ForceLayout, JiraOutcome                                         | Foundation                      |
+| 2    | Backend constellation clustering endpoint                                                        | §4.1 Constellation Clustering   |
+| 3    | Frontend API client for constellations                                                           | §4.1                            |
+| 4    | Force-directed layout hook with 4 forces                                                         | §4.2 Force-Directed Layout      |
+| 5    | Constellation data fetching hook with debounce                                                   | §4.1 + §4.4                     |
+| 6    | Knowledge microexpression mapping hook                                                           | §4.7 Microexpression Mapping    |
+| 7    | ConstellationNode with relevance-driven size/blur/opacity                                        | §4.4 Relevance-Driven Rendering |
+| 8    | Main composition: IntentField + Constellations + WhisperLine + AttentionBudget + Crystallization | §4.3 + §4.5 + §4.6 + all        |
+| 9    | Feature-flagged mount in DesktopUnified                                                          | §TelescopeSurface container     |
+| 10   | Jira outcome feedback loop bridge                                                                | §Value Leak Closure             |
+| 11   | Full oxlint verification pass                                                                    | Quality gate                    |

@@ -9,8 +9,8 @@ groups:
           severity: warning
           category: logging
         annotations:
-          summary: "High error log rate detected"
-          description: "Error log rate is {{ $value }} errors/second for {{ $labels.service }}"
+          summary: 'High error log rate detected'
+          description: 'Error log rate is {{ $value }} errors/second for {{ $labels.service }}'
 
       # Critical Error Spike
       - alert: CriticalErrorSpike
@@ -20,8 +20,8 @@ groups:
           severity: critical
           category: logging
         annotations:
-          summary: "Critical errors detected"
-          description: "Critical error rate is {{ $value }} errors/second for {{ $labels.service }}"
+          summary: 'Critical errors detected'
+          description: 'Critical error rate is {{ $value }} errors/second for {{ $labels.service }}'
 
       # Log Volume Spike
       - alert: LogVolumeSpike
@@ -35,8 +35,8 @@ groups:
           severity: warning
           category: logging
         annotations:
-          summary: "Unusual log volume spike"
-          description: "Log volume for {{ $labels.service }} is {{ $value }} logs/second, 3x higher than normal"
+          summary: 'Unusual log volume spike'
+          description: 'Log volume for {{ $labels.service }} is {{ $value }} logs/second, 3x higher than normal'
 
       # High Error Ratio
       - alert: HighErrorRatio
@@ -46,8 +46,8 @@ groups:
           severity: warning
           category: logging
         annotations:
-          summary: "High error ratio in logs"
-          description: "Error ratio is {{ $value | humanizePercentage }} for {{ $labels.service }}"
+          summary: 'High error ratio in logs'
+          description: 'Error ratio is {{ $value | humanizePercentage }} for {{ $labels.service }}'
 
       # No Logs Received
       - alert: NoLogsReceived
@@ -60,8 +60,8 @@ groups:
           severity: critical
           category: logging
         annotations:
-          summary: "No logs received from service"
-          description: "No logs received from {{ $labels.service }} for over 5 minutes"
+          summary: 'No logs received from service'
+          description: 'No logs received from {{ $labels.service }} for over 5 minutes'
 
   - name: service_logging.alerts
     rules:
@@ -74,8 +74,8 @@ groups:
           service: agent-intelligence
           category: service_logging
         annotations:
-          summary: "High error rate in Agent Intelligence service"
-          description: "Agent Intelligence error rate: {{ $value }} errors/second"
+          summary: 'High error rate in Agent Intelligence service'
+          description: 'Agent Intelligence error rate: {{ $value }} errors/second'
 
       # Orchestration Pipeline Service Alerts
       - alert: OrchestrationPipelineHighErrors
@@ -86,8 +86,8 @@ groups:
           service: orchestration-pipeline
           category: service_logging
         annotations:
-          summary: "High error rate in Orchestration Pipeline service"
-          description: "Orchestration Pipeline error rate: {{ $value }} errors/second"
+          summary: 'High error rate in Orchestration Pipeline service'
+          description: 'Orchestration Pipeline error rate: {{ $value }} errors/second'
 
       # Capability Registry Service Alerts
       - alert: CapabilityRegistryHighErrors
@@ -98,8 +98,8 @@ groups:
           service: capability-registry
           category: service_logging
         annotations:
-          summary: "High error rate in Capability Registry service"
-          description: "Capability Registry error rate: {{ $value }} errors/second"
+          summary: 'High error rate in Capability Registry service'
+          description: 'Capability Registry error rate: {{ $value }} errors/second'
 
       # Security Gateway Service Alerts
       - alert: SecurityGatewayHighErrors
@@ -110,8 +110,8 @@ groups:
           service: security-gateway
           category: service_logging
         annotations:
-          summary: "High error rate in Security Gateway service"
-          description: "Security Gateway error rate: {{ $value }} errors/second - SECURITY CONCERN"
+          summary: 'High error rate in Security Gateway service'
+          description: 'Security Gateway error rate: {{ $value }} errors/second - SECURITY CONCERN'
 
       # API Gateway Service Alerts
       - alert: ApiGatewayHighErrors
@@ -122,8 +122,8 @@ groups:
           service: api-gateway
           category: service_logging
         annotations:
-          summary: "High error rate in API Gateway service"
-          description: "API Gateway error rate: {{ $value }} errors/second"
+          summary: 'High error rate in API Gateway service'
+          description: 'API Gateway error rate: {{ $value }} errors/second'
 
   - name: infrastructure_logging.alerts
     rules:
@@ -136,8 +136,8 @@ groups:
           component: postgres
           category: infrastructure_logging
         annotations:
-          summary: "High error rate in PostgreSQL"
-          description: "PostgreSQL error rate: {{ $value }} errors/second"
+          summary: 'High error rate in PostgreSQL'
+          description: 'PostgreSQL error rate: {{ $value }} errors/second'
 
       # Redis Logging Alerts
       - alert: RedisHighErrors
@@ -148,8 +148,8 @@ groups:
           component: redis
           category: infrastructure_logging
         annotations:
-          summary: "High error rate in Redis"
-          description: "Redis error rate: {{ $value }} errors/second"
+          summary: 'High error rate in Redis'
+          description: 'Redis error rate: {{ $value }} errors/second'
 
       # RabbitMQ Logging Alerts
       - alert: RabbitMQHighErrors
@@ -160,8 +160,8 @@ groups:
           component: rabbitmq
           category: infrastructure_logging
         annotations:
-          summary: "High error rate in RabbitMQ"
-          description: "RabbitMQ error rate: {{ $value }} errors/second"
+          summary: 'High error rate in RabbitMQ'
+          description: 'RabbitMQ error rate: {{ $value }} errors/second'
 
       # Qdrant Logging Alerts
       - alert: QdrantHighErrors
@@ -172,8 +172,8 @@ groups:
           component: qdrant
           category: infrastructure_logging
         annotations:
-          summary: "High error rate in Qdrant"
-          description: "Qdrant error rate: {{ $value }} errors/second"
+          summary: 'High error rate in Qdrant'
+          description: 'Qdrant error rate: {{ $value }} errors/second'
 
   - name: log_patterns.alerts
     rules:
@@ -186,8 +186,8 @@ groups:
           severity: warning
           category: security_logging
         annotations:
-          summary: "High authentication failure rate"
-          description: "Authentication failure rate: {{ $value }} failures/second"
+          summary: 'High authentication failure rate'
+          description: 'Authentication failure rate: {{ $value }} failures/second'
 
       # Database Connection Issues
       - alert: DatabaseConnectionErrors
@@ -198,8 +198,8 @@ groups:
           severity: critical
           category: database_logging
         annotations:
-          summary: "Database connection errors detected"
-          description: "Database connection error rate: {{ $value }} errors/second"
+          summary: 'Database connection errors detected'
+          description: 'Database connection error rate: {{ $value }} errors/second'
 
       # Memory Issues
       - alert: MemoryIssuesInLogs
@@ -210,5 +210,5 @@ groups:
           severity: critical
           category: performance_logging
         annotations:
-          summary: "Memory issues detected in logs"
-          description: "Memory-related error rate: {{ $value }} errors/second" 
+          summary: 'Memory issues detected in logs'
+          description: 'Memory-related error rate: {{ $value }} errors/second'

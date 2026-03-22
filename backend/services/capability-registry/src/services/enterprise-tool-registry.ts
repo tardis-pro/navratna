@@ -28,15 +28,15 @@ export interface ToolOperation {
   name: string;
   description: string;
   requiredPermissions: string[];
-  inputSchema: any; // JSON Schema
-  outputSchema: any; // JSON Schema
+  inputSchema: unknown; // JSON Schema
+  outputSchema: unknown; // JSON Schema
   securityLevel: number;
   auditLevel: 'comprehensive' | 'standard' | 'minimal';
 }
 
 export interface ToolAuthentication {
   type: 'oauth2' | 'api_key' | 'basic' | 'jwt' | 'saml';
-  config: any;
+  config: unknown;
   scopes?: string[];
   tokenEndpoint?: string;
   refreshable?: boolean;
@@ -68,7 +68,7 @@ export interface ComplianceConfig {
 
 export class EnterpriseToolRegistry {
   private tools = new Map<string, ToolDefinition>();
-  private toolInstances = new Map<string, any>();
+  private toolInstances = new Map<string, unknown>();
   private eventBusService: EventBusService;
   private databaseService: DatabaseService;
   private serviceName: string;
@@ -178,14 +178,14 @@ export class EnterpriseToolRegistry {
   async executeTool(request: {
     toolId: string;
     operation: string;
-    parameters: any;
+    parameters: unknown;
     userId?: string;
     agentId?: string;
     securityContext: {
       level: number;
       permissions?: string[];
     };
-  }): Promise<{ success: boolean; data?: any; error?: string }> {
+  }): Promise<{ success: boolean; data?: unknown; error?: string }> {
     try {
       const executionId = this.generateExecutionId();
 
@@ -550,8 +550,8 @@ export class EnterpriseToolRegistry {
   private async executeSandboxed(
     tool: ToolDefinition,
     operation: ToolOperation,
-    request: any
-  ): Promise<any> {
+    request: unknown
+  ): Promise<unknown> {
     const sandbox = {
       toolId: tool.id,
       operation: operation.id,
@@ -578,8 +578,8 @@ export class EnterpriseToolRegistry {
   private async executeDirectly(
     tool: ToolDefinition,
     operation: ToolOperation,
-    request: any
-  ): Promise<any> {
+    request: unknown
+  ): Promise<unknown> {
     const adapter = this.toolInstances.get(tool.id);
     if (!adapter) {
       throw new Error(`No adapter found for tool: ${tool.id}`);
@@ -611,7 +611,7 @@ export class EnterpriseToolRegistry {
 
   private hasPermissionToRegister(tool: ToolDefinition): boolean {
     // Check if service has permission to register tools
-    const serviceAccess = (SERVICE_ACCESS_MATRIX as Record<string, any>)[this.serviceName];
+    const serviceAccess = (SERVICE_ACCESS_MATRIX as Record<string, unknown>)[this.serviceName];
     if (!serviceAccess) return false;
 
     // Check security level requirement
@@ -619,7 +619,7 @@ export class EnterpriseToolRegistry {
     return serviceAccess.securityLevel >= requiredLevel;
   }
 
-  private validateSecurityContext(operation: ToolOperation, securityContext: any): void {
+  private validateSecurityContext(operation: ToolOperation, securityContext: unknown): void {
     if (securityContext.level < operation.securityLevel) {
       throw new Error(
         `Insufficient security level. Required: ${operation.securityLevel}, Provided: ${securityContext.level}`
@@ -637,7 +637,7 @@ export class EnterpriseToolRegistry {
     }
   }
 
-  private validateInput(input: any, schema: any): void {
+  private validateInput(input: unknown, _schema: unknown): void {
     // Implement JSON Schema validation
     // For now, basic validation
     if (!input) {
@@ -645,7 +645,7 @@ export class EnterpriseToolRegistry {
     }
   }
 
-  private validateOutput(output: any, schema: any): void {
+  private validateOutput(output: unknown, _schema: unknown): void {
     // Implement JSON Schema validation
     // For now, basic validation
     if (output === undefined || output === null) {
@@ -678,7 +678,7 @@ export class EnterpriseToolRegistry {
     await this.eventBusService.subscribe('tool.status.check', this.handleStatusCheck.bind(this));
   }
 
-  private async handleToolRegistration(event: any): Promise<void> {
+  private async handleToolRegistration(event: unknown): Promise<void> {
     const { tool } = event;
     try {
       await this.registerTool(tool);
@@ -687,7 +687,7 @@ export class EnterpriseToolRegistry {
     }
   }
 
-  private async handleToolExecution(event: any): Promise<void> {
+  private async handleToolExecution(event: unknown): Promise<void> {
     const { requestId, ...request } = event;
     try {
       const result = await this.executeTool(request);
@@ -700,7 +700,7 @@ export class EnterpriseToolRegistry {
     }
   }
 
-  private async handleStatusCheck(event: any): Promise<void> {
+  private async handleStatusCheck(event: unknown): Promise<void> {
     const { requestId } = event;
     const status = {
       tools: Array.from(this.tools.keys()),
@@ -717,7 +717,7 @@ export class EnterpriseToolRegistry {
     return `exec_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
   }
 
-  private auditLog(event: string, data: any): void {
+  private auditLog(event: string, data: unknown): void {
     logger.info(`AUDIT: ${event}`, {
       ...data,
       service: this.serviceName,
@@ -728,12 +728,12 @@ export class EnterpriseToolRegistry {
 
   private auditToolExecution(
     executionId: string,
-    request: any,
+    request: unknown,
     operation: ToolOperation | null,
     success: boolean,
     error?: string
   ): void {
-    const auditEntry: Record<string, any> = {
+    const auditEntry: Record<string, unknown> = {
       executionId,
       toolId: request.toolId,
       operation: request.operation,

@@ -4,7 +4,7 @@ import { Capability, CapabilitySearchQuery, CapabilitySearchResult } from '@uaip
 
 export class CapabilityDiscoveryService {
   private databaseService: DatabaseService;
-  private neo4jService: any; // Neo4j service for graph queries
+  private neo4jService: unknown; // Neo4j service for graph queries
   private isInitialized: boolean = false;
 
   constructor(databaseService?: DatabaseService) {
@@ -52,7 +52,7 @@ export class CapabilityDiscoveryService {
       });
 
       return capabilities;
-    } catch (error: any) {
+    } catch (error: unknown) {
       logger.error('Error searching capabilities', { query, error: error.message });
       throw new ApiError(500, 'Failed to search capabilities', 'SEARCH_ERROR');
     }
@@ -72,8 +72,8 @@ export class CapabilityDiscoveryService {
       }
 
       const configuredCapabilities =
-        (agentConfig.metadata?.intelligenceConfig as any)?.capabilities ||
-        (agentConfig.intelligenceConfig as any)?.capabilities ||
+        (agentConfig.metadata?.intelligenceConfig as unknown)?.capabilities ||
+        (agentConfig.intelligenceConfig as unknown)?.capabilities ||
         {};
 
       // Get capabilities from database
@@ -92,7 +92,7 @@ export class CapabilityDiscoveryService {
       const capabilityResult = await repo.getCapabilitiesByIds(capabilityIds);
 
       return capabilityResult.map((row) => this.mapCapabilityFromDB(row));
-    } catch (error: any) {
+    } catch (error: unknown) {
       logger.error('Error getting agent capabilities', { agentId, error: error.message });
       throw error;
     }
@@ -111,7 +111,7 @@ export class CapabilityDiscoveryService {
       }
 
       return this.mapCapabilityFromDB(result);
-    } catch (error: any) {
+    } catch (error: unknown) {
       logger.error('Error getting capability by ID', { capabilityId, error: error.message });
       throw new ApiError(500, 'Failed to retrieve capability', 'DATABASE_ERROR');
     }
@@ -147,7 +147,7 @@ export class CapabilityDiscoveryService {
       const dependents = dependentsResult.map((row) => this.mapCapabilityFromDB(row));
 
       return { dependencies, dependents };
-    } catch (error: any) {
+    } catch (error: unknown) {
       logger.error('Error getting capability dependencies', { capabilityId, error: error.message });
       throw error;
     }
@@ -155,8 +155,8 @@ export class CapabilityDiscoveryService {
 
   public async discoverCapabilitiesByIntent(
     intent: string,
-    context: any,
-    securityContext: any
+    context: unknown,
+    securityContext: unknown
   ): Promise<Capability[]> {
     await this.ensureInitialized();
 
@@ -193,7 +193,7 @@ export class CapabilityDiscoveryService {
             this.calculateIntentRelevance(b, intent) - this.calculateIntentRelevance(a, intent)
         )
         .slice(0, 10);
-    } catch (error: any) {
+    } catch (error: unknown) {
       logger.error('Error discovering capabilities by intent', { intent, error: error.message });
       throw new ApiError(500, 'Failed to discover capabilities', 'DISCOVERY_ERROR');
     }
@@ -201,7 +201,7 @@ export class CapabilityDiscoveryService {
 
   // Private helper methods
 
-  private mapCapabilityFromDB(row: any): Capability {
+  private mapCapabilityFromDB(row: unknown): Capability {
     return {
       id: row.id,
       name: row.name,
@@ -219,7 +219,7 @@ export class CapabilityDiscoveryService {
     };
   }
 
-  private parseSecurityRequirements(requirements: any): {
+  private parseSecurityRequirements(requirements: unknown): {
     minimumSecurityLevel: 'low' | 'medium' | 'high' | 'critical';
     requiredPermissions: string[];
     sensitiveData: boolean;
@@ -371,7 +371,7 @@ export class CapabilityDiscoveryService {
     options?: {
       permissions?: string[];
       category?: string;
-      metadata?: Record<string, any>;
+      metadata?: Record<string, unknown>;
     }
   ): Promise<void> {
     await this.ensureInitialized();
@@ -383,7 +383,7 @@ export class CapabilityDiscoveryService {
       await this.databaseService.agents.assignCapabilityToAgent(agentId, capabilityId);
 
       logger.info('Capability assigned to agent successfully', { agentId, capabilityId });
-    } catch (error: any) {
+    } catch (error: unknown) {
       logger.error('Failed to assign capability to agent', {
         agentId,
         capabilityId,
@@ -395,14 +395,14 @@ export class CapabilityDiscoveryService {
 
   public async executeTool(
     toolId: string,
-    parameters: any,
+    parameters: unknown,
     context?: {
       agentId?: string;
       userId?: string;
       context?: string;
       timestamp?: string;
     }
-  ): Promise<any> {
+  ): Promise<unknown> {
     await this.ensureInitialized();
 
     try {
@@ -425,7 +425,7 @@ export class CapabilityDiscoveryService {
 
       logger.info('Tool executed successfully', { toolId, result });
       return result;
-    } catch (error: any) {
+    } catch (error: unknown) {
       logger.error('Failed to execute tool', { toolId, error: error.message });
       throw new ApiError(500, 'Tool execution failed', 'EXECUTION_ERROR');
     }
@@ -457,13 +457,13 @@ export class CapabilityDiscoveryService {
         recommendations: this.generateRecommendations(capabilities, searchParams),
         searchTime,
       };
-    } catch (error: any) {
+    } catch (error: unknown) {
       logger.error('Error in advanced capability search', { searchParams, error: error.message });
       throw new ApiError(500, 'Failed to search capabilities', 'SEARCH_ERROR');
     }
   }
 
-  private generateRecommendations(capabilities: Capability[], searchParams: any): string[] {
+  private generateRecommendations(capabilities: Capability[], searchParams: unknown): string[] {
     const recommendations: string[] = [];
 
     if (capabilities.length === 0) {

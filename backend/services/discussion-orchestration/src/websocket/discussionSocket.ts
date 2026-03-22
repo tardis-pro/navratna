@@ -1,13 +1,12 @@
 import { Server as SocketIOServer, Socket } from 'socket.io';
-import { logger, ApiError } from '@uaip/utils';
+import { logger } from '@uaip/utils';
 import { DiscussionOrchestrationService } from '../services/discussionOrchestrationService.js';
 import { DiscussionEvent, DiscussionEventType, MessageType } from '@uaip/types';
 import { z } from 'zod';
-import jwt from 'jsonwebtoken';
-import { config } from '@uaip/config';
-import { authMiddleware, testJWTToken } from '@uaip/middleware';
+import { testJWTToken } from '@uaip/middleware';
 import { RedisSessionManager } from './redis-session-manager.js';
 import { extractAccessTokenFromCookieHeader } from './websocket-security-utils.js';
+import { WebSocketConnection } from './discussionWebSocketHandler.js';
 
 interface AuthenticatedSocket extends Socket {
   userId?: string;
@@ -175,16 +174,19 @@ export function setupWebSocketHandlers(
       socket.rateLimitReset = Date.now() + 60000; // Reset every minute
 
       // Create session in Redis (async operation wrapped)
-      const mockConnection = {
-        connectionId: socket.sessionId,
+      const mockConnection: WebSocketConnection = {
+        ws: null as unknown as import('ws').WebSocket, // Placeholder - not used for session tracking
+        connectionId: socket.sessionId!,
         userId: payload.userId,
         discussionId: '', // Will be set when joining discussion
+        isAlive: true,
+        lastPing: new Date(),
         authenticated: true,
-        securityLevel: socket.securityLevel,
+        securityLevel: socket.securityLevel!,
         messageCount: 0,
         lastActivity: new Date(),
         rateLimitReset: Date.now() + 60000,
-      } as any;
+      };
 
       // Store session in Redis (without discussion ID initially) - async operation
       redisSessionManager
@@ -228,7 +230,7 @@ export function setupWebSocketHandlers(
     });
 
     // Debug: Log all incoming events
-    socket.onAny((eventName: string, ...args: any[]) => {
+    socket.onAny((eventName: string, ...args: unknown[]) => {
       logger.info('🎯 WebSocket event received', {
         socketId: socket.id,
         userId: socket.userId,
@@ -239,7 +241,7 @@ export function setupWebSocketHandlers(
     });
 
     // Join discussion room with enhanced validation
-    socket.on('join_discussion', async (data: any) => {
+    socket.on('join_discussion', async (data: z.input<typeof JoinDiscussionSchema>) => {
       try {
         // Update activity timestamp
         socket.lastActivity = new Date();
@@ -329,7 +331,7 @@ export function setupWebSocketHandlers(
     });
 
     // Start discussion with agent participation
-    socket.on('start_discussion', async (data: any) => {
+    socket.on('start_discussion', async (data: z.input<typeof StartDiscussionSchema>) => {
       try {
         // Update activity timestamp
         socket.lastActivity = new Date();
@@ -377,7 +379,12 @@ export function setupWebSocketHandlers(
             discussionId,
             startedBy: startedBy || socket.userId,
             timestamp: new Date(),
-            participants: result.data?.state?.activeParticipants || 0,
+            participants:
+              (
+                (result.data as Record<string, unknown> | undefined)?.state as
+                  | Record<string, unknown>
+                  | undefined
+              )?.activeParticipants || 0,
           });
 
           // Confirm to the starter
@@ -385,7 +392,12 @@ export function setupWebSocketHandlers(
             discussionId,
             startedBy: startedBy || socket.userId,
             timestamp: new Date(),
-            participants: result.data?.state?.activeParticipants || 0,
+            participants:
+              (
+                (result.data as Record<string, unknown> | undefined)?.state as
+                  | Record<string, unknown>
+                  | undefined
+              )?.activeParticipants || 0,
             success: true,
           });
 
@@ -393,7 +405,11 @@ export function setupWebSocketHandlers(
             socketId: socket.id,
             userId: socket.userId,
             discussionId,
-            activeParticipants: result.data?.state?.activeParticipants,
+            activeParticipants: (
+              (result.data as Record<string, unknown> | undefined)?.state as
+                | Record<string, unknown>
+                | undefined
+            )?.activeParticipants,
           });
         } else {
           socket.emit('error', {
@@ -430,7 +446,7 @@ export function setupWebSocketHandlers(
     });
 
     // Pause discussion
-    socket.on('pause_discussion', async (data: any) => {
+    socket.on('pause_discussion', async (data: z.input<typeof DiscussionControlSchema>) => {
       try {
         socket.lastActivity = new Date();
 
@@ -485,7 +501,7 @@ export function setupWebSocketHandlers(
     });
 
     // Resume discussion
-    socket.on('resume_discussion', async (data: any) => {
+    socket.on('resume_discussion', async (data: z.input<typeof DiscussionControlSchema>) => {
       try {
         socket.lastActivity = new Date();
 
@@ -540,7 +556,7 @@ export function setupWebSocketHandlers(
     });
 
     // Stop discussion
-    socket.on('stop_discussion', async (data: any) => {
+    socket.on('stop_discussion', async (data: z.input<typeof DiscussionControlSchema>) => {
       try {
         socket.lastActivity = new Date();
 
@@ -627,7 +643,7 @@ export function setupWebSocketHandlers(
     });
 
     // Send message with rate limiting and validation
-    socket.on('send_message', async (data: any) => {
+    socket.on('send_message', async (data: z.input<typeof SendMessageSchema>) => {
       try {
         // Update activity and check rate limits
         socket.lastActivity = new Date();
@@ -685,7 +701,7 @@ export function setupWebSocketHandlers(
         logger.info('Message sent via socket', {
           socketId: socket.id,
           discussionId,
-          messageId: message.data?.id,
+          messageId: (message.data as Record<string, unknown> | undefined)?.id,
           participantId: socket.participantId,
         });
       } catch (error) {
@@ -717,7 +733,7 @@ export function setupWebSocketHandlers(
     });
 
     // Typing indicators with rate limiting
-    socket.on('typing_start', async (data: any) => {
+    socket.on('typing_start', async (data: z.input<typeof TypingSchema>) => {
       try {
         socket.lastActivity = new Date();
 
@@ -749,7 +765,7 @@ export function setupWebSocketHandlers(
       }
     });
 
-    socket.on('typing_stop', (data: any) => {
+    socket.on('typing_stop', (data: z.input<typeof TypingSchema>) => {
       try {
         socket.lastActivity = new Date();
 
@@ -772,7 +788,7 @@ export function setupWebSocketHandlers(
     });
 
     // Turn management with rate limiting
-    socket.on('request_turn', async (data: any) => {
+    socket.on('request_turn', async (data: z.input<typeof TypingSchema>) => {
       try {
         socket.lastActivity = new Date();
 
@@ -846,7 +862,7 @@ export function setupWebSocketHandlers(
           participantId: socket.participantId,
           userId: socket.userId,
           timestamp: new Date(),
-          nextParticipant: result.data?.nextParticipant,
+          nextParticipant: (result.data as Record<string, unknown> | undefined)?.nextParticipant,
         });
       } catch (error) {
         logger.error('Failed to end turn', {
@@ -858,7 +874,7 @@ export function setupWebSocketHandlers(
     });
 
     // Reactions with validation and rate limiting
-    socket.on('add_reaction', async (data: any) => {
+    socket.on('add_reaction', async (data: z.input<typeof ReactionSchema>) => {
       try {
         socket.lastActivity = new Date();
 

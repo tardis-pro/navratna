@@ -13,6 +13,9 @@ import {
 } from '@uaip/types';
 
 // Related entities will be referenced by string to avoid circular dependencies
+// Type-only imports are safe - they are erased at compile time
+import type { DiscussionParticipant } from './discussionParticipant.entity';
+import type { PersonaAnalytics } from './personaAnalytics.entity';
 
 /**
  * Enhanced Persona Entity with comprehensive persona features and hybrid support
@@ -113,16 +116,16 @@ export class Persona extends BaseEntity {
   usageStats?: PersonaUsageStats;
 
   @Column({ type: 'jsonb', nullable: true })
-  configuration?: Record<string, any>;
+  configuration?: Record<string, unknown>;
 
   @Column({ type: 'jsonb', default: '[]' })
   capabilities: string[];
 
   @Column({ type: 'jsonb', nullable: true })
-  restrictions?: Record<string, any>;
+  restrictions?: Record<string, unknown>;
 
   @Column({ type: 'jsonb', nullable: true })
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 
   // Performance and quality metrics
   @Column({ name: 'quality_score', type: 'decimal', precision: 3, scale: 2, nullable: true })
@@ -148,8 +151,8 @@ export class Persona extends BaseEntity {
 
   // Relationships
   @OneToMany('DiscussionParticipant', 'persona')
-  discussionParticipants: any[];
+  discussionParticipants: DiscussionParticipant[];
 
   @OneToMany('PersonaAnalytics', 'persona')
-  analytics: any[];
+  analytics: PersonaAnalytics[];
 }

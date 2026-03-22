@@ -2,12 +2,12 @@ import { z } from 'zod';
 
 // Critique criteria
 export const CritiqueCriteriaSchema = z.enum([
-  'accuracy',      // Is the information correct?
-  'completeness',  // Does it fully address the question?
-  'clarity',       // Is it easy to understand?
-  'relevance',     // Does it answer what was asked?
-  'consistency',   // Is it internally consistent?
-  'safety',        // Is it safe/appropriate?
+  'accuracy', // Is the information correct?
+  'completeness', // Does it fully address the question?
+  'clarity', // Is it easy to understand?
+  'relevance', // Does it answer what was asked?
+  'consistency', // Is it internally consistent?
+  'safety', // Is it safe/appropriate?
 ]);
 
 export type CritiqueCriteria = z.infer<typeof CritiqueCriteriaSchema>;
@@ -41,9 +41,9 @@ export type CritiqueResult = z.infer<typeof CritiqueResultSchema>;
 export interface CritiqueConfig {
   enabled: boolean;
   criteria: CritiqueCriteria[];
-  minScoreThreshold: number;      // Below this triggers revision
-  maxRevisions: number;           // Maximum revision attempts
-  strictMode: boolean;            // Require all criteria to pass
+  minScoreThreshold: number; // Below this triggers revision
+  maxRevisions: number; // Maximum revision attempts
+  strictMode: boolean; // Require all criteria to pass
 }
 
 // Default critique config

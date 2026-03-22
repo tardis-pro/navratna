@@ -1,8 +1,7 @@
 import { TypeOrmService } from '../typeormService';
 import { ArtifactRepository } from '../database/repositories/ArtifactRepository';
 import { ArtifactDeploymentRepository } from '../database/repositories/ArtifactDeploymentRepository';
-import { Artifact } from '../entities/artifact.entity';
-import { ArtifactDeployment } from '../entities/artifactDeployment.entity';
+// Entity types used by repositories: Artifact, ArtifactDeployment
 
 export class ArtifactService {
   private static instance: ArtifactService;

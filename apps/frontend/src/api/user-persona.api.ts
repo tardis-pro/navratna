@@ -19,7 +19,7 @@ export interface OnboardingProgress {
   completedSteps: string[];
   startedAt?: Date;
   completedAt?: Date;
-  responses: Record<string, any>;
+  responses: Record<string, unknown>;
 }
 
 export interface BehavioralPatterns {
@@ -136,7 +136,7 @@ class UserPersonaAPI {
     try {
       const response = await APIClient.get('/api/v1/users/persona/onboarding-status');
       return response.data;
-    } catch (error: any) {
+    } catch (error: unknown) {
       // Log the full error for debugging
       console.error('User persona onboarding status check failed:', {
         error,
@@ -169,7 +169,7 @@ class UserPersonaAPI {
       name: string;
       compatibility: number;
       reason: string;
-      persona: any;
+      persona: unknown;
     }>
   > {
     const response = await APIClient.get('/api/v1/users/persona/compatible-agents');
@@ -179,9 +179,9 @@ class UserPersonaAPI {
   // Get persona-optimized workspace layout
   async getOptimizedWorkspace(): Promise<{
     layout: string;
-    components: any[];
-    shortcuts: any[];
-    notifications: any;
+    components: unknown[];
+    shortcuts: unknown[];
+    notifications: unknown;
   }> {
     const response = await APIClient.get('/api/v1/users/persona/optimized-workspace');
     return response.data;
@@ -190,7 +190,7 @@ class UserPersonaAPI {
   // Track user interaction for behavioral learning
   async trackInteraction(interaction: {
     type: 'tool_usage' | 'agent_interaction' | 'workflow_completion' | 'preference_change';
-    data: any;
+    data: unknown;
     timestamp: Date;
   }): Promise<{ success: boolean }> {
     const response = await APIClient.post('/api/v1/users/persona/track-interaction', interaction);

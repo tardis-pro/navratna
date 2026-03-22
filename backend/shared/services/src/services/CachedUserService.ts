@@ -2,8 +2,7 @@ import { UserService } from './UserService';
 import { CachedUserLLMProviderRepository } from '../database/repositories/CachedUserLLMProviderRepository';
 import { CachedLLMProviderRepository } from '../database/repositories/CachedLLMProviderRepository';
 import { UserEntity } from '../entities/user.entity';
-import { UserLLMProviderType } from '../entities/userLLMProvider.entity';
-import { LLMProviderType } from '@uaip/types';
+// UserLLMProviderType and LLMProviderType available via repositories
 import { redisCacheService } from '../redis-cache.service';
 import { logger } from '@uaip/utils';
 
@@ -14,10 +13,6 @@ import { logger } from '@uaip/utils';
 export class CachedUserService extends UserService {
   private cachedUserLLMProviderRepository: CachedUserLLMProviderRepository | null = null;
   private cachedLLMProviderRepository: CachedLLMProviderRepository | null = null;
-
-  constructor() {
-    super();
-  }
 
   private readonly CACHE_TTL = {
     USER_BY_EMAIL: 900, // 15 minutes
@@ -108,7 +103,7 @@ export class CachedUserService extends UserService {
   /**
    * Find refresh token with caching
    */
-  public async findRefreshToken(token: string, useCache = true): Promise<any | null> {
+  public async findRefreshToken(token: string, useCache = true): Promise<unknown | null> {
     const cacheKey = this.CACHE_KEYS.REFRESH_TOKEN(token);
 
     if (useCache) {
@@ -134,7 +129,7 @@ export class CachedUserService extends UserService {
   /**
    * Find password reset token with caching
    */
-  public async findPasswordResetToken(token: string, useCache = true): Promise<any | null> {
+  public async findPasswordResetToken(token: string, useCache = true): Promise<unknown | null> {
     const cacheKey = this.CACHE_KEYS.PASSWORD_RESET_TOKEN(token);
 
     if (useCache) {
@@ -256,6 +251,7 @@ export class CachedUserService extends UserService {
     const patterns = [this.CACHE_KEYS.USER_BY_ID(userId), this.CACHE_KEYS.USER_BY_EMAIL(email)];
 
     for (const pattern of patterns) {
+      // eslint-disable-next-line no-await-in-loop
       await redisCacheService.del(pattern);
     }
 
@@ -275,11 +271,14 @@ export class CachedUserService extends UserService {
 
     for (const pattern of patterns) {
       if (pattern.includes('*')) {
+        // eslint-disable-next-line no-await-in-loop
         const keys = await redisCacheService.keys(pattern);
         for (const key of keys) {
+          // eslint-disable-next-line no-await-in-loop
           await redisCacheService.del(key);
         }
       } else {
+        // eslint-disable-next-line no-await-in-loop
         await redisCacheService.del(pattern);
       }
     }
@@ -320,7 +319,11 @@ export class CachedUserService extends UserService {
     stats: {
       userById: boolean;
       userByEmail: boolean;
-      llmProviders: any;
+      llmProviders: {
+        cached: boolean;
+        keys: string[];
+        stats: { activeProviders: boolean; allProviders: boolean };
+      };
     };
   }> {
     const user = await this.findUserById(userId, false);

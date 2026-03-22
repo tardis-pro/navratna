@@ -18,7 +18,7 @@ import { ToolExecution as ToolExecutionEntity } from '../entities/toolExecution.
 export class ToolDatabase {
   private databaseService: DatabaseService;
 
-  constructor(_dbConfig?: any) {
+  constructor(_dbConfig?: Record<string, unknown>) {
     // Ignore the dbConfig parameter for backward compatibility
     // TypeORM connection is managed by DatabaseService
     this.databaseService = DatabaseService.getInstance();
@@ -214,7 +214,11 @@ export class ToolDatabase {
     }
   }
 
-  async getUsageStats(toolId?: string, agentId?: string, days = 30): Promise<any[]> {
+  async getUsageStats(
+    toolId?: string,
+    agentId?: string,
+    days = 30
+  ): Promise<Record<string, unknown>[]> {
     try {
       if (toolId) {
         const stats = await this.databaseService.tools.getToolUsageStats(toolId, days);
@@ -245,6 +249,7 @@ export class ToolDatabase {
     // Copy all fields that don't need conversion
     Object.keys(tool).forEach((key) => {
       if (key !== 'category' && key !== 'securityLevel') {
+        // oxlint-disable-next-line @typescript-eslint/no-explicit-any -- dynamic property copy between compatible types
         (result as any)[key] = (tool as any)[key];
       }
     });
@@ -254,6 +259,7 @@ export class ToolDatabase {
       result.category = this.mapCategoryToEnum(tool.category);
     }
     if (tool.securityLevel) {
+      // oxlint-disable-next-line @typescript-eslint/no-explicit-any -- enum mapping
       result.securityLevel = this.mapSecurityLevelToEnum(tool.securityLevel) as any;
     }
 
@@ -267,8 +273,9 @@ export class ToolDatabase {
       description: entity.description,
       version: entity.version,
       category: entity.category as ToolCategory,
-      parameters: entity.parameters as Record<string, any>,
-      returnType: entity.returnType as Record<string, any>,
+      parameters: entity.parameters as Record<string, unknown>,
+      returnType: entity.returnType as Record<string, unknown>,
+      // oxlint-disable-next-line @typescript-eslint/no-explicit-any -- enum cast
       securityLevel: entity.securityLevel as any,
       requiresApproval: entity.requiresApproval,
       isEnabled: entity.isEnabled,
@@ -277,7 +284,7 @@ export class ToolDatabase {
       author: entity.author,
       tags: entity.tags,
       dependencies: entity.dependencies,
-      rateLimits: entity.rateLimits as Record<string, any>,
+      rateLimits: entity.rateLimits as Record<string, unknown>,
       examples: entity.examples as ToolExample[],
     };
   }
@@ -290,6 +297,7 @@ export class ToolDatabase {
     // Copy all fields that don't need conversion
     Object.keys(execution).forEach((key) => {
       if (key !== 'status') {
+        // oxlint-disable-next-line @typescript-eslint/no-explicit-any -- dynamic property copy between compatible types
         (result as any)[key] = (execution as any)[key];
       }
     });

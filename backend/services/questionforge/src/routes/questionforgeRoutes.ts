@@ -2,15 +2,24 @@ import { logger } from '@uaip/utils';
 import { QuestionForgeService } from '../services/questionForge.service.js';
 import { InterviewCaptureService } from '../services/interviewCapture.service.js';
 
+interface RouteContext {
+  body: Record<string, unknown>;
+  set: { status: number };
+  params: Record<string, string>;
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- Elysia app/group types are dynamic
+type ElysiaApp = any;
+
 export function registerQuestionForgeRoutes(
-  app: any,
+  app: ElysiaApp,
   forgeService: QuestionForgeService,
   interviewService: InterviewCaptureService
 ) {
-  return app.group('/api/v1/questionforge', (g: any) =>
+  return app.group('/api/v1/questionforge', (g: ElysiaApp) =>
     g
       // Run the full QuestionForge pipeline
-      .post('/forge', async ({ body, set }: any) => {
+      .post('/forge', async ({ body, set }: RouteContext) => {
         try {
           const { projectBriefText, inputType, stakeholderRoles, agentPersonaIds } = body;
 
@@ -49,7 +58,7 @@ export function registerQuestionForgeRoutes(
       })
 
       // Create an interview session from a forge result
-      .post('/interviews', async ({ body, set }: any) => {
+      .post('/interviews', async ({ body, set }: RouteContext) => {
         try {
           const { projectBriefId, stakeholderRole, questions } = body;
 
@@ -64,7 +73,11 @@ export function registerQuestionForgeRoutes(
             };
           }
 
-          const session = interviewService.createSession(projectBriefId, stakeholderRole, questions);
+          const session = interviewService.createSession(
+            projectBriefId,
+            stakeholderRole,
+            questions
+          );
           return { success: true, data: session };
         } catch (error) {
           logger.error('Failed to create interview session', { error });
@@ -77,7 +90,7 @@ export function registerQuestionForgeRoutes(
       })
 
       // Get interview session
-      .get('/interviews/:sessionId', async ({ params, set }: any) => {
+      .get('/interviews/:sessionId', async ({ params, set }: RouteContext) => {
         try {
           const session = interviewService.getSession(params.sessionId);
           if (!session) {
@@ -99,7 +112,7 @@ export function registerQuestionForgeRoutes(
       })
 
       // Record an answer in an interview session
-      .post('/interviews/:sessionId/answers', async ({ params, body, set }: any) => {
+      .post('/interviews/:sessionId/answers', async ({ params, body, set }: RouteContext) => {
         try {
           const { questionId, answer } = body;
 
@@ -111,11 +124,7 @@ export function registerQuestionForgeRoutes(
             };
           }
 
-          const result = await interviewService.recordAnswer(
-            params.sessionId,
-            questionId,
-            answer
-          );
+          const result = await interviewService.recordAnswer(params.sessionId, questionId, answer);
           return { success: true, data: result };
         } catch (error) {
           logger.error('Failed to record interview answer', { error });
@@ -128,7 +137,7 @@ export function registerQuestionForgeRoutes(
       })
 
       // Get next question in interview
-      .get('/interviews/:sessionId/next', async ({ params, set }: any) => {
+      .get('/interviews/:sessionId/next', async ({ params, set }: RouteContext) => {
         try {
           const question = interviewService.nextQuestion(params.sessionId);
           if (!question) {
@@ -146,7 +155,7 @@ export function registerQuestionForgeRoutes(
       })
 
       // Complete interview session
-      .post('/interviews/:sessionId/complete', async ({ params, set }: any) => {
+      .post('/interviews/:sessionId/complete', async ({ params, set }: RouteContext) => {
         try {
           const result = await interviewService.completeSession(params.sessionId);
           return { success: true, data: result };
@@ -161,7 +170,7 @@ export function registerQuestionForgeRoutes(
       })
 
       // Pause/resume interview
-      .post('/interviews/:sessionId/pause', async ({ params, set }: any) => {
+      .post('/interviews/:sessionId/pause', async ({ params, set }: RouteContext) => {
         try {
           interviewService.pauseSession(params.sessionId);
           return { success: true, message: 'Interview paused' };
@@ -175,7 +184,7 @@ export function registerQuestionForgeRoutes(
         }
       })
 
-      .post('/interviews/:sessionId/resume', async ({ params, set }: any) => {
+      .post('/interviews/:sessionId/resume', async ({ params, set }: RouteContext) => {
         try {
           interviewService.resumeSession(params.sessionId);
           return { success: true, message: 'Interview resumed' };

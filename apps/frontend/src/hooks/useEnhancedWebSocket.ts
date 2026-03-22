@@ -6,7 +6,7 @@ import { APIClient } from '@/api/client';
 
 interface WebSocketEvent {
   type: string;
-  payload: any;
+  payload: unknown;
   messageId?: string;
   timestamp?: string;
 }
@@ -62,7 +62,31 @@ export const useEnhancedWebSocket = (config: ConnectionConfig = {}) => {
   // Socket.IO connection function
   const connectSocketIO = useCallback(async (): Promise<boolean> => {
     const token = getAuthToken();
-    // Disconnect and clean up any existing socket before creating a new one.
+    const queueReconnect = () => {
+      if (state.reconnectAttempts >= maxReconnectAttempts) {
+        updateState({
+          error: `Max reconnection attempts (${maxReconnectAttempts}) reached`,
+          isReconnecting: false,
+        });
+        return;
+      }
+
+      const delay = Math.min(1000 * Math.pow(2, state.reconnectAttempts), 30000);
+      updateState({
+        isReconnecting: true,
+        reconnectAttempts: state.reconnectAttempts + 1,
+      });
+
+      logger.info(
+        `[Socket.IO] Reconnecting in ${delay}ms (attempt ${state.reconnectAttempts + 1}/${maxReconnectAttempts})`
+      );
+
+      reconnectTimeoutRef.current = setTimeout(() => {
+        connectSocketIO();
+      }, delay);
+    };
+
+    // Disconnect and clean up unknown existing socket before creating a new one.
     // Without this, effect re-runs (due to callback identity changes) leave
     // orphaned sockets whose onAny handlers still fire — causing duplicate lastEvent updates.
     if (socketRef.current) {
@@ -124,7 +148,7 @@ export const useEnhancedWebSocket = (config: ConnectionConfig = {}) => {
 
         // Attempt reconnection for certain disconnect reasons
         if (reason === 'io server disconnect' || reason === 'transport close') {
-          attemptReconnection();
+          queueReconnect();
         }
       });
 
@@ -154,7 +178,7 @@ export const useEnhancedWebSocket = (config: ConnectionConfig = {}) => {
             error: 'Connection timeout - server may be unavailable',
             isReconnecting: true,
           });
-          attemptReconnection();
+          queueReconnect();
         } else {
           updateState({
             error: `Connection failed: ${error.message}`,
@@ -164,7 +188,7 @@ export const useEnhancedWebSocket = (config: ConnectionConfig = {}) => {
       });
 
       // Handle all Socket.IO events
-      socket.onAny((eventName: string, ...args: any[]) => {
+      socket.onAny((eventName: string, ...args: unknown[]) => {
         const event: WebSocketEvent = {
           type: eventName,
           payload: args[0] || {},
@@ -177,7 +201,7 @@ export const useEnhancedWebSocket = (config: ConnectionConfig = {}) => {
       });
 
       // Handle authentication events specifically
-      socket.on('auth_success', (data) => {
+      socket.on('auth_success', (_data) => {
         updateState({ authStatus: 'authenticated' });
         logger.info('[Socket.IO] Authentication successful');
       });
@@ -200,32 +224,7 @@ export const useEnhancedWebSocket = (config: ConnectionConfig = {}) => {
       });
       return false;
     }
-  }, [url, getAuthToken, updateState]);
-
-  // Reconnection logic
-  const attemptReconnection = useCallback(() => {
-    if (state.reconnectAttempts >= maxReconnectAttempts) {
-      updateState({
-        error: `Max reconnection attempts (${maxReconnectAttempts}) reached`,
-        isReconnecting: false,
-      });
-      return;
-    }
-
-    const delay = Math.min(1000 * Math.pow(2, state.reconnectAttempts), 30000);
-    updateState({
-      isReconnecting: true,
-      reconnectAttempts: state.reconnectAttempts + 1,
-    });
-
-    logger.info(
-      `[Socket.IO] Reconnecting in ${delay}ms (attempt ${state.reconnectAttempts + 1}/${maxReconnectAttempts})`
-    );
-
-    reconnectTimeoutRef.current = setTimeout(() => {
-      connectSocketIO();
-    }, delay);
-  }, [state.reconnectAttempts, maxReconnectAttempts, connectSocketIO, updateState]);
+  }, [url, getAuthToken, maxReconnectAttempts, state.reconnectAttempts, updateState]);
 
   // Main connect function
   const connect = useCallback(async () => {
@@ -266,7 +265,7 @@ export const useEnhancedWebSocket = (config: ConnectionConfig = {}) => {
 
   // Send message function
   const sendMessage = useCallback(
-    (type: string, payload: any) => {
+    (type: string, payload: unknown) => {
       if (!socketRef.current || !state.isConnected) {
         logger.warn('[Socket.IO] Cannot send message - not connected');
         return false;
@@ -299,7 +298,7 @@ export const useEnhancedWebSocket = (config: ConnectionConfig = {}) => {
     return () => {
       disconnect();
     };
-  }, [connect, disconnect, url]);
+  }, [connect, disconnect, getAuthToken, url]);
 
   // Cleanup timeouts on unmount
   useEffect(() => {

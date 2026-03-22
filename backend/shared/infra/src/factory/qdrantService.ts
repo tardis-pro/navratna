@@ -98,7 +98,7 @@ export class QdrantService {
     points: Array<{
       id: string | number;
       vector: number[];
-      payload?: Record<string, any>;
+      payload?: Record<string, unknown>;
     }>
   ): Promise<void> {
     if (!this.isInitialized) {
@@ -134,9 +134,9 @@ export class QdrantService {
     options?: {
       limit?: number;
       scoreThreshold?: number;
-      filter?: Record<string, any>;
+      filter?: Record<string, unknown>;
     }
-  ): Promise<Array<{ id: string | number; score: number; payload: Record<string, any> }>> {
+  ): Promise<Array<{ id: string | number; score: number; payload: Record<string, unknown> }>> {
     if (!this.isInitialized) {
       throw new Error('Qdrant service not initialized');
     }
@@ -149,11 +149,13 @@ export class QdrantService {
         filter: options?.filter,
       });
 
-      return results.map((r: any) => ({
-        id: r.id as string | number,
-        score: r.score,
-        payload: r.payload as Record<string, any>,
-      }));
+      return results.map(
+        (r: { id: string | number; score: number; payload?: Record<string, unknown> | null }) => ({
+          id: r.id as string | number,
+          score: r.score,
+          payload: (r.payload ?? {}) as Record<string, unknown>,
+        })
+      );
     } catch (error) {
       logger.error('Failed to search vectors', {
         error: error instanceof Error ? error.message : 'Unknown error',
@@ -202,14 +204,14 @@ export class QdrantService {
     try {
       const collectionInfo = await this.client.getCollection(this.config.collection);
       // Qdrant client API returns collection info with config.vectors.count
-      const vectorsCount =
-        (collectionInfo as any).vectors_count ??
-        (collectionInfo as any).config?.vectors?.count ??
-        0;
+      const info = collectionInfo as unknown as Record<string, unknown>;
+      const infoConfig = info.config as Record<string, unknown> | undefined;
+      const vectors = infoConfig?.vectors as Record<string, unknown> | undefined;
+      const vectorsCount = (info.vectors_count as number) ?? (vectors?.count as number) ?? 0;
       return {
         name: this.config.collection,
         vectorsCount,
-        pointsCount: (collectionInfo as any).points_count ?? 0,
+        pointsCount: (info.points_count as number) ?? 0,
       };
     } catch (error) {
       logger.error('Failed to get collection info', {

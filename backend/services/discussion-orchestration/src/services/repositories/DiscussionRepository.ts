@@ -15,7 +15,8 @@ export class DiscussionRepository {
       if ((error as Error).message.includes('TypeORM service not initialized')) {
         throw new Error(
           'DiscussionRepository: TypeORM service not initialized. ' +
-            'Ensure the service that uses this repository calls typeormService.initialize() before using repository methods.'
+            'Ensure the service that uses this repository calls typeormService.initialize() before using repository methods.',
+          { cause: error }
         );
       }
       throw error;

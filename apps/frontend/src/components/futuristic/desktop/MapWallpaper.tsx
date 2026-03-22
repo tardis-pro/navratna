@@ -4,7 +4,7 @@ import { Map, Navigation, Layers, RotateCcw, ZoomIn, ZoomOut, Eye, EyeOff } from
 
 declare global {
   interface Window {
-    maplibregl: any;
+    maplibregl: unknown;
   }
 }
 
@@ -48,7 +48,7 @@ const BASEMAP_OPTIONS: BasemapOption[] = [
 export const MapWallpaper: React.FC<MapWallpaperProps> = React.memo(
   ({ userLocation, theme = 'dark', interactive = false, className = '' }) => {
     const mapContainer = useRef<HTMLDivElement>(null);
-    const map = useRef<any>(null);
+    const map = useRef<unknown>(null);
     const [mapLoaded, setMapLoaded] = useState(false);
     const [isInteractive, setIsInteractive] = useState(interactive);
     const [showControls, setShowControls] = useState(false);

@@ -217,7 +217,7 @@ export class UserService {
     await userRepo.resetUserLoginAttempts(userId);
   }
 
-  public async getRefreshTokenWithUser(token: string): Promise<any | null> {
+  public async getRefreshTokenWithUser(token: string): Promise<unknown | null> {
     const refreshTokenRepo = this.getRefreshTokenRepository();
     return await refreshTokenRepo.getRefreshTokenWithUser(token);
   }
@@ -232,7 +232,7 @@ export class UserService {
     await userRepo.updateUserPassword(userId, await bcrypt.hash(newPassword, 12));
   }
 
-  public async getPasswordResetTokenWithUser(token: string): Promise<any | null> {
+  public async getPasswordResetTokenWithUser(token: string): Promise<unknown | null> {
     const resetTokenRepo = this.getPasswordResetTokenRepository();
     return await resetTokenRepo.getPasswordResetTokenWithUser(token);
   }

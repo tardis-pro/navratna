@@ -2,14 +2,19 @@ import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+  Card,
+  CardContent,
+  CardHeader as _CardHeader,
+  CardTitle as _CardTitle,
+} from '@/components/ui/card';
 import {
   Dialog,
   DialogContent,
   DialogDescription,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
+  DialogTrigger as _DialogTrigger,
 } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
 import {
@@ -29,18 +34,18 @@ import {
   ArrowLeft,
   ArrowRight,
   RotateCcw,
-  Home,
+  Home as _Home,
   Bookmark,
-  Download,
-  Share,
+  Download as _Download,
+  Share as _Share,
   Plus,
   X,
   Loader2,
   AlertCircle,
   CheckCircle2,
-  Tag,
+  Tag as _Tag,
   FileText,
-  Image as ImageIcon,
+  Image as _ImageIcon,
   Monitor,
   Smartphone,
   Tablet,
@@ -129,7 +134,7 @@ export const MiniBrowserPortal: React.FC<MiniBrowserPortalProps> = ({ className 
 
   // Refs
   const iframeRef = useRef<HTMLIFrameElement>(null);
-  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const _canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
   // Container dimensions state
@@ -366,9 +371,8 @@ export const MiniBrowserPortal: React.FC<MiniBrowserPortalProps> = ({ className 
       const iframe = iframeRef.current;
       const title = iframe.contentDocument?.title || 'Untitled';
       setTabs((prev) => prev.map((tab) => (tab.id === activeTabId ? { ...tab, title } : tab)));
-    } catch (error) {
+    } catch {
       // Cross-origin access blocked
-      console.log('Cannot access iframe content due to CORS policy');
     }
   }, [activeTabId]);
 
@@ -456,7 +460,7 @@ export const MiniBrowserPortal: React.FC<MiniBrowserPortalProps> = ({ className 
                 className="border-slate-600/50 hover:bg-slate-700/50"
                 onClick={() => {
                   if (iframeRef.current) {
-                    iframeRef.current.src = iframeRef.current.src;
+                    iframeRef.current.src = activeTab?.url ?? 'https://example.com';
                   }
                 }}
               >
@@ -602,7 +606,7 @@ export const MiniBrowserPortal: React.FC<MiniBrowserPortalProps> = ({ className 
                       transform: `scale(${calculateIframeScale()})`,
                       transformOrigin: 'top left',
                     }}
-                    sandbox="allow-same-origin allow-scripts allow-forms allow-links allow-popups"
+                    sandbox="allow-scripts allow-forms allow-popups"
                     title="Mini Browser"
                   />
                 </div>
@@ -685,8 +689,12 @@ export const MiniBrowserPortal: React.FC<MiniBrowserPortalProps> = ({ className 
 
                         {screenshot.tags.length > 0 && (
                           <div className="flex flex-wrap gap-1">
-                            {screenshot.tags.map((tag, index) => (
-                              <Badge key={index} variant="outline" className="text-xs">
+                            {screenshot.tags.map((tag) => (
+                              <Badge
+                                key={`${screenshot.id}-${tag}`}
+                                variant="outline"
+                                className="text-xs"
+                              >
                                 {tag}
                               </Badge>
                             ))}

@@ -12,12 +12,12 @@
 
 ## Sprint Overview
 
-| Sprint | Feature | Duration | Dependencies |
-|--------|---------|----------|--------------|
-| 1 | TanStack AI Streaming Integration | 5 days | None |
-| 2 | Structured Thought Protocol | 3 days | Sprint 1 |
-| 3 | Self-Critique Loop | 3 days | Sprint 2 |
-| 4 | Formal Debate & Consensus | 4 days | Sprint 1 |
+| Sprint | Feature                           | Duration | Dependencies |
+| ------ | --------------------------------- | -------- | ------------ |
+| 1      | TanStack AI Streaming Integration | 5 days   | None         |
+| 2      | Structured Thought Protocol       | 3 days   | Sprint 1     |
+| 3      | Self-Critique Loop                | 3 days   | Sprint 2     |
+| 4      | Formal Debate & Consensus         | 4 days   | Sprint 1     |
 
 ---
 
@@ -26,6 +26,7 @@
 ## Task 1.1: Install TanStack AI Dependencies
 
 **Files:**
+
 - Modify: `package.json` (root)
 - Modify: `backend/shared/llm-service/package.json`
 - Modify: `apps/frontend/package.json`
@@ -50,6 +51,7 @@ pnpm add @tanstack/ai-react @tanstack/ai-client
 ```bash
 pnpm ls @tanstack/ai
 ```
+
 Expected: Shows @tanstack/ai in dependencies
 
 **Step 4: Commit**
@@ -64,6 +66,7 @@ git commit -m "chore: add TanStack AI dependencies"
 ## Task 1.2: Create Streaming Types
 
 **Files:**
+
 - Create: `packages/shared-types/src/streaming.ts`
 - Modify: `packages/shared-types/src/index.ts`
 
@@ -151,6 +154,7 @@ export * from './streaming';
 cd /home/pronit/workspace/tardis/navratna/packages/shared-types
 pnpm build
 ```
+
 Expected: Build succeeds without errors
 
 **Step 4: Commit**
@@ -165,6 +169,7 @@ git commit -m "feat(types): add streaming types for TanStack AI integration"
 ## Task 1.3: Create TanStack AI Provider Adapter
 
 **Files:**
+
 - Create: `backend/shared/llm-service/src/providers/TanStackProvider.ts`
 - Modify: `backend/shared/llm-service/src/providers/index.ts`
 
@@ -181,7 +186,10 @@ import { BaseProvider } from './BaseProvider.js';
 import { LLMRequest, LLMResponse, LLMProviderConfig } from '../interfaces.js';
 import { StreamChunk, StreamingLLMRequest, StreamingConfig } from '@uaip/types';
 
-type TanStackAdapter = ReturnType<typeof openai> | ReturnType<typeof anthropic> | ReturnType<typeof ollama>;
+type TanStackAdapter =
+  | ReturnType<typeof openai>
+  | ReturnType<typeof anthropic>
+  | ReturnType<typeof ollama>;
 
 export class TanStackProvider extends BaseProvider {
   private adapter: TanStackAdapter;
@@ -266,9 +274,7 @@ export class TanStackProvider extends BaseProvider {
   /**
    * Stream response - yields chunks as they arrive
    */
-  async *streamResponse(
-    request: StreamingLLMRequest
-  ): AsyncGenerator<StreamChunk, void, unknown> {
+  async *streamResponse(request: StreamingLLMRequest): AsyncGenerator<StreamChunk, void, unknown> {
     const messages: Array<{ role: 'system' | 'user' | 'assistant'; content: string }> = [];
 
     if (request.systemPrompt) {
@@ -362,6 +368,7 @@ export { TanStackProvider } from './TanStackProvider.js';
 cd /home/pronit/workspace/tardis/navratna/backend/shared/llm-service
 pnpm build
 ```
+
 Expected: Build succeeds
 
 **Step 4: Commit**
@@ -377,6 +384,7 @@ git commit -m "feat(llm): add TanStack AI provider with streaming support"
 ## Task 1.4: Create Streaming Service
 
 **Files:**
+
 - Create: `backend/shared/llm-service/src/StreamingService.ts`
 - Modify: `backend/shared/llm-service/src/index.ts`
 
@@ -442,10 +450,7 @@ export class StreamingService extends EventEmitter {
   /**
    * Start a streaming session
    */
-  async startStream(
-    request: StreamingLLMRequest,
-    providerId: string = 'default'
-  ): Promise<string> {
+  async startStream(request: StreamingLLMRequest, providerId: string = 'default'): Promise<string> {
     const sessionId = `stream-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 
     const provider = this.providers.get(providerId);
@@ -495,10 +500,7 @@ export class StreamingService extends EventEmitter {
   /**
    * Process the stream and emit chunks
    */
-  private async processStream(
-    sessionId: string,
-    request: StreamingLLMRequest
-  ): Promise<void> {
+  private async processStream(sessionId: string, request: StreamingLLMRequest): Promise<void> {
     const activeStream = this.activeStreams.get(sessionId);
     if (!activeStream) return;
 
@@ -631,6 +633,7 @@ export { StreamingService } from './StreamingService.js';
 cd /home/pronit/workspace/tardis/navratna/backend/shared/llm-service
 pnpm build
 ```
+
 Expected: Build succeeds
 
 **Step 4: Commit**
@@ -646,6 +649,7 @@ git commit -m "feat(llm): add StreamingService for real-time token streaming"
 ## Task 1.5: Create WebSocket Streaming Handler
 
 **Files:**
+
 - Create: `backend/services/discussion-orchestration/src/websocket/streamingHandler.ts`
 - Modify: `backend/services/discussion-orchestration/src/index.ts`
 
@@ -845,6 +849,7 @@ this.streamingHandler = new StreamingHandler(this.io, this.eventBus);
 cd /home/pronit/workspace/tardis/navratna/backend/services/discussion-orchestration
 pnpm build
 ```
+
 Expected: Build succeeds
 
 **Step 4: Commit**
@@ -860,6 +865,7 @@ git commit -m "feat(ws): add WebSocket streaming handler for token distribution"
 ## Task 1.6: Create Frontend Streaming Hook
 
 **Files:**
+
 - Create: `apps/frontend/src/hooks/useStreamingChat.ts`
 
 **Step 1: Write the streaming hook**
@@ -939,19 +945,22 @@ export function useStreamingChat(options: UseStreamingChatOptions) {
       }
     });
 
-    socket.on(StreamingEventType.STREAM_END, (event: { sessionId: string; finalContent: string }) => {
-      if (event.sessionId !== currentSessionRef.current) return;
+    socket.on(
+      StreamingEventType.STREAM_END,
+      (event: { sessionId: string; finalContent: string }) => {
+        if (event.sessionId !== currentSessionRef.current) return;
 
-      setState((prev) => ({
-        ...prev,
-        isStreaming: false,
-        content: event.finalContent,
-      }));
+        setState((prev) => ({
+          ...prev,
+          isStreaming: false,
+          content: event.finalContent,
+        }));
 
-      if (onComplete) {
-        onComplete(event.finalContent);
+        if (onComplete) {
+          onComplete(event.finalContent);
+        }
       }
-    });
+    );
 
     socket.on(StreamingEventType.STREAM_ERROR, (event: { sessionId: string; error: string }) => {
       if (event.sessionId !== currentSessionRef.current) return;
@@ -984,40 +993,43 @@ export function useStreamingChat(options: UseStreamingChatOptions) {
   }, [baseUrl, token, onChunk, onComplete, onError]);
 
   // Start streaming
-  const startStream = useCallback(async (request: {
-    prompt: string;
-    systemPrompt?: string;
-    agentId?: string;
-    conversationId?: string;
-  }) => {
-    try {
-      // Call API to start stream
-      const response = await fetch(`${baseUrl}/api/v1/llm/stream`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify(request),
-      });
+  const startStream = useCallback(
+    async (request: {
+      prompt: string;
+      systemPrompt?: string;
+      agentId?: string;
+      conversationId?: string;
+    }) => {
+      try {
+        // Call API to start stream
+        const response = await fetch(`${baseUrl}/api/v1/llm/stream`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify(request),
+        });
 
-      if (!response.ok) {
-        throw new Error('Failed to start stream');
+        if (!response.ok) {
+          throw new Error('Failed to start stream');
+        }
+
+        const { sessionId } = await response.json();
+        currentSessionRef.current = sessionId;
+
+        // Subscribe to the session
+        socketRef.current?.emit('subscribe', sessionId);
+
+        return sessionId;
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'Unknown error';
+        setState((prev) => ({ ...prev, error: message }));
+        throw error;
       }
-
-      const { sessionId } = await response.json();
-      currentSessionRef.current = sessionId;
-
-      // Subscribe to the session
-      socketRef.current?.emit('subscribe', sessionId);
-
-      return sessionId;
-    } catch (error) {
-      const message = error instanceof Error ? error.message : 'Unknown error';
-      setState((prev) => ({ ...prev, error: message }));
-      throw error;
-    }
-  }, [baseUrl, token]);
+    },
+    [baseUrl, token]
+  );
 
   // Cancel streaming
   const cancelStream = useCallback(() => {
@@ -1055,6 +1067,7 @@ export function useStreamingChat(options: UseStreamingChatOptions) {
 cd /home/pronit/workspace/tardis/navratna/apps/frontend
 pnpm build
 ```
+
 Expected: Build succeeds
 
 **Step 3: Commit**
@@ -1069,6 +1082,7 @@ git commit -m "feat(frontend): add useStreamingChat hook for real-time streaming
 ## Task 1.7: Add Streaming API Endpoint
 
 **Files:**
+
 - Modify: `backend/services/llm-service/src/routes/llm.routes.ts`
 
 **Step 1: Add streaming endpoint**
@@ -1154,6 +1168,7 @@ router.get('/stream/:sessionId', authMiddleware, async (req: Request, res: Respo
 cd /home/pronit/workspace/tardis/navratna/backend/services/llm-service
 pnpm build
 ```
+
 Expected: Build succeeds
 
 **Step 3: Commit**
@@ -1170,6 +1185,7 @@ git commit -m "feat(api): add streaming endpoints to LLM service"
 ## Task 2.1: Define Thought Types
 
 **Files:**
+
 - Create: `packages/shared-types/src/thought.ts`
 - Modify: `packages/shared-types/src/index.ts`
 
@@ -1182,14 +1198,14 @@ import { z } from 'zod';
 
 // Thought step types for chain-of-thought reasoning
 export const ThoughtTypeSchema = z.enum([
-  'observation',    // What the agent notices/perceives
-  'hypothesis',     // Tentative explanation or theory
-  'reasoning',      // Logical deduction or inference
-  'conclusion',     // Final determination
-  'uncertainty',    // Explicit acknowledgment of unknowns
-  'question',       // Questions for clarification or exploration
-  'critique',       // Self-evaluation of reasoning
-  'refinement',     // Improvement to previous thought
+  'observation', // What the agent notices/perceives
+  'hypothesis', // Tentative explanation or theory
+  'reasoning', // Logical deduction or inference
+  'conclusion', // Final determination
+  'uncertainty', // Explicit acknowledgment of unknowns
+  'question', // Questions for clarification or exploration
+  'critique', // Self-evaluation of reasoning
+  'refinement', // Improvement to previous thought
 ]);
 
 export type ThoughtType = z.infer<typeof ThoughtTypeSchema>;
@@ -1201,8 +1217,8 @@ export const ThoughtStepSchema = z.object({
   content: z.string(),
   confidence: z.number().min(0).max(1),
   timestamp: z.number(),
-  dependencies: z.array(z.string()).default([]),  // IDs of thoughts this builds on
-  alternatives: z.array(z.lazy(() => ThoughtStepSchema)).optional(),  // Branching thoughts
+  dependencies: z.array(z.string()).default([]), // IDs of thoughts this builds on
+  alternatives: z.array(z.lazy(() => ThoughtStepSchema)).optional(), // Branching thoughts
   metadata: z.record(z.unknown()).optional(),
 });
 
@@ -1219,12 +1235,14 @@ export const ThoughtChainSchema = z.object({
   steps: z.array(ThoughtStepSchema),
   finalConclusion: z.string().optional(),
   overallConfidence: z.number().min(0).max(1).optional(),
-  metadata: z.object({
-    totalSteps: z.number(),
-    branchCount: z.number(),
-    uncertaintyCount: z.number(),
-    refinementCount: z.number(),
-  }).optional(),
+  metadata: z
+    .object({
+      totalSteps: z.number(),
+      branchCount: z.number(),
+      uncertaintyCount: z.number(),
+      refinementCount: z.number(),
+    })
+    .optional(),
 });
 
 export type ThoughtChain = z.infer<typeof ThoughtChainSchema>;
@@ -1244,10 +1262,10 @@ export type ThoughtStreamEvent = z.infer<typeof ThoughtStreamEventSchema>;
 
 // Thought streaming configuration
 export interface ThoughtStreamingConfig {
-  showReasoning: boolean;        // Show reasoning steps to user
-  showUncertainties: boolean;    // Show uncertainty acknowledgments
-  collapseIntermediateSteps: boolean;  // Collapse intermediate reasoning
-  minConfidenceToShow: number;   // Minimum confidence for display
+  showReasoning: boolean; // Show reasoning steps to user
+  showUncertainties: boolean; // Show uncertainty acknowledgments
+  collapseIntermediateSteps: boolean; // Collapse intermediate reasoning
+  minConfidenceToShow: number; // Minimum confidence for display
 }
 
 // Prompt template for structured thinking
@@ -1312,6 +1330,7 @@ git commit -m "feat(types): add structured thought protocol types"
 ## Task 2.2: Create Thought Parser Service
 
 **Files:**
+
 - Create: `backend/shared/services/src/cognitive/thought-parser.service.ts`
 
 **Step 1: Write thought parser**
@@ -1330,7 +1349,8 @@ const logger = createLogger({
 });
 
 // Regex to parse thought blocks from LLM output
-const THOUGHT_REGEX = /\[THOUGHT\s+type="(\w+)"\s+confidence="([\d.]+)"\s*\]([\s\S]*?)\[\/THOUGHT\]/g;
+const THOUGHT_REGEX =
+  /\[THOUGHT\s+type="(\w+)"\s+confidence="([\d.]+)"\s*\]([\s\S]*?)\[\/THOUGHT\]/g;
 
 export class ThoughtParserService {
   private static instance: ThoughtParserService;
@@ -1380,7 +1400,8 @@ export class ThoughtParserService {
    * Parse streaming content incrementally
    */
   parseStreamingThought(buffer: string): { thought: ThoughtStep | null; remaining: string } {
-    const match = /\[THOUGHT\s+type="(\w+)"\s+confidence="([\d.]+)"\s*\]([\s\S]*?)\[\/THOUGHT\]/.exec(buffer);
+    const match =
+      /\[THOUGHT\s+type="(\w+)"\s+confidence="([\d.]+)"\s*\]([\s\S]*?)\[\/THOUGHT\]/.exec(buffer);
 
     if (!match) {
       return { thought: null, remaining: buffer };
@@ -1405,11 +1426,7 @@ export class ThoughtParserService {
   /**
    * Create a thought chain from parsed steps
    */
-  createChain(
-    agentId: string,
-    steps: ThoughtStep[],
-    conversationId?: string
-  ): ThoughtChain {
+  createChain(agentId: string, steps: ThoughtStep[], conversationId?: string): ThoughtChain {
     const conclusions = steps.filter((s) => s.type === 'conclusion');
     const uncertainties = steps.filter((s) => s.type === 'uncertainty');
     const refinements = steps.filter((s) => s.type === 'refinement');
@@ -1418,9 +1435,8 @@ export class ThoughtParserService {
     const branchCount = steps.filter((s) => s.alternatives && s.alternatives.length > 0).length;
 
     // Calculate overall confidence
-    const avgConfidence = steps.length > 0
-      ? steps.reduce((sum, s) => sum + s.confidence, 0) / steps.length
-      : 0;
+    const avgConfidence =
+      steps.length > 0 ? steps.reduce((sum, s) => sum + s.confidence, 0) / steps.length : 0;
 
     return {
       id: uuidv4(),
@@ -1555,6 +1571,7 @@ git commit -m "feat(cognitive): add ThoughtParserService for structured reasonin
 ## Task 2.3: Integrate Thought Protocol with Agent Response
 
 **Files:**
+
 - Modify: `backend/services/agent-intelligence/src/services/agent-discussion.service.ts`
 
 **Step 1: Add thought parsing to agent responses**
@@ -1640,6 +1657,7 @@ git commit -m "feat(agent): integrate structured thought protocol into agent res
 ## Task 3.1: Create Critique Tool Definition
 
 **Files:**
+
 - Create: `packages/shared-types/src/critique.ts`
 
 **Step 1: Define critique types**
@@ -1651,12 +1669,12 @@ import { z } from 'zod';
 
 // Critique criteria
 export const CritiqueCriteriaSchema = z.enum([
-  'accuracy',      // Is the information correct?
-  'completeness',  // Does it fully address the question?
-  'clarity',       // Is it easy to understand?
-  'relevance',     // Does it answer what was asked?
-  'consistency',   // Is it internally consistent?
-  'safety',        // Is it safe/appropriate?
+  'accuracy', // Is the information correct?
+  'completeness', // Does it fully address the question?
+  'clarity', // Is it easy to understand?
+  'relevance', // Does it answer what was asked?
+  'consistency', // Is it internally consistent?
+  'safety', // Is it safe/appropriate?
 ]);
 
 export type CritiqueCriteria = z.infer<typeof CritiqueCriteriaSchema>;
@@ -1690,9 +1708,9 @@ export type CritiqueResult = z.infer<typeof CritiqueResultSchema>;
 export interface CritiqueConfig {
   enabled: boolean;
   criteria: CritiqueCriteria[];
-  minScoreThreshold: number;      // Below this triggers revision
-  maxRevisions: number;           // Maximum revision attempts
-  strictMode: boolean;            // Require all criteria to pass
+  minScoreThreshold: number; // Below this triggers revision
+  maxRevisions: number; // Maximum revision attempts
+  strictMode: boolean; // Require all criteria to pass
 }
 
 // Default critique config
@@ -1750,6 +1768,7 @@ git commit -m "feat(types): add self-critique types and configuration"
 ## Task 3.2: Create Critique Service
 
 **Files:**
+
 - Create: `backend/shared/services/src/cognitive/critique.service.ts`
 
 **Step 1: Write critique service**
@@ -1776,7 +1795,8 @@ const logger = createLogger({
 });
 
 // Regex patterns for parsing critique output
-const CRITIQUE_REGEX = /\[CRITIQUE\s+criteria="(\w+)"\s+score="([\d.]+)"\]([\s\S]*?)\[\/CRITIQUE\]/g;
+const CRITIQUE_REGEX =
+  /\[CRITIQUE\s+criteria="(\w+)"\s+score="([\d.]+)"\]([\s\S]*?)\[\/CRITIQUE\]/g;
 const VERDICT_REGEX = /\[VERDICT\]([\s\S]*?)\[\/VERDICT\]/;
 
 export class CritiqueService {
@@ -1917,7 +1937,11 @@ Evaluate this response using the criteria specified.`;
   /**
    * Parse LLM critique output
    */
-  private parseCritiqueResponse(content: string, originalResponse: string, responseId: string): CritiqueResult {
+  private parseCritiqueResponse(
+    content: string,
+    originalResponse: string,
+    responseId: string
+  ): CritiqueResult {
     const items: CritiqueItem[] = [];
     let match;
 
@@ -1938,9 +1962,8 @@ Evaluate this response using the criteria specified.`;
 
     // Parse verdict
     const verdictMatch = VERDICT_REGEX.exec(content);
-    let overallScore = items.length > 0
-      ? items.reduce((sum, i) => sum + i.score, 0) / items.length
-      : 0.5;
+    let overallScore =
+      items.length > 0 ? items.reduce((sum, i) => sum + i.score, 0) / items.length : 0.5;
     let shouldRevise = overallScore < this.config.minScoreThreshold;
     let majorIssues: string[] = [];
 
@@ -1952,7 +1975,11 @@ Evaluate this response using the criteria specified.`;
 
       if (scoreMatch) overallScore = parseFloat(scoreMatch[1]);
       if (reviseMatch) shouldRevise = reviseMatch[1].toLowerCase() === 'true';
-      if (issuesMatch) majorIssues = issuesMatch[1].split(',').map((s) => s.trim()).filter(Boolean);
+      if (issuesMatch)
+        majorIssues = issuesMatch[1]
+          .split(',')
+          .map((s) => s.trim())
+          .filter(Boolean);
     }
 
     return {
@@ -1980,9 +2007,7 @@ Evaluate this response using the criteria specified.`;
       .map((i) => `- ${i.criteria}: ${i.issue}`)
       .join('\n');
 
-    const suggestions = critique.suggestedImprovements
-      .map((s) => `- ${s}`)
-      .join('\n');
+    const suggestions = critique.suggestedImprovements.map((s) => `- ${s}`).join('\n');
 
     return `Original question: ${originalQuery}
 
@@ -2051,6 +2076,7 @@ git commit -m "feat(cognitive): add CritiqueService for self-evaluation loop"
 ## Task 4.1: Define Debate Types
 
 **Files:**
+
 - Create: `packages/shared-types/src/debate.ts`
 
 **Step 1: Create debate type definitions**
@@ -2073,7 +2099,7 @@ export const ArgumentSchema = z.object({
   evidence: z.array(z.string()),
   reasoning: z.string(),
   confidence: z.number().min(0).max(1),
-  rebuttals: z.array(z.string()).default([]),  // IDs of arguments this rebuts
+  rebuttals: z.array(z.string()).default([]), // IDs of arguments this rebuts
   timestamp: z.number(),
 });
 
@@ -2083,7 +2109,7 @@ export type Argument = z.infer<typeof ArgumentSchema>;
 export const VoteSchema = z.object({
   agentId: z.string(),
   stance: StanceSchema,
-  weight: z.number().min(0).max(1).default(1),  // Expertise-weighted voting
+  weight: z.number().min(0).max(1).default(1), // Expertise-weighted voting
   reasoning: z.string().optional(),
   timestamp: z.number(),
 });
@@ -2103,26 +2129,30 @@ export type DebateRound = z.infer<typeof DebateRoundSchema>;
 export const DebateSchema = z.object({
   id: z.string(),
   topic: z.string(),
-  proposition: z.string(),           // The statement being debated
+  proposition: z.string(), // The statement being debated
   discussionId: z.string().optional(),
   participants: z.array(z.string()), // Agent IDs
   status: z.enum(['active', 'voting', 'concluded', 'deadlocked']),
   rounds: z.array(DebateRoundSchema),
   votes: z.array(VoteSchema),
-  consensus: z.object({
-    reached: z.boolean(),
-    stance: StanceSchema.optional(),
-    confidence: z.number().min(0).max(1),
-    dissent: z.array(z.string()),    // Agent IDs that dissented
-  }).optional(),
+  consensus: z
+    .object({
+      reached: z.boolean(),
+      stance: StanceSchema.optional(),
+      confidence: z.number().min(0).max(1),
+      dissent: z.array(z.string()), // Agent IDs that dissented
+    })
+    .optional(),
   startedAt: z.number(),
   concludedAt: z.number().optional(),
-  metadata: z.object({
-    totalArguments: z.number(),
-    totalRebuttals: z.number(),
-    avgConfidence: z.number(),
-    participationRate: z.number(),
-  }).optional(),
+  metadata: z
+    .object({
+      totalArguments: z.number(),
+      totalRebuttals: z.number(),
+      avgConfidence: z.number(),
+      participationRate: z.number(),
+    })
+    .optional(),
 });
 
 export type Debate = z.infer<typeof DebateSchema>;
@@ -2136,9 +2166,9 @@ export const ConsensusResultSchema = z.object({
   neutralPercentage: z.number(),
   confidence: z.number(),
   unanimity: z.boolean(),
-  strongConsensus: z.boolean(),      // >75% agreement
-  weakConsensus: z.boolean(),        // 50-75% agreement
-  deadlock: z.boolean(),             // No clear majority
+  strongConsensus: z.boolean(), // >75% agreement
+  weakConsensus: z.boolean(), // 50-75% agreement
+  deadlock: z.boolean(), // No clear majority
 });
 
 export type ConsensusResult = z.infer<typeof ConsensusResultSchema>;
@@ -2147,7 +2177,7 @@ export type ConsensusResult = z.infer<typeof ConsensusResultSchema>;
 export interface DebateConfig {
   maxRounds: number;
   maxArgumentsPerRound: number;
-  consensusThreshold: number;        // Percentage needed for consensus
+  consensusThreshold: number; // Percentage needed for consensus
   requireEvidence: boolean;
   allowAbstention: boolean;
   weightByExpertise: boolean;
@@ -2156,7 +2186,7 @@ export interface DebateConfig {
 export const DEFAULT_DEBATE_CONFIG: DebateConfig = {
   maxRounds: 3,
   maxArgumentsPerRound: 2,
-  consensusThreshold: 0.66,          // 2/3 majority
+  consensusThreshold: 0.66, // 2/3 majority
   requireEvidence: true,
   allowAbstention: true,
   weightByExpertise: true,
@@ -2213,6 +2243,7 @@ git commit -m "feat(types): add formal debate and consensus types"
 ## Task 4.2: Create Debate Orchestrator Service
 
 **Files:**
+
 - Create: `backend/shared/services/src/cognitive/debate-orchestrator.service.ts`
 
 **Step 1: Write debate orchestrator**
@@ -2295,11 +2326,13 @@ export class DebateOrchestratorService {
       discussionId,
       participants,
       status: 'active',
-      rounds: [{
-        roundNumber: 1,
-        arguments: [],
-        phase: 'opening',
-      }],
+      rounds: [
+        {
+          roundNumber: 1,
+          arguments: [],
+          phase: 'opening',
+        },
+      ],
       votes: [],
       startedAt: Date.now(),
     };
@@ -2314,7 +2347,11 @@ export class DebateOrchestratorService {
       participants,
     });
 
-    logger.info('Debate started', { debateId: debate.id, topic, participantCount: participants.length });
+    logger.info('Debate started', {
+      debateId: debate.id,
+      topic,
+      participantCount: participants.length,
+    });
 
     // Trigger opening arguments from all participants
     await this.requestArgumentsFromParticipants(debate, 'opening');
@@ -2427,7 +2464,10 @@ export class DebateOrchestratorService {
     const confidenceMatch = body.match(/Confidence:\s*([\d.]+)/);
 
     const evidence = evidenceMatch
-      ? evidenceMatch[1].split('\n').map((e) => e.replace(/^-\s*/, '').trim()).filter(Boolean)
+      ? evidenceMatch[1]
+          .split('\n')
+          .map((e) => e.replace(/^-\s*/, '').trim())
+          .filter(Boolean)
       : [];
 
     return {
@@ -2544,9 +2584,7 @@ export class DebateOrchestratorService {
       reached: consensus.reached,
       stance: consensus.stance,
       confidence: consensus.confidence,
-      dissent: debate.votes
-        .filter((v) => v.stance !== consensus.stance)
-        .map((v) => v.agentId),
+      dissent: debate.votes.filter((v) => v.stance !== consensus.stance).map((v) => v.agentId),
     };
 
     debate.status = consensus.deadlock ? 'deadlocked' : 'concluded';
@@ -2558,7 +2596,8 @@ export class DebateOrchestratorService {
       totalArguments: allArguments.length,
       totalRebuttals: allArguments.filter((a) => a.rebuttals.length > 0).length,
       avgConfidence: allArguments.reduce((s, a) => s + a.confidence, 0) / allArguments.length,
-      participationRate: debate.votes.filter((v) => v.stance !== 'abstain').length / debate.participants.length,
+      participationRate:
+        debate.votes.filter((v) => v.stance !== 'abstain').length / debate.participants.length,
     };
 
     await this.eventBus.publish('debate.concluded', {
@@ -2601,9 +2640,18 @@ export class DebateOrchestratorService {
     let winningStance: Stance = 'neutral';
     let maxPct = 0;
 
-    if (supportPct > maxPct) { maxPct = supportPct; winningStance = 'support'; }
-    if (opposePct > maxPct) { maxPct = opposePct; winningStance = 'oppose'; }
-    if (neutralPct > maxPct) { maxPct = neutralPct; winningStance = 'neutral'; }
+    if (supportPct > maxPct) {
+      maxPct = supportPct;
+      winningStance = 'support';
+    }
+    if (opposePct > maxPct) {
+      maxPct = opposePct;
+      winningStance = 'oppose';
+    }
+    if (neutralPct > maxPct) {
+      maxPct = neutralPct;
+      winningStance = 'neutral';
+    }
 
     const reached = maxPct >= this.config.consensusThreshold;
     const unanimity = maxPct === 1;
@@ -2693,6 +2741,7 @@ git commit -m "feat(cognitive): add DebateOrchestratorService for formal consens
 ## Task 4.3: Integrate Debate with Discussion Orchestration
 
 **Files:**
+
 - Modify: `backend/services/discussion-orchestration/src/index.ts`
 - Create: `backend/services/discussion-orchestration/src/handlers/debateHandler.ts`
 
@@ -2779,7 +2828,11 @@ export class DebateHandler {
     logger.info('Debate event subscriptions initialized');
   }
 
-  private broadcastToDiscussion(discussionId: string | undefined, event: string, data: unknown): void {
+  private broadcastToDiscussion(
+    discussionId: string | undefined,
+    event: string,
+    data: unknown
+  ): void {
     if (!discussionId) return;
     this.io.to(`discussion:${discussionId}`).emit(event, data);
   }
@@ -2834,6 +2887,7 @@ git commit -m "feat(discussion): integrate formal debate system into discussions
 ## Task 5.1: Integration Test Suite
 
 **Files:**
+
 - Create: `backend/shared/services/src/cognitive/__tests__/cognitive.integration.test.ts`
 
 **Step 1: Write integration tests**
@@ -2876,8 +2930,22 @@ Redis would be a good fit for this use case.
 
     it('should create thought chain with metadata', () => {
       const thoughts = [
-        { id: '1', type: 'observation' as const, content: 'Test', confidence: 0.9, timestamp: Date.now(), dependencies: [] },
-        { id: '2', type: 'conclusion' as const, content: 'Final', confidence: 0.8, timestamp: Date.now(), dependencies: [] },
+        {
+          id: '1',
+          type: 'observation' as const,
+          content: 'Test',
+          confidence: 0.9,
+          timestamp: Date.now(),
+          dependencies: [],
+        },
+        {
+          id: '2',
+          type: 'conclusion' as const,
+          content: 'Final',
+          confidence: 0.8,
+          timestamp: Date.now(),
+          dependencies: [],
+        },
       ];
 
       const chain = thoughtParser.createChain('agent-1', thoughts, 'conv-1');
@@ -2925,6 +2993,7 @@ Redis would be a good fit for this use case.
 cd /home/pronit/workspace/tardis/navratna/backend/shared/services
 pnpm test
 ```
+
 Expected: All tests pass
 
 **Step 3: Commit**
@@ -2940,13 +3009,13 @@ git commit -m "test: add cognitive services integration tests"
 
 This sprint plan covers:
 
-| Sprint | Deliverables | Files Created/Modified |
-|--------|--------------|------------------------|
+| Sprint       | Deliverables                      | Files Created/Modified  |
+| ------------ | --------------------------------- | ----------------------- |
 | **Sprint 1** | TanStack AI streaming integration | 8 new files, 4 modified |
-| **Sprint 2** | Structured thought protocol | 3 new files, 1 modified |
-| **Sprint 3** | Self-critique loop | 2 new files |
-| **Sprint 4** | Formal debate & consensus | 3 new files, 1 modified |
-| **Testing** | Integration tests | 1 new file |
+| **Sprint 2** | Structured thought protocol       | 3 new files, 1 modified |
+| **Sprint 3** | Self-critique loop                | 2 new files             |
+| **Sprint 4** | Formal debate & consensus         | 3 new files, 1 modified |
+| **Testing**  | Integration tests                 | 1 new file              |
 
 **Total: ~17 new files, ~6 modified files**
 

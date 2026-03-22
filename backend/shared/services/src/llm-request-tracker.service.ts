@@ -5,7 +5,7 @@
  * "unknown response" issues when services restart or scale.
  */
 
-import { Redis } from 'ioredis';
+import { Redis as _Redis } from 'ioredis';
 import { logger } from '@uaip/utils';
 import { redisCacheService } from './redis-cache.service';
 
@@ -15,7 +15,7 @@ export interface PendingLLMRequest {
   timeoutMs: number;
   service: string;
   reject: (error: Error) => void;
-  resolve: (value: any) => void;
+  resolve: (value: unknown) => void;
 }
 
 export interface SerializablePendingRequest {
@@ -35,7 +35,7 @@ export class LLMRequestTracker {
   private pendingCallbacks = new Map<
     string,
     {
-      resolve: (value: any) => void;
+      resolve: (value: unknown) => void;
       reject: (error: Error) => void;
     }
   >();
@@ -59,7 +59,7 @@ export class LLMRequestTracker {
    */
   async addPendingRequest(
     requestId: string,
-    resolve: (value: any) => void,
+    resolve: (value: unknown) => void,
     reject: (error: Error) => void,
     timeoutMs?: number,
     service?: string
@@ -104,7 +104,7 @@ export class LLMRequestTracker {
   /**
    * Complete a pending LLM request with success
    */
-  async completePendingRequest(requestId: string, result: any): Promise<boolean> {
+  async completePendingRequest(requestId: string, result: unknown): Promise<boolean> {
     try {
       const callbacks = this.pendingCallbacks.get(requestId);
       if (!callbacks) {
@@ -271,23 +271,24 @@ export class LLMRequestTracker {
       const now = Date.now();
       let cleanedCount = 0;
 
-      for (const key of keys) {
-        try {
-          const data = await redis.get(key);
-          if (data) {
-            const request = JSON.parse(data) as SerializablePendingRequest;
-            if (request.expiresAt < now) {
-              await redis.del(key);
-              this.pendingCallbacks.delete(request.requestId);
-              cleanedCount++;
+      await Promise.all(
+        keys.map(async (key) => {
+          try {
+            const data = await redis.get(key);
+            if (data) {
+              const request = JSON.parse(data) as SerializablePendingRequest;
+              if (request.expiresAt < now) {
+                await redis.del(key);
+                this.pendingCallbacks.delete(request.requestId);
+                cleanedCount++;
+              }
             }
+          } catch {
+            await redis.del(key);
+            cleanedCount++;
           }
-        } catch (error) {
-          // If we can't parse the data, remove the key
-          await redis.del(key);
-          cleanedCount++;
-        }
-      }
+        })
+      );
 
       if (cleanedCount > 0) {
         logger.debug('Cleaned up expired LLM requests', { count: cleanedCount });
@@ -308,9 +309,11 @@ export class LLMRequestTracker {
 
     // Fail all pending requests
     const pendingIds = Array.from(this.pendingCallbacks.keys());
-    for (const requestId of pendingIds) {
-      await this.failPendingRequest(requestId, new Error('Service shutting down'));
-    }
+    await Promise.all(
+      pendingIds.map((requestId) =>
+        this.failPendingRequest(requestId, new Error('Service shutting down'))
+      )
+    );
 
     logger.info('LLM Request Tracker shut down');
   }

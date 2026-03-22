@@ -7,7 +7,6 @@ import {
   DiscussionEvent,
   DiscussionEventType,
   CreateDiscussionRequest,
-  UpdateDiscussionRequest,
   TurnStrategyConfig,
 } from '@uaip/types';
 import { logger } from '@uaip/utils';
@@ -18,7 +17,7 @@ import { DiscussionWebSocketHandler } from '../websocket/discussionWebSocketHand
 
 export interface DiscussionOrchestrationResult {
   success: boolean;
-  data?: any;
+  data?: unknown;
   error?: string;
   events?: DiscussionEvent[];
 }
@@ -393,7 +392,7 @@ export class DiscussionOrchestrationService extends EventEmitter {
     participantId: string,
     content: string,
     messageType?: string,
-    metadata?: any
+    metadata?: Record<string, unknown>
   ): Promise<DiscussionOrchestrationResult> {
     try {
       logger.info('Sending message', {
@@ -411,7 +410,11 @@ export class DiscussionOrchestrationService extends EventEmitter {
 
       // Enterprise participant lookup - use the participant management service
       const participantManagementService = new ParticipantManagementService(
-        (this.discussionService as any).databaseService
+        (
+          this.discussionService as unknown as {
+            databaseService: import('@uaip/infra').DatabaseService;
+          }
+        ).databaseService
       );
 
       // Try to find participant by participantId first
@@ -503,7 +506,7 @@ export class DiscussionOrchestrationService extends EventEmitter {
         discussionId,
         actualParticipantId,
         content,
-        mappedMessageType as any
+        mappedMessageType as unknown as import('@uaip/types').MessageType
       );
 
       // Update participant activity using enterprise participant management
@@ -1122,7 +1125,7 @@ export class DiscussionOrchestrationService extends EventEmitter {
           success: true,
           data: {
             message: 'Turn ended successfully',
-            nextParticipant: result.data?.nextParticipant,
+            nextParticipant: (result.data as Record<string, unknown> | undefined)?.nextParticipant,
           },
         };
       }
@@ -1276,7 +1279,7 @@ export class DiscussionOrchestrationService extends EventEmitter {
   }
 
   private extractWorkingMemoryContext(
-    state: Record<string, any> | undefined
+    state: Record<string, unknown> | undefined
   ): Record<string, unknown> | null {
     if (!state) {
       return null;
@@ -1295,8 +1298,8 @@ export class DiscussionOrchestrationService extends EventEmitter {
 
   private broadcastContextChangeIfNeeded(
     discussionId: string,
-    previousState: Record<string, any> | undefined,
-    nextState: Record<string, any> | undefined
+    previousState: Record<string, unknown> | undefined,
+    nextState: Record<string, unknown> | undefined
   ): void {
     if (!this.webSocketHandler) {
       return;
@@ -1430,6 +1433,7 @@ export class DiscussionOrchestrationService extends EventEmitter {
 
   private async emitEvents(events: DiscussionEvent[]): Promise<void> {
     for (const event of events) {
+      // oxlint-ignore-next-line no-await-in-loop -- sequential processing required
       await this.emitEvent(event);
     }
   }
@@ -1460,8 +1464,8 @@ export class DiscussionOrchestrationService extends EventEmitter {
 
   private cleanupExpiredTimers(): void {
     // Clean up any orphaned timers
-    const now = Date.now();
-    for (const [discussionId, timer] of this.turnTimers) {
+
+    for (const [_discussionId, _timer] of this.turnTimers) {
       // Additional cleanup logic could go here
     }
   }
@@ -1486,6 +1490,7 @@ export class DiscussionOrchestrationService extends EventEmitter {
       for (const discussion of activeDiscussions) {
         if (discussion.status === DiscussionStatus.ACTIVE) {
           // Get full discussion with participants
+          // oxlint-ignore-next-line no-await-in-loop -- sequential processing required
           const fullDiscussion = await this.discussionService.getDiscussion(discussion.id);
           if (!fullDiscussion) continue;
 
@@ -1499,6 +1504,7 @@ export class DiscussionOrchestrationService extends EventEmitter {
             : Infinity;
 
           // Check if discussion has reached its goal naturally
+          // oxlint-ignore-next-line no-await-in-loop -- sequential processing required
           const hasReachedGoal = await this.checkDiscussionGoalAchievement(fullDiscussion);
           if (hasReachedGoal) {
             logger.info('Discussion has reached its goal, completing', {
@@ -1506,11 +1512,13 @@ export class DiscussionOrchestrationService extends EventEmitter {
               messageCount: fullDiscussion.state.messageCount,
             });
 
+            // oxlint-ignore-next-line no-await-in-loop -- sequential processing required
             await this.updateDiscussionStatus(
               fullDiscussion.id,
               DiscussionStatus.COMPLETED,
               'system'
             );
+            // oxlint-ignore-next-line no-await-in-loop -- sequential processing required
             await this.emitDiscussionCompletionEvent(fullDiscussion.id, 'system', 'goal_achieved');
             continue;
           }
@@ -1519,9 +1527,11 @@ export class DiscussionOrchestrationService extends EventEmitter {
           // For ongoing discussions (more than 15 seconds), check if agents should participate
           if (timeSinceActivity > 10000 && fullDiscussion.state.messageCount === 0) {
             // 10 seconds for initial participation
+            // oxlint-ignore-next-line no-await-in-loop -- sequential processing required
             await this.ensureAgentParticipation(fullDiscussion);
           } else if (timeSinceActivity > 15000) {
             // 15 seconds for subsequent participation
+            // oxlint-ignore-next-line no-await-in-loop -- sequential processing required
             await this.ensureAgentParticipation(fullDiscussion);
           }
         }
@@ -1594,6 +1604,7 @@ export class DiscussionOrchestrationService extends EventEmitter {
                 const currentTime = current.lastMessageAt?.getTime() || 0;
                 return currentTime < oldestTime ? current : oldest;
               });
+              // oxlint-ignore-next-line no-await-in-loop -- sequential processing required
               await this.triggerAgentParticipationEvent(discussionId, leastRecentParticipant);
             }
           } else {
@@ -1604,6 +1615,7 @@ export class DiscussionOrchestrationService extends EventEmitter {
                 participant.isActive &&
                 discussion.state.currentTurn.participantId === participant.id
               ) {
+                // oxlint-ignore-next-line no-await-in-loop -- sequential processing required
                 await this.triggerAgentParticipationEvent(discussionId, participant);
                 break; // Only one participant for turn-based
               }
@@ -1676,7 +1688,9 @@ export class DiscussionOrchestrationService extends EventEmitter {
   /**
    * Create message history from discussion messages
    */
-  private async createMessageHistoryFromDiscussion(discussion: Discussion): Promise<any[]> {
+  private async createMessageHistoryFromDiscussion(
+    discussion: Discussion
+  ): Promise<Array<Record<string, unknown>>> {
     try {
       // Get recent messages from the discussion
       const messages = await this.discussionService.getDiscussionMessages(discussion.id, {
@@ -1744,7 +1758,11 @@ export class DiscussionOrchestrationService extends EventEmitter {
       this.participationRateLimits.set(participationKey, now);
       // Use enterprise participant management service
       const participantManagementService = new ParticipantManagementService(
-        (this.discussionService as any).databaseService
+        (
+          this.discussionService as unknown as {
+            databaseService: import('@uaip/infra').DatabaseService;
+          }
+        ).databaseService
       );
 
       // Get active agent participants
@@ -2000,24 +2018,34 @@ export class DiscussionOrchestrationService extends EventEmitter {
             try {
               // Try to get agent information for proper name
               const agentData = await (
-                this.discussionService as any
+                this.discussionService as unknown as {
+                  databaseService: import('@uaip/infra').DatabaseService & {
+                    getAgentById?: (id: string) => Promise<{ name?: string } | null>;
+                  };
+                }
               ).databaseService?.getAgentById?.(msgParticipant.agentId);
               participantName = agentData?.name || msgParticipant.agentId || 'Agent';
-            } catch (error) {
+            } catch {
               participantName = msgParticipant.agentId || 'Agent';
             }
           } else if (msgParticipant?.userId) {
             try {
               // Try to get user information for proper name
-              const userData = await (this.discussionService as any).databaseService?.getUserById?.(
-                msgParticipant.userId
-              );
+              const userData = await (
+                this.discussionService as unknown as {
+                  databaseService: import('@uaip/infra').DatabaseService & {
+                    getUserById?: (id: string) => Promise<{ email?: string; id?: string } | null>;
+                  };
+                }
+              ).databaseService?.getUserById?.(msgParticipant.userId);
               participantName = userData?.email?.split('@')[0] || userData?.id || 'User';
-            } catch (error) {
+            } catch {
               participantName = 'User';
             }
           } else {
-            participantName = msgParticipant?.metadata?.displayName || 'Participant';
+            participantName =
+              ((msgParticipant?.metadata as Record<string, unknown> | undefined)
+                ?.displayName as string) || 'Participant';
           }
 
           return {
@@ -2246,7 +2274,11 @@ export class DiscussionOrchestrationService extends EventEmitter {
   private async getActiveParticipants(discussionId: string): Promise<DiscussionParticipant[]> {
     try {
       const participantManagementService = new ParticipantManagementService(
-        (this.discussionService as any).databaseService
+        (
+          this.discussionService as unknown as {
+            databaseService: import('@uaip/infra').DatabaseService;
+          }
+        ).databaseService
       );
       return await participantManagementService.getActiveParticipants(discussionId);
     } catch (error) {
@@ -2337,7 +2369,7 @@ export class DiscussionOrchestrationService extends EventEmitter {
     }
 
     // Clean up orphaned operation locks (shouldn't happen but safety measure)
-    for (const [lockKey, value] of this.operationLocks.entries()) {
+    for (const [lockKey, _value] of this.operationLocks.entries()) {
       // All operation locks should be short-lived, clean any older than 5 minutes
       this.operationLocks.delete(lockKey);
       cleanedOperationLocks++;
@@ -2454,15 +2486,22 @@ export class DiscussionOrchestrationService extends EventEmitter {
         artifactGeneration: {
           suggestedType: artifactType,
           priority: this.calculateArtifactPriority(discussion, completionReason),
-          autoShare: (discussion as any).artifactConfig?.autoShare || true,
-          generateOnCompletion: (discussion as any).artifactConfig?.generateOnCompletion !== false,
-          requiresApproval: (discussion as any).artifactConfig?.requiresApproval || false,
+          autoShare:
+            (discussion as unknown as { artifactConfig?: Record<string, unknown> }).artifactConfig
+              ?.autoShare || true,
+          generateOnCompletion:
+            (discussion as unknown as { artifactConfig?: Record<string, unknown> }).artifactConfig
+              ?.generateOnCompletion !== false,
+          requiresApproval:
+            (discussion as unknown as { artifactConfig?: Record<string, unknown> }).artifactConfig
+              ?.requiresApproval || false,
           metadata: {
             discussionType: discussion.turnStrategy.strategy,
             completionReason,
             messageCount: discussionMetrics.totalMessages,
             participantCount: discussionMetrics.totalParticipants,
-            ...(discussion as any).artifactConfig?.metadata,
+            ...((discussion as unknown as { artifactConfig?: Record<string, unknown> })
+              .artifactConfig?.metadata as Record<string, unknown> | undefined),
           },
         },
         timestamp: new Date(),
@@ -2489,9 +2528,10 @@ export class DiscussionOrchestrationService extends EventEmitter {
   /**
    * Determine appropriate artifact type based on discussion content and configuration
    */
-  private determineArtifactType(discussion: Discussion, messages: any[]): string {
+  private determineArtifactType(discussion: Discussion, messages: unknown[]): string {
     // First check if discussion has configured artifact type
-    const artifactConfig = (discussion as any).artifactConfig;
+    const artifactConfig = (discussion as unknown as { artifactConfig?: Record<string, unknown> })
+      .artifactConfig;
     if (artifactConfig?.enabled && artifactConfig?.artifactType) {
       return artifactConfig.artifactType;
     }

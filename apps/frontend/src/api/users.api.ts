@@ -17,7 +17,7 @@ export interface User {
   createdAt: string;
   updatedAt: string;
   lastLoginAt?: string;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 export interface UserCreate {
@@ -25,7 +25,7 @@ export interface UserCreate {
   password: string;
   name?: string;
   role?: UserRole;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 export interface UserUpdate {
@@ -33,7 +33,7 @@ export interface UserUpdate {
   name?: string;
   role?: UserRole;
   isActive?: boolean;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 export interface UserListOptions {
@@ -131,7 +131,7 @@ export const usersAPI = {
     });
   },
 
-  async getActivity(id: string, days: number = 30): Promise<any> {
+  async getActivity(id: string, days: number = 30): Promise<unknown> {
     return APIClient.get(`${API_ROUTES.USERS.GET}/${id}/activity`, { params: { days } });
   },
 

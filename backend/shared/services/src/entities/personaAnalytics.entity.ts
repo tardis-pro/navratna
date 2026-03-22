@@ -1,5 +1,6 @@
 import { Entity, Column, Index, ManyToOne, JoinColumn } from 'typeorm';
 import { BaseEntity } from './base.entity';
+import type { Persona } from './persona.entity';
 
 /**
  * Persona Analytics Entity
@@ -106,19 +107,19 @@ export class PersonaAnalytics extends BaseEntity {
 
   // Detailed metrics
   @Column({ type: 'jsonb', nullable: true })
-  details?: Record<string, any>;
+  details?: Record<string, unknown>;
 
   @Column({ name: 'comparison_data', type: 'jsonb', nullable: true })
-  comparisonData?: Record<string, any>;
+  comparisonData?: Record<string, unknown>;
 
   @Column({ type: 'jsonb', default: '[]' })
   tags: string[];
 
   @Column({ type: 'jsonb', nullable: true })
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 
   // Relationships
   @ManyToOne('Persona', 'analytics')
   @JoinColumn({ name: 'persona_id' })
-  persona: any;
+  persona: Persona;
 }

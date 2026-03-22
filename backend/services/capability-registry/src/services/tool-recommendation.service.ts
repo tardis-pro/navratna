@@ -10,7 +10,7 @@ interface RecommendationContext {
   currentToolId?: string;
   recentTools?: string[];
   taskType?: string;
-  parameters?: Record<string, any>;
+  parameters?: Record<string, unknown>;
 }
 
 interface ToolRecommendation {
@@ -72,7 +72,7 @@ export class ToolRecommendationService {
     limit: number = 5
   ): Promise<ToolRecommendation[]> {
     try {
-      const recommendations: ToolRecommendation[] = [];
+      const _recommendations: ToolRecommendation[] = [];
 
       // For now, return basic recommendations based on enabled tools
       // This would be enhanced with Neo4j when properly integrated
@@ -97,7 +97,7 @@ export class ToolRecommendationService {
   /**
    * Get basic tool recommendations from database
    */
-  private async getBasicToolRecommendations(limit: number): Promise<ToolRecommendation[]> {
+  private async getBasicToolRecommendations(_limit: number): Promise<ToolRecommendation[]> {
     try {
       // This would query the database for popular tools
       // For now, return empty array to avoid database schema dependencies
@@ -111,9 +111,9 @@ export class ToolRecommendationService {
   /**
    * Update usage patterns when tool execution completes
    */
-  private async handleToolExecutionCompleted(event: any): Promise<void> {
+  private async handleToolExecutionCompleted(event: unknown): Promise<void> {
     try {
-      const { toolId, agentId, userId, executionTime } = event;
+      const { toolId, agentId, _userId, executionTime } = event;
 
       // This would update usage patterns in Neo4j when properly integrated
       logger.debug('Tool execution completed', { toolId, agentId, executionTime });
@@ -125,7 +125,7 @@ export class ToolRecommendationService {
   /**
    * Update failure patterns when tool execution fails
    */
-  private async handleToolExecutionFailed(event: any): Promise<void> {
+  private async handleToolExecutionFailed(event: unknown): Promise<void> {
     try {
       const { toolId, agentId, error } = event;
 

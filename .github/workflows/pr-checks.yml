@@ -27,7 +27,7 @@ jobs:
               repo: context.repo.repo,
               pull_number: context.issue.number,
             });
-            
+
             console.log(`PR #${pr.number}: ${pr.title}`);
             console.log(`Author: ${pr.user.login}`);
             console.log(`Base: ${pr.base.ref} <- Head: ${pr.head.ref}`);
@@ -276,29 +276,29 @@ jobs:
               security: '${{ needs.security-checks.result }}',
               docs: '${{ needs.docs-checks.result }}'
             };
-            
+
             const changes = {
               frontend: '${{ needs.changes.outputs.frontend }}',
               backend: '${{ needs.changes.outputs.backend }}',
               docs: '${{ needs.changes.outputs.docs }}'
             };
-            
+
             let summary = '## 🔍 PR Check Summary\n\n';
-            
+
             for (const [check, result] of Object.entries(results)) {
               if (changes[check] === 'true') {
                 const icon = result === 'success' ? '✅' : result === 'failure' ? '❌' : '⏭️';
                 summary += `${icon} **${check.charAt(0).toUpperCase() + check.slice(1)}**: ${result}\n`;
               }
             }
-            
+
             if (Object.values(changes).every(v => v !== 'true')) {
               summary += '📝 No significant changes detected\n';
             }
-            
+
             await github.rest.issues.createComment({
               issue_number: context.issue.number,
               owner: context.repo.owner,
               repo: context.repo.repo,
               body: summary
-            }); 
+            });

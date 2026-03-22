@@ -35,7 +35,7 @@ export class ToolRegistryCapabilityResolver implements CapabilityResolver {
       return tool;
     } catch (error) {
       logger.error(`Error resolving capability ${toolName}:`, error);
-      throw new Error(`Failed to resolve capability: ${toolName}`);
+      throw new Error(`Failed to resolve capability: ${toolName}`, { cause: error });
     }
   }
 
@@ -45,6 +45,7 @@ export class ToolRegistryCapabilityResolver implements CapabilityResolver {
     const missing: string[] = [];
 
     for (const capability of requiredCapabilities) {
+      // oxlint-ignore-next-line no-await-in-loop -- sequential processing required
       const tool = await this.lookup(capability);
       if (!tool) {
         missing.push(capability);

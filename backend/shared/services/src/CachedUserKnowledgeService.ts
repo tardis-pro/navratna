@@ -1,13 +1,13 @@
 import { UserKnowledgeService } from './user-knowledge.service';
-import { KnowledgeGraphService } from './knowledge-graph/knowledge-graph.service';
+import { KnowledgeGraphService as _KnowledgeGraphService } from './knowledge-graph/knowledge-graph.service';
 import {
   KnowledgeItem,
   KnowledgeSearchRequest,
   KnowledgeSearchResponse,
   KnowledgeIngestRequest,
   KnowledgeIngestResponse,
-  KnowledgeType,
-  SourceType,
+  KnowledgeType as _KnowledgeType,
+  SourceType as _SourceType,
 } from '@uaip/types';
 import { redisCacheService } from './redis-cache.service';
 import { logger } from '@uaip/utils';
@@ -44,10 +44,6 @@ export class CachedUserKnowledgeService extends UserKnowledgeService {
       `knowledge:related:${userId}:${itemId}:${relationshipTypes?.join(',') || 'all'}`,
     KNOWLEDGE_ITEM: (userId: string, itemId: string) => `knowledge:item:${userId}:${itemId}`,
   };
-
-  constructor(knowledgeGraphService: KnowledgeGraphService) {
-    super(knowledgeGraphService);
-  }
 
   /**
    * Get user knowledge statistics with caching
@@ -234,7 +230,7 @@ export class CachedUserKnowledgeService extends UserKnowledgeService {
   ): Promise<
     Array<{
       type: string;
-      value: any;
+      value: unknown;
       confidence: number;
       source: string;
       updatedAt: Date;
@@ -433,7 +429,7 @@ export class CachedUserKnowledgeService extends UserKnowledgeService {
     assistantResponse: string,
     metadata?: {
       agentId?: string;
-      intent?: any;
+      intent?: unknown;
       topic?: string;
       sentiment?: string;
     }
@@ -460,7 +456,7 @@ export class CachedUserKnowledgeService extends UserKnowledgeService {
     userId: string,
     preference: {
       type: string;
-      value: any;
+      value: unknown;
       confidence: number;
       source: string;
     }
@@ -506,16 +502,7 @@ export class CachedUserKnowledgeService extends UserKnowledgeService {
       `knowledge:related:${userId}:*`,
     ];
 
-    for (const pattern of patterns) {
-      if (pattern.includes('*')) {
-        const keys = await redisCacheService.keys(pattern);
-        for (const key of keys) {
-          await redisCacheService.del(key);
-        }
-      } else {
-        await redisCacheService.del(pattern);
-      }
-    }
+    await this.invalidatePatterns(patterns);
 
     logger.info('User knowledge cache invalidated', { userId, patterns });
   }
@@ -529,12 +516,7 @@ export class CachedUserKnowledgeService extends UserKnowledgeService {
       `knowledge:search:${userId}:*conversations*`,
     ];
 
-    for (const pattern of patterns) {
-      const keys = await redisCacheService.keys(pattern);
-      for (const key of keys) {
-        await redisCacheService.del(key);
-      }
-    }
+    await this.invalidatePatterns(patterns);
 
     logger.debug('Conversation cache invalidated', { userId });
   }
@@ -545,12 +527,7 @@ export class CachedUserKnowledgeService extends UserKnowledgeService {
   async invalidateUserPreferencesCache(userId: string): Promise<void> {
     const patterns = [`knowledge:preferences:${userId}:*`];
 
-    for (const pattern of patterns) {
-      const keys = await redisCacheService.keys(pattern);
-      for (const key of keys) {
-        await redisCacheService.del(key);
-      }
-    }
+    await this.invalidatePatterns(patterns);
 
     logger.debug('User preferences cache invalidated', { userId });
   }
@@ -561,12 +538,7 @@ export class CachedUserKnowledgeService extends UserKnowledgeService {
   async invalidateConversationPatternsCache(userId: string): Promise<void> {
     const patterns = [`knowledge:patterns:${userId}:*`];
 
-    for (const pattern of patterns) {
-      const keys = await redisCacheService.keys(pattern);
-      for (const key of keys) {
-        await redisCacheService.del(key);
-      }
-    }
+    await this.invalidatePatterns(patterns);
 
     logger.debug('Conversation patterns cache invalidated', { userId });
   }
@@ -580,16 +552,7 @@ export class CachedUserKnowledgeService extends UserKnowledgeService {
       `knowledge:related:${userId}:${itemId}:*`,
     ];
 
-    for (const pattern of patterns) {
-      if (pattern.includes('*')) {
-        const keys = await redisCacheService.keys(pattern);
-        for (const key of keys) {
-          await redisCacheService.del(key);
-        }
-      } else {
-        await redisCacheService.del(pattern);
-      }
-    }
+    await this.invalidatePatterns(patterns);
 
     logger.debug('Knowledge item cache invalidated', { userId, itemId });
   }
@@ -670,5 +633,19 @@ export class CachedUserKnowledgeService extends UserKnowledgeService {
       hash = hash & hash; // Convert to 32-bit integer
     }
     return Math.abs(hash).toString(16);
+  }
+
+  private async invalidatePatterns(patterns: string[]): Promise<void> {
+    await Promise.all(
+      patterns.map(async (pattern) => {
+        if (pattern.includes('*')) {
+          const keys = await redisCacheService.keys(pattern);
+          await Promise.all(keys.map((key) => redisCacheService.del(key)));
+          return;
+        }
+
+        await redisCacheService.del(pattern);
+      })
+    );
   }
 }

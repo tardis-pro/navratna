@@ -131,7 +131,7 @@ export interface ToolIntegration {
   tool: string;
   purpose: string;
   steps: string[];
-  configuration: Record<string, any>;
+  configuration: Record<string, unknown>;
   apiEndpoints?: string[];
 }
 
@@ -279,6 +279,7 @@ export class WorkflowExtractorService {
 
       for (const conversation of conversations) {
         try {
+          // oxlint-disable-next-line no-await-in-loop -- sequential processing required
           const conversationWorkflows = await this.extractFromConversation(conversation, options);
           workflows.push(...conversationWorkflows);
         } catch (error) {
@@ -325,7 +326,7 @@ export class WorkflowExtractorService {
       return processedWorkflows;
     } catch (error) {
       logger.error('Workflow extraction failed', { error: error.message });
-      throw new Error(`Workflow extraction failed: ${error.message}`);
+      throw new Error(`Workflow extraction failed: ${error.message}`, { cause: error });
     }
   }
 
@@ -381,7 +382,9 @@ export class WorkflowExtractorService {
 
     for (const sequence of sequences) {
       try {
+        // oxlint-disable-next-line no-await-in-loop -- sequential processing required
         const workflow = await this.createBaseWorkflow(sequence);
+        // oxlint-disable-next-line no-await-in-loop -- sequential processing required
         const executable = await this.enhanceWithExecutionDetails(workflow);
         executableWorkflows.push(executable);
       } catch (error) {
@@ -402,6 +405,7 @@ export class WorkflowExtractorService {
     const results: WorkflowValidationResult[] = [];
 
     for (const workflow of workflows) {
+      // oxlint-disable-next-line no-await-in-loop -- sequential processing required
       const result = await this.validateSingleWorkflow(workflow);
       results.push(result);
     }
@@ -474,6 +478,7 @@ export class WorkflowExtractorService {
     // Convert sequences to workflows
     for (const sequence of sequences) {
       if (sequence.actions.length >= (options.minSteps || this.MIN_WORKFLOW_STEPS)) {
+        // oxlint-disable-next-line no-await-in-loop -- sequential processing required
         const workflow = await this.createWorkflowFromSequence(sequence, conversation);
 
         if (workflow && (!options.minConfidence || workflow.confidence >= options.minConfidence)) {
@@ -559,7 +564,7 @@ export class WorkflowExtractorService {
   private createActionSequence(
     actions: string[],
     messages: ParsedMessage[],
-    startIndex: number
+    _startIndex: number
   ): ActionSequence {
     const participants = [...new Set(messages.map((m) => m.sender))];
     const context = this.extractSequenceContext(messages);
@@ -596,6 +601,7 @@ export class WorkflowExtractorService {
       }
 
       if (steps.length >= (options.minSteps || this.MIN_WORKFLOW_STEPS)) {
+        // oxlint-disable-next-line no-await-in-loop -- sequential processing required
         const workflow = await this.createWorkflowFromSteps(steps, conversation, 'procedural');
         if (workflow) {
           workflows.push(workflow);
@@ -818,6 +824,7 @@ export class WorkflowExtractorService {
     const enhanced: ExtractedWorkflow[] = [];
 
     for (const workflow of workflows) {
+      // oxlint-disable-next-line no-await-in-loop -- sequential processing required
       const validation = await this.validateSingleWorkflow(workflow);
 
       if (validation.isValid || validation.completeness >= 0.6) {
@@ -1187,7 +1194,7 @@ export class WorkflowExtractorService {
     return [...new Set(resources)].slice(0, 10);
   }
 
-  private calculateSequenceConfidence(actions: string[], messages: ParsedMessage[]): number {
+  private calculateSequenceConfidence(actions: string[], _messages: ParsedMessage[]): number {
     let confidence = 0.6; // Base confidence
 
     // Boost confidence for clear action verbs
@@ -1318,14 +1325,14 @@ export class WorkflowExtractorService {
     return workflows.reduce((sum, w) => sum + w.confidence, 0) / workflows.length;
   }
 
-  private async createBaseWorkflow(sequence: ActionSequence): Promise<ExtractedWorkflow> {
+  private async createBaseWorkflow(_sequence: ActionSequence): Promise<ExtractedWorkflow> {
     // This would create a base workflow from sequence
     // Implementation would be similar to createWorkflowFromSequence
     throw new Error('Not implemented yet');
   }
 
   private async enhanceWithExecutionDetails(
-    workflow: ExtractedWorkflow
+    _workflow: ExtractedWorkflow
   ): Promise<ExecutableWorkflow> {
     // This would enhance workflow with execution details
     // Implementation would add execution planning, validation rules, etc.

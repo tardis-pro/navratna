@@ -3,6 +3,9 @@ import { BaseEntity } from './base.entity';
 import { ArtifactType, ValidationResult } from '@uaip/types';
 
 // Note: Using string-based relationships to avoid circular dependencies
+// Type-only imports are safe - they are erased at compile time
+import type { ArtifactReview } from './artifactReview.entity';
+import type { ArtifactDeployment } from './artifactDeployment.entity';
 
 /**
  * Artifact Entity for the Artifact System
@@ -172,7 +175,7 @@ export class Artifact extends BaseEntity {
   complianceTags: string[];
 
   @Column({ name: 'security_scan_result', type: 'jsonb', nullable: true })
-  securityScanResult?: Record<string, any>;
+  securityScanResult?: Record<string, unknown>;
 
   @Column({ name: 'license', nullable: true })
   license?: string;
@@ -182,25 +185,25 @@ export class Artifact extends BaseEntity {
   dependencies: string[];
 
   @Column({ name: 'system_requirements', type: 'jsonb', nullable: true })
-  systemRequirements?: Record<string, any>;
+  systemRequirements?: Record<string, unknown>;
 
   @Column({ name: 'deployment_config', type: 'jsonb', nullable: true })
-  deploymentConfig?: Record<string, any>;
+  deploymentConfig?: Record<string, unknown>;
 
   // Metadata and context
   @Column({ type: 'jsonb', nullable: true })
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 
   @Column({ name: 'generation_context', type: 'jsonb', nullable: true })
-  generationContext?: Record<string, any>;
+  generationContext?: Record<string, unknown>;
 
   @Column({ name: 'external_references', type: 'jsonb', nullable: true })
   externalReferences?: Record<string, string>;
 
   // Relationships
   @OneToMany('ArtifactReview', 'artifact')
-  reviews: any[];
+  reviews: ArtifactReview[];
 
   @OneToMany('ArtifactDeployment', 'artifact')
-  deployments: any[];
+  deployments: ArtifactDeployment[];
 }

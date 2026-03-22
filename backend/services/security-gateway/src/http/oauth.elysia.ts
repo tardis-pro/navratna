@@ -5,18 +5,29 @@ import { OAuthProviderService } from '../services/oauthProviderService.js';
 import { EnhancedAuthService } from '../services/enhancedAuthService.js';
 import { AuditService } from '../services/auditService.js';
 import { UserType, AgentCapability, OAuthProviderType, AuditEventType } from '@uaip/types';
-import type { OptionalAuthContext, RequiredAuthContext } from './types/elysia-context.js';
+import type {
+  OptionalAuthContext as _OptionalAuthContext,
+  RequiredAuthContext as _RequiredAuthContext,
+} from './types/elysia-context.js';
 
-let oauthProviderService: OAuthProviderService | null = null;
-let enhancedAuthService: EnhancedAuthService | null = null;
-let auditService: AuditService | null = null;
+let oauthProviderServiceSingleton: OAuthProviderService | null = null;
+let enhancedAuthServiceSingleton: EnhancedAuthService | null = null;
+let auditServiceSingleton: AuditService | null = null;
 
 function getServices() {
-  if (!auditService) auditService = new AuditService();
-  if (!oauthProviderService) oauthProviderService = new OAuthProviderService(auditService);
-  if (!enhancedAuthService)
-    enhancedAuthService = new EnhancedAuthService(oauthProviderService, auditService);
-  return { oauthProviderService, enhancedAuthService, auditService };
+  if (!auditServiceSingleton) auditServiceSingleton = new AuditService();
+  if (!oauthProviderServiceSingleton)
+    oauthProviderServiceSingleton = new OAuthProviderService(auditServiceSingleton);
+  if (!enhancedAuthServiceSingleton)
+    enhancedAuthServiceSingleton = new EnhancedAuthService(
+      oauthProviderServiceSingleton,
+      auditServiceSingleton
+    );
+  return {
+    oauthProviderService: oauthProviderServiceSingleton,
+    enhancedAuthService: enhancedAuthServiceSingleton,
+    auditService: auditServiceSingleton,
+  };
 }
 
 const AuthorizeRequestSchema = z.object({
@@ -49,8 +60,8 @@ const connectBodySchema = z.object({
 });
 const optionalOperationSchema = z.object({ operation: z.string().optional() });
 
-export function registerOAuthRoutes(app: any): any {
-  return app.group('/api/v1/oauth', (app: any) =>
+export function registerOAuthRoutes(elysiaApp: unknown): unknown {
+  return elysiaApp.group('/api/v1/oauth', (app: unknown) =>
     withOptionalAuth(app)
       // GET /providers
       .get('/providers', async ({ set, query }) => {
@@ -68,7 +79,7 @@ export function registerOAuthRoutes(app: any): any {
           const providers = await oauthProviderService.getAvailableProviders(userType);
           return {
             success: true,
-            providers: providers.map((p: any) => ({
+            providers: providers.map((p: unknown) => ({
               id: p.id,
               name: p.name,
               type: p.type,
@@ -106,7 +117,7 @@ export function registerOAuthRoutes(app: any): any {
             },
           });
           return { success: true, authorization_url: url, state };
-        } catch (error: any) {
+        } catch (error: unknown) {
           logger.error('Authorize failed', { error: error?.message });
           set.status = 400;
           return { success: false, error: error?.message || 'Authorization failed' };
@@ -153,7 +164,7 @@ export function registerOAuthRoutes(app: any): any {
             mfa_required: authResult.requiresMFA,
             mfa_challenge: authResult.mfaChallenge,
           };
-        } catch (error: any) {
+        } catch (error: unknown) {
           const { auditService } = getServices();
           await auditService.logEvent({
             eventType: AuditEventType.OAUTH_CALLBACK_FAILED,
@@ -207,7 +218,7 @@ export function registerOAuthRoutes(app: any): any {
             },
             session: { id: authResult.session.id, expiresAt: authResult.session.expiresAt },
           };
-        } catch (error: any) {
+        } catch (error: unknown) {
           const { auditService } = getServices();
           const parsedBody = AgentAuthRequestSchema.safeParse(body);
           await auditService.logEvent({
@@ -225,7 +236,7 @@ export function registerOAuthRoutes(app: any): any {
       })
 
       // POST /connect (requires auth)
-      .group('', (g: any) =>
+      .group('', (g: unknown) =>
         // @ts-expect-error - Elysia middleware injects user, but TypeScript cannot infer through nested groups
         withRequiredAuth(g).post('/connect', async ({ set, body, user }) => {
           try {
@@ -259,7 +270,7 @@ export function registerOAuthRoutes(app: any): any {
               success: resultSuccess,
               message: 'OAuth provider connected successfully',
             };
-          } catch (error: any) {
+          } catch (error: unknown) {
             set.status = 500;
             return { success: false, error: error?.message || 'Failed to connect OAuth provider' };
           }
@@ -267,7 +278,7 @@ export function registerOAuthRoutes(app: any): any {
       )
 
       // Provider-specific operations (require auth)
-      .group('/agent', (g: any) =>
+      .group('/agent', (g: unknown) =>
         withRequiredAuth(g)
           // GitHub operations
           // @ts-expect-error - Elysia middleware injects user, but TypeScript cannot infer through nested groups
@@ -282,7 +293,7 @@ export function registerOAuthRoutes(app: any): any {
                 })
                 .parse(body);
               const { oauthProviderService, auditService } = getServices();
-              let result: any;
+              let result: unknown;
               switch (validated.operation) {
                 case 'list_repos':
                   result = await oauthProviderService.getGitHubRepos(user!.id, providerId);
@@ -313,7 +324,7 @@ export function registerOAuthRoutes(app: any): any {
                 },
               });
               return { success: true, operation: validated.operation, data: result };
-            } catch (error: any) {
+            } catch (error: unknown) {
               const { auditService } = getServices();
               const parsedParams = providerIdParamsSchema.safeParse(params);
               const parsedBody = optionalOperationSchema.safeParse(body);
@@ -350,7 +361,7 @@ export function registerOAuthRoutes(app: any): any {
                 })
                 .parse(body);
               const { oauthProviderService, auditService } = getServices();
-              let result: any;
+              let result: unknown;
               switch (validated.operation) {
                 case 'list_messages':
                 case 'search_messages':
@@ -387,7 +398,7 @@ export function registerOAuthRoutes(app: any): any {
                 },
               });
               return { success: true, operation: validated.operation, data: result };
-            } catch (error: any) {
+            } catch (error: unknown) {
               const { auditService } = getServices();
               const parsedParams = providerIdParamsSchema.safeParse(params);
               const parsedBody = optionalOperationSchema.safeParse(body);

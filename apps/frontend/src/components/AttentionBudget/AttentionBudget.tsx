@@ -92,7 +92,7 @@ function getTypeIcon(type: string): string {
 // ---------------------------------------------------------------------------
 
 export function useAttentionBudget(
-  options: UseAttentionBudgetOptions = {},
+  options: UseAttentionBudgetOptions = {}
 ): UseAttentionBudgetReturn {
   const { maxBudget = 4, onBudgetExceeded } = options;
   const [items, setItems] = useState<AttentionItem[]>([]);
@@ -115,7 +115,7 @@ export function useAttentionBudget(
       });
       return true;
     },
-    [items.length, maxBudget, onBudgetExceeded],
+    [items.length, maxBudget, onBudgetExceeded]
   );
 
   const releaseSlot = useCallback((id: string) => {
@@ -198,10 +198,7 @@ function ItemList({
             </span>
             <span className="flex-1 truncate text-white/80">{item.label}</span>
             {/* Tiny relevance bar for visual flair */}
-            <span
-              className="h-1 w-6 rounded-full"
-              style={{ backgroundColor: COLOR_GREEN }}
-            />
+            <span className="h-1 w-6 rounded-full" style={{ backgroundColor: COLOR_GREEN }} />
             {onDismiss && (
               <button
                 type="button"
@@ -262,20 +259,13 @@ export function AttentionBudget({
   const gaugeWidth = expanded ? GAUGE_WIDTH_EXPANDED : GAUGE_WIDTH_COLLAPSED;
 
   const positionClasses = useMemo(
-    () =>
-      position === 'left'
-        ? 'left-0 rounded-r-lg'
-        : 'right-0 rounded-l-lg',
-    [position],
+    () => (position === 'left' ? 'left-0 rounded-r-lg' : 'right-0 rounded-l-lg'),
+    [position]
   );
 
   return (
     <motion.div
-      className={cn(
-        'fixed top-1/2 z-50 -translate-y-1/2 select-none',
-        positionClasses,
-        className,
-      )}
+      className={cn('fixed top-1/2 z-50 -translate-y-1/2 select-none', positionClasses, className)}
       onMouseEnter={() => setExpanded(true)}
       onMouseLeave={() => setExpanded(false)}
       onClick={() => setExpanded((prev) => !prev)}
@@ -324,11 +314,7 @@ export function AttentionBudget({
           </div>
 
           {/* Slot dot indicators */}
-          <SlotIndicators
-            activeCount={activeCount}
-            maxBudget={maxBudget}
-            color={color}
-          />
+          <SlotIndicators activeCount={activeCount} maxBudget={maxBudget} color={color} />
         </div>
 
         {/* ---- Expanded panel ---- */}
@@ -344,10 +330,7 @@ export function AttentionBudget({
                 <span className="text-[10px] font-semibold uppercase tracking-wider text-white/50">
                   Attention
                 </span>
-                <span
-                  className="text-xs font-bold tabular-nums"
-                  style={{ color }}
-                >
+                <span className="text-xs font-bold tabular-nums" style={{ color }}>
                   {activeCount}/{maxBudget}
                 </span>
               </div>
@@ -355,9 +338,7 @@ export function AttentionBudget({
               {items.length > 0 ? (
                 <ItemList items={items} onDismiss={onDismiss} />
               ) : (
-                <span className="mt-4 text-center text-[10px] text-white/30">
-                  No active items
-                </span>
+                <span className="mt-4 text-center text-[10px] text-white/30">No active items</span>
               )}
 
               {isAtCapacity && (

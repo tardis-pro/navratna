@@ -6,15 +6,7 @@
  * the top-3 most likely next portals so the shell can pre-render them.
  */
 
-import {
-  useState,
-  useEffect,
-  useCallback,
-  useRef,
-  type ReactNode,
-  lazy,
-  Suspense,
-} from 'react';
+import { useState, useEffect, useCallback, useRef, type ReactNode, lazy, Suspense } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 // ---------------------------------------------------------------------------
@@ -52,9 +44,7 @@ function bigramKey(a: string, b: string): string {
   return `${a}|${b}`;
 }
 
-function serializeMatrix(
-  matrix: Map<string, Map<string, number>>,
-): SerializedMatrix {
+function serializeMatrix(matrix: Map<string, Map<string, number>>): SerializedMatrix {
   const out: SerializedMatrix = {};
   for (const [from, targets] of matrix) {
     out[from] = Object.fromEntries(targets);
@@ -62,9 +52,7 @@ function serializeMatrix(
   return out;
 }
 
-function deserializeMatrix(
-  raw: SerializedMatrix,
-): Map<string, Map<string, number>> {
+function deserializeMatrix(raw: SerializedMatrix): Map<string, Map<string, number>> {
   const matrix = new Map<string, Map<string, number>>();
   for (const [from, targets] of Object.entries(raw)) {
     matrix.set(from, new Map(Object.entries(targets)));
@@ -107,16 +95,15 @@ function totalTransitions(matrix: Map<string, Map<string, number>>): number {
 // ---------------------------------------------------------------------------
 
 export function useSwellPrediction() {
-  const matrixRef = useRef<Map<string, Map<string, number>>>(
-    loadMatrixFromStorage(),
-  );
+  const matrixRef = useRef<Map<string, Map<string, number>>>(loadMatrixFromStorage());
   const historyRef = useRef<string[]>([]);
   const [predictions, setPredictions] = useState<Prediction[]>([]);
 
   // Persist on unmount as a safety-net (main persistence happens on write).
   useEffect(() => {
+    const matrix = matrixRef.current;
     return () => {
-      persistMatrix(matrixRef.current);
+      persistMatrix(matrix);
     };
   }, []);
 
@@ -140,10 +127,7 @@ export function useSwellPrediction() {
 
     if (history.length >= 2) {
       // Bigram transition: (prev-1, prev) -> current
-      const key = bigramKey(
-        history[history.length - 2],
-        history[history.length - 1],
-      );
+      const key = bigramKey(history[history.length - 2], history[history.length - 1]);
       if (!matrix.has(key)) {
         matrix.set(key, new Map());
       }
@@ -241,11 +225,7 @@ export interface SwellPredictionProps {
 
 const PRE_RENDER_THRESHOLD = 0.4;
 
-export function SwellPrediction({
-  children,
-  predictions,
-  onPreRender,
-}: SwellPredictionProps) {
+export function SwellPrediction({ children, predictions, onPreRender }: SwellPredictionProps) {
   const firedRef = useRef<Set<string>>(new Set());
 
   useEffect(() => {
@@ -258,9 +238,7 @@ export function SwellPrediction({
     }
   }, [predictions, onPreRender]);
 
-  const highConfidence = predictions.filter(
-    (p) => p.probability > PRE_RENDER_THRESHOLD,
-  );
+  const highConfidence = predictions.filter((p) => p.probability > PRE_RENDER_THRESHOLD);
 
   return (
     <div className="relative">

@@ -1,23 +1,23 @@
 import React, { useState, useEffect } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, _CardHeader, _CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { Progress } from '@/components/ui/progress';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
-  Trophy,
+  _Trophy,
   Crown,
   Star,
   TrendingUp,
-  Target,
-  Zap,
+  _Target,
+  _Zap,
   Medal,
   Award,
   Flame,
   Users,
   Calendar,
-  BarChart3,
+  _BarChart3,
   ArrowUp,
   ArrowDown,
   Minus,
@@ -30,13 +30,13 @@ interface AgentLeaderboardProps {
 
 export const AgentLeaderboard: React.FC<AgentLeaderboardProps> = ({ onAgentClick }) => {
   const [globalLeaderboard, setGlobalLeaderboard] = useState<LeaderboardEntry[]>([]);
-  const [categoryLeaderboards, setCategoryLeaderboards] = useState<
+  const [_categoryLeaderboards, _setCategoryLeaderboards] = useState<
     Record<string, LeaderboardEntry[]>
   >({});
   const [selectedPeriod, setSelectedPeriod] = useState<'all-time' | 'monthly' | 'weekly'>(
     'all-time'
   );
-  const [selectedCategory, setSelectedCategory] = useState<string>('all');
+  const [_selectedCategory, _setSelectedCategory] = useState<string>('all');
 
   // Mock leaderboard data
   useEffect(() => {
@@ -170,7 +170,7 @@ export const AgentLeaderboard: React.FC<AgentLeaderboardProps> = ({ onAgentClick
     }
   };
 
-  const getRankChange = (entry: LeaderboardEntry) => {
+  const getRankChange = (_entry: LeaderboardEntry) => {
     // Mock rank change data
     const change = Math.floor(Math.random() * 6) - 3; // -3 to +3
     if (change > 0) return <ArrowUp className="w-4 h-4 text-green-500" />;
@@ -315,7 +315,7 @@ export const AgentLeaderboard: React.FC<AgentLeaderboardProps> = ({ onAgentClick
             <Button
               key={period}
               variant={selectedPeriod === period ? 'default' : 'outline'}
-              onClick={() => setSelectedPeriod(period as any)}
+              onClick={() => setSelectedPeriod(period as unknown)}
               className="capitalize"
             >
               <Calendar className="w-4 h-4 mr-2" />

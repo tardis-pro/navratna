@@ -43,13 +43,13 @@ export interface ChatIngestionOptions {
 
 // Context type definitions for chained middleware
 interface UploadContext {
-  uploadedFiles?: unknown[];
+  uploadedFiles?: Record<string, unknown>[];
   uploadError?: { error: string; message: string };
 }
 
 interface ValidationContext extends UploadContext {
   validatedOptions?: ChatIngestionOptions;
-  validationError?: { error: string; message: string; details?: unknown[] };
+  validationError?: { error: string; message: string; details?: Record<string, unknown>[] };
 }
 
 interface FileContext extends ValidationContext {
@@ -66,7 +66,7 @@ interface ParseContext extends FileContext {
     success: boolean;
     error?: string;
   }>;
-  parseError?: { error: string; message: string; details?: unknown[] };
+  parseError?: { error: string; message: string; details?: Record<string, unknown>[] };
 }
 
 interface JobContext extends ParseContext {
@@ -103,9 +103,9 @@ export class ChatIngestionMiddleware {
 
   // Elysia plugin for file upload validation
   handleFileUpload() {
-    return (app: any) => {
-      return app.derive(({ body, set }: any) => {
-        const requestBody = body as { files?: unknown[] };
+    return (app: Record<string, unknown>) => {
+      return app.derive(({ body, set }: Record<string, unknown>) => {
+        const requestBody = body as { files?: Record<string, unknown>[] };
         const files = requestBody?.files;
 
         if (!files || !Array.isArray(files) || files.length === 0) {
@@ -156,8 +156,8 @@ export class ChatIngestionMiddleware {
 
   // Elysia plugin for request validation
   validateRequest() {
-    return (app: any) => {
-      return app.derive((ctx: any) => {
+    return (app: Record<string, unknown>) => {
+      return app.derive((ctx: Record<string, unknown>) => {
         const { body, set } = ctx;
         const { uploadedFiles } = ctx as UploadContext;
 
@@ -195,8 +195,8 @@ export class ChatIngestionMiddleware {
           });
 
           return { validatedOptions: options as ChatIngestionOptions };
-        } catch (error: unknown) {
-          const err = error as Error & { errors?: unknown[] };
+        } catch (error: Record<string, unknown>) {
+          const err = error as Error & { errors?: Record<string, unknown>[] };
           logger.error('Chat ingestion validation failed', { error: err.message });
           set.status = 400;
           return {
@@ -213,8 +213,8 @@ export class ChatIngestionMiddleware {
 
   // Elysia plugin for file format validation
   validateFileFormat() {
-    return (app: any) => {
-      return app.derive(async (ctx: any) => {
+    return (app: Record<string, unknown>) => {
+      return app.derive(async (ctx: Record<string, unknown>) => {
         const { set } = ctx;
         const { uploadedFiles, validatedOptions } = ctx as ValidationContext;
 
@@ -238,6 +238,7 @@ export class ChatIngestionMiddleware {
             size: number;
           }>) {
             try {
+              // oxlint-disable-next-line no-await-in-loop -- sequential processing required
               const processedFile = await this.processFile(file, validatedOptions.userId);
               processedFiles.push(processedFile);
 
@@ -246,13 +247,13 @@ export class ChatIngestionMiddleware {
                   `File ${file.originalname || file.name}: ${processedFile.validationResult.errors.join(', ')}`
                 );
               }
-            } catch (error: unknown) {
+            } catch (error: Record<string, unknown>) {
               const err = error as Error;
               validationErrors.push(`File ${file.originalname || file.name}: ${err.message}`);
             }
           }
 
-          // Check if we have any valid files
+          // Check if we have unknown valid files
           const validFiles = processedFiles.filter((f) => f.validationResult.isValid);
           if (validFiles.length === 0) {
             set.status = 400;
@@ -281,7 +282,7 @@ export class ChatIngestionMiddleware {
           });
 
           return { chatFiles: processedFiles, validationWarnings: validationErrors };
-        } catch (error: unknown) {
+        } catch (error: Record<string, unknown>) {
           const err = error as Error;
           logger.error('File format validation failed', { error: err.message });
           set.status = 500;
@@ -298,8 +299,8 @@ export class ChatIngestionMiddleware {
 
   // Elysia plugin for file content parsing
   parseFileContent() {
-    return (app: any) => {
-      return app.derive(async (ctx: any) => {
+    return (app: Record<string, unknown>) => {
+      return app.derive(async (ctx: Record<string, unknown>) => {
         const { set } = ctx;
         const { chatFiles } = ctx as FileContext;
 
@@ -325,6 +326,7 @@ export class ChatIngestionMiddleware {
 
           for (const file of validFiles) {
             try {
+              // oxlint-disable-next-line no-await-in-loop -- sequential processing required
               const parseResult = await this.chatParser.parseFile(file.content, file.originalName);
               const conversations = parseResult.conversations;
 
@@ -337,7 +339,7 @@ export class ChatIngestionMiddleware {
 
               // Update file validation metadata
               file.validationResult.metadata.estimatedConversations = conversations.length;
-            } catch (error: unknown) {
+            } catch (error: Record<string, unknown>) {
               const err = error as Error;
               parseResults.push({
                 fileId: file.id,
@@ -353,7 +355,7 @@ export class ChatIngestionMiddleware {
             }
           }
 
-          // Check if any files were successfully parsed
+          // Check if unknown files were successfully parsed
           const successfulParses = parseResults.filter((r) => r.success);
           if (successfulParses.length === 0) {
             set.status = 400;
@@ -376,7 +378,7 @@ export class ChatIngestionMiddleware {
           });
 
           return { parseResults };
-        } catch (error: unknown) {
+        } catch (error: Record<string, unknown>) {
           const err = error as Error;
           logger.error('File content parsing failed', { error: err.message });
           set.status = 500;
@@ -393,8 +395,8 @@ export class ChatIngestionMiddleware {
 
   // Elysia plugin for creating ingestion job
   createIngestionJob() {
-    return (app: any) => {
-      return app.derive((ctx: any) => {
+    return (app: Record<string, unknown>) => {
+      return app.derive((ctx: Record<string, unknown>) => {
         const { set } = ctx;
         const { chatFiles, validatedOptions } = ctx as FileContext;
 
@@ -429,7 +431,7 @@ export class ChatIngestionMiddleware {
           });
 
           return { chatIngestionJob: job };
-        } catch (error: unknown) {
+        } catch (error: Record<string, unknown>) {
           const err = error as Error;
           logger.error('Job creation failed', { error: err.message });
           set.status = 500;

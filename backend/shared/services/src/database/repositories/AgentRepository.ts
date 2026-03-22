@@ -1,4 +1,10 @@
 import { logger } from '@uaip/utils';
+import {
+  AgentPersona,
+  AgentIntelligenceConfig,
+  AgentSecurityContext,
+  ExecutionPlan,
+} from '@uaip/types';
 import { BaseRepository } from '../base/BaseRepository';
 import { Agent } from '../../entities/agent.entity';
 
@@ -91,12 +97,12 @@ export class AgentRepository extends BaseRepository<Agent> {
     // COMPOSITION MODEL: personaId reference
     personaId?: string;
     // Legacy persona data for backwards compatibility
-    legacyPersona?: any;
+    legacyPersona?: AgentPersona;
     // Deprecated: old persona field (for backwards compatibility)
-    persona?: any;
-    intelligenceConfig: any;
-    securityContext: any;
-    configuration?: any;
+    persona?: AgentPersona;
+    intelligenceConfig: AgentIntelligenceConfig;
+    securityContext: AgentSecurityContext;
+    configuration?: Record<string, unknown>;
     // Model configuration fields
     modelId?: string;
     apiType?: string;
@@ -121,6 +127,7 @@ export class AgentRepository extends BaseRepository<Agent> {
       const agent = this.repository.create({
         id: agentData.id,
         name: agentData.name,
+        // oxlint-disable-next-line @typescript-eslint/no-explicit-any -- TypeORM enum cast
         role: agentData.role as any,
         // COMPOSITION MODEL: Use personaId and legacyPersona
         personaId: finalPersonaId,
@@ -130,6 +137,7 @@ export class AgentRepository extends BaseRepository<Agent> {
         configuration: agentData.configuration,
         // Model configuration fields
         modelId: agentData.modelId,
+        // oxlint-disable-next-line @typescript-eslint/no-explicit-any -- TypeORM enum cast
         apiType: agentData.apiType as any,
         temperature: agentData.temperature,
         maxTokens: agentData.maxTokens,
@@ -181,12 +189,12 @@ export class AgentRepository extends BaseRepository<Agent> {
       // COMPOSITION MODEL: personaId reference
       personaId?: string;
       // Legacy persona data for backwards compatibility
-      legacyPersona?: any;
+      legacyPersona?: AgentPersona;
       // Deprecated: old persona field (for backwards compatibility)
-      persona?: any;
-      intelligenceConfig?: any;
-      securityContext?: any;
-      configuration?: any;
+      persona?: AgentPersona;
+      intelligenceConfig?: AgentIntelligenceConfig;
+      securityContext?: AgentSecurityContext;
+      configuration?: Record<string, unknown>;
       capabilities?: string[];
       // Model configuration fields
       modelId?: string;
@@ -198,11 +206,13 @@ export class AgentRepository extends BaseRepository<Agent> {
   ): Promise<Agent | null> {
     try {
       // Prepare the update payload with proper typing
+      // oxlint-disable-next-line @typescript-eslint/no-explicit-any -- dynamic update payload
       const updatePayload: any = {
         updatedAt: new Date(),
       };
 
       if (updateData.name !== undefined) updatePayload.name = updateData.name;
+      // oxlint-disable-next-line @typescript-eslint/no-explicit-any -- TypeORM enum cast
       if (updateData.role !== undefined) updatePayload.role = updateData.role as any;
 
       // COMPOSITION MODEL: Handle personaId and legacyPersona
@@ -309,14 +319,20 @@ export class AgentRepository extends BaseRepository<Agent> {
     id: string;
     type: string;
     agentId: string;
-    plan?: any;
-    steps?: any;
-    dependencies?: any;
+    plan?: Record<string, unknown>;
+    steps?: Array<{
+      id: string;
+      type: string;
+      description: string;
+      estimatedDuration: number;
+      required: boolean;
+    }>;
+    dependencies?: string[];
     estimatedDuration?: number;
     priority?: string;
-    constraints?: any;
-    metadata?: any;
-    context?: any;
+    constraints?: string[];
+    metadata?: Record<string, unknown>;
+    context?: Record<string, unknown>;
     createdAt: Date;
   }): Promise<void> {
     try {
@@ -369,7 +385,7 @@ export class AgentRepository extends BaseRepository<Agent> {
   /**
    * Get operation by ID
    */
-  public async getOperationById(operationId: string): Promise<any | null> {
+  public async getOperationById(operationId: string): Promise<Record<string, unknown> | null> {
     try {
       const manager = this.getEntityManager();
 
@@ -396,8 +412,8 @@ export class AgentRepository extends BaseRepository<Agent> {
   public async storeEnhancedLearningRecord(recordData: {
     agentId: string;
     operationId: string;
-    learningData: any;
-    confidenceAdjustments: any;
+    learningData: Record<string, unknown>;
+    confidenceAdjustments: Record<string, unknown>;
   }): Promise<void> {
     const manager = this.getEntityManager();
 
@@ -421,8 +437,8 @@ export class AgentRepository extends BaseRepository<Agent> {
    * Get agent configuration and capabilities
    */
   public async getAgentCapabilitiesConfig(agentId: string): Promise<{
-    intelligenceConfig?: any;
-    securityContext?: any;
+    intelligenceConfig?: AgentIntelligenceConfig;
+    securityContext?: AgentSecurityContext;
   } | null> {
     try {
       const agent = await this.repository.findOne({

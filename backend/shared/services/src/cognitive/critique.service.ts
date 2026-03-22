@@ -107,6 +107,7 @@ Evaluate this response using the criteria specified.`;
     let currentResponse = await generateResponse();
 
     while (revisionCount < effectiveConfig.maxRevisions) {
+      // oxlint-ignore-next-line no-await-in-loop -- sequential processing required
       const critique = await this.critiqueResponse(
         currentResponse,
         originalQuery,
@@ -132,6 +133,7 @@ Evaluate this response using the criteria specified.`;
       );
 
       // Request improved response
+      // oxlint-ignore-next-line no-await-in-loop -- sequential processing required
       const improvedResponse = await this.requestImprovedResponse(improvementPrompt, userId);
       currentResponse = improvedResponse;
       revisionCount++;

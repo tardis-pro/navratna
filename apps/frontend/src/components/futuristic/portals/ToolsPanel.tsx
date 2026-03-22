@@ -16,14 +16,14 @@ import {
 import {
   Calculator,
   Brain,
-  Database,
-  Globe,
+  Database as _Database,
+  Globe as _Globe,
   Github,
   Mail,
   Zap,
   MoreHorizontal,
   Loader2,
-  AlertCircle,
+  AlertCircle as _AlertCircle,
 } from 'lucide-react';
 
 interface ViewportSize {

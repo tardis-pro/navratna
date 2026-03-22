@@ -9,14 +9,14 @@ import {
   DiscussionSummary,
   DiscussionEvent,
   DiscussionStatus,
-  TurnStrategy,
+  TurnStrategy as _TurnStrategy,
   MessageType,
-  ParticipantRole,
+  ParticipantRole as _ParticipantRole,
   DiscussionEventType,
   MessageSentiment,
   DiscussionState,
 } from '@uaip/types';
-import { Persona } from '@uaip/types';
+import { Persona as _Persona } from '@uaip/types';
 import { DiscussionRepository } from './database/repositories/DiscussionRepository';
 import { Discussion } from './entities/discussion.entity';
 import { DiscussionParticipant } from './entities/discussionParticipant.entity';
@@ -144,15 +144,17 @@ export class DiscussionService {
           participantCount: request.initialParticipants.length,
           discussionSettings: discussion.settings,
         });
-        for (const participantRequest of request.initialParticipants) {
-          if (participantRequest && participantRequest.agentId) {
-            await this.addParticipant(discussion.id!, {
-              agentId: participantRequest.agentId,
-              role: participantRequest.role,
-              userId: undefined,
-            });
-          }
-        }
+        await Promise.all(
+          request.initialParticipants
+            .filter((participantRequest) => participantRequest && participantRequest.agentId)
+            .map((participantRequest) =>
+              this.addParticipant(discussion.id!, {
+                agentId: participantRequest.agentId,
+                role: participantRequest.role,
+                userId: undefined,
+              })
+            )
+        );
       }
 
       // Cache active discussion
@@ -212,7 +214,7 @@ export class DiscussionService {
 
       // Update discussion in database
       // Exclude complex fields from updates - they should be managed separately
-      const { participants, outcomes, analytics, ...discussionUpdates } = updates;
+      const { _participants, _outcomes, _analytics, ...discussionUpdates } = updates;
       await this.databaseService.update<Discussion>(Discussion, id, {
         ...discussionUpdates,
         updatedAt: new Date(),
@@ -393,9 +395,9 @@ export class DiscussionService {
       permissions?: string[];
       turnOrder?: number;
       turnWeight?: number;
-      participationConfig?: Record<string, any>;
-      behavioralConstraints?: Record<string, any>;
-      contextAwareness?: Record<string, any>;
+      participationConfig?: Record<string, unknown>;
+      behavioralConstraints?: Record<string, unknown>;
+      contextAwareness?: Record<string, unknown>;
     }
   ): Promise<DiscussionParticipantType> {
     try {
@@ -442,7 +444,7 @@ export class DiscussionService {
       const participant = await participantManagementService.createAgentParticipant({
         discussionId,
         agentId: participantRequest.agentId,
-        displayName: participantRequest.displayName || (agent as any).name,
+        displayName: participantRequest.displayName || (agent as unknown).name,
         roleInDiscussion: participantRequest.role || 'participant',
         permissions: participantRequest.permissions,
         turnOrder: participantRequest.turnOrder,
@@ -496,9 +498,9 @@ export class DiscussionService {
       permissions?: string[];
       turnOrder?: number;
       turnWeight?: number;
-      participationConfig?: Record<string, any>;
-      behavioralConstraints?: Record<string, any>;
-      contextAwareness?: Record<string, any>;
+      participationConfig?: Record<string, unknown>;
+      behavioralConstraints?: Record<string, unknown>;
+      contextAwareness?: Record<string, unknown>;
     }
   ): Promise<DiscussionParticipantType> {
     try {
@@ -781,7 +783,7 @@ export class DiscussionService {
         {
           take: limit,
           skip: offset,
-          order: { createdAt: 'ASC' } as any,
+          order: { createdAt: 'ASC' } as unknown,
         }
       );
 
@@ -955,7 +957,7 @@ export class DiscussionService {
           decisionsReached: discussion.state?.decisions?.length,
           consensusAchieved: discussion.state?.consensusLevel >= 0.8,
           actionItemsGenerated: discussion.state?.actionItems?.length,
-          keyInsights: discussion.state?.keyPoints?.map((kp: any) => kp.point) || [],
+          keyInsights: discussion.state?.keyPoints?.map((kp: unknown) => kp.point) || [],
           unresolvedIssues: [],
         },
         quality: {
@@ -1003,16 +1005,18 @@ export class DiscussionService {
     }
 
     // Validate agents exist
-    for (const participant of request.initialParticipants) {
-      if (participant.agentId) {
+    await Promise.all(
+      request.initialParticipants.map(async (participant) => {
+        if (!participant.agentId) {
+          throw new Error('Participant agentId is required');
+        }
+
         const agent = await this.databaseService.findById('agents', participant.agentId);
         if (!agent) {
           throw new Error(`Agent not found: ${participant.agentId}`);
         }
-      } else {
-        throw new Error('Participant agentId is required');
-      }
-    }
+      })
+    );
   }
 
   private async initializeFirstTurn(discussionId: string): Promise<void> {
@@ -1052,13 +1056,13 @@ export class DiscussionService {
     return activeParticipants[nextIndex]?.id;
   }
 
-  private async checkTurnAdvancement(discussionId: string): Promise<void> {
+  private async checkTurnAdvancement(_discussionId: string): Promise<void> {
     // Check if turn should automatically advance based on strategy
     // This would implement various turn advancement rules
     // For now, this is a placeholder
   }
 
-  private async analyzeMessageSentiment(content: string): Promise<{
+  private async analyzeMessageSentiment(_content: string): Promise<{
     sentiment: MessageSentiment;
     confidence: number;
   }> {
@@ -1110,8 +1114,8 @@ export class DiscussionService {
   }
 
   private async updateDiscussionAnalytics(
-    discussionId: string,
-    message: DiscussionMessage
+    _discussionId: string,
+    _message: DiscussionMessage
   ): Promise<void> {
     // Update real-time analytics based on new message
     // This would update various metrics and statistics
@@ -1197,7 +1201,7 @@ export class DiscussionService {
     }
   }
 
-  private async calculateFinalAnalytics(discussionId: string): Promise<any> {
+  private async calculateFinalAnalytics(discussionId: string): Promise<unknown> {
     // Calculate comprehensive final analytics for completed discussion
     const discussion = await this.getDiscussion(discussionId);
     if (!discussion) return {};
@@ -1210,7 +1214,9 @@ export class DiscussionService {
     };
   }
 
-  private async generateDiscussionSummary(discussionId: string): Promise<DiscussionSummary | null> {
+  private async generateDiscussionSummary(
+    _discussionId: string
+  ): Promise<DiscussionSummary | null> {
     // Generate AI-powered discussion summary
     // This would use LLM services to create comprehensive summaries
     return null;
@@ -1219,7 +1225,7 @@ export class DiscussionService {
   private async emitDiscussionEvent(
     discussionId: string,
     type: DiscussionEventType,
-    data: any,
+    data: unknown,
     participantId?: string
   ): Promise<void> {
     if (!this.enableRealTimeEvents) return;

@@ -27,9 +27,9 @@ export interface ApprovalRequest {
   operationType: string;
   requiredApprovers: string[];
   securityLevel: SecurityLevel;
-  context: Record<string, any>;
+  context: Record<string, unknown>;
   expirationHours?: number;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 export interface ApprovalWorkflowStatus {
@@ -332,7 +332,7 @@ export class ApprovalWorkflowService {
       await this.securityService
         .getApprovalWorkflowRepository()
         .updateApprovalWorkflow(workflowId, {
-          status: 'cancelled' as any,
+          status: 'cancelled' as unknown,
         });
 
       // Notify approvers
@@ -390,10 +390,12 @@ export class ApprovalWorkflowService {
         .getApprovalWorkflowRepository()
         .getPendingWorkflowsForReminders(reminderThreshold);
 
-      for (const workflowEntity of workflows) {
-        const workflow = this.mapEntityToWorkflow(workflowEntity);
-        await this.sendWorkflowReminder(workflow);
-      }
+      await Promise.all(
+        workflows.map(async (workflowEntity) => {
+          const workflow = this.mapEntityToWorkflow(workflowEntity);
+          await this.sendWorkflowReminder(workflow);
+        })
+      );
     } catch (error) {
       logger.error('Failed to send approval reminders', { error });
     }
@@ -417,26 +419,27 @@ export class ApprovalWorkflowService {
         return;
       }
 
-      for (const workflowEntity of workflows) {
-        try {
-          logger.debug('Expiring workflow', { workflowId: workflowEntity.id });
-          await this.expireWorkflow(workflowEntity.id);
-          logger.info('Successfully expired workflow', { workflowId: workflowEntity.id });
-        } catch (workflowError) {
-          logger.error('Failed to expire individual workflow', {
-            workflowId: workflowEntity.id,
-            error:
-              workflowError instanceof Error
-                ? {
-                    message: workflowError.message,
-                    stack: workflowError.stack,
-                    name: workflowError.name,
-                  }
-                : workflowError,
-          });
-          // Continue with other workflows even if one fails
-        }
-      }
+      await Promise.all(
+        workflows.map(async (workflowEntity) => {
+          try {
+            logger.debug('Expiring workflow', { workflowId: workflowEntity.id });
+            await this.expireWorkflow(workflowEntity.id);
+            logger.info('Successfully expired workflow', { workflowId: workflowEntity.id });
+          } catch (workflowError) {
+            logger.error('Failed to expire individual workflow', {
+              workflowId: workflowEntity.id,
+              error:
+                workflowError instanceof Error
+                  ? {
+                      message: workflowError.message,
+                      stack: workflowError.stack,
+                      name: workflowError.name,
+                    }
+                  : workflowError,
+            });
+          }
+        })
+      );
     } catch (error) {
       logger.error('Failed to expire workflows', {
         error:
@@ -462,7 +465,7 @@ export class ApprovalWorkflowService {
       const updatedWorkflow = await this.securityService
         .getApprovalWorkflowRepository()
         .updateApprovalWorkflow(workflowId, {
-          status: 'expired' as any,
+          status: 'expired' as unknown,
         });
 
       if (!updatedWorkflow) {
@@ -561,11 +564,9 @@ export class ApprovalWorkflowService {
     const newStatus = approved ? ApprovalStatus.APPROVED : ApprovalStatus.REJECTED;
 
     // Update workflow status
-    await this.securityService
-      .getApprovalWorkflowRepository()
-      .updateApprovalWorkflow(workflow.id, {
-        status: newStatus as any,
-      });
+    await this.securityService.getApprovalWorkflowRepository().updateApprovalWorkflow(workflow.id, {
+      status: newStatus as unknown,
+    });
 
     // Notify stakeholders
     await this.notifyApprovers(workflow, approved ? 'approval_completed' : 'approval_rejected');
@@ -602,11 +603,9 @@ export class ApprovalWorkflowService {
     }
 
     // Update in database
-    await this.securityService
-      .getApprovalWorkflowRepository()
-      .updateApprovalWorkflow(workflow.id, {
-        currentApprovers: workflow.currentApprovers,
-      });
+    await this.securityService.getApprovalWorkflowRepository().updateApprovalWorkflow(workflow.id, {
+      currentApprovers: workflow.currentApprovers,
+    });
 
     return { ...workflow, updatedAt: new Date() };
   }
@@ -659,23 +658,25 @@ export class ApprovalWorkflowService {
   private async notifyApprovers(
     workflow: ApprovalWorkflowType,
     type: string,
-    additionalData?: Record<string, any>
+    additionalData?: Record<string, unknown>
   ): Promise<void> {
     try {
       // Send notifications to each approver individually
-      for (const approverId of workflow.requiredApprovers) {
-        await this.notificationService.sendNotification({
-          type,
-          recipient: approverId,
-          subject: this.getNotificationSubject(type, workflow),
-          message: this.getNotificationMessage(type, workflow),
-          data: {
-            workflowId: workflow.id,
-            operationId: workflow.operationId,
-            ...additionalData,
-          },
-        });
-      }
+      await Promise.all(
+        workflow.requiredApprovers.map(async (approverId) =>
+          this.notificationService.sendNotification({
+            type,
+            recipient: approverId,
+            subject: this.getNotificationSubject(type, workflow),
+            message: this.getNotificationMessage(type, workflow),
+            data: {
+              workflowId: workflow.id,
+              operationId: workflow.operationId,
+              ...additionalData,
+            },
+          })
+        )
+      );
     } catch (error) {
       logger.error('Failed to send notifications', {
         workflowId: workflow.id,
@@ -764,7 +765,7 @@ export class ApprovalWorkflowService {
   /**
    * Entity mapping helper
    */
-  private mapEntityToWorkflow(entity: any): ApprovalWorkflowType {
+  private mapEntityToWorkflow(entity: unknown): ApprovalWorkflowType {
     return {
       id: entity.id,
       operationId: entity.operationId,

@@ -10,8 +10,8 @@ import {
   SecurityLevel,
   RiskLevel,
   AuditEventType,
-  Operation,
-  SecurityContext,
+  Operation as _Operation,
+  SecurityContext as _SecurityContext,
 } from '@uaip/types';
 
 // Mock the services
@@ -39,9 +39,9 @@ describe('SecurityGatewayService', () => {
     mockApprovalWorkflowService = createMockApprovalWorkflowService();
 
     securityGatewayService = new SecurityGatewayService(
-      mockDatabaseService as any,
-      mockApprovalWorkflowService as any,
-      mockAuditService as any
+      mockDatabaseService as unknown,
+      mockApprovalWorkflowService as unknown,
+      mockAuditService as unknown
     );
   });
 
@@ -117,7 +117,7 @@ describe('SecurityGatewayService', () => {
       // Mock current time to be off-hours (10 PM)
       const offHoursDate = new Date();
       offHoursDate.setHours(22, 0, 0, 0);
-      jest.spyOn(global, 'Date').mockImplementation(() => offHoursDate as any);
+      jest.spyOn(global, 'Date').mockImplementation(() => offHoursDate as unknown);
 
       const request = createSecurityValidationRequest({
         operation: {
@@ -168,7 +168,7 @@ describe('SecurityGatewayService', () => {
           userId: 'user-123',
           timestamp: new Date(Date.now() - 48 * 60 * 60 * 1000), // 2 days ago
         },
-      ] as any);
+      ] as unknown);
 
       const request = createSecurityValidationRequest();
       const result = await securityGatewayService.validateSecurity(request);
@@ -368,7 +368,8 @@ describe('SecurityGatewayService', () => {
         })
       );
 
-      const callArgs = mockApprovalWorkflowService.createApprovalWorkflow.mock.calls[0][0] as any;
+      const callArgs = mockApprovalWorkflowService.createApprovalWorkflow.mock
+        .calls[0][0] as unknown;
       // Critical operations should have shorter expiration times
       if (riskAssessment.overallRisk === RiskLevel.CRITICAL) {
         expect(callArgs.expirationHours).toBeLessThanOrEqual(4);
@@ -376,7 +377,7 @@ describe('SecurityGatewayService', () => {
     });
 
     it('should handle workflow creation errors', async () => {
-      (mockApprovalWorkflowService.createApprovalWorkflow as any).mockRejectedValue(
+      (mockApprovalWorkflowService.createApprovalWorkflow as unknown).mockRejectedValue(
         new Error('Workflow service unavailable')
       );
 

@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
+import React, { createContext, useContext, useEffect, useState, useCallback, useMemo } from 'react';
 import { useAgents } from './AgentContext';
 import { useAuth } from './AuthContext';
 import uaipAPI from '@/utils/uaip-api';
@@ -6,14 +6,14 @@ import uaipAPI from '@/utils/uaip-api';
 // Import shared types
 import type {
   Operation,
-  OperationStatus,
-  OperationPriority,
+  _OperationStatus,
+  _OperationPriority,
   Capability,
   ApprovalWorkflow,
-  HealthStatus,
-  SystemMetrics as SharedSystemMetrics,
-  LLMModel,
-  DiscussionEvent,
+  _HealthStatus,
+  SystemMetrics as _SharedSystemMetrics,
+  _LLMModel,
+  _DiscussionEvent,
 } from '@uaip/types';
 
 // Import UI-specific types
@@ -22,15 +22,15 @@ import type {
   UIOperation,
   UICapability,
   UIApprovalWorkflow,
-  AgentCapabilityMetrics,
-  SecurityContext,
-  OperationEvent,
+  _AgentCapabilityMetrics,
+  _SecurityContext,
+  _OperationEvent,
   SystemMetrics,
   ToolIntegration,
   AIInsight,
-  ConversationContext,
-  CapabilityUsage,
-  WebSocketEvent,
+  _ConversationContext,
+  _CapabilityUsage,
+  _WebSocketEvent,
   UIState,
   UIError,
   DataState,
@@ -64,7 +64,7 @@ interface UAIPContextType {
 
   // Actions
   refreshData: () => Promise<void>;
-  executeOperation: (operationDef: any) => Promise<string>;
+  executeOperation: (operationDef: unknown) => Promise<string>;
   approveExecution: (executionId: string) => Promise<void>;
   rejectExecution: (executionId: string, reason: string) => Promise<void>;
 
@@ -79,7 +79,7 @@ interface UAIPContextType {
 const UAIPContext = createContext<UAIPContextType | undefined>(undefined);
 
 // Data transformation utilities
-const transformAgentToEnhanced = (agent: any): EnhancedAgentState => ({
+const transformAgentToEnhanced = (agent: unknown): EnhancedAgentState => ({
   id: agent.id,
   name: agent.name || `Agent ${agent.id}`,
   role: agent.role || 'assistant',
@@ -90,7 +90,7 @@ const transformAgentToEnhanced = (agent: any): EnhancedAgentState => ({
     totalOperations: agent.toolUsageHistory?.length || 0,
     successRate:
       agent.toolUsageHistory?.length > 0
-        ? agent.toolUsageHistory.filter((usage: any) => usage.success).length /
+        ? agent.toolUsageHistory.filter((usage: unknown) => usage.success).length /
           agent.toolUsageHistory.length
         : 0,
     averageResponseTime: 250, // Default value, would come from actual metrics
@@ -113,7 +113,7 @@ const transformAgentToEnhanced = (agent: any): EnhancedAgentState => ({
   },
 });
 
-const transformOperationToUI = (operation: Operation): UIOperation => ({
+const _transformOperationToUI = (operation: Operation): UIOperation => ({
   ...operation,
   progress:
     operation.status === OperationStatus.RUNNING
@@ -136,8 +136,8 @@ const transformApprovalToUI = (approval: ApprovalWorkflow): UIApprovalWorkflow =
 export function UAIPProvider({ children }: { children: React.ReactNode }) {
   const {
     agents: agentContextAgents,
-    agentIntelligence,
-    capabilityRegistry,
+    _agentIntelligence,
+    _capabilityRegistry,
     orchestrationPipeline,
   } = useAgents();
   const { user } = useAuth();
@@ -254,7 +254,7 @@ export function UAIPProvider({ children }: { children: React.ReactNode }) {
         ? toolsResponse
         : toolsResponse?.tools || toolsResponse?.data?.tools || [];
 
-      const uiCapabilities = toolsArray.map((tool: any) =>
+      const uiCapabilities = toolsArray.map((tool: unknown) =>
         transformCapabilityToUI({
           id: tool.id,
           name: tool.name,
@@ -339,7 +339,7 @@ export function UAIPProvider({ children }: { children: React.ReactNode }) {
   const generateInsights = useCallback(() => {
     const newInsights: AIInsight[] = [];
     const agentData = agents.data;
-    const operationData = operations.data;
+    const _operationData = operations.data;
 
     // Agent collaboration insight
     if (agentData.length > 1) {
@@ -400,7 +400,7 @@ export function UAIPProvider({ children }: { children: React.ReactNode }) {
 
   // WebSocket integration
   useEffect(() => {
-    let wsClient: any = null;
+    const wsClient: unknown = null;
 
     const initWebSocket = async () => {
       if (!user) return;
@@ -408,7 +408,6 @@ export function UAIPProvider({ children }: { children: React.ReactNode }) {
       try {
         // WebSocket initialization removed - using useWebSocket hook in components instead
         setIsWebSocketConnected(false);
-        console.log('WebSocket initialization skipped - using useWebSocket hook in components');
       } catch (error) {
         console.warn('WebSocket not available:', error);
         setIsWebSocketConnected(false);
@@ -481,7 +480,7 @@ export function UAIPProvider({ children }: { children: React.ReactNode }) {
   }, [loadCapabilities, loadApprovals, generateInsights]);
 
   const executeOperation = useCallback(
-    async (operationDef: any): Promise<string> => {
+    async (operationDef: unknown): Promise<string> => {
       const operationId = await orchestrationPipeline.createOperation(operationDef);
       await orchestrationPipeline.executeOperation(operationId);
       return operationId;
@@ -549,7 +548,7 @@ export function UAIPProvider({ children }: { children: React.ReactNode }) {
 
   const clearError = useCallback((errorId: string) => {
     // Clear error from all data states
-    const clearErrorFromState = (state: any) => ({
+    const clearErrorFromState = (state: unknown) => ({
       ...state,
       error: state.error?.id === errorId ? undefined : state.error,
     });
@@ -587,34 +586,55 @@ export function UAIPProvider({ children }: { children: React.ReactNode }) {
     }));
   }, []);
 
-  const value: UAIPContextType = {
-    // Data states
-    agents,
-    operations,
-    capabilities,
-    approvals,
-    insights,
-    events,
-    systemMetrics,
-    toolIntegrations,
+  const value: UAIPContextType = useMemo(
+    () => ({
+      // Data states
+      agents,
+      operations,
+      capabilities,
+      approvals,
+      insights,
+      events,
+      systemMetrics,
+      toolIntegrations,
 
-    // UI state
-    uiState,
-    setUIState,
+      // UI state
+      uiState,
+      setUIState,
 
-    // Actions
-    refreshData,
-    executeOperation,
-    approveExecution,
-    rejectExecution,
+      // Actions
+      refreshData,
+      executeOperation,
+      approveExecution,
+      rejectExecution,
 
-    // WebSocket status
-    isWebSocketConnected,
+      // WebSocket status
+      isWebSocketConnected,
 
-    // Error handling
-    clearError,
-    addError,
-  };
+      // Error handling
+      clearError,
+      addError,
+    }),
+    [
+      agents,
+      operations,
+      capabilities,
+      approvals,
+      insights,
+      events,
+      systemMetrics,
+      toolIntegrations,
+      uiState,
+      setUIState,
+      refreshData,
+      executeOperation,
+      approveExecution,
+      rejectExecution,
+      isWebSocketConnected,
+      clearError,
+      addError,
+    ]
+  );
 
   return <UAIPContext.Provider value={value}>{children}</UAIPContext.Provider>;
 }

@@ -66,7 +66,7 @@ export class DatabaseConnectionError extends Error {
 }
 
 export class ValidationError extends Error {
-  constructor(field: string, value: any, expectedType: string) {
+  constructor(field: string, value: unknown, expectedType: string) {
     super(`Validation failed for field '${field}': expected ${expectedType}, got ${typeof value}`);
     this.name = 'ValidationError';
   }

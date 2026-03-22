@@ -65,7 +65,11 @@ class QuestionForgeApp extends BaseService {
   }
 
   protected async setupRoutes(): Promise<void> {
-    registerQuestionForgeRoutes(this.app as any, this.forgeService, this.interviewService);
+    registerQuestionForgeRoutes(
+      this.app as unknown as { group: (path: string, cb: (g: unknown) => unknown) => unknown },
+      this.forgeService,
+      this.interviewService
+    );
 
     this.app.get('/status', () => ({
       service: this.config.name,

@@ -17,7 +17,7 @@ import { AutocompleteSuggestion, ConversationWebSocketEventType } from '@uaip/ty
 interface SmartInputFieldProps {
   agentId: string;
   conversationId?: string;
-  onSubmit: (text: string, intent?: any) => void;
+  onSubmit: (text: string, intent?: unknown) => void;
   placeholder?: string;
   className?: string;
 }
@@ -41,7 +41,7 @@ export const SmartInputField: React.FC<SmartInputFieldProps> = ({
   const [suggestions, setSuggestions] = useState<AutocompleteSuggestion[]>([]);
   const [selectedIndex, setSelectedIndex] = useState(-1);
   const [showSuggestions, setShowSuggestions] = useState(false);
-  const [detectedIntent, setDetectedIntent] = useState<any>(null);
+  const [detectedIntent, setDetectedIntent] = useState<unknown>(null);
   const [socket, setSocket] = useState<Socket | null>(null);
 
   const inputRef = useRef<HTMLInputElement>(null);
@@ -58,9 +58,7 @@ export const SmartInputField: React.FC<SmartInputFieldProps> = ({
       query: { agentId, conversationId },
     });
 
-    newSocket.on('connected', (data) => {
-      console.log('Connected to conversation intelligence:', data);
-    });
+    newSocket.on('connected', (_data) => {});
 
     newSocket.on(ConversationWebSocketEventType.AUTOCOMPLETE_RESULTS, (data) => {
       setSuggestions(data.suggestions);

@@ -11,7 +11,7 @@ import {
   PersonaStatus,
   PersonaVisibility,
   ExpertiseDomain,
-  PersonaTrait,
+  PersonaTrait as _PersonaTrait,
   ConversationalStyle,
 } from '@uaip/types';
 import { DatabaseService } from '@uaip/infra/database';
@@ -152,7 +152,7 @@ export class PersonaService {
       const updatedPersona = { ...existingPersona, ...updates };
       const validation = await this.validatePersona(updatedPersona);
 
-      const updateData: any = { ...updates };
+      const updateData: unknown = { ...updates };
       if (updates.expertise) {
         updateData.expertise = this.extractExpertiseNames(updates.expertise);
       }
@@ -642,18 +642,18 @@ export class PersonaService {
     }
   }
 
-  private async getPersonaUsageCount(personaId: string): Promise<number> {
+  private async getPersonaUsageCount(_personaId: string): Promise<number> {
     return 0;
   }
 
-  private async getUserPersonaHistory(userId: string): Promise<any[]> {
+  private async getUserPersonaHistory(_userId: string): Promise<unknown[]> {
     return [];
   }
 
   private async generateRecommendations(
-    userHistory: any[],
-    context?: string,
-    limit = 10
+    _userHistory: unknown[],
+    _context?: string,
+    _limit = 10
   ): Promise<PersonaRecommendation[]> {
     return [];
   }
@@ -677,9 +677,9 @@ export class PersonaService {
   }
 
   private async calculatePersonaMetrics(
-    personaId: string,
-    timeframe: { start: Date; end: Date }
-  ): Promise<any> {
+    _personaId: string,
+    _timeframe: { start: Date; end: Date }
+  ): Promise<unknown> {
     return {
       totalSessions: 0,
       totalMessages: 0,
@@ -692,9 +692,9 @@ export class PersonaService {
   }
 
   private async calculatePersonaTrends(
-    personaId: string,
-    timeframe: { start: Date; end: Date }
-  ): Promise<any> {
+    _personaId: string,
+    _timeframe: { start: Date; end: Date }
+  ): Promise<unknown> {
     return {
       usageGrowth: 0,
       satisfactionTrend: 0,
@@ -703,16 +703,16 @@ export class PersonaService {
   }
 
   private async getTopInteractions(
-    personaId: string,
-    timeframe: { start: Date; end: Date }
-  ): Promise<any[]> {
+    _personaId: string,
+    _timeframe: { start: Date; end: Date }
+  ): Promise<unknown[]> {
     return [];
   }
 
   private async getCommonIssues(
-    personaId: string,
-    timeframe: { start: Date; end: Date }
-  ): Promise<any[]> {
+    _personaId: string,
+    _timeframe: { start: Date; end: Date }
+  ): Promise<unknown[]> {
     return [];
   }
 
@@ -733,7 +733,7 @@ export class PersonaService {
     return Math.min(score, 100);
   }
 
-  private async safePublishEvent(eventType: string, data: any): Promise<void> {
+  private async safePublishEvent(eventType: string, data: unknown): Promise<void> {
     try {
       await this.eventBusService.publish(eventType, data);
     } catch (error) {
@@ -1033,7 +1033,6 @@ export class PersonaService {
 
     // Log the role categorization for debugging
     const category = roleToCategory[role] || 'Business';
-    console.log(`[PersonaService] Categorizing role "${role}" -> "${category}"`);
 
     return category;
   }

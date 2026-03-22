@@ -1,10 +1,11 @@
-import { BaseService, ServiceConfig, allEntities } from '@uaip/shared-services';
+import { BaseService, allEntities } from '@uaip/shared-services';
 import { logger } from '@uaip/utils';
 import {
   StateManagerService,
   ResourceManagerService,
   StepExecutorService,
   CompensationService,
+  OperationManagementService,
   serviceFactory,
   TaskService,
 } from '@uaip/shared-services';
@@ -18,7 +19,7 @@ class OrchestrationPipelineService extends BaseService {
   private resourceManagerService!: ResourceManagerService;
   private stepExecutorService!: StepExecutorService;
   private compensationService!: CompensationService;
-  private operationManagementService: any;
+  private operationManagementService!: OperationManagementService;
   private orchestrationEngine!: OrchestrationEngine;
   private taskService!: TaskService;
   private taskController!: TaskController;
@@ -148,7 +149,7 @@ class OrchestrationPipelineService extends BaseService {
     this.app.post('/api/v1/operations/:operationId/pause', async ({ params, body, set }) => {
       try {
         const { operationId } = params;
-        const { reason } = body as any;
+        const { reason } = body as { reason?: string };
         await this.orchestrationEngine.pauseOperation(operationId, reason);
         return {
           success: true,
@@ -169,7 +170,7 @@ class OrchestrationPipelineService extends BaseService {
     this.app.post('/api/v1/operations/:operationId/resume', async ({ params, body, set }) => {
       try {
         const { operationId } = params;
-        const { checkpointId } = body as any;
+        const { checkpointId } = body as { checkpointId?: string };
         await this.orchestrationEngine.resumeOperation(operationId, checkpointId);
         return {
           success: true,
@@ -190,7 +191,11 @@ class OrchestrationPipelineService extends BaseService {
     this.app.post('/api/v1/operations/:operationId/cancel', async ({ params, body, set }) => {
       try {
         const { operationId } = params;
-        const { reason, compensate = true, force = false } = body as any;
+        const {
+          reason,
+          compensate = true,
+          force = false,
+        } = body as { reason: string; compensate?: boolean; force?: boolean };
         await this.orchestrationEngine.cancelOperation(operationId, reason, compensate, force);
         return {
           success: true,
@@ -209,7 +214,7 @@ class OrchestrationPipelineService extends BaseService {
     });
   }
 
-  protected async getHealthInfo(): Promise<any> {
+  protected async getHealthInfo(): Promise<Record<string, unknown>> {
     const isHealthy = await this.operationManagementService.isHealthy();
     return {
       operationManagement: isHealthy ? 'healthy' : 'unhealthy',

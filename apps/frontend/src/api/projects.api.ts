@@ -19,9 +19,9 @@ export interface Project {
   settings: {
     allowedTools: string[];
     enabledFeatures: string[];
-    [key: string]: any;
+    [key: string]: unknown;
   };
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
   createdAt: string;
   updatedAt: string;
 }
@@ -32,8 +32,8 @@ export interface ProjectCreate {
   type: ProjectType;
   visibility?: 'public' | 'private' | 'internal';
   recommendedAgents?: string[];
-  settings?: any;
-  metadata?: any;
+  settings?: unknown;
+  metadata?: unknown;
 }
 
 export interface ProjectUpdate {
@@ -43,8 +43,8 @@ export interface ProjectUpdate {
   type?: ProjectType;
   visibility?: 'public' | 'private' | 'internal';
   recommendedAgents?: string[];
-  settings?: any;
-  metadata?: any;
+  settings?: unknown;
+  metadata?: unknown;
 }
 
 export interface ProjectMember {
@@ -66,7 +66,7 @@ export interface ProjectFile {
   path: string;
   content?: string;
   type: string;
-  metadata?: any;
+  metadata?: unknown;
   createdAt: string;
   updatedAt: string;
 }
@@ -150,7 +150,7 @@ export const projectsAPI = {
       path: string;
       content?: string;
       type?: string;
-      metadata?: any;
+      metadata?: unknown;
     }
   ): Promise<ProjectFile> {
     return APIClient.post<ProjectFile>(`${API_ROUTES.PROJECTS.GET}/${projectId}/files`, file);
@@ -161,7 +161,7 @@ export const projectsAPI = {
     fileId: string,
     updates: {
       content?: string;
-      metadata?: any;
+      metadata?: unknown;
     }
   ): Promise<ProjectFile> {
     return APIClient.patch<ProjectFile>(
@@ -190,11 +190,11 @@ export const projectsAPI = {
   },
 
   // Analytics and stats
-  async getStats(projectId: string): Promise<any> {
+  async getStats(projectId: string): Promise<unknown> {
     return APIClient.get(`${API_ROUTES.PROJECTS.GET}/${projectId}/stats`);
   },
 
-  async getActivity(projectId: string, days: number = 30): Promise<any> {
+  async getActivity(projectId: string, days: number = 30): Promise<unknown> {
     return APIClient.get(`${API_ROUTES.PROJECTS.GET}/${projectId}/activity`, {
       params: { days },
     });

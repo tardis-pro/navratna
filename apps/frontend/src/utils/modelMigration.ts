@@ -19,7 +19,6 @@ export const migrateAgentModelIds = (
       if (matchingModels.length > 0) {
         // Prefer the first available model (you could add more sophisticated logic here)
         migratedAgent.modelId = matchingModels[0].id;
-        console.log(`Migrated agent ${agentId} from ${agent.modelId} to ${matchingModels[0].id}`);
 
         // If multiple models found, log the options
         if (matchingModels.length > 1) {

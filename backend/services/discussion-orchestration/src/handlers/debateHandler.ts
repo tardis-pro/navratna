@@ -2,6 +2,7 @@ import { Server } from 'socket.io';
 import { DebateOrchestratorService } from '@uaip/shared-services';
 import { EventBusService } from '@uaip/infra/eventBus';
 import { logger } from '@uaip/utils';
+import { Argument, Vote, ConsensusResult } from '@uaip/types';
 
 export class DebateHandler {
   private io: Server;

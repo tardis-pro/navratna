@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { motion, AnimatePresence, useAnimation } from 'framer-motion';
+import { motion, AnimatePresence, _useAnimation } from 'framer-motion';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -90,7 +90,7 @@ function DustParticles({ clearing }: { clearing: boolean }) {
 
         return { id: i, size, left, top, delay, duration, drift };
       }),
-    [],
+    []
   );
 
   return (
@@ -213,10 +213,7 @@ export function MorningFog({ items, isActive, onCleared, className }: MorningFog
     <AnimatePresence>
       {shouldShow && (
         <motion.div
-          className={[
-            'fixed inset-0 z-[9000] pointer-events-none',
-            className,
-          ]
+          className={['fixed inset-0 z-[9000] pointer-events-none', className]
             .filter(Boolean)
             .join(' ')}
           initial={{ opacity: 1 }}

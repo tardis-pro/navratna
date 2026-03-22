@@ -1,5 +1,9 @@
 import { Router, Request, Response } from '@uaip/shared-services';
-import { KnowledgeIngestRequest, KnowledgeSearchRequest, KnowledgeItem } from '@uaip/types';
+import {
+  KnowledgeIngestRequest,
+  KnowledgeSearchRequest,
+  KnowledgeItem as _KnowledgeItem,
+} from '@uaip/types';
 import {
   UserKnowledgeService,
   getUserKnowledgeService,
@@ -50,7 +54,7 @@ router.post('/', authMiddleware, async (req: Request, res: Response) => {
     const requestData = Array.isArray(req.body) ? req.body : [req.body];
 
     // Transform frontend data to backend format
-    const knowledgeItems: KnowledgeIngestRequest[] = requestData.map((item: any) => {
+    const knowledgeItems: KnowledgeIngestRequest[] = requestData.map((item: unknown) => {
       // Handle both frontend KnowledgeUploadRequest and backend KnowledgeIngestRequest formats
       if (item.source) {
         // Already in backend format
@@ -128,8 +132,8 @@ router.get('/', authMiddleware, async (req: Request, res: Response) => {
       offset = '0',
       tags,
       types,
-      sortBy = 'created_at',
-      sortOrder = 'desc',
+      _sortBy = 'created_at',
+      _sortOrder = 'desc',
     } = req.query;
 
     // Use search with empty query to get all items
@@ -140,7 +144,7 @@ router.get('/', authMiddleware, async (req: Request, res: Response) => {
         types: types
           ? typeof types === 'string'
             ? types.split(',')
-            : (types as any[])
+            : (types as unknown[])
           : undefined,
       },
       options: {
@@ -215,7 +219,7 @@ router.get('/search', authMiddleware, async (req: Request, res: Response) => {
         types: types
           ? typeof types === 'string'
             ? types.split(',')
-            : (types as any[])
+            : (types as unknown[])
           : undefined,
         confidence: confidence ? parseFloat(confidence as string) : undefined,
       },
@@ -552,7 +556,7 @@ router.get('/graph', authMiddleware, async (req: Request, res: Response) => {
         types: types
           ? typeof types === 'string'
             ? types.split(',')
-            : (types as any[])
+            : (types as unknown[])
           : undefined,
         tags: tags ? (typeof tags === 'string' ? tags.split(',') : (tags as string[])) : undefined,
       },
@@ -581,30 +585,31 @@ router.get('/graph', authMiddleware, async (req: Request, res: Response) => {
     }));
 
     // Get relationships for all items
-    const edges: any[] = [];
+    const edges: unknown[] = [];
     if (includeRelationships === 'true') {
-      for (const item of searchResult.items) {
-        try {
-          const relatedItems = await userKnowledgeService!.findRelatedKnowledge(userId, item.id);
-          relatedItems.forEach((relatedItem) => {
-            // Only include edges where both nodes exist in our result set
-            if (searchResult.items.some((i) => i.id === relatedItem.id)) {
-              edges.push({
-                id: `${item.id}-${relatedItem.id}`,
-                source: item.id,
-                target: relatedItem.id,
-                type: 'relationship',
-                data: {
-                  relationshipType: 'related',
-                  confidence: 0.8,
-                },
-              });
-            }
-          });
-        } catch (error) {
-          console.warn(`Failed to get relationships for item ${item.id}:`, error);
-        }
-      }
+      await Promise.all(
+        searchResult.items.map(async (item) => {
+          try {
+            const relatedItems = await userKnowledgeService!.findRelatedKnowledge(userId, item.id);
+            relatedItems.forEach((relatedItem) => {
+              if (searchResult.items.some((i) => i.id === relatedItem.id)) {
+                edges.push({
+                  id: `${item.id}-${relatedItem.id}`,
+                  source: item.id,
+                  target: relatedItem.id,
+                  type: 'relationship',
+                  data: {
+                    relationshipType: 'related',
+                    confidence: 0.8,
+                  },
+                });
+              }
+            });
+          } catch (error) {
+            console.warn(`Failed to get relationships for item ${item.id}:`, error);
+          }
+        })
+      );
     }
 
     res.json({
@@ -755,7 +760,7 @@ router.post('/sync', authMiddleware, async (req: Request, res: Response) => {
       return;
     }
 
-    const { userKnowledgeService, initializationError } = await getServices();
+    const { initializationError } = await getServices();
     if (initializationError) {
       res.status(503).json({
         error: 'Knowledge service not available',

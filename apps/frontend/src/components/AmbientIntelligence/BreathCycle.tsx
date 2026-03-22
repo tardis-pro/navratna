@@ -46,10 +46,38 @@ interface ZoneConfig {
 }
 
 const ZONE_CONFIGS: ZoneConfig[] = [
-  { zone: 'idle', duration: 6, opacityRange: [0.97, 1], scaleRange: [0.998, 1], hue: 250, chroma: 0.02 },
-  { zone: 'normal', duration: 4, opacityRange: [0.965, 1], scaleRange: [0.997, 1], hue: 264, chroma: 0.02 },
-  { zone: 'busy', duration: 2.5, opacityRange: [0.955, 1], scaleRange: [0.996, 1], hue: 75, chroma: 0.04 },
-  { zone: 'stressed', duration: 1.5, opacityRange: [0.94, 1], scaleRange: [0.994, 1], hue: 25, chroma: 0.06 },
+  {
+    zone: 'idle',
+    duration: 6,
+    opacityRange: [0.97, 1],
+    scaleRange: [0.998, 1],
+    hue: 250,
+    chroma: 0.02,
+  },
+  {
+    zone: 'normal',
+    duration: 4,
+    opacityRange: [0.965, 1],
+    scaleRange: [0.997, 1],
+    hue: 264,
+    chroma: 0.02,
+  },
+  {
+    zone: 'busy',
+    duration: 2.5,
+    opacityRange: [0.955, 1],
+    scaleRange: [0.996, 1],
+    hue: 75,
+    chroma: 0.04,
+  },
+  {
+    zone: 'stressed',
+    duration: 1.5,
+    opacityRange: [0.94, 1],
+    scaleRange: [0.994, 1],
+    hue: 25,
+    chroma: 0.06,
+  },
 ];
 
 // ---------------------------------------------------------------------------
@@ -113,41 +141,24 @@ function buildTintColor(hue: number, chroma: number, alpha: number = 0.04): stri
 // Component: BreathCycle
 // ---------------------------------------------------------------------------
 
-export function BreathCycle({
-  systemLoad,
-  isActive,
-  children,
-  className,
-}: BreathCycleProps) {
+export function BreathCycle({ systemLoad, isActive, children, className }: BreathCycleProps) {
   const interpolated = useMemo(() => interpolateZone(systemLoad), [systemLoad]);
 
   const tintColor = useMemo(
     () => buildTintColor(interpolated.hue, interpolated.chroma),
-    [interpolated.hue, interpolated.chroma],
+    [interpolated.hue, interpolated.chroma]
   );
 
   if (!isActive) {
-    return (
-      <div className={className}>
-        {children}
-      </div>
-    );
+    return <div className={className}>{children}</div>;
   }
 
   return (
     <motion.div
       className={['relative', className].filter(Boolean).join(' ')}
       animate={{
-        opacity: [
-          interpolated.opacityMin,
-          interpolated.opacityMax,
-          interpolated.opacityMin,
-        ],
-        scale: [
-          interpolated.scaleMin,
-          interpolated.scaleMax,
-          interpolated.scaleMin,
-        ],
+        opacity: [interpolated.opacityMin, interpolated.opacityMax, interpolated.opacityMin],
+        scale: [interpolated.scaleMin, interpolated.scaleMax, interpolated.scaleMin],
       }}
       transition={{
         duration: interpolated.duration,
@@ -174,9 +185,7 @@ export function BreathCycle({
       />
 
       {/* Children render above the tint */}
-      <div className="relative z-0">
-        {children}
-      </div>
+      <div className="relative z-0">{children}</div>
     </motion.div>
   );
 }
@@ -211,7 +220,7 @@ export function useBreathCycle(options: UseBreathCycleOptions = {}): UseBreathCy
 
   const tintColor = useMemo(
     () => buildTintColor(interpolated.hue, interpolated.chroma, 0.08),
-    [interpolated.hue, interpolated.chroma],
+    [interpolated.hue, interpolated.chroma]
   );
 
   return {

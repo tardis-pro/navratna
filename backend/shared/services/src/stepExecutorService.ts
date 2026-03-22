@@ -2,13 +2,13 @@ import { EventEmitter } from 'events';
 import {
   ExecutionStep,
   StepStatus,
-  StepExecutionResult,
-  StepType,
-  RetryPolicy,
-  ValidationStep,
-  WorkflowInstance,
+  StepExecutionResult as _StepExecutionResult,
+  StepType as _StepType,
+  RetryPolicy as _RetryPolicy,
+  ValidationStep as _ValidationStep,
+  WorkflowInstance as _WorkflowInstance,
   ExecutionContext,
-  OperationError,
+  OperationError as _OperationError,
 } from '@uaip/types';
 import { logger } from '@uaip/utils';
 import { EventBusService } from './eventBusService';
@@ -16,14 +16,14 @@ import { EventBusService } from './eventBusService';
 export interface StepExecutionContext {
   operationId: string;
   stepId: string;
-  variables: Record<string, any>;
-  metadata: Record<string, any>;
+  variables: Record<string, unknown>;
+  metadata: Record<string, unknown>;
 }
 
 export interface StepResult {
   stepId: string;
   status: StepStatus;
-  data: Record<string, any>;
+  data: Record<string, unknown>;
   error?: string;
   executionTime: number;
   metadata: {
@@ -40,22 +40,18 @@ export interface OperationContext {
   sessionId?: string;
   userRequest?: string;
   environment?: string;
-  constraints?: Record<string, any>;
+  constraints?: Record<string, unknown>;
 }
 
 export class StepExecutorService extends EventEmitter {
   private activeSteps = new Map<string, { step: ExecutionStep; controller: AbortController }>();
-
-  constructor() {
-    super();
-  }
 
   /**
    * Execute a step with the given variables and context
    */
   public async executeStep(
     step: ExecutionStep,
-    variables: Record<string, any>,
+    variables: Record<string, unknown>,
     context: OperationContext
   ): Promise<StepResult> {
     const startTime = Date.now();
@@ -76,7 +72,7 @@ export class StepExecutorService extends EventEmitter {
       const stepInput = this.prepareStepInput(step, variables);
 
       // Execute based on step type
-      let stepData: Record<string, any> = {};
+      let stepData: Record<string, unknown> = {};
 
       switch (step.type) {
         case 'tool':
@@ -197,9 +193,9 @@ export class StepExecutorService extends EventEmitter {
 
   private prepareStepInput(
     step: ExecutionStep,
-    variables: Record<string, any>
-  ): Record<string, any> {
-    const input: Record<string, any> = { ...step.input };
+    _variables: Record<string, unknown>
+  ): Record<string, unknown> {
+    const input: Record<string, unknown> = { ...step.input };
 
     // Apply input mapping
     // TODO: Fix TypeScript errors
@@ -218,9 +214,9 @@ export class StepExecutorService extends EventEmitter {
 
   private async executeToolStep(
     step: ExecutionStep,
-    input: Record<string, any>,
+    input: Record<string, unknown>,
     signal: AbortSignal
-  ): Promise<Record<string, any>> {
+  ): Promise<Record<string, unknown>> {
     const startTime = Date.now();
 
     // Simulate tool execution
@@ -261,9 +257,9 @@ export class StepExecutorService extends EventEmitter {
 
   private async executeArtifactStep(
     step: ExecutionStep,
-    input: Record<string, any>,
+    input: Record<string, unknown>,
     signal: AbortSignal
-  ): Promise<Record<string, any>> {
+  ): Promise<Record<string, unknown>> {
     // Simulate artifact generation
     await this.delay(Math.random() * 3000 + 2000, signal); // 2-5 seconds
 
@@ -277,9 +273,9 @@ export class StepExecutorService extends EventEmitter {
 
   private async executeValidationStep(
     step: ExecutionStep,
-    input: Record<string, any>,
+    input: Record<string, unknown>,
     signal: AbortSignal
-  ): Promise<Record<string, any>> {
+  ): Promise<Record<string, unknown>> {
     // Simulate validation
     await this.delay(Math.random() * 1000 + 500, signal); // 0.5-1.5 seconds
 
@@ -295,9 +291,9 @@ export class StepExecutorService extends EventEmitter {
 
   public async executeApprovalStep(
     step: ExecutionStep,
-    input: Record<string, any>,
+    input: Record<string, unknown>,
     signal: AbortSignal
-  ): Promise<Record<string, any>> {
+  ): Promise<Record<string, unknown>> {
     // Simulate approval (in real implementation, this would wait for user input)
     await this.delay(Math.random() * 5000 + 3000, signal); // 3-8 seconds
 
@@ -313,9 +309,9 @@ export class StepExecutorService extends EventEmitter {
 
   private async executeDelayStep(
     step: ExecutionStep,
-    input: Record<string, any>,
+    input: Record<string, unknown>,
     signal: AbortSignal
-  ): Promise<Record<string, any>> {
+  ): Promise<Record<string, unknown>> {
     const delayMs = input.delayMs || 1000;
     await this.delay(delayMs, signal);
 
@@ -327,9 +323,9 @@ export class StepExecutorService extends EventEmitter {
 
   private async executeDecisionStep(
     step: ExecutionStep,
-    input: Record<string, any>,
+    input: Record<string, unknown>,
     signal: AbortSignal
-  ): Promise<Record<string, any>> {
+  ): Promise<Record<string, unknown>> {
     // Simulate decision making
     await this.delay(Math.random() * 1500 + 500, signal); // 0.5-2 seconds
 
@@ -363,9 +359,9 @@ export class StepExecutorService extends EventEmitter {
   // Add missing methods
   public async executeAgentAction(
     step: ExecutionStep,
-    input: Record<string, any>,
+    input: Record<string, unknown>,
     signal: AbortSignal
-  ): Promise<Record<string, any>> {
+  ): Promise<Record<string, unknown>> {
     await this.delay(Math.random() * 2000 + 1000, signal);
 
     return {
@@ -378,9 +374,9 @@ export class StepExecutorService extends EventEmitter {
 
   public async executeTool(
     step: ExecutionStep,
-    input: Record<string, any>,
+    input: Record<string, unknown>,
     signal: AbortSignal
-  ): Promise<Record<string, any>> {
+  ): Promise<Record<string, unknown>> {
     await this.delay(Math.random() * 1500 + 500, signal);
 
     return {
@@ -393,9 +389,9 @@ export class StepExecutorService extends EventEmitter {
 
   private async executeConditionalStep(
     step: ExecutionStep,
-    input: Record<string, any>,
+    input: Record<string, unknown>,
     signal: AbortSignal
-  ): Promise<Record<string, any>> {
+  ): Promise<Record<string, unknown>> {
     await this.delay(Math.random() * 500 + 200, signal);
 
     const condition = input.condition || step.condition;
@@ -413,9 +409,9 @@ export class StepExecutorService extends EventEmitter {
 
   private async executeParallelStep(
     step: ExecutionStep,
-    input: Record<string, any>,
+    input: Record<string, unknown>,
     signal: AbortSignal
-  ): Promise<Record<string, any>> {
+  ): Promise<Record<string, unknown>> {
     await this.delay(Math.random() * 1000 + 500, signal);
 
     const policy = step.policy || { policy: 'all_success' };
@@ -429,7 +425,7 @@ export class StepExecutorService extends EventEmitter {
     };
   }
 
-  private evaluateCondition(condition: string, input: Record<string, any>): boolean {
+  private evaluateCondition(condition: string, _input: Record<string, unknown>): boolean {
     // Simple condition evaluation - in production, use a proper expression evaluator
     try {
       // For safety, only allow simple true/false conditions for now

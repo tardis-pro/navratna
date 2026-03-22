@@ -1,4 +1,3 @@
-import { logger } from '@uaip/utils';
 import { BaseRepository } from '../base/BaseRepository';
 import { AuditEvent } from '../../entities/auditEvent.entity';
 import { AuditEventType, SecurityLevel } from '@uaip/types';
@@ -18,7 +17,7 @@ export class AuditRepository extends BaseRepository<AuditEvent> {
     agentId?: string;
     resourceType?: string;
     resourceId?: string;
-    details: Record<string, any>;
+    details: Record<string, unknown>;
     ipAddress?: string;
     userAgent?: string;
     riskLevel?: SecurityLevel;
@@ -107,7 +106,7 @@ export class AuditRepository extends BaseRepository<AuditEvent> {
     eventType: string,
     userId?: string,
     minutesBack: number = 5,
-    detailsFilter?: Record<string, any>
+    detailsFilter?: Record<string, unknown>
   ): Promise<number> {
     const queryBuilder = this.repository.createQueryBuilder('event');
 
@@ -269,7 +268,7 @@ export class AuditRepository extends BaseRepository<AuditEvent> {
     sortOrder?: 'ASC' | 'DESC';
     limit?: number;
     offset?: number;
-  }): Promise<{ logs: any[]; total: number }> {
+  }): Promise<{ logs: AuditEvent[]; total: number }> {
     const queryBuilder = this.repository
       .createQueryBuilder('event')
       .leftJoinAndSelect('event.user', 'user')
@@ -339,7 +338,7 @@ export class AuditRepository extends BaseRepository<AuditEvent> {
   /**
    * Get audit log by ID with user details
    */
-  public async getAuditLogById(logId: string): Promise<any | null> {
+  public async getAuditLogById(logId: string): Promise<AuditEvent | null> {
     const log = await this.repository
       .createQueryBuilder('event')
       .leftJoinAndSelect('event.user', 'user')
@@ -513,7 +512,7 @@ export class AuditRepository extends BaseRepository<AuditEvent> {
     eventType?: AuditEventType;
     limit?: number;
     offset?: number;
-  }): Promise<{ activities: any[]; total: number }> {
+  }): Promise<{ activities: AuditEvent[]; total: number }> {
     const queryBuilder = this.repository
       .createQueryBuilder('event')
       .leftJoin('event.user', 'user')

@@ -201,6 +201,27 @@ export interface LearningInsights {
   };
 }
 
+type LearningMomentParams = {
+  learner?: string;
+  teacher?: string;
+  type?: LearningMoment['type'];
+  learningOutcome?: LearningMoment['learningOutcome'];
+  question?: ParsedMessage;
+  answer?: ParsedMessage;
+  teachingMessage?: ParsedMessage;
+  learningResponse?: ParsedMessage;
+  correctionMessage?: ParsedMessage;
+  acceptanceResponse?: ParsedMessage;
+  insightMessage?: ParsedMessage;
+  skillMessage?: ParsedMessage;
+  experienceMessage?: ParsedMessage;
+  allMessages?: ParsedMessage[];
+  response?: ParsedMessage;
+  context?: string;
+  applicationEvidence?: string[];
+  followUpQuestions?: number;
+};
+
 export interface LearningDetectionOptions {
   minConfidence?: number;
   includeMomentsByMoment?: boolean;
@@ -365,7 +386,9 @@ export class LearningDetectorService {
       return validatedMoments;
     } catch (error) {
       logger.error('Learning moment detection failed', { error: error.message });
-      throw new Error(`Learning moment detection failed: ${error.message}`);
+      const wrappedError = new Error(`Learning moment detection failed: ${error.message}`);
+      (wrappedError as Error & { cause?: unknown }).cause = error;
+      throw wrappedError;
     }
   }
 
@@ -379,6 +402,7 @@ export class LearningDetectorService {
     const transfers: KnowledgeTransfer[] = [];
 
     for (const conversation of conversations) {
+      // oxlint-disable-next-line no-await-in-loop
       const conversationTransfers = await this.analyzeConversationForTransfer(
         conversation,
         options
@@ -395,7 +419,7 @@ export class LearningDetectorService {
   async trackLearningProgression(
     moments: LearningMoment[],
     participant: string,
-    options: LearningDetectionOptions = {}
+    _options: LearningDetectionOptions = {}
   ): Promise<LearningProgression> {
     const participantMoments = moments.filter((m) => m.learner === participant);
 
@@ -407,7 +431,7 @@ export class LearningDetectorService {
     participantMoments.sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
 
     // Extract domains
-    const domains = [...new Set(participantMoments.map((m) => m.context.domain))];
+
     const primaryDomain = this.findPrimaryDomain(participantMoments);
 
     // Build timeline
@@ -502,6 +526,7 @@ export class LearningDetectorService {
             );
 
             if (learningResponse) {
+              // oxlint-disable-next-line no-await-in-loop
               const moment = await this.createLearningMoment({
                 learner: currentMessage.sender,
                 teacher: potentialAnswer.sender,
@@ -540,6 +565,7 @@ export class LearningDetectorService {
         const responses = this.findLearningResponses(messages, i + 1, currentMessage.sender);
 
         for (const response of responses) {
+          // oxlint-disable-next-line no-await-in-loop
           const moment = await this.createLearningMoment({
             learner: response.sender,
             teacher: currentMessage.sender,
@@ -575,6 +601,7 @@ export class LearningDetectorService {
 
         for (const response of responses) {
           if (this.indicatesAcceptance(response.content)) {
+            // oxlint-disable-next-line no-await-in-loop
             const moment = await this.createLearningMoment({
               learner: response.sender,
               teacher: currentMessage.sender,
@@ -607,6 +634,7 @@ export class LearningDetectorService {
         // Look for preceding context that might have triggered the insight
         const context = this.findInsightContext(messages, message);
 
+        // oxlint-disable-next-line no-await-in-loop
         const moment = await this.createLearningMoment({
           learner: message.sender,
           teacher: context?.teacher || 'self',
@@ -636,6 +664,7 @@ export class LearningDetectorService {
 
     for (const message of messages) {
       if (this.indicatesSkillImprovement(message.content)) {
+        // oxlint-disable-next-line no-await-in-loop
         const moment = await this.createLearningMoment({
           learner: message.sender,
           teacher: 'practice', // Self-directed learning
@@ -668,6 +697,7 @@ export class LearningDetectorService {
         const responses = this.findLearningResponses(messages, i + 1, currentMessage.sender);
 
         for (const response of responses) {
+          // oxlint-disable-next-line no-await-in-loop
           const moment = await this.createLearningMoment({
             learner: response.sender,
             teacher: currentMessage.sender,
@@ -693,7 +723,7 @@ export class LearningDetectorService {
     return this.questionPatterns.some((pattern) => pattern.test(content));
   }
 
-  private isAnswer(content: string, questionContent: string): boolean {
+  private isAnswer(content: string, _questionContent: string): boolean {
     // Check if content is responding to the question
     if (content.length < 10) return false;
     if (this.isQuestion(content)) return false;
@@ -804,7 +834,7 @@ export class LearningDetectorService {
     return null;
   }
 
-  private async createLearningMoment(params: any): Promise<LearningMoment | null> {
+  private async createLearningMoment(params: LearningMomentParams): Promise<LearningMoment | null> {
     try {
       const topic = await this.extractTopic(params);
       const content = this.extractContent(params);
@@ -836,7 +866,7 @@ export class LearningDetectorService {
     }
   }
 
-  private async extractTopic(params: any): Promise<string> {
+  private async extractTopic(params: LearningMomentParams): Promise<string> {
     // Extract topic from the conversation content
     const contents = [
       params.question?.content,
@@ -852,7 +882,7 @@ export class LearningDetectorService {
     return this.extractTopicFromContent(combinedContent);
   }
 
-  private extractContent(params: any): string {
+  private extractContent(params: LearningMomentParams): string {
     return (
       params.answer?.content ||
       params.teachingMessage?.content ||
@@ -864,7 +894,7 @@ export class LearningDetectorService {
     );
   }
 
-  private async buildContext(params: any): Promise<LearningMoment['context']> {
+  private async buildContext(params: LearningMomentParams): Promise<LearningMoment['context']> {
     const messageIds = [
       params.question?.id,
       params.answer?.id,
@@ -896,7 +926,7 @@ export class LearningDetectorService {
     };
   }
 
-  private calculateConfidence(params: any): number {
+  private calculateConfidence(params: LearningMomentParams): number {
     let confidence = 0.6; // Base confidence
 
     // Boost for explicit learning indicators
@@ -917,7 +947,7 @@ export class LearningDetectorService {
     return Math.min(1, confidence);
   }
 
-  private async assessEffectiveness(params: any): Promise<number> {
+  private async assessEffectiveness(params: LearningMomentParams): Promise<number> {
     let effectiveness = 0.5; // Base effectiveness
 
     // Look for follow-up questions (indicates engagement)
@@ -936,7 +966,7 @@ export class LearningDetectorService {
   }
 
   private async buildMetadata(
-    params: any,
+    params: LearningMomentParams,
     confidence: number,
     effectiveness: number
   ): Promise<LearningMoment['metadata']> {
@@ -956,7 +986,7 @@ export class LearningDetectorService {
   }
 
   // Additional helper methods
-  private extractTimestamp(params: any): Date {
+  private extractTimestamp(params: LearningMomentParams): Date {
     return (
       params.question?.timestamp ||
       params.teachingMessage?.timestamp ||
@@ -1003,12 +1033,12 @@ export class LearningDetectorService {
     return keywords[0] || 'general';
   }
 
-  private async extractDomain(params: any): Promise<string> {
+  private async extractDomain(_params: LearningMomentParams): Promise<string> {
     // Domain extraction based on content analysis
     return 'general'; // Simplified for now
   }
 
-  private assessComplexity(params: any): LearningMoment['context']['complexity'] {
+  private assessComplexity(params: LearningMomentParams): LearningMoment['context']['complexity'] {
     const contents = [
       params.question?.content,
       params.answer?.content,
@@ -1023,7 +1053,7 @@ export class LearningDetectorService {
     return 'basic';
   }
 
-  private calculateDuration(params: any): number {
+  private calculateDuration(params: LearningMomentParams): number {
     // Calculate duration between first and last message
     const timestamps = [
       params.question?.timestamp,
@@ -1040,15 +1070,17 @@ export class LearningDetectorService {
     return Math.round((end - start) / (1000 * 60)); // Duration in minutes
   }
 
-  private countFollowUpQuestions(params: any): number {
+  private countFollowUpQuestions(params: LearningMomentParams): number {
     // Count follow-up questions from the learner
     if (!params.allMessages || !params.learner) return 0;
 
-    const learnerMessages = params.allMessages.filter((m: ParsedMessage) => m.sender === params.learner);
+    const learnerMessages = params.allMessages.filter(
+      (m: ParsedMessage) => m.sender === params.learner
+    );
     return learnerMessages.filter((m: ParsedMessage) => this.isQuestion(m.content)).length;
   }
 
-  private extractAcknowledgments(params: any): string[] {
+  private extractAcknowledgments(params: LearningMomentParams): string[] {
     const acknowledgmentPatterns = [
       /\b(?:thanks?|thank\s+you|appreciate|helpful|great|excellent|perfect)\b/gi,
     ];
@@ -1067,7 +1099,7 @@ export class LearningDetectorService {
     return [...new Set(acknowledgments)];
   }
 
-  private getDetectionMethod(params: any): string {
+  private getDetectionMethod(params: LearningMomentParams): string {
     if (params.question && params.answer) return 'question_answer_analysis';
     if (params.teachingMessage) return 'explanation_analysis';
     if (params.correctionMessage) return 'correction_analysis';
@@ -1077,7 +1109,7 @@ export class LearningDetectorService {
     return 'general_analysis';
   }
 
-  private findRetentionIndicators(params: any): string[] {
+  private findRetentionIndicators(params: LearningMomentParams): string[] {
     // Look for indicators that learning was retained
     const indicators: string[] = [];
 
@@ -1089,7 +1121,7 @@ export class LearningDetectorService {
     return indicators;
   }
 
-  private findApplicationEvidence(params: any): string[] {
+  private findApplicationEvidence(params: LearningMomentParams): string[] {
     const applicationPatterns = [
       /\b(?:I\s+(?:tried|used|applied)|let\s+me\s+try|I'll\s+(?:use|apply))\b/gi,
     ];
@@ -1107,28 +1139,29 @@ export class LearningDetectorService {
     return evidence;
   }
 
-  private findApplicationIndicators(params: any): number {
+  private findApplicationIndicators(params: LearningMomentParams): number {
     return this.findApplicationEvidence(params).length > 0 ? 1 : 0;
   }
 
-  private assessAcknowledgmentStrength(params: any): number {
+  private assessAcknowledgmentStrength(params: LearningMomentParams): number {
     const acknowledgments = this.extractAcknowledgments(params);
     return Math.min(1, acknowledgments.length / 3);
   }
 
-  private assessClarity(params: any): number {
+  private assessClarity(params: LearningMomentParams): number {
     // Assess clarity of the teaching/explanation
     const teachingContent = params.answer?.content || params.teachingMessage?.content || '';
     if (!teachingContent) return 0.5;
 
     const sentences = teachingContent.split(/[.!?]+/).filter((s: string) => s.trim().length > 0);
     const avgSentenceLength =
-      sentences.reduce((sum: number, s: string) => sum + s.split(/\s+/).length, 0) / sentences.length;
+      sentences.reduce((sum: number, s: string) => sum + s.split(/\s+/).length, 0) /
+      sentences.length;
 
     return Math.max(0, Math.min(1, 1 - (avgSentenceLength - 15) / 30));
   }
 
-  private assessRelevance(params: any): number {
+  private assessRelevance(params: LearningMomentParams): number {
     // Assess relevance of answer to question
     if (!params.question || !params.answer) return 0.7; // Default for non-QA moments
 
@@ -1140,7 +1173,7 @@ export class LearningDetectorService {
     return Math.min(1, overlap / Math.min(questionWords.size, 10));
   }
 
-  private assessCompleteness(params: any): number {
+  private assessCompleteness(params: LearningMomentParams): number {
     // Assess completeness of the learning moment
     let completeness = 0.5; // Base score
 
@@ -1151,7 +1184,7 @@ export class LearningDetectorService {
     return Math.min(1, completeness);
   }
 
-  private assessEngagement(params: any): number {
+  private assessEngagement(params: LearningMomentParams): number {
     // Assess level of engagement in the learning moment
     const followUps = this.countFollowUpQuestions(params);
     const acknowledgments = this.extractAcknowledgments(params).length;
@@ -1161,8 +1194,8 @@ export class LearningDetectorService {
 
   // Methods for the other features (abbreviated for brevity)
   private async analyzeConversationForTransfer(
-    conversation: ParsedConversation,
-    options: LearningDetectionOptions
+    _conversation: ParsedConversation,
+    _options: LearningDetectionOptions
   ): Promise<KnowledgeTransfer[]> {
     // Implementation would analyze conversation for knowledge transfer patterns
     return [];
@@ -1207,8 +1240,8 @@ export class LearningDetectorService {
   }
 
   private async analyzeSkillProgressions(
-    moments: LearningMoment[],
-    participant: string
+    _moments: LearningMoment[],
+    _participant: string
   ): Promise<SkillProgression[]> {
     // Implementation would track skill development over time
     return [];
@@ -1230,8 +1263,8 @@ export class LearningDetectorService {
   }
 
   private async identifyLearningPattern(
-    moments: LearningMoment[],
-    participant: string
+    _moments: LearningMoment[],
+    _participant: string
   ): Promise<LearningProgression['learningPattern']> {
     // Implementation would analyze learning patterns
     return {
@@ -1244,8 +1277,8 @@ export class LearningDetectorService {
   }
 
   private async assessMotivation(
-    moments: LearningMoment[],
-    participant: string
+    _moments: LearningMoment[],
+    _participant: string
   ): Promise<LearningProgression['motivation']> {
     // Implementation would assess motivation indicators
     return {
@@ -1294,9 +1327,9 @@ export class LearningDetectorService {
   }
 
   private async identifyLearningPatterns(
-    moments: LearningMoment[],
-    progressions: LearningProgression[],
-    transfers: KnowledgeTransfer[]
+    _moments: LearningMoment[],
+    _progressions: LearningProgression[],
+    _transfers: KnowledgeTransfer[]
   ): Promise<LearningInsights['patterns']> {
     // Implementation would identify patterns in learning data
     return {
@@ -1310,9 +1343,9 @@ export class LearningDetectorService {
   }
 
   private async generateRecommendations(
-    moments: LearningMoment[],
-    progressions: LearningProgression[],
-    transfers: KnowledgeTransfer[]
+    _moments: LearningMoment[],
+    _progressions: LearningProgression[],
+    _transfers: KnowledgeTransfer[]
   ): Promise<LearningInsights['recommendations']> {
     // Implementation would generate actionable recommendations
     return {
@@ -1325,8 +1358,8 @@ export class LearningDetectorService {
   }
 
   private analyzeLearningTrends(
-    moments: LearningMoment[],
-    progressions: LearningProgression[]
+    _moments: LearningMoment[],
+    _progressions: LearningProgression[]
   ): LearningInsights['trends'] {
     // Implementation would analyze trends over time
     return {
@@ -1338,8 +1371,8 @@ export class LearningDetectorService {
   }
 
   private async performNetworkAnalysis(
-    moments: LearningMoment[],
-    transfers: KnowledgeTransfer[]
+    _moments: LearningMoment[],
+    _transfers: KnowledgeTransfer[]
   ): Promise<LearningInsights['networkAnalysis']> {
     // Implementation would perform network analysis
     return {
@@ -1368,7 +1401,7 @@ export class LearningDetectorService {
 
   private async enhanceLearningMoments(
     moments: LearningMoment[],
-    allMessages: ParsedMessage[]
+    _allMessages: ParsedMessage[]
   ): Promise<LearningMoment[]> {
     // Enhancement logic would go here
     return moments;

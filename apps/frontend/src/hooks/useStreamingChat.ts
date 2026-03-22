@@ -41,9 +41,7 @@ export function useStreamingChat(options: UseStreamingChatOptions) {
       reconnectionAttempts: 5,
     });
 
-    socket.on('connected', () => {
-      console.log('Streaming socket connected');
-    });
+    socket.on('connected', () => {});
 
     socket.on(StreamingEventType.STREAM_START, (event: { sessionId: string }) => {
       setState((prev) => ({
@@ -70,19 +68,22 @@ export function useStreamingChat(options: UseStreamingChatOptions) {
       }
     });
 
-    socket.on(StreamingEventType.STREAM_END, (event: { sessionId: string; finalContent: string }) => {
-      if (event.sessionId !== currentSessionRef.current) return;
+    socket.on(
+      StreamingEventType.STREAM_END,
+      (event: { sessionId: string; finalContent: string }) => {
+        if (event.sessionId !== currentSessionRef.current) return;
 
-      setState((prev) => ({
-        ...prev,
-        isStreaming: false,
-        content: event.finalContent,
-      }));
+        setState((prev) => ({
+          ...prev,
+          isStreaming: false,
+          content: event.finalContent,
+        }));
 
-      if (onComplete) {
-        onComplete(event.finalContent);
+        if (onComplete) {
+          onComplete(event.finalContent);
+        }
       }
-    });
+    );
 
     socket.on(StreamingEventType.STREAM_ERROR, (event: { sessionId: string; error: string }) => {
       if (event.sessionId !== currentSessionRef.current) return;
@@ -115,40 +116,43 @@ export function useStreamingChat(options: UseStreamingChatOptions) {
   }, [baseUrl, token, onChunk, onComplete, onError]);
 
   // Start streaming
-  const startStream = useCallback(async (request: {
-    prompt: string;
-    systemPrompt?: string;
-    agentId?: string;
-    conversationId?: string;
-  }) => {
-    try {
-      // Call API to start stream
-      const response = await fetch(`${baseUrl}/api/v1/llm/stream`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify(request),
-      });
+  const startStream = useCallback(
+    async (request: {
+      prompt: string;
+      systemPrompt?: string;
+      agentId?: string;
+      conversationId?: string;
+    }) => {
+      try {
+        // Call API to start stream
+        const response = await fetch(`${baseUrl}/api/v1/llm/stream`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify(request),
+        });
 
-      if (!response.ok) {
-        throw new Error('Failed to start stream');
+        if (!response.ok) {
+          throw new Error('Failed to start stream');
+        }
+
+        const { sessionId } = await response.json();
+        currentSessionRef.current = sessionId;
+
+        // Subscribe to the session
+        socketRef.current?.emit('subscribe', sessionId);
+
+        return sessionId;
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'Unknown error';
+        setState((prev) => ({ ...prev, error: message }));
+        throw error;
       }
-
-      const { sessionId } = await response.json();
-      currentSessionRef.current = sessionId;
-
-      // Subscribe to the session
-      socketRef.current?.emit('subscribe', sessionId);
-
-      return sessionId;
-    } catch (error) {
-      const message = error instanceof Error ? error.message : 'Unknown error';
-      setState((prev) => ({ ...prev, error: message }));
-      throw error;
-    }
-  }, [baseUrl, token]);
+    },
+    [baseUrl, token]
+  );
 
   // Cancel streaming
   const cancelStream = useCallback(() => {

@@ -2,18 +2,18 @@
 import { z } from 'zod';
 import { logger } from '@uaip/utils';
 import { UserService } from '@uaip/shared-services';
-import { validateJWTToken } from '@uaip/middleware';
+import { validateJWTToken as _validateJWTToken } from '@uaip/middleware';
 import { withOptionalAuth, withAdminGuard, withRequiredAuth } from '@uaip/middleware';
 import { AuditService } from '../services/auditService.js';
 import { AuditEventType, LLMTaskType, LLMProviderType } from '@uaip/types';
 
-let userService: UserService | null = null;
-let auditService: AuditService | null = null;
+let userServiceSingleton: UserService | null = null;
+let auditServiceSingleton: AuditService | null = null;
 
 async function getServices() {
-  if (!userService) userService = UserService.getInstance();
-  if (!auditService) auditService = new AuditService();
-  return { userService, auditService };
+  if (!userServiceSingleton) userServiceSingleton = UserService.getInstance();
+  if (!auditServiceSingleton) auditServiceSingleton = new AuditService();
+  return { userService: userServiceSingleton, auditService: auditServiceSingleton };
 }
 
 // Auth helpers now handled by Elysia plugin; ctx.user is injected by attachAuth
@@ -87,11 +87,11 @@ const omitPasswordHash = <T extends { passwordHash?: string }>(user: T) => {
   return safeUser;
 };
 
-export function registerUserRoutes(app: any): any {
-  return app.group('/api/v1/users', (app: any) =>
+export function registerUserRoutes(elysiaApp: unknown): unknown {
+  return elysiaApp.group('/api/v1/users', (app: unknown) =>
     withOptionalAuth(app)
       // GET /api/v1/users (admin)
-      .group('', (g: any) =>
+      .group('', (g: unknown) =>
         withAdminGuard(g).get('/', async ({ set, query }) => {
           const parsed = userQuerySchema.safeParse(query);
           if (!parsed.success) {
@@ -148,7 +148,7 @@ export function registerUserRoutes(app: any): any {
             limit,
             offset,
           });
-          const publicUsers = result.users.map((u: any) => ({
+          const publicUsers = result.users.map((u: unknown) => ({
             id: u.id,
             email: u.email,
             displayName: `${u.firstName || ''} ${u.lastName || ''}`.trim() || u.email.split('@')[0],
@@ -171,7 +171,7 @@ export function registerUserRoutes(app: any): any {
               },
             },
           };
-        } catch (error) {
+        } catch {
           set.status = 500;
           return {
             success: false,
@@ -182,7 +182,7 @@ export function registerUserRoutes(app: any): any {
       })
 
       // GET /api/v1/users/llm-preferences
-      .group('', (g: any) =>
+      .group('', (g: unknown) =>
         withRequiredAuth(g)
           .get('/llm-preferences', async ({ set, user }) => {
             try {
@@ -190,7 +190,7 @@ export function registerUserRoutes(app: any): any {
               const repo = userService.getUserLLMPreferenceRepository();
               const prefs = await repo.findByUser(user.id);
               return prefs;
-            } catch (error) {
+            } catch {
               set.status = 500;
               return { error: 'Internal Server Error', message: 'Failed to retrieve preferences' };
             }
@@ -229,7 +229,7 @@ export function registerUserRoutes(app: any): any {
                 )
               );
               return { message: 'Preferences updated' };
-            } catch (error) {
+            } catch {
               set.status = 500;
               return { error: 'Internal Server Error', message: 'Failed to update preferences' };
             }
@@ -237,7 +237,7 @@ export function registerUserRoutes(app: any): any {
       )
 
       // GET /api/v1/users/:userId (admin)
-      .group('', (g: any) =>
+      .group('', (g: unknown) =>
         withAdminGuard(g)
           .get('/:userId', async ({ set, params }) => {
             try {
@@ -249,7 +249,7 @@ export function registerUserRoutes(app: any): any {
               }
               const userResponse = omitPasswordHash(user);
               return { message: 'User retrieved successfully', user: userResponse };
-            } catch (error) {
+            } catch {
               set.status = 500;
               return { error: 'Internal Server Error', message: 'Failed to retrieve user' };
             }
@@ -362,7 +362,7 @@ export function registerUserRoutes(app: any): any {
                 userAgent: '',
               });
               return { message: 'User updated successfully', user: updated };
-            } catch (error) {
+            } catch {
               set.status = 500;
               return { error: 'Internal Server Error', message: 'Failed to update user' };
             }
@@ -385,7 +385,7 @@ export function registerUserRoutes(app: any): any {
                 userAgent: '',
               });
               return { message: 'User deleted successfully' };
-            } catch (error) {
+            } catch {
               set.status = 500;
               return { error: 'Internal Server Error', message: 'Failed to delete user' };
             }
@@ -408,7 +408,7 @@ export function registerUserRoutes(app: any): any {
                   },
                 },
               };
-            } catch (error) {
+            } catch {
               set.status = 500;
               return { error: 'Internal Server Error', message: 'Failed to load stats' };
             }

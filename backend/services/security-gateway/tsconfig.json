@@ -17,18 +17,10 @@
     "strict": false,
     "useDefineForClassFields": false,
     "paths": {
-      "@/services/*": [
-        "src/services/*"
-      ],
-      "@/routes/*": [
-        "src/routes/*"
-      ],
-      "@uaip/infra": [
-        "../../shared/infra/src"
-      ],
-      "@uaip/infra/*": [
-        "../../shared/infra/src/*"
-      ]
+      "@/services/*": ["src/services/*"],
+      "@/routes/*": ["src/routes/*"],
+      "@uaip/infra": ["../../shared/infra/src"],
+      "@uaip/infra/*": ["../../shared/infra/src/*"]
     }
   },
   "references": [
@@ -51,16 +43,7 @@
       "path": "../../shared/infra"
     }
   ],
-  "files": [
-    "src/routes/llmAgentProviderRoutes.ts"
-  ],
-  "include": [
-    "src/**/*",
-    "src/__tests__/types/**/*"
-  ],
-  "exclude": [
-    "src/__tests__/**/*",
-    "!src/__tests__/types/**/*",
-    "src/routes/**/*"
-  ]
+  "files": ["src/routes/llmAgentProviderRoutes.ts"],
+  "include": ["src/**/*", "src/__tests__/types/**/*"],
+  "exclude": ["src/__tests__/**/*", "!src/__tests__/types/**/*", "src/routes/**/*"]
 }

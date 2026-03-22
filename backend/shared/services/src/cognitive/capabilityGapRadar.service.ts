@@ -40,7 +40,10 @@ const EVENT_BUS_TIMEOUT_MS = 5_000;
  * the capability string it implies.
  */
 const CAPABILITY_PATTERNS: Array<{ pattern: RegExp; capability: string }> = [
-  { pattern: /\b(code|program|implement|develop|refactor|compile)\b/i, capability: 'code_generation' },
+  {
+    pattern: /\b(code|program|implement|develop|refactor|compile)\b/i,
+    capability: 'code_generation',
+  },
   { pattern: /\b(deploy|release|ship|publish|rollout)\b/i, capability: 'deployment' },
   { pattern: /\b(analy[sz]e|evaluate|assess|examine|inspect)\b/i, capability: 'analysis' },
   { pattern: /\b(test|verify|validate|check|assert)\b/i, capability: 'testing' },
@@ -54,28 +57,21 @@ const CAPABILITY_PATTERNS: Array<{ pattern: RegExp; capability: string }> = [
   { pattern: /\b(security|encrypt|auth|protect|harden)\b/i, capability: 'security' },
   { pattern: /\b(database|sql|query|schema|migrate)\b/i, capability: 'database' },
   { pattern: /\b(api|endpoint|rest|graphql|grpc)\b/i, capability: 'api_development' },
-  { pattern: /\b(infra|infrastructure|terraform|cloud|aws|gcp|azure)\b/i, capability: 'infrastructure' },
+  {
+    pattern: /\b(infra|infrastructure|terraform|cloud|aws|gcp|azure)\b/i,
+    capability: 'infrastructure',
+  },
 ];
 
 /**
  * Capabilities considered critical — a gap here blocks execution.
  */
-const CRITICAL_CAPABILITIES = new Set([
-  'deployment',
-  'security',
-  'infrastructure',
-  'database',
-]);
+const CRITICAL_CAPABILITIES = new Set(['deployment', 'security', 'infrastructure', 'database']);
 
 /**
  * Capabilities considered major — a gap here degrades quality significantly.
  */
-const MAJOR_CAPABILITIES = new Set([
-  'code_generation',
-  'testing',
-  'debugging',
-  'api_development',
-]);
+const MAJOR_CAPABILITIES = new Set(['code_generation', 'testing', 'debugging', 'api_development']);
 
 // ---------------------------------------------------------------------------
 // Service
@@ -114,10 +110,7 @@ export class CapabilityGapRadarService {
   /**
    * Assess whether an agent has the capabilities required for a task.
    */
-  async assess(
-    agentId: string,
-    taskDescription: string,
-  ): Promise<CapabilityAssessment> {
+  async assess(agentId: string, taskDescription: string): Promise<CapabilityAssessment> {
     logger.info('Capability assessment started', { agentId, taskDescription });
 
     const requiredCapabilities = this.extractRequiredCapabilities(taskDescription);
@@ -207,14 +200,11 @@ export class CapabilityGapRadarService {
         resolve([]);
       }, EVENT_BUS_TIMEOUT_MS);
 
-      this.eventBus.subscribe(
-        `agent.capabilities.response.${requestId}`,
-        async (event) => {
-          clearTimeout(timeout);
-          const data = event.data as { capabilities?: string[] };
-          resolve(data?.capabilities ?? []);
-        },
-      );
+      this.eventBus.subscribe(`agent.capabilities.response.${requestId}`, async (event) => {
+        clearTimeout(timeout);
+        const data = event.data as { capabilities?: string[] };
+        resolve(data?.capabilities ?? []);
+      });
 
       this.eventBus.publish('agent.capabilities.request', {
         requestId,
@@ -231,10 +221,7 @@ export class CapabilityGapRadarService {
    * Identify gaps between required and available capabilities, including
    * severity classification and alternative providers.
    */
-  private async identifyGaps(
-    required: string[],
-    available: string[],
-  ): Promise<CapabilityGap[]> {
+  private async identifyGaps(required: string[], available: string[]): Promise<CapabilityGap[]> {
     const availableSet = new Set(available);
     const gaps: CapabilityGap[] = [];
 
@@ -244,6 +231,7 @@ export class CapabilityGapRadarService {
       }
 
       const severity = this.classifySeverity(capability);
+      // oxlint-ignore-next-line no-await-in-loop -- sequential processing required
       const alternatives = await this.findAlternatives(capability);
       const workaround = this.suggestWorkaround(capability, alternatives);
 
@@ -274,10 +262,7 @@ export class CapabilityGapRadarService {
   /**
    * Suggest a workaround for a missing capability.
    */
-  private suggestWorkaround(
-    capability: string,
-    alternatives: string[],
-  ): string | undefined {
+  private suggestWorkaround(capability: string, alternatives: string[]): string | undefined {
     if (alternatives.length > 0) {
       return `Delegate "${capability}" to one of: ${alternatives.join(', ')}`;
     }
@@ -329,14 +314,11 @@ export class CapabilityGapRadarService {
         resolve([]);
       }, EVENT_BUS_TIMEOUT_MS);
 
-      this.eventBus.subscribe(
-        `capability.alternatives.response.${requestId}`,
-        async (event) => {
-          clearTimeout(timeout);
-          const data = event.data as { alternatives?: string[] };
-          resolve(data?.alternatives ?? []);
-        },
-      );
+      this.eventBus.subscribe(`capability.alternatives.response.${requestId}`, async (event) => {
+        clearTimeout(timeout);
+        const data = event.data as { alternatives?: string[] };
+        resolve(data?.alternatives ?? []);
+      });
 
       this.eventBus.publish('capability.alternatives.request', {
         requestId,
@@ -368,7 +350,7 @@ export class CapabilityGapRadarService {
    */
   private determineRecommendation(
     gaps: CapabilityGap[],
-    readiness: number,
+    readiness: number
   ): 'proceed' | 'augment' | 'delegate' | 'block' {
     // No gaps — proceed
     if (gaps.length === 0) {
@@ -377,7 +359,7 @@ export class CapabilityGapRadarService {
 
     // Any critical gap with no alternatives — block
     const hasCriticalWithoutAlternative = gaps.some(
-      (gap) => gap.severity === 'critical' && gap.alternatives.length === 0,
+      (gap) => gap.severity === 'critical' && gap.alternatives.length === 0
     );
     if (hasCriticalWithoutAlternative) {
       return 'block';

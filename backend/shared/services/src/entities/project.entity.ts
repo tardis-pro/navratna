@@ -1,4 +1,4 @@
-import { Entity, Column, ManyToOne, OneToMany, JoinColumn, Index } from 'typeorm';
+import { Entity, Column, ManyToOne, JoinColumn, Index } from 'typeorm';
 import { BaseEntity } from './base.entity';
 import { UserEntity } from './user.entity';
 import { ProjectType } from '@uaip/types';
@@ -103,7 +103,7 @@ export class ProjectEntity extends BaseEntity {
   recommendedAgents?: string[]; // Agent IDs that are recommended for this project type
 
   @Column({ type: 'jsonb', nullable: true })
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 
   // Relations will be added when we create ProjectMember and ProjectFile entities
 }

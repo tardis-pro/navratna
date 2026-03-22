@@ -23,7 +23,7 @@ export interface ProjectToolContext {
 export interface ToolExecutionRequest {
   toolId: string;
   operation: string;
-  parameters: any;
+  parameters: unknown;
   context: ProjectToolContext;
   priority?: 'low' | 'medium' | 'high' | 'urgent';
   estimatedCost?: number;
@@ -32,7 +32,7 @@ export interface ToolExecutionRequest {
 
 export interface ToolExecutionResult {
   success: boolean;
-  data?: any;
+  data?: unknown;
   error?: string;
   executionTime: number;
   actualCost: number;
@@ -228,6 +228,7 @@ export class ProjectToolIntegrationService {
       const enhancedRecommendations = [];
 
       for (const rec of baseRecommendations) {
+        // eslint-disable-next-line no-await-in-loop -- sequential processing required
         const projectUsage = await this.getProjectToolUsage(projectId, rec.toolId);
 
         // Adjust score based on project history
@@ -238,8 +239,9 @@ export class ProjectToolIntegrationService {
           adjustedScore += projectUsage.successRate * 0.2;
 
           // Reduce score if tool is expensive relative to project budget
+          // eslint-disable-next-line no-await-in-loop -- sequential processing required
           const project = await this.projectService.getProject(projectId);
-          if (project && projectUsage.averageCost > ((project as any).budget ?? 0) * 0.1) {
+          if (project && projectUsage.averageCost > ((project as unknown).budget ?? 0) * 0.1) {
             adjustedScore -= 0.1;
           }
         }
@@ -406,7 +408,7 @@ export class ProjectToolIntegrationService {
 
     // Check project settings
     const project = await this.projectService.getProject(request.context.projectId);
-    if ((project?.settings as any)?.requireApproval) return true;
+    if ((project?.settings as unknown)?.requireApproval) return true;
 
     // Check cost threshold
     if (request.estimatedCost && request.estimatedCost > 10) return true;
@@ -449,7 +451,7 @@ export class ProjectToolIntegrationService {
 
   private async calculateActualCost(
     request: ToolExecutionRequest,
-    result: any,
+    result: unknown,
     executionTime: number
   ): Promise<number> {
     // Base cost calculation
@@ -471,7 +473,7 @@ export class ProjectToolIntegrationService {
 
   private async recordProjectToolUsage(
     request: ToolExecutionRequest,
-    result: any,
+    result: unknown,
     executionTime: number,
     actualCost: number,
     errorMessage?: string
@@ -535,8 +537,8 @@ export class ProjectToolIntegrationService {
   }
 
   private async getCostTrend(
-    projectId: string,
-    timeframe: { startDate?: Date; endDate?: Date }
+    _projectId: string,
+    _timeframe: { startDate?: Date; endDate?: Date }
   ): Promise<
     Array<{
       date: string;
@@ -548,7 +550,7 @@ export class ProjectToolIntegrationService {
     return [];
   }
 
-  private sanitizeData(data: any): any {
+  private sanitizeData(data: unknown): unknown {
     if (!data) return null;
 
     // Remove sensitive information
@@ -556,7 +558,7 @@ export class ProjectToolIntegrationService {
 
     // Remove common sensitive fields
     const sensitiveFields = ['password', 'token', 'key', 'secret', 'credential'];
-    const remove = (obj: any) => {
+    const remove = (obj: unknown) => {
       if (typeof obj === 'object' && obj !== null) {
         for (const key in obj) {
           if (sensitiveFields.some((field) => key.toLowerCase().includes(field))) {
@@ -585,7 +587,7 @@ export class ProjectToolIntegrationService {
     }
   }
 
-  private async handleApprovalResponse(event: any): Promise<void> {
+  private async handleApprovalResponse(event: unknown): Promise<void> {
     const { executionId, approved, approver } = event;
 
     const request = this.pendingApprovals.get(executionId);

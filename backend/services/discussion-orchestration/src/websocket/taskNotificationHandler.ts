@@ -3,6 +3,22 @@ import { EventBusService } from '@uaip/infra/eventBus';
 import { logger } from '@uaip/utils';
 import { authenticateConnection } from './websocket-security-utils.js';
 
+interface TaskSummary {
+  title?: string;
+  assignedToUserId?: string;
+  assignedToUser?: { name?: string };
+  assignedToAgent?: { name?: string };
+  assigneeType?: string;
+  createdBy?: string;
+  [key: string]: unknown;
+}
+
+interface TaskNotificationActor {
+  id: string;
+  name: string;
+  type: 'user' | 'agent' | 'system';
+}
+
 interface TaskNotification {
   type:
     | 'task_created'
@@ -14,15 +30,20 @@ interface TaskNotification {
     | 'task_progress_updated';
   taskId: string;
   projectId: string;
-  task: any;
-  changes?: Record<string, { old: any; new: any }>;
-  actor: {
-    id: string;
-    name: string;
-    type: 'user' | 'agent' | 'system';
-  };
+  task: TaskSummary;
+  changes?: Record<string, { old: unknown; new: unknown }>;
+  actor: TaskNotificationActor;
   timestamp: Date;
   message: string;
+}
+
+interface TaskEventData {
+  taskId: string;
+  projectId: string;
+  task: TaskSummary;
+  changes?: Record<string, { old: unknown; new: unknown }>;
+  actor?: TaskNotificationActor;
+  completionPercentage?: number;
 }
 
 interface TaskProgressUpdate {
@@ -308,35 +329,35 @@ export class TaskNotificationHandler {
   private setupEventListeners(): void {
     // Listen for task events from the event bus
     this.eventBusService.subscribe('task.created', async (data) => {
-      this.handleTaskNotification('task_created', data.data);
+      this.handleTaskNotification('task_created', data.data as TaskEventData);
     });
 
     this.eventBusService.subscribe('task.updated', async (data) => {
-      this.handleTaskNotification('task_updated', data.data);
+      this.handleTaskNotification('task_updated', data.data as TaskEventData);
     });
 
     this.eventBusService.subscribe('task.assigned', async (data) => {
-      this.handleTaskNotification('task_assigned', data.data);
+      this.handleTaskNotification('task_assigned', data.data as TaskEventData);
     });
 
     this.eventBusService.subscribe('task.status_changed', async (data) => {
-      this.handleTaskNotification('task_status_changed', data.data);
+      this.handleTaskNotification('task_status_changed', data.data as TaskEventData);
     });
 
     this.eventBusService.subscribe('task.completed', async (data) => {
-      this.handleTaskNotification('task_completed', data.data);
+      this.handleTaskNotification('task_completed', data.data as TaskEventData);
     });
 
     this.eventBusService.subscribe('task.deleted', async (data) => {
-      this.handleTaskNotification('task_deleted', data.data);
+      this.handleTaskNotification('task_deleted', data.data as TaskEventData);
     });
 
     this.eventBusService.subscribe('project.stats_updated', async (data) => {
-      this.handleProjectStatsUpdate(data.data as unknown as ProjectTaskStats);
+      this.handleProjectStatsUpdate(data.data as ProjectTaskStats);
     });
   }
 
-  private handleTaskNotification(type: TaskNotification['type'], data: any): void {
+  private handleTaskNotification(type: TaskNotification['type'], data: TaskEventData): void {
     const notification: TaskNotification = {
       type,
       taskId: data.taskId,
@@ -376,7 +397,8 @@ export class TaskNotificationHandler {
   }
 
   private sendPersonalNotifications(notification: TaskNotification): void {
-    const { task } = notification;
+    const task = notification.task;
+    if (!task) return;
 
     // Notify assigned user
     if (task.assignedToUserId) {
@@ -413,7 +435,7 @@ export class TaskNotificationHandler {
     }
   }
 
-  private generateNotificationMessage(type: TaskNotification['type'], data: any): string {
+  private generateNotificationMessage(type: TaskNotification['type'], data: TaskEventData): string {
     const actorName = data.actor?.name || 'Someone';
     const taskTitle = data.task?.title || 'a task';
 
@@ -422,61 +444,86 @@ export class TaskNotificationHandler {
         return `${actorName} created "${taskTitle}"`;
       case 'task_updated':
         return `${actorName} updated "${taskTitle}"`;
-      case 'task_assigned':
+      case 'task_assigned': {
         const assigneeName =
-          data.task.assigneeType === 'human'
-            ? data.task.assignedToUser?.name
-            : data.task.assignedToAgent?.name;
+          data.task?.assigneeType === 'human'
+            ? data.task?.assignedToUser?.name
+            : data.task?.assignedToAgent?.name;
         return `${actorName} assigned "${taskTitle}" to ${assigneeName}`;
-      case 'task_status_changed':
-        const newStatus = data.changes?.status?.new?.replace('_', ' ') || 'unknown';
+      }
+      case 'task_status_changed': {
+        const statusChange = data.changes?.status;
+        const newStatus =
+          typeof statusChange?.new === 'string' ? statusChange.new.replace('_', ' ') : 'unknown';
         return `${actorName} moved "${taskTitle}" to ${newStatus}`;
+      }
       case 'task_completed':
         return `${actorName} completed "${taskTitle}"`;
       case 'task_deleted':
         return `${actorName} deleted "${taskTitle}"`;
-      case 'task_progress_updated':
+      case 'task_progress_updated': {
         const percentage = data.completionPercentage || 0;
         return `${actorName} updated progress on "${taskTitle}" to ${percentage}%`;
+      }
       default:
         return `${actorName} updated "${taskTitle}"`;
     }
   }
 
   // Public methods for triggering notifications
-  public broadcastTaskCreated(taskId: string, projectId: string, task: any, actor: any): void {
+  public broadcastTaskCreated(
+    taskId: string,
+    projectId: string,
+    task: TaskSummary,
+    actor: TaskNotificationActor
+  ): void {
     this.handleTaskNotification('task_created', { taskId, projectId, task, actor });
   }
 
   public broadcastTaskUpdated(
     taskId: string,
     projectId: string,
-    task: any,
-    changes: any,
-    actor: any
+    task: TaskSummary,
+    changes: Record<string, { old: unknown; new: unknown }>,
+    actor: TaskNotificationActor
   ): void {
     this.handleTaskNotification('task_updated', { taskId, projectId, task, changes, actor });
   }
 
-  public broadcastTaskAssigned(taskId: string, projectId: string, task: any, actor: any): void {
+  public broadcastTaskAssigned(
+    taskId: string,
+    projectId: string,
+    task: TaskSummary,
+    actor: TaskNotificationActor
+  ): void {
     this.handleTaskNotification('task_assigned', { taskId, projectId, task, actor });
   }
 
   public broadcastTaskStatusChanged(
     taskId: string,
     projectId: string,
-    task: any,
-    changes: any,
-    actor: any
+    task: TaskSummary,
+    changes: Record<string, { old: unknown; new: unknown }>,
+    actor: TaskNotificationActor
   ): void {
     this.handleTaskNotification('task_status_changed', { taskId, projectId, task, changes, actor });
   }
 
-  public broadcastTaskCompleted(taskId: string, projectId: string, task: any, actor: any): void {
+  public broadcastTaskCompleted(
+    taskId: string,
+    projectId: string,
+    task: TaskSummary,
+    actor: TaskNotificationActor
+  ): void {
     this.handleTaskNotification('task_completed', { taskId, projectId, task, actor });
   }
 
-  public broadcastTaskDeleted(taskId: string, projectId: string, task: any, actor: any): void {
+  public broadcastTaskDeleted(
+    taskId: string,
+    projectId: string,
+    task: TaskSummary,
+    actor: TaskNotificationActor
+  ): void {
     this.handleTaskNotification('task_deleted', { taskId, projectId, task, actor });
   }
 

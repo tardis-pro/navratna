@@ -4,10 +4,7 @@
  */
 
 import { APIClient } from './client';
-import type {
-  ConstellationRequest,
-  ConstellationResponse,
-} from '@uaip/types';
+import type { ConstellationRequest, ConstellationResponse } from '@uaip/types';
 
 const CONSTELLATIONS_ENDPOINT = '/api/v1/knowledge/constellations';
 

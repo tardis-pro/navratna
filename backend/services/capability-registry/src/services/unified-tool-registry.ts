@@ -35,7 +35,7 @@ export interface UnifiedToolDefinition extends ToolDefinition {
     successRate?: number;
     averageExecutionTime?: number;
     lastUsedAt?: Date;
-    [key: string]: any;
+    [key: string]: unknown;
   };
 }
 
@@ -44,15 +44,15 @@ export interface ToolOperation {
   name: string;
   description: string;
   requiredPermissions: string[];
-  inputSchema: any;
-  outputSchema: any;
+  inputSchema: unknown;
+  outputSchema: unknown;
   securityLevel: number;
   auditLevel: 'comprehensive' | 'standard' | 'minimal';
 }
 
 export interface ToolAuthentication {
   type: 'oauth2' | 'api_key' | 'basic' | 'jwt' | 'saml';
-  config: any;
+  config: unknown;
   scopes?: string[];
   tokenEndpoint?: string;
   refreshable?: boolean;
@@ -88,7 +88,7 @@ export interface ToolRelationship {
   targetToolId: string;
   strength: number;
   reason?: string;
-  metadata?: any;
+  metadata?: unknown;
 }
 
 export interface ToolRecommendation {
@@ -116,8 +116,8 @@ export interface WorkflowStep {
   id: string;
   toolId: string;
   operation: string;
-  parameters: any;
-  conditions?: any;
+  parameters: unknown;
+  conditions?: unknown;
 }
 
 // Validation schemas
@@ -319,7 +319,9 @@ export class UnifiedToolRegistry {
 
       if (this.toolService.neo4jService) {
         for (const tool of unifiedTools) {
+          // eslint-disable-next-line no-await-in-loop -- sequential processing required
           tool.recommendations = await this.getToolRecommendations(tool.id);
+          // eslint-disable-next-line no-await-in-loop -- sequential processing required
           tool.relationships = await this.getToolRelationships(tool.id);
         }
       }
@@ -327,6 +329,7 @@ export class UnifiedToolRegistry {
       // Add project context if requested
       if (filters?.projectId) {
         for (const tool of unifiedTools) {
+          // eslint-disable-next-line no-await-in-loop -- sequential processing required
           tool.projectContext = await this.getProjectContext(tool.id, filters.projectId);
         }
       }
@@ -367,14 +370,14 @@ export class UnifiedToolRegistry {
   async executeTool(
     toolId: string,
     operation: string,
-    parameters: any,
+    parameters: unknown,
     context: {
       userId: string;
       projectId?: string;
       agentId?: string;
-      securityContext?: any;
+      securityContext?: unknown;
     }
-  ): Promise<any> {
+  ): Promise<unknown> {
     await this.ensureInitialized();
 
     try {
@@ -457,7 +460,7 @@ export class UnifiedToolRegistry {
   async createWorkflowTemplate(
     name: string,
     description: string,
-    toolSequence: Array<{ toolId: string; operation: string; parameters?: any }>
+    toolSequence: Array<{ toolId: string; operation: string; parameters?: unknown }>
   ): Promise<WorkflowTemplate> {
     await this.ensureInitialized();
 
@@ -493,7 +496,7 @@ export class UnifiedToolRegistry {
     }
   }
 
-  private async createToolGraphNode(tool: any): Promise<void> {
+  private async createToolGraphNode(tool: unknown): Promise<void> {
     try {
       if (this.toolService.neo4jService) {
         await this.toolService.createToolNode(tool);
@@ -557,9 +560,13 @@ export class UnifiedToolRegistry {
     }
   }
 
-  private async validateToolExecution(tool: any, operation: string, context: any): Promise<void> {
+  private async validateToolExecution(
+    tool: unknown,
+    operation: string,
+    context: unknown
+  ): Promise<void> {
     // Check if tool has required operation
-    if (tool.operations && !tool.operations.find((op: any) => op.id === operation)) {
+    if (tool.operations && !tool.operations.find((op: unknown) => op.id === operation)) {
       throw new Error(`Operation '${operation}' not found in tool '${tool.id}'`);
     }
 
@@ -627,7 +634,7 @@ export class UnifiedToolRegistry {
       const usageKey = `rate_limit:${key}`;
       const usageData = await this.toolService.getRedisService().get(usageKey);
 
-      let usage: { requests: number[]; lastReset: number } = usageData
+      const usage: { requests: number[]; lastReset: number } = usageData
         ? JSON.parse(usageData)
         : { requests: [], lastReset: now };
 
@@ -656,11 +663,11 @@ export class UnifiedToolRegistry {
   }
 
   private async executeSandboxed(
-    tool: any,
+    tool: unknown,
     operation: string,
-    parameters: any,
-    context: any
-  ): Promise<any> {
+    parameters: unknown,
+    context: unknown
+  ): Promise<unknown> {
     const sandbox = {
       toolId: tool.id,
       operation,
@@ -693,11 +700,11 @@ export class UnifiedToolRegistry {
   }
 
   private async executeStandard(
-    tool: any,
+    tool: unknown,
     operation: string,
-    parameters: any,
-    context: any
-  ): Promise<any> {
+    parameters: unknown,
+    context: unknown
+  ): Promise<unknown> {
     try {
       // Get tool adapter/executor
       const executor = await this.getToolExecutor(tool);
@@ -724,8 +731,8 @@ export class UnifiedToolRegistry {
   private async recordUsage(
     toolId: string,
     operation: string,
-    context: any,
-    result: any
+    context: unknown,
+    result: unknown
   ): Promise<void> {
     try {
       const usageRecord = {
@@ -768,7 +775,7 @@ export class UnifiedToolRegistry {
     }
   }
 
-  private async getGraphRecommendations(context: any): Promise<ToolRecommendation[]> {
+  private async getGraphRecommendations(context: unknown): Promise<ToolRecommendation[]> {
     try {
       if (!this.toolService.neo4jService) {
         return [];
@@ -779,6 +786,7 @@ export class UnifiedToolRegistry {
       // Get recommendations based on current tools
       if (context.currentTools?.length > 0) {
         for (const toolId of context.currentTools) {
+          // eslint-disable-next-line no-await-in-loop -- sequential processing required
           const toolRecs = await this.toolService.getRecommendations(toolId, context.objective, 3);
           recommendations.push(...toolRecs);
         }
@@ -810,7 +818,7 @@ export class UnifiedToolRegistry {
     }
   }
 
-  private async getRuleBasedRecommendations(context: any): Promise<ToolRecommendation[]> {
+  private async getRuleBasedRecommendations(context: unknown): Promise<ToolRecommendation[]> {
     try {
       const tools = await this.getTools({ isEnabled: true });
       const recommendations: ToolRecommendation[] = [];
@@ -881,7 +889,7 @@ export class UnifiedToolRegistry {
     return levelMap[toolSecurityLevel] ?? 2;
   }
 
-  private async getToolExecutor(tool: any): Promise<any> {
+  private async getToolExecutor(tool: unknown): Promise<unknown> {
     try {
       // Try to get executor from registry
       if (tool.vendor) {
@@ -907,9 +915,9 @@ export class UnifiedToolRegistry {
     try {
       // Get tools frequently used in this project
       // Simplified project tools lookup for now
-      const projectTools: any[] = [];
+      const projectTools: unknown[] = [];
 
-      return projectTools.map((tool: any) => ({
+      return projectTools.map((tool: unknown) => ({
         toolId: tool.id,
         score: 0.8,
         reason: `Frequently used in this project (${tool.usageCount} times)`,

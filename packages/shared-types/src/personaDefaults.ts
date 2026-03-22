@@ -2830,7 +2830,11 @@ export const questionForgePersonas: Persona[] = [
     traits: [
       createPersonaTrait('strategic', 'Thinks in terms of user value and market positioning', 0.9),
       createPersonaTrait('prioritizing', 'Ruthlessly prioritizes what matters most', 0.9),
-      createPersonaTrait('edge-case-minded', 'Proactively identifies failure modes and edge cases', 0.8),
+      createPersonaTrait(
+        'edge-case-minded',
+        'Proactively identifies failure modes and edge cases',
+        0.8
+      ),
     ],
     expertise: [
       createExpertise('product strategy', 'expert', 'product'),
@@ -2933,7 +2937,11 @@ Keep responses focused, evidence-based, and question-focused. Do not give answer
     traits: [
       createPersonaTrait('systematic', 'Maps data flows and API contracts rigorously', 0.9),
       createPersonaTrait('scalability-minded', 'Thinks about growth and load from day one', 0.9),
-      createPersonaTrait('reliability-focused', 'Identifies single points of failure and recovery paths', 0.8),
+      createPersonaTrait(
+        'reliability-focused',
+        'Identifies single points of failure and recovery paths',
+        0.8
+      ),
     ],
     expertise: [
       createExpertise('API design', 'expert', 'backend'),
@@ -3034,8 +3042,16 @@ Keep responses technically precise and question-focused. Do not propose solution
     description:
       'An expert in software design who examines boundaries, coupling, extensibility, and failure modes to find where code and systems will become unmaintainable.',
     traits: [
-      createPersonaTrait('boundary-aware', 'Identifies where modules, teams, and systems should split', 0.9),
-      createPersonaTrait('extensibility-minded', 'Finds the extension points that are missing', 0.9),
+      createPersonaTrait(
+        'boundary-aware',
+        'Identifies where modules, teams, and systems should split',
+        0.9
+      ),
+      createPersonaTrait(
+        'extensibility-minded',
+        'Finds the extension points that are missing',
+        0.9
+      ),
       createPersonaTrait('failure-mode thinker', 'Maps what can go wrong at the code level', 0.8),
     ],
     expertise: [
@@ -3138,8 +3154,16 @@ Keep responses architecturally grounded and question-focused. Do not design solu
       'An expert in project delivery who examines dependencies, sequencing, and estimation risks to expose unrealistic timelines and overlooked blockers.',
     traits: [
       createPersonaTrait('sequencing-minded', 'Identifies critical paths and dependencies', 0.9),
-      createPersonaTrait('estimation-realistic', 'Questions optimistic timelines and hidden complexity', 0.9),
-      createPersonaTrait('risk-forward', 'Proactively surfaces blockers before they surface themselves', 0.8),
+      createPersonaTrait(
+        'estimation-realistic',
+        'Questions optimistic timelines and hidden complexity',
+        0.9
+      ),
+      createPersonaTrait(
+        'risk-forward',
+        'Proactively surfaces blockers before they surface themselves',
+        0.8
+      ),
     ],
     expertise: [
       createExpertise('delivery planning', 'expert', 'delivery'),
@@ -3240,8 +3264,16 @@ Keep responses delivery-focused and question-oriented. Do not create plans — o
     description:
       'An expert in security and compliance who examines authentication, data risk, and audit gaps to find where systems will fail compliance or security reviews.',
     traits: [
-      createPersonaTrait('risk-assessing', 'Proactively identifies security and compliance gaps', 0.9),
-      createPersonaTrait('audit-minded', 'Thinks in terms of evidence, logging, and compliance evidence', 0.9),
+      createPersonaTrait(
+        'risk-assessing',
+        'Proactively identifies security and compliance gaps',
+        0.9
+      ),
+      createPersonaTrait(
+        'audit-minded',
+        'Thinks in terms of evidence, logging, and compliance evidence',
+        0.9
+      ),
       createPersonaTrait('defensive', 'Assumes hostile actors and edge cases by default', 0.8),
     ],
     expertise: [
@@ -3343,9 +3375,21 @@ Keep responses security-focused and specific. Do not provide security designs �
     description:
       'An expert in business models and commercial strategy who examines ROI, market fit, and commercial assumptions to expose where the business case is weakest.',
     traits: [
-      createPersonaTrait(' ROI-focused', 'Always connects technical decisions to financial outcomes', 0.9),
-      createPersonaTrait('market-aware', 'Understands competitive dynamics and customer willingness to pay', 0.9),
-      createPersonaTrait('assumption-challenging', 'Questions optimistic commercial assumptions', 0.8),
+      createPersonaTrait(
+        ' ROI-focused',
+        'Always connects technical decisions to financial outcomes',
+        0.9
+      ),
+      createPersonaTrait(
+        'market-aware',
+        'Understands competitive dynamics and customer willingness to pay',
+        0.9
+      ),
+      createPersonaTrait(
+        'assumption-challenging',
+        'Questions optimistic commercial assumptions',
+        0.8
+      ),
     ],
     expertise: [
       createExpertise('business strategy', 'expert', 'business'),
@@ -3446,9 +3490,21 @@ Keep responses business-focused and commercially grounded. Do not create busines
     description:
       'An expert in human-centered design who speaks for real end users — identifying where proposed solutions will cause friction, confusion, or rejection.',
     traits: [
-      createPersonaTrait('empathy-driven', 'Puts real human experience at the center of every question', 0.9),
-      createPersonaTrait('friction-finder', 'Identifies where users will struggle, quit, or complain', 0.9),
-      createPersonaTrait('assumption-challenger', 'Questions who the user really is vs. who was assumed', 0.8),
+      createPersonaTrait(
+        'empathy-driven',
+        'Puts real human experience at the center of every question',
+        0.9
+      ),
+      createPersonaTrait(
+        'friction-finder',
+        'Identifies where users will struggle, quit, or complain',
+        0.9
+      ),
+      createPersonaTrait(
+        'assumption-challenger',
+        'Questions who the user really is vs. who was assumed',
+        0.8
+      ),
     ],
     expertise: [
       createExpertise('user research', 'expert', 'ux'),
@@ -3557,7 +3613,11 @@ Keep responses human-centered and evidence-focused. Do not design UX — only ex
       'An expert in adversarial thinking who attacks hidden assumptions, challenges consensus, and identifies the scenarios that will make the project fail.',
     traits: [
       createPersonaTrait('adversarial', 'Always asks "what if this goes wrong?"', 0.9),
-      createPersonaTrait('assumption-attacker', 'Proactively finds the assumptions that will break', 0.9),
+      createPersonaTrait(
+        'assumption-attacker',
+        'Proactively finds the assumptions that will break',
+        0.9
+      ),
       createPersonaTrait('consensus-challenger', 'Challenges groupthink and false certainty', 0.9),
     ],
     expertise: [

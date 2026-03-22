@@ -19,7 +19,7 @@ interface WidgetProps extends BaseWidgetProps {
 
 // Extend React.FC to allow static widgetMeta property
 interface WidgetComponent extends React.FC<WidgetProps> {
-  widgetMeta?: any;
+  widgetMeta?: unknown;
 }
 
 const MarketplaceHubWidget: WidgetComponent = (props) => {

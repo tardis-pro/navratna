@@ -27,7 +27,7 @@ export interface SecurityPolicyActions {
   blockOperation?: boolean;
   logLevel?: 'info' | 'warn' | 'error';
   notificationChannels?: string[];
-  additionalActions?: Record<string, any>;
+  additionalActions?: Record<string, unknown>;
 }
 
 @Entity('security_policies')

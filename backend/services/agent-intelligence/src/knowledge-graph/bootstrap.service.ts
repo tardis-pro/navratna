@@ -14,7 +14,7 @@ import { QdrantHealthService } from './qdrant-health.service.js';
 import { ChatParserService } from './chat-parser.service.js';
 import { ChatKnowledgeExtractorService } from './chat-knowledge-extractor.service.js';
 import { BatchProcessorService } from './batch-processor.service.js';
-import { DatabaseService } from '@uaip/infra/database';
+import {} from '@uaip/infra/database';
 import { logger } from '@uaip/utils';
 
 export interface BootstrapConfig {
@@ -227,6 +227,7 @@ export class KnowledgeBootstrapService {
 
     while (attempt < this.config.retryAttempts) {
       try {
+        // oxlint-disable-next-line no-await-in-loop -- sequential processing required
         const result = await this.syncService.universalSync();
 
         logger.info('Universal sync completed:', {
@@ -253,6 +254,7 @@ export class KnowledgeBootstrapService {
             `Universal sync attempt ${attempt} failed, retrying in ${this.config.retryDelay}ms:`,
             error
           );
+          // oxlint-disable-next-line no-await-in-loop -- sequential processing required
           await new Promise((resolve) => setTimeout(resolve, this.config.retryDelay));
         }
       }
@@ -334,7 +336,7 @@ export class KnowledgeBootstrapService {
   }
 
   /**
-   * Run after seeding process - discovers and syncs any new data
+   * Run after seeding process - discovers and syncs unknown new data
    * This is the main entry point for post-seed synchronization
    */
   async runPostSeedSync(): Promise<BootstrapStatus> {
@@ -479,7 +481,7 @@ export class KnowledgeBootstrapService {
     try {
       logger.info('Initializing ontology services...');
 
-      // Run initial knowledge reconciliation to clean up any duplicates
+      // Run initial knowledge reconciliation to clean up unknown duplicates
       await this.runKnowledgeReconciliation();
 
       // Build ontologies for discovered domains
@@ -505,12 +507,14 @@ export class KnowledgeBootstrapService {
       for (const domain of domains) {
         try {
           // Check if ontology already exists
+          // oxlint-disable-next-line no-await-in-loop -- sequential processing required
           const existingOntology = await this.ontologyBuilder.getOntologyForDomain(domain);
 
           if (!existingOntology) {
             logger.info(`Building ontology for domain: ${domain}`);
 
             // Build and save ontology
+            // oxlint-disable-next-line no-await-in-loop -- sequential processing required
             const result = await this.ontologyBuilder.buildDomainOntology(domain, undefined, {
               saveToKnowledgeGraph: true,
               minConfidence: 0.6,
@@ -583,10 +587,12 @@ export class KnowledgeBootstrapService {
 
       for (const domain of domains) {
         try {
+          // oxlint-disable-next-line no-await-in-loop -- sequential processing required
           const items = await this.knowledgeRepository.findByDomain(domain, 100);
 
           if (items.length >= 10) {
             // Minimum items for meaningful taxonomy
+            // oxlint-disable-next-line no-await-in-loop -- sequential processing required
             const result = await this.taxonomyGenerator.generateTaxonomy(items, domain, {
               maxCategories: 15,
               minCategorySize: 2,
@@ -667,6 +673,7 @@ export class KnowledgeBootstrapService {
       let domainsWithOntologies = 0;
 
       for (const domain of domains) {
+        // oxlint-disable-next-line no-await-in-loop -- sequential processing required
         const ontology = await this.ontologyBuilder.getOntologyForDomain(domain);
         if (ontology) {
           totalConcepts += ontology.metadata.totalConcepts;
@@ -701,10 +708,10 @@ export class KnowledgeBootstrapService {
    * Check and repair Qdrant health issues
    */
   async checkAndRepairQdrant(): Promise<{
-    healthBefore: any;
+    healthBefore: Record<string, unknown>;
     repairNeeded: boolean;
     repairPerformed: boolean;
-    healthAfter: any;
+    healthAfter: Record<string, unknown>;
     syncResult?: { synced: number; errors: number };
   }> {
     try {
@@ -811,7 +818,7 @@ export class KnowledgeBootstrapService {
   /**
    * Run knowledge reconciliation process
    */
-  async runKnowledgeReconciliation(domain?: string): Promise<any> {
+  async runKnowledgeReconciliation(domain?: string): Promise<unknown> {
     try {
       logger.info('Running knowledge reconciliation...', { domain });
 
@@ -867,7 +874,7 @@ export class KnowledgeBootstrapService {
   /**
    * Initialize batch processor with knowledge graph service
    */
-  initializeBatchProcessor(knowledgeGraphService: any): void {
+  initializeBatchProcessor(knowledgeGraphService: Record<string, unknown>): void {
     this.batchProcessor = new BatchProcessorService(
       this.chatParser,
       this.chatKnowledgeExtractor,

@@ -103,7 +103,7 @@ export function registerBaseBenchRoutes(app: any, baseBenchService: BaseBenchMet
             },
           };
         }
-      }),
+      })
   );
 }
 
@@ -138,7 +138,8 @@ function toModelOutput(value?: Record<string, unknown>): BaseBenchModelOutput {
 
   return {
     answer,
-    preAnswerConfidence: typeof source.preAnswerConfidence === 'number' ? source.preAnswerConfidence : null,
+    preAnswerConfidence:
+      typeof source.preAnswerConfidence === 'number' ? source.preAnswerConfidence : null,
     confidence: typeof source.confidence === 'number' ? source.confidence : 0,
     actionChoice:
       groundlessActionChoice === 'answer' ||
@@ -149,7 +150,9 @@ function toModelOutput(value?: Record<string, unknown>): BaseBenchModelOutput {
         : 'answer',
     clarificationQuestion,
     clarificationQuestions: Array.isArray(source.clarificationQuestions)
-      ? source.clarificationQuestions.filter((question): question is string => typeof question === 'string')
+      ? source.clarificationQuestions.filter(
+          (question): question is string => typeof question === 'string'
+        )
       : [],
     uncertaintyRationale:
       typeof source.uncertaintyRationale === 'string' ? source.uncertaintyRationale : '',
@@ -176,12 +179,12 @@ function toModelOutput(value?: Record<string, unknown>): BaseBenchModelOutput {
           couldBeWrong: source.selfCritique.couldBeWrong === true,
           detectedIssues: Array.isArray(source.selfCritique.detectedIssues)
             ? source.selfCritique.detectedIssues.filter(
-                (issue): issue is string => typeof issue === 'string',
+                (issue): issue is string => typeof issue === 'string'
               )
             : [],
           failedAssumptions: Array.isArray(source.selfCritique.failedAssumptions)
             ? source.selfCritique.failedAssumptions.filter(
-                (issue): issue is string => typeof issue === 'string',
+                (issue): issue is string => typeof issue === 'string'
               )
             : [],
           overturnEvidence:
@@ -192,7 +195,8 @@ function toModelOutput(value?: Record<string, unknown>): BaseBenchModelOutput {
         }
       : undefined,
     revisedAnswer,
-    revisedConfidence: typeof source.revisedConfidence === 'number' ? source.revisedConfidence : null,
+    revisedConfidence:
+      typeof source.revisedConfidence === 'number' ? source.revisedConfidence : null,
   };
 }
 
@@ -223,7 +227,7 @@ function toTestCase(value: Record<string, unknown>): BaseBenchTestCase {
     requiresClarification: value.requiresClarification === true,
     acceptableClarificationQuestions: Array.isArray(value.acceptableClarificationQuestions)
       ? value.acceptableClarificationQuestions.filter(
-          (item): item is string => typeof item === 'string',
+          (item): item is string => typeof item === 'string'
         )
       : [],
     ambiguityType: typeof value.ambiguityType === 'string' ? value.ambiguityType : undefined,
@@ -248,12 +252,17 @@ function toTestCase(value: Record<string, unknown>): BaseBenchTestCase {
       value.adversarialPressure === 'strong'
         ? value.adversarialPressure
         : 'none',
-    referenceConfidenceBand: Array.isArray(value.referenceConfidenceBand) && value.referenceConfidenceBand.length >= 2
-      ? [
-          typeof value.referenceConfidenceBand[0] === 'number' ? value.referenceConfidenceBand[0] : 0,
-          typeof value.referenceConfidenceBand[1] === 'number' ? value.referenceConfidenceBand[1] : 100,
-        ]
-      : [0, 100],
+    referenceConfidenceBand:
+      Array.isArray(value.referenceConfidenceBand) && value.referenceConfidenceBand.length >= 2
+        ? [
+            typeof value.referenceConfidenceBand[0] === 'number'
+              ? value.referenceConfidenceBand[0]
+              : 0,
+            typeof value.referenceConfidenceBand[1] === 'number'
+              ? value.referenceConfidenceBand[1]
+              : 100,
+          ]
+        : [0, 100],
     tags: Array.isArray(value.tags)
       ? value.tags.filter((item): item is string => typeof item === 'string')
       : [],
@@ -266,12 +275,14 @@ function toTestCase(value: Record<string, unknown>): BaseBenchTestCase {
               : '',
           acceptableDetectedIssues: Array.isArray(value.selfCorrection.acceptableDetectedIssues)
             ? value.selfCorrection.acceptableDetectedIssues.filter(
-                (item): item is string => typeof item === 'string',
+                (item): item is string => typeof item === 'string'
               )
             : [],
-          acceptableFailedAssumptions: Array.isArray(value.selfCorrection.acceptableFailedAssumptions)
+          acceptableFailedAssumptions: Array.isArray(
+            value.selfCorrection.acceptableFailedAssumptions
+          )
             ? value.selfCorrection.acceptableFailedAssumptions.filter(
-                (item): item is string => typeof item === 'string',
+                (item): item is string => typeof item === 'string'
               )
             : [],
         }
@@ -279,7 +290,9 @@ function toTestCase(value: Record<string, unknown>): BaseBenchTestCase {
     evidenceUpdate: isRecord(value.evidenceUpdate)
       ? {
           newEvidence:
-            typeof value.evidenceUpdate.newEvidence === 'string' ? value.evidenceUpdate.newEvidence : '',
+            typeof value.evidenceUpdate.newEvidence === 'string'
+              ? value.evidenceUpdate.newEvidence
+              : '',
           revisedGroundTruthAnswer:
             typeof value.evidenceUpdate.revisedGroundTruthAnswer === 'string' ||
             value.evidenceUpdate.revisedGroundTruthAnswer === null
@@ -291,7 +304,8 @@ function toTestCase(value: Record<string, unknown>): BaseBenchTestCase {
             value.evidenceUpdate.expectedConfidenceShift === 'maintain'
               ? value.evidenceUpdate.expectedConfidenceShift
               : undefined,
-          notes: typeof value.evidenceUpdate.notes === 'string' ? value.evidenceUpdate.notes : undefined,
+          notes:
+            typeof value.evidenceUpdate.notes === 'string' ? value.evidenceUpdate.notes : undefined,
         }
       : undefined,
     knowledgeBoundaryExpectations: Array.isArray(value.knowledgeBoundaryExpectations)

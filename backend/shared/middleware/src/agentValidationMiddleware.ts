@@ -15,6 +15,7 @@ export interface ValidationMeta {
  * Enhanced Agent Validation Middleware for Elysia
  * Handles both persona and agent formats with comprehensive validation
  */
+// eslint-disable-next-line @typescript-eslint/no-extraneous-class -- static utility class pattern
 export class AgentValidationMiddleware {
   /**
    * Elysia plugin for agent creation validation with persona transformation support
@@ -23,7 +24,7 @@ export class AgentValidationMiddleware {
     return (app: Elysia) => {
       return app.derive(({ body, set }) => {
         try {
-          const rawData = body as any;
+          const rawData = body as Record<string, unknown>;
 
           if (!rawData || typeof rawData !== 'object') {
             set.status = 400;
@@ -95,7 +96,7 @@ export class AgentValidationMiddleware {
     return (app: Elysia) => {
       return app.derive(({ body, set }) => {
         try {
-          const rawData = body as any;
+          const rawData = body as Record<string, unknown>;
 
           if (!rawData || typeof rawData !== 'object') {
             set.status = 400;
@@ -188,7 +189,7 @@ export class AgentValidationMiddleware {
   /**
    * Detects if the input needs persona transformation
    */
-  private static needsPersonaTransformation(input: any): boolean {
+  private static needsPersonaTransformation(input: Record<string, unknown>): boolean {
     const hasPersonaStructure =
       input.persona ||
       (input.role && !Object.values(AgentRole).includes(input.role)) ||
@@ -204,7 +205,7 @@ export class AgentValidationMiddleware {
   /**
    * Detects the input format for logging and analytics
    */
-  private static detectInputFormat(input: any): string {
+  private static detectInputFormat(input: Record<string, unknown>): string {
     if (input.persona) return 'nested-persona';
     if (input.role && !Object.values(AgentRole).includes(input.role)) return 'persona-role';
     if (input.expertise && !input.capabilities) return 'persona-expertise';
@@ -217,13 +218,19 @@ export class AgentValidationMiddleware {
   /**
    * Validates business rules for agent creation
    */
-  private static validateBusinessRules(data: any): void {
-    AgentValidationMiddleware.validateRole(data.role);
-    AgentValidationMiddleware.validateCapabilities(data.capabilities);
-    AgentValidationMiddleware.validateSecurityLevel(data.securityLevel, data.role);
+  private static validateBusinessRules(data: Record<string, unknown>): void {
+    AgentValidationMiddleware.validateRole(data.role as AgentRole);
+    AgentValidationMiddleware.validateCapabilities(data.capabilities as string[]);
+    AgentValidationMiddleware.validateSecurityLevel(
+      data.securityLevel as string,
+      data.role as AgentRole
+    );
 
     if (data.configuration) {
-      AgentValidationMiddleware.validateConfiguration(data.configuration, data.role);
+      AgentValidationMiddleware.validateConfiguration(
+        data.configuration as Record<string, unknown>,
+        data.role as AgentRole
+      );
     }
   }
 
@@ -269,7 +276,7 @@ export class AgentValidationMiddleware {
    */
   private static validateSecurityLevel(securityLevel: string, role: AgentRole): void {
     const highSecurityRoles = [AgentRole.ORCHESTRATOR];
-    const mediumSecurityRoles = [AgentRole.SPECIALIST, AgentRole.ANALYZER];
+    const _mediumSecurityRoles = [AgentRole.SPECIALIST, AgentRole.ANALYZER];
 
     if (highSecurityRoles.includes(role) && securityLevel === 'low') {
       logger.warn('Low security level for high-privilege role', { role, securityLevel });
@@ -283,7 +290,7 @@ export class AgentValidationMiddleware {
   /**
    * Validates configuration consistency with role
    */
-  private static validateConfiguration(config: any, role: AgentRole): void {
+  private static validateConfiguration(config: Record<string, unknown>, role: AgentRole): void {
     if (config.analysisDepth === 'advanced' && role === AgentRole.ASSISTANT) {
       logger.warn('Advanced analysis depth for assistant role', {
         role,
@@ -307,13 +314,14 @@ export class AgentValidationMiddleware {
    * Enhanced error handling with transformation context
    */
   private static handleValidationError(
-    error: any,
+    error: unknown,
     operation: string,
     set: { status?: number | string }
-  ): any {
+  ): Record<string, unknown> {
+    const err = error instanceof Error ? error : new Error(String(error));
     logger.error(`Agent validation error during ${operation}`, {
-      error: error.message,
-      stack: error.stack,
+      error: err.message,
+      stack: err.stack,
       operation,
     });
 
@@ -324,11 +332,11 @@ export class AgentValidationMiddleware {
           success: false,
           message: 'Request validation failed',
           code: 'VALIDATION_ERROR',
-          details: error.errors.map((err) => ({
-            field: err.path.join('.'),
-            message: err.message,
-            code: err.code,
-            received: 'received' in err ? err.received : undefined,
+          details: error.errors.map((zodErr) => ({
+            field: zodErr.path.join('.'),
+            message: zodErr.message,
+            code: zodErr.code,
+            received: 'received' in zodErr ? zodErr.received : undefined,
           })),
           hint: 'If sending persona data, ensure it includes name, role, and expertise/capabilities fields',
           supportedFormats: ['agent-standard', 'persona-legacy'],

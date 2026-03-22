@@ -105,7 +105,7 @@ export class ModelService {
         [userId]
       );
 
-      return result.map((row: any) => row.id);
+      return result.map((row: unknown) => row.id);
     } catch (error) {
       logger.error('Error getting user provider IDs', { error, userId });
       return [];

@@ -4,7 +4,7 @@
  * Part of the refactored agent-intelligence microservices
  */
 
-import { Agent, AgentMetrics, KnowledgeItem } from '@uaip/types';
+import { Agent, AgentMetrics } from '@uaip/types';
 import { logger } from '@uaip/utils';
 import { DatabaseService } from '@uaip/infra/database';
 import { EventBusService } from '@uaip/infra/eventBus';
@@ -161,7 +161,7 @@ export class AgentMetricsService {
       includeTrends?: boolean;
       timeRange?: { start: Date; end: Date };
     }
-  ): Promise<any> {
+  ): Promise<unknown> {
     try {
       this.validateID(agentId, 'agentId');
 
@@ -172,7 +172,7 @@ export class AgentMetricsService {
 
       logger.info('Calculating comprehensive metrics', { agentId, options });
 
-      const metrics: any = {
+      const metrics: Record<string, unknown> = {
         agentId,
         calculatedAt: new Date(),
         timeRange,
@@ -262,8 +262,8 @@ export class AgentMetricsService {
       type: string;
       duration: number;
       success: boolean;
-      context?: any;
-      metadata?: any;
+      context?: Record<string, unknown>;
+      metadata?: Record<string, unknown>;
     }
   ): Promise<void> {
     try {
@@ -303,7 +303,7 @@ export class AgentMetricsService {
   /**
    * Event handlers
    */
-  private async handleGetMetrics(event: any): Promise<void> {
+  private async handleGetMetrics(event: Record<string, unknown>): Promise<void> {
     const { requestId, agentId, timeRange } = event;
     try {
       const metrics = await this.getAgentMetrics(agentId, timeRange);
@@ -313,7 +313,7 @@ export class AgentMetricsService {
     }
   }
 
-  private async handleCalculateMetrics(event: any): Promise<void> {
+  private async handleCalculateMetrics(event: Record<string, unknown>): Promise<void> {
     const { requestId, agentId, options } = event;
     try {
       const metrics = await this.calculateMetrics(agentId, options);
@@ -323,7 +323,7 @@ export class AgentMetricsService {
     }
   }
 
-  private async handleGenerateSummary(event: any): Promise<void> {
+  private async handleGenerateSummary(event: Record<string, unknown>): Promise<void> {
     const { requestId, agentId, timeRange } = event;
     try {
       const summary = await this.generateMetricsSummary(agentId, timeRange);
@@ -333,7 +333,7 @@ export class AgentMetricsService {
     }
   }
 
-  private async handleTrackActivity(event: any): Promise<void> {
+  private async handleTrackActivity(event: Record<string, unknown>): Promise<void> {
     const { requestId, agentId, activity } = event;
     try {
       await this.trackActivity(agentId, activity);
@@ -645,7 +645,9 @@ export class AgentMetricsService {
     return Math.min(1, learningActivities.length / 10); // Normalize to 0-1
   }
 
-  private calculateResponseTimeDistribution(activities: any[]): Record<string, number> {
+  private calculateResponseTimeDistribution(
+    activities: Record<string, unknown>[]
+  ): Record<string, number> {
     const distribution = {
       fast: 0, // < 500ms
       normal: 0, // 500ms - 2000ms
@@ -664,7 +666,9 @@ export class AgentMetricsService {
     return distribution;
   }
 
-  private calculateSuccessRateByCategory(activities: any[]): Record<string, number> {
+  private calculateSuccessRateByCategory(
+    activities: Record<string, unknown>[]
+  ): Record<string, number> {
     const categories: Record<string, { total: number; successful: number }> = {};
 
     activities.forEach((activity) => {
@@ -738,7 +742,7 @@ export class AgentMetricsService {
     }
   }
 
-  private async publishMetricsEvent(channel: string, data: any): Promise<void> {
+  private async publishMetricsEvent(channel: string, data: Record<string, unknown>): Promise<void> {
     try {
       await this.eventBusService.publish(channel, {
         ...data,
@@ -751,7 +755,10 @@ export class AgentMetricsService {
     }
   }
 
-  private async respondToRequest(requestId: string, response: any): Promise<void> {
+  private async respondToRequest(
+    requestId: string,
+    response: Record<string, unknown>
+  ): Promise<void> {
     await this.eventBusService.publish('agent.metrics.response', {
       requestId,
       ...response,
@@ -759,7 +766,7 @@ export class AgentMetricsService {
     });
   }
 
-  private auditLog(event: string, data: any): void {
+  private auditLog(event: string, data: Record<string, unknown>): void {
     logger.info(`AUDIT: ${event}`, {
       ...data,
       service: this.serviceName,

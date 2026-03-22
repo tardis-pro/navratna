@@ -52,13 +52,13 @@ const Carousel = React.forwardRef<
   const [canScrollPrev, setCanScrollPrev] = React.useState(false);
   const [canScrollNext, setCanScrollNext] = React.useState(false);
 
-  const onSelect = React.useCallback((api: CarouselApi) => {
-    if (!api) {
+  const onSelect = React.useCallback((emblaApi: CarouselApi) => {
+    if (!emblaApi) {
       return;
     }
 
-    setCanScrollPrev(api.canScrollPrev());
-    setCanScrollNext(api.canScrollNext());
+    setCanScrollPrev(emblaApi.canScrollPrev());
+    setCanScrollNext(emblaApi.canScrollNext());
   }, []);
 
   const scrollPrev = React.useCallback(() => {
@@ -106,16 +106,19 @@ const Carousel = React.forwardRef<
 
   return (
     <CarouselContext.Provider
-      value={{
-        carouselRef,
-        api: api,
-        opts,
-        orientation: orientation || (opts?.axis === 'y' ? 'vertical' : 'horizontal'),
-        scrollPrev,
-        scrollNext,
-        canScrollPrev,
-        canScrollNext,
-      }}
+      value={React.useMemo(
+        () => ({
+          carouselRef,
+          api: api,
+          opts,
+          orientation: orientation || (opts?.axis === 'y' ? 'vertical' : 'horizontal'),
+          scrollPrev,
+          scrollNext,
+          canScrollPrev,
+          canScrollNext,
+        }),
+        [carouselRef, api, opts, orientation, scrollPrev, scrollNext, canScrollPrev, canScrollNext]
+      )}
     >
       <div
         ref={ref}

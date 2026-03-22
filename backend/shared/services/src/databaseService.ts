@@ -1,6 +1,12 @@
 import { logger } from '@uaip/utils';
 import { TypeOrmService } from './typeormService';
-import { EntityTarget, ObjectLiteral, Repository, DeepPartial, FindOptionsWhere } from 'typeorm';
+import {
+  EntityTarget,
+  ObjectLiteral,
+  Repository,
+  DeepPartial as _DeepPartial,
+  FindOptionsWhere as _FindOptionsWhere,
+} from 'typeorm';
 import { UserService } from './services/UserService';
 import { ToolService } from './services/ToolService';
 import { AgentService } from './services/AgentService';
@@ -22,9 +28,9 @@ import { ToolGraphDatabase } from './database/toolGraphDatabase';
 import { SmartEmbeddingService } from './knowledge-graph/smart-embedding.service';
 import { Persona } from './entities/persona.entity';
 import { AgentCapabilityMetric } from './entities/agentCapabilityMetric.entity';
-import { PersonaAnalytics } from './entities/personaAnalytics.entity';
-import { ConversationContext } from './entities/conversationContext.entity';
-import { Discussion } from './entities/discussion.entity';
+import { PersonaAnalytics as _PersonaAnalytics } from './entities/personaAnalytics.entity';
+import { ConversationContext as _ConversationContext } from './entities/conversationContext.entity';
+import { Discussion as _Discussion } from './entities/discussion.entity';
 
 // Database error handling
 export class DatabaseError extends Error {
@@ -206,7 +212,7 @@ export class DatabaseService {
         smartEmbeddingService
       );
 
-      // This discovers data from any source and syncs bidirectionally
+      // This discovers data from unknown source and syncs bidirectionally
       await bootstrapService.runPostSeedSync();
 
       // Get and log statistics
@@ -328,12 +334,12 @@ export class DatabaseService {
 
   public getPersonaAnalyticsRepository() {
     // TODO: Implement persona analytics repository
-    return this.typeormService.getRepository('persona_analytics' as any);
+    return this.typeormService.getRepository('persona_analytics' as unknown);
   }
 
   public getConversationContextRepository() {
     // TODO: Implement conversation context repository
-    return this.typeormService.getRepository('conversation_contexts' as any);
+    return this.typeormService.getRepository('conversation_contexts' as unknown);
   }
 
   // Project-related delegations
@@ -387,7 +393,7 @@ export class DatabaseService {
   // Discussion-related delegations (placeholder for now)
   public getDiscussionRepository() {
     // TODO: Implement proper discussion repository when DiscussionService is refactored
-    return this.typeormService.getRepository('discussions' as any);
+    return this.typeormService.getRepository('discussions' as unknown);
   }
 
   // Artifact-related delegations
@@ -491,7 +497,7 @@ export class DatabaseService {
       const { PersonaService } = await import('./personaService');
 
       const personaService = new PersonaService({
-        databaseService: this as any,
+        databaseService: this as unknown,
         eventBusService: EventBusService.getInstance(),
         enableAnalytics: false,
         enableRecommendations: false,
@@ -499,7 +505,7 @@ export class DatabaseService {
       });
 
       this.discussionService = new DiscussionService({
-        databaseService: this as any,
+        databaseService: this as unknown,
         eventBusService: EventBusService.getInstance(),
         personaService: personaService,
         enableRealTimeEvents: true,
@@ -512,7 +518,7 @@ export class DatabaseService {
   }
 
   // Legacy compatibility methods
-  public async getRepository(entityClass: any): Promise<any> {
+  public async getRepository(entityClass: unknown): Promise<unknown> {
     await this.ensureInitialized();
     return this.typeormService.getDataSource().getRepository(entityClass);
   }
@@ -522,7 +528,7 @@ export class DatabaseService {
   }
 
   // Health check method
-  public async healthCheck(): Promise<any> {
+  public async healthCheck(): Promise<unknown> {
     return await this.typeormService.healthCheck();
   }
 
@@ -577,7 +583,7 @@ export class DatabaseService {
         await queryBuilder.orUpdate(updateColumns, options.conflictColumns).execute();
       } else {
         // Simple insert
-        await repository.save(records as any[]);
+        await repository.save(records as unknown[]);
       }
 
       logger.info('Bulk insert completed', {
@@ -665,7 +671,7 @@ export class DatabaseService {
   /**
    * Execute raw SQL query (use with caution)
    */
-  public async executeQuery<T = any>(query: string, parameters?: any[]): Promise<T[]> {
+  public async executeQuery<T = unknown>(query: string, parameters?: unknown[]): Promise<T[]> {
     await this.ensureInitialized();
     try {
       const result = await this.typeormService.getEntityManager().query(query, parameters);
@@ -685,7 +691,7 @@ export class DatabaseService {
   /**
    * Save operation state
    */
-  public async saveOperationState(operationId: string, state: any): Promise<void> {
+  public async saveOperationState(operationId: string, state: unknown): Promise<void> {
     await this.ensureInitialized();
     return this.operationService
       .getOperationStateRepository()
@@ -695,7 +701,7 @@ export class DatabaseService {
   /**
    * Get operation state
    */
-  public async getOperationState(operationId: string): Promise<any> {
+  public async getOperationState(operationId: string): Promise<unknown> {
     await this.ensureInitialized();
     return this.operationService.getOperationStateRepository().getOperationState(operationId);
   }
@@ -703,7 +709,11 @@ export class DatabaseService {
   /**
    * Update operation state
    */
-  public async updateOperationState(operationId: string, state: any, updates: any): Promise<void> {
+  public async updateOperationState(
+    operationId: string,
+    state: unknown,
+    updates: unknown
+  ): Promise<void> {
     await this.ensureInitialized();
     return this.operationService
       .getOperationStateRepository()
@@ -713,7 +723,7 @@ export class DatabaseService {
   /**
    * Save checkpoint
    */
-  public async saveCheckpoint(operationId: string, checkpoint: any): Promise<void> {
+  public async saveCheckpoint(operationId: string, checkpoint: unknown): Promise<void> {
     await this.ensureInitialized();
     return this.operationService
       .getOperationCheckpointRepository()
@@ -723,7 +733,7 @@ export class DatabaseService {
   /**
    * Get checkpoint
    */
-  public async getCheckpoint(operationId: string, checkpointId: string): Promise<any> {
+  public async getCheckpoint(operationId: string, checkpointId: string): Promise<unknown> {
     await this.ensureInitialized();
     return this.operationService
       .getOperationCheckpointRepository()
@@ -733,7 +743,7 @@ export class DatabaseService {
   /**
    * List checkpoints
    */
-  public async listCheckpoints(operationId: string): Promise<any[]> {
+  public async listCheckpoints(operationId: string): Promise<unknown[]> {
     await this.ensureInitialized();
     return this.operationService.getOperationCheckpointRepository().listCheckpoints(operationId);
   }
@@ -760,27 +770,31 @@ export class DatabaseService {
   }
 
   // Generic CRUD methods for backward compatibility
-  public async create<T>(entityClass: any, data: Partial<T>): Promise<T> {
+  public async create<T>(entityClass: unknown, data: Partial<T>): Promise<T> {
     await this.ensureInitialized();
     const repository = this.typeormService.getRepository(entityClass);
-    const entity = repository.create(data as any);
+    const entity = repository.create(data as unknown);
     return (await repository.save(entity)) as T;
   }
 
-  public async findById<T>(entityClass: any, id: string, relations?: string[]): Promise<T | null> {
+  public async findById<T>(
+    entityClass: unknown,
+    id: string,
+    relations?: string[]
+  ): Promise<T | null> {
     await this.ensureInitialized();
     const repository = this.typeormService.getRepository(entityClass);
     return (await repository.findOne({
-      where: { id } as any,
+      where: { id } as unknown,
       relations,
     })) as T | null;
   }
 
-  public async update<T>(entityClass: any, id: string, data: Partial<T>): Promise<T | null> {
+  public async update<T>(entityClass: unknown, id: string, data: Partial<T>): Promise<T | null> {
     await this.ensureInitialized();
     const repository = this.typeormService.getRepository(entityClass);
-    await repository.update(id, data as any);
-    return (await repository.findOne({ where: { id } as any })) as T | null;
+    await repository.update(id, data as unknown);
+    return (await repository.findOne({ where: { id } as unknown })) as T | null;
   }
 
   public async delete<T extends ObjectLiteral>(
@@ -793,7 +807,11 @@ export class DatabaseService {
     return (result.affected ?? 0) > 0;
   }
 
-  public async findMany<T>(entityClass: any, conditions: any, options?: any): Promise<T[]> {
+  public async findMany<T>(
+    entityClass: unknown,
+    conditions: unknown,
+    options?: unknown
+  ): Promise<T[]> {
     await this.ensureInitialized();
     const repository = this.typeormService.getRepository(entityClass);
     return (await repository.find({
@@ -802,13 +820,15 @@ export class DatabaseService {
     })) as T[];
   }
 
-  public async count(entityClass: any, conditions?: any): Promise<number> {
+  public async count(entityClass: unknown, conditions?: unknown): Promise<number> {
     await this.ensureInitialized();
     const repository = this.typeormService.getRepository(entityClass);
     return await repository.count({ where: conditions });
   }
 
-  public async searchDiscussions(filters: any): Promise<{ discussions: any[]; total: number }> {
+  public async searchDiscussions(
+    _filters: unknown
+  ): Promise<{ discussions: unknown[]; total: number }> {
     await this.ensureInitialized();
     // Delegate to discussion repository if it exists
     if (this.discussionService) {
@@ -819,23 +839,23 @@ export class DatabaseService {
   }
 
   // Security validation methods (placeholders until implemented)
-  public async createApprovalWorkflow(data: any): Promise<any> {
+  public async createApprovalWorkflow(data: unknown): Promise<unknown> {
     await this.ensureInitialized();
     return this.security.getApprovalWorkflowRepository().create(data);
   }
 
-  public async getUserAuthDetails(userId: string): Promise<any> {
+  public async getUserAuthDetails(userId: string): Promise<unknown> {
     await this.ensureInitialized();
     return this.users.findUserById(userId);
   }
 
-  public async getUserPermissions(userId: string): Promise<any> {
+  public async getUserPermissions(_userId: string): Promise<unknown> {
     await this.ensureInitialized();
     // TODO: Implement proper permissions lookup
     return { rolePermissions: [], directPermissions: [] };
   }
 
-  public async getUserRiskData(userId: string): Promise<any> {
+  public async getUserRiskData(_userId: string): Promise<unknown> {
     await this.ensureInitialized();
     // TODO: Implement risk data lookup
     return { riskLevel: 'low', factors: [] };
@@ -850,52 +870,52 @@ export class DatabaseService {
   // Agent Intelligence Service placeholders - to be migrated to domain services
   // TODO: Migrate these to AgentService and AuditService per Technical Plan Phase 1.2
 
-  public async storeAgentState(agentId: string, state: any): Promise<void> {
+  public async storeAgentState(agentId: string, _state: unknown): Promise<void> {
     await this.ensureInitialized();
     logger.debug('Storing agent state (placeholder)', { agentId });
     // TODO: Delegate to AgentService
   }
 
-  public async storeAgentCapabilities(agentId: string, capabilities: any): Promise<void> {
+  public async storeAgentCapabilities(agentId: string, _capabilities: unknown): Promise<void> {
     await this.ensureInitialized();
     logger.debug('Storing agent capabilities (placeholder)', { agentId });
     // TODO: Delegate to AgentService
   }
 
-  public async storeLearningRecord(agentId: string, record: any): Promise<void> {
+  public async storeLearningRecord(agentId: string, _record: unknown): Promise<void> {
     await this.ensureInitialized();
     logger.debug('Storing learning record (placeholder)', { agentId });
     // TODO: Delegate to AuditService
   }
 
-  public async getOperationById(operationId: string): Promise<any> {
+  public async getOperationById(operationId: string): Promise<unknown> {
     await this.ensureInitialized();
     logger.debug('Getting operation (placeholder)', { operationId });
     // TODO: Delegate to OperationService
     return this.operations.getOperationRepository().findById(operationId);
   }
 
-  public async storeAgentActivity(agentId: string, activity: any): Promise<void> {
+  public async storeAgentActivity(agentId: string, _activity: unknown): Promise<void> {
     await this.ensureInitialized();
     logger.debug('Storing agent activity (placeholder)', { agentId });
     // TODO: Delegate to AuditService
   }
 
-  public async getAgentActivities(agentId: string, timeRange?: any): Promise<any[]> {
+  public async getAgentActivities(agentId: string, timeRange?: unknown): Promise<unknown[]> {
     await this.ensureInitialized();
     logger.debug('Getting agent activities (placeholder)', { agentId, timeRange });
     // TODO: Delegate to AuditService
     return [];
   }
 
-  public async getLearningRecords(agentId: string, timeRange?: any): Promise<any[]> {
+  public async getLearningRecords(agentId: string, timeRange?: unknown): Promise<unknown[]> {
     await this.ensureInitialized();
     logger.debug('Getting learning records (placeholder)', { agentId, timeRange });
     // TODO: Delegate to AuditService
     return [];
   }
 
-  public async storeExecutionPlan(plan: any): Promise<void> {
+  public async storeExecutionPlan(plan: unknown): Promise<void> {
     await this.ensureInitialized();
     logger.debug('Storing execution plan (placeholder)', { planId: plan.id });
     // TODO: Delegate to OperationService

@@ -9,7 +9,7 @@ import {
   RefreshCw,
   Database,
   Activity,
-  Zap,
+  Zap as _Zap,
   User,
   Settings,
   Cpu,
@@ -17,7 +17,7 @@ import {
   Trash2,
 } from 'lucide-react';
 import { LLMTaskType, LLMProviderType, UserLLMPreference } from '@uaip/types';
-import { uaipAPI } from '../../../utils/uaip-api';
+import { uaipAPI as _uaipAPI } from '../../../utils/uaip-api';
 import { usersAPI } from '../../../api/users.api';
 
 interface ViewportSize {
@@ -225,9 +225,11 @@ export const ProviderSettingsPortal: React.FC<ProviderSettingsPortalProps> = ({
 
   // Calculate statistics
   const providerCount = modelState?.providers?.length || 0;
-  const activeProviderCount = modelState?.providers?.filter((p: any) => p.isActive)?.length || 0;
+  const activeProviderCount =
+    modelState?.providers?.filter((p: unknown) => p.isActive)?.length || 0;
   const modelCount = modelState?.models?.length || 0;
-  const availableModelCount = modelState?.models?.filter((m: any) => m.isAvailable)?.length || 0;
+  const availableModelCount =
+    modelState?.models?.filter((m: unknown) => m.isAvailable)?.length || 0;
 
   return (
     <div className={`h-full flex flex-col space-y-4 overflow-hidden ${className}`}>
@@ -576,14 +578,14 @@ export const ProviderSettingsPortal: React.FC<ProviderSettingsPortalProps> = ({
                                 <option value="">Select a model...</option>
                                 {(modelState?.models || [])
                                   .filter(
-                                    (model: any) =>
+                                    (model: unknown) =>
                                       model.provider === preference.preferredProvider ||
                                       model.apiType === preference.preferredProvider ||
                                       // Include popular models regardless of provider
                                       model.name?.toLowerCase().includes('claude') ||
                                       model.name?.toLowerCase().includes('gpt')
                                   )
-                                  .map((model: any) => (
+                                  .map((model: unknown) => (
                                     <option key={model.id} value={model.id}>
                                       {model.name} ({model.provider || model.source})
                                     </option>

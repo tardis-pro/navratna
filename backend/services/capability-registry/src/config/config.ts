@@ -64,7 +64,7 @@ function validateConfig(): void {
   // Shared config validation is handled by @uaip/config
 }
 
-function getNestedValue(obj: any, path: string): any {
+function getNestedValue(obj: unknown, path: string): unknown {
   return path.split('.').reduce((current, key) => current?.[key], obj);
 }
 

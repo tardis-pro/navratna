@@ -4,7 +4,7 @@
  */
 
 import { APIClient } from './client';
-import { API_ROUTES } from '@/config/apiConfig';
+import { _API_ROUTES } from '@/config/apiConfig';
 
 export interface MCPServer {
   name: string;
@@ -22,7 +22,7 @@ export interface MCPTool {
   description: string;
   serverName: string;
   command: string;
-  parameters: any;
+  parameters: unknown;
   category: string;
 }
 
@@ -34,7 +34,7 @@ export interface MCPStatus {
 
 export interface MCPConfig {
   exists: boolean;
-  config: any | null;
+  config: unknown | null;
   serversCount?: number;
   servers?: string[];
   message?: string;
@@ -124,7 +124,7 @@ export const mcpAPI = {
     name: string;
     description: string;
     serverName: string;
-    parameters?: any;
+    parameters?: unknown;
     category?: string;
   }): Promise<{ tool: MCPTool; message: string }> {
     return APIClient.post<{ tool: MCPTool; message: string }>('/api/v1/mcp/tools', toolData);
@@ -138,18 +138,18 @@ export const mcpAPI = {
     updates: {
       name?: string;
       description?: string;
-      parameters?: any;
+      parameters?: unknown;
       enabled?: boolean;
     }
   ): Promise<{
     toolId: string;
     message: string;
-    updates: any;
+    updates: unknown;
   }> {
     return APIClient.put<{
       toolId: string;
       message: string;
-      updates: any;
+      updates: unknown;
     }>(`/api/v1/mcp/tools/${toolId}`, updates);
   },
 
@@ -171,16 +171,16 @@ export const mcpAPI = {
    */
   async executeTool(
     toolId: string,
-    parameters: any,
+    parameters: unknown,
     agentId?: string
   ): Promise<{
     toolId: string;
-    result: any;
+    result: unknown;
     message: string;
   }> {
     return APIClient.post<{
       toolId: string;
-      result: any;
+      result: unknown;
       message: string;
     }>(`/api/v1/mcp/tools/${toolId}/execute`, {
       parameters,
@@ -193,11 +193,11 @@ export const mcpAPI = {
    */
   async getToolSchema(toolId: string): Promise<{
     toolId: string;
-    schema: any;
+    schema: unknown;
   }> {
     return APIClient.get<{
       toolId: string;
-      schema: any;
+      schema: unknown;
     }>(`/api/v1/mcp/tools/${toolId}/schema`);
   },
 
@@ -209,12 +209,12 @@ export const mcpAPI = {
     limit: number = 5
   ): Promise<{
     toolId: string;
-    recommendations: any[];
+    recommendations: unknown[];
     count: number;
   }> {
     return APIClient.get<{
       toolId: string;
-      recommendations: any[];
+      recommendations: unknown[];
       count: number;
     }>(`/api/v1/mcp/tools/${toolId}/recommendations`, {
       params: { limit },
@@ -241,11 +241,11 @@ export const mcpAPI = {
    */
   async getToolDependencies(toolId: string): Promise<{
     toolId: string;
-    dependencyGraph: any;
+    dependencyGraph: unknown;
   }> {
     return APIClient.get<{
       toolId: string;
-      dependencyGraph: any;
+      dependencyGraph: unknown;
     }>(`/api/v1/mcp/tools/${toolId}/dependencies`);
   },
 
@@ -267,7 +267,7 @@ export const mcpAPI = {
   /**
    * Check system requirements for MCP
    */
-  async getSystemRequirements(): Promise<any> {
+  async getSystemRequirements(): Promise<unknown> {
     return APIClient.get('/api/v1/mcp/system-requirements');
   },
 

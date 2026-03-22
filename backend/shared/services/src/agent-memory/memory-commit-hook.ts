@@ -16,10 +16,10 @@ export interface MemoryEntry {
   content: {
     action?: ActionRecommendation;
     tool?: ToolDefinition;
-    result?: any;
+    result?: Record<string, unknown>;
     success: boolean;
     duration?: number;
-    metadata?: any;
+    metadata?: Record<string, unknown>;
   };
   significance: {
     importance: number; // 0-1 scale
@@ -39,10 +39,10 @@ export class MemoryCommitHook {
     agentId: string,
     action: ActionRecommendation,
     tools: ToolDefinition[],
-    result: any,
+    result: Record<string, unknown>,
     success: boolean,
     duration?: number,
-    metadata?: any
+    metadata?: Record<string, unknown>
   ): Promise<void> {
     try {
       const entry: MemoryEntry = {
@@ -83,10 +83,10 @@ export class MemoryCommitHook {
   async commitToolUsage(
     agentId: string,
     tool: ToolDefinition,
-    result: any,
+    result: Record<string, unknown>,
     success: boolean,
     duration?: number,
-    metadata?: any
+    metadata?: Record<string, unknown>
   ): Promise<void> {
     try {
       const entry: MemoryEntry = {
@@ -124,7 +124,7 @@ export class MemoryCommitHook {
     selectedAction: ActionRecommendation,
     confidence: number,
     reasoning: string,
-    metadata?: any
+    metadata?: Record<string, unknown>
   ): Promise<void> {
     try {
       const entry: MemoryEntry = {
@@ -242,7 +242,11 @@ export class MemoryCommitHook {
     });
   }
 
-  private calculateSignificance(action: ActionRecommendation, success: boolean, duration?: number) {
+  private calculateSignificance(
+    action: ActionRecommendation,
+    success: boolean,
+    _duration?: number
+  ) {
     let importance = action.confidence;
 
     // Boost importance for successful complex actions

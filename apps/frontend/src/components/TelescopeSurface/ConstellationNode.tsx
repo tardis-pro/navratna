@@ -24,7 +24,10 @@ const SPRING_TRANSITION = { type: 'spring' as const, damping: 25, stiffness: 120
 
 const MAX_VISIBLE_TAGS = 4;
 
-const HEALTH_COLORS: Record<ConstellationHealth, { bg: string; border: string; accent: string; glow: string }> = {
+const HEALTH_COLORS: Record<
+  ConstellationHealth,
+  { bg: string; border: string; accent: string; glow: string }
+> = {
   stable: {
     bg: 'oklch(20% 0.02 264 / 0.85)',
     border: 'oklch(50% 0.04 264 / 0.5)',
@@ -104,16 +107,10 @@ function ConstellationItemRow({ item }: ConstellationItemRowProps) {
         backgroundColor: 'oklch(22% 0.01 264 / 0.6)',
       }}
     >
-      <span
-        className="text-xs font-medium truncate"
-        style={{ color: 'oklch(85% 0.02 264)' }}
-      >
+      <span className="text-xs font-medium truncate" style={{ color: 'oklch(85% 0.02 264)' }}>
         {item.title}
       </span>
-      <span
-        className="text-xs line-clamp-1"
-        style={{ color: 'oklch(65% 0.02 264)' }}
-      >
+      <span className="text-xs line-clamp-1" style={{ color: 'oklch(65% 0.02 264)' }}>
         {item.content}
       </span>
     </div>
@@ -178,16 +175,10 @@ export function ConstellationNode({
   const blur = useMemo(() => getRelevanceBlur(relevanceScore), [relevanceScore]);
   const opacity = useMemo(() => getVisibilityOpacity(visibility), [visibility]);
 
-  const relevancePercent = useMemo(
-    () => Math.round(relevanceScore * 100),
-    [relevanceScore]
-  );
+  const relevancePercent = useMemo(() => Math.round(relevanceScore * 100), [relevanceScore]);
 
   const visibleTags = useMemo(() => tags.slice(0, MAX_VISIBLE_TAGS), [tags]);
-  const overflowTagCount = useMemo(
-    () => Math.max(0, tags.length - MAX_VISIBLE_TAGS),
-    [tags]
-  );
+  const overflowTagCount = useMemo(() => Math.max(0, tags.length - MAX_VISIBLE_TAGS), [tags]);
 
   const handleClick = useCallback(() => {
     onClick?.(constellationId);
@@ -251,15 +242,9 @@ export function ConstellationNode({
           borderBottom: `1px solid oklch(30% 0.02 264 / 0.5)`,
         }}
       >
-        <MicroexpressionIndicator
-          expression={expression}
-          size="sm"
-        />
+        <MicroexpressionIndicator expression={expression} size="sm" />
 
-        <Layers
-          className="w-4 h-4 flex-shrink-0"
-          style={{ color: healthColors.accent }}
-        />
+        <Layers className="w-4 h-4 flex-shrink-0" style={{ color: healthColors.accent }} />
 
         <span
           className="text-sm font-semibold truncate flex-1"
@@ -305,10 +290,7 @@ export function ConstellationNode({
             <TagBadge key={tag} label={tag} />
           ))}
           {overflowTagCount > 0 && (
-            <span
-              className="text-xs px-1.5"
-              style={{ color: 'oklch(58% 0.02 264)' }}
-            >
+            <span className="text-xs px-1.5" style={{ color: 'oklch(58% 0.02 264)' }}>
               +{overflowTagCount}
             </span>
           )}
@@ -373,10 +355,7 @@ export function ConstellationNode({
 
       {/* ── Expression Label ───────────────────────────────────── */}
       <div className="flex justify-end px-3 pb-2">
-        <span
-          className="text-[0.625rem] italic"
-          style={{ color: 'oklch(50% 0.02 264 / 0.7)' }}
-        >
+        <span className="text-[0.625rem] italic" style={{ color: 'oklch(50% 0.02 264 / 0.7)' }}>
           {expressionLabel}
         </span>
       </div>

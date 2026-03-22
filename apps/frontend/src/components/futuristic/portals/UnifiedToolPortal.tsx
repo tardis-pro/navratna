@@ -9,20 +9,20 @@ import {
   MagnifyingGlassIcon,
   PlusIcon,
   ClockIcon,
-  CheckCircleIcon,
-  DocumentIcon,
-  TagIcon,
+  CheckCircleIcon as _CheckCircleIcon,
+  DocumentIcon as _DocumentIcon,
+  TagIcon as _TagIcon,
   ArrowPathIcon,
   ExclamationTriangleIcon,
   XMarkIcon,
   CloudIcon,
-  CodeBracketIcon,
-  CubeIcon,
+  CodeBracketIcon as _CodeBracketIcon,
+  CubeIcon as _CubeIcon,
   UserGroupIcon,
   ServerStackIcon,
   ChartBarIcon,
-  CogIcon,
-  BoltIcon,
+  CogIcon as _CogIcon,
+  BoltIcon as _BoltIcon,
   LinkIcon,
 } from '@heroicons/react/24/outline';
 import { uaipAPI } from '@/utils/uaip-api';
@@ -69,7 +69,7 @@ interface Tool {
     mcpServer?: string;
     oauthProvider?: string;
   };
-  parameters?: any;
+  parameters?: unknown;
 }
 
 interface MCPServer {
@@ -94,7 +94,7 @@ interface SystemStatus {
   oauth: {
     connectedProviders: number;
     availableCapabilities: number;
-    providers: any[];
+    providers: unknown[];
   };
 }
 
@@ -107,7 +107,7 @@ export const UnifiedToolPortal: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
-  const [showToolForm, setShowToolForm] = useState(false);
+  const [_showToolForm, setShowToolForm] = useState(false);
   const [showAgentSelector, setShowAgentSelector] = useState(false);
   const [toolToAddToAgent, setToolToAddToAgent] = useState<Tool | null>(null);
 
@@ -164,11 +164,7 @@ export const UnifiedToolPortal: React.FC = () => {
 
       // Combine regular tools and MCP tools
       const allTools = [...regularTools, ...mcpTools];
-      console.log('Loaded tools:', {
-        regular: regularTools.length,
-        mcp: mcpTools.length,
-        total: allTools.length,
-      });
+
       setTools(allTools);
     } catch (error) {
       console.error('Failed to load tools:', error);
@@ -190,7 +186,6 @@ export const UnifiedToolPortal: React.FC = () => {
               ? result.data
               : [];
 
-      console.log('Loaded agents:', agentsArray);
       setAgents(agentsArray);
     } catch (error) {
       console.error('Failed to load agents:', error);
@@ -209,8 +204,9 @@ export const UnifiedToolPortal: React.FC = () => {
           mcp: {
             status: mcpData.configExists ? 'active' : 'inactive',
             totalServers: mcpData.servers?.length || 0,
-            runningServers: mcpData.servers?.filter((s: any) => s.status === 'running').length || 0,
-            errorServers: mcpData.servers?.filter((s: any) => s.status === 'error').length || 0,
+            runningServers:
+              mcpData.servers?.filter((s: unknown) => s.status === 'running').length || 0,
+            errorServers: mcpData.servers?.filter((s: unknown) => s.status === 'error').length || 0,
             totalTools: 0, // Will be calculated from actual tools
             servers: mcpData.servers || [],
           },
@@ -476,8 +472,7 @@ export const UnifiedToolPortal: React.FC = () => {
 
       {/* MCP Configuration Upload */}
       <MCPConfigUpload
-        onUploadSuccess={(config) => {
-          console.log('MCP config uploaded:', config);
+        onUploadSuccess={(_config) => {
           loadSystemStatus();
           loadTools();
         }}
@@ -806,7 +801,7 @@ export const UnifiedToolPortal: React.FC = () => {
         ].map((tab) => (
           <button
             key={tab.id}
-            onClick={() => setActiveTab(tab.id as any)}
+            onClick={() => setActiveTab(tab.id as unknown)}
             className={`px-6 py-3 font-medium text-sm transition-colors flex items-center gap-2 ${
               activeTab === tab.id
                 ? 'text-white border-b-2 border-blue-500'

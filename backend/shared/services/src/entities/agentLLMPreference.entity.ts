@@ -1,13 +1,4 @@
-import {
-  Entity,
-  PrimaryGeneratedColumn,
-  Column,
-  CreateDateColumn,
-  UpdateDateColumn,
-  Index,
-  ManyToOne,
-  JoinColumn,
-} from 'typeorm';
+import { Entity, Column, Index, ManyToOne, JoinColumn } from 'typeorm';
 import { BaseEntity } from './base.entity';
 import { Agent } from './agent.entity';
 import { LLMTaskType, LLMProviderType } from '@uaip/types';
@@ -43,7 +34,7 @@ export class AgentLLMPreference extends BaseEntity {
     maxTokens?: number;
     topP?: number;
     systemPrompt?: string;
-    customSettings?: Record<string, any>;
+    customSettings?: Record<string, unknown>;
   };
 
   @Column({ type: 'boolean', default: true })

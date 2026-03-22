@@ -31,11 +31,11 @@ function parseOptionalDate(input?: string): Date | undefined {
   return d;
 }
 
-export function registerLLMAgentProviderRoutes(app: any): any {
-  return app.group('/api/v1/agent-llm-providers', (app: any) =>
+export function registerLLMAgentProviderRoutes(elysiaApp: unknown): unknown {
+  return elysiaApp.group('/api/v1/agent-llm-providers', (app: unknown) =>
     withRequiredAuth(app)
-      .get('/', async (context: any) => {
-        const { user, set } = context as any;
+      .get('/', async (context: unknown) => {
+        const { user, set } = context as unknown;
         try {
           const supported = llmAgentProviderService.getSupportedProviders();
           return { success: true, data: supported };
@@ -48,8 +48,8 @@ export function registerLLMAgentProviderRoutes(app: any): any {
           return { success: false, error: 'Failed to list supported agent LLM providers' };
         }
       })
-      .get('/user', async (context: any) => {
-        const { user, set } = context as any;
+      .get('/user', async (context: unknown) => {
+        const { user, set } = context as unknown;
         try {
           const providers = await llmAgentProviderService.listUserProviders(user.id);
           return { success: true, data: providers };
@@ -59,8 +59,8 @@ export function registerLLMAgentProviderRoutes(app: any): any {
           return { success: false, error: 'Failed to list user agent LLM providers' };
         }
       })
-      .post('/api-key', async (context: any) => {
-        const { user, set, body } = context as any;
+      .post('/api-key', async (context: unknown) => {
+        const { user, set, body } = context as unknown;
         const validation = saveApiKeySchema.safeParse(body);
         if (!validation.success) {
           set.status = 400;
@@ -75,14 +75,14 @@ export function registerLLMAgentProviderRoutes(app: any): any {
           logger.error('Error storing agent LLM API key', {
             error,
             userId: user.id,
-            provider: (body as any)?.provider,
+            provider: (body as unknown)?.provider,
           });
           set.status = 500;
           return { success: false, error: 'Failed to store API key' };
         }
       })
-      .post('/oauth/initiate', async (context: any) => {
-        const { user, set, body } = context as any;
+      .post('/oauth/initiate', async (context: unknown) => {
+        const { user, set, body } = context as unknown;
         const validation = oauthInitiateSchema.safeParse(body);
         if (!validation.success) {
           set.status = 400;
@@ -106,8 +106,8 @@ export function registerLLMAgentProviderRoutes(app: any): any {
           };
         }
       })
-      .post('/oauth/tokens', async (context: any) => {
-        const { user, set, body } = context as any;
+      .post('/oauth/tokens', async (context: unknown) => {
+        const { user, set, body } = context as unknown;
         const validation = storeOAuthTokensSchema.safeParse(body);
         if (!validation.success) {
           set.status = 400;
@@ -133,9 +133,9 @@ export function registerLLMAgentProviderRoutes(app: any): any {
           return { success: false, error: 'Failed to store OAuth tokens' };
         }
       })
-      .delete('/:provider', async (context: any) => {
-        const { user, set, params } = context as any;
-        const parsed = providerSchema.safeParse((params as any).provider);
+      .delete('/:provider', async (context: unknown) => {
+        const { user, set, params } = context as unknown;
+        const parsed = providerSchema.safeParse((params as unknown).provider);
         if (!parsed.success) {
           set.status = 400;
           return { success: false, error: 'Invalid provider' };
@@ -148,7 +148,7 @@ export function registerLLMAgentProviderRoutes(app: any): any {
           logger.error('Error disconnecting agent LLM provider', {
             error,
             userId: user.id,
-            provider: (params as any).provider,
+            provider: (params as unknown).provider,
           });
           set.status = 500;
           return { success: false, error: 'Failed to disconnect provider' };

@@ -13,11 +13,7 @@ const sizeMap = {
   lg: 'w-5 h-5',
 };
 
-export function MicroexpressionIcon({
-  type,
-  size = 'md',
-  className,
-}: MicroexpressionIconProps) {
+export function MicroexpressionIcon({ type, size = 'md', className }: MicroexpressionIconProps) {
   const sizeClass = sizeMap[size];
 
   const icons: Record<Microexpression, React.ReactNode> = {

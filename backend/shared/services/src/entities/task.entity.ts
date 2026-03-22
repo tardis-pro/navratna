@@ -197,14 +197,14 @@ export class TaskEntity extends BaseEntity {
 
   // Activity tracking
   @Column({ type: 'jsonb', default: '[]' })
-  activityLog!: any[];
+  activityLog!: Record<string, unknown>[];
 
   // Custom fields for flexibility
   @Column({ type: 'jsonb', nullable: true })
-  customFields?: Record<string, any>;
+  customFields?: Record<string, unknown>;
 
   @Column({ type: 'jsonb', nullable: true })
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 
   // Soft delete support
   @Column({ type: 'timestamp', name: 'deleted_at', nullable: true })

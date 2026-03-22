@@ -17,8 +17,8 @@ interface MCPContext extends ElysiaBaseContext {
  * Strips all secret fields from in-memory server state before sending to
  * clients. httpHeaders contains live API keys and must NEVER leave the process.
  */
-function sanitizeServerState(s: any) {
-  const { config, httpHeaders, ...rest } = s;
+function sanitizeServerState(s: unknown) {
+  const { config, _httpHeaders, ...rest } = s;
   return {
     ...rest,
     config: config
@@ -40,10 +40,11 @@ function sanitizeServerState(s: any) {
  */
 function requireAdmin(ctx: MCPContext): void {
   const role =
-    (ctx as any).headers?.['x-user-role'] || (ctx as any).request?.headers?.get?.('x-user-role');
+    (ctx as unknown).headers?.['x-user-role'] ||
+    (ctx as unknown).request?.headers?.get?.('x-user-role');
   if (role !== 'admin') {
-    (ctx as any).set = (ctx as any).set || {};
-    (ctx as any).set.status = 403;
+    (ctx as unknown).set = (ctx as unknown).set || {};
+    (ctx as unknown).set.status = 403;
     throw new Error('Admin access required for MCP server management');
   }
 }
@@ -53,12 +54,12 @@ function requireAdmin(ctx: MCPContext): void {
 // ---------------------------------------------------------------------------
 
 // Minimal Elysia route group for MCP endpoints
-export function registerMCPRoutes(app: any) {
+export function registerMCPRoutes(app: unknown) {
   const mcpService = MCPClientService.getInstance();
 
   logger.info('Registering MCP Elysia routes');
 
-  app.group('/api/v1/mcp', (g: any) =>
+  app.group('/api/v1/mcp', (g: unknown) =>
     g
       // Simple readiness/test endpoint
       .get('/test', () => ({ success: true, message: 'MCP routes working' }))
@@ -211,10 +212,10 @@ export function registerMCPRoutes(app: any) {
         requireAdmin(ctx);
         const body = ctx.body as Record<string, unknown> | undefined;
         if (!body) {
-          (ctx as any).set.status = 400;
+          (ctx as unknown).set.status = 400;
           return { success: false, error: { code: 'VALIDATION_ERROR', message: 'Body required' } };
         }
-        await mcpService.installServer(ctx.params.serverName, body as any);
+        await mcpService.installServer(ctx.params.serverName, body as unknown);
         return { success: true };
       })
       .post('/servers/:serverName/uninstall', async (ctx: MCPContext) => {
@@ -238,7 +239,7 @@ export function registerMCPRoutes(app: any) {
         const bodyData = ctx.body as Record<string, unknown> | undefined;
         const { serverName, toolName } = bodyData || {};
         if (!serverName || !toolName) {
-          (ctx as any).set.status = 400;
+          (ctx as unknown).set.status = 400;
           return {
             success: false,
             error: { code: 'VALIDATION_ERROR', message: 'serverName and toolName are required' },

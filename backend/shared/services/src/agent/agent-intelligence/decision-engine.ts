@@ -70,12 +70,14 @@ export class DecisionEngine {
       }> = [];
 
       for (const action of viableActions) {
+        // oxlint-ignore-next-line no-await-in-loop -- sequential processing required
         const validationResult = await this.capabilityResolver.validateCapabilities(
           action.requiredCapabilities
         );
         const resolvedCapabilities: ToolDefinition[] = [];
 
         for (const capability of action.requiredCapabilities) {
+          // oxlint-ignore-next-line no-await-in-loop -- sequential processing required
           const tool = await this.capabilityResolver.lookup(capability);
           if (tool) {
             resolvedCapabilities.push(tool);

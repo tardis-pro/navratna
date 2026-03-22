@@ -116,10 +116,10 @@ export class ConceptDefinitionEntity extends BaseEntity {
   @Column({ type: 'json', nullable: true })
   properties?: {
     key: string;
-    value: any;
+    value: unknown;
     dataType: string;
     description?: string;
-    constraints?: any;
+    constraints?: unknown;
   }[];
 
   @Column({ type: 'json', nullable: true })
@@ -190,7 +190,7 @@ export class ConceptDefinitionEntity extends BaseEntity {
     logicalDefinition?: string;
     mathematicalDefinition?: string;
     algorithmicDefinition?: string;
-    structuralDefinition?: Record<string, any>;
+    structuralDefinition?: Record<string, unknown>;
   };
 
   @Column({ type: 'json', nullable: true })

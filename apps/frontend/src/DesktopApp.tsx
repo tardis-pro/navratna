@@ -51,7 +51,10 @@ function DesktopApp() {
                             <BrowserRouter>
                               <Routes>
                                 <Route path="/questionforge" element={<QuestionForgeLanding />} />
-                                <Route path="/questionforge/results" element={<QuestionForgeResults />} />
+                                <Route
+                                  path="/questionforge/results"
+                                  element={<QuestionForgeResults />}
+                                />
                                 <Route path="/projects/:id/workspace" element={<WorkspacePage />} />
                                 <Route
                                   path="/projects/:id/workspace/session"

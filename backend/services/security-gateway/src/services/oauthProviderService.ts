@@ -2,7 +2,7 @@ import { logger } from '@uaip/utils';
 import { ApiError } from '@uaip/utils';
 import { OAuthService } from '@uaip/shared-services';
 import * as crypto from 'crypto';
-import * as jwt from 'jsonwebtoken';
+import * as _jwt from 'jsonwebtoken';
 import axios, { AxiosResponse } from 'axios';
 import {
   OAuthProviderConfig,
@@ -11,10 +11,10 @@ import {
   AgentOAuthConnection,
   UserType,
   AgentCapability,
-  EnhancedUser,
-  SecurityLevel,
-  GitHubProviderConfig,
-  EmailProviderConfig,
+  EnhancedUser as _EnhancedUser,
+  SecurityLevel as _SecurityLevel,
+  GitHubProviderConfig as _GitHubProviderConfig,
+  EmailProviderConfig as _EmailProviderConfig,
   AuditEventType,
 } from '@uaip/types';
 import { AuditService } from './auditService.js';
@@ -35,7 +35,7 @@ interface OAuthUserInfo {
   name?: string;
   login?: string;
   avatar_url?: string;
-  [key: string]: any;
+  [key: string]: unknown;
 }
 
 interface ProviderEndpoints {
@@ -126,7 +126,7 @@ export class OAuthProviderService {
     try {
       const providers = await this.oauthService.findEnabledOAuthProviders();
       for (const provider of providers) {
-        this.providers.set(provider.id, provider as any);
+        this.providers.set(provider.id, provider as unknown);
       }
       logger.info('OAuth providers loaded', { count: providers.length });
     } catch (error) {
@@ -139,31 +139,31 @@ export class OAuthProviderService {
   /**
    * Create OAuth provider configuration
    */
-  public async createProvider(config: OAuthProviderConfig): Promise<OAuthProviderConfig> {
+  public async createProvider(providerConfig: OAuthProviderConfig): Promise<OAuthProviderConfig> {
     try {
       // Validate provider configuration
-      await this.validateProviderConfig(config);
+      await this.validateProviderConfig(providerConfig);
 
       // Encrypt sensitive data
-      if (config.clientSecret) {
-        config.clientSecret = await this.encryptSecret(config.clientSecret);
+      if (providerConfig.clientSecret) {
+        providerConfig.clientSecret = await this.encryptSecret(providerConfig.clientSecret);
       }
 
       // Save to database
       const savedProvider = await this.oauthService.createOAuthProvider({
-        name: config.name || `${config.type}-provider`,
-        type: config.type,
-        clientId: config.clientId,
-        clientSecret: config.clientSecret,
-        redirectUri: config.redirectUri,
-        scope: config.scope,
-        authorizationUrl: config.authorizationUrl,
-        tokenUrl: config.tokenUrl,
-        userInfoUrl: config.userInfoUrl,
-        revokeUrl: (config as any).revokeUrl,
-        isEnabled: config.isEnabled || true,
+        name: providerConfig.name || `${providerConfig.type}-provider`,
+        type: providerConfig.type,
+        clientId: providerConfig.clientId,
+        clientSecret: providerConfig.clientSecret,
+        redirectUri: providerConfig.redirectUri,
+        scope: providerConfig.scope,
+        authorizationUrl: providerConfig.authorizationUrl,
+        tokenUrl: providerConfig.tokenUrl,
+        userInfoUrl: providerConfig.userInfoUrl,
+        revokeUrl: (providerConfig as unknown).revokeUrl,
+        isEnabled: providerConfig.isEnabled || true,
       });
-      this.providers.set(savedProvider.id, savedProvider as any);
+      this.providers.set(savedProvider.id, savedProvider as unknown);
 
       await this.auditService.logEvent({
         eventType: AuditEventType.SECURITY_CONFIG_CHANGE,
@@ -181,7 +181,7 @@ export class OAuthProviderService {
         agentAccess: savedProvider.agentConfig?.allowAgentAccess || false,
       });
 
-      return savedProvider as any;
+      return savedProvider as unknown;
     } catch (error) {
       logger.error('Failed to create OAuth provider', {
         error: error instanceof Error ? error.message : 'Unknown error',
@@ -247,7 +247,7 @@ export class OAuthProviderService {
       const codeChallenge = codeVerifier ? this.generateCodeChallenge(codeVerifier) : undefined;
 
       // Store OAuth state with expiration
-      const oauthState: OAuthState = {
+      const _oauthState: OAuthState = {
         state,
         providerId,
         redirectUri,
@@ -415,7 +415,7 @@ export class OAuthProviderService {
         ? await this.encryptSecret(tokens.refresh_token)
         : undefined;
 
-      const connection: AgentOAuthConnection = {
+      const _connection: AgentOAuthConnection = {
         id: crypto.randomUUID(),
         agentId,
         providerId,
@@ -550,7 +550,7 @@ export class OAuthProviderService {
       const rateLimit = provider?.agentConfig?.rateLimit;
       if (rateLimit && connection.usageStats) {
         const now = new Date();
-        const windowStart = new Date(now.getTime() - rateLimit.windowMs);
+        const _windowStart = new Date(now.getTime() - rateLimit.windowMs);
 
         // Reset daily counter if needed
         if (
@@ -764,7 +764,7 @@ export class OAuthProviderService {
         lastResetDate = today;
       }
 
-      const updatedStats = {
+      const _updatedStats = {
         ...connection.usageStats,
         totalRequests: (connection.usageStats?.totalRequests || 0) + 1,
         dailyRequests: dailyRequests + 1,
@@ -795,7 +795,7 @@ export class OAuthProviderService {
   private async encryptSecret(secret: string): Promise<string> {
     const algorithm = 'aes-256-gcm';
     const key = crypto.scryptSync(
-      (config as any).security?.encryptionKey || 'default-key',
+      (config as unknown).security?.encryptionKey || 'default-key',
       'salt',
       32
     );
@@ -811,7 +811,7 @@ export class OAuthProviderService {
   private async decryptSecret(encryptedSecret: string): Promise<string> {
     const algorithm = 'aes-256-gcm';
     const key = crypto.scryptSync(
-      (config as any).security?.encryptionKey || 'default-key',
+      (config as unknown).security?.encryptionKey || 'default-key',
       'salt',
       32
     );
@@ -826,22 +826,22 @@ export class OAuthProviderService {
     return decrypted;
   }
 
-  private async validateProviderConfig(config: OAuthProviderConfig): Promise<void> {
-    if (!config.clientId) {
+  private async validateProviderConfig(providerConfig: OAuthProviderConfig): Promise<void> {
+    if (!providerConfig.clientId) {
       throw new ApiError(400, 'Client ID is required', 'MISSING_CLIENT_ID');
     }
 
-    if (!config.redirectUri) {
+    if (!providerConfig.redirectUri) {
       throw new ApiError(400, 'Redirect URI is required', 'MISSING_REDIRECT_URI');
     }
 
     // Validate URLs
     try {
-      new URL(config.redirectUri);
-      new URL(config.authorizationUrl);
-      new URL(config.tokenUrl);
-      new URL(config.userInfoUrl);
-    } catch (error) {
+      const _redirectUrl = new URL(providerConfig.redirectUri);
+      const _authorizationUrl = new URL(providerConfig.authorizationUrl);
+      const _tokenUrl = new URL(providerConfig.tokenUrl);
+      const _userInfoUrl = new URL(providerConfig.userInfoUrl);
+    } catch {
       throw new ApiError(400, 'Invalid URL in provider configuration', 'INVALID_URL');
     }
   }
@@ -849,7 +849,7 @@ export class OAuthProviderService {
   private async getProviderConfig(providerId: string): Promise<OAuthProviderConfig | null> {
     try {
       const provider = await this.oauthService.findOAuthProvider(providerId);
-      return provider as any;
+      return provider as unknown;
     } catch (error) {
       await this.auditService.logEvent({
         eventType: AuditEventType.SYSTEM_ERROR,
@@ -859,7 +859,7 @@ export class OAuthProviderService {
     }
   }
 
-  private async updateConnectionUsageStats(connectionId: string, stats: any): Promise<void> {
+  private async updateConnectionUsageStats(connectionId: string, stats: unknown): Promise<void> {
     // TODO: Implement usage stats update in OAuthService domain service
     // For now, this is a placeholder
     logger.info('Usage stats update requested', { connectionId, stats });
@@ -881,7 +881,7 @@ export class OAuthProviderService {
   /**
    * Get agent connections
    */
-  public async getAgentConnections(agentId: string): Promise<any[]> {
+  public async getAgentConnections(agentId: string): Promise<unknown[]> {
     const result = await this.oauthService.findAgentOAuthConnections(agentId);
     return Array.isArray(result) ? result : [result].filter(Boolean);
   }
@@ -906,7 +906,7 @@ export class OAuthProviderService {
   /**
    * Get GitHub repositories for an agent
    */
-  public async getGitHubRepos(agentId: string, providerId: string): Promise<any[]> {
+  public async getGitHubRepos(_agentId: string, _providerId: string): Promise<unknown[]> {
     // This would implement GitHub API calls using the agent's OAuth token
     // For now, return empty array as placeholder
     return [];
@@ -915,7 +915,11 @@ export class OAuthProviderService {
   /**
    * Get Gmail messages for an agent
    */
-  public async getGmailMessages(agentId: string, providerId: string, options: any): Promise<any[]> {
+  public async getGmailMessages(
+    _agentId: string,
+    _providerId: string,
+    _options: unknown
+  ): Promise<unknown[]> {
     // This would implement Gmail API calls using the agent's OAuth token
     // For now, return empty array as placeholder
     return [];
@@ -928,7 +932,7 @@ export class OAuthProviderService {
     agentId: string,
     providerId: string,
     operation: string,
-    result: any
+    result: unknown
   ): Promise<void> {
     try {
       await this.auditService.logEvent({

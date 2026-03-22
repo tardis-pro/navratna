@@ -48,6 +48,7 @@ export class OperationValidator {
 
     // Validate each step
     for (const step of operation.steps) {
+      // oxlint-disable-next-line no-await-in-loop -- sequential processing required
       await this.validateStep(step);
     }
 
@@ -55,7 +56,7 @@ export class OperationValidator {
     this.validateStepDependencies(operation);
   }
 
-  private async validateStep(step: any): Promise<void> {
+  private async validateStep(step: Record<string, unknown>): Promise<void> {
     if (!step.id) {
       throw new OperationError('Step ID is required', 'VALIDATION_ERROR');
     }
@@ -72,7 +73,7 @@ export class OperationValidator {
     await this.validateStepSchema(step);
   }
 
-  private async validateStepSchema(step: any): Promise<void> {
+  private async validateStepSchema(step: Record<string, unknown>): Promise<void> {
     // Define schemas for different step types
     const schemas: Record<string, z.ZodSchema> = {
       'agent-action': z.object({
@@ -119,9 +120,10 @@ export class OperationValidator {
     if (schema) {
       try {
         schema.parse(step);
-      } catch (error) {
+      } catch (error: unknown) {
+        const message = error instanceof Error ? error.message : String(error);
         throw new OperationError(
-          `Invalid step schema for ${step.id}: ${error.message}`,
+          `Invalid step schema for ${step.id}: ${message}`,
           'VALIDATION_ERROR'
         );
       }
@@ -156,26 +158,27 @@ export class OperationValidator {
   }
 
   private checkCircularDependencies(
-    step: any,
-    allSteps: any[],
+    step: Record<string, unknown>,
+    allSteps: Record<string, unknown>[],
     visited: Set<string>,
     visiting: Set<string>
   ): void {
-    if (visiting.has(step.id)) {
+    const stepId = step.id as string;
+    if (visiting.has(stepId)) {
       throw new OperationError(
-        `Circular dependency detected involving step ${step.id}`,
+        `Circular dependency detected involving step ${stepId}`,
         'VALIDATION_ERROR'
       );
     }
 
-    if (visited.has(step.id)) {
+    if (visited.has(stepId)) {
       return;
     }
 
-    visiting.add(step.id);
+    visiting.add(stepId);
 
     if (step.dependsOn) {
-      for (const depId of step.dependsOn) {
+      for (const depId of step.dependsOn as string[]) {
         const depStep = allSteps.find((s) => s.id === depId);
         if (depStep) {
           this.checkCircularDependencies(depStep, allSteps, visited, visiting);
@@ -183,7 +186,7 @@ export class OperationValidator {
       }
     }
 
-    visiting.delete(step.id);
-    visited.add(step.id);
+    visiting.delete(stepId);
+    visited.add(stepId);
   }
 }

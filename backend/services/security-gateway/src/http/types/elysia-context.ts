@@ -20,7 +20,7 @@ export interface AuthUser {
 /**
  * Base Elysia context available to all handlers
  */
-export interface ElysiaContext<TBody = any, TParams = any, TQuery = any> {
+export interface ElysiaContext<TBody = unknown, TParams = unknown, TQuery = unknown> {
   body: TBody;
   set: {
     status?: number;
@@ -35,16 +35,22 @@ export interface ElysiaContext<TBody = any, TParams = any, TQuery = any> {
 /**
  * Context with optional authentication (user may be null)
  */
-export interface OptionalAuthContext<TBody = any, TParams = any, TQuery = any>
-  extends ElysiaContext<TBody, TParams, TQuery> {
+export interface OptionalAuthContext<
+  TBody = unknown,
+  TParams = unknown,
+  TQuery = unknown,
+> extends ElysiaContext<TBody, TParams, TQuery> {
   user: AuthUser | null;
 }
 
 /**
  * Context with required authentication (user is always present)
  */
-export interface RequiredAuthContext<TBody = any, TParams = any, TQuery = any>
-  extends ElysiaContext<TBody, TParams, TQuery> {
+export interface RequiredAuthContext<
+  TBody = unknown,
+  TParams = unknown,
+  TQuery = unknown,
+> extends ElysiaContext<TBody, TParams, TQuery> {
   user: AuthUser;
 }
 
@@ -53,9 +59,9 @@ export interface RequiredAuthContext<TBody = any, TParams = any, TQuery = any>
  */
 export type HandlerContext<
   TAuth extends 'none' | 'optional' | 'required' = 'none',
-  TBody = any,
-  TParams = any,
-  TQuery = any
+  TBody = unknown,
+  TParams = unknown,
+  TQuery = unknown,
 > = TAuth extends 'required'
   ? RequiredAuthContext<TBody, TParams, TQuery>
   : TAuth extends 'optional'
@@ -69,6 +75,6 @@ export type HandlerContext<
  * @example
  * const userId = getAuthUser(context).id
  */
-export function getAuthUser(context: any): AuthUser {
+export function getAuthUser(context: unknown): AuthUser {
   return context.user as AuthUser;
 }

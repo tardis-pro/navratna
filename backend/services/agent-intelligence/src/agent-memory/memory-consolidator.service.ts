@@ -73,10 +73,12 @@ export class MemoryConsolidator {
 
       if (episode.significance.importance > 0.3) {
         // Only store significant episodes
+        // oxlint-disable-next-line no-await-in-loop -- sequential processing required
         await this.episodicMemoryManager.storeEpisode(agentId, episode);
         episodesCreated++;
 
         // Create connections with existing episodes
+        // oxlint-disable-next-line no-await-in-loop -- sequential processing required
         const similarEpisodes = await this.episodicMemoryManager.findSimilarEpisodes(
           agentId,
           episode.context.what
@@ -105,6 +107,7 @@ export class MemoryConsolidator {
     // Extract concepts from temporary learnings
     for (const learning of workingMemory.shortTermMemory.temporaryLearnings) {
       if (learning.confidence > 0.6) {
+        // oxlint-disable-next-line no-await-in-loop -- sequential processing required
         const existingConcept = await this.semanticMemoryManager.getConcept(
           agentId,
           learning.concept
@@ -112,6 +115,7 @@ export class MemoryConsolidator {
 
         if (existingConcept) {
           // Reinforce existing concept
+          // oxlint-disable-next-line no-await-in-loop -- sequential processing required
           await this.semanticMemoryManager.reinforceConcept(
             agentId,
             learning.concept,
@@ -144,6 +148,7 @@ export class MemoryConsolidator {
             },
           };
 
+          // oxlint-disable-next-line no-await-in-loop -- sequential processing required
           await this.semanticMemoryManager.storeConcept(agentId, newConcept);
           conceptsLearned++;
         }
@@ -156,6 +161,7 @@ export class MemoryConsolidator {
     );
 
     for (const concept of reasoningConcepts) {
+      // oxlint-disable-next-line no-await-in-loop -- sequential processing required
       const existingConcept = await this.semanticMemoryManager.getConcept(agentId, concept.name);
 
       if (!existingConcept) {
@@ -183,6 +189,7 @@ export class MemoryConsolidator {
           },
         };
 
+        // oxlint-disable-next-line no-await-in-loop -- sequential processing required
         await this.semanticMemoryManager.storeConcept(agentId, newConcept);
         conceptsLearned++;
       }
@@ -191,9 +198,11 @@ export class MemoryConsolidator {
     return { conceptsLearned, connectionsFormed };
   }
 
-  private groupInteractionsIntoEpisodes(interactions: any[]): any[][] {
-    const groups: any[][] = [];
-    let currentGroup: any[] = [];
+  private groupInteractionsIntoEpisodes(
+    interactions: Record<string, unknown>[]
+  ): Record<string, unknown>[][] {
+    const groups: Record<string, unknown>[][] = [];
+    let currentGroup: Record<string, unknown>[] = [];
 
     for (let i = 0; i < interactions.length; i++) {
       const interaction = interactions[i];
@@ -225,11 +234,11 @@ export class MemoryConsolidator {
 
   private createEpisodeFromInteractions(
     agentId: string,
-    interactions: any[],
+    interactions: Record<string, unknown>[],
     workingMemory: WorkingMemory
   ): Episode {
     const firstInteraction = interactions[0];
-    const lastInteraction = interactions[interactions.length - 1];
+    const _lastInteraction = interactions[interactions.length - 1];
 
     // Calculate significance based on interaction outcomes and emotional responses
     const avgImpact = interactions.reduce((sum, i) => sum + i.impact, 0) / interactions.length;
@@ -275,7 +284,7 @@ export class MemoryConsolidator {
   }
 
   private determineEpisodeType(
-    interactions: any[]
+    interactions: Record<string, unknown>[]
   ): 'discussion' | 'operation' | 'learning' | 'problem_solving' | 'collaboration' {
     const types = interactions.map((i) => i.type);
 
@@ -292,12 +301,15 @@ export class MemoryConsolidator {
     }
   }
 
-  private summarizeInteractions(interactions: any[]): string {
+  private summarizeInteractions(interactions: Record<string, unknown>[]): string {
     const descriptions = interactions.map((i) => i.description).slice(0, 3);
     return descriptions.join('; ');
   }
 
-  private inferPurpose(interactions: any[], workingMemory: WorkingMemory): string {
+  private inferPurpose(
+    interactions: Record<string, unknown>[],
+    workingMemory: WorkingMemory
+  ): string {
     // Try to infer purpose from context and goals
     const goals =
       workingMemory.currentContext.activeDiscussion?.currentGoals ||
@@ -307,7 +319,7 @@ export class MemoryConsolidator {
     return Array.isArray(goals) ? goals.join(', ') : goals;
   }
 
-  private inferMethod(interactions: any[]): string {
+  private inferMethod(interactions: Record<string, unknown>[]): string {
     const methods = interactions.map((i) => i.method).filter(Boolean);
     return methods.length > 0 ? methods[0] : 'interactive';
   }
@@ -315,14 +327,14 @@ export class MemoryConsolidator {
   private extractConceptsFromReasoning(reasoning: string[]): Array<{
     name: string;
     definition: string;
-    properties: Record<string, any>;
+    properties: Record<string, unknown>;
     examples: string[];
     confidence: number;
   }> {
     const concepts: Array<{
       name: string;
       definition: string;
-      properties: Record<string, any>;
+      properties: Record<string, unknown>;
       examples: string[];
       confidence: number;
     }> = [];

@@ -2,14 +2,14 @@ import { z } from 'zod';
 
 // Thought step types for chain-of-thought reasoning
 export const ThoughtTypeSchema = z.enum([
-  'observation',    // What the agent notices/perceives
-  'hypothesis',     // Tentative explanation or theory
-  'reasoning',      // Logical deduction or inference
-  'conclusion',     // Final determination
-  'uncertainty',    // Explicit acknowledgment of unknowns
-  'question',       // Questions for clarification or exploration
-  'critique',       // Self-evaluation of reasoning
-  'refinement',     // Improvement to previous thought
+  'observation', // What the agent notices/perceives
+  'hypothesis', // Tentative explanation or theory
+  'reasoning', // Logical deduction or inference
+  'conclusion', // Final determination
+  'uncertainty', // Explicit acknowledgment of unknowns
+  'question', // Questions for clarification or exploration
+  'critique', // Self-evaluation of reasoning
+  'refinement', // Improvement to previous thought
 ]);
 
 export type ThoughtType = z.infer<typeof ThoughtTypeSchema>;
@@ -51,12 +51,14 @@ export const ThoughtChainSchema = z.object({
   steps: z.array(ThoughtStepSchema),
   finalConclusion: z.string().optional(),
   overallConfidence: z.number().min(0).max(1).optional(),
-  metadata: z.object({
-    totalSteps: z.number(),
-    branchCount: z.number(),
-    uncertaintyCount: z.number(),
-    refinementCount: z.number(),
-  }).optional(),
+  metadata: z
+    .object({
+      totalSteps: z.number(),
+      branchCount: z.number(),
+      uncertaintyCount: z.number(),
+      refinementCount: z.number(),
+    })
+    .optional(),
 });
 
 export type ThoughtChain = z.infer<typeof ThoughtChainSchema>;
@@ -76,10 +78,10 @@ export type ThoughtStreamEvent = z.infer<typeof ThoughtStreamEventSchema>;
 
 // Thought streaming configuration
 export interface ThoughtStreamingConfig {
-  showReasoning: boolean;        // Show reasoning steps to user
-  showUncertainties: boolean;    // Show uncertainty acknowledgments
-  collapseIntermediateSteps: boolean;  // Collapse intermediate reasoning
-  minConfidenceToShow: number;   // Minimum confidence for display
+  showReasoning: boolean; // Show reasoning steps to user
+  showUncertainties: boolean; // Show uncertainty acknowledgments
+  collapseIntermediateSteps: boolean; // Collapse intermediate reasoning
+  minConfidenceToShow: number; // Minimum confidence for display
 }
 
 // Prompt template for structured thinking

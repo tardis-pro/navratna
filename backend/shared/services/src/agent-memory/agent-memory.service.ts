@@ -9,6 +9,7 @@ import {
   KnowledgeIngestRequest,
   SourceType,
   KnowledgeType,
+  EmotionalState,
 } from '@uaip/types';
 import { WorkingMemoryManager } from './working-memory.manager';
 import { EpisodicMemoryManager } from './episodic-memory.manager';
@@ -46,7 +47,7 @@ export class AgentMemoryService {
     await this.workingMemoryManager.addThought(agentId, thought, type);
   }
 
-  async updateEmotionalState(agentId: string, emotion: Partial<any>): Promise<void> {
+  async updateEmotionalState(agentId: string, emotion: Partial<EmotionalState>): Promise<void> {
     await this.workingMemoryManager.updateEmotionalState(agentId, emotion);
   }
 
@@ -249,7 +250,7 @@ export class AgentMemoryService {
       type?: KnowledgeType;
       tags?: string[];
       sourceIdentifier: string;
-      metadata?: Record<string, any>;
+      metadata?: Record<string, unknown>;
       confidence?: number;
     }
   ): Promise<KnowledgeItem> {
@@ -312,7 +313,7 @@ export class AgentMemoryService {
     agentId: string,
     context: {
       currentOperation?: string;
-      discussionHistory?: any[];
+      discussionHistory?: unknown[];
       relevantTags?: string[];
     }
   ): Promise<KnowledgeItem[]> {

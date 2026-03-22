@@ -222,7 +222,7 @@ export class CachedUserLLMProviderRepository extends UserLLMProviderRepository {
     apiKey?: string;
     defaultModel?: string;
     modelsList?: string[];
-    configuration?: any;
+    configuration?: Record<string, unknown>;
     priority?: number;
   }): Promise<UserLLMProvider> {
     const provider = await super.createUserProvider(data);
@@ -245,7 +245,7 @@ export class CachedUserLLMProviderRepository extends UserLLMProviderRepository {
       baseUrl?: string;
       defaultModel?: string;
       priority?: number;
-      configuration?: any;
+      configuration?: Record<string, unknown>;
     }
   ): Promise<void> {
     await super.updateProviderConfig(id, userId, config);
@@ -333,11 +333,14 @@ export class CachedUserLLMProviderRepository extends UserLLMProviderRepository {
     for (const pattern of patterns) {
       if (pattern.includes('*')) {
         // Handle wildcard patterns
+        // oxlint-disable-next-line no-await-in-loop -- sequential processing required
         const keys = await redisCacheService.keys(pattern);
         for (const key of keys) {
+          // oxlint-disable-next-line no-await-in-loop -- sequential processing required
           await redisCacheService.del(key);
         }
       } else {
+        // oxlint-disable-next-line no-await-in-loop -- sequential processing required
         await redisCacheService.del(pattern);
       }
     }
@@ -352,6 +355,7 @@ export class CachedUserLLMProviderRepository extends UserLLMProviderRepository {
     const patterns = [this.CACHE_KEYS.PROVIDER_STATS(id, userId)];
 
     for (const pattern of patterns) {
+      // oxlint-disable-next-line no-await-in-loop -- sequential processing required
       await redisCacheService.del(pattern);
     }
 
@@ -367,6 +371,7 @@ export class CachedUserLLMProviderRepository extends UserLLMProviderRepository {
 
     // Invalidate provider-specific caches
     for (const id of providerIds) {
+      // oxlint-disable-next-line no-await-in-loop -- sequential processing required
       await this.invalidateProviderSpecificCache(id, userId);
     }
 

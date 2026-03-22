@@ -1,5 +1,5 @@
 import { logger } from '@uaip/utils';
-import { ApiError } from '@uaip/utils';
+import { ApiError as _ApiError } from '@uaip/utils';
 import {
   SecurityValidationRequest,
   SecurityValidationResult,
@@ -9,7 +9,7 @@ import {
   RiskLevel,
   SecurityContext,
   AuditEventType,
-  Operation,
+  Operation as _Operation,
 } from '@uaip/types';
 import { ApprovalWorkflowService, ApprovalRequest } from './approvalWorkflowService.js';
 import { AuditService } from './auditService.js';
@@ -18,7 +18,7 @@ export interface SecurityPolicy {
   id: string;
   name: string;
   description: string;
-  conditions: Record<string, any>;
+  conditions: Record<string, unknown>;
   actions: {
     allow?: boolean;
     requireApproval?: boolean;
@@ -324,6 +324,25 @@ export class SecurityGatewayService {
       .filter((policy) => this.isPolicyApplicable(policy, request, riskAssessment))
       .sort((a, b) => b.priority - a.priority); // Higher priority first
 
+    const additionalValidationByPolicy = new Map<
+      string,
+      Array<{ validation: string; validationResult: { passed: boolean; message?: string } }>
+    >();
+    await Promise.all(
+      applicablePolicies.map(async (policy) => {
+        if (!policy.actions.additionalValidations) {
+          return;
+        }
+        const validationResults = await Promise.all(
+          policy.actions.additionalValidations.map(async (validation) => ({
+            validation,
+            validationResult: await this.performAdditionalValidation(validation, request),
+          }))
+        );
+        additionalValidationByPolicy.set(policy.id, validationResults);
+      })
+    );
+
     for (const policy of applicablePolicies) {
       appliedPolicies.push(policy.id);
 
@@ -342,8 +361,8 @@ export class SecurityGatewayService {
       }
 
       if (policy.actions.additionalValidations) {
-        for (const validation of policy.actions.additionalValidations) {
-          const validationResult = await this.performAdditionalValidation(validation, request);
+        const validationResults = additionalValidationByPolicy.get(policy.id) ?? [];
+        for (const { validation, validationResult } of validationResults) {
           if (!validationResult.passed) {
             allowed = false;
             conditions.push(`Additional validation failed: ${validation}`);
@@ -465,7 +484,7 @@ export class SecurityGatewayService {
     };
   }
 
-  private async assessUserRisk(securityContext: SecurityContext): Promise<RiskFactor> {
+  private async assessUserRisk(_securityContext: SecurityContext): Promise<RiskFactor> {
     // Get user role from database or context
     const userRole = 'user'; // This would be fetched from user data
     const weight = this.riskConfig.userRoleWeights[userRole] || 1.0;
@@ -513,7 +532,7 @@ export class SecurityGatewayService {
     };
   }
 
-  private assessContextRisk(context: Record<string, any>): RiskFactor {
+  private assessContextRisk(context: Record<string, unknown>): RiskFactor {
     let score = 1.0;
     const factors: string[] = [];
 
@@ -663,7 +682,7 @@ export class SecurityGatewayService {
   protected buildReasoningText(
     request: SecurityValidationRequest,
     riskAssessment: RiskAssessment,
-    policyResult: any,
+    policyResult: unknown,
     approvalRequired: boolean
   ): string {
     const parts: string[] = [];
@@ -767,7 +786,7 @@ export class SecurityGatewayService {
 
   private async performAdditionalValidation(
     validation: string,
-    request: SecurityValidationRequest
+    _request: SecurityValidationRequest
   ): Promise<{ passed: boolean; message?: string }> {
     // Implement additional validation logic
     switch (validation) {

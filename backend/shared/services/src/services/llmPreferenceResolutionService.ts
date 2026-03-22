@@ -2,12 +2,7 @@ import { Repository } from 'typeorm';
 import { UserLLMPreference } from '../entities/userLLMPreference.entity';
 import { AgentLLMPreference } from '../entities/agentLLMPreference.entity';
 import { Agent } from '../entities/agent.entity';
-import {
-  LLMTaskType,
-  LLMProviderType,
-  UserLLMPreference as UserLLMPreferenceType,
-  RoutingRequest,
-} from '@uaip/types';
+import { LLMTaskType, LLMProviderType, RoutingRequest } from '@uaip/types';
 
 export interface ResolvedLLMPreference {
   provider: LLMProviderType;
@@ -18,7 +13,7 @@ export interface ResolvedLLMPreference {
     maxTokens?: number;
     topP?: number;
     systemPrompt?: string;
-    customSettings?: Record<string, any>;
+    customSettings?: Record<string, unknown>;
   };
   source: 'agent' | 'user' | 'system';
   reasoning: string;

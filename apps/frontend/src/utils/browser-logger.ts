@@ -1,32 +1,30 @@
 // Browser-compatible logger to replace Winston for frontend use
 
 export interface Logger {
-  info(message: string, ...args: any[]): void;
-  warn(message: string, ...args: any[]): void;
-  error(message: string, ...args: any[]): void;
-  debug(message: string, ...args: any[]): void;
+  info(message: string, ...args: unknown[]): void;
+  warn(message: string, ...args: unknown[]): void;
+  error(message: string, ...args: unknown[]): void;
+  debug(message: string, ...args: unknown[]): void;
 }
 
 class BrowserLogger implements Logger {
   private isDevelopment = import.meta.env.DEV;
 
-  info(message: string, ...args: any[]): void {
+  info(_message: string, ..._args: unknown[]): void {
     if (this.isDevelopment) {
-      console.log(`[INFO] ${message}`, ...args);
     }
   }
 
-  warn(message: string, ...args: any[]): void {
+  warn(message: string, ...args: unknown[]): void {
     console.warn(`[WARN] ${message}`, ...args);
   }
 
-  error(message: string, ...args: any[]): void {
+  error(message: string, ...args: unknown[]): void {
     console.error(`[ERROR] ${message}`, ...args);
   }
 
-  debug(message: string, ...args: any[]): void {
+  debug(_message: string, ..._args: unknown[]): void {
     if (this.isDevelopment) {
-      console.debug(`[DEBUG] ${message}`, ...args);
     }
   }
 }

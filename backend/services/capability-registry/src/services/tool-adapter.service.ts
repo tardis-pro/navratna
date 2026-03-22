@@ -32,22 +32,22 @@ export interface ConfluenceConfig {
 export interface ToolOperation {
   operation: 'search' | 'fetch' | 'create' | 'update' | 'delete' | 'list';
   toolType: string;
-  parameters: Record<string, any>;
+  parameters: Record<string, unknown>;
 }
 
 export interface ToolResult {
   success: boolean;
-  data?: any;
+  data?: unknown;
   error?: string;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 export class ToolAdapterService {
   private adapters = new Map<string, ToolAdapter>();
-  private configurations = new Map<string, any>();
-  private config: any;
+  private configurations = new Map<string, unknown>();
+  private config: unknown;
 
-  constructor(config: any) {
+  constructor(config: unknown) {
     this.config = config;
     this.initializeAdapters();
   }
@@ -132,7 +132,7 @@ export class ToolAdapterService {
     return this.adapters.get(toolId) || null;
   }
 
-  async configureAdapter(toolId: string, config: any): Promise<boolean> {
+  async configureAdapter(toolId: string, config: unknown): Promise<boolean> {
     const adapter = this.adapters.get(toolId);
     if (!adapter) {
       throw new Error(`Unknown tool adapter: ${toolId}`);
@@ -191,7 +191,7 @@ export class ToolAdapterService {
     }
   }
 
-  private async validateConfiguration(toolId: string, config: any): Promise<void> {
+  private async validateConfiguration(toolId: string, config: unknown): Promise<void> {
     switch (toolId) {
       case 'github':
         if (!config.token) {
@@ -265,7 +265,7 @@ export class ToolAdapterService {
 
   private async executeGitHubOperation(operation: ToolOperation): Promise<ToolResult> {
     const config = this.configurations.get('github') as GitHubConfig;
-    const baseUrl = 'https://api.github.com';
+    const _baseUrl = 'https://api.github.com';
 
     const headers = {
       Authorization: `token ${config.token}`,
@@ -294,7 +294,7 @@ export class ToolAdapterService {
     }
   }
 
-  private async githubSearch(params: any, headers: any): Promise<ToolResult> {
+  private async githubSearch(params: unknown, headers: unknown): Promise<ToolResult> {
     const { query, type = 'repositories' } = params;
     const url = `https://api.github.com/search/${type}?q=${encodeURIComponent(query)}`;
 
@@ -308,7 +308,7 @@ export class ToolAdapterService {
     };
   }
 
-  private async githubFetch(params: any, headers: any): Promise<ToolResult> {
+  private async githubFetch(params: unknown, headers: unknown): Promise<ToolResult> {
     const { owner, repo, path = '' } = params;
     const url = `https://api.github.com/repos/${owner}/${repo}/contents/${path}`;
 
@@ -322,11 +322,11 @@ export class ToolAdapterService {
     };
   }
 
-  private async githubCreate(params: any, headers: any): Promise<ToolResult> {
+  private async githubCreate(params: unknown, headers: unknown): Promise<ToolResult> {
     const { owner, repo, type, data: createData } = params;
 
     let url: string;
-    let body: any;
+    let body: unknown;
 
     switch (type) {
       case 'issue':
@@ -369,7 +369,7 @@ export class ToolAdapterService {
     };
   }
 
-  private async githubList(params: any, headers: any): Promise<ToolResult> {
+  private async githubList(params: unknown, headers: unknown): Promise<ToolResult> {
     const { type = 'repos', owner } = params;
 
     let url: string;
@@ -432,7 +432,11 @@ export class ToolAdapterService {
     }
   }
 
-  private async jiraSearch(params: any, headers: any, config: JiraConfig): Promise<ToolResult> {
+  private async jiraSearch(
+    params: unknown,
+    headers: unknown,
+    config: JiraConfig
+  ): Promise<ToolResult> {
     const { jql } = params;
     const url = `${config.url}/rest/api/3/search`;
 
@@ -455,7 +459,11 @@ export class ToolAdapterService {
     };
   }
 
-  private async jiraFetch(params: any, headers: any, config: JiraConfig): Promise<ToolResult> {
+  private async jiraFetch(
+    params: unknown,
+    headers: unknown,
+    config: JiraConfig
+  ): Promise<ToolResult> {
     const { issueKey } = params;
     const url = `${config.url}/rest/api/3/issue/${issueKey}`;
 
@@ -469,7 +477,11 @@ export class ToolAdapterService {
     };
   }
 
-  private async jiraCreate(params: any, headers: any, config: JiraConfig): Promise<ToolResult> {
+  private async jiraCreate(
+    params: unknown,
+    headers: unknown,
+    config: JiraConfig
+  ): Promise<ToolResult> {
     const { issueType, summary, description, projectKey = config.projectKey } = params;
 
     if (!projectKey) {
@@ -510,7 +522,11 @@ export class ToolAdapterService {
     };
   }
 
-  private async jiraList(params: any, headers: any, config: JiraConfig): Promise<ToolResult> {
+  private async jiraList(
+    params: unknown,
+    headers: unknown,
+    config: JiraConfig
+  ): Promise<ToolResult> {
     const { type = 'issues', projectKey = config.projectKey } = params;
 
     switch (type) {
@@ -565,8 +581,8 @@ export class ToolAdapterService {
   }
 
   private async confluenceSearch(
-    params: any,
-    headers: any,
+    params: unknown,
+    headers: unknown,
     config: ConfluenceConfig
   ): Promise<ToolResult> {
     const { query, type = 'page' } = params;
@@ -583,8 +599,8 @@ export class ToolAdapterService {
   }
 
   private async confluenceFetch(
-    params: any,
-    headers: any,
+    params: unknown,
+    headers: unknown,
     config: ConfluenceConfig
   ): Promise<ToolResult> {
     const { pageId, expand = 'body.storage,version' } = params;
@@ -601,8 +617,8 @@ export class ToolAdapterService {
   }
 
   private async confluenceCreate(
-    params: any,
-    headers: any,
+    params: unknown,
+    headers: unknown,
     config: ConfluenceConfig
   ): Promise<ToolResult> {
     const { title, content, spaceKey = config.spaceKey, type = 'page' } = params;
@@ -640,8 +656,8 @@ export class ToolAdapterService {
   }
 
   private async confluenceList(
-    params: any,
-    headers: any,
+    params: unknown,
+    headers: unknown,
     config: ConfluenceConfig
   ): Promise<ToolResult> {
     const { type = 'page', spaceKey = config.spaceKey, limit = 25 } = params;
@@ -661,7 +677,7 @@ export class ToolAdapterService {
     };
   }
 
-  private async executeSlackOperation(operation: ToolOperation): Promise<ToolResult> {
+  private async executeSlackOperation(_operation: ToolOperation): Promise<ToolResult> {
     // Placeholder for Slack operations
     return {
       success: true,

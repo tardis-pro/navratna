@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useCallback, useMemo } from 'react';
 import { DebateMessageData } from '@/types/debate';
 
 type Role = 'llama1' | 'llama2';
@@ -49,16 +49,19 @@ export const useDebatePrompts = (
   currentRound: number,
   totalRounds: number
 ) => {
-  const getRoleLabel = (role: Role) => (role === 'llama1' ? 'first' : 'second');
+  const getRoleLabel = useCallback((role: Role) => (role === 'llama1' ? 'first' : 'second'), []);
 
-  const summarizeContext = (maxMessages = 6) => {
-    // Increased default context size
-    const relevant = messages.slice(-maxMessages);
-    return relevant.map((msg) => `${msg.role.toUpperCase()}: ${msg.content}`).join('\n');
-  };
+  const summarizeContext = useCallback(
+    (maxMessages = 6) => {
+      // Increased default context size
+      const relevant = messages.slice(-maxMessages);
+      return relevant.map((msg) => `${msg.role.toUpperCase()}: ${msg.content}`).join('\n');
+    },
+    [messages]
+  );
 
   // Helper to detect repetition of content
-  const getContentSimilarity = (prevMessages: DebateMessageData[], role: string) => {
+  const getContentSimilarity = useCallback((prevMessages: DebateMessageData[], role: string) => {
     const roleMessages = prevMessages.filter((m) => m.role === role);
     if (roleMessages.length < 2) return false;
 
@@ -76,7 +79,7 @@ export const useDebatePrompts = (
       second.length > 10 &&
       (first.includes(second.substring(0, 10)) || second.includes(first.substring(0, 10)))
     );
-  };
+  }, []);
 
   const constructLlamaPrompt = useMemo(() => {
     return (

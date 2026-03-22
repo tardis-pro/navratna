@@ -1,7 +1,7 @@
 import { v4 as uuidv4 } from 'uuid';
 import { logger } from '@uaip/utils';
-import { KnowledgeItem, KnowledgeType, SourceType } from '@uaip/types';
-import { ConceptNode, ConceptRelationship } from './concept-extractor.service.js';
+import { KnowledgeItem } from '@uaip/types';
+import {} from './concept-extractor.service.js';
 import { DomainOntology } from './ontology-builder.service.js';
 import { KnowledgeRepository } from '@uaip/shared-services';
 import { ContentClassifier } from './content-classifier.service.js';
@@ -159,6 +159,7 @@ export class TaxonomyGeneratorService {
 
       if (options?.autoClassify !== false) {
         for (const item of items) {
+          // oxlint-disable-next-line no-await-in-loop -- sequential processing required
           const categoryIds = await this.classifyKnowledgeItem(
             item,
             classificationRules,
@@ -234,7 +235,8 @@ export class TaxonomyGeneratorService {
     } catch (error) {
       logger.error('Error generating taxonomy:', error);
       throw new Error(
-        `Taxonomy generation failed: ${error instanceof Error ? error.message : 'Unknown error'}`
+        `Taxonomy generation failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        { cause: error }
       );
     }
   }
@@ -353,6 +355,7 @@ export class TaxonomyGeneratorService {
     // Group items by topics from content classification
     for (const item of items) {
       try {
+        // oxlint-disable-next-line no-await-in-loop -- sequential processing required
         const classification = await this.contentClassifier.classify(item.content);
         for (const topic of classification.topics) {
           if (!topicMap.has(topic)) {
@@ -492,8 +495,8 @@ export class TaxonomyGeneratorService {
 
   private async generateClassificationRules(
     categories: TaxonomyCategory[],
-    items: KnowledgeItem[],
-    domain: string
+    _items: KnowledgeItem[],
+    _domain: string
   ): Promise<ClassificationRule[]> {
     const rules: ClassificationRule[] = [];
 
@@ -543,7 +546,7 @@ export class TaxonomyGeneratorService {
   private async classifyKnowledgeItem(
     item: KnowledgeItem,
     rules: ClassificationRule[],
-    categories: TaxonomyCategory[]
+    _categories: TaxonomyCategory[]
   ): Promise<string[]> {
     const categoryScores = new Map<string, number>();
 
@@ -579,7 +582,7 @@ export class TaxonomyGeneratorService {
   }
 
   private evaluateCondition(condition: ClassificationCondition, item: KnowledgeItem): number {
-    let fieldValue: any;
+    let fieldValue: Record<string, unknown>;
 
     switch (condition.field) {
       case 'content':

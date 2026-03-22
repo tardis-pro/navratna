@@ -1,32 +1,32 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence as _AnimatePresence } from 'framer-motion';
 import {
   SparklesIcon,
   ChartBarIcon,
   ClockIcon,
   CheckCircleIcon,
   Brain,
-  Activity,
-  Zap,
-  Network,
+  Activity as _Activity,
+  Zap as _Zap,
+  Network as _Network,
   TrendingUp,
-  Target,
-  AlertTriangle,
+  Target as _Target,
+  AlertTriangle as _AlertTriangle,
   Cpu,
-  Eye,
-  Layers,
-  BarChart3,
-  PieChart,
-  LineChart,
+  Eye as _Eye,
+  Layers as _Layers,
+  BarChart3 as _BarChart3,
+  PieChart as _PieChart,
+  LineChart as _LineChart,
   Gauge,
-  Lightbulb,
-  Sparkles,
+  Lightbulb as _Lightbulb,
+  Sparkles as _Sparkles,
   Atom,
-  Workflow,
-  GitBranch,
-  Radar,
-  Search,
-  Filter,
+  Workflow as _Workflow,
+  GitBranch as _GitBranch,
+  Radar as _Radar,
+  Search as _Search,
+  Filter as _Filter,
   RefreshCw,
 } from 'lucide-react';
 import { LightBulbIcon } from '@heroicons/react/24/outline';
@@ -107,11 +107,11 @@ interface IntelligenceMetrics {
 export const IntelligencePanelPortal: React.FC<IntelligencePanelPortalProps> = ({
   className,
   mode = 'analysis',
-  viewport,
+  viewport: _viewport,
 }) => {
   const { agents } = useAgents();
   const { messages, participants, isActive, discussionId } = useDiscussion();
-  const [contextAnalyses, setContextAnalyses] = useState<ContextAnalysis[]>([]);
+  const [contextAnalyses, _setContextAnalyses] = useState<ContextAnalysis[]>([]);
   const [decisionMetrics, setDecisionMetrics] = useState<DecisionMetrics>({
     totalDecisions: 0,
     successRate: 0,
@@ -131,17 +131,17 @@ export const IntelligencePanelPortal: React.FC<IntelligencePanelPortalProps> = (
     patternRecognition: 0,
     contextualUnderstanding: 0,
   });
-  const [selectedAgent, setSelectedAgent] = useState<string | null>(null);
+  const [_selectedAgent, _setSelectedAgent] = useState<string | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [analysisMode, setAnalysisMode] = useState<'realtime' | 'deep' | 'predictive'>('realtime');
-  const [refreshInterval, setRefreshInterval] = useState(5000);
+  const [refreshInterval, _setRefreshInterval] = useState(5000);
   const [showAdvancedMetrics, setShowAdvancedMetrics] = useState(false);
 
   // Calculate real metrics from actual data
   const agentList = Object.values(agents);
   const messageCount = messages?.length || 0;
   const participantCount = participants?.length || 0;
-  const activeAgentCount = agentList.filter((agent) => agent.isActive).length;
+  const _activeAgentCount = agentList.filter((agent) => agent.isActive).length;
 
   // Advanced AI Analysis Functions
   const performDeepAnalysis = useCallback(async () => {
@@ -343,7 +343,13 @@ export const IntelligencePanelPortal: React.FC<IntelligencePanelPortalProps> = (
     if (analysisMode === 'predictive') {
       generatePredictions();
     }
-  }, [stableDecisionMetrics, stableInsights, analysisMode]);
+  }, [
+    stableDecisionMetrics,
+    stableInsights,
+    analysisMode,
+    calculateIntelligenceMetrics,
+    generatePredictions,
+  ]);
 
   // Auto-refresh and deep analysis
   useEffect(() => {
@@ -354,7 +360,7 @@ export const IntelligencePanelPortal: React.FC<IntelligencePanelPortalProps> = (
 
       return () => clearInterval(interval);
     }
-  }, [analysisMode, refreshInterval, messageCount]); // Remove performDeepAnalysis from deps
+  }, [analysisMode, refreshInterval, messageCount, performDeepAnalysis]);
 
   const getConfidenceColor = (confidence: number) => {
     if (confidence >= 0.8) return 'text-emerald-400 bg-emerald-500/20 border-emerald-500/30';
@@ -704,7 +710,7 @@ export const IntelligencePanelPortal: React.FC<IntelligencePanelPortalProps> = (
           <div className="space-y-4">
             {contextAnalyses.map((analysis, index) => (
               <motion.div
-                key={index}
+                key={`${analysis.conversationId}-${analysis.timestamp.toISOString()}`}
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: index * 0.2 }}
@@ -737,7 +743,7 @@ export const IntelligencePanelPortal: React.FC<IntelligencePanelPortalProps> = (
                 <div className="flex flex-wrap gap-2 mb-3">
                   {analysis.entities.map((entity, entityIndex) => (
                     <motion.span
-                      key={entityIndex}
+                      key={`${analysis.conversationId}-${entity}`}
                       initial={{ opacity: 0, scale: 0.8 }}
                       animate={{ opacity: 1, scale: 1 }}
                       transition={{ delay: index * 0.1 + entityIndex * 0.05 }}

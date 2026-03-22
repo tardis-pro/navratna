@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { motion, useMotionValue, useTransform, AnimatePresence } from 'framer-motion';
-import { X, Maximize2, Minimize2, Move, Settings } from 'lucide-react';
+import { X, Maximize2, Minimize2, Move, _Settings } from 'lucide-react';
 
 interface ViewportSize {
   width: number;
@@ -85,7 +85,7 @@ const portalTypeStyles: Record<
 };
 
 export const Portal: React.FC<PortalProps> = ({
-  id,
+  _id,
   type,
   title,
   children,
@@ -124,12 +124,12 @@ export const Portal: React.FC<PortalProps> = ({
 
   const constraintsRef = useRef<HTMLDivElement>(null);
   const x = useMotionValue(initialPosition.x);
-  const y = useMotionValue(initialPosition.y);
-  const [isDragFromHeader, setIsDragFromHeader] = useState(false);
+  const _y = useMotionValue(initialPosition.y);
+  const [_isDragFromHeader, setIsDragFromHeader] = useState(false);
 
   // Transform values for glow effects
-  const glowOpacity = useTransform(x, [0, 100], [0.3, 0.8]);
-  const scaleOnHover = useTransform(x, [0, 100], [1, 1.02]);
+  const _glowOpacity = useTransform(x, [0, 100], [0.3, 0.8]);
+  const _scaleOnHover = useTransform(x, [0, 100], [1, 1.02]);
 
   const styles = portalTypeStyles[type] || portalTypeStyles.agent; // Fallback to agent style
 
@@ -155,13 +155,13 @@ export const Portal: React.FC<PortalProps> = ({
     }
   }, [currentViewport, state.size, state.isMaximized]);
 
-  const handleDragStart = (event: any, info: any) => {
+  const _handleDragStart = (_event: unknown, _info: unknown) => {
     setState((prev) => ({ ...prev, isDragging: true, isActive: true }));
     setIsDragFromHeader(false);
     onFocus?.();
   };
 
-  const handleDragEnd = (event: any, info: any) => {
+  const _handleDragEnd = (event: unknown, info: unknown) => {
     setState((prev) => ({
       ...prev,
       isDragging: false,
@@ -173,13 +173,13 @@ export const Portal: React.FC<PortalProps> = ({
     setIsDragFromHeader(false);
   };
 
-  const handleHeaderDragStart = (event: any, info: any) => {
+  const handleHeaderDragStart = (_event: unknown, _info: unknown) => {
     setState((prev) => ({ ...prev, isDragging: true, isActive: true }));
     setIsDragFromHeader(true);
     onFocus?.();
   };
 
-  const handleHeaderDragEnd = (event: any, info: any) => {
+  const handleHeaderDragEnd = (event: unknown, info: unknown) => {
     setState((prev) => ({
       ...prev,
       isDragging: false,
@@ -200,7 +200,7 @@ export const Portal: React.FC<PortalProps> = ({
     setState((prev) => ({ ...prev, isResizing: false }));
   };
 
-  const handleResize = (event: any, info: any) => {
+  const handleResize = (event: unknown, info: unknown) => {
     if (!info || !info.delta) return;
 
     const minWidth = currentViewport.isMobile ? 300 : 350;
@@ -259,7 +259,7 @@ export const Portal: React.FC<PortalProps> = ({
     onFocus?.();
   };
 
-  const handleBlur = () => {
+  const _handleBlur = () => {
     setState((prev) => ({ ...prev, isActive: false }));
   };
 
@@ -482,7 +482,7 @@ export const Portal: React.FC<PortalProps> = ({
               className="h-full overflow-auto p-4 md:p-6"
               onClick={(e) => {
                 e.stopPropagation();
-                handlePortalFocus(e as any);
+                handlePortalFocus(e as unknown);
               }}
             >
               {children}
@@ -531,7 +531,7 @@ export const Portal: React.FC<PortalProps> = ({
                 dragElastic={0}
                 onDragStart={handleResizeStart}
                 onDragEnd={handleResizeEnd}
-                onDrag={(event: any, info: any) => {
+                onDrag={(event: unknown, info: unknown) => {
                   if (!info || !info.delta) return;
                   const minWidth = 350;
                   const maxWidth = currentViewport.width - (state.position?.x || 0) - 20;
@@ -558,7 +558,7 @@ export const Portal: React.FC<PortalProps> = ({
                 dragElastic={0}
                 onDragStart={handleResizeStart}
                 onDragEnd={handleResizeEnd}
-                onDrag={(event: any, info: any) => {
+                onDrag={(event: unknown, info: unknown) => {
                   if (!info || !info.delta) return;
                   const minHeight = 250;
                   const maxHeight = currentViewport.height - (state.position?.y || 0) - 20;
@@ -586,7 +586,7 @@ export const Portal: React.FC<PortalProps> = ({
                 dragElastic={0}
                 onDragStart={handleResizeStart}
                 onDragEnd={handleResizeEnd}
-                onDrag={(event: any, info: any) => {
+                onDrag={(event: unknown, info: unknown) => {
                   if (!info || !info.delta) return;
                   const minWidth = 350;
                   const minHeight = 250;
@@ -617,7 +617,7 @@ export const Portal: React.FC<PortalProps> = ({
                 dragElastic={0}
                 onDragStart={handleResizeStart}
                 onDragEnd={handleResizeEnd}
-                onDrag={(event: any, info: any) => {
+                onDrag={(event: unknown, info: unknown) => {
                   if (!info || !info.delta) return;
                   const minWidth = 350;
                   const minHeight = 250;
@@ -648,7 +648,7 @@ export const Portal: React.FC<PortalProps> = ({
                 dragElastic={0}
                 onDragStart={handleResizeStart}
                 onDragEnd={handleResizeEnd}
-                onDrag={(event: any, info: any) => {
+                onDrag={(event: unknown, info: unknown) => {
                   if (!info || !info.delta) return;
                   const minWidth = 350;
                   const minHeight = 250;
@@ -678,7 +678,7 @@ export const Portal: React.FC<PortalProps> = ({
                 dragElastic={0}
                 onDragStart={handleResizeStart}
                 onDragEnd={handleResizeEnd}
-                onDrag={(event: any, info: any) => {
+                onDrag={(event: unknown, info: unknown) => {
                   if (!info || !info.delta) return;
                   const minWidth = 350;
                   const newWidth = Math.max(minWidth, (state.size?.width || 400) - info.delta.x);
@@ -702,7 +702,7 @@ export const Portal: React.FC<PortalProps> = ({
                 dragElastic={0}
                 onDragStart={handleResizeStart}
                 onDragEnd={handleResizeEnd}
-                onDrag={(event: any, info: any) => {
+                onDrag={(event: unknown, info: unknown) => {
                   if (!info || !info.delta) return;
                   const minHeight = 250;
                   const newHeight = Math.max(minHeight, (state.size?.height || 300) - info.delta.y);

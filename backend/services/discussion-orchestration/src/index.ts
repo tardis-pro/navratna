@@ -1,12 +1,10 @@
-import { BaseService, ServiceConfig, allEntities } from '@uaip/shared-services';
-import { createServer } from 'http';
+import { BaseService, allEntities } from '@uaip/shared-services';
 import { WebSocketServer } from 'ws';
 import { Server as SocketIOServer } from 'socket.io';
 import { Server as BunEngine } from '@socket.io/bun-engine';
 import { logger } from '@uaip/utils';
 import { DiscussionService } from './services/discussionService.js';
 import { PersonaService } from './services/personaService.js';
-import { authMiddleware } from '@uaip/middleware';
 import {
   SERVICE_ACCESS_MATRIX,
   validateServiceAccess,
@@ -42,7 +40,7 @@ class DiscussionOrchestrationServer extends BaseService {
   private debateHandler?: DebateHandler;
   private whatsappHandler?: WhatsAppHandler;
   private serviceName = 'discussion-orchestration';
-  private authResponseHandlers = new Map<string, (response: any) => void>();
+  private authResponseHandlers = new Map<string, (response: unknown) => void>();
   private authSubscriptionInitialized = false;
 
   constructor() {
@@ -169,7 +167,7 @@ class DiscussionOrchestrationServer extends BaseService {
           systemHealth,
           warnings: this.detectRaceConditionWarnings(orchestrationStats, systemHealth),
         };
-      } catch (error) {
+      } catch {
         set.status = 500;
         return {
           success: false,
@@ -195,7 +193,7 @@ class DiscussionOrchestrationServer extends BaseService {
           orchestration: orchestrationStats,
           alerts: this.generateMemoryAlerts(memoryUsage, orchestrationStats),
         };
-      } catch (error) {
+      } catch {
         set.status = 500;
         return {
           success: false,
@@ -214,7 +212,7 @@ class DiscussionOrchestrationServer extends BaseService {
           message: 'Forced cleanup triggered',
           timestamp: new Date().toISOString(),
         };
-      } catch (error) {
+      } catch {
         set.status = 500;
         return {
           success: false,
@@ -235,7 +233,7 @@ class DiscussionOrchestrationServer extends BaseService {
           orchestration: stats,
           note: 'LLM pending requests require agent-intelligence service endpoint',
         };
-      } catch (error) {
+      } catch {
         set.status = 500;
         return {
           success: false,
@@ -303,7 +301,7 @@ class DiscussionOrchestrationServer extends BaseService {
             lastActivity: user.lastActivity,
           })),
         };
-      } catch (error) {
+      } catch {
         set.status = 500;
         return {
           success: false,
@@ -337,7 +335,7 @@ class DiscussionOrchestrationServer extends BaseService {
             },
           };
         }
-      } catch (error) {
+      } catch {
         set.status = 500;
         return {
           success: false,
@@ -358,7 +356,7 @@ class DiscussionOrchestrationServer extends BaseService {
           state: this.whatsappHandler.getConnectionState(),
           connectedInfo: this.whatsappHandler.getConnectedInfo(),
         };
-      } catch (error) {
+      } catch {
         set.status = 500;
         return { success: false, error: 'Failed to fetch WhatsApp status' };
       }
@@ -478,7 +476,7 @@ class DiscussionOrchestrationServer extends BaseService {
     });
   }
 
-  protected async getHealthInfo(): Promise<any> {
+  protected async getHealthInfo(): Promise<unknown> {
     const status = this.orchestrationService.getStatus();
     const databaseHealthy = await this.checkDatabaseHealth();
     const eventBusHealthy = await this.checkEventBusHealth();
@@ -487,7 +485,7 @@ class DiscussionOrchestrationServer extends BaseService {
       ...status,
       websocket: {
         enabled: config.discussionOrchestration.websocket.enabled,
-        connected: this.io ? true : false,
+        connected: !!this.io,
       },
       database: {
         connected: databaseHealthy,
@@ -555,7 +553,7 @@ class DiscussionOrchestrationServer extends BaseService {
             discussionId,
             agentId,
             participantId,
-            messageId: result.data?.id,
+            messageId: (result.data as Record<string, unknown> | undefined)?.id,
           });
         } else {
           logger.error('Failed to send agent message to discussion', {
@@ -581,7 +579,7 @@ class DiscussionOrchestrationServer extends BaseService {
   private async publishOrchestrationEvent(
     eventType: string,
     discussionId: string,
-    user: any
+    user: unknown
   ): Promise<void> {
     const event = {
       type: eventType,
@@ -607,12 +605,15 @@ class DiscussionOrchestrationServer extends BaseService {
 
     try {
       // Set up shared authentication response handler
-      const sharedAuthHandler = async (event: any) => {
-        const correlationId = event.data?.correlationId;
+      const sharedAuthHandler = async (event: unknown) => {
+        const eventData = (event as Record<string, unknown>).data as
+          | Record<string, unknown>
+          | undefined;
+        const correlationId = eventData?.correlationId as string | undefined;
         if (correlationId && this.authResponseHandlers.has(correlationId)) {
           const handler = this.authResponseHandlers.get(correlationId);
           if (handler) {
-            handler(event.data);
+            handler(eventData);
             this.authResponseHandlers.delete(correlationId);
           }
         }
@@ -945,7 +946,7 @@ class DiscussionOrchestrationServer extends BaseService {
 
       try {
         // Register response handler for this specific correlation ID
-        this.authResponseHandlers.set(correlationId, (response: any) => {
+        this.authResponseHandlers.set(correlationId, (response: unknown) => {
           clearTimeout(timeoutId);
 
           logger.debug('Socket.IO auth response received', {
@@ -997,6 +998,7 @@ class DiscussionOrchestrationServer extends BaseService {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 2500);
       try {
+        // oxlint-ignore-next-line no-await-in-loop -- sequential processing required
         const response = await fetch(`${baseUrl}/api/v1/auth/validate`, {
           method: 'GET',
           headers: { Authorization: `Bearer ${token}` },
@@ -1005,6 +1007,7 @@ class DiscussionOrchestrationServer extends BaseService {
         clearTimeout(timeoutId);
 
         if (!response.ok) {
+          // oxlint-ignore-next-line no-await-in-loop -- sequential processing required
           const errorBody = await response.json().catch((): null => null);
           return {
             valid: false,
@@ -1067,7 +1070,7 @@ class DiscussionOrchestrationServer extends BaseService {
   /**
    * Get system health metrics for race condition detection
    */
-  private getSystemHealthMetrics(): any {
+  private getSystemHealthMetrics(): unknown {
     const memory = process.memoryUsage();
     const uptime = process.uptime();
 
@@ -1098,7 +1101,10 @@ class DiscussionOrchestrationServer extends BaseService {
   /**
    * Detect race condition warnings
    */
-  private detectRaceConditionWarnings(orchestrationStats: any, systemHealth: any): string[] {
+  private detectRaceConditionWarnings(
+    orchestrationStats: unknown,
+    systemHealth: unknown
+  ): string[] {
     const warnings: string[] = [];
 
     // Check for high number of operation locks (race condition indicator)
@@ -1140,7 +1146,10 @@ class DiscussionOrchestrationServer extends BaseService {
   /**
    * Generate memory alerts
    */
-  private generateMemoryAlerts(memoryUsage: NodeJS.MemoryUsage, orchestrationStats: any): string[] {
+  private generateMemoryAlerts(
+    memoryUsage: NodeJS.MemoryUsage,
+    orchestrationStats: unknown
+  ): string[] {
     const alerts: string[] = [];
     const heapUsedMB = Math.round(memoryUsage.heapUsed / 1024 / 1024);
     const rssGB = Math.round((memoryUsage.rss / 1024 / 1024 / 1024) * 100) / 100;
@@ -1172,7 +1181,7 @@ class DiscussionOrchestrationServer extends BaseService {
     return alerts;
   }
 
-  public getStatus(): any {
+  public getStatus(): unknown {
     return {
       service: 'discussion-orchestration',
       status: 'running',
@@ -1180,13 +1189,13 @@ class DiscussionOrchestrationServer extends BaseService {
       memory: process.memoryUsage(),
       websocket: {
         enabled: config.discussionOrchestration.websocket.enabled,
-        connected: this.io ? true : false,
+        connected: !!this.io,
       },
       database: {
         connected: true,
       },
       eventBus: {
-        connected: this.eventBusService ? true : false,
+        connected: !!this.eventBusService,
       },
     };
   }

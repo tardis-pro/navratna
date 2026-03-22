@@ -137,18 +137,14 @@ export class MetaReasoningInterceptor {
 
       if (capabilityGap.hasGap) {
         // Find an agent that can handle the missing capabilities
-        const suggestedDelegate = await this.findDelegateAgent(
-          capabilityGap.missingCapabilities,
-        );
+        const suggestedDelegate = await this.findDelegateAgent(capabilityGap.missingCapabilities);
 
         const decision: MetaReasoningDecision = {
           action: 'delegate',
           confidence,
           reasoning: `Agent ${agentId} is missing capabilities: ${capabilityGap.missingCapabilities.join(', ')}. Delegating to a more capable agent.`,
           suggestedDelegate: suggestedDelegate ?? undefined,
-          warnings: capabilityGap.missingCapabilities.map(
-            (cap) => `Missing capability: ${cap}`,
-          ),
+          warnings: capabilityGap.missingCapabilities.map((cap) => `Missing capability: ${cap}`),
         };
 
         await this.publishDecisionEvent('meta.reasoning.delegation', input, decision);
@@ -171,13 +167,11 @@ export class MetaReasoningInterceptor {
 
       if (confidence >= MEDIUM_CONFIDENCE_LOWER) {
         // Medium confidence — proceed with warnings
-        warnings.push(
-          `Moderate confidence (${confidence}). Consider verifying results.`,
-        );
+        warnings.push(`Moderate confidence (${confidence}). Consider verifying results.`);
 
         if (errorHistory.errorRate > 0.2) {
           warnings.push(
-            `Agent has elevated error rate (${(errorHistory.errorRate * 100).toFixed(1)}%).`,
+            `Agent has elevated error rate (${(errorHistory.errorRate * 100).toFixed(1)}%).`
           );
         }
 
@@ -229,8 +223,10 @@ export class MetaReasoningInterceptor {
       return {
         action: 'clarify',
         confidence: 0,
-        reasoning: 'Meta-reasoning evaluation encountered an error. Requesting clarification as a safety measure.',
-        suggestedClarification: 'Could you please rephrase or provide more context for your request?',
+        reasoning:
+          'Meta-reasoning evaluation encountered an error. Requesting clarification as a safety measure.',
+        suggestedClarification:
+          'Could you please rephrase or provide more context for your request?',
         warnings: ['Meta-reasoning evaluation failed — defaulting to clarification.'],
       };
     }
@@ -243,16 +239,13 @@ export class MetaReasoningInterceptor {
   /**
    * Check whether the agent has a capability gap for the given intent.
    */
-  async checkCapabilityGap(
-    agentId: string,
-    intent: string,
-  ): Promise<CapabilityGapResult> {
+  async checkCapabilityGap(agentId: string, intent: string): Promise<CapabilityGapResult> {
     try {
       const requiredCapabilities = this.extractRequiredCapabilities(intent);
       const agentCapabilities = await this.getAgentCapabilities(agentId);
 
       const missingCapabilities = requiredCapabilities.filter(
-        (cap) => !agentCapabilities.includes(cap),
+        (cap) => !agentCapabilities.includes(cap)
       );
 
       return {
@@ -370,10 +363,7 @@ export class MetaReasoningInterceptor {
   /**
    * Generate a clarification question via LLM through the event bus.
    */
-  async generateClarification(
-    intent: string,
-    context: Record<string, unknown>,
-  ): Promise<string> {
+  async generateClarification(intent: string, context: Record<string, unknown>): Promise<string> {
     const requestId = uuidv4();
 
     try {
@@ -395,7 +385,8 @@ export class MetaReasoningInterceptor {
         this.eventBus.publish('llm.global.request', {
           requestId,
           prompt: `The user's intent is: "${intent}"\n\nAvailable context:\n${contextSummary}\n\nGenerate a single, concise clarification question that would help resolve the ambiguity and allow confident action. Respond with only the question, nothing else.`,
-          systemPrompt: 'You are a meta-reasoning assistant. Your job is to generate precise clarification questions when an agent is uncertain about how to proceed.',
+          systemPrompt:
+            'You are a meta-reasoning assistant. Your job is to generate precise clarification questions when an agent is uncertain about how to proceed.',
           maxTokens: 200,
           temperature: 0.4,
         });
@@ -426,9 +417,7 @@ export class MetaReasoningInterceptor {
   /**
    * Find an agent that has the missing capabilities.
    */
-  private async findDelegateAgent(
-    missingCapabilities: string[],
-  ): Promise<string | null> {
+  private async findDelegateAgent(missingCapabilities: string[]): Promise<string | null> {
     const requestId = uuidv4();
 
     return new Promise<string | null>((resolve) => {
@@ -436,14 +425,11 @@ export class MetaReasoningInterceptor {
         resolve(null);
       }, 5_000);
 
-      this.eventBus.subscribe(
-        `agent.delegate.response.${requestId}`,
-        async (event) => {
-          clearTimeout(timeout);
-          const data = event.data as { agentId?: string };
-          resolve(data?.agentId ?? null);
-        },
-      );
+      this.eventBus.subscribe(`agent.delegate.response.${requestId}`, async (event) => {
+        clearTimeout(timeout);
+        const data = event.data as { agentId?: string };
+        resolve(data?.agentId ?? null);
+      });
 
       this.eventBus.publish('agent.delegate.request', {
         requestId,
@@ -462,7 +448,7 @@ export class MetaReasoningInterceptor {
   private async publishDecisionEvent(
     eventName: string,
     input: MetaReasoningInput,
-    decision: MetaReasoningDecision,
+    decision: MetaReasoningDecision
   ): Promise<void> {
     try {
       await this.eventBus.publish(eventName, {

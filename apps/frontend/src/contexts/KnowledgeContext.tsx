@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useReducer, useCallback } from 'react';
+import React, { createContext, useContext, useReducer, useCallback, useMemo } from 'react';
 import type {
   KnowledgeItem,
   KnowledgeSearchRequest,
@@ -92,7 +92,7 @@ type KnowledgeAction =
   | { type: 'REMOVE_KNOWLEDGE_ITEM'; payload: string }
   | {
       type: 'SET_SEARCH_RESULTS';
-      payload: { items: KnowledgeItem[]; query: KnowledgeSearchRequest; metadata: any };
+      payload: { items: KnowledgeItem[]; query: KnowledgeSearchRequest; metadata: unknown };
     }
   | { type: 'CLEAR_SEARCH_RESULTS' }
   | { type: 'SET_STATS'; payload: KnowledgeContextState['stats'] }
@@ -130,7 +130,7 @@ const knowledgeReducer = (
         },
       };
     case 'REMOVE_KNOWLEDGE_ITEM': {
-      const { [action.payload]: removed, ...remainingItems } = state.items;
+      const { [action.payload]: _removed, ...remainingItems } = state.items;
       return {
         ...state,
         items: remainingItems,
@@ -325,7 +325,8 @@ export const KnowledgeProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       const items = await uaipAPI.knowledge.getAllKnowledge({ limit: 100 });
       dispatch({ type: 'ADD_KNOWLEDGE_ITEMS', payload: items });
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Failed to fetch knowledge items';
+      const errorMessage =
+        error instanceof Error ? error.message : 'Failed to fetch knowledge items';
       dispatch({ type: 'SET_ERROR', payload: errorMessage });
     } finally {
       dispatch({ type: 'SET_LOADING', payload: false });
@@ -344,20 +345,36 @@ export const KnowledgeProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     dispatch({ type: 'SET_ERROR', payload: null });
   }, []);
 
-  const value: KnowledgeContextValue = {
-    ...state,
-    uploadKnowledge,
-    searchKnowledge,
-    updateKnowledge,
-    deleteKnowledge,
-    getRelatedKnowledge,
-    getKnowledgeByTag,
-    setActiveItem,
-    clearSearchResults,
-    clearError,
-    refreshStats,
-    fetchAllItems,
-  };
+  const value: KnowledgeContextValue = useMemo(
+    () => ({
+      ...state,
+      uploadKnowledge,
+      searchKnowledge,
+      updateKnowledge,
+      deleteKnowledge,
+      getRelatedKnowledge,
+      getKnowledgeByTag,
+      setActiveItem,
+      clearSearchResults,
+      clearError,
+      refreshStats,
+      fetchAllItems,
+    }),
+    [
+      state,
+      uploadKnowledge,
+      searchKnowledge,
+      updateKnowledge,
+      deleteKnowledge,
+      getRelatedKnowledge,
+      getKnowledgeByTag,
+      setActiveItem,
+      clearSearchResults,
+      clearError,
+      refreshStats,
+      fetchAllItems,
+    ]
+  );
 
   return <KnowledgeContext.Provider value={value}>{children}</KnowledgeContext.Provider>;
 };

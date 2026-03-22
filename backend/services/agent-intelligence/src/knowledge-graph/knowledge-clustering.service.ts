@@ -24,7 +24,7 @@ export interface QdrantPoint {
     tags: string[];
     confidence: number;
     sourceType: string;
-    originalMetadata: Record<string, any>;
+    originalMetadata: Record<string, unknown>;
   };
 }
 
@@ -32,7 +32,7 @@ export interface SourceMetadata {
   id: string;
   sourceType: string;
   confidence: number;
-  originalMetadata: Record<string, any>;
+  originalMetadata: Record<string, unknown>;
 }
 
 export interface ClusteringResult {
@@ -61,14 +61,10 @@ export class KnowledgeClusteringService {
     minClusterSize: number = this.minClusterSize,
     similarityThreshold: number = this.similarityThreshold
   ): Promise<ClusteringResult> {
-    console.log('Starting knowledge clustering process...');
-
     // 1. Get all vectors from Qdrant
     const allPoints = await this.getAllQdrantPoints();
-    console.log(`Found ${allPoints.length} vectors in Qdrant`);
 
     if (allPoints.length < minClusterSize) {
-      console.log('Not enough vectors for clustering');
       return {
         totalClusters: 0,
         totalOriginalItems: allPoints.length,
@@ -85,7 +81,6 @@ export class KnowledgeClusteringService {
       minClusterSize,
       similarityThreshold
     );
-    console.log(`Created ${clusters.length} clusters`);
 
     // 3. Consolidate each cluster
     const consolidatedClusters = await this.consolidateAllClusters(clusters);
@@ -134,7 +129,7 @@ export class KnowledgeClusteringService {
       return searchResults.map((result) => ({
         id: result.id.toString(),
         vector: [] as number[], // Search results don't include vectors by default
-        payload: result.payload as any,
+        payload: result.payload as Record<string, unknown>,
       }));
     } catch (error) {
       console.error('Error finding similar chunks:', error);
@@ -182,8 +177,8 @@ export class KnowledgeClusteringService {
   private async getAllQdrantPoints(): Promise<QdrantPoint[]> {
     try {
       // Use scroll API to get all points
-      const workingUrl = await (this.qdrantService as any).ensureConnection();
-      const collectionName = (this.qdrantService as any).collectionName;
+      const workingUrl = await (this.qdrantService as Record<string, unknown>).ensureConnection();
+      const collectionName = (this.qdrantService as Record<string, unknown>).collectionName;
 
       const response = await fetch(`${workingUrl}/collections/${collectionName}/points/scroll`, {
         method: 'POST',
@@ -202,13 +197,13 @@ export class KnowledgeClusteringService {
       }
 
       const data = await response.json();
-      return data.result.points.map((point: any) => {
+      return data.result.points.map((point: Record<string, unknown>) => {
         const vector: number[] = Array.isArray(point.vector) ? (point.vector as number[]) : [];
 
         return {
           id: point.id.toString(),
           vector,
-          payload: point.payload as any,
+          payload: point.payload as Record<string, unknown>,
         };
       });
     } catch (error) {
@@ -232,6 +227,7 @@ export class KnowledgeClusteringService {
       if (processedIds.has(point.id)) continue;
 
       // Find similar points
+      // oxlint-disable-next-line no-await-in-loop -- sequential processing required
       const similarPoints = await this.findSimilarPoints(point, points, threshold);
 
       // Only create cluster if it meets minimum size
@@ -259,6 +255,7 @@ export class KnowledgeClusteringService {
     for (const point of allPoints) {
       if (point.id === referencePoint.id) continue;
 
+      // oxlint-disable-next-line no-await-in-loop -- sequential processing required
       const similarity = await this.calculateCosineSimilarity(referencePoint.vector, point.vector);
 
       if (similarity >= threshold) {

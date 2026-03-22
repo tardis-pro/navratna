@@ -7,7 +7,7 @@ import {
 import { logger } from '@uaip/utils';
 
 // Request/Response schemas
-const createProviderSchema = {
+const _createProviderSchema = {
   type: 'object',
   required: ['name', 'type', 'baseUrl'],
   properties: {
@@ -45,7 +45,7 @@ const createProviderSchema = {
   },
 };
 
-const updateProviderSchema = {
+const _updateProviderSchema = {
   type: 'object',
   properties: {
     name: { type: 'string', minLength: 1, maxLength: 255 },

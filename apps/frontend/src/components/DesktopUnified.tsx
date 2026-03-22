@@ -120,9 +120,7 @@ const UserChatPortal = lazy(() =>
 const MultiChatManager = lazy(() =>
   import('./futuristic/portals/MultiChatManager').then((m) => ({ default: m.MultiChatManager }))
 );
-const ToolsIntegrationsPortal = lazy(() =>
-  import('./futuristic/portals/ToolsIntegrationsPortal')
-);
+const ToolsIntegrationsPortal = lazy(() => import('./futuristic/portals/ToolsIntegrationsPortal'));
 const ProjectManagementPortal = lazy(() =>
   import('./futuristic/portals/ProjectManagementPortal').then((m) => ({
     default: m.ProjectManagementPortal,
@@ -1084,8 +1082,8 @@ const WeatherWidget: React.FC<{
               <div className="border-t border-slate-700/50 pt-2 mt-2">
                 <div className="text-xs font-medium text-slate-300 mb-1">5-Day Forecast</div>
                 <div className="space-y-1">
-                  {weather.forecast.slice(0, 3).map((day, index) => (
-                    <div key={index} className="flex items-center justify-between text-xs">
+                  {weather.forecast.slice(0, 3).map((day) => (
+                    <div key={day.day} className="flex items-center justify-between text-xs">
                       <span className="text-slate-400 w-16 truncate">{day.day}</span>
                       <div className="flex items-center gap-1">
                         <div className="w-4 h-4 flex items-center justify-center">
@@ -1165,9 +1163,9 @@ const ActionsMenu: React.FC<{
             Quick Actions
           </h4>
           <div className="grid grid-cols-4 gap-2">
-            {quickActions.map((action, index) => (
+            {quickActions.map((action) => (
               <Button
-                key={index}
+                key={action.label}
                 variant="secondary"
                 size="sm"
                 onClick={() => {
@@ -1692,12 +1690,10 @@ export const Desktop: React.FC = () => {
   // Handle knowledge creation from global upload
   const handleKnowledgeCreated = (_knowledgeId: string) => {
     // Optionally open the knowledge portal and select the item
-    
   };
 
   // Handle project creation from onboarding
   const handleProjectCreated = (_projectData: unknown) => {
-    
     // Optionally open the project management portal
     const projectApp = APPLICATIONS.find((app) => app.id === 'projects');
     if (projectApp) {
@@ -1711,7 +1707,6 @@ export const Desktop: React.FC = () => {
       await userPersonaAPI.completeOnboarding(data);
 
       // Optionally show success notification or adapt UI immediately
-      
 
       // Track the completion for behavioral learning
       await userPersonaAPI.trackInteraction({
@@ -1744,6 +1739,7 @@ export const Desktop: React.FC = () => {
     window.addEventListener('openKnowledgePortal', handleOpenKnowledgePortal as EventListener);
     return () =>
       window.removeEventListener('openKnowledgePortal', handleOpenKnowledgePortal as EventListener);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Get current wallpaper URL for display
@@ -1816,6 +1812,7 @@ export const Desktop: React.FC = () => {
       lat: userLocation.latitude,
       lng: userLocation.longitude,
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userLocation?.latitude, userLocation?.longitude]);
 
   return (
@@ -1982,7 +1979,6 @@ export const Desktop: React.FC = () => {
                 >
                   <ChatKnowledgeUploader
                     onUploadComplete={() => {
-                      
                       // Optionally refresh knowledge data or show notification
                     }}
                     className="max-w-none"

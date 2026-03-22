@@ -1,13 +1,19 @@
 import { randomUUID } from 'crypto';
 import { EventBusService } from '@uaip/shared-services';
 import { logger } from '@uaip/utils';
-import { Question, Contradiction } from '@uaip/types';
+import {
+  Question,
+  Contradiction,
+  QuestionCategory,
+  QuestionPhase,
+  QuestionStatus,
+} from '@uaip/types';
 
 // ─── Interfaces ───────────────────────────────────────────────────────────────
 
 export interface CouncilDebateConfig {
   projectBriefId: string;
-  normalizedBrief: any; // NormalizedBrief from inputNormalizer
+  normalizedBrief: unknown; // NormalizedBrief from inputNormalizer
   agentPersonaIds: string[]; // 8 persona IDs
   maxQuestionsPerAgent?: number; // default 10
 }
@@ -63,7 +69,10 @@ const AGENT_ROLES: Record<string, string> = {
 
 export class DebateFlowExtension {
   private eventBus: EventBusService;
-  private pendingResponses: Map<string, { resolve: (value: string) => void; reject: (err: Error) => void }> = new Map();
+  private pendingResponses: Map<
+    string,
+    { resolve: (value: string) => void; reject: (err: Error) => void }
+  > = new Map();
 
   constructor(eventBus: EventBusService) {
     this.eventBus = eventBus;
@@ -140,7 +149,7 @@ export class DebateFlowExtension {
     const round1Analyses = await this.executeRound1(
       config.normalizedBrief,
       config.agentPersonaIds,
-      maxQuestions,
+      maxQuestions
     );
 
     logger.info('Round 1 complete', {
@@ -158,7 +167,12 @@ export class DebateFlowExtension {
     });
 
     // ── Synthesize ────────────────────────────────────────────────────────
-    const result = this.synthesizeResults(debateId, config.projectBriefId, round1Analyses, round2Challenges);
+    const result = this.synthesizeResults(
+      debateId,
+      config.projectBriefId,
+      round1Analyses,
+      round2Challenges
+    );
 
     logger.info('Council debate concluded', {
       debateId,
@@ -174,9 +188,9 @@ export class DebateFlowExtension {
   // ─── Round 1 ──────────────────────────────────────────────────────────────
 
   private async executeRound1(
-    normalizedBrief: any,
+    normalizedBrief: unknown,
     agentPersonaIds: string[],
-    maxQuestions: number,
+    maxQuestions: number
   ): Promise<AgentAnalysis[]> {
     const analysisPromises = agentPersonaIds.map(async (agentId) => {
       const role = this.resolveAgentRole(agentId);
@@ -207,9 +221,7 @@ export class DebateFlowExtension {
       const targets = this.pickChallengeTargets(analysis.agentId, round1Analyses, 2);
 
       for (const target of targets) {
-        challengePromises.push(
-          this.executeCrossExamination(analysis, target, round1Analyses),
-        );
+        challengePromises.push(this.executeCrossExamination(analysis, target, round1Analyses));
       }
     }
 
@@ -223,7 +235,7 @@ export class DebateFlowExtension {
   private async executeCrossExamination(
     challenger: AgentAnalysis,
     target: AgentAnalysis,
-    allAnalyses: AgentAnalysis[],
+    allAnalyses: AgentAnalysis[]
   ): Promise<Round2Challenge> {
     const systemPrompt = this.buildRound2Prompt(challenger, [target]);
     const userPrompt = this.buildRound2UserContext(challenger, target, allAnalyses);
@@ -261,14 +273,18 @@ export class DebateFlowExtension {
   private pickChallengeTargets(
     agentId: string,
     analyses: AgentAnalysis[],
-    count: number,
+    count: number
   ): AgentAnalysis[] {
     const others = analyses.filter((a) => a.agentId !== agentId);
 
     // Sort by number of high/critical risks descending to find most divergent
     const sorted = [...others].sort((a, b) => {
-      const aCritical = a.strongestRisks.filter((r) => r.severity === 'critical' || r.severity === 'high').length;
-      const bCritical = b.strongestRisks.filter((r) => r.severity === 'critical' || r.severity === 'high').length;
+      const aCritical = a.strongestRisks.filter(
+        (r) => r.severity === 'critical' || r.severity === 'high'
+      ).length;
+      const bCritical = b.strongestRisks.filter(
+        (r) => r.severity === 'critical' || r.severity === 'high'
+      ).length;
       return bCritical - aCritical;
     });
 
@@ -277,7 +293,11 @@ export class DebateFlowExtension {
 
   // ─── Prompt builders ──────────────────────────────────────────────────────
 
-  buildRound1Prompt(normalizedBrief: any, agentRole: string, maxQuestions: number = 10): string {
+  buildRound1Prompt(
+    normalizedBrief: unknown,
+    agentRole: string,
+    maxQuestions: number = 10
+  ): string {
     return `You are a ${agentRole} reviewing a project brief for a council debate.
 
 Your task is to analyze the following normalized brief from your specialized perspective and produce a structured analysis.
@@ -315,7 +335,10 @@ The normalized brief will be provided as the user message.`;
     const targetSummaries = targetAnalyses
       .map((t) => {
         const riskSummary = t.strongestRisks.map((r) => `  - [${r.severity}] ${r.risk}`).join('\n');
-        const questionSummary = t.questions.slice(0, 5).map((q) => `  - (${q.confidence.toFixed(2)}) ${q.text}`).join('\n');
+        const questionSummary = t.questions
+          .slice(0, 5)
+          .map((q) => `  - (${q.confidence.toFixed(2)}) ${q.text}`)
+          .join('\n');
         return `Target Agent: ${t.agentRole} (${t.agentId})
 Risks:
 ${riskSummary}
@@ -347,9 +370,9 @@ Rules:
   private buildRound2UserContext(
     challenger: AgentAnalysis,
     target: AgentAnalysis,
-    allAnalyses: AgentAnalysis[],
+    allAnalyses: AgentAnalysis[]
   ): string {
-    const context: Record<string, any> = {
+    const context: Record<string, unknown> = {
       yourAnalysis: {
         role: challenger.agentRole,
         risks: challenger.strongestRisks,
@@ -387,7 +410,11 @@ Rules:
     };
   }
 
-  parseRound2Response(raw: string): { challenge: string; mergedQuestions: string[]; escalatedBlockers: string[] } {
+  parseRound2Response(raw: string): {
+    challenge: string;
+    mergedQuestions: string[];
+    escalatedBlockers: string[];
+  } {
     const json = this.extractJSON(raw);
 
     return {
@@ -403,7 +430,7 @@ Rules:
     debateId: string,
     projectBriefId: string,
     round1: AgentAnalysis[],
-    round2: Round2Challenge[],
+    round2: Round2Challenge[]
   ): CouncilDebateResult {
     // Collect all questions from round 1
     const allQuestions = round1.flatMap((a) => a.questions);
@@ -418,13 +445,13 @@ Rules:
     const synthesizedQuestions: Question[] = deduplicatedQuestions.map((q) => ({
       id: randomUUID(),
       projectBriefId,
-      category: 'assumption_reveal' as any,
+      category: 'assumption_reveal' as QuestionCategory,
       text: q.text,
       intent: q.whyItMatters,
       priority: Math.round(q.confidence * 100),
-      phase: 'discovery' as any,
+      phase: 'discovery' as QuestionPhase,
       tags: q.targetStakeholder ? [q.targetStakeholder] : [],
-      status: 'pending' as any,
+      status: 'pending' as QuestionStatus,
       usageCount: 0,
       createdAt: new Date(),
       updatedAt: new Date(),
@@ -454,7 +481,7 @@ Rules:
 
   private deduplicateQuestions(
     questions: AgentAnalysis['questions'],
-    mergedTexts: Set<string>,
+    mergedTexts: Set<string>
   ): AgentAnalysis['questions'] {
     const seen = new Set<string>();
     const result: AgentAnalysis['questions'] = [];
@@ -498,7 +525,7 @@ Rules:
         for (const riskA of agentA.strongestRisks) {
           if (riskA.severity === 'critical' || riskA.severity === 'high') {
             const mentioned = agentB.strongestRisks.some(
-              (riskB) => this.textSimilarity(riskA.risk, riskB.risk) > 0.5,
+              (riskB) => this.textSimilarity(riskA.risk, riskB.risk) > 0.5
             );
 
             if (!mentioned && agentB.missingFromOthers.length > 0) {
@@ -563,7 +590,7 @@ Rules:
     for (const challenge of challenges) {
       if (challenge.challenge) {
         disagreements.push(
-          `${challenge.challengerId} → ${challenge.targetId}: ${challenge.challenge}`,
+          `${challenge.challengerId} → ${challenge.targetId}: ${challenge.challenge}`
         );
       }
       for (const blocker of challenge.escalatedBlockers) {
@@ -605,7 +632,7 @@ Rules:
    * Extract a JSON object from an LLM response that may contain
    * markdown fences or leading/trailing prose.
    */
-  private extractJSON(raw: string): any {
+  private extractJSON(raw: string): unknown {
     // Try to find JSON in code fences first
     const fenceMatch = raw.match(/```(?:json)?\s*\n?([\s\S]*?)\n?```/);
     const jsonStr = fenceMatch ? fenceMatch[1] : raw;
@@ -633,7 +660,7 @@ Rules:
   }
 
   private parseRisks(
-    value: unknown,
+    value: unknown
   ): Array<{ risk: string; severity: 'low' | 'medium' | 'high' | 'critical' }> {
     if (!Array.isArray(value)) return [];
 
@@ -657,7 +684,8 @@ Rules:
         confidence: typeof v.confidence === 'number' ? Math.max(0, Math.min(1, v.confidence)) : 0.5,
         whyItMatters: typeof v.whyItMatters === 'string' ? v.whyItMatters : '',
         dependentDecision: typeof v.dependentDecision === 'string' ? v.dependentDecision : '',
-        targetStakeholder: typeof v.targetStakeholder === 'string' ? v.targetStakeholder : undefined,
+        targetStakeholder:
+          typeof v.targetStakeholder === 'string' ? v.targetStakeholder : undefined,
       }));
   }
 

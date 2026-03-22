@@ -32,7 +32,7 @@ export interface UpdateLLMProviderRequest {
   apiKey?: string;
   defaultModel?: string;
   modelsList?: string[];
-  configuration?: any;
+  configuration?: unknown;
   priority?: number;
   status?: LLMProviderStatus;
 }
@@ -46,7 +46,7 @@ export interface LLMProviderResponse {
   hasApiKey: boolean;
   defaultModel?: string;
   modelsList?: string[];
-  configuration?: any;
+  configuration?: unknown;
   status: LLMProviderStatus;
   isActive: boolean;
   priority: number;
@@ -109,14 +109,12 @@ export class LLMProviderManagementService {
       await this.ensureInitialized();
 
       const providers = await this.llmProviderRepository.findMany();
-      const responses: LLMProviderResponse[] = [];
-
-      for (const provider of providers) {
-        const stats = await this.llmProviderRepository.getProviderStats(provider.id);
-        responses.push(this.mapToResponse(provider, stats));
-      }
-
-      return responses;
+      return Promise.all(
+        providers.map(async (provider) => {
+          const stats = await this.llmProviderRepository.getProviderStats(provider.id);
+          return this.mapToResponse(provider, stats);
+        })
+      );
     } catch (error) {
       logger.error('Error getting all LLM providers', { error });
       throw error;
@@ -131,14 +129,12 @@ export class LLMProviderManagementService {
       await this.ensureInitialized();
 
       const providers = await this.llmProviderRepository.findActiveProviders();
-      const responses: LLMProviderResponse[] = [];
-
-      for (const provider of providers) {
-        const stats = await this.llmProviderRepository.getProviderStats(provider.id);
-        responses.push(this.mapToResponse(provider, stats));
-      }
-
-      return responses;
+      return Promise.all(
+        providers.map(async (provider) => {
+          const stats = await this.llmProviderRepository.getProviderStats(provider.id);
+          return this.mapToResponse(provider, stats);
+        })
+      );
     } catch (error) {
       logger.error('Error getting active LLM providers', { error });
       throw error;
@@ -404,7 +400,7 @@ export class LLMProviderManagementService {
   }
 
   // Private helper methods
-  private mapToResponse(provider: LLMProvider, stats: any): LLMProviderResponse {
+  private mapToResponse(provider: LLMProvider, stats: unknown): LLMProviderResponse {
     return {
       id: provider.id,
       name: provider.name,
@@ -440,7 +436,7 @@ export class LLMProviderManagementService {
     }
   }
 
-  private getTestPayload(provider: LLMProvider): any {
+  private getTestPayload(provider: LLMProvider): unknown {
     const testPrompt = 'Hello, this is a connection test. Please respond with "OK".';
 
     switch (provider.type) {

@@ -14,11 +14,11 @@ import {
 } from '@uaip/types';
 
 // Query parameter interfaces
-interface ItemIdParams {
+interface _ItemIdParams {
   itemId: string;
 }
 
-interface TagParams {
+interface _TagParams {
   tag: string;
 }
 
@@ -105,7 +105,7 @@ const getStringArray = (value: unknown): string[] | undefined =>
 const getNumberValue = (value: unknown): number | undefined =>
   typeof value === 'number' ? value : undefined;
 
-const getMetadataValue = (value: unknown): Record<string, any> | undefined =>
+const getMetadataValue = (value: unknown): Record<string, unknown> | undefined =>
   isRecord(value) ? value : undefined;
 
 const normalizeKnowledgeItem = (item: unknown): KnowledgeIngestRequest => {
@@ -157,17 +157,17 @@ interface ServicesHealthStatus {
 }
 
 // Knowledge item body interface
-interface KnowledgeItemBody {
+interface _KnowledgeItemBody {
   content: string;
   type?: string;
   tags?: string[];
   title?: string;
   category?: string;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
   source?: {
     type: string;
     identifier: string;
-    metadata?: Record<string, any>;
+    metadata?: Record<string, unknown>;
   };
   confidence?: number;
 }
@@ -281,11 +281,11 @@ async function getServices(): Promise<{
   }
 }
 
-export function registerKnowledgeRoutes(app: any): any {
-  return app.group('/api/v1/knowledge', (app: any) =>
+export function registerKnowledgeRoutes(elysiaApp: unknown): unknown {
+  return elysiaApp.group('/api/v1/knowledge', (app: unknown) =>
     withOptionalAuth(app)
       // POST /
-      .group('', (g: any) =>
+      .group('', (g: unknown) =>
         withRequiredAuth(g)
           .post('/', async ({ set, body, user }) => {
             const userId = user.id;
@@ -296,7 +296,8 @@ export function registerKnowledgeRoutes(app: any): any {
             }
 
             const requestData = Array.isArray(body) ? body : [body];
-            const knowledgeItems: KnowledgeIngestRequest[] = requestData.map(normalizeKnowledgeItem);
+            const knowledgeItems: KnowledgeIngestRequest[] =
+              requestData.map(normalizeKnowledgeItem);
             for (const i of knowledgeItems) {
               if (!i.content) {
                 set.status = 400;
@@ -336,7 +337,7 @@ export function registerKnowledgeRoutes(app: any): any {
                 data: updated,
                 message: 'Knowledge item updated successfully',
               };
-            } catch (error: any) {
+            } catch (error: unknown) {
               if (error instanceof Error && error.message.includes('not found or not accessible')) {
                 set.status = 404;
                 return {
@@ -368,7 +369,7 @@ export function registerKnowledgeRoutes(app: any): any {
             try {
               await userKnowledgeService!.deleteKnowledge(userId, itemId);
               return { success: true, message: 'Knowledge item deleted successfully' };
-            } catch (error: any) {
+            } catch (error: unknown) {
               if (error instanceof Error && error.message.includes('not found or not accessible')) {
                 set.status = 404;
                 return {
@@ -483,7 +484,16 @@ export function registerKnowledgeRoutes(app: any): any {
               timestamp: Date.now(),
             };
             const result = await userKnowledgeService!.search(userId, searchRequest);
-            const nodes = result.items.map((item: any) => ({
+            const typedItems = result.items as Array<{
+              id: string;
+              content: string;
+              type: string;
+              tags?: unknown;
+              confidence?: number;
+              sourceType?: string;
+              createdAt?: unknown;
+            }>;
+            const nodes = typedItems.map((item) => ({
               id: item.id,
               type: 'knowledge',
               data: {
@@ -496,24 +506,33 @@ export function registerKnowledgeRoutes(app: any): any {
                 fullContent: item.content,
               },
             }));
-            const edges: any[] = [];
+            const edges: Array<{
+              id: string;
+              source: string;
+              target: string;
+              type: 'relationship';
+              data: { relationshipType: 'related'; confidence: number };
+            }> = [];
             if (includeRelationships) {
-              for (const item of result.items) {
-                try {
-                  const rel = await userKnowledgeService!.findRelatedKnowledge(userId, item.id);
-                  rel.forEach((r: any) => {
-                    if (result.items.some((i: any) => i.id === r.id)) {
-                      edges.push({
-                        id: `${item.id}-${r.id}`,
-                        source: item.id,
-                        target: r.id,
-                        type: 'relationship',
-                        data: { relationshipType: 'related', confidence: 0.8 },
-                      });
-                    }
-                  });
-                } catch {}
-              }
+              await Promise.all(
+                typedItems.map(async (item) => {
+                  try {
+                    const rel = await userKnowledgeService!.findRelatedKnowledge(userId, item.id);
+                    const relatedItems = rel as Array<{ id: string }>;
+                    relatedItems.forEach((r) => {
+                      if (typedItems.some((i) => i.id === r.id)) {
+                        edges.push({
+                          id: `${item.id}-${r.id}`,
+                          source: item.id,
+                          target: r.id,
+                          type: 'relationship',
+                          data: { relationshipType: 'related', confidence: 0.8 },
+                        });
+                      }
+                    });
+                  } catch {}
+                })
+              );
             }
             return {
               success: true,
@@ -531,63 +550,66 @@ export function registerKnowledgeRoutes(app: any): any {
           })
 
           // GET /graph/relationships/:itemId
-          .get(
-            '/graph/relationships/:itemId',
-            async ({ set, params, query, user }) => {
-              const userId = user.id;
-              const { userKnowledgeService, initializationError } = await getServices();
-              if (initializationError) {
-                set.status = 503;
-                return { error: 'Knowledge service not available', details: initializationError };
-              }
-              const { itemId } = itemIdParamsSchema.parse(params);
-              const queryParams = query as RelationshipsQuery;
-              const limit = Number(queryParams.limit ?? 20);
-              if (!itemId) {
-                set.status = 400;
-                return { error: 'Item ID is required' };
-              }
-              const item = await userKnowledgeService!.getKnowledgeItem(userId, itemId);
-              if (!item) {
-                set.status = 404;
-                return { error: 'Knowledge item not found or not accessible' };
-              }
-              const relationshipTypes = queryParams.relationshipTypes
-                ? String(queryParams.relationshipTypes).split(',')
-                : undefined;
-              const related = await userKnowledgeService!.findRelatedKnowledge(
-                userId,
-                itemId,
-                relationshipTypes
-              );
-              const relationships = related.slice(0, limit).map((rel: any) => ({
-                id: `${itemId}-${rel.id}`,
-                source: itemId,
-                target: rel.id,
-                type: 'relationship',
-                data: {
-                  relationshipType: 'related',
-                  confidence: 0.8,
-                  targetItem: {
-                    id: rel.id,
-                    label: rel.content.substring(0, 50) + (rel.content.length > 50 ? '...' : ''),
-                    knowledgeType: rel.type,
-                    tags: rel.tags,
-                  },
-                },
-              }));
-              return {
-                success: true,
-                data: { itemId, relationships, totalCount: related.length },
-                message: `Found ${relationships.length} relationships for knowledge item`,
-              };
+          .get('/graph/relationships/:itemId', async ({ set, params, query, user }) => {
+            const userId = user.id;
+            const { userKnowledgeService, initializationError } = await getServices();
+            if (initializationError) {
+              set.status = 503;
+              return { error: 'Knowledge service not available', details: initializationError };
             }
-          )
+            const { itemId } = itemIdParamsSchema.parse(params);
+            const queryParams = query as RelationshipsQuery;
+            const limit = Number(queryParams.limit ?? 20);
+            if (!itemId) {
+              set.status = 400;
+              return { error: 'Item ID is required' };
+            }
+            const item = await userKnowledgeService!.getKnowledgeItem(userId, itemId);
+            if (!item) {
+              set.status = 404;
+              return { error: 'Knowledge item not found or not accessible' };
+            }
+            const relationshipTypes = queryParams.relationshipTypes
+              ? String(queryParams.relationshipTypes).split(',')
+              : undefined;
+            const related = await userKnowledgeService!.findRelatedKnowledge(
+              userId,
+              itemId,
+              relationshipTypes
+            );
+            const typedRelated = related as Array<{
+              id: string;
+              content: string;
+              type: string;
+              tags?: unknown;
+            }>;
+            const relationships = typedRelated.slice(0, limit).map((rel) => ({
+              id: `${itemId}-${rel.id}`,
+              source: itemId,
+              target: rel.id,
+              type: 'relationship',
+              data: {
+                relationshipType: 'related',
+                confidence: 0.8,
+                targetItem: {
+                  id: rel.id,
+                  label: rel.content.substring(0, 50) + (rel.content.length > 50 ? '...' : ''),
+                  knowledgeType: rel.type,
+                  tags: rel.tags,
+                },
+              },
+            }));
+            return {
+              success: true,
+              data: { itemId, relationships, totalCount: related.length },
+              message: `Found ${relationships.length} relationships for knowledge item`,
+            };
+          })
 
           // POST /sync
           .post('/sync', async ({ set, user }) => {
-            const userId = user.id;
-            const { userKnowledgeService, initializationError } = await getServices();
+            const _userId = user.id;
+            const { initializationError } = await getServices();
             if (initializationError) {
               set.status = 503;
               return { error: 'Knowledge service not available', details: initializationError };
@@ -686,7 +708,10 @@ export function registerKnowledgeRoutes(app: any): any {
 
                   let added = 0;
                   if (knowledgeRequests.length > 0) {
-                      const result = await userKnowledgeService!.addKnowledge(userId, knowledgeRequests);
+                    const result = await userKnowledgeService!.addKnowledge(
+                      userId,
+                      knowledgeRequests
+                    );
                     added = result.processedCount ?? knowledgeRequests.length;
                   }
 
@@ -730,18 +755,15 @@ export function registerKnowledgeRoutes(app: any): any {
 
           // GET /chat-jobs/:jobId — poll for import job status
           // (no ts-expect-error needed — handler is typed as :any)
-          .get(
-            '/chat-jobs/:jobId',
-            async ({ set, params }) => {
-              const jobId = params.jobId;
-              const job = chatImportJobs.get(jobId);
-              if (!job) {
-                set.status = 404;
-                return { error: 'Job not found' };
-              }
-              return job;
+          .get('/chat-jobs/:jobId', async ({ set, params }) => {
+            const jobId = params.jobId;
+            const job = chatImportJobs.get(jobId);
+            if (!job) {
+              set.status = 404;
+              return { error: 'Job not found' };
             }
-          )
+            return job;
+          })
       )
 
       // GET /

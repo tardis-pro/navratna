@@ -61,7 +61,9 @@ class ArtifactServiceApp extends BaseService {
     }
   }
 
-  private async handleDiscussionCompletion(eventMessage: any): Promise<void> {
+  private async handleDiscussionCompletion(eventMessage: {
+    data: Record<string, unknown>;
+  }): Promise<void> {
     try {
       const { discussionId, discussion, messages, participants, artifactGeneration } =
         eventMessage.data;
@@ -79,7 +81,7 @@ class ArtifactServiceApp extends BaseService {
       // Create conversation context for analysis
       const conversationContext: ArtifactConversationContext = {
         conversationId: discussionId,
-        messages: messages.map((msg: any) => ({
+        messages: messages.map((msg: Record<string, unknown>) => ({
           id: msg.id,
           role: (msg.role || 'assistant') as 'user' | 'assistant' | 'system',
           content: msg.content,
@@ -89,7 +91,7 @@ class ArtifactServiceApp extends BaseService {
             messageType: msg.messageType,
           },
         })),
-        participants: participants.map((p: any) => ({
+        participants: participants.map((p: Record<string, unknown>) => ({
           id: p.id,
           name: p.name || p.agentId || p.userId || 'Unknown',
           role: p.role,
@@ -209,15 +211,19 @@ class ArtifactServiceApp extends BaseService {
     }
   }
 
-  private selectTemplateForArtifact(artifactType: string, discussion: any): string | undefined {
+  private selectTemplateForArtifact(
+    artifactType: string,
+    discussion: Record<string, unknown>
+  ): string | undefined {
     // Select appropriate template based on artifact type and discussion context
+    const topic = discussion.topic as string | undefined;
     switch (artifactType) {
       case 'code':
-        return discussion.topic?.includes('API') ? 'api-implementation' : 'generic-code';
+        return topic?.includes('API') ? 'api-implementation' : 'generic-code';
       case 'test':
         return 'unit-test';
       case 'documentation':
-        return discussion.topic?.includes('API') ? 'api-documentation' : 'generic-documentation';
+        return topic?.includes('API') ? 'api-documentation' : 'generic-documentation';
       case 'prd':
         return 'product-requirements';
       default:
@@ -225,7 +231,7 @@ class ArtifactServiceApp extends BaseService {
     }
   }
 
-  private inferLanguageFromDiscussion(messages: any[]): string | undefined {
+  private inferLanguageFromDiscussion(messages: Array<{ content: string }>): string | undefined {
     // Analyze messages to infer programming language
     const messageContent = messages.map((m) => m.content.toLowerCase()).join(' ');
 
@@ -246,7 +252,7 @@ class ArtifactServiceApp extends BaseService {
     return undefined;
   }
 
-  private inferFrameworkFromDiscussion(messages: any[]): string | undefined {
+  private inferFrameworkFromDiscussion(messages: Array<{ content: string }>): string | undefined {
     // Analyze messages to infer framework
     const messageContent = messages.map((m) => m.content.toLowerCase()).join(' ');
 
@@ -269,8 +275,8 @@ class ArtifactServiceApp extends BaseService {
 
   protected async setupRoutes(): Promise<void> {
     // Register Elysia route groups
-    registerArtifactRoutes(this.app as any, this.artifactService);
-    registerShortLinkRoutes(this.app as any);
+    registerArtifactRoutes(this.app as unknown, this.artifactService);
+    registerShortLinkRoutes(this.app as unknown);
 
     // Service-specific status endpoint (Elysia handler)
     this.app.get('/status', () => {

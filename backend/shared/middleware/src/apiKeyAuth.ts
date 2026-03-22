@@ -2,7 +2,7 @@ import { Elysia } from 'elysia';
 import crypto from 'crypto';
 import { logger } from '@uaip/utils';
 import { config } from '@uaip/config';
-import type { APIKeyContext, ElysiaSet } from '@uaip/types';
+import type { APIKeyContext } from '@uaip/types';
 
 interface APIKeyConfig {
   headerName?: string;

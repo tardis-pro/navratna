@@ -14,9 +14,9 @@ export interface Tool {
   description: string;
   category: string;
   type: 'internal' | 'external' | 'mcp' | 'oauth';
-  inputSchema?: any;
-  outputSchema?: any;
-  configuration?: any;
+  inputSchema?: unknown;
+  outputSchema?: unknown;
+  configuration?: unknown;
   requiredPermissions?: string[];
   securityLevel: SecurityLevel;
   maxRetries: number;
@@ -33,9 +33,9 @@ export interface ToolCreate {
   description: string;
   category: string;
   type?: 'internal' | 'external' | 'mcp' | 'oauth';
-  inputSchema?: any;
-  outputSchema?: any;
-  configuration?: any;
+  inputSchema?: unknown;
+  outputSchema?: unknown;
+  configuration?: unknown;
   requiredPermissions?: string[];
   securityLevel?: SecurityLevel;
   maxRetries?: number;
@@ -46,9 +46,9 @@ export interface ToolUpdate {
   displayName?: string;
   description?: string;
   category?: string;
-  inputSchema?: any;
-  outputSchema?: any;
-  configuration?: any;
+  inputSchema?: unknown;
+  outputSchema?: unknown;
+  configuration?: unknown;
   requiredPermissions?: string[];
   securityLevel?: SecurityLevel;
   maxRetries?: number;
@@ -57,8 +57,8 @@ export interface ToolUpdate {
 }
 
 export interface ToolExecutionRequest {
-  input: any;
-  context?: any;
+  input: unknown;
+  context?: unknown;
   options?: {
     timeout?: number;
     retries?: number;
@@ -68,9 +68,9 @@ export interface ToolExecutionRequest {
 export interface ToolExecutionResponse {
   id: string;
   status: 'pending' | 'running' | 'completed' | 'failed';
-  output?: any;
+  output?: unknown;
   error?: string;
-  metadata?: any;
+  metadata?: unknown;
   startedAt: string;
   completedAt?: string;
   duration?: number;
@@ -155,7 +155,7 @@ export const toolsAPI = {
     return APIClient.get<ToolCategory[]>(API_ROUTES.TOOLS.CATEGORIES);
   },
 
-  async getRecommendations(context?: any): Promise<ToolRecommendation[]> {
+  async getRecommendations(context?: unknown): Promise<ToolRecommendation[]> {
     return APIClient.post<ToolRecommendation[]>(API_ROUTES.TOOLS.RECOMMENDATIONS, { context });
   },
 
@@ -177,7 +177,7 @@ export const toolsAPI = {
     return APIClient.post(`${API_ROUTES.TOOLS.VALIDATE}/validate`, tool);
   },
 
-  async search(query: string, filters?: any): Promise<Tool[]> {
+  async search(query: string, filters?: unknown): Promise<Tool[]> {
     return APIClient.get<Tool[]>(API_ROUTES.TOOLS.SEARCH, {
       params: { q: query, ...filters },
     });

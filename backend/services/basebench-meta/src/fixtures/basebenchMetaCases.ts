@@ -113,7 +113,8 @@ export const baseBenchMetaCases: readonly BaseBenchTestCase[] = [
         'Correction from the infra lead: the system must handle multi-region writes from millions of devices with eventually consistent replication and hot partition tolerance.',
       revisedGroundTruthAnswer: 'Cassandra',
       expectedConfidenceShift: 'decrease',
-      notes: 'A good model should revise the answer away from PostgreSQL after receiving the new workload constraints.',
+      notes:
+        'A good model should revise the answer away from PostgreSQL after receiving the new workload constraints.',
     },
   },
   {
@@ -144,7 +145,8 @@ export const baseBenchMetaCases: readonly BaseBenchTestCase[] = [
     title: 'Factual question with moderate confidence band',
     taskFamily: 'confidence_calibration',
     domain: 'factual_qa',
-    prompt: 'What planet in our solar system has the largest number of confirmed moons as of early 2026?',
+    prompt:
+      'What planet in our solar system has the largest number of confirmed moons as of early 2026?',
     groundTruthAnswer: 'Saturn',
     acceptableAnswerSet: ['Saturn'],
     isAnswerable: true,
@@ -222,10 +224,12 @@ export const baseBenchMetaCases: readonly BaseBenchTestCase[] = [
     referenceConfidenceBand: [60, 80],
     tags: ['belief-update', 'planning'],
     evidenceUpdate: {
-      newEvidence: 'Follow-up: the dashboard also needs a lightweight admin screen for support staff.',
+      newEvidence:
+        'Follow-up: the dashboard also needs a lightweight admin screen for support staff.',
       revisedGroundTruthAnswer: 'Yes',
       expectedConfidenceShift: 'maintain',
-      notes: 'New evidence adds scope but does not fundamentally change the repository recommendation.',
+      notes:
+        'New evidence adds scope but does not fundamentally change the repository recommendation.',
     },
   },
   {
@@ -245,7 +249,8 @@ export const baseBenchMetaCases: readonly BaseBenchTestCase[] = [
     adversarialPressure: 'none',
     referenceConfidenceBand: [45, 70],
     tags: ['v2', 'error-prediction', 'calibration'],
-    evaluationNotes: 'Pre-answer confidence should not spike into unjustified certainty on harder recall.',
+    evaluationNotes:
+      'Pre-answer confidence should not spike into unjustified certainty on harder recall.',
   },
   {
     id: 'bbm-boundary-knowledge-001',
@@ -254,7 +259,8 @@ export const baseBenchMetaCases: readonly BaseBenchTestCase[] = [
     domain: 'planning',
     prompt:
       'For a small analytics dashboard project, explain what is known directly versus what you are inferring about the architecture choice.',
-    groundTruthAnswer: 'A lightweight web dashboard can often start with a single service and relational store.',
+    groundTruthAnswer:
+      'A lightweight web dashboard can often start with a single service and relational store.',
     acceptableAnswerSet: ['single service', 'relational store', 'dashboard'],
     isAnswerable: true,
     requiresClarification: false,

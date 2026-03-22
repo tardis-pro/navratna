@@ -5,11 +5,11 @@ import {
   Bot,
   Server,
   Database,
-  ChevronRight,
+  ChevronRight as _ChevronRight,
   Zap,
   ArrowRight,
   User,
-  Sparkles,
+  Sparkles as _Sparkles,
 } from 'lucide-react';
 
 interface ViewportSize {

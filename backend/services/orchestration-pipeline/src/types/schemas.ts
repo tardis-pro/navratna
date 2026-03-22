@@ -1,5 +1,4 @@
 import { z } from 'zod';
-import type { ExecutionStep } from '@uaip/types';
 
 // Base schema components
 const uuidSchema = z.string();
@@ -271,7 +270,7 @@ export const operationStatusResponseSchema = z.object({
 });
 
 // Validation helper functions
-export const validateParameter = (parameterDefinition: z.ZodTypeAny, value: any) => {
+export const validateParameter = (parameterDefinition: z.ZodTypeAny, value: unknown) => {
   try {
     return {
       isValid: true,

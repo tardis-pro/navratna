@@ -8,14 +8,14 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-uaip_password}
       POSTGRES_MULTIPLE_DATABASES: ${POSTGRES_MULTIPLE_DATABASES:-uaip,uaip_test}
     ports:
-      - "5432:5432"
+      - '5432:5432'
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./database/init:/docker-entrypoint-initdb.d
     networks:
       - navratna-internal
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-uaip_user} -d ${POSTGRES_DB:-uaip}"]
+      test: ['CMD-SHELL', 'pg_isready -U ${POSTGRES_USER:-uaip_user} -d ${POSTGRES_DB:-uaip}']
       interval: 10s
       timeout: 5s
       retries: 5
@@ -27,15 +27,15 @@ services:
       NEO4J_AUTH: ${NEO4J_AUTH:-neo4j/uaip_dev_password}
       NEO4J_PASSWORD: ${NEO4J_PASSWORD:-uaip_dev_password}
       NEO4J_PLUGINS: '["apoc", "graph-data-science"]'
-      NEO4J_apoc_export_file_enabled: "true"
-      NEO4J_apoc_import_file_enabled: "true"
-      NEO4J_apoc_import_file_use__neo4j__config: "true"
+      NEO4J_apoc_export_file_enabled: 'true'
+      NEO4J_apoc_import_file_enabled: 'true'
+      NEO4J_apoc_import_file_use__neo4j__config: 'true'
       NEO4J_dbms_security_procedures_unrestricted: apoc.*,gds.*
       NEO4J_dbms_memory_heap_initial__size: 512m
       NEO4J_dbms_memory_heap_max__size: 1G
     ports:
-      - "7474:7474"
-      - "7687:7687"
+      - '7474:7474'
+      - '7687:7687'
     volumes:
       - neo4j_data:/data
       - neo4j_logs:/logs
@@ -45,7 +45,16 @@ services:
     networks:
       - navratna-internal
     healthcheck:
-      test: ["CMD", "cypher-shell", "-u", "neo4j", "-p", "${NEO4J_PASSWORD:-uaip_dev_password}", "RETURN 1"]
+      test:
+        [
+          'CMD',
+          'cypher-shell',
+          '-u',
+          'neo4j',
+          '-p',
+          '${NEO4J_PASSWORD:-uaip_dev_password}',
+          'RETURN 1',
+        ]
       interval: 30s
       timeout: 10s
       retries: 5
@@ -54,8 +63,8 @@ services:
     image: qdrant/qdrant:v1.14.1
     container_name: navratna-dev-qdrant
     ports:
-      - "6333:6333"
-      - "6334:6334"
+      - '6333:6333'
+      - '6334:6334'
     volumes:
       - qdrant_data:/qdrant/storage
     environment:
@@ -64,7 +73,7 @@ services:
     networks:
       - navratna-internal
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:6333/health"]
+      test: ['CMD', 'curl', '-f', 'http://localhost:6333/health']
       interval: 30s
       timeout: 10s
       retries: 3
@@ -76,13 +85,13 @@ services:
     environment:
       REDIS_PASSWORD: ${REDIS_PASSWORD:-uaip_redis_password}
     ports:
-      - "6379:6379"
+      - '6379:6379'
     volumes:
       - redis_data:/data
     networks:
       - navratna-internal
     healthcheck:
-      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD:-uaip_redis_password}", "ping"]
+      test: ['CMD', 'redis-cli', '-a', '${REDIS_PASSWORD:-uaip_redis_password}', 'ping']
       interval: 10s
       timeout: 5s
       retries: 3
@@ -91,13 +100,13 @@ services:
     image: ollama/ollama:latest
     container_name: navratna-dev-ollama
     ports:
-      - "11434:11434"
+      - '11434:11434'
     volumes:
       - ollama_data:/root/.ollama
     networks:
       - navratna-internal
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:11434/api/tags"]
+      test: ['CMD', 'curl', '-f', 'http://localhost:11434/api/tags']
       interval: 30s
       timeout: 10s
       retries: 5
@@ -121,7 +130,7 @@ services:
       QDRANT_URL: http://qdrant:6333
       OLLAMA_URL: http://ollama:11434
     ports:
-      - "3001:3001"
+      - '3001:3001'
     volumes:
       - ./packages:/app/packages
       - ./backend/shared:/app/backend/shared
@@ -144,7 +153,7 @@ services:
     networks:
       - navratna-internal
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:3001/health"]
+      test: ['CMD', 'curl', '-f', 'http://localhost:3001/health']
       interval: 30s
       timeout: 10s
       retries: 3
@@ -172,7 +181,7 @@ services:
       OPENAI_API_URL: ${OPENAI_API_URL}
       OLLAMA_URL: http://ollama:11434
     ports:
-      - "3002:3002"
+      - '3002:3002'
     volumes:
       - ./packages:/app/packages
       - ./backend/shared:/app/backend/shared
@@ -195,7 +204,7 @@ services:
     networks:
       - navratna-internal
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:3002/health"]
+      test: ['CMD', 'curl', '-f', 'http://localhost:3002/health']
       interval: 30s
       timeout: 10s
       retries: 3
@@ -217,7 +226,7 @@ services:
       OPENAI_API_URL: ${OPENAI_API_URL}
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
     ports:
-      - "3006:3006"
+      - '3006:3006'
     volumes:
       - ./packages:/app/packages
       - ./backend/shared:/app/backend/shared
@@ -237,7 +246,7 @@ services:
     networks:
       - navratna-internal
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:3006/health"]
+      test: ['CMD', 'curl', '-f', 'http://localhost:3006/health']
       interval: 30s
       timeout: 10s
       retries: 3
@@ -252,10 +261,10 @@ services:
       NODE_ENV: development
       VITE_API_URL: http://localhost:8081
       VITE_API_TARGET: http://nginx:80
-      CHOKIDAR_USEPOLLING: "true"
-      WATCHPACK_POLLING: "true"
+      CHOKIDAR_USEPOLLING: 'true'
+      WATCHPACK_POLLING: 'true'
     ports:
-      - "5173:5173"
+      - '5173:5173'
     volumes:
       - ./apps/frontend/src:/app/apps/frontend/src
       - ./apps/frontend/public:/app/apps/frontend/public
@@ -273,7 +282,7 @@ services:
     networks:
       - navratna-internal
     healthcheck:
-      test: ["CMD-SHELL", "timeout 5s sh -c '</dev/tcp/localhost/5173'"]
+      test: ['CMD-SHELL', "timeout 5s sh -c '</dev/tcp/localhost/5173'"]
       interval: 30s
       timeout: 10s
       retries: 5
@@ -282,7 +291,7 @@ services:
     image: nginx:alpine
     container_name: navratna-dev-nginx
     ports:
-      - "8081:80"
+      - '8081:80'
     volumes:
       - ./api-gateway/nginx.conf:/etc/nginx/nginx.conf:ro
       - ./apps/frontend/dist:/var/www/html:ro
@@ -294,7 +303,7 @@ services:
     networks:
       - navratna-internal
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost/health"]
+      test: ['CMD', 'curl', '-f', 'http://localhost/health']
       interval: 30s
       timeout: 10s
       retries: 3
@@ -303,7 +312,7 @@ services:
     image: prom/prometheus:latest
     container_name: navratna-dev-prometheus
     ports:
-      - "9090:9090"
+      - '9090:9090'
     volumes:
       - ./monitoring:/etc/prometheus/config:ro
       - prometheus_data:/prometheus
@@ -318,7 +327,7 @@ services:
     profiles:
       - monitoring
     healthcheck:
-      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://localhost:9090/-/healthy"]
+      test: ['CMD', 'wget', '-q', '-O', '/dev/null', 'http://localhost:9090/-/healthy']
       interval: 30s
       timeout: 10s
       retries: 5
@@ -327,7 +336,7 @@ services:
     image: grafana/grafana:latest
     container_name: navratna-dev-grafana
     ports:
-      - "3000:3000"
+      - '3000:3000'
     volumes:
       - grafana_data:/var/lib/grafana
       - ./monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
@@ -340,7 +349,7 @@ services:
     profiles:
       - monitoring
     healthcheck:
-      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://localhost:3000/api/health"]
+      test: ['CMD', 'wget', '-q', '-O', '/dev/null', 'http://localhost:3000/api/health']
       interval: 30s
       timeout: 10s
       retries: 5

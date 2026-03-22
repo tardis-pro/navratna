@@ -47,9 +47,9 @@ export class ParticipantManagementService {
     permissions?: string[];
     turnOrder?: number;
     turnWeight?: number;
-    participationConfig?: Record<string, any>;
-    behavioralConstraints?: Record<string, any>;
-    contextAwareness?: Record<string, any>;
+    participationConfig?: Record<string, unknown>;
+    behavioralConstraints?: Record<string, unknown>;
+    contextAwareness?: Record<string, unknown>;
   }): Promise<DiscussionParticipant> {
     const {
       discussionId,
@@ -170,9 +170,9 @@ export class ParticipantManagementService {
     permissions?: string[];
     turnOrder?: number;
     turnWeight?: number;
-    participationConfig?: Record<string, any>;
-    behavioralConstraints?: Record<string, any>;
-    contextAwareness?: Record<string, any>;
+    participationConfig?: Record<string, unknown>;
+    behavioralConstraints?: Record<string, unknown>;
+    contextAwareness?: Record<string, unknown>;
   }): Promise<DiscussionParticipant> {
     const {
       discussionId,
@@ -408,29 +408,33 @@ export class ParticipantManagementService {
       permissions?: string[];
       turnOrder?: number;
       turnWeight?: number;
-      participationConfig?: Record<string, any>;
-      behavioralConstraints?: Record<string, any>;
-      contextAwareness?: Record<string, any>;
+      participationConfig?: Record<string, unknown>;
+      behavioralConstraints?: Record<string, unknown>;
+      contextAwareness?: Record<string, unknown>;
     }>
   ): Promise<DiscussionParticipant[]> {
-    const participants: DiscussionParticipant[] = [];
-
-    for (const config of agentConfigs) {
-      try {
-        const participant = await this.createAgentParticipant({
+    const settledResults = await Promise.allSettled(
+      agentConfigs.map((config) =>
+        this.createAgentParticipant({
           discussionId,
           ...config,
-        });
-        participants.push(participant);
-      } catch (error) {
-        logger.error('Error creating agent participant in batch', {
-          error: error instanceof Error ? error.message : 'Unknown error',
-          discussionId,
-          agentId: config.agentId,
-        });
-        // Continue with other participants even if one fails
+        })
+      )
+    );
+
+    const participants = settledResults.flatMap((result, index) => {
+      if (result.status === 'fulfilled') {
+        return [result.value];
       }
-    }
+
+      logger.error('Error creating agent participant in batch', {
+        error: result.reason instanceof Error ? result.reason.message : 'Unknown error',
+        discussionId,
+        agentId: agentConfigs[index].agentId,
+      });
+
+      return [];
+    });
 
     logger.info('Created multiple agent participants', {
       discussionId,

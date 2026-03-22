@@ -1,14 +1,6 @@
 import { useState, useMemo, useCallback } from 'react';
 import { toast } from 'sonner';
-import {
-  Download,
-  Filter,
-  Users,
-  AlertCircle,
-  HelpCircle,
-  Copy,
-  CheckCircle,
-} from 'lucide-react';
+import { Download, Filter, Users, AlertCircle, HelpCircle, Copy, CheckCircle } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -20,11 +12,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
-import {
-  Collapsible,
-  CollapsibleTrigger,
-  CollapsibleContent,
-} from '@/components/ui/collapsible';
+import { Collapsible, CollapsibleTrigger, CollapsibleContent } from '@/components/ui/collapsible';
 import { cn } from '@/lib/utils';
 
 import type { QuestionPack, Question, Contradiction } from '@/api/questionforge.api';
@@ -55,13 +43,11 @@ const CLUSTER_CONFIG: Record<ClusterName, { color: string; badgeClass: string }>
   },
   'Can defer': {
     color: 'border-blue-200 bg-blue-50 dark:border-blue-900 dark:bg-blue-950',
-    badgeClass:
-      'bg-blue-100 text-blue-800 border-blue-300 dark:bg-blue-900 dark:text-blue-200',
+    badgeClass: 'bg-blue-100 text-blue-800 border-blue-300 dark:bg-blue-900 dark:text-blue-200',
   },
   'Nice-to-know': {
     color: 'border-gray-200 bg-gray-50 dark:border-gray-800 dark:bg-gray-900',
-    badgeClass:
-      'bg-gray-100 text-gray-700 border-gray-300 dark:bg-gray-800 dark:text-gray-300',
+    badgeClass: 'bg-gray-100 text-gray-700 border-gray-300 dark:bg-gray-800 dark:text-gray-300',
   },
   'Contradictory assumptions': {
     color: 'border-purple-200 bg-purple-50 dark:border-purple-900 dark:bg-purple-950',
@@ -114,7 +100,11 @@ function severityBadgeClass(severity: Contradiction['severity']): string {
   }
 }
 
-function formatPackAsMarkdown(role: string, pack: QuestionPack, contradictions: Contradiction[]): string {
+function formatPackAsMarkdown(
+  role: string,
+  pack: QuestionPack,
+  contradictions: Contradiction[]
+): string {
   const lines: string[] = [];
   lines.push(`# Question Pack: ${role}`);
   lines.push(`Total Questions: ${pack.totalQuestions}`);
@@ -443,7 +433,7 @@ export function QuestionPackView({
   const [activeTab, setActiveTab] = useState<string>(filteredRoles[0] ?? '');
 
   // Sync active tab when filter changes
-  const effectiveTab = filteredRoles.includes(activeTab) ? activeTab : filteredRoles[0] ?? '';
+  const effectiveTab = filteredRoles.includes(activeTab) ? activeTab : (filteredRoles[0] ?? '');
 
   if (roles.length === 0) {
     return (

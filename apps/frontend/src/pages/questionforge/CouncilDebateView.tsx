@@ -5,7 +5,6 @@ import {
   Server,
   Code,
   Truck,
-
   DollarSign,
   Users,
   AlertTriangle,
@@ -65,7 +64,7 @@ const SEVERITY_COLORS: Record<string, string> = {
   critical: 'bg-red-500',
 };
 
-const SEVERITY_BADGE_VARIANT: Record<string, 'default' | 'secondary' | 'destructive' | 'outline'> =
+const _SEVERITY_BADGE_VARIANT: Record<string, 'default' | 'secondary' | 'destructive' | 'outline'> =
   {
     low: 'secondary',
     medium: 'outline',
@@ -115,12 +114,7 @@ function AgentCard({ analysis }: { analysis: AgentAnalysis }) {
   const hasMore = analysis.questions.length > 5;
 
   return (
-    <Card
-      className={cn(
-        'border-l-4',
-        AGENT_COLORS[analysis.agentId] ?? 'border-l-gray-500'
-      )}
-    >
+    <Card className={cn('border-l-4', AGENT_COLORS[analysis.agentId] ?? 'border-l-gray-500')}>
       <CardHeader className="pb-3">
         <div className="flex items-center gap-2">
           <div
@@ -160,8 +154,11 @@ function AgentCard({ analysis }: { analysis: AgentAnalysis }) {
           <div className="space-y-1">
             <span className="text-xs font-medium text-muted-foreground">Risks</span>
             <div className="space-y-1">
-              {analysis.strongestRisks.map((risk, i) => (
-                <div key={i} className="flex items-start gap-2 text-xs">
+              {analysis.strongestRisks.map((risk) => (
+                <div
+                  key={`${risk.severity}-${risk.risk}`}
+                  className="flex items-start gap-2 text-xs"
+                >
                   <span
                     className={cn(
                       'mt-1.5 h-2 w-2 shrink-0 rounded-full',
@@ -182,8 +179,8 @@ function AgentCard({ analysis }: { analysis: AgentAnalysis }) {
               Questions ({analysis.questions.length})
             </span>
             <div className="space-y-2">
-              {visibleQuestions.map((q, i) => (
-                <div key={i} className="space-y-0.5">
+              {visibleQuestions.map((q) => (
+                <div key={q.text} className="space-y-0.5">
                   <p className="text-xs leading-snug">{q.text}</p>
                   <ConfidenceBar value={q.confidence} />
                 </div>
@@ -222,11 +219,7 @@ function Round1Tab({ analyses }: { analyses: AgentAnalysis[] }) {
   );
 }
 
-function Round2Tab({
-  challenges,
-}: {
-  challenges: CouncilDebateResult['round2Challenges'];
-}) {
+function Round2Tab({ challenges }: { challenges: CouncilDebateResult['round2Challenges'] }) {
   if (challenges.length === 0) {
     return (
       <div className="flex items-center justify-center py-12 text-sm text-muted-foreground">
@@ -237,8 +230,11 @@ function Round2Tab({
 
   return (
     <div className="grid gap-4 md:grid-cols-2">
-      {challenges.map((challenge, i) => (
-        <Card key={i} className="border-l-4 border-l-orange-400">
+      {challenges.map((challenge) => (
+        <Card
+          key={`${challenge.challengerId}-${challenge.targetId}-${challenge.challenge}`}
+          className="border-l-4 border-l-orange-400"
+        >
           <CardHeader className="pb-3">
             <div className="flex items-center gap-2 text-sm">
               <div
@@ -249,9 +245,7 @@ function Round2Tab({
               >
                 {getAgentIcon(challenge.challengerId)}
               </div>
-              <span className="font-medium">
-                {formatAgentRole(challenge.challengerId)}
-              </span>
+              <span className="font-medium">{formatAgentRole(challenge.challengerId)}</span>
               <ArrowRight className="h-4 w-4 text-muted-foreground" />
               <div
                 className={cn(
@@ -261,9 +255,7 @@ function Round2Tab({
               >
                 {getAgentIcon(challenge.targetId)}
               </div>
-              <span className="font-medium">
-                {formatAgentRole(challenge.targetId)}
-              </span>
+              <span className="font-medium">{formatAgentRole(challenge.targetId)}</span>
             </div>
           </CardHeader>
           <CardContent className="space-y-3">
@@ -271,12 +263,10 @@ function Round2Tab({
 
             {challenge.mergedQuestions.length > 0 && (
               <div className="space-y-1">
-                <span className="text-xs font-medium text-muted-foreground">
-                  Merged Questions
-                </span>
+                <span className="text-xs font-medium text-muted-foreground">Merged Questions</span>
                 <ul className="space-y-1">
-                  {challenge.mergedQuestions.map((q, j) => (
-                    <li key={j} className="flex items-start gap-1.5 text-xs">
+                  {challenge.mergedQuestions.map((q) => (
+                    <li key={q} className="flex items-start gap-1.5 text-xs">
                       <span className="mt-0.5 h-1.5 w-1.5 shrink-0 rounded-full bg-blue-400" />
                       {q}
                     </li>
@@ -289,9 +279,9 @@ function Round2Tab({
               <div className="space-y-1">
                 <span className="text-xs font-medium text-red-500">Escalated Blockers</span>
                 <ul className="space-y-1">
-                  {challenge.escalatedBlockers.map((b, j) => (
+                  {challenge.escalatedBlockers.map((b) => (
                     <li
-                      key={j}
+                      key={b}
                       className="flex items-start gap-1.5 rounded-md bg-red-500/10 px-2 py-1 text-xs text-red-600 dark:text-red-400"
                     >
                       <AlertTriangle className="mt-0.5 h-3 w-3 shrink-0" />
@@ -330,8 +320,8 @@ function ConsensusTab({
             <p className="text-sm text-muted-foreground">No consensus points recorded.</p>
           ) : (
             <ul className="space-y-2">
-              {consensusPoints.map((point, i) => (
-                <li key={i} className="flex items-start gap-2 text-sm">
+              {consensusPoints.map((point) => (
+                <li key={point} className="flex items-start gap-2 text-sm">
                   <CheckCircle className="mt-0.5 h-4 w-4 shrink-0 text-emerald-500" />
                   <span>{point}</span>
                 </li>
@@ -354,8 +344,8 @@ function ConsensusTab({
             <p className="text-sm text-muted-foreground">No unresolved disagreements.</p>
           ) : (
             <ul className="space-y-2">
-              {unresolvedDisagreements.map((item, i) => (
-                <li key={i} className="flex items-start gap-2 text-sm">
+              {unresolvedDisagreements.map((item) => (
+                <li key={item} className="flex items-start gap-2 text-sm">
                   <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-yellow-500" />
                   <span>{item}</span>
                 </li>
@@ -385,9 +375,7 @@ export function CouncilDebateView({ debateResult, className }: CouncilDebateView
           </Badge>
         </div>
         <div className="flex items-center gap-2">
-          <Badge variant="secondary">
-            {debateResult.round1Analyses.length} agents
-          </Badge>
+          <Badge variant="secondary">{debateResult.round1Analyses.length} agents</Badge>
           <Badge variant="secondary">{totalQuestions} questions</Badge>
           <Badge variant={debateResult.contradictions.length > 0 ? 'destructive' : 'secondary'}>
             {debateResult.contradictions.length} contradictions

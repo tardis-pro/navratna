@@ -81,9 +81,7 @@ export class TaskDAGService {
         this.repairDAG(dag);
         const revalidation = this.validateDAG(dag);
         if (!revalidation.valid) {
-          throw new Error(
-            `DAG validation failed after repair: ${revalidation.errors.join('; ')}`
-          );
+          throw new Error(`DAG validation failed after repair: ${revalidation.errors.join('; ')}`);
         }
       }
 
@@ -196,9 +194,8 @@ export class TaskDAGService {
           taskIds: batch.map((n) => n.id),
         });
 
-        const results = await Promise.allSettled(
-          batch.map((node) => this.executeNode(dag, node))
-        );
+        // oxlint-ignore-next-line no-await-in-loop -- sequential processing required
+        const results = await Promise.allSettled(batch.map((node) => this.executeNode(dag, node)));
 
         let batchFailed = false;
         for (let i = 0; i < results.length; i++) {
@@ -207,9 +204,8 @@ export class TaskDAGService {
 
           if (result.status === 'rejected') {
             node.status = 'failed';
-            node.error = result.reason instanceof Error
-              ? result.reason.message
-              : String(result.reason);
+            node.error =
+              result.reason instanceof Error ? result.reason.message : String(result.reason);
             node.completedAt = new Date();
             batchFailed = true;
 
@@ -233,7 +229,10 @@ export class TaskDAGService {
 
         if (batchFailed) {
           // Skip downstream dependents of failed tasks
-          this.skipDependents(dag, batch.filter((n) => n.status === 'failed'));
+          this.skipDependents(
+            dag,
+            batch.filter((n) => n.status === 'failed')
+          );
         }
       }
 
@@ -352,7 +351,11 @@ ${goal}
     const nodeIds: string[] = parsed.map(() => uuidv4());
 
     const validTypes = new Set<TaskNode['type']>([
-      'query', 'command', 'monitor', 'orchestrate', 'communicate',
+      'query',
+      'command',
+      'monitor',
+      'orchestrate',
+      'communicate',
     ]);
 
     const nodes: TaskNode[] = parsed.map((item, index) => {
@@ -630,9 +633,7 @@ ${goal}
     }
 
     for (const badEdge of edgesToRemove) {
-      dag.edges = dag.edges.filter(
-        (e) => !(e.from === badEdge.from && e.to === badEdge.to)
-      );
+      dag.edges = dag.edges.filter((e) => !(e.from === badEdge.from && e.to === badEdge.to));
       const targetNode = dag.nodes.find((n) => n.id === badEdge.to);
       if (targetNode) {
         targetNode.dependencies = targetNode.dependencies.filter((d) => d !== badEdge.from);

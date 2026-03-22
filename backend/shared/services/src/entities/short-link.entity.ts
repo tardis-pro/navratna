@@ -126,7 +126,7 @@ export class ShortLinkEntity extends BaseEntity {
   isPublic!: boolean;
 
   @Column({ type: 'json', nullable: true })
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 
   // QR Code support
   @Column({ type: 'text', nullable: true })

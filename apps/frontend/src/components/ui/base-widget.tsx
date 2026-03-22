@@ -1,7 +1,7 @@
 import React, { ReactNode, useEffect, useRef, useCallback, Component, ErrorInfo } from 'react';
 import {
-  BaseWidget,
-  WidgetInstance,
+  _BaseWidget,
+  _WidgetInstance,
   WidgetConfig,
   WidgetError,
   WidgetUsage,
@@ -34,7 +34,7 @@ export interface BaseWidgetProps {
   theme?: 'light' | 'dark' | 'auto';
   className?: string;
   style?: React.CSSProperties;
-  [key: string]: any; // Allow custom props
+  [key: string]: unknown; // Allow custom props
 }
 
 // Widget lifecycle hooks interface
@@ -66,7 +66,7 @@ export const useWidget = (
 
   // Utility function for logging usage
   const logUsage = useCallback(
-    (action: WidgetUsage['action'], metadata?: any) => {
+    (action: WidgetUsage['action'], usageMeta?: unknown) => {
       context.onUsage({
         widgetId: context.widgetId,
         instanceId: context.instanceId,
@@ -74,7 +74,7 @@ export const useWidget = (
         action,
         timestamp: new Date(),
         metadata: {
-          ...metadata,
+          ...usageMeta,
           sessionDuration: Math.floor((Date.now() - startTimeRef.current) / 1000),
           interactionCount: interactionCountRef.current,
         },
@@ -85,9 +85,9 @@ export const useWidget = (
 
   // Utility function for logging interactions
   const logInteraction = useCallback(
-    (action: string = 'interact', metadata?: any) => {
+    (action: string = 'interact', interactionMeta?: unknown) => {
       interactionCountRef.current++;
-      logUsage(action as WidgetUsage['action'], metadata);
+      logUsage(action as WidgetUsage['action'], interactionMeta);
     },
     [logUsage]
   );
@@ -102,7 +102,7 @@ export const useWidget = (
 
   // Utility function for reporting errors
   const reportError = useCallback(
-    (error: Error, errorInfo?: any) => {
+    (error: Error, errorInfo?: unknown) => {
       const widgetError: WidgetError = {
         widgetId: context.widgetId,
         instanceId: context.instanceId,
@@ -122,13 +122,15 @@ export const useWidget = (
 
   // Handle mount
   useEffect(() => {
+    const startTime = startTimeRef.current;
+    const interactionCount = interactionCountRef.current;
     logUsage('open');
     lifecycle?.onMount?.();
 
     // Handle unmount
     return () => {
-      const duration = Math.floor((Date.now() - startTimeRef.current) / 1000);
-      logUsage('close', { duration, interactions: interactionCountRef.current });
+      const duration = Math.floor((Date.now() - startTime) / 1000);
+      logUsage('close', { duration, interactions: interactionCount });
       lifecycle?.onUnmount?.();
     };
   }, [logUsage, lifecycle]);

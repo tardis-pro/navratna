@@ -46,7 +46,7 @@ export class AgentMemoryService {
     await this.workingMemoryManager.addThought(agentId, thought, type);
   }
 
-  async updateEmotionalState(agentId: string, emotion: Partial<any>): Promise<void> {
+  async updateEmotionalState(agentId: string, emotion: Partial<unknown>): Promise<void> {
     await this.workingMemoryManager.updateEmotionalState(agentId, emotion);
   }
 
@@ -249,7 +249,7 @@ export class AgentMemoryService {
       type?: KnowledgeType;
       tags?: string[];
       sourceIdentifier: string;
-      metadata?: Record<string, any>;
+      metadata?: Record<string, unknown>;
       confidence?: number;
     }
   ): Promise<KnowledgeItem> {
@@ -312,7 +312,7 @@ export class AgentMemoryService {
     agentId: string,
     context: {
       currentOperation?: string;
-      discussionHistory?: any[];
+      discussionHistory?: Record<string, unknown>[];
       relevantTags?: string[];
     }
   ): Promise<KnowledgeItem[]> {
