@@ -178,6 +178,37 @@ export * from './integration/index';
 export { ThoughtParserService } from './cognitive/thought-parser.service';
 export { CritiqueService } from './cognitive/critique.service';
 export { DebateOrchestratorService } from './cognitive/debate-orchestrator.service';
+export { TaskDAGService } from './cognitive/taskDAG.service';
+export type { TaskNode, TaskDAG } from './cognitive/taskDAG.service';
+export {
+  matchTemplate,
+  instantiateTemplate,
+  WORKFLOW_TEMPLATES,
+} from './cognitive/workflowTemplates';
+export type { WorkflowTemplate } from './cognitive/workflowTemplates';
+export { MetaReasoningInterceptor } from './cognitive/metaReasoning.interceptor';
+export type {
+  MetaReasoningInput,
+  MetaReasoningDecision,
+  CapabilityGapResult,
+  ErrorHistoryResult,
+} from './cognitive/metaReasoning.interceptor';
+export { CapabilityGapRadarService } from './cognitive/capabilityGapRadar.service';
+export type {
+  CapabilityAssessment,
+  CapabilityGap,
+} from './cognitive/capabilityGapRadar.service';
+export { ConfidenceGatedExecutionService } from './cognitive/confidenceGatedExecution.service';
+export type {
+  ExecutionGate,
+  ConfidenceProfile,
+} from './cognitive/confidenceGatedExecution.service';
+export { ExplanationDAGService } from './cognitive/explanationDAG.service';
+export type {
+  ReasoningNode,
+  ReasoningEdge,
+  ExplanationDAG,
+} from './cognitive/explanationDAG.service';
 
 // =============================================================================
 // ENTITIES

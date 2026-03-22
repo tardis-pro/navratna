@@ -8,10 +8,10 @@
     "build": "tsc",
     "dev": "bun --hot src/index.ts",
     "clean": "rimraf dist",
-    "lint": "eslint src --ext .ts",
-    "lint:fix": "eslint src --ext .ts --fix",
-    "format": "prettier --write \"src/**/*.ts\"",
-    "format:check": "prettier --check \"src/**/*.ts\""
+    "lint": "oxlint src",
+    "lint:fix": "oxlint --fix src",
+    "format": "oxfmt --write src",
+    "format:check": "oxfmt --check src"
   },
   "dependencies": {
     "@mariozechner/pi-agent-core": "^0.55.3",
@@ -44,10 +44,7 @@
     "@types/multer": "^1.4.12",
     "@types/node": "catalog:backend",
     "@types/pg": "catalog:backend",
-    "@typescript-eslint/eslint-plugin": "catalog:",
-    "@typescript-eslint/parser": "catalog:",
     "concurrently": "catalog:dev",
-    "eslint": "catalog:",
     "jest": "catalog:backend",
     "nodemon": "catalog:backend",
     "ts-jest": "catalog:backend",

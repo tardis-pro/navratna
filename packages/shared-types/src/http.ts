@@ -25,6 +25,12 @@ export interface ElysiaSet {
   cookie?: Record<string, unknown>;
 }
 
+export interface ElysiaCookieValue {
+  value?: string;
+}
+
+export type ElysiaCookieJar = Record<string, ElysiaCookieValue | undefined>;
+
 /**
  * Base context available in all Elysia handlers
  */
@@ -67,6 +73,10 @@ export interface AuthContext extends ElysiaBaseContext {
  */
 export interface RequiredAuthContext extends ElysiaBaseContext {
   user: UserContext;
+}
+
+export interface AuthDeriveContext extends ElysiaBaseContext {
+  cookie?: ElysiaCookieJar;
 }
 
 // ============================================================================

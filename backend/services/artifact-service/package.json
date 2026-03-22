@@ -8,10 +8,10 @@
     "build": "tsc && tsc-alias",
     "dev": "bun --hot src/index.ts",
     "clean": "rimraf dist",
-    "lint": "eslint src --ext .ts",
-    "lint:fix": "eslint src --ext .ts --fix",
-    "format": "prettier --write \"src/**/*.ts\"",
-    "format:check": "prettier --check \"src/**/*.ts\""
+    "lint": "oxlint src",
+    "lint:fix": "oxlint --fix src",
+    "format": "oxfmt --write src",
+    "format:check": "oxfmt --check src"
   },
   "dependencies": {
     "@uaip/config": "workspace:*",
@@ -19,6 +19,7 @@
     "@uaip/shared-services": "workspace:*",
     "@uaip/types": "workspace:*",
     "@uaip/utils": "workspace:*",
+    "bcryptjs": "^3.0.3",
     "cors": "catalog:backend",
     "helmet": "catalog:backend",
     "qrcode": "catalog:backend",
@@ -30,9 +31,6 @@
     "@types/jest": "catalog:backend",
     "@types/node": "catalog:backend",
     "@types/qrcode": "catalog:backend",
-    "@typescript-eslint/eslint-plugin": "catalog:",
-    "@typescript-eslint/parser": "catalog:",
-    "eslint": "catalog:",
     "jest": "catalog:backend",
     "nodemon": "catalog:backend",
     "ts-node": "catalog:backend",

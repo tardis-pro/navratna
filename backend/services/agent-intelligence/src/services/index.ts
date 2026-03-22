@@ -33,3 +33,14 @@ export type {
 export type { IntentAnalysis, ActionRecommendation } from './agent-intent.service.js';
 export type { EnhancedAgentMetrics } from './agent-metrics.service.js';
 export type { AgentCapabilities, EnvironmentFactors } from './agent-initialization.service.js';
+
+// Process Archaeology — onboarding & entity matching
+export { ProcessArchaeologyService } from './processArchaeology.service.js';
+export { EntityMatcherService } from './entityMatcher.service.js';
+export type {
+  DataSource,
+  DiscoveredEntity,
+  EntityRelationship,
+  OntologyProposal,
+} from './processArchaeology.service.js';
+export type { MatchCandidate, MatchSignal } from './entityMatcher.service.js';

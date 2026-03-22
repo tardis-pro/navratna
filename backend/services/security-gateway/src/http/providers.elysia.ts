@@ -3,8 +3,8 @@ import { logger } from '@uaip/utils';
 import { UserService } from '@uaip/shared-services';
 import { EventBusService } from '@uaip/infra/eventBus';
 import { z } from 'zod';
+import { LLMProviderStatus } from '@uaip/types';
 import { llmProviderManagementService } from '../services/llmProviderManagementService.js';
-import type { RequiredAuthContext } from './types/elysia-context.js';
 
 // Zod schemas mirroring original
 const createUserProviderSchema = z.object({
@@ -54,8 +54,12 @@ const updateUserProviderSchema = z.object({
     })
     .optional(),
   priority: z.number().min(0).optional(),
-  status: z.enum(['active', 'inactive', 'error', 'testing']).optional(),
+  status: z.nativeEnum(LLMProviderStatus).optional(),
   isActive: z.boolean().optional(),
+});
+
+const createManagedProviderSchema = createUserProviderSchema.extend({
+  baseUrl: z.string().url(),
 });
 
 const ROLE_LIMITS: Record<string, number> = {
@@ -121,7 +125,7 @@ export function registerProviderRoutes(app: any): any {
           // @ts-expect-error - Elysia middleware injects user, but TypeScript cannot infer through nested groups
           .post('/providers', async ({ set, body, user }) => {
             try {
-              const parsedBody = createUserProviderSchema.parse(body);
+              const parsedBody = createManagedProviderSchema.parse(body);
               const created = await llmProviderManagementService.createProvider(
                 parsedBody,
                 user!.id

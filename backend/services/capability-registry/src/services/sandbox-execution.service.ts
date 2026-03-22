@@ -182,7 +182,7 @@ export class SandboxExecutionService {
           '} else {' +
           "result = { toolId, parameters: params, runtime: 'node' };" +
           '}' +
-          'console.log(JSON.stringify(result));"
+          'console.log(JSON.stringify(result));'
       ),
     ].join(' ');
 

@@ -9,7 +9,7 @@
 import { EventEmitter } from 'events';
 import { randomUUID } from 'crypto';
 import { logger } from '@uaip/utils';
-import { Persona, Agent, Discussion, DiscussionParticipant } from '@uaip/types';
+import { Persona, Agent, AgentSchema, Discussion, DiscussionParticipant } from '@uaip/types';
 import { LLMRequestTracker } from '@uaip/shared-services';
 import { DatabaseService } from '@uaip/infra/database';
 import { EventBusService } from '@uaip/infra/eventBus';
@@ -618,10 +618,9 @@ export class ConversationEnhancementService extends EventEmitter {
   private async loadAgentPersonaMappings(): Promise<void> {
     try {
       // Load all active agents
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO: replace legacy generic DB helpers with typed repositories
-      const agents = (await this.databaseService.findMany(AgentEntity, {
+      const agents = await this.databaseService.findMany<AgentEntity>(AgentEntity, {
         status: 'active',
-      } as any)) as Agent[];
+      });
 
       for (const agent of agents) {
         // Map agent properties to personas
@@ -652,7 +651,7 @@ export class ConversationEnhancementService extends EventEmitter {
     }
   }
 
-  private async createPersonasFromAgent(agent: Agent): Promise<Persona[]> {
+  private async createPersonasFromAgent(agent: AgentEntity): Promise<Persona[]> {
     // Convert agent properties to persona format
     // This could be enhanced to support multiple personas per agent
     const basePersona: Persona = {
@@ -707,7 +706,7 @@ export class ConversationEnhancementService extends EventEmitter {
     }
   }
 
-  private async mapAgentsToPersonas(agents: Agent[]): Promise<Persona[]> {
+  private async mapAgentsToPersonas(agents: AgentEntity[]): Promise<Persona[]> {
     const personas: Persona[] = [];
 
     for (const agent of agents) {
@@ -720,10 +719,28 @@ export class ConversationEnhancementService extends EventEmitter {
     return personas;
   }
 
-  private findAgentForPersona(agents: Agent[], persona: Persona): Agent | undefined {
+  private findAgentForPersona(agents: AgentEntity[], persona: Persona): AgentEntity | undefined {
     return agents.find((agent) =>
       this.agentPersonaMappings.get(agent.id)?.personas.some((p) => p.id === persona.id)
     );
+  }
+
+  private toSharedAgent(agent: AgentEntity): Agent | null {
+    const parsedAgent = AgentSchema.safeParse({
+      ...agent,
+      version: Number.parseInt(agent.version, 10) || 1,
+      metadata: agent.metadata || undefined,
+    });
+
+    if (!parsedAgent.success) {
+      logger.warn('Failed to normalize agent entity to shared agent type', {
+        agentId: agent.id,
+        issues: parsedAgent.error.issues,
+      });
+      return null;
+    }
+
+    return parsedAgent.data;
   }
 
   private getConversationState(discussionId: string): ConversationState {
@@ -828,9 +845,12 @@ export class ConversationEnhancementService extends EventEmitter {
     const agents: Agent[] = [];
     for (const agentId of agentIds) {
       try {
-        const agent = await this.databaseService.findById(AgentEntity, agentId);
+        const agent = await this.databaseService.findById<AgentEntity>(AgentEntity, agentId);
         if (agent) {
-          agents.push(agent as Agent);
+          const sharedAgent = this.toSharedAgent(agent);
+          if (sharedAgent) {
+            agents.push(sharedAgent);
+          }
         }
       } catch (error) {
         logger.warn('Failed to get agent for enhancement', { agentId, error });
@@ -841,8 +861,8 @@ export class ConversationEnhancementService extends EventEmitter {
 
   public async getAgentById(agentId: string): Promise<Agent | null> {
     try {
-      const agent = await this.databaseService.findById(AgentEntity, agentId);
-      return agent as Agent | null;
+      const agent = await this.databaseService.findById<AgentEntity>(AgentEntity, agentId);
+      return agent ? this.toSharedAgent(agent) : null;
     } catch (error) {
       logger.error('Failed to get agent by ID', { agentId, error });
       return null;
@@ -880,10 +900,10 @@ export class ConversationEnhancementService extends EventEmitter {
           try {
             // Try to get agent name first
             if (participant.agentId) {
-              const agent = (await this.databaseService.findById(
+              const agent = await this.databaseService.findById<AgentEntity>(
                 AgentEntity,
                 participant.agentId
-              )) as Agent | null;
+              );
               if (agent) {
                 participantMap.set(participant.id, agent.name);
                 continue;
@@ -892,12 +912,12 @@ export class ConversationEnhancementService extends EventEmitter {
 
             // Fallback to user name if available
             if (participant.userId) {
-              const user = (await this.databaseService.findById(
+              const user = await this.databaseService.findById<UserEntity>(
                 UserEntity,
                 participant.userId
-              )) as UserEntity | null;
-              if (user && (user.username || user.email)) {
-                participantMap.set(participant.id, user.username || user.email);
+              );
+              if (user && (user.name || user.email)) {
+                participantMap.set(participant.id, user.name || user.email);
                 continue;
               }
             }
@@ -942,7 +962,7 @@ export class ConversationEnhancementService extends EventEmitter {
       const { agentId } = event;
 
       // Reload personas for updated agent
-      const agent = (await this.databaseService.findById(AgentEntity, agentId)) as Agent | null;
+      const agent = await this.databaseService.findById<AgentEntity>(AgentEntity, agentId);
       if (agent) {
         const personas = await this.createPersonasFromAgent(agent);
         this.agentPersonaMappings.set(agentId, {

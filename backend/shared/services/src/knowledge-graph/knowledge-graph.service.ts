@@ -8,6 +8,7 @@ import {
   ContextRequest,
   KnowledgeFilters,
   KnowledgeScope,
+  KnowledgeType,
 } from '@uaip/types';
 import { logger } from '@uaip/utils';
 import { QdrantService } from '../qdrant.service';

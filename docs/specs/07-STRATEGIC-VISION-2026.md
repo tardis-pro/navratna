@@ -135,12 +135,12 @@ All items built. Item 0.5 deferred to Phase 2 by design. Updated 2026-03-22.
 - **Status:** ⏸️ Deferred by design. Knowledge sync pattern generalized across 7+ services (chat-parser, knowledge-extractor, qa-generator, workflow-extractor, expertise-analyzer, learning-detector, ontology-builder). UUID-consistent sync across PG/Neo4j/Qdrant established.
 - **Decision:** Resolved — domain-specific sync first. Universal Cell is a Phase 2 abstraction.
 
-## Phase 1: Beachhead (Months 3-6) — The "I Can't Go Back" Moment — 0% DONE
+## Phase 1: Beachhead (Months 3-6) — The "I Can't Go Back" Moment — ✅ COMPLETE
 
-All Phase 1 items remain unimplemented. Foundation for 1.4 exists. Updated 2026-03-22.
+All 5 items built 2026-03-22. Integration testing and wiring into production flows remains.
 
 ### 1.1 Ambient Intelligence Layer
-- **Status:** 🔴 0% built. This is the soul of UAIP. No MorningFog, Redline, WhisperLine, or BreathCycle components exist.
+- **Status:** ✅ Built. `components/AmbientIntelligence/` — MorningFog (gaussian blur clearing by relevance), WhisperLine (persistent "showing because..." bar), BreathCycle (system-load-driven UI rhythm), RedlineGauge (wired AttentionBudget).
 - **Build:**
   - Morning Fog (#280) — gaussian blur that clears via relevance engine, most important items first (~350 lines)
   - Attention budget enforcer with Redline gauge (#277) — fighter jet AOA indicator (~200 lines)
@@ -149,7 +149,7 @@ All Phase 1 items remain unimplemented. Foundation for 1.4 exists. Updated 2026-
 - **Gate:** DAU > 60%. Users report "I can't go back to checking five tools."
 
 ### 1.2 Predictive Intent + Speculative Pre-Rendering
-- **Status:** 🔴 Foundation only. useConversationIntelligence has WebSocket suggestions with 5-min cache. No SwellPrediction, tab-to-accept, or crystallization animation.
+- **Status:** ✅ Built. `components/PredictiveIntent/` — SwellPrediction (Markov chain on nav sequences with localStorage persistence, PreRenderSlot for hidden portal mounting), TabToAccept (ghost text + Tab/Right-arrow accept), CrystallizationEffect (blur→sharp spring animation).
 - **Build:**
   - Swell Prediction (#284) — Markov chain on navigation sequences, pre-render predicted portals (~300 lines)
   - Tab-to-accept UX on IntentField
@@ -157,7 +157,7 @@ All Phase 1 items remain unimplemented. Foundation for 1.4 exists. Updated 2026-
 - **Gate:** Intent prediction acceptance rate > 40%
 
 ### 1.3 Intent Chaining + Cross-Vertical Workflows
-- **Status:** 🔴 Foundation only. Orchestration pipeline handles multi-step operations. No NL Task DAG decomposition.
+- **Status:** ✅ Built. `backend/shared/services/src/cognitive/taskDAG.service.ts` — NL goal → TaskDAG with topological sort, parallel batch execution, event publishing. `workflowTemplates.ts` — 8 pre-built templates (onboard, deploy, investigate-bug, create-feature, security-audit, data-migration, code-review, stakeholder-update). `components/TaskDAGView/` — horizontal flow visualization with SVG edges and real-time status.
 - **Build:**
   - Natural Language Task DAG (#351) — NL goal → DAG of atomic sub-tasks with parallel branches
   - Wire to existing WorkflowOrchestrator
@@ -165,7 +165,7 @@ All Phase 1 items remain unimplemented. Foundation for 1.4 exists. Updated 2026-
 - **Gate:** At least one cross-vertical workflow per active workspace per week
 
 ### 1.4 Process Archaeology Onboarding
-- **Status:** 🟡 Foundation exists. OnboardingManager, UserPersonaOnboardingFlow, ProjectOnboardingFlow built. Skill/SOP import services exist (`skillImport.service.ts`, `sopImport.service.ts`). No "process archaeology" tool crawling yet.
+- **Status:** ✅ Built. `processArchaeology.service.ts` — crawls data sources (database, API, repo, file, SaaS), extracts entities, infers relationships via LLM + heuristics, proposes ontology with merge suggestions. `entityMatcher.service.ts` — 5-signal matching (name similarity, sample overlap, semantic, structural, co-occurrence) with weighted composite scoring and "I see customer_id here and client_ref there" report generation.
 - **Build:**
   - Automated Forward-Deployed Intelligence (#179) — onboarding agents crawl connected tools, infer relationships, propose ontology
   - "I see 'customer_id' here and 'client_ref' there — same entity?" flow
@@ -173,7 +173,11 @@ All Phase 1 items remain unimplemented. Foundation for 1.4 exists. Updated 2026-
 - **Gate:** Time to first meaningful insight < 5 minutes
 
 ### 1.5 Metacognitive Agent Layer
-- **Status:** 🔴 Foundation only. Confidence thresholds exist (0.5 minimum). Learning service tracks improvements. No MetaReasoningInterceptor, CapabilityGapRadar, ConfidenceGatedExecution, or ExplanationDAG.
+- **Status:** ✅ Built. 4 cognitive services in `backend/shared/services/src/cognitive/`:
+  - `metaReasoning.interceptor.ts` — 5-action decision gate (proceed/clarify/delegate/abstain/escalate) with capability gap checking and error history
+  - `capabilityGapRadar.service.ts` — pre-task capability assessment, alternative finding, readiness scoring with 5-min cache
+  - `confidenceGatedExecution.service.ts` — dynamic thresholds (replaces static 0.5) based on historical accuracy + task stakes, EMA profile updates
+  - `explanationDAG.service.ts` — reasoning graph with observation/inference/assumption/conclusion/evidence/uncertainty nodes, confidence chain computation, human-readable explanation generation
 - **Build:**
   - Meta-Reasoning Interceptor (#356) — sits between intent analysis and action
   - Capability Gap Radar (#348) — detect missing capabilities before wasting tokens

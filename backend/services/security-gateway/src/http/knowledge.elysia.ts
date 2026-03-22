@@ -1,5 +1,4 @@
 import { withOptionalAuth, withRequiredAuth, t } from '@uaip/middleware';
-import type { AuthedContext, OptionalAuthContext } from '@uaip/middleware';
 import { z } from 'zod';
 import {
   servicesHealthCheck,
@@ -7,7 +6,12 @@ import {
   type UserKnowledgeService,
 } from '@uaip/shared-services';
 import { randomUUID } from 'crypto';
-import type { KnowledgeSearchRequest, KnowledgeIngestRequest } from '@uaip/types';
+import {
+  KnowledgeType,
+  SourceType,
+  type KnowledgeSearchRequest,
+  type KnowledgeIngestRequest,
+} from '@uaip/types';
 
 // Query parameter interfaces
 interface ItemIdParams {
@@ -49,6 +53,101 @@ interface RelationshipsQuery {
   limit?: string;
   relationshipTypes?: string;
 }
+
+const itemIdParamsSchema = z.object({ itemId: z.string().min(1) });
+const tagParamsSchema = z.object({ tag: z.string().min(1) });
+const knowledgeTypeSchema = z.nativeEnum(KnowledgeType);
+const sourceTypeSchema = z.nativeEnum(SourceType);
+
+const parseKnowledgeTypes = (rawTypes?: string): KnowledgeType[] | undefined => {
+  if (!rawTypes) {
+    return undefined;
+  }
+
+  const parsedTypes = rawTypes
+    .split(',')
+    .map((value) => knowledgeTypeSchema.safeParse(value.trim()))
+    .flatMap((result) => (result.success ? [result.data] : []));
+
+  return parsedTypes.length > 0 ? parsedTypes : undefined;
+};
+
+const parseKnowledgeType = (
+  rawType: unknown,
+  fallback: KnowledgeType = KnowledgeType.FACTUAL
+): KnowledgeType => {
+  if (typeof rawType !== 'string') {
+    return fallback;
+  }
+
+  const parsedType = knowledgeTypeSchema.safeParse(rawType.trim().toUpperCase());
+  return parsedType.success ? parsedType.data : fallback;
+};
+
+const parseSourceType = (rawType: unknown, fallback: SourceType): SourceType => {
+  if (typeof rawType !== 'string') {
+    return fallback;
+  }
+
+  const parsedType = sourceTypeSchema.safeParse(rawType.trim().toUpperCase());
+  return parsedType.success ? parsedType.data : fallback;
+};
+
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === 'object' && value !== null;
+
+const getStringValue = (value: unknown): string | undefined =>
+  typeof value === 'string' ? value : undefined;
+
+const getStringArray = (value: unknown): string[] | undefined =>
+  Array.isArray(value) && value.every((entry) => typeof entry === 'string') ? value : undefined;
+
+const getNumberValue = (value: unknown): number | undefined =>
+  typeof value === 'number' ? value : undefined;
+
+const getMetadataValue = (value: unknown): Record<string, any> | undefined =>
+  isRecord(value) ? value : undefined;
+
+const normalizeKnowledgeItem = (item: unknown): KnowledgeIngestRequest => {
+  const record = isRecord(item) ? item : {};
+  const sourceValue = isRecord(record.source) ? record.source : undefined;
+  const title = getStringValue(record.title);
+  const category = getStringValue(record.category);
+
+  if (sourceValue) {
+    return {
+      content: getStringValue(record.content) || '',
+      type: parseKnowledgeType(record.type),
+      tags: getStringArray(record.tags) || [],
+      source: {
+        type: parseSourceType(sourceValue.type, SourceType.USER_INPUT),
+        identifier: getStringValue(sourceValue.identifier) || title || `upload-${Date.now()}`,
+        metadata: getMetadataValue(sourceValue.metadata),
+      },
+      confidence: getNumberValue(record.confidence),
+    };
+  }
+
+  return {
+    content: getStringValue(record.content) || '',
+    type: parseKnowledgeType(record.type),
+    tags: getStringArray(record.tags) || [],
+    source: {
+      type: SourceType.USER_INPUT,
+      identifier: title || `upload-${Date.now()}`,
+      metadata: {
+        uploadedAt: new Date().toISOString(),
+        title,
+        category,
+        ...getMetadataValue(record.metadata),
+      },
+    },
+    confidence: getNumberValue(record.confidence) ?? 0.8,
+  };
+};
+
+const isChatImportBody = (value: unknown): value is { file?: File; options?: string } =>
+  typeof value === 'object' && value !== null;
 
 // Health status interface
 interface ServicesHealthStatus {
@@ -188,8 +287,8 @@ export function registerKnowledgeRoutes(app: any): any {
       // POST /
       .group('', (g: any) =>
         withRequiredAuth(g)
-          .post('/', async ({ set, body, user }: AuthedContext) => {
-            const userId = user!.id;
+          .post('/', async ({ set, body, user }) => {
+            const userId = user.id;
             const { userKnowledgeService, initializationError } = await getServices();
             if (initializationError) {
               set.status = 503;
@@ -197,36 +296,14 @@ export function registerKnowledgeRoutes(app: any): any {
             }
 
             const requestData = Array.isArray(body) ? body : [body];
-            const knowledgeItems = requestData.map((item) =>
-              item?.source
-                ? item
-                : {
-                    content: item.content,
-                    type: item.type || 'document',
-                    tags: item.tags || [],
-                    source: {
-                      type: 'USER_INPUT',
-                      identifier: item.title || `upload-${Date.now()}`,
-                      metadata: {
-                        uploadedAt: new Date().toISOString(),
-                        title: item.title,
-                        category: item.category,
-                        ...item?.metadata,
-                      },
-                    },
-                    confidence: 0.8,
-                  }
-            );
+            const knowledgeItems: KnowledgeIngestRequest[] = requestData.map(normalizeKnowledgeItem);
             for (const i of knowledgeItems) {
               if (!i.content) {
                 set.status = 400;
                 return { error: 'Each knowledge item must have content' };
               }
             }
-            const result = await userKnowledgeService!.addKnowledge(
-              userId,
-              knowledgeItems as KnowledgeIngestRequest[]
-            );
+            const result = await userKnowledgeService!.addKnowledge(userId, knowledgeItems);
             set.status = 201;
             return {
               success: true,
@@ -236,14 +313,14 @@ export function registerKnowledgeRoutes(app: any): any {
           })
 
           // PATCH /:itemId
-          .patch('/:itemId', async ({ set, params, body, user }: AuthedContext) => {
-            const userId = user!.id;
+          .patch('/:itemId', async ({ set, params, body, user }) => {
+            const userId = user.id;
             const { userKnowledgeService, initializationError } = await getServices();
             if (initializationError) {
               set.status = 503;
               return { error: 'Knowledge service not available', details: initializationError };
             }
-            const itemId = (params as ItemIdParams).itemId;
+            const { itemId } = itemIdParamsSchema.parse(params);
             if (!itemId) {
               set.status = 400;
               return { error: 'Item ID is required' };
@@ -276,14 +353,14 @@ export function registerKnowledgeRoutes(app: any): any {
           })
 
           // DELETE /:itemId
-          .delete('/:itemId', async ({ set, params, user }: AuthedContext) => {
-            const userId = user!.id;
+          .delete('/:itemId', async ({ set, params, user }) => {
+            const userId = user.id;
             const { userKnowledgeService, initializationError } = await getServices();
             if (initializationError) {
               set.status = 503;
               return { error: 'Knowledge service not available', details: initializationError };
             }
-            const itemId = (params as ItemIdParams).itemId;
+            const { itemId } = itemIdParamsSchema.parse(params);
             if (!itemId) {
               set.status = 400;
               return { error: 'Item ID is required' };
@@ -308,14 +385,14 @@ export function registerKnowledgeRoutes(app: any): any {
           })
 
           // GET /tags/:tag
-          .get('/tags/:tag', async ({ set, params, query, user }: AuthedContext) => {
-            const userId = user!.id;
+          .get('/tags/:tag', async ({ set, params, query, user }) => {
+            const userId = user.id;
             const { userKnowledgeService, initializationError } = await getServices();
             if (initializationError) {
               set.status = 503;
               return { error: 'Knowledge service not available', details: initializationError };
             }
-            const tag = (params as TagParams).tag;
+            const { tag } = tagParamsSchema.parse(params);
             const limit = Number((query as TagQuery).limit ?? 20);
             const items = await userKnowledgeService!.getKnowledgeByTags(userId, [tag], limit);
             return {
@@ -326,8 +403,8 @@ export function registerKnowledgeRoutes(app: any): any {
           })
 
           // GET /stats
-          .get('/stats', async ({ set, user }: AuthedContext) => {
-            const userId = user!.id;
+          .get('/stats', async ({ set, user }) => {
+            const userId = user.id;
             const { userKnowledgeService, initializationError } = await getServices();
             if (initializationError) {
               set.status = 503;
@@ -342,9 +419,9 @@ export function registerKnowledgeRoutes(app: any): any {
           })
 
           // GET /:itemId/related
-          .get('/:itemId/related', async ({ set, params, user }: AuthedContext) => {
-            const userId = user!.id;
-            const itemId = (params as ItemIdParams).itemId;
+          .get('/:itemId/related', async ({ set, params, user }) => {
+            const userId = user.id;
+            const { itemId } = itemIdParamsSchema.parse(params);
             const { userKnowledgeService, initializationError } = await getServices();
             if (initializationError) {
               set.status = 503;
@@ -363,9 +440,9 @@ export function registerKnowledgeRoutes(app: any): any {
           })
 
           // GET /:itemId/similar
-          .get('/:itemId/similar', async ({ set, params, query, user }: AuthedContext) => {
-            const userId = user!.id;
-            const itemId = (params as ItemIdParams).itemId;
+          .get('/:itemId/similar', async ({ set, params, query, user }) => {
+            const userId = user.id;
+            const { itemId } = itemIdParamsSchema.parse(params);
             const limit = Number((query as TagQuery).limit ?? 10);
             const { userKnowledgeService, initializationError } = await getServices();
             if (initializationError) {
@@ -386,8 +463,8 @@ export function registerKnowledgeRoutes(app: any): any {
           })
 
           // GET /graph
-          .get('/graph', async ({ set, query, user }: AuthedContext) => {
-            const userId = user!.id;
+          .get('/graph', async ({ set, query, user }) => {
+            const userId = user.id;
             const { userKnowledgeService, initializationError } = await getServices();
             if (initializationError) {
               set.status = 503;
@@ -395,7 +472,7 @@ export function registerKnowledgeRoutes(app: any): any {
             }
             const parsedQuery = query as GraphQuery;
             const limit = Number(parsedQuery.limit ?? 50);
-            const types = parsedQuery.types ? String(parsedQuery.types).split(',') : undefined;
+            const types = parseKnowledgeTypes(parsedQuery.types);
             const tags = parsedQuery.tags ? String(parsedQuery.tags).split(',') : undefined;
             const includeRelationships =
               String(parsedQuery.includeRelationships ?? 'true') === 'true';
@@ -456,14 +533,14 @@ export function registerKnowledgeRoutes(app: any): any {
           // GET /graph/relationships/:itemId
           .get(
             '/graph/relationships/:itemId',
-            async ({ set, params, query, user }: AuthedContext) => {
-              const userId = user!.id;
+            async ({ set, params, query, user }) => {
+              const userId = user.id;
               const { userKnowledgeService, initializationError } = await getServices();
               if (initializationError) {
                 set.status = 503;
                 return { error: 'Knowledge service not available', details: initializationError };
               }
-              const itemId = (params as ItemIdParams).itemId;
+              const { itemId } = itemIdParamsSchema.parse(params);
               const queryParams = query as RelationshipsQuery;
               const limit = Number(queryParams.limit ?? 20);
               if (!itemId) {
@@ -508,8 +585,8 @@ export function registerKnowledgeRoutes(app: any): any {
           )
 
           // POST /sync
-          .post('/sync', async ({ set, user }: AuthedContext) => {
-            const userId = user!.id;
+          .post('/sync', async ({ set, user }) => {
+            const userId = user.id;
             const { userKnowledgeService, initializationError } = await getServices();
             if (initializationError) {
               set.status = 503;
@@ -548,25 +625,22 @@ export function registerKnowledgeRoutes(app: any): any {
           // (no ts-expect-error needed — handler is typed as :any)
           .post(
             '/chat-import',
-            async ({
-              set,
-              body,
-              user,
-            }: AuthedContext & { body: { file: File; options?: string } }) => {
-              const userId = user!.id;
+            async ({ set, body, user }) => {
+              const userId = user.id;
               const { userKnowledgeService, initializationError } = await getServices();
               if (initializationError) {
                 set.status = 503;
                 return { error: 'Knowledge service not available', details: initializationError };
               }
 
-              const file: File | undefined = body?.file;
+              const rawBody = isChatImportBody(body) ? body : undefined;
+              const file: File | undefined = rawBody?.file;
               if (!file || typeof file.text !== 'function') {
                 set.status = 400;
                 return { error: 'A file field is required in the multipart body' };
               }
 
-              const optionsRaw = body?.options;
+              const optionsRaw = rawBody?.options;
               // options is a string when sent as a FormData field
               let options: Record<string, boolean> = {};
               if (optionsRaw) {
@@ -594,12 +668,12 @@ export function registerKnowledgeRoutes(app: any): any {
                   const content = await file.text();
                   const parsed = parseChatFile(file.name, content);
 
-                  const knowledgeRequests = parsed.map((item) => ({
+                  const knowledgeRequests: KnowledgeIngestRequest[] = parsed.map((item) => ({
                     content: item.content,
-                    type: 'EPISODIC',
+                    type: KnowledgeType.EPISODIC,
                     tags: item.tags,
                     source: {
-                      type: 'CHAT_IMPORT',
+                      type: SourceType.CHAT_IMPORT,
                       identifier: item.title,
                       metadata: {
                         fileName: file.name,
@@ -612,10 +686,7 @@ export function registerKnowledgeRoutes(app: any): any {
 
                   let added = 0;
                   if (knowledgeRequests.length > 0) {
-                    const result = await userKnowledgeService!.addKnowledge(
-                      userId,
-                      knowledgeRequests as KnowledgeIngestRequest[]
-                    );
+                      const result = await userKnowledgeService!.addKnowledge(userId, knowledgeRequests);
                     added = result.processedCount ?? knowledgeRequests.length;
                   }
 
@@ -661,7 +732,7 @@ export function registerKnowledgeRoutes(app: any): any {
           // (no ts-expect-error needed — handler is typed as :any)
           .get(
             '/chat-jobs/:jobId',
-            async ({ set, params }: { set: { status: number }; params: { jobId: string } }) => {
+            async ({ set, params }) => {
               const jobId = params.jobId;
               const job = chatImportJobs.get(jobId);
               if (!job) {
@@ -674,7 +745,7 @@ export function registerKnowledgeRoutes(app: any): any {
       )
 
       // GET /
-      .get('/', async ({ set, query, user }: OptionalAuthContext) => {
+      .get('/', async ({ set, query, user }) => {
         if (!user) {
           set.status = 401;
           return { error: 'User not authenticated' };
@@ -689,7 +760,7 @@ export function registerKnowledgeRoutes(app: any): any {
         const limit = Number(parsedQuery.limit ?? 50);
         const offset = Number(parsedQuery.offset ?? 0);
         const tags = parsedQuery.tags ? String(parsedQuery.tags).split(',') : undefined;
-        const types = parsedQuery.types ? String(parsedQuery.types).split(',') : undefined;
+        const types = parseKnowledgeTypes(parsedQuery.types);
         const searchRequest: KnowledgeSearchRequest = {
           query: '',
           filters: { tags, types },
@@ -706,7 +777,7 @@ export function registerKnowledgeRoutes(app: any): any {
       })
 
       // GET /search
-      .get('/search', async ({ set, query, user }: OptionalAuthContext) => {
+      .get('/search', async ({ set, query, user }) => {
         if (!user) {
           set.status = 401;
           return { error: 'User not authenticated' };
@@ -724,7 +795,7 @@ export function registerKnowledgeRoutes(app: any): any {
           return { error: 'Query parameter "q" is required' };
         }
         const tags = parsedQuery.tags ? String(parsedQuery.tags).split(',') : undefined;
-        const types = parsedQuery.types ? String(parsedQuery.types).split(',') : undefined;
+        const types = parseKnowledgeTypes(parsedQuery.types);
         const limit = Number(parsedQuery.limit ?? 20);
         const confidence = parsedQuery.confidence ? Number(parsedQuery.confidence) : undefined;
         const includeRelationships = String(parsedQuery.includeRelationships ?? 'false') === 'true';

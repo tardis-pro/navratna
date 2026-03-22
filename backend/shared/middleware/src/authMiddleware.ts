@@ -1,83 +1,82 @@
 import { Elysia } from 'elysia';
 import { logger } from '@uaip/utils';
 import { config } from '@uaip/config';
-import type { UserContext, ElysiaSet } from '@uaip/types';
+import type {
+  AuthContext,
+  AuthDeriveContext,
+  ElysiaBaseContext,
+  RequiredAuthContext,
+  UserContext,
+} from '@uaip/types';
 import { JWTValidator } from './JWTValidator.js';
 
 export type { UserContext };
 
 // Context type for Elysia route handlers where withRequiredAuth has been applied
-export type AuthedContext = {
-  user: UserContext;
-  set: { status: number | string; headers?: Record<string, string> };
-  request: Request;
-  params: Record<string, string>;
-  query: Record<string, string>;
-  body: any;
-  headers: Record<string, string>;
-};
+export type AuthedContext = RequiredAuthContext;
 
 // Context type for Elysia route handlers where withOptionalAuth has been applied
-export type OptionalAuthContext = {
-  user: UserContext | null;
-  set: { status: number | string; headers?: Record<string, string> };
-  request: Request;
-  params: Record<string, string>;
-  query: Record<string, string>;
-  body: any;
-  headers: Record<string, string>;
+export type OptionalAuthContext = AuthContext;
+
+const hasUserContext = (context: ElysiaBaseContext): context is AuthContext => 'user' in context;
+
+const getValidatedUserContext = (context: ElysiaBaseContext): UserContext | null => {
+  if (!hasUserContext(context)) {
+    return null;
+  }
+
+  return context.user;
+};
+
+const createUserContext = (result: {
+  userId?: string;
+  email?: string;
+  role?: string;
+  sessionId?: string;
+}): UserContext | null => {
+  if (!result.userId || !result.email || !result.role) {
+    return null;
+  }
+
+  return {
+    id: result.userId,
+    email: result.email,
+    role: result.role,
+    sessionId: result.sessionId,
+  };
+};
+
+const getBearerToken = ({ headers, cookie }: AuthDeriveContext): string | null => {
+  const authHeader = headers.authorization;
+  if (authHeader?.startsWith('Bearer ')) {
+    return authHeader.substring(7);
+  }
+
+  const accessToken = cookie?.access_token?.value;
+  return accessToken ?? null;
 };
 
 // Elysia plugin to attach user context from JWT token
-export function attachAuth(app: Elysia): Elysia {
-  return app.derive(async ({ headers, cookie }: AuthDeriveContext) => {
-    const auth = headers.authorization;
-    if (auth && auth.startsWith('Bearer ')) {
-      const token = auth.substring(7);
-      const result = await validateJWTToken(token);
+export function attachAuth<T extends Elysia>(app: T) {
+  return app.derive(async (context) => {
+    const token = getBearerToken(context);
 
-      if (result.valid) {
-        return {
-          user: {
-            id: result.userId!,
-            email: result.email!,
-            role: result.role!,
-            sessionId: result.sessionId,
-          } as UserContext,
-        };
-      }
+    if (!token) {
+      return { user: null };
     }
 
-    const accessToken = cookie?.access_token?.value;
-    if (accessToken) {
-      const result = await validateJWTToken(accessToken);
-
-      if (result.valid) {
-        return {
-          user: {
-            id: result.userId!,
-            email: result.email!,
-            role: result.role!,
-            sessionId: result.sessionId,
-          } as UserContext,
-        };
-      }
-    }
-
-    return { user: null as UserContext | null };
+    const result = await validateJWTToken(token);
+    return { user: result.valid ? createUserContext(result) : null };
   });
 }
 
 // Elysia guard to require authentication
-export function requireAuth(app: Elysia): Elysia {
+export function requireAuth<T extends Elysia>(app: T) {
   return app.guard({
     beforeHandle(context) {
-      const { user, set } = context as unknown as {
-        user: UserContext | null;
-        set: { status: number };
-      };
+      const user = getValidatedUserContext(context);
       if (!user) {
-        set.status = 401;
+        context.set.status = 401;
         return { error: 'Authentication required', code: 'AUTH_REQUIRED' };
       }
     },
@@ -85,15 +84,12 @@ export function requireAuth(app: Elysia): Elysia {
 }
 
 // Elysia guard to require admin role
-export function requireAdmin(app: Elysia): Elysia {
+export function requireAdmin<T extends Elysia>(app: T) {
   return app.guard({
     beforeHandle(context) {
-      const { user, set } = context as unknown as {
-        user: UserContext | null;
-        set: { status: number };
-      };
+      const user = getValidatedUserContext(context);
       if (!user) {
-        set.status = 401;
+        context.set.status = 401;
         return { error: 'Authentication required', code: 'AUTH_REQUIRED' };
       }
       if (user.role !== 'admin') {
@@ -101,7 +97,7 @@ export function requireAdmin(app: Elysia): Elysia {
           userId: user.id,
           role: user.role,
         });
-        set.status = 403;
+        context.set.status = 403;
         return { error: 'Admin access required', code: 'ADMIN_REQUIRED' };
       }
     },
@@ -109,15 +105,12 @@ export function requireAdmin(app: Elysia): Elysia {
 }
 
 // Elysia guard to require operator+ level access
-export function requireOperator(app: Elysia): Elysia {
+export function requireOperator<T extends Elysia>(app: T) {
   return app.guard({
     beforeHandle(context) {
-      const { user, set } = context as unknown as {
-        user: UserContext | null;
-        set: { status: number };
-      };
+      const user = getValidatedUserContext(context);
       if (!user) {
-        set.status = 401;
+        context.set.status = 401;
         return { error: 'Authentication required', code: 'AUTH_REQUIRED' };
       }
 
@@ -130,7 +123,7 @@ export function requireOperator(app: Elysia): Elysia {
           role: user.role,
           requiredRoles: allowedRoles,
         });
-        set.status = 403;
+        context.set.status = 403;
         return { error: 'Operator access required', code: 'OPERATOR_REQUIRED' };
       }
     },
@@ -139,9 +132,9 @@ export function requireOperator(app: Elysia): Elysia {
 
 // Helper combinators for Elysia
 export const withOptionalAuth = attachAuth;
-export const withRequiredAuth = (app: Elysia) => requireAuth(attachAuth(app));
-export const withAdminGuard = (app: Elysia) => requireAdmin(attachAuth(app));
-export const withOperatorGuard = (app: Elysia) => requireOperator(attachAuth(app));
+export const withRequiredAuth = <T extends Elysia>(app: T) => requireAuth(attachAuth(app));
+export const withAdminGuard = <T extends Elysia>(app: T) => requireAdmin(attachAuth(app));
+export const withOperatorGuard = <T extends Elysia>(app: T) => requireOperator(attachAuth(app));
 
 // Legacy middleware adapter - wraps Elysia handlers to work with existing route structure
 export const authMiddleware = attachAuth;
@@ -154,7 +147,7 @@ const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-
  * Elysia plugin to attach user context from nginx-forwarded headers (X-User-ID, X-User-Email, X-User-Role).
  * Use this when nginx handles JWT validation via auth_request and forwards user info in headers.
  */
-export function attachNginxAuth(app: Elysia): Elysia {
+export function attachNginxAuth<T extends Elysia>(app: T) {
   return app.derive(({ headers }) => {
     const userId = headers['x-user-id'];
     const email = headers['x-user-email'];
@@ -170,7 +163,7 @@ export function attachNginxAuth(app: Elysia): Elysia {
 
     // Validate userId is a proper UUID
     if (!userId || !UUID_REGEX.test(userId)) {
-      return { user: null as UserContext | null };
+      return { user: null };
     }
 
     return {
@@ -178,7 +171,7 @@ export function attachNginxAuth(app: Elysia): Elysia {
         id: userId,
         email: email || '',
         role: role || 'user',
-      } as UserContext,
+      },
     };
   });
 }
@@ -187,16 +180,13 @@ export function attachNginxAuth(app: Elysia): Elysia {
  * Elysia guard to require nginx-forwarded authentication.
  * Returns 401 if X-User-ID header is missing or not a valid UUID.
  */
-export function requireNginxAuth(app: Elysia): Elysia {
+export function requireNginxAuth<T extends Elysia>(app: T) {
   return app.guard({
     beforeHandle(context) {
-      const { user, set } = context as unknown as {
-        user: UserContext | null;
-        set: { status: number };
-      };
+      const user = getValidatedUserContext(context);
       if (!user || !user.id) {
         logger.warn('Nginx auth required but user not found in headers');
-        set.status = 401;
+        context.set.status = 401;
         return { error: 'Authentication required: valid user ID not found', code: 'AUTH_REQUIRED' };
       }
     },
@@ -204,7 +194,7 @@ export function requireNginxAuth(app: Elysia): Elysia {
 }
 
 // Combinator for nginx auth flow
-export const withNginxAuth = (app: Elysia) => requireNginxAuth(attachNginxAuth(app));
+export const withNginxAuth = <T extends Elysia>(app: T) => requireNginxAuth(attachNginxAuth(app));
 
 // Utility function to validate JWT secret at runtime
 export const validateJWTConfiguration = (): { isValid: boolean; warnings: string[] } => {

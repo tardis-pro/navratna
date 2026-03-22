@@ -9,10 +9,10 @@
     "build": "tsc",
     "dev": "tsc --watch",
     "clean": "rimraf dist",
-    "lint": "eslint src --ext .ts",
-    "lint:fix": "eslint src --ext .ts --fix",
-    "format": "prettier --write \"src/**/*.ts\"",
-    "format:check": "prettier --check \"src/**/*.ts\"",
+    "lint": "oxlint src",
+    "lint:fix": "oxlint --fix src",
+    "format": "oxfmt --write src",
+    "format:check": "oxfmt --check src",
     "test": "jest",
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",
@@ -52,7 +52,6 @@
     "zod": "catalog:"
   },
   "devDependencies": {
-    "@eslint/js": "catalog:",
     "@types/amqplib": "catalog:backend",
     "@types/bcryptjs": "^3.0.0",
     "@types/compression": "catalog:backend",
@@ -61,9 +60,6 @@
     "@types/node": "catalog:backend",
     "@types/pg": "catalog:backend",
     "@types/supertest": "^6.0.2",
-    "@typescript-eslint/eslint-plugin": "catalog:",
-    "@typescript-eslint/parser": "catalog:",
-    "eslint": "catalog:",
     "jest": "^29.7.0",
     "jest-environment-node": "^30.2.0",
     "reflect-metadata": "^0.2.2",
@@ -74,8 +70,7 @@
     "ts-node": "catalog:",
     "tsc-alias": "catalog:backend",
     "tsx": "catalog:backend",
-    "typescript": "catalog:",
-    "typescript-eslint": "catalog:"
+    "typescript": "catalog:"
   },
   "exports": {
     ".": {

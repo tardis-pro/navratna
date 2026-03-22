@@ -4,7 +4,6 @@ import { logger } from '@uaip/utils';
 import { UserService } from '@uaip/shared-services';
 import { validateJWTToken } from '@uaip/middleware';
 import { withOptionalAuth, withAdminGuard, withRequiredAuth } from '@uaip/middleware';
-import type { AuthedContext } from '@uaip/middleware';
 import { AuditService } from '../services/auditService.js';
 import { AuditEventType, LLMTaskType, LLMProviderType } from '@uaip/types';
 
@@ -83,11 +82,7 @@ const updateUserLLMPreferencesSchema = z.object({
 
 const searchRoleSchema = z.enum(['user', 'admin', 'security_admin', 'auditor']).optional();
 
-type UserRecordWithPasswordHash = {
-  passwordHash?: string;
-} & Record<string, unknown>;
-
-const omitPasswordHash = <T extends UserRecordWithPasswordHash>(user: T) => {
+const omitPasswordHash = <T extends { passwordHash?: string }>(user: T) => {
   const { passwordHash: _passwordHash, ...safeUser } = user;
   return safeUser;
 };
@@ -189,11 +184,11 @@ export function registerUserRoutes(app: any): any {
       // GET /api/v1/users/llm-preferences
       .group('', (g: any) =>
         withRequiredAuth(g)
-          .get('/llm-preferences', async ({ set, user }: AuthedContext) => {
+          .get('/llm-preferences', async ({ set, user }) => {
             try {
               const { userService } = await getServices();
               const repo = userService.getUserLLMPreferenceRepository();
-              const prefs = await repo.findByUser(user!.id);
+              const prefs = await repo.findByUser(user.id);
               return prefs;
             } catch (error) {
               set.status = 500;
@@ -202,7 +197,7 @@ export function registerUserRoutes(app: any): any {
           })
 
           // PUT /api/v1/users/llm-preferences
-          .put('/llm-preferences', async ({ set, user, body }: AuthedContext) => {
+          .put('/llm-preferences', async ({ set, user, body }) => {
             const parsed = updateUserLLMPreferencesSchema.safeParse(body);
             if (!parsed.success) {
               set.status = 400;
@@ -212,7 +207,26 @@ export function registerUserRoutes(app: any): any {
               const { userService } = await getServices();
               const repo = userService.getUserLLMPreferenceRepository();
               await repo.bulkUpsert(
-                parsed.data.preferences.map((p) => ({ ...p, userId: user!.id }))
+                parsed.data.preferences.map(
+                  ({
+                    taskType,
+                    preferredProvider,
+                    preferredModel,
+                    fallbackModel,
+                    settings,
+                    description,
+                    priority,
+                  }) => ({
+                    userId: user.id,
+                    taskType,
+                    preferredProvider,
+                    preferredModel,
+                    fallbackModel,
+                    settings,
+                    description,
+                    priority,
+                  })
+                )
               );
               return { message: 'Preferences updated' };
             } catch (error) {
@@ -233,7 +247,7 @@ export function registerUserRoutes(app: any): any {
                 set.status = 404;
                 return { error: 'User Not Found', message: 'User not found' };
               }
-              const userResponse = omitPasswordHash(user as UserRecordWithPasswordHash);
+              const userResponse = omitPasswordHash(user);
               return { message: 'User retrieved successfully', user: userResponse };
             } catch (error) {
               set.status = 500;
@@ -242,7 +256,7 @@ export function registerUserRoutes(app: any): any {
           })
 
           // POST /api/v1/users (admin)
-          .post('/', async ({ set, body, user }: AuthedContext) => {
+          .post('/', async ({ set, body, user }) => {
             const parsed = createUserSchema.safeParse(body);
             if (!parsed.success) {
               set.status = 400;
@@ -273,7 +287,7 @@ export function registerUserRoutes(app: any): any {
               }
               await auditService.logSecurityEvent({
                 eventType: AuditEventType.USER_CREATED,
-                userId: user!.id,
+                userId: user.id,
                 details: {
                   createdUserId: created.id,
                   createdUserEmail: created.email,
@@ -283,7 +297,7 @@ export function registerUserRoutes(app: any): any {
                 ipAddress: '',
                 userAgent: '',
               });
-              const userResponse = omitPasswordHash(created as UserRecordWithPasswordHash);
+              const userResponse = omitPasswordHash(created);
               set.status = 201;
               return { message: 'User created successfully', user: userResponse };
             } catch (error) {

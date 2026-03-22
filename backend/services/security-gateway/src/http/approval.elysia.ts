@@ -1,7 +1,6 @@
 import { z } from 'zod';
 import { logger } from '@uaip/utils';
 import { withRequiredAuth, withOperatorGuard } from '@uaip/middleware';
-import type { AuthedContext } from '@uaip/middleware';
 import { AuditService } from '../services/auditService.js';
 import { ApprovalWorkflowService } from '../services/approvalWorkflowService.js';
 import { EventBusService } from '@uaip/infra/eventBus';
@@ -94,7 +93,7 @@ export function registerApprovalRoutes(app: any): any {
       // Create workflow (operator)
       .group('', (g: any) =>
         withOperatorGuard(g)
-          .post('/workflows', async ({ body, set, user, request, headers }: AuthedContext) => {
+          .post('/workflows', async ({ body, set, user, request, headers }) => {
             const parsed = createWorkflowSchema.safeParse(body);
             if (!parsed.success) {
               set.status = 400;
@@ -149,7 +148,7 @@ export function registerApprovalRoutes(app: any): any {
             }
           })
           // Stats (operator)
-          .get('/stats', async ({ set, query, user }: AuthedContext) => {
+          .get('/stats', async ({ set, query, user }) => {
             try {
               const days = Number(query.days ?? 30);
               const startDate = new Date();
@@ -197,7 +196,7 @@ export function registerApprovalRoutes(app: any): any {
       )
 
       // Query workflows (auth)
-      .get('/workflows', async ({ set, user, query }: AuthedContext) => {
+      .get('/workflows', async ({ set, user, query }) => {
         const parsed = queryWorkflowsSchema.safeParse(query);
         if (!parsed.success) {
           set.status = 400;
@@ -245,7 +244,7 @@ export function registerApprovalRoutes(app: any): any {
       })
 
       // Pending approvals for current user
-      .get('/pending', async ({ set, user }: AuthedContext) => {
+      .get('/pending', async ({ set, user }) => {
         try {
           const { approvalWorkflowService } = await getServices();
           const pending = await approvalWorkflowService.getUserWorkflows(
@@ -298,7 +297,7 @@ export function registerApprovalRoutes(app: any): any {
       .group('', (g: any) =>
         withOperatorGuard(g).post(
           '/:workflowId/cancel',
-          async ({ set, params, body, user, request, headers }: AuthedContext) => {
+          async ({ set, params, body, user, request, headers }) => {
             try {
               const workflowId = params.workflowId;
               const reason = (body as any)?.reason;
@@ -331,7 +330,7 @@ export function registerApprovalRoutes(app: any): any {
       )
 
       // Workflow details
-      .get('/:workflowId', async ({ set, params, user }: AuthedContext) => {
+      .get('/:workflowId', async ({ set, params, user }) => {
         try {
           const workflowId = params.workflowId;
           if (!workflowId || workflowId.length < 10) {
@@ -365,7 +364,7 @@ export function registerApprovalRoutes(app: any): any {
       // Approval decision
       .post(
         '/:workflowId/decisions',
-        async ({ set, params, body, user, request, headers }: AuthedContext) => {
+        async ({ set, params, body, user, request, headers }) => {
           const parsed = approvalDecisionSchema.safeParse({
             ...(body as any),
             workflowId: params.workflowId,

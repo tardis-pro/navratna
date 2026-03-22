@@ -1,7 +1,6 @@
 import { z } from 'zod';
 import { logger } from '@uaip/utils';
 import { withAdminGuard, withRequiredAuth } from '@uaip/middleware';
-import type { AuthedContext } from '@uaip/middleware';
 import { AuditService as DomainAuditService } from '@uaip/shared-services';
 import { AuditService } from '../services/auditService.js';
 import { AuditEventType } from '@uaip/types';
@@ -170,7 +169,7 @@ export function registerAuditRoutes(app: any): any {
         })
 
         // POST /export
-        .post('/export', async ({ set, body, user, request, headers }: AuthedContext) => {
+        .post('/export', async ({ set, body, user, request, headers }) => {
           const { error, value } = validateWithZod(exportSchema, body);
           if (error) {
             set.status = 400;
@@ -218,7 +217,7 @@ export function registerAuditRoutes(app: any): any {
         // POST /compliance-report
         .post(
           '/compliance-report',
-          async ({ set, body, user, request, headers }: AuthedContext) => {
+          async ({ set, body, user, request, headers }) => {
             const { error, value } = validateWithZod(complianceReportSchema, body);
             if (error) {
               set.status = 400;
@@ -298,7 +297,7 @@ export function registerAuditRoutes(app: any): any {
         })
 
         // DELETE /cleanup
-        .delete('/cleanup', async ({ set, user, request, headers }: AuthedContext) => {
+        .delete('/cleanup', async ({ set, user, request, headers }) => {
           try {
             const { auditService } = await getServices();
             const result = await auditService.cleanupOldLogs();

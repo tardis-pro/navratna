@@ -1,9 +1,10 @@
 import { TypeOrmService } from '@uaip/shared-services';
 import { ShortLinkEntity, LinkType, LinkStatus } from '@uaip/shared-services';
 import { logger } from '@uaip/utils';
-import bcrypt from 'bcryptjs';
+import * as bcrypt from 'bcryptjs';
 import QRCode from 'qrcode';
 import { Repository } from 'typeorm';
+import type { LinkAnalytics } from '@uaip/shared-services';
 
 const BCRYPT_ROUNDS = 12;
 
@@ -20,17 +21,17 @@ interface LinkUpdateData {
   originalUrl?: string;
   tags?: string[];
   expiresAt?: Date;
-  status?: string;
+  status?: LinkStatus;
 }
 
 interface LinkAnalyticsResponse {
   id: string;
   shortCode: string;
   totalClicks: number;
-  analytics: Record<string, unknown>;
+  analytics: LinkAnalytics;
   createdAt: Date;
   lastClickAt: Date | null;
-  status: string;
+  status: LinkStatus;
 }
 
 interface ClickData {
