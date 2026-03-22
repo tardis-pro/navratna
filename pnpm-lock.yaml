@@ -34,8 +34,8 @@ catalogs:
       specifier: ^22.13.14
       version: 22.19.2
     '@types/pg':
-      specifier: ^8.15.4
-      version: 8.15.6
+      specifier: ^8.18.0
+      version: 8.18.0
     '@types/qrcode':
       specifier: ^1.5.5
       version: 1.5.6
@@ -88,8 +88,8 @@ catalogs:
       specifier: ^3.1.9
       version: 3.1.11
     pg:
-      specifier: ^8.16.1
-      version: 8.16.3
+      specifier: ^8.20.0
+      version: 8.20.0
     prom-client:
       specifier: ^15.1.3
       version: 15.1.3
@@ -657,7 +657,7 @@ importers:
         version: 15.1.3
       typeorm:
         specifier: ^0.3.25
-        version: 0.3.28(better-sqlite3@11.10.0)(ioredis@5.8.2)(pg@8.16.3)(redis@5.10.0)(ts-node@10.9.2(@swc/core@1.15.3)(@types/node@22.19.2)(typescript@5.9.3))
+        version: 0.3.28(better-sqlite3@11.10.0)(ioredis@5.8.2)(pg@8.20.0)(redis@5.10.0)(ts-node@10.9.2(@swc/core@1.15.3)(@types/node@22.19.2)(typescript@5.9.3))
       uuid:
         specifier: catalog:backend
         version: 11.1.0
@@ -733,7 +733,7 @@ importers:
         version: 1.5.4
       typeorm:
         specifier: catalog:backend
-        version: 0.3.28(better-sqlite3@11.10.0)(ioredis@5.8.2)(pg@8.16.3)(redis@5.10.0)(ts-node@10.9.2(@swc/core@1.15.3)(@types/node@22.19.2)(typescript@5.9.3))
+        version: 0.3.28(better-sqlite3@11.10.0)(ioredis@5.8.2)(pg@8.20.0)(redis@5.10.0)(ts-node@10.9.2(@swc/core@1.15.3)(@types/node@22.19.2)(typescript@5.9.3))
       zod:
         specifier: 'catalog:'
         version: 3.25.67
@@ -833,7 +833,7 @@ importers:
         version: 5.28.2
       pg:
         specifier: catalog:backend
-        version: 8.16.3
+        version: 8.20.0
       prom-client:
         specifier: catalog:backend
         version: 15.1.3
@@ -864,7 +864,7 @@ importers:
         version: 22.19.2
       '@types/pg':
         specifier: catalog:backend
-        version: 8.15.6
+        version: 8.18.0
       '@typescript-eslint/eslint-plugin':
         specifier: 'catalog:'
         version: 8.49.0(@typescript-eslint/parser@8.49.0(eslint@9.39.1(jiti@2.6.1))(typescript@5.9.3))(eslint@9.39.1(jiti@2.6.1))(typescript@5.9.3)
@@ -951,7 +951,7 @@ importers:
         version: 4.8.1
       typeorm:
         specifier: ^0.3.25
-        version: 0.3.28(better-sqlite3@11.10.0)(ioredis@5.8.2)(pg@8.16.3)(redis@5.10.0)(ts-node@10.9.2(@swc/core@1.15.3)(@types/node@22.19.2)(typescript@5.9.3))
+        version: 0.3.28(better-sqlite3@11.10.0)(ioredis@5.8.2)(pg@8.20.0)(redis@5.10.0)(ts-node@10.9.2(@swc/core@1.15.3)(@types/node@22.19.2)(typescript@5.9.3))
       winston:
         specifier: catalog:backend
         version: 3.19.0
@@ -1197,7 +1197,7 @@ importers:
         version: 15.1.3
       typeorm:
         specifier: ^0.3.25
-        version: 0.3.28(better-sqlite3@11.10.0)(ioredis@5.8.2)(pg@8.16.3)(redis@5.10.0)(ts-node@10.9.2(@swc/core@1.15.3)(@types/node@22.19.2)(typescript@5.9.3))
+        version: 0.3.28(better-sqlite3@11.10.0)(ioredis@5.8.2)(pg@8.20.0)(redis@5.10.0)(ts-node@10.9.2(@swc/core@1.15.3)(@types/node@22.19.2)(typescript@5.9.3))
       ws:
         specifier: catalog:backend
         version: 8.18.3
@@ -1321,7 +1321,7 @@ importers:
         version: 7.0.11
       pg:
         specifier: catalog:backend
-        version: 8.16.3
+        version: 8.20.0
       prom-client:
         specifier: catalog:backend
         version: 15.1.3
@@ -1336,7 +1336,7 @@ importers:
         version: 2.0.0
       typeorm:
         specifier: ^0.3.25
-        version: 0.3.28(better-sqlite3@11.10.0)(ioredis@5.8.2)(pg@8.16.3)(redis@5.10.0)(ts-node@10.9.2(@swc/core@1.15.3)(@types/node@22.19.2)(typescript@5.9.3))
+        version: 0.3.28(better-sqlite3@11.10.0)(ioredis@5.8.2)(pg@8.20.0)(redis@5.10.0)(ts-node@10.9.2(@swc/core@1.15.3)(@types/node@22.19.2)(typescript@5.9.3))
       winston:
         specifier: catalog:backend
         version: 3.19.0
@@ -1376,7 +1376,7 @@ importers:
         version: 7.0.4
       '@types/pg':
         specifier: catalog:backend
-        version: 8.15.6
+        version: 8.18.0
       '@types/qrcode':
         specifier: ^1.5.5
         version: 1.5.6
@@ -1485,10 +1485,10 @@ importers:
         version: 5.28.2
       pg:
         specifier: catalog:backend
-        version: 8.16.3
+        version: 8.20.0
       typeorm:
         specifier: ^0.3.25
-        version: 0.3.28(better-sqlite3@11.10.0)(ioredis@5.8.2)(pg@8.16.3)(redis@5.10.0)(ts-node@10.9.2(@swc/core@1.15.3)(@types/node@22.19.2)(typescript@5.9.3))
+        version: 0.3.28(better-sqlite3@11.10.0)(ioredis@5.8.2)(pg@8.20.0)(redis@5.10.0)(ts-node@10.9.2(@swc/core@1.15.3)(@types/node@22.19.2)(typescript@5.9.3))
       winston:
         specifier: catalog:backend
         version: 3.19.0
@@ -1507,7 +1507,7 @@ importers:
         version: 22.19.2
       '@types/pg':
         specifier: catalog:backend
-        version: 8.15.6
+        version: 8.18.0
       typescript:
         specifier: 'catalog:'
         version: 5.9.3
@@ -1546,7 +1546,7 @@ importers:
         version: 3.3.2
       typeorm:
         specifier: ^0.3.25
-        version: 0.3.28(better-sqlite3@11.10.0)(ioredis@5.8.2)(pg@8.16.3)(redis@5.10.0)(ts-node@10.9.2(@swc/core@1.15.3)(@types/node@22.19.2)(typescript@5.9.3))
+        version: 0.3.28(better-sqlite3@11.10.0)(ioredis@5.8.2)(pg@8.20.0)(redis@5.10.0)(ts-node@10.9.2(@swc/core@1.15.3)(@types/node@22.19.2)(typescript@5.9.3))
       uuid:
         specifier: catalog:backend
         version: 11.1.0
@@ -1671,10 +1671,10 @@ importers:
         version: 5.28.2
       pg:
         specifier: catalog:backend
-        version: 8.16.3
+        version: 8.20.0
       typeorm:
         specifier: ^0.3.25
-        version: 0.3.28(better-sqlite3@11.10.0)(ioredis@5.8.2)(pg@8.16.3)(redis@5.10.0)(ts-node@10.9.2(@swc/core@1.15.3)(@types/node@22.19.2)(typescript@5.9.3))
+        version: 0.3.28(better-sqlite3@11.10.0)(ioredis@5.8.2)(pg@8.20.0)(redis@5.10.0)(ts-node@10.9.2(@swc/core@1.15.3)(@types/node@22.19.2)(typescript@5.9.3))
       uuid:
         specifier: ^11.1.0
         version: 11.1.0
@@ -1708,7 +1708,7 @@ importers:
         version: 22.19.2
       '@types/pg':
         specifier: catalog:backend
-        version: 8.15.6
+        version: 8.18.0
       '@types/supertest':
         specifier: ^6.0.2
         version: 6.0.3
@@ -1757,12 +1757,6 @@ importers:
       typescript-eslint:
         specifier: 'catalog:'
         version: 8.49.0(eslint@9.39.1(jiti@2.6.1))(typescript@5.9.3)
-
-  packages/contracts:
-    dependencies:
-      '@uaip/types':
-        specifier: workspace:*
-        version: link:../shared-types
 
   packages/shared-types:
     dependencies:
@@ -5142,8 +5136,8 @@ packages:
   '@types/nodemailer@7.0.4':
     resolution: {integrity: sha512-ee8fxWqOchH+Hv6MDDNNy028kwvVnLplrStm4Zf/3uHWw5zzo8FoYYeffpJtGs2wWysEumMH0ZIdMGMY1eMAow==}
 
-  '@types/pg@8.15.6':
-    resolution: {integrity: sha512-NoaMtzhxOrubeL/7UZuNTrejB4MPAJ0RpxZqXQf2qXuVlTPuG6Y8p4u9dKRaue4yjmC7ZhzVO2/Yyyn25znrPQ==}
+  '@types/pg@8.18.0':
+    resolution: {integrity: sha512-gT+oueVQkqnj6ajGJXblFR4iavIXWsGAFCk3dP4Kki5+a9R4NMt0JARdk6s8cUKcfUoqP5dAtDSLU8xYUTFV+Q==}
 
   '@types/qrcode@1.5.6':
     resolution: {integrity: sha512-te7NQcV2BOvdj2b1hCAHzAoMNuj65kNBMz0KBaxM6c3VGBOhU0dURQKOtH8CFNI/dsKkwlv32p26qYQTWoB5bw==}
@@ -8212,30 +8206,33 @@ packages:
   pend@1.2.0:
     resolution: {integrity: sha512-F3asv42UuXchdzt+xXqfW1OGlVBe+mxa2mqI0pg5yAHZPvFmY3Y6drSf/GQ1A86WgWEN9Kzh/WrgKa6iGcHXLg==}
 
-  pg-cloudflare@1.2.7:
-    resolution: {integrity: sha512-YgCtzMH0ptvZJslLM1ffsY4EuGaU0cx4XSdXLRFae8bPP4dS5xL1tNB3k2o/N64cHJpwU7dxKli/nZ2lUa5fLg==}
+  pg-cloudflare@1.3.0:
+    resolution: {integrity: sha512-6lswVVSztmHiRtD6I8hw4qP/nDm1EJbKMRhf3HCYaqud7frGysPv7FYJ5noZQdhQtN2xJnimfMtvQq21pdbzyQ==}
 
-  pg-connection-string@2.9.1:
-    resolution: {integrity: sha512-nkc6NpDcvPVpZXxrreI/FOtX3XemeLl8E0qFr6F2Lrm/I8WOnaWNhIPK2Z7OHpw7gh5XJThi6j6ppgNoaT1w4w==}
+  pg-connection-string@2.12.0:
+    resolution: {integrity: sha512-U7qg+bpswf3Cs5xLzRqbXbQl85ng0mfSV/J0nnA31MCLgvEaAo7CIhmeyrmJpOr7o+zm0rXK+hNnT5l9RHkCkQ==}
 
   pg-int8@1.0.1:
     resolution: {integrity: sha512-WCtabS6t3c8SkpDBUlb1kjOs7l66xsGdKpIPZsg4wR+B3+u9UAum2odSsF9tnvxg80h4ZxLWMy4pRjOsFIqQpw==}
     engines: {node: '>=4.0.0'}
 
-  pg-pool@3.10.1:
-    resolution: {integrity: sha512-Tu8jMlcX+9d8+QVzKIvM/uJtp07PKr82IUOYEphaWcoBhIYkoHpLXN3qO59nAI11ripznDsEzEv8nUxBVWajGg==}
+  pg-pool@3.13.0:
+    resolution: {integrity: sha512-gB+R+Xud1gLFuRD/QgOIgGOBE2KCQPaPwkzBBGC9oG69pHTkhQeIuejVIk3/cnDyX39av2AxomQiyPT13WKHQA==}
     peerDependencies:
       pg: '>=8.0'
 
   pg-protocol@1.10.3:
     resolution: {integrity: sha512-6DIBgBQaTKDJyxnXaLiLR8wBpQQcGWuAESkRBX/t6OwA8YsqP+iVSiond2EDy6Y/dsGk8rh/jtax3js5NeV7JQ==}
 
+  pg-protocol@1.13.0:
+    resolution: {integrity: sha512-zzdvXfS6v89r6v7OcFCHfHlyG/wvry1ALxZo4LqgUoy7W9xhBDMaqOuMiF3qEV45VqsN6rdlcehHrfDtlCPc8w==}
+
   pg-types@2.2.0:
     resolution: {integrity: sha512-qTAAlrEsl8s4OiEQY69wDvcMIdQN6wdz5ojQiOy6YRMuynxenON0O5oCpJI6lshc6scgAY8qvJ2On/p+CXY0GA==}
     engines: {node: '>=4'}
 
-  pg@8.16.3:
-    resolution: {integrity: sha512-enxc1h0jA/aq5oSDMvqyW3q89ra6XIIDZgCX9vkMrnz5DFTw/Ny3Li2lFQ+pt3L6MCgm/5o2o8HW9hiJji+xvw==}
+  pg@8.20.0:
+    resolution: {integrity: sha512-ldhMxz2r8fl/6QkXnBD3CR9/xg694oT6DZQ2s6c/RI28OjtSOpxnPrUCGOBJ46RCUxcWdx3p6kw/xnDHjKvaRA==}
     engines: {node: '>= 16.0.0'}
     peerDependencies:
       pg-native: '>=3.0.1'
@@ -13934,7 +13931,7 @@ snapshots:
     transitivePeerDependencies:
       - aws-crt
 
-  '@types/pg@8.15.6':
+  '@types/pg@8.18.0':
     dependencies:
       '@types/node': 24.10.2
       pg-protocol: 1.10.3
@@ -17610,18 +17607,20 @@ snapshots:
 
   pend@1.2.0: {}
 
-  pg-cloudflare@1.2.7:
+  pg-cloudflare@1.3.0:
     optional: true
 
-  pg-connection-string@2.9.1: {}
+  pg-connection-string@2.12.0: {}
 
   pg-int8@1.0.1: {}
 
-  pg-pool@3.10.1(pg@8.16.3):
+  pg-pool@3.13.0(pg@8.20.0):
     dependencies:
-      pg: 8.16.3
+      pg: 8.20.0
 
   pg-protocol@1.10.3: {}
+
+  pg-protocol@1.13.0: {}
 
   pg-types@2.2.0:
     dependencies:
@@ -17631,15 +17630,15 @@ snapshots:
       postgres-date: 1.0.7
       postgres-interval: 1.2.0
 
-  pg@8.16.3:
+  pg@8.20.0:
     dependencies:
-      pg-connection-string: 2.9.1
-      pg-pool: 3.10.1(pg@8.16.3)
-      pg-protocol: 1.10.3
+      pg-connection-string: 2.12.0
+      pg-pool: 3.13.0(pg@8.20.0)
+      pg-protocol: 1.13.0
       pg-types: 2.2.0
       pgpass: 1.0.5
     optionalDependencies:
-      pg-cloudflare: 1.2.7
+      pg-cloudflare: 1.3.0
 
   pgpass@1.0.5:
     dependencies:
@@ -18887,7 +18886,7 @@ snapshots:
 
   typedarray@0.0.6: {}
 
-  typeorm@0.3.28(better-sqlite3@11.10.0)(ioredis@5.8.2)(pg@8.16.3)(redis@5.10.0)(ts-node@10.9.2(@swc/core@1.15.3)(@types/node@22.19.2)(typescript@5.9.3)):
+  typeorm@0.3.28(better-sqlite3@11.10.0)(ioredis@5.8.2)(pg@8.20.0)(redis@5.10.0)(ts-node@10.9.2(@swc/core@1.15.3)(@types/node@22.19.2)(typescript@5.9.3)):
     dependencies:
       '@sqltools/formatter': 1.2.5
       ansis: 4.2.0
@@ -18907,7 +18906,7 @@ snapshots:
     optionalDependencies:
       better-sqlite3: 11.10.0
       ioredis: 5.8.2
-      pg: 8.16.3
+      pg: 8.20.0
       redis: 5.10.0
       ts-node: 10.9.2(@swc/core@1.15.3)(@types/node@22.19.2)(typescript@5.9.3)
     transitivePeerDependencies:

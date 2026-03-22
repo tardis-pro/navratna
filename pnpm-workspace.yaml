@@ -89,8 +89,8 @@ catalogs:
     tsc-alias: ^1.8.16
     bcrypt: ^6.0.0
     '@types/bcrypt': ^5.0.2
-    pg: ^8.16.1
-    '@types/pg': ^8.15.4
+    pg: ^8.20.0
+    '@types/pg': ^8.18.0
     jsonwebtoken: ^9.0.2
     '@types/jsonwebtoken': ^9.0.10
     uuid: ^11.1.0
