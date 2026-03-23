@@ -47,7 +47,7 @@
     "@types/node": "catalog:backend",
     "concurrently": "catalog:dev",
     "jest": "catalog:backend",
-    "supertest": "^7.0.0",
+    "supertest": "^7.2.2",
     "ts-jest": "catalog:backend",
     "tsc-alias": "catalog:backend",
     "tsx": "catalog:backend",
