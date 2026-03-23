@@ -21,31 +21,13 @@ import {
   text,
   boolean,
   integer,
+  decimal,
   timestamp,
   jsonb,
   json,
   index,
   uniqueIndex,
-  customType,
 } from 'drizzle-orm/pg-core';
-const numericDecimal = customType<{ data: number; driverData: string }>({
-  dataType(params: { precision?: number; scale?: number }) {
-    const { precision, scale } = params;
-    if (precision !== undefined && scale !== undefined) {
-      return `numeric(${precision},${scale})`;
-    }
-    if (precision !== undefined) {
-      return `numeric(${precision})`;
-    }
-    return 'numeric';
-  },
-  toDriver(value: number): string {
-    return String(value);
-  },
-  fromDriver(value: string): number {
-    return Number(value);
-  },
-});
 import type {
   AgentRole,
   AgentPersona,
@@ -74,7 +56,14 @@ import type {
   ValidationResult,
   MessageType,
 } from '@uaip/types';
-import { base, llmPreferenceCommonColumns } from './schema_base';
+
+// ─── base ──────────────────────────────────────────────────────────────────
+
+const base = {
+  id: uuid('id').defaultRandom().primaryKey(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+};
 
 // ─── PERSONAS ──────────────────────────────────────────────────────────────
 
@@ -92,17 +81,14 @@ export const personas = pgTable(
     tone: text('tone').$type<PersonaTone>(),
     style: text('style').$type<PersonaStyle>(),
     energyLevel: text('energy_level').$type<PersonaEnergyLevel>(),
-    chattiness: numericDecimal('chattiness', { precision: 3, scale: 2 }),
-    empathyLevel: numericDecimal('empathy_level', { precision: 3, scale: 2 }),
+    chattiness: decimal('chattiness', { precision: 3, scale: 2 }),
+    empathyLevel: decimal('empathy_level', { precision: 3, scale: 2 }),
     parentPersonas: jsonb('parent_personas').$type<string[]>(),
     hybridTraits: jsonb('hybrid_traits').$type<string[]>(),
     dominantExpertise: varchar('dominant_expertise', { length: 255 }),
     personalityBlend: jsonb('personality_blend').$type<Record<string, number>>(),
     conversationalStyle: jsonb('conversational_style').$type<ConversationalStyle>(),
-    status: text('status')
-      .$type<PersonaStatus>()
-      .notNull()
-      .default('draft' as PersonaStatus),
+    status: text('status').$type<PersonaStatus>().notNull().default('draft' as PersonaStatus),
     visibility: text('visibility')
       .$type<PersonaVisibility>()
       .notNull()
@@ -120,9 +106,9 @@ export const personas = pgTable(
     capabilities: jsonb('capabilities').$type<string[]>().notNull().default([]),
     restrictions: jsonb('restrictions').$type<Record<string, unknown>>(),
     metadata: jsonb('metadata').$type<Record<string, unknown>>(),
-    qualityScore: numericDecimal('quality_score', { precision: 3, scale: 2 }),
-    consistencyScore: numericDecimal('consistency_score', { precision: 3, scale: 2 }),
-    userSatisfaction: numericDecimal('user_satisfaction', { precision: 3, scale: 2 }),
+    qualityScore: decimal('quality_score', { precision: 3, scale: 2 }),
+    consistencyScore: decimal('consistency_score', { precision: 3, scale: 2 }),
+    userSatisfaction: decimal('user_satisfaction', { precision: 3, scale: 2 }),
     totalInteractions: integer('total_interactions').notNull().default(0),
     successfulInteractions: integer('successful_interactions').notNull().default(0),
     lastUsedAt: timestamp('last_used_at'),
@@ -144,8 +130,8 @@ export const personaAnalytics = pgTable('persona_analytics', {
   period: varchar('period', { length: 50 }).notNull(),
   metrics: jsonb('metrics').$type<Record<string, unknown>>().notNull().default({}),
   interactions: integer('interactions').notNull().default(0),
-  successRate: numericDecimal('success_rate', { precision: 5, scale: 2 }),
-  avgResponseTime: numericDecimal('avg_response_time', { precision: 10, scale: 2 }),
+  successRate: decimal('success_rate', { precision: 5, scale: 2 }),
+  avgResponseTime: decimal('avg_response_time', { precision: 10, scale: 2 }),
   metadata: jsonb('metadata').$type<Record<string, unknown>>(),
 });
 
@@ -179,7 +165,10 @@ export const agents = pgTable(
     performanceMetrics: jsonb('performance_metrics').$type<Record<string, unknown>>(),
     securityLevel: text('security_level').notNull().default('medium'),
     complianceTags: jsonb('compliance_tags').$type<string[]>().notNull().default([]),
-    auditTrail: jsonb('audit_trail').$type<Record<string, unknown>[]>().notNull().default([]),
+    auditTrail: jsonb('audit_trail')
+      .$type<Record<string, unknown>[]>()
+      .notNull()
+      .default([]),
     configuration: jsonb('configuration').$type<Record<string, unknown>>(),
     preferences: jsonb('preferences').$type<Record<string, unknown>>(),
     tags: jsonb('tags').$type<string[]>().notNull().default([]),
@@ -188,7 +177,7 @@ export const agents = pgTable(
     deploymentEnvironment: varchar('deployment_environment', { length: 50 }),
     totalOperations: integer('total_operations').notNull().default(0),
     successfulOperations: integer('successful_operations').notNull().default(0),
-    averageResponseTime: numericDecimal('average_response_time', { precision: 10, scale: 2 }),
+    averageResponseTime: decimal('average_response_time', { precision: 10, scale: 2 }),
     lastPerformanceReview: timestamp('last_performance_review'),
     toolPermissions: jsonb('tool_permissions').$type<Record<string, unknown>>(),
     toolPreferences: jsonb('tool_preferences').$type<Record<string, unknown>>(),
@@ -217,7 +206,7 @@ export const agents = pgTable(
     apiType: text('api_type'),
     // cross-plane ref: control.userLLMProviders.id — no DB FK
     userLLMProviderId: uuid('user_llm_provider_id'),
-    temperature: numericDecimal('temperature', { precision: 3, scale: 2 }),
+    temperature: decimal('temperature', { precision: 3, scale: 2 }),
     maxTokens: integer('max_tokens'),
     systemPrompt: text('system_prompt'),
   },
@@ -233,9 +222,14 @@ export const agents = pgTable(
 
 export const agentLLMPreferences = pgTable('agent_llm_preferences', {
   ...base,
-  agentId: uuid('agent_id').notNull().references(() => agents.id, { onDelete: 'cascade' }),
-  temperature: numericDecimal('temperature', { precision: 3, scale: 2 }),
-  ...llmPreferenceCommonColumns,
+  agentId: uuid('agent_id')
+    .notNull()
+    .references(() => agents.id, { onDelete: 'cascade' }),
+  modelId: uuid('model_id'),
+  temperature: decimal('temperature', { precision: 3, scale: 2 }),
+  maxTokens: integer('max_tokens'),
+  systemPrompt: text('system_prompt'),
+  preferences: jsonb('preferences').$type<Record<string, unknown>>(),
 });
 
 export const agentCapabilityMetrics = pgTable('agent_capability_metrics', {
@@ -244,7 +238,7 @@ export const agentCapabilityMetrics = pgTable('agent_capability_metrics', {
     .notNull()
     .references(() => agents.id, { onDelete: 'cascade' }),
   capability: varchar('capability', { length: 255 }).notNull(),
-  score: numericDecimal('score', { precision: 5, scale: 2 }).notNull(),
+  score: decimal('score', { precision: 5, scale: 2 }).notNull(),
   evaluatedAt: timestamp('evaluated_at').notNull(),
   metadata: jsonb('metadata').$type<Record<string, unknown>>(),
 });
@@ -267,7 +261,7 @@ export const agentLearningRecords = pgTable('agent_learning_records', {
     .references(() => agents.id, { onDelete: 'cascade' }),
   lessonType: varchar('lesson_type', { length: 100 }).notNull(),
   content: jsonb('content').$type<Record<string, unknown>>().notNull(),
-  confidence: numericDecimal('confidence', { precision: 3, scale: 2 }),
+  confidence: decimal('confidence', { precision: 3, scale: 2 }),
   appliedAt: timestamp('applied_at'),
   metadata: jsonb('metadata').$type<Record<string, unknown>>(),
 });
@@ -279,15 +273,12 @@ export const knowledgeItems = pgTable(
   {
     ...base,
     content: text('content').notNull(),
-    type: text('type')
-      .$type<KnowledgeType>()
-      .notNull()
-      .default('factual' as KnowledgeType),
+    type: text('type').$type<KnowledgeType>().notNull().default('factual' as KnowledgeType),
     sourceType: text('source_type').$type<SourceType>().notNull(),
     sourceIdentifier: varchar('source_identifier', { length: 255 }).notNull(),
     sourceUrl: text('source_url'),
     tags: text('tags').array().notNull().default([]),
-    confidence: numericDecimal('confidence', { precision: 3, scale: 2 }).notNull().default(0.8),
+    confidence: decimal('confidence', { precision: 3, scale: 2 }).notNull().default('0.8'),
     metadata: jsonb('metadata').$type<Record<string, unknown>>().notNull().default({}),
     // cross-plane refs: control.users.id, intelligence.agents.id
     createdBy: varchar('created_by', { length: 36 }),
@@ -316,7 +307,7 @@ export const knowledgeRelationships = pgTable('knowledge_relationships', {
     .notNull()
     .references(() => knowledgeItems.id, { onDelete: 'cascade' }),
   relationshipType: varchar('relationship_type', { length: 100 }).notNull(),
-  strength: numericDecimal('strength', { precision: 3, scale: 2 }),
+  strength: decimal('strength', { precision: 3, scale: 2 }),
   metadata: jsonb('metadata').$type<Record<string, unknown>>(),
 });
 
@@ -333,10 +324,7 @@ export const discussions = pgTable('discussions', {
   state: jsonb('state').$type<DiscussionState>(),
   settings: jsonb('settings').$type<DiscussionSettings>().notNull(),
   turnStrategy: jsonb('turn_strategy').$type<TurnStrategyConfig>().notNull(),
-  status: text('status')
-    .$type<DiscussionStatus>()
-    .notNull()
-    .default('draft' as DiscussionStatus),
+  status: text('status').$type<DiscussionStatus>().notNull().default('draft' as DiscussionStatus),
   visibility: text('visibility')
     .$type<DiscussionVisibility>()
     .notNull()
@@ -415,7 +403,7 @@ export const discussionMessages = pgTable('discussion_messages', {
   pinnedAt: timestamp('pinned_at'),
   pinnedBy: uuid('pinned_by'),
   metadata: jsonb('metadata').$type<Record<string, unknown>>(),
-  confidence: numericDecimal('confidence', { precision: 5, scale: 4 }),
+  confidence: decimal('confidence', { precision: 5, scale: 4 }),
   agentId: uuid('agent_id'),
   processingInfo: jsonb('processing_info').$type<{
     source: string;
@@ -459,11 +447,11 @@ export const artifacts = pgTable(
     generatedBy: varchar('generated_by').notNull(),
     generatedAt: timestamp('generated_at').notNull(),
     generator: varchar('generator', { length: 255 }).notNull(),
-    confidence: numericDecimal('confidence', { precision: 3, scale: 2 }).notNull(),
+    confidence: decimal('confidence', { precision: 3, scale: 2 }).notNull(),
     sourceMessages: jsonb('source_messages').$type<string[]>().notNull().default([]),
     validationResult: jsonb('validation_result').$type<ValidationResult>(),
     validationStatus: text('validation_status').notNull().default('pending'),
-    validationScore: numericDecimal('validation_score', { precision: 3, scale: 2 }),
+    validationScore: decimal('validation_score', { precision: 3, scale: 2 }),
     version: varchar('version', { length: 50 }).notNull().default('1.0.0'),
     parentArtifactId: varchar('parent_artifact_id'),
     iterationCount: integer('iteration_count').notNull().default(1),
@@ -473,14 +461,14 @@ export const artifacts = pgTable(
     approvedAt: timestamp('approved_at'),
     deployedAt: timestamp('deployed_at'),
     archivedAt: timestamp('archived_at'),
-    qualityScore: numericDecimal('quality_score', { precision: 3, scale: 2 }),
-    userRating: numericDecimal('user_rating', { precision: 3, scale: 2 }),
+    qualityScore: decimal('quality_score', { precision: 3, scale: 2 }),
+    userRating: decimal('user_rating', { precision: 3, scale: 2 }),
     usageCount: integer('usage_count').notNull().default(0),
     downloadCount: integer('download_count').notNull().default(0),
     lastUsedAt: timestamp('last_used_at'),
     contentSizeBytes: integer('content_size_bytes'),
     lineCount: integer('line_count'),
-    complexityScore: numericDecimal('complexity_score', { precision: 3, scale: 2 }),
+    complexityScore: decimal('complexity_score', { precision: 3, scale: 2 }),
     securityLevel: text('security_level').notNull().default('medium'),
     complianceTags: jsonb('compliance_tags').$type<string[]>().notNull().default([]),
     securityScanResult: jsonb('security_scan_result').$type<Record<string, unknown>>(),
@@ -507,15 +495,15 @@ export const artifactReviews = pgTable('artifact_reviews', {
     .references(() => artifacts.id, { onDelete: 'cascade' }),
   reviewerId: varchar('reviewer_id').notNull(),
   status: text('status').notNull().default('pending'),
-  score: numericDecimal('score', { precision: 3, scale: 2 }),
+  score: decimal('score', { precision: 3, scale: 2 }),
   comments: text('comments'),
   suggestions: jsonb('suggestions').$type<string[]>().notNull().default([]),
   reviewedAt: timestamp('reviewed_at'),
-  qualityScore: numericDecimal('quality_score', { precision: 3, scale: 2 }),
-  securityScore: numericDecimal('security_score', { precision: 3, scale: 2 }),
-  performanceScore: numericDecimal('performance_score', { precision: 3, scale: 2 }),
-  maintainabilityScore: numericDecimal('maintainability_score', { precision: 3, scale: 2 }),
-  documentationScore: numericDecimal('documentation_score', { precision: 3, scale: 2 }),
+  qualityScore: decimal('quality_score', { precision: 3, scale: 2 }),
+  securityScore: decimal('security_score', { precision: 3, scale: 2 }),
+  performanceScore: decimal('performance_score', { precision: 3, scale: 2 }),
+  maintainabilityScore: decimal('maintainability_score', { precision: 3, scale: 2 }),
+  documentationScore: decimal('documentation_score', { precision: 3, scale: 2 }),
   codeQualityFeedback: text('code_quality_feedback'),
   securityFeedback: text('security_feedback'),
   performanceFeedback: text('performance_feedback'),
@@ -530,10 +518,7 @@ export const artifactReviews = pgTable('artifact_reviews', {
   escalatedAt: timestamp('escalated_at'),
   escalationReason: text('escalation_reason'),
   checklistItems: jsonb('checklist_items').$type<Record<string, unknown>[]>().notNull().default([]),
-  complianceChecks: jsonb('compliance_checks')
-    .$type<Record<string, unknown>[]>()
-    .notNull()
-    .default([]),
+  complianceChecks: jsonb('compliance_checks').$type<Record<string, unknown>[]>().notNull().default([]),
   securityScanPassed: boolean('security_scan_passed'),
   automatedTestsPassed: boolean('automated_tests_passed'),
   tags: jsonb('tags').$type<string[]>().notNull().default([]),
@@ -563,10 +548,7 @@ export const llmProviders = pgTable(
     ...base,
     name: varchar('name', { length: 255 }).notNull().unique(),
     description: varchar('description', { length: 500 }),
-    type: text('type')
-      .$type<LLMProviderType>()
-      .notNull()
-      .default('custom' as LLMProviderType),
+    type: text('type').$type<LLMProviderType>().notNull().default('custom' as LLMProviderType),
     baseUrl: varchar('base_url', { length: 500 }).notNull(),
     apiKeyEncrypted: text('api_key_encrypted'),
     defaultModel: varchar('default_model', { length: 255 }),
@@ -614,8 +596,8 @@ export const llmModels = pgTable('llm_models', {
   description: text('description'),
   contextWindow: integer('context_window'),
   maxOutputTokens: integer('max_output_tokens'),
-  inputCostPer1kTokens: numericDecimal('input_cost_per_1k_tokens', { precision: 10, scale: 6 }),
-  outputCostPer1kTokens: numericDecimal('output_cost_per_1k_tokens', { precision: 10, scale: 6 }),
+  inputCostPer1kTokens: decimal('input_cost_per_1k_tokens', { precision: 10, scale: 6 }),
+  outputCostPer1kTokens: decimal('output_cost_per_1k_tokens', { precision: 10, scale: 6 }),
   capabilities: jsonb('capabilities').$type<string[]>().default([]),
   isEnabled: boolean('is_enabled').notNull().default(true),
   metadata: jsonb('metadata').$type<Record<string, unknown>>(),
@@ -670,10 +652,8 @@ export type NewPersona = typeof personas.$inferInsert;
 export type Agent = typeof agents.$inferSelect;
 export type NewAgent = typeof agents.$inferInsert;
 export type KnowledgeItem = typeof knowledgeItems.$inferSelect;
-export type KnowledgeItemEntity = KnowledgeItem;
 export type NewKnowledgeItem = typeof knowledgeItems.$inferInsert;
 export type KnowledgeRelationship = typeof knowledgeRelationships.$inferSelect;
-export type KnowledgeRelationshipEntity = KnowledgeRelationship;
 export type NewKnowledgeRelationship = typeof knowledgeRelationships.$inferInsert;
 export type Discussion = typeof discussions.$inferSelect;
 export type NewDiscussion = typeof discussions.$inferInsert;

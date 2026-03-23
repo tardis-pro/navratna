@@ -28,7 +28,6 @@ import {
   index,
   uniqueIndex,
 } from 'drizzle-orm/pg-core';
-import { base, llmPreferenceCommonColumns } from './schema_base';
 import type {
   SecurityLevel,
   UserType,
@@ -45,7 +44,16 @@ import type {
   SessionStatus,
   AuthenticationMethod,
   OAuthProviderType,
+  LLMProviderType,
 } from '@uaip/types';
+
+// ─── base ──────────────────────────────────────────────────────────────────
+
+const base = {
+  id: uuid('id').defaultRandom().primaryKey(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+};
 
 // ─── USERS & AUTH ──────────────────────────────────────────────────────────
 
@@ -58,10 +66,7 @@ export const users = pgTable(
     lastName: varchar('last_name', { length: 255 }),
     department: varchar('department', { length: 100 }),
     role: varchar('role', { length: 50 }).notNull(),
-    userType: text('user_type')
-      .$type<UserType>()
-      .notNull()
-      .default('human' as UserType),
+    userType: text('user_type').$type<UserType>().notNull().default('human' as UserType),
     passwordHash: varchar('password_hash', { length: 255 }).notNull(),
     securityClearance: text('security_clearance')
       .$type<SecurityLevel>()
@@ -128,14 +133,8 @@ export const sessions = pgTable(
       .references(() => users.id, { onDelete: 'cascade' }),
     sessionToken: varchar('session_token', { length: 255 }).notNull().unique(),
     refreshToken: text('refresh_token'),
-    status: text('status')
-      .$type<SessionStatus>()
-      .notNull()
-      .default('active' as SessionStatus),
-    userType: text('user_type')
-      .$type<UserType>()
-      .notNull()
-      .default('human' as UserType),
+    status: text('status').$type<SessionStatus>().notNull().default('active' as SessionStatus),
+    userType: text('user_type').$type<UserType>().notNull().default('human' as UserType),
     ipAddress: varchar('ip_address', { length: 45 }),
     userAgent: text('user_agent'),
     deviceInfo: json('device_info').$type<{
@@ -174,15 +173,17 @@ export const sessions = pgTable(
   ]
 );
 
-const userTokenColumns = {
-  userId: varchar('user_id').notNull(),
-  token: varchar('token', { length: 500 }).notNull().unique(),
-  expiresAt: timestamp('expires_at').notNull(),
-};
-
 export const refreshTokens = pgTable(
   'refresh_tokens',
-  { ...base, ...userTokenColumns, revokedAt: timestamp('revoked_at') },
+  {
+    ...base,
+    userId: varchar('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    token: varchar('token', { length: 500 }).notNull().unique(),
+    expiresAt: timestamp('expires_at').notNull(),
+    revokedAt: timestamp('revoked_at'),
+  },
   (t) => [
     uniqueIndex('idx_refresh_tokens_token').on(t.token),
     index('idx_refresh_tokens_user_id').on(t.userId),
@@ -192,8 +193,10 @@ export const refreshTokens = pgTable(
 
 export const passwordResetTokens = pgTable('password_reset_tokens', {
   ...base,
-  userId: varchar('user_id').notNull(),
-  token: varchar('token', { length: 500 }).notNull().unique('password_reset_tokens_token_unique'),
+  userId: varchar('user_id')
+    .notNull()
+    .references(() => users.id, { onDelete: 'cascade' }),
+  token: varchar('token', { length: 500 }).notNull().unique(),
   expiresAt: timestamp('expires_at').notNull(),
   usedAt: timestamp('used_at'),
 });
@@ -333,9 +336,14 @@ export const userLLMProviders = pgTable('user_llm_providers', {
 
 export const userLLMPreferences = pgTable('user_llm_preferences', {
   ...base,
-  userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  userId: uuid('user_id')
+    .notNull()
+    .references(() => users.id, { onDelete: 'cascade' }),
+  modelId: uuid('model_id'),
   temperature: decimal('temperature', { precision: 3, scale: 2 }),
-  ...llmPreferenceCommonColumns,
+  maxTokens: integer('max_tokens'),
+  systemPrompt: text('system_prompt'),
+  preferences: jsonb('preferences').$type<Record<string, unknown>>(),
 });
 
 // ─── OPERATIONS ────────────────────────────────────────────────────────────
@@ -567,10 +575,7 @@ export const mcpServers = pgTable(
     version: varchar('version', { length: 50 }).notNull(),
     requiresApproval: boolean('requires_approval').notNull().default(false),
     securityLevel: text('security_level').$type<SecurityLevel>().notNull(),
-    status: text('status')
-      .$type<MCPServerStatus>()
-      .notNull()
-      .default('stopped' as MCPServerStatus),
+    status: text('status').$type<MCPServerStatus>().notNull().default('stopped' as MCPServerStatus),
     pid: integer('pid'),
     startTime: timestamp('start_time'),
     lastHealthCheck: timestamp('last_health_check'),
@@ -704,27 +709,6 @@ export const tasks = pgTable('tasks', {
   metadata: jsonb('metadata').$type<Record<string, unknown>>(),
 });
 
-export const workflowDefinitions = pgTable('workflow_definitions', {
-  ...base,
-  name: text('name').notNull(),
-  description: text('description'),
-  trigger: jsonb('trigger')
-    .$type<{ kind: 'cron' | 'every' | 'webhook' | 'event'; expr: string; tz?: string }>()
-    .notNull(),
-  steps: jsonb('steps')
-    .$type<Array<{ type: 'agentTurn' | 'bash' | 'httpCall'; [key: string]: unknown }>>()
-    .notNull(),
-  delivery: jsonb('delivery').$type<{
-    type: 'webhook' | 'email' | 'slack';
-    target: string;
-    retryPolicy?: object;
-  } | null>(),
-  enabled: boolean('enabled').default(true).notNull(),
-  agentId: text('agent_id'),
-  sessionKey: text('session_key'),
-  model: text('model'),
-});
-
 // ─── SECURITY & AUDIT ──────────────────────────────────────────────────────
 
 export const securityPolicies = pgTable('security_policies', {
@@ -752,9 +736,6 @@ export const auditEvents = pgTable('audit_events', {
   ipAddress: varchar('ip_address', { length: 45 }),
   userAgent: text('user_agent'),
   metadata: jsonb('metadata').$type<Record<string, unknown>>(),
-  resolved: boolean('resolved').default(false).notNull(),
-  resolvedBy: uuid('resolved_by'),
-  resolvedAt: timestamp('resolved_at'),
 });
 
 export const integrationEvents = pgTable('integration_events', {
@@ -772,7 +753,6 @@ export const integrationEvents = pgTable('integration_events', {
 // ─── TYPE EXPORTS ──────────────────────────────────────────────────────────
 
 export type User = typeof users.$inferSelect;
-export type UserEntity = User;
 export type NewUser = typeof users.$inferInsert;
 export type Session = typeof sessions.$inferSelect;
 export type NewSession = typeof sessions.$inferInsert;
@@ -780,16 +760,10 @@ export type RefreshToken = typeof refreshTokens.$inferSelect;
 export type NewRefreshToken = typeof refreshTokens.$inferInsert;
 export type Operation = typeof operations.$inferSelect;
 export type NewOperation = typeof operations.$inferInsert;
-export type UserLLMPreference = typeof userLLMPreferences.$inferSelect;
-export type NewUserLLMPreference = typeof userLLMPreferences.$inferInsert;
 export type ApprovalWorkflow = typeof approvalWorkflows.$inferSelect;
 export type NewApprovalWorkflow = typeof approvalWorkflows.$inferInsert;
 export type ToolDefinition = typeof toolDefinitions.$inferSelect;
 export type NewToolDefinition = typeof toolDefinitions.$inferInsert;
-export type Task = typeof tasks.$inferSelect;
-export type NewTask = typeof tasks.$inferInsert;
-export type WorkflowDefinition = typeof workflowDefinitions.$inferSelect;
-export type NewWorkflowDefinition = typeof workflowDefinitions.$inferInsert;
 export type MCPServer = typeof mcpServers.$inferSelect;
 export type NewMCPServer = typeof mcpServers.$inferInsert;
 export type Project = typeof projects.$inferSelect;

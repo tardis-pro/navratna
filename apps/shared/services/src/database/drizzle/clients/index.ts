@@ -31,8 +31,8 @@
 import { drizzle, type NodePgDatabase } from 'drizzle-orm/node-postgres';
 import pg from 'pg';
 import { createLogger } from '@uaip/utils';
-import * as intelligenceSchema from '../schemas/intelligence_schema';
-import * as controlSchema from '../schemas/control_schema';
+import * as intelligenceSchema from '../schemas/intelligence.schema';
+import * as controlSchema from '../schemas/control.schema';
 
 const logger = createLogger({
   serviceName: 'drizzle-clients',
@@ -133,8 +133,7 @@ export async function initializePlanes(): Promise<{
 // ─────────────────────────────────────────────────────────────────────────────
 
 export function getIntelligenceDb(): IntelligenceDB {
-  if (!_intelligenceDb)
-    throw new Error('Intelligence plane not initialized. Call initializePlanes().');
+  if (!_intelligenceDb) throw new Error('Intelligence plane not initialized. Call initializePlanes().');
   return _intelligenceDb;
 }
 
