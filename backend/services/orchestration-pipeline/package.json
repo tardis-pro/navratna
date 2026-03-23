@@ -49,7 +49,7 @@
     "concurrently": "catalog:dev",
     "jest": "catalog:backend",
     "nodemon": "catalog:backend",
-    "supertest": "^7.0.0",
+    "supertest": "^7.2.2",
     "ts-jest": "catalog:backend",
     "ts-node": "catalog:backend",
     "tsc-alias": "catalog:backend",
