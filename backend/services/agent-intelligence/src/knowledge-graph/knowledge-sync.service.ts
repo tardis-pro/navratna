@@ -853,7 +853,9 @@ export class KnowledgeSyncService {
   /**
    * Scroll through all Qdrant points (since there's no "get all" method)
    */
-  private async scrollAllQdrantPoints(): Promise<Array<{ id: string; vector: number[]; payload: Record<string, unknown> }>> {
+  private async scrollAllQdrantPoints(): Promise<
+    Array<{ id: string; vector: number[]; payload: Record<string, unknown> }>
+  > {
     try {
       return await this.qdrantService.scrollAll(10000);
     } catch (error) {
@@ -976,7 +978,8 @@ export class KnowledgeSyncService {
       `;
 
       const params = {
-        oldId: (item.metadata.originalProperties as Record<string, unknown> | undefined)?.id ?? null,
+        oldId:
+          (item.metadata.originalProperties as Record<string, unknown> | undefined)?.id ?? null,
         newId: pgEntity.id,
         content: pgEntity.content,
         type: pgEntity.type,

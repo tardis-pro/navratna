@@ -253,10 +253,13 @@ export class ToolCacheService {
 
     return Object.keys(objRecord)
       .sort()
-      .reduce((sorted: Record<string, unknown>, key) => {
-        sorted[key] = this.sortObject(objRecord[key]);
-        return sorted;
-      }, {} as Record<string, unknown>);
+      .reduce(
+        (sorted: Record<string, unknown>, key) => {
+          sorted[key] = this.sortObject(objRecord[key]);
+          return sorted;
+        },
+        {} as Record<string, unknown>
+      );
   }
 
   private setMemoryCache(key: string, data: unknown, ttlSeconds: number): void {

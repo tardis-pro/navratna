@@ -74,7 +74,12 @@ export function registerToolRoutes(
     g
       // List tools
       .get('/', async ({ query, headers }) => {
-        const req: ControllerRequest = { query: query ?? {}, params: {}, body: {}, headers: headers ?? {} };
+        const req: ControllerRequest = {
+          query: query ?? {},
+          params: {},
+          body: {},
+          headers: headers ?? {},
+        };
         const res: ControllerResponse = createResponseObject();
         return controller.getTools(req, res);
       })
@@ -171,12 +176,22 @@ export function registerToolRoutes(
 
       // Related/similar/dependencies
       .get('/:id/related', async ({ params, query }) => {
-        const req: ControllerRequest = { query: query ?? {}, params: params ?? {}, body: {}, headers: {} };
+        const req: ControllerRequest = {
+          query: query ?? {},
+          params: params ?? {},
+          body: {},
+          headers: {},
+        };
         const res = createResponseObject();
         return controller.getRelatedTools(req, res);
       })
       .get('/:id/similar', async ({ params, query }) => {
-        const req: ControllerRequest = { query: query ?? {}, params: params ?? {}, body: {}, headers: {} };
+        const req: ControllerRequest = {
+          query: query ?? {},
+          params: params ?? {},
+          body: {},
+          headers: {},
+        };
         const res = createResponseObject();
         return controller.getSimilarTools(req, res);
       })

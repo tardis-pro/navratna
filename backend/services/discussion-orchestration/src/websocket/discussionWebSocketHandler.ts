@@ -506,7 +506,10 @@ export class DiscussionWebSocketHandler {
   /**
    * Send message to a specific connection
    */
-  private sendToConnection(connection: WebSocketConnection, message: Record<string, unknown>): void {
+  private sendToConnection(
+    connection: WebSocketConnection,
+    message: Record<string, unknown>
+  ): void {
     if (connection.ws.readyState === WebSocket.OPEN) {
       connection.ws.send(JSON.stringify(message));
     }

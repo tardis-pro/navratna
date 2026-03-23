@@ -53,7 +53,11 @@ function createResponseObject() {
 }
 
 async function invokeController(
-  handler: (req: RouteRequest, res: ControllerResponse, next: (error?: unknown) => void) => Promise<void>,
+  handler: (
+    req: RouteRequest,
+    res: ControllerResponse,
+    next: (error?: unknown) => void
+  ) => Promise<void>,
   req: RouteRequest
 ) {
   const res = createResponseObject();

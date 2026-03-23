@@ -158,8 +158,7 @@ export class AgentTransformationService {
       },
       modelId: input.modelId as string,
       apiType: input.apiType as 'ollama' | 'llmstudio' | 'openai' | 'anthropic' | 'custom',
-      securityLevel:
-        (input.securityLevel as 'low' | 'medium' | 'high' | 'critical') || 'medium',
+      securityLevel: (input.securityLevel as 'low' | 'medium' | 'high' | 'critical') || 'medium',
       isActive: (input.isActive as boolean) ?? true,
     };
   }

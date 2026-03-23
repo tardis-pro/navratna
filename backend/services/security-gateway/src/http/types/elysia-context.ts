@@ -1,4 +1,8 @@
-import type { RequiredAuthContext, OptionalAuthContext, ElysiaContext } from './types/elysia-context.js';
+import type {
+  RequiredAuthContext,
+  OptionalAuthContext,
+  ElysiaContext,
+} from './types/elysia-context.js';
 /**
  * Elysia Context Types
  *

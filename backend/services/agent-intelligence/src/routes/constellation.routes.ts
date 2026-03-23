@@ -23,7 +23,9 @@ export function registerConstellationRoutes<T>(app: T): T {
   routeApp.group('/api/v1/knowledge', (group) =>
     group.post('/constellations', async (ctx) => {
       const context =
-        ctx && typeof ctx === 'object' ? (ctx as { body?: unknown; set?: { status?: number | string } }) : {};
+        ctx && typeof ctx === 'object'
+          ? (ctx as { body?: unknown; set?: { status?: number | string } })
+          : {};
       const body = context.body;
       const set = context.set;
       const parsed = constellationRequestSchema.safeParse(body);

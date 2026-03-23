@@ -19,7 +19,6 @@ interface AuthenticatedSocket extends Socket {
   rateLimitReset?: number;
 }
 
-
 // Validation schemas for incoming WebSocket messages
 const JoinDiscussionSchema = z.object({
   discussionId: z.string().uuid('Discussion ID must be a valid UUID'),

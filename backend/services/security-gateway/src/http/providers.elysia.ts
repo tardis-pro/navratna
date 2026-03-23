@@ -239,9 +239,7 @@ export function registerProviderRoutes(elysiaApp: AnyElysia): AnyElysia {
                 .getUserLLMProviderRepository()
                 .findActiveProvidersByUser(user!.id);
               const active = providers
-                .filter(
-                  (p) => p.isActive && (p.status === 'active' || p.status === 'testing')
-                )
+                .filter((p) => p.isActive && (p.status === 'active' || p.status === 'testing'))
                 .map((p) => ({
                   id: p.id,
                   name: p.name,

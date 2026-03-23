@@ -104,7 +104,10 @@ export class AgentIntelligenceStore {
     });
   }
 
-  async storeAgentCapabilities(agentId: string, capabilities: AgentCapabilitiesData): Promise<void> {
+  async storeAgentCapabilities(
+    agentId: string,
+    capabilities: AgentCapabilitiesData
+  ): Promise<void> {
     logger.debug('Storing agent capabilities', { agentId });
     await this.databaseService.update<Agent>(Agent, agentId, {
       capabilities: capabilities.capabilities?.primary ?? [],

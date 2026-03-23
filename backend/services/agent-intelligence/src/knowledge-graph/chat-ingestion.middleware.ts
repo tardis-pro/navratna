@@ -230,9 +230,7 @@ export class ChatIngestionMiddleware {
     return (app: MiddlewareApp) => {
       return app.derive(async (ctx) => {
         const context =
-          ctx && typeof ctx === 'object'
-            ? (ctx as { set?: { status?: number | string } })
-            : {};
+          ctx && typeof ctx === 'object' ? (ctx as { set?: { status?: number | string } }) : {};
         const { set } = context;
         const { uploadedFiles, validatedOptions } = ctx as ValidationContext;
 
@@ -320,9 +318,7 @@ export class ChatIngestionMiddleware {
     return (app: MiddlewareApp) => {
       return app.derive(async (ctx) => {
         const context =
-          ctx && typeof ctx === 'object'
-            ? (ctx as { set?: { status?: number | string } })
-            : {};
+          ctx && typeof ctx === 'object' ? (ctx as { set?: { status?: number | string } }) : {};
         const { set } = context;
         const { chatFiles } = ctx as FileContext;
 
@@ -420,9 +416,7 @@ export class ChatIngestionMiddleware {
     return (app: MiddlewareApp) => {
       return app.derive((ctx) => {
         const context =
-          ctx && typeof ctx === 'object'
-            ? (ctx as { set?: { status?: number | string } })
-            : {};
+          ctx && typeof ctx === 'object' ? (ctx as { set?: { status?: number | string } }) : {};
         const { set } = context;
         const { chatFiles, validatedOptions } = ctx as FileContext;
 

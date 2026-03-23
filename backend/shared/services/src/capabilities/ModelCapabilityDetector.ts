@@ -349,15 +349,15 @@ export class ModelCapabilityDetector {
           provider: model.provider,
           detectedCapabilities: [ModelCapability.TEXT],
           testedAt: new Date(),
-        testResults: {
-          error: {
-            supported: false,
-            confidence: 0,
-            testMethod: 'api-call',
-            notes: error instanceof Error ? error.message : String(error),
+          testResults: {
+            error: {
+              supported: false,
+              confidence: 0,
+              testMethod: 'api-call',
+              notes: error instanceof Error ? error.message : String(error),
+            },
           },
-        },
-      });
+        });
       }
     }
 

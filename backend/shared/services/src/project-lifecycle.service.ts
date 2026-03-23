@@ -93,9 +93,11 @@ export class ProjectLifecycleService {
       : {};
   }
 
-  private static getProjectEvent(
-    event: unknown
-  ): { projectId?: string; statusChanged?: boolean; cost?: number } {
+  private static getProjectEvent(event: unknown): {
+    projectId?: string;
+    statusChanged?: boolean;
+    cost?: number;
+  } {
     return typeof event === 'object' && event !== null
       ? (event as { projectId?: string; statusChanged?: boolean; cost?: number })
       : {};
@@ -398,8 +400,7 @@ export class ProjectLifecycleService {
       const elapsed = Date.now() - (projectDetails.startDate?.getTime() ?? 0);
       const expectedCompletion = (elapsed / totalDuration) * 100;
 
-      if ((projectDetails.completionPercentage ?? 0) < expectedCompletion - 20)
-        return 'delayed';
+      if ((projectDetails.completionPercentage ?? 0) < expectedCompletion - 20) return 'delayed';
     }
 
     return 'on-time';
@@ -412,7 +413,9 @@ export class ProjectLifecycleService {
   }
 
   private assessAgentHealth(metrics: ProjectMetrics): 'active' | 'inactive' | 'overloaded' {
-    const activeAgents = metrics.agentPerformance.filter((agent) => agent.tasksCompleted > 0).length;
+    const activeAgents = metrics.agentPerformance.filter(
+      (agent) => agent.tasksCompleted > 0
+    ).length;
     const totalAgents = metrics.agentPerformance.length;
 
     if (activeAgents === 0) return 'inactive';

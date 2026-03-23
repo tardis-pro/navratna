@@ -4,7 +4,13 @@
  * Part of the refactored agent-intelligence microservices
  */
 
-import { Agent, ContextAnalysis, ConversationContext, EnvironmentFactors, KnowledgeItem } from '@uaip/types';
+import {
+  Agent,
+  ContextAnalysis,
+  ConversationContext,
+  EnvironmentFactors,
+  KnowledgeItem,
+} from '@uaip/types';
 import { logger } from '@uaip/utils';
 import {} from '@uaip/shared-services';
 import { EventBusService } from '@uaip/infra/eventBus';

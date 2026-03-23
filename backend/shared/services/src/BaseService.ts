@@ -81,7 +81,9 @@ export abstract class BaseService {
    */
   protected registerEntities(entities: unknown[]): void {
     this.databaseService.registerEntities(
-      entities as Array<string | Function | import('typeorm').EntitySchema<import('typeorm').ObjectLiteral>>
+      entities as Array<
+        string | Function | import('typeorm').EntitySchema<import('typeorm').ObjectLiteral>
+      >
     );
   }
 
@@ -104,7 +106,10 @@ export abstract class BaseService {
 
     // Global error handler
     this.app.onError(({ code, error }) => {
-      logger.error(`${this.config.name}: onError`, { code, error: error instanceof Error ? error.message : String(error) });
+      logger.error(`${this.config.name}: onError`, {
+        code,
+        error: error instanceof Error ? error.message : String(error),
+      });
       return new Response(JSON.stringify({ error: 'Internal Server Error' }), {
         status: 500,
         headers: { 'content-type': 'application/json' },

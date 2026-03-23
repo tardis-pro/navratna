@@ -138,7 +138,10 @@ export class ToolExecutor {
     }
   }
 
-  private async performExecution(execution: ToolExecution, tool: ToolDefinition): Promise<ToolExecution> {
+  private async performExecution(
+    execution: ToolExecution,
+    tool: ToolDefinition
+  ): Promise<ToolExecution> {
     const startTime = Date.now();
 
     try {
@@ -351,7 +354,9 @@ export class ToolExecutor {
     status?: string,
     limit = 100
   ): Promise<ToolExecution[]> {
-    const filters: { toolId?: string; agentId?: string; status?: string; limit: number } = { limit };
+    const filters: { toolId?: string; agentId?: string; status?: string; limit: number } = {
+      limit,
+    };
     if (toolId) filters.toolId = toolId;
     if (agentId) filters.agentId = agentId;
     if (status) filters.status = status;
@@ -359,7 +364,12 @@ export class ToolExecutor {
   }
 
   async getActiveExecutions(agentId?: string): Promise<ToolExecution[]> {
-    const filters: { toolId?: string; agentId?: string; status: ToolExecutionStatus; limit?: number } = {
+    const filters: {
+      toolId?: string;
+      agentId?: string;
+      status: ToolExecutionStatus;
+      limit?: number;
+    } = {
       status: ToolExecutionStatus.RUNNING,
     };
     if (agentId) filters.agentId = agentId;
@@ -436,9 +446,7 @@ export class ToolExecutor {
       filters.days || 30
     );
 
-    const statsRows = Array.isArray(stats)
-      ? stats.map((stat) => this.asRecord(stat))
-      : [];
+    const statsRows = Array.isArray(stats) ? stats.map((stat) => this.asRecord(stat)) : [];
 
     return {
       totalExecutions: statsRows.reduce(

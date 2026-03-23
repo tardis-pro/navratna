@@ -174,14 +174,20 @@ export namespace TestUtils {
     };
   }
 
-  export function expectError(fn: () => unknown, expectedErrorType?: new (...args: unknown[]) => Error): void {
+  export function expectError(
+    fn: () => unknown,
+    expectedErrorType?: new (...args: unknown[]) => Error
+  ): void {
     expect(fn).toThrow();
     if (expectedErrorType) {
       expect(fn).toThrow(expectedErrorType);
     }
   }
 
-  export async function expectAsyncError(fn: () => Promise<unknown>, expectedErrorType?: new (...args: unknown[]) => Error): Promise<void> {
+  export async function expectAsyncError(
+    fn: () => Promise<unknown>,
+    expectedErrorType?: new (...args: unknown[]) => Error
+  ): Promise<void> {
     await expect(fn()).rejects.toThrow();
     if (expectedErrorType) {
       await expect(fn()).rejects.toThrow(expectedErrorType);

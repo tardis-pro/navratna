@@ -233,10 +233,10 @@ export class CapabilityController {
         id,
         (req.body && typeof req.body === 'object' ? req.body : {}) as Record<string, unknown>,
         {
-        agentId: req.headers['x-agent-id'] as string,
-        userId: securityContext.userId,
-        context: 'capability-execution',
-        timestamp: new Date().toISOString(),
+          agentId: req.headers['x-agent-id'] as string,
+          userId: securityContext.userId,
+          context: 'capability-execution',
+          timestamp: new Date().toISOString(),
         }
       );
 

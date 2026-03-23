@@ -644,30 +644,32 @@ export const DesktopWorkspace: React.FC<DesktopWorkspaceProps> = ({
 
             {/* Secondary Icons Rows - Only show on larger screens */}
             {gridConfig.showSecondaryRow &&
-              chunkIcons(secondaryIcons, gridConfig.maxIconsPerRow).map((iconChunk, _chunkIndex) => (
-                <div
-                  key={`secondary-chunk-${iconChunk.map((i) => i.id).join('-')}`}
-                  className="grid w-full mb-6"
-                  style={{
-                    gridTemplateColumns: `repeat(${Math.min(gridConfig.maxIconsPerRow, iconChunk.length)}, 1fr)`,
-                    gap: gridConfig.gap,
-                    justifyItems: 'center',
-                  }}
-                >
-                  {iconChunk.map((iconConfig) => (
-                    <DesktopIcon
-                      key={iconConfig.id}
-                      config={iconConfig}
-                      size={gridConfig.iconSize}
-                      isSelected={selectedIconId === iconConfig.id}
-                      isActive={isPortalOpenFn(iconConfig.portalType as unknown)}
-                      onClick={() => handleIconClick(iconConfig)}
-                      onDoubleClick={() => handleIconDoubleClick(iconConfig)}
-                      viewport={viewport}
-                    />
-                  ))}
-                </div>
-              ))}
+              chunkIcons(secondaryIcons, gridConfig.maxIconsPerRow).map(
+                (iconChunk, _chunkIndex) => (
+                  <div
+                    key={`secondary-chunk-${iconChunk.map((i) => i.id).join('-')}`}
+                    className="grid w-full mb-6"
+                    style={{
+                      gridTemplateColumns: `repeat(${Math.min(gridConfig.maxIconsPerRow, iconChunk.length)}, 1fr)`,
+                      gap: gridConfig.gap,
+                      justifyItems: 'center',
+                    }}
+                  >
+                    {iconChunk.map((iconConfig) => (
+                      <DesktopIcon
+                        key={iconConfig.id}
+                        config={iconConfig}
+                        size={gridConfig.iconSize}
+                        isSelected={selectedIconId === iconConfig.id}
+                        isActive={isPortalOpenFn(iconConfig.portalType as unknown)}
+                        onClick={() => handleIconClick(iconConfig)}
+                        onDoubleClick={() => handleIconDoubleClick(iconConfig)}
+                        viewport={viewport}
+                      />
+                    ))}
+                  </div>
+                )
+              )}
 
             {/* Mobile Secondary Icons - Show as expandable section */}
             {!gridConfig.showSecondaryRow && secondaryIcons.length > 0 && (

@@ -160,28 +160,21 @@ export function registerApprovalRoutes(elysiaApp: AnyElysia): AnyElysia {
               const stats = {
                 total: filtered.length,
                 byStatus: {
-                  pending: filtered.filter((w) => w.status === ApprovalStatus.PENDING)
-                    .length,
-                  approved: filtered.filter((w) => w.status === ApprovalStatus.APPROVED)
-                    .length,
-                  rejected: filtered.filter((w) => w.status === ApprovalStatus.REJECTED)
-                    .length,
-                  expired: filtered.filter((w) => w.status === ApprovalStatus.EXPIRED)
-                    .length,
+                  pending: filtered.filter((w) => w.status === ApprovalStatus.PENDING).length,
+                  approved: filtered.filter((w) => w.status === ApprovalStatus.APPROVED).length,
+                  rejected: filtered.filter((w) => w.status === ApprovalStatus.REJECTED).length,
+                  expired: filtered.filter((w) => w.status === ApprovalStatus.EXPIRED).length,
                 },
                 bySecurityLevel: {
                   critical: filtered.filter(
                     (w) => w.metadata?.securityLevel === SecurityLevel.CRITICAL
                   ).length,
-                  high: filtered.filter(
-                    (w) => w.metadata?.securityLevel === SecurityLevel.HIGH
-                  ).length,
-                  medium: filtered.filter(
-                    (w) => w.metadata?.securityLevel === SecurityLevel.MEDIUM
-                  ).length,
-                  low: filtered.filter(
-                    (w) => w.metadata?.securityLevel === SecurityLevel.LOW
-                  ).length,
+                  high: filtered.filter((w) => w.metadata?.securityLevel === SecurityLevel.HIGH)
+                    .length,
+                  medium: filtered.filter((w) => w.metadata?.securityLevel === SecurityLevel.MEDIUM)
+                    .length,
+                  low: filtered.filter((w) => w.metadata?.securityLevel === SecurityLevel.LOW)
+                    .length,
                 },
               };
               return {
@@ -224,8 +217,7 @@ export function registerApprovalRoutes(elysiaApp: AnyElysia): AnyElysia {
             filtered = filtered.filter((w) => w.metadata?.operationType === operationType);
           if (securityLevel)
             filtered = filtered.filter((w) => w.metadata?.securityLevel === securityLevel);
-          if (startDate)
-            filtered = filtered.filter((w) => w.createdAt >= new Date(startDate));
+          if (startDate) filtered = filtered.filter((w) => w.createdAt >= new Date(startDate));
           if (endDate) filtered = filtered.filter((w) => w.createdAt <= new Date(endDate));
           const total = filtered.length;
           const page = filtered.slice(Number(offset), Number(offset) + Number(limit));

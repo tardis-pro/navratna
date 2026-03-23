@@ -1,4 +1,10 @@
-import { ConsolidationResult, Episode, Interaction, SemanticMemory, WorkingMemory } from '@uaip/types';
+import {
+  ConsolidationResult,
+  Episode,
+  Interaction,
+  SemanticMemory,
+  WorkingMemory,
+} from '@uaip/types';
 import { WorkingMemoryManager } from './working-memory.manager.js';
 import { EpisodicMemoryManager } from './episodic-memory.manager.js';
 import { SemanticMemoryManager } from './semantic-memory.manager.js';

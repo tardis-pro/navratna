@@ -454,7 +454,13 @@ export class EnterpriseDatabase extends DatabaseService {
     auditEventCount: number;
   }> {
     const serviceConfig = SERVICE_ACCESS_MATRIX[this.serviceName];
-    const databaseStatus: Array<{ type: string; instance: string; status: 'healthy' | 'unhealthy'; responseTime?: number; error?: string }> = [];
+    const databaseStatus: Array<{
+      type: string;
+      instance: string;
+      status: 'healthy' | 'unhealthy';
+      responseTime?: number;
+      error?: string;
+    }> = [];
     let overallStatus: 'healthy' | 'degraded' | 'unhealthy' = 'healthy';
 
     // Check each database connection

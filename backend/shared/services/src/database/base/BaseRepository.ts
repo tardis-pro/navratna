@@ -6,12 +6,15 @@ import { DatabaseError } from '../../databaseService';
 // Repository interface for standardization
 export interface IRepository<T extends ObjectLiteral> {
   findById(id: string): Promise<T | null>;
-  findMany(conditions?: Record<string, unknown>, options?: {
-    orderBy?: Record<string, 'ASC' | 'DESC'>;
-    limit?: number;
-    offset?: number;
-    relations?: string[];
-  }): Promise<T[]>;
+  findMany(
+    conditions?: Record<string, unknown>,
+    options?: {
+      orderBy?: Record<string, 'ASC' | 'DESC'>;
+      limit?: number;
+      offset?: number;
+      relations?: string[];
+    }
+  ): Promise<T[]>;
   create(data: Partial<T>): Promise<T>;
   update(id: string, data: Partial<T>): Promise<T | null>;
   delete(id: string): Promise<boolean>;
@@ -189,7 +192,9 @@ export abstract class BaseRepository<T extends ObjectLiteral> implements IReposi
 
   public async count(conditions: Record<string, unknown> = {}): Promise<number> {
     try {
-      return await this.repository.count({ where: conditions as import('typeorm').FindOptionsWhere<T> });
+      return await this.repository.count({
+        where: conditions as import('typeorm').FindOptionsWhere<T>,
+      });
     } catch (error) {
       logger.error('Failed to count', {
         entity: this.entity.toString(),

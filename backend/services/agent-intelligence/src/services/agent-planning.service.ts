@@ -140,15 +140,12 @@ export class AgentPlanningService {
       const successfulEpisodeContext = await this.getSuccessfulEpisodeContext(agent.id, analysis);
       const enhancedAnalysis: PlanningAnalysis = {
         ...analysis,
-        planningContext: [
-          ...(analysis.planningContext || []),
-          ...successfulEpisodeContext,
-        ],
+        planningContext: [...(analysis.planningContext || []), ...successfulEpisodeContext],
       };
 
       // Get relevant knowledge for plan generation
       const planningKnowledge = this.knowledgeGraphService
-          ? await this.searchRelevantKnowledge(
+        ? await this.searchRelevantKnowledge(
             agent.id,
             `execution planning ${this.getPrimaryIntent(enhancedAnalysis) || 'general assistance'}`,
             enhancedAnalysis
@@ -304,12 +301,7 @@ export class AgentPlanningService {
     const firstOutcomeRecord = this.asRecord(firstOutcome);
     const firstOutcomeDescription = this.asString(firstOutcomeRecord?.description);
 
-    return (
-      episode.summary ||
-      what ||
-      firstOutcomeDescription ||
-      'successful prior execution'
-    );
+    return episode.summary || what || firstOutcomeDescription || 'successful prior execution';
   }
 
   /**
@@ -576,11 +568,7 @@ export class AgentPlanningService {
     }
   }
 
-  validatePlanResult(
-    originalIntent: string,
-    toolOutput: unknown,
-    planStep: PlanStep
-  ): boolean {
+  validatePlanResult(originalIntent: string, toolOutput: unknown, planStep: PlanStep): boolean {
     if (toolOutput === null || toolOutput === undefined) {
       return false;
     }
@@ -968,7 +956,9 @@ Based on Analysis: ${this.getPrimaryIntent(analysis) || 'unknown'}`,
     });
   }
 
-  private extractPlanIntent(plan: ExecutionPlan | { type?: string; intent?: unknown } | undefined): string {
+  private extractPlanIntent(
+    plan: ExecutionPlan | { type?: string; intent?: unknown } | undefined
+  ): string {
     if (!plan) {
       return 'unknown';
     }

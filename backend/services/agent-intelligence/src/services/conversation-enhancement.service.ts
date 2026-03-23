@@ -130,7 +130,9 @@ interface EventWithDataPayload {
   confidence?: number;
 }
 
-const toLLMEventPayload = (event: EventBusMessage | Record<string, unknown>): EventWithDataPayload['data'] => {
+const toLLMEventPayload = (
+  event: EventBusMessage | Record<string, unknown>
+): EventWithDataPayload['data'] => {
   if (typeof event !== 'object' || event === null) {
     return {};
   }
@@ -445,10 +447,7 @@ export class ConversationEnhancementService extends EventEmitter {
         request
       );
 
-      const nextActions = await this.generateNextActions(
-        { selectedPersona },
-        request
-      );
+      const nextActions = await this.generateNextActions({ selectedPersona }, request);
 
       logger.info('Conversation enhancement completed successfully', {
         discussionId: request.discussionId,
@@ -663,9 +662,11 @@ export class ConversationEnhancementService extends EventEmitter {
       role: agent.role,
       conversationalStyle: {
         tone: (agent.metadata?.tone as Persona['conversationalStyle']['tone']) || 'professional',
-        formality: (agent.metadata?.formality as Persona['conversationalStyle']['formality']) || 'formal',
+        formality:
+          (agent.metadata?.formality as Persona['conversationalStyle']['formality']) || 'formal',
         empathy: typeof agent.metadata?.empathy === 'number' ? agent.metadata.empathy : 0.5,
-        assertiveness: typeof agent.metadata?.assertiveness === 'number' ? agent.metadata.assertiveness : 0.5,
+        assertiveness:
+          typeof agent.metadata?.assertiveness === 'number' ? agent.metadata.assertiveness : 0.5,
       },
       expertise: this.convertCapabilitiesToExpertise(agent.capabilities || []),
       background: String(agent.metadata?.background ?? ''),
@@ -894,7 +895,13 @@ export class ConversationEnhancementService extends EventEmitter {
       // eslint-disable-next-line @typescript-eslint/no-explicit-unknown -- TODO: migrate discussion hydration to typed repository return models
       type DiscussionWithParticipants = {
         participants?: Array<{ id: string; agentId?: string; userId?: string }>;
-        messages?: Array<{ id: string; participantId: string; content: string; createdAt: Date; metadata?: Record<string, unknown> }>;
+        messages?: Array<{
+          id: string;
+          participantId: string;
+          content: string;
+          createdAt: Date;
+          metadata?: Record<string, unknown>;
+        }>;
       };
       const fullDiscussion = (await this.databaseService.findById(
         DiscussionEntity,

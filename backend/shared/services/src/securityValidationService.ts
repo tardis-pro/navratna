@@ -294,7 +294,7 @@ export class SecurityValidationService {
       const permissions = await this.databaseService.getUserPermissions(userId);
       const permissionRecord = SecurityValidationService.asRecord(permissions);
       const rolePermissions = Array.isArray(permissionRecord.rolePermissions)
-        ? (permissionRecord.rolePermissions as Array<{ operations?: string[] }> )
+        ? (permissionRecord.rolePermissions as Array<{ operations?: string[] }>)
         : [];
       const directPermissions = Array.isArray(permissionRecord.directPermissions)
         ? (permissionRecord.directPermissions as Array<{ operations?: string[] }>)

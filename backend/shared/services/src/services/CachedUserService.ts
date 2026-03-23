@@ -110,7 +110,10 @@ export class CachedUserService extends UserService {
   /**
    * Find refresh token with caching
    */
-  public async findRefreshToken(token: string, useCache = true): Promise<RefreshTokenEntity | null> {
+  public async findRefreshToken(
+    token: string,
+    useCache = true
+  ): Promise<RefreshTokenEntity | null> {
     const cacheKey = this.CACHE_KEYS.REFRESH_TOKEN(token);
 
     if (useCache) {

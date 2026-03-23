@@ -145,8 +145,16 @@ export class RepositoryFactory {
       const {
         KnowledgeRelationshipEntity,
       } = require('../../entities/knowledge-relationship.entity.ts');
-      const knowledgeRepo = this.typeormService.getRepository(KnowledgeItemEntity) as import('typeorm').Repository<import('../../entities/knowledge-item.entity').KnowledgeItemEntity>;
-      const relationshipRepo = this.typeormService.getRepository(KnowledgeRelationshipEntity) as import('typeorm').Repository<import('../../entities/knowledge-relationship.entity').KnowledgeRelationshipEntity>;
+      const knowledgeRepo = this.typeormService.getRepository(
+        KnowledgeItemEntity
+      ) as import('typeorm').Repository<
+        import('../../entities/knowledge-item.entity').KnowledgeItemEntity
+      >;
+      const relationshipRepo = this.typeormService.getRepository(
+        KnowledgeRelationshipEntity
+      ) as import('typeorm').Repository<
+        import('../../entities/knowledge-relationship.entity').KnowledgeRelationshipEntity
+      >;
       return new KnowledgeRepository(knowledgeRepo, relationshipRepo);
     });
   }

@@ -591,7 +591,9 @@ export class EnterpriseToolRegistry {
       throw new Error(`No adapter found for tool: ${tool.id}`);
     }
 
-    const adapterExecutor = adapter as { execute: (operationId: string, params: unknown) => Promise<unknown> };
+    const adapterExecutor = adapter as {
+      execute: (operationId: string, params: unknown) => Promise<unknown>;
+    };
     const req = this.asRecord(request);
     return await adapterExecutor.execute(operation.id, req.parameters);
   }
@@ -641,7 +643,9 @@ export class EnterpriseToolRegistry {
     // Check required permissions
     if (operation.requiredPermissions.length > 0) {
       const permissions = Array.isArray(context.permissions) ? context.permissions.map(String) : [];
-      const hasPermissions = operation.requiredPermissions.every((perm) => permissions.includes(perm));
+      const hasPermissions = operation.requiredPermissions.every((perm) =>
+        permissions.includes(perm)
+      );
       if (!hasPermissions) {
         throw new Error('Missing required permissions');
       }
@@ -705,14 +709,16 @@ export class EnterpriseToolRegistry {
     const request = { ...eventData };
     delete request.requestId;
     try {
-      const result = await this.executeTool(request as unknown as {
-        toolId: string;
-        operation: string;
-        parameters: unknown;
-        userId?: string;
-        agentId?: string;
-        securityContext: { level: number; permissions?: string[] };
-      });
+      const result = await this.executeTool(
+        request as unknown as {
+          toolId: string;
+          operation: string;
+          parameters: unknown;
+          userId?: string;
+          agentId?: string;
+          securityContext: { level: number; permissions?: string[] };
+        }
+      );
       await this.eventBusService.publish(`tool.response.${requestId}`, result);
     } catch (error) {
       await this.eventBusService.publish(`tool.response.${requestId}`, {

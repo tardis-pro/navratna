@@ -450,8 +450,6 @@ export namespace ConversationUtils {
     };
   }
 
-
-
   /**
    * Extract key points organized by topic
    */

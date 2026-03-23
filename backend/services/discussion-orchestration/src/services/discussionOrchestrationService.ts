@@ -2526,7 +2526,10 @@ export class DiscussionOrchestrationService extends EventEmitter {
   /**
    * Determine appropriate artifact type based on discussion content and configuration
    */
-  private determineArtifactType(discussion: Discussion, messages: Record<string, unknown>[]): string {
+  private determineArtifactType(
+    discussion: Discussion,
+    messages: Record<string, unknown>[]
+  ): string {
     // First check if discussion has configured artifact type
     const artifactConfig = (discussion as unknown as { artifactConfig?: Record<string, unknown> })
       .artifactConfig;

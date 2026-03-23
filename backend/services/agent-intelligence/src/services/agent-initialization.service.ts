@@ -337,7 +337,9 @@ export class AgentInitializationService {
   analyzeEnvironmentFactors(conversationContext: Record<string, unknown>): EnvironmentFactors {
     return {
       timeOfDay: new Date().getHours(),
-      userLoad: Array.isArray(conversationContext.participants) ? conversationContext.participants.length : 1,
+      userLoad: Array.isArray(conversationContext.participants)
+        ? conversationContext.participants.length
+        : 1,
       systemLoad: this.assessSystemLoad(),
       availableResources: this.assessAvailableResources(),
       knowledgeGraphStatus: this.knowledgeGraphService ? 'active' : 'inactive',

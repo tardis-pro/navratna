@@ -145,7 +145,10 @@ export class QdrantService {
       });
     } catch (error) {
       console.error('Qdrant search error:', error);
-      throw new Error(`Vector search failed: ${error instanceof Error ? error.message : String(error)}`, { cause: error });
+      throw new Error(
+        `Vector search failed: ${error instanceof Error ? error.message : String(error)}`,
+        { cause: error }
+      );
     }
   }
 
@@ -564,7 +567,10 @@ export class QdrantService {
   /**
    * Get document by ID
    */
-  async getById(documentId: string, collectionOptions?: CollectionOptions): Promise<{
+  async getById(
+    documentId: string,
+    collectionOptions?: CollectionOptions
+  ): Promise<{
     id: string;
     embedding: number[];
     content: unknown;
@@ -623,7 +629,15 @@ export class QdrantService {
         throw new Error(`Qdrant scroll failed: ${response.statusText}`);
       }
 
-      const data = await response.json() as { result?: { points?: Array<{ id: string | number; vector: number[]; payload: Record<string, unknown> }> } };
+      const data = (await response.json()) as {
+        result?: {
+          points?: Array<{
+            id: string | number;
+            vector: number[];
+            payload: Record<string, unknown>;
+          }>;
+        };
+      };
       return (data.result?.points ?? []).map((p) => ({
         id: String(p.id),
         vector: p.vector ?? [],

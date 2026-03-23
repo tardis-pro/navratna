@@ -503,7 +503,10 @@ export const InsightsPanel: React.FC<InsightsPanelPortalProps> = ({ className, v
                     </h5>
                     <ul className="space-y-2">
                       {selectedInsightData.recommendations.map((recommendation, _index) => (
-                        <li key={`recommendation-${recommendation.substring(0, 20)}`} className="flex items-start space-x-2">
+                        <li
+                          key={`recommendation-${recommendation.substring(0, 20)}`}
+                          className="flex items-start space-x-2"
+                        >
                           <CheckCircleIcon className="w-4 h-4 text-green-500 mt-0.5 flex-shrink-0" />
                           <span className="text-sm text-gray-600 dark:text-gray-400">
                             {recommendation}

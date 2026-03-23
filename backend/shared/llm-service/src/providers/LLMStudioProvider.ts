@@ -50,14 +50,17 @@ export class LLMStudioProvider extends BaseProvider {
         ? (data.choices as Array<Record<string, unknown>>)
         : [];
       const choice = choices[0];
-      const message = choice && LLMStudioProvider.isRecord(choice.message) ? choice.message : undefined;
+      const message =
+        choice && LLMStudioProvider.isRecord(choice.message) ? choice.message : undefined;
       const messageContent = message?.content;
       const contentFromArray = Array.isArray(messageContent)
         ? messageContent
             .map((part: string | Record<string, unknown>) => {
               if (typeof part === 'string') return part;
-              if (LLMStudioProvider.toString(part.text)) return LLMStudioProvider.toString(part.text) || '';
-              if (LLMStudioProvider.toString(part.content)) return LLMStudioProvider.toString(part.content) || '';
+              if (LLMStudioProvider.toString(part.text))
+                return LLMStudioProvider.toString(part.text) || '';
+              if (LLMStudioProvider.toString(part.content))
+                return LLMStudioProvider.toString(part.content) || '';
               return '';
             })
             .join(' ')
@@ -66,10 +69,14 @@ export class LLMStudioProvider extends BaseProvider {
       const content =
         (typeof messageContent === 'string' ? messageContent : null) ||
         contentFromArray ||
-        (LLMStudioProvider.toString(message?.reasoning_content) || null) ||
-        (LLMStudioProvider.toString(choice?.text) || null) ||
-        (LLMStudioProvider.toString(choice?.content) || null) ||
-        (LLMStudioProvider.toString(data.output_text) || null);
+        LLMStudioProvider.toString(message?.reasoning_content) ||
+        null ||
+        LLMStudioProvider.toString(choice?.text) ||
+        null ||
+        LLMStudioProvider.toString(choice?.content) ||
+        null ||
+        LLMStudioProvider.toString(data.output_text) ||
+        null;
 
       if (!content) {
         throw new Error('Invalid response format from LLM Studio');
@@ -78,13 +85,19 @@ export class LLMStudioProvider extends BaseProvider {
       const usage = LLMStudioProvider.isRecord(data.usage) ? data.usage : undefined;
       const finishReasonRaw = LLMStudioProvider.toString(choice?.finish_reason);
       const finishReason: LLMResponse['finishReason'] =
-        finishReasonRaw === 'length' || finishReasonRaw === 'tool_calls' || finishReasonRaw === 'error'
+        finishReasonRaw === 'length' ||
+        finishReasonRaw === 'tool_calls' ||
+        finishReasonRaw === 'error'
           ? finishReasonRaw
           : 'stop';
 
       return {
         content,
-        model: LLMStudioProvider.toString(data.model) || request.model || this.config.defaultModel || 'unknown',
+        model:
+          LLMStudioProvider.toString(data.model) ||
+          request.model ||
+          this.config.defaultModel ||
+          'unknown',
         tokensUsed: LLMStudioProvider.toNumber(usage?.total_tokens) ?? 0,
         confidence: 0.8, // LLM Studio doesn't provide confidence scores
         finishReason,

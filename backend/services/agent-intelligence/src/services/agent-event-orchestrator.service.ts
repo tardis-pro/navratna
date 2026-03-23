@@ -526,9 +526,7 @@ export class AgentEventOrchestrator {
       if (!success) {
         const errorMessage =
           typeof resultError['message'] === 'string' ? resultError['message'] : 'Unknown error';
-        throw new Error(
-          `Orchestration pipeline error: ${errorMessage}`
-        );
+        throw new Error(`Orchestration pipeline error: ${errorMessage}`);
       }
 
       const workflowInstanceId = resultData['workflowInstanceId'];
@@ -975,10 +973,7 @@ export class AgentEventOrchestrator {
   /**
    * Utility methods
    */
-  private async subscribeToEvent(
-    channel: string,
-    handler: EventBusHandler
-  ): Promise<void> {
+  private async subscribeToEvent(channel: string, handler: EventBusHandler): Promise<void> {
     try {
       await this.eventBusService.subscribe(channel, handler);
       this.eventSubscriptions.set(channel, handler);
@@ -1024,7 +1019,9 @@ export class AgentEventOrchestrator {
 
         const responseChannel = channel.replace(/\.[^.]+$/, '.response');
 
-        const responseHandler: EventBusHandler = async (response: EventBusMessage): Promise<void> => {
+        const responseHandler: EventBusHandler = async (
+          response: EventBusMessage
+        ): Promise<void> => {
           if (!this.isServiceResponse(response.data)) {
             return;
           }
@@ -1037,10 +1034,12 @@ export class AgentEventOrchestrator {
           }
         };
 
-        void this.eventBusService.subscribe(responseChannel, responseHandler).catch((subscriptionError) => {
-          clearTimeout(timeout);
-          reject(subscriptionError);
-        });
+        void this.eventBusService
+          .subscribe(responseChannel, responseHandler)
+          .catch((subscriptionError) => {
+            clearTimeout(timeout);
+            reject(subscriptionError);
+          });
       });
     } catch (error) {
       logger.error('Failed to request from service', { channel, error });

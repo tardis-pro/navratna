@@ -331,22 +331,22 @@ export class SandboxExecutionService {
   }
 
   private async handleExecutionError(execution: SandboxExecution, error: unknown): Promise<void> {
-      logger.error('Sandbox execution failed', {
-        executionId: execution.id,
-        toolId: execution.toolId,
-        error: error instanceof Error ? error.message : String(error),
-      });
+    logger.error('Sandbox execution failed', {
+      executionId: execution.id,
+      toolId: execution.toolId,
+      error: error instanceof Error ? error.message : String(error),
+    });
 
     if (execution.status !== 'timeout') {
       execution.status = 'failed';
     }
     execution.endTime = Date.now();
-      execution.error =
-        execution.status === 'timeout'
-          ? 'Execution timeout exceeded'
-          : error instanceof Error
-            ? error.message
-            : 'Sandbox execution failed';
+    execution.error =
+      execution.status === 'timeout'
+        ? 'Execution timeout exceeded'
+        : error instanceof Error
+          ? error.message
+          : 'Sandbox execution failed';
 
     await this.eventBus.publish(`sandbox.response.${execution.id}`, {
       requestId: execution.id,

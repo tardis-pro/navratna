@@ -356,8 +356,7 @@ export class GraphSyncWorker {
   private isRetryableError(error: unknown): boolean {
     if (!error) return false;
 
-    const errorMessage =
-      error instanceof Error ? error.message : String(error);
+    const errorMessage = error instanceof Error ? error.message : String(error);
 
     // Neo4j connection errors are retryable
     if (

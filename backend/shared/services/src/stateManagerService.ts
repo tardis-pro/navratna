@@ -180,7 +180,11 @@ export class StateManagerService {
       await this.setOperationStateInCache(operationId, updatedState);
 
       // Update in database
-      await this.operationStateRepo.updateOperationState(operationId, updatedState, updates as Record<string, unknown>);
+      await this.operationStateRepo.updateOperationState(
+        operationId,
+        updatedState,
+        updates as Record<string, unknown>
+      );
 
       // Create automatic checkpoint if significant changes
       if (this.shouldCreateAutomaticCheckpoint(updates)) {

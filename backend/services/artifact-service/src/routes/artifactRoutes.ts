@@ -3,7 +3,10 @@ import { ArtifactGenerationRequest, ArtifactType } from '@uaip/types';
 import { logger } from '@uaip/utils';
 import { DatabaseService } from '@uaip/shared-services';
 
-export function registerArtifactRoutes(app: { group: (path: string, cb: (g: unknown) => unknown) => unknown }, artifactService: ArtifactService) {
+export function registerArtifactRoutes(
+  app: { group: (path: string, cb: (g: unknown) => unknown) => unknown },
+  artifactService: ArtifactService
+) {
   return (app as { group: Function }).group(
     '/api/v1/artifacts',
     (g: { get: Function; post: Function }) =>
@@ -83,66 +86,69 @@ export function registerArtifactRoutes(app: { group: (path: string, cb: (g: unkn
           }
         )
 
-        .post('/generate', async ({ body, set }: { body: Record<string, unknown>; set: { status: number } }) => {
-          try {
-            const request: ArtifactGenerationRequest = body as ArtifactGenerationRequest;
+        .post(
+          '/generate',
+          async ({ body, set }: { body: Record<string, unknown>; set: { status: number } }) => {
+            try {
+              const request: ArtifactGenerationRequest = body as ArtifactGenerationRequest;
 
-            if (!request?.type || !request?.context) {
-              set.status = 400;
+              if (!request?.type || !request?.context) {
+                set.status = 400;
+                return {
+                  success: false,
+                  error: {
+                    code: 'INVALID_REQUEST',
+                    message: 'Missing required fields: type and context',
+                  },
+                };
+              }
+
+              const valid: ArtifactType[] = ['code', 'test', 'documentation', 'prd'];
+              if (!valid.includes(request.type)) {
+                set.status = 400;
+                return {
+                  success: false,
+                  error: {
+                    code: 'INVALID_TYPE',
+                    message: `Invalid type. Supported: ${valid.join(', ')}`,
+                  },
+                };
+              }
+
+              const ctx = request.context as Record<string, unknown>;
+              if (!ctx?.agent || !ctx?.persona || !ctx?.discussion) {
+                set.status = 400;
+                return {
+                  success: false,
+                  error: {
+                    code: 'INVALID_CONTEXT',
+                    message: 'Context must include agent, persona, discussion',
+                  },
+                };
+              }
+
+              logger.info('Artifact generation request received', {
+                type: request.type,
+                agent: (ctx.agent as Record<string, unknown>)?.id,
+                persona: (ctx.persona as Record<string, unknown>)?.role,
+              });
+
+              const response = await artifactService.generateArtifact(request);
+              set.status = response.success ? 200 : 400;
+              return response;
+            } catch (error) {
+              logger.error('Artifact generation error:', error);
+              set.status = 500;
               return {
                 success: false,
                 error: {
-                  code: 'INVALID_REQUEST',
-                  message: 'Missing required fields: type and context',
+                  code: 'INTERNAL_ERROR',
+                  message: 'Internal server error during artifact generation',
                 },
               };
             }
-
-            const valid: ArtifactType[] = ['code', 'test', 'documentation', 'prd'];
-            if (!valid.includes(request.type)) {
-              set.status = 400;
-              return {
-                success: false,
-                error: {
-                  code: 'INVALID_TYPE',
-                  message: `Invalid type. Supported: ${valid.join(', ')}`,
-                },
-              };
-            }
-
-            const ctx = request.context as Record<string, unknown>;
-            if (!ctx?.agent || !ctx?.persona || !ctx?.discussion) {
-              set.status = 400;
-              return {
-                success: false,
-                error: {
-                  code: 'INVALID_CONTEXT',
-                  message: 'Context must include agent, persona, discussion',
-                },
-              };
-            }
-
-            logger.info('Artifact generation request received', {
-              type: request.type,
-              agent: (ctx.agent as Record<string, unknown>)?.id,
-              persona: (ctx.persona as Record<string, unknown>)?.role,
-            });
-
-            const response = await artifactService.generateArtifact(request);
-            set.status = response.success ? 200 : 400;
-            return response;
-          } catch (error) {
-            logger.error('Artifact generation error:', error);
-            set.status = 500;
-            return {
-              success: false,
-              error: {
-                code: 'INTERNAL_ERROR',
-                message: 'Internal server error during artifact generation',
-              },
-            };
           }
-        })
+        )
 
         .get(
           '/templates',
@@ -201,33 +207,36 @@ export function registerArtifactRoutes(app: { group: (path: string, cb: (g: unkn
           }
         )
 
-        .post('/validate', async ({ body, set }: { body: Record<string, unknown>; set: { status: number } }) => {
-          try {
-            const { content, type } = body as Record<string, unknown>;
-            if (!content || !type) {
-              set.status = 400;
+        .post(
+          '/validate',
+          async ({ body, set }: { body: Record<string, unknown>; set: { status: number } }) => {
+            try {
+              const { content, type } = body as Record<string, unknown>;
+              if (!content || !type) {
+                set.status = 400;
+                return {
+                  success: false,
+                  error: {
+                    code: 'INVALID_REQUEST',
+                    message: 'Missing required fields: content and type',
+                  },
+                };
+              }
+              const validation = await artifactService.validateArtifact(
+                content as string,
+                type as string
+              );
+              return { success: true, validation };
+            } catch (error) {
+              logger.error('Validation error:', error);
+              set.status = 500;
               return {
                 success: false,
-                error: {
-                  code: 'INVALID_REQUEST',
-                  message: 'Missing required fields: content and type',
-                },
+                error: { code: 'INTERNAL_ERROR', message: 'Failed to validate artifact' },
               };
             }
-            const validation = await artifactService.validateArtifact(
-              content as string,
-              type as string
-            );
-            return { success: true, validation };
-          } catch (error) {
-            logger.error('Validation error:', error);
-            set.status = 500;
-            return {
-              success: false,
-              error: { code: 'INTERNAL_ERROR', message: 'Failed to validate artifact' },
-            };
           }
-        })
+        )
 
         .get('/health', () => {
           const health = artifactService.getServiceHealth();

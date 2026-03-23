@@ -832,9 +832,7 @@ export class LearningDetectorService {
     return null;
   }
 
-  private async createLearningMoment(
-    params: LearningMomentParams
-  ): Promise<LearningMoment | null> {
+  private async createLearningMoment(params: LearningMomentParams): Promise<LearningMoment | null> {
     try {
       const topic = await this.extractTopic(params);
       const content = this.extractContent(params);
@@ -1038,9 +1036,7 @@ export class LearningDetectorService {
     return 'general'; // Simplified for now
   }
 
-  private assessComplexity(
-    params: LearningMomentParams
-  ): LearningMoment['context']['complexity'] {
+  private assessComplexity(params: LearningMomentParams): LearningMoment['context']['complexity'] {
     const contents = [
       params.question?.content,
       params.answer?.content,

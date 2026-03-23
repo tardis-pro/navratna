@@ -208,7 +208,11 @@ export class ToolAdapterService {
         break;
 
       case 'jira':
-        if (typeof cfg.url !== 'string' || typeof cfg.email !== 'string' || typeof cfg.apiToken !== 'string') {
+        if (
+          typeof cfg.url !== 'string' ||
+          typeof cfg.email !== 'string' ||
+          typeof cfg.apiToken !== 'string'
+        ) {
           throw new Error('Jira URL, email, and API token are required');
         }
         // Test Jira API connection
@@ -216,7 +220,11 @@ export class ToolAdapterService {
         break;
 
       case 'confluence':
-        if (typeof cfg.url !== 'string' || typeof cfg.email !== 'string' || typeof cfg.apiToken !== 'string') {
+        if (
+          typeof cfg.url !== 'string' ||
+          typeof cfg.email !== 'string' ||
+          typeof cfg.apiToken !== 'string'
+        ) {
           throw new Error('Confluence URL, email, and API token are required');
         }
         // Test Confluence API connection
@@ -561,7 +569,7 @@ export class ToolAdapterService {
 
       case 'projects':
         const url = `${config.url}/rest/api/3/project`;
-         const response = await fetch(url, { headers: headers as HeadersInit });
+        const response = await fetch(url, { headers: headers as HeadersInit });
         const data = await response.json();
 
         return {

@@ -228,28 +228,28 @@ export const ArtifactGenerationPanel: React.FC<ArtifactGenerationPanelProps> = (
                       {analysis.triggers.slice(0, 3).map((trigger: unknown) => {
                         const t = trigger as { artifactType?: string; confidence?: number };
                         return (
-                        <div
-                          key={t.artifactType ?? 'unknown-trigger'}
-                          className="flex items-center justify-between p-2 bg-muted rounded"
-                        >
-                          <div className="flex items-center gap-2">
-                            {getArtifactIcon(t.artifactType)}
-                            <span className="text-sm">{t.artifactType}</span>
-                            <Badge variant="secondary" size="sm">
-                              {Math.round((t.confidence ?? 0) * 100)}%
-                            </Badge>
-                          </div>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => {
-                              setSelectedType(t.artifactType);
-                              setActiveTab('generate');
-                            }}
+                          <div
+                            key={t.artifactType ?? 'unknown-trigger'}
+                            className="flex items-center justify-between p-2 bg-muted rounded"
                           >
-                            Generate
-                          </Button>
-                        </div>
+                            <div className="flex items-center gap-2">
+                              {getArtifactIcon(t.artifactType)}
+                              <span className="text-sm">{t.artifactType}</span>
+                              <Badge variant="secondary" size="sm">
+                                {Math.round((t.confidence ?? 0) * 100)}%
+                              </Badge>
+                            </div>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => {
+                                setSelectedType(t.artifactType);
+                                setActiveTab('generate');
+                              }}
+                            >
+                              Generate
+                            </Button>
+                          </div>
                         );
                       })}
                     </div>

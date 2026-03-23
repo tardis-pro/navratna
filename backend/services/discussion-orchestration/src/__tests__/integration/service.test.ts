@@ -140,9 +140,7 @@ describe('Discussion Orchestration Service Integration', () => {
       // Verify the flow progressed through all stages
       expect(result.events.some((e) => e.data.newStatus === 'draft')).toBe(true);
       expect(result.events.some((e) => e.data.newStatus === 'active')).toBe(true);
-      expect(
-        result.events.some((e) => e.data.currentParticipantId === 'participant-1')
-      ).toBe(true);
+      expect(result.events.some((e) => e.data.currentParticipantId === 'participant-1')).toBe(true);
 
       expect(integrationService.createDiscussionFlow).toHaveBeenCalled();
     });
@@ -260,14 +258,10 @@ describe('Discussion Orchestration Service Integration', () => {
       });
 
       // Verify specific error handling
-      const turnViolation = result.errorScenarios.find(
-        (s) => s.scenario === 'turn_violation'
-      );
+      const turnViolation = result.errorScenarios.find((s) => s.scenario === 'turn_violation');
       expect(turnViolation.recovery).toBe('message_rejected');
 
-      const connectionLost = result.errorScenarios.find(
-        (s) => s.scenario === 'connection_lost'
-      );
+      const connectionLost = result.errorScenarios.find((s) => s.scenario === 'connection_lost');
       expect(connectionLost.recovery).toBe('auto_reconnect');
 
       expect(integrationService.errorHandlingFlow).toHaveBeenCalled();

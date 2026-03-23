@@ -946,7 +946,9 @@ export class DiscussionService {
           decisionsReached: discussion.state?.decisions?.length,
           consensusAchieved: discussion.state?.consensusLevel >= 0.8,
           actionItemsGenerated: discussion.state?.actionItems?.length,
-          keyInsights: discussion.state?.keyPoints?.map((kp: Record<string, unknown>) => kp.point as string) || [],
+          keyInsights:
+            discussion.state?.keyPoints?.map((kp: Record<string, unknown>) => kp.point as string) ||
+            [],
           unresolvedIssues: [],
         },
         quality: {

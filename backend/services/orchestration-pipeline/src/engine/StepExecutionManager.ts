@@ -334,7 +334,10 @@ export class StepExecutionManager extends EventEmitter {
     return this.resourceManagerService.getUsage();
   }
 
-  private resolveParameters(params: Record<string, unknown>, context: StepExecutionContext): Record<string, unknown> {
+  private resolveParameters(
+    params: Record<string, unknown>,
+    context: StepExecutionContext
+  ): Record<string, unknown> {
     if (!params) return params;
 
     // Handle parameter resolution from previous step results

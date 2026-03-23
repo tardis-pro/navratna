@@ -325,7 +325,6 @@ class RedisCacheManager {
 // Global cache manager instance
 const redisCacheManager = RedisCacheManager.getInstance();
 
-
 async function createCacheConfig(): Promise<Record<string, unknown> | undefined> {
   // Skip cache if explicitly disabled or in migration mode
   if (process.env.TYPEORM_DISABLE_CACHE === 'true' || process.env.NODE_ENV === 'migration') {

@@ -138,9 +138,11 @@ const PriorityBadge: React.FC<{ priority: Project['priority'] }> = ({ priority }
     <div
       className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium border backdrop-blur-sm ${config[priority]}`}
     >
-      {Array.from({ length: dots[priority] }).map((_, i) => i).map((id) => (
-        <div key={`dot-${priority}-${id}`} className="w-1 h-1 rounded-full bg-current" />
-      ))}
+      {Array.from({ length: dots[priority] })
+        .map((_, i) => i)
+        .map((id) => (
+          <div key={`dot-${priority}-${id}`} className="w-1 h-1 rounded-full bg-current" />
+        ))}
     </div>
   );
 };

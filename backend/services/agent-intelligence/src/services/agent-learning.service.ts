@@ -139,13 +139,7 @@ export class AgentLearningService {
       await this.updateKnowledgeGraph(agentId, learningData);
 
       // Store learning as episodic memory
-      await this.storeOperationEpisode(
-        agentId,
-        operationId,
-        operation,
-        outcomes,
-        learningData
-      );
+      await this.storeOperationEpisode(agentId, operationId, operation, outcomes, learningData);
 
       // Update semantic memory
       await this.updateSemanticMemoryFromOperation(agentId, learningData);
@@ -476,10 +470,7 @@ Performance: Efficiency=${interaction.performanceMetrics.efficiency}, Accuracy=$
     };
   }
 
-  private async updateKnowledgeGraph(
-    agentId: string,
-    learningData: LearningData
-  ): Promise<void> {
+  private async updateKnowledgeGraph(agentId: string, learningData: LearningData): Promise<void> {
     if (this.knowledgeGraphService && learningData.enhancedInsights.length > 0) {
       await this.knowledgeGraphService.ingest(
         learningData.enhancedInsights.map((insight: string) => ({
@@ -890,7 +881,9 @@ Performance: Efficiency=${interaction.performanceMetrics.efficiency}, Accuracy=$
       throw new ApiError(400, 'Invalid knowledgeItems payload', 'INVALID_EVENT_PAYLOAD');
     }
 
-    const knowledgeItems = value.filter((item): item is KnowledgeItem => this.isKnowledgeItem(item));
+    const knowledgeItems = value.filter((item): item is KnowledgeItem =>
+      this.isKnowledgeItem(item)
+    );
 
     if (knowledgeItems.length !== value.length) {
       throw new ApiError(400, 'Invalid knowledge item entry', 'INVALID_EVENT_PAYLOAD');

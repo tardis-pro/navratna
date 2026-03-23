@@ -122,7 +122,9 @@ describe('DatabaseService', () => {
 
     it('should provide access to repositories', async () => {
       const mockEntity = 'User';
-      const repository = await service.getRepository(mockEntity as unknown as EntityTarget<unknown>);
+      const repository = await service.getRepository(
+        mockEntity as unknown as EntityTarget<unknown>
+      );
 
       expect(repository).toBeDefined();
       expect(typeof repository.find).toBe('function');

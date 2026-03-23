@@ -382,7 +382,13 @@ export function registerLLMRoutes(
 
         .post(
           '/stream/:sessionId/cancel',
-          async ({ params, store: _store }: { params: Record<string, string>; store: Record<string, unknown> }) => {
+          async ({
+            params,
+            store: _store,
+          }: {
+            params: Record<string, string>;
+            store: Record<string, unknown>;
+          }) => {
             const { sessionId } = params;
             const streamingService = StreamingService.getInstance();
             await streamingService.cancelStream(sessionId);

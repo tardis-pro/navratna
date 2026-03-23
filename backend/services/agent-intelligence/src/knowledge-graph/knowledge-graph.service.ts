@@ -19,8 +19,15 @@ import { ContentClassifier } from './content-classifier.service.js';
 import { RelationshipDetector } from './relationship-detector.service.js';
 import { ConceptExtractorService, ConceptExtractionResult } from './concept-extractor.service.js';
 import { OntologyBuilderService, OntologyBuildResult } from './ontology-builder.service.js';
-import { TaxonomyGeneratorService, TaxonomyGenerationResult } from './taxonomy-generator.service.js';
-import { ReconciliationService, KnowledgeConflict, ResolvedKnowledge } from './reconciliation.service.js';
+import {
+  TaxonomyGeneratorService,
+  TaxonomyGenerationResult,
+} from './taxonomy-generator.service.js';
+import {
+  ReconciliationService,
+  KnowledgeConflict,
+  ResolvedKnowledge,
+} from './reconciliation.service.js';
 import { KnowledgeSyncService } from './knowledge-sync.service.js';
 import { ChatParserService, ParsedConversation, ParsedMessage } from './chat-parser.service.js';
 import {

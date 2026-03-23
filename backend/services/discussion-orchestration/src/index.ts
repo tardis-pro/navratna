@@ -940,9 +940,11 @@ class DiscussionOrchestrationServer extends BaseService {
         });
         // Clean up handler on timeout
         this.authResponseHandlers.delete(correlationId);
-        this.validateSocketIOTokenViaHttp(token).then(resolveOnce).catch(() => {
-          resolveOnce({ valid: false, reason: 'Auth validation failed' });
-        });
+        this.validateSocketIOTokenViaHttp(token)
+          .then(resolveOnce)
+          .catch(() => {
+            resolveOnce({ valid: false, reason: 'Auth validation failed' });
+          });
       }, config.discussionOrchestration.security.websocketAuthTimeout); // Configurable authentication timeout
 
       // Register response handler for this specific correlation ID
@@ -952,7 +954,8 @@ class DiscussionOrchestrationServer extends BaseService {
         logger.debug('Socket.IO auth response received', {
           correlationId,
           valid: response?.valid,
-          userId: typeof response?.userId === 'string' ? response.userId.substr(0, 8) + '...' : undefined,
+          userId:
+            typeof response?.userId === 'string' ? response.userId.substr(0, 8) + '...' : undefined,
         });
 
         resolveOnce(response as Parameters<typeof resolveOnce>[0]);
@@ -977,9 +980,11 @@ class DiscussionOrchestrationServer extends BaseService {
             error: error instanceof Error ? error.message : String(error),
             correlationId,
           });
-          this.validateSocketIOTokenViaHttp(token).then(resolveOnce).catch(() => {
-            resolveOnce({ valid: false, reason: 'Auth validation failed' });
-          });
+          this.validateSocketIOTokenViaHttp(token)
+            .then(resolveOnce)
+            .catch(() => {
+              resolveOnce({ valid: false, reason: 'Auth validation failed' });
+            });
         });
     });
   }

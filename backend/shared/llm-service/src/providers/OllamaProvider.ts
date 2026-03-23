@@ -40,7 +40,10 @@ export class OllamaProvider extends BaseProvider {
       }
 
       const resolvedModel =
-        OllamaProvider.toString(data.model) || request.model || this.config.defaultModel || 'unknown';
+        OllamaProvider.toString(data.model) ||
+        request.model ||
+        this.config.defaultModel ||
+        'unknown';
       const tokensUsed = OllamaProvider.toNumber(data.eval_count) ?? 0;
       const done = data.done === true;
 

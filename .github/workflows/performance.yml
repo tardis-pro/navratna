@@ -114,10 +114,10 @@ jobs:
   #         pnpm --filter "./services/agent-intelligence" run start &
   #         pnpm --filter "./services/orchestration-pipeline" run start &
   #         pnpm --filter "./api-gateway" run start &
-          
+
   #         # Wait for services to start
   #         sleep 30
-          
+
   #         # Run performance tests
   #         pnpm run test:performance
   #       env:
@@ -171,16 +171,16 @@ jobs:
   #         script: |
   #           const fs = require('fs');
   #           const results = JSON.parse(fs.readFileSync('results.json', 'utf8'));
-            
+
   #           const comment = `## 🚀 Load Test Results
-            
+
   #           - **Virtual Users**: ${results.metrics.vus.value}
   #           - **Requests**: ${results.metrics.http_reqs.count}
   #           - **Average Response Time**: ${results.metrics.http_req_duration.avg.toFixed(2)}ms
   #           - **95th Percentile**: ${results.metrics.http_req_duration['p(95)'].toFixed(2)}ms
   #           - **Error Rate**: ${(results.metrics.http_req_failed.rate * 100).toFixed(2)}%
   #           `;
-            
+
   #           await github.rest.issues.createComment({
   #             issue_number: context.issue.number,
   #             owner: context.repo.owner,
@@ -189,46 +189,46 @@ jobs:
   #           });
 
   # memory-profiling:
-    name: Memory Profiling
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v4
-        with:
-          version: ${{ env.PNPM_VERSION }}
-
-      - name: Install dependencies
-        working-directory: backend
-        run: pnpm install --frozen-lockfile
-
-      - name: Build packages
-        working-directory: backend
-        run: |
-          pnpm run build-shared
-          pnpm run build-services
-
-      - name: Run memory profiling
-        working-directory: backend
-        run: |
-          # Install clinic.js for profiling
-          pnpm add -g clinic
-          
-          # Run memory profiling on key services
-          clinic doctor --on-port 'autocannon localhost:$PORT' -- node services/agent-intelligence/dist/main.js &
-          clinic bubbleprof --on-port 'autocannon localhost:$PORT' -- node services/orchestration-pipeline/dist/main.js &
-          
-          wait
-
-      - name: Upload profiling results
-        uses: actions/upload-artifact@v4
-        with:
-          name: memory-profiling-results
-          path: backend/.clinic/ 
+  #   name: Memory Profiling
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - name: Checkout
+  #       uses: actions/checkout@v4
+  #
+  #     - name: Setup Node.js
+  #       uses: actions/setup-node@v4
+  #       with:
+  #         node-version: ${{ env.NODE_VERSION }}
+  #
+  #     - name: Setup pnpm
+  #       uses: pnpm/action-setup@v4
+  #       with:
+  #         version: ${{ env.PNPM_VERSION }}
+  #
+  #     - name: Install dependencies
+  #       working-directory: backend
+  #       run: pnpm install --frozen-lockfile
+  #
+  #     - name: Build packages
+  #       working-directory: backend
+  #       run: |
+  #         pnpm run build-shared
+  #         pnpm run build-services
+  #
+  #     - name: Run memory profiling
+  #       working-directory: backend
+  #       run: |
+  #         # Install clinic.js for profiling
+  #         pnpm add -g clinic
+  #
+  #         # Run memory profiling on key services
+  #         clinic doctor --on-port 'autocannon localhost:$PORT' -- node services/agent-intelligence/dist/main.js &
+  #         clinic bubbleprof --on-port 'autocannon localhost:$PORT' -- node services/orchestration-pipeline/dist/main.js &
+  #
+  #         wait
+  #
+  #     - name: Upload profiling results
+  #       uses: actions/upload-artifact@v4
+  #       with:
+  #         name: memory-profiling-results
+  #         path: backend/.clinic/

@@ -64,10 +64,13 @@ Evaluate this response using the criteria specified.`;
         reject(new Error('Critique request timeout'));
       }, 30000);
 
-      this.eventBus.subscribe(`llm.response.${requestId}`, async (event: { data?: { content?: string } }) => {
-        clearTimeout(timeout);
-        resolve(event.data?.content || '');
-      });
+      this.eventBus.subscribe(
+        `llm.response.${requestId}`,
+        async (event: { data?: { content?: string } }) => {
+          clearTimeout(timeout);
+          resolve(event.data?.content || '');
+        }
+      );
 
       this.eventBus.publish('llm.global.request', {
         requestId,
@@ -253,10 +256,13 @@ Please provide an improved response that addresses these issues while maintainin
         reject(new Error('Improvement request timeout'));
       }, 60000);
 
-      this.eventBus.subscribe(`llm.response.${requestId}`, async (event: { data?: { content?: string } }) => {
-        clearTimeout(timeout);
-        resolve(event.data?.content || '');
-      });
+      this.eventBus.subscribe(
+        `llm.response.${requestId}`,
+        async (event: { data?: { content?: string } }) => {
+          clearTimeout(timeout);
+          resolve(event.data?.content || '');
+        }
+      );
 
       this.eventBus.publish('llm.user.request', {
         requestId,

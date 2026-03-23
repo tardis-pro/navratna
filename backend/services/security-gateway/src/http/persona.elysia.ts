@@ -326,7 +326,10 @@ export function registerPersonaRoutes(elysiaApp: AnyElysia): AnyElysia {
   );
 }
 
-async function generatePersonaRecommendations(persona: Record<string, unknown>, _behavioralPatterns: Record<string, unknown>) {
+async function generatePersonaRecommendations(
+  persona: Record<string, unknown>,
+  _behavioralPatterns: Record<string, unknown>
+) {
   const recommendations = {
     recommendedTools: [],
     recommendedAgents: [],
@@ -354,7 +357,10 @@ async function getCompatibleAgents(_persona: Record<string, unknown>) {
   return [] as unknown[];
 }
 
-async function generateOptimizedWorkspace(_persona: Record<string, unknown>, _behavioral: Record<string, unknown>) {
+async function generateOptimizedWorkspace(
+  _persona: Record<string, unknown>,
+  _behavioral: Record<string, unknown>
+) {
   return { layout: 'default', widgets: [] } as unknown;
 }
 

@@ -1262,17 +1262,17 @@ export class AgentDiscussionService {
       if (recentMessages.length > 0) {
         // Filter out error messages and extract conversation history from recent messages
         const validMessages = recentMessages.filter((msg: UnknownRecord) => {
-            // Filter out common error messages
-            const content = toStringValue(msg.content).toLowerCase();
-            return (
-              !content.includes('i apologize, but i encountered an error') &&
-              !content.includes('please try again') &&
-              !content.includes('check your provider configuration') &&
-              !content.includes('error while processing') &&
-              !content.includes('error while generating') &&
-              content.trim().length > 0
-            );
-          });
+          // Filter out common error messages
+          const content = toStringValue(msg.content).toLowerCase();
+          return (
+            !content.includes('i apologize, but i encountered an error') &&
+            !content.includes('please try again') &&
+            !content.includes('check your provider configuration') &&
+            !content.includes('error while processing') &&
+            !content.includes('error while generating') &&
+            content.trim().length > 0
+          );
+        });
 
         conversationHistory = validMessages.map((msg: UnknownRecord): UnknownRecord => {
           // Resolve participant name from available data
@@ -1338,7 +1338,9 @@ export class AgentDiscussionService {
               (p: UnknownRecord) => toStringValue(p.id) === toStringValue(lastMessage.participantId)
             );
             lastSpeaker =
-              toStringValue(participant?.displayName) || toStringValue(participant?.agentId) || 'User';
+              toStringValue(participant?.displayName) ||
+              toStringValue(participant?.agentId) ||
+              'User';
           }
         }
 
@@ -1536,8 +1538,7 @@ export class AgentDiscussionService {
       // Wait for response (with timeout)
       return new Promise<LLMResponsePayload>((resolve, reject) => {
         const responseChannel = `llm.response.${requestId}`;
-        let responseHandler: ((responseData: EventBusMessage) => Promise<void>) | null =
-          null;
+        let responseHandler: ((responseData: EventBusMessage) => Promise<void>) | null = null;
 
         // Cleanup function
         const cleanup = async (reason: string) => {
@@ -1606,9 +1607,13 @@ export class AgentDiscussionService {
               error: toStringValue(actualResponse.error) || undefined,
               model: toStringValue(actualResponse.model) || undefined,
               tokensUsed:
-                typeof actualResponse.tokensUsed === 'number' ? actualResponse.tokensUsed : undefined,
+                typeof actualResponse.tokensUsed === 'number'
+                  ? actualResponse.tokensUsed
+                  : undefined,
               confidence:
-                typeof actualResponse.confidence === 'number' ? actualResponse.confidence : undefined,
+                typeof actualResponse.confidence === 'number'
+                  ? actualResponse.confidence
+                  : undefined,
               suggestedTools: Array.isArray(actualResponse.suggestedTools)
                 ? toRecordArray(actualResponse.suggestedTools)
                 : undefined,
@@ -1672,7 +1677,10 @@ Context: ${input.context ? JSON.stringify(input.context) : 'No additional contex
 User Message: ${input.message}
 
 Relevant Knowledge:
-${relevantKnowledge.slice(0, 3).map((k: KnowledgeItem) => `- ${k.content}`).join('\n')}
+${relevantKnowledge
+  .slice(0, 3)
+  .map((k: KnowledgeItem) => `- ${k.content}`)
+  .join('\n')}
 
 Reasoning:
 ${reasoning.join('\n')}
@@ -1721,7 +1729,10 @@ Message to respond to: ${message}
 
 ${
   knowledge.length > 0
-    ? `Relevant knowledge:\n${knowledge.slice(0, 3).map((k: KnowledgeItem) => `- ${k.content}`).join('\n')}\n`
+    ? `Relevant knowledge:\n${knowledge
+        .slice(0, 3)
+        .map((k: KnowledgeItem) => `- ${k.content}`)
+        .join('\n')}\n`
     : ''
 }Provide a direct, thoughtful response. Avoid generic greetings or introductions.`,
         systemPrompt: `You are an AI assistant in an ongoing discussion. Be direct and substantive. Focus on the content rather than pleasantries. Contribute meaningful insights without repeating what others have said.`,
@@ -1760,7 +1771,10 @@ Topic: ${context.discussionTopic || 'General discussion'}
 ${context.lastMessage ? `Recent message: ${context.lastMessage}` : 'Start the conversation'}
 
 Available Knowledge:
-${knowledge.slice(0, 3).map((k: KnowledgeItem) => `- ${k.content}`).join('\n')}
+${knowledge
+  .slice(0, 3)
+  .map((k: KnowledgeItem) => `- ${k.content}`)
+  .join('\n')}
 
 Reasoning:
 ${reasoning.join('\n')}

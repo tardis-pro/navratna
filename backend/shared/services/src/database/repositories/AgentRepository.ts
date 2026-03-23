@@ -1,9 +1,5 @@
 import { logger } from '@uaip/utils';
-import {
-  AgentPersona,
-  AgentIntelligenceConfig,
-  AgentSecurityContext,
-} from '@uaip/types';
+import { AgentPersona, AgentIntelligenceConfig, AgentSecurityContext } from '@uaip/types';
 import { BaseRepository } from '../base/BaseRepository';
 import { Agent } from '../../entities/agent.entity';
 

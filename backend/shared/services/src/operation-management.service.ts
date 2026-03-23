@@ -173,11 +173,7 @@ export class OperationManagementService {
       const repository = typeormService.getRepository(Operation);
       return await repository.find({
         where: {
-          status: In([
-            OperationStatus.RUNNING,
-            OperationStatus.PENDING,
-            OperationStatus.PAUSED,
-          ]),
+          status: In([OperationStatus.RUNNING, OperationStatus.PENDING, OperationStatus.PAUSED]),
         },
         order: { createdAt: 'DESC' },
       });
@@ -194,11 +190,7 @@ export class OperationManagementService {
       const repository = typeormService.getRepository(Operation);
       return await repository.find({
         where: {
-          status: In([
-            OperationStatus.RUNNING,
-            OperationStatus.PENDING,
-            OperationStatus.PAUSED,
-          ]),
+          status: In([OperationStatus.RUNNING, OperationStatus.PENDING, OperationStatus.PAUSED]),
           updatedAt: LessThan(cutoffDate),
         },
         order: { updatedAt: 'ASC' },

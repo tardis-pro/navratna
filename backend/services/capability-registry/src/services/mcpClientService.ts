@@ -645,7 +645,8 @@ export class MCPClientService extends EventEmitter {
           typeof toolRegistration.executionTimeEstimate === 'number'
             ? toolRegistration.executionTimeEstimate
             : 0,
-        costEstimate: typeof toolRegistration.costEstimate === 'number' ? toolRegistration.costEstimate : 0,
+        costEstimate:
+          typeof toolRegistration.costEstimate === 'number' ? toolRegistration.costEstimate : 0,
         author: 'mcp-system',
       });
 
@@ -664,27 +665,40 @@ export class MCPClientService extends EventEmitter {
       });
 
       // Link tool to MCP server
-      await this.toolGraphDatabase.linkToolToMcpServer(String(toolRegistration.id || ''), serverName);
+      await this.toolGraphDatabase.linkToolToMcpServer(
+        String(toolRegistration.id || ''),
+        serverName
+      );
 
       // Analyze and create relationships with similar tools
       await this.createToolRelationships(String(toolRegistration.id || ''), mcpTool);
 
-      logger.debug(`Tool ${String(toolRegistration.id || '')} successfully registered in knowledge graph`);
+      logger.debug(
+        `Tool ${String(toolRegistration.id || '')} successfully registered in knowledge graph`
+      );
     } catch (error) {
-      logger.warn(`Failed to register tool ${String(toolRegistration.id || '')} in knowledge graph:`, error);
+      logger.warn(
+        `Failed to register tool ${String(toolRegistration.id || '')} in knowledge graph:`,
+        error
+      );
       // Don't throw - this is supplementary functionality
     }
   }
 
   // Create relationships between tools based on capabilities and categories
-  private async createToolRelationships(toolId: string, mcpTool: Record<string, unknown>): Promise<void> {
+  private async createToolRelationships(
+    toolId: string,
+    mcpTool: Record<string, unknown>
+  ): Promise<void> {
     if (!this.toolGraphDatabase) {
       return;
     }
 
     try {
       // Find similar tools based on capabilities
-      const capabilities = Array.isArray(mcpTool.capabilities) ? mcpTool.capabilities.map(String) : [];
+      const capabilities = Array.isArray(mcpTool.capabilities)
+        ? mcpTool.capabilities.map(String)
+        : [];
       if (capabilities.length > 0) {
         const relatedTools = await this.toolGraphDatabase.getRelatedTools(
           toolId,
@@ -826,7 +840,10 @@ export class MCPClientService extends EventEmitter {
 
       return response;
     } catch (error) {
-      this.addLog(serverName, `✗ ${toolName}: ${error instanceof Error ? error.message : String(error)}`);
+      this.addLog(
+        serverName,
+        `✗ ${toolName}: ${error instanceof Error ? error.message : String(error)}`
+      );
 
       // Fail the job in database
       if (this.mcpRepo && jobId) {
@@ -851,14 +868,14 @@ export class MCPClientService extends EventEmitter {
       );
 
       // Publish failure event
-        await this.publishEvent('mcp.tool.failed', {
-          serverName,
-          toolName,
-          parameters,
-          error: error instanceof Error ? error.message : String(error),
-          success: false,
-          jobId,
-          ...context,
+      await this.publishEvent('mcp.tool.failed', {
+        serverName,
+        toolName,
+        parameters,
+        error: error instanceof Error ? error.message : String(error),
+        success: false,
+        jobId,
+        ...context,
       });
 
       throw error;
@@ -982,7 +999,11 @@ export class MCPClientService extends EventEmitter {
 
         const errorData = this.asRecord(payload.error);
         if (payload.error) {
-          pendingRequest.reject(new Error(`${String(errorData.message || 'Unknown error')} (${String(errorData.code || 'UNKNOWN')})`));
+          pendingRequest.reject(
+            new Error(
+              `${String(errorData.message || 'Unknown error')} (${String(errorData.code || 'UNKNOWN')})`
+            )
+          );
         } else {
           pendingRequest.resolve(payload.result);
         }
@@ -1271,7 +1292,9 @@ export class MCPClientService extends EventEmitter {
       env: e.env && typeof e.env === 'object' ? (e.env as Record<string, string>) : undefined,
       cwd: typeof e.workingDirectory === 'string' ? e.workingDirectory : undefined,
       transportType:
-        e.transportType === 'http' || e.transportType === 'streamable-http' ? e.transportType : 'stdio',
+        e.transportType === 'http' || e.transportType === 'streamable-http'
+          ? e.transportType
+          : 'stdio',
       httpUrl: typeof e.url === 'string' ? e.url : undefined,
       httpHeaders,
     };
@@ -1510,11 +1533,17 @@ export class MCPClientService extends EventEmitter {
           await this.startServer(String((entity as unknown as { name?: string }).name || ''));
         } catch (error) {
           const name = String((entity as unknown as { name?: string }).name || '');
-          logger.warn(`Failed to auto-start server ${name}:`, error instanceof Error ? error.message : String(error));
+          logger.warn(
+            `Failed to auto-start server ${name}:`,
+            error instanceof Error ? error.message : String(error)
+          );
         }
       }
     } catch (error) {
-      logger.warn('Failed to auto-start servers:', error instanceof Error ? error.message : String(error));
+      logger.warn(
+        'Failed to auto-start servers:',
+        error instanceof Error ? error.message : String(error)
+      );
     }
   }
 
@@ -1760,7 +1789,8 @@ export class MCPClientService extends EventEmitter {
           const serverResources: MCPResource[] = resourcesValue.map((resource) => ({
             uri: typeof resource.uri === 'string' ? resource.uri : '',
             name: typeof resource.name === 'string' ? resource.name : 'resource',
-            description: typeof resource.description === 'string' ? resource.description : undefined,
+            description:
+              typeof resource.description === 'string' ? resource.description : undefined,
             mimeType: typeof resource.mimeType === 'string' ? resource.mimeType : undefined,
             serverName: name,
             discoveredAt: new Date().toISOString(),
@@ -1817,7 +1847,11 @@ export class MCPClientService extends EventEmitter {
             serverName: name,
             discoveredAt: new Date().toISOString(),
             arguments: Array.isArray(prompt.arguments)
-              ? (prompt.arguments as Array<{ name: string; description?: string; required?: boolean }>)
+              ? (prompt.arguments as Array<{
+                  name: string;
+                  description?: string;
+                  required?: boolean;
+                }>)
               : undefined,
           }));
           prompts.push(...serverPrompts);

@@ -86,7 +86,9 @@ export class ToolExecutionService {
   }
 
   private static toRecord(value: unknown): Record<string, unknown> | undefined {
-    return typeof value === 'object' && value !== null ? (value as Record<string, unknown>) : undefined;
+    return typeof value === 'object' && value !== null
+      ? (value as Record<string, unknown>)
+      : undefined;
   }
 
   private toEntityExecution(execution: ToolExecutionType): Partial<ToolExecutionEntity> {

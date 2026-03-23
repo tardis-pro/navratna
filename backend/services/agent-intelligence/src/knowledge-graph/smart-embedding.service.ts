@@ -233,11 +233,7 @@ export class SmartEmbeddingService extends EmbeddingService {
   /**
    * Rerank documents (TEI-only feature)
    */
-  async rerank(
-    query: string,
-    documents: string[],
-    topK?: number
-  ): Promise<RerankResult[]> {
+  async rerank(query: string, documents: string[], topK?: number): Promise<RerankResult[]> {
     if (this.shouldUseTEI() && this.healthStatus.teiStatus.reranker.status === 'ready') {
       return await this.teiService.rerank(query, documents, topK);
     } else {

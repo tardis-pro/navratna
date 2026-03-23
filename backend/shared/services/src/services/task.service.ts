@@ -598,9 +598,9 @@ export class TaskService {
       });
     }
 
-  // Sort by score and return top suggestions
-  return suggestions.sort((a, b) => b.score - a.score).slice(0, 10);
-}
+    // Sort by score and return top suggestions
+    return suggestions.sort((a, b) => b.score - a.score).slice(0, 10);
+  }
 
   private normalizeAgentSkills(
     skills: Agent['skills'] | null | undefined
@@ -794,9 +794,7 @@ export class TaskService {
     return await this.taskRepository.save(task);
   }
 
-  async getTaskStatistics(
-    projectId: string
-  ): Promise<{
+  async getTaskStatistics(projectId: string): Promise<{
     total: number;
     byStatus: Record<string, number>;
     byPriority: Record<string, number>;

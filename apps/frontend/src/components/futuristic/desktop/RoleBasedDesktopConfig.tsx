@@ -320,13 +320,7 @@ export namespace RoleBasedDesktopConfig {
     userPermissions: string[] = [],
     customPermissions: Record<string, boolean> = {}
   ): DesktopIconConfig[] {
-    const allIcons = [
-      ...baseIcons,
-      ...userIcons,
-      ...moderatorIcons,
-      ...adminIcons,
-      ...systemIcons,
-    ];
+    const allIcons = [...baseIcons, ...userIcons, ...moderatorIcons, ...adminIcons, ...systemIcons];
 
     return allIcons.filter((icon) => {
       // Check minimum role requirement

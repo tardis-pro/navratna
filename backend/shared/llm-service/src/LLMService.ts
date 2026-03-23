@@ -507,7 +507,9 @@ export class LLMService {
 
     // Check cache first
     try {
-      const cachedModels = await this.cacheService.get<AvailableModel[]>(LLMService.MODELS_CACHE_KEY);
+      const cachedModels = await this.cacheService.get<AvailableModel[]>(
+        LLMService.MODELS_CACHE_KEY
+      );
       if (cachedModels) {
         logger.debug('Returning cached models', { modelCount: cachedModels.length });
         return cachedModels;

@@ -401,7 +401,8 @@ export class ToolController {
   async approveExecution(req: Request, res: Response): Promise<void> {
     try {
       const id = typeof req.params.id === 'string' ? req.params.id : '';
-      const body = req.body && typeof req.body === 'object' ? (req.body as Record<string, unknown>) : {};
+      const body =
+        req.body && typeof req.body === 'object' ? (req.body as Record<string, unknown>) : {};
       const approvedBy = typeof body.approvedBy === 'string' ? body.approvedBy : '';
 
       if (!approvedBy) {

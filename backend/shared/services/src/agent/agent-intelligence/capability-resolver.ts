@@ -68,7 +68,10 @@ export class ToolRegistryCapabilityResolver implements CapabilityResolver {
     }
   }
 
-  async resolveCapabilities(agentId: string, context: Record<string, unknown>): Promise<ToolDefinition[]> {
+  async resolveCapabilities(
+    agentId: string,
+    context: Record<string, unknown>
+  ): Promise<ToolDefinition[]> {
     const staticCapabilities = (await this.toolRegistry.getTools()).filter(
       (tool) => tool.isEnabled
     );

@@ -522,7 +522,9 @@ export class DatabaseService {
   }
 
   // Legacy compatibility methods
-  public async getRepository<T extends ObjectLiteral>(entityClass: EntityTarget<T>): Promise<Repository<T>> {
+  public async getRepository<T extends ObjectLiteral>(
+    entityClass: EntityTarget<T>
+  ): Promise<Repository<T>> {
     await this.ensureInitialized();
     return this.typeormService.getDataSource().getRepository(entityClass);
   }
@@ -809,7 +811,9 @@ export class DatabaseService {
     await this.ensureInitialized();
     const repository = this.typeormService.getRepository(entityClass);
     await repository.update(id, data as ObjectLiteral);
-    return (await repository.findOne({ where: { id } as FindOptionsWhere<ObjectLiteral> })) as T | null;
+    return (await repository.findOne({
+      where: { id } as FindOptionsWhere<ObjectLiteral>,
+    })) as T | null;
   }
 
   public async delete<T extends ObjectLiteral>(

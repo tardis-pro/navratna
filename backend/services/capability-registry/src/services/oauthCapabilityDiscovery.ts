@@ -351,7 +351,10 @@ export class OAuthCapabilityDiscovery {
       }
     } catch (error) {
       const evt = this.asRecord(event);
-      logger.error(`Failed to handle provider connection for ${String(evt.provider || 'unknown')}:`, error);
+      logger.error(
+        `Failed to handle provider connection for ${String(evt.provider || 'unknown')}:`,
+        error
+      );
     }
   }
 

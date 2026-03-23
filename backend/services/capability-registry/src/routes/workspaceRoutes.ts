@@ -20,13 +20,25 @@ interface WorkspaceRouteContext {
 }
 
 interface WorkspaceRouteGroup {
-  get: (path: string, handler: (ctx: WorkspaceRouteContext) => Promise<unknown> | unknown) => WorkspaceRouteGroup;
-  post: (path: string, handler: (ctx: WorkspaceRouteContext) => Promise<unknown> | unknown) => WorkspaceRouteGroup;
-  delete: (path: string, handler: (ctx: WorkspaceRouteContext) => Promise<unknown> | unknown) => WorkspaceRouteGroup;
+  get: (
+    path: string,
+    handler: (ctx: WorkspaceRouteContext) => Promise<unknown> | unknown
+  ) => WorkspaceRouteGroup;
+  post: (
+    path: string,
+    handler: (ctx: WorkspaceRouteContext) => Promise<unknown> | unknown
+  ) => WorkspaceRouteGroup;
+  delete: (
+    path: string,
+    handler: (ctx: WorkspaceRouteContext) => Promise<unknown> | unknown
+  ) => WorkspaceRouteGroup;
 }
 
 interface WorkspaceRouteApp {
-  group: (path: string, handler: (group: WorkspaceRouteGroup) => WorkspaceRouteGroup) => WorkspaceRouteApp;
+  group: (
+    path: string,
+    handler: (group: WorkspaceRouteGroup) => WorkspaceRouteGroup
+  ) => WorkspaceRouteApp;
 }
 
 function asString(value: unknown): string | undefined {

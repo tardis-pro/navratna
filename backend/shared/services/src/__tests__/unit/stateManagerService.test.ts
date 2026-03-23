@@ -128,7 +128,10 @@ describe('StateManagerService', () => {
         };
 
         await expect(
-          service.initializeOperationState(mockOperationId, invalidState as unknown as OperationState)
+          service.initializeOperationState(
+            mockOperationId,
+            invalidState as unknown as OperationState
+          )
         ).rejects.toThrow();
       });
 
@@ -306,9 +309,9 @@ describe('StateManagerService', () => {
       it('should require checkpoint ID', async () => {
         const checkpointWithoutId = { ...mockCheckpoint, id: undefined };
 
-        await expect(service.saveCheckpoint('test-op', checkpointWithoutId as unknown as Checkpoint)).rejects.toThrow(
-          'Checkpoint ID is required'
-        );
+        await expect(
+          service.saveCheckpoint('test-op', checkpointWithoutId as unknown as Checkpoint)
+        ).rejects.toThrow('Checkpoint ID is required');
       });
     });
 

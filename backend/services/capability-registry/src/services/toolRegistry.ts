@@ -3,11 +3,7 @@
 // Part of capability-registry microservice
 
 import { ToolDefinition, ToolUsageRecord, ToolCategory, SecurityLevel } from '@uaip/types';
-import {
-  ToolRelationship,
-  ToolRecommendation,
-  ToolService,
-} from '@uaip/shared-services';
+import { ToolRelationship, ToolRecommendation, ToolService } from '@uaip/shared-services';
 import { EventBusService } from '@uaip/infra/eventBus';
 import { logger } from '@uaip/utils';
 import { z } from 'zod';
@@ -153,7 +149,12 @@ export class ToolRegistry {
           executionTimeEstimate: 3000,
           costEstimate: 0.02,
           author: `${provider} OAuth Provider`,
-          tags: ['oauth', provider, this.asString(capabilityRecord.category, 'general'), 'auto-registered'],
+          tags: [
+            'oauth',
+            provider,
+            this.asString(capabilityRecord.category, 'general'),
+            'auto-registered',
+          ],
           dependencies: [],
           examples: Array.isArray(capabilityRecord.examples) ? capabilityRecord.examples : [],
         });
@@ -686,7 +687,8 @@ export class ToolRegistry {
         typeof entityRecord.executionTimeEstimate === 'number'
           ? entityRecord.executionTimeEstimate
           : undefined,
-      costEstimate: typeof entityRecord.costEstimate === 'number' ? entityRecord.costEstimate : undefined,
+      costEstimate:
+        typeof entityRecord.costEstimate === 'number' ? entityRecord.costEstimate : undefined,
       author: this.asString(entityRecord.author, 'unknown'),
       tags: Array.isArray(entityRecord.tags)
         ? entityRecord.tags.filter((tag): tag is string => typeof tag === 'string')

@@ -131,8 +131,14 @@ export class ConfluenceAdapter {
    * Create a new page
    */
   private async createPage(parameters: unknown): Promise<unknown> {
-    const { type = 'page', title, space, body, ancestors, metadata } =
-      (parameters as ConfluenceCreatePageParams) ?? {};
+    const {
+      type = 'page',
+      title,
+      space,
+      body,
+      ancestors,
+      metadata,
+    } = (parameters as ConfluenceCreatePageParams) ?? {};
 
     const pageData: Record<string, unknown> = {
       type,
@@ -181,8 +187,13 @@ export class ConfluenceAdapter {
    * Update an existing page
    */
   private async updatePage(parameters: unknown): Promise<unknown> {
-    const { pageId, title, body, version, message = 'Updated via API' } =
-      (parameters as ConfluenceUpdatePageParams) ?? {};
+    const {
+      pageId,
+      title,
+      body,
+      version,
+      message = 'Updated via API',
+    } = (parameters as ConfluenceUpdatePageParams) ?? {};
     if (!pageId) {
       throw new Error('updatePage requires pageId');
     }
@@ -300,8 +311,11 @@ export class ConfluenceAdapter {
    * Add attachment to a page
    */
   private async addAttachment(parameters: unknown): Promise<unknown> {
-    const { pageId, file, comment = 'File attached via API' } =
-      (parameters as ConfluenceAttachmentParams) ?? {};
+    const {
+      pageId,
+      file,
+      comment = 'File attached via API',
+    } = (parameters as ConfluenceAttachmentParams) ?? {};
     if (!pageId || !file) {
       throw new Error('addAttachment requires pageId and file');
     }

@@ -707,7 +707,7 @@ export class UnifiedToolRegistry {
       const usage: { requests: number[]; lastReset: number } =
         typeof usageData === 'string'
           ? (JSON.parse(usageData) as { requests: number[]; lastReset: number })
-        : { requests: [], lastReset: now };
+          : { requests: [], lastReset: now };
 
       // Clean old requests outside window
       usage.requests = usage.requests.filter((time: number) => now - time < rateLimit.window);
@@ -763,7 +763,9 @@ export class UnifiedToolRegistry {
       const resultRecord = this.asRecord(result);
 
       if (!resultRecord.success) {
-        throw new Error(`Sandbox execution failed: ${this.asString(resultRecord.error, 'unknown')}`);
+        throw new Error(
+          `Sandbox execution failed: ${this.asString(resultRecord.error, 'unknown')}`
+        );
       }
 
       return resultRecord.data;

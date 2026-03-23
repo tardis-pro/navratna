@@ -239,7 +239,15 @@ export class CachedUserKnowledgeService extends UserKnowledgeService {
     const cacheKey = this.CACHE_KEYS.USER_PREFERENCES(userId, type);
 
     if (useCache) {
-      const cached = await redisCacheService.get<Array<{ type: string; value: unknown; confidence: number; source: string; updatedAt: Date }>>(cacheKey);
+      const cached = await redisCacheService.get<
+        Array<{
+          type: string;
+          value: unknown;
+          confidence: number;
+          source: string;
+          updatedAt: Date;
+        }>
+      >(cacheKey);
       if (cached) {
         logger.debug('User preferences retrieved from cache', { userId, type });
         return cached;
@@ -277,7 +285,16 @@ export class CachedUserKnowledgeService extends UserKnowledgeService {
     const cacheKey = this.CACHE_KEYS.CONVERSATION_PATTERNS(userId, type);
 
     if (useCache) {
-      const cached = await redisCacheService.get<Array<{ type: string; description: string; frequency: number; confidence: number; examples: string[]; lastObserved: Date }>>(cacheKey);
+      const cached = await redisCacheService.get<
+        Array<{
+          type: string;
+          description: string;
+          frequency: number;
+          confidence: number;
+          examples: string[];
+          lastObserved: Date;
+        }>
+      >(cacheKey);
       if (cached) {
         logger.debug('Conversation patterns retrieved from cache', { userId, type });
         return cached;

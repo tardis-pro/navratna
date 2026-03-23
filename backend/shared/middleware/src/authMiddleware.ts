@@ -1,11 +1,7 @@
 import { Elysia } from 'elysia';
 import { logger } from '@uaip/utils';
 import { config } from '@uaip/config';
-import type {
-  AuthContext,
-  RequiredAuthContext,
-  UserContext,
-} from '@uaip/types';
+import type { AuthContext, RequiredAuthContext, UserContext } from '@uaip/types';
 import { JWTValidator } from './JWTValidator.js';
 
 export type { UserContext };
@@ -18,8 +14,9 @@ export type OptionalAuthContext = AuthContext;
 
 type ContextWithOptionalUser = { user?: UserContext | null; [key: string]: unknown };
 
-const hasUserContext = (context: ContextWithOptionalUser): context is { user: UserContext; [key: string]: unknown } =>
-  context.user != null;
+const hasUserContext = (
+  context: ContextWithOptionalUser
+): context is { user: UserContext; [key: string]: unknown } => context.user != null;
 
 const getValidatedUserContext = (context: ContextWithOptionalUser): UserContext | null => {
   if (!hasUserContext(context)) {

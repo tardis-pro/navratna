@@ -31,7 +31,11 @@ export class AgentIntelligenceService {
           url: process.env.RABBITMQ_URL || 'amqp://localhost',
           serviceName: 'agent-intelligence',
         },
-        createLogger({ serviceName: 'agent-intelligence-eventbus', environment: process.env.NODE_ENV || 'development', logLevel: 'info' })
+        createLogger({
+          serviceName: 'agent-intelligence-eventbus',
+          environment: process.env.NODE_ENV || 'development',
+          logLevel: 'info',
+        })
       );
   }
 
@@ -404,7 +408,8 @@ export class AgentIntelligenceService {
 
       const role = (agentData.role as string) || 'assistant';
 
-      let createdBy: string | null = (agentData.createdBy as string) || (agentData.created_by as string) || null;
+      let createdBy: string | null =
+        (agentData.createdBy as string) || (agentData.created_by as string) || null;
 
       if (createdBy) {
         createdBy = this.validateIDParam(createdBy, 'createdBy');
@@ -413,7 +418,7 @@ export class AgentIntelligenceService {
       const createPayload = {
         ...(agentId && { id: agentId }),
         name: agentData.name as string,
-        displayName: ((agentData.displayName || agentData.name) as string | undefined),
+        displayName: (agentData.displayName || agentData.name) as string | undefined,
         description: agentData.description as string | undefined,
         type: (agentData.type as string) || 'general',
         role: role as AgentRole,
@@ -575,7 +580,10 @@ export class AgentIntelligenceService {
       expertise:
         (p.expertise as unknown[] | undefined)?.map((exp: unknown, index: number) => ({
           id: `${Date.now()}-${index}`,
-          name: typeof exp === 'string' ? exp : ((exp as Record<string, unknown>).name as string) || 'General',
+          name:
+            typeof exp === 'string'
+              ? exp
+              : ((exp as Record<string, unknown>).name as string) || 'General',
           description: '',
           category: 'general',
           level: 'intermediate' as const,
@@ -878,7 +886,10 @@ export class AgentIntelligenceService {
     return steps.reduce((total, step) => total + ((step.estimatedDuration as number) || 0), 0);
   }
 
-  private applyUserPreferences(steps: Record<string, unknown>[], userPreferences: Record<string, unknown>): Record<string, unknown>[] {
+  private applyUserPreferences(
+    steps: Record<string, unknown>[],
+    userPreferences: Record<string, unknown>
+  ): Record<string, unknown>[] {
     if (userPreferences?.speed === 'fast') {
       return steps.map((step) => ({
         ...step,
@@ -888,7 +899,10 @@ export class AgentIntelligenceService {
     return steps;
   }
 
-  private async validatePlanSecurity(plan: ExecutionPlan, securityContext: Record<string, unknown>): Promise<void> {
+  private async validatePlanSecurity(
+    plan: ExecutionPlan,
+    securityContext: Record<string, unknown>
+  ): Promise<void> {
     if (
       securityContext?.maxDuration &&
       plan.estimatedDuration &&
@@ -916,7 +930,11 @@ export class AgentIntelligenceService {
     return await repo.getOperationById(validatedId);
   }
 
-  private extractLearning(operation: Record<string, unknown>, outcomes: Record<string, unknown>, feedback: Record<string, unknown>): Record<string, unknown> {
+  private extractLearning(
+    operation: Record<string, unknown>,
+    outcomes: Record<string, unknown>,
+    feedback: Record<string, unknown>
+  ): Record<string, unknown> {
     return {
       newKnowledge: feedback?.insights || [],
       improvedCapabilities: outcomes?.successfulActions || [],

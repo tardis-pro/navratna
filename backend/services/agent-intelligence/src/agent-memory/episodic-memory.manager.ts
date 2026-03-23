@@ -308,7 +308,10 @@ Significance: Importance=${episode.significance.importance}, Novelty=${episode.s
     return value as Episode['experience'];
   }
 
-  private asEpisodeSignificance(value: unknown, fallbackImportance: number): Episode['significance'] | null {
+  private asEpisodeSignificance(
+    value: unknown,
+    fallbackImportance: number
+  ): Episode['significance'] | null {
     if (typeof value !== 'object' || value === null) {
       return {
         importance: fallbackImportance,

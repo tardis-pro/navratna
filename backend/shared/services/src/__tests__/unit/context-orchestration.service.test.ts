@@ -7,7 +7,9 @@ describe('ContextOrchestrationService', () => {
     const mockKnowledgeGraphService = {
       // Mock methods as needed
     };
-    service = new ContextOrchestrationService(mockKnowledgeGraphService as unknown as Record<string, unknown>);
+    service = new ContextOrchestrationService(
+      mockKnowledgeGraphService as unknown as Record<string, unknown>
+    );
   });
 
   describe('initialization', () => {

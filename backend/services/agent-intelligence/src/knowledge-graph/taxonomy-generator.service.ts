@@ -614,9 +614,7 @@ export class TaxonomyGeneratorService {
             ? 1
             : 0;
         }
-        return String(fieldValue)
-          .toLowerCase()
-          .includes(String(condition.value).toLowerCase())
+        return String(fieldValue).toLowerCase().includes(String(condition.value).toLowerCase())
           ? 1
           : 0;
 

@@ -655,10 +655,15 @@ export class QAGeneratorService {
       {
         question: 'When was this information created?',
         answer: new Date(
-          typeof item.createdAt === 'string' || typeof item.createdAt === 'number' ? item.createdAt : Date.now()
+          typeof item.createdAt === 'string' || typeof item.createdAt === 'number'
+            ? item.createdAt
+            : Date.now()
         ).toISOString(),
       },
-      { question: 'What is the source of this information?', answer: String(item.sourceIdentifier ?? 'Unknown') },
+      {
+        question: 'What is the source of this information?',
+        answer: String(item.sourceIdentifier ?? 'Unknown'),
+      },
     ];
 
     for (const template of templates) {
@@ -820,10 +825,7 @@ export class QAGeneratorService {
     );
   }
 
-  private findExplanation(
-    messages: ParsedMessage[],
-    startIndex: number
-  ): ParsedMessage | null {
+  private findExplanation(messages: ParsedMessage[], startIndex: number): ParsedMessage | null {
     for (let i = startIndex + 1; i < messages.length && i < startIndex + 3; i++) {
       if (messages[i].content.length > 20) {
         return messages[i];

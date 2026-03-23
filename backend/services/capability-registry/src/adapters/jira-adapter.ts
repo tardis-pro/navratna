@@ -177,8 +177,12 @@ export class JiraAdapter {
    * Search for issues using JQL
    */
   private async searchIssues(parameters: unknown): Promise<unknown> {
-    const { jql, fields = [], maxResults = 50, startAt = 0 } =
-      (parameters as JiraSearchParams) ?? {};
+    const {
+      jql,
+      fields = [],
+      maxResults = 50,
+      startAt = 0,
+    } = (parameters as JiraSearchParams) ?? {};
 
     const response = await this.axiosInstance.post('/search', {
       jql,

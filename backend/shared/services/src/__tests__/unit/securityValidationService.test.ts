@@ -40,7 +40,8 @@ describe('SecurityValidationService', () => {
   beforeEach(async () => {
     jest.clearAllMocks();
     service = new SecurityValidationService();
-    mockDatabaseService = (service as Record<string, unknown>).databaseService as jest.Mocked<DatabaseService>;
+    mockDatabaseService = (service as Record<string, unknown>)
+      .databaseService as jest.Mocked<DatabaseService>;
   });
 
   describe('Service Initialization', () => {

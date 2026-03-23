@@ -130,7 +130,10 @@ export class ToolGraphDatabase {
         try {
           testValue = record.get('test');
         } catch (recordError) {
-          throw new Error(`Failed to get 'test' field from record: ${(recordError as Error).message}`, { cause: recordError });
+          throw new Error(
+            `Failed to get 'test' field from record: ${(recordError as Error).message}`,
+            { cause: recordError }
+          );
         }
 
         logger.info(`Neo4j test value: ${testValue} (type: ${typeof testValue})`);

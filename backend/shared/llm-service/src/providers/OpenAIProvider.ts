@@ -66,13 +66,19 @@ export class OpenAIProvider extends BaseProvider {
 
       const finishReasonRaw = OpenAIProvider.toString(firstChoice?.finish_reason);
       const finishReason: LLMResponse['finishReason'] =
-        finishReasonRaw === 'length' || finishReasonRaw === 'tool_calls' || finishReasonRaw === 'error'
+        finishReasonRaw === 'length' ||
+        finishReasonRaw === 'tool_calls' ||
+        finishReasonRaw === 'error'
           ? finishReasonRaw
           : 'stop';
 
       return {
         content,
-        model: OpenAIProvider.toString(data.model) || request.model || this.config.defaultModel || 'unknown',
+        model:
+          OpenAIProvider.toString(data.model) ||
+          request.model ||
+          this.config.defaultModel ||
+          'unknown',
         tokensUsed: totalTokens,
         confidence: 0.9, // OpenAI generally provides high-quality responses
         finishReason,

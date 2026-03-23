@@ -53,7 +53,10 @@ export class CapabilityDiscoveryService {
 
       return capabilities;
     } catch (error: unknown) {
-      logger.error('Error searching capabilities', { query, error: error instanceof Error ? error.message : String(error) });
+      logger.error('Error searching capabilities', {
+        query,
+        error: error instanceof Error ? error.message : String(error),
+      });
       throw new ApiError(500, 'Failed to search capabilities', 'SEARCH_ERROR');
     }
   }
@@ -94,7 +97,10 @@ export class CapabilityDiscoveryService {
 
       return capabilityResult.map((row) => this.mapCapabilityFromDB(row));
     } catch (error: unknown) {
-      logger.error('Error getting agent capabilities', { agentId, error: error instanceof Error ? error.message : String(error) });
+      logger.error('Error getting agent capabilities', {
+        agentId,
+        error: error instanceof Error ? error.message : String(error),
+      });
       throw error;
     }
   }
@@ -113,7 +119,10 @@ export class CapabilityDiscoveryService {
 
       return this.mapCapabilityFromDB(result);
     } catch (error: unknown) {
-      logger.error('Error getting capability by ID', { capabilityId, error: error instanceof Error ? error.message : String(error) });
+      logger.error('Error getting capability by ID', {
+        capabilityId,
+        error: error instanceof Error ? error.message : String(error),
+      });
       throw new ApiError(500, 'Failed to retrieve capability', 'DATABASE_ERROR');
     }
   }
@@ -149,7 +158,10 @@ export class CapabilityDiscoveryService {
 
       return { dependencies, dependents };
     } catch (error: unknown) {
-      logger.error('Error getting capability dependencies', { capabilityId, error: error instanceof Error ? error.message : String(error) });
+      logger.error('Error getting capability dependencies', {
+        capabilityId,
+        error: error instanceof Error ? error.message : String(error),
+      });
       throw error;
     }
   }
@@ -195,7 +207,10 @@ export class CapabilityDiscoveryService {
         )
         .slice(0, 10);
     } catch (error: unknown) {
-      logger.error('Error discovering capabilities by intent', { intent, error: error instanceof Error ? error.message : String(error) });
+      logger.error('Error discovering capabilities by intent', {
+        intent,
+        error: error instanceof Error ? error.message : String(error),
+      });
       throw new ApiError(500, 'Failed to discover capabilities', 'DISCOVERY_ERROR');
     }
   }
@@ -215,7 +230,8 @@ export class CapabilityDiscoveryService {
       artifactConfig: (r.artifact_config as Capability['artifactConfig']) || undefined,
       dependencies: (r.dependencies as string[]) || [],
       securityRequirements: this.parseSecurityRequirements(r.security_requirements),
-      resourceRequirements: (r.resource_requirements as Capability['resourceRequirements']) || undefined,
+      resourceRequirements:
+        (r.resource_requirements as Capability['resourceRequirements']) || undefined,
       createdAt: r.created_at as Date,
       updatedAt: r.updated_at as Date,
     };
@@ -260,7 +276,8 @@ export class CapabilityDiscoveryService {
     if (typeof requirements === 'object') {
       const req = requirements as Record<string, unknown>;
       return {
-        minimumSecurityLevel: (req.minimumSecurityLevel as 'low' | 'medium' | 'high' | 'critical') || 'medium',
+        minimumSecurityLevel:
+          (req.minimumSecurityLevel as 'low' | 'medium' | 'high' | 'critical') || 'medium',
         requiredPermissions: Array.isArray(req.requiredPermissions)
           ? (req.requiredPermissions as string[])
           : [],
@@ -429,7 +446,10 @@ export class CapabilityDiscoveryService {
       logger.info('Tool executed successfully', { toolId, result });
       return result;
     } catch (error: unknown) {
-      logger.error('Failed to execute tool', { toolId, error: error instanceof Error ? error.message : String(error) });
+      logger.error('Failed to execute tool', {
+        toolId,
+        error: error instanceof Error ? error.message : String(error),
+      });
       throw new ApiError(500, 'Tool execution failed', 'EXECUTION_ERROR');
     }
   }
@@ -461,7 +481,10 @@ export class CapabilityDiscoveryService {
         searchTime,
       };
     } catch (error: unknown) {
-      logger.error('Error in advanced capability search', { searchParams, error: error instanceof Error ? error.message : String(error) });
+      logger.error('Error in advanced capability search', {
+        searchParams,
+        error: error instanceof Error ? error.message : String(error),
+      });
       throw new ApiError(500, 'Failed to search capabilities', 'SEARCH_ERROR');
     }
   }

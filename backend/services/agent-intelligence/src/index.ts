@@ -1019,7 +1019,8 @@ class AgentIntelligenceService extends BaseService {
         const resolvedSocketId = typeof socketId === 'string' ? socketId : '';
         const resolvedConversationHistory = Array.isArray(conversationHistory)
           ? conversationHistory.filter(
-              (entry): entry is Record<string, unknown> => typeof entry === 'object' && entry !== null
+              (entry): entry is Record<string, unknown> =>
+                typeof entry === 'object' && entry !== null
             )
           : [];
         const resolvedContext = this.ensureRecord(context);
@@ -1169,13 +1170,16 @@ class AgentIntelligenceService extends BaseService {
           : [];
         const resolvedMessageHistory = Array.isArray(messageHistory)
           ? messageHistory.filter(
-              (entry): entry is Record<string, unknown> => typeof entry === 'object' && entry !== null
+              (entry): entry is Record<string, unknown> =>
+                typeof entry === 'object' && entry !== null
             )
           : [];
         const resolvedMessageHistoryItems = this.toMessageHistoryItems(resolvedMessageHistory);
         const resolvedCurrentTopic = typeof currentTopic === 'string' ? currentTopic : '';
         const resolvedEnhancementType =
-          enhancementType === 'auto' || enhancementType === 'manual' || enhancementType === 'triggered'
+          enhancementType === 'auto' ||
+          enhancementType === 'manual' ||
+          enhancementType === 'triggered'
             ? enhancementType
             : 'auto';
         const resolvedEnhancementContext = this.ensureRecord(context);
@@ -1500,7 +1504,7 @@ class AgentIntelligenceService extends BaseService {
       const isHighRisk = decision.selectedAction?.riskLevel === 'high';
       const isCriticalSecurity = operationSecurityLevel === SecurityLevel.CRITICAL;
 
-        if (requiresApproval && (isHighRisk || isCriticalSecurity)) {
+      if (requiresApproval && (isHighRisk || isCriticalSecurity)) {
         const toolExecution: Record<string, unknown> =
           context?.toolExecution && typeof context.toolExecution === 'object'
             ? (context.toolExecution as Record<string, unknown>)
@@ -1951,7 +1955,10 @@ class AgentIntelligenceService extends BaseService {
     return {};
   }
 
-  private parseEnumValue<T extends string>(value: unknown, enumObj: Record<string, T>): T | undefined {
+  private parseEnumValue<T extends string>(
+    value: unknown,
+    enumObj: Record<string, T>
+  ): T | undefined {
     if (typeof value !== 'string') {
       return undefined;
     }
@@ -1959,7 +1966,10 @@ class AgentIntelligenceService extends BaseService {
     return candidates.includes(value as T) ? (value as T) : undefined;
   }
 
-  private parseEnumArray<T extends string>(value: unknown, enumObj: Record<string, T>): T[] | undefined {
+  private parseEnumArray<T extends string>(
+    value: unknown,
+    enumObj: Record<string, T>
+  ): T[] | undefined {
     const values =
       typeof value === 'string'
         ? value.split(',').map((entry) => entry.trim())
@@ -1974,7 +1984,9 @@ class AgentIntelligenceService extends BaseService {
     return parsed.length > 0 ? parsed : undefined;
   }
 
-  private toMessageHistoryItems(messages: Record<string, unknown>[]): ConversationMessageHistoryItem[] {
+  private toMessageHistoryItems(
+    messages: Record<string, unknown>[]
+  ): ConversationMessageHistoryItem[] {
     const normalized: ConversationMessageHistoryItem[] = [];
     for (const [index, message] of messages.entries()) {
       const content = this.pickContextString(message.content);

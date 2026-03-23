@@ -36,7 +36,9 @@ export function registerAgentRoutes<T>(app: T): T {
   routeApp.group('/api/v1/agents', (group) =>
     group.post('/relevance', async (ctx) => {
       const context =
-        ctx && typeof ctx === 'object' ? (ctx as { body?: unknown; set?: { status?: number | string } }) : {};
+        ctx && typeof ctx === 'object'
+          ? (ctx as { body?: unknown; set?: { status?: number | string } })
+          : {};
       const body = context.body;
       const set = context.set;
       const parsed = relevanceSchema.safeParse(body);
