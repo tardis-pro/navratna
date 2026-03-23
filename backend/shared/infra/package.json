@@ -21,7 +21,6 @@
     "jsonwebtoken": "catalog:backend",
     "neo4j-driver": "^5.28.0",
     "pg": "catalog:backend",
-    "typeorm": "^0.3.25",
     "winston": "catalog:backend",
     "zod": "catalog:"
   },

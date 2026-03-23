@@ -25,7 +25,6 @@
     "@uaip/types": "workspace:*",
     "@uaip/utils": "workspace:*",
     "node-fetch": "^3.3.2",
-    "typeorm": "^0.3.25",
     "uuid": "catalog:backend"
   },
   "devDependencies": {

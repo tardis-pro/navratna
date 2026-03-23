@@ -29,7 +29,6 @@
     "format:check": "pnpm -r format:check"
   },
   "dependencies": {
-    "typeorm": "^0.3.25",
     "ioredis": "catalog:backend"
   },
   "devDependencies": {

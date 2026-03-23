@@ -19,7 +19,6 @@
     "@uaip/shared-services": "workspace:*",
     "@uaip/types": "workspace:*",
     "@uaip/utils": "workspace:*",
-    "typeorm": "catalog:backend",
     "zod": "catalog:"
   },
   "devDependencies": {

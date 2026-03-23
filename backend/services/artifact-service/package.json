@@ -23,7 +23,6 @@
     "cors": "catalog:backend",
     "helmet": "catalog:backend",
     "qrcode": "catalog:backend",
-    "typeorm": "catalog:backend",
     "zod": "catalog:"
   },
   "devDependencies": {

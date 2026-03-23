@@ -1,12 +1,34 @@
-import { TypeOrmService } from '@uaip/shared-services';
-import { ShortLinkEntity, LinkType, LinkStatus } from '@uaip/shared-services';
+import { drizzleService } from '@uaip/shared-services/drizzleService';
+import { shortLinks } from '@uaip/shared-services/drizzle/intelligence';
+import { eq, and, ilike, or } from 'drizzle-orm';
 import { logger } from '@uaip/utils';
 import * as bcrypt from 'bcryptjs';
 import QRCode from 'qrcode';
-import { Repository } from 'typeorm';
-import type { LinkAnalytics } from '@uaip/shared-services';
 
-const BCRYPT_ROUNDS = 12;
+export { LinkType, LinkStatus } from '@uaip/shared-services/drizzle/intelligence';
+export type { ShortLink as ShortLinkEntity } from '@uaip/shared-services/drizzle/intelligence';
+
+import type { ShortLink } from '@uaip/shared-services/drizzle/intelligence';
+
+type LinkType = 'artifact' | 'project_file' | 'document' | 'external';
+type LinkStatus = 'active' | 'expired' | 'disabled' | 'deleted';
+
+export interface LinkAnalytics {
+  totalClicks?: number;
+  uniqueClicks?: number;
+  lastClickedAt?: Date;
+  referrers?: Record<string, number>;
+  countries?: Record<string, number>;
+  devices?: Record<string, number>;
+  browsers?: Record<string, number>;
+  clickHistory?: Array<{
+    timestamp: Date;
+    userAgent?: string;
+    ip?: string;
+    referer?: string;
+    userId?: string;
+  }>;
+}
 
 interface GetUserLinksOptions {
   page?: number;
@@ -31,7 +53,7 @@ interface LinkAnalyticsResponse {
   analytics: LinkAnalytics;
   createdAt: Date;
   lastClickAt: Date | null;
-  status: LinkStatus;
+  status: string;
 }
 
 interface ClickData {
@@ -41,13 +63,11 @@ interface ClickData {
   referer?: string;
 }
 
-export class ShortLinkService {
-  private typeormService: TypeOrmService;
-  private shortLinkRepository: Repository<ShortLinkEntity>;
+const BCRYPT_ROUNDS = 12;
 
-  constructor() {
-    this.typeormService = TypeOrmService.getInstance();
-    this.shortLinkRepository = this.typeormService.getDataSource().getRepository(ShortLinkEntity);
+export class ShortLinkService {
+  private get db() {
+    return drizzleService.intelligence;
   }
 
   async createShortLink(
@@ -66,76 +86,60 @@ export class ShortLinkService {
       projectFileId?: string;
       generateQR?: boolean;
     } = {}
-  ): Promise<ShortLinkEntity> {
-    try {
-      // Generate short code
-      const shortCode = options.customCode || (await this.generateUniqueCode());
+  ): Promise<ShortLink> {
+    const shortCode = options.customCode || (await this.generateUniqueCode());
 
-      // Validate custom code availability
-      if (options.customCode) {
-        const existing = await this.shortLinkRepository.findOne({ where: { shortCode } });
-        if (existing) {
-          throw new Error('Custom short code already exists');
-        }
-      }
+    if (options.customCode) {
+      const existing = await this.db
+        .select({ id: shortLinks.id })
+        .from(shortLinks)
+        .where(eq(shortLinks.shortCode, shortCode))
+        .limit(1);
+      if (existing.length > 0) throw new Error('Custom short code already exists');
+    }
 
-      // Hash password if provided
-      let hashedPassword: string | undefined;
-      if (options.password) {
-        hashedPassword = await bcrypt.hash(options.password, BCRYPT_ROUNDS);
-      }
+    const hashedPassword = options.password
+      ? await bcrypt.hash(options.password, BCRYPT_ROUNDS)
+      : undefined;
 
-      // Create short link
-      const shortLink = this.shortLinkRepository.create({
+    const [created] = await this.db
+      .insert(shortLinks)
+      .values({
         shortCode,
         originalUrl,
         title: options.title,
         description: options.description,
-        type: (options.type as LinkType) || LinkType.EXTERNAL,
-        status: LinkStatus.ACTIVE,
+        type: options.type ?? 'external',
+        status: 'active',
         createdById,
         clickCount: 0,
         expiresAt: options.expiresAt,
         password: hashedPassword,
-        tags: options.tags || [],
+        tags: options.tags ?? [],
         artifactId: options.artifactId,
-        projectFileId: options.projectFileId,
-        accessRestrictions: {
-          maxClicks: options.maxClicks,
-        },
-        analytics: {
-          totalClicks: 0,
-          uniqueClicks: 0,
-        },
+        projectFileId: options.projectFileId ? options.projectFileId as unknown as string : undefined,
+        accessRestrictions: { maxClicks: options.maxClicks },
+        analytics: { totalClicks: 0, uniqueClicks: 0 },
         trackClicks: true,
         isPublic: true,
-      });
+      })
+      .returning();
 
-      const savedLink = await this.shortLinkRepository.save(shortLink);
-
-      // Generate QR code if requested
-      if (options.generateQR) {
-        await this.generateQRCode(savedLink.id);
-      }
-
-      logger.info(`Short link created: ${shortCode} -> ${originalUrl}`);
-      return savedLink;
-    } catch (error) {
-      logger.error('Error creating short link:', error);
-      throw error;
+    if (options.generateQR) {
+      await this.generateQRCode(created.id);
     }
+
+    logger.info(`Short link created: ${shortCode} -> ${originalUrl}`);
+    return created;
   }
 
-  async getShortLink(shortCode: string): Promise<ShortLinkEntity | null> {
-    try {
-      return await this.shortLinkRepository.findOne({
-        where: { shortCode, status: LinkStatus.ACTIVE },
-        relations: ['createdBy', 'artifact'],
-      });
-    } catch (error) {
-      logger.error('Error getting short link:', error);
-      throw new Error('Failed to get short link', { cause: error });
-    }
+  async getShortLink(shortCode: string): Promise<ShortLink | null> {
+    const [link] = await this.db
+      .select()
+      .from(shortLinks)
+      .where(and(eq(shortLinks.shortCode, shortCode), eq(shortLinks.status, 'active')))
+      .limit(1);
+    return link ?? null;
   }
 
   async resolveShortLink(
@@ -148,212 +152,143 @@ export class ShortLinkService {
       referer?: string;
     } = {}
   ): Promise<{ url: string; requiresPassword?: boolean }> {
-    try {
-      const shortLink = await this.getShortLink(shortCode);
+    const link = await this.getShortLink(shortCode);
+    if (!link) throw new Error('Short link not found');
 
-      if (!shortLink) {
-        throw new Error('Short link not found');
-      }
-
-      // Check if expired
-      if (shortLink.expiresAt && new Date() > shortLink.expiresAt) {
-        await this.shortLinkRepository.update(shortLink.id, { status: LinkStatus.EXPIRED });
-        throw new Error('Short link has expired');
-      }
-
-      // Check password protection
-      if (shortLink.password) {
-        if (!options.password) {
-          return { url: '', requiresPassword: true };
-        }
-        const passwordMatch = await bcrypt.compare(options.password, shortLink.password);
-        if (!passwordMatch) {
-          throw new Error('Invalid password');
-        }
-      }
-
-      // Record analytics
-      await this.recordClick(shortLink.id, options);
-
-      return { url: shortLink.originalUrl };
-    } catch (error) {
-      logger.error('Error resolving short link:', error);
-      throw error;
+    if (link.expiresAt && new Date() > link.expiresAt) {
+      await this.db
+        .update(shortLinks)
+        .set({ status: 'expired', updatedAt: new Date() })
+        .where(eq(shortLinks.id, link.id));
+      throw new Error('Short link has expired');
     }
+
+    if (link.password) {
+      if (!options.password) return { url: '', requiresPassword: true };
+      const match = await bcrypt.compare(options.password, link.password);
+      if (!match) throw new Error('Invalid password');
+    }
+
+    await this.recordClick(link.id, options);
+    return { url: link.originalUrl };
   }
 
-  async getUserLinks(
-    userId: string,
-    options: GetUserLinksOptions = {}
-  ): Promise<ShortLinkEntity[]> {
-    try {
-      const { page = 1, limit = 20, type, search } = options;
-      const skip = (page - 1) * limit;
+  async getUserLinks(userId: string, options: GetUserLinksOptions = {}): Promise<ShortLink[]> {
+    const { page = 1, limit = 20, type, search } = options;
+    const offset = (page - 1) * limit;
 
-      const queryBuilder = this.shortLinkRepository
-        .createQueryBuilder('link')
-        .where('link.createdById = :userId', { userId })
-        .orderBy('link.createdAt', 'DESC')
-        .skip(skip)
-        .take(limit);
-
-      if (type) {
-        queryBuilder.andWhere('link.type = :type', { type });
-      }
-
-      if (search) {
-        queryBuilder.andWhere(
-          '(link.title ILIKE :search OR link.description ILIKE :search OR link.originalUrl ILIKE :search)',
-          { search: `%${search}%` }
-        );
-      }
-
-      return await queryBuilder.getMany();
-    } catch (error) {
-      logger.error('Error getting user links:', error);
-      throw new Error('Failed to get user links', { cause: error });
+    const conditions = [eq(shortLinks.createdById, userId)];
+    if (type) conditions.push(eq(shortLinks.type, type));
+    if (search) {
+      conditions.push(
+        or(
+          ilike(shortLinks.title as Parameters<typeof ilike>[0], `%${search}%`),
+          ilike(shortLinks.originalUrl, `%${search}%`)
+        ) as Parameters<typeof and>[0]
+      );
     }
+
+    return this.db
+      .select()
+      .from(shortLinks)
+      .where(and(...conditions))
+      .orderBy(shortLinks.createdAt)
+      .limit(limit)
+      .offset(offset);
   }
 
-  async getLinkById(linkId: string, userId: string): Promise<ShortLinkEntity | null> {
-    try {
-      return await this.shortLinkRepository.findOne({
-        where: { id: linkId, createdById: userId },
-      });
-    } catch (error) {
-      logger.error('Error getting link by ID:', error);
-      throw new Error('Failed to get link', { cause: error });
-    }
+  async getLinkById(linkId: string, userId: string): Promise<ShortLink | null> {
+    const [link] = await this.db
+      .select()
+      .from(shortLinks)
+      .where(and(eq(shortLinks.id, linkId), eq(shortLinks.createdById, userId)))
+      .limit(1);
+    return link ?? null;
   }
 
-  async updateLink(
-    linkId: string,
-    userId: string,
-    updates: LinkUpdateData
-  ): Promise<ShortLinkEntity> {
-    try {
-      const link = await this.getLinkById(linkId, userId);
-      if (!link) {
-        throw new Error('Link not found');
-      }
+  async updateLink(linkId: string, userId: string, updates: LinkUpdateData): Promise<ShortLink> {
+    const link = await this.getLinkById(linkId, userId);
+    if (!link) throw new Error('Link not found');
 
-      await this.shortLinkRepository.update(linkId, {
-        ...updates,
-        updatedAt: new Date(),
-      });
+    const [updated] = await this.db
+      .update(shortLinks)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(shortLinks.id, linkId))
+      .returning();
 
-      const updatedLink = await this.shortLinkRepository.findOne({ where: { id: linkId } });
-      if (!updatedLink) {
-        throw new Error('Failed to retrieve updated link');
-      }
-
-      return updatedLink;
-    } catch (error) {
-      logger.error('Error updating link:', error);
-      throw error;
-    }
+    return updated;
   }
 
   async deleteLink(linkId: string, userId: string): Promise<void> {
-    try {
-      const link = await this.getLinkById(linkId, userId);
-      if (!link) {
-        throw new Error('Link not found');
-      }
+    const link = await this.getLinkById(linkId, userId);
+    if (!link) throw new Error('Link not found');
 
-      await this.shortLinkRepository.update(linkId, {
-        status: LinkStatus.DELETED,
-        updatedAt: new Date(),
-      });
+    await this.db
+      .update(shortLinks)
+      .set({ status: 'deleted', updatedAt: new Date() })
+      .where(eq(shortLinks.id, linkId));
 
-      logger.info(`Short link deleted: ${linkId}`);
-    } catch (error) {
-      logger.error('Error deleting link:', error);
-      throw error;
-    }
+    logger.info(`Short link deleted: ${linkId}`);
   }
 
   async generateQRCode(linkId: string, userId?: string): Promise<string> {
-    try {
-      let link: ShortLinkEntity | null;
+    const link = userId
+      ? await this.getLinkById(linkId, userId)
+      : await this.db
+          .select()
+          .from(shortLinks)
+          .where(eq(shortLinks.id, linkId))
+          .limit(1)
+          .then(([r]) => r ?? null);
 
-      if (userId) {
-        link = await this.getLinkById(linkId, userId);
-      } else {
-        link = await this.shortLinkRepository.findOne({ where: { id: linkId } });
-      }
+    if (!link) throw new Error('Link not found');
 
-      if (!link) {
-        throw new Error('Link not found');
-      }
+    const shortUrl = `${process.env.SHORT_LINK_DOMAIN || 'https://s.uaip.dev'}/${link.shortCode}`;
+    const qrCodeDataURL = await QRCode.toDataURL(shortUrl, {
+      width: 256,
+      margin: 2,
+      color: { dark: '#000000', light: '#FFFFFF' },
+    });
 
-      const shortUrl = `${process.env.SHORT_LINK_DOMAIN || 'https://s.uaip.dev'}/${link.shortCode}`;
-      const qrCodeDataURL = await QRCode.toDataURL(shortUrl, {
-        width: 256,
-        margin: 2,
-        color: {
-          dark: '#000000',
-          light: '#FFFFFF',
-        },
-      });
+    await this.db
+      .update(shortLinks)
+      .set({ qrCode: qrCodeDataURL, updatedAt: new Date() })
+      .where(eq(shortLinks.id, linkId));
 
-      // Save QR code to link
-      await this.shortLinkRepository.update(linkId, {
-        qrCode: qrCodeDataURL,
-        updatedAt: new Date(),
-      });
-
-      return qrCodeDataURL;
-    } catch (error) {
-      logger.error('Error generating QR code:', error);
-      throw new Error('Failed to generate QR code', { cause: error });
-    }
+    return qrCodeDataURL;
   }
 
   async getLinkAnalytics(linkId: string, userId: string): Promise<LinkAnalyticsResponse> {
-    try {
-      const link = await this.getLinkById(linkId, userId);
-      if (!link) {
-        throw new Error('Link not found');
-      }
+    const link = await this.getLinkById(linkId, userId);
+    if (!link) throw new Error('Link not found');
 
-      return {
-        id: link.id,
-        shortCode: link.shortCode,
-        totalClicks: link.clickCount,
-        analytics: link.analytics,
-        createdAt: link.createdAt,
-        lastClickAt: link.lastClickedAt,
-        status: link.status,
-      };
-    } catch (error) {
-      logger.error('Error getting link analytics:', error);
-      throw new Error('Failed to get analytics', { cause: error });
-    }
+    return {
+      id: link.id,
+      shortCode: link.shortCode,
+      totalClicks: link.clickCount,
+      analytics: (link.analytics as LinkAnalytics) ?? {},
+      createdAt: link.createdAt,
+      lastClickAt: link.lastClickedAt ?? null,
+      status: link.status,
+    };
   }
 
-  private async generateUniqueCode(length: number = 6): Promise<string> {
+  private async generateUniqueCode(length = 6): Promise<string> {
     const chars = 'ABCDEFGHJKMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789';
-    let attempts = 0;
-    const maxAttempts = 10;
 
-    while (attempts < maxAttempts) {
-      let code = '';
-      for (let i = 0; i < length; i++) {
-        code += chars.charAt(Math.floor(Math.random() * chars.length));
-      }
+    for (let attempt = 0; attempt < 10; attempt++) {
+      const code = Array.from(
+        { length: length + Math.floor(attempt / 5) },
+        () => chars[Math.floor(Math.random() * chars.length)]
+      ).join('');
 
-      // Check if code already exists
-      // oxlint-disable-next-line eslint/no-await-in-loop -- sequential processing required
-      const existing = await this.shortLinkRepository.findOne({ where: { shortCode: code } });
-      if (!existing) {
-        return code;
-      }
+      const existing = await this.db
+        .select({ id: shortLinks.id })
+        .from(shortLinks)
+        .where(eq(shortLinks.shortCode, code))
+        .limit(1);
 
-      attempts++;
-      if (attempts > 5) {
-        length++;
-      }
+      if (existing.length === 0) return code;
     }
 
     throw new Error('Failed to generate unique short code');
@@ -361,17 +296,21 @@ export class ShortLinkService {
 
   private async recordClick(linkId: string, clickData: ClickData): Promise<void> {
     try {
-      const link = await this.shortLinkRepository.findOne({ where: { id: linkId } });
-      if (!link) {
-        return;
-      }
+      const [link] = await this.db
+        .select()
+        .from(shortLinks)
+        .where(eq(shortLinks.id, linkId))
+        .limit(1);
 
-      const updatedAnalytics = {
-        ...link.analytics,
-        totalClicks: (link.analytics?.totalClicks || 0) + 1,
-        lastClick: new Date(),
+      if (!link) return;
+
+      const existing = (link.analytics as LinkAnalytics) ?? {};
+      const updatedAnalytics: LinkAnalytics = {
+        ...existing,
+        totalClicks: (existing.totalClicks ?? 0) + 1,
+        lastClickedAt: new Date(),
         clickHistory: [
-          ...(link.analytics?.clickHistory || []).slice(-99),
+          ...(existing.clickHistory ?? []).slice(-99),
           {
             timestamp: new Date(),
             userAgent: clickData.userAgent,
@@ -382,17 +321,17 @@ export class ShortLinkService {
         ],
       };
 
-      await this.shortLinkRepository.update(linkId, {
-        clickCount: link.clickCount + 1,
-        lastClickedAt: new Date(),
-        analytics: updatedAnalytics,
-        updatedAt: new Date(),
-      });
-
-      logger.debug(`Click recorded for link ${linkId}`);
+      await this.db
+        .update(shortLinks)
+        .set({
+          clickCount: link.clickCount + 1,
+          lastClickedAt: new Date(),
+          analytics: updatedAnalytics,
+          updatedAt: new Date(),
+        })
+        .where(eq(shortLinks.id, linkId));
     } catch (error) {
       logger.error('Error recording click:', error);
-      // Don't throw error for analytics - shouldn't block URL resolution
     }
   }
 }
