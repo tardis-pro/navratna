@@ -1,7 +1,13 @@
 import { AgentRole, LLMTaskType, DiscussionDomain } from '@uaip/types';
 import { DatabaseService } from '../database_service';
 import { logger } from '@uaip/utils';
+<<<<<<< HEAD:apps/shared/services/src/services/agent_task_type_resolver.ts
 import type { Agent } from '../database/drizzle/schemas/intelligence_schema';
+=======
+import type { Agent } from '../database/drizzle/schemas/intelligence.schema';
+
+type AgentLLMPreference = Record<string, unknown>;
+>>>>>>> 441faaf (feat: fix stuff):backend/shared/services/src/services/AgentTaskTypeResolver.ts
 
 export interface TaskTypeContext {
   userIntent?: string;
@@ -11,9 +17,13 @@ export interface TaskTypeContext {
   action?: string;
 }
 
+<<<<<<< HEAD:apps/shared/services/src/services/agent_task_type_resolver.ts
 type JsonPrimitive = string | number | boolean | null;
 type JsonValue = JsonPrimitive | { [key: string]: JsonValue } | JsonValue[];
 type AgentPreferenceWithTaskType = { [key: string]: JsonValue };
+=======
+type AgentPreferenceWithTaskType = Record<string, unknown>;
+>>>>>>> 441faaf (feat: fix stuff):backend/shared/services/src/services/AgentTaskTypeResolver.ts
 
 export class AgentTaskTypeResolver {
   private databaseService: DatabaseService;
@@ -52,9 +62,13 @@ export class AgentTaskTypeResolver {
         return roleBasedTaskType;
       }
 
+<<<<<<< HEAD:apps/shared/services/src/services/agent_task_type_resolver.ts
       const capabilityBasedTaskType = this.mapCapabilitiesToTaskType(
         (agent.capabilities || []) as string[]
       );
+=======
+      const capabilityBasedTaskType = this.mapCapabilitiesToTaskType((agent.capabilities || []) as string[]);
+>>>>>>> 441faaf (feat: fix stuff):backend/shared/services/src/services/AgentTaskTypeResolver.ts
       if (capabilityBasedTaskType) {
         logger.info('Task type determined from agent capabilities', {
           agentId: agent.id,

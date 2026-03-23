@@ -401,9 +401,13 @@ export class OntologyBuilderService {
       // Save concepts to knowledge graph
       for (const item of conceptItems) {
         // oxlint-disable-next-line no-await-in-loop
+<<<<<<< HEAD:apps/shared/services/src/knowledge-graph/ontology_builder_service.ts
         const createdItem = await this.knowledgeRepository.create(
           item as unknown as Record<string, unknown>
         );
+=======
+        const createdItem = await this.knowledgeRepository.create(item as unknown as Record<string, unknown>);
+>>>>>>> 441faaf (feat: fix stuff):backend/shared/services/src/knowledge-graph/ontology-builder.service.ts
 
         // Sync to Neo4j and Qdrant
         // oxlint-disable-next-line no-await-in-loop
@@ -435,9 +439,13 @@ export class OntologyBuilderService {
       // Save relationships to knowledge graph
       for (const item of relationshipItems) {
         // oxlint-disable-next-line no-await-in-loop
+<<<<<<< HEAD:apps/shared/services/src/knowledge-graph/ontology_builder_service.ts
         const createdItem = await this.knowledgeRepository.create(
           item as unknown as Record<string, unknown>
         );
+=======
+        const createdItem = await this.knowledgeRepository.create(item as unknown as Record<string, unknown>);
+>>>>>>> 441faaf (feat: fix stuff):backend/shared/services/src/knowledge-graph/ontology-builder.service.ts
         // oxlint-disable-next-line no-await-in-loop
         await this.knowledgeSync.syncKnowledgeItem(createdItem);
       }
@@ -462,9 +470,13 @@ export class OntologyBuilderService {
         accessLevel: 'public',
       };
 
+<<<<<<< HEAD:apps/shared/services/src/knowledge-graph/ontology_builder_service.ts
       const createdMetadataItem = await this.knowledgeRepository.create(
         ontologyMetadataItem as unknown as Record<string, unknown>
       );
+=======
+      const createdMetadataItem = await this.knowledgeRepository.create(ontologyMetadataItem as unknown as Record<string, unknown>);
+>>>>>>> 441faaf (feat: fix stuff):backend/shared/services/src/knowledge-graph/ontology-builder.service.ts
       await this.knowledgeSync.syncKnowledgeItem(createdMetadataItem);
 
       logger.info(

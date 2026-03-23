@@ -119,7 +119,11 @@ export class UserService {
   }
 
   public async findUserById(id: string): Promise<UserEntity | null> {
+<<<<<<< HEAD:apps/shared/services/src/services/user_service.ts
     return (await this.getUserRepository().findById(id)) as unknown as UserEntity | null;
+=======
+    return await this.getUserRepository().findById(id) as unknown as UserEntity | null;
+>>>>>>> 441faaf (feat: fix stuff):backend/shared/services/src/services/UserService.ts
   }
 
   public async updateUser(id: string, data: Partial<UserEntity>): Promise<UserEntity | null> {

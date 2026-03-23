@@ -1,6 +1,23 @@
+<<<<<<< HEAD:apps/shared/services/src/services/unified_model_selection_facade.ts
 import { ModelSelectionOrchestrator } from './model_selection_orchestrator';
 import type { ModelSelectionRequest, ModelSelectionResult, FallbackChain } from '@uaip/types';
 import { LLMTaskType, RoutingRequest } from '@uaip/types';
+=======
+import {
+  ModelSelectionOrchestrator,
+  ModelSelectionRequest,
+  ModelSelectionResult,
+  FallbackChain,
+} from './ModelSelectionOrchestrator';
+import { LLMTaskType, RoutingRequest } from '@uaip/types';
+
+type Repository<T> = unknown;
+type Agent = Record<string, unknown>;
+type UserLLMPreference = Record<string, unknown>;
+type AgentLLMPreference = Record<string, unknown>;
+type LLMProvider = Record<string, unknown>;
+type UserLLMProvider = Record<string, unknown>;
+>>>>>>> 441faaf (feat: fix stuff):backend/shared/services/src/services/UnifiedModelSelectionFacade.ts
 import { logger } from '@uaip/utils';
 import { AgentRepository } from '../database/repositories/agent_repository';
 import { UserLLMPreferenceRepository } from '../database/repositories/user_l_l_m_preference_repository';
@@ -86,10 +103,17 @@ export class UnifiedModelSelectionFacade {
   private metrics: SelectionMetrics;
 
   constructor(
+<<<<<<< HEAD:apps/shared/services/src/services/unified_model_selection_facade.ts
     agentRepository?: AgentRepository,
     userLLMPreferenceRepository?: UserLLMPreferenceRepository,
     agentLLMPreferenceRepository?: AgentLLMPreferenceRepository,
     llmProviderRepository?: LLMProviderRepository
+=======
+    agentRepository?: Repository<Agent>,
+    userLLMPreferenceRepository?: Repository<UserLLMPreference>,
+    agentLLMPreferenceRepository?: Repository<AgentLLMPreference>,
+    llmProviderRepository?: Repository<LLMProvider>
+>>>>>>> 441faaf (feat: fix stuff):backend/shared/services/src/services/UnifiedModelSelectionFacade.ts
   ) {
     const resolvedAgentRepository =
       (agentRepository as OrchestratorAgentRepository) ??
@@ -116,10 +140,17 @@ export class UnifiedModelSelectionFacade {
     const resolvedProviderRepository = llmProviderRepository ?? new LLMProviderRepository();
 
     this.orchestrator = new ModelSelectionOrchestrator(
+<<<<<<< HEAD:apps/shared/services/src/services/unified_model_selection_facade.ts
       resolvedAgentRepository,
       resolvedUserPrefRepository,
       resolvedAgentPrefRepository,
       resolvedProviderRepository
+=======
+      agentRepository as Repository<Agent>,
+      userLLMPreferenceRepository as Repository<UserLLMPreference>,
+      agentLLMPreferenceRepository as Repository<AgentLLMPreference>,
+      llmProviderRepository as Repository<LLMProvider>
+>>>>>>> 441faaf (feat: fix stuff):backend/shared/services/src/services/UnifiedModelSelectionFacade.ts
     );
 
     this.metrics = {

@@ -34,6 +34,7 @@ type ModelSelectionContext = {
   agentRepository: AgentRepository & {
     findOne: (query: { where: { id: string }; select?: string[] }) => Promise<AgentOwnerRecord | null>;
   };
+<<<<<<< HEAD:apps/shared/services/src/services/model_selection_orchestrator.ts
   userLLMPreferenceRepository: UserLLMPreferenceRepository & {
     findOne: (query: PreferenceQuery) => Promise<LLMPreferenceRecord | null>;
   };
@@ -42,6 +43,39 @@ type ModelSelectionContext = {
     find: (query: { where: { agentId: string; taskType: LLMTaskType } }) => Promise<LLMPreferenceRecord[]>;
   };
   llmProviderRepository: LLMProviderRepository;
+=======
+  source: 'agent' | 'user' | 'system';
+  reasoning: string;
+  confidence: number; // 0-1 confidence score
+  warnings?: string[];
+  selectionStrategy: string;
+}
+
+export interface FallbackChain {
+  primary: ModelSelectionResult;
+  fallbacks: ModelSelectionResult[];
+}
+
+// =============================================================================
+// SELECTION STRATEGIES
+// =============================================================================
+
+export interface ModelSelectionStrategy {
+  name: string;
+  select(
+    request: ModelSelectionRequest,
+    context: ModelSelectionContext
+  ): Promise<ModelSelectionResult>;
+  canHandle(request: ModelSelectionRequest): boolean;
+  priority: number; // Higher = tried first
+}
+
+export interface ModelSelectionContext {
+  agentRepository: unknown;
+  userLLMPreferenceRepository: unknown;
+  agentLLMPreferenceRepository: unknown;
+  llmProviderRepository: unknown;
+>>>>>>> 441faaf (feat: fix stuff):backend/shared/services/src/services/ModelSelectionOrchestrator.ts
   systemDefaults: Record<LLMTaskType, ModelSelectionResult>;
 };
 
@@ -175,7 +209,7 @@ export class AgentSpecificStrategy implements ModelSelectionStrategy {
       throw new Error('Agent ID required for AgentSpecificStrategy');
     }
 
-    const agentPreference = await context.agentLLMPreferenceRepository.findOne({
+    const agentPreference = await (context.agentLLMPreferenceRepository as { findOne: Function }).findOne({
       where: { agentId: request.agentId, taskType: request.taskType, isActive: true },
     });
 
@@ -222,18 +256,18 @@ export class UserSpecificStrategy implements ModelSelectionStrategy {
 
     // If agentId provided, get user from agent
     if (!userId && request.agentId) {
-      const agent = await context.agentRepository.findOne({
+      const agent = await (context.agentRepository as { findOne: Function }).findOne({
         where: { id: request.agentId },
         select: ['createdBy'],
       });
-      userId = agent?.createdBy;
+      userId = (agent as { createdBy?: string })?.createdBy;
     }
 
     if (!userId) {
       throw new Error('User ID required for UserSpecificStrategy');
     }
 
-    const userPreference = await context.userLLMPreferenceRepository.findOne({
+    const userPreference = await (context.userLLMPreferenceRepository as { findOne: Function }).findOne({
       where: { userId, taskType: request.taskType, isActive: true },
     });
 
@@ -303,15 +337,20 @@ export class PerformanceOptimizedStrategy implements ModelSelectionStrategy {
     taskType: LLMTaskType,
     context: ModelSelectionContext
   ) {
-    const preferences = await context.agentLLMPreferenceRepository.find({
+    const repo = context.agentLLMPreferenceRepository as { find: Function };
+    const preferences = await repo.find({
       where: { agentId, taskType },
-    });
+    }) as Array<{ getPerformanceScore: Function; preferredProvider: LLMProviderType; preferredModel: string }>;
 
     if (preferences.length === 0) return null;
 
     const bestPreference = preferences.reduce((best, current) =>
       current.getPerformanceScore() > best.getPerformanceScore() ? current : best
+<<<<<<< HEAD:apps/shared/services/src/services/model_selection_orchestrator.ts
     ) as (typeof preferences)[0];
+=======
+    ) as typeof preferences[0];
+>>>>>>> 441faaf (feat: fix stuff):backend/shared/services/src/services/ModelSelectionOrchestrator.ts
 
     return {
       provider: bestPreference.preferredProvider,
@@ -443,10 +482,17 @@ export class ModelSelectionOrchestrator {
   private context: ModelSelectionContext;
 
   constructor(
+<<<<<<< HEAD:apps/shared/services/src/services/model_selection_orchestrator.ts
     agentRepository: ModelSelectionContext['agentRepository'],
     userLLMPreferenceRepository: ModelSelectionContext['userLLMPreferenceRepository'],
     agentLLMPreferenceRepository: ModelSelectionContext['agentLLMPreferenceRepository'],
     llmProviderRepository: ModelSelectionContext['llmProviderRepository']
+=======
+    agentRepository: unknown,
+    userLLMPreferenceRepository: unknown,
+    agentLLMPreferenceRepository: unknown,
+    llmProviderRepository: unknown
+>>>>>>> 441faaf (feat: fix stuff):backend/shared/services/src/services/ModelSelectionOrchestrator.ts
   ) {
     this.context = {
       agentRepository,
@@ -553,8 +599,13 @@ export class ModelSelectionOrchestrator {
     quality?: number
   ): Promise<void> {
     try {
+<<<<<<< HEAD:apps/shared/services/src/services/model_selection_orchestrator.ts
       const agentPrefRepo = this.context.agentLLMPreferenceRepository;
       const userPrefRepo = this.context.userLLMPreferenceRepository;
+=======
+      const agentPrefRepo = this.context.agentLLMPreferenceRepository as { findOne: Function; save: Function };
+      const userPrefRepo = this.context.userLLMPreferenceRepository as { findOne: Function; save: Function };
+>>>>>>> 441faaf (feat: fix stuff):backend/shared/services/src/services/ModelSelectionOrchestrator.ts
 
       // Update agent-specific stats if applicable
       if (request.agentId && result.source === 'agent') {
@@ -563,7 +614,12 @@ export class ModelSelectionOrchestrator {
         });
 
         if (agentPreference) {
+<<<<<<< HEAD:apps/shared/services/src/services/model_selection_orchestrator.ts
           agentPreference.updateUsageStats(responseTime, success, quality);
+=======
+          (agentPreference as { updateUsageStats: Function }).updateUsageStats(responseTime, success, quality);
+          await agentPrefRepo.save(agentPreference);
+>>>>>>> 441faaf (feat: fix stuff):backend/shared/services/src/services/ModelSelectionOrchestrator.ts
         }
       }
 
@@ -574,7 +630,12 @@ export class ModelSelectionOrchestrator {
         });
 
         if (userPreference) {
+<<<<<<< HEAD:apps/shared/services/src/services/model_selection_orchestrator.ts
           userPreference.updateUsageStats(responseTime, success);
+=======
+          (userPreference as { updateUsageStats: Function }).updateUsageStats(responseTime, success);
+          await userPrefRepo.save(userPreference);
+>>>>>>> 441faaf (feat: fix stuff):backend/shared/services/src/services/ModelSelectionOrchestrator.ts
         }
       }
 

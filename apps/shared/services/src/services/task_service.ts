@@ -15,12 +15,15 @@ import { UserEntity } from '../entities/user_entity';
 import { Agent } from '../entities/agent_entity';
 import { v4 as uuidv4 } from 'uuid';
 
+<<<<<<< HEAD:apps/shared/services/src/services/task_service.ts
 type AssignmentContext = {
   workload: number;
   capabilities?: string[];
   skills?: Array<{ name: string; description?: string; enabled?: boolean }>;
 };
 
+=======
+>>>>>>> 441faaf (feat: fix stuff):backend/shared/services/src/services/task.service.ts
 // Local interface compatible with DrizzleRepository
 interface IRepository<T = any> {
   findOne(opts: { where?: any }): Promise<T | null>;

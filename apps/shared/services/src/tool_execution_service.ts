@@ -7,8 +7,31 @@ import {
   ToolExecutionResponseEvent,
 } from '@uaip/types';
 import { logger } from '@uaip/utils';
+<<<<<<< HEAD:apps/shared/services/src/tool_execution_service.ts
 import { DatabaseService } from './database_service';
 import { EventBusService } from './event_bus_service';
+=======
+import { DatabaseService } from './databaseService';
+import { EventBusService } from './eventBusService';
+
+interface ToolExecutionEntity {
+  id?: string;
+  toolId: string;
+  agentId?: string;
+  userId?: string;
+  operationId?: string;
+  status: string;
+  parameters?: Record<string, unknown>;
+  result?: unknown;
+  error?: string;
+  duration?: number;
+  tokensUsed?: number;
+  cost?: number;
+  metadata?: Record<string, unknown>;
+  createdAt?: Date;
+  updatedAt?: Date;
+}
+>>>>>>> 441faaf (feat: fix stuff):backend/shared/services/src/tool-execution.service.ts
 
 type ToolRequestInput =
   | string
@@ -89,8 +112,48 @@ export class ToolExecutionService {
       : undefined;
   }
 
+<<<<<<< HEAD:apps/shared/services/src/tool_execution_service.ts
   private parseToolRequest(
     toolIdOrRequest: ToolRequestInput,
+=======
+  private toEntityExecution(execution: ToolExecutionType): Partial<ToolExecutionEntity> {
+    return {
+      id: execution.id,
+      toolId: execution.toolId,
+      agentId: execution.agentId,
+      parameters: execution.parameters,
+      status: execution.status,
+      result: execution.result,
+      error: execution.error ? JSON.stringify(execution.error) : undefined,
+      metadata: execution.metadata,
+    };
+  }
+
+  private toEntityExecutionUpdates(
+    updates: Partial<ToolExecutionType>
+  ): Partial<ToolExecutionEntity> {
+    return {
+      result: updates.result,
+      error: updates.error ? JSON.stringify(updates.error) : undefined,
+    };
+  }
+
+  /**
+   * Execute a tool with the given parameters
+   * Publishes 'tool.execute.request' event to capability-registry for execution
+   * Supports both object-style and parameter-style calls for agent compatibility
+   */
+  async executeTool(
+    toolIdOrRequest:
+      | string
+      | {
+          toolId: string;
+          operation?: string;
+          parameters: Record<string, unknown>;
+          userId?: string;
+          securityContext?: Record<string, unknown>;
+        },
+>>>>>>> 441faaf (feat: fix stuff):backend/shared/services/src/tool-execution.service.ts
     agentId?: string,
     parameters?: Record<string, unknown>
   ): {

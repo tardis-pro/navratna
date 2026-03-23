@@ -1,5 +1,6 @@
 import { v4 as uuidv4 } from 'uuid';
 import { KnowledgeType, SourceType } from '@uaip/types';
+<<<<<<< HEAD:apps/shared/services/src/knowledge-graph/knowledge_sync_service.ts
 import type {
   KnowledgeItem as KnowledgeItemEntity,
   KnowledgeRelationship as KnowledgeRelationshipEntity,
@@ -9,6 +10,14 @@ import { KnowledgeRepository } from '../database/repositories/knowledge_reposito
 import { QdrantService } from '../qdrant_service';
 import { ToolGraphDatabase } from '../database/tool_graph_database';
 import { EmbeddingService } from './embedding_service';
+=======
+import type { KnowledgeItem as KnowledgeItemEntity, KnowledgeRelationship as KnowledgeRelationshipEntity } from '../database/drizzle/schemas/intelligence.schema';
+import type { User as UserEntity } from '../database/drizzle/schemas/control.schema';
+import { KnowledgeRepository } from '../database/repositories/knowledge.repository';
+import { QdrantService } from '../qdrant.service';
+import { ToolGraphDatabase } from '../database/toolGraphDatabase';
+import { EmbeddingService } from './embedding.service';
+>>>>>>> 441faaf (feat: fix stuff):backend/shared/services/src/knowledge-graph/knowledge-sync.service.ts
 import { logger } from '@uaip/utils';
 
 export interface KnowledgeSyncResult {

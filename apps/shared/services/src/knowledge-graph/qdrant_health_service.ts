@@ -73,12 +73,24 @@ export class QdrantHealthService {
         `Starting Qdrant sync for ${Math.min(maxItems, health.postgresItemsCount)} items`
       );
 
+<<<<<<< HEAD:apps/shared/services/src/knowledge-graph/qdrant_health_service.ts
+=======
+      const databaseService = DatabaseService.getInstance();
+      const userRepository = databaseService.getUserRepository();
+      const userRepositoryWrapper: { findById: (id: string) => Promise<import('../database/drizzle/schemas/control.schema').User | null> } = {
+        findById: (id: string) => userRepository.findById(id) as unknown as Promise<import('../database/drizzle/schemas/control.schema').User | null>,
+      };
+>>>>>>> 441faaf (feat: fix stuff):backend/shared/services/src/knowledge-graph/qdrant-health.service.ts
       const syncService = new KnowledgeSyncService(
         this.knowledgeRepository,
         this.qdrantService,
         this.graphDatabase,
         this.embeddingService,
+<<<<<<< HEAD:apps/shared/services/src/knowledge-graph/qdrant_health_service.ts
         this.userRepository ?? null
+=======
+        userRepositoryWrapper as any
+>>>>>>> 441faaf (feat: fix stuff):backend/shared/services/src/knowledge-graph/qdrant-health.service.ts
       );
 
       // Get items to sync

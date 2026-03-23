@@ -1,7 +1,13 @@
 import { KnowledgeItem, KnowledgeRelationship } from '@uaip/types';
+<<<<<<< HEAD:apps/shared/services/src/knowledge-graph/relationship_detector_service.ts
 import { EmbeddingService } from './embedding_service';
 import { SmartEmbeddingService } from './smart_embedding_service';
 import { KnowledgeRepository, KnowledgeRow } from '../database/repositories/knowledge_repository';
+=======
+import { EmbeddingService } from './embedding.service';
+import { SmartEmbeddingService } from './smart-embedding.service';
+import { KnowledgeRepository, KnowledgeRow } from '../database/repositories/knowledge.repository';
+>>>>>>> 441faaf (feat: fix stuff):backend/shared/services/src/knowledge-graph/relationship-detector.service.ts
 
 // Type for any service that can generate embeddings and calculate similarity
 type EmbeddingProvider = EmbeddingService | SmartEmbeddingService;
@@ -13,10 +19,14 @@ function toKnowledgeItem(row: KnowledgeRow): KnowledgeItem {
     content: row.content,
     type: row.type,
     tags: row.tags ?? [],
+<<<<<<< HEAD:apps/shared/services/src/knowledge-graph/relationship_detector_service.ts
     confidence:
       typeof row.confidence === 'number'
         ? row.confidence
         : parseFloat(String(row.confidence)) || 0.8,
+=======
+    confidence: typeof row.confidence === 'number' ? row.confidence : parseFloat(String(row.confidence)) || 0.8,
+>>>>>>> 441faaf (feat: fix stuff):backend/shared/services/src/knowledge-graph/relationship-detector.service.ts
     accessLevel: row.accessLevel,
     sourceIdentifier: row.sourceIdentifier,
     sourceType: row.sourceType,
@@ -338,8 +348,12 @@ export class RelationshipDetector {
       const relationships = await this.knowledgeRepository.getRelationships(itemId);
       return relationships
         .filter((rel) => {
+<<<<<<< HEAD:apps/shared/services/src/knowledge-graph/relationship_detector_service.ts
           const strength =
             typeof rel.strength === 'number' ? rel.strength : parseFloat(String(rel.strength)) || 0;
+=======
+          const strength = typeof rel.strength === 'number' ? rel.strength : parseFloat(String(rel.strength)) || 0;
+>>>>>>> 441faaf (feat: fix stuff):backend/shared/services/src/knowledge-graph/relationship-detector.service.ts
           return strength >= threshold;
         })
         .map((rel) => ({

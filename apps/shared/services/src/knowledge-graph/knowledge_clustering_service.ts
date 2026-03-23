@@ -1,3 +1,4 @@
+<<<<<<< HEAD:apps/shared/services/src/knowledge-graph/knowledge_clustering_service.ts
 import { QdrantService } from '../qdrant_service';
 import { knowledgeItems } from '../database/drizzle/schemas/intelligence_schema';
 import {
@@ -9,6 +10,54 @@ import {
   SourceMetadata,
 } from '@uaip/types';
 import { SmartEmbeddingService } from './smart_embedding_service';
+=======
+import { QdrantService } from '../qdrant.service';
+import { knowledgeItems } from '../database/drizzle/schemas/intelligence.schema';
+import { getIntelligenceDb } from '../database/drizzle/clients/index';
+import { KnowledgeType, SourceType } from '@uaip/types';
+import { SmartEmbeddingService } from './smart-embedding.service';
+
+export interface KnowledgeCluster {
+  clusterId: string;
+  primaryVector: QdrantPoint;
+  similarChunks: QdrantPoint[];
+  consolidatedContent: string;
+  confidence: number;
+  sources: SourceMetadata[];
+  consolidatedType: KnowledgeType;
+  consolidatedTags: string[];
+  averageConfidence: number;
+}
+
+export interface QdrantPoint {
+  id: string;
+  vector: number[];
+  payload: {
+    content: string;
+    knowledgeType: KnowledgeType;
+    tags: string[];
+    confidence: number;
+    sourceType: string;
+    originalMetadata: Record<string, unknown>;
+  };
+}
+
+export interface SourceMetadata {
+  id: string;
+  sourceType: string;
+  confidence: number;
+  originalMetadata: Record<string, unknown>;
+}
+
+export interface ClusteringResult {
+  totalClusters: number;
+  totalOriginalItems: number;
+  totalConsolidatedItems: number;
+  reductionRatio: number;
+  averageClusterSize: number;
+  clusters: KnowledgeCluster[];
+}
+>>>>>>> 441faaf (feat: fix stuff):backend/shared/services/src/knowledge-graph/knowledge-clustering.service.ts
 
 type QdrantServiceWithConnection = {
   ensureConnection: () => Promise<string>;

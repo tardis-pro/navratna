@@ -1,7 +1,14 @@
+<<<<<<< HEAD:apps/shared/services/src/integration/integration_service.ts
 import { ToolGraphDatabase } from '../database/tool_graph_database';
 import { initializeDatabase } from '../database/index';
 import { OutboxPublisher } from './outbox_publisher';
 import { GraphSyncWorker } from './graph_sync_worker';
+=======
+import { ToolGraphDatabase } from '../database/toolGraphDatabase';
+import { TypeOrmService } from '../typeormService';
+import { OutboxPublisher } from './OutboxPublisher';
+import { GraphSyncWorker } from './GraphSyncWorker';
+>>>>>>> 441faaf (feat: fix stuff):backend/shared/services/src/integration/IntegrationService.ts
 import { logger } from '@uaip/utils';
 import { config } from '@uaip/config';
 

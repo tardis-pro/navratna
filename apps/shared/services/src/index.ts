@@ -100,8 +100,13 @@ export type {
   TaskAssignmentRequest,
   TaskAssignmentSuggestion,
   TaskFilters,
+<<<<<<< HEAD:apps/shared/services/src/index.ts
 } from '@uaip/types';
 export type { TaskEntity } from '@uaip/types';
+=======
+} from './services/task.service';
+export type { Project as TaskEntity } from './database/drizzle/schemas/control.schema';
+>>>>>>> 441faaf (feat: fix stuff):backend/shared/services/src/index.ts
 
 // Agent Intelligence Services
 export { AgentIntelligenceService } from './agent_intelligence_service';
@@ -159,7 +164,11 @@ export {
 // =============================================================================
 
 // Tool Graph
+<<<<<<< HEAD:apps/shared/services/src/index.ts
 export { ToolGraphDatabase } from './database/tool_graph_database';
+=======
+export { ToolGraphDatabase } from './database/toolGraphDatabase';
+>>>>>>> 441faaf (feat: fix stuff):backend/shared/services/src/index.ts
 export type {
   ToolGraphRelationship,
   ToolRecommendation,
@@ -213,6 +222,7 @@ export type { ReasoningNode, ReasoningEdge, ExplanationDAG } from '@uaip/types';
 // =============================================================================
 
 // Drizzle type aliases for backward-compat
+<<<<<<< HEAD:apps/shared/services/src/index.ts
 export type { ShortLink as ShortLinkEntity } from './database/drizzle/schemas/intelligence_schema';
 export type { Project } from './database/drizzle/schemas/control_schema';
 
@@ -220,9 +230,22 @@ export type { Project } from './database/drizzle/schemas/control_schema';
 export { ContactStatus, ContactType } from './database/repositories/user_contact_repository';
 
 export { LLMModelRepository } from './repositories/llm_model_repository';
+=======
+export type { ShortLink as ShortLinkEntity } from './database/drizzle/schemas/intelligence.schema';
+export type { Project } from './database/drizzle/schemas/control.schema';
+
+// Contact Management Enums
+export { ContactStatus, ContactType } from './database/repositories/UserContactRepository';
+>>>>>>> 441faaf (feat: fix stuff):backend/shared/services/src/index.ts
+
+export { LLMModelRepository } from './repositories/llmModelRepository';
 
 // Database Seeders
+<<<<<<< HEAD:apps/shared/services/src/index.ts
 export { DefaultUserLLMProviderSeed } from './database/seeders/default_user_l_l_m_provider_seed';
+=======
+export { DefaultUserLLMProviderSeed } from './database/seeders/DefaultUserLLMProviderSeed';
+>>>>>>> 441faaf (feat: fix stuff):backend/shared/services/src/index.ts
 
 // =============================================================================
 // SERVICE FACTORY AND DEPENDENCY INJECTION

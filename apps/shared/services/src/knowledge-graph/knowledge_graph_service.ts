@@ -307,7 +307,11 @@ export class KnowledgeGraphService implements KnowledgeIngestionPort {
 
       // Vector search succeeded — hydrate from Postgres
       if (results.length > 0) {
+<<<<<<< HEAD:apps/shared/services/src/knowledge-graph/knowledge_graph_service.ts
         return this.repository.applyFilters((context.scope as Record<string, unknown>) || {});
+=======
+        return this.repository.applyFilters(context.scope as Record<string, unknown> || {});
+>>>>>>> 441faaf (feat: fix stuff):backend/shared/services/src/knowledge-graph/knowledge-graph.service.ts
       }
 
       // Qdrant empty or returned nothing — fall back to Postgres scope/text search

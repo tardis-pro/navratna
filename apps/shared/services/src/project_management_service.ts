@@ -1,5 +1,10 @@
+<<<<<<< HEAD:apps/shared/services/src/project_management_service.ts
 import { DatabaseService } from './database_service';
 import { EventBusService } from './event_bus_service';
+=======
+import { DatabaseService } from './databaseService';
+import { EventBusService } from './eventBusService';
+>>>>>>> 441faaf (feat: fix stuff):backend/shared/services/src/project-management.service.ts
 import { logger } from '@uaip/utils';
 import {
   ProjectEntity,
@@ -30,6 +35,17 @@ interface IRepository<T = any> {
   count(opts?: { where?: any }): Promise<number>;
   createQueryBuilder(alias?: string): any;
 }
+
+interface IRepository<T = any> {
+  findOne(opts: { where?: any }): Promise<T | null>;
+  find(opts?: { where?: any; order?: any; take?: number; skip?: number }): Promise<T[]>;
+  save(entity: any): Promise<T>;
+  update(id: string, data: any): Promise<T | null>;
+  count(opts?: { where?: any }): Promise<number>;
+  createQueryBuilder(alias?: string): any;
+}
+
+type AnyRepository = IRepository<any>;
 
 // ---------------------------------------------------------------------------
 // Slug generation — 8-char alphanumeric, e.g. "A3FX9K2B"
@@ -342,9 +358,13 @@ export class ProjectManagementService {
       const [projects, totalProjects] = await qb.getManyAndCount();
 
       const activeProjects = projects.filter((p: any) => p.status === ProjectStatus.ACTIVE).length;
+<<<<<<< HEAD:apps/shared/services/src/project_management_service.ts
       const completedProjects = projects.filter(
         (p: any) => p.status === ProjectStatus.COMPLETED
       ).length;
+=======
+      const completedProjects = projects.filter((p: any) => p.status === ProjectStatus.COMPLETED).length;
+>>>>>>> 441faaf (feat: fix stuff):backend/shared/services/src/project-management.service.ts
 
       return {
         totalProjects,

@@ -17,6 +17,7 @@ import {
 import { DatabaseService } from '@uaip/infra/database';
 import { EventBusService } from '@uaip/infra/event_bus';
 import { logger } from '@uaip/utils';
+<<<<<<< HEAD:apps/shared/services/src/persona_service.ts
 import { PersonaRepository } from './database/repositories/agent_repository';
 import type { Persona as PersonaRow, NewPersona } from './database/drizzle/schemas/intelligence_schema';
 
@@ -50,6 +51,8 @@ type PersonaIssueStat = {
   frequency: number;
   issue: string;
 };
+=======
+>>>>>>> 441faaf (feat: fix stuff):backend/shared/services/src/personaService.ts
 
 export interface PersonaServiceConfig {
   databaseService: DatabaseService;
@@ -128,6 +131,7 @@ export class PersonaService {
         updatedAt: new Date(),
       };
 
+<<<<<<< HEAD:apps/shared/services/src/persona_service.ts
       const savedEntity = await this.personaRepo.createPersona({
         name: personaData.name,
         role: personaData.role,
@@ -152,6 +156,9 @@ export class PersonaService {
         restrictions: personaData.restrictions as JsonObject | undefined,
         metadata: personaData.metadata as JsonObject | undefined,
       } as NewPersona);
+=======
+      const savedEntity = await this.databaseService.create('personas', personaData) as Record<string, unknown>;
+>>>>>>> 441faaf (feat: fix stuff):backend/shared/services/src/personaService.ts
       const persona = this.entityToPersona(savedEntity);
 
       this.cachePersona(persona);
@@ -178,7 +185,11 @@ export class PersonaService {
         return cached;
       }
 
+<<<<<<< HEAD:apps/shared/services/src/persona_service.ts
       const entity = await this.personaRepo.findById(id);
+=======
+      const entity = await this.databaseService.findById('personas', id) as Record<string, unknown> | null;
+>>>>>>> 441faaf (feat: fix stuff):backend/shared/services/src/personaService.ts
 
       if (!entity) {
         return null;
@@ -210,11 +221,20 @@ export class PersonaService {
         updateData.expertise = this.extractExpertiseNames(updates.expertise);
       }
 
+<<<<<<< HEAD:apps/shared/services/src/persona_service.ts
       const updatedEntity = await this.personaRepo.updatePersona(id, {
         ...(updateData as Partial<NewPersona>),
         validation: validation as PersonaValidation | undefined,
         version: existingPersona.version + 1,
       });
+=======
+      const updatedEntity = await this.databaseService.update('personas', id, {
+        ...updateData,
+        validation,
+        version: existingPersona.version + 1,
+        updatedAt: new Date(),
+      }) as Record<string, unknown> | null;
+>>>>>>> 441faaf (feat: fix stuff):backend/shared/services/src/personaService.ts
 
       if (!updatedEntity) {
         throw new Error(`Failed to update persona: ${id}`);
@@ -257,7 +277,11 @@ export class PersonaService {
         return;
       }
 
+<<<<<<< HEAD:apps/shared/services/src/persona_service.ts
       await this.personaRepo.deletePersona(id);
+=======
+      await this.databaseService.delete('personas', id);
+>>>>>>> 441faaf (feat: fix stuff):backend/shared/services/src/personaService.ts
 
       this.personaCache.delete(id);
 
@@ -290,6 +314,7 @@ export class PersonaService {
 
       // Get total count
       const countQuery = `SELECT COUNT(*)::int as cnt FROM "personas"${whereClause ? ` WHERE ${whereClause}` : ''}`;
+<<<<<<< HEAD:apps/shared/services/src/persona_service.ts
       const countResult = (await this.databaseService.executeQuery(countQuery, params)) as Array<{
         cnt: number;
       }>;
@@ -347,6 +372,15 @@ export class PersonaService {
       `;
       const dataParams = [...params, limit, offset];
       const entities = await this.databaseService.executeQuery<PersonaRow>(dataQuery, dataParams);
+=======
+      const countResult = await this.databaseService.executeQuery(countQuery, params) as Array<{ cnt: number }>;
+      const total = countResult[0]?.cnt ?? 0;
+
+      // Get paginated results
+      const dataQuery = `SELECT * FROM "personas"${whereClause ? ` WHERE ${whereClause}` : ''} ORDER BY ${orderBy} LIMIT $${params.length + 1} OFFSET $${params.length + 2}`;
+      const dataParams = [...params, limit, offset];
+      const entities = await this.databaseService.executeQuery(dataQuery, dataParams) as Record<string, unknown>[];
+>>>>>>> 441faaf (feat: fix stuff):backend/shared/services/src/personaService.ts
       const personas = entities.map((entity) => this.entityToPersona(entity));
 
       return {
@@ -560,7 +594,11 @@ export class PersonaService {
   async getPersonaTemplates(category?: string): Promise<PersonaTemplate[]> {
     try {
       let query = `SELECT * FROM "personas"`;
+<<<<<<< HEAD:apps/shared/services/src/persona_service.ts
       const params: QueryParam[] = [];
+=======
+      const params: unknown[] = [];
+>>>>>>> 441faaf (feat: fix stuff):backend/shared/services/src/personaService.ts
 
       if (category) {
         query += ` WHERE tags LIKE $1`;
@@ -569,7 +607,11 @@ export class PersonaService {
 
       query += ` ORDER BY totalInteractions DESC`;
 
+<<<<<<< HEAD:apps/shared/services/src/persona_service.ts
       const entities = await this.databaseService.executeQuery<PersonaRow>(query, params);
+=======
+      const entities = await this.databaseService.executeQuery(query, params) as Record<string, unknown>[];
+>>>>>>> 441faaf (feat: fix stuff):backend/shared/services/src/personaService.ts
 
       return entities.map((entity) => ({
         id: entity.id as string,
@@ -670,11 +712,19 @@ export class PersonaService {
 
   private buildSearchQuery(filters: PersonaSearchFilters): {
     whereClause: string;
+<<<<<<< HEAD:apps/shared/services/src/persona_service.ts
     params: QueryParam[];
     orderBy: string;
   } {
     const conditions: string[] = [];
     const params: QueryParam[] = [];
+=======
+    params: unknown[];
+    orderBy: string;
+  } {
+    const conditions: string[] = [];
+    const params: unknown[] = [];
+>>>>>>> 441faaf (feat: fix stuff):backend/shared/services/src/personaService.ts
     let paramIndex = 1;
 
     if (filters.query) {
@@ -707,17 +757,29 @@ export class PersonaService {
 
     if (filters.createdBy && filters.createdBy.length > 0) {
       const createdByList = filters.createdBy.map(() => `$${paramIndex++}`).join(', ');
+<<<<<<< HEAD:apps/shared/services/src/persona_service.ts
       conditions.push(`created_by IN (${createdByList})`);
+=======
+      conditions.push(`createdBy IN (${createdByList})`);
+>>>>>>> 441faaf (feat: fix stuff):backend/shared/services/src/personaService.ts
       params.push(...filters.createdBy);
     }
 
     if (filters.organizationId) {
+<<<<<<< HEAD:apps/shared/services/src/persona_service.ts
       conditions.push(`organization_id = $${paramIndex++}`);
+=======
+      conditions.push(`organizationId = $${paramIndex++}`);
+>>>>>>> 441faaf (feat: fix stuff):backend/shared/services/src/personaService.ts
       params.push(filters.organizationId);
     }
 
     if (filters.teamId) {
+<<<<<<< HEAD:apps/shared/services/src/persona_service.ts
       conditions.push(`team_id = $${paramIndex++}`);
+=======
+      conditions.push(`teamId = $${paramIndex++}`);
+>>>>>>> 441faaf (feat: fix stuff):backend/shared/services/src/personaService.ts
       params.push(filters.teamId);
     }
 
@@ -730,29 +792,49 @@ export class PersonaService {
     }
 
     if (filters.minUsageCount !== undefined) {
+<<<<<<< HEAD:apps/shared/services/src/persona_service.ts
       conditions.push(`total_interactions >= $${paramIndex++}`);
+=======
+      conditions.push(`totalInteractions >= $${paramIndex++}`);
+>>>>>>> 441faaf (feat: fix stuff):backend/shared/services/src/personaService.ts
       params.push(filters.minUsageCount);
     }
 
     if (filters.minFeedbackScore !== undefined) {
+<<<<<<< HEAD:apps/shared/services/src/persona_service.ts
       conditions.push(`user_satisfaction >= $${paramIndex++}`);
+=======
+      conditions.push(`userSatisfaction >= $${paramIndex++}`);
+>>>>>>> 441faaf (feat: fix stuff):backend/shared/services/src/personaService.ts
       params.push(filters.minFeedbackScore);
     }
 
     if (filters.createdAfter) {
+<<<<<<< HEAD:apps/shared/services/src/persona_service.ts
       conditions.push(`created_at >= $${paramIndex++}`);
+=======
+      conditions.push(`createdAt >= $${paramIndex++}`);
+>>>>>>> 441faaf (feat: fix stuff):backend/shared/services/src/personaService.ts
       params.push(filters.createdAfter);
     }
 
     if (filters.createdBefore) {
+<<<<<<< HEAD:apps/shared/services/src/persona_service.ts
       conditions.push(`created_at <= $${paramIndex++}`);
+=======
+      conditions.push(`createdAt <= $${paramIndex++}`);
+>>>>>>> 441faaf (feat: fix stuff):backend/shared/services/src/personaService.ts
       params.push(filters.createdBefore);
     }
 
     return {
       whereClause: conditions.join(' AND '),
       params,
+<<<<<<< HEAD:apps/shared/services/src/persona_service.ts
       orderBy: 'created_at DESC',
+=======
+      orderBy: 'createdAt DESC',
+>>>>>>> 441faaf (feat: fix stuff):backend/shared/services/src/personaService.ts
     };
   }
 
@@ -858,6 +940,7 @@ export class PersonaService {
   /**
    * Convert entity record to Persona type
    */
+<<<<<<< HEAD:apps/shared/services/src/persona_service.ts
   private entityToPersona(entity: PersonaRow): Persona {
     const expertise = (entity.expertise as string[]) || [];
     const _traits = (entity.traits as string[]) || [];
@@ -865,6 +948,15 @@ export class PersonaService {
     const capabilities = (entity.capabilities as string[]) || [];
     const restrictions = (entity.restrictions as JsonObject) || {};
     const configuration = (entity.configuration as JsonObject) || {};
+=======
+  private entityToPersona(entity: Record<string, unknown>): Persona {
+    const expertise = entity.expertise as string[] || [];
+    const traits = entity.traits as string[] || [];
+    const tags = entity.tags as string[] || [];
+    const capabilities = entity.capabilities as string[] || [];
+    const restrictions = entity.restrictions as Record<string, unknown> || {};
+    const configuration = entity.configuration as Record<string, unknown> || {};
+>>>>>>> 441faaf (feat: fix stuff):backend/shared/services/src/personaService.ts
     const validation = entity.validation as PersonaValidation | undefined;
     const usageStats = entity.usageStats as PersonaUsageStats | undefined;
 
@@ -909,7 +1001,11 @@ export class PersonaService {
       configuration,
       capabilities,
       restrictions,
+<<<<<<< HEAD:apps/shared/services/src/persona_service.ts
       metadata: entity.metadata as JsonObject | undefined,
+=======
+      metadata: entity.metadata as Record<string, unknown> | undefined,
+>>>>>>> 441faaf (feat: fix stuff):backend/shared/services/src/personaService.ts
       createdAt: entity.createdAt as Date,
       updatedAt: entity.updatedAt as Date,
     };

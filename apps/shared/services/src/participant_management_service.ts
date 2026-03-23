@@ -1,5 +1,6 @@
 import { logger } from '@uaip/utils';
 import { DatabaseService } from '@uaip/infra/database';
+<<<<<<< HEAD:apps/shared/services/src/participant_management_service.ts
 import type { DiscussionParticipant } from './database/drizzle/schemas/intelligence_schema';
 
 const PARTICIPANTS_TABLE = 'discussion_participants';
@@ -17,6 +18,11 @@ type BaseParticipantOptions = {
   behavioralConstraints?: Record<string, unknown>;
   contextAwareness?: Record<string, unknown>;
 };
+=======
+import type { DiscussionParticipant } from './database/drizzle/schemas/intelligence.schema';
+
+const PARTICIPANTS_TABLE = 'discussion_participants';
+>>>>>>> 441faaf (feat: fix stuff):backend/shared/services/src/participant-management.service.ts
 
 /**
  * Enterprise Participant Management Service
@@ -162,6 +168,7 @@ export class ParticipantManagementService {
     } = options;
 
     try {
+<<<<<<< HEAD:apps/shared/services/src/participant_management_service.ts
       return await this.createOrFindParticipant(
         discussionId, 'agent', agentId, 'agentId', roleInDiscussion,
         {
@@ -174,6 +181,56 @@ export class ParticipantManagementService {
           contextAwareness,
         }
       );
+=======
+      // Check if participant already exists for this agent in this discussion
+      const existingParticipants = await this.databaseService.findMany<DiscussionParticipant>(
+        PARTICIPANTS_TABLE,
+        {
+          discussionId,
+          participantType: 'agent',
+          agentId,
+        }
+      );
+      const existingParticipant = existingParticipants[0] || null;
+
+      if (existingParticipant) {
+        logger.info('Agent participant already exists, returning existing', {
+          discussionId,
+          agentId,
+          participantId: existingParticipant.id,
+        });
+        return existingParticipant;
+      }
+
+      // Create new participant
+      const participant = await this.databaseService.create<DiscussionParticipant>(
+        PARTICIPANTS_TABLE,
+        {
+          discussionId,
+          participantType: 'agent',
+          agentId,
+          role: roleInDiscussion,
+          joinedAt: new Date(),
+          isActive: true,
+          turnCount: 0,
+          messageCount: 0,
+          metadata: {
+            participationConfig,
+            behavioralConstraints,
+            contextAwareness,
+          },
+        }
+      );
+
+      logger.info('Created new agent participant', {
+        discussionId,
+        agentId,
+        participantId: participant.id,
+        roleInDiscussion,
+      });
+
+      return participant;
+>>>>>>> 441faaf (feat: fix stuff):backend/shared/services/src/participant-management.service.ts
     } catch (error) {
       logger.error('Error creating agent participant', {
         error: error instanceof Error ? error.message : 'Unknown error',
@@ -202,6 +259,7 @@ export class ParticipantManagementService {
     } = options;
 
     try {
+<<<<<<< HEAD:apps/shared/services/src/participant_management_service.ts
       return await this.createOrFindParticipant(
         discussionId, 'user', userId, 'userId', roleInDiscussion,
         {
@@ -214,6 +272,54 @@ export class ParticipantManagementService {
           contextAwareness,
         }
       );
+=======
+      const existingParticipants = await this.databaseService.findMany<DiscussionParticipant>(
+        PARTICIPANTS_TABLE,
+        {
+          discussionId,
+          participantType: 'user',
+          userId,
+        }
+      );
+      const existingParticipant = existingParticipants[0] || null;
+
+      if (existingParticipant) {
+        logger.info('User participant already exists, returning existing', {
+          discussionId,
+          userId,
+          participantId: existingParticipant.id,
+        });
+        return existingParticipant;
+      }
+
+      const participant = await this.databaseService.create<DiscussionParticipant>(
+        PARTICIPANTS_TABLE,
+        {
+          discussionId,
+          participantType: 'user',
+          userId,
+          role: roleInDiscussion,
+          joinedAt: new Date(),
+          isActive: true,
+          turnCount: 0,
+          messageCount: 0,
+          metadata: {
+            participationConfig,
+            behavioralConstraints,
+            contextAwareness,
+          },
+        }
+      );
+
+      logger.info('Created new user participant', {
+        discussionId,
+        userId,
+        participantId: participant.id,
+        roleInDiscussion,
+      });
+
+      return participant;
+>>>>>>> 441faaf (feat: fix stuff):backend/shared/services/src/participant-management.service.ts
     } catch (error) {
       logger.error('Error creating user participant', {
         error: error instanceof Error ? error.message : 'Unknown error',
@@ -311,7 +417,11 @@ export class ParticipantManagementService {
       }
       if (messageData.lastMessageAt !== undefined) {
         updateData.metadata = {
+<<<<<<< HEAD:apps/shared/services/src/participant_management_service.ts
           ...((participant.metadata as Record<string, unknown>) || {}),
+=======
+          ...(participant.metadata as Record<string, unknown> || {}),
+>>>>>>> 441faaf (feat: fix stuff):backend/shared/services/src/participant-management.service.ts
           lastMessageAt: messageData.lastMessageAt,
           contributionScore: messageData.contributionScore,
           engagementLevel: messageData.engagementLevel,
@@ -413,11 +523,23 @@ export class ParticipantManagementService {
         return;
       }
 
+<<<<<<< HEAD:apps/shared/services/src/participant_management_service.ts
       await this.databaseService.update<DiscussionParticipant>(PARTICIPANTS_TABLE, participant.id, {
         isActive: false,
         leftAt: new Date(),
         updatedAt: new Date(),
       });
+=======
+      await this.databaseService.update<DiscussionParticipant>(
+        PARTICIPANTS_TABLE,
+        participant.id,
+        {
+          isActive: false,
+          leftAt: new Date(),
+          updatedAt: new Date(),
+        }
+      );
+>>>>>>> 441faaf (feat: fix stuff):backend/shared/services/src/participant-management.service.ts
 
       logger.info('Removed participant from discussion', { participantId });
     } catch (error) {

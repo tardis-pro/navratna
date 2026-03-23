@@ -273,7 +273,7 @@ export class McpRepository {
     return row ?? null;
   }
 
-  async getServerByName(name: string): Promise<MCPServer | null> {
+  async getServerByName(name: string) {
     try {
       const [row] = await this.db
         .select()
@@ -289,7 +289,7 @@ export class McpRepository {
     }
   }
 
-  async getAllServers(): Promise<MCPServer[]> {
+  async getAllServers() {
     try {
       return this.db.select().from(mcpServers).orderBy(mcpServers.name);
     } catch (err: unknown) {

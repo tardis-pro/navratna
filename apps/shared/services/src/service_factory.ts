@@ -1,3 +1,4 @@
+<<<<<<< HEAD:apps/shared/services/src/service_factory.ts
 import {
   initializeDatabase,
   closeDatabase,
@@ -24,6 +25,30 @@ import { SemanticMemoryManager } from './agent-memory/semantic_memory_manager';
 import { MemoryConsolidator } from './agent-memory/memory_consolidator_service';
 import { ToolManagementService } from './tool_management_service';
 import { OperationManagementService } from './operation_management_service';
+=======
+import { typeormService } from './typeormService';
+type TypeOrmService = typeof typeormService;
+import { QdrantService } from './qdrant.service';
+import { config } from '@uaip/config';
+import { createLogger } from '@uaip/utils';
+import { KnowledgeRepository } from './database/repositories/knowledge.repository';
+import { EmbeddingService } from './knowledge-graph/embedding.service';
+import { TEIEmbeddingService } from './knowledge-graph/tei-embedding.service';
+import { SmartEmbeddingService } from './knowledge-graph/smart-embedding.service';
+import { EnhancedRAGService } from './knowledge-graph/enhanced-rag.service';
+import { ContentClassifier } from './knowledge-graph/content-classifier.service';
+import { RelationshipDetector } from './knowledge-graph/relationship-detector.service';
+import { KnowledgeGraphService } from './knowledge-graph/knowledge-graph.service';
+import { UserKnowledgeService } from './user-knowledge.service';
+import { ContextOrchestrationService } from './context-orchestration.service';
+import { AgentMemoryService } from './agent-memory/agent-memory.service';
+import { WorkingMemoryManager } from './agent-memory/working-memory.manager';
+import { EpisodicMemoryManager } from './agent-memory/episodic-memory.manager';
+import { SemanticMemoryManager } from './agent-memory/semantic-memory.manager';
+import { MemoryConsolidator } from './agent-memory/memory-consolidator.service';
+import { ToolManagementService } from './tool-management.service';
+import { OperationManagementService } from './operation-management.service';
+>>>>>>> 441faaf (feat: fix stuff):backend/shared/services/src/ServiceFactory.ts
 
 import { seedDatabase as _seedDatabase } from './database/seeders/index';
 import { KnowledgeBootstrapService as _KnowledgeBootstrapService } from './knowledge-graph/bootstrap_service';
@@ -81,8 +106,15 @@ export class ServiceFactory {
     try {
       this.logger.info('Initializing ServiceFactory...');
 
+<<<<<<< HEAD:apps/shared/services/src/service_factory.ts
       await initializeDatabase();
       this.serviceInstances.set('database', DatabaseService.getInstance());
+=======
+      // Initialize TypeORM first
+      await typeormService.initialize();
+      this.serviceInstances.set('typeorm', typeormService);
+
+>>>>>>> 441faaf (feat: fix stuff):backend/shared/services/src/ServiceFactory.ts
 
       // Initialize standalone Redis cache service
       try {

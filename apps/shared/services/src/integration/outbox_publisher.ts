@@ -1,8 +1,17 @@
+<<<<<<< HEAD:apps/shared/services/src/integration/outbox_publisher.ts
 import { IntegrationEvent } from './integration_event';
+=======
+import { IntegrationEvent } from './IntegrationEvent';
+>>>>>>> 441faaf (feat: fix stuff):backend/shared/services/src/integration/OutboxPublisher.ts
 import { logger } from '@uaip/utils';
 import { getControlPool } from '../database/drizzle/clients/index';
 
 export class OutboxPublisher {
+<<<<<<< HEAD:apps/shared/services/src/integration/outbox_publisher.ts
+=======
+  constructor() {}
+
+>>>>>>> 441faaf (feat: fix stuff):backend/shared/services/src/integration/OutboxPublisher.ts
   async publishEvent(
     entityType: IntegrationEvent['entityType'],
     entityId: string,
@@ -86,9 +95,16 @@ export class OutboxPublisher {
   async markEventFailed(eventId: string, error: string): Promise<void> {
     const pool = getControlPool();
 
+<<<<<<< HEAD:apps/shared/services/src/integration/outbox_publisher.ts
     const eventResult = await pool.query(`SELECT * FROM "integration_events" WHERE id = $1`, [
       eventId,
     ]);
+=======
+    const eventResult = await pool.query(
+      `SELECT * FROM "integration_events" WHERE id = $1`,
+      [eventId]
+    );
+>>>>>>> 441faaf (feat: fix stuff):backend/shared/services/src/integration/OutboxPublisher.ts
 
     if (eventResult.rows.length === 0) {
       throw new Error(`Integration event not found: ${eventId}`);

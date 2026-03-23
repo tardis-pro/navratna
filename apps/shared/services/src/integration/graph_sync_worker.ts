@@ -1,7 +1,13 @@
 type IntegrationEventEntity = Record<string, unknown>;
+<<<<<<< HEAD:apps/shared/services/src/integration/graph_sync_worker.ts
 import { ToolGraphDatabase } from '../database/tool_graph_database';
 import { OutboxPublisher } from './outbox_publisher';
 import { IntegrationEvent, GraphSyncResult, GraphSyncBatch } from './integration_event';
+=======
+import { ToolGraphDatabase } from '../database/toolGraphDatabase';
+import { OutboxPublisher } from './OutboxPublisher';
+import { IntegrationEvent, GraphSyncResult, GraphSyncBatch } from './IntegrationEvent';
+>>>>>>> 441faaf (feat: fix stuff):backend/shared/services/src/integration/GraphSyncWorker.ts
 import { logger } from '@uaip/utils';
 
 export class GraphSyncWorker {
@@ -395,7 +401,11 @@ export class GraphSyncWorker {
       entityId: entity.entityId as string,
       action: entity.action as IntegrationEvent['action'],
       payload: entity.payload as IntegrationEvent['payload'],
+<<<<<<< HEAD:apps/shared/services/src/integration/graph_sync_worker.ts
       timestamp: (entity.timestamp as Date) ?? new Date(),
+=======
+      timestamp: entity.timestamp as Date ?? new Date(),
+>>>>>>> 441faaf (feat: fix stuff):backend/shared/services/src/integration/GraphSyncWorker.ts
       processed: entity.processed as boolean,
       retries: entity.retries as number,
       lastError: entity.lastError as string,
