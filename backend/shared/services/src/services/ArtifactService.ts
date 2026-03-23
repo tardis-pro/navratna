@@ -1,18 +1,14 @@
-import { TypeOrmService } from '../typeormService';
 import { ArtifactRepository } from '../database/repositories/ArtifactRepository';
 import { ArtifactDeploymentRepository } from '../database/repositories/ArtifactDeploymentRepository';
 // Entity types used by repositories: Artifact, ArtifactDeployment
 
 export class ArtifactService {
   private static instance: ArtifactService;
-  private typeormService: TypeOrmService;
 
   private _artifactRepository: ArtifactRepository | null = null;
   private _artifactDeploymentRepository: ArtifactDeploymentRepository | null = null;
 
-  private constructor() {
-    this.typeormService = TypeOrmService.getInstance();
-  }
+  private constructor() {}
 
   public static getInstance(): ArtifactService {
     if (!ArtifactService.instance) {

@@ -1,5 +1,5 @@
 import { DataSource } from 'typeorm';
-import { Express } from 'express';
+import type { AnyElysia } from 'elysia';
 import { createApp } from '../../app.js';
 import {
   UserEntity,
@@ -45,7 +45,7 @@ export async function createTestDataSource(): Promise<DataSource> {
 /**
  * Create a test Express app with the given DataSource
  */
-export async function createTestApp(dataSource: DataSource): Promise<Express> {
+export async function createTestApp(dataSource: DataSource): Promise<AnyElysia> {
   // Override the database connection for testing
   process.env.NODE_ENV = 'test';
 

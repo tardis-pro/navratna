@@ -1,6 +1,6 @@
 import { describe, test, expect, beforeAll, afterAll, beforeEach } from '@jest/globals';
 import request from 'supertest';
-import { Express } from 'express';
+import type { AnyElysia } from 'elysia';
 import { DataSource } from 'typeorm';
 import { createTestApp, createTestDataSource, cleanupTestDb } from '../utils/testHelpers';
 import {
@@ -13,7 +13,7 @@ import {
 import _crypto from 'crypto';
 
 describe('Security Validation Integration Tests', () => {
-  let app: Express;
+  let app: AnyElysia;
   let dataSource: DataSource;
   let testUser: UserEntity;
   let testAgent: AgentEntity;

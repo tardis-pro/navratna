@@ -16,7 +16,6 @@ import * as crypto from 'crypto';
 
 export class UserService {
   private static instance: UserService;
-  private typeormService: TypeOrmService;
 
   // Repositories
   private userRepository: UserRepository | null = null;
@@ -27,9 +26,7 @@ export class UserService {
   private userLLMPreferenceRepository: UserLLMPreferenceRepository | null = null;
   private userContactRepository: UserContactRepository | null = null;
 
-  protected constructor() {
-    this.typeormService = TypeOrmService.getInstance();
-  }
+  protected constructor() {}
 
   public static getInstance(): UserService {
     if (!UserService.instance) {

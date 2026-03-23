@@ -21,9 +21,6 @@ export { createAppServer } from './http-app';
 // Database Services (consolidated - no duplicates)
 export * from './database/index';
 
-// TypeORM Service
-export { TypeOrmService, typeormService } from './typeormService';
-
 // MCP Services
 export { MCPService } from './services/MCPService';
 

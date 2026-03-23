@@ -1,4 +1,3 @@
-import { TypeOrmService } from '../typeormService';
 import {
   OperationRepository,
   OperationStateRepository,
@@ -9,16 +8,13 @@ import {
 
 export class OperationService {
   private static instance: OperationService;
-  private typeormService: TypeOrmService;
 
   private _operationRepository: OperationRepository | null = null;
   private _operationStateRepository: OperationStateRepository | null = null;
   private _operationCheckpointRepository: OperationCheckpointRepository | null = null;
   private _stepResultRepository: StepResultRepository | null = null;
 
-  private constructor() {
-    this.typeormService = TypeOrmService.getInstance();
-  }
+  private constructor() {}
 
   public static getInstance(): OperationService {
     if (!OperationService.instance) {
