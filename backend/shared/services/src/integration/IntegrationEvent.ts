@@ -3,6 +3,7 @@ export interface IntegrationEvent {
   entityType: 'MCPServer' | 'MCPToolCall' | 'Tool' | 'Agent';
   entityId: string;
   action: 'CREATE' | 'UPDATE' | 'DELETE';
+  // oxlint-disable-next-line @typescript-eslint/no-explicit-any
   payload: Record<string, any>;
   timestamp: Date;
   processed: boolean;

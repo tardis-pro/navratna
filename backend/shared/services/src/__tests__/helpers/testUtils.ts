@@ -3,8 +3,8 @@ import { Repository, DataSource } from 'typeorm';
 import { DatabaseService } from '../../database/DatabaseService';
 import { EventBusService } from '../../eventBusService';
 
-export class TestUtils {
-  static createMockRepository<T>(): jest.Mocked<Repository<T>> {
+export namespace TestUtils {
+  export function createMockRepository<T>(): jest.Mocked<Repository<T>> {
     return {
       find: jest.fn(),
       findOne: jest.fn(),
@@ -17,9 +17,9 @@ export class TestUtils {
       remove: jest.fn(),
       count: jest.fn(),
       createQueryBuilder: jest.fn(),
-      manager: {} as any,
-      metadata: {} as any,
-      target: {} as any,
+      manager: {} as unknown as EntityManager,
+      metadata: {} as unknown as EntityMetadata,
+      target: {} as unknown as EntityTarget<unknown>,
       query: jest.fn(),
       clear: jest.fn(),
       increment: jest.fn(),
@@ -53,7 +53,7 @@ export class TestUtils {
     } as jest.Mocked<Repository<T>>;
   }
 
-  static createMockDataSource(): jest.Mocked<DataSource> {
+  export function createMockDataSource(): jest.Mocked<DataSource> {
     return {
       initialize: jest.fn().mockResolvedValue(undefined),
       destroy: jest.fn().mockResolvedValue(undefined),
@@ -69,35 +69,35 @@ export class TestUtils {
       getMongoRepository: jest.fn(),
       createQueryBuilder: jest.fn(),
       createQueryRunner: jest.fn(),
-      manager: {} as any,
-      options: {} as any,
-      logger: {} as any,
+      manager: {} as unknown as EntityManager,
+      options: {} as unknown as never,
+      logger: {} as unknown as never,
       migrations: [],
       subscribers: [],
       entityMetadatas: [],
-      driver: {} as any,
-      relationLoader: {} as any,
-      relationIdLoader: {} as any,
-      entityMetadataValidator: {} as any,
-      queryResultCache: {} as any,
-      namingStrategy: {} as any,
+      driver: {} as unknown as never,
+      relationLoader: {} as unknown as never,
+      relationIdLoader: {} as unknown as never,
+      entityMetadataValidator: {} as unknown as never,
+      queryResultCache: {} as unknown as never,
+      namingStrategy: {} as unknown as never,
       metadataTableName: 'migrations',
       migrationsTableName: 'migrations',
       metadataColumnsCache: new Map(),
       relationCountColumnsCache: new Map(),
       relationIdColumnsCache: new Map(),
-      selectQueryBuilder: {} as any,
+      selectQueryBuilder: {} as unknown as never,
       isConnected: true,
       name: 'test',
-      sqljsManager: {} as any,
+      sqljsManager: {} as unknown as never,
       setOptions: jest.fn(),
       connect: jest.fn().mockResolvedValue(undefined),
       close: jest.fn().mockResolvedValue(undefined),
       transaction: jest.fn().mockImplementation(async (fn) => await fn({})),
-    } as any;
+    } as unknown as never;
   }
 
-  static createMockDatabaseService(): jest.Mocked<DatabaseService> {
+  export function createMockDatabaseService(): jest.Mocked<DatabaseService> {
     return {
       initialize: jest.fn().mockResolvedValue(undefined),
       close: jest.fn().mockResolvedValue(undefined),
@@ -123,28 +123,28 @@ export class TestUtils {
       userLLMProviders: TestUtils.createMockRepository(),
       getInstance: jest.fn(),
       transaction: jest.fn().mockImplementation(async (fn) => await fn({})),
-    } as any;
+    } as unknown as never;
   }
 
-  static createMockEventBusService(): jest.Mocked<EventBusService> {
+  export function createMockEventBusService(): jest.Mocked<EventBusService> {
     return {
       connect: jest.fn().mockResolvedValue(undefined),
       disconnect: jest.fn().mockResolvedValue(undefined),
       publish: jest.fn().mockResolvedValue(undefined),
       subscribe: jest.fn().mockResolvedValue(undefined),
-      createChannel: jest.fn().mockResolvedValue({} as any),
+      createChannel: jest.fn().mockResolvedValue({}),
       isConnected: jest.fn().mockReturnValue(true),
       assertExchange: jest.fn().mockResolvedValue(undefined),
       assertQueue: jest.fn().mockResolvedValue(undefined),
       bindQueue: jest.fn().mockResolvedValue(undefined),
-    } as any;
+    } as unknown as never;
   }
 
-  static async delay(ms: number): Promise<void> {
+  export async function delay(ms: number): Promise<void> {
     return new Promise((resolve) => setTimeout(resolve, ms));
   }
 
-  static generateRandomString(length: number = 10): string {
+  export function generateRandomString(length: number = 10): string {
     const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
     let result = '';
     for (let i = 0; i < length; i++) {
@@ -153,11 +153,11 @@ export class TestUtils {
     return result;
   }
 
-  static generateRandomEmail(): string {
-    return `test.${this.generateRandomString(8)}@example.com`;
+  export function generateRandomEmail(): string {
+    return `test.${generateRandomString(8)}@example.com`;
   }
 
-  static generateUUID(): string {
+  export function generateUUID(): string {
     return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
       const r = (Math.random() * 16) | 0;
       const v = c == 'x' ? r : (r & 0x3) | 0x8;
@@ -165,7 +165,7 @@ export class TestUtils {
     });
   }
 
-  static createMockLogger() {
+  export function createMockLogger() {
     return {
       info: jest.fn(),
       error: jest.fn(),
@@ -174,14 +174,14 @@ export class TestUtils {
     };
   }
 
-  static expectError(fn: () => any, expectedErrorType?: any): void {
+  export function expectError(fn: () => unknown, expectedErrorType?: new (...args: unknown[]) => Error): void {
     expect(fn).toThrow();
     if (expectedErrorType) {
       expect(fn).toThrow(expectedErrorType);
     }
   }
 
-  static async expectAsyncError(fn: () => Promise<any>, expectedErrorType?: any): Promise<void> {
+  export async function expectAsyncError(fn: () => Promise<unknown>, expectedErrorType?: new (...args: unknown[]) => Error): Promise<void> {
     await expect(fn()).rejects.toThrow();
     if (expectedErrorType) {
       await expect(fn()).rejects.toThrow(expectedErrorType);

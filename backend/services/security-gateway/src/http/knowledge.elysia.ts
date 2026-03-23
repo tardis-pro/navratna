@@ -1,3 +1,4 @@
+import type { AnyElysia } from 'elysia';
 import { withOptionalAuth, withRequiredAuth, t } from '@uaip/middleware';
 import { z } from 'zod';
 import {
@@ -73,7 +74,7 @@ const parseKnowledgeTypes = (rawTypes?: string): KnowledgeType[] | undefined => 
 };
 
 const parseKnowledgeType = (
-  rawType: any,
+  rawType: unknown,
   fallback: KnowledgeType = KnowledgeType.FACTUAL
 ): KnowledgeType => {
   if (typeof rawType !== 'string') {
@@ -84,7 +85,7 @@ const parseKnowledgeType = (
   return parsedType.success ? parsedType.data : fallback;
 };
 
-const parseSourceType = (rawType: any, fallback: SourceType): SourceType => {
+const parseSourceType = (rawType: unknown, fallback: SourceType): SourceType => {
   if (typeof rawType !== 'string') {
     return fallback;
   }
@@ -93,22 +94,22 @@ const parseSourceType = (rawType: any, fallback: SourceType): SourceType => {
   return parsedType.success ? parsedType.data : fallback;
 };
 
-const isRecord = (value: any): value is Record<string, unknown> =>
+const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null;
 
-const getStringValue = (value: any): string | undefined =>
+const getStringValue = (value: unknown): string | undefined =>
   typeof value === 'string' ? value : undefined;
 
-const getStringArray = (value: any): string[] | undefined =>
+const getStringArray = (value: unknown): string[] | undefined =>
   Array.isArray(value) && value.every((entry) => typeof entry === 'string') ? value : undefined;
 
-const getNumberValue = (value: any): number | undefined =>
+const getNumberValue = (value: unknown): number | undefined =>
   typeof value === 'number' ? value : undefined;
 
-const getMetadataValue = (value: any): Record<string, unknown> | undefined =>
+const getMetadataValue = (value: unknown): Record<string, unknown> | undefined =>
   isRecord(value) ? value : undefined;
 
-const normalizeKnowledgeItem = (item: any): KnowledgeIngestRequest => {
+const normalizeKnowledgeItem = (item: Record<string, unknown>): KnowledgeIngestRequest => {
   const record = isRecord(item) ? item : {};
   const sourceValue = isRecord(record.source) ? record.source : undefined;
   const title = getStringValue(record.title);
@@ -146,7 +147,7 @@ const normalizeKnowledgeItem = (item: any): KnowledgeIngestRequest => {
   };
 };
 
-const isChatImportBody = (value: any): value is { file?: File; options?: string } =>
+const isChatImportBody = (value: unknown): value is { file?: File; options?: string } =>
   typeof value === 'object' && value !== null;
 
 // Health status interface
@@ -217,7 +218,7 @@ function parseChatFile(
           const role = msg?.author?.role ?? msg?.role ?? '';
           const parts = msg?.content?.parts ?? (msg?.content ? [msg.content] : []);
           const body = parts
-            .map((p: any) => (typeof p === 'string' ? p : ''))
+            .map((p) => (typeof p === 'string' ? p : ''))
             .join('')
             .trim();
           if (body) text += `${role ? role + ': ' : ''}${body}\n\n`;
@@ -281,11 +282,11 @@ async function getServices(): Promise<{
   }
 }
 
-export function registerKnowledgeRoutes(elysiaApp: any): any {
-  return elysiaApp.group('/api/v1/knowledge', (app: any) =>
+export function registerKnowledgeRoutes(elysiaApp: AnyElysia): AnyElysia {
+  return elysiaApp.group('/api/v1/knowledge', (app: AnyElysia) =>
     withOptionalAuth(app)
       // POST /
-      .group('', (g: any) =>
+      .group('', (g: AnyElysia) =>
         withRequiredAuth(g)
           .post('/', async ({ set, body, user }) => {
             const userId = user.id;
@@ -337,7 +338,7 @@ export function registerKnowledgeRoutes(elysiaApp: any): any {
                 data: updated,
                 message: 'Knowledge item updated successfully',
               };
-            } catch (error: any) {
+            } catch (error: unknown) {
               if (error instanceof Error && error.message.includes('not found or not accessible')) {
                 set.status = 404;
                 return {
@@ -369,7 +370,7 @@ export function registerKnowledgeRoutes(elysiaApp: any): any {
             try {
               await userKnowledgeService!.deleteKnowledge(userId, itemId);
               return { success: true, message: 'Knowledge item deleted successfully' };
-            } catch (error: any) {
+            } catch (error: unknown) {
               if (error instanceof Error && error.message.includes('not found or not accessible')) {
                 set.status = 404;
                 return {
@@ -488,10 +489,10 @@ export function registerKnowledgeRoutes(elysiaApp: any): any {
               id: string;
               content: string;
               type: string;
-              tags?: any;
+              tags?: unknown;
               confidence?: number;
               sourceType?: string;
-              createdAt?: any;
+              createdAt?: unknown;
             }>;
             const nodes = typedItems.map((item) => ({
               id: item.id,
@@ -581,7 +582,7 @@ export function registerKnowledgeRoutes(elysiaApp: any): any {
               id: string;
               content: string;
               type: string;
-              tags?: any;
+              tags?: unknown;
             }>;
             const relationships = typedRelated.slice(0, limit).map((rel) => ({
               id: `${itemId}-${rel.id}`,

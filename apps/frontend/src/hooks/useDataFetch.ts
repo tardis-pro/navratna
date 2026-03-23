@@ -72,7 +72,7 @@ export function useDataFetch<T>(
         setLoading(false);
       }
     }
-  }, [fetchFn, dependenciesRef]);
+  }, [fetchFn]);
 
   useEffect(() => {
     if (immediate) {

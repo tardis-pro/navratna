@@ -143,7 +143,7 @@ export class DiscussionService {
         });
         for (const participantRequest of request.initialParticipants) {
           if (participantRequest && participantRequest.agentId) {
-            // oxlint-ignore-next-line no-await-in-loop -- sequential processing required
+            // oxlint-disable-next-line no-await-in-loop -- sequential processing required
             await this.addParticipant(discussion.id!, {
               agentId: participantRequest.agentId,
               role: participantRequest.role,
@@ -946,7 +946,7 @@ export class DiscussionService {
           decisionsReached: discussion.state?.decisions?.length,
           consensusAchieved: discussion.state?.consensusLevel >= 0.8,
           actionItemsGenerated: discussion.state?.actionItems?.length,
-          keyInsights: discussion.state?.keyPoints?.map((kp: any) => kp.point) || [],
+          keyInsights: discussion.state?.keyPoints?.map((kp: Record<string, unknown>) => kp.point as string) || [],
           unresolvedIssues: [],
         },
         quality: {
@@ -996,7 +996,7 @@ export class DiscussionService {
     // Validate agents exist
     for (const participant of request.initialParticipants) {
       if (participant.agentId) {
-        // oxlint-ignore-next-line no-await-in-loop -- sequential processing required
+        // oxlint-disable-next-line no-await-in-loop -- sequential processing required
         const agent = await this.databaseService.findById('agents', participant.agentId);
         if (!agent) {
           throw new Error(`Agent not found: ${participant.agentId}`);
@@ -1199,7 +1199,7 @@ export class DiscussionService {
   private async emitDiscussionEvent(
     discussionId: string,
     type: DiscussionEventType,
-    data: any,
+    data: Record<string, unknown>,
     participantId?: string
   ): Promise<void> {
     if (!this.enableRealTimeEvents) return;

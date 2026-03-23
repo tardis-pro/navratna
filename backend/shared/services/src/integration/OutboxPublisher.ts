@@ -13,7 +13,7 @@ export class OutboxPublisher {
     entityType: IntegrationEvent['entityType'],
     entityId: string,
     action: IntegrationEvent['action'],
-    payload: Record<string, any>
+    payload: Record<string, unknown>
   ): Promise<void> {
     try {
       const event = this.integrationEventRepository.create({
@@ -51,18 +51,15 @@ export class OutboxPublisher {
   async publishMCPServerEvent(
     serverId: string,
     action: IntegrationEvent['action'],
-    serverData: Record<string, any>
+    serverData: Record<string, unknown>
   ): Promise<void> {
     await this.publishEvent('MCPServer', serverId, action, serverData);
   }
 
-  /**
-   * Publish MCP Tool Call event
-   */
   async publishMCPToolCallEvent(
     toolCallId: string,
     action: IntegrationEvent['action'],
-    toolCallData: Record<string, any>
+    toolCallData: Record<string, unknown>
   ): Promise<void> {
     await this.publishEvent('MCPToolCall', toolCallId, action, toolCallData);
   }
@@ -73,18 +70,15 @@ export class OutboxPublisher {
   async publishToolEvent(
     toolId: string,
     action: IntegrationEvent['action'],
-    toolData: Record<string, any>
+    toolData: Record<string, unknown>
   ): Promise<void> {
     await this.publishEvent('Tool', toolId, action, toolData);
   }
 
-  /**
-   * Publish Agent event
-   */
   async publishAgentEvent(
     agentId: string,
     action: IntegrationEvent['action'],
-    agentData: Record<string, any>
+    agentData: Record<string, unknown>
   ): Promise<void> {
     await this.publishEvent('Agent', agentId, action, agentData);
   }

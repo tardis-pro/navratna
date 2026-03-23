@@ -118,19 +118,19 @@ export function ThinkingIndicator({
         <div className="flex items-center gap-2 ml-1">
           {/* Step flow indicators */}
           <div className="flex items-center gap-1">
-            {steps.map((step, index) => (
-              <React.Fragment key={index}>
+            {steps.map((step, idx) => (
+              <React.Fragment key={`step-${step.substring(0, 20)}`}>
                 <div
                   className={cn(
                     'flex items-center justify-center w-6 h-6 rounded-full text-xs font-medium transition-all duration-300',
-                    index < animatedStep
+                    idx < animatedStep
                       ? 'bg-green-500 text-white' // Completed
-                      : index === animatedStep
+                      : idx === animatedStep
                         ? 'bg-blue-500 text-white ring-2 ring-blue-300 ring-offset-1' // Current
                         : 'bg-muted text-muted-foreground' // Pending
                   )}
                 >
-                  {index < animatedStep ? (
+                  {idx < animatedStep ? (
                     <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path
                         strokeLinecap="round"
@@ -140,16 +140,16 @@ export function ThinkingIndicator({
                       />
                     </svg>
                   ) : (
-                    index + 1
+                    idx + 1
                   )}
                 </div>
 
                 {/* Connector arrow between steps */}
-                {index < steps.length - 1 && (
+                {idx < steps.length - 1 && (
                   <div
                     className={cn(
                       'w-4 h-0.5 transition-colors duration-300',
-                      index < animatedStep ? 'bg-green-500' : 'bg-muted'
+                      idx < animatedStep ? 'bg-green-500' : 'bg-muted'
                     )}
                   />
                 )}

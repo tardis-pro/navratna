@@ -13,6 +13,7 @@ import { logger } from '@uaip/utils';
  * Extends UserService with Redis caching for improved performance
  */
 export class CachedUserService extends UserService {
+  // oxlint-disable-next-line no-useless-constructor -- required: UserService constructor is protected; this makes CachedUserService publicly instantiable
   constructor() {
     super();
   }

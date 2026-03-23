@@ -67,7 +67,7 @@ describe('DatabaseService', () => {
 
   beforeEach(() => {
     // Reset singleton instance before each test
-    (DatabaseService as any).instance = null;
+    (DatabaseService as unknown as { instance: null }).instance = null;
     service = new DatabaseService();
     jest.clearAllMocks();
   });
@@ -83,7 +83,7 @@ describe('DatabaseService', () => {
 
     it('should create a new instance if singleton is reset', () => {
       const instance1 = DatabaseService.getInstance();
-      (DatabaseService as any).instance = null;
+      (DatabaseService as unknown as { instance: null }).instance = null;
       const instance2 = DatabaseService.getInstance();
 
       expect(instance1).not.toBe(instance2);
@@ -122,7 +122,7 @@ describe('DatabaseService', () => {
 
     it('should provide access to repositories', async () => {
       const mockEntity = 'User';
-      const repository = await service.getRepository(mockEntity as any);
+      const repository = await service.getRepository(mockEntity as unknown as EntityTarget<unknown>);
 
       expect(repository).toBeDefined();
       expect(typeof repository.find).toBe('function');
@@ -219,7 +219,7 @@ describe('DatabaseService', () => {
         passwordHash: 'hash123',
         role: 'user',
       };
-      const result = await service.createUser(userData as any);
+      const result = await service.createUser(userData as unknown as CreateUserDto);
       expect(result).toBeDefined();
     });
   });
@@ -235,7 +235,7 @@ describe('DatabaseService', () => {
         { email: 'user2@test.com', name: 'User 2' },
       ];
 
-      const result = await service.bulkInsert('User' as any, records);
+      const result = await service.bulkInsert('User' as unknown as EntityTarget<unknown>, records);
       expect(result).toBeDefined();
     });
 
@@ -245,7 +245,7 @@ describe('DatabaseService', () => {
         { email: 'batch2@test.com', name: 'Batch User 2' },
       ];
 
-      const result = await service.batchCreate('User' as any, records);
+      const result = await service.batchCreate('User' as unknown as EntityTarget<unknown>, records);
       expect(result).toBeDefined();
       // Verify that the operation completes successfully
       expect(typeof result).toBeDefined();
@@ -264,7 +264,7 @@ describe('DatabaseService', () => {
         details: { ip: '127.0.0.1' },
       };
 
-      const result = await service.createAuditEvent(auditData as any);
+      const result = await service.createAuditEvent(auditData as unknown as AuditEvent);
       expect(result).toBeDefined();
     });
 
@@ -275,7 +275,7 @@ describe('DatabaseService', () => {
         endDate: new Date(),
       };
 
-      const result = await service.queryAuditEvents(filters as any);
+      const result = await service.queryAuditEvents(filters as unknown as AuditQueryFilters);
       expect(result).toBeDefined();
       expect(Array.isArray(result)).toBe(true);
     });

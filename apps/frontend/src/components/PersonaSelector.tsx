@@ -387,9 +387,9 @@ export const PersonaSelector: React.FC<PersonaSelectorProps> = ({
                     Expertise
                   </div>
                   <div className="flex flex-wrap gap-1">
-                    {persona.expertise.slice(0, 6).map((skill, index) => (
+                    {persona.expertise.slice(0, 6).map((skill, _index) => (
                       <span
-                        key={index}
+                        key={`skill-${skill}`}
                         className="px-2 py-1 bg-gradient-to-r from-emerald-100 to-teal-100 dark:from-emerald-900/30 dark:to-teal-900/30 text-emerald-700 dark:text-emerald-300 rounded-md text-xs font-medium border border-emerald-200 dark:border-emerald-800"
                       >
                         {skill}

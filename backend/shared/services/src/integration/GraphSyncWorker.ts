@@ -1,4 +1,3 @@
-import { Repository } from 'typeorm';
 import { IntegrationEventEntity } from '../entities/integrationEvent.entity';
 import { ToolGraphDatabase } from '../database/toolGraphDatabase';
 import { OutboxPublisher } from './OutboxPublisher';
@@ -91,7 +90,7 @@ export class GraphSyncWorker {
       if (result.status === 'fulfilled') {
         const syncResult = result.value;
         if (syncResult.success) {
-          // oxlint-ignore-next-line no-await-in-loop -- sequential processing required
+          // oxlint-disable-next-line no-await-in-loop -- sequential processing required
           await this.outboxPublisher.markEventProcessed(event.id);
           logger.debug('Event processed successfully', {
             eventId: event.id,
@@ -99,7 +98,7 @@ export class GraphSyncWorker {
             action: event.action,
           });
         } else {
-          // oxlint-ignore-next-line no-await-in-loop -- sequential processing required
+          // oxlint-disable-next-line no-await-in-loop -- sequential processing required
           await this.outboxPublisher.markEventFailed(event.id, syncResult.error || 'Unknown error');
           logger.warn('Event processing failed', {
             eventId: event.id,
@@ -108,7 +107,7 @@ export class GraphSyncWorker {
           });
         }
       } else {
-        // oxlint-ignore-next-line no-await-in-loop -- sequential processing required
+        // oxlint-disable-next-line no-await-in-loop -- sequential processing required
         await this.outboxPublisher.markEventFailed(
           event.id,
           result.reason?.toString() || 'Processing error'
@@ -354,10 +353,11 @@ export class GraphSyncWorker {
   /**
    * Check if an error is retryable
    */
-  private isRetryableError(error: any): boolean {
+  private isRetryableError(error: unknown): boolean {
     if (!error) return false;
 
-    const errorMessage = error.message || error.toString();
+    const errorMessage =
+      error instanceof Error ? error.message : String(error);
 
     // Neo4j connection errors are retryable
     if (
@@ -418,14 +418,14 @@ export class GraphSyncWorker {
 
     for (const entity of retryableEvents) {
       const event = this.mapEntityToEvent(entity);
-      // oxlint-ignore-next-line no-await-in-loop -- sequential processing required
+      // oxlint-disable-next-line no-await-in-loop -- sequential processing required
       const result = await this.processEvent(event);
 
       if (result.success) {
-        // oxlint-ignore-next-line no-await-in-loop -- sequential processing required
+        // oxlint-disable-next-line no-await-in-loop -- sequential processing required
         await this.outboxPublisher.markEventProcessed(event.id);
       } else {
-        // oxlint-ignore-next-line no-await-in-loop -- sequential processing required
+        // oxlint-disable-next-line no-await-in-loop -- sequential processing required
         await this.outboxPublisher.markEventFailed(event.id, result.error || 'Retry failed');
       }
     }

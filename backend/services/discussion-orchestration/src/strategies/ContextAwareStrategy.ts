@@ -7,7 +7,7 @@ import {
 } from '@uaip/types';
 import { logger } from '@uaip/utils';
 import { TurnStrategyInterface } from './RoundRobinStrategy.js';
-import { config } from '../config/index.js';
+import { config as appConfig } from '../config/index.js';
 
 interface ContextAnalysis {
   topicRelevance: Map<string, number>; // participant ID -> relevance score
@@ -31,12 +31,12 @@ export class ContextAwareStrategy implements TurnStrategyInterface {
   public readonly strategy = TurnStrategy.CONTEXT_AWARE;
   private readonly strategyType = TurnStrategy.CONTEXT_AWARE;
   private contextCache = new Map<string, { analysis: ContextAnalysis; timestamp: Date }>();
-  private readonly cacheTimeout = config.discussionOrchestration.performance.strategyCacheTimeoutMs;
+  private readonly cacheTimeout = appConfig.discussionOrchestration.performance.strategyCacheTimeoutMs;
 
   async getNextParticipant(
     discussion: Discussion,
     participants: DiscussionParticipant[],
-    config?: TurnStrategyConfig
+    _config?: TurnStrategyConfig
   ): Promise<DiscussionParticipant | null> {
     try {
       // Get active participants
@@ -258,7 +258,7 @@ export class ContextAwareStrategy implements TurnStrategyInterface {
   async getEstimatedTurnDuration(
     participant: DiscussionParticipant,
     discussion: Discussion,
-    config?: TurnStrategyConfig
+    _config?: TurnStrategyConfig
   ): Promise<number> {
     try {
       const baseDuration = discussion.settings.turnTimeout || 30;
@@ -370,7 +370,7 @@ export class ContextAwareStrategy implements TurnStrategyInterface {
         // Simplified keyword matching - in real implementation, use semantic analysis
         const topicKeywords = discussion.topic.toLowerCase().split(' ');
         const participantExpertise = participant.agentId
-          ? // oxlint-ignore-next-line no-await-in-loop -- sequential processing required
+          ? // oxlint-disable-next-line no-await-in-loop -- sequential processing required
             await this.getParticipantExpertise(participant.agentId)
           : [];
 
@@ -482,7 +482,7 @@ export class ContextAwareStrategy implements TurnStrategyInterface {
     topicRelevance: Map<string, number>,
     expertiseMatch: Map<string, number>,
     engagementLevel: Map<string, number>,
-    conversationFlow: ContextAnalysis['conversationFlow']
+    _conversationFlow: ContextAnalysis['conversationFlow']
   ): Promise<ContextAnalysis['recommendations']> {
     // Calculate composite scores for each participant
     const participantScores = participants.map((participant) => {
@@ -548,7 +548,7 @@ export class ContextAwareStrategy implements TurnStrategyInterface {
 
   private async getParticipantExpertise(agentId: string): Promise<string[]> {
     try {
-      const baseUrl = config.discussionOrchestration?.integrations?.agentIntelligence?.baseUrl;
+      const baseUrl = appConfig.discussionOrchestration?.integrations?.agentIntelligence?.baseUrl;
       if (!baseUrl) return [];
       const response = await fetch(`${baseUrl}/api/v1/agents/${agentId}`, {
         signal: AbortSignal.timeout(3000),
@@ -563,9 +563,9 @@ export class ContextAwareStrategy implements TurnStrategyInterface {
   }
 
   private async hasAddressedPendingItems(
-    participant: DiscussionParticipant,
-    discussion: Discussion,
-    contextAnalysis: ContextAnalysis
+    _participant: DiscussionParticipant,
+    _discussion: Discussion,
+    _contextAnalysis: ContextAnalysis
   ): Promise<boolean> {
     // This would analyze recent messages to see if pending questions/topics were addressed
     return false;
@@ -575,7 +575,7 @@ export class ContextAwareStrategy implements TurnStrategyInterface {
     currentParticipant: DiscussionParticipant,
     discussion: Discussion,
     contextAnalysis: ContextAnalysis,
-    config?: TurnStrategyConfig
+    _config?: TurnStrategyConfig
   ): Promise<boolean> {
     const currentRelevance = contextAnalysis.topicRelevance.get(currentParticipant.id);
     const threshold = 0.3; // Default threshold since config.contextAware doesn't exist

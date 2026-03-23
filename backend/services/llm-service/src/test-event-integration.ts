@@ -114,9 +114,9 @@ async function testLLMEventIntegration() {
   const timeout = 30000;
   const start = Date.now();
 
-  // oxlint-ignore-next-line eslint/no-unmodified-loop-condition -- responseReceived is modified by event callback
+  // oxlint-disable-next-line eslint/no-unmodified-loop-condition -- responseReceived is modified by event callback
   while (!responseReceived && Date.now() - start < timeout) {
-    // oxlint-ignore-next-line eslint/no-await-in-loop -- sequential processing required
+    // oxlint-disable-next-line eslint/no-await-in-loop -- sequential processing required
     await new Promise((resolve) => setTimeout(resolve, 100));
   }
 

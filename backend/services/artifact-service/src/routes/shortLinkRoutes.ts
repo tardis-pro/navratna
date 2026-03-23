@@ -5,7 +5,7 @@ function getShortLinkService(): ShortLinkService {
   return new ShortLinkService();
 }
 
-export function registerShortLinkRoutes(app: any) {
+export function registerShortLinkRoutes(app: unknown) {
   // Auth via x-user-id header for user routes
   (app as { group: Function }).group(
     '/api/v1',

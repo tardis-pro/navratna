@@ -40,7 +40,7 @@ class DiscussionOrchestrationServer extends BaseService {
   private debateHandler?: DebateHandler;
   private whatsappHandler?: WhatsAppHandler;
   private serviceName = 'discussion-orchestration';
-  private authResponseHandlers = new Map<string, (response: any) => void>();
+  private authResponseHandlers = new Map<string, (response: Record<string, unknown>) => void>();
   private authSubscriptionInitialized = false;
 
   constructor() {
@@ -579,7 +579,7 @@ class DiscussionOrchestrationServer extends BaseService {
   private async publishOrchestrationEvent(
     eventType: string,
     discussionId: string,
-    user: any
+    user: Record<string, unknown>
   ): Promise<void> {
     const event = {
       type: eventType,
@@ -605,7 +605,7 @@ class DiscussionOrchestrationServer extends BaseService {
 
     try {
       // Set up shared authentication response handler
-      const sharedAuthHandler = async (event: any) => {
+      const sharedAuthHandler = async (event: Record<string, unknown>) => {
         const eventData = (event as Record<string, unknown>).data as
           | Record<string, unknown>
           | undefined;
@@ -917,7 +917,7 @@ class DiscussionOrchestrationServer extends BaseService {
   }> {
     const correlationId = `socketio_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 
-    return new Promise(async (resolve) => {
+    return new Promise((resolve) => {
       let resolved = false;
       const resolveOnce = (result: {
         valid: boolean;
@@ -933,51 +933,54 @@ class DiscussionOrchestrationServer extends BaseService {
       };
 
       // Set up timeout for auth validation
-      const timeoutId = setTimeout(async () => {
+      const timeoutId = setTimeout(() => {
         logger.warn('Socket.IO authentication timeout', {
           correlationId,
           token: token.substr(0, 10) + '...',
         });
         // Clean up handler on timeout
         this.authResponseHandlers.delete(correlationId);
-        const fallbackResult = await this.validateSocketIOTokenViaHttp(token);
-        resolveOnce(fallbackResult);
+        this.validateSocketIOTokenViaHttp(token).then(resolveOnce).catch(() => {
+          resolveOnce({ valid: false, reason: 'Auth validation failed' });
+        });
       }, config.discussionOrchestration.security.websocketAuthTimeout); // Configurable authentication timeout
 
-      try {
-        // Register response handler for this specific correlation ID
-        this.authResponseHandlers.set(correlationId, (response: any) => {
-          clearTimeout(timeoutId);
+      // Register response handler for this specific correlation ID
+      this.authResponseHandlers.set(correlationId, (response: Record<string, unknown>) => {
+        clearTimeout(timeoutId);
 
-          logger.debug('Socket.IO auth response received', {
-            correlationId,
-            valid: response?.valid,
-            userId: response?.userId?.substr(0, 8) + '...', // Partial log for security
-          });
-
-          resolveOnce(response);
+        logger.debug('Socket.IO auth response received', {
+          correlationId,
+          valid: response?.valid,
+          userId: typeof response?.userId === 'string' ? response.userId.substr(0, 8) + '...' : undefined,
         });
 
-        // Publish auth validation request to Security Gateway
-        await this.eventBusService.publish('security.auth.validate', {
+        resolveOnce(response as Parameters<typeof resolveOnce>[0]);
+      });
+
+      // Publish auth validation request to Security Gateway
+      this.eventBusService
+        .publish('security.auth.validate', {
           token,
           service: this.serviceName,
           operation: 'socketio_auth',
           correlationId,
           timestamp: new Date().toISOString(),
+        })
+        .then(() => {
+          logger.debug('Socket.IO auth request sent to Security Gateway', { correlationId });
+        })
+        .catch((error: unknown) => {
+          clearTimeout(timeoutId);
+          this.authResponseHandlers.delete(correlationId);
+          logger.error('Socket.IO auth validation failed', {
+            error: error instanceof Error ? error.message : String(error),
+            correlationId,
+          });
+          this.validateSocketIOTokenViaHttp(token).then(resolveOnce).catch(() => {
+            resolveOnce({ valid: false, reason: 'Auth validation failed' });
+          });
         });
-
-        logger.debug('Socket.IO auth request sent to Security Gateway', { correlationId });
-      } catch (error) {
-        clearTimeout(timeoutId);
-        this.authResponseHandlers.delete(correlationId);
-        logger.error('Socket.IO auth validation failed', {
-          error: error.message,
-          correlationId,
-        });
-        const fallbackResult = await this.validateSocketIOTokenViaHttp(token);
-        resolveOnce(fallbackResult);
-      }
     });
   }
 
@@ -998,7 +1001,7 @@ class DiscussionOrchestrationServer extends BaseService {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 2500);
       try {
-        // oxlint-ignore-next-line no-await-in-loop -- sequential processing required
+        // oxlint-disable-next-line no-await-in-loop -- sequential processing required
         const response = await fetch(`${baseUrl}/api/v1/auth/validate`, {
           method: 'GET',
           headers: { Authorization: `Bearer ${token}` },
@@ -1007,7 +1010,7 @@ class DiscussionOrchestrationServer extends BaseService {
         clearTimeout(timeoutId);
 
         if (!response.ok) {
-          // oxlint-ignore-next-line no-await-in-loop -- sequential processing required
+          // oxlint-disable-next-line no-await-in-loop -- sequential processing required
           const errorBody = await response.json().catch((): null => null);
           return {
             valid: false,
@@ -1070,7 +1073,7 @@ class DiscussionOrchestrationServer extends BaseService {
   /**
    * Get system health metrics for race condition detection
    */
-  private getSystemHealthMetrics(): any {
+  private getSystemHealthMetrics(): Record<string, unknown> {
     const memory = process.memoryUsage();
     const uptime = process.uptime();
 
@@ -1102,8 +1105,8 @@ class DiscussionOrchestrationServer extends BaseService {
    * Detect race condition warnings
    */
   private detectRaceConditionWarnings(
-    orchestrationStats: any,
-    systemHealth: any
+    orchestrationStats: Record<string, unknown>,
+    systemHealth: Record<string, unknown>
   ): string[] {
     const warnings: string[] = [];
 
@@ -1148,7 +1151,7 @@ class DiscussionOrchestrationServer extends BaseService {
    */
   private generateMemoryAlerts(
     memoryUsage: NodeJS.MemoryUsage,
-    orchestrationStats: any
+    orchestrationStats: Record<string, unknown>
   ): string[] {
     const alerts: string[] = [];
     const heapUsedMB = Math.round(memoryUsage.heapUsed / 1024 / 1024);
@@ -1181,7 +1184,7 @@ class DiscussionOrchestrationServer extends BaseService {
     return alerts;
   }
 
-  public getStatus(): any {
+  public getStatus(): Record<string, unknown> {
     return {
       service: 'discussion-orchestration',
       status: 'running',

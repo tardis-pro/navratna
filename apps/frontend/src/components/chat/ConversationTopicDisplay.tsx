@@ -120,8 +120,8 @@ export const ConversationTopicDisplay: React.FC<ConversationTopicDisplayProps> =
           {keywords.length > 0 && (
             <div className="flex items-center gap-1">
               <HashIcon className="w-3 h-3 text-muted-foreground" />
-              {keywords.slice(0, 3).map((keyword, i) => (
-                <Badge key={i} variant="outline" className="text-xs">
+              {keywords.slice(0, 3).map((keyword, _i) => (
+                <Badge key={`keyword-${keyword}`} variant="outline" className="text-xs">
                   {keyword}
                 </Badge>
               ))}

@@ -49,9 +49,9 @@ export interface DesktopIconConfig {
  * Role-based desktop configuration
  * Controls which icons and portals are available to different user roles
  */
-export class RoleBasedDesktopConfig {
+export namespace RoleBasedDesktopConfig {
   // Base icons available to all authenticated users
-  private static baseIcons: DesktopIconConfig[] = [
+  const baseIcons: DesktopIconConfig[] = [
     {
       id: 'dashboard',
       title: 'Dashboard',
@@ -109,7 +109,7 @@ export class RoleBasedDesktopConfig {
   ];
 
   // User-specific icons (standard users)
-  private static userIcons: DesktopIconConfig[] = [
+  const userIcons: DesktopIconConfig[] = [
     {
       id: 'tasks',
       title: 'My Tasks',
@@ -144,7 +144,7 @@ export class RoleBasedDesktopConfig {
   ];
 
   // Moderator-specific icons
-  private static moderatorIcons: DesktopIconConfig[] = [
+  const moderatorIcons: DesktopIconConfig[] = [
     {
       id: 'discussions',
       title: 'Discussions',
@@ -180,7 +180,7 @@ export class RoleBasedDesktopConfig {
   ];
 
   // Admin-specific icons
-  private static adminIcons: DesktopIconConfig[] = [
+  const adminIcons: DesktopIconConfig[] = [
     {
       id: 'system-admin',
       title: 'System Admin',
@@ -256,7 +256,7 @@ export class RoleBasedDesktopConfig {
   ];
 
   // System-level icons (highest privilege)
-  private static systemIcons: DesktopIconConfig[] = [
+  const systemIcons: DesktopIconConfig[] = [
     {
       id: 'system-console',
       title: 'Console',
@@ -282,7 +282,7 @@ export class RoleBasedDesktopConfig {
   /**
    * Get role hierarchy weight for comparison
    */
-  private static getRoleWeight(role: string): number {
+  function getRoleWeight(role: string): number {
     const weights = {
       guest: 0,
       user: 1,
@@ -296,15 +296,15 @@ export class RoleBasedDesktopConfig {
   /**
    * Check if user has required role
    */
-  private static hasRequiredRole(userRole: string, requiredRole?: string): boolean {
+  function hasRequiredRole(userRole: string, requiredRole?: string): boolean {
     if (!requiredRole) return true;
-    return this.getRoleWeight(userRole) >= this.getRoleWeight(requiredRole);
+    return getRoleWeight(userRole) >= getRoleWeight(requiredRole);
   }
 
   /**
    * Check if user has required permissions
    */
-  private static hasRequiredPermissions(
+  function hasRequiredPermissions(
     userPermissions: string[],
     requiredPermissions?: string[]
   ): boolean {
@@ -315,27 +315,27 @@ export class RoleBasedDesktopConfig {
   /**
    * Get desktop icons based on user role and permissions
    */
-  static getDesktopIcons(
+  export function getDesktopIcons(
     userRole: string,
     userPermissions: string[] = [],
     customPermissions: Record<string, boolean> = {}
   ): DesktopIconConfig[] {
     const allIcons = [
-      ...this.baseIcons,
-      ...this.userIcons,
-      ...this.moderatorIcons,
-      ...this.adminIcons,
-      ...this.systemIcons,
+      ...baseIcons,
+      ...userIcons,
+      ...moderatorIcons,
+      ...adminIcons,
+      ...systemIcons,
     ];
 
     return allIcons.filter((icon) => {
       // Check minimum role requirement
-      if (!this.hasRequiredRole(userRole, icon.minimumRole)) {
+      if (!hasRequiredRole(userRole, icon.minimumRole)) {
         return false;
       }
 
       // Check specific permission requirements
-      if (!this.hasRequiredPermissions(userPermissions, icon.requiresPermission)) {
+      if (!hasRequiredPermissions(userPermissions, icon.requiresPermission)) {
         return false;
       }
 
@@ -351,13 +351,13 @@ export class RoleBasedDesktopConfig {
   /**
    * Get desktop layout based on role
    */
-  static getDesktopLayout(userRole: string): {
+  export function getDesktopLayout(userRole: string): {
     primaryIcons: DesktopIconConfig[];
     secondaryIcons: DesktopIconConfig[];
     adminIcons: DesktopIconConfig[];
     restrictedIcons: DesktopIconConfig[];
   } {
-    const icons = this.getDesktopIcons(userRole);
+    const icons = getDesktopIcons(userRole);
 
     return {
       primaryIcons: icons.filter((icon) => icon.category === 'primary'),
@@ -370,7 +370,7 @@ export class RoleBasedDesktopConfig {
   /**
    * Get quick actions based on role
    */
-  static getQuickActions(userRole: string): Array<{
+  export function getQuickActions(userRole: string): Array<{
     id: string;
     title: string;
     icon: React.ComponentType<unknown>;
@@ -435,12 +435,12 @@ export class RoleBasedDesktopConfig {
       ],
     };
 
-    const userWeight = this.getRoleWeight(userRole);
+    const userWeight = getRoleWeight(userRole);
     const availableActions = [...baseActions];
 
     // Add actions based on role hierarchy
     Object.entries(roleActions).forEach(([role, actions]) => {
-      if (userWeight >= this.getRoleWeight(role)) {
+      if (userWeight >= getRoleWeight(role)) {
         availableActions.push(...actions);
       }
     });
@@ -451,7 +451,7 @@ export class RoleBasedDesktopConfig {
   /**
    * Get notification settings based on role
    */
-  static getNotificationSettings(userRole: string): {
+  export function getNotificationSettings(userRole: string): {
     categories: string[];
     defaultEnabled: string[];
     restrictedCategories: string[];
@@ -515,13 +515,13 @@ export class RoleBasedDesktopConfig {
   /**
    * Get theme options based on role
    */
-  static getThemeOptions(userRole: string): string[] {
+  export function getThemeOptions(userRole: string): string[] {
     const baseThemes = ['dark', 'light'];
     const professionalThemes = ['professional', 'minimal'];
     const adminThemes = ['admin-dark', 'hacker'];
     const systemThemes = ['system-red', 'matrix'];
 
-    const userWeight = this.getRoleWeight(userRole);
+    const userWeight = getRoleWeight(userRole);
     const availableThemes = [...baseThemes];
 
     if (userWeight >= 1) availableThemes.push(...professionalThemes);

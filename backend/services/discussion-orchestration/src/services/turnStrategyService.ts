@@ -357,8 +357,6 @@ export class TurnStrategyService {
     const actions = [];
 
     try {
-      const strategy = this.getStrategy(discussion.turnStrategy.strategy);
-
       // Common actions
       actions.push({
         action: 'advance_turn',
@@ -412,7 +410,7 @@ export class TurnStrategyService {
     discussion: Discussion,
     moderatorId: string,
     params?: Record<string, unknown>
-  ): Promise<{ success: boolean; message: string; data?: any }> {
+  ): Promise<{ success: boolean; message: string; data?: Record<string, unknown> }> {
     try {
       const strategy = this.getStrategy(discussion.turnStrategy.strategy);
 

@@ -86,7 +86,7 @@ export class CronMigrationService {
         if (migrated) {
           this.migratedJobs.push(migrated);
         }
-      } catch (error: any) {
+      } catch (error: unknown) {
         const msg = error instanceof Error ? error.message : String(error);
         logger.error(`Failed to migrate cron job ${job.id} (${job.name})`, { error: msg });
       }
@@ -149,7 +149,7 @@ export class CronMigrationService {
         logger.info(`Disabled cron job: ${migrated.name}`);
         return true;
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       const msg = error instanceof Error ? error.message : String(error);
       logger.error(`Failed to disable cron job: ${migrated.name}`, { error: msg });
     }

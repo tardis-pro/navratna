@@ -159,9 +159,9 @@ export const FocusPreview: React.FC<FocusPreviewProps> = ({
             animate={{ opacity: 1 }}
             transition={{ delay: 0.5 }}
           >
-            {[...Array(3)].map((_, i) => (
+            {[1, 2, 3].map((id, i) => (
               <motion.div
-                key={i}
+                key={`particle-${id}`}
                 className="absolute w-1 h-1 bg-cyan-400/50 rounded-full"
                 style={{
                   left: `${20 + i * 30}%`,

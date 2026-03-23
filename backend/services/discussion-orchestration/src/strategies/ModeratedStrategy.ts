@@ -16,7 +16,7 @@ export class ModeratedStrategy implements TurnStrategyInterface {
   async getNextParticipant(
     discussion: Discussion,
     participants: DiscussionParticipant[],
-    config?: TurnStrategyConfig
+    _config?: TurnStrategyConfig
   ): Promise<DiscussionParticipant | null> {
     try {
       const activeParticipants = participants.filter((p) => p.isActive);
@@ -194,7 +194,7 @@ export class ModeratedStrategy implements TurnStrategyInterface {
   async canParticipantTakeTurn(
     participant: DiscussionParticipant,
     discussion: Discussion,
-    config?: TurnStrategyConfig
+    _config?: TurnStrategyConfig
   ): Promise<boolean> {
     try {
       // Basic checks
@@ -242,7 +242,7 @@ export class ModeratedStrategy implements TurnStrategyInterface {
   async shouldAdvanceTurn(
     discussion: Discussion,
     currentParticipant: DiscussionParticipant,
-    config?: TurnStrategyConfig
+    _config?: TurnStrategyConfig
   ): Promise<boolean> {
     try {
       const now = new Date();
@@ -296,7 +296,7 @@ export class ModeratedStrategy implements TurnStrategyInterface {
   async getEstimatedTurnDuration(
     participant: DiscussionParticipant,
     discussion: Discussion,
-    config?: TurnStrategyConfig
+    _config?: TurnStrategyConfig
   ): Promise<number> {
     try {
       // Base duration (longer for moderated discussions)
@@ -358,7 +358,7 @@ export class ModeratedStrategy implements TurnStrategyInterface {
 
   private hasModeratorApproval(
     participant: DiscussionParticipant,
-    discussion: Discussion
+    _discussion: Discussion
   ): boolean {
     // Check if participant has received moderator approval
     // This would typically be stored in discussion state or participant metadata
@@ -380,7 +380,7 @@ export class ModeratedStrategy implements TurnStrategyInterface {
 
   private hasParticipantIndicatedCompletion(
     participant: DiscussionParticipant,
-    discussion: Discussion
+    _discussion: Discussion
   ): boolean {
     // Check if participant has indicated they're done with their turn
     // This could be through specific keywords, commands, or explicit signals

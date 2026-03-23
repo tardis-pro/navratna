@@ -72,7 +72,7 @@ export class LLMModelRepository extends Repository<LLMModel> {
     const results: LLMModel[] = [];
 
     for (const modelData of models) {
-      // oxlint-ignore-next-line no-await-in-loop -- sequential processing required
+      // oxlint-disable-next-line no-await-in-loop -- sequential processing required
       const model = await this.upsertModel({
         ...modelData,
         providerId,

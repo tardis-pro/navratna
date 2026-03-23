@@ -285,15 +285,15 @@ export function useIntentDetection(options: UseIntentDetectionOptions = {}) {
   }, []);
 
   const fetchRelevanceScores = useCallback(
-    async (query: string, options: IntentOption[]): Promise<Map<string, number>> => {
-      if (options.length === 0) {
+    async (query: string, intentOptions: IntentOption[]): Promise<Map<string, number>> => {
+      if (intentOptions.length === 0) {
         return new Map<string, number>();
       }
 
       const response = await APIClient.post<RelevanceApiResponse>('/api/v1/agents/relevance', {
         query,
-        candidates: options.map(toRelevanceCandidate),
-        limit: options.length,
+        candidates: intentOptions.map(toRelevanceCandidate),
+        limit: intentOptions.length,
       });
 
       const scoreMap = new Map<string, number>();

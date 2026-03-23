@@ -207,7 +207,7 @@ export const ProjectTaskManager: React.FC<ProjectTaskManagerProps> = ({ projectI
     return response || [];
   };
 
-  const handleGetProjectMembers = async (projectId: string) => {
+  const handleGetProjectMembers = async (_membersProjectId: string) => {
     const response = await projectsAPI.getMembers(projectId);
     return response || [];
   };

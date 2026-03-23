@@ -7,15 +7,12 @@ import {
   OperationPriority,
   StepStatus,
   StepResult,
-  OperationState,
-  Checkpoint,
   CheckpointType,
-  OperationResult,
   WorkflowInstance,
 } from '@uaip/types';
 
 // Mock DatabaseService
-export const createMockDatabaseService = (): any => ({
+export const createMockDatabaseService = (): Record<string, unknown> => ({
   initialize: jest.fn().mockResolvedValue(undefined),
   healthCheck: jest.fn().mockResolvedValue({
     status: 'healthy',
@@ -50,7 +47,7 @@ export const createMockDatabaseService = (): any => ({
 });
 
 // Mock EventBusService
-export const createMockEventBusService = (): any => ({
+export const createMockEventBusService = (): Record<string, unknown> => ({
   connect: jest.fn().mockResolvedValue(undefined),
   close: jest.fn().mockResolvedValue(undefined),
   publishEvent: jest.fn().mockResolvedValue(undefined),
@@ -59,7 +56,7 @@ export const createMockEventBusService = (): any => ({
 });
 
 // Mock StateManagerService
-export const createMockStateManagerService = (): any => ({
+export const createMockStateManagerService = (): Record<string, unknown> => ({
   initializeOperationState: jest.fn().mockResolvedValue(undefined),
   updateOperationState: jest.fn().mockResolvedValue(undefined),
   getOperationState: jest.fn().mockResolvedValue({
@@ -86,7 +83,7 @@ export const createMockStateManagerService = (): any => ({
 });
 
 // Mock ResourceManagerService
-export const createMockResourceManagerService = (): any => ({
+export const createMockResourceManagerService = (): Record<string, unknown> => ({
   checkResourceAvailability: jest.fn().mockResolvedValue({
     available: true,
     allocatedCpu: 1,
@@ -110,7 +107,7 @@ export const createMockResourceManagerService = (): any => ({
 });
 
 // Mock StepExecutorService
-export const createMockStepExecutorService = (): any => ({
+export const createMockStepExecutorService = (): Record<string, unknown> => ({
   executeStep: jest.fn().mockResolvedValue({
     stepId: 'step-1',
     status: StepStatus.COMPLETED,
@@ -132,7 +129,7 @@ export const createMockStepExecutorService = (): any => ({
 });
 
 // Mock CompensationService
-export const createMockCompensationService = (): any => ({
+export const createMockCompensationService = (): Record<string, unknown> => ({
   createCompensationPlan: jest.fn().mockResolvedValue({
     id: 'compensation-123',
     operationId: 'operation-123',
@@ -152,7 +149,7 @@ export const createMockCompensationService = (): any => ({
 });
 
 // Mock OperationManagementService
-export const createMockOperationManagementService = (): any => ({
+export const createMockOperationManagementService = (): Record<string, unknown> => ({
   createOperation: jest.fn().mockResolvedValue({
     id: 'operation-123',
     type: OperationType.TOOL_EXECUTION,
@@ -313,7 +310,7 @@ export const createMockStepResult = (overrides: Partial<StepResult> = {}): StepR
 });
 
 // Mock config service
-export const createMockConfig = (): any => ({
+export const createMockConfig = (): Record<string, unknown> => ({
   getExecutionConfig: jest.fn().mockReturnValue({
     operationTimeoutMax: 3600000,
     cleanupOrphanedOperationsInterval: 300000,

@@ -43,7 +43,7 @@ Usage: Accessed ${concept.usage.timesAccessed} times, Success rate: ${concept.us
     } catch (error) {
       console.error('Concept storage error:', error);
       const message = error instanceof Error ? error.message : String(error);
-      throw new Error(`Failed to store concept: ${message}`);
+      throw new Error(`Failed to store concept: ${message}`, { cause: error });
     }
   }
 

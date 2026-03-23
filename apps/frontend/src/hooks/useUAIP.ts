@@ -71,7 +71,7 @@ export function useAsyncData<T>(
         }));
       }
     }
-  }, [fetchFn, dependenciesRef]);
+  }, [fetchFn]);
 
   useEffect(() => {
     fetchData();

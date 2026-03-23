@@ -9,7 +9,6 @@ import {
   authenticateConnection,
   isValidUUID,
   generateSecureConnectionId,
-  validateMessageSize,
 } from './websocket-security-utils.js';
 import { RedisSessionManager } from './redis-session-manager.js';
 
@@ -362,7 +361,7 @@ export class DiscussionWebSocketHandler {
   /**
    * Handle incoming WebSocket message
    */
-  private async handleMessage(connection: WebSocketConnection, data: any): Promise<void> {
+  private async handleMessage(connection: WebSocketConnection, data: unknown): Promise<void> {
     try {
       connection.lastActivity = new Date();
       connection.messageCount++;
@@ -507,7 +506,7 @@ export class DiscussionWebSocketHandler {
   /**
    * Send message to a specific connection
    */
-  private sendToConnection(connection: WebSocketConnection, message: any): void {
+  private sendToConnection(connection: WebSocketConnection, message: Record<string, unknown>): void {
     if (connection.ws.readyState === WebSocket.OPEN) {
       connection.ws.send(JSON.stringify(message));
     }
@@ -572,7 +571,7 @@ export class DiscussionWebSocketHandler {
   /**
    * Broadcast message to all connections in a discussion
    */
-  public broadcastToDiscussion(discussionId: string, message: any): void {
+  public broadcastToDiscussion(discussionId: string, message: Record<string, unknown>): void {
     const connections = this.connections.get(discussionId);
     if (connections) {
       connections.forEach((connection) => {
@@ -646,7 +645,7 @@ export class DiscussionWebSocketHandler {
       connection.ws.close(1001, 'Server shutting down');
       // Remove session from Redis
       try {
-        // oxlint-ignore-next-line no-await-in-loop -- sequential processing required
+        // oxlint-disable-next-line no-await-in-loop -- sequential processing required
         await this.redisSessionManager.removeSession(connection.connectionId);
       } catch (error) {
         logger.error('Failed to remove session during shutdown', {

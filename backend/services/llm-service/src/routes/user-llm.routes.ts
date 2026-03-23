@@ -487,9 +487,9 @@ export function registerUserLLMRoutes(app: Elysia, userLLMService: UserLLMServic
           for (const provider of userProviders) {
             try {
               if (provider.defaultModel) {
-                // oxlint-ignore-next-line eslint/no-await-in-loop -- sequential processing required
+                // oxlint-disable-next-line eslint/no-await-in-loop -- sequential processing required
                 const apiKey = await provider.getApiKey();
-                // oxlint-ignore-next-line eslint/no-await-in-loop -- sequential processing required
+                // oxlint-disable-next-line eslint/no-await-in-loop -- sequential processing required
                 const detection = await detector.detectCapabilities(
                   provider.defaultModel,
                   provider.type as unknown as string,
@@ -506,7 +506,7 @@ export function registerUserLLMRoutes(app: Elysia, userLLMService: UserLLMServic
                   capabilityTestResults: detection.testResults,
                 } as Record<string, unknown>;
 
-                // oxlint-ignore-next-line eslint/no-await-in-loop -- sequential processing required
+                // oxlint-disable-next-line eslint/no-await-in-loop -- sequential processing required
                 await userLLMService.updateUserProviderConfig(userId, provider.id, {
                   configuration: provider.configuration,
                 });

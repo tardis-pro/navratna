@@ -604,7 +604,7 @@ export const DesktopWorkspace: React.FC<DesktopWorkspaceProps> = ({
             {/* Primary Icons Rows */}
             {chunkIcons(primaryIcons, gridConfig.maxIconsPerRow).map((iconChunk, chunkIndex) => (
               <motion.div
-                key={`primary-chunk-${chunkIndex}`}
+                key={`primary-chunk-${iconChunk.map((i) => i.id).join('-')}`}
                 className="grid mb-8 w-full"
                 style={{
                   gridTemplateColumns: `repeat(${Math.min(gridConfig.maxIconsPerRow, iconChunk.length)}, 1fr)`,
@@ -644,9 +644,9 @@ export const DesktopWorkspace: React.FC<DesktopWorkspaceProps> = ({
 
             {/* Secondary Icons Rows - Only show on larger screens */}
             {gridConfig.showSecondaryRow &&
-              chunkIcons(secondaryIcons, gridConfig.maxIconsPerRow).map((iconChunk, chunkIndex) => (
+              chunkIcons(secondaryIcons, gridConfig.maxIconsPerRow).map((iconChunk, _chunkIndex) => (
                 <div
-                  key={`secondary-chunk-${chunkIndex}`}
+                  key={`secondary-chunk-${iconChunk.map((i) => i.id).join('-')}`}
                   className="grid w-full mb-6"
                   style={{
                     gridTemplateColumns: `repeat(${Math.min(gridConfig.maxIconsPerRow, iconChunk.length)}, 1fr)`,

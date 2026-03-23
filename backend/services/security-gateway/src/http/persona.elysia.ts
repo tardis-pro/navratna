@@ -1,9 +1,9 @@
+import type { AnyElysia } from 'elysia';
 import { z } from 'zod';
 import { logger } from '@uaip/utils';
 import { withRequiredAuth } from '@uaip/middleware';
 import { DefaultUserLLMProviderSeed, UserService } from '@uaip/shared-services';
 import { DatabaseService } from '@uaip/infra/database';
-import type { RequiredAuthContext as _RequiredAuthContext } from './types/elysia-context.js';
 
 const userService = UserService.getInstance();
 
@@ -67,8 +67,8 @@ const InteractionTrackingSchema = z.object({
     .transform((str) => new Date(str)),
 });
 
-export function registerPersonaRoutes(elysiaApp: any): any {
-  return elysiaApp.group('/api/v1/users/persona', (app: any) =>
+export function registerPersonaRoutes(elysiaApp: AnyElysia): AnyElysia {
+  return elysiaApp.group('/api/v1/users/persona', (app: AnyElysia) =>
     withRequiredAuth(app)
       // GET /
       // @ts-expect-error - Elysia middleware injects user, but TypeScript cannot infer through nested groups
@@ -257,8 +257,8 @@ export function registerPersonaRoutes(elysiaApp: any): any {
             set.status = 400;
             return { error: 'User persona not found. Please complete onboarding first.' };
           }
-          const persona: any = entity.userPersona;
-          const behavioral: any = entity.behavioralPatterns;
+          const persona = entity.userPersona as Record<string, unknown>;
+          const behavioral = entity.behavioralPatterns as Record<string, unknown>;
           const recommendations = await generatePersonaRecommendations(persona, behavioral);
           return recommendations;
         } catch {
@@ -326,7 +326,7 @@ export function registerPersonaRoutes(elysiaApp: any): any {
   );
 }
 
-async function generatePersonaRecommendations(persona: any, _behavioralPatterns: any) {
+async function generatePersonaRecommendations(persona: Record<string, unknown>, _behavioralPatterns: Record<string, unknown>) {
   const recommendations = {
     recommendedTools: [],
     recommendedAgents: [],
@@ -344,17 +344,17 @@ async function generatePersonaRecommendations(persona: any, _behavioralPatterns:
 async function processUserInteraction(
   userId: string,
   type: string,
-  data: any,
+  data: unknown,
   timestamp: Date
 ) {
   logger.info('Processed user interaction', { userId, type, timestamp });
 }
 
-async function getCompatibleAgents(_persona: any) {
+async function getCompatibleAgents(_persona: Record<string, unknown>) {
   return [] as unknown[];
 }
 
-async function generateOptimizedWorkspace(_persona: any, _behavioral: any) {
+async function generateOptimizedWorkspace(_persona: Record<string, unknown>, _behavioral: Record<string, unknown>) {
   return { layout: 'default', widgets: [] } as unknown;
 }
 

@@ -225,30 +225,33 @@ export const ArtifactGenerationPanel: React.FC<ArtifactGenerationPanelProps> = (
                   <div className="p-3 border rounded-lg">
                     <h4 className="font-medium mb-2">Generation Opportunities</h4>
                     <div className="space-y-2">
-                      {analysis.triggers.slice(0, 3).map((trigger: unknown, index: number) => (
+                      {analysis.triggers.slice(0, 3).map((trigger: unknown) => {
+                        const t = trigger as { artifactType?: string; confidence?: number };
+                        return (
                         <div
-                          key={`trigger-${index}`} // oxlint-ignore-line no-array-index-key -- no stable unique key available for trigger items
+                          key={t.artifactType ?? 'unknown-trigger'}
                           className="flex items-center justify-between p-2 bg-muted rounded"
                         >
                           <div className="flex items-center gap-2">
-                            {getArtifactIcon(trigger.artifactType)}
-                            <span className="text-sm">{trigger.artifactType}</span>
+                            {getArtifactIcon(t.artifactType)}
+                            <span className="text-sm">{t.artifactType}</span>
                             <Badge variant="secondary" size="sm">
-                              {Math.round(trigger.confidence * 100)}%
+                              {Math.round((t.confidence ?? 0) * 100)}%
                             </Badge>
                           </div>
                           <Button
                             size="sm"
                             variant="outline"
                             onClick={() => {
-                              setSelectedType(trigger.artifactType);
+                              setSelectedType(t.artifactType);
                               setActiveTab('generate');
                             }}
                           >
                             Generate
                           </Button>
                         </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   </div>
                 )}

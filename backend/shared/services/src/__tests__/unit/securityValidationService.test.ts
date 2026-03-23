@@ -40,7 +40,7 @@ describe('SecurityValidationService', () => {
   beforeEach(async () => {
     jest.clearAllMocks();
     service = new SecurityValidationService();
-    mockDatabaseService = (service as any).databaseService;
+    mockDatabaseService = (service as Record<string, unknown>).databaseService as jest.Mocked<DatabaseService>;
   });
 
   describe('Service Initialization', () => {
@@ -517,7 +517,7 @@ describe('SecurityValidationService', () => {
         sessionId: null,
         ipAddress: 'invalid-ip',
         userAgent: '',
-        securityLevel: 'invalid' as any,
+        securityLevel: 'invalid' as unknown as SecurityLevel,
       };
 
       await expect(
@@ -568,7 +568,7 @@ expect.extend({
 declare global {
   namespace jest {
     interface Matchers<R> {
-      toBeOneOf(items: any[]): R;
+      toBeOneOf(items: unknown[]): R;
     }
   }
 }

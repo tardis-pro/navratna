@@ -285,9 +285,9 @@ export const CapabilityRegistry: React.FC<CapabilityRegistryPortalProps> = ({
                   </div>
 
                   <div className="flex flex-wrap gap-1">
-                    {capability.tags?.map((tag, index) => (
+                    {capability.tags?.map((tag, _index) => (
                       <span
-                        key={index}
+                        key={`tag-${tag}`}
                         className="px-2 py-1 bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300 rounded-md text-xs"
                       >
                         {tag}
@@ -372,9 +372,9 @@ export const CapabilityRegistry: React.FC<CapabilityRegistryPortalProps> = ({
                     Tags
                   </h5>
                   <div className="flex flex-wrap gap-2">
-                    {selectedCapabilityData.tags.map((tag, index) => (
+                    {selectedCapabilityData.tags.map((tag, _index) => (
                       <span
-                        key={index}
+                        key={`selected-tag-${tag}`}
                         className="px-3 py-1 bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300 rounded-full text-sm"
                       >
                         {tag}

@@ -15,7 +15,6 @@ import {
   AgentRole,
   AgentStatus,
   DiscussionStatus,
-  DiscussionVisibility,
   LLMTaskType,
   MessageType,
   PersonaStatus,

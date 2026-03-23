@@ -1,3 +1,4 @@
+import type { AnyElysia } from 'elysia';
 // Elysia's type system cannot infer the 'user' property through nested .group() calls combined with middleware wrappers.
 import { z } from 'zod';
 import { logger } from '@uaip/utils';
@@ -87,11 +88,11 @@ const omitPasswordHash = <T extends { passwordHash?: string }>(user: T) => {
   return safeUser;
 };
 
-export function registerUserRoutes(elysiaApp: any): any {
-  return elysiaApp.group('/api/v1/users', (app: any) =>
+export function registerUserRoutes(elysiaApp: AnyElysia): AnyElysia {
+  return elysiaApp.group('/api/v1/users', (app: AnyElysia) =>
     withOptionalAuth(app)
       // GET /api/v1/users (admin)
-      .group('', (g: any) =>
+      .group('', (g: AnyElysia) =>
         withAdminGuard(g).get('/', async ({ set, query }) => {
           const parsed = userQuerySchema.safeParse(query);
           if (!parsed.success) {
@@ -148,7 +149,7 @@ export function registerUserRoutes(elysiaApp: any): any {
             limit,
             offset,
           });
-          const publicUsers = result.users.map((u: any) => ({
+          const publicUsers = result.users.map((u) => ({
             id: u.id,
             email: u.email,
             displayName: `${u.firstName || ''} ${u.lastName || ''}`.trim() || u.email.split('@')[0],
@@ -182,7 +183,7 @@ export function registerUserRoutes(elysiaApp: any): any {
       })
 
       // GET /api/v1/users/llm-preferences
-      .group('', (g: any) =>
+      .group('', (g: AnyElysia) =>
         withRequiredAuth(g)
           .get('/llm-preferences', async ({ set, user }) => {
             try {
@@ -237,7 +238,7 @@ export function registerUserRoutes(elysiaApp: any): any {
       )
 
       // GET /api/v1/users/:userId (admin)
-      .group('', (g: any) =>
+      .group('', (g: AnyElysia) =>
         withAdminGuard(g)
           .get('/:userId', async ({ set, params }) => {
             try {

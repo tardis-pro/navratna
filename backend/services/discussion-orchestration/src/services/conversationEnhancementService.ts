@@ -174,8 +174,8 @@ function determineResponseType(
 function createResponseEnhancement(
   persona: Persona,
   responseType: ResponseType,
-  context: ConversationContext,
-  conversationState: ConversationState
+  _context: ConversationContext,
+  _conversationState: ConversationState
 ): ResponseEnhancement {
   return {
     type: responseType,
@@ -185,21 +185,6 @@ function createResponseEnhancement(
     referenceMemory: Math.random() < 0.2,
     addEmotionalReflection: Math.random() < 0.1,
   };
-}
-
-// Determine what type of filler to use
-function determineFillerType(
-  persona: Persona,
-  responseType: ResponseType,
-  context: ConversationContext
-): 'thinking' | 'hesitation' | 'transition' | 'agreement' | 'casual' {
-  if (responseType === 'agreement') return 'agreement';
-  if (responseType === 'transition') return 'transition';
-  if (persona.conversationalStyle?.tone === 'formal') return 'hesitation';
-  if (persona.conversationalStyle?.assertiveness && persona.conversationalStyle.assertiveness < 0.3)
-    return 'thinking';
-
-  return 'casual';
 }
 
 // Generate base content for the persona (placeholder - would integrate with your AI model)

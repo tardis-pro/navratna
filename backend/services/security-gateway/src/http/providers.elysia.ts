@@ -1,3 +1,4 @@
+import type { AnyElysia } from 'elysia';
 import { withAdminGuard, withRequiredAuth } from '@uaip/middleware';
 import { logger } from '@uaip/utils';
 import { UserService } from '@uaip/shared-services';
@@ -81,11 +82,11 @@ const getEventBusService = (): EventBusService => {
   return eventBusServiceSingleton;
 };
 
-export function registerProviderRoutes(elysiaApp: any): any {
+export function registerProviderRoutes(elysiaApp: AnyElysia): AnyElysia {
   return (
     elysiaApp
       // Admin/system provider management
-      .group('/api/v1', (app: any) =>
+      .group('/api/v1', (app: AnyElysia) =>
         withAdminGuard(app)
           .get('/providers', async ({ set }) => {
             try {
@@ -132,7 +133,7 @@ export function registerProviderRoutes(elysiaApp: any): any {
               );
               set.status = 201;
               return { success: true, data: created };
-            } catch (error: any) {
+            } catch (error: unknown) {
               logger.error('Error creating LLM provider', { error });
               if (error instanceof Error && error.message.includes('already exists')) {
                 set.status = 409;
@@ -195,7 +196,7 @@ export function registerProviderRoutes(elysiaApp: any): any {
       )
 
       // User-scoped provider management (nginx routes /api/v1/llm/my-providers here)
-      .group('/api/v1/llm', (app: any) =>
+      .group('/api/v1/llm', (app: AnyElysia) =>
         withRequiredAuth(app)
           // @ts-expect-error - Elysia middleware injects user, but TypeScript cannot infer through nested groups
           .get('/my-providers/limits', async ({ user }) => {
@@ -239,9 +240,9 @@ export function registerProviderRoutes(elysiaApp: any): any {
                 .findActiveProvidersByUser(user!.id);
               const active = providers
                 .filter(
-                  (p: any) => p.isActive && (p.status === 'active' || p.status === 'testing')
+                  (p) => p.isActive && (p.status === 'active' || p.status === 'testing')
                 )
-                .map((p: any) => ({
+                .map((p) => ({
                   id: p.id,
                   name: p.name,
                   type: p.type,
@@ -379,7 +380,7 @@ export function registerProviderRoutes(elysiaApp: any): any {
               }
               set.status = 201;
               return { success: true, data: toSafeProvider(saved) };
-            } catch (error: any) {
+            } catch (error: unknown) {
               logger.error('Error creating user LLM provider', { error });
               if (error instanceof Error && error.message.includes('already in use')) {
                 set.status = 409;
@@ -476,7 +477,7 @@ export function registerProviderRoutes(elysiaApp: any): any {
                 });
               }
               return { success: true, message: 'LLM provider deleted successfully' };
-            } catch (error: any) {
+            } catch (error: unknown) {
               logger.error('Error deleting user LLM provider', { error });
               if (error instanceof Error && error.message.includes('Cannot delete provider')) {
                 set.status = 400;
@@ -546,7 +547,7 @@ export function registerProviderRoutes(elysiaApp: any): any {
   );
 }
 
-function toSafeProvider(provider: any) {
+function toSafeProvider(provider: Record<string, unknown>) {
   return {
     id: provider.id,
     userId: provider.userId,

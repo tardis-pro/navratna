@@ -118,17 +118,6 @@ export class ThoughtParserService {
    * Infer dependencies between thoughts
    */
   private inferDependencies(thoughts: ThoughtStep[]): void {
-    const typeOrder: Record<ThoughtType, number> = {
-      observation: 0,
-      question: 1,
-      hypothesis: 2,
-      uncertainty: 3,
-      reasoning: 4,
-      critique: 5,
-      refinement: 6,
-      conclusion: 7,
-    };
-
     for (let i = 1; i < thoughts.length; i++) {
       const current = thoughts[i];
 

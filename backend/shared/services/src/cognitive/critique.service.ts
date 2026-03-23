@@ -46,10 +46,8 @@ export class CritiqueService {
     response: string,
     originalQuery: string,
     userId: string,
-    config?: Partial<CritiqueConfig>
+    _config?: Partial<CritiqueConfig>
   ): Promise<CritiqueResult> {
-    const effectiveConfig = { ...this.config, ...config };
-
     // Build critique prompt
     const critiquePrompt = `Original question: ${originalQuery}
 
@@ -66,7 +64,7 @@ Evaluate this response using the criteria specified.`;
         reject(new Error('Critique request timeout'));
       }, 30000);
 
-      this.eventBus.subscribe(`llm.response.${requestId}`, async (event: any) => {
+      this.eventBus.subscribe(`llm.response.${requestId}`, async (event: { data?: { content?: string } }) => {
         clearTimeout(timeout);
         resolve(event.data?.content || '');
       });
@@ -107,7 +105,7 @@ Evaluate this response using the criteria specified.`;
     let currentResponse = await generateResponse();
 
     while (revisionCount < effectiveConfig.maxRevisions) {
-      // oxlint-ignore-next-line no-await-in-loop -- sequential processing required
+      // oxlint-disable-next-line no-await-in-loop -- sequential processing required
       const critique = await this.critiqueResponse(
         currentResponse,
         originalQuery,
@@ -133,7 +131,7 @@ Evaluate this response using the criteria specified.`;
       );
 
       // Request improved response
-      // oxlint-ignore-next-line no-await-in-loop -- sequential processing required
+      // oxlint-disable-next-line no-await-in-loop -- sequential processing required
       const improvedResponse = await this.requestImprovedResponse(improvementPrompt, userId);
       currentResponse = improvedResponse;
       revisionCount++;
@@ -255,7 +253,7 @@ Please provide an improved response that addresses these issues while maintainin
         reject(new Error('Improvement request timeout'));
       }, 60000);
 
-      this.eventBus.subscribe(`llm.response.${requestId}`, async (event: any) => {
+      this.eventBus.subscribe(`llm.response.${requestId}`, async (event: { data?: { content?: string } }) => {
         clearTimeout(timeout);
         resolve(event.data?.content || '');
       });

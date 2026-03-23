@@ -327,7 +327,7 @@ export class ToolRegistry {
     } catch (error) {
       logger.error(`Error looking up tool ${toolName}:`, error);
       const errorMessage = error instanceof Error ? error.message : String(error);
-      throw new Error(`Failed to lookup tool: ${toolName}. ${errorMessage}`);
+      throw new Error(`Failed to lookup tool: ${toolName}. ${errorMessage}`, { cause: error });
     }
   }
 

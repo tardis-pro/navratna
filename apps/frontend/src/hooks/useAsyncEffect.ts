@@ -48,5 +48,6 @@ export function useAsyncEffect(
         cleanup();
       }
     };
+  // oxlint-disable-next-line exhaustive-deps
   }, deps);
 }

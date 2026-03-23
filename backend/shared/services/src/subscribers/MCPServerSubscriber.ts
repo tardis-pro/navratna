@@ -121,7 +121,7 @@ export class MCPServerSubscriber implements EntitySubscriberInterface<MCPServer>
   /**
    * Serialize server data for the integration event
    */
-  private serializeServerData(server: MCPServer): Record<string, any> {
+  private serializeServerData(server: MCPServer): Record<string, unknown> {
     return {
       id: server.id,
       name: server.name,

@@ -1,10 +1,10 @@
+import type { AnyElysia } from 'elysia';
 import { z } from 'zod';
 import { logger } from '@uaip/utils';
 import { ProjectManagementService } from '@uaip/shared-services';
 import { DatabaseService } from '@uaip/infra/database';
 import { EventBusService } from '@uaip/infra/eventBus';
 import { withOptionalAuth } from '@uaip/middleware';
-import type { OptionalAuthContext as _OptionalAuthContext } from './types/elysia-context.js';
 import { ProjectStatus as _ProjectStatus } from '@uaip/types';
 
 let projectService: ProjectManagementService | null = null;
@@ -56,8 +56,8 @@ const projectQuerySchema = z.object({
   search: z.string().max(100).optional(),
 });
 
-export function registerProjectRoutes(elysiaApp: any): any {
-  return elysiaApp.group('/api/v1/projects', (app: any) =>
+export function registerProjectRoutes(elysiaApp: AnyElysia): AnyElysia {
+  return elysiaApp.group('/api/v1/projects', (app: AnyElysia) =>
     withOptionalAuth(app)
       // List projects
       // @ts-expect-error - Elysia middleware injects user, but TypeScript cannot infer through nested groups

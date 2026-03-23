@@ -7,7 +7,7 @@ describe('UserKnowledgeService', () => {
     const mockKnowledgeGraphService = {
       // Mock methods as needed
     };
-    service = new UserKnowledgeService(mockKnowledgeGraphService as any);
+    service = new UserKnowledgeService(mockKnowledgeGraphService as unknown as Record<string, unknown>);
   });
 
   describe('initialization', () => {

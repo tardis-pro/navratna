@@ -1229,7 +1229,7 @@ export function AgentProvider({ children }: { children: React.ReactNode }) {
       getFlowStatus,
       clearFlowResult,
     }),
-    // oxlint-ignore-next-line exhaustive-deps -- context interface intentionally exposes stable API surface
+    // oxlint-disable-next-line exhaustive-deps -- context interface intentionally exposes stable API surface
     [
       agents,
       addAgent,

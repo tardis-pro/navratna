@@ -260,7 +260,7 @@ export class SandboxExecutionService {
       const message = error instanceof Error ? error.message : String(error);
       if (message.toLowerCase().includes('timed out')) {
         execution.status = 'timeout';
-        throw new Error('Execution timeout exceeded');
+        throw new Error('Execution timeout exceeded', { cause: error });
       }
       throw error;
     }
@@ -286,7 +286,7 @@ export class SandboxExecutionService {
       const message = error instanceof Error ? error.message : String(error);
       if (message.toLowerCase().includes('timed out')) {
         execution.status = 'timeout';
-        throw new Error('Execution timeout exceeded');
+        throw new Error('Execution timeout exceeded', { cause: error });
       }
       throw error;
     }

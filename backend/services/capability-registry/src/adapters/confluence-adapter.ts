@@ -392,7 +392,7 @@ export class ConfluenceAdapter {
       });
     } catch (error) {
       logger.error('Confluence authentication failed', { error });
-      throw new Error('Failed to authenticate with Confluence');
+      throw new Error('Failed to authenticate with Confluence', { cause: error });
     }
   }
 
@@ -437,7 +437,7 @@ export class ConfluenceAdapter {
       this.accessToken = null;
       this.refreshToken = null;
       this.tokenExpiry = null;
-      throw new Error('Failed to refresh Confluence token');
+      throw new Error('Failed to refresh Confluence token', { cause: error });
     }
   }
 

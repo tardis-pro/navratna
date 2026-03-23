@@ -120,7 +120,7 @@ export class OperationValidator {
     if (schema) {
       try {
         schema.parse(step);
-      } catch (error: any) {
+      } catch (error: unknown) {
         const message = error instanceof Error ? error.message : String(error);
         throw new OperationError(
           `Invalid step schema for ${step.id}: ${message}`,

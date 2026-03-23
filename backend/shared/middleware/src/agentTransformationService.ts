@@ -115,7 +115,7 @@ export class AgentTransformationService {
     } catch (error) {
       logger.error('Failed to transform persona to agent request', { error, input });
       const msg = error instanceof Error ? error.message : String(error);
-      throw new Error(`Transformation failed: ${msg}`);
+      throw new Error(`Transformation failed: ${msg}`, { cause: error });
     }
   }
 

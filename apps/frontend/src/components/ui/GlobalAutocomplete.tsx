@@ -276,9 +276,9 @@ export const GlobalAutocomplete = forwardRef<
             className="absolute z-[10000] w-full mt-1 shadow-lg border-slate-600 bg-slate-800/95 backdrop-blur-sm"
           >
             <CardContent className="p-0">
-              {suggestions.map((suggestion, index) => (
+              {suggestions.map((suggestion, _index) => (
                 <div
-                  key={index}
+                  key={`suggestion-${suggestion.text.substring(0, 20)}`}
                   className={`
                   flex items-center gap-2 px-3 py-2 cursor-pointer
                   ${index === selectedIndex ? 'bg-blue-500/20 text-blue-300' : 'hover:bg-slate-700/50 text-slate-300'}
@@ -336,9 +336,9 @@ export const GlobalAutocomplete = forwardRef<
                 </div>
               ) : (
                 <div className="space-y-2">
-                  {enhancedSuggestions.map((suggestion, index) => (
+                  {enhancedSuggestions.map((suggestion, _index) => (
                     <div
-                      key={index}
+                      key={`enhanced-${suggestion.substring(0, 20)}`}
                       className="p-3 rounded-lg bg-slate-700/50 hover:bg-slate-700/70 cursor-pointer border border-slate-600/30 hover:border-blue-500/30 transition-all"
                       onClick={() => applyEnhancement(suggestion)}
                     >

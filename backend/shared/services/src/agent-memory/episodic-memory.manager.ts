@@ -44,7 +44,7 @@ export class EpisodicMemoryManager {
     } catch (error) {
       console.error('Episode storage error:', error);
       const msg = error instanceof Error ? error.message : String(error);
-      throw new Error(`Failed to store episode: ${msg}`);
+      throw new Error(`Failed to store episode: ${msg}`, { cause: error });
     }
   }
 

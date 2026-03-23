@@ -270,14 +270,14 @@ export const operationStatusResponseSchema = z.object({
 });
 
 // Validation helper functions
-export const validateParameter = (parameterDefinition: z.ZodTypeAny, value: any) => {
+export const validateParameter = (parameterDefinition: z.ZodTypeAny, value: unknown) => {
   try {
     return {
       isValid: true,
       value: parameterDefinition.parse(value),
       errors: [] as string[],
     };
-  } catch (error: any) {
+  } catch (error: unknown) {
     if (error instanceof z.ZodError) {
       return {
         isValid: false,

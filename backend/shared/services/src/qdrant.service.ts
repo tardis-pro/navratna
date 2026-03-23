@@ -145,7 +145,7 @@ export class QdrantService {
       });
     } catch (error) {
       console.error('Qdrant search error:', error);
-      throw new Error(`Vector search failed: ${error instanceof Error ? error.message : String(error)}`);
+      throw new Error(`Vector search failed: ${error instanceof Error ? error.message : String(error)}`, { cause: error });
     }
   }
 
@@ -184,7 +184,7 @@ export class QdrantService {
     } catch (error) {
       console.error('Qdrant storage error:', error);
       const _errMsg = error instanceof Error ? error.message : String(error);
-      throw new Error(`Vector storage failed: ${_errMsg}`);
+      throw new Error(`Vector storage failed: ${_errMsg}`, { cause: error });
     }
   }
 
@@ -230,7 +230,7 @@ export class QdrantService {
     } catch (error) {
       console.error('Qdrant deletion error:', error);
       const _errMsg = error instanceof Error ? error.message : String(error);
-      throw new Error(`Vector deletion failed: ${_errMsg}`);
+      throw new Error(`Vector deletion failed: ${_errMsg}`, { cause: error });
     }
   }
 
@@ -292,7 +292,7 @@ export class QdrantService {
         KUBERNETES_SERVICE_HOST: process.env.KUBERNETES_SERVICE_HOST,
       });
       const _errMsg = error instanceof Error ? error.message : String(error);
-      throw new Error(`Failed to ensure Qdrant collection: ${_errMsg}`);
+      throw new Error(`Failed to ensure Qdrant collection: ${_errMsg}`, { cause: error });
     }
   }
 
@@ -326,7 +326,7 @@ export class QdrantService {
     } catch (error) {
       console.error('Qdrant collection info error:', error);
       const _errMsg = error instanceof Error ? error.message : String(error);
-      throw new Error(`Failed to get collection info: ${_errMsg}`);
+      throw new Error(`Failed to get collection info: ${_errMsg}`, { cause: error });
     }
   }
 
@@ -374,7 +374,7 @@ export class QdrantService {
     } catch (error) {
       console.error('Failed to update embedding dimensions:', error);
       const _errMsg = error instanceof Error ? error.message : String(error);
-      throw new Error(`Failed to update embedding dimensions: ${_errMsg}`);
+      throw new Error(`Failed to update embedding dimensions: ${_errMsg}`, { cause: error });
     }
   }
 
@@ -397,7 +397,7 @@ export class QdrantService {
     } catch (error) {
       console.error('Qdrant collection deletion error:', error);
       const _errMsg = error instanceof Error ? error.message : String(error);
-      throw new Error(`Failed to delete collection: ${_errMsg}`);
+      throw new Error(`Failed to delete collection: ${_errMsg}`, { cause: error });
     }
   }
 
@@ -451,7 +451,7 @@ export class QdrantService {
     } catch (error) {
       console.error('Qdrant upsert error:', error);
       const _errMsg = error instanceof Error ? error.message : String(error);
-      throw new Error(`Vector upsert failed: ${_errMsg}`);
+      throw new Error(`Vector upsert failed: ${_errMsg}`, { cause: error });
     }
   }
 
@@ -484,7 +484,7 @@ export class QdrantService {
     } catch (error) {
       console.error('Qdrant upsert error:', error);
       const _errMsg = error instanceof Error ? error.message : String(error);
-      throw new Error(`Vector upsert failed: ${_errMsg}`);
+      throw new Error(`Vector upsert failed: ${_errMsg}`, { cause: error });
     }
   }
 
@@ -529,7 +529,7 @@ export class QdrantService {
     } catch (error) {
       console.error('Qdrant get points error:', error);
       const _errMsg = error instanceof Error ? error.message : String(error);
-      throw new Error(`Vector get points failed: ${_errMsg}`);
+      throw new Error(`Vector get points failed: ${_errMsg}`, { cause: error });
     }
   }
 
@@ -557,7 +557,7 @@ export class QdrantService {
     } catch (error) {
       console.error('Qdrant delete points error:', error);
       const _errMsg = error instanceof Error ? error.message : String(error);
-      throw new Error(`Vector delete points failed: ${_errMsg}`);
+      throw new Error(`Vector delete points failed: ${_errMsg}`, { cause: error });
     }
   }
 
@@ -601,7 +601,7 @@ export class QdrantService {
     } catch (error) {
       console.error('Qdrant get error:', error);
       const _errMsg = error instanceof Error ? error.message : String(error);
-      throw new Error(`Vector get failed: ${_errMsg}`);
+      throw new Error(`Vector get failed: ${_errMsg}`, { cause: error });
     }
   }
 
@@ -632,7 +632,7 @@ export class QdrantService {
     } catch (error) {
       console.error('Qdrant scroll error:', error);
       const _errMsg = error instanceof Error ? error.message : String(error);
-      throw new Error(`Vector scroll failed: ${_errMsg}`);
+      throw new Error(`Vector scroll failed: ${_errMsg}`, { cause: error });
     }
   }
 }

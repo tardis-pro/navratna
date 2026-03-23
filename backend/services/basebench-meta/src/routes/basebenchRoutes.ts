@@ -1,3 +1,4 @@
+import type { AnyElysia } from 'elysia';
 import {
   BaseBenchBatchEvaluationRequestSchema,
   BaseBenchCaseEvaluationRequestSchema,
@@ -13,8 +14,8 @@ import type {
 
 import { BaseBenchMetaService } from '../services/basebenchMeta.service.js';
 
-export function registerBaseBenchRoutes(app: any, baseBenchService: BaseBenchMetaService) {
-  return app.group('/api/v1/basebench', (g: any) =>
+export function registerBaseBenchRoutes(app: AnyElysia, baseBenchService: BaseBenchMetaService): AnyElysia {
+  return app.group('/api/v1/basebench', (g: AnyElysia) =>
     g
       .get('/cases', () => ({
         success: true,
@@ -24,7 +25,7 @@ export function registerBaseBenchRoutes(app: any, baseBenchService: BaseBenchMet
         success: true,
         data: baseBenchService.listFamilies(),
       }))
-      .get('/cases/:caseId', ({ params, set }: any) => {
+      .get('/cases/:caseId', ({ params, set }: { params: Record<string, string>; set: { status: number } }) => {
         const testCase = baseBenchService.getCase(params.caseId);
         if (!testCase) {
           set.status = 404;
@@ -39,7 +40,7 @@ export function registerBaseBenchRoutes(app: any, baseBenchService: BaseBenchMet
           data: testCase,
         };
       })
-      .post('/evaluate', ({ body, set }: any) => {
+      .post('/evaluate', ({ body, set }: { body: Record<string, unknown>; set: { status: number } }) => {
         const parsed = BaseBenchCaseEvaluationRequestSchema.safeParse(body);
         if (!parsed.success) {
           set.status = 400;
@@ -71,7 +72,7 @@ export function registerBaseBenchRoutes(app: any, baseBenchService: BaseBenchMet
           };
         }
       })
-      .post('/evaluate/batch', ({ body, set }: any) => {
+      .post('/evaluate/batch', ({ body, set }: { body: Record<string, unknown>; set: { status: number } }) => {
         const parsed = BaseBenchBatchEvaluationRequestSchema.safeParse(body);
         if (!parsed.success) {
           set.status = 400;
@@ -329,10 +330,10 @@ function toTestCase(value: Record<string, unknown>): BaseBenchTestCase {
   };
 }
 
-function isRecord(value: any): value is Record<string, any> {
+function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null;
 }
 
-function toNullableString(value: any): string | null {
+function toNullableString(value: unknown): string | null {
   return typeof value === 'string' ? value : null;
 }

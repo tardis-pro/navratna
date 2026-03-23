@@ -130,7 +130,7 @@ export class ToolGraphDatabase {
         try {
           testValue = record.get('test');
         } catch (recordError) {
-          throw new Error(`Failed to get 'test' field from record: ${(recordError as Error).message}`);
+          throw new Error(`Failed to get 'test' field from record: ${(recordError as Error).message}`, { cause: recordError });
         }
 
         logger.info(`Neo4j test value: ${testValue} (type: ${typeof testValue})`);
@@ -192,7 +192,7 @@ export class ToolGraphDatabase {
         await this.verifyConnectivity(2); // Quick retry
       } catch (error) {
         logger.warn(`${operationName} skipped - Neo4j not available:`, (error as Error).message);
-        throw new Error(`Neo4j not available: ${(error as Error).message}`);
+        throw new Error(`Neo4j not available: ${(error as Error).message}`, { cause: error });
       }
     }
 

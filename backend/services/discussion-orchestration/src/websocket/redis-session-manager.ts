@@ -394,12 +394,12 @@ export class RedisSessionManager {
       const discussionKeys = await this.redis.keys(`${this.DISCUSSION_CONNECTIONS_PREFIX}*`);
 
       for (const userKey of userKeys) {
-        // oxlint-ignore-next-line no-await-in-loop -- sequential processing required
+        // oxlint-disable-next-line no-await-in-loop -- sequential processing required
         const connections = await this.redis.smembers(userKey);
         const validConnections = [];
 
         for (const connectionId of connections) {
-          // oxlint-ignore-next-line no-await-in-loop -- sequential processing required
+          // oxlint-disable-next-line no-await-in-loop -- sequential processing required
           const exists = await this.redis.exists(`${this.SESSION_PREFIX}${connectionId}`);
           if (exists) {
             validConnections.push(connectionId);
@@ -408,14 +408,14 @@ export class RedisSessionManager {
 
         if (validConnections.length !== connections.length) {
           if (validConnections.length === 0) {
-            // oxlint-ignore-next-line no-await-in-loop -- sequential processing required
+            // oxlint-disable-next-line no-await-in-loop -- sequential processing required
             await this.redis.del(userKey);
           } else {
-            // oxlint-ignore-next-line no-await-in-loop -- sequential processing required
+            // oxlint-disable-next-line no-await-in-loop -- sequential processing required
             await this.redis.del(userKey);
-            // oxlint-ignore-next-line no-await-in-loop -- sequential processing required
+            // oxlint-disable-next-line no-await-in-loop -- sequential processing required
             await this.redis.sadd(userKey, ...validConnections);
-            // oxlint-ignore-next-line no-await-in-loop -- sequential processing required
+            // oxlint-disable-next-line no-await-in-loop -- sequential processing required
             await this.redis.expire(userKey, this.SESSION_TTL);
           }
         }
@@ -423,12 +423,12 @@ export class RedisSessionManager {
 
       // Same for discussion connections
       for (const discussionKey of discussionKeys) {
-        // oxlint-ignore-next-line no-await-in-loop -- sequential processing required
+        // oxlint-disable-next-line no-await-in-loop -- sequential processing required
         const connections = await this.redis.smembers(discussionKey);
         const validConnections = [];
 
         for (const connectionId of connections) {
-          // oxlint-ignore-next-line no-await-in-loop -- sequential processing required
+          // oxlint-disable-next-line no-await-in-loop -- sequential processing required
           const exists = await this.redis.exists(`${this.SESSION_PREFIX}${connectionId}`);
           if (exists) {
             validConnections.push(connectionId);
@@ -437,14 +437,14 @@ export class RedisSessionManager {
 
         if (validConnections.length !== connections.length) {
           if (validConnections.length === 0) {
-            // oxlint-ignore-next-line no-await-in-loop -- sequential processing required
+            // oxlint-disable-next-line no-await-in-loop -- sequential processing required
             await this.redis.del(discussionKey);
           } else {
-            // oxlint-ignore-next-line no-await-in-loop -- sequential processing required
+            // oxlint-disable-next-line no-await-in-loop -- sequential processing required
             await this.redis.del(discussionKey);
-            // oxlint-ignore-next-line no-await-in-loop -- sequential processing required
+            // oxlint-disable-next-line no-await-in-loop -- sequential processing required
             await this.redis.sadd(discussionKey, ...validConnections);
-            // oxlint-ignore-next-line no-await-in-loop -- sequential processing required
+            // oxlint-disable-next-line no-await-in-loop -- sequential processing required
             await this.redis.expire(discussionKey, this.SESSION_TTL);
           }
         }

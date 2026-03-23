@@ -264,7 +264,7 @@ export class StepExecutionManager extends EventEmitter {
   private async retryStep(
     step: ExecutionStep,
     context: StepExecutionContext,
-    error: any
+    error: unknown
   ): Promise<StepResult> {
     step.retryCount = (step.retryCount || 0) + 1;
     const backoff = this.calculateBackoff(step);
@@ -334,7 +334,7 @@ export class StepExecutionManager extends EventEmitter {
     return this.resourceManagerService.getUsage();
   }
 
-  private resolveParameters(params: any, context: StepExecutionContext): any {
+  private resolveParameters(params: Record<string, unknown>, context: StepExecutionContext): Record<string, unknown> {
     if (!params) return params;
 
     // Handle parameter resolution from previous step results
@@ -360,7 +360,7 @@ export class StepExecutionManager extends EventEmitter {
     return params;
   }
 
-  private getNestedProperty(obj: any, path: string[]): any {
+  private getNestedProperty(obj: Record<string, unknown>, path: string[]): unknown {
     return path.reduce<unknown>(
       (current, prop) => (current as Record<string, unknown>)?.[prop],
       obj

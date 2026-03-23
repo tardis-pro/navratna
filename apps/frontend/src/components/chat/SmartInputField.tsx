@@ -214,7 +214,7 @@ export const SmartInputField: React.FC<SmartInputFieldProps> = ({
           <CardContent className="p-0">
             {suggestions.map((suggestion, index) => (
               <div
-                key={index}
+                key={`suggestion-${suggestion.text.substring(0, 20)}`}
                 className={`
                   flex items-center gap-2 px-3 py-2 cursor-pointer
                   ${index === selectedIndex ? 'bg-muted' : 'hover:bg-muted/50'}

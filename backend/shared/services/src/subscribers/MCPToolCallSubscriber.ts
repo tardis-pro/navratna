@@ -121,7 +121,7 @@ export class MCPToolCallSubscriber implements EntitySubscriberInterface<MCPToolC
   /**
    * Serialize tool call data for the integration event
    */
-  private serializeToolCallData(toolCall: MCPToolCall): Record<string, any> {
+  private serializeToolCallData(toolCall: MCPToolCall): Record<string, unknown> {
     return {
       id: toolCall.id,
       serverId: toolCall.serverId,

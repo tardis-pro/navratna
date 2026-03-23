@@ -85,7 +85,7 @@ export async function useRedisAuthState(redis: Redis): Promise<{
        * Baileys passes a nested object: { type: { id: value | null } }
        * A null value means the key should be deleted.
        */
-      set: async (data: { [type: string]: { [id: string]: any } }): Promise<void> => {
+      set: async (data: { [type: string]: { [id: string]: unknown } }): Promise<void> => {
         const pipeline = redis.pipeline();
 
         for (const [type, typeData] of Object.entries(data)) {
@@ -128,11 +128,11 @@ export async function clearRedisAuthState(redis: Redis): Promise<void> {
 
   let cursor = '0';
   do {
-    // oxlint-ignore-next-line no-await-in-loop -- sequential processing required
+    // oxlint-disable-next-line no-await-in-loop -- sequential processing required
     const [nextCursor, keys] = await redis.scan(cursor, 'MATCH', keyPattern, 'COUNT', 100);
     cursor = nextCursor;
     if (keys.length > 0) {
-      // oxlint-ignore-next-line no-await-in-loop -- sequential processing required
+      // oxlint-disable-next-line no-await-in-loop -- sequential processing required
       await redis.del(...keys);
     }
   } while (cursor !== '0');

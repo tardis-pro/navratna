@@ -195,7 +195,7 @@ export class TaskDAGService {
           taskIds: batch.map((n) => n.id),
         });
 
-        // oxlint-ignore-next-line no-await-in-loop -- sequential processing required
+        // oxlint-disable-next-line no-await-in-loop -- sequential processing required
         const results = await Promise.allSettled(batch.map((node) => this.executeNode(dag, node)));
 
         let batchFailed = false;
@@ -515,14 +515,10 @@ ${goal}
       type: node.type,
     });
 
-    try {
-      const result = await this.dispatchTask(node);
-      node.status = 'completed';
-      node.result = result;
-      node.completedAt = new Date();
-    } catch (error) {
-      throw error; // Rethrown to be caught by Promise.allSettled
-    }
+    const result = await this.dispatchTask(node);
+    node.status = 'completed';
+    node.result = result;
+    node.completedAt = new Date();
   }
 
   private async dispatchTask(node: TaskNode): Promise<unknown> {

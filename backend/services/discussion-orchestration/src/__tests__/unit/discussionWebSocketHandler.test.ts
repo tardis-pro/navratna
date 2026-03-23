@@ -6,7 +6,7 @@ describe('DiscussionWebSocketHandler', () => {
     cleanup: jest.fn(),
   };
 
-  let webSocketHandler: any;
+  let webSocketHandler: unknown;
 
   beforeEach(() => {
     jest.clearAllMocks();
@@ -161,10 +161,6 @@ describe('DiscussionWebSocketHandler', () => {
     });
 
     it('should require participant ID for participant actions', () => {
-      const requestWithoutParticipant = {
-        url: '/discussions/discussion-123/ws?userId=user-123',
-      };
-
       expect(webSocketHandler.handleConnection).toHaveBeenCalled();
     });
   });

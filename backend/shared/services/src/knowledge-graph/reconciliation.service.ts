@@ -160,7 +160,8 @@ export class ReconciliationService {
     } catch (error) {
       logger.error('Error detecting conflicts:', error);
       throw new Error(
-        `Conflict detection failed: ${error instanceof Error ? error.message : 'Unknown error'}`
+        `Conflict detection failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        { cause: error }
       );
     }
   }
@@ -291,7 +292,8 @@ export class ReconciliationService {
     } catch (error) {
       logger.error('Error resolving conflicts:', error);
       throw new Error(
-        `Conflict resolution failed: ${error instanceof Error ? error.message : 'Unknown error'}`
+        `Conflict resolution failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        { cause: error }
       );
     }
   }
@@ -338,7 +340,8 @@ export class ReconciliationService {
     } catch (error) {
       logger.error('Error merging duplicates:', error);
       throw new Error(
-        `Duplicate merging failed: ${error instanceof Error ? error.message : 'Unknown error'}`
+        `Duplicate merging failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        { cause: error }
       );
     }
   }

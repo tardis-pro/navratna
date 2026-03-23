@@ -425,7 +425,7 @@ export const useDesktop = () => {
         const previousCount = previousCounts[itemId] || 0;
         const growth =
           previousCount > 0 ? (recentCount - previousCount) / previousCount : recentCount;
-        const item = recentItems.find((item) => item.id === itemId);
+        const item = recentItems.find((foundItem) => foundItem.id === itemId);
 
         return {
           itemId,

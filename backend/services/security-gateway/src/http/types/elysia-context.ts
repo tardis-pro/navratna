@@ -1,3 +1,4 @@
+import type { RequiredAuthContext, OptionalAuthContext, ElysiaContext } from './types/elysia-context.js';
 /**
  * Elysia Context Types
  *
@@ -75,6 +76,6 @@ export type HandlerContext<
  * @example
  * const userId = getAuthUser(context).id
  */
-export function getAuthUser(context: any): AuthUser {
+export function getAuthUser(context: Record<string, unknown>): AuthUser {
   return context.user as AuthUser;
 }

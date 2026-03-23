@@ -1,3 +1,4 @@
+import type { AnyElysia } from 'elysia';
 import { z } from 'zod';
 import { logger as _logger } from '@uaip/utils';
 import { withAdminGuard, withRequiredAuth } from '@uaip/middleware';
@@ -59,7 +60,7 @@ const userActivityQuerySchema = z.object({
 
 function validateWithZod<T>(
   schema: z.ZodSchema<T>,
-  data: any
+  data: unknown
 ): { error: { details: { message: string; path: string }[] } | null; value: T | null } {
   const result = schema.safeParse(data);
   if (result.success) return { error: null, value: result.data };
@@ -71,9 +72,9 @@ function validateWithZod<T>(
   };
 }
 
-export function registerAuditRoutes(elysiaApp: any): any {
-  return elysiaApp.group('/api/v1/audit', (app: any) =>
-    withRequiredAuth(app).group('', (g: any) =>
+export function registerAuditRoutes(elysiaApp: AnyElysia): AnyElysia {
+  return elysiaApp.group('/api/v1/audit', (app: AnyElysia) =>
+    withRequiredAuth(app).group('', (g: AnyElysia) =>
       withAdminGuard(g)
         // GET /logs
         .get('/logs', async ({ set, query }) => {
@@ -82,7 +83,7 @@ export function registerAuditRoutes(elysiaApp: any): any {
             set.status = 400;
             return {
               error: 'Validation Error',
-              details: error.details.map((d: any) => d.message),
+              details: error.details.map((d) => d.message),
             };
           }
           try {
@@ -178,7 +179,7 @@ export function registerAuditRoutes(elysiaApp: any): any {
             set.status = 400;
             return {
               error: 'Validation Error',
-              details: error.details.map((d: any) => d.message),
+              details: error.details.map((d) => d.message),
             };
           }
           try {
@@ -188,7 +189,7 @@ export function registerAuditRoutes(elysiaApp: any): any {
               value.endDate,
               value.format
             );
-            let parsedData: any;
+            let parsedData: unknown;
             try {
               parsedData = typeof exportData === 'string' ? JSON.parse(exportData) : exportData;
             } catch {
@@ -227,7 +228,7 @@ export function registerAuditRoutes(elysiaApp: any): any {
             set.status = 400;
             return {
               error: 'Validation Error',
-              details: error.details.map((d: any) => d.message),
+              details: error.details.map((d) => d.message),
             };
           }
           try {

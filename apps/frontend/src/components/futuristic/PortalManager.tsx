@@ -97,9 +97,9 @@ const PORTAL_TEMPLATES: PortalConfig[] = [
         >
           <div className="text-purple-300 text-xs mb-2">Real-time Analysis</div>
           <div className="flex items-end gap-1 h-10">
-            {[...Array(8)].map((_, i) => (
+            {[1, 2, 3, 4, 5, 6, 7, 8].map((id, i) => (
               <motion.div
-                key={i}
+                key={`bar-${id}`}
                 className="bg-gradient-to-t from-purple-500 to-pink-500 rounded-sm flex-1"
                 animate={{ height: [10, Math.random() * 30 + 10, 10] }}
                 transition={{ duration: 1, delay: i * 0.1, repeat: Infinity }}
@@ -124,9 +124,9 @@ const PORTAL_TEMPLATES: PortalConfig[] = [
           </div>
         </div>
         <div className="space-y-2">
-          {[...Array(5)].map((_, i) => (
+          {[1, 2, 3, 4, 5].map((id, i) => (
             <motion.div
-              key={i}
+              key={`data-point-${id}`}
               className="flex justify-between items-center p-2 bg-emerald-500/10 rounded border border-emerald-500/20"
               initial={{ opacity: 0, x: -20 }}
               animate={{ opacity: 1, x: 0 }}

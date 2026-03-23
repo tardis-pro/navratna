@@ -613,7 +613,7 @@ export class BaseToolExecutor {
     } catch (error) {
       logger.error(`MCP tool execution failed for ${toolId}:`, error);
       const message = error instanceof Error ? error.message : String(error);
-      throw new Error(`MCP execution failed: ${message}`);
+      throw new Error(`MCP execution failed: ${message}`, { cause: error });
     }
   }
 
@@ -671,7 +671,7 @@ export class BaseToolExecutor {
     } catch (error) {
       logger.error(`OAuth tool execution failed for ${toolId}:`, error);
       const message = error instanceof Error ? error.message : String(error);
-      throw new Error(`OAuth execution failed: ${message}`);
+      throw new Error(`OAuth execution failed: ${message}`, { cause: error });
     }
   }
 

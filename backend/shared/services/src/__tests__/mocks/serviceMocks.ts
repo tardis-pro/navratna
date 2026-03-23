@@ -1,8 +1,8 @@
 // Jest is globally available
 import { TestUtils } from '../helpers/testUtils';
 
-export class ServiceMockFactory {
-  static createMockRedisService() {
+export namespace ServiceMockFactory {
+  export function createMockRedisService() {
     return {
       get: jest.fn(),
       set: jest.fn(),
@@ -37,7 +37,7 @@ export class ServiceMockFactory {
     };
   }
 
-  static createMockNeo4jService() {
+  export function createMockNeo4jService() {
     return {
       driver: {
         session: jest.fn().mockReturnValue({
@@ -61,7 +61,7 @@ export class ServiceMockFactory {
     };
   }
 
-  static createMockLLMService() {
+  export function createMockLLMService() {
     return {
       generateCompletion: jest.fn().mockResolvedValue({
         content: 'Mock AI response',
@@ -79,7 +79,7 @@ export class ServiceMockFactory {
     };
   }
 
-  static createMockQueueService() {
+  export function createMockQueueService() {
     return {
       connect: jest.fn(),
       disconnect: jest.fn(),
@@ -96,7 +96,7 @@ export class ServiceMockFactory {
     };
   }
 
-  static createMockSecurityService() {
+  export function createMockSecurityService() {
     return {
       hashPassword: jest.fn().mockResolvedValue('hashed_password'),
       comparePassword: jest.fn().mockResolvedValue(true),
@@ -109,7 +109,7 @@ export class ServiceMockFactory {
     };
   }
 
-  static createMockNotificationService() {
+  export function createMockNotificationService() {
     return {
       sendEmail: jest.fn(),
       sendSMS: jest.fn(),
@@ -121,7 +121,7 @@ export class ServiceMockFactory {
     };
   }
 
-  static createMockFileService() {
+  export function createMockFileService() {
     return {
       uploadFile: jest.fn(),
       downloadFile: jest.fn(),
@@ -134,7 +134,7 @@ export class ServiceMockFactory {
     };
   }
 
-  static createMockMetricsService() {
+  export function createMockMetricsService() {
     return {
       recordMetric: jest.fn(),
       incrementCounter: jest.fn(),
@@ -146,7 +146,7 @@ export class ServiceMockFactory {
     };
   }
 
-  static createMockCacheService() {
+  export function createMockCacheService() {
     return {
       get: jest.fn(),
       set: jest.fn(),
@@ -161,7 +161,7 @@ export class ServiceMockFactory {
     };
   }
 
-  static createMockConfigService() {
+  export function createMockConfigService() {
     return {
       get: jest.fn(),
       set: jest.fn(),
@@ -174,7 +174,7 @@ export class ServiceMockFactory {
     };
   }
 
-  static createMockHealthService() {
+  export function createMockHealthService() {
     return {
       checkHealth: jest.fn().mockResolvedValue({
         status: 'healthy',
@@ -191,7 +191,7 @@ export class ServiceMockFactory {
     };
   }
 
-  static createMockSchedulerService() {
+  export function createMockSchedulerService() {
     return {
       scheduleJob: jest.fn(),
       cancelJob: jest.fn(),

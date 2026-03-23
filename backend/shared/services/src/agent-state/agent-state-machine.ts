@@ -66,7 +66,7 @@ export class AgentStateMachine {
     return { ...this.context };
   }
 
-  transition(to: AgentOperationalState, trigger: string, metadata?: any): void {
+  transition(to: AgentOperationalState, trigger: string, metadata?: Record<string, unknown>): void {
     const from = this.context.operationalState;
 
     if (!this.isValidTransition(from, to)) {

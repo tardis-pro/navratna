@@ -1,3 +1,4 @@
+import type { AnyElysia } from 'elysia';
 import { z } from 'zod';
 import { withRequiredAuth } from '@uaip/middleware';
 import { AuditService } from '../services/auditService.js';
@@ -8,7 +9,6 @@ import {
 } from '@uaip/shared-services';
 import { AuditEventType } from '@uaip/types';
 import { ContactStatus as _ContactStatus } from '@uaip/shared-services';
-import type { RequiredAuthContext as _RequiredAuthContext } from './types/elysia-context.js';
 
 let auditServiceSingleton: AuditService | null = null;
 let userServiceSingleton: UserService | null = null;
@@ -41,8 +41,8 @@ const contactQuerySchema = z.object({
   search: z.string().max(100).optional(),
 });
 
-export function registerContactRoutes(elysiaApp: any): any {
-  return elysiaApp.group('/api/v1/contacts', (app: any) =>
+export function registerContactRoutes(elysiaApp: AnyElysia): AnyElysia {
+  return elysiaApp.group('/api/v1/contacts', (app: AnyElysia) =>
     withRequiredAuth(app)
       // POST /request
       // @ts-expect-error - Elysia middleware injects user, but TypeScript cannot infer through nested groups
@@ -135,7 +135,7 @@ export function registerContactRoutes(elysiaApp: any): any {
           success: true,
           message: 'Contacts retrieved successfully',
           data: {
-            contacts: contacts.map((c: any) => ({
+            contacts: contacts.map((c) => ({
               id: c.id,
               user: c.requesterId === userId ? c.target : c.requester,
               status: c.status,
@@ -202,7 +202,7 @@ export function registerContactRoutes(elysiaApp: any): any {
             message: 'Can only reject pending requests as the target user',
           };
         }
-        let updated: any = null;
+        let updated: Record<string, unknown> | null = null;
         switch (action) {
           case 'accept':
             updated = await contactRepo.updateStatus(contactId, RepoContactStatus.ACCEPTED);
@@ -262,7 +262,7 @@ export function registerContactRoutes(elysiaApp: any): any {
           success: true,
           message: 'Pending contact requests retrieved successfully',
           data: {
-            requests: pending.map((c: any) => ({
+            requests: pending.map((c) => ({
               id: c.id,
               requester: c.requester,
               type: c.type,

@@ -68,7 +68,7 @@ interface SecurityAlert {
   type: string;
   userId?: string;
   severity: string;
-  [key: string]: any;
+  [key: string]: unknown;
 }
 
 interface AuthResponse {
@@ -127,7 +127,7 @@ export class EnterpriseWebSocketHandler extends EventEmitter {
 
     // Override the WebSocket server's handling to intercept and validate close frames
     const originalHandleUpgrade = server.on;
-    server.on = function (event: string, listener: (...args: any[]) => void) {
+    server.on = function (event: string, listener: (...args: unknown[]) => void) {
       if (event === 'upgrade') {
         return originalHandleUpgrade.call(
           this,
@@ -135,7 +135,7 @@ export class EnterpriseWebSocketHandler extends EventEmitter {
           (request: import('http').IncomingMessage, socket: import('net').Socket, head: Buffer) => {
             // Add close frame validation to the socket
             const originalWrite = socket.write;
-            socket.write = function (data: Buffer, ...args: any[]) {
+            socket.write = function (data: Buffer, ...args: unknown[]) {
               try {
                 // Check if this is a WebSocket close frame and validate the close code
                 if (data && data.length >= 2) {
@@ -639,7 +639,7 @@ export class EnterpriseWebSocketHandler extends EventEmitter {
 
       while (!publishSuccess && retryCount < maxRetries) {
         try {
-          // oxlint-ignore-next-line no-await-in-loop -- sequential processing required
+          // oxlint-disable-next-line no-await-in-loop -- sequential processing required
           await this.eventBusService.publish('agent.chat.request', chatRequest);
           publishSuccess = true;
 
@@ -660,7 +660,7 @@ export class EnterpriseWebSocketHandler extends EventEmitter {
 
           if (retryCount < maxRetries) {
             // Wait a bit before retry to allow reconnection
-            // oxlint-ignore-next-line no-await-in-loop -- sequential processing required
+            // oxlint-disable-next-line no-await-in-loop -- sequential processing required
             await new Promise((resolve) => setTimeout(resolve, 1000 * retryCount));
           }
         }
@@ -735,7 +735,7 @@ export class EnterpriseWebSocketHandler extends EventEmitter {
         agentId: string;
         response: string;
         agentName: string;
-        [key: string]: any;
+        [key: string]: unknown;
       };
 
       // Send response back to the specific connection
@@ -1054,7 +1054,7 @@ export class EnterpriseWebSocketHandler extends EventEmitter {
   }
 
   private async waitForAuthResponse(token: string, timeout: number): Promise<AuthResponse> {
-    return new Promise(async (resolve, reject) => {
+    return new Promise((resolve) => {
       const correlationId = `auth_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 
       // Set up timeout
@@ -1085,26 +1085,27 @@ export class EnterpriseWebSocketHandler extends EventEmitter {
         }
       };
 
-      try {
-        // Store the handler for this correlation ID
-        this.authResponseHandlers.set(correlationId, responseHandler);
+      // Store the handler for this correlation ID
+      this.authResponseHandlers.set(correlationId, responseHandler);
 
-        // Publish auth request with correlation ID
-        await this.eventBusService.publish('security.auth.validate', {
+      // Publish auth request with correlation ID
+      this.eventBusService
+        .publish('security.auth.validate', {
           token,
           service: this.serviceName,
           operation: 'websocket_auth',
           correlationId,
           timestamp: new Date().toISOString(),
+        })
+        .then(() => {
+          logger.info('WebSocket auth request published', { correlationId });
+        })
+        .catch((error: unknown) => {
+          logger.error('WebSocket auth setup failed', { error, correlationId });
+          clearTimeout(timeoutId);
+          this.authResponseHandlers.delete(correlationId);
+          resolve({ valid: false, reason: 'Event bus error' });
         });
-
-        logger.info('WebSocket auth request published', { correlationId });
-      } catch (error) {
-        logger.error('WebSocket auth setup failed', { error, correlationId });
-        clearTimeout(timeoutId);
-        this.authResponseHandlers.delete(correlationId);
-        resolve({ valid: false, reason: 'Event bus error' });
-      }
     });
   }
 

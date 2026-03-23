@@ -162,7 +162,7 @@ export class OpenAIProvider extends BaseProvider {
           },
         ];
       } else {
-        throw new Error(`OpenAI connection failed: ${errorMessage}`);
+        throw new Error(`OpenAI connection failed: ${errorMessage}`, { cause: error });
       }
     }
   }

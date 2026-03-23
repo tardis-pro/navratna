@@ -35,7 +35,7 @@ export class ToolRegistryCapabilityResolver implements CapabilityResolver {
       return tool;
     } catch (error) {
       logger.error(`Error resolving capability ${toolName}:`, error);
-      throw new Error(`Failed to resolve capability: ${toolName}`);
+      throw new Error(`Failed to resolve capability: ${toolName}`, { cause: error });
     }
   }
 
@@ -45,7 +45,7 @@ export class ToolRegistryCapabilityResolver implements CapabilityResolver {
     const missing: string[] = [];
 
     for (const capability of requiredCapabilities) {
-      // oxlint-ignore-next-line no-await-in-loop -- sequential processing required
+      // oxlint-disable-next-line no-await-in-loop -- sequential processing required
       const tool = await this.lookup(capability);
       if (!tool) {
         missing.push(capability);
@@ -68,7 +68,7 @@ export class ToolRegistryCapabilityResolver implements CapabilityResolver {
     }
   }
 
-  async resolveCapabilities(agentId: string, context: any): Promise<ToolDefinition[]> {
+  async resolveCapabilities(agentId: string, context: Record<string, unknown>): Promise<ToolDefinition[]> {
     const staticCapabilities = (await this.toolRegistry.getTools()).filter(
       (tool) => tool.isEnabled
     );
@@ -103,7 +103,7 @@ export class ToolRegistryCapabilityResolver implements CapabilityResolver {
     return Array.from(deduplicated.values());
   }
 
-  private buildPlanNeedsDescription(context: any): string {
+  private buildPlanNeedsDescription(context: Record<string, unknown>): string {
     if (typeof context?.planNeedsDescription === 'string' && context.planNeedsDescription.trim()) {
       return context.planNeedsDescription;
     }

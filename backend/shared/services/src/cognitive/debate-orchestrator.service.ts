@@ -1,6 +1,5 @@
 import {
   Debate,
-  DebateRound,
   Argument,
   Vote,
   Stance,
@@ -65,10 +64,8 @@ export class DebateOrchestratorService {
     proposition: string,
     participants: string[],
     discussionId?: string,
-    config?: Partial<DebateConfig>
+    _config?: Partial<DebateConfig>
   ): Promise<Debate> {
-    const effectiveConfig = { ...this.config, ...config };
-
     const debate: Debate = {
       id: uuidv4(),
       topic,
@@ -119,7 +116,7 @@ export class DebateOrchestratorService {
     for (const agentId of debate.participants) {
       const prompt = this.buildArgumentPrompt(debate, agentId, phase, previousArguments);
 
-      // oxlint-ignore-next-line no-await-in-loop -- sequential processing required
+      // oxlint-disable-next-line no-await-in-loop -- sequential processing required
       await this.eventBus.publish('debate.argument.request', {
         debateId: debate.id,
         agentId,
@@ -213,7 +210,6 @@ export class DebateOrchestratorService {
     const evidenceMatch = body.match(/Evidence:\s*([\s\S]*?)(?=Reasoning:|$)/);
     const reasoningMatch = body.match(/Reasoning:\s*(.+?)(?=Confidence:|$)/s);
     const confidenceMatch = body.match(/Confidence:\s*([\d.]+)/);
-
     const evidence = evidenceMatch
       ? evidenceMatch[1]
           .split('\n')
@@ -269,7 +265,7 @@ export class DebateOrchestratorService {
     const summary = this.buildArgumentSummary(allArguments);
 
     for (const agentId of debate.participants) {
-      // oxlint-ignore-next-line no-await-in-loop -- sequential processing required
+      // oxlint-disable-next-line no-await-in-loop -- sequential processing required
       await this.eventBus.publish('debate.vote.request', {
         debateId: debate.id,
         agentId,
@@ -315,8 +311,6 @@ export class DebateOrchestratorService {
 
     const [, stance, body] = match;
     const reasoningMatch = body.match(/Reasoning:\s*(.+?)(?=Confidence:|$)/s);
-    const confidenceMatch = body.match(/Confidence:\s*([\d.]+)/);
-
     return {
       agentId,
       stance: stance as Stance,

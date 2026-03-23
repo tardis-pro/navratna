@@ -14,7 +14,7 @@ describe('EventBusService', () => {
       error: jest.fn(),
       warn: jest.fn(),
       debug: jest.fn(),
-    } as any;
+    } as unknown as Console;
     service = new EventBusService(mockConfig, mockLogger);
   });
 

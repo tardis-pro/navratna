@@ -138,8 +138,8 @@ const PriorityBadge: React.FC<{ priority: Project['priority'] }> = ({ priority }
     <div
       className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium border backdrop-blur-sm ${config[priority]}`}
     >
-      {Array.from({ length: dots[priority] }).map((_, i) => (
-        <div key={i} className="w-1 h-1 rounded-full bg-current" />
+      {Array.from({ length: dots[priority] }).map((_, i) => i).map((id) => (
+        <div key={`dot-${priority}-${id}`} className="w-1 h-1 rounded-full bg-current" />
       ))}
     </div>
   );
@@ -757,8 +757,8 @@ export const ProjectManagementPortal: React.FC<ProjectManagementPortalProps> = (
             <ProjectCard
               key={project.id}
               project={project}
-              onEdit={(project) => {
-                setEditingProject(project);
+              onEdit={(editProject) => {
+                setEditingProject(editProject);
                 setShowCreateModal(true);
               }}
               onDelete={handleDeleteProject}

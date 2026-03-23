@@ -131,7 +131,7 @@ describe('Layer 4: Social Simulation', () => {
     const seenTurns = new Set<string>();
 
     for (let iteration = 0; iteration < 6; iteration += 1) {
-      // oxlint-ignore-next-line no-await-in-loop -- sequential processing required
+      // oxlint-disable-next-line no-await-in-loop -- sequential processing required
       const result = await turnStrategyService.advanceTurn(
         discussion,
         participants,

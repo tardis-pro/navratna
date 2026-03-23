@@ -1,5 +1,4 @@
 import type {
-  BaseBenchActionChoice,
   BaseBenchCaseEvaluationResult,
   BaseBenchComponentScore,
   BaseBenchModelOutput,

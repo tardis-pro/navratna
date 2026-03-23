@@ -22,7 +22,7 @@ import { EventBusService } from '@uaip/infra/eventBus';
 export interface LLMGenerationRequest {
   type: 'generate_artifact_content';
   artifactType: string;
-  context: any;
+  context: Record<string, unknown>;
   options?: {
     language?: string;
     framework?: string;
@@ -37,7 +37,7 @@ export interface LLMGenerationResponse {
   error?: {
     code: string;
     message: string;
-    details?: any;
+    details?: Record<string, unknown>;
   };
   metadata?: Record<string, unknown>;
 }
@@ -49,7 +49,7 @@ export class ArtifactService implements IArtifactService {
   private eventBusService: EventBusService;
   private pendingLLMRequests: Map<
     string,
-    { resolve: (value: any) => void; reject: (reason: any) => void }
+    { resolve: (value: LLMGenerationResponse) => void; reject: (reason: unknown) => void }
   > = new Map();
 
   constructor(eventBusService?: EventBusService) {
@@ -94,7 +94,7 @@ export class ArtifactService implements IArtifactService {
   }
 
   private async handleLLMGenerationResponse(eventMessage: {
-    data?: any;
+    data?: LLMGenerationResponse;
     metadata?: { requestId?: string };
   }): Promise<void> {
     try {
@@ -174,7 +174,7 @@ export class ArtifactService implements IArtifactService {
 
   private shouldUseLLMService(
     artifactType: string,
-    context: { messages?: any[]; decisions?: any[]; actionItems?: any[] }
+    context: { messages?: unknown[]; decisions?: unknown[]; actionItems?: unknown[] }
   ): boolean {
     // Determine if we need advanced LLM generation based on complexity
     const complexArtifactTypes = ['code', 'prd', 'analysis', 'workflow'];

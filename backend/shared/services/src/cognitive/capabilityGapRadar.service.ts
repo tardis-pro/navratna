@@ -231,7 +231,7 @@ export class CapabilityGapRadarService {
       }
 
       const severity = this.classifySeverity(capability);
-      // oxlint-ignore-next-line no-await-in-loop -- sequential processing required
+      // oxlint-disable-next-line no-await-in-loop -- sequential processing required
       const alternatives = await this.findAlternatives(capability);
       const workaround = this.suggestWorkaround(capability, alternatives);
 

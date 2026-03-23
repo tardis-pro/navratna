@@ -7,25 +7,25 @@ export interface TurnStrategyInterface {
   getNextParticipant(
     discussion: Discussion,
     participants: DiscussionParticipant[],
-    config?: TurnStrategyConfig
+    _config?: TurnStrategyConfig
   ): Promise<DiscussionParticipant | null>;
 
   canParticipantTakeTurn(
     participant: DiscussionParticipant,
     discussion: Discussion,
-    config?: TurnStrategyConfig
+    _config?: TurnStrategyConfig
   ): Promise<boolean>;
 
   shouldAdvanceTurn(
     discussion: Discussion,
     currentParticipant: DiscussionParticipant,
-    config?: TurnStrategyConfig
+    _config?: TurnStrategyConfig
   ): Promise<boolean>;
 
   getEstimatedTurnDuration(
     participant: DiscussionParticipant,
     discussion: Discussion,
-    config?: TurnStrategyConfig
+    _config?: TurnStrategyConfig
   ): Promise<number>;
 }
 
@@ -36,7 +36,7 @@ export class RoundRobinStrategy implements TurnStrategyInterface {
   async getNextParticipant(
     discussion: Discussion,
     participants: DiscussionParticipant[],
-    config?: TurnStrategyConfig
+    _config?: TurnStrategyConfig
   ): Promise<DiscussionParticipant | null> {
     try {
       // Filter active participants
@@ -81,7 +81,7 @@ export class RoundRobinStrategy implements TurnStrategyInterface {
   async canParticipantTakeTurn(
     participant: DiscussionParticipant,
     discussion: Discussion,
-    config?: TurnStrategyConfig
+    _config?: TurnStrategyConfig
   ): Promise<boolean> {
     try {
       // Basic checks
@@ -111,7 +111,7 @@ export class RoundRobinStrategy implements TurnStrategyInterface {
   async shouldAdvanceTurn(
     discussion: Discussion,
     currentParticipant: DiscussionParticipant,
-    config?: TurnStrategyConfig
+    _config?: TurnStrategyConfig
   ): Promise<boolean> {
     try {
       const now = new Date();
@@ -153,7 +153,7 @@ export class RoundRobinStrategy implements TurnStrategyInterface {
   async getEstimatedTurnDuration(
     participant: DiscussionParticipant,
     discussion: Discussion,
-    config?: TurnStrategyConfig
+    _config?: TurnStrategyConfig
   ): Promise<number> {
     try {
       // Base duration from discussion settings (short timeout for near real-time)

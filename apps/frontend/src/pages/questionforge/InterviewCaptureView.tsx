@@ -315,8 +315,8 @@ export function InterviewCaptureView({
                   <div className="space-y-1">
                     <p className="text-sm font-medium text-green-700">Resolved Assumptions</p>
                     <ul className="space-y-1">
-                      {lastAnswer.resolvedAssumptions.map((assumption, i) => (
-                        <li key={i} className="flex items-start gap-2 text-sm text-green-600">
+                      {lastAnswer.resolvedAssumptions.map((assumption, _i) => (
+                        <li key={`assumption-${assumption.substring(0, 20)}`} className="flex items-start gap-2 text-sm text-green-600">
                           <CheckCircle className="w-3.5 h-3.5 mt-0.5 shrink-0" />
                           {assumption}
                         </li>
@@ -329,8 +329,8 @@ export function InterviewCaptureView({
                   <div className="space-y-1">
                     <p className="text-sm font-medium text-red-700">New Contradictions Detected</p>
                     <ul className="space-y-1">
-                      {lastAnswer.newContradictions.map((contradiction, i) => (
-                        <li key={i} className="flex items-start gap-2 text-sm text-red-600">
+                      {lastAnswer.newContradictions.map((contradiction, _i) => (
+                        <li key={`contradiction-${contradiction.substring(0, 20)}`} className="flex items-start gap-2 text-sm text-red-600">
                           <AlertTriangle className="w-3.5 h-3.5 mt-0.5 shrink-0" />
                           {contradiction}
                         </li>

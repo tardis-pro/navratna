@@ -1,3 +1,4 @@
+import type { AnyElysia } from 'elysia';
 import { z } from 'zod';
 import { logger } from '@uaip/utils';
 import { withRequiredAuth, withAdminGuard } from '@uaip/middleware';
@@ -8,7 +9,6 @@ import { NotificationService } from '../services/notificationService.js';
 import { AuditEventType, SecurityLevel } from '@uaip/types';
 import { SecurityGatewayService } from '../services/securityGatewayService.js';
 import { ApprovalWorkflowService } from '../services/approvalWorkflowService.js';
-import type { RequiredAuthContext as _RequiredAuthContext } from './types/elysia-context.js';
 
 // Lazy service setup mirroring the original route behavior
 let securityServiceSingleton: SecurityService | null = null;
@@ -120,7 +120,7 @@ const updatePolicySchema = securityPolicySchema.partial({ name: true });
 
 function validateWithZod<T>(
   schema: z.ZodSchema<T>,
-  data: any
+  data: unknown
 ): { error: { details: { message: string; path: string }[] } | null; value: T | null } {
   const result = schema.safeParse(data);
   if (result.success) return { error: null, value: result.data };
@@ -132,8 +132,8 @@ function validateWithZod<T>(
   };
 }
 
-export function registerSecurityRoutes(elysiaApp: any): any {
-  return elysiaApp.group('/api/v1/security', (app: any) =>
+export function registerSecurityRoutes(elysiaApp: AnyElysia): AnyElysia {
+  return elysiaApp.group('/api/v1/security', (app: AnyElysia) =>
     withRequiredAuth(app)
       // POST /assess-risk
       // @ts-expect-error - Elysia middleware injects user, but TypeScript cannot infer through nested groups
@@ -143,7 +143,7 @@ export function registerSecurityRoutes(elysiaApp: any): any {
           set.status = 400;
           return {
             error: 'Validation Error',
-            details: error.details.map((d: any) => d.message),
+            details: error.details.map((d) => d.message),
           };
         }
         try {
@@ -198,7 +198,7 @@ export function registerSecurityRoutes(elysiaApp: any): any {
           set.status = 400;
           return {
             error: 'Validation Error',
-            details: error.details.map((d: any) => d.message),
+            details: error.details.map((d) => d.message),
           };
         }
         try {
@@ -238,13 +238,13 @@ export function registerSecurityRoutes(elysiaApp: any): any {
       })
 
       // Admin-only: policies
-      .group('', (g: any) =>
+      .group('', (g: AnyElysia) =>
         withAdminGuard(g)
           .get('/policies', async ({ set, query }) => {
             try {
               const { securityService } = await getServices();
               const { page = 1, limit = 20, active, search } = query as unknown;
-              const filters: any = {
+              const filters: Record<string, unknown> = {
                 limit: Number(limit),
                 offset: (Number(page) - 1) * Number(limit),
               };
@@ -298,7 +298,7 @@ export function registerSecurityRoutes(elysiaApp: any): any {
               set.status = 400;
               return {
                 error: 'Validation Error',
-                details: error.details.map((d: any) => d.message),
+                details: error.details.map((d) => d.message),
               };
             }
             try {
@@ -342,7 +342,7 @@ export function registerSecurityRoutes(elysiaApp: any): any {
               set.status = 400;
               return {
                 error: 'Validation Error',
-                details: error.details.map((d: any) => d.message),
+                details: error.details.map((d) => d.message),
               };
             }
             try {
@@ -413,7 +413,7 @@ export function registerSecurityRoutes(elysiaApp: any): any {
                 limit: 1000,
               });
               const eventsByType = eventStats.reduce(
-                (acc: Record<string, number>, event: any) => {
+                (acc: Record<string, number>, event: Record<string, unknown>) => {
                   acc[event.eventType] = acc[event.eventType] + 1;
                   return acc;
                 },
@@ -426,7 +426,7 @@ export function registerSecurityRoutes(elysiaApp: any): any {
                 limit: 1000,
               });
               const riskStats = riskEvents.reduce(
-                (acc: any, event: any) => {
+                (acc, event) => {
                   const score = event.details?.riskScore;
                   if (typeof score === 'number') {
                     acc.totalAssessments++;

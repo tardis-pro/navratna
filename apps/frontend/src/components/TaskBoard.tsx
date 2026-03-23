@@ -348,7 +348,7 @@ export const TaskBoard: React.FC<TaskBoardProps> = ({
 
   const StatusColumn: React.FC<{ column: (typeof statusColumns)[0]; tasks: Task[] }> = ({
     column,
-    tasks,
+    tasks: columnTasks,
   }) => (
     <div className="flex-1 min-w-40">
       <motion.div
@@ -376,7 +376,7 @@ export const TaskBoard: React.FC<TaskBoardProps> = ({
             variant="secondary"
             className={`text-xs ${DESIGN_TOKENS.colors.surface} ${DESIGN_TOKENS.colors.textSecondary}`}
           >
-            {tasks.length}
+            {columnTasks.length}
           </Badge>
         </div>
 
@@ -388,7 +388,7 @@ export const TaskBoard: React.FC<TaskBoardProps> = ({
           }`}
         >
           <AnimatePresence>
-            {tasks.map((task, index) => (
+            {columnTasks.map((task, index) => (
               <TaskCard key={task.id} task={task} index={index} />
             ))}
           </AnimatePresence>

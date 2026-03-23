@@ -271,7 +271,7 @@ export const ChatKnowledgeUploader: React.FC<ChatKnowledgeUploaderProps> = ({
     const pendingFiles = chatFiles.filter((f) => f.status === 'pending');
 
     for (const file of pendingFiles) {
-      // oxlint-ignore-next-line no-await-in-loop -- sequential processing required
+      // oxlint-disable-next-line no-await-in-loop -- sequential processing required
       await uploadChatFile(file);
     }
   }, [chatFiles, uploadChatFile]);

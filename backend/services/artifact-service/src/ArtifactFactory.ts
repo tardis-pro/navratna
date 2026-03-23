@@ -38,31 +38,31 @@ export interface ArtifactResult {
   error?: {
     code: string;
     message: string;
-    details?: any;
+    details?: Record<string, unknown>;
   };
 }
 
 export interface AnalysisResult {
   success: boolean;
   data?: {
-    summary: any;
-    triggers: any[];
-    requirements: any[];
+    summary: Record<string, unknown>;
+    triggers: Record<string, unknown>[];
+    requirements: Record<string, unknown>[];
   };
   error?: {
     code: string;
     message: string;
-    details?: any;
+    details?: Record<string, unknown>;
   };
 }
 
 export interface InsightsResult {
   success: boolean;
-  data?: any;
+  data?: Record<string, unknown>;
   error?: {
     code: string;
     message: string;
-    details?: any;
+    details?: Record<string, unknown>;
   };
 }
 

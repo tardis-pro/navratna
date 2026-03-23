@@ -121,8 +121,8 @@ export const PromptSuggestions: React.FC<PromptSuggestionsProps> = ({
       <div className="grid gap-2">
         {loading ? (
           <div className="grid gap-2">
-            {[1, 2, 3].map((i) => (
-              <Card key={i} className="animate-pulse">
+            {[1, 2, 3].map((id) => (
+              <Card key={`skeleton-${id}`} className="animate-pulse">
                 <CardContent className="p-3">
                   <div className="h-4 bg-muted rounded w-3/4 mb-2" />
                   <div className="h-3 bg-muted rounded w-1/2" />
@@ -131,9 +131,9 @@ export const PromptSuggestions: React.FC<PromptSuggestionsProps> = ({
             ))}
           </div>
         ) : (
-          suggestions.map((suggestion, index) => (
+          suggestions.map((suggestion, _index) => (
             <Card
-              key={index}
+              key={`suggestion-${suggestion.prompt}`}
               className="cursor-pointer hover:shadow-md transition-shadow"
               onClick={() => handleSelectPrompt(suggestion.prompt)}
             >
@@ -167,8 +167,8 @@ export const PromptSuggestions: React.FC<PromptSuggestionsProps> = ({
 
                   {suggestion.basedOn && suggestion.basedOn.length > 0 && (
                     <div className="flex gap-1 ml-auto">
-                      {suggestion.basedOn.map((source, i) => (
-                        <Badge key={i} variant="outline" className="text-xs py-0">
+                      {suggestion.basedOn.map((source, _i) => (
+                        <Badge key={`source-${source}`} variant="outline" className="text-xs py-0">
                           {source}
                         </Badge>
                       ))}

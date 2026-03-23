@@ -21,7 +21,7 @@ describe('DiscussionOrchestrationService', () => {
     emit: jest.fn(),
   };
 
-  let discussionOrchestrationService: any;
+  let discussionOrchestrationService: unknown;
 
   beforeEach(() => {
     jest.clearAllMocks();

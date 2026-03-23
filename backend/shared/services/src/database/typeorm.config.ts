@@ -60,14 +60,6 @@ import { UserContactEntity } from '../entities/user-contact.entity';
 import { UserMessageEntity } from '../entities/user-message.entity';
 import { UserPresenceEntity } from '../entities/user-presence.entity';
 import { ShortLinkEntity } from '../entities/short-link.entity';
-import {
-  Project,
-  ProjectTask,
-  ProjectToolUsage,
-  ProjectAgent,
-  ProjectWorkflow,
-  TaskExecution,
-} from '../entities/Project';
 import { ProjectEntity } from '../entities/project.entity';
 import { ProjectMemberEntity } from '../entities/project-member.entity';
 import { ProjectFileEntity } from '../entities/project-file.entity';
@@ -333,64 +325,8 @@ class RedisCacheManager {
 // Global cache manager instance
 const redisCacheManager = RedisCacheManager.getInstance();
 
-/**
- * Check if a query key represents a system query that shouldn't be cached
- */
-function isSystemQuery(key: string): boolean {
-  if (!key || typeof key !== 'string') return false;
 
-  const lowerKey = key.toLowerCase();
-
-  // System queries that cause hanging during initialization
-  const systemPatterns = [
-    'select version()',
-    'select * from current_schema()',
-    'current_schema',
-    'information_schema',
-    'pg_catalog',
-    'show ',
-    'create extension',
-    'select current_database()',
-    'select current_user',
-    'select session_user',
-    'select user',
-    'pg_type',
-    'pg_class',
-    'pg_namespace',
-    'pg_attribute',
-    'pg_constraint',
-    'pg_index',
-    'pg_proc',
-    'pg_description',
-  ];
-
-  // Check if key contains any system patterns
-  for (const pattern of systemPatterns) {
-    if (lowerKey.includes(pattern)) {
-      return true;
-    }
-  }
-
-  // Skip very long keys (likely complex system queries)
-  if (key.length > 2000) {
-    return true;
-  }
-
-  // Skip queries that look like schema introspection
-  if (
-    lowerKey.includes('table_schema') ||
-    lowerKey.includes('column_name') ||
-    lowerKey.includes('constraint_name') ||
-    lowerKey.includes('pg_stat_') ||
-    lowerKey.includes('pg_settings')
-  ) {
-    return true;
-  }
-
-  return false;
-}
-
-async function createCacheConfig(): Promise<any | undefined> {
+async function createCacheConfig(): Promise<Record<string, unknown> | undefined> {
   // Skip cache if explicitly disabled or in migration mode
   if (process.env.TYPEORM_DISABLE_CACHE === 'true' || process.env.NODE_ENV === 'migration') {
     logger.info('Redis cache disabled via environment variables');
@@ -525,19 +461,19 @@ export class TypeOrmDataSourceManager {
 
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
       try {
-        // oxlint-ignore-next-line no-await-in-loop -- sequential processing required
-        const config = await createTypeOrmConfig(disableCache);
+        // oxlint-disable-next-line no-await-in-loop -- sequential processing required
+        const dsConfig = await createTypeOrmConfig(disableCache);
 
         logger.info('Initializing TypeORM DataSource', {
           attempt: `${attempt}/${maxRetries}`,
-          host: config.host,
-          port: config.port,
-          database: config.database,
-          cacheEnabled: !!config.cache,
+          host: dsConfig.host,
+          port: dsConfig.port,
+          database: dsConfig.database,
+          cacheEnabled: !!dsConfig.cache,
         });
 
-        this.dataSource = new DataSource(config);
-        // oxlint-ignore-next-line no-await-in-loop -- sequential processing required
+        this.dataSource = new DataSource(dsConfig);
+        // oxlint-disable-next-line no-await-in-loop -- sequential processing required
         await this.dataSource.initialize();
 
         logger.info('TypeORM DataSource initialized successfully');
@@ -551,7 +487,7 @@ export class TypeOrmDataSourceManager {
         if (attempt < maxRetries) {
           const delay = Math.min(1000 * Math.pow(2, attempt - 1), 10000);
           logger.info(`Retrying in ${delay}ms...`);
-          // oxlint-ignore-next-line no-await-in-loop -- sequential processing required
+          // oxlint-disable-next-line no-await-in-loop -- sequential processing required
           await new Promise((resolve) => setTimeout(resolve, delay));
         }
       }
@@ -687,15 +623,15 @@ let _appDataSource: DataSource | null = null;
 
 export const getAppDataSource = async (): Promise<DataSource> => {
   if (!_appDataSource) {
-    const config = await createTypeOrmConfig();
-    _appDataSource = new DataSource(config);
+    const dsConfig = await createTypeOrmConfig();
+    _appDataSource = new DataSource(dsConfig);
   }
   return _appDataSource;
 };
 
 // Legacy export for backward compatibility (will be initialized lazily)
 export const AppDataSource = new Proxy({} as DataSource, {
-  get(target, prop) {
+  get(_target, _prop) {
     throw new Error('AppDataSource must be initialized first. Use getAppDataSource() instead.');
   },
 });

@@ -14,7 +14,7 @@ describe('CompensationService', () => {
     mockDatabaseService = new DatabaseService() as jest.Mocked<DatabaseService>;
     mockEventBusService = new EventBusService(
       { url: 'test', serviceName: 'test' },
-      console as any
+      console as unknown as Console
     ) as jest.Mocked<EventBusService>;
     service = new CompensationService(mockDatabaseService, mockEventBusService);
   });

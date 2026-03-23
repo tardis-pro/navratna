@@ -129,7 +129,7 @@ export class TemplateManager implements ITemplateManager {
     };
   }
 
-  private extractRequirements(messages: any[]): string {
+  private extractRequirements(messages: Record<string, unknown>[]): string {
     const requirements: string[] = [];
 
     for (const message of messages) {
@@ -145,7 +145,7 @@ export class TemplateManager implements ITemplateManager {
     return requirements.length > 0 ? requirements.join('\n- ') : 'No specific requirements found';
   }
 
-  private extractFunctionName(messages: any[]): string {
+  private extractFunctionName(messages: Record<string, unknown>[]): string {
     for (const message of messages) {
       const msg = message as Record<string, unknown>;
       const content = (typeof msg.content === 'string' ? msg.content : '') || '';
@@ -157,7 +157,7 @@ export class TemplateManager implements ITemplateManager {
     return 'processData';
   }
 
-  private extractClassName(messages: any[]): string {
+  private extractClassName(messages: Record<string, unknown>[]): string {
     for (const message of messages) {
       const msg = message as Record<string, unknown>;
       const content = (typeof msg.content === 'string' ? msg.content : '') || '';

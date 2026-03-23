@@ -344,7 +344,7 @@ export class ShortLinkService {
       }
 
       // Check if code already exists
-      // oxlint-ignore-next-line eslint/no-await-in-loop -- sequential processing required
+      // oxlint-disable-next-line eslint/no-await-in-loop -- sequential processing required
       const existing = await this.shortLinkRepository.findOne({ where: { shortCode: code } });
       if (!existing) {
         return code;

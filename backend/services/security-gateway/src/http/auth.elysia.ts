@@ -1,3 +1,4 @@
+import type { AnyElysia } from 'elysia';
 import { z } from 'zod';
 import jwt from 'jsonwebtoken';
 import bcrypt from 'bcrypt';
@@ -19,10 +20,6 @@ import {
 // Note: All auth utilities now from shared middleware
 import { AuditService } from '../services/auditService.js';
 import { AuditEventType } from '@uaip/types';
-import type {
-  OptionalAuthContext as _OptionalAuthContext,
-  RequiredAuthContext as _RequiredAuthContext,
-} from './types/elysia-context.js';
 
 // Lazy singletons for dependent services
 let userServiceSingleton: UserService | null = null;
@@ -122,8 +119,8 @@ const authRateLimiter = createRateLimiter({
   },
 });
 
-export function registerAuthRoutes(elysiaApp: any): any {
-  return elysiaApp.group('/api/v1/auth', (app: any) =>
+export function registerAuthRoutes(elysiaApp: AnyElysia): AnyElysia {
+  return elysiaApp.group('/api/v1/auth', (app: AnyElysia) =>
     withOptionalAuth(app)
       .use(authRateLimiter)
       // POST /login
@@ -366,7 +363,7 @@ export function registerAuthRoutes(elysiaApp: any): any {
       })
 
       // POST /change-password (requires auth)
-      .group('', (g: any) =>
+      .group('', (g: AnyElysia) =>
         // @ts-expect-error - Elysia middleware injects user, but TypeScript cannot infer through nested groups
         withRequiredAuth(g).post('/change-password', async ({ body, set, user }) => {
           const parsed = changePasswordSchema.safeParse(body);
@@ -420,7 +417,7 @@ export function registerAuthRoutes(elysiaApp: any): any {
       )
 
       // GET /me
-      .group('', (g: any) =>
+      .group('', (g: AnyElysia) =>
         // @ts-expect-error - Elysia middleware injects user, but TypeScript cannot infer through nested groups
         withRequiredAuth(g).get('/me', async ({ set, user }) => {
           try {

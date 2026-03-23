@@ -10,7 +10,7 @@ interface TaskSummary {
   assignedToAgent?: { name?: string };
   assigneeType?: string;
   createdBy?: string;
-  [key: string]: any;
+  [key: string]: unknown;
 }
 
 interface TaskNotificationActor {
@@ -31,7 +31,7 @@ interface TaskNotification {
   taskId: string;
   projectId: string;
   task: TaskSummary;
-  changes?: Record<string, { old: any; new: any }>;
+  changes?: Record<string, { old: unknown; new: unknown }>;
   actor: TaskNotificationActor;
   timestamp: Date;
   message: string;
@@ -41,7 +41,7 @@ interface TaskEventData {
   taskId: string;
   projectId: string;
   task: TaskSummary;
-  changes?: Record<string, { old: any; new: any }>;
+  changes?: Record<string, { old: unknown; new: unknown }>;
   actor?: TaskNotificationActor;
   completionPercentage?: number;
 }
@@ -484,7 +484,7 @@ export class TaskNotificationHandler {
     taskId: string,
     projectId: string,
     task: TaskSummary,
-    changes: Record<string, { old: any; new: any }>,
+    changes: Record<string, { old: unknown; new: unknown }>,
     actor: TaskNotificationActor
   ): void {
     this.handleTaskNotification('task_updated', { taskId, projectId, task, changes, actor });
@@ -503,7 +503,7 @@ export class TaskNotificationHandler {
     taskId: string,
     projectId: string,
     task: TaskSummary,
-    changes: Record<string, { old: any; new: any }>,
+    changes: Record<string, { old: unknown; new: unknown }>,
     actor: TaskNotificationActor
   ): void {
     this.handleTaskNotification('task_status_changed', { taskId, projectId, task, changes, actor });

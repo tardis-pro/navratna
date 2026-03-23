@@ -71,7 +71,7 @@ describe('StateManagerService', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockDatabaseService = createMockDatabaseService();
-    service = new StateManagerService(mockDatabaseService as any);
+    service = new StateManagerService(mockDatabaseService as unknown as DatabaseService);
   });
 
   describe('Service Initialization', () => {
@@ -128,7 +128,7 @@ describe('StateManagerService', () => {
         };
 
         await expect(
-          service.initializeOperationState(mockOperationId, invalidState as any)
+          service.initializeOperationState(mockOperationId, invalidState as unknown as OperationState)
         ).rejects.toThrow();
       });
 
@@ -249,7 +249,7 @@ describe('StateManagerService', () => {
     const mockCheckpoint: Checkpoint = {
       id: 'checkpoint-123',
       stepId: 'step-1',
-      type: 'state_snapshot' as any,
+      type: 'state_snapshot' as CheckpointType,
       data: {
         timestamp: new Date(),
         version: '1.0',
@@ -306,7 +306,7 @@ describe('StateManagerService', () => {
       it('should require checkpoint ID', async () => {
         const checkpointWithoutId = { ...mockCheckpoint, id: undefined };
 
-        await expect(service.saveCheckpoint('test-op', checkpointWithoutId as any)).rejects.toThrow(
+        await expect(service.saveCheckpoint('test-op', checkpointWithoutId as unknown as Checkpoint)).rejects.toThrow(
           'Checkpoint ID is required'
         );
       });
@@ -547,7 +547,7 @@ describe('StateManagerService', () => {
       const baseCheckpoint: Checkpoint = {
         id: 'checkpoint-base',
         stepId: 'step-base',
-        type: 'state_snapshot' as any,
+        type: 'state_snapshot' as CheckpointType,
         data: {
           timestamp: new Date(),
           version: '1.0',

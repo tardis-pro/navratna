@@ -63,7 +63,7 @@ describe('OrchestrationEngine', () => {
 
   describe('executeOperation', () => {
     it('should execute a simple operation successfully', async () => {
-      const operation: any = {
+      const operation = {
         id: 'test-operation-1',
         type: 'tool_execution',
         agentId: 'agent-123',
@@ -81,7 +81,7 @@ describe('OrchestrationEngine', () => {
     });
 
     it('should handle operation execution failures', async () => {
-      const operation: any = {
+      const operation = {
         id: 'operation-123',
         type: 'tool_execution',
       };
@@ -220,7 +220,7 @@ describe('OrchestrationEngine', () => {
 
   describe('Engine Basic Functions', () => {
     it('should execute basic orchestration operations', async () => {
-      const operation: any = {
+      const operation = {
         id: 'operation-123',
         type: 'tool_execution',
       };
@@ -229,7 +229,7 @@ describe('OrchestrationEngine', () => {
     });
 
     it('should handle operation lifecycle events', async () => {
-      const operation: any = {
+      const operation = {
         id: 'operation-123',
         type: 'tool_execution',
       };
@@ -239,7 +239,7 @@ describe('OrchestrationEngine', () => {
     });
 
     it('should handle resource management', async () => {
-      const operation: any = {
+      const operation = {
         id: 'operation-123',
         type: 'tool_execution',
         context: {
@@ -269,7 +269,7 @@ describe('OrchestrationEngine', () => {
     });
 
     it('should validate operations', async () => {
-      const invalidOperation: any = {
+      const invalidOperation = {
         id: 'invalid-op',
         executionPlan: {
           steps: [],
@@ -287,7 +287,7 @@ describe('OrchestrationEngine', () => {
     });
 
     it('should handle parallel execution', async () => {
-      const operation: any = {
+      const operation = {
         id: 'parallel-operation',
         type: 'tool_execution',
         executionPlan: {
@@ -316,7 +316,7 @@ describe('OrchestrationEngine', () => {
       const workflowId = 'workflow-456';
       orchestrationEngine.executeOperation.mockResolvedValue(workflowId);
 
-      const operation: any = {
+      const operation = {
         id: 'state-operation',
         type: 'tool_execution',
       };
@@ -336,7 +336,7 @@ describe('OrchestrationEngine', () => {
     });
 
     it('should handle step execution with retries', async () => {
-      const operation: any = {
+      const operation = {
         id: 'retry-operation',
         type: 'tool_execution',
         executionPlan: {
@@ -360,7 +360,7 @@ describe('OrchestrationEngine', () => {
     });
 
     it('should handle timeout scenarios', async () => {
-      const operation: any = {
+      const operation = {
         id: 'timeout-operation',
         type: 'tool_execution',
         context: {

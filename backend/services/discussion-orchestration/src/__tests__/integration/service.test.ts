@@ -9,7 +9,7 @@ describe('Discussion Orchestration Service Integration', () => {
     cleanup: jest.fn(),
   };
 
-  let integrationService: any;
+  let integrationService: Record<string, unknown>;
 
   beforeEach(() => {
     jest.clearAllMocks();
@@ -138,10 +138,10 @@ describe('Discussion Orchestration Service Integration', () => {
       expect(result.events).toHaveLength(3);
 
       // Verify the flow progressed through all stages
-      expect(result.events.some((e: any) => e.data.newStatus === 'draft')).toBe(true);
-      expect(result.events.some((e: any) => e.data.newStatus === 'active')).toBe(true);
+      expect(result.events.some((e) => e.data.newStatus === 'draft')).toBe(true);
+      expect(result.events.some((e) => e.data.newStatus === 'active')).toBe(true);
       expect(
-        result.events.some((e: any) => e.data.currentParticipantId === 'participant-1')
+        result.events.some((e) => e.data.currentParticipantId === 'participant-1')
       ).toBe(true);
 
       expect(integrationService.createDiscussionFlow).toHaveBeenCalled();
@@ -156,7 +156,7 @@ describe('Discussion Orchestration Service Integration', () => {
       expect(result.finalState.activeParticipants).toBe(1);
 
       // Verify participant lifecycle events
-      const joinActions = result.participantActions.filter((a: any) => a.action === 'join');
+      const joinActions = result.participantActions.filter((a) => a.action === 'join');
       expect(joinActions).toHaveLength(2);
 
       expect(integrationService.participantManagementFlow).toHaveBeenCalled();
@@ -197,10 +197,10 @@ describe('Discussion Orchestration Service Integration', () => {
       expect(result.eventDeliveryRate).toBe(100);
 
       // Verify event broadcasting progression
-      const messageEvent = result.broadcastEvents.find((e: any) => e.type === 'message_sent');
+      const messageEvent = result.broadcastEvents.find((e) => e.type === 'message_sent');
       expect(messageEvent.recipients).toBe(2);
 
-      const turnEvent = result.broadcastEvents.find((e: any) => e.type === 'turn_changed');
+      const turnEvent = result.broadcastEvents.find((e) => e.type === 'turn_changed');
       expect(turnEvent.recipients).toBe(2);
 
       expect(integrationService.eventBroadcastingFlow).toHaveBeenCalled();
@@ -217,15 +217,15 @@ describe('Discussion Orchestration Service Integration', () => {
       expect(result.events).toHaveLength(3);
 
       // Verify turn progression
-      const completedTurns = result.turnSequence.filter((t: any) => t.completed);
+      const completedTurns = result.turnSequence.filter((t) => t.completed);
       expect(completedTurns).toHaveLength(2);
 
-      const activeTurn = result.turnSequence.find((t: any) => !t.completed);
+      const activeTurn = result.turnSequence.find((t) => !t.completed);
       expect(activeTurn.participant).toBe('participant-1');
       expect(activeTurn.duration).toBe(180);
 
       // Verify turn events
-      expect(result.events.every((e: any) => e.type === 'turn_changed')).toBe(true);
+      expect(result.events.every((e) => e.type === 'turn_changed')).toBe(true);
 
       expect(integrationService.turnManagementFlow).toHaveBeenCalled();
     });
@@ -236,7 +236,7 @@ describe('Discussion Orchestration Service Integration', () => {
       expect(result.success).toBe(true);
 
       // Verify that turns have duration tracking
-      result.turnSequence.forEach((turn: any) => {
+      result.turnSequence.forEach((turn) => {
         expect(turn.duration).toBeGreaterThan(0);
         expect(typeof turn.completed).toBe('boolean');
       });
@@ -254,19 +254,19 @@ describe('Discussion Orchestration Service Integration', () => {
       expect(result.resilience).toBe('high');
 
       // Verify all error scenarios were handled
-      result.errorScenarios.forEach((scenario: any) => {
+      result.errorScenarios.forEach((scenario) => {
         expect(scenario.handled).toBe(true);
         expect(scenario.recovery).toBeDefined();
       });
 
       // Verify specific error handling
       const turnViolation = result.errorScenarios.find(
-        (s: any) => s.scenario === 'turn_violation'
+        (s) => s.scenario === 'turn_violation'
       );
       expect(turnViolation.recovery).toBe('message_rejected');
 
       const connectionLost = result.errorScenarios.find(
-        (s: any) => s.scenario === 'connection_lost'
+        (s) => s.scenario === 'connection_lost'
       );
       expect(connectionLost.recovery).toBe('auto_reconnect');
 
@@ -281,7 +281,7 @@ describe('Discussion Orchestration Service Integration', () => {
 
       // Verify graceful degradation
       const serviceUnavailable = result.errorScenarios.find(
-        (s: any) => s.scenario === 'service_unavailable'
+        (s) => s.scenario === 'service_unavailable'
       );
       expect(serviceUnavailable.recovery).toBe('graceful_degradation');
 

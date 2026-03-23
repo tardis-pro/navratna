@@ -1,3 +1,4 @@
+import type { AnyElysia } from 'elysia';
 import { z } from 'zod';
 import { logger } from '@uaip/utils';
 import { withOptionalAuth, withRequiredAuth } from '@uaip/middleware';
@@ -5,10 +6,6 @@ import { OAuthProviderService } from '../services/oauthProviderService.js';
 import { EnhancedAuthService } from '../services/enhancedAuthService.js';
 import { AuditService } from '../services/auditService.js';
 import { UserType, AgentCapability, OAuthProviderType, AuditEventType } from '@uaip/types';
-import type {
-  OptionalAuthContext as _OptionalAuthContext,
-  RequiredAuthContext as _RequiredAuthContext,
-} from './types/elysia-context.js';
 
 let oauthProviderServiceSingleton: OAuthProviderService | null = null;
 let enhancedAuthServiceSingleton: EnhancedAuthService | null = null;
@@ -60,8 +57,8 @@ const connectBodySchema = z.object({
 });
 const optionalOperationSchema = z.object({ operation: z.string().optional() });
 
-export function registerOAuthRoutes(elysiaApp: any): any {
-  return elysiaApp.group('/api/v1/oauth', (app: any) =>
+export function registerOAuthRoutes(elysiaApp: AnyElysia): AnyElysia {
+  return elysiaApp.group('/api/v1/oauth', (app: AnyElysia) =>
     withOptionalAuth(app)
       // GET /providers
       .get('/providers', async ({ set, query }) => {
@@ -79,7 +76,7 @@ export function registerOAuthRoutes(elysiaApp: any): any {
           const providers = await oauthProviderService.getAvailableProviders(userType);
           return {
             success: true,
-            providers: providers.map((p: any) => ({
+            providers: providers.map((p) => ({
               id: p.id,
               name: p.name,
               type: p.type,
@@ -117,7 +114,7 @@ export function registerOAuthRoutes(elysiaApp: any): any {
             },
           });
           return { success: true, authorization_url: url, state };
-        } catch (error: any) {
+        } catch (error: unknown) {
           logger.error('Authorize failed', { error: error?.message });
           set.status = 400;
           return { success: false, error: error?.message || 'Authorization failed' };
@@ -164,7 +161,7 @@ export function registerOAuthRoutes(elysiaApp: any): any {
             mfa_required: authResult.requiresMFA,
             mfa_challenge: authResult.mfaChallenge,
           };
-        } catch (error: any) {
+        } catch (error: unknown) {
           const { auditService } = getServices();
           await auditService.logEvent({
             eventType: AuditEventType.OAUTH_CALLBACK_FAILED,
@@ -218,7 +215,7 @@ export function registerOAuthRoutes(elysiaApp: any): any {
             },
             session: { id: authResult.session.id, expiresAt: authResult.session.expiresAt },
           };
-        } catch (error: any) {
+        } catch (error: unknown) {
           const { auditService } = getServices();
           const parsedBody = AgentAuthRequestSchema.safeParse(body);
           await auditService.logEvent({
@@ -236,7 +233,7 @@ export function registerOAuthRoutes(elysiaApp: any): any {
       })
 
       // POST /connect (requires auth)
-      .group('', (g: any) =>
+      .group('', (g: AnyElysia) =>
         // @ts-expect-error - Elysia middleware injects user, but TypeScript cannot infer through nested groups
         withRequiredAuth(g).post('/connect', async ({ set, body, user }) => {
           try {
@@ -270,7 +267,7 @@ export function registerOAuthRoutes(elysiaApp: any): any {
               success: resultSuccess,
               message: 'OAuth provider connected successfully',
             };
-          } catch (error: any) {
+          } catch (error: unknown) {
             set.status = 500;
             return { success: false, error: error?.message || 'Failed to connect OAuth provider' };
           }
@@ -278,7 +275,7 @@ export function registerOAuthRoutes(elysiaApp: any): any {
       )
 
       // Provider-specific operations (require auth)
-      .group('/agent', (g: any) =>
+      .group('/agent', (g: AnyElysia) =>
         withRequiredAuth(g)
           // GitHub operations
           // @ts-expect-error - Elysia middleware injects user, but TypeScript cannot infer through nested groups
@@ -293,7 +290,7 @@ export function registerOAuthRoutes(elysiaApp: any): any {
                 })
                 .parse(body);
               const { oauthProviderService, auditService } = getServices();
-              let result: any;
+              let result: unknown;
               switch (validated.operation) {
                 case 'list_repos':
                   result = await oauthProviderService.getGitHubRepos(user!.id, providerId);
@@ -324,7 +321,7 @@ export function registerOAuthRoutes(elysiaApp: any): any {
                 },
               });
               return { success: true, operation: validated.operation, data: result };
-            } catch (error: any) {
+            } catch (error: unknown) {
               const { auditService } = getServices();
               const parsedParams = providerIdParamsSchema.safeParse(params);
               const parsedBody = optionalOperationSchema.safeParse(body);
@@ -361,7 +358,7 @@ export function registerOAuthRoutes(elysiaApp: any): any {
                 })
                 .parse(body);
               const { oauthProviderService, auditService } = getServices();
-              let result: any;
+              let result: unknown;
               switch (validated.operation) {
                 case 'list_messages':
                 case 'search_messages':
@@ -398,7 +395,7 @@ export function registerOAuthRoutes(elysiaApp: any): any {
                 },
               });
               return { success: true, operation: validated.operation, data: result };
-            } catch (error: any) {
+            } catch (error: unknown) {
               const { auditService } = getServices();
               const parsedParams = providerIdParamsSchema.safeParse(params);
               const parsedBody = optionalOperationSchema.safeParse(body);

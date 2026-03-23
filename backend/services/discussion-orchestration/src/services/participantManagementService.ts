@@ -408,7 +408,7 @@ export class ParticipantManagementService {
 
     for (const config of agentConfigs) {
       try {
-        // oxlint-ignore-next-line no-await-in-loop -- sequential processing required
+        // oxlint-disable-next-line no-await-in-loop -- sequential processing required
         const participant = await this.createAgentParticipant({
           discussionId,
           ...config,

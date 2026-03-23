@@ -515,7 +515,7 @@ export const ProviderSettingsPortal: React.FC<ProviderSettingsPortalProps> = ({
                   <div className="space-y-4">
                     {userPreferences.map((preference, index) => (
                       <motion.div
-                        key={index}
+                        key={`pref-${preference.taskType}-${preference.preferredProvider}`}
                         initial={{ opacity: 0, y: 20 }}
                         animate={{ opacity: 1, y: 0 }}
                         className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-4"

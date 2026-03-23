@@ -3,7 +3,6 @@ import {
   AgentPersona,
   AgentIntelligenceConfig,
   AgentSecurityContext,
-  ExecutionPlan,
 } from '@uaip/types';
 import { BaseRepository } from '../base/BaseRepository';
 import { Agent } from '../../entities/agent.entity';

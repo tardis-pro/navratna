@@ -3,7 +3,6 @@ import {
   ConversationState,
   MessageHistoryItem,
   ContributionScore,
-  Persona,
 } from '@uaip/types';
 
 /**
@@ -12,11 +11,11 @@ import {
  * Common conversation analysis functions used across Agent Intelligence
  * and Discussion Orchestration services to avoid duplication.
  */
-export class ConversationUtils {
+export namespace ConversationUtils {
   /**
    * Analyze conversation flow quality and diversity
    */
-  static analyzeConversationFlow(
+  export function analyzeConversationFlow(
     messageHistory: MessageHistoryItem[],
     contributionScores: ContributionScore[]
   ): {
@@ -122,7 +121,7 @@ export class ConversationUtils {
   /**
    * Get comprehensive conversation insights and metrics
    */
-  static getConversationInsights(
+  export function getConversationInsights(
     messageHistory: MessageHistoryItem[],
     conversationState: ConversationState
   ): {
@@ -195,7 +194,7 @@ export class ConversationUtils {
     }
 
     // Analyze emotional tone from recent messages
-    const emotionalTone = this.analyzeEmotionalTone(messageHistory.slice(-5));
+    const emotionalTone = analyzeEmotionalTone(messageHistory.slice(-5));
 
     return {
       totalMessages,
@@ -214,7 +213,9 @@ export class ConversationUtils {
   /**
    * Analyze emotional tone from message content
    */
-  static analyzeEmotionalTone(messages: MessageHistoryItem[]): string {
+  export function analyzeEmotionalTone(
+    messages: MessageHistoryItem[]
+  ): 'neutral' | 'excited' | 'concerned' | 'frustrated' | 'optimistic' {
     const emotionalWords = {
       positive: [
         'excited',
@@ -295,10 +296,10 @@ export class ConversationUtils {
     const positiveRatio = positiveCount / total;
     const negativeRatio = negativeCount / total;
 
-    if (positiveRatio > 0.4) return 'positive';
-    if (negativeRatio > 0.4) return 'negative';
-    if (positiveRatio > negativeRatio * 1.5) return 'positive';
-    if (negativeRatio > positiveRatio * 1.5) return 'negative';
+    if (positiveRatio > 0.4) return 'excited';
+    if (negativeRatio > 0.4) return 'concerned';
+    if (positiveRatio > negativeRatio * 1.5) return 'optimistic';
+    if (negativeRatio > positiveRatio * 1.5) return 'frustrated';
 
     return 'neutral';
   }
@@ -306,7 +307,7 @@ export class ConversationUtils {
   /**
    * Detect topic shifts in conversation
    */
-  static detectTopicShift(
+  export function detectTopicShift(
     messageHistory: MessageHistoryItem[],
     windowSize: number = 5
   ): {
@@ -328,8 +329,8 @@ export class ConversationUtils {
     const previous = messageHistory.slice(-windowSize * 2, -windowSize);
 
     // Simple keyword-based topic shift detection
-    const recentWords = this.extractKeywords(recent.map((m) => m.content).join(' '));
-    const previousWords = this.extractKeywords(previous.map((m) => m.content).join(' '));
+    const recentWords = extractKeywords(recent.map((m) => m.content).join(' '));
+    const previousWords = extractKeywords(previous.map((m) => m.content).join(' '));
 
     const overlap = recentWords.filter((word) => previousWords.includes(word)).length;
     const maxWords = Math.max(recentWords.length, previousWords.length);
@@ -349,7 +350,7 @@ export class ConversationUtils {
   /**
    * Extract meaningful keywords from text
    */
-  private static extractKeywords(text: string): string[] {
+  function extractKeywords(text: string): string[] {
     const stopWords = new Set([
       'the',
       'is',
@@ -409,7 +410,7 @@ export class ConversationUtils {
   /**
    * Initialize default conversation state
    */
-  static initializeConversationState(): ConversationState {
+  export function initializeConversationState(): ConversationState {
     return {
       activePersonaId: null,
       lastSpeakerContinuityCount: 0,
@@ -423,17 +424,17 @@ export class ConversationUtils {
   /**
    * Create conversation context from recent messages
    */
-  static createConversationContext(
+  export function createConversationContext(
     messageHistory: MessageHistoryItem[],
     conversationState: ConversationState
   ): ConversationContext {
     const recent = messageHistory.slice(-5);
-    const topicShift = this.detectTopicShift(messageHistory);
+    const topicShift = detectTopicShift(messageHistory);
 
     return {
-      recentTopics: this.extractKeywords(recent.map((m) => m.content).join(' ')),
+      recentTopics: extractKeywords(recent.map((m) => m.content).join(' ')),
       speakerHistory: recent.map((m) => m.speaker),
-      keyPoints: this.extractKeyPointsByTopic(recent),
+      keyPoints: extractKeyPointsByTopic(recent),
       conversationMomentum: 'exploring',
       lastSpeakerContribution: recent.reduce(
         (acc, msg) => {
@@ -445,47 +446,16 @@ export class ConversationUtils {
       lastSpeakerContinuityCount: conversationState.lastSpeakerContinuityCount,
       topicShiftDetected: topicShift.shiftDetected,
       overallTone: 'collaborative',
-      emotionalContext: this.analyzeEmotionalTone(recent) as any,
+      emotionalContext: analyzeEmotionalTone(recent),
     };
   }
 
-  /**
-   * Calculate message cadence (messages per minute over last 10 messages)
-   */
-  private static calculateMessageCadence(messageHistory: MessageHistoryItem[]): number {
-    if (messageHistory.length < 2) return 0;
 
-    const recent = messageHistory.slice(-10);
-    if (recent.length < 2) return 0;
-
-    const firstTime = new Date(recent[0].timestamp).getTime();
-    const lastTime = new Date(recent[recent.length - 1].timestamp).getTime();
-    const durationMinutes = (lastTime - firstTime) / (1000 * 60);
-
-    return durationMinutes > 0 ? recent.length / durationMinutes : 0;
-  }
-
-  /**
-   * Get the speaker who has contributed most in recent messages
-   */
-  private static getDominantSpeaker(recentMessages: MessageHistoryItem[]): string | undefined {
-    if (recentMessages.length === 0) return undefined;
-
-    const counts = recentMessages.reduce(
-      (acc, msg) => {
-        acc[msg.speaker] = (acc[msg.speaker] || 0) + 1;
-        return acc;
-      },
-      {} as Record<string, number>
-    );
-
-    return Object.entries(counts).sort(([, a], [, b]) => b - a)[0]?.[0];
-  }
 
   /**
    * Extract key points organized by topic
    */
-  private static extractKeyPointsByTopic(messages: MessageHistoryItem[]): Record<string, string[]> {
+  function extractKeyPointsByTopic(messages: MessageHistoryItem[]): Record<string, string[]> {
     const keyPoints: Record<string, string[]> = {};
 
     messages.forEach((msg) => {

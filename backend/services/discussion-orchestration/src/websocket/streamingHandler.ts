@@ -146,9 +146,9 @@ export class StreamingHandler {
     // Define common event data type
     interface StreamEventData {
       sessionId: string;
-      chunk?: any;
+      chunk?: unknown;
       error?: string;
-      [key: string]: any;
+      [key: string]: unknown;
     }
 
     // Stream start
@@ -188,7 +188,7 @@ export class StreamingHandler {
     logger.info('Subscribed to streaming events');
   }
 
-  private broadcastToSession(sessionId: string, eventType: string, data: any): void {
+  private broadcastToSession(sessionId: string, eventType: string, data: unknown): void {
     const subscribers = this.sessionSubscribers.get(sessionId);
     if (!subscribers || subscribers.size === 0) {
       return;

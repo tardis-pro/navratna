@@ -3,7 +3,7 @@ import { ArtifactGenerationRequest, ArtifactType } from '@uaip/types';
 import { logger } from '@uaip/utils';
 import { DatabaseService } from '@uaip/shared-services';
 
-export function registerArtifactRoutes(app: any, artifactService: ArtifactService) {
+export function registerArtifactRoutes(app: { group: (path: string, cb: (g: unknown) => unknown) => unknown }, artifactService: ArtifactService) {
   return (app as { group: Function }).group(
     '/api/v1/artifacts',
     (g: { get: Function; post: Function }) =>
@@ -83,7 +83,7 @@ export function registerArtifactRoutes(app: any, artifactService: ArtifactServic
           }
         )
 
-        .post('/generate', async ({ body, set }: { body: any; set: { status: number } }) => {
+        .post('/generate', async ({ body, set }: { body: Record<string, unknown>; set: { status: number } }) => {
           try {
             const request: ArtifactGenerationRequest = body as ArtifactGenerationRequest;
 
@@ -201,7 +201,7 @@ export function registerArtifactRoutes(app: any, artifactService: ArtifactServic
           }
         )
 
-        .post('/validate', async ({ body, set }: { body: any; set: { status: number } }) => {
+        .post('/validate', async ({ body, set }: { body: Record<string, unknown>; set: { status: number } }) => {
           try {
             const { content, type } = body as Record<string, unknown>;
             if (!content || !type) {

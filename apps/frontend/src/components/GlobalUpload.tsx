@@ -150,7 +150,7 @@ export const GlobalUpload: React.FC<GlobalUploadProps> = ({
         // File upload
         for (const file of selectedFiles) {
           try {
-            // oxlint-ignore-next-line no-await-in-loop -- sequential processing required
+            // oxlint-disable-next-line no-await-in-loop -- sequential processing required
             const content = await readFileContent(file);
             const fileType = determineKnowledgeType(file);
             const fileTags = generateTagsFromFile(file);

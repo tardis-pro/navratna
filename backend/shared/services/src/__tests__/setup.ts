@@ -7,7 +7,7 @@ global.console = {
   info: jest.fn(),
   warn: jest.fn(),
   error: jest.fn(),
-} as any;
+} as unknown as Console;
 
 // Mock environment variables
 process.env.NODE_ENV = 'test';

@@ -388,7 +388,7 @@ export class JiraAdapter {
       });
     } catch (error) {
       logger.error('Jira authentication failed', { error });
-      throw new Error('Failed to authenticate with Jira');
+      throw new Error('Failed to authenticate with Jira', { cause: error });
     }
   }
 
@@ -433,7 +433,7 @@ export class JiraAdapter {
       this.accessToken = null;
       this.refreshToken = null;
       this.tokenExpiry = null;
-      throw new Error('Failed to refresh Jira token');
+      throw new Error('Failed to refresh Jira token', { cause: error });
     }
   }
 

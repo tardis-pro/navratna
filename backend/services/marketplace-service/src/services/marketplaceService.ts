@@ -4,10 +4,7 @@ import { logger } from '@uaip/utils';
 import { MarketplaceItem, MarketplaceRating, MarketplaceInstallation } from '../entities/index.js';
 import {
   MarketplaceSearchFilters,
-  MarketplaceItemType,
-  MarketplaceCategory,
   MarketplaceItemStatus,
-  PricingModel,
 } from '@uaip/types';
 
 export class MarketplaceService {
@@ -338,9 +335,9 @@ export class MarketplaceService {
         .groupBy('item.category')
         .getRawMany();
 
-      return categories.map((cat: any) => ({
+      return categories.map((cat: Record<string, unknown>) => ({
         category: cat.category,
-        count: parseInt(cat.count),
+        count: parseInt(cat.count as string),
       }));
     } catch (error) {
       logger.error('Error getting categories with counts:', error);

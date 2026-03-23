@@ -6,8 +6,6 @@ import {
   DiscussionStatus,
   DiscussionEvent,
   DiscussionEventType,
-  CreateDiscussionRequest,
-  TurnStrategyConfig,
 } from '@uaip/types';
 import { logger } from '@uaip/utils';
 import { EventBusService, ParticipantManagementService } from '@uaip/shared-services';
@@ -17,7 +15,7 @@ import { DiscussionWebSocketHandler } from '../websocket/discussionWebSocketHand
 
 export interface DiscussionOrchestrationResult {
   success: boolean;
-  data?: any;
+  data?: Record<string, unknown>;
   error?: string;
   events?: DiscussionEvent[];
 }
@@ -1433,7 +1431,7 @@ export class DiscussionOrchestrationService extends EventEmitter {
 
   private async emitEvents(events: DiscussionEvent[]): Promise<void> {
     for (const event of events) {
-      // oxlint-ignore-next-line no-await-in-loop -- sequential processing required
+      // oxlint-disable-next-line no-await-in-loop -- sequential processing required
       await this.emitEvent(event);
     }
   }
@@ -1490,7 +1488,7 @@ export class DiscussionOrchestrationService extends EventEmitter {
       for (const discussion of activeDiscussions) {
         if (discussion.status === DiscussionStatus.ACTIVE) {
           // Get full discussion with participants
-          // oxlint-ignore-next-line no-await-in-loop -- sequential processing required
+          // oxlint-disable-next-line no-await-in-loop -- sequential processing required
           const fullDiscussion = await this.discussionService.getDiscussion(discussion.id);
           if (!fullDiscussion) continue;
 
@@ -1504,7 +1502,7 @@ export class DiscussionOrchestrationService extends EventEmitter {
             : Infinity;
 
           // Check if discussion has reached its goal naturally
-          // oxlint-ignore-next-line no-await-in-loop -- sequential processing required
+          // oxlint-disable-next-line no-await-in-loop -- sequential processing required
           const hasReachedGoal = await this.checkDiscussionGoalAchievement(fullDiscussion);
           if (hasReachedGoal) {
             logger.info('Discussion has reached its goal, completing', {
@@ -1512,13 +1510,13 @@ export class DiscussionOrchestrationService extends EventEmitter {
               messageCount: fullDiscussion.state.messageCount,
             });
 
-            // oxlint-ignore-next-line no-await-in-loop -- sequential processing required
+            // oxlint-disable-next-line no-await-in-loop -- sequential processing required
             await this.updateDiscussionStatus(
               fullDiscussion.id,
               DiscussionStatus.COMPLETED,
               'system'
             );
-            // oxlint-ignore-next-line no-await-in-loop -- sequential processing required
+            // oxlint-disable-next-line no-await-in-loop -- sequential processing required
             await this.emitDiscussionCompletionEvent(fullDiscussion.id, 'system', 'goal_achieved');
             continue;
           }
@@ -1527,11 +1525,11 @@ export class DiscussionOrchestrationService extends EventEmitter {
           // For ongoing discussions (more than 15 seconds), check if agents should participate
           if (timeSinceActivity > 10000 && fullDiscussion.state.messageCount === 0) {
             // 10 seconds for initial participation
-            // oxlint-ignore-next-line no-await-in-loop -- sequential processing required
+            // oxlint-disable-next-line no-await-in-loop -- sequential processing required
             await this.ensureAgentParticipation(fullDiscussion);
           } else if (timeSinceActivity > 15000) {
             // 15 seconds for subsequent participation
-            // oxlint-ignore-next-line no-await-in-loop -- sequential processing required
+            // oxlint-disable-next-line no-await-in-loop -- sequential processing required
             await this.ensureAgentParticipation(fullDiscussion);
           }
         }
@@ -1604,7 +1602,7 @@ export class DiscussionOrchestrationService extends EventEmitter {
                 const currentTime = current.lastMessageAt?.getTime() || 0;
                 return currentTime < oldestTime ? current : oldest;
               });
-              // oxlint-ignore-next-line no-await-in-loop -- sequential processing required
+              // oxlint-disable-next-line no-await-in-loop -- sequential processing required
               await this.triggerAgentParticipationEvent(discussionId, leastRecentParticipant);
             }
           } else {
@@ -1615,7 +1613,7 @@ export class DiscussionOrchestrationService extends EventEmitter {
                 participant.isActive &&
                 discussion.state.currentTurn.participantId === participant.id
               ) {
-                // oxlint-ignore-next-line no-await-in-loop -- sequential processing required
+                // oxlint-disable-next-line no-await-in-loop -- sequential processing required
                 await this.triggerAgentParticipationEvent(discussionId, participant);
                 break; // Only one participant for turn-based
               }
@@ -1737,14 +1735,14 @@ export class DiscussionOrchestrationService extends EventEmitter {
       }
 
       // Additional safety: Check if discussion has reached maximum messages
-      const maxMessages = discussion.metadata?.maxMessages || 100;
-      const currentMessageCount = discussion.state.messageCount || 0;
+      const limitMaxMessages = discussion.metadata?.maxMessages || 100;
+      const limitCurrentMessageCount = discussion.state.messageCount || 0;
 
-      if (currentMessageCount >= maxMessages) {
+      if (limitCurrentMessageCount >= limitMaxMessages) {
         logger.info('Discussion reached maximum message limit, stopping agent participation', {
           discussionId: discussion.id,
-          currentMessageCount,
-          maxMessages,
+          currentMessageCount: limitCurrentMessageCount,
+          maxMessages: limitMaxMessages,
         });
 
         // Stop the discussion to prevent loops
@@ -2528,7 +2526,7 @@ export class DiscussionOrchestrationService extends EventEmitter {
   /**
    * Determine appropriate artifact type based on discussion content and configuration
    */
-  private determineArtifactType(discussion: Discussion, messages: any[]): string {
+  private determineArtifactType(discussion: Discussion, messages: Record<string, unknown>[]): string {
     // First check if discussion has configured artifact type
     const artifactConfig = (discussion as unknown as { artifactConfig?: Record<string, unknown> })
       .artifactConfig;

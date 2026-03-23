@@ -19,13 +19,6 @@ interface AuthenticatedSocket extends Socket {
   rateLimitReset?: number;
 }
 
-interface SocketData {
-  userId: string;
-  participantId?: string;
-  discussionId?: string;
-  sessionId?: string;
-  securityLevel?: number;
-}
 
 // Validation schemas for incoming WebSocket messages
 const JoinDiscussionSchema = z.object({
@@ -230,7 +223,7 @@ export function setupWebSocketHandlers(
     });
 
     // Debug: Log all incoming events
-    socket.onAny((eventName: string, ...args: any[]) => {
+    socket.onAny((eventName: string, ...args: unknown[]) => {
       logger.info('🎯 WebSocket event received', {
         socketId: socket.id,
         userId: socket.userId,
