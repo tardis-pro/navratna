@@ -18,7 +18,7 @@
     "test:ui": "vitest --ui"
   },
   "dependencies": {
-    "@tobilu/qmd": "^1.0.7",
+    "@tobilu/qmd": "^2.0.1",
     "@uaip/config": "workspace:*",
     "@uaip/infra": "workspace:*",
     "@uaip/llm-service": "workspace:*",
