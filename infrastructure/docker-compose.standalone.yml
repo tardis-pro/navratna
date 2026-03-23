@@ -114,7 +114,7 @@ services:
   navratna-core:
     build:
       context: .
-      dockerfile: Dockerfile.base
+      dockerfile: infrastructure/Dockerfile.base
       target: development
     container_name: navratna-dev-navratna-core
     environment:
@@ -161,7 +161,7 @@ services:
   navratna-gateway:
     build:
       context: .
-      dockerfile: Dockerfile.base
+      dockerfile: infrastructure/Dockerfile.base
       target: development
     container_name: navratna-dev-navratna-gateway
     environment:
@@ -212,7 +212,7 @@ services:
   artifact-service:
     build:
       context: .
-      dockerfile: Dockerfile.base
+      dockerfile: infrastructure/Dockerfile.base
       target: development
     container_name: navratna-dev-artifact-service
     environment:

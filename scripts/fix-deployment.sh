@@ -184,7 +184,7 @@ test_monitoring() {
     
     # Deploy Prometheus with infrastructure profile
     log_info "Deploying Prometheus..."
-    $COMPOSE_CMD -f docker-compose.infrastructure.yml --profile monitoring up -d prometheus
+    $COMPOSE_CMD -f infrastructure/docker-compose.infrastructure.yml --profile monitoring up -d prometheus
     
     # Wait for Prometheus to be ready
     log_info "Waiting for Prometheus to be ready..."
@@ -196,7 +196,7 @@ test_monitoring() {
         
         if [[ $i -eq 15 ]]; then
             log_error "Prometheus failed to start"
-            $COMPOSE_CMD -f docker-compose.infrastructure.yml logs prometheus
+            $COMPOSE_CMD -f infrastructure/docker-compose.infrastructure.yml logs prometheus
             exit 1
         fi
         
@@ -224,7 +224,7 @@ show_status() {
     
     # Show monitoring services
     log_info "Monitoring Services:"
-    $COMPOSE_CMD -f docker-compose.infrastructure.yml ps | grep -E "(prometheus|grafana)" || echo "No monitoring services running"
+    $COMPOSE_CMD -f infrastructure/docker-compose.infrastructure.yml ps | grep -E "(prometheus|grafana)" || echo "No monitoring services running"
     echo
     
     # Show GPU usage if available

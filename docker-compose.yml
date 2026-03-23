@@ -107,7 +107,7 @@ services:
   backend-base:
     build:
       context: .
-      dockerfile: Dockerfile.base
+      dockerfile: infrastructure/Dockerfile.base
     image: uaip-backend-base:latest
     command: ['echo', 'Base image built successfully']
 

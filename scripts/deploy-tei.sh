@@ -14,9 +14,10 @@ NC='\033[0m' # No Color
 
 # Configuration
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-COMPOSE_FILE="${SCRIPT_DIR}/docker-compose.yml"
-ENV_FILE="${SCRIPT_DIR}/.env"
-ENV_EXAMPLE="${SCRIPT_DIR}/sample.env"
+PROJECT_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
+COMPOSE_FILE="${PROJECT_ROOT}/docker-compose.yml"
+ENV_FILE="${PROJECT_ROOT}/.env"
+ENV_EXAMPLE="${PROJECT_ROOT}/sample.env"
 
 # Functions
 log_info() {
@@ -87,7 +88,7 @@ setup_environment() {
 deploy_services() {
     log_info "Deploying TEI services..."
     
-    cd "$SCRIPT_DIR"
+    cd "$PROJECT_ROOT"
     
     # Set compose command
     if command -v docker-compose &> /dev/null; then
@@ -192,7 +193,7 @@ show_status() {
     log_info "Service Status:"
     echo
     
-    cd "$SCRIPT_DIR"
+    cd "$PROJECT_ROOT"
     
     if command -v docker-compose &> /dev/null; then
         docker-compose -f "$COMPOSE_FILE" ps
@@ -219,7 +220,7 @@ show_status() {
 cleanup() {
     log_info "Cleaning up TEI services..."
     
-    cd "$SCRIPT_DIR"
+    cd "$PROJECT_ROOT"
     
     if command -v docker-compose &> /dev/null; then
         docker-compose -f "$COMPOSE_FILE" down
@@ -253,7 +254,7 @@ main() {
             test_services
             ;;
         "logs")
-            cd "$SCRIPT_DIR"
+            cd "$PROJECT_ROOT"
             if command -v docker-compose &> /dev/null; then
                 docker-compose -f "$COMPOSE_FILE" logs -f "${2:-}"
             else
